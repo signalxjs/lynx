@@ -3,36 +3,49 @@ name: Release
 on:
   push:
     tags:
-      - 'v*'
-  workflow_dispatch:
-    inputs:
-      tag:
-        description: 'npm dist-tag (default: beta)'
-        required: false
-        default: 'beta'
+      - 'v*.*.*'
 
-permissions:
-  contents: read
-  id-token: write   # Required for npm Trusted Publishing (OIDC)
+# Top-level permissions are intentionally minimal. Each job declares what it
+# actually needs.
+permissions: {}
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
-  publish:
+  publish-npm:
     runs-on: ubuntu-latest
-    environment: npm-publish
+    # OIDC for npm trusted publishing; read-only on contents.
+    permissions:
+      id-token: write
+      contents: read
     steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v6
         with:
-          node-version: '22'
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: 'pnpm'
           registry-url: 'https://registry.npmjs.org'
 
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 10
+      # npm trusted publishing needs npm >= 11.5.1. Node 24 ships npm 11.x,
+      # but pin to latest so we never silently fall behind a publish-side fix.
+      - name: Upgrade npm
+        run: npm install -g npm@latest
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Typecheck
+        run: pnpm typecheck
 
       - name: Build
         run: pnpm build
@@ -40,7 +53,29 @@ jobs:
       - name: Test
         run: pnpm test
 
-      - name: Publish
+      - name: Publish to npm
         env:
-          NPM_DIST_TAG: ${{ github.event.inputs.tag || 'beta' }}
-        run: pnpm publish:all -- --tag "$NPM_DIST_TAG"
+          NPM_CONFIG_PROVENANCE: 'true'
+        run: node scripts/publish.js --provenance
+
+  github-release:
+    needs: publish-npm
+    runs-on: ubuntu-latest
+    # Only this job needs write — npm publish already happened above.
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          if gh release view "$TAG" --json isDraft --jq '.isDraft' 2>/dev/null | grep -q true; then
+            gh release edit "$TAG" --draft=false --latest
+          else
+            gh release create "$TAG" --generate-notes --latest
+          fi
