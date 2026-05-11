@@ -6,7 +6,6 @@
         "declaration": true,
         "emitDeclarationOnly": true,
         "noEmit": false,
-        "jsx": "preserve",
         "jsxImportSource": "@sigx/lynx"
     },
     "include": ["src/**/*"]

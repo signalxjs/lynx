@@ -9,7 +9,7 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { registerComponentPlugin, getComponentPlugins } from '@sigx/runtime-core/internals';
-import type { ComponentPlugin } from '@sigx/runtime-core/internals';
+import type { ComponentPlugin } from '@sigx/runtime-core';
 
 import { initHMR, registerHMRModule } from '../src/hmr';
 

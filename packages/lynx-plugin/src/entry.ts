@@ -131,7 +131,6 @@ export interface ApplyEntryOptions {
   enableCSSSelector?: boolean;
   enableCSSInheritance?: boolean;
   customCSSInheritanceList?: string[];
-  enableCSSInlineVariables?: boolean;
   debugInfoOutside?: boolean;
 }
 
@@ -365,7 +364,6 @@ export async function applyEntry(
                 enableCSSInvalidation: opts.enableCSSSelector ?? true,
                 enableCSSInheritance: opts.enableCSSInheritance ?? false,
                 customCSSInheritanceList: opts.customCSSInheritanceList,
-                enableCSSInlineVariables: opts.enableCSSInlineVariables ?? false,
                 enableRemoveCSSScope: true,
                 enableNewGesture: true,
                 removeDescendantSelectorScope: true,

@@ -37,11 +37,16 @@ jobs:
       - name: Lint
         run: pnpm lint
 
-      - name: Typecheck
-        run: pnpm typecheck
-
+      # Build before typecheck — workspace packages publish types via dist/
+      # and cross-package type resolution at the root tsconfig follows the
+      # types field. Without dist/ present, subpath imports (e.g.
+      # '@sigx/lynx-runtime-main/install-hybrid-worklet') and triple-slash
+      # `<reference types="@sigx/lynx-runtime" />` fail to resolve.
       - name: Build
         run: pnpm build
+
+      - name: Typecheck
+        run: pnpm typecheck
 
       - name: Test
         run: pnpm test
