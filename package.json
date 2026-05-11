@@ -50,9 +50,5 @@
   "bugs": {
     "url": "https://github.com/signalxjs/lynx/issues"
   },
-  "pnpm": {
-    "overrides": {
-      "@sigx/cli": "link:../../cli/main/packages/cli"
-    }
-  }
+  "pnpm": {}
 }

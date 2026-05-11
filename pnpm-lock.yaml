@@ -4,9 +4,6 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
-overrides:
-  '@sigx/cli': link:../../cli/main/packages/cli
-
 importers:
 
   .:
@@ -65,8 +62,8 @@ importers:
   packages/lynx-cli:
     dependencies:
       '@sigx/cli':
-        specifier: link:../../../../cli/main/packages/cli
-        version: link:../../../../cli/main/packages/cli
+        specifier: ^0.1.0
+        version: 0.1.1
       '@sigx/lynx-core':
         specifier: workspace:^
         version: link:../lynx-core
@@ -1492,6 +1489,10 @@ packages:
   '@rspack/resolver@0.2.8':
     resolution: {integrity: sha512-FBWqdHhzS8mcf/WN4Ktzr7EaeaN+hsxbN98EweegX3924beZuY6H70CSFWCv1fIHAieCUv/9XCjKggHvhCsLwA==}
 
+  '@sigx/cli@0.1.1':
+    resolution: {integrity: sha512-ODDEUWRGm2Uug8APVBCkmR0EYrLclyDMMf4FABdiADi3f3Gy15RkBT+tMho/SlKqDWVuDooSaijM296QPbqvnw==}
+    hasBin: true
+
   '@sigx/lynx@0.1.1':
     resolution: {integrity: sha512-cL23DglPLhMyKSZVVpLKHyFdzioMzNNwj2CpwM2Rw2Pc20aH+XQuriTANf0eyweth4p5fmHDv24iqWN0RDg0eQ==}
 
@@ -1526,6 +1527,12 @@ packages:
   '@sigx/runtime-dom@0.4.1':
     resolution: {integrity: sha512-kcYE2OTTjlBzAkAcvewXvTX+osEuheZ4qcSLejUpspez1PVnTRZOJOdduuXdGOmd+7NrC00MOBOWU/yrCl1lNA==}
     engines: {node: ^20.19.0 || >=22.12.0}
+
+  '@sigx/runtime-terminal@0.3.2':
+    resolution: {integrity: sha512-eABP66c/yKvM1ZEhhy52L1Jvn7mX0kVpyB+hYkftxXq/i6gDWH/p99dmqN2zQSxwT04R502ujlvvAPKyJRihqg==}
+
+  '@sigx/terminal@0.3.2':
+    resolution: {integrity: sha512-esjxPzU2JLDM7b7s32D2HXj30L4Xf+rxW5ZFinW//iNEpp08WqHM3uOGcsX/5O/jHBXT7cjyAz4oLA4qdrxC0g==}
 
   '@sigx/vite@0.4.1':
     resolution: {integrity: sha512-WB1C4TjxFsL68gVzmean//ZPVH3uI1yTnZgZQxe0TO0rsNnLW9eGQVsExL1wRQ7Ku11P1z3zRbee1ug/IeicDQ==}
@@ -1945,6 +1952,9 @@ packages:
   ci-info@3.9.0:
     resolution: {integrity: sha512-NIxF55hv4nSqQswkAeiOi1r83xy8JldOFDTWiug55KBu9Jnblncd2U6ViHmYgHf01TPZS77NJBhBMKdWj9HQMQ==}
     engines: {node: '>=8'}
+
+  citty@0.2.2:
+    resolution: {integrity: sha512-+6vJA3L98yv+IdfKGZHBNiGW5KHn22e/JwID0Strsz8h4S/csAu/OuICwxrg44k5MRiZHWIo8XXuJgQTriRP4w==}
 
   color-convert@2.0.1:
     resolution: {integrity: sha512-RRECPsj7iu/xb5oKYcsFHSppFNnsj/52OVTRKb4zP5onXwVF3zVmmToNcOfGC+CRDpfK/U584fMg38ZHCaElKQ==}
@@ -4248,6 +4258,11 @@ snapshots:
       - '@emnapi/core'
       - '@emnapi/runtime'
 
+  '@sigx/cli@0.1.1':
+    dependencies:
+      '@sigx/terminal': 0.3.2
+      citty: 0.2.2
+
   '@sigx/lynx@0.1.1':
     dependencies:
       '@sigx/lynx-runtime': link:packages/lynx-runtime
@@ -4286,6 +4301,17 @@ snapshots:
     dependencies:
       '@sigx/reactivity': 0.4.1
       '@sigx/runtime-core': 0.4.1
+
+  '@sigx/runtime-terminal@0.3.2':
+    dependencies:
+      '@sigx/reactivity': 0.3.2
+      '@sigx/runtime-core': 0.3.2
+
+  '@sigx/terminal@0.3.2':
+    dependencies:
+      '@sigx/reactivity': 0.3.2
+      '@sigx/runtime-core': 0.3.2
+      '@sigx/runtime-terminal': 0.3.2
 
   '@sigx/vite@0.4.1(sigx@0.4.1)(vite@8.0.11(@types/node@20.19.40)(esbuild@0.27.7)(jiti@2.7.0)(terser@5.47.1))':
     dependencies:
@@ -4748,6 +4774,8 @@ snapshots:
   chrome-trace-event@1.0.4: {}
 
   ci-info@3.9.0: {}
+
+  citty@0.2.2: {}
 
   color-convert@2.0.1:
     dependencies:
