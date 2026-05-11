@@ -51,8 +51,7 @@
   },
   "pnpm": {
     "overrides": {
-      "@sigx/cli": "link:../../cli/main/packages/cli",
-      "@sigx/motion": "link:../../../viewti/lynx/packages/motion"
+      "@sigx/cli": "link:../../cli/main/packages/cli"
     }
   }
 }

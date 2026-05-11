@@ -17,8 +17,8 @@ While SignalX is pre-1.0, this repo often needs to be tested against an unreleas
 ```yaml
 # pnpm-workspace.yaml (locally — don't commit)
 overrides:
-  "@sigx/runtime-core": "link:../../viewti/lynx/packages/runtime-core"
-  "@sigx/reactivity": "link:../../viewti/lynx/packages/reactivity"
+  "@sigx/runtime-core": "link:../../core/packages/runtime-core"
+  "@sigx/reactivity": "link:../../core/packages/reactivity"
 ```
 
 Adjust the relative path to your local layout. Run `pnpm install` to relink.
