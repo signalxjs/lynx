@@ -1,0 +1,20 @@
+/* Shape variants — override roundness tokens */
+/* Combine with a color theme: class="daisy-light daisy-rounded" */
+
+.daisy-flat {
+  --rounded-box: 0px;
+  --rounded-btn: 0px;
+  --rounded-badge: 0px;
+  --rounded-tab: 0px;
+  --rounded-selector: 0px;
+  --rounded-toggle: 0px;
+}
+
+.daisy-rounded {
+  --rounded-box: 24px;
+  --rounded-btn: 9999px;
+  --rounded-badge: 9999px;
+  --rounded-tab: 9999px;
+  --rounded-selector: 9999px;
+  --rounded-toggle: 9999px;
+}

@@ -1,0 +1,68 @@
+{
+  "name": "@sigx/lynx",
+  "version": "0.1.0",
+  "description": "sigx-lynx framework",
+  "type": "module",
+  "main": "./dist/index.js",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./jsx-runtime": {
+      "types": "./dist/jsx-runtime.d.ts",
+      "import": "./dist/jsx-runtime.js"
+    },
+    "./jsx-dev-runtime": {
+      "types": "./dist/jsx-dev-runtime.d.ts",
+      "import": "./dist/jsx-dev-runtime.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/signalxjs/lynx.git",
+    "directory": "packages/lynx"
+  },
+  "homepage": "https://github.com/signalxjs/lynx/tree/main/packages/lynx",
+  "bugs": {
+    "url": "https://github.com/signalxjs/lynx/issues"
+  },
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "vite build && tsgo --emitDeclarationOnly",
+    "dev": "vite build --watch",
+    "clean": "rm -rf dist .turbo *.tsbuildinfo"
+  },
+  "dependencies": {
+    "@sigx/reactivity": "^0.4.1",
+    "@sigx/runtime-core": "^0.4.1",
+    "@sigx/lynx-runtime": "workspace:^"
+  },
+  "devDependencies": {
+    "@sigx/vite": "^0.4.1",
+    "@typescript/native-preview": "7.0.0-dev.20251023.1",
+    "typescript": "^5.9.3",
+    "vite": "^8.0.3"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "keywords": [
+    "signalx",
+    "sigx",
+    "lynx",
+    "framework",
+    "reactive",
+    "cross-platform",
+    "mobile",
+    "native"
+  ],
+  "author": "Andreas Ekdahl",
+  "license": "MIT"
+}

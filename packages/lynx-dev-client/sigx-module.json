@@ -1,0 +1,38 @@
+{
+    "name": "DevClient",
+    "package": "@sigx/lynx-dev-client",
+    "description": "Dev client with resource fetchers, template provider, and devtool integration",
+    "type": "dev-client",
+    "platforms": ["android", "ios"],
+    "android": {
+        "initClass": "com.sigx.devclient.SigxDevClient",
+        "sourceDir": "android/src/main/kotlin",
+        "debugOnly": true,
+        "dependencies": [
+            "org.lynxsdk.lynx:lynx-devtool:3.6.0",
+            "org.lynxsdk.lynx:lynx-service-devtool:3.6.0",
+            "androidx.compose.material3:material3",
+            "androidx.compose.material:material-icons-extended",
+            "androidx.compose.ui:ui",
+            "androidx.activity:activity-compose",
+            "androidx.lifecycle:lifecycle-runtime-compose:2.8.7",
+            "androidx.camera:camera-core:1.4.1",
+            "androidx.camera:camera-camera2:1.4.1",
+            "androidx.camera:camera-lifecycle:1.4.1",
+            "androidx.camera:camera-view:1.4.1",
+            "androidx.camera:camera-mlkit-vision:1.4.1",
+            "com.google.mlkit:barcode-scanning:17.3.0"
+        ],
+        "permissions": [
+            "android.permission.CAMERA"
+        ]
+    },
+    "ios": {
+        "initClass": "SigxDevClient",
+        "sourceDir": "ios/Sources/SigxDevClient",
+        "debugOnly": true,
+        "usageDescriptions": {
+            "NSCameraUsageDescription": "Used to scan QR codes from the dev server."
+        }
+    }
+}

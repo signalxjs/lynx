@@ -1,0 +1,44 @@
+/* Checkbox — .checkbox + colors, sizes, states */
+
+.checkbox {
+  width: var(--checkbox-md);
+  height: var(--checkbox-md);
+  border-radius: var(--rounded-selector);
+  border-width: 1px;
+  border-color: var(--color-base-300);
+  background-color: transparent;
+  justify-content: center;
+  align-items: center;
+}
+
+/* Size variants */
+.checkbox-xs { width: var(--checkbox-xs); height: var(--checkbox-xs); }
+.checkbox-sm { width: var(--checkbox-sm); height: var(--checkbox-sm); }
+.checkbox-lg { width: var(--checkbox-lg); height: var(--checkbox-lg); }
+
+/* Checked state */
+.checkbox-checked { background-color: var(--color-primary); border-color: var(--color-primary); }
+.checkbox-checked.checkbox-secondary { background-color: var(--color-secondary); border-color: var(--color-secondary); }
+.checkbox-checked.checkbox-accent { background-color: var(--color-accent); border-color: var(--color-accent); }
+.checkbox-checked.checkbox-info { background-color: var(--color-info); border-color: var(--color-info); }
+.checkbox-checked.checkbox-success { background-color: var(--color-success); border-color: var(--color-success); }
+.checkbox-checked.checkbox-warning { background-color: var(--color-warning); border-color: var(--color-warning); }
+.checkbox-checked.checkbox-error { background-color: var(--color-error); border-color: var(--color-error); }
+
+/* Color variants (unchecked border tint) */
+.checkbox-primary { border-color: var(--color-primary); }
+.checkbox-secondary { border-color: var(--color-secondary); }
+.checkbox-accent { border-color: var(--color-accent); }
+.checkbox-info { border-color: var(--color-info); }
+.checkbox-success { border-color: var(--color-success); }
+.checkbox-warning { border-color: var(--color-warning); }
+.checkbox-error { border-color: var(--color-error); }
+
+/* Disabled */
+.checkbox-disabled { opacity: var(--disabled-opacity); }
+
+/* Checkmark text styling */
+.checkbox-mark {
+  font-weight: 700;
+  color: var(--color-base-100);
+}

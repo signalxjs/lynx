@@ -1,0 +1,39 @@
+/* Card — .card, .card-body, .card-title, .card-actions */
+
+.card {
+  background-color: var(--color-base-200);
+  color: var(--color-base-content);
+  border-radius: var(--rounded-box);
+  overflow: hidden;
+}
+
+.card-bordered {
+  border-width: var(--border-card);
+  border-color: var(--color-base-300);
+}
+
+.card-compact .card-body {
+  padding: var(--padding-box-compact);
+}
+
+.card-body {
+  padding: var(--padding-box);
+  gap: var(--gap-box);
+}
+
+.card-title {
+  font-size: var(--font-lg);
+  font-weight: 600;
+  color: var(--color-base-content);
+}
+
+.card-actions {
+  flex-direction: row;
+  justify-content: flex-end;
+  gap: var(--gap-box);
+}
+
+/* Shadow utilities (Lynx may not support box-shadow, use border as fallback) */
+.shadow-sm { border-width: var(--border-card); border-color: var(--color-base-300); }
+.shadow-md { border-width: var(--border-card); border-color: var(--color-base-300); }
+.shadow-lg { border-width: 2px; border-color: var(--color-base-300); }

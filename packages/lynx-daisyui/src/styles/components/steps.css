@@ -1,0 +1,40 @@
+/* Steps — .steps, .step, .step-indicator */
+
+.steps {
+  gap: 4px;
+}
+
+.steps-horizontal {
+  flex-direction: row;
+  align-items: center;
+}
+
+.steps-vertical {
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.step {
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+}
+
+.step-indicator {
+  width: var(--step-indicator);
+  height: var(--step-indicator);
+  border-radius: 9999px;
+  background-color: var(--color-base-300);
+  justify-content: center;
+  align-items: center;
+}
+
+/* Color variants */
+.step-primary .step-indicator { background-color: var(--color-primary); color: var(--color-primary-content); }
+.step-secondary .step-indicator { background-color: var(--color-secondary); color: var(--color-secondary-content); }
+.step-accent .step-indicator { background-color: var(--color-accent); color: var(--color-accent-content); }
+.step-neutral .step-indicator { background-color: var(--color-neutral); color: var(--color-neutral-content); }
+.step-info .step-indicator { background-color: var(--color-info); color: var(--color-info-content); }
+.step-success .step-indicator { background-color: var(--color-success); color: var(--color-success-content); }
+.step-warning .step-indicator { background-color: var(--color-warning); color: var(--color-warning-content); }
+.step-error .step-indicator { background-color: var(--color-error); color: var(--color-error-content); }

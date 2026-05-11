@@ -1,0 +1,46 @@
+/* Toggle — .toggle track + .toggle-thumb */
+
+.toggle {
+  justify-content: center;
+  padding-left: 4px;
+  padding-right: 4px;
+  background-color: var(--color-base-300);
+}
+
+/* Size variants — track dimensions */
+.toggle-xs { width: var(--toggle-width-xs); height: var(--toggle-height-xs); border-radius: var(--rounded-toggle); }
+.toggle-sm { width: var(--toggle-width-sm); height: var(--toggle-height-sm); border-radius: var(--rounded-toggle); }
+.toggle-md { width: var(--toggle-width-md); height: var(--toggle-height-md); border-radius: var(--rounded-toggle); }
+.toggle-lg { width: var(--toggle-width-lg); height: var(--toggle-height-lg); border-radius: var(--rounded-toggle); }
+
+/* Thumb */
+.toggle-thumb {
+  background-color: var(--color-base-100);
+  border-radius: 9999px;
+}
+
+.toggle-xs .toggle-thumb { width: var(--toggle-thumb-xs); height: var(--toggle-thumb-xs); }
+.toggle-sm .toggle-thumb { width: var(--toggle-thumb-sm); height: var(--toggle-thumb-sm); }
+.toggle-md .toggle-thumb { width: var(--toggle-thumb-md); height: var(--toggle-thumb-md); }
+.toggle-lg .toggle-thumb { width: var(--toggle-thumb-lg); height: var(--toggle-thumb-lg); }
+
+/* Checked state */
+.toggle-checked { background-color: var(--color-primary); }
+.toggle-checked.toggle-secondary { background-color: var(--color-secondary); }
+.toggle-checked.toggle-accent { background-color: var(--color-accent); }
+.toggle-checked.toggle-info { background-color: var(--color-info); }
+.toggle-checked.toggle-success { background-color: var(--color-success); }
+.toggle-checked.toggle-warning { background-color: var(--color-warning); }
+.toggle-checked.toggle-error { background-color: var(--color-error); }
+
+/* Color variants (checked) */
+.toggle-primary.toggle-checked { background-color: var(--color-primary); }
+.toggle-secondary.toggle-checked { background-color: var(--color-secondary); }
+.toggle-accent.toggle-checked { background-color: var(--color-accent); }
+.toggle-info.toggle-checked { background-color: var(--color-info); }
+.toggle-success.toggle-checked { background-color: var(--color-success); }
+.toggle-warning.toggle-checked { background-color: var(--color-warning); }
+.toggle-error.toggle-checked { background-color: var(--color-error); }
+
+/* Disabled */
+.toggle-disabled { opacity: var(--disabled-opacity); }

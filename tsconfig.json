@@ -1,0 +1,96 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "jsx": "react-jsx",
+    "jsxImportSource": "@sigx/lynx",
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "paths": {
+      "@sigx/lynx": [
+        "./packages/lynx/src/index.ts"
+      ],
+      "@sigx/lynx-camera": [
+        "./packages/lynx-camera/src/index.ts"
+      ],
+      "@sigx/lynx-cli": [
+        "./packages/lynx-cli/src/index.ts"
+      ],
+      "@sigx/lynx-clipboard": [
+        "./packages/lynx-clipboard/src/index.ts"
+      ],
+      "@sigx/lynx-core": [
+        "./packages/lynx-core/src/index.ts"
+      ],
+      "@sigx/lynx-daisyui": [
+        "./packages/lynx-daisyui/src/index.ts"
+      ],
+      "@sigx/lynx-dev-client": [
+        "./packages/lynx-dev-client/src/index.ts"
+      ],
+      "@sigx/lynx-device-info": [
+        "./packages/lynx-device-info/src/index.ts"
+      ],
+      "@sigx/lynx-file-system": [
+        "./packages/lynx-file-system/src/index.ts"
+      ],
+      "@sigx/lynx-haptics": [
+        "./packages/lynx-haptics/src/index.ts"
+      ],
+      "@sigx/lynx-image-picker": [
+        "./packages/lynx-image-picker/src/index.ts"
+      ],
+      "@sigx/lynx-linking": [
+        "./packages/lynx-linking/src/index.ts"
+      ],
+      "@sigx/lynx-location": [
+        "./packages/lynx-location/src/index.ts"
+      ],
+      "@sigx/lynx-navigation": [
+        "./packages/lynx-navigation/src/index.ts"
+      ],
+      "@sigx/lynx-network": [
+        "./packages/lynx-network/src/index.ts"
+      ],
+      "@sigx/lynx-notifications": [
+        "./packages/lynx-notifications/src/index.ts"
+      ],
+      "@sigx/lynx-permissions": [
+        "./packages/lynx-permissions/src/index.ts"
+      ],
+      "@sigx/lynx-plugin": [
+        "./packages/lynx-plugin/src/index.ts"
+      ],
+      "@sigx/lynx-safe-area": [
+        "./packages/lynx-safe-area/src/index.ts"
+      ],
+      "@sigx/lynx-share": [
+        "./packages/lynx-share/src/index.ts"
+      ],
+      "@sigx/lynx-storage": [
+        "./packages/lynx-storage/src/index.ts"
+      ],
+      "@sigx/lynx-runtime": [
+        "./packages/lynx-runtime/src/index.ts"
+      ],
+      "@sigx/lynx-runtime-internal": [
+        "./packages/lynx-runtime-internal/src/index.ts"
+      ],
+      "@sigx/lynx-runtime-main": [
+        "./packages/lynx-runtime-main/src/index.ts"
+      ],
+      "@sigx/lynx-testing": [
+        "./packages/lynx-testing/src/index.ts"
+      ]
+    }
+  },
+  "exclude": [
+    "node_modules",
+    "dist",
+    "packages/*/dist",
+    "examples/*/dist"
+  ]
+}

@@ -1,0 +1,24 @@
+/* Progress — .progress track + bar */
+
+.progress {
+  height: var(--progress-height);
+  border-radius: 9999px;
+  background-color: var(--color-base-200);
+  overflow: hidden;
+  align-self: stretch;
+}
+
+.progress-bar {
+  height: var(--progress-height);
+  border-radius: 9999px;
+  background-color: var(--color-primary);
+}
+
+/* Color variants */
+.progress-primary .progress-bar { background-color: var(--color-primary); }
+.progress-secondary .progress-bar { background-color: var(--color-secondary); }
+.progress-accent .progress-bar { background-color: var(--color-accent); }
+.progress-info .progress-bar { background-color: var(--color-info); }
+.progress-success .progress-bar { background-color: var(--color-success); }
+.progress-warning .progress-bar { background-color: var(--color-warning); }
+.progress-error .progress-bar { background-color: var(--color-error); }

@@ -1,0 +1,16 @@
+{
+    "name": "Storage",
+    "package": "@sigx/lynx-storage",
+    "description": "Persistent key-value storage",
+    "platforms": ["android", "ios"],
+    "ios": {
+        "moduleClass": "StorageModule",
+        "sourceDir": "ios",
+        "methods": ["getItem","setItem","removeItem","clear","getAllKeys"]
+    },
+    "android": {
+        "moduleClass": "com.sigx.storage.StorageModule",
+        "sourceDir": "android",
+        "permissions": []
+    }
+}

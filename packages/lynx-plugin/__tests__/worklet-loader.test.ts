@@ -1,0 +1,195 @@
+/**
+ * Tests for the worklet loaders (BG + MT).
+ *
+ * Both loaders delegate to @lynx-js/react/transform; we verify they invoke
+ * it correctly and that the contract sigx-lynx's runtime depends on holds:
+ *   - BG output: { _wkltId, _c? } placeholder at the JSX prop position
+ *   - MT output: registerWorkletInternal("main-thread", "<id>", function(...) {...})
+ *
+ * `_wkltId` values are non-deterministic across the test run so assertions
+ * use regex / contains checks rather than equality on the full string.
+ */
+
+import { describe, it, expect } from 'vitest';
+import workletLoader from '../src/loaders/worklet-loader';
+import workletLoaderMT from '../src/loaders/worklet-loader-mt';
+
+function createCtx(resourcePath: string) {
+  return {
+    resourcePath,
+    cacheable: () => {},
+    emitError: (e: Error) => { throw e; },
+  } as any;
+}
+
+function bg(source: string, resourcePath = '/app/src/component.tsx'): string {
+  return workletLoader.call(createCtx(resourcePath), source);
+}
+
+function mt(source: string, resourcePath = '/app/src/component.tsx'): string {
+  return workletLoaderMT.call(createCtx(resourcePath), source);
+}
+
+describe('worklet-loader (BG)', () => {
+  it('passes through files without the directive unchanged', () => {
+    const source = `export const x = 1;`;
+    expect(bg(source)).toBe(source);
+  });
+
+  it('emits a { _wkltId, _c } placeholder for a handler that captures a ref', () => {
+    const source = `
+      import { useMainThreadRef } from '@sigx/lynx-runtime-main';
+      export function MyComp() {
+        const headerRef = useMainThreadRef(null);
+        return _jsx('view', {
+          'main-thread-bindscroll': (e) => {
+            'main thread';
+            headerRef.current?.setStyleProperties({ opacity: '0.5' });
+          },
+        });
+      }
+    `;
+    const out = bg(source);
+    expect(out).toMatch(/_wkltId:\s*"[^"]+"/);
+    expect(out).toMatch(/_c:\s*\{\s*headerRef\s*\}/);
+    // The arrow body is removed from the BG bundle — no setStyleProperties call here.
+    expect(out).not.toContain('setStyleProperties');
+  });
+
+  it('emits a { _wkltId, _c } placeholder for a captured literal', () => {
+    const source = `
+      const ITEM_HEIGHT = 80;
+      export function MyComp() {
+        return _jsx('view', {
+          'main-thread-bindtap': () => {
+            'main thread';
+            console.log(ITEM_HEIGHT);
+          },
+        });
+      }
+    `;
+    const out = bg(source);
+    expect(out).toMatch(/_c:\s*\{\s*ITEM_HEIGHT\s*\}/);
+  });
+
+  it('omits _c when the worklet has no captures', () => {
+    const source = `
+      export function MyComp() {
+        return _jsx('view', {
+          'main-thread-bindtap': () => {
+            'main thread';
+            console.log('tapped');
+          },
+        });
+      }
+    `;
+    const out = bg(source);
+    expect(out).toMatch(/_wkltId:\s*"[^"]+"/);
+    // No _c when nothing is captured.
+    expect(out).not.toMatch(/_c:\s*\{/);
+  });
+});
+
+describe('worklet-loader-mt (MT)', () => {
+  it('emits only the bootstrap preamble for files with no imports and no directive', () => {
+    const source = `export const x = 1;`;
+    const out = mt(source);
+    // The MT loader prepends three side-effect imports to every file so the
+    // worklet-runtime + hybrid-worklet bootstrap evaluates before user code:
+    expect(out).toContain('entry-main.js');
+    expect(out).toContain('worklet-runtime');
+    expect(out).toContain('install-hybrid-worklet.js');
+    // No user code, no registrations.
+    expect(out).not.toContain('registerWorkletInternal');
+    expect(out).not.toContain('export const x');
+  });
+
+  it('preserves relative + @sigx/* imports as side-effect imports', () => {
+    const source = `
+      import App from './App';
+      import { foo } from './utils';
+      import { signal } from '@sigx/lynx';
+      import { Pressable, Draggable } from '@sigx/gestures';
+      import * as React from 'react';
+      export const x = 1;
+    `;
+    const out = mt(source);
+    expect(out).toContain(`import './App';`);
+    expect(out).toContain(`import './utils';`);
+    // @sigx/* packages may ship MT components — preserve so rspack walks them
+    // and their registerWorkletInternal calls land in the MT bundle.
+    expect(out).toContain(`import '@sigx/lynx';`);
+    expect(out).toContain(`import '@sigx/gestures';`);
+    // Non-@sigx packages stay dropped.
+    expect(out).not.toContain(`import 'react';`);
+  });
+
+  it('emits a registerWorkletInternal call for each worklet', () => {
+    const source = `
+      import { useMainThreadRef } from '@sigx/lynx-runtime-main';
+      export function MyComp() {
+        const headerRef = useMainThreadRef(null);
+        return _jsx('view', {
+          'main-thread-bindscroll': (e) => {
+            'main thread';
+            headerRef.current?.setStyleProperties({ opacity: '0.5' });
+          },
+          'main-thread-bindtap': () => {
+            'main thread';
+            console.log('tap');
+          },
+        });
+      }
+    `;
+    const out = mt(source);
+    const matches = out.match(/registerWorkletInternal\(\s*"main-thread"/g) ?? [];
+    expect(matches.length).toBe(2);
+    // The original handler bodies are preserved inside the registration.
+    expect(out).toContain('setStyleProperties');
+    expect(out).toContain(`console.log('tap')`);
+    // The MT loader strips out user component code.
+    expect(out).not.toContain('export function MyComp');
+    expect(out).not.toContain('useMainThreadRef(null)');
+    // The destructure preamble bridges captures via this["_c"].
+    expect(out).toContain(`this["_c"]`);
+  });
+
+  it('produces matching wkltIds between BG and MT for the same source', () => {
+    const source = `
+      import { useMainThreadRef } from '@sigx/lynx-runtime-main';
+      export function MyComp() {
+        const ref = useMainThreadRef(null);
+        return _jsx('view', {
+          'main-thread-bindtap': () => { 'main thread'; ref.current?.setStyleProperties({ opacity: '0.5' }); },
+        });
+      }
+    `;
+    const bgOut = bg(source);
+    const mtOut = mt(source);
+    const bgId = bgOut.match(/_wkltId:\s*"([^"]+)"/)?.[1];
+    const mtId = mtOut.match(/registerWorkletInternal\(\s*"main-thread"\s*,\s*"([^"]+)"/)?.[1];
+    expect(bgId).toBeTruthy();
+    expect(mtId).toBeTruthy();
+    expect(bgId).toBe(mtId);
+  });
+
+  it('handles runOnMainThread callbacks the same way as event handlers', () => {
+    const source = `
+      import { runOnMainThread } from '@sigx/lynx-runtime-main';
+      export function MyComp() {
+        const animate = runOnMainThread((scale) => {
+          'main thread';
+          console.log('scale=', scale);
+        });
+        return null;
+      }
+    `;
+    const bgOut = bg(source);
+    const mtOut = mt(source);
+    // BG: the arrow is replaced with a { _wkltId } placeholder; runOnMainThread
+    // receives the placeholder, not a function.
+    expect(bgOut).toMatch(/runOnMainThread\(\s*\{\s*_wkltId:/);
+    // MT: a registration with the user's parameter name preserved.
+    expect(mtOut).toMatch(/registerWorkletInternal\(\s*"main-thread"\s*,\s*"[^"]+"\s*,\s*function\s*\(\s*scale\s*\)/);
+  });
+});

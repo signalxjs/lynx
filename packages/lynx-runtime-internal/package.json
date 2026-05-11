@@ -1,0 +1,46 @@
+{
+  "name": "@sigx/lynx-runtime-internal",
+  "version": "0.2.4",
+  "description": "Shared op types for SignalX Lynx renderer (BG ↔ MTS wire protocol)",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "vite build && tsgo --emitDeclarationOnly",
+    "dev": "vite build --watch"
+  },
+  "keywords": [
+    "sigx",
+    "lynx",
+    "internal",
+    "ops"
+  ],
+  "author": "Andreas Ekdahl",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/signalxjs/lynx.git",
+    "directory": "packages/lynx-runtime-internal"
+  },
+  "homepage": "https://github.com/signalxjs/lynx/tree/main/packages/lynx-runtime-internal",
+  "bugs": {
+    "url": "https://github.com/signalxjs/lynx/issues"
+  },
+  "devDependencies": {
+    "@sigx/vite": "^0.4.1",
+    "typescript": "^5.9.3",
+    "vite": "^8.0.3"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

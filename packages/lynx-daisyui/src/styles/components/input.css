@@ -1,0 +1,31 @@
+/* Input — .input + variants, sizes, colors */
+
+.input {
+  height: var(--size-md);
+  padding-left: var(--padding-btn-md);
+  padding-right: var(--padding-btn-md);
+  border-radius: var(--rounded-btn);
+  font-size: var(--font-md);
+  background-color: var(--color-base-100);
+  color: var(--color-base-content);
+  border-width: 0;
+  border-color: transparent;
+}
+
+/* Variants */
+.input-bordered { border-width: var(--border-btn); border-color: var(--color-base-300); }
+.input-ghost { background-color: transparent; }
+
+/* Sizes */
+.input-xs { height: var(--size-xs); padding-left: var(--padding-btn-xs); padding-right: var(--padding-btn-xs); font-size: var(--font-xs); }
+.input-sm { height: var(--size-sm); padding-left: var(--padding-btn-sm); padding-right: var(--padding-btn-sm); font-size: var(--font-sm); }
+.input-lg { height: var(--size-lg); padding-left: 20px; padding-right: 20px; font-size: var(--font-lg); }
+
+/* Color variants */
+.input-primary { border-width: var(--border-btn); border-color: var(--color-primary); }
+.input-secondary { border-width: var(--border-btn); border-color: var(--color-secondary); }
+.input-accent { border-width: var(--border-btn); border-color: var(--color-accent); }
+.input-info { border-width: var(--border-btn); border-color: var(--color-info); }
+.input-success { border-width: var(--border-btn); border-color: var(--color-success); }
+.input-warning { border-width: var(--border-btn); border-color: var(--color-warning); }
+.input-error { border-width: var(--border-btn); border-color: var(--color-error); }

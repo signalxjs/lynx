@@ -1,0 +1,21 @@
+{
+    "name": "Camera",
+    "package": "@sigx/lynx-camera",
+    "description": "Photo/video capture",
+    "platforms": ["android", "ios"],
+    "ios": {
+        "moduleClass": "CameraModule",
+        "sourceDir": "ios",
+        "methods": ["takePicture","requestPermission","getPermissionStatus"],
+        "usageDescriptions": {
+            "NSCameraUsageDescription": "Allow camera access to take photos and videos.",
+            "NSMicrophoneUsageDescription": "Allow microphone access to record video with audio.",
+            "NSPhotoLibraryAddUsageDescription": "Allow access to save captured photos to your library."
+        }
+    },
+    "android": {
+        "moduleClass": "com.sigx.camera.CameraModule",
+        "sourceDir": "android",
+        "permissions": ["android.permission.CAMERA"]
+    }
+}

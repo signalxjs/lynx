@@ -1,0 +1,55 @@
+# @sigx/lynx-network
+
+Network connectivity status for sigx-lynx. `NWPathMonitor` on iOS, `ConnectivityManager` on Android.
+
+## Install
+
+```bash
+pnpm add @sigx/lynx-network
+```
+
+```ts
+// sigx.lynx.config.ts
+export default defineLynxConfig({
+    modules: ['@sigx/lynx-network'],
+});
+```
+
+No special permissions on either platform.
+
+## Usage
+
+```ts
+import { Network } from '@sigx/lynx-network';
+
+const state = await Network.getState();
+if (state.isConnected && state.type === 'wifi') {
+    // sync large payload
+}
+```
+
+## API
+
+| Method                                | Notes                                                                                              |
+| ------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `getState(): Promise<NetworkState>`   | Single async snapshot — no subscription stream yet.                                                |
+| `isAvailable(): boolean`              | Whether the native module is registered in the current build.                                      |
+
+```ts
+type ConnectionType = 'wifi' | 'cellular' | 'ethernet' | 'bluetooth' | 'none' | 'unknown';
+
+interface NetworkState {
+    isConnected: boolean;
+    type: ConnectionType;
+    isInternetReachable: boolean | null;   // null = unknown (e.g. captive portal)
+}
+```
+
+## Gotchas
+
+- **`isInternetReachable: null`** means the OS hasn't confirmed actual reachability — common on captive-portal Wi-Fi (you're connected to an AP but can't reach the internet without sign-in). Treat as "probably yes".
+- **No subscription API yet.** If you need to react to connectivity changes live, poll `getState()` from a `setInterval` or wrap a small effect — the native publisher exists but isn't surfaced as JS events in this version.
+
+## Reference app
+
+`examples/lynx-one/my-sigx-app/src/cards/NetworkCard.tsx` renders the snapshot and refreshes on tap.

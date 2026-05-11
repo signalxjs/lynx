@@ -1,0 +1,16 @@
+{
+    "name": "DeviceInfo",
+    "package": "@sigx/lynx-device-info",
+    "description": "Device information",
+    "platforms": ["android", "ios"],
+    "ios": {
+        "moduleClass": "DeviceInfoModule",
+        "sourceDir": "ios",
+        "methods": ["getDeviceInfo","getConstants"]
+    },
+    "android": {
+        "moduleClass": "com.sigx.deviceinfo.DeviceInfoModule",
+        "sourceDir": "android",
+        "permissions": []
+    }
+}

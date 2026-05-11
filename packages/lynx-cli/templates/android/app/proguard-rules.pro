@@ -1,0 +1,3 @@
+-dontwarn com.lynx.**
+-keep class com.lynx.** { *; }
+-keep class com.primjs.** { *; }

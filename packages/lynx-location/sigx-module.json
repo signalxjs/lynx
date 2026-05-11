@@ -1,0 +1,20 @@
+{
+    "name": "Location",
+    "package": "@sigx/lynx-location",
+    "description": "GPS location services",
+    "platforms": ["android", "ios"],
+    "ios": {
+        "moduleClass": "LocationModule",
+        "sourceDir": "ios",
+        "methods": ["getCurrentPosition","requestPermission","getPermissionStatus"],
+        "usageDescriptions": {
+            "NSLocationWhenInUseUsageDescription": "Allow access to your location to use location-based features.",
+            "NSLocationAlwaysAndWhenInUseUsageDescription": "Allow access to your location to use location-based features."
+        }
+    },
+    "android": {
+        "moduleClass": "com.sigx.location.LocationModule",
+        "sourceDir": "android",
+        "permissions": ["android.permission.ACCESS_FINE_LOCATION","android.permission.ACCESS_COARSE_LOCATION"]
+    }
+}

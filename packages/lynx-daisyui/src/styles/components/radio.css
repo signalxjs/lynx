@@ -1,0 +1,50 @@
+/* Radio — .radio + colors, checked state */
+
+.radio {
+  width: var(--checkbox-md);
+  height: var(--checkbox-md);
+  border-radius: 9999px;
+  border-width: 2px;
+  border-color: var(--color-base-300);
+  background-color: transparent;
+  justify-content: center;
+  align-items: center;
+}
+
+/* Size variants */
+.radio-xs { width: var(--checkbox-xs); height: var(--checkbox-xs); }
+.radio-sm { width: var(--checkbox-sm); height: var(--checkbox-sm); }
+.radio-lg { width: var(--checkbox-lg); height: var(--checkbox-lg); }
+
+/* Inner dot (when checked) */
+.radio-mark {
+  width: 10px;
+  height: 10px;
+  border-radius: 9999px;
+  background-color: var(--color-primary);
+}
+
+/* Color variants */
+.radio-primary { border-color: var(--color-primary); }
+.radio-primary .radio-mark { background-color: var(--color-primary); }
+.radio-secondary { border-color: var(--color-secondary); }
+.radio-secondary .radio-mark { background-color: var(--color-secondary); }
+.radio-accent { border-color: var(--color-accent); }
+.radio-accent .radio-mark { background-color: var(--color-accent); }
+.radio-info { border-color: var(--color-info); }
+.radio-info .radio-mark { background-color: var(--color-info); }
+.radio-success { border-color: var(--color-success); }
+.radio-success .radio-mark { background-color: var(--color-success); }
+.radio-warning { border-color: var(--color-warning); }
+.radio-warning .radio-mark { background-color: var(--color-warning); }
+.radio-error { border-color: var(--color-error); }
+.radio-error .radio-mark { background-color: var(--color-error); }
+
+/* Checked state — border matches color */
+.radio-checked { border-color: var(--color-primary); }
+.radio-checked.radio-secondary { border-color: var(--color-secondary); }
+.radio-checked.radio-accent { border-color: var(--color-accent); }
+.radio-checked.radio-info { border-color: var(--color-info); }
+.radio-checked.radio-success { border-color: var(--color-success); }
+.radio-checked.radio-warning { border-color: var(--color-warning); }
+.radio-checked.radio-error { border-color: var(--color-error); }

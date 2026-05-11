@@ -1,0 +1,56 @@
+{
+  "name": "@sigx/lynx-safe-area",
+  "version": "0.1.0",
+  "description": "Safe area insets (notch, home indicator, status bar, keyboard) for sigx-lynx",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./sigx-module.json": "./sigx-module.json"
+  },
+  "files": [
+    "src",
+    "dist",
+    "ios",
+    "android",
+    "sigx-module.json"
+  ],
+  "scripts": {
+    "build": "vite build && tsgo --emitDeclarationOnly",
+    "dev": "vite build --watch"
+  },
+  "keywords": [
+    "sigx",
+    "lynx",
+    "safe-area",
+    "insets",
+    "notch",
+    "responsive"
+  ],
+  "author": "Andreas Ekdahl",
+  "license": "MIT",
+  "dependencies": {
+    "@sigx/lynx": "workspace:^",
+    "@sigx/lynx-runtime-internal": "workspace:^"
+  },
+  "devDependencies": {
+    "@sigx/lynx-plugin": "workspace:^",
+    "@sigx/lynx-runtime-main": "workspace:^",
+    "@sigx/lynx-testing": "workspace:^",
+    "typescript": "^5.9.3",
+    "vite": "^8.0.3"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/signalxjs/lynx.git",
+    "directory": "packages/lynx-safe-area"
+  },
+  "homepage": "https://github.com/signalxjs/lynx/tree/main/packages/lynx-safe-area",
+  "bugs": {
+    "url": "https://github.com/signalxjs/lynx/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

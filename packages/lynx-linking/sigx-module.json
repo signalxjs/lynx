@@ -1,0 +1,26 @@
+{
+    "name": "Linking",
+    "package": "@sigx/lynx-linking",
+    "description": "Deep links and URL scheme handling",
+    "platforms": ["android", "ios"],
+    "ios": {
+        "moduleClass": "LinkingModule",
+        "publisherClass": "LinkingPublisher",
+        "appDelegateHook": {
+            "class": "LinkingAppDelegateHook",
+            "methods": ["didFinishLaunching", "openURL", "continueUserActivity"]
+        },
+        "sourceDir": "ios",
+        "methods": ["openURL", "canOpenURL", "exitApp"]
+    },
+    "android": {
+        "moduleClass": "com.sigx.linking.LinkingModule",
+        "publisherClass": "com.sigx.linking.LinkingPublisher",
+        "activityHook": {
+            "class": "com.sigx.linking.LinkingActivityHook",
+            "methods": ["onCreate", "onNewIntent", "onBackPressed"]
+        },
+        "sourceDir": "android",
+        "permissions": []
+    }
+}

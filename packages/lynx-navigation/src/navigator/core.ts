@@ -1,0 +1,386 @@
+import {
+    runOnMainThread,
+    signal,
+    type Signal,
+    type SharedValue,
+} from '@sigx/lynx';
+import { withTiming } from '@sigx/motion';
+import type { Nav } from '../hooks/use-nav.js';
+import type {
+    PopOptions,
+    Presentation,
+    PushOptions,
+    RouteMap,
+    StackEntry,
+    TransitionState,
+} from '../types.js';
+
+/**
+ * The reactive backing state for one navigator instance.
+ *
+ * Two reactive signals drive the public surface:
+ *   - `stack` is the entry array (read via `nav.stack` / `nav.current`).
+ *   - `transition` is non-null only while a push/pop animation is in flight;
+ *     `<Stack>` reads it to decide whether to render one screen or two.
+ *
+ * Pop is committed *after* its slide animation completes — `nav.canGoBack`
+ * stays true during the slide, then flips when the entry actually leaves the
+ * stack. Push commits its stack mutation immediately and animates the new
+ * entry in.
+ */
+export interface NavigatorState {
+    readonly nav: Nav;
+    readonly routes: RouteMap;
+    /**
+     * Internal: BG-side gesture-back controller used by `<EdgeBackHandle>`.
+     * The `progress` SharedValue is wired here so a gesture worklet can write
+     * it directly on MT; the begin/commit/cancel methods set the transition
+     * state appropriately without driving their own auto-animation (the
+     * gesture worklet is in charge of that).
+     */
+    readonly _gesture: {
+        beginBackGesture(): void;
+        commitBackGesture(): void;
+        cancelBackGesture(): void;
+    };
+}
+
+/**
+ * Slide-from-right transition timing. Kept as constants so screen options
+ * can override per-screen later (Phase 0.5). Duration is in seconds — that's
+ * what `@sigx/motion`'s `withTiming` expects (per `with-timing.ts`).
+ */
+const TRANSITION_DURATION_SEC = 0.28;
+
+let entryKeyCounter = 0;
+function nextEntryKey(): string {
+    entryKeyCounter += 1;
+    return `entry-${entryKeyCounter}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function makeEntry(
+    name: string,
+    params: unknown,
+    search: unknown,
+    options: PushOptions | undefined,
+    routes: RouteMap,
+): StackEntry {
+    const route = routes[name];
+    const presentation: Presentation =
+        options?.presentation ?? route?.presentation ?? 'card';
+    return {
+        key: nextEntryKey(),
+        route: name,
+        params: (params ?? {}) as Record<string, unknown>,
+        search: (search ?? {}) as Record<string, unknown>,
+        state: options?.state,
+        presentation,
+    };
+}
+
+function unpackArgs(
+    name: string,
+    args: unknown[],
+    routes: RouteMap,
+): { params: unknown; search: unknown; options: PushOptions | undefined } {
+    const route = routes[name];
+    const requiresParams = !!route?.params;
+    if (requiresParams) {
+        const [params, search, options] = args as [
+            unknown,
+            unknown,
+            PushOptions | undefined,
+        ];
+        return { params, search, options };
+    }
+    const [search, options] = args as [unknown, PushOptions | undefined];
+    return { params: undefined, search, options };
+}
+
+export interface CreateNavigatorOptions {
+    routes: RouteMap;
+    initial: StackEntry;
+    /**
+     * SharedValue driving push/pop transition progress. Created in
+     * `<NavigationRoot>` setup via `useSharedValue(0)` so the bridge
+     * plumbing is wired (SharedValue is an MT-bridged ref). When undefined,
+     * navigations are instant — used by tests against `@sigx/lynx-testing`
+     * that don't have an MT runtime.
+     */
+    progress?: SharedValue<number>;
+}
+
+/**
+ * Create a navigator. Returns the public `nav` handle plus the routes map.
+ * The transition signal lives on `nav` (via `nav.transition`) so `<Stack>`
+ * can subscribe to it.
+ */
+export function createNavigatorState(opts: CreateNavigatorOptions): NavigatorState {
+    const { routes, initial, progress } = opts;
+
+    const stackSignal: Signal<StackEntry[]> = signal<StackEntry[]>([initial]);
+    // `signal(null)` would wrap as a primitive (no `$set`), so wrap in an
+    // object to get the standard `{ value }`-style API. Reading `.value`
+    // tracks; writing triggers re-render of `<Stack>`.
+    const transitionBox: Signal<{ value: TransitionState | null }> = signal<{
+        value: TransitionState | null;
+    }>({ value: null });
+
+    function getStack(): StackEntry[] {
+        return stackSignal;
+    }
+    function setStack(next: StackEntry[]): void {
+        stackSignal.$set(next);
+    }
+    function setTransition(next: TransitionState | null): void {
+        transitionBox.value = next;
+    }
+
+    /**
+     * Whether a transition is currently in flight. Used to no-op concurrent
+     * navigation calls — keeps the state machine simple. A queued/aborted
+     * model is a v0.3 polish item.
+     */
+    function isTransitioning(): boolean {
+        return transitionBox.value !== null;
+    }
+
+    /**
+     * Run the slide animation by hopping a worklet onto the main thread that
+     * resets `progress` to 0 and starts a `withTiming` to the target. Then
+     * wait the animation duration on BG so we can fire the completion
+     * callback (clear transition / commit the popped entry) when the visual
+     * animation is done.
+     *
+     * Why the SV reset lives *inside* the worklet (not on BG before the call):
+     * the BG-side render ops (Stack re-render mounting the two
+     * `ScreenContainer`s with their `useAnimatedStyle` bindings) and a BG-side
+     * SV write (`progress.value = 0`) travel different bridge channels. On
+     * subsequent navigations, MT can register the new bindings before the
+     * BG-side reset arrives — the bindings snapshot sv at its previous
+     * end-state (`1`), and `withTiming(sv, 1, ...)` then animates from 1→1
+     * (no visible motion). Resetting inside the worklet guarantees the order
+     * `bindings register → sv resets → withTiming starts` happens atomically
+     * on MT.
+     *
+     * Why we don't `await` the worklet's Promise: `withTiming` returns a
+     * Promise on MT, but Promises don't serialize across the BG/MT bridge —
+     * `runOnMainThread`'s callback fires the moment the worklet *returns*
+     * (synchronously, with `undefined` since the Promise can't cross), not
+     * when the underlying animation finishes. We time the BG-side wait
+     * against the duration we passed to MT instead.
+     */
+    async function animateProgress(
+        target: number,
+        durationSec: number,
+    ): Promise<void> {
+        if (!progress) return;
+        const sv = progress;
+        const runner = runOnMainThread((t: number, d: number) => {
+            'main thread';
+            // MT-side direct write — `sv.value` is a BG-side getter/setter
+            // that emits a "read-only on BG" warning when set; the actual
+            // MT field (which `withTiming`'s animate() reads as the start
+            // value) is `sv.current.value`. See `packages/lynx-runtime/src/
+            // animated/shared-value.ts:14-44`.
+            sv.current.value = 0;
+            withTiming(sv, t, { duration: d });
+        });
+        runner(target, durationSec);
+        await new Promise<void>((resolve) => {
+            setTimeout(resolve, Math.round(durationSec * 1000));
+        });
+    }
+
+    const push: Nav['push'] = ((name: string, ...args: unknown[]) => {
+        if (isTransitioning()) return;
+        const { params, search, options } = unpackArgs(name, args, routes);
+        if (!routes[name]) {
+            throw new Error(
+                `[lynx-navigation] push('${name}'): route is not registered. ` +
+                    `Known routes: ${Object.keys(routes).join(', ') || '(none)'}`,
+            );
+        }
+        const newEntry = makeEntry(name, params, search, options, routes);
+        const cur = getStack();
+        const prevTop = cur[cur.length - 1];
+
+        // Append eagerly — UX-wise the user just initiated a forward nav, so
+        // the new entry should be queryable immediately (`nav.current` =
+        // newEntry). The slide animation overlays the visual transition.
+        setStack([...cur, newEntry]);
+
+        const animated = options?.animated !== false && !!progress;
+        if (!animated) return;
+
+        setTransition({
+            kind: 'push',
+            topEntry: newEntry,
+            underneathEntry: prevTop,
+            progress,
+        });
+
+        animateProgress(1, TRANSITION_DURATION_SEC).then(
+            () => setTransition(null),
+            () => setTransition(null), // best-effort cleanup on animation rejection
+        );
+    }) as Nav['push'];
+
+    const replace: Nav['replace'] = ((name: string, ...args: unknown[]) => {
+        if (isTransitioning()) return;
+        const { params, search, options } = unpackArgs(name, args, routes);
+        if (!routes[name]) {
+            throw new Error(
+                `[lynx-navigation] replace('${name}'): route is not registered.`,
+            );
+        }
+        const entry = makeEntry(name, params, search, options, routes);
+        const cur = getStack();
+        // Replace doesn't animate in v1 — it's a swap, not a forward/back nav.
+        // Adding a fade-or-slide variant is a screen-option in Phase 0.5.
+        setStack([...cur.slice(0, cur.length - 1), entry]);
+    }) as Nav['replace'];
+
+    function pop(count: number = 1, options?: PopOptions): void {
+        if (isTransitioning()) return;
+        const cur = getStack();
+        const target = Math.max(1, cur.length - Math.max(1, count));
+        if (target === cur.length) return;
+
+        const animated =
+            options?.animated !== false && !!progress && count === 1 && cur.length >= 2;
+        if (!animated) {
+            setStack(cur.slice(0, target));
+            return;
+        }
+
+        // Single-step animated pop: keep the popped entry on the stack until
+        // the slide finishes, so `<Stack>` can render both screens during the
+        // animation. The stack mutation happens on completion.
+        const popping = cur[cur.length - 1];
+        const next = cur[cur.length - 2];
+        setTransition({
+            kind: 'pop',
+            topEntry: popping,
+            underneathEntry: next,
+            progress,
+        });
+
+        animateProgress(1, TRANSITION_DURATION_SEC).then(
+            () => {
+                setStack(cur.slice(0, cur.length - 1));
+                setTransition(null);
+            },
+            () => {
+                // On animation failure, snap to the destination state anyway —
+                // leaving the popped entry rendered would be more confusing
+                // than skipping the animation.
+                setStack(cur.slice(0, cur.length - 1));
+                setTransition(null);
+            },
+        );
+    }
+
+    function popTo(name: string): void {
+        if (isTransitioning()) return;
+        const cur = getStack();
+        for (let i = cur.length - 1; i >= 0; i--) {
+            if (cur[i].route === name) {
+                if (i === cur.length - 1) return;
+                setStack(cur.slice(0, i + 1));
+                return;
+            }
+        }
+    }
+
+    function popToRoot(): void {
+        if (isTransitioning()) return;
+        const cur = getStack();
+        if (cur.length <= 1) return;
+        setStack([cur[0]]);
+    }
+
+    function reset(state: { stack: ReadonlyArray<StackEntry> }): void {
+        if (state.stack.length === 0) {
+            throw new Error('[lynx-navigation] reset() called with empty stack.');
+        }
+        setStack([...state.stack]);
+        setTransition(null);
+    }
+
+    function dismiss(): void {
+        if (isTransitioning()) return;
+        const cur = getStack();
+        let i = cur.length - 1;
+        while (i > 0 && cur[i].presentation !== 'card') {
+            i--;
+        }
+        if (i < cur.length - 1) {
+            setStack(cur.slice(0, i + 1));
+        }
+    }
+
+    /**
+     * Set up a gesture-driven pop transition. Same shape as `pop()` sets but
+     * does NOT call `animateProgress` — the gesture worklet writes the
+     * progress SV directly per frame, then animates to commit/cancel
+     * endpoints on release before invoking `commitBackGesture` or
+     * `cancelBackGesture` via `runOnBackground`.
+     */
+    function beginBackGesture(): void {
+        if (isTransitioning()) return;
+        const cur = getStack();
+        if (cur.length < 2) return;
+        const popping = cur[cur.length - 1];
+        const next = cur[cur.length - 2];
+        setTransition({
+            kind: 'pop',
+            topEntry: popping,
+            underneathEntry: next,
+            progress: progress as unknown,
+        });
+    }
+
+    function commitBackGesture(): void {
+        const cur = getStack();
+        if (cur.length >= 2) {
+            setStack(cur.slice(0, cur.length - 1));
+        }
+        setTransition(null);
+    }
+
+    function cancelBackGesture(): void {
+        setTransition(null);
+    }
+
+    const nav: Nav = {
+        push,
+        replace,
+        pop,
+        popTo,
+        popToRoot,
+        reset,
+        dismiss,
+        get current() {
+            return stackSignal[stackSignal.length - 1];
+        },
+        get stack() {
+            return stackSignal;
+        },
+        get canGoBack() {
+            return stackSignal.length > 1;
+        },
+        get parent() {
+            return null;
+        },
+        get transition() {
+            return transitionBox.value;
+        },
+    };
+
+    return {
+        nav,
+        routes,
+        _gesture: { beginBackGesture, commitBackGesture, cancelBackGesture },
+    };
+}

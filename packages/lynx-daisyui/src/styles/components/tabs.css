@@ -1,0 +1,23 @@
+/* Tabs — .tabs, .tab, .tab-active */
+
+.tabs {
+  flex-direction: row;
+  border-bottom-width: 1px;
+  border-bottom-color: var(--color-base-300);
+}
+
+.tab {
+  padding-left: var(--padding-btn-md);
+  padding-right: var(--padding-btn-md);
+  padding-top: var(--padding-btn-xs);
+  padding-bottom: var(--padding-btn-xs);
+  border-bottom-width: 0;
+  border-bottom-color: transparent;
+  color: var(--color-base-content);
+}
+
+.tab-active {
+  border-bottom-width: 2px;
+  border-bottom-color: var(--color-primary);
+  color: var(--color-primary);
+}

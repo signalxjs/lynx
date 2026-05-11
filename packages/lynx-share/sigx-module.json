@@ -1,0 +1,16 @@
+{
+    "name": "Share",
+    "package": "@sigx/lynx-share",
+    "description": "Native share dialog",
+    "platforms": ["android", "ios"],
+    "ios": {
+        "moduleClass": "ShareModule",
+        "sourceDir": "ios",
+        "methods": ["share"]
+    },
+    "android": {
+        "moduleClass": "com.sigx.share.ShareModule",
+        "sourceDir": "android",
+        "permissions": []
+    }
+}

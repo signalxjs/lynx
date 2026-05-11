@@ -1,0 +1,17 @@
+/* Alert — .alert + status variants */
+
+.alert {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding: var(--padding-box);
+  border-radius: var(--rounded-box);
+  gap: 12px;
+  background-color: var(--color-base-200);
+  color: var(--color-base-content);
+}
+
+.alert-info { background-color: var(--color-info); color: var(--color-info-content); }
+.alert-success { background-color: var(--color-success); color: var(--color-success-content); }
+.alert-warning { background-color: var(--color-warning); color: var(--color-warning-content); }
+.alert-error { background-color: var(--color-error); color: var(--color-error-content); }

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    FileProvider exposed paths — referenced by AndroidManifest.xml's
+    androidx.core.content.FileProvider meta-data entry.
+
+    Currently only `cache-path` is exposed: enough for @sigx/lynx-camera's
+    system-camera intent to write captured photos into the app's cacheDir
+    (Context.getCacheDir()) and grant the camera process temporary read
+    access to that file. Extend with `external-files-path`, `files-path`,
+    etc. if a module needs to share files from those locations.
+-->
+<paths>
+    <cache-path name="sigx_cache" path="." />
+</paths>

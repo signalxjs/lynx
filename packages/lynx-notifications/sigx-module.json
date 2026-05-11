@@ -1,0 +1,16 @@
+{
+    "name": "Notifications",
+    "package": "@sigx/lynx-notifications",
+    "description": "Local push notifications",
+    "platforms": ["android", "ios"],
+    "ios": {
+        "moduleClass": "NotificationsModule",
+        "sourceDir": "ios",
+        "methods": ["schedule","cancel","cancelAll","requestPermission","getPermissionStatus"]
+    },
+    "android": {
+        "moduleClass": "com.sigx.notifications.NotificationsModule",
+        "sourceDir": "android",
+        "permissions": ["android.permission.POST_NOTIFICATIONS"]
+    }
+}

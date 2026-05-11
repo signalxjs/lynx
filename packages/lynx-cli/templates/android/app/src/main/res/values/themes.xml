@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.SigxApp" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+    </style>
+
+    <!-- Cold-launch splash. Set as the activity's android:theme; MainActivity
+         swaps to Theme.SigxApp in onCreate() so the splash drawable disappears
+         once the app is ready to render. -->
+    <style name="Theme.SigxApp.Splash" parent="Theme.SigxApp">
+        <item name="android:windowBackground">@drawable/splash</item>
+    </style>
+</resources>

@@ -1,0 +1,16 @@
+{
+    "name": "FileSystem",
+    "package": "@sigx/lynx-file-system",
+    "description": "File read/write access",
+    "platforms": ["android", "ios"],
+    "ios": {
+        "moduleClass": "FileSystemModule",
+        "sourceDir": "ios",
+        "methods": ["readFile","writeFile","deleteFile","getInfo","getDocumentDirectory","getCacheDirectory"]
+    },
+    "android": {
+        "moduleClass": "com.sigx.filesystem.FileSystemModule",
+        "sourceDir": "android",
+        "permissions": []
+    }
+}

@@ -1,0 +1,72 @@
+{
+  "name": "@sigx/lynx-linking",
+  "version": "0.1.0",
+  "description": "Deep links and URL scheme handling for sigx-lynx",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./router": {
+      "import": "./dist/router.js",
+      "types": "./dist/router.d.ts"
+    },
+    "./sigx-module.json": "./sigx-module.json"
+  },
+  "files": [
+    "dist",
+    "ios",
+    "android",
+    "sigx-module.json"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@sigx/lynx-core": "workspace:^"
+  },
+  "peerDependencies": {
+    "@sigx/router": "^0.3.2",
+    "sigx": "^0.4.1"
+  },
+  "peerDependenciesMeta": {
+    "@sigx/router": {
+      "optional": true
+    },
+    "sigx": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.4"
+  },
+  "author": "Andreas Ekdahl",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/signalxjs/lynx.git",
+    "directory": "packages/lynx-linking"
+  },
+  "homepage": "https://github.com/signalxjs/lynx/tree/main/packages/lynx-linking",
+  "bugs": {
+    "url": "https://github.com/signalxjs/lynx/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "keywords": [
+    "signalx",
+    "sigx",
+    "lynx",
+    "mobile",
+    "ios",
+    "android",
+    "linking"
+  ]
+}

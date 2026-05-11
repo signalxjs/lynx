@@ -1,0 +1,6 @@
+/* Lynx element reset */
+
+page, view, text, scroll-view, image, input, textarea, list, list-item {
+  border-color: transparent;
+  border-width: 0;
+}

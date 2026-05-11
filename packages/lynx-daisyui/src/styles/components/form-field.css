@@ -1,0 +1,25 @@
+/* Form Field — .form-control, .label, .label-text */
+
+.form-control {
+  gap: 4px;
+}
+
+.label {
+  padding-left: 4px;
+  padding-right: 4px;
+}
+
+.label-text {
+  font-size: var(--font-sm);
+  color: var(--color-base-content);
+}
+
+.label-text-alt {
+  font-size: var(--font-xs);
+  color: var(--color-base-content);
+}
+
+.label-text-error {
+  font-size: var(--font-xs);
+  color: var(--color-error);
+}

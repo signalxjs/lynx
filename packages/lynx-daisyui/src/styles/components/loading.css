@@ -1,0 +1,33 @@
+/* Loading — .loading + type variants */
+
+@keyframes spin {
+  0% { transform: rotateZ(0deg); }
+  100% { transform: rotateZ(360deg); }
+}
+
+.loading {
+  width: var(--checkbox-md);
+  height: var(--checkbox-md);
+  border-radius: 9999px;
+  border-width: 3px;
+  border-color: transparent;
+  border-top-color: var(--color-base-300);
+  background-color: transparent;
+  align-self: center;
+  flex-shrink: 0;
+  flex-grow: 0;
+  animation: spin 800ms linear infinite;
+}
+
+/* Size variants */
+.loading-xs { width: var(--checkbox-xs); height: var(--checkbox-xs); border-width: 2px; }
+.loading-sm { width: var(--checkbox-sm); height: var(--checkbox-sm); border-width: 2px; }
+.loading-lg { width: var(--step-indicator); height: var(--step-indicator); border-width: 4px; }
+
+/* Type variants (visual distinction where possible) */
+.loading-spinner { border-radius: 9999px; }
+.loading-dots { border-radius: 4px; }
+.loading-ring { border-radius: 9999px; border-width: 2px; }
+.loading-ball { border-radius: 9999px; }
+.loading-bars { border-radius: 2px; }
+.loading-infinity { border-radius: 9999px; }

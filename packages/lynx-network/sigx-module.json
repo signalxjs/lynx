@@ -1,0 +1,16 @@
+{
+    "name": "Network",
+    "package": "@sigx/lynx-network",
+    "description": "Network connectivity status",
+    "platforms": ["android", "ios"],
+    "ios": {
+        "moduleClass": "NetworkModule",
+        "sourceDir": "ios",
+        "methods": ["getState"]
+    },
+    "android": {
+        "moduleClass": "com.sigx.network.NetworkModule",
+        "sourceDir": "android",
+        "permissions": []
+    }
+}

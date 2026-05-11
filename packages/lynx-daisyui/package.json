@@ -1,0 +1,65 @@
+{
+  "name": "@sigx/lynx-daisyui",
+  "version": "0.1.0",
+  "description": "DaisyUI integration for sigx-lynx",
+  "type": "module",
+  "main": "./dist/index.js",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./preset": {
+      "types": "./dist/preset/index.d.ts",
+      "import": "./dist/preset/index.js"
+    },
+    "./styles": "./dist/styles/index.css",
+    "./package.json": "./package.json"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/signalxjs/lynx.git",
+    "directory": "packages/lynx-daisyui"
+  },
+  "homepage": "https://github.com/signalxjs/lynx/tree/main/packages/lynx-daisyui",
+  "bugs": {
+    "url": "https://github.com/signalxjs/lynx/issues"
+  },
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "vite build && tsgo --emitDeclarationOnly && node ../../scripts/copy-assets.mjs src/styles dist/styles",
+    "dev": "vite build --watch",
+    "clean": "rm -rf dist .turbo *.tsbuildinfo"
+  },
+  "dependencies": {
+    "@sigx/lynx": "workspace:^"
+  },
+  "peerDependencies": {
+    "tailwindcss": "^3.0.0 || ^4.0.0"
+  },
+  "devDependencies": {
+    "@sigx/vite": "^0.4.1",
+    "@typescript/native-preview": "7.0.0-dev.20251023.1",
+    "tailwindcss": "^4.0.0",
+    "typescript": "^5.9.3",
+    "vite": "^8.0.3"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "keywords": [
+    "signalx",
+    "sigx",
+    "lynx",
+    "daisyui",
+    "components",
+    "ui"
+  ],
+  "author": "Andreas Ekdahl",
+  "license": "MIT"
+}

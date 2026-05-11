@@ -1,0 +1,16 @@
+{
+    "name": "Clipboard",
+    "package": "@sigx/lynx-clipboard",
+    "description": "System clipboard access",
+    "platforms": ["android", "ios"],
+    "ios": {
+        "moduleClass": "ClipboardModule",
+        "sourceDir": "ios",
+        "methods": ["getString","setString","hasString"]
+    },
+    "android": {
+        "moduleClass": "com.sigx.clipboard.ClipboardModule",
+        "sourceDir": "android",
+        "permissions": []
+    }
+}

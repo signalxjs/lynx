@@ -1,0 +1,14 @@
+{
+    "name": "SafeArea",
+    "package": "@sigx/lynx-safe-area",
+    "description": "Safe-area insets publisher (window insets, notch, status bar, keyboard)",
+    "platforms": ["android", "ios"],
+    "ios": {
+        "publisherClass": "SafeAreaPublisher",
+        "sourceDir": "ios"
+    },
+    "android": {
+        "publisherClass": "com.sigx.safearea.SafeAreaPublisher",
+        "sourceDir": "android"
+    }
+}

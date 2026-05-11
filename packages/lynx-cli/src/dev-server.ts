@@ -1,0 +1,698 @@
+/**
+ * Enhanced dev server for Lynx projects.
+ *
+ * Wraps rspeedy with sigx-specific DX features:
+ * - Branded banner with project info
+ * - LAN IP detection + QR code for sigx-lynx-go
+ * - Device detection (ADB)
+ * - Keyboard shortcuts (r = reload, q = quit, etc.)
+ */
+
+import { spawn, execSync, type ChildProcess } from 'node:child_process';
+import { readFileSync, existsSync, rmSync } from 'node:fs';
+import { join } from 'node:path';
+import { getAllLanIPs } from './network.js';
+import { generateQR } from './qr.js';
+import { getDeviceStatus, getDeviceStatusCached, invalidateDeviceStatusCache, launchFlow, launchApp, launchIosApp, launchAppOnDevice, installAppOnDevice, resolveIosSimulator, bootSimulator, listAllSimulators, installAppOnSimulator, findBuiltApp, adbReverse, type DeviceStatus } from './device-detect.js';
+import type { Logger } from '@sigx/cli/plugin';
+import type { SelectedTarget } from './target-picker.js';
+
+export interface DevServerOptions {
+    cwd: string;
+    port?: string | number;
+    host?: boolean;
+    logger: Logger;
+    /** If set, auto-launch this Android app (by applicationId) with the dev URL instead of sigx-lynx-go */
+    launchAppId?: string;
+    /** If set, auto-launch this iOS app (by bundleId) on booted simulators */
+    launchBundleId?: string;
+    /** iOS simulator name (for build + launch shortcut) */
+    iosSimulatorName?: string;
+    /**
+     * Explicit target list from the picker / flags. When provided, the
+     * banner and auto-launch loop use this instead of scanning the whole
+     * system — so the banner only shows platforms the user chose and
+     * auto-launch fires only on those targets.
+     */
+    selectedTargets?: SelectedTarget[];
+}
+
+function getProjectName(cwd: string): string {
+    try {
+        const pkg = JSON.parse(readFileSync(join(cwd, 'package.json'), 'utf-8'));
+        return pkg.name || 'sigx-lynx';
+    } catch {
+        return 'sigx-lynx';
+    }
+}
+
+function formatDeviceStatus(status: DeviceStatus, appId?: string, bundleId?: string): string[] {
+    const lines: string[] = [];
+
+    // Android
+    if (!status.adbAvailable) {
+        lines.push('  Android:  \x1b[2m⚠ adb not found\x1b[0m');
+    } else if (status.devices.length === 0) {
+        lines.push('  Android:  — no devices connected');
+    } else {
+        for (const device of status.devices) {
+            const icon = device.type === 'emulator' ? '📱' : '📲';
+            const name = device.model || device.id;
+
+            const statusParts: string[] = [];
+            if (appId && status.appInstalled?.get(device.id)) {
+                statusParts.push(`✓ ${appId}`);
+            }
+            if (status.flowInstalled.get(device.id)) {
+                statusParts.push('✓ sigx-lynx-go');
+            }
+            if (statusParts.length === 0) {
+                statusParts.push('✗ no sigx app installed');
+            }
+
+            lines.push(`  ${icon} ${name} (${device.id})`);
+            lines.push(`     ${statusParts.join(' · ')}`);
+        }
+    }
+
+    // iOS
+    if (!status.xcrunAvailable) {
+        // Only show iOS status on macOS
+        if (process.platform === 'darwin') {
+            lines.push('  iOS:      \x1b[2m⚠ xcrun not found\x1b[0m');
+        }
+    } else if (status.iosSimulators.length === 0 && status.iosDevices.length === 0) {
+        lines.push('  iOS:      — no simulators booted, no devices connected');
+    } else {
+        for (const sim of status.iosSimulators) {
+            const statusParts: string[] = [];
+            if (bundleId && status.iosAppInstalled?.get(sim.udid)) {
+                statusParts.push(`✓ ${bundleId}`);
+            }
+            if (statusParts.length === 0) {
+                statusParts.push('✗ app not installed');
+            }
+
+            lines.push(`  📱 ${sim.name} (${sim.runtime})`);
+            lines.push(`     ${statusParts.join(' · ')}`);
+        }
+
+        for (const dev of status.iosDevices) {
+            const statusParts: string[] = [];
+            if (bundleId && status.iosDeviceAppInstalled?.get(dev.udid)) {
+                statusParts.push(`✓ ${bundleId}`);
+            }
+            if (statusParts.length === 0) {
+                statusParts.push('✗ app not installed');
+            }
+            const desc = dev.model
+                ? `${dev.name} · ${dev.model}${dev.osVersion ? ` · iOS ${dev.osVersion}` : ''}`
+                : dev.name;
+            const transport = dev.transport ? ` [${dev.transport}]` : '';
+            lines.push(`  📲 ${desc}${transport}`);
+            lines.push(`     ${statusParts.join(' · ')}`);
+        }
+    }
+
+    return lines;
+}
+
+function formatSelectedTargets(targets: SelectedTarget[]): string[] {
+    if (targets.length === 0) {
+        return ['  \x1b[2m(no targets — waiting for a manual client)\x1b[0m'];
+    }
+    const lines: string[] = [];
+    const ios = targets.filter((t) => t.kind === 'ios-simulator' || t.kind === 'ios-device');
+    const android = targets.filter((t) => t.kind === 'android-device');
+    if (ios.length > 0) {
+        lines.push('  iOS:');
+        for (const t of ios) {
+            const icon = t.kind === 'ios-simulator' ? '📱' : '📲';
+            lines.push(`    ${icon} ${t.name}`);
+        }
+    }
+    if (android.length > 0) {
+        lines.push('  Android:');
+        for (const t of android) {
+            if (t.kind !== 'android-device') continue;
+            const name = t.model || t.deviceId;
+            lines.push(`    📱 ${name} (${t.deviceId})`);
+        }
+    }
+    return lines;
+}
+
+function printBanner(opts: {
+    projectName: string;
+    port: number;
+    lanIPs: { name: string; address: string }[];
+    deviceStatus: DeviceStatus;
+    appId?: string;
+    bundleId?: string;
+    selectedTargets?: SelectedTarget[];
+}) {
+    const { projectName, port, lanIPs, deviceStatus, appId, bundleId, selectedTargets } = opts;
+    const localUrl = `http://localhost:${port}`;
+    const bundlePath = '/main.lynx.bundle';
+
+    const lines = [
+        '',
+        `  \x1b[1m⚡ sigx dev\x1b[0m · \x1b[33m${projectName}\x1b[0m`,
+        '',
+        `  Local:    \x1b[4m${localUrl}${bundlePath}\x1b[0m`,
+    ];
+
+    for (const { name, address } of lanIPs) {
+        const url = `http://${address}:${port}${bundlePath}`;
+        lines.push(`  Network:  \x1b[4m${url}\x1b[0m \x1b[2m(${name})\x1b[0m`);
+    }
+
+    lines.push('');
+
+    // QR code for the primary bundle URL
+    if (lanIPs.length > 0) {
+        const primaryBundleUrl = `http://${lanIPs[0].address}:${port}${bundlePath}`;
+        lines.push('  \x1b[2mScan with sigx-lynx-go:\x1b[0m');
+        const qr = generateQR(primaryBundleUrl);
+        for (const qrLine of qr.split('\n')) {
+            lines.push(`    ${qrLine}`);
+        }
+    }
+
+    // Device status
+    lines.push('');
+    if (selectedTargets) {
+        lines.push(...formatSelectedTargets(selectedTargets));
+    } else {
+        lines.push(...formatDeviceStatus(deviceStatus, appId, bundleId));
+    }
+
+    // Keyboard shortcuts
+    lines.push('');
+    const shortcuts = 'r relaunch · d devices · q quit';
+    const extraShortcuts = [
+        appId ? 'a install+launch Android' : '',
+        bundleId && process.platform === 'darwin' ? 'i build/launch iOS' : '',
+    ].filter(Boolean).join(' · ');
+    const shortcutLine = extraShortcuts ? `${shortcuts} · ${extraShortcuts}` : shortcuts;
+    lines.push(`  \x1b[2mShortcuts: ${shortcutLine}\x1b[0m`);
+    lines.push('');
+
+    console.log(lines.join('\n'));
+}
+
+function setupKeyboardShortcuts(child: ChildProcess, opts: {
+    cwd: string;
+    serverState: { port: number };
+    lanIPs: { name: string; address: string }[];
+    projectName: string;
+    logger: Logger;
+    appId?: string;
+    bundleId?: string;
+    iosSimulatorName?: string;
+    killChildTree: (signal?: NodeJS.Signals) => void;
+}) {
+    if (!process.stdin.isTTY) return;
+
+    process.stdin.setRawMode(true);
+    process.stdin.resume();
+    process.stdin.setEncoding('utf-8');
+
+    process.stdin.on('data', (key: string) => {
+        const primaryIP = opts.lanIPs.length > 0 ? opts.lanIPs[0].address : null;
+        const bundleUrl = primaryIP
+            ? `http://${primaryIP}:${opts.serverState.port}/main.lynx.bundle`
+            : `http://localhost:${opts.serverState.port}/main.lynx.bundle`;
+
+        // Android devices reach the dev server via `adb reverse`, so their
+        // per-device URL is always localhost (works over USB, Wi-Fi, or
+        // no-network-at-all provided adb is connected).
+        const androidUrlFor = (deviceId: string): string => {
+            adbReverse(deviceId, opts.serverState.port);
+            return `http://localhost:${opts.serverState.port}/main.lynx.bundle`;
+        };
+
+        switch (key) {
+            case 'r':
+            case 'R': {
+                opts.logger.log(`Relaunching with ${bundleUrl}...`);
+                const status = getDeviceStatusCached(opts.appId, opts.bundleId);
+                let relaunched = 0;
+
+                // Android — per-device URL routes via `adb reverse`.
+                for (const device of status.devices) {
+                    const url = androidUrlFor(device.id);
+                    if (opts.appId && status.appInstalled?.get(device.id)) {
+                        launchApp(device.id, opts.appId, url);
+                        relaunched++;
+                    } else if (status.flowInstalled.get(device.id)) {
+                        launchFlow(device.id, url);
+                        relaunched++;
+                    }
+                }
+
+                // iOS simulators — terminate any running instance first so launch args refresh.
+                if (opts.bundleId) {
+                    for (const sim of status.iosSimulators) {
+                        if (status.iosAppInstalled?.get(sim.udid)) {
+                            try {
+                                execSync(
+                                    `xcrun simctl terminate "${sim.udid}" "${opts.bundleId}"`,
+                                    { stdio: 'pipe' },
+                                );
+                            } catch {
+                                // App may not be running
+                            }
+                            launchIosApp(sim.udid, opts.bundleId, bundleUrl);
+                            relaunched++;
+                        }
+                    }
+
+                    // iOS physical devices — devicectl handles termination via --terminate-existing.
+                    for (const dev of status.iosDevices) {
+                        if (status.iosDeviceAppInstalled?.get(dev.udid)) {
+                            if (launchAppOnDevice(dev.udid, opts.bundleId, bundleUrl)) {
+                                relaunched++;
+                            }
+                        }
+                    }
+                }
+
+                if (relaunched === 0) {
+                    opts.logger.log('No installed devices/simulators found. Press "i" to build & install iOS or "a" for Android.');
+                }
+                break;
+            }
+            case 'd':
+            case 'D': {
+                opts.logger.log('Scanning devices...');
+                const status = getDeviceStatusCached(opts.appId, opts.bundleId);
+                const deviceLines = formatDeviceStatus(status, opts.appId, opts.bundleId);
+                console.log(deviceLines.join('\n'));
+
+                // Auto-launch on Android devices that have the custom app or sigx-lynx-go
+                for (const device of status.devices) {
+                    const url = androidUrlFor(device.id);
+                    if (opts.appId && status.appInstalled?.get(device.id)) {
+                        opts.logger.log(`Launching ${opts.appId} on ${device.model || device.id}...`);
+                        launchApp(device.id, opts.appId, url);
+                    } else if (status.flowInstalled.get(device.id)) {
+                        opts.logger.log(`Launching sigx-lynx-go on ${device.model || device.id}...`);
+                        launchFlow(device.id, url);
+                    }
+                }
+
+                // Auto-launch on iOS simulators and devices
+                if (opts.bundleId) {
+                    for (const sim of status.iosSimulators) {
+                        if (status.iosAppInstalled?.get(sim.udid)) {
+                            opts.logger.log(`Launching on ${sim.name}...`);
+                            launchIosApp(sim.udid, opts.bundleId, bundleUrl);
+                        }
+                    }
+                    for (const dev of status.iosDevices) {
+                        if (status.iosDeviceAppInstalled?.get(dev.udid)) {
+                            opts.logger.log(`Launching on ${dev.name}...`);
+                            launchAppOnDevice(dev.udid, opts.bundleId, bundleUrl);
+                        }
+                    }
+                }
+                break;
+            }
+            case 'a':
+            case 'A': {
+                if (!opts.appId) {
+                    opts.logger.log('No custom app configured. Use `sigx run:android` first.');
+                    break;
+                }
+                opts.logger.log('Installing and launching Android app...');
+                // Run gradle install in background, then launch
+                import('node:child_process').then(({ spawn: spawnChild }) => {
+                    const androidDir = join(opts.cwd, 'android');
+                    const gradleCmd = process.platform === 'win32' ? 'gradlew.bat' : 'gradlew';
+                    const build = spawnChild(join(androidDir, gradleCmd), ['installDebug'], {
+                        cwd: androidDir,
+                        stdio: 'inherit',
+                        shell: process.platform === 'win32',
+                    });
+                    build.on('exit', (code) => {
+                        if (code !== 0) {
+                            opts.logger.error('Android build failed');
+                            return;
+                        }
+                        opts.logger.log('\x1b[32m✓ App installed\x1b[0m');
+
+                        // App set changed — bust the status cache before reading.
+                        invalidateDeviceStatusCache();
+                        const status = getDeviceStatus(opts.appId);
+                        for (const device of status.devices) {
+                            const url = androidUrlFor(device.id);
+                            opts.logger.log(`Launching on ${device.model || device.id}...`);
+                            launchApp(device.id, opts.appId!, url);
+                        }
+                    });
+                });
+                break;
+            }
+            case 'q':
+            case 'Q':
+            case '\u0003': // Ctrl+C
+                opts.logger.log('Shutting down...');
+                opts.killChildTree('SIGTERM');
+                setTimeout(() => process.exit(0), 500).unref();
+                break;
+            case 'i':
+            case 'I': {
+                if (!opts.bundleId || process.platform !== 'darwin') {
+                    opts.logger.log('iOS shortcut requires macOS and a configured bundle id.');
+                    break;
+                }
+
+                const simulator = resolveIosSimulator(opts.iosSimulatorName);
+                if (!simulator) {
+                    opts.logger.error('No iOS simulators available. Install simulators via Xcode → Settings → Platforms.');
+                    break;
+                }
+
+                opts.logger.log(`Using simulator: ${simulator.name} (${simulator.runtime})`);
+
+                if (simulator.state !== 'Booted') {
+                    opts.logger.log(`Booting ${simulator.name}...`);
+                    bootSimulator(simulator.udid);
+                }
+
+                // Open Simulator.app so the user can see it
+                try { execSync('open -a Simulator', { stdio: 'pipe' }); } catch { /* ignore */ }
+
+                // Fast path: if the app is already installed, just relaunch with the fresh URL.
+                const fresh = getDeviceStatusCached(opts.appId, opts.bundleId);
+                const alreadyInstalled = fresh.iosAppInstalled?.get(simulator.udid) ?? false;
+
+                if (alreadyInstalled) {
+                    opts.logger.log('App installed — terminating and relaunching with current dev URL...');
+                    try {
+                        execSync(`xcrun simctl terminate "${simulator.udid}" "${opts.bundleId}"`, { stdio: 'pipe' });
+                    } catch { /* not running */ }
+                    launchIosApp(simulator.udid, opts.bundleId, bundleUrl);
+                    break;
+                }
+
+                opts.logger.log('App not installed — building...');
+                void (async () => {
+                    const iosDir = join(opts.cwd, 'ios');
+
+                    // Determine app name from config (fallback to workspace listing)
+                    let appName = 'app';
+                    try {
+                        const { loadConfig } = await import('./prebuild.js');
+                        const { resolveConfig } = await import('./config/index.js');
+                        const rawConfig = await loadConfig(opts.cwd);
+                        const config = resolveConfig(rawConfig);
+                        appName = config.name;
+                    } catch {
+                        const { readdirSync } = await import('node:fs');
+                        const workspaces = readdirSync(iosDir).filter(f => f.endsWith('.xcworkspace'));
+                        if (workspaces.length > 0) appName = workspaces[0].replace('.xcworkspace', '');
+                    }
+
+                    const workspace = join('ios', `${appName}.xcworkspace`);
+                    const build = spawn('xcodebuild', [
+                        '-workspace', workspace,
+                        '-scheme', appName,
+                        '-destination', `id=${simulator.udid}`,
+                        '-configuration', 'Debug',
+                        'build',
+                    ], {
+                        cwd: opts.cwd,
+                        stdio: 'inherit',
+                    });
+
+                    build.on('exit', (code) => {
+                        if (code !== 0) {
+                            opts.logger.error('iOS build failed');
+                            return;
+                        }
+                        opts.logger.log('\x1b[32m✓ iOS app built\x1b[0m');
+
+                        const appPath = findBuiltApp(appName);
+                        if (!appPath) {
+                            opts.logger.error(`Could not find built ${appName}.app in DerivedData`);
+                            return;
+                        }
+                        opts.logger.log('Installing on simulator...');
+                        if (!installAppOnSimulator(simulator.udid, appPath)) {
+                            opts.logger.error('Failed to install app on simulator');
+                            return;
+                        }
+                        opts.logger.log('\x1b[32m✓ App installed\x1b[0m');
+                        invalidateDeviceStatusCache();
+
+                        opts.logger.log(`Launching on ${simulator.name}...`);
+                        try {
+                            execSync(`xcrun simctl terminate "${simulator.udid}" "${opts.bundleId}"`, { stdio: 'pipe' });
+                        } catch { /* not running */ }
+                        launchIosApp(simulator.udid, opts.bundleId!, bundleUrl);
+                    });
+                })();
+                break;
+            }
+        }
+    });
+}
+
+/**
+ * Start the enhanced Lynx dev server.
+ */
+export async function startDevServer(opts: DevServerOptions): Promise<void> {
+    const { cwd, logger, launchAppId, launchBundleId, iosSimulatorName, selectedTargets } = opts;
+    const requestedPort = Number(opts.port) || 3000;
+    const projectName = getProjectName(cwd);
+    const lanIPs = getAllLanIPs();
+    const primaryIP = lanIPs.length > 0 ? lanIPs[0].address : null;
+
+    // Mutable server state so keyboard shortcuts always use the actual port
+    const serverState = { port: requestedPort };
+
+    // Detect devices in parallel with server start. When the caller passed
+    // an explicit target list (from the picker / flags), we skip the full
+    // cross-platform probe — nothing downstream cares about e.g. Android
+    // status on an iOS-only run.
+    let deviceStatus: DeviceStatus = {
+        devices: [],
+        flowInstalled: new Map(),
+        adbAvailable: false,
+        iosSimulators: [],
+        xcrunAvailable: false,
+        iosDevices: [],
+        devicectlAvailable: false,
+    };
+    if (!selectedTargets) {
+        try {
+            deviceStatus = getDeviceStatus(launchAppId, launchBundleId);
+        } catch {
+            // Device detection is best-effort
+        }
+    }
+
+    // Clear any stale on-disk build output from a previous dev session.
+    // Rspack's persistent cache + a populated dist/ from a prior run can
+    // leave the file watcher in a state where it doesn't fire until the
+    // next process restart. Wiping these at startup keeps restarts honest.
+    for (const dir of ['dist', join('node_modules', '.cache')]) {
+        const full = join(cwd, dir);
+        try { rmSync(full, { recursive: true, force: true }); } catch { /* ignore */ }
+    }
+
+    // Build rspeedy args
+    const args = ['rspeedy', 'dev'];
+    if (opts.port) args.push('--port', String(opts.port));
+    if (opts.host) args.push('--host');
+
+    // Start rspeedy in its own process group so we can kill the whole tree
+    // on shutdown (npx spawns npm spawns node, and SIGTERM to the top doesn't
+    // propagate reliably otherwise).
+    //
+    // `shell: true` is avoided because the extra /bin/sh hop plus piped stdin
+    // causes Rspack's file watcher to stop firing (it works when rspeedy is
+    // run directly but silently drops changes under shell+pipe). `ignore` for
+    // stdin also keeps rspeedy from treating us as interactive.
+    //
+    // File watching: @sigx/lynx-plugin ships narrow `watchOptions.ignored`
+    // (ios/android/Pods/dist/.rspeedy) via modifyRspackConfig so macOS
+    // FSEvents stops drowning in native-build churn. If that still misses
+    // events on an exotic layout, set `SIGX_LYNX_WATCH_POLL=250` to fall
+    // back to polling at the plugin level.
+    const child = spawn('npx', args, {
+        cwd,
+        stdio: ['ignore', 'pipe', 'pipe'],
+        shell: process.platform === 'win32',
+        detached: process.platform !== 'win32',
+        env: {
+            ...process.env,
+        },
+    });
+
+    const killChildTree = (signal: NodeJS.Signals = 'SIGTERM') => {
+        try {
+            if (child.pid && process.platform !== 'win32') {
+                // Negative PID targets the process group
+                process.kill(-child.pid, signal);
+            } else {
+                child.kill(signal);
+            }
+        } catch {
+            // Already gone
+        }
+    };
+
+    let bannerPrinted = false;
+
+    const showBanner = () => {
+        if (bannerPrinted) return;
+        bannerPrinted = true;
+        printBanner({
+            projectName,
+            port: serverState.port,
+            lanIPs,
+            deviceStatus,
+            appId: launchAppId,
+            bundleId: launchBundleId,
+            selectedTargets,
+        });
+
+        // Auto-launch on devices.
+        // iOS uses LAN IP (simulator shares host network; devices are on Wi-Fi).
+        // Android uses `adb reverse` + localhost so USB-only devices work too.
+        const iosBundleUrl = primaryIP
+            ? `http://${primaryIP}:${serverState.port}/main.lynx.bundle`
+            : `http://localhost:${serverState.port}/main.lynx.bundle`;
+
+        if (selectedTargets) {
+            // Picker-driven: launch only what the user asked for. We just
+            // finished `ensureAndroidBuilt` / `ensureIosBuilt` for each one,
+            // so installation is guaranteed.
+            for (const t of selectedTargets) {
+                if (t.kind === 'android-device') {
+                    adbReverse(t.deviceId, serverState.port);
+                    const url = `http://localhost:${serverState.port}/main.lynx.bundle`;
+                    if (launchAppId) {
+                        logger.log(`Auto-launching ${launchAppId} on ${t.model || t.deviceId}...`);
+                        launchApp(t.deviceId, launchAppId, url);
+                    }
+                } else if (t.kind === 'ios-simulator' && launchBundleId) {
+                    logger.log(`Auto-launching on ${t.name}...`);
+                    launchIosApp(t.udid, launchBundleId, iosBundleUrl);
+                } else if (t.kind === 'ios-device' && launchBundleId) {
+                    logger.log(`Auto-launching on ${t.name}...`);
+                    launchAppOnDevice(t.udid, launchBundleId, iosBundleUrl);
+                }
+            }
+            return;
+        }
+
+        // Legacy path: auto-launch on every discovered device (used when
+        // `sigx dev` is invoked without going through the picker, e.g. from
+        // `sigx run:android` / `sigx run:ios` which set up their own target).
+
+        // Android
+        for (const device of deviceStatus.devices) {
+            adbReverse(device.id, serverState.port);
+            const url = `http://localhost:${serverState.port}/main.lynx.bundle`;
+            if (launchAppId && deviceStatus.appInstalled?.get(device.id)) {
+                logger.log(`Auto-launching ${launchAppId} on ${device.model || device.id}...`);
+                launchApp(device.id, launchAppId, url);
+            } else if (deviceStatus.flowInstalled.get(device.id)) {
+                logger.log(`Auto-launching sigx-lynx-go on ${device.model || device.id}...`);
+                launchFlow(device.id, url);
+            }
+        }
+
+        // iOS simulators
+        if (launchBundleId) {
+            for (const sim of deviceStatus.iosSimulators) {
+                if (deviceStatus.iosAppInstalled?.get(sim.udid)) {
+                    logger.log(`Auto-launching on ${sim.name}...`);
+                    launchIosApp(sim.udid, launchBundleId, iosBundleUrl);
+                }
+            }
+            // iOS physical devices
+            for (const dev of deviceStatus.iosDevices) {
+                if (deviceStatus.iosDeviceAppInstalled?.get(dev.udid)) {
+                    logger.log(`Auto-launching on ${dev.name}...`);
+                    launchAppOnDevice(dev.udid, launchBundleId, iosBundleUrl);
+                }
+            }
+        }
+    };
+
+    // Fallback: print banner after 10s even if rspeedy hasn't reported ready
+    const bannerTimeout = setTimeout(showBanner, 10_000);
+
+    // Pipe rspeedy output with prefix
+    child.stdout?.on('data', (data: Buffer) => {
+        const text = data.toString().trim();
+        if (text) {
+            for (const line of text.split('\n')) {
+                // Detect port conflict and update actual port
+                if (line.includes('is in use')) {
+                    const match = line.match(/using port (\d+)/);
+                    if (match) serverState.port = Number(match[1]);
+                }
+
+                // Print banner once rspeedy is ready
+                if (line.includes('ready') && !bannerPrinted) {
+                    clearTimeout(bannerTimeout);
+                    showBanner();
+                }
+
+                // Filter noisy rspeedy startup logs, show meaningful ones
+                if (line.includes('rspeedy') && line.includes('ready')) {
+                    logger.log(`\x1b[32m${line.trim()}\x1b[0m`);
+                } else if (line.includes('error') || line.includes('Error')) {
+                    logger.error(line.trim());
+                } else if (line.includes('warn') || line.includes('Warning')) {
+                    logger.warn(line.trim());
+                } else if (line.trim()) {
+                    console.log(`  ${line.trim()}`);
+                }
+            }
+        }
+    });
+
+    child.stderr?.on('data', (data: Buffer) => {
+        const text = data.toString().trim();
+        if (text) {
+            // Filter common non-error stderr noise
+            if (text.includes('ExperimentalWarning') || text.includes('DEP0')) return;
+            console.error(`  \x1b[31m${text}\x1b[0m`);
+        }
+    });
+
+    // Setup keyboard shortcuts
+    setupKeyboardShortcuts(child, { cwd, serverState, lanIPs, projectName, logger, appId: launchAppId, bundleId: launchBundleId, iosSimulatorName, killChildTree });
+
+    // Handle child exit
+    child.on('exit', (code) => {
+        clearTimeout(bannerTimeout);
+        if (process.stdin.isTTY) {
+            process.stdin.setRawMode(false);
+        }
+        process.exit(code ?? 0);
+    });
+
+    // Propagate signals from the parent to the rspeedy tree so Ctrl+C
+    // doesn't orphan the port-holding process.
+    const handleSignal = (signal: NodeJS.Signals) => {
+        logger.log(`Received ${signal}, shutting down...`);
+        killChildTree(signal);
+        setTimeout(() => process.exit(0), 1000).unref();
+    };
+    process.on('SIGINT', () => handleSignal('SIGINT'));
+    process.on('SIGTERM', () => handleSignal('SIGTERM'));
+    process.on('SIGHUP', () => handleSignal('SIGHUP'));
+
+    // Keep running until child exits
+    await new Promise<void>((resolve) => {
+        child.on('close', () => resolve());
+    });
+}

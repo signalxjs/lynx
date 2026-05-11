@@ -1,0 +1,16 @@
+{
+    "name": "Haptics",
+    "package": "@sigx/lynx-haptics",
+    "description": "Vibration and haptic feedback",
+    "platforms": ["android", "ios"],
+    "ios": {
+        "moduleClass": "HapticsModule",
+        "sourceDir": "ios",
+        "methods": ["impact", "notification", "selection"]
+    },
+    "android": {
+        "moduleClass": "com.sigx.haptics.HapticsModule",
+        "sourceDir": "android",
+        "permissions": ["android.permission.VIBRATE"]
+    }
+}

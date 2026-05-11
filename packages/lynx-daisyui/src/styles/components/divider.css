@@ -1,0 +1,14 @@
+/* Divider — horizontal and vertical */
+
+.divider {
+  height: 1px;
+  align-self: stretch;
+  background-color: var(--color-base-300);
+}
+
+.divider-vertical {
+  width: 1px;
+  height: auto;
+  align-self: stretch;
+  background-color: var(--color-base-300);
+}

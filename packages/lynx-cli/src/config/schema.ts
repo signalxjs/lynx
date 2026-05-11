@@ -1,0 +1,168 @@
+/**
+ * sigx-lynx configuration schema.
+ *
+ * Used in `sigx.lynx.config.ts` at the project root. Declares which native
+ * modules the app needs so `sigx-lynx prebuild` can generate the correct
+ * native project (Android/iOS).
+ *
+ * In sigx-lynx-go (dev client), ALL modules are pre-bundled so this config
+ * is only needed for custom/production builds.
+ */
+
+/** Supported platforms for native builds. */
+export type Platform = 'android' | 'ios';
+
+/** Activity orientation lock. */
+export type Orientation = 'portrait' | 'landscape' | 'default';
+
+/** A single native module declaration. */
+export interface ModuleConfig {
+    /** npm package name, e.g. '@sigx/lynx-camera' */
+    package: string;
+    /**
+     * Platforms this module supports. Omit to include on all platforms.
+     * Useful when a module is Android-only or iOS-only.
+     */
+    platforms?: Platform[];
+    /**
+     * Module-specific native configuration.
+     * Passed to the module's native auto-linker (e.g. camera resolution, location accuracy).
+     */
+    config?: Record<string, unknown>;
+}
+
+/** Splash / launch screen config. */
+export interface SplashConfig {
+    /** Path (relative to project root) to splash image PNG. Falls back to bundled default. */
+    image?: string;
+    /** Background hex color, e.g. '#0D9488'. Default: '#FFFFFF'. */
+    backgroundColor?: string;
+}
+
+/** Android adaptive icon (Android 8+). */
+export interface AdaptiveIconConfig {
+    /** Path to foreground PNG. Should be 1024×1024 with logo inside the inner 66% safe zone. */
+    foreground: string;
+    /** Background hex color. Default: '#FFFFFF'. */
+    backgroundColor?: string;
+}
+
+/** Android-specific build configuration. */
+export interface AndroidConfig {
+    /** Application ID (e.g. 'com.mycompany.myapp'). Required for production builds. */
+    applicationId?: string;
+    /** Minimum SDK version (default: 24). */
+    minSdk?: number;
+    /** Target SDK version (default: 35). */
+    targetSdk?: number;
+    /** Compile SDK version (default: 35). */
+    compileSdk?: number;
+    /** versionCode for Play Store (integer). Default: 1. */
+    versionCode?: number;
+    /** Additional Gradle dependencies to include. */
+    dependencies?: string[];
+    /** AndroidManifest.xml permission additions. */
+    permissions?: string[];
+    /** Override top-level icon for Android only. */
+    icon?: string;
+    /** Adaptive icon for Android 8+ (foreground + background color). */
+    adaptiveIcon?: AdaptiveIconConfig;
+    /** Override top-level splash for Android only. */
+    splash?: SplashConfig;
+    /** Override top-level scheme for Android only. */
+    scheme?: string;
+    /** Override top-level orientation for Android only. */
+    orientation?: Orientation;
+}
+
+/** iOS-specific build configuration. */
+export interface IosConfig {
+    /** Bundle identifier (e.g. 'com.mycompany.myapp'). Required for production builds. */
+    bundleIdentifier?: string;
+    /** Minimum iOS deployment target (default: '15.0'). */
+    deploymentTarget?: string;
+    /** CFBundleVersion — store-submission build number, separate from marketing version. Default: '1'. */
+    buildNumber?: string;
+    /** Additional CocoaPods dependencies. */
+    pods?: Record<string, string>;
+    /** Info.plist permission usage descriptions. */
+    usageDescriptions?: Record<string, string>;
+    /** Override top-level icon for iOS only. */
+    icon?: string;
+    /** Override top-level splash for iOS only. */
+    splash?: SplashConfig;
+    /** Override top-level scheme for iOS only. */
+    scheme?: string;
+    /** Override top-level orientation for iOS only. */
+    orientation?: Orientation;
+}
+
+/** Full sigx-lynx project configuration. */
+export interface LynxConfig {
+    /** Display name of the app. */
+    name: string;
+    /** App version string (e.g. '1.0.0'). */
+    version?: string;
+    /** Build number (iOS CFBundleVersion / Android versionCode origin). Default: '1'. */
+    buildNumber?: string;
+    /** Path to source app icon (1024×1024 PNG). Falls back to bundled default. */
+    icon?: string;
+    /** Splash / launch screen. */
+    splash?: SplashConfig;
+    /** Custom URL scheme for deep linking, e.g. 'myapp' → myapp://. */
+    scheme?: string;
+    /** Activity orientation. Default: 'portrait'. */
+    orientation?: Orientation;
+    /**
+     * Native modules to include. Each entry is either:
+     * - A package name string (e.g. '@sigx/lynx-camera')
+     * - A ModuleConfig object for advanced configuration
+     */
+    modules?: (string | ModuleConfig)[];
+    /** Android-specific configuration. */
+    android?: AndroidConfig;
+    /** iOS-specific configuration. */
+    ios?: IosConfig;
+    /**
+     * Platforms to build for. Defaults to both.
+     * Use to skip a platform entirely.
+     */
+    platforms?: Platform[];
+}
+
+/**
+ * Define the sigx-lynx project configuration.
+ * Use this in `sigx.lynx.config.ts` at the project root.
+ *
+ * @example
+ * ```ts
+ * // sigx.lynx.config.ts
+ * import { defineLynxConfig } from '@sigx/lynx-cli/config';
+ *
+ * export default defineLynxConfig({
+ *     name: 'My App',
+ *     version: '1.0.0',
+ *     scheme: 'myapp',
+ *     orientation: 'portrait',
+ *     icon: 'assets/icon.png',
+ *     splash: { image: 'assets/splash.png', backgroundColor: '#0D9488' },
+ *     modules: [
+ *         '@sigx/lynx-haptics',
+ *         '@sigx/lynx-camera',
+ *         { package: '@sigx/lynx-location', config: { accuracy: 'high' } },
+ *     ],
+ *     android: {
+ *         applicationId: 'com.mycompany.myapp',
+ *         versionCode: 2,
+ *         adaptiveIcon: { foreground: 'assets/adaptive-foreground.png', backgroundColor: '#0D9488' },
+ *     },
+ *     ios: {
+ *         bundleIdentifier: 'com.mycompany.myapp',
+ *         buildNumber: '2',
+ *     },
+ * });
+ * ```
+ */
+export function defineLynxConfig(config: LynxConfig): LynxConfig {
+    return config;
+}

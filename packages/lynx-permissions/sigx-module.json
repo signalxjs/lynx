@@ -1,0 +1,13 @@
+{
+    "name": "Permissions",
+    "package": "@sigx/lynx-permissions",
+    "description": "Shared Android permission helper (peer dep for camera/location/etc.)",
+    "platforms": ["android"],
+    "android": {
+        "activityHook": {
+            "class": "com.sigx.permissions.PermissionsActivityHook",
+            "methods": ["onCreate", "onResume", "onPause", "onRequestPermissionsResult"]
+        },
+        "sourceDir": "android"
+    }
+}

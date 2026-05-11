@@ -1,0 +1,16 @@
+/* Avatar — .avatar + placeholder */
+
+.avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Placeholder background */
+.avatar-placeholder {
+  background-color: var(--color-neutral);
+}
+
+.avatar-placeholder text {
+  color: var(--color-neutral-content);
+}

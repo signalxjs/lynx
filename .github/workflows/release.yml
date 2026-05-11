@@ -1,0 +1,46 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'npm dist-tag (default: beta)'
+        required: false
+        default: 'beta'
+
+permissions:
+  contents: read
+  id-token: write   # Required for npm Trusted Publishing (OIDC)
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment: npm-publish
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          registry-url: 'https://registry.npmjs.org'
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm build
+
+      - name: Test
+        run: pnpm test
+
+      - name: Publish
+        env:
+          NPM_DIST_TAG: ${{ github.event.inputs.tag || 'beta' }}
+        run: pnpm publish:all -- --tag "$NPM_DIST_TAG"

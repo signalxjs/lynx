@@ -1,0 +1,56 @@
+/* Select — .select + dropdown, options */
+
+.select {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  height: var(--size-md);
+  padding-left: var(--padding-btn-md);
+  padding-right: var(--padding-btn-md);
+  border-radius: var(--rounded-btn);
+  font-size: var(--font-md);
+  background-color: var(--color-base-100);
+  color: var(--color-base-content);
+  border-width: 0;
+  border-color: transparent;
+}
+
+/* Variants */
+.select-bordered { border-width: var(--border-btn); border-color: var(--color-base-300); }
+.select-ghost { background-color: transparent; }
+
+/* Sizes */
+.select-xs { height: var(--size-xs); padding-left: var(--padding-btn-xs); padding-right: var(--padding-btn-xs); font-size: var(--font-xs); }
+.select-sm { height: var(--size-sm); padding-left: var(--padding-btn-sm); padding-right: var(--padding-btn-sm); font-size: var(--font-sm); }
+.select-lg { height: var(--size-lg); padding-left: 20px; padding-right: 20px; font-size: var(--font-lg); }
+
+/* Color variants */
+.select-primary { border-width: var(--border-btn); border-color: var(--color-primary); }
+.select-secondary { border-width: var(--border-btn); border-color: var(--color-secondary); }
+.select-accent { border-width: var(--border-btn); border-color: var(--color-accent); }
+.select-info { border-width: var(--border-btn); border-color: var(--color-info); }
+.select-success { border-width: var(--border-btn); border-color: var(--color-success); }
+.select-warning { border-width: var(--border-btn); border-color: var(--color-warning); }
+.select-error { border-width: var(--border-btn); border-color: var(--color-error); }
+
+/* Dropdown */
+.select-dropdown {
+  background-color: var(--color-base-100);
+  border-width: var(--border-btn);
+  border-color: var(--color-base-300);
+  border-radius: var(--rounded-btn);
+  overflow: hidden;
+}
+
+/* Options */
+.select-option {
+  padding: 12px;
+  padding-left: var(--padding-btn-md);
+  padding-right: var(--padding-btn-md);
+  color: var(--color-base-content);
+}
+
+.select-option-active {
+  background-color: var(--color-primary);
+  color: var(--color-primary-content);
+}

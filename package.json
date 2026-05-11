@@ -1,0 +1,58 @@
+{
+  "name": "sigx-lynx-monorepo",
+  "version": "0.1.0",
+  "private": true,
+  "description": "SignalX for Lynx — native mobile framework, runtime, CLI plugin, and native modules",
+  "type": "module",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "pnpm -r run build",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsgo --noEmit",
+    "lint": "oxlint packages/*/src",
+    "lint:fix": "oxlint --fix packages/*/src",
+    "clean": "rm -rf packages/*/dist packages/*/node_modules node_modules pnpm-lock.yaml",
+    "publish:dry": "node scripts/publish.js --dry-run",
+    "publish:all": "node scripts/publish.js",
+    "publish:beta": "node scripts/publish.js --tag beta",
+    "version:set": "node scripts/bump-version.js",
+    "version:patch": "node scripts/bump-version.js patch",
+    "version:minor": "node scripts/bump-version.js minor",
+    "version:major": "node scripts/bump-version.js major"
+  },
+  "devDependencies": {
+    "@typescript/native-preview": "7.0.0-dev.20260215.1",
+    "oxlint": "^1.47.0",
+    "typescript": "^5.9.3",
+    "vite": "^8.0.3",
+    "vitest": "^4.1.1"
+  },
+  "keywords": [
+    "SignalX",
+    "sigx",
+    "lynx",
+    "native",
+    "mobile",
+    "android",
+    "ios"
+  ],
+  "author": "Andreas Ekdahl",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/signalxjs/lynx.git"
+  },
+  "homepage": "https://github.com/signalxjs/lynx",
+  "bugs": {
+    "url": "https://github.com/signalxjs/lynx/issues"
+  },
+  "pnpm": {
+    "overrides": {
+      "@sigx/cli": "link:../../cli/main/packages/cli",
+      "@sigx/motion": "link:../../../viewti/lynx/packages/motion"
+    }
+  }
+}

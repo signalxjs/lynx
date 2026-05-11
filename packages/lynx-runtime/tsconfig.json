@@ -1,0 +1,23 @@
+{
+    "compilerOptions": {
+        "target": "ESNext",
+        "module": "ESNext",
+        "moduleResolution": "bundler",
+        "strict": true,
+        "esModuleInterop": true,
+        "skipLibCheck": true,
+        "forceConsistentCasingInFileNames": true,
+        "outDir": "dist",
+        "rootDir": "src",
+        "declaration": true,
+        "emitDeclarationOnly": true,
+        "jsx": "react-jsx",
+        "jsxImportSource": "@sigx/runtime-core",
+        "paths": {
+            "@sigx/runtime-core": ["../runtime-core/dist"],
+            "@sigx/runtime-core/jsx-runtime": ["../runtime-core/dist"],
+            "@sigx/runtime-core/jsx-dev-runtime": ["../runtime-core/dist"]
+        }
+    },
+    "include": ["src"]
+}
