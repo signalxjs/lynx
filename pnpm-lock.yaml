@@ -6,7 +6,6 @@ settings:
 
 overrides:
   '@sigx/cli': link:../../cli/main/packages/cli
-  '@sigx/motion': link:../../../viewti/lynx/packages/motion
 
 importers:
 
@@ -201,8 +200,8 @@ importers:
   packages/lynx-navigation:
     dependencies:
       '@sigx/motion':
-        specifier: link:../../../../../viewti/lynx/packages/motion
-        version: link:../../../../../viewti/lynx/packages/motion
+        specifier: ^0.1.0
+        version: 0.1.0
     devDependencies:
       '@sigx/lynx':
         specifier: workspace:^
@@ -1492,6 +1491,12 @@ packages:
 
   '@rspack/resolver@0.2.8':
     resolution: {integrity: sha512-FBWqdHhzS8mcf/WN4Ktzr7EaeaN+hsxbN98EweegX3924beZuY6H70CSFWCv1fIHAieCUv/9XCjKggHvhCsLwA==}
+
+  '@sigx/lynx@0.1.1':
+    resolution: {integrity: sha512-cL23DglPLhMyKSZVVpLKHyFdzioMzNNwj2CpwM2Rw2Pc20aH+XQuriTANf0eyweth4p5fmHDv24iqWN0RDg0eQ==}
+
+  '@sigx/motion@0.1.0':
+    resolution: {integrity: sha512-kGYoaUvHMB3s0u79h7fLMeVuPteAAJzutgPBYrJdbv1IT5v30vDKRlVgtD+RUCnR7izWLBB29C0cxONKB/dloA==}
 
   '@sigx/reactivity@0.3.2':
     resolution: {integrity: sha512-3VxlxUzjhA2jzxkeEDmDVkJhFCtb0uzLzvHy0aVKokZUDqFxeLZa/b2ZCmH66ffHV5ouNjEABMUDoJWd5stU1g==}
@@ -4242,6 +4247,16 @@ snapshots:
     transitivePeerDependencies:
       - '@emnapi/core'
       - '@emnapi/runtime'
+
+  '@sigx/lynx@0.1.1':
+    dependencies:
+      '@sigx/lynx-runtime': link:packages/lynx-runtime
+      '@sigx/reactivity': 0.4.1
+      '@sigx/runtime-core': 0.4.1
+
+  '@sigx/motion@0.1.0':
+    dependencies:
+      '@sigx/lynx': 0.1.1
 
   '@sigx/reactivity@0.3.2': {}
 
