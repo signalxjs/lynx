@@ -93,6 +93,13 @@
       ]
     }
   },
+  "include": [
+    "packages/*/src/**/*.ts",
+    "packages/*/src/**/*.tsx",
+    "packages/*/src/**/*.d.ts",
+    "packages/*/__tests__/**/*.ts",
+    "packages/*/__tests__/**/*.tsx"
+  ],
   "exclude": [
     "node_modules",
     "dist",
