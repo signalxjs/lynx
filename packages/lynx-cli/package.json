@@ -29,7 +29,7 @@
   "dependencies": {
     "@sigx/cli": "^0.1.0",
     "@sigx/lynx-core": "workspace:^",
-    "esbuild": "^0.27.0",
+    "esbuild": "^0.28.0",
     "sharp": "^0.34.0"
   },
   "devDependencies": {

@@ -40,8 +40,8 @@
     "clean": "rm -rf dist .turbo *.tsbuildinfo"
   },
   "dependencies": {
-    "@sigx/reactivity": "^0.4.1",
-    "@sigx/runtime-core": "^0.4.1",
+    "@sigx/reactivity": "^0.4.3",
+    "@sigx/runtime-core": "^0.4.3",
     "@sigx/lynx-runtime": "workspace:^"
   },
   "devDependencies": {

@@ -36,10 +36,10 @@
   "license": "MIT",
   "dependencies": {
     "@sigx/lynx": "workspace:^",
-    "@sigx/runtime-core": "^0.4.1"
+    "@sigx/runtime-core": "^0.4.3"
   },
   "peerDependencies": {
-    "@lynx-js/react": "^0.119.0",
+    "@lynx-js/react": "^0.120.0",
     "@sigx/lynx-runtime-main": "workspace:^",
     "vitest": "^4.0.0"
   },
@@ -55,7 +55,7 @@
     }
   },
   "devDependencies": {
-    "@lynx-js/react": "^0.119.0",
+    "@lynx-js/react": "^0.120.0",
     "@sigx/lynx-runtime-main": "workspace:^",
     "typescript": "^5.9.3",
     "vite": "^8.0.12",
