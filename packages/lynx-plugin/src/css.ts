@@ -138,7 +138,8 @@ export function applyCSS(
       //    and pass through the CSS selector / invalidation options.
       chain
         .plugin(CHAIN_ID.PLUGIN.MINI_CSS_EXTRACT)
-        .tap(([pluginOptions]: [any]) => {
+        .tap((args: any[]) => {
+          const [pluginOptions] = args;
           return [
             {
               ...pluginOptions,

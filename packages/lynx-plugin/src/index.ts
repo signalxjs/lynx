@@ -93,12 +93,6 @@ export interface PluginSigxLynxOptions {
   customCSSInheritanceList?: string[];
 
   /**
-   * Whether to enable CSS custom properties (variables) in inline styles.
-   * @defaultValue false
-   */
-  enableCSSInlineVariables?: boolean;
-
-  /**
    * Whether to place debug info outside the template bundle.
    * @defaultValue true
    */
@@ -117,7 +111,6 @@ export function pluginSigxLynx(
     enableCSSSelector: _enableCSSSelector = true,
     enableCSSInheritance: _enableCSSInheritance = false,
     customCSSInheritanceList: _customCSSInheritanceList,
-    enableCSSInlineVariables: _enableCSSInlineVariables = false,
     debugInfoOutside: _debugInfoOutside = true,
   } = options;
 
@@ -212,15 +205,16 @@ export function pluginSigxLynx(
         // so we must replace the function entirely.
         const existingPrintUrls = config.server?.printUrls;
         const printUrlsFn = typeof existingPrintUrls === 'function'
-          ? (param: { port: number; protocol: string; urls: string[] }) => {
+          ? (param: Parameters<typeof existingPrintUrls>[0]) => {
               // Call rspeedy's original printUrls to get the URL list,
               // then fix the hostnames in each URL.
               const result = existingPrintUrls(param);
               if (Array.isArray(result)) {
-                return result.map((item: { label: string; url: string }) => ({
-                  ...item,
-                  url: replaceWildcard(item.url),
-                }));
+                return result.map((item: any) =>
+                  typeof item === 'string'
+                    ? replaceWildcard(item)
+                    : { ...item, url: replaceWildcard(item.url) }
+                );
               }
               return result;
             }
@@ -381,7 +375,6 @@ export function pluginSigxLynx(
         debugInfoOutside: _debugInfoOutside,
         enableCSSInheritance: _enableCSSInheritance,
         customCSSInheritanceList: _customCSSInheritanceList,
-        enableCSSInlineVariables: _enableCSSInlineVariables,
       });
     },
   };

@@ -1,3 +1,5 @@
+/// <reference path="./shims.d.ts" />
+
 // Side-effect import — entry-main.ts registers globalThis.renderPage /
 // processData / sigxPatchUpdate / sigxRunOnMT and side-effect imports
 // @lynx-js/react/worklet-runtime which installs lynxWorkletImpl /
