@@ -93,10 +93,6 @@
       ]
     }
   },
-  "files": [
-    "packages/lynx-runtime/src/shims.d.ts",
-    "packages/lynx-runtime-main/src/shims.d.ts"
-  ],
   "include": [
     "packages/*/src/**/*.ts",
     "packages/*/src/**/*.tsx",
