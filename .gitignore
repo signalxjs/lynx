@@ -6,15 +6,17 @@ node_modules/
 # Build outputs
 dist/
 build/
-.gradle/
+docs/dist/
 *.d.ts
 *.d.ts.map
+!packages/runtime-core/src/jsx-types.d.ts
+*.js
 *.js.map
 
-# Keep config + script JS
+# Keep specific JS files
 !vite.config.js
 !*.config.js
-!packages/*/scripts/*.js
+!examples/*.js
 !scripts/*.js
 
 # Source-authored .d.ts (ambient declarations / shims) live alongside
@@ -38,24 +40,18 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
+lerna-debug.log*
 
-# Editor
+# Editor directories and files
 .vscode/*
 !.vscode/extensions.json
 .idea
 .DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
 *.sw?
-
-# Native build artifacts
-ios/build/
-ios/Pods/
-ios/DerivedData/
-android/.idea/
-android/app/build/
-android/build/
-android/.cxx/
-*.xcuserdatad/
-*.xcworkspace/xcuserdata/
 
 # Testing
 coverage/
