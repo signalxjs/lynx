@@ -17,6 +17,10 @@ build/
 !packages/*/scripts/*.js
 !scripts/*.js
 
+# Source-authored .d.ts (ambient declarations / shims) live alongside
+# tsgo-emitted .d.ts files — keep these tracked.
+!packages/*/src/shims.d.ts
+
 # TypeScript cache
 *.tsbuildinfo
 
