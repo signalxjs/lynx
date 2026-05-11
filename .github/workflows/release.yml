@@ -53,6 +53,9 @@ jobs:
       - name: Test
         run: pnpm test
 
+      - name: Verify pack
+        run: pnpm verify:pack
+
       - name: Publish to npm
         env:
           NPM_CONFIG_PROVENANCE: 'true'
