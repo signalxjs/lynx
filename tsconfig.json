@@ -14,10 +14,10 @@
         "./packages/lynx/src/index.ts"
       ],
       "@sigx/lynx/jsx-runtime": [
-        "./packages/lynx/jsx-runtime.ts"
+        "./packages/lynx/src/jsx-runtime.ts"
       ],
       "@sigx/lynx/jsx-dev-runtime": [
-        "./packages/lynx/jsx-dev-runtime.ts"
+        "./packages/lynx/src/jsx-dev-runtime.ts"
       ],
       "@sigx/lynx-camera": [
         "./packages/lynx-camera/src/index.ts"
