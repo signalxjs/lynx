@@ -36,9 +36,9 @@
     "url": "https://github.com/signalxjs/lynx/issues"
   },
   "devDependencies": {
-    "@sigx/vite": "^0.4.1",
+    "@sigx/vite": "^0.4.3",
     "typescript": "^5.9.3",
-    "vite": "^8.0.3"
+    "vite": "^8.0.12"
   },
   "publishConfig": {
     "access": "public"
