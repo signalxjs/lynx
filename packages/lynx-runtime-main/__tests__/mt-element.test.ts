@@ -85,7 +85,7 @@ beforeEach(() => {
   vi.stubGlobal('__SetAttribute', vi.fn());
 });
 
-const fakeEl = { __brand: 'MainThreadElement' } as unknown as Parameters<
+const fakeEl = { __brand: 'MainThreadElement' } as unknown as ConstructorParameters<
   typeof MTElementWrapper
 >[0];
 

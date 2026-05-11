@@ -363,6 +363,16 @@ export interface FilterImageAttributes extends LynxCommonAttributes {
 // use — types ship with the runtime that consumes them, no separate package.
 // ---------------------------------------------------------------------------
 
+// `data-*` / `aria-*` declared as a mapped type rather than two index
+// signatures: the @typescript/native-preview (tsgo) compiler currently
+// flags two template-literal index signatures on the same interface as
+// TS2374 duplicates, and also rejects the union form
+// `[key: \`data-${string}\` | \`aria-${string}\`]` for the same reason.
+// A `Record<K, V>` extension produces a mapped type instead, which tsgo
+// accepts. Declared at module scope (not inside JSX namespace) so the
+// emitted .d.ts doesn't double-declare it across consumers.
+type DataAriaAttributes = Record<`data-${string}` | `aria-${string}`, unknown>;
+
 declare global {
     namespace JSX {
         /**
@@ -377,14 +387,12 @@ declare global {
          * No `[key: string]: any` catch-all here on purpose — that would re-disable
          * the prop checks. `data-*` / `aria-*` are scoped via template-literal types.
          */
-        interface IntrinsicAttributes {
+        interface IntrinsicAttributes extends DataAriaAttributes {
             /** Stable identity for list reconciliation. */
             key?: string | number | null;
             id?: string;
             class?: string;
             style?: Record<string, string | number>;
-            [key: `data-${string}`]: unknown;
-            [key: `aria-${string}`]: unknown;
         }
 
         interface IntrinsicElements {
