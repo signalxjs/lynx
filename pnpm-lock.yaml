@@ -265,6 +265,9 @@ importers:
         specifier: workspace:*
         version: link:../lynx-runtime-internal
     devDependencies:
+      '@rsbuild/core':
+        specifier: ^1.7.5
+        version: 1.7.5
       '@sigx/vite':
         specifier: ^0.4.3
         version: 0.4.3(sigx@0.4.1)(vite@8.0.12(@types/node@20.19.40)(esbuild@0.27.7)(jiti@2.7.0)(terser@5.47.1))
