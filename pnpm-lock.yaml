@@ -18,8 +18,8 @@ importers:
         specifier: ^1.47.0
         version: 1.63.0
       typescript:
-        specifier: ^5.9.3
-        version: 5.9.3
+        specifier: ^6.0.3
+        version: 6.0.3
       vite:
         specifier: ^8.0.12
         version: 8.0.12(@types/node@22.19.18)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1)
@@ -46,8 +46,8 @@ importers:
         specifier: 7.0.0-dev.20260511.1
         version: 7.0.0-dev.20260511.1
       typescript:
-        specifier: ^5.9.3
-        version: 5.9.3
+        specifier: ^6.0.3
+        version: 6.0.3
       vite:
         specifier: ^8.0.12
         version: 8.0.12(@types/node@22.19.18)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1)
@@ -59,8 +59,8 @@ importers:
         version: link:../lynx-core
     devDependencies:
       typescript:
-        specifier: ^5.9.3
-        version: 5.9.3
+        specifier: ^6.0.3
+        version: 6.0.3
 
   packages/lynx-cli:
     dependencies:
@@ -81,8 +81,8 @@ importers:
         specifier: ^22.0.0
         version: 22.19.18
       typescript:
-        specifier: ^5.9.3
-        version: 5.9.3
+        specifier: ^6.0.3
+        version: 6.0.3
 
   packages/lynx-clipboard:
     dependencies:
@@ -91,14 +91,14 @@ importers:
         version: link:../lynx-core
     devDependencies:
       typescript:
-        specifier: ^5.9.3
-        version: 5.9.3
+        specifier: ^6.0.3
+        version: 6.0.3
 
   packages/lynx-core:
     devDependencies:
       typescript:
-        specifier: ^5.9.3
-        version: 5.9.3
+        specifier: ^6.0.3
+        version: 6.0.3
 
   packages/lynx-daisyui:
     dependencies:
@@ -116,8 +116,8 @@ importers:
         specifier: ^4.0.0
         version: 4.3.0
       typescript:
-        specifier: ^5.9.3
-        version: 5.9.3
+        specifier: ^6.0.3
+        version: 6.0.3
       vite:
         specifier: ^8.0.12
         version: 8.0.12(@types/node@22.19.18)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1)
@@ -125,8 +125,8 @@ importers:
   packages/lynx-dev-client:
     devDependencies:
       typescript:
-        specifier: ^5.9.3
-        version: 5.9.3
+        specifier: ^6.0.3
+        version: 6.0.3
 
   packages/lynx-device-info:
     dependencies:
@@ -135,8 +135,8 @@ importers:
         version: link:../lynx-core
     devDependencies:
       typescript:
-        specifier: ^5.9.3
-        version: 5.9.3
+        specifier: ^6.0.3
+        version: 6.0.3
 
   packages/lynx-file-system:
     dependencies:
@@ -145,8 +145,8 @@ importers:
         version: link:../lynx-core
     devDependencies:
       typescript:
-        specifier: ^5.9.3
-        version: 5.9.3
+        specifier: ^6.0.3
+        version: 6.0.3
 
   packages/lynx-haptics:
     dependencies:
@@ -155,8 +155,8 @@ importers:
         version: link:../lynx-core
     devDependencies:
       typescript:
-        specifier: ^5.9.3
-        version: 5.9.3
+        specifier: ^6.0.3
+        version: 6.0.3
 
   packages/lynx-image-picker:
     dependencies:
@@ -165,8 +165,8 @@ importers:
         version: link:../lynx-core
     devDependencies:
       typescript:
-        specifier: ^5.9.3
-        version: 5.9.3
+        specifier: ^6.0.3
+        version: 6.0.3
 
   packages/lynx-linking:
     dependencies:
@@ -181,8 +181,8 @@ importers:
         version: 0.4.1
     devDependencies:
       typescript:
-        specifier: ^5.9.3
-        version: 5.9.3
+        specifier: ^6.0.3
+        version: 6.0.3
       vitest:
         specifier: ^4.1.6
         version: 4.1.6(@types/node@22.19.18)(@vitest/coverage-v8@4.1.6)(vite@8.0.12(@types/node@22.19.18)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
@@ -194,8 +194,8 @@ importers:
         version: link:../lynx-core
     devDependencies:
       typescript:
-        specifier: ^5.9.3
-        version: 5.9.3
+        specifier: ^6.0.3
+        version: 6.0.3
 
   packages/lynx-navigation:
     dependencies:
@@ -213,8 +213,8 @@ importers:
         specifier: workspace:^
         version: link:../lynx-testing
       typescript:
-        specifier: ^5.9.3
-        version: 5.9.3
+        specifier: ^6.0.3
+        version: 6.0.3
       vitest:
         specifier: ^4.1.6
         version: 4.1.6(@types/node@22.19.18)(@vitest/coverage-v8@4.1.6)(vite@8.0.12(@types/node@22.19.18)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
@@ -226,8 +226,8 @@ importers:
         version: link:../lynx-core
     devDependencies:
       typescript:
-        specifier: ^5.9.3
-        version: 5.9.3
+        specifier: ^6.0.3
+        version: 6.0.3
 
   packages/lynx-notifications:
     dependencies:
@@ -236,8 +236,8 @@ importers:
         version: link:../lynx-core
     devDependencies:
       typescript:
-        specifier: ^5.9.3
-        version: 5.9.3
+        specifier: ^6.0.3
+        version: 6.0.3
 
   packages/lynx-permissions: {}
 
@@ -251,7 +251,7 @@ importers:
         version: 0.120.0(@lynx-js/types@3.8.0)(@types/react@18.3.28)
       '@lynx-js/rspeedy':
         specifier: '>=0.1.0'
-        version: 0.14.3(@emnapi/core@1.10.0)(@emnapi/runtime@1.10.0)(@rspack/core@2.0.2(@swc/helpers@0.5.21))(esbuild@0.28.0)(typescript@5.9.3)(webpack@5.106.2(esbuild@0.28.0)(postcss@8.5.14))
+        version: 0.14.3(@emnapi/core@1.10.0)(@emnapi/runtime@1.10.0)(@rspack/core@2.0.2(@swc/helpers@0.5.21))(esbuild@0.28.0)(typescript@6.0.3)(webpack@5.106.2(esbuild@0.28.0)(postcss@8.5.14))
       '@lynx-js/runtime-wrapper-webpack-plugin':
         specifier: '>=0.1.0'
         version: 0.1.3
@@ -278,8 +278,8 @@ importers:
         specifier: ^20.0.0
         version: 20.19.40
       typescript:
-        specifier: ^5.9.3
-        version: 5.9.3
+        specifier: ^6.0.3
+        version: 6.0.3
       vite:
         specifier: ^8.0.12
         version: 8.0.12(@types/node@20.19.40)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1)
@@ -303,8 +303,8 @@ importers:
         specifier: ^0.4.3
         version: 0.4.3(sigx@0.4.1)(vite@8.0.12(@types/node@22.19.18)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
       typescript:
-        specifier: ^5.9.3
-        version: 5.9.3
+        specifier: ^6.0.3
+        version: 6.0.3
       vite:
         specifier: ^8.0.12
         version: 8.0.12(@types/node@22.19.18)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1)
@@ -315,8 +315,8 @@ importers:
         specifier: ^0.4.3
         version: 0.4.3(sigx@0.4.1)(vite@8.0.12(@types/node@22.19.18)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
       typescript:
-        specifier: ^5.9.3
-        version: 5.9.3
+        specifier: ^6.0.3
+        version: 6.0.3
       vite:
         specifier: ^8.0.12
         version: 8.0.12(@types/node@22.19.18)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1)
@@ -337,8 +337,8 @@ importers:
         specifier: ^0.4.3
         version: 0.4.3(sigx@0.4.1)(vite@8.0.12(@types/node@22.19.18)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
       typescript:
-        specifier: ^5.9.3
-        version: 5.9.3
+        specifier: ^6.0.3
+        version: 6.0.3
       vite:
         specifier: ^8.0.12
         version: 8.0.12(@types/node@22.19.18)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1)
@@ -362,8 +362,8 @@ importers:
         specifier: workspace:^
         version: link:../lynx-testing
       typescript:
-        specifier: ^5.9.3
-        version: 5.9.3
+        specifier: ^6.0.3
+        version: 6.0.3
       vite:
         specifier: ^8.0.12
         version: 8.0.12(@types/node@22.19.18)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1)
@@ -375,8 +375,8 @@ importers:
         version: link:../lynx-core
     devDependencies:
       typescript:
-        specifier: ^5.9.3
-        version: 5.9.3
+        specifier: ^6.0.3
+        version: 6.0.3
 
   packages/lynx-storage:
     dependencies:
@@ -385,8 +385,8 @@ importers:
         version: link:../lynx-core
     devDependencies:
       typescript:
-        specifier: ^5.9.3
-        version: 5.9.3
+        specifier: ^6.0.3
+        version: 6.0.3
 
   packages/lynx-testing:
     dependencies:
@@ -404,8 +404,8 @@ importers:
         specifier: workspace:^
         version: link:../lynx-runtime-main
       typescript:
-        specifier: ^5.9.3
-        version: 5.9.3
+        specifier: ^6.0.3
+        version: 6.0.3
       vite:
         specifier: ^8.0.12
         version: 8.0.12(@types/node@22.19.18)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1)
@@ -2960,8 +2960,8 @@ packages:
     resolution: {integrity: sha512-3KS2b+kL7fsuk/eJZ7EQdnEmQoaho/r6KUef7hxvltNA5DR8NAUM+8wJMbJyZ4G9/7i3v5zPBIMN5aybAh2/Jg==}
     engines: {node: '>= 0.4'}
 
-  typescript@5.9.3:
-    resolution: {integrity: sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw==}
+  typescript@6.0.3:
+    resolution: {integrity: sha512-y2TvuxSZPDyQakkFRPZHKFm+KKVqIisdg9/CZwm9ftvKXLP8NRWj38/ODjNbr43SsoXqNuAisEf1GdCxqWcdBw==}
     engines: {node: '>=14.17'}
     hasBin: true
 
@@ -3405,7 +3405,7 @@ snapshots:
     optionalDependencies:
       '@lynx-js/types': 3.8.0
 
-  '@lynx-js/rspeedy@0.14.3(@emnapi/core@1.10.0)(@emnapi/runtime@1.10.0)(@rspack/core@2.0.2(@swc/helpers@0.5.21))(esbuild@0.28.0)(typescript@5.9.3)(webpack@5.106.2(esbuild@0.28.0)(postcss@8.5.14))':
+  '@lynx-js/rspeedy@0.14.3(@emnapi/core@1.10.0)(@emnapi/runtime@1.10.0)(@rspack/core@2.0.2(@swc/helpers@0.5.21))(esbuild@0.28.0)(typescript@6.0.3)(webpack@5.106.2(esbuild@0.28.0)(postcss@8.5.14))':
     dependencies:
       '@lynx-js/cache-events-webpack-plugin': 0.0.3
       '@lynx-js/chunk-loading-webpack-plugin': 0.3.3
@@ -3416,7 +3416,7 @@ snapshots:
       '@rsbuild/plugin-css-minimizer': 1.1.1(@rsbuild/core@1.7.5)(esbuild@0.28.0)(webpack@5.106.2(esbuild@0.28.0)(postcss@8.5.14))
       '@rsdoctor/rspack-plugin': 1.5.10(@emnapi/core@1.10.0)(@emnapi/runtime@1.10.0)(@rsbuild/core@1.7.5)(@rspack/core@2.0.2(@swc/helpers@0.5.21))(webpack@5.106.2(esbuild@0.28.0)(postcss@8.5.14))
     optionalDependencies:
-      typescript: 5.9.3
+      typescript: 6.0.3
     transitivePeerDependencies:
       - '@emnapi/core'
       - '@emnapi/runtime'
@@ -5700,7 +5700,7 @@ snapshots:
       possible-typed-array-names: 1.1.0
       reflect.getprototypeof: 1.0.10
 
-  typescript@5.9.3: {}
+  typescript@6.0.3: {}
 
   uc.micro@2.1.0: {}
 

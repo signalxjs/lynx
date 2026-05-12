@@ -32,7 +32,7 @@
     "@sigx/lynx": "workspace:^",
     "@sigx/lynx-linking": "workspace:^",
     "@sigx/lynx-testing": "workspace:^",
-    "typescript": "^5.9.3",
+    "typescript": "^6.0.3",
     "vitest": "^4.1.6"
   },
   "author": "Andreas Ekdahl",
