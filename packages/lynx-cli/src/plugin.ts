@@ -124,8 +124,20 @@ export default definePlugin({
                         }
                     }
                     if ((flagAndroid || flagAll) && hasAndroid) {
-                        for (const d of listAndroidDevices()) {
+                        const androidDevices = listAndroidDevices();
+                        for (const d of androidDevices) {
                             all.push({ kind: 'android-device', deviceId: d.id, model: d.model });
+                        }
+                        // If nothing Android-shaped is live, launch the most-recent AVD
+                        // so `--android` mirrors the iOS auto-boot fallback above.
+                        if (androidDevices.length === 0) {
+                            const { listAndroidAvds } = await import('./target-picker.js');
+                            const avds = listAndroidAvds();
+                            if (avds.length > 0) {
+                                all.push({ kind: 'android-avd', avdName: avds[0] });
+                            } else {
+                                ctx.logger.warn('No Android devices connected and no AVDs found. Open Android Studio → Device Manager to create one.');
+                            }
                         }
                     }
                     selected = all;
@@ -138,19 +150,33 @@ export default definePlugin({
                 } else {
                     // Non-TTY, no flags: behave like --all.
                     ctx.logger.log('Non-TTY environment — auto-targeting all detected devices (pass --ios/--android to narrow).');
-                    const { listBootedSimulators, listConnectedIosDevices, listAndroidDevices } = await import('./device-detect.js');
+                    const { listBootedSimulators, listConnectedIosDevices, listAndroidDevices, resolveIosSimulator } = await import('./device-detect.js');
                     const all: Target[] = [];
                     if (hasIos) {
-                        for (const s of listBootedSimulators()) {
+                        const booted = listBootedSimulators();
+                        const devices = listConnectedIosDevices();
+                        for (const s of booted) {
                             all.push({ kind: 'ios-simulator', udid: s.udid, name: s.name, needsBoot: false });
                         }
-                        for (const d of listConnectedIosDevices()) {
+                        for (const d of devices) {
                             all.push({ kind: 'ios-device', udid: d.udid, name: d.name });
+                        }
+                        if (booted.length === 0 && devices.length === 0) {
+                            const sim = resolveIosSimulator();
+                            if (sim) all.push({ kind: 'ios-simulator', udid: sim.udid, name: sim.name, needsBoot: true });
                         }
                     }
                     if (hasAndroid) {
-                        for (const d of listAndroidDevices()) {
+                        const androidDevices = listAndroidDevices();
+                        for (const d of androidDevices) {
                             all.push({ kind: 'android-device', deviceId: d.id, model: d.model });
+                        }
+                        if (androidDevices.length === 0) {
+                            const { listAndroidAvds } = await import('./target-picker.js');
+                            const avds = listAndroidAvds();
+                            if (avds.length > 0) {
+                                all.push({ kind: 'android-avd', avdName: avds[0] });
+                            }
                         }
                     }
                     selected = all;

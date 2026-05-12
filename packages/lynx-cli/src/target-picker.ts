@@ -12,6 +12,8 @@
  */
 
 import { execSync, spawn } from 'node:child_process';
+import { statSync } from 'node:fs';
+import { homedir } from 'node:os';
 import { join } from 'node:path';
 import type { Logger } from '@sigx/cli/plugin';
 import {
@@ -42,10 +44,34 @@ interface Item {
     detail?: string;
     /** Section header; not selectable. */
     header?: boolean;
-    /** When confirmed, this item expands into a sub-picker instead of resolving directly. */
-    expander?: 'ios-boot' | 'android-avd';
-    /** Target payload when the item resolves directly. */
+    /** Target payload when the item is selected. */
     target?: SelectedTarget;
+}
+
+/** Cap on inline "available to boot/launch" entries — avoids drowning users with 30 sims in the picker. */
+const AVAILABLE_LIMIT = 6;
+
+/**
+ * Approximate "last used" timestamp for a simulator. CoreSimulator updates
+ * the device directory's mtime when the sim is booted, so this is a cheap
+ * MRU proxy without any persistent state of our own. Missing or unreadable
+ * directories return 0 so they sort to the bottom.
+ */
+function simMtime(udid: string): number {
+    try {
+        return statSync(join(homedir(), 'Library/Developer/CoreSimulator/Devices', udid)).mtimeMs;
+    } catch {
+        return 0;
+    }
+}
+
+/** Same idea for an AVD: `~/.android/avd/<name>.avd/` mtime updates on launch. */
+function avdMtime(name: string): number {
+    try {
+        return statSync(join(homedir(), '.android', 'avd', `${name}.avd`)).mtimeMs;
+    } catch {
+        return 0;
+    }
 }
 
 // ────────────────────────────────────────────────────────────────
@@ -116,13 +142,7 @@ function buildItems(opts: PickTargetsOptions): Item[] {
         items.push({ id: 'ios-header', label: 'iOS', header: true });
         const booted = listBootedSimulators();
         const devices = listConnectedIosDevices();
-        if (booted.length === 0 && devices.length === 0) {
-            items.push({
-                id: 'ios-empty',
-                label: `${DIM}(no booted simulators, no connected devices)${RESET}`,
-                header: true,
-            });
-        }
+
         for (const sim of booted) {
             items.push({
                 id: `ios-sim-${sim.udid}`,
@@ -140,11 +160,40 @@ function buildItems(opts: PickTargetsOptions): Item[] {
                 target: { kind: 'ios-device', udid: dev.udid, name: dev.name },
             });
         }
-        items.push({
-            id: 'ios-boot',
-            label: '＋ Boot iOS simulator…',
-            expander: 'ios-boot',
-        });
+
+        // Inline the bootable sims: iPhones first, then by MRU (CoreSimulator
+        // device-dir mtime is a cheap proxy for "last used"), then by runtime.
+        const available = listAllSimulators()
+            .filter((s) => s.state !== 'Booted')
+            .sort((a, b) => {
+                const aIphone = a.name.includes('iPhone') ? 0 : 1;
+                const bIphone = b.name.includes('iPhone') ? 0 : 1;
+                if (aIphone !== bIphone) return aIphone - bIphone;
+                const dm = simMtime(b.udid) - simMtime(a.udid);
+                if (dm !== 0) return dm;
+                return b.runtime.localeCompare(a.runtime);
+            })
+            .slice(0, AVAILABLE_LIMIT);
+
+        if (available.length > 0) {
+            items.push({ id: 'ios-avail-header', label: 'Available to boot:', header: true });
+            for (const sim of available) {
+                items.push({
+                    id: `ios-avail-${sim.udid}`,
+                    label: `📱 ${sim.name}`,
+                    detail: sim.runtime,
+                    target: { kind: 'ios-simulator', udid: sim.udid, name: sim.name, needsBoot: true },
+                });
+            }
+        }
+
+        if (booted.length === 0 && devices.length === 0 && available.length === 0) {
+            items.push({
+                id: 'ios-empty',
+                label: `${DIM}(no simulators installed — open Xcode → Settings → Platforms)${RESET}`,
+                header: true,
+            });
+        }
     }
 
     if (opts.hasAndroid) {
@@ -152,13 +201,7 @@ function buildItems(opts: PickTargetsOptions): Item[] {
         const devices = listAndroidDevices();
         const avds = listAndroidAvds();
         const runningAvdIds = new Set(devices.filter((d) => d.type === 'emulator').map((d) => d.id));
-        if (devices.length === 0 && avds.length === 0) {
-            items.push({
-                id: 'android-empty',
-                label: `${DIM}(no devices connected, no AVDs found)${RESET}`,
-                header: true,
-            });
-        }
+
         for (const dev of devices) {
             const icon = dev.type === 'emulator' ? '📱' : '📲';
             const name = dev.model || dev.id;
@@ -169,13 +212,32 @@ function buildItems(opts: PickTargetsOptions): Item[] {
                 target: { kind: 'android-device', deviceId: dev.id, model: dev.model },
             });
         }
-        // Only offer the expander if we actually have AVDs that aren't already running
-        const offlineAvds = avds.filter((avd) => !runningAvdIds.has(`emulator-${avd}`));
-        if (offlineAvds.length > 0) {
+
+        // Inline the launchable AVDs (those not already running), MRU first.
+        // `emulator-NNNN` is the running-emulator surface name; AVDs by themselves
+        // don't carry the port so we filter by checking each AVD against the
+        // emulator IDs we've seen come online.
+        const launchable = avds
+            .filter((avd) => !runningAvdIds.has(`emulator-${avd}`))
+            .sort((a, b) => avdMtime(b) - avdMtime(a) || a.localeCompare(b))
+            .slice(0, AVAILABLE_LIMIT);
+
+        if (launchable.length > 0) {
+            items.push({ id: 'android-avail-header', label: 'Available to launch:', header: true });
+            for (const avd of launchable) {
+                items.push({
+                    id: `android-avd-${avd}`,
+                    label: `📱 ${avd}`,
+                    target: { kind: 'android-avd', avdName: avd },
+                });
+            }
+        }
+
+        if (devices.length === 0 && launchable.length === 0) {
             items.push({
-                id: 'android-avd',
-                label: '＋ Launch Android emulator…',
-                expander: 'android-avd',
+                id: 'android-empty',
+                label: `${DIM}(no devices connected, no AVDs found — open Android Studio → Device Manager)${RESET}`,
+                header: true,
             });
         }
     }
@@ -220,64 +282,6 @@ function nextSelectable(items: Item[], from: number, dir: 1 | -1): number {
         if (!item.header) return i;
     }
     return from;
-}
-
-/**
- * Run a single-select sub-picker. Returns the selected item's target or null.
- */
-async function singleSelect(title: string, items: Item[]): Promise<Item | null> {
-    if (items.length === 0) return null;
-    if (!process.stdin.isTTY) return null;
-
-    let cursor = 0;
-    while (items[cursor]?.header) cursor++;
-
-    const stdin = process.stdin;
-    stdin.setRawMode(true);
-    stdin.resume();
-    stdin.setEncoding('utf-8');
-
-    process.stdout.write(HIDE_CURSOR);
-
-    let linesRendered = 0;
-    const draw = () => {
-        const out = render(items, cursor, new Set(), title);
-        process.stdout.write(clearLines(linesRendered) + out);
-        linesRendered = out.split('\n').length - 1;
-    };
-    draw();
-
-    return new Promise<Item | null>((resolve) => {
-        const onData = (key: string) => {
-            if (key === '\r' || key === '\n') {
-                cleanup();
-                resolve(items[cursor]);
-                return;
-            }
-            if (key === '\x03' || key === 'q' || key === '\x1b') {
-                cleanup();
-                resolve(null);
-                return;
-            }
-            if (key === '\x1b[A' || key === 'k') {
-                cursor = nextSelectable(items, cursor, -1);
-                draw();
-                return;
-            }
-            if (key === '\x1b[B' || key === 'j') {
-                cursor = nextSelectable(items, cursor, 1);
-                draw();
-                return;
-            }
-        };
-        const cleanup = () => {
-            stdin.off('data', onData);
-            stdin.setRawMode(false);
-            stdin.pause();
-            process.stdout.write(SHOW_CURSOR);
-        };
-        stdin.on('data', onData);
-    });
 }
 
 // ────────────────────────────────────────────────────────────────
@@ -365,48 +369,7 @@ export async function pickTargets(opts: PickTargetsOptions): Promise<SelectedTar
 
     if (picked === null) return null;
 
-    // Resolve expanders into concrete targets
-    const result: SelectedTarget[] = [];
-    for (const item of picked) {
-        if (item.expander === 'ios-boot') {
-            const sims = listAllSimulators()
-                .filter((s) => s.state !== 'Booted')
-                .sort((a, b) => {
-                    // iPhone first, then latest runtime first
-                    const aIphone = a.name.includes('iPhone') ? 0 : 1;
-                    const bIphone = b.name.includes('iPhone') ? 0 : 1;
-                    if (aIphone !== bIphone) return aIphone - bIphone;
-                    return b.runtime.localeCompare(a.runtime);
-                });
-            const subItems: Item[] = sims.map((s) => ({
-                id: `sim-${s.udid}`,
-                label: `📱 ${s.name}`,
-                detail: s.runtime,
-                target: { kind: 'ios-simulator', udid: s.udid, name: s.name, needsBoot: true },
-            }));
-            if (subItems.length === 0) continue;
-            const chosen = await singleSelect('Boot which iOS simulator?', subItems);
-            if (chosen?.target) result.push(chosen.target);
-            continue;
-        }
-        if (item.expander === 'android-avd') {
-            const devices = listAndroidDevices();
-            const runningAvdIds = new Set(devices.filter((d) => d.type === 'emulator').map((d) => d.id));
-            const avds = listAndroidAvds().filter((avd) => !runningAvdIds.has(`emulator-${avd}`));
-            const subItems: Item[] = avds.map((avd) => ({
-                id: `avd-${avd}`,
-                label: `📱 ${avd}`,
-                target: { kind: 'android-avd', avdName: avd },
-            }));
-            if (subItems.length === 0) continue;
-            const chosen = await singleSelect('Launch which Android emulator?', subItems);
-            if (chosen?.target) result.push(chosen.target);
-            continue;
-        }
-        if (item.target) result.push(item.target);
-    }
-
-    return result;
+    return picked.map((item) => item.target).filter((t): t is SelectedTarget => !!t);
 }
 
 // ────────────────────────────────────────────────────────────────
