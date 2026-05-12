@@ -351,6 +351,9 @@ importers:
       '@sigx/lynx-runtime-internal':
         specifier: workspace:^
         version: link:../lynx-runtime-internal
+      '@sigx/reactivity':
+        specifier: ^0.4.3
+        version: 0.4.3
     devDependencies:
       '@sigx/lynx-plugin':
         specifier: workspace:^

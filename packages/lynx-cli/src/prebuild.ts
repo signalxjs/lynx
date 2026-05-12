@@ -290,6 +290,11 @@ export function scaffoldAndroid(cwd: string, config: ResolvedConfig): void {
     mkdirSync(androidDir, { recursive: true });
     copyTemplateDir(templateDir, androidDir, vars);
 
+    // npm normalizes file modes to 0o644 in tarballs (except `bin` entries), so the
+    // exec bit on `gradlew` is lost between publish and install. Force-set it.
+    const gradlew = join(androidDir, 'gradlew');
+    if (existsSync(gradlew)) chmodSync(gradlew, 0o755);
+
     log(`Android: scaffolded to ${androidDir}`);
 }
 
