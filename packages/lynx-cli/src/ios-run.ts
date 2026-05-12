@@ -8,11 +8,11 @@
  * `sigx dev` can launch every picked target at once with the right URL.
  */
 
-import { spawn } from 'node:child_process';
 import { join } from 'node:path';
 import type { Logger } from '@sigx/cli/plugin';
 import { runPrebuild } from './prebuild.js';
 import { podInstallIfStale } from './ios-pods.js';
+import { runWithBuildFilter } from './build-output.js';
 import {
     findBuiltApp,
     installAppOnDevice,
@@ -29,10 +29,11 @@ export interface EnsureIosBuiltOptions {
     appName: string;
     target: IosBuildTarget;
     configuration?: 'Debug' | 'Release';
+    verbose?: boolean;
 }
 
 export async function ensureIosBuilt(opts: EnsureIosBuiltOptions): Promise<void> {
-    const { cwd, logger, appName, target, configuration = 'Debug' } = opts;
+    const { cwd, logger, appName, target, configuration = 'Debug', verbose = false } = opts;
     const iosDir = join(cwd, 'ios');
 
     logger.log('Running prebuild for iOS...');
@@ -42,30 +43,25 @@ export async function ensureIosBuilt(opts: EnsureIosBuiltOptions): Promise<void>
 
     logger.log(`Building iOS (${configuration}) for ${target.kind}...`);
     const workspace = join('ios', `${appName}.xcworkspace`);
-    const build = spawn(
-        'xcodebuild',
-        [
-            '-workspace', workspace,
-            '-scheme', appName,
-            '-destination', `id=${target.udid}`,
-            '-configuration', configuration,
-            'build',
-        ],
-        { cwd, stdio: 'inherit' },
-    );
-
-    await new Promise<void>((resolve, reject) => {
-        build.on('exit', (code) => {
-            if (code !== 0) {
-                if (target.kind === 'device') {
-                    logger.error('Device build failed. Check that a development team is selected in Xcode (Signing & Capabilities).');
-                }
-                reject(new Error(`iOS ${configuration} build failed`));
-            } else {
-                resolve();
-            }
-        });
-    });
+    try {
+        await runWithBuildFilter(
+            'xcodebuild',
+            [
+                '-workspace', workspace,
+                '-scheme', appName,
+                '-destination', `id=${target.udid}`,
+                '-configuration', configuration,
+                'build',
+            ],
+            { cwd },
+            { kind: 'xcodebuild', verbose, logger },
+        );
+    } catch {
+        if (target.kind === 'device') {
+            logger.error('Device build failed. Check that a development team is selected in Xcode (Signing & Capabilities).');
+        }
+        throw new Error(`iOS ${configuration} build failed`);
+    }
 
     logger.log('\x1b[32m✓ App built\x1b[0m');
 

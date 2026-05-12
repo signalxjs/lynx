@@ -14,6 +14,7 @@ import { join } from 'node:path';
 import { getAllLanIPs } from './network.js';
 import { generateQR } from './qr.js';
 import { getDeviceStatus, getDeviceStatusCached, invalidateDeviceStatusCache, launchFlow, launchApp, launchIosApp, launchAppOnDevice, installAppOnDevice, resolveIosSimulator, bootSimulator, listAllSimulators, installAppOnSimulator, findBuiltApp, adbReverse, type DeviceStatus } from './device-detect.js';
+import { runWithBuildFilter } from './build-output.js';
 import type { Logger } from '@sigx/cli/plugin';
 import type { SelectedTarget } from './target-picker.js';
 
@@ -35,6 +36,8 @@ export interface DevServerOptions {
      * auto-launch fires only on those targets.
      */
     selectedTargets?: SelectedTarget[];
+    /** Stream raw build output (xcodebuild / gradle) instead of filtering. */
+    verbose?: boolean;
 }
 
 function getProjectName(cwd: string): string {
@@ -210,6 +213,7 @@ function setupKeyboardShortcuts(child: ChildProcess, opts: {
     appId?: string;
     bundleId?: string;
     iosSimulatorName?: string;
+    verbose?: boolean;
     killChildTree: (signal?: NodeJS.Signals) => void;
 }) {
     if (!process.stdin.isTTY) return;
@@ -326,32 +330,33 @@ function setupKeyboardShortcuts(child: ChildProcess, opts: {
                     break;
                 }
                 opts.logger.log('Installing and launching Android app...');
-                // Run gradle install in background, then launch
-                import('node:child_process').then(({ spawn: spawnChild }) => {
+                void (async () => {
                     const androidDir = join(opts.cwd, 'android');
                     const gradleCmd = process.platform === 'win32' ? 'gradlew.bat' : 'gradlew';
-                    const build = spawnChild(join(androidDir, gradleCmd), ['installDebug'], {
-                        cwd: androidDir,
-                        stdio: 'inherit',
-                        shell: process.platform === 'win32',
-                    });
-                    build.on('exit', (code) => {
-                        if (code !== 0) {
-                            opts.logger.error('Android build failed');
-                            return;
-                        }
-                        opts.logger.log('\x1b[32m✓ App installed\x1b[0m');
+                    try {
+                        await runWithBuildFilter(
+                            join(androidDir, gradleCmd),
+                            ['installDebug'],
+                            {
+                                cwd: androidDir,
+                                shell: process.platform === 'win32',
+                            },
+                            { kind: 'gradle', verbose: opts.verbose ?? false, logger: opts.logger },
+                        );
+                    } catch {
+                        opts.logger.error('Android build failed');
+                        return;
+                    }
+                    opts.logger.log('\x1b[32m✓ App installed\x1b[0m');
 
-                        // App set changed — bust the status cache before reading.
-                        invalidateDeviceStatusCache();
-                        const status = getDeviceStatus(opts.appId);
-                        for (const device of status.devices) {
-                            const url = androidUrlFor(device.id);
-                            opts.logger.log(`Launching on ${device.model || device.id}...`);
-                            launchApp(device.id, opts.appId!, url);
-                        }
-                    });
-                });
+                    invalidateDeviceStatusCache();
+                    const status = getDeviceStatus(opts.appId);
+                    for (const device of status.devices) {
+                        const url = androidUrlFor(device.id);
+                        opts.logger.log(`Launching on ${device.model || device.id}...`);
+                        launchApp(device.id, opts.appId!, url);
+                    }
+                })();
                 break;
             }
             case 'q':
@@ -416,43 +421,43 @@ function setupKeyboardShortcuts(child: ChildProcess, opts: {
                     }
 
                     const workspace = join('ios', `${appName}.xcworkspace`);
-                    const build = spawn('xcodebuild', [
-                        '-workspace', workspace,
-                        '-scheme', appName,
-                        '-destination', `id=${simulator.udid}`,
-                        '-configuration', 'Debug',
-                        'build',
-                    ], {
-                        cwd: opts.cwd,
-                        stdio: 'inherit',
-                    });
+                    try {
+                        await runWithBuildFilter(
+                            'xcodebuild',
+                            [
+                                '-workspace', workspace,
+                                '-scheme', appName,
+                                '-destination', `id=${simulator.udid}`,
+                                '-configuration', 'Debug',
+                                'build',
+                            ],
+                            { cwd: opts.cwd },
+                            { kind: 'xcodebuild', verbose: opts.verbose ?? false, logger: opts.logger },
+                        );
+                    } catch {
+                        opts.logger.error('iOS build failed');
+                        return;
+                    }
+                    opts.logger.log('\x1b[32m✓ iOS app built\x1b[0m');
 
-                    build.on('exit', (code) => {
-                        if (code !== 0) {
-                            opts.logger.error('iOS build failed');
-                            return;
-                        }
-                        opts.logger.log('\x1b[32m✓ iOS app built\x1b[0m');
+                    const appPath = findBuiltApp(appName);
+                    if (!appPath) {
+                        opts.logger.error(`Could not find built ${appName}.app in DerivedData`);
+                        return;
+                    }
+                    opts.logger.log('Installing on simulator...');
+                    if (!installAppOnSimulator(simulator.udid, appPath)) {
+                        opts.logger.error('Failed to install app on simulator');
+                        return;
+                    }
+                    opts.logger.log('\x1b[32m✓ App installed\x1b[0m');
+                    invalidateDeviceStatusCache();
 
-                        const appPath = findBuiltApp(appName);
-                        if (!appPath) {
-                            opts.logger.error(`Could not find built ${appName}.app in DerivedData`);
-                            return;
-                        }
-                        opts.logger.log('Installing on simulator...');
-                        if (!installAppOnSimulator(simulator.udid, appPath)) {
-                            opts.logger.error('Failed to install app on simulator');
-                            return;
-                        }
-                        opts.logger.log('\x1b[32m✓ App installed\x1b[0m');
-                        invalidateDeviceStatusCache();
-
-                        opts.logger.log(`Launching on ${simulator.name}...`);
-                        try {
-                            execSync(`xcrun simctl terminate "${simulator.udid}" "${opts.bundleId}"`, { stdio: 'pipe' });
-                        } catch { /* not running */ }
-                        launchIosApp(simulator.udid, opts.bundleId!, bundleUrl);
-                    });
+                    opts.logger.log(`Launching on ${simulator.name}...`);
+                    try {
+                        execSync(`xcrun simctl terminate "${simulator.udid}" "${opts.bundleId}"`, { stdio: 'pipe' });
+                    } catch { /* not running */ }
+                    launchIosApp(simulator.udid, opts.bundleId!, bundleUrl);
                 })();
                 break;
             }
@@ -669,7 +674,7 @@ export async function startDevServer(opts: DevServerOptions): Promise<void> {
     });
 
     // Setup keyboard shortcuts
-    setupKeyboardShortcuts(child, { cwd, serverState, lanIPs, projectName, logger, appId: launchAppId, bundleId: launchBundleId, iosSimulatorName, killChildTree });
+    setupKeyboardShortcuts(child, { cwd, serverState, lanIPs, projectName, logger, appId: launchAppId, bundleId: launchBundleId, iosSimulatorName, verbose: opts.verbose, killChildTree });
 
     // Handle child exit
     child.on('exit', (code) => {
