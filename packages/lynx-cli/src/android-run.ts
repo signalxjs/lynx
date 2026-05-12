@@ -7,12 +7,13 @@
  * incremental builds itself.
  */
 
-import { execSync, spawn } from 'node:child_process';
+import { execSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Logger } from '@sigx/cli/plugin';
 import { runPrebuild } from './prebuild.js';
 import { resolveAdb } from './device-detect.js';
+import { runWithBuildFilter } from './build-output.js';
 
 /**
  * Discover the Android SDK root. Mirrors the candidate list in
@@ -129,59 +130,62 @@ export function resolveAndroidBuildEnv(logger: Logger): NodeJS.ProcessEnv {
  * errors (signature mismatch, …) so we can surface a friendly follow-up
  * hint instead of burying the user under a 200-line stack trace.
  *
- * `stdio` is piped so we can tee, then forwarded to the parent verbatim —
- * scrolling output looks the same as `stdio: 'inherit'`.
+ * Output is filtered through {@link runWithBuildFilter} (gradle kind) by
+ * default; `verbose` restores raw streaming for diagnostics. The
+ * signature-mismatch sniffer runs against unfiltered chunks via `onChunk`
+ * so it keeps working in both modes.
  */
 export async function runGradleWithDx(
     args: string[],
-    opts: { cwd: string; logger: Logger; applicationId?: string },
+    opts: { cwd: string; logger: Logger; applicationId?: string; verbose?: boolean },
 ): Promise<void> {
     const gradleEnv = resolveAndroidBuildEnv(opts.logger);
     const gradleCmd = process.platform === 'win32' ? 'gradlew.bat' : 'gradlew';
-    const child = spawn(join(opts.cwd, gradleCmd), args, {
-        cwd: opts.cwd,
-        stdio: ['inherit', 'pipe', 'pipe'],
-        shell: process.platform === 'win32',
-        env: gradleEnv,
-    });
 
     let sawSignatureMismatch = false;
     const SIG_PATTERN = /INSTALL_FAILED_UPDATE_INCOMPATIBLE.*signatures do not match/;
 
-    const watch = (stream: NodeJS.ReadableStream, sink: NodeJS.WriteStream) => {
-        stream.on('data', (chunk: Buffer) => {
-            sink.write(chunk);
-            if (!sawSignatureMismatch && SIG_PATTERN.test(chunk.toString('utf-8'))) {
-                sawSignatureMismatch = true;
-            }
-        });
-    };
-    watch(child.stdout!, process.stdout);
-    watch(child.stderr!, process.stderr);
-
-    await new Promise<void>((resolve, reject) => {
-        child.on('exit', (code) => {
-            if (code === 0) return resolve();
-            if (sawSignatureMismatch) {
-                const pkg = opts.applicationId ?? '<your package>';
-                opts.logger.error('');
-                opts.logger.error('\x1b[33mInstall failed: signature mismatch.\x1b[0m An app with this package ID is already');
-                opts.logger.error('installed on the device with a different signing key (common when switching from');
-                opts.logger.error('sigx-lynx-go, between debug/release keystores, or across machines).');
-                opts.logger.error('');
-                opts.logger.error(`Fix:  adb uninstall ${pkg}`);
-                opts.logger.error('Then re-run the same sigx command.');
-                opts.logger.error('');
-            }
-            reject(new Error('Android build failed'));
-        });
-    });
+    try {
+        await runWithBuildFilter(
+            join(opts.cwd, gradleCmd),
+            args,
+            {
+                cwd: opts.cwd,
+                shell: process.platform === 'win32',
+                env: gradleEnv,
+            },
+            {
+                kind: 'gradle',
+                verbose: opts.verbose ?? false,
+                logger: opts.logger,
+                onChunk: (chunk) => {
+                    if (!sawSignatureMismatch && SIG_PATTERN.test(chunk.toString('utf-8'))) {
+                        sawSignatureMismatch = true;
+                    }
+                },
+            },
+        );
+    } catch {
+        if (sawSignatureMismatch) {
+            const pkg = opts.applicationId ?? '<your package>';
+            opts.logger.error('');
+            opts.logger.error('\x1b[33mInstall failed: signature mismatch.\x1b[0m An app with this package ID is already');
+            opts.logger.error('installed on the device with a different signing key (common when switching from');
+            opts.logger.error('sigx-lynx-go, between debug/release keystores, or across machines).');
+            opts.logger.error('');
+            opts.logger.error(`Fix:  adb uninstall ${pkg}`);
+            opts.logger.error('Then re-run the same sigx command.');
+            opts.logger.error('');
+        }
+        throw new Error('Android build failed');
+    }
 }
 
 export interface EnsureAndroidBuiltOptions {
     cwd: string;
     logger: Logger;
     applicationId?: string;
+    verbose?: boolean;
 }
 
 /**
@@ -197,7 +201,12 @@ export async function ensureAndroidBuilt(opts: EnsureAndroidBuiltOptions): Promi
     await runPrebuild({ android: true, ios: false, cwd });
 
     logger.log('Building Android (debug)...');
-    await runGradleWithDx(['installDebug'], { cwd: androidDir, logger, applicationId: opts.applicationId });
+    await runGradleWithDx(['installDebug'], {
+        cwd: androidDir,
+        logger,
+        applicationId: opts.applicationId,
+        verbose: opts.verbose,
+    });
 
     logger.log('\x1b[32m✓ App installed\x1b[0m');
 }

@@ -59,6 +59,7 @@ export default definePlugin({
                 ios: { type: 'boolean', description: 'Target iOS only (skip picker)', default: false },
                 android: { type: 'boolean', description: 'Target Android only (skip picker)', default: false },
                 all: { type: 'boolean', description: 'Auto-target every connected device (skip picker)', default: false },
+                verbose: { type: 'boolean', description: 'Stream raw xcodebuild/gradle output (default: filtered)', default: false },
             },
             async run(ctx) {
                 const androidDir = join(ctx.cwd, 'android');
@@ -89,6 +90,9 @@ export default definePlugin({
                 const flagAndroid = ctx.args.android as boolean;
                 const flagAll = ctx.args.all as boolean;
                 const anyFlag = flagIos || flagAndroid || flagAll;
+
+                const { resolveVerbose } = await import('./build-output.js');
+                const verbose = resolveVerbose(ctx.args.verbose);
 
                 const { pickTargets, materializeTargets } = await import('./target-picker.js');
                 type Target = import('./target-picker.js').SelectedTarget;
@@ -162,7 +166,7 @@ export default definePlugin({
                 if (hasAndroidTarget) {
                     const { ensureAndroidBuilt } = await import('./android-run.js');
                     try {
-                        await ensureAndroidBuilt({ cwd: ctx.cwd, logger: ctx.logger, applicationId: launchAppId });
+                        await ensureAndroidBuilt({ cwd: ctx.cwd, logger: ctx.logger, applicationId: launchAppId, verbose });
                     } catch (err) {
                         ctx.logger.error(err instanceof Error ? err.message : String(err));
                         process.exit(1);
@@ -183,6 +187,7 @@ export default definePlugin({
                                 logger: ctx.logger,
                                 appName,
                                 target: { kind: t.kind === 'ios-simulator' ? 'simulator' : 'device', udid: t.udid, name: t.name },
+                                verbose,
                             });
                         } catch (err) {
                             ctx.logger.error(err instanceof Error ? err.message : String(err));
@@ -236,6 +241,7 @@ export default definePlugin({
                     launchAppId,
                     launchBundleId,
                     selectedTargets: live,
+                    verbose,
                 });
             },
         },
@@ -314,6 +320,7 @@ export default definePlugin({
             description: 'Build and launch on Android device/emulator',
             args: {
                 release: { type: 'boolean', description: 'Build in release mode (no dev server)', default: false },
+                verbose: { type: 'boolean', description: 'Stream raw gradle output (default: filtered)', default: false },
             },
             async run(ctx) {
                 const { runPrebuild, loadConfig } = await import('./prebuild.js');
@@ -323,9 +330,11 @@ export default definePlugin({
                 const { getAllLanIPs } = await import('./network.js');
                 const { getDeviceStatus, launchApp, resolveAdb } = await import('./device-detect.js');
                 const { generateQR } = await import('./qr.js');
+                const { resolveVerbose } = await import('./build-output.js');
 
                 const androidDir = join(ctx.cwd, 'android');
                 const isRelease = ctx.args.release as boolean;
+                const verbose = resolveVerbose(ctx.args.verbose);
 
                 // Load config for applicationId
                 const rawConfig = await loadConfig(ctx.cwd);
@@ -374,6 +383,7 @@ export default definePlugin({
                             cwd: androidDir,
                             logger: ctx.logger,
                             applicationId,
+                            verbose,
                         });
                     } catch (err) {
                         ctx.logger.error(err instanceof Error ? err.message : String(err));
@@ -404,7 +414,7 @@ export default definePlugin({
                 }
 
                 const { ensureAndroidBuilt } = await import('./android-run.js');
-                await ensureAndroidBuilt({ cwd: ctx.cwd, logger: ctx.logger, applicationId });
+                await ensureAndroidBuilt({ cwd: ctx.cwd, logger: ctx.logger, applicationId, verbose });
 
                 // Start dev server
                 const { startDevServer } = await import('./dev-server.js');
@@ -412,6 +422,7 @@ export default definePlugin({
                     cwd: ctx.cwd,
                     logger: ctx.logger,
                     launchAppId: applicationId,
+                    verbose,
                 });
             },
         },
@@ -421,6 +432,7 @@ export default definePlugin({
                 release: { type: 'boolean', description: 'Build in release mode (no dev server)', default: false },
                 simulator: { type: 'string', description: 'Simulator name (auto-detected if omitted)' },
                 device: { type: 'string', description: 'Physical device name or UDID (requires Xcode 15+)' },
+                verbose: { type: 'boolean', description: 'Stream raw xcodebuild output (default: filtered)', default: false },
             },
             async run(ctx) {
                 if (process.platform !== 'darwin') {
@@ -437,11 +449,13 @@ export default definePlugin({
                     listConnectedIosDevices, installAppOnDevice, launchAppOnDevice, isDevicectlAvailable,
                 } = await import('./device-detect.js');
                 const { podInstallIfStale } = await import('./ios-pods.js');
+                const { runWithBuildFilter, resolveVerbose } = await import('./build-output.js');
 
                 const iosDir = join(ctx.cwd, 'ios');
                 const isRelease = ctx.args.release as boolean;
                 const requestedSimulator = ctx.args.simulator as string | undefined;
                 const requestedDevice = ctx.args.device as string | undefined;
+                const verbose = resolveVerbose(ctx.args.verbose);
 
                 // Load config
                 const rawConfig = await loadConfig(ctx.cwd);
@@ -501,30 +515,25 @@ export default definePlugin({
                 async function xcodeBuild(configuration: string) {
                     const workspace = join('ios', `${appName}.xcworkspace`);
                     ctx.logger.log(`Building iOS (${configuration}) for ${target.kind}...`);
-
-                    const build = spawn('xcodebuild', [
-                        '-workspace', workspace,
-                        '-scheme', appName,
-                        '-destination', `id=${target.udid}`,
-                        '-configuration', configuration,
-                        'build',
-                    ], {
-                        cwd: ctx.cwd,
-                        stdio: 'inherit',
-                    });
-
-                    await new Promise<void>((resolve, reject) => {
-                        build.on('exit', (code) => {
-                            if (code !== 0) {
-                                if (target.kind === 'device') {
-                                    ctx.logger.error('Device build failed. Check that a development team is selected in Xcode (Signing & Capabilities).');
-                                }
-                                reject(new Error(`iOS ${configuration} build failed`));
-                            } else {
-                                resolve();
-                            }
-                        });
-                    });
+                    try {
+                        await runWithBuildFilter(
+                            'xcodebuild',
+                            [
+                                '-workspace', workspace,
+                                '-scheme', appName,
+                                '-destination', `id=${target.udid}`,
+                                '-configuration', configuration,
+                                'build',
+                            ],
+                            { cwd: ctx.cwd },
+                            { kind: 'xcodebuild', verbose, logger: ctx.logger },
+                        );
+                    } catch {
+                        if (target.kind === 'device') {
+                            ctx.logger.error('Device build failed. Check that a development team is selected in Xcode (Signing & Capabilities).');
+                        }
+                        throw new Error(`iOS ${configuration} build failed`);
+                    }
                 }
 
                 // Helper: install + launch app on the chosen target.
@@ -614,6 +623,7 @@ export default definePlugin({
                         logger: ctx.logger,
                         appName,
                         target,
+                        verbose,
                     });
                 } catch (err) {
                     ctx.logger.error(err instanceof Error ? err.message : String(err));
@@ -627,6 +637,7 @@ export default definePlugin({
                     logger: ctx.logger,
                     launchBundleId: bundleId,
                     iosSimulatorName: target.kind === 'simulator' ? target.name : undefined,
+                    verbose,
                 });
             },
         },
