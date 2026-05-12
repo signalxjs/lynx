@@ -57,7 +57,7 @@
   "devDependencies": {
     "@lynx-js/react": "^0.120.0",
     "@sigx/lynx-runtime-main": "workspace:^",
-    "typescript": "^5.9.3",
+    "typescript": "^6.0.3",
     "vite": "^8.0.12",
     "vitest": "^4.1.6"
   },
