@@ -1,76 +1,76 @@
 {
-  "name": "@sigx/lynx-testing",
-  "version": "0.2.4",
-  "description": "Testing utilities for SignalX Lynx components - render, fireEvent, queries",
-  "type": "module",
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
-  "exports": {
-    ".": {
-      "import": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+    "name": "@sigx/lynx-testing",
+    "version": "0.2.6",
+    "description": "Testing utilities for SignalX Lynx components - render, fireEvent, queries",
+    "type": "module",
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+        ".": {
+            "import": "./dist/index.js",
+            "types": "./dist/index.d.ts"
+        },
+        "./mt": {
+            "import": "./dist/mt/index.js",
+            "types": "./dist/mt/index.d.ts"
+        },
+        "./mt/setup": {
+            "import": "./dist/mt/setup.js",
+            "types": "./dist/mt/setup.d.ts"
+        }
     },
-    "./mt": {
-      "import": "./dist/mt/index.js",
-      "types": "./dist/mt/index.d.ts"
+    "files": [
+        "dist"
+    ],
+    "scripts": {
+        "build": "vite build && tsgo --emitDeclarationOnly",
+        "dev": "vite build --watch"
     },
-    "./mt/setup": {
-      "import": "./dist/mt/setup.js",
-      "types": "./dist/mt/setup.d.ts"
+    "keywords": [
+        "sigx",
+        "testing",
+        "lynx",
+        "test-renderer"
+    ],
+    "author": "Andreas Ekdahl",
+    "license": "MIT",
+    "dependencies": {
+        "@sigx/lynx": "workspace:^",
+        "@sigx/runtime-core": "^0.4.3"
+    },
+    "peerDependencies": {
+        "@lynx-js/react": "^0.120.0",
+        "@sigx/lynx-runtime-main": "workspace:^",
+        "vitest": "^4.0.0"
+    },
+    "peerDependenciesMeta": {
+        "@lynx-js/react": {
+            "optional": true
+        },
+        "@sigx/lynx-runtime-main": {
+            "optional": true
+        },
+        "vitest": {
+            "optional": true
+        }
+    },
+    "devDependencies": {
+        "@lynx-js/react": "^0.120.0",
+        "@sigx/lynx-runtime-main": "workspace:^",
+        "typescript": "^6.0.3",
+        "vite": "^8.0.12",
+        "vitest": "^4.1.6"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/signalxjs/lynx.git",
+        "directory": "packages/lynx-testing"
+    },
+    "homepage": "https://github.com/signalxjs/lynx/tree/main/packages/lynx-testing",
+    "bugs": {
+        "url": "https://github.com/signalxjs/lynx/issues"
+    },
+    "publishConfig": {
+        "access": "public"
     }
-  },
-  "files": [
-    "dist"
-  ],
-  "scripts": {
-    "build": "vite build && tsgo --emitDeclarationOnly",
-    "dev": "vite build --watch"
-  },
-  "keywords": [
-    "sigx",
-    "testing",
-    "lynx",
-    "test-renderer"
-  ],
-  "author": "Andreas Ekdahl",
-  "license": "MIT",
-  "dependencies": {
-    "@sigx/lynx": "workspace:^",
-    "@sigx/runtime-core": "^0.4.3"
-  },
-  "peerDependencies": {
-    "@lynx-js/react": "^0.120.0",
-    "@sigx/lynx-runtime-main": "workspace:^",
-    "vitest": "^4.0.0"
-  },
-  "peerDependenciesMeta": {
-    "@lynx-js/react": {
-      "optional": true
-    },
-    "@sigx/lynx-runtime-main": {
-      "optional": true
-    },
-    "vitest": {
-      "optional": true
-    }
-  },
-  "devDependencies": {
-    "@lynx-js/react": "^0.120.0",
-    "@sigx/lynx-runtime-main": "workspace:^",
-    "typescript": "^6.0.3",
-    "vite": "^8.0.12",
-    "vitest": "^4.1.6"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/signalxjs/lynx.git",
-    "directory": "packages/lynx-testing"
-  },
-  "homepage": "https://github.com/signalxjs/lynx/tree/main/packages/lynx-testing",
-  "bugs": {
-    "url": "https://github.com/signalxjs/lynx/issues"
-  },
-  "publishConfig": {
-    "access": "public"
-  }
 }

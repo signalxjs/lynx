@@ -1,44 +1,44 @@
 {
-  "name": "@sigx/lynx-core",
-  "version": "0.1.2",
-  "description": "Core native bridge for sigx-lynx — low-level access to NativeModules",
-  "type": "module",
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
-  "exports": {
-    ".": {
-      "import": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+    "name": "@sigx/lynx-core",
+    "version": "0.1.4",
+    "description": "Core native bridge for sigx-lynx — low-level access to NativeModules",
+    "type": "module",
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+        ".": {
+            "import": "./dist/index.js",
+            "types": "./dist/index.d.ts"
+        }
+    },
+    "files": [
+        "dist"
+    ],
+    "scripts": {
+        "build": "tsc",
+        "dev": "tsc --watch"
+    },
+    "keywords": [
+        "sigx",
+        "lynx",
+        "native",
+        "bridge"
+    ],
+    "author": "Andreas Ekdahl",
+    "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/signalxjs/lynx.git",
+        "directory": "packages/lynx-core"
+    },
+    "devDependencies": {
+        "typescript": "^6.0.3"
+    },
+    "homepage": "https://github.com/signalxjs/lynx/tree/main/packages/lynx-core",
+    "bugs": {
+        "url": "https://github.com/signalxjs/lynx/issues"
+    },
+    "publishConfig": {
+        "access": "public"
     }
-  },
-  "files": [
-    "dist"
-  ],
-  "scripts": {
-    "build": "tsc",
-    "dev": "tsc --watch"
-  },
-  "keywords": [
-    "sigx",
-    "lynx",
-    "native",
-    "bridge"
-  ],
-  "author": "Andreas Ekdahl",
-  "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/signalxjs/lynx.git",
-    "directory": "packages/lynx-core"
-  },
-  "devDependencies": {
-    "typescript": "^6.0.3"
-  },
-  "homepage": "https://github.com/signalxjs/lynx/tree/main/packages/lynx-core",
-  "bugs": {
-    "url": "https://github.com/signalxjs/lynx/issues"
-  },
-  "publishConfig": {
-    "access": "public"
-  }
 }

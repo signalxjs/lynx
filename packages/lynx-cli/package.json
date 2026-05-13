@@ -1,63 +1,63 @@
 {
-  "name": "@sigx/lynx-cli",
-  "version": "0.3.0",
-  "description": "Lynx CLI plugin for sigx — config, prebuild, auto-linking",
-  "type": "module",
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
-  "sigx-cli": {
-    "plugin": "./dist/plugin.js"
-  },
-  "exports": {
-    ".": {
-      "import": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+    "name": "@sigx/lynx-cli",
+    "version": "0.3.2",
+    "description": "Lynx CLI plugin for sigx — config, prebuild, auto-linking",
+    "type": "module",
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "sigx-cli": {
+        "plugin": "./dist/plugin.js"
     },
-    "./config": {
-      "import": "./dist/config/index.js",
-      "types": "./dist/config/index.d.ts"
+    "exports": {
+        ".": {
+            "import": "./dist/index.js",
+            "types": "./dist/index.d.ts"
+        },
+        "./config": {
+            "import": "./dist/config/index.js",
+            "types": "./dist/config/index.d.ts"
+        }
+    },
+    "files": [
+        "dist",
+        "templates"
+    ],
+    "scripts": {
+        "build": "tsc",
+        "dev": "tsc --watch"
+    },
+    "dependencies": {
+        "@sigx/cli": "^0.1.0",
+        "@sigx/lynx-core": "workspace:^",
+        "esbuild": "^0.28.0",
+        "sharp": "^0.34.0"
+    },
+    "devDependencies": {
+        "@types/node": "^25.7.0",
+        "typescript": "^6.0.3"
+    },
+    "author": "Andreas Ekdahl",
+    "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/signalxjs/lynx.git",
+        "directory": "packages/lynx-cli"
+    },
+    "homepage": "https://github.com/signalxjs/lynx/tree/main/packages/lynx-cli",
+    "bugs": {
+        "url": "https://github.com/signalxjs/lynx/issues"
+    },
+    "keywords": [
+        "signalx",
+        "sigx",
+        "lynx",
+        "cli",
+        "plugin",
+        "mobile",
+        "ios",
+        "android"
+    ],
+    "publishConfig": {
+        "access": "public"
     }
-  },
-  "files": [
-    "dist",
-    "templates"
-  ],
-  "scripts": {
-    "build": "tsc",
-    "dev": "tsc --watch"
-  },
-  "dependencies": {
-    "@sigx/cli": "^0.1.0",
-    "@sigx/lynx-core": "workspace:^",
-    "esbuild": "^0.28.0",
-    "sharp": "^0.34.0"
-  },
-  "devDependencies": {
-    "@types/node": "^25.7.0",
-    "typescript": "^6.0.3"
-  },
-  "author": "Andreas Ekdahl",
-  "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/signalxjs/lynx.git",
-    "directory": "packages/lynx-cli"
-  },
-  "homepage": "https://github.com/signalxjs/lynx/tree/main/packages/lynx-cli",
-  "bugs": {
-    "url": "https://github.com/signalxjs/lynx/issues"
-  },
-  "keywords": [
-    "signalx",
-    "sigx",
-    "lynx",
-    "cli",
-    "plugin",
-    "mobile",
-    "ios",
-    "android"
-  ],
-  "publishConfig": {
-    "access": "public"
-  }
 }

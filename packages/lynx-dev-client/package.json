@@ -1,52 +1,52 @@
 {
-  "name": "@sigx/lynx-dev-client",
-  "version": "0.1.1",
-  "description": "Dev client for sigx-lynx — resource fetchers, template provider, and devtool integration",
-  "type": "module",
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
-  "exports": {
-    ".": {
-      "import": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+    "name": "@sigx/lynx-dev-client",
+    "version": "0.1.3",
+    "description": "Dev client for sigx-lynx — resource fetchers, template provider, and devtool integration",
+    "type": "module",
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+        ".": {
+            "import": "./dist/index.js",
+            "types": "./dist/index.d.ts"
+        },
+        "./sigx-module.json": "./sigx-module.json",
+        "./package.json": "./package.json"
     },
-    "./sigx-module.json": "./sigx-module.json",
-    "./package.json": "./package.json"
-  },
-  "files": [
-    "dist",
-    "android",
-    "ios",
-    "sigx-module.json"
-  ],
-  "scripts": {
-    "build": "tsc",
-    "dev": "tsc --watch"
-  },
-  "devDependencies": {
-    "typescript": "^6.0.3"
-  },
-  "author": "Andreas Ekdahl",
-  "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/signalxjs/lynx.git",
-    "directory": "packages/lynx-dev-client"
-  },
-  "homepage": "https://github.com/signalxjs/lynx/tree/main/packages/lynx-dev-client",
-  "bugs": {
-    "url": "https://github.com/signalxjs/lynx/issues"
-  },
-  "publishConfig": {
-    "access": "public"
-  },
-  "keywords": [
-    "signalx",
-    "sigx",
-    "lynx",
-    "mobile",
-    "ios",
-    "android",
-    "dev-client"
-  ]
+    "files": [
+        "dist",
+        "android",
+        "ios",
+        "sigx-module.json"
+    ],
+    "scripts": {
+        "build": "tsc",
+        "dev": "tsc --watch"
+    },
+    "devDependencies": {
+        "typescript": "^6.0.3"
+    },
+    "author": "Andreas Ekdahl",
+    "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/signalxjs/lynx.git",
+        "directory": "packages/lynx-dev-client"
+    },
+    "homepage": "https://github.com/signalxjs/lynx/tree/main/packages/lynx-dev-client",
+    "bugs": {
+        "url": "https://github.com/signalxjs/lynx/issues"
+    },
+    "publishConfig": {
+        "access": "public"
+    },
+    "keywords": [
+        "signalx",
+        "sigx",
+        "lynx",
+        "mobile",
+        "ios",
+        "android",
+        "dev-client"
+    ]
 }
