@@ -68,3 +68,57 @@ Then add overrides to your **local** `package.json` (do not commit — keep them
 ```
 
 Run `pnpm install` to apply. Remove the overrides before committing release commits.
+
+## Testing an unpublished native module in a consumer app
+
+When you're iterating on a new native module (say `@sigx/lynx-websocket`) and want to drive it from a real Lynx app *before* publishing to npm, link the package into the consumer with `pnpm.overrides` and `link:`.
+
+In the **consumer app's** `package.json` (e.g. `~/dev/sigx/my-lynx-app/package.json`):
+
+```jsonc
+{
+  "dependencies": {
+    "@sigx/lynx-websocket": "link:../lynx/main/packages/lynx-websocket"
+  },
+  "pnpm": {
+    "overrides": {
+      "@sigx/lynx-websocket": "link:../lynx/main/packages/lynx-websocket",
+      // Also override any workspace: deps the linked package pulls in,
+      // since `workspace:` doesn't resolve outside a pnpm workspace.
+      "@sigx/lynx-core": "link:../lynx/main/packages/lynx-core"
+    }
+  }
+}
+```
+
+Then in `sigx.lynx.config.ts`:
+
+```ts
+modules: [
+    /* …existing… */
+    '@sigx/lynx-websocket',
+],
+```
+
+Workflow:
+
+```bash
+# 1. build the new package (its dist/ is what the consumer reads)
+pnpm --filter @sigx/lynx-websocket build
+
+# 2. (one-time per change to package.json) refresh the symlink
+cd ~/dev/sigx/my-lynx-app
+pnpm install
+
+# 3. regenerate native projects so the autolinker picks up sigx-module.json
+pnpm prebuild
+
+# 4. run
+pnpm run:android   # or run:ios
+```
+
+Tips:
+
+- **TS-only changes:** run `pnpm --filter @sigx/lynx-websocket dev` (tsc --watch) in one terminal. The dev server picks up the rebuilt `dist/` on next reload — no reinstall needed.
+- **Native (Swift/Kotlin) changes:** rerun `pnpm prebuild` in the consumer, then rebuild the native app (`pnpm run:android` / open the Xcode project).
+- **Don't commit** the consumer-side overrides; they're host-machine-specific paths. Keep them in a local-only patch.

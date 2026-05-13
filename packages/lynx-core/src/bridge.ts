@@ -21,6 +21,7 @@ const MODULE_PACKAGES: Record<string, string> = {
     Notifications: '@sigx/lynx-notifications',
     Network: '@sigx/lynx-network',
     Linking: '@sigx/lynx-linking',
+    WebSocket: '@sigx/lynx-websocket',
 };
 
 /**

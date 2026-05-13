@@ -1,0 +1,19 @@
+{
+    "name": "WebSocket",
+    "package": "@sigx/lynx-websocket",
+    "description": "Browser-standard WebSocket client",
+    "platforms": ["android", "ios"],
+    "ios": {
+        "moduleClass": "WebSocketModule",
+        "publisherClass": "WebSocketPublisher",
+        "sourceDir": "ios",
+        "methods": ["create", "send", "close"]
+    },
+    "android": {
+        "moduleClass": "com.sigx.websocket.WebSocketModule",
+        "publisherClass": "com.sigx.websocket.WebSocketPublisher",
+        "sourceDir": "android",
+        "dependencies": ["com.squareup.okhttp3:okhttp:4.12.0"],
+        "permissions": []
+    }
+}
