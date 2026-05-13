@@ -1,68 +1,68 @@
 {
-  "name": "@sigx/lynx-runtime-main",
-  "version": "0.2.5",
-  "description": "Main Thread (Lepus) entry and ops applier for SignalX Lynx renderer",
-  "type": "module",
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
-  "sideEffects": true,
-  "exports": {
-    ".": {
-      "import": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+    "name": "@sigx/lynx-runtime-main",
+    "version": "0.2.7",
+    "description": "Main Thread (Lepus) entry and ops applier for SignalX Lynx renderer",
+    "type": "module",
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "sideEffects": true,
+    "exports": {
+        ".": {
+            "import": "./dist/index.js",
+            "types": "./dist/index.d.ts"
+        },
+        "./entry-main": {
+            "import": "./dist/entry-main.js",
+            "types": "./dist/entry-main.d.ts"
+        },
+        "./install-hybrid-worklet": {
+            "import": "./dist/install-hybrid-worklet.js",
+            "types": "./dist/install-hybrid-worklet.d.ts"
+        },
+        "./package.json": "./package.json"
     },
-    "./entry-main": {
-      "import": "./dist/entry-main.js",
-      "types": "./dist/entry-main.d.ts"
+    "files": [
+        "dist",
+        "THIRD_PARTY_NOTICES.md"
+    ],
+    "scripts": {
+        "build": "vite build && tsgo --emitDeclarationOnly",
+        "dev": "vite build --watch"
     },
-    "./install-hybrid-worklet": {
-      "import": "./dist/install-hybrid-worklet.js",
-      "types": "./dist/install-hybrid-worklet.d.ts"
+    "keywords": [
+        "sigx",
+        "lynx",
+        "main-thread"
+    ],
+    "author": "Andreas Ekdahl",
+    "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/signalxjs/lynx.git",
+        "directory": "packages/lynx-runtime-main"
     },
-    "./package.json": "./package.json"
-  },
-  "files": [
-    "dist",
-    "THIRD_PARTY_NOTICES.md"
-  ],
-  "scripts": {
-    "build": "vite build && tsgo --emitDeclarationOnly",
-    "dev": "vite build --watch"
-  },
-  "keywords": [
-    "sigx",
-    "lynx",
-    "main-thread"
-  ],
-  "author": "Andreas Ekdahl",
-  "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/signalxjs/lynx.git",
-    "directory": "packages/lynx-runtime-main"
-  },
-  "homepage": "https://github.com/signalxjs/lynx/tree/main/packages/lynx-runtime-main",
-  "bugs": {
-    "url": "https://github.com/signalxjs/lynx/issues"
-  },
-  "dependencies": {
-    "@sigx/lynx-runtime-internal": "workspace:*"
-  },
-  "peerDependencies": {
-    "@lynx-js/types": ">=3.0.0"
-  },
-  "peerDependenciesMeta": {
-    "@lynx-js/types": {
-      "optional": true
+    "homepage": "https://github.com/signalxjs/lynx/tree/main/packages/lynx-runtime-main",
+    "bugs": {
+        "url": "https://github.com/signalxjs/lynx/issues"
+    },
+    "dependencies": {
+        "@sigx/lynx-runtime-internal": "workspace:*"
+    },
+    "peerDependencies": {
+        "@lynx-js/types": ">=3.0.0"
+    },
+    "peerDependenciesMeta": {
+        "@lynx-js/types": {
+            "optional": true
+        }
+    },
+    "devDependencies": {
+        "@lynx-js/types": "^3.7.0",
+        "@sigx/vite": "^0.4.3",
+        "typescript": "^6.0.3",
+        "vite": "^8.0.12"
+    },
+    "publishConfig": {
+        "access": "public"
     }
-  },
-  "devDependencies": {
-    "@lynx-js/types": "^3.7.0",
-    "@sigx/vite": "^0.4.3",
-    "typescript": "^6.0.3",
-    "vite": "^8.0.12"
-  },
-  "publishConfig": {
-    "access": "public"
-  }
 }

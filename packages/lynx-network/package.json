@@ -1,54 +1,54 @@
 {
-  "name": "@sigx/lynx-network",
-  "version": "0.1.0",
-  "description": "Network connectivity status for sigx-lynx",
-  "type": "module",
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
-  "exports": {
-    ".": {
-      "import": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+    "name": "@sigx/lynx-network",
+    "version": "0.1.2",
+    "description": "Network connectivity status for sigx-lynx",
+    "type": "module",
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+        ".": {
+            "import": "./dist/index.js",
+            "types": "./dist/index.d.ts"
+        },
+        "./sigx-module.json": "./sigx-module.json"
     },
-    "./sigx-module.json": "./sigx-module.json"
-  },
-  "files": [
-    "dist",
-    "ios",
-    "android",
-    "sigx-module.json"
-  ],
-  "scripts": {
-    "build": "tsc",
-    "dev": "tsc --watch"
-  },
-  "dependencies": {
-    "@sigx/lynx-core": "workspace:^"
-  },
-  "devDependencies": {
-    "typescript": "^6.0.3"
-  },
-  "author": "Andreas Ekdahl",
-  "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/signalxjs/lynx.git",
-    "directory": "packages/lynx-network"
-  },
-  "homepage": "https://github.com/signalxjs/lynx/tree/main/packages/lynx-network",
-  "bugs": {
-    "url": "https://github.com/signalxjs/lynx/issues"
-  },
-  "publishConfig": {
-    "access": "public"
-  },
-  "keywords": [
-    "signalx",
-    "sigx",
-    "lynx",
-    "mobile",
-    "ios",
-    "android",
-    "network"
-  ]
+    "files": [
+        "dist",
+        "ios",
+        "android",
+        "sigx-module.json"
+    ],
+    "scripts": {
+        "build": "tsc",
+        "dev": "tsc --watch"
+    },
+    "dependencies": {
+        "@sigx/lynx-core": "workspace:^"
+    },
+    "devDependencies": {
+        "typescript": "^6.0.3"
+    },
+    "author": "Andreas Ekdahl",
+    "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/signalxjs/lynx.git",
+        "directory": "packages/lynx-network"
+    },
+    "homepage": "https://github.com/signalxjs/lynx/tree/main/packages/lynx-network",
+    "bugs": {
+        "url": "https://github.com/signalxjs/lynx/issues"
+    },
+    "publishConfig": {
+        "access": "public"
+    },
+    "keywords": [
+        "signalx",
+        "sigx",
+        "lynx",
+        "mobile",
+        "ios",
+        "android",
+        "network"
+    ]
 }

@@ -1,81 +1,81 @@
 {
-  "name": "@sigx/lynx-plugin",
-  "version": "0.2.5",
-  "description": "Rspack/Rspeedy plugin for SignalX Lynx dual-thread rendering",
-  "type": "module",
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
-  "exports": {
-    ".": {
-      "import": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+    "name": "@sigx/lynx-plugin",
+    "version": "0.2.7",
+    "description": "Rspack/Rspeedy plugin for SignalX Lynx dual-thread rendering",
+    "type": "module",
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+        ".": {
+            "import": "./dist/index.js",
+            "types": "./dist/index.d.ts"
+        }
+    },
+    "files": [
+        "dist"
+    ],
+    "scripts": {
+        "build": "vite build && tsgo --emitDeclarationOnly",
+        "dev": "vite build --watch"
+    },
+    "keywords": [
+        "sigx",
+        "lynx",
+        "rspack",
+        "rspeedy",
+        "plugin"
+    ],
+    "author": "Andreas Ekdahl",
+    "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/signalxjs/lynx.git",
+        "directory": "packages/lynx-plugin"
+    },
+    "homepage": "https://github.com/signalxjs/lynx/tree/main/packages/lynx-plugin",
+    "bugs": {
+        "url": "https://github.com/signalxjs/lynx/issues"
+    },
+    "dependencies": {
+        "@lynx-js/react": "^0.120.0",
+        "@sigx/lynx-runtime-internal": "workspace:*"
+    },
+    "peerDependencies": {
+        "@rspack/core": ">=1.0.0",
+        "@lynx-js/rspeedy": ">=0.1.0",
+        "@lynx-js/css-extract-webpack-plugin": ">=0.1.0",
+        "@lynx-js/template-webpack-plugin": ">=0.1.0",
+        "@lynx-js/runtime-wrapper-webpack-plugin": ">=0.1.0",
+        "@lynx-js/webpack-dev-transport": ">=0.1.0"
+    },
+    "peerDependenciesMeta": {
+        "@rspack/core": {
+            "optional": true
+        },
+        "@lynx-js/rspeedy": {
+            "optional": true
+        },
+        "@lynx-js/css-extract-webpack-plugin": {
+            "optional": true
+        },
+        "@lynx-js/template-webpack-plugin": {
+            "optional": true
+        },
+        "@lynx-js/runtime-wrapper-webpack-plugin": {
+            "optional": true
+        },
+        "@lynx-js/webpack-dev-transport": {
+            "optional": true
+        }
+    },
+    "devDependencies": {
+        "@rsbuild/core": "^1.7.5",
+        "@sigx/vite": "^0.4.3",
+        "@types/node": "^25.7.0",
+        "typescript": "^6.0.3",
+        "vite": "^8.0.12"
+    },
+    "publishConfig": {
+        "access": "public"
     }
-  },
-  "files": [
-    "dist"
-  ],
-  "scripts": {
-    "build": "vite build && tsgo --emitDeclarationOnly",
-    "dev": "vite build --watch"
-  },
-  "keywords": [
-    "sigx",
-    "lynx",
-    "rspack",
-    "rspeedy",
-    "plugin"
-  ],
-  "author": "Andreas Ekdahl",
-  "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/signalxjs/lynx.git",
-    "directory": "packages/lynx-plugin"
-  },
-  "homepage": "https://github.com/signalxjs/lynx/tree/main/packages/lynx-plugin",
-  "bugs": {
-    "url": "https://github.com/signalxjs/lynx/issues"
-  },
-  "dependencies": {
-    "@lynx-js/react": "^0.120.0",
-    "@sigx/lynx-runtime-internal": "workspace:*"
-  },
-  "peerDependencies": {
-    "@rspack/core": ">=1.0.0",
-    "@lynx-js/rspeedy": ">=0.1.0",
-    "@lynx-js/css-extract-webpack-plugin": ">=0.1.0",
-    "@lynx-js/template-webpack-plugin": ">=0.1.0",
-    "@lynx-js/runtime-wrapper-webpack-plugin": ">=0.1.0",
-    "@lynx-js/webpack-dev-transport": ">=0.1.0"
-  },
-  "peerDependenciesMeta": {
-    "@rspack/core": {
-      "optional": true
-    },
-    "@lynx-js/rspeedy": {
-      "optional": true
-    },
-    "@lynx-js/css-extract-webpack-plugin": {
-      "optional": true
-    },
-    "@lynx-js/template-webpack-plugin": {
-      "optional": true
-    },
-    "@lynx-js/runtime-wrapper-webpack-plugin": {
-      "optional": true
-    },
-    "@lynx-js/webpack-dev-transport": {
-      "optional": true
-    }
-  },
-  "devDependencies": {
-    "@rsbuild/core": "^1.7.5",
-    "@sigx/vite": "^0.4.3",
-    "@types/node": "^25.7.0",
-    "typescript": "^6.0.3",
-    "vite": "^8.0.12"
-  },
-  "publishConfig": {
-    "access": "public"
-  }
 }

@@ -1,66 +1,66 @@
 {
-  "name": "@sigx/lynx-runtime",
-  "version": "0.2.4",
-  "description": "Lynx renderer for SignalX (background thread)",
-  "type": "module",
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
-  "exports": {
-    ".": {
-      "import": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+    "name": "@sigx/lynx-runtime",
+    "version": "0.2.6",
+    "description": "Lynx renderer for SignalX (background thread)",
+    "type": "module",
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+        ".": {
+            "import": "./dist/index.js",
+            "types": "./dist/index.d.ts"
+        },
+        "./hmr": {
+            "import": "./dist/hmr.js",
+            "types": "./dist/hmr.d.ts"
+        },
+        "./mt-hmr-bridge": {
+            "import": "./dist/mt-hmr-bridge.js",
+            "types": "./dist/mt-hmr-bridge.d.ts"
+        }
     },
-    "./hmr": {
-      "import": "./dist/hmr.js",
-      "types": "./dist/hmr.d.ts"
+    "files": [
+        "dist"
+    ],
+    "scripts": {
+        "build": "vite build && tsgo --emitDeclarationOnly",
+        "dev": "vite build --watch"
     },
-    "./mt-hmr-bridge": {
-      "import": "./dist/mt-hmr-bridge.js",
-      "types": "./dist/mt-hmr-bridge.d.ts"
+    "keywords": [
+        "sigx",
+        "lynx",
+        "renderer"
+    ],
+    "author": "Andreas Ekdahl",
+    "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/signalxjs/lynx.git",
+        "directory": "packages/lynx-runtime"
+    },
+    "homepage": "https://github.com/signalxjs/lynx/tree/main/packages/lynx-runtime",
+    "bugs": {
+        "url": "https://github.com/signalxjs/lynx/issues"
+    },
+    "dependencies": {
+        "@sigx/runtime-core": "^0.4.3",
+        "@sigx/reactivity": "^0.4.3",
+        "@sigx/lynx-runtime-internal": "workspace:^"
+    },
+    "peerDependencies": {
+        "@lynx-js/types": "*"
+    },
+    "peerDependenciesMeta": {
+        "@lynx-js/types": {
+            "optional": true
+        }
+    },
+    "devDependencies": {
+        "@sigx/vite": "^0.4.3",
+        "typescript": "^6.0.3",
+        "vite": "^8.0.12"
+    },
+    "publishConfig": {
+        "access": "public"
     }
-  },
-  "files": [
-    "dist"
-  ],
-  "scripts": {
-    "build": "vite build && tsgo --emitDeclarationOnly",
-    "dev": "vite build --watch"
-  },
-  "keywords": [
-    "sigx",
-    "lynx",
-    "renderer"
-  ],
-  "author": "Andreas Ekdahl",
-  "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/signalxjs/lynx.git",
-    "directory": "packages/lynx-runtime"
-  },
-  "homepage": "https://github.com/signalxjs/lynx/tree/main/packages/lynx-runtime",
-  "bugs": {
-    "url": "https://github.com/signalxjs/lynx/issues"
-  },
-  "dependencies": {
-    "@sigx/runtime-core": "^0.4.3",
-    "@sigx/reactivity": "^0.4.3",
-    "@sigx/lynx-runtime-internal": "workspace:^"
-  },
-  "peerDependencies": {
-    "@lynx-js/types": "*"
-  },
-  "peerDependenciesMeta": {
-    "@lynx-js/types": {
-      "optional": true
-    }
-  },
-  "devDependencies": {
-    "@sigx/vite": "^0.4.3",
-    "typescript": "^6.0.3",
-    "vite": "^8.0.12"
-  },
-  "publishConfig": {
-    "access": "public"
-  }
 }
