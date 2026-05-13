@@ -231,7 +231,11 @@ export class WebSocket {
         }
         // Match browsers: only ws:/wss: are valid. We accept http:/https: too
         // and let the native side reject — some debug proxies normalise.
-        const scheme = url.slice(0, url.indexOf(':')).toLowerCase();
+        const colon = url.indexOf(':');
+        if (colon <= 0) {
+            throw new SyntaxError(`WebSocket: invalid URL "${url}"`);
+        }
+        const scheme = url.slice(0, colon).toLowerCase();
         if (scheme !== 'ws' && scheme !== 'wss' && scheme !== 'http' && scheme !== 'https') {
             throw new SyntaxError(`WebSocket: unsupported URL scheme "${scheme}"`);
         }
@@ -326,9 +330,22 @@ export class WebSocket {
         }
 
         this._readyState = CLOSING;
-        callAsync<void>(MODULE, 'close', this._id, code ?? 1000, reason ?? '').catch(() => {
-            // Swallow — we'll still receive a `close` event from native, or
-            // a synthetic abnormal close if the bridge call itself fails.
+        callAsync<void>(MODULE, 'close', this._id, code ?? 1000, reason ?? '').catch(err => {
+            // Bridge call itself failed (e.g. module missing). Synthesize an
+            // abnormal close so the instance doesn't get stuck in CLOSING and
+            // we still clean up sockets state.
+            this._dispatch({
+                id: this._id,
+                type: 'error',
+                data: err instanceof Error ? err.message : String(err),
+            });
+            this._dispatch({
+                id: this._id,
+                type: 'close',
+                code: 1006,
+                reason: '',
+                wasClean: false,
+            });
         });
     }
 

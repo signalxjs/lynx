@@ -125,6 +125,14 @@ describe('WebSocket — construction', () => {
         expect(() => new WebSocket('ftp://example.com')).toThrow(SyntaxError);
     });
 
+    it('rejects URL without a scheme', () => {
+        expect(() => new WebSocket('example.com')).toThrow(SyntaxError);
+    });
+
+    it('rejects URL that starts with a colon', () => {
+        expect(() => new WebSocket(':nonsense')).toThrow(SyntaxError);
+    });
+
     it('accepts http(s):// schemes as a convenience', () => {
         expect(() => new WebSocket('https://example.com')).not.toThrow();
     });
@@ -365,6 +373,27 @@ describe('WebSocket — error path', () => {
         expect(onerror).toHaveBeenCalled();
         expect(onclose).toHaveBeenCalledTimes(1);
         expect(onclose.mock.calls[0]![0]!.code).toBe(1006);
+        expect(ws.readyState).toBe(WebSocket.CLOSED);
+    });
+
+    it('synthesizes an error+abnormal close when bridge close() rejects', async () => {
+        const ws = new WebSocket('wss://example.com');
+        open(ws);
+        const onerror = vi.fn();
+        const onclose = vi.fn();
+        ws.onerror = onerror;
+        ws.onclose = onclose;
+        bridge.callAsync.mockImplementationOnce(async () => {
+            throw new Error('bridge gone');
+        });
+        ws.close(1000, 'bye');
+        expect(ws.readyState).toBe(WebSocket.CLOSING);
+        await Promise.resolve();
+        await Promise.resolve();
+        expect(onerror).toHaveBeenCalled();
+        expect(onclose).toHaveBeenCalledTimes(1);
+        expect(onclose.mock.calls[0]![0]!.code).toBe(1006);
+        expect(onclose.mock.calls[0]![0]!.wasClean).toBe(false);
         expect(ws.readyState).toBe(WebSocket.CLOSED);
     });
 });
