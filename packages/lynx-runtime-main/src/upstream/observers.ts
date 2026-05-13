@@ -1,7 +1,11 @@
 // Copyright 2025 The Lynx Authors. All rights reserved.
-// Copyright 2026 SignalX contributors.
-// Licensed under the Apache License Version 2.0 that can be found in the
-// LICENSE file in the root directory of this source tree.
+// TypeScript types added 2026 by SignalX contributors.
+//
+// Licensed under the Apache License, Version 2.0. The full license text and
+// upstream attribution are reproduced in `THIRD_PARTY_NOTICES.md` at the
+// root of this package (`@sigx/lynx-runtime-main`). The MIT LICENSE at the
+// repository root governs the rest of this repository; it does NOT apply
+// to this file.
 //
 // Vendored from `@lynx-js/react@0.120.0`'s
 // `runtime/lib/worklet-runtime/bindings/observers.js`. Source preserved

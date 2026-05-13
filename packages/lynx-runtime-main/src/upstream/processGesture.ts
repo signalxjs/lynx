@@ -1,6 +1,11 @@
 // Copyright 2024 The Lynx Authors. All rights reserved.
-// Licensed under the Apache License Version 2.0 that can be found in the
-// LICENSE file in the root directory of this source tree.
+// TypeScript types added 2026 by SignalX contributors.
+//
+// Licensed under the Apache License, Version 2.0. The full license text and
+// upstream attribution are reproduced in `THIRD_PARTY_NOTICES.md` at the
+// root of this package (`@sigx/lynx-runtime-main`). The MIT LICENSE at the
+// repository root governs the rest of this repository; it does NOT apply
+// to this file.
 //
 // TS port of `@lynx-js/react@0.119.0`'s
 // `runtime/lib/gesture/processGesture.js`. Source preserved verbatim; only

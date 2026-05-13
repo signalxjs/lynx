@@ -22,7 +22,8 @@
     "./package.json": "./package.json"
   },
   "files": [
-    "dist"
+    "dist",
+    "THIRD_PARTY_NOTICES.md"
   ],
   "scripts": {
     "build": "vite build && tsgo --emitDeclarationOnly",
