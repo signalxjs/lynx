@@ -1,6 +1,6 @@
 {
   "name": "@sigx/lynx-runtime-main",
-  "version": "0.2.4",
+  "version": "0.2.5",
   "description": "Main Thread (Lepus) entry and ops applier for SignalX Lynx renderer",
   "type": "module",
   "main": "./dist/index.js",
@@ -45,7 +45,6 @@
     "url": "https://github.com/signalxjs/lynx/issues"
   },
   "dependencies": {
-    "@lynx-js/react": "^0.120.0",
     "@sigx/lynx-runtime-internal": "workspace:*"
   },
   "peerDependencies": {

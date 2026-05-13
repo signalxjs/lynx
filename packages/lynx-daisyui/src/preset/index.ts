@@ -38,3 +38,6 @@ export const DaisyLynxPreset: Partial<Config> = {
     },
   },
 };
+
+/** Alias — preferred consumer name. */
+export const daisyuiPreset = DaisyLynxPreset;
