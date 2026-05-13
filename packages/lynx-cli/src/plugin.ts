@@ -64,8 +64,24 @@ export default definePlugin({
             async run(ctx) {
                 const androidDir = join(ctx.cwd, 'android');
                 const iosDir = join(ctx.cwd, 'ios');
-                const hasAndroid = existsSync(androidDir);
-                const hasIos = existsSync(iosDir) && process.platform === 'darwin';
+                let hasAndroid = existsSync(androidDir);
+                let hasIos = existsSync(iosDir) && process.platform === 'darwin';
+
+                // First-run auto-prebuild: fresh Lynx projects scaffolded by
+                // `pnpm create @sigx` have a sigx.lynx.config.ts but no native
+                // android/ or ios/ folders yet. Without those, target detection
+                // falls through to the legacy QR-only mode and the user gets
+                // "no iOS or Android targets detected" — same cli code, just
+                // gated on missing folders. Run prebuild once so dev "just
+                // works" without forcing every new user to remember the
+                // `pnpm prebuild` step.
+                if (!hasAndroid && !hasIos && isLynxProject(ctx.cwd)) {
+                    ctx.logger.log('First-time setup: no android/ or ios/ folder found — running prebuild...');
+                    const { runPrebuild } = await import('./prebuild.js');
+                    await runPrebuild({ cwd: ctx.cwd });
+                    hasAndroid = existsSync(androidDir);
+                    hasIos = existsSync(iosDir) && process.platform === 'darwin';
+                }
 
                 // Resolve ids from sigx.lynx.config.ts (for banner + auto-launch).
                 let launchAppId: string | undefined;
