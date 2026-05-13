@@ -1,17 +1,19 @@
 {
   "name": "@sigx/lynx-daisyui",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "DaisyUI integration for sigx-lynx",
   "type": "module",
   "main": "./dist/index.js",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
     },
     "./preset": {
       "types": "./dist/preset/index.d.ts",
-      "import": "./dist/preset/index.js"
+      "import": "./dist/preset/index.js",
+      "default": "./dist/preset/index.js"
     },
     "./styles": "./dist/styles/index.css",
     "./package.json": "./package.json"

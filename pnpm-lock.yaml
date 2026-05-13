@@ -323,9 +323,6 @@ importers:
 
   packages/lynx-runtime-main:
     dependencies:
-      '@lynx-js/react':
-        specifier: ^0.120.0
-        version: 0.120.0(@lynx-js/types@3.8.0)(@types/react@18.3.28)
       '@sigx/lynx-runtime-internal':
         specifier: workspace:*
         version: link:../lynx-runtime-internal
