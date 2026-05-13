@@ -5,7 +5,7 @@ The Lynx plugin for [`@sigx/cli`](https://github.com/signalxjs/cli/tree/main/pac
 This package is auto-installed when you scaffold a Lynx project:
 
 ```bash
-npm create sigx@latest my-app
+npm create @sigx@latest my-app
 # pick: lynx (or lynx-tailwind)
 ```
 
@@ -36,7 +36,7 @@ To author your own native module, see [Authoring native modules](https://github.
 
 ## Standalone use
 
-You normally don't depend on this package directly — `npm create sigx@latest` adds it as a dev dependency for Lynx templates. If you're integrating into an existing project:
+You normally don't depend on this package directly — `npm create @sigx@latest` adds it as a dev dependency for Lynx templates. If you're integrating into an existing project:
 
 ```bash
 pnpm add -D @sigx/cli @sigx/lynx-cli

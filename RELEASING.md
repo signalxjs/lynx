@@ -61,7 +61,7 @@ Workflow per release:
 
 1. Bump versions, tag, push — release workflow publishes under `@beta`.
 2. Run smoke tests:
-   - `npm create sigx@beta my-app` (cli repo) — verify scaffolder & generated project boots.
+   - `npm create @sigx@beta my-app` (cli repo) — verify scaffolder & generated project boots.
    - For `lynx`: scaffold a Lynx template and run `sigx prebuild && sigx run:android`.
 3. Soak ≥ 24 h. Watch for issues.
 4. Promote: `npm dist-tag add <pkg>@<version> latest` for each package.

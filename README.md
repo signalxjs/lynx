@@ -5,7 +5,7 @@
 ## Quick start
 
 ```bash
-npm create sigx@latest my-app
+npm create @sigx@latest my-app
 # pick: lynx (or lynx-tailwind)
 cd my-app
 pnpm install
