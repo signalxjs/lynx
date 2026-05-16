@@ -7,9 +7,11 @@ import {
     type MainThread,
     type SharedValue,
 } from '@sigx/lynx';
+import { Suspense, isLazyComponent } from '@sigx/lynx';
 import type { MapperParams } from '@sigx/lynx';
 import { SCREEN_WIDTH } from '../internal/screen-width.js';
 import type { RouteMap, StackEntry, TransitionKind, TransitionRole } from '../types.js';
+import { EntryScope } from './EntryScope.js';
 
 /**
  * Slide-from-right transition geometry. `SCREEN_WIDTH` is read from
@@ -82,6 +84,15 @@ export const ScreenContainer = component<ScreenContainerProps>(({ props }) => {
         >;
         if (typeof Comp !== 'function') return null;
         const entryParams = props.entry.params as Record<string, unknown>;
+        // Wrap lazy screens that declare a fallback in Suspense — see Stack.tsx
+        // for rationale.
+        const body = isLazyComponent(Comp) && route.fallback
+            ? (
+                <Suspense fallback={route.fallback as never}>
+                    <Comp {...entryParams} />
+                </Suspense>
+            )
+            : <Comp {...entryParams} />;
         return (
             <view
                 main-thread:ref={ref}
@@ -94,7 +105,9 @@ export const ScreenContainer = component<ScreenContainerProps>(({ props }) => {
                     backgroundColor: '#0f172a',
                 }}
             >
-                <Comp key={props.entry.key} {...entryParams} />
+                <EntryScope key={props.entry.key} entry={props.entry}>
+                    {body}
+                </EntryScope>
             </view>
         );
     };

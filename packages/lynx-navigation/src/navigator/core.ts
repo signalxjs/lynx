@@ -1,11 +1,14 @@
 import {
     runOnMainThread,
     signal,
+    untrack,
     type Signal,
     type SharedValue,
 } from '@sigx/lynx';
+import { isLazyComponent } from '@sigx/lynx';
 import { withTiming } from '@sigx/motion';
 import type { Nav } from '../hooks/use-nav.js';
+import type { ScreenRegistry } from '../internal/screen-registry.js';
 import type {
     PopOptions,
     Presentation,
@@ -43,6 +46,24 @@ export interface NavigatorState {
         commitBackGesture(): void;
         cancelBackGesture(): void;
     };
+    /**
+     * Internal: cross-entry `<Screen>` registry lookup.
+     *
+     * Each `<EntryScope>` registers its `ScreenRegistry` here on mount and
+     * removes it on unmount. The navigator's persistent chrome (HeaderBar /
+     * TabBar, shipped in later slices) calls `getScreenRegistry(entry.key)`
+     * to read the currently-focused screen's options/slot fills without
+     * being itself remounted on each navigation.
+     *
+     * Returns `undefined` when no screen for that key has mounted yet (or
+     * after it has unmounted) — consumers must tolerate this and render
+     * defaults.
+     */
+    readonly _screens: {
+        register(registry: ScreenRegistry): void;
+        unregister(entryKey: string): void;
+        get(entryKey: string): ScreenRegistry | undefined;
+    };
 }
 
 /**
@@ -51,6 +72,23 @@ export interface NavigatorState {
  * what `@sigx/motion`'s `withTiming` expects (per `with-timing.ts`).
  */
 const TRANSITION_DURATION_SEC = 0.28;
+
+/**
+ * Kick off a lazy component's chunk fetch when its route is navigated to.
+ *
+ * Lazy routes (`component: lazy(() => import('./Heavy.js'))`) start loading
+ * the moment `push`/`replace` is called rather than waiting until render
+ * tries to instantiate them — by the time `<Stack>` swaps screens the chunk
+ * is usually already resolved, so the user sees the screen instead of the
+ * `<Suspense fallback>`. Fire-and-forget: errors here surface through
+ * `<Suspense>` at render time.
+ */
+function preloadRouteComponent(component: unknown): void {
+    if (isLazyComponent(component)) {
+        // eslint-disable-next-line @typescript-eslint/no-empty-function
+        component.preload().catch(() => {});
+    }
+}
 
 let entryKeyCounter = 0;
 function nextEntryKey(): string {
@@ -201,6 +239,7 @@ export function createNavigatorState(opts: CreateNavigatorOptions): NavigatorSta
                     `Known routes: ${Object.keys(routes).join(', ') || '(none)'}`,
             );
         }
+        preloadRouteComponent(routes[name].component);
         const newEntry = makeEntry(name, params, search, options, routes);
         const cur = getStack();
         const prevTop = cur[cur.length - 1];
@@ -234,6 +273,7 @@ export function createNavigatorState(opts: CreateNavigatorOptions): NavigatorSta
                 `[lynx-navigation] replace('${name}'): route is not registered.`,
             );
         }
+        preloadRouteComponent(routes[name].component);
         const entry = makeEntry(name, params, search, options, routes);
         const cur = getStack();
         // Replace doesn't animate in v1 — it's a swap, not a forward/back nav.
@@ -382,5 +422,47 @@ export function createNavigatorState(opts: CreateNavigatorOptions): NavigatorSta
         nav,
         routes,
         _gesture: { beginBackGesture, commitBackGesture, cancelBackGesture },
+        _screens: createScreenRegistries(),
+    };
+}
+
+/**
+ * Map-backed `_screens` controller. Pulled out as a tiny factory so test
+ * tooling can call it directly when asserting registry behaviour without
+ * standing up an entire navigator.
+ *
+ * Not reactive — `<EntryScope>` registers once at setup and unregisters at
+ * unmount, so reads from the navigator's chrome are point-in-time lookups,
+ * and the registry's own internal signals carry the reactive payload.
+ */
+function createScreenRegistries(): NavigatorState['_screens'] {
+    const byKey = new Map<string, ScreenRegistry>();
+    // Reactive version tick — bumped on every register/unregister so consumers
+    // (HeaderBar's computeds) re-evaluate their lookups when entries come and
+    // go. `Map.get` itself isn't tracked, so without this a chrome component
+    // that renders before its target entry mounts would never see the late
+    // arrival of the registry.
+    const version = signal({ v: 0 });
+    return {
+        register(reg: ScreenRegistry) {
+            byKey.set(reg.entry.key, reg);
+            // `register` is called from `<EntryScope>` setup, which itself
+            // runs inside a tracked scope. Read-then-write on `version`
+            // would self-loop, so we untrack the bump.
+            untrack(() => { version.v = version.v + 1; });
+        },
+        unregister(key: string) {
+            byKey.delete(key);
+            untrack(() => { version.v = version.v + 1; });
+        },
+        get(key: string) {
+            // Touch the version signal so the caller's reactive scope
+            // re-runs on the next register/unregister. The actual returned
+            // value still comes from the plain Map — registries themselves
+            // are signal-backed, so once a caller has one in hand they
+            // track the bits they care about (options/slots) directly.
+            void version.v;
+            return byKey.get(key);
+        },
     };
 }

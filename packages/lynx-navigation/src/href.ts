@@ -1,5 +1,9 @@
 import type { RouteId, RouteParams, RouteSearch } from './register.js';
 import type { RoutesWithoutParams, RoutesWithParams } from './hooks/use-nav.js';
+import { buildUrl } from './url/build.js';
+import { parseHrefImpl } from './url/parse.js';
+import { getRouteRegistry } from './url/registry.js';
+import { validateSync } from './url/validate.js';
 
 /**
  * A typed reference to a navigation target — what `<Link to={...}>` consumes
@@ -25,6 +29,15 @@ export interface Href<K extends RouteId = RouteId> {
  * params schema, one for routes that require params. See `RoutesWithParams`
  * in `./hooks/use-nav.js` for why this isn't expressed as a single conditional.
  *
+ * Requires a `<NavigationRoot>` (or an explicit `_setRouteRegistry` call) to
+ * have run — the URL form is built against the active route registry. The
+ * typed pieces (`route`, `params`, `search`) are returned regardless; `url`
+ * is `null` when the route declares no `path` template.
+ *
+ * Schema validation errors throw — pass already-validated values from
+ * `useParams` / `useSearch` to round-trip safely, or wrap in try/catch when
+ * building hrefs from external input.
+ *
  * @example
  * ```ts
  * hrefFor('profile', { id: '42' });               // → { route, params, search: {}, url: '/users/42' }
@@ -38,21 +51,65 @@ export function hrefFor<K extends RoutesWithParams>(
     params: RouteParams<K>,
     search?: RouteSearch<K>,
 ): Href<K>;
-export function hrefFor(name: string, ..._args: unknown[]): Href {
-    void name;
-    void _args;
-    throw new Error(
-        'hrefFor() runtime is not implemented yet — this is the type spike.',
-    );
+export function hrefFor(name: string, ...args: unknown[]): Href {
+    const registry = getRouteRegistry();
+    const def = registry.routes[name];
+    if (!def) {
+        throw new Error(
+            `[lynx-navigation] hrefFor('${name}'): route is not in the active registry.`,
+        );
+    }
+
+    // Disambiguate the overloads: routes with a params schema get
+    // (name, params, search?); routes without get (name, search?). The
+    // typed overloads enforce this at compile time, but at runtime we need
+    // to peek at the schema presence to know how to interpret `args`.
+    const hasParamsSchema = !!def.params;
+    let rawParams: Record<string, unknown> | undefined;
+    let rawSearch: Record<string, unknown> | undefined;
+    if (hasParamsSchema) {
+        rawParams = args[0] as Record<string, unknown> | undefined;
+        rawSearch = args[1] as Record<string, unknown> | undefined;
+    } else {
+        rawParams = undefined;
+        rawSearch = args[0] as Record<string, unknown> | undefined;
+    }
+
+    const paramsOutcome = validateSync(def.params, rawParams ?? {});
+    if (!paramsOutcome.ok) {
+        throw new Error(
+            `[lynx-navigation] hrefFor('${name}'): params validation failed — ${paramsOutcome.issues.join('; ')}`,
+        );
+    }
+    const searchOutcome = validateSync(def.search, rawSearch ?? {});
+    if (!searchOutcome.ok) {
+        throw new Error(
+            `[lynx-navigation] hrefFor('${name}'): search validation failed — ${searchOutcome.issues.join('; ')}`,
+        );
+    }
+
+    const params = paramsOutcome.value as Record<string, unknown>;
+    const search = searchOutcome.value as Record<string, unknown>;
+    const url = buildUrl(name, params, search);
+
+    return {
+        route: name as RouteId,
+        params: params as never,
+        search: search as never,
+        url,
+    };
 }
 
 /**
  * Parse a URL string into a typed Href against the registered routes.
- * Returns `null` if no route's `path` template matches.
+ * Returns `null` if no route's `path` template matches the URL or if the
+ * extracted params/search fail the route's schema validation.
+ *
+ * Accepts both absolute (`myapp://host/path?q`) and pathname-only
+ * (`/path?q`) forms — the pathname is matched against each route's
+ * compiled template. Iteration order is the registration order; first match
+ * wins.
  */
 export function parseHref(url: string): Href | null {
-    void url;
-    throw new Error(
-        'parseHref() runtime is not implemented yet — this is the type spike.',
-    );
+    return parseHrefImpl(url);
 }
