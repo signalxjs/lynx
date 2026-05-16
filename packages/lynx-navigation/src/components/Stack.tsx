@@ -183,7 +183,12 @@ export const Stack = component<StackProps>(({ props }) => {
             beginBackGesture: navState._gesture.beginBackGesture,
             commitBackGesture: navState._gesture.commitBackGesture,
             cancelBackGesture: navState._gesture.cancelBackGesture,
-            edgeSwipeEnabled: parentInternals.edgeSwipeEnabled,
+            edgeSwipeEnabled:
+                // Gate on animationsEnabled too — if there's no progress
+                // SharedValue (e.g. parent is `animated={false}`), the edge
+                // swipe gesture would call `beginBackGesture()` with a null
+                // progress and leave the stack in an inconsistent state.
+                animationsEnabled && parentInternals.edgeSwipeEnabled,
             screens: navState._screens,
         };
 

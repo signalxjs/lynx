@@ -287,10 +287,15 @@ describe('<Stack initialRoute> — per-tab nested stacks', () => {
         expect(rootProbe.nav!._children.size).toBe(3);
         expect(rootProbe.nav!._children.has(homeProbe.nav!)).toBe(true);
 
+        // After unmount the nested navs should remove themselves from
+        // parent._children — leaks here would gradually break the
+        // hardware-back traversal across navigations.
+        const rootNav = rootProbe.nav!;
         handle.unmount();
+        expect(rootNav._children.size).toBe(0);
     });
 
-    it('useIsFocused inside an inactive tab reports false; flips when tab activates', async () => {
+    it('useIsFocused inside an inactive tab reports false', async () => {
         // Custom Profile screen that captures its own focus state so the
         // assertion is independent of routes' `useParams` schema validity.
         const focusProbe: FocusProbe = { focused: null };
@@ -323,9 +328,6 @@ describe('<Stack initialRoute> — per-tab nested stacks', () => {
 
         const rsWithTabs = { ...rsBase, root: { component: RootTabs } } as never;
         const rootProbe: NavProbe = { nav: null };
-        // We need a way to drive Tabs from a test; render a TabsCapture-like
-        // probe via a tiny wrapper. Simplest: capture via a child of the
-        // Tabs Screen body using `useTabs`.
         // Profile screen body is mounted from the start (tab bodies stay
         // mounted via display: none), so focus probe is set up immediately.
         render(
@@ -339,22 +341,12 @@ describe('<Stack initialRoute> — per-tab nested stacks', () => {
             </NavigationRoot>,
         );
 
-        // Initially the home tab is active — profile is mounted-but-hidden,
-        // so its focus probe must report false.
+        // Home tab is active — profile is mounted-but-hidden, so its focus
+        // probe must report false. The positive direction (flips on
+        // `tabs.setActive`) is exercised by the existing
+        // `tabs.test.tsx::setActive` test combined with the focus chain
+        // wired up here.
         expect(focusProbe.focused).not.toBe(null);
         expect(focusProbe.focused!.value).toBe(false);
-
-        // Driver: reach the profile probe's nav, walk up to its parent
-        // (which is root), then through root we can't directly flip tabs —
-        // instead we drive Tabs via a side-channel: render a TabsCapture
-        // inside Tabs. The simplest reliable path here is to mount such a
-        // capture beforehand. Since the test above already validated the
-        // model, here we lean on `useTabs()` from within the inner stack's
-        // host scope. The Tabs component lives inside the route "root"
-        // component; we can't easily get a handle without instrumenting it.
-        //
-        // Pragmatic: assert the negative direction (inactive == not
-        // focused) — the positive direction is exercised by the existing
-        // `tabs.test.tsx::setActive` test combined with the focus chain.
     });
 });
