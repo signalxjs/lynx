@@ -148,6 +148,31 @@ importers:
         specifier: ^6.0.3
         version: 6.0.3
 
+  packages/lynx-gestures:
+    dependencies:
+      '@sigx/lynx':
+        specifier: workspace:^
+        version: link:../lynx
+    devDependencies:
+      '@lynx-js/react':
+        specifier: ^0.119.0
+        version: 0.119.0(@lynx-js/types@3.8.0)(@types/react@18.3.28)
+      '@sigx/lynx-plugin':
+        specifier: workspace:^
+        version: link:../lynx-plugin
+      '@sigx/lynx-runtime-main':
+        specifier: workspace:^
+        version: link:../lynx-runtime-main
+      '@sigx/lynx-testing':
+        specifier: workspace:^
+        version: link:../lynx-testing
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+      vite:
+        specifier: ^8.0.12
+        version: 8.0.12(@types/node@25.7.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1)
+
   packages/lynx-haptics:
     dependencies:
       '@sigx/lynx-core':
@@ -197,11 +222,29 @@ importers:
         specifier: ^6.0.3
         version: 6.0.3
 
-  packages/lynx-navigation:
+  packages/lynx-motion:
     dependencies:
-      '@sigx/motion':
-        specifier: ^0.1.0
-        version: 0.1.0
+      '@sigx/lynx':
+        specifier: workspace:^
+        version: link:../lynx
+    devDependencies:
+      '@lynx-js/react':
+        specifier: ^0.119.0
+        version: 0.119.0(@lynx-js/types@3.8.0)(@types/react@18.3.28)
+      '@sigx/lynx-plugin':
+        specifier: workspace:^
+        version: link:../lynx-plugin
+      '@sigx/lynx-runtime-main':
+        specifier: workspace:^
+        version: link:../lynx-runtime-main
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+      vite:
+        specifier: ^8.0.12
+        version: 8.0.12(@types/node@25.7.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1)
+
+  packages/lynx-navigation:
     devDependencies:
       '@sigx/lynx':
         specifier: workspace:^
@@ -209,6 +252,9 @@ importers:
       '@sigx/lynx-linking':
         specifier: workspace:^
         version: link:../lynx-linking
+      '@sigx/lynx-motion':
+        specifier: workspace:^
+        version: link:../lynx-motion
       '@sigx/lynx-testing':
         specifier: workspace:^
         version: link:../lynx-testing
@@ -815,8 +861,20 @@ packages:
   '@lynx-js/css-serializer@0.1.6':
     resolution: {integrity: sha512-AgYrhsNljp+xBqO2UUGFTfHR+zPBiH9XE8eD13PDkcTDXWA9uKE/cZ6glZUE3Ze0lUDEtp0cSPCOVlHTMEyKIg==}
 
+  '@lynx-js/internal-preact@10.28.4-2d1d67a':
+    resolution: {integrity: sha512-CA8rFURvLvksg155ONHZHEa0ZIxWnS4H/UP8vp5PF8aNOFd3D3Z+Lq+0IQP5GyE/9x+jMIvbBXaY3JVVknSphQ==}
+
   '@lynx-js/internal-preact@10.29.1-20260424024911-12b794f':
     resolution: {integrity: sha512-MQ+xjPL2f1P9/eCAdkT2h9cJRXl1qqhSJDX9GkPETt3UAepLo5N+HbGB8Qr3IUzqGDWMr3Mj76my1P0pLkKVDg==}
+
+  '@lynx-js/react@0.119.0':
+    resolution: {integrity: sha512-YBDeeA/rQ9t/VR6F/AeU/Sdhvmcvzcd2ap+9ZS6mXoonWuq7UPtsQNZndtYrpXuEjjn6ukjRsA5rlkEr5MjSdQ==}
+    peerDependencies:
+      '@lynx-js/types': '*'
+      '@types/react': ^18
+    peerDependenciesMeta:
+      '@lynx-js/types':
+        optional: true
 
   '@lynx-js/react@0.120.0':
     resolution: {integrity: sha512-XDDiMeQdK+FVlCHmeY3rUbvuTA2WPH/+8JznkUDVwUIwKmojoeEUOMCCXny434hIpBEtDeOtBoIEhxg569QGTw==}
@@ -1390,12 +1448,6 @@ packages:
   '@sigx/cli@0.1.1':
     resolution: {integrity: sha512-ODDEUWRGm2Uug8APVBCkmR0EYrLclyDMMf4FABdiADi3f3Gy15RkBT+tMho/SlKqDWVuDooSaijM296QPbqvnw==}
     hasBin: true
-
-  '@sigx/lynx@0.1.1':
-    resolution: {integrity: sha512-cL23DglPLhMyKSZVVpLKHyFdzioMzNNwj2CpwM2Rw2Pc20aH+XQuriTANf0eyweth4p5fmHDv24iqWN0RDg0eQ==}
-
-  '@sigx/motion@0.1.0':
-    resolution: {integrity: sha512-kGYoaUvHMB3s0u79h7fLMeVuPteAAJzutgPBYrJdbv1IT5v30vDKRlVgtD+RUCnR7izWLBB29C0cxONKB/dloA==}
 
   '@sigx/reactivity@0.3.2':
     resolution: {integrity: sha512-3VxlxUzjhA2jzxkeEDmDVkJhFCtb0uzLzvHy0aVKokZUDqFxeLZa/b2ZCmH66ffHV5ouNjEABMUDoJWd5stU1g==}
@@ -3406,7 +3458,16 @@ snapshots:
     dependencies:
       css-tree: 3.2.1
 
+  '@lynx-js/internal-preact@10.28.4-2d1d67a': {}
+
   '@lynx-js/internal-preact@10.29.1-20260424024911-12b794f': {}
+
+  '@lynx-js/react@0.119.0(@lynx-js/types@3.8.0)(@types/react@18.3.28)':
+    dependencies:
+      '@types/react': 18.3.28
+      preact: '@lynx-js/internal-preact@10.28.4-2d1d67a'
+    optionalDependencies:
+      '@lynx-js/types': 3.8.0
 
   '@lynx-js/react@0.120.0(@lynx-js/types@3.8.0)(@types/react@18.3.28)':
     dependencies:
@@ -3941,16 +4002,6 @@ snapshots:
     dependencies:
       '@sigx/terminal': 0.3.2
       citty: 0.2.2
-
-  '@sigx/lynx@0.1.1':
-    dependencies:
-      '@sigx/lynx-runtime': link:packages/lynx-runtime
-      '@sigx/reactivity': 0.4.3
-      '@sigx/runtime-core': 0.4.3
-
-  '@sigx/motion@0.1.0':
-    dependencies:
-      '@sigx/lynx': 0.1.1
 
   '@sigx/reactivity@0.3.2': {}
 

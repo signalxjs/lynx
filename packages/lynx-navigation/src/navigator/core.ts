@@ -6,7 +6,7 @@ import {
     type SharedValue,
 } from '@sigx/lynx';
 import { isLazyComponent } from '@sigx/lynx';
-import { withTiming } from '@sigx/motion';
+import { withTiming } from '@sigx/lynx-motion';
 import type { Nav } from '../hooks/use-nav.js';
 import type { ScreenRegistry } from '../internal/screen-registry.js';
 import type {
@@ -69,7 +69,7 @@ export interface NavigatorState {
 /**
  * Slide-from-right transition timing. Kept as constants so screen options
  * can override per-screen later (Phase 0.5). Duration is in seconds — that's
- * what `@sigx/motion`'s `withTiming` expects (per `with-timing.ts`).
+ * what `@sigx/lynx-motion`'s `withTiming` expects (per `with-timing.ts`).
  */
 const TRANSITION_DURATION_SEC = 0.28;
 

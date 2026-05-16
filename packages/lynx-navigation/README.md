@@ -21,7 +21,7 @@ options, and persistence — all reactive via sigx signals, all typed.
 pnpm add @sigx/lynx-navigation
 ```
 
-Peer-deps: `@sigx/lynx`, `@sigx/motion`. Optional but recommended:
+Peer-deps: `@sigx/lynx`, `@sigx/lynx-motion`. Optional but recommended:
 [`@sigx/lynx-linking`](../lynx-linking) for deep-link wiring,
 [`@sigx/lynx-storage`](../lynx-storage) for stack persistence.
 

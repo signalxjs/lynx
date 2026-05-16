@@ -26,7 +26,7 @@
   "peerDependencies": {
     "@sigx/lynx": "workspace:^",
     "@sigx/lynx-linking": "workspace:^",
-    "@sigx/motion": "^0.1.0"
+    "@sigx/lynx-motion": "workspace:^"
   },
   "peerDependenciesMeta": {
     "@sigx/lynx-linking": {
@@ -37,7 +37,7 @@
     "@sigx/lynx": "workspace:^",
     "@sigx/lynx-linking": "workspace:^",
     "@sigx/lynx-testing": "workspace:^",
-    "@sigx/motion": "^0.1.0",
+    "@sigx/lynx-motion": "workspace:^",
     "typescript": "^6.0.3",
     "vitest": "^4.1.6"
   },
@@ -64,7 +64,6 @@
     "url": "https://github.com/signalxjs/lynx/issues"
   },
   "publishConfig": {
-    "access": "public",
-    "provenance": true
+    "access": "public"
   }
 }
