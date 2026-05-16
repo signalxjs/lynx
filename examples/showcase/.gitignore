@@ -1,0 +1,30 @@
+# Dependencies
+node_modules/
+
+# Build output (rspeedy / TypeScript)
+dist/
+.rspeedy/
+.sigx/
+*.tsbuildinfo
+*.local
+
+# Generated native projects — emitted by `sigx prebuild` from
+# sigx.lynx.config.ts + auto-linked @sigx/lynx-* modules.
+# Regenerated on demand; do not commit.
+android/
+ios/
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo

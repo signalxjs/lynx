@@ -34,7 +34,13 @@ export function useIsFocused(): Computed<boolean> {
     // through `defineProvide` may carry reactive dependencies; we only care
     // about the immutable key of the entry this screen was mounted for.
     const myKey = useCurrentEntry().key;
-    return computed(() => nav.current.key === myKey);
+    // AND in `nav.isLocallyFocused` so a screen in a nested stack (e.g. a
+    // per-tab `<Stack>`) reports unfocused when its enclosing tab is
+    // inactive, or when a modal on the root nav covers everything — even
+    // though it's still the top of its own (paused) stack. Root nav's
+    // `isLocallyFocused` is permanently true, so this reduces to the
+    // previous behavior for un-nested apps.
+    return computed(() => nav.current.key === myKey && nav.isLocallyFocused);
 }
 
 /**

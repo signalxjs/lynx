@@ -93,8 +93,45 @@ export interface Nav {
     /** Whether the user can go back from the current entry. Reactive. */
     readonly canGoBack: boolean;
 
-    /** Parent navigator (e.g. the Tabs above this Stack), or null at the root. */
+    /**
+     * Parent navigator (e.g. the root nav above a per-tab `<Stack>`), or null
+     * at the root. Set when a `<Stack>` mints its own navigator via
+     * `<Stack initialRoute="…">` — that stack's `useNav()` returns a nav
+     * whose `parent` is the enclosing nav.
+     *
+     * `push` calls for routes whose resolved presentation is non-`card`
+     * (`modal` / `fullScreen` / `transparent-modal`) escalate up the
+     * `parent` chain automatically — you don't normally need to reach
+     * through `parent` to present modals. `parent` is exposed as an escape
+     * hatch for power users (e.g. imperative `parent.pop()` from a child
+     * stack). Avoid pushing card routes onto `parent` directly — that
+     * defeats per-tab stack isolation.
+     */
     readonly parent: Nav | null;
+
+    /**
+     * Whether this navigator is part of the currently-focused chain. True
+     * for the root nav at all times; for a nested nav (e.g. a per-tab
+     * stack), true only when its host entry is the top of `parent`, the
+     * parent itself is locally focused, and any extra gate (e.g. the
+     * enclosing tab is active) reports active.
+     *
+     * Reactive. `useIsFocused()` ANDs `nav.current.key === myKey` with
+     * `nav.isLocallyFocused`.
+     */
+    readonly isLocallyFocused: boolean;
+
+    /**
+     * @internal
+     * Set of child navigators (per-tab `<Stack>` instances) that have
+     * registered themselves under this nav. Used by `useHardwareBack` to
+     * find the deepest currently-focused nav and route the back press
+     * there before falling back up the chain.
+     *
+     * Not part of the public API — leading-underscore marks it as
+     * implementation detail.
+     */
+    readonly _children: Set<Nav>;
 
     /**
      * In-flight transition, or null when navigation is at rest. Reactive —

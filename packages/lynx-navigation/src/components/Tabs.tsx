@@ -4,31 +4,32 @@
  * Usage:
  *
  * ```tsx
- * <NavigationRoot routes={routes}>
- *   <Tabs initialTab="feed">
- *     <Tabs.Screen name="feed" icon={<FeedIcon />} label="Feed">
- *       <FeedView />
- *     </Tabs.Screen>
- *     <Tabs.Screen name="me" icon={<MeIcon />} label="Profile">
- *       <ProfileView />
- *     </Tabs.Screen>
- *   </Tabs>
+ * <NavigationRoot routes={routes} initialRoute="root">
+ *   <Stack />
  * </NavigationRoot>
+ *
+ * // The route "root" component renders:
+ * <Tabs initialTab="feed">
+ *   <Tabs.Screen name="feed" icon={<FeedIcon />} label="Feed">
+ *     <Stack initialRoute="feedHome" />
+ *   </Tabs.Screen>
+ *   <Tabs.Screen name="me" icon={<MeIcon />} label="Profile">
+ *     <Stack initialRoute="profileHome" />
+ *   </Tabs.Screen>
+ *   <TabBar />
+ * </Tabs>
  * ```
  *
- * Scope of this slice (v0.1): pure UI primitive. Each tab's body stays
- * mounted for state preservation (the inactive ones render with
- * `display: 'none'`). Active tab is reactive via `useTabs()`.
+ * Tab bodies stay mounted across switches (the inactive ones render with
+ * `display: 'none'`), so each tab's nested `<Stack>` keeps its history when
+ * the user flips back to it. The active tab is reactive via `useTabs()`.
  *
- * Out of scope (deferred to a nested-navigators slice):
- *   - Per-tab `<Stack>` with its own navigator state machine
- *   - `nav.parent` chain into the Tabs nav
- *   - Named navigators (`useNav('root')`)
- *
- * Those build on multi-navigator-state plumbing that isn't ready yet.
- * For now, the inner content of a `<Tabs.Screen>` shares the same nav as
- * its outer `<NavigationRoot>` — usable for shallow tab apps, but full
- * nested routing comes later.
+ * Per-tab stacks: each `<Tabs.Screen>` can host a `<Stack initialRoute="…">`
+ * which mints its own navigator. `useNav()` inside that subtree resolves to
+ * the tab's stack, so `nav.push('card-route', …)` stays inside the tab.
+ * Routes presented as `modal` / `fullScreen` / `transparent-modal` escalate
+ * up `nav.parent` to the root navigator automatically — they overlay the
+ * tabs UI (TabBar included) and dismiss back into the originating tab.
  */
 import {
     component,
@@ -95,6 +96,19 @@ interface TabsRegistrar {
 const useTabsRegistrar = defineInjectable<TabsRegistrar>(() => {
     throw new Error(
         '[lynx-navigation] <Tabs.Screen> rendered outside a <Tabs> component.',
+    );
+});
+
+/**
+ * @internal
+ * Provided by each `<Tabs.Screen>` so a nested `<Stack initialRoute>` can
+ * discover *which* tab it's hosted by, and gate its focus state on that
+ * tab being active. Throws when called outside a `<Tabs.Screen>` body so
+ * the gate degrades to "always active" via the caller's try/catch.
+ */
+export const useTabScreenName = defineInjectable<string>(() => {
+    throw new Error(
+        '[lynx-navigation] useTabScreenName() called outside a <Tabs.Screen> body.',
     );
 });
 
@@ -185,6 +199,10 @@ const TabsScreen = component<TabsScreenProps>(({ props, slots }) => {
         accessibilityLabel: props.accessibilityLabel,
     });
     onUnmounted(() => registrar.unregister(name));
+
+    // Expose this screen's tab name so a nested `<Stack initialRoute>` body
+    // can gate its locally-focused state on `tabs.active === name`.
+    defineProvide(useTabScreenName, () => name);
 
     return () => {
         // `display: none` keeps the body mounted so per-tab state survives
