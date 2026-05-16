@@ -64,6 +64,14 @@ export interface NavigatorState {
         unregister(entryKey: string): void;
         get(entryKey: string): ScreenRegistry | undefined;
     };
+    /**
+     * Internal: set `nav.isLocallyFocused` from outside.
+     *
+     * `<Stack>` calls this when its host entry's locally-focused state
+     * changes (top of parent + parent focused + enclosing tab active). For
+     * the root nav this stays `true` for the lifetime of the navigator.
+     */
+    readonly _setLocallyFocused: (focused: boolean) => void;
 }
 
 /**
@@ -146,6 +154,24 @@ export interface CreateNavigatorOptions {
      * that don't have an MT runtime.
      */
     progress?: SharedValue<number>;
+    /**
+     * Parent navigator. Set when this navigator is nested under another
+     * (e.g. a per-tab `<Stack initialRoute>` under root). Drives the
+     * `nav.parent` getter and the modal-escalation behaviour of `push`:
+     * a push of a route whose resolved presentation is not `'card'`
+     * recurses via `parent.push(...)`, walking up the chain until it
+     * lands on a navigator with no parent (the root).
+     *
+     * Leave undefined for the root navigator.
+     */
+    parent?: Nav | null;
+    /**
+     * Whether this navigator is considered "locally focused" at creation
+     * time. Defaults to true for the root nav; nested stacks pass `false`
+     * here and then flip the flag via `_setLocallyFocused` once their
+     * host-entry/tab-active state is computed.
+     */
+    initialLocallyFocused?: boolean;
 }
 
 /**
@@ -154,9 +180,13 @@ export interface CreateNavigatorOptions {
  * can subscribe to it.
  */
 export function createNavigatorState(opts: CreateNavigatorOptions): NavigatorState {
-    const { routes, initial, progress } = opts;
+    const { routes, initial, progress, parent = null } = opts;
 
     const stackSignal: Signal<StackEntry[]> = signal<StackEntry[]>([initial]);
+    const focusedBox: Signal<{ value: boolean }> = signal<{ value: boolean }>({
+        value: opts.initialLocallyFocused ?? true,
+    });
+    const children = new Set<Nav>();
     // `signal(null)` would wrap as a primitive (no `$set`), so wrap in an
     // object to get the standard `{ value }`-style API. Reading `.value`
     // tracks; writing triggers re-render of `<Stack>`.
@@ -231,14 +261,33 @@ export function createNavigatorState(opts: CreateNavigatorOptions): NavigatorSta
     }
 
     const push: Nav['push'] = ((name: string, ...args: unknown[]) => {
-        if (isTransitioning()) return;
-        const { params, search, options } = unpackArgs(name, args, routes);
         if (!routes[name]) {
             throw new Error(
                 `[lynx-navigation] push('${name}'): route is not registered. ` +
                     `Known routes: ${Object.keys(routes).join(', ') || '(none)'}`,
             );
         }
+        const { params, search, options } = unpackArgs(name, args, routes);
+
+        // Escalate non-card presentations up the parent chain. Modals,
+        // fullScreen, and transparent-modal routes belong on the root
+        // navigator so they overlay tab UI and persistent chrome. We resolve
+        // the presentation the same way `makeEntry` does so the escalation
+        // decision matches what would actually be shown.
+        const resolvedPresentation =
+            (options?.presentation ?? routes[name].presentation ?? 'card') as Presentation;
+        if (resolvedPresentation !== 'card' && parent) {
+            // Walk straight to the root — every navigator with a parent
+            // delegates non-card pushes upward, so a chain of any depth
+            // collapses to a single push on the topmost nav.
+            // Forward original args verbatim so overloads (`push(name)`,
+            // `push(name, params)`, `push(name, params, search)`,
+            // `push(name, params, search, options)`) keep their meaning.
+            (parent.push as (n: string, ...a: unknown[]) => void)(name, ...args);
+            return;
+        }
+
+        if (isTransitioning()) return;
         preloadRouteComponent(routes[name].component);
         const newEntry = makeEntry(name, params, search, options, routes);
         const cur = getStack();
@@ -411,18 +460,38 @@ export function createNavigatorState(opts: CreateNavigatorOptions): NavigatorSta
             return stackSignal.length > 1;
         },
         get parent() {
-            return null;
+            return parent;
+        },
+        get isLocallyFocused() {
+            return focusedBox.value;
+        },
+        get _children() {
+            return children;
         },
         get transition() {
             return transitionBox.value;
         },
     };
 
+    if (parent) {
+        // Register with parent so root-level traversals (hardware back,
+        // future deepest-focused queries) can reach this nav. The matching
+        // `_children.delete(nav)` happens when the owning `<Stack>` unmounts;
+        // see Stack.tsx.
+        parent._children.add(nav);
+    }
+
+    function setLocallyFocused(focused: boolean): void {
+        if (focusedBox.value === focused) return;
+        focusedBox.value = focused;
+    }
+
     return {
         nav,
         routes,
         _gesture: { beginBackGesture, commitBackGesture, cancelBackGesture },
         _screens: createScreenRegistries(),
+        _setLocallyFocused: setLocallyFocused,
     };
 }
 

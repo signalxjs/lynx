@@ -98,7 +98,66 @@ and every other API gets typed.
 ### `<Stack>`
 
 Renders the topmost stack entry plus the entry beneath it during
-transitions. No props — driven entirely by the navigator state.
+transitions. By default it binds to the enclosing navigator (the root one
+under `<NavigationRoot>`).
+
+Pass `initialRoute` to make `<Stack>` create its **own** nested navigator —
+this is how per-tab stacks work. See [Per-tab nested stacks](#per-tab-nested-stacks).
+
+```tsx
+<Stack initialRoute="tripsHome" />
+<Stack initialRoute="profile" initialParams={{ id: 'me' }} />
+```
+
+### Per-tab nested stacks
+
+Drop a `<Stack initialRoute=…>` inside each `<Tabs.Screen>` to give every
+tab its own back-stack. Card-presentation pushes stay inside the tab;
+modal / fullScreen / transparent-modal pushes **escalate** to the root
+navigator so they overlay the entire tabs UI (TabBar included).
+
+```tsx
+<NavigationRoot routes={routes} initialRoute="root">
+    <Header />
+    <Stack />        {/* root navigator — renders the `root` entry below */}
+</NavigationRoot>
+
+// `root` route renders this:
+<Tabs initialTab="trips">
+    <Tabs.Screen name="trips" label="Trips">
+        <Stack initialRoute="tripsHome" />
+    </Tabs.Screen>
+    <Tabs.Screen name="map" label="Map">
+        <Stack initialRoute="mapHome" />
+    </Tabs.Screen>
+    <TabBar />
+</Tabs>
+```
+
+Inside a tab body, `useNav()` resolves to the **innermost** navigator:
+
+- `nav.push('tripDetail', { tripId })` — `tripDetail` is a card route →
+  pushed onto the trips tab's stack, TabBar stays visible.
+- `nav.push('newTrip')` — `newTrip` is `presentation: 'modal'` → walks up
+  `nav.parent` to root and pushes there, overlays the whole tabs UI.
+- `nav.replace(...)` is **strictly local** and never escalates (asymmetric
+  with `push` by design — keeps the root stack stable).
+- Hardware/edge back pops the focused inner nav first; only falls through
+  to root once the inner stack is empty.
+- `useIsFocused()` is `true` only when the screen is the top of its own
+  nav **and** every ancestor is focused (parent's current entry matches +
+  enclosing tab is active).
+
+**Limitations (current slice)**:
+
+- Pushing a modal re-mounts the underlying root entry (the Tabs UI),
+  resetting inner-tab stack state. To preserve inner state across modals,
+  hoist app state out of screens.
+- One global route registry — there's no per-tab whitelist yet. Deep-link
+  routing always pushes against the innermost nav of the caller site
+  (modal routes still escalate). A future slice may add `<Stack routes={…}>`.
+- `useNavSerializer` snapshots one nav only — nested-tab stack state isn't
+  persisted across reload yet.
 
 ### `<Screen>`
 
@@ -143,7 +202,10 @@ screen's `useScreenOptions(...)` registration.
 
 ### `<Tabs>` + `<Tabs.Screen>` + `<TabBar>`
 
-Persistent tab navigator. Each tab keeps its own stack across switches.
+Persistent tab navigator. Each tab body stays mounted (hidden via
+`display: none`) so switching tabs preserves state. Drop a `<Stack
+initialRoute=…>` inside a `<Tabs.Screen>` to give that tab its own
+back-stack — see [Per-tab nested stacks](#per-tab-nested-stacks).
 
 ```tsx
 <Tabs initialTab="home">

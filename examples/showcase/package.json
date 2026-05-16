@@ -1,0 +1,48 @@
+{
+    "name": "showcase",
+    "version": "0.1.0",
+    "private": true,
+    "type": "module",
+    "scripts": {
+        "dev": "sigx dev",
+        "build": "sigx build",
+        "doctor": "sigx doctor",
+        "prebuild": "sigx prebuild"
+    },
+    "dependencies": {
+        "@sigx/lynx": "workspace:^",
+        "@sigx/lynx-runtime": "workspace:^",
+        "@sigx/lynx-runtime-main": "workspace:^",
+        "@sigx/lynx-core": "workspace:^",
+        "@sigx/reactivity": "^0.4.3",
+        "@sigx/runtime-core": "^0.4.3",
+        "@sigx/lynx-storage": "workspace:^",
+        "@sigx/lynx-clipboard": "workspace:^",
+        "@sigx/lynx-haptics": "workspace:^",
+        "@sigx/lynx-device-info": "workspace:^",
+        "@sigx/lynx-network": "workspace:^",
+        "@sigx/lynx-websocket": "workspace:^",
+        "@sigx/lynx-navigation": "workspace:^",
+        "@sigx/lynx-motion": "workspace:^",
+        "@sigx/lynx-linking": "workspace:^",
+        "@sigx/lynx-gestures": "workspace:^",
+        "@sigx/lynx-daisyui": "workspace:^",
+        "zod": "^3.23.0"
+    },
+    "devDependencies": {
+        "@sigx/cli": "^0.2.8",
+        "@sigx/lynx-cli": "workspace:^",
+        "@sigx/lynx-plugin": "workspace:^",
+        "@sigx/lynx-dev-client": "workspace:^",
+        "@lynx-js/rspeedy": ">=0.1.0",
+        "@lynx-js/css-extract-webpack-plugin": ">=0.1.0",
+        "@lynx-js/template-webpack-plugin": ">=0.1.0",
+        "@lynx-js/runtime-wrapper-webpack-plugin": ">=0.1.0",
+        "@lynx-js/webpack-dev-transport": ">=0.1.0",
+        "@lynx-js/tailwind-preset": "^0.4.0",
+        "tailwindcss": "^3.4.0",
+        "postcss": "^8.4.0",
+        "autoprefixer": "^10.4.0",
+        "typescript": "^5.9.3"
+    }
+}
