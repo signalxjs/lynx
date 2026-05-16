@@ -147,6 +147,10 @@ const _Tabs = component<TabsProps>(({ props, slots }) => {
             return activeSignal.value ?? '';
         },
         setActive(name) {
+            // Silently ignore unknown names rather than writing them and
+            // hiding every tab body. Surfacing as a no-op gives consumers a
+            // predictable failure mode for typos / dynamic name sources.
+            if (!tabs.some((t) => t.name === name)) return;
             activeSignal.value = name;
         },
         get tabs() {

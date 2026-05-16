@@ -1,4 +1,10 @@
-import { computed, effect, onUnmounted, type Computed } from '@sigx/lynx';
+import {
+    computed,
+    effect,
+    onUnmounted,
+    untrack,
+    type Computed,
+} from '@sigx/lynx';
 import { useNav } from './use-nav.js';
 import { useCurrentEntry } from './use-nav-internal.js';
 
@@ -58,12 +64,17 @@ export function useFocusEffect(cb: () => void | (() => void)): void {
     let cleanup: (() => void) | void;
     const runner = effect(() => {
         const focused = isFocused.value;
-        if (focused) {
-            cleanup = cb();
-        } else if (typeof cleanup === 'function') {
+        // Always tear down any previous focus session before starting a new
+        // one (or before going dormant on blur). Wrap `cb` in `untrack` so
+        // signals read inside the user-provided callback can't retrigger the
+        // outer effect and stack subscriptions.
+        if (typeof cleanup === 'function') {
             const fn = cleanup;
             cleanup = undefined;
             fn();
+        }
+        if (focused) {
+            cleanup = untrack(() => cb());
         }
     });
     onUnmounted(() => {

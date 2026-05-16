@@ -78,20 +78,25 @@ function extractParams(
 }
 
 function splitPathAndQuery(url: string): { pathname: string; query: string } {
+    // Drop the fragment before any path/query work — `#…` is a client-side
+    // anchor that must not leak into the route pathname or query values.
+    const hashIdx = url.indexOf('#');
+    const noHash = hashIdx >= 0 ? url.slice(0, hashIdx) : url;
+
     // If the URL has a scheme, defer to lynx-linking's parser — handles
     // `myapp://host/path?q` correctly. Otherwise treat the whole thing as
     // pathname+query.
-    const hasScheme = /^[a-zA-Z][a-zA-Z0-9+.\-]*:/.test(url);
+    const hasScheme = /^[a-zA-Z][a-zA-Z0-9+.\-]*:/.test(noHash);
     if (hasScheme) {
-        const parsed = parseUrl(url);
+        const parsed = parseUrl(noHash);
         // Reconstruct the query string from the already-parsed bag. We have
         // to do this because parseUrl decoded keys/values, but parseSearch
         // expects encoded form. Simpler: split the original ourselves.
-        const qIdx = url.indexOf('?');
-        const query = qIdx >= 0 ? url.slice(qIdx + 1) : '';
+        const qIdx = noHash.indexOf('?');
+        const query = qIdx >= 0 ? noHash.slice(qIdx + 1) : '';
         return { pathname: parsed.path, query };
     }
-    const qIdx = url.indexOf('?');
-    if (qIdx === -1) return { pathname: url, query: '' };
-    return { pathname: url.slice(0, qIdx), query: url.slice(qIdx + 1) };
+    const qIdx = noHash.indexOf('?');
+    if (qIdx === -1) return { pathname: noHash, query: '' };
+    return { pathname: noHash.slice(0, qIdx), query: noHash.slice(qIdx + 1) };
 }

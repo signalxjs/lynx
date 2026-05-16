@@ -116,8 +116,16 @@ export const Pressable = component<PressableProps>(({ props, slots, emit }) => {
   // path), which would prematurely reset our press-state styles. Style
   // reset lives in LongPress.onEnd, which fires only on real touch-up.
 
+  // Always pair Tap with a LongPress gesture — even when long-press is
+  // "disabled" by the consumer. LongPress.onEnd is the reliable terminal
+  // hook that resets the pressed visual state on touch-up across iOS +
+  // Android; without it the child would stay stuck in the pressed style.
+  // We disable long-press semantically (never fires) by pushing its
+  // minDuration past any realistic touch by setting it to MAX_SAFE_INTEGER
+  // while keeping the gesture registered for its onEnd lifecycle.
+  const longPressEnabled = longPressDuration > 0;
   const longPress = Gesture.LongPress()
-    .minDuration(minDuration)
+    .minDuration(longPressEnabled ? minDuration : Number.MAX_SAFE_INTEGER)
     .maxDistance(maxDistance)
     .onBegin(() => {
       'main thread';
@@ -157,9 +165,7 @@ export const Pressable = component<PressableProps>(({ props, slots, emit }) => {
       runOnBackground(() => { emit('press'); })();
     });
 
-  const gesture = longPressDuration > 0
-    ? Gesture.Simultaneous(tap, longPress)
-    : tap;
+  const gesture = Gesture.Simultaneous(tap, longPress);
 
   useGestureDetector(elRef, gesture);
 

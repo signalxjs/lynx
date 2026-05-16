@@ -45,7 +45,12 @@ function resolveTitle(t: ScreenOptions['title'], routeName: string): string {
  */
 const DefaultBackButton = component<{ onPress: () => void } & {}>(({ props }) => {
     return () => (
-        <view bindtap={() => props.onPress()}>
+        <view
+            bindtap={() => props.onPress()}
+            accessibility-element={true}
+            accessibility-label="Back"
+            accessibility-trait="button"
+        >
             <text>‹ Back</text>
         </view>
     );

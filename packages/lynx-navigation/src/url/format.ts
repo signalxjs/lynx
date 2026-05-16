@@ -9,7 +9,10 @@
  *
  * Keys are sorted to make the output deterministic (useful for tests and
  * persistence diffs). `undefined`/`null` values are skipped. Non-primitive
- * values are JSON-stringified — parseHref reverses this on the receiving end.
+ * values are JSON-stringified on the way out — `parseSearch` returns the
+ * raw string and leaves any JSON decoding to the route's `search` schema
+ * (e.g. a Zod `transform`), so the round-trip is intentionally one-way at
+ * this layer.
  *
  * Returns `''` (empty string) when there are no entries — callers join with
  * `?` only when the result is non-empty.

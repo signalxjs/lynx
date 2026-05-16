@@ -5,9 +5,7 @@
  *
  * ```tsx
  * <NavigationRoot routes={routes}>
- *   <Drawer
- *     sidebar={() => <view><text>Menu</text></view>}
- *   >
+ *   <Drawer slots={{ sidebar: () => <view><text>Menu</text></view> }}>
  *     <Stack />
  *   </Drawer>
  * </NavigationRoot>
@@ -21,13 +19,13 @@
  * Gesture-driven open (edge swipe from the left) and MTS slide-in are out
  * of scope — the app shell can wrap its sidebar JSX in its own transition.
  *
- * Design note: the sidebar is passed as a render function via the
- * `sidebar` slot prop rather than a `<Drawer.Sidebar>` child. Mixing
+ * Design note: the sidebar lives in a named slot (`sidebar`) rather than
+ * a render-prop or a `<Drawer.Sidebar>` child. Mixing
  * "register-yourself-as-a-fill" children with the parent's own visible
  * layout creates a feedback loop in sigx's reactive scope (the parent's
  * render reads the fill, child's setup writes it, parent re-renders,
- * child re-mounts, …). A scoped slot avoids that entirely and the API
- * is identical at the call site.
+ * child re-mounts, …). A scoped slot avoids that entirely and keeps the
+ * call site declarative.
  *
  * `default` slot is the main content (almost always a `<Stack>`).
  */

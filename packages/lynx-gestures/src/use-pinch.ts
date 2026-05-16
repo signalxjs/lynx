@@ -83,6 +83,16 @@ export function usePinch(options: UsePinchOptions = {}): UsePinchReturn {
     finger2 = null;
   }
 
+  function onTouchCancel(): void {
+    if (active) {
+      state.phase = 'cancelled';
+      onPinch?.(state as PinchState);
+    }
+    active = false;
+    finger1 = null;
+    finger2 = null;
+  }
+
   function reset(): void {
     active = false;
     finger1 = null;
@@ -99,7 +109,7 @@ export function usePinch(options: UsePinchOptions = {}): UsePinchReturn {
       bindtouchstart: onTouchStart,
       bindtouchmove: onTouchMove,
       bindtouchend: onTouchEnd,
-      bindtouchcancel: onTouchEnd,
+      bindtouchcancel: onTouchCancel,
     },
     reset,
   };

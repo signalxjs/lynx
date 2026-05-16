@@ -61,7 +61,7 @@ export interface UseLinkingNavOptions {
  *
  * @example
  * ```tsx
- * import { useLinkingNav } from '@sigx/lynx-linking/nav';
+ * import { useLinkingNav } from '@sigx/lynx-navigation';
  *
  * const DeepLinks = component(() => {
  *     useLinkingNav({
