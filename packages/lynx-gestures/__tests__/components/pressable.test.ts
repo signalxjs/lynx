@@ -22,7 +22,7 @@ describe('Pressable', () => {
     expect(src).toMatch(/Gesture\.LongPress\(\)/);
     expect(src).toMatch(/Gesture\.Simultaneous\(tap, longPress\)/);
     expect(src).toMatch(/useGestureDetector\(elRef, gesture\)/);
-    expect(src).toMatch(/\.minDuration\(minDuration\)/);
+    expect(src).toMatch(/\.minDuration\(longPressEnabled \? minDuration : Number\.MAX_SAFE_INTEGER\)/);
     // 5 worklets: tap.onBegin, tap.onStart, longPress.onBegin, longPress.onStart, longPress.onEnd.
     // Tap intentionally has no onEnd (iOS fires it prematurely; LongPress.onEnd resets styles).
     const directiveCount = (src.match(/'main thread'/g) || []).length;

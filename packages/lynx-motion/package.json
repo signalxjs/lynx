@@ -1,7 +1,7 @@
 {
     "name": "@sigx/lynx-motion",
-    "version": "0.1.0",
-    "description": "Animation primitives for sigx-lynx — spring/tween drivers built on AnimatedValue",
+    "version": "0.1.1",
+    "description": "Animation primitives for sigx-lynx — spring/tween drivers built on SharedValue",
     "type": "module",
     "main": "./src/index.ts",
     "types": "./src/index.ts",
@@ -25,7 +25,7 @@
         "motion"
     ],
     "author": "Andreas Ekdahl",
-    "license": "MIT",
+    "license": "(MIT AND Apache-2.0)",
     "dependencies": {
         "@sigx/lynx": "workspace:^"
     },

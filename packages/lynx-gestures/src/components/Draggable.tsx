@@ -170,11 +170,14 @@ export const Draggable = component<DraggableProps>(({ props, slots, emit }) => {
   // worklet `_c` captures stay shape-stable. `edgeScrollEnabled` gates the
   // viewport-measurement and rAF-tick paths in onStart/onUpdate; falsey
   // means the new code paths short-circuit and behave identically to the
-  // pre-2.13 Draggable.
+  // pre-2.13 Draggable. `??` (not `||`) so an explicit `0` override for the
+  // edge zone or speed cap is preserved.
   const edgeScrollProp = props.edgeScroll ?? false;
   const edgeScrollEnabled = edgeScrollProp !== false;
-  const edgeScrollThreshold = (typeof edgeScrollProp === 'object' && edgeScrollProp.threshold) || 50;
-  const edgeScrollMaxSpeed = (typeof edgeScrollProp === 'object' && edgeScrollProp.maxSpeed) || 800;
+  const edgeScrollThreshold =
+    (typeof edgeScrollProp === 'object' ? edgeScrollProp.threshold : undefined) ?? 50;
+  const edgeScrollMaxSpeed =
+    (typeof edgeScrollProp === 'object' ? edgeScrollProp.maxSpeed : undefined) ?? 800;
   // Captured at setup so the onUpdate tick reads a stable axis. `<ScrollView>`
   // captures `scroll-orientation` once at setup too, so this stays consistent.
   const scrollOrientation: 'vertical' | 'horizontal' = scrollCtx?.scrollOrientation ?? 'vertical';
@@ -250,10 +253,10 @@ export const Draggable = component<DraggableProps>(({ props, slots, emit }) => {
         drag.current.lastScrollX = scrollCtx.offsetX.current.value;
         drag.current.lastScrollY = scrollCtx.offsetY.current.value;
       }
-      runOnBackground(() => {
+      runOnBackground((startX: number, startY: number) => {
         if (scrollCtx) scrollCtx.dragging.value = true;
-        emit('dragStart', { x: tx.current.value, y: ty.current.value });
-      })();
+        emit('dragStart', { x: startX, y: startY });
+      })(tx.current.value, ty.current.value);
     })
     .onUpdate((e: any) => {
       'main thread';
@@ -425,15 +428,17 @@ export const Draggable = component<DraggableProps>(({ props, slots, emit }) => {
         const __flush = (globalThis as Record<string, unknown>)['__FlushElementTree'] as (() => void) | undefined;
         if (__flush) __flush();
       }
-      runOnBackground(() => {
+      // Capture MT values into locals before crossing back to BG —
+      // `tx.current.value` on the BG side reads the initial snapshot, not
+      // the live drag position. Same goes for `drag.current.vx/vy`.
+      const endX = tx.current.value;
+      const endY = ty.current.value;
+      const endVx = drag.current.vx;
+      const endVy = drag.current.vy;
+      runOnBackground((x: number, y: number, vx: number, vy: number) => {
         if (scrollCtx) scrollCtx.dragging.value = false;
-        emit('dragEnd', {
-          x: tx.current.value,
-          y: ty.current.value,
-          vx: drag.current.vx,
-          vy: drag.current.vy,
-        });
-      })();
+        emit('dragEnd', { x, y, vx, vy });
+      })(endX, endY, endVx, endVy);
     });
 
   useGestureDetector(elRef, pan);

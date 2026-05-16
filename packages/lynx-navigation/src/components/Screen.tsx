@@ -9,11 +9,6 @@
  *     <Screen.HeaderRight>
  *       <text bindtap={onEdit}>Edit</text>
  *     </Screen.HeaderRight>
- *     <Screen.TabBarItem>
- *       {({ active }) => (
- *         <text style={{ color: active ? '#007aff' : '#888' }}>Me</text>
- *       )}
- *     </Screen.TabBarItem>
  *     <view>body…</view>
  *   </Screen>
  * ));
@@ -24,6 +19,11 @@
  * (`Screen.Header`, `Screen.HeaderLeft`, `Screen.HeaderRight`,
  * `Screen.TabBarItem`) render `null` and write into the entry's
  * `ScreenRegistry`. The navigator's persistent chrome reads from there.
+ *
+ * Note: `<Screen.TabBarItem>` registers a scoped slot fill on the entry's
+ * `ScreenRegistry`, but the built-in `<TabBar>` doesn't read it yet — the
+ * fill is exposed for custom tab-bar renderers (pass `renderTab` and look
+ * up the active entry's registry yourself).
  *
  * Sub-component placement inside `<Screen>` is conventional — sigx scopes
  * are by component tree, so they work anywhere under the same EntryScope.

@@ -99,7 +99,10 @@ export function useRotation(options: UseRotationOptions = {}): UseRotationReturn
   }
 
   function onTouchCancel(): void {
-    if (active) state.phase = 'cancelled';
+    if (active) {
+      state.phase = 'cancelled';
+      onRotation?.(state as RotationState);
+    }
     active = false;
     finger1 = null;
     finger2 = null;

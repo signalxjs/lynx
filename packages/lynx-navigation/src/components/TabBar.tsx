@@ -63,6 +63,7 @@ const DefaultTabButton = component<
                 accessibility-element={true}
                 accessibility-label={a11y}
                 accessibility-trait="button"
+                accessibility-status={props.active ? 'selected' : undefined}
                 style={{ opacity: props.active ? 1 : 0.6 }}
             >
                 {props.info.icon ?? null}
