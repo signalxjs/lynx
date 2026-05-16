@@ -1,8 +1,10 @@
 import { component, type ComponentFactory, type SharedValue } from '@sigx/lynx';
+import { Suspense, isLazyComponent } from '@sigx/lynx';
 import { useNav } from '../hooks/use-nav.js';
 import { useNavInternals, useNavRoutes } from '../hooks/use-nav-internal.js';
 import { ScreenContainer } from './ScreenContainer.js';
 import { EdgeBackHandle } from './EdgeBackHandle.js';
+import { EntryScope } from './EntryScope.js';
 
 /**
  * Stack navigator — renders the topmost stack entry's component at rest, or
@@ -41,6 +43,17 @@ export const Stack = component(() => {
             >;
             if (typeof Comp !== 'function') return null;
             const params = top.params as Record<string, unknown>;
+            // Wrap lazy routes that declare a `fallback` in <Suspense> so the
+            // chunk-load shows the user-provided spinner instead of throwing
+            // up to the nearest outer boundary (which may be wrong layer or
+            // missing entirely).
+            const body = isLazyComponent(Comp) && route.fallback
+                ? (
+                    <Suspense fallback={route.fallback as never}>
+                        <Comp {...params} />
+                    </Suspense>
+                )
+                : <Comp {...params} />;
             // When canGoBack and edge-swipe is enabled, overlay the gesture
             // handle so the user can pan from the left edge to start a back
             // transition. `position: absolute` doesn't disturb the screen's
@@ -55,12 +68,18 @@ export const Stack = component(() => {
                             height: '100%',
                         }}
                     >
-                        <Comp key={top.key} {...params} />
+                        <EntryScope key={top.key} entry={top}>
+                            {body}
+                        </EntryScope>
                         <EdgeBackHandle key="edge-back" />
                     </view>
                 );
             }
-            return <Comp key={top.key} {...params} />;
+            return (
+                <EntryScope key={top.key} entry={top}>
+                    {body}
+                </EntryScope>
+            );
         }
 
         // Cast progress: TransitionState carries it as `unknown` to avoid

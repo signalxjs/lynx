@@ -6,7 +6,7 @@ import {
     useMainThreadRef,
     type MainThread,
 } from '@sigx/lynx';
-import { withTiming } from '@sigx/motion';
+import { withTiming } from '@sigx/lynx-motion';
 import { useNavInternals } from '../hooks/use-nav-internal.js';
 import { SCREEN_WIDTH } from '../internal/screen-width.js';
 

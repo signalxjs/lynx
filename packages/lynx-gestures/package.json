@@ -1,0 +1,54 @@
+{
+    "name": "@sigx/lynx-gestures",
+    "version": "0.1.0",
+    "description": "Gesture system for sigx-lynx - declarative composables for tap, pan, pinch, swipe, long press",
+    "type": "module",
+    "main": "./src/index.ts",
+    "types": "./src/index.ts",
+    "exports": {
+        ".": "./src/index.ts"
+    },
+    "files": [
+        "src",
+        "dist"
+    ],
+    "scripts": {
+        "build": "vite build && tsgo --emitDeclarationOnly",
+        "dev": "vite build --watch"
+    },
+    "keywords": [
+        "sigx",
+        "lynx",
+        "gestures",
+        "touch",
+        "pan",
+        "pinch",
+        "swipe",
+        "reactive"
+    ],
+    "author": "Andreas Ekdahl",
+    "license": "MIT",
+    "dependencies": {
+        "@sigx/lynx": "workspace:^"
+    },
+    "devDependencies": {
+        "@lynx-js/react": "^0.119.0",
+        "@sigx/lynx-plugin": "workspace:^",
+        "@sigx/lynx-runtime-main": "workspace:^",
+        "@sigx/lynx-testing": "workspace:^",
+        "typescript": "^6.0.3",
+        "vite": "^8.0.12"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/signalxjs/lynx.git",
+        "directory": "packages/lynx-gestures"
+    },
+    "homepage": "https://github.com/signalxjs/lynx/tree/main/packages/lynx-gestures",
+    "bugs": {
+        "url": "https://github.com/signalxjs/lynx/issues"
+    },
+    "publishConfig": {
+        "access": "public"
+    }
+}

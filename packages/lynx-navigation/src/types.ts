@@ -51,6 +51,20 @@ export interface RouteDefinition<
 > {
     /** Component factory or lazy importer. */
     component: ComponentLike;
+    /**
+     * Fallback shown while a lazy `component` is loading.
+     *
+     * Set this only on routes whose `component` was created with `lazy(...)`.
+     * The fallback is rendered inside a `<Suspense>` boundary wrapping the
+     * screen mount, so the user sees this UI while the screen's chunk is
+     * being fetched. When omitted, lazy routes still work — the caller is
+     * responsible for placing its own `<Suspense>` boundary (e.g. above the
+     * `<NavigationRoot>` or inside the screen component).
+     *
+     * Accepts a component factory (`MyLoadingScreen`) or a function returning
+     * JSX (`() => <Spinner />`). Eager routes ignore this field.
+     */
+    fallback?: ComponentLike | (() => unknown);
     /** Standard-Schema validator for path params. Optional. */
     params?: Params;
     /** Standard-Schema validator for query/search params. Optional. */
@@ -168,4 +182,46 @@ export interface TransitionState {
     readonly underneathEntry: StackEntry;
     /** Animation progress signal — typed loosely; cast at the runtime boundary. */
     readonly progress: unknown;
+}
+
+/**
+ * Per-screen display options written by `<Screen>` into its entry's registry.
+ *
+ * Read by persistent navigator chrome (the `<HeaderBar>` shipped in the
+ * `header` slice; `<TabBar>` later). All fields are optional — consumers
+ * apply sensible defaults (headerShown defaults to true, gestureEnabled to
+ * true, title falls back to the route name).
+ *
+ * `title` accepts a function so the header can be derived from reactive
+ * state (e.g. a user's display name signal). Plain strings are wrapped in
+ * a thunk by consumers when read.
+ */
+export interface ScreenOptions {
+    /** Header title. Either a static string or a getter (re-tracked each render). */
+    title?: string | (() => string);
+    /** When false, the navigator's header is hidden for this screen. Default true. */
+    headerShown?: boolean;
+    /** When false, the iOS edge-swipe-back gesture is disabled for this screen. Default true. */
+    gestureEnabled?: boolean;
+}
+
+/**
+ * Slot fills written by `<Screen.Header>` / `<Screen.HeaderLeft>` /
+ * `<Screen.HeaderRight>` / `<Screen.TabBarItem>`.
+ *
+ * Each fill is the rendered output of that sub-component's `default` slot,
+ * captured as a thunk so the navigator's persistent chrome can call it at
+ * render time. `tabBarItem` is a scoped slot — the consumer passes
+ * `{ active }` so the same screen's tab-bar item can style itself
+ * differently when focused vs. not.
+ */
+export interface ScreenSlotFills {
+    /** Full header replacement. When set, takes precedence over title + headerLeft/Right. */
+    header?: () => unknown;
+    /** Left-side header content (typically back arrow override). */
+    headerLeft?: () => unknown;
+    /** Right-side header content (typically action buttons). */
+    headerRight?: () => unknown;
+    /** Tab-bar item — scoped slot receives `{ active }` indicating focus. */
+    tabBarItem?: (ctx: { active: boolean }) => unknown;
 }

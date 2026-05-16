@@ -4,6 +4,7 @@ import { useNav } from '../hooks/use-nav.js';
 import { useNavInternals, useNavRoutes } from '../hooks/use-nav-internal.js';
 import type { RouteId } from '../register.js';
 import type { Presentation, RouteMap, StackEntry } from '../types.js';
+import { _setRouteRegistry } from '../url/registry.js';
 
 type NavigationRootProps =
     & Define.Prop<'routes', RouteMap, true>
@@ -48,6 +49,12 @@ export const NavigationRoot = component<NavigationRootProps>(({ props, slots }) 
             `[lynx-navigation] <NavigationRoot> initialRoute='${initialName}' is not in the routes registry.`,
         );
     }
+    // Publish the active route registry to the URL bridge so module-level
+    // `hrefFor` / `parseHref` callers (deep-link handlers, anything outside
+    // the component tree) resolve against this navigator's routes. Last
+    // mount wins — multi-root apps that need isolation should call the
+    // URL helpers with explicit context (TBD post-1.0).
+    _setRouteRegistry(routes);
     const initialPresentation: Presentation = routes[initialName].presentation ?? 'card';
     const initial: StackEntry = {
         key: 'root',
@@ -79,6 +86,7 @@ export const NavigationRoot = component<NavigationRootProps>(({ props, slots }) 
         commitBackGesture: navState._gesture.commitBackGesture,
         cancelBackGesture: navState._gesture.cancelBackGesture,
         edgeSwipeEnabled,
+        screens: navState._screens,
     }));
 
     return () => slots.default?.();
