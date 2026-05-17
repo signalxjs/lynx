@@ -22,13 +22,28 @@ import { transformReactLynxSync } from '@lynx-js/react/transform';
 // runOnBackground is by name and works regardless of source.
 const RUNTIME_PKG = '@sigx/lynx-runtime';
 
+// Cheap pre-filter to skip the SWC parse for files that obviously don't
+// contain a worklet directive. A directive is always followed immediately
+// by a statement terminator — either `;` or a newline (ASI). Requiring
+// one of those after the closing quote rejects substrings inside
+// single-line error strings like
+// `"...inside 'main thread' functions..."` from `@sigx/lynx-runtime`'s
+// dist, where the next char is a space then `functions`.
+//
+// This is not a parser. A truly adversarial input (e.g. the literal
+// string `"'main thread';"`) can slip through, and the SWC transform
+// is the final arbiter — for such files it produces no registrations
+// and the BG output is identical to the no-directive path, just with
+// the parse work done.
+const DIRECTIVE_RE = /['"]main thread['"]\s*(?:;|\n)/;
+
 export default function workletLoader(
   this: Rspack.LoaderContext,
   source: string,
 ): string {
   this.cacheable(true);
 
-  if (!source.includes('\'main thread\'') && !source.includes('"main thread"')) {
+  if (!DIRECTIVE_RE.test(source)) {
     return source;
   }
 

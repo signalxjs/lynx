@@ -441,31 +441,31 @@ export async function applyEntry(
     // BG layer: target='JS' replaces 'main thread' functions with
     //           { _wkltId, _c? } placeholders shipped via SET_WORKLET_EVENT.
     // MT layer: target='LEPUS' produces registerWorkletInternal(...) calls;
-    //           the loader extracts those + local-import edges, dropping
-    //           user component code so Lepus never executes it.
-    // ------------------------------------------------------------------
-    // TODO(framework): cleanly support pre-built `@sigx/*` packages that
-    // ship `'main thread'` worklet bodies in their dist (motion, gestures).
-    // Their directives are inert strings when the transform never sees
-    // them, so SharedValue writes from those packages run on BG and
-    // animations don't tick. A naive `include @sigx/*` blew up because
-    // the MT loader (`target: 'LEPUS'`) drops non-worklet code — that
-    // strips MT globals (`updateGlobalProps`, `sigxRunOnMT`, `processData`)
-    // out of `@sigx/lynx-runtime-main` and the app refuses to boot.
-    // Proper fix needs either a per-package opt-in via package.json
-    // metadata (e.g. `"sigxLynx": { "worklets": true }`) or shipping
-    // motion/gestures as TS source so the consumer's plugin processes
-    // them via the normal user-code path. For now: revert to broad
-    // exclude; framework consumers don't get animations from
-    // pre-published motion/gestures, but the app boots.
+    //           the loader extracts those + local-import edges.
+    //
+    // Rules run on every JS/TS file in their respective layer — no
+    // package allowlist and no `node_modules`/`dist` rule exclude. The
+    // loaders gate themselves on directive presence (cheap regex
+    // pre-filter, then SWC). The MT loader additionally branches on the
+    // file's path because rspack shares module identity across BG/MT
+    // layers — see the decision table in `worklet-loader-mt.ts` — so an
+    // MT-side body strip of a library file would wipe its named exports
+    // for BG consumers too. That MT-side preservation keeps
+    // `@sigx/lynx-runtime-main`'s MT globals (`processData`,
+    // `updateGlobalProps`, `sigxRunOnMT`) and lets cross-package
+    // consumers like `@sigx/lynx-daisyui` resolve named imports
+    // (`useTabs`, `useScreenChrome`) from worklet-shipping packages.
+    //
+    // The BG loader has no path branch; for directive-bearing files
+    // (user or library) it returns the JS-target transform output,
+    // which preserves exports while replacing worklet bodies with
+    // `{ _wkltId }` placeholders. New packages that ship `'main thread'`
+    // directives in their dist are picked up automatically — no
+    // manual opt-in.
     chain.module
       .rule('sigx-worklet')
       .test(/\.[jt]sx?$/)
       .issuerLayer(LAYERS.BACKGROUND)
-      .exclude
-        .add(/node_modules/)
-        .add(/dist/)
-        .end()
       .enforce('pre')
       .use('sigx-worklet-loader')
         .loader(path.resolve(_dirname, './loaders/worklet-loader'))
@@ -475,10 +475,6 @@ export async function applyEntry(
       .rule('sigx-worklet-mt')
       .test(/\.[jt]sx?$/)
       .issuerLayer(LAYERS.MAIN_THREAD)
-      .exclude
-        .add(/node_modules/)
-        .add(/dist/)
-        .end()
       .enforce('pre')
       .use('sigx-worklet-mt-loader')
         .loader(path.resolve(_dirname, './loaders/worklet-loader-mt'))

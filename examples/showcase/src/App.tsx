@@ -12,18 +12,7 @@ const App = component(() => () => (
     <SafeAreaProvider>
         <ThemeProvider initial="daisy-light">
             <SafeAreaView edges={['top', 'bottom']} class="bg-base-100">
-                {/*
-                  `animated={false}` because the SWC worklet loader skips
-                  `node_modules/`, so the `'main thread'` directives baked
-                  into `@sigx/lynx-motion`'s pre-built dist no-op silently.
-                  Without this flag, every push waits 280ms for a slide
-                  that never plays — instant snap feels less laggy.
-                */}
-                <NavigationRoot
-                    routes={routes}
-                    initialRoute="root"
-                    animated={false}
-                >
+                <NavigationRoot routes={routes} initialRoute="root">
                     <NavHeader />
                     <Stack />
                 </NavigationRoot>
