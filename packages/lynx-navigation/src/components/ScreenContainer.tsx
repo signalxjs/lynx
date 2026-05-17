@@ -9,45 +9,69 @@ import {
 } from '@sigx/lynx';
 import { Suspense, isLazyComponent } from '@sigx/lynx';
 import type { MapperParams } from '@sigx/lynx';
-import { SCREEN_WIDTH } from '../internal/screen-width.js';
-import type { RouteMap, StackEntry, TransitionKind, TransitionRole } from '../types.js';
+import { SCREEN_HEIGHT, SCREEN_WIDTH } from '../internal/screen-width.js';
+import type {
+    Presentation,
+    RouteMap,
+    StackEntry,
+    TransitionKind,
+    TransitionRole,
+} from '../types.js';
 import { EntryScope } from './EntryScope.js';
 
 /**
- * Slide-from-right transition geometry. `SCREEN_WIDTH` is read from
+ * Transition geometry. `SCREEN_WIDTH` / `SCREEN_HEIGHT` are read from
  * `lynx.SystemInfo` at module load so the animation lands the screen at
- * exactly translateX=0 (centered) at progress=1, rather than overshooting
- * into the parent's clip region. `<EdgeBackHandle>` reads the same
- * constant — they have to agree, otherwise the gesture commit threshold
- * and the animation geometry don't line up.
+ * exactly translate=0 (centered) at progress=1, rather than overshooting
+ * into the parent's clip region. `<EdgeBackHandle>` reads `SCREEN_WIDTH`
+ * for the gesture commit threshold — they have to agree, otherwise the
+ * commit threshold and the animation geometry don't line up.
  */
 const PARALLAX_FACTOR = 0.3;
 
+type Axis = 'translateX' | 'translateY';
+
 /**
- * Compute the `translateX` range for a given (role, kind) pair. Progress
- * always runs 0 → 1; the role and kind decide what visual state each end of
- * the progress represents.
+ * Resolve (axis, range) for a given (role, kind, presentation) triple.
  *
- * Slide-from-right semantics:
- *  - PUSH: new top slides in from the right; old top parallaxes left.
- *  - POP:  current top slides out to the right; underneath returns from the
- *    parallax-left position.
+ * Presentation switches the axis:
+ *  - `'card'` (default): horizontal slide-from-right; underneath
+ *    parallaxes left to feel like a card stack.
+ *  - `'modal'` / `'fullScreen'`: vertical slide-from-bottom; underneath
+ *    stays put (no parallax) — a modal overlays without re-arranging the
+ *    background.
+ *  - `'transparent-modal'`: same axis as modal but the framework leaves
+ *    the underneath fully visible; we still emit a translateY range so the
+ *    sheet body animates in.
  */
-function getRangeParams(
+function getAnimationParams(
     role: TransitionRole,
     kind: TransitionKind,
-): MapperParams['translateX'] {
+    presentation: Presentation,
+): { axis: Axis; params: MapperParams['translateX'] | MapperParams['translateY'] } {
+    if (presentation === 'card') {
+        if (kind === 'push') {
+            if (role === 'top') {
+                return { axis: 'translateX', params: { inputRange: [0, 1], outputRange: [SCREEN_WIDTH, 0] } };
+            }
+            return { axis: 'translateX', params: { inputRange: [0, 1], outputRange: [0, -PARALLAX_FACTOR * SCREEN_WIDTH] } };
+        }
+        if (role === 'top') {
+            return { axis: 'translateX', params: { inputRange: [0, 1], outputRange: [0, SCREEN_WIDTH] } };
+        }
+        return { axis: 'translateX', params: { inputRange: [0, 1], outputRange: [-PARALLAX_FACTOR * SCREEN_WIDTH, 0] } };
+    }
+    // modal / fullScreen / transparent-modal — vertical slide, no parallax.
     if (kind === 'push') {
         if (role === 'top') {
-            return { inputRange: [0, 1], outputRange: [SCREEN_WIDTH, 0] };
+            return { axis: 'translateY', params: { inputRange: [0, 1], outputRange: [SCREEN_HEIGHT, 0] } };
         }
-        return { inputRange: [0, 1], outputRange: [0, -PARALLAX_FACTOR * SCREEN_WIDTH] };
+        return { axis: 'translateY', params: { inputRange: [0, 1], outputRange: [0, 0] } };
     }
-    // pop
     if (role === 'top') {
-        return { inputRange: [0, 1], outputRange: [0, SCREEN_WIDTH] };
+        return { axis: 'translateY', params: { inputRange: [0, 1], outputRange: [0, SCREEN_HEIGHT] } };
     }
-    return { inputRange: [0, 1], outputRange: [-PARALLAX_FACTOR * SCREEN_WIDTH, 0] };
+    return { axis: 'translateY', params: { inputRange: [0, 1], outputRange: [0, 0] } };
 }
 
 type ScreenContainerProps =
@@ -55,6 +79,8 @@ type ScreenContainerProps =
     & Define.Prop<'routes', RouteMap, true>
     & Define.Prop<'role', TransitionRole, true>
     & Define.Prop<'kind', TransitionKind, true>
+    /** The TOP entry's presentation — decides whether this is a card or modal animation. */
+    & Define.Prop<'presentation', Presentation, true>
     & Define.Prop<'progress', SharedValue<number>, true>;
 
 /**
@@ -71,8 +97,16 @@ type ScreenContainerProps =
  */
 export const ScreenContainer = component<ScreenContainerProps>(({ props }) => {
     const ref = useMainThreadRef<MainThread.Element | null>(null);
-    const params = getRangeParams(props.role, props.kind);
-    useAnimatedStyle(ref, props.progress, 'translateX', params);
+    const { axis, params } = getAnimationParams(
+        props.role,
+        props.kind,
+        props.presentation,
+    );
+    // `useAnimatedStyle` is set once at setup; consumers shouldn't switch
+    // mappers at runtime. The parent (`<Stack>`) re-keys ScreenContainer
+    // by role/kind/presentation so we get a fresh mount when any of
+    // those change.
+    useAnimatedStyle(ref, props.progress, axis, params);
 
     return () => {
         const route = props.routes[props.entry.route];
@@ -102,7 +136,20 @@ export const ScreenContainer = component<ScreenContainerProps>(({ props }) => {
                     left: '0',
                     right: '0',
                     bottom: '0',
-                    backgroundColor: '#0f172a',
+                    // Explicit flex-column. Without this, screens whose
+                    // root relies on `flex-fill` (e.g. RootTabs with
+                    // `<Tabs.Screen>` + `<NavTabBar />`) silently break
+                    // inside the transitioning container: the NavTabBar
+                    // jumps to the top, the Tabs.Screen body collapses.
+                    // `<view>` should default to flex column in Lynx but
+                    // we don't trust the implicit default through an
+                    // `position: absolute` wrapper.
+                    display: 'flex',
+                    flexDirection: 'column',
+                    // No hardcoded background — was a dark `#0f172a` slate
+                    // that flashed through every transition regardless of
+                    // theme. Screens own their own background (typically
+                    // via a daisy `bg-base-100` class on their root).
                 }}
             >
                 <EntryScope key={props.entry.key} entry={props.entry}>

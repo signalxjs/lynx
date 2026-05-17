@@ -33,6 +33,7 @@
 import { component, onUnmounted, type Define } from '@sigx/lynx';
 import { useScreenRegistry } from '../hooks/use-nav-internal.js';
 import { mergeOptions, setSlot } from '../internal/screen-registry.js';
+import type { ScreenOptions } from '../types.js';
 
 type ScreenProps =
     & Define.Prop<'title', string | (() => string)>
@@ -42,15 +43,16 @@ type ScreenProps =
 
 const ScreenRoot = component<ScreenProps>(({ props, slots }) => {
     const registry = useScreenRegistry();
-    // Apply options whenever the component sets up. Options are reactive
-    // through the registry's `options` signal — chrome consumers re-render
-    // on the next merge. We don't bother diffing here: the patch is small
-    // and writes only happen during setup + explicit prop changes upstream.
-    mergeOptions(registry, {
-        title: props.title,
-        headerShown: props.headerShown,
-        gestureEnabled: props.gestureEnabled,
-    });
+    // Apply options whenever the component sets up. Only set keys that
+    // were actually passed — `mergeOptions` treats `undefined` as "clear
+    // this key", so building the patch from raw `props.X` would wipe
+    // every option a previous `useScreenOptions(...)` (or another `<Screen>`)
+    // had set on this same entry.
+    const patch: ScreenOptions = {};
+    if (props.title !== undefined) patch.title = props.title;
+    if (props.headerShown !== undefined) patch.headerShown = props.headerShown;
+    if (props.gestureEnabled !== undefined) patch.gestureEnabled = props.gestureEnabled;
+    mergeOptions(registry, patch);
     return () => slots.default?.();
 });
 

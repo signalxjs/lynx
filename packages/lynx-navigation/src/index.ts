@@ -16,6 +16,8 @@ export { useLinkingNav } from './hooks/use-linking-nav.js';
 export type { UseLinkingNavOptions } from './hooks/use-linking-nav.js';
 export { useIsFocused, useFocusEffect } from './hooks/use-focus.js';
 export { useScreenOptions } from './hooks/use-screen-options.js';
+export { useScreenChrome } from './hooks/use-screen-chrome.js';
+export type { ScreenChrome } from './hooks/use-screen-chrome.js';
 export {
     useNavSerializer,
     NAV_SNAPSHOT_VERSION,

@@ -62,6 +62,7 @@ describe('public runtime exports', () => {
                 'useNav',
                 'useNavSerializer',
                 'useParams',
+                'useScreenChrome',
                 'useScreenOptions',
                 'useSearch',
                 'useTabs',
