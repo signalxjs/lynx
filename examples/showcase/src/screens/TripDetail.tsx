@@ -55,10 +55,22 @@ export const TripDetail = component(() => {
                 <Screen title={() => getTrip(tripId)?.name ?? 'Trip'}>
                     <Screen.HeaderRight>
                         <Row gap={4} align="center">
-                            <view bindtap={share} class="px-3 py-2">
+                            <view
+                                bindtap={share}
+                                class="px-3 py-2"
+                                accessibility-element={true}
+                                accessibility-label="Share trip"
+                                accessibility-trait="button"
+                            >
                                 <text class="text-primary text-base">Share</text>
                             </view>
-                            <view bindtap={() => nav.push('newEntry', { tripId })} class="px-3 py-2">
+                            <view
+                                bindtap={() => nav.push('newEntry', { tripId })}
+                                class="px-3 py-2"
+                                accessibility-element={true}
+                                accessibility-label="Add entry"
+                                accessibility-trait="button"
+                            >
                                 <text class="text-primary text-xl font-semibold">+</text>
                             </view>
                         </Row>

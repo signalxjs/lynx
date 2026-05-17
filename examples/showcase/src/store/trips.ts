@@ -32,19 +32,23 @@ export const trips = signal<Trip[]>(seed);
 
 // `hydrated` gates the persist watcher — without it, the watch callback
 // would write the seed back over a (possibly empty) snapshot before we've
-// had a chance to read it.
+// had a chance to read it. Set in `.finally` so a Storage rejection
+// (module missing, native error) still unlocks persistence on subsequent
+// edits — failing to read shouldn't permanently disable writes.
 let hydrated = false;
-Storage.getItem(STORAGE_KEY).then((raw) => {
-    if (raw) {
+Storage.getItem(STORAGE_KEY)
+    .then((raw) => {
+        if (!raw) return;
         try {
             const parsed = JSON.parse(raw) as Trip[];
             if (Array.isArray(parsed)) trips.$set(parsed);
         } catch {
             // Corrupted snapshot — keep the seed, log nothing (dev noise).
         }
-    }
-    hydrated = true;
-});
+    })
+    .finally(() => {
+        hydrated = true;
+    });
 
 // Persist on every change. `deep: true` makes the watcher re-fire on
 // nested mutations (e.g. `trip.entries.push(entry)`), not just on

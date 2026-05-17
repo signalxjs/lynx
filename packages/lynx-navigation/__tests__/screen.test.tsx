@@ -228,6 +228,11 @@ describe('screen registry lifecycle', () => {
     // implementation switched JSX shape between "bare EntryScope" and
     // "wrapper + layer", which silently remounted the base.
     it('keeps the base entry mounted while a modal overlay is on top', () => {
+        // Use the fixture's `composeMessage` route, which is already
+        // declared with `presentation: 'modal'` and registered in the
+        // global `Register.routes` augmentation — adding a new modal
+        // route here just to test layering would need a separate type
+        // augmentation per test file (TS2717).
         const homeMounts: string[] = [];
         const Home = component(() => {
             // Tag-on-setup — runs once per fresh mount. If the base
@@ -238,13 +243,9 @@ describe('screen registry lifecycle', () => {
                 <Screen title="Home" headerShown={false}><view /></Screen>
             );
         });
-        const Sheet = component(() => () => (
-            <Screen title="Sheet"><view /></Screen>
-        ));
         const localRoutes = {
             ...routes,
             home: { component: Home },
-            sheet: { component: Sheet, presentation: 'modal' as const },
         } as typeof routes;
         const probe: NavProbe = { nav: null, internals: null };
         const result = render(
@@ -258,7 +259,7 @@ describe('screen registry lifecycle', () => {
         expect(probe.internals!.screens.get(homeKey)?.options.headerShown).toBe(false);
         expect(homeMounts).toEqual(['m1']);
 
-        act(() => probe.nav!.push('sheet'));
+        act(() => probe.nav!.push('composeMessage', { recipientId: 'r1' }));
         // While the modal is overlaid, the base entry is still mounted —
         // its registry remains, and its options written at setup are
         // intact (no remount means no fresh, empty registry).

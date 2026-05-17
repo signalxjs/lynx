@@ -11,7 +11,13 @@ export const TripsList = component(() => {
         <view class="flex-fill">
             <Screen>
                 <Screen.HeaderRight>
-                    <view bindtap={() => nav.push('newTrip')} class="px-3 py-2">
+                    <view
+                        bindtap={() => nav.push('newTrip')}
+                        class="px-3 py-2"
+                        accessibility-element={true}
+                        accessibility-label="New trip"
+                        accessibility-trait="button"
+                    >
                         <text class="text-primary text-base font-semibold">+</text>
                     </view>
                 </Screen.HeaderRight>
@@ -22,7 +28,12 @@ export const TripsList = component(() => {
                     {trips.length === 0
                         ? <Text class="opacity-60">No trips yet — tap + to add one</Text>
                         : trips.map((trip) => (
-                            <view bindtap={() => nav.push('tripDetail', { tripId: trip.id })}>
+                            <view
+                                bindtap={() => nav.push('tripDetail', { tripId: trip.id })}
+                                accessibility-element={true}
+                                accessibility-label={`Open trip ${trip.name}`}
+                                accessibility-trait="button"
+                            >
                                 <Card bordered>
                                     <Card.Body>
                                         <Card.Title>{trip.name}</Card.Title>
