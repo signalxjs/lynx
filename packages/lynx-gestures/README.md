@@ -17,6 +17,19 @@ npm install @sigx/lynx-gestures
 
 > Requires `@sigx/lynx` as a peer dependency. The build pipeline (`@sigx/lynx-plugin`) handles the `'main thread'` worklet transform automatically.
 
+> **Known limitation — consuming the published dist.**
+> `@sigx/lynx-plugin` excludes `/node_modules/` from the SWC worklet
+> loader, so the `'main thread'` directives baked into this package's
+> pre-built JS go untransformed in consumer apps. Touch handlers then
+> run on BG and silently no-op — `<Pressable>` doesn't fire `onPress`,
+> `<Draggable>` / `<Swipeable>` don't snap, and `SharedValue` writes
+> from gesture callbacks never publish. Workarounds today: (a) build
+> your app against this package from source rather than the published
+> dist; (b) avoid the gesture components and use raw `bindtap` /
+> `useGestureDetector` directly in your own code (which the plugin
+> *does* transform). The framework-side fix is a per-package opt-in
+> in the plugin's exclude rule and is tracked separately.
+
 ## Quick start
 
 ```tsx

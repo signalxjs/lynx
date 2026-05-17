@@ -1,29 +1,28 @@
 /**
- * `<TabBar>` — default chrome for `<Tabs>`.
+ * `<TabBar>` — headless default chrome for `<Tabs>`.
  *
- * Renders a row of tab buttons reading from the enclosing `useTabs()`
- * navigator. Active tab is highlighted via the `active` prop on each
- * default button (consumers can re-style via `renderTab`).
+ * Renders the active-tab buttons reading from the enclosing `useTabs()`
+ * navigator. Intentionally **unstyled** — this lives in the (theme-less)
+ * navigation package, so it ships pure structure + accessibility wiring.
+ * Themed chrome belongs in a UI-kit package: see `<NavTabBar />` in
+ * `@sigx/lynx-daisyui` for the daisy-themed equivalent.
  *
- * Customization knobs:
+ * Use this directly only if you want to handle styling yourself via the
+ * `renderTab` prop. For a "looks like a tab bar out of the box" component,
+ * pull `<NavTabBar />` from `@sigx/lynx-daisyui` (or your own UI kit).
+ *
+ * Customization:
  *   - `renderTab`: a function `(info, ctx) => JSX` that fully replaces the
  *     default button rendering for each tab. `ctx.active` tells the
  *     consumer whether this tab is currently focused; `ctx.onPress`
- *     activates the tab.
+ *     activates the tab. **Recommended** for any visual treatment.
  *
- * Accessibility:
- *   - Each default button gets `accessibility-label` from
- *     `info.accessibilityLabel ?? info.label ?? info.name`.
- *   - Each default button gets `accessibility-element="true"` so screen
- *     readers see the whole pill, not just the inner `<text>`.
- *   - Each default button gets `accessibility-trait="button"` and a
- *     `selected` flag on the active one so VoiceOver/TalkBack announces
- *     focus state on tab switch.
- *
- * Placement: mount inside `<Tabs>` alongside the `<Tabs.Screen>`s. Order
- * matters visually (place above or below the screen bodies depending on
- * the layout), and `<Tabs.Screen>` bodies all stack with `display:flex` so
- * the TabBar should be at a deterministic position in the JSX.
+ * Accessibility (baked into the default button — the one structural
+ * concern this component keeps):
+ *   - `accessibility-label` from `info.accessibilityLabel ?? info.label ?? info.name`.
+ *   - `accessibility-element="true"` so screen readers see the whole pill.
+ *   - `accessibility-trait="button"` and a `selected` flag on the active
+ *     one so VoiceOver/TalkBack announces focus state on tab switch.
  */
 import {
     component,
@@ -46,8 +45,9 @@ type TabBarProps =
 /**
  * Default per-tab button. Plain `<view>` with a `<text>` inside, an
  * `accessibility-*` cluster for screen readers, and a tap handler. No
- * styling beyond a minimal active-state marker — consumers that want
- * branded chrome pass `renderTab`.
+ * styling beyond a minimal active-state opacity hint — consumers that
+ * want branded chrome pass `renderTab` or use a UI-kit-provided tab bar
+ * (e.g. `<NavTabBar />` from `@sigx/lynx-daisyui`).
  */
 const DefaultTabButton = component<
     & Define.Prop<'info', TabInfo, true>

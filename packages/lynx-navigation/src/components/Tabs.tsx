@@ -208,13 +208,27 @@ const TabsScreen = component<TabsScreenProps>(({ props, slots }) => {
         // `display: none` keeps the body mounted so per-tab state survives
         // tab switches. Read activeSignal here so re-activating triggers a
         // re-render with display restored.
+        //
+        // Flex-fill long-form (`flex-grow/shrink/basis`) instead of
+        // `height: '100%'`. The percentage form only resolves against an
+        // explicit parent height, which means consumers had to wrap us
+        // in a `flexFill + height: '100%'` view to make us visible — and
+        // every Lynx app got that wrong (myself included) until we hit
+        // it on the showcase. With flex-fill we just take whatever space
+        // our parent flex container gives us; the parent only needs to
+        // be a flex column with a known height (e.g. SafeAreaView, which
+        // now defaults to that).
         const active = registrar.activeSignal.value === name;
         return (
             <view
                 style={{
                     display: active ? 'flex' : 'none',
+                    flexDirection: 'column',
                     width: '100%',
-                    height: '100%',
+                    flexGrow: 1,
+                    flexShrink: 1,
+                    flexBasis: 0,
+                    minHeight: 0,
                 }}
             >
                 {slots.default?.()}

@@ -195,7 +195,16 @@ function cssVarStyle(
   i: EdgeInsets,
   user: Record<string, string | number> | undefined,
 ): Record<string, string | number> {
+  // Defaults make the provider fill the device viewport and act as a
+  // flex-column ancestor. Without these, every Lynx app re-rolls inline
+  // `style={{ height: '100vh', display: 'flex', flexDirection: 'column' }}`
+  // because `<view>` defaults to auto height and the lynx-tailwind
+  // preset (as of 0.4.0) doesn't ship an `h-screen` rule. Consumers can
+  // override any of these via `props.style`.
   const base: Record<string, string | number> = {
+    height: '100vh',
+    display: 'flex',
+    flexDirection: 'column',
     '--sat': `${i.top}px`,
     '--sar': `${i.right}px`,
     '--sab': `${i.bottom}px`,

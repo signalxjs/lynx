@@ -53,6 +53,18 @@ export type { StepsProps, StepProps, StepColor } from './feedback/Steps.js';
 // Navigation
 export { Tabs } from './navigation/Tabs.js';
 export type { TabsProps, TabProps } from './navigation/Tabs.js';
+export { NavTabBar } from './navigation/NavTabBar.js';
+export type {
+    NavTabBarProps,
+    NavTabBarPosition,
+    NavTabBarBackground,
+    NavTabRenderContext,
+} from './navigation/NavTabBar.js';
+export { NavHeader } from './navigation/NavHeader.js';
+export type {
+    NavHeaderProps,
+    NavHeaderBackground,
+} from './navigation/NavHeader.js';
 
 // Data
 export { Avatar } from './data/Avatar.js';

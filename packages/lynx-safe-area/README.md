@@ -35,7 +35,7 @@ import { SafeAreaProvider, SafeAreaView } from '@sigx/lynx-safe-area';
 
 defineApp(() => () => (
     <SafeAreaProvider>
-        <SafeAreaView edges={['top', 'bottom']} class="bg-base-100 flex-1">
+        <SafeAreaView edges={['top', 'bottom']} class="bg-base-100">
             <PageContent />
         </SafeAreaView>
     </SafeAreaProvider>
@@ -43,6 +43,12 @@ defineApp(() => () => (
 ```
 
 `<SafeAreaView>` reactively applies the current insets as `padding` (default) or `margin` to the configured `edges`. Inset-aware first paint: insets are seeded synchronously from `lynx.__globalProps` before render, so there's no flash of unsafe content.
+
+**Sensible layout defaults** — `<SafeAreaProvider>` defaults its host
+view to `height: 100vh` + `flex-direction: column`, and `<SafeAreaView>`
+defaults to flex-fill long-form. Consumers don't need to add inline
+`height: '100vh'` anchors or `flex-1` classes for the layout chain to
+work. Pass `style={…}` to override.
 
 ## API
 

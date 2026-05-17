@@ -1,28 +1,54 @@
 import { component } from '@sigx/lynx';
-import { useNav, useScreenOptions } from '@sigx/lynx-navigation';
-import { Button, Center, Col, Heading, Text } from '@sigx/lynx-daisyui';
+import { useNav, useScreenOptions, Screen } from '@sigx/lynx-navigation';
+import { Button, Card, Col, ScrollView, Text } from '@sigx/lynx-daisyui';
+import { trips } from '../store/trips.js';
 
 export const TripsList = component(() => {
     const nav = useNav();
     useScreenOptions({ title: 'Trips' });
 
     return () => (
-        <Center flex={1}>
-            <Col gap={12} align="center">
-                <Heading level={2}>Trips</Heading>
-                <Text class="opacity-60">No trips yet</Text>
-                {/* Card route — stays inside the Trips tab. */}
-                <Button
-                    onTap={() => nav.push('tripDetail', { tripId: 'demo-1' })}
-                >
-                    Open demo trip
-                </Button>
-                {/* Modal route — escalates to the root nav and overlays the
-                    entire tabs UI (TabBar included). */}
-                <Button variant="primary" onTap={() => nav.push('newTrip')}>
-                    New trip
-                </Button>
-            </Col>
-        </Center>
+        <view class="flex-fill">
+            <Screen>
+                <Screen.HeaderRight>
+                    <view
+                        bindtap={() => nav.push('newTrip')}
+                        class="px-3 py-2"
+                        accessibility-element={true}
+                        accessibility-label="New trip"
+                        accessibility-trait="button"
+                    >
+                        <text class="text-primary text-base font-semibold">+</text>
+                    </view>
+                </Screen.HeaderRight>
+            </Screen>
+
+            <ScrollView class="flex-1">
+                <Col gap={12} padding={16}>
+                    {trips.length === 0
+                        ? <Text class="opacity-60">No trips yet — tap + to add one</Text>
+                        : trips.map((trip) => (
+                            <view
+                                bindtap={() => nav.push('tripDetail', { tripId: trip.id })}
+                                accessibility-element={true}
+                                accessibility-label={`Open trip ${trip.name}`}
+                                accessibility-trait="button"
+                            >
+                                <Card bordered>
+                                    <Card.Body>
+                                        <Card.Title>{trip.name}</Card.Title>
+                                        <Text class="opacity-60">
+                                            {trip.entries.length} {trip.entries.length === 1 ? 'entry' : 'entries'}
+                                        </Text>
+                                    </Card.Body>
+                                </Card>
+                            </view>
+                        ))}
+                    <Button variant="primary" onPress={() => nav.push('newTrip')}>
+                        New trip
+                    </Button>
+                </Col>
+            </ScrollView>
+        </view>
     );
 });

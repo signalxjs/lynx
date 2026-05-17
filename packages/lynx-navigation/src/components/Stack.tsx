@@ -42,7 +42,19 @@ type StackProps =
     /** Initial params for the nested-stack base entry. */
     & Define.Prop<'initialParams', Record<string, unknown>>
     /** Initial search for the nested-stack base entry. */
-    & Define.Prop<'initialSearch', Record<string, unknown>>;
+    & Define.Prop<'initialSearch', Record<string, unknown>>
+    /**
+     * Optional chrome rendered *above* the active screen, **inside this
+     * Stack's nav scope**. The intended use is `<Header />`, which needs
+     * to resolve `useNav()` to the per-stack nav (not the enclosing one)
+     * so it can react to pushes inside this stack — e.g. show a back
+     * button when a card is pushed onto a per-tab stack.
+     *
+     * Without this, a `<Header />` placed as a sibling of `<Stack>`
+     * would see the enclosing nav and never update when pushes happen
+     * inside the nested stack.
+     */
+    & Define.Slot<'default'>;
 
 let _nestedKeyCounter = 0;
 
@@ -89,7 +101,7 @@ let _nestedKeyCounter = 0;
  * so the `useAnimatedStyle` binding is set with the right input/output
  * ranges.
  */
-export const Stack = component<StackProps>(({ props }) => {
+export const Stack = component<StackProps>(({ props, slots }) => {
     // Capture enclosing scope's nav + routes + internals BEFORE any of the
     // defineProvide calls below override them for descendants. These are
     // always the "outer" values regardless of whether this Stack is bound
@@ -226,89 +238,179 @@ export const Stack = component<StackProps>(({ props }) => {
         internals = parentInternals;
     }
 
+    // Per-stack chrome (slots.default) needs to render *inside* this
+    // Stack's nav scope so a `<Header />` placed there resolves
+    // `useNav()` to the per-stack nav. Wrapping the active body in a
+    // flex-column with the slot above does that without disturbing the
+    // existing fill semantics — the slot takes its natural height, the
+    // body keeps its flex-fill.
+    const flexColumnFill = {
+        flexGrow: 1,
+        flexShrink: 1,
+        flexBasis: 0,
+        minHeight: 0,
+        display: 'flex',
+        flexDirection: 'column',
+    } as const;
+
+    /** Materialize a route component for a given entry. Lazy routes with a
+     * `fallback` are wrapped in Suspense. Returns `null` when the route is
+     * unknown or its component isn't callable. */
+    const renderEntryBody = (entry: StackEntry): unknown => {
+        const route = routes[entry.route];
+        if (!route) return null;
+        const Comp = route.component as unknown as ComponentFactory<
+            Record<string, unknown>,
+            unknown,
+            unknown
+        >;
+        if (typeof Comp !== 'function') return null;
+        const params = entry.params as Record<string, unknown>;
+        return isLazyComponent(Comp) && route.fallback
+            ? (
+                <Suspense fallback={route.fallback as never}>
+                    <Comp {...params} />
+                </Suspense>
+            )
+            : <Comp {...params} />;
+    };
+
+    const isOverlayPresentation = (p: Presentation): boolean =>
+        p === 'modal' || p === 'fullScreen' || p === 'transparent-modal';
+
+    /** Layer style — absolute fill inside a relative parent. Flex-column
+     * so descendants that flex-fill (SafeAreaView, daisyui screens) get a
+     * sized parent. */
+    const layerStyle = {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        display: 'flex',
+        flexDirection: 'column',
+    } as const;
+
     return () => {
+        const chrome = slots.default?.();
         const transition = nav.transition;
         const top = nav.current;
 
+        let body: unknown;
         if (!transition) {
-            const route = routes[top.route];
-            if (!route) return null;
-            const Comp = route.component as unknown as ComponentFactory<
-                Record<string, unknown>,
-                unknown,
-                unknown
-            >;
-            if (typeof Comp !== 'function') return null;
-            const params = top.params as Record<string, unknown>;
-            // Wrap lazy routes that declare a `fallback` in <Suspense> so the
-            // chunk-load shows the user-provided spinner instead of throwing
-            // up to the nearest outer boundary (which may be wrong layer or
-            // missing entirely).
-            const body = isLazyComponent(Comp) && route.fallback
-                ? (
-                    <Suspense fallback={route.fallback as never}>
-                        <Comp {...params} />
-                    </Suspense>
-                )
-                : <Comp {...params} />;
-            // When canGoBack and edge-swipe is enabled, overlay the gesture
-            // handle so the user can pan from the left edge to start a back
-            // transition. `position: absolute` doesn't disturb the screen's
-            // own layout — the handle only intercepts touches in the leftmost
-            // 20px, and only when they pan rightward past `MIN_DISTANCE`.
-            if (nav.canGoBack && internals.edgeSwipeEnabled) {
+            // The screens to render right now: the topmost non-overlay
+            // entry as the "base layer", plus any overlay entries
+            // (modal / fullScreen / transparent-modal) above it as
+            // stacked layers. Overlays don't replace the base — they
+            // keep it mounted so its state (per-tab stacks, scroll
+            // positions, in-flight inputs) survives modal lifecycle.
+            // Card pushes still replace the base (the user expects
+            // "back" to recreate the previous screen from history).
+            //
+            // Crucially, we *always* emit the same JSX shape — a
+            // relative wrapper with one or more absolute layers — so
+            // the reconciler preserves the base EntryScope across modal
+            // pushes/pops. Switching between "bare EntryScope" and
+            // "wrapper + layer" remounts the base, which destroys
+            // per-tab Stack state.
+            const stack = nav.stack;
+            let baseIdx = stack.length - 1;
+            while (baseIdx > 0 && isOverlayPresentation(stack[baseIdx].presentation)) {
+                baseIdx -= 1;
+            }
+            const baseEntry = stack[baseIdx];
+            const overlayEntries = stack.slice(baseIdx + 1);
+
+            const baseScreen = renderEntryBody(baseEntry);
+            if (baseScreen === null) return null;
+
+            const baseLayer = (
+                <view key={`layer-${baseEntry.key}`} style={layerStyle}>
+                    <EntryScope key={baseEntry.key} entry={baseEntry}>
+                        {baseScreen}
+                    </EntryScope>
+                </view>
+            );
+
+            const overlayLayers = overlayEntries.map((entry) => {
+                const screen = renderEntryBody(entry);
+                if (screen === null) return null;
                 return (
-                    <view
-                        style={{
-                            position: 'relative',
-                            width: '100%',
-                            height: '100%',
-                        }}
-                    >
-                        <EntryScope key={top.key} entry={top}>
-                            {body}
+                    <view key={`layer-${entry.key}`} style={layerStyle}>
+                        <EntryScope key={entry.key} entry={entry}>
+                            {screen}
                         </EntryScope>
-                        <EdgeBackHandle key="edge-back" />
                     </view>
                 );
-            }
-            return (
-                <EntryScope key={top.key} entry={top}>
-                    {body}
-                </EntryScope>
+            });
+
+            // Edge-swipe handle on top — only when the top entry can pop
+            // and the swipe is enabled. The handle only intercepts
+            // touches in the leftmost 20px and ignores small drags, so
+            // placing it last (highest z) doesn't disturb screen touches.
+            const edgeHandle = (top === baseEntry && nav.canGoBack && internals.edgeSwipeEnabled)
+                ? <EdgeBackHandle key="edge-back" />
+                : null;
+
+            body = (
+                <view
+                    style={{
+                        position: 'relative',
+                        width: '100%',
+                        ...flexColumnFill,
+                    }}
+                >
+                    {baseLayer}
+                    {overlayLayers}
+                    {edgeHandle}
+                </view>
+            );
+        } else {
+            // Cast progress: TransitionState carries it as `unknown` to
+            // avoid pinning the contract to `@sigx/lynx`'s SharedValue at
+            // the type level; here at the runtime boundary we know it's a
+            // SharedValue<number>.
+            const progress = transition.progress as SharedValue<number>;
+            body = (
+                <view
+                    style={{
+                        position: 'relative',
+                        width: '100%',
+                        // Flex-fill so the transition container actually has
+                        // the parent's available height — `<ScreenContainer>`s
+                        // anchor via `position: absolute; top/right/bottom/left: 0`,
+                        // which needs a relative parent with a real size.
+                        ...flexColumnFill,
+                        overflow: 'hidden',
+                    }}
+                >
+                    <ScreenContainer
+                        key={`${transition.underneathEntry.key}-underneath-${transition.kind}-${transition.topEntry.presentation}`}
+                        entry={transition.underneathEntry}
+                        routes={routes}
+                        role="underneath"
+                        kind={transition.kind}
+                        presentation={transition.topEntry.presentation}
+                        progress={progress}
+                    />
+                    <ScreenContainer
+                        key={`${transition.topEntry.key}-top-${transition.kind}-${transition.topEntry.presentation}`}
+                        entry={transition.topEntry}
+                        routes={routes}
+                        role="top"
+                        kind={transition.kind}
+                        presentation={transition.topEntry.presentation}
+                        progress={progress}
+                    />
+                </view>
             );
         }
 
-        // Cast progress: TransitionState carries it as `unknown` to avoid
-        // pinning the contract to `@sigx/lynx`'s SharedValue at the type
-        // level; here at the runtime boundary we know it's a SharedValue<number>.
-        const progress = transition.progress as SharedValue<number>;
-
+        if (chrome == null) return body as never;
         return (
-            <view
-                style={{
-                    position: 'relative',
-                    width: '100%',
-                    height: '100%',
-                    overflow: 'hidden',
-                }}
-            >
-                <ScreenContainer
-                    key={`${transition.underneathEntry.key}-underneath-${transition.kind}`}
-                    entry={transition.underneathEntry}
-                    routes={routes}
-                    role="underneath"
-                    kind={transition.kind}
-                    progress={progress}
-                />
-                <ScreenContainer
-                    key={`${transition.topEntry.key}-top-${transition.kind}`}
-                    entry={transition.topEntry}
-                    routes={routes}
-                    role="top"
-                    kind={transition.kind}
-                    progress={progress}
-                />
+            <view style={flexColumnFill}>
+                {chrome}
+                <view style={flexColumnFill}>{body}</view>
             </view>
         );
     };

@@ -1,4 +1,5 @@
 import type { Config } from 'tailwindcss';
+import plugin from 'tailwindcss/plugin';
 
 /**
  * DaisyUI Lynx Tailwind Preset
@@ -7,6 +8,16 @@ import type { Config } from 'tailwindcss';
  * defined in @sigx/lynx-daisyui/styles. Consumers add this
  * preset to their tailwind.config.ts so utilities like
  * `bg-primary` and `text-base-content` resolve to our tokens.
+ *
+ * Also ships a `flex-fill` utility — the Lynx-correct "fill remaining
+ * space" class. Why this is in our preset rather than baked into Lynx's
+ * own tailwind preset: in Lynx (like React Native) `flex: 1` shorthand
+ * expands to `flex: 1 1 auto`, where `flexBasis: 'auto'` sizes the box
+ * to its content first, collapsing the layout chain. The browser-CSS
+ * intuition that `flex-1` = "fill remaining space" is wrong here, and
+ * Tailwind's own `flex-1` class expands to the same broken shorthand.
+ * `flex-fill` writes the long-form properties directly so the result
+ * actually fills.
  */
 const daisyColors: Record<string, string> = {
   'primary': 'var(--color-primary)',
@@ -31,12 +42,29 @@ const daisyColors: Record<string, string> = {
   'error-content': 'var(--color-error-content)',
 };
 
+const lynxLayoutPlugin = plugin(({ addUtilities }) => {
+  addUtilities({
+    // Long-form flex-fill — the Lynx-correct "take remaining space along
+    // the main axis" utility. Default flex direction column; consumers
+    // who want a horizontal fill compose with `flex-row` on the parent.
+    '.flex-fill': {
+      flexGrow: '1',
+      flexShrink: '1',
+      flexBasis: '0',
+      minHeight: '0',
+      display: 'flex',
+      flexDirection: 'column',
+    },
+  });
+});
+
 export const DaisyLynxPreset: Partial<Config> = {
   theme: {
     extend: {
       colors: daisyColors,
     },
   },
+  plugins: [lynxLayoutPlugin],
 };
 
 /** Alias — preferred consumer name. */

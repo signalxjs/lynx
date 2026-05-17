@@ -7,7 +7,7 @@
         "dev": "sigx dev",
         "build": "sigx build",
         "doctor": "sigx doctor",
-        "prebuild": "sigx prebuild"
+        "prebuild:native": "sigx prebuild"
     },
     "dependencies": {
         "@sigx/lynx": "workspace:^",
@@ -27,6 +27,11 @@
         "@sigx/lynx-linking": "workspace:^",
         "@sigx/lynx-gestures": "workspace:^",
         "@sigx/lynx-daisyui": "workspace:^",
+        "@sigx/lynx-safe-area": "workspace:^",
+        "@sigx/lynx-image-picker": "workspace:^",
+        "@sigx/lynx-location": "workspace:^",
+        "@sigx/lynx-permissions": "workspace:^",
+        "@sigx/lynx-share": "workspace:^",
         "zod": "^3.23.0"
     },
     "devDependencies": {

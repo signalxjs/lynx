@@ -48,23 +48,37 @@ export const SafeAreaView = component<SafeAreaViewProps>(({ props, slots }) => {
 
   return () => {
     const i = insets.value;
-    const insetStyle: Record<string, string | number> = {};
+    // Default to filling the parent (flex-grow + flex-column). Lynx (like
+    // React Native) does NOT treat `flex: 1` shorthand the way browsers
+    // do — its `flexBasis` resolves to `'auto'`, which sizes to content
+    // and collapses the chain. The long-form `flexBasis: 0` is the only
+    // reliable way to "fill remaining space." Bottom chrome like
+    // `<NavTabBar />` from `@sigx/lynx-daisyui` won't park itself at the
+    // screen edge without this.
+    const baseStyle: Record<string, string | number> = {
+      flexGrow: 1,
+      flexShrink: 1,
+      flexBasis: 0,
+      minHeight: 0,
+      display: 'flex',
+      flexDirection: 'column',
+    };
     if (edges.includes('top')) {
-      insetStyle[mode === 'padding' ? 'paddingTop' : 'marginTop'] = `${i.top}px`;
+      baseStyle[mode === 'padding' ? 'paddingTop' : 'marginTop'] = `${i.top}px`;
     }
     if (edges.includes('right')) {
-      insetStyle[mode === 'padding' ? 'paddingRight' : 'marginRight'] = `${i.right}px`;
+      baseStyle[mode === 'padding' ? 'paddingRight' : 'marginRight'] = `${i.right}px`;
     }
     if (edges.includes('bottom')) {
-      insetStyle[mode === 'padding' ? 'paddingBottom' : 'marginBottom'] = `${i.bottom}px`;
+      baseStyle[mode === 'padding' ? 'paddingBottom' : 'marginBottom'] = `${i.bottom}px`;
     }
     if (edges.includes('left')) {
-      insetStyle[mode === 'padding' ? 'paddingLeft' : 'marginLeft'] = `${i.left}px`;
+      baseStyle[mode === 'padding' ? 'paddingLeft' : 'marginLeft'] = `${i.left}px`;
     }
     return (
       <view
         class={props.class}
-        style={props.style ? { ...props.style, ...insetStyle } : insetStyle}
+        style={props.style ? { ...baseStyle, ...props.style } : baseStyle}
       >
         {slots.default?.()}
       </view>

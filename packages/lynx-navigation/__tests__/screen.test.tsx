@@ -23,6 +23,7 @@ import type { NavInternals } from '../src/hooks/use-nav-internal.js';
 import { NavigationRoot } from '../src/components/NavigationRoot.js';
 import { Stack } from '../src/components/Stack.js';
 import { Screen } from '../src/components/Screen.js';
+import { useScreenOptions } from '../src/hooks/use-screen-options.js';
 import { routes } from './_fixtures.js';
 
 interface NavProbe {
@@ -87,6 +88,39 @@ describe('<Screen> options', () => {
         // headerShown / gestureEnabled were not provided — treated as absent.
         expect(reg.options.headerShown).toBeUndefined();
         expect(reg.options.gestureEnabled).toBeUndefined();
+        result.unmount();
+    });
+});
+
+describe('<Screen> patch is non-destructive', () => {
+    // Regression: a bare `<Screen>` (or one passing only HeaderRight) used
+    // to call `mergeOptions(reg, { title, headerShown, gestureEnabled })`
+    // with every key — undefineds cleared options that a sibling
+    // `useScreenOptions({...})` had just written. Now `<Screen>` only
+    // patches keys whose prop was actually passed.
+    it('does not wipe options set by useScreenOptions in the same screen', () => {
+        const Home = component(() => {
+            useScreenOptions({ title: 'From hook', headerShown: false });
+            return () => (
+                <Screen>
+                    <Screen.HeaderRight><text>R</text></Screen.HeaderRight>
+                    <view />
+                </Screen>
+            );
+        });
+        const localRoutes = { ...routes, home: { component: Home } } as typeof routes;
+        const probe: NavProbe = { nav: null, internals: null };
+        const result = render(
+            <NavigationRoot routes={localRoutes} initialRoute="home" animated={false}>
+                <NavCapture probe={probe} />
+                <Stack />
+            </NavigationRoot>,
+        );
+        const reg = probe.internals!.screens.get(probe.nav!.current.key)!;
+        expect(reg.options.title).toBe('From hook');
+        expect(reg.options.headerShown).toBe(false);
+        // The HeaderRight slot still gets through.
+        expect(typeof reg.slots.headerRight).toBe('function');
         result.unmount();
     });
 });
@@ -186,6 +220,59 @@ describe('screen registry lifecycle', () => {
 
         result.unmount();
         expect(probe.internals!.screens.get(settingsKey)).toBeUndefined();
+    });
+
+    // Regression: modal/fullScreen/transparent-modal overlays must keep
+    // the base entry mounted so per-tab Stack state, scroll positions,
+    // and registry options survive the modal lifecycle. The prior
+    // implementation switched JSX shape between "bare EntryScope" and
+    // "wrapper + layer", which silently remounted the base.
+    it('keeps the base entry mounted while a modal overlay is on top', () => {
+        // Use the fixture's `composeMessage` route, which is already
+        // declared with `presentation: 'modal'` and registered in the
+        // global `Register.routes` augmentation — adding a new modal
+        // route here just to test layering would need a separate type
+        // augmentation per test file (TS2717).
+        const homeMounts: string[] = [];
+        const Home = component(() => {
+            // Tag-on-setup — runs once per fresh mount. If the base
+            // remounts during the modal push/pop, this fires twice.
+            const id = `m${homeMounts.length + 1}`;
+            homeMounts.push(id);
+            return () => (
+                <Screen title="Home" headerShown={false}><view /></Screen>
+            );
+        });
+        const localRoutes = {
+            ...routes,
+            home: { component: Home },
+        } as typeof routes;
+        const probe: NavProbe = { nav: null, internals: null };
+        const result = render(
+            <NavigationRoot routes={localRoutes} initialRoute="home" animated={false}>
+                <NavCapture probe={probe} />
+                <Stack />
+            </NavigationRoot>,
+        );
+
+        const homeKey = probe.nav!.current.key;
+        expect(probe.internals!.screens.get(homeKey)?.options.headerShown).toBe(false);
+        expect(homeMounts).toEqual(['m1']);
+
+        act(() => probe.nav!.push('composeMessage', { recipientId: 'r1' }));
+        // While the modal is overlaid, the base entry is still mounted —
+        // its registry remains, and its options written at setup are
+        // intact (no remount means no fresh, empty registry).
+        expect(probe.internals!.screens.get(homeKey)).toBeTruthy();
+        expect(probe.internals!.screens.get(homeKey)?.options.headerShown).toBe(false);
+        expect(homeMounts).toEqual(['m1']);
+
+        act(() => probe.nav!.pop());
+        // After dismissing, the same registry survives (no remount).
+        expect(probe.internals!.screens.get(homeKey)?.options.headerShown).toBe(false);
+        expect(homeMounts).toEqual(['m1']);
+
+        result.unmount();
     });
 });
 

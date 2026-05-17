@@ -148,16 +148,45 @@ Inside a tab body, `useNav()` resolves to the **innermost** navigator:
   nav **and** every ancestor is focused (parent's current entry matches +
   enclosing tab is active).
 
+**Modal preservation.** When a `modal` / `fullScreen` /
+`transparent-modal` push goes onto the root navigator (via escalation
+from a per-tab stack), `<Stack>` keeps the underneath entry mounted
+behind the overlay. Per-tab stack state, scroll positions, and in-flight
+inputs all survive the modal lifecycle. Card pushes still replace the
+underneath in the base layer — the user's mental model is "back
+recreates the previous screen from history".
+
 **Limitations (current slice)**:
 
-- Pushing a modal re-mounts the underlying root entry (the Tabs UI),
-  resetting inner-tab stack state. To preserve inner state across modals,
-  hoist app state out of screens.
 - One global route registry — there's no per-tab whitelist yet. Deep-link
   routing always pushes against the innermost nav of the caller site
   (modal routes still escalate). A future slice may add `<Stack routes={…}>`.
 - `useNavSerializer` snapshots one nav only — nested-tab stack state isn't
   persisted across reload yet.
+
+### Per-stack header chrome
+
+`<Stack>` accepts a default slot — its children render *inside* the
+stack's nav scope, above the active screen. That's how to give a
+nested per-tab stack its own header, since the root-level `<Header />`
+only tracks the root navigator:
+
+```tsx
+<Tabs.Screen name="trips" label="Trips">
+    <Stack initialRoute="tripsHome">
+        <Header />   {/* useNav() here resolves to the per-tab nav */}
+    </Stack>
+</Tabs.Screen>
+```
+
+Without this, a `<Header />` placed as a sibling of `<Stack>` would
+resolve `useNav()` to the *enclosing* nav and never react to pushes
+inside the nested stack — the back button + title wouldn't update on
+`nav.push('tripDetail', ...)`.
+
+For a daisy-themed bar (height, padding, centred title, separator),
+use `<NavHeader />` from `@sigx/lynx-daisyui` — same slot position,
+same `useScreenChrome()` data source.
 
 ### `<Screen>`
 
@@ -187,11 +216,19 @@ navigator's default chrome.
 
 ### `<Header>`
 
-Default navigator header. Reads the focused entry's `<Screen.Header>`
-slot if set, otherwise renders `headerLeft | title | headerRight` with a
-back button as the default `headerLeft` when `nav.canGoBack` is true.
-Pulls `title` / `headerShown` / `gestureEnabled` from the focused
-screen's `useScreenOptions(...)` registration.
+**Headless** default navigator header — bare `<view>`/`<text>` nodes,
+no flex direction, no padding, no theme. Reads the focused entry's
+`<Screen.Header>` slot if set, otherwise renders
+`headerLeft | title | headerRight` with a back button as the default
+`headerLeft` when `nav.canGoBack` is true. Pulls `title` /
+`headerShown` / `gestureEnabled` from the focused screen's
+`useScreenOptions(...)` registration (or declarative `<Screen title=…>`).
+
+For a daisy-themed bar with sensible defaults (surface colour,
+separator, fixed ~48dp height, centred title), use `<NavHeader />`
+from `@sigx/lynx-daisyui` — same data source via `useScreenChrome()`.
+Custom designs can build their own component on top of
+`useScreenChrome()` without touching internals.
 
 ```tsx
 <NavigationRoot routes={routes} initialRoute="home">
@@ -311,6 +348,49 @@ const Profile = component(() => {
     return () => <view><text>profile</text></view>;
 });
 ```
+
+Equivalent declarative form via `<Screen>`:
+
+```tsx
+<Screen title={() => `User ${id}`} />
+```
+
+`<Screen>` only patches keys you actually pass — omitting `title`
+won't clear a title set elsewhere on the same entry. Safe to use a
+bare `<Screen>` purely to host `<Screen.HeaderRight>` slots without
+worrying about wiping a sibling `useScreenOptions(...)` write.
+
+### `useScreenChrome()`
+
+Reactive read of the focused screen's options + slot fills, plus
+navigation helpers a header would need (`canGoBack`, `pop`). The
+public foundation for building custom header components without
+touching internal modules — `<NavHeader />` in `@sigx/lynx-daisyui` is
+built on this.
+
+```tsx
+import { useScreenChrome } from '@sigx/lynx-navigation';
+
+const MyHeader = component(() => {
+    const chrome = useScreenChrome();
+    return () => {
+        if (!chrome.headerShown) return null;
+        return (
+            <view class="my-header">
+                {chrome.canGoBack
+                    ? <view bindtap={chrome.pop}><text>‹ Back</text></view>
+                    : null}
+                <text>{chrome.title}</text>
+                {chrome.headerRight?.()}
+            </view>
+        );
+    };
+});
+```
+
+Every property is a getter — reading it inside a render or `computed`
+subscribes to the underlying signal, so the consumer re-renders when
+title / slots change.
 
 ### `useLinkingNav(options?)`
 

@@ -8,7 +8,7 @@ import com.lynx.react.bridge.ReadableMap
 
 /**
  * Native share dialog module.
- * JS usage: NativeModules.Share.share({ title: "Check this out", text: "Hello!", url: "https://..." })
+ * JS usage: NativeModules.Share.share({ title: "Check this out", message: "Hello!", url: "https://..." })
  */
 class ShareModule(context: Context) : LynxModule(context) {
 
@@ -17,7 +17,13 @@ class ShareModule(context: Context) : LynxModule(context) {
         if (options == null) return
 
         val title = if (options.hasKey("title")) options.getString("title") else null
-        val text = if (options.hasKey("text")) options.getString("text") else null
+        // `message` is the canonical key (matches the TS API); `text` is
+        // accepted as a back-compat alias from older callers.
+        val text = when {
+            options.hasKey("message") -> options.getString("message")
+            options.hasKey("text") -> options.getString("text")
+            else -> null
+        }
         val url = if (options.hasKey("url")) options.getString("url") else null
 
         val shareText = buildString {

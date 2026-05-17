@@ -95,7 +95,10 @@ class ImagePickerModule: NSObject, LynxModule, PHPickerViewControllerDelegate {
                     do {
                         try data.write(to: URL(fileURLWithPath: tempPath))
                         let asset: [String: Any] = [
-                            "uri": tempPath,
+                            // `file://` scheme — Lynx's `<image>` loader
+                            // needs a scheme on the URI; a bare filesystem
+                            // path silently fails to render.
+                            "uri": "file://" + tempPath,
                             "width": Int(image.size.width),
                             "height": Int(image.size.height),
                             "fileSize": data.count,

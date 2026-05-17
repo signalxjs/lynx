@@ -28,7 +28,11 @@ export const routes = defineRoutes({
     },
     newEntry: {
         component: NewEntry,
-        params: z.object({ tripId: z.string() }),
+        // `entryId` optional — present → edit mode, absent → create mode.
+        params: z.object({
+            tripId: z.string(),
+            entryId: z.string().optional(),
+        }),
         presentation: 'modal',
     },
 });

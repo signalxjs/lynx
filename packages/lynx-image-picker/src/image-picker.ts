@@ -44,13 +44,34 @@ export interface ImagePickerAsset {
  * }
  * ```
  */
+/**
+ * Normalize a native picker URI so Lynx's `<image>` element can load it.
+ * iOS returns a bare absolute filesystem path (e.g.
+ * `/var/.../tmp/pick_xxx.jpg`); Lynx's image loader expects a scheme
+ * (`file://...`). Android returns `content://...` URIs which already
+ * carry a scheme and pass through untouched.
+ */
+function normalizeUri(uri: string): string {
+    if (uri.startsWith('/')) return `file://${uri}`;
+    return uri;
+}
+
+function normalizeAssets(result: ImagePickerResult): ImagePickerResult {
+    return {
+        cancelled: result.cancelled,
+        assets: result.assets.map((a) => ({ ...a, uri: normalizeUri(a.uri) })),
+    };
+}
+
 export const ImagePicker = {
-    pickImage(options: ImagePickerOptions = {}): Promise<ImagePickerResult> {
-        return callAsync<ImagePickerResult>(MODULE, 'pickImage', options);
+    async pickImage(options: ImagePickerOptions = {}): Promise<ImagePickerResult> {
+        const r = await callAsync<ImagePickerResult>(MODULE, 'pickImage', options);
+        return normalizeAssets(r);
     },
 
-    pickVideo(options: ImagePickerOptions = {}): Promise<ImagePickerResult> {
-        return callAsync<ImagePickerResult>(MODULE, 'pickVideo', { ...options, mediaType: 'video' });
+    async pickVideo(options: ImagePickerOptions = {}): Promise<ImagePickerResult> {
+        const r = await callAsync<ImagePickerResult>(MODULE, 'pickVideo', { ...options, mediaType: 'video' });
+        return normalizeAssets(r);
     },
 
     /** Request photo library permission, showing the OS dialog if needed. */

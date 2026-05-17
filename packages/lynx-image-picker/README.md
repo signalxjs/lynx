@@ -82,6 +82,7 @@ interface ImagePickerAsset {
 
 - **Android system picker bypasses permissions.** Android 13+'s photo picker doesn't require runtime permission for the *selected* assets, so `requestPermission()` may be a no-op. Calling it is still safe — it just returns `granted` immediately on those API levels.
 - **iOS limited library access.** On iOS 14+ users can grant access to specific photos rather than the whole library. `getPermissionStatus()` returns `'granted'` in both cases — your code generally doesn't need to differentiate.
+- **Asset URIs always carry a scheme.** iOS returns `file://`-prefixed paths (writes the JPEG to `NSTemporaryDirectory()` and exposes the file URL); Android returns `content://` URIs from the system picker. Lynx's `<image src=…>` loader handles both. If you persist asset URIs (e.g. into storage) and later read them back into `<image src>`, no transformation is required.
 
 ## Reference app
 

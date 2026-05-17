@@ -5,7 +5,7 @@ import { daisyuiPreset } from '@sigx/lynx-daisyui/preset';
 export default {
     content: [
         './src/**/*.{tsx,ts,jsx,js}',
-        './node_modules/@sigx/lynx-daisyui/dist/**/*.js',
+        '../../packages/lynx-daisyui/src/**/*.{tsx,ts}',
     ],
     presets: [LynxPreset, daisyuiPreset],
 } satisfies Config;
