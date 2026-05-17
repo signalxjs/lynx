@@ -54,7 +54,16 @@ export function resolveBoxStyle(props: BoxProps): Record<string, unknown> {
 
   if (props.width !== undefined) style.width = props.width;
   if (props.height !== undefined) style.height = props.height;
-  if (props.flex !== undefined) style.flex = props.flex;
+  if (props.flex !== undefined) {
+    // Lynx (like React Native) expands `flex: n` shorthand to
+    // `flex: n n auto`, where `flexBasis: 'auto'` means "size to content
+    // first" — which collapses the layout chain. Write the long-form so
+    // `<Center flex={1}>` etc. actually fill remaining space.
+    style.flexGrow = props.flex;
+    style.flexShrink = 1;
+    style.flexBasis = 0;
+    style.minHeight = 0;
+  }
   if (props.background !== undefined) style.backgroundColor = props.background;
   if (props.borderRadius !== undefined) style.borderRadius = props.borderRadius;
 
