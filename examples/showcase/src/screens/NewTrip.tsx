@@ -1,16 +1,29 @@
-import { component } from '@sigx/lynx';
-import { useScreenOptions } from '@sigx/lynx-navigation';
-import { Center, Col, Heading, Text } from '@sigx/lynx-daisyui';
+import { component, signal } from '@sigx/lynx';
+import { useNav, Screen } from '@sigx/lynx-navigation';
+import { Button, Col, Input } from '@sigx/lynx-daisyui';
+import { Haptics } from '@sigx/lynx-haptics';
+import { addTrip } from '../store/trips.js';
 
 export const NewTrip = component(() => {
-    useScreenOptions({ title: 'New trip' });
+    const nav = useNav();
+    const name = signal('');
+
+    const save = () => {
+        const trimmed = name.value.trim();
+        if (!trimmed) return;
+        addTrip(trimmed);
+        Haptics.notification('success');
+        nav.pop();
+    };
 
     return () => (
-        <Center flex={1}>
-            <Col gap={8} align="center">
-                <Heading level={2}>New trip</Heading>
-                <Text class="opacity-60">Form coming in step 3</Text>
+        <view class="flex-fill bg-base-100 p-6">
+            <Screen title="New trip" />
+            <Col gap={16}>
+                <Input placeholder="Trip name" model={() => name.value} />
+                <Button variant="primary" onPress={save}>Save</Button>
+                <Button variant="ghost" onPress={() => nav.pop()}>Cancel</Button>
             </Col>
-        </Center>
+        </view>
     );
 });

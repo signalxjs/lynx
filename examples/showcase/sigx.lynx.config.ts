@@ -27,6 +27,10 @@ export default defineLynxConfig({
         '@sigx/lynx-device-info',
         '@sigx/lynx-network',
         '@sigx/lynx-websocket',
+        '@sigx/lynx-safe-area',
+        '@sigx/lynx-image-picker',
+        '@sigx/lynx-location',
+        '@sigx/lynx-share',
     ],
     android: {
         applicationId: 'com.example.showcase',
