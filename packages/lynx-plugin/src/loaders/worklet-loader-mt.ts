@@ -1,27 +1,38 @@
 /**
  * MT-layer rspack loader for the `'main thread'` worklet directive.
  *
- * Runs on every file the rule scope reaches (user code + the worklet-
- * shipping `@sigx/*` packages — `lynx-motion`, `lynx-navigation`,
- * `lynx-gestures`. Other library code is excluded at the rule level so
- * `@sigx/lynx-runtime-main` keeps its MT globals — see `entry.ts`).
- * For each file:
- *   1. Extract local + `@sigx/*` imports → side-effect-only imports so
- *      webpack still walks the dep graph (so files with worklets get
- *      reached) without demanding named exports that the body-stripped
- *      MT version of a sibling file won't provide.
- *   2. If the file has no `'main thread'` directive, return only those
- *      imports (drops user component code from the MT bundle — sigx's
- *      Lepus does not execute React components; see `entry-main.ts`:
- *      `renderPage` builds a single placeholder, all UI ops arrive from
- *      BG via `sigxPatchUpdate`).
- *   3. Otherwise call upstream's `transformReactLynxSync` with `target: 'LEPUS'`
- *      and slice out only the `registerWorkletInternal(...)` calls via
- *      `extractRegistrations`. Combine: `[localImports, registrations]`.
+ * Runs on every JS/TS file in the MT layer — no rule-level exclude.
+ * Decides per-file what to emit based on directive presence and whether
+ * the file is library code (`node_modules/` or `dist/`) or user code:
  *
- * The `loadWorkletRuntime` import that upstream's LEPUS output emits is
- * dropped — `extractRegistrations` only keeps the registration calls, and
- * `registerWorkletInternal` is installed as a global by `entry-main.ts`.
+ *   | Origin       | Directive? | Output                                         |
+ *   |--------------|------------|------------------------------------------------|
+ *   | user code    | no         | bootstrap preamble + side-effect imports       |
+ *   |              |            |   (drops body — sigx's Lepus never executes    |
+ *   |              |            |    React components; `entry-main.ts`'s         |
+ *   |              |            |    `renderPage` builds a placeholder and ops   |
+ *   |              |            |    arrive from BG via `sigxPatchUpdate`)       |
+ *   | user code    | yes        | bootstrap preamble + side-effect imports       |
+ *   |              |            |   + extracted `registerWorkletInternal(...)`   |
+ *   | library      | no         | source unchanged                               |
+ *   |              |            |   (preserves `@sigx/lynx-runtime-main`'s MT    |
+ *   |              |            |    globals — `processData`, `updateGlobalProps`,|
+ *   |              |            |    `sigxRunOnMT` — and barrel re-exports that  |
+ *   |              |            |    BG-side consumers like daisyui import by    |
+ *   |              |            |    name; rspack shares module identity across  |
+ *   |              |            |    BG/MT layers)                                |
+ *   | library      | yes        | source unchanged + appended registrations      |
+ *   |              |            |   (keeps named exports AND registers worklets) |
+ *
+ * Library files skip the bootstrap preamble — the user entry's
+ * preamble has already pulled runtime-main in before any library code
+ * evaluates.
+ *
+ * For files WITH a directive, the LEPUS transform's output is sliced
+ * via `extractRegistrations` so only the `registerWorkletInternal(...)`
+ * calls are kept. The `loadWorkletRuntime` import that upstream emits
+ * is dropped — `registerWorkletInternal` is installed as a global by
+ * `entry-main.ts`.
  *
  * Mirrors vue-lynx's `worklet-loader-mt.ts`, minus the `?vue` sub-module
  * branch (sigx has no Vue SFC pipeline) and minus the shared-imports path
@@ -78,29 +89,27 @@ const BOOTSTRAP_PREAMBLE =
   + `import ${JSON.stringify(WORKLET_RUNTIME_PATH)};\n`
   + `import ${JSON.stringify(INSTALL_HYBRID_PATH)};\n`;
 
-// Match `'main thread';` or `"main thread";` only at statement position —
-// i.e. with a `;` directly after the closing quote. This is the JS form a
-// worklet directive always takes; library code that mentions "main thread"
-// inside an error message or doc comment (e.g.
-// `@sigx/lynx-runtime/dist/index.js`'s runOnBackground error string) won't
-// match because the next char there is a space, not `;`.
-const DIRECTIVE_RE = /['"]main thread['"]\s*;/;
+// Cheap pre-filter to skip the SWC parse for files that obviously don't
+// contain a worklet directive. A directive is always followed immediately
+// by a statement terminator — either `;` or a newline (ASI). Requiring
+// one of those after the closing quote rejects substrings inside
+// single-line error strings like
+// `"...inside 'main thread' functions..."` from `@sigx/lynx-runtime`'s
+// dist, where the next char is a space then `functions`.
+//
+// This is not a parser. A truly adversarial input (e.g. the literal
+// string `"'main thread';"`) can slip through, and SWC is the final
+// arbiter — for such files it produces no registrations and the MT
+// output reduces to the library branch's source pass-through (for
+// library paths) or to the no-directive user branch's strip (for user
+// paths). Either way: correct, just with the parse work done.
+const DIRECTIVE_RE = /['"]main thread['"]\s*(?:;|\n)/;
 
-// Inside the worklet rule scope we see two kinds of files:
-//   - User code (e.g. the showcase's `src/`): strip body for files without
-//     a directive; sigx's Lepus doesn't execute React components, so
-//     bundle-size-wise there's no reason to ship them. Top-level side
-//     effects of user code are unpredictable enough to be worth skipping.
-//   - Worklet-shipping `@sigx/*` libraries (motion / navigation / gestures):
-//     these are opted in for their `'main thread'` directives, but their
-//     non-directive files (barrel `index.js`, helper modules) still export
-//     named symbols (e.g. `useTabs`, `useScreenChrome`) that downstream
-//     packages like `@sigx/lynx-daisyui` import on the BG side. Rspack
-//     in this version shares module identity across the BG/MT layers, so
-//     stripping the MT-side body wipes those exports for both layers and
-//     breaks resolution. Pass library bodies through verbatim — their
-//     top-level code (component factories, injection-key declarations) is
-//     side-effect-free in practice.
+// Library paths (`node_modules/` and any `dist/`) get the body-preserve
+// branches above. Rspack shares module identity across BG/MT layers, so
+// stripping the MT-side body of a library file would wipe its named
+// exports for BG consumers too — daisyui couldn't resolve `useTabs` from
+// lynx-navigation, runtime-main's MT globals would disappear, etc.
 const LIBRARY_PATH_RE = /[\\/](?:node_modules|dist)[\\/]/;
 
 export default function workletLoaderMT(

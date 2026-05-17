@@ -51,6 +51,25 @@ describe('worklet-loader (BG)', () => {
     expect(bg(source)).toBe(source);
   });
 
+  it('recognizes ASI-style directives without an explicit semicolon', () => {
+    // The pre-filter must accept `'main thread'\n` (newline as statement
+    // terminator via ASI) — otherwise the BG transform never runs and the
+    // worklet body ends up shipped to BG verbatim instead of replaced with
+    // a `{ _wkltId }` placeholder.
+    const source = `
+      export function MyComp() {
+        return _jsx('view', {
+          'main-thread-bindtap': () => {
+            'main thread'
+            console.log('tap')
+          },
+        });
+      }
+    `;
+    const out = bg(source);
+    expect(out).toMatch(/_wkltId:\s*"[^"]+"/);
+  });
+
   it('emits a { _wkltId, _c } placeholder for a handler that captures a ref', () => {
     const source = `
       import { useMainThreadRef } from '@sigx/lynx-runtime-main';
@@ -220,6 +239,22 @@ describe('worklet-loader-mt (MT)', () => {
     const out = mt(source);
     // No registerWorkletInternal — the loader treated it as a no-directive file.
     expect(out).not.toContain('registerWorkletInternal');
+  });
+
+  it('recognizes ASI-style directives without an explicit semicolon', () => {
+    // JavaScript allows the directive prologue to rely on automatic
+    // semicolon insertion: `'main thread'\n...` (newline as the
+    // statement terminator) is valid. The pre-filter must accept this
+    // form, otherwise the SWC transform never runs and the worklet is
+    // never registered on MT.
+    const source = `
+      export function pulse(sv) {
+        'main thread'
+        sv.value = sv.value + 1
+      }
+    `;
+    const out = mt(source, '/repo/node_modules/@sigx/lynx-foo/dist/index.js');
+    expect(out).toContain('registerWorkletInternal');
   });
 
   it('preserves runtime-main-style library files verbatim (no directive, no allowlist needed)', () => {

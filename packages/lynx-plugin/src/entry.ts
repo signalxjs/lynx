@@ -443,19 +443,25 @@ export async function applyEntry(
     // MT layer: target='LEPUS' produces registerWorkletInternal(...) calls;
     //           the loader extracts those + local-import edges.
     //
-    // Rules run on every JS/TS file in the BG / MT layers — no package
-    // allowlist. The loaders gate themselves on directive presence (regex
-    // tightened to match `'main thread';` at statement position only, not
-    // stray substrings) and on the file's path: library code under
-    // `node_modules/` or `dist/` keeps its body so its named exports
-    // survive cross-layer module identity. That preserves
+    // Rules run on every JS/TS file in their respective layer — no
+    // package allowlist and no `node_modules`/`dist` rule exclude. The
+    // loaders gate themselves on directive presence (cheap regex
+    // pre-filter, then SWC). The MT loader additionally branches on the
+    // file's path because rspack shares module identity across BG/MT
+    // layers — see the decision table in `worklet-loader-mt.ts` — so an
+    // MT-side body strip of a library file would wipe its named exports
+    // for BG consumers too. That MT-side preservation keeps
     // `@sigx/lynx-runtime-main`'s MT globals (`processData`,
-    // `updateGlobalProps`, `sigxRunOnMT`) AND lets cross-package consumers
-    // like `@sigx/lynx-daisyui` resolve named imports
-    // (`useTabs`, `useScreenChrome`) from worklet-shipping packages
-    // without manual opt-in. See `loaders/worklet-loader-mt.ts` for the
-    // four-case decision table; new packages that ship `'main thread'`
-    // directives in their dist are picked up automatically.
+    // `updateGlobalProps`, `sigxRunOnMT`) and lets cross-package
+    // consumers like `@sigx/lynx-daisyui` resolve named imports
+    // (`useTabs`, `useScreenChrome`) from worklet-shipping packages.
+    //
+    // The BG loader has no path branch; for directive-bearing files
+    // (user or library) it returns the JS-target transform output,
+    // which preserves exports while replacing worklet bodies with
+    // `{ _wkltId }` placeholders. New packages that ship `'main thread'`
+    // directives in their dist are picked up automatically — no
+    // manual opt-in.
     chain.module
       .rule('sigx-worklet')
       .test(/\.[jt]sx?$/)

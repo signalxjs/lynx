@@ -22,13 +22,20 @@ import { transformReactLynxSync } from '@lynx-js/react/transform';
 // runOnBackground is by name and works regardless of source.
 const RUNTIME_PKG = '@sigx/lynx-runtime';
 
-// Match `'main thread';` or `"main thread";` only at statement position —
-// i.e. with a `;` directly after the closing quote. This is the JS form a
-// worklet directive always takes; library code that mentions "main thread"
-// inside an error message or doc comment (e.g.
-// `@sigx/lynx-runtime/dist/index.js`'s runOnBackground error string) won't
-// match because the next char there is a space, not `;`.
-const DIRECTIVE_RE = /['"]main thread['"]\s*;/;
+// Cheap pre-filter to skip the SWC parse for files that obviously don't
+// contain a worklet directive. A directive is always followed immediately
+// by a statement terminator — either `;` or a newline (ASI). Requiring
+// one of those after the closing quote rejects substrings inside
+// single-line error strings like
+// `"...inside 'main thread' functions..."` from `@sigx/lynx-runtime`'s
+// dist, where the next char is a space then `functions`.
+//
+// This is not a parser. A truly adversarial input (e.g. the literal
+// string `"'main thread';"`) can slip through, and the SWC transform
+// is the final arbiter — for such files it produces no registrations
+// and the BG output is identical to the no-directive path, just with
+// the parse work done.
+const DIRECTIVE_RE = /['"]main thread['"]\s*(?:;|\n)/;
 
 export default function workletLoader(
   this: Rspack.LoaderContext,
