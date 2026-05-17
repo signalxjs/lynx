@@ -28,6 +28,9 @@ export default defineLynxConfig({
         '@sigx/lynx-network',
         '@sigx/lynx-websocket',
         '@sigx/lynx-safe-area',
+        // image-picker and location both use PermissionHelper from
+        // @sigx/lynx-permissions — its Kotlin sources must be copied alongside.
+        '@sigx/lynx-permissions',
         '@sigx/lynx-image-picker',
         '@sigx/lynx-location',
         '@sigx/lynx-share',

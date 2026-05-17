@@ -22,13 +22,21 @@ import { transformReactLynxSync } from '@lynx-js/react/transform';
 // runOnBackground is by name and works regardless of source.
 const RUNTIME_PKG = '@sigx/lynx-runtime';
 
+// Match `'main thread';` or `"main thread";` only at statement position —
+// i.e. with a `;` directly after the closing quote. This is the JS form a
+// worklet directive always takes; library code that mentions "main thread"
+// inside an error message or doc comment (e.g.
+// `@sigx/lynx-runtime/dist/index.js`'s runOnBackground error string) won't
+// match because the next char there is a space, not `;`.
+const DIRECTIVE_RE = /['"]main thread['"]\s*;/;
+
 export default function workletLoader(
   this: Rspack.LoaderContext,
   source: string,
 ): string {
   this.cacheable(true);
 
-  if (!source.includes('\'main thread\'') && !source.includes('"main thread"')) {
+  if (!DIRECTIVE_RE.test(source)) {
     return source;
   }
 

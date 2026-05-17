@@ -441,31 +441,25 @@ export async function applyEntry(
     // BG layer: target='JS' replaces 'main thread' functions with
     //           { _wkltId, _c? } placeholders shipped via SET_WORKLET_EVENT.
     // MT layer: target='LEPUS' produces registerWorkletInternal(...) calls;
-    //           the loader extracts those + local-import edges, dropping
-    //           user component code so Lepus never executes it.
-    // ------------------------------------------------------------------
-    // TODO(framework): cleanly support pre-built `@sigx/*` packages that
-    // ship `'main thread'` worklet bodies in their dist (motion, gestures).
-    // Their directives are inert strings when the transform never sees
-    // them, so SharedValue writes from those packages run on BG and
-    // animations don't tick. A naive `include @sigx/*` blew up because
-    // the MT loader (`target: 'LEPUS'`) drops non-worklet code — that
-    // strips MT globals (`updateGlobalProps`, `sigxRunOnMT`, `processData`)
-    // out of `@sigx/lynx-runtime-main` and the app refuses to boot.
-    // Proper fix needs either a per-package opt-in via package.json
-    // metadata (e.g. `"sigxLynx": { "worklets": true }`) or shipping
-    // motion/gestures as TS source so the consumer's plugin processes
-    // them via the normal user-code path. For now: revert to broad
-    // exclude; framework consumers don't get animations from
-    // pre-published motion/gestures, but the app boots.
+    //           the loader extracts those + local-import edges.
+    //
+    // Rules run on every JS/TS file in the BG / MT layers — no package
+    // allowlist. The loaders gate themselves on directive presence (regex
+    // tightened to match `'main thread';` at statement position only, not
+    // stray substrings) and on the file's path: library code under
+    // `node_modules/` or `dist/` keeps its body so its named exports
+    // survive cross-layer module identity. That preserves
+    // `@sigx/lynx-runtime-main`'s MT globals (`processData`,
+    // `updateGlobalProps`, `sigxRunOnMT`) AND lets cross-package consumers
+    // like `@sigx/lynx-daisyui` resolve named imports
+    // (`useTabs`, `useScreenChrome`) from worklet-shipping packages
+    // without manual opt-in. See `loaders/worklet-loader-mt.ts` for the
+    // four-case decision table; new packages that ship `'main thread'`
+    // directives in their dist are picked up automatically.
     chain.module
       .rule('sigx-worklet')
       .test(/\.[jt]sx?$/)
       .issuerLayer(LAYERS.BACKGROUND)
-      .exclude
-        .add(/node_modules/)
-        .add(/dist/)
-        .end()
       .enforce('pre')
       .use('sigx-worklet-loader')
         .loader(path.resolve(_dirname, './loaders/worklet-loader'))
@@ -475,10 +469,6 @@ export async function applyEntry(
       .rule('sigx-worklet-mt')
       .test(/\.[jt]sx?$/)
       .issuerLayer(LAYERS.MAIN_THREAD)
-      .exclude
-        .add(/node_modules/)
-        .add(/dist/)
-        .end()
       .enforce('pre')
       .use('sigx-worklet-mt-loader')
         .loader(path.resolve(_dirname, './loaders/worklet-loader-mt'))

@@ -37,7 +37,7 @@ export default defineConfig({
 
    Listing them as separate entries in webpack isn't sufficient because the chunk graph can evaluate user code before the bootstrap chain. Prepending side-effect imports per-file forces the dep-graph order.
 
-4. **Workspace import preservation.** Top-level imports of `@sigx/*` packages (e.g. `import { Draggable } from '@sigx/gestures'`) are preserved as side-effect imports on the MT layer, so workspace component packages that ship MT worklets get walked by webpack and their `registerWorkletInternal` calls land in the MT bundle.
+4. **Cross-package worklet pickup.** The worklet rules run on every JS/TS file in the BG / MT layers, including `node_modules` and pre-built `dist/`. The loaders gate themselves on directive presence (matched as `'main thread';` at statement position, not anywhere in the source) and on path: library files keep their bodies so named exports survive cross-layer module identity. That means `@sigx/lynx-runtime-main`'s MT globals survive intact AND any third-party `@sigx/*` package that ships `'main thread'` directives in its dist (e.g. `lynx-motion`, `lynx-navigation`, `lynx-gestures`) is processed automatically with no allowlist or opt-in flag.
 
 ## Worklet author quick reference
 

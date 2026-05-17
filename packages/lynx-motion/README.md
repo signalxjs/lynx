@@ -162,18 +162,6 @@ Animations tick via `requestAnimationFrame`. Lynx's worklet runtime installs `gl
 
 ## Limitations / out of scope
 
-- **Pre-built dist + consumer-app worklet transform.** `@sigx/lynx-motion`
-  ships as pre-built JS with `'main thread'` directives baked in.
-  `@sigx/lynx-plugin` excludes `/node_modules/` from the SWC worklet
-  loader, so consumer apps that import `withSpring` / `withTiming` /
-  `animate` get those directives as inert strings — the calls run on
-  BG and **silently no-op**. Symptom: animations don't play; final
-  values snap into place when the animation duration elapses.
-  Workarounds today: (a) pass `animated={false}` to navigators that
-  depend on motion, accepting the snap; (b) build your app against
-  this package from source rather than the published dist. The
-  framework-side fix is a per-package opt-in in the plugin's exclude
-  rule and is tracked separately.
 - **Scalar `SharedValue<number>` only** for v0.1. 2D values (`{x, y}`) need parallel `animate()` calls (one per axis) for now.
 - **No velocity-carry across animations.** When a new `animate()` cancels an in-flight one, the new one starts at velocity 0. Motion's `MotionValue` tracks velocity to support seamless gesture-to-spring handoff; sigx's `SharedValue` doesn't yet (would require extending `SharedValueState<T>` from `{ value }` to `{ value, velocity }`). Add iff a real use case needs it.
 - **No duration→physics resolution** (motion's `findSpring`). Spring options are physics-only (stiffness/damping/mass). `{ duration, bounce }` not supported. Add iff users want it.
