@@ -444,6 +444,20 @@ export async function applyEntry(
     //           the loader extracts those + local-import edges, dropping
     //           user component code so Lepus never executes it.
     // ------------------------------------------------------------------
+    // TODO(framework): cleanly support pre-built `@sigx/*` packages that
+    // ship `'main thread'` worklet bodies in their dist (motion, gestures).
+    // Their directives are inert strings when the transform never sees
+    // them, so SharedValue writes from those packages run on BG and
+    // animations don't tick. A naive `include @sigx/*` blew up because
+    // the MT loader (`target: 'LEPUS'`) drops non-worklet code — that
+    // strips MT globals (`updateGlobalProps`, `sigxRunOnMT`, `processData`)
+    // out of `@sigx/lynx-runtime-main` and the app refuses to boot.
+    // Proper fix needs either a per-package opt-in via package.json
+    // metadata (e.g. `"sigxLynx": { "worklets": true }`) or shipping
+    // motion/gestures as TS source so the consumer's plugin processes
+    // them via the normal user-code path. For now: revert to broad
+    // exclude; framework consumers don't get animations from
+    // pre-published motion/gestures, but the app boots.
     chain.module
       .rule('sigx-worklet')
       .test(/\.[jt]sx?$/)
