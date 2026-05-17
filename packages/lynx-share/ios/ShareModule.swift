@@ -2,7 +2,7 @@ import UIKit
 import Lynx
 
 /// Native share dialog module.
-/// JS usage: NativeModules.Share.share({ title: "Check this", text: "Hello!", url: "https://..." })
+/// JS usage: NativeModules.Share.share({ title: "Check this", message: "Hello!", url: "https://..." })
 class ShareModule: NSObject, LynxModule {
 
     @objc static var name: String { "Share" }
@@ -20,7 +20,9 @@ class ShareModule: NSObject, LynxModule {
         guard let options = options else { return }
 
         let title = options["title"] as? String
-        let text = options["text"] as? String
+        // `message` is the canonical key (matches the TS API); `text` is
+        // accepted as a back-compat alias from older callers.
+        let text = (options["message"] as? String) ?? (options["text"] as? String)
         let urlString = options["url"] as? String
 
         var items: [Any] = []
