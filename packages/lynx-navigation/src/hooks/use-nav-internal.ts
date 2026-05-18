@@ -20,6 +20,20 @@ export const useCurrentEntry = defineInjectable<StackEntry>(() => {
 });
 
 /**
+ * Soft companion to {@link useCurrentEntry} — returns the current scope's
+ * entry if any, `null` when called outside an `<EntryScope>` instead of
+ * throwing. Provided alongside the strict version by `<EntryScope>`.
+ *
+ * Used by chrome consumers (`useScreenChrome`) where "no scoped entry"
+ * is a legitimate state (a Stack chrome slot lives outside the screen's
+ * EntryScope) and the caller wants to soft-fallback to the navigator's
+ * destination entry rather than crash.
+ */
+export const useCurrentEntryOptional = defineInjectable<StackEntry | null>(
+    () => null,
+);
+
+/**
  * Internal injectable: the route registry passed into `<NavigationRoot>`.
  * Components (Stack, Screen) read this to look up route definitions by name.
  *
@@ -64,7 +78,14 @@ export interface NavInternals {
      */
     readonly screens: {
         register(registry: ScreenRegistry): void;
-        unregister(entryKey: string): void;
+        /**
+         * Identity-checked: only removes the entry if `registry` is the
+         * one currently registered under its `entry.key`. A no-op when
+         * a newer registry has already taken that slot (which happens
+         * at the transition→idle handoff, where a fresh `<EntryScope>`
+         * for the same entry mounts before the old one's unmount fires).
+         */
+        unregister(registry: ScreenRegistry): void;
         get(entryKey: string): ScreenRegistry | undefined;
     };
 }

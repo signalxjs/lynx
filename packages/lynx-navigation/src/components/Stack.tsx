@@ -371,6 +371,48 @@ export const Stack = component<StackProps>(({ props, slots }) => {
             // the type level; here at the runtime boundary we know it's a
             // SharedValue<number>.
             const progress = transition.progress as SharedValue<number>;
+
+            // For overlay (modal / fullScreen / transparent-modal)
+            // transitions, the underneath entry doesn't move — it just
+            // sits there while the overlay slides in/out. Rendering it
+            // via the same static `<view abs><EntryScope/></view>` shape
+            // we use at idle (instead of a `<ScreenContainer>`) means
+            // the underneath's EntryScope keeps the same JSX position
+            // across the transition → idle handoff, so its subtree
+            // (per-tab Stacks, scroll positions, screen-options
+            // registrations) survives the modal lifecycle. Card
+            // transitions still use ScreenContainer for both top and
+            // underneath because both layers animate.
+            const isOverlayTransition = isOverlayPresentation(transition.topEntry.presentation);
+            const underneathLayer = isOverlayTransition
+                ? (() => {
+                    const screen = renderEntryBody(transition.underneathEntry);
+                    return (
+                        <view
+                            key={`layer-${transition.underneathEntry.key}`}
+                            style={layerStyle}
+                        >
+                            <EntryScope
+                                key={transition.underneathEntry.key}
+                                entry={transition.underneathEntry}
+                            >
+                                {screen}
+                            </EntryScope>
+                        </view>
+                    );
+                })()
+                : (
+                    <ScreenContainer
+                        key={`${transition.underneathEntry.key}-underneath-${transition.kind}-${transition.topEntry.presentation}`}
+                        entry={transition.underneathEntry}
+                        routes={routes}
+                        role="underneath"
+                        kind={transition.kind}
+                        presentation={transition.topEntry.presentation}
+                        progress={progress}
+                    />
+                );
+
             body = (
                 <view
                     style={{
@@ -384,15 +426,7 @@ export const Stack = component<StackProps>(({ props, slots }) => {
                         overflow: 'hidden',
                     }}
                 >
-                    <ScreenContainer
-                        key={`${transition.underneathEntry.key}-underneath-${transition.kind}-${transition.topEntry.presentation}`}
-                        entry={transition.underneathEntry}
-                        routes={routes}
-                        role="underneath"
-                        kind={transition.kind}
-                        presentation={transition.topEntry.presentation}
-                        progress={progress}
-                    />
+                    {underneathLayer}
                     <ScreenContainer
                         key={`${transition.topEntry.key}-top-${transition.kind}-${transition.topEntry.presentation}`}
                         entry={transition.topEntry}
