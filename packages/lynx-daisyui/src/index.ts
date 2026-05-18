@@ -66,6 +66,14 @@ export type {
     NavHeaderBackground,
 } from './navigation/NavHeader.js';
 
+// Theme
+export { ThemeProvider, useTheme } from './theme/ThemeProvider.js';
+export type {
+    DaisyTheme,
+    ThemeController,
+    ThemeProviderProps,
+} from './theme/ThemeProvider.js';
+
 // Data
 export { Avatar } from './data/Avatar.js';
 export type { AvatarProps, AvatarSize } from './data/Avatar.js';

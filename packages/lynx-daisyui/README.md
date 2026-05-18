@@ -48,6 +48,41 @@ Use it instead of `flex-1` when a Lynx parent's height comes from
 flex rather than an explicit percentage — `flex-1` expands to
 `flex: 1 1 auto`, which sizes to content and collapses the chain.
 
+## Theme switching
+
+The stylesheet ships two color themes (`daisy-light`, `daisy-dark`)
+plus style-modifier themes (`daisy-rounded`, `daisy-flat`). Each is a
+CSS class containing scoped `--color-*` / `--radius-*` variables; Lynx
+has `enableCSSInheritance: true` in its layout-pipeline defaults so
+the variables propagate to every descendant of an element with the
+theme class.
+
+`<ThemeProvider>` is a small wrapper that applies the active theme
+class to a host view and exposes a controller via `useTheme()`:
+
+```tsx
+import { ThemeProvider, useTheme } from '@sigx/lynx-daisyui';
+
+defineApp(() => () => (
+    <ThemeProvider initial="daisy-light">
+        <App />
+    </ThemeProvider>
+));
+
+// Anywhere inside:
+const theme = useTheme();
+theme.toggle();             // daisy-light ↔ daisy-dark
+theme.set('daisy-dark');    // explicit
+theme.name;                 // 'daisy-light' | 'daisy-dark' | custom string
+```
+
+The provider's host view defaults to flex-fill long-form so it doesn't
+collapse between a flex parent (`<SafeAreaProvider>`) and a flex child
+(`<SafeAreaView>`). Override via `style={…}` if you want a different
+layout role. For multi-class compositions (color + modifier),
+`theme.set('daisy-light daisy-rounded')` works — the class string is
+applied verbatim to the host view.
+
 ## Navigation chrome
 
 Two daisy-themed components that pair with

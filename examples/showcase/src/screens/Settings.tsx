@@ -10,9 +10,9 @@ import {
     ScrollView,
     Text,
     Toggle,
+    useTheme,
 } from '@sigx/lynx-daisyui';
 import { Haptics } from '@sigx/lynx-haptics';
-import { useTheme } from '../lib/theme.js';
 import { clearAllTrips, trips } from '../store/trips.js';
 
 export const Settings = component(() => {
