@@ -6,14 +6,6 @@ import { Share } from '@sigx/lynx-share';
 import { deleteEntry, getTrip, trips } from '../store/trips.js';
 import type { Trip } from '../store/types.js';
 
-/** Old store entries (from before the picker added the file:// scheme)
- * may have a bare absolute path as `photoUri`. Lynx's `<image>` needs a
- * scheme to load it; prepend `file://` for any raw path so persisted
- * data keeps rendering after the framework fix.*/
-function normalizePhotoUri(uri: string): string {
-    return uri.startsWith('/') ? `file://${uri}` : uri;
-}
-
 function buildSummary(trip: Trip): string {
     if (trip.entries.length === 0) return `${trip.name}\n(no entries yet)`;
     const lines = trip.entries.map((e) => {
@@ -86,7 +78,7 @@ export const TripDetail = component(() => {
                                     <Card.Body>
                                         {e.photoUri
                                             ? <image
-                                                src={normalizePhotoUri(e.photoUri)}
+                                                src={e.photoUri}
                                                 mode="aspectFill"
                                                 style={{ width: '100%', height: 180, borderRadius: 10, marginBottom: 8 }}
                                             />
