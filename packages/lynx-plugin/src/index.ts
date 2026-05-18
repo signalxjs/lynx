@@ -132,6 +132,23 @@ export function pluginSigxLynx(
           });
         }
 
+        // Honour `SIGX_LYNX_DEV_PORT` set by `@sigx/lynx-cli`. Rspeedy's CLI
+        // has no `--port` flag, so the CLI plumbs its computed port (from
+        // `sigx dev --port N` or the lynx-cli default) through this env var
+        // and we override `server.port` here. Without this, `serverState.port`
+        // on the lynx-cli side (used to build the device-launch URL) could
+        // diverge from whatever the user's `lynx.config.ts` set — and the
+        // device would boot pointing at a server that isn't there.
+        const envPort = process.env['SIGX_LYNX_DEV_PORT'];
+        const portOverride = envPort && Number.isFinite(Number(envPort))
+          ? Number(envPort)
+          : undefined;
+        if (portOverride !== undefined) {
+          config = mergeRsbuildConfig(config, {
+            server: { port: portOverride },
+          });
+        }
+
         return mergeRsbuildConfig(config, {
           source: {
             define: {

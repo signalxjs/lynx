@@ -508,10 +508,13 @@ export async function startDevServer(opts: DevServerOptions): Promise<void> {
         try { rmSync(full, { recursive: true, force: true }); } catch { /* ignore */ }
     }
 
-    // Build rspeedy args. Rspeedy's CLI has no `--port` flag — port comes
-    // from `server.port` in lynx.config.ts (which feeds rsbuild). For the
-    // lynx-cli side, `serverState.port` starts at the same configured
-    // default and is updated below if rspeedy logs a port-fallback line.
+    // Build rspeedy args. Rspeedy's CLI has no `--port` flag, so we pass the
+    // port through `SIGX_LYNX_DEV_PORT` (read below in the spawn env) — the
+    // `@sigx/lynx-plugin`'s `modifyRsbuildConfig` hook overrides
+    // `server.port` from that env var. This keeps lynx-cli's `serverState.port`
+    // (used for the device-launch URL) in lockstep with the port rspeedy
+    // actually binds; if rsbuild still has to fall back (port already taken)
+    // the stdout-parsing path below catches it.
     const args = ['rspeedy', 'dev'];
     if (opts.host) args.push('--host');
 
@@ -536,6 +539,7 @@ export async function startDevServer(opts: DevServerOptions): Promise<void> {
         detached: process.platform !== 'win32',
         env: {
             ...process.env,
+            SIGX_LYNX_DEV_PORT: String(requestedPort),
         },
     });
 
