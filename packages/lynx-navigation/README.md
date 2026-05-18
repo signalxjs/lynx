@@ -214,6 +214,35 @@ const Profile = component(() => () => (
 All sub-slots are optional. Anything not declared falls back to the
 navigator's default chrome.
 
+**Placement — `<Screen>` belongs inside the screen's *render*, not
+its *setup***. `<Screen>` writes into the entry's screen registry via
+`useScreenRegistry()`, which is provided by the `<EntryScope>` that
+`<Stack>` wraps around the route component's render output. The
+registry isn't visible to the setup function — the EntryScope chain
+is wired up at mount time, after setup. The right shape:
+
+```tsx
+const Profile = component(() => {
+    // setup: hooks, signals, computed — anything that needs to run
+    // once when the screen mounts.
+    const data = signal({ loading: true });
+
+    return () => (
+        // render: <Screen> + JSX. Subscribes to the current entry's
+        // registry via useScreenRegistry under the hood.
+        <Screen title={() => data.value.loading ? 'Loading…' : data.value.name}>
+            <view>…</view>
+        </Screen>
+    );
+});
+```
+
+Calling `<Screen>` (or the slot fillers `<Screen.Header>`,
+`<Screen.HeaderRight>`, etc.) inside setup throws with
+`[lynx-navigation] No screen registry in scope.` Use the imperative
+`useScreenOptions(...)` hook at setup time if you need to write
+options before the first render.
+
 ### `<Header>`
 
 **Headless** default navigator header — bare `<view>`/`<text>` nodes,
