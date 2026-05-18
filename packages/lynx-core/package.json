@@ -33,7 +33,7 @@
     },
     "devDependencies": {
         "typescript": "^6.0.3",
-        "@sigx/vite": "^0.4.3"
+        "@sigx/vite": "^0.4.8"
     },
     "homepage": "https://github.com/signalxjs/lynx/tree/main/packages/lynx-core",
     "bugs": {
