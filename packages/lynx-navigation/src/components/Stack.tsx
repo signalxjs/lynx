@@ -16,7 +16,7 @@ import {
     type NavInternals,
 } from '../hooks/use-nav-internal.js';
 import type { Presentation, StackEntry } from '../types.js';
-import { animationVariant, computeLayers } from '../internal/layer-plan.js';
+import { animationVariant, computeLayers, isOverlayPresentation } from '../internal/layer-plan.js';
 import { EdgeBackHandle } from './EdgeBackHandle.js';
 import { Layer } from './Layer.js';
 import { useTabScreenName, useTabs } from './Tabs.js';
@@ -265,28 +265,50 @@ export const Stack = component<StackProps>(({ props, slots }) => {
         const chrome = slots.default?.();
         const layers = computeLayers(nav.stack, nav.transition, internals.progress);
 
-        const renderLayerNode = (layer: typeof layers[number]) => (
-            <Layer
-                key={`layer-${layer.entry.key}-${animationVariant(layer.animation)}`}
-                entry={layer.entry}
-                routes={routes}
-                animation={layer.animation}
-            />
-        );
-        // Emit the base layer as a SEPARATE child slot, with overlays
-        // as an array child slot after it. sigx's reconciler treats a
-        // single array-valued JSX child as one "slot" — when the array
-        // length changes between renders, keyed children inside can be
-        // remounted. Splitting the base out of the array preserves it
-        // structurally across modal pushes/pops.
-        const baseLayer = layers.length > 0 ? renderLayerNode(layers[0]) : null;
-        const overlayLayers = layers.slice(1).map(renderLayerNode);
+        const renderLayerNode = (layer: typeof layers[number] | undefined) =>
+            layer ? (
+                <Layer
+                    key={`layer-${layer.entry.key}-${animationVariant(layer.animation)}`}
+                    entry={layer.entry}
+                    routes={routes}
+                    animation={layer.animation}
+                />
+            ) : null;
+        // sigx's reconciler treats a single array-valued JSX child as
+        // one "slot": when the array's *length* changes between
+        // renders, keyed children inside can be remounted even if
+        // their keys are stable. To make stacked-overlay state
+        // preservation work (modal A still mounted after modal B
+        // pushes on top), each layer is emitted as its own separate
+        // JSX child slot rather than as an array. The slots are
+        // position-stable across renders — the only thing that
+        // changes is a slot turning from `null` to a Layer (mount) or
+        // vice versa (unmount). MAX_LAYERS caps the supported stack
+        // depth; in practice apps rarely stack more than 2-3 overlays.
+        // If you hit the cap, increase the constant — the unrolled
+        // shape is just verbose, not algorithmically limited.
 
-        // Edge-swipe handle on top — only when the top entry can pop
-        // and the swipe is enabled. The handle only intercepts touches
-        // in the leftmost 20px and ignores small drags, so placing it
-        // last (highest z) doesn't disturb screen touches.
-        const edgeHandle = nav.canGoBack && internals.edgeSwipeEnabled
+        // Edge-swipe handle on top, gated on:
+        //  - `internals.edgeSwipeEnabled` — opt-out flag (also off
+        //    when the navigator has no progress SharedValue, i.e.
+        //    animations disabled — no in-flight gesture to animate).
+        //  - `nav.canGoBack` — something to pop back to.
+        //  - `!nav.transition` — no animation already running.
+        //  - The current top is a card (not an overlay). Edge-swipe
+        //    is the iOS-style horizontal pop gesture for card stacks;
+        //    using it to dismiss a modal would be the wrong axis +
+        //    the wrong dismissal semantic.
+        //
+        // The handle only intercepts touches in the leftmost 20px and
+        // ignores small drags, so placing it last (highest z) doesn't
+        // disturb screen touches.
+        const top = nav.current;
+        const edgeHandle = (
+            internals.edgeSwipeEnabled
+            && nav.canGoBack
+            && !nav.transition
+            && !isOverlayPresentation(top.presentation)
+        )
             ? <EdgeBackHandle key="edge-back" />
             : null;
 
@@ -306,8 +328,22 @@ export const Stack = component<StackProps>(({ props, slots }) => {
                     overflow: 'hidden',
                 }}
             >
-                {baseLayer}
-                {overlayLayers}
+                {renderLayerNode(layers[0])}
+                {renderLayerNode(layers[1])}
+                {renderLayerNode(layers[2])}
+                {renderLayerNode(layers[3])}
+                {renderLayerNode(layers[4])}
+                {renderLayerNode(layers[5])}
+                {renderLayerNode(layers[6])}
+                {renderLayerNode(layers[7])}
+                {renderLayerNode(layers[8])}
+                {renderLayerNode(layers[9])}
+                {renderLayerNode(layers[10])}
+                {renderLayerNode(layers[11])}
+                {renderLayerNode(layers[12])}
+                {renderLayerNode(layers[13])}
+                {renderLayerNode(layers[14])}
+                {renderLayerNode(layers[15])}
                 {edgeHandle}
             </view>
         );
