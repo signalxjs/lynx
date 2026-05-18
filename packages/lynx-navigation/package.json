@@ -21,7 +21,7 @@
         "test": "vitest run",
         "test:types": "tsc --noEmit",
         "bench": "vitest bench --run",
-        "prepublishOnly": "tsc"
+        "prepublishOnly": "vite build && tsgo --emitDeclarationOnly"
     },
     "peerDependencies": {
         "@sigx/lynx": "workspace:^",
