@@ -274,6 +274,72 @@ describe('screen registry lifecycle', () => {
 
         result.unmount();
     });
+
+    // Regression: stacked overlays. With two modals stacked on a card
+    // base, pushing the second modal must preserve the FIRST modal's
+    // mount (its registry stays in `screens`, its options survive).
+    // The previous render had overlays in a single array-valued JSX
+    // child slot — sigx's reconciler treats those as a single slot,
+    // so an array-length change between renders can remount keyed
+    // children inside.
+    it('preserves underneath overlays when another overlay pushes on top', () => {
+        // Track each Modal mount so we can distinguish "stayed
+        // mounted" from "unmounted and re-mounted with a fresh
+        // registry".
+        let modalMounts = 0;
+        const Modal = component(() => {
+            modalMounts += 1;
+            return () => (
+                <Screen title={`Modal-${modalMounts}`}><view /></Screen>
+            );
+        });
+        const localRoutes = {
+            ...routes,
+            // Override fixture composeMessage component with our
+            // counter-instrumented Modal. Same route name, same
+            // presentation: 'modal' — each push mints a fresh entry
+            // with a new key, so two pushes produce two distinct
+            // registry entries (modal-A and modal-B) under different
+            // keys.
+            composeMessage: { ...routes.composeMessage, component: Modal },
+        } as typeof routes;
+        const probe: NavProbe = { nav: null, internals: null };
+        const result = render(
+            <NavigationRoot routes={localRoutes} initialRoute="home" animated={false}>
+                <NavCapture probe={probe} />
+                <Stack />
+            </NavigationRoot>,
+        );
+
+        // Push first modal.
+        act(() => probe.nav!.push('composeMessage', { recipientId: 'r1' }));
+        const modalAKey = probe.nav!.current.key;
+        expect(modalMounts).toBe(1);
+        expect(probe.internals!.screens.get(modalAKey)).toBeTruthy();
+        expect(probe.internals!.screens.get(modalAKey)?.options.title).toBe('Modal-1');
+
+        // Push second modal — first modal must STAY MOUNTED.
+        act(() => probe.nav!.push('composeMessage', { recipientId: 'r2' }));
+        const modalBKey = probe.nav!.current.key;
+        expect(modalBKey).not.toBe(modalAKey);
+        // Modal2 mounts fresh.
+        expect(modalMounts).toBe(2);
+        // Modal1's registry MUST still be there with its options
+        // intact. If reconciliation remounted it, it'd have a fresh
+        // empty registry (no title until <Screen> re-ran) and the
+        // mount counter would have ticked past 2 by now.
+        expect(probe.internals!.screens.get(modalAKey)).toBeTruthy();
+        expect(probe.internals!.screens.get(modalAKey)?.options.title).toBe('Modal-1');
+        expect(probe.internals!.screens.get(modalBKey)?.options.title).toBe('Modal-2');
+
+        // Pop modal B — modal A still survives.
+        act(() => probe.nav!.pop());
+        expect(probe.internals!.screens.get(modalAKey)?.options.title).toBe('Modal-1');
+        expect(probe.internals!.screens.get(modalBKey)).toBeUndefined();
+        expect(modalMounts).toBe(2); // no re-mount of A
+
+        result.unmount();
+    });
 });
 
 describe('screens registry — identity-checked unregister', () => {
