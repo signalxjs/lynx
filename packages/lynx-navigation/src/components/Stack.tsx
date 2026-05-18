@@ -5,11 +5,8 @@ import {
     onUnmounted,
     untrack,
     useSharedValue,
-    type ComponentFactory,
     type Define,
-    type SharedValue,
 } from '@sigx/lynx';
-import { Suspense, isLazyComponent } from '@sigx/lynx';
 import { createNavigatorState } from '../navigator/core.js';
 import { useNav, type Nav } from '../hooks/use-nav.js';
 import {
@@ -19,9 +16,9 @@ import {
     type NavInternals,
 } from '../hooks/use-nav-internal.js';
 import type { Presentation, StackEntry } from '../types.js';
-import { ScreenContainer } from './ScreenContainer.js';
+import { animationVariant, computeLayers } from '../internal/layer-plan.js';
 import { EdgeBackHandle } from './EdgeBackHandle.js';
-import { EntryScope } from './EntryScope.js';
+import { Layer } from './Layer.js';
 import { useTabScreenName, useTabs } from './Tabs.js';
 
 type StackProps =
@@ -86,20 +83,31 @@ let _nestedKeyCounter = 0;
  * walks to root and overlays the whole UI. `replace` stays strictly local
  * (asymmetric with `push`) so a modal `replace` never wipes the root stack.
  *
- * **Render strategy** (same in both modes):
- *  - **Idle**: just the top entry, full-bleed, no transform. The screen
- *    component mounts directly so it can use its own layout (no extra
- *    absolute positioning that would break percentage heights).
- *  - **Transitioning**: two `<ScreenContainer>` instances stacked
- *    absolutely, each with an MT-driven `translateX` that reads from the
- *    navigator's progress `SharedValue`. The host's BG thread doesn't tick
- *    per frame — `useAnimatedStyle` runs the interpolation entirely on MT.
+ * **Render strategy.** Stack always emits the same JSX shape — a
+ * relative wrapper containing one `<Layer>` per entry returned by
+ * `computeLayers(stack, transition, progress)`. Each Layer is an
+ * absolutely-positioned host view with optional MT-bound translate
+ * animation. The pure layer-plan function decides:
  *
- * `key={top.key}` keeps the idle render's component instance stable across
- * unrelated re-renders. During transitions, composite keys
- * (`${entry.key}-${role}-${kind}`) ensure a fresh mount per role/kind pair
- * so the `useAnimatedStyle` binding is set with the right input/output
- * ranges.
+ *  - **Idle.** Topmost non-overlay base + any overlays above it. All
+ *    static (no transform). Overlays (`modal` / `fullScreen` /
+ *    `transparent-modal`) keep their underneath mounted; cards
+ *    replace their underneath in the base layer.
+ *  - **Card transition.** Both top and underneath animate (slide-in
+ *    + parallax). After settle, idle rules apply — the underneath
+ *    unmounts because the new top is the sole base.
+ *  - **Overlay transition.** The full idle layer stack up through
+ *    the underneath stays static; only the animated top has a
+ *    transform. After settle, the overlay either joins the static
+ *    idle stack (push) or unmounts (pop).
+ *
+ * Layer keys are `layer-${entry.key}-${animationVariant}`. The variant
+ * suffix forces a remount when an entry transitions from animated to
+ * static (or vice versa) — `useAnimatedStyle` binds once at setup and
+ * can't switch its mapper at runtime. Modal underneath layers never
+ * animate, so their key is stable across the modal lifecycle and the
+ * subtree's state (per-tab Stack navigators, scroll positions,
+ * in-flight inputs) survives.
  */
 export const Stack = component<StackProps>(({ props, slots }) => {
     // Capture enclosing scope's nav + routes + internals BEFORE any of the
@@ -238,12 +246,12 @@ export const Stack = component<StackProps>(({ props, slots }) => {
         internals = parentInternals;
     }
 
-    // Per-stack chrome (slots.default) needs to render *inside* this
-    // Stack's nav scope so a `<Header />` placed there resolves
-    // `useNav()` to the per-stack nav. Wrapping the active body in a
-    // flex-column with the slot above does that without disturbing the
-    // existing fill semantics — the slot takes its natural height, the
-    // body keeps its flex-fill.
+    // Per-stack chrome (slots.default) renders *inside* this Stack's
+    // nav scope so a `<Header />` placed there resolves `useNav()` to
+    // the per-stack nav. Wrapping the active body in a flex-column
+    // with the slot above does that without disturbing layer-fill
+    // semantics — the slot takes natural height, the body keeps
+    // flex-fill.
     const flexColumnFill = {
         flexGrow: 1,
         flexShrink: 1,
@@ -253,220 +261,56 @@ export const Stack = component<StackProps>(({ props, slots }) => {
         flexDirection: 'column',
     } as const;
 
-    /** Materialize a route component for a given entry. Lazy routes with a
-     * `fallback` are wrapped in Suspense. Returns `null` when the route is
-     * unknown or its component isn't callable. */
-    const renderEntryBody = (entry: StackEntry): unknown => {
-        const route = routes[entry.route];
-        if (!route) return null;
-        const Comp = route.component as unknown as ComponentFactory<
-            Record<string, unknown>,
-            unknown,
-            unknown
-        >;
-        if (typeof Comp !== 'function') return null;
-        const params = entry.params as Record<string, unknown>;
-        return isLazyComponent(Comp) && route.fallback
-            ? (
-                <Suspense fallback={route.fallback as never}>
-                    <Comp {...params} />
-                </Suspense>
-            )
-            : <Comp {...params} />;
-    };
-
-    const isOverlayPresentation = (p: Presentation): boolean =>
-        p === 'modal' || p === 'fullScreen' || p === 'transparent-modal';
-
-    /** Layer style — absolute fill inside a relative parent. Flex-column
-     * so descendants that flex-fill (SafeAreaView, daisyui screens) get a
-     * sized parent. */
-    const layerStyle = {
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        display: 'flex',
-        flexDirection: 'column',
-    } as const;
-
     return () => {
         const chrome = slots.default?.();
-        const transition = nav.transition;
-        const top = nav.current;
+        const layers = computeLayers(nav.stack, nav.transition, internals.progress);
 
-        let body: unknown;
-        if (!transition) {
-            // The screens to render right now: the topmost non-overlay
-            // entry as the "base layer", plus any overlay entries
-            // (modal / fullScreen / transparent-modal) above it as
-            // stacked layers. Overlays don't replace the base — they
-            // keep it mounted so its state (per-tab stacks, scroll
-            // positions, in-flight inputs) survives modal lifecycle.
-            // Card pushes still replace the base (the user expects
-            // "back" to recreate the previous screen from history).
-            //
-            // Crucially, we *always* emit the same JSX shape — a
-            // relative wrapper with one or more absolute layers — so
-            // the reconciler preserves the base EntryScope across modal
-            // pushes/pops. Switching between "bare EntryScope" and
-            // "wrapper + layer" remounts the base, which destroys
-            // per-tab Stack state.
-            const stack = nav.stack;
-            let baseIdx = stack.length - 1;
-            while (baseIdx > 0 && isOverlayPresentation(stack[baseIdx].presentation)) {
-                baseIdx -= 1;
-            }
-            const baseEntry = stack[baseIdx];
-            const overlayEntries = stack.slice(baseIdx + 1);
+        const renderLayerNode = (layer: typeof layers[number]) => (
+            <Layer
+                key={`layer-${layer.entry.key}-${animationVariant(layer.animation)}`}
+                entry={layer.entry}
+                routes={routes}
+                animation={layer.animation}
+            />
+        );
+        // Emit the base layer as a SEPARATE child slot, with overlays
+        // as an array child slot after it. sigx's reconciler treats a
+        // single array-valued JSX child as one "slot" — when the array
+        // length changes between renders, keyed children inside can be
+        // remounted. Splitting the base out of the array preserves it
+        // structurally across modal pushes/pops.
+        const baseLayer = layers.length > 0 ? renderLayerNode(layers[0]) : null;
+        const overlayLayers = layers.slice(1).map(renderLayerNode);
 
-            const baseScreen = renderEntryBody(baseEntry);
-            if (baseScreen === null) return null;
+        // Edge-swipe handle on top — only when the top entry can pop
+        // and the swipe is enabled. The handle only intercepts touches
+        // in the leftmost 20px and ignores small drags, so placing it
+        // last (highest z) doesn't disturb screen touches.
+        const edgeHandle = nav.canGoBack && internals.edgeSwipeEnabled
+            ? <EdgeBackHandle key="edge-back" />
+            : null;
 
-            const baseLayer = (
-                <view key={`layer-${baseEntry.key}`} style={layerStyle}>
-                    <EntryScope key={baseEntry.key} entry={baseEntry}>
-                        {baseScreen}
-                    </EntryScope>
-                </view>
-            );
-
-            const overlayLayers = overlayEntries.map((entry) => {
-                const screen = renderEntryBody(entry);
-                if (screen === null) return null;
-                return (
-                    <view key={`layer-${entry.key}`} style={layerStyle}>
-                        <EntryScope key={entry.key} entry={entry}>
-                            {screen}
-                        </EntryScope>
-                    </view>
-                );
-            });
-
-            // Edge-swipe handle on top — only when the top entry can pop
-            // and the swipe is enabled. The handle only intercepts
-            // touches in the leftmost 20px and ignores small drags, so
-            // placing it last (highest z) doesn't disturb screen touches.
-            const edgeHandle = (top === baseEntry && nav.canGoBack && internals.edgeSwipeEnabled)
-                ? <EdgeBackHandle key="edge-back" />
-                : null;
-
-            body = (
-                <view
-                    style={{
-                        position: 'relative',
-                        width: '100%',
-                        ...flexColumnFill,
-                    }}
-                >
-                    {baseLayer}
-                    {overlayLayers}
-                    {edgeHandle}
-                </view>
-            );
-        } else {
-            // Cast progress: TransitionState carries it as `unknown` to
-            // avoid pinning the contract to `@sigx/lynx`'s SharedValue at
-            // the type level; here at the runtime boundary we know it's a
-            // SharedValue<number>.
-            const progress = transition.progress as SharedValue<number>;
-
-            // For overlay (modal / fullScreen / transparent-modal)
-            // transitions, the underneath doesn't move — it just sits
-            // there while the overlay slides in/out. Render the **full
-            // idle layer stack** up through `transition.underneathEntry`
-            // via the same static `<view abs><EntryScope/></view>`
-            // shape used at idle:
-            //
-            //  - The base (topmost non-overlay) layer stays mounted.
-            //    Without this, stacked overlays — e.g. [card, modal-A,
-            //    modal-B] transitioning between the two modals — would
-            //    have the card base unmount during the transition,
-            //    making `transparent-modal` backgrounds go blank.
-            //  - Every still-visible overlay between the base and the
-            //    underneath stays mounted too.
-            //  - The animated top entry is the `<ScreenContainer>`
-            //    above all of them.
-            //
-            // Card transitions still use `<ScreenContainer>` for both
-            // top and underneath because both layers animate.
-            const isOverlayTransition = isOverlayPresentation(transition.topEntry.presentation);
-            let underneathLayers: unknown;
-            if (isOverlayTransition) {
-                const stack = nav.stack;
-                // Find the topmost non-overlay entry — that's the base
-                // layer that stays mounted under every overlay.
-                let baseIdx = stack.length - 1;
-                while (baseIdx > 0 && isOverlayPresentation(stack[baseIdx].presentation)) {
-                    baseIdx -= 1;
-                }
-                // Render the base + every overlay below the transitioning
-                // top entry. During a push, the transitioning top is the
-                // new entry (not yet in the stack-render set here, but
-                // emitted separately below). During a pop, the
-                // transitioning top is the entry being animated off; the
-                // underneath is whatever ends up on top after, which we
-                // include in this set if it's not the animated top.
-                const underUnderneathIdx = stack.findIndex(
-                    (e) => e.key === transition.underneathEntry.key,
-                );
-                const lastStaticIdx = underUnderneathIdx >= 0
-                    ? underUnderneathIdx
-                    : stack.length - 1;
-                underneathLayers = stack
-                    .slice(baseIdx, lastStaticIdx + 1)
-                    .map((entry) => {
-                        const screen = renderEntryBody(entry);
-                        if (screen === null) return null;
-                        return (
-                            <view key={`layer-${entry.key}`} style={layerStyle}>
-                                <EntryScope key={entry.key} entry={entry}>
-                                    {screen}
-                                </EntryScope>
-                            </view>
-                        );
-                    });
-            } else {
-                underneathLayers = (
-                    <ScreenContainer
-                        key={`${transition.underneathEntry.key}-underneath-${transition.kind}-${transition.topEntry.presentation}`}
-                        entry={transition.underneathEntry}
-                        routes={routes}
-                        role="underneath"
-                        kind={transition.kind}
-                        presentation={transition.topEntry.presentation}
-                        progress={progress}
-                    />
-                );
-            }
-
-            body = (
-                <view
-                    style={{
-                        position: 'relative',
-                        width: '100%',
-                        // Flex-fill so the transition container actually has
-                        // the parent's available height — `<ScreenContainer>`s
-                        // anchor via `position: absolute; top/right/bottom/left: 0`,
-                        // which needs a relative parent with a real size.
-                        ...flexColumnFill,
-                        overflow: 'hidden',
-                    }}
-                >
-                    {underneathLayers}
-                    <ScreenContainer
-                        key={`${transition.topEntry.key}-top-${transition.kind}-${transition.topEntry.presentation}`}
-                        entry={transition.topEntry}
-                        routes={routes}
-                        role="top"
-                        kind={transition.kind}
-                        presentation={transition.topEntry.presentation}
-                        progress={progress}
-                    />
-                </view>
-            );
-        }
+        const body = (
+            <view
+                style={{
+                    position: 'relative',
+                    width: '100%',
+                    // Flex-fill so the layer container has a real
+                    // height — `<Layer>`s anchor via `position:
+                    // absolute; top/right/bottom/left: 0`, which
+                    // needs a sized relative parent.
+                    ...flexColumnFill,
+                    // Clip any animated layer that translates off-
+                    // screen so the slide doesn't bleed past the
+                    // Stack's bounds.
+                    overflow: 'hidden',
+                }}
+            >
+                {baseLayer}
+                {overlayLayers}
+                {edgeHandle}
+            </view>
+        );
 
         if (chrome == null) return body as never;
         return (
