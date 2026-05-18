@@ -373,35 +373,62 @@ export const Stack = component<StackProps>(({ props, slots }) => {
             const progress = transition.progress as SharedValue<number>;
 
             // For overlay (modal / fullScreen / transparent-modal)
-            // transitions, the underneath entry doesn't move — it just
-            // sits there while the overlay slides in/out. Rendering it
-            // via the same static `<view abs><EntryScope/></view>` shape
-            // we use at idle (instead of a `<ScreenContainer>`) means
-            // the underneath's EntryScope keeps the same JSX position
-            // across the transition → idle handoff, so its subtree
-            // (per-tab Stacks, scroll positions, screen-options
-            // registrations) survives the modal lifecycle. Card
-            // transitions still use ScreenContainer for both top and
-            // underneath because both layers animate.
+            // transitions, the underneath doesn't move — it just sits
+            // there while the overlay slides in/out. Render the **full
+            // idle layer stack** up through `transition.underneathEntry`
+            // via the same static `<view abs><EntryScope/></view>`
+            // shape used at idle:
+            //
+            //  - The base (topmost non-overlay) layer stays mounted.
+            //    Without this, stacked overlays — e.g. [card, modal-A,
+            //    modal-B] transitioning between the two modals — would
+            //    have the card base unmount during the transition,
+            //    making `transparent-modal` backgrounds go blank.
+            //  - Every still-visible overlay between the base and the
+            //    underneath stays mounted too.
+            //  - The animated top entry is the `<ScreenContainer>`
+            //    above all of them.
+            //
+            // Card transitions still use `<ScreenContainer>` for both
+            // top and underneath because both layers animate.
             const isOverlayTransition = isOverlayPresentation(transition.topEntry.presentation);
-            const underneathLayer = isOverlayTransition
-                ? (() => {
-                    const screen = renderEntryBody(transition.underneathEntry);
-                    return (
-                        <view
-                            key={`layer-${transition.underneathEntry.key}`}
-                            style={layerStyle}
-                        >
-                            <EntryScope
-                                key={transition.underneathEntry.key}
-                                entry={transition.underneathEntry}
-                            >
-                                {screen}
-                            </EntryScope>
-                        </view>
-                    );
-                })()
-                : (
+            let underneathLayers: unknown;
+            if (isOverlayTransition) {
+                const stack = nav.stack;
+                // Find the topmost non-overlay entry — that's the base
+                // layer that stays mounted under every overlay.
+                let baseIdx = stack.length - 1;
+                while (baseIdx > 0 && isOverlayPresentation(stack[baseIdx].presentation)) {
+                    baseIdx -= 1;
+                }
+                // Render the base + every overlay below the transitioning
+                // top entry. During a push, the transitioning top is the
+                // new entry (not yet in the stack-render set here, but
+                // emitted separately below). During a pop, the
+                // transitioning top is the entry being animated off; the
+                // underneath is whatever ends up on top after, which we
+                // include in this set if it's not the animated top.
+                const underUnderneathIdx = stack.findIndex(
+                    (e) => e.key === transition.underneathEntry.key,
+                );
+                const lastStaticIdx = underUnderneathIdx >= 0
+                    ? underUnderneathIdx
+                    : stack.length - 1;
+                underneathLayers = stack
+                    .slice(baseIdx, lastStaticIdx + 1)
+                    .map((entry) => {
+                        const screen = renderEntryBody(entry);
+                        if (screen === null) return null;
+                        return (
+                            <view key={`layer-${entry.key}`} style={layerStyle}>
+                                <EntryScope key={entry.key} entry={entry}>
+                                    {screen}
+                                </EntryScope>
+                            </view>
+                        );
+                    });
+            } else {
+                underneathLayers = (
                     <ScreenContainer
                         key={`${transition.underneathEntry.key}-underneath-${transition.kind}-${transition.topEntry.presentation}`}
                         entry={transition.underneathEntry}
@@ -412,6 +439,7 @@ export const Stack = component<StackProps>(({ props, slots }) => {
                         progress={progress}
                     />
                 );
+            }
 
             body = (
                 <view
@@ -426,7 +454,7 @@ export const Stack = component<StackProps>(({ props, slots }) => {
                         overflow: 'hidden',
                     }}
                 >
-                    {underneathLayer}
+                    {underneathLayers}
                     <ScreenContainer
                         key={`${transition.topEntry.key}-top-${transition.kind}-${transition.topEntry.presentation}`}
                         entry={transition.topEntry}
