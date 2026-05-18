@@ -214,34 +214,45 @@ const Profile = component(() => () => (
 All sub-slots are optional. Anything not declared falls back to the
 navigator's default chrome.
 
-**Placement — `<Screen>` belongs inside the screen's *render*, not
-its *setup***. `<Screen>` writes into the entry's screen registry via
-`useScreenRegistry()`, which is provided by the `<EntryScope>` that
-`<Stack>` wraps around the route component's render output. The
-registry isn't visible to the setup function — the EntryScope chain
-is wired up at mount time, after setup. The right shape:
+**Placement — `<Screen>` is a child component, return it from
+render.** `<Screen>` and its slot-filler siblings (`<Screen.Header>`,
+`<Screen.HeaderRight>`, etc.) each call `useScreenRegistry()` from
+their *own* setup, which means they have to actually mount inside
+your screen's `<EntryScope>` to find the registry — and that only
+happens when JSX returned from your render function is reconciled
+into the tree. Constructing `<Screen ... />` JSX inside setup without
+returning it doesn't mount anything:
 
 ```tsx
+// ✗ Won't take effect — the JSX is created but never rendered.
 const Profile = component(() => {
-    // setup: hooks, signals, computed — anything that needs to run
-    // once when the screen mounts.
-    const data = signal({ loading: true });
+    <Screen title="Profile" />;
+    return () => <view>profile body</view>;
+});
 
+// ✓ Returned from render — gets mounted, registers its options.
+const Profile = component(() => {
     return () => (
-        // render: <Screen> + JSX. Subscribes to the current entry's
-        // registry via useScreenRegistry under the hood.
-        <Screen title={() => data.value.loading ? 'Loading…' : data.value.name}>
-            <view>…</view>
+        <Screen title="Profile">
+            <view>profile body</view>
         </Screen>
     );
 });
 ```
 
-Calling `<Screen>` (or the slot fillers `<Screen.Header>`,
-`<Screen.HeaderRight>`, etc.) inside setup throws with
-`[lynx-navigation] No screen registry in scope.` Use the imperative
-`useScreenOptions(...)` hook at setup time if you need to write
-options before the first render.
+When `<Screen>` *does* mount outside of any `<EntryScope>` — typically
+because the consumer placed it at the app root instead of inside a
+route component — it throws:
+
+> `[lynx-navigation] No screen registry in scope. `<Screen>` (and
+> `<Screen.Header>`, etc.) must be used inside a route component
+> rendered by `<Stack>`.`
+
+If you need to write options *imperatively* at setup time (e.g. to
+react to a hook result before the first render), reach for
+`useScreenOptions(...)` — it calls `useScreenRegistry()` directly
+from your own setup, where the EntryScope's registry is already
+visible.
 
 ### `<Header>`
 
