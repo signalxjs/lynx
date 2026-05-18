@@ -70,8 +70,6 @@ src/
 ├── main.tsx               # daisyui styles import + bootstrap
 ├── styles.css             # tailwind directives
 ├── routes.ts              # defineRoutes(...) + Register type augmentation
-├── lib/
-│   └── theme.tsx          # local ThemeProvider (daisyui light/dark)
 ├── store/
 │   ├── types.ts           # Trip, Entry, Coords
 │   └── trips.ts           # signal store + watch-based persistence
@@ -125,10 +123,11 @@ a kitchen-sink demo.
   `useTabs()` internally — drop it inside `<Tabs>` and it just works.
   No `class` strings, no `renderTab` boilerplate.
 
-- **ThemeProvider lives locally.** `src/lib/theme.tsx` is a small
-  wrapper that applies the `.daisy-light` / `.daisy-dark` class so the
-  CSS variables propagate. It will move into `@sigx/lynx-daisyui`
-  upstream after we've kicked the tyres on the shape.
+- **Theme switching.** `<ThemeProvider>` and `useTheme()` come from
+  `@sigx/lynx-daisyui`. The provider wraps children in
+  `<view class={themeName}>` so the scoped CSS variables in
+  `.daisy-light` / `.daisy-dark` inherit downstream. The Settings tab
+  calls `useTheme().toggle()` to flip between them.
 
 ## License
 

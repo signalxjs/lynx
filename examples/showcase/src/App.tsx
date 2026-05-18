@@ -1,7 +1,7 @@
 import { component } from '@sigx/lynx';
+import { ThemeProvider } from '@sigx/lynx-daisyui';
 import { NavigationRoot, Stack } from '@sigx/lynx-navigation';
 import { SafeAreaProvider, SafeAreaView } from '@sigx/lynx-safe-area';
-import { ThemeProvider } from './lib/theme.js';
 import { routes } from './routes.js';
 
 // SafeAreaProvider defaults to `height: 100vh + flex column`, and
