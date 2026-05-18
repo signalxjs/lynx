@@ -214,6 +214,46 @@ const Profile = component(() => () => (
 All sub-slots are optional. Anything not declared falls back to the
 navigator's default chrome.
 
+**Placement — `<Screen>` is a child component, return it from
+render.** `<Screen>` and its slot-filler siblings (`<Screen.Header>`,
+`<Screen.HeaderRight>`, etc.) each call `useScreenRegistry()` from
+their *own* setup, which means they have to actually mount inside
+your screen's `<EntryScope>` to find the registry — and that only
+happens when JSX returned from your render function is reconciled
+into the tree. Constructing `<Screen ... />` JSX inside setup without
+returning it doesn't mount anything:
+
+```tsx
+// ✗ Won't take effect — the JSX is created but never rendered.
+const Profile = component(() => {
+    <Screen title="Profile" />;
+    return () => <view>profile body</view>;
+});
+
+// ✓ Returned from render — gets mounted, registers its options.
+const Profile = component(() => {
+    return () => (
+        <Screen title="Profile">
+            <view>profile body</view>
+        </Screen>
+    );
+});
+```
+
+When `<Screen>` *does* mount outside of any `<EntryScope>` — typically
+because the consumer placed it at the app root instead of inside a
+route component — it throws:
+
+> `[lynx-navigation] No screen registry in scope. `<Screen>` (and
+> `<Screen.Header>`, etc.) must be used inside a route component
+> rendered by `<Stack>`.`
+
+If you need to write options *imperatively* at setup time (e.g. to
+react to a hook result before the first render), reach for
+`useScreenOptions(...)` — it calls `useScreenRegistry()` directly
+from your own setup, where the EntryScope's registry is already
+visible.
+
 ### `<Header>`
 
 **Headless** default navigator header — bare `<view>`/`<text>` nodes,
