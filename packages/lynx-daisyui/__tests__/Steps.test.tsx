@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { render } from '@sigx/lynx-testing';
-import { Steps } from '../src/feedback/Steps.js';
+import { Steps } from '../src/feedback/Steps';
 
 function findByClass(node: any, cls: string): any {
   if (node._class && node._class.includes(cls)) return node;

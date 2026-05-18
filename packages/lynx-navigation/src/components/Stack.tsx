@@ -7,19 +7,19 @@ import {
     useSharedValue,
     type Define,
 } from '@sigx/lynx';
-import { createNavigatorState } from '../navigator/core.js';
-import { useNav, type Nav } from '../hooks/use-nav.js';
+import { createNavigatorState } from '../navigator/core';
+import { useNav, type Nav } from '../hooks/use-nav';
 import {
     useCurrentEntry,
     useNavInternals,
     useNavRoutes,
     type NavInternals,
-} from '../hooks/use-nav-internal.js';
-import type { Presentation, StackEntry } from '../types.js';
-import { animationVariant, computeLayers, isOverlayPresentation } from '../internal/layer-plan.js';
-import { EdgeBackHandle } from './EdgeBackHandle.js';
-import { Layer } from './Layer.js';
-import { useTabScreenName, useTabs } from './Tabs.js';
+} from '../hooks/use-nav-internal';
+import type { Presentation, StackEntry } from '../types';
+import { animationVariant, computeLayers, isOverlayPresentation } from '../internal/layer-plan';
+import { EdgeBackHandle } from './EdgeBackHandle';
+import { Layer } from './Layer';
+import { useTabScreenName, useTabs } from './Tabs';
 
 type StackProps =
     /**

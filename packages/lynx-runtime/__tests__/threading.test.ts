@@ -4,9 +4,9 @@
  * captured worklet/SV placeholders saw `undefined` and silently no-op'd.
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { runOnMainThread } from '../src/threading.js';
-import { useSharedValue } from '../src/animated/shared-value.js';
-import { resetOpQueue } from '../src/op-queue.js';
+import { runOnMainThread } from '../src/threading';
+import { useSharedValue } from '../src/animated/shared-value';
+import { resetOpQueue } from '../src/op-queue';
 
 describe('runOnMainThread bridge payload', () => {
   let received: unknown[] = [];

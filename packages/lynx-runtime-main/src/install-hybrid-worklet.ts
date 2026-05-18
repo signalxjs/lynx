@@ -16,7 +16,7 @@
  * bare `import` statement above whatever sets up its prerequisites.
  */
 
-import { installHybridWorklet } from './hybrid-worklet.js';
+import { installHybridWorklet } from './hybrid-worklet';
 
 installHybridWorklet();
 

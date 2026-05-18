@@ -3,7 +3,7 @@ import { getPlatformModelProcessor } from '@sigx/runtime-core/internals';
 
 // Importing @sigx/lynx-runtime side-effect-registers the platform model
 // processor (and the JSX/PlatformTypes augmentations).
-import '../src/index.js';
+import '../src/index';
 
 describe('lynx-runtime model processor', () => {
   let processor: ReturnType<typeof getPlatformModelProcessor>;

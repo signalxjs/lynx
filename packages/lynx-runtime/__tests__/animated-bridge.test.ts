@@ -18,7 +18,7 @@ import {
   ingestAvPublishes,
   resetBgAvBridge,
   bgAvSinkCount,
-} from '../src/animated-bridge.js';
+} from '../src/animated-bridge';
 
 beforeEach(() => {
   resetBgAvBridge();

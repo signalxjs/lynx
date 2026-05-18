@@ -14,7 +14,7 @@
  * channel that `bg-bridge.ts` listens on.
  */
 
-import type { WorkletPlaceholder } from './worklet-events.js';
+import type { WorkletPlaceholder } from './worklet-events';
 
 export const HYBRID_WORKLET_ID = '__sigx_hybrid_dispatch__';
 

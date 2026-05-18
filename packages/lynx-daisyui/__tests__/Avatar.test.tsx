@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { render } from '@sigx/lynx-testing';
-import { Avatar } from '../src/data/Avatar.js';
+import { Avatar } from '../src/data/Avatar';
 
 describe('Avatar', () => {
   it('renders with image src', () => {

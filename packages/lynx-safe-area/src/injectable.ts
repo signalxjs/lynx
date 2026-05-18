@@ -1,5 +1,5 @@
 import { defineInjectable } from '@sigx/lynx';
-import type { SafeAreaContextValue } from './types.js';
+import type { SafeAreaContextValue } from './types';
 
 /**
  * The DI handle for the safe-area context.

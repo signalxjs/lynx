@@ -11,7 +11,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 import { OP } from '@sigx/lynx-runtime-internal';
-import { applyOps, resetMainThreadState } from '../src/ops-apply.js';
+import { applyOps, resetMainThreadState } from '../src/ops-apply';
 
 beforeEach(() => {
   resetMainThreadState();

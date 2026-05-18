@@ -6,9 +6,9 @@
  * `globalThis`, so portable web code that does `new WebSocket(url)` works
  * unchanged.
  */
-import { WebSocket as SigxWebSocket } from './websocket.js';
+import { WebSocket as SigxWebSocket } from './websocket';
 
-export { WebSocket, isWebSocketAvailable } from './websocket.js';
+export { WebSocket, isWebSocketAvailable } from './websocket';
 
 // Side-effect: register on the global so consumers don't need an import
 // site to call `new WebSocket(...)`. Mirrors the CLI plugin's auto-import

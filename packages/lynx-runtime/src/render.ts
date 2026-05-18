@@ -6,10 +6,10 @@
  */
 import { createRenderer, setDefaultMount } from '@sigx/runtime-core/internals';
 import type { MountFn, AppContext } from '@sigx/runtime-core';
-import { nodeOps } from './nodeOps.js';
-import { flushNow } from './flush.js';
-import { installEventPublisher } from './op-queue.js';
-import { createPageRoot, type ShadowElement } from './shadow-element.js';
+import { nodeOps } from './nodeOps';
+import { flushNow } from './flush';
+import { installEventPublisher } from './op-queue';
+import { createPageRoot, type ShadowElement } from './shadow-element';
 
 // Install host-required event stubs (publishEvent / publicComponentEvent)
 // before sigx mounts anything so the first MT → BG dispatch doesn't crash.

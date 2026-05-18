@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { render } from '@sigx/lynx-testing';
-import { Textarea } from '../src/forms/Textarea.js';
+import { Textarea } from '../src/forms/Textarea';
 
 describe('Textarea', () => {
   it('renders with textarea class', () => {

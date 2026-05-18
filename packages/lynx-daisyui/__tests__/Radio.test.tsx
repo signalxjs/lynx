@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { render } from '@sigx/lynx-testing';
-import { Radio } from '../src/forms/Radio.js';
+import { Radio } from '../src/forms/Radio';
 
 describe('Radio', () => {
   it('renders RadioGroup with items', () => {

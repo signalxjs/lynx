@@ -7,10 +7,10 @@
  * sufficient — both `types.test.ts` and `runtime.test.tsx` import from here.
  */
 import { component } from '@sigx/lynx';
-import { defineRoutes } from '../src/define-routes.js';
-import { useParams } from '../src/hooks/use-params.js';
-import { useSearch } from '../src/hooks/use-search.js';
-import type { StandardSchemaV1 } from '../src/types.js';
+import { defineRoutes } from '../src/define-routes';
+import { useParams } from '../src/hooks/use-params';
+import { useSearch } from '../src/hooks/use-search';
+import type { StandardSchemaV1 } from '../src/types';
 
 export function fakeSchema<T>(): StandardSchemaV1<T, T> {
     return {

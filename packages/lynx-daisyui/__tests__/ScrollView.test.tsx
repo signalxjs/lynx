@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { render } from '@sigx/lynx-testing';
-import { ScrollView } from '../src/layout/ScrollView.js';
+import { ScrollView } from '../src/layout/ScrollView';
 
 describe('ScrollView', () => {
   it('renders as scroll-view with vertical direction by default', () => {

@@ -9,11 +9,11 @@
  *   - globalThis.sigxPatchUpdate — receives ops from Background Thread
  */
 
-import { elements, setPageUniqueId } from './element-registry.js';
-import { applyOps, resetMainThreadState, setPlaceholder } from './ops-apply.js';
-import { invokeWorklet } from './worklet-events.js';
-import { runOnBackground } from './run-on-background-mt.js';
-import { installAvBridgeFlushHook } from './animated-bridge-mt.js';
+import { elements, setPageUniqueId } from './element-registry';
+import { applyOps, resetMainThreadState, setPlaceholder } from './ops-apply';
+import { invokeWorklet } from './worklet-events';
+import { runOnBackground } from './run-on-background-mt';
+import { installAvBridgeFlushHook } from './animated-bridge-mt';
 
 const g = globalThis as Record<string, unknown>;
 

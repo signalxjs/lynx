@@ -1,69 +1,70 @@
 {
-  "name": "@sigx/lynx-navigation",
-  "version": "0.2.0",
-  "description": "Type-first native navigator for sigx-lynx — Stack, Tabs, Drawer, modals, lazy routes, deep links",
-  "type": "module",
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
-  "exports": {
-    ".": {
-      "import": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+    "name": "@sigx/lynx-navigation",
+    "version": "0.2.0",
+    "description": "Type-first native navigator for sigx-lynx — Stack, Tabs, Drawer, modals, lazy routes, deep links",
+    "type": "module",
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+        ".": {
+            "import": "./dist/index.js",
+            "types": "./dist/index.d.ts"
+        }
+    },
+    "files": [
+        "src",
+        "dist"
+    ],
+    "scripts": {
+        "build": "vite build && tsgo --emitDeclarationOnly",
+        "dev": "vite build --watch",
+        "test": "vitest run",
+        "test:types": "tsc --noEmit",
+        "bench": "vitest bench --run",
+        "prepublishOnly": "tsc"
+    },
+    "peerDependencies": {
+        "@sigx/lynx": "workspace:^",
+        "@sigx/lynx-linking": "workspace:^",
+        "@sigx/lynx-motion": "workspace:^"
+    },
+    "peerDependenciesMeta": {
+        "@sigx/lynx-linking": {
+            "optional": true
+        }
+    },
+    "devDependencies": {
+        "@sigx/lynx": "workspace:^",
+        "@sigx/lynx-linking": "workspace:^",
+        "@sigx/lynx-testing": "workspace:^",
+        "@sigx/lynx-motion": "workspace:^",
+        "typescript": "^6.0.3",
+        "vitest": "^4.1.6",
+        "@sigx/vite": "^0.4.3"
+    },
+    "keywords": [
+        "sigx",
+        "lynx",
+        "navigation",
+        "router",
+        "stack",
+        "tabs",
+        "drawer",
+        "deep-linking",
+        "type-safe"
+    ],
+    "author": "Andreas Ekdahl",
+    "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/signalxjs/lynx.git",
+        "directory": "packages/lynx-navigation"
+    },
+    "homepage": "https://github.com/signalxjs/lynx/tree/main/packages/lynx-navigation",
+    "bugs": {
+        "url": "https://github.com/signalxjs/lynx/issues"
+    },
+    "publishConfig": {
+        "access": "public"
     }
-  },
-  "files": [
-    "src",
-    "dist"
-  ],
-  "scripts": {
-    "build": "tsc",
-    "dev": "tsc --watch",
-    "test": "vitest run",
-    "test:types": "tsc --noEmit",
-    "bench": "vitest bench --run",
-    "prepublishOnly": "tsc"
-  },
-  "peerDependencies": {
-    "@sigx/lynx": "workspace:^",
-    "@sigx/lynx-linking": "workspace:^",
-    "@sigx/lynx-motion": "workspace:^"
-  },
-  "peerDependenciesMeta": {
-    "@sigx/lynx-linking": {
-      "optional": true
-    }
-  },
-  "devDependencies": {
-    "@sigx/lynx": "workspace:^",
-    "@sigx/lynx-linking": "workspace:^",
-    "@sigx/lynx-testing": "workspace:^",
-    "@sigx/lynx-motion": "workspace:^",
-    "typescript": "^6.0.3",
-    "vitest": "^4.1.6"
-  },
-  "keywords": [
-    "sigx",
-    "lynx",
-    "navigation",
-    "router",
-    "stack",
-    "tabs",
-    "drawer",
-    "deep-linking",
-    "type-safe"
-  ],
-  "author": "Andreas Ekdahl",
-  "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/signalxjs/lynx.git",
-    "directory": "packages/lynx-navigation"
-  },
-  "homepage": "https://github.com/signalxjs/lynx/tree/main/packages/lynx-navigation",
-  "bugs": {
-    "url": "https://github.com/signalxjs/lynx/issues"
-  },
-  "publishConfig": {
-    "access": "public"
-  }
 }

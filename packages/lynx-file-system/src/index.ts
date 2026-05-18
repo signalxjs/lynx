@@ -1,2 +1,2 @@
-export { FileSystem } from './file-system.js';
-export type { FileInfo } from './file-system.js';
+export { FileSystem } from './file-system';
+export type { FileInfo } from './file-system';

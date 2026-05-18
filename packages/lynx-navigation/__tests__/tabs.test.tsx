@@ -14,9 +14,9 @@
 import { describe, expect, it } from 'vitest';
 import { component, signal } from '@sigx/lynx';
 import { render, act } from '@sigx/lynx-testing';
-import { NavigationRoot } from '../src/components/NavigationRoot.js';
-import { Tabs, useTabs, type TabsNav } from '../src/components/Tabs.js';
-import { routes } from './_fixtures.js';
+import { NavigationRoot } from '../src/components/NavigationRoot';
+import { Tabs, useTabs, type TabsNav } from '../src/components/Tabs';
+import { routes } from './_fixtures';
 
 interface TabsProbe {
     nav: TabsNav | null;

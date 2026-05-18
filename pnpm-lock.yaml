@@ -173,6 +173,9 @@ importers:
         specifier: workspace:^
         version: link:../lynx-core
     devDependencies:
+      '@sigx/vite':
+        specifier: ^0.4.3
+        version: 0.4.3(sigx@0.4.1)(vite@8.0.12(@types/node@25.7.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -192,6 +195,9 @@ importers:
         specifier: ^0.34.0
         version: 0.34.5
     devDependencies:
+      '@sigx/vite':
+        specifier: ^0.4.3
+        version: 0.4.3(sigx@0.4.1)(vite@8.0.12(@types/node@25.7.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
       '@types/node':
         specifier: ^25.7.0
         version: 25.7.0
@@ -205,12 +211,18 @@ importers:
         specifier: workspace:^
         version: link:../lynx-core
     devDependencies:
+      '@sigx/vite':
+        specifier: ^0.4.3
+        version: 0.4.3(sigx@0.4.1)(vite@8.0.12(@types/node@25.7.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
 
   packages/lynx-core:
     devDependencies:
+      '@sigx/vite':
+        specifier: ^0.4.3
+        version: 0.4.3(sigx@0.4.1)(vite@8.0.12(@types/node@25.7.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -242,6 +254,9 @@ importers:
 
   packages/lynx-dev-client:
     devDependencies:
+      '@sigx/vite':
+        specifier: ^0.4.3
+        version: 0.4.3(sigx@0.4.1)(vite@8.0.12(@types/node@25.7.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -252,6 +267,9 @@ importers:
         specifier: workspace:^
         version: link:../lynx-core
     devDependencies:
+      '@sigx/vite':
+        specifier: ^0.4.3
+        version: 0.4.3(sigx@0.4.1)(vite@8.0.12(@types/node@25.7.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -262,6 +280,9 @@ importers:
         specifier: workspace:^
         version: link:../lynx-core
     devDependencies:
+      '@sigx/vite':
+        specifier: ^0.4.3
+        version: 0.4.3(sigx@0.4.1)(vite@8.0.12(@types/node@25.7.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -297,6 +318,9 @@ importers:
         specifier: workspace:^
         version: link:../lynx-core
     devDependencies:
+      '@sigx/vite':
+        specifier: ^0.4.3
+        version: 0.4.3(sigx@0.4.1)(vite@8.0.12(@types/node@25.7.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -307,6 +331,9 @@ importers:
         specifier: workspace:^
         version: link:../lynx-core
     devDependencies:
+      '@sigx/vite':
+        specifier: ^0.4.3
+        version: 0.4.3(sigx@0.4.1)(vite@8.0.12(@types/node@25.7.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -323,6 +350,9 @@ importers:
         specifier: ^0.4.1
         version: 0.4.1
     devDependencies:
+      '@sigx/vite':
+        specifier: ^0.4.3
+        version: 0.4.3(sigx@0.4.1)(vite@8.0.12(@types/node@25.7.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -336,6 +366,9 @@ importers:
         specifier: workspace:^
         version: link:../lynx-core
     devDependencies:
+      '@sigx/vite':
+        specifier: ^0.4.3
+        version: 0.4.3(sigx@0.4.1)(vite@8.0.12(@types/node@25.7.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -376,6 +409,9 @@ importers:
       '@sigx/lynx-testing':
         specifier: workspace:^
         version: link:../lynx-testing
+      '@sigx/vite':
+        specifier: ^0.4.3
+        version: 0.4.3(sigx@0.4.1)(vite@8.0.12(@types/node@25.7.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -389,6 +425,9 @@ importers:
         specifier: workspace:^
         version: link:../lynx-core
     devDependencies:
+      '@sigx/vite':
+        specifier: ^0.4.3
+        version: 0.4.3(sigx@0.4.1)(vite@8.0.12(@types/node@25.7.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -399,6 +438,9 @@ importers:
         specifier: workspace:^
         version: link:../lynx-core
     devDependencies:
+      '@sigx/vite':
+        specifier: ^0.4.3
+        version: 0.4.3(sigx@0.4.1)(vite@8.0.12(@types/node@25.7.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -538,6 +580,9 @@ importers:
         specifier: workspace:^
         version: link:../lynx-core
     devDependencies:
+      '@sigx/vite':
+        specifier: ^0.4.3
+        version: 0.4.3(sigx@0.4.1)(vite@8.0.12(@types/node@25.7.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -548,6 +593,9 @@ importers:
         specifier: workspace:^
         version: link:../lynx-core
     devDependencies:
+      '@sigx/vite':
+        specifier: ^0.4.3
+        version: 0.4.3(sigx@0.4.1)(vite@8.0.12(@types/node@25.7.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -583,6 +631,9 @@ importers:
         specifier: workspace:^
         version: link:../lynx-core
     devDependencies:
+      '@sigx/vite':
+        specifier: ^0.4.3
+        version: 0.4.3(sigx@0.4.1)(vite@8.0.12(@types/node@25.7.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
       typescript:
         specifier: ^6.0.3
         version: 6.0.3

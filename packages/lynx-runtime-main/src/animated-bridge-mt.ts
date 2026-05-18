@@ -24,8 +24,8 @@
  * within one flush window collapse to one BG event with N entries.
  */
 
-import { bridgedAvWvids, bridgedAvLastValues } from './ops-apply.js';
-import { lookupMapper } from './animated-style-mappers.js';
+import { bridgedAvWvids, bridgedAvLastValues } from './ops-apply';
+import { lookupMapper } from './animated-style-mappers';
 
 const AV_PUBLISH = 'Lynx.Sigx.AvPublish';
 

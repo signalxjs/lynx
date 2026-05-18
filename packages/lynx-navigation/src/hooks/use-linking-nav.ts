@@ -1,9 +1,9 @@
 import { onMounted } from '@sigx/lynx';
 import { Linking } from '@sigx/lynx-linking';
-import { parseHref, type Href } from '../href.js';
-import { useNav, type Nav } from './use-nav.js';
-import { useNavRoutes } from './use-nav-internal.js';
-import type { RouteMap } from '../types.js';
+import { parseHref, type Href } from '../href';
+import { useNav, type Nav } from './use-nav';
+import { useNavRoutes } from './use-nav-internal';
+import type { RouteMap } from '../types';
 
 export interface UseLinkingNavOptions {
     /**

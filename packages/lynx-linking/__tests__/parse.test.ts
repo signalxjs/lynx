@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createURL, parse } from '../src/parse.js';
+import { createURL, parse } from '../src/parse';
 
 describe('parse', () => {
     it('parses a custom-scheme URL with host, path, and query', () => {

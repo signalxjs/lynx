@@ -10,19 +10,19 @@
 
 import { describe, it, expect, beforeEach } from 'vitest';
 
-import { OP, takeOps, resetOpQueue } from '../../src/op-queue.js';
+import { OP, takeOps, resetOpQueue } from '../../src/op-queue';
 import {
   useMainThreadRef,
   resetWvidCounter,
   type MainThreadRef,
-} from '../../src/main-thread-ref.js';
-import { resetBgAvBridge } from '../../src/animated-bridge.js';
-import { useSharedValue } from '../../src/animated/shared-value.js';
+} from '../../src/main-thread-ref';
+import { resetBgAvBridge } from '../../src/animated-bridge';
+import { useSharedValue } from '../../src/animated/shared-value';
 import {
   useAnimatedStyle,
   resetAnimatedStyleBindingIds,
-} from '../../src/animated/use-animated-style.js';
-import type { MainThread } from '../../src/jsx.js';
+} from '../../src/animated/use-animated-style';
+import type { MainThread } from '../../src/jsx';
 
 beforeEach(() => {
   resetOpQueue();

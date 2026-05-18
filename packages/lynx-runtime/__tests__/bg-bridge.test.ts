@@ -10,7 +10,7 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
-import { register, resetRegistry } from '../src/event-registry.js';
+import { register, resetRegistry } from '../src/event-registry';
 
 interface CapturedListener {
   type: string;

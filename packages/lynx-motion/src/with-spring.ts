@@ -6,7 +6,7 @@
 
 import type { SharedValue } from '@sigx/lynx';
 
-import { animate, type SpringOptions } from './animate.js';
+import { animate, type SpringOptions } from './animate';
 
 export function withSpring(
   sv: SharedValue<number>,

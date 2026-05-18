@@ -33,9 +33,9 @@ import {
     type MainThread,
 } from '@sigx/lynx';
 import { Suspense, isLazyComponent } from '@sigx/lynx';
-import type { LayerAnimation } from '../internal/layer-plan.js';
-import type { RouteMap, StackEntry } from '../types.js';
-import { EntryScope } from './EntryScope.js';
+import type { LayerAnimation } from '../internal/layer-plan';
+import type { RouteMap, StackEntry } from '../types';
+import { EntryScope } from './EntryScope';
 
 export type LayerProps =
     & Define.Prop<'entry', StackEntry, true>

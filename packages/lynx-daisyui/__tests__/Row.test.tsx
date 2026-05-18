@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { render } from '@sigx/lynx-testing';
-import { Row } from '../src/layout/Row.js';
+import { Row } from '../src/layout/Row';
 
 describe('Row', () => {
   it('renders children horizontally', () => {

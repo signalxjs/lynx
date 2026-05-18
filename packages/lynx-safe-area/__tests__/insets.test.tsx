@@ -2,15 +2,15 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render } from '@sigx/lynx-testing';
 import { effect } from '@sigx/reactivity';
 
-import { SafeAreaProvider, SAFE_AREA_EVENT } from '../src/provider.js';
-import { SafeAreaView } from '../src/safe-area-view.js';
+import { SafeAreaProvider, SAFE_AREA_EVENT } from '../src/provider';
+import { SafeAreaView } from '../src/safe-area-view';
 import {
   useSafeAreaInsets,
   useSafeAreaFrame,
   useSafeAreaInsetsMT,
-} from '../src/hooks.js';
-import { readGlobalSafeArea, GLOBAL_PROPS_KEY } from '../src/globals.js';
-import { ZERO_INSETS, type EdgeInsets } from '../src/types.js';
+} from '../src/hooks';
+import { readGlobalSafeArea, GLOBAL_PROPS_KEY } from '../src/globals';
+import { ZERO_INSETS, type EdgeInsets } from '../src/types';
 import { component } from '@sigx/lynx';
 
 // ---------------------------------------------------------------------------

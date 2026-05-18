@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { spring } from '../src/spring.js';
+import { spring } from '../src/spring';
 
 describe('spring solver', () => {
   it('starts at the origin keyframe', () => {

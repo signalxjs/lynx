@@ -22,14 +22,14 @@
 import { describe, expect, it } from 'vitest';
 import { component } from '@sigx/lynx';
 import { render, act } from '@sigx/lynx-testing';
-import { NavigationRoot } from '../src/components/NavigationRoot.js';
-import { Stack } from '../src/components/Stack.js';
-import { Tabs } from '../src/components/Tabs.js';
-import { useNav } from '../src/hooks/use-nav.js';
-import { useIsFocused } from '../src/hooks/use-focus.js';
-import type { Nav } from '../src/hooks/use-nav.js';
+import { NavigationRoot } from '../src/components/NavigationRoot';
+import { Stack } from '../src/components/Stack';
+import { Tabs } from '../src/components/Tabs';
+import { useNav } from '../src/hooks/use-nav';
+import { useIsFocused } from '../src/hooks/use-focus';
+import type { Nav } from '../src/hooks/use-nav';
 import type { Computed } from '@sigx/lynx';
-import { routes, Home, Profile, Settings } from './_fixtures.js';
+import { routes, Home, Profile, Settings } from './_fixtures';
 
 interface NavProbe { nav: Nav | null }
 

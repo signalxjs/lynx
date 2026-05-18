@@ -10,17 +10,17 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { hrefFor, parseHref } from '../src/href.js';
-import { compilePath } from '../src/url/compile.js';
-import { formatSearch, parseSearch } from '../src/url/format.js';
-import { validateSync } from '../src/url/validate.js';
+import { hrefFor, parseHref } from '../src/href';
+import { compilePath } from '../src/url/compile';
+import { formatSearch, parseSearch } from '../src/url/format';
+import { validateSync } from '../src/url/validate';
 import {
     _clearRouteRegistry,
     _setRouteRegistry,
-} from '../src/url/registry.js';
-import { defineRoutes } from '../src/define-routes.js';
-import type { StandardSchemaV1 } from '../src/types.js';
-import { Home, Profile, Settings, routes } from './_fixtures.js';
+} from '../src/url/registry';
+import { defineRoutes } from '../src/define-routes';
+import type { StandardSchemaV1 } from '../src/types';
+import { Home, Profile, Settings, routes } from './_fixtures';
 
 // ---------------------------------------------------------------------------
 // compilePath

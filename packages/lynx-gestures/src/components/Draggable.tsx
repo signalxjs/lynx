@@ -10,7 +10,7 @@ import {
   type Define,
   type MainThread,
 } from '@sigx/lynx';
-import { useScrollContext } from '../scroll-context.js';
+import { useScrollContext } from '../scroll-context';
 
 export interface DragEndDetail {
   x: number;

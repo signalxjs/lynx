@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { render } from '../src/index.js';
+import { render } from '../src/index';
 import { jsx } from '@sigx/lynx';
 
 describe('queries', () => {

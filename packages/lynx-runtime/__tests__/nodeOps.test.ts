@@ -1,10 +1,10 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { createRenderer } from '@sigx/runtime-core/internals';
 import { jsx } from '@sigx/runtime-core';
-import { nodeOps } from '../src/nodeOps.js';
-import { resetOpQueue, takeOps } from '../src/op-queue.js';
-import { resetRegistry } from '../src/event-registry.js';
-import { resetShadowState } from '../src/shadow-element.js';
+import { nodeOps } from '../src/nodeOps';
+import { resetOpQueue, takeOps } from '../src/op-queue';
+import { resetRegistry } from '../src/event-registry';
+import { resetShadowState } from '../src/shadow-element';
 import { OP } from '@sigx/lynx-runtime-internal';
 
 // ---------------------------------------------------------------------------

@@ -12,11 +12,11 @@
 
 import { describe, it, expect, beforeEach } from 'vitest';
 
-import { OP, takeOps, resetOpQueue } from '../src/op-queue.js';
+import { OP, takeOps, resetOpQueue } from '../src/op-queue';
 import {
   useMainThreadRef,
   resetWvidCounter,
-} from '../src/main-thread-ref.js';
+} from '../src/main-thread-ref';
 import { setCurrentInstance } from '@sigx/runtime-core/internals';
 
 beforeEach(() => {

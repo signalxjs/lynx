@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { render } from '@sigx/lynx-testing';
-import { Spacer } from '../src/layout/Spacer.js';
+import { Spacer } from '../src/layout/Spacer';
 
 describe('Spacer', () => {
   it('renders with flex:1 by default', () => {

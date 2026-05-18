@@ -19,7 +19,7 @@
  */
 
 import { onUnmounted } from '@sigx/runtime-core';
-import { OP, pushOp, scheduleFlush } from './op-queue.js';
+import { OP, pushOp, scheduleFlush } from './op-queue';
 
 // ---------------------------------------------------------------------------
 // Worklet variable ID generator

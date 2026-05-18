@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { render, act, waitForUpdate } from '../src/index.js';
+import { render, act, waitForUpdate } from '../src/index';
 import { component, signal, jsx } from '@sigx/lynx';
 
 describe('act / waitForUpdate', () => {

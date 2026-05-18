@@ -1,3 +1,3 @@
-export { Location } from './location.js';
-export type { LocationResult, LocationOptions } from './location.js';
+export { Location } from './location';
+export type { LocationResult, LocationOptions } from './location';
 export type { PermissionResponse } from '@sigx/lynx-core';

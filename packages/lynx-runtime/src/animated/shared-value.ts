@@ -1,9 +1,9 @@
 import { onUnmounted } from '@sigx/runtime-core';
 import type { PrimitiveSignal } from '@sigx/reactivity';
 
-import { MainThreadRef } from '../main-thread-ref.js';
-import { pushOp, scheduleFlush } from '../op-queue.js';
-import { registerBgSink, unregisterBgSink } from '../animated-bridge.js';
+import { MainThreadRef } from '../main-thread-ref';
+import { pushOp, scheduleFlush } from '../op-queue';
+import { registerBgSink, unregisterBgSink } from '../animated-bridge';
 import { OP } from '@sigx/lynx-runtime-internal';
 
 /**

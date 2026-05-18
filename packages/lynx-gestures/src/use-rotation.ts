@@ -5,8 +5,8 @@ import type {
   TouchEvent,
   TouchPoint,
   RotationState,
-} from './types.js';
-import { angle, angleDelta, distance, midpoint } from './utils.js';
+} from './types';
+import { angle, angleDelta, distance, midpoint } from './utils';
 
 /**
  * Two-finger rotation gesture.

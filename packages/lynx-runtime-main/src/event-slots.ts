@@ -20,9 +20,9 @@
  * SET_WORKLET_EVENT by `_wkltId`).
  */
 
-import { elements } from './element-registry.js';
-import { hybridCtx } from './hybrid-worklet.js';
-import type { WorkletPlaceholder } from './worklet-events.js';
+import { elements } from './element-registry';
+import { hybridCtx } from './hybrid-worklet';
+import type { WorkletPlaceholder } from './worklet-events';
 
 interface SlotState {
   worklet?: WorkletPlaceholder;

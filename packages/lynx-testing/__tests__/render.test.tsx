@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { render, fireEvent, waitForUpdate, touch } from '../src/index.js';
+import { render, fireEvent, waitForUpdate, touch } from '../src/index';
 import { component, signal, jsx } from '@sigx/lynx';
 
 describe('render', () => {

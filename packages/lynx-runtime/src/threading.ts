@@ -35,7 +35,7 @@
 
 // `lynx` and `lynxCoreInject` are closure-injected — see shims.d.ts
 
-import { MainThreadRef } from './main-thread-ref.js';
+import { MainThreadRef } from './main-thread-ref';
 
 // ---------------------------------------------------------------------------
 // Worklet placeholder shape (post-transform)
@@ -150,7 +150,7 @@ export {
   runOnBackground,
   transformToWorklet,
   resetRunOnBackgroundState,
-} from './run-on-background.js';
+} from './run-on-background';
 
 export function resetThreading(): void {
   // Kept for API compatibility with tests that previously reset the local

@@ -28,15 +28,15 @@
 import { describe, expect, it } from 'vitest';
 import { component, defineProvide, useSharedValue } from '@sigx/lynx';
 import { render, act } from '@sigx/lynx-testing';
-import { NavigationRoot } from '../src/components/NavigationRoot.js';
-import { Stack } from '../src/components/Stack.js';
-import { Screen } from '../src/components/Screen.js';
-import { useNav, type Nav } from '../src/hooks/use-nav.js';
-import { useNavInternals, type NavInternals } from '../src/hooks/use-nav-internal.js';
-import { useScreenChrome, type ScreenChrome } from '../src/hooks/use-screen-chrome.js';
-import { createScreenRegistry } from '../src/internal/screen-registry.js';
-import type { StackEntry, TransitionState } from '../src/types.js';
-import { routes } from './_fixtures.js';
+import { NavigationRoot } from '../src/components/NavigationRoot';
+import { Stack } from '../src/components/Stack';
+import { Screen } from '../src/components/Screen';
+import { useNav, type Nav } from '../src/hooks/use-nav';
+import { useNavInternals, type NavInternals } from '../src/hooks/use-nav-internal';
+import { useScreenChrome, type ScreenChrome } from '../src/hooks/use-screen-chrome';
+import { createScreenRegistry } from '../src/internal/screen-registry';
+import type { StackEntry, TransitionState } from '../src/types';
+import { routes } from './_fixtures';
 
 type ChromeProbe = { chrome: ScreenChrome | null; nav: Nav | null };
 

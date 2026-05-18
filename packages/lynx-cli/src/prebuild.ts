@@ -13,23 +13,23 @@ import {
 import { join, dirname, relative, extname, basename } from 'node:path';
 import { pathToFileURL, fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
-import { resolveConfig, modulesForPlatform, resolveAssets } from './config/index.js';
+import { resolveConfig, modulesForPlatform, resolveAssets } from './config/index';
 import {
     iosProjectRoot, iosSourceRoot, iosXcodeProjPath, iosPodfilePath, iosInfoPlistPath,
     androidProjectRoot, androidAppDir, androidKotlinRoot,
     androidManifestPath, androidBuildGradlePath,
-} from './config/paths.js';
-import { linkAndroid } from './autolink/android.js';
-import { linkIos } from './autolink/ios.js';
-import { validateManifest } from './manifest.js';
-import { generateIosIcon, generateAndroidIcons, generateAndroidAdaptiveIcon } from './assets/icons.js';
-import { generateIosSplash, generateAndroidSplash } from './assets/splash.js';
-import { applyIosPlistMeta, applyAndroidManifestMeta, applyAndroidGradleMeta } from './assets/manifest.js';
-import type { LynxConfig } from './config/index.js';
-import type { ResolvedConfig } from './config/parser.js';
-import type { ModuleManifest } from './manifest.js';
-import type { AndroidLinkResult, DevClientInfo } from './autolink/android.js';
-import type { IosLinkResult, IosDevClientInfo } from './autolink/ios.js';
+} from './config/paths';
+import { linkAndroid } from './autolink/android';
+import { linkIos } from './autolink/ios';
+import { validateManifest } from './manifest';
+import { generateIosIcon, generateAndroidIcons, generateAndroidAdaptiveIcon } from './assets/icons';
+import { generateIosSplash, generateAndroidSplash } from './assets/splash';
+import { applyIosPlistMeta, applyAndroidManifestMeta, applyAndroidGradleMeta } from './assets/manifest';
+import type { LynxConfig } from './config/index';
+import type { ResolvedConfig } from './config/parser';
+import type { ModuleManifest } from './manifest';
+import type { AndroidLinkResult, DevClientInfo } from './autolink/android';
+import type { IosLinkResult, IosDevClientInfo } from './autolink/ios';
 
 export interface PrebuildOptions {
     android?: boolean;

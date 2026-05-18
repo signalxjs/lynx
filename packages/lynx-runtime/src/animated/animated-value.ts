@@ -16,5 +16,5 @@
 export {
   SharedValue as AnimatedValue,
   useSharedValue as useAnimatedValue,
-} from './shared-value.js';
-export type { SharedValueState as AnimatedValueState } from './shared-value.js';
+} from './shared-value';
+export type { SharedValueState as AnimatedValueState } from './shared-value';

@@ -1,6 +1,6 @@
 import { defineInjectable, type SharedValue } from '@sigx/lynx';
-import type { ScreenRegistry } from '../internal/screen-registry.js';
-import type { RouteMap, StackEntry } from '../types.js';
+import type { ScreenRegistry } from '../internal/screen-registry';
+import type { RouteMap, StackEntry } from '../types';
 
 /**
  * Internal injectable: the `StackEntry` the calling screen was rendered for.

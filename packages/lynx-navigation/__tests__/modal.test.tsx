@@ -15,10 +15,10 @@
 import { describe, expect, it } from 'vitest';
 import { component } from '@sigx/lynx';
 import { render, act } from '@sigx/lynx-testing';
-import { NavigationRoot } from '../src/components/NavigationRoot.js';
-import { useNav } from '../src/hooks/use-nav.js';
-import type { Nav } from '../src/hooks/use-nav.js';
-import { routes } from './_fixtures.js';
+import { NavigationRoot } from '../src/components/NavigationRoot';
+import { useNav } from '../src/hooks/use-nav';
+import type { Nav } from '../src/hooks/use-nav';
+import { routes } from './_fixtures';
 
 // Probe component — captures the Nav at render time so tests can drive it
 // without going through any UI affordance.

@@ -22,9 +22,9 @@
  * pass a getter pay for the subscription; hosts that pass an object don't.
  */
 import { effect, onUnmounted } from '@sigx/lynx';
-import { useScreenRegistry } from './use-nav-internal.js';
-import { mergeOptions } from '../internal/screen-registry.js';
-import type { ScreenOptions } from '../types.js';
+import { useScreenRegistry } from './use-nav-internal';
+import { mergeOptions } from '../internal/screen-registry';
+import type { ScreenOptions } from '../types';
 
 export function useScreenOptions(
     optionsOrFn: ScreenOptions | (() => ScreenOptions),

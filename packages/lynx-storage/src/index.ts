@@ -1,1 +1,1 @@
-export { Storage } from './storage.js';
+export { Storage } from './storage';

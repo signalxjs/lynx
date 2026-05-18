@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { render } from '@sigx/lynx-testing';
-import { Skeleton } from '../src/feedback/Skeleton.js';
+import { Skeleton } from '../src/feedback/Skeleton';
 
 describe('Skeleton', () => {
   it('renders with skeleton class', () => {

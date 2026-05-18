@@ -13,7 +13,7 @@
 import sharp from 'sharp';
 import { mkdirSync, writeFileSync, existsSync, unlinkSync } from 'node:fs';
 import { join } from 'node:path';
-import type { ResolvedConfig, ResolvedAndroidAssets, ResolvedPlatformAssets } from '../config/index.js';
+import type { ResolvedConfig, ResolvedAndroidAssets, ResolvedPlatformAssets } from '../config/index';
 
 // Android density buckets for the legacy launcher icon.
 const ANDROID_DENSITIES: Array<{ name: string; px: number }> = [

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { render } from '@sigx/lynx-testing';
-import { FormField } from '../src/forms/FormField.js';
+import { FormField } from '../src/forms/FormField';
 
 describe('FormField', () => {
   it('renders with form-control class', () => {

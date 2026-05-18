@@ -23,8 +23,8 @@
         "templates"
     ],
     "scripts": {
-        "build": "tsc",
-        "dev": "tsc --watch"
+        "build": "vite build && tsgo --emitDeclarationOnly",
+        "dev": "vite build --watch"
     },
     "dependencies": {
         "@sigx/cli": "^0.1.0",
@@ -34,7 +34,8 @@
     },
     "devDependencies": {
         "@types/node": "^25.7.0",
-        "typescript": "^6.0.3"
+        "typescript": "^6.0.3",
+        "@sigx/vite": "^0.4.3"
     },
     "author": "Andreas Ekdahl",
     "license": "MIT",

@@ -29,7 +29,7 @@ import {
     type Define,
     type JSXElement,
 } from '@sigx/lynx';
-import { useTabs, type TabInfo } from './Tabs.js';
+import { useTabs, type TabInfo } from './Tabs';
 
 /** Rendering context passed to a `renderTab` consumer. */
 export interface TabRenderContext {

@@ -9,14 +9,14 @@
 
 import { describe, it, expect, beforeEach } from 'vitest';
 
-import { resetOpQueue } from '../../src/op-queue.js';
-import { resetWvidCounter } from '../../src/main-thread-ref.js';
-import { resetBgAvBridge } from '../../src/animated-bridge.js';
+import { resetOpQueue } from '../../src/op-queue';
+import { resetWvidCounter } from '../../src/main-thread-ref';
+import { resetBgAvBridge } from '../../src/animated-bridge';
 import {
   useAnimatedValue,
   AnimatedValue,
-} from '../../src/animated/animated-value.js';
-import { SharedValue } from '../../src/animated/shared-value.js';
+} from '../../src/animated/animated-value';
+import { SharedValue } from '../../src/animated/shared-value';
 
 beforeEach(() => {
   resetOpQueue();

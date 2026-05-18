@@ -14,7 +14,7 @@ import {
   cubicBezier,
   reverseEasing,
   mirrorEasing,
-} from '../src/easings.js';
+} from '../src/easings';
 
 describe('easings — endpoints', () => {
   // Every easing must hit f(0) = 0 and f(1) = 1 to avoid jumps when an

@@ -14,7 +14,7 @@ import { fileURLToPath } from 'node:url';
 
 import type { RsbuildPluginAPI } from '@rsbuild/core';
 
-import { LAYERS } from './layers.js';
+import { LAYERS } from './layers';
 
 const PLUGIN_TEMPLATE = 'lynx:sigx-template';
 const PLUGIN_MARK_MAIN_THREAD = 'lynx:sigx-mark-main-thread';

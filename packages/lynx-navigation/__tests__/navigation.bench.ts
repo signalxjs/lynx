@@ -26,9 +26,9 @@
  */
 import { bench, describe } from 'vitest';
 import { signal } from '@sigx/lynx';
-import { createNavigatorState } from '../src/navigator/core.js';
-import { routes, Home } from './_fixtures.js';
-import type { StackEntry } from '../src/types.js';
+import { createNavigatorState } from '../src/navigator/core';
+import { routes, Home } from './_fixtures';
+import type { StackEntry } from '../src/types';
 
 void Home;
 

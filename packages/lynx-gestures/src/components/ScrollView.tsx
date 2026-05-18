@@ -8,7 +8,7 @@ import {
   type Define,
   type MainThread,
 } from '@sigx/lynx';
-import { useScrollContext } from '../scroll-context.js';
+import { useScrollContext } from '../scroll-context';
 
 export type ScrollViewProps =
   & Define.Prop<'offsetX', SharedValue<number>, false>
