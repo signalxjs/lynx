@@ -80,7 +80,7 @@ fun DevHomeScreen(
                 value = urlText,
                 onValueChange = { urlText = it },
                 label = { Text("Dev server URL") },
-                placeholder = { Text("http://192.168.1.100:3000/main.lynx.bundle") },
+                placeholder = { Text("http://192.168.1.100:8788/main.lynx.bundle") },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(

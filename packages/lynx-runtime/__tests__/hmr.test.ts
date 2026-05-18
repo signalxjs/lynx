@@ -202,10 +202,12 @@ describe('HMR runtime', () => {
       const factory: any = { __setup: badSetup };
       hmrPlugin.onDefine!('Erroring', factory, badSetup);
 
-      // Should not crash — error should be caught
+      // Should not crash — error should be caught. The HMR runtime now
+      // formats the message + stack into a single string because QuickJS
+      // serialises raw Error objects to `{}` when logged with the original
+      // two-argument console.error signature.
       expect(consoleSpy).toHaveBeenCalledWith(
-        expect.stringContaining('[sigx-hmr]'),
-        expect.any(Error),
+        expect.stringContaining('[sigx-hmr] Failed to update Erroring: setup exploded'),
       );
 
       // ctx.update should NOT have been called (setup threw before reaching it)
@@ -273,6 +275,88 @@ describe('HMR runtime', () => {
       const factory: any = { __setup: () => () => null };
       hmrPlugin.onDefine!('External', factory, () => () => null);
       expect(factory.__hmrId).toBe('__clear__:0');
+    });
+  });
+
+  describe('setCurrentInstance push/pop during HMR patch', () => {
+    // Module-scope state in hmr.ts (`installed`, `setCurrentInstance`) sticks
+    // for the life of the test file, so the module-level `initHMR(...)` at
+    // the top wins and there's no way to swap in a setter after the fact.
+    // We load a *fresh* copy of hmr.ts via `vi.isolateModulesAsync` so we can
+    // pass our own mock setter and observe push/pop around setup.
+    it('pushes the patched instance before setup and restores after', async () => {
+      let hmr!: typeof import('../src/hmr');
+      let testPlugin!: ComponentPlugin;
+      const setCurrentInstance = vi.fn((ctx: any) => ctx ? 'PREV' : null);
+
+      vi.resetModules();
+      hmr = await import('../src/hmr');
+      const captureRegister = (plugin: ComponentPlugin) => { testPlugin = plugin; };
+      hmr.initHMR(captureRegister as any, setCurrentInstance as any);
+
+      // Mount an instance first so the patch path has something to update.
+      hmr.registerHMRModule('push-pop-test');
+      const initialSetup = vi.fn(() => () => 'v1');
+      const factory: any = { __setup: initialSetup };
+      testPlugin.onDefine!('PushPop', factory, initialSetup);
+      const ctx = createMockCtx();
+      factory.__setup(ctx);
+
+      // Re-define the component (simulates an HMR re-execution of the
+      // module). The new setup must run *between* setCurrentInstance(ctx)
+      // and setCurrentInstance restoring the previous value.
+      hmr.registerHMRModule('push-pop-test');
+      let setupSawCurrent: unknown = 'UNSET';
+      const newSetup = vi.fn(() => {
+        // Capture the most recent setCurrentInstance arg at the moment
+        // setup runs — proves push happened before setup.
+        const lastCall = setCurrentInstance.mock.calls[
+          setCurrentInstance.mock.calls.length - 1
+        ];
+        setupSawCurrent = lastCall ? lastCall[0] : undefined;
+        return () => 'v2';
+      });
+      const factory2: any = { __setup: newSetup };
+      testPlugin.onDefine!('PushPop', factory2, newSetup);
+
+      // Push happened before setup, with the patched ctx.
+      expect(setupSawCurrent).toBe(ctx);
+      // Pop happened after setup, restoring the previous value ('PREV',
+      // because the mock returns that when called with a non-null ctx).
+      expect(setCurrentInstance).toHaveBeenLastCalledWith('PREV');
+      // Exactly one push + one pop for this single patched instance.
+      expect(setCurrentInstance).toHaveBeenCalledTimes(2);
+      // The new setup ran and the renderer was kicked.
+      expect(newSetup).toHaveBeenCalledTimes(1);
+      expect(ctx.update).toHaveBeenCalledTimes(1);
+    });
+
+    it('still restores the previous instance when setup throws', async () => {
+      let hmr!: typeof import('../src/hmr');
+      let testPlugin!: ComponentPlugin;
+      const setCurrentInstance = vi.fn((ctx: any) => ctx ? 'PREV' : null);
+
+      vi.resetModules();
+      hmr = await import('../src/hmr');
+      const captureRegister = (plugin: ComponentPlugin) => { testPlugin = plugin; };
+      hmr.initHMR(captureRegister as any, setCurrentInstance as any);
+
+      hmr.registerHMRModule('push-pop-throw');
+      const factory: any = { __setup: vi.fn(() => () => null) };
+      testPlugin.onDefine!('Throwy', factory, factory.__setup);
+      const ctx = createMockCtx();
+      factory.__setup(ctx);
+
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      hmr.registerHMRModule('push-pop-throw');
+      const badSetup = vi.fn(() => { throw new Error('boom'); });
+      const factoryBad: any = { __setup: badSetup };
+      testPlugin.onDefine!('Throwy', factoryBad, badSetup);
+
+      // The restore call must still happen via the `finally` branch even
+      // though setup threw.
+      expect(setCurrentInstance).toHaveBeenLastCalledWith('PREV');
+      consoleSpy.mockRestore();
     });
   });
 });

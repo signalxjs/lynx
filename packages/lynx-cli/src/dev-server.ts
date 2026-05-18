@@ -470,7 +470,7 @@ function setupKeyboardShortcuts(child: ChildProcess, opts: {
  */
 export async function startDevServer(opts: DevServerOptions): Promise<void> {
     const { cwd, logger, launchAppId, launchBundleId, iosSimulatorName, selectedTargets } = opts;
-    const requestedPort = Number(opts.port) || 3000;
+    const requestedPort = Number(opts.port) || 8788;
     const projectName = getProjectName(cwd);
     const lanIPs = getAllLanIPs();
     const primaryIP = lanIPs.length > 0 ? lanIPs[0].address : null;
@@ -508,9 +508,14 @@ export async function startDevServer(opts: DevServerOptions): Promise<void> {
         try { rmSync(full, { recursive: true, force: true }); } catch { /* ignore */ }
     }
 
-    // Build rspeedy args
+    // Build rspeedy args. Rspeedy's CLI has no `--port` flag, so we pass the
+    // port through `SIGX_LYNX_DEV_PORT` (read below in the spawn env) — the
+    // `@sigx/lynx-plugin`'s `modifyRsbuildConfig` hook overrides
+    // `server.port` from that env var. This keeps lynx-cli's `serverState.port`
+    // (used for the device-launch URL) in lockstep with the port rspeedy
+    // actually binds; if rsbuild still has to fall back (port already taken)
+    // the stdout-parsing path below catches it.
     const args = ['rspeedy', 'dev'];
-    if (opts.port) args.push('--port', String(opts.port));
     if (opts.host) args.push('--host');
 
     // Start rspeedy in its own process group so we can kill the whole tree
@@ -534,6 +539,7 @@ export async function startDevServer(opts: DevServerOptions): Promise<void> {
         detached: process.platform !== 'win32',
         env: {
             ...process.env,
+            SIGX_LYNX_DEV_PORT: String(requestedPort),
         },
     });
 
@@ -630,23 +636,31 @@ export async function startDevServer(opts: DevServerOptions): Promise<void> {
         }
     };
 
-    // Fallback: print banner after 10s even if rspeedy hasn't reported ready
-    const bannerTimeout = setTimeout(showBanner, 10_000);
-
     // Pipe rspeedy output with prefix
     child.stdout?.on('data', (data: Buffer) => {
         const text = data.toString().trim();
         if (text) {
             for (const line of text.split('\n')) {
-                // Detect port conflict and update actual port
+                // Detect port conflict and update actual port. rsbuild logs:
+                // `port N is in use, using port N+1.`
+                // We need this *before* showBanner fires, because the banner
+                // computes the device-launch URL from serverState.port.
                 if (line.includes('is in use')) {
                     const match = line.match(/using port (\d+)/);
-                    if (match) serverState.port = Number(match[1]);
+                    if (match) {
+                        serverState.port = Number(match[1]);
+                        logger.log(`Dev server fell back to port ${serverState.port}`);
+                    }
                 }
 
-                // Print banner once rspeedy is ready
+                // Print banner once rspeedy is ready. No timeout-based
+                // fallback: launching the app with a stale guessed port
+                // (because rspeedy hadn't yet reported the actual port via
+                // its `is in use` line) leaves the device pointing at a
+                // server that isn't there. HMR then silently fails. Better
+                // to wait — if rspeedy never starts the user will see its
+                // own error output.
                 if (line.includes('ready') && !bannerPrinted) {
-                    clearTimeout(bannerTimeout);
                     showBanner();
                 }
 
@@ -678,7 +692,6 @@ export async function startDevServer(opts: DevServerOptions): Promise<void> {
 
     // Handle child exit
     child.on('exit', (code) => {
-        clearTimeout(bannerTimeout);
         if (process.stdin.isTTY) {
             process.stdin.setRawMode(false);
         }

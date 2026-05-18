@@ -24,6 +24,7 @@
 import type { ComponentSetupContext } from '@sigx/runtime-core/internals';
 
 type RegisterFn = (plugin: { onDefine?: (name: string | undefined, factory: any, setup: Function) => void }) => void;
+type SetCurrentInstanceFn = (ctx: ComponentSetupContext | null) => ComponentSetupContext | null;
 
 interface InstanceEntry {
     ctx: ComponentSetupContext;
@@ -38,15 +39,34 @@ const moduleComponentIndex = new Map<string, number>();
 // Current module being registered
 let currentModuleId: string | null = null;
 
+// The renderer's currentInstance setter — captured from the app-side bundle
+// so push/pop targets the SAME instance stack the renderer reads from. If
+// missing (older app version that doesn't inject it), HMR patches skip the
+// push/pop and rely on the caller having no context-dependent hooks.
+let setCurrentInstance: SetCurrentInstanceFn | null = null;
+
 let installed = false;
 
 /**
  * Initialise the HMR plugin using the *app-side* registerComponentPlugin.
  * Called once by the loader-injected preamble.  Idempotent.
+ *
+ * `setCurrentInstanceFn` is the renderer's instance-stack push/pop helper
+ * (re-exported from `@sigx/lynx` as `__setCurrentInstanceForHMR`). Without
+ * it, re-running a screen's setup during HMR throws on hooks that depend on
+ * provide/inject (`useNav`, etc.) because the renderer's currentInstance is
+ * `null` when called outside the normal mount path.
  */
-export function initHMR(registerComponentPlugin: RegisterFn): void {
+export function initHMR(
+    registerComponentPlugin: RegisterFn,
+    setCurrentInstanceFn?: SetCurrentInstanceFn,
+): void {
     if (installed) return;
     installed = true;
+
+    if (setCurrentInstanceFn) {
+        setCurrentInstance = setCurrentInstanceFn;
+    }
 
     registerComponentPlugin({
         onDefine(name: string | undefined, factory: any, setup: Function) {
@@ -58,14 +78,27 @@ export function initHMR(registerComponentPlugin: RegisterFn): void {
             const existingInstances = instancesByComponentId.get(componentId);
 
             if (existingInstances && existingInstances.size > 0) {
-                // HMR update: patch all existing instances with the new setup
+                // HMR update: patch all existing instances with the new setup.
+                // The renderer pushes the active instance onto a stack before
+                // calling setup so that hooks like `useNav()` can resolve
+                // provide/inject up the parent chain. We're calling setup
+                // *outside* the renderer's mount path here, so we mirror the
+                // push/pop ourselves — otherwise context-dependent hooks
+                // throw with messages like "no <NavigationRoot> is mounted".
                 existingInstances.forEach(instance => {
+                    const prev = setCurrentInstance ? setCurrentInstance(instance.ctx) : null;
                     try {
                         const newRenderFn = setup(instance.ctx);
                         instance.ctx.renderFn = newRenderFn;
                         instance.ctx.update();
-                    } catch (e) {
-                        console.error(`[sigx-hmr] Failed to update ${name || 'component'}:`, e);
+                    } catch (e: any) {
+                        const msg = e?.message ?? String(e);
+                        const stack = e?.stack ?? '<no stack>';
+                        console.error(
+                            `[sigx-hmr] Failed to update ${name || 'component'}: ${msg}\n${stack}`,
+                        );
+                    } finally {
+                        if (setCurrentInstance) setCurrentInstance(prev);
                     }
                 });
             }
