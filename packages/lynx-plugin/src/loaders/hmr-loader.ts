@@ -65,9 +65,9 @@ export default function hmrLoader(
   }
 
   const header: string[] = [
-    `import { __registerComponentPlugin } from '@sigx/lynx';`,
+    `import { __registerComponentPlugin, __setCurrentInstanceForHMR } from '@sigx/lynx';`,
     `import { initHMR, registerHMRModule } from '@sigx/lynx-runtime/hmr';`,
-    `initHMR(__registerComponentPlugin);`,
+    `initHMR(__registerComponentPlugin, __setCurrentInstanceForHMR);`,
     `registerHMRModule(${JSON.stringify(moduleId)});`,
   ];
 

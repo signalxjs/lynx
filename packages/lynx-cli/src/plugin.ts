@@ -54,7 +54,7 @@ export default definePlugin({
         dev: {
             description: 'Start Lynx development server with sigx-lynx-go integration',
             args: {
-                port: { type: 'string', description: 'Port number (default: 3000)' },
+                port: { type: 'string', description: 'Port number (default: 8788)' },
                 host: { type: 'boolean', description: 'Expose to network', default: false },
                 ios: { type: 'boolean', description: 'Target iOS only (skip picker)', default: false },
                 android: { type: 'boolean', description: 'Target Android only (skip picker)', default: false },

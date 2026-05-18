@@ -12,3 +12,11 @@ import '@sigx/lynx-runtime';
 export * from '@sigx/reactivity';
 export * from '@sigx/runtime-core';
 export * from '@sigx/lynx-runtime';
+
+// Internal-use re-export, needed by the HMR loader. The loader injects an
+// import of `__setCurrentInstanceForHMR` alongside `__registerComponentPlugin`
+// so the HMR runtime can push the current ctx onto the renderer's instance
+// stack before re-running a screen's setup function. Without this, hooks
+// like `useNav()` that resolve through provide/inject throw during the HMR
+// re-execution because the active instance is `null`.
+export { setCurrentInstance as __setCurrentInstanceForHMR } from '@sigx/runtime-core/internals';

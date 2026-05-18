@@ -40,9 +40,9 @@ describe('hmr-loader', () => {
     const source = `import { component } from '@sigx/lynx';\nconst App = component(() => () => <view />);\nexport default App;`;
     const result = transform(source);
 
-    expect(result).toContain(`import { __registerComponentPlugin } from '@sigx/lynx'`);
+    expect(result).toContain(`import { __registerComponentPlugin, __setCurrentInstanceForHMR } from '@sigx/lynx'`);
     expect(result).toContain(`import { initHMR, registerHMRModule } from '@sigx/lynx-runtime/hmr'`);
-    expect(result).toContain(`initHMR(__registerComponentPlugin)`);
+    expect(result).toContain(`initHMR(__registerComponentPlugin, __setCurrentInstanceForHMR)`);
     expect(result).toContain(`registerHMRModule(`);
     expect(result).toContain(`module.hot.accept()`);
   });

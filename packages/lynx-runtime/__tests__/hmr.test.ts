@@ -202,10 +202,12 @@ describe('HMR runtime', () => {
       const factory: any = { __setup: badSetup };
       hmrPlugin.onDefine!('Erroring', factory, badSetup);
 
-      // Should not crash — error should be caught
+      // Should not crash — error should be caught. The HMR runtime now
+      // formats the message + stack into a single string because QuickJS
+      // serialises raw Error objects to `{}` when logged with the original
+      // two-argument console.error signature.
       expect(consoleSpy).toHaveBeenCalledWith(
-        expect.stringContaining('[sigx-hmr]'),
-        expect.any(Error),
+        expect.stringContaining('[sigx-hmr] Failed to update Erroring: setup exploded'),
       );
 
       // ctx.update should NOT have been called (setup threw before reaching it)
