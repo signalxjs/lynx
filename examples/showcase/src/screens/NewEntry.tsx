@@ -83,7 +83,7 @@ export const NewEntry = component(() => {
                     ? (
                         <Col gap={8}>
                             <image
-                                src={photoUri.value.startsWith('/') ? `file://${photoUri.value}` : photoUri.value}
+                                src={photoUri.value}
                                 mode="aspectFill"
                                 style={{ width: '100%', height: 200, borderRadius: 12 }}
                             />
