@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { render } from '@sigx/lynx-testing';
-import { Modal } from '../src/feedback/Modal.js';
+import { Modal } from '../src/feedback/Modal';
 
 describe('Modal', () => {
   // TODO: update — overlay no longer sets inline `display: flex`; visibility

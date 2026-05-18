@@ -10,15 +10,15 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
-import { elements } from '../src/element-registry.js';
+import { elements } from '../src/element-registry';
 import {
   setSlotWorklet,
   setSlotBgSign,
   flushDirtySlots,
   resetSlotStates,
-} from '../src/event-slots.js';
-import { HYBRID_WORKLET_ID } from '../src/hybrid-worklet.js';
-import type { WorkletPlaceholder } from '../src/worklet-events.js';
+} from '../src/event-slots';
+import { HYBRID_WORKLET_ID } from '../src/hybrid-worklet';
+import type { WorkletPlaceholder } from '../src/worklet-events';
 
 // Mock __AddEvent — capture calls for assertions.
 const addEventCalls: Array<{

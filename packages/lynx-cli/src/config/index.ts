@@ -1,4 +1,4 @@
-export { defineLynxConfig } from './schema.js';
+export { defineLynxConfig } from './schema';
 export type {
     LynxConfig,
     ModuleConfig,
@@ -8,12 +8,12 @@ export type {
     Orientation,
     SplashConfig,
     AdaptiveIconConfig,
-} from './schema.js';
+} from './schema';
 
-export { resolveConfig, modulesForPlatform, resolveAssets } from './parser.js';
+export { resolveConfig, modulesForPlatform, resolveAssets } from './parser';
 export type {
     ResolvedConfig,
     ResolvedModule,
     ResolvedPlatformAssets,
     ResolvedAndroidAssets,
-} from './parser.js';
+} from './parser';

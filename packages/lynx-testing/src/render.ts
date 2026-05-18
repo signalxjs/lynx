@@ -2,9 +2,9 @@
  * render() — mount a sigx Lynx component into a TestNode tree for testing.
  */
 import type { JSXElement, AppContext } from '@sigx/lynx';
-import { testRenderer } from './test-renderer.js';
-import { TestNode } from './test-node.js';
-import * as queries from './queries.js';
+import { testRenderer } from './test-renderer';
+import { TestNode } from './test-node';
+import * as queries from './queries';
 
 export interface RenderResult {
   /** The root container node. */

@@ -4,8 +4,8 @@
  * Mirror of parse.ts. Used by `hrefFor()` after schema validation succeeds.
  */
 
-import { formatSearch } from './format.js';
-import { getCompiledPath, getRouteRegistry } from './registry.js';
+import { formatSearch } from './format';
+import { getCompiledPath, getRouteRegistry } from './registry';
 
 /**
  * Build the URL form of a route + params + search, or `null` if the route

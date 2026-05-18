@@ -1,12 +1,12 @@
 import { defineInjectable } from '@sigx/lynx';
-import type { RegisteredRoutes, RouteId, RouteParams, RouteSearch } from '../register.js';
+import type { RegisteredRoutes, RouteId, RouteParams, RouteSearch } from '../register';
 import type {
     PopOptions,
     PushOptions,
     RouteRequiresParams,
     StackEntry,
     TransitionState,
-} from '../types.js';
+} from '../types';
 
 /**
  * Subset of registered route names that declare a `params` schema (and so

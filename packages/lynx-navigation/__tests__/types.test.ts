@@ -11,15 +11,15 @@
  * still forcing TS to evaluate the expression at type-check time.
  */
 import { describe, expectTypeOf, it } from 'vitest';
-import { hrefFor, parseHref, type Href } from '../src/href.js';
-import { useNav } from '../src/hooks/use-nav.js';
-import { useParams } from '../src/hooks/use-params.js';
-import { useSearch } from '../src/hooks/use-search.js';
+import { hrefFor, parseHref, type Href } from '../src/href';
+import { useNav } from '../src/hooks/use-nav';
+import { useParams } from '../src/hooks/use-params';
+import { useSearch } from '../src/hooks/use-search';
 // Side-effect import: the shared fixtures file augments `Register.routes`
 // for the whole test suite. types.test.ts and runtime.test.tsx must share a
 // single augmentation (TS forbids two `interface Register` declarations with
 // different shapes), so route fixtures live in `_fixtures.tsx`.
-import './_fixtures.js';
+import './_fixtures';
 
 // ---------------------------------------------------------------------------
 // useNav — push / replace

@@ -12,11 +12,11 @@ import { describe, expect, expectTypeOf, it } from 'vitest';
 import { fireEvent, render, act } from '@sigx/lynx-testing';
 import { component } from '@sigx/lynx';
 import { TestNode } from '@sigx/lynx-testing';
-import { useNav } from '../src/hooks/use-nav.js';
-import { NavigationRoot } from '../src/components/NavigationRoot.js';
-import { Stack } from '../src/components/Stack.js';
-import { Link, type LinkProps } from '../src/components/Link.js';
-import { routes } from './_fixtures.js';
+import { useNav } from '../src/hooks/use-nav';
+import { NavigationRoot } from '../src/components/NavigationRoot';
+import { Stack } from '../src/components/Stack';
+import { Link, type LinkProps } from '../src/components/Link';
+import { routes } from './_fixtures';
 
 interface NavProbe {
     nav: ReturnType<typeof useNav> | null;

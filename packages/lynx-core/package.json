@@ -15,8 +15,8 @@
         "dist"
     ],
     "scripts": {
-        "build": "tsc",
-        "dev": "tsc --watch"
+        "build": "vite build && tsgo --emitDeclarationOnly",
+        "dev": "vite build --watch"
     },
     "keywords": [
         "sigx",
@@ -32,7 +32,8 @@
         "directory": "packages/lynx-core"
     },
     "devDependencies": {
-        "typescript": "^6.0.3"
+        "typescript": "^6.0.3",
+        "@sigx/vite": "^0.4.3"
     },
     "homepage": "https://github.com/signalxjs/lynx/tree/main/packages/lynx-core",
     "bugs": {

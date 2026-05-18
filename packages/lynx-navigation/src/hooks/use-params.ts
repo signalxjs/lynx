@@ -1,5 +1,5 @@
-import type { RouteId, RouteParams } from '../register.js';
-import { useNav } from './use-nav.js';
+import type { RouteId, RouteParams } from '../register';
+import { useNav } from './use-nav';
 
 /**
  * Read the typed params for the current screen, asserted against the named

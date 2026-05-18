@@ -15,17 +15,17 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { effect } from '@sigx/reactivity';
 
-import { OP, takeOps, resetOpQueue } from '../../src/op-queue.js';
-import { MainThreadRef, resetWvidCounter } from '../../src/main-thread-ref.js';
+import { OP, takeOps, resetOpQueue } from '../../src/op-queue';
+import { MainThreadRef, resetWvidCounter } from '../../src/main-thread-ref';
 import {
   ingestAvPublishes,
   resetBgAvBridge,
   bgAvSinkCount,
-} from '../../src/animated-bridge.js';
+} from '../../src/animated-bridge';
 import {
   useSharedValue,
   SharedValue,
-} from '../../src/animated/shared-value.js';
+} from '../../src/animated/shared-value';
 
 beforeEach(() => {
   resetOpQueue();

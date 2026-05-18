@@ -1,5 +1,5 @@
-import type { RouteId, RouteSearch } from '../register.js';
-import { useNav } from './use-nav.js';
+import type { RouteId, RouteSearch } from '../register';
+import { useNav } from './use-nav';
 
 /**
  * Read the typed search/query params for the current screen, asserted against

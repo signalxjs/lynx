@@ -20,7 +20,7 @@ import type {
     ScreenOptions,
     ScreenSlotFills,
     StackEntry,
-} from '../types.js';
+} from '../types';
 
 /**
  * Reactive container for one screen's options and slot fills.

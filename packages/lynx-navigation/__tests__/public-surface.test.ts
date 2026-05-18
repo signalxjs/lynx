@@ -13,7 +13,7 @@
  *    `renderTab`) are pinned via `expectTypeOf`.
  */
 import { describe, expect, expectTypeOf, it } from 'vitest';
-import * as nav from '../src/index.js';
+import * as nav from '../src/index';
 import type {
     DrawerNav,
     LinkProps,
@@ -27,8 +27,8 @@ import type {
     TabsNav,
     UseLinkingNavOptions,
     UseNavSerializerOptions,
-} from '../src/index.js';
-import './_fixtures.js';
+} from '../src/index';
+import './_fixtures';
 
 // ---------------------------------------------------------------------------
 // Runtime surface — the exact set of value exports we ship at 1.0.

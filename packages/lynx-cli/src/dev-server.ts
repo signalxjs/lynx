@@ -11,12 +11,12 @@
 import { spawn, execSync, type ChildProcess } from 'node:child_process';
 import { readFileSync, existsSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
-import { getAllLanIPs } from './network.js';
-import { generateQR } from './qr.js';
-import { getDeviceStatus, getDeviceStatusCached, invalidateDeviceStatusCache, launchFlow, launchApp, launchIosApp, launchAppOnDevice, installAppOnDevice, resolveIosSimulator, bootSimulator, listAllSimulators, installAppOnSimulator, findBuiltApp, adbReverse, type DeviceStatus } from './device-detect.js';
-import { runWithBuildFilter } from './build-output.js';
+import { getAllLanIPs } from './network';
+import { generateQR } from './qr';
+import { getDeviceStatus, getDeviceStatusCached, invalidateDeviceStatusCache, launchFlow, launchApp, launchIosApp, launchAppOnDevice, installAppOnDevice, resolveIosSimulator, bootSimulator, listAllSimulators, installAppOnSimulator, findBuiltApp, adbReverse, type DeviceStatus } from './device-detect';
+import { runWithBuildFilter } from './build-output';
 import type { Logger } from '@sigx/cli/plugin';
-import type { SelectedTarget } from './target-picker.js';
+import type { SelectedTarget } from './target-picker';
 
 export interface DevServerOptions {
     cwd: string;

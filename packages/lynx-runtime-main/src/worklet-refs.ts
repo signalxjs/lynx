@@ -6,7 +6,7 @@
  * arrives, we set the holder's .current to the real element wrapper.
  */
 
-import { MTElementWrapper } from './mt-element.js';
+import { MTElementWrapper } from './mt-element';
 
 // ---------------------------------------------------------------------------
 // Ref holder — the MT-side counterpart of MainThreadRef

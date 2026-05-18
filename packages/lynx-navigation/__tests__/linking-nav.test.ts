@@ -11,10 +11,10 @@
  * once the linking-nav integration test is added in a follow-up phase.
  */
 import { describe, expect, it, vi } from 'vitest';
-import type { Href } from '../src/href.js';
-import type { Nav } from '../src/hooks/use-nav.js';
-import type { RouteMap } from '../src/types.js';
-import { _navigateToHref, _stripPrefix } from '../src/hooks/use-linking-nav.js';
+import type { Href } from '../src/href';
+import type { Nav } from '../src/hooks/use-nav';
+import type { RouteMap } from '../src/types';
+import { _navigateToHref, _stripPrefix } from '../src/hooks/use-linking-nav';
 
 describe('_stripPrefix', () => {
     it('returns the URL unchanged when no prefixes are provided', () => {

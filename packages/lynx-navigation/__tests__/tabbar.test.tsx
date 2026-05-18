@@ -15,11 +15,11 @@
 import { describe, expect, it } from 'vitest';
 import { component, signal } from '@sigx/lynx';
 import { render, act } from '@sigx/lynx-testing';
-import { NavigationRoot } from '../src/components/NavigationRoot.js';
-import { Tabs } from '../src/components/Tabs.js';
-import { TabBar, type TabRenderContext } from '../src/components/TabBar.js';
-import type { TabInfo } from '../src/components/Tabs.js';
-import { routes } from './_fixtures.js';
+import { NavigationRoot } from '../src/components/NavigationRoot';
+import { Tabs } from '../src/components/Tabs';
+import { TabBar, type TabRenderContext } from '../src/components/TabBar';
+import type { TabInfo } from '../src/components/Tabs';
+import { routes } from './_fixtures';
 
 function findTappable(node: any): any {
     let n = node;

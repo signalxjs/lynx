@@ -5,4 +5,4 @@
  * directly. Instead, ops are batched in a queue and flushed to the Main Thread
  * via sigxPatchUpdate. This file exists for backwards-compatible imports.
  */
-export { scheduleFlush, flushNow, resetOpQueue as resetFlushState } from './op-queue.js';
+export { scheduleFlush, flushNow, resetOpQueue as resetFlushState } from './op-queue';

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { render } from '@sigx/lynx-testing';
-import { Center } from '../src/layout/Center.js';
+import { Center } from '../src/layout/Center';
 
 describe('Center', () => {
   it('renders children centered', () => {

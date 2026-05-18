@@ -19,7 +19,7 @@ import type {
   CssExtractWebpackPluginOptions,
 } from '@lynx-js/css-extract-webpack-plugin';
 
-import { LAYERS } from './layers.js';
+import { LAYERS } from './layers';
 
 export interface ApplyCSSOptions {
   enableCSSSelector: boolean;

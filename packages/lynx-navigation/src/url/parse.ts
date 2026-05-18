@@ -10,13 +10,13 @@
  * fall back to the initial route on a bad URL instead of crashing the app.
  */
 
-import type { Href } from '../href.js';
-import type { RouteId } from '../register.js';
+import type { Href } from '../href';
+import type { RouteId } from '../register';
 import { parse as parseUrl } from '@sigx/lynx-linking';
-import type { CompiledPath } from './compile.js';
-import { parseSearch } from './format.js';
-import { getCompiledPath, getRouteRegistry } from './registry.js';
-import { validateSync } from './validate.js';
+import type { CompiledPath } from './compile';
+import { parseSearch } from './format';
+import { getCompiledPath, getRouteRegistry } from './registry';
+import { validateSync } from './validate';
 
 /**
  * Parse a URL string against the active route registry.

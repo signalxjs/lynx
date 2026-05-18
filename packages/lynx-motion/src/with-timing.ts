@@ -8,7 +8,7 @@
 
 import type { SharedValue } from '@sigx/lynx';
 
-import { animate, type TimingOptions } from './animate.js';
+import { animate, type TimingOptions } from './animate';
 
 export function withTiming(
   sv: SharedValue<number>,

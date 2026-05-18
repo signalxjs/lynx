@@ -17,14 +17,14 @@ import {
   bridgedAvWvids,
   bridgedAvLastValues,
   resetMainThreadState,
-} from '../src/ops-apply.js';
+} from '../src/ops-apply';
 import {
   flushAvBridgePublishes,
   flushAnimatedStyleBindings,
   installAvBridgeFlushHook,
   animatedStyleBindingCount,
-} from '../src/animated-bridge-mt.js';
-import { lookupMapper, registerMapper } from '../src/animated-style-mappers.js';
+} from '../src/animated-bridge-mt';
+import { lookupMapper, registerMapper } from '../src/animated-style-mappers';
 
 interface FakeRef {
   current: { value: unknown };

@@ -1,7 +1,7 @@
 /**
  * Fire synthetic events on TestNode elements.
  */
-import { TestNode } from './test-node.js';
+import { TestNode } from './test-node';
 
 interface SyntheticTouch {
   identifier?: number;

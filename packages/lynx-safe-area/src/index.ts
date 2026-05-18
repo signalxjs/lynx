@@ -1,30 +1,30 @@
 // Public API for @sigx/lynx-safe-area.
 
-export { SafeAreaProvider, SAFE_AREA_EVENT } from './provider.js';
-export type { SafeAreaProviderProps } from './provider.js';
+export { SafeAreaProvider, SAFE_AREA_EVENT } from './provider';
+export type { SafeAreaProviderProps } from './provider';
 
-export { SafeAreaView } from './safe-area-view.js';
-export type { SafeAreaViewProps } from './safe-area-view.js';
+export { SafeAreaView } from './safe-area-view';
+export type { SafeAreaViewProps } from './safe-area-view';
 
 export {
   useSafeAreaInsets,
   useSafeAreaSharedValues,
   useSafeAreaFrame,
   useSafeAreaInsetsMT,
-} from './hooks.js';
+} from './hooks';
 
-export { useSafeAreaContext } from './injectable.js';
+export { useSafeAreaContext } from './injectable';
 
 export {
   readGlobalSafeArea,
   GLOBAL_PROPS_KEY,
-} from './globals.js';
-export type { RawSafeAreaProps } from './globals.js';
+} from './globals';
+export type { RawSafeAreaProps } from './globals';
 
-export { ZERO_INSETS } from './types.js';
+export { ZERO_INSETS } from './types';
 export type {
   EdgeInsets,
   Edge,
   SafeAreaMode,
   SafeAreaContextValue,
-} from './types.js';
+} from './types';

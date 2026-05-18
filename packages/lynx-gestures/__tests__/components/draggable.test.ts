@@ -10,7 +10,7 @@ import {
   resetWvidCounter,
   useSharedValue,
 } from '@sigx/lynx';
-import { Draggable } from '../../src/index.js';
+import { Draggable } from '../../src/index';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SRC = resolve(HERE, '../../src/components/Draggable.tsx');

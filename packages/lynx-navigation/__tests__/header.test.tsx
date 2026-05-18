@@ -15,13 +15,13 @@
 import { describe, expect, it } from 'vitest';
 import { component, signal } from '@sigx/lynx';
 import { render, act } from '@sigx/lynx-testing';
-import { useNav } from '../src/hooks/use-nav.js';
-import { NavigationRoot } from '../src/components/NavigationRoot.js';
-import { Stack } from '../src/components/Stack.js';
-import { Screen } from '../src/components/Screen.js';
-import { Header } from '../src/components/Header.js';
-import { useScreenOptions } from '../src/hooks/use-screen-options.js';
-import { routes } from './_fixtures.js';
+import { useNav } from '../src/hooks/use-nav';
+import { NavigationRoot } from '../src/components/NavigationRoot';
+import { Stack } from '../src/components/Stack';
+import { Screen } from '../src/components/Screen';
+import { Header } from '../src/components/Header';
+import { useScreenOptions } from '../src/hooks/use-screen-options';
+import { routes } from './_fixtures';
 
 interface NavProbe { nav: ReturnType<typeof useNav> | null }
 

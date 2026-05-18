@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { render } from '@sigx/lynx-testing';
-import { Select } from '../src/forms/Select.js';
+import { Select } from '../src/forms/Select';
 
 const options = [
   { label: 'Apple', value: 'apple' },

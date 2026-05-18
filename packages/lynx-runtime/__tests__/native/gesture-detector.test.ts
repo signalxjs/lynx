@@ -9,18 +9,18 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { setCurrentInstance } from '@sigx/runtime-core/internals';
 
-import { OP, takeOps, resetOpQueue } from '../../src/op-queue.js';
+import { OP, takeOps, resetOpQueue } from '../../src/op-queue';
 import {
   useMainThreadRef,
   resetWvidCounter,
-} from '../../src/main-thread-ref.js';
+} from '../../src/main-thread-ref';
 import {
   Gesture,
   GestureType,
   useGestureDetector,
   resetGestureIdCounter,
   type BaseGesture,
-} from '../../src/native/gesture-detector.js';
+} from '../../src/native/gesture-detector';
 
 // ---------------------------------------------------------------------------
 // Shared fake worklet placeholders — what @lynx-js/react/transform produces

@@ -1,6 +1,6 @@
 import { onMounted } from '@sigx/lynx';
 import { BackHandler } from '@sigx/lynx-linking';
-import { useNav, type Nav } from './use-nav.js';
+import { useNav, type Nav } from './use-nav';
 
 /**
  * Wire the Android hardware back button to the active navigator.

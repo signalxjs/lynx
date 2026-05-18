@@ -12,11 +12,11 @@
 import { describe, expect, it } from 'vitest';
 import { component } from '@sigx/lynx';
 import { render, act } from '@sigx/lynx-testing';
-import { useNav } from '../src/hooks/use-nav.js';
-import { useIsFocused, useFocusEffect } from '../src/hooks/use-focus.js';
-import { NavigationRoot } from '../src/components/NavigationRoot.js';
-import { Stack } from '../src/components/Stack.js';
-import { routes } from './_fixtures.js';
+import { useNav } from '../src/hooks/use-nav';
+import { useIsFocused, useFocusEffect } from '../src/hooks/use-focus';
+import { NavigationRoot } from '../src/components/NavigationRoot';
+import { Stack } from '../src/components/Stack';
+import { routes } from './_fixtures';
 
 interface NavProbe {
     nav: ReturnType<typeof useNav> | null;

@@ -19,14 +19,15 @@
         "sigx-module.json"
     ],
     "scripts": {
-        "build": "tsc",
-        "dev": "tsc --watch"
+        "build": "vite build && tsgo --emitDeclarationOnly",
+        "dev": "vite build --watch"
     },
     "dependencies": {
         "@sigx/lynx-core": "workspace:^"
     },
     "devDependencies": {
-        "typescript": "^6.0.3"
+        "typescript": "^6.0.3",
+        "@sigx/vite": "^0.4.3"
     },
     "author": "Andreas Ekdahl",
     "license": "MIT",

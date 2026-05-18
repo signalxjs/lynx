@@ -12,9 +12,9 @@
 import { describe, expect, it } from 'vitest';
 import { component } from '@sigx/lynx';
 import { render, act } from '@sigx/lynx-testing';
-import { NavigationRoot } from '../src/components/NavigationRoot.js';
-import { Drawer, useDrawer, type DrawerNav } from '../src/components/Drawer.js';
-import { routes } from './_fixtures.js';
+import { NavigationRoot } from '../src/components/NavigationRoot';
+import { Drawer, useDrawer, type DrawerNav } from '../src/components/Drawer';
+import { routes } from './_fixtures';
 
 interface Probe { nav: DrawerNav | null }
 

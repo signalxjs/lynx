@@ -13,7 +13,7 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
-import { MTElementWrapper } from '../src/mt-element.js';
+import { MTElementWrapper } from '../src/mt-element';
 
 interface Calls {
   GetAttributeByName: Array<{ el: unknown; name: string }>;

@@ -13,10 +13,10 @@
 import { describe, expect, it } from 'vitest';
 import { component } from '@sigx/lynx';
 import { render, act } from '@sigx/lynx-testing';
-import { useNav } from '../src/hooks/use-nav.js';
-import { NavigationRoot } from '../src/components/NavigationRoot.js';
-import { Stack } from '../src/components/Stack.js';
-import { routes } from './_fixtures.js';
+import { useNav } from '../src/hooks/use-nav';
+import { NavigationRoot } from '../src/components/NavigationRoot';
+import { Stack } from '../src/components/Stack';
+import { routes } from './_fixtures';
 
 // ---------------------------------------------------------------------------
 // Helper: a probe component that captures `nav` so tests can drive navigation

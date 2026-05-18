@@ -1,4 +1,4 @@
-import type { ParamsOf, RouteMap, SearchOf } from './types.js';
+import type { ParamsOf, RouteMap, SearchOf } from './types';
 
 /**
  * Module-augmentation surface for the user's typed route map.

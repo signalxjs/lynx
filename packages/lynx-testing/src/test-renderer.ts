@@ -4,7 +4,7 @@
  */
 import { createRenderer } from '@sigx/runtime-core/internals';
 import type { RendererOptions } from '@sigx/runtime-core/internals';
-import { TestNode } from './test-node.js';
+import { TestNode } from './test-node';
 
 const nodeOps: RendererOptions<TestNode, TestNode> = {
   createElement(type: string): TestNode {

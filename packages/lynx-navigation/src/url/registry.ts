@@ -12,9 +12,9 @@
  * public API (test/integration use only).
  */
 
-import type { CompiledPath } from './compile.js';
-import { compilePath } from './compile.js';
-import type { RouteMap } from '../types.js';
+import type { CompiledPath } from './compile';
+import { compilePath } from './compile';
+import type { RouteMap } from '../types';
 
 interface RegistryState {
     readonly routes: RouteMap;

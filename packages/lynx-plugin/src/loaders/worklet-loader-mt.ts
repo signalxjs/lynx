@@ -43,7 +43,7 @@ import type { Rspack } from '@rsbuild/core';
 import { transformReactLynxSync } from '@lynx-js/react/transform';
 import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
-import { extractLocalImports, extractRegistrations } from './worklet-utils.js';
+import { extractLocalImports, extractRegistrations } from './worklet-utils';
 
 const RUNTIME_PKG = '@sigx/lynx-runtime-main';
 

@@ -13,9 +13,9 @@
  */
 import { describe, expect, it, vi } from 'vitest';
 import { component, lazy } from '@sigx/lynx';
-import { defineRoutes } from '../src/define-routes.js';
-import { createNavigatorState } from '../src/navigator/core.js';
-import type { StackEntry } from '../src/types.js';
+import { defineRoutes } from '../src/define-routes';
+import { createNavigatorState } from '../src/navigator/core';
+import type { StackEntry } from '../src/types';
 
 const Eager = component(() => () => null);
 

@@ -1,5 +1,5 @@
 import { component, type Define } from '@sigx/lynx';
-import { Loading } from '../feedback/Loading.js';
+import { Loading } from '../feedback/Loading';
 
 export type ButtonVariant =
   | 'primary' | 'secondary' | 'accent' | 'info'

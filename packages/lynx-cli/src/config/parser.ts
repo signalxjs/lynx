@@ -8,7 +8,7 @@ import type {
     Orientation,
     SplashConfig,
     AdaptiveIconConfig,
-} from './schema.js';
+} from './schema';
 
 /** Default config values applied when not specified by the user. */
 const DEFAULTS: Partial<LynxConfig> = {

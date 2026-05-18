@@ -1,5 +1,5 @@
 import { component, type Define } from '@sigx/lynx';
-import { resolveBoxStyle } from '../shared/styles.js';
+import { resolveBoxStyle } from '../shared/styles';
 
 export type CenterProps =
   & Define.Prop<'width', number | string, false>

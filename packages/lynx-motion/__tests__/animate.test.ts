@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { resetWvidCounter, resetBgAvBridge, resetOpQueue, useSharedValue } from '@sigx/lynx';
-import { animate, _resetInflight } from '../src/animate.js';
+import { animate, _resetInflight } from '../src/animate';
 
 // `animate()` schedules ticks via `requestAnimationFrame` and triggers a
 // microtask-debounced flush via `__FlushElementTree()` after every

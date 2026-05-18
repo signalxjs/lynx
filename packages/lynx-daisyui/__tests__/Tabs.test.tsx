@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { render } from '@sigx/lynx-testing';
-import { Tabs } from '../src/navigation/Tabs.js';
+import { Tabs } from '../src/navigation/Tabs';
 
 describe('Tabs', () => {
   // TODO: drop the inline flexDirection assertion — container uses the

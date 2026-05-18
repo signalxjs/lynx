@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { render } from '@sigx/lynx-testing';
-import { Col } from '../src/layout/Col.js';
+import { Col } from '../src/layout/Col';
 
 describe('Col', () => {
   it('renders children vertically', () => {

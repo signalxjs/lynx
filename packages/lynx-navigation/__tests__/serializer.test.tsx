@@ -13,16 +13,16 @@
 import { describe, expect, it, vi } from 'vitest';
 import { component } from '@sigx/lynx';
 import { render, act } from '@sigx/lynx-testing';
-import { NavigationRoot } from '../src/components/NavigationRoot.js';
-import { useNav } from '../src/hooks/use-nav.js';
-import { useNavSerializer, NAV_SNAPSHOT_VERSION } from '../src/hooks/use-nav-serializer.js';
+import { NavigationRoot } from '../src/components/NavigationRoot';
+import { useNav } from '../src/hooks/use-nav';
+import { useNavSerializer, NAV_SNAPSHOT_VERSION } from '../src/hooks/use-nav-serializer';
 import type {
     NavSnapshot,
     NavStorageAdapter,
-} from '../src/hooks/use-nav-serializer.js';
-import type { Nav } from '../src/hooks/use-nav.js';
-import type { StackEntry } from '../src/types.js';
-import { routes } from './_fixtures.js';
+} from '../src/hooks/use-nav-serializer';
+import type { Nav } from '../src/hooks/use-nav';
+import type { StackEntry } from '../src/types';
+import { routes } from './_fixtures';
 
 type Probe = { nav: Nav | null };
 

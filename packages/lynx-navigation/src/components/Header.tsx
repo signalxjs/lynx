@@ -20,9 +20,9 @@
  *   - making it opt-in keeps `<Stack>`'s contract narrow.
  */
 import { component, computed } from '@sigx/lynx';
-import { useNav } from '../hooks/use-nav.js';
-import { useNavInternals } from '../hooks/use-nav-internal.js';
-import type { ScreenOptions, ScreenSlotFills, StackEntry } from '../types.js';
+import { useNav } from '../hooks/use-nav';
+import { useNavInternals } from '../hooks/use-nav-internal';
+import type { ScreenOptions, ScreenSlotFills, StackEntry } from '../types';
 
 /**
  * Resolve a title (string or getter) to a plain string.

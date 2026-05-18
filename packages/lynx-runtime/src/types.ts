@@ -8,7 +8,7 @@
  * Mirrors packages/runtime-terminal/src/types.ts exactly.
  */
 
-import type { ShadowElement } from './shadow-element.js';
+import type { ShadowElement } from './shadow-element';
 
 declare module '@sigx/runtime-core' {
     /** Lynx platform sets ShadowElement as the default element type */

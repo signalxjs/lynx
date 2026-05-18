@@ -1,4 +1,4 @@
-import type { RouteMap } from './types.js';
+import type { RouteMap } from './types';
 
 /**
  * Define a typed route registry.

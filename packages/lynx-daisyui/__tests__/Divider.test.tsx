@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { render } from '@sigx/lynx-testing';
-import { Divider } from '../src/layout/Divider.js';
+import { Divider } from '../src/layout/Divider';
 
 describe('Divider', () => {
   // TODO: update assertions for daisyui CSS-class rendering — component now

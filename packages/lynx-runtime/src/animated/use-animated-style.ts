@@ -1,12 +1,12 @@
 import { onUnmounted } from '@sigx/runtime-core';
 
-import { pushOp, scheduleFlush } from '../op-queue.js';
-import type { MainThreadRef } from '../main-thread-ref.js';
-import type { MainThread } from '../jsx.js';
+import { pushOp, scheduleFlush } from '../op-queue';
+import type { MainThreadRef } from '../main-thread-ref';
+import type { MainThread } from '../jsx';
 import { OP } from '@sigx/lynx-runtime-internal';
 import type { BuiltinMapperName, MapperParams } from '@sigx/lynx-runtime-internal';
 
-import type { SharedValue } from './shared-value.js';
+import type { SharedValue } from './shared-value';
 
 // Re-export the public types so users can write
 //   import type { BuiltinMapperName } from '@sigx/lynx'

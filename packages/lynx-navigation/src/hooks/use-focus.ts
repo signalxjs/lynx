@@ -5,8 +5,8 @@ import {
     untrack,
     type Computed,
 } from '@sigx/lynx';
-import { useNav } from './use-nav.js';
-import { useCurrentEntry } from './use-nav-internal.js';
+import { useNav } from './use-nav';
+import { useCurrentEntry } from './use-nav-internal';
 
 /**
  * Reactive "is this screen the focused entry?" signal.

@@ -19,7 +19,7 @@
 //   - Caller passes `isFirstScreen=false` (no SSR/hydration in sigx).
 //   - `gestureOptions` always undefined.
 
-import { onWorkletCtxUpdate } from './observers.js';
+import { onWorkletCtxUpdate } from './observers';
 
 const COMPOSED = -1;
 

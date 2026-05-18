@@ -10,7 +10,7 @@
  */
 
 import { join } from 'node:path';
-import type { ResolvedConfig } from './parser.js';
+import type { ResolvedConfig } from './parser';
 
 /** Root dir holding the iOS Xcode project + Swift sources. */
 export function iosProjectRoot(cwd: string, _config: ResolvedConfig): string {

@@ -21,9 +21,9 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { RsbuildPlugin } from '@rsbuild/core';
 
-import { applyCSS } from './css.js';
-import { applyEntry } from './entry.js';
-import { LAYERS } from './layers.js';
+import { applyCSS } from './css';
+import { applyEntry } from './entry';
+import { LAYERS } from './layers';
 
 export { LAYERS, applyEntry };
 

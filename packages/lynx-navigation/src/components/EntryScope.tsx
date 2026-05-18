@@ -4,9 +4,9 @@ import {
     useCurrentEntryOptional,
     useNavInternals,
     useScreenRegistry,
-} from '../hooks/use-nav-internal.js';
-import { createScreenRegistry } from '../internal/screen-registry.js';
-import type { StackEntry } from '../types.js';
+} from '../hooks/use-nav-internal';
+import { createScreenRegistry } from '../internal/screen-registry';
+import type { StackEntry } from '../types';
 
 type EntryScopeProps =
     & Define.Prop<'entry', StackEntry, true>

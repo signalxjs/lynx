@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { render, fireEvent, touch } from '../src/index.js';
+import { render, fireEvent, touch } from '../src/index';
 import { jsx } from '@sigx/lynx';
 
 describe('fireEvent — extras beyond render.test.tsx', () => {

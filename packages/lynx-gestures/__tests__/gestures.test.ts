@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { usePinch, useRotation } from '../src/index.js';
+import { usePinch, useRotation } from '../src/index';
 
 // Synthetic touch event helpers — used by the multi-touch JS-only fallback
 // hooks (`usePinch`, `useRotation`). Phase 2.12.4 deleted the legacy single-

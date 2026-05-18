@@ -9,8 +9,8 @@
  */
 import { describe, expect, it } from 'vitest';
 import { useSharedValue, type SharedValue } from '@sigx/lynx';
-import { computeLayers, animationVariant } from '../src/internal/layer-plan.js';
-import type { Presentation, StackEntry, TransitionState } from '../src/types.js';
+import { computeLayers, animationVariant } from '../src/internal/layer-plan';
+import type { Presentation, StackEntry, TransitionState } from '../src/types';
 
 function entry(key: string, route: string, presentation: Presentation = 'card'): StackEntry {
     return {
