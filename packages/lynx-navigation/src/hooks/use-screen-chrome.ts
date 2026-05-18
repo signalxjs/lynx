@@ -8,29 +8,28 @@
  * (`@sigx/lynx-daisyui`, custom designs) can build their own header
  * components without depending on internal modules.
  *
- * Usage:
+ * Resolution rules:
  *
- * ```tsx
- * const chrome = useScreenChrome();
- * return () => {
- *   if (!chrome.headerShown) return null;
- *   return (
- *     <view class="…themed…">
- *       {chrome.headerLeft?.() ?? (chrome.canGoBack ? <BackButton onPress={chrome.pop} /> : null)}
- *       <text>{chrome.title}</text>
- *       {chrome.headerRight?.()}
- *     </view>
- *   );
- * };
- * ```
+ *  - **Inside a screen body** (i.e. inside an EntryScope whose entry is
+ *    on the nearest `useNav()`'s stack), bind to **this entry's**
+ *    registry. Useful for modal screens that render their own
+ *    NavHeader inside — the chrome slides with the sheet.
+ *  - **Outside any matching EntryScope** (slot of `<Stack>`, persistent
+ *    root-level Header, etc.), bind to the *destination* entry of the
+ *    current nav state — what the navigator is settling on once the
+ *    in-flight transition completes. Push: the new top (already at
+ *    nav.current). Pop: the entry being revealed
+ *    (`transition.underneathEntry`), *not* the one being animated off.
+ *    Using the destination means the bar reflects what the user is
+ *    navigating *to*, immediately, with no end-of-animation snap.
  *
- * Every property on the returned object is a getter — reading it inside
- * a render function or `computed` subscribes to the underlying signal,
- * so the consumer re-renders when title / slots change.
+ * Every property is a getter — reading inside a render / `computed`
+ * subscribes to the underlying signal, so consumers re-render when
+ * title / slots change.
  */
 import { useNav } from './use-nav.js';
-import { useNavInternals } from './use-nav-internal.js';
-import type { ScreenSlotFills } from '../types.js';
+import { useCurrentEntryOptional, useNavInternals } from './use-nav-internal.js';
+import type { ScreenSlotFills, StackEntry } from '../types.js';
 
 export interface ScreenChrome {
     /** Resolved screen title — `options.title` (string or getter) or the route name as fallback. Reactive. */
@@ -53,9 +52,41 @@ export function useScreenChrome(): ScreenChrome {
     const nav = useNav();
     const internals = useNavInternals();
 
+    // The candidate "scoped" entry, if we happen to be rendered inside
+    // an EntryScope. May belong to a DIFFERENT nav than `nav` — e.g.
+    // when NavHeader is placed in a per-tab `<Stack>`'s chrome slot,
+    // it sees the outer (root) EntryScope's entry but its `useNav()`
+    // returns the inner per-tab nav. We only honor the pin when the
+    // entry is actually on this nav's stack; otherwise we're crossing
+    // scopes and the destination-entry path is correct.
+    //
+    // `useCurrentEntryOptional` is the soft companion to
+    // `useCurrentEntry` — it returns `null` outside any EntryScope
+    // rather than throwing, which is the right semantic for a chrome
+    // consumer that *might* be a Stack slot.
+    const candidate: StackEntry | null = useCurrentEntryOptional();
+
+    const getDestinationEntry = (): StackEntry => {
+        const t = nav.transition;
+        if (t) {
+            return t.kind === 'pop' ? t.underneathEntry : t.topEntry;
+        }
+        return nav.current;
+    };
+
+    const getEntry = (): StackEntry => {
+        if (candidate) {
+            const stack = nav.stack;
+            if (stack.some((e) => e.key === candidate!.key)) {
+                return candidate;
+            }
+        }
+        return getDestinationEntry();
+    };
+
     return {
         get title() {
-            const entry = nav.current;
+            const entry = getEntry();
             const reg = internals.screens.get(entry.key);
             const t = reg?.options.title;
             if (typeof t === 'function') return t();
@@ -63,25 +94,28 @@ export function useScreenChrome(): ScreenChrome {
             return entry.route;
         },
         get headerShown() {
-            const reg = internals.screens.get(nav.current.key);
+            const reg = internals.screens.get(getEntry().key);
             return reg?.options.headerShown !== false;
         },
         get canGoBack() {
-            return nav.canGoBack;
+            const entry = getEntry();
+            const stack = nav.stack;
+            const idx = stack.findIndex((e) => e.key === entry.key);
+            return idx > 0;
         },
         pop() {
             nav.pop();
         },
         get header() {
-            const reg = internals.screens.get(nav.current.key);
+            const reg = internals.screens.get(getEntry().key);
             return reg?.slots.header;
         },
         get headerLeft() {
-            const reg = internals.screens.get(nav.current.key);
+            const reg = internals.screens.get(getEntry().key);
             return reg?.slots.headerLeft;
         },
         get headerRight() {
-            const reg = internals.screens.get(nav.current.key);
+            const reg = internals.screens.get(getEntry().key);
             return reg?.slots.headerRight;
         },
     };

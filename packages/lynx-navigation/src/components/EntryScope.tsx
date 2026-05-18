@@ -1,5 +1,10 @@
 import { component, defineProvide, onUnmounted, type Define } from '@sigx/lynx';
-import { useCurrentEntry, useNavInternals, useScreenRegistry } from '../hooks/use-nav-internal.js';
+import {
+    useCurrentEntry,
+    useCurrentEntryOptional,
+    useNavInternals,
+    useScreenRegistry,
+} from '../hooks/use-nav-internal.js';
 import { createScreenRegistry } from '../internal/screen-registry.js';
 import type { StackEntry } from '../types.js';
 
@@ -30,9 +35,15 @@ export const EntryScope = component<EntryScopeProps>(({ props, slots }) => {
     const registry = createScreenRegistry(props.entry);
     internals.screens.register(registry);
     onUnmounted(() => {
-        internals.screens.unregister(props.entry.key);
+        // Pass the registry instance — `unregister` is identity-checked,
+        // so this is a no-op when a newer EntryScope has already taken
+        // over the same entry key (e.g. at the transition→idle handoff
+        // where the reconciler mounts the new EntryScope before
+        // unmounting the old).
+        internals.screens.unregister(registry);
     });
     defineProvide(useCurrentEntry, () => props.entry);
+    defineProvide(useCurrentEntryOptional, () => props.entry);
     defineProvide(useScreenRegistry, () => registry);
     return () => slots.default?.();
 });

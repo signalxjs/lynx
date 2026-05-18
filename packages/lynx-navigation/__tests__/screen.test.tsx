@@ -276,6 +276,57 @@ describe('screen registry lifecycle', () => {
     });
 });
 
+describe('screens registry — identity-checked unregister', () => {
+    // Direct unit test of the navigator's `_screens` controller — the
+    // higher-level integration test (modal cycle preserving the base
+    // entry) is in this file too, but doesn't drive the specific
+    // sequence of "new register before old unregister" the way the
+    // transition→idle handoff does in practice.
+    it('a new registry for the same entry key is preserved when the older one unregisters', async () => {
+        const { createNavigatorState } = await import('../src/navigator/core.js');
+        const initial = {
+            key: 'k1',
+            route: 'home',
+            params: {},
+            search: {},
+            state: undefined,
+            presentation: 'card' as const,
+        };
+        const navState = createNavigatorState({
+            routes: { home: { component: (() => () => null) as never } } as never,
+            initial,
+            progress: undefined,
+            parent: null,
+            initialLocallyFocused: true,
+        });
+        const screens = navState._screens;
+        const { createScreenRegistry } = await import('../src/internal/screen-registry.js');
+
+        const regOld = createScreenRegistry(initial);
+        const regNew = createScreenRegistry(initial);
+        regOld.options.title = 'old';
+        regNew.options.title = 'new';
+
+        screens.register(regOld);
+        expect(screens.get('k1')).toBe(regOld);
+
+        // Mount of the replacement EntryScope: registers regNew under
+        // the same key BEFORE the older scope's onUnmounted fires.
+        screens.register(regNew);
+        expect(screens.get('k1')).toBe(regNew);
+
+        // Now the old scope finally unmounts. The straggler unregister
+        // must not wipe the active newer registry.
+        screens.unregister(regOld);
+        expect(screens.get('k1')).toBe(regNew);
+        expect(screens.get('k1')?.options.title).toBe('new');
+
+        // The new registry's own unmount does delete the slot.
+        screens.unregister(regNew);
+        expect(screens.get('k1')).toBeUndefined();
+    });
+});
+
 describe('<Screen> out-of-scope usage', () => {
     it('throws when rendered outside a Stack-rendered route', () => {
         const Bad = component(() => () => (

@@ -1,6 +1,6 @@
 import { component, signal } from '@sigx/lynx';
 import { useNav, useParams, Screen } from '@sigx/lynx-navigation';
-import { Button, Col, Textarea } from '@sigx/lynx-daisyui';
+import { Button, Col, NavHeader, Textarea } from '@sigx/lynx-daisyui';
 import { Haptics } from '@sigx/lynx-haptics';
 import { ImagePicker } from '@sigx/lynx-image-picker';
 import { Location } from '@sigx/lynx-location';
@@ -71,15 +71,19 @@ export const NewEntry = component(() => {
     };
 
     return () => (
-        <view class="flex-fill bg-base-100 p-6">
+        <view class="flex-fill bg-base-100">
             <Screen title={isEdit ? 'Edit entry' : 'New entry'} />
-            <Col gap={16}>
+            {/* NavHeader inside the modal so it slides up with the sheet
+                (rather than persisting at the top of the viewport above
+                the underneath screen's own header during the animation). */}
+            <NavHeader />
+            <Col gap={16} padding={24}>
                 <Textarea placeholder="What happened?" rows={4} model={() => note.value} />
                 {photoUri.value
                     ? (
                         <Col gap={8}>
                             <image
-                                src={photoUri.value.startsWith('/') ? `file://${photoUri.value}` : photoUri.value}
+                                src={photoUri.value}
                                 mode="aspectFill"
                                 style={{ width: '100%', height: 200, borderRadius: 12 }}
                             />

@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdirSync, rmSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { basename, join, win32 } from 'node:path';
 import { tmpdir } from 'node:os';
 import {
     scaffoldAndroid,
@@ -306,5 +306,36 @@ describe('cleanPrebuild', () => {
 
         expect(existsSync(join(testDir, 'android'))).toBe(false);
         expect(existsSync(join(testDir, 'ios'))).toBe(false);
+    });
+});
+
+describe('copyIosModuleSources — Windows path handling', () => {
+    // Regression for the bug where `swift.split('/').pop()!` returned
+    // the full absolute path on Windows (no `/` to split on), and the
+    // subsequent `join(dest, fileName)` nested the entire source path
+    // under the destination. The fix uses `path.basename`, which knows
+    // about both `/` and `\` on Windows.
+    //
+    // This test runs on whichever OS the CI runner provides. On
+    // Windows it exercises the real bug path end-to-end via the
+    // native `node:path` import in prebuild.ts. On POSIX it asserts
+    // the win32-specific basename logic directly so the regression
+    // is documented and a future refactor that re-introduces
+    // `split('/').pop()` is caught here too.
+    it('basename(absoluteWindowsPath) returns just the filename', () => {
+        const winPath = 'D:\\a\\lynx\\lynx\\packages\\lynx-storage\\ios\\StorageModule.swift';
+        // win32.basename works regardless of host OS.
+        expect(win32.basename(winPath)).toBe('StorageModule.swift');
+
+        // Document the original bug for posterity: `.split('/').pop()`
+        // on a Windows-style absolute path returns the entire path
+        // unchanged because there's no forward slash to split on.
+        expect(winPath.split('/').pop()).toBe(winPath);
+
+        // POSIX path: both approaches happen to agree (which is why
+        // the bug was POSIX-invisible until CI ran on Windows).
+        const posixPath = '/Users/me/proj/packages/lynx-storage/ios/StorageModule.swift';
+        expect(basename(posixPath)).toBe('StorageModule.swift');
+        expect(posixPath.split('/').pop()).toBe('StorageModule.swift');
     });
 });

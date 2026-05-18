@@ -59,7 +59,7 @@ pnpm dev                       # rspeedy dev server with HMR
 ```
 
 If you change anything in `sigx.lynx.config.ts` (modules list, app id,
-permissions), run `pnpm prebuild:native` to regenerate the native project, then
+permissions), run `pnpm prebuild` to regenerate the native project, then
 relaunch.
 
 ## File map

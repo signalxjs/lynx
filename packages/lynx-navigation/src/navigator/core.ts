@@ -61,7 +61,8 @@ export interface NavigatorState {
      */
     readonly _screens: {
         register(registry: ScreenRegistry): void;
-        unregister(entryKey: string): void;
+        /** Identity-checked: no-op when a newer registry has taken the slot. */
+        unregister(registry: ScreenRegistry): void;
         get(entryKey: string): ScreenRegistry | undefined;
     };
     /**
@@ -520,8 +521,18 @@ function createScreenRegistries(): NavigatorState['_screens'] {
             // would self-loop, so we untrack the bump.
             untrack(() => { version.v = version.v + 1; });
         },
-        unregister(key: string) {
-            byKey.delete(key);
+        // Identity-checked unregister: deletes the entry only if the
+        // currently-registered registry is the *same instance* the caller
+        // holds. Without this, the transition→idle handoff (which can
+        // mount a new `<EntryScope>` for the same entry-key before the
+        // old one unmounts) would let the old scope's `onUnmounted` wipe
+        // out the fresh registry — leaving `screens.get(key)` returning
+        // undefined and chrome consumers (NavHeader) falling back to the
+        // route-name as title with all slot fills gone.
+        unregister(reg: ScreenRegistry) {
+            const cur = byKey.get(reg.entry.key);
+            if (cur !== reg) return;
+            byKey.delete(reg.entry.key);
             untrack(() => { version.v = version.v + 1; });
         },
         get(key: string) {

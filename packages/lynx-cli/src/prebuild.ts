@@ -10,7 +10,7 @@ import {
     readFileSync, existsSync, writeFileSync, unlinkSync,
     mkdirSync, readdirSync, statSync, copyFileSync, rmSync, chmodSync,
 } from 'node:fs';
-import { join, dirname, relative, extname } from 'node:path';
+import { join, dirname, relative, extname, basename } from 'node:path';
 import { pathToFileURL, fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
 import { resolveConfig, modulesForPlatform, resolveAssets } from './config/index.js';
@@ -560,7 +560,11 @@ export function copyIosModuleSources(cwd: string, config: ResolvedConfig, manife
 
         const swiftFiles = collectSwiftFiles(sourceRoot);
         for (const swift of swiftFiles) {
-            const fileName = swift.split('/').pop()!;
+            // `basename` (not split('/').pop()) so absolute Windows paths
+            // resolve correctly — the latter returns the full path
+            // unchanged on Windows since there's no forward slash, and
+            // join(dest, …) then nests the entire source path under dest.
+            const fileName = basename(swift);
             copyFileSync(swift, join(dest, fileName));
             (hasPublisher ? lifecycleFiles : moduleFiles).push(fileName);
         }

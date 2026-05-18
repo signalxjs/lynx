@@ -7,7 +7,7 @@
         "dev": "sigx dev",
         "build": "sigx build",
         "doctor": "sigx doctor",
-        "prebuild:native": "sigx prebuild"
+        "prebuild": "sigx prebuild"
     },
     "dependencies": {
         "@sigx/lynx": "workspace:^",
