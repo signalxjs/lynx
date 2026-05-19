@@ -35,6 +35,16 @@ export default defineLynxConfig({
         '@sigx/lynx-location',
         '@sigx/lynx-share',
     ],
+
+    // @sigx/lynx-icons demo wiring. Each adapter is dynamically loaded by
+    // @sigx/lynx-plugin at build time; only glyphs actually referenced in
+    // <Icon set= name=> JSX (plus anything in `include`) end up in the bundle.
+    iconSets: [
+        { id: 'fa', source: '@sigx/lynx-icons-fa-free', styles: ['solid'] },
+        { id: 'fab', source: '@sigx/lynx-icons-fa-free', styles: ['brands'] },
+        { id: 'lucide', source: '@sigx/lynx-icons-lucide' },
+    ],
+
     android: {
         applicationId: 'com.example.showcase',
         versionCode: 1,

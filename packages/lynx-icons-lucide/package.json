@@ -1,0 +1,57 @@
+{
+    "name": "@sigx/lynx-icons-lucide",
+    "version": "0.1.0",
+    "description": "Lucide adapter for @sigx/lynx-icons. SVG-mode only — lucide is not distributed as a font.",
+    "type": "module",
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.ts",
+            "import": "./dist/index.js",
+            "default": "./dist/index.js"
+        },
+        "./package.json": "./package.json"
+    },
+    "files": [
+        "dist",
+        "README.md",
+        "LICENSE"
+    ],
+    "scripts": {
+        "build": "vite build && tsgo --emitDeclarationOnly",
+        "dev": "vite build --watch"
+    },
+    "peerDependencies": {
+        "@sigx/lynx-icons": "workspace:^",
+        "lucide": "^1.0.0"
+    },
+    "devDependencies": {
+        "@sigx/lynx-icons": "workspace:^",
+        "@sigx/vite": "^0.4.3",
+        "@types/node": "^25.7.0",
+        "lucide": "^1.16.0",
+        "typescript": "^6.0.3"
+    },
+    "author": "Andreas Ekdahl",
+    "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/signalxjs/lynx.git",
+        "directory": "packages/lynx-icons-lucide"
+    },
+    "homepage": "https://github.com/signalxjs/lynx/tree/main/packages/lynx-icons-lucide",
+    "bugs": {
+        "url": "https://github.com/signalxjs/lynx/issues"
+    },
+    "publishConfig": {
+        "access": "public"
+    },
+    "keywords": [
+        "signalx",
+        "sigx",
+        "lynx",
+        "icon",
+        "lucide"
+    ]
+}

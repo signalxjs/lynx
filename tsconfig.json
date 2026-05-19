@@ -46,6 +46,24 @@
       "@sigx/lynx-haptics": [
         "./packages/lynx-haptics/src/index.ts"
       ],
+      "@sigx/lynx-icons": [
+        "./packages/lynx-icons/src/index.ts"
+      ],
+      "@sigx/lynx-icons/__codepoints": [
+        "./packages/lynx-icons/src/stubs/codepoints.ts"
+      ],
+      "@sigx/lynx-icons/__svgs": [
+        "./packages/lynx-icons/src/stubs/svgs.ts"
+      ],
+      "@sigx/lynx-icons/__font-face.css": [
+        "./packages/lynx-icons/src/stubs/font-face.css"
+      ],
+      "@sigx/lynx-icons-fa-free": [
+        "./packages/lynx-icons-fa-free/src/index.ts"
+      ],
+      "@sigx/lynx-icons-lucide": [
+        "./packages/lynx-icons-lucide/src/index.ts"
+      ],
       "@sigx/lynx-image-picker": [
         "./packages/lynx-image-picker/src/index.ts"
       ],

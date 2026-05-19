@@ -29,6 +29,15 @@ importers:
 
   examples/showcase:
     dependencies:
+      '@fortawesome/fontawesome-free':
+        specifier: ^6.7.2
+        version: 6.7.2
+      '@fortawesome/free-brands-svg-icons':
+        specifier: ^6.7.2
+        version: 6.7.2
+      '@fortawesome/free-solid-svg-icons':
+        specifier: ^6.7.2
+        version: 6.7.2
       '@sigx/lynx':
         specifier: workspace:^
         version: link:../../packages/lynx
@@ -50,6 +59,15 @@ importers:
       '@sigx/lynx-haptics':
         specifier: workspace:^
         version: link:../../packages/lynx-haptics
+      '@sigx/lynx-icons':
+        specifier: workspace:^
+        version: link:../../packages/lynx-icons
+      '@sigx/lynx-icons-fa-free':
+        specifier: workspace:^
+        version: link:../../packages/lynx-icons-fa-free
+      '@sigx/lynx-icons-lucide':
+        specifier: workspace:^
+        version: link:../../packages/lynx-icons-lucide
       '@sigx/lynx-image-picker':
         specifier: workspace:^
         version: link:../../packages/lynx-image-picker
@@ -95,6 +113,9 @@ importers:
       '@sigx/runtime-core':
         specifier: ^0.4.3
         version: 0.4.3
+      lucide:
+        specifier: ^1.16.0
+        version: 1.16.0
       zod:
         specifier: ^3.23.0
         version: 3.25.76
@@ -325,6 +346,63 @@ importers:
         specifier: ^6.0.3
         version: 6.0.3
 
+  packages/lynx-icons:
+    devDependencies:
+      '@sigx/lynx':
+        specifier: workspace:^
+        version: link:../lynx
+      '@sigx/vite':
+        specifier: ^0.4.3
+        version: 0.4.3(sigx@0.4.1)(vite@8.0.12(@types/node@25.7.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+
+  packages/lynx-icons-fa-free:
+    devDependencies:
+      '@fortawesome/fontawesome-free':
+        specifier: ^6.7.2
+        version: 6.7.2
+      '@fortawesome/free-brands-svg-icons':
+        specifier: ^6.7.2
+        version: 6.7.2
+      '@fortawesome/free-regular-svg-icons':
+        specifier: ^6.7.2
+        version: 6.7.2
+      '@fortawesome/free-solid-svg-icons':
+        specifier: ^6.7.2
+        version: 6.7.2
+      '@sigx/lynx-icons':
+        specifier: workspace:^
+        version: link:../lynx-icons
+      '@sigx/vite':
+        specifier: ^0.4.3
+        version: 0.4.3(sigx@0.4.1)(vite@8.0.12(@types/node@25.7.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
+      '@types/node':
+        specifier: ^25.7.0
+        version: 25.7.0
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+
+  packages/lynx-icons-lucide:
+    devDependencies:
+      '@sigx/lynx-icons':
+        specifier: workspace:^
+        version: link:../lynx-icons
+      '@sigx/vite':
+        specifier: ^0.4.3
+        version: 0.4.3(sigx@0.4.1)(vite@8.0.12(@types/node@25.7.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
+      '@types/node':
+        specifier: ^25.7.0
+        version: 25.7.0
+      lucide:
+        specifier: ^1.16.0
+        version: 1.16.0
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+
   packages/lynx-image-picker:
     dependencies:
       '@sigx/lynx-core':
@@ -490,6 +568,12 @@ importers:
       '@rsbuild/core':
         specifier: ^1.7.5
         version: 1.7.5
+      '@sigx/lynx-cli':
+        specifier: workspace:*
+        version: link:../lynx-cli
+      '@sigx/lynx-icons':
+        specifier: workspace:*
+        version: link:../lynx-icons
       '@sigx/vite':
         specifier: ^0.4.3
         version: 0.4.3(sigx@0.4.1)(vite@8.0.12(@types/node@25.7.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
@@ -852,6 +936,26 @@ packages:
     engines: {node: '>=18'}
     cpu: [x64]
     os: [win32]
+
+  '@fortawesome/fontawesome-common-types@6.7.2':
+    resolution: {integrity: sha512-Zs+YeHUC5fkt7Mg1l6XTniei3k4bwG/yo3iFUtZWd/pMx9g3fdvkSK9E0FOC+++phXOka78uJcYb8JaFkW52Xg==}
+    engines: {node: '>=6'}
+
+  '@fortawesome/fontawesome-free@6.7.2':
+    resolution: {integrity: sha512-JUOtgFW6k9u4Y+xeIaEiLr3+cjoUPiAuLXoyKOJSia6Duzb7pq+A76P9ZdPDoAoxHdHzq6gE9/jKBGXlZT8FbA==}
+    engines: {node: '>=6'}
+
+  '@fortawesome/free-brands-svg-icons@6.7.2':
+    resolution: {integrity: sha512-zu0evbcRTgjKfrr77/2XX+bU+kuGfjm0LbajJHVIgBWNIDzrhpRxiCPNT8DW5AdmSsq7Mcf9D1bH0aSeSUSM+Q==}
+    engines: {node: '>=6'}
+
+  '@fortawesome/free-regular-svg-icons@6.7.2':
+    resolution: {integrity: sha512-7Z/ur0gvCMW8G93dXIQOkQqHo2M5HLhYrRVC0//fakJXxcF1VmMPsxnG6Ee8qEylA8b8Q3peQXWMNZ62lYF28g==}
+    engines: {node: '>=6'}
+
+  '@fortawesome/free-solid-svg-icons@6.7.2':
+    resolution: {integrity: sha512-GsBrnOzU8uj0LECDfD5zomZJIjrPhIlWU82AHwa2s40FKH+kcxQaBvBo3Z4TxyZHIyX8XTDxsyA33/Vx9eFuQA==}
+    engines: {node: '>=6'}
 
   '@img/colour@1.1.0':
     resolution: {integrity: sha512-Td76q7j57o/tLVdgS746cYARfSyxk8iEfRxewL9h4OMzYhbW4TAcppl0mT4eyqXddh6L/jwoM75mo7ixa/pCeQ==}
@@ -2764,6 +2868,9 @@ packages:
   lodash.uniq@4.5.0:
     resolution: {integrity: sha512-xfBaXQd9ryd9dlSDvnvI0lvxfLJlYAZzXomUYzLKtUeOQvOP5piqAWuGtrhWeqaXK9hhoM/iyJc5AV+XfsX3HQ==}
 
+  lucide@1.16.0:
+    resolution: {integrity: sha512-20QvduCJTB7e7K9WVvoLBuKPsYZ8d6ptwe9PIdTFiZmjVTPdFWQreBNyNCM9QQtGnqHR0PLiEQdxyhYsL1LdoA==}
+
   magic-string@0.30.21:
     resolution: {integrity: sha512-vd2F4YUyEXKGcLHoq+TEyCjxueSeHnFxyyjNp80yg0XV4vUhnDer/lvvlqM/arB5bXQN5K2/3oinyCRyx8T2CQ==}
 
@@ -3753,6 +3860,22 @@ snapshots:
 
   '@esbuild/win32-x64@0.28.0':
     optional: true
+
+  '@fortawesome/fontawesome-common-types@6.7.2': {}
+
+  '@fortawesome/fontawesome-free@6.7.2': {}
+
+  '@fortawesome/free-brands-svg-icons@6.7.2':
+    dependencies:
+      '@fortawesome/fontawesome-common-types': 6.7.2
+
+  '@fortawesome/free-regular-svg-icons@6.7.2':
+    dependencies:
+      '@fortawesome/fontawesome-common-types': 6.7.2
+
+  '@fortawesome/free-solid-svg-icons@6.7.2':
+    dependencies:
+      '@fortawesome/fontawesome-common-types': 6.7.2
 
   '@img/colour@1.1.0': {}
 
@@ -5843,6 +5966,8 @@ snapshots:
   lodash.memoize@4.1.2: {}
 
   lodash.uniq@4.5.0: {}
+
+  lucide@1.16.0: {}
 
   magic-string@0.30.21:
     dependencies:

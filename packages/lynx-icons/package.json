@@ -1,0 +1,70 @@
+{
+    "name": "@sigx/lynx-icons",
+    "version": "0.1.0",
+    "description": "Icon component and registry for sigx-lynx — works with adapter packages like @sigx/lynx-icons-fa-free and @sigx/lynx-icons-lucide.",
+    "type": "module",
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.ts",
+            "import": "./dist/index.js",
+            "default": "./dist/index.js"
+        },
+        "./__codepoints": {
+            "types": "./dist/stubs/codepoints.d.ts",
+            "import": "./dist/stubs/codepoints.js",
+            "default": "./dist/stubs/codepoints.js"
+        },
+        "./__svgs": {
+            "types": "./dist/stubs/svgs.d.ts",
+            "import": "./dist/stubs/svgs.js",
+            "default": "./dist/stubs/svgs.js"
+        },
+        "./__font-face.css": {
+            "types": "./dist/stubs/font-face.css.d.ts",
+            "default": "./dist/stubs/font-face.css"
+        },
+        "./package.json": "./package.json"
+    },
+    "files": [
+        "dist",
+        "README.md",
+        "LICENSE"
+    ],
+    "scripts": {
+        "build": "vite build && tsgo --emitDeclarationOnly && node ../../scripts/copy-assets.mjs src/stubs dist/stubs",
+        "dev": "vite build --watch"
+    },
+    "peerDependencies": {
+        "@sigx/lynx": "workspace:^"
+    },
+    "devDependencies": {
+        "@sigx/lynx": "workspace:^",
+        "@sigx/vite": "^0.4.3",
+        "typescript": "^6.0.3"
+    },
+    "author": "Andreas Ekdahl",
+    "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/signalxjs/lynx.git",
+        "directory": "packages/lynx-icons"
+    },
+    "homepage": "https://github.com/signalxjs/lynx/tree/main/packages/lynx-icons",
+    "bugs": {
+        "url": "https://github.com/signalxjs/lynx/issues"
+    },
+    "publishConfig": {
+        "access": "public"
+    },
+    "keywords": [
+        "signalx",
+        "sigx",
+        "lynx",
+        "icon",
+        "icons",
+        "font-awesome",
+        "lucide"
+    ]
+}

@@ -15,6 +15,33 @@ export type Platform = 'android' | 'ios';
 /** Activity orientation lock. */
 export type Orientation = 'portrait' | 'landscape' | 'default';
 
+/** Icon-set rendering backend. */
+export type IconMode = 'svg' | 'font';
+
+/** Font Awesome (and FA-compatible) style variants. */
+export type IconStyle = 'solid' | 'regular' | 'brands' | 'light' | 'thin' | 'duotone';
+
+/** A single icon-set declaration. */
+export interface IconSetConfig {
+    /** Call-site alias: `<Icon set="fa" name="user" />`. Must be unique across sets. */
+    id: string;
+    /** npm package implementing the set, e.g. '@sigx/lynx-icons-fa-free'. */
+    source: string;
+    /** Style subset to ship (Font Awesome only). Omit to include every style the adapter exports. */
+    styles?: IconStyle[];
+    /**
+     * Rendering backend for this set.
+     * Default: 'font' when the adapter ships a TTF, otherwise 'svg'.
+     * Adapters that don't bundle a TTF (e.g. lucide) reject 'font' at validation time.
+     */
+    mode?: IconMode;
+    /**
+     * Force-include glyph names that the build-time scanner can't see
+     * (e.g. when `name` is a dynamic expression). One entry per glyph name.
+     */
+    include?: string[];
+}
+
 /** A single native module declaration. */
 export interface ModuleConfig {
     /** npm package name, e.g. '@sigx/lynx-camera' */
@@ -119,6 +146,14 @@ export interface LynxConfig {
      * - A ModuleConfig object for advanced configuration
      */
     modules?: (string | ModuleConfig)[];
+    /**
+     * Icon sets to enable. Each entry pulls in an adapter package
+     * (e.g. `@sigx/lynx-icons-fa-free`) and registers it under `id`.
+     * Used icons are auto-detected from JSX at build time and the
+     * resulting font (or per-glyph SVG bundle) is tree-shaken/subset
+     * to only what your app actually renders.
+     */
+    iconSets?: IconSetConfig[];
     /** Android-specific configuration. */
     android?: AndroidConfig;
     /** iOS-specific configuration. */
@@ -150,6 +185,10 @@ export interface LynxConfig {
  *         '@sigx/lynx-haptics',
  *         '@sigx/lynx-camera',
  *         { package: '@sigx/lynx-location', config: { accuracy: 'high' } },
+ *     ],
+ *     iconSets: [
+ *         { id: 'fa', source: '@sigx/lynx-icons-fa-free', styles: ['solid', 'brands'] },
+ *         { id: 'lucide', source: '@sigx/lynx-icons-lucide' },
  *     ],
  *     android: {
  *         applicationId: 'com.mycompany.myapp',

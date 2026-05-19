@@ -1,0 +1,68 @@
+{
+    "name": "@sigx/lynx-icons-fa-free",
+    "version": "0.1.0",
+    "description": "Font Awesome Free adapter for @sigx/lynx-icons. Provides solid/regular/brands styles via the official @fortawesome/* packages.",
+    "type": "module",
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.ts",
+            "import": "./dist/index.js",
+            "default": "./dist/index.js"
+        },
+        "./package.json": "./package.json"
+    },
+    "files": [
+        "dist",
+        "README.md",
+        "LICENSE"
+    ],
+    "scripts": {
+        "build": "vite build && tsgo --emitDeclarationOnly",
+        "dev": "vite build --watch"
+    },
+    "peerDependencies": {
+        "@fortawesome/fontawesome-free": "^6.0.0",
+        "@fortawesome/free-brands-svg-icons": "^6.0.0",
+        "@fortawesome/free-regular-svg-icons": "^6.0.0",
+        "@fortawesome/free-solid-svg-icons": "^6.0.0",
+        "@sigx/lynx-icons": "workspace:^"
+    },
+    "peerDependenciesMeta": {
+        "@fortawesome/free-brands-svg-icons": { "optional": true },
+        "@fortawesome/free-regular-svg-icons": { "optional": true }
+    },
+    "devDependencies": {
+        "@fortawesome/fontawesome-free": "^6.7.2",
+        "@fortawesome/free-brands-svg-icons": "^6.7.2",
+        "@fortawesome/free-regular-svg-icons": "^6.7.2",
+        "@fortawesome/free-solid-svg-icons": "^6.7.2",
+        "@sigx/lynx-icons": "workspace:^",
+        "@sigx/vite": "^0.4.3",
+        "@types/node": "^25.7.0",
+        "typescript": "^6.0.3"
+    },
+    "author": "Andreas Ekdahl",
+    "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/signalxjs/lynx.git",
+        "directory": "packages/lynx-icons-fa-free"
+    },
+    "homepage": "https://github.com/signalxjs/lynx/tree/main/packages/lynx-icons-fa-free",
+    "bugs": {
+        "url": "https://github.com/signalxjs/lynx/issues"
+    },
+    "publishConfig": {
+        "access": "public"
+    },
+    "keywords": [
+        "signalx",
+        "sigx",
+        "lynx",
+        "icon",
+        "font-awesome",
+        "fontawesome"
+    ]
+}

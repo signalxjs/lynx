@@ -81,7 +81,19 @@ Auto-linked by `sigx prebuild` — list them under `modules: [...]` in your `sig
 | Package | Description |
 |---|---|
 | [`@sigx/lynx-daisyui`](./packages/lynx-daisyui) | DaisyUI-flavored component library, stylesheet, and Tailwind preset for Lynx. |
-| [`@sigx/lynx-navigation`](./packages/lynx-navigation) | Type-first native stack router. *Currently private — depends on `@sigx/motion` which is pre-`0.1`.* |
+| [`@sigx/lynx-icons`](./packages/lynx-icons) | `<Icon set name />` component + registry. Pairs with adapter packages (`@sigx/lynx-icons-fa-free`, `@sigx/lynx-icons-lucide`); used icons are auto-detected from JSX at build time and subset/tree-shaken. |
+| [`@sigx/lynx-icons-fa-free`](./packages/lynx-icons-fa-free) | Font Awesome Free adapter for `@sigx/lynx-icons` (solid/regular/brands). Reads glyph data from the user's installed `@fortawesome/free-*-svg-icons` packages. |
+| [`@sigx/lynx-icons-lucide`](./packages/lynx-icons-lucide) | Lucide adapter for `@sigx/lynx-icons`. SVG-mode only (lucide has no font distribution). |
+| [`@sigx/lynx-navigation`](./packages/lynx-navigation) | Type-first native navigator — `Stack`, `Tabs`, `Drawer`, modals, lazy routes, deep links. |
+
+### Gestures & motion
+
+Frame-locked touch handling and animation drivers. Both plug into the cross-thread `SharedValue` bridge documented in [`@sigx/lynx`](./packages/lynx), so gestures and animations stay on the main UI thread even when the JS thread is busy.
+
+| Package | Description |
+|---|---|
+| [`@sigx/lynx-gestures`](./packages/lynx-gestures) | `<Pressable>`, `<Draggable>`, `<Swipeable>`, plus `useTap` / `usePan` / `usePinch` / `useSwipe` / `useLongPress` / `useFling` / `useRotation` / `usePanResponder` and a `useGesture` composer. |
+| [`@sigx/lynx-motion`](./packages/lynx-motion) | `withSpring`, `withTiming`, `animate` — animation progress is observable from the background thread for free (each MT frame ships to a BG-side sigx `signal`). |
 
 ## Networking
 
@@ -93,13 +105,6 @@ Auto-linked by `sigx prebuild` — list them under `modules: [...]` in your `sig
   Caveats vs the browser: no CORS, no `redirect`, no `keepalive`, no `FormData` / `Blob`. Standard `Request` / `Response` / `json()` / `text()` otherwise.
 - **WebSocket** — install [`@sigx/lynx-websocket`](./packages/lynx-websocket) and add it to `modules:` in `sigx.lynx.config.ts`. Registers a browser-standard `WebSocket` global backed by `URLSessionWebSocketTask` (iOS) and OkHttp (Android).
 - **Connectivity status** — [`@sigx/lynx-network`](./packages/lynx-network) reports online/offline + connection type. Not a transport; pair with `fetch` / `WebSocket`.
-
-## Companion packages (separate repos)
-
-Touch handling, gestures, and animation drivers live in sibling repos and plug into the same `SharedValue` bridge documented in [`@sigx/lynx`](./packages/lynx):
-
-- [`@sigx/gestures`](https://github.com/signalxjs/gestures) — `<Pressable>`, `<Draggable>`, `<Swipeable>`, `<ScrollView>`.
-- [`@sigx/motion`](https://github.com/signalxjs/motion) — `withSpring`, `withTiming`, `animate`.
 
 ## Development
 
