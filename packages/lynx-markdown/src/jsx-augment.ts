@@ -12,10 +12,44 @@
  *   - iOS:     not yet in any tagged release; lands on the main branch
  *               post-3.8.0
  *
- * `<x-markdown>` props in JSX still type-check on platforms where the
- * native element is not registered — they just render nothing at runtime.
+ * `<x-markdown>` props in JSX still type-check on every platform. At
+ * runtime the SignalX renderer issues a `__CreateElement('x-markdown')`
+ * op unconditionally; on platforms where the native element is not
+ * registered, the underlying engine handles the unknown tag (today it
+ * logs a warning and emits no view). There is no JS-side feature gate
+ * in this package — once you upgrade to a Lynx release that ships the
+ * element on your target platforms, rendering activates automatically.
  */
 import type { LynxCommonAttributes, LynxEventHandler } from '@sigx/lynx-runtime';
+
+/** Detail payload of `bindlink` — the engine ships `url` plus optional fields. */
+export interface MarkdownLinkEventDetail {
+    url: string;
+    [k: string]: unknown;
+}
+export interface MarkdownLinkEvent {
+    type: 'link';
+    detail: MarkdownLinkEventDetail;
+}
+
+/** Detail payload of `bindimageTap`. */
+export interface MarkdownImageTapEventDetail {
+    src: string;
+    [k: string]: unknown;
+}
+export interface MarkdownImageTapEvent {
+    type: 'imageTap';
+    detail: MarkdownImageTapEventDetail;
+}
+
+/** Detail payload of `bindparseEnd`. */
+export interface MarkdownParseEndEventDetail {
+    [k: string]: unknown;
+}
+export interface MarkdownParseEndEvent {
+    type: 'parseEnd';
+    detail: MarkdownParseEndEventDetail;
+}
 
 export interface XMarkdownAttributes extends LynxCommonAttributes {
     /**
@@ -37,11 +71,11 @@ export interface XMarkdownAttributes extends LynxCommonAttributes {
      */
     'text-mark-attachments'?: ReadonlyArray<unknown>;
     /** Fires when the user taps an `[anchor](url)` link. */
-    bindlink?: LynxEventHandler;
+    bindlink?: LynxEventHandler<MarkdownLinkEvent>;
     /** Fires when the user taps an inline image. */
-    bindimageTap?: LynxEventHandler;
+    bindimageTap?: LynxEventHandler<MarkdownImageTapEvent>;
     /** Fires once the engine finishes parsing the source. */
-    bindparseEnd?: LynxEventHandler;
+    bindparseEnd?: LynxEventHandler<MarkdownParseEndEvent>;
 }
 
 declare global {

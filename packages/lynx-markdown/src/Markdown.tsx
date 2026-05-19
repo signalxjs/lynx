@@ -1,27 +1,12 @@
 import { component, type Define } from '@sigx/lynx';
 import './jsx-augment';
+import type {
+    MarkdownLinkEvent,
+    MarkdownImageTapEvent,
+    MarkdownParseEndEvent,
+} from './jsx-augment';
 
 export type MarkdownEffect = 'typewriter' | 'none' | (string & {});
-
-/** Detail payload of `bindlink` — the engine ships `url` plus optional fields. */
-export interface MarkdownLinkEventDetail {
-    url: string;
-    [k: string]: unknown;
-}
-export type MarkdownLinkEvent = { type: 'link'; detail: MarkdownLinkEventDetail };
-
-/** Detail payload of `bindimageTap`. */
-export interface MarkdownImageTapEventDetail {
-    src: string;
-    [k: string]: unknown;
-}
-export type MarkdownImageTapEvent = { type: 'imageTap'; detail: MarkdownImageTapEventDetail };
-
-/** Detail payload of `bindparseEnd`. */
-export interface MarkdownParseEndEventDetail {
-    [k: string]: unknown;
-}
-export type MarkdownParseEndEvent = { type: 'parseEnd'; detail: MarkdownParseEndEventDetail };
 
 export type MarkdownProps =
     & Define.Prop<'value', string, false>
@@ -54,7 +39,8 @@ export type MarkdownProps =
  * @remarks
  * Availability of the `<x-markdown>` element is platform-dependent — see
  * `jsx-augment.ts` for the per-platform schedule. On platforms where the
- * native element is not registered, the component renders nothing.
+ * native element is not registered, the engine logs a warning and renders
+ * no view; there is no JS-side feature gate.
  */
 export const Markdown = component<MarkdownProps>(({ props }) => {
     return () => (
@@ -63,9 +49,9 @@ export const Markdown = component<MarkdownProps>(({ props }) => {
             text-mark-attachments={props.attachments}
             class={props.class}
             style={props.style}
-            bindlink={props.onLink as never}
-            bindimageTap={props.onImageTap as never}
-            bindparseEnd={props.onParseEnd as never}
+            bindlink={props.onLink}
+            bindimageTap={props.onImageTap}
+            bindparseEnd={props.onParseEnd}
         >
             {props.value ?? ''}
         </x-markdown>

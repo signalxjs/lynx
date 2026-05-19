@@ -1,14 +1,13 @@
 import './jsx-augment';
 
 export { Markdown } from './Markdown';
+export type { MarkdownProps, MarkdownEffect } from './Markdown';
 export type {
-    MarkdownProps,
-    MarkdownEffect,
+    XMarkdownAttributes,
     MarkdownLinkEvent,
     MarkdownLinkEventDetail,
     MarkdownImageTapEvent,
     MarkdownImageTapEventDetail,
     MarkdownParseEndEvent,
     MarkdownParseEndEventDetail,
-} from './Markdown';
-export type { XMarkdownAttributes } from './jsx-augment';
+} from './jsx-augment';
