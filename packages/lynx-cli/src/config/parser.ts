@@ -8,7 +8,20 @@ import type {
     Orientation,
     SplashConfig,
     AdaptiveIconConfig,
+    IconSetConfig,
+    IconMode,
+    IconStyle,
 } from './schema';
+
+const VALID_ICON_MODES: ReadonlySet<IconMode> = new Set(['svg', 'font']);
+const VALID_ICON_STYLES: ReadonlySet<IconStyle> = new Set([
+    'solid',
+    'regular',
+    'brands',
+    'light',
+    'thin',
+    'duotone',
+]);
 
 /** Default config values applied when not specified by the user. */
 const DEFAULTS: Partial<LynxConfig> = {
@@ -40,6 +53,15 @@ export interface ResolvedModule {
     config: Record<string, unknown>;
 }
 
+/** Normalised icon-set entry. `mode` is left undefined when the user didn't set it — the build plugin picks per-adapter defaults. */
+export interface ResolvedIconSet {
+    id: string;
+    source: string;
+    styles: IconStyle[] | null;
+    mode: IconMode | null;
+    include: string[];
+}
+
 /** Per-platform asset paths, fully resolved (absolute) and ready for sharp. */
 export interface ResolvedPlatformAssets {
     iconSource: string;
@@ -59,6 +81,7 @@ export interface ResolvedConfig {
     version: string;
     buildNumber: string;
     modules: ResolvedModule[];
+    iconSets: ResolvedIconSet[];
     platforms: Platform[];
     android: Required<Pick<NonNullable<LynxConfig['android']>, 'minSdk' | 'targetSdk' | 'compileSdk' | 'versionCode'>> &
         Omit<NonNullable<LynxConfig['android']>, 'minSdk' | 'targetSdk' | 'compileSdk' | 'versionCode'>;
@@ -80,6 +103,7 @@ export function resolveConfig(raw: LynxConfig): ResolvedConfig {
         buildNumber,
         platforms,
         modules: (raw.modules ?? []).map((m) => resolveModule(m, platforms)),
+        iconSets: resolveIconSets(raw.iconSets),
         android: {
             ...ANDROID_DEFAULTS,
             ...raw.android,
@@ -105,6 +129,49 @@ function resolveModule(entry: string | ModuleConfig, defaultPlatforms: Platform[
         platforms: entry.platforms ?? defaultPlatforms,
         config: entry.config ?? {},
     };
+}
+
+function resolveIconSets(raw: IconSetConfig[] | undefined): ResolvedIconSet[] {
+    if (!raw || raw.length === 0) return [];
+
+    const seen = new Set<string>();
+    return raw.map((entry, idx) => {
+        if (!entry.id || typeof entry.id !== 'string') {
+            throw new Error(`iconSets[${idx}].id must be a non-empty string`);
+        }
+        if (seen.has(entry.id)) {
+            throw new Error(`Duplicate iconSets id "${entry.id}"`);
+        }
+        seen.add(entry.id);
+
+        if (!entry.source || typeof entry.source !== 'string') {
+            throw new Error(`iconSets[${idx}] ("${entry.id}").source must be a non-empty string`);
+        }
+
+        if (entry.mode !== undefined && !VALID_ICON_MODES.has(entry.mode)) {
+            throw new Error(
+                `iconSets[${idx}] ("${entry.id}").mode "${entry.mode}" is invalid — expected 'svg' or 'font'`,
+            );
+        }
+
+        if (entry.styles) {
+            for (const style of entry.styles) {
+                if (!VALID_ICON_STYLES.has(style)) {
+                    throw new Error(
+                        `iconSets[${idx}] ("${entry.id}").styles contains unknown style "${style}"`,
+                    );
+                }
+            }
+        }
+
+        return {
+            id: entry.id,
+            source: entry.source,
+            styles: entry.styles ?? null,
+            mode: entry.mode ?? null,
+            include: entry.include ?? [],
+        };
+    });
 }
 
 /**
