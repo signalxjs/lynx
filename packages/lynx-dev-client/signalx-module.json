@@ -9,8 +9,8 @@
         "sourceDir": "android/src/main/kotlin",
         "debugOnly": true,
         "dependencies": [
-            "org.lynxsdk.lynx:lynx-devtool:3.6.0",
-            "org.lynxsdk.lynx:lynx-service-devtool:3.6.0",
+            "org.lynxsdk.lynx:lynx-devtool:3.7.0",
+            "org.lynxsdk.lynx:lynx-service-devtool:3.7.0",
             "androidx.compose.material3:material3",
             "androidx.compose.material:material-icons-extended",
             "androidx.compose.ui:ui",

@@ -25,10 +25,12 @@
             "types": "./dist/stubs/font-face.css.d.ts",
             "default": "./dist/stubs/font-face.css"
         },
+        "./sigx-module.json": "./sigx-module.json",
         "./package.json": "./package.json"
     },
     "files": [
         "dist",
+        "sigx-module.json",
         "README.md",
         "LICENSE"
     ],
