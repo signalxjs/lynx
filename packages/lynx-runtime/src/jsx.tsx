@@ -332,12 +332,25 @@ export interface PageAttributes extends LynxCommonAttributes {
 }
 
 export interface SvgAttributes extends LynxCommonAttributes {
-    children?: any;
-    /** SVG width */
+    /**
+     * Raw SVG markup as a string — Lynx's `<svg>` element renders this
+     * natively (the engine parses the inline XML; there are no JSX
+     * children for SVG primitives).
+     *
+     * @example
+     * ```tsx
+     * <svg content='<svg viewBox="0 0 24 24"><path d="…" fill="currentColor"/></svg>'
+     *      style={{ width: 24, height: 24 }} />
+     * ```
+     */
+    content?: string;
+    /** URL to an external SVG resource (alternative to `content`). */
+    src?: string;
+    /** SVG width — usually preferable to control sizing via `style`. */
     width?: number | string;
-    /** SVG height */
+    /** SVG height — usually preferable to control sizing via `style`. */
     height?: number | string;
-    /** SVG viewBox */
+    /** SVG viewBox — only relevant when `content` is omitted (otherwise the inline `<svg>` carries its own viewBox). */
     viewBox?: string;
 }
 

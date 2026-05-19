@@ -11,8 +11,8 @@ export type IconProps =
     & Define.Prop<'color', string, false>
     & Define.Prop<'class', string, false>;
 
-function svgDataUri(template: string, color: string): string {
-    return `data:image/svg+xml;utf8,${encodeURIComponent(template.replace(/__COLOR__/g, color))}`;
+function inlineSvg(template: string, color: string): string {
+    return template.replace(/__COLOR__/g, color);
 }
 
 /**
@@ -21,10 +21,16 @@ function svgDataUri(template: string, color: string): string {
  * Sets are declared in `signalx.config.ts` via `iconSets: [...]` (build-time,
  * tree-shaken) or via `defineIconSet({ id, glyphs })` (runtime, ad-hoc).
  *
- * SVG-mode sets render as an `<image>` with an SVG data URI. Font-mode sets
- * fall back to a single character inside a `<text>` element with a matching
- * `font-family` when no SVG is available. Missing glyphs render an empty
- * `<view>` of the same size.
+ * Resolution order: **SVG first**, then codepoint, then missing placeholder.
+ *
+ * - SVG-mode sets render with Lynx's native `<svg content={...}>` element
+ *   (the engine parses the inline XML; no JSX children, no data: URIs).
+ * - Font-mode sets fall back to a single character inside a `<text>` element
+ *   with a matching `font-family`. The plugin only emits codepoints when the
+ *   matching `@font-face` has also been registered (v1.1+); v1 always hits
+ *   the SVG branch.
+ * - Missing glyphs render an empty `<view>` of the same size so layout
+ *   doesn't jump.
  *
  * @example
  * ```tsx
@@ -43,8 +49,8 @@ export const Icon = component<IconProps>(({ props }) => {
         if (glyph?.svg) {
             const color = props.color ?? 'currentColor';
             return (
-                <image
-                    src={svgDataUri(glyph.svg.svg, color)}
+                <svg
+                    content={inlineSvg(glyph.svg.svg, color)}
                     class={props.class}
                     style={sizeStyle}
                 />
