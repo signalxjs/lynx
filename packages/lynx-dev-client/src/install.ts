@@ -43,15 +43,31 @@ try {
                 platform: 'probe',
             }],
         });
+        // Lynx documents `fetch()` as a *global identifier* on the BTS runtime
+        // (https://lynxjs.org/api/lynx-api/global/fetch.html) and may bind it
+        // directly without exposing it on `globalThis`. Resolve through `eval`
+        // so the reference doesn't blow up if the identifier is missing.
+        const resolveBare = (name: string): unknown => {
+            try {
+                // eslint-disable-next-line @typescript-eslint/no-implied-eval
+                return new Function(`try { return typeof ${name} !== 'undefined' ? ${name} : undefined } catch (_) { return undefined }`)();
+            } catch { return undefined; }
+        };
         const g = globalThis as {
             fetch?: typeof fetch;
             XMLHttpRequest?: { new (): XMLHttpRequest };
             lynx?: { fetch?: (req: { url: string; method?: string; headers?: Record<string, string>; body?: string }) => Promise<unknown> };
         };
-        logRaw(`[sigx-dev-client] probe globals: fetch=${typeof g.fetch} XHR=${typeof g.XMLHttpRequest} lynx.fetch=${typeof g.lynx?.fetch}`);
+        const bareFetch = resolveBare('fetch') as typeof fetch | undefined;
+        const bareXhr = resolveBare('XMLHttpRequest') as { new (): XMLHttpRequest } | undefined;
+        const bareLynx = resolveBare('lynx') as { fetch?: (req: { url: string; method?: string; headers?: Record<string, string>; body?: string }) => Promise<unknown> } | undefined;
+        const fetchImpl = g.fetch ?? bareFetch;
+        const xhrImpl = g.XMLHttpRequest ?? bareXhr;
+        const lynxFetch = g.lynx?.fetch ?? bareLynx?.fetch;
+        logRaw(`[sigx-dev-client] probe globals: globalThis.fetch=${typeof g.fetch} bare fetch=${typeof bareFetch} XHR=${typeof xhrImpl} lynx.fetch=${typeof lynxFetch}`);
         try {
-            if (typeof g.fetch === 'function') {
-                Promise.resolve(g.fetch(url, {
+            if (typeof fetchImpl === 'function') {
+                Promise.resolve(fetchImpl(url, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body,
@@ -59,8 +75,8 @@ try {
                     (res: Response | undefined) => logRaw(`[sigx-dev-client] raw fetch → ${res?.status ?? '?'}`),
                     (err: unknown) => logRaw(`[sigx-dev-client] raw fetch FAILED: ${(err as { message?: string })?.message ?? String(err)}`),
                 );
-            } else if (typeof g.XMLHttpRequest === 'function') {
-                const xhr = new g.XMLHttpRequest();
+            } else if (typeof xhrImpl === 'function') {
+                const xhr = new xhrImpl();
                 xhr.open('POST', url, true);
                 xhr.setRequestHeader('Content-Type', 'application/json');
                 xhr.onreadystatechange = (): void => {
@@ -70,8 +86,8 @@ try {
                 };
                 xhr.onerror = (): void => logRaw('[sigx-dev-client] raw XHR errored');
                 xhr.send(body);
-            } else if (typeof g.lynx?.fetch === 'function') {
-                Promise.resolve(g.lynx.fetch({
+            } else if (typeof lynxFetch === 'function') {
+                Promise.resolve(lynxFetch({
                     url,
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },

@@ -183,7 +183,19 @@ export function installConsoleStreamer(url: string, opts: InstallOptions = {}): 
     const existing = (target as unknown as Record<string, unknown>)[markerKey];
     if (typeof existing === 'function') return existing as Uninstall;
 
-    const fetchImpl = opts.fetchImpl ?? (globalThis as { fetch?: typeof fetch }).fetch;
+    const fetchImpl =
+        opts.fetchImpl ??
+        (globalThis as { fetch?: typeof fetch }).fetch ??
+        // Lynx exposes `fetch()` as a *global identifier* on the BTS runtime
+        // (not always as a property of `globalThis`). Resolve it through a
+        // dynamic Function so a missing binding doesn't throw a ReferenceError.
+        (((): typeof fetch | undefined => {
+            try {
+                return new Function(
+                    'try { return typeof fetch !== "undefined" ? fetch : undefined } catch (_) { return undefined }',
+                )() as typeof fetch | undefined;
+            } catch { return undefined; }
+        })());
     if (!fetchImpl) {
         // No fetch on this runtime → we can't ship logs. Bail out gracefully.
         return () => undefined;
