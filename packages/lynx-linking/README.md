@@ -17,7 +17,7 @@ export default defineLynxConfig({
 });
 ```
 
-After installing, run `sigx-lynx prebuild`. The CLI auto-discovers the package and:
+After installing, run `sigx prebuild`. The CLI auto-discovers the package and:
 
 - Adds `myapp` to `CFBundleURLSchemes` in iOS `Info.plist`.
 - Adds an `<intent-filter>` for `myapp://` to the Android Activity.

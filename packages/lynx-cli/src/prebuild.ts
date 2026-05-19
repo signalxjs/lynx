@@ -664,8 +664,17 @@ export async function discoverSigxPackages(
         try {
             require.resolve(`${pkg}/sigx-module.json`);
             discovered.push(pkg);
-        } catch {
-            // Either not installed or doesn't ship a manifest — not a Lynx module.
+        } catch (err) {
+            // MODULE_NOT_FOUND is the common case (package isn't a Lynx module
+            // or isn't installed) — skip silently. Other errors usually mean
+            // the package ships sigx-module.json but mis-configured its
+            // `exports` field (e.g. lynx-dev-client@0.1.1 shipped the manifest
+            // but didn't list it in `files`), which is a packaging bug that
+            // should be surfaced.
+            const code = (err as NodeJS.ErrnoException).code;
+            if (code !== 'MODULE_NOT_FOUND') {
+                log(`⚠ ${pkg}: ships sigx-module.json but it isn't resolvable — check the package's exports/files. (${code})`);
+            }
         }
     }
 
@@ -1326,10 +1335,12 @@ export async function runPrebuild(opts: PrebuildOptions = {}): Promise<void> {
         // `disabled` entries stay in `config.modules` so auto-discovery knows to
         // skip them too — but they must NOT reach the linker. Filter them out
         // for both the linker input and the "already declared" exclusion set.
-        const configModulePackages = modulesForPlatform(config, 'android')
-            .filter((m) => !m.disabled)
-            .map((m) => m.package);
-        const disabledPackages = config.modules.filter((m) => m.disabled).map((m) => m.package);
+        // Scope `disabled` by platform: `{ platforms: ['ios'], disabled: true }`
+        // means "skip iOS linking" — auto-discovery should still pick the package
+        // up on Android.
+        const androidModules = modulesForPlatform(config, 'android');
+        const configModulePackages = androidModules.filter((m) => !m.disabled).map((m) => m.package);
+        const disabledPackages = androidModules.filter((m) => m.disabled).map((m) => m.package);
         const discoveredPackages = await discoverSigxPackages(
             cwd,
             [...configModulePackages, ...disabledPackages],
@@ -1400,10 +1411,9 @@ export async function runPrebuild(opts: PrebuildOptions = {}): Promise<void> {
 
         // Auto-link
         log('Linking iOS modules...');
-        const configModulePackagesIos = modulesForPlatform(config, 'ios')
-            .filter((m) => !m.disabled)
-            .map((m) => m.package);
-        const disabledPackagesIos = config.modules.filter((m) => m.disabled).map((m) => m.package);
+        const iosModules = modulesForPlatform(config, 'ios');
+        const configModulePackagesIos = iosModules.filter((m) => !m.disabled).map((m) => m.package);
+        const disabledPackagesIos = iosModules.filter((m) => m.disabled).map((m) => m.package);
         const discoveredPackagesIos = await discoverSigxPackages(
             cwd,
             [...configModulePackagesIos, ...disabledPackagesIos],

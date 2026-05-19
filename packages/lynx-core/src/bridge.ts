@@ -36,7 +36,7 @@ export function getModule(name: string): Record<string, (...args: any[]) => any>
             `This usually means one of:\n` +
             `  1. You're not running in sigx-lynx-go (which has all modules pre-bundled)\n` +
             `  2. For custom builds, install "${pkg}" (\`pnpm add ${pkg}\`) and run\n` +
-            `     \`sigx-lynx prebuild\` to regenerate the native project.\n` +
+            `     \`sigx prebuild\` to regenerate the native project.\n` +
             `  3. The native module failed to register — check native logs for errors.`
         );
     }
