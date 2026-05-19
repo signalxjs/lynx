@@ -337,6 +337,68 @@ export default definePlugin({
                 await runDoctor(ctx.cwd, ctx.logger);
             },
         },
+        outdated: {
+            description: 'List installed @sigx/lynx-* packages and check for updates',
+            args: {
+                tag: { type: 'string', description: 'Compare against a dist-tag instead of "latest" (e.g. "canary"). When set, exit code only reflects lockstep drift, not "behind tag".' },
+            },
+            async run(ctx) {
+                const { runOutdated } = await import('./outdated.js');
+                const tag = ctx.args.tag as string | undefined;
+                const result = await runOutdated({ cwd: ctx.cwd, tag });
+                // Lockstep drift is always an error. "Update available"
+                // only fails the build for the default (latest) check —
+                // a user explicitly asking "am I on canary?" shouldn't
+                // get a non-zero exit just because canary moved.
+                const isExplicitTag = tag !== undefined && tag !== 'latest';
+                if (result.outOfSync > 0) process.exit(1);
+                if (!isExplicitTag && result.updatesAvailable > 0) process.exit(1);
+            },
+        },
+        upgrade: {
+            description: 'Upgrade all @sigx/lynx-* packages to the latest (or a target) version',
+            args: {
+                to: { type: 'string', description: 'Target version (e.g. "0.5.0") or dist-tag (e.g. "canary"). Default: latest.' },
+                'dry-run': { type: 'boolean', description: 'Print the planned diff without writing package.json or installing', default: false },
+                caret: { type: 'boolean', description: 'Use ^x.y.z ranges instead of exact pins. Default: exact (matches lockstep).', default: false },
+                force: { type: 'boolean', description: 'Bypass the dirty-tree gate', default: false },
+            },
+            async run(ctx) {
+                const { runUpgrade } = await import('./upgrade.js');
+                await runUpgrade({
+                    cwd: ctx.cwd,
+                    target: ctx.args.to as string | undefined,
+                    dryRun: ctx.args['dry-run'] as boolean | undefined,
+                    caret: ctx.args.caret as boolean | undefined,
+                    force: ctx.args.force as boolean | undefined,
+                });
+            },
+        },
+        add: {
+            description: 'Add @sigx/lynx-* module(s) at the version matching your existing sigx deps',
+            args: {
+                caret: { type: 'boolean', description: 'Use ^x.y.z range instead of exact pin. Default: exact (matches lockstep).', default: false },
+                force: { type: 'boolean', description: 'Bypass the dirty-tree gate', default: false },
+            },
+            async run(ctx) {
+                const { runAdd } = await import('./packages.js');
+                const modules = ((ctx.args._ as string[] | undefined) ?? []).filter((s) => typeof s === 'string');
+                await runAdd({
+                    cwd: ctx.cwd,
+                    modules,
+                    caret: ctx.args.caret as boolean | undefined,
+                    force: ctx.args.force as boolean | undefined,
+                });
+            },
+        },
+        remove: {
+            description: 'Remove @sigx/lynx-* module(s) from the project',
+            async run(ctx) {
+                const { runRemove } = await import('./packages.js');
+                const modules = ((ctx.args._ as string[] | undefined) ?? []).filter((s) => typeof s === 'string');
+                await runRemove({ cwd: ctx.cwd, modules });
+            },
+        },
         prebuild: {
             description: 'Generate native project files from signalx.config.ts',
             args: {

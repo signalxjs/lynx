@@ -14,6 +14,7 @@ import { execSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { isAdbAvailable, listAndroidDevices, isLynxGoInstalled } from './device-detect';
+import { detectFromLockfile, getVersion as getPmVersion, detectFromBinaries } from './util/package-manager';
 import type { Logger } from '@sigx/cli/plugin';
 
 interface Check {
@@ -44,14 +45,26 @@ function checkNode(): Check {
     }
 }
 
-function checkPackageManager(): Check {
-    const pnpm = getCommandVersion('pnpm --version');
-    if (pnpm) return { name: 'pnpm', status: 'ok', message: `v${pnpm}` };
+function checkPackageManager(cwd: string): Check {
+    // If the project has a lockfile, that's the source of truth for which
+    // tool owns it. Otherwise fall back to first-available on the machine.
+    const fromLock = detectFromLockfile(cwd);
+    if (fromLock) {
+        const version = getPmVersion(fromLock);
+        if (version) return { name: fromLock, status: 'ok', message: `v${version}` };
+        return {
+            name: fromLock,
+            status: 'error',
+            message: `Project uses ${fromLock} (lockfile present), but binary not found`,
+        };
+    }
 
-    const npm = getCommandVersion('npm --version');
-    if (npm) return { name: 'npm', status: 'ok', message: `v${npm}` };
-
-    return { name: 'Package manager', status: 'error', message: 'Neither pnpm nor npm found' };
+    const available = detectFromBinaries();
+    if (available) {
+        const version = getPmVersion(available);
+        return { name: available, status: 'ok', message: version ? `v${version}` : 'available' };
+    }
+    return { name: 'Package manager', status: 'error', message: 'No package manager found (pnpm, npm, yarn, or bun)' };
 }
 
 function checkAndroidSdk(): Check {
@@ -294,7 +307,7 @@ export async function runDoctor(cwd: string, logger: Logger): Promise<void> {
     const sections: { title: string; checks: Check[] }[] = [
         {
             title: 'Runtime',
-            checks: [checkNode(), checkPackageManager()],
+            checks: [checkNode(), checkPackageManager(cwd)],
         },
         {
             title: 'Android',
