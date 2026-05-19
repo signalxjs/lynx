@@ -69,4 +69,12 @@ export interface IconAdapter {
      * through `subset-font` to produce per-app subsets.
      */
     getFontPath(style: string): string | null;
+    /**
+     * Enumerate every glyph name the adapter can resolve for `style`, in
+     * the same kebab-case form `getGlyph` accepts. Used by the plugin when
+     * a project sets `iconSets[].include: ['*']` (e.g. JSON-driven UIs where
+     * the names aren't known at build time) — the plugin pulls the full
+     * catalog into the bundle instead of relying on the JSX scanner.
+     */
+    listGlyphs(style: string): string[];
 }

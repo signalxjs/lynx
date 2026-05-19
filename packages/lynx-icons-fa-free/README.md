@@ -49,6 +49,24 @@ The JS API shape (`{ prefix, iconName, icon: [w, h, _, unicode, path] }`) is sta
 
 `regular` and `brands` are marked as **optional peerDeps**. If you only need solid, install just `@fortawesome/free-solid-svg-icons` — calls for unknown styles silently resolve to `null` and `<Icon>` renders the missing-glyph placeholder.
 
+## Dynamic / JSON-driven icons
+
+If the icon `name` comes from data (a JSON UI tree, a CMS field) the build-time scanner can't see it. Set `include: ['*']` on the iconSet to ship every glyph the adapter knows about for the configured styles:
+
+```ts
+iconSets: [
+    { id: 'fa', source: '@sigx/lynx-icons-fa-free', styles: ['solid'], include: ['*'] },
+],
+```
+
+This bundles **all ~1 900 FA-solid glyphs** (~2 MB of JS). Use it only on sets that need it; mix with normally-tree-shaken sets for the rest. The build prints the exact glyph count:
+
+```
+[@sigx/lynx-plugin] icons: fa bundling 1956 glyphs (include: ['*'])
+```
+
+`@sigx/lynx-icons`'s upcoming font mode (v1.1) will swap SVG-per-glyph for a single subsetted TTF — dramatically smaller for full-catalog scenarios. Stay tuned.
+
 ## API
 
 ```ts

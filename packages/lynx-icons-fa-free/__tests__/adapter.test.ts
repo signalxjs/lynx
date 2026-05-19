@@ -50,4 +50,46 @@ describe('@sigx/lynx-icons-fa-free adapter', () => {
         const p = adapter.getFontPath('thin' as never);
         expect(p).toBeNull();
     });
+
+    describe('listGlyphs', () => {
+        it('enumerates the full FA solid catalog (1000+ kebab-case names)', () => {
+            const all = adapter.listGlyphs('solid');
+            expect(all.length).toBeGreaterThan(1000);
+            // Sanity-check a few well-known names are present.
+            expect(all).toContain('user');
+            expect(all).toContain('chevron-right');
+            expect(all).toContain('house');
+            expect(all).toContain('gear');
+        });
+
+        it('enumerates brands', () => {
+            const all = adapter.listGlyphs('brands');
+            expect(all.length).toBeGreaterThan(400);
+            expect(all).toContain('github');
+        });
+
+        it('filters out non-icon exports (prefix / fas / far / fab)', () => {
+            const solid = adapter.listGlyphs('solid');
+            expect(solid).not.toContain('prefix');
+            expect(solid).not.toContain('');
+            // The module's `fas` / single-letter prefix exports should be skipped.
+            for (const name of solid) {
+                expect(name).toMatch(/^[a-z][a-z0-9-]*$/);
+            }
+        });
+
+        it('returns [] for unknown style', () => {
+            expect(adapter.listGlyphs('thin' as never)).toEqual([]);
+        });
+
+        it('round-trips with getGlyph (every listed name resolves)', () => {
+            const all = adapter.listGlyphs('solid');
+            // Spot-check the first 20 to keep the test fast — full coverage
+            // would be O(1400) getGlyph calls per run.
+            for (const name of all.slice(0, 20)) {
+                const g = adapter.getGlyph('solid', name);
+                expect(g, `getGlyph('solid', '${name}') should not be null`).not.toBeNull();
+            }
+        });
+    });
 });

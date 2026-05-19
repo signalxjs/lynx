@@ -24,6 +24,29 @@ function exportNameFor(name: string): string {
     return name.split('-').map((seg) => seg.charAt(0).toUpperCase() + seg.slice(1)).join('');
 }
 
+/**
+ * Inverse of `exportNameFor`: insert `-` before every uppercase letter that
+ * isn't the first character, then lowercase. Mirrors the way `exportNameFor`
+ * builds names from kebab segments.
+ *
+ * - `User` → `user`
+ * - `ChevronRight` → `chevron-right`
+ * - `AArrowDown` → `a-arrow-down` (lucide really has names like this)
+ */
+function kebabFromPascal(exportName: string): string {
+    if (exportName.length === 0) return '';
+    let out = exportName.charAt(0).toLowerCase();
+    for (let i = 1; i < exportName.length; i++) {
+        const ch = exportName.charAt(i);
+        if (ch >= 'A' && ch <= 'Z') {
+            out += '-' + ch.toLowerCase();
+        } else {
+            out += ch;
+        }
+    }
+    return out;
+}
+
 function escapeAttr(value: string | number): string {
     return String(value).replace(/&/g, '&amp;').replace(/"/g, '&quot;');
 }
@@ -54,6 +77,22 @@ const adapter: IconAdapter = {
     /** Lucide has no font distribution. Always null → forces SVG mode. */
     getFontPath(): string | null {
         return null;
+    },
+
+    listGlyphs(_style: string): string[] {
+        const lucide = loadLucide();
+        if (!lucide) return [];
+        const out: string[] = [];
+        for (const [key, value] of Object.entries(lucide)) {
+            if (!Array.isArray(value)) continue;
+            // Lucide also exports a `createLucideIcon` helper etc. — skip
+            // anything that doesn't start with an uppercase letter (icon
+            // names are PascalCase).
+            const first = key.charAt(0);
+            if (first < 'A' || first > 'Z') continue;
+            out.push(kebabFromPascal(key));
+        }
+        return out;
     },
 };
 

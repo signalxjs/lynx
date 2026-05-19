@@ -39,6 +39,18 @@ Glyph names are kebab-case (`chevron-right`, not `ChevronRight`); the adapter co
 - The full Lucide catalog is reachable — every PascalCase export is mapped from a kebab-case name. If a name fails to resolve, check the [Lucide icon library](https://lucide.dev/icons/) for the canonical spelling.
 - `mode: 'font'` is rejected at config-validation time when v1.1 ships — Lucide has no source TTF.
 
+## Dynamic / JSON-driven icons
+
+If the icon `name` comes from data the build-time scanner can't see, set `include: ['*']` on the iconSet to ship the entire Lucide catalog:
+
+```ts
+iconSets: [
+    { id: 'lucide', source: '@sigx/lynx-icons-lucide', include: ['*'] },
+],
+```
+
+This bundles all ~1 500 Lucide glyphs into the JS bundle. Use it per-set, only when needed.
+
 ## API
 
 ```ts
