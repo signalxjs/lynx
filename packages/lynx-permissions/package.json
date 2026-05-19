@@ -3,17 +3,33 @@
     "version": "0.1.2",
     "description": "Shared Android permission helper for sigx-lynx native modules",
     "type": "module",
-    "main": "./src/index.ts",
-    "types": "./src/index.ts",
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
     "exports": {
-        ".": "./src/index.ts",
+        ".": {
+            "types": "./dist/index.d.ts",
+            "import": "./dist/index.js",
+            "default": "./dist/index.js"
+        },
         "./sigx-module.json": "./sigx-module.json"
     },
     "files": [
-        "src",
+        "dist",
         "android",
         "sigx-module.json"
     ],
+    "scripts": {
+        "build": "vite build && tsgo --emitDeclarationOnly",
+        "dev": "vite build --watch",
+        "prepublishOnly": "vite build && tsgo --emitDeclarationOnly",
+        "clean": "rm -rf dist .turbo *.tsbuildinfo"
+    },
+    "devDependencies": {
+        "@sigx/vite": "^0.4.3",
+        "@typescript/native-preview": "7.0.0-dev.20260511.1",
+        "typescript": "^6.0.3",
+        "vite": "^8.0.12"
+    },
     "author": "Andreas Ekdahl",
     "license": "MIT",
     "repository": {

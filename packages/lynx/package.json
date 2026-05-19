@@ -17,6 +17,9 @@
             "types": "./dist/jsx-dev-runtime.d.ts",
             "import": "./dist/jsx-dev-runtime.js"
         },
+        "./client": {
+            "types": "./dist/client.d.ts"
+        },
         "./package.json": "./package.json"
     },
     "repository": {
@@ -35,7 +38,7 @@
         "LICENSE"
     ],
     "scripts": {
-        "build": "vite build && tsgo --emitDeclarationOnly",
+        "build": "vite build && tsgo --emitDeclarationOnly && node ../../scripts/copy-assets.mjs src/client.d.ts dist/client.d.ts",
         "dev": "vite build --watch",
         "clean": "rm -rf dist .turbo *.tsbuildinfo"
     },
