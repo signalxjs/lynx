@@ -26,6 +26,8 @@ pnpm run:android   # or run:ios
 
 ## Packages
 
+All `@sigx/lynx-*` packages ship in **lockstep** — they share one version (the "Lynx framework version"). Install any combination at the same `X.Y.*` range and they're guaranteed to work together. See [`RELEASING.md`](RELEASING.md) for the policy.
+
 ### Framework
 
 The packages most apps depend on directly.

@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to this repository are documented here. Per-package changelogs live in each `packages/*/CHANGELOG.md`.
+All notable changes to this repository are documented here. All `@sigx/lynx-*` packages share a single lockstep version — one entry per release covers every package.
 
 ## [Unreleased]
 

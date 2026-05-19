@@ -5,7 +5,10 @@ import { fileURLToPath } from 'url';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const packagesDir = join(__dirname, '..', 'packages');
 
-const arg = process.argv[2] || 'patch';
+const rawArgs = process.argv.slice(2);
+const force = rawArgs.includes('--force');
+const positional = rawArgs.filter(a => !a.startsWith('--'));
+const arg = positional[0] || 'patch';
 
 // Check if arg is a version number (e.g., "0.2.0") or bump type
 const isExactVersion = /^\d+\.\d+\.\d+/.test(arg);
@@ -49,6 +52,46 @@ function processPackages(dir) {
                 // No package.json, skip
             }
         }
+    }
+}
+
+function assertLockstep() {
+    const versions = new Map();
+    for (const entry of readdirSync(packagesDir)) {
+        const pkgPath = join(packagesDir, entry, 'package.json');
+        try {
+            const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8'));
+            if (pkg.private || !pkg.version) continue;
+            if (!versions.has(pkg.version)) versions.set(pkg.version, []);
+            versions.get(pkg.version).push(pkg.name);
+        } catch {
+            // no package.json, skip
+        }
+    }
+    if (versions.size <= 1) return;
+    console.error('❌ Lockstep violation: publishable packages disagree on version.\n');
+    const sorted = [...versions.entries()].sort((a, b) => b[1].length - a[1].length);
+    for (const [version, names] of sorted) {
+        console.error(`  ${version}  (${names.length})`);
+        for (const name of names.sort()) console.error(`    - ${name}`);
+    }
+    if (exactVersion) {
+        console.error(
+            `\nRun with the same target (\`pnpm version:set ${exactVersion}\`) to re-unify, or pass --force to override.`,
+        );
+    } else {
+        console.error(
+            '\nRun `pnpm version:set <X.Y.Z>` to re-unify before bumping, or pass --force to bump anyway.',
+        );
+    }
+    process.exit(1);
+}
+
+if (!force) {
+    if (exactVersion) {
+        // For an explicit target, divergence is fine — that's exactly what we're fixing.
+    } else {
+        assertLockstep();
     }
 }
 
