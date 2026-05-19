@@ -13,7 +13,7 @@
 import { execSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { isAdbAvailable, listAndroidDevices, isFlowInstalled } from './device-detect';
+import { isAdbAvailable, listAndroidDevices, isLynxGoInstalled } from './device-detect';
 import type { Logger } from '@sigx/cli/plugin';
 
 interface Check {
@@ -183,7 +183,7 @@ function checkCocoaPods(): Check {
     return { name: 'CocoaPods', status: 'ok', message: `v${version}` };
 }
 
-function checkFlowApp(): Check {
+function checkLynxGoApp(): Check {
     if (!isAdbAvailable()) {
         return { name: 'sigx-lynx-go', status: 'skip', message: 'ADB not available' };
     }
@@ -197,7 +197,7 @@ function checkFlowApp(): Check {
     const notInstalled: string[] = [];
 
     for (const device of devices) {
-        if (isFlowInstalled(device.id)) {
+        if (isLynxGoInstalled(device.id)) {
             installed.push(device.model || device.id);
         } else {
             notInstalled.push(device.model || device.id);
@@ -306,7 +306,7 @@ export async function runDoctor(cwd: string, logger: Logger): Promise<void> {
         },
         {
             title: 'Lynx',
-            checks: [checkRspeedy(), checkProjectConfig(cwd), checkFlowApp()],
+            checks: [checkRspeedy(), checkProjectConfig(cwd), checkLynxGoApp()],
         },
     ];
 

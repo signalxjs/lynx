@@ -21,4 +21,4 @@ export { startDevServer } from './dev-server';
 export { runDoctor } from './doctor';
 export { generateQR } from './qr';
 export { getLanIP, getAllLanIPs } from './network';
-export { getDeviceStatus, listAndroidDevices, isAdbAvailable, isFlowInstalled, launchFlow } from './device-detect';
+export { getDeviceStatus, listAndroidDevices, isAdbAvailable, isLynxGoInstalled, launchLynxGo } from './device-detect';
