@@ -10,20 +10,7 @@ Mirrors React Native's `react-native-safe-area-context` API where it makes sense
 pnpm add @sigx/lynx-safe-area
 ```
 
-Then declare it in your `sigx.lynx.config.ts` so prebuild auto-links the native publisher:
-
-```ts
-import { defineLynxConfig } from '@sigx/lynx-cli/config';
-
-export default defineLynxConfig({
-    modules: [
-        // ...
-        '@sigx/lynx-safe-area',
-    ],
-});
-```
-
-`sigx prebuild` then copies `SafeAreaPublisher.swift` / `SafeAreaPublisher.kt` into your `ios/` and `android/` source trees and registers them in the auto-generated `GeneratedLifecyclePublishers.{swift,kt}` so they attach to every `LynxView` before first paint. No additional native wiring required.
+`sigx prebuild` auto-discovers the package, copies `SafeAreaPublisher.swift` / `SafeAreaPublisher.kt` into your `ios/` and `android/` source trees, and registers them in the auto-generated `GeneratedLifecyclePublishers.{swift,kt}` so they attach to every `LynxView` before first paint. No additional native wiring required.
 
 ## Quick start
 

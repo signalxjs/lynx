@@ -20,21 +20,10 @@ export default defineLynxConfig({
     // 'portrait' | 'landscape' | 'default'
     orientation: 'portrait',
 
-    modules: [
-        '@sigx/lynx-storage',
-        '@sigx/lynx-clipboard',
-        '@sigx/lynx-haptics',
-        '@sigx/lynx-device-info',
-        '@sigx/lynx-network',
-        '@sigx/lynx-websocket',
-        '@sigx/lynx-safe-area',
-        // image-picker and location both use PermissionHelper from
-        // @sigx/lynx-permissions — its Kotlin sources must be copied alongside.
-        '@sigx/lynx-permissions',
-        '@sigx/lynx-image-picker',
-        '@sigx/lynx-location',
-        '@sigx/lynx-share',
-    ],
+    // Native modules auto-link from package.json — `@sigx/lynx-storage`,
+    // `@sigx/lynx-haptics`, etc. are picked up via their `sigx-module.json`.
+    // Add a `modules: [...]` entry here only to pass per-module `config`,
+    // restrict `platforms`, or `disabled: true` an installed module.
 
     // @sigx/lynx-icons demo wiring. Each adapter is dynamically loaded by
     // @sigx/lynx-plugin at build time; only glyphs actually referenced in

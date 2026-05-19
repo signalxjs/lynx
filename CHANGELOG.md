@@ -4,6 +4,11 @@ All notable changes to this repository are documented here. Per-package changelo
 
 ## [Unreleased]
 
+### Changed (breaking)
+
+- `@sigx/lynx-cli` — config file renamed from `sigx.lynx.config.{ts,js,mjs}` to `signalx.config.{ts,js,mjs}`. Hard cut — the legacy name is detected on load and produces a `Found legacy sigx.lynx.config.ts — rename to signalx.config.ts` error pointing at the migration. Rename the file (`git mv`); contents stay identical.
+- `@sigx/lynx-cli` — native modules are now auto-discovered from the consumer app's installed dependencies. Any package shipping a `sigx-module.json` manifest (i.e. `@sigx/lynx-*` modules) is linked automatically the next time `sigx prebuild` runs; the explicit `modules: [...]` array is now optional and only needed when you want to pass per-module `config: {…}`, restrict `platforms: [...]`, or `disabled: true` an installed module. Drop the `modules` array from your `signalx.config.ts` unless any entries use those advanced forms. To skip a module that's installed transitively, add `excludeModules: ['@sigx/lynx-foo']`.
+
 ## [0.1.8] - 2026-05-13
 
 ### Added

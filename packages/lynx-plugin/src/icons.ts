@@ -3,7 +3,7 @@
  *
  * At plugin setup time this slice:
  *
- * 1. Loads `sigx.lynx.config.ts` and reads the `iconSets: [...]` field.
+ * 1. Loads `signalx.config.ts` and reads the `iconSets: [...]` field.
  * 2. Statically scans every `.tsx` / `.jsx` / `.ts` / `.js` file under the
  *    project root for `<Icon set="…" name="…" />` usages.
  * 3. Dynamically imports each adapter package (e.g. `@sigx/lynx-icons-fa-free`)
@@ -161,7 +161,7 @@ function collectGlyphsForSet(
 }
 
 /**
- * Wire `@sigx/lynx-icons` adapter packages declared in `sigx.lynx.config.ts`.
+ * Wire `@sigx/lynx-icons` adapter packages declared in `signalx.config.ts`.
  * Called from {@link pluginSigxLynx}'s `setup()` after the dev/asset patches.
  */
 export async function applyIcons(
@@ -176,9 +176,9 @@ export async function applyIcons(
     //    typo in iconSets (duplicate ids, unknown styles/modes) doesn't silently
     //    swallow itself and leave the user wondering why icons render as placeholders.
     const configCandidates = [
-        'sigx.lynx.config.ts',
-        'sigx.lynx.config.js',
-        'sigx.lynx.config.mjs',
+        'signalx.config.ts',
+        'signalx.config.js',
+        'signalx.config.mjs',
     ];
     const hasConfig = configCandidates.some((f) => existsSync(join(cwd, f)));
     if (!hasConfig) return;

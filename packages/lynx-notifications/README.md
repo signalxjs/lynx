@@ -8,14 +8,7 @@ Local push notifications for sigx-lynx. `UNUserNotificationCenter` on iOS, `Noti
 pnpm add @sigx/lynx-notifications
 ```
 
-```ts
-// sigx.lynx.config.ts
-export default defineLynxConfig({
-    modules: ['@sigx/lynx-notifications'],
-});
-```
-
-`sigx prebuild` auto-links the native module and adds `android.permission.POST_NOTIFICATIONS` (Android 13+). iOS notification permission is requested at runtime via `requestPermission()`.
+`sigx prebuild` auto-discovers the package, links the native module, and adds `android.permission.POST_NOTIFICATIONS` (Android 13+). iOS notification permission is requested at runtime via `requestPermission()`.
 
 > **Android pairs with `@sigx/lynx-permissions`** — needed for the runtime permission prompt on Android 13+.
 

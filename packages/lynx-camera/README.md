@@ -8,22 +8,26 @@ Photo capture via the system camera for sigx-lynx. iOS uses `UIImagePickerContro
 pnpm add @sigx/lynx-camera
 ```
 
-```ts
-// sigx.lynx.config.ts
-export default defineLynxConfig({
-    modules: ['@sigx/lynx-camera'],
-});
-```
-
-`sigx prebuild` auto-links the native module, injects `android.permission.CAMERA`, and adds the iOS usage descriptions:
+`sigx prebuild` auto-discovers the package, links the native module, injects `android.permission.CAMERA`, and adds the iOS usage descriptions:
 
 - `NSCameraUsageDescription`
 - `NSMicrophoneUsageDescription`
 - `NSPhotoLibraryAddUsageDescription`
 
-Override the prompts in your `sigx.lynx.config.ts` under `ios.usageDescriptions` if you want app-specific copy.
+Override the prompts in your `signalx.config.ts` under `ios.usageDescriptions` if you want app-specific copy:
 
-> **Android pairs with `@sigx/lynx-permissions`** — that's where the runtime permission prompt + Activity Result wiring lives. Add it to your modules list (or anything that depends on it does, transitively).
+```ts
+// signalx.config.ts
+export default defineLynxConfig({
+    ios: {
+        usageDescriptions: {
+            NSCameraUsageDescription: 'Acme uses the camera to scan QR codes.',
+        },
+    },
+});
+```
+
+> **Android pairs with `@sigx/lynx-permissions`** — that's where the runtime permission prompt + Activity Result wiring lives. Install it (`pnpm add @sigx/lynx-permissions`) or rely on a sibling module that pulls it in transitively.
 
 ## Usage
 

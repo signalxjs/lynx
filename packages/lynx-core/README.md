@@ -28,4 +28,4 @@ For modules that need runtime permissions (camera, location, notifications, …)
 
 ## Linking
 
-Native modules are wired by `@sigx/lynx-cli`'s autolinker — list them under `modules: [...]` in `sigx.lynx.config.ts`, run `sigx prebuild`, and the generated registry takes care of the rest.
+Native modules are wired by `@sigx/lynx-cli`'s autolinker. Install the package (`pnpm add @sigx/lynx-foo`), run `sigx prebuild`, and the generated registry takes care of the rest — the `sigx-module.json` manifest each module ships is what makes auto-discovery work.

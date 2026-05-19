@@ -91,14 +91,7 @@ In the **consumer app's** `package.json` (e.g. `~/dev/sigx/my-lynx-app/package.j
 }
 ```
 
-Then in `sigx.lynx.config.ts`:
-
-```ts
-modules: [
-    /* …existing… */
-    '@sigx/lynx-websocket',
-],
-```
+With the dependency declared above, `sigx prebuild` auto-discovers the package by its `sigx-module.json` and links it — no `signalx.config.ts` edit needed.
 
 Workflow:
 

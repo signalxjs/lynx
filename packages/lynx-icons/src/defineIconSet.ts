@@ -4,7 +4,7 @@ import type { IconSetDef } from './types';
 /**
  * Register a custom icon set at module load time.
  *
- * Build-time sets declared in `sigx.lynx.config.ts` are auto-detected and
+ * Build-time sets declared in `signalx.config.ts` are auto-detected and
  * tree-shaken; `defineIconSet` is the escape hatch for ad-hoc sets defined
  * directly in app code (e.g. a small private set used in one screen).
  *

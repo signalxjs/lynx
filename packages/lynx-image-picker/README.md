@@ -8,14 +8,7 @@ Pick photos and videos from the system gallery for sigx-lynx. iOS uses `PHPicker
 pnpm add @sigx/lynx-image-picker
 ```
 
-```ts
-// sigx.lynx.config.ts
-export default defineLynxConfig({
-    modules: ['@sigx/lynx-image-picker'],
-});
-```
-
-`sigx prebuild` auto-links the native module, injects the iOS `NSPhotoLibraryUsageDescription`, and adds the Android media-read permissions:
+`sigx prebuild` auto-discovers the package, links the native module, injects the iOS `NSPhotoLibraryUsageDescription`, and adds the Android media-read permissions:
 
 - `READ_MEDIA_IMAGES`
 - `READ_MEDIA_VIDEO`

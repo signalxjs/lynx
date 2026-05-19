@@ -101,7 +101,7 @@ afterEach(() => {
 // ---------------------------------------------------------------------------
 
 describe('applyIcons', () => {
-    it('is a no-op when sigx.lynx.config.ts is missing', async () => {
+    it('is a no-op when signalx.config.ts is missing', async () => {
         const recorder: AliasRecorder = { aliases: {} };
         await applyIcons(makeFakeApi(recorder), { cwd: projectRoot });
         expect(recorder.aliases).toEqual({});
@@ -109,7 +109,7 @@ describe('applyIcons', () => {
 
     it('is a no-op when iconSets is empty', async () => {
         writeFile(
-            'sigx.lynx.config.mjs',
+            'signalx.config.mjs',
             `export default { name: 'T', iconSets: [] };`,
         );
         const recorder: AliasRecorder = { aliases: {} };
@@ -119,7 +119,7 @@ describe('applyIcons', () => {
 
     it('scans source, resolves used glyphs, writes virtual modules, aliases imports', async () => {
         writeFile(
-            'sigx.lynx.config.mjs',
+            'signalx.config.mjs',
             `export default {
                 name: 'IconTest',
                 iconSets: [{ id: 'fake', source: 'fake-icons-adapter' }],
@@ -177,7 +177,7 @@ describe('applyIcons', () => {
 
     it('respects iconSet.include for dynamic-name glyphs', async () => {
         writeFile(
-            'sigx.lynx.config.mjs',
+            'signalx.config.mjs',
             `export default {
                 name: 'IncludeTest',
                 iconSets: [{ id: 'fake', source: 'fake-icons-adapter', include: ['house'] }],
@@ -196,7 +196,7 @@ describe('applyIcons', () => {
 
     it('surfaces config validation errors instead of silently no-oping', async () => {
         writeFile(
-            'sigx.lynx.config.mjs',
+            'signalx.config.mjs',
             `export default {
                 name: 'BadConfig',
                 iconSets: [
@@ -217,7 +217,7 @@ describe('applyIcons', () => {
 
     it('silently skips an iconSet whose adapter cannot be resolved', async () => {
         writeFile(
-            'sigx.lynx.config.mjs',
+            'signalx.config.mjs',
             `export default {
                 name: 'MissingAdapter',
                 iconSets: [{ id: 'fake', source: 'fake-icons-adapter' }, { id: 'gone', source: 'package-does-not-exist' }],

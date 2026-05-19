@@ -8,14 +8,7 @@ Native share dialog for sigx-lynx. `UIActivityViewController` on iOS, `Intent.AC
 pnpm add @sigx/lynx-share
 ```
 
-```ts
-// sigx.lynx.config.ts
-export default defineLynxConfig({
-    modules: ['@sigx/lynx-share'],
-});
-```
-
-No special permissions on either platform.
+`sigx prebuild` auto-discovers and links the native module. No special permissions on either platform.
 
 ## Usage
 

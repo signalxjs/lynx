@@ -18,7 +18,7 @@ function svgDataUri(template: string, color: string): string {
 /**
  * Render a glyph from a registered icon set.
  *
- * Sets are declared in `sigx.lynx.config.ts` via `iconSets: [...]` (build-time,
+ * Sets are declared in `signalx.config.ts` via `iconSets: [...]` (build-time,
  * tree-shaken) or via `defineIconSet({ id, glyphs })` (runtime, ad-hoc).
  *
  * SVG-mode sets render as an `<image>` with an SVG data URI. Font-mode sets

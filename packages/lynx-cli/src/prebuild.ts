@@ -1,7 +1,7 @@
 /**
  * Prebuild orchestration — generates native project files from config.
  *
- * Loads sigx.lynx.config.ts, resolves module manifests from node_modules,
+ * Loads signalx.config.ts, resolves module manifests from node_modules,
  * runs the auto-linkers, scaffolds native projects, and writes all generated
  * code and config into the android/ and ios/ directories.
  */
@@ -169,14 +169,14 @@ function toPascalCase(name: string): string {
 // ────────────────────────────────────────────────────────────────
 
 /**
- * Load sigx.lynx.config.ts from the project root.
+ * Load signalx.config.ts from the project root.
  * Uses esbuild to transform TypeScript config files to ESM.
  */
 export async function loadConfig(cwd: string): Promise<LynxConfig> {
     const possiblePaths = [
-        join(cwd, 'sigx.lynx.config.ts'),
-        join(cwd, 'sigx.lynx.config.js'),
-        join(cwd, 'sigx.lynx.config.mjs'),
+        join(cwd, 'signalx.config.ts'),
+        join(cwd, 'signalx.config.js'),
+        join(cwd, 'signalx.config.mjs'),
     ];
 
     let foundPath: string | null = null;
@@ -188,11 +188,24 @@ export async function loadConfig(cwd: string): Promise<LynxConfig> {
     }
 
     if (!foundPath) {
+        // Hard-cut migration: detect the legacy filename and tell the user exactly
+        // what to do. Without this, the generic "no config found" message would
+        // send them to docs instead of revealing that their file just needs renaming.
+        for (const legacy of ['sigx.lynx.config.ts', 'sigx.lynx.config.js', 'sigx.lynx.config.mjs']) {
+            if (existsSync(join(cwd, legacy))) {
+                const next = legacy.replace('sigx.lynx.config', 'signalx.config');
+                throw new Error(
+                    `Found legacy ${legacy} — rename to ${next}. ` +
+                    'The sigx-lynx config moved to a framework-agnostic name; see CHANGELOG.'
+                );
+            }
+        }
+
         throw new Error(
-            'No sigx.lynx.config found.\n' +
-            'Create sigx.lynx.config.ts in your project root:\n\n' +
+            'No signalx.config found.\n' +
+            'Create signalx.config.ts in your project root:\n\n' +
             '  import { defineLynxConfig } from "@sigx/lynx-cli/config";\n\n' +
-            '  export default defineLynxConfig({ name: "MyApp", modules: [] });\n'
+            '  export default defineLynxConfig({ name: "MyApp" });\n'
         );
     }
 
@@ -206,7 +219,7 @@ export async function loadConfig(cwd: string): Promise<LynxConfig> {
         });
 
         const configDir = dirname(foundPath);
-        const tempFile = join(configDir, `.sigx-lynx-config-temp-${Date.now()}.mjs`);
+        const tempFile = join(configDir, `.signalx-config-temp-${Date.now()}.mjs`);
 
         writeFileSync(tempFile, result.code);
 
@@ -612,23 +625,47 @@ function collectSwiftFiles(root: string): string[] {
 }
 
 /**
- * Auto-discover well-known sigx packages that should be linked.
+ * Auto-discover sigx native module packages installed in the consumer app.
  *
- * Checks for @sigx/lynx-dev-client in node_modules and adds it
- * to the manifests list if found (even if not in the config modules list).
+ * Iterates the app's direct dependencies (and devDependencies, so packages
+ * scoped to dev like @sigx/lynx-dev-client still get linked) and includes
+ * any whose `sigx-module.json` is resolvable. Skips packages already in
+ * `existingPackages` (i.e. declared via `modules:` in the config) and
+ * anything listed in `excludeModules`.
+ *
+ * The presence of `sigx-module.json` IS the "this is a Lynx native module"
+ * marker — packages without it (icons, navigation, etc.) are silently ignored.
  */
-export async function discoverSigxPackages(cwd: string, existingPackages: string[]): Promise<string[]> {
-    const wellKnown = ['@sigx/lynx-dev-client'];
+export async function discoverSigxPackages(
+    cwd: string,
+    existingPackages: string[],
+    excludeModules: string[] = [],
+): Promise<string[]> {
     const discovered: string[] = [];
     const require = createRequire(join(cwd, 'package.json'));
 
-    for (const pkg of wellKnown) {
-        if (existingPackages.includes(pkg)) continue;
+    let pkgJson: { dependencies?: Record<string, string>; devDependencies?: Record<string, string> };
+    try {
+        pkgJson = JSON.parse(readFileSync(join(cwd, 'package.json'), 'utf-8'));
+    } catch {
+        // No package.json — nothing to scan.
+        return discovered;
+    }
+
+    const existing = new Set(existingPackages);
+    const excluded = new Set(excludeModules);
+    const candidates = new Set<string>([
+        ...Object.keys(pkgJson.dependencies ?? {}),
+        ...Object.keys(pkgJson.devDependencies ?? {}),
+    ]);
+
+    for (const pkg of candidates) {
+        if (existing.has(pkg) || excluded.has(pkg)) continue;
         try {
             require.resolve(`${pkg}/sigx-module.json`);
             discovered.push(pkg);
         } catch {
-            // Not installed, skip
+            // Either not installed or doesn't ship a manifest — not a Lynx module.
         }
     }
 
@@ -1286,11 +1323,21 @@ export async function runPrebuild(opts: PrebuildOptions = {}): Promise<void> {
 
         // Auto-link
         log('Linking Android modules...');
-        const configModulePackages = modulesForPlatform(config, 'android').map((m) => m.package);
-        const discoveredPackages = await discoverSigxPackages(cwd, configModulePackages);
+        // `disabled` entries stay in `config.modules` so auto-discovery knows to
+        // skip them too — but they must NOT reach the linker. Filter them out
+        // for both the linker input and the "already declared" exclusion set.
+        const configModulePackages = modulesForPlatform(config, 'android')
+            .filter((m) => !m.disabled)
+            .map((m) => m.package);
+        const disabledPackages = config.modules.filter((m) => m.disabled).map((m) => m.package);
+        const discoveredPackages = await discoverSigxPackages(
+            cwd,
+            [...configModulePackages, ...disabledPackages],
+            config.excludeModules,
+        );
         const allPackages = [...configModulePackages, ...discoveredPackages];
         if (discoveredPackages.length > 0) {
-            log(`Auto-discovered: ${discoveredPackages.join(', ')}`);
+            log(`Auto-discovered (Android): ${discoveredPackages.join(', ')}`);
         }
 
         const manifests = await loadManifests(allPackages, cwd);
@@ -1353,8 +1400,15 @@ export async function runPrebuild(opts: PrebuildOptions = {}): Promise<void> {
 
         // Auto-link
         log('Linking iOS modules...');
-        const configModulePackagesIos = modulesForPlatform(config, 'ios').map((m) => m.package);
-        const discoveredPackagesIos = await discoverSigxPackages(cwd, configModulePackagesIos);
+        const configModulePackagesIos = modulesForPlatform(config, 'ios')
+            .filter((m) => !m.disabled)
+            .map((m) => m.package);
+        const disabledPackagesIos = config.modules.filter((m) => m.disabled).map((m) => m.package);
+        const discoveredPackagesIos = await discoverSigxPackages(
+            cwd,
+            [...configModulePackagesIos, ...disabledPackagesIos],
+            config.excludeModules,
+        );
         const allPackagesIos = [...configModulePackagesIos, ...discoveredPackagesIos];
         if (discoveredPackagesIos.length > 0) {
             log(`Auto-discovered (iOS): ${discoveredPackagesIos.join(', ')}`);
@@ -1420,7 +1474,7 @@ export async function runPrebuild(opts: PrebuildOptions = {}): Promise<void> {
 }
 
 /**
- * If any module the user declared in `sigx.lynx.config.ts:modules` didn't
+ * If any module the user declared in `signalx.config.ts:modules` didn't
  * produce a manifest, print a prominent warning. This turns the previously
  * silent "0 of N modules linked" failure into something the user can act on.
  */

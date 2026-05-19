@@ -11,7 +11,7 @@ pnpm add @sigx/lynx-icons @sigx/lynx-icons-lucide lucide
 ```
 
 ```ts
-// sigx.lynx.config.ts
+// signalx.config.ts
 import { defineLynxConfig } from '@sigx/lynx-cli/config';
 
 export default defineLynxConfig({

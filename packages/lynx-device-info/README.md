@@ -8,14 +8,7 @@ Device hardware + OS + screen + app metadata for sigx-lynx. One async call, all 
 pnpm add @sigx/lynx-device-info
 ```
 
-```ts
-// sigx.lynx.config.ts
-export default defineLynxConfig({
-    modules: ['@sigx/lynx-device-info'],
-});
-```
-
-No special permissions — just auto-linking via `sigx prebuild`.
+No special permissions — `sigx prebuild` auto-discovers and links the native module.
 
 ## Usage
 

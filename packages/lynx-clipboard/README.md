@@ -8,14 +8,7 @@ System clipboard access for sigx-lynx. `UIPasteboard` on iOS, `ClipboardManager`
 pnpm add @sigx/lynx-clipboard
 ```
 
-```ts
-// sigx.lynx.config.ts
-export default defineLynxConfig({
-    modules: ['@sigx/lynx-clipboard'],
-});
-```
-
-No special permissions — just auto-linking via `sigx prebuild`.
+No special permissions — `sigx prebuild` auto-discovers and links the native module.
 
 ## Usage
 
