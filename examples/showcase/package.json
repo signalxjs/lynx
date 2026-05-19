@@ -33,6 +33,13 @@
         "@sigx/lynx-location": "workspace:^",
         "@sigx/lynx-permissions": "workspace:^",
         "@sigx/lynx-share": "workspace:^",
+        "@sigx/lynx-icons": "workspace:^",
+        "@sigx/lynx-icons-fa-free": "workspace:^",
+        "@sigx/lynx-icons-lucide": "workspace:^",
+        "@fortawesome/fontawesome-free": "^6.7.2",
+        "@fortawesome/free-solid-svg-icons": "^6.7.2",
+        "@fortawesome/free-brands-svg-icons": "^6.7.2",
+        "lucide": "^1.16.0",
         "zod": "^3.23.0"
     },
     "devDependencies": {

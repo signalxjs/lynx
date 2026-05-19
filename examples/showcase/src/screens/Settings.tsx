@@ -13,6 +13,7 @@ import {
     useTheme,
 } from '@sigx/lynx-daisyui';
 import { Haptics } from '@sigx/lynx-haptics';
+import { Icon } from '@sigx/lynx-icons';
 import { clearAllTrips, trips } from '../store/trips.js';
 
 export const Settings = component(() => {
@@ -66,6 +67,26 @@ export const Settings = component(() => {
                             >
                                 Clear all data
                             </Button>
+                        </Col>
+                    </Card.Body>
+                </Card>
+
+                <Card bordered>
+                    <Card.Body>
+                        <Col gap={8}>
+                            <Text weight="semibold">@sigx/lynx-icons</Text>
+                            <Text class="opacity-60 text-sm">
+                                Each icon below is tree-shaken at build time —
+                                only the glyphs referenced here ship in the bundle.
+                            </Text>
+                            <Row gap={16} align="center">
+                                <Icon set="fa" name="user" size={24} color="#0D9488" />
+                                <Icon set="fa" name="house" size={24} color="#0D9488" />
+                                <Icon set="fa" name="gear" size={24} color="#0D9488" />
+                                <Icon set="fab" name="github" size={24} color="#222" />
+                                <Icon set="lucide" name="search" size={24} color="#0D9488" />
+                                <Icon set="lucide" name="bell" size={24} color="#0D9488" />
+                            </Row>
                         </Col>
                     </Card.Body>
                 </Card>

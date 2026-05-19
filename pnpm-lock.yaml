@@ -29,6 +29,15 @@ importers:
 
   examples/showcase:
     dependencies:
+      '@fortawesome/fontawesome-free':
+        specifier: ^6.7.2
+        version: 6.7.2
+      '@fortawesome/free-brands-svg-icons':
+        specifier: ^6.7.2
+        version: 6.7.2
+      '@fortawesome/free-solid-svg-icons':
+        specifier: ^6.7.2
+        version: 6.7.2
       '@sigx/lynx':
         specifier: workspace:^
         version: link:../../packages/lynx
@@ -50,6 +59,15 @@ importers:
       '@sigx/lynx-haptics':
         specifier: workspace:^
         version: link:../../packages/lynx-haptics
+      '@sigx/lynx-icons':
+        specifier: workspace:^
+        version: link:../../packages/lynx-icons
+      '@sigx/lynx-icons-fa-free':
+        specifier: workspace:^
+        version: link:../../packages/lynx-icons-fa-free
+      '@sigx/lynx-icons-lucide':
+        specifier: workspace:^
+        version: link:../../packages/lynx-icons-lucide
       '@sigx/lynx-image-picker':
         specifier: workspace:^
         version: link:../../packages/lynx-image-picker
@@ -95,6 +113,9 @@ importers:
       '@sigx/runtime-core':
         specifier: ^0.4.3
         version: 0.4.3
+      lucide:
+        specifier: ^1.16.0
+        version: 1.16.0
       zod:
         specifier: ^3.23.0
         version: 3.25.76
