@@ -81,6 +81,7 @@ Auto-linked by `sigx prebuild` — list them under `modules: [...]` in your `sig
 | Package | Description |
 |---|---|
 | [`@sigx/lynx-daisyui`](./packages/lynx-daisyui) | DaisyUI-flavored component library, stylesheet, and Tailwind preset for Lynx. |
+| [`@sigx/lynx-icons`](./packages/lynx-icons) | `<Icon set name />` component + registry. Pairs with adapter packages (`@sigx/lynx-icons-fa-free`, `@sigx/lynx-icons-lucide`); used icons are auto-detected from JSX at build time and subset/tree-shaken. |
 | [`@sigx/lynx-navigation`](./packages/lynx-navigation) | Type-first native stack router. *Currently private — depends on `@sigx/motion` which is pre-`0.1`.* |
 
 ## Networking

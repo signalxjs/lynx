@@ -24,6 +24,7 @@ docs/dist/
 !packages/*/src/shims.d.ts
 !packages/lynx/src/client.d.ts
 !packages/lynx-daisyui/src/styles/index.css.d.ts
+!packages/lynx-icons/src/stubs/font-face.css.d.ts
 !examples/*/src/lynx-env.d.ts
 
 # TypeScript cache
