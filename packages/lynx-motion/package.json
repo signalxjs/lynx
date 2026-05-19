@@ -34,7 +34,7 @@
         "@sigx/lynx": "workspace:^"
     },
     "devDependencies": {
-        "@lynx-js/react": "^0.119.0",
+        "@lynx-js/react": "^0.121.0",
         "@sigx/lynx-plugin": "workspace:^",
         "@sigx/lynx-runtime-main": "workspace:^",
         "typescript": "^6.0.3",
