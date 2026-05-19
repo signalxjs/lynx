@@ -9,26 +9,40 @@
  * Run via `pnpm version:check`. Also runs in CI as a guardrail.
  */
 import { readFileSync, readdirSync, statSync } from 'node:fs';
-import { join, dirname } from 'node:path';
+import { join, dirname, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const packagesDir = join(__dirname, '..', 'packages');
+const repoRoot = join(__dirname, '..');
+const packagesDir = join(repoRoot, 'packages');
 
 const byVersion = new Map();
+const errors = [];
 for (const entry of readdirSync(packagesDir)) {
-    const pkgPath = join(packagesDir, entry, 'package.json');
+    const dir = join(packagesDir, entry);
+    if (!statSync(dir).isDirectory()) continue;
+    const pkgPath = join(dir, 'package.json');
+    const rel = relative(repoRoot, pkgPath);
     let pkg;
     try {
-        if (!statSync(join(packagesDir, entry)).isDirectory()) continue;
         pkg = JSON.parse(readFileSync(pkgPath, 'utf-8'));
-    } catch {
+    } catch (err) {
+        errors.push(`  ${rel}: ${err.code === 'ENOENT' ? 'missing package.json' : `unreadable / invalid JSON (${err.message})`}`);
         continue;
     }
     if (pkg.private) continue;
-    if (!pkg.version) continue;
+    if (!pkg.version) {
+        errors.push(`  ${rel}: non-private package is missing "version"`);
+        continue;
+    }
     if (!byVersion.has(pkg.version)) byVersion.set(pkg.version, []);
     byVersion.get(pkg.version).push(pkg.name);
+}
+
+if (errors.length) {
+    console.error('❌ Cannot verify lockstep — broken package(s):\n');
+    for (const e of errors) console.error(e);
+    process.exit(1);
 }
 
 if (byVersion.size === 0) {
