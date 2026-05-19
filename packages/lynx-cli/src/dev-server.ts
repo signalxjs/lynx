@@ -13,7 +13,7 @@ import { readFileSync, existsSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { getAllLanIPs } from './network';
 import { generateQR } from './qr';
-import { getDeviceStatus, getDeviceStatusCached, invalidateDeviceStatusCache, launchFlow, launchApp, launchIosApp, launchAppOnDevice, installAppOnDevice, resolveIosSimulator, bootSimulator, listAllSimulators, installAppOnSimulator, findBuiltApp, adbReverse, type DeviceStatus } from './device-detect';
+import { getDeviceStatus, getDeviceStatusCached, invalidateDeviceStatusCache, launchFlow, launchApp, launchIosApp, launchAppOnDevice, installAppOnDevice, resolveIosSimulator, bootSimulator, listAllSimulators, installAppOnSimulator, findBuiltApp, adbReverse, forceStopApp, FLOW_PACKAGE, type DeviceStatus } from './device-detect';
 import { runWithBuildFilter } from './build-output';
 import type { Logger } from '@sigx/cli/plugin';
 import type { SelectedTarget } from './target-picker';
@@ -243,13 +243,18 @@ function setupKeyboardShortcuts(child: ChildProcess, opts: {
                 const status = getDeviceStatusCached(opts.appId, opts.bundleId);
                 let relaunched = 0;
 
-                // Android — per-device URL routes via `adb reverse`.
+                // Android — per-device URL routes via `adb reverse`. Force-stop
+                // first so the next `am start` enters `onCreate` with a fresh
+                // intent extra; otherwise `singleTop` activities receive
+                // `onNewIntent` and silently keep the stale dev URL.
                 for (const device of status.devices) {
                     const url = androidUrlFor(device.id);
                     if (opts.appId && status.appInstalled?.get(device.id)) {
+                        forceStopApp(device.id, opts.appId);
                         launchApp(device.id, opts.appId, url);
                         relaunched++;
                     } else if (status.flowInstalled.get(device.id)) {
+                        forceStopApp(device.id, FLOW_PACKAGE);
                         launchFlow(device.id, url);
                         relaunched++;
                     }

@@ -50,7 +50,7 @@ export interface DeviceStatus {
     iosDeviceAppInstalled?: Map<string, boolean>;
 }
 
-const FLOW_PACKAGE = 'com.sigx.lynxgo';
+export const FLOW_PACKAGE = 'com.sigx.lynxgo';
 
 /**
  * Resolve `adb` by probing a few candidate paths. Many machines have
@@ -191,6 +191,20 @@ export function adbReverse(deviceId: string, port: number): boolean {
         return true;
     } catch {
         return false;
+    }
+}
+
+/**
+ * Force-stop an app on a device. Android equivalent of `xcrun simctl
+ * terminate` — used before a dev relaunch so the next `am start` goes
+ * through `onCreate` with the fresh `sigx_dev_url` extra instead of
+ * `onNewIntent` on a stale `singleTop` instance.
+ */
+export function forceStopApp(deviceId: string, packageName: string): void {
+    try {
+        execSync(`"${adbCmd()}" -s ${deviceId} shell am force-stop ${packageName}`, { stdio: 'pipe' });
+    } catch {
+        // App may not be running — ignore, parity with the iOS simctl terminate path.
     }
 }
 
