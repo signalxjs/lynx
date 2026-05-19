@@ -8,14 +8,7 @@ Vibration and haptic feedback for sigx-lynx. Maps to `UIImpactFeedbackGenerator`
 pnpm add @sigx/lynx-haptics
 ```
 
-```ts
-// sigx.lynx.config.ts
-export default defineLynxConfig({
-    modules: ['@sigx/lynx-haptics'],
-});
-```
-
-`sigx prebuild` auto-links the native module and adds `android.permission.VIBRATE` to your AndroidManifest.
+`sigx prebuild` auto-discovers the package, links the native module, and adds `android.permission.VIBRATE` to your AndroidManifest.
 
 ## Usage
 

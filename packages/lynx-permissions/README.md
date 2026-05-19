@@ -2,7 +2,7 @@
 
 **Android-only infrastructure module.** Provides the shared `PermissionHelper` + `MediaCapture` classes that `@sigx/lynx-camera`, `@sigx/lynx-image-picker`, `@sigx/lynx-location`, and `@sigx/lynx-notifications` all dispatch through to show OS permission dialogs and receive Activity Result callbacks. iOS doesn't need this — `UIImagePickerController`/`CLLocationManager`/etc. handle their own prompts.
 
-You typically don't import this package directly — pull it in transitively by listing it after the modules that need it. Most apps that use Camera/ImagePicker/Location/Notifications will end up declaring it explicitly because the autolinker doesn't currently dedup peer requirements.
+You typically don't import this package directly — install it alongside any of Camera/ImagePicker/Location/Notifications and the auto-linker wires it in.
 
 ## Install
 
@@ -10,19 +10,7 @@ You typically don't import this package directly — pull it in transitively by 
 pnpm add @sigx/lynx-permissions
 ```
 
-```ts
-// sigx.lynx.config.ts
-export default defineLynxConfig({
-    modules: [
-        '@sigx/lynx-permissions',
-        '@sigx/lynx-camera',
-        '@sigx/lynx-image-picker',
-        // ...
-    ],
-});
-```
-
-`sigx prebuild` copies the Kotlin sources (`PermissionHelper.kt` + `MediaCapture.kt`) into your Android source tree.
+`sigx prebuild` auto-discovers the package and copies the Kotlin sources (`PermissionHelper.kt` + `MediaCapture.kt`) into your Android source tree.
 
 ## How it works
 
@@ -33,7 +21,7 @@ The app template's `MainActivity.kt` reflectively wires this module on lifecycle
 - `onCreate` → `MediaCapture.register(this)` (Activity Result API launchers — must be wired before `STARTED` state)
 - `onRequestPermissionsResult` → `PermissionHelper.onRequestPermissionsResult(...)`
 
-The `try { Class.forName(...).getDeclaredField("INSTANCE").get(null) } catch { /* not present */ }` pattern means the wiring silently no-ops in apps that don't have this module on the classpath — so adding/removing it is a one-line change in `sigx.lynx.config.ts`.
+The `try { Class.forName(...).getDeclaredField("INSTANCE").get(null) } catch { /* not present */ }` pattern means the wiring silently no-ops in apps that don't have this module on the classpath — so adding/removing it is a one-line `pnpm add`/`pnpm remove` away.
 
 ## Public API
 

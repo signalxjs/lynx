@@ -2,7 +2,7 @@
 
 Dev-only client for sigx-lynx apps: resource fetchers, template provider, devtool integration, error overlay, perf HUD, QR scanner, and the on-device dev menu. Ships as a debug-only auto-linked module — release builds drop it entirely.
 
-Install it as a `devDependency`; `@sigx/lynx-cli`'s autolinker picks it up from `node_modules` even when it's not listed under `modules` in `sigx.lynx.config.ts`.
+Install it as a `devDependency`; `@sigx/lynx-cli`'s autolinker picks it up from `node_modules` automatically — like every other `@sigx/lynx-*` module.
 
 ## Install
 
@@ -25,7 +25,7 @@ The lynx project templates already include this; manual install is only needed f
 
 ## Permissions
 
-The QR scanner requires camera access. The package's `sigx-module.json` declares this — autolinker adds `NSCameraUsageDescription` to `Info.plist` and `android.permission.CAMERA` to `AndroidManifest.xml`. Strip these from release builds by depending on this package only under `devDependencies`.
+The QR scanner requires camera access. The package's `signalx-module.json` declares this — autolinker adds `NSCameraUsageDescription` to `Info.plist` and `android.permission.CAMERA` to `AndroidManifest.xml`. Strip these from release builds by depending on this package only under `devDependencies`.
 
 ## Versioning
 

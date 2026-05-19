@@ -58,7 +58,7 @@ For JS-only iteration (no native module changes):
 pnpm dev                       # rspeedy dev server with HMR
 ```
 
-If you change anything in `sigx.lynx.config.ts` (modules list, app id,
+If you change anything in `signalx.config.ts` (modules list, app id,
 permissions), run `pnpm prebuild` to regenerate the native project, then
 relaunch.
 

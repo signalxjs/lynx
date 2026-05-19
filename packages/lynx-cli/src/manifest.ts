@@ -1,5 +1,5 @@
 /**
- * Module manifest schema — `sigx-module.json`.
+ * Module manifest schema — `signalx-module.json`.
  *
  * Every @sigx/lynx-* native module package includes this manifest file
  * that tells the auto-linker how to integrate the module into native projects.

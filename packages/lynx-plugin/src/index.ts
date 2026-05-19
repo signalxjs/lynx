@@ -395,7 +395,7 @@ export function pluginSigxLynx(
         customCSSInheritanceList: _customCSSInheritanceList,
       });
 
-      // Wire @sigx/lynx-icons — reads iconSets from sigx.lynx.config.ts,
+      // Wire @sigx/lynx-icons — reads iconSets from signalx.config.ts,
       // scans the project for <Icon> usage, and aliases the runtime's
       // virtual-module subpaths to generated codepoint / SVG maps.
       // Safe to call unconditionally; bails out when no iconSets are

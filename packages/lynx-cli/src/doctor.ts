@@ -228,9 +228,9 @@ function checkLynxGoApp(): Check {
 
 function checkProjectConfig(cwd: string): Check {
     const configFiles = [
-        'sigx.lynx.config.ts',
-        'sigx.lynx.config.js',
-        'sigx.lynx.config.mjs',
+        'signalx.config.ts',
+        'signalx.config.js',
+        'signalx.config.mjs',
         'lynx.config.ts',
         'lynx.config.js',
     ];
@@ -241,8 +241,8 @@ function checkProjectConfig(cwd: string): Check {
         return {
             name: 'Lynx config',
             status: 'warn',
-            message: 'No sigx.lynx.config.ts found',
-            detail: 'Create sigx.lynx.config.ts with defineLynxConfig()',
+            message: 'No signalx.config.ts found',
+            detail: 'Create signalx.config.ts with defineLynxConfig()',
         };
     }
 

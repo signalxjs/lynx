@@ -8,14 +8,7 @@ Persistent key-value storage for sigx-lynx. `UserDefaults` on iOS, `SharedPrefer
 pnpm add @sigx/lynx-storage
 ```
 
-```ts
-// sigx.lynx.config.ts
-export default defineLynxConfig({
-    modules: ['@sigx/lynx-storage'],
-});
-```
-
-No special permissions on either platform.
+`sigx prebuild` auto-discovers the package via its `signalx-module.json` and links the native module. No special permissions on either platform.
 
 ## Usage
 

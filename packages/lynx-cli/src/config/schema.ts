@@ -1,9 +1,9 @@
 /**
  * sigx-lynx configuration schema.
  *
- * Used in `sigx.lynx.config.ts` at the project root. Declares which native
- * modules the app needs so `sigx-lynx prebuild` can generate the correct
- * native project (Android/iOS).
+ * Used in `signalx.config.ts` at the project root. Declares the app's name,
+ * platform settings, and any per-module overrides; installed `@sigx/lynx-*`
+ * native modules are auto-discovered and don't need to be declared.
  *
  * In sigx-lynx-go (dev client), ALL modules are pre-bundled so this config
  * is only needed for custom/production builds.
@@ -56,6 +56,13 @@ export interface ModuleConfig {
      * Passed to the module's native auto-linker (e.g. camera resolution, location accuracy).
      */
     config?: Record<string, unknown>;
+    /**
+     * Skip linking this module even though it's installed. Useful when an
+     * `@sigx/lynx-*` package is pulled in as a transitive dependency you
+     * don't want active, or when temporarily disabling a module during
+     * debugging without uninstalling it.
+     */
+    disabled?: boolean;
 }
 
 /** Splash / launch screen config. */
@@ -141,11 +148,24 @@ export interface LynxConfig {
     /** Activity orientation. Default: 'portrait'. */
     orientation?: Orientation;
     /**
-     * Native modules to include. Each entry is either:
+     * Per-module overrides. Installed `@sigx/lynx-*` packages auto-link via
+     * their `signalx-module.json` manifest, so this array is usually unnecessary;
+     * declare entries only when you need to:
+     * - pass module-specific `config: {…}` to the native auto-linker
+     * - restrict a module to certain `platforms: ['ios']`
+     * - `disabled: true` an installed module
+     *
+     * Each entry is either:
      * - A package name string (e.g. '@sigx/lynx-camera')
      * - A ModuleConfig object for advanced configuration
      */
     modules?: (string | ModuleConfig)[];
+    /**
+     * Package names to skip during auto-discovery. Useful when an
+     * `@sigx/lynx-*` module is installed transitively but you don't want
+     * it linked into your native build.
+     */
+    excludeModules?: string[];
     /**
      * Icon sets to enable. Each entry pulls in an adapter package
      * (e.g. `@sigx/lynx-icons-fa-free`) and registers it under `id`.
@@ -167,11 +187,15 @@ export interface LynxConfig {
 
 /**
  * Define the sigx-lynx project configuration.
- * Use this in `sigx.lynx.config.ts` at the project root.
+ * Use this in `signalx.config.ts` at the project root.
+ *
+ * Installed `@sigx/lynx-*` native modules auto-link via their `signalx-module.json`;
+ * declare entries under `modules` only to pass per-module `config`, restrict
+ * `platforms`, or `disabled: true` an installed module.
  *
  * @example
  * ```ts
- * // sigx.lynx.config.ts
+ * // signalx.config.ts
  * import { defineLynxConfig } from '@sigx/lynx-cli/config';
  *
  * export default defineLynxConfig({
@@ -181,9 +205,8 @@ export interface LynxConfig {
  *     orientation: 'portrait',
  *     icon: 'assets/icon.png',
  *     splash: { image: 'assets/splash.png', backgroundColor: '#0D9488' },
+ *     // Native modules auto-discover from installed deps — only list overrides:
  *     modules: [
- *         '@sigx/lynx-haptics',
- *         '@sigx/lynx-camera',
  *         { package: '@sigx/lynx-location', config: { accuracy: 'high' } },
  *     ],
  *     iconSets: [

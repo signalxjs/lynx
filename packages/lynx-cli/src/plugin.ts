@@ -2,7 +2,7 @@
  * @sigx/lynx-cli plugin
  *
  * Registers dev, build, prebuild, doctor, and run commands with the sigx CLI.
- * Auto-detected when a project has sigx.lynx.config.ts.
+ * Auto-detected when a project has signalx.config.ts.
  */
 
 import { definePlugin } from '@sigx/cli/plugin';
@@ -11,9 +11,9 @@ import { join } from 'node:path';
 
 function isLynxProject(cwd: string): boolean {
     return (
-        existsSync(join(cwd, 'sigx.lynx.config.ts')) ||
-        existsSync(join(cwd, 'sigx.lynx.config.js')) ||
-        existsSync(join(cwd, 'sigx.lynx.config.mjs')) ||
+        existsSync(join(cwd, 'signalx.config.ts')) ||
+        existsSync(join(cwd, 'signalx.config.js')) ||
+        existsSync(join(cwd, 'signalx.config.mjs')) ||
         existsSync(join(cwd, 'lynx.config.ts')) ||
         existsSync(join(cwd, 'lynx.config.js'))
     );
@@ -68,7 +68,7 @@ export default definePlugin({
                 let hasIos = existsSync(iosDir) && process.platform === 'darwin';
 
                 // First-run auto-prebuild: fresh Lynx projects scaffolded by
-                // `pnpm create @sigx` have a sigx.lynx.config.ts but no native
+                // `pnpm create @sigx` have a signalx.config.ts but no native
                 // android/ or ios/ folders yet. Without those, target detection
                 // falls through to the legacy QR-only mode and the user gets
                 // "no iOS or Android targets detected" — same cli code, just
@@ -83,7 +83,7 @@ export default definePlugin({
                     hasIos = existsSync(iosDir) && process.platform === 'darwin';
                 }
 
-                // Resolve ids from sigx.lynx.config.ts (for banner + auto-launch).
+                // Resolve ids from signalx.config.ts (for banner + auto-launch).
                 let launchAppId: string | undefined;
                 let launchBundleId: string | undefined;
                 let appName: string | undefined;
@@ -217,7 +217,7 @@ export default definePlugin({
 
                 if (hasIosTargets.length > 0) {
                     if (!appName) {
-                        ctx.logger.error('iOS targets selected but sigx.lynx.config.ts could not be loaded.');
+                        ctx.logger.error('iOS targets selected but signalx.config.ts could not be loaded.');
                         process.exit(1);
                     }
                     const { ensureIosBuilt } = await import('./ios-run.js');
@@ -338,7 +338,7 @@ export default definePlugin({
             },
         },
         prebuild: {
-            description: 'Generate native project files from sigx.lynx.config.ts',
+            description: 'Generate native project files from signalx.config.ts',
             args: {
                 android: { type: 'boolean', description: 'Android only' },
                 ios: { type: 'boolean', description: 'iOS only' },

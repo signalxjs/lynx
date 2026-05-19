@@ -3,7 +3,7 @@
  *
  * Provides:
  * - Config schema (`defineLynxConfig()`) and parser
- * - Module manifest (`sigx-module.json`) schema and validation
+ * - Module manifest (`signalx-module.json`) schema and validation
  * - Auto-linkers for Android and iOS
  * - Prebuild orchestration (`runPrebuild()`)
  * - Dev server with QR code, LAN IP, device detection

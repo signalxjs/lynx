@@ -10,7 +10,7 @@ pnpm add @fortawesome/fontawesome-free @fortawesome/free-solid-svg-icons
 ```
 
 ```ts
-// sigx.lynx.config.ts
+// signalx.config.ts
 import { defineLynxConfig } from '@sigx/lynx-cli/config';
 
 export default defineLynxConfig({
@@ -34,7 +34,7 @@ import { Icon } from '@sigx/lynx-icons';
 
 | Prop | Type | Default | Notes |
 | --- | --- | --- | --- |
-| `set` | `string` | — | Must match an `iconSets[].id` in `sigx.lynx.config.ts` (or a `defineIconSet({ id, … })` call at runtime). |
+| `set` | `string` | — | Must match an `iconSets[].id` in `signalx.config.ts` (or a `defineIconSet({ id, … })` call at runtime). |
 | `name` | `string` | — | Glyph name in the set's canonical kebab-case (`chevron-right`, not `chevronRight` / `ChevronRight`). |
 | `size` | `number` | `16` | Both width and height, in CSS px. |
 | `color` | `string` | `'currentColor'` | Substituted into the SVG template at render time (data: URIs don't reliably inherit `currentColor`). |

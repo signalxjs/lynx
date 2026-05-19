@@ -8,14 +8,7 @@ File read/write/delete plus document and cache directory paths for sigx-lynx. Sc
 pnpm add @sigx/lynx-file-system
 ```
 
-```ts
-// sigx.lynx.config.ts
-export default defineLynxConfig({
-    modules: ['@sigx/lynx-file-system'],
-});
-```
-
-No special permissions — both platforms expose per-app document/cache directories without runtime grants.
+`sigx prebuild` auto-discovers and links the native module. No special permissions — both platforms expose per-app document/cache directories without runtime grants.
 
 ## Usage
 

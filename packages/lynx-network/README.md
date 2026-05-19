@@ -8,14 +8,7 @@ Network connectivity status for sigx-lynx. `NWPathMonitor` on iOS, `Connectivity
 pnpm add @sigx/lynx-network
 ```
 
-```ts
-// sigx.lynx.config.ts
-export default defineLynxConfig({
-    modules: ['@sigx/lynx-network'],
-});
-```
-
-No special permissions on either platform.
+`sigx prebuild` auto-discovers and links the native module. No special permissions on either platform.
 
 ## Usage
 

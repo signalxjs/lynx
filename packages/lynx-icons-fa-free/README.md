@@ -14,7 +14,7 @@ pnpm add @fortawesome/free-regular-svg-icons @fortawesome/free-brands-svg-icons
 ```
 
 ```ts
-// sigx.lynx.config.ts
+// signalx.config.ts
 import { defineLynxConfig } from '@sigx/lynx-cli/config';
 
 export default defineLynxConfig({

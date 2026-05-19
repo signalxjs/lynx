@@ -49,7 +49,7 @@ The dual-thread renderer. Application code rarely imports these directly — `@s
 
 ### Native modules
 
-Auto-linked by `sigx prebuild` — list them under `modules: [...]` in your `sigx.lynx.config.ts`.
+Auto-linked by `sigx prebuild`: install the package with `pnpm add @sigx/lynx-foo` and the next `sigx prebuild` picks it up — no config edit needed. To opt out, list the package in `excludeModules: [...]` in your `signalx.config.ts`, or pass `{ package: '@sigx/lynx-foo', disabled: true }` in `modules:`.
 
 | Package | Description |
 |---|---|
@@ -103,7 +103,7 @@ Frame-locked touch handling and animation drivers. Both plug into the cross-thre
   const users = await res.json();
   ```
   Caveats vs the browser: no CORS, no `redirect`, no `keepalive`, no `FormData` / `Blob`. Standard `Request` / `Response` / `json()` / `text()` otherwise.
-- **WebSocket** — install [`@sigx/lynx-websocket`](./packages/lynx-websocket) and add it to `modules:` in `sigx.lynx.config.ts`. Registers a browser-standard `WebSocket` global backed by `URLSessionWebSocketTask` (iOS) and OkHttp (Android).
+- **WebSocket** — install [`@sigx/lynx-websocket`](./packages/lynx-websocket) and run `sigx prebuild`. Registers a browser-standard `WebSocket` global backed by `URLSessionWebSocketTask` (iOS) and OkHttp (Android).
 - **Connectivity status** — [`@sigx/lynx-network`](./packages/lynx-network) reports online/offline + connection type. Not a transport; pair with `fetch` / `WebSocket`.
 
 ## Development

@@ -51,6 +51,7 @@ export interface ResolvedModule {
     package: string;
     platforms: Platform[];
     config: Record<string, unknown>;
+    disabled: boolean;
 }
 
 /** Normalised icon-set entry. `mode` is left undefined when the user didn't set it — the build plugin picks per-adapter defaults. */
@@ -81,6 +82,7 @@ export interface ResolvedConfig {
     version: string;
     buildNumber: string;
     modules: ResolvedModule[];
+    excludeModules: string[];
     iconSets: ResolvedIconSet[];
     platforms: Platform[];
     android: Required<Pick<NonNullable<LynxConfig['android']>, 'minSdk' | 'targetSdk' | 'compileSdk' | 'versionCode'>> &
@@ -103,6 +105,7 @@ export function resolveConfig(raw: LynxConfig): ResolvedConfig {
         buildNumber,
         platforms,
         modules: (raw.modules ?? []).map((m) => resolveModule(m, platforms)),
+        excludeModules: raw.excludeModules ?? [],
         iconSets: resolveIconSets(raw.iconSets),
         android: {
             ...ANDROID_DEFAULTS,
@@ -122,12 +125,13 @@ export function resolveConfig(raw: LynxConfig): ResolvedConfig {
 
 function resolveModule(entry: string | ModuleConfig, defaultPlatforms: Platform[]): ResolvedModule {
     if (typeof entry === 'string') {
-        return { package: entry, platforms: defaultPlatforms, config: {} };
+        return { package: entry, platforms: defaultPlatforms, config: {}, disabled: false };
     }
     return {
         package: entry.package,
         platforms: entry.platforms ?? defaultPlatforms,
         config: entry.config ?? {},
+        disabled: entry.disabled ?? false,
     };
 }
 

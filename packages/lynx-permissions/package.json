@@ -11,12 +11,12 @@
             "import": "./dist/index.js",
             "default": "./dist/index.js"
         },
-        "./sigx-module.json": "./sigx-module.json"
+        "./signalx-module.json": "./signalx-module.json"
     },
     "files": [
         "dist",
         "android",
-        "sigx-module.json"
+        "signalx-module.json"
     ],
     "scripts": {
         "build": "vite build && tsgo --emitDeclarationOnly",

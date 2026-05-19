@@ -15,14 +15,8 @@ portable web code works unchanged.
 pnpm add @sigx/lynx-websocket
 ```
 
-```ts
-// sigx.lynx.config.ts
-export default defineLynxConfig({
-    modules: ['@sigx/lynx-websocket'],
-});
-```
-
-Then run `sigx-lynx prebuild` to regenerate the iOS / Android projects.
+Then run `sigx prebuild` — the CLI auto-discovers the package
+via its `signalx-module.json` and regenerates the iOS / Android projects.
 No permissions are required on either platform (OkHttp piggy-backs on
 the app's standard `INTERNET` permission, which the host app already
 declares).

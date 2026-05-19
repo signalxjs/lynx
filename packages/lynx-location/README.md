@@ -8,14 +8,7 @@ GPS / network location for sigx-lynx. `CLLocationManager` on iOS, `FusedLocation
 pnpm add @sigx/lynx-location
 ```
 
-```ts
-// sigx.lynx.config.ts
-export default defineLynxConfig({
-    modules: ['@sigx/lynx-location'],
-});
-```
-
-`sigx prebuild` auto-links the native module, adds the iOS usage descriptions:
+`sigx prebuild` auto-discovers the package, links the native module, adds the iOS usage descriptions:
 
 - `NSLocationWhenInUseUsageDescription`
 - `NSLocationAlwaysAndWhenInUseUsageDescription`

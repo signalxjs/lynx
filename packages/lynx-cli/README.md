@@ -30,7 +30,7 @@ The plugin is auto-discovered by `@sigx/cli` because of this entry in its `packa
 
 ## Auto-linking
 
-Native modules under the `@sigx/lynx-*` namespace ship a `sigx-module.json` manifest. `sigx prebuild` discovers these manifests and automatically wires them into the generated iOS / Android projects — no manual `Podfile` or `settings.gradle` edits needed.
+Native modules under the `@sigx/lynx-*` namespace ship a `signalx-module.json` manifest. `sigx prebuild` discovers these manifests and automatically wires them into the generated iOS / Android projects — no manual `Podfile` or `settings.gradle` edits needed.
 
 To author your own native module, see [Authoring native modules](https://github.com/signalxjs/lynx/blob/main/docs/native-modules.md) (forthcoming).
 

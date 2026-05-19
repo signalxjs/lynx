@@ -1,6 +1,6 @@
 /*
  * Empty stub. The @sigx/lynx-plugin icons slice replaces this module via an
  * Rspack alias at build time, replacing it with @font-face declarations
- * (base64-inlined subset TTFs) for every icon set in `sigx.lynx.config.ts`
+ * (base64-inlined subset TTFs) for every icon set in `signalx.config.ts`
  * that uses font mode.
  */

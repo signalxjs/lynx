@@ -8,15 +8,16 @@ Deep links and URL scheme handling for sigx-lynx. `UIApplication.open(_:)` + App
 pnpm add @sigx/lynx-linking
 ```
 
+Declare your URL scheme in `signalx.config.ts`:
+
 ```ts
-// sigx.lynx.config.ts
+// signalx.config.ts
 export default defineLynxConfig({
-    modules: ['@sigx/lynx-linking'],
     scheme: 'myapp', // declares myapp:// for both iOS Info.plist + Android AndroidManifest
 });
 ```
 
-After adding the module, run `sigx-lynx prebuild`. The CLI:
+After installing, run `sigx prebuild`. The CLI auto-discovers the package and:
 
 - Adds `myapp` to `CFBundleURLSchemes` in iOS `Info.plist`.
 - Adds an `<intent-filter>` for `myapp://` to the Android Activity.

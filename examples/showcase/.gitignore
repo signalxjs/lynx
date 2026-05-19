@@ -9,7 +9,7 @@ dist/
 *.local
 
 # Generated native projects — emitted by `sigx prebuild` from
-# sigx.lynx.config.ts + auto-linked @sigx/lynx-* modules.
+# signalx.config.ts + auto-linked @sigx/lynx-* modules.
 # Regenerated on demand; do not commit.
 android/
 ios/
