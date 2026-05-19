@@ -25,7 +25,7 @@
     },
     "devDependencies": {
         "typescript": "^6.0.3",
-        "@sigx/vite": "^0.4.3"
+        "@sigx/vite": "^0.4.8"
     },
     "author": "Andreas Ekdahl",
     "license": "MIT",

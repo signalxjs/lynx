@@ -58,7 +58,7 @@
         "@lynx-js/react": "^0.120.0",
         "@sigx/lynx-runtime-main": "workspace:^",
         "typescript": "^6.0.3",
-        "vite": "^8.0.12",
+        "vite": "^8.0.13",
         "vitest": "^4.1.6"
     },
     "repository": {
