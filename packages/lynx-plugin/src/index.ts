@@ -25,7 +25,7 @@ import { applyCSS } from './css';
 import { applyEntry } from './entry';
 import { applyIcons } from './icons';
 import { LAYERS } from './layers';
-import { createLogMiddleware, LOG_ENDPOINT_PATH } from './log-server';
+import { createLogWebSocketServer, LOG_ENDPOINT_PATH, type LogWebSocketServer } from './log-server';
 
 export { LAYERS, applyEntry };
 
@@ -181,24 +181,31 @@ export function pluginSigxLynx(
 
       // -------------------------------------------------------------------
       // Dev-only: console log streaming. Two pieces:
-      //   1. `dev.setupMiddlewares` adds an HTTP endpoint on the rspeedy
-      //      dev server that receives batched log entries from devices.
-      //   2. `source.define` bakes the endpoint URL into the BG bundle so
+      //   1. `onAfterStartDevServer` boots a tiny `ws` server on
+      //      `devServerPort + 1` that receives batched log entries from
+      //      devices and emits them on stdout for the CLI to pretty-print.
+      //   2. `source.define` bakes the ws URL into the BG bundle so
       //      `@sigx/lynx-dev-client/install` can pick it up at runtime.
       // Both are gated on NODE_ENV !== 'production'.
+      //
+      // The Lynx BG runtime on Android has no `fetch` / `XHR` / `lynx.fetch`,
+      // so HTTP isn't an option for the device side. WebSocket is shipped by
+      // `@sigx/lynx-websocket` (URLSessionWebSocketTask on iOS, OkHttp on
+      // Android), which the dev-client imports as a side-effect.
       // -------------------------------------------------------------------
       const isDevServer = process.env['NODE_ENV'] !== 'production';
       if (isDevServer) {
+        const lanIP = detectLanIPv4();
+        let logServer: LogWebSocketServer | undefined;
+        let wsPort = 0;
+
         api.modifyRsbuildConfig((config, { mergeRsbuildConfig }) => {
-          // Compute the URL the device should POST to. Prefer the LAN IP
-          // (so a phone on Wi-Fi can reach the laptop) and read the port
-          // override env var that `@sigx/lynx-cli` already plumbs through.
-          const lanIP = detectLanIPv4();
           const envPort = process.env['SIGX_LYNX_DEV_PORT'];
-          const port = envPort && Number.isFinite(Number(envPort))
+          const httpPort = envPort && Number.isFinite(Number(envPort))
             ? Number(envPort)
             : (config.server?.port ?? 3000);
-          const logUrl = `http://${lanIP}:${port}${LOG_ENDPOINT_PATH}`;
+          wsPort = httpPort + 1;
+          const logUrl = `ws://${lanIP}:${wsPort}${LOG_ENDPOINT_PATH}`;
 
           return mergeRsbuildConfig(config, {
             source: {
@@ -206,15 +213,31 @@ export function pluginSigxLynx(
                 __SIGX_DEV_LOG_URL__: JSON.stringify(logUrl),
               },
             },
-            dev: {
-              setupMiddlewares: [
-                (middlewares) => {
-                  middlewares.unshift(createLogMiddleware());
-                },
-              ],
-            },
           });
         });
+
+        api.onAfterStartDevServer(async () => {
+          if (logServer) return;
+          try {
+            logServer = await createLogWebSocketServer({ port: wsPort });
+            api.logger.info(
+              `[sigx-lynx] device log ws → ws://${lanIP}:${logServer.port}${LOG_ENDPOINT_PATH}`,
+            );
+          } catch (err) {
+            api.logger.warn(
+              `[sigx-lynx] device log ws failed to start on port ${wsPort}: ${(err as Error).message}`,
+            );
+          }
+        });
+
+        const stopLogServer = async (): Promise<void> => {
+          if (!logServer) return;
+          const s = logServer;
+          logServer = undefined;
+          await s.close();
+        };
+        api.onCloseDevServer(stopLogServer);
+        api.onExit(() => { void stopLogServer(); });
       }
 
       api.modifyBundlerChain((chain) => {

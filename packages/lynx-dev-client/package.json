@@ -29,6 +29,9 @@
         "build": "vite build && tsgo --emitDeclarationOnly",
         "dev": "vite build --watch"
     },
+    "dependencies": {
+        "@sigx/lynx-websocket": "workspace:^"
+    },
     "devDependencies": {
         "typescript": "^6.0.3",
         "@sigx/vite": "^0.4.3"

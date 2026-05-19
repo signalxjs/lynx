@@ -3,19 +3,21 @@
  *
  * Patches `console.log/info/warn/error/debug/trace`, defensively serialises
  * each argument, buffers entries in a bounded queue, and ships batches to
- * the lynx dev server over HTTP POST. The original console methods are still
- * invoked so the on-device Lynx logbox and the Chrome inspector keep working.
+ * the lynx dev server over a single persistent WebSocket. The original
+ * console methods are still invoked so the on-device Lynx logbox and the
+ * Chrome inspector keep working.
  *
  * Design notes
  * ------------
- * - HTTP POST batching (not WebSocket) — keeps the implementation dependency-
- *   free and works with rsbuild's connect-style middleware API. Each flush
- *   sends up to `flushBatchSize` entries; flushes are scheduled on a
- *   `flushIntervalMs` timer and immediately on `error`-level logs.
+ * - WebSocket (not HTTP) — the Lynx BG runtime on Android lacks `fetch`,
+ *   `XMLHttpRequest`, and `lynx.fetch`, but ships a native WebSocket via
+ *   `@sigx/lynx-websocket` (URLSessionWebSocketTask on iOS, OkHttp on
+ *   Android). Importing `@sigx/lynx-websocket` attaches a WHATWG-shaped
+ *   `WebSocket` class to `globalThis`, which this module consumes.
  * - Bounded queue (`maxQueueSize`) protects against runaway log loops if the
  *   server is unreachable for an extended period.
  * - Re-entrancy guard prevents `console.log` calls triggered inside our own
- *   serialisation / network code from recursing.
+ *   serialisation / send code from recursing.
  * - WebSocket / network failures NEVER call the patched `console.*` — they
  *   route through the captured originals so a broken streamer can't generate
  *   an infinite stream of its own error logs.
@@ -38,6 +40,19 @@ export interface LogEntry {
     platform: string;
 }
 
+/** Minimal WHATWG WebSocket shape this streamer relies on. */
+export interface MinimalWebSocket {
+    readyState: number;
+    send(data: string): void;
+    close(code?: number, reason?: string): void;
+    onopen: ((ev: unknown) => void) | null;
+    onmessage: ((ev: unknown) => void) | null;
+    onerror: ((ev: unknown) => void) | null;
+    onclose: ((ev: unknown) => void) | null;
+}
+
+export type WebSocketCtor = new (url: string, protocols?: string | string[]) => MinimalWebSocket;
+
 export interface InstallOptions {
     /**
      * Override the platform tag. If omitted, we sniff `globalThis.lynx` /
@@ -46,19 +61,19 @@ export interface InstallOptions {
     platform?: string;
     /** Max entries kept in memory while disconnected. @default 500 */
     maxQueueSize?: number;
-    /** Flush batch size. @default 50 */
+    /** Flush batch size — max entries per WebSocket message. @default 50 */
     flushBatchSize?: number;
-    /** Flush interval in ms. @default 100 */
+    /** Coalesce interval for non-error logs. @default 100 */
     flushIntervalMs?: number;
     /** Initial reconnect/backoff delay in ms. @default 1000 */
     backoffInitialMs?: number;
     /** Backoff cap in ms. @default 30000 */
     backoffMaxMs?: number;
     /**
-     * Override the fetch implementation. Defaults to `globalThis.fetch`,
-     * which Lynx ships on the BG runtime.
+     * WebSocket constructor. Defaults to `globalThis.WebSocket`, which is
+     * installed by `@sigx/lynx-websocket`'s side-effect import.
      */
-    fetchImpl?: typeof fetch;
+    webSocketImpl?: WebSocketCtor;
     /** Override the timer. Defaults to `setTimeout`. (Test seam.) */
     setTimeoutImpl?: typeof setTimeout;
     /** Override the clearer. Defaults to `clearTimeout`. (Test seam.) */
@@ -77,6 +92,9 @@ interface ConsoleLike {
     debug: (...args: unknown[]) => void;
     trace: (...args: unknown[]) => void;
 }
+
+const WS_CONNECTING = 0;
+const WS_OPEN = 1;
 
 /**
  * Serialise a single `console.log` argument to a string in a way that never
@@ -141,15 +159,25 @@ export function serializeArg(value: unknown, seen: WeakSet<object> = new WeakSet
     return String(value);
 }
 
+// Lynx's BG runtime exposes `lynx` and a handful of platform-specific
+// globals (`webkit` on iOS) as closure-injected bindings on the module
+// wrapper — NOT on `globalThis`. We declare them ambient here so the
+// references resolve through the runtime's lexical scope.
+declare const lynx: { SystemInfo?: { platform?: string } } | undefined;
+declare const webkit: unknown;
+
 function detectPlatform(): string {
     try {
-        const g = globalThis as Record<string, unknown>;
-        if (g['lynx']) {
-            // Lynx exposes a SystemInfo with `platform` ('iOS' | 'Android').
-            const sys = (g['lynx'] as { SystemInfo?: { platform?: string } }).SystemInfo;
-            const p = sys?.platform?.toLowerCase?.();
+        // SystemInfo is only populated on the MainThread runtime; on BG it's
+        // missing, so this is mostly useful in MT contexts / tests.
+        if (typeof lynx !== 'undefined') {
+            const p = lynx?.SystemInfo?.platform?.toLowerCase?.();
             if (p === 'ios' || p === 'android') return p;
         }
+        // iOS BG runtime ships a `webkit` closure-arg (UIWebView/WKWebView
+        // bridge). No equivalent on Android BG, so its presence is a
+        // reliable iOS hint.
+        if (typeof webkit !== 'undefined') return 'ios';
         if (typeof navigator !== 'undefined' && navigator?.userAgent) {
             const ua = navigator.userAgent.toLowerCase();
             if (ua.includes('android')) return 'android';
@@ -163,7 +191,7 @@ function detectPlatform(): string {
 
 /**
  * Install the console streamer. Returns an `uninstall` function that
- * restores the original `console.*` methods and stops the flush loop.
+ * restores the original `console.*` methods and tears down the WebSocket.
  *
  * Calling `installConsoleStreamer` more than once is safe but a no-op after
  * the first install — the second call returns the previous uninstall.
@@ -183,23 +211,13 @@ export function installConsoleStreamer(url: string, opts: InstallOptions = {}): 
     const existing = (target as unknown as Record<string, unknown>)[markerKey];
     if (typeof existing === 'function') return existing as Uninstall;
 
-    const fetchImpl =
-        opts.fetchImpl ??
-        (globalThis as { fetch?: typeof fetch }).fetch ??
-        // Lynx exposes `fetch()` as a *global identifier* on the BTS runtime
-        // (not always as a property of `globalThis`). Resolve it through a
-        // dynamic Function so a missing binding doesn't throw a ReferenceError.
-        (((): typeof fetch | undefined => {
-            try {
-                return new Function(
-                    'try { return typeof fetch !== "undefined" ? fetch : undefined } catch (_) { return undefined }',
-                )() as typeof fetch | undefined;
-            } catch { return undefined; }
-        })());
-    if (!fetchImpl) {
-        // No fetch on this runtime → we can't ship logs. Bail out gracefully.
+    const WS: WebSocketCtor | undefined =
+        opts.webSocketImpl ?? (globalThis as { WebSocket?: WebSocketCtor }).WebSocket;
+    if (!WS) {
+        // No WebSocket on this runtime → we can't ship logs. Bail gracefully.
         return () => undefined;
     }
+
     const setTimeoutFn = opts.setTimeoutImpl ?? setTimeout;
     const clearTimeoutFn = opts.clearTimeoutImpl ?? clearTimeout;
     const now = opts.nowImpl ?? (() => Date.now());
@@ -209,68 +227,150 @@ export function installConsoleStreamer(url: string, opts: InstallOptions = {}): 
     const flushIntervalMs = opts.flushIntervalMs ?? 100;
     const backoffInitialMs = opts.backoffInitialMs ?? 1000;
     const backoffMaxMs = opts.backoffMaxMs ?? 30_000;
-    const platform = opts.platform ?? detectPlatform();
+    // Platform detection is lazy: `lynx.SystemInfo` may not be populated
+    // when the streamer installs (we run at the very top of the BG bundle).
+    // Re-detect on each enqueue until we get a non-`unknown` answer.
+    let platform = opts.platform ?? detectPlatform();
 
+    // Lynx BG runtime ships `log/info/warn/error` but is allowed to omit
+    // `debug` and `trace`. Fall back to `log` so missing methods don't kill
+    // the install step with "cannot read property 'bind' of undefined".
+    const noop = (): void => undefined;
+    const grab = (fn: ((...a: unknown[]) => void) | undefined, fallback: (...a: unknown[]) => void): (...a: unknown[]) => void => {
+        if (typeof fn === 'function') {
+            try { return fn.bind(target); } catch { return fallback; }
+        }
+        return fallback;
+    };
+    const origLog = grab(target.log, noop);
     const originals: Record<LogLevel, (...args: unknown[]) => void> = {
-        log: target.log.bind(target),
-        info: target.info.bind(target),
-        warn: target.warn.bind(target),
-        error: target.error.bind(target),
-        debug: target.debug.bind(target),
-        trace: target.trace.bind(target),
+        log: origLog,
+        info: grab(target.info, origLog),
+        warn: grab(target.warn, origLog),
+        error: grab(target.error, origLog),
+        debug: grab(target.debug, origLog),
+        trace: grab(target.trace, origLog),
     };
 
     const queue: LogEntry[] = [];
-    let pendingTimer: ReturnType<typeof setTimeout> | undefined;
-    let inFlight = false;
+    let ws: MinimalWebSocket | undefined;
+    let pendingFlushTimer: ReturnType<typeof setTimeout> | undefined;
+    let pendingReconnectTimer: ReturnType<typeof setTimeout> | undefined;
     let backoff = backoffInitialMs;
     let reentrant = false;
     let uninstalled = false;
 
-    const scheduleFlush = (delay: number): void => {
-        if (uninstalled) return;
-        if (pendingTimer !== undefined) return;
-        pendingTimer = setTimeoutFn(() => {
-            pendingTimer = undefined;
-            void flush();
+    const clearFlushTimer = (): void => {
+        if (pendingFlushTimer !== undefined) {
+            clearTimeoutFn(pendingFlushTimer);
+            pendingFlushTimer = undefined;
+        }
+    };
+    const clearReconnectTimer = (): void => {
+        if (pendingReconnectTimer !== undefined) {
+            clearTimeoutFn(pendingReconnectTimer);
+            pendingReconnectTimer = undefined;
+        }
+    };
+
+    const teardownSocket = (): void => {
+        if (!ws) return;
+        ws.onopen = ws.onmessage = ws.onerror = ws.onclose = null;
+        try { ws.close(); } catch { /* ignore */ }
+        ws = undefined;
+    };
+
+    const scheduleReconnect = (): void => {
+        if (uninstalled || pendingReconnectTimer !== undefined) return;
+        const delay = backoff;
+        backoff = Math.min(backoff * 2, backoffMaxMs);
+        pendingReconnectTimer = setTimeoutFn(() => {
+            pendingReconnectTimer = undefined;
+            connect();
         }, delay) as ReturnType<typeof setTimeout>;
     };
 
-    const flush = async (): Promise<void> => {
-        if (uninstalled || inFlight || queue.length === 0) return;
-        inFlight = true;
-        const batch = queue.splice(0, flushBatchSize);
-        try {
-            const res = await fetchImpl(url, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ entries: batch }),
-            });
-            if (!res || !('ok' in res) || !res.ok) {
-                throw new Error(`bad response: ${res?.status ?? 'unknown'}`);
-            }
-            // Success — reset backoff and pull the next batch if any.
-            backoff = backoffInitialMs;
-            if (queue.length > 0) scheduleFlush(0);
-        } catch (err) {
-            // Re-queue the batch at the FRONT so order is preserved.
-            queue.unshift(...batch);
-            if (queue.length > maxQueueSize) {
-                queue.splice(maxQueueSize, queue.length - maxQueueSize);
-            }
-            // Use the captured original to avoid recursion.
-            originals.warn('[sigx-dev-client] log stream POST failed:', (err as Error)?.message ?? err);
-            scheduleFlush(backoff);
-            backoff = Math.min(backoff * 2, backoffMaxMs);
-        } finally {
-            inFlight = false;
+    const onSocketDown = (err?: unknown): void => {
+        if (uninstalled) return;
+        teardownSocket();
+        clearFlushTimer();
+        if (err !== undefined) {
+            originals.warn(
+                '[sigx-dev-client] log stream WS closed, reconnecting:',
+                (err as { message?: string })?.message ?? err,
+            );
         }
+        scheduleReconnect();
+    };
+
+    const connect = (): void => {
+        if (uninstalled || ws) return;
+        let socket: MinimalWebSocket;
+        try {
+            socket = new WS(url);
+        } catch (err) {
+            originals.warn('[sigx-dev-client] log stream WS construct failed:', err);
+            scheduleReconnect();
+            return;
+        }
+        ws = socket;
+        socket.onopen = () => {
+            if (uninstalled || ws !== socket) return;
+            backoff = backoffInitialMs;
+            pump();
+        };
+        // Server doesn't send anything; we still wire it so the runtime
+        // doesn't complain about unhandled events on some hosts.
+        socket.onmessage = () => undefined;
+        socket.onerror = (ev) => {
+            if (uninstalled || ws !== socket) return;
+            onSocketDown((ev as { message?: string })?.message ?? 'ws error');
+        };
+        socket.onclose = (ev) => {
+            if (uninstalled || ws !== socket) return;
+            const reason = (ev as { reason?: string })?.reason;
+            onSocketDown(reason ? `closed: ${reason}` : 'closed');
+        };
+    };
+
+    const pump = (): void => {
+        if (uninstalled || !ws || ws.readyState !== WS_OPEN) return;
+        while (queue.length > 0) {
+            const batch = queue.splice(0, flushBatchSize);
+            try {
+                ws.send(JSON.stringify({ entries: batch }));
+            } catch (err) {
+                // Re-queue the batch at the FRONT so order is preserved.
+                queue.unshift(...batch);
+                if (queue.length > maxQueueSize) {
+                    queue.splice(maxQueueSize, queue.length - maxQueueSize);
+                }
+                onSocketDown((err as { message?: string })?.message ?? err);
+                return;
+            }
+        }
+    };
+
+    const scheduleFlush = (delay: number): void => {
+        if (uninstalled || pendingFlushTimer !== undefined) return;
+        pendingFlushTimer = setTimeoutFn(() => {
+            pendingFlushTimer = undefined;
+            if (ws && ws.readyState === WS_OPEN) {
+                pump();
+            } else if (!ws) {
+                connect();
+            }
+            // If we're still CONNECTING, the onopen handler will drain.
+        }, delay) as ReturnType<typeof setTimeout>;
     };
 
     const enqueue = (level: LogLevel, args: unknown[]): void => {
         if (uninstalled || reentrant) return;
         reentrant = true;
         try {
+            if (platform === 'unknown' && !opts.platform) {
+                platform = detectPlatform();
+            }
             const formatted: string[] = [];
             for (const a of args) {
                 formatted.push(serializeArg(a));
@@ -285,8 +385,18 @@ export function installConsoleStreamer(url: string, opts: InstallOptions = {}): 
             if (queue.length > maxQueueSize) {
                 queue.shift();
             }
-            // Errors flush immediately, everything else coalesces.
-            scheduleFlush(level === 'error' ? 0 : flushIntervalMs);
+            if (!ws) {
+                // Socket is between disconnect and reconnect — the scheduled
+                // reconnect timer will pick this up. Don't bypass the backoff.
+                return;
+            }
+            if (ws.readyState === WS_OPEN) {
+                // Errors flush immediately, everything else coalesces.
+                if (level === 'error') pump();
+                else scheduleFlush(flushIntervalMs);
+            }
+            // CONNECTING → onopen will pump.
+            // CLOSING / CLOSED → onclose handler already scheduled reconnect.
         } catch {
             // Swallow — never propagate serialiser bugs to user code.
         } finally {
@@ -296,30 +406,40 @@ export function installConsoleStreamer(url: string, opts: InstallOptions = {}): 
 
     // Patch each level. We define plain functions (not arrow) so callers
     // that pass `console.log` as a callback get a stable function identity
-    // that's restorable.
+    // that's restorable. Assignment is guarded because some BG runtimes ship
+    // a frozen `console` object — in which case we can still queue via the
+    // few methods we did manage to replace.
+    const patchedKeys: LogLevel[] = [];
     for (const level of LEVELS) {
         const original = originals[level];
-        (target as unknown as Record<string, unknown>)[level] = function patched(...args: unknown[]): void {
-            // Always invoke the original first so on-device logbox / devtool
-            // see the call even if shipping fails.
+        const patched = function patched(this: unknown, ...args: unknown[]): void {
             try { original(...args); } catch { /* ignore */ }
             enqueue(level, args);
         };
+        try {
+            (target as unknown as Record<string, unknown>)[level] = patched;
+            patchedKeys.push(level);
+        } catch { /* frozen — leave as-is */ }
     }
 
     const uninstall: Uninstall = () => {
         if (uninstalled) return;
         uninstalled = true;
-        if (pendingTimer !== undefined) {
-            clearTimeoutFn(pendingTimer);
-            pendingTimer = undefined;
+        clearFlushTimer();
+        clearReconnectTimer();
+        teardownSocket();
+        for (const level of patchedKeys) {
+            try { (target as unknown as Record<string, unknown>)[level] = originals[level]; }
+            catch { /* frozen */ }
         }
-        for (const level of LEVELS) {
-            (target as unknown as Record<string, unknown>)[level] = originals[level];
-        }
-        delete (target as unknown as Record<string, unknown>)[markerKey];
+        try { delete (target as unknown as Record<string, unknown>)[markerKey]; }
+        catch { /* frozen */ }
     };
     (target as unknown as Record<string, unknown>)[markerKey] = uninstall;
+
+    // Eagerly connect so the boot-time `[sigx-dev-client] ws streamer ready`
+    // log lands on a socket that's at least CONNECTING by the time it fires.
+    connect();
 
     return uninstall;
 }

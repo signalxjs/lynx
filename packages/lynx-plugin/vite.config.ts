@@ -8,6 +8,6 @@ export default defineLibConfig({
         'loaders/worklet-loader': 'src/loaders/worklet-loader.ts',
         'loaders/worklet-loader-mt': 'src/loaders/worklet-loader-mt.ts'
     },
-    external: [/@sigx\/.*/, /@lynx-js\/.*/, /@rspack\/.*/, 'rspack', 'webpack', 'path', 'fs', 'url', /^node:/],
+    external: [/@sigx\/.*/, /@lynx-js\/.*/, /@rspack\/.*/, 'rspack', 'webpack', 'ws', 'path', 'fs', 'url', /^node:/],
     platform: 'node'
 });

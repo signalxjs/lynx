@@ -1,9 +1,10 @@
 /**
  * Tests for the device-side console streamer.
  *
- * The streamer is exercised with stub `fetch` / `setTimeout` / `clearTimeout`
- * / `now` implementations so we can drive the flush loop synchronously and
- * assert exact ordering of network calls.
+ * The streamer is exercised with a stub `WebSocket` plus controllable
+ * `setTimeout` / `clearTimeout` / `now` implementations so we can drive the
+ * connect / flush / reconnect loop synchronously and assert exact ordering
+ * of messages.
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
@@ -12,6 +13,8 @@ import {
     installConsoleStreamer,
     serializeArg,
     type LogEntry,
+    type MinimalWebSocket,
+    type WebSocketCtor,
 } from '../src/streamer';
 
 // ---------------------------------------------------------------------------
@@ -43,6 +46,7 @@ function createScheduler(): {
         setTimeout: setTimeoutStub,
         clearTimeout: clearTimeoutStub,
         runAll() {
+            // Run in waves so handlers that schedule new timers also fire.
             while (timers.length > 0) {
                 const next = timers.shift()!;
                 next.cb();
@@ -50,6 +54,63 @@ function createScheduler(): {
         },
         pending() {
             return timers.length;
+        },
+    };
+}
+
+// ---------------------------------------------------------------------------
+// Fake WebSocket — records sends, fires open/close/error on demand.
+// ---------------------------------------------------------------------------
+
+interface FakeWS extends MinimalWebSocket {
+    url: string;
+    sent: string[];
+    _open(): void;
+    _close(reason?: string): void;
+    _error(message?: string): void;
+}
+
+function createFakeWSFactory(): {
+    ctor: WebSocketCtor;
+    instances: FakeWS[];
+    last(): FakeWS;
+} {
+    const instances: FakeWS[] = [];
+    class FakeWebSocket implements FakeWS {
+        readyState = 0; // CONNECTING
+        sent: string[] = [];
+        onopen: ((e: unknown) => void) | null = null;
+        onmessage: ((e: unknown) => void) | null = null;
+        onerror: ((e: unknown) => void) | null = null;
+        onclose: ((e: unknown) => void) | null = null;
+        constructor(public url: string) {
+            instances.push(this);
+        }
+        send(data: string): void {
+            this.sent.push(data);
+        }
+        close(): void {
+            if (this.readyState === 3) return;
+            this.readyState = 3;
+            this.onclose?.({ reason: 'closed by caller' });
+        }
+        _open(): void {
+            this.readyState = 1;
+            this.onopen?.({});
+        }
+        _close(reason = 'gone'): void {
+            this.readyState = 3;
+            this.onclose?.({ reason });
+        }
+        _error(message = 'boom'): void {
+            this.onerror?.({ message });
+        }
+    }
+    return {
+        ctor: FakeWebSocket as unknown as WebSocketCtor,
+        instances,
+        last() {
+            return instances[instances.length - 1];
         },
     };
 }
@@ -141,32 +202,34 @@ describe('installConsoleStreamer', () => {
         globalThis.console = c;
         const uninstall = installConsoleStreamer('', {});
         expect(typeof uninstall).toBe('function');
-        // Marker should NOT be set when bailing out.
         expect((c as unknown as Record<string, unknown>)['__sigxLogStreamerUninstall__']).toBeUndefined();
     });
 
-    it('returns no-op when fetch is unavailable', () => {
+    it('returns no-op when WebSocket is unavailable', () => {
         const { console: c } = createConsole();
         globalThis.console = c;
-        const uninstall = installConsoleStreamer('http://x/__sigx/logs', {
-            fetchImpl: undefined as unknown as typeof fetch,
-        });
-        uninstall();
+        // Force the resolver to find nothing.
+        const prevWS = (globalThis as { WebSocket?: unknown }).WebSocket;
+        delete (globalThis as { WebSocket?: unknown }).WebSocket;
+        try {
+            const uninstall = installConsoleStreamer('ws://x/__sigx/logs', {
+                webSocketImpl: undefined,
+            });
+            expect((c as unknown as Record<string, unknown>)['__sigxLogStreamerUninstall__']).toBeUndefined();
+            uninstall();
+        } finally {
+            if (prevWS !== undefined) (globalThis as { WebSocket?: unknown }).WebSocket = prevWS;
+        }
     });
 
-    it('patches console.* and forwards to original', () => {
+    it('patches console.* and forwards calls to the original', () => {
         const { console: c, logs } = createConsole();
         globalThis.console = c;
 
         const sched = createScheduler();
-        const fetchCalls: { url: string; body: string }[] = [];
-        const fetchImpl = (async (url: string, init?: RequestInit) => {
-            fetchCalls.push({ url, body: String(init?.body) });
-            return new Response('', { status: 200 });
-        }) as unknown as typeof fetch;
-
-        installConsoleStreamer('http://x/__sigx/logs', {
-            fetchImpl,
+        const ws = createFakeWSFactory();
+        installConsoleStreamer('ws://x/__sigx/logs', {
+            webSocketImpl: ws.ctor,
             setTimeoutImpl: sched.setTimeout,
             clearTimeoutImpl: sched.clearTimeout,
             platform: 'ios',
@@ -174,26 +237,23 @@ describe('installConsoleStreamer', () => {
 
         // eslint-disable-next-line no-console
         console.log('hello', 42);
-        // The original was forwarded.
         expect(logs).toEqual([{ level: 'log', args: ['hello', 42] }]);
 
-        // A flush timer was scheduled but not yet fired.
-        expect(sched.pending()).toBe(1);
+        // One socket has been constructed (eagerly on first enqueue) but not
+        // yet opened, so nothing has been sent.
+        expect(ws.instances).toHaveLength(1);
+        expect(ws.last().url).toBe('ws://x/__sigx/logs');
+        expect(ws.last().sent).toHaveLength(0);
     });
 
-    it('flushes batched entries via fetch with the correct payload', async () => {
+    it('queues entries while CONNECTING and drains them on open', () => {
         const { console: c } = createConsole();
         globalThis.console = c;
-
         const sched = createScheduler();
-        const fetchCalls: { url: string; body: string }[] = [];
-        const fetchImpl = (async (url: string, init?: RequestInit) => {
-            fetchCalls.push({ url, body: String(init?.body) });
-            return new Response('', { status: 200 });
-        }) as unknown as typeof fetch;
+        const ws = createFakeWSFactory();
 
-        installConsoleStreamer('http://x/__sigx/logs', {
-            fetchImpl,
+        installConsoleStreamer('ws://x/__sigx/logs', {
+            webSocketImpl: ws.ctor,
             setTimeoutImpl: sched.setTimeout,
             clearTimeoutImpl: sched.clearTimeout,
             nowImpl: () => 1700000000000,
@@ -202,38 +262,151 @@ describe('installConsoleStreamer', () => {
 
         // eslint-disable-next-line no-console
         console.warn('msg', { k: 'v' });
-        sched.runAll();
-        // Let the in-flight fetch promise settle.
-        await Promise.resolve();
-        await Promise.resolve();
+        // eslint-disable-next-line no-console
+        console.log('two');
 
-        expect(fetchCalls).toHaveLength(1);
-        expect(fetchCalls[0].url).toBe('http://x/__sigx/logs');
-        const body = JSON.parse(fetchCalls[0].body) as { entries: LogEntry[] };
-        expect(body.entries).toHaveLength(1);
+        expect(ws.last().sent).toHaveLength(0);
+        ws.last()._open();
+
+        expect(ws.last().sent).toHaveLength(1);
+        const body = JSON.parse(ws.last().sent[0]) as { entries: LogEntry[] };
+        expect(body.entries).toHaveLength(2);
         expect(body.entries[0].level).toBe('warn');
         expect(body.entries[0].platform).toBe('android');
         expect(body.entries[0].args).toEqual(['msg', '{"k":"v"}']);
         expect(body.entries[0].ts).toBe(1700000000000);
+        expect(body.entries[1].level).toBe('log');
+        expect(body.entries[1].args).toEqual(['two']);
+    });
+
+    it('coalesces non-error logs after open via flushIntervalMs', () => {
+        const { console: c } = createConsole();
+        globalThis.console = c;
+        const sched = createScheduler();
+        const ws = createFakeWSFactory();
+
+        installConsoleStreamer('ws://x/__sigx/logs', {
+            webSocketImpl: ws.ctor,
+            setTimeoutImpl: sched.setTimeout,
+            clearTimeoutImpl: sched.clearTimeout,
+        });
+        ws.last()._open();
+
+        // eslint-disable-next-line no-console
+        console.log('a');
+        // eslint-disable-next-line no-console
+        console.log('b');
+        // Nothing sent yet — waiting on the coalesce timer.
+        expect(ws.last().sent).toHaveLength(0);
+        sched.runAll();
+        expect(ws.last().sent).toHaveLength(1);
+        const body = JSON.parse(ws.last().sent[0]) as { entries: LogEntry[] };
+        expect(body.entries).toHaveLength(2);
+    });
+
+    it('flushes immediately on error-level logs', () => {
+        const { console: c } = createConsole();
+        globalThis.console = c;
+        const sched = createScheduler();
+        const ws = createFakeWSFactory();
+
+        installConsoleStreamer('ws://x/__sigx/logs', {
+            webSocketImpl: ws.ctor,
+            setTimeoutImpl: sched.setTimeout,
+            clearTimeoutImpl: sched.clearTimeout,
+        });
+        ws.last()._open();
+
+        // eslint-disable-next-line no-console
+        console.error('bad');
+        expect(ws.last().sent).toHaveLength(1);
+        const body = JSON.parse(ws.last().sent[0]) as { entries: LogEntry[] };
+        expect(body.entries[0].level).toBe('error');
+    });
+
+    it('reconnects and re-queues batch when send throws', () => {
+        const { console: c, logs } = createConsole();
+        globalThis.console = c;
+        const sched = createScheduler();
+        const ws = createFakeWSFactory();
+
+        installConsoleStreamer('ws://x/__sigx/logs', {
+            webSocketImpl: ws.ctor,
+            setTimeoutImpl: sched.setTimeout,
+            clearTimeoutImpl: sched.clearTimeout,
+            backoffInitialMs: 1,
+        });
+
+        // Open the first socket then make `.send` throw on the next call.
+        ws.last()._open();
+        const first = ws.last();
+        first.send = function (this: FakeWS) {
+            throw new Error('send broke');
+        }.bind(first);
+
+        // eslint-disable-next-line no-console
+        console.error('boom'); // error → immediate pump → throws → reconnect
+        // Original captured warn was used to log the failure.
+        expect(logs.some((l) => l.level === 'warn' && String(l.args[0]).includes('WS closed'))).toBe(true);
+
+        // A reconnect timer was scheduled.
+        expect(sched.pending()).toBeGreaterThan(0);
+        sched.runAll();
+
+        // A second WS instance was created.
+        expect(ws.instances).toHaveLength(2);
+        ws.last()._open();
+
+        // The re-queued batch is now delivered on the new socket.
+        expect(ws.last().sent).toHaveLength(1);
+        const body = JSON.parse(ws.last().sent[0]) as { entries: LogEntry[] };
+        expect(body.entries[0].level).toBe('error');
+        expect(body.entries[0].args).toEqual(['boom']);
+    });
+
+    it('caps the queue at maxQueueSize while disconnected', () => {
+        const { console: c } = createConsole();
+        globalThis.console = c;
+        const sched = createScheduler();
+        const ws = createFakeWSFactory();
+
+        installConsoleStreamer('ws://x/__sigx/logs', {
+            webSocketImpl: ws.ctor,
+            setTimeoutImpl: sched.setTimeout,
+            clearTimeoutImpl: sched.clearTimeout,
+            maxQueueSize: 3,
+            flushBatchSize: 100,
+        });
+
+        // Never open the socket → everything queues.
+        for (let i = 0; i < 10; i++) {
+            // eslint-disable-next-line no-console
+            console.log(`entry ${i}`);
+        }
+        ws.last()._open();
+        expect(ws.last().sent).toHaveLength(1);
+        const body = JSON.parse(ws.last().sent[0]) as { entries: LogEntry[] };
+        // Only the most recent 3 should have survived the cap.
+        expect(body.entries).toHaveLength(3);
+        expect(body.entries.map((e) => e.args[0])).toEqual(['entry 7', 'entry 8', 'entry 9']);
     });
 
     it('restores original console.* on uninstall', () => {
         const { console: c, logs } = createConsole();
         globalThis.console = c;
-        const uninstall = installConsoleStreamer('http://x/__sigx/logs', {
-            fetchImpl: (async () => new Response('', { status: 200 })) as unknown as typeof fetch,
-            setTimeoutImpl: createScheduler().setTimeout,
-            clearTimeoutImpl: createScheduler().clearTimeout,
+        const sched = createScheduler();
+        const ws = createFakeWSFactory();
+        const uninstall = installConsoleStreamer('ws://x/__sigx/logs', {
+            webSocketImpl: ws.ctor,
+            setTimeoutImpl: sched.setTimeout,
+            clearTimeoutImpl: sched.clearTimeout,
         });
 
         const patched = c.log;
         uninstall();
-        // After uninstall, console.log should no longer be the patched fn
-        // and calls go straight to the original (forwarded to `logs`).
         expect(c.log).not.toBe(patched);
         c.log('after');
         expect(logs.some((l) => l.level === 'log' && l.args[0] === 'after')).toBe(true);
-        // Marker cleared.
         expect((c as unknown as Record<string, unknown>)['__sigxLogStreamerUninstall__']).toBeUndefined();
     });
 
@@ -241,55 +414,17 @@ describe('installConsoleStreamer', () => {
         const { console: c } = createConsole();
         globalThis.console = c;
         const sched = createScheduler();
-        const fetchImpl = (async () => new Response('', { status: 200 })) as unknown as typeof fetch;
-        const u1 = installConsoleStreamer('http://x/__sigx/logs', {
-            fetchImpl,
+        const ws = createFakeWSFactory();
+        const u1 = installConsoleStreamer('ws://x/__sigx/logs', {
+            webSocketImpl: ws.ctor,
             setTimeoutImpl: sched.setTimeout,
             clearTimeoutImpl: sched.clearTimeout,
         });
-        const u2 = installConsoleStreamer('http://x/__sigx/logs', {
-            fetchImpl,
+        const u2 = installConsoleStreamer('ws://x/__sigx/logs', {
+            webSocketImpl: ws.ctor,
             setTimeoutImpl: sched.setTimeout,
             clearTimeoutImpl: sched.clearTimeout,
         });
         expect(u1).toBe(u2);
-    });
-
-    it('caps the queue at maxQueueSize when offline', async () => {
-        const { console: c } = createConsole();
-        globalThis.console = c;
-        const sched = createScheduler();
-
-        const fetchCalls: { body: string }[] = [];
-        const fetchImpl = (async (_url: string, init?: RequestInit) => {
-            fetchCalls.push({ body: String(init?.body) });
-            // Simulate server being down → reject so the streamer backs off
-            // and entries pile up.
-            throw new Error('network down');
-        }) as unknown as typeof fetch;
-
-        installConsoleStreamer('http://x/__sigx/logs', {
-            fetchImpl,
-            setTimeoutImpl: sched.setTimeout,
-            clearTimeoutImpl: sched.clearTimeout,
-            maxQueueSize: 3,
-            flushBatchSize: 100,
-        });
-
-        for (let i = 0; i < 10; i++) {
-            // eslint-disable-next-line no-console
-            console.log(`entry ${i}`);
-        }
-
-        // Drain whatever timers/fetches are pending; the queue should now
-        // contain at most maxQueueSize entries (3) and a flush attempt was
-        // made which failed. We can't introspect the internal queue but we
-        // can prove the cap holds by observing the body of a successful
-        // fetch after we swap fetch behaviour and drain again.
-        // -> just assert no crash and at least one fetch was attempted.
-        sched.runAll();
-        await Promise.resolve();
-        await Promise.resolve();
-        expect(fetchCalls.length).toBeGreaterThanOrEqual(1);
     });
 });

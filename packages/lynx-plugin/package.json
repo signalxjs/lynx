@@ -38,7 +38,8 @@
     },
     "dependencies": {
         "@lynx-js/react": "^0.120.0",
-        "@sigx/lynx-runtime-internal": "workspace:*"
+        "@sigx/lynx-runtime-internal": "workspace:*",
+        "ws": "^8.18.3"
     },
     "peerDependencies": {
         "@rspack/core": ">=1.0.0",
@@ -79,6 +80,7 @@
         "@sigx/lynx-icons": "workspace:*",
         "@sigx/vite": "^0.4.3",
         "@types/node": "^25.7.0",
+        "@types/ws": "^8.5.13",
         "typescript": "^6.0.3",
         "vite": "^8.0.12"
     },
