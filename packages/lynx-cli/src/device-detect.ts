@@ -39,7 +39,7 @@ export interface IosDevice {
 
 export interface DeviceStatus {
     devices: AndroidDevice[];
-    flowInstalled: Map<string, boolean>;
+    lynxGoInstalled: Map<string, boolean>;
     appInstalled?: Map<string, boolean>;
     adbAvailable: boolean;
     iosSimulators: IosSimulator[];
@@ -50,7 +50,7 @@ export interface DeviceStatus {
     iosDeviceAppInstalled?: Map<string, boolean>;
 }
 
-export const FLOW_PACKAGE = 'com.sigx.lynxgo';
+export const LYNX_GO_PACKAGE = 'com.sigx.lynxgo';
 
 /**
  * Resolve `adb` by probing a few candidate paths. Many machines have
@@ -137,13 +137,13 @@ export function listAndroidDevices(): AndroidDevice[] {
 /**
  * Check if sigx-lynx-go is installed on a specific device.
  */
-export function isFlowInstalled(deviceId: string): boolean {
+export function isLynxGoInstalled(deviceId: string): boolean {
     try {
-        const output = execSync(`"${adbCmd()}" -s ${deviceId} shell pm list packages ${FLOW_PACKAGE}`, {
+        const output = execSync(`"${adbCmd()}" -s ${deviceId} shell pm list packages ${LYNX_GO_PACKAGE}`, {
             stdio: 'pipe',
             encoding: 'utf-8',
         });
-        return output.includes(FLOW_PACKAGE);
+        return output.includes(LYNX_GO_PACKAGE);
     } catch {
         return false;
     }
@@ -152,10 +152,10 @@ export function isFlowInstalled(deviceId: string): boolean {
 /**
  * Launch sigx-lynx-go on a device with a specific URL.
  */
-export function launchFlow(deviceId: string, url: string): boolean {
+export function launchLynxGo(deviceId: string, url: string): boolean {
     try {
         execSync(
-            `"${adbCmd()}" -s ${deviceId} shell am start -a android.intent.action.VIEW -d "sigx-lynx-go://open?url=${encodeURIComponent(url)}" ${FLOW_PACKAGE}`,
+            `"${adbCmd()}" -s ${deviceId} shell am start -a android.intent.action.VIEW -d "sigx-lynx-go://open?url=${encodeURIComponent(url)}" ${LYNX_GO_PACKAGE}`,
             { stdio: 'pipe' },
         );
         return true;
@@ -540,13 +540,13 @@ export function getDeviceStatus(appId?: string, iosBundleId?: string): DeviceSta
     // Android
     const adbAvailable = isAdbAvailable();
     let devices: AndroidDevice[] = [];
-    const flowInstalled = new Map<string, boolean>();
+    const lynxGoInstalled = new Map<string, boolean>();
     const appInstalled = new Map<string, boolean>();
 
     if (adbAvailable) {
         devices = listAndroidDevices();
         for (const device of devices) {
-            flowInstalled.set(device.id, isFlowInstalled(device.id));
+            lynxGoInstalled.set(device.id, isLynxGoInstalled(device.id));
             if (appId) {
                 appInstalled.set(device.id, isAppInstalled(device.id, appId));
             }
@@ -583,7 +583,7 @@ export function getDeviceStatus(appId?: string, iosBundleId?: string): DeviceSta
 
     return {
         devices,
-        flowInstalled,
+        lynxGoInstalled,
         appInstalled: appId ? appInstalled : undefined,
         adbAvailable,
         iosSimulators,

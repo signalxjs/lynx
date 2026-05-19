@@ -13,7 +13,7 @@ import { readFileSync, existsSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { getAllLanIPs } from './network';
 import { generateQR } from './qr';
-import { getDeviceStatus, getDeviceStatusCached, invalidateDeviceStatusCache, launchFlow, launchApp, launchIosApp, launchAppOnDevice, installAppOnDevice, resolveIosSimulator, bootSimulator, listAllSimulators, installAppOnSimulator, findBuiltApp, adbReverse, forceStopApp, FLOW_PACKAGE, type DeviceStatus } from './device-detect';
+import { getDeviceStatus, getDeviceStatusCached, invalidateDeviceStatusCache, launchLynxGo, launchApp, launchIosApp, launchAppOnDevice, installAppOnDevice, resolveIosSimulator, bootSimulator, listAllSimulators, installAppOnSimulator, findBuiltApp, adbReverse, forceStopApp, LYNX_GO_PACKAGE, type DeviceStatus } from './device-detect';
 import { runWithBuildFilter } from './build-output';
 import type { Logger } from '@sigx/cli/plugin';
 import type { SelectedTarget } from './target-picker';
@@ -66,7 +66,7 @@ function formatDeviceStatus(status: DeviceStatus, appId?: string, bundleId?: str
             if (appId && status.appInstalled?.get(device.id)) {
                 statusParts.push(`✓ ${appId}`);
             }
-            if (status.flowInstalled.get(device.id)) {
+            if (status.lynxGoInstalled.get(device.id)) {
                 statusParts.push('✓ sigx-lynx-go');
             }
             if (statusParts.length === 0) {
@@ -253,9 +253,9 @@ function setupKeyboardShortcuts(child: ChildProcess, opts: {
                         forceStopApp(device.id, opts.appId);
                         launchApp(device.id, opts.appId, url);
                         relaunched++;
-                    } else if (status.flowInstalled.get(device.id)) {
-                        forceStopApp(device.id, FLOW_PACKAGE);
-                        launchFlow(device.id, url);
+                    } else if (status.lynxGoInstalled.get(device.id)) {
+                        forceStopApp(device.id, LYNX_GO_PACKAGE);
+                        launchLynxGo(device.id, url);
                         relaunched++;
                     }
                 }
@@ -305,9 +305,9 @@ function setupKeyboardShortcuts(child: ChildProcess, opts: {
                     if (opts.appId && status.appInstalled?.get(device.id)) {
                         opts.logger.log(`Launching ${opts.appId} on ${device.model || device.id}...`);
                         launchApp(device.id, opts.appId, url);
-                    } else if (status.flowInstalled.get(device.id)) {
+                    } else if (status.lynxGoInstalled.get(device.id)) {
                         opts.logger.log(`Launching sigx-lynx-go on ${device.model || device.id}...`);
-                        launchFlow(device.id, url);
+                        launchLynxGo(device.id, url);
                     }
                 }
 
@@ -489,7 +489,7 @@ export async function startDevServer(opts: DevServerOptions): Promise<void> {
     // status on an iOS-only run.
     let deviceStatus: DeviceStatus = {
         devices: [],
-        flowInstalled: new Map(),
+        lynxGoInstalled: new Map(),
         adbAvailable: false,
         iosSimulators: [],
         xcrunAvailable: false,
@@ -617,9 +617,9 @@ export async function startDevServer(opts: DevServerOptions): Promise<void> {
             if (launchAppId && deviceStatus.appInstalled?.get(device.id)) {
                 logger.log(`Auto-launching ${launchAppId} on ${device.model || device.id}...`);
                 launchApp(device.id, launchAppId, url);
-            } else if (deviceStatus.flowInstalled.get(device.id)) {
+            } else if (deviceStatus.lynxGoInstalled.get(device.id)) {
                 logger.log(`Auto-launching sigx-lynx-go on ${device.model || device.id}...`);
-                launchFlow(device.id, url);
+                launchLynxGo(device.id, url);
             }
         }
 
