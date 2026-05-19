@@ -46,7 +46,9 @@
         "@lynx-js/css-extract-webpack-plugin": ">=0.1.0",
         "@lynx-js/template-webpack-plugin": ">=0.1.0",
         "@lynx-js/runtime-wrapper-webpack-plugin": ">=0.1.0",
-        "@lynx-js/webpack-dev-transport": ">=0.1.0"
+        "@lynx-js/webpack-dev-transport": ">=0.1.0",
+        "@sigx/lynx-cli": "workspace:^",
+        "@sigx/lynx-icons": "workspace:^"
     },
     "peerDependenciesMeta": {
         "@rspack/core": {
@@ -66,10 +68,15 @@
         },
         "@lynx-js/webpack-dev-transport": {
             "optional": true
+        },
+        "@sigx/lynx-icons": {
+            "optional": true
         }
     },
     "devDependencies": {
         "@rsbuild/core": "^1.7.5",
+        "@sigx/lynx-cli": "workspace:*",
+        "@sigx/lynx-icons": "workspace:*",
         "@sigx/vite": "^0.4.3",
         "@types/node": "^25.7.0",
         "typescript": "^6.0.3",

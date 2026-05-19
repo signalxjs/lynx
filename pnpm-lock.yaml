@@ -547,6 +547,12 @@ importers:
       '@rsbuild/core':
         specifier: ^1.7.5
         version: 1.7.5
+      '@sigx/lynx-cli':
+        specifier: workspace:*
+        version: link:../lynx-cli
+      '@sigx/lynx-icons':
+        specifier: workspace:*
+        version: link:../lynx-icons
       '@sigx/vite':
         specifier: ^0.4.3
         version: 0.4.3(sigx@0.4.1)(vite@8.0.12(@types/node@25.7.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))

@@ -23,6 +23,7 @@ import type { RsbuildPlugin } from '@rsbuild/core';
 
 import { applyCSS } from './css';
 import { applyEntry } from './entry';
+import { applyIcons } from './icons';
 import { LAYERS } from './layers';
 
 export { LAYERS, applyEntry };
@@ -393,6 +394,13 @@ export function pluginSigxLynx(
         enableCSSInheritance: _enableCSSInheritance,
         customCSSInheritanceList: _customCSSInheritanceList,
       });
+
+      // Wire @sigx/lynx-icons — reads iconSets from sigx.lynx.config.ts,
+      // scans the project for <Icon> usage, and aliases the runtime's
+      // virtual-module subpaths to generated codepoint / SVG maps.
+      // Safe to call unconditionally; bails out when no iconSets are
+      // configured or @sigx/lynx-cli isn't installed.
+      await applyIcons(api);
     },
   };
 }
