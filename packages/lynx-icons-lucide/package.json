@@ -28,8 +28,8 @@
     },
     "devDependencies": {
         "@sigx/lynx-icons": "workspace:^",
-        "@sigx/vite": "^0.4.3",
-        "@types/node": "^25.7.0",
+        "@sigx/vite": "^0.4.8",
+        "@types/node": "^25.9.0",
         "lucide": "^1.16.0",
         "typescript": "^6.0.3"
     },
