@@ -72,28 +72,51 @@ export async function runOutdated(options: OutdatedOptions): Promise<OutdatedRes
         console.log(`  ${DIM}Showing installed versions only.${RESET}`);
     }
 
+    const dominantDeclared = pickDominantDeclared(uniqueDeps);
+
     const rows = uniqueDeps.map((dep) => {
-        const installed = readInstalledVersion(cwd, dep.name) ?? dep.version;
-        const status = classify(installed, latest, uniqueDeps);
-        return { name: dep.name, installed, range: dep.range, status };
+        // Real install state — never lie and show the declared range as
+        // "installed" when the package isn't actually in node_modules.
+        const installed = readInstalledVersion(cwd, dep.name);
+        const status = classify(installed, dep.version, latest, dominantDeclared);
+        return { name: dep.name, installed, declared: dep.version, range: dep.range, status };
     });
 
     printTable(rows, latest);
 
-    const outOfSync = rows.filter((r) => r.status === 'out-of-sync' || r.status === 'out-of-sync-and-update').length;
+    const outOfSync = rows.filter((r) => r.status === 'out-of-sync' || r.status === 'out-of-sync-and-update' || r.status === 'not-installed-and-out-of-sync').length;
     const updatesAvailable = rows.filter((r) => r.status === 'update' || r.status === 'out-of-sync-and-update').length;
+    const registryAvailable = latest !== null;
 
-    printSummary({ total: rows.length, outOfSync, updatesAvailable, latest });
+    printSummary({ total: rows.length, outOfSync, updatesAvailable, latest, registryAvailable });
 
     return { total: rows.length, outOfSync, updatesAvailable, latest };
 }
 
-type Status = 'ok' | 'update' | 'out-of-sync' | 'out-of-sync-and-update' | 'unknown';
+type Status =
+    | 'ok'
+    | 'update'
+    | 'out-of-sync'
+    | 'out-of-sync-and-update'
+    | 'not-installed'
+    | 'not-installed-and-out-of-sync'
+    | 'unknown';
 
-function classify(installed: string | null, latest: string | null, allDeps: SigxDep[]): Status {
-    if (!installed) return 'unknown';
-    const dominantInstalled = pickDominantInstalled(allDeps);
-    const outOfSync = dominantInstalled !== null && installed !== dominantInstalled;
+function classify(
+    installed: string | null,
+    declared: string | null,
+    latest: string | null,
+    dominantDeclared: string | null,
+): Status {
+    // Lockstep drift is a property of the declared dep, not the installed
+    // version — that's what ships in package.json and what publishers
+    // resolve from. So we flag drift even for packages that aren't in
+    // node_modules yet.
+    const outOfSync = declared !== null && dominantDeclared !== null && declared !== dominantDeclared;
+    if (installed === null) {
+        if (declared === null) return 'unknown';
+        return outOfSync ? 'not-installed-and-out-of-sync' : 'not-installed';
+    }
     const needsUpdate = latest !== null && installed !== latest;
     if (outOfSync && needsUpdate) return 'out-of-sync-and-update';
     if (outOfSync) return 'out-of-sync';
@@ -101,7 +124,7 @@ function classify(installed: string | null, latest: string | null, allDeps: Sigx
     return 'ok';
 }
 
-function pickDominantInstalled(deps: SigxDep[]): string | null {
+function pickDominantDeclared(deps: SigxDep[]): string | null {
     const counts = new Map<string, number>();
     for (const d of deps) {
         if (!d.version) continue;
@@ -126,6 +149,7 @@ function dedupeByName(deps: SigxDep[]): SigxDep[] {
 interface Row {
     name: string;
     installed: string | null;
+    declared: string | null;
     range: string;
     status: Status;
 }
@@ -134,7 +158,7 @@ function printTable(rows: Row[], latest: string | null): void {
     console.log(`\n  ${BOLD}@sigx/lynx-* packages${RESET}\n`);
 
     const nameWidth = Math.max(28, ...rows.map((r) => r.name.length)) + 2;
-    const installedWidth = 12;
+    const installedWidth = Math.max(12, ...rows.map((r) => (r.installed ?? '(not installed)').length)) + 2;
     const latestWidth = 10;
 
     const header = `  ${pad('Package', nameWidth)}${pad('Installed', installedWidth)}${pad('Latest', latestWidth)}Status`;
@@ -150,19 +174,34 @@ function printTable(rows: Row[], latest: string | null): void {
 
 function formatStatus(status: Status): string {
     switch (status) {
-        case 'ok':                       return `${GREEN}up to date${RESET}`;
-        case 'update':                   return `${YELLOW}update available${RESET}`;
-        case 'out-of-sync':              return `${RED}out of sync${RESET}`;
-        case 'out-of-sync-and-update':   return `${RED}out of sync${RESET} · ${YELLOW}update available${RESET}`;
-        case 'unknown':                  return `${DIM}unknown${RESET}`;
+        case 'ok':                              return `${GREEN}up to date${RESET}`;
+        case 'update':                          return `${YELLOW}update available${RESET}`;
+        case 'out-of-sync':                     return `${RED}out of sync${RESET}`;
+        case 'out-of-sync-and-update':          return `${RED}out of sync${RESET} · ${YELLOW}update available${RESET}`;
+        case 'not-installed':                   return `${DIM}not installed${RESET}`;
+        case 'not-installed-and-out-of-sync':   return `${DIM}not installed${RESET} · ${RED}out of sync${RESET}`;
+        case 'unknown':                         return `${DIM}unknown${RESET}`;
     }
 }
 
-function printSummary(s: { total: number; outOfSync: number; updatesAvailable: number; latest: string | null }): void {
+function printSummary(s: {
+    total: number;
+    outOfSync: number;
+    updatesAvailable: number;
+    latest: string | null;
+    registryAvailable: boolean;
+}): void {
     const parts: string[] = [`${s.total} package${s.total === 1 ? '' : 's'}`];
     if (s.outOfSync > 0) parts.push(`${RED}${s.outOfSync} out of sync${RESET}`);
     if (s.updatesAvailable > 0) parts.push(`${YELLOW}${s.updatesAvailable} update${s.updatesAvailable === 1 ? '' : 's'} available${RESET}`);
-    if (s.outOfSync === 0 && s.updatesAvailable === 0) parts.push(`${GREEN}all up to date${RESET}`);
+    // Only claim "all up to date" when we actually verified against the
+    // registry — a green summary on top of a registry-unreachable warning
+    // is misleading.
+    if (s.outOfSync === 0 && s.updatesAvailable === 0) {
+        parts.push(s.registryAvailable
+            ? `${GREEN}all up to date${RESET}`
+            : `${YELLOW}registry unreachable — update check skipped${RESET}`);
+    }
 
     console.log(`\n  ${parts.join(' · ')}`);
 

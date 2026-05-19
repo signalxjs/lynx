@@ -61,6 +61,86 @@ export function expandShortName(name: string): string {
     return `${SIGX_LYNX_PREFIX}${name}`;
 }
 
+/**
+ * The canonical list of @sigx/lynx-* packages we publish. Used by `add`
+ * to catch typos in short names (`cameraa`) before they hit the registry
+ * and come back as an unhelpful 404. Kept in sync with the monorepo's
+ * publishable packages; the list is small and stable enough that a hard-
+ * coded check is fine. Fully-qualified names (`@sigx/lynx-anything`) are
+ * not validated against this — we trust the user there.
+ */
+export const KNOWN_SIGX_LYNX_PACKAGES: ReadonlySet<string> = new Set([
+    '@sigx/lynx',
+    '@sigx/lynx-camera',
+    '@sigx/lynx-cli',
+    '@sigx/lynx-clipboard',
+    '@sigx/lynx-core',
+    '@sigx/lynx-daisyui',
+    '@sigx/lynx-dev-client',
+    '@sigx/lynx-device-info',
+    '@sigx/lynx-file-system',
+    '@sigx/lynx-gestures',
+    '@sigx/lynx-haptics',
+    '@sigx/lynx-icons',
+    '@sigx/lynx-icons-fa-free',
+    '@sigx/lynx-icons-lucide',
+    '@sigx/lynx-image-picker',
+    '@sigx/lynx-linking',
+    '@sigx/lynx-location',
+    '@sigx/lynx-motion',
+    '@sigx/lynx-navigation',
+    '@sigx/lynx-network',
+    '@sigx/lynx-notifications',
+    '@sigx/lynx-permissions',
+    '@sigx/lynx-plugin',
+    '@sigx/lynx-runtime',
+    '@sigx/lynx-runtime-internal',
+    '@sigx/lynx-runtime-main',
+    '@sigx/lynx-safe-area',
+    '@sigx/lynx-share',
+    '@sigx/lynx-storage',
+    '@sigx/lynx-testing',
+    '@sigx/lynx-websocket',
+]);
+
+export function isKnownSigxPackage(name: string): boolean {
+    return KNOWN_SIGX_LYNX_PACKAGES.has(name);
+}
+
+/**
+ * Simple Levenshtein-based suggestion for typo'd short names.
+ * Returns up to 2 closest matches with distance ≤ 3.
+ */
+export function suggestSimilar(name: string): string[] {
+    const shortName = name.startsWith(SIGX_LYNX_PREFIX) ? name.slice(SIGX_LYNX_PREFIX.length) : name;
+    const candidates: Array<{ name: string; distance: number }> = [];
+    for (const known of KNOWN_SIGX_LYNX_PACKAGES) {
+        const knownShort = known.slice(SIGX_LYNX_PREFIX.length);
+        if (!knownShort) continue;
+        const distance = editDistance(shortName, knownShort);
+        if (distance <= 3) candidates.push({ name: knownShort, distance });
+    }
+    candidates.sort((a, b) => a.distance - b.distance);
+    return candidates.slice(0, 2).map((c) => c.name);
+}
+
+function editDistance(a: string, b: string): number {
+    if (a === b) return 0;
+    if (a.length === 0) return b.length;
+    if (b.length === 0) return a.length;
+    const prev: number[] = Array(b.length + 1).fill(0).map((_, i) => i);
+    const curr: number[] = Array(b.length + 1).fill(0);
+    for (let i = 1; i <= a.length; i++) {
+        curr[0] = i;
+        for (let j = 1; j <= b.length; j++) {
+            const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+            curr[j] = Math.min(curr[j - 1] + 1, prev[j] + 1, prev[j - 1] + cost);
+        }
+        for (let j = 0; j <= b.length; j++) prev[j] = curr[j];
+    }
+    return curr[b.length];
+}
+
 function parseRange(range: string): Pick<SigxDep, 'version' | 'rangePrefix' | 'isWorkspace'> {
     if (range.startsWith('workspace:')) {
         return { version: null, rangePrefix: '^', isWorkspace: true };
@@ -186,12 +266,20 @@ export function rewritePackageJson(
     const pkg = JSON.parse(source) as PackageJson;
     const changes: Array<{ dep: SigxDep; newRange: string }> = [];
 
+    // Default to exact pinning — the lockstep invariant says all
+    // @sigx/lynx-* packages must share one version, and an unsuspecting
+    // `pnpm add @sigx/lynx-foo` on a caret range can drift the family
+    // past the locked version on the next install. When the caller opts
+    // into ranges (`exact: false`), keep the user's existing range style
+    // per-entry instead of forcing one shape onto everything.
+    const useExact = options.exact !== false;
+
     for (const dep of deps) {
         if (dep.isWorkspace) continue;
         // Non-semver ranges (git URLs, file:, tags) aren't safe to rewrite —
         // we don't know what shape the user wants them in.
         if (dep.version === null) continue;
-        const prefix = options.exact ? '' : dep.rangePrefix;
+        const prefix = useExact ? '' : (dep.rangePrefix || '^');
         const newRange = buildRange(targetVersion, prefix);
         if (newRange === dep.range) continue;
         const section = pkg[dep.section];

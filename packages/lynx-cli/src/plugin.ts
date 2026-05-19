@@ -340,15 +340,19 @@ export default definePlugin({
         outdated: {
             description: 'List installed @sigx/lynx-* packages and check for updates',
             args: {
-                tag: { type: 'string', description: 'Compare against a dist-tag instead of "latest" (e.g. "canary")' },
+                tag: { type: 'string', description: 'Compare against a dist-tag instead of "latest" (e.g. "canary"). When set, exit code only reflects lockstep drift, not "behind tag".' },
             },
             async run(ctx) {
                 const { runOutdated } = await import('./outdated.js');
-                const result = await runOutdated({
-                    cwd: ctx.cwd,
-                    tag: ctx.args.tag as string | undefined,
-                });
-                if (result.outOfSync > 0 || result.updatesAvailable > 0) process.exit(1);
+                const tag = ctx.args.tag as string | undefined;
+                const result = await runOutdated({ cwd: ctx.cwd, tag });
+                // Lockstep drift is always an error. "Update available"
+                // only fails the build for the default (latest) check —
+                // a user explicitly asking "am I on canary?" shouldn't
+                // get a non-zero exit just because canary moved.
+                const isExplicitTag = tag !== undefined && tag !== 'latest';
+                if (result.outOfSync > 0) process.exit(1);
+                if (!isExplicitTag && result.updatesAvailable > 0) process.exit(1);
             },
         },
         upgrade: {
@@ -356,7 +360,7 @@ export default definePlugin({
             args: {
                 to: { type: 'string', description: 'Target version (e.g. "0.5.0") or dist-tag (e.g. "canary"). Default: latest.' },
                 'dry-run': { type: 'boolean', description: 'Print the planned diff without writing package.json or installing', default: false },
-                exact: { type: 'boolean', description: 'Pin to exact versions (no ^ prefix)', default: false },
+                caret: { type: 'boolean', description: 'Use ^x.y.z ranges instead of exact pins. Default: exact (matches lockstep).', default: false },
                 force: { type: 'boolean', description: 'Bypass the dirty-tree gate', default: false },
             },
             async run(ctx) {
@@ -365,7 +369,7 @@ export default definePlugin({
                     cwd: ctx.cwd,
                     target: ctx.args.to as string | undefined,
                     dryRun: ctx.args['dry-run'] as boolean | undefined,
-                    exact: ctx.args.exact as boolean | undefined,
+                    caret: ctx.args.caret as boolean | undefined,
                     force: ctx.args.force as boolean | undefined,
                 });
             },
@@ -373,7 +377,7 @@ export default definePlugin({
         add: {
             description: 'Add @sigx/lynx-* module(s) at the version matching your existing sigx deps',
             args: {
-                exact: { type: 'boolean', description: 'Pin to exact version (no ^ prefix)', default: false },
+                caret: { type: 'boolean', description: 'Use ^x.y.z range instead of exact pin. Default: exact (matches lockstep).', default: false },
                 force: { type: 'boolean', description: 'Bypass the dirty-tree gate', default: false },
             },
             async run(ctx) {
@@ -382,7 +386,7 @@ export default definePlugin({
                 await runAdd({
                     cwd: ctx.cwd,
                     modules,
-                    exact: ctx.args.exact as boolean | undefined,
+                    caret: ctx.args.caret as boolean | undefined,
                     force: ctx.args.force as boolean | undefined,
                 });
             },

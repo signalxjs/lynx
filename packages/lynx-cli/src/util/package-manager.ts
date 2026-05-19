@@ -17,6 +17,17 @@ export interface RunCommand {
     args: string[];
 }
 
+/**
+ * Resolve a package-manager binary name for the current platform. On
+ * Windows, `pnpm`/`npm`/`yarn`/`bun` are `.cmd` shims, and we deliberately
+ * avoid spawning them via `shell: true` because cmd.exe treats `^` as an
+ * escape character — which silently strips the caret from semver ranges
+ * like `@sigx/lynx-camera@^0.4.0` when they're passed through the shell.
+ */
+export function resolveBinary(pm: PackageManager): string {
+    return process.platform === 'win32' ? `${pm}.cmd` : pm;
+}
+
 const LOCKFILES: Array<{ file: string; pm: PackageManager }> = [
     { file: 'pnpm-lock.yaml', pm: 'pnpm' },
     { file: 'yarn.lock', pm: 'yarn' },

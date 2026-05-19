@@ -18,6 +18,7 @@ import { fetchLatestVersion } from './util/registry';
 import {
     detectPackageManager,
     installCommand,
+    resolveBinary,
     type PackageManager,
 } from './util/package-manager';
 import { isDirtyTree } from './util/git';
@@ -34,7 +35,10 @@ export interface UpgradeOptions {
     /** Target: a specific version like "0.5.0", a dist-tag like "canary", or undefined for "latest". */
     target?: string;
     dryRun?: boolean;
-    exact?: boolean;
+    /** Use ^x.y.z range instead of exact pin. Default: false. Exact pins
+     *  match the lockstep invariant — a stray `pnpm add @sigx/lynx-foo`
+     *  can't drift the family past the version everyone else is on. */
+    caret?: boolean;
     force?: boolean;
 }
 
@@ -56,7 +60,8 @@ const RED = '\x1b[31m';
 const BLUE = '\x1b[34m';
 
 export async function runUpgrade(options: UpgradeOptions): Promise<UpgradeResult> {
-    const { cwd, dryRun = false, exact = false, force = false } = options;
+    const { cwd, dryRun = false, caret = false, force = false } = options;
+    const exact = !caret;
 
     if (isDirtyTree(cwd) && !force && !dryRun) {
         console.log(`\n  ${RED}✗ Working tree is dirty.${RESET}`);
@@ -127,15 +132,15 @@ function printDiff(changes: Array<{ dep: SigxDep; newRange: string }>, exact: bo
         const after = newRange;
         console.log(`    ${pad(dep.name, width)}${DIM}${before}${RESET}  →  ${after}`);
     }
-    if (exact) {
-        console.log(`\n    ${DIM}--exact: pinning without a range prefix.${RESET}`);
+    if (!exact) {
+        console.log(`\n    ${DIM}--caret: using ^ ranges (default is exact pins to match lockstep).${RESET}`);
     }
 }
 
 function runInstall(cwd: string, pm: PackageManager): void {
     const { cmd, args } = installCommand(pm);
     console.log(`\n  ${BOLD}→ ${cmd} ${args.join(' ')}${RESET}\n`);
-    const result = spawnSync(cmd, args, { cwd, stdio: 'inherit', shell: true });
+    const result = spawnSync(resolveBinary(pm), args, { cwd, stdio: 'inherit' });
     if (result.status !== 0) {
         console.log(`\n  ${RED}✗ Install failed (${pm} exited with code ${result.status}).${RESET}`);
         console.log(`  ${DIM}package.json was already updated — re-run \`${pm} install\` once the issue is resolved.${RESET}\n`);

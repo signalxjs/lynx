@@ -16,6 +16,7 @@ import {
     addCommand as buildAddCmd,
     detectPackageManager,
     removeCommand as buildRemoveCmd,
+    resolveBinary,
     type PackageManager,
     type RunCommand,
 } from './util/package-manager';
@@ -25,15 +26,20 @@ import {
     expandShortName,
     findSigxDeps,
     hasNativeModule,
+    isKnownSigxPackage,
     isSigxLynxName,
     readPackageJson,
+    suggestSimilar,
 } from './util/sigx-packages';
 
 export interface AddOptions {
     cwd: string;
     /** Short names (`camera`) or full names (`@sigx/lynx-camera`). */
     modules: string[];
-    exact?: boolean;
+    /** Use ^x.y.z range instead of exact pin. Default: false (exact pins
+     *  match the lockstep invariant — a single `pnpm add` can't drift
+     *  past the locked version on next install). */
+    caret?: boolean;
     force?: boolean;
 }
 
@@ -50,7 +56,7 @@ const YELLOW = '\x1b[33m';
 const RED = '\x1b[31m';
 
 export async function runAdd(options: AddOptions): Promise<void> {
-    const { cwd, modules, exact = false, force = false } = options;
+    const { cwd, modules, caret = false, force = false } = options;
 
     if (modules.length === 0) {
         console.log(`\n  ${RED}✗ No module names provided.${RESET}`);
@@ -64,15 +70,32 @@ export async function runAdd(options: AddOptions): Promise<void> {
         process.exit(1);
     }
 
-    const names = modules.map(expandShortName);
-    const nonSigx = names.filter((n) => !isSigxLynxName(n));
+    const expanded = modules.map((m) => ({ input: m, name: expandShortName(m), wasShortName: !m.startsWith('@') }));
+
+    const nonSigx = expanded.filter((e) => !isSigxLynxName(e.name));
     if (nonSigx.length > 0) {
         console.log(`\n  ${RED}✗ Only @sigx/lynx-* packages can be added with this command:${RESET}`);
-        for (const n of nonSigx) console.log(`    ${n}`);
+        for (const e of nonSigx) console.log(`    ${e.input}`);
         console.log(`  ${DIM}Use your package manager directly for other packages.${RESET}\n`);
         process.exit(1);
     }
 
+    // Catch typos in short names before we send a doomed request to the
+    // registry. Fully-qualified names get a pass — the user is explicit
+    // and may be installing a sigx package newer than this CLI knows about.
+    const unknownShort = expanded.filter((e) => e.wasShortName && !isKnownSigxPackage(e.name));
+    if (unknownShort.length > 0) {
+        console.log(`\n  ${RED}✗ Unknown @sigx/lynx-* module${unknownShort.length === 1 ? '' : 's'}:${RESET}`);
+        for (const e of unknownShort) {
+            const suggestions = suggestSimilar(e.input);
+            const hint = suggestions.length > 0 ? `  ${DIM}did you mean: ${suggestions.join(', ')}?${RESET}` : '';
+            console.log(`    ${e.input}${hint}`);
+        }
+        console.log(`  ${DIM}Use the fully-qualified name (\`@sigx/lynx-foo\`) to bypass this check.${RESET}\n`);
+        process.exit(1);
+    }
+
+    const names = expanded.map((e) => e.name);
     const targetVersion = resolveTargetVersion(cwd);
     const sourceLabel = targetVersion.source === 'project'
         ? `${DIM}matching${RESET} @sigx/lynx-core@${targetVersion.version}`
@@ -80,7 +103,7 @@ export async function runAdd(options: AddOptions): Promise<void> {
 
     console.log(`\n  ${BOLD}sigx lynx add${RESET}  ${sourceLabel}\n`);
 
-    const range = exact ? targetVersion.version : `^${targetVersion.version}`;
+    const range = caret ? `^${targetVersion.version}` : targetVersion.version;
     const specs = names.map((n) => `${n}@${range}`);
     for (const spec of specs) console.log(`    ${GREEN}+${RESET} ${spec}`);
 
@@ -137,7 +160,7 @@ function resolveTargetVersion(cwd: string): ResolvedTarget {
 
 function runPm(cwd: string, run: RunCommand, pm: PackageManager): void {
     console.log(`\n  ${BOLD}→ ${run.cmd} ${run.args.join(' ')}${RESET}\n`);
-    const result = spawnSync(run.cmd, run.args, { cwd, stdio: 'inherit', shell: true });
+    const result = spawnSync(resolveBinary(pm), run.args, { cwd, stdio: 'inherit' });
     if (result.status !== 0) {
         console.log(`\n  ${RED}✗ ${pm} exited with code ${result.status}.${RESET}\n`);
         process.exit(result.status ?? 1);
