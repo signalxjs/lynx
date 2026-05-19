@@ -1,0 +1,54 @@
+{
+    "name": "@sigx/lynx-markdown",
+    "version": "0.1.0",
+    "description": "Typed signalx wrapper around Lynx's <x-markdown> element. Renders markdown source via XElement/Markdown.",
+    "type": "module",
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.ts",
+            "import": "./dist/index.js",
+            "default": "./dist/index.js"
+        },
+        "./package.json": "./package.json"
+    },
+    "files": [
+        "dist",
+        "README.md",
+        "LICENSE"
+    ],
+    "scripts": {
+        "build": "vite build && tsgo --emitDeclarationOnly",
+        "dev": "vite build --watch"
+    },
+    "peerDependencies": {
+        "@sigx/lynx": "workspace:^"
+    },
+    "devDependencies": {
+        "@sigx/lynx": "workspace:^",
+        "@sigx/vite": "^0.4.3",
+        "typescript": "^6.0.3"
+    },
+    "author": "Andreas Ekdahl",
+    "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/signalxjs/lynx.git",
+        "directory": "packages/lynx-markdown"
+    },
+    "homepage": "https://github.com/signalxjs/lynx/tree/main/packages/lynx-markdown",
+    "bugs": {
+        "url": "https://github.com/signalxjs/lynx/issues"
+    },
+    "publishConfig": {
+        "access": "public"
+    },
+    "keywords": [
+        "signalx",
+        "sigx",
+        "lynx",
+        "markdown",
+        "x-markdown"
+    ]
+}

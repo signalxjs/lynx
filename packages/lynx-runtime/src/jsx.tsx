@@ -115,6 +115,15 @@ export interface LynxCommonAttributes {
     bindtouchcancel?: LynxEventHandler;
     catchtouchcancel?: LynxEventHandler;
 
+    /**
+     * Fires when this element's measured layout (frame, padding, border)
+     * changes. Lynx 3.7+. Works on any element; for `<text>` specifically
+     * see also the text-only `bindlayout` event which carries extra
+     * baseline/line metrics.
+     */
+    bindlayoutchange?: LynxEventHandler;
+    catchlayoutchange?: LynxEventHandler;
+
     // sigx event handler aliases (onX style)
     onTap?: LynxEventHandler;
     onLongpress?: LynxEventHandler;
@@ -122,6 +131,7 @@ export interface LynxCommonAttributes {
     onTouchmove?: LynxEventHandler;
     onTouchend?: LynxEventHandler;
     onTouchcancel?: LynxEventHandler;
+    onLayoutchange?: LynxEventHandler;
 
     // -----------------------------------------------------------------------
     // Main Thread Script (MTS) attributes
@@ -166,8 +176,25 @@ export interface TextAttributes extends LynxCommonAttributes {
     'number-of-lines'?: number;
     /** Text overflow mode */
     'text-overflow'?: 'clip' | 'ellipsis';
-    /** Selectable text */
-    selectable?: boolean;
+    /**
+     * Enable native text selection (long-press to select, system context
+     * menu for copy/share). Lynx 3.7+.
+     */
+    'text-selection'?: boolean;
+    /**
+     * Suppress the system context menu after selection so the app can
+     * render its own. Only takes effect when `text-selection` is enabled.
+     * Lynx 3.7+.
+     */
+    'custom-text-selection'?: boolean;
+    /** Fires when the selection range changes (selection start/end). */
+    bindselectionchange?: LynxEventHandler;
+    /** Fires when text layout is computed (frame/baseline/line metrics). */
+    bindlayout?: LynxEventHandler;
+    /** Convenience alias for `bindselectionchange`. */
+    onSelectionchange?: LynxEventHandler;
+    /** Convenience alias for `bindlayout`. */
+    onLayout?: LynxEventHandler;
 }
 
 export interface ImageAttributes extends LynxCommonAttributes {
