@@ -46,6 +46,27 @@ function exportNameFor(name: string): string {
     return 'fa' + name.split('-').map((seg) => seg.charAt(0).toUpperCase() + seg.slice(1)).join('');
 }
 
+/**
+ * Inverse of `exportNameFor`: `faChevronRight` → `chevron-right`.
+ * Used by `listGlyphs` to walk `Object.keys(module)` and emit canonical names.
+ */
+function kebabFromExportName(exportName: string): string {
+    // Strip the leading `fa` prefix.
+    const body = exportName.slice(2);
+    if (body.length === 0) return '';
+    // Split on each uppercase letter and join with `-`, lowercasing everything.
+    let out = body.charAt(0).toLowerCase();
+    for (let i = 1; i < body.length; i++) {
+        const ch = body.charAt(i);
+        if (ch >= 'A' && ch <= 'Z') {
+            out += '-' + ch.toLowerCase();
+        } else {
+            out += ch;
+        }
+    }
+    return out;
+}
+
 function webfontsDir(): string | null {
     try {
         const pkgJson = require.resolve('@fortawesome/fontawesome-free/package.json');
@@ -76,6 +97,23 @@ const adapter: IconAdapter = {
         const dir = webfontsDir();
         if (!dir) return null;
         return join(dir, filename);
+    },
+
+    listGlyphs(style: string): string[] {
+        const mod = loadStyleModule(style);
+        if (!mod) return [];
+        const out: string[] = [];
+        for (const [key, entry] of Object.entries(mod)) {
+            // The FA modules also export `prefix` ('fas' / 'far' / 'fab') and a
+            // single-letter alias matching the prefix. Filter to real icon
+            // entries — objects with a numeric icon[0] and a string icon[4].
+            if (!key.startsWith('fa') || key.length < 3) continue;
+            const ch = key.charAt(2);
+            if (ch < 'A' || ch > 'Z') continue; // skip `fas`, `far`, `fab`
+            if (!entry || typeof entry !== 'object' || !Array.isArray((entry as FaIconEntry).icon)) continue;
+            out.push(kebabFromExportName(key));
+        }
+        return out;
     },
 };
 

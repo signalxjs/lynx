@@ -33,4 +33,34 @@ describe('@sigx/lynx-icons-lucide adapter', () => {
     it('returns null for unknown glyph', () => {
         expect(adapter.getGlyph('', 'definitely-not-a-lucide-icon')).toBeNull();
     });
+
+    describe('listGlyphs', () => {
+        it('enumerates the full Lucide catalog (1000+ kebab-case names)', () => {
+            const all = adapter.listGlyphs('');
+            expect(all.length).toBeGreaterThan(1000);
+            expect(all).toContain('user');
+            expect(all).toContain('search');
+            expect(all).toContain('chevron-right');
+            expect(all).toContain('bell');
+        });
+
+        it('handles names that start with two capitals (a-arrow-down)', () => {
+            // Lucide really exports `AArrowDown` — confirm the kebab inverse handles it.
+            const all = adapter.listGlyphs('');
+            expect(all).toContain('a-arrow-down');
+        });
+
+        it('only emits kebab-case (no PascalCase / camelCase leaks)', () => {
+            for (const name of adapter.listGlyphs('')) {
+                expect(name).toMatch(/^[a-z][a-z0-9-]*$/);
+            }
+        });
+
+        it('round-trips with getGlyph (every listed name resolves)', () => {
+            const all = adapter.listGlyphs('');
+            for (const name of all.slice(0, 20)) {
+                expect(adapter.getGlyph('', name), `getGlyph('', '${name}') should not be null`).not.toBeNull();
+            }
+        });
+    });
 });

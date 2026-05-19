@@ -44,7 +44,9 @@ The component renders `<text style={{ fontFamily: setId, … }}>{codepoint}</tex
 
 ## Dynamic names
 
-The build-time scanner only sees literal `name="…"` strings. Computed names — `<Icon name={state.icon} />` — fall through to the missing-glyph placeholder unless you list them in `iconSets[].include`:
+The build-time scanner only sees literal `name="…"` strings. Computed names — `<Icon name={state.icon} />` — fall through to the missing-glyph placeholder unless you tell the plugin which glyphs to include.
+
+**Known list — enumerate the names**:
 
 ```ts
 iconSets: [
@@ -56,6 +58,27 @@ iconSets: [
     },
 ],
 ```
+
+**Unknown list (JSON-driven UIs, server-driven content, etc.) — `include: ['*']`**:
+
+```ts
+iconSets: [
+    {
+        id: 'fa',
+        source: '@sigx/lynx-icons-fa-free',
+        styles: ['solid'],
+        include: ['*'], // ship the full FA-solid catalog
+    },
+],
+```
+
+Trade-off: shipping a full set noticeably grows the bundle (the showcase goes from ~336 kB → ~2.65 MB when FA solid's ~1 900 glyphs are bundled). Build output prints the exact glyph count so you can audit it:
+
+```
+[@sigx/lynx-plugin] icons: fa bundling 1956 glyphs (include: ['*'])
+```
+
+Use it only on the sets that genuinely need dynamic names — mix per set with the tree-shaken default for everything else. Coming in v1.1: font mode swaps the SVG-per-glyph payload for a single subsetted TTF, which is dramatically smaller for full-catalog scenarios.
 
 ## Custom sets
 

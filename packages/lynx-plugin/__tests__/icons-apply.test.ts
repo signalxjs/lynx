@@ -64,18 +64,22 @@ function setupFakeAdapter(): void {
     writeFileSync(
         join(adapterDir, 'index.mjs'),
         `
+const map = {
+  'user': { codepoint: 0xf007, svg: '<svg viewBox="0 0 16 16" fill="__COLOR__"><path d="M0 0"/></svg>' },
+  'house': { codepoint: 0xf015, svg: '<svg viewBox="0 0 16 16" fill="__COLOR__"><path d="M1 1"/></svg>' },
+  'search': { svg: '<svg viewBox="0 0 16 16" fill="none" stroke="__COLOR__"><path d="M2 2"/></svg>' },
+};
 const adapter = {
   styles: ['solid'],
   getGlyph(style, name) {
     if (style !== 'solid') return null;
-    const map = {
-      'user': { codepoint: 0xf007, svg: '<svg viewBox="0 0 16 16" fill="__COLOR__"><path d="M0 0"/></svg>' },
-      'house': { codepoint: 0xf015, svg: '<svg viewBox="0 0 16 16" fill="__COLOR__"><path d="M1 1"/></svg>' },
-      'search': { svg: '<svg viewBox="0 0 16 16" fill="none" stroke="__COLOR__"><path d="M2 2"/></svg>' },
-    };
     return map[name] ?? null;
   },
   getFontPath() { return null; },
+  listGlyphs(style) {
+    if (style !== 'solid') return [];
+    return Object.keys(map);
+  },
 };
 export default adapter;
 `,
@@ -213,6 +217,51 @@ describe('applyIcons', () => {
 
         // Nothing got aliased — the failure stopped the slice cleanly.
         expect(recorder.aliases).toEqual({});
+    });
+
+    it('honours include: ["*"] by pulling the adapter\'s full glyph catalog', async () => {
+        writeFile(
+            'signalx.config.mjs',
+            `export default {
+                name: 'WildcardTest',
+                iconSets: [{ id: 'fake', source: 'fake-icons-adapter', styles: ['solid'], include: ['*'] }],
+            };`,
+        );
+        // No <Icon> references in source — the wildcard alone should bundle every
+        // glyph the fake adapter exposes (user, house, search).
+        writeFile('src/empty.tsx', `export const X = () => <view />;`);
+
+        const recorder: AliasRecorder = { aliases: {} };
+        await applyIcons(makeFakeApi(recorder), { cwd: projectRoot });
+
+        const svgsContent = readFileSync(recorder.aliases['@sigx/lynx-icons/__svgs'], 'utf8');
+        expect(svgsContent).toContain('"user":');
+        expect(svgsContent).toContain('"house":');
+        expect(svgsContent).toContain('"search":');
+        // The sentinel itself must not leak into the emitted map.
+        expect(svgsContent).not.toContain('"*":');
+    });
+
+    it('merges include: ["*"] with statically-detected JSX usages without duplicates', async () => {
+        writeFile(
+            'signalx.config.mjs',
+            `export default {
+                name: 'WildcardPlusStatic',
+                iconSets: [{ id: 'fake', source: 'fake-icons-adapter', styles: ['solid'], include: ['*'] }],
+            };`,
+        );
+        // Scanner picks up `user`; wildcard also enumerates `user` → must dedupe.
+        writeFile('src/screen.tsx', `const x = <Icon set="fake" name="user" />;`);
+
+        const recorder: AliasRecorder = { aliases: {} };
+        await applyIcons(makeFakeApi(recorder), { cwd: projectRoot });
+
+        const svgsContent = readFileSync(recorder.aliases['@sigx/lynx-icons/__svgs'], 'utf8');
+        // Each glyph appears exactly once in the emitted JSON.
+        for (const name of ['user', 'house', 'search']) {
+            const matches = svgsContent.match(new RegExp(`"${name}":`, 'g'));
+            expect(matches?.length ?? 0).toBe(1);
+        }
     });
 
     it('silently skips an iconSet whose adapter cannot be resolved', async () => {

@@ -29,7 +29,12 @@ export default defineLynxConfig({
     // @sigx/lynx-plugin at build time; only glyphs actually referenced in
     // <Icon set= name=> JSX (plus anything in `include`) end up in the bundle.
     iconSets: [
-        { id: 'fa', source: '@sigx/lynx-icons-fa-free', styles: ['solid'] },
+        // `include: ['*']` bundles the full FA-solid catalog so the
+        // "Dynamic icon names" card on Settings can resolve names from a
+        // JS array (the build-time scanner doesn't see them). Trade-off:
+        // adds ~700 kB of glyph data to the bundle. Only opt in on sets
+        // that genuinely need dynamic names.
+        { id: 'fa', source: '@sigx/lynx-icons-fa-free', styles: ['solid'], include: ['*'] },
         { id: 'fab', source: '@sigx/lynx-icons-fa-free', styles: ['brands'] },
         { id: 'lucide', source: '@sigx/lynx-icons-lucide' },
     ],

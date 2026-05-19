@@ -38,6 +38,12 @@ export interface IconSetConfig {
     /**
      * Force-include glyph names that the build-time scanner can't see
      * (e.g. when `name` is a dynamic expression). One entry per glyph name.
+     *
+     * Pass `['*']` to ship the **full glyph catalog** for the adapter's
+     * configured styles — required for JSON-driven UIs / server-driven
+     * content where icon names aren't known at build time. Bundle grows
+     * to fit the whole set (FA solid ≈ 700 kB, lucide ≈ 300 kB), so use
+     * it per-set, only on sets that actually need dynamic names.
      */
     include?: string[];
 }

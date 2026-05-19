@@ -93,6 +93,25 @@ export const Settings = component(() => {
 
                 <Card bordered>
                     <Card.Body>
+                        <Col gap={8}>
+                            <Text weight="semibold">Dynamic icon names</Text>
+                            <Text class="opacity-60 text-sm">
+                                Names come from a JS array — the JSX scanner can't
+                                see them. With `include: ['*']` on the `fa` set in
+                                signalx.config.ts, the full FA solid catalog is
+                                bundled and these resolve at runtime.
+                            </Text>
+                            <Row gap={16} align="center">
+                                {['rocket', 'bug', 'fire', 'star', 'heart'].map((name) => (
+                                    <Icon set="fa" name={name} size={24} color="#0D9488" />
+                                ))}
+                            </Row>
+                        </Col>
+                    </Card.Body>
+                </Card>
+
+                <Card bordered>
+                    <Card.Body>
                         <Row align="center" justify="space-between">
                             <Text class="opacity-60">Version</Text>
                             <Text>0.1.0</Text>

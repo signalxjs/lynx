@@ -210,6 +210,22 @@ export async function applyIcons(
 
         const setUsed = new Set(used.get(setConfig.id) ?? []);
         for (const forced of setConfig.include) setUsed.add(forced);
+
+        // `include: ['*']` → ship the full glyph catalog for each configured
+        // style. Required for JSON-driven UIs where icon names are unknown
+        // at build time. Trade-off: bundle grows by hundreds of KB.
+        if (setConfig.include.includes('*')) {
+            setUsed.delete('*');
+            const stylesToTry = setConfig.styles ?? adapter.styles;
+            for (const style of stylesToTry) {
+                for (const name of adapter.listGlyphs(style)) setUsed.add(name);
+            }
+            // eslint-disable-next-line no-console
+            console.log(
+                `[@sigx/lynx-plugin] icons: ${setConfig.id} bundling ${setUsed.size} glyphs (include: ['*'])`,
+            );
+        }
+
         if (setUsed.size === 0) continue;
 
         const { codepoints, svgs } = collectGlyphsForSet(adapter, setConfig, setUsed);
