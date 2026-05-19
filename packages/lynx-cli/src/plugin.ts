@@ -337,6 +337,64 @@ export default definePlugin({
                 await runDoctor(ctx.cwd, ctx.logger);
             },
         },
+        outdated: {
+            description: 'List installed @sigx/lynx-* packages and check for updates',
+            args: {
+                tag: { type: 'string', description: 'Compare against a dist-tag instead of "latest" (e.g. "canary")' },
+            },
+            async run(ctx) {
+                const { runOutdated } = await import('./outdated.js');
+                const result = await runOutdated({
+                    cwd: ctx.cwd,
+                    tag: ctx.args.tag as string | undefined,
+                });
+                if (result.outOfSync > 0 || result.updatesAvailable > 0) process.exit(1);
+            },
+        },
+        upgrade: {
+            description: 'Upgrade all @sigx/lynx-* packages to the latest (or a target) version',
+            args: {
+                to: { type: 'string', description: 'Target version (e.g. "0.5.0") or dist-tag (e.g. "canary"). Default: latest.' },
+                'dry-run': { type: 'boolean', description: 'Print the planned diff without writing package.json or installing', default: false },
+                exact: { type: 'boolean', description: 'Pin to exact versions (no ^ prefix)', default: false },
+                force: { type: 'boolean', description: 'Bypass the dirty-tree gate', default: false },
+            },
+            async run(ctx) {
+                const { runUpgrade } = await import('./upgrade.js');
+                await runUpgrade({
+                    cwd: ctx.cwd,
+                    target: ctx.args.to as string | undefined,
+                    dryRun: ctx.args['dry-run'] as boolean | undefined,
+                    exact: ctx.args.exact as boolean | undefined,
+                    force: ctx.args.force as boolean | undefined,
+                });
+            },
+        },
+        add: {
+            description: 'Add @sigx/lynx-* module(s) at the version matching your existing sigx deps',
+            args: {
+                exact: { type: 'boolean', description: 'Pin to exact version (no ^ prefix)', default: false },
+                force: { type: 'boolean', description: 'Bypass the dirty-tree gate', default: false },
+            },
+            async run(ctx) {
+                const { runAdd } = await import('./packages.js');
+                const modules = ((ctx.args._ as string[] | undefined) ?? []).filter((s) => typeof s === 'string');
+                await runAdd({
+                    cwd: ctx.cwd,
+                    modules,
+                    exact: ctx.args.exact as boolean | undefined,
+                    force: ctx.args.force as boolean | undefined,
+                });
+            },
+        },
+        remove: {
+            description: 'Remove @sigx/lynx-* module(s) from the project',
+            async run(ctx) {
+                const { runRemove } = await import('./packages.js');
+                const modules = ((ctx.args._ as string[] | undefined) ?? []).filter((s) => typeof s === 'string');
+                await runRemove({ cwd: ctx.cwd, modules });
+            },
+        },
         prebuild: {
             description: 'Generate native project files from signalx.config.ts',
             args: {
