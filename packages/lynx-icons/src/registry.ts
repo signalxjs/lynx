@@ -29,3 +29,18 @@ export function lookupSvg(
 ): GlyphSvg | undefined {
     return buildTime[set]?.[name] ?? runtimeSvgs[set]?.[name];
 }
+
+export function lookupGlyph(
+    buildTimeCodepoints: CodepointMap,
+    buildTimeSvgs: SvgMap,
+    set: string,
+    name: string,
+): { codepoint?: number; svg?: GlyphSvg } | undefined {
+    const svg = lookupSvg(buildTimeSvgs, set, name);
+    if (svg) return { svg };
+
+    const codepoint = lookupCodepoint(buildTimeCodepoints, set, name);
+    if (codepoint !== undefined) return { codepoint };
+
+    return undefined;
+}

@@ -2,7 +2,7 @@ import { component, type Define } from '@sigx/lynx';
 import { codepoints } from '@sigx/lynx-icons/__codepoints';
 import { svgs } from '@sigx/lynx-icons/__svgs';
 import '@sigx/lynx-icons/__font-face.css';
-import { lookupCodepoint, lookupSvg } from './registry';
+import { lookupGlyph } from './registry';
 
 export type IconProps =
     & Define.Prop<'set', string, true>
@@ -21,9 +21,10 @@ function svgDataUri(template: string, color: string): string {
  * Sets are declared in `sigx.lynx.config.ts` via `iconSets: [...]` (build-time,
  * tree-shaken) or via `defineIconSet({ id, glyphs })` (runtime, ad-hoc).
  *
- * Font-mode sets render as a single character inside a `<text>` element with
- * a matching `font-family`. SVG-mode sets render as an `<image>` with an
- * SVG data URI. Missing glyphs render an empty `<view>` of the same size.
+ * SVG-mode sets render as an `<image>` with an SVG data URI. Font-mode sets
+ * fall back to a single character inside a `<text>` element with a matching
+ * `font-family` when no SVG is available. Missing glyphs render an empty
+ * `<view>` of the same size.
  *
  * @example
  * ```tsx
@@ -38,8 +39,19 @@ export const Icon = component<IconProps>(({ props }) => {
         const name = props.name;
         const sizeStyle = { width: size, height: size } as const;
 
-        const cp = lookupCodepoint(codepoints, set, name);
-        if (cp !== undefined) {
+        const glyph = lookupGlyph(codepoints, svgs, set, name);
+        if (glyph?.svg) {
+            const color = props.color ?? 'currentColor';
+            return (
+                <image
+                    src={svgDataUri(glyph.svg.svg, color)}
+                    class={props.class}
+                    style={sizeStyle}
+                />
+            );
+        }
+
+        if (glyph?.codepoint !== undefined) {
             const textStyle: Record<string, string | number> = {
                 fontFamily: set,
                 fontSize: size,
@@ -50,20 +62,8 @@ export const Icon = component<IconProps>(({ props }) => {
             if (props.color) textStyle.color = props.color;
             return (
                 <text class={props.class} style={textStyle}>
-                    {String.fromCodePoint(cp)}
+                    {String.fromCodePoint(glyph.codepoint)}
                 </text>
-            );
-        }
-
-        const svg = lookupSvg(svgs, set, name);
-        if (svg) {
-            const color = props.color ?? 'currentColor';
-            return (
-                <image
-                    src={svgDataUri(svg.svg, color)}
-                    class={props.class}
-                    style={sizeStyle}
-                />
             );
         }
 

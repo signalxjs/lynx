@@ -13,13 +13,17 @@ import type { IconSetDef } from './types';
  * defineIconSet({
  *   id: 'brand',
  *   glyphs: {
- *     logo: { svg: { svg: '<svg viewBox="0 0 24 24" fill="__COLOR__"><path d="M3 12L12 3l9 9-9 9z"/></svg>' } },
+ *     logo: {
+ *       svg: {
+ *         svg: '<svg viewBox="0 0 24 24" fill="__COLOR__"><path d="M3 12L12 3l9 9-9 9z"/></svg>',
+ *       },
+ *     },
  *   },
  * });
  * ```
  *
- * `__COLOR__` placeholders in the SVG markup get substituted with the
- * user's `color` prop at render time.
+ * The inner `svg` value is raw SVG markup. `__COLOR__` placeholders in that
+ * markup get substituted with the user's `color` prop at render time.
  */
 export function defineIconSet(def: IconSetDef): IconSetDef {
     registerIconSet(def);
