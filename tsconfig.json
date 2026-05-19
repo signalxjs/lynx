@@ -58,6 +58,9 @@
       "@sigx/lynx-icons/__font-face.css": [
         "./packages/lynx-icons/src/stubs/font-face.css"
       ],
+      "@sigx/lynx-icons-fa-free": [
+        "./packages/lynx-icons-fa-free/src/index.ts"
+      ],
       "@sigx/lynx-image-picker": [
         "./packages/lynx-image-picker/src/index.ts"
       ],
