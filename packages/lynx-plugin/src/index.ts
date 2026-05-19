@@ -25,6 +25,7 @@ import { applyCSS } from './css';
 import { applyEntry } from './entry';
 import { applyIcons } from './icons';
 import { LAYERS } from './layers';
+import { createLogMiddleware, LOG_ENDPOINT_PATH } from './log-server';
 
 export { LAYERS, applyEntry };
 
@@ -177,6 +178,44 @@ export function pluginSigxLynx(
           },
         });
       });
+
+      // -------------------------------------------------------------------
+      // Dev-only: console log streaming. Two pieces:
+      //   1. `dev.setupMiddlewares` adds an HTTP endpoint on the rspeedy
+      //      dev server that receives batched log entries from devices.
+      //   2. `source.define` bakes the endpoint URL into the BG bundle so
+      //      `@sigx/lynx-dev-client/install` can pick it up at runtime.
+      // Both are gated on NODE_ENV !== 'production'.
+      // -------------------------------------------------------------------
+      const isDevServer = process.env['NODE_ENV'] !== 'production';
+      if (isDevServer) {
+        api.modifyRsbuildConfig((config, { mergeRsbuildConfig }) => {
+          // Compute the URL the device should POST to. Prefer the LAN IP
+          // (so a phone on Wi-Fi can reach the laptop) and read the port
+          // override env var that `@sigx/lynx-cli` already plumbs through.
+          const lanIP = detectLanIPv4();
+          const envPort = process.env['SIGX_LYNX_DEV_PORT'];
+          const port = envPort && Number.isFinite(Number(envPort))
+            ? Number(envPort)
+            : (config.server?.port ?? 3000);
+          const logUrl = `http://${lanIP}:${port}${LOG_ENDPOINT_PATH}`;
+
+          return mergeRsbuildConfig(config, {
+            source: {
+              define: {
+                __SIGX_DEV_LOG_URL__: JSON.stringify(logUrl),
+              },
+            },
+            dev: {
+              setupMiddlewares: [
+                (middlewares) => {
+                  middlewares.unshift(createLogMiddleware());
+                },
+              ],
+            },
+          });
+        });
+      }
 
       api.modifyBundlerChain((chain) => {
         chain.resolve.alias.set(

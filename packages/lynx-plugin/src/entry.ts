@@ -10,7 +10,9 @@
  */
 
 import path from 'node:path';
+import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { createRequire } from 'node:module';
 
 import type { RsbuildPluginAPI } from '@rsbuild/core';
 
@@ -203,6 +205,70 @@ export async function applyEntry(
     return rspackConfig;
   });
 
+  // Preload `@sigx/lynx-dev-client/install` — the JS-side console streamer.
+  // We resolve it eagerly (rather than relying on the bundler's resolver)
+  // so that:
+  //   * absence of the package is detected once at config time (consumer may
+  //     not depend on `@sigx/lynx-dev-client`), and
+  //   * we can pass an absolute path to rspack's entry, sidestepping any
+  //     subpath-export quirks.
+  //
+  // In linked / monorepo setups the plugin can live anywhere on disk, so we
+  // try multiple resolution bases — `api.context.rootPath`, the current
+  // process cwd, and finally the plugin's own location — and stop at the
+  // first one that finds it. This covers monorepo workspaces where the
+  // dev-client is hoisted to the workspace root as well as per-app installs.
+  //
+  // Returns `undefined` if the package isn't installed — the BG entry is
+  // then left alone and log streaming is a silent no-op for that project.
+  const resolveBases = [
+    path.join(api.context.rootPath, 'package.json'),
+    path.join(process.cwd(), 'package.json'),
+  ];
+  let devClientInstallPath: string | undefined;
+  for (const base of resolveBases) {
+    try {
+      devClientInstallPath = createRequire(base).resolve(
+        '@sigx/lynx-dev-client/install',
+      );
+      break;
+    } catch {
+      // Subpath export may only declare `import` (Node CJS resolver wants
+      // `require`/`default`). Fall back to locating package.json and
+      // hand-constructing the path to dist/install.js.
+      try {
+        const pkgJson = createRequire(base).resolve(
+          '@sigx/lynx-dev-client/package.json',
+        );
+        const candidate = path.join(path.dirname(pkgJson), 'dist', 'install.js');
+        if (existsSync(candidate)) {
+          devClientInstallPath = candidate;
+          break;
+        }
+      } catch {
+        // try next base
+      }
+    }
+  }
+  if (!devClientInstallPath) {
+    try {
+      devClientInstallPath = createRequire(import.meta.url).resolve(
+        '@sigx/lynx-dev-client/install',
+      );
+    } catch {
+      devClientInstallPath = undefined;
+    }
+  }
+  if (devClientInstallPath) {
+    api.logger.info(
+      `[sigx-lynx] device console log streaming → enabled`,
+    );
+  } else {
+    api.logger.warn(
+      `[sigx-lynx] device console log streaming → disabled (install @sigx/lynx-dev-client as a devDependency of this app). rootPath=${api.context.rootPath}, cwd=${process.cwd()}`,
+    );
+  }
+
   api.modifyBundlerChain((chain, { environment, isProd }) => {
     const isRspeedy = api.context.callerName === 'rspeedy';
     if (!isRspeedy) return;
@@ -329,6 +395,17 @@ export async function applyEntry(
         bgEntry.prepend({
           layer: LAYERS.BACKGROUND,
           import: '@lynx-js/webpack-dev-transport/client',
+        });
+      }
+
+      // Auto-install the console log streamer in dev. Prepended LAST so
+      // it runs FIRST at runtime (after webpack-dev-transport so the
+      // dev URL is plumbed). Skipped if the dev-client package isn't
+      // installed in the consuming project.
+      if (isDev && !isWeb && devClientInstallPath) {
+        bgEntry.prepend({
+          layer: LAYERS.BACKGROUND,
+          import: devClientInstallPath,
         });
       }
 
