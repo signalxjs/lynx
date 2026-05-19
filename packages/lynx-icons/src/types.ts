@@ -1,11 +1,17 @@
 /**
  * Per-glyph vector data. Used by SVG-mode rendering.
- * `path` is a single SVG path 'd' attribute; viewBox is `0 0 w h`.
+ *
+ * `svg` is a complete `<svg …>…</svg>` string with `__COLOR__` placeholders
+ * wherever the user-supplied `color` should be substituted. This lets each
+ * adapter ship the native shape of its icons (FA = filled paths, lucide =
+ * stroked paths) without the core component needing to know per-adapter
+ * styling.
+ *
+ * @example FA solid: `<svg viewBox="0 0 448 512" fill="__COLOR__"><path d="..."/></svg>`
+ * @example lucide:   `<svg viewBox="0 0 24 24" fill="none" stroke="__COLOR__" stroke-width="2" ...><path .../><circle .../></svg>`
  */
 export interface GlyphSvg {
-    w: number;
-    h: number;
-    path: string;
+    svg: string;
 }
 
 /**
@@ -16,7 +22,7 @@ export interface GlyphSvg {
 export type CodepointMap = Record<string, Record<string, number>>;
 
 /**
- * Build-time virtual module shape: glyph name → SVG path data, keyed by set id.
+ * Build-time virtual module shape: glyph name → SVG data, keyed by set id.
  * Populated by the @sigx/lynx-plugin icons slice.
  */
 export type SvgMap = Record<string, Record<string, GlyphSvg>>;
@@ -33,15 +39,16 @@ export interface IconSetDef {
 
 /**
  * Glyph data exposed by an adapter package at build time.
- * `codepoint` enables font-mode subsetting; `w`/`h`/`path` enable SVG-mode rendering.
- * Adapters should populate both when possible (FA does), or only the SVG fields
- * for SVG-only sets (e.g. lucide).
+ * `codepoint` enables font-mode subsetting; `svg` enables SVG-mode rendering.
+ * Adapters should populate both when possible (FA does), or only `svg` for
+ * SVG-only sets (e.g. lucide).
+ *
+ * `svg` is a complete `<svg>…</svg>` string with `__COLOR__` placeholders
+ * for the user's color; see {@link GlyphSvg} for the rendering contract.
  */
 export interface GlyphData {
     codepoint?: number;
-    w: number;
-    h: number;
-    path: string;
+    svg: string;
 }
 
 /**

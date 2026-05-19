@@ -11,10 +11,10 @@ describe('@sigx/lynx-icons-fa-free adapter', () => {
         const g = adapter.getGlyph('solid', 'user');
         expect(g).not.toBeNull();
         expect(g?.codepoint).toBe(0xf007);
-        expect(g?.w).toBeGreaterThan(0);
-        expect(g?.h).toBeGreaterThan(0);
-        expect(typeof g?.path).toBe('string');
-        expect(g?.path.length).toBeGreaterThan(10);
+        expect(g?.svg).toMatch(/^<svg /);
+        expect(g?.svg).toContain('viewBox="0 0 448 512"');
+        expect(g?.svg).toContain('fill="__COLOR__"');
+        expect(g?.svg).toContain('<path d="');
     });
 
     it('resolves a kebab-cased glyph name (chevron-right)', () => {

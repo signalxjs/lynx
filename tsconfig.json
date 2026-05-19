@@ -61,6 +61,9 @@
       "@sigx/lynx-icons-fa-free": [
         "./packages/lynx-icons-fa-free/src/index.ts"
       ],
+      "@sigx/lynx-icons-lucide": [
+        "./packages/lynx-icons-lucide/src/index.ts"
+      ],
       "@sigx/lynx-image-picker": [
         "./packages/lynx-image-picker/src/index.ts"
       ],

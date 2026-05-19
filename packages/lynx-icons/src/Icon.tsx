@@ -11,9 +11,8 @@ export type IconProps =
     & Define.Prop<'color', string, false>
     & Define.Prop<'class', string, false>;
 
-function svgDataUri(w: number, h: number, path: string, fill: string): string {
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" fill="${fill}"><path d="${path}"/></svg>`;
-    return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+function svgDataUri(template: string, color: string): string {
+    return `data:image/svg+xml;utf8,${encodeURIComponent(template.replace(/__COLOR__/g, color))}`;
 }
 
 /**
@@ -58,10 +57,10 @@ export const Icon = component<IconProps>(({ props }) => {
 
         const svg = lookupSvg(svgs, set, name);
         if (svg) {
-            const fill = props.color ?? 'currentColor';
+            const color = props.color ?? 'currentColor';
             return (
                 <image
-                    src={svgDataUri(svg.w, svg.h, svg.path, fill)}
+                    src={svgDataUri(svg.svg, color)}
                     class={props.class}
                     style={sizeStyle}
                 />

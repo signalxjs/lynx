@@ -83,6 +83,7 @@ Auto-linked by `sigx prebuild` — list them under `modules: [...]` in your `sig
 | [`@sigx/lynx-daisyui`](./packages/lynx-daisyui) | DaisyUI-flavored component library, stylesheet, and Tailwind preset for Lynx. |
 | [`@sigx/lynx-icons`](./packages/lynx-icons) | `<Icon set name />` component + registry. Pairs with adapter packages (`@sigx/lynx-icons-fa-free`, `@sigx/lynx-icons-lucide`); used icons are auto-detected from JSX at build time and subset/tree-shaken. |
 | [`@sigx/lynx-icons-fa-free`](./packages/lynx-icons-fa-free) | Font Awesome Free adapter for `@sigx/lynx-icons` (solid/regular/brands). Reads glyph data from the user's installed `@fortawesome/free-*-svg-icons` packages. |
+| [`@sigx/lynx-icons-lucide`](./packages/lynx-icons-lucide) | Lucide adapter for `@sigx/lynx-icons`. SVG-mode only (lucide has no font distribution). |
 | [`@sigx/lynx-navigation`](./packages/lynx-navigation) | Type-first native stack router. *Currently private — depends on `@sigx/motion` which is pre-`0.1`.* |
 
 ## Networking
