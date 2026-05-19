@@ -1,6 +1,6 @@
 {
     "name": "@sigx/lynx-icons-fa-free",
-    "version": "0.1.0",
+    "version": "0.4.0",
     "description": "Font Awesome Free adapter for @sigx/lynx-icons. Provides solid/regular/brands styles via the official @fortawesome/* packages.",
     "type": "module",
     "main": "./dist/index.js",
@@ -30,8 +30,12 @@
         "@sigx/lynx-icons": "workspace:^"
     },
     "peerDependenciesMeta": {
-        "@fortawesome/free-brands-svg-icons": { "optional": true },
-        "@fortawesome/free-regular-svg-icons": { "optional": true }
+        "@fortawesome/free-brands-svg-icons": {
+            "optional": true
+        },
+        "@fortawesome/free-regular-svg-icons": {
+            "optional": true
+        }
     },
     "devDependencies": {
         "@fortawesome/fontawesome-free": "^6.7.2",

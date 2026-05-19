@@ -1,6 +1,6 @@
 {
     "name": "@sigx/lynx-core",
-    "version": "0.1.4",
+    "version": "0.4.0",
     "description": "Core native bridge for sigx-lynx — low-level access to NativeModules",
     "type": "module",
     "main": "./dist/index.js",

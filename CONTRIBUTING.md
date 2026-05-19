@@ -27,7 +27,30 @@ Adjust the relative path to your local layout. Run `pnpm install` to relink.
 
 - Style follows `signalxjs/core`. Lint with `pnpm lint`.
 - Native modules: keep the JS surface small, push platform code into `ios/` and `android/`.
-- Each package owns its own `README.md` and `CHANGELOG.md`.
+- Each package owns its own `README.md`. User-visible changes go in the root [`CHANGELOG.md`](CHANGELOG.md) — there are no per-package changelogs (all `@sigx/lynx-*` packages share one lockstep version, so one entry covers all of them).
+
+## PR titles (Conventional Commits)
+
+PR titles drive both auto-labeling and the auto-generated GitHub Release notes via [Release Drafter](.github/release-drafter.yml). Use:
+
+```
+<type>(<scope>): short imperative summary
+```
+
+- **type** — one of `feat`, `fix`, `chore`, `docs`, `refactor`, `test`, `perf`, `build`, `ci`, `style`.
+- **scope** — the package short name, e.g. `lynx-cli`, `lynx-runtime`, `lynx-camera`. Use `lynx` for cross-cutting changes.
+- **`!`** after the scope marks a breaking change: `feat(lynx-cli)!: rename config file`.
+
+Examples:
+
+```
+feat(lynx-cli): auto-launch most-recent AVD when no Android device connected
+fix(lynx-runtime): debounce HMR reload to avoid double-mount
+chore(lynx-icons): bump Lucide source set to 0.300
+feat(lynx)!: drop legacy createApp signature
+```
+
+In the rendered release notes these show up grouped by category (Features / Bug Fixes / …) with the scope lifted to a bold label, e.g. `- **lynx-cli:** auto-launch most-recent AVD … (#123) @user`.
 
 ## Filing issues / PRs
 
