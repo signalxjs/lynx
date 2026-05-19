@@ -11,8 +11,28 @@ export type IconProps =
     & Define.Prop<'color', string, false>
     & Define.Prop<'class', string, false>;
 
-function inlineSvg(template: string, color: string): string {
-    return template.replace(/__COLOR__/g, color);
+/**
+ * Match a conservative subset of valid CSS color formats:
+ * - `currentColor` and named colors (`red`, `dodgerblue`, `transparent` …)
+ * - `#rgb` / `#rgba` / `#rrggbb` / `#rrggbbaa`
+ * - `rgb(...)` / `rgba(...)` / `hsl(...)` / `hsla(...)` with digits, dots,
+ *   commas, percent signs, and whitespace inside the parens
+ *
+ * Anything else (quotes, angle brackets, ampersands, arbitrary HTML) falls
+ * back to `currentColor`. The `color` prop ends up substituted directly into
+ * the SVG markup that we hand to Lynx's `<svg content={…}>` parser, so a
+ * value like `red" stroke="…` would break out of the `fill=""` attribute.
+ * Allow-list, not escape-list — keeps the surface area provably small.
+ */
+const SAFE_COLOR_RE =
+    /^(?:currentColor|[a-zA-Z]+|#[0-9a-fA-F]{3,8}|(?:rgb|rgba|hsl|hsla)\(\s*[\d.,%\s]+\))$/;
+
+export function sanitizeColor(color: string): string {
+    return SAFE_COLOR_RE.test(color) ? color : 'currentColor';
+}
+
+export function inlineSvg(template: string, color: string): string {
+    return template.replace(/__COLOR__/g, sanitizeColor(color));
 }
 
 /**

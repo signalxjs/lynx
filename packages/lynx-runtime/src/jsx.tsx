@@ -334,8 +334,9 @@ export interface PageAttributes extends LynxCommonAttributes {
 export interface SvgAttributes extends LynxCommonAttributes {
     /**
      * Raw SVG markup as a string — Lynx's `<svg>` element renders this
-     * natively (the engine parses the inline XML; there are no JSX
-     * children for SVG primitives).
+     * natively (the engine parses the inline XML). Per the Lynx docs the
+     * element does NOT accept JSX/React children; pass everything via
+     * `content` or `src`.
      *
      * @example
      * ```tsx
