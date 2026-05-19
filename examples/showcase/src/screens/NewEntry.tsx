@@ -22,7 +22,11 @@ export const NewEntry = component(() => {
     const photoUri = signal<string | null>(existing?.photoUri ?? null);
     // Preserve existing coords on edit; capture fresh on create. Edits
     // don't re-prompt for location — that'd surprise the user.
-    const coords = signal<Coords | null>(existing?.coords ?? null);
+    // Boxed in an object so the union `Coords | null` satisfies signal's
+    // `T extends object` overload (neither `Coords` alone nor `null` fits
+    // both halves of the union otherwise). `coords.value` keeps the same
+    // read/write ergonomics as a primitive signal.
+    const coords = signal<{ value: Coords | null }>({ value: existing?.coords ?? null });
 
     const pickPhoto = async () => {
         const perm = await ImagePicker.requestPermission();
