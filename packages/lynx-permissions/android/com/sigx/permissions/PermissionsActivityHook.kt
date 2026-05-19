@@ -7,7 +7,7 @@ import androidx.activity.ComponentActivity
 /**
  * Activity-lifecycle hook for `@sigx/lynx-permissions`.
  *
- * Discovered by the auto-linker via `sigx-module.json`'s
+ * Discovered by the auto-linker via `signalx-module.json`'s
  * `android.activityHook`. Wires the host Activity into [PermissionHelper]
  * (so runtime permission prompts can show their OS dialog) and registers
  * Activity-result launchers used by Camera + ImagePicker.

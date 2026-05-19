@@ -25,7 +25,7 @@ The lynx project templates already include this; manual install is only needed f
 
 ## Permissions
 
-The QR scanner requires camera access. The package's `sigx-module.json` declares this — autolinker adds `NSCameraUsageDescription` to `Info.plist` and `android.permission.CAMERA` to `AndroidManifest.xml`. Strip these from release builds by depending on this package only under `devDependencies`.
+The QR scanner requires camera access. The package's `signalx-module.json` declares this — autolinker adds `NSCameraUsageDescription` to `Info.plist` and `android.permission.CAMERA` to `AndroidManifest.xml`. Strip these from release builds by depending on this package only under `devDependencies`.
 
 ## Versioning
 

@@ -8,7 +8,7 @@ import type { LynxConfig } from '../src/config/schema.js';
 
 // Stand up a fake project tree under tmpdir with `node_modules/<pkg>/` entries.
 // Each fake module needs a package.json (so Node's resolver picks it up) and
-// a sigx-module.json (the marker discoverSigxPackages looks for).
+// a signalx-module.json (the marker discoverSigxPackages looks for).
 function writeProject(root: string, opts: {
     dependencies?: Record<string, string>;
     devDependencies?: Record<string, string>;
@@ -37,7 +37,7 @@ function writeProject(root: string, opts: {
         );
         if (kind === 'with-manifest') {
             writeFileSync(
-                join(pkgDir, 'sigx-module.json'),
+                join(pkgDir, 'signalx-module.json'),
                 JSON.stringify({ name: pkg, package: pkg, platforms: ['android', 'ios'] }),
             );
         }
@@ -55,7 +55,7 @@ afterEach(() => {
 });
 
 describe('discoverSigxPackages', () => {
-    it('finds installed packages that ship sigx-module.json', async () => {
+    it('finds installed packages that ship signalx-module.json', async () => {
         writeProject(testDir, {
             dependencies: { '@sigx/lynx-storage': '^1.0.0', '@sigx/lynx-haptics': '^1.0.0' },
             installed: {
@@ -67,7 +67,7 @@ describe('discoverSigxPackages', () => {
         expect(discovered.sort()).toEqual(['@sigx/lynx-haptics', '@sigx/lynx-storage']);
     });
 
-    it('ignores deps without a sigx-module.json (not a Lynx native module)', async () => {
+    it('ignores deps without a signalx-module.json (not a Lynx native module)', async () => {
         writeProject(testDir, {
             dependencies: { '@sigx/lynx-icons': '^1.0.0', '@sigx/lynx-storage': '^1.0.0' },
             installed: {

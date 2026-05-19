@@ -21,7 +21,7 @@ export default defineLynxConfig({
     orientation: 'portrait',
 
     // Native modules auto-link from package.json — `@sigx/lynx-storage`,
-    // `@sigx/lynx-haptics`, etc. are picked up via their `sigx-module.json`.
+    // `@sigx/lynx-haptics`, etc. are picked up via their `signalx-module.json`.
     // Add a `modules: [...]` entry here only to pass per-module `config`,
     // restrict `platforms`, or `disabled: true` an installed module.
 

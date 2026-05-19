@@ -91,7 +91,7 @@ In the **consumer app's** `package.json` (e.g. `~/dev/sigx/my-lynx-app/package.j
 }
 ```
 
-With the dependency declared above, `sigx prebuild` auto-discovers the package by its `sigx-module.json` and links it — no `signalx.config.ts` edit needed.
+With the dependency declared above, `sigx prebuild` auto-discovers the package by its `signalx-module.json` and links it — no `signalx.config.ts` edit needed.
 
 Workflow:
 
@@ -103,7 +103,7 @@ pnpm --filter @sigx/lynx-websocket build
 cd ~/dev/sigx/my-lynx-app
 pnpm install
 
-# 3. regenerate native projects so the autolinker picks up sigx-module.json
+# 3. regenerate native projects so the autolinker picks up signalx-module.json
 pnpm prebuild
 
 # 4. run

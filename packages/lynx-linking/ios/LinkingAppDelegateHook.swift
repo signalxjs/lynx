@@ -3,7 +3,7 @@ import UIKit
 
 /// AppDelegate hook for `@sigx/lynx-linking`.
 ///
-/// Discovered by the auto-linker via `sigx-module.json`'s
+/// Discovered by the auto-linker via `signalx-module.json`'s
 /// `ios.appDelegateHook` field; the generated `GeneratedAppDelegateHooks`
 /// (in the app's source root) calls these static methods at the matching
 /// `UIApplicationDelegate` callbacks.

@@ -7,7 +7,7 @@ import android.os.Bundle
 /**
  * Activity-lifecycle hook for `@sigx/lynx-linking`.
  *
- * Discovered by the auto-linker via `sigx-module.json`'s
+ * Discovered by the auto-linker via `signalx-module.json`'s
  * `android.activityHook` field; the generated `GeneratedActivityHooks` (in
  * the app's package) calls these methods at the matching points in
  * `MainActivity`. Each method is a Kotlin `static`-equivalent (object

@@ -149,7 +149,7 @@ export interface LynxConfig {
     orientation?: Orientation;
     /**
      * Per-module overrides. Installed `@sigx/lynx-*` packages auto-link via
-     * their `sigx-module.json` manifest, so this array is usually unnecessary;
+     * their `signalx-module.json` manifest, so this array is usually unnecessary;
      * declare entries only when you need to:
      * - pass module-specific `config: {…}` to the native auto-linker
      * - restrict a module to certain `platforms: ['ios']`
@@ -189,7 +189,7 @@ export interface LynxConfig {
  * Define the sigx-lynx project configuration.
  * Use this in `signalx.config.ts` at the project root.
  *
- * Installed `@sigx/lynx-*` native modules auto-link via their `sigx-module.json`;
+ * Installed `@sigx/lynx-*` native modules auto-link via their `signalx-module.json`;
  * declare entries under `modules` only to pass per-module `config`, restrict
  * `platforms`, or `disabled: true` an installed module.
  *

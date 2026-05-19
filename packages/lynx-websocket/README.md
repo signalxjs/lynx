@@ -16,7 +16,7 @@ pnpm add @sigx/lynx-websocket
 ```
 
 Then run `sigx prebuild` — the CLI auto-discovers the package
-via its `sigx-module.json` and regenerates the iOS / Android projects.
+via its `signalx-module.json` and regenerates the iOS / Android projects.
 No permissions are required on either platform (OkHttp piggy-backs on
 the app's standard `INTERNET` permission, which the host app already
 declares).

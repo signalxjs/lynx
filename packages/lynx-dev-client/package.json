@@ -10,14 +10,14 @@
             "import": "./dist/index.js",
             "types": "./dist/index.d.ts"
         },
-        "./sigx-module.json": "./sigx-module.json",
+        "./signalx-module.json": "./signalx-module.json",
         "./package.json": "./package.json"
     },
     "files": [
         "dist",
         "android",
         "ios",
-        "sigx-module.json"
+        "signalx-module.json"
     ],
     "scripts": {
         "build": "vite build && tsgo --emitDeclarationOnly",

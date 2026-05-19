@@ -241,7 +241,7 @@ export async function loadConfig(cwd: string): Promise<LynxConfig> {
 }
 
 /**
- * Load sigx-module.json manifests from installed module packages.
+ * Load signalx-module.json manifests from installed module packages.
  */
 export async function loadManifests(modulePackages: string[], cwd: string): Promise<ModuleManifest[]> {
     const require = createRequire(join(cwd, 'package.json'));
@@ -249,7 +249,7 @@ export async function loadManifests(modulePackages: string[], cwd: string): Prom
 
     for (const pkg of modulePackages) {
         try {
-            const manifestPath = require.resolve(`${pkg}/sigx-module.json`);
+            const manifestPath = require.resolve(`${pkg}/signalx-module.json`);
             const raw = readFileSync(manifestPath, 'utf-8');
             const manifest = JSON.parse(raw);
             const errors = validateManifest(manifest);
@@ -268,12 +268,12 @@ export async function loadManifests(modulePackages: string[], cwd: string): Prom
                 if (!pkgInstalled) {
                     log(`\x1b[33m!\x1b[0m ${pkg}: not in node_modules — add it to package.json dependencies`);
                 } else {
-                    log(`\x1b[33m!\x1b[0m ${pkg}: installed but has no sigx-module.json`);
+                    log(`\x1b[33m!\x1b[0m ${pkg}: installed but has no signalx-module.json`);
                 }
                 continue;
             }
             if (err.code === 'ERR_PACKAGE_PATH_NOT_EXPORTED') {
-                log(`\x1b[33m!\x1b[0m ${pkg}: installed but sigx-module.json is not exported from its package.json`);
+                log(`\x1b[33m!\x1b[0m ${pkg}: installed but signalx-module.json is not exported from its package.json`);
                 continue;
             }
             throw err;
@@ -495,11 +495,11 @@ export function copyAndroidModuleSources(cwd: string, config: ResolvedConfig, ma
 
         let pkgDir: string;
         try {
-            // Resolve via sigx-module.json (which we know is exported — it
+            // Resolve via signalx-module.json (which we know is exported — it
             // had to be for autolink to find the manifest in the first place)
             // rather than package.json (which packages with `exports` fields
             // don't always expose).
-            const manifestPath = require.resolve(`${manifest.package}/sigx-module.json`);
+            const manifestPath = require.resolve(`${manifest.package}/signalx-module.json`);
             pkgDir = dirname(manifestPath);
         } catch (e) {
             log(`${manifest.package}: not in node_modules, skipping Android source copy (${(e as Error).message})`);
@@ -545,9 +545,9 @@ export function copyIosModuleSources(cwd: string, config: ResolvedConfig, manife
 
         let pkgDir: string;
         try {
-            // Resolve via sigx-module.json (always exported); package.json
+            // Resolve via signalx-module.json (always exported); package.json
             // isn't always exposed when an `exports` field exists.
-            const manifestPath = require.resolve(`${manifest.package}/sigx-module.json`);
+            const manifestPath = require.resolve(`${manifest.package}/signalx-module.json`);
             pkgDir = dirname(manifestPath);
         } catch (e) {
             log(`${manifest.package}: not in node_modules, skipping iOS source copy (${(e as Error).message})`);
@@ -629,11 +629,11 @@ function collectSwiftFiles(root: string): string[] {
  *
  * Iterates the app's direct dependencies (and devDependencies, so packages
  * scoped to dev like @sigx/lynx-dev-client still get linked) and includes
- * any whose `sigx-module.json` is resolvable. Skips packages already in
+ * any whose `signalx-module.json` is resolvable. Skips packages already in
  * `existingPackages` (i.e. declared via `modules:` in the config) and
  * anything listed in `excludeModules`.
  *
- * The presence of `sigx-module.json` IS the "this is a Lynx native module"
+ * The presence of `signalx-module.json` IS the "this is a Lynx native module"
  * marker — packages without it (icons, navigation, etc.) are silently ignored.
  */
 export async function discoverSigxPackages(
@@ -662,19 +662,14 @@ export async function discoverSigxPackages(
     for (const pkg of candidates) {
         if (existing.has(pkg) || excluded.has(pkg)) continue;
         try {
-            require.resolve(`${pkg}/sigx-module.json`);
+            require.resolve(`${pkg}/signalx-module.json`);
             discovered.push(pkg);
-        } catch (err) {
-            // MODULE_NOT_FOUND is the common case (package isn't a Lynx module
-            // or isn't installed) — skip silently. Other errors usually mean
-            // the package ships sigx-module.json but mis-configured its
-            // `exports` field (e.g. lynx-dev-client@0.1.1 shipped the manifest
-            // but didn't list it in `files`), which is a packaging bug that
-            // should be surfaced.
-            const code = (err as NodeJS.ErrnoException).code;
-            if (code !== 'MODULE_NOT_FOUND') {
-                log(`⚠ ${pkg}: ships sigx-module.json but it isn't resolvable — check the package's exports/files. (${code})`);
-            }
+        } catch {
+            // Either MODULE_NOT_FOUND (package isn't a Lynx module / not installed)
+            // or ERR_PACKAGE_PATH_NOT_EXPORTED (package's `exports` field doesn't
+            // list this subpath — fires for every non-Lynx package that uses
+            // exports). Both are expected for the vast majority of deps; surfacing
+            // either as a warning would drown the user in false positives.
         }
     }
 
