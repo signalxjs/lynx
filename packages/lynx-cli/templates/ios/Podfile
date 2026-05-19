@@ -40,5 +40,21 @@ target '{{appName}}' do
         config.build_settings['CODE_SIGNING_ALLOWED'] = 'NO'
       end
     end
+
+    # LynxServiceAPI 3.7.0's published podspec hardcodes the upstream CI
+    # runner path (`/Users/runner/work/lynx/lynx/lynx`) as its only
+    # HEADER_SEARCH_PATHS entry, so `#include <service_api/service_api.h>`
+    # fails on every consumer machine. Fixed upstream in 3.8.0-rc.0;
+    # until that ships stable, patch the generated xcconfig directly —
+    # build_settings overrides on the project target don't propagate
+    # because the pod's xcconfig has higher precedence.
+    Dir.glob(File.join(installer.sandbox.root, 'Target Support Files/LynxServiceAPI/*.xcconfig')).each do |xcconfig|
+      contents = File.read(xcconfig)
+      patched = contents.gsub(
+        %r{^HEADER_SEARCH_PATHS = (.*)$},
+        'HEADER_SEARCH_PATHS = \1 "${PODS_TARGET_SRCROOT}"',
+      )
+      File.write(xcconfig, patched) if patched != contents
+    end
   end
 end
