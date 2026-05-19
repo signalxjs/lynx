@@ -22,8 +22,9 @@
  */
 
 import { createRequire } from 'node:module';
-import { promises as fs } from 'node:fs';
+import { promises as fs, existsSync } from 'node:fs';
 import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import type { RsbuildPluginAPI } from '@rsbuild/core';
 import type { IconAdapter } from '@sigx/lynx-icons';
 import type { ResolvedConfig, ResolvedIconSet } from '@sigx/lynx-cli';
@@ -107,7 +108,9 @@ async function loadAdapter(cwd: string, source: string): Promise<IconAdapter | n
     try {
         const cwdRequire = createRequire(join(cwd, 'noop.js'));
         const adapterPath = cwdRequire.resolve(source);
-        const mod = (await import(adapterPath)) as { default?: IconAdapter } & IconAdapter;
+        // Wrap with file:// — Windows ESM rejects bare absolute paths in dynamic
+        // import(). Same pattern as packages/lynx-cli/src/prebuild.ts loadConfig.
+        const mod = (await import(pathToFileURL(adapterPath).href)) as { default?: IconAdapter } & IconAdapter;
         return mod.default ?? (mod as IconAdapter);
     } catch (err) {
         // Adapter not installed — silently skip; consumer will see missing-icon placeholders.
@@ -132,6 +135,15 @@ function collectGlyphsForSet(
     const codepoints: Record<string, number> = {};
     const svgs: Record<string, GlyphResult> = {};
     const stylesToTry = setConfig.styles ?? adapter.styles;
+
+    // v1 contract: codepoint and svg are MUTUALLY EXCLUSIVE per set so the
+    // runtime can pick a render strategy without ambiguity. v1 only ships
+    // SVG mode (no @font-face CSS generation yet), so we never emit
+    // codepoints — even when the adapter returns them. v1.1's font-mode work
+    // flips the switch by emitting codepoints + matching @font-face CSS for
+    // sets whose `mode` is 'font'.
+    const emitCodepoints = false;
+
     for (const name of usedNames) {
         let glyph = null;
         for (const style of stylesToTry) {
@@ -139,8 +151,11 @@ function collectGlyphsForSet(
             if (glyph) break;
         }
         if (!glyph) continue;
-        if (glyph.codepoint !== undefined) codepoints[name] = glyph.codepoint;
-        svgs[name] = { svg: glyph.svg };
+        if (emitCodepoints && glyph.codepoint !== undefined) {
+            codepoints[name] = glyph.codepoint;
+        } else {
+            svgs[name] = { svg: glyph.svg };
+        }
     }
     return { codepoints, svgs };
 }
@@ -155,16 +170,32 @@ export async function applyIcons(
 ): Promise<void> {
     const cwd = opts.cwd ?? process.cwd();
 
-    // Load + resolve sigx.lynx.config.ts via lynx-cli's loader.
-    let config: ResolvedConfig;
+    // Two layered concerns:
+    // 1. No config / lynx-cli not installed → silent no-op (genuine non-Lynx context).
+    // 2. Config exists but loadConfig / resolveConfig throws → surface the error so a
+    //    typo in iconSets (duplicate ids, unknown styles/modes) doesn't silently
+    //    swallow itself and leave the user wondering why icons render as placeholders.
+    const configCandidates = [
+        'sigx.lynx.config.ts',
+        'sigx.lynx.config.js',
+        'sigx.lynx.config.mjs',
+    ];
+    const hasConfig = configCandidates.some((f) => existsSync(join(cwd, f)));
+    if (!hasConfig) return;
+
+    let cli: typeof import('@sigx/lynx-cli');
     try {
-        const cli = (await import('@sigx/lynx-cli')) as typeof import('@sigx/lynx-cli');
-        const raw = await cli.loadConfig(cwd);
-        config = cli.resolveConfig(raw);
+        cli = (await import('@sigx/lynx-cli')) as typeof import('@sigx/lynx-cli');
     } catch {
-        // No config / lynx-cli not installed — nothing to do.
+        // @sigx/lynx-cli is an optional peer dep; consumer outside a sigx-lynx app — skip.
         return;
     }
+
+    // From here errors are real (bad config / failed validation) — let them throw
+    // so the build fails loudly. eslint-disable + console.error keeps the message
+    // visible even when the throw is wrapped by rsbuild.
+    const raw = await cli.loadConfig(cwd);
+    const config: ResolvedConfig = cli.resolveConfig(raw);
 
     if (!config.iconSets || config.iconSets.length === 0) return;
 

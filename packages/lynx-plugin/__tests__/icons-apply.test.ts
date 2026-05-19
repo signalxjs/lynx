@@ -159,14 +159,15 @@ describe('applyIcons', () => {
         expect(existsSync(svgsPath)).toBe(true);
         expect(existsSync(fontFacePath)).toBe(true);
 
-        // codepoints includes user/house (which have codepoints) but NOT search (svg-only)
+        // v1 contract: no codepoints emitted (font mode is a v1.1 follow-up;
+        // emitting codepoints without a matching @font-face entry would render
+        // the glyph as a tofu in a <text> with an unregistered fontFamily).
         const codepointsContent = readFileSync(codepointsPath, 'utf8');
-        expect(codepointsContent).toContain('"fake":');
-        expect(codepointsContent).toContain('"user":61447'); // 0xf007
-        expect(codepointsContent).toContain('"house":61461'); // 0xf015
-        expect(codepointsContent).not.toContain('"search":');
+        expect(codepointsContent).toContain('export const codepoints = {}');
 
-        // svgs includes all three used glyphs
+        // svgs includes all three used glyphs — including the FA-style ones
+        // whose adapter also returned a codepoint (the plugin falls back to
+        // SVG until font mode is wired).
         const svgsContent = readFileSync(svgsPath, 'utf8');
         expect(svgsContent).toContain('"user":');
         expect(svgsContent).toContain('"house":');
@@ -191,6 +192,27 @@ describe('applyIcons', () => {
         const svgsContent = readFileSync(recorder.aliases['@sigx/lynx-icons/__svgs'], 'utf8');
         expect(svgsContent).toContain('"house":');
         expect(svgsContent).not.toContain('"user":');
+    });
+
+    it('surfaces config validation errors instead of silently no-oping', async () => {
+        writeFile(
+            'sigx.lynx.config.mjs',
+            `export default {
+                name: 'BadConfig',
+                iconSets: [
+                    { id: 'fake', source: 'fake-icons-adapter' },
+                    { id: 'fake', source: 'fake-icons-adapter' }, // duplicate id
+                ],
+            };`,
+        );
+
+        const recorder: AliasRecorder = { aliases: {} };
+        await expect(
+            applyIcons(makeFakeApi(recorder), { cwd: projectRoot }),
+        ).rejects.toThrow(/Duplicate iconSets id "fake"/);
+
+        // Nothing got aliased — the failure stopped the slice cleanly.
+        expect(recorder.aliases).toEqual({});
     });
 
     it('silently skips an iconSet whose adapter cannot be resolved', async () => {
