@@ -10,12 +10,12 @@ target '{{appName}}' do
   use_frameworks! :linkage => :static
 
   # Lynx Engine
-  pod 'Lynx', '3.6.0', :subspecs => ['Framework']
-  pod 'PrimJS', '3.6.1', :subspecs => ['quickjs', 'napi']
+  pod 'Lynx', '3.7.0', :subspecs => ['Framework']
+  pod 'PrimJS', '3.7.0', :subspecs => ['quickjs', 'napi']
 
   # Lynx Services (Devtool subspec ships in all configs — activation is gated
   # at runtime by SigxDevClient.registerServices() inside #if DEBUG).
-  pod 'LynxService', '3.6.0', :subspecs => [
+  pod 'LynxService', '3.7.0', :subspecs => [
     'Image',
     'Log',
     'Http',
@@ -23,7 +23,7 @@ target '{{appName}}' do
   ]
 
   # Extended elements
-  pod 'XElement', '3.6.0'
+  pod 'XElement', '3.7.0'
 
   # Image loading (required by Lynx image service)
   pod 'SDWebImage', '5.15.5'

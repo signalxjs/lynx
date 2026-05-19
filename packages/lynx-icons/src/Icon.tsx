@@ -11,8 +11,28 @@ export type IconProps =
     & Define.Prop<'color', string, false>
     & Define.Prop<'class', string, false>;
 
-function svgDataUri(template: string, color: string): string {
-    return `data:image/svg+xml;utf8,${encodeURIComponent(template.replace(/__COLOR__/g, color))}`;
+/**
+ * Match a conservative subset of valid CSS color formats:
+ * - `currentColor` and named colors (`red`, `dodgerblue`, `transparent` …)
+ * - `#rgb` / `#rgba` / `#rrggbb` / `#rrggbbaa`
+ * - `rgb(...)` / `rgba(...)` / `hsl(...)` / `hsla(...)` with digits, dots,
+ *   commas, percent signs, and whitespace inside the parens
+ *
+ * Anything else (quotes, angle brackets, ampersands, arbitrary HTML) falls
+ * back to `currentColor`. The `color` prop ends up substituted directly into
+ * the SVG markup that we hand to Lynx's `<svg content={…}>` parser, so a
+ * value like `red" stroke="…` would break out of the `fill=""` attribute.
+ * Allow-list, not escape-list — keeps the surface area provably small.
+ */
+const SAFE_COLOR_RE =
+    /^(?:currentColor|[a-zA-Z]+|#[0-9a-fA-F]{3,8}|(?:rgb|rgba|hsl|hsla)\(\s*[\d.,%\s]+\))$/;
+
+export function sanitizeColor(color: string): string {
+    return SAFE_COLOR_RE.test(color) ? color : 'currentColor';
+}
+
+export function inlineSvg(template: string, color: string): string {
+    return template.replace(/__COLOR__/g, sanitizeColor(color));
 }
 
 /**
@@ -21,10 +41,16 @@ function svgDataUri(template: string, color: string): string {
  * Sets are declared in `signalx.config.ts` via `iconSets: [...]` (build-time,
  * tree-shaken) or via `defineIconSet({ id, glyphs })` (runtime, ad-hoc).
  *
- * SVG-mode sets render as an `<image>` with an SVG data URI. Font-mode sets
- * fall back to a single character inside a `<text>` element with a matching
- * `font-family` when no SVG is available. Missing glyphs render an empty
- * `<view>` of the same size.
+ * Resolution order: **SVG first**, then codepoint, then missing placeholder.
+ *
+ * - SVG-mode sets render with Lynx's native `<svg content={...}>` element
+ *   (the engine parses the inline XML; no JSX children, no data: URIs).
+ * - Font-mode sets fall back to a single character inside a `<text>` element
+ *   with a matching `font-family`. The plugin only emits codepoints when the
+ *   matching `@font-face` has also been registered (v1.1+); v1 always hits
+ *   the SVG branch.
+ * - Missing glyphs render an empty `<view>` of the same size so layout
+ *   doesn't jump.
  *
  * @example
  * ```tsx
@@ -43,8 +69,8 @@ export const Icon = component<IconProps>(({ props }) => {
         if (glyph?.svg) {
             const color = props.color ?? 'currentColor';
             return (
-                <image
-                    src={svgDataUri(glyph.svg.svg, color)}
+                <svg
+                    content={inlineSvg(glyph.svg.svg, color)}
                     class={props.class}
                     style={sizeStyle}
                 />

@@ -1,0 +1,14 @@
+{
+    "name": "Icons",
+    "package": "@sigx/lynx-icons",
+    "description": "Registers Lynx's <svg> element (via XElement/SVG + ServalSVG) so <Icon> can render in SVG mode.",
+    "platforms": ["android", "ios"],
+    "android": {
+        "dependencies": ["org.lynxsdk.lynx:xelement-svg:3.7.0"]
+    },
+    "ios": {
+        "pods": {
+            "XElement/SVG": "3.7.0"
+        }
+    }
+}
