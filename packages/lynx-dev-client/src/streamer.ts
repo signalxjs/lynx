@@ -406,9 +406,11 @@ export function installConsoleStreamer(url: string, opts: InstallOptions = {}): 
 
     // Patch each level. We define plain functions (not arrow) so callers
     // that pass `console.log` as a callback get a stable function identity
-    // that's restorable. Assignment is guarded because some BG runtimes ship
-    // a frozen `console` object — in which case we can still queue via the
-    // few methods we did manage to replace.
+    // that's restorable. The Lynx BG runtime ships `console` as a host object
+    // whose method properties are non-configurable / non-writable in sloppy
+    // mode — direct assignment silently no-ops. Use defineProperty (which
+    // throws on failure in strict mode, allowing us to fall back) and verify
+    // the swap took.
     const patchedKeys: LogLevel[] = [];
     for (const level of LEVELS) {
         const original = originals[level];
@@ -416,10 +418,23 @@ export function installConsoleStreamer(url: string, opts: InstallOptions = {}): 
             try { original(...args); } catch { /* ignore */ }
             enqueue(level, args);
         };
+        let installed = false;
         try {
-            (target as unknown as Record<string, unknown>)[level] = patched;
-            patchedKeys.push(level);
+            Object.defineProperty(target as unknown as object, level, {
+                value: patched,
+                writable: true,
+                configurable: true,
+                enumerable: true,
+            });
+            installed = (target as unknown as Record<string, unknown>)[level] === patched;
         } catch { /* frozen — leave as-is */ }
+        if (!installed) {
+            try {
+                (target as unknown as Record<string, unknown>)[level] = patched;
+                installed = (target as unknown as Record<string, unknown>)[level] === patched;
+            } catch { /* frozen */ }
+        }
+        if (installed) patchedKeys.push(level);
     }
 
     const uninstall: Uninstall = () => {
