@@ -16,10 +16,10 @@
         "dist"
     ],
     "scripts": {
-        "build": "rm -rf dist && tsgo",
+        "build": "node ../../scripts/clean.mjs dist && tsgo",
         "dev": "tsgo --watch",
-        "prepublishOnly": "rm -rf dist && tsgo",
-        "clean": "rm -rf dist .turbo *.tsbuildinfo"
+        "prepublishOnly": "node ../../scripts/clean.mjs dist && tsgo",
+        "clean": "node ../../scripts/clean.mjs dist .turbo"
     },
     "keywords": [
         "sigx",
