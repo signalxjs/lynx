@@ -42,7 +42,8 @@
         "clean": "rm -rf dist .turbo *.tsbuildinfo"
     },
     "dependencies": {
-        "@sigx/lynx": "workspace:^"
+        "@sigx/lynx": "workspace:^",
+        "@sigx/lynx-gestures": "workspace:^"
     },
     "peerDependencies": {
         "@sigx/lynx-navigation": "workspace:^",

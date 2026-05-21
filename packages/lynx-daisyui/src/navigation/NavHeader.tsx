@@ -19,7 +19,9 @@
  * for daisyui consumers.
  */
 import { component, type Define, type JSXElement } from '@sigx/lynx';
+import { Pressable } from '@sigx/lynx-gestures';
 import { useScreenChrome } from '@sigx/lynx-navigation';
+import { PRESSED_SCALE, PRESSED_OPACITY } from '../shared/press';
 
 export type NavHeaderBackground = 'base-100' | 'base-200' | 'base-300' | 'transparent';
 
@@ -93,14 +95,17 @@ export const NavHeader = component<NavHeaderProps>(({ props }) => {
 
 const DefaultBackButton = component<Define.Prop<'onPress', () => void, true>>(({ props }) => {
     return () => (
-        <view
-            bindtap={() => props.onPress()}
+        <Pressable
+            class="px-2 py-2"
+            pressedScale={PRESSED_SCALE}
+            pressedOpacity={PRESSED_OPACITY}
+            longPressDuration={0}
             accessibility-element={true}
             accessibility-label="Back"
             accessibility-trait="button"
-            class="px-2 py-2"
+            onPress={() => props.onPress()}
         >
             <text class="text-primary text-base">‹ Back</text>
-        </view>
+        </Pressable>
     );
 });

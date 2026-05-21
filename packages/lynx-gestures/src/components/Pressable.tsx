@@ -16,6 +16,17 @@ export type PressableProps =
   & Define.Prop<'disabled', boolean, false>
   & Define.Prop<'class', string, false>
   & Define.Prop<'style', Record<string, string | number>, false>
+  // Accessibility passthrough — forwarded onto the inner <view> so the
+  // interactive node (the one that owns the tap handler) is also the one
+  // screen readers activate. Without these, callers who want a11y on a
+  // Pressable have to wrap it in an outer accessibility-element <view>,
+  // which puts the metadata and the gesture handler on different nodes
+  // and breaks screen-reader activation.
+  & Define.Prop<'accessibility-element', boolean, false>
+  & Define.Prop<'accessibility-label', string, false>
+  & Define.Prop<'accessibility-role', string, false>
+  & Define.Prop<'accessibility-trait', string, false>
+  & Define.Prop<'accessibility-status', string, false>
   & Define.Slot<'default'>
   & Define.Event<'press', void>
   & Define.Event<'longPress', void>;
@@ -57,9 +68,10 @@ interface PressableMTState {
  * `LongPress.onEnd` skips press emission when the touch drifted past
  * the threshold (matching Tap's success criteria).
  *
- * Disabled is captured at setup; runtime toggling won't update an active
- * gesture's behavior. Wrap the parent in conditional rendering for now if
- * dynamic disable is needed.
+ * `disabled` reads live from a `MainThreadRef` so flipping it after mount
+ * (e.g. a `<Button loading>` toggling on) immediately suppresses both
+ * visual feedback and emit, without remounting the component or the
+ * underlying gesture registration.
  */
 export const Pressable = component<PressableProps>(({ props, slots, emit }) => {
   const elRef = useMainThreadRef<MainThread.Element | null>(null);
@@ -74,7 +86,11 @@ export const Pressable = component<PressableProps>(({ props, slots, emit }) => {
   const minDuration = longPressDuration > 0 ? longPressDuration : 1_000_000;
   const maxDistance = props.maxDistance ?? 10;
   const maxDistanceSq = maxDistance * maxDistance;
-  const disabled = props.disabled ?? false;
+
+  // Reactive `disabled` — worklets read `disabledRef.current` so prop
+  // changes after mount take effect without re-registering the gesture.
+  // The render fn below keeps this ref in sync each pass.
+  const disabledRef = useMainThreadRef<boolean>(!!props.disabled);
 
   const state = useMainThreadRef<PressableMTState>({
     longPressFired: false,
@@ -87,7 +103,7 @@ export const Pressable = component<PressableProps>(({ props, slots, emit }) => {
     .maxDistance(maxDistance)
     .onBegin((e: any) => {
       'main thread';
-      if (disabled) return;
+      if (disabledRef.current) return;
       // Reset the cross-platform state on every fresh touch-down. Both
       // Tap.onBegin and LongPress.onBegin fire — first one wins, second
       // is a no-op because pressEmitted/longPressFired are already false.
@@ -103,7 +119,7 @@ export const Pressable = component<PressableProps>(({ props, slots, emit }) => {
     })
     .onStart(() => {
       'main thread';
-      if (disabled) return;
+      if (disabledRef.current) return;
       // Android path: Tap.onStart fires on touchend within maxDuration;
       // emit press here. The LongPress.onEnd fallback below is gated on
       // !pressEmitted so it won't double-fire on Android.
@@ -129,7 +145,7 @@ export const Pressable = component<PressableProps>(({ props, slots, emit }) => {
     .maxDistance(maxDistance)
     .onBegin(() => {
       'main thread';
-      if (disabled) return;
+      if (disabledRef.current) return;
       // Idempotent with Tap.onBegin — both fire on touch-down. State has
       // already been initialised by Tap.onBegin (whichever fires first).
       elRef.current?.setStyleProperties({
@@ -139,7 +155,7 @@ export const Pressable = component<PressableProps>(({ props, slots, emit }) => {
     })
     .onStart(() => {
       'main thread';
-      if (disabled) return;
+      if (disabledRef.current) return;
       state.current.longPressFired = true;
       runOnBackground(() => { emit('longPress'); })();
     })
@@ -151,7 +167,7 @@ export const Pressable = component<PressableProps>(({ props, slots, emit }) => {
         opacity: 1,
         transform: 'scale(1)',
       });
-      if (disabled) return;
+      if (disabledRef.current) return;
       // iOS fallback path. On iOS Tap.onStart never fires, so press would
       // never emit without this. On Android this is a no-op because
       // pressEmitted is already true (or longPressFired is true).
@@ -169,13 +185,23 @@ export const Pressable = component<PressableProps>(({ props, slots, emit }) => {
 
   useGestureDetector(elRef, gesture);
 
-  return () => (
-    <view
-      class={props.class}
-      style={props.style}
-      main-thread:ref={elRef}
-    >
-      {slots.default?.()}
-    </view>
-  );
+  return () => {
+    // Keep the reactive-disabled ref in sync with the prop on every render.
+    // Worklets read `.current` at call time, so this is the only writer.
+    disabledRef.current = !!props.disabled;
+    return (
+      <view
+        class={props.class}
+        style={props.style}
+        main-thread:ref={elRef}
+        accessibility-element={props['accessibility-element']}
+        accessibility-label={props['accessibility-label']}
+        accessibility-role={props['accessibility-role']}
+        accessibility-trait={props['accessibility-trait']}
+        accessibility-status={props['accessibility-status']}
+      >
+        {slots.default?.()}
+      </view>
+    );
+  };
 });

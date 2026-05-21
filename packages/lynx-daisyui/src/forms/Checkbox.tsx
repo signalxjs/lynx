@@ -1,4 +1,6 @@
 import { component, type Define } from '@sigx/lynx';
+import { Pressable } from '@sigx/lynx-gestures';
+import { PRESSED_SCALE, PRESSED_OPACITY } from '../shared/press';
 
 export type CheckboxColor = 'primary' | 'secondary' | 'accent' | 'info' | 'success' | 'warning' | 'error';
 export type CheckboxSize = 'xs' | 'sm' | 'md' | 'lg';
@@ -32,16 +34,20 @@ export const Checkbox = component<CheckboxProps>(({ props, emit }) => {
     const size = props.size ?? 'md';
 
     return (
-      <view
+      <Pressable
         class={getClasses()}
-        bindtap={() => {
+        disabled={!!props.disabled}
+        pressedScale={PRESSED_SCALE}
+        pressedOpacity={PRESSED_OPACITY}
+        longPressDuration={0}
+        onPress={() => {
           if (!props.disabled) emit('change', !checked);
         }}
       >
         {checked ? (
           <text class="checkbox-mark" style={{ fontSize: checkmarkSizeMap[size] }}>✓</text>
         ) : null}
-      </view>
+      </Pressable>
     );
   };
 });

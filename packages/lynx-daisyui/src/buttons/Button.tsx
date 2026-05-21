@@ -1,5 +1,7 @@
 import { component, type Define } from '@sigx/lynx';
+import { Pressable } from '@sigx/lynx-gestures';
 import { Loading } from '../feedback/Loading';
+import { PRESSED_SCALE, PRESSED_OPACITY } from '../shared/press';
 
 export type ButtonVariant =
   | 'primary' | 'secondary' | 'accent' | 'info'
@@ -52,14 +54,21 @@ export const Button = component<ButtonProps>(({ props, slots, emit }) => {
     return c.join(' ');
   };
 
-  return () => (
-    <view
-      class={getClasses()}
-      bindtap={() => { if (!props.disabled && !props.loading) emit('press'); }}
-    >
-      {props.loading
-        ? <Loading type="spinner" size="sm" />
-        : slots.default?.()}
-    </view>
-  );
+  return () => {
+    const inert = !!(props.disabled || props.loading);
+    return (
+      <Pressable
+        class={getClasses()}
+        disabled={inert}
+        pressedScale={PRESSED_SCALE}
+        pressedOpacity={PRESSED_OPACITY}
+        longPressDuration={0}
+        onPress={() => { if (!inert) emit('press'); }}
+      >
+        {props.loading
+          ? <Loading type="spinner" size="sm" />
+          : slots.default?.()}
+      </Pressable>
+    );
+  };
 });

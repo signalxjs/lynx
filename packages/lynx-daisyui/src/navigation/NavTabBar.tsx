@@ -14,7 +14,9 @@
  * state (e.g. segmented controls inside a settings panel).
  */
 import { component, type Define, type JSXElement } from '@sigx/lynx';
+import { Pressable } from '@sigx/lynx-gestures';
 import { useTabs, type TabInfo } from '@sigx/lynx-navigation';
+import { PRESSED_SCALE, PRESSED_OPACITY } from '../shared/press';
 
 /** Rendering context passed to a `renderTab` consumer. */
 export interface NavTabRenderContext {
@@ -90,17 +92,20 @@ const DefaultNavTab = component<
         const a11y = props.info.accessibilityLabel ?? label;
         const textColor = props.active ? 'text-primary font-semibold' : 'text-base-content opacity-60';
         return (
-            <view
-                bindtap={() => props.onPress()}
+            <Pressable
+                class="flex-1 items-center justify-center py-3"
+                pressedScale={PRESSED_SCALE}
+                pressedOpacity={PRESSED_OPACITY}
+                longPressDuration={0}
                 accessibility-element={true}
                 accessibility-label={a11y}
                 accessibility-trait="button"
                 accessibility-status={props.active ? 'selected' : undefined}
-                class="flex-1 items-center justify-center py-3"
+                onPress={() => props.onPress()}
             >
                 {props.info.icon ?? null}
                 <text class={`text-sm ${textColor}`}>{label}</text>
-            </view>
+            </Pressable>
         );
     };
 });

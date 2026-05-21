@@ -1,4 +1,6 @@
 import { component, signal, type Define } from '@sigx/lynx';
+import { Pressable } from '@sigx/lynx-gestures';
+import { PRESSED_SCALE, PRESSED_OPACITY } from '../shared/press';
 
 export type SelectSize = 'xs' | 'sm' | 'md' | 'lg';
 export type SelectVariant = 'bordered' | 'ghost';
@@ -41,28 +43,35 @@ export const Select = component<SelectProps>(({ props, emit }) => {
 
   return () => (
     <view style={{ position: 'relative', opacity: props.disabled ? 0.5 : 1 }}>
-      <view
+      <Pressable
         class={getClasses()}
-        bindtap={() => {
+        disabled={!!props.disabled}
+        pressedScale={PRESSED_SCALE}
+        pressedOpacity={PRESSED_OPACITY}
+        longPressDuration={0}
+        onPress={() => {
           if (!props.disabled) state.open = !state.open;
         }}
       >
         <text>{getSelectedLabel()}</text>
         <view style={{ marginLeft: 'auto' }}><text>{state.open ? '▲' : '▼'}</text></view>
-      </view>
+      </Pressable>
 
       {state.open && !props.disabled && (
         <view class="select-dropdown" style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 10 }}>
           {(props.options ?? []).map((option) => (
-            <view
+            <Pressable
               class={`select-option${option.value === props.value ? ' select-option-active' : ''}`}
-              bindtap={() => {
+              pressedScale={PRESSED_SCALE}
+              pressedOpacity={PRESSED_OPACITY}
+              longPressDuration={0}
+              onPress={() => {
                 emit('change', option.value);
                 state.open = false;
               }}
             >
               <text>{option.label}</text>
-            </view>
+            </Pressable>
           ))}
         </view>
       )}
