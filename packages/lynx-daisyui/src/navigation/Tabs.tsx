@@ -1,4 +1,6 @@
 import { component, compound, type Define } from '@sigx/lynx';
+import { Pressable } from '@sigx/lynx-gestures';
+import { PRESSED_SCALE, PRESSED_OPACITY } from '../shared/press';
 
 export type TabsProps =
   & Define.Prop<'activeTab', string, false>
@@ -27,15 +29,18 @@ const Tab = component<TabProps>(({ props, slots }) => {
     const isActive = props.active ?? false;
 
     return (
-      <view
+      <Pressable
         class={`tab${isActive ? ' tab-active' : ''}${props.class ? ' ' + props.class : ''}`}
-        bindtap={() => {
+        pressedScale={PRESSED_SCALE}
+        pressedOpacity={PRESSED_OPACITY}
+        longPressDuration={0}
+        onPress={() => {
           props.onPress?.();
         }}
       >
         {slots.default?.()}
         {props.label ? <text>{props.label}</text> : null}
-      </view>
+      </Pressable>
     );
   };
 });

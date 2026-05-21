@@ -1,4 +1,6 @@
 import { component, type Define } from '@sigx/lynx';
+import { Pressable } from '@sigx/lynx-gestures';
+import { PRESSED_SCALE, PRESSED_OPACITY } from '../shared/press';
 
 export type ToggleColor = 'primary' | 'secondary' | 'accent' | 'info' | 'success' | 'warning' | 'error';
 export type ToggleSize = 'xs' | 'sm' | 'md' | 'lg';
@@ -33,9 +35,13 @@ export const Toggle = component<ToggleProps>(({ props, emit }) => {
     const offset = checked ? thumbOffsetMap[size] : 0;
 
     return (
-      <view
+      <Pressable
         class={getClasses()}
-        bindtap={() => {
+        disabled={!!props.disabled}
+        pressedScale={PRESSED_SCALE}
+        pressedOpacity={PRESSED_OPACITY}
+        longPressDuration={0}
+        onPress={() => {
           if (!props.disabled) emit('change', !checked);
         }}
       >
@@ -43,7 +49,7 @@ export const Toggle = component<ToggleProps>(({ props, emit }) => {
           class="toggle-thumb"
           style={{ transform: `translateX(${offset}px)` }}
         />
-      </view>
+      </Pressable>
     );
   };
 });

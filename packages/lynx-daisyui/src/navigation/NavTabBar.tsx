@@ -14,7 +14,9 @@
  * state (e.g. segmented controls inside a settings panel).
  */
 import { component, type Define, type JSXElement } from '@sigx/lynx';
+import { Pressable } from '@sigx/lynx-gestures';
 import { useTabs, type TabInfo } from '@sigx/lynx-navigation';
+import { PRESSED_SCALE, PRESSED_OPACITY } from '../shared/press';
 
 /** Rendering context passed to a `renderTab` consumer. */
 export interface NavTabRenderContext {
@@ -89,17 +91,28 @@ const DefaultNavTab = component<
         const label = props.info.label ?? props.info.name;
         const a11y = props.info.accessibilityLabel ?? label;
         const textColor = props.active ? 'text-primary font-semibold' : 'text-base-content opacity-60';
+        // Pressable doesn't pass arbitrary attrs through, so the outer view
+        // owns accessibility metadata; the inner Pressable owns the tap +
+        // scale/opacity feedback. Both fill via flex-1 so the press surface
+        // matches the visible tab area.
         return (
             <view
-                bindtap={() => props.onPress()}
                 accessibility-element={true}
                 accessibility-label={a11y}
                 accessibility-trait="button"
                 accessibility-status={props.active ? 'selected' : undefined}
-                class="flex-1 items-center justify-center py-3"
+                class="flex-1"
             >
-                {props.info.icon ?? null}
-                <text class={`text-sm ${textColor}`}>{label}</text>
+                <Pressable
+                    class="items-center justify-center py-3"
+                    pressedScale={PRESSED_SCALE}
+                    pressedOpacity={PRESSED_OPACITY}
+                    longPressDuration={0}
+                    onPress={() => props.onPress()}
+                >
+                    {props.info.icon ?? null}
+                    <text class={`text-sm ${textColor}`}>{label}</text>
+                </Pressable>
             </view>
         );
     };

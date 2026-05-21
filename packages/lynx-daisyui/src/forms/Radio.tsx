@@ -1,4 +1,6 @@
 import { component, compound, type Define } from '@sigx/lynx';
+import { Pressable } from '@sigx/lynx-gestures';
+import { PRESSED_SCALE, PRESSED_OPACITY } from '../shared/press';
 
 export type RadioColor = 'primary' | 'secondary' | 'accent' | 'info' | 'success' | 'warning' | 'error';
 export type RadioSize = 'xs' | 'sm' | 'md' | 'lg';
@@ -32,9 +34,13 @@ const RadioItem = component<RadioItemProps>(({ props, emit }) => {
   };
 
   return () => (
-    <view
+    <Pressable
       style={{ flexDirection: 'row', alignItems: 'center', gap: 8, opacity: props.disabled ? 0.5 : 1 }}
-      bindtap={() => {
+      disabled={!!props.disabled}
+      pressedScale={PRESSED_SCALE}
+      pressedOpacity={PRESSED_OPACITY}
+      longPressDuration={0}
+      onPress={() => {
         if (!props.disabled && props.value != null) emit('select', props.value);
       }}
     >
@@ -42,7 +48,7 @@ const RadioItem = component<RadioItemProps>(({ props, emit }) => {
         {props.checked && <view class="radio-mark" />}
       </view>
       {props.label && <text>{props.label}</text>}
-    </view>
+    </Pressable>
   );
 });
 
