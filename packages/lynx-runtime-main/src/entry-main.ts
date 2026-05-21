@@ -150,35 +150,37 @@ g['sigxPatchUpdate'] = function ({ data }: { data: string }): void {
 // ---------------------------------------------------------------------------
 
 /**
- * Recursively restore `Object.prototype` on every plain object in `value`.
+ * Deep-clone a value into a fresh tree whose every object has
+ * `Object.prototype`.
  *
  * Why: PrimJS's `JSON.parse` produces null-prototype objects (a prototype-
  * pollution safety measure that V8 / SpiderMonkey don't apply). Upstream's
- * worklet runtime walks the captured `_c`, identifies worklet placeholders
- * by `'_wkltId' in subObj`, and then calls `new WeakRef(subObj)`. PrimJS's
- * WeakRef rejects null-prototype objects with `TypeError: WeakRef: target
- * must be an object`, so the worklet body never runs.
+ * worklet runtime (`@lynx-js/react@0.121+`'s `workletRuntime.js`) walks
+ * the captured `_c`, identifies worklet placeholders by `'_wkltId' in
+ * subObj`, and then calls `new WeakRef(subObj)`. PrimJS's `WeakRef` rejects
+ * null-prototype objects with `TypeError: WeakRef: target must be an
+ * object`, so the worklet body never runs.
  *
- * Reassigning the prototype is a one-shot, idempotent fix — it doesn't alter
- * the object's own properties and is unobservable to the worklet body
- * itself, only to the runtime's `WeakRef`/`instanceof` checks.
+ * `Object.setPrototypeOf` is a silent no-op on PrimJS's JSON.parse output
+ * (the proto slot is locked even with `isExtensible: true`), so the only
+ * way to get an `Object.prototype`-prototyped object is to rebuild it via
+ * `{}` literal. A fresh object literal always has `Object.prototype` by
+ * spec, so deep-cloning the captured tree produces a fully WeakRef-able
+ * shape that's semantically identical for the worklet body.
  *
- * Recursion is keyed off the upstream walker's own shape (it stops at
- * non-objects, treats arrays as objects, leaves Elements / MainThreadRefs
- * alone). Cycle-safe via the `seen` set — the captured ctx can include
- * cycles when `_c` references the worklet that contains it.
+ * JSON.parse output is acyclic by construction, so no cycle detection
+ * needed. Arrays handled separately to keep `Array.isArray` true downstream.
  */
-function restoreObjectPrototypes(value: unknown, seen: WeakSet<object> = new WeakSet()): void {
-  if (typeof value !== 'object' || value === null) return;
-  const obj = value as object;
-  if (seen.has(obj)) return;
-  seen.add(obj);
-  if (Object.getPrototypeOf(obj) === null) {
-    Object.setPrototypeOf(obj, Object.prototype);
+function rebuildWithObjectPrototype<T>(value: T): T {
+  if (typeof value !== 'object' || value === null) return value;
+  if (Array.isArray(value)) {
+    return value.map(rebuildWithObjectPrototype) as unknown as T;
   }
-  for (const k in obj as Record<string, unknown>) {
-    restoreObjectPrototypes((obj as Record<string, unknown>)[k], seen);
+  const out: Record<string, unknown> = {};
+  for (const k in value as Record<string, unknown>) {
+    out[k] = rebuildWithObjectPrototype((value as Record<string, unknown>)[k]);
   }
+  return out as unknown as T;
 }
 
 g['sigxRunOnMT'] = function (
@@ -191,20 +193,18 @@ g['sigxRunOnMT'] = function (
     | ((placeholder: { _wkltId: string; _c?: Record<string, unknown> }, args: unknown[]) => unknown)
     | undefined;
   if (captured && typeof runWorkletFn === 'function') {
-    // PrimJS quirk: `JSON.parse` on the Main Thread produces objects with
-    // `null` prototype (a prototype-pollution safety measure). Upstream's
-    // worklet runtime walks the captured `_c`, identifies placeholders by
-    // `_wkltId in subObj`, and then does `new WeakRef(subObj)` — PrimJS's
-    // WeakRef rejects null-prototype objects with "target must be an
-    // object". V8 / SpiderMonkey accept them, so this only bites on-device.
+    // PrimJS quirk: `JSON.parse` produces null-prototype objects whose proto
+    // slot is locked (`setPrototypeOf` is a silent no-op). Upstream's worklet
+    // runtime calls `new WeakRef(subObj)` on every nested placeholder, and
+    // PrimJS's `WeakRef` rejects null-prototype objects → animations no-op.
     //
-    // Restore `Object.prototype` on every nested object before handing the
-    // tree to the upstream walker. Plain-object semantics are unchanged; the
-    // only behavioural impact is that `instanceof Object` and `WeakRef`
-    // accept the value again.
-    restoreObjectPrototypes(captured);
+    // Rebuild the captured tree from scratch via object literals — every
+    // `{}` has `Object.prototype` by construction. Semantically identical
+    // for the worklet body; only upstream's `WeakRef` / `instanceof` checks
+    // are affected, which now succeed.
+    const fixedCaptured = rebuildWithObjectPrototype(captured);
     try {
-      result = runWorkletFn({ _wkltId: wkltId, _c: captured }, argsArr);
+      result = runWorkletFn({ _wkltId: wkltId, _c: fixedCaptured }, argsArr);
     } catch (e) {
       console.log('[sigx-mt] sigxRunOnMT worklet threw:', String(e), 'wkltId=', wkltId);
       result = undefined;
