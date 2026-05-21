@@ -78,11 +78,11 @@
         "@rsbuild/core": "^1.7.5",
         "@sigx/lynx-cli": "workspace:*",
         "@sigx/lynx-icons": "workspace:*",
-        "@sigx/vite": "^0.4.3",
-        "@types/node": "^25.7.0",
+        "@sigx/vite": "^0.4.8",
+        "@types/node": "^25.9.1",
         "@types/ws": "^8.5.13",
         "typescript": "^6.0.3",
-        "vite": "^8.0.12"
+        "vite": "^8.0.14"
     },
     "publishConfig": {
         "access": "public"

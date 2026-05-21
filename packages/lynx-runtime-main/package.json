@@ -58,9 +58,9 @@
     },
     "devDependencies": {
         "@lynx-js/types": "^3.9.0",
-        "@sigx/vite": "^0.4.3",
+        "@sigx/vite": "^0.4.8",
         "typescript": "^6.0.3",
-        "vite": "^8.0.12"
+        "vite": "^8.0.14"
     },
     "publishConfig": {
         "access": "public"
