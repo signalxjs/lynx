@@ -22,10 +22,10 @@ importers:
         version: 6.0.3
       vite:
         specifier: ^8.0.12
-        version: 8.0.12(@types/node@25.9.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1)
+        version: 8.0.12(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1)
       vitest:
         specifier: ^4.1.6
-        version: 4.1.6(@types/node@25.9.0)(@vitest/coverage-v8@4.1.6)(vite@8.0.12(@types/node@25.9.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
+        version: 4.1.6(@types/node@25.9.1)(@vitest/coverage-v8@4.1.6)(vite@8.0.12(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
 
   examples/showcase:
     dependencies:
@@ -108,11 +108,11 @@ importers:
         specifier: workspace:^
         version: link:../../packages/lynx-websocket
       '@sigx/reactivity':
-        specifier: ^0.4.3
-        version: 0.4.3
+        specifier: ^0.4.8
+        version: 0.4.8
       '@sigx/runtime-core':
-        specifier: ^0.4.3
-        version: 0.4.3
+        specifier: ^0.4.8
+        version: 0.4.8
       lucide:
         specifier: ^1.16.0
         version: 1.16.0
@@ -169,15 +169,15 @@ importers:
         specifier: workspace:^
         version: link:../lynx-runtime
       '@sigx/reactivity':
-        specifier: ^0.4.3
-        version: 0.4.3
+        specifier: ^0.4.8
+        version: 0.4.8
       '@sigx/runtime-core':
-        specifier: ^0.4.3
-        version: 0.4.3
+        specifier: ^0.4.8
+        version: 0.4.8
     devDependencies:
       '@sigx/vite':
         specifier: ^0.4.3
-        version: 0.4.3(sigx@0.4.1)(vite@8.0.12(@types/node@25.9.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
+        version: 0.4.3(sigx@0.4.1)(vite@8.0.12(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
       '@typescript/native-preview':
         specifier: 7.0.0-dev.20260511.1
         version: 7.0.0-dev.20260511.1
@@ -186,7 +186,7 @@ importers:
         version: 6.0.3
       vite:
         specifier: ^8.0.12
-        version: 8.0.12(@types/node@25.9.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1)
+        version: 8.0.12(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1)
 
   packages/lynx-camera:
     dependencies:
@@ -196,7 +196,7 @@ importers:
     devDependencies:
       '@sigx/vite':
         specifier: ^0.4.3
-        version: 0.4.3(sigx@0.4.1)(vite@8.0.12(@types/node@25.9.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
+        version: 0.4.3(sigx@0.4.1)(vite@8.0.14(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -204,8 +204,8 @@ importers:
   packages/lynx-cli:
     dependencies:
       '@sigx/cli':
-        specifier: ^0.1.0
-        version: 0.1.1
+        specifier: ^0.2.8
+        version: 0.2.8
       '@sigx/lynx-core':
         specifier: workspace:^
         version: link:../lynx-core
@@ -218,7 +218,7 @@ importers:
     devDependencies:
       '@sigx/vite':
         specifier: ^0.4.3
-        version: 0.4.3(sigx@0.4.1)(vite@8.0.12(@types/node@25.7.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
+        version: 0.4.3(sigx@0.4.1)(vite@8.0.14(@types/node@25.7.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
       '@types/node':
         specifier: ^25.7.0
         version: 25.7.0
@@ -234,7 +234,7 @@ importers:
     devDependencies:
       '@sigx/vite':
         specifier: ^0.4.3
-        version: 0.4.3(sigx@0.4.1)(vite@8.0.12(@types/node@25.9.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
+        version: 0.4.3(sigx@0.4.1)(vite@8.0.14(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -243,7 +243,7 @@ importers:
     devDependencies:
       '@sigx/vite':
         specifier: ^0.4.3
-        version: 0.4.3(sigx@0.4.1)(vite@8.0.12(@types/node@25.9.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
+        version: 0.4.3(sigx@0.4.1)(vite@8.0.14(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -262,7 +262,7 @@ importers:
         version: link:../lynx-navigation
       '@sigx/vite':
         specifier: ^0.4.3
-        version: 0.4.3(sigx@0.4.1)(vite@8.0.12(@types/node@25.9.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
+        version: 0.4.3(sigx@0.4.1)(vite@8.0.12(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
       '@typescript/native-preview':
         specifier: 7.0.0-dev.20260511.1
         version: 7.0.0-dev.20260511.1
@@ -274,7 +274,7 @@ importers:
         version: 6.0.3
       vite:
         specifier: ^8.0.12
-        version: 8.0.12(@types/node@25.9.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1)
+        version: 8.0.12(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1)
 
   packages/lynx-dev-client:
     dependencies:
@@ -284,7 +284,7 @@ importers:
     devDependencies:
       '@sigx/vite':
         specifier: ^0.4.3
-        version: 0.4.3(sigx@0.4.1)(vite@8.0.12(@types/node@25.9.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
+        version: 0.4.3(sigx@0.4.1)(vite@8.0.14(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -297,7 +297,7 @@ importers:
     devDependencies:
       '@sigx/vite':
         specifier: ^0.4.3
-        version: 0.4.3(sigx@0.4.1)(vite@8.0.12(@types/node@25.9.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
+        version: 0.4.3(sigx@0.4.1)(vite@8.0.14(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -310,7 +310,7 @@ importers:
     devDependencies:
       '@sigx/vite':
         specifier: ^0.4.3
-        version: 0.4.3(sigx@0.4.1)(vite@8.0.12(@types/node@25.9.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
+        version: 0.4.3(sigx@0.4.1)(vite@8.0.14(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -348,7 +348,7 @@ importers:
     devDependencies:
       '@sigx/vite':
         specifier: ^0.4.3
-        version: 0.4.3(sigx@0.4.1)(vite@8.0.12(@types/node@25.9.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
+        version: 0.4.3(sigx@0.4.1)(vite@8.0.14(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -360,7 +360,7 @@ importers:
         version: link:../lynx
       '@sigx/vite':
         specifier: ^0.4.3
-        version: 0.4.3(sigx@0.4.1)(vite@8.0.12(@types/node@25.9.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
+        version: 0.4.3(sigx@0.4.1)(vite@8.0.14(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -384,7 +384,7 @@ importers:
         version: link:../lynx-icons
       '@sigx/vite':
         specifier: ^0.4.3
-        version: 0.4.3(sigx@0.4.1)(vite@8.0.12(@types/node@25.7.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
+        version: 0.4.3(sigx@0.4.1)(vite@8.0.14(@types/node@25.7.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
       '@types/node':
         specifier: ^25.7.0
         version: 25.7.0
@@ -399,7 +399,7 @@ importers:
         version: link:../lynx-icons
       '@sigx/vite':
         specifier: ^0.4.3
-        version: 0.4.3(sigx@0.4.1)(vite@8.0.12(@types/node@25.7.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
+        version: 0.4.3(sigx@0.4.1)(vite@8.0.14(@types/node@25.7.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
       '@types/node':
         specifier: ^25.7.0
         version: 25.7.0
@@ -418,7 +418,7 @@ importers:
     devDependencies:
       '@sigx/vite':
         specifier: ^0.4.3
-        version: 0.4.3(sigx@0.4.1)(vite@8.0.12(@types/node@25.9.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
+        version: 0.4.3(sigx@0.4.1)(vite@8.0.14(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -437,13 +437,13 @@ importers:
     devDependencies:
       '@sigx/vite':
         specifier: ^0.4.3
-        version: 0.4.3(sigx@0.4.1)(vite@8.0.12(@types/node@25.9.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
+        version: 0.4.3(sigx@0.4.1)(vite@8.0.14(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
       vitest:
         specifier: ^4.1.6
-        version: 4.1.6(@types/node@25.9.0)(@vitest/coverage-v8@4.1.6)(vite@8.0.12(@types/node@25.9.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
+        version: 4.1.6(@types/node@25.9.1)(@vitest/coverage-v8@4.1.6)(vite@8.0.14(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
 
   packages/lynx-location:
     dependencies:
@@ -453,7 +453,7 @@ importers:
     devDependencies:
       '@sigx/vite':
         specifier: ^0.4.3
-        version: 0.4.3(sigx@0.4.1)(vite@8.0.12(@types/node@25.9.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
+        version: 0.4.3(sigx@0.4.1)(vite@8.0.14(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -465,7 +465,7 @@ importers:
         version: link:../lynx
       '@sigx/vite':
         specifier: ^0.4.3
-        version: 0.4.3(sigx@0.4.1)(vite@8.0.12(@types/node@25.9.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
+        version: 0.4.3(sigx@0.4.1)(vite@8.0.14(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -490,7 +490,7 @@ importers:
         version: 6.0.3
       vite:
         specifier: ^8.0.12
-        version: 8.0.12(@types/node@25.9.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1)
+        version: 8.0.12(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1)
 
   packages/lynx-navigation:
     devDependencies:
@@ -508,13 +508,13 @@ importers:
         version: link:../lynx-testing
       '@sigx/vite':
         specifier: ^0.4.3
-        version: 0.4.3(sigx@0.4.1)(vite@8.0.12(@types/node@25.9.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
+        version: 0.4.3(sigx@0.4.1)(vite@8.0.14(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
       vitest:
         specifier: ^4.1.6
-        version: 4.1.6(@types/node@25.9.0)(@vitest/coverage-v8@4.1.6)(vite@8.0.12(@types/node@25.9.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
+        version: 4.1.6(@types/node@25.9.1)(@vitest/coverage-v8@4.1.6)(vite@8.0.14(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
 
   packages/lynx-network:
     dependencies:
@@ -524,7 +524,7 @@ importers:
     devDependencies:
       '@sigx/vite':
         specifier: ^0.4.3
-        version: 0.4.3(sigx@0.4.1)(vite@8.0.12(@types/node@25.9.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
+        version: 0.4.3(sigx@0.4.1)(vite@8.0.14(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -537,7 +537,7 @@ importers:
     devDependencies:
       '@sigx/vite':
         specifier: ^0.4.3
-        version: 0.4.3(sigx@0.4.1)(vite@8.0.12(@types/node@25.9.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
+        version: 0.4.3(sigx@0.4.1)(vite@8.0.14(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -546,7 +546,7 @@ importers:
     devDependencies:
       '@sigx/vite':
         specifier: ^0.4.3
-        version: 0.4.3(sigx@0.4.1)(vite@8.0.12(@types/node@25.9.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
+        version: 0.4.3(sigx@0.4.1)(vite@8.0.12(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
       '@typescript/native-preview':
         specifier: 7.0.0-dev.20260511.1
         version: 7.0.0-dev.20260511.1
@@ -555,7 +555,7 @@ importers:
         version: 6.0.3
       vite:
         specifier: ^8.0.12
-        version: 8.0.12(@types/node@25.9.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1)
+        version: 8.0.12(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1)
 
   packages/lynx-plugin:
     dependencies:
@@ -584,8 +584,8 @@ importers:
         specifier: workspace:*
         version: link:../lynx-runtime-internal
       ws:
-        specifier: ^8.18.3
-        version: 8.18.3
+        specifier: ^8.20.1
+        version: 8.20.1
     devDependencies:
       '@rsbuild/core':
         specifier: ^1.7.5
@@ -621,36 +621,36 @@ importers:
         specifier: workspace:^
         version: link:../lynx-runtime-internal
       '@sigx/reactivity':
-        specifier: ^0.4.3
-        version: 0.4.3
+        specifier: ^0.4.8
+        version: 0.4.8
       '@sigx/runtime-core':
-        specifier: ^0.4.3
-        version: 0.4.3
+        specifier: ^0.4.8
+        version: 0.4.8
     devDependencies:
       '@sigx/vite':
         specifier: ^0.4.3
-        version: 0.4.3(sigx@0.4.1)(vite@8.0.12(@types/node@25.9.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
+        version: 0.4.3(sigx@0.4.1)(vite@8.0.12(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
       vite:
         specifier: ^8.0.12
-        version: 8.0.12(@types/node@25.9.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1)
+        version: 8.0.12(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1)
       vitest:
         specifier: ^4.1.6
-        version: 4.1.6(@types/node@25.9.0)(@vitest/coverage-v8@4.1.6)(vite@8.0.12(@types/node@25.9.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
+        version: 4.1.6(@types/node@25.9.1)(@vitest/coverage-v8@4.1.6)(vite@8.0.12(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
 
   packages/lynx-runtime-internal:
     devDependencies:
       '@sigx/vite':
         specifier: ^0.4.3
-        version: 0.4.3(sigx@0.4.1)(vite@8.0.12(@types/node@25.9.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
+        version: 0.4.3(sigx@0.4.1)(vite@8.0.12(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
       vite:
         specifier: ^8.0.12
-        version: 8.0.12(@types/node@25.9.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1)
+        version: 8.0.12(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1)
 
   packages/lynx-runtime-main:
     dependencies:
@@ -663,13 +663,13 @@ importers:
         version: 3.9.0
       '@sigx/vite':
         specifier: ^0.4.3
-        version: 0.4.3(sigx@0.4.1)(vite@8.0.12(@types/node@25.9.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
+        version: 0.4.3(sigx@0.4.1)(vite@8.0.12(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
       vite:
         specifier: ^8.0.12
-        version: 8.0.12(@types/node@25.9.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1)
+        version: 8.0.12(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1)
 
   packages/lynx-safe-area:
     dependencies:
@@ -680,8 +680,8 @@ importers:
         specifier: workspace:^
         version: link:../lynx-runtime-internal
       '@sigx/reactivity':
-        specifier: ^0.4.3
-        version: 0.4.3
+        specifier: ^0.4.8
+        version: 0.4.8
     devDependencies:
       '@sigx/lynx-plugin':
         specifier: workspace:^
@@ -697,7 +697,7 @@ importers:
         version: 6.0.3
       vite:
         specifier: ^8.0.12
-        version: 8.0.12(@types/node@25.9.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1)
+        version: 8.0.12(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1)
 
   packages/lynx-share:
     dependencies:
@@ -707,7 +707,7 @@ importers:
     devDependencies:
       '@sigx/vite':
         specifier: ^0.4.3
-        version: 0.4.3(sigx@0.4.1)(vite@8.0.12(@types/node@25.9.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
+        version: 0.4.3(sigx@0.4.1)(vite@8.0.14(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -720,7 +720,7 @@ importers:
     devDependencies:
       '@sigx/vite':
         specifier: ^0.4.3
-        version: 0.4.3(sigx@0.4.1)(vite@8.0.12(@types/node@25.9.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
+        version: 0.4.3(sigx@0.4.1)(vite@8.0.14(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -731,8 +731,8 @@ importers:
         specifier: workspace:^
         version: link:../lynx
       '@sigx/runtime-core':
-        specifier: ^0.4.3
-        version: 0.4.3
+        specifier: ^0.4.8
+        version: 0.4.8
     devDependencies:
       '@lynx-js/react':
         specifier: ^0.121.0
@@ -745,10 +745,10 @@ importers:
         version: 6.0.3
       vite:
         specifier: ^8.0.12
-        version: 8.0.12(@types/node@25.9.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1)
+        version: 8.0.12(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1)
       vitest:
         specifier: ^4.1.6
-        version: 4.1.6(@types/node@25.9.0)(@vitest/coverage-v8@4.1.6)(vite@8.0.12(@types/node@25.9.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
+        version: 4.1.6(@types/node@25.9.1)(@vitest/coverage-v8@4.1.6)(vite@8.0.12(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
 
   packages/lynx-websocket:
     dependencies:
@@ -758,13 +758,13 @@ importers:
     devDependencies:
       '@sigx/vite':
         specifier: ^0.4.3
-        version: 0.4.3(sigx@0.4.1)(vite@8.0.12(@types/node@25.9.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
+        version: 0.4.3(sigx@0.4.1)(vite@8.0.14(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
       vitest:
         specifier: ^4.1.6
-        version: 4.1.6(@types/node@25.9.0)(@vitest/coverage-v8@4.1.6)(vite@8.0.12(@types/node@25.9.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
+        version: 4.1.6(@types/node@25.9.1)(@vitest/coverage-v8@4.1.6)(vite@8.0.14(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
 
 packages:
 
@@ -1303,6 +1303,9 @@ packages:
   '@oxc-project/types@0.129.0':
     resolution: {integrity: sha512-3oz8m3FGdr2nDXVqmFUw7jolKliC4MoyXYIG2c7gpjBnzUWQpUGIYcXYKxTdTi+N2jusvt610ckTMkxdwHkYEg==}
 
+  '@oxc-project/types@0.132.0':
+    resolution: {integrity: sha512-FESMOxil5Se014ui/Eq8fT5uHJo6nIRwH0PfJrZJXs6Gek3ZVFOrpUv3YIZT20m+extU98Hg1Ym72U58rlsxUQ==}
+
   '@oxlint/binding-android-arm-eabi@1.63.0':
     resolution: {integrity: sha512-A9xLtQt7i0OA1PoB/meog6kikXI9CdwEp7ZwQqmgnpKn3G3b1orvTDy8CQ6T7w1HvDrgWGB78PkFKcWgibcTCg==}
     engines: {node: ^20.19.0 || >=22.12.0}
@@ -1431,8 +1434,20 @@ packages:
     cpu: [arm64]
     os: [android]
 
+  '@rolldown/binding-android-arm64@1.0.2':
+    resolution: {integrity: sha512-ZS4D1JPGn/MYQN/SYDWftIE/nVsM8j/AFOYEzAoOE2O3NktQOZru+/vYXGbR/qtdLdIfGCP0lcoJiYVzsEz+iQ==}
+    engines: {node: ^20.19.0 || >=22.12.0}
+    cpu: [arm64]
+    os: [android]
+
   '@rolldown/binding-darwin-arm64@1.0.0':
     resolution: {integrity: sha512-6XcD+8k0gPVItNagEw78/qqcBDwKcwDYS8V2hRmVsfUSIrd8cWe/CBvRDI5toqFyPfj+FJr6t8U6Xj2P2prEew==}
+    engines: {node: ^20.19.0 || >=22.12.0}
+    cpu: [arm64]
+    os: [darwin]
+
+  '@rolldown/binding-darwin-arm64@1.0.2':
+    resolution: {integrity: sha512-vdFA9+C/rekyGce7WqHs/xoT0ioZEWaOFyZLIV1mEeNFaFDUQrPIo8Vs2GvJ6eetb3rzDUtUBgzto3ExpXJB3w==}
     engines: {node: ^20.19.0 || >=22.12.0}
     cpu: [arm64]
     os: [darwin]
@@ -1443,8 +1458,20 @@ packages:
     cpu: [x64]
     os: [darwin]
 
+  '@rolldown/binding-darwin-x64@1.0.2':
+    resolution: {integrity: sha512-BewSOwTHazv77DTYiAZXSqqKZ4KP/KonFisDMVU7PImxoWfB2aepnPhd2E4SWz3zDzYgDNbs6jBmTdgNnF02GA==}
+    engines: {node: ^20.19.0 || >=22.12.0}
+    cpu: [x64]
+    os: [darwin]
+
   '@rolldown/binding-freebsd-x64@1.0.0':
     resolution: {integrity: sha512-jjQMDvvwSOuhOwMszD/klSOjyWMM3zI64hWTj9KT5x4MxRbZAf+7vLQ6qouRhtsLVFHr3f0ILaJAfgENPiQdAQ==}
+    engines: {node: ^20.19.0 || >=22.12.0}
+    cpu: [x64]
+    os: [freebsd]
+
+  '@rolldown/binding-freebsd-x64@1.0.2':
+    resolution: {integrity: sha512-m41o7M0YWtUdqk61Tb+jnKb2rN++iRdIASlExkUoKfIAH30DOHCB8fVLzSUpbWHHU8esmEioY62PxzexE8MBuA==}
     engines: {node: ^20.19.0 || >=22.12.0}
     cpu: [x64]
     os: [freebsd]
@@ -1455,8 +1482,21 @@ packages:
     cpu: [arm]
     os: [linux]
 
+  '@rolldown/binding-linux-arm-gnueabihf@1.0.2':
+    resolution: {integrity: sha512-jcojB9H7W/jS29pMKWAK1N+fU99vXodHDTatS3b3y/XSOCiHo0kkA74pL3jJmkoQtYpOCxDvaKs1fo2Ij/1X5w==}
+    engines: {node: ^20.19.0 || >=22.12.0}
+    cpu: [arm]
+    os: [linux]
+
   '@rolldown/binding-linux-arm64-gnu@1.0.0':
     resolution: {integrity: sha512-n7Ofp0mx+aB2cC+Sdy5YtMnXtY9lchnHbY+3Yt0uq9JsWQExf4f5Whu0tK0R8Jdc9S6RchTHjIFY7uc92puOVQ==}
+    engines: {node: ^20.19.0 || >=22.12.0}
+    cpu: [arm64]
+    os: [linux]
+    libc: [glibc]
+
+  '@rolldown/binding-linux-arm64-gnu@1.0.2':
+    resolution: {integrity: sha512-1jn6qDU5iiOgFgygDzKUuKP0maTi0/f1+sBLgvij/76C77Nm3ts6ufz9Bjg5q5dduxiUIxtq86JIoBvo1xQ4Ig==}
     engines: {node: ^20.19.0 || >=22.12.0}
     cpu: [arm64]
     os: [linux]
@@ -1469,8 +1509,22 @@ packages:
     os: [linux]
     libc: [musl]
 
+  '@rolldown/binding-linux-arm64-musl@1.0.2':
+    resolution: {integrity: sha512-QVLO/czFMdoMFSqlX3bcswcJNm/23r+qoa/jgtmFc/qEp6/jXmIkDjF/XIo8dPfGaiwy1xfQn8o77L79GeXFgw==}
+    engines: {node: ^20.19.0 || >=22.12.0}
+    cpu: [arm64]
+    os: [linux]
+    libc: [musl]
+
   '@rolldown/binding-linux-ppc64-gnu@1.0.0':
     resolution: {integrity: sha512-JEwwOPcwTLAcpDQlqSmjEmfs63xJnSiUNIGvLcDLUHCWK4XowpS/7c7tUsUH6uT/ct6bMUTdXKfI8967FYj6mg==}
+    engines: {node: ^20.19.0 || >=22.12.0}
+    cpu: [ppc64]
+    os: [linux]
+    libc: [glibc]
+
+  '@rolldown/binding-linux-ppc64-gnu@1.0.2':
+    resolution: {integrity: sha512-hgO5Abm0w5UL6FEa2iFnZqo2KlK7TQ5QhV5x09hujBf7t5KzHQ1VmfPuTpqRy/rNlSxua3eWH374xxiVrP+lcA==}
     engines: {node: ^20.19.0 || >=22.12.0}
     cpu: [ppc64]
     os: [linux]
@@ -1483,8 +1537,22 @@ packages:
     os: [linux]
     libc: [glibc]
 
+  '@rolldown/binding-linux-s390x-gnu@1.0.2':
+    resolution: {integrity: sha512-fy8rXxuYEu602abC8MUNaPjYLIFzReOaEIEMKMUa0rFEUxNpVXhs15KSSQ4qlqSaM7B6rcj9rDZgADh/IGDzLQ==}
+    engines: {node: ^20.19.0 || >=22.12.0}
+    cpu: [s390x]
+    os: [linux]
+    libc: [glibc]
+
   '@rolldown/binding-linux-x64-gnu@1.0.0':
     resolution: {integrity: sha512-Dfn7iak9BcMMePxcoJfpSbWqnEyrp/dRF63/8qW/eHBdOZov6x5aShLLEYGYdIeSJ6vMLK/XCVB+lGIxm41bQA==}
+    engines: {node: ^20.19.0 || >=22.12.0}
+    cpu: [x64]
+    os: [linux]
+    libc: [glibc]
+
+  '@rolldown/binding-linux-x64-gnu@1.0.2':
+    resolution: {integrity: sha512-0+bOkiQ779+r1WpoHOWHqncvyySci0vKph+myNDYb+im6meJAzHQXay6oEgnkHuUGouM1LKTZwqKpBow6Kj7CQ==}
     engines: {node: ^20.19.0 || >=22.12.0}
     cpu: [x64]
     os: [linux]
@@ -1497,8 +1565,21 @@ packages:
     os: [linux]
     libc: [musl]
 
+  '@rolldown/binding-linux-x64-musl@1.0.2':
+    resolution: {integrity: sha512-mjSkrzZK5Qsl0a9d1JgILOiuZOSDTVdKENcSXBoqbzSrspLR/4/IRVDo5wd2GgZjNss/viBFJdeq+j7qH2nypw==}
+    engines: {node: ^20.19.0 || >=22.12.0}
+    cpu: [x64]
+    os: [linux]
+    libc: [musl]
+
   '@rolldown/binding-openharmony-arm64@1.0.0':
     resolution: {integrity: sha512-ouJs8VcUomfLfpbUECqFMRqdV4x6aeAK3MA4m6vTrJJjKyWTV5KnxZx7Jd9G+GlDaQQxubcba00x16OyJ1meig==}
+    engines: {node: ^20.19.0 || >=22.12.0}
+    cpu: [arm64]
+    os: [openharmony]
+
+  '@rolldown/binding-openharmony-arm64@1.0.2':
+    resolution: {integrity: sha512-1v5vHasdfQAZoEHakBV72LIFAC9JjnymsiKxp+GEr/ma3+NJCPSaYK+qavInOovJkgwFrs7GccX2d6IgDA3Z5w==}
     engines: {node: ^20.19.0 || >=22.12.0}
     cpu: [arm64]
     os: [openharmony]
@@ -1508,8 +1589,19 @@ packages:
     engines: {node: ^20.19.0 || >=22.12.0}
     cpu: [wasm32]
 
+  '@rolldown/binding-wasm32-wasi@1.0.2':
+    resolution: {integrity: sha512-mb1VobWn6NheziTk5/WEaR6AKVbrwT5sOi6C7zk3gy/pD1qtJfU1j4PgTo2NJnOtbL9Dl3Aeei8w9jJ7qC2jZQ==}
+    engines: {node: ^20.19.0 || >=22.12.0}
+    cpu: [wasm32]
+
   '@rolldown/binding-win32-arm64-msvc@1.0.0':
     resolution: {integrity: sha512-yYK02n8Rngo+gbm1y6G0+7jk1sJ/2Wt7K0me0Y7k/ErBpyf+LJ2gFpqWVTcRV1rUepBlQRmpgWkTQCiiwrK0Ow==}
+    engines: {node: ^20.19.0 || >=22.12.0}
+    cpu: [arm64]
+    os: [win32]
+
+  '@rolldown/binding-win32-arm64-msvc@1.0.2':
+    resolution: {integrity: sha512-SqKonF56vA/L2yHwHYcEp2P34URpOZ7d1fS635cTkpDnUtEGdUbhI6NzsPdqeSWvAAeGDrxjWjNmibDIdFf9/A==}
     engines: {node: ^20.19.0 || >=22.12.0}
     cpu: [arm64]
     os: [win32]
@@ -1520,8 +1612,17 @@ packages:
     cpu: [x64]
     os: [win32]
 
+  '@rolldown/binding-win32-x64-msvc@1.0.2':
+    resolution: {integrity: sha512-v7qRI7gXLRINcOGXt+7YmAZ6iFuyZVMIoXAxhd8oP+DR9dLfL9GfNIx7PLMxmhZdvq8waUJBQiWN9EKNy+TRBQ==}
+    engines: {node: ^20.19.0 || >=22.12.0}
+    cpu: [x64]
+    os: [win32]
+
   '@rolldown/pluginutils@1.0.0':
     resolution: {integrity: sha512-aKs/3GSWyV0mrhNmt/96/Z3yczC3yvrzYATCiCXQebBsGyYzjNdUphRVLeJQ67ySKVXRfMxt2lm12pmXvbPFQQ==}
+
+  '@rolldown/pluginutils@1.0.1':
+    resolution: {integrity: sha512-2j9bGt5Jh8hj+vPtgzPtl72j0yRxHAyumoo6TNfAjsLB04UtpSvPbPcDcBMxz7n+9CYB0c1GxQFxYRg2jimqGw==}
 
   '@rsbuild/core@1.7.5':
     resolution: {integrity: sha512-i37urpoV4y9NSsGiUOuLdoI42KJ5h4gAZ8EG8Ilmsond3bxoAoOCu7YvC+1pJ7p+r16suVPW8cki891ZKHOoXQ==}
@@ -1771,20 +1872,12 @@ packages:
   '@rspack/resolver@0.2.8':
     resolution: {integrity: sha512-FBWqdHhzS8mcf/WN4Ktzr7EaeaN+hsxbN98EweegX3924beZuY6H70CSFWCv1fIHAieCUv/9XCjKggHvhCsLwA==}
 
-  '@sigx/cli@0.1.1':
-    resolution: {integrity: sha512-ODDEUWRGm2Uug8APVBCkmR0EYrLclyDMMf4FABdiADi3f3Gy15RkBT+tMho/SlKqDWVuDooSaijM296QPbqvnw==}
-    hasBin: true
-
   '@sigx/cli@0.2.8':
     resolution: {integrity: sha512-VF9i5jAkBIyBGtl8MAcvrj4D19cSs5AcQe8ymmkeL8tP7FhMZhrCtigOI36dZZ9xssyAa+eFz9yUz3fHPgDmQg==}
     hasBin: true
 
   '@sigx/reactivity@0.3.2':
     resolution: {integrity: sha512-3VxlxUzjhA2jzxkeEDmDVkJhFCtb0uzLzvHy0aVKokZUDqFxeLZa/b2ZCmH66ffHV5ouNjEABMUDoJWd5stU1g==}
-    engines: {node: ^20.19.0 || >=22.12.0}
-
-  '@sigx/reactivity@0.4.3':
-    resolution: {integrity: sha512-S6nCZuwRGsPSvGrLXLxRSJzVFIPdWAIbSu4gKAglNxuq5V3A2aH9SdHE/wSqz0lTzA4qrIRR2wSbi3bnOMjKOg==}
     engines: {node: ^20.19.0 || >=22.12.0}
 
   '@sigx/reactivity@0.4.8':
@@ -1800,10 +1893,6 @@ packages:
     resolution: {integrity: sha512-QEdPIOkoLbQLZjYfoG+Vd6MBUwne9I8+3NJfYpKamyb+ieumGlTRPMnzhym1zlpIxpcyGVK8V0oVjhI2d0kCGw==}
     engines: {node: ^20.19.0 || >=22.12.0}
 
-  '@sigx/runtime-core@0.4.3':
-    resolution: {integrity: sha512-KVvlFFMzhl0xFhE4p1Liy0R2LPebDS3ckWk8I6kplbw/t6kb4Jsr0k19Hy7IoWhfZ84yD1EhvAHDyXvIU1wmOQ==}
-    engines: {node: ^20.19.0 || >=22.12.0}
-
   '@sigx/runtime-core@0.4.8':
     resolution: {integrity: sha512-BpzEl4EPYQomz2Ws94MD/CB+H92bfr5hqMZbNBPpnpq9LbzT5av4mt7Usz8wc2juuPKpssSzQ9rGHZjKnMhAhg==}
     engines: {node: ^20.19.0 || >=22.12.0}
@@ -1812,18 +1901,12 @@ packages:
     resolution: {integrity: sha512-GO8h9Fa/MydVDG8gJOU6WesPv3EYjTu1SIc/DC8zD5BrfeF8zCKU4FnakNJsuBUVd/dEt4IRrq0sPMYXbxFKyQ==}
     engines: {node: ^20.19.0 || >=22.12.0}
 
-  '@sigx/runtime-dom@0.4.3':
-    resolution: {integrity: sha512-1G5PC5xSdNgdiUjNKnm1mIg6+QYmt1S9nQIkR2ON0vz+rsvAGeysTEwM3PCUe98HHBpqrkIk/9iqH2VRUd5BCA==}
+  '@sigx/runtime-dom@0.4.8':
+    resolution: {integrity: sha512-Po4bDGZOx7meFkq1IkC8qYhhByWuHFXcM1IpCfRmgjWmKeddn0Bj9/LTM2hyWc422kSYQwTvY6hFwNEqWa6XTQ==}
     engines: {node: ^20.19.0 || >=22.12.0}
-
-  '@sigx/runtime-terminal@0.3.2':
-    resolution: {integrity: sha512-eABP66c/yKvM1ZEhhy52L1Jvn7mX0kVpyB+hYkftxXq/i6gDWH/p99dmqN2zQSxwT04R502ujlvvAPKyJRihqg==}
 
   '@sigx/runtime-terminal@0.4.4':
     resolution: {integrity: sha512-M3EIvDxuoYuNl2e+vO6U0MjSunYkhkx3O9dde45PBKQWLtVXx3bxKQtL8IRpBCuw3tDw0PRH9oI4naPLeVvcdA==}
-
-  '@sigx/terminal@0.3.2':
-    resolution: {integrity: sha512-esjxPzU2JLDM7b7s32D2HXj30L4Xf+rxW5ZFinW//iNEpp08WqHM3uOGcsX/5O/jHBXT7cjyAz4oLA4qdrxC0g==}
 
   '@sigx/terminal@0.4.4':
     resolution: {integrity: sha512-pQYkQuJQ6Tg7JIF1YXaCiupXZy2gMJpbJCrmMJ5EpV/cURhgJICDLxnQKB0gfjt+ggMGucUOtR4o2WtULpqCQw==}
@@ -1889,8 +1972,8 @@ packages:
   '@types/node@25.7.0':
     resolution: {integrity: sha512-z+pdZyxE+RTQE9AcboAZCb4otwcrvgHD+GlBpPgn0emDVt0ohrTMhAwlr2Wd9nZ+nihhYFxO2pThz3C5qSu2Eg==}
 
-  '@types/node@25.9.0':
-    resolution: {integrity: sha512-AOQwYUNolgy3VosiRqXrACUXTN8nJUtPl7FJXMqZVyxiiCLhQuG3jXKvCS1ALr+Y2OmZhzzLVlYPEqJaiqkaJQ==}
+  '@types/node@25.9.1':
+    resolution: {integrity: sha512-xfrlY7UD5rMJk3ZVJP8BNzS28J36YJg+xp+LPXV1TdWxr8uMH5A860QNxYDGQe/ylDSgjxE52Q9VnO7p75tJxg==}
 
   '@types/prop-types@15.7.15':
     resolution: {integrity: sha512-F6bEyamV9jKGAFBEmlQnesRPGOQqS2+Uwi0Em15xenOxHaf2hv6L8YCVn3rPdPJOiJfPiCnLIRyvwVaqMY3MIw==}
@@ -2414,8 +2497,8 @@ packages:
     resolution: {integrity: sha512-DgOngfDKM2EviOH3Mr9m7ks1q8roetLy/IMmYthAYzbpInMbYc/GS+fWFA3rl1gvwKVsQrVV61fo5emD1y3OJQ==}
     engines: {node: '>=10.2.0'}
 
-  enhanced-resolve@5.21.5:
-    resolution: {integrity: sha512-mLCNbrQli11K1ySUmuNt4ZUB3OpGIDq4q2vTBTf5cL2lpsRjI9QKqSD0ndjW8FyvcW/Jj46gMe9syyHAsvMa/A==}
+  enhanced-resolve@5.21.6:
+    resolution: {integrity: sha512-aNnGCvbJ/RIyWo1IuhNdVjnNF+EjH9wpzpNHt+ci/m9He9LJvUN8wrCcXjp9cWsGNAuvSpVFTx/vraAFQ8qGjQ==}
     engines: {node: '>=10.13.0'}
 
   entities@4.5.0:
@@ -3263,6 +3346,10 @@ packages:
     resolution: {integrity: sha512-SoSL4+OSEtR99LHFZQiJLkT59C5B1amGO1NzTwj7TT1qCUgUO6hxOvzkOYxD+vMrXBM3XJIKzokoERdqQq/Zmg==}
     engines: {node: ^10 || ^12 || >=14}
 
+  postcss@8.5.15:
+    resolution: {integrity: sha512-FfR8sjd4em2T6fb3I2MwAJU7HWVMr9zba+enmQeeWFfCbm+UOC/0X4DS8XtpUTMwWMGbjKYP7xjfNekzyGmB3A==}
+    engines: {node: ^10 || ^12 || >=14}
+
   punycode.js@2.3.1:
     resolution: {integrity: sha512-uxFIHU0YlHYhDQtV4R9J6a52SLx28BCjT+4ieh7IGbgwVJWO+km431c4yRlREUAsAmt/uMjQUyQHNEPf0M39CA==}
     engines: {node: '>=6'}
@@ -3306,6 +3393,11 @@ packages:
 
   rolldown@1.0.0:
     resolution: {integrity: sha512-yD986aXDESFGS95spT1LAv0jssywP4npMEjmMHyN2/5+eE8qQJUype2AaKkRiLgBgyD0LFlubwAht7VmY8rGoA==}
+    engines: {node: ^20.19.0 || >=22.12.0}
+    hasBin: true
+
+  rolldown@1.0.2:
+    resolution: {integrity: sha512-oZx5zVDtVB44AW3eaifgDml1gWRDZGvjcfdxonE4swNPG98PrrXjaO/KrnUjzlMnztCCRVlUueA1kCXhARGk6g==}
     engines: {node: ^20.19.0 || >=22.12.0}
     hasBin: true
 
@@ -3667,6 +3759,49 @@ packages:
       yaml:
         optional: true
 
+  vite@8.0.14:
+    resolution: {integrity: sha512-s4BJJ+5y1pYL6Otw51FHhVJQhPnuRinKig64g/1+EUNaJsd3gCKdD31IPFvswUgW9/60QT9oFHbZHbQK5imcxw==}
+    engines: {node: ^20.19.0 || >=22.12.0}
+    hasBin: true
+    peerDependencies:
+      '@types/node': ^20.19.0 || >=22.12.0
+      '@vitejs/devtools': ^0.1.18
+      esbuild: ^0.27.0 || ^0.28.0
+      jiti: '>=1.21.0'
+      less: ^4.0.0
+      sass: ^1.70.0
+      sass-embedded: ^1.70.0
+      stylus: '>=0.54.8'
+      sugarss: ^5.0.0
+      terser: ^5.16.0
+      tsx: ^4.8.1
+      yaml: ^2.4.2
+    peerDependenciesMeta:
+      '@types/node':
+        optional: true
+      '@vitejs/devtools':
+        optional: true
+      esbuild:
+        optional: true
+      jiti:
+        optional: true
+      less:
+        optional: true
+      sass:
+        optional: true
+      sass-embedded:
+        optional: true
+      stylus:
+        optional: true
+      sugarss:
+        optional: true
+      terser:
+        optional: true
+      tsx:
+        optional: true
+      yaml:
+        optional: true
+
   vitest@4.1.6:
     resolution: {integrity: sha512-6lvjbS3p9b4CrdCmguzbh2/4uoXhGE2q71R4OX5sqF9R1bo9Xd6fGrMAfvp5wnCzlBnFVdCOp6onuTQVbo8iUQ==}
     engines: {node: ^20.0.0 || ^22.0.0 || >=24.0.0}
@@ -3752,6 +3887,18 @@ packages:
 
   ws@8.18.3:
     resolution: {integrity: sha512-PEIGCY5tSlUt50cqyMXfCzX+oOPqN0vuGqWzbcJ2xvnkzkq46oOpz7dQaTDBdfICb4N14+GARUDw2XV2N4tvzg==}
+    engines: {node: '>=10.0.0'}
+    peerDependencies:
+      bufferutil: ^4.0.1
+      utf-8-validate: '>=5.0.2'
+    peerDependenciesMeta:
+      bufferutil:
+        optional: true
+      utf-8-validate:
+        optional: true
+
+  ws@8.20.1:
+    resolution: {integrity: sha512-It4dO0K5v//JtTXuPkfEOaI3uUN87iYPnqo/ZzqCoG3g8uhA66QUMs/SrM0YK7/NAu+r4LMh/9dq2A7k+rHs+w==}
     engines: {node: '>=10.0.0'}
     peerDependencies:
       bufferutil: ^4.0.1
@@ -4231,6 +4378,8 @@ snapshots:
 
   '@oxc-project/types@0.129.0': {}
 
+  '@oxc-project/types@0.132.0': {}
+
   '@oxlint/binding-android-arm-eabi@1.63.0':
     optional: true
 
@@ -4291,37 +4440,73 @@ snapshots:
   '@rolldown/binding-android-arm64@1.0.0':
     optional: true
 
+  '@rolldown/binding-android-arm64@1.0.2':
+    optional: true
+
   '@rolldown/binding-darwin-arm64@1.0.0':
+    optional: true
+
+  '@rolldown/binding-darwin-arm64@1.0.2':
     optional: true
 
   '@rolldown/binding-darwin-x64@1.0.0':
     optional: true
 
+  '@rolldown/binding-darwin-x64@1.0.2':
+    optional: true
+
   '@rolldown/binding-freebsd-x64@1.0.0':
+    optional: true
+
+  '@rolldown/binding-freebsd-x64@1.0.2':
     optional: true
 
   '@rolldown/binding-linux-arm-gnueabihf@1.0.0':
     optional: true
 
+  '@rolldown/binding-linux-arm-gnueabihf@1.0.2':
+    optional: true
+
   '@rolldown/binding-linux-arm64-gnu@1.0.0':
+    optional: true
+
+  '@rolldown/binding-linux-arm64-gnu@1.0.2':
     optional: true
 
   '@rolldown/binding-linux-arm64-musl@1.0.0':
     optional: true
 
+  '@rolldown/binding-linux-arm64-musl@1.0.2':
+    optional: true
+
   '@rolldown/binding-linux-ppc64-gnu@1.0.0':
+    optional: true
+
+  '@rolldown/binding-linux-ppc64-gnu@1.0.2':
     optional: true
 
   '@rolldown/binding-linux-s390x-gnu@1.0.0':
     optional: true
 
+  '@rolldown/binding-linux-s390x-gnu@1.0.2':
+    optional: true
+
   '@rolldown/binding-linux-x64-gnu@1.0.0':
+    optional: true
+
+  '@rolldown/binding-linux-x64-gnu@1.0.2':
     optional: true
 
   '@rolldown/binding-linux-x64-musl@1.0.0':
     optional: true
 
+  '@rolldown/binding-linux-x64-musl@1.0.2':
+    optional: true
+
   '@rolldown/binding-openharmony-arm64@1.0.0':
+    optional: true
+
+  '@rolldown/binding-openharmony-arm64@1.0.2':
     optional: true
 
   '@rolldown/binding-wasm32-wasi@1.0.0':
@@ -4331,13 +4516,28 @@ snapshots:
       '@napi-rs/wasm-runtime': 1.1.4(@emnapi/core@1.10.0)(@emnapi/runtime@1.10.0)
     optional: true
 
+  '@rolldown/binding-wasm32-wasi@1.0.2':
+    dependencies:
+      '@emnapi/core': 1.10.0
+      '@emnapi/runtime': 1.10.0
+      '@napi-rs/wasm-runtime': 1.1.4(@emnapi/core@1.10.0)(@emnapi/runtime@1.10.0)
+    optional: true
+
   '@rolldown/binding-win32-arm64-msvc@1.0.0':
+    optional: true
+
+  '@rolldown/binding-win32-arm64-msvc@1.0.2':
     optional: true
 
   '@rolldown/binding-win32-x64-msvc@1.0.0':
     optional: true
 
+  '@rolldown/binding-win32-x64-msvc@1.0.2':
+    optional: true
+
   '@rolldown/pluginutils@1.0.0': {}
+
+  '@rolldown/pluginutils@1.0.1': {}
 
   '@rsbuild/core@1.7.5':
     dependencies:
@@ -4750,19 +4950,12 @@ snapshots:
       - '@emnapi/core'
       - '@emnapi/runtime'
 
-  '@sigx/cli@0.1.1':
-    dependencies:
-      '@sigx/terminal': 0.3.2
-      citty: 0.2.2
-
   '@sigx/cli@0.2.8':
     dependencies:
       '@sigx/terminal': 0.4.4
       citty: 0.2.2
 
   '@sigx/reactivity@0.3.2': {}
-
-  '@sigx/reactivity@0.4.3': {}
 
   '@sigx/reactivity@0.4.8': {}
 
@@ -4777,10 +4970,6 @@ snapshots:
     dependencies:
       '@sigx/reactivity': 0.3.2
 
-  '@sigx/runtime-core@0.4.3':
-    dependencies:
-      '@sigx/reactivity': 0.4.3
-
   '@sigx/runtime-core@0.4.8':
     dependencies:
       '@sigx/reactivity': 0.4.8
@@ -4790,26 +4979,15 @@ snapshots:
       '@sigx/reactivity': 0.3.2
       '@sigx/runtime-core': 0.3.2
 
-  '@sigx/runtime-dom@0.4.3':
+  '@sigx/runtime-dom@0.4.8':
     dependencies:
-      '@sigx/reactivity': 0.4.3
-      '@sigx/runtime-core': 0.4.3
-
-  '@sigx/runtime-terminal@0.3.2':
-    dependencies:
-      '@sigx/reactivity': 0.3.2
-      '@sigx/runtime-core': 0.3.2
+      '@sigx/reactivity': 0.4.8
+      '@sigx/runtime-core': 0.4.8
 
   '@sigx/runtime-terminal@0.4.4':
     dependencies:
       '@sigx/reactivity': 0.4.8
       '@sigx/runtime-core': 0.4.8
-
-  '@sigx/terminal@0.3.2':
-    dependencies:
-      '@sigx/reactivity': 0.3.2
-      '@sigx/runtime-core': 0.3.2
-      '@sigx/runtime-terminal': 0.3.2
 
   '@sigx/terminal@0.4.4':
     dependencies:
@@ -4822,10 +5000,20 @@ snapshots:
       sigx: 0.4.1
       vite: 8.0.12(@types/node@25.7.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1)
 
-  '@sigx/vite@0.4.3(sigx@0.4.1)(vite@8.0.12(@types/node@25.9.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))':
+  '@sigx/vite@0.4.3(sigx@0.4.1)(vite@8.0.12(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))':
     dependencies:
       sigx: 0.4.1
-      vite: 8.0.12(@types/node@25.9.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1)
+      vite: 8.0.12(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1)
+
+  '@sigx/vite@0.4.3(sigx@0.4.1)(vite@8.0.14(@types/node@25.7.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))':
+    dependencies:
+      sigx: 0.4.1
+      vite: 8.0.14(@types/node@25.7.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1)
+
+  '@sigx/vite@0.4.3(sigx@0.4.1)(vite@8.0.14(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))':
+    dependencies:
+      sigx: 0.4.1
+      vite: 8.0.14(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1)
 
   '@sinclair/typebox@0.27.10': {}
 
@@ -4887,7 +5075,7 @@ snapshots:
     dependencies:
       undici-types: 7.21.0
 
-  '@types/node@25.9.0':
+  '@types/node@25.9.1':
     dependencies:
       undici-types: 7.24.6
 
@@ -4958,7 +5146,7 @@ snapshots:
       obug: 2.1.1
       std-env: 4.1.0
       tinyrainbow: 3.1.0
-      vitest: 4.1.6(@types/node@25.9.0)(@vitest/coverage-v8@4.1.6)(vite@8.0.12(@types/node@25.9.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
+      vitest: 4.1.6(@types/node@25.9.1)(@vitest/coverage-v8@4.1.6)(vite@8.0.14(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
 
   '@vitest/expect@4.1.6':
     dependencies:
@@ -4969,13 +5157,21 @@ snapshots:
       chai: 6.2.2
       tinyrainbow: 3.1.0
 
-  '@vitest/mocker@4.1.6(vite@8.0.12(@types/node@25.9.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))':
+  '@vitest/mocker@4.1.6(vite@8.0.12(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))':
     dependencies:
       '@vitest/spy': 4.1.6
       estree-walker: 3.0.3
       magic-string: 0.30.21
     optionalDependencies:
-      vite: 8.0.12(@types/node@25.9.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1)
+      vite: 8.0.12(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1)
+
+  '@vitest/mocker@4.1.6(vite@8.0.14(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))':
+    dependencies:
+      '@vitest/spy': 4.1.6
+      estree-walker: 3.0.3
+      magic-string: 0.30.21
+    optionalDependencies:
+      vite: 8.0.14(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1)
 
   '@vitest/pretty-format@4.1.6':
     dependencies:
@@ -5474,7 +5670,7 @@ snapshots:
       - supports-color
       - utf-8-validate
 
-  enhanced-resolve@5.21.5:
+  enhanced-resolve@5.21.6:
     dependencies:
       graceful-fs: 4.2.11
       tapable: 2.3.3
@@ -5897,7 +6093,7 @@ snapshots:
 
   jest-worker@27.5.1:
     dependencies:
-      '@types/node': 25.9.0
+      '@types/node': 25.9.1
       merge-stream: 2.0.0
       supports-color: 8.1.1
 
@@ -6344,6 +6540,12 @@ snapshots:
       picocolors: 1.1.1
       source-map-js: 1.2.1
 
+  postcss@8.5.15:
+    dependencies:
+      nanoid: 3.3.12
+      picocolors: 1.1.1
+      source-map-js: 1.2.1
+
   punycode.js@2.3.1: {}
 
   queue-microtask@1.2.3: {}
@@ -6413,6 +6615,27 @@ snapshots:
       '@rolldown/binding-wasm32-wasi': 1.0.0
       '@rolldown/binding-win32-arm64-msvc': 1.0.0
       '@rolldown/binding-win32-x64-msvc': 1.0.0
+
+  rolldown@1.0.2:
+    dependencies:
+      '@oxc-project/types': 0.132.0
+      '@rolldown/pluginutils': 1.0.1
+    optionalDependencies:
+      '@rolldown/binding-android-arm64': 1.0.2
+      '@rolldown/binding-darwin-arm64': 1.0.2
+      '@rolldown/binding-darwin-x64': 1.0.2
+      '@rolldown/binding-freebsd-x64': 1.0.2
+      '@rolldown/binding-linux-arm-gnueabihf': 1.0.2
+      '@rolldown/binding-linux-arm64-gnu': 1.0.2
+      '@rolldown/binding-linux-arm64-musl': 1.0.2
+      '@rolldown/binding-linux-ppc64-gnu': 1.0.2
+      '@rolldown/binding-linux-s390x-gnu': 1.0.2
+      '@rolldown/binding-linux-x64-gnu': 1.0.2
+      '@rolldown/binding-linux-x64-musl': 1.0.2
+      '@rolldown/binding-openharmony-arm64': 1.0.2
+      '@rolldown/binding-wasm32-wasi': 1.0.2
+      '@rolldown/binding-win32-arm64-msvc': 1.0.2
+      '@rolldown/binding-win32-x64-msvc': 1.0.2
 
   rslog@1.3.2: {}
 
@@ -6545,9 +6768,9 @@ snapshots:
 
   sigx@0.4.1:
     dependencies:
-      '@sigx/reactivity': 0.4.3
-      '@sigx/runtime-core': 0.4.3
-      '@sigx/runtime-dom': 0.4.3
+      '@sigx/reactivity': 0.4.8
+      '@sigx/runtime-core': 0.4.8
+      '@sigx/runtime-dom': 0.4.8
 
   socket.io-adapter@2.5.6:
     dependencies:
@@ -6827,7 +7050,7 @@ snapshots:
       jiti: 2.7.0
       terser: 5.47.1
 
-  vite@8.0.12(@types/node@25.9.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1):
+  vite@8.0.12(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1):
     dependencies:
       lightningcss: 1.32.0
       picomatch: 4.0.4
@@ -6835,16 +7058,44 @@ snapshots:
       rolldown: 1.0.0
       tinyglobby: 0.2.16
     optionalDependencies:
-      '@types/node': 25.9.0
+      '@types/node': 25.9.1
       esbuild: 0.28.0
       fsevents: 2.3.3
       jiti: 2.7.0
       terser: 5.47.1
 
-  vitest@4.1.6(@types/node@25.9.0)(@vitest/coverage-v8@4.1.6)(vite@8.0.12(@types/node@25.9.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1)):
+  vite@8.0.14(@types/node@25.7.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1):
+    dependencies:
+      lightningcss: 1.32.0
+      picomatch: 4.0.4
+      postcss: 8.5.15
+      rolldown: 1.0.2
+      tinyglobby: 0.2.16
+    optionalDependencies:
+      '@types/node': 25.7.0
+      esbuild: 0.28.0
+      fsevents: 2.3.3
+      jiti: 2.7.0
+      terser: 5.47.1
+
+  vite@8.0.14(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1):
+    dependencies:
+      lightningcss: 1.32.0
+      picomatch: 4.0.4
+      postcss: 8.5.15
+      rolldown: 1.0.2
+      tinyglobby: 0.2.16
+    optionalDependencies:
+      '@types/node': 25.9.1
+      esbuild: 0.28.0
+      fsevents: 2.3.3
+      jiti: 2.7.0
+      terser: 5.47.1
+
+  vitest@4.1.6(@types/node@25.9.1)(@vitest/coverage-v8@4.1.6)(vite@8.0.12(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1)):
     dependencies:
       '@vitest/expect': 4.1.6
-      '@vitest/mocker': 4.1.6(vite@8.0.12(@types/node@25.9.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
+      '@vitest/mocker': 4.1.6(vite@8.0.12(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
       '@vitest/pretty-format': 4.1.6
       '@vitest/runner': 4.1.6
       '@vitest/snapshot': 4.1.6
@@ -6861,10 +7112,38 @@ snapshots:
       tinyexec: 1.1.2
       tinyglobby: 0.2.16
       tinyrainbow: 3.1.0
-      vite: 8.0.12(@types/node@25.9.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1)
+      vite: 8.0.12(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1)
       why-is-node-running: 2.3.0
     optionalDependencies:
-      '@types/node': 25.9.0
+      '@types/node': 25.9.1
+      '@vitest/coverage-v8': 4.1.6(vitest@4.1.6)
+    transitivePeerDependencies:
+      - msw
+
+  vitest@4.1.6(@types/node@25.9.1)(@vitest/coverage-v8@4.1.6)(vite@8.0.14(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1)):
+    dependencies:
+      '@vitest/expect': 4.1.6
+      '@vitest/mocker': 4.1.6(vite@8.0.14(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
+      '@vitest/pretty-format': 4.1.6
+      '@vitest/runner': 4.1.6
+      '@vitest/snapshot': 4.1.6
+      '@vitest/spy': 4.1.6
+      '@vitest/utils': 4.1.6
+      es-module-lexer: 2.1.0
+      expect-type: 1.3.0
+      magic-string: 0.30.21
+      obug: 2.1.1
+      pathe: 2.0.3
+      picomatch: 4.0.4
+      std-env: 4.1.0
+      tinybench: 2.9.0
+      tinyexec: 1.1.2
+      tinyglobby: 0.2.16
+      tinyrainbow: 3.1.0
+      vite: 8.0.14(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1)
+      why-is-node-running: 2.3.0
+    optionalDependencies:
+      '@types/node': 25.9.1
       '@vitest/coverage-v8': 4.1.6(vitest@4.1.6)
     transitivePeerDependencies:
       - msw
@@ -6890,7 +7169,7 @@ snapshots:
       acorn-import-phases: 1.0.4(acorn@8.16.0)
       browserslist: 4.28.2
       chrome-trace-event: 1.0.4
-      enhanced-resolve: 5.21.5
+      enhanced-resolve: 5.21.6
       es-module-lexer: 2.1.0
       eslint-scope: 5.1.1
       events: 3.3.0
@@ -6930,7 +7209,7 @@ snapshots:
       acorn-import-phases: 1.0.4(acorn@8.16.0)
       browserslist: 4.28.2
       chrome-trace-event: 1.0.4
-      enhanced-resolve: 5.21.5
+      enhanced-resolve: 5.21.6
       es-module-lexer: 2.1.0
       eslint-scope: 5.1.1
       events: 3.3.0
@@ -7005,5 +7284,7 @@ snapshots:
       stackback: 0.0.2
 
   ws@8.18.3: {}
+
+  ws@8.20.1: {}
 
   zod@3.25.76: {}
