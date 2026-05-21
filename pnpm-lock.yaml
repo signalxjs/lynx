@@ -22,10 +22,10 @@ importers:
         version: 6.0.3
       vite:
         specifier: ^8.0.12
-        version: 8.0.12(@types/node@25.9.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1)
+        version: 8.0.12(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1)
       vitest:
         specifier: ^4.1.6
-        version: 4.1.6(@types/node@25.9.0)(@vitest/coverage-v8@4.1.6)(vite@8.0.12(@types/node@25.9.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
+        version: 4.1.6(@types/node@25.9.1)(@vitest/coverage-v8@4.1.6)(vite@8.0.12(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
 
   examples/showcase:
     dependencies:
@@ -117,8 +117,8 @@ importers:
         specifier: ^1.16.0
         version: 1.16.0
       zod:
-        specifier: ^3.23.0
-        version: 3.25.76
+        specifier: ^4.4.3
+        version: 4.4.3
     devDependencies:
       '@lynx-js/css-extract-webpack-plugin':
         specifier: '>=0.1.0'
@@ -177,7 +177,7 @@ importers:
     devDependencies:
       '@sigx/vite':
         specifier: ^0.4.3
-        version: 0.4.3(sigx@0.4.1)(vite@8.0.12(@types/node@25.9.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
+        version: 0.4.3(sigx@0.4.1)(vite@8.0.12(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
       '@typescript/native-preview':
         specifier: 7.0.0-dev.20260511.1
         version: 7.0.0-dev.20260511.1
@@ -186,7 +186,7 @@ importers:
         version: 6.0.3
       vite:
         specifier: ^8.0.12
-        version: 8.0.12(@types/node@25.9.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1)
+        version: 8.0.12(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1)
 
   packages/lynx-camera:
     dependencies:
@@ -196,7 +196,7 @@ importers:
     devDependencies:
       '@sigx/vite':
         specifier: ^0.4.3
-        version: 0.4.3(sigx@0.4.1)(vite@8.0.12(@types/node@25.9.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
+        version: 0.4.3(sigx@0.4.1)(vite@8.0.12(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -234,7 +234,7 @@ importers:
     devDependencies:
       '@sigx/vite':
         specifier: ^0.4.3
-        version: 0.4.3(sigx@0.4.1)(vite@8.0.12(@types/node@25.9.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
+        version: 0.4.3(sigx@0.4.1)(vite@8.0.12(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -243,7 +243,7 @@ importers:
     devDependencies:
       '@sigx/vite':
         specifier: ^0.4.3
-        version: 0.4.3(sigx@0.4.1)(vite@8.0.12(@types/node@25.9.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
+        version: 0.4.3(sigx@0.4.1)(vite@8.0.12(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -262,7 +262,7 @@ importers:
         version: link:../lynx-navigation
       '@sigx/vite':
         specifier: ^0.4.3
-        version: 0.4.3(sigx@0.4.1)(vite@8.0.12(@types/node@25.9.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
+        version: 0.4.3(sigx@0.4.1)(vite@8.0.12(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
       '@typescript/native-preview':
         specifier: 7.0.0-dev.20260511.1
         version: 7.0.0-dev.20260511.1
@@ -274,7 +274,7 @@ importers:
         version: 6.0.3
       vite:
         specifier: ^8.0.12
-        version: 8.0.12(@types/node@25.9.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1)
+        version: 8.0.12(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1)
 
   packages/lynx-dev-client:
     dependencies:
@@ -284,7 +284,7 @@ importers:
     devDependencies:
       '@sigx/vite':
         specifier: ^0.4.3
-        version: 0.4.3(sigx@0.4.1)(vite@8.0.12(@types/node@25.9.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
+        version: 0.4.3(sigx@0.4.1)(vite@8.0.12(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -297,7 +297,7 @@ importers:
     devDependencies:
       '@sigx/vite':
         specifier: ^0.4.3
-        version: 0.4.3(sigx@0.4.1)(vite@8.0.12(@types/node@25.9.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
+        version: 0.4.3(sigx@0.4.1)(vite@8.0.12(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -310,7 +310,7 @@ importers:
     devDependencies:
       '@sigx/vite':
         specifier: ^0.4.3
-        version: 0.4.3(sigx@0.4.1)(vite@8.0.12(@types/node@25.9.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
+        version: 0.4.3(sigx@0.4.1)(vite@8.0.12(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -348,7 +348,7 @@ importers:
     devDependencies:
       '@sigx/vite':
         specifier: ^0.4.3
-        version: 0.4.3(sigx@0.4.1)(vite@8.0.12(@types/node@25.9.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
+        version: 0.4.3(sigx@0.4.1)(vite@8.0.12(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -360,7 +360,7 @@ importers:
         version: link:../lynx
       '@sigx/vite':
         specifier: ^0.4.3
-        version: 0.4.3(sigx@0.4.1)(vite@8.0.12(@types/node@25.9.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
+        version: 0.4.3(sigx@0.4.1)(vite@8.0.12(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -418,7 +418,7 @@ importers:
     devDependencies:
       '@sigx/vite':
         specifier: ^0.4.3
-        version: 0.4.3(sigx@0.4.1)(vite@8.0.12(@types/node@25.9.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
+        version: 0.4.3(sigx@0.4.1)(vite@8.0.12(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -437,13 +437,13 @@ importers:
     devDependencies:
       '@sigx/vite':
         specifier: ^0.4.3
-        version: 0.4.3(sigx@0.4.1)(vite@8.0.12(@types/node@25.9.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
+        version: 0.4.3(sigx@0.4.1)(vite@8.0.12(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
       vitest:
         specifier: ^4.1.6
-        version: 4.1.6(@types/node@25.9.0)(@vitest/coverage-v8@4.1.6)(vite@8.0.12(@types/node@25.9.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
+        version: 4.1.6(@types/node@25.9.1)(@vitest/coverage-v8@4.1.6)(vite@8.0.12(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
 
   packages/lynx-location:
     dependencies:
@@ -453,7 +453,7 @@ importers:
     devDependencies:
       '@sigx/vite':
         specifier: ^0.4.3
-        version: 0.4.3(sigx@0.4.1)(vite@8.0.12(@types/node@25.9.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
+        version: 0.4.3(sigx@0.4.1)(vite@8.0.12(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -465,7 +465,7 @@ importers:
         version: link:../lynx
       '@sigx/vite':
         specifier: ^0.4.3
-        version: 0.4.3(sigx@0.4.1)(vite@8.0.12(@types/node@25.9.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
+        version: 0.4.3(sigx@0.4.1)(vite@8.0.12(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -490,7 +490,7 @@ importers:
         version: 6.0.3
       vite:
         specifier: ^8.0.12
-        version: 8.0.12(@types/node@25.9.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1)
+        version: 8.0.12(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1)
 
   packages/lynx-navigation:
     devDependencies:
@@ -508,13 +508,13 @@ importers:
         version: link:../lynx-testing
       '@sigx/vite':
         specifier: ^0.4.3
-        version: 0.4.3(sigx@0.4.1)(vite@8.0.12(@types/node@25.9.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
+        version: 0.4.3(sigx@0.4.1)(vite@8.0.12(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
       vitest:
         specifier: ^4.1.6
-        version: 4.1.6(@types/node@25.9.0)(@vitest/coverage-v8@4.1.6)(vite@8.0.12(@types/node@25.9.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
+        version: 4.1.6(@types/node@25.9.1)(@vitest/coverage-v8@4.1.6)(vite@8.0.12(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
 
   packages/lynx-network:
     dependencies:
@@ -524,7 +524,7 @@ importers:
     devDependencies:
       '@sigx/vite':
         specifier: ^0.4.3
-        version: 0.4.3(sigx@0.4.1)(vite@8.0.12(@types/node@25.9.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
+        version: 0.4.3(sigx@0.4.1)(vite@8.0.12(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -537,7 +537,7 @@ importers:
     devDependencies:
       '@sigx/vite':
         specifier: ^0.4.3
-        version: 0.4.3(sigx@0.4.1)(vite@8.0.12(@types/node@25.9.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
+        version: 0.4.3(sigx@0.4.1)(vite@8.0.12(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -546,7 +546,7 @@ importers:
     devDependencies:
       '@sigx/vite':
         specifier: ^0.4.3
-        version: 0.4.3(sigx@0.4.1)(vite@8.0.12(@types/node@25.9.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
+        version: 0.4.3(sigx@0.4.1)(vite@8.0.12(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
       '@typescript/native-preview':
         specifier: 7.0.0-dev.20260511.1
         version: 7.0.0-dev.20260511.1
@@ -555,7 +555,7 @@ importers:
         version: 6.0.3
       vite:
         specifier: ^8.0.12
-        version: 8.0.12(@types/node@25.9.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1)
+        version: 8.0.12(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1)
 
   packages/lynx-plugin:
     dependencies:
@@ -629,28 +629,28 @@ importers:
     devDependencies:
       '@sigx/vite':
         specifier: ^0.4.3
-        version: 0.4.3(sigx@0.4.1)(vite@8.0.12(@types/node@25.9.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
+        version: 0.4.3(sigx@0.4.1)(vite@8.0.12(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
       vite:
         specifier: ^8.0.12
-        version: 8.0.12(@types/node@25.9.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1)
+        version: 8.0.12(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1)
       vitest:
         specifier: ^4.1.6
-        version: 4.1.6(@types/node@25.9.0)(@vitest/coverage-v8@4.1.6)(vite@8.0.12(@types/node@25.9.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
+        version: 4.1.6(@types/node@25.9.1)(@vitest/coverage-v8@4.1.6)(vite@8.0.12(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
 
   packages/lynx-runtime-internal:
     devDependencies:
       '@sigx/vite':
         specifier: ^0.4.3
-        version: 0.4.3(sigx@0.4.1)(vite@8.0.12(@types/node@25.9.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
+        version: 0.4.3(sigx@0.4.1)(vite@8.0.12(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
       vite:
         specifier: ^8.0.12
-        version: 8.0.12(@types/node@25.9.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1)
+        version: 8.0.12(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1)
 
   packages/lynx-runtime-main:
     dependencies:
@@ -663,13 +663,13 @@ importers:
         version: 3.9.0
       '@sigx/vite':
         specifier: ^0.4.3
-        version: 0.4.3(sigx@0.4.1)(vite@8.0.12(@types/node@25.9.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
+        version: 0.4.3(sigx@0.4.1)(vite@8.0.12(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
       vite:
         specifier: ^8.0.12
-        version: 8.0.12(@types/node@25.9.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1)
+        version: 8.0.12(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1)
 
   packages/lynx-safe-area:
     dependencies:
@@ -697,7 +697,7 @@ importers:
         version: 6.0.3
       vite:
         specifier: ^8.0.12
-        version: 8.0.12(@types/node@25.9.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1)
+        version: 8.0.12(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1)
 
   packages/lynx-share:
     dependencies:
@@ -707,7 +707,7 @@ importers:
     devDependencies:
       '@sigx/vite':
         specifier: ^0.4.3
-        version: 0.4.3(sigx@0.4.1)(vite@8.0.12(@types/node@25.9.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
+        version: 0.4.3(sigx@0.4.1)(vite@8.0.12(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -720,7 +720,7 @@ importers:
     devDependencies:
       '@sigx/vite':
         specifier: ^0.4.3
-        version: 0.4.3(sigx@0.4.1)(vite@8.0.12(@types/node@25.9.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
+        version: 0.4.3(sigx@0.4.1)(vite@8.0.12(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -745,10 +745,10 @@ importers:
         version: 6.0.3
       vite:
         specifier: ^8.0.12
-        version: 8.0.12(@types/node@25.9.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1)
+        version: 8.0.12(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1)
       vitest:
         specifier: ^4.1.6
-        version: 4.1.6(@types/node@25.9.0)(@vitest/coverage-v8@4.1.6)(vite@8.0.12(@types/node@25.9.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
+        version: 4.1.6(@types/node@25.9.1)(@vitest/coverage-v8@4.1.6)(vite@8.0.12(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
 
   packages/lynx-websocket:
     dependencies:
@@ -758,13 +758,13 @@ importers:
     devDependencies:
       '@sigx/vite':
         specifier: ^0.4.3
-        version: 0.4.3(sigx@0.4.1)(vite@8.0.12(@types/node@25.9.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
+        version: 0.4.3(sigx@0.4.1)(vite@8.0.12(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
       vitest:
         specifier: ^4.1.6
-        version: 4.1.6(@types/node@25.9.0)(@vitest/coverage-v8@4.1.6)(vite@8.0.12(@types/node@25.9.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
+        version: 4.1.6(@types/node@25.9.1)(@vitest/coverage-v8@4.1.6)(vite@8.0.12(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
 
 packages:
 
@@ -1812,8 +1812,8 @@ packages:
     resolution: {integrity: sha512-GO8h9Fa/MydVDG8gJOU6WesPv3EYjTu1SIc/DC8zD5BrfeF8zCKU4FnakNJsuBUVd/dEt4IRrq0sPMYXbxFKyQ==}
     engines: {node: ^20.19.0 || >=22.12.0}
 
-  '@sigx/runtime-dom@0.4.3':
-    resolution: {integrity: sha512-1G5PC5xSdNgdiUjNKnm1mIg6+QYmt1S9nQIkR2ON0vz+rsvAGeysTEwM3PCUe98HHBpqrkIk/9iqH2VRUd5BCA==}
+  '@sigx/runtime-dom@0.4.8':
+    resolution: {integrity: sha512-Po4bDGZOx7meFkq1IkC8qYhhByWuHFXcM1IpCfRmgjWmKeddn0Bj9/LTM2hyWc422kSYQwTvY6hFwNEqWa6XTQ==}
     engines: {node: ^20.19.0 || >=22.12.0}
 
   '@sigx/runtime-terminal@0.3.2':
@@ -1889,8 +1889,8 @@ packages:
   '@types/node@25.7.0':
     resolution: {integrity: sha512-z+pdZyxE+RTQE9AcboAZCb4otwcrvgHD+GlBpPgn0emDVt0ohrTMhAwlr2Wd9nZ+nihhYFxO2pThz3C5qSu2Eg==}
 
-  '@types/node@25.9.0':
-    resolution: {integrity: sha512-AOQwYUNolgy3VosiRqXrACUXTN8nJUtPl7FJXMqZVyxiiCLhQuG3jXKvCS1ALr+Y2OmZhzzLVlYPEqJaiqkaJQ==}
+  '@types/node@25.9.1':
+    resolution: {integrity: sha512-xfrlY7UD5rMJk3ZVJP8BNzS28J36YJg+xp+LPXV1TdWxr8uMH5A860QNxYDGQe/ylDSgjxE52Q9VnO7p75tJxg==}
 
   '@types/prop-types@15.7.15':
     resolution: {integrity: sha512-F6bEyamV9jKGAFBEmlQnesRPGOQqS2+Uwi0Em15xenOxHaf2hv6L8YCVn3rPdPJOiJfPiCnLIRyvwVaqMY3MIw==}
@@ -2414,8 +2414,8 @@ packages:
     resolution: {integrity: sha512-DgOngfDKM2EviOH3Mr9m7ks1q8roetLy/IMmYthAYzbpInMbYc/GS+fWFA3rl1gvwKVsQrVV61fo5emD1y3OJQ==}
     engines: {node: '>=10.2.0'}
 
-  enhanced-resolve@5.21.5:
-    resolution: {integrity: sha512-mLCNbrQli11K1ySUmuNt4ZUB3OpGIDq4q2vTBTf5cL2lpsRjI9QKqSD0ndjW8FyvcW/Jj46gMe9syyHAsvMa/A==}
+  enhanced-resolve@5.21.6:
+    resolution: {integrity: sha512-aNnGCvbJ/RIyWo1IuhNdVjnNF+EjH9wpzpNHt+ci/m9He9LJvUN8wrCcXjp9cWsGNAuvSpVFTx/vraAFQ8qGjQ==}
     engines: {node: '>=10.13.0'}
 
   entities@4.5.0:
@@ -3762,8 +3762,8 @@ packages:
       utf-8-validate:
         optional: true
 
-  zod@3.25.76:
-    resolution: {integrity: sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ==}
+  zod@4.4.3:
+    resolution: {integrity: sha512-ytENFjIJFl2UwYglde2jchW2Hwm4GJFLDiSXWdTrJQBIN9Fcyp7n4DhxJEiWNAJMV1/BqWfW/kkg71UDcHJyTQ==}
 
 snapshots:
 
@@ -4790,10 +4790,10 @@ snapshots:
       '@sigx/reactivity': 0.3.2
       '@sigx/runtime-core': 0.3.2
 
-  '@sigx/runtime-dom@0.4.3':
+  '@sigx/runtime-dom@0.4.8':
     dependencies:
-      '@sigx/reactivity': 0.4.3
-      '@sigx/runtime-core': 0.4.3
+      '@sigx/reactivity': 0.4.8
+      '@sigx/runtime-core': 0.4.8
 
   '@sigx/runtime-terminal@0.3.2':
     dependencies:
@@ -4822,10 +4822,10 @@ snapshots:
       sigx: 0.4.1
       vite: 8.0.12(@types/node@25.7.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1)
 
-  '@sigx/vite@0.4.3(sigx@0.4.1)(vite@8.0.12(@types/node@25.9.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))':
+  '@sigx/vite@0.4.3(sigx@0.4.1)(vite@8.0.12(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))':
     dependencies:
       sigx: 0.4.1
-      vite: 8.0.12(@types/node@25.9.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1)
+      vite: 8.0.12(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1)
 
   '@sinclair/typebox@0.27.10': {}
 
@@ -4887,7 +4887,7 @@ snapshots:
     dependencies:
       undici-types: 7.21.0
 
-  '@types/node@25.9.0':
+  '@types/node@25.9.1':
     dependencies:
       undici-types: 7.24.6
 
@@ -4958,7 +4958,7 @@ snapshots:
       obug: 2.1.1
       std-env: 4.1.0
       tinyrainbow: 3.1.0
-      vitest: 4.1.6(@types/node@25.9.0)(@vitest/coverage-v8@4.1.6)(vite@8.0.12(@types/node@25.9.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
+      vitest: 4.1.6(@types/node@25.9.1)(@vitest/coverage-v8@4.1.6)(vite@8.0.12(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
 
   '@vitest/expect@4.1.6':
     dependencies:
@@ -4969,13 +4969,13 @@ snapshots:
       chai: 6.2.2
       tinyrainbow: 3.1.0
 
-  '@vitest/mocker@4.1.6(vite@8.0.12(@types/node@25.9.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))':
+  '@vitest/mocker@4.1.6(vite@8.0.12(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))':
     dependencies:
       '@vitest/spy': 4.1.6
       estree-walker: 3.0.3
       magic-string: 0.30.21
     optionalDependencies:
-      vite: 8.0.12(@types/node@25.9.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1)
+      vite: 8.0.12(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1)
 
   '@vitest/pretty-format@4.1.6':
     dependencies:
@@ -5474,7 +5474,7 @@ snapshots:
       - supports-color
       - utf-8-validate
 
-  enhanced-resolve@5.21.5:
+  enhanced-resolve@5.21.6:
     dependencies:
       graceful-fs: 4.2.11
       tapable: 2.3.3
@@ -5897,7 +5897,7 @@ snapshots:
 
   jest-worker@27.5.1:
     dependencies:
-      '@types/node': 25.9.0
+      '@types/node': 25.9.1
       merge-stream: 2.0.0
       supports-color: 8.1.1
 
@@ -6545,9 +6545,9 @@ snapshots:
 
   sigx@0.4.1:
     dependencies:
-      '@sigx/reactivity': 0.4.3
-      '@sigx/runtime-core': 0.4.3
-      '@sigx/runtime-dom': 0.4.3
+      '@sigx/reactivity': 0.4.8
+      '@sigx/runtime-core': 0.4.8
+      '@sigx/runtime-dom': 0.4.8
 
   socket.io-adapter@2.5.6:
     dependencies:
@@ -6827,7 +6827,7 @@ snapshots:
       jiti: 2.7.0
       terser: 5.47.1
 
-  vite@8.0.12(@types/node@25.9.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1):
+  vite@8.0.12(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1):
     dependencies:
       lightningcss: 1.32.0
       picomatch: 4.0.4
@@ -6835,16 +6835,16 @@ snapshots:
       rolldown: 1.0.0
       tinyglobby: 0.2.16
     optionalDependencies:
-      '@types/node': 25.9.0
+      '@types/node': 25.9.1
       esbuild: 0.28.0
       fsevents: 2.3.3
       jiti: 2.7.0
       terser: 5.47.1
 
-  vitest@4.1.6(@types/node@25.9.0)(@vitest/coverage-v8@4.1.6)(vite@8.0.12(@types/node@25.9.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1)):
+  vitest@4.1.6(@types/node@25.9.1)(@vitest/coverage-v8@4.1.6)(vite@8.0.12(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1)):
     dependencies:
       '@vitest/expect': 4.1.6
-      '@vitest/mocker': 4.1.6(vite@8.0.12(@types/node@25.9.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
+      '@vitest/mocker': 4.1.6(vite@8.0.12(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1))
       '@vitest/pretty-format': 4.1.6
       '@vitest/runner': 4.1.6
       '@vitest/snapshot': 4.1.6
@@ -6861,10 +6861,10 @@ snapshots:
       tinyexec: 1.1.2
       tinyglobby: 0.2.16
       tinyrainbow: 3.1.0
-      vite: 8.0.12(@types/node@25.9.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1)
+      vite: 8.0.12(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.47.1)
       why-is-node-running: 2.3.0
     optionalDependencies:
-      '@types/node': 25.9.0
+      '@types/node': 25.9.1
       '@vitest/coverage-v8': 4.1.6(vitest@4.1.6)
     transitivePeerDependencies:
       - msw
@@ -6890,7 +6890,7 @@ snapshots:
       acorn-import-phases: 1.0.4(acorn@8.16.0)
       browserslist: 4.28.2
       chrome-trace-event: 1.0.4
-      enhanced-resolve: 5.21.5
+      enhanced-resolve: 5.21.6
       es-module-lexer: 2.1.0
       eslint-scope: 5.1.1
       events: 3.3.0
@@ -6930,7 +6930,7 @@ snapshots:
       acorn-import-phases: 1.0.4(acorn@8.16.0)
       browserslist: 4.28.2
       chrome-trace-event: 1.0.4
-      enhanced-resolve: 5.21.5
+      enhanced-resolve: 5.21.6
       es-module-lexer: 2.1.0
       eslint-scope: 5.1.1
       events: 3.3.0
@@ -7006,4 +7006,4 @@ snapshots:
 
   ws@8.18.3: {}
 
-  zod@3.25.76: {}
+  zod@4.4.3: {}
