@@ -91,29 +91,21 @@ const DefaultNavTab = component<
         const label = props.info.label ?? props.info.name;
         const a11y = props.info.accessibilityLabel ?? label;
         const textColor = props.active ? 'text-primary font-semibold' : 'text-base-content opacity-60';
-        // Pressable doesn't pass arbitrary attrs through, so the outer view
-        // owns accessibility metadata; the inner Pressable owns the tap +
-        // scale/opacity feedback. Both fill via flex-1 so the press surface
-        // matches the visible tab area.
         return (
-            <view
+            <Pressable
+                class="flex-1 items-center justify-center py-3"
+                pressedScale={PRESSED_SCALE}
+                pressedOpacity={PRESSED_OPACITY}
+                longPressDuration={0}
                 accessibility-element={true}
                 accessibility-label={a11y}
                 accessibility-trait="button"
                 accessibility-status={props.active ? 'selected' : undefined}
-                class="flex-1"
+                onPress={() => props.onPress()}
             >
-                <Pressable
-                    class="items-center justify-center py-3"
-                    pressedScale={PRESSED_SCALE}
-                    pressedOpacity={PRESSED_OPACITY}
-                    longPressDuration={0}
-                    onPress={() => props.onPress()}
-                >
-                    {props.info.icon ?? null}
-                    <text class={`text-sm ${textColor}`}>{label}</text>
-                </Pressable>
-            </view>
+                {props.info.icon ?? null}
+                <text class={`text-sm ${textColor}`}>{label}</text>
+            </Pressable>
         );
     };
 });

@@ -94,24 +94,18 @@ export const NavHeader = component<NavHeaderProps>(({ props }) => {
 });
 
 const DefaultBackButton = component<Define.Prop<'onPress', () => void, true>>(({ props }) => {
-    // Pressable doesn't pass arbitrary attrs through, so the outer view owns
-    // accessibility metadata and the inner Pressable owns the tap + visual
-    // feedback. Same pattern as NavTabBar's DefaultNavTab.
     return () => (
-        <view
+        <Pressable
+            class="px-2 py-2"
+            pressedScale={PRESSED_SCALE}
+            pressedOpacity={PRESSED_OPACITY}
+            longPressDuration={0}
             accessibility-element={true}
             accessibility-label="Back"
             accessibility-trait="button"
+            onPress={() => props.onPress()}
         >
-            <Pressable
-                class="px-2 py-2"
-                pressedScale={PRESSED_SCALE}
-                pressedOpacity={PRESSED_OPACITY}
-                longPressDuration={0}
-                onPress={() => props.onPress()}
-            >
-                <text class="text-primary text-base">‹ Back</text>
-            </Pressable>
-        </view>
+            <text class="text-primary text-base">‹ Back</text>
+        </Pressable>
     );
 });
