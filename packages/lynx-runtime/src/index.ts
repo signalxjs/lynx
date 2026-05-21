@@ -46,6 +46,13 @@ export {
   resetWvidCounter,
 } from './main-thread-ref';
 
+export { useElementLayout } from './use-element-layout';
+export type {
+  ElementLayout,
+  LayoutChangeEvent,
+  UseElementLayoutResult,
+} from './use-element-layout';
+
 export {
   registerBgSink,
   unregisterBgSink,
