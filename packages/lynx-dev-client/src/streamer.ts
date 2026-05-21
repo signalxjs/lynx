@@ -91,6 +91,13 @@ export interface InstallOptions {
      * the factory-scope `console` here so we patch both.
      */
     extraTargets?: ConsoleLike[];
+    /**
+     * Async platform probe used to upgrade `'unknown'` to a real platform tag
+     * shortly after install. Defaults to a `NativeModules.DevClient.getPlatform`
+     * bridge call (the dev-client's own native module). Tests pass a stub.
+     * Must resolve, never reject — return `undefined` for unknown.
+     */
+    platformProbe?: () => Promise<string | undefined>;
 }
 
 export type Uninstall = () => void;
@@ -176,6 +183,7 @@ export function serializeArg(value: unknown, seen: WeakSet<object> = new WeakSet
 // references resolve through the runtime's lexical scope.
 declare const lynx: { SystemInfo?: { platform?: string } } | undefined;
 declare const webkit: unknown;
+declare const NativeModules: Record<string, Record<string, (...args: unknown[]) => unknown>> | undefined;
 
 function detectPlatform(): string {
     try {
@@ -198,6 +206,42 @@ function detectPlatform(): string {
         // best-effort
     }
     return 'unknown';
+}
+
+/**
+ * Async, authoritative platform probe via the dev-client's own native
+ * module. Mirrors the @sigx/lynx-device-info pattern (NativeModules bridge
+ * call) but avoids a hard dep on lynx-device-info — the dev-client's own
+ * `DevClient` native module is always linked when the streamer is active.
+ *
+ * Never throws. Resolves with `undefined` when the module isn't available
+ * (e.g. older host runtime, JSDOM tests) so callers can fall back silently.
+ */
+function probeNativePlatform(): Promise<string | undefined> {
+    return new Promise((resolve) => {
+        try {
+            if (typeof NativeModules === 'undefined' || !NativeModules) {
+                resolve(undefined);
+                return;
+            }
+            const mod = NativeModules.DevClient;
+            if (!mod || typeof mod.getPlatform !== 'function') {
+                resolve(undefined);
+                return;
+            }
+            mod.getPlatform((result: unknown) => {
+                try {
+                    const p = (result as { platform?: string } | undefined)?.platform?.toLowerCase?.();
+                    if (p === 'ios' || p === 'android') resolve(p);
+                    else resolve(undefined);
+                } catch {
+                    resolve(undefined);
+                }
+            });
+        } catch {
+            resolve(undefined);
+        }
+    });
 }
 
 /**
@@ -254,6 +298,26 @@ export function installConsoleStreamer(url: string, opts: InstallOptions = {}): 
     // when the streamer installs (we run at the very top of the BG bundle).
     // Re-detect on each enqueue until we get a non-`unknown` answer.
     let platform = opts.platform ?? detectPlatform();
+
+    // Fire an async probe via the native bridge. The BG runtime has no
+    // `navigator.userAgent` and `lynx.SystemInfo` is empty at boot, but our
+    // own `DevClient` native module is always linked when the streamer is
+    // active. Once it resolves, we upgrade `platform` so subsequent log
+    // entries carry the right tag. Logs queued before resolution keep the
+    // sync-detect value (likely `'unknown'`); the server-side UA sniff in
+    // `@sigx/lynx-plugin` provides a safety net for that window.
+    if (!opts.platform) {
+        const probe = opts.platformProbe ?? probeNativePlatform;
+        try {
+            void Promise.resolve(probe()).then((p) => {
+                if (p === 'ios' || p === 'android') {
+                    platform = p;
+                }
+            }).catch(() => undefined);
+        } catch {
+            // probe threw synchronously — ignore, keep best-effort sync value.
+        }
+    }
 
     // Lynx BG runtime ships `log/info/warn/error` but is allowed to omit
     // `debug` and `trace`. Fall back to `log` so missing methods don't kill
