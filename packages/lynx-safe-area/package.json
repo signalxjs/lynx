@@ -44,7 +44,7 @@
         "@sigx/lynx-runtime-main": "workspace:^",
         "@sigx/lynx-testing": "workspace:^",
         "typescript": "^6.0.3",
-        "vite": "^8.0.12"
+        "vite": "^8.0.14"
     },
     "repository": {
         "type": "git",

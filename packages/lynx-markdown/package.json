@@ -27,7 +27,7 @@
     },
     "devDependencies": {
         "@sigx/lynx": "workspace:^",
-        "@sigx/vite": "^0.4.3",
+        "@sigx/vite": "^0.4.8",
         "typescript": "^6.0.3"
     },
     "author": "Andreas Ekdahl",
