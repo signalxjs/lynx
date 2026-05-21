@@ -135,6 +135,30 @@ export function listAndroidDevices(): AndroidDevice[] {
 }
 
 /**
+ * Resolve a running emulator's AVD name (e.g. `Pixel_7`) by querying its
+ * console. The ADB serial (`emulator-5554`) doesn't carry the AVD name on
+ * its own, so we ask the emulator. Returns null when the serial isn't an
+ * emulator or the query fails.
+ */
+export function getRunningAvdName(serial: string): string | null {
+    try {
+        const out = execSync(`"${adbCmd()}" -s ${serial} emu avd name`, {
+            stdio: 'pipe',
+            encoding: 'utf-8',
+        });
+        // Output is "<AvdName>\nOK\n" on success. The first non-empty line
+        // before "OK" is the AVD name.
+        for (const line of out.split('\n').map((l) => l.trim())) {
+            if (!line || line === 'OK') continue;
+            return line;
+        }
+        return null;
+    } catch {
+        return null;
+    }
+}
+
+/**
  * Check if sigx-lynx-go is installed on a specific device.
  */
 export function isLynxGoInstalled(deviceId: string): boolean {

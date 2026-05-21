@@ -22,6 +22,7 @@ import {
     listAllSimulators,
     listConnectedIosDevices,
     bootSimulator,
+    getRunningAvdName,
     resolveAdb,
 } from './device-detect.js';
 import { targetKey } from './target-history.js';
@@ -234,7 +235,15 @@ function buildItems(opts: PickTargetsOptions, lastKeys: Set<string>): Item[] {
             lastFirst(a, b, (d) => lastKeys.has(`android-dev:${d.id}`)),
         );
         const avds = listAndroidAvds();
-        const runningAvdIds = new Set(devices.filter((d) => d.type === 'emulator').map((d) => d.id));
+        // Resolve running emulators (`emulator-5554` etc.) back to their AVD
+        // names so we can hide them from "Available to launch". `adb devices`
+        // only gives the serial, so we ask each running emulator's console.
+        const runningAvdNames = new Set(
+            devices
+                .filter((d) => d.type === 'emulator')
+                .map((d) => getRunningAvdName(d.id))
+                .filter((n): n is string => n !== null),
+        );
 
         for (const dev of devices) {
             const icon = dev.type === 'emulator' ? '📱' : '📲';
@@ -249,11 +258,9 @@ function buildItems(opts: PickTargetsOptions, lastKeys: Set<string>): Item[] {
         }
 
         // Inline the launchable AVDs (those not already running): previously-used
-        // first, then MRU.  `emulator-NNNN` is the running-emulator surface name;
-        // AVDs by themselves don't carry the port so we filter by checking each
-        // AVD against the emulator IDs we've seen come online.
+        // first, then MRU.
         const launchable = avds
-            .filter((avd) => !runningAvdIds.has(`emulator-${avd}`))
+            .filter((avd) => !runningAvdNames.has(avd))
             .sort((a, b) => {
                 const aLast = lastKeys.has(`android-avd:${a}`) ? 0 : 1;
                 const bLast = lastKeys.has(`android-avd:${b}`) ? 0 : 1;

@@ -9,7 +9,7 @@
  * `sigx dev`.
  */
 
-import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import type { SelectedTarget } from './target-picker.js';
 
@@ -70,11 +70,11 @@ export function writeLastTargets(cwd: string, targets: SelectedTarget[]): void {
         const path = historyPath(cwd);
         mkdirSync(dirname(path), { recursive: true });
         const payload = JSON.stringify({ version: FILE_VERSION, targets }, null, 2);
-        // Write to a sibling temp file then rename — atomic on POSIX, prevents
-        // a half-written file if the process is interrupted mid-write.
-        const tmp = `${path}.${process.pid}.tmp`;
-        writeFileSync(tmp, payload, 'utf-8');
-        renameSync(tmp, path);
+        // Plain overwrite — history is best-effort. If the process is killed
+        // mid-write, a corrupt JSON is caught by readLastTargets and treated
+        // as empty, so atomicity isn't worth the cross-platform headache
+        // (renameSync over an existing destination is unreliable on Windows).
+        writeFileSync(path, payload, 'utf-8');
     } catch {
         // Best-effort: history is a nicety, not load-bearing.
     }
