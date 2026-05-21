@@ -50,7 +50,14 @@ object SigxDevClient {
                 .invoke(instance, true)
             devToolServiceClass.getMethod("setLogBoxPresetValue", Boolean::class.java)
                 .invoke(instance, true)
-            Log.i(TAG, "Set debug preset values")
+            // Critical: tell LynxDevtoolEnv to load liblynxdevtool_qjs_bridge.so
+            // when the native devtool initialises. Without this the QJS bridge
+            // is never loaded, and CreateRuntimeManagerDelegate returns null —
+            // the inspector_runtime_observer logs "JS debugging is not
+            // available" and the device never appears in Lynx DevTools.
+            devToolServiceClass.getMethod("setLoadQJSBridge", Boolean::class.java)
+                .invoke(instance, true)
+            Log.i(TAG, "Set debug preset values + LoadQJSBridge")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to register devtool service: ${e.message}", e)
         }
@@ -65,7 +72,13 @@ object SigxDevClient {
         LynxEnv.inst().enableLynxDebug(true)
         LynxEnv.inst().enableDevtool(true)
         LynxEnv.inst().enableLogBox(true)
-        Log.i(TAG, "Enabled devtool, debug, and logbox on LynxEnv (after init)")
+        // Without these the Lynx DevTools desktop app can attach but the JS
+        // inspector bridge never comes up — logcat shows
+        // "CreateRuntimeManagerDelegate failed, JS debugging is not available"
+        // and the device never appears in the DevTools device list.
+        LynxEnv.inst().setEnableDevtoolDebug(true)
+        LynxEnv.inst().setEnableJSDebug(true)
+        Log.i(TAG, "Enabled devtool, debug, logbox, devtoolDebug, jsDebug on LynxEnv (after init)")
     }
 
     /**
@@ -86,6 +99,11 @@ object SigxDevClient {
         builder.setTemplateResourceFetcher(DevTemplateResourceFetcher(context))
         builder.setEnableGenericResourceFetcher(LynxBooleanOption.TRUE)
         builder.setGenericResourceFetcher(DevGenericResourceFetcher())
-        Log.i(TAG, "Configured LynxViewBuilder for dev mode (template provider + resource fetchers)")
+        // Per-view debuggable flag. Without this, the LynxDevtool init sees
+        // debuggable:false even with LynxEnv devtool/jsDebug flags on, and
+        // CreateRuntimeManagerDelegate returns null — the device never appears
+        // in the Lynx DevTools desktop app's device list.
+        builder.setDebuggable(true)
+        Log.i(TAG, "Configured LynxViewBuilder for dev mode (template provider + resource fetchers + debuggable)")
     }
 }
