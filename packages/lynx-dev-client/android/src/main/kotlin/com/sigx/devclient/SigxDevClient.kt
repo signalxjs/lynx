@@ -50,16 +50,29 @@ object SigxDevClient {
                 .invoke(instance, true)
             devToolServiceClass.getMethod("setLogBoxPresetValue", Boolean::class.java)
                 .invoke(instance, true)
-            // Critical: tell LynxDevtoolEnv to load liblynxdevtool_qjs_bridge.so
-            // when the native devtool initialises. Without this the QJS bridge
-            // is never loaded, and CreateRuntimeManagerDelegate returns null —
-            // the inspector_runtime_observer logs "JS debugging is not
-            // available" and the device never appears in Lynx DevTools.
-            devToolServiceClass.getMethod("setLoadQJSBridge", Boolean::class.java)
-                .invoke(instance, true)
-            Log.i(TAG, "Set debug preset values + LoadQJSBridge")
+            Log.i(TAG, "Set debug preset values")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to register devtool service: ${e.message}", e)
+            return
+        }
+
+        // Critical for Lynx 3.7: tell LynxDevtoolEnv to load
+        // liblynxdevtool_qjs_bridge.so when the native devtool initialises.
+        // Without this the QJS bridge is never loaded,
+        // CreateRuntimeManagerDelegate returns null, and the device never
+        // appears in Lynx DevTools. Guarded in its own block so that if Lynx
+        // renames/removes this method in a future version, the rest of the
+        // registration above is still reported as a success.
+        try {
+            val devToolServiceClass = Class.forName("com.lynx.service.devtool.LynxDevToolService")
+            val instance = devToolServiceClass.getMethod("getINSTANCE").invoke(null)
+            devToolServiceClass.getMethod("setLoadQJSBridge", Boolean::class.java)
+                .invoke(instance, true)
+            Log.i(TAG, "Enabled LoadQJSBridge on LynxDevToolService")
+        } catch (e: NoSuchMethodException) {
+            Log.w(TAG, "LynxDevToolService.setLoadQJSBridge not found — DevTools JS inspector may not attach on this Lynx version")
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to enable LoadQJSBridge: ${e.message}")
         }
     }
 

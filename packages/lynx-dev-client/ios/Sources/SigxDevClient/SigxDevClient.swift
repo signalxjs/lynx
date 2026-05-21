@@ -52,7 +52,8 @@ class SigxDevClient {
         // Without these the Lynx DevTools desktop app can attach but the JS
         // inspector bridge never comes up — the device never appears in the
         // DevTools device list. Mirrors the Android side's
-        // `enableDevToolDebug(true)` + `enableJSDebug(true)` calls.
+        // `LynxEnv.setEnableDevtoolDebug(true)` +
+        // `LynxEnv.setEnableJSDebug(true)` calls.
         env.enableDevtoolDebug = true
         env.enableJSDebug = true
         print("[SigxDevClient] Enabled devtool, logbox, devtoolDebug, jsDebug on LynxEnv (after init)")
