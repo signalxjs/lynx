@@ -24,6 +24,7 @@ import {
     bootSimulator,
     resolveAdb,
 } from './device-detect.js';
+import { targetKey } from './target-history.js';
 
 export type SelectedTarget =
     | { kind: 'android-device'; deviceId: string; model?: string }
@@ -36,6 +37,13 @@ export interface PickTargetsOptions {
     hasAndroid: boolean;
     /** Whether ios/ exists *and* we're on macOS. */
     hasIos: boolean;
+    /**
+     * Targets the user picked in the previous run. Items whose underlying
+     * identity matches one of these float to the top of their section, are
+     * pre-selected, and the cursor lands on the first match — so Enter alone
+     * re-runs the same selection.
+     */
+    lastTargets?: SelectedTarget[];
 }
 
 interface Item {
@@ -66,7 +74,7 @@ function simMtime(udid: string): number {
 }
 
 /** Same idea for an AVD: `~/.android/avd/<name>.avd/` mtime updates on launch. */
-function avdMtime(name: string): number {
+export function avdMtime(name: string): number {
     try {
         return statSync(join(homedir(), '.android', 'avd', `${name}.avd`)).mtimeMs;
     } catch {
@@ -135,37 +143,60 @@ export function listAndroidAvds(): string[] {
 // Item assembly
 // ────────────────────────────────────────────────────────────────
 
-function buildItems(opts: PickTargetsOptions): Item[] {
+/** Decorate a detail string with the "last used" hint when applicable. */
+function withLastUsedHint(detail: string | undefined, isLast: boolean): string | undefined {
+    if (!isLast) return detail;
+    return detail ? `${detail} · last used` : 'last used';
+}
+
+function buildItems(opts: PickTargetsOptions, lastKeys: Set<string>): Item[] {
     const items: Item[] = [];
+
+    const wasLast = (t: SelectedTarget): boolean => lastKeys.has(targetKey(t));
+    // Bring previously-used items to the front of each bucket, preserving the
+    // existing secondary sort. Returns negative when `a` was last-used and `b`
+    // wasn't, so `Array.sort` keeps original order otherwise.
+    const lastFirst = <T>(a: T, b: T, used: (x: T) => boolean): number =>
+        Number(used(b)) - Number(used(a));
 
     if (opts.hasIos) {
         items.push({ id: 'ios-header', label: 'iOS', header: true });
-        const booted = listBootedSimulators();
-        const devices = listConnectedIosDevices();
+        const booted = [...listBootedSimulators()].sort((a, b) =>
+            lastFirst(a, b, (s) => lastKeys.has(`ios-sim:${s.udid}`)),
+        );
+        const devices = [...listConnectedIosDevices()].sort((a, b) =>
+            lastFirst(a, b, (d) => lastKeys.has(`ios-dev:${d.udid}`)),
+        );
 
         for (const sim of booted) {
+            const target: SelectedTarget = { kind: 'ios-simulator', udid: sim.udid, name: sim.name, needsBoot: false };
             items.push({
                 id: `ios-sim-${sim.udid}`,
                 label: `📱 ${sim.name}`,
-                detail: `booted · ${sim.runtime}`,
-                target: { kind: 'ios-simulator', udid: sim.udid, name: sim.name, needsBoot: false },
+                detail: withLastUsedHint(`booted · ${sim.runtime}`, wasLast(target)),
+                target,
             });
         }
         for (const dev of devices) {
             const model = dev.model ? ` (${dev.model})` : '';
+            const target: SelectedTarget = { kind: 'ios-device', udid: dev.udid, name: dev.name };
             items.push({
                 id: `ios-dev-${dev.udid}`,
                 label: `📲 ${dev.name}${model}`,
-                detail: dev.osVersion ? `iOS ${dev.osVersion}` : undefined,
-                target: { kind: 'ios-device', udid: dev.udid, name: dev.name },
+                detail: withLastUsedHint(dev.osVersion ? `iOS ${dev.osVersion}` : undefined, wasLast(target)),
+                target,
             });
         }
 
-        // Inline the bootable sims: iPhones first, then by MRU (CoreSimulator
-        // device-dir mtime is a cheap proxy for "last used"), then by runtime.
+        // Inline the bootable sims: previously-used first, then iPhones, then
+        // MRU (CoreSimulator device-dir mtime is a cheap proxy for "last used"),
+        // then by runtime.
         const available = listAllSimulators()
             .filter((s) => s.state !== 'Booted')
             .sort((a, b) => {
+                const aLast = lastKeys.has(`ios-sim:${a.udid}`) ? 0 : 1;
+                const bLast = lastKeys.has(`ios-sim:${b.udid}`) ? 0 : 1;
+                if (aLast !== bLast) return aLast - bLast;
                 const aIphone = a.name.includes('iPhone') ? 0 : 1;
                 const bIphone = b.name.includes('iPhone') ? 0 : 1;
                 if (aIphone !== bIphone) return aIphone - bIphone;
@@ -178,11 +209,12 @@ function buildItems(opts: PickTargetsOptions): Item[] {
         if (available.length > 0) {
             items.push({ id: 'ios-avail-header', label: 'Available to boot:', header: true });
             for (const sim of available) {
+                const target: SelectedTarget = { kind: 'ios-simulator', udid: sim.udid, name: sim.name, needsBoot: true };
                 items.push({
                     id: `ios-avail-${sim.udid}`,
                     label: `📱 ${sim.name}`,
-                    detail: sim.runtime,
-                    target: { kind: 'ios-simulator', udid: sim.udid, name: sim.name, needsBoot: true },
+                    detail: withLastUsedHint(sim.runtime, wasLast(target)),
+                    target,
                 });
             }
         }
@@ -198,37 +230,47 @@ function buildItems(opts: PickTargetsOptions): Item[] {
 
     if (opts.hasAndroid) {
         items.push({ id: 'android-header', label: 'Android', header: true });
-        const devices = listAndroidDevices();
+        const devices = [...listAndroidDevices()].sort((a, b) =>
+            lastFirst(a, b, (d) => lastKeys.has(`android-dev:${d.id}`)),
+        );
         const avds = listAndroidAvds();
         const runningAvdIds = new Set(devices.filter((d) => d.type === 'emulator').map((d) => d.id));
 
         for (const dev of devices) {
             const icon = dev.type === 'emulator' ? '📱' : '📲';
             const name = dev.model || dev.id;
+            const target: SelectedTarget = { kind: 'android-device', deviceId: dev.id, model: dev.model };
             items.push({
                 id: `android-dev-${dev.id}`,
                 label: `${icon} ${name}`,
-                detail: dev.id,
-                target: { kind: 'android-device', deviceId: dev.id, model: dev.model },
+                detail: withLastUsedHint(dev.id, wasLast(target)),
+                target,
             });
         }
 
-        // Inline the launchable AVDs (those not already running), MRU first.
-        // `emulator-NNNN` is the running-emulator surface name; AVDs by themselves
-        // don't carry the port so we filter by checking each AVD against the
-        // emulator IDs we've seen come online.
+        // Inline the launchable AVDs (those not already running): previously-used
+        // first, then MRU.  `emulator-NNNN` is the running-emulator surface name;
+        // AVDs by themselves don't carry the port so we filter by checking each
+        // AVD against the emulator IDs we've seen come online.
         const launchable = avds
             .filter((avd) => !runningAvdIds.has(`emulator-${avd}`))
-            .sort((a, b) => avdMtime(b) - avdMtime(a) || a.localeCompare(b))
+            .sort((a, b) => {
+                const aLast = lastKeys.has(`android-avd:${a}`) ? 0 : 1;
+                const bLast = lastKeys.has(`android-avd:${b}`) ? 0 : 1;
+                if (aLast !== bLast) return aLast - bLast;
+                return avdMtime(b) - avdMtime(a) || a.localeCompare(b);
+            })
             .slice(0, AVAILABLE_LIMIT);
 
         if (launchable.length > 0) {
             items.push({ id: 'android-avail-header', label: 'Available to launch:', header: true });
             for (const avd of launchable) {
+                const target: SelectedTarget = { kind: 'android-avd', avdName: avd };
                 items.push({
                     id: `android-avd-${avd}`,
                     label: `📱 ${avd}`,
-                    target: { kind: 'android-avd', avdName: avd },
+                    detail: withLastUsedHint(undefined, wasLast(target)),
+                    target,
                 });
             }
         }
@@ -291,7 +333,8 @@ function nextSelectable(items: Item[], from: number, dir: 1 | -1): number {
 export async function pickTargets(opts: PickTargetsOptions): Promise<SelectedTarget[] | null> {
     if (!process.stdin.isTTY) return null;
 
-    const items = buildItems(opts);
+    const lastKeys = new Set((opts.lastTargets ?? []).map(targetKey));
+    const items = buildItems(opts, lastKeys);
     // Nothing selectable at all — don't prompt, just signal empty.
     const selectable = items.filter((i) => !i.header);
     if (selectable.length === 0) {
@@ -299,9 +342,22 @@ export async function pickTargets(opts: PickTargetsOptions): Promise<SelectedTar
         return [];
     }
 
-    let cursor = 0;
-    while (items[cursor]?.header) cursor++;
+    // Pre-select any items that match a previously-used target, and land the
+    // cursor on the first one — so Enter alone confirms the same selection
+    // as last time.
     const selected = new Set<string>();
+    for (const item of items) {
+        if (!item.header && item.target && lastKeys.has(targetKey(item.target))) {
+            selected.add(item.id);
+        }
+    }
+    let cursor = 0;
+    if (selected.size > 0) {
+        const firstSelectedIdx = items.findIndex((i) => !i.header && selected.has(i.id));
+        if (firstSelectedIdx >= 0) cursor = firstSelectedIdx;
+    } else {
+        while (items[cursor]?.header) cursor++;
+    }
 
     const stdin = process.stdin;
     stdin.setRawMode(true);
@@ -320,6 +376,17 @@ export async function pickTargets(opts: PickTargetsOptions): Promise<SelectedTar
     const picked = await new Promise<Item[] | null>((resolve) => {
         const onData = (key: string) => {
             if (key === '\r' || key === '\n') {
+                // Enter with nothing toggled falls back to the highlighted
+                // item — saves users from having to press Space first when
+                // they just want the one thing under the cursor.
+                if (selected.size === 0) {
+                    const cur = items[cursor];
+                    if (cur && !cur.header && cur.target) {
+                        cleanup();
+                        resolve([cur]);
+                        return;
+                    }
+                }
                 cleanup();
                 resolve(Array.from(selected).map((id) => items.find((i) => i.id === id)!));
                 return;
