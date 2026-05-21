@@ -14,13 +14,22 @@
 import type { Rspack } from '@rsbuild/core';
 import { transformReactLynxSync } from '@lynx-js/react/transform';
 
-// runtimePkg controls where SWC emits `import { transformToWorklet }` for the
-// BG bundle (used when `runOnBackground(fn)` appears inline inside a
-// `'main thread'` body). Point at @sigx/lynx-runtime — the BG runtime —
-// because that's where transformToWorklet is exported. The MT loader uses
-// @sigx/lynx-runtime-main; identifier matching for runOnMainThread /
-// runOnBackground is by name and works regardless of source.
-const RUNTIME_PKG = '@sigx/lynx-runtime';
+// runtimePkg controls where SWC emits `import { transformToWorklet } from <X>`
+// at the top of transformed BG output (used when `runOnBackground(fn)` is
+// detected inside a `'main thread'` body). Points at @sigx/lynx — the public
+// barrel that re-exports everything from @sigx/lynx-runtime — so the emitted
+// import matches the idiomatic path apps use, with no need for the internal
+// lynx-runtime specifier to be reachable from every consumer.
+//
+// SWC's identifier matching for `runOnBackground` itself is by literal symbol
+// name (see lynx-stack/packages/react/transform/.../extract_ident.rs's
+// `n.callee.sym != "runOnBackground"` check) — it does NOT follow renamed
+// import bindings. Packages that ship precompiled worklet code must therefore
+// preserve the `runOnBackground` identifier in their dist (no mangling). The
+// canonical pattern is the one upstream `@lynx-js/react` uses: `tsc`-only
+// per-file emit, no bundler, no minifier. `@sigx/lynx-gestures` follows that
+// pattern for the same reason — see its package.json `build` script.
+const RUNTIME_PKG = '@sigx/lynx';
 
 // Cheap pre-filter to skip the SWC parse for files that obviously don't
 // contain a worklet directive. A directive is always followed immediately

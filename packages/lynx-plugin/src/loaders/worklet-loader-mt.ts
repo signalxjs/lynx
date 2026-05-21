@@ -45,7 +45,15 @@ import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
 import { extractLocalImports, extractRegistrations } from './worklet-utils';
 
-const RUNTIME_PKG = '@sigx/lynx-runtime-main';
+// Same idiomatic-barrel matching as the BG loader (see worklet-loader.ts:23
+// for the full rationale). The LEPUS pass emits an `import { loadWorkletRuntime
+// } from '<runtimePkg>'`, but `extractRegistrations` slices the LEPUS output
+// down to `registerWorkletInternal(...)` calls only — the import is dropped
+// before bundling — so the runtimePkg's actual exports don't need to include
+// loadWorkletRuntime. What matters here is identifier tracking: aligning
+// with '@sigx/lynx' means SWC follows `runOnBackground as s` through
+// '@sigx/lynx' barrel imports just like on the BG side.
+const RUNTIME_PKG = '@sigx/lynx';
 
 /**
  * Prepended to every MT-layer file so webpack's dep graph guarantees the
