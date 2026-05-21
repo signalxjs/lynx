@@ -10,6 +10,7 @@ import { WebSocket } from 'ws';
 
 import {
     createLogWebSocketServer,
+    detectPlatformFromUserAgent,
     LOG_ENDPOINT_PATH,
     LOG_SENTINEL,
     type LogWebSocketServer,
@@ -146,5 +147,44 @@ describe('createLogWebSocketServer', () => {
         await new Promise((r) => setTimeout(r, 50));
         try { w.terminate(); } catch { /* ignore */ }
         expect(lines).toEqual([]);
+    });
+
+    it('falls back to UA-sniffed platform when device reports unknown', async () => {
+        // The `ws` Node client sends a default User-Agent header. We can't
+        // override it with the ws-client API directly, so we drive the server
+        // by emitting on the WS upgrade path with a hand-crafted UA via
+        // the `headers` option.
+        const url = `ws://127.0.0.1:${server.port}${LOG_ENDPOINT_PATH}`;
+        const w = new WebSocket(url, { headers: { 'user-agent': 'okhttp/4.12.0' } });
+        await new Promise<void>((r, j) => { w.once('open', r); w.once('error', j); });
+        await new Promise<void>((r, j) => w.send(JSON.stringify({
+            entries: [
+                { level: 'log', args: ['hi'], ts: 1, platform: 'unknown' },
+                { level: 'log', args: ['ios-wins'], ts: 1, platform: 'ios' },
+            ],
+        }), (e) => e ? j(e) : r()));
+        await new Promise((r) => setTimeout(r, 30));
+        w.close();
+
+        const parsed = lines.map((l) => JSON.parse(l.slice(LOG_SENTINEL.length)) as ServerLogEntry);
+        expect(parsed[0].platform).toBe('android'); // sniffed from okhttp UA
+        expect(parsed[1].platform).toBe('ios');     // device-reported wins
+    });
+});
+
+describe('detectPlatformFromUserAgent', () => {
+    it('detects android from okhttp', () => {
+        expect(detectPlatformFromUserAgent('okhttp/4.12.0')).toBe('android');
+    });
+    it('detects ios from CFNetwork', () => {
+        expect(detectPlatformFromUserAgent('My-App/1.0 CFNetwork/1485 Darwin/23.1.0')).toBe('ios');
+    });
+    it('detects ios from Darwin', () => {
+        expect(detectPlatformFromUserAgent('Darwin/22.0.0')).toBe('ios');
+    });
+    it('falls back to unknown', () => {
+        expect(detectPlatformFromUserAgent('Mozilla/5.0')).toBe('unknown');
+        expect(detectPlatformFromUserAgent(undefined)).toBe('unknown');
+        expect(detectPlatformFromUserAgent('')).toBe('unknown');
     });
 });
