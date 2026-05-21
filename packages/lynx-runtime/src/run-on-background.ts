@@ -212,28 +212,40 @@ function dispatchReturn(resolveId: number, returnValue: unknown): void {
 // only reached from outside a worklet (a misuse) and throws.
 //
 // On the Main Thread bundle the LEPUS pass *also* emits a bare
-// `runOnBackground(handle)` call inside the registered worklet body. That
-// call resolves to the module-level import of `runOnBackground` (this
-// function), NOT to the MT-side dispatcher that `@sigx/lynx-runtime-main`
-// installs on `globalThis.runOnBackground` during bootstrap. Without a hand-
-// off, MT worklets would always hit the throw.
+// `runOnBackground(handle)` call inside the registered worklet body. The
+// `handle` there is a `JsFnHandle` (an object with `_jsFnId` / `_execId`
+// stamped by `transformToWorklet` on the BG side and ferried across the
+// SET_WORKLET_EVENT bridge). The call resolves to the module-level import
+// of `runOnBackground` (this function), NOT to the MT-side dispatcher
+// that `@sigx/lynx-runtime-main` installs on `globalThis.runOnBackground`
+// during bootstrap. Without a hand-off, MT worklets would always hit the
+// throw.
 //
-// Bridge: when `globalThis.runOnBackground` exists and is a different
-// function (the MT-side dispatcher installed by `entry-main.ts`), delegate
-// to it. On BG that global is never installed, so the throw remains the
-// fallback path for genuine misuse. Upstream `@lynx-js/react` achieves the
-// same split via a build-time `__JS__` define; the runtime check here keeps
-// us off that machinery while producing identical end-state behaviour.
+// Bridge: when the argument is handle-shaped AND `globalThis.runOnBackground`
+// exists and is a different function (the MT-side dispatcher installed by
+// `entry-main.ts`), delegate to it. Raw functions (real misuse — calling
+// `runOnBackground(someFn)` outside a worklet body) still throw, so the
+// API contract surfaces a useful error instead of silently resolving to
+// `undefined`. On BG the global is never installed, so the throw remains
+// the fallback path. Upstream `@lynx-js/react` achieves the same split
+// via a build-time `__JS__` define; the runtime check here keeps us off
+// that machinery while producing identical end-state behaviour.
 // ---------------------------------------------------------------------------
+
+function isJsFnHandle(value: unknown): value is JsFnHandle {
+  return typeof value === 'object' && value !== null && '_jsFnId' in value;
+}
 
 export function runOnBackground<R, Fn extends (...args: never[]) => R>(
   fn: Fn,
 ): (...args: Parameters<Fn>) => Promise<R> {
-  const g = globalThis as unknown as {
-    runOnBackground?: (handle: unknown) => (...args: unknown[]) => Promise<unknown>;
-  };
-  if (typeof g.runOnBackground === 'function' && g.runOnBackground !== runOnBackground) {
-    return g.runOnBackground(fn) as (...args: Parameters<Fn>) => Promise<R>;
+  if (isJsFnHandle(fn)) {
+    const g = globalThis as unknown as {
+      runOnBackground?: (handle: unknown) => (...args: unknown[]) => Promise<unknown>;
+    };
+    if (typeof g.runOnBackground === 'function' && g.runOnBackground !== runOnBackground) {
+      return g.runOnBackground(fn) as (...args: Parameters<Fn>) => Promise<R>;
+    }
   }
   throw new Error(
     'runOnBackground() can only be used inside \'main thread\' functions. '
