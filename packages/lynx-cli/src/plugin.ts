@@ -60,6 +60,7 @@ export default definePlugin({
                 android: { type: 'boolean', description: 'Target Android only (skip picker)', default: false },
                 all: { type: 'boolean', description: 'Auto-target every connected device (skip picker)', default: false },
                 verbose: { type: 'boolean', description: 'Stream raw xcodebuild/gradle output (default: filtered)', default: false },
+                'no-device-logs': { type: 'boolean', description: 'Suppress JS console.* streaming from running devices', default: false },
             },
             async run(ctx) {
                 const androidDir = join(ctx.cwd, 'android');
@@ -284,6 +285,7 @@ export default definePlugin({
                     launchBundleId,
                     selectedTargets: live,
                     verbose,
+                    disableDeviceLogs: ctx.args['no-device-logs'] as boolean | undefined,
                 });
             },
         },

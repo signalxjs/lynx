@@ -13,7 +13,7 @@ npm create @sigx@latest my-app
 
 | Command | Description |
 |---|---|
-| `sigx dev`         | Start the rspeedy dev server with HMR |
+| `sigx dev`         | Start the rspeedy dev server with HMR. JS `console.*` from running devices is streamed back to the terminal; pass `--no-device-logs` to disable. |
 | `sigx build`       | Production bundle for both Lynx runtime tiers |
 | `sigx prebuild`    | Generate `ios/` and `android/` native projects from your config + auto-link installed `@sigx/lynx-*` modules |
 | `sigx doctor`      | Verify your toolchain (rspeedy, JDK, ADB, Xcode, CocoaPods, devices) |

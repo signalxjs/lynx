@@ -6,6 +6,7 @@
     "platforms": ["android", "ios"],
     "android": {
         "initClass": "com.sigx.devclient.SigxDevClient",
+        "moduleClass": "com.sigx.devclient.DevClientModule",
         "sourceDir": "android/src/main/kotlin",
         "debugOnly": true,
         "dependencies": [
@@ -29,6 +30,7 @@
     },
     "ios": {
         "initClass": "SigxDevClient",
+        "moduleClass": "DevClientModule",
         "sourceDir": "ios/Sources/SigxDevClient",
         "debugOnly": true,
         "usageDescriptions": {

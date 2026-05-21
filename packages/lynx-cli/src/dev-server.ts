@@ -11,12 +11,14 @@
 import { spawn, execSync, type ChildProcess } from 'node:child_process';
 import { readFileSync, existsSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
+import { createServer } from 'node:net';
 import { getAllLanIPs } from './network';
 import { generateQR } from './qr';
 import { getDeviceStatus, getDeviceStatusCached, invalidateDeviceStatusCache, launchLynxGo, launchApp, launchIosApp, launchAppOnDevice, installAppOnDevice, resolveIosSimulator, bootSimulator, listAllSimulators, installAppOnSimulator, findBuiltApp, adbReverse, forceStopApp, LYNX_GO_PACKAGE, type DeviceStatus } from './device-detect';
 import { runWithBuildFilter } from './build-output';
 import type { Logger } from '@sigx/cli/plugin';
 import type { SelectedTarget } from './target-picker';
+import { parseDeviceLogLine, formatDeviceLogLine, LOG_SENTINEL } from './device-log';
 
 export interface DevServerOptions {
     cwd: string;
@@ -38,6 +40,11 @@ export interface DevServerOptions {
     selectedTargets?: SelectedTarget[];
     /** Stream raw build output (xcodebuild / gradle) instead of filtering. */
     verbose?: boolean;
+    /**
+     * Suppress device JS console log streaming in the terminal. Sentinel
+     * lines from the plugin are still parsed, just not printed.
+     */
+    disableDeviceLogs?: boolean;
 }
 
 function getProjectName(cwd: string): string {
@@ -471,11 +478,41 @@ function setupKeyboardShortcuts(child: ChildProcess, opts: {
 }
 
 /**
+ * Probe for the first free TCP port at/after `start`. Returns `start` if
+ * nothing is bound, otherwise increments until either a free port is found
+ * or 50 ports have been tried (in which case the caller's `start` value is
+ * returned unchanged and we let rsbuild's fallback handle it).
+ */
+async function findFreePort(start: number): Promise<number> {
+    const check = (port: number): Promise<boolean> =>
+        new Promise((resolve) => {
+            const srv = createServer();
+            srv.unref();
+            srv.once('error', () => resolve(false));
+            srv.listen(port, '0.0.0.0', () => {
+                srv.close(() => resolve(true));
+            });
+        });
+    for (let p = start; p < start + 50; p++) {
+        // eslint-disable-next-line no-await-in-loop
+        if (await check(p)) return p;
+    }
+    return start;
+}
+
+/**
  * Start the enhanced Lynx dev server.
  */
 export async function startDevServer(opts: DevServerOptions): Promise<void> {
     const { cwd, logger, launchAppId, launchBundleId, iosSimulatorName, selectedTargets } = opts;
-    const requestedPort = Number(opts.port) || 8788;
+    const desiredPort = Number(opts.port) || 8788;
+    // Probe for the first free port at/after `desiredPort` so we can bake the
+    // correct URL into `__SIGX_DEV_LOG_URL__` (device log streaming) and the
+    // device-launch banner BEFORE rspeedy starts binding. Without this, when
+    // rsbuild falls back to a higher port the device-side log fetch targets
+    // a dead URL and `serverState.port` is stale until the stdout parser
+    // catches the "is in use" line — which the device build has already passed.
+    const requestedPort = await findFreePort(desiredPort);
     const projectName = getProjectName(cwd);
     const lanIPs = getAllLanIPs();
     const primaryIP = lanIPs.length > 0 ? lanIPs[0].address : null;
@@ -641,44 +678,62 @@ export async function startDevServer(opts: DevServerOptions): Promise<void> {
         }
     };
 
-    // Pipe rspeedy output with prefix
+    // Pipe rspeedy output with prefix.
+    // We buffer partial lines (sentinel-tagged log entries from
+    // @sigx/lynx-plugin's log middleware can be long and might be split
+    // across chunks), then parse line-by-line.
+    let stdoutBuf = '';
     child.stdout?.on('data', (data: Buffer) => {
-        const text = data.toString().trim();
-        if (text) {
-            for (const line of text.split('\n')) {
-                // Detect port conflict and update actual port. rsbuild logs:
-                // `port N is in use, using port N+1.`
-                // We need this *before* showBanner fires, because the banner
-                // computes the device-launch URL from serverState.port.
-                if (line.includes('is in use')) {
-                    const match = line.match(/using port (\d+)/);
-                    if (match) {
-                        serverState.port = Number(match[1]);
-                        logger.log(`Dev server fell back to port ${serverState.port}`);
-                    }
-                }
+        stdoutBuf += data.toString();
+        const newlineIdx = stdoutBuf.lastIndexOf('\n');
+        if (newlineIdx === -1) return;
+        const ready = stdoutBuf.slice(0, newlineIdx);
+        stdoutBuf = stdoutBuf.slice(newlineIdx + 1);
 
-                // Print banner once rspeedy is ready. No timeout-based
-                // fallback: launching the app with a stale guessed port
-                // (because rspeedy hadn't yet reported the actual port via
-                // its `is in use` line) leaves the device pointing at a
-                // server that isn't there. HMR then silently fails. Better
-                // to wait — if rspeedy never starts the user will see its
-                // own error output.
-                if (line.includes('ready') && !bannerPrinted) {
-                    showBanner();
+        for (const rawLine of ready.split('\n')) {
+            // Device console log? Pretty-print and stop — never let the
+            // sentinel-tagged raw form leak to the user's terminal.
+            if (rawLine.startsWith(LOG_SENTINEL)) {
+                const entry = parseDeviceLogLine(rawLine);
+                if (entry && !opts.disableDeviceLogs) {
+                    console.log(formatDeviceLogLine(entry));
                 }
+                continue;
+            }
+            const line = rawLine.trim();
+            if (!line) continue;
+            // Detect port conflict and update actual port. rsbuild logs:
+            // `port N is in use, using port N+1.`
+            // We need this *before* showBanner fires, because the banner
+            // computes the device-launch URL from serverState.port.
+            if (line.includes('is in use')) {
+                const match = line.match(/using port (\d+)/);
+                if (match) {
+                    serverState.port = Number(match[1]);
+                    logger.log(`Dev server fell back to port ${serverState.port}`);
+                }
+            }
 
-                // Filter noisy rspeedy startup logs, show meaningful ones
-                if (line.includes('rspeedy') && line.includes('ready')) {
-                    logger.log(`\x1b[32m${line.trim()}\x1b[0m`);
-                } else if (line.includes('error') || line.includes('Error')) {
-                    logger.error(line.trim());
-                } else if (line.includes('warn') || line.includes('Warning')) {
-                    logger.warn(line.trim());
-                } else if (line.trim()) {
-                    console.log(`  ${line.trim()}`);
-                }
+            // Print banner once rspeedy is ready. No timeout-based
+            // fallback: launching the app with a stale guessed port
+            // (because rspeedy hadn't yet reported the actual port via
+            // its `is in use` line) leaves the device pointing at a
+            // server that isn't there. HMR then silently fails. Better
+            // to wait — if rspeedy never starts the user will see its
+            // own error output.
+            if (line.includes('ready') && !bannerPrinted) {
+                showBanner();
+            }
+
+            // Filter noisy rspeedy startup logs, show meaningful ones
+            if (line.includes('rspeedy') && line.includes('ready')) {
+                logger.log(`\x1b[32m${line}\x1b[0m`);
+            } else if (line.includes('error') || line.includes('Error')) {
+                logger.error(line);
+            } else if (line.includes('warn') || line.includes('Warning')) {
+                logger.warn(line);
+            } else {
+                console.log(`  ${line}`);
             }
         }
     });
