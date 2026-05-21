@@ -80,6 +80,17 @@ export interface InstallOptions {
     clearTimeoutImpl?: typeof clearTimeout;
     /** Override `Date.now()`. (Test seam.) */
     nowImpl?: () => number;
+    /**
+     * Additional `console`-like objects to patch beyond `globalThis.console`.
+     *
+     * On the Lynx BG runtime the bundle is wrapped in a single `tt.define`
+     * factory whose `console` parameter is a SEPARATE object from
+     * `globalThis.console`. Bare `console` references inside user code resolve
+     * via the scope chain to that parameter, so patches on `globalThis.console`
+     * alone don't intercept user logs. The plugin-injected `install.ts` passes
+     * the factory-scope `console` here so we patch both.
+     */
+    extraTargets?: ConsoleLike[];
 }
 
 export type Uninstall = () => void;
@@ -202,11 +213,23 @@ export function installConsoleStreamer(url: string, opts: InstallOptions = {}): 
         return () => undefined;
     }
 
-    const target = (globalThis as { console?: ConsoleLike }).console;
-    if (!target) return () => undefined;
+    const primaryTarget = (globalThis as { console?: ConsoleLike }).console;
+    if (!primaryTarget) return () => undefined;
+
+    // Build a de-duplicated list of console-like objects to patch. On the
+    // Lynx BG runtime `globalThis.console` and the factory-scope `console`
+    // parameter are DIFFERENT objects — we must patch both, otherwise bare
+    // `console.log(...)` in user code goes to an unpatched host console.
+    const targets: ConsoleLike[] = [primaryTarget];
+    if (opts.extraTargets) {
+        for (const t of opts.extraTargets) {
+            if (t && !targets.includes(t)) targets.push(t);
+        }
+    }
+    const target = primaryTarget;
 
     // Re-install guard: if a previous installer is active, return its
-    // uninstall. The marker lives on the console instance.
+    // uninstall. The marker lives on the primary console instance.
     const markerKey = '__sigxLogStreamerUninstall__';
     const existing = (target as unknown as Record<string, unknown>)[markerKey];
     if (typeof existing === 'function') return existing as Uninstall;
@@ -411,30 +434,34 @@ export function installConsoleStreamer(url: string, opts: InstallOptions = {}): 
     // mode — direct assignment silently no-ops. Use defineProperty (which
     // throws on failure in strict mode, allowing us to fall back) and verify
     // the swap took.
-    const patchedKeys: LogLevel[] = [];
-    for (const level of LEVELS) {
-        const original = originals[level];
-        const patched = function patched(this: unknown, ...args: unknown[]): void {
-            try { original(...args); } catch { /* ignore */ }
-            enqueue(level, args);
-        };
-        let installed = false;
-        try {
-            Object.defineProperty(target as unknown as object, level, {
-                value: patched,
-                writable: true,
-                configurable: true,
-                enumerable: true,
-            });
-            installed = (target as unknown as Record<string, unknown>)[level] === patched;
-        } catch { /* frozen — leave as-is */ }
-        if (!installed) {
+    const patchedTargets: Array<{ target: ConsoleLike; keys: LogLevel[] }> = [];
+    for (const t of targets) {
+        const keys: LogLevel[] = [];
+        for (const level of LEVELS) {
+            const original = originals[level];
+            const patched = function patched(this: unknown, ...args: unknown[]): void {
+                try { original(...args); } catch { /* ignore */ }
+                enqueue(level, args);
+            };
+            let installed = false;
             try {
-                (target as unknown as Record<string, unknown>)[level] = patched;
-                installed = (target as unknown as Record<string, unknown>)[level] === patched;
-            } catch { /* frozen */ }
+                Object.defineProperty(t as unknown as object, level, {
+                    value: patched,
+                    writable: true,
+                    configurable: true,
+                    enumerable: true,
+                });
+                installed = (t as unknown as Record<string, unknown>)[level] === patched;
+            } catch { /* frozen — leave as-is */ }
+            if (!installed) {
+                try {
+                    (t as unknown as Record<string, unknown>)[level] = patched;
+                    installed = (t as unknown as Record<string, unknown>)[level] === patched;
+                } catch { /* frozen */ }
+            }
+            if (installed) keys.push(level);
         }
-        if (installed) patchedKeys.push(level);
+        if (keys.length > 0) patchedTargets.push({ target: t, keys });
     }
 
     const uninstall: Uninstall = () => {
@@ -443,9 +470,11 @@ export function installConsoleStreamer(url: string, opts: InstallOptions = {}): 
         clearFlushTimer();
         clearReconnectTimer();
         teardownSocket();
-        for (const level of patchedKeys) {
-            try { (target as unknown as Record<string, unknown>)[level] = originals[level]; }
-            catch { /* frozen */ }
+        for (const { target: t, keys } of patchedTargets) {
+            for (const level of keys) {
+                try { (t as unknown as Record<string, unknown>)[level] = originals[level]; }
+                catch { /* frozen */ }
+            }
         }
         try { delete (target as unknown as Record<string, unknown>)[markerKey]; }
         catch { /* frozen */ }

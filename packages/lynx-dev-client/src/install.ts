@@ -18,10 +18,30 @@ import { installConsoleStreamer } from './streamer';
 
 declare const __SIGX_DEV_LOG_URL__: string | undefined;
 
+// On the Lynx BG runtime the whole bundle is wrapped in a single
+// `tt.define("background.js", function(..., console, ...) { ... })` factory.
+// The bare `console` identifier resolves via scope chain to that parameter,
+// which is a DIFFERENT object from `globalThis.console`. We capture it here
+// (a bare reference, NOT `globalThis.console`) so the streamer can patch it
+// too — otherwise user `console.log(...)` calls compile to that factory-arg
+// console and bypass our patches.
+const factoryConsole: unknown = typeof console !== 'undefined' ? console : undefined;
+
 try {
     const url = typeof __SIGX_DEV_LOG_URL__ !== 'undefined' ? __SIGX_DEV_LOG_URL__ : undefined;
     if (url) {
-        installConsoleStreamer(url);
+        const extraTargets: Array<{
+            log: (...a: unknown[]) => void;
+            info: (...a: unknown[]) => void;
+            warn: (...a: unknown[]) => void;
+            error: (...a: unknown[]) => void;
+            debug: (...a: unknown[]) => void;
+            trace: (...a: unknown[]) => void;
+        }> = [];
+        if (factoryConsole && typeof factoryConsole === 'object') {
+            extraTargets.push(factoryConsole as never);
+        }
+        installConsoleStreamer(url, { extraTargets });
         // First post-install log — this goes through the patched console,
         // so it exercises the full WS → server → sentinel → CLI pipeline.
         try {
@@ -33,3 +53,4 @@ try {
 } catch {
     // Never let dev-tooling crash the host app.
 }
+
