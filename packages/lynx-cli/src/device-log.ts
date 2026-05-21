@@ -35,7 +35,11 @@ export interface DeviceLogEntry {
  */
 export function parseDeviceLogLine(line: string): DeviceLogEntry | null {
     if (!line.startsWith(LOG_SENTINEL)) return null;
-    const payload = line.slice(LOG_SENTINEL.length);
+    // Trim a trailing CR — on Windows, stdout lines piped from a child
+    // process are often split from "\r\n" output, leaving a stray "\r"
+    // after the JSON that breaks `JSON.parse`. Be defensive about any
+    // trailing CR/LF whitespace introduced by the line-buffering layer.
+    const payload = line.slice(LOG_SENTINEL.length).replace(/[\r\n]+$/, '');
     try {
         const parsed = JSON.parse(payload) as Partial<DeviceLogEntry>;
         if (!parsed || typeof parsed !== 'object') return null;

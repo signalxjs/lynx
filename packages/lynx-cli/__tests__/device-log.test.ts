@@ -52,6 +52,15 @@ describe('parseDeviceLogLine', () => {
         expect(out?.client).toBe(0);
         expect(typeof out?.ts).toBe('number');
     });
+
+    it('tolerates trailing CR/LF (Windows stdout line splitting)', () => {
+        const payload = JSON.stringify({ level: 'log', args: ['hi'] });
+        // CRLF line buffering can leave a stray \r after the JSON.
+        const out = parseDeviceLogLine(`${LOG_SENTINEL}${payload}\r`);
+        expect(out?.args).toEqual(['hi']);
+        const out2 = parseDeviceLogLine(`${LOG_SENTINEL}${payload}\r\n`);
+        expect(out2?.args).toEqual(['hi']);
+    });
 });
 
 describe('formatDeviceLogLine', () => {

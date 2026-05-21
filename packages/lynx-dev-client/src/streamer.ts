@@ -323,21 +323,34 @@ export function installConsoleStreamer(url: string, opts: InstallOptions = {}): 
     // `debug` and `trace`. Fall back to `log` so missing methods don't kill
     // the install step with "cannot read property 'bind' of undefined".
     const noop = (): void => undefined;
-    const grab = (fn: ((...a: unknown[]) => void) | undefined, fallback: (...a: unknown[]) => void): (...a: unknown[]) => void => {
+    const grabFor = (
+        owner: ConsoleLike,
+        fn: ((...a: unknown[]) => void) | undefined,
+        fallback: (...a: unknown[]) => void,
+    ): (...a: unknown[]) => void => {
         if (typeof fn === 'function') {
-            try { return fn.bind(target); } catch { return fallback; }
+            try { return fn.bind(owner); } catch { return fallback; }
         }
         return fallback;
     };
-    const origLog = grab(target.log, noop);
-    const originals: Record<LogLevel, (...args: unknown[]) => void> = {
-        log: origLog,
-        info: grab(target.info, origLog),
-        warn: grab(target.warn, origLog),
-        error: grab(target.error, origLog),
-        debug: grab(target.debug, origLog),
-        trace: grab(target.trace, origLog),
+    const captureOriginals = (owner: ConsoleLike): Record<LogLevel, (...args: unknown[]) => void> => {
+        const log = grabFor(owner, owner.log, noop);
+        return {
+            log,
+            info: grabFor(owner, owner.info, log),
+            warn: grabFor(owner, owner.warn, log),
+            error: grabFor(owner, owner.error, log),
+            debug: grabFor(owner, owner.debug, log),
+            trace: grabFor(owner, owner.trace, log),
+        };
     };
+    // Originals for the *primary* console — used by streamer-internal
+    // diagnostics (reconnect warnings, etc.) so messages always go to the
+    // host console. Each patched target also gets its own capture below so
+    // the patched method forwards to that target's own implementation
+    // (avoids "illegal invocation" when extraTargets has methods that need
+    // their own `this`).
+    const originals = captureOriginals(target);
 
     const queue: LogEntry[] = [];
     let ws: MinimalWebSocket | undefined;
@@ -498,11 +511,20 @@ export function installConsoleStreamer(url: string, opts: InstallOptions = {}): 
     // mode — direct assignment silently no-ops. Use defineProperty (which
     // throws on failure in strict mode, allowing us to fall back) and verify
     // the swap took.
-    const patchedTargets: Array<{ target: ConsoleLike; keys: LogLevel[] }> = [];
+    const patchedTargets: Array<{
+        target: ConsoleLike;
+        keys: LogLevel[];
+        originals: Record<LogLevel, (...args: unknown[]) => void>;
+    }> = [];
     for (const t of targets) {
+        // Capture per-target originals so the patched method forwards to
+        // *this* target's own implementation. Using the primary console's
+        // bound originals on a different host object can throw
+        // "illegal invocation" when the implementation depends on `this`.
+        const targetOriginals = t === target ? originals : captureOriginals(t);
         const keys: LogLevel[] = [];
         for (const level of LEVELS) {
-            const original = originals[level];
+            const original = targetOriginals[level];
             const patched = function patched(this: unknown, ...args: unknown[]): void {
                 try { original(...args); } catch { /* ignore */ }
                 enqueue(level, args);
@@ -525,7 +547,7 @@ export function installConsoleStreamer(url: string, opts: InstallOptions = {}): 
             }
             if (installed) keys.push(level);
         }
-        if (keys.length > 0) patchedTargets.push({ target: t, keys });
+        if (keys.length > 0) patchedTargets.push({ target: t, keys, originals: targetOriginals });
     }
 
     const uninstall: Uninstall = () => {
@@ -534,9 +556,9 @@ export function installConsoleStreamer(url: string, opts: InstallOptions = {}): 
         clearFlushTimer();
         clearReconnectTimer();
         teardownSocket();
-        for (const { target: t, keys } of patchedTargets) {
+        for (const { target: t, keys, originals: tOriginals } of patchedTargets) {
             for (const level of keys) {
-                try { (t as unknown as Record<string, unknown>)[level] = originals[level]; }
+                try { (t as unknown as Record<string, unknown>)[level] = tOriginals[level]; }
                 catch { /* frozen */ }
             }
         }

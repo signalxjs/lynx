@@ -18,7 +18,7 @@ The lynx project templates already include this; manual install is only needed f
 - **Template provider** — `DevTemplateProvider`, consumed by your `App.swift` / `MainActivity.kt` under `#if DEBUG`, points the LynxEnv at the dev server URL.
 - **Dev menu** — on-device QR scanner, settings sheet, and per-app dev shortcuts. Triggered by the shake gesture (`ShakeDetector`) on iOS and the equivalent on Android.
 - **Devtool wiring** — registers the Lynx devtool / logbox services so the Chrome inspector and on-device error overlays light up.
-- **Console log streaming** — patches `console.log/info/warn/error/debug/trace` on the BG thread in dev mode and ships entries to the dev server over HTTP. `@sigx/lynx-plugin` injects the install entry automatically; `@sigx/lynx-cli` parses the wire format and prints each entry in the terminal alongside the rspeedy output. Pass `--no-device-logs` to `sigx dev` to opt out.
+- **Console log streaming** — patches `console.log/info/warn/error/debug/trace` on the BG thread in dev mode and ships entries to the dev server over WebSocket (`ws://<host>:<devPort+1>/__sigx/logs`). The Lynx BG runtime has no `fetch` / `XMLHttpRequest`, but ships a native `WebSocket` via `@sigx/lynx-websocket` — that's the transport this uses. `@sigx/lynx-plugin` injects the install entry automatically; `@sigx/lynx-cli` parses the wire format and prints each entry in the terminal alongside the rspeedy output. Pass `--no-device-logs` to `sigx dev` to opt out.
 
 ## How it ends up in the app
 
