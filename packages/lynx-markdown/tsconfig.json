@@ -5,7 +5,8 @@
         "rootDir": "./src",
         "declaration": true,
         "noEmit": false,
-        "jsxImportSource": "@sigx/lynx"
+        "jsxImportSource": "@sigx/lynx",
+        "paths": {}
     },
     "include": [
         "src"
