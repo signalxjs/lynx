@@ -19,16 +19,14 @@
         "signalx-module.json"
     ],
     "scripts": {
-        "build": "vite build && tsgo --emitDeclarationOnly",
-        "dev": "vite build --watch",
-        "prepublishOnly": "vite build && tsgo --emitDeclarationOnly",
-        "clean": "rm -rf dist .turbo *.tsbuildinfo"
+        "build": "node ../../scripts/clean.mjs dist && tsgo",
+        "dev": "tsgo --watch",
+        "prepublishOnly": "node ../../scripts/clean.mjs dist && tsgo",
+        "clean": "node ../../scripts/clean.mjs dist .turbo"
     },
     "devDependencies": {
-        "@sigx/vite": "^0.4.3",
         "@typescript/native-preview": "7.0.0-dev.20260511.1",
-        "typescript": "^6.0.3",
-        "vite": "^8.0.12"
+        "typescript": "^6.0.3"
     },
     "author": "Andreas Ekdahl",
     "license": "MIT",

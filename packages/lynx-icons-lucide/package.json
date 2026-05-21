@@ -19,8 +19,9 @@
         "LICENSE"
     ],
     "scripts": {
-        "build": "vite build && tsgo --emitDeclarationOnly",
-        "dev": "vite build --watch"
+        "build": "node ../../scripts/clean.mjs dist && tsgo",
+        "dev": "tsgo --watch",
+        "clean": "node ../../scripts/clean.mjs dist .turbo"
     },
     "peerDependencies": {
         "@sigx/lynx-icons": "workspace:^",
@@ -28,8 +29,8 @@
     },
     "devDependencies": {
         "@sigx/lynx-icons": "workspace:^",
-        "@sigx/vite": "^0.4.3",
         "@types/node": "^25.7.0",
+        "@typescript/native-preview": "7.0.0-dev.20260511.1",
         "lucide": "^1.16.0",
         "typescript": "^6.0.3"
     },

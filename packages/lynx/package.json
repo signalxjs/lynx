@@ -38,9 +38,9 @@
         "LICENSE"
     ],
     "scripts": {
-        "build": "vite build && tsgo --emitDeclarationOnly && node ../../scripts/copy-assets.mjs src/client.d.ts dist/client.d.ts",
-        "dev": "vite build --watch",
-        "clean": "rm -rf dist .turbo *.tsbuildinfo"
+        "build": "node ../../scripts/clean.mjs dist && tsgo && node ../../scripts/copy-assets.mjs src/client.d.ts dist/client.d.ts",
+        "dev": "tsgo --watch",
+        "clean": "node ../../scripts/clean.mjs dist .turbo"
     },
     "dependencies": {
         "@sigx/reactivity": "^0.4.3",
@@ -48,10 +48,8 @@
         "@sigx/lynx-runtime": "workspace:^"
     },
     "devDependencies": {
-        "@sigx/vite": "^0.4.3",
         "@typescript/native-preview": "7.0.0-dev.20260511.1",
-        "typescript": "^6.0.3",
-        "vite": "^8.0.12"
+        "typescript": "^6.0.3"
     },
     "publishConfig": {
         "access": "public"

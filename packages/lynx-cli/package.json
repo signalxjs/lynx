@@ -23,8 +23,9 @@
         "templates"
     ],
     "scripts": {
-        "build": "vite build && tsgo --emitDeclarationOnly",
-        "dev": "vite build --watch"
+        "build": "node ../../scripts/clean.mjs dist && tsgo",
+        "dev": "tsgo --watch",
+        "clean": "node ../../scripts/clean.mjs dist .turbo"
     },
     "dependencies": {
         "@sigx/cli": "^0.1.0",
@@ -34,8 +35,8 @@
     },
     "devDependencies": {
         "@types/node": "^25.7.0",
-        "typescript": "^6.0.3",
-        "@sigx/vite": "^0.4.3"
+        "@typescript/native-preview": "7.0.0-dev.20260511.1",
+        "typescript": "^6.0.3"
     },
     "author": "Andreas Ekdahl",
     "license": "MIT",
