@@ -24,7 +24,8 @@
     ],
     "scripts": {
         "build": "vite build && tsgo --emitDeclarationOnly",
-        "dev": "vite build --watch"
+        "dev": "vite build --watch",
+        "test": "vitest run"
     },
     "keywords": [
         "sigx",
@@ -58,7 +59,8 @@
     "devDependencies": {
         "@sigx/vite": "^0.4.3",
         "typescript": "^6.0.3",
-        "vite": "^8.0.12"
+        "vite": "^8.0.12",
+        "vitest": "^4.1.6"
     },
     "publishConfig": {
         "access": "public"

@@ -9,6 +9,16 @@ export type TextProps =
   & Define.Prop<'weight', TextWeight, false>
   & Define.Prop<'color', TextColor, false>
   & Define.Prop<'class', string, false>
+  /**
+   * Allow native text selection (long-press to select, system copy menu).
+   * Maps to Lynx 3.7+'s `text-selection` attribute.
+   */
+  & Define.Prop<'selectable', boolean, false>
+  /**
+   * When `selectable` is enabled, suppress the system context menu so the
+   * app can render its own. Maps to Lynx 3.7+'s `custom-text-selection`.
+   */
+  & Define.Prop<'customSelection', boolean, false>
   & Define.Slot<'default'>;
 
 const sizeClasses: Record<TextSize, string> = {
@@ -31,5 +41,13 @@ export const Text = component<TextProps>(({ props, slots }) => {
     return c.join(' ');
   };
 
-  return () => <text class={getClasses()}>{slots.default?.()}</text>;
+  return () => (
+    <text
+      class={getClasses()}
+      text-selection={props.selectable}
+      custom-text-selection={props.customSelection}
+    >
+      {slots.default?.()}
+    </text>
+  );
 });
