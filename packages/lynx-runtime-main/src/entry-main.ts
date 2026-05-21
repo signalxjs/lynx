@@ -176,9 +176,19 @@ function rebuildWithObjectPrototype<T>(value: T): T {
   if (Array.isArray(value)) {
     return value.map(rebuildWithObjectPrototype) as unknown as T;
   }
+  // Use `Object.defineProperty` (not `out[k] = ...`) so a `__proto__` key in
+  // the captured payload doesn't trigger the prototype setter on `out` and
+  // re-null the prototype we just gave it. Belt-and-braces against accidental
+  // prototype pollution; in practice `_c` is shaped by `sanitizeCaptured` on
+  // BG and shouldn't carry `__proto__`, but the guarantee is cheap.
   const out: Record<string, unknown> = {};
-  for (const k in value as Record<string, unknown>) {
-    out[k] = rebuildWithObjectPrototype((value as Record<string, unknown>)[k]);
+  for (const k of Object.keys(value as Record<string, unknown>)) {
+    Object.defineProperty(out, k, {
+      value: rebuildWithObjectPrototype((value as Record<string, unknown>)[k]),
+      enumerable: true,
+      writable: true,
+      configurable: true,
+    });
   }
   return out as unknown as T;
 }
