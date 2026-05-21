@@ -11,7 +11,7 @@ import type {
     IconSetConfig,
     IconMode,
     IconStyle,
-} from './schema';
+} from './schema.js';
 
 const VALID_ICON_MODES: ReadonlySet<IconMode> = new Set(['svg', 'font']);
 const VALID_ICON_STYLES: ReadonlySet<IconStyle> = new Set([

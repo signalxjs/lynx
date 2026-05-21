@@ -13,12 +13,12 @@
  * @packageDocumentation
  */
 
-export * from './config/index';
-export * from './manifest';
-export * from './autolink/index';
-export { runPrebuild, loadConfig, loadManifests } from './prebuild';
-export { startDevServer } from './dev-server';
-export { runDoctor } from './doctor';
-export { generateQR } from './qr';
-export { getLanIP, getAllLanIPs } from './network';
-export { getDeviceStatus, listAndroidDevices, isAdbAvailable, isLynxGoInstalled, launchLynxGo } from './device-detect';
+export * from './config/index.js';
+export * from './manifest.js';
+export * from './autolink/index.js';
+export { runPrebuild, loadConfig, loadManifests } from './prebuild.js';
+export { startDevServer } from './dev-server.js';
+export { runDoctor } from './doctor.js';
+export { generateQR } from './qr.js';
+export { getLanIP, getAllLanIPs } from './network.js';
+export { getDeviceStatus, listAndroidDevices, isAdbAvailable, isLynxGoInstalled, launchLynxGo } from './device-detect.js';

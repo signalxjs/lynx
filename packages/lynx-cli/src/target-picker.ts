@@ -23,7 +23,7 @@ import {
     listConnectedIosDevices,
     bootSimulator,
     resolveAdb,
-} from './device-detect';
+} from './device-detect.js';
 
 export type SelectedTarget =
     | { kind: 'android-device'; deviceId: string; model?: string }

@@ -1,27 +1,27 @@
 // Animation orchestration ('main thread' worklets that operate on SharedValue)
-export { animate } from './animate';
+export { animate } from './animate.js';
 export type {
   AnimateOptions,
   AnimateControls,
   SpringOptions,
   TimingOptions,
-} from './animate';
+} from './animate.js';
 
 // Convenience wrappers
-export { withSpring } from './with-spring';
-export { withTiming } from './with-timing';
+export { withSpring } from './with-spring.js';
+export { withTiming } from './with-timing.js';
 
 // Spring solver — pure-math API for non-worklet callers (tests, BG-side
 // debugging, future scroll-driven derived values). NOT used by the worklet
 // path: `animate()` has its own inlined copy of the solver to avoid
 // cross-file `_c` capture of plain function references that don't survive
 // JSON serialization across the MT/BG bridge.
-export { spring, clamp } from './spring';
+export { spring, clamp } from './spring.js';
 export type {
   SpringSolver,
   SpringStep,
   SpringSolverOptions,
-} from './spring';
+} from './spring.js';
 
 // Easings — same story as spring: pure-math API for non-worklet uses; the
 // `animate()` worklet has its own inlined `easeOut`. Custom easings passed
@@ -42,5 +42,5 @@ export {
   backOut,
   backInOut,
   anticipate,
-} from './easings';
-export type { Easing } from './easings';
+} from './easings.js';
+export type { Easing } from './easings.js';

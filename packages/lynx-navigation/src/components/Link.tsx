@@ -1,8 +1,8 @@
 import { component, type Define } from '@sigx/lynx';
-import { useNav } from '../hooks/use-nav';
-import { useNavRoutes } from '../hooks/use-nav-internal';
-import type { RouteId, RouteParams, RouteSearch } from '../register';
-import type { RoutesWithParams } from '../hooks/use-nav';
+import { useNav } from '../hooks/use-nav.js';
+import { useNavRoutes } from '../hooks/use-nav-internal.js';
+import type { RouteId, RouteParams, RouteSearch } from '../register.js';
+import type { RoutesWithParams } from '../hooks/use-nav.js';
 
 /**
  * Per-route conditional props for `<Link>`.

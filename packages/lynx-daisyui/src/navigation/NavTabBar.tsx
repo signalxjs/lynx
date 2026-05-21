@@ -16,7 +16,7 @@
 import { component, type Define, type JSXElement } from '@sigx/lynx';
 import { Pressable } from '@sigx/lynx-gestures';
 import { useTabs, type TabInfo } from '@sigx/lynx-navigation';
-import { PRESSED_SCALE, PRESSED_OPACITY } from '../shared/press';
+import { PRESSED_SCALE, PRESSED_OPACITY } from '../shared/press.js';
 
 /** Rendering context passed to a `renderTab` consumer. */
 export interface NavTabRenderContext {

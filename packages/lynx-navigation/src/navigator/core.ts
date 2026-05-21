@@ -7,8 +7,8 @@ import {
 } from '@sigx/lynx';
 import { isLazyComponent } from '@sigx/lynx';
 import { withTiming } from '@sigx/lynx-motion';
-import type { Nav } from '../hooks/use-nav';
-import type { ScreenRegistry } from '../internal/screen-registry';
+import type { Nav } from '../hooks/use-nav.js';
+import type { ScreenRegistry } from '../internal/screen-registry.js';
 import type {
     PopOptions,
     Presentation,
@@ -16,7 +16,7 @@ import type {
     RouteMap,
     StackEntry,
     TransitionState,
-} from '../types';
+} from '../types.js';
 
 /**
  * The reactive backing state for one navigator instance.

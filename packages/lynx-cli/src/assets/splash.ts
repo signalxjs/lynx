@@ -14,7 +14,7 @@
 import sharp from 'sharp';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import type { ResolvedConfig, ResolvedAndroidAssets, ResolvedPlatformAssets } from '../config/index';
+import type { ResolvedConfig, ResolvedAndroidAssets, ResolvedPlatformAssets } from '../config/index.js';
 
 function log(msg: string) {
     console.log(`[sigx] ${msg}`);

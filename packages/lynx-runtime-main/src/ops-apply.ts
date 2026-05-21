@@ -8,26 +8,26 @@
 
 import { OP } from '@sigx/lynx-runtime-internal';
 
-import { processGesture } from './upstream/processGesture';
+import { processGesture } from './upstream/processGesture.js';
 import {
   elements,
   pageUniqueId,
   setPageUniqueId,
-} from './element-registry';
-import { resetWorkletEvents, type WorkletPlaceholder } from './worklet-events';
+} from './element-registry.js';
+import { resetWorkletEvents, type WorkletPlaceholder } from './worklet-events.js';
 import {
   setSlotBgSign,
   setSlotWorklet,
   flushDirtySlots,
   resetSlotStates,
-} from './event-slots';
+} from './event-slots.js';
 import {
   flushAvBridgePublishes,
   flushAnimatedStyleBindings,
   registerAnimatedStyleBinding,
   unregisterAnimatedStyleBinding,
   resetAnimatedStyleBindings,
-} from './animated-bridge-mt';
+} from './animated-bridge-mt.js';
 
 /**
  * Placeholder element inserted by renderPage() to give the host a non-empty

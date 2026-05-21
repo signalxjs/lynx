@@ -1,4 +1,4 @@
-export { defineLynxConfig } from './schema';
+export { defineLynxConfig } from './schema.js';
 export type {
     LynxConfig,
     ModuleConfig,
@@ -11,13 +11,13 @@ export type {
     IconSetConfig,
     IconMode,
     IconStyle,
-} from './schema';
+} from './schema.js';
 
-export { resolveConfig, modulesForPlatform, resolveAssets } from './parser';
+export { resolveConfig, modulesForPlatform, resolveAssets } from './parser.js';
 export type {
     ResolvedConfig,
     ResolvedModule,
     ResolvedIconSet,
     ResolvedPlatformAssets,
     ResolvedAndroidAssets,
-} from './parser';
+} from './parser.js';

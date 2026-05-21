@@ -13,8 +13,8 @@
 import { execSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { isAdbAvailable, listAndroidDevices, isLynxGoInstalled } from './device-detect';
-import { detectFromLockfile, getVersion as getPmVersion, detectFromBinaries } from './util/package-manager';
+import { isAdbAvailable, listAndroidDevices, isLynxGoInstalled } from './device-detect.js';
+import { detectFromLockfile, getVersion as getPmVersion, detectFromBinaries } from './util/package-manager.js';
 import type { Logger } from '@sigx/cli/plugin';
 
 interface Check {

@@ -1,85 +1,85 @@
 // Buttons
-export { Button } from './buttons/Button';
-export type { ButtonProps, ButtonVariant, ButtonSize } from './buttons/Button';
+export { Button } from './buttons/Button.js';
+export type { ButtonProps, ButtonVariant, ButtonSize } from './buttons/Button.js';
 
 // Layout
-export { Card } from './layout/Card';
-export type { CardProps } from './layout/Card';
-export { Row } from './layout/Row';
-export type { RowProps } from './layout/Row';
-export { Col } from './layout/Col';
-export type { ColProps } from './layout/Col';
-export { Center } from './layout/Center';
-export type { CenterProps } from './layout/Center';
-export { Spacer } from './layout/Spacer';
-export type { SpacerProps } from './layout/Spacer';
-export { ScrollView } from './layout/ScrollView';
-export type { ScrollViewProps } from './layout/ScrollView';
-export { Divider } from './layout/Divider';
-export type { DividerProps } from './layout/Divider';
+export { Card } from './layout/Card.js';
+export type { CardProps } from './layout/Card.js';
+export { Row } from './layout/Row.js';
+export type { RowProps } from './layout/Row.js';
+export { Col } from './layout/Col.js';
+export type { ColProps } from './layout/Col.js';
+export { Center } from './layout/Center.js';
+export type { CenterProps } from './layout/Center.js';
+export { Spacer } from './layout/Spacer.js';
+export type { SpacerProps } from './layout/Spacer.js';
+export { ScrollView } from './layout/ScrollView.js';
+export type { ScrollViewProps } from './layout/ScrollView.js';
+export { Divider } from './layout/Divider.js';
+export type { DividerProps } from './layout/Divider.js';
 
 // Forms
-export { Input } from './forms/Input';
-export type { InputProps, InputSize, InputVariant, InputColor } from './forms/Input';
-export { Toggle } from './forms/Toggle';
-export type { ToggleProps, ToggleColor, ToggleSize } from './forms/Toggle';
-export { Checkbox } from './forms/Checkbox';
-export type { CheckboxProps, CheckboxColor, CheckboxSize } from './forms/Checkbox';
-export { Select } from './forms/Select';
-export type { SelectProps, SelectSize, SelectVariant, SelectColor, SelectOption } from './forms/Select';
-export { Radio } from './forms/Radio';
-export type { RadioGroupProps, RadioItemProps, RadioColor, RadioSize } from './forms/Radio';
-export { Textarea } from './forms/Textarea';
-export type { TextareaProps, TextareaSize, TextareaVariant, TextareaColor } from './forms/Textarea';
-export { FormField } from './forms/FormField';
-export type { FormFieldProps } from './forms/FormField';
+export { Input } from './forms/Input.js';
+export type { InputProps, InputSize, InputVariant, InputColor } from './forms/Input.js';
+export { Toggle } from './forms/Toggle.js';
+export type { ToggleProps, ToggleColor, ToggleSize } from './forms/Toggle.js';
+export { Checkbox } from './forms/Checkbox.js';
+export type { CheckboxProps, CheckboxColor, CheckboxSize } from './forms/Checkbox.js';
+export { Select } from './forms/Select.js';
+export type { SelectProps, SelectSize, SelectVariant, SelectColor, SelectOption } from './forms/Select.js';
+export { Radio } from './forms/Radio.js';
+export type { RadioGroupProps, RadioItemProps, RadioColor, RadioSize } from './forms/Radio.js';
+export { Textarea } from './forms/Textarea.js';
+export type { TextareaProps, TextareaSize, TextareaVariant, TextareaColor } from './forms/Textarea.js';
+export { FormField } from './forms/FormField.js';
+export type { FormFieldProps } from './forms/FormField.js';
 
 // Feedback
-export { Badge } from './feedback/Badge';
-export type { BadgeProps, BadgeVariant, BadgeSize } from './feedback/Badge';
-export { Alert } from './feedback/Alert';
-export type { AlertProps, AlertVariant } from './feedback/Alert';
-export { Loading } from './feedback/Loading';
-export type { LoadingProps, LoadingType, LoadingSize, LoadingColor } from './feedback/Loading';
-export { Progress } from './feedback/Progress';
-export type { ProgressProps, ProgressColor } from './feedback/Progress';
-export { Modal } from './feedback/Modal';
-export type { ModalProps } from './feedback/Modal';
-export { Skeleton } from './feedback/Skeleton';
-export type { SkeletonProps } from './feedback/Skeleton';
-export { Steps } from './feedback/Steps';
-export type { StepsProps, StepProps, StepColor } from './feedback/Steps';
+export { Badge } from './feedback/Badge.js';
+export type { BadgeProps, BadgeVariant, BadgeSize } from './feedback/Badge.js';
+export { Alert } from './feedback/Alert.js';
+export type { AlertProps, AlertVariant } from './feedback/Alert.js';
+export { Loading } from './feedback/Loading.js';
+export type { LoadingProps, LoadingType, LoadingSize, LoadingColor } from './feedback/Loading.js';
+export { Progress } from './feedback/Progress.js';
+export type { ProgressProps, ProgressColor } from './feedback/Progress.js';
+export { Modal } from './feedback/Modal.js';
+export type { ModalProps } from './feedback/Modal.js';
+export { Skeleton } from './feedback/Skeleton.js';
+export type { SkeletonProps } from './feedback/Skeleton.js';
+export { Steps } from './feedback/Steps.js';
+export type { StepsProps, StepProps, StepColor } from './feedback/Steps.js';
 
 // Navigation
-export { Tabs } from './navigation/Tabs';
-export type { TabsProps, TabProps } from './navigation/Tabs';
-export { NavTabBar } from './navigation/NavTabBar';
+export { Tabs } from './navigation/Tabs.js';
+export type { TabsProps, TabProps } from './navigation/Tabs.js';
+export { NavTabBar } from './navigation/NavTabBar.js';
 export type {
     NavTabBarProps,
     NavTabBarPosition,
     NavTabBarBackground,
     NavTabRenderContext,
-} from './navigation/NavTabBar';
-export { NavHeader } from './navigation/NavHeader';
+} from './navigation/NavTabBar.js';
+export { NavHeader } from './navigation/NavHeader.js';
 export type {
     NavHeaderProps,
     NavHeaderBackground,
-} from './navigation/NavHeader';
+} from './navigation/NavHeader.js';
 
 // Theme
-export { ThemeProvider, useTheme } from './theme/ThemeProvider';
+export { ThemeProvider, useTheme } from './theme/ThemeProvider.js';
 export type {
     DaisyTheme,
     ThemeController,
     ThemeProviderProps,
-} from './theme/ThemeProvider';
+} from './theme/ThemeProvider.js';
 
 // Data
-export { Avatar } from './data/Avatar';
-export type { AvatarProps, AvatarSize } from './data/Avatar';
+export { Avatar } from './data/Avatar.js';
+export type { AvatarProps, AvatarSize } from './data/Avatar.js';
 
 // Typography
-export { Text } from './typography/Text';
-export type { TextProps, TextSize, TextWeight, TextColor } from './typography/Text';
-export { Heading } from './typography/Heading';
-export type { HeadingProps, HeadingLevel } from './typography/Heading';
+export { Text } from './typography/Text.js';
+export type { TextProps, TextSize, TextWeight, TextColor } from './typography/Text.js';
+export { Heading } from './typography/Heading.js';
+export type { HeadingProps, HeadingLevel } from './typography/Heading.js';

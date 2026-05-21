@@ -66,20 +66,41 @@ export function extractLocalImports(source: string): string {
  * gating is redundant because we only inject the calls when the MT bundle is
  * actually being built. Bracket-depth counting handles nested braces in the
  * function body.
+ *
+ * SWC's LEPUS transform preserves JSDoc / comments verbatim. When source code
+ * carries documentation that *mentions* the literal token
+ * `registerWorkletInternal(...)` (as `lynx-runtime`'s `threading.ts` does), a
+ * naive scan would extract that doc text as a "registration" and append it to
+ * the MT bundle as invalid JS (`function(...) { ... }` isn't real syntax).
+ * Strip comments before scanning so only real statements survive.
  */
+function stripJsComments(code: string): string {
+  // Two passes — line comments first, then block comments. We don't try to
+  // be string-literal-aware (a comment-looking sequence inside a string would
+  // be wrongly stripped) because:
+  //   1. The input is SWC output, which doesn't put `//` or `/* */` inside
+  //      strings except in trivial constant cases we don't care about.
+  //   2. `extractRegistrations` only cares about call shapes; the surrounding
+  //      code is discarded anyway.
+  return code
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/(^|[^:])\/\/[^\n]*/g, '$1');
+}
+
 export function extractRegistrations(lepusCode: string): string {
+  const code = stripJsComments(lepusCode);
   const out: string[] = [];
   const marker = 'registerWorkletInternal(';
   let from = 0;
 
   while (true) {
-    const idx = lepusCode.indexOf(marker, from);
+    const idx = code.indexOf(marker, from);
     if (idx === -1) break;
 
     let depth = 0;
     let i = idx + marker.length - 1; // points at the opening '('
-    for (; i < lepusCode.length; i++) {
-      const ch = lepusCode[i];
+    for (; i < code.length; i++) {
+      const ch = code[i];
       if (ch === '(') depth++;
       else if (ch === ')') {
         depth--;
@@ -88,8 +109,8 @@ export function extractRegistrations(lepusCode: string): string {
     }
 
     let end = i + 1;
-    if (end < lepusCode.length && lepusCode[end] === ';') end++;
-    out.push(lepusCode.slice(idx, end));
+    if (end < code.length && code[end] === ';') end++;
+    out.push(code.slice(idx, end));
     from = end;
   }
 

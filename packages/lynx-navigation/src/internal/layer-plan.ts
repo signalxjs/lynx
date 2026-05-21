@@ -41,13 +41,13 @@
  * scroll, in-flight inputs) survives.
  */
 import type { SharedValue } from '@sigx/lynx';
-import { SCREEN_HEIGHT, SCREEN_WIDTH } from './screen-width';
+import { SCREEN_HEIGHT, SCREEN_WIDTH } from './screen-width.js';
 import type {
     Presentation,
     StackEntry,
     TransitionKind,
     TransitionState,
-} from '../types';
+} from '../types.js';
 
 const PARALLAX_FACTOR = 0.3;
 

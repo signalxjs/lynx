@@ -7,8 +7,8 @@ import {
     type MainThread,
 } from '@sigx/lynx';
 import { withTiming } from '@sigx/lynx-motion';
-import { useNavInternals } from '../hooks/use-nav-internal';
-import { SCREEN_WIDTH } from '../internal/screen-width';
+import { useNavInternals } from '../hooks/use-nav-internal.js';
+import { SCREEN_WIDTH } from '../internal/screen-width.js';
 
 /**
  * Edge-pan recognizer for iOS-style swipe-back. Mounts as an absolutely-

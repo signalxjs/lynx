@@ -9,7 +9,7 @@ import {
   type Define,
   type MainThread,
 } from '@sigx/lynx';
-import { useScrollContext } from '../scroll-context';
+import { useScrollContext } from '../scroll-context.js';
 
 export type SwipeSide = 'left' | 'right';
 

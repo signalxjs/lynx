@@ -1,5 +1,5 @@
-import type { ResolvedConfig } from '../config/parser';
-import type { IosAppDelegateHookMethod, ModuleManifest } from '../manifest';
+import type { ResolvedConfig } from '../config/parser.js';
+import type { IosAppDelegateHookMethod, ModuleManifest } from '../manifest.js';
 
 /**
  * iOS auto-linker.

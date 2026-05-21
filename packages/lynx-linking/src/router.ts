@@ -1,7 +1,7 @@
 import { onMounted, onUnmounted } from 'sigx';
 import { useRouter } from '@sigx/router';
-import { Linking } from './linking';
-import { parse } from './parse';
+import { Linking } from './linking.js';
+import { parse } from './parse.js';
 
 export interface UseLinkingRouterOptions {
     /**

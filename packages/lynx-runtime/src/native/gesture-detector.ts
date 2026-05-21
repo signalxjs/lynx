@@ -18,9 +18,9 @@
  */
 
 import { onMounted, onUnmounted } from '@sigx/runtime-core';
-import { OP, pushOp, scheduleFlush } from '../op-queue';
-import { registerWorkletCtx } from '../run-on-background';
-import { MainThreadRef, sanitizeCaptured } from '../main-thread-ref';
+import { OP, pushOp, scheduleFlush } from '../op-queue.js';
+import { registerWorkletCtx } from '../run-on-background.js';
+import { MainThreadRef, sanitizeCaptured } from '../main-thread-ref.js';
 
 // ---------------------------------------------------------------------------
 // Gesture type enum

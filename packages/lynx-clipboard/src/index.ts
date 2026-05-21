@@ -1,1 +1,1 @@
-export { Clipboard } from './clipboard';
+export { Clipboard } from './clipboard.js';

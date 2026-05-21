@@ -14,21 +14,21 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { join } from 'node:path';
-import { fetchLatestVersion } from './util/registry';
+import { fetchLatestVersion } from './util/registry.js';
 import {
     detectPackageManager,
     installCommand,
     resolveBinary,
     type PackageManager,
-} from './util/package-manager';
-import { isDirtyTree } from './util/git';
+} from './util/package-manager.js';
+import { isDirtyTree } from './util/git.js';
 import {
     findSigxDeps,
     hasNativeModule,
     readPackageJson,
     rewritePackageJson,
     type SigxDep,
-} from './util/sigx-packages';
+} from './util/sigx-packages.js';
 
 export interface UpgradeOptions {
     cwd: string;

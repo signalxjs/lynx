@@ -2,7 +2,7 @@ import { component, type Define } from '@sigx/lynx';
 import { codepoints } from '@sigx/lynx-icons/__codepoints';
 import { svgs } from '@sigx/lynx-icons/__svgs';
 import '@sigx/lynx-icons/__font-face.css';
-import { lookupGlyph } from './registry';
+import { lookupGlyph } from './registry.js';
 
 export type IconProps =
     & Define.Prop<'set', string, true>

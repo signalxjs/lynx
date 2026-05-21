@@ -1,6 +1,6 @@
 import { signal } from '@sigx/lynx';
-import type { UsePinchOptions, UsePinchReturn, TouchEvent, PinchState, TouchPoint } from './types';
-import { distance, midpoint } from './utils';
+import type { UsePinchOptions, UsePinchReturn, TouchEvent, PinchState, TouchPoint } from './types.js';
+import { distance, midpoint } from './utils.js';
 
 /**
  * Two-finger pinch/zoom gesture.

@@ -5,8 +5,8 @@
 // changes. The other legacy hooks (`useTap`, `useLongPress`, `usePan`,
 // `useFling`, `useSwipe`, `useGesture`, `usePanResponder`) were deleted in
 // Phase 2.12.4 — use `Gesture.*` + `useGestureDetector` instead.
-export { usePinch } from './use-pinch';
-export { useRotation } from './use-rotation';
+export { usePinch } from './use-pinch.js';
+export { useRotation } from './use-rotation.js';
 
 // Cross-thread value primitive — re-exported from @sigx/lynx for back-compat.
 // @deprecated since 0.3.0 — import directly from '@sigx/lynx' instead.
@@ -31,20 +31,20 @@ export type {
 } from '@sigx/lynx';
 
 // Built-in MT components (arena-driven via `Gesture.*` + `useGestureDetector`).
-export { Pressable } from './components/Pressable';
-export type { PressableProps } from './components/Pressable';
-export { Draggable } from './components/Draggable';
-export type { DraggableProps, DragEndDetail } from './components/Draggable';
-export { Swipeable } from './components/Swipeable';
-export type { SwipeableProps, SwipeSide } from './components/Swipeable';
-export { ScrollView } from './components/ScrollView';
-export type { ScrollViewProps } from './components/ScrollView';
+export { Pressable } from './components/Pressable.js';
+export type { PressableProps } from './components/Pressable.js';
+export { Draggable } from './components/Draggable.js';
+export type { DraggableProps, DragEndDetail } from './components/Draggable.js';
+export { Swipeable } from './components/Swipeable.js';
+export type { SwipeableProps, SwipeSide } from './components/Swipeable.js';
+export { ScrollView } from './components/ScrollView.js';
+export type { ScrollViewProps } from './components/ScrollView.js';
 
 // ScrollView ↔ child-gesture coordination (Phase 2.12.3). Public mostly so
 // custom gesture components can opt in to the same auto-yield behavior that
 // `<Draggable>` and `<Swipeable>` get for free.
-export { useScrollContext } from './scroll-context';
-export type { ScrollContext } from './scroll-context';
+export { useScrollContext } from './scroll-context.js';
+export type { ScrollContext } from './scroll-context.js';
 
 // Types
 export type {
@@ -58,4 +58,4 @@ export type {
   RotationState,
   UseRotationOptions,
   UseRotationReturn,
-} from './types';
+} from './types.js';

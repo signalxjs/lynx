@@ -1,8 +1,8 @@
-export { Linking } from './linking';
-export type { URLEvent, URLListener, URLSubscription } from './linking';
+export { Linking } from './linking.js';
+export type { URLEvent, URLListener, URLSubscription } from './linking.js';
 
-export { BackHandler } from './back-handler';
-export type { BackHandlerSubscription } from './back-handler';
+export { BackHandler } from './back-handler.js';
+export type { BackHandlerSubscription } from './back-handler.js';
 
-export { parse, createURL } from './parse';
-export type { ParsedURL } from './parse';
+export { parse, createURL } from './parse.js';
+export type { ParsedURL } from './parse.js';

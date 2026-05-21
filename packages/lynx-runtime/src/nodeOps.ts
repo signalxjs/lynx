@@ -7,10 +7,10 @@
  * sigxPatchUpdate, where ops-apply.ts dispatches them to real PAPI calls.
  */
 import type { RendererOptions } from '@sigx/runtime-core/internals';
-import { OP, pushOp, scheduleFlush } from './op-queue';
-import { register, unregister } from './event-registry';
-import { ShadowElement } from './shadow-element';
-import { registerWorkletCtx } from './run-on-background';
+import { OP, pushOp, scheduleFlush } from './op-queue.js';
+import { register, unregister } from './event-registry.js';
+import { ShadowElement } from './shadow-element.js';
+import { registerWorkletCtx } from './run-on-background.js';
 
 // ---------------------------------------------------------------------------
 // Re-export ShadowElement as the HostNode / HostElement type
@@ -70,7 +70,7 @@ function parseEventProp(key: string): EventSpec | null {
 // 'main thread' functions with { _wkltId, _c? } placeholders in the BG bundle.
 // ---------------------------------------------------------------------------
 
-import { MainThreadRef, sanitizeCaptured } from './main-thread-ref';
+import { MainThreadRef, sanitizeCaptured } from './main-thread-ref.js';
 
 interface WorkletPlaceholder {
   _wkltId: string;

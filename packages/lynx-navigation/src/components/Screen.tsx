@@ -31,9 +31,9 @@
  * declarative and grep-friendly.
  */
 import { component, onUnmounted, type Define } from '@sigx/lynx';
-import { useScreenRegistry } from '../hooks/use-nav-internal';
-import { mergeOptions, setSlot } from '../internal/screen-registry';
-import type { ScreenOptions } from '../types';
+import { useScreenRegistry } from '../hooks/use-nav-internal.js';
+import { mergeOptions, setSlot } from '../internal/screen-registry.js';
+import type { ScreenOptions } from '../types.js';
 
 type ScreenProps =
     & Define.Prop<'title', string | (() => string)>
