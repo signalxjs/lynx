@@ -59,6 +59,7 @@ export default definePlugin({
                 ios: { type: 'boolean', description: 'Target iOS only (skip picker)', default: false },
                 android: { type: 'boolean', description: 'Target Android only (skip picker)', default: false },
                 all: { type: 'boolean', description: 'Auto-target every connected device (skip picker)', default: false },
+                last: { type: 'boolean', description: 'Reuse last selected targets (skip picker)', default: false },
                 verbose: { type: 'boolean', description: 'Stream raw xcodebuild/gradle output (default: filtered)', default: false },
                 'no-device-logs': { type: 'boolean', description: 'Suppress JS console.* streaming from running devices', default: false },
             },
@@ -106,17 +107,67 @@ export default definePlugin({
                 const flagIos = ctx.args.ios as boolean;
                 const flagAndroid = ctx.args.android as boolean;
                 const flagAll = ctx.args.all as boolean;
+                const flagLast = ctx.args.last as boolean;
                 const anyFlag = flagIos || flagAndroid || flagAll;
 
                 const { resolveVerbose } = await import('./build-output.js');
                 const verbose = resolveVerbose(ctx.args.verbose);
 
-                const { pickTargets, materializeTargets } = await import('./target-picker.js');
+                const { pickTargets, materializeTargets, listAndroidAvds, avdMtime } = await import('./target-picker.js');
+                const { readLastTargets, writeLastTargets } = await import('./target-history.js');
                 type Target = import('./target-picker.js').SelectedTarget;
 
-                let selected: Target[] | null;
+                const lastTargets = readLastTargets(ctx.cwd);
+                let selected: Target[] | null = null;
+                let pickedInteractively = false;
 
-                if (anyFlag) {
+                // --last fast path: resolve stored targets against current
+                // detection. If at least one resolves, skip the picker.
+                if (flagLast && !anyFlag) {
+                    if (lastTargets.length === 0) {
+                        ctx.logger.log('No previous target selection saved yet — falling back to picker.');
+                    } else {
+                        const { listBootedSimulators, listConnectedIosDevices, listAndroidDevices, listAllSimulators } = await import('./device-detect.js');
+                        const bootedIosUdids = new Set(listBootedSimulators().map((s) => s.udid));
+                        const availIosUdids = new Set(listAllSimulators().map((s) => s.udid));
+                        const iosDeviceUdids = new Set(listConnectedIosDevices().map((d) => d.udid));
+                        const androidSerials = new Set(listAndroidDevices().map((d) => d.id));
+                        const avdNames = new Set(listAndroidAvds());
+                        const resolved: Target[] = [];
+                        for (const t of lastTargets) {
+                            if (t.kind === 'ios-simulator') {
+                                if (bootedIosUdids.has(t.udid)) resolved.push({ ...t, needsBoot: false });
+                                else if (availIosUdids.has(t.udid)) resolved.push({ ...t, needsBoot: true });
+                                else ctx.logger.warn(`Skipping last-used iOS simulator "${t.name}" — not currently available.`);
+                            } else if (t.kind === 'ios-device') {
+                                if (iosDeviceUdids.has(t.udid)) resolved.push(t);
+                                else ctx.logger.warn(`Skipping last-used iOS device "${t.name}" — not currently connected.`);
+                            } else if (t.kind === 'android-device') {
+                                if (androidSerials.has(t.deviceId)) resolved.push(t);
+                                else ctx.logger.warn(`Skipping last-used Android device "${t.model ?? t.deviceId}" — not currently connected.`);
+                            } else if (t.kind === 'android-avd') {
+                                if (avdNames.has(t.avdName)) resolved.push(t);
+                                else ctx.logger.warn(`Skipping last-used AVD "${t.avdName}" — not found.`);
+                            }
+                        }
+                        if (resolved.length > 0) {
+                            selected = resolved;
+                        } else {
+                            ctx.logger.log('No previously-used targets are currently available — falling back to picker.');
+                        }
+                    }
+                }
+
+                // Pick the most-recently-launched AVD as the auto-boot fallback,
+                // matching what the interactive picker shows first. avdMtime
+                // reads `~/.android/avd/<name>.avd/` directory mtime, which the
+                // emulator updates on launch.
+                const pickMruAvd = (avds: string[]): string | undefined =>
+                    avds.length === 0
+                        ? undefined
+                        : [...avds].sort((a, b) => avdMtime(b) - avdMtime(a) || a.localeCompare(b))[0];
+
+                if (selected === null && anyFlag) {
                     // Flag-driven: build target list from current detection, filtered by flag.
                     const { listBootedSimulators, listConnectedIosDevices, listAndroidDevices, resolveIosSimulator } = await import('./device-detect.js');
                     const all: Target[] = [];
@@ -148,23 +199,23 @@ export default definePlugin({
                         // If nothing Android-shaped is live, launch the most-recent AVD
                         // so `--android` mirrors the iOS auto-boot fallback above.
                         if (androidDevices.length === 0) {
-                            const { listAndroidAvds } = await import('./target-picker.js');
-                            const avds = listAndroidAvds();
-                            if (avds.length > 0) {
-                                all.push({ kind: 'android-avd', avdName: avds[0] });
+                            const mru = pickMruAvd(listAndroidAvds());
+                            if (mru) {
+                                all.push({ kind: 'android-avd', avdName: mru });
                             } else {
                                 ctx.logger.warn('No Android devices connected and no AVDs found. Open Android Studio → Device Manager to create one.');
                             }
                         }
                     }
                     selected = all;
-                } else if (process.stdin.isTTY) {
-                    selected = await pickTargets({ hasAndroid, hasIos });
+                } else if (selected === null && process.stdin.isTTY) {
+                    selected = await pickTargets({ hasAndroid, hasIos, lastTargets });
                     if (selected === null) {
                         ctx.logger.log('Cancelled.');
                         process.exit(0);
                     }
-                } else {
+                    pickedInteractively = true;
+                } else if (selected === null) {
                     // Non-TTY, no flags: behave like --all.
                     ctx.logger.log('Non-TTY environment — auto-targeting all detected devices (pass --ios/--android to narrow).');
                     const { listBootedSimulators, listConnectedIosDevices, listAndroidDevices, resolveIosSimulator } = await import('./device-detect.js');
@@ -189,14 +240,25 @@ export default definePlugin({
                             all.push({ kind: 'android-device', deviceId: d.id, model: d.model });
                         }
                         if (androidDevices.length === 0) {
-                            const { listAndroidAvds } = await import('./target-picker.js');
-                            const avds = listAndroidAvds();
-                            if (avds.length > 0) {
-                                all.push({ kind: 'android-avd', avdName: avds[0] });
-                            }
+                            const mru = pickMruAvd(listAndroidAvds());
+                            if (mru) all.push({ kind: 'android-avd', avdName: mru });
                         }
                     }
                     selected = all;
+                }
+
+                // Persist only when the user actively confirmed an interactive
+                // picker selection. Skip --last (nothing changed), flag-driven
+                // (scripted invocations), and non-TTY paths.
+                if (pickedInteractively && selected && selected.length > 0) {
+                    writeLastTargets(ctx.cwd, selected);
+                    ctx.logger.log('\x1b[2m✓ Saved target selection — next `sigx dev` will pre-check these. Use `sigx dev --last` to skip the picker entirely.\x1b[0m');
+                }
+
+                if (selected === null) {
+                    // All branches above assign — this is just here to narrow.
+                    ctx.logger.error('Unable to determine dev targets.');
+                    process.exit(1);
                 }
 
                 // Materialize (boot sims, launch AVDs, wait for them to come up).
