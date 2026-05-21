@@ -3,22 +3,22 @@
 // global JSX intrinsic element types. Only activate when the app explicitly
 // imports '@sigx/lynx-runtime'.
 /// <reference path="./shims.d.ts" />
-import './jsx';
-import './types';
-import './model-processor';
+import './jsx.js';
+import './types.js';
+import './model-processor.js';
 // Side-effect: subscribes to Lynx.Sigx.PublishEvent on the JS context so
 // MT-side hybrid worklets can fire BG handlers via the existing event-registry.
-import './bg-bridge';
+import './bg-bridge.js';
 // Side-effect (lazy): imports the runOnBackground module so its listener can
 // be registered on the first registerWorkletCtx() call. The module's init()
 // is gated to first-use, so this import is cheap.
-import './run-on-background';
+import './run-on-background.js';
 
-export { render, lynxMount } from './render';
-export { nodeOps } from './nodeOps';
-export type { LynxNode, LynxElement } from './nodeOps';
-export { ShadowElement, createPageRoot, resetShadowState } from './shadow-element';
-export { pushOp, takeOps, scheduleFlush, flushNow, resetOpQueue } from './op-queue';
+export { render, lynxMount } from './render.js';
+export { nodeOps } from './nodeOps.js';
+export type { LynxNode, LynxElement } from './nodeOps.js';
+export { ShadowElement, createPageRoot, resetShadowState } from './shadow-element.js';
+export { pushOp, takeOps, scheduleFlush, flushNow, resetOpQueue } from './op-queue.js';
 export { OP } from '@sigx/lynx-runtime-internal';
 export type {
   OpCode,
@@ -34,7 +34,7 @@ export {
   getHandler,
   publishEvent,
   resetRegistry,
-} from './event-registry';
+} from './event-registry.js';
 
 // ---------------------------------------------------------------------------
 // Main Thread Script (MTS) APIs
@@ -44,14 +44,14 @@ export {
   MainThreadRef,
   useMainThreadRef,
   resetWvidCounter,
-} from './main-thread-ref';
+} from './main-thread-ref.js';
 
-export { useElementLayout } from './use-element-layout';
+export { useElementLayout } from './use-element-layout.js';
 export type {
   ElementLayout,
   LayoutChangeEvent,
   UseElementLayoutResult,
-} from './use-element-layout';
+} from './use-element-layout.js';
 
 export {
   registerBgSink,
@@ -59,25 +59,25 @@ export {
   ingestAvPublishes,
   resetBgAvBridge,
   bgAvSinkCount,
-} from './animated-bridge';
+} from './animated-bridge.js';
 
 export {
   useSharedValue,
   SharedValue,
-} from './animated/shared-value';
-export type { SharedValueState } from './animated/shared-value';
+} from './animated/shared-value.js';
+export type { SharedValueState } from './animated/shared-value.js';
 export {
   useAnimatedStyle,
   resetAnimatedStyleBindingIds,
-} from './animated/use-animated-style';
+} from './animated/use-animated-style.js';
 
 // @deprecated since Phase 2.8 — use `SharedValue` / `useSharedValue` /
 // `SharedValueState` instead. Kept for one minor cycle.
 export {
   useAnimatedValue,
   AnimatedValue,
-} from './animated/animated-value';
-export type { AnimatedValueState } from './animated/animated-value';
+} from './animated/animated-value.js';
+export type { AnimatedValueState } from './animated/animated-value.js';
 
 export {
   runOnMainThread,
@@ -85,7 +85,7 @@ export {
   resetThreading,
   transformToWorklet,
   resetRunOnBackgroundState,
-} from './threading';
+} from './threading.js';
 
 // ---------------------------------------------------------------------------
 // Native gesture detector — Gesture builder + useGestureDetector hook
@@ -96,7 +96,7 @@ export {
   GestureType,
   useGestureDetector,
   resetGestureIdCounter,
-} from './native/index';
+} from './native/index.js';
 export type {
   GestureTypeValue,
   GestureWorklet,
@@ -104,7 +104,7 @@ export type {
   BaseGesture,
   ComposedGesture,
   AnyGesture,
-} from './native/index';
+} from './native/index.js';
 
 // Re-export Lynx JSX attribute types so users can write
 //   import type { ViewAttributes } from '@sigx/lynx-runtime'
@@ -124,4 +124,4 @@ export type {
   SvgAttributes,
   FilterImageAttributes,
   MainThread,
-} from './jsx';
+} from './jsx.js';

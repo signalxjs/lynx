@@ -20,7 +20,7 @@
  */
 
 import { transformReactLynxSync } from '@lynx-js/react/transform';
-import { _getJsContext, _resetJsContextSpy } from './setup';
+import { _getJsContext, _resetJsContextSpy } from './setup.js';
 
 /**
  * Synthetic `MainThreadRef` shape — `{ current, _wvid }`. Worklets read

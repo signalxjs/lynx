@@ -1,7 +1,7 @@
 import { effect, onMounted, onUnmounted } from '@sigx/lynx';
-import { useNav } from './use-nav';
-import { useNavRoutes } from './use-nav-internal';
-import type { StackEntry } from '../types';
+import { useNav } from './use-nav.js';
+import { useNavRoutes } from './use-nav-internal.js';
+import type { StackEntry } from '../types.js';
 
 /**
  * Plain JSON snapshot of a navigator. The whole point of holding navigation

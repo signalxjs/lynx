@@ -12,13 +12,13 @@ import { spawn, execSync, type ChildProcess } from 'node:child_process';
 import { readFileSync, existsSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { createServer } from 'node:net';
-import { getAllLanIPs } from './network';
-import { generateQR } from './qr';
-import { getDeviceStatus, getDeviceStatusCached, invalidateDeviceStatusCache, launchLynxGo, launchApp, launchIosApp, launchAppOnDevice, installAppOnDevice, resolveIosSimulator, bootSimulator, listAllSimulators, installAppOnSimulator, findBuiltApp, adbReverse, forceStopApp, LYNX_GO_PACKAGE, type DeviceStatus } from './device-detect';
-import { runWithBuildFilter } from './build-output';
+import { getAllLanIPs } from './network.js';
+import { generateQR } from './qr.js';
+import { getDeviceStatus, getDeviceStatusCached, invalidateDeviceStatusCache, launchLynxGo, launchApp, launchIosApp, launchAppOnDevice, installAppOnDevice, resolveIosSimulator, bootSimulator, listAllSimulators, installAppOnSimulator, findBuiltApp, adbReverse, forceStopApp, LYNX_GO_PACKAGE, type DeviceStatus } from './device-detect.js';
+import { runWithBuildFilter } from './build-output.js';
 import type { Logger } from '@sigx/cli/plugin';
-import type { SelectedTarget } from './target-picker';
-import { parseDeviceLogLine, formatDeviceLogLine, LOG_SENTINEL } from './device-log';
+import type { SelectedTarget } from './target-picker.js';
+import { parseDeviceLogLine, formatDeviceLogLine, LOG_SENTINEL } from './device-log.js';
 
 export interface DevServerOptions {
     cwd: string;

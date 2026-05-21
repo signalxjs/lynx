@@ -3,7 +3,7 @@ export {
   GestureType,
   useGestureDetector,
   resetGestureIdCounter,
-} from './gesture-detector';
+} from './gesture-detector.js';
 export type {
   GestureTypeValue,
   GestureWorklet,
@@ -11,4 +11,4 @@ export type {
   BaseGesture,
   ComposedGesture,
   AnyGesture,
-} from './gesture-detector';
+} from './gesture-detector.js';

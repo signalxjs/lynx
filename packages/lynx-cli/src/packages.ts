@@ -11,7 +11,7 @@
  */
 
 import { spawnSync } from 'node:child_process';
-import { fetchLatestVersion } from './util/registry';
+import { fetchLatestVersion } from './util/registry.js';
 import {
     addCommand as buildAddCmd,
     detectPackageManager,
@@ -19,8 +19,8 @@ import {
     resolveBinary,
     type PackageManager,
     type RunCommand,
-} from './util/package-manager';
-import { isDirtyTree } from './util/git';
+} from './util/package-manager.js';
+import { isDirtyTree } from './util/git.js';
 import {
     dominantVersion,
     expandShortName,
@@ -30,7 +30,7 @@ import {
     isSigxLynxName,
     readPackageJson,
     suggestSimilar,
-} from './util/sigx-packages';
+} from './util/sigx-packages.js';
 
 export interface AddOptions {
     cwd: string;

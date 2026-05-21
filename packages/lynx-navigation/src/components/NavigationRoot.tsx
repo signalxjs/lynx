@@ -1,10 +1,10 @@
 import { component, defineProvide, useSharedValue, type Define } from '@sigx/lynx';
-import { createNavigatorState } from '../navigator/core';
-import { useNav } from '../hooks/use-nav';
-import { useNavInternals, useNavRoutes } from '../hooks/use-nav-internal';
-import type { RouteId } from '../register';
-import type { Presentation, RouteMap, StackEntry } from '../types';
-import { _setRouteRegistry } from '../url/registry';
+import { createNavigatorState } from '../navigator/core.js';
+import { useNav } from '../hooks/use-nav.js';
+import { useNavInternals, useNavRoutes } from '../hooks/use-nav-internal.js';
+import type { RouteId } from '../register.js';
+import type { Presentation, RouteMap, StackEntry } from '../types.js';
+import { _setRouteRegistry } from '../url/registry.js';
 
 type NavigationRootProps =
     & Define.Prop<'routes', RouteMap, true>

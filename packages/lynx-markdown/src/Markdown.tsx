@@ -1,10 +1,10 @@
 import { component, type Define } from '@sigx/lynx';
-import './jsx-augment';
+import './jsx-augment.js';
 import type {
     MarkdownLinkEvent,
     MarkdownImageTapEvent,
     MarkdownParseEndEvent,
-} from './jsx-augment';
+} from './jsx-augment.js';
 
 export type MarkdownEffect = 'typewriter' | 'none' | (string & {});
 

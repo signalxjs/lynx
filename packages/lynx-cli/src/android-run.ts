@@ -11,9 +11,9 @@ import { execSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Logger } from '@sigx/cli/plugin';
-import { runPrebuild } from './prebuild';
-import { resolveAdb } from './device-detect';
-import { runWithBuildFilter } from './build-output';
+import { runPrebuild } from './prebuild.js';
+import { resolveAdb } from './device-detect.js';
+import { runWithBuildFilter } from './build-output.js';
 
 /**
  * Discover the Android SDK root. Mirrors the candidate list in

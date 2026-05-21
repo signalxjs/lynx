@@ -1,5 +1,5 @@
-export { linkAndroid } from './android';
-export type { AndroidLinkResult } from './android';
+export { linkAndroid } from './android.js';
+export type { AndroidLinkResult } from './android.js';
 
-export { linkIos } from './ios';
-export type { IosLinkResult } from './ios';
+export { linkIos } from './ios.js';
+export type { IosLinkResult } from './ios.js';

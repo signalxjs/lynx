@@ -16,7 +16,7 @@ import { createRequire } from 'node:module';
 
 import type { RsbuildPluginAPI } from '@rsbuild/core';
 
-import { LAYERS } from './layers';
+import { LAYERS } from './layers.js';
 
 const PLUGIN_TEMPLATE = 'lynx:sigx-template';
 const PLUGIN_MARK_MAIN_THREAD = 'lynx:sigx-mark-main-thread';

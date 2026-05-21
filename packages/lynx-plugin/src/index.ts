@@ -21,11 +21,11 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { RsbuildPlugin } from '@rsbuild/core';
 
-import { applyCSS } from './css';
-import { applyEntry } from './entry';
-import { applyIcons } from './icons';
-import { LAYERS } from './layers';
-import { createLogWebSocketServer, LOG_ENDPOINT_PATH, type LogWebSocketServer } from './log-server';
+import { applyCSS } from './css.js';
+import { applyEntry } from './entry.js';
+import { applyIcons } from './icons.js';
+import { LAYERS } from './layers.js';
+import { createLogWebSocketServer, LOG_ENDPOINT_PATH, type LogWebSocketServer } from './log-server.js';
 
 export { LAYERS, applyEntry };
 

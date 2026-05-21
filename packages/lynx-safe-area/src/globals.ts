@@ -1,4 +1,4 @@
-import { type EdgeInsets, ZERO_INSETS } from './types';
+import { type EdgeInsets, ZERO_INSETS } from './types.js';
 
 /**
  * The key under `lynx.__globalProps` where the native publisher writes the

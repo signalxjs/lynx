@@ -1,2 +1,2 @@
-export { DeviceInfo } from './device-info';
-export type { DeviceInfoResult } from './device-info';
+export { DeviceInfo } from './device-info.js';
+export type { DeviceInfoResult } from './device-info.js';

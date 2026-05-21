@@ -10,14 +10,14 @@
  * latest, lockstepped version.
  */
 
-import { fetchLatestVersion } from './util/registry';
+import { fetchLatestVersion } from './util/registry.js';
 import {
     findSigxDeps,
     readInstalledVersion,
     readPackageJson,
     SIGX_LYNX_PREFIX,
     type SigxDep,
-} from './util/sigx-packages';
+} from './util/sigx-packages.js';
 
 export interface OutdatedOptions {
     cwd: string;

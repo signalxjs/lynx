@@ -1,5 +1,5 @@
-import { registerIconSet } from './registry';
-import type { IconSetDef } from './types';
+import { registerIconSet } from './registry.js';
+import type { IconSetDef } from './types.js';
 
 /**
  * Register a custom icon set at module load time.
@@ -30,4 +30,4 @@ export function defineIconSet(def: IconSetDef): IconSetDef {
     return def;
 }
 
-export type { IconSetDef } from './types';
+export type { IconSetDef } from './types.js';

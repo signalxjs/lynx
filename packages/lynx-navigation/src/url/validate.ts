@@ -6,7 +6,7 @@
  * sync, which covers the common case. Async validators throw a clear error.
  */
 
-import type { StandardSchemaV1 } from '../types';
+import type { StandardSchemaV1 } from '../types.js';
 
 /**
  * Extended runtime view of a Standard Schema — adds the `validate` function

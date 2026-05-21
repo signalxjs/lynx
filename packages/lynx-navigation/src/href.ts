@@ -1,9 +1,9 @@
-import type { RouteId, RouteParams, RouteSearch } from './register';
-import type { RoutesWithoutParams, RoutesWithParams } from './hooks/use-nav';
-import { buildUrl } from './url/build';
-import { parseHrefImpl } from './url/parse';
-import { getRouteRegistry } from './url/registry';
-import { validateSync } from './url/validate';
+import type { RouteId, RouteParams, RouteSearch } from './register.js';
+import type { RoutesWithoutParams, RoutesWithParams } from './hooks/use-nav.js';
+import { buildUrl } from './url/build.js';
+import { parseHrefImpl } from './url/parse.js';
+import { getRouteRegistry } from './url/registry.js';
+import { validateSync } from './url/validate.js';
 
 /**
  * A typed reference to a navigation target — what `<Link to={...}>` consumes

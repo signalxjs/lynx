@@ -26,8 +26,9 @@
         "THIRD_PARTY_NOTICES.md"
     ],
     "scripts": {
-        "build": "vite build && tsgo --emitDeclarationOnly",
-        "dev": "vite build --watch"
+        "build": "node ../../scripts/clean.mjs dist && tsgo",
+        "dev": "tsgo --watch",
+        "clean": "node ../../scripts/clean.mjs dist .turbo"
     },
     "keywords": [
         "sigx",
@@ -58,9 +59,8 @@
     },
     "devDependencies": {
         "@lynx-js/types": "^3.9.0",
-        "@sigx/vite": "^0.4.3",
-        "typescript": "^6.0.3",
-        "vite": "^8.0.12"
+        "@typescript/native-preview": "7.0.0-dev.20260511.1",
+        "typescript": "^6.0.3"
     },
     "publishConfig": {
         "access": "public"

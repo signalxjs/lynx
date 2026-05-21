@@ -16,12 +16,13 @@
         "dist"
     ],
     "scripts": {
-        "build": "vite build && tsgo --emitDeclarationOnly",
-        "dev": "vite build --watch",
+        "build": "node ../../scripts/clean.mjs dist && tsgo",
+        "dev": "tsgo --watch",
         "test": "vitest run",
         "test:types": "tsc --noEmit",
         "bench": "vitest bench --run",
-        "prepublishOnly": "vite build && tsgo --emitDeclarationOnly"
+        "prepublishOnly": "node ../../scripts/clean.mjs dist && tsgo",
+        "clean": "node ../../scripts/clean.mjs dist .turbo"
     },
     "peerDependencies": {
         "@sigx/lynx": "workspace:^",
@@ -36,11 +37,11 @@
     "devDependencies": {
         "@sigx/lynx": "workspace:^",
         "@sigx/lynx-linking": "workspace:^",
-        "@sigx/lynx-testing": "workspace:^",
         "@sigx/lynx-motion": "workspace:^",
+        "@sigx/lynx-testing": "workspace:^",
+        "@typescript/native-preview": "7.0.0-dev.20260511.1",
         "typescript": "^6.0.3",
-        "vitest": "^4.1.6",
-        "@sigx/vite": "^0.4.3"
+        "vitest": "^4.1.6"
     },
     "keywords": [
         "sigx",

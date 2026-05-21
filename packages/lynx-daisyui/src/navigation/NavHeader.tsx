@@ -21,7 +21,7 @@
 import { component, type Define, type JSXElement } from '@sigx/lynx';
 import { Pressable } from '@sigx/lynx-gestures';
 import { useScreenChrome } from '@sigx/lynx-navigation';
-import { PRESSED_SCALE, PRESSED_OPACITY } from '../shared/press';
+import { PRESSED_SCALE, PRESSED_OPACITY } from '../shared/press.js';
 
 export type NavHeaderBackground = 'base-100' | 'base-200' | 'base-300' | 'transparent';
 

@@ -27,9 +27,9 @@
  * subscribes to the underlying signal, so consumers re-render when
  * title / slots change.
  */
-import { useNav } from './use-nav';
-import { useCurrentEntryOptional, useNavInternals } from './use-nav-internal';
-import type { ScreenSlotFills, StackEntry } from '../types';
+import { useNav } from './use-nav.js';
+import { useCurrentEntryOptional, useNavInternals } from './use-nav-internal.js';
+import type { ScreenSlotFills, StackEntry } from '../types.js';
 
 export interface ScreenChrome {
     /** Resolved screen title — `options.title` (string or getter) or the route name as fallback. Reactive. */

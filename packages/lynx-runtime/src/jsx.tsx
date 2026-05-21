@@ -18,7 +18,7 @@
  */
 
 import type { Model } from '@sigx/runtime-core';
-import type { MainThreadRef } from './main-thread-ref';
+import type { MainThreadRef } from './main-thread-ref.js';
 
 // ---------------------------------------------------------------------------
 // Common Lynx event handler types

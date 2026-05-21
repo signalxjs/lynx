@@ -1,6 +1,6 @@
 import { component, type Define } from '@sigx/lynx';
-import { useSafeAreaInsets } from './hooks';
-import type { Edge, SafeAreaMode } from './types';
+import { useSafeAreaInsets } from './hooks.js';
+import type { Edge, SafeAreaMode } from './types.js';
 
 export type SafeAreaViewProps =
   & Define.Prop<'edges', Edge[], false>

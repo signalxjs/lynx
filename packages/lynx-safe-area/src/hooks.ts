@@ -1,7 +1,7 @@
 import { computed, type Computed, type PrimitiveSignal } from '@sigx/reactivity';
-import { useSafeAreaContext } from './injectable';
-import { readGlobalSafeArea } from './globals';
-import { ZERO_INSETS, type EdgeInsets, type SafeAreaContextValue } from './types';
+import { useSafeAreaContext } from './injectable.js';
+import { readGlobalSafeArea } from './globals.js';
+import { ZERO_INSETS, type EdgeInsets, type SafeAreaContextValue } from './types.js';
 
 type InsetsRead = PrimitiveSignal<EdgeInsets> | Computed<EdgeInsets>;
 

@@ -1,7 +1,7 @@
 /**
  * Query helpers for finding nodes in a TestNode tree.
  */
-import { TestNode } from './test-node';
+import { TestNode } from './test-node.js';
 
 export function getByType(container: TestNode, type: string): TestNode {
   const node = container.findByType(type);

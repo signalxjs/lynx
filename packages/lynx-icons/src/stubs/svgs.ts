@@ -1,4 +1,4 @@
-import type { SvgMap } from '../types';
+import type { SvgMap } from '../types.js';
 
 /**
  * Empty stub. The @sigx/lynx-plugin icons slice replaces this module via an

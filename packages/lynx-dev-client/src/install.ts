@@ -14,7 +14,7 @@
 // import the streamer has no transport on the Lynx BG runtime.
 import '@sigx/lynx-websocket';
 
-import { installConsoleStreamer } from './streamer';
+import { installConsoleStreamer } from './streamer.js';
 
 declare const __SIGX_DEV_LOG_URL__: string | undefined;
 

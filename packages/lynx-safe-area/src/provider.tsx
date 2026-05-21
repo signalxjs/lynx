@@ -12,9 +12,9 @@ import {
   type MainThread,
   type SharedValue,
 } from '@sigx/lynx';
-import { useSafeAreaContext } from './injectable';
-import { readGlobalSafeArea } from './globals';
-import type { EdgeInsets, SafeAreaContextValue } from './types';
+import { useSafeAreaContext } from './injectable.js';
+import { readGlobalSafeArea } from './globals.js';
+import type { EdgeInsets, SafeAreaContextValue } from './types.js';
 
 /**
  * The native publisher (iOS `SafeAreaPublisher.swift`, Android

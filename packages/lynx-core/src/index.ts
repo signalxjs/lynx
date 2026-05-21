@@ -7,5 +7,5 @@
  * @packageDocumentation
  */
 
-export { getModule, callSync, callAsync, isModuleAvailable, guardModule } from './bridge';
-export type { PermissionStatus, PermissionResponse } from './permissions';
+export { getModule, callSync, callAsync, isModuleAvailable, guardModule } from './bridge.js';
+export type { PermissionStatus, PermissionResponse } from './permissions.js';

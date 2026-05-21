@@ -1,7 +1,7 @@
 import { component, type Define } from '@sigx/lynx';
 import { Pressable } from '@sigx/lynx-gestures';
-import { Loading } from '../feedback/Loading';
-import { PRESSED_SCALE, PRESSED_OPACITY } from '../shared/press';
+import { Loading } from '../feedback/Loading.js';
+import { PRESSED_SCALE, PRESSED_OPACITY } from '../shared/press.js';
 
 export type ButtonVariant =
   | 'primary' | 'secondary' | 'accent' | 'info'

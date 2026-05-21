@@ -27,8 +27,8 @@
  * identifier directly.
  */
 
-import { publishEvent } from './event-registry';
-import { ingestAvPublishes } from './animated-bridge';
+import { publishEvent } from './event-registry.js';
+import { ingestAvPublishes } from './animated-bridge.js';
 
 interface JSContextLike {
   addEventListener?: (

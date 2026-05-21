@@ -35,15 +35,16 @@
         "LICENSE"
     ],
     "scripts": {
-        "build": "vite build && tsgo --emitDeclarationOnly && node ../../scripts/copy-assets.mjs src/stubs dist/stubs",
-        "dev": "vite build --watch"
+        "build": "node ../../scripts/clean.mjs dist && tsgo && node ../../scripts/copy-assets.mjs src/stubs dist/stubs",
+        "dev": "tsgo --watch",
+        "clean": "node ../../scripts/clean.mjs dist .turbo"
     },
     "peerDependencies": {
         "@sigx/lynx": "workspace:^"
     },
     "devDependencies": {
         "@sigx/lynx": "workspace:^",
-        "@sigx/vite": "^0.4.3",
+        "@typescript/native-preview": "7.0.0-dev.20260511.1",
         "typescript": "^6.0.3"
     },
     "author": "Andreas Ekdahl",

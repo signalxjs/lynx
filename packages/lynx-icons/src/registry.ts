@@ -1,4 +1,4 @@
-import type { CodepointMap, GlyphSvg, IconSetDef, SvgMap } from './types';
+import type { CodepointMap, GlyphSvg, IconSetDef, SvgMap } from './types.js';
 
 const runtimeCodepoints: CodepointMap = {};
 const runtimeSvgs: SvgMap = {};

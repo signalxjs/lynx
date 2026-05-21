@@ -9,11 +9,11 @@
  *   - globalThis.sigxPatchUpdate — receives ops from Background Thread
  */
 
-import { elements, setPageUniqueId } from './element-registry';
-import { applyOps, resetMainThreadState, setPlaceholder } from './ops-apply';
-import { invokeWorklet } from './worklet-events';
-import { runOnBackground } from './run-on-background-mt';
-import { installAvBridgeFlushHook } from './animated-bridge-mt';
+import { elements, setPageUniqueId } from './element-registry.js';
+import { applyOps, resetMainThreadState, setPlaceholder } from './ops-apply.js';
+import { invokeWorklet } from './worklet-events.js';
+import { runOnBackground } from './run-on-background-mt.js';
+import { installAvBridgeFlushHook } from './animated-bridge-mt.js';
 
 const g = globalThis as Record<string, unknown>;
 
@@ -149,6 +149,50 @@ g['sigxPatchUpdate'] = function ({ data }: { data: string }): void {
 // hand over a hydrated ctx.
 // ---------------------------------------------------------------------------
 
+/**
+ * Deep-clone a value into a fresh tree whose every object has
+ * `Object.prototype`.
+ *
+ * Why: PrimJS's `JSON.parse` produces null-prototype objects (a prototype-
+ * pollution safety measure that V8 / SpiderMonkey don't apply). Upstream's
+ * worklet runtime (`@lynx-js/react@0.121+`'s `workletRuntime.js`) walks
+ * the captured `_c`, identifies worklet placeholders by `'_wkltId' in
+ * subObj`, and then calls `new WeakRef(subObj)`. PrimJS's `WeakRef` rejects
+ * null-prototype objects with `TypeError: WeakRef: target must be an
+ * object`, so the worklet body never runs.
+ *
+ * `Object.setPrototypeOf` is a silent no-op on PrimJS's JSON.parse output
+ * (the proto slot is locked even with `isExtensible: true`), so the only
+ * way to get an `Object.prototype`-prototyped object is to rebuild it via
+ * `{}` literal. A fresh object literal always has `Object.prototype` by
+ * spec, so deep-cloning the captured tree produces a fully WeakRef-able
+ * shape that's semantically identical for the worklet body.
+ *
+ * JSON.parse output is acyclic by construction, so no cycle detection
+ * needed. Arrays handled separately to keep `Array.isArray` true downstream.
+ */
+function rebuildWithObjectPrototype<T>(value: T): T {
+  if (typeof value !== 'object' || value === null) return value;
+  if (Array.isArray(value)) {
+    return value.map(rebuildWithObjectPrototype) as unknown as T;
+  }
+  // Use `Object.defineProperty` (not `out[k] = ...`) so a `__proto__` key in
+  // the captured payload doesn't trigger the prototype setter on `out` and
+  // re-null the prototype we just gave it. Belt-and-braces against accidental
+  // prototype pollution; in practice `_c` is shaped by `sanitizeCaptured` on
+  // BG and shouldn't carry `__proto__`, but the guarantee is cheap.
+  const out: Record<string, unknown> = {};
+  for (const k of Object.keys(value as Record<string, unknown>)) {
+    Object.defineProperty(out, k, {
+      value: rebuildWithObjectPrototype((value as Record<string, unknown>)[k]),
+      enumerable: true,
+      writable: true,
+      configurable: true,
+    });
+  }
+  return out as unknown as T;
+}
+
 g['sigxRunOnMT'] = function (
   { wkltId, args, captured }: { wkltId: string; args: unknown[]; captured?: Record<string, unknown> },
   callback?: (result: unknown) => void,
@@ -159,10 +203,20 @@ g['sigxRunOnMT'] = function (
     | ((placeholder: { _wkltId: string; _c?: Record<string, unknown> }, args: unknown[]) => unknown)
     | undefined;
   if (captured && typeof runWorkletFn === 'function') {
+    // PrimJS quirk: `JSON.parse` produces null-prototype objects whose proto
+    // slot is locked (`setPrototypeOf` is a silent no-op). Upstream's worklet
+    // runtime calls `new WeakRef(subObj)` on every nested placeholder, and
+    // PrimJS's `WeakRef` rejects null-prototype objects → animations no-op.
+    //
+    // Rebuild the captured tree from scratch via object literals — every
+    // `{}` has `Object.prototype` by construction. Semantically identical
+    // for the worklet body; only upstream's `WeakRef` / `instanceof` checks
+    // are affected, which now succeed.
+    const fixedCaptured = rebuildWithObjectPrototype(captured);
     try {
-      result = runWorkletFn({ _wkltId: wkltId, _c: captured }, argsArr);
+      result = runWorkletFn({ _wkltId: wkltId, _c: fixedCaptured }, argsArr);
     } catch (e) {
-      console.log('[sigx-mt] sigxRunOnMT worklet threw:', String(e));
+      console.log('[sigx-mt] sigxRunOnMT worklet threw:', String(e), 'wkltId=', wkltId);
       result = undefined;
     }
   } else {

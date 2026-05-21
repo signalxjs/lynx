@@ -1,2 +1,2 @@
-export { Share } from './share';
-export type { ShareOptions } from './share';
+export { Share } from './share.js';
+export type { ShareOptions } from './share.js';

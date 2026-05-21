@@ -19,4 +19,4 @@ export {
     type LogLevel,
     type InstallOptions,
     type Uninstall,
-} from './streamer';
+} from './streamer.js';

@@ -4,9 +4,15 @@
         "outDir": "./dist",
         "rootDir": "./src",
         "declaration": true,
-        "emitDeclarationOnly": true,
         "noEmit": false,
-        "jsxImportSource": "@sigx/lynx"
+        "jsxImportSource": "@sigx/lynx",
+        "paths": {
+            "@sigx/lynx-icons/__codepoints": ["./src/stubs/codepoints.ts"],
+            "@sigx/lynx-icons/__svgs": ["./src/stubs/svgs.ts"],
+            "@sigx/lynx-icons/__font-face.css": ["./src/stubs/font-face.css"]
+        }
     },
-    "include": ["src/**/*"]
+    "include": [
+        "src"
+    ]
 }

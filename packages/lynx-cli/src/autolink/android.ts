@@ -1,5 +1,5 @@
-import type { ResolvedConfig, ResolvedModule } from '../config/parser';
-import type { AndroidActivityHookMethod, ModuleManifest } from '../manifest';
+import type { ResolvedConfig, ResolvedModule } from '../config/parser.js';
+import type { AndroidActivityHookMethod, ModuleManifest } from '../manifest.js';
 
 /**
  * Android auto-linker.

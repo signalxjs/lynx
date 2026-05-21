@@ -10,14 +10,14 @@
 
 import { join } from 'node:path';
 import type { Logger } from '@sigx/cli/plugin';
-import { runPrebuild } from './prebuild';
-import { podInstallIfStale } from './ios-pods';
-import { runWithBuildFilter } from './build-output';
+import { runPrebuild } from './prebuild.js';
+import { podInstallIfStale } from './ios-pods.js';
+import { runWithBuildFilter } from './build-output.js';
 import {
     findBuiltApp,
     installAppOnDevice,
     installAppOnSimulator,
-} from './device-detect';
+} from './device-detect.js';
 
 export type IosBuildTarget =
     | { kind: 'simulator'; udid: string; name: string }

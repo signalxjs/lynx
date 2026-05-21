@@ -23,9 +23,10 @@
         "dist"
     ],
     "scripts": {
-        "build": "vite build && tsgo --emitDeclarationOnly",
-        "dev": "vite build --watch",
-        "test": "vitest run"
+        "build": "node ../../scripts/clean.mjs dist && tsgo",
+        "dev": "tsgo --watch",
+        "test": "vitest run",
+        "clean": "node ../../scripts/clean.mjs dist .turbo"
     },
     "keywords": [
         "sigx",
@@ -57,9 +58,8 @@
         }
     },
     "devDependencies": {
-        "@sigx/vite": "^0.4.3",
+        "@typescript/native-preview": "7.0.0-dev.20260511.1",
         "typescript": "^6.0.3",
-        "vite": "^8.0.12",
         "vitest": "^4.1.6"
     },
     "publishConfig": {
