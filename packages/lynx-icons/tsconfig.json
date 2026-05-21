@@ -4,9 +4,10 @@
         "outDir": "./dist",
         "rootDir": "./src",
         "declaration": true,
-        "emitDeclarationOnly": true,
         "noEmit": false,
         "jsxImportSource": "@sigx/lynx"
     },
-    "include": ["src/**/*"]
+    "include": [
+        "src"
+    ]
 }

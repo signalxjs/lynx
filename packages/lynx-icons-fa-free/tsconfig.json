@@ -4,9 +4,12 @@
         "outDir": "./dist",
         "rootDir": "./src",
         "declaration": true,
-        "emitDeclarationOnly": true,
         "noEmit": false,
-        "types": ["node"]
+        "types": [
+            "node"
+        ]
     },
-    "include": ["src/**/*"]
+    "include": [
+        "src"
+    ]
 }
