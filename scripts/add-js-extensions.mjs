@@ -20,7 +20,7 @@
 // Usage: node scripts/add-js-extensions.mjs <root1> [<root2>...]
 // Example: node scripts/add-js-extensions.mjs packages/lynx-core/src packages/lynx-runtime/src
 
-import { readdir, readFile, stat, writeFile } from 'node:fs/promises';
+import { readdir, readFile, writeFile } from 'node:fs/promises';
 import { existsSync, statSync } from 'node:fs';
 import { extname, join, dirname, resolve } from 'node:path';
 

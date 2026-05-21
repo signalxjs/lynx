@@ -75,9 +75,12 @@ export function extractLocalImports(source: string): string {
  * Strip comments before scanning so only real statements survive.
  */
 function stripJsComments(code: string): string {
-  // Two passes — line comments first, then block comments. We don't try to
-  // be string-literal-aware (a comment-looking sequence inside a string would
-  // be wrongly stripped) because:
+  // Two passes — block comments first, then line comments. Block-first
+  // is important: a `// inside */` sequence inside a `/* ... */` block
+  // would otherwise have the inner `//` eaten by the line-comment pass
+  // before the outer block is matched, leaving stray `*/` in the output.
+  // We don't try to be string-literal-aware (a comment-looking sequence
+  // inside a string would be wrongly stripped) because:
   //   1. The input is SWC output, which doesn't put `//` or `/* */` inside
   //      strings except in trivial constant cases we don't care about.
   //   2. `extractRegistrations` only cares about call shapes; the surrounding

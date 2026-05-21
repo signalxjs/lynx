@@ -14,7 +14,7 @@
 
 import { readFile, writeFile, rm } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
+import { join, resolve } from 'node:path';
 
 const TSC_NATIVE_VERSION = '7.0.0-dev.20260511.1';
 
