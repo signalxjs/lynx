@@ -103,20 +103,20 @@ const DefaultNavTab = component<
     return () => {
         const label = props.info.label ?? props.info.name;
         const a11y = props.info.accessibilityLabel ?? label;
-        // Split tone (color + opacity) from weight so the icon wrapper picks
-        // up theme color via CSS inheritance without inheriting font-weight.
-        // Icons render as <svg fill="currentColor">; wrapping in a view with
-        // `text-primary` / `text-base-content` propagates the daisy token
-        // through `color:` → `currentColor` resolution. Theme switches recolor
-        // the icon for free.
+        // Label uses native CSS color via daisy `text-*` classes — Lynx's
+        // `<text>` honors color inheritance normally. The icon path below
+        // can't rely on the same trick (see comment there for why).
         const labelTone = props.active ? 'text-primary' : 'text-base-content opacity-60';
         const weight = props.active ? 'font-semibold' : '';
         const icon = props.info.icon;
-        // For an `IconSpec`, render `<Icon>` with the matching daisy variant
-        // — the resolver provided by `<ThemeProvider>` maps `'primary'` →
-        // `'text-primary'` and applies it to the `<svg>` itself, so the
-        // inline-SVG `fill="currentColor"` resolves to the daisy token.
-        // Inactive uses `base-content` and we layer `opacity-60` via class.
+        // For an `IconSpec`, render `<Icon>` with the matching daisy
+        // variant. `<ThemeProvider>`'s color resolver maps `'primary'` /
+        // `'base-content'` (etc.) to the current theme's hex value, which
+        // `<Icon>` substitutes directly into the SVG `fill=` attribute —
+        // Lynx's `<svg content=…>` parses inline SVG in isolation and
+        // doesn't inherit host `color`, so class-based theming doesn't
+        // reach the SVG content. Inactive layers `opacity-60` as a class
+        // on the outer element (opacity does propagate to the raster).
         //
         // For a `JSXElement`, the consumer is in charge of styling — we
         // leave it untouched. They can opt into the same theming by

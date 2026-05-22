@@ -22,6 +22,27 @@ describe('sanitizeColor', () => {
         expect(sanitizeColor('hsla(120, 50%, 50%, 0.5)')).toBe('hsla(120, 50%, 50%, 0.5)');
     });
 
+    it('passes through var(--name) custom-property references', () => {
+        // Theme packages may return `var(--color-primary)` etc. from
+        // `useIconColorResolver`. Lynx's SVG content parser doesn't
+        // evaluate var() in `fill=` today (we substitute the resolved
+        // hex via the daisy palette instead), but the regex accepts it
+        // so the day Lynx grows that support nothing here blocks.
+        expect(sanitizeColor('var(--color-primary)')).toBe('var(--color-primary)');
+        expect(sanitizeColor('var(--my-brand-token)')).toBe('var(--my-brand-token)');
+        expect(sanitizeColor('var( --spaced )')).toBe('var( --spaced )');
+    });
+
+    it('rejects var() variants that could enable attribute injection', () => {
+        // No fallback form (`var(--x, red)`) — the comma + arbitrary
+        // fallback expression opens a quoting/injection surface. Falls
+        // back to currentColor. Same for malformed inputs.
+        expect(sanitizeColor('var(--name, red)')).toBe('currentColor');
+        expect(sanitizeColor('var(--x") url(bad')).toBe('currentColor');
+        expect(sanitizeColor('var(no-double-dash)')).toBe('currentColor');
+        expect(sanitizeColor('var(--name)/* hack */')).toBe('currentColor');
+    });
+
     it('rejects injection attempts and falls back to currentColor', () => {
         expect(sanitizeColor('red" stroke="black')).toBe('currentColor');
         expect(sanitizeColor('"><script>alert(1)</script>')).toBe('currentColor');

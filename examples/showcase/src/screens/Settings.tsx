@@ -13,7 +13,6 @@ import {
     useTheme,
 } from '@sigx/lynx-daisyui';
 import { Haptics } from '@sigx/lynx-haptics';
-import { Icon } from '@sigx/lynx-icons';
 import { FaBrandIcon, FaSolidIcon } from '@sigx/lynx-icons-fa-free/components';
 import { LucideIcon } from '@sigx/lynx-icons-lucide/components';
 import { clearAllTrips, trips } from '../store/trips.js';

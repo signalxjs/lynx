@@ -21,9 +21,10 @@ export const TripsList = component(() => {
                         accessibility-trait="button"
                     >
                         {/* `variant="primary"` is resolved by daisy's
-                            ThemeProvider → `text-primary` on the icon's
-                            <svg> itself, so `fill="currentColor"` picks up
-                            the daisy primary token. */}
+                            ThemeProvider to the primary hex and substituted
+                            into the icon's SVG `fill=` attribute — Lynx's
+                            parsed SVG content doesn't inherit host CSS, so
+                            class-based theming doesn't reach the fill. */}
                         <LucideIcon name="menu" size={22} variant="primary" />
                     </view>
                 </Screen.HeaderLeft>

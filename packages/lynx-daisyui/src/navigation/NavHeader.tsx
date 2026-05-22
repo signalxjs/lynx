@@ -33,10 +33,12 @@ export type NavHeaderProps =
     & Define.Prop<'bordered', boolean, false>
     /**
      * Render the back chevron from an `IconSpec` (e.g. `{ set: 'lucide',
-     * name: 'chevron-left' }`). Resolves to `<Icon color="currentColor">`
-     * inside a `text-primary` Pressable wired to the stack's pop. Falls
-     * back to the default "‹ Back" text when not provided. Ignored when
-     * `renderBack` or `<Screen.HeaderLeft>` is also supplied — those win.
+     * name: 'chevron-left' }`). The icon is rendered with
+     * `variant="primary"`, which `<ThemeProvider>`'s color resolver maps
+     * to the daisy primary hex and substitutes into the SVG `fill=`.
+     * Wrapped in a Pressable wired to the stack's pop. Falls back to the
+     * default "‹ Back" text when not provided. Ignored when `renderBack`
+     * or `<Screen.HeaderLeft>` is also supplied — those win.
      */
     & Define.Prop<'backIcon', IconSpec, false>
     /** Full override: render any JSX for the back button. Takes priority over `backIcon`. */
@@ -73,9 +75,9 @@ export const NavHeader = component<NavHeaderProps>(({ props }) => {
         ].filter(Boolean).join(' ');
 
         // Resolution order: <Screen.HeaderLeft> slot fill → custom renderBack
-        // → backIcon spec → default text. Wrap the icon-spec path in a
-        // `text-primary` Pressable so the Icon's `currentColor` resolves to
-        // the daisy primary token, matching the default chevron's color.
+        // → backIcon spec → default text. The spec path renders `<Icon>`
+        // with `variant="primary"`, which the daisy resolver maps to the
+        // primary hex and substitutes into the SVG `fill=`.
         const left = chrome.headerLeft?.()
             ?? (chrome.canGoBack
                 ? (props.renderBack
@@ -143,11 +145,12 @@ const BackIconButton = component<
             accessibility-trait="button"
             onPress={() => props.onPress()}
         >
-            {/* The daisy variant resolver (provided by `<ThemeProvider>`)
-                maps `'primary'` → `'text-primary'` and applies it to the
-                `<svg>` itself — needed so the inline-SVG `fill="currentColor"`
-                resolves against this element's own `color` CSS rather than
-                an ancestor's. */}
+            {/* `variant="primary"` is resolved by `<ThemeProvider>`'s
+                color resolver to the daisy primary hex and substituted
+                into the SVG `fill=` attribute — the only mechanism that
+                reaches Lynx's `<svg content=…>` parsed content, which
+                doesn't inherit host `color` or evaluate CSS vars in
+                attribute values. */}
             <Icon
                 set={props.spec.set}
                 name={props.spec.name}
