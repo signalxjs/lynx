@@ -142,20 +142,23 @@ class MainActivity : ComponentActivity() {
 
     // Dev-only hardware-keyboard reload. Pressing `R` on the host keyboard
     // when an Android emulator (or a Chromebook / DeX session) has focus
-    // triggers an in-place LynxView reload. We intercept at the activity
-    // level so the shortcut fires regardless of which Compose subtree owns
-    // the focus, but defer to super first so focused EditTexts still see
-    // the keystroke.
+    // triggers an in-place LynxView reload. We dispatch to super first so
+    // any focused text editor (including Compose `TextField`s, which focus
+    // an `AndroidComposeView`, not an `EditText`) gets the keystroke, and
+    // only reload when the event was unhandled AND no text editor is
+    // currently composing.
     override fun dispatchKeyEvent(event: android.view.KeyEvent): Boolean {
+        val handled = super.dispatchKeyEvent(event)
+        if (handled) return true
         if (BuildConfig.DEBUG &&
             event.action == android.view.KeyEvent.ACTION_UP &&
             event.keyCode == android.view.KeyEvent.KEYCODE_R &&
-            currentFocus !is android.widget.EditText
+            currentFocus?.onCheckIsTextEditor() != true
         ) {
             com.sigx.devclient.SigxDevClient.triggerRemoteReload()
             return true
         }
-        return super.dispatchKeyEvent(event)
+        return false
     }
 }
 

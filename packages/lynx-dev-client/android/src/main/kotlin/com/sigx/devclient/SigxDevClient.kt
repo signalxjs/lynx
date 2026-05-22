@@ -134,10 +134,14 @@ object SigxDevClient {
      * Invoke the registered reload handler on the main thread. Called by
      * `DevClientModule.reload()` after a remote reload arrives over the
      * dev-client log WebSocket. No-op if nothing is registered.
+     *
+     * Re-reads `reloadHandler` *inside* the posted runnable so a screen
+     * that unregisters between the bridge call and main-thread execution
+     * doesn't get its lambda invoked against a torn-down Compose scope.
      */
     fun triggerRemoteReload() {
-        val handler = reloadHandler ?: return
         mainHandler.post {
+            val handler = reloadHandler ?: return@post
             try {
                 handler()
             } catch (e: Exception) {
