@@ -2,7 +2,7 @@ import { signal, toRaw, watch } from '@sigx/lynx';
 import { Storage } from '@sigx/lynx-storage';
 import type { Coords, Entry, Trip } from './types.js';
 
-const STORAGE_KEY = 'showcase:trips/v1';
+const STORAGE_KEY = 'showcase:trips/v2';
 
 const newId = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 
@@ -41,7 +41,9 @@ Storage.getItem(STORAGE_KEY)
         if (!raw) return;
         try {
             const parsed = JSON.parse(raw) as Trip[];
-            if (Array.isArray(parsed)) trips.$set(parsed);
+            if (Array.isArray(parsed)) {
+                trips.$set(parsed);
+            }
         } catch {
             // Corrupted snapshot — keep the seed, log nothing (dev noise).
         }
@@ -81,7 +83,7 @@ export function addTrip(name: string): Trip {
 export function addEntry(
     tripId: string,
     note: string,
-    options?: { photoUri?: string; coords?: Coords },
+    options?: { photoUris?: string[]; coords?: Coords },
 ): Entry | null {
     const trip = trips.find((t) => t.id === tripId);
     if (!trip) return null;
@@ -89,7 +91,7 @@ export function addEntry(
         id: newId(),
         note,
         createdAt: Date.now(),
-        photoUri: options?.photoUri,
+        photoUris: options?.photoUris && options.photoUris.length > 0 ? options.photoUris : undefined,
         coords: options?.coords,
     };
     trip.entries.push(entry);
@@ -110,15 +112,17 @@ export function getEntry(tripId: string, entryId: string): Entry | undefined {
 export function updateEntry(
     tripId: string,
     entryId: string,
-    patch: { note?: string; photoUri?: string | null; coords?: Coords | null },
+    patch: { note?: string; photoUris?: string[] | null; coords?: Coords | null },
 ): void {
     const trip = trips.find((t) => t.id === tripId);
     if (!trip) return;
     const entry = trip.entries.find((e) => e.id === entryId);
     if (!entry) return;
     if (patch.note !== undefined) entry.note = patch.note;
-    if (patch.photoUri !== undefined) {
-        entry.photoUri = patch.photoUri ?? undefined;
+    if (patch.photoUris !== undefined) {
+        entry.photoUris = patch.photoUris && patch.photoUris.length > 0
+            ? patch.photoUris
+            : undefined;
     }
     if (patch.coords !== undefined) {
         entry.coords = patch.coords ?? undefined;

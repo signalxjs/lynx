@@ -19,7 +19,11 @@ export const NewEntry = component(() => {
     const isEdit = !!existing;
 
     const note = signal(existing?.note ?? '');
-    const photoUri = signal<string | null>(existing?.photoUri ?? null);
+    // Wrap in an object so the signal proxy gives us a stable `.value` slot
+    // for the mutable array reference; replacing the array (after pick /
+    // remove) re-renders all subscribers without needing fine-grained
+    // index-level reactivity on the items themselves.
+    const photoUris = signal<{ value: string[] }>({ value: [...(existing?.photoUris ?? [])] });
     // Preserve existing coords on edit; capture fresh on create. Edits
     // don't re-prompt for location — that'd surprise the user.
     // Boxed in an object so the union `Coords | null` satisfies signal's
@@ -29,12 +33,23 @@ export const NewEntry = component(() => {
     const coords = signal<{ value: Coords | null }>({ value: existing?.coords ?? null });
 
     const pickPhoto = async () => {
-        const perm = await ImagePicker.requestPermission();
-        if (perm.status !== 'granted') return;
-        const result = await ImagePicker.pickImage({ quality: 0.8 });
-        if (!result.cancelled && result.assets[0]) {
-            photoUri.value = result.assets[0].uri;
+        // No `requestPermission` step: the system photo picker
+        // (Android `PickVisualMedia`, iOS `PHPicker`) grants per-pick
+        // access on the fly — asking for `READ_MEDIA_IMAGES` first
+        // would show a second, redundant bottom sheet on Android 14+.
+        const result = await ImagePicker.pickImage({
+            multiple: true,
+            maxItems: 10,
+            quality: 0.8,
+        });
+        if (!result.cancelled && result.assets.length > 0) {
+            // Append to the existing list — picker is "add more photos".
+            photoUris.value = [...photoUris.value, ...result.assets.map((a) => a.uri)];
         }
+    };
+
+    const removePhoto = (uri: string) => {
+        photoUris.value = photoUris.value.filter((u) => u !== uri);
     };
 
     // Best-effort one-shot GPS fix. We do NOT block save on permission or
@@ -56,17 +71,18 @@ export const NewEntry = component(() => {
 
     const save = async () => {
         const trimmed = note.value.trim();
-        if (!trimmed) return;
+        const photos = photoUris.value;
+        if (!trimmed && photos.length === 0) return;
         if (isEdit && entryId) {
             updateEntry(tripId, entryId, {
                 note: trimmed,
-                photoUri: photoUri.value,
+                photoUris: photos,
                 coords: coords.value,
             });
         } else {
             const fresh = await captureCoords();
             addEntry(tripId, trimmed, {
-                photoUri: photoUri.value ?? undefined,
+                photoUris: photos,
                 coords: fresh,
             });
         }
@@ -83,22 +99,52 @@ export const NewEntry = component(() => {
             <NavHeader />
             <Col gap={16} padding={24}>
                 <Textarea placeholder="What happened?" rows={4} model={() => note.value} />
-                {photoUri.value
+                {photoUris.value.length > 0
                     ? (
                         <Col gap={8}>
-                            <image
-                                src={photoUri.value}
-                                mode="aspectFill"
-                                style={{ width: '100%', height: 200, borderRadius: 12 }}
-                            />
-                            <Button size="sm" variant="ghost" onPress={() => { photoUri.value = null; }}>
-                                Remove photo
+                            <scroll-view
+                                scroll-orientation="horizontal"
+                                style={{ width: '100%', height: 100 }}
+                            >
+                                <view style={{ display: 'flex', flexDirection: 'row', gap: 8 }}>
+                                    {photoUris.value.map((uri) => (
+                                        <view
+                                            key={uri}
+                                            style={{ position: 'relative', width: 100, height: 100 }}
+                                        >
+                                            <image
+                                                src={uri}
+                                                mode="aspectFill"
+                                                style={{ width: '100%', height: '100%', borderRadius: 8 }}
+                                            />
+                                            <view
+                                                bindtap={() => removePhoto(uri)}
+                                                style={{
+                                                    position: 'absolute',
+                                                    top: 4,
+                                                    right: 4,
+                                                    width: 24,
+                                                    height: 24,
+                                                    borderRadius: 12,
+                                                    backgroundColor: 'rgba(0,0,0,0.6)',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                }}
+                                            >
+                                                <text style={{ color: '#fff', fontSize: 14, lineHeight: 24 }}>×</text>
+                                            </view>
+                                        </view>
+                                    ))}
+                                </view>
+                            </scroll-view>
+                            <Button size="sm" variant="ghost" onPress={pickPhoto}>
+                                Add more photos
                             </Button>
                         </Col>
                     )
                     : (
                         <Button variant="secondary" outline onPress={pickPhoto}>
-                            Attach photo
+                            Attach photos
                         </Button>
                     )}
                 <Button variant="primary" onPress={save}>Save</Button>

@@ -5,6 +5,7 @@ import { TripsList } from './screens/TripsList.js';
 import { TripDetail } from './screens/TripDetail.js';
 import { NewTrip } from './screens/NewTrip.js';
 import { NewEntry } from './screens/NewEntry.js';
+import { ImageViewer } from './screens/ImageViewer.js';
 import { Map } from './screens/Map.js';
 import { Settings } from './screens/Settings.js';
 
@@ -34,6 +35,15 @@ export const routes = defineRoutes({
             entryId: z.string().optional(),
         }),
         presentation: 'modal',
+    },
+    imageViewer: {
+        component: ImageViewer,
+        params: z.object({
+            tripId: z.string(),
+            entryId: z.string(),
+            index: z.number().optional(),
+        }),
+        presentation: 'fullScreen',
     },
 });
 
