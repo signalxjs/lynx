@@ -235,12 +235,17 @@ const DrawerChrome = component<DrawerChromeProps>(({ props }) => {
         outputRange: [closedTx, 0],
     });
 
-    if (props.backdrop) {
-        useAnimatedStyle(backdropRef, props.progress, 'opacity', {
-            inputRange: [0, 1],
-            outputRange: [0, BACKDROP_OPACITY],
-        });
-    }
+    // Register unconditionally so a runtime `backdrop` toggle works
+    // both directions. `useAnimatedStyle` only binds once at setup; if
+    // this lived inside `if (props.backdrop)` a false→true toggle would
+    // mount a backdrop view with no opacity binding, leaving it stuck
+    // at the inline `opacity: 0` seed. When the backdrop view isn't
+    // rendered, `backdropRef.current` is null and the MT bridge's
+    // `setStyleProperties` apply silently skips — no harm.
+    useAnimatedStyle(backdropRef, props.progress, 'opacity', {
+        inputRange: [0, 1],
+        outputRange: [0, BACKDROP_OPACITY],
+    });
 
     return () => {
         const isRight = props.side === 'right';
