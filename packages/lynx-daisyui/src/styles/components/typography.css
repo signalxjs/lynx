@@ -1,5 +1,21 @@
-/* Typography — text color utilities for semantic colors */
+/*
+ * Daisy semantic color utilities — `text-<token>` and `bg-<token>` for
+ * every token in `DAISY_COLOR_TOKEN_LIST` (see `shared/styles.ts`).
+ *
+ * Hand-written rules rather than Tailwind-generated utilities, so they
+ * survive purge regardless of whether a consumer's source statically
+ * references the class. This matters for daisy components that compose
+ * the class dynamically — e.g. `class={`bg-${props.background}`}` in
+ * `<NavDrawer>` — which Tailwind's source scanner can't see. Without
+ * these always-on rules, `<NavDrawer background="primary">` paints
+ * transparent because `bg-primary` got purged.
+ *
+ * Lynx specifics: `var(--color-*)` resolves only from CSS-pipeline rules
+ * (this file, daisy themes), never from inline `style.backgroundColor`.
+ * Keep daisy surface tokens flowing through a class.
+ */
 
+/* Text */
 .text-primary { color: var(--color-primary); }
 .text-primary-content { color: var(--color-primary-content); }
 .text-secondary { color: var(--color-secondary); }
@@ -18,15 +34,24 @@
 .text-error { color: var(--color-error); }
 .text-error-content { color: var(--color-error-content); }
 
-/* Background color utilities for semantic colors */
+/* Background */
 .bg-primary { background-color: var(--color-primary); }
+.bg-primary-content { background-color: var(--color-primary-content); }
 .bg-secondary { background-color: var(--color-secondary); }
+.bg-secondary-content { background-color: var(--color-secondary-content); }
 .bg-accent { background-color: var(--color-accent); }
+.bg-accent-content { background-color: var(--color-accent-content); }
 .bg-neutral { background-color: var(--color-neutral); }
+.bg-neutral-content { background-color: var(--color-neutral-content); }
 .bg-base-100 { background-color: var(--color-base-100); }
 .bg-base-200 { background-color: var(--color-base-200); }
 .bg-base-300 { background-color: var(--color-base-300); }
+.bg-base-content { background-color: var(--color-base-content); }
 .bg-info { background-color: var(--color-info); }
+.bg-info-content { background-color: var(--color-info-content); }
 .bg-success { background-color: var(--color-success); }
+.bg-success-content { background-color: var(--color-success-content); }
 .bg-warning { background-color: var(--color-warning); }
+.bg-warning-content { background-color: var(--color-warning-content); }
 .bg-error { background-color: var(--color-error); }
+.bg-error-content { background-color: var(--color-error-content); }
