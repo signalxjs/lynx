@@ -19,21 +19,36 @@ import { defineLynxConfig } from '@sigx/lynx-cli/config';
 
 export default defineLynxConfig({
     iconSets: [
-        { id: 'fa',  source: '@sigx/lynx-icons-fa-free', styles: ['solid'] },
+        { id: 'fas', source: '@sigx/lynx-icons-fa-free', styles: ['solid'] },
+        { id: 'far', source: '@sigx/lynx-icons-fa-free', styles: ['regular'] },
         { id: 'fab', source: '@sigx/lynx-icons-fa-free', styles: ['brands'] },
     ],
 });
 ```
 
-Each `iconSets` entry maps to one runtime `set` id. Declare one per style you want to use — they're tree-shaken independently.
+**Set ids follow Font Awesome's own prefix convention** — the same strings FA uses in its CSS classes (`fa-solid` / `fa-regular` / `fa-brands`) and JS `IconPrefix` type (`fas` / `far` / `fab`). The pinned components below depend on these exact ids; renaming a set means those components won't find it. Declare one entry per style you want to use — they're tree-shaken independently.
 
 ## Usage
+
+### Pinned per-style components (recommended)
+
+```tsx
+import { FaSolidIcon, FaRegularIcon, FaBrandIcon } from '@sigx/lynx-icons-fa-free/components';
+
+<FaSolidIcon name="user" />
+<FaSolidIcon name="chevron-right" size={20} color="#0D9488" />
+<FaRegularIcon name="bell" size={20} />
+<FaBrandIcon name="github" size={24} />
+```
+
+Each component is a thin wrapper around `<Icon>` from `@sigx/lynx-icons` with the matching `set` pre-filled. Rendering, color sanitization, and theming behavior are identical to the generic form.
+
+### Generic `<Icon>` (dynamic `set` / non-conventional ids)
 
 ```tsx
 import { Icon } from '@sigx/lynx-icons';
 
-<Icon set="fa" name="user" />
-<Icon set="fa" name="chevron-right" size={20} color="#0D9488" />
+<Icon set="fas" name="user" />
 <Icon set="fab" name="github" size={24} />
 ```
 
@@ -55,14 +70,14 @@ If the icon `name` comes from data (a JSON UI tree, a CMS field) the build-time 
 
 ```ts
 iconSets: [
-    { id: 'fa', source: '@sigx/lynx-icons-fa-free', styles: ['solid'], include: ['*'] },
+    { id: 'fas', source: '@sigx/lynx-icons-fa-free', styles: ['solid'], include: ['*'] },
 ],
 ```
 
 This bundles **all ~1 900 FA-solid glyphs** (~2 MB of JS). Use it only on sets that need it; mix with normally-tree-shaken sets for the rest. The build prints the exact glyph count:
 
 ```
-[@sigx/lynx-plugin] icons: fa bundling 1956 glyphs (include: ['*'])
+[@sigx/lynx-plugin] icons: fas bundling 1956 glyphs (include: ['*'])
 ```
 
 `@sigx/lynx-icons`'s upcoming font mode (v1.1) will swap SVG-per-glyph for a single subsetted TTF — dramatically smaller for full-catalog scenarios. Stay tuned.
@@ -82,4 +97,4 @@ The adapter is normally consumed by `@sigx/lynx-plugin`'s icons slice — these 
 
 ## Reference app
 
-`examples/showcase/src/screens/Settings.tsx` renders `<Icon set="fa" name="user" />`, `house`, `gear`, and `<Icon set="fab" name="github" />` in a card; the build-time scanner picks them up and writes their codepoints into `node_modules/.cache/sigx-lynx-icons/codepoints.mjs`.
+`examples/showcase/src/screens/Settings.tsx` renders `<FaSolidIcon name="user" />`, `house`, `gear`, and `<FaBrandIcon name="github" />` in a card; the build-time scanner picks up the underlying `<Icon set="…" name="…">` calls and writes their codepoints into `node_modules/.cache/sigx-lynx-icons/codepoints.mjs`.

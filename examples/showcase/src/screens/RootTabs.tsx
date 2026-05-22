@@ -1,7 +1,11 @@
 import { component } from '@sigx/lynx';
+import type { IconSpec } from '@sigx/lynx-icons';
 import { Tabs, Stack } from '@sigx/lynx-navigation';
 import { NavDrawer, NavHeader, NavTabBar } from '@sigx/lynx-daisyui';
 import { ShowcaseMenu } from './ShowcaseMenu.js';
+
+// Shared back chevron spec for all per-tab stacks.
+const backChevron: IconSpec = { set: 'lucide', name: 'chevron-left' };
 
 // Each <Tabs.Screen> hosts its own <Stack initialRoute=…>, so a card push
 // from inside a tab (e.g. tripsHome → tripDetail) stays inside that tab's
@@ -24,19 +28,19 @@ export const RootTabs = component(() => {
     return () => (
         <NavDrawer slots={{ sidebar: () => <ShowcaseMenu /> }}>
             <Tabs initialTab="trips">
-                <Tabs.Screen name="trips" label="Trips">
+                <Tabs.Screen name="trips" label="Trips" icon={{ set: 'lucide', name: 'map' }}>
                     <Stack initialRoute="tripsHome">
-                        <NavHeader />
+                        <NavHeader backIcon={backChevron} />
                     </Stack>
                 </Tabs.Screen>
-                <Tabs.Screen name="map" label="Map">
+                <Tabs.Screen name="map" label="Map" icon={{ set: 'lucide', name: 'compass' }}>
                     <Stack initialRoute="mapHome">
-                        <NavHeader />
+                        <NavHeader backIcon={backChevron} />
                     </Stack>
                 </Tabs.Screen>
-                <Tabs.Screen name="settings" label="Settings">
+                <Tabs.Screen name="settings" label="Settings" icon={{ set: 'lucide', name: 'settings' }}>
                     <Stack initialRoute="settingsHome">
-                        <NavHeader />
+                        <NavHeader backIcon={backChevron} />
                     </Stack>
                 </Tabs.Screen>
                 <NavTabBar />

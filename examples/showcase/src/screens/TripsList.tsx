@@ -1,6 +1,7 @@
 import { component } from '@sigx/lynx';
 import { useDrawer, useNav, useScreenOptions, Screen } from '@sigx/lynx-navigation';
 import { Button, Card, Col, ScrollView, Text } from '@sigx/lynx-daisyui';
+import { LucideIcon } from '@sigx/lynx-icons-lucide/components';
 import { trips } from '../store/trips.js';
 
 export const TripsList = component(() => {
@@ -19,7 +20,12 @@ export const TripsList = component(() => {
                         accessibility-label="Open menu"
                         accessibility-trait="button"
                     >
-                        <text class="text-primary text-xl">☰</text>
+                        {/* `variant="primary"` is resolved by daisy's
+                            ThemeProvider to the primary hex and substituted
+                            into the icon's SVG `fill=` attribute — Lynx's
+                            parsed SVG content doesn't inherit host CSS, so
+                            class-based theming doesn't reach the fill. */}
+                        <LucideIcon name="menu" size={22} variant="primary" />
                     </view>
                 </Screen.HeaderLeft>
                 <Screen.HeaderRight>
@@ -30,7 +36,7 @@ export const TripsList = component(() => {
                         accessibility-label="New trip"
                         accessibility-trait="button"
                     >
-                        <text class="text-primary text-base font-semibold">+</text>
+                        <LucideIcon name="plus" size={22} variant="primary" />
                     </view>
                 </Screen.HeaderRight>
             </Screen>

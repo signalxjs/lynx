@@ -1,4 +1,67 @@
 /**
+ * Augmentation point for theme / extension packages. Declaration-merge
+ * into this interface to add fields that `<Icon>` accepts beyond the
+ * core props. The pinned components in adapter packages and the daisy
+ * navigation primitives inherit the augmentation automatically via
+ * intersection.
+ *
+ * `@sigx/lynx-icons` deliberately knows nothing about themes — the
+ * extension shape is up to whatever theme is installed. Daisy adds a
+ * `variant?: DaisyColor` field; a custom theme could add anything else
+ * (`tone?: 'muted' | 'loud'`, `tint?: number`, …) and provide its own
+ * resolver.
+ *
+ * @example
+ * ```ts
+ * // In a theme package:
+ * declare module '@sigx/lynx-icons' {
+ *     interface IconPropsExtensions {
+ *         variant?: 'primary' | 'secondary' | 'accent';
+ *     }
+ * }
+ * ```
+ */
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+export interface IconPropsExtensions {}
+
+/**
+ * Function form provided to `useIconColorResolver`. Receives the full
+ * `<Icon>` props (including whatever fields the active theme augmented
+ * onto `IconPropsExtensions`) and returns a **CSS color value**
+ * substituted into the rendered SVG's `fill=` attribute. Return
+ * `undefined` to fall through to `props.color` / `currentColor`.
+ *
+ * Color rather than class: Lynx's `<svg content=…>` parses the inline
+ * SVG markup as a standalone fragment that doesn't inherit `color` CSS
+ * from the host element. Substituting the value into the markup is the
+ * only reliable way to make theme tokens show through.
+ *
+ * Props rather than a single variant string: the core has no opinion on
+ * how a theme keys its colors. A theme picks whichever augmented field
+ * (or combination) makes sense and reads it from `props` itself.
+ */
+export type IconColorResolver = (
+    props: Readonly<Record<string, unknown>>,
+) => string | undefined;
+
+/**
+ * Lightweight `{ set, name }` reference to an icon in a registered set —
+ * the canonical "data" form a consumer can pass to a UI primitive that
+ * accepts an icon (e.g. `<Tabs.Screen icon={{ set: 'lucide', name: 'map' }}>`).
+ *
+ * The receiving component (e.g. `<NavTabBar>`, `<NavHeader>`) is responsible
+ * for turning the spec into rendered JSX — typically by composing
+ * `<Icon set={spec.set} name={spec.name} color="currentColor" size={…}>`
+ * with theme-aware wrapping. Consumers who want full control (custom
+ * color, third-party component, size override) pass JSX directly instead
+ * of a spec.
+ */
+export interface IconSpec {
+    readonly set: string;
+    readonly name: string;
+}
+
+/**
  * Per-glyph vector data. Used by SVG-mode rendering.
  *
  * `svg` is a complete `<svg …>…</svg>` string with `__COLOR__` placeholders

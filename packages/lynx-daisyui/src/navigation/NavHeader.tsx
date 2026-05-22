@@ -20,6 +20,7 @@
  */
 import { component, type Define, type JSXElement } from '@sigx/lynx';
 import { Pressable } from '@sigx/lynx-gestures';
+import { Icon, type IconSpec } from '@sigx/lynx-icons';
 import { useScreenChrome } from '@sigx/lynx-navigation';
 import { PRESSED_SCALE, PRESSED_OPACITY } from '../shared/press.js';
 
@@ -30,8 +31,21 @@ export type NavHeaderProps =
     & Define.Prop<'background', NavHeaderBackground, false>
     /** Show a separator line at the bottom. Default true. */
     & Define.Prop<'bordered', boolean, false>
-    /** Replace the back button entirely. Receives `pop` so the custom node can wire its own tap handler. */
+    /**
+     * Render the back chevron from an `IconSpec` (e.g. `{ set: 'lucide',
+     * name: 'chevron-left' }`). The icon is rendered with
+     * `variant="primary"`, which `<ThemeProvider>`'s color resolver maps
+     * to the daisy primary hex and substitutes into the SVG `fill=`.
+     * Wrapped in a Pressable wired to the stack's pop. Falls back to the
+     * default "‹ Back" text when not provided. Ignored when `renderBack`
+     * or `<Screen.HeaderLeft>` is also supplied — those win.
+     */
+    & Define.Prop<'backIcon', IconSpec, false>
+    /** Full override: render any JSX for the back button. Takes priority over `backIcon`. */
     & Define.Prop<'renderBack', (ctx: { pop: () => void }) => JSXElement, false>;
+
+/** Pixel size used when rendering the back-button icon from an `IconSpec`. */
+const NAV_HEADER_ICON_SIZE = 22;
 
 const backgroundClass: Record<NavHeaderBackground, string> = {
     'base-100': 'bg-base-100',
@@ -60,11 +74,17 @@ export const NavHeader = component<NavHeaderProps>(({ props }) => {
             borderClass,
         ].filter(Boolean).join(' ');
 
+        // Resolution order: <Screen.HeaderLeft> slot fill → custom renderBack
+        // → backIcon spec → default text. The spec path renders `<Icon>`
+        // with `variant="primary"`, which the daisy resolver maps to the
+        // primary hex and substitutes into the SVG `fill=`.
         const left = chrome.headerLeft?.()
             ?? (chrome.canGoBack
                 ? (props.renderBack
                     ? props.renderBack({ pop: chrome.pop })
-                    : <DefaultBackButton onPress={chrome.pop} />)
+                    : (props.backIcon
+                        ? <BackIconButton spec={props.backIcon} onPress={chrome.pop} />
+                        : <DefaultBackButton onPress={chrome.pop} />))
                 : null);
 
         const right = chrome.headerRight?.() ?? null;
@@ -106,6 +126,37 @@ const DefaultBackButton = component<Define.Prop<'onPress', () => void, true>>(({
             onPress={() => props.onPress()}
         >
             <text class="text-primary text-base">‹ Back</text>
+        </Pressable>
+    );
+});
+
+const BackIconButton = component<
+    & Define.Prop<'spec', IconSpec, true>
+    & Define.Prop<'onPress', () => void, true>
+>(({ props }) => {
+    return () => (
+        <Pressable
+            class="px-2 py-2"
+            pressedScale={PRESSED_SCALE}
+            pressedOpacity={PRESSED_OPACITY}
+            longPressDuration={0}
+            accessibility-element={true}
+            accessibility-label="Back"
+            accessibility-trait="button"
+            onPress={() => props.onPress()}
+        >
+            {/* `variant="primary"` is resolved by `<ThemeProvider>`'s
+                color resolver to the daisy primary hex and substituted
+                into the SVG `fill=` attribute — the only mechanism that
+                reaches Lynx's `<svg content=…>` parsed content, which
+                doesn't inherit host `color` or evaluate CSS vars in
+                attribute values. */}
+            <Icon
+                set={props.spec.set}
+                name={props.spec.name}
+                size={NAV_HEADER_ICON_SIZE}
+                variant="primary"
+            />
         </Pressable>
     );
 });

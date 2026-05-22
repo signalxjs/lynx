@@ -1,15 +1,37 @@
-import { component, type Define } from '@sigx/lynx';
+import { component, defineInjectable, type Define } from '@sigx/lynx';
 import { codepoints } from '@sigx/lynx-icons/__codepoints';
 import { svgs } from '@sigx/lynx-icons/__svgs';
 import '@sigx/lynx-icons/__font-face.css';
 import { lookupGlyph } from './registry.js';
+import type { IconColorResolver, IconPropsExtensions } from './types.js';
+
+/**
+ * Injectable for the active theme's color resolver. Receives the full
+ * `<Icon>` props (including theme-augmented fields like daisy's
+ * `variant`) and returns a CSS color value to substitute into the SVG
+ * `fill=`, or `undefined` to fall through.
+ *
+ * Themes provide this via `defineProvide(useIconColorResolver, …)` from
+ * inside a provider component (e.g. daisy's `<ThemeProvider>`). Core
+ * `<Icon>` has no concept of named variants — it just asks the resolver
+ * for a color.
+ */
+export const useIconColorResolver = defineInjectable<IconColorResolver | null>(() => null);
 
 export type IconProps =
     & Define.Prop<'set', string, true>
     & Define.Prop<'name', string, true>
     & Define.Prop<'size', number, false>
     & Define.Prop<'color', string, false>
-    & Define.Prop<'class', string, false>;
+    & Define.Prop<'class', string, false>
+    /**
+     * Augmentation point — theme packages declaration-merge into
+     * `IconPropsExtensions` to add their own typed props (e.g. daisy
+     * adds `variant?: DaisyColor`). Core declares no specific
+     * extensions, so without a theme installed, no extra props exist
+     * and the type system rejects `<Icon variant="…">` at compile time.
+     */
+    & IconPropsExtensions;
 
 /**
  * Match a conservative subset of valid CSS color formats:
@@ -17,6 +39,11 @@ export type IconProps =
  * - `#rgb` / `#rgba` / `#rrggbb` / `#rrggbbaa`
  * - `rgb(...)` / `rgba(...)` / `hsl(...)` / `hsla(...)` with digits, dots,
  *   commas, percent signs, and whitespace inside the parens
+ * - `var(--name)` referencing a CSS custom property — the only way to
+ *   plumb theme tokens (`var(--color-primary)`) into the SVG `fill=`
+ *   attribute, since Lynx's `<svg content=…>` parses the SVG string as
+ *   a standalone fragment that doesn't inherit `color` from the host
+ *   element (so `fill="currentColor"` + a host-level class is a no-op).
  *
  * Anything else (quotes, angle brackets, ampersands, arbitrary HTML) falls
  * back to `currentColor`. The `color` prop ends up substituted directly into
@@ -25,7 +52,7 @@ export type IconProps =
  * Allow-list, not escape-list — keeps the surface area provably small.
  */
 const SAFE_COLOR_RE =
-    /^(?:currentColor|[a-zA-Z]+|#[0-9a-fA-F]{3,8}|(?:rgb|rgba|hsl|hsla)\(\s*[\d.,%\s]+\))$/;
+    /^(?:currentColor|[a-zA-Z]+|#[0-9a-fA-F]{3,8}|(?:rgb|rgba|hsl|hsla)\(\s*[\d.,%\s]+\)|var\(\s*--[\w-]+\s*\))$/;
 
 export function sanitizeColor(color: string): string {
     return SAFE_COLOR_RE.test(color) ? color : 'currentColor';
@@ -59,15 +86,35 @@ export function inlineSvg(template: string, color: string): string {
  * ```
  */
 export const Icon = component<IconProps>(({ props }) => {
+    // Resolve the active theme's color resolver once at setup. The
+    // resolver itself is a stable function reference; it reads the
+    // theme-augmented props (e.g. `props.variant` for daisy) and any
+    // reactive theme state (e.g. `theme.name`) on each call.
+    const resolveColor = useIconColorResolver();
     return () => {
         const size = props.size ?? 16;
         const set = props.set;
         const name = props.name;
         const sizeStyle = { width: size, height: size } as const;
+        // Resolution order: explicit `props.color` wins → then the
+        // theme resolver's return (driven by augmented props like
+        // `variant`) → finally `currentColor`. Substituted directly
+        // into the SVG `fill=` attribute by `inlineSvg`; class is not
+        // used to convey color because Lynx's `<svg content=…>` parses
+        // the SVG string in isolation and doesn't inherit host CSS
+        // `color`.
+        //
+        // `props` is cast to the unknown-record shape the resolver
+        // signature expects — at compile time the augmented fields are
+        // typed correctly inside the resolver itself (where the theme
+        // package's augmentation is in scope).
+        const themeColor = resolveColor
+            ? resolveColor(props as unknown as Readonly<Record<string, unknown>>)
+            : undefined;
+        const color = props.color ?? themeColor ?? 'currentColor';
 
         const glyph = lookupGlyph(codepoints, svgs, set, name);
         if (glyph?.svg) {
-            const color = props.color ?? 'currentColor';
             return (
                 <svg
                     content={inlineSvg(glyph.svg.svg, color)}
@@ -84,8 +131,8 @@ export const Icon = component<IconProps>(({ props }) => {
                 lineHeight: `${size}px`,
                 width: size,
                 height: size,
+                color,
             };
-            if (props.color) textStyle.color = props.color;
             return (
                 <text class={props.class} style={textStyle}>
                     {String.fromCodePoint(glyph.codepoint)}

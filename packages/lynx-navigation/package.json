@@ -26,6 +26,7 @@
     },
     "peerDependencies": {
         "@sigx/lynx": "workspace:^",
+        "@sigx/lynx-icons": "workspace:^",
         "@sigx/lynx-linking": "workspace:^",
         "@sigx/lynx-motion": "workspace:^"
     },
@@ -36,6 +37,7 @@
     },
     "devDependencies": {
         "@sigx/lynx": "workspace:^",
+        "@sigx/lynx-icons": "workspace:^",
         "@sigx/lynx-linking": "workspace:^",
         "@sigx/lynx-motion": "workspace:^",
         "@sigx/lynx-testing": "workspace:^",

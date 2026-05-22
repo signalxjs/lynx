@@ -38,6 +38,113 @@ import {
     signal,
     type Define,
 } from '@sigx/lynx';
+import { useIconColorResolver, type IconColorResolver } from '@sigx/lynx-icons';
+import type { DaisyColor } from '../shared/styles.js';
+
+/**
+ * Declaration-merge extension: add a typed `variant` prop to `<Icon>`,
+ * `<FaSolidIcon>`, `<LucideIcon>`, etc. Daisy owns the entire concept
+ * — `@sigx/lynx-icons` has no notion of variants. Without this merge
+ * being in scope (i.e. an app that doesn't depend on daisy), `<Icon
+ * variant="…">` is a compile error: the property doesn't exist.
+ *
+ * The merge fires the moment any consumer imports anything from
+ * `@sigx/lynx-daisyui`. No subpath, no extra import dance.
+ */
+declare module '@sigx/lynx-icons' {
+    interface IconPropsExtensions {
+        /**
+         * Daisy color token applied as the icon's `fill`. Resolved at
+         * runtime through `useIconColorResolver` (provided by
+         * `<ThemeProvider>`) to the current theme's hex value.
+         */
+        variant?: DaisyColor;
+    }
+}
+
+/**
+ * JS-side mirror of the daisy theme color tokens — v1 scaffolding for
+ * SVG-mode rendering, intended to retire when font-mode lands.
+ *
+ * **Why this duplicates the CSS:** Lynx's `<svg content=…>` parses the
+ * inline SVG markup as a standalone fragment (rasterized offscreen, see
+ * `@lynx-js/web-elements/XSvg.js` for the web fallback that wraps it in
+ * a `Blob`/`<img>`). The fragment doesn't evaluate CSS custom properties
+ * in attribute values, so `fill="var(--color-primary)"` falls back to
+ * the default fill. The host element's `color` doesn't propagate either.
+ * Both are architectural — see lynx-family/lynx#6251 and #6305 (closed
+ * without merging). So we substitute the resolved hex at JS time.
+ *
+ * **Path to retirement:** `@sigx/lynx-icons` already has a font-mode
+ * code path (`<text>` with a glyph codepoint) — Lynx renders `<text>`
+ * with native CSS color, so once `@sigx/lynx-plugin` ships the TTF
+ * subsetting + `@font-face` registration (the v1.1 plan referenced in
+ * the icons README), most icons go through that path and theming works
+ * via class without any palette. This map sticks around as the SVG-mode
+ * fallback for multi-color icons (FA brands) and font-less adapters.
+ *
+ * **For now:** keep entries in sync with `src/styles/themes/light.css`
+ * and `src/styles/themes/dark.css`. CI doesn't enforce alignment yet
+ * (drift-detection test deferred — the palette is intended to retire).
+ */
+const DAISY_PALETTE = {
+    'daisy-light': {
+        'primary': '#491dff',
+        'primary-content': '#d3dbff',
+        'secondary': '#ff20cc',
+        'secondary-content': '#fff8fc',
+        'accent': '#00cfbd',
+        'accent-content': '#00100d',
+        'neutral': '#2b3440',
+        'neutral-content': '#d7dde4',
+        'base-100': '#ffffff',
+        'base-200': '#f2f2f2',
+        'base-300': '#e5e6e6',
+        'base-content': '#1f2937',
+        'info': '#00b4fa',
+        'info-content': '#000000',
+        'success': '#00a96e',
+        'success-content': '#000000',
+        'warning': '#ffc100',
+        'warning-content': '#000000',
+        'error': '#ff676a',
+        'error-content': '#000000',
+    },
+    'daisy-dark': {
+        'primary': '#7582ff',
+        'primary-content': '#050617',
+        'secondary': '#ff71cf',
+        'secondary-content': '#190211',
+        'accent': '#00e7d0',
+        'accent-content': '#001210',
+        'neutral': '#2a323c',
+        'neutral-content': '#a6adbb',
+        'base-100': '#1d232a',
+        'base-200': '#191e24',
+        'base-300': '#343b46',
+        'base-content': '#a6adbb',
+        'info': '#00b4fa',
+        'info-content': '#000000',
+        'success': '#00a96e',
+        'success-content': '#000000',
+        'warning': '#ffc100',
+        'warning-content': '#000000',
+        'error': '#ff676a',
+        'error-content': '#000000',
+    },
+} as const;
+
+type DaisyPaletteName = keyof typeof DAISY_PALETTE;
+
+const DEFAULT_PALETTE: DaisyPaletteName = 'daisy-light';
+
+/** Pick the right palette for a `theme.name` value (may be a space-separated combo like `'daisy-light daisy-rounded'`). */
+function paletteFor(themeName: string): DaisyPaletteName {
+    for (const part of themeName.split(/\s+/)) {
+        if (part in DAISY_PALETTE) return part as DaisyPaletteName;
+    }
+    return DEFAULT_PALETTE;
+}
 
 /**
  * Theme class applied to the provider's host view. The two built-ins
@@ -108,6 +215,21 @@ export const ThemeProvider = component<ThemeProviderProps>(({ props, slots }) =>
     };
 
     defineProvide(useTheme, () => controller);
+
+    // Wire the daisy color resolver into `@sigx/lynx-icons`'s injectable
+    // so any `<Icon variant="primary">` rendered inside this subtree gets
+    // the daisy primary hex automatically. The resolver receives the
+    // full `<Icon>` props (including the augmented `variant` field this
+    // module declared above), reads `state.name` reactively, and
+    // returns the matching hex — flipping themes via `theme.toggle()`
+    // makes every icon's render re-run with new colors, no remount.
+    const resolver: IconColorResolver = (props) => {
+        const variant = (props as { variant?: DaisyColor }).variant;
+        if (!variant) return undefined;
+        const palette = DAISY_PALETTE[paletteFor(state.name)];
+        return (palette as Record<string, string>)[variant];
+    };
+    defineProvide(useIconColorResolver, () => resolver);
 
     return () => {
         const baseStyle: Record<string, string | number> = {

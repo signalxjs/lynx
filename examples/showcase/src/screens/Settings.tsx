@@ -13,7 +13,8 @@ import {
     useTheme,
 } from '@sigx/lynx-daisyui';
 import { Haptics } from '@sigx/lynx-haptics';
-import { Icon } from '@sigx/lynx-icons';
+import { FaBrandIcon, FaSolidIcon } from '@sigx/lynx-icons-fa-free/components';
+import { LucideIcon } from '@sigx/lynx-icons-lucide/components';
 import { clearAllTrips, trips } from '../store/trips.js';
 
 export const Settings = component(() => {
@@ -120,16 +121,19 @@ export const Settings = component(() => {
                         <Col gap={8}>
                             <Text weight="semibold">@sigx/lynx-icons</Text>
                             <Text class="opacity-60 text-sm">
-                                Each icon below is tree-shaken at build time —
-                                only the glyphs referenced here ship in the bundle.
+                                Pinned per-set components from each adapter
+                                (`FaSolidIcon`, `FaBrandIcon`, `LucideIcon`)
+                                themed via daisy variants — the color
+                                resolver provided by `ThemeProvider` maps
+                                `variant` to the active theme's hex.
                             </Text>
                             <Row gap={16} align="center">
-                                <Icon set="fa" name="user" size={24} color="#0D9488" />
-                                <Icon set="fa" name="house" size={24} color="#0D9488" />
-                                <Icon set="fa" name="gear" size={24} color="#0D9488" />
-                                <Icon set="fab" name="github" size={24} color="#222" />
-                                <Icon set="lucide" name="search" size={24} color="#0D9488" />
-                                <Icon set="lucide" name="bell" size={24} color="#0D9488" />
+                                <FaSolidIcon name="user" size={24} variant="primary" />
+                                <FaSolidIcon name="house" size={24} variant="secondary" />
+                                <FaSolidIcon name="gear" size={24} variant="accent" />
+                                <FaBrandIcon name="github" size={24} variant="neutral" />
+                                <LucideIcon name="search" size={24} variant="info" />
+                                <LucideIcon name="bell" size={24} variant="warning" />
                             </Row>
                         </Col>
                     </Card.Body>
@@ -141,13 +145,13 @@ export const Settings = component(() => {
                             <Text weight="semibold">Dynamic icon names</Text>
                             <Text class="opacity-60 text-sm">
                                 Names come from a JS array — the JSX scanner can't
-                                see them. With `include: ['*']` on the `fa` set in
+                                see them. With `include: ['*']` on the `fas` set in
                                 signalx.config.ts, the full FA solid catalog is
                                 bundled and these resolve at runtime.
                             </Text>
                             <Row gap={16} align="center">
                                 {['rocket', 'bug', 'fire', 'star', 'heart'].map((name) => (
-                                    <Icon set="fa" name={name} size={24} color="#0D9488" />
+                                    <FaSolidIcon name={name} size={24} variant="primary" />
                                 ))}
                             </Row>
                         </Col>

@@ -43,13 +43,18 @@ import {
     type JSXElement,
     type Signal,
 } from '@sigx/lynx';
+import type { IconSpec } from '@sigx/lynx-icons';
 
 /** Metadata about a registered `<Tabs.Screen>`. */
 export interface TabInfo {
     /** Stable tab id, used by `setActive`. */
     readonly name: string;
-    /** Optional icon node — passed through to the default tab bar. */
-    readonly icon?: JSXElement;
+    /**
+     * Optional icon. Either an `IconSpec` (the bar renders an `<Icon>` and
+     * controls color/size via theme) or a precomputed JSX node (full
+     * control — color, size, custom component).
+     */
+    readonly icon?: IconSpec | JSXElement;
     /** Optional human-readable label. Defaults to `name`. */
     readonly label?: string;
     /**
@@ -180,7 +185,7 @@ const _Tabs = component<TabsProps>(({ props, slots }) => {
 
 type TabsScreenProps =
     & Define.Prop<'name', string, true>
-    & Define.Prop<'icon', JSXElement>
+    & Define.Prop<'icon', IconSpec | JSXElement>
     & Define.Prop<'label', string>
     & Define.Prop<'accessibilityLabel', string>
     & Define.Slot<'default'>;
