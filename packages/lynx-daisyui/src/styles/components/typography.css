@@ -1,6 +1,15 @@
 /*
- * Daisy semantic color utilities — `text-<token>` and `bg-<token>` for
- * every token in `DAISY_COLOR_TOKEN_LIST` (see `shared/styles.ts`).
+ * Daisy semantic color utilities.
+ *
+ *   bg-<token>:   every token in DAISY_COLOR_TOKEN_LIST (semantics +
+ *                 their -content variants, plus the three base surfaces
+ *                 and base-content).
+ *   text-<token>: semantic tokens + their -content variants, plus
+ *                 base-content. The three base surface tokens
+ *                 (base-100/200/300) are deliberately omitted — text the
+ *                 colour of the surface it sits on is never useful, and
+ *                 keeping the class out prevents accidental "invisible
+ *                 text" footguns.
  *
  * Hand-written rules rather than Tailwind-generated utilities, so they
  * survive purge regardless of whether a consumer's source statically
