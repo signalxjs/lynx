@@ -44,7 +44,6 @@ import {
     type JSXElement,
     type MainThread,
     type SharedValue,
-    type Signal,
 } from '@sigx/lynx';
 import { withTiming } from '@sigx/lynx-motion';
 import { Drawer, useDrawer } from '@sigx/lynx-navigation';
@@ -114,10 +113,11 @@ const NavDrawerShell = component<NavDrawerShellProps>(({ props, slots }) => {
     // Seed progress from current open state so `initialOpen=true` mounts
     // already-open without a slide-in flash.
     const progress = useSharedValue(drawer.isOpen ? 1 : 0);
-    // `{ value }` wrapper — sigx's `signal()` over primitives returns a
-    // proxy that requires `.value` reads, but writing a raw boolean to it
-    // is brittle; wrapping in an object keeps `.value` as a mutable field.
-    const shouldRender: Signal<{ value: boolean }> = signal({ value: drawer.isOpen });
+    const shouldRender = signal(drawer.isOpen);
+    // Track whether the chrome is currently mounted (or animating out) so the
+    // initial effect tick on a closed drawer doesn't kick a no-op close
+    // animation + unmount timer.
+    let chromeMounted = drawer.isOpen;
     let exitTimer: ReturnType<typeof setTimeout> | null = null;
 
     // Pre-register the worklets at setup so the SWC main-thread transform
@@ -139,11 +139,13 @@ const NavDrawerShell = component<NavDrawerShellProps>(({ props, slots }) => {
                 clearTimeout(exitTimer);
                 exitTimer = null;
             }
+            chromeMounted = true;
             untrack(() => {
                 shouldRender.value = true;
             });
             openAnim();
-        } else {
+        } else if (chromeMounted) {
+            chromeMounted = false;
             closeAnim();
             // Wait for the exit animation to finish before unmounting the
             // chrome — otherwise the panel pops out instead of sliding,
@@ -155,6 +157,8 @@ const NavDrawerShell = component<NavDrawerShellProps>(({ props, slots }) => {
                 exitTimer = null;
             }, EXIT_DURATION_MS);
         }
+        // else: drawer is closed and the chrome was never mounted (the
+        // common initial-mount case) — nothing to animate or schedule.
     });
 
     onUnmounted(() => {
@@ -177,6 +181,16 @@ const NavDrawerShell = component<NavDrawerShellProps>(({ props, slots }) => {
                 {shouldRender.value
                     ? (
                         <DrawerChrome
+                            // Key by width — `useAnimatedStyle` snapshots
+                            // `outputRange` at setup, so a runtime width
+                            // change would otherwise leave the translateX
+                            // range stale (`style.width` updates, slide
+                            // distance doesn't). Width changes during an
+                            // open drawer are vanishingly rare in
+                            // practice, but the explicit remount keeps
+                            // the binding consistent if a consumer wires
+                            // width to a reactive value.
+                            key={`drawer-chrome-${props.width}`}
                             progress={progress}
                             width={props.width}
                             background={props.background}
@@ -206,8 +220,8 @@ const DrawerChrome = component<DrawerChromeProps>(({ props }) => {
     const backdropRef = useMainThreadRef<MainThread.Element | null>(null);
 
     // Bind once at setup. `useAnimatedStyle` snapshots its mapper/range
-    // params at registration time; props are stable for this component's
-    // lifetime (NavDrawerShell only remounts DrawerChrome on close).
+    // params at registration time; NavDrawerShell keys DrawerChrome by
+    // width so a width change forces a remount + rebind here.
     useAnimatedStyle(panelRef, props.progress, 'translateX', {
         inputRange: [0, 1],
         outputRange: [-props.width, 0],
