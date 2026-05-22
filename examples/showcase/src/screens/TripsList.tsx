@@ -1,15 +1,27 @@
 import { component } from '@sigx/lynx';
-import { useNav, useScreenOptions, Screen } from '@sigx/lynx-navigation';
+import { useDrawer, useNav, useScreenOptions, Screen } from '@sigx/lynx-navigation';
 import { Button, Card, Col, ScrollView, Text } from '@sigx/lynx-daisyui';
 import { trips } from '../store/trips.js';
 
 export const TripsList = component(() => {
     const nav = useNav();
+    const drawer = useDrawer();
     useScreenOptions({ title: 'Trips' });
 
     return () => (
         <view class="flex-fill">
             <Screen>
+                <Screen.HeaderLeft>
+                    <view
+                        bindtap={() => drawer.toggle()}
+                        class="px-3 py-2"
+                        accessibility-element={true}
+                        accessibility-label="Open menu"
+                        accessibility-trait="button"
+                    >
+                        <text class="text-primary text-xl">☰</text>
+                    </view>
+                </Screen.HeaderLeft>
                 <Screen.HeaderRight>
                     <view
                         bindtap={() => nav.push('newTrip')}

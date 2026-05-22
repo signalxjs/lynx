@@ -69,6 +69,11 @@ export type {
     NavHeaderProps,
     NavHeaderBackground,
 } from './navigation/NavHeader.js';
+export { NavDrawer } from './navigation/NavDrawer.js';
+export type {
+    NavDrawerProps,
+    NavDrawerBackground,
+} from './navigation/NavDrawer.js';
 
 // Theme
 export { ThemeProvider, useTheme } from './theme/ThemeProvider.js';
