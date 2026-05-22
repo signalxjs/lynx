@@ -9,7 +9,7 @@
  */
 
 import { spawn, execSync, type ChildProcess } from 'node:child_process';
-import { readFileSync, existsSync, rmSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { createServer } from 'node:net';
 import { request as httpRequest } from 'node:http';
@@ -610,15 +610,6 @@ export async function startDevServer(opts: DevServerOptions): Promise<void> {
         } catch {
             // Device detection is best-effort
         }
-    }
-
-    // Clear any stale on-disk build output from a previous dev session.
-    // Rspack's persistent cache + a populated dist/ from a prior run can
-    // leave the file watcher in a state where it doesn't fire until the
-    // next process restart. Wiping these at startup keeps restarts honest.
-    for (const dir of ['dist', join('node_modules', '.cache')]) {
-        const full = join(cwd, dir);
-        try { rmSync(full, { recursive: true, force: true }); } catch { /* ignore */ }
     }
 
     // Build rspeedy args. Rspeedy's CLI has no `--port` flag, so we pass the

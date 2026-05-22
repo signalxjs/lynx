@@ -11,9 +11,10 @@
  */
 
 import sharp from 'sharp';
-import { mkdirSync, writeFileSync, existsSync, unlinkSync } from 'node:fs';
+import { mkdirSync, existsSync, unlinkSync } from 'node:fs';
 import { join } from 'node:path';
 import type { ResolvedConfig, ResolvedAndroidAssets, ResolvedPlatformAssets } from '../config/index.js';
+import { writeFileIfChanged } from '../util/idempotent-write.js';
 
 // Android density buckets for the legacy launcher icon.
 const ANDROID_DENSITIES: Array<{ name: string; px: number }> = [
@@ -46,10 +47,11 @@ export async function generateIosIcon(cwd: string, config: ResolvedConfig, ios: 
     mkdirSync(appIconDir, { recursive: true });
 
     const filename = 'AppIcon-1024.png';
-    await sharp(ios.iconSource)
+    const iconBuf = await sharp(ios.iconSource)
         .resize(1024, 1024, { fit: 'cover' })
         .png()
-        .toFile(join(appIconDir, filename));
+        .toBuffer();
+    writeFileIfChanged(join(appIconDir, filename), iconBuf);
 
     const contents = {
         images: [
@@ -62,7 +64,7 @@ export async function generateIosIcon(cwd: string, config: ResolvedConfig, ios: 
         ],
         info: { author: 'sigx', version: 1 },
     };
-    writeFileSync(join(appIconDir, 'Contents.json'), JSON.stringify(contents, null, 2) + '\n');
+    writeFileIfChanged(join(appIconDir, 'Contents.json'), JSON.stringify(contents, null, 2) + '\n');
     log('iOS: generated AppIcon (1024 universal)');
 }
 
@@ -79,8 +81,8 @@ export async function generateAndroidIcons(cwd: string, android: ResolvedAndroid
             .resize(px, px, { fit: 'cover' })
             .png()
             .toBuffer();
-        writeFileSync(join(dir, 'ic_launcher.png'), buf);
-        writeFileSync(join(dir, 'ic_launcher_round.png'), buf);
+        writeFileIfChanged(join(dir, 'ic_launcher.png'), buf);
+        writeFileIfChanged(join(dir, 'ic_launcher_round.png'), buf);
     }
     log(`Android: generated launcher icons (${ANDROID_DENSITIES.length} densities × 2 variants)`);
 }
@@ -127,10 +129,11 @@ export async function generateAndroidAdaptiveIcon(cwd: string, android: Resolved
     for (const { name, px } of ADAPTIVE_FOREGROUND_DENSITIES) {
         const dir = join(resDir, name);
         mkdirSync(dir, { recursive: true });
-        await sharp(adaptive.foreground)
+        const buf = await sharp(adaptive.foreground)
             .resize(px, px, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
             .png()
-            .toFile(join(dir, 'ic_launcher_foreground.png'));
+            .toBuffer();
+        writeFileIfChanged(join(dir, 'ic_launcher_foreground.png'), buf);
     }
 
     // Background color resource.
@@ -141,7 +144,7 @@ export async function generateAndroidAdaptiveIcon(cwd: string, android: Resolved
     <color name="ic_launcher_background">${adaptive.backgroundColor}</color>
 </resources>
 `;
-    writeFileSync(join(valuesDir, 'ic_launcher_background.xml'), colorXml);
+    writeFileIfChanged(join(valuesDir, 'ic_launcher_background.xml'), colorXml);
 
     // adaptive-icon XML referencing both layers.
     const anydpi = join(resDir, 'mipmap-anydpi-v26');
@@ -152,8 +155,8 @@ export async function generateAndroidAdaptiveIcon(cwd: string, android: Resolved
     <foreground android:drawable="@mipmap/ic_launcher_foreground"/>
 </adaptive-icon>
 `;
-    writeFileSync(join(anydpi, 'ic_launcher.xml'), adaptiveXml);
-    writeFileSync(join(anydpi, 'ic_launcher_round.xml'), adaptiveXml);
+    writeFileIfChanged(join(anydpi, 'ic_launcher.xml'), adaptiveXml);
+    writeFileIfChanged(join(anydpi, 'ic_launcher_round.xml'), adaptiveXml);
 
     log(`Android: generated adaptive icon (5 foreground densities + bg color ${adaptive.backgroundColor})`);
 }

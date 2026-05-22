@@ -12,9 +12,10 @@
  * `<!-- {{PLACEHOLDER}} -->` markers in the scaffolded native files. Idempotent.
  */
 
-import { readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import type { ResolvedConfig, ResolvedAndroidAssets, ResolvedPlatformAssets } from '../config/index.js';
+import { writeFileIfChanged } from '../util/idempotent-write.js';
 
 function log(msg: string) {
     console.log(`[sigx] ${msg}`);
@@ -88,7 +89,7 @@ export function applyIosPlistMeta(cwd: string, config: ResolvedConfig, ios: Reso
     content = content.replace('    <!-- {{ORIENTATIONS}} -->', iosOrientationsXml(ios.orientation));
     content = content.replace('    <!-- {{LAUNCH_SCREEN}} -->', iosLaunchScreenXml());
     content = content.replace('    <!-- {{URL_SCHEMES}} -->', `    ${iosUrlSchemesXml(ios.scheme)}`);
-    writeFileSync(plistFile, content);
+    writeFileIfChanged(plistFile, content);
     log(`iOS: applied Info.plist meta (orientation=${ios.orientation}, scheme=${ios.scheme ?? 'none'})`);
 }
 
@@ -130,7 +131,7 @@ export function applyAndroidManifestMeta(cwd: string, android: ResolvedAndroidAs
     let content = readFileSync(manifestFile, 'utf-8');
     content = content.replace('{{orientation}}', androidOrientationValue(android.orientation));
     content = content.replace('            <!-- {{INTENT_FILTERS}} -->', androidIntentFilterXml(android.scheme));
-    writeFileSync(manifestFile, content);
+    writeFileIfChanged(manifestFile, content);
     log(`Android: applied manifest meta (orientation=${android.orientation}, scheme=${android.scheme ?? 'none'})`);
 }
 
@@ -150,6 +151,6 @@ export function applyAndroidGradleMeta(cwd: string, config: ResolvedConfig): voi
     } else {
         content = content.replace(/versionCode\s*=\s*\d+/g, `versionCode = ${target}`);
     }
-    writeFileSync(gradleFile, content);
+    writeFileIfChanged(gradleFile, content);
     log(`Android: applied build.gradle meta (versionCode=${target})`);
 }

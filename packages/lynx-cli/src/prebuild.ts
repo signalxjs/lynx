@@ -14,6 +14,11 @@ import { join, dirname, relative, extname, basename } from 'node:path';
 import { pathToFileURL, fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
 import { resolveConfig, modulesForPlatform, resolveAssets } from './config/index.js';
+import { writeFileIfChanged, copyFileIfChanged } from './util/idempotent-write.js';
+import {
+    combineHash, getCliVersion,
+    readCachedFingerprint, writeCachedFingerprint,
+} from './util/build-fingerprint.js';
 import {
     iosProjectRoot, iosSourceRoot, iosXcodeProjPath, iosPodfilePath, iosInfoPlistPath,
     androidProjectRoot, androidAppDir, androidKotlinRoot,
@@ -327,7 +332,7 @@ export function writeAndroidRegistry(cwd: string, config: ResolvedConfig, regist
     );
 
     mkdirSync(registryDir, { recursive: true });
-    writeFileSync(registryFile, code);
+    writeFileIfChanged(registryFile, code);
     log(`Android: wrote GeneratedModuleRegistry.kt`);
 }
 
@@ -349,7 +354,7 @@ export function writeAndroidLifecyclePublishers(cwd: string, config: ResolvedCon
     );
 
     mkdirSync(dir, { recursive: true });
-    writeFileSync(file, code);
+    writeFileIfChanged(file, code);
     log(`Android: wrote GeneratedLifecyclePublishers.kt`);
 }
 
@@ -370,7 +375,7 @@ export function writeAndroidActivityHooks(cwd: string, config: ResolvedConfig, h
     );
 
     mkdirSync(dir, { recursive: true });
-    writeFileSync(file, code);
+    writeFileIfChanged(file, code);
     log(`Android: wrote GeneratedActivityHooks.kt`);
 }
 
@@ -401,7 +406,7 @@ export function injectGradleDependencies(cwd: string, config: ResolvedConfig, de
         log(`Android: injected ${debugDeps.length} debug Gradle dependencies`);
     }
 
-    writeFileSync(gradleFile, content);
+    writeFileIfChanged(gradleFile, content);
 }
 
 /**
@@ -421,7 +426,7 @@ export function injectAndroidPermissions(cwd: string, config: ResolvedConfig, pe
         '    <!-- {{PERMISSIONS}} -->',
         `    <!-- Auto-linked module permissions -->\n${permLines}`
     );
-    writeFileSync(manifestFile, content);
+    writeFileIfChanged(manifestFile, content);
     log(`Android: injected ${permissions.length} permissions`);
 }
 
@@ -464,7 +469,7 @@ export function copyDevClientSources(cwd: string, config: ResolvedConfig, devCli
                 copyRecursive(srcPath, destPath);
             } else {
                 mkdirSync(dirname(destPath), { recursive: true });
-                copyFileSync(srcPath, destPath);
+                copyFileIfChanged(srcPath, destPath);
             }
         }
     }
@@ -578,7 +583,7 @@ export function copyIosModuleSources(cwd: string, config: ResolvedConfig, manife
             // unchanged on Windows since there's no forward slash, and
             // join(dest, …) then nests the entire source path under dest.
             const fileName = basename(swift);
-            copyFileSync(swift, join(dest, fileName));
+            copyFileIfChanged(swift, join(dest, fileName));
             (hasPublisher ? lifecycleFiles : moduleFiles).push(fileName);
         }
     }
@@ -605,7 +610,7 @@ function copyDirRecursive(src: string, dest: string): void {
             copyDirRecursive(srcPath, destPath);
         } else {
             mkdirSync(dirname(destPath), { recursive: true });
-            copyFileSync(srcPath, destPath);
+            copyFileIfChanged(srcPath, destPath);
         }
     }
 }
@@ -794,8 +799,7 @@ export function refreshAndroidManagedFiles(cwd: string, config: ResolvedConfig):
         if (!existsSync(srcPath)) continue;
         const content = substituteVars(readFileSync(srcPath, 'utf-8'), vars);
         mkdirSync(dirname(destPath), { recursive: true });
-        writeFileSync(destPath, content);
-        refreshed++;
+        if (writeFileIfChanged(destPath, content)) refreshed++;
     }
     if (refreshed > 0) log(`Android: refreshed ${refreshed} managed config files`);
 }
@@ -839,8 +843,7 @@ export function refreshIosManagedFiles(cwd: string, config: ResolvedConfig): voi
         if (!existsSync(srcPath)) continue;
         const content = substituteVars(readFileSync(srcPath, 'utf-8'), vars);
         mkdirSync(dirname(destPath), { recursive: true });
-        writeFileSync(destPath, content);
-        refreshed++;
+        if (writeFileIfChanged(destPath, content)) refreshed++;
     }
 
     // Refresh Podfile. This carries Lynx SDK pod declarations that must track
@@ -850,8 +853,7 @@ export function refreshIosManagedFiles(cwd: string, config: ResolvedConfig): voi
     const podfileDest = join(cwd, 'ios', 'Podfile');
     if (existsSync(podfileSrc)) {
         const content = substituteVars(readFileSync(podfileSrc, 'utf-8'), vars);
-        writeFileSync(podfileDest, content);
-        refreshed++;
+        if (writeFileIfChanged(podfileDest, content)) refreshed++;
     }
 
     if (refreshed > 0) {
@@ -870,7 +872,7 @@ export function writeIosRegistry(cwd: string, config: ResolvedConfig, registryCo
     // to register it.
     const registryFile = join(iosSourceRoot(cwd, config), 'GeneratedModuleRegistry.swift');
     mkdirSync(dirname(registryFile), { recursive: true });
-    writeFileSync(registryFile, registryCode);
+    writeFileIfChanged(registryFile, registryCode);
     log(`iOS: wrote GeneratedModuleRegistry.swift`);
 }
 
@@ -886,7 +888,7 @@ export function writeIosLifecyclePublishers(cwd: string, config: ResolvedConfig,
     // apps), where it'd register at the source root.
     const file = join(iosSourceRoot(cwd, config), 'GeneratedLifecyclePublishers.swift');
     mkdirSync(dirname(file), { recursive: true });
-    writeFileSync(file, lifecycleCode);
+    writeFileIfChanged(file, lifecycleCode);
     addFilesToXcodeProject(cwd, config, '', ['GeneratedLifecyclePublishers.swift']);
     log(`iOS: wrote GeneratedLifecyclePublishers.swift`);
 }
@@ -899,7 +901,7 @@ export function writeIosLifecyclePublishers(cwd: string, config: ResolvedConfig,
 export function writeIosAppDelegateHooks(cwd: string, config: ResolvedConfig, hooksCode: string): void {
     const file = join(iosSourceRoot(cwd, config), 'GeneratedAppDelegateHooks.swift');
     mkdirSync(dirname(file), { recursive: true });
-    writeFileSync(file, hooksCode);
+    writeFileIfChanged(file, hooksCode);
     addFilesToXcodeProject(cwd, config, '', ['GeneratedAppDelegateHooks.swift']);
     log(`iOS: wrote GeneratedAppDelegateHooks.swift`);
 }
@@ -916,7 +918,7 @@ export function injectPodfileEntries(cwd: string, config: ResolvedConfig, pods: 
         ? `  # Auto-linked module pods\n${pods.join('\n')}`
         : '  # (no auto-linked module pods)';
     content = content.replace('  # {{POD_ENTRIES}}', replacement);
-    writeFileSync(podfile, content);
+    writeFileIfChanged(podfile, content);
     if (pods.length > 0) log(`iOS: injected ${pods.length} pod entries`);
 }
 
@@ -939,7 +941,7 @@ export function injectInfoPlistDescriptions(
           }`
         : '    <!-- (no auto-linked usage descriptions) -->';
     content = content.replace('    <!-- {{USAGE_DESCRIPTIONS}} -->', replacement);
-    writeFileSync(plistFile, content);
+    writeFileIfChanged(plistFile, content);
     if (keys.length > 0) log(`iOS: injected ${keys.length} usage descriptions`);
 }
 
@@ -955,7 +957,7 @@ export function injectDebugPodfileEntries(cwd: string, config: ResolvedConfig, p
         ? `  # Debug-only auto-linked pods\n${pods.join('\n')}`
         : '  # (no auto-linked debug pods)';
     content = content.replace('  # {{DEBUG_POD_ENTRIES}}', replacement);
-    writeFileSync(podfile, content);
+    writeFileIfChanged(podfile, content);
     if (pods.length > 0) log(`iOS: injected ${pods.length} debug pod entries`);
 }
 
@@ -1003,7 +1005,7 @@ export function copyDevClientSourcesIos(
                 copyRecursive(srcPath, destPath);
             } else {
                 mkdirSync(dirname(destPath), { recursive: true });
-                copyFileSync(srcPath, destPath);
+                copyFileIfChanged(srcPath, destPath);
                 if (entry.endsWith('.swift')) {
                     copiedFiles.push(entry);
                 }
@@ -1226,7 +1228,7 @@ function addFilesToXcodeProject(
         }
     }
 
-    writeFileSync(pbxprojPath, content);
+    writeFileIfChanged(pbxprojPath, content);
     if (newFiles.length > 0) {
         log(`iOS: registered ${newFiles.length} new ${groupName} source files in Xcode project`);
     }
@@ -1283,16 +1285,91 @@ export function cleanPrebuild(cwd: string, config: ResolvedConfig, full: boolean
 // ────────────────────────────────────────────────────────────────
 
 /**
+ * Hash of everything that drives prebuild's output: the user config files,
+ * the project's resolved `signalx-module.json` set (from node_modules), the
+ * CLI version, and which platforms we're building. Used to short-circuit
+ * runPrebuild when nothing it cares about has changed since the last run.
+ *
+ * Notably does NOT hash any files under `android/` or `ios/` — those are
+ * outputs, not inputs. User edits to native source files are preserved
+ * either way (prebuild only touches managed files via writeFileIfChanged).
+ */
+function fingerprintPrebuildInputs(cwd: string, platforms: { android: boolean; ios: boolean }): string {
+    const files: string[] = [];
+
+    for (const name of ['signalx.config.ts', 'signalx.config.js', 'signalx.config.mjs', 'lynx.config.ts', 'lynx.config.js', 'lynx.config.mjs']) {
+        const p = join(cwd, name);
+        if (existsSync(p)) files.push(p);
+    }
+    files.push(join(cwd, 'package.json'));
+
+    const req = createRequire(join(cwd, 'package.json'));
+    let pkgJson: { dependencies?: Record<string, string>; devDependencies?: Record<string, string> };
+    try {
+        pkgJson = JSON.parse(readFileSync(join(cwd, 'package.json'), 'utf-8'));
+    } catch {
+        pkgJson = {};
+    }
+    const candidates = new Set([
+        ...Object.keys(pkgJson.dependencies ?? {}),
+        ...Object.keys(pkgJson.devDependencies ?? {}),
+    ]);
+    for (const pkg of [...candidates].sort()) {
+        try { files.push(req.resolve(`${pkg}/signalx-module.json`)); } catch { /* not a sigx module */ }
+    }
+
+    return combineHash(files.sort(), {
+        cliVersion: getCliVersion(),
+        platforms: `android=${platforms.android};ios=${platforms.ios}`,
+    });
+}
+
+/**
  * Run the full prebuild pipeline:
  * 1. Load config
  * 2. Scaffold native projects (if missing)
  * 3. Auto-link modules
  * 4. Write generated code and inject dependencies/permissions
+ *
+ * Skipped entirely when the input fingerprint matches the last successful
+ * run AND the native project dirs we'd be generating into still exist.
+ * Pass `--clean` (or `opts.clean`) to force a re-run.
  */
 export async function runPrebuild(opts: PrebuildOptions = {}): Promise<void> {
     const cwd = opts.cwd || process.cwd();
     const buildAndroid = opts.android ?? true;
     const buildIos = opts.ios ?? true;
+
+    // Fast path: skip the whole pipeline (including the esbuild-driven config
+    // load) when the inputs haven't changed since the last run AND a small
+    // set of "must exist" sentinel outputs are still present on disk. The
+    // sentinels catch the cases where a user (or a wayward `rm`) wiped
+    // something prebuild was responsible for generating — without those
+    // checks, the cached fingerprint would say "all good" and downstream
+    // (xcodebuild / gradle / pod install) would fail in a confusing way.
+    // `--clean` bypasses both checks.
+    if (!opts.clean) {
+        const fingerprint = fingerprintPrebuildInputs(cwd, { android: buildAndroid, ios: buildIos });
+        const cached = readCachedFingerprint(cwd, 'prebuild-inputs');
+        // Sentinels are intentionally appName-independent so we can run them
+        // *before* the esbuild config load — that's the whole point of the
+        // fast path. If we picked appName-scoped sentinels we'd be paying the
+        // very cost we're trying to avoid.
+        const iosSentinels = [
+            join(cwd, 'ios', 'Podfile'),
+        ];
+        const androidSentinels = [
+            join(cwd, 'android', 'app', 'build.gradle.kts'),
+            join(cwd, 'android', 'app', 'src', 'main', 'AndroidManifest.xml'),
+        ];
+        const outputsIntact =
+            (!buildIos || iosSentinels.every((p) => existsSync(p))) &&
+            (!buildAndroid || androidSentinels.every((p) => existsSync(p)));
+        if (cached === fingerprint && outputsIntact) {
+            log('Prebuild inputs unchanged — skipping');
+            return;
+        }
+    }
 
     log('Starting prebuild...');
 
@@ -1474,6 +1551,11 @@ export async function runPrebuild(opts: PrebuildOptions = {}): Promise<void> {
         }
         warnUnlinkedModules(configModulePackagesIos, manifests, 'iOS');
     }
+
+    // Record what we just successfully built from so the next runPrebuild
+    // can short-circuit when inputs haven't changed.
+    const fingerprint = fingerprintPrebuildInputs(cwd, { android: buildAndroid, ios: buildIos });
+    writeCachedFingerprint(cwd, 'prebuild-inputs', fingerprint);
 
     log('Prebuild complete!');
 }
