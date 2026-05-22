@@ -38,22 +38,28 @@ import {
     signal,
     type Define,
 } from '@sigx/lynx';
-import { useIconVariantResolver, type IconVariantResolver } from '@sigx/lynx-icons';
+import { useIconColorResolver, type IconColorResolver } from '@sigx/lynx-icons';
 import type { DaisyColor } from '../shared/styles.js';
 
 /**
- * Declaration-merge extension: every daisy color token becomes a valid
- * `<Icon variant=…>` key at the type level. `@sigx/lynx-icons` ships an
- * empty `IconVariants` interface; this block adds daisy's tokens as
- * keys, making `import type { IconVariant }` resolve to the union.
+ * Declaration-merge extension: add a typed `variant` prop to `<Icon>`,
+ * `<FaSolidIcon>`, `<LucideIcon>`, etc. Daisy owns the entire concept
+ * — `@sigx/lynx-icons` has no notion of variants. Without this merge
+ * being in scope (i.e. an app that doesn't depend on daisy), `<Icon
+ * variant="…">` is a compile error: the property doesn't exist.
  *
- * The merge fires whenever this file's types are reachable — i.e. the
- * moment any consumer imports anything from `@sigx/lynx-daisyui`. No
- * subpath, no extra import needed by the consumer.
+ * The merge fires the moment any consumer imports anything from
+ * `@sigx/lynx-daisyui`. No subpath, no extra import dance.
  */
 declare module '@sigx/lynx-icons' {
-    // eslint-disable-next-line @typescript-eslint/no-empty-object-type
-    interface IconVariants extends Record<DaisyColor, true> {}
+    interface IconPropsExtensions {
+        /**
+         * Daisy color token applied as the icon's `fill`. Resolved at
+         * runtime through `useIconColorResolver` (provided by
+         * `<ThemeProvider>`) to the current theme's hex value.
+         */
+        variant?: DaisyColor;
+    }
 }
 
 /**
@@ -197,16 +203,20 @@ export const ThemeProvider = component<ThemeProviderProps>(({ props, slots }) =>
 
     defineProvide(useTheme, () => controller);
 
-    // Wire the daisy variant resolver into `@sigx/lynx-icons`'s injectable
+    // Wire the daisy color resolver into `@sigx/lynx-icons`'s injectable
     // so any `<Icon variant="primary">` rendered inside this subtree gets
-    // the daisy primary hex automatically. The resolver reads
-    // `state.name` reactively — flipping themes (`theme.toggle()`) makes
-    // every icon's render re-run with new colors, no remount.
-    const resolver: IconVariantResolver = (v) => {
+    // the daisy primary hex automatically. The resolver receives the
+    // full `<Icon>` props (including the augmented `variant` field this
+    // module declared above), reads `state.name` reactively, and
+    // returns the matching hex — flipping themes via `theme.toggle()`
+    // makes every icon's render re-run with new colors, no remount.
+    const resolver: IconColorResolver = (props) => {
+        const variant = (props as { variant?: DaisyColor }).variant;
+        if (!variant) return undefined;
         const palette = DAISY_PALETTE[paletteFor(state.name)];
-        return (palette as Record<string, string>)[v];
+        return (palette as Record<string, string>)[variant];
     };
-    defineProvide(useIconVariantResolver, () => resolver);
+    defineProvide(useIconColorResolver, () => resolver);
 
     return () => {
         const baseStyle: Record<string, string | number> = {

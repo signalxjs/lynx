@@ -24,48 +24,36 @@
  * Pro adapters would expose their own pinned components alongside these.
  */
 import { component, type Define } from '@sigx/lynx';
-import { Icon, type IconVariant } from '@sigx/lynx-icons';
+import { Icon, type IconPropsExtensions } from '@sigx/lynx-icons';
 
 type FaIconProps =
     & Define.Prop<'name', string, true>
     & Define.Prop<'size', number, false>
     & Define.Prop<'color', string, false>
     & Define.Prop<'class', string, false>
-    /** Variant resolved by `useIconVariantResolver` (daisy provides `primary` / `secondary` / …). */
-    & Define.Prop<'variant', IconVariant, false>;
+    /**
+     * Inherit any theme-augmented props (e.g. daisy's `variant?: DaisyColor`).
+     * The augmentation happens in core `@sigx/lynx-icons`'s
+     * `IconPropsExtensions`; intersecting it here keeps the pinned
+     * component's surface in sync without extra forwarding work.
+     */
+    & IconPropsExtensions;
 
 /** Font Awesome **solid** icon — pins `set="fas"` to match FA's `IconPrefix`. */
 export const FaSolidIcon = component<FaIconProps>(({ props }) => () => (
-    <Icon
-        set="fas"
-        name={props.name}
-        size={props.size}
-        color={props.color}
-        class={props.class}
-        variant={props.variant}
-    />
+    // Spread forwards every prop including theme-augmented ones (no
+    // explicit per-field listing needed). `set="fas"` after the spread
+    // wins per JSX last-attr-wins semantics; `FaIconProps` doesn't
+    // declare `set` so callers can't override.
+    <Icon {...props} set="fas" />
 ));
 
 /** Font Awesome **regular** (outlined) icon — pins `set="far"`. */
 export const FaRegularIcon = component<FaIconProps>(({ props }) => () => (
-    <Icon
-        set="far"
-        name={props.name}
-        size={props.size}
-        color={props.color}
-        class={props.class}
-        variant={props.variant}
-    />
+    <Icon {...props} set="far" />
 ));
 
 /** Font Awesome **brands** icon — pins `set="fab"`. */
 export const FaBrandIcon = component<FaIconProps>(({ props }) => () => (
-    <Icon
-        set="fab"
-        name={props.name}
-        size={props.size}
-        color={props.color}
-        class={props.class}
-        variant={props.variant}
-    />
+    <Icon {...props} set="fab" />
 ));

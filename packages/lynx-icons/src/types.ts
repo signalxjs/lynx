@@ -1,55 +1,48 @@
 /**
- * Extension point: declaration-merge into this interface to add named
- * variants accepted by `<Icon variant=…>` and the adapter pinned
- * components. Each key becomes a valid variant string at the type level
- * and is forwarded at runtime to the `useIconVariantResolver` injectable
- * for class resolution.
+ * Augmentation point for theme / extension packages. Declaration-merge
+ * into this interface to add fields that `<Icon>` accepts beyond the
+ * core props. The pinned components in adapter packages and the daisy
+ * navigation primitives inherit the augmentation automatically via
+ * intersection.
  *
- * `@sigx/lynx-icons` itself defines no variants — the interface is empty
- * by default, so `IconVariant` is `never` and the `variant` prop is
- * effectively disabled until something augments it. Daisy augments with
- * its color tokens (`primary`, `secondary`, …); third-party themes can
- * augment further.
+ * `@sigx/lynx-icons` deliberately knows nothing about themes — the
+ * extension shape is up to whatever theme is installed. Daisy adds a
+ * `variant?: DaisyColor` field; a custom theme could add anything else
+ * (`tone?: 'muted' | 'loud'`, `tint?: number`, …) and provide its own
+ * resolver.
  *
  * @example
  * ```ts
  * // In a theme package:
  * declare module '@sigx/lynx-icons' {
- *     interface IconVariants {
- *         primary: true;
- *         secondary: true;
+ *     interface IconPropsExtensions {
+ *         variant?: 'primary' | 'secondary' | 'accent';
  *     }
  * }
  * ```
  */
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
-export interface IconVariants {}
+export interface IconPropsExtensions {}
 
 /**
- * Valid variant strings. When `IconVariants` has been augmented (e.g. by
- * `@sigx/lynx-daisyui`), this narrows to the union of augmented keys.
- * When nothing has augmented it, falls back to `string` so the prop
- * stays usable — and the framework's JSX prop-stripping doesn't drop a
- * `never`-typed prop from pinned components built before any augmenter.
- */
-export type IconVariant = [keyof IconVariants] extends [never]
-    ? string
-    : keyof IconVariants;
-
-/**
- * Function form provided to `useIconVariantResolver`. Given a variant
- * string, return a **CSS color value** (e.g. `'var(--color-primary)'`,
- * `'#0D9488'`, `'tomato'`) that gets substituted into the rendered
- * SVG's `fill=` attribute. Return `undefined` to ignore a variant the
- * resolver doesn't recognize — in that case the icon falls back to
- * `props.color` or `currentColor`.
+ * Function form provided to `useIconColorResolver`. Receives the full
+ * `<Icon>` props (including whatever fields the active theme augmented
+ * onto `IconPropsExtensions`) and returns a **CSS color value**
+ * substituted into the rendered SVG's `fill=` attribute. Return
+ * `undefined` to fall through to `props.color` / `currentColor`.
  *
  * Color rather than class: Lynx's `<svg content=…>` parses the inline
  * SVG markup as a standalone fragment that doesn't inherit `color` CSS
  * from the host element. Substituting the value into the markup is the
  * only reliable way to make theme tokens show through.
+ *
+ * Props rather than a single variant string: the core has no opinion on
+ * how a theme keys its colors. A theme picks whichever augmented field
+ * (or combination) makes sense and reads it from `props` itself.
  */
-export type IconVariantResolver = (variant: string) => string | undefined;
+export type IconColorResolver = (
+    props: Readonly<Record<string, unknown>>,
+) => string | undefined;
 
 /**
  * Lightweight `{ set, name }` reference to an icon in a registered set —

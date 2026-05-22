@@ -123,17 +123,18 @@ export const Settings = component(() => {
                             <Text weight="semibold">@sigx/lynx-icons</Text>
                             <Text class="opacity-60 text-sm">
                                 Pinned per-set components from each adapter
-                                (`FaSolidIcon`, `FaBrandIcon`, `LucideIcon`) —
-                                each tree-shaken at build time so only the
-                                referenced glyphs ship in the bundle.
+                                (`FaSolidIcon`, `FaBrandIcon`, `LucideIcon`)
+                                themed via daisy variants — the color
+                                resolver provided by `ThemeProvider` maps
+                                `variant` to the active theme's hex.
                             </Text>
                             <Row gap={16} align="center">
-                                <FaSolidIcon name="user" size={24} color="#0D9488" />
-                                <FaSolidIcon name="house" size={24} color="#0D9488" />
-                                <FaSolidIcon name="gear" size={24} color="#0D9488" />
-                                <FaBrandIcon name="github" size={24} color="#222" />
-                                <LucideIcon name="search" size={24} color="#0D9488" />
-                                <LucideIcon name="bell" size={24} color="#0D9488" />
+                                <FaSolidIcon name="user" size={24} variant="primary" />
+                                <FaSolidIcon name="house" size={24} variant="secondary" />
+                                <FaSolidIcon name="gear" size={24} variant="accent" />
+                                <FaBrandIcon name="github" size={24} variant="neutral" />
+                                <LucideIcon name="search" size={24} variant="info" />
+                                <LucideIcon name="bell" size={24} variant="warning" />
                             </Row>
                         </Col>
                     </Card.Body>
@@ -151,7 +152,7 @@ export const Settings = component(() => {
                             </Text>
                             <Row gap={16} align="center">
                                 {['rocket', 'bug', 'fire', 'star', 'heart'].map((name) => (
-                                    <FaSolidIcon name={name} size={24} color="#0D9488" />
+                                    <FaSolidIcon name={name} size={24} variant="primary" />
                                 ))}
                             </Row>
                         </Col>

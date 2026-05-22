@@ -3,20 +3,20 @@ import { codepoints } from '@sigx/lynx-icons/__codepoints';
 import { svgs } from '@sigx/lynx-icons/__svgs';
 import '@sigx/lynx-icons/__font-face.css';
 import { lookupGlyph } from './registry.js';
-import type { IconVariant, IconVariantResolver } from './types.js';
+import type { IconColorResolver, IconPropsExtensions } from './types.js';
 
 /**
- * Injectable that maps a `variant` string to a class string. Provided by
- * theme packages (daisy's `<ThemeProvider>` provides one mapping
- * `primary` → `text-primary`, etc.). When unset, `variant` is silently
- * ignored at runtime — the type-level `IconVariant` is what tells
- * consumers which keys are valid.
+ * Injectable for the active theme's color resolver. Receives the full
+ * `<Icon>` props (including theme-augmented fields like daisy's
+ * `variant`) and returns a CSS color value to substitute into the SVG
+ * `fill=`, or `undefined` to fall through.
  *
- * Resolver receives the raw string (typed as `string` to accept any
- * augmented keys) and returns the class to merge with `props.class`, or
- * `undefined` to skip.
+ * Themes provide this via `defineProvide(useIconColorResolver, …)` from
+ * inside a provider component (e.g. daisy's `<ThemeProvider>`). Core
+ * `<Icon>` has no concept of named variants — it just asks the resolver
+ * for a color.
  */
-export const useIconVariantResolver = defineInjectable<IconVariantResolver | null>(() => null);
+export const useIconColorResolver = defineInjectable<IconColorResolver | null>(() => null);
 
 export type IconProps =
     & Define.Prop<'set', string, true>
@@ -25,12 +25,13 @@ export type IconProps =
     & Define.Prop<'color', string, false>
     & Define.Prop<'class', string, false>
     /**
-     * Named variant resolved through `useIconVariantResolver`. Adds the
-     * resolver's class to the rendered `<svg>` element. The set of valid
-     * keys is the `IconVariants` interface — extend it via TypeScript
-     * declaration merging from a theme package.
+     * Augmentation point — theme packages declaration-merge into
+     * `IconPropsExtensions` to add their own typed props (e.g. daisy
+     * adds `variant?: DaisyColor`). Core declares no specific
+     * extensions, so without a theme installed, no extra props exist
+     * and the type system rejects `<Icon variant="…">` at compile time.
      */
-    & Define.Prop<'variant', IconVariant, false>;
+    & IconPropsExtensions;
 
 /**
  * Match a conservative subset of valid CSS color formats:
@@ -85,26 +86,32 @@ export function inlineSvg(template: string, color: string): string {
  * ```
  */
 export const Icon = component<IconProps>(({ props }) => {
-    // Resolve the variant-resolver once at setup. The resolver itself is a
-    // pure function, so this is a stable reference; render reads from the
-    // current `props.variant` each pass.
-    const resolveVariant = useIconVariantResolver();
+    // Resolve the active theme's color resolver once at setup. The
+    // resolver itself is a stable function reference; it reads the
+    // theme-augmented props (e.g. `props.variant` for daisy) and any
+    // reactive theme state (e.g. `theme.name`) on each call.
+    const resolveColor = useIconColorResolver();
     return () => {
         const size = props.size ?? 16;
         const set = props.set;
         const name = props.name;
         const sizeStyle = { width: size, height: size } as const;
-        // Resolution order: explicit `props.color` wins → then a variant
-        // mapped through the resolver (theme tokens, e.g.
-        // `var(--color-primary)`) → finally `currentColor`. Substituted
-        // directly into the SVG `fill=` attribute by `inlineSvg`; class
-        // is not used to convey color because Lynx's `<svg content=…>`
-        // parses the SVG string in isolation and doesn't inherit host
-        // CSS `color`.
-        const variantColor = props.variant && resolveVariant
-            ? resolveVariant(props.variant)
+        // Resolution order: explicit `props.color` wins → then the
+        // theme resolver's return (driven by augmented props like
+        // `variant`) → finally `currentColor`. Substituted directly
+        // into the SVG `fill=` attribute by `inlineSvg`; class is not
+        // used to convey color because Lynx's `<svg content=…>` parses
+        // the SVG string in isolation and doesn't inherit host CSS
+        // `color`.
+        //
+        // `props` is cast to the unknown-record shape the resolver
+        // signature expects — at compile time the augmented fields are
+        // typed correctly inside the resolver itself (where the theme
+        // package's augmentation is in scope).
+        const themeColor = resolveColor
+            ? resolveColor(props as unknown as Readonly<Record<string, unknown>>)
             : undefined;
-        const color = props.color ?? variantColor ?? 'currentColor';
+        const color = props.color ?? themeColor ?? 'currentColor';
 
         const glyph = lookupGlyph(codepoints, svgs, set, name);
         if (glyph?.svg) {
