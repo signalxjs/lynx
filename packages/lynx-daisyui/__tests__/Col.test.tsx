@@ -54,4 +54,16 @@ describe('Col', () => {
     const col = container.children[0];
     expect(col._class).toBe('custom');
   });
+
+  it('resolves daisyUI color tokens to CSS variables', () => {
+    const { container } = render(<Col background="base-100"><text>A</text></Col>);
+    const col = container.children[0];
+    expect(col._style.backgroundColor).toBe('var(--color-base-100)');
+  });
+
+  it('passes raw color strings through unchanged', () => {
+    const { container } = render(<Col background="#ff8800"><text>A</text></Col>);
+    const col = container.children[0];
+    expect(col._style.backgroundColor).toBe('#ff8800');
+  });
 });

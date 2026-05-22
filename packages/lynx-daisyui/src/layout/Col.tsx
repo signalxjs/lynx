@@ -1,5 +1,5 @@
 import { component, type Define } from '@sigx/lynx';
-import { type SpacingValue, type BoxProps, resolveSpacing, resolveBoxStyle } from '../shared/styles.js';
+import { type SpacingValue, type BackgroundValue, resolveBoxStyle } from '../shared/styles.js';
 
 export type ColProps =
   & Define.Prop<'gap', number, false>
@@ -11,7 +11,7 @@ export type ColProps =
   & Define.Prop<'width', number | string, false>
   & Define.Prop<'height', number | string, false>
   & Define.Prop<'flex', number, false>
-  & Define.Prop<'background', string, false>
+  & Define.Prop<'background', BackgroundValue, false>
   & Define.Prop<'borderRadius', number, false>
   & Define.Prop<'class', string, false>
   & Define.Slot<'default'>;

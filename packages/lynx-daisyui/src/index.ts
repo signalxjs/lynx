@@ -18,6 +18,10 @@ export type { ScrollViewProps } from './layout/ScrollView.js';
 export { Divider } from './layout/Divider.js';
 export type { DividerProps } from './layout/Divider.js';
 
+// Shared style primitives
+export type { DaisyColor, BackgroundValue, SpacingValue, BoxProps } from './shared/styles.js';
+export { resolveDaisyColor } from './shared/styles.js';
+
 // Forms
 export { Input } from './forms/Input.js';
 export type { InputProps, InputSize, InputVariant, InputColor } from './forms/Input.js';
