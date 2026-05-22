@@ -21,6 +21,7 @@
     "scripts": {
         "build": "node ../../scripts/clean.mjs dist && tsgo",
         "dev": "tsgo --watch",
+        "test": "vitest run",
         "clean": "node ../../scripts/clean.mjs dist .turbo"
     },
     "dependencies": {
@@ -28,7 +29,8 @@
     },
     "devDependencies": {
         "@typescript/native-preview": "7.0.0-dev.20260521.1",
-        "typescript": "^6.0.3"
+        "typescript": "^6.0.3",
+        "vitest": "^4.1.7"
     },
     "author": "Andreas Ekdahl",
     "license": "MIT",

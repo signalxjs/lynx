@@ -39,6 +39,8 @@ export interface IosLinkResult {
     debugPodfileEntries: string[];
     /** Info.plist usage descriptions to add. */
     usageDescriptions: Record<string, string>;
+    /** UIBackgroundModes entries to add to Info.plist. */
+    backgroundModes: string[];
     /** Swift source for module registration. */
     registryCode: string;
     /** Swift source for lifecycle-publisher attachment. */
@@ -79,12 +81,15 @@ export function linkIos(
         didFinishLaunching: [],
         openURL: [],
         continueUserActivity: [],
+        didRegisterForRemoteNotificationsWithDeviceToken: [],
+        didFailToRegisterForRemoteNotificationsWithError: [],
     };
     const podfileEntries: string[] = [];
     const debugPodfileEntries: string[] = [];
     const usageDescriptions: Record<string, string> = {
         ...(config.ios.usageDescriptions ?? {}),
     };
+    const backgroundModes = new Set<string>();
     const registrations: string[] = [];
     const lifecycleAttachments: string[] = [];
     let devClient: IosDevClientInfo | undefined;
@@ -174,6 +179,9 @@ export function linkIos(
         if (ios.usageDescriptions) {
             Object.assign(usageDescriptions, ios.usageDescriptions);
         }
+        if (ios.backgroundModes) {
+            for (const mode of ios.backgroundModes) backgroundModes.add(mode);
+        }
     }
 
     // Add user-specified pods
@@ -191,6 +199,7 @@ export function linkIos(
         podfileEntries: [...new Set(podfileEntries)],
         debugPodfileEntries: [...new Set(debugPodfileEntries)],
         usageDescriptions,
+        backgroundModes: [...backgroundModes],
         registryCode,
         lifecycleCode,
         appDelegateHooksCode,
@@ -250,6 +259,18 @@ function generateAppDelegateHooksSwift(groups: IosAppDelegateHookGroups): string
         (cls) => `${cls}.continueUserActivity(userActivity)`,
     );
 
+    const didRegisterForRemoteNotifications = renderVoidMethod(
+        'didRegisterForRemoteNotificationsWithDeviceToken(_ application: UIApplication, deviceToken: Data)',
+        groups.didRegisterForRemoteNotificationsWithDeviceToken,
+        (cls) => `${cls}.didRegisterForRemoteNotificationsWithDeviceToken(application, deviceToken: deviceToken)`,
+    );
+
+    const didFailToRegisterForRemoteNotifications = renderVoidMethod(
+        'didFailToRegisterForRemoteNotificationsWithError(_ application: UIApplication, error: Error)',
+        groups.didFailToRegisterForRemoteNotificationsWithError,
+        (cls) => `${cls}.didFailToRegisterForRemoteNotificationsWithError(application, error: error)`,
+    );
+
     return `import Foundation
 import UIKit
 
@@ -268,6 +289,10 @@ ${didFinishLaunching}
 ${openURLBody}
 
 ${continueUserActivity}
+
+${didRegisterForRemoteNotifications}
+
+${didFailToRegisterForRemoteNotifications}
 }
 `;
 }

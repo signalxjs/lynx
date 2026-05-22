@@ -1,16 +1,54 @@
 {
     "name": "Notifications",
     "package": "@sigx/lynx-notifications",
-    "description": "Local push notifications",
+    "description": "Local + remote push notifications (APNs / FCM)",
     "platforms": ["android", "ios"],
     "ios": {
         "moduleClass": "NotificationsModule",
+        "publisherClass": "PushPublisher",
+        "appDelegateHook": {
+            "class": "PushAppDelegateHook",
+            "methods": [
+                "didFinishLaunching",
+                "didRegisterForRemoteNotificationsWithDeviceToken",
+                "didFailToRegisterForRemoteNotificationsWithError"
+            ]
+        },
         "sourceDir": "ios",
-        "methods": ["schedule","cancel","cancelAll","requestPermission","getPermissionStatus"]
+        "methods": [
+            "schedule",
+            "cancel",
+            "cancelAll",
+            "requestPermission",
+            "getPermissionStatus",
+            "registerForPushNotifications",
+            "unregisterForPushNotifications",
+            "setBadgeCount",
+            "getBadgeCount",
+            "getInitialNotification"
+        ],
+        "backgroundModes": ["remote-notification"]
     },
     "android": {
         "moduleClass": "com.sigx.notifications.NotificationsModule",
+        "publisherClass": "com.sigx.notifications.PushPublisher",
+        "activityHook": {
+            "class": "com.sigx.notifications.PushActivityHook",
+            "methods": ["onCreate", "onNewIntent"]
+        },
         "sourceDir": "android",
-        "permissions": ["android.permission.POST_NOTIFICATIONS"]
+        "permissions": ["android.permission.POST_NOTIFICATIONS"],
+        "dependencies": [
+            "com.google.firebase:firebase-messaging:24.0.0",
+            "com.google.firebase:firebase-common-ktx:21.0.0",
+            "com.google.android.gms:play-services-base:18.5.0"
+        ],
+        "services": [
+            {
+                "name": "com.sigx.notifications.SigxFirebaseMessagingService",
+                "exported": false,
+                "actions": ["com.google.firebase.MESSAGING_EVENT"]
+            }
+        ]
     }
 }
