@@ -74,6 +74,21 @@ export const Layer = component<LayerProps>(({ props }) => {
                 </Suspense>
             )
             : <Comp {...entryParams} />;
+        // Seed the inline transform to the binding's start value so the
+        // host view is already in position the moment it commits — before
+        // the MT-side `setStyleProperties` from the first
+        // `flushAnimatedStyleBindings` lands. Without this, the underneath
+        // parallax layer renders at `translateX(0)` (default) for the
+        // brief window between MT element creation and the first style
+        // flush; on a card push that window overlaps the incoming top
+        // layer covering the screen, so the parallax appears not to run.
+        // The top layer also benefits — it pins off-screen at
+        // `translateX(SCREEN_WIDTH)` from frame zero rather than flashing
+        // on-screen for a frame.
+        const a = props.animation;
+        const initialTransform = a
+            ? `${a.axis}(${a.outputRange[0]}px)`
+            : undefined;
         return (
             <view
                 main-thread:ref={ref}
@@ -85,6 +100,7 @@ export const Layer = component<LayerProps>(({ props }) => {
                     bottom: '0',
                     display: 'flex',
                     flexDirection: 'column',
+                    ...(initialTransform ? { transform: initialTransform } : {}),
                 }}
             >
                 <EntryScope key={props.entry.key} entry={props.entry}>
