@@ -115,6 +115,22 @@ const mtMappers: Record<string, AnimatedStyleMapper> = {
     const offset = (p as { offset?: number } | undefined)?.offset ?? 0;
     return { transform: `scale(${(v as number) + offset})` };
   },
+  scaleX: (v, p) => {
+    if (isRangeParams(p)) {
+      const out = interpolateLinear(v as number, p.inputRange, p.outputRange, p.extrapolate);
+      return { transform: `scaleX(${out})` };
+    }
+    const offset = (p as { offset?: number } | undefined)?.offset ?? 0;
+    return { transform: `scaleX(${(v as number) + offset})` };
+  },
+  scaleY: (v, p) => {
+    if (isRangeParams(p)) {
+      const out = interpolateLinear(v as number, p.inputRange, p.outputRange, p.extrapolate);
+      return { transform: `scaleY(${out})` };
+    }
+    const offset = (p as { offset?: number } | undefined)?.offset ?? 0;
+    return { transform: `scaleY(${(v as number) + offset})` };
+  },
   opacity: (v, p) => {
     if (isRangeParams(p)) {
       const raw = interpolateLinear(v as number, p.inputRange, p.outputRange, p.extrapolate);
@@ -128,6 +144,8 @@ const mtMappers: Record<string, AnimatedStyleMapper> = {
     return { opacity: String(out) };
   },
   rotate: (v) => ({ transform: `rotate(${v as number}deg)` }),
+  width: (v, p) => ({ width: `${linearOrRange(v, p)}px` }),
+  height: (v, p) => ({ height: `${linearOrRange(v, p)}px` }),
   paddingTop: (v, p) => ({ paddingTop: `${linearOrRange(v, p)}px` }),
   paddingRight: (v, p) => ({ paddingRight: `${linearOrRange(v, p)}px` }),
   paddingBottom: (v, p) => ({ paddingBottom: `${linearOrRange(v, p)}px` }),
@@ -168,7 +186,8 @@ export function registerMapper(name: string, mapper: AnimatedStyleMapper): void 
  * the MT-side resetMainThreadState path (HMR / tests).
  */
 const BUILTIN_NAMES = new Set([
-  'translateX', 'translateY', 'translate', 'scale', 'opacity', 'rotate',
+  'translateX', 'translateY', 'translate', 'scale', 'scaleX', 'scaleY', 'opacity', 'rotate',
+  'width', 'height',
   'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft',
   'marginTop', 'marginRight', 'marginBottom', 'marginLeft',
 ]);

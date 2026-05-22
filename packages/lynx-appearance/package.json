@@ -1,0 +1,62 @@
+{
+    "name": "@sigx/lynx-appearance",
+    "version": "0.4.1",
+    "description": "System appearance (color scheme observation + status/navigation bar tint setters) for sigx-lynx",
+    "type": "module",
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.ts",
+            "import": "./dist/index.js"
+        },
+        "./signalx-module.json": "./signalx-module.json"
+    },
+    "files": [
+        "src",
+        "dist",
+        "ios",
+        "android",
+        "signalx-module.json"
+    ],
+    "scripts": {
+        "build": "node ../../scripts/clean.mjs dist && tsgo",
+        "dev": "tsgo --watch",
+        "prepublishOnly": "node ../../scripts/clean.mjs dist && tsgo",
+        "clean": "node ../../scripts/clean.mjs dist .turbo"
+    },
+    "keywords": [
+        "sigx",
+        "lynx",
+        "appearance",
+        "color-scheme",
+        "dark-mode",
+        "status-bar"
+    ],
+    "author": "Andreas Ekdahl",
+    "license": "MIT",
+    "dependencies": {
+        "@sigx/lynx": "workspace:^",
+        "@sigx/lynx-core": "workspace:^",
+        "@sigx/reactivity": "^0.4.8"
+    },
+    "devDependencies": {
+        "@sigx/lynx-plugin": "workspace:^",
+        "@sigx/lynx-runtime-main": "workspace:^",
+        "@sigx/lynx-testing": "workspace:^",
+        "@typescript/native-preview": "7.0.0-dev.20260521.1",
+        "typescript": "^6.0.3"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/signalxjs/lynx.git",
+        "directory": "packages/lynx-appearance"
+    },
+    "homepage": "https://github.com/signalxjs/lynx/tree/main/packages/lynx-appearance",
+    "bugs": {
+        "url": "https://github.com/signalxjs/lynx/issues"
+    },
+    "publishConfig": {
+        "access": "public"
+    }
+}

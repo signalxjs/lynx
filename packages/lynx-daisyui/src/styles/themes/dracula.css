@@ -1,0 +1,95 @@
+/* DaisyUI Dracula Theme — dark variant, classic Dracula palette */
+/* Scoped under .daisy-dracula; CSS inheritance propagates to descendants */
+
+.daisy-dracula {
+  /* Apply base colors to the theme root */
+  background-color: #282a36;
+  color: #f8f8f2;
+
+  /* Semantic colors */
+  --color-primary: #ff79c6;
+  --color-primary-content: #2d0414;
+  --color-secondary: #bd93f9;
+  --color-secondary-content: #160226;
+  --color-accent: #50fa7b;
+  --color-accent-content: #002a0e;
+  --color-neutral: #414558;
+  --color-neutral-content: #f8f8f2;
+
+  /* Base colors */
+  --color-base-100: #282a36;
+  --color-base-200: #21222c;
+  --color-base-300: #181920;
+  --color-base-content: #f8f8f2;
+
+  /* Status colors */
+  --color-info: #8be9fd;
+  --color-info-content: #002a31;
+  --color-success: #50fa7b;
+  --color-success-content: #002a0e;
+  --color-warning: #f1fa8c;
+  --color-warning-content: #2a2900;
+  --color-error: #ff5555;
+  --color-error-content: #2a0000;
+
+  /* ── Roundness ── */
+  --rounded-box: 16px;
+  --rounded-btn: 8px;
+  --rounded-badge: 9999px;
+  --rounded-tab: 8px;
+  --rounded-selector: 8px;
+  --rounded-toggle: 9999px;
+
+  /* ── Sizing scale ── */
+  --size-xs: 24px;
+  --size-sm: 32px;
+  --size-md: 48px;
+  --size-lg: 64px;
+
+  /* ── Font sizes ── */
+  --font-xs: 12px;
+  --font-sm: 14px;
+  --font-md: 14px;
+  --font-lg: 18px;
+
+  /* ── Spacing ── */
+  --padding-btn-xs: 8px;
+  --padding-btn-sm: 12px;
+  --padding-btn-md: 16px;
+  --padding-btn-lg: 24px;
+  --padding-box: 16px;
+  --padding-box-compact: 8px;
+  --gap-box: 8px;
+
+  /* ── Borders ── */
+  --border-btn: 1px;
+  --border-card: 1px;
+
+  /* ── Component-specific sizes ── */
+  --checkbox-xs: 16px;
+  --checkbox-sm: 20px;
+  --checkbox-md: 24px;
+  --checkbox-lg: 32px;
+  --toggle-width-xs: 32px;
+  --toggle-width-sm: 40px;
+  --toggle-width-md: 48px;
+  --toggle-width-lg: 56px;
+  --toggle-height-xs: 22px;
+  --toggle-height-sm: 24px;
+  --toggle-height-md: 28px;
+  --toggle-height-lg: 32px;
+  --toggle-thumb-xs: 14px;
+  --toggle-thumb-sm: 16px;
+  --toggle-thumb-md: 20px;
+  --toggle-thumb-lg: 24px;
+  --badge-xs: 16px;
+  --badge-sm: 20px;
+  --badge-md: 24px;
+  --badge-lg: 32px;
+  --step-indicator: 32px;
+  --progress-height: 8px;
+  --modal-max-width: 400px;
+
+  /* ── Opacity ── */
+  --disabled-opacity: 0.5;
+}

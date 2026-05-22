@@ -39,6 +39,10 @@ export interface MapperParams {
   translate: { factorX?: number; factorY?: number };
   /** scale(value + offset) — defaults: { offset: 0 }. Or range-map. */
   scale: { offset?: number } | RangeParams;
+  /** scaleX(value + offset) — defaults: { offset: 0 }. Or range-map. Use for width-axis growth (e.g. a pill indicator) without re-laying out. */
+  scaleX: { offset?: number } | RangeParams;
+  /** scaleY(value + offset) — defaults: { offset: 0 }. Or range-map. */
+  scaleY: { offset?: number } | RangeParams;
   /**
    * opacity = clamp01(value * factor + offset). Or range-map (output is
    * clamped to [0,1] after interpolation either way).
@@ -46,6 +50,17 @@ export interface MapperParams {
   opacity: { factor?: number; offset?: number } | RangeParams;
   /** rotate(value)deg. */
   rotate: Record<string, never>;
+  /**
+   * width: (value * factor)px — defaults: { factor: 1 }. Or range-map.
+   *
+   * Animating intrinsic width *does* trigger layout each frame (transform-
+   * only mappers like `scaleX` are cheaper). Use `width` when you need the
+   * surrounding flex layout to reflow around the animated element — e.g.
+   * a pill that pushes siblings apart — and `scaleX` otherwise.
+   */
+  width: { factor?: number } | RangeParams;
+  /** height: (value * factor)px — defaults: { factor: 1 }. Or range-map. See `width` caveat. */
+  height: { factor?: number } | RangeParams;
   /** padding-top: (value * factor)px — defaults: { factor: 1 }. Or range-map. */
   paddingTop: { factor?: number } | RangeParams;
   /** padding-right: (value * factor)px — defaults: { factor: 1 }. Or range-map. */

@@ -1,6 +1,7 @@
 import { component, signal, useElementLayout, useSharedValue } from '@sigx/lynx';
 import { useNav, useParams, Screen } from '@sigx/lynx-navigation';
-import { Swiper, SwiperDots } from '@sigx/lynx-gestures';
+import { Swiper } from '@sigx/lynx-gestures';
+import { SwiperIndicator } from '@sigx/lynx-daisyui';
 import { useSafeAreaInsets } from '@sigx/lynx-safe-area';
 import { getEntry } from '../store/trips.js';
 
@@ -121,12 +122,15 @@ export const ImageViewer = component(() => {
                                 justifyContent: 'center',
                             }}
                         >
-                            <SwiperDots
+                            <SwiperIndicator
+                                variant="dots"
                                 count={photos.length}
                                 offset={offset}
                                 pageWidth={width}
-                                size={8}
-                                spacing={8}
+                                index={pageIdx}
+                                color="base-100"
+                                inactiveColor="base-content"
+                                size="md"
                                 onDotPress={(i) => { pageIdx.value = i; }}
                             />
                         </view>

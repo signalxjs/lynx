@@ -74,14 +74,32 @@ export type {
     NavDrawerProps,
     NavDrawerSide,
 } from './navigation/NavDrawer.js';
+export { SwiperIndicator } from './navigation/SwiperIndicator.js';
+export type {
+    SwiperIndicatorProps,
+    SwiperIndicatorVariant,
+    SwiperIndicatorSize,
+} from './navigation/SwiperIndicator.js';
 
 // Theme
-export { ThemeProvider, useTheme } from './theme/ThemeProvider.js';
+export {
+    ThemeProvider,
+    useTheme,
+    listThemes,
+    registerTheme,
+    pickThemeFor,
+    pairOf,
+    variantOf,
+} from './theme/ThemeProvider.js';
 export type {
     DaisyTheme,
     ThemeController,
     ThemeProviderProps,
+    ThemeMeta,
+    ThemeVariant,
 } from './theme/ThemeProvider.js';
+export { StatusBarSync } from './theme/StatusBarSync.js';
+export type { StatusBarSyncProps } from './theme/StatusBarSync.js';
 
 // Data
 export { Avatar } from './data/Avatar.js';

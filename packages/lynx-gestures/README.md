@@ -209,6 +209,48 @@ The component handles the inline `'main thread'` worklet, the SharedValue writes
 
 ---
 
+### `<Swiper>` and headless dot hooks
+
+`<Swiper>` is a paged horizontal carousel that re-uses the platform's native `<scroll-view paging-enabled>` for snap-to-page (deceleration, overscroll, fling — all free), and writes the live pixel offset into a `SharedValue<number>` on every MT frame. Pair it with the headless `useSwiperDot*` hooks to build any indicator visual.
+
+```tsx
+import { useSharedValue } from '@sigx/lynx';
+import { signal } from '@sigx/lynx';
+import { Swiper, useSwiperDotProgress } from '@sigx/lynx-gestures';
+
+const offset = useSharedValue(0);
+const pageIdx = signal({ value: 0 });
+
+<Swiper offset={offset} index={pageIdx} width={pageWidth}>
+  <view style={{ width: pageWidth + 'px' }}>…page 1…</view>
+  <view style={{ width: pageWidth + 'px' }}>…page 2…</view>
+  <view style={{ width: pageWidth + 'px' }}>…page 3…</view>
+</Swiper>
+```
+
+#### Headless indicator hooks
+
+Every indicator hook returns a `MainThreadRef<MainThread.Element | null>` that you spread onto whatever view you want animated. The hook owns the `useAnimatedStyle` call-site so you don't redo the triangular-window math. Pick one based on which CSS channel you want to drive:
+
+| Hook                       | Channel(s)             | Use case                                    |
+| -------------------------- | ---------------------- | ------------------------------------------- |
+| `useSwiperDotProgress`     | `opacity`              | Crossfade between two colour layers.        |
+| `useSwiperDotScale`        | `scale` (uniform)      | Pulse / grow the active dot symmetrically.  |
+| `useSwiperDotGrowX`        | `scaleX` (transform)   | Pill / bar that stretches horizontally.     |
+| `useSwiperDotWidth`        | `width` (layout px)    | Same look as `GrowX` but reflows neighbours.|
+| `useSwiperDotTranslate`    | `translateX` (track)   | Single thumb that slides across the whole strip. |
+
+Example — a minimal opacity-crossfade dot:
+
+```tsx
+const ref = useSwiperDotProgress({ offset, pageWidth, index: i });
+<view main-thread:ref={ref} style={{ opacity: '0' }} />
+```
+
+For a fully themed indicator (5 ready-made variants — dots, bar, pill, numbered, scale-pulse), use `<SwiperIndicator>` from [`@sigx/lynx-daisyui`](../lynx-daisyui).
+
+---
+
 ## Animation primitives
 
 > The cross-thread primitive — `useSharedValue`, `SharedValue`, `useAnimatedStyle` — lives in [`@sigx/lynx`](../lynx#sharedvalue--the-cross-thread-primitive) since 0.3.0. Import from `@sigx/lynx` directly:

@@ -1,0 +1,95 @@
+/* DaisyUI Synthwave Theme — dark variant, deep purple + neon pink + cyan */
+/* Scoped under .daisy-synthwave; CSS inheritance propagates to descendants */
+
+.daisy-synthwave {
+  /* Apply base colors to the theme root */
+  background-color: #2d1b69;
+  color: #f9f7fd;
+
+  /* Semantic colors */
+  --color-primary: #e779c1;
+  --color-primary-content: #2a0a1f;
+  --color-secondary: #58c7f3;
+  --color-secondary-content: #02141d;
+  --color-accent: #f3cc30;
+  --color-accent-content: #2a1f00;
+  --color-neutral: #20134e;
+  --color-neutral-content: #e3e0f5;
+
+  /* Base colors */
+  --color-base-100: #2d1b69;
+  --color-base-200: #261159;
+  --color-base-300: #1f0f4a;
+  --color-base-content: #f9f7fd;
+
+  /* Status colors */
+  --color-info: #53c0f3;
+  --color-info-content: #02151e;
+  --color-success: #71ead2;
+  --color-success-content: #002721;
+  --color-warning: #f3cc30;
+  --color-warning-content: #2a1f00;
+  --color-error: #e24056;
+  --color-error-content: #ffffff;
+
+  /* ── Roundness ── */
+  --rounded-box: 16px;
+  --rounded-btn: 8px;
+  --rounded-badge: 9999px;
+  --rounded-tab: 8px;
+  --rounded-selector: 8px;
+  --rounded-toggle: 9999px;
+
+  /* ── Sizing scale ── */
+  --size-xs: 24px;
+  --size-sm: 32px;
+  --size-md: 48px;
+  --size-lg: 64px;
+
+  /* ── Font sizes ── */
+  --font-xs: 12px;
+  --font-sm: 14px;
+  --font-md: 14px;
+  --font-lg: 18px;
+
+  /* ── Spacing ── */
+  --padding-btn-xs: 8px;
+  --padding-btn-sm: 12px;
+  --padding-btn-md: 16px;
+  --padding-btn-lg: 24px;
+  --padding-box: 16px;
+  --padding-box-compact: 8px;
+  --gap-box: 8px;
+
+  /* ── Borders ── */
+  --border-btn: 1px;
+  --border-card: 1px;
+
+  /* ── Component-specific sizes ── */
+  --checkbox-xs: 16px;
+  --checkbox-sm: 20px;
+  --checkbox-md: 24px;
+  --checkbox-lg: 32px;
+  --toggle-width-xs: 32px;
+  --toggle-width-sm: 40px;
+  --toggle-width-md: 48px;
+  --toggle-width-lg: 56px;
+  --toggle-height-xs: 22px;
+  --toggle-height-sm: 24px;
+  --toggle-height-md: 28px;
+  --toggle-height-lg: 32px;
+  --toggle-thumb-xs: 14px;
+  --toggle-thumb-sm: 16px;
+  --toggle-thumb-md: 20px;
+  --toggle-thumb-lg: 24px;
+  --badge-xs: 16px;
+  --badge-sm: 20px;
+  --badge-md: 24px;
+  --badge-lg: 32px;
+  --step-indicator: 32px;
+  --progress-height: 8px;
+  --modal-max-width: 400px;
+
+  /* ── Opacity ── */
+  --disabled-opacity: 0.5;
+}

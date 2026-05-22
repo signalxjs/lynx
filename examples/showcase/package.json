@@ -27,6 +27,7 @@
         "@sigx/lynx-motion": "workspace:^",
         "@sigx/lynx-linking": "workspace:^",
         "@sigx/lynx-gestures": "workspace:^",
+        "@sigx/lynx-appearance": "workspace:^",
         "@sigx/lynx-daisyui": "workspace:^",
         "@sigx/lynx-safe-area": "workspace:^",
         "@sigx/lynx-image-picker": "workspace:^",
