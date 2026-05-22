@@ -1,6 +1,6 @@
 /**
- * `<StatusBarSync />` — keeps the device status-bar (and optionally
- * Android's navigation-bar) tint legible against the active daisyui theme.
+ * `<StatusBarSync />` — keeps the device status-bar (and Android's
+ * navigation-bar) tint legible against the active daisyui theme.
  *
  * Reads the current theme via `useTheme()`, looks up its variant in the
  * theme registry, and pushes the appropriate tint to the OS via
@@ -18,11 +18,14 @@
  * </ThemeProvider>
  * ```
  *
- * Renders nothing — it's a side-effect-only component. The `matchBackground`
- * prop additionally pushes the active theme's `--color-base-100` as the
- * status- and navigation-bar background color on Android (no-op on iOS).
+ * Renders nothing — it's a side-effect-only component that drives a
+ * reactive `effect()` reading `theme.name`. The `matchBackground` prop is
+ * reserved for a follow-up that pushes the active theme's
+ * `--color-base-100` as the Android system-bar background; today it's a
+ * declared no-op so the API surface is stable across the rev that wires
+ * CSS-var resolution.
  */
-import { component, onMounted, onUnmounted, type Define } from '@sigx/lynx';
+import { component, effect, onMounted, onUnmounted, type Define } from '@sigx/lynx';
 import { isAvailable, setSystemBarsStyle } from '@sigx/lynx-appearance';
 import type { SystemBarStyle } from '@sigx/lynx-appearance';
 import { useTheme } from './ThemeProvider.js';
@@ -30,20 +33,21 @@ import { variantOf } from './registry.js';
 
 export type StatusBarSyncProps =
     /**
-     * Android-only — also push the active theme's `--color-base-100` as
-     * the system-bar background. Defaults to false (the bars stay
-     * transparent / system-managed). Has no effect on iOS or Android 15+
-     * (edge-to-edge ignores the colors).
+     * Reserved — will (in a follow-up) push the active theme's
+     * `--color-base-100` as the Android status- and navigation-bar
+     * background. Currently a no-op; the prop ships so consumers can opt
+     * in without an API break later. iOS and Android 15+ ignore the
+     * background regardless (no equivalent on iOS; edge-to-edge on
+     * Android 15+).
      */
     & Define.Prop<'matchBackground', boolean, false>;
 
 export const StatusBarSync = component<StatusBarSyncProps>(({ props }) => {
     const theme = useTheme();
     let lastApplied: string | null = null;
-    let unsubscribe: (() => void) | undefined;
+    let runner: { stop: () => void } | undefined;
 
-    function apply(): void {
-        const name = theme.name;
+    function apply(name: string): void {
         if (name === lastApplied) return;
         lastApplied = name;
         const variant = variantOf(name);
@@ -52,70 +56,46 @@ export const StatusBarSync = component<StatusBarSyncProps>(({ props }) => {
         // `registerTheme()` to opt in.
         if (!variant) return;
         const style: SystemBarStyle = variant === 'dark' ? 'light' : 'dark';
-        // Fire-and-forget: setters resolve `{ ok: false, reason: 'unsupported' }`
-        // on platforms that don't support a given leg (iOS for nav-bar) and
-        // we don't need to log that as an error.
+        // Fire-and-forget: `setSystemBarsStyle` is non-throwing (it
+        // resolves `{ ok: false, reason: 'unsupported' }` when the native
+        // module isn't registered, and silently filters per-leg
+        // `unsupported` results — e.g. nav-bar on iOS — so an aggregate
+        // `ok: true` is still reachable on partial platforms). Either way,
+        // void-discarding the promise here can't surface as an unhandled
+        // rejection.
         void setSystemBarsStyle({
             statusBar: style,
             navigationBar: { style },
-            // matchBackground intentionally not piped to statusBarBackground
-            // — it's an Android-only concept and we read the daisy var
-            // directly via the navigationBar.color escape hatch in a follow-up
-            // (requires resolving the CSS var which Lynx doesn't expose to JS
-            // synchronously yet).
         });
     }
 
     onMounted(() => {
         if (!isAvailable()) return;
-        apply();
-        // The theme name lives on an object signal inside ThemeProvider;
-        // the controller's `name` getter reads the signal. We don't have
-        // direct access to that signal here, so we poll the value every
-        // microtask via a no-op effect — but the cheapest reliable signal
-        // is a subscribe call on the underlying object. ThemeProvider
-        // exposes only the controller, so we lean on Lynx reactivity's
-        // implicit tracking: this `useEffect`-style block re-runs when
-        // `theme.name` (which proxies to the signal) changes.
-        //
-        // Practical fallback: subscribe through the underlying signal that
-        // backs `theme.name` via the structural escape hatch used by
-        // ThemeProvider itself. We can't reach it from out here without an
-        // API change, so for now we rely on the parent re-rendering its
-        // subtree on theme change — `apply()` is called from onMounted
-        // and from the parent's reactive flush via the `theme.name` read
-        // captured below.
-        //
-        // To make the subscription explicit, we hook in via a value-read
-        // proxy: any place that reads `theme.name` inside a reactive
-        // context tracks the signal. `apply()` reads it, but `apply()` is
-        // a plain function — we wire a lightweight effect by reading the
-        // name inside the render fn (see the empty <view /> below).
+        // A reactive effect that reads `theme.name` so the effect re-runs
+        // whenever the theme controller's underlying signal changes —
+        // including the live system-flip path inside ThemeProvider. No
+        // side effects in render; nothing to subscribe/unsubscribe by
+        // hand.
+        runner = effect(() => {
+            apply(theme.name);
+        });
     });
 
     onUnmounted(() => {
-        unsubscribe?.();
-        unsubscribe = undefined;
+        runner?.stop();
+        runner = undefined;
     });
 
-    // matchBackground is reserved for a future revision once we can read
-    // CSS variable values from JS — referenced here so the prop isn't
-    // marked unused by the type checker.
+    // Reference the prop so the type checker doesn't flag it as unused
+    // while it's still reserved. Drop this when the matchBackground
+    // implementation lands.
     void props.matchBackground;
 
-    // Render reads `theme.name` so daisyui's reactivity flushes the
-    // component when the theme changes, giving us a hook to re-run
-    // `apply()`. We deliberately avoid `display: none` here — Lynx can
-    // leak unstyled text paint through display:none overlays in some
-    // builds; zero-size + absolute is the safer shape.
-    return () => {
-        const _trackName = theme.name;
-        apply();
-        return (
-            <view
-                style={{ position: 'absolute', width: '0px', height: '0px', opacity: 0 }}
-                data-theme={_trackName}
-            />
-        );
-    };
+    // Zero-size, out-of-flow placeholder. Avoids `display: none` —
+    // Lynx can leak unstyled text paint through display:none overlays in
+    // some builds (see lynx-display-none caveat); zero-size + absolute is
+    // the safer shape.
+    return () => (
+        <view style={{ position: 'absolute', width: '0px', height: '0px', opacity: 0 }} />
+    );
 });

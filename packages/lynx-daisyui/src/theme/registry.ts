@@ -33,9 +33,13 @@ const registry: ThemeMeta[] = [
   { name: 'daisy-dracula', variant: 'dark', pair: 'daisy-emerald' },
 ];
 
-/** All registered themes in insertion order. */
+/**
+ * All registered themes in insertion order. Returns a shallow copy so
+ * callers can't mutate the internal registry by casting the `readonly`
+ * away — re-registration goes through `registerTheme()`.
+ */
 export function listThemes(): readonly ThemeMeta[] {
-  return registry;
+  return registry.slice();
 }
 
 /**
