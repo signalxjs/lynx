@@ -40,7 +40,7 @@
         "@fortawesome/free-solid-svg-icons": "^6.7.2",
         "@fortawesome/free-brands-svg-icons": "^6.7.2",
         "lucide": "^1.16.0",
-        "zod": "^3.23.0"
+        "zod": "^4.4.3"
     },
     "devDependencies": {
         "@sigx/cli": "^0.2.8",
