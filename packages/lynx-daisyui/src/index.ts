@@ -76,12 +76,24 @@ export type {
 } from './navigation/NavDrawer.js';
 
 // Theme
-export { ThemeProvider, useTheme } from './theme/ThemeProvider.js';
+export {
+    ThemeProvider,
+    useTheme,
+    listThemes,
+    registerTheme,
+    pickThemeFor,
+    pairOf,
+    variantOf,
+} from './theme/ThemeProvider.js';
 export type {
     DaisyTheme,
     ThemeController,
     ThemeProviderProps,
+    ThemeMeta,
+    ThemeVariant,
 } from './theme/ThemeProvider.js';
+export { StatusBarSync } from './theme/StatusBarSync.js';
+export type { StatusBarSyncProps } from './theme/StatusBarSync.js';
 
 // Data
 export { Avatar } from './data/Avatar.js';

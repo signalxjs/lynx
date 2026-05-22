@@ -3,6 +3,10 @@
 /* Themes */
 @import './themes/light.css';
 @import './themes/dark.css';
+@import './themes/cupcake.css';
+@import './themes/emerald.css';
+@import './themes/synthwave.css';
+@import './themes/dracula.css';
 @import './themes/shapes.css';
 
 /* Base reset */
