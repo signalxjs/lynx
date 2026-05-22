@@ -29,6 +29,14 @@
     </dict>
     <!-- {{LAUNCH_SCREEN}} -->
     <!-- {{ORIENTATIONS}} -->
+    <!-- Let @sigx/lynx-appearance.setStatusBarStyle drive the status-bar
+         tint via UIApplication.setStatusBarStyle. SwiftUI hosts can't
+         easily override UIHostingController's preferredStatusBarStyle, so
+         this is the path of least resistance — see
+         packages/lynx-appearance/ios/AppearanceModule.swift. Apps that
+         prefer VC-controlled style can override this key to <true/>. -->
+    <key>UIViewControllerBasedStatusBarAppearance</key>
+    <false/>
     <!-- ATS: allow plaintext HTTP only to local/LAN addresses (dev server).
          NSAllowsArbitraryLoads is deliberately NOT set — it would flag release
          builds during App Store review. -->

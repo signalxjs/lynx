@@ -1,0 +1,22 @@
+{
+    "name": "Appearance",
+    "package": "@sigx/lynx-appearance",
+    "description": "System color-scheme observer + status-bar / navigation-bar tint setters",
+    "platforms": ["android", "ios"],
+    "ios": {
+        "moduleClass": "AppearanceModule",
+        "publisherClass": "AppearancePublisher",
+        "sourceDir": "ios",
+        "methods": [
+            "setStatusBarStyle",
+            "setStatusBarBackgroundColor",
+            "setNavigationBarStyle",
+            "getColorScheme"
+        ]
+    },
+    "android": {
+        "moduleClass": "com.sigx.appearance.AppearanceModule",
+        "publisherClass": "com.sigx.appearance.AppearancePublisher",
+        "sourceDir": "android"
+    }
+}
