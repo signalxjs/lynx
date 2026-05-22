@@ -108,11 +108,11 @@ importers:
         specifier: workspace:^
         version: link:../../packages/lynx-websocket
       '@sigx/reactivity':
-        specifier: ^0.4.3
-        version: 0.4.3
+        specifier: ^0.4.8
+        version: 0.4.8
       '@sigx/runtime-core':
-        specifier: ^0.4.3
-        version: 0.4.3
+        specifier: ^0.4.8
+        version: 0.4.8
       lucide:
         specifier: ^1.16.0
         version: 1.16.0
@@ -169,11 +169,11 @@ importers:
         specifier: workspace:^
         version: link:../lynx-runtime
       '@sigx/reactivity':
-        specifier: ^0.4.3
-        version: 0.4.3
+        specifier: ^0.4.8
+        version: 0.4.8
       '@sigx/runtime-core':
-        specifier: ^0.4.3
-        version: 0.4.3
+        specifier: ^0.4.8
+        version: 0.4.8
     devDependencies:
       '@typescript/native-preview':
         specifier: 7.0.0-dev.20260511.1
@@ -600,11 +600,11 @@ importers:
         specifier: workspace:^
         version: link:../lynx-runtime-internal
       '@sigx/reactivity':
-        specifier: ^0.4.3
-        version: 0.4.3
+        specifier: ^0.4.8
+        version: 0.4.8
       '@sigx/runtime-core':
-        specifier: ^0.4.3
-        version: 0.4.3
+        specifier: ^0.4.8
+        version: 0.4.8
     devDependencies:
       '@typescript/native-preview':
         specifier: 7.0.0-dev.20260511.1
@@ -650,8 +650,8 @@ importers:
         specifier: workspace:^
         version: link:../lynx-runtime-internal
       '@sigx/reactivity':
-        specifier: ^0.4.3
-        version: 0.4.3
+        specifier: ^0.4.8
+        version: 0.4.8
     devDependencies:
       '@sigx/lynx-plugin':
         specifier: workspace:^
@@ -701,8 +701,8 @@ importers:
         specifier: workspace:^
         version: link:../lynx
       '@sigx/runtime-core':
-        specifier: ^0.4.3
-        version: 0.4.3
+        specifier: ^0.4.8
+        version: 0.4.8
     devDependencies:
       '@lynx-js/react':
         specifier: ^0.121.0
@@ -1753,10 +1753,6 @@ packages:
     resolution: {integrity: sha512-3VxlxUzjhA2jzxkeEDmDVkJhFCtb0uzLzvHy0aVKokZUDqFxeLZa/b2ZCmH66ffHV5ouNjEABMUDoJWd5stU1g==}
     engines: {node: ^20.19.0 || >=22.12.0}
 
-  '@sigx/reactivity@0.4.3':
-    resolution: {integrity: sha512-S6nCZuwRGsPSvGrLXLxRSJzVFIPdWAIbSu4gKAglNxuq5V3A2aH9SdHE/wSqz0lTzA4qrIRR2wSbi3bnOMjKOg==}
-    engines: {node: ^20.19.0 || >=22.12.0}
-
   '@sigx/reactivity@0.4.8':
     resolution: {integrity: sha512-vby9frU9+ttHWWHhP6FBa5LRNg+waEa69v7B0vd7vkMkYRtPGyBPz5FswhkNT54davXpHObRcXI0fdv9gDUhNw==}
     engines: {node: ^20.19.0 || >=22.12.0}
@@ -1768,10 +1764,6 @@ packages:
 
   '@sigx/runtime-core@0.3.2':
     resolution: {integrity: sha512-QEdPIOkoLbQLZjYfoG+Vd6MBUwne9I8+3NJfYpKamyb+ieumGlTRPMnzhym1zlpIxpcyGVK8V0oVjhI2d0kCGw==}
-    engines: {node: ^20.19.0 || >=22.12.0}
-
-  '@sigx/runtime-core@0.4.3':
-    resolution: {integrity: sha512-KVvlFFMzhl0xFhE4p1Liy0R2LPebDS3ckWk8I6kplbw/t6kb4Jsr0k19Hy7IoWhfZ84yD1EhvAHDyXvIU1wmOQ==}
     engines: {node: ^20.19.0 || >=22.12.0}
 
   '@sigx/runtime-core@0.4.8':
@@ -4725,8 +4717,6 @@ snapshots:
 
   '@sigx/reactivity@0.3.2': {}
 
-  '@sigx/reactivity@0.4.3': {}
-
   '@sigx/reactivity@0.4.8': {}
 
   '@sigx/router@0.3.2(sigx@0.4.1)':
@@ -4740,10 +4730,6 @@ snapshots:
     dependencies:
       '@sigx/reactivity': 0.3.2
 
-  '@sigx/runtime-core@0.4.3':
-    dependencies:
-      '@sigx/reactivity': 0.4.3
-
   '@sigx/runtime-core@0.4.8':
     dependencies:
       '@sigx/reactivity': 0.4.8
@@ -4755,8 +4741,8 @@ snapshots:
 
   '@sigx/runtime-dom@0.4.3':
     dependencies:
-      '@sigx/reactivity': 0.4.3
-      '@sigx/runtime-core': 0.4.3
+      '@sigx/reactivity': 0.4.8
+      '@sigx/runtime-core': 0.4.8
 
   '@sigx/runtime-terminal@0.3.2':
     dependencies:
@@ -6498,8 +6484,8 @@ snapshots:
 
   sigx@0.4.1:
     dependencies:
-      '@sigx/reactivity': 0.4.3
-      '@sigx/runtime-core': 0.4.3
+      '@sigx/reactivity': 0.4.8
+      '@sigx/runtime-core': 0.4.8
       '@sigx/runtime-dom': 0.4.3
 
   socket.io-adapter@2.5.6:
