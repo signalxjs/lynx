@@ -31,6 +31,13 @@ fun DevLynxScreen(
     /** Optional list of native module names to show in dev menu. */
     nativeModules: List<String> = emptyList(),
     /**
+     * Called once before `LynxViewBuilder.build()`. Use to attach native UI
+     * behaviors (e.g. `GeneratedBehaviors.attachAll(builder)`) so behaviors
+     * contributed by `@sigx/lynx-*` packages reach the dev-path LynxView
+     * the same way they reach the production path.
+     */
+    onLynxViewBuilder: ((LynxViewBuilder) -> Unit)? = null,
+    /**
      * Called once per LynxView after construction. Use to attach lifecycle
      * publishers (e.g. `GeneratedLifecyclePublishers.attachAll(lynxView)`).
      * Called BEFORE renderTemplateUrl so per-view initial state (safe-area
@@ -110,6 +117,7 @@ fun DevLynxScreen(
                 try {
                     val viewBuilder = LynxViewBuilder()
                     viewBuilder.addBehaviors(XElementBehaviors().create())
+                    onLynxViewBuilder?.invoke(viewBuilder)
                     SigxDevClient.configureForDev(viewBuilder, ctx)
 
                     val lynxView = viewBuilder.build(ctx)
