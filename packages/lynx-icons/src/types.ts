@@ -1,4 +1,74 @@
 /**
+ * Extension point: declaration-merge into this interface to add named
+ * variants accepted by `<Icon variant=…>` and the adapter pinned
+ * components. Each key becomes a valid variant string at the type level
+ * and is forwarded at runtime to the `useIconVariantResolver` injectable
+ * for class resolution.
+ *
+ * `@sigx/lynx-icons` itself defines no variants — the interface is empty
+ * by default, so `IconVariant` is `never` and the `variant` prop is
+ * effectively disabled until something augments it. Daisy augments with
+ * its color tokens (`primary`, `secondary`, …); third-party themes can
+ * augment further.
+ *
+ * @example
+ * ```ts
+ * // In a theme package:
+ * declare module '@sigx/lynx-icons' {
+ *     interface IconVariants {
+ *         primary: true;
+ *         secondary: true;
+ *     }
+ * }
+ * ```
+ */
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+export interface IconVariants {}
+
+/**
+ * Valid variant strings. When `IconVariants` has been augmented (e.g. by
+ * `@sigx/lynx-daisyui`), this narrows to the union of augmented keys.
+ * When nothing has augmented it, falls back to `string` so the prop
+ * stays usable — and the framework's JSX prop-stripping doesn't drop a
+ * `never`-typed prop from pinned components built before any augmenter.
+ */
+export type IconVariant = [keyof IconVariants] extends [never]
+    ? string
+    : keyof IconVariants;
+
+/**
+ * Function form provided to `useIconVariantResolver`. Given a variant
+ * string, return a **CSS color value** (e.g. `'var(--color-primary)'`,
+ * `'#0D9488'`, `'tomato'`) that gets substituted into the rendered
+ * SVG's `fill=` attribute. Return `undefined` to ignore a variant the
+ * resolver doesn't recognize — in that case the icon falls back to
+ * `props.color` or `currentColor`.
+ *
+ * Color rather than class: Lynx's `<svg content=…>` parses the inline
+ * SVG markup as a standalone fragment that doesn't inherit `color` CSS
+ * from the host element. Substituting the value into the markup is the
+ * only reliable way to make theme tokens show through.
+ */
+export type IconVariantResolver = (variant: string) => string | undefined;
+
+/**
+ * Lightweight `{ set, name }` reference to an icon in a registered set —
+ * the canonical "data" form a consumer can pass to a UI primitive that
+ * accepts an icon (e.g. `<Tabs.Screen icon={{ set: 'lucide', name: 'map' }}>`).
+ *
+ * The receiving component (e.g. `<NavTabBar>`, `<NavHeader>`) is responsible
+ * for turning the spec into rendered JSX — typically by composing
+ * `<Icon set={spec.set} name={spec.name} color="currentColor" size={…}>`
+ * with theme-aware wrapping. Consumers who want full control (custom
+ * color, third-party component, size override) pass JSX directly instead
+ * of a spec.
+ */
+export interface IconSpec {
+    readonly set: string;
+    readonly name: string;
+}
+
+/**
  * Per-glyph vector data. Used by SVG-mode rendering.
  *
  * `svg` is a complete `<svg …>…</svg>` string with `__COLOR__` placeholders

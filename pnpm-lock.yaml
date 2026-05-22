@@ -250,6 +250,9 @@ importers:
       '@sigx/lynx-gestures':
         specifier: workspace:^
         version: link:../lynx-gestures
+      '@sigx/lynx-icons':
+        specifier: workspace:^
+        version: link:../lynx-icons
       '@sigx/lynx-motion':
         specifier: workspace:^
         version: link:../lynx-motion
@@ -370,6 +373,9 @@ importers:
       '@fortawesome/free-solid-svg-icons':
         specifier: ^6.7.2
         version: 6.7.2
+      '@sigx/lynx':
+        specifier: workspace:^
+        version: link:../lynx
       '@sigx/lynx-icons':
         specifier: workspace:^
         version: link:../lynx-icons
@@ -385,6 +391,9 @@ importers:
 
   packages/lynx-icons-lucide:
     devDependencies:
+      '@sigx/lynx':
+        specifier: workspace:^
+        version: link:../lynx
       '@sigx/lynx-icons':
         specifier: workspace:^
         version: link:../lynx-icons
@@ -488,6 +497,9 @@ importers:
       '@sigx/lynx':
         specifier: workspace:^
         version: link:../lynx
+      '@sigx/lynx-icons':
+        specifier: workspace:^
+        version: link:../lynx-icons
       '@sigx/lynx-linking':
         specifier: workspace:^
         version: link:../lynx-linking

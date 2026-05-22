@@ -5,6 +5,7 @@
         "rootDir": "./src",
         "declaration": true,
         "noEmit": false,
+        "jsxImportSource": "@sigx/lynx",
         "types": [
             "node"
         ],

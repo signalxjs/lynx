@@ -38,6 +38,94 @@ import {
     signal,
     type Define,
 } from '@sigx/lynx';
+import { useIconVariantResolver, type IconVariantResolver } from '@sigx/lynx-icons';
+import type { DaisyColor } from '../shared/styles.js';
+
+/**
+ * Declaration-merge extension: every daisy color token becomes a valid
+ * `<Icon variant=…>` key at the type level. `@sigx/lynx-icons` ships an
+ * empty `IconVariants` interface; this block adds daisy's tokens as
+ * keys, making `import type { IconVariant }` resolve to the union.
+ *
+ * The merge fires whenever this file's types are reachable — i.e. the
+ * moment any consumer imports anything from `@sigx/lynx-daisyui`. No
+ * subpath, no extra import needed by the consumer.
+ */
+declare module '@sigx/lynx-icons' {
+    // eslint-disable-next-line @typescript-eslint/no-empty-object-type
+    interface IconVariants extends Record<DaisyColor, true> {}
+}
+
+/**
+ * JS-side mirror of the daisy theme color tokens. Required because Lynx's
+ * `<svg content=…>` parses the inline SVG markup as a standalone fragment
+ * that doesn't evaluate CSS custom properties in attribute values — so a
+ * substitution like `fill="var(--color-primary)"` doesn't render the
+ * primary color, it falls back to the default fill. We have to inject the
+ * resolved hex value at JS time.
+ *
+ * Keep this in sync with `src/styles/themes/light.css` and
+ * `src/styles/themes/dark.css`. The two are the single source of truth;
+ * this map is the runtime mirror.
+ */
+const DAISY_PALETTE = {
+    'daisy-light': {
+        'primary': '#491dff',
+        'primary-content': '#d3dbff',
+        'secondary': '#ff20cc',
+        'secondary-content': '#fff8fc',
+        'accent': '#00cfbd',
+        'accent-content': '#00100d',
+        'neutral': '#2b3440',
+        'neutral-content': '#d7dde4',
+        'base-100': '#ffffff',
+        'base-200': '#f2f2f2',
+        'base-300': '#e5e6e6',
+        'base-content': '#1f2937',
+        'info': '#00b4fa',
+        'info-content': '#000000',
+        'success': '#00a96e',
+        'success-content': '#000000',
+        'warning': '#ffc100',
+        'warning-content': '#000000',
+        'error': '#ff676a',
+        'error-content': '#000000',
+    },
+    'daisy-dark': {
+        'primary': '#7582ff',
+        'primary-content': '#050617',
+        'secondary': '#ff71cf',
+        'secondary-content': '#190211',
+        'accent': '#00e7d0',
+        'accent-content': '#001210',
+        'neutral': '#2a323c',
+        'neutral-content': '#a6adbb',
+        'base-100': '#1d232a',
+        'base-200': '#191e24',
+        'base-300': '#343b46',
+        'base-content': '#a6adbb',
+        'info': '#00b4fa',
+        'info-content': '#000000',
+        'success': '#00a96e',
+        'success-content': '#000000',
+        'warning': '#ffc100',
+        'warning-content': '#000000',
+        'error': '#ff676a',
+        'error-content': '#000000',
+    },
+} as const;
+
+type DaisyPaletteName = keyof typeof DAISY_PALETTE;
+
+const DEFAULT_PALETTE: DaisyPaletteName = 'daisy-light';
+
+/** Pick the right palette for a `theme.name` value (may be a space-separated combo like `'daisy-light daisy-rounded'`). */
+function paletteFor(themeName: string): DaisyPaletteName {
+    for (const part of themeName.split(/\s+/)) {
+        if (part in DAISY_PALETTE) return part as DaisyPaletteName;
+    }
+    return DEFAULT_PALETTE;
+}
 
 /**
  * Theme class applied to the provider's host view. The two built-ins
@@ -108,6 +196,17 @@ export const ThemeProvider = component<ThemeProviderProps>(({ props, slots }) =>
     };
 
     defineProvide(useTheme, () => controller);
+
+    // Wire the daisy variant resolver into `@sigx/lynx-icons`'s injectable
+    // so any `<Icon variant="primary">` rendered inside this subtree gets
+    // the daisy primary hex automatically. The resolver reads
+    // `state.name` reactively — flipping themes (`theme.toggle()`) makes
+    // every icon's render re-run with new colors, no remount.
+    const resolver: IconVariantResolver = (v) => {
+        const palette = DAISY_PALETTE[paletteFor(state.name)];
+        return (palette as Record<string, string>)[v];
+    };
+    defineProvide(useIconVariantResolver, () => resolver);
 
     return () => {
         const baseStyle: Record<string, string | number> = {

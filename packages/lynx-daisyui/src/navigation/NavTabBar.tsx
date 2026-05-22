@@ -15,8 +15,15 @@
  */
 import { component, type Define, type JSXElement } from '@sigx/lynx';
 import { Pressable } from '@sigx/lynx-gestures';
+import { Icon, type IconSpec } from '@sigx/lynx-icons';
 import { useTabs, type TabInfo } from '@sigx/lynx-navigation';
 import { PRESSED_SCALE, PRESSED_OPACITY } from '../shared/press.js';
+
+/** Narrow `TabInfo.icon` to its `IconSpec` variant — the bar renders `<Icon>` for these. */
+const isIconSpec = (v: unknown): v is IconSpec =>
+    typeof v === 'object' && v !== null && 'set' in v && 'name' in v
+    && typeof (v as { set: unknown }).set === 'string'
+    && typeof (v as { name: unknown }).name === 'string';
 
 /** Rendering context passed to a `renderTab` consumer. */
 export interface NavTabRenderContext {
@@ -82,6 +89,12 @@ export const NavTabBar = component<NavTabBarProps>(({ props }) => {
     };
 });
 
+/**
+ * Pixel size the bar uses when rendering `<Icon>` from an `IconSpec`.
+ * Matches the default tab-row height visually.
+ */
+const TAB_ICON_SIZE = 22;
+
 const DefaultNavTab = component<
     & Define.Prop<'info', TabInfo, true>
     & Define.Prop<'active', boolean, true>
@@ -90,7 +103,29 @@ const DefaultNavTab = component<
     return () => {
         const label = props.info.label ?? props.info.name;
         const a11y = props.info.accessibilityLabel ?? label;
-        const textColor = props.active ? 'text-primary font-semibold' : 'text-base-content opacity-60';
+        // Split tone (color + opacity) from weight so the icon wrapper picks
+        // up theme color via CSS inheritance without inheriting font-weight.
+        // Icons render as <svg fill="currentColor">; wrapping in a view with
+        // `text-primary` / `text-base-content` propagates the daisy token
+        // through `color:` → `currentColor` resolution. Theme switches recolor
+        // the icon for free.
+        const labelTone = props.active ? 'text-primary' : 'text-base-content opacity-60';
+        const weight = props.active ? 'font-semibold' : '';
+        const icon = props.info.icon;
+        // For an `IconSpec`, render `<Icon>` with the matching daisy variant
+        // — the resolver provided by `<ThemeProvider>` maps `'primary'` →
+        // `'text-primary'` and applies it to the `<svg>` itself, so the
+        // inline-SVG `fill="currentColor"` resolves to the daisy token.
+        // Inactive uses `base-content` and we layer `opacity-60` via class.
+        //
+        // For a `JSXElement`, the consumer is in charge of styling — we
+        // leave it untouched. They can opt into the same theming by
+        // passing `variant="primary"` themselves.
+        const iconVariant = props.active ? 'primary' : 'base-content';
+        const iconClass = props.active ? undefined : 'opacity-60';
+        const renderedIcon = isIconSpec(icon)
+            ? <Icon set={icon.set} name={icon.name} size={TAB_ICON_SIZE} variant={iconVariant} class={iconClass} />
+            : (icon ?? null);
         return (
             <Pressable
                 class="flex-1 items-center justify-center py-3"
@@ -103,8 +138,8 @@ const DefaultNavTab = component<
                 accessibility-status={props.active ? 'selected' : undefined}
                 onPress={() => props.onPress()}
             >
-                {props.info.icon ?? null}
-                <text class={`text-sm ${textColor}`}>{label}</text>
+                {renderedIcon}
+                <text class={`text-sm ${labelTone} ${weight}`}>{label}</text>
             </Pressable>
         );
     };
