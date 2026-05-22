@@ -169,11 +169,11 @@ importers:
         specifier: workspace:^
         version: link:../lynx-runtime
       '@sigx/reactivity':
-        specifier: ^0.4.3
-        version: 0.4.3
+        specifier: ^0.4.8
+        version: 0.4.8
       '@sigx/runtime-core':
-        specifier: ^0.4.3
-        version: 0.4.3
+        specifier: ^0.4.8
+        version: 0.4.8
     devDependencies:
       '@typescript/native-preview':
         specifier: 7.0.0-dev.20260511.1
@@ -600,11 +600,11 @@ importers:
         specifier: workspace:^
         version: link:../lynx-runtime-internal
       '@sigx/reactivity':
-        specifier: ^0.4.3
-        version: 0.4.3
+        specifier: ^0.4.8
+        version: 0.4.8
       '@sigx/runtime-core':
-        specifier: ^0.4.3
-        version: 0.4.3
+        specifier: ^0.4.8
+        version: 0.4.8
     devDependencies:
       '@typescript/native-preview':
         specifier: 7.0.0-dev.20260511.1
@@ -650,8 +650,8 @@ importers:
         specifier: workspace:^
         version: link:../lynx-runtime-internal
       '@sigx/reactivity':
-        specifier: ^0.4.3
-        version: 0.4.3
+        specifier: ^0.4.8
+        version: 0.4.8
     devDependencies:
       '@sigx/lynx-plugin':
         specifier: workspace:^
@@ -701,8 +701,8 @@ importers:
         specifier: workspace:^
         version: link:../lynx
       '@sigx/runtime-core':
-        specifier: ^0.4.3
-        version: 0.4.3
+        specifier: ^0.4.8
+        version: 0.4.8
     devDependencies:
       '@lynx-js/react':
         specifier: ^0.121.0
@@ -4755,8 +4755,8 @@ snapshots:
 
   '@sigx/runtime-dom@0.4.3':
     dependencies:
-      '@sigx/reactivity': 0.4.3
-      '@sigx/runtime-core': 0.4.3
+      '@sigx/reactivity': 0.4.8
+      '@sigx/runtime-core': 0.4.8
 
   '@sigx/runtime-terminal@0.3.2':
     dependencies:
@@ -6498,8 +6498,8 @@ snapshots:
 
   sigx@0.4.1:
     dependencies:
-      '@sigx/reactivity': 0.4.3
-      '@sigx/runtime-core': 0.4.3
+      '@sigx/reactivity': 0.4.8
+      '@sigx/runtime-core': 0.4.8
       '@sigx/runtime-dom': 0.4.3
 
   socket.io-adapter@2.5.6:
