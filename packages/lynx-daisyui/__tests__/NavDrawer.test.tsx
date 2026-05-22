@@ -39,26 +39,27 @@ function findNode(root: any, pred: (n: any) => boolean): any {
 }
 
 /**
- * Locate the themed panel — the absolute view sized to `width` whose
- * `backgroundColor` resolves to the daisy token's CSS variable.
+ * Locate the themed panel — the absolute view sized to `width` carrying
+ * the daisy `bg-<token>` Tailwind class.
  */
 function findPanel(root: any, token: string): any {
-    const expected = `var(--color-${token})`;
+    const cls = `bg-${token}`;
     return findNode(root, (n) =>
-        n.props?.style?.backgroundColor === expected
+        typeof n.props?.class === 'string'
+        && n.props.class.split(' ').includes(cls)
         && typeof n.props?.style?.width === 'number',
     );
 }
 
 /**
- * Locate the backdrop — the absolute scrim with `backgroundColor`
- * resolving to `--color-base-content`. The panel never sets opacity:0
- * inline, so the opacity gate disambiguates panel from backdrop.
+ * Locate the backdrop — the absolute scrim carrying `bg-base-content`
+ * and `opacity: 0`. The opacity gate disambiguates the backdrop from
+ * any other view that happens to share the class.
  */
 function findBackdrop(root: any): any {
-    const expected = 'var(--color-base-content)';
     return findNode(root, (n) =>
-        n.props?.style?.backgroundColor === expected
+        typeof n.props?.class === 'string'
+        && n.props.class.split(' ').includes('bg-base-content')
         && n.props?.style?.opacity === 0,
     );
 }
@@ -101,7 +102,7 @@ describe('<NavDrawer>', () => {
         result.unmount();
     });
 
-    it('resolves an arbitrary daisy token to its CSS variable on background', () => {
+    it('applies an arbitrary daisy token as the bg-<token> Tailwind class', () => {
         const result = render(
             <NavDrawer
                 initialOpen
@@ -113,11 +114,13 @@ describe('<NavDrawer>', () => {
         );
         const panel = findPanel(result.container, 'primary');
         expect(panel).not.toBeNull();
-        expect(panel.props.style.backgroundColor).toBe('var(--color-primary)');
+        // Daisy tokens go through the CSS pipeline, not inline — Lynx
+        // only resolves `var(--color-*)` from compiled rules.
+        expect(panel.props.style.backgroundColor).toBeUndefined();
         result.unmount();
     });
 
-    it('passes a raw CSS color through unchanged on background', () => {
+    it('passes a raw CSS color through as an inline backgroundColor', () => {
         const result = render(
             <NavDrawer
                 initialOpen
@@ -131,6 +134,8 @@ describe('<NavDrawer>', () => {
             n.props?.style?.backgroundColor === '#facc15',
         );
         expect(panel).not.toBeNull();
+        // Raw colors don't have a `bg-<value>` class — only inline.
+        expect(panel.props.class).not.toContain('bg-#');
         result.unmount();
     });
 

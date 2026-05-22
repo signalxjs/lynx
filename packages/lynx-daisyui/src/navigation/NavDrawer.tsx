@@ -56,7 +56,10 @@ export type NavDrawerProps =
     /** Which edge the panel slides in from. Default 'left'. */
     & Define.Prop<'side', NavDrawerSide, false>
     /** Panel surface color. Accepts daisy tokens ('base-100', 'primary', …)
-     *  or any raw CSS color. Default 'base-100'. */
+     *  — applied as a `bg-<token>` Tailwind class so the daisy preset's
+     *  CSS-pipeline rule resolves the `var(--color-<token>)`. Also accepts
+     *  raw CSS color strings ('#facc15', 'rgb(...)') — applied as inline
+     *  `backgroundColor`. Default 'base-100'. */
     & Define.Prop<'background', BackgroundValue, false>
     /** Show a separator line on the panel's inner edge. Default true. */
     & Define.Prop<'bordered', boolean, false>
@@ -249,20 +252,30 @@ const DrawerChrome = component<DrawerChromeProps>(({ props }) => {
 
     return () => {
         const isRight = props.side === 'right';
-        const bgColor = resolveDaisyColor(props.background);
+        // Lynx resolves `var(--color-*)` inside CSS-pipeline rules (Tailwind
+        // classes, stylesheet imports) but NOT inside inline `style.backgroundColor`
+        // — an inline `'var(--color-base-100)'` paints transparent. So for known
+        // daisy tokens we apply the surface via the Tailwind class `bg-<token>`
+        // (which the daisy preset compiles to a `var()` rule that DOES resolve);
+        // raw CSS strings ('#facc15', 'rgb(...)', 'var(--my-custom)') fall through
+        // to inline because there's no compiled class to use for them.
+        const resolved = resolveDaisyColor(props.background);
+        const isDaisyToken = resolved !== props.background;
+        const bgClass = isDaisyToken ? `bg-${props.background}` : '';
         // Border lives on the panel's *inner* edge (the one facing the
         // main content). Daisy class names are still the cleanest way to
         // pick up `--color-base-300` for the separator hairline.
         const borderClass = props.bordered
             ? (isRight ? 'border-l border-base-300' : 'border-r border-base-300')
             : '';
+        const panelClass = [bgClass, borderClass].filter(Boolean).join(' ');
         const panelStyle: Record<string, string | number> = {
             position: 'absolute',
             top: 0,
             bottom: 0,
             width: props.width,
-            backgroundColor: bgColor,
         };
+        if (!isDaisyToken) panelStyle.backgroundColor = props.background;
         // Only the side-relevant inset is set; omitting the other lets
         // the panel size to `width` rather than stretching edge-to-edge.
         if (isRight) panelStyle.right = 0;
@@ -283,13 +296,13 @@ const DrawerChrome = component<DrawerChromeProps>(({ props }) => {
                         <view
                             main-thread:ref={backdropRef}
                             bindtap={() => props.onBackdropPress()}
+                            class="bg-base-content"
                             style={{
                                 position: 'absolute',
                                 top: 0,
                                 left: 0,
                                 right: 0,
                                 bottom: 0,
-                                backgroundColor: resolveDaisyColor('base-content'),
                                 opacity: 0,
                             }}
                             accessibility-element={true}
@@ -300,7 +313,7 @@ const DrawerChrome = component<DrawerChromeProps>(({ props }) => {
                     : null}
                 <view
                     main-thread:ref={panelRef}
-                    class={borderClass}
+                    class={panelClass}
                     style={panelStyle}
                 >
                     {props.renderSidebar?.()}
