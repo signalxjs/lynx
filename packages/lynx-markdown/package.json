@@ -1,6 +1,6 @@
 {
     "name": "@sigx/lynx-markdown",
-    "version": "0.4.0",
+    "version": "0.4.1",
     "description": "Typed signalx wrapper around Lynx's <x-markdown> element. Renders markdown source via XElement/Markdown.",
     "type": "module",
     "main": "./dist/index.js",
