@@ -63,16 +63,29 @@ declare module '@sigx/lynx-icons' {
 }
 
 /**
- * JS-side mirror of the daisy theme color tokens. Required because Lynx's
- * `<svg content=…>` parses the inline SVG markup as a standalone fragment
- * that doesn't evaluate CSS custom properties in attribute values — so a
- * substitution like `fill="var(--color-primary)"` doesn't render the
- * primary color, it falls back to the default fill. We have to inject the
- * resolved hex value at JS time.
+ * JS-side mirror of the daisy theme color tokens — v1 scaffolding for
+ * SVG-mode rendering, intended to retire when font-mode lands.
  *
- * Keep this in sync with `src/styles/themes/light.css` and
- * `src/styles/themes/dark.css`. The two are the single source of truth;
- * this map is the runtime mirror.
+ * **Why this duplicates the CSS:** Lynx's `<svg content=…>` parses the
+ * inline SVG markup as a standalone fragment (rasterized offscreen, see
+ * `@lynx-js/web-elements/XSvg.js` for the web fallback that wraps it in
+ * a `Blob`/`<img>`). The fragment doesn't evaluate CSS custom properties
+ * in attribute values, so `fill="var(--color-primary)"` falls back to
+ * the default fill. The host element's `color` doesn't propagate either.
+ * Both are architectural — see lynx-family/lynx#6251 and #6305 (closed
+ * without merging). So we substitute the resolved hex at JS time.
+ *
+ * **Path to retirement:** `@sigx/lynx-icons` already has a font-mode
+ * code path (`<text>` with a glyph codepoint) — Lynx renders `<text>`
+ * with native CSS color, so once `@sigx/lynx-plugin` ships the TTF
+ * subsetting + `@font-face` registration (the v1.1 plan referenced in
+ * the icons README), most icons go through that path and theming works
+ * via class without any palette. This map sticks around as the SVG-mode
+ * fallback for multi-color icons (FA brands) and font-less adapters.
+ *
+ * **For now:** keep entries in sync with `src/styles/themes/light.css`
+ * and `src/styles/themes/dark.css`. CI doesn't enforce alignment yet
+ * (drift-detection test deferred — the palette is intended to retire).
  */
 const DAISY_PALETTE = {
     'daisy-light': {
