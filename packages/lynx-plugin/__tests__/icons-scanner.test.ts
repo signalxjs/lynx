@@ -67,4 +67,111 @@ describe('scanContent', () => {
         // <IconButton> isn't <Icon>.
         expect(scanContent('<IconButton set="fa" name="x" />')).toEqual([]);
     });
+
+    describe('pinned per-set components', () => {
+        it('matches FaSolidIcon → set "fas"', () => {
+            expect(scanContent('<FaSolidIcon name="user" />')).toEqual([
+                { set: 'fas', name: 'user' },
+            ]);
+        });
+
+        it('matches FaRegularIcon → set "far"', () => {
+            expect(scanContent('<FaRegularIcon name="bell" />')).toEqual([
+                { set: 'far', name: 'bell' },
+            ]);
+        });
+
+        it('matches FaBrandIcon → set "fab"', () => {
+            expect(scanContent('<FaBrandIcon name="github" />')).toEqual([
+                { set: 'fab', name: 'github' },
+            ]);
+        });
+
+        it('matches LucideIcon → set "lucide"', () => {
+            expect(scanContent('<LucideIcon name="map" />')).toEqual([
+                { set: 'lucide', name: 'map' },
+            ]);
+        });
+
+        it('handles other attributes before name', () => {
+            const src = '<FaSolidIcon size={24} variant="primary" name="user" />';
+            expect(scanContent(src)).toEqual([{ set: 'fas', name: 'user' }]);
+        });
+
+        it('ignores dynamic name on pinned components', () => {
+            expect(scanContent('<LucideIcon name={dynamic} />')).toEqual([]);
+        });
+
+        it('does not match unknown pinned components', () => {
+            // Consumer-defined pinned components aren't in PINNED_COMPONENTS;
+            // they need `include` in signalx.config.ts.
+            expect(scanContent('<MyCustomIcon name="x" />')).toEqual([]);
+        });
+    });
+
+    describe('IconSpec object literals', () => {
+        it('matches set-first object literal', () => {
+            expect(scanContent("const s = { set: 'lucide', name: 'map' };")).toEqual([
+                { set: 'lucide', name: 'map' },
+            ]);
+        });
+
+        it('matches name-first object literal', () => {
+            expect(scanContent("const s = { name: 'map', set: 'lucide' };")).toEqual([
+                { set: 'lucide', name: 'map' },
+            ]);
+        });
+
+        it('matches inline in JSX attribute (double-braced)', () => {
+            const src = `<Tabs.Screen name="trips" icon={{ set: 'lucide', name: 'map' }}>`;
+            expect(scanContent(src)).toEqual([{ set: 'lucide', name: 'map' }]);
+        });
+
+        it('matches backIcon prop value', () => {
+            const src = `<NavHeader backIcon={{ set: 'lucide', name: 'chevron-left' }} />`;
+            expect(scanContent(src)).toEqual([
+                { set: 'lucide', name: 'chevron-left' },
+            ]);
+        });
+
+        it('handles double quotes', () => {
+            expect(scanContent('{ set: "fas", name: "user" }')).toEqual([
+                { set: 'fas', name: 'user' },
+            ]);
+        });
+
+        it('ignores dynamic values', () => {
+            expect(scanContent("{ set: getSet(), name: 'map' }")).toEqual([]);
+            expect(scanContent("{ set: 'lucide', name: dynamicName }")).toEqual([]);
+        });
+
+        it('deduplicates across JSX + spec forms', () => {
+            const src = `
+                <Icon set="lucide" name="map" />
+                <LucideIcon name="map" />
+                const s = { set: 'lucide', name: 'map' };
+            `;
+            expect(scanContent(src)).toEqual([{ set: 'lucide', name: 'map' }]);
+        });
+    });
+
+    describe('combined patterns across one file', () => {
+        it('collects every matched form once', () => {
+            const src = `
+                import { LucideIcon } from '@sigx/lynx-icons-lucide/components';
+                const backChevron = { set: 'lucide', name: 'chevron-left' };
+                <Tabs.Screen icon={{ set: 'lucide', name: 'map' }}>
+                    <NavHeader backIcon={backChevron} />
+                </Tabs.Screen>
+                <LucideIcon name="menu" />
+                <Icon set="fas" name="plus" />
+            `;
+            expect(scanContent(src)).toEqual([
+                { set: 'fas', name: 'plus' },
+                { set: 'lucide', name: 'menu' },
+                { set: 'lucide', name: 'chevron-left' },
+                { set: 'lucide', name: 'map' },
+            ]);
+        });
+    });
 });

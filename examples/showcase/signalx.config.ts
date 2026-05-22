@@ -42,17 +42,13 @@ export default defineLynxConfig({
         // that genuinely need dynamic names.
         { id: 'fas', source: '@sigx/lynx-icons-fa-free', styles: ['solid'], include: ['*'] },
         { id: 'fab', source: '@sigx/lynx-icons-fa-free', styles: ['brands'] },
-        // Lucide names used by the navigation surfaces and pinned
-        // components. The build-time scanner only matches literal
-        // `<Icon set= name=>` JSX — names passed via `IconSpec`
-        // (`icon={{ set: 'lucide', name: 'map' }}`) or pinned components
-        // (`<LucideIcon name="menu" />` from `@sigx/lynx-icons-lucide/components`)
-        // need to be force-included here.
-        {
-            id: 'lucide',
-            source: '@sigx/lynx-icons-lucide',
-            include: ['map', 'compass', 'settings', 'chevron-left', 'menu', 'plus'],
-        },
+        // Lucide names used by the showcase get picked up by the scanner
+        // through their `<LucideIcon name="…">` and `IconSpec` literal
+        // call sites — no manual `include` required. `include: [...]`
+        // is still the escape hatch for icons with dynamic names
+        // (`<LucideIcon name={someVar} />`) or for icons referenced from
+        // user-defined pinned wrappers the scanner doesn't know about.
+        { id: 'lucide', source: '@sigx/lynx-icons-lucide' },
     ],
 
     android: {

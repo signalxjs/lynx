@@ -5,7 +5,7 @@
  *
  * 1. Loads `signalx.config.ts` and reads the `iconSets: [...]` field.
  * 2. Statically scans every `.tsx` / `.jsx` / `.ts` / `.js` file under the
- *    project root for `<Icon set="…" name="…" />` usages.
+ *    project root for icon usages (see `scanContent` for the exact patterns).
  * 3. Dynamically imports each adapter package (e.g. `@sigx/lynx-icons-fa-free`)
  *    and resolves the used glyphs to `{ codepoint, svg }` records.
  * 4. Writes three generated files into `node_modules/.cache/sigx-lynx-icons/`
@@ -18,7 +18,27 @@
  *
  * The scanner is a one-shot regex pass at plugin start — adding a new icon
  * during `pnpm dev` requires a dev-server restart in v1. A real SWC-AST
- * Rspack loader is the planned upgrade.
+ * Rspack loader is the planned upgrade and would obviate the regex
+ * patterns by inspecting the JSX tree directly.
+ *
+ * **Patterns the scanner picks up (regex-based; not exhaustive):**
+ * - `<Icon set="X" name="Y" />` — both attribute orders
+ * - `<FaSolidIcon name="Y" />` / `<FaRegularIcon name="Y" />`
+ *   / `<FaBrandIcon name="Y" />` / `<LucideIcon name="Y" />` — pinned
+ *   components whose set id is hardcoded in their implementations. The
+ *   set id mapping is in `PINNED_COMPONENTS` below.
+ * - `{ set: 'X', name: 'Y' }` — `IconSpec` object literals anywhere
+ *   (prop value, const declaration, function argument). Both key orders.
+ *
+ * **What still needs `include: [...]` in signalx.config.ts:**
+ * - Dynamic names: `<Icon set="fas" name={someVar} />` or
+ *   `<FaSolidIcon name={someVar} />` — the scanner only matches literal
+ *   string attributes. JSON-driven UIs and runtime-computed icon names
+ *   need explicit force-includes (or `include: ['*']` for the whole catalog).
+ * - User-defined pinned components — only the four built-in adapter
+ *   pinned components are known to the scanner. A consumer who writes
+ *   their own `<MyIcon name="…">` wrapper needs `include`.
+ * - Spread props: `<Icon {...spec} />`. Niche; use `include` if needed.
  */
 
 import { createRequire } from 'node:module';
@@ -33,6 +53,47 @@ const SCAN_REGEX_SET_FIRST =
     /<Icon\s+[^>]*?\bset\s*=\s*["']([\w-]+)["'][^>]*?\bname\s*=\s*["']([\w-]+)["']/g;
 const SCAN_REGEX_NAME_FIRST =
     /<Icon\s+[^>]*?\bname\s*=\s*["']([\w-]+)["'][^>]*?\bset\s*=\s*["']([\w-]+)["']/g;
+
+/**
+ * Known pinned per-set components exported by the workspace's adapter
+ * packages — `@sigx/lynx-icons-fa-free/components` and
+ * `@sigx/lynx-icons-lucide/components`. Each hardcodes its `set` id to
+ * the conventional value documented in the adapter's README; the
+ * scanner mirrors that mapping so `<FaSolidIcon name="user" />` is
+ * recognized as `set="fas", name="user"`.
+ *
+ * Consumers using non-conventional set ids in their config fall back
+ * to generic `<Icon>` (the pinned component wouldn't find its set at
+ * runtime either). New adapter packages adding pinned components add
+ * their entries here; the eventual SWC-AST loader replaces this with
+ * a per-package manifest.
+ */
+const PINNED_COMPONENTS: Readonly<Record<string, string>> = {
+    FaSolidIcon: 'fas',
+    FaRegularIcon: 'far',
+    FaBrandIcon: 'fab',
+    LucideIcon: 'lucide',
+};
+
+const PINNED_COMPONENT_NAMES = Object.keys(PINNED_COMPONENTS).join('|');
+const SCAN_REGEX_PINNED = new RegExp(
+    `<(${PINNED_COMPONENT_NAMES})\\s+[^>]*?\\bname\\s*=\\s*["']([\\w-]+)["']`,
+    'g',
+);
+
+/**
+ * `IconSpec` object literal matchers — `{ set: 'X', name: 'Y' }` in
+ * either key order. Used for `<Tabs.Screen icon={{…}}>`, `<NavHeader
+ * backIcon={{…}}>`, `const spec = {…}` const declarations, function
+ * arguments, etc. Word-boundary anchored on the *first* key to avoid
+ * matching mid-identifier (e.g. `someset:`). False positives — any
+ * code object with both `set` and `name` string-valued keys — are
+ * harmless: the extra glyph just ships in the bundle.
+ */
+const SCAN_REGEX_SPEC_SET_FIRST =
+    /\bset\s*:\s*["']([\w-]+)["']\s*,\s*name\s*:\s*["']([\w-]+)["']/g;
+const SCAN_REGEX_SPEC_NAME_FIRST =
+    /\bname\s*:\s*["']([\w-]+)["']\s*,\s*set\s*:\s*["']([\w-]+)["']/g;
 
 /** Directories to skip when walking the project. */
 const SKIP_DIRS = new Set(['node_modules', 'dist', 'ios', 'android', 'Pods', '.git', '.cache', '.rspeedy']);
@@ -73,12 +134,25 @@ function addUsage(used: Map<string, Set<string>>, set: string, name: string): vo
 }
 
 /**
- * Extract `<Icon set="…" name="…" />` (and the name-first variant) usages
- * from a single source string. Exported for unit testing — the prod path
- * calls this once per file from {@link scanProject}.
+ * Extract icon usages from a single source string. See the file-level
+ * JSDoc for the complete pattern list. Exported for unit testing — the
+ * prod path calls this once per file from {@link scanProject}.
  */
 export function scanContent(content: string): Array<{ set: string; name: string }> {
-    if (!content.includes('<Icon')) return [];
+    // Fast-path skip: a file with none of these markers can't possibly
+    // contain an icon usage we'd match. `set:` covers both attribute and
+    // object-literal forms; the pinned-component prefixes are listed for
+    // the JSX form.
+    if (
+        !content.includes('<Icon')
+        && !content.includes('<FaSolidIcon')
+        && !content.includes('<FaRegularIcon')
+        && !content.includes('<FaBrandIcon')
+        && !content.includes('<LucideIcon')
+        && !content.includes('set:')
+    ) {
+        return [];
+    }
     const seen = new Set<string>();
     const out: Array<{ set: string; name: string }> = [];
     const push = (set: string, name: string): void => {
@@ -87,8 +161,17 @@ export function scanContent(content: string): Array<{ set: string; name: string 
         seen.add(key);
         out.push({ set, name });
     };
+    // <Icon set="X" name="Y" /> — either attribute order.
     for (const m of content.matchAll(SCAN_REGEX_SET_FIRST)) push(m[1], m[2]);
     for (const m of content.matchAll(SCAN_REGEX_NAME_FIRST)) push(m[2], m[1]);
+    // <FaSolidIcon name="Y" /> etc. — set id resolved from PINNED_COMPONENTS.
+    for (const m of content.matchAll(SCAN_REGEX_PINNED)) {
+        const set = PINNED_COMPONENTS[m[1]];
+        if (set) push(set, m[2]);
+    }
+    // { set: 'X', name: 'Y' } — IconSpec object literal, either key order.
+    for (const m of content.matchAll(SCAN_REGEX_SPEC_SET_FIRST)) push(m[1], m[2]);
+    for (const m of content.matchAll(SCAN_REGEX_SPEC_NAME_FIRST)) push(m[2], m[1]);
     return out;
 }
 
