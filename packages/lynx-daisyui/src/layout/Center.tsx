@@ -1,11 +1,11 @@
 import { component, type Define } from '@sigx/lynx';
-import { resolveBoxStyle } from '../shared/styles.js';
+import { type BackgroundValue, resolveBoxStyle } from '../shared/styles.js';
 
 export type CenterProps =
   & Define.Prop<'width', number | string, false>
   & Define.Prop<'height', number | string, false>
   & Define.Prop<'flex', number, false>
-  & Define.Prop<'background', string, false>
+  & Define.Prop<'background', BackgroundValue, false>
   & Define.Prop<'borderRadius', number, false>
   & Define.Prop<'class', string, false>
   & Define.Slot<'default'>;
