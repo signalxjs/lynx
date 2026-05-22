@@ -6,30 +6,12 @@
  * Used by layout components' `background` prop so consumers can write
  * `<Col background="base-100">` instead of `<Col class="bg-base-100">`
  * and still get autocomplete + type safety.
+ *
+ * Single source of truth: both the `DaisyColor` union and the runtime
+ * `DAISY_COLOR_TOKENS` Set are derived from this tuple, so adding /
+ * removing a token in one place is impossible.
  */
-export type DaisyColor =
-  | 'primary'
-  | 'primary-content'
-  | 'secondary'
-  | 'secondary-content'
-  | 'accent'
-  | 'accent-content'
-  | 'neutral'
-  | 'neutral-content'
-  | 'base-100'
-  | 'base-200'
-  | 'base-300'
-  | 'base-content'
-  | 'info'
-  | 'info-content'
-  | 'success'
-  | 'success-content'
-  | 'warning'
-  | 'warning-content'
-  | 'error'
-  | 'error-content';
-
-const DAISY_COLOR_TOKENS: ReadonlySet<string> = new Set([
+const DAISY_COLOR_TOKEN_LIST = [
   'primary', 'primary-content',
   'secondary', 'secondary-content',
   'accent', 'accent-content',
@@ -39,7 +21,11 @@ const DAISY_COLOR_TOKENS: ReadonlySet<string> = new Set([
   'success', 'success-content',
   'warning', 'warning-content',
   'error', 'error-content',
-]);
+] as const;
+
+export type DaisyColor = typeof DAISY_COLOR_TOKEN_LIST[number];
+
+const DAISY_COLOR_TOKENS: ReadonlySet<DaisyColor> = new Set(DAISY_COLOR_TOKEN_LIST);
 
 /**
  * Resolve a `background` prop value to a CSS color string.
@@ -48,7 +34,9 @@ const DAISY_COLOR_TOKENS: ReadonlySet<string> = new Set([
  * - Anything else (`'#ffaa00'`, `'rgb(…)'`, `'var(--my-custom)'`) is passed through unchanged.
  */
 export function resolveDaisyColor(value: string): string {
-  return DAISY_COLOR_TOKENS.has(value) ? `var(--color-${value})` : value;
+  return (DAISY_COLOR_TOKENS as ReadonlySet<string>).has(value)
+    ? `var(--color-${value})`
+    : value;
 }
 
 export type SpacingValue = number | {
