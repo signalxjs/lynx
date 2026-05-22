@@ -270,8 +270,17 @@ export default definePlugin({
 
                 if (hasAndroidTarget) {
                     const { ensureAndroidBuilt } = await import('./android-run.js');
+                    const targetDeviceIds = live
+                        .filter((t): t is Extract<Target, { kind: 'android-device' }> => t.kind === 'android-device')
+                        .map((t) => t.deviceId);
                     try {
-                        await ensureAndroidBuilt({ cwd: ctx.cwd, logger: ctx.logger, applicationId: launchAppId, verbose });
+                        await ensureAndroidBuilt({
+                            cwd: ctx.cwd,
+                            logger: ctx.logger,
+                            applicationId: launchAppId,
+                            targetDeviceIds,
+                            verbose,
+                        });
                     } catch (err) {
                         ctx.logger.error(err instanceof Error ? err.message : String(err));
                         process.exit(1);
@@ -292,6 +301,7 @@ export default definePlugin({
                                 logger: ctx.logger,
                                 appName,
                                 target: { kind: t.kind === 'ios-simulator' ? 'simulator' : 'device', udid: t.udid, name: t.name },
+                                bundleId: launchBundleId,
                                 verbose,
                             });
                         } catch (err) {
@@ -582,7 +592,14 @@ export default definePlugin({
                 }
 
                 const { ensureAndroidBuilt } = await import('./android-run.js');
-                await ensureAndroidBuilt({ cwd: ctx.cwd, logger: ctx.logger, applicationId, verbose });
+                const { listAndroidDevices: listAndroidDevicesForRun } = await import('./device-detect.js');
+                await ensureAndroidBuilt({
+                    cwd: ctx.cwd,
+                    logger: ctx.logger,
+                    applicationId,
+                    targetDeviceIds: listAndroidDevicesForRun().map((d) => d.id),
+                    verbose,
+                });
 
                 // Start dev server
                 const { startDevServer } = await import('./dev-server.js');
@@ -791,6 +808,7 @@ export default definePlugin({
                         logger: ctx.logger,
                         appName,
                         target,
+                        bundleId,
                         verbose,
                     });
                 } catch (err) {

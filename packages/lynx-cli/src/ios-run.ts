@@ -17,7 +17,14 @@ import {
     findBuiltApp,
     installAppOnDevice,
     installAppOnSimulator,
+    isAppInstalledOnSimulator,
+    isAppInstalledOnDevice,
 } from './device-detect.js';
+import {
+    fingerprintIosBuild,
+    readCachedFingerprint,
+    writeCachedFingerprint,
+} from './util/build-fingerprint.js';
 
 export type IosBuildTarget =
     | { kind: 'simulator'; udid: string; name: string }
@@ -28,16 +35,46 @@ export interface EnsureIosBuiltOptions {
     logger: Logger;
     appName: string;
     target: IosBuildTarget;
+    /**
+     * App bundle identifier. When provided, enables the "already up to date"
+     * fast path — we check whether the app is still installed on `target` and
+     * skip xcodebuild + install when the build-input fingerprint matches the
+     * last successful install.
+     */
+    bundleId?: string;
     configuration?: 'Debug' | 'Release';
     verbose?: boolean;
 }
 
+function iosFingerprintKey(target: IosBuildTarget, configuration: string): string {
+    return `ios-${configuration.toLowerCase()}-${target.kind}-${target.udid}`;
+}
+
 export async function ensureIosBuilt(opts: EnsureIosBuiltOptions): Promise<void> {
-    const { cwd, logger, appName, target, configuration = 'Debug', verbose = false } = opts;
+    const { cwd, logger, appName, target, bundleId, configuration = 'Debug', verbose = false } = opts;
     const iosDir = join(cwd, 'ios');
 
     logger.log('Running prebuild for iOS...');
     await runPrebuild({ android: false, ios: true, cwd });
+
+    // Fast path: if the build-input fingerprint matches what we stored after
+    // the last successful install AND the app is still on the target, skip
+    // pod install / xcodebuild / install entirely. The dev-server's
+    // auto-launch loop will (re)launch with the fresh dev URL.
+    if (bundleId) {
+        const fingerprint = fingerprintIosBuild(cwd, appName, configuration);
+        const cacheKey = iosFingerprintKey(target, configuration);
+        const cached = readCachedFingerprint(cwd, cacheKey);
+        if (cached === fingerprint) {
+            const installed = target.kind === 'simulator'
+                ? isAppInstalledOnSimulator(target.udid, bundleId)
+                : isAppInstalledOnDevice(target.udid, bundleId);
+            if (installed) {
+                logger.log(`\x1b[32m✓ ${target.name} up to date — skipping build\x1b[0m`);
+                return;
+            }
+        }
+    }
 
     await podInstallIfStale(iosDir, logger);
 
@@ -82,4 +119,13 @@ export async function ensureIosBuilt(opts: EnsureIosBuiltOptions): Promise<void>
         throw new Error(`Failed to install app on ${target.kind}`);
     }
     logger.log('\x1b[32m✓ App installed\x1b[0m');
+
+    // Record what we just installed so the next run can short-circuit when
+    // nothing changed. Fingerprint is computed AFTER prebuild + xcodebuild,
+    // which is fine — prebuild's outputs are deterministic for a given
+    // config, and xcodebuild itself doesn't modify input sources.
+    if (bundleId) {
+        const fingerprint = fingerprintIosBuild(cwd, appName, configuration);
+        writeCachedFingerprint(cwd, iosFingerprintKey(target, configuration), fingerprint);
+    }
 }

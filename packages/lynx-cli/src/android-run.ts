@@ -12,8 +12,13 @@ import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Logger } from '@sigx/cli/plugin';
 import { runPrebuild } from './prebuild.js';
-import { resolveAdb } from './device-detect.js';
+import { resolveAdb, isAppInstalled } from './device-detect.js';
 import { runWithBuildFilter } from './build-output.js';
+import {
+    fingerprintAndroidBuild,
+    readCachedFingerprint,
+    writeCachedFingerprint,
+} from './util/build-fingerprint.js';
 
 /**
  * Discover the Android SDK root. Mirrors the candidate list in
@@ -185,28 +190,64 @@ export interface EnsureAndroidBuiltOptions {
     cwd: string;
     logger: Logger;
     applicationId?: string;
+    /**
+     * Devices the app needs to end up installed on. When provided alongside
+     * `applicationId`, enables the "already up to date" fast path: if the
+     * build-input fingerprint matches the last successful install AND the
+     * app is present on every target device, we skip gradle entirely.
+     */
+    targetDeviceIds?: string[];
     verbose?: boolean;
+}
+
+function androidFingerprintKey(): string {
+    // Gradle installs to every connected device, so the fingerprint isn't
+    // per-device — we just track "what we last installed" alongside which
+    // devices it landed on (checked separately via adb).
+    return `android-debug`;
 }
 
 /**
  * Runs prebuild for Android and `gradlew installDebug`. Throws if the
  * build fails. No-op / fast on subsequent calls thanks to gradle's
- * incremental build + install daemon.
+ * incremental build + install daemon — and skipped entirely when the
+ * build-input fingerprint matches the last successful install AND the
+ * app is still on every target device.
  */
 export async function ensureAndroidBuilt(opts: EnsureAndroidBuiltOptions): Promise<void> {
-    const { cwd, logger } = opts;
+    const { cwd, logger, applicationId, targetDeviceIds } = opts;
     const androidDir = join(cwd, 'android');
 
     logger.log('Running prebuild for Android...');
     await runPrebuild({ android: true, ios: false, cwd });
 
+    // Fast path: skip gradle if nothing relevant changed and the app is
+    // already installed on every target. Cheap (a few stat + sha256 of small
+    // files, plus one adb per target) compared to gradle's ~2-5s startup.
+    if (applicationId && targetDeviceIds && targetDeviceIds.length > 0) {
+        const fingerprint = fingerprintAndroidBuild(cwd);
+        const cached = readCachedFingerprint(cwd, androidFingerprintKey());
+        if (cached === fingerprint) {
+            const allInstalled = targetDeviceIds.every((id) => isAppInstalled(id, applicationId));
+            if (allInstalled) {
+                logger.log(`\x1b[32m✓ Android up to date — skipping build\x1b[0m`);
+                return;
+            }
+        }
+    }
+
     logger.log('Building Android (debug)...');
     await runGradleWithDx(['installDebug'], {
         cwd: androidDir,
         logger,
-        applicationId: opts.applicationId,
+        applicationId,
         verbose: opts.verbose,
     });
 
     logger.log('\x1b[32m✓ App installed\x1b[0m');
+
+    if (applicationId && targetDeviceIds && targetDeviceIds.length > 0) {
+        const fingerprint = fingerprintAndroidBuild(cwd);
+        writeCachedFingerprint(cwd, androidFingerprintKey(), fingerprint);
+    }
 }

@@ -6,8 +6,9 @@
  */
 
 import { execSync, spawn } from 'node:child_process';
-import { existsSync, statSync } from 'node:fs';
-import { join } from 'node:path';
+import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { dirname, join } from 'node:path';
 import type { Logger } from '@sigx/cli/plugin';
 
 /**
@@ -23,12 +24,32 @@ export function isPodAvailable(): boolean {
 }
 
 /**
+ * Path of the cached Podfile content hash. Sibling to `Podfile.lock` under
+ * `node_modules/.cache/` so it survives `pod install` (which rewrites the
+ * lock) but not `pnpm install` (which clears the cache). Safe to delete by
+ * hand to force a re-install.
+ */
+function podHashPath(iosDir: string): string {
+    // `iosDir` is the project's ios/ directory; the cache lives next to
+    // other tool caches in the project root.
+    return join(iosDir, '..', 'node_modules', '.cache', '@sigx', 'lynx-cli', 'podfile.hash');
+}
+
+function sha256(buf: Buffer): string {
+    return createHash('sha256').update(buf).digest('hex');
+}
+
+/**
  * Decide whether `pod install` should run for the given iOS project directory.
  *
  * Triggers:
  *  - Podfile.lock missing
- *  - Podfile mtime > Podfile.lock mtime (which `runPrebuild` causes when the
- *    set of linked pods changes — the Podfile is rewritten)
+ *  - Cached Podfile hash missing or different from current Podfile content
+ *
+ * Hash beats mtime here: prebuild rewrites the Podfile on every run (template
+ * refresh + pod-entry injection), so mtime-based staleness fires every time
+ * even when nothing actually changed. SHA of the resolved Podfile bytes is
+ * the canonical way to detect real changes.
  */
 export function podsAreStale(iosDir: string): boolean {
     const podfile = join(iosDir, 'Podfile');
@@ -38,11 +59,30 @@ export function podsAreStale(iosDir: string): boolean {
     if (!existsSync(lock)) return true;
 
     try {
-        const podfileMtime = statSync(podfile).mtimeMs;
-        const lockMtime = statSync(lock).mtimeMs;
-        return podfileMtime > lockMtime;
+        const currentHash = sha256(readFileSync(podfile));
+        const cachedHash = (() => {
+            try { return readFileSync(podHashPath(iosDir), 'utf-8').trim(); } catch { return null; }
+        })();
+        return cachedHash !== currentHash;
     } catch {
-        return true; // stat failure — be safe and reinstall
+        return true; // read failure — be safe and reinstall
+    }
+}
+
+/**
+ * Record the current Podfile hash after a successful `pod install`. Idempotent.
+ */
+function writePodHash(iosDir: string): void {
+    const podfile = join(iosDir, 'Podfile');
+    if (!existsSync(podfile)) return;
+    try {
+        const hash = sha256(readFileSync(podfile));
+        const out = podHashPath(iosDir);
+        mkdirSync(dirname(out), { recursive: true });
+        writeFileSync(out, hash);
+    } catch {
+        // Best-effort — a missing hash file just means we'll reinstall once
+        // unnecessarily next time. Not worth failing the build over.
     }
 }
 
@@ -63,6 +103,7 @@ export async function podInstall(iosDir: string, logger: Logger): Promise<void> 
     await new Promise<void>((resolve, reject) => {
         child.on('exit', (code) => {
             if (code === 0) {
+                writePodHash(iosDir);
                 resolve();
             } else {
                 logger.error('`pod install` failed.');

@@ -12,9 +12,10 @@
  */
 
 import sharp from 'sharp';
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import type { ResolvedConfig, ResolvedAndroidAssets, ResolvedPlatformAssets } from '../config/index.js';
+import { writeFileIfChanged } from '../util/idempotent-write.js';
 
 function log(msg: string) {
     console.log(`[sigx] ${msg}`);
@@ -55,10 +56,11 @@ export async function generateIosSplash(cwd: string, config: ResolvedConfig, ios
         { scale: '3x', px: IOS_SPLASH_BASE * 3, file: 'splash@3x.png' },
     ];
     for (const s of sizes) {
-        await sharp(ios.splashImage)
+        const buf = await sharp(ios.splashImage)
             .resize(s.px, s.px, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
             .png()
-            .toFile(join(imageset, s.file));
+            .toBuffer();
+        writeFileIfChanged(join(imageset, s.file), buf);
     }
     const imageContents = {
         images: sizes.map((s) => ({
@@ -68,7 +70,7 @@ export async function generateIosSplash(cwd: string, config: ResolvedConfig, ios
         })),
         info: { author: 'sigx', version: 1 },
     };
-    writeFileSync(join(imageset, 'Contents.json'), JSON.stringify(imageContents, null, 2) + '\n');
+    writeFileIfChanged(join(imageset, 'Contents.json'), JSON.stringify(imageContents, null, 2) + '\n');
 
     // SplashBackground.colorset
     const colorset = join(xcassets, 'SplashBackground.colorset');
@@ -91,7 +93,7 @@ export async function generateIosSplash(cwd: string, config: ResolvedConfig, ios
         ],
         info: { author: 'sigx', version: 1 },
     };
-    writeFileSync(join(colorset, 'Contents.json'), JSON.stringify(colorContents, null, 2) + '\n');
+    writeFileIfChanged(join(colorset, 'Contents.json'), JSON.stringify(colorContents, null, 2) + '\n');
 
     log(`iOS: generated splash (image + bg ${ios.splashBackground})`);
 }
@@ -106,10 +108,11 @@ export async function generateAndroidSplash(cwd: string, android: ResolvedAndroi
     // Single-density drawable PNG (256px works visually across screen sizes via gravity=center).
     const drawableDir = join(resDir, 'drawable');
     mkdirSync(drawableDir, { recursive: true });
-    await sharp(android.splashImage)
+    const splashBuf = await sharp(android.splashImage)
         .resize(256, 256, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
         .png()
-        .toFile(join(drawableDir, 'splash_logo.png'));
+        .toBuffer();
+    writeFileIfChanged(join(drawableDir, 'splash_logo.png'), splashBuf);
 
     // Layer-list referencing the splash_background color + centered bitmap.
     const splashXml = `<?xml version="1.0" encoding="utf-8"?>
@@ -118,7 +121,7 @@ export async function generateAndroidSplash(cwd: string, android: ResolvedAndroi
     <item android:gravity="center"><bitmap android:src="@drawable/splash_logo"/></item>
 </layer-list>
 `;
-    writeFileSync(join(drawableDir, 'splash.xml'), splashXml);
+    writeFileIfChanged(join(drawableDir, 'splash.xml'), splashXml);
 
     // Splash background color — write a dedicated file so it's idempotent and
     // does not clash with other color resources.
@@ -130,7 +133,7 @@ export async function generateAndroidSplash(cwd: string, android: ResolvedAndroi
     <color name="splash_background">${android.splashBackground}</color>
 </resources>
 `;
-    writeFileSync(colorsPath, colorsXml);
+    writeFileIfChanged(colorsPath, colorsXml);
 
     log(`Android: generated splash (drawable + bg ${android.splashBackground})`);
 }
