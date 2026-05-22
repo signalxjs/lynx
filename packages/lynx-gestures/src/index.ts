@@ -39,8 +39,20 @@ export { Swipeable } from './components/Swipeable.js';
 export type { SwipeableProps, SwipeSide } from './components/Swipeable.js';
 export { ScrollView } from './components/ScrollView.js';
 export type { ScrollViewProps } from './components/ScrollView.js';
-export { Swiper, SwiperDots } from './components/Swiper.js';
-export type { SwiperProps, SwiperDotsProps } from './components/Swiper.js';
+export { Swiper } from './components/Swiper.js';
+export type { SwiperProps } from './components/Swiper.js';
+export {
+  useSwiperDotProgress,
+  useSwiperDotScale,
+  useSwiperDotGrowX,
+  useSwiperDotWidth,
+  useSwiperDotTranslate,
+} from './use-swiper-dot-progress.js';
+export type {
+  SwiperDotHookInputs,
+  UseSwiperDotProgressOptions,
+  UseSwiperDotTranslateOptions,
+} from './use-swiper-dot-progress.js';
 
 // ScrollView ↔ child-gesture coordination (Phase 2.12.3). Public mostly so
 // custom gesture components can opt in to the same auto-yield behavior that

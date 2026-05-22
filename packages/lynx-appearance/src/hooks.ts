@@ -1,4 +1,4 @@
-import { computed, signal, type Computed, type PrimitiveSignal } from '@sigx/reactivity';
+import { signal, type Computed, type PrimitiveSignal } from '@sigx/reactivity';
 import { useAppearanceContext } from './injectable.js';
 import { readGlobalColorScheme } from './globals.js';
 import type { ColorScheme } from './types.js';

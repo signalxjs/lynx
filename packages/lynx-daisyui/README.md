@@ -143,6 +143,44 @@ For a fully-custom design, build directly on
 `useScreenChrome()` from `@sigx/lynx-navigation` — `NavHeader` is just
 one consumer of that hook.
 
+### `<SwiperIndicator>`
+
+Themed wrapper around the headless `useSwiperDot*` hooks from
+[`@sigx/lynx-gestures`](../lynx-gestures#swiper-and-headless-dot-hooks).
+Reads colours from the active daisy theme so the indicator follows light
+/ dark mode automatically.
+
+```tsx
+import { Swiper } from '@sigx/lynx-gestures';
+import { SwiperIndicator } from '@sigx/lynx-daisyui';
+
+<Swiper offset={offset} index={pageIdx} width={pageWidth}>{pages}</Swiper>
+<SwiperIndicator
+  variant="dots"
+  count={pages.length}
+  offset={offset}
+  pageWidth={pageWidth}
+  index={pageIdx}
+  color="primary"
+  onDotPress={(i) => { pageIdx.value = i }}
+/>
+```
+
+| Variant       | Animated channel             | Notes                                                              |
+| ------------- | ---------------------------- | ------------------------------------------------------------------ |
+| `dots`        | `opacity` crossfade          | Default. Two-colour overlay per dot.                               |
+| `bar`         | `translateX` (single thumb)  | One MT binding regardless of page count — cheapest for long lists. |
+| `pill`        | `scaleX` + `opacity`         | Active dot stretches into a pill while overlay fades in.           |
+| `scale-pulse` | uniform `scale`              | Monochrome pulse — no colour crossfade.                            |
+| `numbered`    | none (BG-thread text)        | Renders `n / total`. Requires `index` signal.                      |
+
+Props: `count`, `offset` (`SharedValue<number>`), `pageWidth`, `index`
+(`PrimitiveSignal<number>`, required for `numbered`), `color`, `inactiveColor`
+(daisy tokens), `size` (`'xs' | 'sm' | 'md' | 'lg'`), `onDotPress`.
+
+For a non-standard visual, skip this component and call the headless
+hooks directly — they're the same primitives this component composes.
+
 ## Layout primitives
 
 Daisy's flex primitives (`Center`, `Col`, `Row`) accept a `flex={n}`

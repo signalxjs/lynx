@@ -42,7 +42,10 @@ export function setNavigationBarStyle(opts: { style: SystemBarStyle; color?: str
 /**
  * Convenience: apply status-bar tint + (optionally) status-bar background +
  * nav-bar tint in one call. Resolves to the aggregate result — `ok: false`
- * if any leg failed, with the first failure's reason.
+ * if any leg returned a non-`unsupported` failure, with the first such
+ * failure's reason. `unsupported` legs (e.g. status-bar background on iOS)
+ * are intentionally ignored so a partially-supported platform can still
+ * report success for the legs that do apply.
  *
  * Fields are optional; omitting any leaves that surface untouched. Order is
  * deterministic (statusBar → statusBarBackground → navigationBar) so the

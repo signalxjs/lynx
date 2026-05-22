@@ -1,7 +1,7 @@
 import { component, signal, useElementLayout, useSharedValue } from '@sigx/lynx';
 import { useNav, useParams, Screen } from '@sigx/lynx-navigation';
-import { Badge, Button, Card, Col, Row, ScrollView, Text } from '@sigx/lynx-daisyui';
-import { Swiper, SwiperDots } from '@sigx/lynx-gestures';
+import { Badge, Button, Card, Col, Row, ScrollView, SwiperIndicator, Text } from '@sigx/lynx-daisyui';
+import { Swiper } from '@sigx/lynx-gestures';
 import { Haptics } from '@sigx/lynx-haptics';
 import { Share } from '@sigx/lynx-share';
 import { deleteEntry, getTrip, trips } from '../store/trips.js';
@@ -72,14 +72,14 @@ const EntryPhotos = component<{
                     />
                 </view>
                 <view style={{ marginTop: 8, display: 'flex', justifyContent: 'center' }}>
-                    <SwiperDots
+                    <SwiperIndicator
+                        variant="dots"
                         count={photos.length}
                         offset={offset}
                         pageWidth={layout.value?.width ?? 343}
-                        size={6}
-                        spacing={6}
-                        activeColor="#3b82f6"
-                        inactiveColor="rgba(0,0,0,0.2)"
+                        index={pageIdx}
+                        color="primary"
+                        size="sm"
                         onDotPress={(i) => { pageIdx.value = i; }}
                     />
                 </view>

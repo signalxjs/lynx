@@ -74,6 +74,12 @@ export type {
     NavDrawerProps,
     NavDrawerSide,
 } from './navigation/NavDrawer.js';
+export { SwiperIndicator } from './navigation/SwiperIndicator.js';
+export type {
+    SwiperIndicatorProps,
+    SwiperIndicatorVariant,
+    SwiperIndicatorSize,
+} from './navigation/SwiperIndicator.js';
 
 // Theme
 export {

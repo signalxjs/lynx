@@ -62,6 +62,7 @@ export const Settings = component(() => {
                             <Row gap={8} wrap>
                                 {listThemes().map((meta) => (
                                     <Button
+                                        key={meta.name}
                                         size="sm"
                                         variant={theme.name === meta.name ? 'primary' : 'ghost'}
                                         outline={theme.name !== meta.name}

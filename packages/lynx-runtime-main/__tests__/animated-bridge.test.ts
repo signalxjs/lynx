@@ -216,8 +216,12 @@ describe('animated-style mapper registry', () => {
     expect(typeof lookupMapper('translateY')).toBe('function');
     expect(typeof lookupMapper('translate')).toBe('function');
     expect(typeof lookupMapper('scale')).toBe('function');
+    expect(typeof lookupMapper('scaleX')).toBe('function');
+    expect(typeof lookupMapper('scaleY')).toBe('function');
     expect(typeof lookupMapper('opacity')).toBe('function');
     expect(typeof lookupMapper('rotate')).toBe('function');
+    expect(typeof lookupMapper('width')).toBe('function');
+    expect(typeof lookupMapper('height')).toBe('function');
   });
 
   it('returns undefined for unknown names', () => {
@@ -242,6 +246,28 @@ describe('animated-style mapper registry', () => {
     expect(m(0.3, undefined)).toEqual({ opacity: '0.3' });
     expect(m(2, undefined)).toEqual({ opacity: '1' });
     expect(m(0.5, { factor: 2, offset: -0.25 })).toEqual({ opacity: '0.75' });
+  });
+
+  it('scaleX / scaleY emit single-axis transforms', () => {
+    const sx = lookupMapper('scaleX')!;
+    expect(sx(1, undefined)).toEqual({ transform: 'scaleX(1)' });
+    expect(sx(1, { offset: 0.5 })).toEqual({ transform: 'scaleX(1.5)' });
+    expect(sx(0, { inputRange: [0, 1], outputRange: [1, 3] }))
+      .toEqual({ transform: 'scaleX(1)' });
+    expect(sx(1, { inputRange: [0, 1], outputRange: [1, 3] }))
+      .toEqual({ transform: 'scaleX(3)' });
+    const sy = lookupMapper('scaleY')!;
+    expect(sy(2, undefined)).toEqual({ transform: 'scaleY(2)' });
+  });
+
+  it('width / height emit layout styles in px', () => {
+    const w = lookupMapper('width')!;
+    expect(w(24, undefined)).toEqual({ width: '24px' });
+    expect(w(0.5, { factor: 100 })).toEqual({ width: '50px' });
+    expect(w(0.5, { inputRange: [0, 1], outputRange: [8, 24] }))
+      .toEqual({ width: '16px' });
+    const h = lookupMapper('height')!;
+    expect(h(40, undefined)).toEqual({ height: '40px' });
   });
 
   it('registerMapper installs a custom mapper', () => {
