@@ -1,9 +1,10 @@
 import Foundation
+import UIKit
 import UserNotifications
 import Lynx
 
-/// Local notifications module.
-/// JS usage: NativeModules.Notifications.schedule({ title, body }, { delay }, callback)
+/// Local + remote notifications module.
+/// JS usage: NativeModules.Notifications.<method>(...)
 class NotificationsModule: NSObject, LynxModule {
 
     @objc static var name: String { "Notifications" }
@@ -15,6 +16,11 @@ class NotificationsModule: NSObject, LynxModule {
             "cancelAll": NSStringFromSelector(#selector(cancelAll(_:))),
             "requestPermission": NSStringFromSelector(#selector(requestPermission(_:))),
             "getPermissionStatus": NSStringFromSelector(#selector(getPermissionStatus(_:))),
+            "registerForPushNotifications": NSStringFromSelector(#selector(registerForPushNotifications(_:))),
+            "unregisterForPushNotifications": NSStringFromSelector(#selector(unregisterForPushNotifications(_:))),
+            "setBadgeCount": NSStringFromSelector(#selector(setBadgeCount(_:callback:))),
+            "getBadgeCount": NSStringFromSelector(#selector(getBadgeCount(_:))),
+            "getInitialNotification": NSStringFromSelector(#selector(getInitialNotification(_:))),
         ]
     }
 
@@ -25,6 +31,7 @@ class NotificationsModule: NSObject, LynxModule {
         let title = content?["title"] as? String ?? "Notification"
         let body = content?["body"] as? String ?? ""
         let delay = options?["delay"] as? TimeInterval ?? 0
+        let data = content?["data"] as? [String: String] ?? [:]
 
         let notificationId = UUID().uuidString
 
@@ -32,6 +39,9 @@ class NotificationsModule: NSObject, LynxModule {
         notificationContent.title = title
         notificationContent.body = body
         notificationContent.sound = .default
+        // Round-trip the data dict so a local tap surfaces it on
+        // didReceiveResponse → publishResponse — same wire shape as remote.
+        notificationContent.userInfo = data
 
         let trigger: UNNotificationTrigger
         if delay > 0 {
@@ -89,6 +99,62 @@ class NotificationsModule: NSObject, LynxModule {
             @unknown default:    status = "unknown"
             }
             callback?(["status": status])
+        }
+    }
+
+    // MARK: - Remote push
+
+    /// Ask iOS to contact APNs. The token (or registration failure) arrives
+    /// asynchronously via the AppDelegate hook → `PushEventBus` → JS event.
+    /// The callback only confirms that `registerForRemoteNotifications` was
+    /// dispatched — it does NOT block on token receipt.
+    @objc func registerForPushNotifications(_ callback: LynxCallbackBlock?) {
+        DispatchQueue.main.async {
+            UIApplication.shared.registerForRemoteNotifications()
+            callback?(["dispatched": true])
+        }
+    }
+
+    @objc func unregisterForPushNotifications(_ callback: LynxCallbackBlock?) {
+        DispatchQueue.main.async {
+            UIApplication.shared.unregisterForRemoteNotifications()
+            callback?(true)
+        }
+    }
+
+    @objc func setBadgeCount(_ count: NSNumber?, callback: LynxCallbackBlock?) {
+        let value = count?.intValue ?? 0
+        if #available(iOS 16.0, *) {
+            UNUserNotificationCenter.current().setBadgeCount(value) { error in
+                if let error = error {
+                    callback?(["error": error.localizedDescription])
+                } else {
+                    callback?(true)
+                }
+            }
+        } else {
+            DispatchQueue.main.async {
+                UIApplication.shared.applicationIconBadgeNumber = value
+                callback?(true)
+            }
+        }
+    }
+
+    @objc func getBadgeCount(_ callback: LynxCallbackBlock?) {
+        DispatchQueue.main.async {
+            callback?(NSNumber(value: UIApplication.shared.applicationIconBadgeNumber))
+        }
+    }
+
+    /// One-shot: return the payload that launched the app from a cold start,
+    /// or nil. Subsequent calls return nil even if the original payload was
+    /// non-nil — JS code that wants to react to launch payloads should call
+    /// this exactly once during startup.
+    @objc func getInitialNotification(_ callback: LynxCallbackBlock?) {
+        if let payload = PushEventBus.shared.consumeInitialResponse() {
+            callback?(payload)
+        } else {
+            callback?(NSNull())
         }
     }
 }
