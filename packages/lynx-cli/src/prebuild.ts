@@ -1341,15 +1341,31 @@ export async function runPrebuild(opts: PrebuildOptions = {}): Promise<void> {
     const buildIos = opts.ios ?? true;
 
     // Fast path: skip the whole pipeline (including the esbuild-driven config
-    // load) when the inputs haven't changed since the last run AND the native
-    // project dirs we'd populate already exist. `--clean` bypasses.
+    // load) when the inputs haven't changed since the last run AND a small
+    // set of "must exist" sentinel outputs are still present on disk. The
+    // sentinels catch the cases where a user (or a wayward `rm`) wiped
+    // something prebuild was responsible for generating — without those
+    // checks, the cached fingerprint would say "all good" and downstream
+    // (xcodebuild / gradle / pod install) would fail in a confusing way.
+    // `--clean` bypasses both checks.
     if (!opts.clean) {
         const fingerprint = fingerprintPrebuildInputs(cwd, { android: buildAndroid, ios: buildIos });
         const cached = readCachedFingerprint(cwd, 'prebuild-inputs');
-        const nativeDirsReady =
-            (!buildAndroid || existsSync(join(cwd, 'android'))) &&
-            (!buildIos || existsSync(join(cwd, 'ios')));
-        if (cached === fingerprint && nativeDirsReady) {
+        // Sentinels are intentionally appName-independent so we can run them
+        // *before* the esbuild config load — that's the whole point of the
+        // fast path. If we picked appName-scoped sentinels we'd be paying the
+        // very cost we're trying to avoid.
+        const iosSentinels = [
+            join(cwd, 'ios', 'Podfile'),
+        ];
+        const androidSentinels = [
+            join(cwd, 'android', 'app', 'build.gradle.kts'),
+            join(cwd, 'android', 'app', 'src', 'main', 'AndroidManifest.xml'),
+        ];
+        const outputsIntact =
+            (!buildIos || iosSentinels.every((p) => existsSync(p))) &&
+            (!buildAndroid || androidSentinels.every((p) => existsSync(p)));
+        if (cached === fingerprint && outputsIntact) {
             log('Prebuild inputs unchanged — skipping');
             return;
         }

@@ -24,19 +24,35 @@ export function isPodAvailable(): boolean {
 }
 
 /**
- * Path of the cached Podfile content hash. Sibling to `Podfile.lock` under
- * `node_modules/.cache/` so it survives `pod install` (which rewrites the
- * lock) but not `pnpm install` (which clears the cache). Safe to delete by
- * hand to force a re-install.
+ * Where we cache the "pods are clean" sentinel hash. Lives under the project's
+ * `node_modules/.cache/` (a few directories away from the source `Podfile` /
+ * `Podfile.lock` in `ios/`) so it survives `pod install` but is cleared by
+ * `pnpm install`. Safe to delete by hand to force a re-install.
  */
 function podHashPath(iosDir: string): string {
-    // `iosDir` is the project's ios/ directory; the cache lives next to
-    // other tool caches in the project root.
+    // `iosDir` is the project's ios/ directory; the cache lives in the
+    // project root's node_modules/.cache alongside other tool caches.
     return join(iosDir, '..', 'node_modules', '.cache', '@sigx', 'lynx-cli', 'podfile.hash');
 }
 
-function sha256(buf: Buffer): string {
-    return createHash('sha256').update(buf).digest('hex');
+/**
+ * Sentinel hash for "the pods we have installed match the Podfile + lockfile
+ * on disk". Hashing BOTH files matters: a Podfile-only change captures
+ * additions/post-install tweaks before the lock has caught up, and a
+ * Podfile.lock-only change captures branch switches / merges where the
+ * Podfile is identical but the resolved versions differ.
+ */
+function currentPodSentinel(iosDir: string): string {
+    const h = createHash('sha256');
+    h.update(readFileSync(join(iosDir, 'Podfile')));
+    h.update('\0');
+    const lock = join(iosDir, 'Podfile.lock');
+    if (existsSync(lock)) {
+        h.update(readFileSync(lock));
+    } else {
+        h.update('no-lock');
+    }
+    return h.digest('hex');
 }
 
 /**
@@ -44,12 +60,13 @@ function sha256(buf: Buffer): string {
  *
  * Triggers:
  *  - Podfile.lock missing
- *  - Cached Podfile hash missing or different from current Podfile content
+ *  - Cached sentinel hash missing or different from a hash of the current
+ *    Podfile + Podfile.lock contents
  *
  * Hash beats mtime here: prebuild rewrites the Podfile on every run (template
  * refresh + pod-entry injection), so mtime-based staleness fires every time
- * even when nothing actually changed. SHA of the resolved Podfile bytes is
- * the canonical way to detect real changes.
+ * even when nothing actually changed. SHA of the resolved bytes is the
+ * canonical way to detect real changes.
  */
 export function podsAreStale(iosDir: string): boolean {
     const podfile = join(iosDir, 'Podfile');
@@ -59,7 +76,7 @@ export function podsAreStale(iosDir: string): boolean {
     if (!existsSync(lock)) return true;
 
     try {
-        const currentHash = sha256(readFileSync(podfile));
+        const currentHash = currentPodSentinel(iosDir);
         const cachedHash = (() => {
             try { return readFileSync(podHashPath(iosDir), 'utf-8').trim(); } catch { return null; }
         })();
@@ -70,13 +87,14 @@ export function podsAreStale(iosDir: string): boolean {
 }
 
 /**
- * Record the current Podfile hash after a successful `pod install`. Idempotent.
+ * Record the current Podfile + Podfile.lock sentinel hash after a successful
+ * `pod install`. Idempotent.
  */
 function writePodHash(iosDir: string): void {
     const podfile = join(iosDir, 'Podfile');
     if (!existsSync(podfile)) return;
     try {
-        const hash = sha256(readFileSync(podfile));
+        const hash = currentPodSentinel(iosDir);
         const out = podHashPath(iosDir);
         mkdirSync(dirname(out), { recursive: true });
         writeFileSync(out, hash);

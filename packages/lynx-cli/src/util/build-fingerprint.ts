@@ -116,6 +116,12 @@ export function fingerprintIosBuild(
         configuration,
         cliVersion: getCliVersion(),
     };
+    // Both Podfile and Podfile.lock affect the final .app. Hashing only the
+    // lock would let a Podfile-only edit (new pod added, post_install tweak)
+    // slip through the fast path before `pod install` has reconciled the
+    // two — meaning we'd reuse a stale build.
+    const podfile = join(iosDir, 'Podfile');
+    extras.podfile = existsSync(podfile) ? sha256OfFile(podfile) : 'none';
     const podfileLock = join(iosDir, 'Podfile.lock');
     extras.podfileLock = existsSync(podfileLock) ? sha256OfFile(podfileLock) : 'none';
     return combineHash(files, extras);
