@@ -30,7 +30,7 @@
     "devDependencies": {
         "@sigx/lynx-icons": "workspace:^",
         "@types/node": "^25.7.0",
-        "@typescript/native-preview": "7.0.0-dev.20260511.1",
+        "@typescript/native-preview": "7.0.0-dev.20260521.1",
         "lucide": "^1.16.0",
         "typescript": "^6.0.3"
     },

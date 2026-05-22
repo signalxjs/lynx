@@ -38,7 +38,7 @@
         "@lynx-js/react": "^0.121.0",
         "@sigx/lynx-plugin": "workspace:^",
         "@sigx/lynx-runtime-main": "workspace:^",
-        "@typescript/native-preview": "7.0.0-dev.20260511.1",
+        "@typescript/native-preview": "7.0.0-dev.20260521.1",
         "typescript": "^6.0.3"
     },
     "repository": {
