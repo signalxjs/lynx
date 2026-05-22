@@ -250,6 +250,9 @@ importers:
       '@sigx/lynx-gestures':
         specifier: workspace:^
         version: link:../lynx-gestures
+      '@sigx/lynx-motion':
+        specifier: workspace:^
+        version: link:../lynx-motion
     devDependencies:
       '@sigx/lynx-navigation':
         specifier: workspace:^
