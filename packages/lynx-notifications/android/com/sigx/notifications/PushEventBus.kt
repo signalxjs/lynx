@@ -1,9 +1,7 @@
 package com.sigx.notifications
 
-import com.lynx.react.bridge.JavaOnlyArray
 import com.lynx.react.bridge.JavaOnlyMap
 import java.util.UUID
-import java.util.concurrent.CopyOnWriteArrayList
 
 /**
  * Process-wide pub/sub bus that converts FCM + notification-tap callbacks
@@ -16,28 +14,48 @@ import java.util.concurrent.CopyOnWriteArrayList
  */
 internal object PushEventBus {
 
-    private val listeners =
-        CopyOnWriteArrayList<Pair<UUID, (String, JavaOnlyMap) -> Unit>>()
+    /**
+     * Single lock guards [listeners] + [lastToken] + [initialResponse]. We
+     * use a private monitor object so external code can't accidentally
+     * acquire our lock and deadlock the bus.
+     *
+     * All listener invocations happen OUTSIDE the lock — a listener that
+     * publishes recursively (e.g. attaches another listener inside its
+     * callback) must not deadlock.
+     */
+    private val lock = Any()
+    private val listeners = mutableListOf<Pair<UUID, (String, JavaOnlyMap) -> Unit>>()
 
     /** Cached cold-start tap. Drained by [consumeInitialResponse]. */
-    @Volatile private var initialResponse: JavaOnlyMap? = null
+    private var initialResponse: JavaOnlyMap? = null
 
     /**
      * Cached last token so a JS subscriber that attaches after FCM has already
      * returned the token still sees the value on subscribe. FCM returns the
      * same token across calls until rotation.
      */
-    @Volatile private var lastToken: JavaOnlyMap? = null
+    private var lastToken: JavaOnlyMap? = null
 
     fun addListener(fn: (String, JavaOnlyMap) -> Unit): UUID {
         val token = UUID.randomUUID()
-        listeners.add(token to fn)
-        lastToken?.let { fn(Channel.TOKEN, it) }
+        // Snapshot the cached token in the same critical section as the
+        // listener append — without this, a concurrent publishToken can slip
+        // between `listeners.add` and reading `lastToken`, causing the new
+        // listener to fire twice (once from the publish, once from the
+        // replay). Matches the iOS bus' semantics.
+        val cached: JavaOnlyMap?
+        synchronized(lock) {
+            listeners.add(token to fn)
+            cached = lastToken
+        }
+        cached?.let { fn(Channel.TOKEN, it) }
         return token
     }
 
     fun removeListener(token: UUID) {
-        listeners.removeAll { it.first == token }
+        synchronized(lock) {
+            listeners.removeAll { it.first == token }
+        }
     }
 
     fun publishToken(token: String, platform: String = "fcm") {
@@ -45,7 +63,7 @@ internal object PushEventBus {
             putString("token", token)
             putString("platform", platform)
         }
-        lastToken = payload
+        synchronized(lock) { lastToken = payload }
         emit(Channel.TOKEN, payload)
     }
 
@@ -90,22 +108,29 @@ internal object PushEventBus {
         data: Map<String, String>,
         actionIdentifier: String,
     ) {
-        initialResponse = JavaOnlyMap().apply {
+        val payload = JavaOnlyMap().apply {
             putString("notificationId", notificationId)
             putMap("data", data.toJavaOnlyMap())
             putString("actionIdentifier", actionIdentifier)
         }
+        synchronized(lock) { initialResponse = payload }
     }
 
     /** One-shot drain. */
     fun consumeInitialResponse(): JavaOnlyMap? {
-        val p = initialResponse
-        initialResponse = null
-        return p
+        return synchronized(lock) {
+            val p = initialResponse
+            initialResponse = null
+            p
+        }
     }
 
     private fun emit(channel: String, payload: JavaOnlyMap) {
-        for ((_, fn) in listeners) fn(channel, payload)
+        // Snapshot under the lock so a concurrent add/remove can't tear the
+        // iteration. Call listeners OUTSIDE the lock so a callback that
+        // re-enters the bus doesn't deadlock.
+        val snapshot = synchronized(lock) { listeners.toList() }
+        for ((_, fn) in snapshot) fn(channel, payload)
     }
 
     private fun Map<String, String>.toJavaOnlyMap(): JavaOnlyMap {

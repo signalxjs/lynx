@@ -11,7 +11,6 @@ import com.google.firebase.messaging.FirebaseMessaging
 import com.lynx.jsbridge.LynxMethod
 import com.lynx.jsbridge.LynxModule
 import com.lynx.react.bridge.Callback
-import com.lynx.react.bridge.JavaOnlyArray
 import com.lynx.react.bridge.JavaOnlyMap
 import com.sigx.permissions.PermissionHelper
 import com.lynx.react.bridge.ReadableMap
@@ -130,13 +129,35 @@ class NotificationsModule(context: Context) : LynxModule(context) {
         }
     }
 
+    /**
+     * Awaits the FCM `deleteToken()` Task. Callers get an `{ ok, error? }`
+     * back so the JS shim can tell whether the device is genuinely
+     * unregistered or still holding a token server-side.
+     */
     @LynxMethod
     fun unregisterForPushNotifications(callback: Callback?) {
         try {
             FirebaseMessaging.getInstance().deleteToken()
-            callback?.invoke(true)
+                .addOnCompleteListener(OnCompleteListener { task ->
+                    if (task.isSuccessful) {
+                        callback?.invoke(JavaOnlyMap().apply { putBoolean("ok", true) })
+                    } else {
+                        val message = task.exception?.localizedMessage
+                            ?: "Failed to delete FCM token"
+                        PushEventBus.publishTokenError(message)
+                        callback?.invoke(JavaOnlyMap().apply {
+                            putBoolean("ok", false)
+                            putString("error", message)
+                        })
+                    }
+                })
         } catch (e: Throwable) {
-            callback?.invoke(false)
+            val message = "FCM unavailable: ${e.message ?: e.javaClass.simpleName}"
+            PushEventBus.publishTokenError(message)
+            callback?.invoke(JavaOnlyMap().apply {
+                putBoolean("ok", false)
+                putString("error", message)
+            })
         }
     }
 

@@ -3,6 +3,7 @@ export type {
     NotificationContent,
     ScheduleOptions,
     RegisterPushResult,
+    UnregisterPushResult,
     NotificationResponse,
     PushTokenEvent,
     PushTokenError,

@@ -118,7 +118,7 @@ class NotificationsModule: NSObject, LynxModule {
     @objc func unregisterForPushNotifications(_ callback: LynxCallbackBlock?) {
         DispatchQueue.main.async {
             UIApplication.shared.unregisterForRemoteNotifications()
-            callback?(true)
+            callback?(["ok": true])
         }
     }
 

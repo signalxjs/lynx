@@ -1,8 +1,8 @@
 /**
- * Remote-push event subscriptions. Backed by `GlobalEventEmitter` on three
- * native channels: `__sigxPushToken`, `__sigxPushMessage`,
- * `__sigxNotificationResponse`. The native side carries the same channel name
- * — JS shims here just adapt the listener-bag API.
+ * Remote-push event subscriptions. Backed by `GlobalEventEmitter` on four
+ * native channels: `__sigxPushToken`, `__sigxPushTokenError`,
+ * `__sigxPushMessage`, `__sigxNotificationResponse`. The native side carries
+ * the same channel names — JS shims here just adapt the listener-bag API.
  */
 
 const TOKEN_CHANNEL = '__sigxPushToken';

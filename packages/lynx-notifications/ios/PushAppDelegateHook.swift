@@ -29,8 +29,16 @@ import UserNotifications
         // implementation. (Standard pattern for Firebase / OneSignal / etc.)
         UNUserNotificationCenter.current().delegate = PushNotificationDelegate.shared
 
-        // Cold-start: the app was launched by a remote-push tap. iOS hands
-        // the userInfo dict here once; if we don't capture it now we lose it.
+        // Open the cold-start capture window. The first `didReceive` tap
+        // after launch (which is how local notifications launched from a
+        // terminated state arrive — they never appear in launchOptions) will
+        // be stashed as the initial payload instead of fired on the response
+        // channel. JS drains it via `getInitialNotification()`.
+        PushEventBus.shared.beginColdStartWindow()
+
+        // Cold-start REMOTE push: iOS also pre-populates
+        // `launchOptions[.remoteNotification]` for these. Capture the payload
+        // here too — same destination, just a different source.
         if let userInfo = launchOptions?[.remoteNotification] as? [AnyHashable: Any] {
             let (notificationId, data) = extractData(from: userInfo)
             PushEventBus.shared.captureInitialResponse(
@@ -114,6 +122,12 @@ final class PushNotificationDelegate: NSObject, UNUserNotificationCenterDelegate
     /// User tapped a notification (remote OR local). This is the path the
     /// previous README flagged as "Tap callbacks aren't surfaced in JS yet" —
     /// now they are.
+    ///
+    /// If we're still in the cold-start window opened by
+    /// `didFinishLaunching`, the first tap is stashed as the initial payload
+    /// (drained later by `getInitialNotification()`) instead of fired on the
+    /// response channel — this covers local notifications launched from a
+    /// terminated state, where `launchOptions[.remoteNotification]` is empty.
     func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         didReceive response: UNNotificationResponse,
@@ -124,11 +138,18 @@ final class PushNotificationDelegate: NSObject, UNUserNotificationCenterDelegate
         let notificationId = response.notification.request.identifier.isEmpty
             ? idFromPayload
             : response.notification.request.identifier
-        PushEventBus.shared.publishResponse(
+        let captured = PushEventBus.shared.captureInitialResponseIfColdStart(
             notificationId: notificationId,
             data: data,
             actionIdentifier: response.actionIdentifier
         )
+        if !captured {
+            PushEventBus.shared.publishResponse(
+                notificationId: notificationId,
+                data: data,
+                actionIdentifier: response.actionIdentifier
+            )
+        }
         completionHandler()
     }
 }

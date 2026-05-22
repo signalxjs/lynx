@@ -1,7 +1,9 @@
 package com.sigx.notifications
 
+import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
+import android.os.Build
 import androidx.core.app.NotificationCompat
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
@@ -13,12 +15,14 @@ import com.google.firebase.messaging.RemoteMessage
  * Handles two callbacks:
  *   - [onNewToken]: token rotated. Forwarded to JS via [PushEventBus] so the
  *     app can re-register with its backend (Azure Notification Hubs, etc.).
- *   - [onMessageReceived]: incoming push. If the payload carries a
- *     `notification` block (the FCM "notification message" shape), the system
- *     would normally auto-display it ONLY when the app is backgrounded —
- *     foreground deliveries land here as `data` only. We forward to JS
- *     regardless and also pop a local notification when the payload includes
- *     a title/body so foreground apps still get a banner.
+ *   - [onMessageReceived]: incoming push. Forwarded to JS regardless of app
+ *     state. When the app is BACKGROUNDED and the payload carries a
+ *     title/body, we additionally pop a system notification so the user has
+ *     a visible entry point back into the app — without this, FCM data-only
+ *     messages received while backgrounded silently land in JS but never
+ *     surface in the system tray. When the app is foreground, we skip the
+ *     system notif: the JS heap is alive and apps are expected to render
+ *     their own in-app UI from `addPushListener`.
  */
 class SigxFirebaseMessagingService : FirebaseMessagingService() {
 
@@ -59,6 +63,12 @@ class SigxFirebaseMessagingService : FirebaseMessagingService() {
 
     private fun showSystemNotification(title: String, body: String, data: Map<String, String>) {
         val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        // The FCM service can fire BEFORE NotificationsModule is ever
+        // instantiated (the JS bridge may not have loaded yet — particularly
+        // for data-only messages that wake the app from a fully terminated
+        // state). Ensure the notification channel exists here too so
+        // `notify()` on O+ doesn't silently drop the post.
+        ensureChannel(manager)
         // Prefer the app's launcher icon over the stock dialog icon — Android
         // renders small-icons as monochrome silhouettes, so a generic system
         // shape would show up as a plain square. `applicationInfo.icon` is
@@ -90,5 +100,16 @@ class SigxFirebaseMessagingService : FirebaseMessagingService() {
         }
 
         manager.notify(notificationId.hashCode(), builder.build())
+    }
+
+    private fun ensureChannel(manager: NotificationManager) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+        if (manager.getNotificationChannel(NotificationsModule.CHANNEL_ID) != null) return
+        val channel = NotificationChannel(
+            NotificationsModule.CHANNEL_ID,
+            "sigx-lynx-go",
+            NotificationManager.IMPORTANCE_DEFAULT,
+        )
+        manager.createNotificationChannel(channel)
     }
 }

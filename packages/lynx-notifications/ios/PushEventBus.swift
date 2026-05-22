@@ -31,6 +31,13 @@ final class PushEventBus {
     /// the same token across registrations, so caching is safe.
     private(set) var lastToken: Payload?
 
+    /// `true` between `application(_:didFinishLaunchingWithOptions:)` and the
+    /// first time JS asks for the initial notification. While set, the FIRST
+    /// `didReceive` tap is also captured as the cold-start payload — covers
+    /// the local-notification cold-start path where there's no
+    /// `launchOptions[.remoteNotification]` to read.
+    private(set) var inColdStartWindow = false
+
     @discardableResult
     func addListener(_ fn: @escaping Listener) -> UUID {
         let token = UUID()
@@ -86,6 +93,14 @@ final class PushEventBus {
         emit(channel: PushEventChannel.response, payload: payload)
     }
 
+    /// Open the cold-start capture window. Called from
+    /// `application(_:didFinishLaunchingWithOptions:)`. The window stays
+    /// open until either the first `consumeInitialResponse()` call or a
+    /// successful capture — whichever comes first.
+    func beginColdStartWindow() {
+        queue.sync { inColdStartWindow = true }
+    }
+
     /// Stash a cold-start tap. `application(_:didFinishLaunchingWithOptions:)`
     /// runs before any LynxView exists; the payload is held until JS asks for
     /// it via `getInitialNotification()`.
@@ -96,15 +111,40 @@ final class PushEventBus {
                 "data": data,
                 "actionIdentifier": actionIdentifier,
             ]
+            inColdStartWindow = false
+        }
+    }
+
+    /// Capture a tap as the cold-start payload IF we're still in the
+    /// cold-start window AND nothing's been captured yet. Returns `true` if
+    /// the call stashed the payload — the caller should NOT also publish the
+    /// same tap on the response channel (the JS shim drains it via
+    /// `getInitialNotification`).
+    func captureInitialResponseIfColdStart(
+        notificationId: String,
+        data: [String: String],
+        actionIdentifier: String,
+    ) -> Bool {
+        return queue.sync {
+            guard inColdStartWindow, initialResponse == nil else { return false }
+            initialResponse = [
+                "notificationId": notificationId,
+                "data": data,
+                "actionIdentifier": actionIdentifier,
+            ]
+            inColdStartWindow = false
+            return true
         }
     }
 
     /// Drain and return the cold-start payload (one-shot — subsequent calls
-    /// return nil).
+    /// return nil). Also closes the cold-start window so any subsequent tap
+    /// goes through the regular response channel.
     func consumeInitialResponse() -> Payload? {
         return queue.sync {
             let p = initialResponse
             initialResponse = nil
+            inColdStartWindow = false
             return p
         }
     }

@@ -35,6 +35,11 @@ export interface RegisterPushResult {
     error?: string;
 }
 
+export interface UnregisterPushResult {
+    ok: boolean;
+    error?: string;
+}
+
 /**
  * Local + remote notification APIs.
  *
@@ -102,18 +107,29 @@ export const Notifications = {
         return callAsync<RegisterPushResult>(MODULE, 'registerForPushNotifications');
     },
 
-    unregisterForPushNotifications(): Promise<void> {
-        return callAsync<void>(MODULE, 'unregisterForPushNotifications');
+    /**
+     * Detach from APNs / FCM.
+     *
+     * iOS: synchronous — resolves with `{ ok: true }` after
+     * `unregisterForRemoteNotifications` is called.
+     * Android: awaits the FCM `deleteToken()` Task; resolves with
+     * `{ ok: false, error }` if the network call fails so the JS caller
+     * doesn't believe it's unregistered while the server keeps pushing.
+     * Failures also publish on the `addTokenErrorListener` channel.
+     */
+    unregisterForPushNotifications(): Promise<UnregisterPushResult> {
+        return callAsync<UnregisterPushResult>(MODULE, 'unregisterForPushNotifications');
     },
 
     /**
      * iOS: app-icon badge count. iOS 16+ uses
-     * `UNUserNotificationCenter.setBadgeCount`; older fall back to
+     * `UNUserNotificationCenter.setBadgeCount`; older falls back to
      * `applicationIconBadgeNumber`.
      *
-     * Android: passing `0` clears all visible notifications (the closest
-     * portable equivalent to "reset badge"). Vendor-specific launcher dots
-     * are not addressed.
+     * Android: no-op. Stock Android has no portable badging API (it's
+     * vendor-specific — Samsung's `ShortcutBadger`, etc.) and this call
+     * does NOT clear pending notifications — callers wanting that should
+     * use `cancelAll()` directly.
      */
     setBadgeCount(count: number): Promise<void> {
         return callAsync<void>(MODULE, 'setBadgeCount', count);
@@ -147,3 +163,4 @@ export const Notifications = {
 } as const;
 
 export type { NotificationResponse, PushTokenEvent, PushTokenError, RemoteMessage };
+// `UnregisterPushResult` is declared above; re-export via index.ts.
