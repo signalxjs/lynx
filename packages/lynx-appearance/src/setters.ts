@@ -3,6 +3,8 @@ import type { SetterResult, SystemBarStyle, SystemBarsStyleInput } from './types
 
 const MODULE = 'Appearance';
 
+const UNSUPPORTED: SetterResult = { ok: false, reason: 'unsupported' };
+
 /**
  * Set the status-bar *content* tint (clock + icons).
  *
@@ -12,8 +14,14 @@ const MODULE = 'Appearance';
  * On iOS the host VC must forward `preferredStatusBarStyle` to
  * `AppearanceModule.preferredStatusBarStyle` for this to take effect — the
  * lynx-cli iOS template wires that automatically.
+ *
+ * Resolves `{ ok: false, reason: 'unsupported' }` (never rejects) when the
+ * native module isn't registered — typical in web preview, SSR, tests, or
+ * apps that don't link the module. Fire-and-forget callers can therefore
+ * `void setStatusBarStyle(...)` without risking unhandled rejections.
  */
 export function setStatusBarStyle(style: SystemBarStyle): Promise<SetterResult> {
+  if (!isAvailable()) return Promise.resolve(UNSUPPORTED);
   return callAsync<SetterResult>(MODULE, 'setStatusBarStyle', { style });
 }
 
@@ -25,8 +33,12 @@ export function setStatusBarStyle(style: SystemBarStyle): Promise<SetterResult> 
  * On Android 15+ (API 35) edge-to-edge is enforced and this call is a no-op
  * at the system level — callers should overlay their own background view
  * inside the safe-area top padding.
+ *
+ * Resolves `{ ok: false, reason: 'unsupported' }` (never rejects) when the
+ * native module isn't registered. See `setStatusBarStyle` for the rationale.
  */
 export function setStatusBarBackgroundColor(color: string | null): Promise<SetterResult> {
+  if (!isAvailable()) return Promise.resolve(UNSUPPORTED);
   return callAsync<SetterResult>(MODULE, 'setStatusBarBackgroundColor', { color });
 }
 
@@ -34,8 +46,12 @@ export function setStatusBarBackgroundColor(color: string | null): Promise<Sette
  * Android only — set the navigation-bar content tint + optional background.
  * iOS resolves `{ ok: false, reason: 'unsupported' }` since there's no
  * separate navigation bar.
+ *
+ * Resolves `{ ok: false, reason: 'unsupported' }` (never rejects) when the
+ * native module isn't registered. See `setStatusBarStyle` for the rationale.
  */
 export function setNavigationBarStyle(opts: { style: SystemBarStyle; color?: string }): Promise<SetterResult> {
+  if (!isAvailable()) return Promise.resolve(UNSUPPORTED);
   return callAsync<SetterResult>(MODULE, 'setNavigationBarStyle', opts);
 }
 
@@ -52,7 +68,7 @@ export function setNavigationBarStyle(opts: { style: SystemBarStyle; color?: str
  * resolved reason on partial failure is unambiguous.
  */
 export async function setSystemBarsStyle(opts: SystemBarsStyleInput): Promise<SetterResult> {
-  if (!isAvailable()) return { ok: false, reason: 'unsupported' };
+  if (!isAvailable()) return UNSUPPORTED;
   let firstFailure: SetterResult | undefined;
   const record = (r: SetterResult): void => {
     if (!r.ok && !firstFailure && r.reason !== 'unsupported') firstFailure = r;
