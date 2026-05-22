@@ -47,14 +47,14 @@
         "@sigx/lynx-cli": "workspace:^",
         "@sigx/lynx-plugin": "workspace:^",
         "@sigx/lynx-dev-client": "workspace:^",
-        "@lynx-js/rspeedy": ">=0.1.0",
+        "@lynx-js/rspeedy": ">=0.14.4",
         "@lynx-js/css-extract-webpack-plugin": ">=0.1.0",
-        "@lynx-js/template-webpack-plugin": ">=0.1.0",
+        "@lynx-js/template-webpack-plugin": ">=0.11.1",
         "@lynx-js/runtime-wrapper-webpack-plugin": ">=0.1.0",
         "@lynx-js/webpack-dev-transport": ">=0.1.0",
         "@lynx-js/tailwind-preset": "^0.4.0",
         "tailwindcss": "^3.4.0",
-        "postcss": "^8.4.0",
+        "postcss": "^8.5.15",
         "autoprefixer": "^10.4.0",
         "typescript": "^6.0.3"
     }
