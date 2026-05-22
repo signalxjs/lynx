@@ -9,7 +9,7 @@ export const TripsList = component(() => {
     useScreenOptions({ title: 'Trips' });
 
     return () => (
-        <view class="flex-fill">
+        <view class="flex-fill bg-base-100">
             <Screen>
                 <Screen.HeaderLeft>
                     <view

@@ -43,7 +43,7 @@ export const TripDetail = component(() => {
         };
 
         return (
-            <view class="flex-fill">
+            <view class="flex-fill bg-base-100">
                 <Screen title={() => getTrip(tripId)?.name ?? 'Trip'}>
                     <Screen.HeaderRight>
                         <Row gap={4} align="center">
