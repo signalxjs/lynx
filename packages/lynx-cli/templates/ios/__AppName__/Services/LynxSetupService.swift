@@ -17,6 +17,11 @@ class LynxSetupService {
 
         let env = LynxEnv.sharedInstance()
         if let config = config {
+            // Register auto-linked UI components (Behaviors) BEFORE
+            // prepareConfig — `LynxEnv.prepareConfig` snapshots the
+            // config, so any registerUI call after this point would be
+            // invisible to subsequently-created LynxViews.
+            GeneratedComponentRegistry.registerAll(on: config)
             env.prepareConfig(config)
         }
 

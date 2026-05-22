@@ -83,6 +83,9 @@ class MainActivity : ComponentActivity() {
                                 onBack = {
                                     if (hasBakedBundle) finish() else currentUrl = null
                                 },
+                                onLynxViewBuilder = { builder ->
+                                    GeneratedBehaviors.attachAll(builder)
+                                },
                                 onLynxViewCreated = { lynxView ->
                                     GeneratedLifecyclePublishers.attachAll(lynxView)
                                 },
@@ -174,6 +177,7 @@ fun ProductionLynxScreen(bundleName: String) {
                 try {
                     val viewBuilder = LynxViewBuilder()
                     viewBuilder.addBehaviors(XElementBehaviors().create())
+                    GeneratedBehaviors.attachAll(viewBuilder)
 
                     val lynxView = viewBuilder.build(ctx)
                     lynxView.layoutParams = ViewGroup.LayoutParams(
