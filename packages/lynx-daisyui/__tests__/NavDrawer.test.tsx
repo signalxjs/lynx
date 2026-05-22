@@ -3,7 +3,7 @@
  * primitive `<Drawer>` from `@sigx/lynx-navigation`.
  *
  * Verifies the theming layer specifically — slot wiring, daisy background
- * class on the panel, panel width, and mount/unmount on open/close.
+ * resolution, side/width geometry, and mount/unmount on open/close.
  * Underlying state behavior (initialOpen, toggle, etc.) is owned by the
  * primitive and covered by `lynx-navigation/__tests__/drawer.test.tsx`.
  */
@@ -38,18 +38,28 @@ function findNode(root: any, pred: (n: any) => boolean): any {
     return null;
 }
 
-/** Locate the themed panel: the view wrapping the sidebar slot. */
-function findPanel(root: any, bgClass: string): any {
+/**
+ * Locate the themed panel — the absolute view sized to `width` whose
+ * `backgroundColor` resolves to the daisy token's CSS variable.
+ */
+function findPanel(root: any, token: string): any {
+    const expected = `var(--color-${token})`;
     return findNode(root, (n) =>
-        typeof n.props?.class === 'string' && n.props.class.includes(bgClass),
+        n.props?.style?.backgroundColor === expected
+        && typeof n.props?.style?.width === 'number',
     );
 }
 
-/** Locate the backdrop: the view with the `bg-base-content` class. */
+/**
+ * Locate the backdrop — the absolute scrim with `backgroundColor`
+ * resolving to `--color-base-content`. The panel never sets opacity:0
+ * inline, so the opacity gate disambiguates panel from backdrop.
+ */
 function findBackdrop(root: any): any {
+    const expected = 'var(--color-base-content)';
     return findNode(root, (n) =>
-        typeof n.props?.class === 'string'
-        && n.props.class.includes('bg-base-content'),
+        n.props?.style?.backgroundColor === expected
+        && n.props?.style?.opacity === 0,
     );
 }
 
@@ -76,20 +86,55 @@ describe('<NavDrawer>', () => {
         result.unmount();
     });
 
-    it('applies default bg-base-100 + border-r classes and 280px width when open', () => {
+    it('applies default base-100 surface, left-side border + position, 280px width', () => {
         const result = render(
             <NavDrawer initialOpen slots={{ sidebar: () => <view><text>S</text></view> }}>
                 <view><text>C</text></view>
             </NavDrawer>,
         );
-        const panel = findPanel(result.container, 'bg-base-100');
+        const panel = findPanel(result.container, 'base-100');
         expect(panel).not.toBeNull();
         expect(panel.props.class).toContain('border-r border-base-300');
         expect(panel.props.style.width).toBe(280);
+        expect(panel.props.style.left).toBe(0);
+        expect(panel.props.style.right).toBeUndefined();
         result.unmount();
     });
 
-    it('respects custom background, width and bordered=false', () => {
+    it('resolves an arbitrary daisy token to its CSS variable on background', () => {
+        const result = render(
+            <NavDrawer
+                initialOpen
+                background="primary"
+                slots={{ sidebar: () => <view><text>S</text></view> }}
+            >
+                <view><text>C</text></view>
+            </NavDrawer>,
+        );
+        const panel = findPanel(result.container, 'primary');
+        expect(panel).not.toBeNull();
+        expect(panel.props.style.backgroundColor).toBe('var(--color-primary)');
+        result.unmount();
+    });
+
+    it('passes a raw CSS color through unchanged on background', () => {
+        const result = render(
+            <NavDrawer
+                initialOpen
+                background="#facc15"
+                slots={{ sidebar: () => <view><text>S</text></view> }}
+            >
+                <view><text>C</text></view>
+            </NavDrawer>,
+        );
+        const panel = findNode(result.container, (n) =>
+            n.props?.style?.backgroundColor === '#facc15',
+        );
+        expect(panel).not.toBeNull();
+        result.unmount();
+    });
+
+    it('respects custom width and bordered=false', () => {
         const result = render(
             <NavDrawer
                 initialOpen
@@ -101,10 +146,30 @@ describe('<NavDrawer>', () => {
                 <view><text>C</text></view>
             </NavDrawer>,
         );
-        const panel = findPanel(result.container, 'bg-base-300');
+        const panel = findPanel(result.container, 'base-300');
         expect(panel).not.toBeNull();
         expect(panel.props.class).not.toContain('border-r');
+        expect(panel.props.class).not.toContain('border-l');
         expect(panel.props.style.width).toBe(320);
+        result.unmount();
+    });
+
+    it('flips position + border to the right edge when side="right"', () => {
+        const result = render(
+            <NavDrawer
+                initialOpen
+                side="right"
+                slots={{ sidebar: () => <view><text>S</text></view> }}
+            >
+                <view><text>C</text></view>
+            </NavDrawer>,
+        );
+        const panel = findPanel(result.container, 'base-100');
+        expect(panel).not.toBeNull();
+        expect(panel.props.style.right).toBe(0);
+        expect(panel.props.style.left).toBeUndefined();
+        expect(panel.props.class).toContain('border-l border-base-300');
+        expect(panel.props.class).not.toContain('border-r');
         result.unmount();
     });
 

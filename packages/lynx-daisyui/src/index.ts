@@ -72,7 +72,7 @@ export type {
 export { NavDrawer } from './navigation/NavDrawer.js';
 export type {
     NavDrawerProps,
-    NavDrawerBackground,
+    NavDrawerSide,
 } from './navigation/NavDrawer.js';
 
 // Theme

@@ -6,7 +6,8 @@
  * `SharedValue`-backed slide + fade transition via `@sigx/lynx-motion`.
  *
  * Behavior:
- *  - Panel translates from `-width` to `0` on open and back on close.
+ *  - Panel translates from off-screen on the configured `side` to `0`
+ *    on open (and back on close). Default side is `'left'`.
  *  - Backdrop fades 0 → 0.3 in tandem.
  *  - Chrome mounts on open and unmounts after the exit animation completes,
  *    so the closed-state drawer doesn't intercept taps to underlying tabs.
@@ -47,13 +48,17 @@ import {
 } from '@sigx/lynx';
 import { withTiming } from '@sigx/lynx-motion';
 import { Drawer, useDrawer } from '@sigx/lynx-navigation';
+import { resolveDaisyColor, type BackgroundValue } from '../shared/styles.js';
 
-export type NavDrawerBackground = 'base-100' | 'base-200' | 'base-300' | 'transparent';
+export type NavDrawerSide = 'left' | 'right';
 
 export type NavDrawerProps =
-    /** Panel surface color token. Default 'base-100'. */
-    & Define.Prop<'background', NavDrawerBackground, false>
-    /** Show a separator line on the panel's trailing edge. Default true. */
+    /** Which edge the panel slides in from. Default 'left'. */
+    & Define.Prop<'side', NavDrawerSide, false>
+    /** Panel surface color. Accepts daisy tokens ('base-100', 'primary', …)
+     *  or any raw CSS color. Default 'base-100'. */
+    & Define.Prop<'background', BackgroundValue, false>
+    /** Show a separator line on the panel's inner edge. Default true. */
     & Define.Prop<'bordered', boolean, false>
     /** Render a dismiss-on-tap scrim over the main content when open. Default true. */
     & Define.Prop<'backdrop', boolean, false>
@@ -65,13 +70,6 @@ export type NavDrawerProps =
     & Define.Slot<'sidebar'>
     /** Main content — usually a `<Stack>` or `<Tabs>`. */
     & Define.Slot<'default'>;
-
-const backgroundClass: Record<NavDrawerBackground, string> = {
-    'base-100': 'bg-base-100',
-    'base-200': 'bg-base-200',
-    'base-300': 'bg-base-300',
-    'transparent': '',
-};
 
 /**
  * Slide-in / fade-in timing. Slightly longer than the slide-out so the
@@ -88,6 +86,7 @@ export const NavDrawer = component<NavDrawerProps>(({ props, slots }) => {
     return () => (
         <Drawer initialOpen={props.initialOpen}>
             <NavDrawerShell
+                side={props.side ?? 'left'}
                 background={props.background ?? 'base-100'}
                 bordered={props.bordered ?? true}
                 backdrop={props.backdrop ?? true}
@@ -101,7 +100,8 @@ export const NavDrawer = component<NavDrawerProps>(({ props, slots }) => {
 });
 
 type NavDrawerShellProps =
-    & Define.Prop<'background', NavDrawerBackground, true>
+    & Define.Prop<'side', NavDrawerSide, true>
+    & Define.Prop<'background', BackgroundValue, true>
     & Define.Prop<'bordered', boolean, true>
     & Define.Prop<'backdrop', boolean, true>
     & Define.Prop<'width', number, true>
@@ -181,16 +181,18 @@ const NavDrawerShell = component<NavDrawerShellProps>(({ props, slots }) => {
                 {shouldRender.value
                     ? (
                         <DrawerChrome
-                            // Key by width — `useAnimatedStyle` snapshots
-                            // `outputRange` at setup, so a runtime width
-                            // change would otherwise leave the translateX
-                            // range stale (`style.width` updates, slide
-                            // distance doesn't). Width changes during an
-                            // open drawer are vanishingly rare in
-                            // practice, but the explicit remount keeps
-                            // the binding consistent if a consumer wires
-                            // width to a reactive value.
-                            key={`drawer-chrome-${props.width}`}
+                            // Key by side+width — `useAnimatedStyle`
+                            // snapshots `outputRange` at setup, so a
+                            // runtime change to either (panel slide
+                            // distance is signed by side, magnitude by
+                            // width) needs a remount + rebind. Width
+                            // changes mid-open are vanishingly rare;
+                            // toggling `side` likewise. The explicit
+                            // remount keeps the binding consistent if
+                            // a consumer wires either to a reactive
+                            // value.
+                            key={`drawer-chrome-${props.side}-${props.width}`}
+                            side={props.side}
                             progress={progress}
                             width={props.width}
                             background={props.background}
@@ -207,9 +209,10 @@ const NavDrawerShell = component<NavDrawerShellProps>(({ props, slots }) => {
 });
 
 type DrawerChromeProps =
+    & Define.Prop<'side', NavDrawerSide, true>
     & Define.Prop<'progress', SharedValue<number>, true>
     & Define.Prop<'width', number, true>
-    & Define.Prop<'background', NavDrawerBackground, true>
+    & Define.Prop<'background', BackgroundValue, true>
     & Define.Prop<'bordered', boolean, true>
     & Define.Prop<'backdrop', boolean, true>
     & Define.Prop<'renderSidebar', (() => JSXElement | JSXElement[]) | undefined, false>
@@ -219,25 +222,51 @@ const DrawerChrome = component<DrawerChromeProps>(({ props }) => {
     const panelRef = useMainThreadRef<MainThread.Element | null>(null);
     const backdropRef = useMainThreadRef<MainThread.Element | null>(null);
 
+    // Slide range mirrors `side`: left-side starts at `-width` (off-screen
+    // left) and lands at `0`; right-side starts at `+width` and lands at `0`.
+    // Capture once — NavDrawerShell remounts on side/width change to rebind.
+    const closedTx = props.side === 'right' ? props.width : -props.width;
+
     // Bind once at setup. `useAnimatedStyle` snapshots its mapper/range
     // params at registration time; NavDrawerShell keys DrawerChrome by
-    // width so a width change forces a remount + rebind here.
+    // side+width so a change to either forces a remount + rebind here.
     useAnimatedStyle(panelRef, props.progress, 'translateX', {
         inputRange: [0, 1],
-        outputRange: [-props.width, 0],
+        outputRange: [closedTx, 0],
     });
 
-    if (props.backdrop) {
-        useAnimatedStyle(backdropRef, props.progress, 'opacity', {
-            inputRange: [0, 1],
-            outputRange: [0, BACKDROP_OPACITY],
-        });
-    }
+    // Register unconditionally so a runtime `backdrop` toggle works
+    // both directions. `useAnimatedStyle` only binds once at setup; if
+    // this lived inside `if (props.backdrop)` a false→true toggle would
+    // mount a backdrop view with no opacity binding, leaving it stuck
+    // at the inline `opacity: 0` seed. When the backdrop view isn't
+    // rendered, `backdropRef.current` is null and the MT bridge's
+    // `setStyleProperties` apply silently skips — no harm.
+    useAnimatedStyle(backdropRef, props.progress, 'opacity', {
+        inputRange: [0, 1],
+        outputRange: [0, BACKDROP_OPACITY],
+    });
 
     return () => {
-        const bg = backgroundClass[props.background];
-        const border = props.bordered ? 'border-r border-base-300' : '';
-        const panelClass = [bg, border].filter(Boolean).join(' ');
+        const isRight = props.side === 'right';
+        const bgColor = resolveDaisyColor(props.background);
+        // Border lives on the panel's *inner* edge (the one facing the
+        // main content). Daisy class names are still the cleanest way to
+        // pick up `--color-base-300` for the separator hairline.
+        const borderClass = props.bordered
+            ? (isRight ? 'border-l border-base-300' : 'border-r border-base-300')
+            : '';
+        const panelStyle: Record<string, string | number> = {
+            position: 'absolute',
+            top: 0,
+            bottom: 0,
+            width: props.width,
+            backgroundColor: bgColor,
+        };
+        // Only the side-relevant inset is set; omitting the other lets
+        // the panel size to `width` rather than stretching edge-to-edge.
+        if (isRight) panelStyle.right = 0;
+        else panelStyle.left = 0;
 
         return (
             <view
@@ -254,13 +283,13 @@ const DrawerChrome = component<DrawerChromeProps>(({ props }) => {
                         <view
                             main-thread:ref={backdropRef}
                             bindtap={() => props.onBackdropPress()}
-                            class="bg-base-content"
                             style={{
                                 position: 'absolute',
                                 top: 0,
                                 left: 0,
                                 right: 0,
                                 bottom: 0,
+                                backgroundColor: resolveDaisyColor('base-content'),
                                 opacity: 0,
                             }}
                             accessibility-element={true}
@@ -271,14 +300,8 @@ const DrawerChrome = component<DrawerChromeProps>(({ props }) => {
                     : null}
                 <view
                     main-thread:ref={panelRef}
-                    class={panelClass}
-                    style={{
-                        position: 'absolute',
-                        top: 0,
-                        left: 0,
-                        bottom: 0,
-                        width: props.width,
-                    }}
+                    class={borderClass}
+                    style={panelStyle}
                 >
                     {props.renderSidebar?.()}
                 </view>
