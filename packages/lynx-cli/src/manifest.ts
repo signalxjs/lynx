@@ -56,6 +56,27 @@ export interface AndroidManifest {
     permissions?: string[];
     /** Min SDK required by this module. */
     minSdk?: number;
+    /**
+     * `<service>` declarations merged into the app's AndroidManifest under
+     * `<application>`. Used by modules that need to register a background
+     * service — e.g. `@sigx/lynx-notifications` registers a
+     * `FirebaseMessagingService` for incoming pushes. The dispatcher de-dupes
+     * on `name` so listing the same service in multiple modules is safe.
+     */
+    services?: AndroidServiceEntry[];
+}
+
+export interface AndroidServiceEntry {
+    /** Fully-qualified service class name. */
+    name: string;
+    /** android:exported attribute. Defaults to false. */
+    exported?: boolean;
+    /**
+     * Intent-filter actions. Each entry becomes one `<intent-filter>` with a
+     * single `<action android:name="…" />`. Sufficient for FirebaseMessagingService
+     * (`com.google.firebase.MESSAGING_EVENT`) and the vast majority of system services.
+     */
+    actions?: string[];
 }
 
 /** Recognised Android Activity lifecycle methods a hook can implement. */
@@ -110,6 +131,12 @@ export interface IosManifest {
     pods?: Record<string, string>;
     /** Info.plist usage description keys required. */
     usageDescriptions?: Record<string, string>;
+    /**
+     * `UIBackgroundModes` strings merged into Info.plist. e.g.
+     * `["remote-notification"]` for silent pushes, `["audio"]` for background
+     * audio. De-duped across modules.
+     */
+    backgroundModes?: string[];
     /** Minimum iOS deployment target required. */
     deploymentTarget?: string;
 }
@@ -118,7 +145,9 @@ export interface IosManifest {
 export type IosAppDelegateHookMethod =
     | 'didFinishLaunching'
     | 'openURL'
-    | 'continueUserActivity';
+    | 'continueUserActivity'
+    | 'didRegisterForRemoteNotificationsWithDeviceToken'
+    | 'didFailToRegisterForRemoteNotificationsWithError';
 
 export interface IosAppDelegateHookManifest {
     /** Swift class/enum name — e.g. `LinkingAppDelegateHook`. */

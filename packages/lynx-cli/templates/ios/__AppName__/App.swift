@@ -82,4 +82,23 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         GeneratedAppDelegateHooks.continueUserActivity(userActivity)
         return true
     }
+
+    // APNs registration success — the device token is forwarded to whichever
+    // package hooked this method (typically @sigx/lynx-notifications) so it
+    // can be surfaced to JS.
+    func application(
+        _ application: UIApplication,
+        didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data
+    ) {
+        GeneratedAppDelegateHooks.didRegisterForRemoteNotificationsWithDeviceToken(application, deviceToken: deviceToken)
+    }
+
+    // APNs registration failed — typically a missing aps-environment entitlement
+    // or no internet in the simulator.
+    func application(
+        _ application: UIApplication,
+        didFailToRegisterForRemoteNotificationsWithError error: Error
+    ) {
+        GeneratedAppDelegateHooks.didFailToRegisterForRemoteNotificationsWithError(application, error: error)
+    }
 }

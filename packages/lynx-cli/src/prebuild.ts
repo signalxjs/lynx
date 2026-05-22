@@ -923,6 +923,65 @@ export function injectPodfileEntries(cwd: string, config: ResolvedConfig, pods: 
 }
 
 /**
+ * Inject UIBackgroundModes entries into Info.plist. De-duped; safe to re-run.
+ */
+export function injectInfoPlistBackgroundModes(
+    cwd: string,
+    config: ResolvedConfig,
+    modes: string[],
+): void {
+    const plistFile = iosInfoPlistPath(cwd, config);
+    if (!existsSync(plistFile)) return;
+    let content = readFileSync(plistFile, 'utf-8');
+    const replacement = modes.length > 0
+        ? `    <!-- Auto-linked module background modes -->\n` +
+          `    <key>UIBackgroundModes</key>\n    <array>\n` +
+          modes.map((m) => `        <string>${m}</string>`).join('\n') +
+          `\n    </array>`
+        : '    <!-- (no auto-linked background modes) -->';
+    content = content.replace('    <!-- {{BACKGROUND_MODES}} -->', replacement);
+    writeFileIfChanged(plistFile, content);
+    if (modes.length > 0) log(`iOS: injected ${modes.length} UIBackgroundModes (${modes.join(', ')})`);
+}
+
+/**
+ * Inject `<service>` declarations into AndroidManifest.xml under `<application>`.
+ */
+export function injectAndroidServices(
+    cwd: string,
+    config: ResolvedConfig,
+    services: import('./manifest.js').AndroidServiceEntry[],
+): void {
+    if (services.length === 0) return;
+    const manifestFile = androidManifestPath(cwd, config);
+    if (!existsSync(manifestFile)) return;
+    let content = readFileSync(manifestFile, 'utf-8');
+    const blocks = services.map((svc) => {
+        const exported = svc.exported ?? false;
+        const lines = [
+            '        <service',
+            `            android:name="${svc.name}"`,
+            `            android:exported="${exported}">`,
+        ];
+        if (svc.actions && svc.actions.length > 0) {
+            for (const action of svc.actions) {
+                lines.push('            <intent-filter>');
+                lines.push(`                <action android:name="${action}" />`);
+                lines.push('            </intent-filter>');
+            }
+        }
+        lines.push('        </service>');
+        return lines.join('\n');
+    }).join('\n');
+    content = content.replace(
+        '        <!-- {{SERVICES}} -->',
+        `        <!-- Auto-linked module services -->\n${blocks}`,
+    );
+    writeFileIfChanged(manifestFile, content);
+    log(`Android: injected ${services.length} service(s)`);
+}
+
+/**
  * Inject usage descriptions into Info.plist.
  */
 export function injectInfoPlistDescriptions(
@@ -1432,6 +1491,7 @@ export async function runPrebuild(opts: PrebuildOptions = {}): Promise<void> {
         writeAndroidActivityHooks(cwd, config, result.activityHooksCode);
         injectGradleDependencies(cwd, config, result.gradleDependencies, result.debugGradleDependencies);
         injectAndroidPermissions(cwd, config, result.permissions);
+        injectAndroidServices(cwd, config, result.services);
 
         // App-shell assets (icons, splash, manifest meta).
         await generateAndroidIcons(cwd, assets.android);
@@ -1506,6 +1566,7 @@ export async function runPrebuild(opts: PrebuildOptions = {}): Promise<void> {
         injectPodfileEntries(cwd, config, result.podfileEntries);
         injectDebugPodfileEntries(cwd, config, result.debugPodfileEntries);
         injectInfoPlistDescriptions(cwd, config, result.usageDescriptions);
+        injectInfoPlistBackgroundModes(cwd, config, result.backgroundModes);
 
         // App-shell assets (icons, splash, plist meta).
         await generateIosIcon(cwd, config, assets.ios);

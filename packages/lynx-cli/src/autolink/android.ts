@@ -1,5 +1,5 @@
 import type { ResolvedConfig, ResolvedModule } from '../config/parser.js';
-import type { AndroidActivityHookMethod, ModuleManifest } from '../manifest.js';
+import type { AndroidActivityHookMethod, AndroidServiceEntry, ModuleManifest } from '../manifest.js';
 
 /**
  * Android auto-linker.
@@ -45,6 +45,8 @@ export interface AndroidLinkResult {
     debugGradleDependencies: string[];
     /** AndroidManifest permissions to add. */
     permissions: string[];
+    /** `<service>` entries to merge into AndroidManifest under `<application>`. */
+    services: AndroidServiceEntry[];
     /** Modules that were linked. */
     linkedModules: string[];
     /** Lifecycle publishers that were linked. */
@@ -87,6 +89,8 @@ export function linkAndroid(
     const gradleDependencies: string[] = [...(config.android.dependencies ?? [])];
     const debugGradleDependencies: string[] = [];
     const permissions: string[] = [...(config.android.permissions ?? [])];
+    const services: AndroidServiceEntry[] = [];
+    const seenServiceNames = new Set<string>();
     const registrations: string[] = [];
     const lifecycleAttachments: string[] = [];
     const lifecycleImports: string[] = [];
@@ -171,6 +175,13 @@ export function linkAndroid(
         if (android.permissions) {
             permissions.push(...android.permissions);
         }
+        if (android.services) {
+            for (const svc of android.services) {
+                if (seenServiceNames.has(svc.name)) continue;
+                seenServiceNames.add(svc.name);
+                services.push(svc);
+            }
+        }
     }
 
     const registryCode = generateRegistryKotlin(registrations, linkedModules);
@@ -184,6 +195,7 @@ export function linkAndroid(
         gradleDependencies: [...new Set(gradleDependencies)],
         debugGradleDependencies: [...new Set(debugGradleDependencies)],
         permissions: [...new Set(permissions)],
+        services,
         linkedModules,
         linkedLifecyclePublishers,
         lifecyclePublishers,
