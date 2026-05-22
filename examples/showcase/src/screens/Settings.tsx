@@ -5,13 +5,20 @@ import {
     Card,
     Col,
     Heading,
+    listThemes,
     Modal,
     Row,
     ScrollView,
     Text,
     Toggle,
     useTheme,
+    type DaisyTheme,
 } from '@sigx/lynx-daisyui';
+import {
+    setStatusBarStyle,
+    setSystemBarsStyle,
+    useSystemColorScheme,
+} from '@sigx/lynx-appearance';
 import { Haptics } from '@sigx/lynx-haptics';
 import { FaBrandIcon, FaSolidIcon } from '@sigx/lynx-icons-fa-free/components';
 import { LucideIcon } from '@sigx/lynx-icons-lucide/components';
@@ -19,6 +26,7 @@ import { clearAllTrips, trips } from '../store/trips.js';
 
 export const Settings = component(() => {
     const theme = useTheme();
+    const systemScheme = useSystemColorScheme();
     const confirmOpen = signal(false);
     const { layout: cardLayout, onLayoutChange } = useElementLayout();
 
@@ -26,6 +34,11 @@ export const Settings = component(() => {
         Haptics.notification('warning');
         clearAllTrips();
         confirmOpen.value = false;
+    };
+
+    const pickTheme = (name: DaisyTheme) => {
+        Haptics.selection();
+        theme.set(name);
     };
 
     return () => (
@@ -36,21 +49,123 @@ export const Settings = component(() => {
 
                 <Card bordered>
                     <Card.Body>
-                        <Row align="center" justify="space-between">
+                        <Col gap={12}>
                             <Col gap={2}>
-                                <Text weight="semibold">Dark theme</Text>
+                                <Text weight="semibold">Theme</Text>
                                 <Text class="opacity-60 text-sm">
-                                    Switch between daisy-light and daisy-dark.
+                                    System: {systemScheme.value} ·{' '}
+                                    {theme.followingSystem
+                                        ? 'following system'
+                                        : `pinned to ${theme.name}`}
                                 </Text>
                             </Col>
-                            <Toggle
-                                checked={theme.name === 'daisy-dark'}
-                                onChange={() => {
-                                    Haptics.selection();
-                                    theme.toggle();
-                                }}
-                            />
-                        </Row>
+                            <Row gap={8} wrap>
+                                {listThemes().map((meta) => (
+                                    <Button
+                                        size="sm"
+                                        variant={theme.name === meta.name ? 'primary' : 'ghost'}
+                                        outline={theme.name !== meta.name}
+                                        onPress={() => pickTheme(meta.name)}
+                                    >
+                                        {meta.name.replace('daisy-', '')} ({meta.variant[0]})
+                                    </Button>
+                                ))}
+                            </Row>
+                            <Row gap={8}>
+                                <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    outline
+                                    onPress={() => {
+                                        Haptics.selection();
+                                        theme.toggle();
+                                    }}
+                                >
+                                    Toggle (pair)
+                                </Button>
+                                <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    outline
+                                    onPress={() => {
+                                        Haptics.selection();
+                                        theme.followSystem();
+                                    }}
+                                >
+                                    Follow system
+                                </Button>
+                            </Row>
+                        </Col>
+                    </Card.Body>
+                </Card>
+
+                <Card bordered>
+                    <Card.Body>
+                        <Col gap={8}>
+                            <Text weight="semibold">Quick dark toggle</Text>
+                            <Text class="opacity-60 text-sm">
+                                Flips between the active variant's pair via
+                                theme.toggle(). Pins the theme — tap "Follow
+                                system" above to resume auto-detection.
+                            </Text>
+                            <Row align="center" justify="space-between">
+                                <Text>Dark variant active</Text>
+                                <Toggle
+                                    checked={theme.name.includes('dark')
+                                        || theme.name.includes('synthwave')
+                                        || theme.name.includes('dracula')}
+                                    onChange={() => {
+                                        Haptics.selection();
+                                        theme.toggle();
+                                    }}
+                                />
+                            </Row>
+                        </Col>
+                    </Card.Body>
+                </Card>
+
+                <Card bordered>
+                    <Card.Body>
+                        <Col gap={8}>
+                            <Text weight="semibold">System bars (raw API)</Text>
+                            <Text class="opacity-60 text-sm">
+                                Bypasses StatusBarSync to call
+                                @sigx/lynx-appearance directly — use this to
+                                verify the native bridge independent of theme
+                                logic.
+                            </Text>
+                            <Row gap={8} wrap>
+                                <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    outline
+                                    onPress={() => { void setStatusBarStyle('light'); }}
+                                >
+                                    Status: light
+                                </Button>
+                                <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    outline
+                                    onPress={() => { void setStatusBarStyle('dark'); }}
+                                >
+                                    Status: dark
+                                </Button>
+                                <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    outline
+                                    onPress={() => {
+                                        void setSystemBarsStyle({
+                                            statusBar: 'dark',
+                                            navigationBar: { style: 'dark', color: '#ffffff' },
+                                        });
+                                    }}
+                                >
+                                    All bars: dark + white bg
+                                </Button>
+                            </Row>
+                        </Col>
                     </Card.Body>
                 </Card>
 

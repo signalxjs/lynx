@@ -1,5 +1,6 @@
 import { component } from '@sigx/lynx';
-import { ThemeProvider } from '@sigx/lynx-daisyui';
+import { AppearanceProvider } from '@sigx/lynx-appearance';
+import { StatusBarSync, ThemeProvider } from '@sigx/lynx-daisyui';
 import { NavigationRoot, Stack } from '@sigx/lynx-navigation';
 import { SafeAreaProvider, SafeAreaView } from '@sigx/lynx-safe-area';
 import { routes } from './routes.js';
@@ -8,22 +9,28 @@ import { routes } from './routes.js';
 // SafeAreaView defaults to flex-fill — so the layout chain is now
 // boilerplate-free. ThemeProvider just slots in for the daisy theme.
 //
-// No root-level `<NavHeader />` — each screen owns its own chrome:
-// per-tab Stacks render their own `<NavHeader />` inside `<RootTabs>`,
-// and modal screens (NewTrip / NewEntry) render their own NavHeader
-// at the top of their JSX body. That way, when a modal slides up, its
-// header slides up with it — instead of double-stacking with the
-// underneath screen's header at the very top of the viewport.
+// AppearanceProvider feeds ThemeProvider's `followSystem` default: with no
+// `initial=` prop, the theme picks `daisy-light` / `daisy-dark` from the
+// OS color scheme and live-flips when the user toggles dark mode in
+// system settings.
+//
+// StatusBarSync mirrors the active theme's variant out to the device's
+// status- and navigation-bar tint so the system icons stay legible.
+//
+// No root-level `<NavHeader />` — each screen owns its own chrome.
 const App = component(() => () => (
-    <SafeAreaProvider>
-        <ThemeProvider initial="daisy-light">
-            <SafeAreaView edges={['top', 'bottom']} class="bg-base-100">
-                <NavigationRoot routes={routes} initialRoute="root">
-                    <Stack />
-                </NavigationRoot>
-            </SafeAreaView>
-        </ThemeProvider>
-    </SafeAreaProvider>
+    <AppearanceProvider>
+        <SafeAreaProvider>
+            <ThemeProvider>
+                <StatusBarSync />
+                <SafeAreaView edges={['top', 'bottom']} class="bg-base-100">
+                    <NavigationRoot routes={routes} initialRoute="root">
+                        <Stack />
+                    </NavigationRoot>
+                </SafeAreaView>
+            </ThemeProvider>
+        </SafeAreaProvider>
+    </AppearanceProvider>
 ));
 
 export default App;
