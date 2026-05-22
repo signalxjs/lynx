@@ -72,6 +72,7 @@ The native side injects `window.sigx.postMessage(payload)` at document start. An
 
 ## Gotchas
 
+- **`src` is restricted to `http(s):` and `about:blank`**. `javascript:` URLs are refused (logged + ignored) — they're the headline XSS vector for embedded WebViews. `file:` is refused too; Android also disables `allowFileAccess`/`allowContentAccess` + the legacy file-URL universal-access flags by default. Apps that need richer content should use the `html` prop (rendered with a null base URL → fully sandboxed).
 - **Imperative methods not implemented in v1**: `goBack` / `goForward` / `reload` / `postMessage` from JS to the page / `injectJavaScript`. Tracked as a v2 follow-up — they need Lynx's `UIMethodInvoker` surface, which isn't wired through sigx-lynx yet.
 - **iOS App Transport Security**: HTTPS-only by default in release builds. To load HTTP URLs you'd need to relax ATS in `Info.plist` (and accept the App Store review risk). Dev builds already allow LAN HTTP via the existing `NSAllowsLocalNetworking` flag.
 - **Android `mixed-content`**: defaults block HTTP subresources on HTTPS pages. If you load a mixed-content page, set `webView.settings.mixedContentMode` manually — not currently exposed as a prop.

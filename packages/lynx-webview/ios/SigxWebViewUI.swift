@@ -22,9 +22,12 @@ import Lynx
 /// are tracked as a v2 follow-up — they need the Lynx UIMethodInvoker surface.
 @objc public class SigxWebViewUI: LynxUI<WKWebView> {
 
-    /// Bridge name surfaced as `window.sigxBridge.postMessage(string)` inside
-    /// the page. A small user script also aliases `window.sigx.postMessage`
-    /// to it for the friendlier name. Keep in sync with `bridgeUserScript`.
+    /// `WKUserContentController` handler name. On the page side this is
+    /// reached via `window.webkit.messageHandlers.sigxBridge.postMessage(...)`
+    /// (WKWebView's standard surface). The user script injected by this
+    /// component then aliases the friendlier `window.sigx.postMessage(...)`
+    /// on top of it so authors get the same API as on Android. Keep in
+    /// sync with `bridgeUserScript`.
     private static let bridgeName = "sigxBridge"
 
     private lazy var navigationDelegate = SigxWebViewNavigationDelegate(owner: self)
@@ -63,12 +66,29 @@ import Lynx
 
     @objc public func setSrc(_ value: NSString?, requestReset: Bool) {
         guard let raw = value as String?, !raw.isEmpty, let url = URL(string: raw) else { return }
+        guard SigxWebViewUI.isSchemeAllowed(url) else {
+            NSLog("[SigxWebView] Rejected src with unsupported scheme: \(raw.prefix(32))")
+            return
+        }
         view.load(URLRequest(url: url))
     }
 
     @objc(__lynx_prop_config__src)
     public class func __lynxPropConfigSrc() -> [String] {
         return ["src", "setSrc:requestReset:", "NSString *"]
+    }
+
+    /// Allow only `http(s)` and `about:blank`. `javascript:` is the headline
+    /// XSS vector — a redirect from a remote page could execute arbitrary JS
+    /// in the WebView's context. `file:` is rejected so the embedded page
+    /// can't read app-bundle resources. Apps that need other schemes can
+    /// use the `html` prop (no base URL → no file access) instead.
+    static func isSchemeAllowed(_ url: URL) -> Bool {
+        if url.absoluteString.caseInsensitiveCompare("about:blank") == .orderedSame {
+            return true
+        }
+        guard let scheme = url.scheme?.lowercased() else { return false }
+        return scheme == "http" || scheme == "https"
     }
 
     @objc public func setHtml(_ value: NSString?, requestReset: Bool) {

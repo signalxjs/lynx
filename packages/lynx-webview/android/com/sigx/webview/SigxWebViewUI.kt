@@ -7,7 +7,6 @@ import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
-import com.lynx.react.bridge.JavaOnlyMap
 import com.lynx.tasm.behavior.LynxContext
 import com.lynx.tasm.behavior.LynxProp
 import com.lynx.tasm.behavior.ui.LynxUI
@@ -60,6 +59,17 @@ class SigxWebViewUI(context: LynxContext) : LynxUI<WebView>(context) {
         webView.settings.apply {
             javaScriptEnabled = true
             domStorageEnabled = true
+            // Hardened defaults — the platform's pre-API-30 defaults for the
+            // four flags below were `true`, which lets a malicious page loaded
+            // via `file://` read arbitrary files and cross-origin URLs. Apps
+            // that genuinely need local-file content can override these on a
+            // forked component; we deliberately don't expose them as v1 props.
+            allowFileAccess = false
+            allowContentAccess = false
+            @Suppress("DEPRECATION")
+            allowFileAccessFromFileURLs = false
+            @Suppress("DEPRECATION")
+            allowUniversalAccessFromFileURLs = false
         }
         webView.webViewClient = object : WebViewClient() {
             override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
@@ -103,18 +113,33 @@ class SigxWebViewUI(context: LynxContext) : LynxUI<WebView>(context) {
     @LynxProp(name = "src")
     fun setSrc(value: String?) {
         if (value.isNullOrEmpty()) return
+        if (!isSchemeAllowed(value)) {
+            android.util.Log.w(
+                "SigxWebView",
+                "Rejected src with unsupported scheme: ${value.take(32)}…",
+            )
+            return
+        }
         mView.loadUrl(value)
     }
 
     @LynxProp(name = "html")
     fun setHtml(value: String?) {
         if (value == null) return
+        // baseURL=null intentionally — pages loaded via loadDataWithBaseURL
+        // with a `file://` base could read local files in older Android
+        // versions; a null base keeps the content fully sandboxed.
         mView.loadDataWithBaseURL(null, value, "text/html", "UTF-8", null)
     }
 
     @LynxProp(name = "user-agent")
     fun setUserAgent(value: String?) {
-        mView.settings.userAgentString = value
+        // WebSettings.setUserAgentString(null) restores the platform default
+        // — that's fine when the prop is reset, but we still null-guard for
+        // clarity and to dodge the (rare) NPE Copilot flagged on older
+        // WebView implementations.
+        val ua = value ?: return
+        mView.settings.userAgentString = ua
     }
 
     @LynxProp(name = "enable-debug")
@@ -133,5 +158,23 @@ class SigxWebViewUI(context: LynxContext) : LynxUI<WebView>(context) {
             event.addDetail(k, v)
         }
         lynxContext.eventEmitter.sendCustomEvent(event)
+    }
+
+    /**
+     * Allow only `http(s)` and `about:` for the `src` prop. `javascript:` is
+     * the headline XSS vector — a malicious server could redirect to it and
+     * execute arbitrary JS in the WebView's renderer. `file:` is rejected
+     * because we've disabled file access on the settings anyway, but the
+     * scheme check is defense-in-depth in case a future maintainer flips
+     * one back. Apps that genuinely need other schemes can use the `html`
+     * prop (which is fully sandboxed) instead.
+     */
+    private fun isSchemeAllowed(url: String): Boolean {
+        val trimmed = url.trim()
+        if (trimmed.equals("about:blank", ignoreCase = true)) return true
+        val colon = trimmed.indexOf(':')
+        if (colon <= 0) return false
+        val scheme = trimmed.substring(0, colon).lowercase()
+        return scheme == "http" || scheme == "https"
     }
 }

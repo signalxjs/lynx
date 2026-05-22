@@ -4,6 +4,7 @@
  * thin Lynx component wrapper.
  */
 import { describe, expect, it } from 'vitest';
+import '../src/jsx-augment.js';
 import type {
     SigxWebViewAttributes,
     WebViewLoadEvent,
@@ -39,9 +40,22 @@ describe('jsx-augment', () => {
     });
 
     it('declares <sigx-webview> on the global JSX namespace', () => {
-        // The augmentation only needs to compile — a runtime assertion would
-        // require a renderer. If this test file builds clean, the global
-        // augmentation is in place.
-        expect(true).toBe(true);
+        // Use the augmented tag inside JSX. The point of this test is the
+        // typecheck — if the global `JSX.IntrinsicElements` augmentation
+        // isn't present, `tsgo` (and CI's tsc) fail to compile this file
+        // with "JSX element 'sigx-webview' has no corresponding closing tag".
+        // We never render — the constructed VNode is purely structural.
+        const node = (
+            <sigx-webview
+                src="https://example.com"
+                html="<h1>hi</h1>"
+                user-agent="TestAgent/1.0"
+                enable-debug={true}
+                bindload={(e) => void e.detail.url}
+                binderror={(e) => void e.detail.message}
+                bindmessage={(e) => void e.detail.data}
+            />
+        );
+        expect(node).toBeDefined();
     });
 });
