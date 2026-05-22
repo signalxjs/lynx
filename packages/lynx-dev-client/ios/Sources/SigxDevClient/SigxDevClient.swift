@@ -110,4 +110,29 @@ class SigxDevClient {
     public static func clearRecentUrls() {
         UserDefaults.standard.removeObject(forKey: recentUrlsKey)
     }
+
+    // ── Remote reload bridge ───────────────────────────────────────────────
+    //
+    // Posted by `DevClientModule.reload()` when the dev server pushes
+    // `{ type: 'reload' }` on the log WebSocket (CLI `r` key). The template's
+    // `ContentView` observes this notification and calls
+    // `devController.reload()` so the LynxView reloads in-place without a
+    // native relaunch. We use NotificationCenter rather than a static
+    // registration slot because SwiftUI views can subscribe via `.onReceive`
+    // without us needing to track lifetimes ourselves.
+
+    /// Notification name posted on the main queue when a remote reload arrives.
+    public static let reloadNotification = Notification.Name("com.sigx.devclient.reload")
+
+    /// Hop to the main queue and post `reloadNotification`. Safe to call from
+    /// any thread — Lynx native modules can be invoked off the main queue.
+    public static func postRemoteReload() {
+        if Thread.isMainThread {
+            NotificationCenter.default.post(name: reloadNotification, object: nil)
+        } else {
+            DispatchQueue.main.async {
+                NotificationCenter.default.post(name: reloadNotification, object: nil)
+            }
+        }
+    }
 }

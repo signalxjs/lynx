@@ -12,6 +12,7 @@ import { spawn, execSync, type ChildProcess } from 'node:child_process';
 import { readFileSync, existsSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { createServer } from 'node:net';
+import { request as httpRequest } from 'node:http';
 import { getAllLanIPs } from './network.js';
 import { generateQR } from './qr.js';
 import { getDeviceStatus, getDeviceStatusCached, invalidateDeviceStatusCache, launchLynxGo, launchApp, launchIosApp, launchAppOnDevice, installAppOnDevice, resolveIosSimulator, bootSimulator, listAllSimulators, installAppOnSimulator, findBuiltApp, adbReverse, forceStopApp, LYNX_GO_PACKAGE, type DeviceStatus } from './device-detect.js';
@@ -199,7 +200,7 @@ function printBanner(opts: {
 
     // Keyboard shortcuts
     lines.push('');
-    const shortcuts = 'r relaunch · d devices · q quit';
+    const shortcuts = 'r reload · d devices · q quit';
     const extraShortcuts = [
         appId ? 'a install+launch Android' : '',
         bundleId && process.platform === 'darwin' ? 'i build/launch iOS' : '',
@@ -211,9 +212,56 @@ function printBanner(opts: {
     console.log(lines.join('\n'));
 }
 
+/**
+ * Ask the lynx-plugin log WS server (running inside the rspeedy child) to
+ * broadcast a reload to every connected device streamer. Resolves with the
+ * number of clients the message reached, or 0 if the request failed for any
+ * reason — the caller falls back to native relaunch in either of those cases.
+ *
+ * The plugin binds the log WS server on `SIGX_LYNX_DEV_PORT + 1`, which is
+ * `requestedPort + 1` from the CLI's perspective. `serverState.port` can
+ * drift if rsbuild's fallback kicks in after the plugin has already bound,
+ * so we keep the canonical wsPort in a separate captured value.
+ */
+function requestJsReload(wsPort: number): Promise<number> {
+    return new Promise((resolve) => {
+        const req = httpRequest(
+            {
+                hostname: '127.0.0.1',
+                port: wsPort,
+                path: '/__sigx/reload',
+                method: 'POST',
+                // Tight timeout — we'd rather fall through to native relaunch
+                // than make the user wait if the plugin process is stuck.
+                timeout: 1500,
+            },
+            (res) => {
+                let body = '';
+                res.setEncoding('utf-8');
+                res.on('data', (chunk: string) => { body += chunk; });
+                res.on('end', () => {
+                    if (res.statusCode !== 200) { resolve(0); return; }
+                    try {
+                        const parsed = JSON.parse(body) as { reloaded?: unknown };
+                        const n = typeof parsed.reloaded === 'number' ? parsed.reloaded : 0;
+                        resolve(n);
+                    } catch {
+                        resolve(0);
+                    }
+                });
+            },
+        );
+        req.on('timeout', () => { try { req.destroy(); } catch { /* ignore */ } resolve(0); });
+        req.on('error', () => resolve(0));
+        req.end();
+    });
+}
+
 function setupKeyboardShortcuts(child: ChildProcess, opts: {
     cwd: string;
     serverState: { port: number };
+    /** Port of the dev-client log/reload WS server (plugin-side). */
+    wsPort: number;
     lanIPs: { name: string; address: string }[];
     projectName: string;
     logger: Logger;
@@ -246,57 +294,75 @@ function setupKeyboardShortcuts(child: ChildProcess, opts: {
         switch (key) {
             case 'r':
             case 'R': {
-                opts.logger.log(`Relaunching with ${bundleUrl}...`);
-                const status = getDeviceStatusCached(opts.appId, opts.bundleId);
-                let relaunched = 0;
-
-                // Android — per-device URL routes via `adb reverse`. Force-stop
-                // first so the next `am start` enters `onCreate` with a fresh
-                // intent extra; otherwise `singleTop` activities receive
-                // `onNewIntent` and silently keep the stale dev URL.
-                for (const device of status.devices) {
-                    const url = androidUrlFor(device.id);
-                    if (opts.appId && status.appInstalled?.get(device.id)) {
-                        forceStopApp(device.id, opts.appId);
-                        launchApp(device.id, opts.appId, url);
-                        relaunched++;
-                    } else if (status.lynxGoInstalled.get(device.id)) {
-                        forceStopApp(device.id, LYNX_GO_PACKAGE);
-                        launchLynxGo(device.id, url);
-                        relaunched++;
+                // Two-stage reload: first ask the plugin's WS server to push a
+                // `{ type: 'reload' }` message to every connected device — the
+                // dev-client reloads the LynxView in-place without a full
+                // native relaunch. If no device is currently streaming logs
+                // (bundle crashed, app not running, etc.), we fall through to
+                // the legacy native-relaunch path below so `r` always does
+                // *something* visible.
+                void (async () => {
+                    const reloaded = await requestJsReload(opts.wsPort);
+                    if (reloaded > 0) {
+                        opts.logger.log(
+                            `\x1b[32m✓\x1b[0m JS reload sent to ${reloaded} device${reloaded === 1 ? '' : 's'}`,
+                        );
+                        return;
                     }
-                }
 
-                // iOS simulators — terminate any running instance first so launch args refresh.
-                if (opts.bundleId) {
-                    for (const sim of status.iosSimulators) {
-                        if (status.iosAppInstalled?.get(sim.udid)) {
-                            try {
-                                execSync(
-                                    `xcrun simctl terminate "${sim.udid}" "${opts.bundleId}"`,
-                                    { stdio: 'pipe' },
-                                );
-                            } catch {
-                                // App may not be running
-                            }
-                            launchIosApp(sim.udid, opts.bundleId, bundleUrl);
+                    opts.logger.log(`Relaunching with ${bundleUrl}...`);
+                    const status = getDeviceStatusCached(opts.appId, opts.bundleId);
+                    let relaunched = 0;
+
+                    // Android — per-device URL routes via `adb reverse`.
+                    // Force-stop first so the next `am start` enters `onCreate`
+                    // with a fresh intent extra; otherwise `singleTop`
+                    // activities receive `onNewIntent` and silently keep the
+                    // stale dev URL.
+                    for (const device of status.devices) {
+                        const url = androidUrlFor(device.id);
+                        if (opts.appId && status.appInstalled?.get(device.id)) {
+                            forceStopApp(device.id, opts.appId);
+                            launchApp(device.id, opts.appId, url);
+                            relaunched++;
+                        } else if (status.lynxGoInstalled.get(device.id)) {
+                            forceStopApp(device.id, LYNX_GO_PACKAGE);
+                            launchLynxGo(device.id, url);
                             relaunched++;
                         }
                     }
 
-                    // iOS physical devices — devicectl handles termination via --terminate-existing.
-                    for (const dev of status.iosDevices) {
-                        if (status.iosDeviceAppInstalled?.get(dev.udid)) {
-                            if (launchAppOnDevice(dev.udid, opts.bundleId, bundleUrl)) {
+                    // iOS simulators — terminate any running instance first so launch args refresh.
+                    if (opts.bundleId) {
+                        for (const sim of status.iosSimulators) {
+                            if (status.iosAppInstalled?.get(sim.udid)) {
+                                try {
+                                    execSync(
+                                        `xcrun simctl terminate "${sim.udid}" "${opts.bundleId}"`,
+                                        { stdio: 'pipe' },
+                                    );
+                                } catch {
+                                    // App may not be running
+                                }
+                                launchIosApp(sim.udid, opts.bundleId, bundleUrl);
                                 relaunched++;
                             }
                         }
-                    }
-                }
 
-                if (relaunched === 0) {
-                    opts.logger.log('No installed devices/simulators found. Press "i" to build & install iOS or "a" for Android.');
-                }
+                        // iOS physical devices — devicectl handles termination via --terminate-existing.
+                        for (const dev of status.iosDevices) {
+                            if (status.iosDeviceAppInstalled?.get(dev.udid)) {
+                                if (launchAppOnDevice(dev.udid, opts.bundleId, bundleUrl)) {
+                                    relaunched++;
+                                }
+                            }
+                        }
+                    }
+
+                    if (relaunched === 0) {
+                        opts.logger.log('No installed devices/simulators found. Press "i" to build & install iOS or "a" for Android.');
+                    }
+                })();
                 break;
             }
             case 'd':
@@ -519,6 +585,11 @@ export async function startDevServer(opts: DevServerOptions): Promise<void> {
 
     // Mutable server state so keyboard shortcuts always use the actual port
     const serverState = { port: requestedPort };
+    // The plugin computes its log/reload WS port as `SIGX_LYNX_DEV_PORT + 1`
+    // and binds it once at startup. Capture that here so the `r`-key reload
+    // POST stays aimed at the right port even if rsbuild later bumps the
+    // HTTP port — the plugin's WS port doesn't move once it's bound.
+    const wsPort = requestedPort + 1;
 
     // Detect devices in parallel with server start. When the caller passed
     // an explicit target list (from the picker / flags), we skip the full
@@ -748,7 +819,7 @@ export async function startDevServer(opts: DevServerOptions): Promise<void> {
     });
 
     // Setup keyboard shortcuts
-    setupKeyboardShortcuts(child, { cwd, serverState, lanIPs, projectName, logger, appId: launchAppId, bundleId: launchBundleId, iosSimulatorName, verbose: opts.verbose, killChildTree });
+    setupKeyboardShortcuts(child, { cwd, serverState, wsPort, lanIPs, projectName, logger, appId: launchAppId, bundleId: launchBundleId, iosSimulatorName, verbose: opts.verbose, killChildTree });
 
     // Handle child exit
     child.on('exit', (code) => {

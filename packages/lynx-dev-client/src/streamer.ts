@@ -209,6 +209,25 @@ function detectPlatform(): string {
 }
 
 /**
+ * Ask the dev-client's native module to reload the active LynxView in-place.
+ * Triggered when the server pushes `{ type: 'reload' }` on the log WebSocket.
+ *
+ * Best-effort: silently no-ops if the module isn't available (e.g. running
+ * under tests, older host runtime). Reload errors live on the native side —
+ * we don't want them to bubble back up and tear down the streamer socket.
+ */
+function triggerNativeReload(): void {
+    try {
+        if (typeof NativeModules === 'undefined' || !NativeModules) return;
+        const mod = NativeModules.DevClient;
+        if (!mod || typeof mod.reload !== 'function') return;
+        mod.reload();
+    } catch {
+        // ignore
+    }
+}
+
+/**
  * Async, authoritative platform probe via the dev-client's own native
  * module. Mirrors the @sigx/lynx-device-info pattern (NativeModules bridge
  * call) but avoids a hard dep on lynx-device-info — the dev-client's own
@@ -419,9 +438,23 @@ export function installConsoleStreamer(url: string, opts: InstallOptions = {}): 
             backoff = backoffInitialMs;
             pump();
         };
-        // Server doesn't send anything; we still wire it so the runtime
-        // doesn't complain about unhandled events on some hosts.
-        socket.onmessage = () => undefined;
+        // Server-initiated commands. The only one today is a remote reload
+        // (CLI `r` key hits the plugin's `/__sigx/reload` HTTP endpoint, which
+        // broadcasts `{ type: 'reload' }` on every connected device WS). We
+        // route it to the native module so the host runtime can call
+        // `lynxView.reloadAndInit()` / `loadTemplate(fromURL:)` on the main
+        // thread. Malformed or unknown messages are silently ignored — the
+        // streamer must never let a bad server message kill its own socket.
+        socket.onmessage = (ev) => {
+            try {
+                const data = (ev as { data?: unknown })?.data;
+                if (typeof data !== 'string') return;
+                const parsed = JSON.parse(data) as { type?: unknown };
+                if (parsed && parsed.type === 'reload') triggerNativeReload();
+            } catch {
+                // ignore
+            }
+        };
         socket.onerror = (ev) => {
             if (uninstalled || ws !== socket) return;
             onSocketDown((ev as { message?: string })?.message ?? 'ws error');

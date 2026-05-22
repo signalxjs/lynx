@@ -13,6 +13,7 @@ import {
     detectPlatformFromUserAgent,
     LOG_ENDPOINT_PATH,
     LOG_SENTINEL,
+    RELOAD_ENDPOINT_PATH,
     type LogWebSocketServer,
     type ServerLogEntry,
 } from '../src/log-server';
@@ -169,6 +170,96 @@ describe('createLogWebSocketServer', () => {
         const parsed = lines.map((l) => JSON.parse(l.slice(LOG_SENTINEL.length)) as ServerLogEntry);
         expect(parsed[0].platform).toBe('android'); // sniffed from okhttp UA
         expect(parsed[1].platform).toBe('ios');     // device-reported wins
+    });
+});
+
+describe('reload broadcast', () => {
+    async function openClient(): Promise<WebSocket> {
+        const url = `ws://127.0.0.1:${server.port}${LOG_ENDPOINT_PATH}`;
+        const w = new WebSocket(url);
+        await new Promise<void>((res, rej) => { w.once('open', res); w.once('error', rej); });
+        return w;
+    }
+
+    async function postReload(): Promise<{ status: number; body: string }> {
+        return new Promise((resolve, reject) => {
+            // eslint-disable-next-line @typescript-eslint/no-require-imports
+            const http = require('node:http') as typeof import('node:http');
+            const req = http.request({
+                hostname: '127.0.0.1',
+                port: server.port,
+                path: RELOAD_ENDPOINT_PATH,
+                method: 'POST',
+            }, (res) => {
+                let body = '';
+                res.setEncoding('utf-8');
+                res.on('data', (c: string) => { body += c; });
+                res.on('end', () => resolve({ status: res.statusCode ?? 0, body }));
+            });
+            req.on('error', reject);
+            req.end();
+        });
+    }
+
+    it('broadcastReload returns 0 when no clients are connected', () => {
+        expect(server.broadcastReload()).toBe(0);
+    });
+
+    it('broadcastReload sends {type:"reload"} to every open client', async () => {
+        const a = await openClient();
+        const b = await openClient();
+        const aMessages: string[] = [];
+        const bMessages: string[] = [];
+        a.on('message', (raw) => { aMessages.push(raw.toString('utf8')); });
+        b.on('message', (raw) => { bMessages.push(raw.toString('utf8')); });
+
+        const sent = server.broadcastReload();
+        expect(sent).toBe(2);
+
+        // Both sockets should receive the reload payload.
+        await new Promise((r) => setTimeout(r, 30));
+        for (const msgs of [aMessages, bMessages]) {
+            expect(msgs).toHaveLength(1);
+            expect(JSON.parse(msgs[0])).toEqual({ type: 'reload' });
+        }
+
+        a.close();
+        b.close();
+    });
+
+    it('POST /__sigx/reload broadcasts and returns the client count', async () => {
+        const a = await openClient();
+        const received: string[] = [];
+        a.on('message', (raw) => { received.push(raw.toString('utf8')); });
+
+        const res = await postReload();
+        expect(res.status).toBe(200);
+        expect(JSON.parse(res.body)).toEqual({ reloaded: 1 });
+
+        await new Promise((r) => setTimeout(r, 30));
+        expect(received).toHaveLength(1);
+        expect(JSON.parse(received[0])).toEqual({ type: 'reload' });
+
+        a.close();
+    });
+
+    it('POST /__sigx/reload returns reloaded:0 when no clients are connected', async () => {
+        const res = await postReload();
+        expect(res.status).toBe(200);
+        expect(JSON.parse(res.body)).toEqual({ reloaded: 0 });
+    });
+
+    it('drops the socket from the live set on close', async () => {
+        const a = await openClient();
+        // Wait for handshake to settle and confirm we see it.
+        await new Promise((r) => setTimeout(r, 20));
+        expect(server.broadcastReload()).toBeGreaterThan(0);
+
+        // Close and wait for the server-side close handler to fire.
+        await new Promise<void>((resolve) => { a.once('close', () => resolve()); a.close(); });
+        await new Promise((r) => setTimeout(r, 30));
+
+        expect(server.broadcastReload()).toBe(0);
     });
 });
 

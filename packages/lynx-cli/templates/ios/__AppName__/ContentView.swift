@@ -80,6 +80,21 @@ struct ContentView: View {
                 .onShake {
                     if effectiveDevUrl != nil { showDevMenu = true }
                 }
+                // Hardware-keyboard reload — pressing `R` (or `⌘R`) in the
+                // iOS Simulator window triggers an in-place reload. Bubbles
+                // up via the dev-client's global UIWindow `pressesEnded:`
+                // swizzle, so a focused text input still gets the `R` key.
+                .onDevReloadKey {
+                    if effectiveDevUrl != nil { devController.reload() }
+                }
+                // Remote-reload bridge — CLI `r` key (or anything else that
+                // POSTs to `/__sigx/reload` on the plugin's log WS server)
+                // hits `DevClientModule.reload()` over the JS bridge, which
+                // posts this notification on the main queue. We just forward
+                // it to the dev controller so the LynxView reloads in-place.
+                .onReceive(NotificationCenter.default.publisher(for: SigxDevClient.reloadNotification)) { _ in
+                    if effectiveDevUrl != nil { devController.reload() }
+                }
                 .sheet(isPresented: $showDevMenu) {
                     DevMenuView(
                         isPresented: $showDevMenu,
