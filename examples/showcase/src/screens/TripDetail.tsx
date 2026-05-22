@@ -1,10 +1,11 @@
-import { component } from '@sigx/lynx';
+import { component, signal, useElementLayout, useSharedValue } from '@sigx/lynx';
 import { useNav, useParams, Screen } from '@sigx/lynx-navigation';
 import { Badge, Button, Card, Col, Row, ScrollView, Text } from '@sigx/lynx-daisyui';
+import { Swiper, SwiperDots } from '@sigx/lynx-gestures';
 import { Haptics } from '@sigx/lynx-haptics';
 import { Share } from '@sigx/lynx-share';
 import { deleteEntry, getTrip, trips } from '../store/trips.js';
-import type { Trip } from '../store/types.js';
+import type { Entry, Trip } from '../store/types.js';
 
 function buildSummary(trip: Trip): string {
     if (trip.entries.length === 0) return `${trip.name}\n(no entries yet)`;
@@ -15,6 +16,77 @@ function buildSummary(trip: Trip): string {
     });
     return `${trip.name}\n\n${lines.join('\n')}`;
 }
+
+/**
+ * Per-entry photo block. Single image when there's one, paged `<Swiper>` +
+ * dots when there are several. Each card needs its own MT-thread offset
+ * `SharedValue`, hence the dedicated component (hooks must live at a stable
+ * call-site — we can't `useSharedValue` inside the `map` callback).
+ */
+const EntryPhotos = component<{
+    entry: Entry;
+    onTap: (index: number) => void;
+}>(({ props }) => {
+    const offset = useSharedValue(0);
+    // Track the currently visible page so tapping the strip opens the
+    // viewer at the right photo, not always at index 0.
+    const pageIdx = signal(0);
+    // Measured page width — keeps `<Swiper>` and `<SwiperDots>` in sync
+    // across device widths / orientation changes instead of a hard-coded
+    // px value that only matches one specific layout.
+    const { layout, onLayoutChange } = useElementLayout();
+    return () => {
+        const photos = props.entry.photoUris ?? [];
+        if (photos.length === 0) return null;
+        if (photos.length === 1) {
+            return (
+                <view bindtap={() => props.onTap(0)} style={{ marginBottom: 8 }}>
+                    <image
+                        src={photos[0]}
+                        mode="aspectFill"
+                        style={{ width: '100%', height: 180, borderRadius: 10 }}
+                    />
+                </view>
+            );
+        }
+        return (
+            <view style={{ marginBottom: 8 }}>
+                <view
+                    bindtap={() => props.onTap(pageIdx.value)}
+                    bindlayoutchange={onLayoutChange}
+                    style={{ width: '100%', height: 180 }}
+                >
+                    <Swiper
+                        offset={offset}
+                        index={pageIdx}
+                        items={photos}
+                        height={180}
+                        style={{ width: '100%', height: '100%' }}
+                        renderItem={(uri) => (
+                            <image
+                                src={uri}
+                                mode="aspectFill"
+                                style={{ width: '100%', height: '100%', borderRadius: 10 }}
+                            />
+                        )}
+                    />
+                </view>
+                <view style={{ marginTop: 8, display: 'flex', justifyContent: 'center' }}>
+                    <SwiperDots
+                        count={photos.length}
+                        offset={offset}
+                        pageWidth={layout.value?.width ?? 343}
+                        size={6}
+                        spacing={6}
+                        activeColor="#3b82f6"
+                        inactiveColor="rgba(0,0,0,0.2)"
+                        onDotPress={(i) => { pageIdx.value = i; }}
+                    />
+                </view>
+            </view>
+        );
+    };
+});
 
 export const TripDetail = component(() => {
     const nav = useNav();
@@ -76,13 +148,15 @@ export const TripDetail = component(() => {
                             : trip.entries.map((e) => (
                                 <Card bordered>
                                     <Card.Body>
-                                        {e.photoUri
-                                            ? <image
-                                                src={e.photoUri}
-                                                mode="aspectFill"
-                                                style={{ width: '100%', height: 180, borderRadius: 10, marginBottom: 8 }}
-                                            />
-                                            : null}
+                                        <EntryPhotos
+                                            entry={e}
+                                            onTap={(index) =>
+                                                nav.push('imageViewer', {
+                                                    tripId,
+                                                    entryId: e.id,
+                                                    index,
+                                                })}
+                                        />
                                         <Text>{e.note}</Text>
                                         <Row gap={8} align="center" class="mt-2">
                                             {e.coords

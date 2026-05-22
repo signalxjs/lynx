@@ -90,15 +90,23 @@ class ImagePickerModule: NSObject, LynxModule, PHPickerViewControllerDelegate {
                     guard let data = image.jpegData(compressionQuality: quality) else { return }
 
                     let fileName = "pick_\(UUID().uuidString).jpg"
-                    let tempPath = NSTemporaryDirectory() + fileName
+                    // Write into the app's Documents directory so the
+                    // resulting `file://` URI survives across app launches
+                    // (NSTemporaryDirectory can be purged by iOS at any
+                    // time and isn't intended for persistent references).
+                    let docsDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first
+                        ?? URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
+                    let pickedDir = docsDir.appendingPathComponent("picked", isDirectory: true)
+                    try? FileManager.default.createDirectory(at: pickedDir, withIntermediateDirectories: true)
+                    let fileURL = pickedDir.appendingPathComponent(fileName)
 
                     do {
-                        try data.write(to: URL(fileURLWithPath: tempPath))
+                        try data.write(to: fileURL)
                         let asset: [String: Any] = [
                             // `file://` scheme — Lynx's `<image>` loader
                             // needs a scheme on the URI; a bare filesystem
                             // path silently fails to render.
-                            "uri": "file://" + tempPath,
+                            "uri": fileURL.absoluteString,
                             "width": Int(image.size.width),
                             "height": Int(image.size.height),
                             "fileSize": data.count,

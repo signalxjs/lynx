@@ -37,14 +37,31 @@ import java.lang.ref.WeakReference
 object MediaCapture {
 
     private const val TAG = "MediaCapture"
+    /**
+     * Upper bound for the registered `PickMultipleVisualMedia` launcher.
+     * Caller-supplied `maxItems` is enforced client-side by trimming the
+     * returned URIs — re-registering the launcher per call isn't allowed
+     * after onCreate so we use a single high-water-mark launcher and trim.
+     */
+    private const val MULTI_PICK_HARD_CAP = 50
 
     private var activityRef: WeakReference<ComponentActivity>? = null
     private var takePictureLauncher: ActivityResultLauncher<Uri>? = null
     private var pickMediaLauncher: ActivityResultLauncher<PickVisualMediaRequest>? = null
+    private var pickMultipleMediaLauncher: ActivityResultLauncher<PickVisualMediaRequest>? = null
 
     private var pendingPhotoUri: Uri? = null
     private var pendingTakePictureCallback: ((JavaOnlyMap) -> Unit)? = null
     private var pendingPickMediaCallback: ((JavaOnlyMap) -> Unit)? = null
+    private var pendingPickMultipleMediaCallback: ((JavaOnlyMap) -> Unit)? = null
+    /**
+     * Caller-requested cap for multi-pick. The Android `PickMultipleVisualMedia`
+     * launcher is registered with a fixed upper bound; we trim the returned
+     * URIs to this value so JS-side `maxItems` is honored even when it's
+     * smaller than the registered cap.
+     */
+    private var pendingPickMultipleMax: Int = MULTI_PICK_HARD_CAP
+
 
     /**
      * Wire this Activity into the registry. Call from MainActivity.onCreate
@@ -65,10 +82,10 @@ object MediaCapture {
             val result = JavaOnlyMap()
             if (success && uri != null) {
                 result.putString("uri", uri.toString())
-                result.putBoolean("canceled", false)
+                result.putBoolean("cancelled", false)
             } else {
                 result.putString("error", "cancelled")
-                result.putBoolean("canceled", true)
+                result.putBoolean("cancelled", true)
             }
             cb?.invoke(result)
         }
@@ -87,9 +104,39 @@ object MediaCapture {
                 }
                 assets.pushMap(asset)
                 result.putArray("assets", assets)
-                result.putBoolean("canceled", false)
+                result.putBoolean("cancelled", false)
             } else {
-                result.putBoolean("canceled", true)
+                result.putBoolean("cancelled", true)
+                result.putArray("assets", com.lynx.react.bridge.JavaOnlyArray())
+            }
+            cb?.invoke(result)
+        }
+
+        // Multi-pick launcher. Registered with the hard cap; the per-call
+        // `maxItems` is honored by trimming the returned URI list below.
+        pickMultipleMediaLauncher = activity.registerForActivityResult(
+            ActivityResultContracts.PickMultipleVisualMedia(MULTI_PICK_HARD_CAP)
+        ) { uris ->
+            val cb = pendingPickMultipleMediaCallback
+            val cap = pendingPickMultipleMax
+            pendingPickMultipleMediaCallback = null
+            pendingPickMultipleMax = MULTI_PICK_HARD_CAP
+            val result = JavaOnlyMap()
+            if (uris.isNullOrEmpty()) {
+                result.putBoolean("cancelled", true)
+                result.putArray("assets", com.lynx.react.bridge.JavaOnlyArray())
+            } else {
+                val assets = com.lynx.react.bridge.JavaOnlyArray()
+                val trimmed = if (cap > 0 && uris.size > cap) uris.subList(0, cap) else uris
+                for (uri in trimmed) {
+                    val asset = JavaOnlyMap().apply {
+                        putString("uri", uri.toString())
+                        putString("type", "image")
+                    }
+                    assets.pushMap(asset)
+                }
+                result.putArray("assets", assets)
+                result.putBoolean("cancelled", false)
             }
             cb?.invoke(result)
         }
@@ -104,17 +151,23 @@ object MediaCapture {
         activityRef = null
         takePictureLauncher = null
         pickMediaLauncher = null
+        pickMultipleMediaLauncher = null
         // Resolve any pending callbacks with cancel so JS Promises don't hang.
         pendingTakePictureCallback?.invoke(JavaOnlyMap().apply {
             putString("error", "activity destroyed")
-            putBoolean("canceled", true)
+            putBoolean("cancelled", true)
         })
         pendingPickMediaCallback?.invoke(JavaOnlyMap().apply {
             putString("error", "activity destroyed")
-            putBoolean("canceled", true)
+            putBoolean("cancelled", true)
+        })
+        pendingPickMultipleMediaCallback?.invoke(JavaOnlyMap().apply {
+            putString("error", "activity destroyed")
+            putBoolean("cancelled", true)
         })
         pendingTakePictureCallback = null
         pendingPickMediaCallback = null
+        pendingPickMultipleMediaCallback = null
         pendingPhotoUri = null
     }
 
@@ -131,14 +184,14 @@ object MediaCapture {
         if (activity == null || launcher == null) {
             callback(JavaOnlyMap().apply {
                 putString("error", "MediaCapture not registered — wire MediaCapture.register(this) into MainActivity.onCreate")
-                putBoolean("canceled", true)
+                putBoolean("cancelled", true)
             })
             return
         }
         // Pre-empt any prior pending call.
         pendingTakePictureCallback?.invoke(JavaOnlyMap().apply {
             putString("error", "cancelled by new takePicture")
-            putBoolean("canceled", true)
+            putBoolean("cancelled", true)
         })
 
         val photoFile = File(context.cacheDir, "sigx-camera-${System.currentTimeMillis()}.jpg")
@@ -148,7 +201,7 @@ object MediaCapture {
         } catch (e: Throwable) {
             callback(JavaOnlyMap().apply {
                 putString("error", "FileProvider authority '$authority' not configured: ${e.message}")
-                putBoolean("canceled", true)
+                putBoolean("cancelled", true)
             })
             return
         }
@@ -162,7 +215,7 @@ object MediaCapture {
             pendingTakePictureCallback = null
             callback(JavaOnlyMap().apply {
                 putString("error", e.message ?: "launcher.launch failed")
-                putBoolean("canceled", true)
+                putBoolean("cancelled", true)
             })
         }
     }
@@ -170,20 +223,20 @@ object MediaCapture {
     /**
      * Launch the system photo picker. No CAMERA / READ_MEDIA_IMAGES permission
      * needed — Android 13+'s photo picker grants per-pick access on the fly.
-     * Returns a content:// URI for the picked image (or canceled=true).
+     * Returns a content:// URI for the picked image (or cancelled=true).
      */
     fun pickImage(callback: (JavaOnlyMap) -> Unit) {
         val launcher = pickMediaLauncher
         if (launcher == null) {
             callback(JavaOnlyMap().apply {
                 putString("error", "MediaCapture not registered — wire MediaCapture.register(this) into MainActivity.onCreate")
-                putBoolean("canceled", true)
+                putBoolean("cancelled", true)
             })
             return
         }
         pendingPickMediaCallback?.invoke(JavaOnlyMap().apply {
             putString("error", "cancelled by new pickImage")
-            putBoolean("canceled", true)
+            putBoolean("cancelled", true)
         })
         pendingPickMediaCallback = callback
         try {
@@ -196,7 +249,45 @@ object MediaCapture {
             pendingPickMediaCallback = null
             callback(JavaOnlyMap().apply {
                 putString("error", e.message ?: "launcher.launch failed")
-                putBoolean("canceled", true)
+                putBoolean("cancelled", true)
+            })
+        }
+    }
+
+    /**
+     * Multi-image variant of `pickImage`. `maxItems = 0` (or unset) yields the
+     * registered hard cap (`MULTI_PICK_HARD_CAP`). Callers that pass smaller
+     * values get the list trimmed client-side after the picker returns.
+     *
+     * The returned result shape matches single-pick:
+     *   { cancelled: Boolean, assets: [{ uri, type: "image" }, ...] }
+     */
+    fun pickImages(maxItems: Int, callback: (JavaOnlyMap) -> Unit) {
+        val launcher = pickMultipleMediaLauncher
+        if (launcher == null) {
+            callback(JavaOnlyMap().apply {
+                putString("error", "MediaCapture not registered — wire MediaCapture.register(this) into MainActivity.onCreate")
+                putBoolean("cancelled", true)
+            })
+            return
+        }
+        pendingPickMultipleMediaCallback?.invoke(JavaOnlyMap().apply {
+            putString("error", "cancelled by new pickImages")
+            putBoolean("cancelled", true)
+        })
+        pendingPickMultipleMediaCallback = callback
+        pendingPickMultipleMax = if (maxItems > 0) maxItems else MULTI_PICK_HARD_CAP
+        try {
+            launcher.launch(
+                PickVisualMediaRequest.Builder()
+                    .setMediaType(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                    .build()
+            )
+        } catch (e: Throwable) {
+            pendingPickMultipleMediaCallback = null
+            callback(JavaOnlyMap().apply {
+                putString("error", e.message ?: "launcher.launch failed")
+                putBoolean("cancelled", true)
             })
         }
     }
