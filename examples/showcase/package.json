@@ -23,6 +23,7 @@
         "@sigx/lynx-device-info": "workspace:^",
         "@sigx/lynx-network": "workspace:^",
         "@sigx/lynx-notifications": "workspace:^",
+        "@sigx/lynx-webview": "workspace:^",
         "@sigx/lynx-websocket": "workspace:^",
         "@sigx/lynx-navigation": "workspace:^",
         "@sigx/lynx-motion": "workspace:^",
