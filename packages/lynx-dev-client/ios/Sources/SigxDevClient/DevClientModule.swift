@@ -22,6 +22,7 @@ class DevClientModule: NSObject, LynxModule {
     @objc static var methodLookup: [String: String] {
         [
             "getPlatform": NSStringFromSelector(#selector(getPlatform(_:))),
+            "reload": NSStringFromSelector(#selector(reload)),
         ]
     }
 
@@ -30,5 +31,14 @@ class DevClientModule: NSObject, LynxModule {
 
     @objc func getPlatform(_ callback: LynxCallbackBlock?) {
         callback?(["platform": "ios"])
+    }
+
+    /// Reload the active LynxView in-place. Called by the JS-side streamer
+    /// after the dev server pushes `{ type: 'reload' }` (CLI `r` key). Routes
+    /// through `SigxDevClient.postRemoteReload()` so the template's
+    /// `ContentView` (which holds the `LynxView` reference) can do the
+    /// actual `loadTemplate(fromURL:)` on the main queue.
+    @objc func reload() {
+        SigxDevClient.postRemoteReload()
     }
 }

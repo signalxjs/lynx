@@ -427,4 +427,74 @@ describe('installConsoleStreamer', () => {
         });
         expect(u1).toBe(u2);
     });
+
+    // -----------------------------------------------------------------------
+    // Remote reload — server pushes {type:'reload'} on the same WS the device
+    // streams logs on. Streamer must call `NativeModules.DevClient.reload()`.
+    // -----------------------------------------------------------------------
+
+    it('invokes NativeModules.DevClient.reload() on a reload message', () => {
+        const { console: c } = createConsole();
+        globalThis.console = c;
+        const sched = createScheduler();
+        const ws = createFakeWSFactory();
+
+        const reloadCalls: number[] = [];
+        const g = globalThis as { NativeModules?: unknown };
+        const prevNM = g.NativeModules;
+        g.NativeModules = {
+            DevClient: { reload: () => { reloadCalls.push(Date.now()); } },
+        };
+
+        try {
+            installConsoleStreamer('ws://x/__sigx/logs', {
+                webSocketImpl: ws.ctor,
+                setTimeoutImpl: sched.setTimeout,
+                clearTimeoutImpl: sched.clearTimeout,
+                platform: 'ios',
+            });
+            ws.last()._open();
+
+            // Server pushes a reload command.
+            ws.last().onmessage?.({ data: JSON.stringify({ type: 'reload' }) });
+            expect(reloadCalls).toHaveLength(1);
+
+            // Non-reload messages are ignored without throwing.
+            ws.last().onmessage?.({ data: JSON.stringify({ type: 'nope' }) });
+            ws.last().onmessage?.({ data: 'not-json' });
+            ws.last().onmessage?.({ data: 42 });
+            expect(reloadCalls).toHaveLength(1);
+        } finally {
+            if (prevNM === undefined) delete g.NativeModules;
+            else g.NativeModules = prevNM;
+        }
+    });
+
+    it('ignores reload messages when DevClient.reload is unavailable', () => {
+        const { console: c } = createConsole();
+        globalThis.console = c;
+        const sched = createScheduler();
+        const ws = createFakeWSFactory();
+
+        const g = globalThis as { NativeModules?: unknown };
+        const prevNM = g.NativeModules;
+        g.NativeModules = { DevClient: {} };
+
+        try {
+            installConsoleStreamer('ws://x/__sigx/logs', {
+                webSocketImpl: ws.ctor,
+                setTimeoutImpl: sched.setTimeout,
+                clearTimeoutImpl: sched.clearTimeout,
+                platform: 'ios',
+            });
+            ws.last()._open();
+
+            // Must not throw even though reload() is missing.
+            expect(() => ws.last().onmessage?.({ data: JSON.stringify({ type: 'reload' }) }))
+                .not.toThrow();
+        } finally {
+            if (prevNM === undefined) delete g.NativeModules;
+            else g.NativeModules = prevNM;
+        }
+    });
 });

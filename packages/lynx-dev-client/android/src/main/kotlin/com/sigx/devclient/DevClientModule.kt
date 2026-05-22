@@ -31,4 +31,15 @@ class DevClientModule(context: Context) : LynxModule(context) {
         map.putString("platform", "android")
         callback?.invoke(map)
     }
+
+    /**
+     * Reload the active LynxView in-place. Called by the JS-side streamer
+     * after the dev server pushes `{ type: 'reload' }` (CLI `r` key). Routes
+     * through `SigxDevClient.triggerRemoteReload` which dispatches to the
+     * main thread and invokes whatever handler the host screen registered.
+     */
+    @LynxMethod
+    fun reload() {
+        SigxDevClient.triggerRemoteReload()
+    }
 }

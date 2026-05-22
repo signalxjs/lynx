@@ -2,6 +2,8 @@ package com.sigx.devclient
 
 import android.app.Application
 import android.content.Context
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import com.lynx.tasm.LynxBooleanOption
 import com.lynx.tasm.LynxEnv
@@ -101,6 +103,47 @@ object SigxDevClient {
     fun init(app: Application) {
         registerServices()
         enableDevMode()
+    }
+
+    // ── Remote reload bridge ───────────────────────────────────────────────
+    // Lets a remote command (CLI `r` → log WS → DevClientModule.reload()) ask
+    // the active dev screen to reload its LynxView. `DevLynxScreen` registers
+    // its reload lambda here on enter and clears it on dispose. The module
+    // only stores one listener at a time — the last screen to register wins,
+    // which matches the actual UX (there's only one LynxView visible).
+
+    @Volatile
+    private var reloadHandler: (() -> Unit)? = null
+    private val mainHandler by lazy { Handler(Looper.getMainLooper()) }
+
+    /**
+     * Register a reload handler. Returns an unregister lambda the caller MUST
+     * invoke when its LynxView goes away — without it, we'd hold a stale
+     * reference to a torn-down Compose scope.
+     */
+    fun setReloadHandler(handler: () -> Unit): () -> Unit {
+        reloadHandler = handler
+        return {
+            // Only clear if we still own the slot. If a newer screen has
+            // already replaced us, leave it alone.
+            if (reloadHandler === handler) reloadHandler = null
+        }
+    }
+
+    /**
+     * Invoke the registered reload handler on the main thread. Called by
+     * `DevClientModule.reload()` after a remote reload arrives over the
+     * dev-client log WebSocket. No-op if nothing is registered.
+     */
+    fun triggerRemoteReload() {
+        val handler = reloadHandler ?: return
+        mainHandler.post {
+            try {
+                handler()
+            } catch (e: Exception) {
+                Log.w(TAG, "Remote reload handler threw: ${e.message}", e)
+            }
+        }
     }
 
     /**

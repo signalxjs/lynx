@@ -64,6 +64,36 @@ fun DevLynxScreen(
         onDispose { shakeDetector.stop() }
     }
 
+    // Reusable reload action shared by the dev-menu button, the error overlay
+    // retry button, and the remote-reload handler registered with
+    // `SigxDevClient`. Reads `lynxViewRef` / `currentUrl` via Compose
+    // property-delegates so each invocation observes the live values.
+    val performReload: () -> Unit = {
+        lynxViewRef?.let { view ->
+            loading = true
+            error = null
+            try {
+                view.reloadAndInit()
+                view.renderTemplateUrl(currentUrl, TemplateData.empty())
+            } catch (e: Exception) {
+                error = e.message ?: "Reload failed"
+            }
+            loading = false
+        }
+    }
+
+    // Remote reload bridge — CLI `r` key (or anything else that POSTs to
+    // `/__sigx/reload` on the plugin's log WS server) hits
+    // `DevClientModule.reload()` over the JS bridge, which dispatches here
+    // via `SigxDevClient.triggerRemoteReload()`. We re-register on every
+    // composition via `rememberUpdatedState` so the captured lambda always
+    // sees the freshest state holders without churning the registration.
+    val latestReload by rememberUpdatedState(performReload)
+    DisposableEffect(Unit) {
+        val unregister = SigxDevClient.setReloadHandler { latestReload() }
+        onDispose { unregister() }
+    }
+
     // Wire the system back gesture/button to onBack. Without this, system
     // back falls through to the activity's default behavior (typically
     // finish()), which kills the app instead of returning to a sandbox
@@ -123,19 +153,7 @@ fun DevLynxScreen(
         ErrorOverlay(
             error = error,
             onDismiss = { error = null },
-            onReload = {
-                error = null
-                lynxViewRef?.let { view ->
-                    loading = true
-                    try {
-                        view.reloadAndInit()
-                        view.renderTemplateUrl(currentUrl, TemplateData.empty())
-                    } catch (e: Exception) {
-                        error = e.message ?: "Reload failed"
-                    }
-                    loading = false
-                }
-            }
+            onReload = performReload,
         )
     }
 
@@ -144,19 +162,7 @@ fun DevLynxScreen(
         visible = showDevMenu,
         onDismiss = { showDevMenu = false },
         actions = DevMenuActions(
-            onReload = {
-                lynxViewRef?.let { view ->
-                    loading = true
-                    error = null
-                    try {
-                        view.reloadAndInit()
-                        view.renderTemplateUrl(currentUrl, TemplateData.empty())
-                    } catch (e: Exception) {
-                        error = e.message ?: "Reload failed"
-                    }
-                    loading = false
-                }
-            },
+            onReload = performReload,
             onChangeUrl = { newUrl ->
                 currentUrl = newUrl
                 lynxViewRef?.let { view ->
