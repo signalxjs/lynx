@@ -86,35 +86,58 @@ export const WebView = component<WebViewProps>(({ props }) => {
  *   - `postMessage` delivers to `window.sigx.onmessage(data)` inside the
  *     page; pages that haven't subscribed get a silent no-op.
  */
+// `invoke()` returns a Promise that can reject when the underlying UI method
+// rejects (native error, method missing on a stale element, …). For the
+// fire-and-forget wrappers below, swallow the rejection so callers don't
+// have to wrap every tap handler in try/catch and don't accumulate unhandled
+// rejection warnings. For the async getters, catch + fall back to the
+// documented default value (`false` / `""`) so the failure mode matches
+// the el-is-null mode — callers only have to handle one shape.
+function fireAndForget(p: Promise<unknown> | undefined): void {
+    p?.catch(() => { /* documented no-op semantics */ });
+}
+
 export const WebViewMethods = {
     goBack(el: MainThread.Element | null): void {
-        el?.invoke('goBack', {});
+        fireAndForget(el?.invoke('goBack', {}));
     },
     goForward(el: MainThread.Element | null): void {
-        el?.invoke('goForward', {});
+        fireAndForget(el?.invoke('goForward', {}));
     },
     reload(el: MainThread.Element | null): void {
-        el?.invoke('reload', {});
+        fireAndForget(el?.invoke('reload', {}));
     },
     stopLoading(el: MainThread.Element | null): void {
-        el?.invoke('stopLoading', {});
+        fireAndForget(el?.invoke('stopLoading', {}));
     },
     async canGoBack(el: MainThread.Element | null): Promise<boolean> {
         if (!el) return false;
-        const r = await el.invoke('canGoBack', {}) as { value?: boolean } | undefined;
-        return r?.value ?? false;
+        try {
+            const r = await el.invoke('canGoBack', {}) as { value?: boolean } | undefined;
+            return r?.value ?? false;
+        } catch {
+            return false;
+        }
     },
     async canGoForward(el: MainThread.Element | null): Promise<boolean> {
         if (!el) return false;
-        const r = await el.invoke('canGoForward', {}) as { value?: boolean } | undefined;
-        return r?.value ?? false;
+        try {
+            const r = await el.invoke('canGoForward', {}) as { value?: boolean } | undefined;
+            return r?.value ?? false;
+        } catch {
+            return false;
+        }
     },
     async injectJavaScript(el: MainThread.Element | null, code: string): Promise<string> {
         if (!el) return '';
-        const r = await el.invoke('injectJavaScript', { code }) as { result?: string } | undefined;
-        return r?.result ?? '';
+        try {
+            const r = await el.invoke('injectJavaScript', { code }) as { result?: string } | undefined;
+            return r?.result ?? '';
+        } catch {
+            return '';
+        }
     },
     postMessage(el: MainThread.Element | null, data: string): void {
-        el?.invoke('postMessage', { data });
+        fireAndForget(el?.invoke('postMessage', { data }));
     },
 } as const;

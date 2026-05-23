@@ -274,6 +274,15 @@ class SigxWebViewUI(context: LynxContext) : LynxUI<WebView>(context) {
     }
 
     private fun stripJsonQuotes(raw: String): String {
+        // Normalise JS `null` / `undefined` → empty string for parity with
+        // the documented contract + the iOS implementation. Android's
+        // `evaluateJavascript` returns:
+        //   - "null"      for JS `null` AND JS `undefined`
+        //   - the JSON-encoded value otherwise
+        //     (a JS string `"hello"` arrives as the 6-char string `"hello"`).
+        // We strip the JSON quotes for the string case and treat nullish
+        // literals as empty strings — same wire shape as iOS.
+        if (raw == "null" || raw == "undefined" || raw.isEmpty()) return ""
         if (raw.length >= 2 && raw.startsWith("\"") && raw.endsWith("\"")) {
             // The simplest safe path — parse as a 1-element JSON array so
             // escape sequences (`\\n`, `\\u00ff`, etc.) decode properly

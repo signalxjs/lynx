@@ -129,7 +129,7 @@ public class SigxMapUI: LynxUI<MKMapView> {
 
     @objc(__lynx_prop_config__region)
     public class func __lynxPropConfigRegion() -> [String] {
-        return ["region", "setRegion:requestReset:", "NSString *"]
+        return ["region", "setRegion", "NSString *"]
     }
 
     @objc public func setShowsUserLocation(_ value: Bool, requestReset: Bool) {
@@ -138,7 +138,7 @@ public class SigxMapUI: LynxUI<MKMapView> {
 
     @objc(__lynx_prop_config__shows_user_location)
     public class func __lynxPropConfigShowsUserLocation() -> [String] {
-        return ["shows-user-location", "setShowsUserLocation:requestReset:", "BOOL"]
+        return ["shows-user-location", "setShowsUserLocation", "BOOL"]
     }
 
     @objc public func setMapType(_ value: NSString?, requestReset: Bool) {
@@ -151,7 +151,7 @@ public class SigxMapUI: LynxUI<MKMapView> {
 
     @objc(__lynx_prop_config__map_type)
     public class func __lynxPropConfigMapType() -> [String] {
-        return ["map-type", "setMapType:requestReset:", "NSString *"]
+        return ["map-type", "setMapType", "NSString *"]
     }
 
     // MARK: - Gesture handling

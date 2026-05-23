@@ -76,7 +76,7 @@ public class SigxWebViewUI: LynxUI<WKWebView> {
 
     @objc(__lynx_prop_config__src)
     public class func __lynxPropConfigSrc() -> [String] {
-        return ["src", "setSrc:requestReset:", "NSString *"]
+        return ["src", "setSrc", "NSString *"]
     }
 
     /// Allow only `http(s)` and `about:blank`. `javascript:` is the headline
@@ -99,7 +99,7 @@ public class SigxWebViewUI: LynxUI<WKWebView> {
 
     @objc(__lynx_prop_config__html)
     public class func __lynxPropConfigHtml() -> [String] {
-        return ["html", "setHtml:requestReset:", "NSString *"]
+        return ["html", "setHtml", "NSString *"]
     }
 
     @objc public func setUserAgent(_ value: NSString?, requestReset: Bool) {
@@ -113,7 +113,7 @@ public class SigxWebViewUI: LynxUI<WKWebView> {
 
     @objc(__lynx_prop_config__user_agent)
     public class func __lynxPropConfigUserAgent() -> [String] {
-        return ["user-agent", "setUserAgent:requestReset:", "NSString *"]
+        return ["user-agent", "setUserAgent", "NSString *"]
     }
 
     @objc public func setEnableDebug(_ value: Bool, requestReset: Bool) {
@@ -127,7 +127,7 @@ public class SigxWebViewUI: LynxUI<WKWebView> {
 
     @objc(__lynx_prop_config__enable_debug)
     public class func __lynxPropConfigEnableDebug() -> [String] {
-        return ["enable-debug", "setEnableDebug:requestReset:", "BOOL"]
+        return ["enable-debug", "setEnableDebug", "BOOL"]
     }
 
     // MARK: - Imperative methods
@@ -215,8 +215,22 @@ public class SigxWebViewUI: LynxUI<WKWebView> {
                     callback(SigxWebViewUI.kUIMethodUnknown, error.localizedDescription)
                     return
                 }
+                // Normalise JS `null` / `undefined` → empty string for
+                // wire-shape parity with Android and the documented
+                // `null/undefined → ""` contract. WKWebView returns:
+                //   - `nil`     for `undefined`
+                //   - `NSNull`  for JS `null`
+                //   - the boxed value otherwise (NSString, NSNumber, …).
+                // The default `String(describing: NSNull())` of "<null>"
+                // would leak into JS otherwise.
                 let str: String
-                if let r = result { str = "\(r)" } else { str = "" }
+                if result == nil || result is NSNull {
+                    str = ""
+                } else if let s = result as? String {
+                    str = s
+                } else {
+                    str = "\(result!)"
+                }
                 callback(SigxWebViewUI.kUIMethodSuccess, ["result": str])
             }
         }

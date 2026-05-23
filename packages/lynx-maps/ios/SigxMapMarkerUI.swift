@@ -58,7 +58,7 @@ public class SigxMapMarkerUI: LynxUI<UIView> {
 
     @objc(__lynx_prop_config__coordinate)
     public class func __lynxPropConfigCoordinate() -> [String] {
-        return ["coordinate", "setCoordinate:requestReset:", "NSString *"]
+        return ["coordinate", "setCoordinate", "NSString *"]
     }
 
     @objc public func setTitle(_ value: NSString?, requestReset: Bool) {
@@ -68,7 +68,7 @@ public class SigxMapMarkerUI: LynxUI<UIView> {
 
     @objc(__lynx_prop_config__title)
     public class func __lynxPropConfigTitle() -> [String] {
-        return ["title", "setTitle:requestReset:", "NSString *"]
+        return ["title", "setTitle", "NSString *"]
     }
 
     @objc public func setDescription(_ value: NSString?, requestReset: Bool) {
@@ -78,7 +78,7 @@ public class SigxMapMarkerUI: LynxUI<UIView> {
 
     @objc(__lynx_prop_config__description)
     public class func __lynxPropConfigDescription() -> [String] {
-        return ["description", "setDescription:requestReset:", "NSString *"]
+        return ["description", "setDescription", "NSString *"]
     }
 
     @objc public func setMarkerId(_ value: NSString?, requestReset: Bool) {
@@ -87,6 +87,6 @@ public class SigxMapMarkerUI: LynxUI<UIView> {
 
     @objc(__lynx_prop_config__marker_id)
     public class func __lynxPropConfigMarkerId() -> [String] {
-        return ["marker-id", "setMarkerId:requestReset:", "NSString *"]
+        return ["marker-id", "setMarkerId", "NSString *"]
     }
 }
