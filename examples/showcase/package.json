@@ -24,6 +24,7 @@
         "@sigx/lynx-network": "workspace:^",
         "@sigx/lynx-notifications": "workspace:^",
         "@sigx/lynx-webview": "workspace:^",
+        "@sigx/lynx-maps": "workspace:^",
         "@sigx/lynx-websocket": "workspace:^",
         "@sigx/lynx-navigation": "workspace:^",
         "@sigx/lynx-motion": "workspace:^",
