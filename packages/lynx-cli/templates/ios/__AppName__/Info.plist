@@ -47,6 +47,7 @@
     </dict>
     <!-- {{USAGE_DESCRIPTIONS}} -->
     <!-- {{BACKGROUND_MODES}} -->
+    <!-- {{BG_TASK_IDENTIFIERS}} -->
     <!-- {{URL_SCHEMES}} -->
 </dict>
 </plist>
