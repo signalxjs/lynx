@@ -182,13 +182,17 @@ public class SigxWebViewUI: LynxUI<WKWebView> {
     private static let kUIMethodUnknown: Int32 = 1
 
     @objc public func goBack(_ params: NSDictionary?, withResult callback: @escaping LynxUIMethodCallbackBlock) {
+        NSLog("[SigxWebView] goBack invoked canGoBack=\(view().canGoBack)")
         DispatchQueue.main.async {
             if self.view().canGoBack { self.view().goBack() }
             callback(SigxWebViewUI.kUIMethodSuccess, nil)
         }
     }
     @objc(__lynx_ui_method_config__goBack)
-    public class func __lynxUIMethodConfigGoBack() -> NSString { return "goBack" }
+    dynamic public class func __lynxUIMethodConfigGoBack() -> NSString {
+        NSLog("[SigxWebView] UI method config goBack discovered")
+        return "goBack"
+    }
 
     @objc public func goForward(_ params: NSDictionary?, withResult callback: @escaping LynxUIMethodCallbackBlock) {
         DispatchQueue.main.async {
@@ -197,7 +201,7 @@ public class SigxWebViewUI: LynxUI<WKWebView> {
         }
     }
     @objc(__lynx_ui_method_config__goForward)
-    public class func __lynxUIMethodConfigGoForward() -> NSString { return "goForward" }
+    dynamic public class func __lynxUIMethodConfigGoForward() -> NSString { return "goForward" }
 
     @objc public func reload(_ params: NSDictionary?, withResult callback: @escaping LynxUIMethodCallbackBlock) {
         DispatchQueue.main.async {
@@ -206,7 +210,7 @@ public class SigxWebViewUI: LynxUI<WKWebView> {
         }
     }
     @objc(__lynx_ui_method_config__reload)
-    public class func __lynxUIMethodConfigReload() -> NSString { return "reload" }
+    dynamic public class func __lynxUIMethodConfigReload() -> NSString { return "reload" }
 
     @objc public func stopLoading(_ params: NSDictionary?, withResult callback: @escaping LynxUIMethodCallbackBlock) {
         DispatchQueue.main.async {
@@ -215,7 +219,7 @@ public class SigxWebViewUI: LynxUI<WKWebView> {
         }
     }
     @objc(__lynx_ui_method_config__stopLoading)
-    public class func __lynxUIMethodConfigStopLoading() -> NSString { return "stopLoading" }
+    dynamic public class func __lynxUIMethodConfigStopLoading() -> NSString { return "stopLoading" }
 
     @objc public func canGoBack(_ params: NSDictionary?, withResult callback: @escaping LynxUIMethodCallbackBlock) {
         DispatchQueue.main.async {
@@ -223,7 +227,7 @@ public class SigxWebViewUI: LynxUI<WKWebView> {
         }
     }
     @objc(__lynx_ui_method_config__canGoBack)
-    public class func __lynxUIMethodConfigCanGoBack() -> NSString { return "canGoBack" }
+    dynamic public class func __lynxUIMethodConfigCanGoBack() -> NSString { return "canGoBack" }
 
     @objc public func canGoForward(_ params: NSDictionary?, withResult callback: @escaping LynxUIMethodCallbackBlock) {
         DispatchQueue.main.async {
@@ -231,7 +235,7 @@ public class SigxWebViewUI: LynxUI<WKWebView> {
         }
     }
     @objc(__lynx_ui_method_config__canGoForward)
-    public class func __lynxUIMethodConfigCanGoForward() -> NSString { return "canGoForward" }
+    dynamic public class func __lynxUIMethodConfigCanGoForward() -> NSString { return "canGoForward" }
 
     /// Evaluate arbitrary JS in the page and return the last-expression
     /// value. Results are stringified — JS code that returns a non-string
@@ -270,7 +274,7 @@ public class SigxWebViewUI: LynxUI<WKWebView> {
         }
     }
     @objc(__lynx_ui_method_config__injectJavaScript)
-    public class func __lynxUIMethodConfigInjectJavaScript() -> NSString { return "injectJavaScript" }
+    dynamic public class func __lynxUIMethodConfigInjectJavaScript() -> NSString { return "injectJavaScript" }
 
     /// Host → page message. The user-script (`bridgeUserScript`) injects a
     /// `window.sigxBridge.dispatchMessage(data)` helper that no-ops when the
@@ -301,7 +305,7 @@ public class SigxWebViewUI: LynxUI<WKWebView> {
         }
     }
     @objc(__lynx_ui_method_config__postMessage)
-    public class func __lynxUIMethodConfigPostMessage() -> NSString { return "postMessage" }
+    dynamic public class func __lynxUIMethodConfigPostMessage() -> NSString { return "postMessage" }
 
     // MARK: - Event firing
 
