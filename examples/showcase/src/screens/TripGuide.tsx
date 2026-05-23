@@ -47,17 +47,22 @@ export const TripGuide = component(() => {
         const slug = encodeURIComponent(destination.replace(/\s+/g, '_'));
         const guideUrl = `https://en.wikivoyage.org/wiki/${slug}`;
 
+        // Inline `.invoke()` instead of going through `WebViewMethods.goBack`
+        // — the `'main thread'` directive compiles these handlers into a
+        // separate MT bundle which can't reach cross-package imports (the
+        // imported `WebViewMethods` is BG-bundle-only). `MainThread.Element`'s
+        // `invoke()` is part of the MT runtime so it IS reachable.
         const onBack = () => {
             'main thread';
-            WebViewMethods.goBack(webRef.current);
+            webRef.current?.invoke('goBack', {});
         };
         const onForward = () => {
             'main thread';
-            WebViewMethods.goForward(webRef.current);
+            webRef.current?.invoke('goForward', {});
         };
         const onReload = () => {
             'main thread';
-            WebViewMethods.reload(webRef.current);
+            webRef.current?.invoke('reload', {});
         };
 
         return (
