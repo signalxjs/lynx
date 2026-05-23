@@ -41,6 +41,8 @@ export interface IosLinkResult {
     usageDescriptions: Record<string, string>;
     /** UIBackgroundModes entries to add to Info.plist. */
     backgroundModes: string[];
+    /** BGTaskSchedulerPermittedIdentifiers entries to add to Info.plist. */
+    bgTaskIdentifiers: string[];
     /** Swift source for module registration. */
     registryCode: string;
     /** Swift source for lifecycle-publisher attachment. */
@@ -94,6 +96,8 @@ export function linkIos(
         ...(config.ios.usageDescriptions ?? {}),
     };
     const backgroundModes = new Set<string>();
+    const bgTaskIdentifiers = new Set<string>();
+    for (const id of config.ios.bgTaskIdentifiers ?? []) bgTaskIdentifiers.add(id);
     const uiComponents: IosUiComponentEntry[] = [];
     const seenUiComponentNames = new Set<string>();
     const registrations: string[] = [];
@@ -188,6 +192,9 @@ export function linkIos(
         if (ios.backgroundModes) {
             for (const mode of ios.backgroundModes) backgroundModes.add(mode);
         }
+        if (ios.bgTaskIdentifiers) {
+            for (const id of ios.bgTaskIdentifiers) bgTaskIdentifiers.add(id);
+        }
         if (ios.uiComponents) {
             for (const entry of ios.uiComponents) {
                 // De-dup on tag name — two packages declaring the same tag is
@@ -218,6 +225,7 @@ export function linkIos(
         debugPodfileEntries: [...new Set(debugPodfileEntries)],
         usageDescriptions,
         backgroundModes: [...backgroundModes],
+        bgTaskIdentifiers: [...bgTaskIdentifiers],
         registryCode,
         lifecycleCode,
         appDelegateHooksCode,

@@ -127,6 +127,13 @@ export interface IosConfig {
     pods?: Record<string, string>;
     /** Info.plist permission usage descriptions. */
     usageDescriptions?: Record<string, string>;
+    /**
+     * `BGTaskSchedulerPermittedIdentifiers` to inject into Info.plist. Apps
+     * using `@sigx/lynx-background` must list every reverse-DNS task
+     * identifier they register here (typically `${bundleIdentifier}.bg.${taskName}`).
+     * Merged with any identifiers contributed by linked modules.
+     */
+    bgTaskIdentifiers?: string[];
     /** Override top-level icon for iOS only. */
     icon?: string;
     /** Override top-level splash for iOS only. */

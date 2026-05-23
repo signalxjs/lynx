@@ -1,0 +1,30 @@
+{
+    "name": "Background",
+    "package": "@sigx/lynx-background",
+    "description": "Periodic background tasks via iOS BGTaskScheduler and Android WorkManager",
+    "platforms": ["android", "ios"],
+    "ios": {
+        "moduleClass": "BackgroundModule",
+        "publisherClass": "BackgroundPublisher",
+        "appDelegateHook": {
+            "class": "BackgroundAppDelegateHook",
+            "methods": ["didFinishLaunching"]
+        },
+        "sourceDir": "ios",
+        "methods": [
+            "register",
+            "unregister",
+            "getRegistered",
+            "completeTask"
+        ],
+        "backgroundModes": ["fetch", "processing"]
+    },
+    "android": {
+        "moduleClass": "com.sigx.background.BackgroundModule",
+        "publisherClass": "com.sigx.background.BackgroundPublisher",
+        "sourceDir": "android",
+        "dependencies": [
+            "androidx.work:work-runtime-ktx:2.10.0"
+        ]
+    }
+}

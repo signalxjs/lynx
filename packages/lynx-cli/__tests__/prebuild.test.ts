@@ -11,6 +11,8 @@ import {
     injectAndroidPermissions,
     injectPodfileEntries,
     injectInfoPlistDescriptions,
+    injectInfoPlistBackgroundModes,
+    injectInfoPlistBgTaskIdentifiers,
     cleanPrebuild,
     fingerprintPrebuildInputs,
 } from '../src/prebuild.js';
@@ -272,6 +274,102 @@ describe('injectInfoPlistDescriptions', () => {
         );
         expect(plist).toContain('NSCameraUsageDescription');
         expect(plist).toContain('This app needs camera access');
+    });
+});
+
+describe('injectInfoPlistBackgroundModes', () => {
+    it('injects background modes at marker', () => {
+        const config = resolveConfig(TEST_CONFIG);
+        scaffoldIos(testDir, config);
+
+        injectInfoPlistBackgroundModes(testDir, config, ['fetch', 'processing']);
+
+        const plist = readFileSync(
+            join(testDir, 'ios', 'TestApp', 'Info.plist'),
+            'utf-8',
+        );
+        expect(plist).toContain('<key>UIBackgroundModes</key>');
+        expect(plist).toContain('<string>fetch</string>');
+        expect(plist).toContain('<string>processing</string>');
+    });
+
+    it('writes a placeholder comment when no modes are provided', () => {
+        const config = resolveConfig(TEST_CONFIG);
+        scaffoldIos(testDir, config);
+
+        injectInfoPlistBackgroundModes(testDir, config, []);
+
+        const plist = readFileSync(
+            join(testDir, 'ios', 'TestApp', 'Info.plist'),
+            'utf-8',
+        );
+        expect(plist).not.toContain('<key>UIBackgroundModes</key>');
+        expect(plist).toContain('no auto-linked background modes');
+    });
+});
+
+describe('injectInfoPlistBgTaskIdentifiers', () => {
+    it('injects BGTaskSchedulerPermittedIdentifiers at marker', () => {
+        const config = resolveConfig(TEST_CONFIG);
+        scaffoldIos(testDir, config);
+
+        injectInfoPlistBgTaskIdentifiers(testDir, config, [
+            'com.test.myapp.bg.refresh-feed',
+            'com.test.myapp.bg.sync-outbox',
+        ]);
+
+        const plist = readFileSync(
+            join(testDir, 'ios', 'TestApp', 'Info.plist'),
+            'utf-8',
+        );
+        expect(plist).toContain('<key>BGTaskSchedulerPermittedIdentifiers</key>');
+        expect(plist).toContain('<string>com.test.myapp.bg.refresh-feed</string>');
+        expect(plist).toContain('<string>com.test.myapp.bg.sync-outbox</string>');
+    });
+
+    it('writes a placeholder comment when no identifiers are provided', () => {
+        const config = resolveConfig(TEST_CONFIG);
+        scaffoldIos(testDir, config);
+
+        injectInfoPlistBgTaskIdentifiers(testDir, config, []);
+
+        const plist = readFileSync(
+            join(testDir, 'ios', 'TestApp', 'Info.plist'),
+            'utf-8',
+        );
+        expect(plist).not.toContain('<key>BGTaskSchedulerPermittedIdentifiers</key>');
+        expect(plist).toContain('no auto-linked BGTaskScheduler identifiers');
+    });
+
+    it('is idempotent on re-run', () => {
+        const config = resolveConfig(TEST_CONFIG);
+        scaffoldIos(testDir, config);
+
+        const ids = ['com.test.myapp.bg.refresh-feed'];
+        injectInfoPlistBgTaskIdentifiers(testDir, config, ids);
+        const first = readFileSync(join(testDir, 'ios', 'TestApp', 'Info.plist'), 'utf-8');
+        injectInfoPlistBgTaskIdentifiers(testDir, config, ids);
+        const second = readFileSync(join(testDir, 'ios', 'TestApp', 'Info.plist'), 'utf-8');
+        expect(second).toEqual(first);
+    });
+
+    it('de-duplicates identifiers', () => {
+        const config = resolveConfig(TEST_CONFIG);
+        scaffoldIos(testDir, config);
+
+        injectInfoPlistBgTaskIdentifiers(testDir, config, [
+            'com.test.myapp.bg.refresh-feed',
+            'com.test.myapp.bg.sync-outbox',
+            'com.test.myapp.bg.refresh-feed',
+        ]);
+
+        const plist = readFileSync(
+            join(testDir, 'ios', 'TestApp', 'Info.plist'),
+            'utf-8',
+        );
+        const matches = plist.match(/<string>com\.test\.myapp\.bg\.refresh-feed<\/string>/g);
+        expect(matches).toHaveLength(1);
+        expect(plist).toContain('<string>com.test.myapp.bg.sync-outbox</string>');
     });
 });
 

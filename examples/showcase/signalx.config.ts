@@ -64,5 +64,11 @@ export default defineLynxConfig({
     ios: {
         bundleIdentifier: 'com.example.showcase',
         deploymentTarget: '15.0',
+        // The `@sigx/lynx-background` package namespaces task identifiers as
+        // `${bundleId}.bg.${taskName}`. Apple requires every identifier the
+        // app might submit to BGTaskScheduler to appear in Info.plist's
+        // `BGTaskSchedulerPermittedIdentifiers` ahead of time, so declare
+        // them here.
+        bgTaskIdentifiers: ['com.example.showcase.bg.refresh-feed'],
     },
 });
