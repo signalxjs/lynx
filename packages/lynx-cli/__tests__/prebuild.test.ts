@@ -12,6 +12,7 @@ import {
     injectPodfileEntries,
     injectInfoPlistDescriptions,
     cleanPrebuild,
+    fingerprintPrebuildInputs,
 } from '../src/prebuild.js';
 import { resolveConfig } from '../src/config/parser.js';
 import type { LynxConfig } from '../src/config/schema.js';
@@ -306,6 +307,83 @@ describe('cleanPrebuild', () => {
 
         expect(existsSync(join(testDir, 'android'))).toBe(false);
         expect(existsSync(join(testDir, 'ios'))).toBe(false);
+    });
+});
+
+describe('fingerprintPrebuildInputs — sourceDir invalidation', () => {
+    // Regression: a workspace package's `.swift` / `.kt` may change without
+    // its `signalx-module.json` changing (new prop setter, new UI method,
+    // bug fix). Before this case was wired, the fingerprint only hashed
+    // the manifest itself — so the consumer's fast-path would skip
+    // prebuild, the `copy*ModuleSources` step wouldn't run, and the .app
+    // would link against a stale copy of the package's native source.
+    //
+    // The symptom users hit: "module X not available" / "UI Y not found"
+    // at runtime, because the generated registry referenced a class that
+    // wasn't physically present in the build.
+    function makeFakeWorkspace(): { cwd: string; sourceFile: string } {
+        const cwd = join(tmpdir(), `sigx-fp-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+        const pkgDir = join(cwd, 'node_modules', '@fake', 'lynx-foo');
+        const sourceDir = join(pkgDir, 'ios');
+        const sourceFile = join(sourceDir, 'FakeUI.swift');
+        mkdirSync(sourceDir, { recursive: true });
+        writeFileSync(join(cwd, 'package.json'), JSON.stringify({
+            name: 'host',
+            dependencies: { '@fake/lynx-foo': '^0.0.0' },
+        }));
+        writeFileSync(join(pkgDir, 'package.json'), JSON.stringify({
+            name: '@fake/lynx-foo',
+            version: '0.0.0',
+            exports: {
+                './signalx-module.json': './signalx-module.json',
+            },
+        }));
+        writeFileSync(join(pkgDir, 'signalx-module.json'), JSON.stringify({
+            name: 'FakeFoo',
+            package: '@fake/lynx-foo',
+            description: 'fake',
+            platforms: ['ios'],
+            ios: { moduleClass: 'FakeUI', sourceDir: 'ios' },
+        }));
+        writeFileSync(sourceFile, '// initial body\n');
+        return { cwd, sourceFile };
+    }
+
+    it('rehashes when a workspace package\'s sourceDir file changes', () => {
+        const { cwd, sourceFile } = makeFakeWorkspace();
+        try {
+            const before = fingerprintPrebuildInputs(cwd, { android: true, ios: true });
+            writeFileSync(sourceFile, '// modified body — new prop setter added\n');
+            const after = fingerprintPrebuildInputs(cwd, { android: true, ios: true });
+            expect(after).not.toBe(before);
+        } finally {
+            rmSync(cwd, { recursive: true, force: true });
+        }
+    });
+
+    it('rehashes when a brand-new file appears in a sourceDir', () => {
+        const { cwd, sourceFile } = makeFakeWorkspace();
+        try {
+            const before = fingerprintPrebuildInputs(cwd, { android: true, ios: true });
+            // New sibling file in the same sourceDir — a new helper class
+            // dropped in by the package author.
+            writeFileSync(join(sourceFile, '..', 'NewHelper.swift'), '// new file\n');
+            const after = fingerprintPrebuildInputs(cwd, { android: true, ios: true });
+            expect(after).not.toBe(before);
+        } finally {
+            rmSync(cwd, { recursive: true, force: true });
+        }
+    });
+
+    it('is stable when nothing changes (so the fast-path can fire)', () => {
+        const { cwd } = makeFakeWorkspace();
+        try {
+            const a = fingerprintPrebuildInputs(cwd, { android: true, ios: true });
+            const b = fingerprintPrebuildInputs(cwd, { android: true, ios: true });
+            expect(a).toBe(b);
+        } finally {
+            rmSync(cwd, { recursive: true, force: true });
+        }
     });
 });
 
