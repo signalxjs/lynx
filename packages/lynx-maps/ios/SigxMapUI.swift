@@ -20,7 +20,12 @@ import Lynx
 /// Imperative methods (animateToRegion / fitToCoordinates) are tracked as a
 /// v2 follow-up — they need the Lynx UIMethodInvoker surface which isn't
 /// wired through sigx-lynx yet (same blocker as WebView.goBack / reload).
-@objc public class SigxMapUI: LynxUI<MKMapView> {
+// Class is NOT marked `@objc` — Swift forbids that on generic subclasses
+// of an ObjC lightweight-generic type like `LynxUI<__covariant V>`. Member-
+// level `@objc` / `@objc(name)` annotations still bridge because `LynxUI`
+// itself is `@objc`, so `__lynx_prop_config__*` and
+// `__lynx_ui_method_config__*` discovery still works.
+public class SigxMapUI: LynxUI<MKMapView> {
 
     private lazy var mapDelegate = SigxMapDelegate(owner: self)
     private lazy var tapGesture: UITapGestureRecognizer = {
@@ -45,7 +50,14 @@ import Lynx
         return map
     }
 
-    public override func insertChild(_ child: LynxBaseUI!, atIndex index: Int) {
+    // Lynx's child-management hooks live on `LynxComponent<D>` where for
+    // `LynxUI` the generic `D` is `LynxUI*`. ObjC lightweight generics
+    // import into Swift as the upper bound, so the override signature uses
+    // `LynxUI<UIView>` (the declared bound `__covariant V : UIView*`).
+    // Both insert and remove take `atIndex` per the LynxComponent.h ABI.
+    // Swift imports the ObjC `insertChild:atIndex:` selector as
+    // `insertChild(_:at:)` and the same for removeChild. Override matches.
+    public override func insertChild(_ child: LynxUI<UIView>!, at index: Int) {
         // Map markers participate in the Lynx UI tree as children of the map,
         // but we don't want their UIViews added to MKMapView — markers
         // render as `MKAnnotation`s on the native side. Intercept marker
@@ -54,15 +66,15 @@ import Lynx
             attachMarker(marker)
             return
         }
-        super.insertChild(child, atIndex: index)
+        super.insertChild(child, at: index)
     }
 
-    public override func removeChild(_ child: LynxBaseUI!) {
+    public override func removeChild(_ child: LynxUI<UIView>!, at index: Int) {
         if let marker = child as? SigxMapMarkerUI {
             detachMarker(marker)
             return
         }
-        super.removeChild(child)
+        super.removeChild(child, at: index)
     }
 
     // MARK: - Marker plumbing
@@ -72,13 +84,13 @@ import Lynx
         let annotation = marker.makeAnnotation()
         markerAnnotations[ObjectIdentifier(marker)] = annotation
         markersByAnnotation[ObjectIdentifier(annotation)] = marker
-        view?.addAnnotation(annotation)
+        view().addAnnotation(annotation)
     }
 
     func detachMarker(_ marker: SigxMapMarkerUI) {
         if let annotation = markerAnnotations.removeValue(forKey: ObjectIdentifier(marker)) {
             markersByAnnotation.removeValue(forKey: ObjectIdentifier(annotation))
-            view?.removeAnnotation(annotation)
+            view().removeAnnotation(annotation)
         }
         marker.owningMap = nil
     }
@@ -112,7 +124,7 @@ import Lynx
             center: CLLocationCoordinate2D(latitude: lat, longitude: lon),
             span: MKCoordinateSpan(latitudeDelta: latD, longitudeDelta: lonD)
         )
-        view?.setRegion(region, animated: false)
+        view().setRegion(region, animated: false)
     }
 
     @objc(__lynx_prop_config__region)
@@ -121,7 +133,7 @@ import Lynx
     }
 
     @objc public func setShowsUserLocation(_ value: Bool, requestReset: Bool) {
-        view?.showsUserLocation = value
+        view().showsUserLocation = value
     }
 
     @objc(__lynx_prop_config__shows_user_location)
@@ -131,9 +143,9 @@ import Lynx
 
     @objc public func setMapType(_ value: NSString?, requestReset: Bool) {
         switch (value as String?) ?? "" {
-        case "satellite": view?.mapType = .satellite
-        case "hybrid":    view?.mapType = .hybrid
-        default:          view?.mapType = .standard
+        case "satellite": view().mapType = .satellite
+        case "hybrid":    view().mapType = .hybrid
+        default:          view().mapType = .standard
         }
     }
 
@@ -145,7 +157,7 @@ import Lynx
     // MARK: - Gesture handling
 
     @objc private func handleTap(_ gr: UITapGestureRecognizer) {
-        guard let map = view else { return }
+        let map = view()
         let point = gr.location(in: map)
         // Skip taps on the existing annotations — those are surfaced via
         // didSelect in the delegate as `bindmarkerpress`.
@@ -161,12 +173,14 @@ import Lynx
 
     // MARK: - Event firing
 
-    fileprivate func fireEvent(_ name: String, params: [String: Any]) {
+    internal func fireEvent(_ name: String, params: [String: Any]) {
         let event = LynxCustomEvent(name: name, targetSign: sign, params: params)
-        context?.eventEmitter?.sendCustomEvent(event)
+        // Swift renames the ObjC `sendCustomEvent:` selector to `send(_:)`
+        // when LynxCustomEvent is the parameter type — same underlying method.
+        context?.eventEmitter?.send(event)
     }
 
-    fileprivate func emitRegionChange(_ region: MKCoordinateRegion) {
+    internal func emitRegionChange(_ region: MKCoordinateRegion) {
         fireEvent("regionchange", params: [
             "region": [
                 "latitude": region.center.latitude,
@@ -177,7 +191,7 @@ import Lynx
         ])
     }
 
-    fileprivate func emitMarkerPress(_ marker: SigxMapMarkerUI) {
+    internal func emitMarkerPress(_ marker: SigxMapMarkerUI) {
         fireEvent("markerpress", params: [
             "id": marker.markerId,
             "coordinate": [
@@ -187,7 +201,7 @@ import Lynx
         ])
     }
 
-    fileprivate func marker(for annotation: MKAnnotation) -> SigxMapMarkerUI? {
+    internal func marker(for annotation: MKAnnotation) -> SigxMapMarkerUI? {
         guard let obj = annotation as? AnyObject else { return nil }
         return markersByAnnotation[ObjectIdentifier(obj)]
     }

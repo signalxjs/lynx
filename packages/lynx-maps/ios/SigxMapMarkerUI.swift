@@ -17,13 +17,17 @@ import Lynx
 ///   - `title`       → callout title
 ///   - `description` → callout subtitle
 ///   - `marker-id`   → forwarded as `event.detail.id` on `bindmarkerpress`
-@objc public class SigxMapMarkerUI: LynxUI<UIView> {
-    fileprivate weak var owningMap: SigxMapUI?
+// Class is NOT marked `@objc` — Swift forbids that on generic subclasses
+// of an ObjC lightweight-generic type like `LynxUI<__covariant V>`. Member-
+// level `@objc` / `@objc(name)` annotations still bridge because `LynxUI`
+// itself is `@objc`, so `__lynx_prop_config__*` discovery still works.
+public class SigxMapMarkerUI: LynxUI<UIView> {
+    internal weak var owningMap: SigxMapUI?
 
-    fileprivate var currentCoordinate = CLLocationCoordinate2D(latitude: 0, longitude: 0)
-    fileprivate var currentTitle: String?
-    fileprivate var currentSubtitle: String?
-    fileprivate var markerId: String = ""
+    internal var currentCoordinate = CLLocationCoordinate2D(latitude: 0, longitude: 0)
+    internal var currentTitle: String?
+    internal var currentSubtitle: String?
+    internal var markerId: String = ""
 
     public override func createView() -> UIView? {
         let v = UIView(frame: .zero)
@@ -31,7 +35,7 @@ import Lynx
         return v
     }
 
-    fileprivate func makeAnnotation() -> MKPointAnnotation {
+    internal func makeAnnotation() -> MKPointAnnotation {
         let a = MKPointAnnotation()
         a.coordinate = currentCoordinate
         a.title = currentTitle
