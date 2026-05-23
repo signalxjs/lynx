@@ -52,10 +52,38 @@ public class SigxWebViewUI: LynxUI<WKWebView> {
         ))
         config.userContentController = controller
 
-        let webView = WKWebView(frame: .zero, configuration: config)
+        // Start with a non-zero placeholder frame so WKWebView's internal
+        // layout engine doesn't sit in a "no size, no render" steady state.
+        // Lynx's `updateFrame` overrides this immediately with the real
+        // layout dims; the placeholder is just to bootstrap WKWebView's
+        // initial render pipeline.
+        let webView = WKWebView(frame: CGRect(x: 0, y: 0, width: 1, height: 1), configuration: config)
         webView.navigationDelegate = navigationDelegate
+        // Disable the autoresizing-mask translation so when Lynx sets a new
+        // frame, WKWebView re-lays its WKContentView at the new size.
+        // Without this, WKWebView sometimes pins its internal content view
+        // to the initial frame and ignores subsequent frame changes from
+        // outside the iOS auto-layout system.
+        webView.translatesAutoresizingMaskIntoConstraints = true
+        webView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         NSLog("[SigxWebView] createView built WKWebView=\(webView)")
         return webView
+    }
+
+    // Explicit prop-setter registration. The runtime prefers this path
+    // over the per-method `__lynx_prop_config__*` discovery — see
+    // `LynxPropsProcessor.mm:206-211`. Returning a single `NSArray` of
+    // `[propName, fullSelector]` pairs is more robust than relying on
+    // Swift `@objc(name)` class methods being enumerable by
+    // `class_copyMethodList(metaclass)` (which has subtle quirks for
+    // Swift-defined classes that don't carry a class-level `@objc`).
+    @objc public class func propSetterLookUp() -> NSArray {
+        return [
+            ["src", "setSrc:requestReset:"],
+            ["html", "setHtml:requestReset:"],
+            ["user-agent", "setUserAgent:requestReset:"],
+            ["enable-debug", "setEnableDebug:requestReset:"],
+        ] as NSArray
     }
 
     public override func frameDidChange() {

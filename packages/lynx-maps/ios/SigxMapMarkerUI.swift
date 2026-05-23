@@ -35,6 +35,16 @@ public class SigxMapMarkerUI: LynxUI<UIView> {
         return v
     }
 
+    // Explicit prop-setter registration. See SigxWebViewUI for rationale.
+    @objc public class func propSetterLookUp() -> NSArray {
+        return [
+            ["coordinate", "setCoordinate:requestReset:"],
+            ["title", "setTitle:requestReset:"],
+            ["description", "setDescription:requestReset:"],
+            ["marker-id", "setMarkerId:requestReset:"],
+        ] as NSArray
+    }
+
     internal func makeAnnotation() -> MKPointAnnotation {
         let a = MKPointAnnotation()
         a.coordinate = currentCoordinate

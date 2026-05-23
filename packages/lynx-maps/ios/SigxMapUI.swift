@@ -44,10 +44,21 @@ public class SigxMapUI: LynxUI<MKMapView> {
     // MARK: - LynxUI overrides
 
     public override func createView() -> MKMapView? {
-        let map = MKMapView(frame: .zero)
+        let map = MKMapView(frame: CGRect(x: 0, y: 0, width: 1, height: 1))
+        map.translatesAutoresizingMaskIntoConstraints = true
+        map.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         map.delegate = mapDelegate
         map.addGestureRecognizer(tapGesture)
         return map
+    }
+
+    // Explicit prop-setter registration. See SigxWebViewUI for rationale.
+    @objc public class func propSetterLookUp() -> NSArray {
+        return [
+            ["region", "setRegion:requestReset:"],
+            ["shows-user-location", "setShowsUserLocation:requestReset:"],
+            ["map-type", "setMapType:requestReset:"],
+        ] as NSArray
     }
 
     // Lynx's child-management hooks live on `LynxComponent<D>` where for

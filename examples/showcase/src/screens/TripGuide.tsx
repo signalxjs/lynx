@@ -64,84 +64,86 @@ export const TripGuide = component(() => {
             <view class="flex-fill bg-base-100">
                 <Screen title={`Guide · ${destination}`} />
 
-                <view class="flex-1" style={{ position: 'relative' }}>
-                    <WebView
-                        mtRef={webRef}
-                        src={guideUrl}
-                        class="flex-1"
-                        onLoad={() => {
-                            loading.value = false;
-                            errorMessage.value = null;
-                        }}
-                        onError={(e) => {
-                            loading.value = false;
-                            errorMessage.value = e.detail.message;
-                        }}
-                    />
+                {/* WebView as a direct sibling — mirrors lynx-maps's working
+                    layout. Wrapping it in another `<view class="flex-1">`
+                    leaves the WebView with zero height (Lynx's layout doesn't
+                    propagate a content-size hint up from custom UIs the way
+                    it does for built-in `<view>` elements). The overlays
+                    sit on top via absolute positioning anchored to the
+                    outer flex-fill container. */}
+                <WebView
+                    mtRef={webRef}
+                    src={guideUrl}
+                    class="flex-1"
+                    onLoad={() => {
+                        loading.value = false;
+                        errorMessage.value = null;
+                    }}
+                    onError={(e) => {
+                        loading.value = false;
+                        errorMessage.value = e.detail.message;
+                    }}
+                />
 
-                    {loading.value
-                        ? (
-                            <view
-                                class="bg-base-100 items-center justify-center"
-                                style={{
-                                    position: 'absolute',
-                                    top: 0,
-                                    left: 0,
-                                    right: 0,
-                                    bottom: 0,
-                                }}
-                            >
-                                <Text class="opacity-60">
-                                    Loading Wikivoyage guide for {destination}…
+                {loading.value
+                    ? (
+                        <view
+                            class="bg-base-100 items-center justify-center"
+                            style={{
+                                position: 'absolute',
+                                top: 56,
+                                left: 0,
+                                right: 0,
+                                bottom: 60,
+                            }}
+                        >
+                            <Text class="opacity-60">
+                                Loading Wikivoyage guide for {destination}…
+                            </Text>
+                        </view>
+                    )
+                    : null}
+
+                {errorMessage.value
+                    ? (
+                        <view
+                            class="bg-error/10 items-center justify-center px-6"
+                            style={{
+                                position: 'absolute',
+                                top: 56,
+                                left: 0,
+                                right: 0,
+                                bottom: 60,
+                            }}
+                        >
+                            <Col gap={8} align="center">
+                                <Text class="text-error">
+                                    Couldn't load guide
                                 </Text>
-                            </view>
-                        )
-                        : null}
-
-                    {errorMessage.value
-                        ? (
-                            <view
-                                class="bg-error/10 items-center justify-center px-6"
-                                style={{
-                                    position: 'absolute',
-                                    top: 0,
-                                    left: 0,
-                                    right: 0,
-                                    bottom: 0,
-                                }}
-                            >
-                                <Col gap={8} align="center">
-                                    <Text class="text-error">
-                                        Couldn't load guide
-                                    </Text>
-                                    <Text class="opacity-60 text-sm text-center">
-                                        {errorMessage.value}
-                                    </Text>
-                                    <Button
-                                        size="sm"
-                                        variant="ghost"
-                                        outline
-                                        onPress={() => {
-                                            Haptics.selection();
-                                            errorMessage.value = null;
-                                            loading.value = true;
-                                            // Schedule on next tick so the loading overlay paints
-                                            // before the native reload kicks in.
-                                            queueMicrotask(() => {
-                                                // Synchronous-from-BG reload works because
-                                                // WebViewMethods.* swallows the cross-thread cost
-                                                // by deferring to the main thread inside invoke.
-                                                WebViewMethods.reload(webRef.current);
-                                            });
-                                        }}
-                                    >
-                                        Retry
-                                    </Button>
-                                </Col>
-                            </view>
-                        )
-                        : null}
-                </view>
+                                <Text class="opacity-60 text-sm text-center">
+                                    {errorMessage.value}
+                                </Text>
+                                <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    outline
+                                    onPress={() => {
+                                        Haptics.selection();
+                                        errorMessage.value = null;
+                                        loading.value = true;
+                                        // Schedule on next tick so the loading overlay paints
+                                        // before the native reload kicks in.
+                                        queueMicrotask(() => {
+                                            WebViewMethods.reload(webRef.current);
+                                        });
+                                    }}
+                                >
+                                    Retry
+                                </Button>
+                            </Col>
+                        </view>
+                    )
+                    : null}
 
                 {/* Toolbar — uses MT bindtap so each tap stays on one thread and
                     doesn't pay the BG↔MT round-trip just to call invoke(). */}
