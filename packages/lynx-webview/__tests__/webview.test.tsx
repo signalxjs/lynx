@@ -5,6 +5,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import '../src/jsx-augment.js';
+import { WebViewMethods } from '../src/WebView.js';
 import type {
     SigxWebViewAttributes,
     WebViewLoadEvent,
@@ -37,6 +38,23 @@ describe('jsx-augment', () => {
         expect(load.detail.url).toBe('https://x.test/');
         expect(err.detail.message).toBe('failed');
         expect(msg.detail.data).toBe('hello');
+    });
+
+    it('WebViewMethods are safe on null elements (synchronous no-ops)', () => {
+        // No `el` available outside of main-thread handlers; the helpers
+        // accept null so call sites can pass `ref.current` straight through
+        // without a guard. Verifying the no-op shape doesn't throw and
+        // returns the documented defaults for the async ones.
+        expect(() => WebViewMethods.goBack(null)).not.toThrow();
+        expect(() => WebViewMethods.goForward(null)).not.toThrow();
+        expect(() => WebViewMethods.reload(null)).not.toThrow();
+        expect(() => WebViewMethods.stopLoading(null)).not.toThrow();
+        expect(() => WebViewMethods.postMessage(null, 'hi')).not.toThrow();
+        return Promise.all([
+            WebViewMethods.canGoBack(null).then((v) => expect(v).toBe(false)),
+            WebViewMethods.canGoForward(null).then((v) => expect(v).toBe(false)),
+            WebViewMethods.injectJavaScript(null, 'x').then((v) => expect(v).toBe('')),
+        ]);
     });
 
     it('declares <sigx-webview> on the global JSX namespace', () => {

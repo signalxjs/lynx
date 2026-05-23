@@ -24,7 +24,6 @@ import { FaBrandIcon, FaSolidIcon } from '@sigx/lynx-icons-fa-free/components';
 import { LucideIcon } from '@sigx/lynx-icons-lucide/components';
 import { Notifications, type NotificationResponse, type RemoteMessage } from '@sigx/lynx-notifications';
 import { Background } from '@sigx/lynx-background';
-import { WebView } from '@sigx/lynx-webview';
 import { clearAllTrips, trips } from '../store/trips.js';
 
 export const Settings = component(() => {
@@ -142,21 +141,6 @@ export const Settings = component(() => {
         clearAllTrips();
         confirmOpen.value = false;
     };
-
-    // ── WebView demo state ──────────────────────────────────────────────────
-    const webMode = signal<'url' | 'html'>('url');
-    const webMessage = signal<string | null>(null);
-    const inlineHtml = `<!doctype html>
-<html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>
-body{font:16px -apple-system,Roboto,sans-serif;margin:24px;color:#111}
-button{font:inherit;padding:10px 14px;border:0;border-radius:8px;background:#0066ff;color:#fff}
-</style></head><body>
-<h2>Inline HTML</h2>
-<p>This page is rendered from the <code>html</code> prop — no network.</p>
-<button onclick="window.sigx.postMessage(JSON.stringify({click:'hi',at:Date.now()}))">
-  postMessage to host
-</button>
-</body></html>`;
 
     const pickTheme = (name: DaisyTheme) => {
         Haptics.selection();
@@ -399,66 +383,6 @@ button{font:inherit;padding:10px 14px;border:0;border-radius:8px;background:#006
                                 registered: {bgRegistered.length ? bgRegistered.join(', ') : '—'}{'\n'}
                                 last fire: {bgLastFire.value ?? '—'}{'\n'}
                                 last title: {bgFeedTitle.value ?? '—'}
-                            </Text>
-                        </Col>
-                    </Card.Body>
-                </Card>
-
-                <Card bordered>
-                    <Card.Body>
-                        <Col gap={8}>
-                            <Text weight="semibold">Native WebView</Text>
-                            <Text class="opacity-60 text-sm">
-                                WKWebView (iOS) / android.webkit.WebView (Android).
-                                First sigx-lynx package using the new component
-                                autolink path — `signalx-module.json` declares
-                                `ios.uiComponents` + `android.behaviors`, prebuild
-                                emits the registry/attacher.
-                            </Text>
-                            <Row gap={8} align="center">
-                                <Button
-                                    size="sm"
-                                    variant={webMode.value === 'url' ? 'primary' : 'ghost'}
-                                    outline={webMode.value !== 'url'}
-                                    onPress={() => {
-                                        Haptics.selection();
-                                        webMessage.value = null;
-                                        webMode.value = 'url';
-                                    }}
-                                >
-                                    URL
-                                </Button>
-                                <Button
-                                    size="sm"
-                                    variant={webMode.value === 'html' ? 'primary' : 'ghost'}
-                                    outline={webMode.value !== 'html'}
-                                    onPress={() => {
-                                        Haptics.selection();
-                                        webMessage.value = null;
-                                        webMode.value = 'html';
-                                    }}
-                                >
-                                    Inline HTML
-                                </Button>
-                            </Row>
-                            <view class="bg-base-200 rounded-lg" style={{ height: '280px', overflow: 'hidden' }}>
-                                {webMode.value === 'url' ? (
-                                    <WebView
-                                        src="https://example.com"
-                                        style={{ width: '100%', height: '100%' }}
-                                        onLoad={(e) => console.log('webview loaded', e.detail.url)}
-                                        onError={(e) => console.warn('webview failed', e.detail.message)}
-                                    />
-                                ) : (
-                                    <WebView
-                                        html={inlineHtml}
-                                        style={{ width: '100%', height: '100%' }}
-                                        onMessage={(e) => { webMessage.value = e.detail.data; }}
-                                    />
-                                )}
-                            </view>
-                            <Text class="font-mono text-sm opacity-70">
-                                last postMessage: {webMessage.value ?? '—'}
                             </Text>
                         </Col>
                     </Card.Body>

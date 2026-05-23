@@ -120,6 +120,15 @@ export const TripDetail = component(() => {
                     <Screen.HeaderRight>
                         <Row gap={4} align="center">
                             <view
+                                bindtap={() => nav.push('tripGuide', { tripId })}
+                                class="px-3 py-2"
+                                accessibility-element={true}
+                                accessibility-label="Open Wikivoyage guide for this destination"
+                                accessibility-trait="button"
+                            >
+                                <text class="text-primary text-base">Guide</text>
+                            </view>
+                            <view
                                 bindtap={share}
                                 class="px-3 py-2"
                                 accessibility-element={true}

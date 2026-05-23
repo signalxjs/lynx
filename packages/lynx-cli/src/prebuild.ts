@@ -16,7 +16,7 @@ import { createRequire } from 'node:module';
 import { resolveConfig, modulesForPlatform, resolveAssets } from './config/index.js';
 import { writeFileIfChanged, copyFileIfChanged } from './util/idempotent-write.js';
 import {
-    combineHash, getCliVersion,
+    combineHash, getCliVersion, walkFiles,
     readCachedFingerprint, writeCachedFingerprint,
 } from './util/build-fingerprint.js';
 import {
@@ -1410,14 +1410,23 @@ export function cleanPrebuild(cwd: string, config: ResolvedConfig, full: boolean
 /**
  * Hash of everything that drives prebuild's output: the user config files,
  * the project's resolved `signalx-module.json` set (from node_modules), the
- * CLI version, and which platforms we're building. Used to short-circuit
+ * contents of each module's `ios.sourceDir` / `android.sourceDir` (because
+ * prebuild copies those files into the consumer's native trees), the CLI
+ * version, and which platforms we're building. Used to short-circuit
  * runPrebuild when nothing it cares about has changed since the last run.
  *
- * Notably does NOT hash any files under `android/` or `ios/` — those are
- * outputs, not inputs. User edits to native source files are preserved
- * either way (prebuild only touches managed files via writeFileIfChanged).
+ * Notably does NOT hash any files under the consumer's `android/` or `ios/`
+ * — those are outputs, not inputs. User edits to native source files are
+ * preserved either way (prebuild only touches managed files via
+ * writeFileIfChanged).
+ *
+ * Bug to avoid: a workspace package's `.swift` / `.kt` may change without
+ * the manifest changing (e.g. a new prop setter, a new imperative method,
+ * a bug-fix in an existing class). If we only hash the manifest, the
+ * fast-path skips and the consumer keeps using a stale generated registry
+ * + stale copies of the package's native files.
  */
-function fingerprintPrebuildInputs(cwd: string, platforms: { android: boolean; ios: boolean }): string {
+export function fingerprintPrebuildInputs(cwd: string, platforms: { android: boolean; ios: boolean }): string {
     const files: string[] = [];
 
     for (const name of ['signalx.config.ts', 'signalx.config.js', 'signalx.config.mjs', 'lynx.config.ts', 'lynx.config.js', 'lynx.config.mjs']) {
@@ -1438,10 +1447,45 @@ function fingerprintPrebuildInputs(cwd: string, platforms: { android: boolean; i
         ...Object.keys(pkgJson.devDependencies ?? {}),
     ]);
     for (const pkg of [...candidates].sort()) {
-        try { files.push(req.resolve(`${pkg}/signalx-module.json`)); } catch { /* not a sigx module */ }
+        let manifestPath: string;
+        try { manifestPath = req.resolve(`${pkg}/signalx-module.json`); }
+        catch { continue; } // not a sigx module
+        files.push(manifestPath);
+
+        // Also fold every file under the package's declared sourceDir into
+        // the fingerprint. autolink + copy{Android,Ios}ModuleSources lift
+        // those files into the consumer's native tree on every prebuild —
+        // when the fast-path skips, the copies don't happen, and a stale
+        // `.swift` / `.kt` from a previous run is what lands in the .app.
+        // The manifest alone doesn't catch this (it rarely changes when
+        // prop setters / UI methods are added or tweaked).
+        try {
+            const manifest = JSON.parse(readFileSync(manifestPath, 'utf-8')) as {
+                ios?: { sourceDir?: string };
+                android?: { sourceDir?: string };
+            };
+            const pkgDir = dirname(manifestPath);
+            for (const sourceDir of [manifest?.ios?.sourceDir, manifest?.android?.sourceDir]) {
+                if (typeof sourceDir !== 'string' || sourceDir.length === 0) continue;
+                for (const f of walkFiles(join(pkgDir, sourceDir))) {
+                    files.push(f);
+                }
+            }
+        } catch {
+            // Malformed manifest — let validateManifest catch it later in
+            // the slow path. Don't taint the fingerprint with a partial
+            // failure here.
+        }
     }
 
     return combineHash(files.sort(), {
+        // Bump this when the set of *inputs* the fingerprint considers
+        // changes (added sourceDir walking, added a new file the prebuild
+        // depends on, etc.) — without a bump, users who pulled the fix
+        // but kept the old cache file would keep hitting the fast-path
+        // until something else happened to invalidate the hash.
+        // v2: include each module's ios/android.sourceDir contents.
+        fingerprintFormat: 'v2',
         cliVersion: getCliVersion(),
         platforms: `android=${platforms.android};ios=${platforms.ios}`,
     });
