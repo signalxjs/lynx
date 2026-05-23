@@ -20,7 +20,13 @@ import Lynx
 ///
 /// Imperative methods (goBack / reload / postMessage from JS / injectJavaScript)
 /// are tracked as a v2 follow-up — they need the Lynx UIMethodInvoker surface.
-@objc public class SigxWebViewUI: LynxUI<WKWebView> {
+// Class is NOT marked `@objc` — Swift forbids that on generic subclasses
+// (`LynxUI<__covariant V>` is an ObjC lightweight generic, so this is one).
+// Member-level `@objc` / `@objc(name)` annotations still bridge because
+// `LynxUI` itself is `@objc`, so the inherited ObjC machinery picks up
+// `__lynx_prop_config__*` and `__lynx_ui_method_config__*` class methods
+// as expected by `LynxPropsProcessor` / `LynxUIMethodProcessor`.
+public class SigxWebViewUI: LynxUI<WKWebView> {
 
     /// `WKUserContentController` handler name. On the page side this is
     /// reached via `window.webkit.messageHandlers.sigxBridge.postMessage(...)`
@@ -32,7 +38,6 @@ import Lynx
 
     private lazy var navigationDelegate = SigxWebViewNavigationDelegate(owner: self)
     private lazy var scriptMessageHandler = SigxWebViewScriptMessageHandler(owner: self)
-    private var pendingUserAgent: String?
 
     // MARK: - LynxUI overrides
 
@@ -49,10 +54,6 @@ import Lynx
 
         let webView = WKWebView(frame: .zero, configuration: config)
         webView.navigationDelegate = navigationDelegate
-        if let ua = pendingUserAgent {
-            webView.customUserAgent = ua
-            pendingUserAgent = nil
-        }
         return webView
     }
 
@@ -70,7 +71,7 @@ import Lynx
             NSLog("[SigxWebView] Rejected src with unsupported scheme: \(raw.prefix(32))")
             return
         }
-        view.load(URLRequest(url: url))
+        view().load(URLRequest(url: url))
     }
 
     @objc(__lynx_prop_config__src)
@@ -93,7 +94,7 @@ import Lynx
 
     @objc public func setHtml(_ value: NSString?, requestReset: Bool) {
         guard let raw = value as String? else { return }
-        view.loadHTMLString(raw, baseURL: nil)
+        view().loadHTMLString(raw, baseURL: nil)
     }
 
     @objc(__lynx_prop_config__html)
@@ -102,13 +103,12 @@ import Lynx
     }
 
     @objc public func setUserAgent(_ value: NSString?, requestReset: Bool) {
+        // `view()` is lazily built — calling it from a prop setter is safe
+        // because LynxUI has already created the underlying view by the
+        // time the runtime hands us prop values. No "view not built yet"
+        // branch needed.
         let ua = (value as String?) ?? ""
-        if let webView = view as WKWebView? {
-            webView.customUserAgent = ua.isEmpty ? nil : ua
-        } else {
-            // View not built yet — stash for createView().
-            pendingUserAgent = ua.isEmpty ? nil : ua
-        }
+        view().customUserAgent = ua.isEmpty ? nil : ua
     }
 
     @objc(__lynx_prop_config__user_agent)
@@ -121,7 +121,7 @@ import Lynx
         // older iOS, the WebKit-private `developerExtrasEnabled` preference is
         // gated behind App-Store-reject risk; we only flip the public flag.
         if #available(iOS 16.4, *) {
-            view.isInspectable = value
+            view().isInspectable = value
         }
     }
 
@@ -149,7 +149,7 @@ import Lynx
 
     @objc public func goBack(_ params: NSDictionary?, withResult callback: @escaping LynxUIMethodCallbackBlock) {
         DispatchQueue.main.async {
-            if self.view.canGoBack { self.view.goBack() }
+            if self.view().canGoBack { self.view().goBack() }
             callback(SigxWebViewUI.kUIMethodSuccess, nil)
         }
     }
@@ -158,7 +158,7 @@ import Lynx
 
     @objc public func goForward(_ params: NSDictionary?, withResult callback: @escaping LynxUIMethodCallbackBlock) {
         DispatchQueue.main.async {
-            if self.view.canGoForward { self.view.goForward() }
+            if self.view().canGoForward { self.view().goForward() }
             callback(SigxWebViewUI.kUIMethodSuccess, nil)
         }
     }
@@ -167,7 +167,7 @@ import Lynx
 
     @objc public func reload(_ params: NSDictionary?, withResult callback: @escaping LynxUIMethodCallbackBlock) {
         DispatchQueue.main.async {
-            self.view.reload()
+            self.view().reload()
             callback(SigxWebViewUI.kUIMethodSuccess, nil)
         }
     }
@@ -176,7 +176,7 @@ import Lynx
 
     @objc public func stopLoading(_ params: NSDictionary?, withResult callback: @escaping LynxUIMethodCallbackBlock) {
         DispatchQueue.main.async {
-            self.view.stopLoading()
+            self.view().stopLoading()
             callback(SigxWebViewUI.kUIMethodSuccess, nil)
         }
     }
@@ -185,7 +185,7 @@ import Lynx
 
     @objc public func canGoBack(_ params: NSDictionary?, withResult callback: @escaping LynxUIMethodCallbackBlock) {
         DispatchQueue.main.async {
-            callback(SigxWebViewUI.kUIMethodSuccess, ["value": self.view.canGoBack])
+            callback(SigxWebViewUI.kUIMethodSuccess, ["value": self.view().canGoBack])
         }
     }
     @objc(__lynx_ui_method_config__canGoBack)
@@ -193,7 +193,7 @@ import Lynx
 
     @objc public func canGoForward(_ params: NSDictionary?, withResult callback: @escaping LynxUIMethodCallbackBlock) {
         DispatchQueue.main.async {
-            callback(SigxWebViewUI.kUIMethodSuccess, ["value": self.view.canGoForward])
+            callback(SigxWebViewUI.kUIMethodSuccess, ["value": self.view().canGoForward])
         }
     }
     @objc(__lynx_ui_method_config__canGoForward)
@@ -210,7 +210,7 @@ import Lynx
             return
         }
         DispatchQueue.main.async {
-            self.view.evaluateJavaScript(code) { result, error in
+            self.view().evaluateJavaScript(code) { result, error in
                 if let error = error {
                     callback(SigxWebViewUI.kUIMethodUnknown, error.localizedDescription)
                     return
@@ -243,7 +243,7 @@ import Lynx
         let jsLiteral = String(arrayLiteral.dropFirst().dropLast())
         let js = "window.sigxBridge && window.sigxBridge.dispatchMessage && window.sigxBridge.dispatchMessage(\(jsLiteral));"
         DispatchQueue.main.async {
-            self.view.evaluateJavaScript(js) { _, error in
+            self.view().evaluateJavaScript(js) { _, error in
                 if let error = error {
                     callback(SigxWebViewUI.kUIMethodUnknown, error.localizedDescription)
                 } else {
@@ -261,7 +261,10 @@ import Lynx
     /// see `event.detail` carrying the params.
     fileprivate func fireEvent(_ name: String, params: [String: Any]) {
         let event = LynxCustomEvent(name: name, targetSign: sign, params: params)
-        context?.eventEmitter?.sendCustomEvent(event)
+        // Swift renames the ObjC `sendCustomEvent:` selector to `send(_:)`
+        // when LynxCustomEvent is the parameter type — both ObjC and Swift
+        // call the same underlying method.
+        context?.eventEmitter?.send(event)
     }
 
     /// User-script injected at `documentStart` on every frame. Forwards
