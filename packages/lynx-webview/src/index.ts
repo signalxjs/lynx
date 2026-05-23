@@ -1,7 +1,7 @@
 import './jsx-augment.js';
 
-export { WebView } from './WebView.js';
-export type { WebViewProps } from './WebView.js';
+export { WebView, WebViewMethods } from './WebView.js';
+export type { WebViewProps, WebViewRef } from './WebView.js';
 export type {
     SigxWebViewAttributes,
     WebViewLoadEvent,

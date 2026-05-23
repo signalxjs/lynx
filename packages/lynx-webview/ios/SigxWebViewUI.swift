@@ -130,6 +130,131 @@ import Lynx
         return ["enable-debug", "setEnableDebug:requestReset:", "BOOL"]
     }
 
+    // MARK: - Imperative methods
+    //
+    // Each method is declared the same way as v1's prop setters: a Swift
+    // instance method matching the macro-generated `<name>:withResult:`
+    // signature plus a `@objc(__lynx_ui_method_config__<name>)` class method
+    // returning the method name as an NSString. Lynx's
+    // `LynxUIMethodProcessor` introspects every class method whose selector
+    // begins with `__lynx_ui_method_config__` to build its dispatch table
+    // (see `Pods/Lynx/.../LynxUIMethodProcessor.h`).
+    //
+    // Status codes: `kUIMethodSuccess = 0`, `kUIMethodUnknown = 1`. Defined
+    // as raw Int32 here so we don't have to import the C enum — the values
+    // are stable across Lynx 3.x.
+
+    private static let kUIMethodSuccess: Int32 = 0
+    private static let kUIMethodUnknown: Int32 = 1
+
+    @objc public func goBack(_ params: NSDictionary?, withResult callback: @escaping LynxUIMethodCallbackBlock) {
+        DispatchQueue.main.async {
+            if self.view.canGoBack { self.view.goBack() }
+            callback(SigxWebViewUI.kUIMethodSuccess, nil)
+        }
+    }
+    @objc(__lynx_ui_method_config__goBack)
+    public class func __lynxUIMethodConfigGoBack() -> NSString { return "goBack" }
+
+    @objc public func goForward(_ params: NSDictionary?, withResult callback: @escaping LynxUIMethodCallbackBlock) {
+        DispatchQueue.main.async {
+            if self.view.canGoForward { self.view.goForward() }
+            callback(SigxWebViewUI.kUIMethodSuccess, nil)
+        }
+    }
+    @objc(__lynx_ui_method_config__goForward)
+    public class func __lynxUIMethodConfigGoForward() -> NSString { return "goForward" }
+
+    @objc public func reload(_ params: NSDictionary?, withResult callback: @escaping LynxUIMethodCallbackBlock) {
+        DispatchQueue.main.async {
+            self.view.reload()
+            callback(SigxWebViewUI.kUIMethodSuccess, nil)
+        }
+    }
+    @objc(__lynx_ui_method_config__reload)
+    public class func __lynxUIMethodConfigReload() -> NSString { return "reload" }
+
+    @objc public func stopLoading(_ params: NSDictionary?, withResult callback: @escaping LynxUIMethodCallbackBlock) {
+        DispatchQueue.main.async {
+            self.view.stopLoading()
+            callback(SigxWebViewUI.kUIMethodSuccess, nil)
+        }
+    }
+    @objc(__lynx_ui_method_config__stopLoading)
+    public class func __lynxUIMethodConfigStopLoading() -> NSString { return "stopLoading" }
+
+    @objc public func canGoBack(_ params: NSDictionary?, withResult callback: @escaping LynxUIMethodCallbackBlock) {
+        DispatchQueue.main.async {
+            callback(SigxWebViewUI.kUIMethodSuccess, ["value": self.view.canGoBack])
+        }
+    }
+    @objc(__lynx_ui_method_config__canGoBack)
+    public class func __lynxUIMethodConfigCanGoBack() -> NSString { return "canGoBack" }
+
+    @objc public func canGoForward(_ params: NSDictionary?, withResult callback: @escaping LynxUIMethodCallbackBlock) {
+        DispatchQueue.main.async {
+            callback(SigxWebViewUI.kUIMethodSuccess, ["value": self.view.canGoForward])
+        }
+    }
+    @objc(__lynx_ui_method_config__canGoForward)
+    public class func __lynxUIMethodConfigCanGoForward() -> NSString { return "canGoForward" }
+
+    /// Evaluate arbitrary JS in the page and return the last-expression
+    /// value. Results are stringified — JS code that returns a non-string
+    /// (number, dict, undefined) lands as its `String(describing:)` form so
+    /// the wire shape stays predictable.
+    @objc public func injectJavaScript(_ params: NSDictionary?, withResult callback: @escaping LynxUIMethodCallbackBlock) {
+        let code = (params?["code"] as? String) ?? ""
+        if code.isEmpty {
+            callback(SigxWebViewUI.kUIMethodUnknown, "injectJavaScript: missing `code` param")
+            return
+        }
+        DispatchQueue.main.async {
+            self.view.evaluateJavaScript(code) { result, error in
+                if let error = error {
+                    callback(SigxWebViewUI.kUIMethodUnknown, error.localizedDescription)
+                    return
+                }
+                let str: String
+                if let r = result { str = "\(r)" } else { str = "" }
+                callback(SigxWebViewUI.kUIMethodSuccess, ["result": str])
+            }
+        }
+    }
+    @objc(__lynx_ui_method_config__injectJavaScript)
+    public class func __lynxUIMethodConfigInjectJavaScript() -> NSString { return "injectJavaScript" }
+
+    /// Host → page message. The user-script (`bridgeUserScript`) injects a
+    /// `window.sigxBridge.dispatchMessage(data)` helper that no-ops when the
+    /// page hasn't subscribed via `window.sigx.onmessage = …`. We pass the
+    /// payload through `JSON.stringify` on the host side so embedded quotes
+    /// don't break the eval'd JS literal.
+    @objc public func postMessage(_ params: NSDictionary?, withResult callback: @escaping LynxUIMethodCallbackBlock) {
+        let data = (params?["data"] as? String) ?? ""
+        // Encode as JSON string literal so any quotes / newlines in the
+        // payload survive the round-trip into the JS source.
+        guard let payloadData = try? JSONSerialization.data(withJSONObject: [data], options: []),
+              let arrayLiteral = String(data: payloadData, encoding: .utf8),
+              arrayLiteral.count >= 2 else {
+            callback(SigxWebViewUI.kUIMethodUnknown, "postMessage: failed to encode payload")
+            return
+        }
+        // Slice off the array brackets to extract just the quoted-string form.
+        let jsLiteral = String(arrayLiteral.dropFirst().dropLast())
+        let js = "window.sigxBridge && window.sigxBridge.dispatchMessage && window.sigxBridge.dispatchMessage(\(jsLiteral));"
+        DispatchQueue.main.async {
+            self.view.evaluateJavaScript(js) { _, error in
+                if let error = error {
+                    callback(SigxWebViewUI.kUIMethodUnknown, error.localizedDescription)
+                } else {
+                    callback(SigxWebViewUI.kUIMethodSuccess, nil)
+                }
+            }
+        }
+    }
+    @objc(__lynx_ui_method_config__postMessage)
+    public class func __lynxUIMethodConfigPostMessage() -> NSString { return "postMessage" }
+
     // MARK: - Event firing
 
     /// Dispatch a `bind<name>` custom event with the given detail. JS handlers
@@ -141,18 +266,30 @@ import Lynx
 
     /// User-script injected at `documentStart` on every frame. Forwards
     /// `window.sigx.postMessage(json)` calls to the native script-message
-    /// handler. The native side parses + dispatches as `bindmessage`.
+    /// handler (page → host direction). Also exposes
+    /// `window.sigxBridge.dispatchMessage` — the host calls this via
+    /// `evaluateJavaScript` to deliver host → page messages, which forwards
+    /// to whatever handler the page registered as `window.sigx.onmessage`.
     private static let bridgeUserScript: String = """
     (function() {
-        if (window.sigx && window.sigx.postMessage) return;
+        var bridgeNs = window.sigxBridge = window.sigxBridge || {};
         var raw = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.sigxBridge;
-        if (!raw) return;
         var post = function(payload) {
+            if (!raw) return;
             try { raw.postMessage(typeof payload === 'string' ? payload : JSON.stringify(payload)); }
-            catch (e) { /* swallowed; raw.postMessage already serialised the error */ }
+            catch (e) { /* raw.postMessage already serialised the error */ }
+        };
+        // Host → page delivery slot. No-op if the page hasn't subscribed,
+        // and any handler exception is swallowed so a bad page can't break
+        // the bridge.
+        bridgeNs.dispatchMessage = function(payload) {
+            try {
+                var fn = window.sigx && window.sigx.onmessage;
+                if (typeof fn === 'function') fn(payload);
+            } catch (e) { /* swallowed */ }
         };
         window.sigx = window.sigx || {};
-        window.sigx.postMessage = post;
+        if (!window.sigx.postMessage) window.sigx.postMessage = post;
     })();
     """
 }

@@ -3,14 +3,22 @@ package com.sigx.webview
 import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Bitmap
+import android.os.Handler
+import android.os.Looper
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import com.lynx.react.bridge.Callback
+import com.lynx.react.bridge.JavaOnlyMap
+import com.lynx.react.bridge.ReadableMap
 import com.lynx.tasm.behavior.LynxContext
 import com.lynx.tasm.behavior.LynxProp
+import com.lynx.tasm.behavior.LynxUIMethod
+import com.lynx.tasm.behavior.LynxUIMethodConstants
 import com.lynx.tasm.behavior.ui.LynxUI
 import com.lynx.tasm.event.LynxDetailEvent
+import org.json.JSONArray
 
 /**
  * Native UI for the `<sigx-webview>` JSX element on Android.
@@ -37,17 +45,30 @@ class SigxWebViewUI(context: LynxContext) : LynxUI<WebView>(context) {
          * Injected at `WebViewClient.onPageStarted` so it survives navigations.
          * Aliases `window.sigx.postMessage` to the `addJavascriptInterface`
          * bridge so authors get the same `window.sigx.postMessage('hi')` shape
-         * as iOS.
+         * as iOS. Also exposes `window.sigxBridge.dispatchMessage` — the host
+         * calls this from `evaluateJavascript` to deliver host → page
+         * messages, which forwards to whatever the page registered as
+         * `window.sigx.onmessage`.
          */
         private val bridgeUserScript = """
             (function() {
-                if (window.sigx && window.sigx.postMessage) return;
                 var bridge = window.${BRIDGE_NAME};
                 if (!bridge) return;
                 window.sigx = window.sigx || {};
-                window.sigx.postMessage = function(payload) {
-                    try { bridge.postMessage(typeof payload === 'string' ? payload : JSON.stringify(payload)); }
-                    catch (e) { /* swallowed */ }
+                if (!window.sigx.postMessage) {
+                    window.sigx.postMessage = function(payload) {
+                        try { bridge.postMessage(typeof payload === 'string' ? payload : JSON.stringify(payload)); }
+                        catch (e) { /* swallowed */ }
+                    };
+                }
+                // Host → page delivery slot. No-op until the page subscribes
+                // by setting window.sigx.onmessage; handler exceptions are
+                // swallowed so a bad page can't break the bridge.
+                bridge.dispatchMessage = function(payload) {
+                    try {
+                        var fn = window.sigx && window.sigx.onmessage;
+                        if (typeof fn === 'function') fn(payload);
+                    } catch (e) { /* swallowed */ }
                 };
             })();
         """.trimIndent()
@@ -148,6 +169,122 @@ class SigxWebViewUI(context: LynxContext) : LynxUI<WebView>(context) {
         // per-instance. Once enabled by any WebView, chrome://inspect picks it
         // up. Disabling is a no-op for already-attached debuggers.
         WebView.setWebContentsDebuggingEnabled(value)
+    }
+
+    // ── Imperative methods ───────────────────────────────────────────────
+    //
+    // Each `@LynxUIMethod` block is discovered by Lynx's annotation processor
+    // (`com.lynx.tasm.behavior.LynxUIMethodsProcessor`) and routed via
+    // `__InvokeUIMethod`. Status codes come from `LynxUIMethodConstants`:
+    // `SUCCESS = 0`, `UNKNOWN = 1`. WebView methods MUST run on the UI
+    // thread — Lynx's invoke dispatch is already main-thread on Android but
+    // we hop explicitly to keep this readable.
+
+    private val mainHandler = Handler(Looper.getMainLooper())
+
+    @LynxUIMethod
+    fun goBack(params: ReadableMap?, callback: Callback?) {
+        mainHandler.post {
+            if (mView.canGoBack()) mView.goBack()
+            callback?.invoke(LynxUIMethodConstants.SUCCESS)
+        }
+    }
+
+    @LynxUIMethod
+    fun goForward(params: ReadableMap?, callback: Callback?) {
+        mainHandler.post {
+            if (mView.canGoForward()) mView.goForward()
+            callback?.invoke(LynxUIMethodConstants.SUCCESS)
+        }
+    }
+
+    @LynxUIMethod
+    fun reload(params: ReadableMap?, callback: Callback?) {
+        mainHandler.post {
+            mView.reload()
+            callback?.invoke(LynxUIMethodConstants.SUCCESS)
+        }
+    }
+
+    @LynxUIMethod
+    fun stopLoading(params: ReadableMap?, callback: Callback?) {
+        mainHandler.post {
+            mView.stopLoading()
+            callback?.invoke(LynxUIMethodConstants.SUCCESS)
+        }
+    }
+
+    @LynxUIMethod
+    fun canGoBack(params: ReadableMap?, callback: Callback?) {
+        mainHandler.post {
+            val result = JavaOnlyMap().apply { putBoolean("value", mView.canGoBack()) }
+            callback?.invoke(LynxUIMethodConstants.SUCCESS, result)
+        }
+    }
+
+    @LynxUIMethod
+    fun canGoForward(params: ReadableMap?, callback: Callback?) {
+        mainHandler.post {
+            val result = JavaOnlyMap().apply { putBoolean("value", mView.canGoForward()) }
+            callback?.invoke(LynxUIMethodConstants.SUCCESS, result)
+        }
+    }
+
+    /**
+     * Evaluate JS in the page; return the last-expression value, stringified.
+     * Non-string results (numbers, dicts, undefined) land as their
+     * `toString()` so the wire shape matches iOS exactly.
+     */
+    @LynxUIMethod
+    fun injectJavaScript(params: ReadableMap?, callback: Callback?) {
+        val code = params?.getString("code").orEmpty()
+        if (code.isEmpty()) {
+            callback?.invoke(LynxUIMethodConstants.UNKNOWN, "injectJavaScript: missing `code` param")
+            return
+        }
+        mainHandler.post {
+            mView.evaluateJavascript(code) { result ->
+                // Android wraps results in JSON-encoded quotes for strings;
+                // strip them for parity with iOS's plain string form.
+                val str = result?.let { stripJsonQuotes(it) } ?: ""
+                val payload = JavaOnlyMap().apply { putString("result", str) }
+                callback?.invoke(LynxUIMethodConstants.SUCCESS, payload)
+            }
+        }
+    }
+
+    /**
+     * Host → page message. The bridge user-script's `dispatchMessage` helper
+     * forwards to whatever handler the page registered as
+     * `window.sigx.onmessage`. JSON-encoding via `JSONArray` puts the
+     * payload through the same escape rules the engine uses, so embedded
+     * quotes / newlines round-trip cleanly into the JS source.
+     */
+    @LynxUIMethod
+    fun postMessage(params: ReadableMap?, callback: Callback?) {
+        val data = params?.getString("data").orEmpty()
+        val arrayLiteral = JSONArray().put(data).toString() // e.g. `["hi"]`
+        val jsLiteral = arrayLiteral.substring(1, arrayLiteral.length - 1)
+        val js = "window.sigxBridge && window.sigxBridge.dispatchMessage && window.sigxBridge.dispatchMessage($jsLiteral);"
+        mainHandler.post {
+            mView.evaluateJavascript(js) { _ ->
+                callback?.invoke(LynxUIMethodConstants.SUCCESS)
+            }
+        }
+    }
+
+    private fun stripJsonQuotes(raw: String): String {
+        if (raw.length >= 2 && raw.startsWith("\"") && raw.endsWith("\"")) {
+            // The simplest safe path — parse as a 1-element JSON array so
+            // escape sequences (`\\n`, `\\u00ff`, etc.) decode properly
+            // instead of leaking into the wire.
+            return try {
+                JSONArray("[$raw]").getString(0)
+            } catch (_: Throwable) {
+                raw.substring(1, raw.length - 1)
+            }
+        }
+        return raw
     }
 
     // ── Event firing ─────────────────────────────────────────────────────

@@ -1,10 +1,18 @@
-import { component, type Define } from '@sigx/lynx';
+import { component, type Define, type MainThread, type MainThreadRef } from '@sigx/lynx';
 import './jsx-augment.js';
 import type {
     WebViewErrorEvent,
     WebViewLoadEvent,
     WebViewMessageEvent,
 } from './jsx-augment.js';
+
+/**
+ * Ref shape consumers pass via `mtRef` to capture the underlying native
+ * element. The current element handle is `ref.current` inside main-thread
+ * event handlers — pass it through `WebViewMethods.*` for typed access to
+ * `goBack`, `reload`, `injectJavaScript`, etc.
+ */
+export type WebViewRef = MainThreadRef<MainThread.Element | null>;
 
 export type WebViewProps =
     & Define.Prop<'src', string, false>
@@ -13,6 +21,7 @@ export type WebViewProps =
     & Define.Prop<'debug', boolean, false>
     & Define.Prop<'class', string, false>
     & Define.Prop<'style', string | Record<string, string | number>, false>
+    & Define.Prop<'mtRef', WebViewRef, false>
     & Define.Prop<'onLoad', (e: WebViewLoadEvent) => void, false>
     & Define.Prop<'onError', (e: WebViewErrorEvent) => void, false>
     & Define.Prop<'onMessage', (e: WebViewMessageEvent) => void, false>;
@@ -21,23 +30,24 @@ export type WebViewProps =
  * Native WebView component.
  *
  * On iOS this wraps a `WKWebView`; on Android, `android.webkit.WebView`.
- * Communication from the page to your app happens via
- * `window.sigx.postMessage(payload)` inside the page — payload is delivered
- * as a string in `event.detail.data` to `onMessage`.
+ *
+ * - Page → host: `window.sigx.postMessage(payload)` inside the page surfaces
+ *   on `onMessage` as `event.detail.data` (always a string).
+ * - Host → page: pass `mtRef` and call `WebViewMethods.postMessage(ref.current, data)`
+ *   from a main-thread event handler. The page subscribes by setting
+ *   `window.sigx.onmessage = (data) => { … }`.
  *
  * @example
  * ```tsx
- * <WebView
- *   src="https://example.com"
- *   onLoad={(e) => console.log('loaded', e.detail.url)}
- *   onError={(e) => console.warn('failed', e.detail.message)}
- *   onMessage={(e) => console.log('page said', e.detail.data)}
- * />
- * ```
+ * import { useMainThreadRef, type MainThread } from '@sigx/lynx';
+ * import { WebView, WebViewMethods } from '@sigx/lynx-webview';
  *
- * @remarks
- * Imperative methods (`goBack`, `goForward`, `reload`, `postMessage` to the
- * page, `injectJavaScript`) are not yet implemented — see the package README.
+ * const ref = useMainThreadRef<MainThread.Element | null>(null);
+ * const onBack = () => { 'main thread'; WebViewMethods.goBack(ref.current); };
+ *
+ * <WebView mtRef={ref} src="https://example.com" />
+ * <Button onPress={onBack}>Back</Button>
+ * ```
  */
 export const WebView = component<WebViewProps>(({ props }) => {
     return () => (
@@ -48,9 +58,63 @@ export const WebView = component<WebViewProps>(({ props }) => {
             enable-debug={props.debug}
             class={props.class}
             style={props.style}
+            main-thread:ref={props.mtRef}
             bindload={props.onLoad}
             binderror={props.onError}
             bindmessage={props.onMessage}
         />
     );
 });
+
+/**
+ * Typed wrappers around `MainThread.Element.invoke(method, params)` for each
+ * v2 imperative method. Lives outside the component so it's directly callable
+ * from any main-thread handler without dragging the component closure in.
+ *
+ * All methods accept `el | null` so call sites can pass `ref.current` directly
+ * without nesting an `if`. When `el` is null the call is a no-op (returns
+ * `void` synchronously or `Promise<void>`/default value asynchronously).
+ *
+ * Method semantics mirror the iOS / Android native implementations:
+ *
+ *   - `goBack` / `goForward` are no-ops when there's no history.
+ *   - `reload` always succeeds even on the current document.
+ *   - `canGoBack` / `canGoForward` resolve with `false` if the element is
+ *     gone.
+ *   - `injectJavaScript` returns the last-expression value stringified.
+ *     `null` / `undefined` results land as `""`.
+ *   - `postMessage` delivers to `window.sigx.onmessage(data)` inside the
+ *     page; pages that haven't subscribed get a silent no-op.
+ */
+export const WebViewMethods = {
+    goBack(el: MainThread.Element | null): void {
+        el?.invoke('goBack', {});
+    },
+    goForward(el: MainThread.Element | null): void {
+        el?.invoke('goForward', {});
+    },
+    reload(el: MainThread.Element | null): void {
+        el?.invoke('reload', {});
+    },
+    stopLoading(el: MainThread.Element | null): void {
+        el?.invoke('stopLoading', {});
+    },
+    async canGoBack(el: MainThread.Element | null): Promise<boolean> {
+        if (!el) return false;
+        const r = await el.invoke('canGoBack', {}) as { value?: boolean } | undefined;
+        return r?.value ?? false;
+    },
+    async canGoForward(el: MainThread.Element | null): Promise<boolean> {
+        if (!el) return false;
+        const r = await el.invoke('canGoForward', {}) as { value?: boolean } | undefined;
+        return r?.value ?? false;
+    },
+    async injectJavaScript(el: MainThread.Element | null, code: string): Promise<string> {
+        if (!el) return '';
+        const r = await el.invoke('injectJavaScript', { code }) as { result?: string } | undefined;
+        return r?.result ?? '';
+    },
+    postMessage(el: MainThread.Element | null, data: string): void {
+        el?.invoke('postMessage', { data });
+    },
+} as const;

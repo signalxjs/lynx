@@ -1,4 +1,4 @@
-import { component, onMounted, onUnmounted, signal, useElementLayout } from '@sigx/lynx';
+import { component, onMounted, onUnmounted, signal, useElementLayout, useMainThreadRef, type MainThread } from '@sigx/lynx';
 import { Screen } from '@sigx/lynx-navigation';
 import {
     Button,
@@ -23,7 +23,7 @@ import { Haptics } from '@sigx/lynx-haptics';
 import { FaBrandIcon, FaSolidIcon } from '@sigx/lynx-icons-fa-free/components';
 import { LucideIcon } from '@sigx/lynx-icons-lucide/components';
 import { Notifications, type NotificationResponse, type RemoteMessage } from '@sigx/lynx-notifications';
-import { WebView } from '@sigx/lynx-webview';
+import { WebView, WebViewMethods } from '@sigx/lynx-webview';
 import { clearAllTrips, trips } from '../store/trips.js';
 
 export const Settings = component(() => {
@@ -106,16 +106,32 @@ export const Settings = component(() => {
     // ── WebView demo state ──────────────────────────────────────────────────
     const webMode = signal<'url' | 'html'>('url');
     const webMessage = signal<string | null>(null);
+    const webEvalResult = signal<string | null>(null);
+    // Single ref; Lynx rebinds `.current` when the WebView remounts on mode flip.
+    const webRef = useMainThreadRef<MainThread.Element | null>(null);
+    // Inline HTML also wires `window.sigx.onmessage` so host→page postMessage
+    // updates the on-page status line. Exercises the new bidirectional bridge
+    // added in WebView v2.
     const inlineHtml = `<!doctype html>
 <html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>
 body{font:16px -apple-system,Roboto,sans-serif;margin:24px;color:#111}
 button{font:inherit;padding:10px 14px;border:0;border-radius:8px;background:#0066ff;color:#fff}
+#from-host{margin-top:14px;padding:10px;background:#eef;border-radius:6px;font-family:ui-monospace,monospace;font-size:13px;color:#225}
 </style></head><body>
 <h2>Inline HTML</h2>
-<p>This page is rendered from the <code>html</code> prop — no network.</p>
+<p>Rendered from the <code>html</code> prop — no network. Tap the button to
+fire <code>window.sigx.postMessage</code> back to the host.</p>
 <button onclick="window.sigx.postMessage(JSON.stringify({click:'hi',at:Date.now()}))">
   postMessage to host
 </button>
+<div id="from-host">from host: (none yet)</div>
+<script>
+  // Host calls WebViewMethods.postMessage(ref.current, ...) — payload lands here.
+  window.sigx.onmessage = function(data) {
+    var el = document.getElementById('from-host');
+    if (el) el.textContent = 'from host: ' + data;
+  };
+</script>
 </body></html>`;
 
     const pickTheme = (name: DaisyTheme) => {
@@ -373,6 +389,7 @@ button{font:inherit;padding:10px 14px;border:0;border-radius:8px;background:#006
                             <view class="bg-base-200 rounded-lg" style={{ height: '280px', overflow: 'hidden' }}>
                                 {webMode.value === 'url' ? (
                                     <WebView
+                                        mtRef={webRef}
                                         src="https://example.com"
                                         style={{ width: '100%', height: '100%' }}
                                         onLoad={(e) => console.log('webview loaded', e.detail.url)}
@@ -380,14 +397,66 @@ button{font:inherit;padding:10px 14px;border:0;border-radius:8px;background:#006
                                     />
                                 ) : (
                                     <WebView
+                                        mtRef={webRef}
                                         html={inlineHtml}
                                         style={{ width: '100%', height: '100%' }}
                                         onMessage={(e) => { webMessage.value = e.detail.data; }}
                                     />
                                 )}
                             </view>
+                            <Row gap={8} wrap>
+                                <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    outline
+                                    main-thread:bindtap={() => { 'main thread'; WebViewMethods.goBack(webRef.current); }}
+                                >
+                                    Back
+                                </Button>
+                                <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    outline
+                                    main-thread:bindtap={() => { 'main thread'; WebViewMethods.goForward(webRef.current); }}
+                                >
+                                    Forward
+                                </Button>
+                                <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    outline
+                                    main-thread:bindtap={() => { 'main thread'; WebViewMethods.reload(webRef.current); }}
+                                >
+                                    Reload
+                                </Button>
+                                <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    outline
+                                    main-thread:bindtap={() => {
+                                        'main thread';
+                                        WebViewMethods
+                                            .injectJavaScript(webRef.current, 'document.title')
+                                            .then((title) => { webEvalResult.value = title; });
+                                    }}
+                                >
+                                    Eval title
+                                </Button>
+                                <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    outline
+                                    main-thread:bindtap={() => {
+                                        'main thread';
+                                        WebViewMethods.postMessage(webRef.current, `hello at ${Date.now()}`);
+                                    }}
+                                >
+                                    Talk to page
+                                </Button>
+                            </Row>
                             <Text class="font-mono text-sm opacity-70">
-                                last postMessage: {webMessage.value ?? '—'}
+                                last postMessage: {webMessage.value ?? '—'}{'\n'}
+                                eval result: {webEvalResult.value ?? '—'}
                             </Text>
                         </Col>
                     </Card.Body>

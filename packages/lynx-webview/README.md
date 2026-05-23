@@ -57,6 +57,68 @@ The native side injects `window.sigx.postMessage(payload)` at document start. An
 />
 ```
 
+### Imperative methods (v2)
+
+Capture a `MainThreadRef` to the WebView via the `mtRef` prop and drive it from a main-thread event handler. `WebViewMethods` is a typed wrapper around `MainThread.Element.invoke(method, params)` — saves you from typing the magic method-name strings.
+
+```tsx
+import { useMainThreadRef, type MainThread } from '@sigx/lynx';
+import { WebView, WebViewMethods } from '@sigx/lynx-webview';
+
+const ref = useMainThreadRef<MainThread.Element | null>(null);
+
+const onBack = () => {
+    'main thread';
+    WebViewMethods.goBack(ref.current);
+};
+const onEval = () => {
+    'main thread';
+    WebViewMethods
+        .injectJavaScript(ref.current, 'document.title')
+        .then((title) => console.log('title is', title));
+};
+const onTalkToPage = () => {
+    'main thread';
+    WebViewMethods.postMessage(ref.current, 'hello from host');
+};
+
+<WebView mtRef={ref} src="https://example.com" />
+```
+
+| Method | Signature | Notes |
+|---|---|---|
+| `goBack` | `(el)` → `void` | No-op when no back history. |
+| `goForward` | `(el)` → `void` | No-op when no forward history. |
+| `reload` | `(el)` → `void` | |
+| `stopLoading` | `(el)` → `void` | |
+| `canGoBack` | `(el)` → `Promise<boolean>` | Resolves `false` when `el` is null. |
+| `canGoForward` | `(el)` → `Promise<boolean>` | Same. |
+| `injectJavaScript` | `(el, code)` → `Promise<string>` | Last-expression value, stringified. Non-string results (numbers, dicts) coerce via `String(result)`. `null` / `undefined` → `""`. |
+| `postMessage` | `(el, data)` → `void` | Delivers to `window.sigx.onmessage(data)` inside the page. Pages that haven't subscribed get a silent no-op. |
+
+Host → page subscription happens in the page itself:
+
+```html
+<script>
+  window.sigx.onmessage = function(data) {
+    console.log('from host', data);
+  };
+</script>
+```
+
+All `WebViewMethods.*` accept `el | null` and no-op when null, so you can pass `ref.current` straight through without an `if` guard.
+
+The same methods are also reachable via Lynx's `SelectorQuery` API for apps that prefer ID-based dispatch:
+
+```ts
+lynx.createSelectorQuery().select('#my-webview').invoke({
+    method: 'reload',
+    params: {},
+    success: () => {},
+    fail: (e) => console.warn(e),
+}).exec();
+```
+
 ## Props
 
 | Prop | Type | Notes |
@@ -69,11 +131,11 @@ The native side injects `window.sigx.postMessage(payload)` at document start. An
 | `onLoad` | `(e) => void` | Main-frame navigation finished. `e.detail.url`. |
 | `onError` | `(e) => void` | Main-frame load failed. `e.detail.{url, message}`. Subresource errors (favicon, image) are suppressed. |
 | `onMessage` | `(e) => void` | Page called `window.sigx.postMessage(payload)`. `e.detail.data` is a string. |
+| `mtRef` | `MainThreadRef<MainThread.Element \| null>` | Captures the underlying native element so you can drive the v2 imperative methods. |
 
 ## Gotchas
 
 - **`src` is restricted to `http(s):` and `about:blank`**. `javascript:` URLs are refused (logged + ignored) — they're the headline XSS vector for embedded WebViews. `file:` is refused too; Android also disables `allowFileAccess`/`allowContentAccess` + the legacy file-URL universal-access flags by default. Apps that need richer content should use the `html` prop (rendered with a null base URL → fully sandboxed).
-- **Imperative methods not implemented in v1**: `goBack` / `goForward` / `reload` / `postMessage` from JS to the page / `injectJavaScript`. Tracked as a v2 follow-up — they need Lynx's `UIMethodInvoker` surface, which isn't wired through sigx-lynx yet.
 - **iOS App Transport Security**: HTTPS-only by default in release builds. To load HTTP URLs you'd need to relax ATS in `Info.plist` (and accept the App Store review risk). Dev builds already allow LAN HTTP via the existing `NSAllowsLocalNetworking` flag.
 - **Android `mixed-content`**: defaults block HTTP subresources on HTTPS pages. If you load a mixed-content page, set `webView.settings.mixedContentMode` manually — not currently exposed as a prop.
 - **Cookies**: the WebView uses its own `WKWebsiteDataStore` (iOS) / `CookieManager` (Android). Cookies are **not** shared with the system Safari / Chrome.
@@ -82,4 +144,4 @@ The native side injects `window.sigx.postMessage(payload)` at document start. An
 
 ## Reference app
 
-`examples/showcase/src/screens/Settings.tsx` has a "Native WebView" card that exercises URL load, inline HTML, and `postMessage` round-trip.
+`examples/showcase/src/screens/Settings.tsx` has a "Native WebView" card that exercises URL load, inline HTML, `postMessage` round-trip in both directions, and the v2 imperative methods (`Back` / `Forward` / `Reload` / `Eval title` / `Talk to page` buttons wired via `WebViewMethods`).
