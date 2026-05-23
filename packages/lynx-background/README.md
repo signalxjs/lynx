@@ -13,18 +13,29 @@ Run JS handlers while the app is backgrounded or closed: refresh content, sync q
 pnpm add @sigx/lynx-background
 ```
 
-`sigx prebuild` auto-discovers the package, links the native module, adds `UIBackgroundModes: fetch, processing` to iOS `Info.plist`, populates `BGTaskSchedulerPermittedIdentifiers` from the task names you declare, and adds the `androidx.work` dependency on Android.
+`sigx prebuild` auto-discovers the package, links the native module, adds `UIBackgroundModes: fetch, processing` to iOS `Info.plist`, populates `BGTaskSchedulerPermittedIdentifiers` from the identifiers you declare, and adds the `androidx.work` dependency on Android.
 
 > **Permitted identifiers** must be known at build time on iOS. Declare them in your app config so `sigx prebuild` can write them into `Info.plist`:
 
 ```ts
 // sigx.config.ts
-export default {
-    backgroundTasks: ['refresh-feed', 'sync-outbox'],
-} satisfies SigxAppConfig;
+import { defineLynxConfig } from '@sigx/lynx-cli/config';
+
+export default defineLynxConfig({
+    ios: {
+        bundleIdentifier: 'com.example.app',
+        // Full reverse-DNS identifiers — by convention, namespace each task
+        // as `${bundleId}.bg.${taskName}` to match what the JS API submits
+        // to BGTaskScheduler.
+        bgTaskIdentifiers: [
+            'com.example.app.bg.refresh-feed',
+            'com.example.app.bg.sync-outbox',
+        ],
+    },
+});
 ```
 
-`sigx prebuild` writes them as `${bundleId}.bg.refresh-feed` etc. into `BGTaskSchedulerPermittedIdentifiers`. The JS API uses the short `taskName`; native namespacing is transparent.
+The JS API uses the short `taskName` (e.g. `"refresh-feed"`); the native side prepends `${bundleId}.bg.` before submitting to `BGTaskScheduler`, so the entries in `bgTaskIdentifiers` must use that exact namespaced form.
 
 ## Usage
 
@@ -62,7 +73,7 @@ await Background.unregister('refresh-feed');
 Handler promises **must** resolve within the platform budget:
 
 - **iOS** — ~30 seconds total for `BGAppRefreshTask`; longer (minutes) for `BGProcessingTask`. The OS expiration handler posts `task.setTaskCompleted(success: false)` as a safety net.
-- **Android** — ~10 minutes for `WorkManager`. The worker returns `Result.failure()` if the JS handler doesn't resolve in time.
+- **Android** — ~10 minutes for `WorkManager`. If the JS handler doesn't resolve before the worker's internal 9-minute timeout, the worker returns `Result.retry()`, so `WorkManager` will back off and re-fire the task on its next schedule rather than marking it permanently failed.
 
 Apps should structure handlers as small idempotent steps and let the next fire pick up where the last one left off.
 
@@ -100,4 +111,4 @@ Handler registrations live in JS and must be re-wired on every cold start. The n
 
 ## Example
 
-See `examples/background-fetch/` — registers a fetch task, pulls a JSON feed via `@sigx/lynx-network`, writes the result with `@sigx/lynx-storage`, and renders it on next foreground.
+See `examples/showcase/` — the Settings screen wires up `Background.setHandler('refresh-feed', ...)`, exposes register/unregister buttons, and renders the last fire result. `examples/showcase/signalx.config.ts` declares the matching `ios.bgTaskIdentifiers` entry so `sigx prebuild` injects it into `Info.plist`.

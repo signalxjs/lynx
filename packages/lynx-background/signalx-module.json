@@ -15,8 +15,7 @@
             "register",
             "unregister",
             "getRegistered",
-            "completeTask",
-            "isAvailable"
+            "completeTask"
         ],
         "backgroundModes": ["fetch", "processing"]
     },

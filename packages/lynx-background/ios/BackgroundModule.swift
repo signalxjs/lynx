@@ -10,8 +10,8 @@ import BackgroundTasks
 ///
 /// Permitted task identifiers must be declared in the app's Info.plist under
 /// `BGTaskSchedulerPermittedIdentifiers`. `sigx prebuild` writes them based
-/// on the app's `backgroundTasks` config — manual edits are unnecessary for
-/// CLI-managed projects.
+/// on the app's `ios.bgTaskIdentifiers` config — manual edits are
+/// unnecessary for CLI-managed projects.
 class BackgroundModule: NSObject, LynxModule {
 
     @objc static var name: String { "Background" }

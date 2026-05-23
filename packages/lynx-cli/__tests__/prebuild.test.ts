@@ -351,6 +351,25 @@ describe('injectInfoPlistBgTaskIdentifiers', () => {
         const second = readFileSync(join(testDir, 'ios', 'TestApp', 'Info.plist'), 'utf-8');
         expect(second).toEqual(first);
     });
+
+    it('de-duplicates identifiers', () => {
+        const config = resolveConfig(TEST_CONFIG);
+        scaffoldIos(testDir, config);
+
+        injectInfoPlistBgTaskIdentifiers(testDir, config, [
+            'com.test.myapp.bg.refresh-feed',
+            'com.test.myapp.bg.sync-outbox',
+            'com.test.myapp.bg.refresh-feed',
+        ]);
+
+        const plist = readFileSync(
+            join(testDir, 'ios', 'TestApp', 'Info.plist'),
+            'utf-8',
+        );
+        const matches = plist.match(/<string>com\.test\.myapp\.bg\.refresh-feed<\/string>/g);
+        expect(matches).toHaveLength(1);
+        expect(plist).toContain('<string>com.test.myapp.bg.sync-outbox</string>');
+    });
 });
 
 describe('cleanPrebuild', () => {

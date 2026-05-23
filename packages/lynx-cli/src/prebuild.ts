@@ -993,17 +993,18 @@ export function injectInfoPlistBgTaskIdentifiers(
 ): void {
     const plistFile = iosInfoPlistPath(cwd, config);
     if (!existsSync(plistFile)) return;
+    const uniqueIdentifiers = Array.from(new Set(identifiers));
     let content = readFileSync(plistFile, 'utf-8');
-    const replacement = identifiers.length > 0
+    const replacement = uniqueIdentifiers.length > 0
         ? `    <!-- Auto-linked BGTaskScheduler permitted identifiers -->\n` +
           `    <key>BGTaskSchedulerPermittedIdentifiers</key>\n    <array>\n` +
-          identifiers.map((id) => `        <string>${id}</string>`).join('\n') +
+          uniqueIdentifiers.map((id) => `        <string>${id}</string>`).join('\n') +
           `\n    </array>`
         : '    <!-- (no auto-linked BGTaskScheduler identifiers) -->';
     content = content.replace('    <!-- {{BG_TASK_IDENTIFIERS}} -->', replacement);
     writeFileIfChanged(plistFile, content);
-    if (identifiers.length > 0) {
-        log(`iOS: injected ${identifiers.length} BGTaskSchedulerPermittedIdentifiers (${identifiers.join(', ')})`);
+    if (uniqueIdentifiers.length > 0) {
+        log(`iOS: injected ${uniqueIdentifiers.length} BGTaskSchedulerPermittedIdentifiers (${uniqueIdentifiers.join(', ')})`);
     }
 }
 
