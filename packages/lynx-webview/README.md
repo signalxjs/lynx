@@ -59,31 +59,51 @@ The native side injects `window.sigx.postMessage(payload)` at document start. An
 
 ### Imperative methods (v2)
 
-Capture a `MainThreadRef` to the WebView via the `mtRef` prop and drive it from a main-thread event handler. `WebViewMethods` is a typed wrapper around `MainThread.Element.invoke(method, params)` — saves you from typing the magic method-name strings.
+Two valid call patterns depending on which thread your handler runs on. **There is no one-size-fits-all helper** — `MainThread.Element` only lives on the MT side, and `SelectorQuery` only works from BG.
+
+**Pattern A — from a main-thread tap handler (recommended for toolbar buttons).** Capture a `MainThreadRef`, then call `.invoke()` directly on `ref.current` inside a `'main thread'` handler. Bind the handler to a raw `<view main-thread:bindtap=…>` element — daisyui's `<Button>` only exposes an `onPress` callback (BG-thread) and silently drops `main-thread:bindtap`, so the tap would never reach the handler.
 
 ```tsx
 import { useMainThreadRef, type MainThread } from '@sigx/lynx';
-import { WebView, WebViewMethods } from '@sigx/lynx-webview';
+import { WebView } from '@sigx/lynx-webview';
 
 const ref = useMainThreadRef<MainThread.Element | null>(null);
 
 const onBack = () => {
     'main thread';
-    WebViewMethods.goBack(ref.current);
+    ref.current?.invoke('goBack', {});
 };
-const onEval = () => {
+const onReload = () => {
     'main thread';
-    WebViewMethods
-        .injectJavaScript(ref.current, 'document.title')
-        .then((title) => console.log('title is', title));
-};
-const onTalkToPage = () => {
-    'main thread';
-    WebViewMethods.postMessage(ref.current, 'hello from host');
+    ref.current?.invoke('reload', {});
 };
 
-<WebView mtRef={ref} src="https://example.com" />
+<WebView mtRef={ref} id="my-webview" src="https://example.com" />
+<view main-thread:bindtap={onBack}><Text>‹ Back</Text></view>
+<view main-thread:bindtap={onReload}><Text>↻ Reload</Text></view>
 ```
+
+The `'main thread'` directive compiles the handler into a separate main-thread bundle that can't reach cross-package imports — so you must call `.invoke()` directly, not via a JS wrapper from another package.
+
+**Pattern B — from a BG-thread handler (e.g. daisyui `<Button onPress>`).** Use Lynx's `SelectorQuery` to dispatch by element id. Give the WebView an `id` and select by it.
+
+```tsx
+import { Button } from '@sigx/lynx-daisyui';
+
+<WebView id="my-webview" src="https://example.com" />
+<Button onPress={() => {
+    lynx.createSelectorQuery().select('#my-webview').invoke({
+        method: 'reload',
+        params: {},
+        success: () => {},
+        fail: (e) => console.warn(e),
+    }).exec();
+}}>
+    Reload
+</Button>
+```
+
+A typed wrapper that bundles this is exported as `WebViewMethods` for apps that prefer not to write the `SelectorQuery` boilerplate by hand — but note it only works when the relevant `MainThread.Element` is reachable (i.e. inside a `runOnMainThread` block, not from a bare `onPress`).
 
 | Method | Signature | Notes |
 |---|---|---|

@@ -66,7 +66,6 @@ public class SigxWebViewUI: LynxUI<WKWebView> {
         // outside the iOS auto-layout system.
         webView.translatesAutoresizingMaskIntoConstraints = true
         webView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-        NSLog("[SigxWebView] createView built WKWebView=\(webView)")
         return webView
     }
 
@@ -84,11 +83,6 @@ public class SigxWebViewUI: LynxUI<WKWebView> {
             ["user-agent", "setUserAgent:requestReset:"],
             ["enable-debug", "setEnableDebug:requestReset:"],
         ] as NSArray
-    }
-
-    public override func frameDidChange() {
-        super.frameDidChange()
-        NSLog("[SigxWebView] frameDidChange frame=\(frame) view=\(view())")
     }
 
     // MARK: - Prop setters
@@ -182,17 +176,13 @@ public class SigxWebViewUI: LynxUI<WKWebView> {
     private static let kUIMethodUnknown: Int32 = 1
 
     @objc public func goBack(_ params: NSDictionary?, withResult callback: @escaping LynxUIMethodCallbackBlock) {
-        NSLog("[SigxWebView] goBack invoked canGoBack=\(view().canGoBack)")
         DispatchQueue.main.async {
             if self.view().canGoBack { self.view().goBack() }
             callback(SigxWebViewUI.kUIMethodSuccess, nil)
         }
     }
     @objc(__lynx_ui_method_config__goBack)
-    dynamic public class func __lynxUIMethodConfigGoBack() -> NSString {
-        NSLog("[SigxWebView] UI method config goBack discovered")
-        return "goBack"
-    }
+    dynamic public class func __lynxUIMethodConfigGoBack() -> NSString { return "goBack" }
 
     @objc public func goForward(_ params: NSDictionary?, withResult callback: @escaping LynxUIMethodCallbackBlock) {
         DispatchQueue.main.async {
@@ -357,7 +347,6 @@ final class SigxWebViewNavigationDelegate: NSObject, WKNavigationDelegate {
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         let url = webView.url?.absoluteString ?? ""
-        NSLog("[SigxWebView] didFinish url=\(url) webViewFrame=\(webView.frame) superview=\(String(describing: webView.superview)) hidden=\(webView.isHidden) alpha=\(webView.alpha)")
         owner?.fireEvent("load", params: ["url": url])
     }
 
