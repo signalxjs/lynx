@@ -1,13 +1,11 @@
 package com.sigx.maps
 
 import android.content.Context
-import android.os.Bundle
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.GoogleMap
 import com.google.android.gms.maps.MapView
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
-import com.google.android.gms.maps.model.Marker
 import com.google.android.gms.maps.model.MarkerOptions
 import com.lynx.tasm.behavior.LynxContext
 import com.lynx.tasm.behavior.LynxProp
@@ -33,11 +31,12 @@ import org.json.JSONObject
  * @remarks
  * Google MapView requires Activity lifecycle forwarding (onCreate /
  * onResume / onPause / onDestroy). The v1 implementation calls onCreate +
- * onResume in [createView] so the map is interactive immediately, and
- * onPause + onDestroy in [onDetach] / [destroy]. For an app that
- * backgrounds while a map is visible, this is best-effort — most user-
- * visible maps work, but tile prefetching pauses on backgrounding only
- * after the next prebuild wires a proper `activityHook`. Doc'd in README.
+ * onStart + onResume in [createView] so the map is interactive
+ * immediately, and onPause + onStop + onDestroy in [onDetach]. For an
+ * app that backgrounds while a map is visible, this is best-effort —
+ * most user-visible maps work, but tile prefetching pauses on
+ * backgrounding only after the next prebuild wires a proper
+ * `activityHook`. Doc'd in README.
  */
 class SigxMapUI(context: LynxContext) : LynxUI<MapView>(context) {
 
@@ -71,8 +70,11 @@ class SigxMapUI(context: LynxContext) : LynxUI<MapView>(context) {
     override fun onDetach() {
         super.onDetach()
         // Best-effort lifecycle pairing — see class-level remarks.
+        // onDestroy() releases the GL renderer, so call it last to avoid
+        // leaking native resources when the host UI tears down.
         runCatching { mView.onPause() }
         runCatching { mView.onStop() }
+        runCatching { mView.onDestroy() }
     }
 
     // ── Child plumbing ───────────────────────────────────────────────────
@@ -134,15 +136,16 @@ class SigxMapUI(context: LynxContext) : LynxUI<MapView>(context) {
         val gmap = googleMap ?: return
         pendingRegion?.let { applyRegion(it) }
         pendingRegion = null
-        gmap.isMyLocationEnabled = try {
-            pendingShowUserLocation
+        // SecurityException is thrown by the setter when ACCESS_FINE_LOCATION
+        // isn't granted, so the try/catch has to wrap the assignment itself
+        // (not the RHS) — see PR #93 review.
+        try {
+            gmap.isMyLocationEnabled = pendingShowUserLocation
         } catch (_: SecurityException) {
-            // Caller forgot to request ACCESS_FINE_LOCATION at runtime.
             android.util.Log.w(
                 "SigxMap",
                 "shows-user-location=true but ACCESS_FINE_LOCATION not granted",
             )
-            false
         }
         pendingMapType?.let { applyMapType(it) }
     }
@@ -151,13 +154,15 @@ class SigxMapUI(context: LynxContext) : LynxUI<MapView>(context) {
         val gmap = googleMap ?: return
         val lat = obj.optDouble("latitude", Double.NaN)
         val lon = obj.optDouble("longitude", Double.NaN)
-        val latD = obj.optDouble("latitudeDelta", Double.NaN)
         val lonD = obj.optDouble("longitudeDelta", Double.NaN)
         if (lat.isNaN() || lon.isNaN()) return
-        // Map latDelta/lonDelta to a Google-Maps zoom level. Google's zoom
-        // is logarithmic — zoom n shows 360°/2^n degrees of longitude
+        // Map lonDelta to a Google-Maps zoom level. Google's zoom is
+        // logarithmic — zoom n shows 360°/2^n degrees of longitude
         // horizontally. Solve for n from the user's lonDelta: invert and
-        // log. Clamp to Google's [2, 21] zoom range.
+        // log. Clamp to Google's [2, 21] zoom range. latitudeDelta is
+        // ignored because the visible viewport's aspect ratio is fixed by
+        // the view size — fitting both deltas would require knowing the
+        // pixel dimensions, which is deferred to v2's `fitToCoordinates`.
         val zoom = if (lonD > 0.0) {
             val z = Math.log(360.0 / lonD) / Math.log(2.0)
             z.toFloat().coerceIn(2f, 21f)

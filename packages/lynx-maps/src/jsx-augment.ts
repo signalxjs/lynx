@@ -91,9 +91,10 @@ export interface SigxMapMarkerAttributes extends LynxCommonAttributes {
     /**
      * Marker location. JSON-stringified `{ "latitude": …, "longitude": … }`
      * for the same reason as `region` on `<sigx-map>` — Lynx props don't
-     * support nested objects directly.
+     * support nested objects directly. Required: a marker without a
+     * coordinate has nowhere to render.
      */
-    coordinate?: string;
+    coordinate: string;
     /** Callout title shown on tap. */
     title?: string;
     /** Callout subtitle shown below the title. */
