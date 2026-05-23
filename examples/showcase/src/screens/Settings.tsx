@@ -87,7 +87,7 @@ export const Settings = component(() => {
             }
         });
         if (Background.isAvailable()) {
-            bgRegistered.value = await Background.getRegistered();
+            bgRegistered.$set(await Background.getRegistered());
         }
     });
     onUnmounted(() => {
@@ -129,12 +129,12 @@ export const Settings = component(() => {
             minimumInterval: 15 * 60,
             requiresNetwork: true,
         });
-        bgRegistered.value = await Background.getRegistered();
+        bgRegistered.$set(await Background.getRegistered());
     };
     const onBgUnregister = async () => {
         Haptics.selection();
         await Background.unregister('refresh-feed');
-        bgRegistered.value = await Background.getRegistered();
+        bgRegistered.$set(await Background.getRegistered());
     };
 
     const onClear = () => {
@@ -396,7 +396,7 @@ button{font:inherit;padding:10px 14px;border:0;border-radius:8px;background:#006
                             </Row>
                             <Text class="font-mono text-sm opacity-70">
                                 available: {String(Background.isAvailable())}{'\n'}
-                                registered: {bgRegistered.value.length ? bgRegistered.value.join(', ') : '—'}{'\n'}
+                                registered: {bgRegistered.length ? bgRegistered.join(', ') : '—'}{'\n'}
                                 last fire: {bgLastFire.value ?? '—'}{'\n'}
                                 last title: {bgFeedTitle.value ?? '—'}
                             </Text>
