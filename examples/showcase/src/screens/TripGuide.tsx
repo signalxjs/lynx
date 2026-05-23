@@ -145,34 +145,43 @@ export const TripGuide = component(() => {
                     )
                     : null}
 
-                {/* Toolbar — uses MT bindtap so each tap stays on one thread and
-                    doesn't pay the BG↔MT round-trip just to call invoke(). */}
+                {/* Toolbar — bare `<view main-thread:bindtap=…>` because
+                    `main-thread:bindtap` is a Lynx JSX intrinsic that only
+                    binds on raw elements; daisyui's `<Button>` exposes
+                    `onPress` (a BG-thread callback) and silently drops
+                    arbitrary attributes like `main-thread:bindtap`, so the
+                    handler would never fire if we used it here. The custom
+                    styling below mirrors Button's `variant="ghost" outline`
+                    look so the toolbar stays visually consistent. */}
                 <view class="bg-base-200 border-t border-base-300 px-4 py-2">
                     <Row gap={8} align="center" justify="center">
-                        <Button
-                            size="sm"
-                            variant="ghost"
-                            outline
+                        <view
+                            class="border border-base-300 rounded-lg px-3 py-1.5"
                             main-thread:bindtap={onBack}
+                            accessibility-element={true}
+                            accessibility-label="Go back"
+                            accessibility-trait="button"
                         >
-                            ‹ Back
-                        </Button>
-                        <Button
-                            size="sm"
-                            variant="ghost"
-                            outline
+                            <Text class="text-sm">‹ Back</Text>
+                        </view>
+                        <view
+                            class="border border-base-300 rounded-lg px-3 py-1.5"
                             main-thread:bindtap={onForward}
+                            accessibility-element={true}
+                            accessibility-label="Go forward"
+                            accessibility-trait="button"
                         >
-                            Forward ›
-                        </Button>
-                        <Button
-                            size="sm"
-                            variant="ghost"
-                            outline
+                            <Text class="text-sm">Forward ›</Text>
+                        </view>
+                        <view
+                            class="border border-base-300 rounded-lg px-3 py-1.5"
                             main-thread:bindtap={onReload}
+                            accessibility-element={true}
+                            accessibility-label="Reload"
+                            accessibility-trait="button"
                         >
-                            ↻ Reload
-                        </Button>
+                            <Text class="text-sm">↻ Reload</Text>
+                        </view>
                     </Row>
                 </view>
             </view>
