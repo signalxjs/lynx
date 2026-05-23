@@ -68,7 +68,7 @@ export const TripGuide = component(() => {
                     <WebView
                         mtRef={webRef}
                         src={guideUrl}
-                        style={{ width: '100%', height: '100%' }}
+                        class="flex-1"
                         onLoad={() => {
                             loading.value = false;
                             errorMessage.value = null;

@@ -54,7 +54,13 @@ public class SigxWebViewUI: LynxUI<WKWebView> {
 
         let webView = WKWebView(frame: .zero, configuration: config)
         webView.navigationDelegate = navigationDelegate
+        NSLog("[SigxWebView] createView built WKWebView=\(webView)")
         return webView
+    }
+
+    public override func frameDidChange() {
+        super.frameDidChange()
+        NSLog("[SigxWebView] frameDidChange frame=\(frame) view=\(view())")
     }
 
     // MARK: - Prop setters
@@ -319,6 +325,7 @@ final class SigxWebViewNavigationDelegate: NSObject, WKNavigationDelegate {
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         let url = webView.url?.absoluteString ?? ""
+        NSLog("[SigxWebView] didFinish url=\(url) webViewFrame=\(webView.frame) superview=\(String(describing: webView.superview)) hidden=\(webView.isHidden) alpha=\(webView.alpha)")
         owner?.fireEvent("load", params: ["url": url])
     }
 
