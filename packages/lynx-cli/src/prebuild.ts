@@ -1451,6 +1451,13 @@ export function fingerprintPrebuildInputs(cwd: string, platforms: { android: boo
     }
 
     return combineHash(files.sort(), {
+        // Bump this when the set of *inputs* the fingerprint considers
+        // changes (added sourceDir walking, added a new file the prebuild
+        // depends on, etc.) — without a bump, users who pulled the fix
+        // but kept the old cache file would keep hitting the fast-path
+        // until something else happened to invalidate the hash.
+        // v2: include each module's ios/android.sourceDir contents.
+        fingerprintFormat: 'v2',
         cliVersion: getCliVersion(),
         platforms: `android=${platforms.android};ios=${platforms.ios}`,
     });
