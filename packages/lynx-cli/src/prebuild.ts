@@ -981,6 +981,34 @@ export function injectInfoPlistBackgroundModes(
 }
 
 /**
+ * Inject BGTaskSchedulerPermittedIdentifiers into Info.plist. De-duped; safe
+ * to re-run. iOS requires each `BGTaskScheduler` identifier to be listed
+ * here BEFORE the app is signed — otherwise `BGTaskScheduler.register(...)`
+ * silently fails to fire at runtime.
+ */
+export function injectInfoPlistBgTaskIdentifiers(
+    cwd: string,
+    config: ResolvedConfig,
+    identifiers: string[],
+): void {
+    const plistFile = iosInfoPlistPath(cwd, config);
+    if (!existsSync(plistFile)) return;
+    const uniqueIdentifiers = Array.from(new Set(identifiers));
+    let content = readFileSync(plistFile, 'utf-8');
+    const replacement = uniqueIdentifiers.length > 0
+        ? `    <!-- Auto-linked BGTaskScheduler permitted identifiers -->\n` +
+          `    <key>BGTaskSchedulerPermittedIdentifiers</key>\n    <array>\n` +
+          uniqueIdentifiers.map((id) => `        <string>${id}</string>`).join('\n') +
+          `\n    </array>`
+        : '    <!-- (no auto-linked BGTaskScheduler identifiers) -->';
+    content = content.replace('    <!-- {{BG_TASK_IDENTIFIERS}} -->', replacement);
+    writeFileIfChanged(plistFile, content);
+    if (uniqueIdentifiers.length > 0) {
+        log(`iOS: injected ${uniqueIdentifiers.length} BGTaskSchedulerPermittedIdentifiers (${uniqueIdentifiers.join(', ')})`);
+    }
+}
+
+/**
  * Inject `<service>` declarations into AndroidManifest.xml under `<application>`.
  */
 export function injectAndroidServices(
@@ -1609,6 +1637,7 @@ export async function runPrebuild(opts: PrebuildOptions = {}): Promise<void> {
         injectDebugPodfileEntries(cwd, config, result.debugPodfileEntries);
         injectInfoPlistDescriptions(cwd, config, result.usageDescriptions);
         injectInfoPlistBackgroundModes(cwd, config, result.backgroundModes);
+        injectInfoPlistBgTaskIdentifiers(cwd, config, result.bgTaskIdentifiers);
 
         // App-shell assets (icons, splash, plist meta).
         await generateIosIcon(cwd, config, assets.ios);

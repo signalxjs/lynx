@@ -156,6 +156,14 @@ export interface IosManifest {
      */
     backgroundModes?: string[];
     /**
+     * `BGTaskSchedulerPermittedIdentifiers` strings merged into Info.plist.
+     * Required for any task identifier registered with `BGTaskScheduler`
+     * (used by `@sigx/lynx-background`). De-duped across modules. Each
+     * entry must be a reverse-DNS string that exactly matches the
+     * identifier passed to `BGTaskScheduler.shared.register(...)`.
+     */
+    bgTaskIdentifiers?: string[];
+    /**
      * Native UI components the package contributes — each entry maps a JSX
      * tag name to a Swift class extending `LynxUI<UIView>`. The autolinker
      * generates `GeneratedComponentRegistry.swift` exposing
