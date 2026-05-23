@@ -73,7 +73,7 @@ interface AudioHandle {
 
 interface RecordOptions {
     outputPath?: string;            // default: temp dir
-    format?: 'm4a' | 'wav';         // default 'm4a'
+    format?: 'm4a' | 'wav';         // default 'm4a'. 'wav' is iOS-only — Android rejects with an error.
     sampleRate?: number;            // default 44100
     channels?: 1 | 2;               // default 1
 }

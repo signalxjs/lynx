@@ -178,8 +178,10 @@ final class AudioRecorderRegistry: NSObject, AVAudioRecorderDelegate {
     }
 
     private func emitMeter(id: Int64) {
-        let recorder: AVAudioRecorder? = queue.sync { entries[id]?.recorder }
-        guard let recorder = recorder else { return }
+        // Called from the meter `DispatchSourceTimer` which was created with
+        // `queue: queue`. We're already on the serial queue here — a nested
+        // `queue.sync { ... }` would deadlock — so read the recorder directly.
+        guard let recorder = entries[id]?.recorder else { return }
         recorder.updateMeters()
         let peak = linear(fromDecibels: recorder.peakPower(forChannel: 0))
         let avg = linear(fromDecibels: recorder.averagePower(forChannel: 0))

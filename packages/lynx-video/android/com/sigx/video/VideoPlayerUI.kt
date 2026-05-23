@@ -67,10 +67,13 @@ class VideoPlayerUI(context: LynxContext) : LynxUI<PlayerView>(context) {
 
     private val timeUpdateRunnable = object : Runnable {
         override fun run() {
+            // Self-rescheduling loop, but only while actively playing —
+            // otherwise we'd keep waking the main thread every 250 ms
+            // forever while the user is on a paused / ended clip.
+            // `onIsPlayingChanged` re-arms us when playback resumes.
             val player = exoPlayer ?: return
-            if (player.isPlaying) {
-                fireEvent("timeupdate", mapOf("positionMs" to player.currentPosition.coerceAtLeast(0L)))
-            }
+            if (!player.isPlaying) return
+            fireEvent("timeupdate", mapOf("positionMs" to player.currentPosition.coerceAtLeast(0L)))
             handler.postDelayed(this, TIME_UPDATE_INTERVAL_MS)
         }
     }
@@ -154,7 +157,20 @@ class VideoPlayerUI(context: LynxContext) : LynxUI<PlayerView>(context) {
 
     @LynxProp(name = "src")
     fun setSrc(value: String?) {
-        if (value.isNullOrEmpty()) return
+        if (value.isNullOrEmpty()) {
+            // Clearing the prop must stop and unload the current item —
+            // otherwise a re-render that drops `src` would keep the
+            // previous clip playing. We stop the timer loop and clear
+            // any pending media item.
+            pendingSrc = null
+            didEmitLoad = false
+            handler.removeCallbacks(timeUpdateRunnable)
+            exoPlayer?.let { player ->
+                try { player.stop() } catch (_: Throwable) {}
+                try { player.clearMediaItems() } catch (_: Throwable) {}
+            }
+            return
+        }
         pendingSrc = value
         if (exoPlayer != null) loadSource(value)
     }

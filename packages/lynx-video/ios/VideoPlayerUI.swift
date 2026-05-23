@@ -73,7 +73,19 @@ import Lynx
     // MARK: - Prop setters
 
     @objc public func setSrc(_ value: NSString?, requestReset: Bool) {
-        guard let raw = value as String?, !raw.isEmpty, let url = resolveURL(raw) else {
+        let raw = (value as String?) ?? ""
+        if raw.isEmpty {
+            // Clearing the prop must actually stop and release the current
+            // asset — otherwise a re-render that drops `src` would leave
+            // the previous clip playing.
+            teardownPlayer()
+            didEmitLoad = false
+            return
+        }
+        guard let url = resolveURL(raw) else {
+            teardownPlayer()
+            didEmitLoad = false
+            fireEvent("error", params: ["message": "Invalid src: \(raw)"])
             return
         }
         loadAsset(url: url)
@@ -240,7 +252,10 @@ import Lynx
             forInterval: CMTime(seconds: 0.25, preferredTimescale: CMTimeScale(NSEC_PER_SEC)),
             queue: .main,
         ) { [weak self] time in
-            let positionMs = Int(CMTimeGetSeconds(time) * 1000.0)
+            // Same NaN/Inf trap as duration on live streams — guard the
+            // position-observer cast too. `CMTimeGetSeconds` returns NaN
+            // for indefinite / unknown times, and `Int(.nan)` traps.
+            let positionMs = msFromSeconds(CMTimeGetSeconds(time))
             self?.fireEvent("timeupdate", params: ["positionMs": positionMs])
         }
     }
@@ -249,7 +264,11 @@ import Lynx
         guard !didEmitLoad else { return }
         didEmitLoad = true
 
-        let durationMs = max(0, Int(CMTimeGetSeconds(item.duration) * 1000.0))
+        // Live streams and assets with indeterminate duration return
+        // `CMTime.indefinite` whose `CMTimeGetSeconds` is `NaN` (and some
+        // edge cases produce `+Inf`). `Int(Double.nan)` traps, so funnel
+        // through a finite-check helper before reporting.
+        let durationMs = msFromSeconds(CMTimeGetSeconds(item.duration))
         var width = 0
         var height = 0
         if let track = item.asset.tracks(withMediaType: .video).first {
@@ -305,7 +324,14 @@ import Lynx
         URLSession.shared.dataTask(with: url) { [weak self] data, _, _ in
             guard let self = self, let data = data, let image = UIImage(data: data) else { return }
             DispatchQueue.main.async {
-                guard self.posterView == nil, !self.didEmitLoad, let container = self.view else { return }
+                // Race guard — if `poster` was reset or replaced while this
+                // request was in flight, drop the stale image. Without
+                // this, a fast Settings flip from PosterA → PosterB could
+                // land PosterA on screen if its download completed second.
+                guard self.pendingPosterURL == url,
+                      self.posterView == nil,
+                      !self.didEmitLoad,
+                      let container = self.view else { return }
                 let iv = UIImageView(image: image)
                 iv.frame = container.bounds
                 iv.contentMode = .scaleAspectFit
@@ -350,4 +376,12 @@ import Lynx
         let event = LynxCustomEvent(name: name, targetSign: sign, params: params)
         context?.eventEmitter?.sendCustomEvent(event)
     }
+}
+
+/// Convert seconds (possibly `NaN` or `±Inf`) to clamped milliseconds.
+/// `Int(Double.nan)` and `Int(.infinity)` trap, so live streams and
+/// indeterminate durations would crash the app without this guard.
+fileprivate func msFromSeconds(_ seconds: Double) -> Int {
+    guard seconds.isFinite, seconds > 0 else { return 0 }
+    return Int(seconds * 1000.0)
 }

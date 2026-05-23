@@ -56,8 +56,20 @@ internal object AudioRecorderRegistry {
             return errorMap("A recording is already in progress")
         }
 
-        val ext = if (format.lowercase() == "wav") "wav" else "m4a"
-        val path = outputPath ?: File(context.cacheDir, "rec_${System.currentTimeMillis()}.$ext").absolutePath
+        // MediaRecorder has no first-class WAV path. The previous attempt
+        // here silently substituted AMR_WB-in-3GPP and still named the
+        // file `.wav`, which is an API contract lie — consumers reading
+        // the returned URI would get a file whose extension and container
+        // don't match. Reject the request loudly instead. Apps that
+        // genuinely need WAV on Android should record m4a and transcode,
+        // or pipe a custom recorder. iOS' `AVAudioRecorder` produces real
+        // LinearPCM WAV so the `'wav'` option remains valid there.
+        if (format.lowercase() == "wav") {
+            return errorMap(
+                "Android does not support 'wav' recording — use 'm4a' (AAC) and transcode if WAV is required."
+            )
+        }
+        val path = outputPath ?: File(context.cacheDir, "rec_${System.currentTimeMillis()}.m4a").absolutePath
 
         // MediaRecorder.Builder lands in API 31; we construct directly so we
         // keep working on the project's min-SDK. Order of setters is fixed
@@ -72,20 +84,8 @@ internal object AudioRecorderRegistry {
 
         try {
             recorder.setAudioSource(MediaRecorder.AudioSource.MIC)
-            if (format.lowercase() == "wav") {
-                // MediaRecorder has no first-class WAV path; fall back to
-                // AMR_WB-in-3GPP which is the closest "uncompressed-ish"
-                // option without bringing in a transcoding library. We
-                // keep the file extension the caller asked for, but log
-                // the substitution so it's not silently surprising.
-                Log.w(TAG, "Android MediaRecorder cannot produce WAV directly; using AMR_WB inside 3GPP container. " +
-                        "Use 'm4a' for AAC, or pipe the resulting file through a transcoder if you need WAV.")
-                recorder.setOutputFormat(MediaRecorder.OutputFormat.THREE_GPP)
-                recorder.setAudioEncoder(MediaRecorder.AudioEncoder.AMR_WB)
-            } else {
-                recorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
-                recorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
-            }
+            recorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
+            recorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
             recorder.setAudioSamplingRate(sampleRate)
             recorder.setAudioChannels(channels.coerceIn(1, 2))
             recorder.setOutputFile(path)

@@ -31,11 +31,15 @@ export function subscribe<T>(channel: string, cb: (event: T) => void): () => voi
     const e = emitter();
     if (!e) return () => {};
     const wrapped = (raw: unknown) => {
+        // `raw === undefined` here would mean the native side delivered an
+        // empty payload or a string we couldn't JSON.parse — neither is a
+        // real event. Drop it instead of forwarding `undefined` to the
+        // listener: handlers like `onEnd` would otherwise fire spuriously,
+        // and typed `onMeter` callbacks would see a value that violates the
+        // declared signature. Mirrors the notifications shim
+        // (`packages/lynx-notifications/src/push.ts:64-72`).
         const event = (typeof raw === 'string' ? safeParse(raw) : raw) as T | undefined;
-        if (event === undefined) {
-            try { cb(undefined as unknown as T); } catch { /* swallow */ }
-            return;
-        }
+        if (event === undefined) return;
         try {
             cb(event);
         } catch (err) {
