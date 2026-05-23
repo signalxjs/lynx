@@ -64,6 +64,24 @@ export interface AndroidManifest {
      * on `name` so listing the same service in multiple modules is safe.
      */
     services?: AndroidServiceEntry[];
+    /**
+     * Native UI components (Lynx Behaviors) the package contributes — each
+     * entry maps a JSX tag name to a `Behavior` subclass with the matching
+     * `LynxUI<View>`. The autolinker generates `GeneratedBehaviors.kt`
+     * exposing `attachAll(builder: LynxViewBuilder)`, which the host calls
+     * alongside the built-in `XElementBehaviors().create()`.
+     *
+     * `name` is the JSX tag (e.g. `"sigx-webview"`). `behaviorClass` is the
+     * fully-qualified Kotlin class name and must extend
+     * `com.lynx.tasm.behavior.Behavior` with a no-arg constructor that calls
+     * `super(name)`.
+     */
+    behaviors?: AndroidBehaviorEntry[];
+}
+
+export interface AndroidBehaviorEntry {
+    name: string;
+    behaviorClass: string;
 }
 
 export interface AndroidServiceEntry {
@@ -137,8 +155,27 @@ export interface IosManifest {
      * audio. De-duped across modules.
      */
     backgroundModes?: string[];
+    /**
+     * Native UI components the package contributes — each entry maps a JSX
+     * tag name to a Swift class extending `LynxUI<UIView>`. The autolinker
+     * generates `GeneratedComponentRegistry.swift` exposing
+     * `registerAll(on: LynxConfig)`, which the host calls in
+     * `LynxSetupService.initialize` BEFORE `LynxEnv.prepareConfig` so the
+     * shared config snapshot already carries every component.
+     *
+     * `name` is the JSX tag (e.g. `"sigx-webview"`). `uiClass` is the Swift
+     * class name as visible to the auto-generated registry — it lives in
+     * the same module as the rest of the app's Swift sources after the
+     * autolinker copies the package's `sourceDir`.
+     */
+    uiComponents?: IosUiComponentEntry[];
     /** Minimum iOS deployment target required. */
     deploymentTarget?: string;
+}
+
+export interface IosUiComponentEntry {
+    name: string;
+    uiClass: string;
 }
 
 /** Recognised iOS AppDelegate methods a hook can implement. */

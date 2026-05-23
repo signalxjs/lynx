@@ -380,6 +380,28 @@ export function writeAndroidActivityHooks(cwd: string, config: ResolvedConfig, h
 }
 
 /**
+ * Write the generated behaviors attacher Kotlin file. Lives alongside the
+ * other generated Android files so MainActivity (production path) and
+ * `DevLynxScreen` (dev path) can both call `GeneratedBehaviors.attachAll`
+ * with no extra import.
+ */
+export function writeAndroidBehaviors(cwd: string, config: ResolvedConfig, behaviorsCode: string): void {
+    const applicationId = resolveApplicationId(config);
+    const packagePath = packageToPath(applicationId);
+    const dir = join(androidKotlinRoot(cwd, config), packagePath);
+    const file = join(dir, 'GeneratedBehaviors.kt');
+
+    const code = behaviorsCode.replace(
+        /^package .*$/m,
+        `package ${applicationId}`
+    );
+
+    mkdirSync(dir, { recursive: true });
+    writeFileIfChanged(file, code);
+    log(`Android: wrote GeneratedBehaviors.kt`);
+}
+
+/**
  * Inject Gradle dependencies into app/build.gradle.kts.
  */
 export function injectGradleDependencies(cwd: string, config: ResolvedConfig, deps: string[], debugDeps: string[] = []): void {
@@ -904,6 +926,20 @@ export function writeIosAppDelegateHooks(cwd: string, config: ResolvedConfig, ho
     writeFileIfChanged(file, hooksCode);
     addFilesToXcodeProject(cwd, config, '', ['GeneratedAppDelegateHooks.swift']);
     log(`iOS: wrote GeneratedAppDelegateHooks.swift`);
+}
+
+/**
+ * Write the generated UI component registry. Sibling to the other generated
+ * iOS files; `LynxSetupService.initialize` calls
+ * `GeneratedComponentRegistry.registerAll(on: config)` before
+ * `LynxEnv.prepareConfig` so the shared config carries the registrations.
+ */
+export function writeIosComponentRegistry(cwd: string, config: ResolvedConfig, registryCode: string): void {
+    const file = join(iosSourceRoot(cwd, config), 'GeneratedComponentRegistry.swift');
+    mkdirSync(dirname(file), { recursive: true });
+    writeFileIfChanged(file, registryCode);
+    addFilesToXcodeProject(cwd, config, '', ['GeneratedComponentRegistry.swift']);
+    log(`iOS: wrote GeneratedComponentRegistry.swift`);
 }
 
 /**
@@ -1489,6 +1525,7 @@ export async function runPrebuild(opts: PrebuildOptions = {}): Promise<void> {
         writeAndroidRegistry(cwd, config, result.registryCode);
         writeAndroidLifecyclePublishers(cwd, config, result.lifecycleCode);
         writeAndroidActivityHooks(cwd, config, result.activityHooksCode);
+        writeAndroidBehaviors(cwd, config, result.behaviorsCode);
         injectGradleDependencies(cwd, config, result.gradleDependencies, result.debugGradleDependencies);
         injectAndroidPermissions(cwd, config, result.permissions);
         injectAndroidServices(cwd, config, result.services);
@@ -1524,6 +1561,10 @@ export async function runPrebuild(opts: PrebuildOptions = {}): Promise<void> {
         if (result.linkedActivityHooks.length > 0) {
             log(`Android: linked ${result.linkedActivityHooks.length} activity hooks`);
             log(`  Hooks: ${result.linkedActivityHooks.join(', ')}`);
+        }
+        if (result.linkedBehaviors.length > 0) {
+            log(`Android: linked ${result.linkedBehaviors.length} UI component(s)`);
+            log(`  Components: ${result.linkedBehaviors.join(', ')}`);
         }
         warnUnlinkedModules(configModulePackages, manifests, 'Android');
     }
@@ -1563,6 +1604,7 @@ export async function runPrebuild(opts: PrebuildOptions = {}): Promise<void> {
         writeIosRegistry(cwd, config, result.registryCode);
         writeIosLifecyclePublishers(cwd, config, result.lifecycleCode);
         writeIosAppDelegateHooks(cwd, config, result.appDelegateHooksCode);
+        writeIosComponentRegistry(cwd, config, result.componentRegistryCode);
         injectPodfileEntries(cwd, config, result.podfileEntries);
         injectDebugPodfileEntries(cwd, config, result.debugPodfileEntries);
         injectInfoPlistDescriptions(cwd, config, result.usageDescriptions);
@@ -1609,6 +1651,10 @@ export async function runPrebuild(opts: PrebuildOptions = {}): Promise<void> {
         if (result.linkedAppDelegateHooks.length > 0) {
             log(`iOS: linked ${result.linkedAppDelegateHooks.length} AppDelegate hooks`);
             log(`  Hooks: ${result.linkedAppDelegateHooks.join(', ')}`);
+        }
+        if (result.linkedComponents.length > 0) {
+            log(`iOS: linked ${result.linkedComponents.length} UI component(s)`);
+            log(`  Components: ${result.linkedComponents.join(', ')}`);
         }
         warnUnlinkedModules(configModulePackagesIos, manifests, 'iOS');
     }
