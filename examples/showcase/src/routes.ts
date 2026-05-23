@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { RootTabs } from './screens/RootTabs.js';
 import { TripsList } from './screens/TripsList.js';
 import { TripDetail } from './screens/TripDetail.js';
+import { TripGuide } from './screens/TripGuide.js';
 import { NewTrip } from './screens/NewTrip.js';
 import { NewEntry } from './screens/NewEntry.js';
 import { ImageViewer } from './screens/ImageViewer.js';
@@ -22,6 +23,11 @@ export const routes = defineRoutes({
         component: TripDetail,
         params: z.object({ tripId: z.string() }),
         path: '/trips/:tripId',
+    },
+    tripGuide: {
+        component: TripGuide,
+        params: z.object({ tripId: z.string() }),
+        path: '/trips/:tripId/guide',
     },
     newTrip: {
         component: NewTrip,

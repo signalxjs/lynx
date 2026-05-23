@@ -144,4 +144,4 @@ lynx.createSelectorQuery().select('#my-webview').invoke({
 
 ## Reference app
 
-`examples/showcase/src/screens/Settings.tsx` has a "Native WebView" card that exercises URL load, inline HTML, `postMessage` round-trip in both directions, and the v2 imperative methods (`Back` / `Forward` / `Reload` / `Eval title` / `Talk to page` buttons wired via `WebViewMethods`).
+`examples/showcase/src/screens/TripGuide.tsx` is a real-app integration: each trip's destination ("Lisbon, May 2026" → `Lisbon`) drives a Wikivoyage URL loaded in a WebView, with an `onLoad` loading overlay, an `onError` retry surface, and a bottom toolbar wiring Back / Forward / Reload via `WebViewMethods` so the user can navigate Wikivoyage internal links without leaving the screen. Reachable from `TripDetail` via the `Guide` header button.
