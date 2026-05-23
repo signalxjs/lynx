@@ -1,0 +1,64 @@
+{
+    "name": "@sigx/lynx-maps",
+    "version": "0.4.1",
+    "description": "Native map view for sigx-lynx (MKMapView on iOS, Google Maps on Android).",
+    "type": "module",
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.ts",
+            "import": "./dist/index.js",
+            "default": "./dist/index.js"
+        },
+        "./signalx-module.json": "./signalx-module.json",
+        "./package.json": "./package.json"
+    },
+    "files": [
+        "dist",
+        "ios",
+        "android",
+        "signalx-module.json",
+        "README.md",
+        "LICENSE"
+    ],
+    "scripts": {
+        "build": "node ../../scripts/clean.mjs dist && tsgo",
+        "dev": "tsgo --watch",
+        "test": "vitest run",
+        "clean": "node ../../scripts/clean.mjs dist .turbo"
+    },
+    "peerDependencies": {
+        "@sigx/lynx": "workspace:^"
+    },
+    "devDependencies": {
+        "@sigx/lynx": "workspace:^",
+        "@typescript/native-preview": "7.0.0-dev.20260521.1",
+        "typescript": "^6.0.3",
+        "vitest": "^4.1.7"
+    },
+    "author": "Andreas Ekdahl",
+    "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/signalxjs/lynx.git",
+        "directory": "packages/lynx-maps"
+    },
+    "homepage": "https://github.com/signalxjs/lynx/tree/main/packages/lynx-maps",
+    "bugs": {
+        "url": "https://github.com/signalxjs/lynx/issues"
+    },
+    "publishConfig": {
+        "access": "public"
+    },
+    "keywords": [
+        "signalx",
+        "sigx",
+        "lynx",
+        "maps",
+        "mkmapview",
+        "google-maps",
+        "ios",
+        "android"
+    ]
+}
