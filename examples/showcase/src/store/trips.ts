@@ -83,7 +83,7 @@ export function addTrip(name: string): Trip {
 export function addEntry(
     tripId: string,
     note: string,
-    options?: { photoUris?: string[]; coords?: Coords },
+    options?: { photoUris?: string[]; coords?: Coords; voiceNoteUri?: string; videoUri?: string },
 ): Entry | null {
     const trip = trips.find((t) => t.id === tripId);
     if (!trip) return null;
@@ -93,6 +93,8 @@ export function addEntry(
         createdAt: Date.now(),
         photoUris: options?.photoUris && options.photoUris.length > 0 ? options.photoUris : undefined,
         coords: options?.coords,
+        voiceNoteUri: options?.voiceNoteUri,
+        videoUri: options?.videoUri,
     };
     trip.entries.push(entry);
     return entry;
@@ -112,7 +114,13 @@ export function getEntry(tripId: string, entryId: string): Entry | undefined {
 export function updateEntry(
     tripId: string,
     entryId: string,
-    patch: { note?: string; photoUris?: string[] | null; coords?: Coords | null },
+    patch: {
+        note?: string;
+        photoUris?: string[] | null;
+        coords?: Coords | null;
+        voiceNoteUri?: string | null;
+        videoUri?: string | null;
+    },
 ): void {
     const trip = trips.find((t) => t.id === tripId);
     if (!trip) return;
@@ -126,6 +134,12 @@ export function updateEntry(
     }
     if (patch.coords !== undefined) {
         entry.coords = patch.coords ?? undefined;
+    }
+    if (patch.voiceNoteUri !== undefined) {
+        entry.voiceNoteUri = patch.voiceNoteUri ?? undefined;
+    }
+    if (patch.videoUri !== undefined) {
+        entry.videoUri = patch.videoUri ?? undefined;
     }
 }
 

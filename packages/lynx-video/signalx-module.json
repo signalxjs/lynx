@@ -1,0 +1,22 @@
+{
+    "name": "Video",
+    "package": "@sigx/lynx-video",
+    "description": "Native video player component (AVPlayer / ExoPlayer)",
+    "platforms": ["android", "ios"],
+    "ios": {
+        "sourceDir": "ios",
+        "uiComponents": [
+            { "name": "video-player", "uiClass": "VideoPlayerUI" }
+        ]
+    },
+    "android": {
+        "sourceDir": "android",
+        "behaviors": [
+            { "name": "video-player", "behaviorClass": "com.sigx.video.VideoPlayerBehavior" }
+        ],
+        "dependencies": [
+            "androidx.media3:media3-exoplayer:1.4.1",
+            "androidx.media3:media3-ui:1.4.1"
+        ]
+    }
+}

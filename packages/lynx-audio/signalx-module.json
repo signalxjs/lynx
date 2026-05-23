@@ -1,0 +1,38 @@
+{
+    "name": "Audio",
+    "package": "@sigx/lynx-audio",
+    "description": "Audio recording and playback",
+    "platforms": ["android", "ios"],
+    "ios": {
+        "moduleClass": "AudioModule",
+        "publisherClass": "AudioPublisher",
+        "sourceDir": "ios",
+        "methods": [
+            "play",
+            "preload",
+            "pausePlayer",
+            "resumePlayer",
+            "stopPlayer",
+            "seekPlayer",
+            "setPlayerVolume",
+            "getPlayerStatus",
+            "startRecording",
+            "pauseRecording",
+            "resumeRecording",
+            "stopRecording",
+            "setMeterSubscribed",
+            "requestPermission",
+            "getPermissionStatus"
+        ],
+        "usageDescriptions": {
+            "NSMicrophoneUsageDescription": "Allow microphone access to record audio."
+        },
+        "backgroundModes": ["audio"]
+    },
+    "android": {
+        "moduleClass": "com.sigx.audio.AudioModule",
+        "publisherClass": "com.sigx.audio.AudioPublisher",
+        "sourceDir": "android",
+        "permissions": ["android.permission.RECORD_AUDIO"]
+    }
+}

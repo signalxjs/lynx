@@ -33,6 +33,8 @@
         "@sigx/lynx-appearance": "workspace:^",
         "@sigx/lynx-daisyui": "workspace:^",
         "@sigx/lynx-safe-area": "workspace:^",
+        "@sigx/lynx-audio": "workspace:^",
+        "@sigx/lynx-video": "workspace:^",
         "@sigx/lynx-image-picker": "workspace:^",
         "@sigx/lynx-location": "workspace:^",
         "@sigx/lynx-permissions": "workspace:^",

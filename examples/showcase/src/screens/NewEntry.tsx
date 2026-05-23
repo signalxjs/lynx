@@ -6,6 +6,8 @@ import { ImagePicker } from '@sigx/lynx-image-picker';
 import { Location } from '@sigx/lynx-location';
 import { addEntry, getEntry, updateEntry } from '../store/trips.js';
 import type { Coords } from '../store/types.js';
+import { VoiceNoteRecorder } from '../components/VoiceNoteRecorder.js';
+import { VideoClipPlayer } from '../components/VideoClipPlayer.js';
 
 /**
  * Create-or-edit entry modal. Reused via the `entryId` param: present →
@@ -31,6 +33,8 @@ export const NewEntry = component(() => {
     // both halves of the union otherwise). `coords.value` keeps the same
     // read/write ergonomics as a primitive signal.
     const coords = signal<{ value: Coords | null }>({ value: existing?.coords ?? null });
+    const voiceNoteUri = signal<{ value: string | null }>({ value: existing?.voiceNoteUri ?? null });
+    const videoUri = signal<{ value: string | null }>({ value: existing?.videoUri ?? null });
 
     const pickPhoto = async () => {
         // No `requestPermission` step: the system photo picker
@@ -72,18 +76,24 @@ export const NewEntry = component(() => {
     const save = async () => {
         const trimmed = note.value.trim();
         const photos = photoUris.value;
-        if (!trimmed && photos.length === 0) return;
+        const voice = voiceNoteUri.value;
+        const video = videoUri.value;
+        if (!trimmed && photos.length === 0 && !voice && !video) return;
         if (isEdit && entryId) {
             updateEntry(tripId, entryId, {
                 note: trimmed,
                 photoUris: photos,
                 coords: coords.value,
+                voiceNoteUri: voice,
+                videoUri: video,
             });
         } else {
             const fresh = await captureCoords();
             addEntry(tripId, trimmed, {
                 photoUris: photos,
                 coords: fresh,
+                voiceNoteUri: voice ?? undefined,
+                videoUri: video ?? undefined,
             });
         }
         Haptics.notification('success');
@@ -147,6 +157,16 @@ export const NewEntry = component(() => {
                             Attach photos
                         </Button>
                     )}
+                <VoiceNoteRecorder
+                    uri={voiceNoteUri.value}
+                    onRecorded={(uri) => { voiceNoteUri.value = uri; }}
+                    onCleared={() => { voiceNoteUri.value = null; }}
+                />
+                <VideoClipPlayer
+                    uri={videoUri.value}
+                    onAttach={(uri) => { videoUri.value = uri; }}
+                    onCleared={() => { videoUri.value = null; }}
+                />
                 <Button variant="primary" onPress={save}>Save</Button>
                 <Button variant="ghost" onPress={() => nav.pop()}>Cancel</Button>
             </Col>
