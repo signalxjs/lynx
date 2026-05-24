@@ -57,8 +57,6 @@ if (result.success) {
 
 `Biometric.authenticate` **always resolves** — failures (including the common "user cancelled") come back as `{ success: false, error, errorCode }`, so you don't need a try/catch.
 
-> **Android API 28/29 (Android 9/10):** `allowDeviceCredential: true` still enables a PIN/passcode fallback on these versions, but via the deprecated `setDeviceCredentialAllowed(true)` API — the modern `BIOMETRIC_STRONG | DEVICE_CREDENTIAL` combo is rejected by Keystore prior to API 30. Behaviour is the same from the caller's perspective: tapping the negative-button area surfaces the device credential prompt.
-
 ## API
 
 | Method | Returns |
@@ -67,7 +65,48 @@ if (result.success) {
 | `Biometric.authenticate(opts)` | `Promise<{ success: boolean; error?: string; errorCode?: BiometricErrorCode }>` |
 | `Biometric.isModuleAvailable()` | `boolean` — whether the native module is wired into the current build |
 
-`BiometricType` is `'faceId' | 'touchId' | 'fingerprint' | 'face' | 'iris' | 'none'`. iOS maps `.faceID` → `'faceId'`, `.touchID` → `'touchId'`, `.opticID` → `'iris'`. Android maps fingerprint sensors → `'fingerprint'`; class-3 face sensors → `'face'`.
+### `BiometricType`
+
+| Value | iOS | Android |
+|---|---|---|
+| `'faceId'` | `LABiometryType.faceID` | — |
+| `'touchId'` | `LABiometryType.touchID` | — |
+| `'iris'` | `LABiometryType.opticID` (Vision Pro) | iris sensor (rare) |
+| `'fingerprint'` | — | fingerprint sensor |
+| `'face'` | — | class-3 face sensor |
+| `'none'` | no enrolled biometric / no hardware | no enrolled biometric / no hardware |
+
+### `BiometricErrorCode`
+
+| Code | When | Notes |
+|---|---|---|
+| `'userCancel'` | User tapped Cancel / negative button. | The friendly path — usually no UI is needed. |
+| `'userFallback'` | iOS only. User tapped the `fallbackTitle` button. | Caller should present their own fallback (e.g. PIN entry). |
+| `'systemCancel'` | OS dismissed the prompt (incoming call, app backgrounded, foregrounded another app). | Safe to retry. |
+| `'authenticationFailed'` | Biometric matched no enrolled identity. | User can retry; only emitted on the terminal failure. |
+| `'biometryNotAvailable'` | No hardware, no passcode set, or the module is missing from this build. | Fall back to password-based auth. |
+| `'biometryNotEnrolled'` | Hardware exists but the user hasn't enrolled. | Deep-link to system settings if you want them to enrol. |
+| `'biometryLockout'` | Too many failed attempts. | iOS requires the device passcode to unlock; Android either timed-lockout or `LOCKOUT_PERMANENT`. |
+| `'noActivity'` | Android only. The host `FragmentActivity` wasn't in the foreground. | Indicates a wiring bug — shouldn't reach end users. |
+| `'unknown'` | Anything else, including bridge-level failures. | Inspect `error` for details. |
+
+### Platform notes
+
+**Android API 28/29 (Android 9/10).** `allowDeviceCredential: true` still enables the PIN/passcode fallback on these versions, but via the deprecated `setDeviceCredentialAllowed(true)` API — the modern `BIOMETRIC_STRONG | DEVICE_CREDENTIAL` combo is rejected by Keystore prior to API 30. Behaviour from the caller's perspective is identical: tapping the negative-button area surfaces the device credential prompt.
+
+**iOS Optic ID.** Reported as `'iris'` for cross-platform symmetry — the `Biometric.authenticate` flow is unchanged.
+
+## Troubleshooting
+
+**Face ID never prompts in the iOS simulator.** Simulators ship with biometrics *disabled*. Enrol via `Features → Face ID → Enrolled`, then trigger your `authenticate` call and use `Features → Face ID → Matching Face` / `Non-matching Face` to simulate the user response. Same flow for Touch ID. On a real device, biometrics are always enrolled at the OS level — you'd never hit this.
+
+**Android prompt never appears.** Two common causes:
+1. **Wrong activity class.** `BiometricPrompt` requires a `FragmentActivity`. The package's `BiometricActivityHook` only captures the host when it's a `FragmentActivity` — if your `MainActivity` extends plain `Activity`, the prompt has nothing to attach to and `authenticate` returns `errorCode: 'noActivity'`. Switch your host to `FragmentActivity` (or `AppCompatActivity`, which inherits from it).
+2. **`canAuthenticate` reports a non-success status.** `BiometricManager.from(context).canAuthenticate(BIOMETRIC_STRONG)` can return `BIOMETRIC_ERROR_HW_UNAVAILABLE` (hardware temporarily unavailable, e.g. on a locked Pixel sensor), `BIOMETRIC_ERROR_NONE_ENROLLED` (no fingerprint registered), or `BIOMETRIC_ERROR_SECURITY_UPDATE_REQUIRED` (a known Pixel quirk after security patches). The module surfaces these via `Biometric.isAvailable()` returning `{ available: false, type: 'none' }`.
+
+**`biometryLockout` on iOS won't clear.** After 5 failed attempts iOS demands the device passcode before biometric auth is usable again. Show a "Use Passcode" fallback (`allowDeviceCredential: true`) or wait for the user to unlock the device.
+
+**Permission dialog never shows on Android.** `USE_BIOMETRIC` is a normal-protection permission (auto-granted at install time on API 28+) — there is no runtime prompt and no `requestPermission()` call needed.
 
 ## Threat model
 
