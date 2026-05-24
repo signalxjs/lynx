@@ -17,13 +17,17 @@ import Lynx
 ///   - `title`       → callout title
 ///   - `description` → callout subtitle
 ///   - `marker-id`   → forwarded as `event.detail.id` on `bindmarkerpress`
-@objc public class SigxMapMarkerUI: LynxUI<UIView> {
-    fileprivate weak var owningMap: SigxMapUI?
+// Class is NOT marked `@objc` — Swift forbids that on generic subclasses
+// of an ObjC lightweight-generic type like `LynxUI<__covariant V>`. Member-
+// level `@objc` / `@objc(name)` annotations still bridge because `LynxUI`
+// itself is `@objc`, so `__lynx_prop_config__*` discovery still works.
+public class SigxMapMarkerUI: LynxUI<UIView> {
+    internal weak var owningMap: SigxMapUI?
 
-    fileprivate var currentCoordinate = CLLocationCoordinate2D(latitude: 0, longitude: 0)
-    fileprivate var currentTitle: String?
-    fileprivate var currentSubtitle: String?
-    fileprivate var markerId: String = ""
+    internal var currentCoordinate = CLLocationCoordinate2D(latitude: 0, longitude: 0)
+    internal var currentTitle: String?
+    internal var currentSubtitle: String?
+    internal var markerId: String = ""
 
     public override func createView() -> UIView? {
         let v = UIView(frame: .zero)
@@ -31,7 +35,17 @@ import Lynx
         return v
     }
 
-    fileprivate func makeAnnotation() -> MKPointAnnotation {
+    // Explicit prop-setter registration. See SigxWebViewUI for rationale.
+    @objc public class func propSetterLookUp() -> NSArray {
+        return [
+            ["coordinate", "setCoordinate:requestReset:"],
+            ["title", "setTitle:requestReset:"],
+            ["description", "setDescription:requestReset:"],
+            ["marker-id", "setMarkerId:requestReset:"],
+        ] as NSArray
+    }
+
+    internal func makeAnnotation() -> MKPointAnnotation {
         let a = MKPointAnnotation()
         a.coordinate = currentCoordinate
         a.title = currentTitle
@@ -54,7 +68,7 @@ import Lynx
 
     @objc(__lynx_prop_config__coordinate)
     public class func __lynxPropConfigCoordinate() -> [String] {
-        return ["coordinate", "setCoordinate:requestReset:", "NSString *"]
+        return ["coordinate", "setCoordinate", "NSString *"]
     }
 
     @objc public func setTitle(_ value: NSString?, requestReset: Bool) {
@@ -64,7 +78,7 @@ import Lynx
 
     @objc(__lynx_prop_config__title)
     public class func __lynxPropConfigTitle() -> [String] {
-        return ["title", "setTitle:requestReset:", "NSString *"]
+        return ["title", "setTitle", "NSString *"]
     }
 
     @objc public func setDescription(_ value: NSString?, requestReset: Bool) {
@@ -74,7 +88,7 @@ import Lynx
 
     @objc(__lynx_prop_config__description)
     public class func __lynxPropConfigDescription() -> [String] {
-        return ["description", "setDescription:requestReset:", "NSString *"]
+        return ["description", "setDescription", "NSString *"]
     }
 
     @objc public func setMarkerId(_ value: NSString?, requestReset: Bool) {
@@ -83,6 +97,6 @@ import Lynx
 
     @objc(__lynx_prop_config__marker_id)
     public class func __lynxPropConfigMarkerId() -> [String] {
-        return ["marker-id", "setMarkerId:requestReset:", "NSString *"]
+        return ["marker-id", "setMarkerId", "NSString *"]
     }
 }

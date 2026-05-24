@@ -30,7 +30,7 @@ function sha256OfFile(p: string): string {
  * sorted). Missing roots return an empty list — caller decides whether that
  * counts as a fingerprint mismatch or not.
  */
-function walkFiles(root: string): string[] {
+export function walkFiles(root: string): string[] {
     const out: string[] = [];
     function walk(d: string): void {
         let entries;

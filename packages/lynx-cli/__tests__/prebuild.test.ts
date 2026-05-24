@@ -11,7 +11,10 @@ import {
     injectAndroidPermissions,
     injectPodfileEntries,
     injectInfoPlistDescriptions,
+    injectInfoPlistBackgroundModes,
+    injectInfoPlistBgTaskIdentifiers,
     cleanPrebuild,
+    fingerprintPrebuildInputs,
 } from '../src/prebuild.js';
 import { resolveConfig } from '../src/config/parser.js';
 import type { LynxConfig } from '../src/config/schema.js';
@@ -274,6 +277,102 @@ describe('injectInfoPlistDescriptions', () => {
     });
 });
 
+describe('injectInfoPlistBackgroundModes', () => {
+    it('injects background modes at marker', () => {
+        const config = resolveConfig(TEST_CONFIG);
+        scaffoldIos(testDir, config);
+
+        injectInfoPlistBackgroundModes(testDir, config, ['fetch', 'processing']);
+
+        const plist = readFileSync(
+            join(testDir, 'ios', 'TestApp', 'Info.plist'),
+            'utf-8',
+        );
+        expect(plist).toContain('<key>UIBackgroundModes</key>');
+        expect(plist).toContain('<string>fetch</string>');
+        expect(plist).toContain('<string>processing</string>');
+    });
+
+    it('writes a placeholder comment when no modes are provided', () => {
+        const config = resolveConfig(TEST_CONFIG);
+        scaffoldIos(testDir, config);
+
+        injectInfoPlistBackgroundModes(testDir, config, []);
+
+        const plist = readFileSync(
+            join(testDir, 'ios', 'TestApp', 'Info.plist'),
+            'utf-8',
+        );
+        expect(plist).not.toContain('<key>UIBackgroundModes</key>');
+        expect(plist).toContain('no auto-linked background modes');
+    });
+});
+
+describe('injectInfoPlistBgTaskIdentifiers', () => {
+    it('injects BGTaskSchedulerPermittedIdentifiers at marker', () => {
+        const config = resolveConfig(TEST_CONFIG);
+        scaffoldIos(testDir, config);
+
+        injectInfoPlistBgTaskIdentifiers(testDir, config, [
+            'com.test.myapp.bg.refresh-feed',
+            'com.test.myapp.bg.sync-outbox',
+        ]);
+
+        const plist = readFileSync(
+            join(testDir, 'ios', 'TestApp', 'Info.plist'),
+            'utf-8',
+        );
+        expect(plist).toContain('<key>BGTaskSchedulerPermittedIdentifiers</key>');
+        expect(plist).toContain('<string>com.test.myapp.bg.refresh-feed</string>');
+        expect(plist).toContain('<string>com.test.myapp.bg.sync-outbox</string>');
+    });
+
+    it('writes a placeholder comment when no identifiers are provided', () => {
+        const config = resolveConfig(TEST_CONFIG);
+        scaffoldIos(testDir, config);
+
+        injectInfoPlistBgTaskIdentifiers(testDir, config, []);
+
+        const plist = readFileSync(
+            join(testDir, 'ios', 'TestApp', 'Info.plist'),
+            'utf-8',
+        );
+        expect(plist).not.toContain('<key>BGTaskSchedulerPermittedIdentifiers</key>');
+        expect(plist).toContain('no auto-linked BGTaskScheduler identifiers');
+    });
+
+    it('is idempotent on re-run', () => {
+        const config = resolveConfig(TEST_CONFIG);
+        scaffoldIos(testDir, config);
+
+        const ids = ['com.test.myapp.bg.refresh-feed'];
+        injectInfoPlistBgTaskIdentifiers(testDir, config, ids);
+        const first = readFileSync(join(testDir, 'ios', 'TestApp', 'Info.plist'), 'utf-8');
+        injectInfoPlistBgTaskIdentifiers(testDir, config, ids);
+        const second = readFileSync(join(testDir, 'ios', 'TestApp', 'Info.plist'), 'utf-8');
+        expect(second).toEqual(first);
+    });
+
+    it('de-duplicates identifiers', () => {
+        const config = resolveConfig(TEST_CONFIG);
+        scaffoldIos(testDir, config);
+
+        injectInfoPlistBgTaskIdentifiers(testDir, config, [
+            'com.test.myapp.bg.refresh-feed',
+            'com.test.myapp.bg.sync-outbox',
+            'com.test.myapp.bg.refresh-feed',
+        ]);
+
+        const plist = readFileSync(
+            join(testDir, 'ios', 'TestApp', 'Info.plist'),
+            'utf-8',
+        );
+        const matches = plist.match(/<string>com\.test\.myapp\.bg\.refresh-feed<\/string>/g);
+        expect(matches).toHaveLength(1);
+        expect(plist).toContain('<string>com.test.myapp.bg.sync-outbox</string>');
+    });
+});
+
 describe('cleanPrebuild', () => {
     it('removes registry files in partial clean', () => {
         const config = resolveConfig(TEST_CONFIG);
@@ -306,6 +405,83 @@ describe('cleanPrebuild', () => {
 
         expect(existsSync(join(testDir, 'android'))).toBe(false);
         expect(existsSync(join(testDir, 'ios'))).toBe(false);
+    });
+});
+
+describe('fingerprintPrebuildInputs — sourceDir invalidation', () => {
+    // Regression: a workspace package's `.swift` / `.kt` may change without
+    // its `signalx-module.json` changing (new prop setter, new UI method,
+    // bug fix). Before this case was wired, the fingerprint only hashed
+    // the manifest itself — so the consumer's fast-path would skip
+    // prebuild, the `copy*ModuleSources` step wouldn't run, and the .app
+    // would link against a stale copy of the package's native source.
+    //
+    // The symptom users hit: "module X not available" / "UI Y not found"
+    // at runtime, because the generated registry referenced a class that
+    // wasn't physically present in the build.
+    function makeFakeWorkspace(): { cwd: string; sourceFile: string } {
+        const cwd = join(tmpdir(), `sigx-fp-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+        const pkgDir = join(cwd, 'node_modules', '@fake', 'lynx-foo');
+        const sourceDir = join(pkgDir, 'ios');
+        const sourceFile = join(sourceDir, 'FakeUI.swift');
+        mkdirSync(sourceDir, { recursive: true });
+        writeFileSync(join(cwd, 'package.json'), JSON.stringify({
+            name: 'host',
+            dependencies: { '@fake/lynx-foo': '^0.0.0' },
+        }));
+        writeFileSync(join(pkgDir, 'package.json'), JSON.stringify({
+            name: '@fake/lynx-foo',
+            version: '0.0.0',
+            exports: {
+                './signalx-module.json': './signalx-module.json',
+            },
+        }));
+        writeFileSync(join(pkgDir, 'signalx-module.json'), JSON.stringify({
+            name: 'FakeFoo',
+            package: '@fake/lynx-foo',
+            description: 'fake',
+            platforms: ['ios'],
+            ios: { moduleClass: 'FakeUI', sourceDir: 'ios' },
+        }));
+        writeFileSync(sourceFile, '// initial body\n');
+        return { cwd, sourceFile };
+    }
+
+    it('rehashes when a workspace package\'s sourceDir file changes', () => {
+        const { cwd, sourceFile } = makeFakeWorkspace();
+        try {
+            const before = fingerprintPrebuildInputs(cwd, { android: true, ios: true });
+            writeFileSync(sourceFile, '// modified body — new prop setter added\n');
+            const after = fingerprintPrebuildInputs(cwd, { android: true, ios: true });
+            expect(after).not.toBe(before);
+        } finally {
+            rmSync(cwd, { recursive: true, force: true });
+        }
+    });
+
+    it('rehashes when a brand-new file appears in a sourceDir', () => {
+        const { cwd, sourceFile } = makeFakeWorkspace();
+        try {
+            const before = fingerprintPrebuildInputs(cwd, { android: true, ios: true });
+            // New sibling file in the same sourceDir — a new helper class
+            // dropped in by the package author.
+            writeFileSync(join(sourceFile, '..', 'NewHelper.swift'), '// new file\n');
+            const after = fingerprintPrebuildInputs(cwd, { android: true, ios: true });
+            expect(after).not.toBe(before);
+        } finally {
+            rmSync(cwd, { recursive: true, force: true });
+        }
+    });
+
+    it('is stable when nothing changes (so the fast-path can fire)', () => {
+        const { cwd } = makeFakeWorkspace();
+        try {
+            const a = fingerprintPrebuildInputs(cwd, { android: true, ios: true });
+            const b = fingerprintPrebuildInputs(cwd, { android: true, ios: true });
+            expect(a).toBe(b);
+        } finally {
+            rmSync(cwd, { recursive: true, force: true });
+        }
     });
 });
 

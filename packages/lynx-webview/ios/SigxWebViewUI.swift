@@ -20,7 +20,13 @@ import Lynx
 ///
 /// Imperative methods (goBack / reload / postMessage from JS / injectJavaScript)
 /// are tracked as a v2 follow-up — they need the Lynx UIMethodInvoker surface.
-@objc public class SigxWebViewUI: LynxUI<WKWebView> {
+// Class is NOT marked `@objc` — Swift forbids that on generic subclasses
+// (`LynxUI<__covariant V>` is an ObjC lightweight generic, so this is one).
+// Member-level `@objc` / `@objc(name)` annotations still bridge because
+// `LynxUI` itself is `@objc`, so the inherited ObjC machinery picks up
+// `__lynx_prop_config__*` and `__lynx_ui_method_config__*` class methods
+// as expected by `LynxPropsProcessor` / `LynxUIMethodProcessor`.
+public class SigxWebViewUI: LynxUI<WKWebView> {
 
     /// `WKUserContentController` handler name. On the page side this is
     /// reached via `window.webkit.messageHandlers.sigxBridge.postMessage(...)`
@@ -32,7 +38,6 @@ import Lynx
 
     private lazy var navigationDelegate = SigxWebViewNavigationDelegate(owner: self)
     private lazy var scriptMessageHandler = SigxWebViewScriptMessageHandler(owner: self)
-    private var pendingUserAgent: String?
 
     // MARK: - LynxUI overrides
 
@@ -47,13 +52,37 @@ import Lynx
         ))
         config.userContentController = controller
 
-        let webView = WKWebView(frame: .zero, configuration: config)
+        // Start with a non-zero placeholder frame so WKWebView's internal
+        // layout engine doesn't sit in a "no size, no render" steady state.
+        // Lynx's `updateFrame` overrides this immediately with the real
+        // layout dims; the placeholder is just to bootstrap WKWebView's
+        // initial render pipeline.
+        let webView = WKWebView(frame: CGRect(x: 0, y: 0, width: 1, height: 1), configuration: config)
         webView.navigationDelegate = navigationDelegate
-        if let ua = pendingUserAgent {
-            webView.customUserAgent = ua
-            pendingUserAgent = nil
-        }
+        // Disable the autoresizing-mask translation so when Lynx sets a new
+        // frame, WKWebView re-lays its WKContentView at the new size.
+        // Without this, WKWebView sometimes pins its internal content view
+        // to the initial frame and ignores subsequent frame changes from
+        // outside the iOS auto-layout system.
+        webView.translatesAutoresizingMaskIntoConstraints = true
+        webView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         return webView
+    }
+
+    // Explicit prop-setter registration. The runtime prefers this path
+    // over the per-method `__lynx_prop_config__*` discovery — see
+    // `LynxPropsProcessor.mm:206-211`. Returning a single `NSArray` of
+    // `[propName, fullSelector]` pairs is more robust than relying on
+    // Swift `@objc(name)` class methods being enumerable by
+    // `class_copyMethodList(metaclass)` (which has subtle quirks for
+    // Swift-defined classes that don't carry a class-level `@objc`).
+    @objc public class func propSetterLookUp() -> NSArray {
+        return [
+            ["src", "setSrc:requestReset:"],
+            ["html", "setHtml:requestReset:"],
+            ["user-agent", "setUserAgent:requestReset:"],
+            ["enable-debug", "setEnableDebug:requestReset:"],
+        ] as NSArray
     }
 
     // MARK: - Prop setters
@@ -70,12 +99,12 @@ import Lynx
             NSLog("[SigxWebView] Rejected src with unsupported scheme: \(raw.prefix(32))")
             return
         }
-        view.load(URLRequest(url: url))
+        view().load(URLRequest(url: url))
     }
 
     @objc(__lynx_prop_config__src)
     public class func __lynxPropConfigSrc() -> [String] {
-        return ["src", "setSrc:requestReset:", "NSString *"]
+        return ["src", "setSrc", "NSString *"]
     }
 
     /// Allow only `http(s)` and `about:blank`. `javascript:` is the headline
@@ -93,27 +122,26 @@ import Lynx
 
     @objc public func setHtml(_ value: NSString?, requestReset: Bool) {
         guard let raw = value as String? else { return }
-        view.loadHTMLString(raw, baseURL: nil)
+        view().loadHTMLString(raw, baseURL: nil)
     }
 
     @objc(__lynx_prop_config__html)
     public class func __lynxPropConfigHtml() -> [String] {
-        return ["html", "setHtml:requestReset:", "NSString *"]
+        return ["html", "setHtml", "NSString *"]
     }
 
     @objc public func setUserAgent(_ value: NSString?, requestReset: Bool) {
+        // `view()` is lazily built — calling it from a prop setter is safe
+        // because LynxUI has already created the underlying view by the
+        // time the runtime hands us prop values. No "view not built yet"
+        // branch needed.
         let ua = (value as String?) ?? ""
-        if let webView = view as WKWebView? {
-            webView.customUserAgent = ua.isEmpty ? nil : ua
-        } else {
-            // View not built yet — stash for createView().
-            pendingUserAgent = ua.isEmpty ? nil : ua
-        }
+        view().customUserAgent = ua.isEmpty ? nil : ua
     }
 
     @objc(__lynx_prop_config__user_agent)
     public class func __lynxPropConfigUserAgent() -> [String] {
-        return ["user-agent", "setUserAgent:requestReset:", "NSString *"]
+        return ["user-agent", "setUserAgent", "NSString *"]
     }
 
     @objc public func setEnableDebug(_ value: Bool, requestReset: Bool) {
@@ -121,14 +149,153 @@ import Lynx
         // older iOS, the WebKit-private `developerExtrasEnabled` preference is
         // gated behind App-Store-reject risk; we only flip the public flag.
         if #available(iOS 16.4, *) {
-            view.isInspectable = value
+            view().isInspectable = value
         }
     }
 
     @objc(__lynx_prop_config__enable_debug)
     public class func __lynxPropConfigEnableDebug() -> [String] {
-        return ["enable-debug", "setEnableDebug:requestReset:", "BOOL"]
+        return ["enable-debug", "setEnableDebug", "BOOL"]
     }
+
+    // MARK: - Imperative methods
+    //
+    // Each method is declared the same way as v1's prop setters: a Swift
+    // instance method matching the macro-generated `<name>:withResult:`
+    // signature plus a `@objc(__lynx_ui_method_config__<name>)` class method
+    // returning the method name as an NSString. Lynx's
+    // `LynxUIMethodProcessor` introspects every class method whose selector
+    // begins with `__lynx_ui_method_config__` to build its dispatch table
+    // (see `Pods/Lynx/.../LynxUIMethodProcessor.h`).
+    //
+    // Status codes: `kUIMethodSuccess = 0`, `kUIMethodUnknown = 1`. Defined
+    // as raw Int32 here so we don't have to import the C enum — the values
+    // are stable across Lynx 3.x.
+
+    private static let kUIMethodSuccess: Int32 = 0
+    private static let kUIMethodUnknown: Int32 = 1
+
+    @objc public func goBack(_ params: NSDictionary?, withResult callback: @escaping LynxUIMethodCallbackBlock) {
+        DispatchQueue.main.async {
+            if self.view().canGoBack { self.view().goBack() }
+            callback(SigxWebViewUI.kUIMethodSuccess, nil)
+        }
+    }
+    @objc(__lynx_ui_method_config__goBack)
+    dynamic public class func __lynxUIMethodConfigGoBack() -> NSString { return "goBack" }
+
+    @objc public func goForward(_ params: NSDictionary?, withResult callback: @escaping LynxUIMethodCallbackBlock) {
+        DispatchQueue.main.async {
+            if self.view().canGoForward { self.view().goForward() }
+            callback(SigxWebViewUI.kUIMethodSuccess, nil)
+        }
+    }
+    @objc(__lynx_ui_method_config__goForward)
+    dynamic public class func __lynxUIMethodConfigGoForward() -> NSString { return "goForward" }
+
+    @objc public func reload(_ params: NSDictionary?, withResult callback: @escaping LynxUIMethodCallbackBlock) {
+        DispatchQueue.main.async {
+            self.view().reload()
+            callback(SigxWebViewUI.kUIMethodSuccess, nil)
+        }
+    }
+    @objc(__lynx_ui_method_config__reload)
+    dynamic public class func __lynxUIMethodConfigReload() -> NSString { return "reload" }
+
+    @objc public func stopLoading(_ params: NSDictionary?, withResult callback: @escaping LynxUIMethodCallbackBlock) {
+        DispatchQueue.main.async {
+            self.view().stopLoading()
+            callback(SigxWebViewUI.kUIMethodSuccess, nil)
+        }
+    }
+    @objc(__lynx_ui_method_config__stopLoading)
+    dynamic public class func __lynxUIMethodConfigStopLoading() -> NSString { return "stopLoading" }
+
+    @objc public func canGoBack(_ params: NSDictionary?, withResult callback: @escaping LynxUIMethodCallbackBlock) {
+        DispatchQueue.main.async {
+            callback(SigxWebViewUI.kUIMethodSuccess, ["value": self.view().canGoBack])
+        }
+    }
+    @objc(__lynx_ui_method_config__canGoBack)
+    dynamic public class func __lynxUIMethodConfigCanGoBack() -> NSString { return "canGoBack" }
+
+    @objc public func canGoForward(_ params: NSDictionary?, withResult callback: @escaping LynxUIMethodCallbackBlock) {
+        DispatchQueue.main.async {
+            callback(SigxWebViewUI.kUIMethodSuccess, ["value": self.view().canGoForward])
+        }
+    }
+    @objc(__lynx_ui_method_config__canGoForward)
+    dynamic public class func __lynxUIMethodConfigCanGoForward() -> NSString { return "canGoForward" }
+
+    /// Evaluate arbitrary JS in the page and return the last-expression
+    /// value. Results are stringified — JS code that returns a non-string
+    /// (number, dict, undefined) lands as its `String(describing:)` form so
+    /// the wire shape stays predictable.
+    @objc public func injectJavaScript(_ params: NSDictionary?, withResult callback: @escaping LynxUIMethodCallbackBlock) {
+        let code = (params?["code"] as? String) ?? ""
+        if code.isEmpty {
+            callback(SigxWebViewUI.kUIMethodUnknown, "injectJavaScript: missing `code` param")
+            return
+        }
+        DispatchQueue.main.async {
+            self.view().evaluateJavaScript(code) { result, error in
+                if let error = error {
+                    callback(SigxWebViewUI.kUIMethodUnknown, error.localizedDescription)
+                    return
+                }
+                // Normalise JS `null` / `undefined` → empty string for
+                // wire-shape parity with Android and the documented
+                // `null/undefined → ""` contract. WKWebView returns:
+                //   - `nil`     for `undefined`
+                //   - `NSNull`  for JS `null`
+                //   - the boxed value otherwise (NSString, NSNumber, …).
+                // The default `String(describing: NSNull())` of "<null>"
+                // would leak into JS otherwise.
+                let str: String
+                if result == nil || result is NSNull {
+                    str = ""
+                } else if let s = result as? String {
+                    str = s
+                } else {
+                    str = "\(result!)"
+                }
+                callback(SigxWebViewUI.kUIMethodSuccess, ["result": str])
+            }
+        }
+    }
+    @objc(__lynx_ui_method_config__injectJavaScript)
+    dynamic public class func __lynxUIMethodConfigInjectJavaScript() -> NSString { return "injectJavaScript" }
+
+    /// Host → page message. The user-script (`bridgeUserScript`) injects a
+    /// `window.sigxBridge.dispatchMessage(data)` helper that no-ops when the
+    /// page hasn't subscribed via `window.sigx.onmessage = …`. We pass the
+    /// payload through `JSON.stringify` on the host side so embedded quotes
+    /// don't break the eval'd JS literal.
+    @objc public func postMessage(_ params: NSDictionary?, withResult callback: @escaping LynxUIMethodCallbackBlock) {
+        let data = (params?["data"] as? String) ?? ""
+        // Encode as JSON string literal so any quotes / newlines in the
+        // payload survive the round-trip into the JS source.
+        guard let payloadData = try? JSONSerialization.data(withJSONObject: [data], options: []),
+              let arrayLiteral = String(data: payloadData, encoding: .utf8),
+              arrayLiteral.count >= 2 else {
+            callback(SigxWebViewUI.kUIMethodUnknown, "postMessage: failed to encode payload")
+            return
+        }
+        // Slice off the array brackets to extract just the quoted-string form.
+        let jsLiteral = String(arrayLiteral.dropFirst().dropLast())
+        let js = "window.sigxBridge && window.sigxBridge.dispatchMessage && window.sigxBridge.dispatchMessage(\(jsLiteral));"
+        DispatchQueue.main.async {
+            self.view().evaluateJavaScript(js) { _, error in
+                if let error = error {
+                    callback(SigxWebViewUI.kUIMethodUnknown, error.localizedDescription)
+                } else {
+                    callback(SigxWebViewUI.kUIMethodSuccess, nil)
+                }
+            }
+        }
+    }
+    @objc(__lynx_ui_method_config__postMessage)
+    dynamic public class func __lynxUIMethodConfigPostMessage() -> NSString { return "postMessage" }
 
     // MARK: - Event firing
 
@@ -136,23 +303,38 @@ import Lynx
     /// see `event.detail` carrying the params.
     fileprivate func fireEvent(_ name: String, params: [String: Any]) {
         let event = LynxCustomEvent(name: name, targetSign: sign, params: params)
-        context?.eventEmitter?.sendCustomEvent(event)
+        // Swift renames the ObjC `sendCustomEvent:` selector to `send(_:)`
+        // when LynxCustomEvent is the parameter type — both ObjC and Swift
+        // call the same underlying method.
+        context?.eventEmitter?.send(event)
     }
 
     /// User-script injected at `documentStart` on every frame. Forwards
     /// `window.sigx.postMessage(json)` calls to the native script-message
-    /// handler. The native side parses + dispatches as `bindmessage`.
+    /// handler (page → host direction). Also exposes
+    /// `window.sigxBridge.dispatchMessage` — the host calls this via
+    /// `evaluateJavaScript` to deliver host → page messages, which forwards
+    /// to whatever handler the page registered as `window.sigx.onmessage`.
     private static let bridgeUserScript: String = """
     (function() {
-        if (window.sigx && window.sigx.postMessage) return;
+        var bridgeNs = window.sigxBridge = window.sigxBridge || {};
         var raw = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.sigxBridge;
-        if (!raw) return;
         var post = function(payload) {
+            if (!raw) return;
             try { raw.postMessage(typeof payload === 'string' ? payload : JSON.stringify(payload)); }
-            catch (e) { /* swallowed; raw.postMessage already serialised the error */ }
+            catch (e) { /* raw.postMessage already serialised the error */ }
+        };
+        // Host → page delivery slot. No-op if the page hasn't subscribed,
+        // and any handler exception is swallowed so a bad page can't break
+        // the bridge.
+        bridgeNs.dispatchMessage = function(payload) {
+            try {
+                var fn = window.sigx && window.sigx.onmessage;
+                if (typeof fn === 'function') fn(payload);
+            } catch (e) { /* swallowed */ }
         };
         window.sigx = window.sigx || {};
-        window.sigx.postMessage = post;
+        if (!window.sigx.postMessage) window.sigx.postMessage = post;
     })();
     """
 }

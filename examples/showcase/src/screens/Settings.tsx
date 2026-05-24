@@ -23,7 +23,7 @@ import { Haptics } from '@sigx/lynx-haptics';
 import { FaBrandIcon, FaSolidIcon } from '@sigx/lynx-icons-fa-free/components';
 import { LucideIcon } from '@sigx/lynx-icons-lucide/components';
 import { Notifications, type NotificationResponse, type RemoteMessage } from '@sigx/lynx-notifications';
-import { WebView } from '@sigx/lynx-webview';
+import { Background } from '@sigx/lynx-background';
 import { clearAllTrips, trips } from '../store/trips.js';
 
 export const Settings = component(() => {
@@ -47,6 +47,12 @@ export const Settings = component(() => {
     let unsubMsg: (() => void) | null = null;
     let unsubTap: (() => void) | null = null;
 
+    // ── Background tasks demo state ─────────────────────────────────────────
+    const bgRegistered = signal<string[]>([]);
+    const bgLastFire = signal<string | null>(null);
+    const bgFeedTitle = signal<string | null>(null);
+    let bgUnsubHandler: (() => void) | null = null;
+
     onMounted(async () => {
         // Wire listeners BEFORE registering — token replay handles the
         // ordering edge case, but this is the cleaner pattern.
@@ -65,9 +71,27 @@ export const Settings = component(() => {
         permStatus.value = status.status;
         const initial = await Notifications.getInitialNotification();
         if (initial) initialTap.value = initial;
+
+        // Wire the background handler BEFORE listing/registering — the OS can
+        // fire the task as soon as the process starts, so handlers must be
+        // attached at cold-start time.
+        bgUnsubHandler = Background.setHandler('refresh-feed', async () => {
+            bgLastFire.value = new Date().toISOString();
+            try {
+                const res = await fetch('https://jsonplaceholder.typicode.com/posts/1');
+                const json = (await res.json()) as { title?: string };
+                bgFeedTitle.value = json.title ?? '(no title)';
+            } catch (err) {
+                bgFeedTitle.value = `error: ${String(err)}`;
+            }
+        });
+        if (Background.isAvailable()) {
+            bgRegistered.$set(await Background.getRegistered());
+        }
     });
     onUnmounted(() => {
         unsubToken?.(); unsubTokenErr?.(); unsubMsg?.(); unsubTap?.();
+        bgUnsubHandler?.();
     });
 
     const onRequestPerm = async () => {
@@ -97,26 +121,26 @@ export const Settings = component(() => {
         await Notifications.setBadgeCount(0);
     };
 
+    // ── Background task handlers ────────────────────────────────────────────
+    const onBgRegister = async () => {
+        Haptics.selection();
+        await Background.register('refresh-feed', {
+            minimumInterval: 15 * 60,
+            requiresNetwork: true,
+        });
+        bgRegistered.$set(await Background.getRegistered());
+    };
+    const onBgUnregister = async () => {
+        Haptics.selection();
+        await Background.unregister('refresh-feed');
+        bgRegistered.$set(await Background.getRegistered());
+    };
+
     const onClear = () => {
         Haptics.notification('warning');
         clearAllTrips();
         confirmOpen.value = false;
     };
-
-    // ── WebView demo state ──────────────────────────────────────────────────
-    const webMode = signal<'url' | 'html'>('url');
-    const webMessage = signal<string | null>(null);
-    const inlineHtml = `<!doctype html>
-<html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>
-body{font:16px -apple-system,Roboto,sans-serif;margin:24px;color:#111}
-button{font:inherit;padding:10px 14px;border:0;border-radius:8px;background:#0066ff;color:#fff}
-</style></head><body>
-<h2>Inline HTML</h2>
-<p>This page is rendered from the <code>html</code> prop — no network.</p>
-<button onclick="window.sigx.postMessage(JSON.stringify({click:'hi',at:Date.now()}))">
-  postMessage to host
-</button>
-</body></html>`;
 
     const pickTheme = (name: DaisyTheme) => {
         Haptics.selection();
@@ -336,58 +360,29 @@ button{font:inherit;padding:10px 14px;border:0;border-radius:8px;background:#006
                 <Card bordered>
                     <Card.Body>
                         <Col gap={8}>
-                            <Text weight="semibold">Native WebView</Text>
+                            <Text weight="semibold">Background tasks (BGTaskScheduler / WorkManager)</Text>
                             <Text class="opacity-60 text-sm">
-                                WKWebView (iOS) / android.webkit.WebView (Android).
-                                First sigx-lynx package using the new component
-                                autolink path — `signalx-module.json` declares
-                                `ios.uiComponents` + `android.behaviors`, prebuild
-                                emits the registry/attacher.
+                                Registers a periodic `refresh-feed` task. The OS
+                                decides when to fire (iOS: opportunistic, often
+                                hours; Android: ≥15 min). The handler runs in
+                                the background, fetches a JSON feed, and the
+                                result shows on next foreground. Real testing
+                                needs the iOS scheduler debugger or `adb shell
+                                cmd jobscheduler run` — see the package README.
                             </Text>
                             <Row gap={8} align="center">
-                                <Button
-                                    size="sm"
-                                    variant={webMode.value === 'url' ? 'primary' : 'ghost'}
-                                    outline={webMode.value !== 'url'}
-                                    onPress={() => {
-                                        Haptics.selection();
-                                        webMessage.value = null;
-                                        webMode.value = 'url';
-                                    }}
-                                >
-                                    URL
+                                <Button variant="primary" onPress={onBgRegister}>
+                                    Register refresh-feed
                                 </Button>
-                                <Button
-                                    size="sm"
-                                    variant={webMode.value === 'html' ? 'primary' : 'ghost'}
-                                    outline={webMode.value !== 'html'}
-                                    onPress={() => {
-                                        Haptics.selection();
-                                        webMessage.value = null;
-                                        webMode.value = 'html';
-                                    }}
-                                >
-                                    Inline HTML
+                                <Button variant="ghost" onPress={onBgUnregister}>
+                                    Unregister
                                 </Button>
                             </Row>
-                            <view class="bg-base-200 rounded-lg" style={{ height: '280px', overflow: 'hidden' }}>
-                                {webMode.value === 'url' ? (
-                                    <WebView
-                                        src="https://example.com"
-                                        style={{ width: '100%', height: '100%' }}
-                                        onLoad={(e) => console.log('webview loaded', e.detail.url)}
-                                        onError={(e) => console.warn('webview failed', e.detail.message)}
-                                    />
-                                ) : (
-                                    <WebView
-                                        html={inlineHtml}
-                                        style={{ width: '100%', height: '100%' }}
-                                        onMessage={(e) => { webMessage.value = e.detail.data; }}
-                                    />
-                                )}
-                            </view>
                             <Text class="font-mono text-sm opacity-70">
-                                last postMessage: {webMessage.value ?? '—'}
+                                available: {String(Background.isAvailable())}{'\n'}
+                                registered: {bgRegistered.length ? bgRegistered.join(', ') : '—'}{'\n'}
+                                last fire: {bgLastFire.value ?? '—'}{'\n'}
+                                last title: {bgFeedTitle.value ?? '—'}
                             </Text>
                         </Col>
                     </Card.Body>
