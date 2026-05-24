@@ -17,13 +17,46 @@ pnpm add @sigx/lynx-secure-storage
 
 `sigx prebuild` auto-discovers the package, links the native module, adds the `androidx.security` + `androidx.biometric` dependencies, and adds `<uses-permission android:name="android.permission.USE_BIOMETRIC"/>` to the Android manifest.
 
-> **Android auto-backup**: `EncryptedSharedPreferences` files DO get included in Android Auto Backup by default. The data is encrypted, but the master key wraps to the device — restoring to a new device renders the encrypted blobs useless. For absolute safety, exclude the file from backup in your `backup_rules.xml`:
->
-> ```xml
-> <full-backup-content>
->     <exclude domain="sharedpref" path="sigx_secure_storage_v1.xml" />
-> </full-backup-content>
-> ```
+### Android Auto Backup
+
+`EncryptedSharedPreferences` files are included in Android Auto Backup by default. The data is encrypted but the master key is device-bound, so restoring to a new device produces unreadable blobs that the next `get()` call will fail on. **Recommended:** exclude both of this module's prefs files from backup.
+
+Create `android/app/src/main/res/xml/sigx_backup_rules.xml`:
+
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<full-backup-content>
+    <exclude domain="sharedpref" path="sigx_secure_storage_v1.xml" />
+    <exclude domain="sharedpref" path="sigx_secure_storage_biometric_v1.xml" />
+</full-backup-content>
+```
+
+And the Android 12+ equivalent at `android/app/src/main/res/xml/sigx_data_extraction_rules.xml`:
+
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="sharedpref" path="sigx_secure_storage_v1.xml" />
+        <exclude domain="sharedpref" path="sigx_secure_storage_biometric_v1.xml" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="sharedpref" path="sigx_secure_storage_v1.xml" />
+        <exclude domain="sharedpref" path="sigx_secure_storage_biometric_v1.xml" />
+    </device-transfer>
+</data-extraction-rules>
+```
+
+Wire both in your `AndroidManifest.xml`'s `<application>` element:
+
+```xml
+<application
+    android:fullBackupContent="@xml/sigx_backup_rules"
+    android:dataExtractionRules="@xml/sigx_data_extraction_rules"
+    …>
+```
+
+Biometric-gated keys are intrinsically safe — the Keystore alias can't be restored to a different device — but the encrypted blob's still useless on restore, so excluding both files keeps the user out of a confusing "stale ciphertext" state.
 
 ## Usage
 
@@ -70,7 +103,70 @@ await SecureStorage.clear();   // wipes only THIS module's items
 - `requireBiometric?: boolean` — gate this key with the OS biometric prompt.
 
 `get` options:
-- `biometricPrompt?: { reason: string; title?: string }` — required on Android when the key was stored with `requireBiometric: true`; the OS needs the strings to render `BiometricPrompt`. iOS uses `reason` as the LAContext `localizedReason`; if omitted the OS shows a generic default.
+- `biometricPrompt?: { reason: string; title?: string }` — strings shown on the OS prompt for biometric-gated keys. If omitted (or `reason` is empty), a generic `"Authenticate to read secure data"` default is used so the prompt still appears with a non-blank subtitle. On iOS the `reason` is passed via `kSecUseOperationPrompt`; on Android it becomes the `BiometricPrompt` subtitle.
+
+## Recipes
+
+### Access token + refresh token
+
+The common shape: a long-lived **refresh** token (no biometric gate, used at app start to mint a new access token) plus a short-lived **access** token (biometric-gated, read on every sensitive request).
+
+```ts
+import { SecureStorage } from '@sigx/lynx-secure-storage';
+
+async function onLoginSuccess(accessToken: string, refreshToken: string) {
+    // Refresh token: needed silently on cold start, so no prompt.
+    await SecureStorage.set('refresh_token', refreshToken);
+    // Access token: short-lived, prompt every time it's read.
+    await SecureStorage.set('access_token', accessToken, { requireBiometric: true });
+}
+
+async function getAccessTokenWithPrompt(): Promise<string | null> {
+    return SecureStorage.get('access_token', {
+        biometricPrompt: { reason: 'Unlock your account', title: 'Acme Bank' },
+    });
+}
+
+async function silentRefresh(): Promise<string | null> {
+    // No prompt — refresh_token has no requireBiometric flag.
+    return SecureStorage.get('refresh_token');
+}
+
+async function logout() {
+    await SecureStorage.delete('access_token');
+    await SecureStorage.delete('refresh_token');
+}
+```
+
+### Handle key invalidation after biometric enrollment changes
+
+Both platforms invalidate biometric-gated keys when the user adds or removes a biometric (iOS: `.biometryCurrentSet`; Android: `setInvalidatedByBiometricEnrollment(true)`). The stored blob remains on disk but `get()` rejects because the underlying key is gone. Treat this as "the user needs to sign in again":
+
+```ts
+async function readAccessToken(): Promise<string | null> {
+    try {
+        return await SecureStorage.get('access_token', {
+            biometricPrompt: { reason: 'Unlock your account' },
+        });
+    } catch (err) {
+        const msg = (err as Error).message;
+        // Android surfaces the underlying KeyPermanentlyInvalidatedException
+        // through the native error message we wrap as "Cipher init failed
+        // (key may be invalidated)". Detect it by substring.
+        const androidInvalidated =
+            /may be invalidated|KeyPermanentlyInvalidated/i.test(msg);
+        if (androidInvalidated) {
+            await SecureStorage.delete('access_token');
+            return null;   // app should send the user back to sign-in
+        }
+        throw err;
+    }
+}
+```
+
+**iOS caveat.** On iOS the Keychain returns `errSecAuthFailed` for both genuine biometric mismatch and "the biometric set changed since this item was stored" — the JS surface currently normalises both to `authenticationFailed`, so they can't be told apart from JS alone. Recommended approach: if `get()` for a biometric-gated key rejects with `authenticationFailed` and the user just retried, treat it the same as the Android invalidation path (delete + re-auth) rather than looping. A future module version will expose a richer `errorCode` field so the two cases can be distinguished cleanly.
+
+The same delete-then-re-auth pattern applies when the user disables biometrics entirely between launches.
 
 ## Threat model
 
