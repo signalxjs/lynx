@@ -1,0 +1,26 @@
+{
+    "name": "Biometric",
+    "package": "@sigx/lynx-biometric",
+    "description": "Biometric authentication (Face ID / Touch ID / BiometricPrompt)",
+    "platforms": ["android", "ios"],
+    "ios": {
+        "moduleClass": "BiometricModule",
+        "sourceDir": "ios",
+        "methods": ["isAvailable", "authenticate"],
+        "usageDescriptions": {
+            "NSFaceIDUsageDescription": "Authenticate with Face ID to unlock the app."
+        }
+    },
+    "android": {
+        "moduleClass": "com.sigx.biometric.BiometricModule",
+        "sourceDir": "android",
+        "activityHook": {
+            "class": "com.sigx.biometric.BiometricActivityHook",
+            "methods": ["onCreate", "onResume", "onPause"]
+        },
+        "dependencies": [
+            "androidx.biometric:biometric:1.2.0-alpha05"
+        ],
+        "permissions": ["android.permission.USE_BIOMETRIC"]
+    }
+}

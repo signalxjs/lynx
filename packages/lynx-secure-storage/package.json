@@ -1,0 +1,61 @@
+{
+    "name": "@sigx/lynx-secure-storage",
+    "version": "0.4.1",
+    "description": "Encrypted at-rest key-value storage for sigx-lynx (iOS Keychain, Android Keystore + EncryptedSharedPreferences)",
+    "type": "module",
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+        ".": {
+            "import": "./dist/index.js",
+            "types": "./dist/index.d.ts"
+        },
+        "./signalx-module.json": "./signalx-module.json"
+    },
+    "files": [
+        "dist",
+        "ios",
+        "android",
+        "signalx-module.json"
+    ],
+    "scripts": {
+        "build": "node ../../scripts/clean.mjs dist && tsgo",
+        "dev": "tsgo --watch",
+        "test": "vitest run",
+        "clean": "node ../../scripts/clean.mjs dist .turbo"
+    },
+    "dependencies": {
+        "@sigx/lynx-core": "workspace:^"
+    },
+    "devDependencies": {
+        "@typescript/native-preview": "7.0.0-dev.20260521.1",
+        "typescript": "^6.0.3",
+        "vitest": "^4.1.7"
+    },
+    "author": "Andreas Ekdahl",
+    "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/signalxjs/lynx.git",
+        "directory": "packages/lynx-secure-storage"
+    },
+    "homepage": "https://github.com/signalxjs/lynx/tree/main/packages/lynx-secure-storage",
+    "bugs": {
+        "url": "https://github.com/signalxjs/lynx/issues"
+    },
+    "publishConfig": {
+        "access": "public"
+    },
+    "keywords": [
+        "signalx",
+        "sigx",
+        "lynx",
+        "mobile",
+        "ios",
+        "android",
+        "secure-storage",
+        "keychain",
+        "keystore",
+        "encrypted-shared-preferences"
+    ]
+}

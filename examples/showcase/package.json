@@ -24,6 +24,8 @@
         "@sigx/lynx-network": "workspace:^",
         "@sigx/lynx-notifications": "workspace:^",
         "@sigx/lynx-background": "workspace:^",
+        "@sigx/lynx-biometric": "workspace:^",
+        "@sigx/lynx-secure-storage": "workspace:^",
         "@sigx/lynx-webview": "workspace:^",
         "@sigx/lynx-maps": "workspace:^",
         "@sigx/lynx-websocket": "workspace:^",

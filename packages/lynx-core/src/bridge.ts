@@ -12,6 +12,8 @@ const MODULE_PACKAGES: Record<string, string> = {
     Haptics: '@sigx/lynx-haptics',
     Clipboard: '@sigx/lynx-clipboard',
     Storage: '@sigx/lynx-storage',
+    SecureStorage: '@sigx/lynx-secure-storage',
+    Biometric: '@sigx/lynx-biometric',
     DeviceInfo: '@sigx/lynx-device-info',
     Share: '@sigx/lynx-share',
     Camera: '@sigx/lynx-camera',

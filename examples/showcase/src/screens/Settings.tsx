@@ -1,5 +1,5 @@
 import { component, onMounted, onUnmounted, signal, useElementLayout } from '@sigx/lynx';
-import { Screen } from '@sigx/lynx-navigation';
+import { Screen, useNav } from '@sigx/lynx-navigation';
 import {
     Button,
     Card,
@@ -29,6 +29,7 @@ import { clearAllTrips, trips } from '../store/trips.js';
 export const Settings = component(() => {
     const theme = useTheme();
     const systemScheme = useSystemColorScheme();
+    const nav = useNav();
     const confirmOpen = signal(false);
     const { layout: cardLayout, onLayoutChange } = useElementLayout();
 
@@ -384,6 +385,30 @@ export const Settings = component(() => {
                                 last fire: {bgLastFire.value ?? '—'}{'\n'}
                                 last title: {bgFeedTitle.value ?? '—'}
                             </Text>
+                        </Col>
+                    </Card.Body>
+                </Card>
+
+                <Card bordered>
+                    <Card.Body>
+                        <Col gap={8}>
+                            <Text weight="semibold">Biometric + secure storage</Text>
+                            <Text class="opacity-60 text-sm">
+                                Sign in, store an encrypted token gated by Face
+                                ID / Touch ID / BiometricPrompt, then unlock to
+                                reveal it. Uses @sigx/lynx-biometric and
+                                @sigx/lynx-secure-storage.
+                            </Text>
+                            <Button
+                                variant="primary"
+                                outline
+                                onPress={() => {
+                                    Haptics.selection();
+                                    nav.push('authDemo');
+                                }}
+                            >
+                                Open auth demo
+                            </Button>
                         </Col>
                     </Card.Body>
                 </Card>

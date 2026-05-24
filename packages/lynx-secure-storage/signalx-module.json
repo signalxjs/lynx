@@ -1,0 +1,24 @@
+{
+    "name": "SecureStorage",
+    "package": "@sigx/lynx-secure-storage",
+    "description": "Encrypted key-value storage (iOS Keychain, Android Keystore + EncryptedSharedPreferences)",
+    "platforms": ["android", "ios"],
+    "ios": {
+        "moduleClass": "SecureStorageModule",
+        "sourceDir": "ios",
+        "methods": ["set", "get", "delete", "clear", "hasKey"]
+    },
+    "android": {
+        "moduleClass": "com.sigx.securestorage.SecureStorageModule",
+        "sourceDir": "android",
+        "activityHook": {
+            "class": "com.sigx.securestorage.SecureStorageActivityHook",
+            "methods": ["onCreate", "onResume", "onPause"]
+        },
+        "dependencies": [
+            "androidx.security:security-crypto:1.1.0-alpha06",
+            "androidx.biometric:biometric:1.2.0-alpha05"
+        ],
+        "permissions": ["android.permission.USE_BIOMETRIC"]
+    }
+}

@@ -55,6 +55,7 @@ Auto-linked by `sigx prebuild`: install the package with `pnpm add @sigx/lynx-fo
 
 | Package | Description |
 |---|---|
+| [`@sigx/lynx-biometric`](./packages/lynx-biometric) | Biometric authentication — Face ID / Touch ID / `BiometricPrompt`. |
 | [`@sigx/lynx-camera`](./packages/lynx-camera) | Camera capture (photo + video). |
 | [`@sigx/lynx-clipboard`](./packages/lynx-clipboard) | System clipboard read/write. |
 | [`@sigx/lynx-device-info`](./packages/lynx-device-info) | Device model, OS version, locale, screen metrics. |
@@ -67,6 +68,7 @@ Auto-linked by `sigx prebuild`: install the package with `pnpm add @sigx/lynx-fo
 | [`@sigx/lynx-notifications`](./packages/lynx-notifications) | Local push notifications & schedule. |
 | [`@sigx/lynx-permissions`](./packages/lynx-permissions) | Shared Android permission helper used by other native modules. You normally don't depend on this directly. |
 | [`@sigx/lynx-safe-area`](./packages/lynx-safe-area) | Safe-area insets (notch, home indicator, status bar, keyboard). |
+| [`@sigx/lynx-secure-storage`](./packages/lynx-secure-storage) | Encrypted KV storage — iOS Keychain, Android Keystore + `EncryptedSharedPreferences`. Optional per-key biometric gating. |
 | [`@sigx/lynx-share`](./packages/lynx-share) | Native share sheet (`UIActivityViewController` / `Intent.ACTION_SEND`). |
 | [`@sigx/lynx-storage`](./packages/lynx-storage) | Persistent string KV store (`UserDefaults` / `SharedPreferences`). |
 | [`@sigx/lynx-websocket`](./packages/lynx-websocket) | Browser-standard `WebSocket` global — `URLSessionWebSocketTask` on iOS, OkHttp on Android. |
