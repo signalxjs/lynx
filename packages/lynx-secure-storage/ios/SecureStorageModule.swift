@@ -1,7 +1,6 @@
 import Foundation
 import Lynx
 import Security
-import LocalAuthentication
 
 /// Encrypted KV storage backed by the iOS Keychain.
 ///
@@ -103,23 +102,23 @@ class SecureStorageModule: NSObject, LynxModule {
             return
         }
 
-        var query: [String: Any] = [
+        // The user-visible prompt string for a Keychain item with a
+        // biometric ACL goes on the query via `kSecUseOperationPrompt`,
+        // NOT on an LAContext (LAContext's `localizedReason` only feeds
+        // `evaluatePolicy`, not Keychain UI). For non-biometric items the
+        // prompt key is ignored.
+        let reason = (options?["biometricPrompt"] as? [String: Any])?["reason"] as? String
+        let prompt = (reason?.isEmpty == false ? reason : "Authenticate to read secure data")
+            ?? "Authenticate to read secure data"
+
+        let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
             kSecAttrAccount as String: key,
             kSecReturnData as String: true,
             kSecMatchLimit as String: kSecMatchLimitOne,
+            kSecUseOperationPrompt as String: prompt,
         ]
-
-        // Always supply an LAContext so a biometric-gated item produces a
-        // visible OS prompt — without an explicit context, the Keychain
-        // query for an item stored with `.biometryCurrentSet` can fail
-        // outright instead of presenting UI. For non-biometric items the
-        // context is harmless (no prompt is shown).
-        let context = LAContext()
-        let reason = (options?["biometricPrompt"] as? [String: Any])?["reason"] as? String
-        context.localizedReason = (reason?.isEmpty == false ? reason : "Authenticate to read secure data") ?? "Authenticate to read secure data"
-        query[kSecUseAuthenticationContext as String] = context
 
         var result: AnyObject?
         let status = SecItemCopyMatching(query as CFDictionary, &result)

@@ -97,13 +97,16 @@ export const SecureStorage = {
     /**
      * Read an encrypted string. Returns `null` if the key is not present.
      *
-     * - **Android**: when the key was stored with `requireBiometric: true`,
-     *   `biometricPrompt` is required — the OS needs the strings to render
-     *   `BiometricPrompt` around the Cipher. Without it the call rejects.
-     * - **iOS**: a default LAContext is always attached with a generic
-     *   `localizedReason` ("Authenticate to read secure data") so the OS
-     *   prompt always appears for biometric-gated items. Pass
-     *   `biometricPrompt.reason` to override the displayed string.
+     * For keys stored with `requireBiometric: true`, the OS shows a prompt
+     * before the value is returned. Pass `biometricPrompt.reason` to set
+     * the displayed string; if omitted (or empty), a generic
+     * "Authenticate to read secure data" default is used so the prompt
+     * still appears.
+     *
+     * - **iOS**: `reason` is passed as `kSecUseOperationPrompt` on the
+     *   Keychain query.
+     * - **Android**: `reason` becomes the `BiometricPrompt` subtitle and
+     *   `title` (or "Authenticate") becomes the prompt title.
      */
     async get(key: string, opts: SecureStorageGetOptions = {}): Promise<string | null> {
         if (typeof key !== 'string' || key.length === 0) {

@@ -80,6 +80,14 @@ describe('Biometric.authenticate', () => {
         expect(result.errorCode).toBe('biometryNotAvailable');
         expect(bridge.callAsync).not.toHaveBeenCalled();
     });
+
+    it('resolves to { success: false } when the bridge rejects', async () => {
+        bridge.callAsync.mockRejectedValueOnce(new Error('bridge exploded'));
+        const result = await Biometric.authenticate({ reason: 'Unlock' });
+        expect(result.success).toBe(false);
+        expect(result.errorCode).toBe('unknown');
+        expect(result.error).toMatch(/bridge exploded/);
+    });
 });
 
 describe('Biometric.isModuleAvailable', () => {

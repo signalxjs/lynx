@@ -115,7 +115,16 @@ export const Biometric = {
                 errorCode: 'biometryNotAvailable',
             });
         }
-        return callAsync<BiometricAuthenticateResult>(MODULE, 'authenticate', opts);
+        // Always-resolves contract: callAsync can reject if the bridge
+        // throws synchronously or the native side never invokes the
+        // callback. Catch those so callers never need a try/catch.
+        return callAsync<BiometricAuthenticateResult>(MODULE, 'authenticate', opts).catch(
+            (err: unknown) => ({
+                success: false,
+                error: err instanceof Error ? err.message : String(err),
+                errorCode: 'unknown' as const,
+            }),
+        );
     },
 
     /** Whether the native module is wired in the current build. */

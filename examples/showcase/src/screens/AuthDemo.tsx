@@ -166,6 +166,7 @@ export const AuthDemo = component(() => {
                                 />
                                 <Input
                                     placeholder="Password"
+                                    type="password"
                                     model={() => password.value}
                                 />
                                 <Button variant="primary" onPress={onSignIn}>

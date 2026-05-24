@@ -220,7 +220,8 @@ class SecureStorageModule(context: Context) : LynxModule(context) {
         }
 
         val promptOpts = options?.takeIf { it.hasKey("biometricPrompt") }?.getMap("biometricPrompt")
-        val reason = promptOpts?.takeIf { it.hasKey("reason") }?.getString("reason").orEmpty()
+        val reason = promptOpts?.takeIf { it.hasKey("reason") }?.getString("reason")
+            ?.takeIf { it.isNotEmpty() } ?: "Authenticate to read secure data"
         val title = promptOpts?.takeIf { it.hasKey("title") }?.getString("title")
             ?.takeIf { it.isNotEmpty() } ?: "Authenticate"
 
@@ -230,6 +231,17 @@ class SecureStorageModule(context: Context) : LynxModule(context) {
             .setAllowedAuthenticators(BIOMETRIC_STRONG)
             .setNegativeButtonText("Cancel")
             .build()
+
+        // Up-front canAuthenticate check — surfaces NO_HARDWARE, NONE_ENROLLED,
+        // SECURITY_UPDATE_REQUIRED etc. as a clean error instead of letting
+        // BiometricPrompt fail mid-flow. Genuine "SUCCESS but still fails" cases
+        // (rare hardware bugs) are caught by the try/catch around
+        // prompt.authenticate below.
+        val canAuth = BiometricManager.from(mContext).canAuthenticate(BIOMETRIC_STRONG)
+        if (canAuth != BiometricManager.BIOMETRIC_SUCCESS) {
+            callback?.invoke(errorPayload("Biometrics unavailable (canAuthenticate=$canAuth)"))
+            return
+        }
 
         val executor = ContextCompat.getMainExecutor(mContext)
         val prompt = BiometricPrompt(
@@ -267,15 +279,6 @@ class SecureStorageModule(context: Context) : LynxModule(context) {
                 }
             },
         )
-
-        // Some pre-API 30 devices can't satisfy BIOMETRIC_STRONG hardware
-        // checks even when canAuthenticate reports SUCCESS. Surface that
-        // up-front instead of crashing inside prompt.authenticate.
-        val canAuth = BiometricManager.from(mContext).canAuthenticate(BIOMETRIC_STRONG)
-        if (canAuth != BiometricManager.BIOMETRIC_SUCCESS) {
-            callback?.invoke(errorPayload("Biometrics unavailable (canAuthenticate=$canAuth)"))
-            return
-        }
 
         try {
             prompt.authenticate(promptInfo, BiometricPrompt.CryptoObject(cipher))
