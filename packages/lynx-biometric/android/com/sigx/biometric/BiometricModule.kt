@@ -50,18 +50,19 @@ class BiometricModule(context: Context) : LynxModule(context) {
             return
         }
 
-        val authenticators = if (allowDeviceCredential) {
-            // DEVICE_CREDENTIAL + BIOMETRIC_STRONG combo isn't supported on
-            // API 28/29 — fall back to BIOMETRIC_STRONG only there. Callers
-            // get an OS prompt without the "Use Passcode" fallback on those
-            // OS versions; documented in README.
-            if (Build.VERSION.SDK_INT in 28..29) {
-                BIOMETRIC_STRONG
-            } else {
-                BIOMETRIC_STRONG or DEVICE_CREDENTIAL
-            }
-        } else {
-            BIOMETRIC_STRONG
+        // DEVICE_CREDENTIAL is only valid in `setAllowedAuthenticators`
+        // alongside BIOMETRIC_STRONG on API 30+; on API 28/29 the
+        // combination throws (Keystore can't enforce the integrity
+        // guarantee). For those versions we fall back to the deprecated
+        // `setDeviceCredentialAllowed(true)` API, which keeps the
+        // PIN/passcode fallback working without crashing.
+        val useLegacyDeviceCredential = allowDeviceCredential &&
+            Build.VERSION.SDK_INT in 28..29
+
+        val authenticators = when {
+            !allowDeviceCredential -> BIOMETRIC_STRONG
+            useLegacyDeviceCredential -> BIOMETRIC_STRONG
+            else -> BIOMETRIC_STRONG or DEVICE_CREDENTIAL
         }
 
         val promptInfoBuilder = BiometricPrompt.PromptInfo.Builder()
@@ -69,10 +70,18 @@ class BiometricModule(context: Context) : LynxModule(context) {
             .setSubtitle(reason)
             .setAllowedAuthenticators(authenticators)
 
-        // `setNegativeButtonText` is mutually exclusive with DEVICE_CREDENTIAL —
-        // the OS provides its own "Use device credential" affordance in that
-        // case. Only set it when biometric-only.
-        if (authenticators == BIOMETRIC_STRONG) {
+        if (useLegacyDeviceCredential) {
+            // Legacy API for API 28/29 — `setDeviceCredentialAllowed(true)`
+            // is mutually exclusive with `setNegativeButtonText` and with
+            // DEVICE_CREDENTIAL in setAllowedAuthenticators, but it's the
+            // only way to offer PIN fallback on those OS versions.
+            @Suppress("DEPRECATION")
+            promptInfoBuilder.setDeviceCredentialAllowed(true)
+        } else if (authenticators == BIOMETRIC_STRONG) {
+            // `setNegativeButtonText` is mutually exclusive with
+            // DEVICE_CREDENTIAL — the OS provides its own "Use device
+            // credential" affordance in that case. Only set it when
+            // biometric-only with no device-credential fallback.
             promptInfoBuilder.setNegativeButtonText("Cancel")
         }
 

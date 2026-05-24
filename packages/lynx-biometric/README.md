@@ -57,6 +57,8 @@ if (result.success) {
 
 `Biometric.authenticate` **always resolves** — failures (including the common "user cancelled") come back as `{ success: false, error, errorCode }`, so you don't need a try/catch.
 
+> **Android API 28/29 (Android 9/10):** `allowDeviceCredential: true` still enables a PIN/passcode fallback on these versions, but via the deprecated `setDeviceCredentialAllowed(true)` API — the modern `BIOMETRIC_STRONG | DEVICE_CREDENTIAL` combo is rejected by Keystore prior to API 30. Behaviour is the same from the caller's perspective: tapping the negative-button area surfaces the device credential prompt.
+
 ## API
 
 | Method | Returns |

@@ -319,8 +319,11 @@ class SecureStorageModule(context: Context) : LynxModule(context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             specBuilder.setUserAuthenticationParameters(0, KeyProperties.AUTH_BIOMETRIC_STRONG)
         } else {
-            // Pre-API 30 only has the legacy timeout-seconds API. `0` means
-            // "auth required for every use" — same semantic we want.
+            // Pre-API 30 only has the legacy timeout-seconds API. `-1`
+            // means "biometric required for every cryptographic operation"
+            // (positive values would let one auth cover N seconds of
+            // subsequent uses, which is not what we want for a credential
+            // store). `0` is not valid for this setter.
             @Suppress("DEPRECATION")
             specBuilder.setUserAuthenticationValidityDurationSeconds(-1)
         }

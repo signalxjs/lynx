@@ -111,13 +111,15 @@ class SecureStorageModule: NSObject, LynxModule {
             kSecMatchLimit as String: kSecMatchLimitOne,
         ]
 
-        if let prompt = options?["biometricPrompt"] as? [String: Any] {
-            let context = LAContext()
-            if let reason = prompt["reason"] as? String, !reason.isEmpty {
-                context.localizedReason = reason
-            }
-            query[kSecUseAuthenticationContext as String] = context
-        }
+        // Always supply an LAContext so a biometric-gated item produces a
+        // visible OS prompt — without an explicit context, the Keychain
+        // query for an item stored with `.biometryCurrentSet` can fail
+        // outright instead of presenting UI. For non-biometric items the
+        // context is harmless (no prompt is shown).
+        let context = LAContext()
+        let reason = (options?["biometricPrompt"] as? [String: Any])?["reason"] as? String
+        context.localizedReason = (reason?.isEmpty == false ? reason : "Authenticate to read secure data") ?? "Authenticate to read secure data"
+        query[kSecUseAuthenticationContext as String] = context
 
         var result: AnyObject?
         let status = SecItemCopyMatching(query as CFDictionary, &result)
