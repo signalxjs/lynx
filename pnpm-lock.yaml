@@ -44,6 +44,9 @@ importers:
       '@sigx/lynx-appearance':
         specifier: workspace:^
         version: link:../../packages/lynx-appearance
+      '@sigx/lynx-audio':
+        specifier: workspace:^
+        version: link:../../packages/lynx-audio
       '@sigx/lynx-background':
         specifier: workspace:^
         version: link:../../packages/lynx-background
@@ -116,6 +119,9 @@ importers:
       '@sigx/lynx-storage':
         specifier: workspace:^
         version: link:../../packages/lynx-storage
+      '@sigx/lynx-video':
+        specifier: workspace:^
+        version: link:../../packages/lynx-video
       '@sigx/lynx-websocket':
         specifier: workspace:^
         version: link:../../packages/lynx-websocket
@@ -218,6 +224,19 @@ importers:
       '@sigx/lynx-testing':
         specifier: workspace:^
         version: link:../lynx-testing
+      '@typescript/native-preview':
+        specifier: 7.0.0-dev.20260521.1
+        version: 7.0.0-dev.20260521.1
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+
+  packages/lynx-audio:
+    dependencies:
+      '@sigx/lynx-core':
+        specifier: workspace:^
+        version: link:../lynx-core
+    devDependencies:
       '@typescript/native-preview':
         specifier: 7.0.0-dev.20260521.1
         version: 7.0.0-dev.20260521.1
@@ -814,6 +833,18 @@ importers:
       vitest:
         specifier: ^4.1.7
         version: 4.1.7(@types/node@25.9.1)(@vitest/coverage-v8@4.1.7)(vite@8.0.14(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0))
+
+  packages/lynx-video:
+    devDependencies:
+      '@sigx/lynx':
+        specifier: workspace:^
+        version: link:../lynx
+      '@typescript/native-preview':
+        specifier: 7.0.0-dev.20260521.1
+        version: 7.0.0-dev.20260521.1
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
 
   packages/lynx-websocket:
     dependencies:

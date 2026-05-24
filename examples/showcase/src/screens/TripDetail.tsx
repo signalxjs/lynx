@@ -4,6 +4,8 @@ import { Badge, Button, Card, Col, Row, ScrollView, SwiperIndicator, Text } from
 import { Swiper } from '@sigx/lynx-gestures';
 import { Haptics } from '@sigx/lynx-haptics';
 import { Share } from '@sigx/lynx-share';
+import { Audio, type AudioHandle } from '@sigx/lynx-audio';
+import { VideoPlayer } from '@sigx/lynx-video';
 import { deleteEntry, getTrip, trips } from '../store/trips.js';
 import type { Entry, Trip } from '../store/types.js';
 
@@ -88,6 +90,35 @@ const EntryPhotos = component<{
     };
 });
 
+/**
+ * Inline play/stop button for an entry's voice note. Holds its own
+ * `AudioHandle` so multiple entry cards on the same screen each have an
+ * independent player — taps on one card don't disturb another.
+ */
+const VoiceNoteButton = component<{ uri: string }>(({ props }) => {
+    const handle = signal<{ value: AudioHandle | null }>({ value: null });
+    const toggle = async () => {
+        const existing = handle.value;
+        if (existing) {
+            try { await existing.stop(); } catch {}
+            handle.value = null;
+            return;
+        }
+        try {
+            const h = await Audio.play(props.uri);
+            handle.value = h;
+            h.onEnd(() => { handle.value = null; });
+        } catch (e) {
+            console.warn('[TripDetail] voice note playback failed:', e);
+        }
+    };
+    return () => (
+        <Button size="xs" variant="primary" outline onPress={toggle}>
+            {handle.value ? '■ Stop voice note' : '▶ Voice note'}
+        </Button>
+    );
+});
+
 export const TripDetail = component(() => {
     const nav = useNav();
     const { tripId } = useParams('tripDetail');
@@ -166,6 +197,26 @@ export const TripDetail = component(() => {
                                                     index,
                                                 })}
                                         />
+                                        {e.videoUri
+                                            ? (
+                                                <view
+                                                    style={{
+                                                        width: '100%',
+                                                        aspectRatio: 16 / 9,
+                                                        borderRadius: 10,
+                                                        overflow: 'hidden',
+                                                        marginBottom: 8,
+                                                    }}
+                                                >
+                                                    <VideoPlayer
+                                                        src={e.videoUri}
+                                                        controls
+                                                        resizeMode="contain"
+                                                        style={{ width: '100%', height: '100%', backgroundColor: '#000' }}
+                                                    />
+                                                </view>
+                                            )
+                                            : null}
                                         <Text>{e.note}</Text>
                                         <Row gap={8} align="center" class="mt-2">
                                             {e.coords
@@ -173,6 +224,7 @@ export const TripDetail = component(() => {
                                                     {e.coords.lat.toFixed(3)}, {e.coords.lng.toFixed(3)}
                                                 </Badge>
                                                 : null}
+                                            {e.voiceNoteUri ? <VoiceNoteButton uri={e.voiceNoteUri} /> : null}
                                             <view style={{ flexGrow: 1 }} />
                                             <Button
                                                 size="xs"

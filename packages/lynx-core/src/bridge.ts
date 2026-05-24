@@ -14,6 +14,7 @@ const MODULE_PACKAGES: Record<string, string> = {
     Storage: '@sigx/lynx-storage',
     DeviceInfo: '@sigx/lynx-device-info',
     Share: '@sigx/lynx-share',
+    Audio: '@sigx/lynx-audio',
     Camera: '@sigx/lynx-camera',
     Location: '@sigx/lynx-location',
     ImagePicker: '@sigx/lynx-image-picker',

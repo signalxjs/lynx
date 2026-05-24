@@ -9,6 +9,10 @@ export interface Entry {
     createdAt: number;
     /** Ordered list of photo URIs for this entry. */
     photoUris?: string[];
+    /** Recorded voice-note URI from `@sigx/lynx-audio`. */
+    voiceNoteUri?: string;
+    /** Sample video URI rendered with `@sigx/lynx-video`. */
+    videoUri?: string;
     /** GPS fix captured at save time via `@sigx/lynx-location`. Best-effort
      *  — entries can save without coords if permission is denied / timeout. */
     coords?: Coords;
