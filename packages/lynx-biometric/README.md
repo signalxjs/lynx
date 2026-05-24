@@ -83,7 +83,7 @@ if (result.success) {
 | `'userCancel'` | User tapped Cancel / negative button. | The friendly path — usually no UI is needed. |
 | `'userFallback'` | iOS only. User tapped the `fallbackTitle` button. | Caller should present their own fallback (e.g. PIN entry). |
 | `'systemCancel'` | OS dismissed the prompt (incoming call, app backgrounded, foregrounded another app). | Safe to retry. |
-| `'authenticationFailed'` | Biometric matched no enrolled identity. | User can retry; only emitted on the terminal failure. |
+| `'authenticationFailed'` | iOS only. Biometric matched no enrolled identity, terminal. | Android keeps the prompt up for retry on a single mismatch and never surfaces this code — it only emits terminal codes like `biometryLockout` once the OS gives up. |
 | `'biometryNotAvailable'` | No hardware, no passcode set, or the module is missing from this build. | Fall back to password-based auth. |
 | `'biometryNotEnrolled'` | Hardware exists but the user hasn't enrolled. | Deep-link to system settings if you want them to enrol. |
 | `'biometryLockout'` | Too many failed attempts. | iOS requires the device passcode to unlock; Android either timed-lockout or `LOCKOUT_PERMANENT`. |

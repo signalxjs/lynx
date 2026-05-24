@@ -150,23 +150,23 @@ async function readAccessToken(): Promise<string | null> {
         });
     } catch (err) {
         const msg = (err as Error).message;
-        // Heuristic — both platforms surface the underlying failure as a
-        // generic error string. A more robust app would parse errorCode.
-        const invalidated =
-            /invalidated|KeyPermanentlyInvalidated|errSecAuthFailed|-25293/i.test(msg);
-        if (invalidated) {
-            // Clear the dead blob so subsequent reads return null cleanly.
+        // Android surfaces the underlying KeyPermanentlyInvalidatedException
+        // through the native error message we wrap as "Cipher init failed
+        // (key may be invalidated)". Detect it by substring.
+        const androidInvalidated =
+            /may be invalidated|KeyPermanentlyInvalidated/i.test(msg);
+        if (androidInvalidated) {
             await SecureStorage.delete('access_token');
-            // Prompt the user to sign in again — your auth flow re-runs
-            // SecureStorage.set('access_token', newToken, { requireBiometric: true }).
-            return null;
+            return null;   // app should send the user back to sign-in
         }
         throw err;
     }
 }
 ```
 
-The same pattern applies to the user disabling biometrics entirely between launches.
+**iOS caveat.** On iOS the Keychain returns `errSecAuthFailed` for both genuine biometric mismatch and "the biometric set changed since this item was stored" — the JS surface currently normalises both to `authenticationFailed`, so they can't be told apart from JS alone. Recommended approach: if `get()` for a biometric-gated key rejects with `authenticationFailed` and the user just retried, treat it the same as the Android invalidation path (delete + re-auth) rather than looping. A future module version will expose a richer `errorCode` field so the two cases can be distinguished cleanly.
+
+The same delete-then-re-auth pattern applies when the user disables biometrics entirely between launches.
 
 ## Threat model
 
