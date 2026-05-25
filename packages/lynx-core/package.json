@@ -33,7 +33,7 @@
         "directory": "packages/lynx-core"
     },
     "devDependencies": {
-        "@typescript/native-preview": "7.0.0-dev.20260521.1",
+        "@typescript/native-preview": "7.0.0-dev.20260524.1",
         "typescript": "^6.0.3"
     },
     "homepage": "https://github.com/signalxjs/lynx/tree/main/packages/lynx-core",

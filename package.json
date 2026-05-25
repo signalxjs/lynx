@@ -28,7 +28,7 @@
     "test:coverage": "vitest run --coverage"
   },
   "devDependencies": {
-    "@typescript/native-preview": "7.0.0-dev.20260521.1",
+    "@typescript/native-preview": "7.0.0-dev.20260524.1",
     "@vitest/coverage-v8": "^4.1.7",
     "oxlint": "^1.66.0",
     "typescript": "^6.0.3",
