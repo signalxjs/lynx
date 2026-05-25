@@ -52,6 +52,17 @@ pnpm exec sigx run:android
 The first iOS build takes ~5 minutes (Xcode warms its caches). Subsequent
 rebuilds are seconds.
 
+**Map tab (Android):** the `@sigx/lynx-maps` demo uses the Google Maps SDK,
+which needs an API key. Export one before building so prebuild injects it:
+
+```bash
+GOOGLE_MAPS_API_KEY=AIza… pnpm exec sigx run:android
+```
+
+Without it the app still runs — the map just renders blank (no crash). See
+[`@sigx/lynx-maps` README](../../packages/lynx-maps/README.md#android-api-key-setup).
+iOS uses Apple Maps and needs no key.
+
 For JS-only iteration (no native module changes):
 
 ```bash

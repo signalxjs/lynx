@@ -80,30 +80,35 @@ Google Maps requires an API key. Get one at
 [console.cloud.google.com](https://console.cloud.google.com/) → APIs &
 Services → Credentials → "Maps SDK for Android".
 
-Once you have a key, add the standard meta-data block inside
-`<application>` in `android/app/src/main/AndroidManifest.xml`:
+Set it in `signalx.config.ts` under `android.googleMapsApiKey`. Prebuild
+injects the required `com.google.android.geo.API_KEY` meta-data into the
+generated `AndroidManifest.xml` for you — **don't hand-edit the manifest**, it's
+a managed file that every `sigx prebuild` regenerates.
 
-```xml
-<meta-data
-    android:name="com.google.android.geo.API_KEY"
-    android:value="@string/google_maps_api_key" />
+```ts
+// signalx.config.ts
+export default defineLynxConfig({
+    // …
+    android: {
+        // Read from the environment so the key never lands in source control.
+        // (signalx.config.ts is evaluated at prebuild time, so process.env works.)
+        googleMapsApiKey: process.env.GOOGLE_MAPS_API_KEY,
+    },
+});
 ```
 
-…and define the string in `android/app/src/main/res/values/strings.xml`:
-
-```xml
-<resources>
-    <!-- existing entries -->
-    <string name="google_maps_api_key" translatable="false">YOUR_KEY_HERE</string>
-</resources>
+```bash
+GOOGLE_MAPS_API_KEY=AIza… pnpm sigx prebuild   # or run:android / dev
 ```
 
-If you don't add the meta-data block, the map still renders — but with
-Google's "For development purposes only" watermark. That's fine for early
-testing; ship a real key before publishing to the Play Store.
+If you don't set a key, prebuild injects a placeholder and prints a warning.
+The app **still launches** — the map just renders blank and logs
+`Authorization failure … API Key: …` at runtime (it does **not** crash). Set a
+real key before shipping. On `sigx-lynx-go` (the prebuilt sandbox app) the blank
+map is expected — we can't bundle a per-user API key in a public binary.
 
-On `sigx-lynx-go` (the prebuilt sandbox app) the placeholder watermark is
-expected — we can't bundle a per-user API key in a public binary.
+> Need a manifest `<meta-data>` key that isn't covered by a dedicated config
+> field? Use the generic `android.manifestMetaData` map in `signalx.config.ts`.
 
 ## Limitations (v1)
 

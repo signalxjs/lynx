@@ -77,6 +77,49 @@ export interface AndroidManifest {
      * `super(name)`.
      */
     behaviors?: AndroidBehaviorEntry[];
+    /**
+     * `<meta-data>` entries merged into the app's AndroidManifest under
+     * `<application>`. The Android equivalent of iOS `usageDescriptions` —
+     * used by modules that wrap an SDK requiring a manifest meta-data key.
+     * The canonical case is `@sigx/lynx-maps`, where the Google Maps SDK
+     * hard-crashes the process at first map render unless
+     * `com.google.android.geo.API_KEY` is present.
+     *
+     * The dispatcher de-dupes on `name` (first wins), so listing the same
+     * key in multiple modules is safe.
+     */
+    metaData?: AndroidMetaDataEntry[];
+}
+
+/**
+ * A single `<meta-data>` contribution. Exactly one value source is used,
+ * resolved in this order: literal `value` → `valueFrom` (a dotted path into
+ * the resolved app config, e.g. `"android.googleMapsApiKey"`) when it
+ * resolves to a non-empty string → `default`. If none resolve the entry is
+ * skipped. A non-empty `default` therefore guarantees the key is always
+ * emitted — which is what keeps the Maps SDK from hard-crashing when the app
+ * author hasn't supplied a key yet (the SDK renders a blank map for a
+ * present-but-invalid key, but aborts the process when the key is absent).
+ */
+export interface AndroidMetaDataEntry {
+    /** Manifest key, e.g. `"com.google.android.geo.API_KEY"`. */
+    name: string;
+    /** Literal value. Takes precedence over `valueFrom`/`default`. */
+    value?: string;
+    /**
+     * Dotted path into the resolved config whose value fills this entry,
+     * e.g. `"android.googleMapsApiKey"`. Lets a module reference a key the
+     * app author sets in `signalx.config.ts` without the module shipping it.
+     */
+    valueFrom?: string;
+    /** Fallback when neither `value` nor `valueFrom` resolves to a non-empty string. */
+    default?: string;
+    /**
+     * Optional URL appended to the prebuild warning shown when `valueFrom`
+     * didn't resolve and `default` was used — e.g. where to obtain the SDK
+     * key. Purely informational.
+     */
+    helpUrl?: string;
 }
 
 export interface AndroidBehaviorEntry {

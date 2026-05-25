@@ -60,6 +60,13 @@ export default defineLynxConfig({
             foreground: 'assets/adaptive-foreground.png',
             backgroundColor: '#0D9488',
         },
+        // @sigx/lynx-maps needs a Google Maps Android SDK key — without the
+        // `com.google.android.geo.API_KEY` manifest meta-data the SDK aborts
+        // the process at first map render. Sourced from the environment so the
+        // key stays out of source control; unset → prebuild injects a
+        // placeholder (no crash, blank map) and warns. Get a key:
+        // https://developers.google.com/maps/documentation/android-sdk/get-api-key
+        googleMapsApiKey: process.env.GOOGLE_MAPS_API_KEY,
     },
     ios: {
         bundleIdentifier: 'com.example.showcase',
