@@ -2,6 +2,12 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    // Lynx ships a Java annotation processor (lynx-processor) that generates
+    // the `<Component>$$PropsSetter` classes backing @LynxProp on native UI
+    // components (e.g. @sigx/lynx-maps, @sigx/lynx-webview). Without it Lynx
+    // throws "PropsSetter not generated … add module lynxProcessor" at render
+    // time. kapt (not KSP) because the processor is an APT processor.
+    id("kotlin-kapt")
 }
 
 android {
@@ -90,6 +96,11 @@ dependencies {
     // Lynx XElement (extended components)
     implementation("org.lynxsdk.lynx:xelement:3.7.0")
     implementation("org.lynxsdk.lynx:xelement-input:3.7.0")
+
+    // Lynx annotation processor — generates the @LynxProp PropsSetter classes
+    // for native UI components contributed by @sigx/lynx-* modules. Version
+    // must track the Lynx SDK above.
+    kapt("org.lynxsdk.lynx:lynx-processor:3.7.0")
 
     // Image loading (required by Lynx image service)
     implementation("com.facebook.fresco:fresco:2.3.0")
