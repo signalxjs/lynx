@@ -9,6 +9,7 @@ import {
     writeIosRegistry,
     injectGradleDependencies,
     injectAndroidPermissions,
+    injectAndroidMetaData,
     injectPodfileEntries,
     injectInfoPlistDescriptions,
     injectInfoPlistBackgroundModes,
@@ -16,7 +17,9 @@ import {
     cleanPrebuild,
     fingerprintPrebuildInputs,
 } from '../src/prebuild.js';
+import { linkAndroid } from '../src/autolink/android.js';
 import { resolveConfig } from '../src/config/parser.js';
+import type { ModuleManifest } from '../src/manifest.js';
 import type { LynxConfig } from '../src/config/schema.js';
 
 const TEST_CONFIG: LynxConfig = {
@@ -239,6 +242,135 @@ describe('injectAndroidPermissions', () => {
         );
         expect(manifest).toContain('android.permission.CAMERA');
         expect(manifest).toContain('android.permission.RECORD_AUDIO');
+    });
+});
+
+describe('injectAndroidMetaData', () => {
+    it('injects meta-data at marker', () => {
+        const config = resolveConfig(TEST_CONFIG);
+        scaffoldAndroid(testDir, config);
+
+        injectAndroidMetaData(testDir, config, [
+            { name: 'com.google.android.geo.API_KEY', value: 'AIzaTESTKEY' },
+        ]);
+
+        const manifest = readFileSync(
+            join(testDir, 'android', 'app', 'src', 'main', 'AndroidManifest.xml'),
+            'utf-8',
+        );
+        expect(manifest).toContain(
+            '<meta-data android:name="com.google.android.geo.API_KEY" android:value="AIzaTESTKEY" />',
+        );
+    });
+
+    it('XML-escapes values', () => {
+        const config = resolveConfig(TEST_CONFIG);
+        scaffoldAndroid(testDir, config);
+
+        injectAndroidMetaData(testDir, config, [
+            { name: 'com.example.KEY', value: 'a&b<c>"d"' },
+        ]);
+
+        const manifest = readFileSync(
+            join(testDir, 'android', 'app', 'src', 'main', 'AndroidManifest.xml'),
+            'utf-8',
+        );
+        expect(manifest).toContain('android:value="a&amp;b&lt;c&gt;&quot;d&quot;"');
+    });
+
+    it('does nothing for empty meta-data', () => {
+        const config = resolveConfig(TEST_CONFIG);
+        scaffoldAndroid(testDir, config);
+
+        const before = readFileSync(
+            join(testDir, 'android', 'app', 'src', 'main', 'AndroidManifest.xml'),
+            'utf-8',
+        );
+        injectAndroidMetaData(testDir, config, []);
+        const after = readFileSync(
+            join(testDir, 'android', 'app', 'src', 'main', 'AndroidManifest.xml'),
+            'utf-8',
+        );
+        expect(after).toBe(before);
+    });
+});
+
+describe('linkAndroid — metaData resolution', () => {
+    const mapsManifest: ModuleManifest = {
+        name: 'Maps',
+        package: '@sigx/lynx-maps',
+        description: 'Native map view',
+        platforms: ['android'],
+        android: {
+            metaData: [
+                {
+                    name: 'com.google.android.geo.API_KEY',
+                    valueFrom: 'android.googleMapsApiKey',
+                    default: 'MISSING_GOOGLE_MAPS_API_KEY',
+                    helpUrl: 'https://example.com/get-key',
+                },
+            ],
+        },
+    };
+
+    it('resolves valueFrom against the config', () => {
+        const config = resolveConfig({
+            ...TEST_CONFIG,
+            android: { ...TEST_CONFIG.android, googleMapsApiKey: 'AIzaREALKEY' },
+        });
+        const result = linkAndroid(config, [mapsManifest]);
+        expect(result.metaData).toEqual([
+            { name: 'com.google.android.geo.API_KEY', value: 'AIzaREALKEY' },
+        ]);
+        expect(result.metaDataWarnings).toHaveLength(0);
+    });
+
+    it('falls back to default and warns when the config value is missing', () => {
+        const config = resolveConfig(TEST_CONFIG);
+        const result = linkAndroid(config, [mapsManifest]);
+        expect(result.metaData).toEqual([
+            { name: 'com.google.android.geo.API_KEY', value: 'MISSING_GOOGLE_MAPS_API_KEY' },
+        ]);
+        expect(result.metaDataWarnings).toHaveLength(1);
+        expect(result.metaDataWarnings[0]).toContain('android.googleMapsApiKey');
+        expect(result.metaDataWarnings[0]).toContain('https://example.com/get-key');
+    });
+
+    it('app-level manifestMetaData wins de-dupe over module entries', () => {
+        const config = resolveConfig({
+            ...TEST_CONFIG,
+            android: {
+                ...TEST_CONFIG.android,
+                manifestMetaData: { 'com.google.android.geo.API_KEY': 'AIzaAPP' },
+            },
+        });
+        const result = linkAndroid(config, [mapsManifest]);
+        expect(result.metaData).toEqual([
+            { name: 'com.google.android.geo.API_KEY', value: 'AIzaAPP' },
+        ]);
+        // App-level literal short-circuits the module's valueFrom fallback,
+        // so no placeholder warning fires.
+        expect(result.metaDataWarnings).toHaveLength(0);
+    });
+
+    it('skips empty/undefined manifestMetaData without blocking module entries', () => {
+        const config = resolveConfig({
+            ...TEST_CONFIG,
+            android: {
+                ...TEST_CONFIG.android,
+                manifestMetaData: {
+                    // e.g. `process.env.GOOGLE_MAPS_API_KEY` that isn't set —
+                    // must NOT suppress the module's placeholder via de-dupe.
+                    'com.google.android.geo.API_KEY': undefined as unknown as string,
+                    'com.example.EMPTY': '   ',
+                },
+            },
+        });
+        const result = linkAndroid(config, [mapsManifest]);
+        // Module placeholder still wins; the empty app-level key is dropped.
+        expect(result.metaData).toEqual([
+            { name: 'com.google.android.geo.API_KEY', value: 'MISSING_GOOGLE_MAPS_API_KEY' },
+        ]);
     });
 });
 

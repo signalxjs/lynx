@@ -1045,6 +1045,43 @@ export function injectAndroidServices(
     log(`Android: injected ${services.length} service(s)`);
 }
 
+/** Escape a string for use inside an XML attribute value. */
+function escapeXmlAttr(value: string): string {
+    return value
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+
+/**
+ * Inject `<meta-data>` declarations into AndroidManifest.xml under
+ * `<application>`. Values are already resolved by the autolinker (literal /
+ * config / placeholder); see `linkAndroid`.
+ */
+export function injectAndroidMetaData(
+    cwd: string,
+    config: ResolvedConfig,
+    metaData: import('./autolink/android.js').ResolvedAndroidMetaData[],
+): void {
+    if (metaData.length === 0) return;
+    const manifestFile = androidManifestPath(cwd, config);
+    if (!existsSync(manifestFile)) return;
+    let content = readFileSync(manifestFile, 'utf-8');
+    const blocks = metaData
+        .map(
+            (m) =>
+                `        <meta-data android:name="${escapeXmlAttr(m.name)}" android:value="${escapeXmlAttr(m.value)}" />`,
+        )
+        .join('\n');
+    content = content.replace(
+        '        <!-- {{META_DATA}} -->',
+        `        <!-- Auto-linked module meta-data -->\n${blocks}`,
+    );
+    writeFileIfChanged(manifestFile, content);
+    log(`Android: injected ${metaData.length} meta-data entr${metaData.length === 1 ? 'y' : 'ies'}`);
+}
+
 /**
  * Inject usage descriptions into Info.plist.
  */
@@ -1601,6 +1638,10 @@ export async function runPrebuild(opts: PrebuildOptions = {}): Promise<void> {
         injectGradleDependencies(cwd, config, result.gradleDependencies, result.debugGradleDependencies);
         injectAndroidPermissions(cwd, config, result.permissions);
         injectAndroidServices(cwd, config, result.services);
+        injectAndroidMetaData(cwd, config, result.metaData);
+        for (const warning of result.metaDataWarnings) {
+            log(`\x1b[33m!\x1b[0m ${warning}`);
+        }
 
         // App-shell assets (icons, splash, manifest meta).
         await generateAndroidIcons(cwd, assets.android);

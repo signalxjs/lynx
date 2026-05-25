@@ -49,6 +49,8 @@
                 android:resource="@xml/file_provider_paths" />
         </provider>
 
+        <!-- {{META_DATA}} -->
+
         <!-- {{SERVICES}} -->
     </application>
 </manifest>

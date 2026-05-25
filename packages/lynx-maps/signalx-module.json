@@ -25,6 +25,14 @@
         ],
         "dependencies": [
             "com.google.android.gms:play-services-maps:19.0.0"
+        ],
+        "metaData": [
+            {
+                "name": "com.google.android.geo.API_KEY",
+                "valueFrom": "android.googleMapsApiKey",
+                "default": "MISSING_GOOGLE_MAPS_API_KEY",
+                "helpUrl": "https://developers.google.com/maps/documentation/android-sdk/get-api-key"
+            }
         ]
     }
 }

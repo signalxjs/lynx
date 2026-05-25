@@ -1,6 +1,12 @@
 import type { ResolvedConfig, ResolvedModule } from '../config/parser.js';
 import type { AndroidActivityHookMethod, AndroidBehaviorEntry, AndroidServiceEntry, ModuleManifest } from '../manifest.js';
 
+/** A `<meta-data>` entry with its value already resolved against config. */
+export interface ResolvedAndroidMetaData {
+    name: string;
+    value: string;
+}
+
 /**
  * Android auto-linker.
  *
@@ -51,6 +57,10 @@ export interface AndroidLinkResult {
     permissions: string[];
     /** `<service>` entries to merge into AndroidManifest under `<application>`. */
     services: AndroidServiceEntry[];
+    /** `<meta-data>` entries (values resolved) to merge under `<application>`. */
+    metaData: ResolvedAndroidMetaData[];
+    /** Human-readable warnings about meta-data that fell back to a placeholder. */
+    metaDataWarnings: string[];
     /** Modules that were linked. */
     linkedModules: string[];
     /** Lifecycle publishers that were linked. */
@@ -66,6 +76,30 @@ export interface AndroidLinkResult {
 /** Per-method `(hookClass, manifestName)` pairs collected during linking. */
 type ActivityHookInvocation = { hookClass: string; manifestName: string };
 type ActivityHookGroups = Record<AndroidActivityHookMethod, ActivityHookInvocation[]>;
+
+/** Trim a value and return `undefined` if it's nullish or empty. */
+function nonEmpty(value: string | undefined | null): string | undefined {
+    if (value == null) return undefined;
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : undefined;
+}
+
+/**
+ * Resolve a dotted path (e.g. `"android.googleMapsApiKey"`) against an object,
+ * returning the value as a string when it's a non-empty primitive, else
+ * `undefined`. Used by `<meta-data>` `valueFrom` to pull a value the app
+ * author set in `signalx.config.ts`.
+ */
+function resolveConfigPath(obj: unknown, path: string): string | undefined {
+    let cur: unknown = obj;
+    for (const key of path.split('.')) {
+        if (cur == null || typeof cur !== 'object') return undefined;
+        cur = (cur as Record<string, unknown>)[key];
+    }
+    if (typeof cur === 'string') return nonEmpty(cur);
+    if (typeof cur === 'number' || typeof cur === 'boolean') return String(cur);
+    return undefined;
+}
 
 /**
  * Generate Android auto-link output for a set of modules.
@@ -95,12 +129,33 @@ export function linkAndroid(
     const permissions: string[] = [...(config.android.permissions ?? [])];
     const services: AndroidServiceEntry[] = [];
     const seenServiceNames = new Set<string>();
+    const metaData: ResolvedAndroidMetaData[] = [];
+    const metaDataWarnings: string[] = [];
+    const seenMetaDataNames = new Set<string>();
     const behaviors: AndroidBehaviorEntry[] = [];
     const seenBehaviorNames = new Set<string>();
     const registrations: string[] = [];
     const lifecycleAttachments: string[] = [];
     const lifecycleImports: string[] = [];
     let devClient: DevClientInfo | undefined;
+
+    // App-level `<meta-data>` literals are seeded first so they win the
+    // de-dupe over any module-contributed entry of the same name — the app
+    // author's explicit config is authoritative.
+    for (const [rawName, rawValue] of Object.entries(config.android.manifestMetaData ?? {})) {
+        const name = rawName.trim();
+        const value = nonEmpty(rawValue);
+        // Skip undefined/empty values — a common shape is `process.env.X` that
+        // isn't set. Pushing those would (a) crash `escapeXmlAttr` on a
+        // non-string in `injectAndroidMetaData`, or (b) inject an empty
+        // attribute while blocking a module-provided entry of the same name
+        // via the de-dupe below (which, for the Maps key, would re-introduce
+        // the crash this whole mechanism exists to prevent).
+        if (!name || value === undefined) continue;
+        if (seenMetaDataNames.has(name)) continue;
+        seenMetaDataNames.add(name);
+        metaData.push({ name, value });
+    }
 
     for (const manifest of androidManifests) {
         const android = manifest.android!;
@@ -188,6 +243,30 @@ export function linkAndroid(
                 services.push(svc);
             }
         }
+        if (android.metaData) {
+            for (const entry of android.metaData) {
+                if (seenMetaDataNames.has(entry.name)) continue;
+                // Resolve in order: literal → valueFrom (config path) → default.
+                const fromConfig = entry.valueFrom
+                    ? resolveConfigPath(config, entry.valueFrom)
+                    : undefined;
+                const resolved =
+                    nonEmpty(entry.value) ?? nonEmpty(fromConfig) ?? nonEmpty(entry.default);
+                if (resolved === undefined) continue;
+                seenMetaDataNames.add(entry.name);
+                metaData.push({ name: entry.name, value: resolved });
+                // Warn when a module asked for a config-supplied value, none
+                // was set, and we had to fall back to the module's placeholder.
+                if (entry.valueFrom && nonEmpty(fromConfig) === undefined && nonEmpty(entry.default) !== undefined) {
+                    const help = entry.helpUrl ? ` Get a key: ${entry.helpUrl}` : '';
+                    metaDataWarnings.push(
+                        `${manifest.package} linked but \`${entry.valueFrom}\` is not set — ` +
+                        `using a placeholder for <meta-data ${entry.name}>. ` +
+                        `Set it in signalx.config.ts for the feature to work.${help}`,
+                    );
+                }
+            }
+        }
         if (android.behaviors) {
             for (const entry of android.behaviors) {
                 if (seenBehaviorNames.has(entry.name)) continue;
@@ -213,6 +292,8 @@ export function linkAndroid(
         debugGradleDependencies: [...new Set(debugGradleDependencies)],
         permissions: [...new Set(permissions)],
         services,
+        metaData,
+        metaDataWarnings,
         linkedModules,
         linkedLifecyclePublishers,
         lifecyclePublishers,

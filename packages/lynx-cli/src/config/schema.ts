@@ -103,6 +103,25 @@ export interface AndroidConfig {
     dependencies?: string[];
     /** AndroidManifest.xml permission additions. */
     permissions?: string[];
+    /**
+     * Google Maps Android SDK API key. Required by `@sigx/lynx-maps` — the
+     * SDK aborts the process at first map render if no key is present. The
+     * key is injected into AndroidManifest.xml as
+     * `<meta-data android:name="com.google.android.geo.API_KEY" />`.
+     *
+     * Because `signalx.config.ts` is evaluated at prebuild time, you can keep
+     * the key out of source control by reading it from the environment:
+     * `googleMapsApiKey: process.env.GOOGLE_MAPS_API_KEY`. Get a key at
+     * https://developers.google.com/maps/documentation/android-sdk/get-api-key
+     */
+    googleMapsApiKey?: string;
+    /**
+     * Arbitrary `<meta-data>` entries merged into `<application>` in
+     * AndroidManifest.xml (name → value). Escape hatch for SDKs that need a
+     * manifest key not covered by a dedicated config field. Merged with any
+     * meta-data contributed by linked modules.
+     */
+    manifestMetaData?: Record<string, string>;
     /** Override top-level icon for Android only. */
     icon?: string;
     /** Adaptive icon for Android 8+ (foreground + background color). */
