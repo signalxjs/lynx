@@ -142,7 +142,16 @@ export function linkAndroid(
     // App-level `<meta-data>` literals are seeded first so they win the
     // de-dupe over any module-contributed entry of the same name — the app
     // author's explicit config is authoritative.
-    for (const [name, value] of Object.entries(config.android.manifestMetaData ?? {})) {
+    for (const [rawName, rawValue] of Object.entries(config.android.manifestMetaData ?? {})) {
+        const name = rawName.trim();
+        const value = nonEmpty(rawValue);
+        // Skip undefined/empty values — a common shape is `process.env.X` that
+        // isn't set. Pushing those would (a) crash `escapeXmlAttr` on a
+        // non-string in `injectAndroidMetaData`, or (b) inject an empty
+        // attribute while blocking a module-provided entry of the same name
+        // via the de-dupe below (which, for the Maps key, would re-introduce
+        // the crash this whole mechanism exists to prevent).
+        if (!name || value === undefined) continue;
         if (seenMetaDataNames.has(name)) continue;
         seenMetaDataNames.add(name);
         metaData.push({ name, value });

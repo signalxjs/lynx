@@ -351,6 +351,26 @@ describe('linkAndroid — metaData resolution', () => {
         // so no placeholder warning fires.
         expect(result.metaDataWarnings).toHaveLength(0);
     });
+
+    it('skips empty/undefined manifestMetaData without blocking module entries', () => {
+        const config = resolveConfig({
+            ...TEST_CONFIG,
+            android: {
+                ...TEST_CONFIG.android,
+                manifestMetaData: {
+                    // e.g. `process.env.GOOGLE_MAPS_API_KEY` that isn't set —
+                    // must NOT suppress the module's placeholder via de-dupe.
+                    'com.google.android.geo.API_KEY': undefined as unknown as string,
+                    'com.example.EMPTY': '   ',
+                },
+            },
+        });
+        const result = linkAndroid(config, [mapsManifest]);
+        // Module placeholder still wins; the empty app-level key is dropped.
+        expect(result.metaData).toEqual([
+            { name: 'com.google.android.geo.API_KEY', value: 'MISSING_GOOGLE_MAPS_API_KEY' },
+        ]);
+    });
 });
 
 describe('injectPodfileEntries', () => {
