@@ -87,15 +87,20 @@ export {
     useTheme,
     listThemes,
     registerTheme,
+    extendTheme,
     pickThemeFor,
     pairOf,
     variantOf,
+    colorsOf,
+    radiusOf,
 } from './theme/ThemeProvider.js';
 export type {
     DaisyTheme,
     ThemeController,
     ThemeProviderProps,
-    ThemeMeta,
+    Theme,
+    ThemePalette,
+    ThemeRadius,
     ThemeVariant,
 } from './theme/ThemeProvider.js';
 export { StatusBarSync } from './theme/StatusBarSync.js';

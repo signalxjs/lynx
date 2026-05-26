@@ -4,6 +4,9 @@ import { StatusBarSync, ThemeProvider } from '@sigx/lynx-daisyui';
 import { NavigationRoot, Stack } from '@sigx/lynx-navigation';
 import { SafeAreaProvider, SafeAreaView } from '@sigx/lynx-safe-area';
 import { routes } from './routes.js';
+// Side-effect import: registers demo runtime custom themes (acme-light/dark)
+// into the daisy registry before <ThemeProvider> mounts.
+import './themes.js';
 
 // SafeAreaProvider defaults to `height: 100vh + flex column`, and
 // SafeAreaView defaults to flex-fill — so the layout chain is now

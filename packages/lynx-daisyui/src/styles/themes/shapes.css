@@ -1,5 +1,6 @@
 /* Shape variants — override roundness tokens */
-/* Combine with a color theme: class="daisy-light daisy-rounded" */
+/* Compose with the base via ThemeProvider's `class` prop, e.g.
+   <ThemeProvider class="daisy-rounded"> → host class="daisy daisy-rounded" */
 
 .daisy-flat {
   --rounded-box: 0px;

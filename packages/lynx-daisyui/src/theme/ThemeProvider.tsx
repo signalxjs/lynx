@@ -47,7 +47,7 @@ import { useIconColorResolver, type IconColorResolver } from '@sigx/lynx-icons';
 import { useSystemColorScheme } from '@sigx/lynx-appearance';
 import type { ColorScheme } from '@sigx/lynx-appearance';
 import type { DaisyColor } from '../shared/styles.js';
-import { pairOf, pickThemeFor } from './registry.js';
+import { colorsOf, pairOf, pickThemeFor, radiusOf, variantOf } from './registry.js';
 
 /**
  * Declaration-merge extension: add a typed `variant` prop to `<Icon>`,
@@ -68,107 +68,6 @@ declare module '@sigx/lynx-icons' {
          */
         variant?: DaisyColor;
     }
-}
-
-/**
- * JS-side mirror of the daisy theme color tokens — v1 scaffolding for
- * SVG-mode rendering, intended to retire when font-mode lands.
- *
- * **Why this duplicates the CSS:** Lynx's `<svg content=…>` parses the
- * inline SVG markup as a standalone fragment (rasterized offscreen, see
- * `@lynx-js/web-elements/XSvg.js` for the web fallback that wraps it in
- * a `Blob`/`<img>`). The fragment doesn't evaluate CSS custom properties
- * in attribute values, so `fill="var(--color-primary)"` falls back to
- * the default fill. So we substitute the resolved hex at JS time.
- *
- * Keep entries in sync with `src/styles/themes/*.css`. CI doesn't enforce
- * alignment yet (drift-detection test deferred — the palette is intended
- * to retire once font-mode lands).
- */
-const DAISY_PALETTE = {
-    'daisy-light': {
-        'primary': '#491dff', 'primary-content': '#d3dbff',
-        'secondary': '#ff20cc', 'secondary-content': '#fff8fc',
-        'accent': '#00cfbd', 'accent-content': '#00100d',
-        'neutral': '#2b3440', 'neutral-content': '#d7dde4',
-        'base-100': '#ffffff', 'base-200': '#f2f2f2', 'base-300': '#e5e6e6',
-        'base-content': '#1f2937',
-        'info': '#00b4fa', 'info-content': '#000000',
-        'success': '#00a96e', 'success-content': '#000000',
-        'warning': '#ffc100', 'warning-content': '#000000',
-        'error': '#ff676a', 'error-content': '#000000',
-    },
-    'daisy-dark': {
-        'primary': '#7582ff', 'primary-content': '#050617',
-        'secondary': '#ff71cf', 'secondary-content': '#190211',
-        'accent': '#00e7d0', 'accent-content': '#001210',
-        'neutral': '#2a323c', 'neutral-content': '#a6adbb',
-        'base-100': '#1d232a', 'base-200': '#191e24', 'base-300': '#343b46',
-        'base-content': '#a6adbb',
-        'info': '#00b4fa', 'info-content': '#000000',
-        'success': '#00a96e', 'success-content': '#000000',
-        'warning': '#ffc100', 'warning-content': '#000000',
-        'error': '#ff676a', 'error-content': '#000000',
-    },
-    'daisy-cupcake': {
-        'primary': '#65c3c8', 'primary-content': '#052124',
-        'secondary': '#ef9fbc', 'secondary-content': '#2d0a16',
-        'accent': '#eeaf3a', 'accent-content': '#2d1c00',
-        'neutral': '#291334', 'neutral-content': '#f5f1f8',
-        'base-100': '#faf7f5', 'base-200': '#efeae6', 'base-300': '#e7e2df',
-        'base-content': '#291334',
-        'info': '#00b4fa', 'info-content': '#000000',
-        'success': '#00a96e', 'success-content': '#000000',
-        'warning': '#ffc100', 'warning-content': '#000000',
-        'error': '#ff676a', 'error-content': '#000000',
-    },
-    'daisy-emerald': {
-        'primary': '#66cc8a', 'primary-content': '#06200f',
-        'secondary': '#377cfb', 'secondary-content': '#02112d',
-        'accent': '#f68067', 'accent-content': '#2d0a02',
-        'neutral': '#333c4d', 'neutral-content': '#e9eaed',
-        'base-100': '#ffffff', 'base-200': '#f3f4f6', 'base-300': '#e5e7eb',
-        'base-content': '#333c4d',
-        'info': '#1c92f2', 'info-content': '#000a14',
-        'success': '#00a96e', 'success-content': '#000a05',
-        'warning': '#ff9900', 'warning-content': '#261600',
-        'error': '#ff5724', 'error-content': '#000000',
-    },
-    'daisy-synthwave': {
-        'primary': '#e779c1', 'primary-content': '#2a0a1f',
-        'secondary': '#58c7f3', 'secondary-content': '#02141d',
-        'accent': '#f3cc30', 'accent-content': '#2a1f00',
-        'neutral': '#20134e', 'neutral-content': '#e3e0f5',
-        'base-100': '#2d1b69', 'base-200': '#261159', 'base-300': '#1f0f4a',
-        'base-content': '#f9f7fd',
-        'info': '#53c0f3', 'info-content': '#02151e',
-        'success': '#71ead2', 'success-content': '#002721',
-        'warning': '#f3cc30', 'warning-content': '#2a1f00',
-        'error': '#e24056', 'error-content': '#ffffff',
-    },
-    'daisy-dracula': {
-        'primary': '#ff79c6', 'primary-content': '#2d0414',
-        'secondary': '#bd93f9', 'secondary-content': '#160226',
-        'accent': '#50fa7b', 'accent-content': '#002a0e',
-        'neutral': '#414558', 'neutral-content': '#f8f8f2',
-        'base-100': '#282a36', 'base-200': '#21222c', 'base-300': '#181920',
-        'base-content': '#f8f8f2',
-        'info': '#8be9fd', 'info-content': '#002a31',
-        'success': '#50fa7b', 'success-content': '#002a0e',
-        'warning': '#f1fa8c', 'warning-content': '#2a2900',
-        'error': '#ff5555', 'error-content': '#2a0000',
-    },
-} as const;
-
-type DaisyPaletteName = keyof typeof DAISY_PALETTE;
-const DEFAULT_PALETTE: DaisyPaletteName = 'daisy-light';
-
-/** Pick the right palette for a `theme.name` value (may be a space-separated combo like `'daisy-light daisy-rounded'`). */
-function paletteFor(themeName: string): DaisyPaletteName {
-    for (const part of themeName.split(/\s+/)) {
-        if (part in DAISY_PALETTE) return part as DaisyPaletteName;
-    }
-    return DEFAULT_PALETTE;
 }
 
 /**
@@ -319,8 +218,11 @@ export const ThemeProvider = component<ThemeProviderProps>(({ props, slots }) =>
     const resolver: IconColorResolver = (iconProps) => {
         const variant = (iconProps as { variant?: DaisyColor }).variant;
         if (!variant) return undefined;
-        const palette = DAISY_PALETTE[paletteFor(state.name)];
-        return (palette as Record<string, string>)[variant];
+        // Every theme's palette lives in the registry; fall back to daisy-light
+        // if the active theme isn't registered. SVG fills can't read CSS vars,
+        // so the resolved hex/rgb is substituted into the fill at render time.
+        const palette = colorsOf(state.name) ?? colorsOf('daisy-light');
+        return palette?.[variant];
     };
     defineProvide(useIconColorResolver, () => resolver);
 
@@ -348,18 +250,44 @@ export const ThemeProvider = component<ThemeProviderProps>(({ props, slots }) =>
     });
 
     return () => {
-        const baseStyle: Record<string, string | number> = {
+        // Every theme is data. Apply its color tokens as inline CSS custom
+        // properties — Lynx inherits custom properties to descendants, so
+        // component classes resolve `var(--color-*)` against these (the same
+        // mechanism SafeAreaProvider uses for `--sat`/`--sal`). The `daisy`
+        // base class supplies theme-agnostic structural tokens (radius,
+        // sizing); a theme may override roundness via `radius`. The root
+        // background/text are painted from the palette literals (inline
+        // `var()` values don't resolve in Lynx).
+        const palette = colorsOf(state.name) ?? colorsOf('daisy-light')!;
+        const radius = radiusOf(state.name);
+
+        const style: Record<string, string | number> = {
             flexGrow: 1,
             flexShrink: 1,
             flexBasis: 0,
             minHeight: 0,
             display: 'flex',
             flexDirection: 'column',
+            backgroundColor: palette['base-100'],
+            color: palette['base-content'],
         };
+        for (const key in palette) {
+            style[`--color-${key}`] = palette[key as DaisyColor];
+        }
+        if (radius) {
+            if (radius.box) style['--rounded-box'] = radius.box;
+            if (radius.btn) style['--rounded-btn'] = radius.btn;
+            if (radius.badge) style['--rounded-badge'] = radius.badge;
+            if (radius.tab) style['--rounded-tab'] = radius.tab;
+            if (radius.selector) style['--rounded-selector'] = radius.selector;
+            if (radius.toggle) style['--rounded-toggle'] = radius.toggle;
+        }
+        if (props.style) Object.assign(style, props.style);
+
         return (
             <view
-                class={`${state.name}${props.class ? ' ' + props.class : ''}`}
-                style={props.style ? { ...baseStyle, ...props.style } : baseStyle}
+                class={`daisy${props.class ? ' ' + props.class : ''}`}
+                style={style}
             >
                 {slots.default?.()}
             </view>
@@ -371,8 +299,11 @@ export const ThemeProvider = component<ThemeProviderProps>(({ props, slots }) =>
 export {
     listThemes,
     registerTheme,
+    extendTheme,
     pickThemeFor,
     pairOf,
     variantOf,
+    colorsOf,
+    radiusOf,
 } from './registry.js';
-export type { ThemeMeta, ThemeVariant } from './registry.js';
+export type { Theme, ThemePalette, ThemeRadius, ThemeVariant } from './registry.js';
