@@ -105,6 +105,13 @@ export type {
 } from './theme/ThemeProvider.js';
 export { StatusBarSync } from './theme/StatusBarSync.js';
 export type { StatusBarSyncProps } from './theme/StatusBarSync.js';
+// Headless theme handle (issue #113): import and call from anywhere — stores,
+// services, effects, app-boot — with no `<ThemeProvider>` ancestor required.
+// `useTheme()` resolves to this when no provider is in scope.
+export { themeController } from './theme/theme-state.js';
+// Per-screen theming: pin the global theme while a navigation screen is focused
+// (requires the optional `@sigx/lynx-navigation` peer).
+export { useScreenTheme } from './theme/use-screen-theme.js';
 
 // Data
 export { Avatar } from './data/Avatar.js';
