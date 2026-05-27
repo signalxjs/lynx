@@ -1,6 +1,6 @@
 {
     "name": "@sigx/lynx-websocket",
-    "version": "0.4.1",
+    "version": "0.4.2",
     "description": "Browser-standard WebSocket client for sigx-lynx",
     "type": "module",
     "main": "./dist/index.js",
