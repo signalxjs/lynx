@@ -11,10 +11,10 @@ npm install -D @sigx/lynx-plugin
 ```ts
 // rspeedy.config.ts (or rspack.config.ts)
 import { defineConfig } from '@lynx-js/rspeedy';
-import { sigxLynxPlugin } from '@sigx/lynx-plugin';
+import { pluginSigxLynx } from '@sigx/lynx-plugin';
 
 export default defineConfig({
-  plugins: [sigxLynxPlugin()],
+  plugins: [pluginSigxLynx()],
 });
 ```
 
@@ -37,7 +37,7 @@ export default defineConfig({
 
    Listing them as separate entries in webpack isn't sufficient because the chunk graph can evaluate user code before the bootstrap chain. Prepending side-effect imports per-file forces the dep-graph order.
 
-4. **Cross-package worklet pickup.** The worklet rules run on every JS/TS file in the BG / MT layers, including `node_modules` and pre-built `dist/`. The loaders use a cheap regex pre-filter to skip the SWC parse for files that obviously have no `'main thread'` directive (final correctness comes from SWC itself, not the regex). On the MT side, the loader also branches on the file's path: for files under `node_modules/` or `dist/` it preserves the original source — pass-through when no directive is present, source + appended `registerWorkletInternal(...)` calls when one is. That preservation matters because rspack shares module identity across the BG/MT layers, so stripping MT bodies would erase named exports for BG consumers too — daisyui couldn't resolve `useTabs` / `useScreenChrome` from `@sigx/lynx-navigation`, `@sigx/lynx-runtime-main`'s MT globals (`processData`, `updateGlobalProps`, `sigxRunOnMT`) would disappear, etc. The BG loader has no path branch; for any directive-bearing file (user or library) it returns the JS-target transform output, which preserves exports while replacing worklet bodies with `{ _wkltId }` placeholders. Net effect: any package shipping `'main thread'` directives in its dist (motion, navigation, gestures, future additions) is picked up automatically with no allowlist or opt-in flag.
+4. **Cross-package worklet pickup.** The worklet rules run on every JS/TS file in the BG / MT layers, including `node_modules` and pre-built `dist/`. Any package shipping `'main thread'` directives in its dist (`@sigx/lynx-motion`, `@sigx/lynx-navigation`, `@sigx/lynx-gestures`, future additions) is picked up automatically — no allowlist or opt-in flag. See [CONTRIBUTING.md](https://github.com/signalxjs/lynx/blob/main/CONTRIBUTING.md#lynx-plugin-internals-cross-package-worklet-pickup) for the loader-branching details.
 
 ## Worklet author quick reference
 
@@ -54,12 +54,12 @@ Mark an event handler as MT-thread by adding the directive as the first statemen
 
 The plugin handles the rest — the handler body lives in the MT bundle, the BG bundle keeps a `{_wkltId, _c}` placeholder, and Lynx native dispatches the touch event directly to the MT thread.
 
-For higher-level abstractions (drag, tap, swipe, animations), see [`@sigx/gestures`](../gestures).
+For higher-level abstractions (drag, tap, swipe, animations), see [`@sigx/lynx-gestures`](https://github.com/signalxjs/lynx/tree/main/packages/lynx-gestures).
 
 ## Limitations
 
 - **Custom worklet bodies require `'main thread'` directives.** Worklets aren't auto-detected from JSX shape; the directive is the marker.
-- **Variables declared inside a worklet body are MT-locals.** They can't cross the bridge via `runOnBackground` closure capture — pass them as arguments instead. See `@sigx/gestures` README, "Performance notes."
+- **Variables declared inside a worklet body are MT-locals.** They can't cross the bridge via `runOnBackground` closure capture — pass them as arguments instead. See `@sigx/lynx-gestures` README, "Performance notes."
 - **Mappers for `useAnimatedStyle` ship as MT-side code.** Custom mappers must be registered from a MT-side module via `registerMapper(name, fn)` — BG-side `useAnimatedStyle` only carries the *name* across the build pipeline.
 
 ## License

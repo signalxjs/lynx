@@ -2,9 +2,9 @@
 
 Encrypted at-rest key-value storage for sigx-lynx — iOS Keychain, Android Keystore + `EncryptedSharedPreferences`.
 
-For plaintext settings (theme, last-used tab, feature flags) use [`@sigx/lynx-storage`](../lynx-storage). Use this package for **credentials, refresh tokens, PII, recovery keys** — anything that must survive a casual filesystem dump or backup exfiltration.
+For plaintext settings (theme, last-used tab, feature flags) use [`@sigx/lynx-storage`](https://github.com/signalxjs/lynx/tree/main/packages/lynx-storage). Use this package for **credentials, refresh tokens, PII, recovery keys** — anything that must survive a casual filesystem dump or backup exfiltration.
 
-Pairs with [`@sigx/lynx-biometric`](../lynx-biometric) when you also need an explicit "unlock the app" gate; the `requireBiometric` option here gates the *individual key* via the OS Keychain / Keystore.
+Pairs with [`@sigx/lynx-biometric`](https://github.com/signalxjs/lynx/tree/main/packages/lynx-biometric) when you also need an explicit "unlock the app" gate; the `requireBiometric` option here gates the *individual key* via the OS Keychain / Keystore.
 
 - **iOS**: `kSecClassGenericPassword` items via the Keychain Services API. `kSecAccessControlBiometryCurrentSet` for biometric-gated keys; `kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly` otherwise — items are never included in iCloud / iTunes backups.
 - **Android**: AES-256-GCM via the Android Keystore. Non-biometric keys land in `EncryptedSharedPreferences` (`androidx.security:security-crypto`); biometric-gated keys use a per-key Keystore alias with `setUserAuthenticationRequired(true)` and a `BiometricPrompt.CryptoObject` on read.

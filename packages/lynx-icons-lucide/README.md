@@ -1,6 +1,6 @@
 # @sigx/lynx-icons-lucide
 
-[Lucide](https://lucide.dev/) adapter for [`@sigx/lynx-icons`](../lynx-icons). Reads icon data from the official `lucide` package and renders each glyph as a stroked SVG with the wrapper attributes (`fill="none"`, `stroke="currentColor"`, `stroke-width="2"`, rounded caps/joins) that match the Lucide design.
+[Lucide](https://lucide.dev/) adapter for [`@sigx/lynx-icons`](https://github.com/signalxjs/lynx/tree/main/packages/lynx-icons). Reads icon data from the official `lucide` package and renders each glyph as a stroked SVG with the wrapper attributes (`fill="none"`, `stroke="currentColor"`, `stroke-width="2"`, rounded caps/joins) that match the Lucide design.
 
 SVG-mode only — Lucide isn't distributed as a font.
 
@@ -65,4 +65,4 @@ The adapter is normally consumed by `@sigx/lynx-plugin`'s icons slice — these 
 
 ## Reference app
 
-`examples/showcase/src/screens/Settings.tsx` renders `<Icon set="lucide" name="search" />` and `<Icon set="lucide" name="bell" />` alongside FA glyphs in a card.
+[`examples/showcase/src/screens/Settings.tsx`](https://github.com/signalxjs/lynx/blob/main/examples/showcase/src/screens/Settings.tsx) renders `<Icon set="lucide" name="search" />` and `<Icon set="lucide" name="bell" />` alongside FA glyphs in a card.

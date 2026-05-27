@@ -127,12 +127,12 @@ re-attaching to.
 - **HTTP**: just call `fetch()` — it's a built-in Lynx global. No package
   needed. See [upstream Lynx fetch docs](https://lynxjs.org/api/lynx-api/global/fetch.html)
   for the Lynx subset (no CORS / redirect / keepalive / FormData / Blob).
-- **Connectivity**: [`@sigx/lynx-network`](../lynx-network) for online /
+- **Connectivity**: [`@sigx/lynx-network`](https://github.com/signalxjs/lynx/tree/main/packages/lynx-network) for online /
   offline and connection-type state.
 
-## Reference app
+## Smoke test
 
-Once wired in, point it at an echo service to smoke-test:
+Once wired in, point it at an echo service to verify:
 
 ```ts
 const ws = new WebSocket('wss://ws.postman-echo.com/raw');

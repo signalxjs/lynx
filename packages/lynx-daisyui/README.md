@@ -86,7 +86,7 @@ applied verbatim to the host view.
 ## Navigation chrome
 
 Two daisy-themed components that pair with
-[`@sigx/lynx-navigation`](../lynx-navigation). Both read state via the
+[`@sigx/lynx-navigation`](https://github.com/signalxjs/lynx/tree/main/packages/lynx-navigation). Both read state via the
 navigation package's hooks (no internal-module imports), so swapping
 in custom designs later is a one-component change.
 
@@ -146,7 +146,7 @@ one consumer of that hook.
 ### `<SwiperIndicator>`
 
 Themed wrapper around the headless `useSwiperDot*` hooks from
-[`@sigx/lynx-gestures`](../lynx-gestures#swiper-and-headless-dot-hooks).
+[`@sigx/lynx-gestures`](https://github.com/signalxjs/lynx/tree/main/packages/lynx-gestures#swiper-and-headless-dot-hooks).
 Reads colours from the active daisy theme so the indicator follows light
 / dark mode automatically.
 

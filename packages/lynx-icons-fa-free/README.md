@@ -1,6 +1,6 @@
 # @sigx/lynx-icons-fa-free
 
-[Font Awesome Free](https://fontawesome.com/icons?d=gallery&p=2&m=free) adapter for [`@sigx/lynx-icons`](../lynx-icons). Reads glyph data from the official `@fortawesome/*` packages — no glyph data is re-bundled here, so adapter updates and FA releases stay decoupled.
+[Font Awesome Free](https://fontawesome.com/icons?d=gallery&p=2&m=free) adapter for [`@sigx/lynx-icons`](https://github.com/signalxjs/lynx/tree/main/packages/lynx-icons). Reads glyph data from the official `@fortawesome/*` packages — no glyph data is re-bundled here, so adapter updates and FA releases stay decoupled.
 
 Supports the three Free styles: **solid**, **regular**, **brands**.
 
@@ -97,4 +97,4 @@ The adapter is normally consumed by `@sigx/lynx-plugin`'s icons slice — these 
 
 ## Reference app
 
-`examples/showcase/src/screens/Settings.tsx` renders `<FaSolidIcon name="user" />`, `house`, `gear`, and `<FaBrandIcon name="github" />` in a card; the build-time scanner picks up the underlying `<Icon set="…" name="…">` calls and writes their codepoints into `node_modules/.cache/sigx-lynx-icons/codepoints.mjs`.
+[`examples/showcase/src/screens/Settings.tsx`](https://github.com/signalxjs/lynx/blob/main/examples/showcase/src/screens/Settings.tsx) renders `<FaSolidIcon name="user" />`, `house`, `gear`, and `<FaBrandIcon name="github" />` in a card; the build-time scanner picks up the underlying `<Icon set="…" name="…">` calls and writes their codepoints into `node_modules/.cache/sigx-lynx-icons/codepoints.mjs`.

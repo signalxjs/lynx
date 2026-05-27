@@ -137,6 +137,3 @@ Native publishes on three `GlobalEventEmitter` channels: `__sigxPushToken`, `__s
 - **Foreground delivery on iOS** — now shown with banner + sound by default. To suppress, override `UNUserNotificationCenter.current().delegate` in your own AppDelegate hook.
 - **Android notification taps** — fire `addNotificationResponseListener` only when the notification was popped via `SigxFirebaseMessagingService` (the launch intent carries our extras). Local notifications scheduled via `Notifications.schedule` do not yet route taps on Android — track via the GitHub issue.
 
-## Reference app
-
-`examples/showcase/src/cards/NotificationsCard.tsx` covers permission, schedule + cancel, push registration, listeners, and badge clearing.

@@ -2,7 +2,7 @@
 
 Biometric authentication for sigx-lynx — Face ID / Touch ID / Optic ID on iOS, `BiometricPrompt` (fingerprint, face, iris) on Android.
 
-Pairs with [`@sigx/lynx-secure-storage`](../lynx-secure-storage) when you also need to encrypt the credential at rest.
+Pairs with [`@sigx/lynx-secure-storage`](https://github.com/signalxjs/lynx/tree/main/packages/lynx-secure-storage) when you also need to encrypt the credential at rest.
 
 - **iOS**: `LAContext` / `LocalAuthentication.framework`.
 - **Android**: `androidx.biometric.BiometricPrompt` + `BiometricManager` (`androidx.biometric:biometric:1.2.0-alpha05`).

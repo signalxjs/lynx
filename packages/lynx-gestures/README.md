@@ -247,13 +247,13 @@ const ref = useSwiperDotProgress({ offset, pageWidth, index: i });
 <view main-thread:ref={ref} style={{ opacity: '0' }} />
 ```
 
-For a fully themed indicator (5 ready-made variants — dots, bar, pill, numbered, scale-pulse), use `<SwiperIndicator>` from [`@sigx/lynx-daisyui`](../lynx-daisyui).
+For a fully themed indicator (5 ready-made variants — dots, bar, pill, numbered, scale-pulse), use `<SwiperIndicator>` from [`@sigx/lynx-daisyui`](https://github.com/signalxjs/lynx/tree/main/packages/lynx-daisyui).
 
 ---
 
 ## Animation primitives
 
-> The cross-thread primitive — `useSharedValue`, `SharedValue`, `useAnimatedStyle` — lives in [`@sigx/lynx`](../lynx#sharedvalue--the-cross-thread-primitive) since 0.3.0. Import from `@sigx/lynx` directly:
+> The cross-thread primitive — `useSharedValue`, `SharedValue`, `useAnimatedStyle` — lives in [`@sigx/lynx`](https://github.com/signalxjs/lynx/tree/main/packages/lynx#sharedvalue--the-cross-thread-primitive) since 0.3.0. Import from `@sigx/lynx` directly:
 
 ### `useSharedValue<T>(initial)` *(from `@sigx/lynx`)*
 
