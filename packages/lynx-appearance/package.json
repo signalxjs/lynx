@@ -1,6 +1,6 @@
 {
     "name": "@sigx/lynx-appearance",
-    "version": "0.4.1",
+    "version": "0.4.2",
     "description": "System appearance (color scheme observation + status/navigation bar tint setters) for sigx-lynx",
     "type": "module",
     "main": "./dist/index.js",
