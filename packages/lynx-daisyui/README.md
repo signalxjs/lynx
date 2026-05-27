@@ -83,6 +83,84 @@ layout role. For multi-class compositions (color + modifier),
 `theme.set('daisy-light daisy-rounded')` works — the class string is
 applied verbatim to the host view.
 
+### Two layers: content vs. OS chrome
+
+A theme drives two different things, and they scope differently:
+
+1. **In-app content** — the `--color-*` / radius variables and icon
+   tints. These live on a host view and inherit down a subtree, so they
+   are genuinely *scopable*.
+2. **OS chrome** — the status- and navigation-bar tint (pushed by
+   `<StatusBarSync>`). This is a global OS singleton; it can only reflect
+   one theme at a time.
+
+The rule:
+
+> `useTheme()` is the theme for the **content you render** — the nearest
+> `<ThemeProvider>`, or the app-global theme at the root / in headless
+> code. **System chrome always follows the global theme.** `StatusBarSync`
+> binds to the global controller, so a nested provider can't hijack the
+> bars.
+>
+> *Scopes recolor pixels you draw; only the global theme touches the OS.*
+
+This mirrors Flutter, where `Theme` nests freely for content while system
+chrome goes through a separate channel (`AnnotatedRegion`/`SystemChrome`).
+
+### Headless control (no provider required)
+
+The active theme lives in a module-level singleton, so you can read and
+set it from anywhere — a store, a service, app-boot logic, an effect —
+without a mounted `<ThemeProvider>` ancestor. `useTheme()` resolves to
+this same controller when no provider is in scope (it never throws).
+
+```tsx
+import { themeController } from '@sigx/lynx-daisyui';
+
+// From any non-component module:
+themeController.set('daisy-dark');
+themeController.toggle();
+themeController.followSystem();
+themeController.name;            // current selection
+```
+
+A mounted root `<ThemeProvider>` binds this singleton, so headless
+mutations render and the OS bars follow.
+
+### Per-screen themes
+
+Different screens can use different themes — and the status-bar icons
+follow the active screen so they stay legible. Because this drives the
+**global** theme, the bars update automatically:
+
+```tsx
+import { useScreenTheme } from '@sigx/lynx-daisyui';
+
+const Gallery = component(() => {
+    useScreenTheme('daisy-dark'); // dark (incl. status bar) while focused; restored on blur
+    return () => <view>…</view>;
+});
+```
+
+`useScreenTheme` is built on `@sigx/lynx-navigation`'s `useFocusEffect`
+(an optional peer) and must be called from a routed screen.
+
+### Scoped sub-overrides
+
+To recolor just a **region** without touching the OS bars, nest a
+`<ThemeProvider>`. Its subtree (content + icons) re-themes; the status
+bar stays on the global theme.
+
+```tsx
+<ThemeProvider initial="daisy-light">
+    <App />
+    {/* this card renders synthwave; the status bar stays light */}
+    <ThemeProvider initial="daisy-synthwave">
+        <PreviewCard />
+    </ThemeProvider>
+</ThemeProvider>
+```
+
 ## Navigation chrome
 
 Two daisy-themed components that pair with

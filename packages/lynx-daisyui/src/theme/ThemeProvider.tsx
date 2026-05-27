@@ -38,16 +38,24 @@ import {
     component,
     defineInjectable,
     defineProvide,
+    effect,
     onMounted,
     onUnmounted,
     signal,
+    untrack,
     type Define,
 } from '@sigx/lynx';
 import { useIconColorResolver, type IconColorResolver } from '@sigx/lynx-icons';
 import { useSystemColorScheme } from '@sigx/lynx-appearance';
 import type { ColorScheme } from '@sigx/lynx-appearance';
 import type { DaisyColor } from '../shared/styles.js';
-import { colorsOf, pairOf, pickThemeFor, radiusOf, variantOf } from './registry.js';
+import { colorsOf, pickThemeFor, radiusOf } from './registry.js';
+import {
+    globalThemeState,
+    makeThemeController,
+    themeController,
+    type ThemeState,
+} from './theme-state.js';
 
 /**
  * Declaration-merge extension: add a typed `variant` prop to `<Icon>`,
@@ -114,14 +122,23 @@ export interface ThemeController {
 }
 
 /**
- * Access the enclosing daisyui theme controller. Throws when used
- * outside `<ThemeProvider>` — install a provider at your app root.
+ * Access the active daisyui theme controller. Resolves to the nearest
+ * `<ThemeProvider>`'s controller (a content sub-scope), or — at the app root
+ * and in *headless* code with no provider mounted — the global controller
+ * (`themeController`). Never throws: theme control is reachable from anywhere
+ * (issue #113). For control that must always target the app/OS theme
+ * regardless of scope (e.g. a status-bar sync), import `themeController`.
  */
-export const useTheme = defineInjectable<ThemeController>(() => {
-    throw new Error(
-        '[lynx-daisyui] useTheme() called outside <ThemeProvider>. Wrap your app root with `<ThemeProvider>…</ThemeProvider>`.',
-    );
-});
+export const useTheme = defineInjectable<ThemeController>(() => themeController);
+
+/**
+ * Nesting-depth marker. The outermost `<ThemeProvider>` sees depth 0 and binds
+ * the global singleton (so headless `themeController` mutations render and the
+ * OS bars track it); a nested provider sees >= 1 and creates its own local
+ * state — a content sub-scope that recolors its subtree without touching the
+ * global theme or the system bars.
+ */
+const useThemeDepth = defineInjectable<number>(() => 0);
 
 export type ThemeProviderProps =
     /**
@@ -169,46 +186,46 @@ export const ThemeProvider = component<ThemeProviderProps>(({ props, slots }) =>
     // cast at read sites to keep the narrow union throughout the component.
     const readScheme = (): ColorScheme => systemScheme.value as ColorScheme;
 
-    // Seed: pin to `initial` if set, otherwise follow system.
-    const initialState = props.initial
-        ? { name: props.initial as DaisyTheme, following: false }
-        : {
-            name: readScheme() === 'dark'
-                ? ((props.dark ?? pickThemeFor('dark')) as DaisyTheme)
-                : ((props.light ?? pickThemeFor('light')) as DaisyTheme),
-            following: true,
-        };
-    const state = signal<{ name: DaisyTheme; following: boolean }>(initialState);
+    // Root vs. nested. The outermost provider (depth 0) binds the global
+    // singleton — so headless `themeController` mutations render here and the OS
+    // bars (via StatusBarSync) follow this theme. A nested provider gets its own
+    // local state: a content sub-scope that overrides its subtree only.
+    const depth = useThemeDepth();
+    const isRoot = depth === 0;
+    defineProvide(useThemeDepth, () => depth + 1);
 
-    // Guard against re-applying the same theme on stray re-fires.
-    let lastApplied: ColorScheme | null = state.following ? readScheme() : null;
+    const state: ThemeState = isRoot
+        ? globalThemeState
+        : signal<ThemeState>(
+            props.initial
+                ? { name: props.initial as DaisyTheme, following: false }
+                : {
+                    name: readScheme() === 'dark'
+                        ? ((props.dark ?? pickThemeFor('dark')) as DaisyTheme)
+                        : ((props.light ?? pickThemeFor('light')) as DaisyTheme),
+                    following: true,
+                },
+        );
 
-    function applySystem(scheme: ColorScheme, force = false): void {
-        if (!state.following) return;
-        if (!force && lastApplied === scheme) return;
-        lastApplied = scheme;
-        state.name = scheme === 'dark'
-            ? (props.dark ?? pickThemeFor('dark'))
-            : (props.light ?? pickThemeFor('light'));
+    // Seed the root from props/system. An explicit `initial` pin is author
+    // intent and wins. With no `initial`, reflect the current system scheme into
+    // the first render — but only while `following`, so a theme a headless
+    // caller set before this mounted is respected, not clobbered. The follow
+    // effect below keeps it in sync afterwards.
+    if (isRoot) {
+        if (props.initial) {
+            state.name = props.initial as DaisyTheme;
+            state.following = false;
+        } else if (state.following) {
+            state.name = readScheme() === 'dark'
+                ? (props.dark ?? pickThemeFor('dark'))
+                : (props.light ?? pickThemeFor('light'));
+        }
     }
 
-    const controller: ThemeController = {
-        get name() { return state.name; },
-        get followingSystem() { return state.following; },
-        set(next) {
-            state.name = next;
-            state.following = false;
-        },
-        toggle() {
-            state.name = pairOf(state.name);
-            state.following = false;
-        },
-        followSystem() {
-            state.following = true;
-            applySystem(readScheme(), /* force */ true);
-        },
-    };
-
+    const controller: ThemeController = isRoot
+        ? themeController
+        : makeThemeController(state);
     defineProvide(useTheme, () => controller);
 
     // Wire the daisy color resolver into `@sigx/lynx-icons`'s injectable
@@ -226,27 +243,31 @@ export const ThemeProvider = component<ThemeProviderProps>(({ props, slots }) =>
     };
     defineProvide(useIconColorResolver, () => resolver);
 
-    // Subscribe to system color-scheme changes. Both PrimitiveSignal and
-    // Computed expose `.subscribe(fn)` returning an unsubscribe handle —
-    // we lean on the structural shape so this file doesn't pull
-    // @sigx/reactivity into its imports.
-    let unsubscribe: (() => void) | undefined;
+    // Follow the system color scheme while `following`. Reactive: re-runs when
+    // `following` flips true (e.g. `controller.followSystem()`, including the
+    // headless `themeController`) or when the OS scheme changes, and writes the
+    // matching theme. Reading `state.following` and `systemScheme.value` tracks
+    // them; the `name` write is `untrack`ed so it can't re-trigger the effect.
+    // Created on mount (the native publisher may populate the scheme between
+    // setup and mount) and torn down on unmount.
+    let follow: { stop: () => void } | undefined;
     onMounted(() => {
-        // Re-seed once mounted — covers the case where the native publisher
-        // populated `__globalProps` between setup and mount.
-        applySystem(readScheme());
-
-        const sig = systemScheme as unknown as {
-            subscribe?: (fn: () => void) => () => void;
-        };
-        if (typeof sig.subscribe === 'function') {
-            unsubscribe = sig.subscribe(() => applySystem(readScheme()));
-        }
+        follow = effect(() => {
+            const following = state.following;
+            const scheme = readScheme();
+            if (!following) return;
+            const next = scheme === 'dark'
+                ? (props.dark ?? pickThemeFor('dark'))
+                : (props.light ?? pickThemeFor('light'));
+            untrack(() => {
+                if (state.name !== next) state.name = next;
+            });
+        });
     });
 
     onUnmounted(() => {
-        unsubscribe?.();
-        unsubscribe = undefined;
+        follow?.stop();
+        follow = undefined;
     });
 
     return () => {

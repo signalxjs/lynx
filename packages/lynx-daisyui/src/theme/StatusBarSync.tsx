@@ -28,7 +28,7 @@
 import { component, effect, onMounted, onUnmounted, type Define } from '@sigx/lynx';
 import { isAvailable, setSystemBarsStyle } from '@sigx/lynx-appearance';
 import type { SystemBarStyle } from '@sigx/lynx-appearance';
-import { useTheme } from './ThemeProvider.js';
+import { themeController } from './theme-state.js';
 import { variantOf } from './registry.js';
 
 export type StatusBarSyncProps =
@@ -43,7 +43,10 @@ export type StatusBarSyncProps =
     & Define.Prop<'matchBackground', boolean, false>;
 
 export const StatusBarSync = component<StatusBarSyncProps>(({ props }) => {
-    const theme = useTheme();
+    // Bind to the *global* theme — not `useTheme()` — so the OS bars always
+    // track the app/screen theme and can't be hijacked by a content sub-scope
+    // (a nested `<ThemeProvider>` recolors its subtree but leaves the bars put).
+    const theme = themeController;
     let lastApplied: string | null = null;
     let runner: { stop: () => void } | undefined;
 

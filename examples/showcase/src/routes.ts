@@ -10,6 +10,7 @@ import { ImageViewer } from './screens/ImageViewer.js';
 import { Map } from './screens/Map.js';
 import { Settings } from './screens/Settings.js';
 import { AuthDemo } from './screens/AuthDemo.js';
+import { ThemeLab } from './screens/ThemeLab.js';
 
 export const routes = defineRoutes({
     root: { component: RootTabs },
@@ -21,6 +22,7 @@ export const routes = defineRoutes({
     mapHome: { component: Map },
     settingsHome: { component: Settings },
     authDemo: { component: AuthDemo },
+    themeLab: { component: ThemeLab },
     tripDetail: {
         component: TripDetail,
         params: z.object({ tripId: z.string() }),

@@ -416,6 +416,29 @@ export const Settings = component(() => {
                 <Card bordered>
                     <Card.Body>
                         <Col gap={8}>
+                            <Text weight="semibold">Theme lab</Text>
+                            <Text class="opacity-60 text-sm">
+                                Per-screen theming + scoped sub-overrides: a
+                                screen that forces dark (status bar follows) with
+                                a nested ThemeProvider recoloring just one card.
+                            </Text>
+                            <Button
+                                variant="primary"
+                                outline
+                                onPress={() => {
+                                    Haptics.selection();
+                                    nav.push('themeLab');
+                                }}
+                            >
+                                Open theme lab
+                            </Button>
+                        </Col>
+                    </Card.Body>
+                </Card>
+
+                <Card bordered>
+                    <Card.Body>
+                        <Col gap={8}>
                             <Text weight="semibold">Clear all data</Text>
                             <Text class="opacity-60 text-sm">
                                 Wipes every trip and entry from persistent
