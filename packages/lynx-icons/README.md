@@ -1,6 +1,6 @@
 # @sigx/lynx-icons
 
-`<Icon set name />` for sigx-lynx, with build-time tree-shaking so only the glyphs you actually render ship in the bundle. Pairs with adapter packages — [`@sigx/lynx-icons-fa-free`](../lynx-icons-fa-free) for Font Awesome Free, [`@sigx/lynx-icons-lucide`](../lynx-icons-lucide) for Lucide — and is wired by [`@sigx/lynx-plugin`](../lynx-plugin)'s icons slice.
+`<Icon set name />` for sigx-lynx, with build-time tree-shaking so only the glyphs you actually render ship in the bundle. Pairs with adapter packages — [`@sigx/lynx-icons-fa-free`](https://github.com/signalxjs/lynx/tree/main/packages/lynx-icons-fa-free) for Font Awesome Free, [`@sigx/lynx-icons-lucide`](https://github.com/signalxjs/lynx/tree/main/packages/lynx-icons-lucide) for Lucide — and is wired by [`@sigx/lynx-plugin`](https://github.com/signalxjs/lynx/tree/main/packages/lynx-plugin)'s icons slice.
 
 ## Install
 
@@ -129,4 +129,4 @@ The plugin dynamically `import()`s the adapter from the consumer's `node_modules
 
 ## Reference app
 
-`examples/showcase/src/screens/Settings.tsx` shows fa-solid, fa-brands, and lucide icons rendered side by side. The generated cache lives at `examples/showcase/node_modules/.cache/sigx-lynx-icons/` after `pnpm build`.
+[`examples/showcase/src/screens/Settings.tsx`](https://github.com/signalxjs/lynx/blob/main/examples/showcase/src/screens/Settings.tsx) shows fa-solid, fa-brands, and lucide icons rendered side by side. The generated cache lives at `examples/showcase/node_modules/.cache/sigx-lynx-icons/` after `pnpm build`.

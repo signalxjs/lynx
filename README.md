@@ -55,6 +55,9 @@ Auto-linked by `sigx prebuild`: install the package with `pnpm add @sigx/lynx-fo
 
 | Package | Description |
 |---|---|
+| [`@sigx/lynx-appearance`](./packages/lynx-appearance) | System appearance — observe the device color scheme (`light` / `dark`) and set status / navigation bar tint. |
+| [`@sigx/lynx-audio`](./packages/lynx-audio) | Audio recording and playback — `AVAudioPlayer` / `AVAudioRecorder` on iOS, `MediaPlayer` / `MediaRecorder` on Android. |
+| [`@sigx/lynx-background`](./packages/lynx-background) | Periodic background tasks — iOS `BGTaskScheduler` (`BGAppRefreshTask` / `BGProcessingTask`) and Android `WorkManager` (`PeriodicWorkRequest` / `OneTimeWorkRequest`). |
 | [`@sigx/lynx-biometric`](./packages/lynx-biometric) | Biometric authentication — Face ID / Touch ID / `BiometricPrompt`. |
 | [`@sigx/lynx-camera`](./packages/lynx-camera) | Camera capture (photo + video). |
 | [`@sigx/lynx-clipboard`](./packages/lynx-clipboard) | System clipboard read/write. |
@@ -64,6 +67,7 @@ Auto-linked by `sigx prebuild`: install the package with `pnpm add @sigx/lynx-fo
 | [`@sigx/lynx-image-picker`](./packages/lynx-image-picker) | Pick or capture images from the photo library / camera. |
 | [`@sigx/lynx-linking`](./packages/lynx-linking) | Deep-link & URL scheme handling — `openURL`, `getInitialURL`, inbound URL events. |
 | [`@sigx/lynx-location`](./packages/lynx-location) | GPS coordinates, one-shot + watch APIs. |
+| [`@sigx/lynx-maps`](./packages/lynx-maps) | Native map view — `MKMapView` (Apple Maps) on iOS, `com.google.android.gms.maps.MapView` (Google Maps, API key required) on Android. |
 | [`@sigx/lynx-network`](./packages/lynx-network) | Connectivity status (`wifi` / `cellular` / `none`). Not a transport — pair with `fetch` / `WebSocket`. |
 | [`@sigx/lynx-notifications`](./packages/lynx-notifications) | Local push notifications & schedule. |
 | [`@sigx/lynx-permissions`](./packages/lynx-permissions) | Shared Android permission helper used by other native modules. You normally don't depend on this directly. |
@@ -71,7 +75,9 @@ Auto-linked by `sigx prebuild`: install the package with `pnpm add @sigx/lynx-fo
 | [`@sigx/lynx-secure-storage`](./packages/lynx-secure-storage) | Encrypted KV storage — iOS Keychain, Android Keystore + `EncryptedSharedPreferences`. Optional per-key biometric gating. |
 | [`@sigx/lynx-share`](./packages/lynx-share) | Native share sheet (`UIActivityViewController` / `Intent.ACTION_SEND`). |
 | [`@sigx/lynx-storage`](./packages/lynx-storage) | Persistent string KV store (`UserDefaults` / `SharedPreferences`). |
+| [`@sigx/lynx-video`](./packages/lynx-video) | Native `<video-player>` component — `AVPlayer` + `AVPlayerLayer` on iOS, `androidx.media3` (`ExoPlayer` + `PlayerView`) on Android. |
 | [`@sigx/lynx-websocket`](./packages/lynx-websocket) | Browser-standard `WebSocket` global — `URLSessionWebSocketTask` on iOS, OkHttp on Android. |
+| [`@sigx/lynx-webview`](./packages/lynx-webview) | Native `<sigx-webview>` component — `WKWebView` on iOS, `android.webkit.WebView` on Android. For OAuth fallback flows, embedded help/TOS, and hybrid screens. |
 
 ### Dev tooling
 

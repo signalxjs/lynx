@@ -45,3 +45,7 @@ pnpm add -D @sigx/cli @sigx/lynx-cli
 ## License
 
 MIT — © Andreas Ekdahl
+
+---
+
+Part of [SignalX for Lynx](https://github.com/signalxjs/lynx) — the SignalX runtime, components, and native modules for building Lynx apps with a React-like API.

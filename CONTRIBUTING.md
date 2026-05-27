@@ -138,3 +138,16 @@ Tips:
 - **TS-only changes:** run `pnpm --filter @sigx/lynx-websocket dev` (tsc --watch) in one terminal. The dev server picks up the rebuilt `dist/` on next reload — no reinstall needed.
 - **Native (Swift/Kotlin) changes:** rerun `pnpm prebuild` in the consumer, then rebuild the native app (`pnpm run:android` / open the Xcode project).
 - **Don't commit** the consumer-side overrides; they're host-machine-specific paths. Keep them in a local-only patch.
+
+
+---
+
+## Lynx plugin internals: cross-package worklet pickup
+
+`@sigx/lynx-plugin` runs the worklet rules on every JS/TS file in the BG / MT layers, including `node_modules` and pre-built `dist/`. The loaders use a cheap regex pre-filter to skip the SWC parse for files that obviously have no `'main thread'` directive (final correctness comes from SWC itself, not the regex).
+
+On the MT side, the loader also branches on the file's path: for files under `node_modules/` or `dist/` it preserves the original source — pass-through when no directive is present, source + appended `registerWorkletInternal(...)` calls when one is. That preservation matters because rspack shares module identity across the BG/MT layers, so stripping MT bodies would erase named exports for BG consumers too — daisyui couldn't resolve `useTabs` / `useScreenChrome` from `@sigx/lynx-navigation`, `@sigx/lynx-runtime-main`'s MT globals (`processData`, `updateGlobalProps`, `sigxRunOnMT`) would disappear, etc.
+
+The BG loader has no path branch; for any directive-bearing file (user or library) it returns the JS-target transform output, which preserves exports while replacing worklet bodies with `{ _wkltId }` placeholders.
+
+**Net effect:** any package shipping `'main thread'` directives in its dist (motion, navigation, gestures, future additions) is picked up automatically with no allowlist or opt-in flag.

@@ -1,8 +1,8 @@
 # @sigx/lynx-permissions
 
-**Android-only infrastructure module.** Provides the shared `PermissionHelper` + `MediaCapture` classes that `@sigx/lynx-camera`, `@sigx/lynx-image-picker`, `@sigx/lynx-location`, and `@sigx/lynx-notifications` all dispatch through to show OS permission dialogs and receive Activity Result callbacks. iOS doesn't need this — `UIImagePickerController`/`CLLocationManager`/etc. handle their own prompts.
+> **Android-only infrastructure.** Most apps don't import this directly — install any permission-using module ([`@sigx/lynx-camera`](https://github.com/signalxjs/lynx/tree/main/packages/lynx-camera), [`@sigx/lynx-image-picker`](https://github.com/signalxjs/lynx/tree/main/packages/lynx-image-picker), [`@sigx/lynx-location`](https://github.com/signalxjs/lynx/tree/main/packages/lynx-location), [`@sigx/lynx-notifications`](https://github.com/signalxjs/lynx/tree/main/packages/lynx-notifications)) and the auto-linker pulls this in. This README is for native-module *authors*.
 
-You typically don't import this package directly — install it alongside any of Camera/ImagePicker/Location/Notifications and the auto-linker wires it in.
+Provides the shared `PermissionHelper` + `MediaCapture` Kotlin classes that the listed modules dispatch through to show OS permission dialogs and receive Activity Result callbacks. iOS doesn't need this — `UIImagePickerController`/`CLLocationManager`/etc. handle their own prompts.
 
 ## Install
 
@@ -54,4 +54,4 @@ iOS has no equivalent because the OS-level pickers (`UIImagePickerController`, `
 
 ## Reference
 
-The wiring in `packages/lynx-cli/templates/android/app/src/main/kotlin/__package__/MainActivity.kt` is the canonical example of how an `Activity` integrates with this module via reflection.
+[`packages/lynx-cli/templates/android/app/src/main/kotlin/__package__/MainActivity.kt`](https://github.com/signalxjs/lynx/blob/main/packages/lynx-cli/templates/android/app/src/main/kotlin/__package__/MainActivity.kt) is the canonical example of how an `Activity` integrates with this module via reflection.
