@@ -1,12 +1,12 @@
-/* @sigx/lynx-daisyui — all themes + component styles */
+/* @sigx/lynx-daisyui — base tokens + component styles.
+ *
+ * Theme COLORS live in the theme registry (src/theme/registry.ts) and are
+ * applied as inline CSS custom properties by <ThemeProvider>; only the
+ * theme-agnostic structural tokens ship as CSS, under the `.daisy` base
+ * class. */
 
-/* Themes */
-@import './themes/light.css';
-@import './themes/dark.css';
-@import './themes/cupcake.css';
-@import './themes/emerald.css';
-@import './themes/synthwave.css';
-@import './themes/dracula.css';
+/* Structural design tokens (.daisy) + composable shape modifiers */
+@import './themes/tokens.css';
 @import './themes/shapes.css';
 
 /* Base reset */
