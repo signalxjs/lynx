@@ -16,7 +16,7 @@ import {
     type NavInternals,
 } from '../hooks/use-nav-internal.js';
 import type { Presentation, StackEntry } from '../types.js';
-import { animationVariant, computeLayers, isOverlayPresentation } from '../internal/layer-plan.js';
+import { computeLayers, isOverlayPresentation } from '../internal/layer-plan.js';
 import { EdgeBackHandle } from './EdgeBackHandle.js';
 import { Layer } from './Layer.js';
 import { useTabScreenName, useTabs } from './Tabs.js';
@@ -101,13 +101,14 @@ let _nestedKeyCounter = 0;
  *    transform. After settle, the overlay either joins the static
  *    idle stack (push) or unmounts (pop).
  *
- * Layer keys are `layer-${entry.key}-${animationVariant}`. The variant
- * suffix forces a remount when an entry transitions from animated to
- * static (or vice versa) — `useAnimatedStyle` binds once at setup and
- * can't switch its mapper at runtime. Modal underneath layers never
- * animate, so their key is stable across the modal lifecycle and the
- * subtree's state (per-tab Stack navigators, scroll positions,
- * in-flight inputs) survives.
+ * Layer keys are `layer-${entry.key}` — stable for the entry's whole
+ * life. A layer is never remounted just because its animation state
+ * changes; instead `<Layer>` drives the *reactive* `useAnimatedStyle`,
+ * which re-binds the MT transform on the same element as the entry
+ * animates and then settles. So a single push mounts the target screen
+ * exactly once (one `onMounted`, one data fetch) and the underneath /
+ * modal-underneath subtrees (per-tab Stack navigators, scroll positions,
+ * in-flight inputs) survive the whole transition.
  */
 export const Stack = component<StackProps>(({ props, slots }) => {
     // Capture enclosing scope's nav + routes + internals BEFORE any of the
@@ -268,7 +269,7 @@ export const Stack = component<StackProps>(({ props, slots }) => {
         const renderLayerNode = (layer: typeof layers[number] | undefined) =>
             layer ? (
                 <Layer
-                    key={`layer-${layer.entry.key}-${animationVariant(layer.animation)}`}
+                    key={`layer-${layer.entry.key}`}
                     entry={layer.entry}
                     routes={routes}
                     animation={layer.animation}

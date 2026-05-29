@@ -5,17 +5,16 @@
  * by a `SharedValue<number>` from the navigator's transition state.
  *
  * `<Stack>` emits one `<Layer>` per entry returned by
- * `computeLayers(...)`. Layer.key in the parent is
- * `layer-${entry.key}-${animationVariant(animation)}` so that:
+ * `computeLayers(...)`. Layer.key in the parent is `layer-${entry.key}` —
+ * stable for the entry's whole life. The host view, `<EntryScope>`, and the
+ * screen component therefore stay mounted across every animation phase
+ * (animated → static, push/pop transitions), so a screen's `onMounted` /
+ * data fetches fire exactly once per navigation and no state is lost.
  *
- *  - The same entry under the same animation state is preserved across
- *    renders (modal underneath stays mounted through the modal
- *    lifecycle; per-tab Stack state survives).
- *  - An entry transitioning between animated and static (e.g. a card
- *    top after its push transition completes) remounts so the
- *    `useAnimatedStyle` binding can be rebound — the underlying
- *    `useAnimatedStyle` is set-once at setup and can't switch its
- *    mapper at runtime.
+ * The transform binding is the only thing that changes as the layer animates
+ * vs rests: it's driven by the *reactive* form of `useAnimatedStyle`, which
+ * (re)registers/unregisters the MT style binding on this same element as
+ * `props.animation` flips between a spec and `null`. No remount needed.
  *
  * Layouts:
  *  - Host view is `position: absolute; top/right/bottom/left: 0;
@@ -45,17 +44,26 @@ export type LayerProps =
 
 export const Layer = component<LayerProps>(({ props }) => {
     const ref = useMainThreadRef<MainThread.Element | null>(null);
-    // `useAnimatedStyle` binds once at setup. Calling it conditionally
-    // is safe because setup runs once per mount and props.animation
-    // never changes for a given Layer instance — animation changes
-    // re-key the Layer at the parent, forcing a fresh mount.
-    if (props.animation) {
+    // Reactive binding: the Layer's key is stable for the entry's life, so
+    // `props.animation` changes (spec ↔ null) at runtime as the layer
+    // animates and then settles. The reactive `useAnimatedStyle` re-binds the
+    // MT transform on this same element each time, leaving the host view and
+    // the screen subtree mounted throughout. Going static returns `null`,
+    // which unregisters the binding (required: the navigator reuses one
+    // shared progress SharedValue that resets to 0 on the next transition, so
+    // a resting layer must not stay bound).
+    useAnimatedStyle(ref, () => {
         const a = props.animation;
-        useAnimatedStyle(ref, a.progress, a.axis, {
-            inputRange: [a.inputRange[0], a.inputRange[1]],
-            outputRange: [a.outputRange[0], a.outputRange[1]],
-        });
-    }
+        if (!a) return null;
+        return {
+            sv: a.progress,
+            mapperName: a.axis,
+            params: {
+                inputRange: [a.inputRange[0], a.inputRange[1]],
+                outputRange: [a.outputRange[0], a.outputRange[1]],
+            },
+        };
+    });
 
     return () => {
         const route = props.routes[props.entry.route];

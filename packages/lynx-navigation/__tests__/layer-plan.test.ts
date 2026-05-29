@@ -9,7 +9,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { useSharedValue, type SharedValue } from '@sigx/lynx';
-import { computeLayers, animationVariant } from '../src/internal/layer-plan';
+import { computeLayers } from '../src/internal/layer-plan';
 import type { Presentation, StackEntry, TransitionState } from '../src/types';
 
 function entry(key: string, route: string, presentation: Presentation = 'card'): StackEntry {
@@ -188,27 +188,5 @@ describe('computeLayers — overlay transitions', () => {
         const layers = computeLayers([a, m], transition, progress);
         // Falls back to base + m + animated dropped (off-stack).
         expect(layers.map((l) => l.entry.key)).toEqual(['a', 'm', 'dropped']);
-    });
-});
-
-describe('animationVariant — render-key suffix', () => {
-    it('returns "static" for null animation', () => {
-        expect(animationVariant(null)).toBe('static');
-    });
-
-    it('returns distinct strings for different animation specs', () => {
-        const progress = fakeProgress();
-        const card = animationVariant({
-            axis: 'translateX', inputRange: [0, 1], outputRange: [400, 0], progress,
-        });
-        const modal = animationVariant({
-            axis: 'translateY', inputRange: [0, 1], outputRange: [800, 0], progress,
-        });
-        const popCard = animationVariant({
-            axis: 'translateX', inputRange: [0, 1], outputRange: [0, 400], progress,
-        });
-        expect(card).not.toBe(modal);
-        expect(card).not.toBe(popCard);
-        expect(modal).not.toBe(popCard);
     });
 });

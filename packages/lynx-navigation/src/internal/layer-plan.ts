@@ -31,14 +31,14 @@
  *    overlay either joins the static idle stack (push) or unmounts
  *    (pop).
  *
- * The Layer.key for the Stack render is
- * `layer-${entry.key}-${animVariant(layer.animation)}`. The variant
- * suffix forces a remount when an entry transitions from animated to
- * static (or vice versa) — `useAnimatedStyle` can't re-bind mid-life,
- * so we get a fresh `useAnimatedStyle` call per animation state.
- * Modal underneath layers never animate, so they stay statically
- * keyed across the modal lifecycle and their state (per-tab Stack,
- * scroll, in-flight inputs) survives.
+ * The Layer.key for the Stack render is `layer-${entry.key}` — stable
+ * across animation phases. `<Layer>` rebinds its transform reactively
+ * (via the reactive form of `useAnimatedStyle`) as `animation` flips
+ * between a spec and `null`, so the layer never remounts just to change
+ * its animation state and screen subtrees survive the transition. The
+ * reactive binding dedupes its own register/unregister by signature
+ * internally (see `useAnimatedStyle`), so no per-layer variant key is
+ * computed here.
  */
 import type { SharedValue } from '@sigx/lynx';
 import { SCREEN_HEIGHT, SCREEN_WIDTH } from './screen-width.js';
@@ -67,19 +67,6 @@ export interface Layer {
 
 export function isOverlayPresentation(p: Presentation): boolean {
     return p === 'modal' || p === 'fullScreen' || p === 'transparent-modal';
-}
-
-/**
- * Suffix used in a layer's render key. Stable for the layer's
- * lifetime (same entry, same animation kind) and changes when the
- * animation transitions on/off so the Layer remounts and rebinds.
- */
-export function animationVariant(animation: LayerAnimation | null): string {
-    if (!animation) return 'static';
-    // Output range alone identifies the transition shape — different
-    // animations (card-top vs card-underneath vs overlay-top, push vs
-    // pop) all land on different range tuples.
-    return `${animation.axis}:${animation.outputRange[0]}->${animation.outputRange[1]}`;
 }
 
 /**
