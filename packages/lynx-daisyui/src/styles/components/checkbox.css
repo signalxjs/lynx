@@ -3,7 +3,7 @@
 .checkbox {
   width: var(--checkbox-md);
   height: var(--checkbox-md);
-  border-radius: var(--rounded-selector);
+  border-radius: var(--radius-selector);
   border-width: 1px;
   border-color: var(--color-base-300);
   background-color: transparent;

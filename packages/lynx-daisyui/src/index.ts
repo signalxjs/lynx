@@ -93,6 +93,7 @@ export {
     variantOf,
     colorsOf,
     radiusOf,
+    sizesOf,
 } from './theme/ThemeProvider.js';
 export type {
     DaisyTheme,
@@ -101,6 +102,7 @@ export type {
     Theme,
     ThemePalette,
     ThemeRadius,
+    ThemeSizes,
     ThemeVariant,
 } from './theme/ThemeProvider.js';
 export { StatusBarSync } from './theme/StatusBarSync.js';

@@ -15,7 +15,7 @@
 .modal-box {
   max-width: var(--modal-max-width);
   width: 90%;
-  border-radius: var(--rounded-box);
+  border-radius: var(--radius-box);
   background-color: var(--color-base-200);
   padding: 0;
   overflow: hidden;

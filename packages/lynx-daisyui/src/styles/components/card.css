@@ -3,7 +3,7 @@
 .card {
   background-color: var(--color-base-200);
   color: var(--color-base-content);
-  border-radius: var(--rounded-box);
+  border-radius: var(--radius-box);
   overflow: hidden;
 }
 

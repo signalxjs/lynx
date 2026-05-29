@@ -8,10 +8,10 @@
 }
 
 /* Size variants — track dimensions */
-.toggle-xs { width: var(--toggle-width-xs); height: var(--toggle-height-xs); border-radius: var(--rounded-toggle); }
-.toggle-sm { width: var(--toggle-width-sm); height: var(--toggle-height-sm); border-radius: var(--rounded-toggle); }
-.toggle-md { width: var(--toggle-width-md); height: var(--toggle-height-md); border-radius: var(--rounded-toggle); }
-.toggle-lg { width: var(--toggle-width-lg); height: var(--toggle-height-lg); border-radius: var(--rounded-toggle); }
+.toggle-xs { width: var(--toggle-width-xs); height: var(--toggle-height-xs); border-radius: var(--radius-selector); }
+.toggle-sm { width: var(--toggle-width-sm); height: var(--toggle-height-sm); border-radius: var(--radius-selector); }
+.toggle-md { width: var(--toggle-width-md); height: var(--toggle-height-md); border-radius: var(--radius-selector); }
+.toggle-lg { width: var(--toggle-width-lg); height: var(--toggle-height-lg); border-radius: var(--radius-selector); }
 
 /* Thumb */
 .toggle-thumb {

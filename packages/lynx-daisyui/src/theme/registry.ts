@@ -17,7 +17,7 @@
  *
  * Structural tokens (radius, sizing, component dimensions) are theme-agnostic
  * and ship once in the bundled `.daisy` base class (`styles/themes/tokens.css`);
- * a theme may override roundness via `radius`.
+ * a theme may override roundness via `radius` and base size units via `sizes`.
  *
  * Colors are engine-safe strings — hex or `rgb()`. Lynx's CSS engine does not
  * parse `oklch()`, so convert before registering.
@@ -29,14 +29,30 @@ export type ThemeVariant = 'light' | 'dark';
 /** Full daisy color palette — every semantic token, no holes. */
 export type ThemePalette = Record<DaisyColor, string>;
 
-/** Roundness token overrides. Defaults live in the bundled `.daisy` base. */
+/**
+ * Roundness token overrides (DaisyUI v5 contract). Emitted as
+ * `--radius-selector` / `--radius-field` / `--radius-box`. Defaults live in
+ * the bundled `.daisy` base.
+ */
 export interface ThemeRadius {
-  box?: string;
-  btn?: string;
-  badge?: string;
-  tab?: string;
+  /** Small selectable controls — checkbox, toggle, badge. */
   selector?: string;
-  toggle?: string;
+  /** Fields — button, input, select, textarea. */
+  field?: string;
+  /** Boxes — card, modal, alert. */
+  box?: string;
+}
+
+/**
+ * Base size-unit overrides (DaisyUI v5 contract). Emitted as
+ * `--size-selector` / `--size-field`; component dimensions are integer
+ * multiples of these. Defaults live in the bundled `.daisy` base.
+ */
+export interface ThemeSizes {
+  /** Base unit for selector controls (checkbox, toggle, badge). */
+  selector?: string;
+  /** Base unit for fields (button, input, select). */
+  field?: string;
 }
 
 export interface Theme {
@@ -53,6 +69,8 @@ export interface Theme {
   pair?: string;
   /** Optional roundness overrides; unspecified tokens fall back to `.daisy`. */
   radius?: ThemeRadius;
+  /** Optional base size-unit overrides; unspecified tokens fall back to `.daisy`. */
+  sizes?: ThemeSizes;
 }
 
 // Shared status palette — identical across the original built-ins, hoisted to
@@ -149,6 +167,25 @@ const registry: Theme[] = [
 ];
 
 /**
+ * Names of the themes seeded at module load — the built-ins that ship a
+ * generated CSS class (`scripts/gen-theme-css.mjs`). Captured before any
+ * runtime `registerTheme()`, so it distinguishes "has a first-paint CSS class"
+ * from runtime-registered themes (which only have their palette as data and
+ * apply via `setProperty` post-mount).
+ */
+const BUILTIN_NAMES: ReadonlySet<string> = new Set(registry.map((t) => t.name));
+
+/**
+ * Whether `name` is a built-in theme that ships a CSS class — i.e. it paints
+ * correctly on the first frame. Runtime-registered themes return `false`;
+ * `<ThemeProvider>` falls back to their variant's built-in class for first
+ * paint and swaps in the exact palette via `setProperty`.
+ */
+export function isBuiltInTheme(name: string | undefined): boolean {
+  return name != null && BUILTIN_NAMES.has(name);
+}
+
+/**
  * Resolve a `theme.name` to its registered `Theme`. Supports multi-class names
  * like `'daisy-light daisy-rounded'` by matching the first registered id found.
  */
@@ -201,6 +238,7 @@ export function extendTheme(
     pair?: string;
     colors?: Partial<ThemePalette>;
     radius?: ThemeRadius;
+    sizes?: ThemeSizes;
   },
 ): Theme {
   const src = findTheme(base);
@@ -216,6 +254,7 @@ export function extendTheme(
     pair: patch.pair ?? src.pair,
     colors: { ...src.colors, ...patch.colors },
     radius: patch.radius ?? src.radius,
+    sizes: patch.sizes ?? src.sizes,
   };
 }
 
@@ -232,6 +271,11 @@ export function colorsOf(name: string | undefined): ThemePalette | undefined {
 /** The roundness overrides of a registered theme, if any. */
 export function radiusOf(name: string | undefined): ThemeRadius | undefined {
   return findTheme(name)?.radius;
+}
+
+/** The base size-unit overrides of a registered theme, if any. */
+export function sizesOf(name: string | undefined): ThemeSizes | undefined {
+  return findTheme(name)?.sizes;
 }
 
 /**

@@ -7,7 +7,7 @@
   height: var(--badge-md);
   padding-left: 10px;
   padding-right: 10px;
-  border-radius: var(--rounded-badge);
+  border-radius: var(--radius-selector);
   font-size: var(--font-md);
   font-weight: 600;
   background-color: var(--color-base-200);

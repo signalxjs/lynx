@@ -8,6 +8,11 @@
 /* Structural design tokens (.daisy) + composable shape modifiers */
 @import './themes/tokens.css';
 @import './themes/shapes.css';
+/* Per-theme color tokens for the built-in themes — generated from the theme
+ * registry at build time (scripts/gen-theme-css.mjs). Declared as CSS rules so
+ * `var(--color-*)` resolves on the first paint; the runtime `setProperty` path
+ * can't set inheritable custom properties before descendants have painted. */
+@import './themes/builtins.generated.css';
 
 /* Base reset */
 @import './base.css';

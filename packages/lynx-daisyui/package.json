@@ -37,7 +37,7 @@
         "LICENSE"
     ],
     "scripts": {
-        "build": "node ../../scripts/clean.mjs dist && tsgo && node ../../scripts/copy-assets.mjs src/styles dist/styles",
+        "build": "node ../../scripts/clean.mjs dist && tsgo && node ../../scripts/copy-assets.mjs src/styles dist/styles && node scripts/gen-theme-css.mjs",
         "dev": "tsgo --watch",
         "clean": "node ../../scripts/clean.mjs dist .turbo"
     },
