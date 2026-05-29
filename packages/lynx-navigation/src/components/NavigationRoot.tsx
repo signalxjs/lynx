@@ -1,6 +1,7 @@
-import { component, defineProvide, useSharedValue, type Define } from '@sigx/lynx';
+import { component, defineProvide, onMounted, onUnmounted, useSharedValue, type Define } from '@sigx/lynx';
 import { createNavigatorState } from '../navigator/core.js';
 import { useNav } from '../hooks/use-nav.js';
+import { wireHardwareBack } from '../hooks/use-hardware-back.js';
 import { useNavInternals, useNavRoutes } from '../hooks/use-nav-internal.js';
 import type { RouteId } from '../register.js';
 import type { Presentation, RouteMap, StackEntry } from '../types.js';
@@ -23,6 +24,14 @@ type NavigationRootProps =
      * or while debugging gesture issues.
      */
     & Define.Prop<'edgeSwipeEnabled', boolean>
+    /**
+     * Subscribe the Android hardware back button / system back gesture to
+     * this navigator. Defaults to true — a back press pops the deepest
+     * focused stack, falling through to `exitApp()` only at the base entry.
+     * Set to false to handle hardware back yourself (then call
+     * `useHardwareBack()` in your own component). No-op on iOS.
+     */
+    & Define.Prop<'hardwareBack', boolean>
     & Define.Slot<'default'>;
 
 /**
@@ -88,6 +97,17 @@ export const NavigationRoot = component<NavigationRootProps>(({ props, slots }) 
         edgeSwipeEnabled,
         screens: navState._screens,
     }));
+
+    // Auto-wire Android hardware/system back unless opted out. Without this,
+    // the OS back gesture fires `hardwareBackPress` but nothing pops — every
+    // app would otherwise have to remember to call `useHardwareBack()`.
+    // Idempotent per tree (see `wireHardwareBack`), so a manual call still
+    // works and never double-pops. No-op on iOS / non-native runtimes.
+    if (props.hardwareBack !== false) {
+        let dispose: () => void = () => {};
+        onMounted(() => { dispose = wireHardwareBack(navState.nav); });
+        onUnmounted(() => { dispose(); });
+    }
 
     return () => slots.default?.();
 });
