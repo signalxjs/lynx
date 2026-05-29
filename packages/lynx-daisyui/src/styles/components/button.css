@@ -8,7 +8,7 @@
   min-height: var(--size-md);
   padding-left: var(--padding-btn-md);
   padding-right: var(--padding-btn-md);
-  border-radius: var(--rounded-btn);
+  border-radius: var(--radius-field);
   font-size: var(--font-md);
   font-weight: 600;
   line-height: 1;

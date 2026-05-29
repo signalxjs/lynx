@@ -7,7 +7,7 @@
   height: var(--size-md);
   padding-left: var(--padding-btn-md);
   padding-right: var(--padding-btn-md);
-  border-radius: var(--rounded-btn);
+  border-radius: var(--radius-field);
   font-size: var(--font-md);
   background-color: var(--color-base-100);
   color: var(--color-base-content);
@@ -38,7 +38,7 @@
   background-color: var(--color-base-100);
   border-width: var(--border-btn);
   border-color: var(--color-base-300);
-  border-radius: var(--rounded-btn);
+  border-radius: var(--radius-field);
   overflow: hidden;
 }
 

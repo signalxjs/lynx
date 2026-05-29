@@ -49,13 +49,95 @@ import { useIconColorResolver, type IconColorResolver } from '@sigx/lynx-icons';
 import { useSystemColorScheme } from '@sigx/lynx-appearance';
 import type { ColorScheme } from '@sigx/lynx-appearance';
 import type { DaisyColor } from '../shared/styles.js';
-import { colorsOf, pickThemeFor, radiusOf } from './registry.js';
+import {
+    colorsOf,
+    isBuiltInTheme,
+    pickThemeFor,
+    radiusOf,
+    sizesOf,
+    variantOf,
+} from './registry.js';
+import type { ThemeSizes } from './registry.js';
 import {
     globalThemeState,
     makeThemeController,
     themeController,
     type ThemeState,
 } from './theme-state.js';
+
+// Lynx background-thread runtime global (closure-injected by the runtime; not
+// typed in this package's tsconfig). We use only its CSS-variable setter — the
+// documented way to apply theme variables at runtime.
+declare const lynx: {
+    getElementById(id: string): { setProperty(props: Record<string, string>): void } | null;
+} | undefined;
+
+// DaisyUI v5 expresses control dimensions as multiples of two base units
+// (`--size-field`, `--size-selector`). Lynx's runtime CSS engine is unproven
+// for `calc(var() * n)`, so when a theme overrides a base unit we do the
+// multiplication here and emit literal px. Bases must be px (engine-safe, like
+// colors); a non-px base sets only the base var and leaves the `.daisy`
+// defaults in place. Multiples mirror the defaults in `styles/themes/tokens.css`.
+const FIELD_STEPS: Record<string, number> = { xs: 6, sm: 8, md: 12, lg: 16 };
+const SELECTOR_STEPS: Record<string, number> = {
+    'checkbox-xs': 4, 'checkbox-sm': 5, 'checkbox-md': 6, 'checkbox-lg': 8,
+    'toggle-width-xs': 8, 'toggle-width-sm': 10, 'toggle-width-md': 12, 'toggle-width-lg': 14,
+    'toggle-height-xs': 6, 'toggle-height-sm': 6, 'toggle-height-md': 7, 'toggle-height-lg': 8,
+    'toggle-thumb-xs': 4, 'toggle-thumb-sm': 4, 'toggle-thumb-md': 5, 'toggle-thumb-lg': 6,
+    'badge-xs': 4, 'badge-sm': 5, 'badge-md': 6, 'badge-lg': 8,
+};
+
+const pxValue = (v: string): number | undefined => {
+    const m = /^\s*(\d+(?:\.\d+)?)px\s*$/.exec(v);
+    return m ? Number(m[1]) : undefined;
+};
+
+/** Emit a theme's `sizes` overrides as literal-px CSS custom properties. */
+function applySizeVars(
+    style: Record<string, string | number>,
+    sizes: ThemeSizes,
+): void {
+    if (sizes.field) {
+        style['--size-field'] = sizes.field;
+        const base = pxValue(sizes.field);
+        if (base !== undefined) {
+            for (const k in FIELD_STEPS) style[`--size-${k}`] = `${base * FIELD_STEPS[k]}px`;
+        }
+    }
+    if (sizes.selector) {
+        style['--size-selector'] = sizes.selector;
+        const base = pxValue(sizes.selector);
+        if (base !== undefined) {
+            for (const k in SELECTOR_STEPS) style[`--${k}`] = `${base * SELECTOR_STEPS[k]}px`;
+        }
+    }
+}
+
+/**
+ * The full custom-property set for a theme — colors plus any radius/size
+ * overrides. Applied at runtime via the Lynx `setProperty` API (see
+ * `<ThemeProvider>`), NOT the inline `style` attribute: Lynx does not honor
+ * custom properties declared inline in this toolchain, but `setProperty`
+ * registers real, inheritable ones — the documented way to theme via CSS
+ * variables (https://lynxjs.org/guide/styling/custom-theming).
+ */
+function buildThemeVars(name: string): Record<string, string> {
+    const palette = colorsOf(name) ?? colorsOf('daisy-light')!;
+    const radius = radiusOf(name);
+    const sizes = sizesOf(name);
+    const vars: Record<string, string> = {};
+    for (const key in palette) vars[`--color-${key}`] = palette[key as DaisyColor];
+    if (radius) {
+        if (radius.selector) vars['--radius-selector'] = radius.selector;
+        if (radius.field) vars['--radius-field'] = radius.field;
+        if (radius.box) vars['--radius-box'] = radius.box;
+    }
+    if (sizes) applySizeVars(vars, sizes);
+    return vars;
+}
+
+/** Unique host id per provider instance so `getElementById` targets its own subtree. */
+let themeIdSeq = 0;
 
 /**
  * Declaration-merge extension: add a typed `variant` prop to `<Icon>`,
@@ -194,6 +276,11 @@ export const ThemeProvider = component<ThemeProviderProps>(({ props, slots }) =>
     const isRoot = depth === 0;
     defineProvide(useThemeDepth, () => depth + 1);
 
+    // Stable id for the host view so the runtime `setProperty` call (below) can
+    // target it. Unique per instance so nested providers theme their own subtree.
+    const hostId = `daisy-theme-${++themeIdSeq}`;
+
+
     const state: ThemeState = isRoot
         ? globalThemeState
         : signal<ThemeState>(
@@ -251,6 +338,7 @@ export const ThemeProvider = component<ThemeProviderProps>(({ props, slots }) =>
     // Created on mount (the native publisher may populate the scheme between
     // setup and mount) and torn down on unmount.
     let follow: { stop: () => void } | undefined;
+    let applyVars: { stop: () => void } | undefined;
     onMounted(() => {
         follow = effect(() => {
             const following = state.following;
@@ -263,24 +351,46 @@ export const ThemeProvider = component<ThemeProviderProps>(({ props, slots }) =>
                 if (state.name !== next) state.name = next;
             });
         });
+
+        // Built-in themes are themed by their generated CSS class (applied on
+        // the host below), which resolves on the very first frame. This
+        // `setProperty` path additionally serves runtime-registered themes
+        // (`registerTheme`, no shipped CSS class) — applied once they're
+        // selected post-mount, where it lands reliably. Reading `state.name`
+        // (via buildThemeVars) tracks it, so this re-runs on every theme change.
+        applyVars = effect(() => {
+            const vars = buildThemeVars(state.name);
+            if (typeof lynx !== 'undefined') {
+                lynx.getElementById(hostId)?.setProperty(vars);
+            }
+        });
     });
 
     onUnmounted(() => {
         follow?.stop();
         follow = undefined;
+        applyVars?.stop();
+        applyVars = undefined;
     });
 
     return () => {
-        // Every theme is data. Apply its color tokens as inline CSS custom
-        // properties — Lynx inherits custom properties to descendants, so
-        // component classes resolve `var(--color-*)` against these (the same
-        // mechanism SafeAreaProvider uses for `--sat`/`--sal`). The `daisy`
-        // base class supplies theme-agnostic structural tokens (radius,
-        // sizing); a theme may override roundness via `radius`. The root
-        // background/text are painted from the palette literals (inline
-        // `var()` values don't resolve in Lynx).
+        // Theme COLORS and any radius/size overrides are applied as real,
+        // inheritable CSS custom properties via the Lynx `setProperty` runtime
+        // API (see the `applyVars` effect above) — Lynx does NOT honor custom
+        // properties declared through the inline `style` attribute in this
+        // toolchain. The root background/text are painted here from palette
+        // literals (real properties, not custom props) so the surface is themed
+        // on first paint; descendants resolve `var(--color-*)` once setProperty
+        // has run. The `daisy` base class supplies structural token defaults.
         const palette = colorsOf(state.name) ?? colorsOf('daisy-light')!;
-        const radius = radiusOf(state.name);
+
+        // Built-ins ship a generated CSS class, so `state.name` alone paints on
+        // the first frame. A runtime-registered theme has no class — fall back
+        // to its variant's built-in class for the first frame; the `setProperty`
+        // effect above then swaps in its exact palette post-mount.
+        const themeClass = isBuiltInTheme(state.name)
+            ? state.name
+            : `${pickThemeFor(variantOf(state.name) ?? 'light')} ${state.name}`;
 
         const style: Record<string, string | number> = {
             flexGrow: 1,
@@ -292,22 +402,12 @@ export const ThemeProvider = component<ThemeProviderProps>(({ props, slots }) =>
             backgroundColor: palette['base-100'],
             color: palette['base-content'],
         };
-        for (const key in palette) {
-            style[`--color-${key}`] = palette[key as DaisyColor];
-        }
-        if (radius) {
-            if (radius.box) style['--rounded-box'] = radius.box;
-            if (radius.btn) style['--rounded-btn'] = radius.btn;
-            if (radius.badge) style['--rounded-badge'] = radius.badge;
-            if (radius.tab) style['--rounded-tab'] = radius.tab;
-            if (radius.selector) style['--rounded-selector'] = radius.selector;
-            if (radius.toggle) style['--rounded-toggle'] = radius.toggle;
-        }
         if (props.style) Object.assign(style, props.style);
 
         return (
             <view
-                class={`daisy${props.class ? ' ' + props.class : ''}`}
+                id={hostId}
+                class={`daisy ${themeClass}${props.class ? ' ' + props.class : ''}`}
                 style={style}
             >
                 {slots.default?.()}
@@ -326,5 +426,12 @@ export {
     variantOf,
     colorsOf,
     radiusOf,
+    sizesOf,
 } from './registry.js';
-export type { Theme, ThemePalette, ThemeRadius, ThemeVariant } from './registry.js';
+export type {
+    Theme,
+    ThemePalette,
+    ThemeRadius,
+    ThemeSizes,
+    ThemeVariant,
+} from './registry.js';

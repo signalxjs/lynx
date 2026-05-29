@@ -8,15 +8,20 @@
  * may still override roundness via its `radius` field. */
 
 .daisy {
-  /* ── Roundness ── */
-  --rounded-box: 16px;
-  --rounded-btn: 8px;
-  --rounded-badge: 9999px;
-  --rounded-tab: 8px;
-  --rounded-selector: 8px;
-  --rounded-toggle: 9999px;
+  /* ── Roundness (DaisyUI v5 contract) ── */
+  --radius-selector: 8px;
+  --radius-field: 8px;
+  --radius-box: 16px;
 
-  /* ── Sizing scale ── */
+  /* ── Base size units (DaisyUI v5 contract) ──
+   * A theme's `sizes` ({ field, selector }) overrides these; <ThemeProvider>
+   * re-derives the component dimensions below from them in JS. We deliberately
+   * do NOT use `calc(var() * n)` in CSS — it's unproven in Lynx's runtime CSS
+   * engine. Defaults below are base 4px × the per-token multiples shown. */
+  --size-selector: 4px;
+  --size-field: 4px;
+
+  /* ── Field sizing scale (button / input / select) — field × 6/8/12/16 ── */
   --size-xs: 24px;
   --size-sm: 32px;
   --size-md: 48px;
@@ -41,27 +46,28 @@
   --border-btn: 1px;
   --border-card: 1px;
 
-  /* ── Component-specific sizes ── */
-  --checkbox-xs: 16px;
-  --checkbox-sm: 20px;
-  --checkbox-md: 24px;
-  --checkbox-lg: 32px;
-  --toggle-width-xs: 32px;
-  --toggle-width-sm: 40px;
-  --toggle-width-md: 48px;
-  --toggle-width-lg: 56px;
-  --toggle-height-xs: 22px;
-  --toggle-height-sm: 24px;
-  --toggle-height-md: 28px;
-  --toggle-height-lg: 32px;
-  --toggle-thumb-xs: 14px;
-  --toggle-thumb-sm: 16px;
-  --toggle-thumb-md: 20px;
-  --toggle-thumb-lg: 24px;
-  --badge-xs: 16px;
-  --badge-sm: 20px;
-  --badge-md: 24px;
-  --badge-lg: 32px;
+  /* ── Selector-driven sizes (checkbox / toggle / badge) — selector × the
+   * multiples shown; <ThemeProvider> re-derives these from `sizes.selector`. ── */
+  --checkbox-xs: 16px; /* ×4 */
+  --checkbox-sm: 20px; /* ×5 */
+  --checkbox-md: 24px; /* ×6 */
+  --checkbox-lg: 32px; /* ×8 */
+  --toggle-width-xs: 32px; /* ×8 */
+  --toggle-width-sm: 40px; /* ×10 */
+  --toggle-width-md: 48px; /* ×12 */
+  --toggle-width-lg: 56px; /* ×14 */
+  --toggle-height-xs: 24px; /* ×6 */
+  --toggle-height-sm: 24px; /* ×6 */
+  --toggle-height-md: 28px; /* ×7 */
+  --toggle-height-lg: 32px; /* ×8 */
+  --toggle-thumb-xs: 16px; /* ×4 */
+  --toggle-thumb-sm: 16px; /* ×4 */
+  --toggle-thumb-md: 20px; /* ×5 */
+  --toggle-thumb-lg: 24px; /* ×6 */
+  --badge-xs: 16px; /* ×4 */
+  --badge-sm: 20px; /* ×5 */
+  --badge-md: 24px; /* ×6 */
+  --badge-lg: 32px; /* ×8 */
   --step-indicator: 32px;
   --progress-height: 8px;
   --modal-max-width: 400px;
