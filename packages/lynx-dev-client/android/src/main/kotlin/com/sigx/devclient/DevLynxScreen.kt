@@ -116,6 +116,11 @@ fun DevLynxScreen(
             factory = { ctx ->
                 try {
                     val viewBuilder = LynxViewBuilder()
+                    // Built-in Lynx behaviors carry `<list>` / `<list-item>` /
+                    // `<list-container>` (and view/text/image/scroll-view).
+                    // Register them explicitly so `<list>` resolves in the dev
+                    // runtime (issue #120) instead of relying on implicit setup.
+                    viewBuilder.addBehaviors(com.lynx.tasm.behavior.BuiltInBehavior().create())
                     viewBuilder.addBehaviors(XElementBehaviors().create())
                     onLynxViewBuilder?.invoke(viewBuilder)
                     SigxDevClient.configureForDev(viewBuilder, ctx)

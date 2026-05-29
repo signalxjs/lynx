@@ -1,6 +1,6 @@
 import { component } from '@sigx/lynx';
 import { useDrawer, useNav, useScreenOptions, Screen } from '@sigx/lynx-navigation';
-import { Button, Card, Col, ScrollView, Text } from '@sigx/lynx-daisyui';
+import { Button, Card, Text } from '@sigx/lynx-daisyui';
 import { LucideIcon } from '@sigx/lynx-icons-lucide/components';
 import { trips } from '../store/trips.js';
 
@@ -41,12 +41,28 @@ export const TripsList = component(() => {
                 </Screen.HeaderRight>
             </Screen>
 
-            <ScrollView class="flex-1">
-                <Col gap={12} padding={16}>
-                    {trips.length === 0
-                        ? <Text class="opacity-60">No trips yet — tap + to add one</Text>
-                        : trips.map((trip) => (
+            {/* Native recycler list (`<list>`/`<list-item>`) — only visible
+                rows mount. `<list>` accepts only `<list-item>` children, so the
+                empty-state and the trailing "New trip" button are each wrapped
+                in their own item. */}
+            <list
+                class="flex-1"
+                list-type="single"
+                span-count={1}
+                scroll-orientation="vertical"
+            >
+                {trips.length === 0
+                    ? (
+                        <list-item key="empty" item-key="empty">
+                            <view class="px-4 py-3">
+                                <Text class="opacity-60">No trips yet — tap + to add one</Text>
+                            </view>
+                        </list-item>
+                    )
+                    : trips.map((trip) => (
+                        <list-item key={trip.id} item-key={trip.id}>
                             <view
+                                class="px-4 py-2"
                                 bindtap={() => nav.push('tripDetail', { tripId: trip.id })}
                                 accessibility-element={true}
                                 accessibility-label={`Open trip ${trip.name}`}
@@ -61,12 +77,16 @@ export const TripsList = component(() => {
                                     </Card.Body>
                                 </Card>
                             </view>
-                        ))}
-                    <Button variant="primary" onPress={() => nav.push('newTrip')}>
-                        New trip
-                    </Button>
-                </Col>
-            </ScrollView>
+                        </list-item>
+                    ))}
+                <list-item key="new-trip" item-key="new-trip">
+                    <view class="px-4 py-3">
+                        <Button variant="primary" onPress={() => nav.push('newTrip')}>
+                            New trip
+                        </Button>
+                    </view>
+                </list-item>
+            </list>
         </view>
     );
 });

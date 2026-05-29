@@ -28,6 +28,16 @@ import {
   unregisterAnimatedStyleBinding,
   resetAnimatedStyleBindings,
 } from './animated-bridge-mt.js';
+import {
+  createListElement,
+  destroyListElement,
+  flushDirtyLists,
+  isListElement,
+  listInsertChild,
+  listRemoveChild,
+  noteListItemProp,
+  resetListState,
+} from './list-mt.js';
 
 /**
  * Placeholder element inserted by renderPage() to give the host a non-empty
@@ -159,6 +169,11 @@ export function applyOps(ops: unknown[]): void {
         let el: MainThreadElement;
         if (type === '__comment') {
           el = __CreateRawText('');
+        } else if (type === 'list') {
+          // `<list>` is created via __CreateList so its recycler callbacks are
+          // registered up front (issue #120). list-mt.ts owns its state.
+          el = createListElement(id);
+          __SetCSSId([el], 0);
         } else {
           el = createTypedElement(type, pageUniqueId);
           __SetCSSId([el], 0);
@@ -183,6 +198,12 @@ export function applyOps(ops: unknown[]): void {
         const parentId = ops[i++] as number;
         const childId = ops[i++] as number;
         const anchorId = ops[i++] as number;
+        // `<list>` children are owned by the recycler — record order instead of
+        // appending; native attaches them on demand via componentAtIndex.
+        if (isListElement(parentId)) {
+          listInsertChild(parentId, childId, anchorId);
+          break;
+        }
         const parent = elements.get(parentId);
         const child = elements.get(childId);
         if (parent && child) {
@@ -199,6 +220,12 @@ export function applyOps(ops: unknown[]): void {
       case OP.REMOVE: {
         const _parentId = ops[i++] as number;
         const childId = ops[i++] as number;
+        if (isListElement(_parentId)) {
+          listRemoveChild(_parentId, childId);
+          break;
+        }
+        // Tearing down a `<list>` itself — detach its recycler callbacks first.
+        if (isListElement(childId)) destroyListElement(childId);
         const parent = elements.get(_parentId);
         const child = elements.get(childId);
         if (parent && child) {
@@ -213,6 +240,9 @@ export function applyOps(ops: unknown[]): void {
         const value = ops[i++];
         const el = elements.get(id);
         if (el) __SetAttribute(el, key, value);
+        // Mirror `<list-item>` platform-info props (item-key, full-span, …)
+        // into the list's update-list-info metadata (no-op for other keys).
+        noteListItemProp(id, key, value);
         break;
       }
 
@@ -487,6 +517,10 @@ export function applyOps(ops: unknown[]): void {
   // stays consistent with the styles we're about to commit.
   flushAnimatedStyleBindings();
 
+  // Emit update-list-info diffs for any `<list>` whose children changed this
+  // batch, so native knows its cell count/keys before it lays out.
+  flushDirtyLists();
+
   // Flush all pending PAPI changes to the native layer in one shot.
   __FlushElementTree();
 }
@@ -506,6 +540,7 @@ export function resetMainThreadState(): void {
   lastTreeByElementWvid.clear();
   elementIdByWvid.clear();
   resetAnimatedStyleBindings();
+  resetListState();
   // Clear upstream's worklet ref map too on hard reset (HMR / test).
   const impl = (globalThis as Record<string, unknown>)['lynxWorkletImpl'] as
     { _refImpl: { _workletRefMap: Record<number, unknown> } } | undefined;

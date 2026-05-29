@@ -176,6 +176,11 @@ fun ProductionLynxScreen(bundleName: String) {
             factory = { ctx ->
                 try {
                     val viewBuilder = LynxViewBuilder()
+                    // Built-in Lynx behaviors carry `<list>` / `<list-item>` /
+                    // `<list-container>` (and view/text/image/scroll-view).
+                    // Register them explicitly so `<list>` resolves at runtime
+                    // (issue #120) rather than relying on implicit registration.
+                    viewBuilder.addBehaviors(com.lynx.tasm.behavior.BuiltInBehavior().create())
                     viewBuilder.addBehaviors(XElementBehaviors().create())
                     GeneratedBehaviors.attachAll(viewBuilder)
 
