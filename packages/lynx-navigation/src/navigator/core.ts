@@ -1,4 +1,5 @@
 import {
+    batch,
     runOnMainThread,
     signal,
     untrack,
@@ -294,20 +295,29 @@ export function createNavigatorState(opts: CreateNavigatorOptions): NavigatorSta
         const cur = getStack();
         const prevTop = cur[cur.length - 1];
 
-        // Append eagerly — UX-wise the user just initiated a forward nav, so
-        // the new entry should be queryable immediately (`nav.current` =
-        // newEntry). The slide animation overlays the visual transition.
-        setStack([...cur, newEntry]);
-
         const animated = options?.animated !== false && !!progress;
-        if (!animated) return;
 
-        setTransition({
-            kind: 'push',
-            topEntry: newEntry,
-            underneathEntry: prevTop,
-            progress,
+        // Commit the stack append and the transition in a single batch so the
+        // Stack renders once with both screens already present. Without the
+        // batch, `@sigx/reactivity` flushes the stack write eagerly, producing
+        // an intermediate render where only the new top is on the stack and
+        // no transition is in flight — `computeLayers` would drop the
+        // underneath and the Stack would remount it on the next render.
+        // Append eagerly so the new entry is queryable immediately
+        // (`nav.current` = newEntry); the slide animation overlays the visual.
+        batch(() => {
+            setStack([...cur, newEntry]);
+            if (animated) {
+                setTransition({
+                    kind: 'push',
+                    topEntry: newEntry,
+                    underneathEntry: prevTop,
+                    progress,
+                });
+            }
         });
+
+        if (!animated) return;
 
         animateProgress(1, TRANSITION_DURATION_SEC).then(
             () => setTransition(null),
@@ -358,15 +368,22 @@ export function createNavigatorState(opts: CreateNavigatorOptions): NavigatorSta
 
         animateProgress(1, TRANSITION_DURATION_SEC).then(
             () => {
-                setStack(cur.slice(0, cur.length - 1));
-                setTransition(null);
+                // Batch so the commit (drop the popped entry) and clearing the
+                // transition land in one render — no intermediate frame where
+                // the stack has mutated but the transition is still in flight.
+                batch(() => {
+                    setStack(cur.slice(0, cur.length - 1));
+                    setTransition(null);
+                });
             },
             () => {
                 // On animation failure, snap to the destination state anyway —
                 // leaving the popped entry rendered would be more confusing
                 // than skipping the animation.
-                setStack(cur.slice(0, cur.length - 1));
-                setTransition(null);
+                batch(() => {
+                    setStack(cur.slice(0, cur.length - 1));
+                    setTransition(null);
+                });
             },
         );
     }
@@ -394,8 +411,10 @@ export function createNavigatorState(opts: CreateNavigatorOptions): NavigatorSta
         if (state.stack.length === 0) {
             throw new Error('[lynx-navigation] reset() called with empty stack.');
         }
-        setStack([...state.stack]);
-        setTransition(null);
+        batch(() => {
+            setStack([...state.stack]);
+            setTransition(null);
+        });
     }
 
     function dismiss(): void {
@@ -433,10 +452,12 @@ export function createNavigatorState(opts: CreateNavigatorOptions): NavigatorSta
 
     function commitBackGesture(): void {
         const cur = getStack();
-        if (cur.length >= 2) {
-            setStack(cur.slice(0, cur.length - 1));
-        }
-        setTransition(null);
+        batch(() => {
+            if (cur.length >= 2) {
+                setStack(cur.slice(0, cur.length - 1));
+            }
+            setTransition(null);
+        });
     }
 
     function cancelBackGesture(): void {

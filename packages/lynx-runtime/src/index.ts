@@ -70,6 +70,7 @@ export {
   useAnimatedStyle,
   resetAnimatedStyleBindingIds,
 } from './animated/use-animated-style.js';
+export type { AnimatedStyleSpec } from './animated/use-animated-style.js';
 
 // @deprecated since Phase 2.8 — use `SharedValue` / `useSharedValue` /
 // `SharedValueState` instead. Kept for one minor cycle.
