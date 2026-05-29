@@ -96,7 +96,7 @@ describe('list-mt', () => {
   });
 
   it('componentAtIndex returns the pre-existing element sign and appends once', () => {
-    const listEl = createListElement(1) as FakeEl;
+    const listEl = createListElement(1) as unknown as FakeEl;
     elements.set(1, listEl as never);
     const a = fakeEl();
     elements.set(2, a as never);
