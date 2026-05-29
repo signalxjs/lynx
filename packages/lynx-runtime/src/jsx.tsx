@@ -278,6 +278,12 @@ export interface ListAttributes extends LynxCommonAttributes {
 
 export interface ListItemAttributes extends LynxCommonAttributes {
     children?: any;
+    /**
+     * Unique, stable key identifying this item for the native recycler. Lynx
+     * uses it to diff and reuse `<list-item>` views as the list scrolls; it
+     * must be unique among siblings within the same `<list>`.
+     */
+    'item-key'?: string;
     /** Item type for recycling (items with same item-type share a view pool) */
     'item-type'?: string | number;
     /** Sticky offset from top */

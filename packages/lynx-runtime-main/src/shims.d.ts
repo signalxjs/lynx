@@ -27,6 +27,33 @@ declare function __CreateScrollView(parentID: number): MainThreadElement
 declare function __CreateRawText(text: string): MainThreadElement
 declare function __CreatePage(cssId?: string, scope?: number): MainThreadElement
 
+// Native <list> recycler. `componentAtIndex` is invoked by native to realise
+// the cell at `cellIndex` — it must return that element's unique id (sign).
+// `enqueueComponent` is invoked when a cell scrolls offscreen and may be
+// recycled. See list-mt.ts and Lynx's fiber list element API.
+type ComponentAtIndexCallback = (
+  list: MainThreadElement,
+  listID: number,
+  cellIndex: number,
+  operationID: number,
+  enableReuseNotification: boolean,
+) => number
+type EnqueueComponentCallback = (
+  list: MainThreadElement,
+  listID: number,
+  sign: number,
+) => void
+declare function __CreateList(
+  parentComponentUniqueId: number,
+  componentAtIndex: ComponentAtIndexCallback,
+  enqueueComponent: EnqueueComponentCallback,
+): MainThreadElement
+declare function __UpdateListCallbacks(
+  list: MainThreadElement,
+  componentAtIndex: ComponentAtIndexCallback | null,
+  enqueueComponent: EnqueueComponentCallback | null,
+): void
+
 // Tree mutations
 declare function __AppendElement(parent: MainThreadElement, child: MainThreadElement): void
 declare function __InsertElementBefore(parent: MainThreadElement, child: MainThreadElement, anchor: MainThreadElement): void
@@ -55,8 +82,20 @@ declare function __NextElement(node: MainThreadElement): MainThreadElement | nul
 declare function __GetTag(element: MainThreadElement): string
 declare function __GetElementUniqueID(element: MainThreadElement): number
 
-// Flush
-declare function __FlushElementTree(root?: MainThreadElement): void
+// Flush. The optional `options` form routes a single-cell render back to a
+// native <list> (operationID/elementID/listID) — see list-mt.ts.
+interface FlushElementTreeOptions {
+  triggerLayout?: boolean
+  operationID?: number
+  elementID?: number
+  listID?: number
+  asyncFlush?: boolean
+  listReuseNotification?: { listElement: MainThreadElement; itemKey?: string }
+}
+declare function __FlushElementTree(
+  root?: MainThreadElement,
+  options?: FlushElementTreeOptions,
+): void
 
 // Gesture detector
 declare function __SetGestureDetector(

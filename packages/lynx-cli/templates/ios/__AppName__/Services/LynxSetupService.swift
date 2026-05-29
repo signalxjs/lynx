@@ -17,6 +17,17 @@ class LynxSetupService {
 
         let env = LynxEnv.sharedInstance()
         if let config = config {
+            // Built-in Lynx list elements (`<list>` / `<list-item>` /
+            // `<list-container>`). Register them explicitly: under static
+            // linking (`use_frameworks! :linkage => :static`) Lynx's internal
+            // lazy/`+sharedInstance` registration of these tags is unreliable —
+            // the registration object files can be dead-stripped, so `<list>`
+            // throws `can't createUI for tag 'list'` at runtime (issue #120).
+            // These classes are public via the Lynx umbrella header.
+            LynxComponentRegistry.registerUI(LynxUICollection.self, withName: "list")
+            LynxComponentRegistry.registerUI(LynxUIListContainer.self, withName: "list-container")
+            LynxComponentRegistry.registerUI(LynxUIListItem.self, withName: "list-item")
+
             // Register auto-linked UI components via `LynxConfig.registerUI`
             // BEFORE prepareConfig — `LynxEnv.prepareConfig` snapshots the
             // config, so any registerUI call after this point would be

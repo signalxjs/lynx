@@ -27,7 +27,11 @@ import Lynx
 /// Imperative methods (`seek`, `getStatus`) are tracked as a v2 follow-up
 /// — they need the Lynx UIMethodInvoker surface that isn't wired through
 /// sigx-lynx yet (same blocker as `WebView.goBack` / `Map.animateToRegion`).
-@objc public class VideoPlayerUI: LynxUI<UIView> {
+// Class is NOT marked `@objc` — Swift forbids that on generic subclasses
+// of an ObjC lightweight-generic type like `LynxUI<__covariant V>`. Member-
+// level `@objc` / `@objc(name)` annotations still bridge because `LynxUI`
+// itself is `@objc`, so `__lynx_prop_config__*` discovery still works.
+public class VideoPlayerUI: LynxUI<UIView> {
 
     private var player: AVPlayer?
     private var playerLayer: AVPlayerLayer?
@@ -60,7 +64,8 @@ import Lynx
 
     public override func layoutDidFinished() {
         super.layoutDidFinished()
-        guard let container = view else { return }
+        // `view` is a non-optional method on `LynxUI` in this SDK — call it.
+        let container = view()
         playerLayer?.frame = container.bounds
         posterView?.frame = container.bounds
         controlsView?.frame = container.bounds
@@ -215,10 +220,9 @@ import Lynx
 
         let layer = AVPlayerLayer(player: player)
         layer.videoGravity = pendingResizeMode
-        if let view = view {
-            layer.frame = view.bounds
-            view.layer.insertSublayer(layer, at: 0)
-        }
+        let hostView = view()
+        layer.frame = hostView.bounds
+        hostView.layer.insertSublayer(layer, at: 0)
 
         self.player = player
         self.playerLayer = layer
@@ -330,8 +334,8 @@ import Lynx
                 // land PosterA on screen if its download completed second.
                 guard self.pendingPosterURL == url,
                       self.posterView == nil,
-                      !self.didEmitLoad,
-                      let container = self.view else { return }
+                      !self.didEmitLoad else { return }
+                let container = self.view()
                 let iv = UIImageView(image: image)
                 iv.frame = container.bounds
                 iv.contentMode = .scaleAspectFit
@@ -342,7 +346,8 @@ import Lynx
     }
 
     private func attachTapToggleOverlay() {
-        guard controlsView == nil, let container = view else { return }
+        guard controlsView == nil else { return }
+        let container = view()
         let overlay = UIView(frame: container.bounds)
         overlay.backgroundColor = UIColor.clear
         let tap = UITapGestureRecognizer(target: self, action: #selector(togglePlayPause))
@@ -374,7 +379,8 @@ import Lynx
 
     fileprivate func fireEvent(_ name: String, params: [String: Any]) {
         let event = LynxCustomEvent(name: name, targetSign: sign, params: params)
-        context?.eventEmitter?.sendCustomEvent(event)
+        // Swift renames the ObjC `sendCustomEvent:` selector to `send(_:)`.
+        context?.eventEmitter?.send(event)
     }
 }
 
