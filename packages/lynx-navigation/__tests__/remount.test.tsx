@@ -87,15 +87,14 @@ describe('Stack remount (issue #121)', () => {
 
         await settle();
 
-        // After the slide settles the target is the sole base. It must NOT
-        // have remounted when its layer flipped animated → static.
+        // After the slide settles the target is the sole visible base. It
+        // must NOT have remounted when its layer flipped animated → static.
         expect(targetCounter.mounts).toBe(1);
-        // For a card push the underneath legitimately leaves the layer stack
-        // once the new top is the sole base — but it should mount only once
-        // for its whole life (no mid-transition rebuild) and unmount at most
-        // once at settle.
+        // With card-stack retention (issue #124) the underneath stays
+        // mounted as a hidden layer beneath the top — it mounts once and is
+        // never torn down, so popping back reveals it with state intact.
         expect(homeCounter.mounts).toBe(1);
-        expect(homeCounter.unmounts).toBeLessThanOrEqual(1);
+        expect(homeCounter.unmounts).toBe(0);
         expect(probe.nav!.current.route).toBe('target');
         expect(probe.nav!.transition).toBe(null);
     });

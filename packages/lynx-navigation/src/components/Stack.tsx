@@ -16,7 +16,7 @@ import {
     type NavInternals,
 } from '../hooks/use-nav-internal.js';
 import type { Presentation, StackEntry } from '../types.js';
-import { computeLayers, isOverlayPresentation } from '../internal/layer-plan.js';
+import { computeLayers, isOverlayPresentation, MAX_LAYERS } from '../internal/layer-plan.js';
 import { EdgeBackHandle } from './EdgeBackHandle.js';
 import { Layer } from './Layer.js';
 import { useTabScreenName, useTabs } from './Tabs.js';
@@ -41,6 +41,17 @@ type StackProps =
     /** Initial search for the nested-stack base entry. */
     & Define.Prop<'initialSearch', Record<string, unknown>>
     /**
+     * Max number of *covered* cards kept mounted-but-hidden beneath the
+     * visible top (card-stack screen retention). Covered cards stay
+     * mounted so back-navigation reveals them instantly with state
+     * intact, instead of rebuilding. Omit to retain all (bounded only by
+     * the renderer's `MAX_LAYERS` slot cap). Set a small number to bound
+     * memory — the deepest covered cards beyond the window unmount and
+     * rebuild on pop-back. Mirrors React Navigation's
+     * `detachInactiveScreens` / `maxRetainedScreens`.
+     */
+    & Define.Prop<'maxRetainedScreens', number>
+    /**
      * Optional chrome rendered *above* the active screen, **inside this
      * Stack's nav scope**. The intended use is `<Header />`, which needs
      * to resolve `useNav()` to the per-stack nav (not the enclosing one)
@@ -54,6 +65,22 @@ type StackProps =
     & Define.Slot<'default'>;
 
 let _nestedKeyCounter = 0;
+
+/**
+ * Number of `renderLayerNode(layers[n])` slots unrolled in the render
+ * below. Must equal `MAX_LAYERS` — `computeLayers` trims its output to
+ * `MAX_LAYERS`, so any layer beyond this count would be silently
+ * dropped. The type-level check fails to compile if the two drift, so
+ * raising `MAX_LAYERS` forces you to add matching slots here.
+ */
+const RENDERED_LAYER_SLOTS = 24;
+type _AssertSlotCount = typeof MAX_LAYERS extends typeof RENDERED_LAYER_SLOTS
+    ? typeof RENDERED_LAYER_SLOTS extends typeof MAX_LAYERS
+        ? true
+        : never
+    : never;
+const _slotCountOk: _AssertSlotCount = true;
+void _slotCountOk;
 
 /**
  * Stack navigator — renders the topmost stack entry's component at rest, or
@@ -264,7 +291,12 @@ export const Stack = component<StackProps>(({ props, slots }) => {
 
     return () => {
         const chrome = slots.default?.();
-        const layers = computeLayers(nav.stack, nav.transition, internals.progress);
+        const layers = computeLayers(
+            nav.stack,
+            nav.transition,
+            internals.progress,
+            props.maxRetainedScreens,
+        );
 
         const renderLayerNode = (layer: typeof layers[number] | undefined) =>
             layer ? (
@@ -273,6 +305,7 @@ export const Stack = component<StackProps>(({ props, slots }) => {
                     entry={layer.entry}
                     routes={routes}
                     animation={layer.animation}
+                    hidden={layer.hidden}
                 />
             ) : null;
         // sigx's reconciler treats a single array-valued JSX child as
@@ -284,10 +317,12 @@ export const Stack = component<StackProps>(({ props, slots }) => {
         // JSX child slot rather than as an array. The slots are
         // position-stable across renders — the only thing that
         // changes is a slot turning from `null` to a Layer (mount) or
-        // vice versa (unmount). MAX_LAYERS caps the supported stack
-        // depth; in practice apps rarely stack more than 2-3 overlays.
-        // If you hit the cap, increase the constant — the unrolled
-        // shape is just verbose, not algorithmically limited.
+        // vice versa (unmount). The slot count MUST equal MAX_LAYERS
+        // (the cap `computeLayers` trims to); card retention keeps
+        // covered cards mounted, so the slots now also hold a deep
+        // card history, not just 2-3 overlays. If you raise MAX_LAYERS,
+        // add matching slots below — the unrolled shape is just
+        // verbose, not algorithmically limited.
 
         // Edge-swipe handle on top, gated on:
         //  - `internals.edgeSwipeEnabled` — opt-out flag (also off
@@ -345,6 +380,14 @@ export const Stack = component<StackProps>(({ props, slots }) => {
                 {renderLayerNode(layers[13])}
                 {renderLayerNode(layers[14])}
                 {renderLayerNode(layers[15])}
+                {renderLayerNode(layers[16])}
+                {renderLayerNode(layers[17])}
+                {renderLayerNode(layers[18])}
+                {renderLayerNode(layers[19])}
+                {renderLayerNode(layers[20])}
+                {renderLayerNode(layers[21])}
+                {renderLayerNode(layers[22])}
+                {renderLayerNode(layers[23])}
                 {edgeHandle}
             </view>
         );
