@@ -212,14 +212,21 @@ describe('screen registry lifecycle', () => {
 
         act(() => probe.nav!.push('settings'));
 
-        // Idle render only mounts the top entry, so Home unmounted and its
-        // registry was removed. Settings is now registered.
-        expect(probe.internals!.screens.get(homeKey)).toBeUndefined();
+        // Card-stack retention (#124): the covered Home stays mounted as a
+        // hidden layer, so its registry persists. Settings is now also
+        // registered as the visible top.
+        expect(probe.internals!.screens.get(homeKey)).toBeTruthy();
         const settingsKey = probe.nav!.current.key;
         expect(probe.internals!.screens.get(settingsKey)?.options.title).toBe('Settings');
 
-        result.unmount();
+        // Popping back actually unmounts Settings — its registry is removed,
+        // and the revealed Home (never unmounted) is still registered.
+        act(() => probe.nav!.pop());
         expect(probe.internals!.screens.get(settingsKey)).toBeUndefined();
+        expect(probe.internals!.screens.get(homeKey)?.options.title).toBe('Home');
+
+        result.unmount();
+        expect(probe.internals!.screens.get(homeKey)).toBeUndefined();
     });
 
     // Regression: modal/fullScreen/transparent-modal overlays must keep

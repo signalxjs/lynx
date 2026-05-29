@@ -89,8 +89,13 @@ describe('Imperative navigation', () => {
             probe.nav!.push('profile', { id: '42' });
         });
 
-        expect(result.queryByText('Home')).toBeNull();
+        // The pushed screen is rendered and is now the current entry. With
+        // card-stack retention (#124) the covered Home stays mounted as a
+        // hidden layer beneath it — so it remains in the tree rather than
+        // unmounting.
         expect(result.queryByText('profile-id:')).not.toBeNull();
+        expect(probe.nav!.current.route).toBe('profile');
+        expect(result.queryByText('Home')).not.toBeNull();
         result.unmount();
     });
 

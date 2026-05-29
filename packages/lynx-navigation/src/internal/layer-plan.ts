@@ -13,23 +13,29 @@
  *
  * Rules:
  *
- *  - **Idle (no transition).** Render the topmost non-overlay entry
- *    as the base, plus every overlay entry above it. Overlays
- *    (`modal` / `fullScreen` / `transparent-modal`) keep their
- *    underneath mounted; cards replace their underneath in the base
- *    layer.
+ *  - **Visible region.** Each branch first computes its *visible*
+ *    region — the layers the user can actually see:
+ *      - **Idle (no transition).** The topmost non-overlay entry as
+ *        the base, plus every overlay entry above it.
+ *      - **Card transition.** The underneath entry (parallax) + the
+ *        top entry (slide), both animated.
+ *      - **Overlay transition.** The static base..underneath run plus
+ *        the animated overlay top.
  *
- *  - **Card transition.** Two layers: the underneath entry (animated
- *    with the parallax-card-underneath spec) and the top entry
- *    (animated with the slide-in-from-right spec). After the
- *    transition completes, the idle rule kicks in — the underneath
- *    unmounts because the new top becomes the sole base.
+ *  - **Retention (card-stack screen retention).** Every entry *below*
+ *    the visible region's base is kept mounted as a `hidden: true`
+ *    static layer (`display: none`), instead of unmounting. So a card
+ *    push leaves the covered card mounted, and a pop reveals the
+ *    already-mounted underneath — no rebuild, no lost scroll/UI state
+ *    (matching native stacks). Overlays already preserved their
+ *    underneath; this extends the same retain-below-base behaviour to
+ *    cards, and to entries deeper than the immediate underneath during
+ *    a deep-stack transition.
  *
- *  - **Overlay transition.** The full idle layer stack up through the
- *    underneath entry stays static (no transform). The animated top
- *    is the only layer with a transform. After the transition, the
- *    overlay either joins the static idle stack (push) or unmounts
- *    (pop).
+ *  - **Bounds.** `maxRetained` (the `<Stack maxRetainedScreens>` prop)
+ *    caps how many covered cards stay mounted; `MAX_LAYERS` is the hard
+ *    renderer-slot cap. Both trim the *deepest* (front) layers, so the
+ *    visible region at the end of the list is never truncated.
  *
  * The Layer.key for the Stack render is `layer-${entry.key}` — stable
  * across animation phases. `<Layer>` rebinds its transform reactively
@@ -51,6 +57,17 @@ import type {
 
 const PARALLAX_FACTOR = 0.3;
 
+/**
+ * Hard cap on how many layers `<Stack>` renders at once. The Stack body
+ * emits exactly this many position-stable slots (unrolled), so
+ * `computeLayers` must never return more — excess deepest (hidden,
+ * retained) layers are trimmed off the front. The slots are mechanical
+ * (just verbose), so this can be raised if an app legitimately stacks
+ * more; 24 is high enough that normal card apps never hit the trim
+ * boundary, while still bounding retained-screen memory.
+ */
+export const MAX_LAYERS = 24;
+
 export type LayerAnimation = {
     axis: 'translateX' | 'translateY';
     inputRange: readonly [number, number];
@@ -63,6 +80,14 @@ export interface Layer {
     readonly entry: StackEntry;
     /** When non-null, the layer's host view binds a `useAnimatedStyle` mapper. */
     readonly animation: LayerAnimation | null;
+    /**
+     * Retained-but-covered layer: mounted (so its screen subtree, signals,
+     * and scroll offset survive), rendered with `display: none` so it costs
+     * no paint/layout while a higher opaque card covers it. Always paired
+     * with `animation: null` — a hidden layer never animates. Falsy/omitted
+     * = visible.
+     */
+    readonly hidden?: boolean;
 }
 
 export function isOverlayPresentation(p: Presentation): boolean {
@@ -107,68 +132,109 @@ function overlayTopAnimation(
     return { axis: 'translateY', inputRange: [0, 1], outputRange: [0, SCREEN_HEIGHT], progress };
 }
 
+/** Walk back from `from` past overlay entries to the topmost non-overlay. */
+function nonOverlayBaseIdx(stack: readonly StackEntry[], from: number): number {
+    let baseIdx = from;
+    while (baseIdx > 0 && isOverlayPresentation(stack[baseIdx].presentation)) {
+        baseIdx -= 1;
+    }
+    return baseIdx;
+}
+
 /**
  * Compute the visible-layer list for one render of `<Stack>`. Pure —
  * unit-testable independently of the renderer.
+ *
+ * Each branch produces `{ visBaseIdx, visible }`: `visible` is the
+ * animated/painted region, and `visBaseIdx` is the stack index of that
+ * region's lowest layer. Everything in `stack` below `visBaseIdx` is
+ * then retained as hidden static layers (see the module docstring).
+ *
+ * `maxRetained` caps the retained (hidden) layers; `undefined` means
+ * "retain all, bounded only by `MAX_LAYERS`".
  */
 export function computeLayers(
     stack: readonly StackEntry[],
     transition: TransitionState | null,
     progress: SharedValue<number> | null,
+    maxRetained?: number,
 ): Layer[] {
+    let visBaseIdx: number;
+    let visible: Layer[];
+
     if (!transition) {
         // Idle: topmost non-overlay base + any overlays above it.
-        let baseIdx = stack.length - 1;
-        while (baseIdx > 0 && isOverlayPresentation(stack[baseIdx].presentation)) {
-            baseIdx -= 1;
-        }
-        return stack.slice(baseIdx).map((entry) => ({ entry, animation: null }));
-    }
-
-    // A transition is in flight. `progress` may still be null when
-    // animations are disabled — produce static layers in that case
-    // (the animation never plays; the transition timer just ticks).
-    const isOverlay = isOverlayPresentation(transition.topEntry.presentation);
-    if (!isOverlay) {
-        // Card transition: just the two participating entries, both
-        // animated (parallax underneath + slide top).
-        return [
+        visBaseIdx = nonOverlayBaseIdx(stack, stack.length - 1);
+        visible = stack
+            .slice(visBaseIdx)
+            .map((entry) => ({ entry, animation: null, hidden: false }));
+    } else if (!isOverlayPresentation(transition.topEntry.presentation)) {
+        // Card transition: the two participating entries, both animated
+        // (parallax underneath + slide top). `progress` may be null when
+        // animations are disabled — produce static layers in that case.
+        const underneathIdx = stack.findIndex(
+            (e) => e.key === transition.underneathEntry.key,
+        );
+        // Underneath is the visible base. If it isn't on the stack (e.g.
+        // mid-pop where the mutation already ran), retain nothing rather
+        // than slicing with a negative index.
+        visBaseIdx = underneathIdx >= 0 ? underneathIdx : 0;
+        visible = [
             {
                 entry: transition.underneathEntry,
                 animation: progress ? cardAnimation('underneath', transition.kind, progress) : null,
+                hidden: false,
             },
             {
                 entry: transition.topEntry,
                 animation: progress ? cardAnimation('top', transition.kind, progress) : null,
+                hidden: false,
+            },
+        ];
+    } else {
+        // Overlay transition: the full layer stack up through the
+        // underneath entry stays static (no transform) plus the animated
+        // top.
+        const underneathIdx = stack.findIndex(
+            (e) => e.key === transition.underneathEntry.key,
+        );
+        // If the underneath isn't in the stack (e.g. mid-pop where the
+        // stack mutation already removed an entry), fall back to the
+        // current top of the stack.
+        const lastStaticIdx = underneathIdx >= 0 ? underneathIdx : stack.length - 1;
+        visBaseIdx = nonOverlayBaseIdx(stack, lastStaticIdx);
+        const staticLayers: Layer[] = stack
+            .slice(visBaseIdx, lastStaticIdx + 1)
+            .map((entry) => ({ entry, animation: null, hidden: false }));
+        visible = [
+            ...staticLayers,
+            {
+                entry: transition.topEntry,
+                animation: progress ? overlayTopAnimation(transition.kind, progress) : null,
+                hidden: false,
             },
         ];
     }
 
-    // Overlay transition: render the full idle layer stack up through
-    // the underneath entry (all static — they don't animate) plus the
-    // animated top.
-    const underneathIdx = stack.findIndex(
-        (e) => e.key === transition.underneathEntry.key,
-    );
-    // If the underneath isn't in the stack (e.g. mid-pop where the
-    // stack mutation already removed an entry), fall back to the
-    // current top of the stack.
-    const lastStaticIdx = underneathIdx >= 0 ? underneathIdx : stack.length - 1;
+    // Retention: every entry below the visible base stays mounted as a
+    // hidden static layer. Ordered deepest-first so each surviving entry
+    // keeps a stable slot index across pushes/pops (the Stack renderer's
+    // fixed slots remount keyed children whose slot index shifts).
+    const retained: Layer[] = stack
+        .slice(0, visBaseIdx)
+        .map((entry) => ({ entry, animation: null, hidden: true }));
 
-    let baseIdx = lastStaticIdx;
-    while (baseIdx > 0 && isOverlayPresentation(stack[baseIdx].presentation)) {
-        baseIdx -= 1;
+    let result = [...retained, ...visible];
+
+    // Apply the user's retention window, then the hard renderer cap.
+    // Both trim the deepest (front) layers, so the visible region at the
+    // tail is never truncated.
+    if (maxRetained != null && retained.length > maxRetained) {
+        result = result.slice(retained.length - maxRetained);
+    }
+    if (result.length > MAX_LAYERS) {
+        result = result.slice(result.length - MAX_LAYERS);
     }
 
-    const staticLayers: Layer[] = stack
-        .slice(baseIdx, lastStaticIdx + 1)
-        .map((entry) => ({ entry, animation: null }));
-
-    return [
-        ...staticLayers,
-        {
-            entry: transition.topEntry,
-            animation: progress ? overlayTopAnimation(transition.kind, progress) : null,
-        },
-    ];
+    return result;
 }

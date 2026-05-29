@@ -40,7 +40,15 @@ export type LayerProps =
     & Define.Prop<'entry', StackEntry, true>
     & Define.Prop<'routes', RouteMap, true>
     /** When set, the host view animates per the transform spec. */
-    & Define.Prop<'animation', LayerAnimation | null, false>;
+    & Define.Prop<'animation', LayerAnimation | null, false>
+    /**
+     * Retained-but-covered layer: render with `display: none` so the
+     * screen subtree stays mounted (state/scroll preserved) without
+     * costing paint/layout while a higher opaque card covers it.
+     * Toggling this is a style change on the stable host view — never a
+     * remount. Mirrors how `<Tabs>` hides inactive tab bodies.
+     */
+    & Define.Prop<'hidden', boolean, false>;
 
 export const Layer = component<LayerProps>(({ props }) => {
     const ref = useMainThreadRef<MainThread.Element | null>(null);
@@ -91,7 +99,10 @@ export const Layer = component<LayerProps>(({ props }) => {
                     left: '0',
                     right: '0',
                     bottom: '0',
-                    display: 'flex',
+                    // `none` keeps a covered card mounted but unpainted;
+                    // reading `props.hidden` here re-renders (no remount)
+                    // when the layer is covered/revealed.
+                    display: props.hidden ? 'none' : 'flex',
                     flexDirection: 'column',
                 }}
             >
