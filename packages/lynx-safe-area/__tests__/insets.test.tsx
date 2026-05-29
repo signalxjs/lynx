@@ -46,10 +46,21 @@ function makeEmitter(): MockEmitter {
   };
 }
 
-function installMockLynx(initial: Partial<EdgeInsets>, emitter: MockEmitter): void {
+function installMockLynx(
+  initial: Partial<EdgeInsets>,
+  emitter: MockEmitter,
+  setProps?: Record<string, string>,
+): void {
   (globalThis as { lynx?: unknown }).lynx = {
     __globalProps: { [GLOBAL_PROPS_KEY]: initial },
     getJSModule: (name: string) => name === 'GlobalEventEmitter' ? emitter : undefined,
+    // The provider publishes inset CSS variables via getElementById().setProperty()
+    // (inline-declared custom props aren't honored by Lynx); capture them here.
+    getElementById: () => ({
+      setProperty: (p: Record<string, string>) => {
+        if (setProps) Object.assign(setProps, p);
+      },
+    }),
   };
 }
 
@@ -140,15 +151,15 @@ describe('SafeAreaProvider', () => {
     expect(captured.bottom).toBe(34);
   });
 
-  it('applies CSS variables on the host view', () => {
-    installMockLynx({ top: 50, right: 0, bottom: 34, left: 0, keyboard: 0 }, makeEmitter());
-    const { container } = render(<SafeAreaProvider />);
-    const host = container.children[0]!;
-    expect(host._style['--sat']).toBe('50px');
-    expect(host._style['--sab']).toBe('34px');
-    expect(host._style['--sar']).toBe('0px');
-    expect(host._style['--sal']).toBe('0px');
-    expect(host._style['--safe-area-keyboard']).toBe('0px');
+  it('publishes inset CSS variables via setProperty on the host view', () => {
+    const setProps: Record<string, string> = {};
+    installMockLynx({ top: 50, right: 0, bottom: 34, left: 0, keyboard: 0 }, makeEmitter(), setProps);
+    render(<SafeAreaProvider />);
+    expect(setProps['--sat']).toBe('50px');
+    expect(setProps['--sab']).toBe('34px');
+    expect(setProps['--sar']).toBe('0px');
+    expect(setProps['--sal']).toBe('0px');
+    expect(setProps['--safe-area-keyboard']).toBe('0px');
   });
 
   it('merges user style over base CSS variables', () => {
