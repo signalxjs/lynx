@@ -12,10 +12,13 @@
 // under `dist/` (gitignored); `src/styles/index.css` @imports it by name.
 import { writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const { listThemes } = await import(join(here, '../dist/theme/registry.js'));
+// `pathToFileURL` so the dynamic import works on Windows too — Node's ESM
+// loader rejects a raw absolute path there (`D:\…` parses as protocol `d:`).
+const registryUrl = pathToFileURL(join(here, '../dist/theme/registry.js')).href;
+const { listThemes } = await import(registryUrl);
 
 const block = (t) => {
   const lines = Object.entries(t.colors).map(([k, v]) => `  --color-${k}: ${v};`);
