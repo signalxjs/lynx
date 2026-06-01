@@ -442,7 +442,8 @@ export const Settings = component(() => {
                             <Text weight="semibold">Typography lab</Text>
                             <Text class="opacity-60 text-sm">
                                 The token-driven text ramp (xs→3xl) with a live
-                                font-scale control wired to a theme's fonts.scale.
+                                font-scale control wired to the controller's
+                                setFontScale().
                             </Text>
                             <Button
                                 variant="primary"

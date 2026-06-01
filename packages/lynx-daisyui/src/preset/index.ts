@@ -45,8 +45,8 @@ const daisyColors: Record<string, string> = {
 /**
  * Text ramp → token map. Re-points Tailwind's `text-xs`…`text-3xl` font-size
  * utilities at the daisy `--text-*` custom properties (defaults in
- * `styles/themes/tokens.css`, overridable per theme via `fonts`). Symmetric
- * with `daisyColors`: a single source of truth that a theme can scale. Merged
+ * `styles/themes/tokens.css`, multiplied app-wide by the controller's
+ * `fontScale`). Symmetric with `daisyColors`: a single source of truth. Merged
  * via `theme.extend.fontSize`, so the larger Tailwind keys (`text-4xl`+) keep
  * their rem defaults.
  */

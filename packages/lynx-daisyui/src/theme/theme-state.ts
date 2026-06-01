@@ -36,6 +36,18 @@ export interface ThemeState {
 }
 
 /**
+ * Coerce a font-scale input to a valid positive, finite multiplier. Rejects
+ * `NaN`, `±Infinity`, and non-positive values — which would otherwise emit
+ * invalid CSS (`NaNpx`, negative font sizes) and break `fontScale === 1`
+ * comparisons — by returning `fallback` instead.
+ */
+export function normalizeFontScale(value: unknown, fallback = 1): number {
+    return typeof value === 'number' && Number.isFinite(value) && value > 0
+        ? value
+        : fallback;
+}
+
+/**
  * Build a `ThemeController` over a given state object. Used for both the global
  * singleton (below) and each nested `<ThemeProvider>`'s local state — same
  * behaviour, different backing store. `followSystem()` only flips the flag; the
@@ -64,7 +76,8 @@ export function makeThemeController(state: ThemeState): ThemeController {
             state.following = true;
         },
         setFontScale(scale) {
-            state.fontScale = scale;
+            // Ignore invalid input (keep the current scale) so state stays valid.
+            state.fontScale = normalizeFontScale(scale, state.fontScale);
         },
     };
 }

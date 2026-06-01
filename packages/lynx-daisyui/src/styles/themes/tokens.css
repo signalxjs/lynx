@@ -34,8 +34,8 @@
    * Tailwind's default rem scale × 16 (0.75rem = 12px … 1.875rem = 30px), so
    * switching the utilities onto the tokens is visually a no-op.
    *
-   * A theme scales or overrides this ramp via its `fonts` field; <ThemeProvider>
-   * re-derives the literals in JS (no `calc(var() * n)` — unproven in Lynx). */
+   * The controller's `fontScale` multiplies this ramp app-wide; <ThemeProvider>
+   * re-emits the literals in JS (no `calc(var() * n)` — unproven in Lynx). */
   --text-xs: 12px;   /* 0.75rem  */
   --text-sm: 14px;   /* 0.875rem */
   --text-base: 16px; /* 1rem     */

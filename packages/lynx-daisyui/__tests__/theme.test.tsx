@@ -77,3 +77,33 @@ describe('theme — headless control + layered overrides (#113)', () => {
     expect(host._style.color).toBe('#a6adbb');
   });
 });
+
+describe('theme — global fontScale (orthogonal text scaling)', () => {
+  beforeEach(() => {
+    // fontScale is a module singleton too — reset alongside the theme.
+    themeController.set('daisy-light');
+    themeController.setFontScale(1);
+  });
+
+  it('defaults to 1 and updates via setFontScale()', () => {
+    expect(themeController.fontScale).toBe(1);
+    themeController.setFontScale(1.25);
+    expect(themeController.fontScale).toBe(1.25);
+  });
+
+  it('persists across theme set() / toggle() — orthogonal to the theme', () => {
+    themeController.setFontScale(1.5);
+    themeController.set('daisy-dark');
+    expect(themeController.fontScale).toBe(1.5);
+    themeController.toggle();
+    expect(themeController.fontScale).toBe(1.5);
+  });
+
+  it('ignores invalid scales (NaN / Infinity / non-positive) and keeps the last valid one', () => {
+    themeController.setFontScale(1.25);
+    for (const bad of [NaN, Infinity, -Infinity, -1, 0]) {
+      themeController.setFontScale(bad);
+      expect(themeController.fontScale).toBe(1.25);
+    }
+  });
+});

@@ -61,6 +61,7 @@ import type { ThemeSizes } from './registry.js';
 import {
     globalThemeState,
     makeThemeController,
+    normalizeFontScale,
     themeController,
     type ThemeState,
 } from './theme-state.js';
@@ -122,16 +123,17 @@ function applySizeVars(
 }
 
 /**
- * Emit the text ramp scaled by `fontScale` as `--text-*` literal px. A no-op at
- * `1` so the `.daisy` defaults (and first-paint CSS class) stand; any other
- * value overrides every step. Inherits to descendants — including nested
- * `<ThemeProvider>`s that don't set their own scale — via Lynx CSS inheritance.
+ * Emit the text ramp scaled by `fontScale` as `--text-*` literal px. Always
+ * emits every step — even at `1` (the literal defaults) — because Lynx's
+ * `setProperty` only merges and never clears: skipping at `1` would leave a
+ * previously-emitted larger ramp stuck after a reset. A nested provider seeds
+ * its scale from the inherited ambient value, so emitting here re-states the
+ * same ramp rather than clobbering the root's scaled one.
  */
 function applyFontScale(
     style: Record<string, string | number>,
     fontScale: number,
 ): void {
-    if (fontScale === 1) return;
     for (const k in FONT_DEFAULTS) {
         style[`--text-${k}`] = `${Math.round(FONT_DEFAULTS[k] * fontScale)}px`;
     }
@@ -261,6 +263,14 @@ export const useTheme = defineInjectable<ThemeController>(() => themeController)
  */
 const useThemeDepth = defineInjectable<number>(() => 0);
 
+/**
+ * Ambient text scale inherited by nested providers. A nested `<ThemeProvider>`
+ * with no explicit `fontScale` prop seeds from this (the enclosing scale,
+ * default 1) instead of resetting to 1 — so the root's scale flows down through
+ * color sub-scopes. Each provider re-provides its own current scale.
+ */
+const useAmbientFontScale = defineInjectable<number>(() => 1);
+
 export type ThemeProviderProps =
     /**
      * Pin the initial theme. When set, the provider ignores system
@@ -326,21 +336,23 @@ export const ThemeProvider = component<ThemeProviderProps>(({ props, slots }) =>
     // target it. Unique per instance so nested providers theme their own subtree.
     const hostId = `daisy-theme-${++themeIdSeq}`;
 
+    // A nested provider with no explicit `fontScale` inherits the enclosing
+    // scale (default 1 at the root), so the root's scale flows down through
+    // color sub-scopes rather than resetting. An explicit prop overrides it.
+    const ambientFontScale = useAmbientFontScale();
+    const seedScale = normalizeFontScale(props.fontScale, ambientFontScale);
 
-    // Nested providers start at scale 1, so they don't re-emit `--text-*` and
-    // the root's scaled ramp inherits through (a nested scope can still opt in
-    // via its own `fontScale` prop / `setFontScale`).
     const state: ThemeState = isRoot
         ? globalThemeState
         : signal<ThemeState>(
             props.initial
-                ? { name: props.initial as DaisyTheme, following: false, fontScale: props.fontScale ?? 1 }
+                ? { name: props.initial as DaisyTheme, following: false, fontScale: seedScale }
                 : {
                     name: readScheme() === 'dark'
                         ? ((props.dark ?? pickThemeFor('dark')) as DaisyTheme)
                         : ((props.light ?? pickThemeFor('light')) as DaisyTheme),
                     following: true,
-                    fontScale: props.fontScale ?? 1,
+                    fontScale: seedScale,
                 },
         );
 
@@ -360,13 +372,17 @@ export const ThemeProvider = component<ThemeProviderProps>(({ props, slots }) =>
         }
         // Explicit author intent wins; otherwise keep whatever scale a headless
         // caller may have set before this mounted (default 1).
-        if (props.fontScale !== undefined) state.fontScale = props.fontScale;
+        if (props.fontScale !== undefined) {
+            state.fontScale = normalizeFontScale(props.fontScale, state.fontScale);
+        }
     }
 
     const controller: ThemeController = isRoot
         ? themeController
         : makeThemeController(state);
     defineProvide(useTheme, () => controller);
+    // Re-provide this scope's current scale so nested providers inherit it.
+    defineProvide(useAmbientFontScale, () => state.fontScale);
 
     // Wire the daisy color resolver into `@sigx/lynx-icons`'s injectable
     // so any `<Icon variant="primary">` rendered inside this subtree gets
