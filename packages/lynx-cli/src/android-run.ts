@@ -221,17 +221,18 @@ export async function ensureAndroidBuilt(opts: EnsureAndroidBuiltOptions): Promi
     logger.log('Running prebuild for Android...');
     await runPrebuild({ android: true, ios: false, cwd });
 
-    // Pre-flight: confirm each target actually responds before we run an
-    // install-check or gradle install against it. A wedged `adbd` (device
-    // shows as connected but `adb shell` blocks) would otherwise hang the
-    // whole flow silently right after prebuild — fail fast with a fix instead.
+    // Pre-flight: catch a wedged `adbd` (device shows as connected but
+    // `adb shell` blocks) before it hangs the whole flow silently right after
+    // prebuild. We only abort on a *timeout* — fast-fail states like
+    // `unauthorized` (needs an on-screen prompt) or `offline` aren't hangs, so
+    // we let them fall through to gradle, which reports them accurately.
     if (targetDeviceIds && targetDeviceIds.length > 0) {
-        const unresponsive = targetDeviceIds.filter((id) => !pingDevice(id).responsive);
-        if (unresponsive.length > 0) {
+        const wedged = targetDeviceIds.filter((id) => pingDevice(id).timedOut);
+        if (wedged.length > 0) {
             throw new Error(
-                `Android target${unresponsive.length > 1 ? 's' : ''} not responding: ` +
-                `${unresponsive.join(', ')}.\n` +
-                `The device is connected but its adb daemon is wedged or offline. ` +
+                `Android target${wedged.length > 1 ? 's' : ''} not responding: ` +
+                `${wedged.join(', ')}.\n` +
+                `The device is connected but its adb daemon is wedged. ` +
                 `Try: replug USB (tap "Allow" if prompted), toggle USB debugging off/on, ` +
                 `or run \`adb kill-server && adb start-server\` — then re-run.`,
             );
