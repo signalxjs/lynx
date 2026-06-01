@@ -15,7 +15,7 @@ import { createServer } from 'node:net';
 import { request as httpRequest } from 'node:http';
 import { getAllLanIPs } from './network.js';
 import { generateQR } from './qr.js';
-import { getDeviceStatus, getDeviceStatusCached, invalidateDeviceStatusCache, launchLynxGo, launchApp, launchIosApp, launchAppOnDevice, installAppOnDevice, resolveIosSimulator, bootSimulator, listAllSimulators, installAppOnSimulator, findBuiltApp, adbReverse, forceStopApp, LYNX_GO_PACKAGE, type DeviceStatus } from './device-detect.js';
+import { getDeviceStatus, getDeviceStatusCached, invalidateDeviceStatusCache, launchLynxGo, launchApp, launchIosApp, launchAppOnDevice, resolveIosSimulator, bootSimulator, installAppOnSimulator, findBuiltApp, adbReverse, adbReverseRemove, forceStopApp, LYNX_GO_PACKAGE, type DeviceStatus } from './device-detect.js';
 import { runWithBuildFilter } from './build-output.js';
 import type { Logger } from '@sigx/cli/plugin';
 import type { SelectedTarget } from './target-picker.js';
@@ -269,7 +269,12 @@ function setupKeyboardShortcuts(child: ChildProcess, opts: {
     bundleId?: string;
     iosSimulatorName?: string;
     verbose?: boolean;
-    killChildTree: (signal?: NodeJS.Signals) => void;
+    /** Centralized teardown: removes adb forwards + kills the rspeedy tree. */
+    shutdown: () => void;
+    /** Create an `adb reverse` forward AND record it for teardown. Keyboard
+     *  relaunch paths must use this (not `adbReverse` directly) so the mapping
+     *  is removed on shutdown. */
+    addReverse: (deviceId: string, port: number) => void;
 }) {
     if (!process.stdin.isTTY) return;
 
@@ -287,7 +292,7 @@ function setupKeyboardShortcuts(child: ChildProcess, opts: {
         // per-device URL is always localhost (works over USB, Wi-Fi, or
         // no-network-at-all provided adb is connected).
         const androidUrlFor = (deviceId: string): string => {
-            adbReverse(deviceId, opts.serverState.port);
+            opts.addReverse(deviceId, opts.serverState.port);
             return `http://localhost:${opts.serverState.port}/main.lynx.bundle`;
         };
 
@@ -440,9 +445,7 @@ function setupKeyboardShortcuts(child: ChildProcess, opts: {
             case 'q':
             case 'Q':
             case '\u0003': // Ctrl+C
-                opts.logger.log('Shutting down...');
-                opts.killChildTree('SIGTERM');
-                setTimeout(() => process.exit(0), 500).unref();
+                opts.shutdown();
                 break;
             case 'i':
             case 'I': {
@@ -660,6 +663,63 @@ export async function startDevServer(opts: DevServerOptions): Promise<void> {
         }
     };
 
+    // `adb reverse` mappings we've created, as `deviceId|port`. Removed on
+    // shutdown so we don't leave stale tcp forwards lingering on a device's
+    // adbd after the dev server is gone.
+    const reverseForwards = new Set<string>();
+    const addReverse = (deviceId: string, port: number): void => {
+        if (adbReverse(deviceId, port)) reverseForwards.add(`${deviceId}|${port}`);
+    };
+    // Drop every forward we created. Idempotent (clears the set), so it's safe
+    // to call from both the graceful shutdown and the child-exit handler.
+    // Each adbReverseRemove is individually bounded, but several wedged devices
+    // would add up — so cap the *total* wall-clock to keep Ctrl+C snappy
+    // regardless of device count. Forwards not removed in time clear on device
+    // disconnect anyway.
+    const REVERSE_REMOVE_BUDGET_MS = 1_500;
+    const removeReverses = (): void => {
+        const deadline = Date.now() + REVERSE_REMOVE_BUDGET_MS;
+        let skipped = 0;
+        for (const fwd of reverseForwards) {
+            if (Date.now() >= deadline) { skipped++; continue; }
+            const sep = fwd.lastIndexOf('|');
+            adbReverseRemove(fwd.slice(0, sep), Number(fwd.slice(sep + 1)));
+        }
+        if (skipped > 0) {
+            logger.warn(`Skipped ${skipped} adb reverse cleanup(s) to keep shutdown fast; they clear on device disconnect.`);
+        }
+        reverseForwards.clear();
+    };
+
+    // Single, idempotent teardown for every exit path (Ctrl+C, `q`, SIGTERM,
+    // SIGHUP). Restores the TTY, drops adb forwards, then kills the rspeedy
+    // process group with SIGTERM → wait → SIGKILL escalation so a wedged
+    // rspeedy/rspack can never be orphaned still holding the port.
+    let shuttingDown = false;
+    const shutdown = (exitCode = 0): void => {
+        if (shuttingDown) return;
+        shuttingDown = true;
+        logger.log('Shutting down...');
+
+        if (process.stdin.isTTY) {
+            try { process.stdin.setRawMode(false); } catch { /* ignore */ }
+        }
+
+        // Signal the tree first (instant, non-blocking) so it starts dying
+        // while we run the synchronous, time-bounded forward cleanup. The
+        // child `exit` handler calls process.exit once the tree is gone.
+        killChildTree('SIGTERM');
+        removeReverses();
+
+        const escalate = setTimeout(() => {
+            logger.warn('Dev server did not exit after SIGTERM — forcing SIGKILL.');
+            killChildTree('SIGKILL');
+        }, 3_000);
+        escalate.unref();
+        // Hard backstop: never leave the user's terminal hanging on a stuck child.
+        setTimeout(() => process.exit(exitCode), 6_000).unref();
+    };
+
     let bannerPrinted = false;
 
     const showBanner = () => {
@@ -688,7 +748,7 @@ export async function startDevServer(opts: DevServerOptions): Promise<void> {
             // so installation is guaranteed.
             for (const t of selectedTargets) {
                 if (t.kind === 'android-device') {
-                    adbReverse(t.deviceId, serverState.port);
+                    addReverse(t.deviceId, serverState.port);
                     const url = `http://localhost:${serverState.port}/main.lynx.bundle`;
                     if (launchAppId) {
                         logger.log(`Auto-launching ${launchAppId} on ${t.model || t.deviceId}...`);
@@ -711,7 +771,7 @@ export async function startDevServer(opts: DevServerOptions): Promise<void> {
 
         // Android
         for (const device of deviceStatus.devices) {
-            adbReverse(device.id, serverState.port);
+            addReverse(device.id, serverState.port);
             const url = `http://localhost:${serverState.port}/main.lynx.bundle`;
             if (launchAppId && deviceStatus.appInstalled?.get(device.id)) {
                 logger.log(`Auto-launching ${launchAppId} on ${device.model || device.id}...`);
@@ -810,26 +870,27 @@ export async function startDevServer(opts: DevServerOptions): Promise<void> {
     });
 
     // Setup keyboard shortcuts
-    setupKeyboardShortcuts(child, { cwd, serverState, wsPort, lanIPs, projectName, logger, appId: launchAppId, bundleId: launchBundleId, iosSimulatorName, verbose: opts.verbose, killChildTree });
+    setupKeyboardShortcuts(child, { cwd, serverState, wsPort, lanIPs, projectName, logger, appId: launchAppId, bundleId: launchBundleId, iosSimulatorName, verbose: opts.verbose, shutdown, addReverse });
 
-    // Handle child exit
+    // Handle child exit — the rspeedy tree died (on its own or because we
+    // signaled it during shutdown). Restore the TTY, drop any adb forwards we
+    // created (a crash/early-failure exit never goes through shutdown()), and
+    // exit with its code. removeReverses() is idempotent, so this is a no-op
+    // when shutdown() already ran.
     child.on('exit', (code) => {
         if (process.stdin.isTTY) {
-            process.stdin.setRawMode(false);
+            try { process.stdin.setRawMode(false); } catch { /* ignore */ }
         }
+        removeReverses();
         process.exit(code ?? 0);
     });
 
-    // Propagate signals from the parent to the rspeedy tree so Ctrl+C
-    // doesn't orphan the port-holding process.
-    const handleSignal = (signal: NodeJS.Signals) => {
-        logger.log(`Received ${signal}, shutting down...`);
-        killChildTree(signal);
-        setTimeout(() => process.exit(0), 1000).unref();
-    };
-    process.on('SIGINT', () => handleSignal('SIGINT'));
-    process.on('SIGTERM', () => handleSignal('SIGTERM'));
-    process.on('SIGHUP', () => handleSignal('SIGHUP'));
+    // Propagate signals from the parent through the centralized teardown so
+    // Ctrl+C / SIGTERM / SIGHUP drop adb forwards and never orphan the
+    // port-holding rspeedy tree.
+    process.on('SIGINT', () => shutdown());
+    process.on('SIGTERM', () => shutdown());
+    process.on('SIGHUP', () => shutdown());
 
     // Keep running until child exits
     await new Promise<void>((resolve) => {
