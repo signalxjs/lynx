@@ -18,7 +18,7 @@ import {
  * Typography lab — exercises the daisy text ramp end to end.
  *
  *  • The static ramp section proves `<Text size>` / `<Heading>` resolve to the
- *    `--text-*` tokens at the default scale (xs 12px … 3xl 30px).
+ *    `--text-*` tokens at the default scale (xs 12px … base 17px … 3xl 34px).
  *  • The "Live scale" section drives `controller.setFontScale()` — the global,
  *    theme-independent text-scale lever a real app would wire to a user
  *    accessibility preference or a backend setting. It's scoped here to a nested
@@ -109,7 +109,7 @@ export const TypographyLab = component(() => {
                     <Card.Body>
                         <Col gap={4}>
                             <Text weight="semibold">Default size</Text>
-                            <Text>Plain &lt;Text&gt; with no size prop (defaults to base / 16px).</Text>
+                            <Text>Plain &lt;Text&gt; with no size prop (defaults to base / 17px).</Text>
                         </Col>
                     </Card.Body>
                 </Card>
