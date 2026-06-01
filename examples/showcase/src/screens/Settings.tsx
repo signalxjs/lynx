@@ -439,6 +439,29 @@ export const Settings = component(() => {
                 <Card bordered>
                     <Card.Body>
                         <Col gap={8}>
+                            <Text weight="semibold">Typography lab</Text>
+                            <Text class="opacity-60 text-sm">
+                                The token-driven text ramp (xs→3xl) with a live
+                                font-scale control wired to the controller's
+                                setFontScale().
+                            </Text>
+                            <Button
+                                variant="primary"
+                                outline
+                                onPress={() => {
+                                    Haptics.selection();
+                                    nav.push('typographyLab');
+                                }}
+                            >
+                                Open typography lab
+                            </Button>
+                        </Col>
+                    </Card.Body>
+                </Card>
+
+                <Card bordered>
+                    <Card.Body>
+                        <Col gap={8}>
                             <Text weight="semibold">Clear all data</Text>
                             <Text class="opacity-60 text-sm">
                                 Wipes every trip and entry from persistent

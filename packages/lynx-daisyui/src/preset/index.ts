@@ -42,6 +42,24 @@ const daisyColors: Record<string, string> = {
   'error-content': 'var(--color-error-content)',
 };
 
+/**
+ * Text ramp → token map. Re-points Tailwind's `text-xs`…`text-3xl` font-size
+ * utilities at the daisy `--text-*` custom properties (defaults in
+ * `styles/themes/tokens.css`, multiplied app-wide by the controller's
+ * `fontScale`). Symmetric with `daisyColors`: a single source of truth. Merged
+ * via `theme.extend.fontSize`, so the larger Tailwind keys (`text-4xl`+) keep
+ * their rem defaults.
+ */
+const daisyFontSizes: Record<string, string> = {
+  'xs': 'var(--text-xs)',
+  'sm': 'var(--text-sm)',
+  'base': 'var(--text-base)',
+  'lg': 'var(--text-lg)',
+  'xl': 'var(--text-xl)',
+  '2xl': 'var(--text-2xl)',
+  '3xl': 'var(--text-3xl)',
+};
+
 const lynxLayoutPlugin = plugin(({ addUtilities }) => {
   addUtilities({
     // Long-form flex-fill — the Lynx-correct "take remaining space along
@@ -62,6 +80,7 @@ export const DaisyLynxPreset: Partial<Config> = {
   theme: {
     extend: {
       colors: daisyColors,
+      fontSize: daisyFontSizes,
     },
   },
   plugins: [lynxLayoutPlugin],

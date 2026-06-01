@@ -27,7 +27,27 @@
   --size-md: 48px;
   --size-lg: 64px;
 
-  /* ── Font sizes ── */
+  /* ── Text ramp (public <Text> / <Heading> sizes) ──
+   * The xs→3xl scale the `text-*` utilities resolve to (the daisy preset maps
+   * Tailwind's fontSize keys onto these vars). Literal px so they resolve on
+   * the first paint, like every other structural token. Values mirror
+   * Tailwind's default rem scale × 16 (0.75rem = 12px … 1.875rem = 30px), so
+   * switching the utilities onto the tokens is visually a no-op.
+   *
+   * The controller's `fontScale` multiplies this ramp app-wide; <ThemeProvider>
+   * re-emits the literals in JS (no `calc(var() * n)` — unproven in Lynx). */
+  --text-xs: 12px;   /* 0.75rem  */
+  --text-sm: 14px;   /* 0.875rem */
+  --text-base: 16px; /* 1rem     */
+  --text-lg: 18px;   /* 1.125rem */
+  --text-xl: 20px;   /* 1.25rem  */
+  --text-2xl: 24px;  /* 1.5rem   */
+  --text-3xl: 30px;  /* 1.875rem */
+
+  /* ── Font sizes (control-internal: button / input / badge labels) ──
+   * A separate axis from the text ramp above and deliberately NOT scaled with
+   * it — control chrome stays fixed. Kept as independent literals (no
+   * var→var indirection; unproven in Lynx) even though values mirror the ramp. */
   --font-xs: 12px;
   --font-sm: 14px;
   --font-md: 14px;

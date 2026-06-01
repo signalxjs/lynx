@@ -26,6 +26,25 @@ import type { DaisyTheme, ThemeController } from './ThemeProvider.js';
 export interface ThemeState {
     name: DaisyTheme;
     following: boolean;
+    /**
+     * Global text-scale multiplier applied on top of the theme's `--text-*`
+     * ramp. Orthogonal to `name`: a theme switch / `toggle()` leaves it
+     * untouched, so a user/accessibility scale persists across appearance
+     * changes. `1` = the default ramp.
+     */
+    fontScale: number;
+}
+
+/**
+ * Coerce a font-scale input to a valid positive, finite multiplier. Rejects
+ * `NaN`, `±Infinity`, and non-positive values — which would otherwise emit
+ * invalid CSS (`NaNpx`, negative font sizes) and break `fontScale === 1`
+ * comparisons — by returning `fallback` instead.
+ */
+export function normalizeFontScale(value: unknown, fallback = 1): number {
+    return typeof value === 'number' && Number.isFinite(value) && value > 0
+        ? value
+        : fallback;
 }
 
 /**
@@ -42,6 +61,9 @@ export function makeThemeController(state: ThemeState): ThemeController {
         get followingSystem() {
             return state.following;
         },
+        get fontScale() {
+            return state.fontScale;
+        },
         set(next) {
             state.name = next;
             state.following = false;
@@ -53,6 +75,10 @@ export function makeThemeController(state: ThemeState): ThemeController {
         followSystem() {
             state.following = true;
         },
+        setFontScale(scale) {
+            // Ignore invalid input (keep the current scale) so state stays valid.
+            state.fontScale = normalizeFontScale(scale, state.fontScale);
+        },
     };
 }
 
@@ -63,6 +89,7 @@ export function makeThemeController(state: ThemeState): ThemeController {
 const state = signal<ThemeState>({
     name: pickThemeFor('light') as DaisyTheme,
     following: true,
+    fontScale: 1,
 });
 
 /**

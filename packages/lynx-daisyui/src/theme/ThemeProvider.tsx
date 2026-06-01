@@ -61,6 +61,7 @@ import type { ThemeSizes } from './registry.js';
 import {
     globalThemeState,
     makeThemeController,
+    normalizeFontScale,
     themeController,
     type ThemeState,
 } from './theme-state.js';
@@ -85,6 +86,14 @@ const SELECTOR_STEPS: Record<string, number> = {
     'toggle-height-xs': 6, 'toggle-height-sm': 6, 'toggle-height-md': 7, 'toggle-height-lg': 8,
     'toggle-thumb-xs': 4, 'toggle-thumb-sm': 4, 'toggle-thumb-md': 5, 'toggle-thumb-lg': 6,
     'badge-xs': 4, 'badge-sm': 5, 'badge-md': 6, 'badge-lg': 8,
+};
+
+// Default text ramp (px) — mirrors `--text-*` in `styles/themes/tokens.css`.
+// The global `fontScale` multiplies these and emits literal px (no
+// `calc(var() * n)` — unproven in Lynx); `fontScale === 1` leaves the `.daisy`
+// defaults in place.
+const FONT_DEFAULTS: Record<string, number> = {
+    'xs': 12, 'sm': 14, 'base': 16, 'lg': 18, 'xl': 20, '2xl': 24, '3xl': 30,
 };
 
 const pxValue = (v: string): number | undefined => {
@@ -114,14 +123,32 @@ function applySizeVars(
 }
 
 /**
- * The full custom-property set for a theme — colors plus any radius/size
- * overrides. Applied at runtime via the Lynx `setProperty` API (see
+ * Emit the text ramp scaled by `fontScale` as `--text-*` literal px. Always
+ * emits every step — even at `1` (the literal defaults) — because Lynx's
+ * `setProperty` only merges and never clears: skipping at `1` would leave a
+ * previously-emitted larger ramp stuck after a reset. A nested provider seeds
+ * its scale from the inherited ambient value, so emitting here re-states the
+ * same ramp rather than clobbering the root's scaled one.
+ */
+function applyFontScale(
+    style: Record<string, string | number>,
+    fontScale: number,
+): void {
+    for (const k in FONT_DEFAULTS) {
+        style[`--text-${k}`] = `${Math.round(FONT_DEFAULTS[k] * fontScale)}px`;
+    }
+}
+
+/**
+ * The full custom-property set for a theme — colors, any radius/size overrides,
+ * and the `fontScale`-adjusted text ramp. Applied at runtime via the Lynx
+ * `setProperty` API (see
  * `<ThemeProvider>`), NOT the inline `style` attribute: Lynx does not honor
  * custom properties declared inline in this toolchain, but `setProperty`
  * registers real, inheritable ones — the documented way to theme via CSS
  * variables (https://lynxjs.org/guide/styling/custom-theming).
  */
-function buildThemeVars(name: string): Record<string, string> {
+function buildThemeVars(name: string, fontScale: number): Record<string, string> {
     const palette = colorsOf(name) ?? colorsOf('daisy-light')!;
     const radius = radiusOf(name);
     const sizes = sizesOf(name);
@@ -133,6 +160,7 @@ function buildThemeVars(name: string): Record<string, string> {
         if (radius.box) vars['--radius-box'] = radius.box;
     }
     if (sizes) applySizeVars(vars, sizes);
+    applyFontScale(vars, fontScale);
     return vars;
 }
 
@@ -201,6 +229,19 @@ export interface ThemeController {
      * with no `initial` prop. Useful for a "Reset to system" button.
      */
     followSystem(): void;
+    /**
+     * Current global text-scale multiplier (`1` = the theme's default ramp).
+     * Reactive — read inside render/effect to track. Orthogonal to the theme:
+     * `set()` / `toggle()` leave it untouched.
+     */
+    readonly fontScale: number;
+    /**
+     * Set the global text-scale multiplier — the `--text-*` ramp is re-emitted
+     * at `defaultPx × scale`. Persists across theme switches, so it's the place
+     * to wire a user accessibility preference or a backend-driven setting (e.g.
+     * `setFontScale(1.25)`). Inherits into nested `<ThemeProvider>` subtrees.
+     */
+    setFontScale(scale: number): void;
 }
 
 /**
@@ -222,6 +263,14 @@ export const useTheme = defineInjectable<ThemeController>(() => themeController)
  */
 const useThemeDepth = defineInjectable<number>(() => 0);
 
+/**
+ * Ambient text scale inherited by nested providers. A nested `<ThemeProvider>`
+ * with no explicit `fontScale` prop seeds from this (the enclosing scale,
+ * default 1) instead of resetting to 1 — so the root's scale flows down through
+ * color sub-scopes. Each provider re-provides its own current scale.
+ */
+const useAmbientFontScale = defineInjectable<number>(() => 1);
+
 export type ThemeProviderProps =
     /**
      * Pin the initial theme. When set, the provider ignores system
@@ -242,6 +291,13 @@ export type ThemeProviderProps =
      * while `followingSystem` is true.
      */
     & Define.Prop<'dark', DaisyTheme, false>
+    /**
+     * Initial global text-scale multiplier (`1` = default ramp). Seeds the
+     * controller's `fontScale`; change it later via `controller.setFontScale()`.
+     * On the root provider an explicit value wins over any scale a headless
+     * caller set before mount.
+     */
+    & Define.Prop<'fontScale', number, false>
     /** Extra classes appended to the theme class on the host view. */
     & Define.Prop<'class', string, false>
     /** Extra inline style on the host view. Merged after the base flex-fill defaults. */
@@ -280,17 +336,23 @@ export const ThemeProvider = component<ThemeProviderProps>(({ props, slots }) =>
     // target it. Unique per instance so nested providers theme their own subtree.
     const hostId = `daisy-theme-${++themeIdSeq}`;
 
+    // A nested provider with no explicit `fontScale` inherits the enclosing
+    // scale (default 1 at the root), so the root's scale flows down through
+    // color sub-scopes rather than resetting. An explicit prop overrides it.
+    const ambientFontScale = useAmbientFontScale();
+    const seedScale = normalizeFontScale(props.fontScale, ambientFontScale);
 
     const state: ThemeState = isRoot
         ? globalThemeState
         : signal<ThemeState>(
             props.initial
-                ? { name: props.initial as DaisyTheme, following: false }
+                ? { name: props.initial as DaisyTheme, following: false, fontScale: seedScale }
                 : {
                     name: readScheme() === 'dark'
                         ? ((props.dark ?? pickThemeFor('dark')) as DaisyTheme)
                         : ((props.light ?? pickThemeFor('light')) as DaisyTheme),
                     following: true,
+                    fontScale: seedScale,
                 },
         );
 
@@ -308,12 +370,19 @@ export const ThemeProvider = component<ThemeProviderProps>(({ props, slots }) =>
                 ? (props.dark ?? pickThemeFor('dark'))
                 : (props.light ?? pickThemeFor('light'));
         }
+        // Explicit author intent wins; otherwise keep whatever scale a headless
+        // caller may have set before this mounted (default 1).
+        if (props.fontScale !== undefined) {
+            state.fontScale = normalizeFontScale(props.fontScale, state.fontScale);
+        }
     }
 
     const controller: ThemeController = isRoot
         ? themeController
         : makeThemeController(state);
     defineProvide(useTheme, () => controller);
+    // Re-provide this scope's current scale so nested providers inherit it.
+    defineProvide(useAmbientFontScale, () => state.fontScale);
 
     // Wire the daisy color resolver into `@sigx/lynx-icons`'s injectable
     // so any `<Icon variant="primary">` rendered inside this subtree gets
@@ -357,9 +426,10 @@ export const ThemeProvider = component<ThemeProviderProps>(({ props, slots }) =>
         // `setProperty` path additionally serves runtime-registered themes
         // (`registerTheme`, no shipped CSS class) — applied once they're
         // selected post-mount, where it lands reliably. Reading `state.name`
-        // (via buildThemeVars) tracks it, so this re-runs on every theme change.
+        // and `state.fontScale` (via buildThemeVars) tracks them, so this
+        // re-runs on every theme change and every `setFontScale`.
         applyVars = effect(() => {
-            const vars = buildThemeVars(state.name);
+            const vars = buildThemeVars(state.name, state.fontScale);
             if (typeof lynx !== 'undefined') {
                 lynx.getElementById(hostId)?.setProperty(vars);
             }
