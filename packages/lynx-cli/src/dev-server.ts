@@ -271,6 +271,10 @@ function setupKeyboardShortcuts(child: ChildProcess, opts: {
     verbose?: boolean;
     /** Centralized teardown: removes adb forwards + kills the rspeedy tree. */
     shutdown: () => void;
+    /** Create an `adb reverse` forward AND record it for teardown. Keyboard
+     *  relaunch paths must use this (not `adbReverse` directly) so the mapping
+     *  is removed on shutdown. */
+    addReverse: (deviceId: string, port: number) => void;
 }) {
     if (!process.stdin.isTTY) return;
 
@@ -288,7 +292,7 @@ function setupKeyboardShortcuts(child: ChildProcess, opts: {
         // per-device URL is always localhost (works over USB, Wi-Fi, or
         // no-network-at-all provided adb is connected).
         const androidUrlFor = (deviceId: string): string => {
-            adbReverse(deviceId, opts.serverState.port);
+            opts.addReverse(deviceId, opts.serverState.port);
             return `http://localhost:${opts.serverState.port}/main.lynx.bundle`;
         };
 
@@ -666,6 +670,15 @@ export async function startDevServer(opts: DevServerOptions): Promise<void> {
     const addReverse = (deviceId: string, port: number): void => {
         if (adbReverse(deviceId, port)) reverseForwards.add(`${deviceId}|${port}`);
     };
+    // Drop every forward we created. Idempotent (clears the set), so it's safe
+    // to call from both the graceful shutdown and the child-exit handler.
+    const removeReverses = (): void => {
+        for (const fwd of reverseForwards) {
+            const sep = fwd.lastIndexOf('|');
+            adbReverseRemove(fwd.slice(0, sep), Number(fwd.slice(sep + 1)));
+        }
+        reverseForwards.clear();
+    };
 
     // Single, idempotent teardown for every exit path (Ctrl+C, `q`, SIGTERM,
     // SIGHUP). Restores the TTY, drops adb forwards, then kills the rspeedy
@@ -681,11 +694,7 @@ export async function startDevServer(opts: DevServerOptions): Promise<void> {
             try { process.stdin.setRawMode(false); } catch { /* ignore */ }
         }
 
-        for (const fwd of reverseForwards) {
-            const sep = fwd.lastIndexOf('|');
-            adbReverseRemove(fwd.slice(0, sep), Number(fwd.slice(sep + 1)));
-        }
-        reverseForwards.clear();
+        removeReverses();
 
         // The child `exit` handler below calls process.exit once the tree dies.
         killChildTree('SIGTERM');
@@ -848,14 +857,18 @@ export async function startDevServer(opts: DevServerOptions): Promise<void> {
     });
 
     // Setup keyboard shortcuts
-    setupKeyboardShortcuts(child, { cwd, serverState, wsPort, lanIPs, projectName, logger, appId: launchAppId, bundleId: launchBundleId, iosSimulatorName, verbose: opts.verbose, shutdown });
+    setupKeyboardShortcuts(child, { cwd, serverState, wsPort, lanIPs, projectName, logger, appId: launchAppId, bundleId: launchBundleId, iosSimulatorName, verbose: opts.verbose, shutdown, addReverse });
 
     // Handle child exit — the rspeedy tree died (on its own or because we
-    // signaled it during shutdown). Restore the TTY and exit with its code.
+    // signaled it during shutdown). Restore the TTY, drop any adb forwards we
+    // created (a crash/early-failure exit never goes through shutdown()), and
+    // exit with its code. removeReverses() is idempotent, so this is a no-op
+    // when shutdown() already ran.
     child.on('exit', (code) => {
         if (process.stdin.isTTY) {
             try { process.stdin.setRawMode(false); } catch { /* ignore */ }
         }
+        removeReverses();
         process.exit(code ?? 0);
     });
 

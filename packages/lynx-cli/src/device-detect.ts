@@ -143,13 +143,24 @@ export interface DeviceExecResult {
 interface ExecToolOpts {
     /** Tool being driven — selects the recovery hint in the timeout warning. */
     tool: DeviceTool;
-    /** Identifier for the warning + dedup (a device id/udid). Omit for
-     *  daemon-wide calls; the tool name is used instead. */
+    /** Identifier for the warning + dedup. This is also the device selector
+     *  (`-s <id>` / `--device <udid>`) interpolated into `cmd`, so when set it
+     *  is validated against {@link SAFE_DEVICE_ID} before the command runs.
+     *  Omit for daemon-wide calls; the tool name is used for the warning. */
     key?: string;
     /** Timeout in ms. Defaults to the probe timeout; pass
      *  {@link DEVICE_ACTION_TIMEOUT_MS} for installs/boots. */
     timeout?: number;
 }
+
+/**
+ * Characters legal in an adb serial or an iOS udid — alphanumerics plus the
+ * separators they actually use (`.`, `_`, `:`, `-`). We build device commands
+ * as shell strings (some need `|`, redirects, or `--json-output`), so any id
+ * interpolated as the `-s`/`--device` selector is validated against this first
+ * to close the shell-injection surface (Copilot review, PR #134).
+ */
+const SAFE_DEVICE_ID = /^[A-Za-z0-9._:-]+$/;
 
 /**
  * Run a device command with a hard timeout and classify the outcome. On
@@ -160,6 +171,14 @@ interface ExecToolOpts {
  */
 function execTool(cmd: string, { tool, key, timeout = DEVICE_CMD_TIMEOUT_MS }: ExecToolOpts): DeviceExecResult {
     const warnKey = key ?? tool;
+    // The id is interpolated into a shell command — reject anything that
+    // isn't a plain serial/udid rather than hand it to the shell.
+    if (key !== undefined && !SAFE_DEVICE_ID.test(key)) {
+        process.stderr.write(
+            `\x1b[33m⚠ Refusing ${tool} command for unsafe device identifier: ${JSON.stringify(key)}\x1b[0m\n`,
+        );
+        return { ok: false, stdout: '', timedOut: false };
+    }
     try {
         const stdout = execSync(cmd, { stdio: 'pipe', encoding: 'utf-8', timeout });
         return { ok: true, stdout, timedOut: false };
@@ -175,7 +194,7 @@ function execTool(cmd: string, { tool, key, timeout = DEVICE_CMD_TIMEOUT_MS }: E
             const who = key && key !== tool ? `Device ${key}` : label;
             process.stderr.write(
                 `\x1b[33m⚠ ${who} stopped responding (timed out after ` +
-                `${Math.round(timeout / 1000)}s) — ${hint}.\x1b[0m\n`,
+                `${Math.ceil(timeout / 1000)}s) — ${hint}.\x1b[0m\n`,
             );
         }
         return { ok: false, stdout: '', timedOut };

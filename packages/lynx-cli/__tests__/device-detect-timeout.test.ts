@@ -84,6 +84,24 @@ describe('execDevice timeout guard', () => {
         expect(msg).toContain('kill-server');
     });
 
+    it('refuses a device id with shell metacharacters without spawning a shell', () => {
+        expect(isAppInstalled('dev; rm -rf /', 'com.example.app')).toBe(false);
+        // The malicious id must never reach execSync.
+        const ranWithId = execSyncMock.mock.calls.some(([c]) => String(c).includes('rm -rf'));
+        expect(ranWithId).toBe(false);
+        const msg = String(stderr.mock.calls.at(-1)?.[0] ?? '');
+        expect(msg).toContain('unsafe device identifier');
+    });
+
+    it('allows normal serials and udids (alphanumerics + . _ : -)', () => {
+        execSyncMock.mockImplementation(() => 'ok');
+        // A real adb serial and an emulator-style id both pass the guard.
+        pingDevice('47251FDAS00A6T');
+        pingDevice('emulator-5554');
+        const ran = execSyncMock.mock.calls.filter(([c]) => String(c).includes('shell true'));
+        expect(ran.length).toBe(2);
+    });
+
     it('treats a fast non-zero exit as "not installed" without warning', () => {
         // Offline device: errors quickly rather than hanging — no timeout, no warn.
         expect(isAppInstalled('OFFLINE', 'com.example.app')).toBe(false);
