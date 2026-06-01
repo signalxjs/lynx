@@ -694,10 +694,12 @@ export async function startDevServer(opts: DevServerOptions): Promise<void> {
             try { process.stdin.setRawMode(false); } catch { /* ignore */ }
         }
 
+        // Signal the tree first (instant, non-blocking) so it starts dying
+        // while we run the synchronous, time-bounded forward cleanup. The
+        // child `exit` handler calls process.exit once the tree is gone.
+        killChildTree('SIGTERM');
         removeReverses();
 
-        // The child `exit` handler below calls process.exit once the tree dies.
-        killChildTree('SIGTERM');
         const escalate = setTimeout(() => {
             logger.warn('Dev server did not exit after SIGTERM — forcing SIGKILL.');
             killChildTree('SIGKILL');

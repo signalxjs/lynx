@@ -320,14 +320,18 @@ export function adbReverse(deviceId: string, port: number): boolean {
 /**
  * Tear down a forward created by {@link adbReverse}. Called on dev-server
  * shutdown so we don't leave a stale `tcp:<port>` mapping lingering on the
- * device's adbd after the server is gone. Best-effort and fast — uses a short
- * timeout so a disconnected device can't stall the exit path.
+ * device's adbd after the server is gone. Best-effort: it runs synchronously
+ * on the exit path (once per forwarded device), so it uses a deliberately tiny
+ * timeout — a healthy device removes a forward in milliseconds, and we'd
+ * rather skip cleanup on a wedged device than delay Ctrl+C. Override with
+ * `SIGX_REVERSE_REMOVE_TIMEOUT_MS`.
  */
+export const REVERSE_REMOVE_TIMEOUT_MS = Number(process.env.SIGX_REVERSE_REMOVE_TIMEOUT_MS) || 750;
 export function adbReverseRemove(deviceId: string, port: number): boolean {
     return execDevice(
         `"${adbCmd()}" -s ${deviceId} reverse --remove tcp:${port}`,
         deviceId,
-        3_000,
+        REVERSE_REMOVE_TIMEOUT_MS,
     ).ok;
 }
 
