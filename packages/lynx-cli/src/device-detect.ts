@@ -92,6 +92,20 @@ function adbCmd(): string {
 }
 
 /**
+ * Parse a timeout override from the environment, falling back to `fallback`
+ * unless the value is a finite, strictly-positive number. This matters: a
+ * misconfigured `SIGX_*_TIMEOUT_MS=-1` (or a non-numeric value) must not slip
+ * through and disable the guard — that would reintroduce the original
+ * hang-forever failure mode these timeouts exist to prevent.
+ */
+export function envTimeoutMs(name: string, fallback: number): number {
+    const raw = process.env[name];
+    if (raw === undefined || raw === '') return fallback;
+    const n = Number(raw);
+    return Number.isFinite(n) && n > 0 ? n : fallback;
+}
+
+/**
  * Hard timeout for a single device *probe* (`adb`/`xcrun` calls that just
  * read state — list devices, is-installed, ping). A wedged `adbd`, a
  * half-connected USB device, or an unresponsive simulator service makes these
@@ -99,7 +113,7 @@ function adbCmd(): string {
  * flow stalls silently right after "prebuild complete" (the symptom this
  * guards against). Override with `SIGX_DEVICE_TIMEOUT_MS` on slow links.
  */
-export const DEVICE_CMD_TIMEOUT_MS = Number(process.env.SIGX_DEVICE_TIMEOUT_MS) || 10_000;
+export const DEVICE_CMD_TIMEOUT_MS = envTimeoutMs('SIGX_DEVICE_TIMEOUT_MS', 10_000);
 
 /**
  * Hard timeout for a device *action* (boot a simulator, install an app).
@@ -107,7 +121,7 @@ export const DEVICE_CMD_TIMEOUT_MS = Number(process.env.SIGX_DEVICE_TIMEOUT_MS) 
  * false-fail a slow-but-progressing install. We only want to break a true
  * wedge. Override with `SIGX_DEVICE_ACTION_TIMEOUT_MS`.
  */
-export const DEVICE_ACTION_TIMEOUT_MS = Number(process.env.SIGX_DEVICE_ACTION_TIMEOUT_MS) || 180_000;
+export const DEVICE_ACTION_TIMEOUT_MS = envTimeoutMs('SIGX_DEVICE_ACTION_TIMEOUT_MS', 180_000);
 
 /** Which underlying tool a command drives — selects the recovery hint. */
 type DeviceTool = 'adb' | 'simctl' | 'devicectl';
@@ -193,11 +207,13 @@ function execTool(cmd: string, { tool, key, timeout = DEVICE_CMD_TIMEOUT_MS }: E
         const stdout = execSync(cmd, { stdio: 'pipe', encoding: 'utf-8', timeout });
         return { ok: true, stdout, timedOut: false };
     } catch (err) {
-        // On timeout execSync throws with `code: 'ETIMEDOUT'` and `signal:
-        // 'SIGTERM'` (the kill signal); a normal command failure has a numeric
-        // `status` and no `code`. Key off ETIMEDOUT, fall back to the signal.
-        const e = err as { code?: string; signal?: string };
-        const timedOut = e?.code === 'ETIMEDOUT' || e?.signal === 'SIGTERM';
+        // On timeout execSync throws with `code: 'ETIMEDOUT'`; a normal
+        // command failure has a numeric `status` and no `code`. Key strictly
+        // off ETIMEDOUT — the kill signal alone is `SIGTERM`, which a child can
+        // also receive for non-timeout reasons, so matching on it would
+        // misclassify those as "stopped responding".
+        const e = err as { code?: string };
+        const timedOut = e?.code === 'ETIMEDOUT';
         if (timedOut && !_warnedUnresponsive.has(warnKey)) {
             _warnedUnresponsive.add(warnKey);
             const { label, hint } = TOOL_META[tool];
@@ -336,7 +352,7 @@ export function adbReverse(deviceId: string, port: number): boolean {
  * rather skip cleanup on a wedged device than delay Ctrl+C. Override with
  * `SIGX_REVERSE_REMOVE_TIMEOUT_MS`.
  */
-export const REVERSE_REMOVE_TIMEOUT_MS = Number(process.env.SIGX_REVERSE_REMOVE_TIMEOUT_MS) || 750;
+export const REVERSE_REMOVE_TIMEOUT_MS = envTimeoutMs('SIGX_REVERSE_REMOVE_TIMEOUT_MS', 750);
 export function adbReverseRemove(deviceId: string, port: number): boolean {
     return execDevice(
         `"${adbCmd()}" -s ${deviceId} reverse --remove tcp:${port}`,

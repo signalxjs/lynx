@@ -26,6 +26,7 @@ const {
     bootSimulator,
     listBootedSimulators,
     adbReverseRemove,
+    envTimeoutMs,
 } = await import('../src/device-detect');
 
 /** Build the error shape Node's execSync throws when a timeout fires. */
@@ -115,6 +116,17 @@ describe('execDevice timeout guard', () => {
         expect(ran.length).toBe(2);
     });
 
+    it('does NOT treat a bare SIGTERM (no ETIMEDOUT) as a timeout', () => {
+        // A child killed by SIGTERM for a non-timeout reason — must not be
+        // misclassified as "stopped responding".
+        execSyncMock.mockImplementation((cmd: string) => {
+            if (cmd.includes(' version')) return 'ok';
+            throw Object.assign(new Error('killed'), { signal: 'SIGTERM', status: null });
+        });
+        expect(pingDevice('DEV1')).toEqual({ responsive: false, timedOut: false });
+        expect(stderr).not.toHaveBeenCalled();
+    });
+
     it('treats a fast non-zero exit as "not installed" without warning', () => {
         // Offline device: errors quickly rather than hanging — no timeout, no warn.
         expect(isAppInstalled('OFFLINE', 'com.example.app')).toBe(false);
@@ -133,6 +145,29 @@ describe('execDevice timeout guard', () => {
             throw timeoutError();
         });
         expect(listAndroidDevices()).toEqual([]);
+    });
+});
+
+describe('envTimeoutMs validation', () => {
+    const KEY = 'SIGX_TEST_TIMEOUT_MS';
+    afterEach(() => { delete process.env[KEY]; });
+
+    it('returns the fallback when unset or empty', () => {
+        expect(envTimeoutMs(KEY, 10_000)).toBe(10_000);
+        process.env[KEY] = '';
+        expect(envTimeoutMs(KEY, 10_000)).toBe(10_000);
+    });
+
+    it('rejects non-finite / non-positive values (no disabling the guard)', () => {
+        for (const bad of ['abc', '-1', '0', 'NaN', 'Infinity']) {
+            process.env[KEY] = bad;
+            expect(envTimeoutMs(KEY, 10_000)).toBe(10_000);
+        }
+    });
+
+    it('accepts a finite positive override', () => {
+        process.env[KEY] = '2500';
+        expect(envTimeoutMs(KEY, 10_000)).toBe(2500);
     });
 });
 
