@@ -31,10 +31,21 @@ const weightClasses: Record<TextWeight, string> = {
   semibold: 'font-semibold', bold: 'font-bold',
 };
 
+// A `text-<size>` font-size utility already present in `class` (the common
+// `class="text-sm"` override idiom). The trailing `(?![\w-])` guard excludes
+// color tokens like `text-base-content`, so they don't suppress the default.
+const SIZE_IN_CLASS =
+  /(?:^|\s)text-(?:xs|sm|base|lg|xl|2xl|3xl|4xl|5xl|6xl|7xl|8xl|9xl)(?![\w-])/;
+
 export const Text = component<TextProps>(({ props, slots }) => {
   const getClasses = () => {
     const c: string[] = [];
+    // Defined default: `base` (--text-base, 16px) so text has a token-driven
+    // size instead of Lynx's native <text> default — unless the caller set an
+    // explicit `size` prop or already passed a `text-*` size through `class`
+    // (avoids emitting two conflicting font-size utilities).
     if (props.size) c.push(sizeClasses[props.size]);
+    else if (!(props.class && SIZE_IN_CLASS.test(props.class))) c.push(sizeClasses.base);
     if (props.weight) c.push(weightClasses[props.weight]);
     if (props.color) c.push(`text-${props.color}`);
     if (props.class) c.push(props.class);

@@ -11,6 +11,7 @@ import { Map } from './screens/Map.js';
 import { Settings } from './screens/Settings.js';
 import { AuthDemo } from './screens/AuthDemo.js';
 import { ThemeLab } from './screens/ThemeLab.js';
+import { TypographyLab } from './screens/TypographyLab.js';
 
 export const routes = defineRoutes({
     root: { component: RootTabs },
@@ -23,6 +24,7 @@ export const routes = defineRoutes({
     settingsHome: { component: Settings },
     authDemo: { component: AuthDemo },
     themeLab: { component: ThemeLab },
+    typographyLab: { component: TypographyLab },
     tripDetail: {
         component: TripDetail,
         params: z.object({ tripId: z.string() }),
