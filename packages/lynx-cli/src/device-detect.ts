@@ -76,7 +76,7 @@ export function resolveAdb(): string | null {
     ].filter((c): c is string => !!c);
     for (const candidate of candidates) {
         try {
-            execSync(`"${candidate}" version`, { stdio: 'pipe' });
+            execSync(`"${candidate}" version`, { stdio: 'pipe', timeout: 10_000 });
             _resolvedAdb = candidate;
             return candidate;
         } catch {
@@ -92,6 +92,119 @@ function adbCmd(): string {
 }
 
 /**
+ * Hard timeout for a single device *probe* (`adb`/`xcrun` calls that just
+ * read state — list devices, is-installed, ping). A wedged `adbd`, a
+ * half-connected USB device, or an unresponsive simulator service makes these
+ * block forever; without a timeout `execSync` waits indefinitely and the dev
+ * flow stalls silently right after "prebuild complete" (the symptom this
+ * guards against). Override with `SIGX_DEVICE_TIMEOUT_MS` on slow links.
+ */
+export const DEVICE_CMD_TIMEOUT_MS = Number(process.env.SIGX_DEVICE_TIMEOUT_MS) || 10_000;
+
+/**
+ * Hard timeout for a device *action* (boot a simulator, install an app).
+ * These legitimately take far longer than a probe, so a tight bound would
+ * false-fail a slow-but-progressing install. We only want to break a true
+ * wedge. Override with `SIGX_DEVICE_ACTION_TIMEOUT_MS`.
+ */
+export const DEVICE_ACTION_TIMEOUT_MS = Number(process.env.SIGX_DEVICE_ACTION_TIMEOUT_MS) || 180_000;
+
+/** Which underlying tool a command drives — selects the recovery hint. */
+type DeviceTool = 'adb' | 'simctl' | 'devicectl';
+
+const TOOL_META: Record<DeviceTool, { label: string; hint: string }> = {
+    adb: {
+        label: 'The adb server',
+        hint: 'replug USB, toggle USB debugging, or run `adb kill-server && adb start-server`',
+    },
+    simctl: {
+        label: 'The iOS simulator service',
+        hint: 'the simulator may be wedged — try `xcrun simctl shutdown all`, reboot the Simulator app, or restart Xcode',
+    },
+    devicectl: {
+        label: 'Xcode devicectl',
+        hint: 'the device may be unresponsive — reconnect it, confirm it is unlocked & trusted, or restart Xcode',
+    },
+};
+
+/** Warn keys we've already emitted, so the dev loop's repeated probes don't
+ *  spam the same "not responding" message every few seconds. */
+const _warnedUnresponsive = new Set<string>();
+
+export interface DeviceExecResult {
+    /** Command exited 0. */
+    ok: boolean;
+    /** stdout (empty string unless ok). */
+    stdout: string;
+    /** Command was killed by the timeout — the device/daemon is wedged. */
+    timedOut: boolean;
+}
+
+interface ExecToolOpts {
+    /** Tool being driven — selects the recovery hint in the timeout warning. */
+    tool: DeviceTool;
+    /** Identifier for the warning + dedup (a device id/udid). Omit for
+     *  daemon-wide calls; the tool name is used instead. */
+    key?: string;
+    /** Timeout in ms. Defaults to the probe timeout; pass
+     *  {@link DEVICE_ACTION_TIMEOUT_MS} for installs/boots. */
+    timeout?: number;
+}
+
+/**
+ * Run a device command with a hard timeout and classify the outcome. On
+ * timeout we emit a one-time, tool-appropriate, actionable warning (keyed by
+ * `key`) instead of failing silently. Ordinary non-zero exits (e.g. an
+ * offline device that errors quickly) return `{ ok:false, timedOut:false }`
+ * with no warning — callers treat those as "not installed", same as before.
+ */
+function execTool(cmd: string, { tool, key, timeout = DEVICE_CMD_TIMEOUT_MS }: ExecToolOpts): DeviceExecResult {
+    const warnKey = key ?? tool;
+    try {
+        const stdout = execSync(cmd, { stdio: 'pipe', encoding: 'utf-8', timeout });
+        return { ok: true, stdout, timedOut: false };
+    } catch (err) {
+        // On timeout execSync throws with `code: 'ETIMEDOUT'` and `signal:
+        // 'SIGTERM'` (the kill signal); a normal command failure has a numeric
+        // `status` and no `code`. Key off ETIMEDOUT, fall back to the signal.
+        const e = err as { code?: string; signal?: string };
+        const timedOut = e?.code === 'ETIMEDOUT' || e?.signal === 'SIGTERM';
+        if (timedOut && !_warnedUnresponsive.has(warnKey)) {
+            _warnedUnresponsive.add(warnKey);
+            const { label, hint } = TOOL_META[tool];
+            const who = key && key !== tool ? `Device ${key}` : label;
+            process.stderr.write(
+                `\x1b[33m⚠ ${who} stopped responding (timed out after ` +
+                `${Math.round(timeout / 1000)}s) — ${hint}.\x1b[0m\n`,
+            );
+        }
+        return { ok: false, stdout: '', timedOut };
+    }
+}
+
+/** adb-specialized shorthand for {@link execTool}. */
+function execDevice(cmd: string, deviceKey: string, timeout?: number): DeviceExecResult {
+    return execTool(cmd, { tool: 'adb', key: deviceKey === 'adb' ? undefined : deviceKey, timeout });
+}
+
+/**
+ * Fast liveness probe for a single Android device. Returns `responsive:false`
+ * when the device is wedged (adb shell times out) so callers can fail fast
+ * with a clear message instead of marching into a `gradle installDebug` that
+ * would block on the same dead connection.
+ */
+export function pingDevice(deviceId: string): { responsive: boolean; timedOut: boolean } {
+    const res = execDevice(`"${adbCmd()}" -s ${deviceId} shell true`, deviceId);
+    return { responsive: res.ok, timedOut: res.timedOut };
+}
+
+/** Clear the "already warned" set — useful in tests and after a successful
+ *  reconnect so a later genuine hang warns again. */
+export function resetDeviceWarnings(): void {
+    _warnedUnresponsive.clear();
+}
+
+/**
  * Check if ADB is available on the system.
  */
 export function isAdbAvailable(): boolean {
@@ -102,36 +215,33 @@ export function isAdbAvailable(): boolean {
  * List connected Android devices via ADB.
  */
 export function listAndroidDevices(): AndroidDevice[] {
-    try {
-        const output = execSync(`"${adbCmd()}" devices -l`, { stdio: 'pipe', encoding: 'utf-8' });
-        const lines = output.split('\n').slice(1); // Skip header
+    const res = execDevice(`"${adbCmd()}" devices -l`, 'adb');
+    if (!res.ok) return [];
+    const lines = res.stdout.split('\n').slice(1); // Skip header
 
-        return lines
-            .map((line) => line.trim())
-            .filter((line) => line.length > 0)
-            .map((line) => {
-                const parts = line.split(/\s+/);
-                const id = parts[0];
-                const state = parts[1];
+    return lines
+        .map((line) => line.trim())
+        .filter((line) => line.length > 0)
+        .map((line) => {
+            const parts = line.split(/\s+/);
+            const id = parts[0];
+            const state = parts[1];
 
-                // Extract model from the key-value pairs
-                const modelMatch = line.match(/model:(\S+)/);
-                const model = modelMatch ? modelMatch[1].replace(/_/g, ' ') : undefined;
+            // Extract model from the key-value pairs
+            const modelMatch = line.match(/model:(\S+)/);
+            const model = modelMatch ? modelMatch[1].replace(/_/g, ' ') : undefined;
 
-                return {
-                    id,
-                    type: id.includes('emulator') || id.startsWith('localhost')
-                        ? 'emulator' as const
-                        : state === 'offline'
-                            ? 'offline' as const
-                            : 'device' as const,
-                    model,
-                };
-            })
-            .filter((d) => d.type !== 'offline');
-    } catch {
-        return [];
-    }
+            return {
+                id,
+                type: id.includes('emulator') || id.startsWith('localhost')
+                    ? 'emulator' as const
+                    : state === 'offline'
+                        ? 'offline' as const
+                        : 'device' as const,
+                model,
+            };
+        })
+        .filter((d) => d.type !== 'offline');
 }
 
 /**
@@ -141,66 +251,41 @@ export function listAndroidDevices(): AndroidDevice[] {
  * emulator or the query fails.
  */
 export function getRunningAvdName(serial: string): string | null {
-    try {
-        const out = execSync(`"${adbCmd()}" -s ${serial} emu avd name`, {
-            stdio: 'pipe',
-            encoding: 'utf-8',
-        });
-        // Output is "<AvdName>\nOK\n" on success. The first non-empty line
-        // before "OK" is the AVD name.
-        for (const line of out.split('\n').map((l) => l.trim())) {
-            if (!line || line === 'OK') continue;
-            return line;
-        }
-        return null;
-    } catch {
-        return null;
+    const res = execDevice(`"${adbCmd()}" -s ${serial} emu avd name`, serial);
+    if (!res.ok) return null;
+    // Output is "<AvdName>\nOK\n" on success. The first non-empty line
+    // before "OK" is the AVD name.
+    for (const line of res.stdout.split('\n').map((l) => l.trim())) {
+        if (!line || line === 'OK') continue;
+        return line;
     }
+    return null;
 }
 
 /**
  * Check if sigx-lynx-go is installed on a specific device.
  */
 export function isLynxGoInstalled(deviceId: string): boolean {
-    try {
-        const output = execSync(`"${adbCmd()}" -s ${deviceId} shell pm list packages ${LYNX_GO_PACKAGE}`, {
-            stdio: 'pipe',
-            encoding: 'utf-8',
-        });
-        return output.includes(LYNX_GO_PACKAGE);
-    } catch {
-        return false;
-    }
+    const res = execDevice(`"${adbCmd()}" -s ${deviceId} shell pm list packages ${LYNX_GO_PACKAGE}`, deviceId);
+    return res.ok && res.stdout.includes(LYNX_GO_PACKAGE);
 }
 
 /**
  * Launch sigx-lynx-go on a device with a specific URL.
  */
 export function launchLynxGo(deviceId: string, url: string): boolean {
-    try {
-        execSync(
-            `"${adbCmd()}" -s ${deviceId} shell am start -a android.intent.action.VIEW -d "sigx-lynx-go://open?url=${encodeURIComponent(url)}" ${LYNX_GO_PACKAGE}`,
-            { stdio: 'pipe' },
-        );
-        return true;
-    } catch {
-        return false;
-    }
+    return execDevice(
+        `"${adbCmd()}" -s ${deviceId} shell am start -a android.intent.action.VIEW -d "sigx-lynx-go://open?url=${encodeURIComponent(url)}" ${LYNX_GO_PACKAGE}`,
+        deviceId,
+    ).ok;
 }
 
 /**
  * Check if a specific app (by applicationId) is installed on a device.
  */
 export function isAppInstalled(deviceId: string, applicationId: string): boolean {
-    try {
-        const output = execSync(`"${adbCmd()}" -s ${deviceId} shell pm list packages ${applicationId}`, {
-            stdio: 'pipe',
-            encoding: 'utf-8',
-        });
-        return output.includes(applicationId);
-    } catch {
-        return false;
-    }
+    const res = execDevice(`"${adbCmd()}" -s ${deviceId} shell pm list packages ${applicationId}`, deviceId);
+    return res.ok && res.stdout.includes(applicationId);
 }
 
 /**
@@ -210,12 +295,21 @@ export function isAppInstalled(deviceId: string, applicationId: string): boolean
  * the device is on (or lack thereof — USB-only is fine).
  */
 export function adbReverse(deviceId: string, port: number): boolean {
-    try {
-        execSync(`"${adbCmd()}" -s ${deviceId} reverse tcp:${port} tcp:${port}`, { stdio: 'pipe' });
-        return true;
-    } catch {
-        return false;
-    }
+    return execDevice(`"${adbCmd()}" -s ${deviceId} reverse tcp:${port} tcp:${port}`, deviceId).ok;
+}
+
+/**
+ * Tear down a forward created by {@link adbReverse}. Called on dev-server
+ * shutdown so we don't leave a stale `tcp:<port>` mapping lingering on the
+ * device's adbd after the server is gone. Best-effort and fast — uses a short
+ * timeout so a disconnected device can't stall the exit path.
+ */
+export function adbReverseRemove(deviceId: string, port: number): boolean {
+    return execDevice(
+        `"${adbCmd()}" -s ${deviceId} reverse --remove tcp:${port}`,
+        deviceId,
+        3_000,
+    ).ok;
 }
 
 /**
@@ -225,11 +319,9 @@ export function adbReverse(deviceId: string, port: number): boolean {
  * `onNewIntent` on a stale `singleTop` instance.
  */
 export function forceStopApp(deviceId: string, packageName: string): void {
-    try {
-        execSync(`"${adbCmd()}" -s ${deviceId} shell am force-stop ${packageName}`, { stdio: 'pipe' });
-    } catch {
-        // App may not be running — ignore, parity with the iOS simctl terminate path.
-    }
+    // App may not be running — failure/timeout is ignored, parity with the
+    // iOS simctl terminate path. (A timeout still surfaces its own warning.)
+    execDevice(`"${adbCmd()}" -s ${deviceId} shell am force-stop ${packageName}`, deviceId);
 }
 
 /**
@@ -238,14 +330,9 @@ export function forceStopApp(deviceId: string, packageName: string): void {
  * no extra) — Android's shell command parser rejects `--es key ""`.
  */
 export function launchApp(deviceId: string, applicationId: string, devUrl: string): boolean {
-    try {
-        const base = `"${adbCmd()}" -s ${deviceId} shell am start -n ${applicationId}/${applicationId}.MainActivity`;
-        const cmd = devUrl ? `${base} --es sigx_dev_url "${devUrl}"` : base;
-        execSync(cmd, { stdio: 'pipe' });
-        return true;
-    } catch {
-        return false;
-    }
+    const base = `"${adbCmd()}" -s ${deviceId} shell am start -n ${applicationId}/${applicationId}.MainActivity`;
+    const cmd = devUrl ? `${base} --es sigx_dev_url "${devUrl}"` : base;
+    return execDevice(cmd, deviceId).ok;
 }
 
 // ────────────────────────────────────────────────────────────────
@@ -257,12 +344,7 @@ export function launchApp(deviceId: string, applicationId: string, devUrl: strin
  */
 export function isXcrunAvailable(): boolean {
     if (process.platform !== 'darwin') return false;
-    try {
-        execSync('xcrun simctl help', { stdio: 'pipe' });
-        return true;
-    } catch {
-        return false;
-    }
+    return execTool('xcrun simctl help', { tool: 'simctl' }).ok;
 }
 
 /**
@@ -270,11 +352,9 @@ export function isXcrunAvailable(): boolean {
  */
 export function listBootedSimulators(): IosSimulator[] {
     try {
-        const output = execSync('xcrun simctl list devices booted -j', {
-            stdio: 'pipe',
-            encoding: 'utf-8',
-        });
-        const json = JSON.parse(output);
+        const res = execTool('xcrun simctl list devices booted -j', { tool: 'simctl' });
+        if (!res.ok) return [];
+        const json = JSON.parse(res.stdout);
         const simulators: IosSimulator[] = [];
 
         for (const [runtime, devices] of Object.entries(json.devices as Record<string, any[]>)) {
@@ -301,11 +381,9 @@ export function listBootedSimulators(): IosSimulator[] {
  */
 export function listAllSimulators(): IosSimulator[] {
     try {
-        const output = execSync('xcrun simctl list devices available -j', {
-            stdio: 'pipe',
-            encoding: 'utf-8',
-        });
-        const json = JSON.parse(output);
+        const res = execTool('xcrun simctl list devices available -j', { tool: 'simctl' });
+        if (!res.ok) return [];
+        const json = JSON.parse(res.stdout);
         const simulators: IosSimulator[] = [];
 
         for (const [runtime, devices] of Object.entries(json.devices as Record<string, any[]>)) {
@@ -367,37 +445,34 @@ export function resolveIosSimulator(preferredName?: string): IosSimulator | null
  * Boot an iOS simulator by UDID. No-op if already booted.
  */
 export function bootSimulator(udid: string): boolean {
-    try {
-        execSync(`xcrun simctl boot "${udid}"`, { stdio: 'pipe' });
-        return true;
-    } catch {
-        // Already booted or other error
-        return false;
-    }
+    // Booting a cold simulator can legitimately take tens of seconds — use the
+    // longer action timeout so we don't false-fail a slow boot, only a wedge.
+    return execTool(`xcrun simctl boot "${udid}"`, {
+        tool: 'simctl',
+        key: udid,
+        timeout: DEVICE_ACTION_TIMEOUT_MS,
+    }).ok;
 }
 
 /**
  * Check if an app is installed on an iOS simulator.
  */
 export function isAppInstalledOnSimulator(udid: string, bundleId: string): boolean {
-    try {
-        execSync(`xcrun simctl get_app_container ${udid} ${bundleId}`, { stdio: 'pipe' });
-        return true;
-    } catch {
-        return false;
-    }
+    return execTool(`xcrun simctl get_app_container ${udid} ${bundleId}`, {
+        tool: 'simctl',
+        key: udid,
+    }).ok;
 }
 
 /**
  * Install an app (.app bundle) on an iOS simulator.
  */
 export function installAppOnSimulator(udid: string, appPath: string): boolean {
-    try {
-        execSync(`xcrun simctl install "${udid}" "${appPath}"`, { stdio: 'pipe' });
-        return true;
-    } catch {
-        return false;
-    }
+    return execTool(`xcrun simctl install "${udid}" "${appPath}"`, {
+        tool: 'simctl',
+        key: udid,
+        timeout: DEVICE_ACTION_TIMEOUT_MS,
+    }).ok;
 }
 
 /**
@@ -415,7 +490,7 @@ export function findBuiltApp(
         const productDir = `${configuration}-${suffix}`;
         const output = execSync(
             `find "${home}/Library/Developer/Xcode/DerivedData" -path "*${scheme}*/Build/Products/${productDir}/${scheme}.app" -maxdepth 6 2>/dev/null | head -1`,
-            { stdio: 'pipe', encoding: 'utf-8' },
+            { stdio: 'pipe', encoding: 'utf-8', timeout: DEVICE_CMD_TIMEOUT_MS },
         ).trim();
         return output || null;
     } catch {
@@ -427,28 +502,25 @@ export function findBuiltApp(
  * Launch an app on an iOS simulator with optional dev URL.
  */
 export function launchIosApp(udid: string, bundleId: string, devUrl?: string): boolean {
-    try {
-        const args = ['simctl', 'launch', udid, bundleId];
-        if (devUrl) {
-            args.push('--sigx_dev_url', devUrl);
-        }
-        execSync(`xcrun ${args.map(a => `"${a}"`).join(' ')}`, { stdio: 'pipe' });
-        return true;
-    } catch {
-        return false;
+    const args = ['simctl', 'launch', udid, bundleId];
+    if (devUrl) {
+        args.push('--sigx_dev_url', devUrl);
     }
+    return execTool(`xcrun ${args.map(a => `"${a}"`).join(' ')}`, { tool: 'simctl', key: udid }).ok;
 }
 
 // ────────────────────────────────────────────────────────────────
 // Physical iOS device (devicectl) — requires Xcode 15+
 // ────────────────────────────────────────────────────────────────
 
-function runDevicectlJson<T = unknown>(args: string[]): T | null {
+function runDevicectlJson<T = unknown>(args: string[], deviceKey?: string): T | null {
     const out = join(tmpdir(), `sigx-devicectl-${process.pid}-${Date.now()}.json`);
     try {
-        execSync(`xcrun devicectl ${args.map(a => `"${a}"`).join(' ')} --json-output "${out}"`, {
-            stdio: 'pipe',
-        });
+        const res = execTool(
+            `xcrun devicectl ${args.map(a => `"${a}"`).join(' ')} --json-output "${out}"`,
+            { tool: 'devicectl', key: deviceKey },
+        );
+        if (!res.ok) return null;
         const raw = readFileSync(out, 'utf-8');
         return JSON.parse(raw) as T;
     } catch {
@@ -463,12 +535,7 @@ function runDevicectlJson<T = unknown>(args: string[]): T | null {
  */
 export function isDevicectlAvailable(): boolean {
     if (process.platform !== 'darwin') return false;
-    try {
-        execSync('xcrun devicectl --version', { stdio: 'pipe' });
-        return true;
-    } catch {
-        return false;
-    }
+    return execTool('xcrun devicectl --version', { tool: 'devicectl' }).ok;
 }
 
 interface DevicectlDeviceEntry {
@@ -509,7 +576,7 @@ export function listConnectedIosDevices(): IosDevice[] {
 export function isAppInstalledOnDevice(udid: string, bundleId: string): boolean {
     const json = runDevicectlJson<{ result?: { apps?: Array<{ bundleIdentifier?: string }> } }>([
         'device', 'info', 'apps', '--device', udid,
-    ]);
+    ], udid);
     const apps = json?.result?.apps ?? [];
     return apps.some((a) => a.bundleIdentifier === bundleId);
 }
@@ -519,15 +586,10 @@ export function isAppInstalledOnDevice(udid: string, bundleId: string): boolean 
  * Returns true on success, false on failure (e.g., provisioning).
  */
 export function installAppOnDevice(udid: string, appPath: string): boolean {
-    try {
-        execSync(
-            `xcrun devicectl device install app --device "${udid}" "${appPath}"`,
-            { stdio: 'pipe' },
-        );
-        return true;
-    } catch {
-        return false;
-    }
+    return execTool(
+        `xcrun devicectl device install app --device "${udid}" "${appPath}"`,
+        { tool: 'devicectl', key: udid, timeout: DEVICE_ACTION_TIMEOUT_MS },
+    ).ok;
 }
 
 /**
@@ -535,22 +597,17 @@ export function installAppOnDevice(udid: string, appPath: string): boolean {
  * Terminates any existing instance so launch args refresh.
  */
 export function launchAppOnDevice(udid: string, bundleId: string, devUrl?: string): boolean {
-    try {
-        const parts = [
-            'xcrun', 'devicectl', 'device', 'process', 'launch',
-            '--device', `"${udid}"`,
-            '--terminate-existing',
-            `"${bundleId}"`,
-        ];
-        if (devUrl) {
-            // Positional command-line arguments come after bundle id.
-            parts.push('--sigx_dev_url', `"${devUrl}"`);
-        }
-        execSync(parts.join(' '), { stdio: 'pipe' });
-        return true;
-    } catch {
-        return false;
+    const parts = [
+        'xcrun', 'devicectl', 'device', 'process', 'launch',
+        '--device', `"${udid}"`,
+        '--terminate-existing',
+        `"${bundleId}"`,
+    ];
+    if (devUrl) {
+        // Positional command-line arguments come after bundle id.
+        parts.push('--sigx_dev_url', `"${devUrl}"`);
     }
+    return execTool(parts.join(' '), { tool: 'devicectl', key: udid }).ok;
 }
 
 // ────────────────────────────────────────────────────────────────

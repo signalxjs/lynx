@@ -12,7 +12,7 @@ import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Logger } from '@sigx/cli/plugin';
 import { runPrebuild } from './prebuild.js';
-import { resolveAdb, isAppInstalled } from './device-detect.js';
+import { resolveAdb, isAppInstalled, pingDevice } from './device-detect.js';
 import { runWithBuildFilter } from './build-output.js';
 import {
     fingerprintAndroidBuild,
@@ -220,6 +220,23 @@ export async function ensureAndroidBuilt(opts: EnsureAndroidBuiltOptions): Promi
 
     logger.log('Running prebuild for Android...');
     await runPrebuild({ android: true, ios: false, cwd });
+
+    // Pre-flight: confirm each target actually responds before we run an
+    // install-check or gradle install against it. A wedged `adbd` (device
+    // shows as connected but `adb shell` blocks) would otherwise hang the
+    // whole flow silently right after prebuild — fail fast with a fix instead.
+    if (targetDeviceIds && targetDeviceIds.length > 0) {
+        const unresponsive = targetDeviceIds.filter((id) => !pingDevice(id).responsive);
+        if (unresponsive.length > 0) {
+            throw new Error(
+                `Android target${unresponsive.length > 1 ? 's' : ''} not responding: ` +
+                `${unresponsive.join(', ')}.\n` +
+                `The device is connected but its adb daemon is wedged or offline. ` +
+                `Try: replug USB (tap "Allow" if prompted), toggle USB debugging off/on, ` +
+                `or run \`adb kill-server && adb start-server\` — then re-run.`,
+            );
+        }
+    }
 
     // Fast path: skip gradle if nothing relevant changed and the app is
     // already installed on every target. Cheap (a few stat + sha256 of small
