@@ -40,7 +40,7 @@ const SIZE_IN_CLASS =
 export const Text = component<TextProps>(({ props, slots }) => {
   const getClasses = () => {
     const c: string[] = [];
-    // Defined default: `base` (--text-base, 16px) so text has a token-driven
+    // Defined default: `base` (--text-base, 17px) so text has a token-driven
     // size instead of Lynx's native <text> default — unless the caller set an
     // explicit `size` prop or already passed a `text-*` size through `class`
     // (avoids emitting two conflicting font-size utilities).

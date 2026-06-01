@@ -88,12 +88,11 @@ const SELECTOR_STEPS: Record<string, number> = {
     'badge-xs': 4, 'badge-sm': 5, 'badge-md': 6, 'badge-lg': 8,
 };
 
-// Default text ramp (px) — mirrors `--text-*` in `styles/themes/tokens.css`.
-// The global `fontScale` multiplies these and emits literal px (no
-// `calc(var() * n)` — unproven in Lynx); `fontScale === 1` leaves the `.daisy`
-// defaults in place.
+// Default text ramp (px) — MUST mirror `--text-*` in `styles/themes/tokens.css`
+// (iOS-aligned, 17px base). The global `fontScale` multiplies these and emits
+// literal px (no `calc(var() * n)` — unproven in Lynx).
 const FONT_DEFAULTS: Record<string, number> = {
-    'xs': 12, 'sm': 14, 'base': 16, 'lg': 18, 'xl': 20, '2xl': 24, '3xl': 30,
+    'xs': 12, 'sm': 14, 'base': 17, 'lg': 20, 'xl': 24, '2xl': 28, '3xl': 34,
 };
 
 const pxValue = (v: string): number | undefined => {

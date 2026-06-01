@@ -1,5 +1,6 @@
 /*
- * Daisy semantic color utilities.
+ * Daisy typography utilities — semantic colors, plus the font-size ramp and
+ * font weights (the latter two at the end of this file).
  *
  *   bg-<token>:   every token in DAISY_COLOR_TOKEN_LIST (semantics +
  *                 their -content variants, plus the three base surfaces
@@ -64,3 +65,27 @@
 .bg-warning-content { background-color: var(--color-warning-content); }
 .bg-error { background-color: var(--color-error); }
 .bg-error-content { background-color: var(--color-error-content); }
+
+/* Font-size ramp — always-on for the same reason as the colors above: the
+ * `<Text>` / `<Heading>` components compose `text-<size>` class names
+ * dynamically, which a consumer's Tailwind content scanner can't see, so the
+ * utilities would otherwise be purged and text falls back to Lynx's native
+ * size. These mirror the preset's `text-* → var(--text-*)` mapping (kept in
+ * sync), reading the `--text-*` tokens from `themes/tokens.css` (scaled by the
+ * controller's `fontScale`). A consumer that DOES scan the package source just
+ * regenerates the identical rule — harmless. */
+.text-xs { font-size: var(--text-xs); }
+.text-sm { font-size: var(--text-sm); }
+.text-base { font-size: var(--text-base); }
+.text-lg { font-size: var(--text-lg); }
+.text-xl { font-size: var(--text-xl); }
+.text-2xl { font-size: var(--text-2xl); }
+.text-3xl { font-size: var(--text-3xl); }
+
+/* Font weights — always-on for the same reason (composed by `<Text weight>` /
+ * `<Heading>`). Values match Tailwind's `font-*` scale. */
+.font-light { font-weight: 300; }
+.font-normal { font-weight: 400; }
+.font-medium { font-weight: 500; }
+.font-semibold { font-weight: 600; }
+.font-bold { font-weight: 700; }

@@ -18,7 +18,7 @@ import {
  * Typography lab — exercises the daisy text ramp end to end.
  *
  *  • The static ramp section proves `<Text size>` / `<Heading>` resolve to the
- *    `--text-*` tokens at the default scale (xs 12px … 3xl 30px).
+ *    `--text-*` tokens at the default scale (xs 12px … base 17px … 3xl 34px).
  *  • The "Live scale" section drives `controller.setFontScale()` — the global,
  *    theme-independent text-scale lever a real app would wire to a user
  *    accessibility preference or a backend setting. It's scoped here to a nested
@@ -31,11 +31,11 @@ import {
 const RAMP: { size: TextSize; px: number }[] = [
     { size: 'xs', px: 12 },
     { size: 'sm', px: 14 },
-    { size: 'base', px: 16 },
-    { size: 'lg', px: 18 },
-    { size: 'xl', px: 20 },
-    { size: '2xl', px: 24 },
-    { size: '3xl', px: 30 },
+    { size: 'base', px: 17 },
+    { size: 'lg', px: 20 },
+    { size: 'xl', px: 24 },
+    { size: '2xl', px: 28 },
+    { size: '3xl', px: 34 },
 ];
 
 const WEIGHTS: TextWeight[] = ['light', 'normal', 'medium', 'semibold', 'bold'];
@@ -61,7 +61,7 @@ const ScaleSample = component(() => {
                 ))}
             </Row>
             <Text class="opacity-60 text-sm">
-                Scale {Math.round(theme.fontScale * 100)}% · base ≈ {Math.round(16 * theme.fontScale)}px
+                Scale {Math.round(theme.fontScale * 100)}% · base ≈ {Math.round(17 * theme.fontScale)}px
             </Text>
             <Heading level={3}>The quick brown fox</Heading>
             <Text size="base">
@@ -104,12 +104,12 @@ export const TypographyLab = component(() => {
                     </Card.Body>
                 </Card>
 
-                {/* Default <Text> (no size prop) — should land on base (16px). */}
+                {/* Default <Text> (no size prop) — should land on base (17px). */}
                 <Card bordered>
                     <Card.Body>
                         <Col gap={4}>
                             <Text weight="semibold">Default size</Text>
-                            <Text>Plain &lt;Text&gt; with no size prop (defaults to base / 16px).</Text>
+                            <Text>Plain &lt;Text&gt; with no size prop (defaults to base / 17px).</Text>
                         </Col>
                     </Card.Body>
                 </Card>
