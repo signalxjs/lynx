@@ -25,6 +25,7 @@ const {
     isAppInstalledOnSimulator,
     bootSimulator,
     listBootedSimulators,
+    adbReverseRemove,
 } = await import('../src/device-detect');
 
 /** Build the error shape Node's execSync throws when a timeout fires. */
@@ -82,6 +83,18 @@ describe('execDevice timeout guard', () => {
         const msg = String(stderr.mock.calls[0][0]);
         expect(msg).toContain('WEDGED');
         expect(msg).toContain('kill-server');
+        expect(msg).toContain('10s'); // second-scale probe timeout, reported exactly
+    });
+
+    it('reports a sub-second timeout in ms (not a rounded "1s")', () => {
+        execSyncMock.mockImplementation((cmd: string) => {
+            if (cmd.includes(' version')) return 'ok';
+            throw timeoutError();
+        });
+        adbReverseRemove('DEV9', 8788); // 750ms best-effort timeout
+        const msg = String(stderr.mock.calls.at(-1)?.[0] ?? '');
+        expect(msg).toContain('750ms');
+        expect(msg).not.toContain('1s)');
     });
 
     it('refuses a device id with shell metacharacters without spawning a shell', () => {

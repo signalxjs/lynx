@@ -163,6 +163,16 @@ interface ExecToolOpts {
 const SAFE_DEVICE_ID = /^[A-Za-z0-9._:-]+$/;
 
 /**
+ * Render a timeout for the warning message at the granularity it was
+ * configured: sub-second budgets (e.g. the 750ms reverse-remove) show as
+ * `750ms`, second-scale ones as `10s` / `1.5s`. Avoids both under-reporting
+ * (rounding 750ms down to `0s`) and over-reporting (ceiling it to `1s`).
+ */
+function formatTimeout(ms: number): string {
+    return ms < 1000 ? `${ms}ms` : `${ms / 1000}s`;
+}
+
+/**
  * Run a device command with a hard timeout and classify the outcome. On
  * timeout we emit a one-time, tool-appropriate, actionable warning (keyed by
  * `key`) instead of failing silently. Ordinary non-zero exits (e.g. an
@@ -194,7 +204,7 @@ function execTool(cmd: string, { tool, key, timeout = DEVICE_CMD_TIMEOUT_MS }: E
             const who = key && key !== tool ? `Device ${key}` : label;
             process.stderr.write(
                 `\x1b[33m⚠ ${who} stopped responding (timed out after ` +
-                `${Math.ceil(timeout / 1000)}s) — ${hint}.\x1b[0m\n`,
+                `${formatTimeout(timeout)}) — ${hint}.\x1b[0m\n`,
             );
         }
         return { ok: false, stdout: '', timedOut };
