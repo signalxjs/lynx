@@ -672,10 +672,21 @@ export async function startDevServer(opts: DevServerOptions): Promise<void> {
     };
     // Drop every forward we created. Idempotent (clears the set), so it's safe
     // to call from both the graceful shutdown and the child-exit handler.
+    // Each adbReverseRemove is individually bounded, but several wedged devices
+    // would add up — so cap the *total* wall-clock to keep Ctrl+C snappy
+    // regardless of device count. Forwards not removed in time clear on device
+    // disconnect anyway.
+    const REVERSE_REMOVE_BUDGET_MS = 1_500;
     const removeReverses = (): void => {
+        const deadline = Date.now() + REVERSE_REMOVE_BUDGET_MS;
+        let skipped = 0;
         for (const fwd of reverseForwards) {
+            if (Date.now() >= deadline) { skipped++; continue; }
             const sep = fwd.lastIndexOf('|');
             adbReverseRemove(fwd.slice(0, sep), Number(fwd.slice(sep + 1)));
+        }
+        if (skipped > 0) {
+            logger.warn(`Skipped ${skipped} adb reverse cleanup(s) to keep shutdown fast; they clear on device disconnect.`);
         }
         reverseForwards.clear();
     };
