@@ -1,6 +1,6 @@
 {
     "name": "@sigx/lynx-secure-storage",
-    "version": "0.4.4",
+    "version": "0.4.5",
     "description": "Encrypted at-rest key-value storage for sigx-lynx (iOS Keychain, Android Keystore + EncryptedSharedPreferences)",
     "type": "module",
     "main": "./dist/index.js",
