@@ -1,7 +1,7 @@
 {
     "name": "@sigx/lynx-markdown",
     "version": "0.4.5",
-    "description": "Typed signalx wrapper around Lynx's <x-markdown> element. Renders markdown source via XElement/Markdown.",
+    "description": "SignalX-native streaming markdown renderer for Lynx. Parses markdown in JS (zero deps) and renders to native <view>/<text> primitives, with incremental streaming for AI output. Also ships XMarkdown, the native <x-markdown> wrapper.",
     "type": "module",
     "main": "./dist/index.js",
     "types": "./dist/index.d.ts",
@@ -21,6 +21,7 @@
     "scripts": {
         "build": "node ../../scripts/clean.mjs dist && tsgo",
         "dev": "tsgo --watch",
+        "test": "vitest run",
         "clean": "node ../../scripts/clean.mjs dist .turbo"
     },
     "peerDependencies": {
@@ -28,6 +29,7 @@
     },
     "devDependencies": {
         "@sigx/lynx": "workspace:^",
+        "@sigx/lynx-testing": "workspace:^",
         "@typescript/native-preview": "7.0.0-dev.20260521.1",
         "typescript": "^6.0.3"
     },
@@ -50,6 +52,9 @@
         "sigx",
         "lynx",
         "markdown",
+        "native",
+        "streaming",
+        "ai",
         "x-markdown"
     ]
 }

@@ -6,11 +6,11 @@ import type {
     MarkdownParseEndEvent,
 } from './jsx-augment.js';
 
-export type MarkdownEffect = 'typewriter' | 'none' | (string & {});
+export type XMarkdownEffect = 'typewriter' | 'none' | (string & {});
 
-export type MarkdownProps =
+export type XMarkdownProps =
     & Define.Prop<'value', string, false>
-    & Define.Prop<'effect', MarkdownEffect, false>
+    & Define.Prop<'effect', XMarkdownEffect, false>
     & Define.Prop<'attachments', ReadonlyArray<unknown>, false>
     & Define.Prop<'class', string, false>
     & Define.Prop<'style', string | Record<string, string | number>, false>
@@ -19,7 +19,13 @@ export type MarkdownProps =
     & Define.Prop<'onParseEnd', (e: MarkdownParseEndEvent) => void, false>;
 
 /**
- * Render a markdown document using Lynx's `<x-markdown>` XElement.
+ * Render a markdown document using Lynx's native `<x-markdown>` XElement.
+ *
+ * This is the thin wrapper over the platform's native markdown element. It is
+ * fast where available but platform-gated (Harmony 3.7.0+, Android 3.8.0-rc.0+,
+ * iOS not yet in a tagged release) and opaque — the engine owns parsing and
+ * styling. For a cross-platform, fully-controllable, streaming-aware renderer
+ * built on Lynx `<view>`/`<text>` primitives, use {@link Markdown} instead.
  *
  * The markdown source is passed via the `value` prop; it is delivered to the
  * native element as a raw-text child (per the 3.7.0 "raw-text node
@@ -29,7 +35,7 @@ export type MarkdownProps =
  *
  * @example
  * ```tsx
- * <Markdown
+ * <XMarkdown
  *   value={"# Hello\n\nThis is **markdown**."}
  *   effect="typewriter"
  *   onLink={(e) => console.log('tapped', e.detail.url)}
@@ -42,7 +48,7 @@ export type MarkdownProps =
  * native element is not registered, the engine logs a warning and renders
  * no view; there is no JS-side feature gate.
  */
-export const Markdown = component<MarkdownProps>(({ props }) => {
+export const XMarkdown = component<XMarkdownProps>(({ props }) => {
     return () => (
         <x-markdown
             markdown-effect={props.effect}

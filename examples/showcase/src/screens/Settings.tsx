@@ -462,6 +462,28 @@ export const Settings = component(() => {
                 <Card bordered>
                     <Card.Body>
                         <Col gap={8}>
+                            <Text weight="semibold">Markdown lab</Text>
+                            <Text class="opacity-60 text-sm">
+                                The SignalX-native markdown renderer with full GFM
+                                support and a token-by-token streaming demo.
+                            </Text>
+                            <Button
+                                variant="primary"
+                                outline
+                                onPress={() => {
+                                    Haptics.selection();
+                                    nav.push('markdownLab');
+                                }}
+                            >
+                                Open markdown lab
+                            </Button>
+                        </Col>
+                    </Card.Body>
+                </Card>
+
+                <Card bordered>
+                    <Card.Body>
+                        <Col gap={8}>
                             <Text weight="semibold">Clear all data</Text>
                             <Text class="opacity-60 text-sm">
                                 Wipes every trip and entry from persistent
