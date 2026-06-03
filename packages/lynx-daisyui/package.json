@@ -49,15 +49,20 @@
         "@sigx/lynx-motion": "workspace:^"
     },
     "peerDependencies": {
+        "@sigx/lynx-markdown": "workspace:^",
         "@sigx/lynx-navigation": "workspace:^",
         "tailwindcss": "^3.0.0 || ^4.0.0"
     },
     "peerDependenciesMeta": {
+        "@sigx/lynx-markdown": {
+            "optional": true
+        },
         "@sigx/lynx-navigation": {
             "optional": true
         }
     },
     "devDependencies": {
+        "@sigx/lynx-markdown": "workspace:^",
         "@sigx/lynx-navigation": "workspace:^",
         "@typescript/native-preview": "7.0.0-dev.20260521.1",
         "tailwindcss": "^4.0.0",

@@ -92,6 +92,9 @@ importers:
       '@sigx/lynx-maps':
         specifier: workspace:^
         version: link:../../packages/lynx-maps
+      '@sigx/lynx-markdown':
+        specifier: workspace:^
+        version: link:../../packages/lynx-markdown
       '@sigx/lynx-motion':
         specifier: workspace:^
         version: link:../../packages/lynx-motion
@@ -360,6 +363,9 @@ importers:
         specifier: workspace:^
         version: link:../lynx-motion
     devDependencies:
+      '@sigx/lynx-markdown':
+        specifier: workspace:^
+        version: link:../lynx-markdown
       '@sigx/lynx-navigation':
         specifier: workspace:^
         version: link:../lynx-navigation
@@ -581,6 +587,9 @@ importers:
       '@sigx/lynx':
         specifier: workspace:^
         version: link:../lynx
+      '@sigx/lynx-testing':
+        specifier: workspace:^
+        version: link:../lynx-testing
       '@typescript/native-preview':
         specifier: 7.0.0-dev.20260521.1
         version: 7.0.0-dev.20260521.1

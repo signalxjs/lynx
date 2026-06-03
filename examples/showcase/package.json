@@ -35,6 +35,7 @@
         "@sigx/lynx-gestures": "workspace:^",
         "@sigx/lynx-appearance": "workspace:^",
         "@sigx/lynx-daisyui": "workspace:^",
+        "@sigx/lynx-markdown": "workspace:^",
         "@sigx/lynx-safe-area": "workspace:^",
         "@sigx/lynx-audio": "workspace:^",
         "@sigx/lynx-video": "workspace:^",

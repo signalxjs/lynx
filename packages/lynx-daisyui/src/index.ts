@@ -124,3 +124,6 @@ export { Text } from './typography/Text.js';
 export type { TextProps, TextSize, TextWeight, TextColor } from './typography/Text.js';
 export { Heading } from './typography/Heading.js';
 export type { HeadingProps, HeadingLevel } from './typography/Heading.js';
+
+// Markdown — daisyUI rendering for `@sigx/lynx-markdown` (optional peer).
+export { markdownComponents } from './markdown/components.js';

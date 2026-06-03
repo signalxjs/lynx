@@ -12,6 +12,7 @@ import { Settings } from './screens/Settings.js';
 import { AuthDemo } from './screens/AuthDemo.js';
 import { ThemeLab } from './screens/ThemeLab.js';
 import { TypographyLab } from './screens/TypographyLab.js';
+import { MarkdownLab } from './screens/MarkdownLab.js';
 
 export const routes = defineRoutes({
     root: { component: RootTabs },
@@ -25,6 +26,7 @@ export const routes = defineRoutes({
     authDemo: { component: AuthDemo },
     themeLab: { component: ThemeLab },
     typographyLab: { component: TypographyLab },
+    markdownLab: { component: MarkdownLab, path: '/markdown-lab' },
     tripDetail: {
         component: TripDetail,
         params: z.object({ tripId: z.string() }),
