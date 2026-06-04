@@ -397,11 +397,13 @@ export const nodeOps: RendererOptions<ShadowElement, ShadowElement> = {
       // the user has edited it — programmatic writes (clear-on-send, editor
       // toolbar inserts) must additionally go through the element's
       // `setValue` UI method or the visible text never changes (#143).
-      // Skip on first render (`_prevValue == null`: the attribute covers the
-      // initial value) and skip the model echo (the re-render caused by the
-      // user's own typing, where the new value is exactly what the input
-      // event just reported) so cursor/IME composition isn't disturbed
-      // while typing.
+      // Skip during initial mount (`el.parent == null`: props are patched
+      // before insertion, and the attribute covers the initial value) — NOT
+      // by `_prevValue == null`, which would also skip legitimate post-mount
+      // transitions like value={null} → value={'text'}. Also skip the model
+      // echo (the re-render caused by the user's own typing, where the new
+      // value is exactly what the input event just reported) so cursor/IME
+      // composition isn't disturbed while typing.
       // Normalize to a string ('' for nullish) on BOTH sides of the
       // comparison — `value` is typed string on input/textarea but user code
       // can write a number/boolean by mistake, and setValue is a native
@@ -409,7 +411,7 @@ export const nodeOps: RendererOptions<ShadowElement, ShadowElement> = {
       // would desync `_lastInputValue` from the native field and re-invoke
       // redundantly on later renders.
       const next = nextValue == null ? '' : String(nextValue);
-      if (_prevValue != null && next !== el._lastInputValue) {
+      if (el.parent != null && next !== el._lastInputValue) {
         pushOp(OP.INVOKE_UI_METHOD, el.id, 'setValue', { value: next });
         // The programmatic write replaces whatever the user had typed; track
         // it so the next echo comparison stays correct.
