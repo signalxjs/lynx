@@ -4,6 +4,10 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 ## [Unreleased]
 
+### Fixed
+
+- `@sigx/lynx-runtime` — programmatic writes to a model-bound `<input>`/`<textarea>` (clear-on-send, editor toolbar inserts) now repaint the native field. The `value` attribute is initial-only once the user has edited the field, so the runtime additionally pushes such writes through the element's `setValue` UI method (new `INVOKE_UI_METHOD` op). The model echo of the user's own typing is suppressed, leaving cursor/IME composition untouched while typing. (#143)
+
 ## [0.4.6] - 2026-06-03
 
 ### Added
