@@ -25,10 +25,13 @@ export const KeyboardAvoidingView = component<KeyboardAvoidingViewProps>(({ prop
   const insets = useSafeAreaInsets();
   const behavior = props.behavior ?? 'padding';
   const kvo = props.keyboardVerticalOffset ?? 0;
+  const discountBottomInset = props.discountBottomInset ?? true;
 
   return () => {
     const i = insets.value;
-    const lift = i.keyboard > 0 ? Math.max(0, i.keyboard - i.bottom + kvo) : 0;
+    const lift = i.keyboard > 0
+      ? Math.max(0, i.keyboard - (discountBottomInset ? i.bottom : 0) + kvo)
+      : 0;
     // Fill-parent defaults, mirroring SafeAreaView: Lynx resolves the
     // `flex: 1` shorthand with `flexBasis: 'auto'`, which sizes to content
     // and collapses the chain — long-form `flexBasis: 0` is the only

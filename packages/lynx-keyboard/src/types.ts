@@ -20,6 +20,13 @@ export interface KeyboardState {
 export type KeyboardAvoidingViewProps =
   & Define.Prop<'behavior', KeyboardAvoidingBehavior, false>
   & Define.Prop<'keyboardVerticalOffset', number, false>
+  /**
+   * Subtract the bottom safe-area inset from the lift (default `true`).
+   * Keep `true` when an ancestor `<SafeAreaView edges={['bottom']}>` already
+   * pads the home-indicator inset; set `false` to lift by the full keyboard
+   * height when no ancestor applies the bottom inset.
+   */
+  & Define.Prop<'discountBottomInset', boolean, false>
   & Define.Prop<'class', string, false>
   & Define.Prop<'style', Record<string, string | number>, false>
   & Define.Slot<'default'>;

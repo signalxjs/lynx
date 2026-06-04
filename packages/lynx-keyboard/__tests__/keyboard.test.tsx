@@ -174,6 +174,17 @@ describe('KeyboardAvoidingView', () => {
     const host = container.children[0]!.children[0]!;
     expect(host._style.paddingBottom).toBe(`${280 - 34 + 10}px`);
   });
+
+  it('discountBottomInset={false} lifts by the full keyboard height', () => {
+    installMockLynx({ bottom: 34, keyboard: 280 });
+    const { container } = render(
+      <SafeAreaProvider>
+        <KeyboardAvoidingView behavior="padding" discountBottomInset={false} />
+      </SafeAreaProvider>,
+    );
+    const host = container.children[0]!.children[0]!;
+    expect(host._style.paddingBottom).toBe('280px');
+  });
 });
 
 // ---------------------------------------------------------------------------

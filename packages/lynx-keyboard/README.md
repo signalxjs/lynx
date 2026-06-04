@@ -48,6 +48,8 @@ Pins its children to the keyboard's top edge with an MT-animated `translateY` (s
 | `animated` | `boolean` | `true` | `false` = discrete BG re-render (debug fallback). |
 | `discountBottomInset` | `boolean` | `true` | Subtract the bottom safe-area inset from the lift. Keep `true` when an ancestor `<SafeAreaView edges={['bottom']}>` already pads the home indicator. |
 
+Note: the bar's `transform` is controlled internally (the MT binding writes `translateY` via `setStyleProperties`; the non-animated path writes an inline transform). A `transform` passed through `style` will be overridden — wrap children in their own view if you need an additional transform.
+
 ### `<KeyboardAvoidingView>`
 
 Wraps content and keeps it above the keyboard. Layout-affecting, so it applies inline BG styles (the same pattern as `<SafeAreaView>` — MT-driven layout writes don't reflow `<scroll-view>`).
@@ -56,6 +58,7 @@ Wraps content and keeps it above the keyboard. Layout-affecting, so it applies i
 | --- | --- | --- | --- |
 | `behavior` | `'padding' \| 'translate' \| 'height'` | `'padding'` | `padding` shrinks the column; `translate` shifts it; `height` appends a spacer. |
 | `keyboardVerticalOffset` | `number` | `0` | Added to the computed lift (RN parity). |
+| `discountBottomInset` | `boolean` | `true` | Same as on `KeyboardStickyView` — set `false` to lift by the full keyboard height when no ancestor pads the bottom inset. |
 
 ### Hooks
 
