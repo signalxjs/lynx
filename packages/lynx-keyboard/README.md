@@ -43,7 +43,7 @@ Use **one** primitive per subtree: a bar inside both a padding `KeyboardAvoiding
 
 Pins its children to the keyboard's top edge with an MT-animated `translateY` (smooth 60fps, no per-frame thread crossing). When the keyboard is closed the bar rests in its natural flex position. Aliases: `KeyboardAccessoryView`, `KeyboardToolbar`.
 
-| Prop | Type | Default | |
+| Prop | Type | Default | Description |
 | --- | --- | --- | --- |
 | `offset` | `number` | `0` | Extra gap (dp) above the keyboard. |
 | `animated` | `boolean` | `true` | `false` = discrete BG re-render (debug fallback). |
@@ -55,7 +55,7 @@ Note: the bar's `transform` is controlled internally (the MT binding writes `tra
 
 Wraps content and keeps it above the keyboard. Layout-affecting, so it applies inline BG styles (the same pattern as `<SafeAreaView>` — MT-driven layout writes don't reflow `<scroll-view>`).
 
-| Prop | Type | Default | |
+| Prop | Type | Default | Description |
 | --- | --- | --- | --- |
 | `behavior` | `'padding' \| 'translate' \| 'height'` | `'padding'` | `padding` shrinks the column; `translate` shifts it; `height` appends a spacer. |
 | `keyboardVerticalOffset` | `number` | `0` | Added to the computed lift (RN parity). |

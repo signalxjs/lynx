@@ -75,11 +75,21 @@ export function useKeyboardLiftSV(
     void withTiming(lift, target, { duration: seconds });
   });
 
+  // Dedupe by last dispatched target: the inset signal also fires for
+  // changes that don't affect the lift (rotation, status-bar changes, the
+  // initial run with the keyboard hidden), and animate() doesn't
+  // short-circuit zero-delta tweens — it would still schedule rAF ticks for
+  // the full duration and cancel/restart any in-flight animation. Seeded
+  // with 0 to match the SharedValue's initial value, so the mount-time run
+  // with the keyboard hidden dispatches nothing.
+  let lastTarget = 0;
   const watcher = effect(() => {
     const i = insets.value;
     const target = i.keyboard > 0
       ? Math.max(0, i.keyboard - (discountBottomInset ? i.bottom : 0) + offset)
       : 0;
+    if (target === lastTarget) return;
+    lastTarget = target;
     void animateTo(target, duration);
   });
   onUnmounted(() => watcher.stop());
