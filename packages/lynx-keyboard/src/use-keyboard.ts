@@ -1,6 +1,7 @@
 import {
   computed,
   effect,
+  onUnmounted,
   runOnMainThread,
   useSharedValue,
   type Computed,
@@ -56,8 +57,9 @@ export function useKeyboardLift(
  * target each time it changes. `withTiming` is itself a `'main thread'`
  * worklet, so referencing it from the dispatched worklet survives `_c`
  * capture; the timing loop then runs entirely on MT (no per-frame thread
- * crossing). The effect is created in component setup scope and is disposed
- * automatically on unmount.
+ * crossing). The watcher effect is stopped on unmount (`effect` comes from
+ * `@sigx/reactivity` and is NOT lifecycle-scoped — same manual-stop pattern
+ * as lynx-safe-area's provider).
  */
 export function useKeyboardLiftSV(
   discountBottomInset = true,
@@ -73,13 +75,14 @@ export function useKeyboardLiftSV(
     void withTiming(lift, target, { duration: seconds });
   });
 
-  effect(() => {
+  const watcher = effect(() => {
     const i = insets.value;
     const target = i.keyboard > 0
       ? Math.max(0, i.keyboard - (discountBottomInset ? i.bottom : 0) + offset)
       : 0;
     void animateTo(target, duration);
   });
+  onUnmounted(() => watcher.stop());
 
   return lift;
 }
