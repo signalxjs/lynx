@@ -9,10 +9,6 @@ AI output: as the source string grows token-by-token, finalized blocks keep a
 stable identity and are never re-parsed or remounted, so completed content
 doesn't flicker or reflow while new tokens stream in.
 
-The package also ships [`XMarkdown`](#xmarkdown--native-element-wrapper), the
-thin wrapper around Lynx's native `<x-markdown>` element, for cases where you
-want the platform's built-in renderer.
-
 ## Install
 
 ```
@@ -120,22 +116,3 @@ import { markdownComponents } from '@sigx/lynx-daisyui';
 <MarkdownView value={src} components={markdownComponents} />;
 ```
 
-## `XMarkdown` — native element wrapper
-
-`XMarkdown` wraps Lynx's native `<x-markdown>` XElement. It's fast where
-available but platform-gated and opaque (the engine owns parsing and styling):
-
-| Platform | First version   | Notes                                               |
-| -------- | --------------- | --------------------------------------------------- |
-| Harmony  | Lynx 3.7.0      | Stable.                                             |
-| Android  | Lynx 3.8.0-rc.0 | Ships as `org.lynxsdk.lynx:lynx_xelement_markdown`. |
-| iOS      | (post-3.8.0)    | Currently only on the upstream `main` branch.       |
-
-On platforms where `<x-markdown>` is not registered, it renders nothing. Prefer
-`MarkdownView` for cross-platform, streaming, and customizable rendering.
-
-```tsx
-import { XMarkdown } from '@sigx/lynx-markdown';
-
-<XMarkdown value={'# Hello'} effect="typewriter" onLink={(e) => open(e.detail.url)} />;
-```
