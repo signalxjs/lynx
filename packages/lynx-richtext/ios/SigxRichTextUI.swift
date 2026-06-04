@@ -38,6 +38,10 @@ public class SigxRichTextUI: LynxUI<RichTextView> {
     private var lastReportedHeight: CGFloat = -1
     /// Guards delegate re-entry while this class mutates the storage itself.
     fileprivate var isProgrammaticEdit = false
+    /// Last non-collapsed selection — toolbar taps can collapse the live
+    /// selection before the command invoke arrives; format commands fall
+    /// back to this (cleared whenever the text mutates).
+    fileprivate var lastNonCollapsedSelection: NSRange? = nil
 
     private lazy var textDelegate = SigxRichTextDelegate(owner: self)
 
@@ -94,22 +98,29 @@ public class SigxRichTextUI: LynxUI<RichTextView> {
         view().placeholderText = (value as String?) ?? ""
     }
 
-    @objc public func setEditable(_ value: Bool, requestReset: Bool) {
-        view().isEditable = value
+    // Primitive props arrive as NSNumber: LynxPropsProcessor's propSetterLookUp
+    // path derives the arg type from ObjC argument 0 (= self, type "@"), so the
+    // value is always delivered as an object — a primitive Bool/CGFloat param
+    // slot would be filled with pointer bits (observed: editable=true -> 0).
+    @objc public func setEditable(_ value: NSNumber?, requestReset: Bool) {
+        let editable = value?.boolValue ?? true
+        view().isEditable = editable
+        view().isSelectable = true
     }
 
-    @objc public func setMinHeight(_ value: CGFloat, requestReset: Bool) {
-        minHeight = value
+    @objc public func setMinHeight(_ value: NSNumber?, requestReset: Bool) {
+        minHeight = CGFloat(value?.doubleValue ?? 0)
     }
 
-    @objc public func setMaxHeight(_ value: CGFloat, requestReset: Bool) {
-        maxHeight = value
+    @objc public func setMaxHeight(_ value: NSNumber?, requestReset: Bool) {
+        maxHeight = CGFloat(value?.doubleValue ?? 0)
         reportHeightIfChanged()
     }
 
-    @objc public func setFontSize(_ value: CGFloat, requestReset: Bool) {
-        guard value > 0 else { return }
-        theme.fontSize = value
+    @objc public func setFontSize(_ value: NSNumber?, requestReset: Bool) {
+        let size = CGFloat(value?.doubleValue ?? 0)
+        guard size > 0 else { return }
+        theme.fontSize = size
         view().font = theme.baseFont
         refreshAllVisuals()
     }
@@ -145,8 +156,8 @@ public class SigxRichTextUI: LynxUI<RichTextView> {
         }
     }
 
-    @objc public func setAutoFocus(_ value: Bool, requestReset: Bool) {
-        guard value else { return }
+    @objc public func setAutoFocus(_ value: NSNumber?, requestReset: Bool) {
+        guard value?.boolValue == true else { return }
         DispatchQueue.main.async { self.view().becomeFirstResponder() }
     }
 
@@ -157,13 +168,13 @@ public class SigxRichTextUI: LynxUI<RichTextView> {
     @objc(__lynx_prop_config__placeholder)
     public class func __lynxPropConfigPlaceholder() -> [String] { ["placeholder", "setPlaceholder", "NSString *"] }
     @objc(__lynx_prop_config__editable)
-    public class func __lynxPropConfigEditable() -> [String] { ["editable", "setEditable", "BOOL"] }
+    public class func __lynxPropConfigEditable() -> [String] { ["editable", "setEditable", "NSNumber *"] }
     @objc(__lynx_prop_config__min_height)
-    public class func __lynxPropConfigMinHeight() -> [String] { ["min-height", "setMinHeight", "CGFloat"] }
+    public class func __lynxPropConfigMinHeight() -> [String] { ["min-height", "setMinHeight", "NSNumber *"] }
     @objc(__lynx_prop_config__max_height)
-    public class func __lynxPropConfigMaxHeight() -> [String] { ["max-height", "setMaxHeight", "CGFloat"] }
+    public class func __lynxPropConfigMaxHeight() -> [String] { ["max-height", "setMaxHeight", "NSNumber *"] }
     @objc(__lynx_prop_config__font_size)
-    public class func __lynxPropConfigFontSize() -> [String] { ["font-size", "setFontSize", "CGFloat"] }
+    public class func __lynxPropConfigFontSize() -> [String] { ["font-size", "setFontSize", "NSNumber *"] }
     @objc(__lynx_prop_config__text_color)
     public class func __lynxPropConfigTextColor() -> [String] { ["text-color", "setTextColor", "NSString *"] }
     @objc(__lynx_prop_config__accent_color)
@@ -173,7 +184,7 @@ public class SigxRichTextUI: LynxUI<RichTextView> {
     @objc(__lynx_prop_config__confirm_type)
     public class func __lynxPropConfigConfirmType() -> [String] { ["confirm-type", "setConfirmType", "NSString *"] }
     @objc(__lynx_prop_config__auto_focus)
-    public class func __lynxPropConfigAutoFocus() -> [String] { ["auto-focus", "setAutoFocus", "BOOL"] }
+    public class func __lynxPropConfigAutoFocus() -> [String] { ["auto-focus", "setAutoFocus", "NSNumber *"] }
 
     // MARK: - UI methods
 
@@ -236,7 +247,13 @@ public class SigxRichTextUI: LynxUI<RichTextView> {
         }
         DispatchQueue.main.async {
             let view = self.view()
-            let selection = view.selectedRange
+            var selection = view.selectedRange
+            // Toolbar taps can collapse the selection (focus shifts) before this
+            // invoke arrives — fall back to the last real selection.
+            if selection.length == 0, let last = self.lastNonCollapsedSelection,
+               last.location + last.length <= (view.text as NSString).length {
+                selection = last
+            }
             if selection.length == 0 {
                 // Collapsed: flip the typing attributes so the next typed run
                 // carries (or drops) the format.
@@ -265,6 +282,10 @@ public class SigxRichTextUI: LynxUI<RichTextView> {
             storage.endEditing()
             self.isProgrammaticEdit = false
             self.localVersion += 1
+            // Restore the (possibly fallen-back) selection and keep the field
+            // focused so consecutive toolbar taps compose naturally.
+            view.selectedRange = selection
+            if !view.isFirstResponder { view.becomeFirstResponder() }
             self.fireChange(isComposing: false)
             self.fireSelection()
             callback(SigxRichTextUI.kUIMethodSuccess, ["active": !active])
@@ -498,6 +519,7 @@ final class SigxRichTextDelegate: NSObject, UITextViewDelegate {
 
     func textViewDidChange(_ textView: UITextView) {
         guard let owner, !owner.isProgrammaticEdit else { return }
+        owner.lastNonCollapsedSelection = nil
         owner.markUserEdited()
         owner.reportHeightIfChanged()
         let composing = textView.markedTextRange != nil
@@ -506,6 +528,9 @@ final class SigxRichTextDelegate: NSObject, UITextViewDelegate {
 
     func textViewDidChangeSelection(_ textView: UITextView) {
         guard let owner, !owner.isProgrammaticEdit else { return }
+        if textView.selectedRange.length > 0 {
+            owner.lastNonCollapsedSelection = textView.selectedRange
+        }
         owner.fireSelection()
     }
 

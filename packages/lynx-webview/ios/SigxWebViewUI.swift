@@ -144,7 +144,11 @@ public class SigxWebViewUI: LynxUI<WKWebView> {
         return ["user-agent", "setUserAgent", "NSString *"]
     }
 
-    @objc public func setEnableDebug(_ value: Bool, requestReset: Bool) {
+    // NSNumber (not Bool): the propSetterLookUp path delivers prop values as
+    // objects — a primitive Bool param reads pointer bits instead (see
+    // lynx-richtext SigxRichTextUI for the long-form note).
+    @objc public func setEnableDebug(_ value: NSNumber?, requestReset: Bool) {
+        let value = value?.boolValue ?? false
         // iOS 16.4+ exposes `isInspectable` for the Safari Web Inspector. On
         // older iOS, the WebKit-private `developerExtrasEnabled` preference is
         // gated behind App-Store-reject risk; we only flip the public flag.
@@ -155,7 +159,7 @@ public class SigxWebViewUI: LynxUI<WKWebView> {
 
     @objc(__lynx_prop_config__enable_debug)
     public class func __lynxPropConfigEnableDebug() -> [String] {
-        return ["enable-debug", "setEnableDebug", "BOOL"]
+        return ["enable-debug", "setEnableDebug", "NSNumber *"]
     }
 
     // MARK: - Imperative methods

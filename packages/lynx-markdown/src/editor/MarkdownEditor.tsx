@@ -179,7 +179,7 @@ export const MarkdownEditor = component<MarkdownEditorProps>(({ props }) => {
                 <RichTextInput
                     value={mdToDoc(initialMd)}
                     placeholder={props.placeholder}
-                    editable={!props.disabled}
+                    editable={props.disabled ? false : undefined}
                     minHeight={minHeight}
                     maxHeight={maxHeight}
                     fontSize={fontSize}

@@ -1,6 +1,6 @@
 import { component, signal } from '@sigx/lynx';
 import { Screen } from '@sigx/lynx-navigation';
-import { Button, Card, Col, Heading, Row, ScrollView, Text } from '@sigx/lynx-daisyui';
+import { Button, Card, Col, Heading, Row, ScrollView, Text, useMarkdownEditorTheme } from '@sigx/lynx-daisyui';
 import {
     MarkdownEditor,
     MarkdownView,
@@ -21,6 +21,7 @@ import type { SelectionState } from '@sigx/lynx-richtext';
  *    exactly what `onChange` emitted.
  */
 export const MarkdownEditorLab = component(() => {
+    const editorTheme = useMarkdownEditorTheme();
     const markdown = signal('Hello **world** — edit me');
     const mode = signal<MarkdownEditorMode>('auto');
     const activeFormats = signal<string>('');
@@ -58,6 +59,9 @@ export const MarkdownEditorLab = component(() => {
                                     maxLines={4}
                                     mode={mode.value as MarkdownEditorMode}
                                     confirmType="send"
+                                    textColor={editorTheme.textColor}
+                                    accentColor={editorTheme.accentColor}
+                                    placeholderColor={editorTheme.placeholderColor}
                                     onChange={(md) => {
                                         markdown.value = md;
                                     }}
