@@ -43,9 +43,10 @@ flow below is required.)
    If you worked in plan mode, the approved plan **is** the issue body. Note the
    number it returns (`#N`).
 
-2. **Branch — a worktree is ideal.** Never work on `main`. Use the worktree flow
-   (below): `pnpm wt new <N-short-slug>` gives an isolated checkout on branch
-   `<N-short-slug>`. (Plain alternative: `git switch -c <N-short-slug>`.)
+2. **Worktree, always.** Never work on `main`. Use the worktree flow (below):
+   `pnpm wt new <N-short-slug>` gives an isolated checkout on branch
+   `<N-short-slug>`. Don't substitute `git switch -c` in the primary checkout —
+   it occupies `<repo>/main`, which parallel sessions share.
 
 3. **Implement & verify.** Make the change, then prove it: `pnpm typecheck` (always,
    for any `.ts`) plus the relevant `pnpm test` / `pnpm build`. Stage specific
