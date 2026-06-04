@@ -7,7 +7,7 @@ Keyboard height reaches JS through the safe-area bridge ([`@sigx/lynx-safe-area`
 ## Installation
 
 ```bash
-npm install @sigx/lynx-keyboard
+pnpm add @sigx/lynx-keyboard
 ```
 
 Requires `<SafeAreaProvider>` (from `@sigx/lynx-safe-area`) at the app root — the same provider every safe-area hook already needs.

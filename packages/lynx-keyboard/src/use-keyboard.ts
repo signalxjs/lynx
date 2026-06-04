@@ -68,7 +68,19 @@ export function useKeyboardLiftSV(
   duration = 0.25,
 ): SharedValue<number> {
   const insets = useSafeAreaInsets();
-  const lift = useSharedValue(0);
+
+  const computeLift = (i: { keyboard: number; bottom: number }): number =>
+    i.keyboard > 0
+      ? Math.max(0, i.keyboard - (discountBottomInset ? i.bottom : 0) + offset)
+      : 0;
+
+  // Seed from the CURRENT insets — a screen that mounts while the keyboard
+  // is already open (modal presented over a focused composer, back-nav to a
+  // focused field) must paint at the lifted position on the first frame,
+  // not animate up from 0. Same "correct on first paint" rule as the
+  // safe-area provider.
+  const initialLift = computeLift(insets.value);
+  const lift = useSharedValue(initialLift);
 
   const animateTo = runOnMainThread((target: number, seconds: number) => {
     'main thread';
@@ -77,17 +89,13 @@ export function useKeyboardLiftSV(
 
   // Dedupe by last dispatched target: the inset signal also fires for
   // changes that don't affect the lift (rotation, status-bar changes, the
-  // initial run with the keyboard hidden), and animate() doesn't
-  // short-circuit zero-delta tweens — it would still schedule rAF ticks for
-  // the full duration and cancel/restart any in-flight animation. Seeded
-  // with 0 to match the SharedValue's initial value, so the mount-time run
-  // with the keyboard hidden dispatches nothing.
-  let lastTarget = 0;
+  // mount-time run), and animate() doesn't short-circuit zero-delta tweens
+  // — it would still schedule rAF ticks for the full duration and
+  // cancel/restart any in-flight animation. Seeded with the SharedValue's
+  // initial value so the mount-time run dispatches nothing.
+  let lastTarget = initialLift;
   const watcher = effect(() => {
-    const i = insets.value;
-    const target = i.keyboard > 0
-      ? Math.max(0, i.keyboard - (discountBottomInset ? i.bottom : 0) + offset)
-      : 0;
+    const target = computeLift(insets.value);
     if (target === lastTarget) return;
     lastTarget = target;
     void animateTo(target, duration);
