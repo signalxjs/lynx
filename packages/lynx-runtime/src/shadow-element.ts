@@ -28,13 +28,15 @@ export class ShadowElement {
   _baseClass = '';
   _transitionClasses: Set<string> = new Set();
 
-  // Last text the user typed into this <input>/<textarea>, recorded from the
-  // native input event by nodeOps. Used to tell a model echo (signal update
-  // caused by typing) apart from a programmatic write (clear-on-send, toolbar
-  // insert) — only the latter must be pushed back to the native field via the
-  // setValue UI method. Nullish values are normalized to '' (matching what
-  // setValue pushes); `undefined` until the first input event or
-  // programmatic write.
+  // Last text known to be in the native <input>/<textarea>: recorded from the
+  // native input event by nodeOps, and updated by post-mount programmatic
+  // writes that go through the setValue UI method. Used to tell a model echo
+  // (signal update caused by typing) apart from a programmatic write
+  // (clear-on-send, toolbar insert) — only the latter must be pushed back to
+  // the native field. Always stored as a string ('' for nullish, matching
+  // what setValue pushes); `undefined` until the first input event or
+  // setValue-pushing write (the first-render `value` attribute does NOT
+  // initialize it).
   _lastInputValue: unknown = undefined;
 
   constructor(type: string, forceId?: number) {

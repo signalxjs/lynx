@@ -315,9 +315,10 @@ export const nodeOps: RendererOptions<ShadowElement, ShadowElement> = {
           const sign = register((data: unknown) => {
             if (trackInputValue) {
               const v = (data as { detail?: { value?: unknown } })?.detail?.value;
-              // Normalize nullish to '' — the `value` patch branch compares
-              // and stores the same normalized representation.
-              el._lastInputValue = v == null ? '' : v;
+              // Normalize to a string ('' for nullish) — the `value` patch
+              // branch compares and stores the same representation, and
+              // setValue only ever pushes strings.
+              el._lastInputValue = v == null ? '' : String(v);
             }
             // Dispatch to all handlers registered for this slot.
             const s = elSlots!.get(nativeKey);
@@ -388,11 +389,13 @@ export const nodeOps: RendererOptions<ShadowElement, ShadowElement> = {
       // user's own typing, where the new value is exactly what the input
       // event just reported) so cursor/IME composition isn't disturbed
       // while typing.
-      // Normalize nullish to '' on BOTH sides of the comparison — setValue
-      // pushes '' for nullish writes, so tracking the raw value would desync
-      // `_lastInputValue` from the native field and re-invoke redundantly on
-      // later renders.
-      const next = nextValue == null ? '' : nextValue;
+      // Normalize to a string ('' for nullish) on BOTH sides of the
+      // comparison — `value` is typed string on input/textarea but user code
+      // can write a number/boolean by mistake, and setValue is a native
+      // text-field method that expects a string. Any other representation
+      // would desync `_lastInputValue` from the native field and re-invoke
+      // redundantly on later renders.
+      const next = nextValue == null ? '' : String(nextValue);
       if (_prevValue != null && next !== el._lastInputValue) {
         pushOp(OP.INVOKE_UI_METHOD, el.id, 'setValue', { value: next });
         // The programmatic write replaces whatever the user had typed; track

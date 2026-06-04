@@ -269,9 +269,13 @@ export function applyOps(ops: unknown[]): void {
         // field — the value attribute is initial-only there, see #143).
         // Failures (method unknown to the host widget, element not yet
         // attached) are intentionally swallowed — there is no BG-side caller
-        // awaiting a result.
+        // awaiting a result. The try/catch covers hosts that throw
+        // synchronously instead of reporting via the callback, so one bad
+        // invoke can't abort the rest of the ops batch.
         if (el && typeof __InvokeUIMethod === 'function') {
-          __InvokeUIMethod(el, method, params, () => { /* fire-and-forget */ });
+          try {
+            __InvokeUIMethod(el, method, params, () => { /* fire-and-forget */ });
+          } catch { /* swallow — see above */ }
         }
         break;
       }

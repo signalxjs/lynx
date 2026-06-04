@@ -357,6 +357,17 @@ describe('patchProp input value → INVOKE_UI_METHOD (#143)', () => {
     expect(invokeOps(parseOps(drainOps()))).toHaveLength(0);
   });
 
+  it('coerces non-string writes to strings for the setValue payload', () => {
+    const el = nodeOps.createElement('input');
+    nodeOps.patchProp(el, 'value', null, 'a');
+    drainOps();
+
+    nodeOps.patchProp(el, 'value', 'a', 5 as unknown as string);
+    const invokes = invokeOps(parseOps(drainOps()));
+    expect(invokes).toHaveLength(1);
+    expect(invokes[0]![3]).toEqual({ value: '5' });
+  });
+
   it('value on a non-form element stays a plain SET_PROP', () => {
     const el = nodeOps.createElement('view');
     nodeOps.patchProp(el, 'value', null, 'a');
