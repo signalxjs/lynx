@@ -1,4 +1,4 @@
-# SignalX core — Claude Code guide
+# Claude Code guide (sigx standard)
 
 @AGENTS.md
 

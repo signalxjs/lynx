@@ -12,7 +12,7 @@ see "Adopting this setup in another sigx repo" at the bottom.
 SignalX for Lynx is a pnpm monorepo (ESM, `"type": "module"`) bringing sigx to
 the Lynx mobile runtime — dual-thread rendering (background JS thread + main UI
 thread), a CLI/build plugin, gestures, motion, navigation, UI components and
-30+ native modules. ~37 workspace packages under `packages/`, published to npm
+30+ native modules. 40+ workspace packages under `packages/`, published to npm
 under the `@sigx` scope as `@sigx/lynx-*`, all **lockstep-versioned** (every
 publishable package shares one version). Tech stack: TypeScript (strict),
 tsgo, Vitest, oxlint.
@@ -94,7 +94,7 @@ pnpm verify:pack   # publish dry-run
 
 ## Packages
 
-~37 workspace packages under `packages/`, grouped roughly as:
+40+ workspace packages under `packages/`, grouped roughly as:
 
 - **Framework / build**: `@sigx/lynx` (umbrella), `@sigx/lynx-plugin`, `@sigx/lynx-cli` (SWC/Rspack transforms, `sigx dev` / `sigx run:android` / `sigx run:ios`).
 - **Runtime**: `@sigx/lynx-runtime`, `@sigx/lynx-runtime-main`, `@sigx/lynx-runtime-internal` — the dual-thread renderer.
