@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { createRenderer } from '@sigx/runtime-core/internals';
 import { jsx } from '@sigx/runtime-core';
-import { nodeOps } from '../src/nodeOps';
+import { nodeOps, resetNodeOpsState } from '../src/nodeOps';
 import { resetOpQueue, takeOps } from '../src/op-queue';
 import { publishEvent, resetRegistry } from '../src/event-registry';
 import { resetShadowState } from '../src/shadow-element';
@@ -81,6 +81,7 @@ describe('lynx-runtime nodeOps (shadow-tree + op-queue)', () => {
   beforeEach(() => {
     resetOpQueue();
     resetRegistry();
+    resetNodeOpsState();
     resetShadowState();
     renderer = createRenderer(nodeOps);
   });
@@ -249,9 +250,11 @@ describe('patchProp input value → INVOKE_UI_METHOD (#143)', () => {
   beforeEach(() => {
     resetOpQueue();
     resetRegistry();
-    // NOTE: no resetShadowState() here — recycling element ids would collide
-    // with nodeOps' module-level per-element event-slot map (keyed by id),
-    // which has no test reset; monotonically increasing ids avoid stale slots.
+    // Both resets together: recycling element ids (resetShadowState) is only
+    // safe when nodeOps' module-level per-element maps are cleared too, or
+    // stale event slots from earlier tests would be resolved by id.
+    resetNodeOpsState();
+    resetShadowState();
   });
 
   function invokeOps(records: unknown[][]): unknown[][] {

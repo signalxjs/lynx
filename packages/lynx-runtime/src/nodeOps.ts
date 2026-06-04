@@ -96,6 +96,19 @@ const elementEventSigns = new Map<number, Map<string, string>>();
 // a multi-handler wrapper in the BG registry.
 const nativeEventSlots = new Map<number, Map<string, { sign: string; handlers: Map<string, (data: unknown) => void> }>>();
 
+/**
+ * Test-only: clear the module-level per-element maps above. They are keyed by
+ * element id, so a test suite that recycles ids via `resetShadowState()`
+ * without this reset would resolve stale slots from earlier tests (and skip
+ * pushing SET_EVENT for "already registered" events). Production code never
+ * recycles ids, so this is never called outside tests.
+ */
+export function resetNodeOpsState(): void {
+  sentWorklets.clear();
+  elementEventSigns.clear();
+  nativeEventSlots.clear();
+}
+
 // ---------------------------------------------------------------------------
 // Style normalisation — numeric values → 'Npx' (Lynx requires units)
 // ---------------------------------------------------------------------------
