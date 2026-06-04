@@ -91,7 +91,7 @@ Auto-linked by `sigx prebuild`: install the package with `pnpm add @sigx/lynx-fo
 | Package | Description |
 |---|---|
 | [`@sigx/lynx-daisyui`](./packages/lynx-daisyui) | DaisyUI-flavored component library, stylesheet, and Tailwind preset for Lynx. Also ships `markdownComponents`, a themed mapping for `@sigx/lynx-markdown`. |
-| [`@sigx/lynx-markdown`](./packages/lynx-markdown) | SignalX-native, streaming-aware markdown renderer — `<MarkdownView>` parses markdown in JS (zero deps) and renders to native `<view>`/`<text>` with a render-function override API, plus `createMarkdownStream()` for flicker-free AI output. Includes `XMarkdown`, the native `<x-markdown>` wrapper. |
+| [`@sigx/lynx-markdown`](./packages/lynx-markdown) | SignalX-native, streaming-aware markdown renderer — `<MarkdownView>` parses markdown in JS (zero deps) and renders to native `<view>`/`<text>` with a render-function override API, plus `createMarkdownStream()` for flicker-free AI output. |
 | [`@sigx/lynx-icons`](./packages/lynx-icons) | `<Icon set name />` component + registry. Pairs with adapter packages (`@sigx/lynx-icons-fa-free`, `@sigx/lynx-icons-lucide`); used icons are auto-detected from JSX at build time and subset/tree-shaken. |
 | [`@sigx/lynx-icons-fa-free`](./packages/lynx-icons-fa-free) | Font Awesome Free adapter for `@sigx/lynx-icons` (solid/regular/brands). Reads glyph data from the user's installed `@fortawesome/free-*-svg-icons` packages. |
 | [`@sigx/lynx-icons-lucide`](./packages/lynx-icons-lucide) | Lucide adapter for `@sigx/lynx-icons`. SVG-mode only (lucide has no font distribution). |

@@ -4,6 +4,13 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 ## [Unreleased]
 
+### Removed (breaking)
+
+- `@sigx/lynx-markdown` — removed `XMarkdown` (the thin wrapper around Lynx's
+  platform-gated native `<x-markdown>` XElement) and its `x-markdown` JSX
+  intrinsic/event types. `MarkdownView` is the package's only renderer; it is
+  cross-platform and fully replaces the native element use case.
+
 ## [0.4.7] - 2026-06-04
 
 ### Added

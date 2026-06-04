@@ -2,9 +2,8 @@
  * `<MarkdownView>` — a SignalX-native, streaming-aware markdown renderer.
  *
  * Parses markdown in JS (zero dependencies) and renders to Lynx primitives, so
- * it works identically on every platform — unlike {@link XMarkdown}, which wraps
- * the platform-gated native `<x-markdown>` element. For an editable counterpart,
- * see `MarkdownEditor`.
+ * it works identically on every platform. For an editable counterpart, see
+ * `MarkdownEditor`.
  *
  * Rendering is **generic**: the package ships neutral, theme-agnostic defaults
  * and exposes a `components` map so any design system can fully control the look
