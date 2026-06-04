@@ -39,31 +39,38 @@ import type { KeyboardStickyViewProps } from './types.js';
  * ```
  */
 export const KeyboardStickyView = component<KeyboardStickyViewProps>(({ props, slots }) => {
-  const animated = props.animated ?? true;
   const discountBottomInset = props.discountBottomInset ?? true;
   const offset = props.offset ?? 0;
 
-  if (animated) {
-    const barRef = useMainThreadRef<MainThread.Element | null>(null);
-    const lift = useKeyboardLiftSV(discountBottomInset, offset);
-    // factor -1: the SV stays a positive height; the mapper negates it so
-    // the bar moves UP.
-    useAnimatedStyle(barRef, lift, 'translateY', { factor: -1 });
-    return () => (
-      <view main-thread:ref={barRef} class={props.class} style={props.style}>
+  // Hooks register unconditionally (same rule as NavDrawer's backdrop
+  // binding): a runtime `animated` toggle must keep working in both
+  // directions, and a binding created inside `if (animated)` would be
+  // missing after a false→true flip. The reactive accessor form binds /
+  // unbinds the MT transform as the prop changes.
+  const barRef = useMainThreadRef<MainThread.Element | null>(null);
+  const liftSV = useKeyboardLiftSV(discountBottomInset, offset);
+  const liftBG = useKeyboardLift(discountBottomInset, offset);
+  useAnimatedStyle(barRef, () =>
+    (props.animated ?? true)
+      // factor -1: the SV stays a positive height; the mapper negates it so
+      // the bar moves UP.
+      ? { sv: liftSV, mapperName: 'translateY', params: { factor: -1 } }
+      : null);
+
+  return () => {
+    const animated = props.animated ?? true;
+    return (
+      <view
+        main-thread:ref={barRef}
+        class={props.class}
+        // Debug / fallback path (`animated={false}`): discrete BG re-render,
+        // no tween — the MT binding above is unregistered then.
+        style={animated
+          ? props.style
+          : { ...props.style, transform: `translateY(-${liftBG.value}px)` }}
+      >
         {slots.default?.()}
       </view>
     );
-  }
-
-  // Debug / fallback path: discrete BG re-render, no tween.
-  const lift = useKeyboardLift(discountBottomInset, offset);
-  return () => (
-    <view
-      class={props.class}
-      style={{ ...props.style, transform: `translateY(-${lift.value}px)` }}
-    >
-      {slots.default?.()}
-    </view>
-  );
+  };
 });
