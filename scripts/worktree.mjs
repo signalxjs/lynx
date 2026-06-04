@@ -66,7 +66,14 @@ function mainCheckout() {
 
 /** Worktrees live in <repo>/branches/, next to the primary checkout at <repo>/main. */
 function branchesDir() {
-    return path.join(path.dirname(mainCheckout()), 'branches');
+    const main = mainCheckout();
+    // Fail fast on non-standard layouts: deriving branches/ from a plain clone's
+    // parent would create/delete directories outside the repo folder.
+    if (path.basename(main).toLowerCase() !== 'main') {
+        die(`Standard layout required: the primary checkout must live at <repo>${path.sep}main ` +
+            `(found '${main}'). Re-clone it as <repo>${path.sep}main to use 'pnpm wt'.`);
+    }
+    return path.join(path.dirname(main), 'branches');
 }
 
 /** Platform-correct path equality (case-insensitive on Windows). */
