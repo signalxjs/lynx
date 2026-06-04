@@ -11,7 +11,8 @@ Below are only the Claude-Code-specific bits.
 - **Branch first — never work on `main`.** Before touching any file:
   `pnpm wt new <N-short-slug>`, then continue from
   `<repo>/branches/<N-short-slug>`. Verify with `git branch --show-current`
-  before every commit; if it prints `main`, stop — move the changes
+  before every commit; if it prints `main` or nothing (detached HEAD), stop —
+  move the changes
   (`git stash -u` → `pnpm wt new <N-short-slug>` →
   `cd <repo>/branches/<N-short-slug>` → `git stash pop`) instead of
   committing. See the warning at the top of `AGENTS.md`.

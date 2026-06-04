@@ -5,7 +5,8 @@
 > `<repo>/branches/<N-short-slug>`. This applies to every change, however small —
 > editing or committing in the primary checkout (`<repo>/main`) causes conflicts
 > for parallel sessions. Check yourself before every commit:
-> `git branch --show-current` must NOT print `main`.
+> `git branch --show-current` must print your worktree's branch name — if it
+> prints `main` or nothing (detached HEAD), stop.
 > Already edited files in `main` by mistake? Move the work, don't commit it:
 > `git stash -u` → `pnpm wt new <N-short-slug>` →
 > `cd <repo>/branches/<N-short-slug>` → `git stash pop`.
