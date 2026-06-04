@@ -32,7 +32,9 @@ export class ShadowElement {
   // native input event by nodeOps. Used to tell a model echo (signal update
   // caused by typing) apart from a programmatic write (clear-on-send, toolbar
   // insert) — only the latter must be pushed back to the native field via the
-  // setValue UI method. `undefined` until the first input event.
+  // setValue UI method. Nullish values are normalized to '' (matching what
+  // setValue pushes); `undefined` until the first input event or
+  // programmatic write.
   _lastInputValue: unknown = undefined;
 
   constructor(type: string, forceId?: number) {

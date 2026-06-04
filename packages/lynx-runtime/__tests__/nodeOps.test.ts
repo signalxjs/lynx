@@ -334,6 +334,29 @@ describe('patchProp input value → INVOKE_UI_METHOD (#143)', () => {
     expect(invokes[0]![3]).toEqual({ value: 'hi **bold** ' });
   });
 
+  it('normalizes nullish writes to "" — no redundant re-invoke after a clear', () => {
+    const el = nodeOps.createElement('input');
+    nodeOps.patchProp(el, 'value', null, 'seed');
+    drainOps();
+
+    nodeOps.patchProp(el, 'value', 'seed', ''); // programmatic clear → invoke('')
+    nodeOps.patchProp(el, 'value', '', null); // nullish — same as the '' already pushed
+    const invokes = invokeOps(parseOps(drainOps()));
+    expect(invokes).toHaveLength(1);
+    expect(invokes[0]![3]).toEqual({ value: '' });
+  });
+
+  it('treats an input event without a detail value as the empty string', () => {
+    const el = nodeOps.createElement('input');
+    nodeOps.patchProp(el, 'value', null, 'x');
+    nodeOps.patchProp(el, 'bindinput', null, () => undefined);
+    const sign = parseOps(drainOps()).find(r => r[0] === OP.SET_EVENT)![4] as string;
+
+    publishEvent(sign, { detail: {} }); // host cleared the field; no value key
+    nodeOps.patchProp(el, 'value', 'x', ''); // echo of the now-empty field
+    expect(invokeOps(parseOps(drainOps()))).toHaveLength(0);
+  });
+
   it('value on a non-form element stays a plain SET_PROP', () => {
     const el = nodeOps.createElement('view');
     nodeOps.patchProp(el, 'value', null, 'a');

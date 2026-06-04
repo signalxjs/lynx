@@ -257,7 +257,12 @@ export function applyOps(ops: unknown[]): void {
       case OP.INVOKE_UI_METHOD: {
         const id = ops[i++] as number;
         const method = ops[i++] as string;
-        const params = ops[i++] as Record<string, unknown>;
+        const rawParams = ops[i++];
+        // The ops array is decoded wire data — coerce non-object payloads to
+        // {} rather than letting the host widget crash on null/garbage.
+        const params = rawParams !== null && typeof rawParams === 'object'
+          ? rawParams as Record<string, unknown>
+          : {};
         const el = elements.get(id);
         // Fire-and-forget: used for imperative element state that attributes
         // can't reach (e.g. <input> setValue after the user has edited the
@@ -266,7 +271,7 @@ export function applyOps(ops: unknown[]): void {
         // attached) are intentionally swallowed — there is no BG-side caller
         // awaiting a result.
         if (el && typeof __InvokeUIMethod === 'function') {
-          __InvokeUIMethod(el, method, params ?? {}, () => { /* fire-and-forget */ });
+          __InvokeUIMethod(el, method, params, () => { /* fire-and-forget */ });
         }
         break;
       }

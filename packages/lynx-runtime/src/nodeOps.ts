@@ -314,7 +314,10 @@ export const nodeOps: RendererOptions<ShadowElement, ShadowElement> = {
           // First handler for this native event — register with Lynx.
           const sign = register((data: unknown) => {
             if (trackInputValue) {
-              el._lastInputValue = (data as { detail?: { value?: unknown } })?.detail?.value;
+              const v = (data as { detail?: { value?: unknown } })?.detail?.value;
+              // Normalize nullish to '' — the `value` patch branch compares
+              // and stores the same normalized representation.
+              el._lastInputValue = v == null ? '' : v;
             }
             // Dispatch to all handlers registered for this slot.
             const s = elSlots!.get(nativeKey);
@@ -385,13 +388,16 @@ export const nodeOps: RendererOptions<ShadowElement, ShadowElement> = {
       // user's own typing, where the new value is exactly what the input
       // event just reported) so cursor/IME composition isn't disturbed
       // while typing.
-      if (_prevValue != null && nextValue !== el._lastInputValue) {
-        pushOp(OP.INVOKE_UI_METHOD, el.id, 'setValue', {
-          value: nextValue == null ? '' : nextValue,
-        });
+      // Normalize nullish to '' on BOTH sides of the comparison — setValue
+      // pushes '' for nullish writes, so tracking the raw value would desync
+      // `_lastInputValue` from the native field and re-invoke redundantly on
+      // later renders.
+      const next = nextValue == null ? '' : nextValue;
+      if (_prevValue != null && next !== el._lastInputValue) {
+        pushOp(OP.INVOKE_UI_METHOD, el.id, 'setValue', { value: next });
         // The programmatic write replaces whatever the user had typed; track
         // it so the next echo comparison stays correct.
-        el._lastInputValue = nextValue;
+        el._lastInputValue = next;
       }
     } else {
       pushOp(OP.SET_PROP, el.id, key, nextValue);
