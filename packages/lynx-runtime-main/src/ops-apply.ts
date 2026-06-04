@@ -258,9 +258,12 @@ export function applyOps(ops: unknown[]): void {
         const id = ops[i++] as number;
         const method = ops[i++] as string;
         const rawParams = ops[i++];
-        // The ops array is decoded wire data — coerce non-object payloads to
-        // {} rather than letting the host widget crash on null/garbage.
-        const params = rawParams !== null && typeof rawParams === 'object'
+        // The ops array is decoded wire data — coerce anything that isn't a
+        // plain key/value object (null, primitives, arrays) to {} rather
+        // than letting the host widget crash on it.
+        const params = rawParams !== null
+            && typeof rawParams === 'object'
+            && !Array.isArray(rawParams)
           ? rawParams as Record<string, unknown>
           : {};
         const el = elements.get(id);

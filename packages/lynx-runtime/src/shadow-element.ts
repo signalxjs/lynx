@@ -37,7 +37,7 @@ export class ShadowElement {
   // what setValue pushes); `undefined` until the first input event or
   // setValue-pushing write (the first-render `value` attribute does NOT
   // initialize it).
-  _lastInputValue: unknown = undefined;
+  _lastInputValue: string | undefined = undefined;
 
   constructor(type: string, forceId?: number) {
     this.id = forceId !== undefined ? forceId : ShadowElement.nextId++;
