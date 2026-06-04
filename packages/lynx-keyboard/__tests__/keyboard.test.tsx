@@ -21,7 +21,10 @@ function installMockLynx(initial: Record<string, number>): void {
   (globalThis as { lynx?: unknown }).lynx = {
     __globalProps: { [GLOBAL_PROPS_KEY]: initial },
     getJSModule: () => undefined,
-    getElementById: () => null,
+    // Return a setProperty stub (not null): SafeAreaProvider treats a null
+    // host as "not yet queryable" and schedules ~30 setTimeout retries per
+    // render to push its CSS variables — needless timer churn in tests.
+    getElementById: () => ({ setProperty: () => undefined }),
   };
 }
 

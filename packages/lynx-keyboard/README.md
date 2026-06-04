@@ -17,6 +17,7 @@ Requires `<SafeAreaProvider>` (from `@sigx/lynx-safe-area`) at the app root — 
 The proven chat-screen shape: the content area shrinks (`KeyboardAvoidingView`), the composer bar rides the keyboard (`KeyboardStickyView`). The bar's translate and the area's padding are both `max(0, keyboard - bottomInset)`, so the list bottom always ends exactly where the bar lands.
 
 ```tsx
+import { component } from '@sigx/lynx';
 import { KeyboardAvoidingView, KeyboardStickyView } from '@sigx/lynx-keyboard';
 
 const ChatScreen = component(() => () => (

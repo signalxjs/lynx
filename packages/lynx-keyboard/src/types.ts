@@ -6,7 +6,10 @@ import type { Define } from '@sigx/lynx';
  *   the flex column so ALL content stays above the keyboard.
  * - `'translate'` — shift the whole container up by the overlap (content at the
  *   top moves off-screen; layout does not reflow).
- * - `'height'`   — append a spacer view of the overlap height (RN parity).
+ * - `'height'`   — append a trailing spacer view of the overlap height, so
+ *   the content above is squeezed without touching the container's padding.
+ *   (Closest analogue of RN's height-resizing behavior; the implementation
+ *   differs — RN shrinks the container's own height, this inserts a spacer.)
  */
 export type KeyboardAvoidingBehavior = 'padding' | 'translate' | 'height';
 
