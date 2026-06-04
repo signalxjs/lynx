@@ -7,7 +7,8 @@
 > for parallel sessions. Check yourself before every commit:
 > `git branch --show-current` must NOT print `main`.
 > Already edited files in `main` by mistake? Move the work, don't commit it:
-> `git stash -u` → `pnpm wt new <name>` → `cd ../branches/<name>` → `git stash pop`.
+> `git stash -u` → `pnpm wt new <N-short-slug>` →
+> `cd <repo>/branches/<N-short-slug>` → `git stash pop`.
 
 Canonical guidance for **any** AI agent working in this repo (Claude Code, GitHub
 Copilot CLI, work agents, …). Tool-specific notes live in `CLAUDE.md`; it defers
