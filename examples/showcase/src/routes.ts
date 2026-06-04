@@ -13,6 +13,7 @@ import { AuthDemo } from './screens/AuthDemo.js';
 import { ThemeLab } from './screens/ThemeLab.js';
 import { TypographyLab } from './screens/TypographyLab.js';
 import { MarkdownLab } from './screens/MarkdownLab.js';
+import { KeyboardLab } from './screens/KeyboardLab.js';
 
 export const routes = defineRoutes({
     root: { component: RootTabs },
@@ -27,6 +28,9 @@ export const routes = defineRoutes({
     themeLab: { component: ThemeLab },
     typographyLab: { component: TypographyLab },
     markdownLab: { component: MarkdownLab, path: '/markdown-lab' },
+    // Modal so the composer demo isn't sitting on top of the tab bar — a bar
+    // with extra chrome below it needs `offset` compensation (see KeyboardLab).
+    keyboardLab: { component: KeyboardLab, path: '/keyboard-lab', presentation: 'modal' },
     tripDetail: {
         component: TripDetail,
         params: z.object({ tripId: z.string() }),

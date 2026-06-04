@@ -83,6 +83,9 @@ importers:
       '@sigx/lynx-image-picker':
         specifier: workspace:^
         version: link:../../packages/lynx-image-picker
+      '@sigx/lynx-keyboard':
+        specifier: workspace:^
+        version: link:../../packages/lynx-keyboard
       '@sigx/lynx-linking':
         specifier: workspace:^
         version: link:../../packages/lynx-linking
@@ -525,6 +528,34 @@ importers:
         specifier: workspace:^
         version: link:../lynx-core
     devDependencies:
+      '@typescript/native-preview':
+        specifier: 7.0.0-dev.20260521.1
+        version: 7.0.0-dev.20260521.1
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+
+  packages/lynx-keyboard:
+    dependencies:
+      '@sigx/lynx':
+        specifier: workspace:^
+        version: link:../lynx
+      '@sigx/lynx-motion':
+        specifier: workspace:^
+        version: link:../lynx-motion
+      '@sigx/lynx-safe-area':
+        specifier: workspace:^
+        version: link:../lynx-safe-area
+    devDependencies:
+      '@sigx/lynx-plugin':
+        specifier: workspace:^
+        version: link:../lynx-plugin
+      '@sigx/lynx-runtime-main':
+        specifier: workspace:^
+        version: link:../lynx-runtime-main
+      '@sigx/lynx-testing':
+        specifier: workspace:^
+        version: link:../lynx-testing
       '@typescript/native-preview':
         specifier: 7.0.0-dev.20260521.1
         version: 7.0.0-dev.20260521.1
