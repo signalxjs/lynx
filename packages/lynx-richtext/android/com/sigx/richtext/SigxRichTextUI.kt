@@ -132,7 +132,7 @@ class SigxRichTextUI(context: LynxContext) : LynxUI<RichEditText>(context) {
     }
 
     @LynxProp(name = "font-size")
-    fun setFontSize(value: Float) {
+    fun setEditorFontSize(value: Float) {
         if (value <= 0f) return
         theme.fontSizePx = value
         mView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, value)
