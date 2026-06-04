@@ -116,3 +116,38 @@ import { markdownComponents } from '@sigx/lynx-daisyui';
 <MarkdownView value={src} components={markdownComponents} />;
 ```
 
+
+## `MarkdownEditor` — true-WYSIWYG editing
+
+`MarkdownEditor` provides WYSIWYG markdown editing on the native
+[`@sigx/lynx-richtext`](../lynx-richtext) element (optional peer dependency —
+bold is bold *inside* the input, not `**` markers). The external contract stays
+markdown: `value` in, `onChange(markdown)` out.
+
+```tsx
+import { MarkdownEditor, type MarkdownEditorController } from '@sigx/lynx-markdown';
+
+let ctrl: MarkdownEditorController | null = null;
+
+<MarkdownEditor
+  value={draft}
+  placeholder="Message…"
+  minLines={1}
+  maxLines={4}              // chat-style: grow 1→4 lines, then scroll
+  mode="auto"               // 'auto' | 'fixed' | 'fullscreen'
+  confirmType="send"
+  onChange={(md) => { draft = md; }}
+  onSelectionChange={(sel) => toolbarState(sel.activeFormats)}
+  controllerRef={(c) => { ctrl = c; }}
+/>;
+
+// Imperative commands (what a toolbar drives):
+ctrl?.toggleBold();
+ctrl?.setHeading(2);
+ctrl?.clear();              // chat send
+```
+
+v1 models paragraphs, headings, and bold/italic/strike/code/link in-field;
+everything else (lists, tables, code fences) round-trips **losslessly** as raw
+markdown source via `raw` blocks until later phases model them. Conversion
+helpers `mdToDoc`/`docToMd` are exported for advanced use.

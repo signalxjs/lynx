@@ -113,6 +113,9 @@ importers:
       '@sigx/lynx-permissions':
         specifier: workspace:^
         version: link:../../packages/lynx-permissions
+      '@sigx/lynx-richtext':
+        specifier: workspace:^
+        version: link:../../packages/lynx-richtext
       '@sigx/lynx-runtime':
         specifier: workspace:^
         version: link:../../packages/lynx-runtime
@@ -618,6 +621,9 @@ importers:
       '@sigx/lynx':
         specifier: workspace:^
         version: link:../lynx
+      '@sigx/lynx-richtext':
+        specifier: workspace:^
+        version: link:../lynx-richtext
       '@sigx/lynx-testing':
         specifier: workspace:^
         version: link:../lynx-testing

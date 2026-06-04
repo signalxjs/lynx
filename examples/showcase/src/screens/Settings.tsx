@@ -484,6 +484,30 @@ export const Settings = component(() => {
                 <Card bordered>
                     <Card.Body>
                         <Col gap={8}>
+                            <Text weight="semibold">Markdown editor lab</Text>
+                            <Text class="opacity-60 text-sm">
+                                True-WYSIWYG markdown editing on the native
+                                sigx-richtext element: chat-style auto-grow,
+                                formatting commands with live active states,
+                                and a markdown round-trip preview.
+                            </Text>
+                            <Button
+                                variant="primary"
+                                outline
+                                onPress={() => {
+                                    Haptics.selection();
+                                    nav.push('markdownEditorLab');
+                                }}
+                            >
+                                Open markdown editor lab
+                            </Button>
+                        </Col>
+                    </Card.Body>
+                </Card>
+
+                <Card bordered>
+                    <Card.Body>
+                        <Col gap={8}>
                             <Text weight="semibold">Keyboard lab</Text>
                             <Text class="opacity-60 text-sm">
                                 KeyboardStickyView + KeyboardAvoidingView: a chat

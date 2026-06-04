@@ -4,6 +4,23 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 ## [Unreleased]
 
+### Added
+
+- `@sigx/lynx-richtext` — new package: a native rich-text input element
+  (`<sigx-richtext>`, UITextView / EditText) with attributed editing over a
+  flat span-based `RichDoc` bridge model, selection events with active formats
+  + caret rect, auto-height reporting, IME-safe versioned `setDocument`, and
+  fire-and-forget formatting commands (`RichTextMethods`). v1 covers
+  bold/italic/strike/code/link + headings.
+- `@sigx/lynx-markdown` — `MarkdownEditor`: true-WYSIWYG markdown editing on
+  `<sigx-richtext>` (optional peer). External contract is markdown
+  (`value`/`onChange`); converters map markdown ↔ the rich span model with an
+  extent-aware serializer and a lossless `raw`-block escape hatch for
+  not-yet-modeled syntax (lists, tables, code fences). Chat-style sizing
+  (`minLines`/`maxLines` auto-grow, `fixed`, `fullscreen`) and an imperative
+  controller (`toggleBold`, `setHeading`, `clear`, …). The showcase gains a
+  **Markdown editor lab**.
+
 ### Removed (breaking)
 
 - `@sigx/lynx-markdown` — removed `XMarkdown` (the thin wrapper around Lynx's

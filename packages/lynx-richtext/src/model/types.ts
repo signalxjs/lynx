@@ -34,7 +34,12 @@ export interface InlineSpan {
     attrs?: Record<string, string>;
 }
 
-/** Paragraph-level block types. MVP renders `paragraph` + `heading`; the rest are reserved (P2/P3). */
+/**
+ * Paragraph-level block types. MVP renders `paragraph` + `heading`; the rest
+ * are reserved (P2/P3). `raw` is a consumer escape hatch (e.g. lynx-markdown
+ * keeps unmodeled markdown source verbatim in a raw block) — native renders it
+ * as a plain paragraph and round-trips the attr untouched.
+ */
 export type BlockAttrType =
     | 'paragraph'
     | 'heading'
@@ -42,7 +47,8 @@ export type BlockAttrType =
     | 'ordered'
     | 'task'
     | 'blockquote'
-    | 'codeBlock';
+    | 'codeBlock'
+    | 'raw';
 
 export interface BlockAttr {
     /** Inclusive start of the paragraph's char range (line boundary). */
