@@ -254,6 +254,35 @@ export function applyOps(ops: unknown[]): void {
         break;
       }
 
+      case OP.INVOKE_UI_METHOD: {
+        const id = ops[i++] as number;
+        const method = ops[i++] as string;
+        const rawParams = ops[i++];
+        // The ops array is decoded wire data — coerce anything that isn't a
+        // plain key/value object (null, primitives, arrays) to {} rather
+        // than letting the host widget crash on it.
+        const params = rawParams !== null
+            && typeof rawParams === 'object'
+            && !Array.isArray(rawParams)
+          ? rawParams as Record<string, unknown>
+          : {};
+        const el = elements.get(id);
+        // Fire-and-forget: used for imperative element state that attributes
+        // can't reach (e.g. <input> setValue after the user has edited the
+        // field — the value attribute is initial-only there, see #143).
+        // Failures (method unknown to the host widget, element not yet
+        // attached) are intentionally swallowed — there is no BG-side caller
+        // awaiting a result. The try/catch covers hosts that throw
+        // synchronously instead of reporting via the callback, so one bad
+        // invoke can't abort the rest of the ops batch.
+        if (el && typeof __InvokeUIMethod === 'function') {
+          try {
+            __InvokeUIMethod(el, method, params, () => { /* fire-and-forget */ });
+          } catch { /* swallow — see above */ }
+        }
+        break;
+      }
+
       case OP.SET_EVENT: {
         const id = ops[i++] as number;
         const eventType = ops[i++] as string;

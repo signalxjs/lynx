@@ -28,6 +28,17 @@ export class ShadowElement {
   _baseClass = '';
   _transitionClasses: Set<string> = new Set();
 
+  // Last text known to be in the native <input>/<textarea>: recorded from the
+  // native input event by nodeOps, and updated by post-mount programmatic
+  // writes that go through the setValue UI method. Used to tell a model echo
+  // (signal update caused by typing) apart from a programmatic write
+  // (clear-on-send, toolbar insert) — only the latter must be pushed back to
+  // the native field. Always stored as a string ('' for nullish, matching
+  // what setValue pushes); `undefined` until the first input event or
+  // setValue-pushing write (the first-render `value` attribute does NOT
+  // initialize it).
+  _lastInputValue: string | undefined = undefined;
+
   constructor(type: string, forceId?: number) {
     this.id = forceId !== undefined ? forceId : ShadowElement.nextId++;
     this.type = type;

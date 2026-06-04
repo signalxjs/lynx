@@ -23,6 +23,7 @@
  *   UNREGISTER_AV_STYLE_BINDING: [18, bindingId]
  *   SET_GESTURE_DETECTOR:    [19, elementId, gestureId, type, config, relationMap]
  *   REMOVE_GESTURE_DETECTOR: [20, elementId, gestureId]
+ *   INVOKE_UI_METHOD:        [21, id, methodName, params]   fire-and-forget native UI method
  */
 export const OP = {
   CREATE: 0,
@@ -46,6 +47,7 @@ export const OP = {
   UNREGISTER_AV_STYLE_BINDING: 18,
   SET_GESTURE_DETECTOR: 19,
   REMOVE_GESTURE_DETECTOR: 20,
+  INVOKE_UI_METHOD: 21,
 } as const;
 
 export type OpCode = (typeof OP)[keyof typeof OP];

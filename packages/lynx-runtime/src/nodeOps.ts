@@ -96,6 +96,19 @@ const elementEventSigns = new Map<number, Map<string, string>>();
 // a multi-handler wrapper in the BG registry.
 const nativeEventSlots = new Map<number, Map<string, { sign: string; handlers: Map<string, (data: unknown) => void> }>>();
 
+/**
+ * Test-only: clear the module-level per-element maps above. They are keyed by
+ * element id, so a test suite that recycles ids via `resetShadowState()`
+ * without this reset would resolve stale slots from earlier tests (and skip
+ * pushing SET_EVENT for "already registered" events). Production code never
+ * recycles ids, so this is never called outside tests.
+ */
+export function resetNodeOpsState(): void {
+  sentWorklets.clear();
+  elementEventSigns.clear();
+  nativeEventSlots.clear();
+}
+
 // ---------------------------------------------------------------------------
 // Style normalisation — numeric values → 'Npx' (Lynx requires units)
 // ---------------------------------------------------------------------------
@@ -307,8 +320,19 @@ export const nodeOps: RendererOptions<ShadowElement, ShadowElement> = {
 
         let slot = elSlots.get(nativeKey);
         if (!slot) {
+          // Record what the user typed so the `value` patch branch below can
+          // tell a model echo apart from a programmatic write (#143).
+          const trackInputValue = event.name === 'input'
+            && (el.type === 'input' || el.type === 'textarea');
           // First handler for this native event — register with Lynx.
           const sign = register((data: unknown) => {
+            if (trackInputValue) {
+              const v = (data as { detail?: { value?: unknown } })?.detail?.value;
+              // Normalize to a string ('' for nullish) — the `value` patch
+              // branch compares and stores the same representation, and
+              // setValue only ever pushes strings.
+              el._lastInputValue = v == null ? '' : String(v);
+            }
             // Dispatch to all handlers registered for this slot.
             const s = elSlots!.get(nativeKey);
             if (s) {
@@ -367,6 +391,32 @@ export const nodeOps: RendererOptions<ShadowElement, ShadowElement> = {
       pushOp(OP.SET_CLASS, el.id, finalClass);
     } else if (key === 'id') {
       pushOp(OP.SET_ID, el.id, nextValue);
+    } else if (key === 'value' && (el.type === 'input' || el.type === 'textarea')) {
+      pushOp(OP.SET_PROP, el.id, key, nextValue);
+      // The native field treats the `value` attribute as initial-only once
+      // the user has edited it — programmatic writes (clear-on-send, editor
+      // toolbar inserts) must additionally go through the element's
+      // `setValue` UI method or the visible text never changes (#143).
+      // Skip during initial mount (`el.parent == null`: props are patched
+      // before insertion, and the attribute covers the initial value) — NOT
+      // by `_prevValue == null`, which would also skip legitimate post-mount
+      // transitions like value={null} → value={'text'}. Also skip the model
+      // echo (the re-render caused by the user's own typing, where the new
+      // value is exactly what the input event just reported) so cursor/IME
+      // composition isn't disturbed while typing.
+      // Normalize to a string ('' for nullish) on BOTH sides of the
+      // comparison — `value` is typed string on input/textarea but user code
+      // can write a number/boolean by mistake, and setValue is a native
+      // text-field method that expects a string. Any other representation
+      // would desync `_lastInputValue` from the native field and re-invoke
+      // redundantly on later renders.
+      const next = nextValue == null ? '' : String(nextValue);
+      if (el.parent != null && next !== el._lastInputValue) {
+        pushOp(OP.INVOKE_UI_METHOD, el.id, 'setValue', { value: next });
+        // The programmatic write replaces whatever the user had typed; track
+        // it so the next echo comparison stays correct.
+        el._lastInputValue = next;
+      }
     } else {
       pushOp(OP.SET_PROP, el.id, key, nextValue);
     }
