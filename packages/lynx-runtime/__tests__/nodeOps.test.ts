@@ -3,7 +3,7 @@ import { createRenderer } from '@sigx/runtime-core/internals';
 import { jsx } from '@sigx/runtime-core';
 import { nodeOps } from '../src/nodeOps';
 import { resetOpQueue, takeOps } from '../src/op-queue';
-import { resetRegistry } from '../src/event-registry';
+import { publishEvent, resetRegistry } from '../src/event-registry';
 import { resetShadowState } from '../src/shadow-element';
 import { OP } from '@sigx/lynx-runtime-internal';
 
@@ -58,6 +58,9 @@ function parseOps(flat: unknown[]): unknown[][] {
         break;
       case OP.SET_ID:
         records.push([code, flat[i++], flat[i++]]);
+        break;
+      case OP.INVOKE_UI_METHOD:
+        records.push([code, flat[i++], flat[i++], flat[i++]]);
         break;
       default:
         // Unknown — just push the code
@@ -229,5 +232,116 @@ describe('lynx-runtime nodeOps (shadow-tree + op-queue)', () => {
     const classOp = records.find(r => r[0] === OP.SET_CLASS);
     expect(classOp).toBeDefined();
     expect(classOp![2]).toBe('foo bar');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Programmatic <input>/<textarea> value updates → setValue UI method (#143)
+//
+// The native field treats the `value` attribute as initial-only once the user
+// has edited it, so programmatic model writes (clear-on-send, toolbar
+// inserts) must additionally emit INVOKE_UI_METHOD('setValue'). The model
+// echo — the re-render caused by the user's own typing — must NOT re-invoke,
+// or cursor/IME composition gets disturbed on every keystroke.
+// ---------------------------------------------------------------------------
+
+describe('patchProp input value → INVOKE_UI_METHOD (#143)', () => {
+  beforeEach(() => {
+    resetOpQueue();
+    resetRegistry();
+    // NOTE: no resetShadowState() here — recycling element ids would collide
+    // with nodeOps' module-level per-element event-slot map (keyed by id),
+    // which has no test reset; monotonically increasing ids avoid stale slots.
+  });
+
+  function invokeOps(records: unknown[][]): unknown[][] {
+    return records.filter(r => r[0] === OP.INVOKE_UI_METHOD);
+  }
+
+  it('initial value emits SET_PROP only (attribute covers first render)', () => {
+    const el = nodeOps.createElement('input');
+    drainOps();
+
+    nodeOps.patchProp(el, 'value', null, 'seed');
+    const records = parseOps(drainOps());
+
+    expect(records.find(r => r[0] === OP.SET_PROP && r[2] === 'value' && r[3] === 'seed')).toBeDefined();
+    expect(invokeOps(records)).toHaveLength(0);
+  });
+
+  it('programmatic update emits SET_PROP + INVOKE_UI_METHOD setValue', () => {
+    const el = nodeOps.createElement('input');
+    nodeOps.patchProp(el, 'value', null, 'a');
+    drainOps();
+
+    nodeOps.patchProp(el, 'value', 'a', 'b');
+    const records = parseOps(drainOps());
+
+    expect(records.find(r => r[0] === OP.SET_PROP && r[2] === 'value' && r[3] === 'b')).toBeDefined();
+    const invokes = invokeOps(records);
+    expect(invokes).toHaveLength(1);
+    expect(invokes[0]![1]).toBe(el.id);
+    expect(invokes[0]![2]).toBe('setValue');
+    expect(invokes[0]![3]).toEqual({ value: 'b' });
+  });
+
+  it('does NOT re-invoke on the model echo of the user typing', () => {
+    const el = nodeOps.createElement('input');
+    nodeOps.patchProp(el, 'value', null, '');
+    nodeOps.patchProp(el, 'bindinput', null, () => undefined);
+    const setup = parseOps(drainOps());
+    const sign = setup.find(r => r[0] === OP.SET_EVENT)![4] as string;
+
+    // The user types — Lynx fires the input event, model writes the signal,
+    // sigx re-renders with the value the event just reported.
+    publishEvent(sign, { detail: { value: 'typed' } });
+    nodeOps.patchProp(el, 'value', '', 'typed');
+    const records = parseOps(drainOps());
+
+    expect(records.find(r => r[0] === OP.SET_PROP && r[3] === 'typed')).toBeDefined();
+    expect(invokeOps(records)).toHaveLength(0);
+  });
+
+  it('clear-on-send after typing invokes setValue with the empty string', () => {
+    const el = nodeOps.createElement('input');
+    nodeOps.patchProp(el, 'value', null, '');
+    nodeOps.patchProp(el, 'bindinput', null, () => undefined);
+    const sign = parseOps(drainOps()).find(r => r[0] === OP.SET_EVENT)![4] as string;
+
+    publishEvent(sign, { detail: { value: 'hello' } });
+    nodeOps.patchProp(el, 'value', '', 'hello'); // echo — no invoke
+    drainOps();
+
+    nodeOps.patchProp(el, 'value', 'hello', ''); // programmatic clear
+    const invokes = invokeOps(parseOps(drainOps()));
+    expect(invokes).toHaveLength(1);
+    expect(invokes[0]![3]).toEqual({ value: '' });
+  });
+
+  it('toolbar insert after typing invokes setValue with the combined text', () => {
+    const el = nodeOps.createElement('textarea');
+    nodeOps.patchProp(el, 'value', null, '');
+    nodeOps.patchProp(el, 'bindinput', null, () => undefined);
+    const sign = parseOps(drainOps()).find(r => r[0] === OP.SET_EVENT)![4] as string;
+
+    publishEvent(sign, { detail: { value: 'hi ' } });
+    nodeOps.patchProp(el, 'value', '', 'hi '); // echo
+    drainOps();
+
+    nodeOps.patchProp(el, 'value', 'hi ', 'hi **bold** ');
+    const invokes = invokeOps(parseOps(drainOps()));
+    expect(invokes).toHaveLength(1);
+    expect(invokes[0]![3]).toEqual({ value: 'hi **bold** ' });
+  });
+
+  it('value on a non-form element stays a plain SET_PROP', () => {
+    const el = nodeOps.createElement('view');
+    nodeOps.patchProp(el, 'value', null, 'a');
+    drainOps();
+
+    nodeOps.patchProp(el, 'value', 'a', 'b');
+    const records = parseOps(drainOps());
+    expect(records.find(r => r[0] === OP.SET_PROP && r[3] === 'b')).toBeDefined();
+    expect(invokeOps(records)).toHaveLength(0);
   });
 });

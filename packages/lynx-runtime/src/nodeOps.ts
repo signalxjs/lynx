@@ -307,8 +307,15 @@ export const nodeOps: RendererOptions<ShadowElement, ShadowElement> = {
 
         let slot = elSlots.get(nativeKey);
         if (!slot) {
+          // Record what the user typed so the `value` patch branch below can
+          // tell a model echo apart from a programmatic write (#143).
+          const trackInputValue = event.name === 'input'
+            && (el.type === 'input' || el.type === 'textarea');
           // First handler for this native event — register with Lynx.
           const sign = register((data: unknown) => {
+            if (trackInputValue) {
+              el._lastInputValue = (data as { detail?: { value?: unknown } })?.detail?.value;
+            }
             // Dispatch to all handlers registered for this slot.
             const s = elSlots!.get(nativeKey);
             if (s) {
@@ -367,6 +374,25 @@ export const nodeOps: RendererOptions<ShadowElement, ShadowElement> = {
       pushOp(OP.SET_CLASS, el.id, finalClass);
     } else if (key === 'id') {
       pushOp(OP.SET_ID, el.id, nextValue);
+    } else if (key === 'value' && (el.type === 'input' || el.type === 'textarea')) {
+      pushOp(OP.SET_PROP, el.id, key, nextValue);
+      // The native field treats the `value` attribute as initial-only once
+      // the user has edited it — programmatic writes (clear-on-send, editor
+      // toolbar inserts) must additionally go through the element's
+      // `setValue` UI method or the visible text never changes (#143).
+      // Skip on first render (`_prevValue == null`: the attribute covers the
+      // initial value) and skip the model echo (the re-render caused by the
+      // user's own typing, where the new value is exactly what the input
+      // event just reported) so cursor/IME composition isn't disturbed
+      // while typing.
+      if (_prevValue != null && nextValue !== el._lastInputValue) {
+        pushOp(OP.INVOKE_UI_METHOD, el.id, 'setValue', {
+          value: nextValue == null ? '' : nextValue,
+        });
+        // The programmatic write replaces whatever the user had typed; track
+        // it so the next echo comparison stays correct.
+        el._lastInputValue = nextValue;
+      }
     } else {
       pushOp(OP.SET_PROP, el.id, key, nextValue);
     }

@@ -28,6 +28,13 @@ export class ShadowElement {
   _baseClass = '';
   _transitionClasses: Set<string> = new Set();
 
+  // Last text the user typed into this <input>/<textarea>, recorded from the
+  // native input event by nodeOps. Used to tell a model echo (signal update
+  // caused by typing) apart from a programmatic write (clear-on-send, toolbar
+  // insert) — only the latter must be pushed back to the native field via the
+  // setValue UI method. `undefined` until the first input event.
+  _lastInputValue: unknown = undefined;
+
   constructor(type: string, forceId?: number) {
     this.id = forceId !== undefined ? forceId : ShadowElement.nextId++;
     this.type = type;
