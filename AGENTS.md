@@ -1,5 +1,14 @@
 # SignalX for Lynx — shared agent guide
 
+> ⚠️ **BRANCH FIRST — never work on `main`.** Before touching ANY file, create a
+> worktree (`pnpm wt new <N-short-slug>`) and do everything from
+> `<repo>/branches/<N-short-slug>`. This applies to every change, however small —
+> editing or committing in the primary checkout (`<repo>/main`) causes conflicts
+> for parallel sessions. Check yourself before every commit:
+> `git branch --show-current` must NOT print `main`.
+> Already edited files in `main` by mistake? Move the work, don't commit it:
+> `git stash -u` → `pnpm wt new <name>` → `cd ../branches/<name>` → `git stash pop`.
+
 Canonical guidance for **any** AI agent working in this repo (Claude Code, GitHub
 Copilot CLI, work agents, …). Tool-specific notes live in `CLAUDE.md`; it defers
 here for everything shared — when it conflicts with this file, the tool-specific
