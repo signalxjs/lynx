@@ -68,10 +68,10 @@ flow below is required.)
    Repeat until Copilot has no remaining actionable feedback.
 
 6. **Merge it yourself.** Once Copilot's feedback is resolved AND CI is green, merge
-   (merge commit, matching repo convention) and clean up:
+   (squash — repo rules block merge commits) and clean up:
    ```sh
    gh pr checks <pr>                          # must be all green first
-   gh pr merge <pr> --merge --delete-branch
+   gh pr merge <pr> --squash --delete-branch
    ```
    If you used a worktree, remove it afterward: `pnpm wt rm <name>`.
 
