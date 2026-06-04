@@ -1,0 +1,63 @@
+{
+    "name": "@sigx/lynx-richtext",
+    "version": "0.4.7",
+    "description": "Native rich-text input element for Lynx (<sigx-richtext>): attributed editing (UITextView / EditText) with a span-based document model, selection events, and formatting commands. Powers @sigx/lynx-markdown's MarkdownEditor.",
+    "type": "module",
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.ts",
+            "import": "./dist/index.js",
+            "default": "./dist/index.js"
+        },
+        "./signalx-module.json": "./signalx-module.json",
+        "./package.json": "./package.json"
+    },
+    "files": [
+        "dist",
+        "ios",
+        "android",
+        "signalx-module.json",
+        "README.md",
+        "LICENSE"
+    ],
+    "scripts": {
+        "build": "node ../../scripts/clean.mjs dist && tsgo",
+        "dev": "tsgo --watch",
+        "test": "vitest run",
+        "clean": "node ../../scripts/clean.mjs dist .turbo"
+    },
+    "peerDependencies": {
+        "@sigx/lynx": "workspace:^"
+    },
+    "devDependencies": {
+        "@sigx/lynx": "workspace:^",
+        "@sigx/lynx-testing": "workspace:^",
+        "@typescript/native-preview": "7.0.0-dev.20260521.1",
+        "typescript": "^6.0.3"
+    },
+    "author": "Andreas Ekdahl",
+    "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/signalxjs/lynx.git",
+        "directory": "packages/lynx-richtext"
+    },
+    "homepage": "https://github.com/signalxjs/lynx/tree/main/packages/lynx-richtext",
+    "bugs": {
+        "url": "https://github.com/signalxjs/lynx/issues"
+    },
+    "publishConfig": {
+        "access": "public"
+    },
+    "keywords": [
+        "signalx",
+        "sigx",
+        "lynx",
+        "rich-text",
+        "editor",
+        "input",
+        "wysiwyg"
+    ]
+}

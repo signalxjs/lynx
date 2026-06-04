@@ -1,0 +1,18 @@
+{
+    "name": "RichText",
+    "package": "@sigx/lynx-richtext",
+    "description": "Native rich-text input element (<sigx-richtext>) — attributed editing via UITextView / EditText",
+    "platforms": ["android", "ios"],
+    "ios": {
+        "sourceDir": "ios",
+        "uiComponents": [
+            { "name": "sigx-richtext", "uiClass": "SigxRichTextUI" }
+        ]
+    },
+    "android": {
+        "sourceDir": "android",
+        "behaviors": [
+            { "name": "sigx-richtext", "behaviorClass": "com.sigx.richtext.SigxRichTextBehavior" }
+        ]
+    }
+}
