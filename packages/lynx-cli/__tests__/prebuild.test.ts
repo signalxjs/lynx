@@ -863,3 +863,35 @@ describe('applyIosSigningSettings — validation', () => {
             .toThrow(/"Automatic" or "Manual"/);
     });
 });
+
+describe('writeIosSharedScheme — multi-target projects', () => {
+    it('picks the target matching the app name, not the first target', () => {
+        const config = resolveConfig(TEST_CONFIG);
+        scaffoldIos(testDir, config);
+
+        // Simulate a hand-curated project with a tests target listed BEFORE
+        // the app target in the PBXNativeTarget section.
+        const pbxprojPath = join(testDir, 'ios', 'TestApp.xcodeproj', 'project.pbxproj');
+        const pbx = readFileSync(pbxprojPath, 'utf-8');
+        const testsTarget = [
+            '\t\tFFFFFFFF000000000000FFFF /* TestAppTests */ = {',
+            '\t\t\tisa = PBXNativeTarget;',
+            '\t\t\tname = "TestAppTests";',
+            '\t\t};',
+            '',
+        ].join('\n');
+        writeFileSync(
+            pbxprojPath,
+            pbx.replace('/* Begin PBXNativeTarget section */\n', `/* Begin PBXNativeTarget section */\n${testsTarget}`),
+        );
+        rmSync(join(testDir, 'ios', 'TestApp.xcodeproj', 'xcshareddata', 'xcschemes', 'TestApp.xcscheme'));
+
+        writeIosSharedScheme(testDir, config);
+        const scheme = readFileSync(
+            join(testDir, 'ios', 'TestApp.xcodeproj', 'xcshareddata', 'xcschemes', 'TestApp.xcscheme'),
+            'utf-8',
+        );
+        expect(scheme).toContain('BlueprintIdentifier = "E100000000000001"');
+        expect(scheme).not.toContain('FFFFFFFF000000000000FFFF');
+    });
+});

@@ -982,9 +982,16 @@ export function writeIosSharedScheme(cwd: string, config: ResolvedConfig): void 
     );
     if (!existsSync(templatePath)) return;
 
-    // First (and only) native target in the generated project.
+    // Prefer the native target whose name matches the app — hand-curated
+    // projects can carry extra targets (tests, extensions) and scaffolded
+    // ones have exactly one. Fall back to the first native target so legacy
+    // projects with a renamed app target still get a working scheme.
     const pbx = readFileSync(pbxprojPath, 'utf-8');
-    const target = pbx.match(/([A-F0-9]{24})\s+\/\*[^*]*\*\/\s*=\s*\{\s*isa = PBXNativeTarget;/);
+    const escapedName = config.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const byName = pbx.match(new RegExp(
+        `([A-F0-9]{24})\\s+/\\* ${escapedName} \\*/\\s*=\\s*\\{\\s*isa = PBXNativeTarget;`,
+    ));
+    const target = byName ?? pbx.match(/([A-F0-9]{24})\s+\/\*[^*]*\*\/\s*=\s*\{\s*isa = PBXNativeTarget;/);
     if (!target) {
         log(
             `\x1b[33m!\x1b[0m Could not find a PBXNativeTarget UUID in ${pbxprojPath} — ` +
