@@ -985,6 +985,14 @@ export function writeIosSharedScheme(cwd: string, config: ResolvedConfig): void 
     // First (and only) native target in the generated project.
     const pbx = readFileSync(pbxprojPath, 'utf-8');
     const target = pbx.match(/([A-F0-9]{24})\s+\/\*[^*]*\*\/\s*=\s*\{\s*isa = PBXNativeTarget;/);
+    if (!target) {
+        log(
+            `\x1b[33m!\x1b[0m Could not find a PBXNativeTarget UUID in ${pbxprojPath} — ` +
+            `writing the shared scheme with the template's default target id. ` +
+            `If \`xcodebuild -scheme "${config.name}"\` can't find the target, fix the ` +
+            `BlueprintIdentifier in the generated .xcscheme to match your app target.`,
+        );
+    }
     const targetUuid = target?.[1] ?? 'E100000000000001';
 
     const content = substituteVars(readFileSync(templatePath, 'utf-8'), { appName: config.name })
@@ -1007,6 +1015,22 @@ export function applyIosSigningSettings(cwd: string, config: ResolvedConfig): vo
     const team = config.ios.developmentTeam?.trim();
     const style = config.ios.codeSignStyle;
     if (!team && !style) return;
+
+    // Both values are spliced into project.pbxproj as raw build-setting
+    // values — validate at runtime (the config file is plain JS/TS, so the
+    // schema's union type guarantees nothing) so a typo'd team or a crafted
+    // value can't corrupt the project or smuggle in extra build settings.
+    if (team && !/^[A-Za-z0-9]{10}$/.test(team)) {
+        throw new Error(
+            `ios.developmentTeam must be a 10-character alphanumeric Apple Team ID ` +
+            `(e.g. "AB12CD34EF"), got: "${team}"`,
+        );
+    }
+    if (style && style !== 'Automatic' && style !== 'Manual') {
+        throw new Error(
+            `ios.codeSignStyle must be "Automatic" or "Manual", got: "${style}"`,
+        );
+    }
 
     const pbxprojPath = join(iosXcodeProjPath(cwd, config), 'project.pbxproj');
     if (!existsSync(pbxprojPath)) return;

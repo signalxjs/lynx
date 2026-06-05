@@ -840,3 +840,26 @@ describe('applyIosSigningSettings', () => {
         expect(readFileSync(pbxprojPath(testDir), 'utf-8')).toBe(once);
     });
 });
+
+describe('applyIosSigningSettings — validation', () => {
+    it('rejects a malformed developmentTeam', () => {
+        const config = resolveConfig({
+            ...TEST_CONFIG,
+            ios: { ...TEST_CONFIG.ios, developmentTeam: 'oops; CODE_SIGN_IDENTITY = hacked' },
+        });
+        scaffoldIos(testDir, config);
+        expect(() => applyIosSigningSettings(testDir, config))
+            .toThrow(/10-character alphanumeric Apple Team ID/);
+    });
+
+    it('rejects an invalid codeSignStyle from an untyped config file', () => {
+        const config = resolveConfig({
+            ...TEST_CONFIG,
+            // Plain-JS configs bypass the schema union type.
+            ios: { ...TEST_CONFIG.ios, codeSignStyle: 'automatic' as 'Automatic' },
+        });
+        scaffoldIos(testDir, config);
+        expect(() => applyIosSigningSettings(testDir, config))
+            .toThrow(/"Automatic" or "Manual"/);
+    });
+});
