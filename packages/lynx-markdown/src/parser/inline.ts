@@ -93,10 +93,17 @@ function tokenize(text: string, extensions?: readonly ParserInlineExtension[]): 
             let matched = false;
             for (const ext of extensions!) {
                 if (!ext.triggerChars.includes(ch)) continue;
-                const m = ext.match(text, i);
-                // A non-advancing match (end <= pos) would hang the tokenizer —
-                // ignore it, preserving the "never throws, never hangs" guarantee.
-                if (m && m.end > i) {
+                // Misbehaving extensions must not break the "never throws,
+                // never hangs" guarantee: a throwing match is treated as no
+                // match, and a non-advancing (end <= pos) or out-of-bounds
+                // (end > length) match is ignored.
+                let m: ReturnType<typeof ext.match> = null;
+                try {
+                    m = ext.match(text, i);
+                } catch {
+                    m = null;
+                }
+                if (m && m.end > i && m.end <= n) {
                     flush();
                     tokens.push(m.node);
                     i = m.end;

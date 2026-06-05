@@ -178,6 +178,29 @@ describe('parseInline (extensions)', () => {
         expect(parseInline('a @b', [broken])).toEqual([{ type: 'text', value: 'a @b' }]);
     });
 
+    it('ignores an out-of-bounds match instead of skipping input', () => {
+        const greedy: ParserInlineExtension = {
+            name: 'greedy',
+            triggerChars: ['@'],
+            match: (text) => ({
+                node: { type: 'extension', name: 'greedy', attrs: {}, raw: '' },
+                end: text.length + 100, // past the input — must be rejected
+            }),
+        };
+        expect(parseInline('a @b', [greedy])).toEqual([{ type: 'text', value: 'a @b' }]);
+    });
+
+    it('treats a throwing match as no match (never throws)', () => {
+        const throwing: ParserInlineExtension = {
+            name: 'throwing',
+            triggerChars: ['@'],
+            match: () => {
+                throw new Error('plugin bug');
+            },
+        };
+        expect(parseInline('a @b', [throwing])).toEqual([{ type: 'text', value: 'a @b' }]);
+    });
+
     it('never calls match when the trigger char is absent', () => {
         const spy = vi.fn(() => null);
         const ext: ParserInlineExtension = { name: 'x', triggerChars: ['@'], match: spy };

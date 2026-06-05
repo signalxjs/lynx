@@ -38,6 +38,11 @@ export interface ParserInlineExtension {
      *
      * The extension builds `node.raw` itself (it knows its own boundaries):
      * `raw` must equal `text.slice(pos, end)`.
+     *
+     * The tokenizer hardens against misbehaving matches — one that throws,
+     * does not advance (`end <= pos`), or runs past the input
+     * (`end > text.length`) is treated as no match, so the text degrades to
+     * literal instead of breaking parsing.
      */
     match(text: string, pos: number): { node: InlineExtension; end: number } | null;
 }
