@@ -43,7 +43,23 @@ export type { EditorToolbarProps, ToolbarRenderItem } from './editor/toolbar/Too
 export { defaultToolbarItems } from './editor/toolbar/items.js';
 export type { ToolbarItem, ToolbarContext } from './editor/toolbar/items.js';
 export { mdToDoc } from './editor/convert/mdToDoc.js';
+export type { MdToDocOptions, ExtensionSpanMapper } from './editor/convert/mdToDoc.js';
 export { docToMd } from './editor/convert/docToMd.js';
+export type { DocToMdOptions, SpanSerializer } from './editor/convert/docToMd.js';
+
+// Editor plugin API (P3): inline syntax + doc mapping, trigger suggestions,
+// toolbar contributions — see MarkdownEditorPlugin.
+export type {
+    MarkdownEditorPlugin,
+    InlinePluginSpec,
+    TriggerSpec,
+    TriggerItem,
+    TriggerSelectApi,
+} from './editor/plugin.js';
+export { SuggestionPopup } from './editor/trigger/SuggestionPopup.js';
+export type { SuggestionPopupProps, SuggestionRenderItem } from './editor/trigger/SuggestionPopup.js';
+export { createTriggerSessionManager } from './editor/trigger/session.js';
+export type { TriggerSession, TriggerSessionManager } from './editor/trigger/session.js';
 
 // Streaming controller for AI token loops.
 export { createMarkdownStream } from './stream.js';
