@@ -13,8 +13,9 @@
  *  - **markdown out**: the span serializes back to `@[label](id)` from its
  *    attrs (the covered text is the U+FFFC, never the label).
  *
- * v1 label rule: `]`, `)` and newlines are forbidden in labels/ids — the
- * serializer strips them and the parser regex doesn't match them.
+ * v1 label rule: `]`, `)`, and CR/LF are forbidden in both labels and ids —
+ * the serializer strips them and the parser regex doesn't match them, so
+ * round-trips are idempotent by construction.
  *
  * A factory (not a constant) because the consumer supplies the candidate
  * source:
@@ -52,12 +53,16 @@ export interface MentionPluginOptions {
     debounce?: number;
 }
 
-/** `@[label](id)` — label/id exclude `]`/`)`/newlines (v1 rule). */
-const MENTION_RE = /^@\[([^\]\n]+)\]\(([^)\n]+)\)/;
+/**
+ * `@[label](id)` — label and id both exclude `]`/`)`/CR/LF (v1 rule). The
+ * parser and {@link clean} enforce the same set, so anything the parser
+ * accepts serializes back unchanged.
+ */
+const MENTION_RE = /^@\[([^\])\r\n]+)\]\(([^\])\r\n]+)\)/;
 
-/** Enforce the v1 label rule on the write path. */
+/** Enforce the v1 label rule on the write path (same set as MENTION_RE). */
 function clean(value: string): string {
-    return value.replace(/[\])\n]/g, '');
+    return value.replace(/[\])\r\n]/g, '');
 }
 
 /** The parser extension for `@[label](id)` (exported for MarkdownView previews). */

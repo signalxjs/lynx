@@ -156,7 +156,7 @@ export const MarkdownEditorLab = component(() => {
                 <Card bordered>
                     <Card.Body>
                         <Col gap={8}>
-                            <Heading level={4}>Rendered (MarkdownView + emoji extension)</Heading>
+                            <Heading level={4}>Rendered (MarkdownView + emoji/mention extensions)</Heading>
                             <MarkdownView
                                 value={markdown.value}
                                 extensions={previewExtensions}
