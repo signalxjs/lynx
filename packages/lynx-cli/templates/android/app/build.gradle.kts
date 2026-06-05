@@ -37,15 +37,23 @@ android {
     // When SIGX_UPLOAD_KEYSTORE is unset, release builds fall back to the
     // debug keystore so `sigx run:android --release` still installs on a
     // local device with zero setup.
+    // Empty/whitespace values count as unset — a common CI misconfig.
+    fun signingEnv(name: String): String? =
+        System.getenv(name)?.trim()?.takeIf { it.isNotEmpty() }
+    val uploadKeystore = signingEnv("SIGX_UPLOAD_KEYSTORE")
+
     signingConfigs {
         create("release") {
-            val uploadKeystore = System.getenv("SIGX_UPLOAD_KEYSTORE")
             if (uploadKeystore != null) {
+                val storePass = signingEnv("SIGX_UPLOAD_STORE_PASSWORD")
+                    ?: error(
+                        "SIGX_UPLOAD_KEYSTORE is set but SIGX_UPLOAD_STORE_PASSWORD is " +
+                        "missing — release signing needs the keystore password."
+                    )
                 storeFile = file(uploadKeystore)
-                storePassword = System.getenv("SIGX_UPLOAD_STORE_PASSWORD")
-                keyAlias = System.getenv("SIGX_UPLOAD_KEY_ALIAS") ?: "upload"
-                keyPassword = System.getenv("SIGX_UPLOAD_KEY_PASSWORD")
-                    ?: System.getenv("SIGX_UPLOAD_STORE_PASSWORD")
+                storePassword = storePass
+                keyAlias = signingEnv("SIGX_UPLOAD_KEY_ALIAS") ?: "upload"
+                keyPassword = signingEnv("SIGX_UPLOAD_KEY_PASSWORD") ?: storePass
             }
         }
     }
@@ -57,7 +65,7 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            signingConfig = if (System.getenv("SIGX_UPLOAD_KEYSTORE") != null)
+            signingConfig = if (uploadKeystore != null)
                 signingConfigs.getByName("release")
             else
                 signingConfigs.getByName("debug")
