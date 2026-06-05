@@ -230,6 +230,39 @@ export interface LynxConfig {
      * Use to skip a platform entirely.
      */
     platforms?: Platform[];
+    /** Prebuild lifecycle hooks. */
+    prebuild?: PrebuildHooksConfig;
+}
+
+/** Prebuild lifecycle hooks (`prebuild: { … }` in `defineLynxConfig`). */
+export interface PrebuildHooksConfig {
+    /**
+     * Path (relative to the project root) to a plain-JS module
+     * (`.mjs`/`.js`/`.cjs`) executed after `sigx prebuild` has rendered all
+     * managed native files (build.gradle.kts, Info.plist, Podfile, …) and
+     * finished auto-linking. Use it for project-specific native patches the
+     * config schema can't express — prebuild guarantees the ordering, so a
+     * patch can never be wiped by a later template re-render.
+     *
+     * If the module's default export is a function it is awaited with
+     * `{ cwd, config, platforms }` (project root, the resolved config, and
+     * which platforms were prebuilt); a module without one runs for its
+     * side effects on import.
+     *
+     * Managed files are re-rendered pristine at the start of every full
+     * prebuild before the hook runs, so write patches that anchor on
+     * template text and fail loudly when the anchor is missing — silent
+     * drift after a lynx-cli upgrade is exactly what this hook exists to
+     * prevent. The hook is skipped when prebuild itself is skipped (inputs
+     * unchanged — the previous run's patches are still in place); editing
+     * the hook script counts as an input change and re-triggers it.
+     *
+     * @example
+     * ```ts
+     * prebuild: { post: './scripts/native-patches.mjs' }
+     * ```
+     */
+    post?: string;
 }
 
 /**

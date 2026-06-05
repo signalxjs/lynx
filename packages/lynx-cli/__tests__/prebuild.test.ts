@@ -19,6 +19,7 @@ import {
     writeAndroidDebugManifest,
     writeIosSharedScheme,
     applyIosSigningSettings,
+    runPostPrebuildHook,
 } from '../src/prebuild.js';
 import { linkAndroid } from '../src/autolink/android.js';
 import { resolveConfig } from '../src/config/parser.js';
@@ -895,5 +896,90 @@ describe('writeIosSharedScheme — multi-target projects', () => {
         );
         expect(scheme).toContain('BlueprintIdentifier = "E100000000000001"');
         expect(scheme).not.toContain('FFFFFFFF000000000000FFFF');
+    });
+});
+
+describe('runPostPrebuildHook', () => {
+    it('is a no-op when no hook is configured', async () => {
+        const config = resolveConfig(TEST_CONFIG);
+        await expect(runPostPrebuildHook(testDir, config, { android: true, ios: true }))
+            .resolves.toBeUndefined();
+    });
+
+    it('awaits a default-export function with { cwd, config, platforms }', async () => {
+        const hookPath = join(testDir, 'scripts', 'post.mjs');
+        mkdirSync(join(testDir, 'scripts'), { recursive: true });
+        writeFileSync(hookPath, [
+            'import { writeFileSync } from "node:fs";',
+            'import { join } from "node:path";',
+            'export default async function ({ cwd, config, platforms }) {',
+            '    writeFileSync(join(cwd, "hook-ran.json"), JSON.stringify({',
+            '        cwd, name: config.name, platforms,',
+            '    }));',
+            '}',
+            '',
+        ].join('\n'));
+
+        const config = resolveConfig({ ...TEST_CONFIG, prebuild: { post: './scripts/post.mjs' } });
+        await runPostPrebuildHook(testDir, config, { android: true, ios: false });
+
+        const result = JSON.parse(readFileSync(join(testDir, 'hook-ran.json'), 'utf-8'));
+        expect(result.cwd).toBe(testDir);
+        expect(result.name).toBe('TestApp');
+        expect(result.platforms).toEqual({ android: true, ios: false });
+    });
+
+    it('runs a side-effect-only module (no default export)', async () => {
+        const hookPath = join(testDir, 'post.mjs');
+        writeFileSync(hookPath, [
+            'import { writeFileSync } from "node:fs";',
+            `writeFileSync(${JSON.stringify(join(testDir, 'side-effect.txt'))}, "ran");`,
+            '',
+        ].join('\n'));
+
+        const config = resolveConfig({ ...TEST_CONFIG, prebuild: { post: 'post.mjs' } });
+        await runPostPrebuildHook(testDir, config, { android: true, ios: true });
+        expect(existsSync(join(testDir, 'side-effect.txt'))).toBe(true);
+    });
+
+    it('re-imports an edited hook on the next run (cache busting)', async () => {
+        const hookPath = join(testDir, 'post.mjs');
+        const marker = join(testDir, 'marker.txt');
+        const config = resolveConfig({ ...TEST_CONFIG, prebuild: { post: 'post.mjs' } });
+
+        writeFileSync(hookPath, `import { writeFileSync } from "node:fs"; writeFileSync(${JSON.stringify(marker)}, "v1");`);
+        await runPostPrebuildHook(testDir, config, { android: true, ios: true });
+        expect(readFileSync(marker, 'utf-8')).toBe('v1');
+
+        writeFileSync(hookPath, `import { writeFileSync } from "node:fs"; writeFileSync(${JSON.stringify(marker)}, "v2");`);
+        await runPostPrebuildHook(testDir, config, { android: true, ios: true });
+        expect(readFileSync(marker, 'utf-8')).toBe('v2');
+    });
+
+    it('throws an actionable error when the hook file is missing', async () => {
+        const config = resolveConfig({ ...TEST_CONFIG, prebuild: { post: './scripts/missing.mjs' } });
+        await expect(runPostPrebuildHook(testDir, config, { android: true, ios: true }))
+            .rejects.toThrow(/prebuild\.post hook not found/);
+    });
+
+    it('propagates hook failures (a patch missing its anchor must stop the build)', async () => {
+        const hookPath = join(testDir, 'post.mjs');
+        writeFileSync(hookPath, 'export default function () { throw new Error("anchor not found"); }');
+
+        const config = resolveConfig({ ...TEST_CONFIG, prebuild: { post: 'post.mjs' } });
+        await expect(runPostPrebuildHook(testDir, config, { android: true, ios: true }))
+            .rejects.toThrow(/anchor not found/);
+    });
+});
+
+describe('resolveConfig — prebuild hooks', () => {
+    it('passes prebuild.post through to the resolved config', () => {
+        const config = resolveConfig({ ...TEST_CONFIG, prebuild: { post: './scripts/x.mjs' } });
+        expect(config.prebuild?.post).toBe('./scripts/x.mjs');
+    });
+
+    it('leaves prebuild undefined when not configured', () => {
+        const config = resolveConfig(TEST_CONFIG);
+        expect(config.prebuild).toBeUndefined();
     });
 });
