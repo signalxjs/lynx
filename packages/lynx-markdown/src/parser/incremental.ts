@@ -39,7 +39,9 @@ export interface IncrementalEngineOptions {
 }
 
 export function createIncrementalEngine(options?: IncrementalEngineOptions): IncrementalEngine {
-    const extensions = options?.extensions;
+    // Snapshot so in-place mutation of the caller's array can't change parse
+    // behavior under cached finalized blocks (the "captured config" guarantee).
+    const extensions = options?.extensions ? [...options.extensions] : undefined;
     /** Finalized blocks, frozen and reused by reference across chunks. */
     let cached: BlockNode[] = [];
     /** Source length (in normalized chars) already folded into `cached`. */

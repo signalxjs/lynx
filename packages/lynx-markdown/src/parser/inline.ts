@@ -51,7 +51,10 @@ export function parseInline(input: string, extensions?: readonly ParserInlineExt
 // ---------------------------------------------------------------------------
 
 function tokenize(text: string, extensions?: readonly ParserInlineExtension[]): Token[] {
-    const triggerSet = extensions && extensions.length ? buildTriggerSet(extensions) : null;
+    // Normalize an empty trigger set back to null so the per-char fast path
+    // stays fully disabled when no extension can ever match.
+    const builtSet = extensions && extensions.length ? buildTriggerSet(extensions) : null;
+    const triggerSet = builtSet && builtSet.size ? builtSet : null;
     const tokens: Token[] = [];
     let buf = '';
     const flush = () => {
