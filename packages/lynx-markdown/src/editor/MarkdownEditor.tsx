@@ -51,6 +51,23 @@ export interface MarkdownEditorController {
     toggleCode(): void;
     /** 1–6 sets a heading; 0 reverts to paragraph. */
     setHeading(level: 0 | 1 | 2 | 3 | 4 | 5 | 6): void;
+    /**
+     * Set the selected paragraph(s)' list type; `'none'` reverts to
+     * paragraph. A new `'task'` line starts unchecked.
+     */
+    setList(kind: 'bullet' | 'ordered' | 'task' | 'none'): void;
+    /** Toggle blockquote on the selected paragraph(s). */
+    toggleQuote(): void;
+    /**
+     * Insert or wrap a link. Non-empty selection → the selection becomes the
+     * link text; collapsed → `text` (or the href itself) is inserted and
+     * linked. The href is trusted as-is (parse-side `sanitizeHref` and the
+     * serializer's destination escaping are the safety nets); offsets come
+     * from the last selection event — same fire-and-forget assumption as
+     * `replaceRange`. No-op before the first selection event (the caret
+     * position is unknown).
+     */
+    insertLink(href: string, text?: string): void;
     insertText(text: string): void;
     /**
      * Replace `[start, end)` (UTF-16 offsets in the document text) with
@@ -249,6 +266,29 @@ export const MarkdownEditor = component<MarkdownEditorProps>(({ props }) => {
         setHeading: (level) => {
             if (level === 0) RichTextMethods.setBlockType(el, 'paragraph');
             else RichTextMethods.setBlockType(el, 'heading', level);
+        },
+        setList: (kind) => {
+            if (kind === 'none') RichTextMethods.setBlockType(el, 'paragraph');
+            else if (kind === 'task') RichTextMethods.setBlockType(el, 'task', undefined, false);
+            else RichTextMethods.setBlockType(el, kind);
+        },
+        toggleQuote: () => {
+            const active = selBox.current?.activeBlock === 'blockquote';
+            RichTextMethods.setBlockType(el, active ? 'paragraph' : 'blockquote');
+        },
+        insertLink: (href, text) => {
+            const sel = selBox.current;
+            // No selection event yet → the caret position is unknown, and a
+            // guessed range would link the wrong substring. No-op.
+            if (!sel) return;
+            if (sel.end > sel.start) {
+                RichTextMethods.applyFormat(el, 'link', sel.start, sel.end, { href });
+                return;
+            }
+            const label = text ?? href;
+            if (label === '') return;
+            RichTextMethods.insertText(el, label);
+            RichTextMethods.applyFormat(el, 'link', sel.start, sel.start + label.length, { href });
         },
         insertText: (text) => RichTextMethods.insertText(el, text),
         replaceRange: (start, end, text) => {

@@ -48,7 +48,23 @@ public class SigxRichTextUI: LynxUI<RichTextView> {
     // MARK: - LynxUI overrides
 
     public override func createView() -> RichTextView? {
-        let view = RichTextView(frame: CGRect(x: 0, y: 0, width: 1, height: 1), textContainer: nil)
+        // Explicit TextKit-1 stack so the custom layout manager (draw-only
+        // block decorations — list markers, quote bar, code background) is
+        // installed from birth; swapping a layout manager in later is
+        // unsupported.
+        let storage = NSTextStorage()
+        let layoutManager = SigxLayoutManager()
+        layoutManager.theme = theme
+        storage.addLayoutManager(layoutManager)
+        let container = NSTextContainer(size: CGSize(width: 0, height: .greatestFiniteMagnitude))
+        container.widthTracksTextView = true
+        // Zero out the default 5pt fragment padding so the gutter geometry
+        // (BlockMetrics indents, marker drawing, checkbox hit-testing) all
+        // share one coordinate system anchored at the container edge.
+        container.lineFragmentPadding = 0
+        layoutManager.addTextContainer(container)
+
+        let view = RichTextView(frame: CGRect(x: 0, y: 0, width: 1, height: 1), textContainer: container)
         view.delegate = textDelegate
         view.backgroundColor = .clear
         view.isScrollEnabled = true
@@ -58,6 +74,7 @@ public class SigxRichTextUI: LynxUI<RichTextView> {
         view.tintColor = theme.accentColor
         // Tight insets — the JS side owns outer padding via styles.
         view.textContainerInset = UIEdgeInsets(top: 8, left: 0, bottom: 8, right: 0)
+        view.onCheckboxToggle = { [weak self] paragraph in self?.toggleTask(at: paragraph) }
         return view
     }
 
@@ -332,6 +349,7 @@ public class SigxRichTextUI: LynxUI<RichTextView> {
     @objc public func setBlockType(_ params: NSDictionary?, withResult callback: @escaping LynxUIMethodCallbackBlock) {
         let type = (params?["type"] as? String) ?? "paragraph"
         let level = params?["level"] as? Int
+        let checked = params?["checked"] as? Bool
         DispatchQueue.main.async {
             let view = self.view()
             guard let storage = view.textStorage as NSTextStorage? else {
@@ -340,6 +358,26 @@ public class SigxRichTextUI: LynxUI<RichTextView> {
             }
             let ns = storage.string as NSString
             let paragraph = ns.paragraphRange(for: view.selectedRange)
+            // An empty paragraph can't hold a storage attribute — carry the
+            // block in the typing attributes so the next typed run gets it
+            // (e.g. tapping a list toolbar button in an empty editor).
+            if paragraph.length == 0 {
+                var typing = view.typingAttributes
+                if type == "paragraph" {
+                    typing.removeValue(forKey: SigxAttr.block)
+                } else {
+                    var value: [String: Any] = ["type": type]
+                    if let level { value["level"] = level }
+                    if type == "task" { value["checked"] = checked ?? false }
+                    typing[SigxAttr.block] = value
+                }
+                typing[.font] = SigxRichTextUI.deriveTypingFont(from: typing, theme: self.theme)
+                typing[.paragraphStyle] = SigxRichTextUI.deriveTypingParagraphStyle(from: typing)
+                view.typingAttributes = typing
+                self.fireSelection()
+                callback(SigxRichTextUI.kUIMethodSuccess, nil)
+                return
+            }
             self.isProgrammaticEdit = true
             storage.beginEditing()
             if type == "paragraph" {
@@ -347,6 +385,7 @@ public class SigxRichTextUI: LynxUI<RichTextView> {
             } else {
                 var value: [String: Any] = ["type": type]
                 if let level { value["level"] = level }
+                if type == "task" { value["checked"] = checked ?? false }
                 storage.addAttribute(SigxAttr.block, value: value, range: paragraph)
             }
             DocumentMapper.refreshVisuals(storage, range: paragraph, theme: self.theme)
@@ -362,6 +401,69 @@ public class SigxRichTextUI: LynxUI<RichTextView> {
     }
     @objc(__lynx_ui_method_config__setBlockType)
     dynamic public class func __lynxUIMethodConfigSetBlockType() -> NSString { return "setBlockType" }
+
+    /// Apply an inline format with a payload over an **explicit** range —
+    /// unlike `toggleFormat`, which flips over the live selection and carries
+    /// no attrs. v1 supports `link`: a non-empty `attrs.href` (re)links the
+    /// range, an empty/missing href unlinks it.
+    @objc public func applyFormat(_ params: NSDictionary?, withResult callback: @escaping LynxUIMethodCallbackBlock) {
+        let type = (params?["type"] as? String) ?? ""
+        guard type == "link" else {
+            callback(SigxRichTextUI.kUIMethodUnknown, "applyFormat: unsupported type \(type)")
+            return
+        }
+        let reqStart = (params?["start"] as? Int) ?? -1
+        let reqEnd = (params?["end"] as? Int) ?? -1
+        let href = ((params?["attrs"] as? NSDictionary)?["href"] as? String) ?? ""
+        DispatchQueue.main.async {
+            let view = self.view()
+            guard let storage = view.textStorage as NSTextStorage? else {
+                callback(SigxRichTextUI.kUIMethodUnknown, "applyFormat: no storage")
+                return
+            }
+            let upper = storage.length
+            let s = max(0, min(reqStart, upper))
+            let e = max(s, min(reqEnd, upper))
+            guard e > s else {
+                callback(SigxRichTextUI.kUIMethodSuccess, ["applied": false, "reason": "emptyRange"])
+                return
+            }
+            let range = NSRange(location: s, length: e - s)
+            // Code blocks are literal — the serializer drops inline spans
+            // inside them, so a link there could never round-trip.
+            if !href.isEmpty {
+                var intersectsCode = false
+                storage.enumerateAttribute(SigxAttr.block, in: range, options: []) { value, _, stop in
+                    if let block = value as? [String: Any], (block["type"] as? String) == "codeBlock" {
+                        intersectsCode = true
+                        stop.pointee = true
+                    }
+                }
+                if intersectsCode {
+                    callback(SigxRichTextUI.kUIMethodSuccess, ["applied": false, "reason": "codeBlock"])
+                    return
+                }
+            }
+            self.isProgrammaticEdit = true
+            storage.beginEditing()
+            if href.isEmpty {
+                storage.removeAttribute(SigxAttr.link, range: range)
+            } else {
+                storage.addAttribute(SigxAttr.link, value: href, range: range)
+            }
+            DocumentMapper.refreshVisuals(storage, range: range, theme: self.theme)
+            storage.endEditing()
+            self.isProgrammaticEdit = false
+            self.userHasEdited = true
+            self.localVersion += 1
+            self.reportHeightIfChanged()
+            self.fireChange(isComposing: false)
+            self.fireSelection()
+            callback(SigxRichTextUI.kUIMethodSuccess, ["applied": true])
+        }
+    }
+    @objc(__lynx_ui_method_config__applyFormat)
+    dynamic public class func __lynxUIMethodConfigApplyFormat() -> NSString { return "applyFormat" }
 
     @objc public func insertText(_ params: NSDictionary?, withResult callback: @escaping LynxUIMethodCallbackBlock) {
         let text = (params?["text"] as? String) ?? ""
@@ -553,6 +655,124 @@ public class SigxRichTextUI: LynxUI<RichTextView> {
         localVersion += 1
     }
 
+    /// Checkbox tap on a task line (from the view's gutter hit-test): flip
+    /// `checked`, redraw the marker, fire change.
+    func toggleTask(at paragraph: NSRange) {
+        guard let storage = view().textStorage as NSTextStorage?,
+              paragraph.location < storage.length else { return }
+        let ns = storage.string as NSString
+        let para = ns.paragraphRange(for: NSRange(location: paragraph.location, length: 0))
+        guard para.length > 0,
+              var block = storage.attribute(SigxAttr.block, at: para.location, effectiveRange: nil) as? [String: Any],
+              (block["type"] as? String) == "task" else { return }
+        block["checked"] = !((block["checked"] as? Bool) ?? false)
+        isProgrammaticEdit = true
+        storage.beginEditing()
+        storage.addAttribute(SigxAttr.block, value: block, range: para)
+        storage.endEditing()
+        isProgrammaticEdit = false
+        userHasEdited = true
+        localVersion += 1
+        view().layoutManager.invalidateDisplay(forCharacterRange: para)
+        fireChange(isComposing: false)
+    }
+
+    /// Enter pressed (delegate `shouldChangeTextIn` with `"\n"`, not during
+    /// IME composition). Returns whether the default insertion proceeds.
+    ///
+    /// - List types — Enter on an **empty** item exits the list (the marker
+    ///   is removed, the newline swallowed); Enter elsewhere is handled
+    ///   manually: the newline + tail get a fresh continuation attr (`task`
+    ///   continues unchecked, the ordered start never carries over).
+    /// - blockquote / codeBlock — continue via normal typing-attribute
+    ///   inheritance (exit is via toolbar), so the default insert proceeds.
+    func handleNewline(in range: NSRange) -> Bool {
+        let view = self.view()
+        guard let storage = view.textStorage as NSTextStorage? else { return true }
+        let ns = storage.string as NSString
+        let para = ns.paragraphRange(for: range)
+
+        // Zero-length trailing paragraph: the (continued) list state lives
+        // only in the typing attributes — Enter there is an empty-item exit.
+        if para.length == 0 {
+            var typing = view.typingAttributes
+            guard let block = typing[SigxAttr.block] as? [String: Any],
+                  let type = block["type"] as? String, Self.isListType(type) else { return true }
+            typing.removeValue(forKey: SigxAttr.block)
+            typing[.font] = SigxRichTextUI.deriveTypingFont(from: typing, theme: theme)
+            // Drop the list's inherited gutter indent along with the block.
+            typing[.paragraphStyle] = SigxRichTextUI.deriveTypingParagraphStyle(from: typing)
+            view.typingAttributes = typing
+            fireSelection()
+            return false
+        }
+
+        guard para.location < storage.length,
+              let block = storage.attribute(SigxAttr.block, at: para.location, effectiveRange: nil) as? [String: Any],
+              let type = block["type"] as? String, Self.isListType(type) else { return true }
+
+        // Item content length (the trailing newline isn't content).
+        var contentLen = para.length
+        if ns.character(at: NSMaxRange(para) - 1) == 0x0A { contentLen -= 1 }
+
+        if contentLen == 0 {
+            // Empty item: drop the marker, swallow the newline.
+            isProgrammaticEdit = true
+            storage.beginEditing()
+            storage.removeAttribute(SigxAttr.block, range: para)
+            DocumentMapper.refreshVisuals(storage, range: para, theme: theme)
+            storage.endEditing()
+            var typing = view.typingAttributes
+            typing.removeValue(forKey: SigxAttr.block)
+            typing[.font] = SigxRichTextUI.deriveTypingFont(from: typing, theme: theme)
+            // Drop the list's inherited gutter indent along with the block.
+            typing[.paragraphStyle] = SigxRichTextUI.deriveTypingParagraphStyle(from: typing)
+            view.typingAttributes = typing
+            isProgrammaticEdit = false
+            markUserEdited()
+            reportHeightIfChanged()
+            fireChange(isComposing: false)
+            fireSelection()
+            return false
+        }
+
+        // Non-empty item: manual insert so the continuation never carries the
+        // ordered start or a checked state (and a mid-item split re-types the
+        // tail as a fresh item).
+        var continuation: [String: Any] = ["type": type]
+        if type == "task" { continuation["checked"] = false }
+        var nlAttrs = view.typingAttributes
+        nlAttrs[SigxAttr.block] = continuation
+        nlAttrs[.font] = SigxRichTextUI.deriveTypingFont(from: nlAttrs, theme: theme)
+        nlAttrs[.paragraphStyle] = SigxRichTextUI.deriveTypingParagraphStyle(from: nlAttrs)
+
+        isProgrammaticEdit = true
+        storage.beginEditing()
+        if range.length > 0 { storage.deleteCharacters(in: range) }
+        storage.insert(NSAttributedString(string: "\n", attributes: nlAttrs), at: range.location)
+        // Mid-item split: the tail becomes its own fresh item.
+        let afterNs = storage.string as NSString
+        let tail = afterNs.paragraphRange(for: NSRange(location: range.location + 1, length: 0))
+        if tail.length > 0 {
+            storage.addAttribute(SigxAttr.block, value: continuation, range: tail)
+            DocumentMapper.refreshVisuals(storage, range: tail, theme: theme)
+        }
+        storage.endEditing()
+        view.selectedRange = NSRange(location: range.location + 1, length: 0)
+        view.typingAttributes = nlAttrs
+        isProgrammaticEdit = false
+        lastNonCollapsedSelection = nil
+        markUserEdited()
+        reportHeightIfChanged()
+        fireChange(isComposing: false)
+        fireSelection()
+        return false
+    }
+
+    private static func isListType(_ type: String) -> Bool {
+        return type == "bullet" || type == "ordered" || type == "task"
+    }
+
     func reportHeightIfChanged() {
         let view = self.view()
         let content = view.contentHeight()
@@ -570,6 +790,8 @@ public class SigxRichTextUI: LynxUI<RichTextView> {
     // MARK: - Helpers
 
     private func refreshAllVisuals() {
+        // The layout manager keeps a theme copy for decoration drawing.
+        (view().layoutManager as? SigxLayoutManager)?.theme = theme
         guard let storage = view().textStorage as NSTextStorage?, storage.length > 0 else { return }
         isProgrammaticEdit = true
         storage.beginEditing()
@@ -611,11 +833,27 @@ public class SigxRichTextUI: LynxUI<RichTextView> {
 
     /// Rebuild the `.font` typing attribute from the custom model keys so a
     /// collapsed-selection toggle is visible on the very next typed character.
+    /// Paragraph style matching the typing attributes' block type — kept in
+    /// sync with `DocumentMapper.applyParagraphStyles` so the next typed run
+    /// gets the right gutter indent (and exiting a block drops it).
+    fileprivate static func deriveTypingParagraphStyle(from attrs: [NSAttributedString.Key: Any]) -> NSParagraphStyle {
+        let type = (attrs[SigxAttr.block] as? [String: Any])?["type"] as? String ?? "paragraph"
+        let style = NSMutableParagraphStyle()
+        let indent = BlockMetrics.indent(for: type)
+        style.firstLineHeadIndent = indent
+        style.headIndent = indent
+        return style
+    }
+
     fileprivate static func deriveTypingFont(from attrs: [NSAttributedString.Key: Any], theme: RichTextTheme) -> UIFont {
         var font = theme.baseFont
         if let block = attrs[SigxAttr.block] as? [String: Any],
-           (block["type"] as? String) == "heading" {
-            font = theme.headingFont(level: block["level"] as? Int ?? 1)
+           let type = block["type"] as? String {
+            if type == "heading" {
+                font = theme.headingFont(level: block["level"] as? Int ?? 1)
+            } else if type == "codeBlock" {
+                return theme.codeFont
+            }
         }
         // `code` is terminal (matches the serializer + applyBaseVisuals):
         // characters typed inside a code run never pick up bold/italic.
@@ -646,6 +884,12 @@ final class SigxRichTextDelegate: NSObject, UITextViewDelegate {
         owner.reportHeightIfChanged()
         let composing = textView.markedTextRange != nil
         owner.fireChange(isComposing: composing)
+    }
+
+    func textView(_ textView: UITextView, shouldChangeTextIn range: NSRange, replacementText text: String) -> Bool {
+        guard let owner, !owner.isProgrammaticEdit,
+              text == "\n", textView.markedTextRange == nil else { return true }
+        return owner.handleNewline(in: range)
     }
 
     func textViewDidChangeSelection(_ textView: UITextView) {

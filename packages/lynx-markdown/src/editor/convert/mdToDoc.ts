@@ -2,13 +2,24 @@
  * markdown → {@link RichDoc} — flatten the parsed AST into the rich-text
  * element's flat text+spans+blocks model.
  *
- * v1 models paragraphs, headings, and the inline set
- * (bold/italic/strike/code/link). Everything else — lists, blockquotes, code
- * blocks, tables, thematic breaks, and any paragraph containing an
- * unrepresentable inline (images) — becomes a **`raw` block**: the original
- * markdown source verbatim, edited as source and serialized back
- * byte-for-byte. That's the lossless escape hatch that makes the round trip
- * safe long before every node type is WYSIWYG-editable.
+ * Models paragraphs, headings, the inline set (bold/italic/strike/code/link),
+ * and — flat, one block attr per line, markers **never in the text** (they're
+ * draw-only natively and re-synthesized by `docToMd`):
+ *
+ * - **tight single-paragraph lists** → one `bullet`/`ordered`/`task` line per
+ *   item (`checked` from GFM task syntax; a non-1 ordered start rides
+ *   `level` on the run's first line);
+ * - **blockquotes of plain paragraphs** → one `blockquote` line per quoted
+ *   line;
+ * - **fenced code** → one `codeBlock` line per content line (`lang` carried
+ *   on every line of the fence).
+ *
+ * Everything the flat model cannot hold losslessly — nested / loose /
+ * multi-paragraph lists, quotes containing non-paragraphs, tables, thematic
+ * breaks, and any paragraph containing an unrepresentable inline (images) —
+ * becomes a **`raw` block**: the original markdown source verbatim, edited as
+ * source and serialized back byte-for-byte. That's the lossless escape hatch
+ * that keeps the round trip safe.
  *
  * Line convention (chat-style): every `\n` in `doc.text` is a paragraph
  * boundary. Markdown hard breaks split into separate doc lines; `docToMd`
@@ -19,7 +30,7 @@
 import type { BlockAttr, InlineSpan, RichDoc } from '@sigx/lynx-richtext';
 import { parseBlocks } from '../../parser/blocks.js';
 import type { ParserInlineExtension } from '../../parser/extensions.js';
-import type { InlineExtension, InlineNode } from '../../ast.js';
+import type { BlockquoteBlock, InlineExtension, InlineNode, ListBlock, ParagraphBlock } from '../../ast.js';
 
 /** AST extension node → editor span (a plugin's `docMapping.toSpan`). Must be pure. */
 export type ExtensionSpanMapper = (
@@ -81,6 +92,62 @@ export function mdToDoc(markdown: string, v = 0, options?: MdToDocOptions): Rich
                 push(flat.text, { type: 'heading', level: block.level });
                 break;
             }
+            case 'list': {
+                if (!isFlatList(block, mappers)) {
+                    push(block.raw, { type: 'raw' });
+                    break;
+                }
+                block.items.forEach((item, index) => {
+                    const para = item.children[0] as ParagraphBlock;
+                    const flat = flattenInline(para.children, text.length, mappers);
+                    spans.push(...flat.spans);
+                    const attr: Omit<BlockAttr, 'start' | 'end'> =
+                        item.checked !== null
+                            ? { type: 'task', checked: item.checked }
+                            : { type: block.ordered ? 'ordered' : 'bullet' };
+                    // A non-1 ordered start rides `level` on the run's first
+                    // line; numbering itself derives from position.
+                    if (index === 0 && block.ordered && block.start !== 1 && attr.type === 'ordered') {
+                        attr.level = block.start;
+                    }
+                    push(flat.text, attr);
+                });
+                break;
+            }
+            case 'blockquote': {
+                if (!isFlatQuote(block, mappers)) {
+                    push(block.raw, { type: 'raw' });
+                    break;
+                }
+                for (const child of block.children) {
+                    for (const line of splitOnBreaks((child as ParagraphBlock).children)) {
+                        const flat = flattenInline(line, text.length, mappers);
+                        spans.push(...flat.spans);
+                        push(flat.text, { type: 'blockquote' });
+                    }
+                }
+                break;
+            }
+            case 'codeBlock': {
+                // An empty fence would model as a zero-length block attr,
+                // which native can't persist (an empty paragraph can't hold
+                // one) — keep the source raw instead.
+                if (block.value === '') {
+                    push(block.raw, { type: 'raw' });
+                    break;
+                }
+                // Content is literal — one codeBlock line per content line
+                // (blank lines included), no inline parsing, `lang` on every
+                // line of the fence so adjacent fences with different langs
+                // stay distinct runs.
+                const attr: Omit<BlockAttr, 'start' | 'end'> = block.lang
+                    ? { type: 'codeBlock', lang: block.lang }
+                    : { type: 'codeBlock' };
+                for (const line of block.value.split('\n')) {
+                    push(line, attr);
+                }
+                break;
+            }
             default:
                 push(block.raw, { type: 'raw' });
         }
@@ -94,6 +161,41 @@ export function mdToDoc(markdown: string, v = 0, options?: MdToDocOptions): Rich
     }
 
     return { text, spans, blocks, v };
+}
+
+/**
+ * A list the flat model can hold losslessly: tight, every item a single
+ * paragraph of representable inline with no top-level hard break. Nesting
+ * shows up as an extra child block, loose lists as `tight: false`, and a
+ * hard break would have to degrade to a space (items are single lines, so
+ * unlike paragraphs/quotes there's no line to split it into) — all raw.
+ */
+function isFlatList(list: ListBlock, mappers?: Record<string, ExtensionSpanMapper>): boolean {
+    return (
+        list.tight &&
+        list.items.every(
+            (item) =>
+                item.children.length === 1 &&
+                item.children[0].type === 'paragraph' &&
+                !item.children[0].children.some((node) => node.type === 'br') &&
+                inlineRepresentable(item.children[0].children, mappers),
+        )
+    );
+}
+
+/**
+ * A blockquote the flat model can hold losslessly: only plain paragraphs of
+ * representable inline (a quote containing a list / heading / code / nested
+ * quote degrades to raw, as does an empty quote — it would model as no
+ * lines at all and lose its source).
+ */
+function isFlatQuote(quote: BlockquoteBlock, mappers?: Record<string, ExtensionSpanMapper>): boolean {
+    return (
+        quote.children.length > 0 &&
+        quote.children.every(
+            (child) => child.type === 'paragraph' && inlineRepresentable(child.children, mappers),
+        )
+    );
 }
 
 /** Inline node types the editor can model in-field. */

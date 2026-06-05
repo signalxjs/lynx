@@ -11,6 +11,8 @@ const spies = {
     setDocument: vi.spyOn(RichTextMethods, 'setDocument'),
     toggleFormat: vi.spyOn(RichTextMethods, 'toggleFormat'),
     setBlockType: vi.spyOn(RichTextMethods, 'setBlockType'),
+    applyFormat: vi.spyOn(RichTextMethods, 'applyFormat'),
+    insertText: vi.spyOn(RichTextMethods, 'insertText'),
 };
 
 beforeEach(() => {
@@ -131,6 +133,57 @@ describe('MarkdownEditor', () => {
         ctrl!.clear();
         expect(spies.setDocument).toHaveBeenCalledTimes(1);
         expect((spies.setDocument.mock.calls[0][1] as RichDoc).text).toBe('');
+    });
+
+    it('setList / toggleQuote drive setBlockType (block-WYSIWYG, #153)', () => {
+        let ctrl: MarkdownEditorController | null = null;
+        const { container } = render(<MarkdownEditor value="" controllerRef={(c) => { ctrl = c; }} />);
+        const el = container.findByType('sigx-richtext')!;
+
+        ctrl!.setList('bullet');
+        expect(spies.setBlockType).toHaveBeenLastCalledWith(expect.anything(), 'bullet');
+        ctrl!.setList('task');
+        expect(spies.setBlockType).toHaveBeenLastCalledWith(expect.anything(), 'task', undefined, false);
+        ctrl!.setList('none');
+        expect(spies.setBlockType).toHaveBeenLastCalledWith(expect.anything(), 'paragraph');
+
+        // Quote toggles off when the selection is already inside one.
+        ctrl!.toggleQuote();
+        expect(spies.setBlockType).toHaveBeenLastCalledWith(expect.anything(), 'blockquote');
+        el._handlers.get('bindselection')!({
+            type: 'selection',
+            detail: { start: 0, end: 0, activeFormats: '', activeBlock: 'blockquote', caretX: 0, caretY: 0, caretHeight: 16 },
+        });
+        ctrl!.toggleQuote();
+        expect(spies.setBlockType).toHaveBeenLastCalledWith(expect.anything(), 'paragraph');
+    });
+
+    it('insertLink wraps the selection, or inserts-then-links when collapsed', () => {
+        let ctrl: MarkdownEditorController | null = null;
+        const { container } = render(<MarkdownEditor value="" controllerRef={(c) => { ctrl = c; }} />);
+        const el = container.findByType('sigx-richtext')!;
+
+        // Non-empty selection → wrap it.
+        el._handlers.get('bindselection')!({
+            type: 'selection',
+            detail: { start: 2, end: 6, activeFormats: '', activeBlock: 'paragraph', caretX: 0, caretY: 0, caretHeight: 16 },
+        });
+        ctrl!.insertLink('https://x.dev');
+        expect(spies.applyFormat).toHaveBeenLastCalledWith(
+            expect.anything(), 'link', 2, 6, { href: 'https://x.dev' },
+        );
+        expect(spies.insertText).not.toHaveBeenCalled();
+
+        // Collapsed → insert the label, then link it.
+        el._handlers.get('bindselection')!({
+            type: 'selection',
+            detail: { start: 4, end: 4, activeFormats: '', activeBlock: 'paragraph', caretX: 0, caretY: 0, caretHeight: 16 },
+        });
+        ctrl!.insertLink('https://x.dev', 'docs');
+        expect(spies.insertText).toHaveBeenCalledWith(expect.anything(), 'docs');
+        expect(spies.applyFormat).toHaveBeenLastCalledWith(
+            expect.anything(), 'link', 4, 8, { href: 'https://x.dev' },
+        );
     });
 
     it('feeds reported heights back as the element height (auto-grow)', async () => {

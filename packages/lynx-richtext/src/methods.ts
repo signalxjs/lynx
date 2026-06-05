@@ -44,9 +44,33 @@ export const RichTextMethods = {
         invoke(el, 'toggleFormat', { type });
     },
 
-    /** Set the block type of the paragraph(s) covering the current selection. */
-    setBlockType(el: RichTextHandle, type: BlockAttrType, level?: number): void {
-        invoke(el, 'setBlockType', { type, ...(level !== undefined ? { level } : {}) });
+    /**
+     * Set the block type of the paragraph(s) covering the current selection.
+     * `level` is the heading level; `checked` seeds a task line's checkbox.
+     */
+    setBlockType(el: RichTextHandle, type: BlockAttrType, level?: number, checked?: boolean): void {
+        invoke(el, 'setBlockType', {
+            type,
+            ...(level !== undefined ? { level } : {}),
+            ...(checked !== undefined ? { checked } : {}),
+        });
+    },
+
+    /**
+     * Apply an inline format with a payload over an **explicit** range —
+     * unlike `toggleFormat`, which flips over the live selection and carries
+     * no attrs. Only `link` is supported (the type mirrors what native
+     * implements): a non-empty `attrs.href` (re)links the range, an
+     * empty/missing href unlinks it.
+     */
+    applyFormat(
+        el: RichTextHandle,
+        type: 'link',
+        start: number,
+        end: number,
+        attrs?: { href?: string },
+    ): void {
+        invoke(el, 'applyFormat', { type, start, end, ...(attrs ? { attrs } : {}) });
     },
 
     /** Insert text at the caret (inherits typing attributes). */

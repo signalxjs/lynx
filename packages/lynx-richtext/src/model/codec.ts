@@ -64,12 +64,23 @@ function sanitizeBlocks(blocks: unknown, max: number): BlockAttr[] {
         const start = clamp(b.start, 0, max);
         const end = clamp(b.end, 0, max);
         if (end < start) continue;
+        // Type-specific fields are gated to the types that own them and
+        // normalized to their canonical forms (heading level clamped 1–6;
+        // ordered start omitted when 1) — stray or denormalized wire data
+        // must not skew docEquals.
+        const rawLevel = typeof b.level === 'number' && Number.isFinite(b.level) ? Math.floor(b.level) : undefined;
+        let level: number | undefined;
+        if (rawLevel !== undefined) {
+            if (b.type === 'heading') level = clamp(rawLevel, 1, 6);
+            else if (b.type === 'ordered' && rawLevel > 1) level = rawLevel;
+        }
         out.push({
             start,
             end,
             type: b.type,
-            ...(typeof b.level === 'number' && Number.isFinite(b.level) ? { level: Math.floor(b.level) } : {}),
-            ...(typeof b.checked === 'boolean' ? { checked: b.checked } : {}),
+            ...(level !== undefined ? { level } : {}),
+            ...(b.type === 'task' && typeof b.checked === 'boolean' ? { checked: b.checked } : {}),
+            ...(b.type === 'codeBlock' && typeof b.lang === 'string' && b.lang !== '' ? { lang: b.lang } : {}),
         });
     }
     return out;
@@ -99,7 +110,7 @@ export function docEquals(a: RichDoc, b: RichDoc): boolean {
         const y = b.blocks[i];
         if (
             x.start !== y.start || x.end !== y.end || x.type !== y.type ||
-            x.level !== y.level || x.checked !== y.checked
+            x.level !== y.level || x.checked !== y.checked || x.lang !== y.lang
         ) return false;
     }
     return true;

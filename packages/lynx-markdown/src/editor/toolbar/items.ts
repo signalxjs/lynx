@@ -40,15 +40,31 @@ const headingActive = (level: number) =>
     (sel: SelectionState | null): boolean =>
         sel?.activeBlock === 'heading' && sel.headingLevel === level;
 
-/**
- * The neutral default item set: every command the v1 controller exposes.
- * (Lists / quote / link items arrive with the block-WYSIWYG work — #153.)
- */
+const blockActive = (type: SelectionState['activeBlock']) =>
+    (sel: SelectionState | null): boolean =>
+        sel?.activeBlock === type;
+
+/** List items toggle: tapping the active kind reverts to paragraph. */
+const toggleList = (kind: 'bullet' | 'ordered' | 'task') =>
+    ({ controller }: ToolbarContext): void =>
+        controller.setList(controller.getSelection()?.activeBlock === kind ? 'none' : kind);
+
+/** The neutral default item set: every command the controller exposes. */
 export const defaultToolbarItems: ToolbarItem[] = [
     { id: 'bold', label: 'B', icon: 'bold', group: 'inline', isActive: formatActive('bold'), run: ({ controller }) => controller.toggleBold() },
     { id: 'italic', label: 'I', icon: 'italic', group: 'inline', isActive: formatActive('italic'), run: ({ controller }) => controller.toggleItalic() },
     { id: 'strike', label: 'S', icon: 'strikethrough', group: 'inline', isActive: formatActive('strike'), run: ({ controller }) => controller.toggleStrike() },
     { id: 'code', label: '</>', icon: 'code', group: 'inline', isActive: formatActive('code'), run: ({ controller }) => controller.toggleCode() },
+    {
+        // Neutral item inserts the href as its own text — a real link UX
+        // (URL prompt/dialog) is a skin/app concern calling `insertLink`.
+        id: 'link',
+        label: '🔗',
+        icon: 'link',
+        group: 'inline',
+        isActive: formatActive('link'),
+        run: ({ controller }) => controller.insertLink('https://'),
+    },
     { id: 'h1', label: 'H1', icon: 'heading-1', group: 'block', isActive: headingActive(1), run: ({ controller }) => controller.setHeading(1) },
     { id: 'h2', label: 'H2', icon: 'heading-2', group: 'block', isActive: headingActive(2), run: ({ controller }) => controller.setHeading(2) },
     {
@@ -59,4 +75,8 @@ export const defaultToolbarItems: ToolbarItem[] = [
         isActive: (sel) => (sel ? sel.activeBlock === 'paragraph' : false),
         run: ({ controller }) => controller.setHeading(0),
     },
+    { id: 'bullet', label: '•', icon: 'list', group: 'block', isActive: blockActive('bullet'), run: toggleList('bullet') },
+    { id: 'ordered', label: '1.', icon: 'list-ordered', group: 'block', isActive: blockActive('ordered'), run: toggleList('ordered') },
+    { id: 'task', label: '☑', icon: 'list-checks', group: 'block', isActive: blockActive('task'), run: toggleList('task') },
+    { id: 'quote', label: '❝', icon: 'quote', group: 'block', isActive: blockActive('blockquote'), run: ({ controller }) => controller.toggleQuote() },
 ];

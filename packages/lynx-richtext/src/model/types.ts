@@ -43,10 +43,12 @@ export interface InlineSpan {
 }
 
 /**
- * Paragraph-level block types. MVP renders `paragraph` + `heading`; the rest
- * are reserved (P2/P3). `raw` is a consumer escape hatch (e.g. lynx-markdown
- * keeps unmodeled markdown source verbatim in a raw block) — native renders it
- * as a plain paragraph and round-trips the attr untouched.
+ * Paragraph-level block types. Native renders all of them in-field: headings,
+ * lists (bullet / ordered / task — markers are draw-only, never in `text`),
+ * blockquote (leading bar + inset) and codeBlock (mono, full-width background).
+ * `raw` is a consumer escape hatch (e.g. lynx-markdown keeps unmodeled
+ * markdown source verbatim in a raw block) — native renders it as a plain
+ * paragraph and round-trips the attr untouched.
  */
 export type BlockAttrType =
     | 'paragraph'
@@ -64,10 +66,16 @@ export interface BlockAttr {
     /** Exclusive end (line boundary / end of text). */
     end: number;
     type: BlockAttrType;
-    /** Heading level 1–6 (heading only). */
+    /**
+     * Heading level 1–6 (heading), or the run's start number on the **first**
+     * `ordered` block of a consecutive ordered run (omitted when 1) — ordered
+     * numbering itself is derived from position at draw time.
+     */
     level?: number;
     /** Task checkbox state (task only). */
     checked?: boolean;
+    /** Code fence info string (codeBlock only) — carried opaquely by native. */
+    lang?: string;
 }
 
 export interface RichDoc {
