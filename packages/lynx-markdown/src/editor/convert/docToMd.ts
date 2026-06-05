@@ -121,6 +121,12 @@ function serializeInline(
         return escapeText(doc.text.slice(start, end), escapeLineStart);
     }
 
+    // Plugin-owned spans, prefiltered once — the per-run lookup below only
+    // searches these (typically zero or a handful), not the whole span list.
+    const pluginSpans = serializers
+        ? doc.spans.filter((s) => serializers.has(s.type))
+        : [];
+
     // Extent-aware nesting (the ProseMirror-serializer trick): per run, order
     // marks so the one that stays active the LONGEST sits outermost. A shorter
     // mark is closed-and-reopened inside it, which avoids the unserializable
@@ -166,7 +172,7 @@ function serializeInline(
         if (pluginMark) {
             // Emit the serialized form once — on the span's first run within
             // this segment — and suppress the covered text everywhere.
-            const span = doc.spans.find(
+            const span = pluginSpans.find(
                 (s) => s.type === pluginMark.type && s.start <= run.start && s.end >= run.end,
             );
             if (span && run.start === Math.max(span.start, start)) {
