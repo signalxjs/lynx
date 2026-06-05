@@ -37,8 +37,15 @@ export interface IosLinkResult {
     podfileEntries: string[];
     /** Debug-only Podfile entries. */
     debugPodfileEntries: string[];
-    /** Info.plist usage descriptions to add. */
+    /** Info.plist usage descriptions to add (all build configurations). */
     usageDescriptions: Record<string, string>;
+    /**
+     * Usage descriptions contributed by `debugOnly` modules — written to the
+     * generated `Info.debug.plist` (Debug configuration only) so App Store
+     * binaries don't declare permission strings (e.g. camera for the
+     * dev-client QR scanner) that no release code uses.
+     */
+    debugUsageDescriptions: Record<string, string>;
     /** UIBackgroundModes entries to add to Info.plist. */
     backgroundModes: string[];
     /** BGTaskSchedulerPermittedIdentifiers entries to add to Info.plist. */
@@ -95,12 +102,15 @@ export function linkIos(
     const usageDescriptions: Record<string, string> = {
         ...(config.ios.usageDescriptions ?? {}),
     };
+    const debugUsageDescriptions: Record<string, string> = {};
     const backgroundModes = new Set<string>();
     const bgTaskIdentifiers = new Set<string>();
     for (const id of config.ios.bgTaskIdentifiers ?? []) bgTaskIdentifiers.add(id);
     const uiComponents: IosUiComponentEntry[] = [];
     const seenUiComponentNames = new Set<string>();
     const registrations: string[] = [];
+    const debugRegistrations: string[] = [];
+    const debugModuleNames: string[] = [];
     const lifecycleAttachments: string[] = [];
     let devClient: IosDevClientInfo | undefined;
 
@@ -132,7 +142,9 @@ export function linkIos(
             );
         }
 
-        // Dev-client init facade — debug-only.
+        // Dev-client init facade — debug-only by definition, so its name is
+        // listed under #if DEBUG in the registry regardless of the manifest's
+        // explicit debugOnly flag.
         if (manifest.type === 'dev-client' && ios.initClass && ios.sourceDir) {
             devClient = {
                 initClass: ios.initClass,
@@ -142,14 +154,23 @@ export function linkIos(
             if (!linkedModules.includes(manifest.name)) {
                 linkedModules.push(manifest.name);
             }
+            if (!debugModuleNames.includes(manifest.name)) {
+                debugModuleNames.push(manifest.name);
+            }
         }
 
-        // Standard LynxModule.
+        // Standard LynxModule. debugOnly modules (the dev client) register
+        // inside `#if DEBUG` — their sources are excluded from the Release
+        // configuration, so an unconditional `.self` reference would fail
+        // `xcodebuild -configuration Release` with "cannot find in scope".
         if (ios.moduleClass) {
             if (!linkedModules.includes(manifest.name)) {
                 linkedModules.push(manifest.name);
             }
-            registrations.push(
+            if (ios.debugOnly && !debugModuleNames.includes(manifest.name)) {
+                debugModuleNames.push(manifest.name);
+            }
+            (ios.debugOnly ? debugRegistrations : registrations).push(
                 `        register(on: config, moduleClass: ${ios.moduleClass}.self,\n` +
                 `            description: "${manifest.description}",\n` +
                 `            methods: ${JSON.stringify(ios.methods ?? [])})`
@@ -187,7 +208,10 @@ export function linkIos(
             }
         }
         if (ios.usageDescriptions) {
-            Object.assign(usageDescriptions, ios.usageDescriptions);
+            // debugOnly modules' usage descriptions go to Info.debug.plist
+            // only, so release binaries don't carry permission strings for
+            // features that ship exclusively in debug builds.
+            Object.assign(ios.debugOnly ? debugUsageDescriptions : usageDescriptions, ios.usageDescriptions);
         }
         if (ios.backgroundModes) {
             for (const mode of ios.backgroundModes) backgroundModes.add(mode);
@@ -214,7 +238,12 @@ export function linkIos(
         }
     }
 
-    const registryCode = generateRegistrySwift(registrations, linkedModules);
+    const registryCode = generateRegistrySwift(
+        registrations,
+        debugRegistrations,
+        linkedModules.filter((n) => !debugModuleNames.includes(n)),
+        debugModuleNames,
+    );
     const lifecycleCode = generateLifecycleSwift(lifecycleAttachments);
     const appDelegateHooksCode = generateAppDelegateHooksSwift(appDelegateHookGroups);
     const componentRegistryCode = generateComponentRegistrySwift(uiComponents);
@@ -224,6 +253,10 @@ export function linkIos(
         podfileEntries: [...new Set(podfileEntries)],
         debugPodfileEntries: [...new Set(debugPodfileEntries)],
         usageDescriptions,
+        // Drop debug entries already declared for all configurations.
+        debugUsageDescriptions: Object.fromEntries(
+            Object.entries(debugUsageDescriptions).filter(([k]) => !(k in usageDescriptions)),
+        ),
         backgroundModes: [...backgroundModes],
         bgTaskIdentifiers: [...bgTaskIdentifiers],
         registryCode,
@@ -325,9 +358,28 @@ ${didFailToRegisterForRemoteNotifications}
 `;
 }
 
-function generateRegistrySwift(registrations: string[], moduleNames: string[]): string {
-    const namesArray = moduleNames.length > 0
-        ? moduleNames.map((n) => `"${n}"`).join(', ')
+function generateRegistrySwift(
+    registrations: string[],
+    debugRegistrations: string[],
+    moduleNames: string[],
+    debugModuleNames: string[],
+): string {
+    const quoteNames = (names: string[]) => names.map((n) => `"${n}"`).join(', ');
+    // debugOnly modules (the dev client) only exist in Debug builds — their
+    // sources are excluded from the Release configuration — so both their
+    // registration calls and their introspection names compile behind
+    // `#if DEBUG`.
+    const namesDecl = debugModuleNames.length > 0
+        ? `    /** Names of registered modules — used by dev-menu introspection. */
+    #if DEBUG
+    static let registeredModules: [String] = [${quoteNames([...moduleNames, ...debugModuleNames])}]
+    #else
+    static let registeredModules: [String] = [${quoteNames(moduleNames)}]
+    #endif`
+        : `    /** Names of registered modules — used by dev-menu introspection. */
+    static let registeredModules: [String] = [${quoteNames(moduleNames)}]`;
+    const debugBlock = debugRegistrations.length > 0
+        ? `\n        #if DEBUG\n${debugRegistrations.join('\n\n')}\n        #endif\n`
         : '';
     return `import Foundation
 import Lynx
@@ -342,15 +394,17 @@ import Lynx
  */
 class GeneratedModuleRegistry {
 
-    /** Names of registered modules — used by dev-menu introspection. */
-    static let registeredModules: [String] = [${namesArray}]
+${namesDecl}
+
+    private static var registeredCount = 0
 
     static func registerAll(on config: LynxConfig) {
+        registeredCount = 0
         print("[GeneratedModuleRegistry] Registering auto-linked modules...")
 
 ${registrations.join('\n\n')}
-
-        print("[GeneratedModuleRegistry] Auto-linked \\(${registrations.length}) modules")
+${debugBlock}
+        print("[GeneratedModuleRegistry] Auto-linked \\(registeredCount) modules")
     }
 
     private static func register(
@@ -360,6 +414,7 @@ ${registrations.join('\n\n')}
         methods: [String]
     ) {
         config.register(moduleClass)
+        registeredCount += 1
         print("  ✓ \\(moduleClass.name)")
     }
 }

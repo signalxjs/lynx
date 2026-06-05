@@ -214,7 +214,13 @@ export interface IosManifest {
     initClass?: string;
     /** Relative path to Swift source directory (for source-based linking). */
     sourceDir?: string;
-    /** If true, this module is only linked in debug builds. */
+    /**
+     * If true, this module is debug-only: its pods are scoped to the Debug
+     * configuration, its `moduleClass` registration is generated inside
+     * `#if DEBUG`, and its `usageDescriptions` land in the generated
+     * `Info.debug.plist` (Debug configuration) instead of the release
+     * Info.plist.
+     */
     debugOnly?: boolean;
     /** Method names exported by this module. */
     methods?: string[];
