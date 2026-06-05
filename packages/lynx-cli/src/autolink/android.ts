@@ -21,6 +21,11 @@ export interface DevClientInfo {
     initClass: string;
     /** Relative source directory containing Kotlin files to copy. */
     sourceDir: string;
+    /**
+     * Relative directory of release-safe no-op stubs, copied into the app's
+     * `src/release/kotlin` source set (the real sources go to `src/debug`).
+     */
+    releaseStubsDir?: string;
     /** npm package name (for resolving absolute path from node_modules). */
     packageName: string;
 }
@@ -53,8 +58,15 @@ export interface AndroidLinkResult {
     gradleDependencies: string[];
     /** Debug-only Gradle dependencies. */
     debugGradleDependencies: string[];
-    /** AndroidManifest permissions to add. */
+    /** AndroidManifest permissions to add (release + debug builds). */
     permissions: string[];
+    /**
+     * Permissions contributed by `debugOnly` modules — written to
+     * `src/debug/AndroidManifest.xml` so release APKs don't declare
+     * permissions (e.g. CAMERA for the dev-client QR scanner) that no
+     * release code uses.
+     */
+    debugPermissions: string[];
     /** `<service>` entries to merge into AndroidManifest under `<application>`. */
     services: AndroidServiceEntry[];
     /** `<meta-data>` entries (values resolved) to merge under `<application>`. */
@@ -127,6 +139,7 @@ export function linkAndroid(
     const gradleDependencies: string[] = [...(config.android.dependencies ?? [])];
     const debugGradleDependencies: string[] = [];
     const permissions: string[] = [...(config.android.permissions ?? [])];
+    const debugPermissions: string[] = [];
     const services: AndroidServiceEntry[] = [];
     const seenServiceNames = new Set<string>();
     const metaData: ResolvedAndroidMetaData[] = [];
@@ -188,6 +201,7 @@ export function linkAndroid(
             devClient = {
                 initClass: android.initClass,
                 sourceDir: android.sourceDir,
+                releaseStubsDir: android.releaseStubsDir,
                 packageName: manifest.package,
             };
             if (!linkedModules.includes(manifest.name)) {
@@ -234,7 +248,9 @@ export function linkAndroid(
             }
         }
         if (android.permissions) {
-            permissions.push(...android.permissions);
+            // debugOnly modules' permissions go to src/debug/AndroidManifest.xml
+            // so release APKs don't declare permissions only dev code uses.
+            (android.debugOnly ? debugPermissions : permissions).push(...android.permissions);
         }
         if (android.services) {
             for (const svc of android.services) {
@@ -291,6 +307,8 @@ export function linkAndroid(
         gradleDependencies: [...new Set(gradleDependencies)],
         debugGradleDependencies: [...new Set(debugGradleDependencies)],
         permissions: [...new Set(permissions)],
+        // A permission already granted to all builds doesn't need a debug copy.
+        debugPermissions: [...new Set(debugPermissions)].filter((p) => !permissions.includes(p)),
         services,
         metaData,
         metaDataWarnings,

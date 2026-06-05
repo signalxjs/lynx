@@ -47,9 +47,23 @@ export function androidAppDir(cwd: string, config: ResolvedConfig): string {
     return join(androidProjectRoot(cwd, config), 'app');
 }
 
-/** Root of the Kotlin source tree (above the package-derived subdirs). */
-export function androidKotlinRoot(cwd: string, config: ResolvedConfig): string {
-    return join(androidAppDir(cwd, config), 'src', 'main', 'kotlin');
+/**
+ * Root of a Kotlin source tree (above the package-derived subdirs).
+ * Defaults to the `main` source set; dev-client sources land in `debug`
+ * and their no-op stubs in `release` so release builds compile without
+ * the dev client's debug-only dependencies.
+ */
+export function androidKotlinRoot(
+    cwd: string,
+    config: ResolvedConfig,
+    sourceSet: 'main' | 'debug' | 'release' = 'main',
+): string {
+    return join(androidAppDir(cwd, config), 'src', sourceSet, 'kotlin');
+}
+
+/** `src/debug/AndroidManifest.xml` — debug-variant manifest overlay. */
+export function androidDebugManifestPath(cwd: string, config: ResolvedConfig): string {
+    return join(androidAppDir(cwd, config), 'src', 'debug', 'AndroidManifest.xml');
 }
 
 /** AndroidManifest.xml path. */
