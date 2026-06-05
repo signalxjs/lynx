@@ -99,6 +99,10 @@ export interface TriggerSelectApi {
     /**
      * Replace the whole trigger run (trigger char/prefix + query) with `text`,
      * leaving the caret after it.
+     *
+     * Sessions are re-derived from `(doc.text, caret)`, so end the replacement
+     * with a boundary (usually a trailing space) — otherwise text that still
+     * forms a trigger run at the caret immediately re-opens the session.
      */
     replaceQuery(text: string): void;
     /** The `[start, end)` range of the trigger run in the document text. */

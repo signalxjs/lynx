@@ -28,13 +28,17 @@ export interface DocToMdOptions {
 
 export function docToMd(doc: RichDoc, options?: DocToMdOptions): string {
     const parts: string[] = [];
+    const serializers = options?.serializers;
+    // Plugin-owned spans, prefiltered once for the whole doc — the per-run
+    // lookup searches only these (typically zero or a handful).
+    const pluginSpans = serializers ? doc.spans.filter((s) => serializers.has(s.type)) : [];
 
     for (const seg of segmentize(doc)) {
         if (seg.type === 'raw') {
             parts.push(doc.text.slice(seg.start, seg.end));
             continue;
         }
-        const inline = serializeInline(doc, seg.start, seg.end, seg.type === 'paragraph', options?.serializers);
+        const inline = serializeInline(doc, seg.start, seg.end, seg.type === 'paragraph', serializers, pluginSpans);
         if (seg.type === 'heading') {
             const level = Math.min(6, Math.max(1, seg.level ?? 1));
             parts.push(`${'#'.repeat(level)} ${inline}`);
@@ -115,17 +119,12 @@ function serializeInline(
     end: number,
     escapeLineStart: boolean,
     serializers?: ReadonlyMap<string, SpanSerializer>,
+    pluginSpans: readonly InlineSpan[] = [],
 ): string {
     const runs = computeRuns(doc.spans, start, end);
     if (runs.length === 0) {
         return escapeText(doc.text.slice(start, end), escapeLineStart);
     }
-
-    // Plugin-owned spans, prefiltered once — the per-run lookup below only
-    // searches these (typically zero or a handful), not the whole span list.
-    const pluginSpans = serializers
-        ? doc.spans.filter((s) => serializers.has(s.type))
-        : [];
 
     // Extent-aware nesting (the ProseMirror-serializer trick): per run, order
     // marks so the one that stays active the LONGEST sits outermost. A shorter

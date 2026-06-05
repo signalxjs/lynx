@@ -62,16 +62,19 @@ export const SuggestionPopup = component<SuggestionPopupProps>(({ props }) => {
 
     return () => {
         const items = props.items ?? [];
-        const caretRect = props.caretRect ?? { x: 0, y: 0, height: 0 };
+        const caretRect = props.caretRect ?? null;
         const frame = props.containerFrame ?? null;
+        // Both anchors are required for meaningful placement — render nothing
+        // until they exist rather than flashing at a bogus top-left position.
+        if (!caretRect || !frame) return null;
         const width = props.width ?? DEFAULT_WIDTH;
         const renderItem = props.renderItem ?? defaultRenderItem;
 
         const pos = placeSuggestionPopup({
             caretRect,
-            containerTop: frame?.top ?? 0,
-            containerWidth: frame?.width ?? width,
-            containerHeight: frame?.height ?? 0,
+            containerTop: frame.top,
+            containerWidth: frame.width,
+            containerHeight: frame.height,
             screenHeight: screenHeightDp(),
             keyboardHeight: keyboard.value.height,
             popupWidth: width,
