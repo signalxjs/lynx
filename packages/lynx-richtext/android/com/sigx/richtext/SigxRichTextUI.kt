@@ -404,7 +404,7 @@ class SigxRichTextUI(context: LynxContext) : LynxUI<RichEditText>(context) {
     @LynxUIMethod
     fun applyFormat(params: ReadableMap?, callback: Callback?) {
         val type = params?.getString("type") ?: ""
-        if (type != "link") {
+        if (type != "link" || params == null) {
             callback?.invoke(LynxUIMethodConstants.UNKNOWN, "applyFormat: unsupported type $type")
             return
         }
@@ -701,8 +701,10 @@ class SigxRichTextUI(context: LynxContext) : LynxUI<RichEditText>(context) {
         val isList = span.type == "bullet" || span.type == "ordered" || span.type == "task"
         if (!isList && span.type != "blockquote" && span.type != "codeBlock") return
 
-        if (isList && nl == pStart) {
-            // Empty item: drop the marker, swallow the newline.
+        if (isList && nl == pStart && tailContentLength(editable, nl + 1) == 0) {
+            // Genuinely empty item (nothing before the caret AND nothing
+            // after — Enter at column 0 of a non-empty item is a split, not
+            // an exit): drop the marker, swallow the newline.
             isProgrammaticEdit = true
             removeBlockSpans(editable, pStart, pEnd)
             editable.delete(nl, nl + 1)
@@ -742,6 +744,12 @@ class SigxRichTextUI(context: LynxContext) : LynxUI<RichEditText>(context) {
             pendingBlockSpan = continuation
         }
         isProgrammaticEdit = false
+    }
+
+    /** Content length of the paragraph at [pos], excluding its trailing newline. */
+    private fun tailContentLength(editable: Editable, pos: Int): Int {
+        val (s, e) = DocumentMapper.snapToParagraph(editable, pos, pos)
+        return (e - s) - (if (e > s && editable[e - 1] == '\n') 1 else 0)
     }
 
     /** Apply a queued block continuation once its line gets its first run. */
