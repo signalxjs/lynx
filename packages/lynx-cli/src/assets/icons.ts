@@ -4,16 +4,20 @@
  *
  * iOS uses the modern "single-size universal" AppIcon (Xcode 14+) — one
  * 1024×1024 PNG, the asset compiler generates per-device sizes at build time.
- * Drastically simpler than the historical 15-variant matrix.
+ * Drastically simpler than the historical 15-variant matrix. Optional dark /
+ * tinted appearance variants (iOS 18) are emitted as additional images with
+ * `appearances` entries in Contents.json.
  *
  * Android writes the legacy ic_launcher.png at 5 densities (works on every
- * supported API level) plus, optionally, an adaptive icon for Android 8+.
+ * supported API level) plus, optionally, an adaptive icon for Android 8+
+ * (with an optional monochrome layer for Android 13+ themed icons) and a
+ * notification small icon.
  */
 
 import sharp from 'sharp';
 import { mkdirSync, existsSync, unlinkSync } from 'node:fs';
 import { join } from 'node:path';
-import type { ResolvedConfig, ResolvedAndroidAssets, ResolvedPlatformAssets } from '../config/index.js';
+import type { ResolvedConfig, ResolvedAndroidAssets, ResolvedIosAssets } from '../config/index.js';
 import { writeFileIfChanged } from '../util/idempotent-write.js';
 
 // Android density buckets for the legacy launcher icon.
@@ -34,15 +38,41 @@ const ADAPTIVE_FOREGROUND_DENSITIES: Array<{ name: string; px: number }> = [
     { name: 'mipmap-xxxhdpi', px: 432 },
 ];
 
+// Notification small-icon sizes (24dp at each density).
+const NOTIFICATION_ICON_DENSITIES: Array<{ name: string; px: number }> = [
+    { name: 'drawable-mdpi', px: 24 },
+    { name: 'drawable-hdpi', px: 36 },
+    { name: 'drawable-xhdpi', px: 48 },
+    { name: 'drawable-xxhdpi', px: 72 },
+    { name: 'drawable-xxxhdpi', px: 96 },
+];
+
 function log(msg: string) {
     console.log(`[sigx] ${msg}`);
 }
 
+/** Remove previously-generated files; returns how many were removed. */
+function removeArtifacts(baseDir: string, rels: string[]): number {
+    let removed = 0;
+    for (const rel of rels) {
+        const p = join(baseDir, rel);
+        if (existsSync(p)) {
+            unlinkSync(p);
+            removed++;
+        }
+    }
+    return removed;
+}
+
+const IOS_ICON_DARK_FILE = 'AppIcon-1024-dark.png';
+const IOS_ICON_TINTED_FILE = 'AppIcon-1024-tinted.png';
+
 /**
- * Generate the iOS app icon. Writes a single 1024×1024 PNG and a Contents.json
- * declaring it as a universal single-size icon.
+ * Generate the iOS app icon. Writes a 1024×1024 PNG (plus optional dark /
+ * tinted appearance variants) and a Contents.json declaring them as a
+ * universal single-size icon.
  */
-export async function generateIosIcon(cwd: string, config: ResolvedConfig, ios: ResolvedPlatformAssets): Promise<void> {
+export async function generateIosIcon(cwd: string, config: ResolvedConfig, ios: ResolvedIosAssets): Promise<void> {
     const appIconDir = join(cwd, 'ios', config.name, 'Assets.xcassets', 'AppIcon.appiconset');
     mkdirSync(appIconDir, { recursive: true });
 
@@ -53,19 +83,49 @@ export async function generateIosIcon(cwd: string, config: ResolvedConfig, ios: 
         .toBuffer();
     writeFileIfChanged(join(appIconDir, filename), iconBuf);
 
+    type IconImage = {
+        filename: string;
+        idiom: string;
+        platform: string;
+        size: string;
+        appearances?: Array<{ appearance: string; value: string }>;
+    };
+    const images: IconImage[] = [
+        { filename, idiom: 'universal', platform: 'ios', size: '1024x1024' },
+    ];
+
+    const variants: Array<{ source: string | null; file: string; value: string }> = [
+        { source: ios.iconDark, file: IOS_ICON_DARK_FILE, value: 'dark' },
+        { source: ios.iconTinted, file: IOS_ICON_TINTED_FILE, value: 'tinted' },
+    ];
+    for (const v of variants) {
+        if (!v.source) {
+            removeArtifacts(appIconDir, [v.file]);
+            continue;
+        }
+        const buf = await sharp(v.source)
+            .resize(1024, 1024, { fit: 'cover' })
+            .png()
+            .toBuffer();
+        writeFileIfChanged(join(appIconDir, v.file), buf);
+        images.push({
+            filename: v.file,
+            idiom: 'universal',
+            platform: 'ios',
+            size: '1024x1024',
+            appearances: [{ appearance: 'luminosity', value: v.value }],
+        });
+    }
+
     const contents = {
-        images: [
-            {
-                filename,
-                idiom: 'universal',
-                platform: 'ios',
-                size: '1024x1024',
-            },
-        ],
+        images,
         info: { author: 'sigx', version: 1 },
     };
     writeFileIfChanged(join(appIconDir, 'Contents.json'), JSON.stringify(contents, null, 2) + '\n');
-    log('iOS: generated AppIcon (1024 universal)');
+    const variantNote = images.length > 1
+        ? ` + ${images.slice(1).map((i) => i.appearances![0].value).join('/')} variant(s)`
+        : '';
+    log(`iOS: generated AppIcon (1024 universal${variantNote})`);
 }
 
 /**
@@ -99,9 +159,15 @@ const ADAPTIVE_ICON_ARTIFACTS = [
     ...ADAPTIVE_FOREGROUND_DENSITIES.map(({ name }) => `${name}/ic_launcher_foreground.png`),
 ];
 
+/** Monochrome layer assets, cleaned up independently (the layer is optional). */
+const MONOCHROME_ICON_ARTIFACTS = ADAPTIVE_FOREGROUND_DENSITIES.map(
+    ({ name }) => `${name}/ic_launcher_monochrome.png`,
+);
+
 /**
  * Generate the Android adaptive icon (Android 8+):
  *   - foreground PNG at 5 densities (108dp)
+ *   - optional monochrome PNG at the same densities (Android 13+ themed icons)
  *   - color resource for background
  *   - mipmap-anydpi-v26/ic_launcher.xml + ic_launcher_round.xml
  *
@@ -113,14 +179,7 @@ export async function generateAndroidAdaptiveIcon(cwd: string, android: Resolved
     const adaptive = android.adaptiveIcon;
 
     if (!adaptive) {
-        let removed = 0;
-        for (const rel of ADAPTIVE_ICON_ARTIFACTS) {
-            const p = join(resDir, rel);
-            if (existsSync(p)) {
-                unlinkSync(p);
-                removed++;
-            }
-        }
+        const removed = removeArtifacts(resDir, [...ADAPTIVE_ICON_ARTIFACTS, ...MONOCHROME_ICON_ARTIFACTS]);
         if (removed > 0) log(`Android: removed ${removed} stale adaptive-icon artifact(s)`);
         return;
     }
@@ -136,6 +195,21 @@ export async function generateAndroidAdaptiveIcon(cwd: string, android: Resolved
         writeFileIfChanged(join(dir, 'ic_launcher_foreground.png'), buf);
     }
 
+    // Monochrome layer (Android 13+ themed icons) — opt-in.
+    if (adaptive.monochrome) {
+        for (const { name, px } of ADAPTIVE_FOREGROUND_DENSITIES) {
+            const dir = join(resDir, name);
+            mkdirSync(dir, { recursive: true });
+            const buf = await sharp(adaptive.monochrome)
+                .resize(px, px, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
+                .png()
+                .toBuffer();
+            writeFileIfChanged(join(dir, 'ic_launcher_monochrome.png'), buf);
+        }
+    } else {
+        removeArtifacts(resDir, MONOCHROME_ICON_ARTIFACTS);
+    }
+
     // Background color resource.
     const valuesDir = join(resDir, 'values');
     mkdirSync(valuesDir, { recursive: true });
@@ -146,17 +220,77 @@ export async function generateAndroidAdaptiveIcon(cwd: string, android: Resolved
 `;
     writeFileIfChanged(join(valuesDir, 'ic_launcher_background.xml'), colorXml);
 
-    // adaptive-icon XML referencing both layers.
+    // adaptive-icon XML referencing the layers.
     const anydpi = join(resDir, 'mipmap-anydpi-v26');
     mkdirSync(anydpi, { recursive: true });
+    const monochromeLine = adaptive.monochrome
+        ? '\n    <monochrome android:drawable="@mipmap/ic_launcher_monochrome"/>'
+        : '';
     const adaptiveXml = `<?xml version="1.0" encoding="utf-8"?>
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
     <background android:drawable="@color/ic_launcher_background"/>
-    <foreground android:drawable="@mipmap/ic_launcher_foreground"/>
+    <foreground android:drawable="@mipmap/ic_launcher_foreground"/>${monochromeLine}
 </adaptive-icon>
 `;
     writeFileIfChanged(join(anydpi, 'ic_launcher.xml'), adaptiveXml);
     writeFileIfChanged(join(anydpi, 'ic_launcher_round.xml'), adaptiveXml);
 
-    log(`Android: generated adaptive icon (5 foreground densities + bg color ${adaptive.backgroundColor})`);
+    log(
+        `Android: generated adaptive icon (5 foreground densities + bg color ${adaptive.backgroundColor}` +
+        `${adaptive.monochrome ? ' + monochrome layer' : ''})`,
+    );
+}
+
+/**
+ * Files written by the notification-icon generator; cleaned up when the user
+ * removes `notificationIcon` / `notificationColor` from config.
+ */
+const NOTIFICATION_ICON_ARTIFACTS = NOTIFICATION_ICON_DENSITIES.map(
+    ({ name }) => `${name}/ic_notification.png`,
+);
+const NOTIFICATION_COLOR_ARTIFACT = 'values/notification_colors.xml';
+
+/**
+ * Generate the Android notification small icon (`@drawable/ic_notification`,
+ * 24dp baseline) and accent color (`@color/notification_color`). Both are
+ * opt-in; `@sigx/lynx-notifications` resolves them by resource name at
+ * runtime and falls back to the launcher icon / system default when absent.
+ */
+export async function generateAndroidNotificationIcon(cwd: string, android: ResolvedAndroidAssets): Promise<void> {
+    const resDir = join(cwd, 'android', 'app', 'src', 'main', 'res');
+
+    if (android.notificationIcon) {
+        for (const { name, px } of NOTIFICATION_ICON_DENSITIES) {
+            const dir = join(resDir, name);
+            mkdirSync(dir, { recursive: true });
+            const buf = await sharp(android.notificationIcon)
+                .resize(px, px, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
+                .png()
+                .toBuffer();
+            writeFileIfChanged(join(dir, 'ic_notification.png'), buf);
+        }
+    } else {
+        removeArtifacts(resDir, NOTIFICATION_ICON_ARTIFACTS);
+    }
+
+    if (android.notificationColor) {
+        const valuesDir = join(resDir, 'values');
+        mkdirSync(valuesDir, { recursive: true });
+        const colorXml = `<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="notification_color">${android.notificationColor}</color>
+</resources>
+`;
+        writeFileIfChanged(join(resDir, NOTIFICATION_COLOR_ARTIFACT), colorXml);
+    } else {
+        removeArtifacts(resDir, [NOTIFICATION_COLOR_ARTIFACT]);
+    }
+
+    if (android.notificationIcon || android.notificationColor) {
+        log(
+            `Android: generated notification assets (${android.notificationIcon ? 'icon' : ''}` +
+            `${android.notificationIcon && android.notificationColor ? ' + ' : ''}` +
+            `${android.notificationColor ? `color ${android.notificationColor}` : ''})`,
+        );
+    }
 }

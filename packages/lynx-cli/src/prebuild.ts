@@ -28,7 +28,7 @@ import {
 import { linkAndroid } from './autolink/android.js';
 import { linkIos } from './autolink/ios.js';
 import { validateManifest } from './manifest.js';
-import { generateIosIcon, generateAndroidIcons, generateAndroidAdaptiveIcon } from './assets/icons.js';
+import { generateIosIcon, generateAndroidIcons, generateAndroidAdaptiveIcon, generateAndroidNotificationIcon } from './assets/icons.js';
 import { generateIosSplash, generateAndroidSplash } from './assets/splash.js';
 import { applyIosPlistMeta, applyAndroidManifestMeta, applyAndroidGradleMeta } from './assets/manifest.js';
 import type { LynxConfig } from './config/index.js';
@@ -1836,6 +1836,7 @@ export async function runPrebuild(opts: PrebuildOptions = {}): Promise<void> {
         // App-shell assets (icons, splash, manifest meta).
         await generateAndroidIcons(cwd, assets.android);
         await generateAndroidAdaptiveIcon(cwd, assets.android);
+        await generateAndroidNotificationIcon(cwd, assets.android);
         await generateAndroidSplash(cwd, assets.android);
         applyAndroidManifestMeta(cwd, assets.android);
         applyAndroidGradleMeta(cwd, config);

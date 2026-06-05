@@ -41,12 +41,13 @@ class NotificationsModule(context: Context) : LynxModule(context) {
 
             val manager = mContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
-            val notification = NotificationCompat.Builder(mContext, CHANNEL_ID)
+            val builder = NotificationCompat.Builder(mContext, CHANNEL_ID)
                 .setContentTitle(title)
                 .setContentText(body)
-                .setSmallIcon(android.R.drawable.ic_dialog_info)
+                .setSmallIcon(NotificationAppearance.smallIcon(mContext))
                 .setAutoCancel(true)
-                .build()
+            NotificationAppearance.accentColor(mContext)?.let { builder.setColor(it) }
+            val notification = builder.build()
 
             manager.notify(notificationId.hashCode(), notification)
             callback?.invoke(notificationId)

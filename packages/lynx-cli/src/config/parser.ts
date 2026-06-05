@@ -7,10 +7,12 @@ import type {
     Platform,
     Orientation,
     SplashConfig,
+    SplashResizeMode,
     AdaptiveIconConfig,
     IconSetConfig,
     IconMode,
     IconStyle,
+    IosIconConfig,
 } from './schema.js';
 
 const VALID_ICON_MODES: ReadonlySet<IconMode> = new Set(['svg', 'font']);
@@ -68,12 +70,24 @@ export interface ResolvedPlatformAssets {
     iconSource: string;
     splashImage: string;
     splashBackground: string;
+    splashResizeMode: SplashResizeMode;
+    /** Dark-mode splash; null when not configured (dark devices show the light splash). */
+    splashDark: { image: string; backgroundColor: string } | null;
     scheme: string | null;
     orientation: Orientation;
 }
 
+export interface ResolvedIosAssets extends ResolvedPlatformAssets {
+    /** iOS 18 appearance variants; null entries mean "no variant shipped". */
+    iconDark: string | null;
+    iconTinted: string | null;
+}
+
 export interface ResolvedAndroidAssets extends ResolvedPlatformAssets {
-    adaptiveIcon: { foreground: string; backgroundColor: string } | null;
+    adaptiveIcon: { foreground: string; backgroundColor: string; monochrome: string | null } | null;
+    /** White-on-transparent notification small icon; null = fall back to launcher icon. */
+    notificationIcon: string | null;
+    notificationColor: string | null;
 }
 
 /** Fully resolved configuration with defaults applied. */
@@ -210,12 +224,30 @@ function pickSplash(
     cwd: string,
     base: SplashConfig | undefined,
     override: SplashConfig | undefined,
-): { image: string; backgroundColor: string } {
+): {
+    image: string;
+    backgroundColor: string;
+    resizeMode: SplashResizeMode;
+    dark: { image: string; backgroundColor: string } | null;
+} {
     const image = override?.image ?? base?.image;
     const backgroundColor = override?.backgroundColor ?? base?.backgroundColor ?? SPLASH_BG_DEFAULT;
+    const resizeMode = override?.resizeMode ?? base?.resizeMode ?? 'center';
+
+    // Dark variant is opt-in (null = dark devices show the light splash); its
+    // unset fields fall back to the light values so `dark: { backgroundColor }`
+    // reuses the light logo on a dark background.
+    const darkConfigured = override?.dark !== undefined || base?.dark !== undefined;
+    const darkImage = override?.dark?.image ?? base?.dark?.image ?? image;
+    const darkBackground = override?.dark?.backgroundColor ?? base?.dark?.backgroundColor ?? backgroundColor;
+
     return {
         image: resolveAssetPath(cwd, image, 'splash.png'),
         backgroundColor,
+        resizeMode,
+        dark: darkConfigured
+            ? { image: resolveAssetPath(cwd, darkImage, 'splash.png'), backgroundColor: darkBackground }
+            : null,
     };
 }
 
@@ -223,13 +255,38 @@ function pickAdaptive(
     cwd: string,
     raw: AdaptiveIconConfig | undefined,
     androidIconFallback: string,
-): { foreground: string; backgroundColor: string } | null {
+): { foreground: string; backgroundColor: string; monochrome: string | null } | null {
     if (!raw) return null;
     return {
         foreground: resolveAssetPath(cwd, raw.foreground, 'adaptive-foreground.png'),
         backgroundColor: raw.backgroundColor ?? ADAPTIVE_BG_DEFAULT,
+        // Monochrome is opt-in — no bundled placeholder.
+        monochrome: raw.monochrome ? resolveAssetPath(cwd, raw.monochrome, '') : null,
     };
     // androidIconFallback intentionally unused — adaptive opts in explicitly.
+}
+
+/** Normalise `ios.icon` (string | IosIconConfig | undefined) into per-appearance sources. */
+function pickIosIcon(
+    cwd: string,
+    raw: string | IosIconConfig | undefined,
+    topLevelIcon: string | undefined,
+): { light: string; dark: string | null; tinted: string | null } {
+    // The config is plain JS at runtime — guard against `ios.icon: null`
+    // (typeof null === 'object') so "unset via null" degrades to the
+    // string/undefined path instead of throwing.
+    if (raw !== null && typeof raw === 'object') {
+        return {
+            light: resolveAssetPath(cwd, raw.light, 'icon.png'),
+            dark: raw.dark ? resolveAssetPath(cwd, raw.dark, '') : null,
+            tinted: raw.tinted ? resolveAssetPath(cwd, raw.tinted, '') : null,
+        };
+    }
+    return {
+        light: resolveAssetPath(cwd, raw ?? topLevelIcon, 'icon.png'),
+        dark: null,
+        tinted: null,
+    };
 }
 
 /**
@@ -238,12 +295,12 @@ function pickAdaptive(
  * when the user hasn't configured an icon/splash.
  */
 export function resolveAssets(raw: LynxConfig, cwd: string): {
-    ios: ResolvedPlatformAssets;
+    ios: ResolvedIosAssets;
     android: ResolvedAndroidAssets;
 } {
     const baseOrientation = raw.orientation ?? DEFAULTS.orientation!;
     const baseScheme = raw.scheme ?? null;
-    const iosIcon = resolveAssetPath(cwd, raw.ios?.icon ?? raw.icon, 'icon.png');
+    const iosIcon = pickIosIcon(cwd, raw.ios?.icon, raw.icon);
     const androidIcon = resolveAssetPath(cwd, raw.android?.icon ?? raw.icon, 'icon.png');
 
     const iosSplash = pickSplash(cwd, raw.splash, raw.ios?.splash);
@@ -251,9 +308,13 @@ export function resolveAssets(raw: LynxConfig, cwd: string): {
 
     return {
         ios: {
-            iconSource: iosIcon,
+            iconSource: iosIcon.light,
+            iconDark: iosIcon.dark,
+            iconTinted: iosIcon.tinted,
             splashImage: iosSplash.image,
             splashBackground: iosSplash.backgroundColor,
+            splashResizeMode: iosSplash.resizeMode,
+            splashDark: iosSplash.dark,
             scheme: raw.ios?.scheme ?? baseScheme,
             orientation: raw.ios?.orientation ?? baseOrientation,
         },
@@ -261,9 +322,15 @@ export function resolveAssets(raw: LynxConfig, cwd: string): {
             iconSource: androidIcon,
             splashImage: androidSplash.image,
             splashBackground: androidSplash.backgroundColor,
+            splashResizeMode: androidSplash.resizeMode,
+            splashDark: androidSplash.dark,
             scheme: raw.android?.scheme ?? baseScheme,
             orientation: raw.android?.orientation ?? baseOrientation,
             adaptiveIcon: pickAdaptive(cwd, raw.android?.adaptiveIcon, androidIcon),
+            notificationIcon: raw.android?.notificationIcon
+                ? resolveAssetPath(cwd, raw.android.notificationIcon, '')
+                : null,
+            notificationColor: raw.android?.notificationColor ?? null,
         },
     };
 }

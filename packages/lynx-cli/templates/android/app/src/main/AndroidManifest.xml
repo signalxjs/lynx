@@ -50,6 +50,8 @@
 
         <!-- {{META_DATA}} -->
 
+        <!-- {{APP_META_DATA}} -->
+
         <!-- {{SERVICES}} -->
     </application>
 </manifest>
