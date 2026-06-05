@@ -154,6 +154,9 @@ export function createTriggerSessionManager(opts: TriggerSessionManagerOptions):
                 session.caret = caret;
                 if (session.query !== query) {
                     session.query = query;
+                    // Clear stale results: the popup must never offer the
+                    // previous query's suggestions while the new one resolves.
+                    session.items = [];
                     session.loading = true;
                     emit();
                     runQuery(spec);
