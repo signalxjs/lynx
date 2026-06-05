@@ -181,3 +181,77 @@ function coverage(doc: RichDoc, type: string): Array<[number, number]> {
     }
     return merged;
 }
+
+// ---------------------------------------------------------------------------
+// Plugin inline mapping (P3): extension node ↔ editor span ↔ markdown
+// ---------------------------------------------------------------------------
+
+describe('plugin inline mapping', () => {
+    // The reference mention shape (#157): @[label](id) ↔ a 'mention' span.
+    const mentionSyntax = {
+        name: 'mention',
+        triggerChars: ['@'] as const,
+        match(text: string, pos: number) {
+            const m = /^@\[([^\]\n]+)\]\(([^)\n]+)\)/.exec(text.slice(pos));
+            if (!m) return null;
+            return {
+                node: {
+                    type: 'extension' as const,
+                    name: 'mention',
+                    attrs: { label: m[1], id: m[2] },
+                    raw: m[0],
+                },
+                end: pos + m[0].length,
+            };
+        },
+    };
+    const inOpts = {
+        extensions: [mentionSyntax],
+        spanMappers: {
+            mention: (node: { attrs: Record<string, string> }) => ({
+                text: node.attrs.label,
+                span: { type: 'mention' as const, attrs: { id: node.attrs.id, label: node.attrs.label } },
+            }),
+        },
+    };
+    const outOpts = {
+        serializers: new Map([
+            ['mention', (span: { attrs?: Record<string, string> }, text: string) =>
+                `@[${text}](${span.attrs?.id ?? ''})`],
+        ]),
+    };
+
+    it('maps a mention to a span showing the label (not a raw block)', () => {
+        const doc = mdToDoc('ping @[Andy](u1)!', 0, inOpts);
+        expect(doc.text).toBe('ping Andy!');
+        expect(doc.blocks).toEqual([]);
+        expect(doc.spans).toEqual([
+            { start: 5, end: 9, type: 'mention', attrs: { id: 'u1', label: 'Andy' } },
+        ]);
+    });
+
+    it('serializes a mention span back atomically', () => {
+        const doc = mdToDoc('ping @[Andy](u1)!', 0, inOpts);
+        expect(docToMd(doc, outOpts)).toBe('ping @[Andy](u1)!');
+    });
+
+    it('round-trips a mention wrapped in other formatting', () => {
+        const md = '**hi @[Andy](u1) yo**';
+        const doc = mdToDoc(md, 0, inOpts);
+        expect(doc.text).toBe('hi Andy yo');
+        expect(docToMd(doc, outOpts)).toBe(md);
+    });
+
+    it('keeps the block raw when no mapper handles the extension', () => {
+        const doc = mdToDoc('ping @[Andy](u1)!', 0, { extensions: inOpts.extensions });
+        expect(doc.blocks).toEqual([{ start: 0, end: 17, type: 'raw' }]);
+        expect(doc.text).toBe('ping @[Andy](u1)!');
+        // Raw blocks serialize byte-for-byte even without plugin serializers.
+        expect(docToMd(doc)).toBe('ping @[Andy](u1)!');
+    });
+
+    it('mentions degrade to their label without a serializer (documented v1)', () => {
+        const doc = mdToDoc('ping @[Andy](u1)!', 0, inOpts);
+        expect(docToMd(doc)).toBe('ping Andy!');
+    });
+});
