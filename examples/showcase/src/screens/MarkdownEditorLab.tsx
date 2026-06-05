@@ -39,7 +39,10 @@ export const MarkdownEditorLab = component(() => {
                         <Col gap={8}>
                             <Heading level={4}>Editor ({mode.value})</Heading>
 
-                            {/* Interim command strip — replaced by the real toolbar in P2. */}
+                            {/* Interim command strip — replaced by the real toolbar in P2.
+                                ignore-focus: command taps must not blur the editor
+                                (iOS folds the keyboard on any non-ignoring touch). */}
+                            <view ignore-focus={true}>
                             <Row gap={6} wrap>
                                 <Button size="sm" variant={isActive('bold') ? 'primary' : 'ghost'} outline={!isActive('bold')} onPress={() => controller?.toggleBold()}>B</Button>
                                 <Button size="sm" variant={isActive('italic') ? 'primary' : 'ghost'} outline={!isActive('italic')} onPress={() => controller?.toggleItalic()}>I</Button>
@@ -50,6 +53,7 @@ export const MarkdownEditorLab = component(() => {
                                 <Button size="sm" variant="ghost" outline onPress={() => controller?.setHeading(0)}>¶</Button>
                                 <Button size="sm" variant="ghost" outline onPress={() => controller?.clear()}>Clear</Button>
                             </Row>
+                            </view>
 
                             <view class="border border-base-300 rounded-lg px-2">
                                 <MarkdownEditor

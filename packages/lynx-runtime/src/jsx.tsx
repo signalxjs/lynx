@@ -83,6 +83,16 @@ export interface LynxCommonAttributes {
     /** Whether element is accessibility element */
     'accessibility-element'?: boolean;
     /**
+     * Taps on this element (and, by inheritance, any descendant that doesn't
+     * set its own value) do NOT steal focus from the currently focused
+     * input. On iOS, Lynx's event handler dispatches `endEditing:` on every
+     * touch-down whose target doesn't ignore focus — so without this, a tap
+     * on e.g. a formatting-toolbar button blurs the editor and folds the
+     * keyboard. Android never auto-dismisses on outside taps (no-op there).
+     * Put it on input-accessory chrome: toolbars, send bars, popups.
+     */
+    'ignore-focus'?: boolean;
+    /**
      * Cause Lynx's touch handler to claim the touch from external UIKit /
      * Android gestures (e.g. an ancestor `<scroll-view>`'s native pan) while
      * the touch is on this element, by reporting itself as a higher-priority

@@ -94,6 +94,10 @@ export const MarkdownComposerLab = component(() => {
             </KeyboardAvoidingView>
 
             <KeyboardStickyView>
+                {/* ignore-focus (inherited by every child): taps on the bar's
+                    chrome — toolbar buttons, Send — must not blur the editor,
+                    or iOS folds the keyboard before the command can apply. */}
+                <view ignore-focus={true}>
                 <Col class="border-t border-base-300 bg-base-100">
                     <Row gap={8} align="flex-end" class="px-2 pt-2">
                         <view class="flex-1 border border-base-300 rounded-2xl px-2">
@@ -132,6 +136,7 @@ export const MarkdownComposerLab = component(() => {
                         {formatButton('</>', 'code', () => controller?.toggleCode())}
                     </Row>
                 </Col>
+                </view>
             </KeyboardStickyView>
         </Col>
     );
