@@ -421,6 +421,27 @@ describe('MarkdownEditor trigger sessions', () => {
         expect(spies.insertText).toHaveBeenCalledWith(expect.anything(), 'x');
     });
 
+    it('warns on duplicate inline plugin names / span types', () => {
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+        try {
+            const inline = {
+                syntax: { name: 'dup', triggerChars: ['@'] as const, match: () => null },
+                serialize: () => '',
+                docMapping: { spanType: 'mention' as const, toSpan: () => null },
+            };
+            render(
+                <MarkdownEditor
+                    value=""
+                    plugins={[{ name: 'a', inline }, { name: 'b', inline }]}
+                />,
+            );
+            expect(warn).toHaveBeenCalledWith(expect.stringContaining('duplicate plugin syntax.name "dup"'));
+            expect(warn).toHaveBeenCalledWith(expect.stringContaining('duplicate plugin docMapping.spanType "mention"'));
+        } finally {
+            warn.mockRestore();
+        }
+    });
+
     it('appends plugin toolbar items after the defaults', () => {
         const run = vi.fn();
         const plugin: MarkdownEditorPlugin = {

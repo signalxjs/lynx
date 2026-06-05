@@ -115,6 +115,20 @@ export const MarkdownEditor = component<MarkdownEditorProps>(({ props }) => {
     // --- plugins (captured at mount; pass a stable array) ---
     const plugins = props.plugins ?? [];
     const inlinePlugins = plugins.filter((p) => p.inline);
+    // Duplicate syntax names / span types would silently last-win in the maps
+    // below, making behavior depend on array order — flag the config error.
+    for (const key of ['syntax.name', 'docMapping.spanType'] as const) {
+        const seen = new Set<string>();
+        for (const p of inlinePlugins) {
+            const value = key === 'syntax.name' ? p.inline!.syntax.name : p.inline!.docMapping.spanType;
+            if (seen.has(value)) {
+                console.warn(
+                    `[MarkdownEditor] duplicate plugin ${key} "${value}" — later plugins override earlier ones.`,
+                );
+            }
+            seen.add(value);
+        }
+    }
     const convertIn: MdToDocOptions | undefined = inlinePlugins.length
         ? {
             extensions: inlinePlugins.map((p) => p.inline!.syntax),
