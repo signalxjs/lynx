@@ -61,6 +61,26 @@ Prefer the **lightly-controlled** pattern: don't echo keystrokes back — treat
 the element as the source of truth for live text and push `setDocument` only
 for genuine programmatic mutations (load, clear-on-send, block changes).
 
+## Beyond markdown
+
+The element has **no serialization format of its own** — `RichDoc` is plain
+`text + spans + blocks`, and what those *mean* is the consumer's choice.
+`@sigx/lynx-markdown`'s `MarkdownEditor` is one consumer (its `mdToDoc` /
+`docToMd` converters give the doc markdown semantics), but the same element
+backs, for example:
+
+- a styled chat/comment input that stores the **doc JSON directly** (no
+  text format at all — render it back with the same spans);
+- an editor that serializes to **HTML**, Slack-style mrkdwn, or a custom
+  wire format — write the two converters, the rest is identical;
+- a plain input that only uses auto-grow + IME-safe programmatic writes,
+  ignoring formatting entirely.
+
+The constraint is the **vocabulary**, not the format: v1 ships a fixed set of
+span types (`bold` / `italic` / `strike` / `code` / `link` / `mention`) and
+block types (`paragraph` / `heading` / … / `raw`). Custom mark types arrive
+with the editor plugin API (P3).
+
 ## v1 scope
 
 Inline: bold / italic / strike / code / link (render + toggle + typing-edge
