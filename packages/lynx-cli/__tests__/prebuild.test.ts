@@ -127,6 +127,38 @@ describe('scaffoldAndroid', () => {
     });
 });
 
+describe('network security config', () => {
+    it('does not permit cleartext traffic in release (main source set)', () => {
+        const config = resolveConfig(TEST_CONFIG);
+        scaffoldAndroid(testDir, config);
+
+        const manifest = readFileSync(
+            join(testDir, 'android', 'app', 'src', 'main', 'AndroidManifest.xml'),
+            'utf-8',
+        );
+        expect(manifest).not.toContain('usesCleartextTraffic');
+        expect(manifest).toContain('android:networkSecurityConfig="@xml/network_security_config"');
+
+        const mainConfig = readFileSync(
+            join(testDir, 'android', 'app', 'src', 'main', 'res', 'xml', 'network_security_config.xml'),
+            'utf-8',
+        );
+        expect(mainConfig).toContain('cleartextTrafficPermitted="false"');
+        expect(mainConfig).not.toContain('cleartextTrafficPermitted="true"');
+    });
+
+    it('permits cleartext traffic via the debug source-set override', () => {
+        const config = resolveConfig(TEST_CONFIG);
+        scaffoldAndroid(testDir, config);
+
+        const debugConfig = readFileSync(
+            join(testDir, 'android', 'app', 'src', 'debug', 'res', 'xml', 'network_security_config.xml'),
+            'utf-8',
+        );
+        expect(debugConfig).toContain('cleartextTrafficPermitted="true"');
+    });
+});
+
 describe('scaffoldIos', () => {
     it('creates ios directory structure', () => {
         const config = resolveConfig(TEST_CONFIG);

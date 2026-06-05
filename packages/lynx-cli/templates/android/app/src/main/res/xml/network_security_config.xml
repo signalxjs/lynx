@@ -1,6 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Release-safe network security config: cleartext HTTP is NOT permitted.
+     Debug builds override this file via the debug source set
+     (src/debug/res/xml/network_security_config.xml), which re-enables
+     cleartext for dev-server / LAN HMR traffic. -->
 <network-security-config>
-    <base-config cleartextTrafficPermitted="true">
+    <base-config cleartextTrafficPermitted="false">
         <trust-anchors>
             <certificates src="system" />
         </trust-anchors>
