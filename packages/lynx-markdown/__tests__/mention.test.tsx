@@ -158,6 +158,31 @@ describe('mention plugin in MarkdownEditor', () => {
         expect(container.findAllByType('view').some((v) => v.props['ignore-focus'] === true)).toBe(false);
     });
 
+    it('sanitizes candidate labels/ids at the trigger boundary (v1 rule)', async () => {
+        const plugin = createMentionPlugin({
+            search: () => [{ id: 'u)1', label: 'An]dy' }],
+        });
+        const { container } = render(<MarkdownEditor value="" plugins={[plugin]} />);
+        const el = container.findByType('sigx-richtext')!;
+        fireWrapperLayout(container);
+
+        fireChange(el, doc('@a'));
+        fireSelection(el, 2);
+        await waitForUpdate();
+
+        const popup = container.findAllByType('view').find((v) => v.props['ignore-focus'] === true)!;
+        // The popup shows the cleaned label — what the chip will carry.
+        expect(popup.findByText('Andy')).toBeTruthy();
+        const row = popup.findAllByType('view').find((v) => v._handlers.has('bindtap'))!;
+        fireEvent.tap(row);
+
+        expect(spies.insertChip).toHaveBeenCalledWith(
+            expect.anything(),
+            { id: 'u1', label: 'Andy' },
+            { from: 0, to: 2 },
+        );
+    });
+
     it('controller.insertChip forwards to the native method', () => {
         let ctrl: MarkdownEditorController | null = null;
         render(<MarkdownEditor value="" controllerRef={(c) => { ctrl = c; }} />);

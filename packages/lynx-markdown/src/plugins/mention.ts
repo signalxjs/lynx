@@ -121,20 +121,27 @@ export function createMentionPlugin(options: MentionPluginOptions): MarkdownEdit
             ...(options.debounce !== undefined ? { debounce: options.debounce } : {}),
             onQuery(query) {
                 const result = options.search(query);
+                // Sanitize at the boundary: the popup must show exactly what
+                // the chip will carry and what the markdown will emit — a
+                // candidate with forbidden chars must not display one label
+                // and serialize another.
                 const toItems = (candidates: MentionCandidate[]): TriggerItem[] =>
                     candidates.map((c) => ({
-                        id: c.id,
-                        label: c.label,
+                        id: clean(c.id),
+                        label: clean(c.label),
                         ...(c.kind !== undefined ? { kind: c.kind } : {}),
                     }));
                 return Array.isArray(result) ? toItems(result) : result.then(toItems);
             },
             ...(options.renderItem ? { renderItem: options.renderItem } : {}),
             onSelect(item, api) {
+                // Defense in depth — items normally arrive pre-cleaned from
+                // onQuery, but the chip payload must obey the v1 rule even if
+                // a consumer drives onSelect directly.
                 api.controller.insertChip(
                     {
-                        id: item.id,
-                        label: item.label,
+                        id: clean(item.id),
+                        label: clean(item.label),
                         ...(typeof item.kind === 'string' ? { kind: item.kind } : {}),
                     },
                     { from: api.range.start, to: api.range.end },
