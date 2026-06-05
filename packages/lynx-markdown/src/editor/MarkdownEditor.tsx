@@ -280,7 +280,10 @@ export const MarkdownEditor = component<MarkdownEditorProps>(({ props }) => {
         const activeTrigger = session
             ? plugins.find((p) => p.name === session.plugin)?.trigger
             : undefined;
-        const popupNode = session && activeTrigger && session.items.length > 0
+        // Gate on the wrapper frame being measured — before the first
+        // bindlayoutchange the placement math would clamp against a 0-height
+        // container and misposition the popup.
+        const popupNode = session && activeTrigger && session.items.length > 0 && inputFrame.value
             ? (
                 <SuggestionPopup
                     items={session.items}

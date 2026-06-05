@@ -97,6 +97,39 @@ describe('trigger session manager', () => {
         expect(manager.session).toMatchObject({ plugin: 'cmd', anchor: 0, query: 'sm' });
     });
 
+    it('matches g-flag patterns deterministically (lastIndex reset)', () => {
+        const manager = createTriggerSessionManager({
+            triggers: [{ plugin: 'cmd', spec: { pattern: /^::/g, onQuery: () => [], onSelect: () => {} } }],
+            onUpdate: () => {},
+        });
+        // Without a lastIndex reset, the second exec on a g-flag regex would
+        // start past the prefix and fail every other evaluation.
+        for (let i = 0; i < 3; i++) {
+            manager.syncText('::a');
+            manager.syncCaret(3);
+            expect(manager.session).not.toBeNull();
+            manager.close();
+        }
+    });
+
+    it('treats a throwing onQuery like a rejected query (loading cleared)', () => {
+        const { manager } = makeManager({
+            triggers: [{
+                plugin: 'mention',
+                spec: {
+                    char: '@',
+                    onQuery: () => {
+                        throw new Error('plugin bug');
+                    },
+                    onSelect: () => {},
+                },
+            }],
+        });
+        manager.syncText('@a');
+        manager.syncCaret(2);
+        expect(manager.session).toMatchObject({ items: [], loading: false });
+    });
+
     it('discards stale async results when a newer query supersedes them', async () => {
         const resolvers: Array<(items: TriggerItem[]) => void> = [];
         const onQuery = vi.fn(
@@ -244,6 +277,15 @@ function fireChange(el: { _handlers: Map<string, Function> }, d: RichDoc): void 
     el._handlers.get('bindchange')!({ type: 'change', detail: { doc: encodeDoc(d), isComposing: false } });
 }
 
+/** The popup only renders once the input wrapper's frame is measured. */
+function fireWrapperLayout(container: { findAllByType: (t: string) => Array<{ _handlers: Map<string, Function> }> }): void {
+    const wrapper = container.findAllByType('view').find((v) => v._handlers.has('bindlayoutchange'))!;
+    wrapper._handlers.get('bindlayoutchange')!({
+        type: 'layoutchange',
+        detail: { width: 320, height: 48, top: 400, left: 0, right: 320, bottom: 448 },
+    });
+}
+
 function fireSelection(el: { _handlers: Map<string, Function> }, caret: number): void {
     el._handlers.get('bindselection')!({
         type: 'selection',
@@ -284,6 +326,7 @@ describe('MarkdownEditor trigger sessions', () => {
         const { plugin } = mentionTriggerPlugin();
         const { container } = render(<MarkdownEditor value="" plugins={[plugin]} />);
         const el = container.findByType('sigx-richtext')!;
+        fireWrapperLayout(container);
 
         fireChange(el, doc('hi @an'));
         fireSelection(el, 6);
@@ -298,6 +341,7 @@ describe('MarkdownEditor trigger sessions', () => {
         const { plugin, onSelect } = mentionTriggerPlugin();
         const { container } = render(<MarkdownEditor value="" plugins={[plugin]} />);
         const el = container.findByType('sigx-richtext')!;
+        fireWrapperLayout(container);
 
         fireChange(el, doc('hi @an'));
         fireSelection(el, 6);
@@ -319,6 +363,7 @@ describe('MarkdownEditor trigger sessions', () => {
         const { plugin } = mentionTriggerPlugin();
         const { container } = render(<MarkdownEditor value="" plugins={[plugin]} />);
         const el = container.findByType('sigx-richtext')!;
+        fireWrapperLayout(container);
 
         fireChange(el, doc('@a'));
         fireSelection(el, 2);
