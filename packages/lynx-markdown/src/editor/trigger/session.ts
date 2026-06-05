@@ -54,6 +54,8 @@ function matchTrigger(spec: TriggerSpec, run: string): number {
         return run.startsWith(spec.char) ? spec.char.length : -1;
     }
     if (spec.pattern) {
+        // Reset stateful lastIndex (g/y flags) so matching is deterministic.
+        spec.pattern.lastIndex = 0;
         const m = spec.pattern.exec(run);
         return m && m.index === 0 ? m[0].length : -1;
     }
@@ -94,7 +96,16 @@ export function createTriggerSessionManager(opts: TriggerSessionManagerOptions):
         const exec = (): void => {
             debounceTimer = null;
             if (epoch !== myEpoch || !session) return;
-            const result = spec.onQuery(query);
+            let result: ReturnType<typeof spec.onQuery>;
+            try {
+                result = spec.onQuery(query);
+            } catch {
+                // A throwing onQuery behaves like a rejected async query.
+                session.items = [];
+                session.loading = false;
+                emit();
+                return;
+            }
             if (Array.isArray(result)) {
                 session.items = result;
                 session.loading = false;

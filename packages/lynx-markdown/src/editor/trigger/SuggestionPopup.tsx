@@ -46,9 +46,6 @@ export const SuggestionPopup = component<SuggestionPopupProps>(({ props }) => {
         <view
             key={item.id}
             style={{ paddingLeft: '12px', paddingRight: '12px', paddingTop: '8px', paddingBottom: '8px' }}
-            accessibility-element={true}
-            accessibility-label={item.label}
-            accessibility-trait="button"
         >
             <text style={{ fontSize: 15 }}>{item.label}</text>
         </view>
@@ -92,7 +89,16 @@ export const SuggestionPopup = component<SuggestionPopupProps>(({ props }) => {
             >
                 <scroll-view scroll-orientation="vertical" style={{ maxHeight: pos.maxHeight }}>
                     {items.map((item) => (
-                        <view key={item.id} bindtap={() => props.onSelect?.(item)}>
+                        // Accessibility lives on the tappable wrapper so screen
+                        // readers treat the whole row as one button, regardless
+                        // of what a custom renderItem puts inside.
+                        <view
+                            key={item.id}
+                            bindtap={() => props.onSelect?.(item)}
+                            accessibility-element={true}
+                            accessibility-label={item.label}
+                            accessibility-trait="button"
+                        >
                             {renderItem(item, false)}
                         </view>
                     ))}
