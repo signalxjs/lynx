@@ -122,6 +122,7 @@ describe('mdToDoc', () => {
             '- a\n  - nested', // nesting
             '- a\n\n- b', // loose
             '- a\n\n  continuation', // multi-paragraph item
+            '- hard  \n  break', // hard break inside an item
         ]) {
             const doc = mdToDoc(md);
             expect(doc.blocks.map((b) => b.type)).toEqual(['raw']);

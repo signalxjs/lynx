@@ -158,8 +158,10 @@ export function mdToDoc(markdown: string, v = 0, options?: MdToDocOptions): Rich
 
 /**
  * A list the flat model can hold losslessly: tight, every item a single
- * paragraph of representable inline. Nesting shows up as an extra child
- * block, loose lists as `tight: false` — both degrade to raw.
+ * paragraph of representable inline with no top-level hard break. Nesting
+ * shows up as an extra child block, loose lists as `tight: false`, and a
+ * hard break would have to degrade to a space (items are single lines, so
+ * unlike paragraphs/quotes there's no line to split it into) — all raw.
  */
 function isFlatList(list: ListBlock, mappers?: Record<string, ExtensionSpanMapper>): boolean {
     return (
@@ -168,6 +170,7 @@ function isFlatList(list: ListBlock, mappers?: Record<string, ExtensionSpanMappe
             (item) =>
                 item.children.length === 1 &&
                 item.children[0].type === 'paragraph' &&
+                !item.children[0].children.some((node) => node.type === 'br') &&
                 inlineRepresentable(item.children[0].children, mappers),
         )
     );
