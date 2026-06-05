@@ -56,6 +56,9 @@ class SigxLinkSpan(val href: String, private val color: Int) : CharacterStyle() 
 /** Common surface for mention model carriers — readback enumerates this. */
 interface SigxMention {
     val attrs: Map<String, String>
+
+    /** Mutable so `accent-color` prop updates retint live pills (iOS parity). */
+    var color: Int
 }
 
 /**
@@ -68,7 +71,7 @@ interface SigxMention {
  */
 class SigxMentionSpan(
     override val attrs: Map<String, String>,
-    private val color: Int,
+    override var color: Int,
 ) : ReplacementSpan(), SigxMention {
 
     private val pillText: String = "@${attrs["label"] ?: ""}"
@@ -134,7 +137,7 @@ class SigxMentionSpan(
  */
 class SigxMentionTextSpan(
     override val attrs: Map<String, String>,
-    private val color: Int,
+    override var color: Int,
 ) : CharacterStyle(), SigxMention {
     override fun updateDrawState(paint: TextPaint) {
         paint.color = color

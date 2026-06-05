@@ -158,6 +158,18 @@ class SigxRichTextUI(context: LynxContext) : LynxUI<RichEditText>(context) {
     fun setAccentColor(value: String?) {
         val color = parseColor(value) ?: return
         theme.accentColor = color
+        // Retint live mention pills — spans capture their color at
+        // construction (iOS rebuilds attachments on theme changes; this is
+        // the Android analogue).
+        val editable = mView.text
+        var changed = false
+        for (span in editable.getSpans(0, editable.length, SigxMention::class.java)) {
+            if (span.color != color) {
+                span.color = color
+                changed = true
+            }
+        }
+        if (changed) mView.invalidate()
     }
 
     @LynxProp(name = "placeholder-color")
