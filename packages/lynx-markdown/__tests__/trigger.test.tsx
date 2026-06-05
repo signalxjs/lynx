@@ -130,6 +130,18 @@ describe('trigger session manager', () => {
         expect(manager.session).toMatchObject({ items: [], loading: false });
     });
 
+    it('clears previous results when the query changes (no stale suggestions)', () => {
+        const { manager } = makeManager();
+        manager.syncText('@a');
+        manager.syncCaret(2);
+        expect(manager.session!.items).toHaveLength(1); // Andy
+
+        // Async source for the next query: items must clear immediately.
+        manager.syncText('@az');
+        manager.syncCaret(3);
+        expect(manager.session!.items).toEqual([]);
+    });
+
     it('discards stale async results when a newer query supersedes them', async () => {
         const resolvers: Array<(items: TriggerItem[]) => void> = [];
         const onQuery = vi.fn(
@@ -245,6 +257,21 @@ describe('placeSuggestionPopup', () => {
         // 420 - (350+10+18) - 4 = 38 below; above has 350+10-4 = 356.
         expect(tight.placement).toBe('above');
         expect(tight.maxHeight).toBeLessThanOrEqual(base.maxPopupHeight);
+    });
+
+    it('never exceeds the available space, even below one row', () => {
+        // Caret near the top of a screen-top container, keyboard nearly
+        // covering everything: both sides are tight, above wins, and the
+        // popup must shrink to the space rather than overflow.
+        const pos = placeSuggestionPopup({
+            ...base,
+            containerTop: 0,
+            caretRect: { x: 30, y: 20, height: 18 },
+            screenHeight: 800,
+            keyboardHeight: 770, // keyboard top at 30 — almost no room anywhere
+        });
+        expect(pos.placement).toBe('above');
+        expect(pos.maxHeight).toBeLessThanOrEqual(20 - 4); // spaceAbove
     });
 
     it('clamps left so the popup stays inside the container', () => {

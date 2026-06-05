@@ -59,19 +59,21 @@ export function placeSuggestionPopup(opts: {
 
     const left = Math.max(0, Math.min(opts.caretRect.x, opts.containerWidth - opts.popupWidth));
 
+    // Never exceed the actual available space — the clamp guarantee wins over
+    // a comfortable minimum height (the list scrolls inside whatever fits).
     if (placement === 'above') {
         return {
             placement,
             left,
             bottom: opts.containerHeight - opts.caretRect.y + GAP,
-            maxHeight: Math.max(MIN_USEFUL_HEIGHT, Math.min(opts.maxPopupHeight, spaceAbove)),
+            maxHeight: Math.max(0, Math.min(opts.maxPopupHeight, spaceAbove)),
         };
     }
     return {
         placement,
         left,
         top: opts.caretRect.y + opts.caretRect.height + GAP,
-        maxHeight: Math.max(MIN_USEFUL_HEIGHT, Math.min(opts.maxPopupHeight, spaceBelow)),
+        maxHeight: Math.max(0, Math.min(opts.maxPopupHeight, spaceBelow)),
     };
 }
 
