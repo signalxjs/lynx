@@ -5,7 +5,6 @@ import {
     Col,
     Row,
     ScrollView,
-    Text,
     markdownComponents,
     useMarkdownEditorTheme,
 } from '@sigx/lynx-daisyui';
