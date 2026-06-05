@@ -401,15 +401,19 @@ class SigxRichTextUI(context: LynxContext) : LynxUI<RichEditText>(context) {
                 from + 1,
                 DocumentMapper.MENTION_FLAGS,
             )
-            isProgrammaticEdit = false
             userHasEdited = true
             localVersion += 1
             typingOverrides.clear()
-            mView.setSelection((from + 1).coerceIn(0, editable.length))
+            // Move the caret while still under the programmatic guard —
+            // otherwise onSelectionChanged fires a selection event and the
+            // manual fireSelection below would duplicate it.
+            val caret = (from + 1).coerceIn(0, editable.length)
+            mView.setSelection(caret)
+            isProgrammaticEdit = false
             mView.invalidate()
             reportHeightIfChanged()
             fireChange(isComposing = false)
-            fireSelection(from + 1, from + 1)
+            fireSelection(caret, caret)
             callback?.invoke(LynxUIMethodConstants.SUCCESS, resultMap("applied" to true))
         }
     }
@@ -527,12 +531,12 @@ class SigxRichTextUI(context: LynxContext) : LynxUI<RichEditText>(context) {
         BaseInputConnection.getComposingSpanStart(editable) >= 0
 
     /**
-     * Deleting a chip's U+FFFC leaves its zero-length [SigxMentionSpan]
-     * behind (Android keeps collapsed spans) — drop them so they never read
-     * back as phantom mentions. `removeSpan` doesn't re-enter the watcher.
+     * Deleting a chip's U+FFFC leaves its zero-length mention span behind
+     * (Android keeps collapsed spans) — drop them so they never read back as
+     * phantom mentions. `removeSpan` doesn't re-enter the watcher.
      */
     private fun cleanupCollapsedChips(editable: Editable) {
-        for (span in editable.getSpans(0, editable.length, SigxMentionSpan::class.java)) {
+        for (span in editable.getSpans(0, editable.length, SigxMention::class.java)) {
             if (editable.getSpanStart(span) >= editable.getSpanEnd(span)) {
                 editable.removeSpan(span)
             }

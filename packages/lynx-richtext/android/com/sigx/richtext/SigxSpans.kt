@@ -53,23 +53,38 @@ class SigxLinkSpan(val href: String, private val color: Int) : CharacterStyle() 
     }
 }
 
+/** Common surface for mention model carriers — readback enumerates this. */
+interface SigxMention {
+    val attrs: Map<String, String>
+}
+
 /**
  * Mention chip — an atomic pill drawn over the span's single U+FFFC char
  * (the model invariant; see `InlineSpanType` in `model/types.ts`). The
  * label lives only in [attrs]; it is never part of the document text, so
  * deletion and selection are naturally atomic (a 1-char span has no
- * interior caret position). The span is both the model carrier (readback
- * enumerates it) and the visual.
+ * interior caret position). The span is both a model carrier (readback
+ * enumerates [SigxMention]) and the visual.
  */
-class SigxMentionSpan(val attrs: Map<String, String>, private val color: Int) : ReplacementSpan() {
+class SigxMentionSpan(
+    override val attrs: Map<String, String>,
+    private val color: Int,
+) : ReplacementSpan(), SigxMention {
 
-    private fun pillText(): String = "@${attrs["label"] ?: ""}"
+    private val pillText: String = "@${attrs["label"] ?: ""}"
 
-    private fun pillPaint(base: Paint): TextPaint = TextPaint(base).apply {
-        textSize = base.textSize * 0.9f
-        typeface = Typeface.create(base.typeface, Typeface.BOLD)
-        color = this@SigxMentionSpan.color
-        isUnderlineText = false
+    // Reused across measure/draw passes (UI-thread only) — ReplacementSpans
+    // redraw on every scroll/selection tick, so per-draw allocations add up.
+    private val workPaint = TextPaint()
+    private val bgRect = RectF()
+
+    private fun configure(base: Paint): TextPaint {
+        workPaint.set(base)
+        workPaint.textSize = base.textSize * 0.9f
+        workPaint.typeface = Typeface.create(base.typeface, Typeface.BOLD)
+        workPaint.isUnderlineText = false
+        workPaint.isAntiAlias = true
+        return workPaint
     }
 
     private fun hPad(base: Paint): Float = base.textSize * 0.35f
@@ -83,7 +98,7 @@ class SigxMentionSpan(val attrs: Map<String, String>, private val color: Int) : 
             fm.bottom = base.bottom
         }
         // Round up — truncation can clip the last glyph / background edge.
-        return kotlin.math.ceil(pillPaint(paint).measureText(pillText()) + hPad(paint) * 2).toInt()
+        return kotlin.math.ceil(configure(paint).measureText(pillText) + hPad(paint) * 2).toInt()
     }
 
     override fun draw(
@@ -97,16 +112,33 @@ class SigxMentionSpan(val attrs: Map<String, String>, private val color: Int) : 
         bottom: Int,
         paint: Paint,
     ) {
-        val p = pillPaint(paint)
-        val width = p.measureText(pillText()) + hPad(paint) * 2
+        val p = configure(paint)
+        val pad = hPad(paint)
+        val width = p.measureText(pillText) + pad * 2
         val inset = (bottom - top) * 0.08f
-        val rect = RectF(x, top + inset, x + width, bottom - inset)
-        val bg = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            // Accent at ~15% alpha for the pill fill.
-            color = (this@SigxMentionSpan.color and 0x00FFFFFF) or (0x26 shl 24)
-        }
-        canvas.drawRoundRect(rect, rect.height() / 2, rect.height() / 2, bg)
-        canvas.drawText(pillText(), x + hPad(paint), y.toFloat(), p)
+        bgRect.set(x, top + inset, x + width, bottom - inset)
+        // Accent at ~15% alpha for the fill, accent for the label — one
+        // reused paint, two color passes (no per-draw allocations).
+        p.color = (color and 0x00FFFFFF) or (0x26 shl 24)
+        canvas.drawRoundRect(bgRect, bgRect.height() / 2, bgRect.height() / 2, p)
+        p.color = color
+        canvas.drawText(pillText, x + pad, y.toFloat(), p)
+    }
+}
+
+/**
+ * Fallback carrier for a mention span that does NOT conform to the chip
+ * invariant (not exactly one U+FFFC): attrs still round-trip through
+ * readback, but the covered text renders literally with an accent underline
+ * — mirroring iOS, where only conforming spans get an attachment.
+ */
+class SigxMentionTextSpan(
+    override val attrs: Map<String, String>,
+    private val color: Int,
+) : CharacterStyle(), SigxMention {
+    override fun updateDrawState(paint: TextPaint) {
+        paint.color = color
+        paint.isUnderlineText = true
     }
 }
 

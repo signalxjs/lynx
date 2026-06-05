@@ -436,13 +436,16 @@ public class SigxRichTextUI: LynxUI<RichTextView> {
             chip.addAttribute(.font, value: self.theme.baseFont, range: chipRange)
             storage.insert(chip, at: location)
             storage.endEditing()
-            self.isProgrammaticEdit = false
             self.userHasEdited = true
             self.localVersion += 1
             self.lastNonCollapsedSelection = nil
-            // Caret after the chip; plain typing attributes (hygiene).
+            // Caret after the chip; plain typing attributes (hygiene). Still
+            // under the programmatic guard — otherwise the delegate fires a
+            // selection event for the caret move and fireSelection() below
+            // would duplicate it.
             view.selectedRange = NSRange(location: location + chip.length, length: 0)
             view.typingAttributes = [.font: self.theme.baseFont, .foregroundColor: self.theme.textColor]
+            self.isProgrammaticEdit = false
             self.reportHeightIfChanged()
             self.fireChange(isComposing: false)
             self.fireSelection()

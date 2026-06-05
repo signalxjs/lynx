@@ -53,12 +53,21 @@ object DocumentMapper {
                 "strike" -> SigxStrikeSpan()
                 "code" -> SigxCodeSpan(theme.codeBackground)
                 "link" -> SigxLinkSpan(attrs?.optString("href") ?: "", theme.accentColor)
-                "mention" -> SigxMentionSpan(attrs.toStringMap(), theme.accentColor)
+                "mention" ->
+                    // The chip invariant: exactly one U+FFFC. Conforming spans
+                    // get the pill; anything else keeps its attrs (round-trips)
+                    // but renders literally — mirrors iOS, and never lets a
+                    // ReplacementSpan swallow arbitrary text.
+                    if (end - start == 1 && builder[start] == '\uFFFC') {
+                        SigxMentionSpan(attrs.toStringMap(), theme.accentColor)
+                    } else {
+                        SigxMentionTextSpan(attrs.toStringMap(), theme.accentColor)
+                    }
                 else -> null
             }
             // Mention chips are atomic: EXCLUSIVE_EXCLUSIVE so typing at
             // either edge never extends them (formats keep INLINE_FLAGS).
-            val flags = if (mark is SigxMentionSpan) MENTION_FLAGS else INLINE_FLAGS
+            val flags = if (mark is SigxMention) MENTION_FLAGS else INLINE_FLAGS
             if (mark != null) builder.setSpan(mark, start, end, flags)
         }
 
@@ -116,7 +125,7 @@ object DocumentMapper {
                 JSONObject().put("href", span.href),
             )
         }
-        for (span in text.getSpans(0, text.length, SigxMentionSpan::class.java)) {
+        for (span in text.getSpans(0, text.length, SigxMention::class.java)) {
             val attrs = JSONObject()
             for ((k, v) in span.attrs) attrs.put(k, v)
             add(text.getSpanStart(span), text.getSpanEnd(span), "mention", attrs)
