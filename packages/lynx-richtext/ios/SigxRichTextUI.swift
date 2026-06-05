@@ -15,7 +15,7 @@ import Lynx
 /// `bindheightchange`, `bindfocus`, `bindblur`.
 ///
 /// UI methods: `setDocument`, `getDocument`, `toggleFormat`, `setBlockType`,
-/// `insertText`, `setSelectionRange`, `focus`, `blur`.
+/// `insertText`, `insertChip`, `setSelectionRange`, `focus`, `blur`.
 ///
 /// ### IME / echo contract (mirrors lynx-runtime's input `setValue` rules)
 /// 1. Every user edit bumps `localVersion`; `bindchange` carries it inside the doc.
@@ -388,6 +388,88 @@ public class SigxRichTextUI: LynxUI<RichTextView> {
     @objc(__lynx_ui_method_config__insertText)
     dynamic public class func __lynxUIMethodConfigInsertText() -> NSString { return "insertText" }
 
+    /// Insert an atomic mention chip: one U+FFFC carrying `sigx.mention` +
+    /// a `MentionAttachment` pill. `replaceFrom`/`replaceTo` first remove
+    /// the trigger query run. The chip is built with fresh attributes — it
+    /// never inherits typing attributes, and typing attributes are reset
+    /// afterwards so the chip attrs can't bleed into the next typed char.
+    @objc public func insertChip(_ params: NSDictionary?, withResult callback: @escaping LynxUIMethodCallbackBlock) {
+        let id = (params?["id"] as? String) ?? ""
+        let label = (params?["label"] as? String) ?? ""
+        let kind = params?["kind"] as? String
+        let replaceFrom = params?["replaceFrom"] as? Int
+        let replaceTo = params?["replaceTo"] as? Int
+        // The mention contract requires a usable payload — an id-less or
+        // label-less chip can't be resolved or rendered.
+        guard !id.isEmpty, !label.isEmpty else {
+            callback(SigxRichTextUI.kUIMethodSuccess, ["applied": false, "reason": "invalid"])
+            return
+        }
+        DispatchQueue.main.async {
+            let view = self.view()
+            if view.markedTextRange != nil {
+                callback(SigxRichTextUI.kUIMethodSuccess, ["applied": false, "reason": "composing"])
+                return
+            }
+            guard let storage = view.textStorage as NSTextStorage? else {
+                callback(SigxRichTextUI.kUIMethodUnknown, "insertChip: no storage")
+                return
+            }
+            // Captured before the edit so block/format toggles survive the
+            // chip insert (only the chip-specific keys are stripped below).
+            let priorTyping = view.typingAttributes
+            var location: Int
+            self.isProgrammaticEdit = true
+            storage.beginEditing()
+            if let from = replaceFrom, let to = replaceTo {
+                let upper = storage.length
+                let s = max(0, min(from, upper))
+                let e = max(s, min(to, upper))
+                if e > s { storage.deleteCharacters(in: NSRange(location: s, length: e - s)) }
+                location = s
+            } else {
+                // No explicit range: replace the live selection, matching
+                // insertText and the Android implementation.
+                let sel = view.selectedRange
+                let upper = storage.length
+                let s = max(0, min(sel.location, upper))
+                let e = max(s, min(sel.location + sel.length, upper))
+                if e > s { storage.deleteCharacters(in: NSRange(location: s, length: e - s)) }
+                location = s
+            }
+            var attrs: [String: String] = ["id": id, "label": label]
+            if let kind, !kind.isEmpty { attrs["kind"] = kind }
+            let attachment = MentionAttachment(attrs: attrs, theme: self.theme)
+            let chip = NSMutableAttributedString(attachment: attachment) // one U+FFFC
+            let chipRange = NSRange(location: 0, length: chip.length)
+            chip.addAttribute(SigxAttr.mention, value: attrs, range: chipRange)
+            chip.addAttribute(.font, value: self.theme.baseFont, range: chipRange)
+            storage.insert(chip, at: location)
+            storage.endEditing()
+            self.userHasEdited = true
+            self.localVersion += 1
+            self.lastNonCollapsedSelection = nil
+            // Caret after the chip. Still under the programmatic guard —
+            // otherwise the delegate fires a selection event for the caret
+            // move and fireSelection() below would duplicate it.
+            view.selectedRange = NSRange(location: location + chip.length, length: 0)
+            // Typing hygiene: restore the pre-insert typing attributes with
+            // only the chip keys stripped — block/format toggles survive,
+            // the chip attrs never bleed into the next typed char.
+            var typing = priorTyping
+            typing.removeValue(forKey: .attachment)
+            typing.removeValue(forKey: SigxAttr.mention)
+            view.typingAttributes = typing
+            self.isProgrammaticEdit = false
+            self.reportHeightIfChanged()
+            self.fireChange(isComposing: false)
+            self.fireSelection()
+            callback(SigxRichTextUI.kUIMethodSuccess, ["applied": true])
+        }
+    }
+    @objc(__lynx_ui_method_config__insertChip)
+    dynamic public class func __lynxUIMethodConfigInsertChip() -> NSString { return "insertChip" }
+
     @objc public func setSelectionRange(_ params: NSDictionary?, withResult callback: @escaping LynxUIMethodCallbackBlock) {
         let start = (params?["start"] as? Int) ?? 0
         let end = (params?["end"] as? Int) ?? start
@@ -492,6 +574,8 @@ public class SigxRichTextUI: LynxUI<RichTextView> {
         isProgrammaticEdit = true
         storage.beginEditing()
         DocumentMapper.refreshVisuals(storage, range: NSRange(location: 0, length: storage.length), theme: theme)
+        // Chip pills capture their look at creation — rebuild on theme change.
+        DocumentMapper.refreshMentionAttachments(storage, theme: theme)
         storage.endEditing()
         isProgrammaticEdit = false
     }

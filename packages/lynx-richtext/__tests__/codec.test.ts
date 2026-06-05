@@ -85,3 +85,18 @@ describe('codec', () => {
         expect(docEquals(normalizeDoc(shuffled), normalizeDoc(sample))).toBe(true);
     });
 });
+
+describe('mention chips (atomic U+FFFC spans)', () => {
+    it('round-trips a mention span over a single U+FFFC with attrs', () => {
+        const doc: RichDoc = {
+            text: 'ping \uFFFC!',
+            spans: [{ start: 5, end: 6, type: 'mention', attrs: { id: 'u1', label: 'Andy' } }],
+            blocks: [],
+            v: 3,
+        };
+        const decoded = decodeDoc(encodeDoc(doc));
+        expect(decoded).toEqual(doc);
+        expect(docEquals(decoded, doc)).toBe(true);
+        expect(normalizeDoc(decoded).spans[0].attrs).toEqual({ id: 'u1', label: 'Andy' });
+    });
+});

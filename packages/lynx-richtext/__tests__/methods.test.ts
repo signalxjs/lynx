@@ -1,0 +1,46 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+
+const pushOp = vi.fn();
+const scheduleFlush = vi.fn();
+vi.mock('@sigx/lynx', async (importOriginal) => ({
+    ...(await importOriginal<Record<string, unknown>>()),
+    pushOp: (...args: unknown[]) => pushOp(...args),
+    scheduleFlush: () => scheduleFlush(),
+}));
+
+const { OP } = await import('@sigx/lynx');
+const { RichTextMethods } = await import('../src/methods');
+
+const el = { id: 42 };
+
+beforeEach(() => {
+    pushOp.mockClear();
+    scheduleFlush.mockClear();
+});
+
+describe('RichTextMethods.insertChip', () => {
+    it('pushes INVOKE_UI_METHOD with the chip payload', () => {
+        RichTextMethods.insertChip(el, { id: 'u1', label: 'Andy' });
+        expect(pushOp).toHaveBeenCalledWith(OP.INVOKE_UI_METHOD, 42, 'insertChip', {
+            id: 'u1',
+            label: 'Andy',
+        });
+        expect(scheduleFlush).toHaveBeenCalled();
+    });
+
+    it('carries kind and the replace range when provided', () => {
+        RichTextMethods.insertChip(el, { id: 'u1', label: 'Andy', kind: 'user' }, { from: 3, to: 6 });
+        expect(pushOp).toHaveBeenCalledWith(OP.INVOKE_UI_METHOD, 42, 'insertChip', {
+            id: 'u1',
+            label: 'Andy',
+            kind: 'user',
+            replaceFrom: 3,
+            replaceTo: 6,
+        });
+    });
+
+    it('is a no-op without an element handle', () => {
+        RichTextMethods.insertChip(null, { id: 'u1', label: 'Andy' });
+        expect(pushOp).not.toHaveBeenCalled();
+    });
+});

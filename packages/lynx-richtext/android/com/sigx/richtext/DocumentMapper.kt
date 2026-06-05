@@ -25,6 +25,12 @@ object DocumentMapper {
     /** Inline span flag: typing at the trailing edge extends the format. */
     const val INLINE_FLAGS: Int = Spanned.SPAN_EXCLUSIVE_INCLUSIVE
 
+    /**
+     * Mention chips are atomic — typing at either edge must stay plain, so
+     * the span never extends (unlike formatting spans).
+     */
+    const val MENTION_FLAGS: Int = Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+
     data class Parsed(val text: SpannableStringBuilder, val version: Int)
 
     /** Parse a JSON RichDoc. Returns null when unparseable. */
@@ -47,10 +53,27 @@ object DocumentMapper {
                 "strike" -> SigxStrikeSpan()
                 "code" -> SigxCodeSpan(theme.codeBackground)
                 "link" -> SigxLinkSpan(attrs?.optString("href") ?: "", theme.accentColor)
-                "mention" -> SigxMentionSpan(attrs.toStringMap(), theme.accentColor)
+                "mention" -> {
+                    // The chip invariant: exactly one U+FFFC AND a usable
+                    // payload (non-empty id + label, same rule as insertChip).
+                    // Conforming spans get the pill; anything else keeps its
+                    // attrs (round-trips) but renders literally — mirrors
+                    // iOS, never lets a ReplacementSpan swallow arbitrary
+                    // text, and never draws an empty pill for invalid data.
+                    val chipAttrs = attrs.toStringMap()
+                    val usable = !chipAttrs["id"].isNullOrEmpty() && !chipAttrs["label"].isNullOrEmpty()
+                    if (usable && end - start == 1 && builder[start] == '\uFFFC') {
+                        SigxMentionSpan(chipAttrs, theme.accentColor)
+                    } else {
+                        SigxMentionTextSpan(chipAttrs, theme.accentColor)
+                    }
+                }
                 else -> null
             }
-            if (mark != null) builder.setSpan(mark, start, end, INLINE_FLAGS)
+            // Mention chips are atomic: EXCLUSIVE_EXCLUSIVE so typing at
+            // either edge never extends them (formats keep INLINE_FLAGS).
+            val flags = if (mark is SigxMention) MENTION_FLAGS else INLINE_FLAGS
+            if (mark != null) builder.setSpan(mark, start, end, flags)
         }
 
         val blocks: JSONArray = obj.optJSONArray("blocks") ?: JSONArray()
@@ -107,7 +130,7 @@ object DocumentMapper {
                 JSONObject().put("href", span.href),
             )
         }
-        for (span in text.getSpans(0, text.length, SigxMentionSpan::class.java)) {
+        for (span in text.getSpans(0, text.length, SigxMention::class.java)) {
             val attrs = JSONObject()
             for ((k, v) in span.attrs) attrs.put(k, v)
             add(text.getSpanStart(span), text.getSpanEnd(span), "mention", attrs)
