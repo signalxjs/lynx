@@ -71,12 +71,41 @@ export interface ModuleConfig {
     disabled?: boolean;
 }
 
+/** How the splash image is fitted into the screen. */
+export type SplashResizeMode = 'contain' | 'cover' | 'center';
+
+/** Dark-mode splash variant. Unset fields fall back to the light splash. */
+export interface SplashDarkConfig {
+    /** Path to dark-mode splash image PNG. Falls back to the light image. */
+    image?: string;
+    /** Dark-mode background hex color. Falls back to the light background. */
+    backgroundColor?: string;
+}
+
 /** Splash / launch screen config. */
 export interface SplashConfig {
     /** Path (relative to project root) to splash image PNG. Falls back to bundled default. */
     image?: string;
     /** Background hex color, e.g. '#0D9488'. Default: '#FFFFFF'. */
     backgroundColor?: string;
+    /**
+     * How the splash image fits the screen. Default: 'center' (logo at its
+     * natural size, centered).
+     *
+     * - 'center': small centered logo over the background color.
+     * - 'contain': larger centered logo, never cropped.
+     * - 'cover': image fills the screen. Best-effort on both platforms:
+     *   Android layer-list bitmaps stretch to fill (use a bleed-safe image),
+     *   and iOS `UILaunchScreen` always aspect-fits its image, so 'cover'
+     *   renders like 'contain' there (Apple constraint).
+     */
+    resizeMode?: SplashResizeMode;
+    /**
+     * Dark-mode splash. When set, Android gets `-night` resources and iOS
+     * gets dark-appearance asset variants; when unset, dark-mode devices
+     * show the light splash.
+     */
+    dark?: SplashDarkConfig;
 }
 
 /** Android adaptive icon (Android 8+). */
@@ -85,6 +114,26 @@ export interface AdaptiveIconConfig {
     foreground: string;
     /** Background hex color. Default: '#FFFFFF'. */
     backgroundColor?: string;
+    /**
+     * Path to monochrome PNG (white-on-transparent silhouette, same 1024×1024
+     * safe-zone rules as `foreground`). Emits the `<monochrome>` layer used by
+     * Android 13+ themed home-screen icons; without it, themed launchers show
+     * a generic fallback shape.
+     */
+    monochrome?: string;
+}
+
+/**
+ * iOS app icon with appearance variants (iOS 18+). A plain string `icon`
+ * is equivalent to `{ light: <path> }`.
+ */
+export interface IosIconConfig {
+    /** Standard (light) appearance — 1024×1024 PNG. */
+    light: string;
+    /** Dark appearance. Apple recommends an opaque image (no transparency). */
+    dark?: string;
+    /** Tinted appearance — grayscale source the system tints. */
+    tinted?: string;
 }
 
 /** Android-specific build configuration. */
@@ -126,6 +175,20 @@ export interface AndroidConfig {
     icon?: string;
     /** Adaptive icon for Android 8+ (foreground + background color). */
     adaptiveIcon?: AdaptiveIconConfig;
+    /**
+     * White-on-transparent PNG used as the status-bar small icon for
+     * notifications (Android renders small icons as monochrome silhouettes,
+     * so a full-color launcher icon shows up as a blob). Generated into
+     * `res/drawable-<density>/ic_notification.png`; `@sigx/lynx-notifications`
+     * resolves it by name and falls back to the launcher icon when unset.
+     */
+    notificationIcon?: string;
+    /**
+     * Accent hex color applied to notifications (icon tint / accents).
+     * Generated as `@color/notification_color` and wired up via the standard
+     * default-notification-color manifest meta-data.
+     */
+    notificationColor?: string;
     /** Override top-level splash for Android only. */
     splash?: SplashConfig;
     /** Override top-level scheme for Android only. */
@@ -168,8 +231,11 @@ export interface IosConfig {
      * Merged with any identifiers contributed by linked modules.
      */
     bgTaskIdentifiers?: string[];
-    /** Override top-level icon for iOS only. */
-    icon?: string;
+    /**
+     * Override top-level icon for iOS only. A string is the light icon; an
+     * `IosIconConfig` object adds iOS 18 dark/tinted appearance variants.
+     */
+    icon?: string | IosIconConfig;
     /** Override top-level splash for iOS only. */
     splash?: SplashConfig;
     /** Override top-level scheme for iOS only. */
@@ -284,7 +350,11 @@ export interface PrebuildHooksConfig {
  *     scheme: 'myapp',
  *     orientation: 'portrait',
  *     icon: 'assets/icon.png',
- *     splash: { image: 'assets/splash.png', backgroundColor: '#0D9488' },
+ *     splash: {
+ *         image: 'assets/splash.png',
+ *         backgroundColor: '#0D9488',
+ *         dark: { backgroundColor: '#134E4A' },
+ *     },
  *     // Native modules auto-discover from installed deps — only list overrides:
  *     modules: [
  *         { package: '@sigx/lynx-location', config: { accuracy: 'high' } },
@@ -296,11 +366,18 @@ export interface PrebuildHooksConfig {
  *     android: {
  *         applicationId: 'com.mycompany.myapp',
  *         versionCode: 2,
- *         adaptiveIcon: { foreground: 'assets/adaptive-foreground.png', backgroundColor: '#0D9488' },
+ *         adaptiveIcon: {
+ *             foreground: 'assets/adaptive-foreground.png',
+ *             backgroundColor: '#0D9488',
+ *             monochrome: 'assets/adaptive-monochrome.png',
+ *         },
+ *         notificationIcon: 'assets/notification-icon.png',
+ *         notificationColor: '#0D9488',
  *     },
  *     ios: {
  *         bundleIdentifier: 'com.mycompany.myapp',
  *         buildNumber: '2',
+ *         icon: { light: 'assets/icon.png', dark: 'assets/icon-dark.png' },
  *     },
  * });
  * ```

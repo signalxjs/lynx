@@ -122,7 +122,30 @@ function androidIntentFilterXml(scheme: string | null): string {
 }
 
 /**
- * Apply orientation + intent-filter (deep link scheme) to AndroidManifest.xml.
+ * App-level `<meta-data>` derived from config (as opposed to the module
+ * meta-data the autolinker injects via `{{META_DATA}}`). Currently: the
+ * standard default-notification-icon/-color keys consumed by FCM and by
+ * `@sigx/lynx-notifications`.
+ */
+function androidAppMetaDataXml(android: ResolvedAndroidAssets): string {
+    const entries: string[] = [];
+    if (android.notificationIcon) {
+        entries.push(
+            '        <meta-data android:name="com.google.firebase.messaging.default_notification_icon" android:resource="@drawable/ic_notification" />',
+        );
+    }
+    if (android.notificationColor) {
+        entries.push(
+            '        <meta-data android:name="com.google.firebase.messaging.default_notification_color" android:resource="@color/notification_color" />',
+        );
+    }
+    if (entries.length === 0) return '        <!-- (no app meta-data configured) -->';
+    return `        <!-- Config-driven app meta-data -->\n${entries.join('\n')}`;
+}
+
+/**
+ * Apply orientation + intent-filter (deep link scheme) + app meta-data to
+ * AndroidManifest.xml.
  */
 export function applyAndroidManifestMeta(cwd: string, android: ResolvedAndroidAssets): void {
     const manifestFile = join(cwd, 'android', 'app', 'src', 'main', 'AndroidManifest.xml');
@@ -131,6 +154,7 @@ export function applyAndroidManifestMeta(cwd: string, android: ResolvedAndroidAs
     let content = readFileSync(manifestFile, 'utf-8');
     content = content.replace('{{orientation}}', androidOrientationValue(android.orientation));
     content = content.replace('            <!-- {{INTENT_FILTERS}} -->', androidIntentFilterXml(android.scheme));
+    content = content.replace('        <!-- {{APP_META_DATA}} -->', androidAppMetaDataXml(android));
     writeFileIfChanged(manifestFile, content);
     log(`Android: applied manifest meta (orientation=${android.orientation}, scheme=${android.scheme ?? 'none'})`);
 }

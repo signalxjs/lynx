@@ -69,16 +69,12 @@ class SigxFirebaseMessagingService : FirebaseMessagingService() {
         // state). Ensure the notification channel exists here too so
         // `notify()` on O+ doesn't silently drop the post.
         ensureChannel(manager)
-        // Prefer the app's launcher icon over the stock dialog icon — Android
-        // renders small-icons as monochrome silhouettes, so a generic system
-        // shape would show up as a plain square. `applicationInfo.icon` is
-        // the manifest <application android:icon>, which apps always set.
-        val smallIcon = applicationInfo.icon.takeIf { it != 0 } ?: android.R.drawable.ic_dialog_info
         val builder = NotificationCompat.Builder(this, NotificationsModule.CHANNEL_ID)
             .setContentTitle(title)
             .setContentText(body)
-            .setSmallIcon(smallIcon)
+            .setSmallIcon(NotificationAppearance.smallIcon(this))
             .setAutoCancel(true)
+        NotificationAppearance.accentColor(this)?.let { builder.setColor(it) }
 
         // Stash data on the launch intent so [PushActivityHook.onNewIntent]
         // can route the tap to [PushEventBus.publishResponse] / capture as
