@@ -143,9 +143,15 @@ export function linkAndroid(
     const permissions: string[] = [...(config.android.permissions ?? [])];
     const debugPermissions: string[] = [];
     // App-level features are seeded first so they win the de-dupe over any
-    // module-contributed entry of the same name.
-    const features: AndroidFeatureEntry[] = [...(config.android.features ?? [])];
-    const seenFeatureNames = new Set<string>(features.map((f) => f.name));
+    // module-contributed entry of the same name. The seed itself is de-duped
+    // too (first wins) in case the app config repeats a name.
+    const features: AndroidFeatureEntry[] = [];
+    const seenFeatureNames = new Set<string>();
+    for (const feat of config.android.features ?? []) {
+        if (seenFeatureNames.has(feat.name)) continue;
+        seenFeatureNames.add(feat.name);
+        features.push(feat);
+    }
     const services: AndroidServiceEntry[] = [];
     const seenServiceNames = new Set<string>();
     const metaData: ResolvedAndroidMetaData[] = [];

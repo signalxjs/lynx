@@ -236,6 +236,21 @@ describe('linkAndroid — features aggregation', () => {
         expect(result.features).toEqual([{ name: 'android.hardware.camera', required: true }]);
     });
 
+    it('de-dupes repeated names within the app config (first wins)', () => {
+        const config = resolveConfig({
+            ...BASE_CONFIG,
+            android: {
+                ...BASE_CONFIG.android,
+                features: [
+                    { name: 'android.hardware.camera', required: false },
+                    { name: 'android.hardware.camera', required: true },
+                ],
+            },
+        });
+        const result = linkAndroid(config, []);
+        expect(result.features).toEqual([{ name: 'android.hardware.camera', required: false }]);
+    });
+
     it('de-dupes the same feature across modules (first wins)', () => {
         const other: ModuleManifest = {
             ...cameraManifest,
