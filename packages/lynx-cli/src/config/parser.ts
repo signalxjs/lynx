@@ -89,6 +89,7 @@ export interface ResolvedConfig {
         Omit<NonNullable<LynxConfig['android']>, 'minSdk' | 'targetSdk' | 'compileSdk' | 'versionCode'>;
     ios: Required<Pick<NonNullable<LynxConfig['ios']>, 'deploymentTarget' | 'buildNumber'>> &
         Omit<NonNullable<LynxConfig['ios']>, 'deploymentTarget' | 'buildNumber'>;
+    prebuild?: LynxConfig['prebuild'];
 }
 
 /**
@@ -120,6 +121,7 @@ export function resolveConfig(raw: LynxConfig): ResolvedConfig {
             pods: raw.ios?.pods ?? {},
             usageDescriptions: raw.ios?.usageDescriptions ?? {},
         },
+        prebuild: raw.prebuild,
     };
 }
 

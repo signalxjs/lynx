@@ -10,7 +10,7 @@ import {
     readFileSync, existsSync, writeFileSync, unlinkSync,
     mkdirSync, readdirSync, statSync, copyFileSync, rmSync, chmodSync,
 } from 'node:fs';
-import { join, dirname, relative, extname, basename } from 'node:path';
+import { join, dirname, relative, extname, basename, isAbsolute } from 'node:path';
 import { pathToFileURL, fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
 import { resolveConfig, modulesForPlatform, resolveAssets } from './config/index.js';
@@ -1647,6 +1647,14 @@ export function fingerprintPrebuildInputs(cwd: string, platforms: { android: boo
     }
     files.push(join(cwd, 'package.json'));
 
+    // The prebuild.post hook script is an input too — its output lands in
+    // the generated native projects. The fast path runs before the config is
+    // loaded, so the path comes from the cache sidecar the last successful
+    // run wrote. (A newly configured hook is caught via the config file
+    // hash; a *moved* one via the sidecar path changing on the next run.)
+    const hookPath = readCachedFingerprint(cwd, 'prebuild-post-hook-path');
+    if (hookPath) files.push(hookPath);
+
     const req = createRequire(join(cwd, 'package.json'));
     let pkgJson: { dependencies?: Record<string, string>; devDependencies?: Record<string, string> };
     try {
@@ -1955,12 +1963,73 @@ export async function runPrebuild(opts: PrebuildOptions = {}): Promise<void> {
         warnUnlinkedModules(configModulePackagesIos, manifests, 'iOS');
     }
 
+    // Post-prebuild hook — runs after every managed file has been rendered
+    // and every injector has finished, so project patches can never be wiped
+    // by a later step (#175). Runs BEFORE the fingerprint is cached: a hook
+    // failure leaves no "successful run" marker, so the next prebuild
+    // re-runs everything instead of fast-pathing past the broken state.
+    await runPostPrebuildHook(cwd, config, {
+        android: buildAndroid && config.platforms.includes('android'),
+        ios: buildIos && config.platforms.includes('ios'),
+    });
+
+    // Remember where the hook script lives so fingerprintPrebuildInputs —
+    // which runs before the config is loaded — can hash it on the next run.
+    writeCachedFingerprint(
+        cwd, 'prebuild-post-hook-path',
+        config.prebuild?.post ? resolveHookPath(cwd, config.prebuild.post) : '',
+    );
+
     // Record what we just successfully built from so the next runPrebuild
     // can short-circuit when inputs haven't changed.
     const fingerprint = fingerprintPrebuildInputs(cwd, { android: buildAndroid, ios: buildIos });
     writeCachedFingerprint(cwd, 'prebuild-inputs', fingerprint);
 
     log('Prebuild complete!');
+}
+
+/** Resolve a `prebuild.post` path against the project root. */
+function resolveHookPath(cwd: string, rel: string): string {
+    return isAbsolute(rel) ? rel : join(cwd, rel);
+}
+
+/**
+ * Run the config's `prebuild.post` hook, if any.
+ *
+ * The module is imported fresh on every call (cache-busting query param) so
+ * long-lived processes — the dev server re-runs prebuild without restarting
+ * Node — pick up edits to the hook script. A default-export function is
+ * awaited with `{ cwd, config, platforms }`; a module without one runs for
+ * its side effects on import. Errors propagate and fail the prebuild: a
+ * patch that no longer finds its anchor after a template change should stop
+ * the build, not ship an unpatched binary.
+ */
+let hookImportCounter = 0;
+
+export async function runPostPrebuildHook(
+    cwd: string,
+    config: ResolvedConfig,
+    platforms: { android: boolean; ios: boolean },
+): Promise<void> {
+    const rel = config.prebuild?.post;
+    if (!rel) return;
+
+    const hookPath = resolveHookPath(cwd, rel);
+    if (!existsSync(hookPath)) {
+        throw new Error(
+            `prebuild.post hook not found: ${hookPath}\n` +
+            `(configured as "${rel}" in signalx.config — the path is resolved from the project root)`,
+        );
+    }
+
+    log(`Running post-prebuild hook: ${rel}`);
+    // Counter, not Date.now(): two prebuilds in the same millisecond (e.g.
+    // back-to-back test runs) would otherwise hit Node's module cache.
+    const mod = await import(`${pathToFileURL(hookPath).href}?v=${hookImportCounter++}`);
+    if (typeof mod.default === 'function') {
+        await mod.default({ cwd, config, platforms });
+    }
+    log('Post-prebuild hook complete');
 }
 
 /**
