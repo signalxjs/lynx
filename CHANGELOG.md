@@ -4,6 +4,17 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 ## [Unreleased]
 
+### Fixed
+
+- `@sigx/lynx-richtext` (Android) — the `editable` prop now defaults to `true`
+  when null/absent (`defaultBoolean = true`, mirroring iOS's `?? true`).
+  Previously an explicitly-undefined `editable` coerced to `false`, leaving the
+  EditText disabled and unfocusable — a `MarkdownEditor` without `disabled` was
+  completely inert on Android (#182).
+- `@sigx/lynx-markdown` — `MarkdownEditor` now passes a concrete boolean to
+  `<sigx-richtext>`'s `editable` (`props.disabled !== true`) instead of
+  `undefined`, so no platform has to guess a default.
+
 ## [0.4.8] - 2026-06-05
 
 ### Added
