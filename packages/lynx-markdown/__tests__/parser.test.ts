@@ -166,6 +166,18 @@ describe('parseInline (extensions)', () => {
         expect(out[0]).toEqual({ type: 'text', value: '@' });
     });
 
+    it('ignores a non-advancing match instead of hanging', () => {
+        const broken: ParserInlineExtension = {
+            name: 'broken',
+            triggerChars: ['@'],
+            match: (_text, pos) => ({
+                node: { type: 'extension', name: 'broken', attrs: {}, raw: '' },
+                end: pos, // zero-width — must be rejected
+            }),
+        };
+        expect(parseInline('a @b', [broken])).toEqual([{ type: 'text', value: 'a @b' }]);
+    });
+
     it('never calls match when the trigger char is absent', () => {
         const spy = vi.fn(() => null);
         const ext: ParserInlineExtension = { name: 'x', triggerChars: ['@'], match: spy };

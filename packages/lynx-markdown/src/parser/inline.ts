@@ -94,7 +94,9 @@ function tokenize(text: string, extensions?: readonly ParserInlineExtension[]): 
             for (const ext of extensions!) {
                 if (!ext.triggerChars.includes(ch)) continue;
                 const m = ext.match(text, i);
-                if (m) {
+                // A non-advancing match (end <= pos) would hang the tokenizer —
+                // ignore it, preserving the "never throws, never hangs" guarantee.
+                if (m && m.end > i) {
                     flush();
                     tokens.push(m.node);
                     i = m.end;
