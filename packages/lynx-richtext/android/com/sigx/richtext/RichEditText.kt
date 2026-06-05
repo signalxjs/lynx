@@ -57,6 +57,9 @@ class RichEditText(context: Context) : EditText(context) {
                     if (hitTaskCheckbox(event) === span) {
                         val spanned = text as Spanned
                         onCheckboxTap?.invoke(spanned.getSpanStart(span), spanned.getSpanEnd(span))
+                        // Consumed taps must still surface as clicks to
+                        // accessibility services.
+                        performClick()
                     }
                     return true
                 }
@@ -64,6 +67,14 @@ class RichEditText(context: Context) : EditText(context) {
             MotionEvent.ACTION_CANCEL -> pendingCheckboxSpan = null
         }
         return super.onTouchEvent(event)
+    }
+
+    override fun performClick(): Boolean {
+        // Checkbox toggles dispatch from onTouchEvent (the tap target is a
+        // drawn gutter, not a child view); the override pairs with the
+        // performClick() call there so custom touch handling stays
+        // accessibility-correct.
+        return super.performClick()
     }
 
     /** The task block span whose checkbox gutter contains the touch, if any. */

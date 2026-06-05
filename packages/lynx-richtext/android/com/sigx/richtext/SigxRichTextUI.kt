@@ -690,6 +690,10 @@ class SigxRichTextUI(context: LynxContext) : LynxUI<RichEditText>(context) {
             isProgrammaticEdit = true
             editable.delete(nl, nl + 1)
             isProgrammaticEdit = false
+            // The inserted run no longer exists — later watcher steps
+            // (typing overrides) must not target the stale range.
+            pendingInsertStart = -1
+            pendingInsertEnd = -1
             return
         }
         val (pStart, pEnd) = DocumentMapper.snapToParagraph(editable, nl, nl)
@@ -703,6 +707,10 @@ class SigxRichTextUI(context: LynxContext) : LynxUI<RichEditText>(context) {
             removeBlockSpans(editable, pStart, pEnd)
             editable.delete(nl, nl + 1)
             isProgrammaticEdit = false
+            // The inserted run no longer exists — later watcher steps
+            // (typing overrides) must not target the stale range.
+            pendingInsertStart = -1
+            pendingInsertEnd = -1
             return
         }
 
