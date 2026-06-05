@@ -70,7 +70,9 @@ function sanitizeBlocks(blocks: unknown, max: number): BlockAttr[] {
             type: b.type,
             ...(typeof b.level === 'number' && Number.isFinite(b.level) ? { level: Math.floor(b.level) } : {}),
             ...(typeof b.checked === 'boolean' ? { checked: b.checked } : {}),
-            ...(typeof b.lang === 'string' && b.lang !== '' ? { lang: b.lang } : {}),
+            // `lang` is a codeBlock-only field (model contract) — dropped
+            // elsewhere so stray wire data can't skew docEquals.
+            ...(b.type === 'codeBlock' && typeof b.lang === 'string' && b.lang !== '' ? { lang: b.lang } : {}),
         });
     }
     return out;

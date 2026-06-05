@@ -64,7 +64,8 @@ export interface MarkdownEditorController {
      * linked. The href is trusted as-is (parse-side `sanitizeHref` and the
      * serializer's destination escaping are the safety nets); offsets come
      * from the last selection event — same fire-and-forget assumption as
-     * `replaceRange`.
+     * `replaceRange`. No-op before the first selection event (the caret
+     * position is unknown).
      */
     insertLink(href: string, text?: string): void;
     insertText(text: string): void;
@@ -277,15 +278,17 @@ export const MarkdownEditor = component<MarkdownEditorProps>(({ props }) => {
         },
         insertLink: (href, text) => {
             const sel = selBox.current;
-            if (sel && sel.end > sel.start) {
+            // No selection event yet → the caret position is unknown, and a
+            // guessed range would link the wrong substring. No-op.
+            if (!sel) return;
+            if (sel.end > sel.start) {
                 RichTextMethods.applyFormat(el, 'link', sel.start, sel.end, { href });
                 return;
             }
             const label = text ?? href;
             if (label === '') return;
-            const start = sel?.start ?? 0;
             RichTextMethods.insertText(el, label);
-            RichTextMethods.applyFormat(el, 'link', start, start + label.length, { href });
+            RichTextMethods.applyFormat(el, 'link', sel.start, sel.start + label.length, { href });
         },
         insertText: (text) => RichTextMethods.insertText(el, text),
         replaceRange: (start, end, text) => {
