@@ -147,6 +147,24 @@ ctrl?.setHeading(2);
 ctrl?.clear();              // chat send
 ```
 
+### Toolbar
+
+The built-in toolbar mirrors the renderer's override pattern — items are data,
+rendering is replaceable:
+
+```tsx
+<MarkdownEditor toolbar />                       // neutral default, below the input
+<MarkdownEditor toolbar="top" />                 // above instead
+<MarkdownEditor toolbar toolbarItems={items} />  // custom ToolbarItem[]
+<MarkdownEditor toolbar renderToolbarItem={fn} />// re-skin (what daisyUI does)
+```
+
+`<EditorToolbar>` is also exported standalone (pass `controller` + `selection`
+yourself — e.g. inside a keyboard-sticky send bar). `ToolbarItem` is
+`{ id, label, icon?, group?, isActive?(sel), run(ctx) }`; plugins contribute
+items through the same shape (P3). The toolbar root carries `ignore-focus` so
+taps never blur the editor. The daisyUI skin lives in `@sigx/lynx-daisyui`.
+
 v1 models paragraphs, headings, and bold/italic/strike/code/link in-field;
 everything else (lists, tables, code fences) round-trips **losslessly** as raw
 markdown source via `raw` blocks until later phases model them. Conversion
