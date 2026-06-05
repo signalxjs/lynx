@@ -58,6 +58,10 @@ public class SigxRichTextUI: LynxUI<RichTextView> {
         storage.addLayoutManager(layoutManager)
         let container = NSTextContainer(size: CGSize(width: 0, height: .greatestFiniteMagnitude))
         container.widthTracksTextView = true
+        // Zero out the default 5pt fragment padding so the gutter geometry
+        // (BlockMetrics indents, marker drawing, checkbox hit-testing) all
+        // share one coordinate system anchored at the container edge.
+        container.lineFragmentPadding = 0
         layoutManager.addTextContainer(container)
 
         let view = RichTextView(frame: CGRect(x: 0, y: 0, width: 1, height: 1), textContainer: container)

@@ -4,7 +4,9 @@ import android.content.Context
 import android.text.Spanned
 import android.view.Gravity
 import android.view.MotionEvent
+import android.view.ViewConfiguration
 import android.widget.EditText
+import kotlin.math.abs
 
 /**
  * `EditText` subclass backing `<sigx-richtext>`.
@@ -23,6 +25,8 @@ class RichEditText(context: Context) : EditText(context) {
     var onCheckboxTap: ((parStart: Int, parEnd: Int) -> Unit)? = null
 
     private var pendingCheckboxSpan: SigxBlockSpan? = null
+    private var downX = 0f
+    private var downY = 0f
 
     init {
         background = null
@@ -42,26 +46,32 @@ class RichEditText(context: Context) : EditText(context) {
     /**
      * Intercept taps that land inside a task line's checkbox gutter — and
      * ONLY those: anything else falls through to normal editing untouched.
-     * Down and up must hit the same line's gutter to count as a toggle tap.
+     * DOWN/MOVE always reach the superclass (a scroll gesture must be able
+     * to start from the gutter); only a genuine click — down and up on the
+     * same line's gutter, within touch slop — consumes the UP.
      */
     override fun onTouchEvent(event: MotionEvent): Boolean {
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
                 pendingCheckboxSpan = hitTaskCheckbox(event)
-                if (pendingCheckboxSpan != null) return true
+                downX = event.x
+                downY = event.y
             }
             MotionEvent.ACTION_UP -> {
                 val span = pendingCheckboxSpan
                 pendingCheckboxSpan = null
                 if (span != null) {
-                    if (hitTaskCheckbox(event) === span) {
+                    val slop = ViewConfiguration.get(context).scaledTouchSlop
+                    val moved = abs(event.x - downX) > slop || abs(event.y - downY) > slop
+                    if (!moved && hitTaskCheckbox(event) === span) {
                         val spanned = text as Spanned
                         onCheckboxTap?.invoke(spanned.getSpanStart(span), spanned.getSpanEnd(span))
                         // Consumed taps must still surface as clicks to
                         // accessibility services.
                         performClick()
+                        // Consume the UP so the tap doesn't also move the caret.
+                        return true
                     }
-                    return true
                 }
             }
             MotionEvent.ACTION_CANCEL -> pendingCheckboxSpan = null
