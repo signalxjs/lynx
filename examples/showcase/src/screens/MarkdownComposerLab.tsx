@@ -95,15 +95,7 @@ export const MarkdownComposerLab = component(() => {
 
             <KeyboardStickyView>
                 <Col class="border-t border-base-300 bg-base-100">
-                    {/* Formatting toolbar — the P2 toolbar preview, with live
-                        active states from the element's selection events. */}
-                    <Row gap={4} class="px-2 pt-2">
-                        {formatButton('B', 'bold', () => controller?.toggleBold())}
-                        {formatButton('I', 'italic', () => controller?.toggleItalic())}
-                        {formatButton('S', 'strike', () => controller?.toggleStrike())}
-                        {formatButton('</>', 'code', () => controller?.toggleCode())}
-                    </Row>
-                    <Row gap={8} align="flex-end" class="p-2">
+                    <Row gap={8} align="flex-end" class="px-2 pt-2">
                         <view class="flex-1 border border-base-300 rounded-2xl px-2">
                             <MarkdownEditor
                                 placeholder="Message…"
@@ -127,6 +119,17 @@ export const MarkdownComposerLab = component(() => {
                         <Button variant="primary" disabled={draftEmpty.value} onPress={send}>
                             Send
                         </Button>
+                    </Row>
+                    {/* Formatting toolbar — below the input (the common
+                        placement: iOS's selection handles + Bold/Italic edit
+                        menu pop up *above* the selection, so a toolbar on top
+                        would sit right under them). Live active states come
+                        from the element's selection events. */}
+                    <Row gap={4} class="px-2 pb-2">
+                        {formatButton('B', 'bold', () => controller?.toggleBold())}
+                        {formatButton('I', 'italic', () => controller?.toggleItalic())}
+                        {formatButton('S', 'strike', () => controller?.toggleStrike())}
+                        {formatButton('</>', 'code', () => controller?.toggleCode())}
                     </Row>
                 </Col>
             </KeyboardStickyView>
