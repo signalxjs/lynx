@@ -1333,6 +1333,99 @@ export function injectInfoPlistDescriptions(
 }
 
 /**
+ * Write `Info.debug.plist` — the Debug configuration's Info.plist.
+ *
+ * The Debug target config points its `INFOPLIST_FILE` here (the iOS
+ * analogue of Android's generated `src/debug/AndroidManifest.xml`): the
+ * file is the fully-processed `Info.plist` plus usage descriptions from
+ * `debugOnly` modules, so App Store binaries don't declare permission
+ * strings (camera for the dev-client QR scanner) that no release code
+ * uses (#179).
+ *
+ * Must run AFTER every other Info.plist injector (`applyIosPlistMeta` is
+ * the last) — it snapshots the final release plist. Always written, even
+ * with no debug-only entries, so the Debug `INFOPLIST_FILE` reference
+ * never dangles.
+ */
+export function writeIosDebugInfoPlist(
+    cwd: string,
+    config: ResolvedConfig,
+    debugDescriptions: Record<string, string>,
+): void {
+    const plistFile = iosInfoPlistPath(cwd, config);
+    if (!existsSync(plistFile)) return;
+
+    const release = readFileSync(plistFile, 'utf-8');
+    const keys = Object.keys(debugDescriptions);
+    const extra = keys.length > 0
+        ? `    <!-- Debug-only usage descriptions (debugOnly modules) — absent from release -->\n${
+            keys.map((k) => `    <key>${k}</key>\n    <string>${debugDescriptions[k]}</string>`).join('\n')
+          }\n`
+        : '';
+    // EOL-agnostic anchor — the checkout (and thus the rendered plist) may
+    // be CRLF on Windows, and an LF-anchored literal would silently no-op.
+    const content = release.replace(/<\/dict>(\r?\n)<\/plist>/, `${extra}</dict>$1</plist>`);
+    if (keys.length > 0 && content === release) {
+        throw new Error(
+            `Could not find the closing </dict></plist> in ${plistFile} — ` +
+            `debug-only usage descriptions (${keys.join(', ')}) would be dropped.`,
+        );
+    }
+
+    const debugPlistFile = join(dirname(plistFile), 'Info.debug.plist');
+    writeFileIfChanged(debugPlistFile, content);
+    if (keys.length > 0) {
+        log(`iOS: wrote Info.debug.plist (${keys.length} debug-only usage description(s))`);
+    }
+}
+
+/**
+ * Ensure the pbxproj carries the dev-client release-exclusion settings on
+ * projects scaffolded before they landed in the template (idempotent, runs
+ * every prebuild):
+ *
+ * - Debug `INFOPLIST_FILE` → `Info.debug.plist` (see writeIosDebugInfoPlist)
+ * - Release `EXCLUDED_SOURCE_FILE_NAMES = "*\/SigxDevClient\/*"` so the
+ *   dev-client Swift never compiles into Release builds. Template code only
+ *   references it inside `#if DEBUG`, and the generated registry gates
+ *   debugOnly registrations the same way, so Release resolves without it.
+ *
+ * An existing user-set EXCLUDED_SOURCE_FILE_NAMES is left untouched.
+ */
+export function applyIosDevClientBuildSettings(cwd: string, config: ResolvedConfig): void {
+    const pbxprojPath = join(iosXcodeProjPath(cwd, config), 'project.pbxproj');
+    if (!existsSync(pbxprojPath)) return;
+
+    let content = readFileSync(pbxprojPath, 'utf-8');
+
+    // Patch per XCBuildConfiguration block; only target-level blocks carry
+    // INFOPLIST_FILE, so project-level configs are untouched by construction.
+    content = content.replace(
+        /isa = XCBuildConfiguration;[\s\S]*?name = (?:Debug|Release);/g,
+        (block) => {
+            if (!block.includes('INFOPLIST_FILE')) return block;
+            if (block.endsWith('name = Debug;')) {
+                return block.replace(
+                    /INFOPLIST_FILE = "([^"]*)\/Info\.plist";/,
+                    'INFOPLIST_FILE = "$1/Info.debug.plist";',
+                );
+            }
+            if (!block.includes('EXCLUDED_SOURCE_FILE_NAMES')) {
+                return block.replace(
+                    /(\n(\s*)INFOPLIST_FILE = )/,
+                    '\n$2EXCLUDED_SOURCE_FILE_NAMES = "*/SigxDevClient/*";$1',
+                );
+            }
+            return block;
+        },
+    );
+
+    if (writeFileIfChanged(pbxprojPath, content)) {
+        log('iOS: applied dev-client release-exclusion build settings');
+    }
+}
+
+/**
  * Inject debug-only pod entries into the Podfile.
  */
 export function injectDebugPodfileEntries(cwd: string, config: ResolvedConfig, pods: string[]): void {
@@ -1970,10 +2063,18 @@ export async function runPrebuild(opts: PrebuildOptions = {}): Promise<void> {
         await generateIosSplash(cwd, config, assets.ios);
         applyIosPlistMeta(cwd, config, assets.ios);
 
+        // Debug-variant Info.plist — MUST come after applyIosPlistMeta (the
+        // last release-plist mutation) since it snapshots the final plist.
+        writeIosDebugInfoPlist(cwd, config, result.debugUsageDescriptions);
+
         // CI archivability: shared scheme + config-pinned signing settings.
         writeIosSharedScheme(cwd, config);
         applyIosSigningSettings(cwd, config);
         applyIosDeviceFamily(cwd, config);
+
+        // Dev-client release exclusion + Debug Info.plist wiring for projects
+        // scaffolded before these settings landed in the pbxproj template.
+        applyIosDevClientBuildSettings(cwd, config);
 
         // Copy dev-client sources if found
         if (result.devClient) {

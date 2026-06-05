@@ -20,8 +20,11 @@ import {
     writeIosSharedScheme,
     applyIosSigningSettings,
     runPostPrebuildHook,
+    writeIosDebugInfoPlist,
+    applyIosDevClientBuildSettings,
 } from '../src/prebuild.js';
 import { linkAndroid } from '../src/autolink/android.js';
+import { linkIos } from '../src/autolink/ios.js';
 import { resolveConfig } from '../src/config/parser.js';
 import type { ModuleManifest } from '../src/manifest.js';
 import type { LynxConfig } from '../src/config/schema.js';
@@ -1013,5 +1016,172 @@ describe('resolveConfig — prebuild hooks', () => {
     it('leaves prebuild undefined when not configured', () => {
         const config = resolveConfig(TEST_CONFIG);
         expect(config.prebuild).toBeUndefined();
+    });
+});
+
+describe('linkIos — debugOnly module handling (#179)', () => {
+    const devClientManifest: ModuleManifest = {
+        name: 'DevClient',
+        package: '@sigx/lynx-dev-client',
+        description: 'Dev client',
+        type: 'dev-client',
+        platforms: ['ios'],
+        ios: {
+            initClass: 'SigxDevClient',
+            moduleClass: 'DevClientModule',
+            sourceDir: 'ios/Sources/SigxDevClient',
+            debugOnly: true,
+            usageDescriptions: {
+                NSCameraUsageDescription: 'Used to scan QR codes from the dev server.',
+            },
+        },
+    };
+    const cameraManifest: ModuleManifest = {
+        name: 'Camera',
+        package: '@sigx/lynx-camera',
+        description: 'Camera module',
+        platforms: ['ios'],
+        ios: {
+            moduleClass: 'CameraModule',
+            sourceDir: 'ios',
+        },
+    };
+
+    it('routes debugOnly usage descriptions to debugUsageDescriptions', () => {
+        const config = resolveConfig(TEST_CONFIG);
+        const result = linkIos(config, [devClientManifest, cameraManifest]);
+
+        expect(result.usageDescriptions).not.toHaveProperty('NSCameraUsageDescription');
+        expect(result.debugUsageDescriptions).toEqual({
+            NSCameraUsageDescription: 'Used to scan QR codes from the dev server.',
+        });
+    });
+
+    it('drops a debug usage description already declared for all configurations', () => {
+        const config = resolveConfig({
+            ...TEST_CONFIG,
+            ios: {
+                ...TEST_CONFIG.ios,
+                usageDescriptions: { NSCameraUsageDescription: 'Take profile photos.' },
+            },
+        });
+        const result = linkIos(config, [devClientManifest]);
+
+        expect(result.usageDescriptions.NSCameraUsageDescription).toBe('Take profile photos.');
+        expect(result.debugUsageDescriptions).toEqual({});
+    });
+
+    it('generates debugOnly module registrations inside #if DEBUG', () => {
+        const config = resolveConfig(TEST_CONFIG);
+        const result = linkIos(config, [devClientManifest, cameraManifest]);
+
+        // The dev-client registration is gated; the camera one is not.
+        expect(result.registryCode).toMatch(
+            /#if DEBUG\n[\s\S]*DevClientModule\.self[\s\S]*#endif/,
+        );
+        const beforeGate = result.registryCode.split('#if DEBUG')[1];
+        expect(result.registryCode.split('#if DEBUG')[0]).not.toContain('DevClientModule.self');
+        expect(beforeGate).toBeDefined();
+    });
+
+    it('lists debugOnly module names only in the DEBUG registeredModules array', () => {
+        const config = resolveConfig(TEST_CONFIG);
+        const result = linkIos(config, [devClientManifest, cameraManifest]);
+
+        // #if DEBUG array carries both; #else array carries only release modules.
+        const m = result.registryCode.match(
+            /#if DEBUG\s*\n\s*static let registeredModules: \[String\] = \[(.*)\]\s*\n\s*#else\s*\n\s*static let registeredModules: \[String\] = \[(.*)\]/,
+        );
+        expect(m).not.toBeNull();
+        expect(m![1]).toContain('"DevClient"');
+        expect(m![1]).toContain('"Camera"');
+        expect(m![2]).toContain('"Camera"');
+        expect(m![2]).not.toContain('"DevClient"');
+    });
+
+    it('emits a plain registeredModules array when no debugOnly modules are linked', () => {
+        const config = resolveConfig(TEST_CONFIG);
+        const result = linkIos(config, [cameraManifest]);
+
+        expect(result.registryCode).not.toContain('#if DEBUG');
+        expect(result.registryCode).toContain('static let registeredModules: [String] = ["Camera"]');
+    });
+});
+
+describe('writeIosDebugInfoPlist', () => {
+    it('snapshots Info.plist plus debug-only usage descriptions', () => {
+        const config = resolveConfig(TEST_CONFIG);
+        scaffoldIos(testDir, config);
+        injectInfoPlistDescriptions(testDir, config, { NSLocationWhenInUseUsageDescription: 'Maps.' });
+
+        writeIosDebugInfoPlist(testDir, config, {
+            NSCameraUsageDescription: 'Used to scan QR codes from the dev server.',
+        });
+
+        const releasePlist = readFileSync(join(testDir, 'ios', 'TestApp', 'Info.plist'), 'utf-8');
+        const debugPlist = readFileSync(join(testDir, 'ios', 'TestApp', 'Info.debug.plist'), 'utf-8');
+        // Release plist: shared keys only.
+        expect(releasePlist).toContain('NSLocationWhenInUseUsageDescription');
+        expect(releasePlist).not.toContain('NSCameraUsageDescription');
+        // Debug plist: shared + debug-only keys, still a closed plist.
+        expect(debugPlist).toContain('NSLocationWhenInUseUsageDescription');
+        expect(debugPlist).toContain('NSCameraUsageDescription');
+        expect(debugPlist.trimEnd().endsWith('</plist>')).toBe(true);
+    });
+
+    it('always writes Info.debug.plist so the Debug INFOPLIST_FILE never dangles', () => {
+        const config = resolveConfig(TEST_CONFIG);
+        scaffoldIos(testDir, config);
+
+        writeIosDebugInfoPlist(testDir, config, {});
+        const releasePlist = readFileSync(join(testDir, 'ios', 'TestApp', 'Info.plist'), 'utf-8');
+        const debugPlist = readFileSync(join(testDir, 'ios', 'TestApp', 'Info.debug.plist'), 'utf-8');
+        expect(debugPlist).toBe(releasePlist);
+    });
+});
+
+describe('applyIosDevClientBuildSettings', () => {
+    const pbxprojPath = (cwd: string) => join(cwd, 'ios', 'TestApp.xcodeproj', 'project.pbxproj');
+
+    it('scaffolded template already carries both settings (idempotent no-op)', () => {
+        const config = resolveConfig(TEST_CONFIG);
+        scaffoldIos(testDir, config);
+        const before = readFileSync(pbxprojPath(testDir), 'utf-8');
+        expect(before).toContain('EXCLUDED_SOURCE_FILE_NAMES = "*/SigxDevClient/*";');
+        expect(before).toContain('INFOPLIST_FILE = "TestApp/Info.debug.plist";');
+
+        applyIosDevClientBuildSettings(testDir, config);
+        expect(readFileSync(pbxprojPath(testDir), 'utf-8')).toBe(before);
+    });
+
+    it('upgrades a project scaffolded before the template carried the settings', () => {
+        const config = resolveConfig(TEST_CONFIG);
+        scaffoldIos(testDir, config);
+
+        // Simulate the pre-#179 pbxproj: Debug points at Info.plist, no exclusion.
+        const legacy = readFileSync(pbxprojPath(testDir), 'utf-8')
+            .replace('INFOPLIST_FILE = "TestApp/Info.debug.plist";', 'INFOPLIST_FILE = "TestApp/Info.plist";')
+            .replace(/\s*EXCLUDED_SOURCE_FILE_NAMES = "\*\/SigxDevClient\/\*";/, '');
+        writeFileSync(pbxprojPath(testDir), legacy);
+
+        applyIosDevClientBuildSettings(testDir, config);
+        const pbx = readFileSync(pbxprojPath(testDir), 'utf-8');
+        expect(pbx).toContain('INFOPLIST_FILE = "TestApp/Info.debug.plist";');
+        expect(pbx).toContain('EXCLUDED_SOURCE_FILE_NAMES = "*/SigxDevClient/*";');
+        // Release keeps pointing at the release plist.
+        expect(pbx).toContain('INFOPLIST_FILE = "TestApp/Info.plist";');
+    });
+
+    it('leaves a user-set EXCLUDED_SOURCE_FILE_NAMES untouched', () => {
+        const config = resolveConfig(TEST_CONFIG);
+        scaffoldIos(testDir, config);
+        const custom = readFileSync(pbxprojPath(testDir), 'utf-8')
+            .replace('EXCLUDED_SOURCE_FILE_NAMES = "*/SigxDevClient/*";', 'EXCLUDED_SOURCE_FILE_NAMES = "*/MyStuff/*";');
+        writeFileSync(pbxprojPath(testDir), custom);
+
+        applyIosDevClientBuildSettings(testDir, config);
+        const pbx = readFileSync(pbxprojPath(testDir), 'utf-8');
+        expect(pbx).toContain('EXCLUDED_SOURCE_FILE_NAMES = "*/MyStuff/*";');
+        expect(pbx).not.toContain('EXCLUDED_SOURCE_FILE_NAMES = "*/SigxDevClient/*";');
     });
 });
