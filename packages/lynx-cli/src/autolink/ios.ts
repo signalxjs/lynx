@@ -399,6 +399,7 @@ ${namesDecl}
     private static var registeredCount = 0
 
     static func registerAll(on config: LynxConfig) {
+        registeredCount = 0
         print("[GeneratedModuleRegistry] Registering auto-linked modules...")
 
 ${registrations.join('\n\n')}

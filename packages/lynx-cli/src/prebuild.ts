@@ -1324,7 +1324,7 @@ export function injectInfoPlistDescriptions(
     let content = readFileSync(plistFile, 'utf-8');
     const replacement = keys.length > 0
         ? `    <!-- Auto-linked module usage descriptions -->\n${
-            keys.map((k) => `    <key>${k}</key>\n    <string>${descriptions[k]}</string>`).join('\n')
+            keys.map((k) => `    <key>${escapeXmlAttr(k)}</key>\n    <string>${escapeXmlAttr(descriptions[k])}</string>`).join('\n')
           }`
         : '    <!-- (no auto-linked usage descriptions) -->';
     content = content.replace('    <!-- {{USAGE_DESCRIPTIONS}} -->', replacement);
@@ -1359,7 +1359,7 @@ export function writeIosDebugInfoPlist(
     const keys = Object.keys(debugDescriptions);
     const extra = keys.length > 0
         ? `    <!-- Debug-only usage descriptions (debugOnly modules) — absent from release -->\n${
-            keys.map((k) => `    <key>${k}</key>\n    <string>${debugDescriptions[k]}</string>`).join('\n')
+            keys.map((k) => `    <key>${escapeXmlAttr(k)}</key>\n    <string>${escapeXmlAttr(debugDescriptions[k])}</string>`).join('\n')
           }\n`
         : '';
     // EOL-agnostic anchor — the checkout (and thus the rendered plist) may

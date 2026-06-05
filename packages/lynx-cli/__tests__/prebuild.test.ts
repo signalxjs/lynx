@@ -1185,3 +1185,50 @@ describe('applyIosDevClientBuildSettings', () => {
         expect(pbx).not.toContain('EXCLUDED_SOURCE_FILE_NAMES = "*/SigxDevClient/*";');
     });
 });
+
+describe('Info.plist usage-description XML escaping', () => {
+    it('escapes XML-sensitive characters in debug-only descriptions', () => {
+        const config = resolveConfig(TEST_CONFIG);
+        scaffoldIos(testDir, config);
+
+        writeIosDebugInfoPlist(testDir, config, {
+            NSCameraUsageDescription: 'Scan QR codes & connect to <dev> server',
+        });
+
+        const debugPlist = readFileSync(join(testDir, 'ios', 'TestApp', 'Info.debug.plist'), 'utf-8');
+        expect(debugPlist).toContain('Scan QR codes &amp; connect to &lt;dev&gt; server');
+        expect(debugPlist).not.toContain('& connect');
+    });
+
+    it('escapes XML-sensitive characters in release descriptions', () => {
+        const config = resolveConfig(TEST_CONFIG);
+        scaffoldIos(testDir, config);
+
+        injectInfoPlistDescriptions(testDir, config, {
+            NSLocationWhenInUseUsageDescription: 'Find shops & <nearby> places',
+        });
+
+        const plist = readFileSync(join(testDir, 'ios', 'TestApp', 'Info.plist'), 'utf-8');
+        expect(plist).toContain('Find shops &amp; &lt;nearby&gt; places');
+    });
+});
+
+describe('generated registry — registeredCount reset', () => {
+    it('resets the count at the top of registerAll for repeat calls', () => {
+        const config = resolveConfig(TEST_CONFIG);
+        const result = linkIos(config, [{
+            name: 'Camera',
+            package: '@sigx/lynx-camera',
+            description: 'Camera module',
+            platforms: ['ios'],
+            ios: { moduleClass: 'CameraModule', sourceDir: 'ios' },
+        }]);
+
+        const body = result.registryCode;
+        const registerAllIdx = body.indexOf('static func registerAll');
+        const resetIdx = body.indexOf('registeredCount = 0', registerAllIdx);
+        const firstRegisterIdx = body.indexOf('register(on: config', registerAllIdx);
+        expect(resetIdx).toBeGreaterThan(registerAllIdx);
+        expect(resetIdx).toBeLessThan(firstRegisterIdx);
+    });
+});
