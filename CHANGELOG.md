@@ -4,6 +4,15 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 ## [Unreleased]
 
+## [0.4.9] - 2026-06-05
+
+### Added
+
+- `@sigx/lynx-markdown` — parser inline extensions for the P3 plugin API, part 1 (#170).
+- `@sigx/lynx-markdown` — editor plugin API: trigger sessions + suggestion popup, P3 plugin API part 2 (#176).
+- `@sigx/lynx-markdown` / `@sigx/lynx-daisyui` — pluggable `EditorToolbar` (generic + daisyUI) (#169).
+- `@sigx/lynx-cli` — env-driven Android release signing with debug fallback (#186).
+
 ### Fixed
 
 - `@sigx/lynx-richtext` (Android) — the `editable` prop now defaults to `true`

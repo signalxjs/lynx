@@ -1,6 +1,6 @@
 {
     "name": "@sigx/lynx-network",
-    "version": "0.4.8",
+    "version": "0.4.9",
     "description": "Network connectivity status for sigx-lynx",
     "type": "module",
     "main": "./dist/index.js",
