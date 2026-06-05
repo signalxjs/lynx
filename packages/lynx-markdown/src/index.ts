@@ -28,6 +28,17 @@ export type {
     ImageProps,
 } from './render/components.js';
 
+// True-WYSIWYG editor on the native <sigx-richtext> element
+// (requires the optional @sigx/lynx-richtext peer).
+export { MarkdownEditor } from './editor/MarkdownEditor.js';
+export type {
+    MarkdownEditorProps,
+    MarkdownEditorController,
+    MarkdownEditorMode,
+} from './editor/MarkdownEditor.js';
+export { mdToDoc } from './editor/convert/mdToDoc.js';
+export { docToMd } from './editor/convert/docToMd.js';
+
 // Streaming controller for AI token loops.
 export { createMarkdownStream } from './stream.js';
 export type { MarkdownStream, CreateMarkdownStreamOptions } from './stream.js';

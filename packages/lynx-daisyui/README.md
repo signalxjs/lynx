@@ -267,6 +267,28 @@ basis: 0` triple, so `flex={1}` actually fills available space instead
 of collapsing to content size — the standard Lynx `flex: 1` shorthand
 expands to `flex: 1 1 auto` which doesn't do what most people expect.
 
+## Markdown integration
+
+Two bridges into [`@sigx/lynx-markdown`](../lynx-markdown):
+
+```tsx
+import { markdownComponents, useMarkdownEditorTheme } from '@sigx/lynx-daisyui';
+
+// Themed rendering: daisyUI typography/colors for every markdown node.
+<MarkdownView value={md} components={markdownComponents} />;
+
+// Themed editing: the native <sigx-richtext> element can't read CSS
+// variables (and the built-in theme tokens are oklch, which Lynx can't
+// parse), so this hook reactively resolves the ACTIVE theme's palette to
+// concrete hex color props — a theme switch recolors the editor live.
+const editorTheme = useMarkdownEditorTheme();
+<MarkdownEditor
+  textColor={editorTheme.textColor}               // base-content
+  accentColor={editorTheme.accentColor}           // primary (caret, links)
+  placeholderColor={editorTheme.placeholderColor} // base-content @ 40%
+/>;
+```
+
 ## Status
 
 Initial release — APIs may shift as the Lynx styling story evolves.

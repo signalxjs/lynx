@@ -1,6 +1,7 @@
 import {
   component,
   useMainThreadRef,
+  runOnMainThread,
   runOnBackground,
   Gesture,
   useGestureDetector,
@@ -89,8 +90,15 @@ export const Pressable = component<PressableProps>(({ props, slots, emit }) => {
 
   // Reactive `disabled` — worklets read `disabledRef.current` so prop
   // changes after mount take effect without re-registering the gesture.
-  // The render fn below keeps this ref in sync each pass.
+  // The MT-side copy is seeded once (INIT_MT_REF) from the value below;
+  // BG-side `.current` writes do NOT cross threads, so the render fn ships
+  // changes over via the `syncDisabled` worklet.
   const disabledRef = useMainThreadRef<boolean>(!!props.disabled);
+  const syncDisabled = runOnMainThread((v: boolean) => {
+    'main thread';
+    disabledRef.current = v;
+  });
+  let lastDisabled = !!props.disabled;
 
   const state = useMainThreadRef<PressableMTState>({
     longPressFired: false,
@@ -186,9 +194,16 @@ export const Pressable = component<PressableProps>(({ props, slots, emit }) => {
   useGestureDetector(elRef, gesture);
 
   return () => {
-    // Keep the reactive-disabled ref in sync with the prop on every render.
-    // Worklets read `.current` at call time, so this is the only writer.
-    disabledRef.current = !!props.disabled;
+    // Keep the MT-side reactive-disabled ref in sync with the prop. A plain
+    // BG-side `disabledRef.current = …` write never reaches MT (the BG copy
+    // is a read-only snapshot of the initial value), so a Pressable mounted
+    // disabled would stay dead at the gesture layer forever. Ship changes
+    // across with the runOnMainThread worklet instead.
+    const d = !!props.disabled;
+    if (d !== lastDisabled) {
+      lastDisabled = d;
+      void syncDisabled(d);
+    }
     return (
       <view
         class={props.class}

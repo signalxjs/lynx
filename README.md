@@ -71,6 +71,7 @@ Auto-linked by `sigx prebuild`: install the package with `pnpm add @sigx/lynx-fo
 | [`@sigx/lynx-network`](./packages/lynx-network) | Connectivity status (`wifi` / `cellular` / `none`). Not a transport — pair with `fetch` / `WebSocket`. |
 | [`@sigx/lynx-notifications`](./packages/lynx-notifications) | Local push notifications & schedule. |
 | [`@sigx/lynx-permissions`](./packages/lynx-permissions) | Shared Android permission helper used by other native modules. You normally don't depend on this directly. |
+| [`@sigx/lynx-richtext`](./packages/lynx-richtext) | Native attributed-text input `<sigx-richtext>` — `UITextView` / `EditText` with in-field rich formatting (bold is bold *inside* the input), a flat span/block document model over the bridge, and an IME-safe echo contract. Format-agnostic: powers `@sigx/lynx-markdown`'s `MarkdownEditor`, but serialization is the consumer's choice. |
 | [`@sigx/lynx-safe-area`](./packages/lynx-safe-area) | Safe-area insets (notch, home indicator, status bar, keyboard). |
 | [`@sigx/lynx-secure-storage`](./packages/lynx-secure-storage) | Encrypted KV storage — iOS Keychain, Android Keystore + `EncryptedSharedPreferences`. Optional per-key biometric gating. |
 | [`@sigx/lynx-share`](./packages/lynx-share) | Native share sheet (`UIActivityViewController` / `Intent.ACTION_SEND`). |
@@ -90,8 +91,8 @@ Auto-linked by `sigx prebuild`: install the package with `pnpm add @sigx/lynx-fo
 
 | Package | Description |
 |---|---|
-| [`@sigx/lynx-daisyui`](./packages/lynx-daisyui) | DaisyUI-flavored component library, stylesheet, and Tailwind preset for Lynx. Also ships `markdownComponents`, a themed mapping for `@sigx/lynx-markdown`. |
-| [`@sigx/lynx-markdown`](./packages/lynx-markdown) | SignalX-native, streaming-aware markdown renderer — `<MarkdownView>` parses markdown in JS (zero deps) and renders to native `<view>`/`<text>` with a render-function override API, plus `createMarkdownStream()` for flicker-free AI output. |
+| [`@sigx/lynx-daisyui`](./packages/lynx-daisyui) | DaisyUI-flavored component library, stylesheet, and Tailwind preset for Lynx. Also ships `markdownComponents` (themed rendering) and `useMarkdownEditorTheme()` (palette-driven editor colors) for `@sigx/lynx-markdown`. |
+| [`@sigx/lynx-markdown`](./packages/lynx-markdown) | SignalX-native, streaming-aware markdown renderer **and editor** — `<MarkdownView>` parses markdown in JS (zero deps) and renders to native `<view>`/`<text>` with a render-function override API, plus `createMarkdownStream()` for flicker-free AI output; `<MarkdownEditor>` is true-WYSIWYG editing (markdown in/out) on `@sigx/lynx-richtext`. |
 | [`@sigx/lynx-icons`](./packages/lynx-icons) | `<Icon set name />` component + registry. Pairs with adapter packages (`@sigx/lynx-icons-fa-free`, `@sigx/lynx-icons-lucide`); used icons are auto-detected from JSX at build time and subset/tree-shaken. |
 | [`@sigx/lynx-icons-fa-free`](./packages/lynx-icons-fa-free) | Font Awesome Free adapter for `@sigx/lynx-icons` (solid/regular/brands). Reads glyph data from the user's installed `@fortawesome/free-*-svg-icons` packages. |
 | [`@sigx/lynx-icons-lucide`](./packages/lynx-icons-lucide) | Lucide adapter for `@sigx/lynx-icons`. SVG-mode only (lucide has no font distribution). |

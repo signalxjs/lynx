@@ -125,5 +125,8 @@ export type { TextProps, TextSize, TextWeight, TextColor } from './typography/Te
 export { Heading } from './typography/Heading.js';
 export type { HeadingProps, HeadingLevel } from './typography/Heading.js';
 
-// Markdown — daisyUI rendering for `@sigx/lynx-markdown` (optional peer).
+// Markdown — daisyUI rendering + editor theming for `@sigx/lynx-markdown`
+// (optional peer).
 export { markdownComponents } from './markdown/components.js';
+export { useMarkdownEditorTheme } from './markdown/editorTheme.js';
+export type { MarkdownEditorThemeColors } from './markdown/editorTheme.js';

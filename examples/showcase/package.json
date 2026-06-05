@@ -36,6 +36,7 @@
         "@sigx/lynx-appearance": "workspace:^",
         "@sigx/lynx-daisyui": "workspace:^",
         "@sigx/lynx-markdown": "workspace:^",
+        "@sigx/lynx-richtext": "workspace:^",
         "@sigx/lynx-keyboard": "workspace:^",
         "@sigx/lynx-safe-area": "workspace:^",
         "@sigx/lynx-audio": "workspace:^",
