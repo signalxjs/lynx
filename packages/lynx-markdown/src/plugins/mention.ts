@@ -45,7 +45,12 @@ export interface MentionPluginOptions {
     search(query: string): MentionCandidate[] | Promise<MentionCandidate[]>;
     /** Re-skin a suggestion row in the popup. */
     renderItem?(item: TriggerItem, active: boolean): JSXElement;
-    /** Preview-pill renderer for `MarkdownView` (`components.extension.mention`). */
+    /**
+     * Preview-pill renderer, exposed as `plugin.inline.component`.
+     * `MarkdownView` is not plugin-aware — wire it up explicitly:
+     * `components={{ extension: { mention: plugin.inline.component } }}`
+     * (with `extensions={[mentionSyntax]}`).
+     */
     component?: (props: ExtensionProps) => MarkdownChild;
     /** Popup trigger char (the markdown syntax stays `@[label](id)`). Default `'@'`. */
     trigger?: string;
