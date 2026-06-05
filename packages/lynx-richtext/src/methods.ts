@@ -59,6 +59,26 @@ export const RichTextMethods = {
         invoke(el, 'setSelectionRange', { start, end });
     },
 
+    /**
+     * Insert an atomic mention chip — one U+FFFC char carrying a `mention`
+     * span with the chip payload in attrs (the label is never in the text).
+     * `replace` removes `[from, to)` first (the trigger query run). Unlike
+     * `insertText`, the chip does NOT inherit typing attributes, and typing
+     * after it stays plain.
+     */
+    insertChip(
+        el: RichTextHandle,
+        chip: { id: string; label: string; kind?: string },
+        replace?: { from: number; to: number },
+    ): void {
+        invoke(el, 'insertChip', {
+            id: chip.id,
+            label: chip.label,
+            ...(chip.kind !== undefined ? { kind: chip.kind } : {}),
+            ...(replace ? { replaceFrom: replace.from, replaceTo: replace.to } : {}),
+        });
+    },
+
     focus(el: RichTextHandle): void {
         invoke(el, 'focus', {});
     },

@@ -21,7 +21,15 @@
  *   drop stale writes (see the IME/echo rules in the package README).
  */
 
-/** Inline character-range formats. `link` carries `attrs.href`; `mention` is an atomic chip with `attrs.id`/`attrs.label`. */
+/**
+ * Inline character-range formats. `link` carries `attrs.href`.
+ *
+ * `mention` is an atomic chip: the span covers **exactly one U+FFFC code
+ * unit** and the visible label lives only in `attrs.label` (with `attrs.id`,
+ * optional `attrs.kind`). Native draws the pill via NSTextAttachment (iOS) /
+ * ReplacementSpan (Android); serializers must read attrs, never the covered
+ * text. Copying a chip degrades to a bare U+FFFC in plain text (v1).
+ */
 export type InlineSpanType = 'bold' | 'italic' | 'strike' | 'code' | 'link' | 'mention';
 
 export interface InlineSpan {

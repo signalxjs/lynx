@@ -25,6 +25,12 @@ object DocumentMapper {
     /** Inline span flag: typing at the trailing edge extends the format. */
     const val INLINE_FLAGS: Int = Spanned.SPAN_EXCLUSIVE_INCLUSIVE
 
+    /**
+     * Mention chips are atomic — typing at either edge must stay plain, so
+     * the span never extends (unlike formatting spans).
+     */
+    const val MENTION_FLAGS: Int = Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+
     data class Parsed(val text: SpannableStringBuilder, val version: Int)
 
     /** Parse a JSON RichDoc. Returns null when unparseable. */
@@ -50,7 +56,10 @@ object DocumentMapper {
                 "mention" -> SigxMentionSpan(attrs.toStringMap(), theme.accentColor)
                 else -> null
             }
-            if (mark != null) builder.setSpan(mark, start, end, INLINE_FLAGS)
+            // Mention chips are atomic: EXCLUSIVE_EXCLUSIVE so typing at
+            // either edge never extends them (formats keep INLINE_FLAGS).
+            val flags = if (mark is SigxMentionSpan) MENTION_FLAGS else INLINE_FLAGS
+            if (mark != null) builder.setSpan(mark, start, end, flags)
         }
 
         val blocks: JSONArray = obj.optJSONArray("blocks") ?: JSONArray()

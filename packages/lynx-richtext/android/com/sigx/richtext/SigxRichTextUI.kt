@@ -81,6 +81,7 @@ class SigxRichTextUI(context: LynxContext) : LynxUI<RichEditText>(context) {
 
             override fun afterTextChanged(s: Editable?) {
                 if (isProgrammaticEdit || s == null) return
+                cleanupCollapsedChips(s)
                 applyTypingOverrides(s)
                 userHasEdited = true
                 localVersion += 1
@@ -353,6 +354,56 @@ class SigxRichTextUI(context: LynxContext) : LynxUI<RichEditText>(context) {
         }
     }
 
+    /**
+     * Insert an atomic mention chip: one U+FFFC carrying a [SigxMentionSpan]
+     * pill. `replaceFrom`/`replaceTo` first remove the trigger query run.
+     * Runs as a programmatic edit (change/selection fired manually) and
+     * clears typing overrides so chip state can't bleed into typed text.
+     */
+    @LynxUIMethod
+    fun insertChip(params: ReadableMap?, callback: Callback?) {
+        val id = params?.getString("id") ?: ""
+        val label = params?.getString("label") ?: ""
+        val kind = if (params?.hasKey("kind") == true) params.getString("kind") else null
+        val replaceFrom = if (params?.hasKey("replaceFrom") == true) params.getInt("replaceFrom") else -1
+        val replaceTo = if (params?.hasKey("replaceTo") == true) params.getInt("replaceTo") else -1
+        mainHandler.post {
+            val editable = mView.text
+            if (isComposing(editable)) {
+                callback?.invoke(LynxUIMethodConstants.SUCCESS, resultMap("applied" to false, "reason" to "composing"))
+                return@post
+            }
+            val upper = editable.length
+            val selStart = minOf(mView.selectionStart, mView.selectionEnd).coerceAtLeast(0)
+            val selEnd = maxOf(mView.selectionStart, mView.selectionEnd).coerceAtLeast(0)
+            val from = if (replaceFrom >= 0) replaceFrom.coerceIn(0, upper) else selStart
+            val to = if (replaceTo >= 0) replaceTo.coerceIn(from, upper) else if (replaceFrom >= 0) from else selEnd
+            val attrs = buildMap {
+                put("id", id)
+                put("label", label)
+                if (!kind.isNullOrEmpty()) put("kind", kind)
+            }
+            isProgrammaticEdit = true
+            editable.replace(from, to, "\uFFFC")
+            editable.setSpan(
+                SigxMentionSpan(attrs, theme.accentColor),
+                from,
+                from + 1,
+                DocumentMapper.MENTION_FLAGS,
+            )
+            isProgrammaticEdit = false
+            userHasEdited = true
+            localVersion += 1
+            typingOverrides.clear()
+            mView.setSelection((from + 1).coerceIn(0, editable.length))
+            mView.invalidate()
+            reportHeightIfChanged()
+            fireChange(isComposing = false)
+            fireSelection(from + 1, from + 1)
+            callback?.invoke(LynxUIMethodConstants.SUCCESS, resultMap("applied" to true))
+        }
+    }
+
     @LynxUIMethod
     fun setSelectionRange(params: ReadableMap?, callback: Callback?) {
         val start = params?.getInt("start") ?: 0
@@ -464,6 +515,19 @@ class SigxRichTextUI(context: LynxContext) : LynxUI<RichEditText>(context) {
 
     private fun isComposing(editable: Editable): Boolean =
         BaseInputConnection.getComposingSpanStart(editable) >= 0
+
+    /**
+     * Deleting a chip's U+FFFC leaves its zero-length [SigxMentionSpan]
+     * behind (Android keeps collapsed spans) — drop them so they never read
+     * back as phantom mentions. `removeSpan` doesn't re-enter the watcher.
+     */
+    private fun cleanupCollapsedChips(editable: Editable) {
+        for (span in editable.getSpans(0, editable.length, SigxMentionSpan::class.java)) {
+            if (editable.getSpanStart(span) >= editable.getSpanEnd(span)) {
+                editable.removeSpan(span)
+            }
+        }
+    }
 
     private fun applyTypingOverrides(editable: Editable) {
         if (typingOverrides.isEmpty() || pendingInsertStart < 0 || pendingInsertEnd <= pendingInsertStart) return

@@ -23,7 +23,7 @@ enum SigxAttr {
     static let strike = NSAttributedString.Key("sigx.strike")
     static let code = NSAttributedString.Key("sigx.code")
     static let link = NSAttributedString.Key("sigx.link")      // value: href String
-    static let mention = NSAttributedString.Key("sigx.mention") // value: [String:String] (P3)
+    static let mention = NSAttributedString.Key("sigx.mention") // value: [String:String] {id, label, kind?}
     static let block = NSAttributedString.Key("sigx.block")    // value: [String:Any] {type, level?}
 
     /// The inline model keys (paragraph-level `block` is handled separately).
@@ -54,6 +54,59 @@ struct RichTextTheme {
     var baseFont: UIFont { .systemFont(ofSize: fontSize) }
     var codeFont: UIFont { .monospacedSystemFont(ofSize: (fontSize * 0.95).rounded(), weight: .regular) }
     var codeBackground: UIColor { UIColor.secondarySystemFill }
+}
+
+/// The pill drawn for an atomic mention chip.
+///
+/// A mention span covers exactly **one U+FFFC** code unit (the model
+/// invariant — see `InlineSpanType` in `model/types.ts`); the attachment is
+/// what makes that char render as a labeled pill. The label lives only in
+/// `attrs` — it is never part of the document text. Because the chip is one
+/// character, deletion and selection are naturally atomic: there is no
+/// interior position a caret could land on.
+final class MentionAttachment: NSTextAttachment {
+    let chipAttrs: [String: String]
+
+    init(attrs: [String: String], theme: RichTextTheme) {
+        self.chipAttrs = attrs
+        super.init(data: nil, ofType: nil)
+        let pill = MentionAttachment.renderPill(label: attrs["label"] ?? "", theme: theme)
+        image = pill
+        // Sit the pill on the text baseline: drop by the font descender so
+        // the pill vertically centers against surrounding glyphs.
+        bounds = CGRect(
+            x: 0,
+            y: theme.baseFont.descender + 1,
+            width: pill.size.width,
+            height: pill.size.height
+        )
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
+
+    private static func renderPill(label: String, theme: RichTextTheme) -> UIImage {
+        let font = UIFont.systemFont(ofSize: (theme.fontSize * 0.9).rounded(), weight: .medium)
+        let text = "@\(label)" as NSString
+        let textSize = text.size(withAttributes: [.font: font])
+        let hPad: CGFloat = 6
+        let vPad: CGFloat = 2
+        let size = CGSize(
+            width: ceil(textSize.width) + hPad * 2,
+            height: ceil(textSize.height) + vPad * 2
+        )
+        let renderer = UIGraphicsImageRenderer(size: size)
+        return renderer.image { _ in
+            let rect = CGRect(origin: .zero, size: size)
+            let path = UIBezierPath(roundedRect: rect, cornerRadius: size.height / 2)
+            theme.accentColor.withAlphaComponent(0.15).setFill()
+            path.fill()
+            text.draw(
+                at: CGPoint(x: hPad, y: vPad),
+                withAttributes: [.font: font, .foregroundColor: theme.accentColor]
+            )
+        }
+    }
 }
 
 enum DocumentMapper {
@@ -90,6 +143,18 @@ enum DocumentMapper {
                 case "link": result.addAttribute(SigxAttr.link, value: attrs?["href"] ?? "", range: range)
                 case "mention":
                     result.addAttribute(SigxAttr.mention, value: attrs ?? [:], range: range)
+                    // The chip invariant: the span covers exactly one U+FFFC.
+                    // Attach the pill renderer when it holds; a non-conforming
+                    // span keeps the model attr (round-trips) but renders as
+                    // its literal text — never shift offsets during parse.
+                    if range.length == 1,
+                       (result.string as NSString).character(at: range.location) == 0xFFFC {
+                        result.addAttribute(
+                            .attachment,
+                            value: MentionAttachment(attrs: attrs ?? [:], theme: theme),
+                            range: range
+                        )
+                    }
                 default: break
                 }
             }
@@ -182,6 +247,23 @@ enum DocumentMapper {
                 .underlineStyle,
                 value: underline ? NSUnderlineStyle.single.rawValue : 0,
                 range: sub
+            )
+        }
+    }
+
+    /// Rebuild chip pill images after a theme change (font size / accent) —
+    /// attachments capture their look at creation time.
+    static func refreshMentionAttachments(_ storage: NSMutableAttributedString, theme: RichTextTheme) {
+        guard storage.length > 0 else { return }
+        let full = NSRange(location: 0, length: storage.length)
+        storage.enumerateAttribute(SigxAttr.mention, in: full, options: []) { value, range, _ in
+            guard let attrs = value as? [String: String],
+                  range.length == 1,
+                  (storage.string as NSString).character(at: range.location) == 0xFFFC else { return }
+            storage.addAttribute(
+                .attachment,
+                value: MentionAttachment(attrs: attrs, theme: theme),
+                range: range
             )
         }
     }

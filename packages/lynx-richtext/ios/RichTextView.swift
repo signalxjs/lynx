@@ -11,7 +11,9 @@ import UIKit
 ///    recognizes simultaneously) so focus works even when an ancestor
 ///    gesture system swallows the raw touch,
 ///  - intrinsic content-height reporting for auto-grow,
-///  - hooks reserved for chip-aware deletion (P3).
+///  - chip-aware backspace (`deleteBackward` selects the whole mention chip
+///    before deleting — defensive: a 1-char attachment deletes atomically by
+///    default, this guarantees it stays that way).
 public final class RichTextView: UITextView, UIGestureRecognizerDelegate {
 
     private let placeholderLabel = UILabel()
@@ -97,6 +99,20 @@ public final class RichTextView: UITextView, UIGestureRecognizerDelegate {
 
     @objc private func textDidChangeNotification() {
         refreshPlaceholder()
+    }
+
+    /// Backspace immediately after a mention chip removes the whole chip.
+    /// Expanding the selection (instead of editing the storage directly)
+    /// keeps the edit on the normal user pipeline — delegate callbacks,
+    /// undo, and the change event all fire as for any keystroke.
+    public override func deleteBackward() {
+        let range = selectedRange
+        if range.length == 0, range.location > 0,
+           let storage = attributedText, storage.length >= range.location,
+           storage.attribute(SigxAttr.mention, at: range.location - 1, effectiveRange: nil) != nil {
+            selectedRange = NSRange(location: range.location - 1, length: 1)
+        }
+        super.deleteBackward()
     }
 
     public override func layoutSubviews() {
