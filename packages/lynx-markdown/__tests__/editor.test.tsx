@@ -36,6 +36,20 @@ describe('MarkdownEditor', () => {
         expect(doc.blocks[0]).toMatchObject({ type: 'heading', level: 1 });
     });
 
+    it('always passes a concrete editable boolean — Android coerces undefined to false (#182)', () => {
+        // No `disabled` prop — must be editable.
+        const a = render(<MarkdownEditor value="" />);
+        expect(a.container.findByType('sigx-richtext')!.props['editable']).toBe(true);
+
+        // Explicit disabled={false} — still editable.
+        const b = render(<MarkdownEditor value="" disabled={false} />);
+        expect(b.container.findByType('sigx-richtext')!.props['editable']).toBe(true);
+
+        // disabled — not editable.
+        const c = render(<MarkdownEditor value="" disabled={true} />);
+        expect(c.container.findByType('sigx-richtext')!.props['editable']).toBe(false);
+    });
+
     it('emits onChange with serialized markdown on element changes', () => {
         const onChange = vi.fn();
         const { container } = render(<MarkdownEditor value="" onChange={onChange} />);
