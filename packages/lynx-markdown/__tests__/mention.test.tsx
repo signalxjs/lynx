@@ -29,6 +29,14 @@ describe('mentionSyntax', () => {
         expect(mentionSyntax.match('hi @[Andy](', 3)).toBeNull();
         expect(mentionSyntax.match('hi @plain', 3)).toBeNull();
     });
+
+    it('rejects forbidden characters in labels and ids (parser/serializer symmetry)', () => {
+        // The parser must not accept what the serializer would strip —
+        // otherwise round-trips mutate content.
+        expect(mentionSyntax.match('@[An)dy](u1)', 0)).toBeNull();
+        expect(mentionSyntax.match('@[Andy](u]1)', 0)).toBeNull();
+        expect(mentionSyntax.match('@[An\rdy](u1)', 0)).toBeNull();
+    });
 });
 
 // ---------------------------------------------------------------------------
