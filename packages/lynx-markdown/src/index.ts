@@ -36,6 +36,11 @@ export type {
     MarkdownEditorController,
     MarkdownEditorMode,
 } from './editor/MarkdownEditor.js';
+export type { SelectionState } from '@sigx/lynx-richtext';
+export { EditorToolbar } from './editor/toolbar/Toolbar.js';
+export type { EditorToolbarProps, ToolbarRenderItem } from './editor/toolbar/Toolbar.js';
+export { defaultToolbarItems } from './editor/toolbar/items.js';
+export type { ToolbarItem, ToolbarContext } from './editor/toolbar/items.js';
 export { mdToDoc } from './editor/convert/mdToDoc.js';
 export { docToMd } from './editor/convert/docToMd.js';
 

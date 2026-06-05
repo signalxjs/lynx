@@ -35,6 +35,8 @@ import {
 } from '@sigx/lynx-richtext';
 import { mdToDoc } from './convert/mdToDoc.js';
 import { docToMd } from './convert/docToMd.js';
+import { EditorToolbar, type ToolbarRenderItem } from './toolbar/Toolbar.js';
+import type { ToolbarItem } from './toolbar/items.js';
 
 export type MarkdownEditorMode = 'auto' | 'fixed' | 'fullscreen';
 
@@ -71,6 +73,16 @@ export type MarkdownEditorProps =
     & Define.Prop<'autoFocus', boolean, false>
     & Define.Prop<'disabled', boolean, false>
     & Define.Prop<'class', string, false>
+    /**
+     * Built-in formatting toolbar. `true` ≡ `'bottom'` — below the input is
+     * the common chat placement (selection handles and the iOS edit menu pop
+     * up *above* the selection, so a toolbar on top would sit under them).
+     */
+    & Define.Prop<'toolbar', boolean | 'top' | 'bottom', false>
+    /** Override the built-in toolbar's items (defaults to `defaultToolbarItems`). */
+    & Define.Prop<'toolbarItems', ToolbarItem[], false>
+    /** Re-skin the built-in toolbar's item rendering (what daisyUI does). */
+    & Define.Prop<'renderToolbarItem', ToolbarRenderItem, false>
     & Define.Prop<'onChange', (markdown: string) => void, false>
     & Define.Prop<'onSelectionChange', (sel: SelectionState) => void, false>
     & Define.Prop<'onFocus', () => void, false>
@@ -92,7 +104,9 @@ export const MarkdownEditor = component<MarkdownEditorProps>(({ props }) => {
     let lastSeenVersion = 0;
     let composing = false;
     let pendingExternal: string | null = null;
-    let currentSel: SelectionState | null = null;
+    // Reactive box (not a plain var): the built-in toolbar derives active
+    // states from it, so selection events must re-render.
+    const selBox = signal<{ current: SelectionState | null }>({ current: null });
 
     // Auto-grow: the native element reports its (clamped) content height and
     // the editor feeds it back as the element's layout height — Lynx layout
@@ -151,7 +165,7 @@ export const MarkdownEditor = component<MarkdownEditorProps>(({ props }) => {
         focus: () => RichTextMethods.focus(el),
         blur: () => RichTextMethods.blur(el),
         getMarkdown: () => lastEmittedMd ?? '',
-        getSelection: () => currentSel,
+        getSelection: () => selBox.current,
     };
     props.controllerRef?.(controller);
 
@@ -167,6 +181,18 @@ export const MarkdownEditor = component<MarkdownEditorProps>(({ props }) => {
         if (mode === 'fixed') minHeight = maxHeight;
         if (mode === 'fullscreen') maxHeight = 0; // unbounded; element fills parent
 
+        const toolbarPlacement = props.toolbar === true ? 'bottom' : props.toolbar;
+        const toolbarNode = toolbarPlacement
+            ? (
+                <EditorToolbar
+                    controller={controller}
+                    selection={selBox.current}
+                    items={props.toolbarItems}
+                    renderItem={props.renderToolbarItem}
+                />
+            )
+            : null;
+
         return (
             <view
                 class={props.class}
@@ -176,6 +202,7 @@ export const MarkdownEditor = component<MarkdownEditorProps>(({ props }) => {
                     ...(mode === 'fullscreen' ? { flexGrow: 1, flexShrink: 1 } : {}),
                 }}
             >
+                {toolbarPlacement === 'top' ? toolbarNode : null}
                 <RichTextInput
                     value={mdToDoc(initialMd)}
                     placeholder={props.placeholder}
@@ -201,12 +228,13 @@ export const MarkdownEditor = component<MarkdownEditorProps>(({ props }) => {
                     }}
                     onChange={handleChange}
                     onSelection={(sel) => {
-                        currentSel = sel;
+                        selBox.current = sel;
                         props.onSelectionChange?.(sel);
                     }}
                     onFocus={() => props.onFocus?.()}
                     onBlur={() => props.onBlur?.()}
                 />
+                {toolbarPlacement === 'bottom' ? toolbarNode : null}
             </view>
         );
     };

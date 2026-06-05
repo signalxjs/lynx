@@ -3,6 +3,7 @@ import { Screen } from '@sigx/lynx-navigation';
 import {
     Button,
     Col,
+    EditorToolbar,
     Row,
     markdownComponents,
     useMarkdownEditorTheme,
@@ -38,12 +39,9 @@ const SEED: Array<{ own: boolean; md: string }> = [
 export const MarkdownComposerLab = component(() => {
     const editorTheme = useMarkdownEditorTheme();
     const messages = signal<Array<{ own: boolean; md: string }>>([...SEED]);
-    const activeFormats = signal<string>('');
+    const selBox = signal<{ current: SelectionState | null }>({ current: null });
+    const ctrlBox = signal<{ current: MarkdownEditorController | null }>({ current: null });
     const draftEmpty = signal(true);
-    let controller: MarkdownEditorController | null = null;
-
-    const isActive = (format: string): boolean =>
-        activeFormats.value.split(',').includes(format);
 
     let scrollEl: { id: number } | null = null;
     const scrollToBottom = (): void => {
@@ -57,24 +55,13 @@ export const MarkdownComposerLab = component(() => {
     };
 
     const send = (): void => {
-        const md = controller?.getMarkdown().trim() ?? '';
+        const md = ctrlBox.current?.getMarkdown().trim() ?? '';
         if (!md) return;
         messages.$set([...messages, { own: true, md }]);
-        controller?.clear();
+        ctrlBox.current?.clear();
         draftEmpty.value = true;
         scrollToBottom();
     };
-
-    const formatButton = (label: string, format: string, run: () => void) => (
-        <Button
-            size="sm"
-            variant={isActive(format) ? 'primary' : 'ghost'}
-            square
-            onPress={run}
-        >
-            {label}
-        </Button>
-    );
 
     return () => (
         <Col class="flex-fill bg-base-100">
@@ -113,10 +100,10 @@ export const MarkdownComposerLab = component(() => {
                                     draftEmpty.value = md.trim() === '';
                                 }}
                                 onSelectionChange={(sel: SelectionState) => {
-                                    activeFormats.value = sel.activeFormats.join(',');
+                                    selBox.current = sel;
                                 }}
                                 controllerRef={(ctrl) => {
-                                    controller = ctrl;
+                                    ctrlBox.current = ctrl;
                                 }}
                             />
                         </view>
@@ -124,17 +111,15 @@ export const MarkdownComposerLab = component(() => {
                             Send
                         </Button>
                     </Row>
-                    {/* Formatting toolbar — below the input (the common
-                        placement: iOS's selection handles + Bold/Italic edit
-                        menu pop up *above* the selection, so a toolbar on top
-                        would sit right under them). Live active states come
-                        from the element's selection events. */}
-                    <Row gap={4} class="px-2 pb-2">
-                        {formatButton('B', 'bold', () => controller?.toggleBold())}
-                        {formatButton('I', 'italic', () => controller?.toggleItalic())}
-                        {formatButton('S', 'strike', () => controller?.toggleStrike())}
-                        {formatButton('</>', 'code', () => controller?.toggleCode())}
-                    </Row>
+                    {/* daisyUI EditorToolbar — below the input (the common
+                        placement: iOS's selection handles + edit menu pop up
+                        *above* the selection). Same ToolbarItem contract as
+                        the generic toolbar; active states from selection. */}
+                    <EditorToolbar
+                        controller={ctrlBox.current}
+                        selection={selBox.current}
+                        class="px-2 pb-2"
+                    />
                 </Col>
                 </view>
             </KeyboardStickyView>

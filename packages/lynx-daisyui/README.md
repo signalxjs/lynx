@@ -272,7 +272,7 @@ expands to `flex: 1 1 auto` which doesn't do what most people expect.
 Two bridges into [`@sigx/lynx-markdown`](../lynx-markdown):
 
 ```tsx
-import { markdownComponents, useMarkdownEditorTheme } from '@sigx/lynx-daisyui';
+import { EditorToolbar, daisyToolbarItem, markdownComponents, useMarkdownEditorTheme } from '@sigx/lynx-daisyui';
 
 // Themed rendering: daisyUI typography/colors for every markdown node.
 <MarkdownView value={md} components={markdownComponents} />;
@@ -281,6 +281,10 @@ import { markdownComponents, useMarkdownEditorTheme } from '@sigx/lynx-daisyui';
 // variables (and the built-in theme tokens are oklch, which Lynx can't
 // parse), so this hook reactively resolves the ACTIVE theme's palette to
 // concrete hex color props — a theme switch recolors the editor live.
+// Themed toolbar: daisy Buttons over the generic ToolbarItem contract.
+// Standalone (shown) or via <MarkdownEditor toolbar renderToolbarItem={daisyToolbarItem} />.
+<EditorToolbar controller={ctrl} selection={sel} />;
+
 const editorTheme = useMarkdownEditorTheme();
 <MarkdownEditor
   textColor={editorTheme.textColor}               // base-content

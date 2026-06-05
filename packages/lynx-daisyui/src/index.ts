@@ -130,3 +130,5 @@ export type { HeadingProps, HeadingLevel } from './typography/Heading.js';
 export { markdownComponents } from './markdown/components.js';
 export { useMarkdownEditorTheme } from './markdown/editorTheme.js';
 export type { MarkdownEditorThemeColors } from './markdown/editorTheme.js';
+export { EditorToolbar, daisyToolbarItem } from './markdown/toolbar.js';
+export type { EditorToolbarProps } from './markdown/toolbar.js';
