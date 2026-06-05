@@ -415,7 +415,10 @@ public class SigxRichTextUI: LynxUI<RichTextView> {
                 callback(SigxRichTextUI.kUIMethodUnknown, "insertChip: no storage")
                 return
             }
-            var location = view.selectedRange.location
+            // Captured before the edit so block/format toggles survive the
+            // chip insert (only the chip-specific keys are stripped below).
+            let priorTyping = view.typingAttributes
+            var location: Int
             self.isProgrammaticEdit = true
             storage.beginEditing()
             if let from = replaceFrom, let to = replaceTo {
@@ -425,7 +428,14 @@ public class SigxRichTextUI: LynxUI<RichTextView> {
                 if e > s { storage.deleteCharacters(in: NSRange(location: s, length: e - s)) }
                 location = s
             } else {
-                location = min(location, storage.length)
+                // No explicit range: replace the live selection, matching
+                // insertText and the Android implementation.
+                let sel = view.selectedRange
+                let upper = storage.length
+                let s = max(0, min(sel.location, upper))
+                let e = max(s, min(sel.location + sel.length, upper))
+                if e > s { storage.deleteCharacters(in: NSRange(location: s, length: e - s)) }
+                location = s
             }
             var attrs: [String: String] = ["id": id, "label": label]
             if let kind, !kind.isEmpty { attrs["kind"] = kind }
@@ -439,12 +449,17 @@ public class SigxRichTextUI: LynxUI<RichTextView> {
             self.userHasEdited = true
             self.localVersion += 1
             self.lastNonCollapsedSelection = nil
-            // Caret after the chip; plain typing attributes (hygiene). Still
-            // under the programmatic guard — otherwise the delegate fires a
-            // selection event for the caret move and fireSelection() below
-            // would duplicate it.
+            // Caret after the chip. Still under the programmatic guard —
+            // otherwise the delegate fires a selection event for the caret
+            // move and fireSelection() below would duplicate it.
             view.selectedRange = NSRange(location: location + chip.length, length: 0)
-            view.typingAttributes = [.font: self.theme.baseFont, .foregroundColor: self.theme.textColor]
+            // Typing hygiene: restore the pre-insert typing attributes with
+            // only the chip keys stripped — block/format toggles survive,
+            // the chip attrs never bleed into the next typed char.
+            var typing = priorTyping
+            typing.removeValue(forKey: .attachment)
+            typing.removeValue(forKey: SigxAttr.mention)
+            view.typingAttributes = typing
             self.isProgrammaticEdit = false
             self.reportHeightIfChanged()
             self.fireChange(isComposing: false)
