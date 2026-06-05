@@ -367,6 +367,12 @@ class SigxRichTextUI(context: LynxContext) : LynxUI<RichEditText>(context) {
         val kind = if (params?.hasKey("kind") == true) params.getString("kind") else null
         val replaceFrom = if (params?.hasKey("replaceFrom") == true) params.getInt("replaceFrom") else -1
         val replaceTo = if (params?.hasKey("replaceTo") == true) params.getInt("replaceTo") else -1
+        // The mention contract requires a usable payload — an id-less or
+        // label-less chip can't be resolved or rendered.
+        if (id.isEmpty() || label.isEmpty()) {
+            callback?.invoke(LynxUIMethodConstants.SUCCESS, resultMap("applied" to false, "reason" to "invalid"))
+            return
+        }
         mainHandler.post {
             val editable = mView.text
             if (isComposing(editable)) {
@@ -385,6 +391,10 @@ class SigxRichTextUI(context: LynxContext) : LynxUI<RichEditText>(context) {
             }
             isProgrammaticEdit = true
             editable.replace(from, to, "\uFFFC")
+            // The replaced range may have contained other chips \u2014 drop any
+            // spans the replace collapsed (the watcher skips programmatic
+            // edits, so this must run here).
+            cleanupCollapsedChips(editable)
             editable.setSpan(
                 SigxMentionSpan(attrs, theme.accentColor),
                 from,

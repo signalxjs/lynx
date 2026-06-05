@@ -82,7 +82,8 @@ class SigxMentionSpan(val attrs: Map<String, String>, private val color: Int) : 
             fm.top = base.top
             fm.bottom = base.bottom
         }
-        return (pillPaint(paint).measureText(pillText()) + hPad(paint) * 2).toInt()
+        // Round up — truncation can clip the last glyph / background edge.
+        return kotlin.math.ceil(pillPaint(paint).measureText(pillText()) + hPad(paint) * 2).toInt()
     }
 
     override fun draw(

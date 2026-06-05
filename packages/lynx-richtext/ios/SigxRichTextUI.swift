@@ -399,6 +399,12 @@ public class SigxRichTextUI: LynxUI<RichTextView> {
         let kind = params?["kind"] as? String
         let replaceFrom = params?["replaceFrom"] as? Int
         let replaceTo = params?["replaceTo"] as? Int
+        // The mention contract requires a usable payload — an id-less or
+        // label-less chip can't be resolved or rendered.
+        guard !id.isEmpty, !label.isEmpty else {
+            callback(SigxRichTextUI.kUIMethodSuccess, ["applied": false, "reason": "invalid"])
+            return
+        }
         DispatchQueue.main.async {
             let view = self.view()
             if view.markedTextRange != nil {
