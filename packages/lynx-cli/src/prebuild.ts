@@ -507,6 +507,36 @@ export function injectAndroidPermissions(cwd: string, config: ResolvedConfig, pe
 }
 
 /**
+ * Inject `<uses-feature>` declarations into AndroidManifest.xml. Entries come
+ * from `android.features` in the app config plus any contributed by linked
+ * modules (aggregated and de-duped by `linkAndroid`). `required` defaults to
+ * false — the common case is undoing the Play Store's "permission implies
+ * required hardware" inference.
+ */
+export function injectAndroidFeatures(
+    cwd: string,
+    config: ResolvedConfig,
+    features: import('./manifest.js').AndroidFeatureEntry[],
+): void {
+    if (features.length === 0) return;
+
+    const manifestFile = androidManifestPath(cwd, config);
+    if (!existsSync(manifestFile)) return;
+
+    let content = readFileSync(manifestFile, 'utf-8');
+    const featureLines = features
+        .map((f) => `    <uses-feature android:name="${escapeXmlAttr(f.name)}" android:required="${f.required === true}" />`)
+        .join('\n');
+    content = content.replace(
+        '    <!-- {{FEATURES}} -->',
+        `    <!-- Feature declarations (app config + auto-linked modules) -->\n${featureLines}`
+    );
+    if (writeFileIfChanged(manifestFile, content)) {
+        log(`Android: injected ${features.length} uses-feature declaration(s)`);
+    }
+}
+
+/**
  * Copy dev-client Kotlin sources into the Android project.
  *
  * Resolves the dev-client package from node_modules and copies its
@@ -1058,6 +1088,25 @@ export function applyIosSigningSettings(cwd: string, config: ResolvedConfig): vo
         const applied = [team && `DEVELOPMENT_TEAM=${team}`, style && `CODE_SIGN_STYLE=${style}`]
             .filter(Boolean).join(', ');
         log(`iOS: applied signing settings (${applied})`);
+    }
+}
+
+/**
+ * Apply `ios.supportsTablet` to the Xcode project's TARGETED_DEVICE_FAMILY
+ * (hits both Debug and Release build configurations): `"1,2"` (iPhone +
+ * iPad, the scaffold default) when true/unset, `"1"` (iPhone-only) when
+ * false. The value is internally derived — no user input is spliced in, so
+ * no runtime validation is needed (unlike signing settings).
+ */
+export function applyIosDeviceFamily(cwd: string, config: ResolvedConfig): void {
+    const pbxprojPath = join(iosXcodeProjPath(cwd, config), 'project.pbxproj');
+    if (!existsSync(pbxprojPath)) return;
+
+    const family = config.ios.supportsTablet === false ? '1' : '1,2';
+    let content = readFileSync(pbxprojPath, 'utf-8');
+    content = content.replace(/TARGETED_DEVICE_FAMILY = "[^"]*";/g, `TARGETED_DEVICE_FAMILY = "${family}";`);
+    if (writeFileIfChanged(pbxprojPath, content)) {
+        log(`iOS: applied device family (TARGETED_DEVICE_FAMILY="${family}")`);
     }
 }
 
@@ -1826,6 +1875,7 @@ export async function runPrebuild(opts: PrebuildOptions = {}): Promise<void> {
         writeAndroidBehaviors(cwd, config, result.behaviorsCode);
         injectGradleDependencies(cwd, config, result.gradleDependencies, result.debugGradleDependencies);
         injectAndroidPermissions(cwd, config, result.permissions);
+        injectAndroidFeatures(cwd, config, result.features);
         writeAndroidDebugManifest(cwd, config, result.debugPermissions);
         injectAndroidServices(cwd, config, result.services);
         injectAndroidMetaData(cwd, config, result.metaData);
@@ -1923,6 +1973,7 @@ export async function runPrebuild(opts: PrebuildOptions = {}): Promise<void> {
         // CI archivability: shared scheme + config-pinned signing settings.
         writeIosSharedScheme(cwd, config);
         applyIosSigningSettings(cwd, config);
+        applyIosDeviceFamily(cwd, config);
 
         // Copy dev-client sources if found
         if (result.devClient) {

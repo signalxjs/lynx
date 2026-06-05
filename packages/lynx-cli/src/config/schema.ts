@@ -12,8 +12,16 @@
 /** Supported platforms for native builds. */
 export type Platform = 'android' | 'ios';
 
-/** Activity orientation lock. */
-export type Orientation = 'portrait' | 'landscape' | 'default';
+/**
+ * Activity orientation lock.
+ *
+ * - 'portrait' / 'landscape': lock to that orientation.
+ * - 'all': explicitly support every orientation, including upside-down
+ *   portrait (iOS: all four `UIInterfaceOrientation*`; Android: `fullSensor`).
+ * - 'default': platform default (iOS: portrait + both landscapes;
+ *   Android: `unspecified`).
+ */
+export type Orientation = 'portrait' | 'landscape' | 'all' | 'default';
 
 /** Icon-set rendering backend. */
 export type IconMode = 'svg' | 'font';
@@ -136,6 +144,19 @@ export interface IosIconConfig {
     tinted?: string;
 }
 
+/**
+ * A `<uses-feature>` declaration for AndroidManifest.xml. Declaring a feature
+ * with `required: false` keeps the Play Store from filtering the app off
+ * devices that lack the hardware — important because a plain permission
+ * declaration (e.g. CAMERA) implicitly marks the matching feature *required*.
+ */
+export interface AndroidFeatureConfig {
+    /** Feature name, e.g. 'android.hardware.camera'. */
+    name: string;
+    /** Whether the app is unusable without the feature. Default: false. */
+    required?: boolean;
+}
+
 /** Android-specific build configuration. */
 export interface AndroidConfig {
     /** Application ID (e.g. 'com.mycompany.myapp'). Required for production builds. */
@@ -152,6 +173,12 @@ export interface AndroidConfig {
     dependencies?: string[];
     /** AndroidManifest.xml permission additions. */
     permissions?: string[];
+    /**
+     * `<uses-feature>` declarations merged into AndroidManifest.xml, on top
+     * of any contributed by linked modules (de-duped by name; the app's
+     * entries win).
+     */
+    features?: AndroidFeatureConfig[];
     /**
      * Google Maps Android SDK API key. Required by `@sigx/lynx-maps` — the
      * SDK aborts the process at first map render if no key is present. The
@@ -220,6 +247,24 @@ export interface IosConfig {
      * prebuild leaves the project's existing value untouched.
      */
     codeSignStyle?: 'Automatic' | 'Manual';
+    /**
+     * Whether the app runs on iPad as well as iPhone. Default: true
+     * (`TARGETED_DEVICE_FAMILY = "1,2"`); set false for an iPhone-only app
+     * (`"1"` — iPads run it in compatibility mode).
+     */
+    supportsTablet?: boolean;
+    /**
+     * Emit `UIRequiresFullScreen` and opt out of iPad multitasking
+     * (Split View / Slide Over). Default: false.
+     *
+     * This is also the iPad orientation lever: multitasking-capable apps
+     * MUST support all four orientations on iPad (App Store validation), so
+     * by default `UISupportedInterfaceOrientations~ipad` lists all four
+     * regardless of the configured `orientation` lock. With
+     * `requiresFullScreen: true`, the iPad follows the same lock as the
+     * iPhone.
+     */
+    requiresFullScreen?: boolean;
     /** Additional CocoaPods dependencies. */
     pods?: Record<string, string>;
     /** Info.plist permission usage descriptions. */

@@ -25,28 +25,58 @@ function log(msg: string) {
 // iOS
 // ────────────────────────────────────────────────────────────────
 
-function iosOrientationsXml(orientation: ResolvedPlatformAssets['orientation']): string {
-    const inner = (() => {
-        switch (orientation) {
-            case 'portrait':
-                return ['UIInterfaceOrientationPortrait'];
-            case 'landscape':
-                return ['UIInterfaceOrientationLandscapeLeft', 'UIInterfaceOrientationLandscapeRight'];
-            case 'default':
-            default:
-                return [
-                    'UIInterfaceOrientationPortrait',
-                    'UIInterfaceOrientationLandscapeLeft',
-                    'UIInterfaceOrientationLandscapeRight',
-                ];
-        }
-    })();
-    return [
+const IOS_ALL_ORIENTATIONS = [
+    'UIInterfaceOrientationPortrait',
+    'UIInterfaceOrientationPortraitUpsideDown',
+    'UIInterfaceOrientationLandscapeLeft',
+    'UIInterfaceOrientationLandscapeRight',
+];
+
+function iosOrientationList(orientation: ResolvedPlatformAssets['orientation']): string[] {
+    switch (orientation) {
+        case 'portrait':
+            return ['UIInterfaceOrientationPortrait'];
+        case 'landscape':
+            return ['UIInterfaceOrientationLandscapeLeft', 'UIInterfaceOrientationLandscapeRight'];
+        case 'all':
+            return IOS_ALL_ORIENTATIONS;
+        case 'default':
+        default:
+            return [
+                'UIInterfaceOrientationPortrait',
+                'UIInterfaceOrientationLandscapeLeft',
+                'UIInterfaceOrientationLandscapeRight',
+            ];
+    }
+}
+
+function iosOrientationsXml(
+    orientation: ResolvedPlatformAssets['orientation'],
+    opts: { supportsTablet: boolean; requiresFullScreen: boolean },
+): string {
+    const phone = iosOrientationList(orientation);
+    const lines = [
         '    <key>UISupportedInterfaceOrientations</key>',
         '    <array>',
-        ...inner.map((o) => `        <string>${o}</string>`),
+        ...phone.map((o) => `        <string>${o}</string>`),
         '    </array>',
-    ].join('\n');
+    ];
+    if (opts.supportsTablet) {
+        // Multitasking-capable iPad apps MUST support all four orientations
+        // (App Store validation). `requiresFullScreen` opts out of
+        // multitasking, and only then may the iPad follow the phone lock.
+        const ipad = opts.requiresFullScreen ? phone : IOS_ALL_ORIENTATIONS;
+        lines.push(
+            '    <key>UISupportedInterfaceOrientations~ipad</key>',
+            '    <array>',
+            ...ipad.map((o) => `        <string>${o}</string>`),
+            '    </array>',
+        );
+    }
+    if (opts.requiresFullScreen) {
+        lines.push('    <key>UIRequiresFullScreen</key>', '    <true/>');
+    }
+    return lines.join('\n');
 }
 
 function iosLaunchScreenXml(): string {
@@ -85,12 +115,21 @@ export function applyIosPlistMeta(cwd: string, config: ResolvedConfig, ios: Reso
     const plistFile = join(cwd, 'ios', config.name, 'Info.plist');
     if (!existsSync(plistFile)) return;
 
+    const supportsTablet = config.ios.supportsTablet ?? true;
+    const requiresFullScreen = config.ios.requiresFullScreen ?? false;
+
     let content = readFileSync(plistFile, 'utf-8');
-    content = content.replace('    <!-- {{ORIENTATIONS}} -->', iosOrientationsXml(ios.orientation));
+    content = content.replace(
+        '    <!-- {{ORIENTATIONS}} -->',
+        iosOrientationsXml(ios.orientation, { supportsTablet, requiresFullScreen }),
+    );
     content = content.replace('    <!-- {{LAUNCH_SCREEN}} -->', iosLaunchScreenXml());
     content = content.replace('    <!-- {{URL_SCHEMES}} -->', `    ${iosUrlSchemesXml(ios.scheme)}`);
     writeFileIfChanged(plistFile, content);
-    log(`iOS: applied Info.plist meta (orientation=${ios.orientation}, scheme=${ios.scheme ?? 'none'})`);
+    log(
+        `iOS: applied Info.plist meta (orientation=${ios.orientation}, scheme=${ios.scheme ?? 'none'}, ` +
+        `supportsTablet=${supportsTablet}${requiresFullScreen ? ', requiresFullScreen' : ''})`,
+    );
 }
 
 // ────────────────────────────────────────────────────────────────
@@ -103,6 +142,8 @@ function androidOrientationValue(orientation: ResolvedAndroidAssets['orientation
             return 'portrait';
         case 'landscape':
             return 'landscape';
+        case 'all':
+            return 'fullSensor';
         case 'default':
         default:
             return 'unspecified';

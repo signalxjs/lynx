@@ -1,5 +1,5 @@
 import type { ResolvedConfig, ResolvedModule } from '../config/parser.js';
-import type { AndroidActivityHookMethod, AndroidBehaviorEntry, AndroidServiceEntry, ModuleManifest } from '../manifest.js';
+import type { AndroidActivityHookMethod, AndroidBehaviorEntry, AndroidFeatureEntry, AndroidServiceEntry, ModuleManifest } from '../manifest.js';
 
 /** A `<meta-data>` entry with its value already resolved against config. */
 export interface ResolvedAndroidMetaData {
@@ -67,6 +67,8 @@ export interface AndroidLinkResult {
      * release code uses.
      */
     debugPermissions: string[];
+    /** `<uses-feature>` entries to merge into AndroidManifest (de-duped by name). */
+    features: AndroidFeatureEntry[];
     /** `<service>` entries to merge into AndroidManifest under `<application>`. */
     services: AndroidServiceEntry[];
     /** `<meta-data>` entries (values resolved) to merge under `<application>`. */
@@ -140,6 +142,16 @@ export function linkAndroid(
     const debugGradleDependencies: string[] = [];
     const permissions: string[] = [...(config.android.permissions ?? [])];
     const debugPermissions: string[] = [];
+    // App-level features are seeded first so they win the de-dupe over any
+    // module-contributed entry of the same name. The seed itself is de-duped
+    // too (first wins) in case the app config repeats a name.
+    const features: AndroidFeatureEntry[] = [];
+    const seenFeatureNames = new Set<string>();
+    for (const feat of config.android.features ?? []) {
+        if (seenFeatureNames.has(feat.name)) continue;
+        seenFeatureNames.add(feat.name);
+        features.push(feat);
+    }
     const services: AndroidServiceEntry[] = [];
     const seenServiceNames = new Set<string>();
     const metaData: ResolvedAndroidMetaData[] = [];
@@ -252,6 +264,13 @@ export function linkAndroid(
             // so release APKs don't declare permissions only dev code uses.
             (android.debugOnly ? debugPermissions : permissions).push(...android.permissions);
         }
+        if (android.features) {
+            for (const feat of android.features) {
+                if (seenFeatureNames.has(feat.name)) continue;
+                seenFeatureNames.add(feat.name);
+                features.push(feat);
+            }
+        }
         if (android.services) {
             for (const svc of android.services) {
                 if (seenServiceNames.has(svc.name)) continue;
@@ -309,6 +328,7 @@ export function linkAndroid(
         permissions: [...new Set(permissions)],
         // A permission already granted to all builds doesn't need a debug copy.
         debugPermissions: [...new Set(debugPermissions)].filter((p) => !permissions.includes(p)),
+        features,
         services,
         metaData,
         metaDataWarnings,
