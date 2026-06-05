@@ -70,20 +70,24 @@ final class MentionAttachment: NSTextAttachment {
     init(attrs: [String: String], theme: RichTextTheme) {
         self.chipAttrs = attrs
         super.init(data: nil, ofType: nil)
-        let pill = MentionAttachment.renderPill(label: attrs["label"] ?? "", theme: theme)
-        image = pill
-        // Sit the pill on the text baseline: drop by the font descender so
-        // the pill vertically centers against surrounding glyphs.
-        bounds = CGRect(
-            x: 0,
-            y: theme.baseFont.descender + 1,
-            width: pill.size.width,
-            height: pill.size.height
-        )
+        image = MentionAttachment.renderPill(label: attrs["label"] ?? "", theme: theme)
     }
 
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
+
+    /// Baseline placement computed at layout time, proportional to the pill —
+    /// independent of the host font (the attachment can't read the adjacent
+    /// font here, so a fixed-font descender would misalign inside headings).
+    public override func attachmentBounds(
+        for textContainer: NSTextContainer?,
+        proposedLineFragment lineFrag: CGRect,
+        glyphPosition position: CGPoint,
+        characterIndex charIndex: Int
+    ) -> CGRect {
+        let size = image?.size ?? .zero
+        return CGRect(x: 0, y: -size.height * 0.2, width: size.width, height: size.height)
+    }
 
     private static func renderPill(label: String, theme: RichTextTheme) -> UIImage {
         let font = UIFont.systemFont(ofSize: (theme.fontSize * 0.9).rounded(), weight: .medium)

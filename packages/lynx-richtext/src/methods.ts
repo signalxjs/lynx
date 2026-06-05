@@ -62,9 +62,11 @@ export const RichTextMethods = {
     /**
      * Insert an atomic mention chip — one U+FFFC char carrying a `mention`
      * span with the chip payload in attrs (the label is never in the text).
-     * `replace` removes `[from, to)` first (the trigger query run). Unlike
-     * `insertText`, the chip does NOT inherit typing attributes, and typing
-     * after it stays plain.
+     * `replace` removes `[from, to)` first (the trigger query run; applied
+     * only when both bounds are given — otherwise the live selection is
+     * replaced). Unlike `insertText`, the chip never inherits typing
+     * attributes, and the chip's own attributes never extend to subsequent
+     * typing (pre-insert formatting toggles are preserved).
      */
     insertChip(
         el: RichTextHandle,

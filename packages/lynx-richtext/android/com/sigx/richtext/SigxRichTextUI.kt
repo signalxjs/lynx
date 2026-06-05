@@ -394,8 +394,11 @@ class SigxRichTextUI(context: LynxContext) : LynxUI<RichEditText>(context) {
             val upper = editable.length
             val selStart = minOf(mView.selectionStart, mView.selectionEnd).coerceAtLeast(0)
             val selEnd = maxOf(mView.selectionStart, mView.selectionEnd).coerceAtLeast(0)
-            val from = if (replaceFrom >= 0) replaceFrom.coerceIn(0, upper) else selStart
-            val to = if (replaceTo >= 0) replaceTo.coerceIn(from, upper) else if (replaceFrom >= 0) from else selEnd
+            // Replacement applies only when BOTH bounds are present (mirrors
+            // iOS) — a lone bound would silently delete an unexpected range.
+            val hasRange = replaceFrom >= 0 && replaceTo >= 0
+            val from = if (hasRange) replaceFrom.coerceIn(0, upper) else selStart
+            val to = if (hasRange) replaceTo.coerceIn(from, upper) else selEnd
             val attrs = buildMap {
                 put("id", id)
                 put("label", label)
