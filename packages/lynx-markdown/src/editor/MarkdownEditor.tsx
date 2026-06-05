@@ -58,6 +58,13 @@ export interface MarkdownEditorController {
      * the typed query for the selected suggestion.
      */
     replaceRange(start: number, end: number, text: string): void;
+    /**
+     * Insert an atomic mention chip (one U+FFFC carrying a `mention` span —
+     * see lynx-richtext's chip invariant). `replace` removes `[from, to)`
+     * first, typically the trigger query run. A dedicated native op:
+     * `replaceRange`/`insertText` can't attach a span to the inserted char.
+     */
+    insertChip(chip: { id: string; label: string; kind?: string }, replace?: { from: number; to: number }): void;
     /** Clear the document (chat send). */
     clear(): void;
     focus(): void;
@@ -250,6 +257,7 @@ export const MarkdownEditor = component<MarkdownEditorProps>(({ props }) => {
             RichTextMethods.setSelectionRange(el, start, end);
             RichTextMethods.insertText(el, text);
         },
+        insertChip: (chip, replace) => RichTextMethods.insertChip(el, chip, replace),
         clear: () => RichTextMethods.setDocument(el, emptyDoc(lastSeenVersion)),
         focus: () => RichTextMethods.focus(el),
         blur: () => RichTextMethods.blur(el),
@@ -365,6 +373,11 @@ export const MarkdownEditor = component<MarkdownEditorProps>(({ props }) => {
                 style={{
                     display: 'flex',
                     flexDirection: 'column',
+                    // Lynx hit-tests out-of-bounds children only when EVERY
+                    // ancestor between the touch and the target reports
+                    // overflow visible (LynxUI.containsPoint) — required for
+                    // the above-the-caret suggestion popup to be tappable.
+                    overflow: 'visible',
                     ...(mode === 'fullscreen' ? { flexGrow: 1, flexShrink: 1 } : {}),
                 }}
             >
@@ -373,10 +386,15 @@ export const MarkdownEditor = component<MarkdownEditorProps>(({ props }) => {
                     ? (
                         // Relative layer the popup positions in; measured so the
                         // popup can clamp against the keyboard in page coords.
+                        // overflow visible: the above-the-caret popup extends past
+                        // this layer's top — it must stay hit-testable there, or
+                        // taps fall through to non-ignore-focus chrome and blur
+                        // the editor instead of selecting.
                         <view
                             bindlayoutchange={onInputLayout}
                             style={{
                                 position: 'relative',
+                                overflow: 'visible',
                                 ...(mode === 'fullscreen'
                                     ? { display: 'flex', flexDirection: 'column', flexGrow: 1 }
                                     : {}),
