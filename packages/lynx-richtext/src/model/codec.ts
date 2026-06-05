@@ -64,14 +64,21 @@ function sanitizeBlocks(blocks: unknown, max: number): BlockAttr[] {
         const start = clamp(b.start, 0, max);
         const end = clamp(b.end, 0, max);
         if (end < start) continue;
-        // Type-specific fields are gated to the types that own them (model
-        // contract) — stray wire data must not skew docEquals.
-        const hasLevel = b.type === 'heading' || b.type === 'ordered';
+        // Type-specific fields are gated to the types that own them and
+        // normalized to their canonical forms (heading level clamped 1–6;
+        // ordered start omitted when 1) — stray or denormalized wire data
+        // must not skew docEquals.
+        const rawLevel = typeof b.level === 'number' && Number.isFinite(b.level) ? Math.floor(b.level) : undefined;
+        let level: number | undefined;
+        if (rawLevel !== undefined) {
+            if (b.type === 'heading') level = clamp(rawLevel, 1, 6);
+            else if (b.type === 'ordered' && rawLevel > 1) level = rawLevel;
+        }
         out.push({
             start,
             end,
             type: b.type,
-            ...(hasLevel && typeof b.level === 'number' && Number.isFinite(b.level) ? { level: Math.floor(b.level) } : {}),
+            ...(level !== undefined ? { level } : {}),
             ...(b.type === 'task' && typeof b.checked === 'boolean' ? { checked: b.checked } : {}),
             ...(b.type === 'codeBlock' && typeof b.lang === 'string' && b.lang !== '' ? { lang: b.lang } : {}),
         });

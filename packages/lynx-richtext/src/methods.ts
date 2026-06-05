@@ -68,7 +68,7 @@ export const RichTextMethods = {
         type: 'link',
         start: number,
         end: number,
-        attrs?: Record<string, string>,
+        attrs?: { href?: string },
     ): void {
         invoke(el, 'applyFormat', { type, start, end, ...(attrs ? { attrs } : {}) });
     },

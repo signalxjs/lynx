@@ -40,7 +40,7 @@ const headingActive = (level: number) =>
     (sel: SelectionState | null): boolean =>
         sel?.activeBlock === 'heading' && sel.headingLevel === level;
 
-const blockActive = (type: string) =>
+const blockActive = (type: SelectionState['activeBlock']) =>
     (sel: SelectionState | null): boolean =>
         sel?.activeBlock === type;
 

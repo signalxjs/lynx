@@ -114,6 +114,8 @@ describe('block attrs (#153)', () => {
                 { start: 0, end: 4, type: 'bullet', lang: 'ts' }, // codeBlock-only field
                 { start: 0, end: 4, type: 'bullet', level: 3, checked: true }, // heading/ordered + task fields
                 { start: 0, end: 4, type: 'ordered', level: 3 }, // ordered keeps its run start
+                { start: 0, end: 4, type: 'ordered', level: 1 }, // …but a start of 1 is the canonical omission
+                { start: 0, end: 4, type: 'heading', level: 9 }, // heading levels clamp to 1–6
             ],
             v: 1,
         }));
@@ -123,6 +125,8 @@ describe('block attrs (#153)', () => {
             { start: 0, end: 4, type: 'bullet' },
             { start: 0, end: 4, type: 'bullet' },
             { start: 0, end: 4, type: 'ordered', level: 3 },
+            { start: 0, end: 4, type: 'ordered' },
+            { start: 0, end: 4, type: 'heading', level: 6 },
         ]);
         const a: RichDoc = { text: 'c', spans: [], blocks: [{ start: 0, end: 1, type: 'codeBlock', lang: 'ts' }], v: 0 };
         const b: RichDoc = { text: 'c', spans: [], blocks: [{ start: 0, end: 1, type: 'codeBlock', lang: 'js' }], v: 0 };
