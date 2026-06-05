@@ -236,7 +236,9 @@ function flattenInline(
                     }
                     const start = base + text.length;
                     text += mapped.text;
-                    spans.push({ start, end: base + text.length, ...mapped.span });
+                    // Plugin fields first — the converter always controls the
+                    // final range, even if a mapper sneaks in start/end.
+                    spans.push({ ...mapped.span, start, end: base + text.length });
                     break;
                 }
                 default:
