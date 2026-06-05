@@ -53,16 +53,21 @@ object DocumentMapper {
                 "strike" -> SigxStrikeSpan()
                 "code" -> SigxCodeSpan(theme.codeBackground)
                 "link" -> SigxLinkSpan(attrs?.optString("href") ?: "", theme.accentColor)
-                "mention" ->
-                    // The chip invariant: exactly one U+FFFC. Conforming spans
-                    // get the pill; anything else keeps its attrs (round-trips)
-                    // but renders literally — mirrors iOS, and never lets a
-                    // ReplacementSpan swallow arbitrary text.
-                    if (end - start == 1 && builder[start] == '\uFFFC') {
-                        SigxMentionSpan(attrs.toStringMap(), theme.accentColor)
+                "mention" -> {
+                    // The chip invariant: exactly one U+FFFC AND a usable
+                    // payload (non-empty id + label, same rule as insertChip).
+                    // Conforming spans get the pill; anything else keeps its
+                    // attrs (round-trips) but renders literally — mirrors
+                    // iOS, never lets a ReplacementSpan swallow arbitrary
+                    // text, and never draws an empty pill for invalid data.
+                    val chipAttrs = attrs.toStringMap()
+                    val usable = !chipAttrs["id"].isNullOrEmpty() && !chipAttrs["label"].isNullOrEmpty()
+                    if (usable && end - start == 1 && builder[start] == '\uFFFC') {
+                        SigxMentionSpan(chipAttrs, theme.accentColor)
                     } else {
-                        SigxMentionTextSpan(attrs.toStringMap(), theme.accentColor)
+                        SigxMentionTextSpan(chipAttrs, theme.accentColor)
                     }
+                }
                 else -> null
             }
             // Mention chips are atomic: EXCLUSIVE_EXCLUSIVE so typing at

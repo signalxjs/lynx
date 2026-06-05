@@ -143,15 +143,18 @@ enum DocumentMapper {
                 case "link": result.addAttribute(SigxAttr.link, value: attrs?["href"] ?? "", range: range)
                 case "mention":
                     result.addAttribute(SigxAttr.mention, value: attrs ?? [:], range: range)
-                    // The chip invariant: the span covers exactly one U+FFFC.
-                    // Attach the pill renderer when it holds; a non-conforming
-                    // span keeps the model attr (round-trips) but renders as
-                    // its literal text — never shift offsets during parse.
+                    // The chip invariant: the span covers exactly one U+FFFC
+                    // AND carries a usable payload. Attach the pill renderer
+                    // when it holds; a non-conforming span keeps the model
+                    // attr (round-trips) but renders as its literal text —
+                    // never shift offsets during parse, never draw an
+                    // empty/"@"-only pill for invalid mention data.
                     if range.length == 1,
-                       (result.string as NSString).character(at: range.location) == 0xFFFC {
+                       (result.string as NSString).character(at: range.location) == 0xFFFC,
+                       let chipAttrs = attrs, chipUsable(chipAttrs) {
                         result.addAttribute(
                             .attachment,
-                            value: MentionAttachment(attrs: attrs ?? [:], theme: theme),
+                            value: MentionAttachment(attrs: chipAttrs, theme: theme),
                             range: range
                         )
                     }
@@ -251,13 +254,21 @@ enum DocumentMapper {
         }
     }
 
+    /// A chip is renderable only with a usable payload — an id-less or
+    /// label-less mention must not draw a pill (same rule as insertChip).
+    static func chipUsable(_ attrs: [String: String]) -> Bool {
+        return !(attrs["id"] ?? "").isEmpty && !(attrs["label"] ?? "").isEmpty
+    }
+
     /// Rebuild chip pill images after a theme change (font size / accent) —
-    /// attachments capture their look at creation time.
+    /// attachments capture their look at creation time. Gated by the same
+    /// conformance rules as `parse` so invalid mentions never gain a pill.
     static func refreshMentionAttachments(_ storage: NSMutableAttributedString, theme: RichTextTheme) {
         guard storage.length > 0 else { return }
         let full = NSRange(location: 0, length: storage.length)
         storage.enumerateAttribute(SigxAttr.mention, in: full, options: []) { value, range, _ in
             guard let attrs = value as? [String: String],
+                  chipUsable(attrs),
                   range.length == 1,
                   (storage.string as NSString).character(at: range.location) == 0xFFFC else { return }
             storage.addAttribute(
