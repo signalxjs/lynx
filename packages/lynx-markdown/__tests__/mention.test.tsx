@@ -183,6 +183,26 @@ describe('mention plugin in MarkdownEditor', () => {
         );
     });
 
+    it('drops candidates that clean to an empty id/label', async () => {
+        const plugin = createMentionPlugin({
+            search: () => [
+                { id: ')]', label: 'Ghost' }, // id cleans to '' — never offered
+                { id: 'u2', label: 'Bea' },
+            ],
+        });
+        const { container } = render(<MarkdownEditor value="" plugins={[plugin]} />);
+        const el = container.findByType('sigx-richtext')!;
+        fireWrapperLayout(container);
+
+        fireChange(el, doc('@'));
+        fireSelection(el, 1);
+        await waitForUpdate();
+
+        const popup = container.findAllByType('view').find((v) => v.props['ignore-focus'] === true)!;
+        expect(popup.findByText('Bea')).toBeTruthy();
+        expect(popup.findByText('Ghost')).toBeFalsy();
+    });
+
     it('controller.insertChip forwards to the native method', () => {
         let ctrl: MarkdownEditorController | null = null;
         render(<MarkdownEditor value="" controllerRef={(c) => { ctrl = c; }} />);

@@ -126,22 +126,31 @@ export function createMentionPlugin(options: MentionPluginOptions): MarkdownEdit
                 // candidate with forbidden chars must not display one label
                 // and serialize another.
                 const toItems = (candidates: MentionCandidate[]): TriggerItem[] =>
-                    candidates.map((c) => ({
-                        id: clean(c.id),
-                        label: clean(c.label),
-                        ...(c.kind !== undefined ? { kind: c.kind } : {}),
-                    }));
+                    candidates
+                        .map((c) => ({
+                            id: clean(c.id),
+                            label: clean(c.label),
+                            ...(c.kind !== undefined ? { kind: c.kind } : {}),
+                        }))
+                        // A candidate that cleans to empty would serialize to
+                        // @[]() — unparseable. Never offer it.
+                        .filter((c) => c.id !== '' && c.label !== '');
                 return Array.isArray(result) ? toItems(result) : result.then(toItems);
             },
             ...(options.renderItem ? { renderItem: options.renderItem } : {}),
             onSelect(item, api) {
                 // Defense in depth — items normally arrive pre-cleaned from
                 // onQuery, but the chip payload must obey the v1 rule even if
-                // a consumer drives onSelect directly.
+                // a consumer drives onSelect directly. An empty cleaned
+                // payload would serialize to @[]() (unparseable) — and the
+                // native insertChip rejects it anyway — so skip the insert.
+                const id = clean(item.id);
+                const label = clean(item.label);
+                if (id === '' || label === '') return;
                 api.controller.insertChip(
                     {
-                        id: clean(item.id),
-                        label: clean(item.label),
+                        id,
+                        label,
                         ...(typeof item.kind === 'string' ? { kind: item.kind } : {}),
                     },
                     { from: api.range.start, to: api.range.end },
