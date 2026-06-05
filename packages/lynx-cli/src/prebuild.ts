@@ -10,6 +10,7 @@ import {
     readFileSync, existsSync, writeFileSync, unlinkSync,
     mkdirSync, readdirSync, statSync, copyFileSync, rmSync, chmodSync,
 } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { join, dirname, relative, extname, basename, isAbsolute } from 'node:path';
 import { pathToFileURL, fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
@@ -1707,7 +1708,8 @@ export function fingerprintPrebuildInputs(cwd: string, platforms: { android: boo
         // v2: include each module's ios/android.sourceDir contents.
         // v3: include android.releaseStubsDir contents; dev-client sources
         //     moved to src/debug + release stubs to src/release (#172).
-        fingerprintFormat: 'v3',
+        // v4: include the prebuild.post hook script (via sidecar path, #175).
+        fingerprintFormat: 'v4',
         cliVersion: getCliVersion(),
         platforms: `android=${platforms.android};ios=${platforms.ios}`,
     });
@@ -2004,8 +2006,6 @@ function resolveHookPath(cwd: string, rel: string): string {
  * patch that no longer finds its anchor after a template change should stop
  * the build, not ship an unpatched binary.
  */
-let hookImportCounter = 0;
-
 export async function runPostPrebuildHook(
     cwd: string,
     config: ResolvedConfig,
@@ -2018,14 +2018,17 @@ export async function runPostPrebuildHook(
     if (!existsSync(hookPath)) {
         throw new Error(
             `prebuild.post hook not found: ${hookPath}\n` +
-            `(configured as "${rel}" in signalx.config — the path is resolved from the project root)`,
+            `(configured as "${rel}" in your project config — the path is resolved from the project root)`,
         );
     }
 
     log(`Running post-prebuild hook: ${rel}`);
-    // Counter, not Date.now(): two prebuilds in the same millisecond (e.g.
-    // back-to-back test runs) would otherwise hit Node's module cache.
-    const mod = await import(`${pathToFileURL(hookPath).href}?v=${hookImportCounter++}`);
+    // Bust Node's ESM cache on the script's CONTENT hash: an edited hook
+    // reloads (even within the same millisecond), while repeated prebuilds
+    // in a long-lived process (`sigx dev`) reuse the cached module instead
+    // of growing the module cache unboundedly.
+    const contentHash = createHash('sha256').update(readFileSync(hookPath)).digest('hex').slice(0, 16);
+    const mod = await import(`${pathToFileURL(hookPath).href}?v=${contentHash}`);
     if (typeof mod.default === 'function') {
         await mod.default({ cwd, config, platforms });
     }
