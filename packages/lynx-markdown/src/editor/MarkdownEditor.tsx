@@ -373,6 +373,11 @@ export const MarkdownEditor = component<MarkdownEditorProps>(({ props }) => {
                 style={{
                     display: 'flex',
                     flexDirection: 'column',
+                    // Lynx hit-tests out-of-bounds children only when EVERY
+                    // ancestor between the touch and the target reports
+                    // overflow visible (LynxUI.containsPoint) — required for
+                    // the above-the-caret suggestion popup to be tappable.
+                    overflow: 'visible',
                     ...(mode === 'fullscreen' ? { flexGrow: 1, flexShrink: 1 } : {}),
                 }}
             >
@@ -381,10 +386,15 @@ export const MarkdownEditor = component<MarkdownEditorProps>(({ props }) => {
                     ? (
                         // Relative layer the popup positions in; measured so the
                         // popup can clamp against the keyboard in page coords.
+                        // overflow visible: the above-the-caret popup extends past
+                        // this layer's top — it must stay hit-testable there, or
+                        // taps fall through to non-ignore-focus chrome and blur
+                        // the editor instead of selecting.
                         <view
                             bindlayoutchange={onInputLayout}
                             style={{
                                 position: 'relative',
+                                overflow: 'visible',
                                 ...(mode === 'fullscreen'
                                     ? { display: 'flex', flexDirection: 'column', flexGrow: 1 }
                                     : {}),
