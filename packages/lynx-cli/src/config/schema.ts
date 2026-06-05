@@ -142,6 +142,21 @@ export interface IosConfig {
     deploymentTarget?: string;
     /** CFBundleVersion — store-submission build number, separate from marketing version. Default: '1'. */
     buildNumber?: string;
+    /**
+     * Apple Developer Team ID (e.g. 'AB12CD34EF') rendered into the Xcode
+     * project's `DEVELOPMENT_TEAM`. Required for signed device builds and
+     * CI archiving (TestFlight / App Store). When unset, prebuild leaves the
+     * project's existing value untouched so tooling like fastlane's
+     * `update_code_signing_settings` keeps working.
+     */
+    developmentTeam?: string;
+    /**
+     * Xcode `CODE_SIGN_STYLE`. 'Automatic' (the scaffold default) lets Xcode
+     * manage profiles; store distribution from CI generally needs 'Manual'
+     * plus a provisioning profile (e.g. via fastlane match). When unset,
+     * prebuild leaves the project's existing value untouched.
+     */
+    codeSignStyle?: 'Automatic' | 'Manual';
     /** Additional CocoaPods dependencies. */
     pods?: Record<string, string>;
     /** Info.plist permission usage descriptions. */

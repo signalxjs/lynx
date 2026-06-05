@@ -17,6 +17,8 @@ import {
     cleanPrebuild,
     fingerprintPrebuildInputs,
     writeAndroidDebugManifest,
+    writeIosSharedScheme,
+    applyIosSigningSettings,
 } from '../src/prebuild.js';
 import { linkAndroid } from '../src/autolink/android.js';
 import { resolveConfig } from '../src/config/parser.js';
@@ -748,5 +750,93 @@ describe('linkAndroid — debugOnly permission split', () => {
         const result = linkAndroid(config, [devClientManifest]);
 
         expect(result.devClient?.releaseStubsDir).toBe('android/src/releaseStubs/kotlin');
+    });
+});
+
+describe('writeIosSharedScheme', () => {
+    const schemePath = (cwd: string) => join(
+        cwd, 'ios', 'TestApp.xcodeproj', 'xcshareddata', 'xcschemes', 'TestApp.xcscheme',
+    );
+
+    it('scaffoldIos ships a shared scheme with the app name substituted', () => {
+        const config = resolveConfig(TEST_CONFIG);
+        scaffoldIos(testDir, config);
+
+        const scheme = readFileSync(schemePath(testDir), 'utf-8');
+        expect(scheme).toContain('BlueprintName = "TestApp"');
+        expect(scheme).toContain('BuildableName = "TestApp.app"');
+        expect(scheme).toContain('ReferencedContainer = "container:TestApp.xcodeproj"');
+        expect(scheme).not.toContain('{{appName}}');
+    });
+
+    it('re-creates a deleted scheme on prebuild refresh', () => {
+        const config = resolveConfig(TEST_CONFIG);
+        scaffoldIos(testDir, config);
+        rmSync(schemePath(testDir));
+
+        writeIosSharedScheme(testDir, config);
+        expect(existsSync(schemePath(testDir))).toBe(true);
+    });
+
+    it('uses the app target UUID from the project pbxproj', () => {
+        const config = resolveConfig(TEST_CONFIG);
+        scaffoldIos(testDir, config);
+
+        // Simulate a hand-curated project with a different target UUID.
+        const pbxprojPath = join(testDir, 'ios', 'TestApp.xcodeproj', 'project.pbxproj');
+        const customUuid = 'ABCDEF0123456789ABCDEF01';
+        writeFileSync(
+            pbxprojPath,
+            readFileSync(pbxprojPath, 'utf-8').replaceAll('E100000000000001', customUuid),
+        );
+        rmSync(schemePath(testDir));
+
+        writeIosSharedScheme(testDir, config);
+        const scheme = readFileSync(schemePath(testDir), 'utf-8');
+        expect(scheme).toContain(`BlueprintIdentifier = "${customUuid}"`);
+        expect(scheme).not.toContain('E100000000000001');
+    });
+});
+
+describe('applyIosSigningSettings', () => {
+    const pbxprojPath = (cwd: string) => join(cwd, 'ios', 'TestApp.xcodeproj', 'project.pbxproj');
+
+    it('pins DEVELOPMENT_TEAM and CODE_SIGN_STYLE from config', () => {
+        const config = resolveConfig({
+            ...TEST_CONFIG,
+            ios: { ...TEST_CONFIG.ios, developmentTeam: 'AB12CD34EF', codeSignStyle: 'Manual' },
+        });
+        scaffoldIos(testDir, config);
+        applyIosSigningSettings(testDir, config);
+
+        const pbx = readFileSync(pbxprojPath(testDir), 'utf-8');
+        expect(pbx).toContain('DEVELOPMENT_TEAM = AB12CD34EF;');
+        expect(pbx).toContain('CODE_SIGN_STYLE = Manual;');
+        expect(pbx).not.toContain('DEVELOPMENT_TEAM = "";');
+        expect(pbx).not.toContain('CODE_SIGN_STYLE = Automatic;');
+    });
+
+    it('leaves the pbxproj untouched when neither knob is set', () => {
+        const config = resolveConfig(TEST_CONFIG);
+        scaffoldIos(testDir, config);
+        const before = readFileSync(pbxprojPath(testDir), 'utf-8');
+
+        applyIosSigningSettings(testDir, config);
+        expect(readFileSync(pbxprojPath(testDir), 'utf-8')).toBe(before);
+        // The scaffold default stays Automatic with an empty team.
+        expect(before).toContain('CODE_SIGN_STYLE = Automatic;');
+        expect(before).toContain('DEVELOPMENT_TEAM = "";');
+    });
+
+    it('is idempotent across repeated prebuilds', () => {
+        const config = resolveConfig({
+            ...TEST_CONFIG,
+            ios: { ...TEST_CONFIG.ios, developmentTeam: 'AB12CD34EF', codeSignStyle: 'Manual' },
+        });
+        scaffoldIos(testDir, config);
+        applyIosSigningSettings(testDir, config);
+        const once = readFileSync(pbxprojPath(testDir), 'utf-8');
+        applyIosSigningSettings(testDir, config);
+        expect(readFileSync(pbxprojPath(testDir), 'utf-8')).toBe(once);
     });
 });
