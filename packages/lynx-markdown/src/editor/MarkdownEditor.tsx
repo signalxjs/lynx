@@ -58,6 +58,13 @@ export interface MarkdownEditorController {
      * the typed query for the selected suggestion.
      */
     replaceRange(start: number, end: number, text: string): void;
+    /**
+     * Insert an atomic mention chip (one U+FFFC carrying a `mention` span —
+     * see lynx-richtext's chip invariant). `replace` removes `[from, to)`
+     * first, typically the trigger query run. A dedicated native op:
+     * `replaceRange`/`insertText` can't attach a span to the inserted char.
+     */
+    insertChip(chip: { id: string; label: string; kind?: string }, replace?: { from: number; to: number }): void;
     /** Clear the document (chat send). */
     clear(): void;
     focus(): void;
@@ -250,6 +257,7 @@ export const MarkdownEditor = component<MarkdownEditorProps>(({ props }) => {
             RichTextMethods.setSelectionRange(el, start, end);
             RichTextMethods.insertText(el, text);
         },
+        insertChip: (chip, replace) => RichTextMethods.insertChip(el, chip, replace),
         clear: () => RichTextMethods.setDocument(el, emptyDoc(lastSeenVersion)),
         focus: () => RichTextMethods.focus(el),
         blur: () => RichTextMethods.blur(el),
