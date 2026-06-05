@@ -67,7 +67,9 @@ export const SuggestionPopup = component<SuggestionPopupProps>(({ props }) => {
         // Both anchors are required for meaningful placement — render nothing
         // until they exist rather than flashing at a bogus top-left position.
         if (!caretRect || !frame) return null;
-        const width = props.width ?? DEFAULT_WIDTH;
+        // Clamp to the container so the popup can never overflow to the right
+        // in narrow layouts (placement clamps left to 0).
+        const width = Math.min(props.width ?? DEFAULT_WIDTH, frame.width);
         const renderItem = props.renderItem ?? defaultRenderItem;
 
         const pos = placeSuggestionPopup({
@@ -100,20 +102,24 @@ export const SuggestionPopup = component<SuggestionPopupProps>(({ props }) => {
                 }}
             >
                 <scroll-view scroll-orientation="vertical" style={{ maxHeight: pos.maxHeight }}>
-                    {items.map((item, index) => (
-                        // Accessibility lives on the tappable wrapper so screen
-                        // readers treat the whole row as one button, regardless
-                        // of what a custom renderItem puts inside.
-                        <view
-                            key={item.id}
-                            bindtap={() => props.onSelect?.(item)}
-                            accessibility-element={true}
-                            accessibility-label={item.label}
-                            accessibility-trait="button"
-                        >
-                            {renderItem(item, index === (props.activeIndex ?? -1))}
-                        </view>
-                    ))}
+                    {items.map((item, index) => {
+                        const active = index === (props.activeIndex ?? -1);
+                        return (
+                            // Accessibility lives on the tappable wrapper so
+                            // screen readers treat the whole row as one button,
+                            // regardless of what a custom renderItem puts inside.
+                            <view
+                                key={item.id}
+                                bindtap={() => props.onSelect?.(item)}
+                                accessibility-element={true}
+                                accessibility-label={item.label}
+                                accessibility-trait="button"
+                                accessibility-status={active ? 'selected' : undefined}
+                            >
+                                {renderItem(item, active)}
+                            </view>
+                        );
+                    })}
                 </scroll-view>
             </view>
         );
