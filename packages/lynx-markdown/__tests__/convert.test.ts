@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { docEquals, normalizeDoc, type RichDoc } from '@sigx/lynx-richtext';
+import { normalizeDoc, type RichDoc } from '@sigx/lynx-richtext';
 import { mdToDoc } from '../src/editor/convert/mdToDoc';
 import { docToMd } from '../src/editor/convert/docToMd';
 
@@ -54,11 +54,94 @@ describe('mdToDoc', () => {
         expect(doc.blocks).toEqual([]);
     });
 
-    it('sends unmodeled blocks to raw (lists, code fences, tables)', () => {
-        const md = '- a\n- b';
+    it('maps bullet lists to per-line blocks (markers never in text)', () => {
+        const doc = mdToDoc('- a\n- b');
+        expect(doc.text).toBe('a\nb');
+        expect(doc.blocks).toEqual([
+            { start: 0, end: 2, type: 'bullet' },
+            { start: 2, end: 3, type: 'bullet' },
+        ]);
+    });
+
+    it('maps ordered lists; a non-1 start rides level on the first line', () => {
+        expect(mdToDoc('1. one\n2. two').blocks).toEqual([
+            { start: 0, end: 4, type: 'ordered' },
+            { start: 4, end: 7, type: 'ordered' },
+        ]);
+        const doc = mdToDoc('3. three\n4. four');
+        expect(doc.text).toBe('three\nfour');
+        expect(doc.blocks).toEqual([
+            { start: 0, end: 6, type: 'ordered', level: 3 },
+            { start: 6, end: 10, type: 'ordered' },
+        ]);
+    });
+
+    it('maps task lists with checked state', () => {
+        const doc = mdToDoc('- [ ] todo\n- [x] done');
+        expect(doc.text).toBe('todo\ndone');
+        expect(doc.blocks).toEqual([
+            { start: 0, end: 5, type: 'task', checked: false },
+            { start: 5, end: 9, type: 'task', checked: true },
+        ]);
+    });
+
+    it('keeps inline formatting inside list items', () => {
+        const doc = mdToDoc('- has **bold** and [link](https://x.dev)');
+        expect(doc.text).toBe('has bold and link');
+        expect(normalizeDoc(doc).spans).toEqual([
+            { start: 4, end: 8, type: 'bold' },
+            { start: 13, end: 17, type: 'link', attrs: { href: 'https://x.dev' } },
+        ]);
+        expect(doc.blocks).toEqual([{ start: 0, end: 17, type: 'bullet' }]);
+    });
+
+    it('maps blockquotes of plain paragraphs (soft-wrapped lines join)', () => {
+        const doc = mdToDoc('> quoted lines');
+        expect(doc.text).toBe('quoted lines');
+        expect(doc.blocks).toEqual([{ start: 0, end: 12, type: 'blockquote' }]);
+    });
+
+    it('maps code fences per content line, carrying lang on every line', () => {
+        const doc = mdToDoc('```ts\nconst x = 1\nconst y = 2\n```');
+        expect(doc.text).toBe('const x = 1\nconst y = 2');
+        expect(doc.blocks).toEqual([
+            { start: 0, end: 12, type: 'codeBlock', lang: 'ts' },
+            { start: 12, end: 23, type: 'codeBlock', lang: 'ts' },
+        ]);
+    });
+
+    it('keeps code-fence content literal (no inline spans)', () => {
+        const doc = mdToDoc('```\n**not bold**\n```');
+        expect(doc.text).toBe('**not bold**');
+        expect(doc.spans).toEqual([]);
+        expect(doc.blocks).toEqual([{ start: 0, end: 12, type: 'codeBlock' }]);
+    });
+
+    it('degrades lists the flat model cannot hold to raw', () => {
+        for (const md of [
+            '- a\n  - nested', // nesting
+            '- a\n\n- b', // loose
+            '- a\n\n  continuation', // multi-paragraph item
+        ]) {
+            const doc = mdToDoc(md);
+            expect(doc.blocks.map((b) => b.type)).toEqual(['raw']);
+            expect(doc.text).toBe(md);
+        }
+    });
+
+    it('degrades blockquotes containing non-paragraphs to raw', () => {
+        for (const md of ['> - a\n> - b', '> # heading']) {
+            const doc = mdToDoc(md);
+            expect(doc.blocks.map((b) => b.type)).toEqual(['raw']);
+            expect(doc.text).toBe(md);
+        }
+    });
+
+    it('keeps tables raw', () => {
+        const md = '| a | b |\n| --- | --- |\n| 1 | 2 |';
         const doc = mdToDoc(md);
         expect(doc.text).toBe(md);
-        expect(doc.blocks).toEqual([{ start: 0, end: 7, type: 'raw' }]);
+        expect(doc.blocks).toEqual([{ start: 0, end: md.length, type: 'raw' }]);
     });
 
     it('sends paragraphs containing images to raw', () => {
@@ -116,6 +199,118 @@ describe('docToMd', () => {
         expect(doc.blocks[0].type).toBe('raw');
         expect(docToMd(doc)).toBe(table);
     });
+
+    it('synthesizes list markers; adjacent same-kind lines form one list', () => {
+        const doc: RichDoc = {
+            text: 'a\nb\npara',
+            spans: [],
+            blocks: [
+                { start: 0, end: 2, type: 'bullet' },
+                { start: 2, end: 4, type: 'bullet' },
+            ],
+            v: 0,
+        };
+        expect(docToMd(doc)).toBe('- a\n- b\n\npara');
+    });
+
+    it('numbers ordered runs positionally, honoring a level start, restarting after a break', () => {
+        const doc: RichDoc = {
+            text: 'three\nfour\nbreak\none',
+            spans: [],
+            blocks: [
+                { start: 0, end: 6, type: 'ordered', level: 3 },
+                { start: 6, end: 11, type: 'ordered' },
+                { start: 17, end: 20, type: 'ordered' },
+            ],
+            v: 0,
+        };
+        expect(docToMd(doc)).toBe('3. three\n4. four\n\nbreak\n\n1. one');
+    });
+
+    it('serializes task markers from checked', () => {
+        const doc: RichDoc = {
+            text: 'todo\ndone',
+            spans: [],
+            blocks: [
+                { start: 0, end: 5, type: 'task', checked: false },
+                { start: 5, end: 9, type: 'task', checked: true },
+            ],
+            v: 0,
+        };
+        expect(docToMd(doc)).toBe('- [ ] todo\n- [x] done');
+    });
+
+    it('different list families never merge into one list', () => {
+        const doc: RichDoc = {
+            text: 'a\nb',
+            spans: [],
+            blocks: [
+                { start: 0, end: 2, type: 'bullet' },
+                { start: 2, end: 3, type: 'task', checked: false },
+            ],
+            v: 0,
+        };
+        expect(docToMd(doc)).toBe('- a\n\n- [ ] b');
+    });
+
+    it('fences code runs with lang, widening past content backticks', () => {
+        const doc: RichDoc = {
+            text: 'plain\ncode',
+            spans: [],
+            blocks: [
+                { start: 0, end: 6, type: 'codeBlock', lang: 'ts' },
+                { start: 6, end: 10, type: 'codeBlock', lang: 'ts' },
+            ],
+            v: 0,
+        };
+        expect(docToMd(doc)).toBe('```ts\nplain\ncode\n```');
+
+        const ticks: RichDoc = {
+            text: 'has ``` inside',
+            spans: [],
+            blocks: [{ start: 0, end: 14, type: 'codeBlock' }],
+            v: 0,
+        };
+        expect(docToMd(ticks)).toBe('````\nhas ``` inside\n````');
+    });
+
+    it('splits code runs when lang changes', () => {
+        const doc: RichDoc = {
+            text: 'a\nb',
+            spans: [],
+            blocks: [
+                { start: 0, end: 2, type: 'codeBlock', lang: 'ts' },
+                { start: 2, end: 3, type: 'codeBlock', lang: 'js' },
+            ],
+            v: 0,
+        };
+        expect(docToMd(doc)).toBe('```ts\na\n```\n\n```js\nb\n```');
+    });
+
+    it('escapes line-start constructs inside list items', () => {
+        const doc: RichDoc = {
+            text: '- not nested',
+            spans: [],
+            blocks: [{ start: 0, end: 12, type: 'bullet' }],
+            v: 0,
+        };
+        expect(docToMd(doc)).toBe('- \\- not nested');
+        expectDocStable(doc);
+    });
+
+    it('serializes quote lines as quote paragraphs (line convention)', () => {
+        const doc: RichDoc = {
+            text: 'first\nsecond',
+            spans: [],
+            blocks: [
+                { start: 0, end: 6, type: 'blockquote' },
+                { start: 6, end: 12, type: 'blockquote' },
+            ],
+            v: 0,
+        };
+        expect(docToMd(doc)).toBe('> first\n>\n> second');
+        expectDocStable(doc);
+    });
 });
 
 describe('docToMd link destination escaping', () => {
@@ -159,6 +354,24 @@ describe('round-trip idempotence (md → doc → md → doc)', () => {
         '- list\n- items\n\npara after',
         '```ts\nconst x = 1\n```',
         'mixed\n\n# Head\n\n- raw list\n\ntail `code`',
+        // Block WYSIWYG (#153): native list / quote / fence blocks.
+        '- a\n- b',
+        '1. one\n2. two',
+        '3. three\n4. four',
+        '- [ ] todo\n- [x] done',
+        '> quoted lines',
+        '> first\n>\n> second',
+        '```\nplain code\n```',
+        '```\n\n```',
+        '- has **bold** and [link](https://x.dev)',
+        'intro\n\n- a\n- b\n\noutro',
+        '> q\n\npara\n\n- l1\n- l2',
+        '1. ordered\n\n- bullet',
+        // Flat-model degrades (stay raw, byte-for-byte).
+        '- a\n  - nested',
+        '- loose\n\n- list',
+        '> - quoted list',
+        '---',
     ];
     for (const md of cases) {
         it(`stable for: ${JSON.stringify(md.slice(0, 32))}`, () => {

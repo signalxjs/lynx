@@ -86,6 +86,44 @@ describe('codec', () => {
     });
 });
 
+describe('block attrs (#153)', () => {
+    it('round-trips list / quote / code blocks with checked and lang', () => {
+        const doc: RichDoc = {
+            text: 'item\ntodo\nquote\ncode',
+            spans: [],
+            blocks: [
+                { start: 0, end: 5, type: 'bullet' },
+                { start: 5, end: 10, type: 'task', checked: true },
+                { start: 10, end: 16, type: 'blockquote' },
+                { start: 16, end: 20, type: 'codeBlock', lang: 'ts' },
+            ],
+            v: 2,
+        };
+        const decoded = decodeDoc(encodeDoc(doc));
+        expect(decoded).toEqual(doc);
+        expect(docEquals(decoded, doc)).toBe(true);
+    });
+
+    it('drops a non-string/empty lang; docEquals sees lang', () => {
+        const doc = decodeDoc(JSON.stringify({
+            text: 'code',
+            spans: [],
+            blocks: [
+                { start: 0, end: 4, type: 'codeBlock', lang: 42 },
+                { start: 0, end: 4, type: 'codeBlock', lang: '' },
+            ],
+            v: 1,
+        }));
+        expect(doc.blocks).toEqual([
+            { start: 0, end: 4, type: 'codeBlock' },
+            { start: 0, end: 4, type: 'codeBlock' },
+        ]);
+        const a: RichDoc = { text: 'c', spans: [], blocks: [{ start: 0, end: 1, type: 'codeBlock', lang: 'ts' }], v: 0 };
+        const b: RichDoc = { text: 'c', spans: [], blocks: [{ start: 0, end: 1, type: 'codeBlock', lang: 'js' }], v: 0 };
+        expect(docEquals(a, b)).toBe(false);
+    });
+});
+
 describe('mention chips (atomic U+FFFC spans)', () => {
     it('round-trips a mention span over a single U+FFFC with attrs', () => {
         const doc: RichDoc = {

@@ -13,6 +13,7 @@ data class RichTextTheme(
     var textColor: Int = Color.BLACK,
     var accentColor: Int = Color.parseColor("#3478F6"),
     var codeBackground: Int = Color.parseColor("#1F7F7F7F"), // ~12% gray
+    var density: Float = 1f, // display density — block gutters are dp-sized
 )
 
 /**
@@ -86,11 +87,26 @@ object DocumentMapper {
             if (end < start) continue
             val snapped = snapToParagraph(builder, start, end)
             builder.setSpan(
-                SigxBlockSpan(type, block.optInt("level", 0), block.optBoolean("checked", false)),
+                SigxBlockSpan(
+                    type,
+                    block.optInt("level", 0),
+                    block.optBoolean("checked", false),
+                    block.optString("lang", ""),
+                    theme,
+                ),
                 snapped.first,
                 snapped.second,
                 Spanned.SPAN_PARAGRAPH,
             )
+            // Full-width background rides alongside the model span (visual only).
+            if (type == "codeBlock") {
+                builder.setSpan(
+                    SigxCodeBlockBgSpan(theme.codeBackground),
+                    snapped.first,
+                    snapped.second,
+                    Spanned.SPAN_PARAGRAPH,
+                )
+            }
         }
 
         return Parsed(builder, obj.optInt("v", 0))
@@ -145,6 +161,7 @@ object DocumentMapper {
             entry.put("type", span.type)
             if (span.level > 0) entry.put("level", span.level)
             if (span.type == "task") entry.put("checked", span.checked)
+            if (span.type == "codeBlock" && span.lang.isNotEmpty()) entry.put("lang", span.lang)
             blocks.put(entry)
         }
         doc.put("blocks", blocks)

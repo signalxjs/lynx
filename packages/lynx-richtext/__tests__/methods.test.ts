@@ -44,3 +44,36 @@ describe('RichTextMethods.insertChip', () => {
         expect(pushOp).not.toHaveBeenCalled();
     });
 });
+
+describe('RichTextMethods.setBlockType', () => {
+    it('omits absent level/checked and carries them when given', () => {
+        RichTextMethods.setBlockType(el, 'bullet');
+        expect(pushOp).toHaveBeenCalledWith(OP.INVOKE_UI_METHOD, 42, 'setBlockType', { type: 'bullet' });
+        RichTextMethods.setBlockType(el, 'heading', 2);
+        expect(pushOp).toHaveBeenCalledWith(OP.INVOKE_UI_METHOD, 42, 'setBlockType', { type: 'heading', level: 2 });
+        RichTextMethods.setBlockType(el, 'task', undefined, false);
+        expect(pushOp).toHaveBeenCalledWith(OP.INVOKE_UI_METHOD, 42, 'setBlockType', { type: 'task', checked: false });
+    });
+});
+
+describe('RichTextMethods.applyFormat', () => {
+    it('pushes the explicit range and attrs', () => {
+        RichTextMethods.applyFormat(el, 'link', 3, 9, { href: 'https://x.dev' });
+        expect(pushOp).toHaveBeenCalledWith(OP.INVOKE_UI_METHOD, 42, 'applyFormat', {
+            type: 'link',
+            start: 3,
+            end: 9,
+            attrs: { href: 'https://x.dev' },
+        });
+        expect(scheduleFlush).toHaveBeenCalled();
+    });
+
+    it('omits attrs when not given (unlink form is an explicit empty href)', () => {
+        RichTextMethods.applyFormat(el, 'link', 3, 9);
+        expect(pushOp).toHaveBeenCalledWith(OP.INVOKE_UI_METHOD, 42, 'applyFormat', {
+            type: 'link',
+            start: 3,
+            end: 9,
+        });
+    });
+});

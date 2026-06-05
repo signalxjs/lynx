@@ -26,9 +26,10 @@ const sel = (overrides: Partial<SelectionState> = {}): SelectionState => ({
 });
 
 describe('defaultToolbarItems', () => {
-    it('covers the v1 controller surface', () => {
+    it('covers the controller surface', () => {
         expect(defaultToolbarItems.map((i) => i.id)).toEqual([
-            'bold', 'italic', 'strike', 'code', 'h1', 'h2', 'paragraph',
+            'bold', 'italic', 'strike', 'code', 'link',
+            'h1', 'h2', 'paragraph', 'bullet', 'ordered', 'task', 'quote',
         ]);
     });
 
@@ -40,6 +41,25 @@ describe('defaultToolbarItems', () => {
         expect(by['h1'].isActive!(sel({ activeBlock: 'heading', headingLevel: 2 }))).toBe(false);
         expect(by['paragraph'].isActive!(sel())).toBe(true);
         expect(by['bold'].isActive!(null)).toBe(false);
+        expect(by['bullet'].isActive!(sel({ activeBlock: 'bullet' }))).toBe(true);
+        expect(by['ordered'].isActive!(sel({ activeBlock: 'ordered' }))).toBe(true);
+        expect(by['task'].isActive!(sel({ activeBlock: 'task' }))).toBe(true);
+        expect(by['quote'].isActive!(sel({ activeBlock: 'blockquote' }))).toBe(true);
+        expect(by['quote'].isActive!(sel())).toBe(false);
+        expect(by['link'].isActive!(sel({ activeFormats: ['link'] }))).toBe(true);
+    });
+
+    it('list items toggle: active kind reverts to paragraph, otherwise sets', () => {
+        const setList = vi.fn();
+        const make = (activeBlock: SelectionState['activeBlock']): MarkdownEditorController =>
+            ({ setList, getSelection: () => sel({ activeBlock }) }) as unknown as MarkdownEditorController;
+        const by = Object.fromEntries(defaultToolbarItems.map((i) => [i.id, i]));
+        by['bullet'].run({ controller: make('paragraph') });
+        expect(setList).toHaveBeenLastCalledWith('bullet');
+        by['bullet'].run({ controller: make('bullet') });
+        expect(setList).toHaveBeenLastCalledWith('none');
+        by['task'].run({ controller: make('bullet') });
+        expect(setList).toHaveBeenLastCalledWith('task');
     });
 });
 

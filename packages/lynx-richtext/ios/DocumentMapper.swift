@@ -38,14 +38,17 @@ struct RichTextTheme {
     var accentColor: UIColor = .systemBlue
     var placeholderColor: UIColor = .placeholderText
 
-    /// Heading scale per level (MVP renders 1–3; 4–6 fall back to 1.1×).
+    /// Heading scale per level — six distinct steps (4–6 differentiate by
+    /// size below the body scale; 6 leans on weight since it dips under 1×).
     func headingFont(level: Int) -> UIFont {
         let (scale, weight): (CGFloat, UIFont.Weight) = {
             switch level {
             case 1: return (1.75, .bold)
             case 2: return (1.5, .bold)
             case 3: return (1.25, .semibold)
-            default: return (1.1, .semibold)
+            case 4: return (1.1, .semibold)
+            case 5: return (1.0, .semibold)
+            default: return (0.9, .semibold)
             }
         }()
         return .systemFont(ofSize: (fontSize * scale).rounded(), weight: weight)
@@ -179,6 +182,7 @@ enum DocumentMapper {
                 var value: [String: Any] = ["type": type]
                 if let level = block["level"] as? Int { value["level"] = level }
                 if let checked = block["checked"] as? Bool { value["checked"] = checked }
+                if let lang = block["lang"] as? String, !lang.isEmpty { value["lang"] = lang }
                 if snapped.length >= 0 { result.addAttribute(SigxAttr.block, value: value, range: snapped) }
             }
         }
@@ -208,10 +212,15 @@ enum DocumentMapper {
             var strike = false
             var underline = false
 
-            // Block style first (heading fonts), then inline modifiers on top.
+            // Block style first (heading/code-block fonts), then inline
+            // modifiers on top.
             if let block = attrs[SigxAttr.block] as? [String: Any],
-               let type = block["type"] as? String, type == "heading" {
-                font = theme.headingFont(level: block["level"] as? Int ?? 1)
+               let type = block["type"] as? String {
+                if type == "heading" {
+                    font = theme.headingFont(level: block["level"] as? Int ?? 1)
+                } else if type == "codeBlock" {
+                    font = theme.codeFont
+                }
             }
 
             // `code` is terminal (mirrors the markdown serializer, where
@@ -255,6 +264,31 @@ enum DocumentMapper {
                 value: underline ? NSUnderlineStyle.single.rawValue : 0,
                 range: sub
             )
+        }
+
+        applyParagraphStyles(storage, range: range)
+    }
+
+    /// Paragraph-level pass: leading indents reserve the gutter the layout
+    /// manager draws the (draw-only) block decorations into. Paragraph styles
+    /// must cover whole paragraphs uniformly, so this snaps outward to
+    /// paragraph bounds and always writes a style (resetting the indent when
+    /// a block type is cleared).
+    private static func applyParagraphStyles(_ storage: NSMutableAttributedString, range: NSRange) {
+        let ns = storage.string as NSString
+        let end = min(NSMaxRange(range), storage.length)
+        var location = ns.paragraphRange(for: NSRange(location: min(range.location, storage.length), length: 0)).location
+        while location < end {
+            let para = ns.paragraphRange(for: NSRange(location: location, length: 0))
+            guard para.length > 0 else { break }
+            let block = storage.attribute(SigxAttr.block, at: para.location, effectiveRange: nil) as? [String: Any]
+            let type = (block?["type"] as? String) ?? "paragraph"
+            let style = NSMutableParagraphStyle()
+            let indent = BlockMetrics.indent(for: type)
+            style.firstLineHeadIndent = indent
+            style.headIndent = indent
+            storage.addAttribute(.paragraphStyle, value: style, range: para)
+            location = NSMaxRange(para)
         }
     }
 
@@ -329,6 +363,7 @@ enum DocumentMapper {
                     ]
                     if let level = block["level"] as? Int { entry["level"] = level }
                     if let checked = block["checked"] as? Bool { entry["checked"] = checked }
+                    if let lang = block["lang"] as? String, !lang.isEmpty { entry["lang"] = lang }
                     blocks.append(entry)
                 }
                 if para.length == 0 { break }

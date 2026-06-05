@@ -1,10 +1,18 @@
 /**
  * {@link RichDoc} → markdown — the serializer (inverse of `mdToDoc`).
  *
- * Segments the flat text by `blocks[]` (raw chunks verbatim, heading lines
- * prefixed, remaining lines as paragraphs), then serializes inline spans per
- * segment via elementary runs + a close/reopen delimiter stack (valid nesting
- * from arbitrarily overlapping spans).
+ * Segments the flat text by `blocks[]` (raw chunks verbatim; heading / list /
+ * blockquote / codeBlock lines get their markers re-synthesized — markers are
+ * never in the doc text; remaining lines as paragraphs), then serializes
+ * inline spans per segment via elementary runs + a close/reopen delimiter
+ * stack (valid nesting from arbitrarily overlapping spans).
+ *
+ * Consecutive same-kind block lines join into one group (`\n`-separated:
+ * a tight list, one quote, one fence); groups separate with blank lines.
+ * Ordered numbering derives from the run position, restarting at each run's
+ * first-line `level` (a non-1 start) — so two adjacent ordered runs merge
+ * into one list (the flat model has no list-boundary marker; documented
+ * normalization, idempotent).
  *
  * Round-trip contract: `mdToDoc(docToMd(doc))` is structurally equal to a
  * *normalized* `doc` — emphasis markers, hard breaks (→ paragraph breaks), and
@@ -27,36 +35,118 @@ export interface DocToMdOptions {
 }
 
 export function docToMd(doc: RichDoc, options?: DocToMdOptions): string {
-    const parts: string[] = [];
+    const groups: string[] = [];
     const serializers = options?.serializers;
     // Plugin-owned spans, prefiltered once for the whole doc — the per-run
     // lookup searches only these (typically zero or a handful).
     const pluginSpans = serializers ? doc.spans.filter((s) => serializers.has(s.type)) : [];
 
-    for (const seg of segmentize(doc)) {
-        if (seg.type === 'raw') {
-            parts.push(doc.text.slice(seg.start, seg.end));
-            continue;
+    // Consecutive same-kind block lines accumulate into one `\n`-joined
+    // group; groups join with blank lines. List families never merge
+    // (bullet→task etc. starts a new list); code groups split on `lang`.
+    let group: string[] = [];
+    let groupKind = '';
+    let orderedCounter = 0;
+    const flush = (): void => {
+        if (group.length) {
+            if (groupKind.startsWith('codeBlock:')) {
+                // Fence the collected code run — wider than any backtick run
+                // in the content, the info string straight from `lang`.
+                const lang = groupKind.slice('codeBlock:'.length);
+                const content = group.join('\n');
+                const fence = '`'.repeat(Math.max(3, maxBacktickRun(content) + 1));
+                groups.push(`${fence}${lang}\n${content}\n${fence}`);
+            } else if (groupKind === 'blockquote') {
+                // A blank quote line between paragraphs — a plain `\n` would
+                // re-parse as one soft-wrapped line (every doc line is a
+                // paragraph; the line convention, applied inside the quote).
+                groups.push(group.join('\n>\n'));
+            } else {
+                groups.push(group.join('\n'));
+            }
         }
-        const inline = serializeInline(doc, seg.start, seg.end, seg.type === 'paragraph', serializers, pluginSpans);
-        if (seg.type === 'heading') {
-            const level = Math.min(6, Math.max(1, seg.level ?? 1));
-            parts.push(`${'#'.repeat(level)} ${inline}`);
-        } else if (inline !== '') {
-            parts.push(inline);
+        group = [];
+        groupKind = '';
+    };
+    const append = (kind: string, line: string): void => {
+        if (kind !== groupKind) {
+            flush();
+            groupKind = kind;
         }
-        // Empty paragraph lines are visual spacing only — they normalize away.
-    }
+        group.push(line);
+    };
 
-    return parts.join('\n\n');
+    for (const seg of segmentize(doc)) {
+        if (seg.type !== 'ordered') orderedCounter = 0;
+        switch (seg.type) {
+            case 'raw':
+                flush();
+                groups.push(doc.text.slice(seg.start, seg.end));
+                break;
+            case 'heading': {
+                flush();
+                const inline = serializeInline(doc, seg.start, seg.end, false, serializers, pluginSpans);
+                const level = Math.min(6, Math.max(1, seg.level ?? 1));
+                groups.push(`${'#'.repeat(level)} ${inline}`);
+                break;
+            }
+            case 'bullet':
+                append('bullet', `- ${serializeInline(doc, seg.start, seg.end, true, serializers, pluginSpans)}`);
+                break;
+            case 'ordered': {
+                // A new run restarts at the first line's `level` (non-1 start).
+                if (orderedCounter === 0) orderedCounter = Math.max(1, seg.level ?? 1);
+                else orderedCounter++;
+                append('ordered', `${orderedCounter}. ${serializeInline(doc, seg.start, seg.end, true, serializers, pluginSpans)}`);
+                break;
+            }
+            case 'task':
+                append('task', `- [${seg.checked ? 'x' : ' '}] ${serializeInline(doc, seg.start, seg.end, true, serializers, pluginSpans)}`);
+                break;
+            case 'blockquote':
+                append('blockquote', `> ${serializeInline(doc, seg.start, seg.end, true, serializers, pluginSpans)}`);
+                break;
+            case 'codeBlock':
+                // Content is literal — collected per `lang`-keyed run and
+                // fenced once per group below.
+                append(`codeBlock:${seg.lang ?? ''}`, doc.text.slice(seg.start, seg.end));
+                break;
+            default: {
+                flush();
+                const inline = serializeInline(doc, seg.start, seg.end, true, serializers, pluginSpans);
+                // Empty paragraph lines are visual spacing only — they
+                // normalize away.
+                if (inline !== '') groups.push(inline);
+                break;
+            }
+        }
+    }
+    flush();
+
+    return groups.join('\n\n');
 }
+
+type SegmentType =
+    | 'paragraph'
+    | 'heading'
+    | 'raw'
+    | 'bullet'
+    | 'ordered'
+    | 'task'
+    | 'blockquote'
+    | 'codeBlock';
 
 interface Segment {
     start: number;
     /** Exclusive end of the segment's CONTENT (no trailing newline). */
     end: number;
-    type: 'paragraph' | 'heading' | 'raw';
+    type: SegmentType;
+    /** Heading level, or the ordered run's start number on its first line. */
     level?: number;
+    /** Task checkbox state. */
+    checked?: boolean;
+    /** Code fence info string. */
+    lang?: string;
 }
 
 /** Cover the text with block segments; uncovered regions split per line into paragraphs. */
@@ -101,6 +191,42 @@ function segmentize(doc: RichDoc): Segment[] {
             segments.push({ start, end: contentEnd, type: 'heading', level: block.level });
         } else if (block.type === 'raw') {
             segments.push({ start, end: contentEnd, type: 'raw' });
+        } else if (
+            block.type === 'bullet' || block.type === 'ordered' || block.type === 'task' ||
+            block.type === 'blockquote' || block.type === 'codeBlock'
+        ) {
+            // One segment per line (producers emit one block attr per line;
+            // a multi-line range from a foreign producer splits defensively,
+            // each line carrying the block's attrs — `level` only on the
+            // first so an ordered start isn't repeated).
+            let lineStart = start;
+            let first = true;
+            const emit = (from: number, to: number): void => {
+                // Empty list/quote lines carry no content — they normalize
+                // away like empty paragraphs (blank lines only stay
+                // meaningful inside code fences).
+                if (from === to && block.type !== 'codeBlock') {
+                    segments.push({ start: from, end: to, type: 'paragraph' });
+                    first = false;
+                    return;
+                }
+                segments.push({
+                    start: from,
+                    end: to,
+                    type: block.type as SegmentType,
+                    ...(first && block.level !== undefined ? { level: block.level } : {}),
+                    ...(block.checked !== undefined ? { checked: block.checked } : {}),
+                    ...(block.lang !== undefined ? { lang: block.lang } : {}),
+                });
+                first = false;
+            };
+            for (let i = start; i < contentEnd; i++) {
+                if (text[i] === '\n') {
+                    emit(lineStart, i);
+                    lineStart = i + 1;
+                }
+            }
+            emit(lineStart, contentEnd);
         } else {
             // Unknown/unstyled block types degrade to paragraphs (per line).
             emitLines(start, contentEnd);

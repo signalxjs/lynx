@@ -2,10 +2,15 @@ package com.sigx.richtext
 
 import android.graphics.Canvas
 import android.graphics.Paint
+import android.graphics.Path
 import android.graphics.RectF
 import android.graphics.Typeface
+import android.text.Layout
+import android.text.Spanned
 import android.text.TextPaint
 import android.text.style.CharacterStyle
+import android.text.style.LeadingMarginSpan
+import android.text.style.LineBackgroundSpan
 import android.text.style.MetricAffectingSpan
 import android.text.style.ReplacementSpan
 import android.text.style.StrikethroughSpan
@@ -151,13 +156,30 @@ class SigxMentionTextSpan(
 
 /**
  * Paragraph-level block style. Applied with `SPAN_PARAGRAPH` over line ranges;
- * headings scale + embolden the paint.
+ * headings scale + embolden the paint, and the block decorations — list
+ * markers (bullet dot / ordered number / task checkbox) and the blockquote
+ * bar — are **draw-only**: painted into the leading margin this span
+ * reserves, never present in the text, so they can't be edited or leak into
+ * serialization. Ordered numbers are computed from the run position at draw
+ * time (never stored), so renumbering on insert/delete is automatic; `level`
+ * on the run's first span carries a non-1 start number.
+ *
+ * Readback still reads only [type]/[level]/[checked]/[lang] — the drawing is
+ * invisible to the model.
  */
 class SigxBlockSpan(
     val type: String,
     val level: Int = 0,
     val checked: Boolean = false,
-) : MetricAffectingSpan() {
+    val lang: String = "",
+    private val theme: RichTextTheme,
+) : MetricAffectingSpan(), LeadingMarginSpan {
+
+    // Reused across draw passes (UI-thread only) — margins redraw on every
+    // scroll/selection tick, so per-draw allocations add up.
+    private val workPaint = TextPaint()
+    private val workRect = RectF()
+    private val workPath = Path()
 
     override fun updateMeasureState(paint: TextPaint) = apply(paint)
     override fun updateDrawState(paint: TextPaint) = apply(paint)
@@ -168,12 +190,158 @@ class SigxBlockSpan(
                 1 -> 1.75f to true
                 2 -> 1.5f to true
                 3 -> 1.25f to true
-                else -> 1.1f to true
+                4 -> 1.1f to true
+                5 -> 1.0f to true
+                else -> 0.9f to true
             }
             paint.textSize = paint.textSize * scale
             if (bold) paint.typeface = Typeface.create(paint.typeface, Typeface.BOLD)
         } else if (type == "codeBlock") {
             paint.typeface = Typeface.MONOSPACE
+            paint.textSize = paint.textSize * 0.95f
         }
+    }
+
+    private fun dp(value: Float): Float = value * theme.density
+
+    /** Gutter the markers draw into (also the checkbox tap target width). */
+    override fun getLeadingMargin(first: Boolean): Int = when (type) {
+        "bullet", "ordered", "task" -> dp(28f).toInt()
+        "blockquote" -> dp(16f).toInt()
+        "codeBlock" -> dp(8f).toInt()
+        else -> 0
+    }
+
+    override fun drawLeadingMargin(
+        c: Canvas,
+        p: Paint,
+        x: Int,
+        dir: Int,
+        top: Int,
+        baseline: Int,
+        bottom: Int,
+        text: CharSequence,
+        start: Int,
+        end: Int,
+        first: Boolean,
+        layout: Layout?,
+    ) {
+        when (type) {
+            // The bar spans every visual line of the quote, not just the first.
+            "blockquote" -> {
+                workPaint.set(p)
+                workPaint.color = fade(theme.textColor, 0x4D) // ~30%
+                val barW = dp(3f)
+                val left = x + dir * dp(2f)
+                workRect.set(
+                    minOf(left, left + dir * barW), top.toFloat(),
+                    maxOf(left, left + dir * barW), bottom.toFloat(),
+                )
+                c.drawRect(workRect, workPaint)
+            }
+            "bullet" -> if (first) {
+                workPaint.set(p)
+                workPaint.isAntiAlias = true
+                workPaint.color = theme.textColor
+                val cx = x + dir * dp(12f)
+                c.drawCircle(cx, (top + bottom) / 2f, dp(2.5f), workPaint)
+            }
+            "ordered" -> if (first) {
+                workPaint.set(p)
+                workPaint.isAntiAlias = true
+                workPaint.color = theme.textColor
+                workPaint.textSize = p.textSize
+                val label = "${orderedNumber(text)}."
+                val width = workPaint.measureText(label)
+                // Right-aligned against the text edge, with a small gap.
+                val edge = x + dir * (getLeadingMargin(first) - dp(6f))
+                c.drawText(label, if (dir > 0) edge - width else edge, baseline.toFloat(), workPaint)
+            }
+            "task" -> if (first) {
+                val size = dp(15f)
+                val cy = (top + bottom) / 2f
+                val near = x + dir * dp(4f)
+                val far = near + dir * size
+                workRect.set(minOf(near, far), cy - size / 2, maxOf(near, far), cy + size / 2)
+                workPaint.set(p)
+                workPaint.isAntiAlias = true
+                val corner = dp(3f)
+                if (checked) {
+                    workPaint.style = Paint.Style.FILL
+                    workPaint.color = theme.accentColor
+                    c.drawRoundRect(workRect, corner, corner, workPaint)
+                    // Check mark.
+                    workPaint.color = android.graphics.Color.WHITE
+                    workPaint.style = Paint.Style.STROKE
+                    workPaint.strokeWidth = dp(1.8f)
+                    workPath.reset()
+                    workPath.moveTo(workRect.left + size * 0.25f, cy)
+                    workPath.lineTo(workRect.left + size * 0.45f, cy + size * 0.2f)
+                    workPath.lineTo(workRect.left + size * 0.78f, cy - size * 0.22f)
+                    c.drawPath(workPath, workPaint)
+                } else {
+                    workPaint.style = Paint.Style.STROKE
+                    workPaint.strokeWidth = dp(1.5f)
+                    workPaint.color = fade(theme.textColor, 0x99) // ~60%
+                    c.drawRoundRect(workRect, corner, corner, workPaint)
+                }
+                workPaint.style = Paint.Style.FILL
+            }
+        }
+    }
+
+    /**
+     * 1-based number for an `ordered` line, derived from its position in the
+     * run of consecutive ordered paragraphs (paragraph spans are adjacent when
+     * the previous span's end — its trailing `\n` — is this span's start).
+     * The run's first span may carry a non-1 start in [level].
+     */
+    private fun orderedNumber(text: CharSequence): Int {
+        val spanned = text as? Spanned ?: return maxOf(level, 1)
+        var count = 1
+        var firstLevel = level
+        var cursor = spanned.getSpanStart(this)
+        while (cursor > 0) {
+            val prev = spanned.getSpans(cursor - 1, cursor, SigxBlockSpan::class.java)
+                .firstOrNull { it.type == "ordered" && spanned.getSpanEnd(it) == cursor }
+                ?: break
+            val prevStart = spanned.getSpanStart(prev)
+            if (prevStart >= cursor) break // collapsed span — defensive
+            count++
+            firstLevel = prev.level
+            cursor = prevStart
+        }
+        return (if (firstLevel > 0) firstLevel else 1) + count - 1
+    }
+
+    private fun fade(color: Int, alpha: Int): Int = (color and 0x00FFFFFF) or (alpha shl 24)
+}
+
+/**
+ * Full-width code-block background. Pure visual sibling of
+ * `SigxBlockSpan(type = "codeBlock")` — applied/removed in lockstep with it
+ * and **never enumerated by readback** (it carries no model fact).
+ * `LeadingMarginSpan` can't paint behind the text, hence the separate span.
+ */
+class SigxCodeBlockBgSpan(private val color: Int) : LineBackgroundSpan {
+    private val rect = RectF()
+    private val bgPaint = Paint()
+
+    override fun drawBackground(
+        canvas: Canvas,
+        paint: Paint,
+        left: Int,
+        right: Int,
+        top: Int,
+        baseline: Int,
+        bottom: Int,
+        text: CharSequence,
+        start: Int,
+        end: Int,
+        lineNumber: Int,
+    ) {
+        bgPaint.color = color
+        rect.set(left.toFloat(), top.toFloat(), right.toFloat(), bottom.toFloat())
+        canvas.drawRect(rect, bgPaint)
     }
 }

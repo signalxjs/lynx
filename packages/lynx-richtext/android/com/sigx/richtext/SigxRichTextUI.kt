@@ -37,7 +37,10 @@ class SigxRichTextUI(context: LynxContext) : LynxUI<RichEditText>(context) {
     // seeding from the view's platform-default color so derived visuals
     // match until the `text-color` prop overrides it.
     private val theme by lazy {
-        RichTextTheme().apply { textColor = mView.currentTextColor }
+        RichTextTheme().apply {
+            textColor = mView.currentTextColor
+            density = mView.resources.displayMetrics.density
+        }
     }
     private var localVersion = 0
     private var userHasEdited = false
@@ -55,6 +58,16 @@ class SigxRichTextUI(context: LynxContext) : LynxUI<RichEditText>(context) {
 
     private var pendingInsertStart = -1
     private var pendingInsertEnd = -1
+
+    /**
+     * Queued list/quote/code continuation for the line the caret just entered
+     * via Enter — the block analogue of [typingOverrides]. `SPAN_PARAGRAPH`
+     * spans don't auto-extend across an inserted newline, and an empty
+     * paragraph can't usefully hold one, so the span is applied when the
+     * line's first run is typed (a template span; never attached itself).
+     */
+    private var pendingBlockStart = -1
+    private var pendingBlockSpan: SigxBlockSpan? = null
 
     private val mainHandler = Handler(Looper.getMainLooper())
 
@@ -82,6 +95,8 @@ class SigxRichTextUI(context: LynxContext) : LynxUI<RichEditText>(context) {
             override fun afterTextChanged(s: Editable?) {
                 if (isProgrammaticEdit || s == null) return
                 cleanupCollapsedChips(s)
+                handleBlockNewline(s)
+                applyPendingBlockContinuation(s)
                 applyTypingOverrides(s)
                 userHasEdited = true
                 localVersion += 1
@@ -95,10 +110,15 @@ class SigxRichTextUI(context: LynxContext) : LynxUI<RichEditText>(context) {
                 // A real caret move ends any pending collapsed-toggle session
                 // — but the move caused by typing itself must not, so only
                 // clear when the caret lands outside the just-inserted run.
-                if (pendingInsertEnd < 0 || end != pendingInsertEnd) typingOverrides.clear()
+                if (pendingInsertEnd < 0 || end != pendingInsertEnd) {
+                    typingOverrides.clear()
+                    pendingBlockSpan = null
+                    pendingBlockStart = -1
+                }
                 fireSelection(start, end)
             }
         }
+        view.onCheckboxTap = { parStart, parEnd -> toggleTask(parStart, parEnd) }
         return view
     }
 
@@ -324,17 +344,44 @@ class SigxRichTextUI(context: LynxContext) : LynxUI<RichEditText>(context) {
     fun setBlockType(params: ReadableMap?, callback: Callback?) {
         val type = params?.getString("type") ?: "paragraph"
         val level = if (params?.hasKey("level") == true) params.getInt("level") else 0
+        val checked = params?.hasKey("checked") == true && params.getBoolean("checked")
         mainHandler.post {
             val editable = mView.text
             val caretStart = minOf(mView.selectionStart, mView.selectionEnd).coerceAtLeast(0)
             val caretEnd = maxOf(mView.selectionStart, mView.selectionEnd).coerceAtLeast(0)
             val (pStart, pEnd) = DocumentMapper.snapToParagraph(editable, caretStart, caretEnd)
-            isProgrammaticEdit = true
-            for (span in editable.getSpans(pStart, pEnd, SigxBlockSpan::class.java)) {
-                editable.removeSpan(span)
+            // An empty paragraph can't usefully hold a SPAN_PARAGRAPH span —
+            // queue the block for the line's first typed run instead (e.g.
+            // tapping a list toolbar button in an empty editor).
+            if (pStart == pEnd) {
+                if (type == "paragraph") {
+                    pendingBlockSpan = null
+                    pendingBlockStart = -1
+                } else {
+                    pendingBlockStart = pStart
+                    pendingBlockSpan = SigxBlockSpan(type, level, checked, "", theme)
+                }
+                fireSelection(caretStart, caretEnd)
+                callback?.invoke(LynxUIMethodConstants.SUCCESS)
+                return@post
             }
+            isProgrammaticEdit = true
+            removeBlockSpans(editable, pStart, pEnd)
             if (type != "paragraph") {
-                editable.setSpan(SigxBlockSpan(type, level), pStart, pEnd, Spannable.SPAN_PARAGRAPH)
+                editable.setSpan(
+                    SigxBlockSpan(type, level, checked, "", theme),
+                    pStart,
+                    pEnd,
+                    Spannable.SPAN_PARAGRAPH,
+                )
+                if (type == "codeBlock") {
+                    editable.setSpan(
+                        SigxCodeBlockBgSpan(theme.codeBackground),
+                        pStart,
+                        pEnd,
+                        Spannable.SPAN_PARAGRAPH,
+                    )
+                }
             }
             isProgrammaticEdit = false
             userHasEdited = true
@@ -345,6 +392,56 @@ class SigxRichTextUI(context: LynxContext) : LynxUI<RichEditText>(context) {
             fireChange(isComposing = false)
             fireSelection(caretStart, caretEnd)
             callback?.invoke(LynxUIMethodConstants.SUCCESS)
+        }
+    }
+
+    /**
+     * Apply an inline format with a payload over an **explicit** range —
+     * unlike [toggleFormat], which flips over the live selection and carries
+     * no attrs. v1 supports `link`: a non-empty `attrs.href` (re)links the
+     * range, an empty/missing href unlinks it.
+     */
+    @LynxUIMethod
+    fun applyFormat(params: ReadableMap?, callback: Callback?) {
+        val type = params?.getString("type") ?: ""
+        if (type != "link") {
+            callback?.invoke(LynxUIMethodConstants.UNKNOWN, "applyFormat: unsupported type $type")
+            return
+        }
+        val reqStart = if (params.hasKey("start")) params.getInt("start") else -1
+        val reqEnd = if (params.hasKey("end")) params.getInt("end") else -1
+        val attrs = if (params.hasKey("attrs")) params.getMap("attrs") else null
+        val href = attrs?.getString("href") ?: ""
+        mainHandler.post {
+            val editable = mView.text
+            val upper = editable.length
+            val start = reqStart.coerceIn(0, upper)
+            val end = reqEnd.coerceIn(start, upper)
+            if (end <= start) {
+                callback?.invoke(LynxUIMethodConstants.SUCCESS, resultMap("applied" to false, "reason" to "emptyRange"))
+                return@post
+            }
+            isProgrammaticEdit = true
+            // Replace any overlapping links (splitting ones that extend past
+            // the range), then lay down the new one.
+            for (span in editable.getSpans(start, end, SigxLinkSpan::class.java)) {
+                val s = editable.getSpanStart(span)
+                val e = editable.getSpanEnd(span)
+                editable.removeSpan(span)
+                if (s < start) editable.setSpan(SigxLinkSpan(span.href, theme.accentColor), s, start, DocumentMapper.INLINE_FLAGS)
+                if (e > end) editable.setSpan(SigxLinkSpan(span.href, theme.accentColor), end, e, DocumentMapper.INLINE_FLAGS)
+            }
+            if (href.isNotEmpty()) {
+                editable.setSpan(SigxLinkSpan(href, theme.accentColor), start, end, DocumentMapper.INLINE_FLAGS)
+            }
+            isProgrammaticEdit = false
+            userHasEdited = true
+            localVersion += 1
+            mView.invalidate()
+            reportHeightIfChanged()
+            fireChange(isComposing = false)
+            fireSelection(start, end)
+            callback?.invoke(LynxUIMethodConstants.SUCCESS, resultMap("applied" to true))
         }
     }
 
@@ -499,7 +596,14 @@ class SigxRichTextUI(context: LynxContext) : LynxUI<RichEditText>(context) {
         val blockSpans = editable.getSpans(start, maxOf(start, end), SigxBlockSpan::class.java)
         if (blockSpans.isNotEmpty()) {
             activeBlock = blockSpans[0].type
-            if (blockSpans[0].level > 0) headingLevel = blockSpans[0].level
+            // `level` doubles as the ordered-run start number — only a
+            // heading's level is a heading level.
+            if (blockSpans[0].type == "heading" && blockSpans[0].level > 0) {
+                headingLevel = blockSpans[0].level
+            }
+        } else if (start == end && start == pendingBlockStart) {
+            // A block queued for this (still empty) line counts as active.
+            pendingBlockSpan?.let { activeBlock = it.type }
         }
 
         val density = mView.resources.displayMetrics.density
@@ -562,6 +666,114 @@ class SigxRichTextUI(context: LynxContext) : LynxUI<RichEditText>(context) {
         }
     }
 
+    /**
+     * Enter inside a block paragraph (runs inside the TextWatcher, before the
+     * change event fires, so the event already carries the result):
+     *
+     * - list types — Enter on an **empty** item exits the list (marker
+     *   removed, the newline swallowed); Enter elsewhere continues it: the
+     *   ended line keeps its span, a mid-line split makes the tail its own
+     *   item immediately, and an end-of-line Enter queues the block for the
+     *   new line via [pendingBlockSpan] (`task` continues unchecked);
+     * - blockquote / codeBlock — always continue (exit is via toolbar).
+     */
+    private fun handleBlockNewline(editable: Editable) {
+        if (pendingInsertStart < 0 || pendingInsertEnd != pendingInsertStart + 1) return
+        val nl = pendingInsertStart
+        if (nl >= editable.length || editable[nl] != '\n') return
+        if (isComposing(editable)) return
+        // Enter while a continuation is queued for this very line = Enter on
+        // an empty item: exit instead of stacking empty items.
+        if (pendingBlockSpan != null && nl == pendingBlockStart) {
+            pendingBlockSpan = null
+            pendingBlockStart = -1
+            isProgrammaticEdit = true
+            editable.delete(nl, nl + 1)
+            isProgrammaticEdit = false
+            return
+        }
+        val (pStart, pEnd) = DocumentMapper.snapToParagraph(editable, nl, nl)
+        val span = editable.getSpans(pStart, pEnd, SigxBlockSpan::class.java).firstOrNull() ?: return
+        val isList = span.type == "bullet" || span.type == "ordered" || span.type == "task"
+        if (!isList && span.type != "blockquote" && span.type != "codeBlock") return
+
+        if (isList && nl == pStart) {
+            // Empty item: drop the marker, swallow the newline.
+            isProgrammaticEdit = true
+            removeBlockSpans(editable, pStart, pEnd)
+            editable.delete(nl, nl + 1)
+            isProgrammaticEdit = false
+            return
+        }
+
+        isProgrammaticEdit = true
+        // Re-snap the ended line's span to exactly its paragraph (the insert
+        // may have grown it across the new line, or left the newline out).
+        editable.removeSpan(span)
+        editable.setSpan(
+            SigxBlockSpan(span.type, span.level, span.checked, span.lang, theme),
+            pStart,
+            nl + 1,
+            Spannable.SPAN_PARAGRAPH,
+        )
+        if (span.type == "codeBlock") {
+            for (bg in editable.getSpans(pStart, pEnd, SigxCodeBlockBgSpan::class.java)) editable.removeSpan(bg)
+            editable.setSpan(SigxCodeBlockBgSpan(theme.codeBackground), pStart, nl + 1, Spannable.SPAN_PARAGRAPH)
+        }
+        // Continuation never carries the ordered start or a checked state.
+        val continuation = SigxBlockSpan(span.type, 0, false, span.lang, theme)
+        val (nStart, nEnd) = DocumentMapper.snapToParagraph(editable, nl + 1, nl + 1)
+        if (nEnd > nStart) {
+            // Mid-line split: the tail is its own block line immediately.
+            editable.setSpan(continuation, nStart, nEnd, Spannable.SPAN_PARAGRAPH)
+            if (span.type == "codeBlock") {
+                editable.setSpan(SigxCodeBlockBgSpan(theme.codeBackground), nStart, nEnd, Spannable.SPAN_PARAGRAPH)
+            }
+        } else {
+            pendingBlockStart = nl + 1
+            pendingBlockSpan = continuation
+        }
+        isProgrammaticEdit = false
+    }
+
+    /** Apply a queued block continuation once its line gets its first run. */
+    private fun applyPendingBlockContinuation(editable: Editable) {
+        val template = pendingBlockSpan ?: return
+        if (pendingInsertStart != pendingBlockStart || pendingInsertEnd <= pendingInsertStart) return
+        pendingBlockSpan = null
+        pendingBlockStart = -1
+        val (pStart, pEnd) = DocumentMapper.snapToParagraph(editable, pendingInsertStart, pendingInsertEnd)
+        isProgrammaticEdit = true
+        editable.setSpan(template, pStart, pEnd, Spannable.SPAN_PARAGRAPH)
+        if (template.type == "codeBlock") {
+            editable.setSpan(SigxCodeBlockBgSpan(theme.codeBackground), pStart, pEnd, Spannable.SPAN_PARAGRAPH)
+        }
+        isProgrammaticEdit = false
+    }
+
+    /** Checkbox tap on a task line: flip `checked`, redraw, fire change. */
+    private fun toggleTask(parStart: Int, parEnd: Int) {
+        val editable = mView.text
+        val span = editable.getSpans(parStart, parEnd, SigxBlockSpan::class.java)
+            .firstOrNull { it.type == "task" } ?: return
+        val s = editable.getSpanStart(span)
+        val e = editable.getSpanEnd(span)
+        if (s < 0 || e < s) return
+        isProgrammaticEdit = true
+        editable.removeSpan(span)
+        editable.setSpan(
+            SigxBlockSpan("task", span.level, !span.checked, "", theme),
+            s,
+            e,
+            Spannable.SPAN_PARAGRAPH,
+        )
+        isProgrammaticEdit = false
+        userHasEdited = true
+        localVersion += 1
+        mView.invalidate()
+        fireChange(isComposing = false)
+    }
+
     private fun applyTypingOverrides(editable: Editable) {
         if (typingOverrides.isEmpty() || pendingInsertStart < 0 || pendingInsertEnd <= pendingInsertStart) return
         val start = pendingInsertStart.coerceIn(0, editable.length)
@@ -619,6 +831,19 @@ class SigxRichTextUI(context: LynxContext) : LynxUI<RichEditText>(context) {
             cursor = maxOf(cursor, e)
         }
         return cursor >= end && covered > 0
+    }
+
+    /**
+     * Remove block-level spans over [start, end) — the model span and its
+     * visual-only code-background sibling always travel together.
+     */
+    private fun removeBlockSpans(editable: Editable, start: Int, end: Int) {
+        for (span in editable.getSpans(start, end, SigxBlockSpan::class.java)) {
+            editable.removeSpan(span)
+        }
+        for (span in editable.getSpans(start, end, SigxCodeBlockBgSpan::class.java)) {
+            editable.removeSpan(span)
+        }
     }
 
     /** Remove a format from [start, end), splitting spans that extend past it. */

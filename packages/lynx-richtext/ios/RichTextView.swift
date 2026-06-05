@@ -18,6 +18,10 @@ public final class RichTextView: UITextView, UIGestureRecognizerDelegate {
 
     private let placeholderLabel = UILabel()
 
+    /// Tap landed on a task line's checkbox gutter — the line's paragraph
+    /// range (the checkbox itself is draw-only; see `SigxLayoutManager`).
+    var onCheckboxToggle: ((NSRange) -> Void)?
+
     public var placeholderText: String = "" {
         didSet {
             placeholderLabel.text = placeholderText
@@ -68,6 +72,14 @@ public final class RichTextView: UITextView, UIGestureRecognizerDelegate {
         tap.cancelsTouchesInView = false
         tap.delegate = self
         addGestureRecognizer(tap)
+
+        // Checkbox taps: runs alongside everything like the focus tap (the
+        // caret may also move to the tapped line — harmless); the action
+        // itself gates on the tap hitting a task line's gutter.
+        let checkboxTap = UITapGestureRecognizer(target: self, action: #selector(handleCheckboxTap(_:)))
+        checkboxTap.cancelsTouchesInView = false
+        checkboxTap.delegate = self
+        addGestureRecognizer(checkboxTap)
     }
 
     @available(*, unavailable)
@@ -95,6 +107,39 @@ public final class RichTextView: UITextView, UIGestureRecognizerDelegate {
         } else {
             NSLog("[SigxRichText] becomeFirstResponder refused (editable=\(isEditable), window=\(window != nil))")
         }
+    }
+
+    @objc private func handleCheckboxTap(_ recognizer: UITapGestureRecognizer) {
+        guard let paragraph = taskParagraph(at: recognizer.location(in: self)) else { return }
+        onCheckboxToggle?(paragraph)
+    }
+
+    /// Paragraph range of the task line whose checkbox gutter contains the
+    /// point, or nil. Gated tightly — a task-typed line, its **first** visual
+    /// line, and an x inside the reserved gutter — so normal text editing is
+    /// never affected.
+    private func taskParagraph(at point: CGPoint) -> NSRange? {
+        guard let storage = attributedText, storage.length > 0 else { return nil }
+        // The gutter sits at the leading edge of the text container.
+        let inContainer = CGPoint(
+            x: point.x - textContainerInset.left,
+            y: point.y - textContainerInset.top
+        )
+        guard inContainer.x >= 0, inContainer.x <= BlockMetrics.listGutter else { return nil }
+        let glyphIndex = layoutManager.glyphIndex(for: inContainer, in: textContainer)
+        let frag = layoutManager.lineFragmentRect(forGlyphAt: glyphIndex, effectiveRange: nil)
+        guard inContainer.y >= frag.minY, inContainer.y <= frag.maxY else { return nil }
+        let charIndex = layoutManager.characterIndexForGlyph(at: glyphIndex)
+        guard charIndex < storage.length else { return nil }
+        let para = (storage.string as NSString).paragraphRange(for: NSRange(location: charIndex, length: 0))
+        guard para.length > 0,
+              let block = storage.attribute(SigxAttr.block, at: para.location, effectiveRange: nil) as? [String: Any],
+              (block["type"] as? String) == "task" else { return nil }
+        // Markers (and their tap target) live on the paragraph's first line.
+        let firstGlyph = layoutManager.glyphRange(forCharacterRange: para, actualCharacterRange: nil).location
+        let firstFrag = layoutManager.lineFragmentRect(forGlyphAt: firstGlyph, effectiveRange: nil)
+        guard abs(firstFrag.minY - frag.minY) < 0.5 else { return nil }
+        return para
     }
 
     @objc private func textDidChangeNotification() {

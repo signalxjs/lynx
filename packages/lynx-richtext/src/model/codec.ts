@@ -70,6 +70,7 @@ function sanitizeBlocks(blocks: unknown, max: number): BlockAttr[] {
             type: b.type,
             ...(typeof b.level === 'number' && Number.isFinite(b.level) ? { level: Math.floor(b.level) } : {}),
             ...(typeof b.checked === 'boolean' ? { checked: b.checked } : {}),
+            ...(typeof b.lang === 'string' && b.lang !== '' ? { lang: b.lang } : {}),
         });
     }
     return out;
@@ -99,7 +100,7 @@ export function docEquals(a: RichDoc, b: RichDoc): boolean {
         const y = b.blocks[i];
         if (
             x.start !== y.start || x.end !== y.end || x.type !== y.type ||
-            x.level !== y.level || x.checked !== y.checked
+            x.level !== y.level || x.checked !== y.checked || x.lang !== y.lang
         ) return false;
     }
     return true;
