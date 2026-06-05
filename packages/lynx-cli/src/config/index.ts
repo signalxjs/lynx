@@ -3,6 +3,7 @@ export type {
     LynxConfig,
     ModuleConfig,
     AndroidConfig,
+    AndroidFeatureConfig,
     IosConfig,
     Platform,
     Orientation,

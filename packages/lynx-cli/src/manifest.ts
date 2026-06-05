@@ -68,6 +68,14 @@ export interface AndroidManifest {
     dependencies?: string[];
     /** AndroidManifest.xml permissions required. */
     permissions?: string[];
+    /**
+     * `<uses-feature>` declarations merged into the app's AndroidManifest.
+     * Modules whose permissions imply hardware (e.g. CAMERA implies
+     * `android.hardware.camera`) should declare the feature with
+     * `required: false` so the Play Store doesn't filter the app off devices
+     * lacking it. De-duped on `name` (app-level config entries win).
+     */
+    features?: AndroidFeatureEntry[];
     /** Min SDK required by this module. */
     minSdk?: number;
     /**
@@ -139,6 +147,14 @@ export interface AndroidMetaDataEntry {
 export interface AndroidBehaviorEntry {
     name: string;
     behaviorClass: string;
+}
+
+/** A single `<uses-feature>` contribution. */
+export interface AndroidFeatureEntry {
+    /** Feature name, e.g. `"android.hardware.camera"`. */
+    name: string;
+    /** android:required attribute. Defaults to false. */
+    required?: boolean;
 }
 
 export interface AndroidServiceEntry {
