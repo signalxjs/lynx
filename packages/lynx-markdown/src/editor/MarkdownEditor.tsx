@@ -133,6 +133,14 @@ export const MarkdownEditor = component<MarkdownEditorProps>(({ props }) => {
     warnDuplicates('name', plugins.map((p) => p.name));
     warnDuplicates('syntax.name', inlinePlugins.map((p) => p.inline!.syntax.name));
     warnDuplicates('docMapping.spanType', inlinePlugins.map((p) => p.inline!.docMapping.spanType));
+    // Trigger routing is first-match-wins — a duplicate char/pattern means the
+    // later plugin's trigger is silently unreachable.
+    warnDuplicates(
+        'trigger',
+        plugins
+            .filter((p) => p.trigger)
+            .map((p) => (p.trigger!.char !== undefined ? `char:${p.trigger!.char}` : `pattern:${p.trigger!.pattern}`)),
+    );
     const convertIn: MdToDocOptions | undefined = inlinePlugins.length
         ? {
             extensions: inlinePlugins.map((p) => p.inline!.syntax),

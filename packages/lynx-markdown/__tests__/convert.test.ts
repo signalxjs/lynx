@@ -301,3 +301,26 @@ describe('plugin mapper hardening', () => {
         expect(doc.spans).toEqual([]);
     });
 });
+
+describe('overlapping plugin spans', () => {
+    it('degrades ambiguous runs to plain text instead of dropping content', () => {
+        // Two different plugin-owned span types over the same range — atomic
+        // serialization is ambiguous, so the covered text must survive as-is.
+        const doc: RichDoc = {
+            text: 'hi Andy!',
+            spans: [
+                { start: 3, end: 7, type: 'mention', attrs: { id: 'u1' } },
+                { start: 3, end: 7, type: 'code' },
+            ],
+            blocks: [],
+            v: 0,
+        };
+        const out = docToMd(doc, {
+            serializers: new Map([
+                ['mention', (s, t) => `@[${t}](${s.attrs?.id ?? ''})`],
+                ['code', (_s, t) => `~${t}~`],
+            ]),
+        });
+        expect(out).toContain('Andy');
+    });
+});

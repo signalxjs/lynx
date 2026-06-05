@@ -148,9 +148,13 @@ function serializeInline(
         const run = runs[i];
         // A plugin-owned mark serializes atomically: its serializer output
         // replaces the covered text, and the mark never enters the
-        // close/reopen stack (other marks may still wrap it).
-        const pluginMark = serializers ? run.active.find((m) => serializers.has(m.type)) : undefined;
-        const active = pluginMark ? run.active.filter((m) => !serializers!.has(m.type)) : run.active;
+        // close/reopen stack (other marks may still wrap it). Atomic emission
+        // only applies when exactly ONE plugin mark covers the run —
+        // overlapping plugin spans are ambiguous, so the run degrades to its
+        // plain text (content preserved, no plugin syntax emitted).
+        const pluginMarks = serializers ? run.active.filter((m) => serializers.has(m.type)) : [];
+        const pluginMark = pluginMarks.length === 1 ? pluginMarks[0] : undefined;
+        const active = pluginMarks.length ? run.active.filter((m) => !serializers!.has(m.type)) : run.active;
         const desired = [...active].sort((a, b) => {
             const ea = contEnd[i].get(a.key) ?? run.end;
             const eb = contEnd[i].get(b.key) ?? run.end;
