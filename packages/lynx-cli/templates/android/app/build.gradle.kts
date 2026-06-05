@@ -26,6 +26,38 @@ android {
         }
     }
 
+    // Release signing is driven by environment variables so any CI can sign
+    // for the Play Store without editing this (managed, re-generated) file:
+    //
+    //   SIGX_UPLOAD_KEYSTORE        path to the upload keystore (.jks / .p12)
+    //   SIGX_UPLOAD_STORE_PASSWORD  keystore password
+    //   SIGX_UPLOAD_KEY_ALIAS       key alias            (default: "upload")
+    //   SIGX_UPLOAD_KEY_PASSWORD    key password         (default: store password)
+    //
+    // When SIGX_UPLOAD_KEYSTORE is unset, release builds fall back to the
+    // debug keystore so `sigx run:android --release` still installs on a
+    // local device with zero setup.
+    // Empty/whitespace values count as unset — a common CI misconfig.
+    fun signingEnv(name: String): String? =
+        System.getenv(name)?.trim()?.takeIf { it.isNotEmpty() }
+    val uploadKeystore = signingEnv("SIGX_UPLOAD_KEYSTORE")
+
+    signingConfigs {
+        create("release") {
+            if (uploadKeystore != null) {
+                val storePass = signingEnv("SIGX_UPLOAD_STORE_PASSWORD")
+                    ?: error(
+                        "SIGX_UPLOAD_KEYSTORE is set but SIGX_UPLOAD_STORE_PASSWORD is " +
+                        "missing — release signing needs the keystore password."
+                    )
+                storeFile = file(uploadKeystore)
+                storePassword = storePass
+                keyAlias = signingEnv("SIGX_UPLOAD_KEY_ALIAS") ?: "upload"
+                keyPassword = signingEnv("SIGX_UPLOAD_KEY_PASSWORD") ?: storePass
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = true
@@ -33,11 +65,10 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            // Default to the debug keystore so `sigx run:android --release`
-            // installs on a local device without extra setup. Replace with a
-            // real signing config (signingConfigs.getByName("release")) before
-            // shipping to the Play Store.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = if (uploadKeystore != null)
+                signingConfigs.getByName("release")
+            else
+                signingConfigs.getByName("debug")
         }
     }
 
