@@ -70,16 +70,7 @@ export interface TriggerItem {
     [key: string]: unknown;
 }
 
-export interface TriggerSpec {
-    /** Single trigger character (`'@'`). Exactly one of `char`/`pattern`. */
-    char?: string;
-    /**
-     * Multi-char trigger: matched against the run of non-whitespace text
-     * between the last boundary and the caret; must match at its start
-     * (e.g. `/^::/`). The match length is the trigger length; what follows is
-     * the query.
-     */
-    pattern?: RegExp;
+interface TriggerSpecBase {
     /** Debounce between `onQuery` calls in ms. `0`/omitted = immediate. */
     debounce?: number;
     /**
@@ -93,6 +84,24 @@ export interface TriggerSpec {
     /** A suggestion was picked. Typically calls `api.replaceQuery(...)`. */
     onSelect(item: TriggerItem, api: TriggerSelectApi): void;
 }
+
+/** Exactly one of `char`/`pattern` — enforced by the union. */
+export type TriggerSpec =
+    | (TriggerSpecBase & {
+        /** Single trigger character (`'@'`). */
+        char: string;
+        pattern?: undefined;
+    })
+    | (TriggerSpecBase & {
+        char?: undefined;
+        /**
+         * Multi-char trigger: matched against the run of non-whitespace text
+         * between the last boundary and the caret; must match at its start
+         * (e.g. `/^::/`). The match length is the trigger length; what
+         * follows is the query.
+         */
+        pattern: RegExp;
+    });
 
 /** What `onSelect` receives to act on the editor. */
 export interface TriggerSelectApi {
