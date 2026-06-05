@@ -2,7 +2,12 @@
 <!-- Release-safe network security config: cleartext HTTP is NOT permitted.
      Debug builds override this file via the debug source set
      (src/debug/res/xml/network_security_config.xml), which re-enables
-     cleartext for dev-server / LAN HMR traffic. -->
+     cleartext for dev-server / LAN HMR traffic.
+
+     Managed by `sigx prebuild` — re-rendered pristine on every run, so don't
+     edit by hand. For custom network security (domain-config, certificate
+     pinning, user CAs), patch this file from a `prebuild.post` hook in
+     signalx.config.ts, which runs after all managed files are rendered. -->
 <network-security-config>
     <base-config cleartextTrafficPermitted="false">
         <trust-anchors>
