@@ -105,6 +105,10 @@ export function createMentionPlugin(options: MentionPluginOptions): MarkdownEdit
                 // The covered text is the chip's U+FFFC — serialize from attrs.
                 const label = clean(span.attrs?.label ?? '');
                 const id = clean(span.attrs?.id ?? '');
+                // Malformed span (missing or cleaned-to-empty payload):
+                // degrade to the plain label rather than emitting
+                // unparseable syntax like @[]().
+                if (label === '' || id === '') return label;
                 return `@[${label}](${id})`;
             },
             docMapping: {

@@ -76,6 +76,17 @@ describe('mention plugin conversion', () => {
         expect(docToMd(doc, outOpts)).toBe(md);
     });
 
+    it('degrades malformed spans to the plain label instead of @[]()', () => {
+        expect(plugin.inline!.serialize(
+            { start: 0, end: 1, type: 'mention', attrs: { label: 'Andy' } },
+            '\uFFFC',
+        )).toBe('Andy');
+        expect(plugin.inline!.serialize(
+            { start: 0, end: 1, type: 'mention' },
+            '\uFFFC',
+        )).toBe('');
+    });
+
     it('strips forbidden characters from labels/ids on serialize (v1 rule)', () => {
         const out = plugin.inline!.serialize(
             { start: 0, end: 1, type: 'mention', attrs: { id: 'u)1', label: 'An]dy' } },
