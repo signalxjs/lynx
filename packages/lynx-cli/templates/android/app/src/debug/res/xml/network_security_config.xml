@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Debug-only override of the release network security config: the dev
+     client talks plaintext HTTP to the rspeedy dev server on the LAN, so
+     cleartext must be permitted in debug builds. The debug source set's
+     resource shadows src/main's strict copy of the same file.
+
+     Managed by `sigx prebuild` — re-rendered pristine on every run, so don't
+     edit by hand; use a `prebuild.post` hook in signalx.config.ts for
+     project-specific patches. -->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

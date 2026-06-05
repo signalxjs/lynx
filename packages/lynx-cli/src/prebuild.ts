@@ -853,6 +853,8 @@ const MANAGED_ANDROID_FILES = [
     'app/src/main/AndroidManifest.xml',
     'app/src/main/res/values/themes.xml',
     'app/src/main/res/xml/file_provider_paths.xml',
+    'app/src/main/res/xml/network_security_config.xml',
+    'app/src/debug/res/xml/network_security_config.xml',
     'app/build.gradle.kts',
     'app/src/main/kotlin/__package__/MainActivity.kt',
 ];
