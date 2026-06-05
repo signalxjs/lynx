@@ -135,6 +135,11 @@ export function fingerprintAndroidBuild(cwd: string): string {
     const androidDir = join(cwd, 'android');
     const files = [
         ...walkFiles(join(androidDir, 'app', 'src', 'main')),
+        // Per-variant source sets: prebuild writes the dev-client sources and
+        // the debug manifest overlay into src/debug (and release stubs into
+        // src/release), so `installDebug` inputs live outside src/main too.
+        ...walkFiles(join(androidDir, 'app', 'src', 'debug')),
+        ...walkFiles(join(androidDir, 'app', 'src', 'release')),
         ...walkFiles(join(androidDir, 'app', 'build.gradle.kts')),
         ...walkFiles(join(androidDir, 'build.gradle.kts')),
         ...walkFiles(join(androidDir, 'settings.gradle.kts')),

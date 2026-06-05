@@ -8,6 +8,7 @@
         "initClass": "com.sigx.devclient.SigxDevClient",
         "moduleClass": "com.sigx.devclient.DevClientModule",
         "sourceDir": "android/src/main/kotlin",
+        "releaseStubsDir": "android/src/releaseStubs/kotlin",
         "debugOnly": true,
         "dependencies": [
             "org.lynxsdk.lynx:lynx-devtool:3.7.0",

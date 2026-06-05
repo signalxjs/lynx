@@ -48,7 +48,21 @@ export interface AndroidManifest {
     initClass?: string;
     /** Relative path to Kotlin/Java source directory (for source-based linking). */
     sourceDir?: string;
-    /** If true, this module is only linked in debug builds (debugImplementation). */
+    /**
+     * Relative path to a directory of release-safe no-op stubs. Only
+     * meaningful together with `debugOnly: true`: prebuild copies `sourceDir`
+     * into the app's `src/debug/kotlin` source set and `releaseStubsDir` into
+     * `src/release/kotlin`, so code that references the module's classes
+     * (runtime-gated by `BuildConfig.DEBUG`) still compiles in release
+     * without pulling in the module's debug-only dependencies.
+     */
+    releaseStubsDir?: string;
+    /**
+     * If true, this module is debug-only: its Gradle dependencies are
+     * injected as `debugImplementation`, its permissions land in
+     * `src/debug/AndroidManifest.xml` (not the release manifest), and its
+     * sources are copied into the `src/debug` source set.
+     */
     debugOnly?: boolean;
     /** Gradle dependencies to inject into app/build.gradle.kts. */
     dependencies?: string[];
