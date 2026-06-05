@@ -53,6 +53,11 @@ final class SigxLayoutManager: NSLayoutManager {
 
         let charRange = characterRange(forGlyphRange: glyphsToShow, actualGlyphRange: nil)
         let ns = storage.string as NSString
+        // Ordered numbering is positional: the backward run walk happens once
+        // per visible run, then increments paragraph-to-paragraph within this
+        // pass (long lists would otherwise pay O(n²) on every redraw).
+        var runNumber = 0
+        var runEnd = -1
         var location = charRange.location
         while location < NSMaxRange(charRange) && location < storage.length {
             let para = ns.paragraphRange(for: NSRange(location: location, length: 0))
@@ -91,7 +96,12 @@ final class SigxLayoutManager: NSLayoutManager {
                 let center = CGPoint(x: origin.x + 12, y: firstFrag.midY)
                 UIBezierPath(ovalIn: CGRect(x: center.x - r, y: center.y - r, width: r * 2, height: r * 2)).fill()
             case "ordered":
-                let label = "\(orderedNumber(for: para, storage: storage, ns: ns))." as NSString
+                let number = para.location == runEnd
+                    ? runNumber + 1
+                    : orderedNumber(for: para, storage: storage, ns: ns)
+                runNumber = number
+                runEnd = NSMaxRange(para)
+                let label = "\(number)." as NSString
                 let font = UIFont.monospacedDigitSystemFont(ofSize: theme.fontSize, weight: .regular)
                 let size = label.size(withAttributes: [.font: font])
                 // Right-aligned against the text edge, with a small gap.

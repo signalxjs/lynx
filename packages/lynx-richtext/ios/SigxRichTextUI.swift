@@ -368,6 +368,7 @@ public class SigxRichTextUI: LynxUI<RichTextView> {
                     typing[SigxAttr.block] = value
                 }
                 typing[.font] = SigxRichTextUI.deriveTypingFont(from: typing, theme: self.theme)
+                typing[.paragraphStyle] = SigxRichTextUI.deriveTypingParagraphStyle(from: typing)
                 view.typingAttributes = typing
                 self.fireSelection()
                 callback(SigxRichTextUI.kUIMethodSuccess, nil)
@@ -680,6 +681,8 @@ public class SigxRichTextUI: LynxUI<RichTextView> {
                   let type = block["type"] as? String, Self.isListType(type) else { return true }
             typing.removeValue(forKey: SigxAttr.block)
             typing[.font] = SigxRichTextUI.deriveTypingFont(from: typing, theme: theme)
+            // Drop the list's inherited gutter indent along with the block.
+            typing[.paragraphStyle] = SigxRichTextUI.deriveTypingParagraphStyle(from: typing)
             view.typingAttributes = typing
             fireSelection()
             return false
@@ -703,6 +706,8 @@ public class SigxRichTextUI: LynxUI<RichTextView> {
             var typing = view.typingAttributes
             typing.removeValue(forKey: SigxAttr.block)
             typing[.font] = SigxRichTextUI.deriveTypingFont(from: typing, theme: theme)
+            // Drop the list's inherited gutter indent along with the block.
+            typing[.paragraphStyle] = SigxRichTextUI.deriveTypingParagraphStyle(from: typing)
             view.typingAttributes = typing
             isProgrammaticEdit = false
             markUserEdited()
@@ -720,6 +725,7 @@ public class SigxRichTextUI: LynxUI<RichTextView> {
         var nlAttrs = view.typingAttributes
         nlAttrs[SigxAttr.block] = continuation
         nlAttrs[.font] = SigxRichTextUI.deriveTypingFont(from: nlAttrs, theme: theme)
+        nlAttrs[.paragraphStyle] = SigxRichTextUI.deriveTypingParagraphStyle(from: nlAttrs)
 
         isProgrammaticEdit = true
         storage.beginEditing()
@@ -808,6 +814,18 @@ public class SigxRichTextUI: LynxUI<RichTextView> {
 
     /// Rebuild the `.font` typing attribute from the custom model keys so a
     /// collapsed-selection toggle is visible on the very next typed character.
+    /// Paragraph style matching the typing attributes' block type — kept in
+    /// sync with `DocumentMapper.applyParagraphStyles` so the next typed run
+    /// gets the right gutter indent (and exiting a block drops it).
+    fileprivate static func deriveTypingParagraphStyle(from attrs: [NSAttributedString.Key: Any]) -> NSParagraphStyle {
+        let type = (attrs[SigxAttr.block] as? [String: Any])?["type"] as? String ?? "paragraph"
+        let style = NSMutableParagraphStyle()
+        let indent = BlockMetrics.indent(for: type)
+        style.firstLineHeadIndent = indent
+        style.headIndent = indent
+        return style
+    }
+
     fileprivate static func deriveTypingFont(from attrs: [NSAttributedString.Key: Any], theme: RichTextTheme) -> UIFont {
         var font = theme.baseFont
         if let block = attrs[SigxAttr.block] as? [String: Any],
