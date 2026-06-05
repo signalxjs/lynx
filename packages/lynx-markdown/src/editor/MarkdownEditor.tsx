@@ -121,8 +121,10 @@ export const MarkdownEditor = component<MarkdownEditorProps>(({ props }) => {
         const seen = new Set<string>();
         for (const value of values) {
             if (seen.has(value)) {
+                // Conversion maps resolve last-wins, trigger routing first-wins
+                // — don't promise either; duplicates are a config error.
                 console.warn(
-                    `[MarkdownEditor] duplicate plugin ${key} "${value}" — later plugins override earlier ones.`,
+                    `[MarkdownEditor] duplicate plugin ${key} "${value}" — resolution is ambiguous, rename to disambiguate.`,
                 );
             }
             seen.add(value);
