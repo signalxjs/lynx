@@ -123,6 +123,19 @@ describe('trigger session manager', () => {
         }
     });
 
+    it('treats a non-thenable onQuery return like an empty result', () => {
+        const { manager } = makeManager({
+            triggers: [{
+                plugin: 'mention',
+                // Misbehaving plugin: returns neither an array nor a Promise.
+                spec: { char: '@', onQuery: () => ({} as unknown as TriggerItem[]), onSelect: () => {} },
+            }],
+        });
+        manager.syncText('@a');
+        manager.syncCaret(2);
+        expect(manager.session).toMatchObject({ items: [], loading: false });
+    });
+
     it('treats a throwing onQuery like a rejected query (loading cleared)', () => {
         const { manager } = makeManager({
             triggers: [{

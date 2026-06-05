@@ -255,3 +255,49 @@ describe('plugin inline mapping', () => {
         expect(docToMd(doc)).toBe('ping Andy!');
     });
 });
+
+describe('plugin mapper hardening', () => {
+    const syntax = {
+        name: 'mention',
+        triggerChars: ['@'] as const,
+        match(text: string, pos: number) {
+            const m = /^@\[([^\]\n]+)\]\(([^)\n]+)\)/.exec(text.slice(pos));
+            if (!m) return null;
+            return {
+                node: { type: 'extension' as const, name: 'mention', attrs: { label: m[1], id: m[2] }, raw: m[0] },
+                end: pos + m[0].length,
+            };
+        },
+    };
+
+    it('treats a throwing mapper as not representable (raw block, no crash)', () => {
+        const doc = mdToDoc('hi @[Andy](u1)', 0, {
+            extensions: [syntax],
+            spanMappers: {
+                mention: () => {
+                    throw new Error('plugin bug');
+                },
+            },
+        });
+        expect(doc.blocks).toEqual([{ start: 0, end: 14, type: 'raw' }]);
+        expect(doc.text).toBe('hi @[Andy](u1)');
+    });
+
+    it('falls back to raw text when an impure mapper disagrees with the probe', () => {
+        // Accepts the representability probe, then fails during flattening —
+        // the source text must survive instead of being dropped.
+        let calls = 0;
+        const doc = mdToDoc('hi @[Andy](u1)', 0, {
+            extensions: [syntax],
+            spanMappers: {
+                mention: (node) => {
+                    calls++;
+                    if (calls > 1) throw new Error('impure');
+                    return { text: node.attrs.label, span: { type: 'mention' } };
+                },
+            },
+        });
+        expect(doc.text).toBe('hi @[Andy](u1)');
+        expect(doc.spans).toEqual([]);
+    });
+});

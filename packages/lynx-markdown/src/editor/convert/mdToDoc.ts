@@ -116,13 +116,27 @@ function inlineRepresentable(nodes: InlineNode[], mappers?: Record<string, Exten
             case 'extension':
                 // Representable only when a plugin maps it to an editor span
                 // (toSpan is pure, so probing here and mapping later agree).
-                if (!mappers?.[node.name]?.(node)) return false;
+                // A throwing mapper means "not representable" — the block
+                // degrades to raw instead of crashing the conversion.
+                if (!tryMap(mappers, node)) return false;
                 break;
             default:
                 return false; // image, unmapped extension nodes
         }
     }
     return true;
+}
+
+/** Run a plugin mapper defensively: a throwing mapper counts as no mapping. */
+function tryMap(
+    mappers: Record<string, ExtensionSpanMapper> | undefined,
+    node: InlineExtension,
+): ReturnType<ExtensionSpanMapper> {
+    try {
+        return mappers?.[node.name]?.(node) ?? null;
+    } catch {
+        return null;
+    }
 }
 
 /** Split a paragraph's inline children into visual lines at top-level hard breaks. */
@@ -212,8 +226,14 @@ function flattenInline(
                     break;
                 }
                 case 'extension': {
-                    const mapped = mappers?.[node.name]?.(node);
-                    if (!mapped) break; // unreachable — filtered by inlineRepresentable
+                    const mapped = tryMap(mappers, node);
+                    if (!mapped) {
+                        // Defense in depth: if the mapper disagrees with the
+                        // earlier representability probe (impure/buggy), keep
+                        // the source text rather than silently dropping it.
+                        text += node.raw;
+                        break;
+                    }
                     const start = base + text.length;
                     text += mapped.text;
                     spans.push({ start, end: base + text.length, ...mapped.span });

@@ -112,6 +112,14 @@ export function createTriggerSessionManager(opts: TriggerSessionManagerOptions):
                 emit();
                 return;
             }
+            // Guard non-thenable returns from misbehaving plugins — treat
+            // them like an empty result instead of throwing on .then.
+            if (!result || typeof result.then !== 'function') {
+                session.items = [];
+                session.loading = false;
+                emit();
+                return;
+            }
             result.then(
                 (items) => {
                     // Discard stale resolutions: a newer query or a close won.
