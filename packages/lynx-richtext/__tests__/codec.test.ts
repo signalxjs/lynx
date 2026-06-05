@@ -112,6 +112,8 @@ describe('block attrs (#153)', () => {
                 { start: 0, end: 4, type: 'codeBlock', lang: 42 },
                 { start: 0, end: 4, type: 'codeBlock', lang: '' },
                 { start: 0, end: 4, type: 'bullet', lang: 'ts' }, // codeBlock-only field
+                { start: 0, end: 4, type: 'bullet', level: 3, checked: true }, // heading/ordered + task fields
+                { start: 0, end: 4, type: 'ordered', level: 3 }, // ordered keeps its run start
             ],
             v: 1,
         }));
@@ -119,6 +121,8 @@ describe('block attrs (#153)', () => {
             { start: 0, end: 4, type: 'codeBlock' },
             { start: 0, end: 4, type: 'codeBlock' },
             { start: 0, end: 4, type: 'bullet' },
+            { start: 0, end: 4, type: 'bullet' },
+            { start: 0, end: 4, type: 'ordered', level: 3 },
         ]);
         const a: RichDoc = { text: 'c', spans: [], blocks: [{ start: 0, end: 1, type: 'codeBlock', lang: 'ts' }], v: 0 };
         const b: RichDoc = { text: 'c', spans: [], blocks: [{ start: 0, end: 1, type: 'codeBlock', lang: 'js' }], v: 0 };

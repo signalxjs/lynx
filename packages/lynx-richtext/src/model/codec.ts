@@ -64,14 +64,15 @@ function sanitizeBlocks(blocks: unknown, max: number): BlockAttr[] {
         const start = clamp(b.start, 0, max);
         const end = clamp(b.end, 0, max);
         if (end < start) continue;
+        // Type-specific fields are gated to the types that own them (model
+        // contract) — stray wire data must not skew docEquals.
+        const hasLevel = b.type === 'heading' || b.type === 'ordered';
         out.push({
             start,
             end,
             type: b.type,
-            ...(typeof b.level === 'number' && Number.isFinite(b.level) ? { level: Math.floor(b.level) } : {}),
-            ...(typeof b.checked === 'boolean' ? { checked: b.checked } : {}),
-            // `lang` is a codeBlock-only field (model contract) — dropped
-            // elsewhere so stray wire data can't skew docEquals.
+            ...(hasLevel && typeof b.level === 'number' && Number.isFinite(b.level) ? { level: Math.floor(b.level) } : {}),
+            ...(b.type === 'task' && typeof b.checked === 'boolean' ? { checked: b.checked } : {}),
             ...(b.type === 'codeBlock' && typeof b.lang === 'string' && b.lang !== '' ? { lang: b.lang } : {}),
         });
     }
