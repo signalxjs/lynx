@@ -870,20 +870,22 @@ describe('writeIosSharedScheme — multi-target projects', () => {
         scaffoldIos(testDir, config);
 
         // Simulate a hand-curated project with a tests target listed BEFORE
-        // the app target in the PBXNativeTarget section.
+        // the app target in the PBXNativeTarget section. Anchor the splice on
+        // the marker WITHOUT a trailing newline — the scaffolded pbxproj has
+        // LF or CRLF endings depending on the checkout, and an LF-anchored
+        // replace silently no-ops on CRLF, making this test pass vacuously.
         const pbxprojPath = join(testDir, 'ios', 'TestApp.xcodeproj', 'project.pbxproj');
         const pbx = readFileSync(pbxprojPath, 'utf-8');
         const testsTarget = [
+            '/* Begin PBXNativeTarget section */',
             '\t\tFFFFFFFF000000000000FFFF /* TestAppTests */ = {',
             '\t\t\tisa = PBXNativeTarget;',
             '\t\t\tname = "TestAppTests";',
             '\t\t};',
-            '',
         ].join('\n');
-        writeFileSync(
-            pbxprojPath,
-            pbx.replace('/* Begin PBXNativeTarget section */\n', `/* Begin PBXNativeTarget section */\n${testsTarget}`),
-        );
+        const injected = pbx.replace('/* Begin PBXNativeTarget section */', testsTarget);
+        expect(injected).toContain('FFFFFFFF000000000000FFFF'); // splice must not no-op
+        writeFileSync(pbxprojPath, injected);
         rmSync(join(testDir, 'ios', 'TestApp.xcodeproj', 'xcshareddata', 'xcschemes', 'TestApp.xcscheme'));
 
         writeIosSharedScheme(testDir, config);
