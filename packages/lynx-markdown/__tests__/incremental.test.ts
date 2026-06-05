@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { createIncrementalEngine } from '../src/parser/incremental';
 import { parseBlocks } from '../src/parser/blocks';
+import type { ParserInlineExtension } from '../src/parser/extensions';
 
 describe('incremental engine', () => {
     it('reuses finalized blocks by reference across chunks', () => {
@@ -82,5 +83,52 @@ describe('incremental engine', () => {
         const replaced = e.parse('completely different');
         expect(replaced).toHaveLength(1);
         expect(replaced[0].type).toBe('paragraph');
+    });
+});
+
+describe('incremental engine (inline extensions)', () => {
+    const mention: ParserInlineExtension = {
+        name: 'mention',
+        triggerChars: ['@'],
+        match(text, pos) {
+            const m = /^@\[([^\]\n]+)\]\(([^)\n]+)\)/.exec(text.slice(pos));
+            if (!m) return null;
+            return {
+                node: { type: 'extension', name: 'mention', attrs: { label: m[1], id: m[2] }, raw: m[0] },
+                end: pos + m[0].length,
+            };
+        },
+    };
+
+    it('parses extensions in finalized and live blocks', () => {
+        const e = createIncrementalEngine({ extensions: [mention] });
+        const blocks = e.parse('hi @[Andy](u1)\n\nstill typing @[Bea](u2)');
+        expect((blocks[0] as any).children[1]).toMatchObject({ type: 'extension', name: 'mention' });
+        expect((blocks[1] as any).children[1]).toMatchObject({
+            type: 'extension',
+            attrs: { label: 'Bea', id: 'u2' },
+        });
+    });
+
+    it('keeps finalized blocks reference-equal across appends spanning an extension', () => {
+        const e = createIncrementalEngine({ extensions: [mention] });
+        const r1 = e.parse('cc @[Andy](u1) done\n\nnext');
+        const r2 = e.parse('cc @[Andy](u1) done\n\nnext block grows');
+        expect(r2[0]).toBe(r1[0]); // finalized extension-bearing block reused by reference
+    });
+
+    it('degrades a streaming partial extension to text, then resolves it', () => {
+        const e = createIncrementalEngine({ extensions: [mention] });
+        const full = 'ping @[Andy](u1) ok';
+        for (let i = 1; i <= full.length; i++) {
+            const blocks = e.parse(full.slice(0, i)); // must never throw
+            expect(blocks).toHaveLength(1);
+        }
+        const final = e.parse(full);
+        expect((final[0] as any).children).toEqual([
+            { type: 'text', value: 'ping ' },
+            { type: 'extension', name: 'mention', attrs: { label: 'Andy', id: 'u1' }, raw: '@[Andy](u1)' },
+            { type: 'text', value: ' ok' },
+        ]);
     });
 });

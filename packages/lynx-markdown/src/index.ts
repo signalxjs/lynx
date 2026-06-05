@@ -26,6 +26,7 @@ export type {
     LinkProps,
     AutolinkProps,
     ImageProps,
+    ExtensionProps,
 } from './render/components.js';
 
 // True-WYSIWYG editor on the native <sigx-richtext> element
@@ -50,9 +51,12 @@ export type { MarkdownStream, CreateMarkdownStreamOptions } from './stream.js';
 
 // Parser primitives (for advanced consumers / testing).
 export { createIncrementalEngine } from './parser/incremental.js';
-export type { IncrementalEngine } from './parser/incremental.js';
+export type { IncrementalEngine, IncrementalEngineOptions } from './parser/incremental.js';
 export { parseBlocks } from './parser/blocks.js';
 export { parseInline } from './parser/inline.js';
+
+// Parser inline-extension API (plugins add inline constructs here).
+export type { ParserInlineExtension } from './parser/extensions.js';
 
 // AST node types.
 export type * from './ast.js';

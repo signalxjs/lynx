@@ -19,6 +19,7 @@
 
 import type { BlockNode } from '../ast.js';
 import { parseBlocks, makeKeyGen } from './blocks.js';
+import type { ParserInlineExtension } from './extensions.js';
 import { normalize } from './scanner.js';
 
 export interface IncrementalEngine {
@@ -28,7 +29,17 @@ export interface IncrementalEngine {
     reset(): void;
 }
 
-export function createIncrementalEngine(): IncrementalEngine {
+export interface IncrementalEngineOptions {
+    /**
+     * Inline extensions threaded into every parse. Captured at construction —
+     * extensions are configuration, not data: to change the set, create a new
+     * engine. Each `match` must be pure, or finalized-block reuse breaks.
+     */
+    extensions?: readonly ParserInlineExtension[];
+}
+
+export function createIncrementalEngine(options?: IncrementalEngineOptions): IncrementalEngine {
+    const extensions = options?.extensions;
     /** Finalized blocks, frozen and reused by reference across chunks. */
     let cached: BlockNode[] = [];
     /** Source length (in normalized chars) already folded into `cached`. */
@@ -54,7 +65,7 @@ export function createIncrementalEngine(): IncrementalEngine {
         if (!norm.startsWith(stableSource)) reset();
 
         const tail = norm.slice(cut);
-        const blocks = parseBlocks(tail, makeKeyGen(`p${cut}`));
+        const blocks = parseBlocks(tail, makeKeyGen(`p${cut}`), extensions);
 
         if (blocks.length === 0) {
             // Tail is empty / all-blank: nothing live, return finalized prefix.

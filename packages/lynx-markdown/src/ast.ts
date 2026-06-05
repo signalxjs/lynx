@@ -22,7 +22,8 @@ export type InlineNode =
     | InlineLink
     | InlineImage
     | InlineAutolink
-    | InlineBreak;
+    | InlineBreak
+    | InlineExtension;
 
 /** A run of literal text. */
 export interface InlineText {
@@ -80,6 +81,24 @@ export interface InlineAutolink {
 /** A hard line break (two trailing spaces or a trailing backslash). */
 export interface InlineBreak {
     type: 'br';
+}
+
+/**
+ * A plugin-defined inline construct (e.g. a mention `@[label](id)`), produced
+ * by a `ParserInlineExtension`'s `match`. Opaque to the emphasis stack — same
+ * precedence tier as code spans and links. Rendered through
+ * `components.extension[name]`, falling back to `raw` as literal text.
+ */
+export interface InlineExtension {
+    type: 'extension';
+    /** Extension name; the render dispatch key. */
+    name: string;
+    /** Opaque structured payload (e.g. `{ id, label }` for a mention). */
+    attrs: Record<string, string>;
+    /** Optional nested inline content; absent for leaf extensions. */
+    children?: InlineNode[];
+    /** Exact source slice — the literal-text fallback and round-trip source. */
+    raw: string;
 }
 
 // ---------------------------------------------------------------------------

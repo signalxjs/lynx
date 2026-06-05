@@ -22,6 +22,7 @@ import type {
     InlineCodeSpan,
     InlineDel,
     InlineEm,
+    InlineExtension,
     InlineImage,
     InlineLink,
     InlineStrong,
@@ -135,6 +136,13 @@ export interface ImageProps {
     onImageTap?: (src: string) => void;
     node: InlineImage;
 }
+export interface ExtensionProps {
+    name: string;
+    attrs: Record<string, string>;
+    /** Rendered `node.children`; `[]` for leaf extensions. */
+    children: MarkdownChild[];
+    node: InlineExtension;
+}
 
 /**
  * Map of node type → render function. Pass a partial map to `<Markdown
@@ -161,6 +169,11 @@ export interface MarkdownComponents {
     autolink(props: AutolinkProps): MarkdownChild;
     image(props: ImageProps): MarkdownChild;
     br(): MarkdownChild;
+    /**
+     * Renderers for plugin inline extensions, keyed by extension name. A node
+     * with no matching renderer falls back to its `raw` source as plain text.
+     */
+    extension?: Record<string, (props: ExtensionProps) => MarkdownChild>;
 }
 
 // -- Neutral, theme-agnostic defaults ----------------------------------------

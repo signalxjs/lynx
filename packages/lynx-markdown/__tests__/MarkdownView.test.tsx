@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { render, fireEvent, waitForUpdate } from '@sigx/lynx-testing';
 import { component, signal } from '@sigx/lynx';
 import { MarkdownView } from '../src/render/MarkdownView';
+import type { ParserInlineExtension } from '../src/parser/extensions';
 
 describe('MarkdownView (default components)', () => {
     it('renders the root as a flex column container', () => {
@@ -87,6 +88,45 @@ describe('MarkdownView (component overrides)', () => {
         // paragraph still uses the default inline style.
         const body = container.findByText('body');
         expect(body).toBeTruthy();
+    });
+});
+
+describe('MarkdownView (inline extensions)', () => {
+    const mention: ParserInlineExtension = {
+        name: 'mention',
+        triggerChars: ['@'],
+        match(text, pos) {
+            const m = /^@\[([^\]\n]+)\]\(([^)\n]+)\)/.exec(text.slice(pos));
+            if (!m) return null;
+            return {
+                node: { type: 'extension', name: 'mention', attrs: { label: m[1], id: m[2] }, raw: m[0] },
+                end: pos + m[0].length,
+            };
+        },
+    };
+
+    it('dispatches to components.extension[name] with attrs', () => {
+        const { container } = render(
+            <MarkdownView
+                value="hi @[Andy](u1)"
+                extensions={[mention]}
+                components={{
+                    extension: {
+                        mention: ({ attrs }) => <text class="mention">@{attrs.label}</text>,
+                    },
+                }}
+            />,
+        );
+        const chip = container.findAllByType('text').find((t) => t._class === 'mention');
+        expect(chip).toBeTruthy();
+        expect(chip!.findByText('Andy')).toBeTruthy();
+    });
+
+    it('falls back to the raw source as text when no renderer is registered', () => {
+        const { container } = render(
+            <MarkdownView value="hi @[Andy](u1)" extensions={[mention]} />,
+        );
+        expect(container.findByText('@[Andy](u1)')).toBeTruthy();
     });
 });
 
