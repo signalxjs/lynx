@@ -120,7 +120,11 @@ public final class RichTextView: UITextView, UIGestureRecognizerDelegate {
     /// never affected.
     private func taskParagraph(at point: CGPoint) -> NSRange? {
         guard let storage = attributedText, storage.length > 0 else { return nil }
-        // The gutter sits at the leading edge of the text container.
+        // `point` comes from `location(in: self)` — a scroll view's own
+        // coordinate space is its *content* space (bounds.origin ==
+        // contentOffset), so scrolling is already accounted for; only the
+        // container inset needs subtracting (same convention the focus tap's
+        // `closestPosition(to:)` relies on).
         let inContainer = CGPoint(
             x: point.x - textContainerInset.left,
             y: point.y - textContainerInset.top
