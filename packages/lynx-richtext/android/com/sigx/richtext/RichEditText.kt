@@ -1,7 +1,6 @@
 package com.sigx.richtext
 
 import android.content.Context
-import android.graphics.Color
 import android.view.Gravity
 import android.widget.EditText
 
@@ -20,7 +19,9 @@ class RichEditText(context: Context) : EditText(context) {
         background = null
         gravity = Gravity.TOP or Gravity.START
         setPadding(0, dp(8), 0, dp(8))
-        setTextColor(Color.BLACK)
+        // Text color stays at the platform default (textColorPrimary, which
+        // tracks the system light/dark theme) unless the `text-color` prop
+        // overrides it.
         isVerticalScrollBarEnabled = true
     }
 

@@ -169,13 +169,31 @@ function delimiter(mark: ActiveMark, doc: RichDoc, side: 'open' | 'close'): stri
             return fence.length > 1 ? fence : '`';
         }
         case 'link':
-            return side === 'open' ? '[' : `](${mark.attrs?.href ?? ''})`;
+            return side === 'open' ? '[' : `](${escapeLinkDest(String(mark.attrs?.href ?? ''))})`;
         case 'mention':
             // P3 — until the mention plugin lands, serialize as plain label.
             return '';
         default:
             return '';
     }
+}
+
+/**
+ * Escape a link destination so it re-parses to the same href (mirrors
+ * `scanLinkDest`'s two accepted forms):
+ *
+ * - bare form: backslash-escape `\`, `(`, `)`, `<` (a leading `<` would
+ *   otherwise flip the parser into the angle branch) — valid as long as
+ *   the destination has no whitespace;
+ * - whitespace anywhere → angle form `<…>`, whose only terminators are `>`
+ *   and newline; those get percent-encoded (they're invalid raw in URLs
+ *   anyway, so this is normalization, not loss).
+ */
+function escapeLinkDest(href: string): string {
+    if (/\s/.test(href)) {
+        return `<${href.replace(/>/g, '%3E').replace(/\n/g, '%0A')}>`;
+    }
+    return href.replace(/[\\()<]/g, (c) => `\\${c}`);
 }
 
 function maxBacktickRun(text: string): number {

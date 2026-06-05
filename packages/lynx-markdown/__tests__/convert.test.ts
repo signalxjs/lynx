@@ -118,6 +118,35 @@ describe('docToMd', () => {
     });
 });
 
+describe('docToMd link destination escaping', () => {
+    const linkDoc = (href: string): RichDoc => ({
+        text: 'a link b',
+        spans: [{ start: 2, end: 6, type: 'link', attrs: { href } }],
+        blocks: [],
+        v: 0,
+    });
+
+    it('backslash-escapes parens and backslashes in bare destinations', () => {
+        expect(docToMd(linkDoc('/a(b)c'))).toBe('a [link](/a\\(b\\)c) b');
+        expect(docToMd(linkDoc('/a\\b'))).toBe('a [link](/a\\\\b) b');
+    });
+
+    it('escapes a leading `<` so the parser stays in the bare branch', () => {
+        expect(docToMd(linkDoc('<weird'))).toBe('a [link](\\<weird) b');
+    });
+
+    it('wraps whitespace-bearing destinations in angle brackets', () => {
+        expect(docToMd(linkDoc('/a b/c'))).toBe('a [link](</a b/c>) b');
+    });
+
+    // '' is absent: mdToDoc normalizes an empty destination to '#'.
+    for (const href of ['/a(b)c', '/a\\b', '<weird', '/a b/c', '#']) {
+        it(`round-trips href ${JSON.stringify(href)}`, () => {
+            expectDocStable(linkDoc(href));
+        });
+    }
+});
+
 describe('round-trip idempotence (md → doc → md → doc)', () => {
     const cases = [
         'hello world',

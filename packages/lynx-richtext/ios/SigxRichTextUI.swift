@@ -110,6 +110,7 @@ public class SigxRichTextUI: LynxUI<RichTextView> {
 
     @objc public func setMinHeight(_ value: NSNumber?, requestReset: Bool) {
         minHeight = CGFloat(value?.doubleValue ?? 0)
+        reportHeightIfChanged()
     }
 
     @objc public func setMaxHeight(_ value: NSNumber?, requestReset: Bool) {
@@ -218,6 +219,9 @@ public class SigxRichTextUI: LynxUI<RichTextView> {
             self.isProgrammaticEdit = true
             view.attributedText = parsed
             self.isProgrammaticEdit = false
+            // The document has diverged from the initial `value` prop — lock
+            // the prop out (initial-only contract), same as a user edit.
+            self.userHasEdited = true
             self.localVersion = max(self.localVersion, version)
             // Preserve the caret position, clamped to the new length.
             let upper = (parsed.string as NSString).length
@@ -281,6 +285,7 @@ public class SigxRichTextUI: LynxUI<RichTextView> {
             DocumentMapper.refreshVisuals(storage, range: selection, theme: self.theme)
             storage.endEditing()
             self.isProgrammaticEdit = false
+            self.userHasEdited = true
             self.localVersion += 1
             // Restore the (possibly fallen-back) selection and keep the field
             // focused so consecutive toolbar taps compose naturally.
@@ -317,6 +322,7 @@ public class SigxRichTextUI: LynxUI<RichTextView> {
             DocumentMapper.refreshVisuals(storage, range: paragraph, theme: self.theme)
             storage.endEditing()
             self.isProgrammaticEdit = false
+            self.userHasEdited = true
             self.localVersion += 1
             self.reportHeightIfChanged()
             self.fireChange(isComposing: false)

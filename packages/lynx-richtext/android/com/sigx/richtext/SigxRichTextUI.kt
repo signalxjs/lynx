@@ -53,6 +53,9 @@ class SigxRichTextUI(context: LynxContext) : LynxUI<RichEditText>(context) {
 
     override fun createView(context: Context): RichEditText {
         val view = RichEditText(context)
+        // Seed the theme from the view's platform-default color so derived
+        // visuals (code runs, etc.) match until `text-color` overrides it.
+        theme.textColor = view.currentTextColor
         view.inputType = InputType.TYPE_CLASS_TEXT or
             InputType.TYPE_TEXT_FLAG_MULTI_LINE or
             InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
@@ -123,6 +126,7 @@ class SigxRichTextUI(context: LynxContext) : LynxUI<RichEditText>(context) {
     @LynxProp(name = "min-height")
     fun setMinHeight(value: Float) {
         minHeightPx = value
+        reportHeightIfChanged()
     }
 
     @LynxProp(name = "max-height")
@@ -211,6 +215,9 @@ class SigxRichTextUI(context: LynxContext) : LynxUI<RichEditText>(context) {
             isProgrammaticEdit = true
             mView.text = parsed.text
             isProgrammaticEdit = false
+            // The document has diverged from the initial `value` prop — lock
+            // the prop out (initial-only contract), same as a user edit.
+            userHasEdited = true
             localVersion = maxOf(localVersion, parsed.version)
             mView.setSelection(caret.coerceIn(0, mView.text.length))
             reportHeightIfChanged()
@@ -255,6 +262,7 @@ class SigxRichTextUI(context: LynxContext) : LynxUI<RichEditText>(context) {
                 editable.setSpan(newMarker(type), start, end, DocumentMapper.INLINE_FLAGS)
             }
             isProgrammaticEdit = false
+            userHasEdited = true
             localVersion += 1
             mView.invalidate()
             fireChange(isComposing = false)
@@ -280,6 +288,7 @@ class SigxRichTextUI(context: LynxContext) : LynxUI<RichEditText>(context) {
                 editable.setSpan(SigxBlockSpan(type, level), pStart, pEnd, Spannable.SPAN_PARAGRAPH)
             }
             isProgrammaticEdit = false
+            userHasEdited = true
             localVersion += 1
             mView.invalidate()
             mView.requestLayout()
