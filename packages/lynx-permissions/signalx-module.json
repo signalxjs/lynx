@@ -8,6 +8,9 @@
             "class": "com.sigx.permissions.PermissionsActivityHook",
             "methods": ["onCreate", "onResume", "onPause", "onRequestPermissionsResult"]
         },
-        "sourceDir": "android"
+        "sourceDir": "android",
+        "dependencies": [
+            "androidx.fragment:fragment-ktx:1.8.5"
+        ]
     }
 }
