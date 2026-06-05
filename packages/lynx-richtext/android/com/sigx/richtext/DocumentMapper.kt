@@ -14,7 +14,14 @@ data class RichTextTheme(
     var accentColor: Int = Color.parseColor("#3478F6"),
     var codeBackground: Int = Color.parseColor("#1F7F7F7F"), // ~12% gray
     var density: Float = 1f, // display density — block gutters are dp-sized
-)
+) {
+    /**
+     * Bumped by the UI on every content mutation — invalidates the ordered-
+     * numbering caches in [SigxBlockSpan] so scroll/selection redraws stay
+     * O(1) per line while edits renumber correctly.
+     */
+    var drawGeneration: Int = 0
+}
 
 /**
  * RichDoc (JSON) ↔ Spannable mapping. Readback enumerates only the sigx marker

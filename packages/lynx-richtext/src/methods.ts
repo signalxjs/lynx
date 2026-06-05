@@ -59,12 +59,13 @@ export const RichTextMethods = {
     /**
      * Apply an inline format with a payload over an **explicit** range —
      * unlike `toggleFormat`, which flips over the live selection and carries
-     * no attrs. v1 supports `link`: a non-empty `attrs.href` (re)links the
-     * range, an empty/missing href unlinks it.
+     * no attrs. Only `link` is supported (the type mirrors what native
+     * implements): a non-empty `attrs.href` (re)links the range, an
+     * empty/missing href unlinks it.
      */
     applyFormat(
         el: RichTextHandle,
-        type: InlineSpanType,
+        type: 'link',
         start: number,
         end: number,
         attrs?: Record<string, string>,

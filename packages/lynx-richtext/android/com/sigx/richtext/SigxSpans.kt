@@ -290,28 +290,44 @@ class SigxBlockSpan(
         }
     }
 
+    // Numbering cache, keyed on (theme.drawGeneration, span start) — the UI
+    // bumps the generation on every content mutation, so scroll/selection
+    // redraws are O(1) per line and an edit renumbers the run once.
+    private var cachedGen = -1
+    private var cachedStart = -1
+    private var cachedNumber = 0
+
     /**
      * 1-based number for an `ordered` line, derived from its position in the
      * run of consecutive ordered paragraphs (paragraph spans are adjacent when
      * the previous span's end — its trailing `\n` — is this span's start).
-     * The run's first span may carry a non-1 start in [level].
+     * The run's first span may carry a non-1 start in [level]. The recursion
+     * fills the whole run's caches in one pass.
      */
     private fun orderedNumber(text: CharSequence): Int {
         val spanned = text as? Spanned ?: return maxOf(level, 1)
-        var count = 1
-        var firstLevel = level
-        var cursor = spanned.getSpanStart(this)
-        while (cursor > 0) {
-            val prev = spanned.getSpans(cursor - 1, cursor, SigxBlockSpan::class.java)
-                .firstOrNull { it.type == "ordered" && spanned.getSpanEnd(it) == cursor }
-                ?: break
-            val prevStart = spanned.getSpanStart(prev)
-            if (prevStart >= cursor) break // collapsed span — defensive
-            count++
-            firstLevel = prev.level
-            cursor = prevStart
+        val gen = theme.drawGeneration
+        val myStart = spanned.getSpanStart(this)
+        if (cachedGen == gen && cachedStart == myStart) return cachedNumber
+        val prev = if (myStart > 0) {
+            spanned.getSpans(myStart - 1, myStart, SigxBlockSpan::class.java)
+                .firstOrNull {
+                    it.type == "ordered" &&
+                        spanned.getSpanEnd(it) == myStart &&
+                        spanned.getSpanStart(it) < myStart // collapsed span — defensive
+                }
+        } else {
+            null
         }
-        return (if (firstLevel > 0) firstLevel else 1) + count - 1
+        val number = when {
+            prev == null -> if (level > 0) level else 1
+            prev.cachedGen == gen && prev.cachedStart == spanned.getSpanStart(prev) -> prev.cachedNumber + 1
+            else -> prev.orderedNumber(text) + 1
+        }
+        cachedGen = gen
+        cachedStart = myStart
+        cachedNumber = number
+        return number
     }
 
     private fun fade(color: Int, alpha: Int): Int = (color and 0x00FFFFFF) or (alpha shl 24)

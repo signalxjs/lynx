@@ -133,6 +133,7 @@ class SigxRichTextUI(context: LynxContext) : LynxUI<RichEditText>(context) {
         mView.text = parsed.text
         isProgrammaticEdit = false
         localVersion = parsed.version
+        theme.drawGeneration++ // content replaced outside the change path
         reportHeightIfChanged()
     }
 
@@ -580,6 +581,9 @@ class SigxRichTextUI(context: LynxContext) : LynxUI<RichEditText>(context) {
     }
 
     private fun fireChange(isComposing: Boolean) {
+        // Every content mutation flows through here — invalidate the spans'
+        // draw-time numbering caches.
+        theme.drawGeneration++
         val json = DocumentMapper.encode(mView.text, localVersion)
         fireEvent("change", mapOf("doc" to json, "isComposing" to isComposing))
     }
