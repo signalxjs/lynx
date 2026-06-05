@@ -7,7 +7,14 @@
  * rather than throwing (events from native should never crash the BG thread).
  */
 
-import type { BlockAttr, InlineSpan, RichDoc } from './types.js';
+import type { BlockAttr, BlockAttrType, InlineSpan, InlineSpanType, RichDoc } from './types.js';
+
+const INLINE_TYPES: ReadonlySet<string> = new Set(
+    ['bold', 'italic', 'strike', 'code', 'link', 'mention'] satisfies InlineSpanType[],
+);
+const BLOCK_TYPES: ReadonlySet<string> = new Set(
+    ['paragraph', 'heading', 'bullet', 'ordered', 'task', 'blockquote', 'codeBlock', 'raw'] satisfies BlockAttrType[],
+);
 
 export function emptyDoc(v = 0): RichDoc {
     return { text: '', spans: [], blocks: [], v };
@@ -37,11 +44,13 @@ function sanitizeSpans(spans: unknown, max: number): InlineSpan[] {
     if (!Array.isArray(spans)) return [];
     const out: InlineSpan[] = [];
     for (const s of spans as InlineSpan[]) {
-        if (!s || typeof s.start !== 'number' || typeof s.end !== 'number' || !s.type) continue;
+        if (!s || typeof s.start !== 'number' || typeof s.end !== 'number') continue;
+        if (typeof s.type !== 'string' || !INLINE_TYPES.has(s.type)) continue;
         const start = clamp(s.start, 0, max);
         const end = clamp(s.end, 0, max);
         if (end <= start) continue;
-        out.push({ start, end, type: s.type, ...(s.attrs ? { attrs: s.attrs } : {}) });
+        const attrs = s.attrs && typeof s.attrs === 'object' && !Array.isArray(s.attrs) ? s.attrs : undefined;
+        out.push({ start, end, type: s.type, ...(attrs ? { attrs } : {}) });
     }
     return out;
 }
@@ -50,7 +59,8 @@ function sanitizeBlocks(blocks: unknown, max: number): BlockAttr[] {
     if (!Array.isArray(blocks)) return [];
     const out: BlockAttr[] = [];
     for (const b of blocks as BlockAttr[]) {
-        if (!b || typeof b.start !== 'number' || typeof b.end !== 'number' || !b.type) continue;
+        if (!b || typeof b.start !== 'number' || typeof b.end !== 'number') continue;
+        if (typeof b.type !== 'string' || !BLOCK_TYPES.has(b.type)) continue;
         const start = clamp(b.start, 0, max);
         const end = clamp(b.end, 0, max);
         if (end < start) continue;
@@ -58,8 +68,8 @@ function sanitizeBlocks(blocks: unknown, max: number): BlockAttr[] {
             start,
             end,
             type: b.type,
-            ...(b.level !== undefined ? { level: b.level } : {}),
-            ...(b.checked !== undefined ? { checked: b.checked } : {}),
+            ...(typeof b.level === 'number' && Number.isFinite(b.level) ? { level: Math.floor(b.level) } : {}),
+            ...(typeof b.checked === 'boolean' ? { checked: b.checked } : {}),
         });
     }
     return out;

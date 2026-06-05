@@ -54,6 +54,29 @@ describe('codec', () => {
         })).toBe(false);
     });
 
+    it('drops spans/blocks with unknown or non-string types and bad attr shapes', () => {
+        const doc = decodeDoc(JSON.stringify({
+            text: 'hello',
+            spans: [
+                { start: 0, end: 5, type: 'bold' },
+                { start: 0, end: 5, type: 'sparkle' },        // unknown vocab
+                { start: 0, end: 5, type: 42 },               // non-string type
+                { start: 0, end: 5, type: 'link', attrs: ['nope'] }, // array attrs
+            ],
+            blocks: [
+                { start: 0, end: 5, type: 'heading', level: 2.9, checked: 'yes' },
+                { start: 0, end: 5, type: 'banner' },         // unknown vocab
+            ],
+            v: 1,
+        }));
+        expect(doc.spans).toEqual([
+            { start: 0, end: 5, type: 'bold' },
+            { start: 0, end: 5, type: 'link' },               // attrs dropped, span kept
+        ]);
+        // level floored to an int; non-boolean checked dropped.
+        expect(doc.blocks).toEqual([{ start: 0, end: 5, type: 'heading', level: 2 }]);
+    });
+
     it('normalizeDoc orders spans/blocks deterministically', () => {
         const shuffled: RichDoc = {
             ...sample,
