@@ -14,6 +14,7 @@ import { ThemeLab } from './screens/ThemeLab.js';
 import { TypographyLab } from './screens/TypographyLab.js';
 import { MarkdownLab } from './screens/MarkdownLab.js';
 import { MarkdownEditorLab } from './screens/MarkdownEditorLab.js';
+import { MarkdownComposerLab } from './screens/MarkdownComposerLab.js';
 import { KeyboardLab } from './screens/KeyboardLab.js';
 
 export const routes = defineRoutes({
@@ -30,6 +31,7 @@ export const routes = defineRoutes({
     typographyLab: { component: TypographyLab },
     markdownLab: { component: MarkdownLab, path: '/markdown-lab' },
     markdownEditorLab: { component: MarkdownEditorLab, path: '/markdown-editor-lab' },
+    markdownComposerLab: { component: MarkdownComposerLab, path: '/markdown-composer-lab', presentation: 'modal' },
     // Modal so the composer demo isn't sitting on top of the tab bar — a bar
     // with extra chrome below it needs `offset` compensation (see KeyboardLab).
     keyboardLab: { component: KeyboardLab, path: '/keyboard-lab', presentation: 'modal' },

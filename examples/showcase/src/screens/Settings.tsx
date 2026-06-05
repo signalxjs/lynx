@@ -501,6 +501,16 @@ export const Settings = component(() => {
                             >
                                 Open markdown editor lab
                             </Button>
+                            <Button
+                                variant="primary"
+                                outline
+                                onPress={() => {
+                                    Haptics.selection();
+                                    nav.push('markdownComposerLab');
+                                }}
+                            >
+                                Open markdown composer (keyboard demo)
+                            </Button>
                         </Col>
                     </Card.Body>
                 </Card>
