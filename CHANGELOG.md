@@ -2,6 +2,8 @@
 
 All notable changes to this repository are documented here. All `@sigx/lynx-*` packages share a single lockstep version — one entry per release covers every package.
 
+## [Unreleased]
+
 ## [0.4.8] - 2026-06-05
 
 ### Added
