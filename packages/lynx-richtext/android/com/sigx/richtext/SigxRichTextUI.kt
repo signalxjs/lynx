@@ -31,7 +31,14 @@ import com.lynx.tasm.event.LynxDetailEvent
  */
 class SigxRichTextUI(context: LynxContext) : LynxUI<RichEditText>(context) {
 
-    private val theme = RichTextTheme()
+    // Lazy: LynxUI's super constructor calls createView() BEFORE this
+    // class's property initializers run, so `theme` must not be touched
+    // there. First access happens post-construction, when mView exists —
+    // seeding from the view's platform-default color so derived visuals
+    // match until the `text-color` prop overrides it.
+    private val theme by lazy {
+        RichTextTheme().apply { textColor = mView.currentTextColor }
+    }
     private var localVersion = 0
     private var userHasEdited = false
     private var minHeightPx = 0f
@@ -53,9 +60,6 @@ class SigxRichTextUI(context: LynxContext) : LynxUI<RichEditText>(context) {
 
     override fun createView(context: Context): RichEditText {
         val view = RichEditText(context)
-        // Seed the theme from the view's platform-default color so derived
-        // visuals (code runs, etc.) match until `text-color` overrides it.
-        theme.textColor = view.currentTextColor
         view.inputType = InputType.TYPE_CLASS_TEXT or
             InputType.TYPE_TEXT_FLAG_MULTI_LINE or
             InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
