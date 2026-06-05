@@ -26,6 +26,30 @@ android {
         }
     }
 
+    // Release signing is driven by environment variables so any CI can sign
+    // for the Play Store without editing this (managed, re-generated) file:
+    //
+    //   SIGX_UPLOAD_KEYSTORE        path to the upload keystore (.jks / .p12)
+    //   SIGX_UPLOAD_STORE_PASSWORD  keystore password
+    //   SIGX_UPLOAD_KEY_ALIAS       key alias            (default: "upload")
+    //   SIGX_UPLOAD_KEY_PASSWORD    key password         (default: store password)
+    //
+    // When SIGX_UPLOAD_KEYSTORE is unset, release builds fall back to the
+    // debug keystore so `sigx run:android --release` still installs on a
+    // local device with zero setup.
+    signingConfigs {
+        create("release") {
+            val uploadKeystore = System.getenv("SIGX_UPLOAD_KEYSTORE")
+            if (uploadKeystore != null) {
+                storeFile = file(uploadKeystore)
+                storePassword = System.getenv("SIGX_UPLOAD_STORE_PASSWORD")
+                keyAlias = System.getenv("SIGX_UPLOAD_KEY_ALIAS") ?: "upload"
+                keyPassword = System.getenv("SIGX_UPLOAD_KEY_PASSWORD")
+                    ?: System.getenv("SIGX_UPLOAD_STORE_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = true
@@ -33,11 +57,10 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            // Default to the debug keystore so `sigx run:android --release`
-            // installs on a local device without extra setup. Replace with a
-            // real signing config (signingConfigs.getByName("release")) before
-            // shipping to the Play Store.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = if (System.getenv("SIGX_UPLOAD_KEYSTORE") != null)
+                signingConfigs.getByName("release")
+            else
+                signingConfigs.getByName("debug")
         }
     }
 
