@@ -49,7 +49,6 @@ export const SuggestionPopup = component<SuggestionPopupProps>(({ props }) => {
 
     const defaultRenderItem: SuggestionRenderItem = (item, active) => (
         <view
-            key={item.id}
             style={{
                 paddingLeft: '12px',
                 paddingRight: '12px',
