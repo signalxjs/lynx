@@ -18,10 +18,24 @@
 
 import type { BlockAttr, InlineSpan, RichDoc } from '@sigx/lynx-richtext';
 import { parseBlocks } from '../../parser/blocks.js';
-import type { InlineNode } from '../../ast.js';
+import type { ParserInlineExtension } from '../../parser/extensions.js';
+import type { InlineExtension, InlineNode } from '../../ast.js';
 
-export function mdToDoc(markdown: string, v = 0): RichDoc {
-    const ast = parseBlocks(markdown ?? '');
+/** AST extension node → editor span (a plugin's `docMapping.toSpan`). Must be pure. */
+export type ExtensionSpanMapper = (
+    node: InlineExtension,
+) => { text: string; span: Omit<InlineSpan, 'start' | 'end'> } | null;
+
+export interface MdToDocOptions {
+    /** Inline extensions to parse with (plugin `inline.syntax`). */
+    extensions?: readonly ParserInlineExtension[];
+    /** Span mappers keyed by extension name (plugin `docMapping.toSpan`). */
+    spanMappers?: Record<string, ExtensionSpanMapper>;
+}
+
+export function mdToDoc(markdown: string, v = 0, options?: MdToDocOptions): RichDoc {
+    const ast = parseBlocks(markdown ?? '', undefined, options?.extensions);
+    const mappers = options?.spanMappers;
 
     let text = '';
     const spans: InlineSpan[] = [];
@@ -46,23 +60,23 @@ export function mdToDoc(markdown: string, v = 0): RichDoc {
     for (const block of ast) {
         switch (block.type) {
             case 'paragraph': {
-                if (!inlineRepresentable(block.children)) {
+                if (!inlineRepresentable(block.children, mappers)) {
                     push(block.raw, { type: 'raw' });
                     break;
                 }
                 for (const line of splitOnBreaks(block.children)) {
-                    const flat = flattenInline(line, text.length);
+                    const flat = flattenInline(line, text.length, mappers);
                     spans.push(...flat.spans);
                     push(flat.text);
                 }
                 break;
             }
             case 'heading': {
-                if (!inlineRepresentable(block.children)) {
+                if (!inlineRepresentable(block.children, mappers)) {
                     push(block.raw, { type: 'raw' });
                     break;
                 }
-                const flat = flattenInline(block.children, text.length);
+                const flat = flattenInline(block.children, text.length, mappers);
                 spans.push(...flat.spans);
                 push(flat.text, { type: 'heading', level: block.level });
                 break;
@@ -83,7 +97,7 @@ export function mdToDoc(markdown: string, v = 0): RichDoc {
 }
 
 /** Inline node types the editor can model in-field. */
-function inlineRepresentable(nodes: InlineNode[]): boolean {
+function inlineRepresentable(nodes: InlineNode[], mappers?: Record<string, ExtensionSpanMapper>): boolean {
     for (const node of nodes) {
         switch (node.type) {
             case 'text':
@@ -94,16 +108,35 @@ function inlineRepresentable(nodes: InlineNode[]): boolean {
             case 'strong':
             case 'em':
             case 'del':
-                if (!inlineRepresentable(node.children)) return false;
+                if (!inlineRepresentable(node.children, mappers)) return false;
                 break;
             case 'link':
-                if (!inlineRepresentable(node.children)) return false;
+                if (!inlineRepresentable(node.children, mappers)) return false;
+                break;
+            case 'extension':
+                // Representable only when a plugin maps it to an editor span
+                // (toSpan is pure, so probing here and mapping later agree).
+                // A throwing mapper means "not representable" — the block
+                // degrades to raw instead of crashing the conversion.
+                if (!tryMap(mappers, node)) return false;
                 break;
             default:
-                return false; // image, future extension nodes
+                return false; // image, unmapped extension nodes
         }
     }
     return true;
+}
+
+/** Run a plugin mapper defensively: a throwing mapper counts as no mapping. */
+function tryMap(
+    mappers: Record<string, ExtensionSpanMapper> | undefined,
+    node: InlineExtension,
+): ReturnType<ExtensionSpanMapper> {
+    try {
+        return mappers?.[node.name]?.(node) ?? null;
+    } catch {
+        return null;
+    }
 }
 
 /** Split a paragraph's inline children into visual lines at top-level hard breaks. */
@@ -128,7 +161,11 @@ interface Flat {
 }
 
 /** Depth-first flatten of an inline tree into text + overlapping spans. */
-function flattenInline(nodes: InlineNode[], base: number): Flat {
+function flattenInline(
+    nodes: InlineNode[],
+    base: number,
+    mappers?: Record<string, ExtensionSpanMapper>,
+): Flat {
     let text = '';
     const spans: InlineSpan[] = [];
 
@@ -186,6 +223,22 @@ function flattenInline(nodes: InlineNode[], base: number): Flat {
                         type: 'link',
                         attrs: { href: node.href },
                     });
+                    break;
+                }
+                case 'extension': {
+                    const mapped = tryMap(mappers, node);
+                    if (!mapped) {
+                        // Defense in depth: if the mapper disagrees with the
+                        // earlier representability probe (impure/buggy), keep
+                        // the source text rather than silently dropping it.
+                        text += node.raw;
+                        break;
+                    }
+                    const start = base + text.length;
+                    text += mapped.text;
+                    // Plugin fields first — the converter always controls the
+                    // final range, even if a mapper sneaks in start/end.
+                    spans.push({ ...mapped.span, start, end: base + text.length });
                     break;
                 }
                 default:

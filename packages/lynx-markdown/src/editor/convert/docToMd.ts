@@ -11,18 +11,34 @@
  * blank lines normalize; `raw` blocks round-trip byte-for-byte.
  */
 
-import type { RichDoc } from '@sigx/lynx-richtext';
+import type { InlineSpan, RichDoc } from '@sigx/lynx-richtext';
 import { computeRuns, markPriority, type ActiveMark } from './overlap.js';
 
-export function docToMd(doc: RichDoc): string {
+/** Serialize one plugin-owned span back to markdown (a plugin's `inline.serialize`). */
+export type SpanSerializer = (span: InlineSpan, text: string) => string;
+
+export interface DocToMdOptions {
+    /**
+     * Plugin serializers keyed by the span type they own
+     * (`docMapping.spanType`). A plugin-owned span is emitted **atomically**:
+     * the serializer's output replaces the covered text entirely.
+     */
+    serializers?: ReadonlyMap<string, SpanSerializer>;
+}
+
+export function docToMd(doc: RichDoc, options?: DocToMdOptions): string {
     const parts: string[] = [];
+    const serializers = options?.serializers;
+    // Plugin-owned spans, prefiltered once for the whole doc — the per-run
+    // lookup searches only these (typically zero or a handful).
+    const pluginSpans = serializers ? doc.spans.filter((s) => serializers.has(s.type)) : [];
 
     for (const seg of segmentize(doc)) {
         if (seg.type === 'raw') {
             parts.push(doc.text.slice(seg.start, seg.end));
             continue;
         }
-        const inline = serializeInline(doc, seg.start, seg.end, seg.type === 'paragraph');
+        const inline = serializeInline(doc, seg.start, seg.end, seg.type === 'paragraph', serializers, pluginSpans);
         if (seg.type === 'heading') {
             const level = Math.min(6, Math.max(1, seg.level ?? 1));
             parts.push(`${'#'.repeat(level)} ${inline}`);
@@ -97,7 +113,14 @@ function segmentize(doc: RichDoc): Segment[] {
 }
 
 /** Serialize one segment's text + spans into markdown inline syntax. */
-function serializeInline(doc: RichDoc, start: number, end: number, escapeLineStart: boolean): string {
+function serializeInline(
+    doc: RichDoc,
+    start: number,
+    end: number,
+    escapeLineStart: boolean,
+    serializers?: ReadonlyMap<string, SpanSerializer>,
+    pluginSpans: readonly InlineSpan[] = [],
+): string {
     const runs = computeRuns(doc.spans, start, end);
     if (runs.length === 0) {
         return escapeText(doc.text.slice(start, end), escapeLineStart);
@@ -123,7 +146,16 @@ function serializeInline(doc: RichDoc, start: number, end: number, escapeLineSta
 
     for (let i = 0; i < runs.length; i++) {
         const run = runs[i];
-        const desired = [...run.active].sort((a, b) => {
+        // A plugin-owned mark serializes atomically: its serializer output
+        // replaces the covered text, and the mark never enters the
+        // close/reopen stack (other marks may still wrap it). Atomic emission
+        // only applies when exactly ONE plugin mark covers the run —
+        // overlapping plugin spans are ambiguous, so the run degrades to its
+        // plain text (content preserved, no plugin syntax emitted).
+        const pluginMarks = serializers ? run.active.filter((m) => serializers.has(m.type)) : [];
+        const pluginMark = pluginMarks.length === 1 ? pluginMarks[0] : undefined;
+        const active = pluginMarks.length ? run.active.filter((m) => !serializers!.has(m.type)) : run.active;
+        const desired = [...active].sort((a, b) => {
             const ea = contEnd[i].get(a.key) ?? run.end;
             const eb = contEnd[i].get(b.key) ?? run.end;
             return eb - ea || markPriority(a) - markPriority(b);
@@ -138,6 +170,19 @@ function serializeInline(doc: RichDoc, start: number, end: number, escapeLineSta
         for (let j = keep; j < desired.length; j++) {
             out += delimiter(desired[j], doc, 'open');
             open.push(desired[j]);
+        }
+
+        if (pluginMark) {
+            // Emit the serialized form once — on the span's first run within
+            // this segment — and suppress the covered text everywhere.
+            const span = pluginSpans.find(
+                (s) => s.type === pluginMark.type && s.start <= run.start && s.end >= run.end,
+            );
+            if (span && run.start === Math.max(span.start, start)) {
+                out += serializers!.get(pluginMark.type)!(span, doc.text.slice(span.start, span.end));
+            }
+            first = false;
+            continue;
         }
 
         const slice = doc.text.slice(run.start, run.end);

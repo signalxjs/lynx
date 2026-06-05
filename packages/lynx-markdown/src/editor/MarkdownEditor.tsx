@@ -22,7 +22,7 @@
  * parent.
  */
 
-import { component, signal, watch, type Define } from '@sigx/lynx';
+import { component, signal, useElementLayout, watch, type Define } from '@sigx/lynx';
 import {
     RichTextInput,
     RichTextMethods,
@@ -33,10 +33,13 @@ import {
     type RichTextHandle,
     type SelectionState,
 } from '@sigx/lynx-richtext';
-import { mdToDoc } from './convert/mdToDoc.js';
-import { docToMd } from './convert/docToMd.js';
+import { mdToDoc, type MdToDocOptions } from './convert/mdToDoc.js';
+import { docToMd, type DocToMdOptions, type SpanSerializer } from './convert/docToMd.js';
 import { EditorToolbar, type ToolbarRenderItem } from './toolbar/Toolbar.js';
-import type { ToolbarItem } from './toolbar/items.js';
+import { defaultToolbarItems, type ToolbarItem } from './toolbar/items.js';
+import type { MarkdownEditorPlugin, TriggerItem, TriggerSelectApi } from './plugin.js';
+import { createTriggerSessionManager, type TriggerSession } from './trigger/session.js';
+import { SuggestionPopup } from './trigger/SuggestionPopup.js';
 
 export type MarkdownEditorMode = 'auto' | 'fixed' | 'fullscreen';
 
@@ -49,6 +52,12 @@ export interface MarkdownEditorController {
     /** 1–6 sets a heading; 0 reverts to paragraph. */
     setHeading(level: 0 | 1 | 2 | 3 | 4 | 5 | 6): void;
     insertText(text: string): void;
+    /**
+     * Replace `[start, end)` (UTF-16 offsets in the document text) with
+     * `text`, leaving the caret after it. What trigger plugins use to swap
+     * the typed query for the selected suggestion.
+     */
+    replaceRange(start: number, end: number, text: string): void;
     /** Clear the document (chat send). */
     clear(): void;
     focus(): void;
@@ -83,6 +92,12 @@ export type MarkdownEditorProps =
     & Define.Prop<'toolbarItems', ToolbarItem[], false>
     /** Re-skin the built-in toolbar's item rendering (what daisyUI does). */
     & Define.Prop<'renderToolbarItem', ToolbarRenderItem, false>
+    /**
+     * Editor plugins ({@link MarkdownEditorPlugin}) — inline syntax, trigger
+     * suggestions, extra toolbar items. Pass a stable array (e.g. a module
+     * constant); the set is captured at mount.
+     */
+    & Define.Prop<'plugins', MarkdownEditorPlugin[], false>
     & Define.Prop<'onChange', (markdown: string) => void, false>
     & Define.Prop<'onSelectionChange', (sel: SelectionState) => void, false>
     & Define.Prop<'onFocus', () => void, false>
@@ -97,10 +112,59 @@ const ELEMENT_PADDING = 16;
 export const MarkdownEditor = component<MarkdownEditorProps>(({ props }) => {
     let el: RichTextHandle = null;
 
+    // --- plugins (captured at mount; pass a stable array) ---
+    const plugins = props.plugins ?? [];
+    const inlinePlugins = plugins.filter((p) => p.inline);
+    // Duplicate identifiers would silently last-win (conversion maps) or make
+    // trigger routing ambiguous (plugin name lookups) — flag the config error.
+    const warnDuplicates = (key: string, values: string[]): void => {
+        const seen = new Set<string>();
+        for (const value of values) {
+            if (seen.has(value)) {
+                // Conversion maps resolve last-wins, trigger routing first-wins
+                // — don't promise either; duplicates are a config error.
+                console.warn(
+                    `[MarkdownEditor] duplicate plugin ${key} "${value}" — resolution is ambiguous, rename to disambiguate.`,
+                );
+            }
+            seen.add(value);
+        }
+    };
+    warnDuplicates('name', plugins.map((p) => p.name));
+    warnDuplicates('syntax.name', inlinePlugins.map((p) => p.inline!.syntax.name));
+    warnDuplicates('docMapping.spanType', inlinePlugins.map((p) => p.inline!.docMapping.spanType));
+    // Trigger routing is first-match-wins — a duplicate char/pattern means the
+    // later plugin's trigger is silently unreachable.
+    warnDuplicates(
+        'trigger',
+        plugins
+            .filter((p) => p.trigger)
+            .map((p) => (p.trigger!.char !== undefined ? `char:${p.trigger!.char}` : `pattern:${p.trigger!.pattern}`)),
+    );
+    const convertIn: MdToDocOptions | undefined = inlinePlugins.length
+        ? {
+            extensions: inlinePlugins.map((p) => p.inline!.syntax),
+            spanMappers: Object.fromEntries(
+                inlinePlugins.map((p) => [p.inline!.syntax.name, p.inline!.docMapping.toSpan]),
+            ),
+        }
+        : undefined;
+    const convertOut: DocToMdOptions | undefined = inlinePlugins.length
+        ? {
+            serializers: new Map<string, SpanSerializer>(
+                inlinePlugins.map((p) => [
+                    p.inline!.docMapping.spanType,
+                    (span, text) => p.inline!.serialize(span, text),
+                ]),
+            ),
+        }
+        : undefined;
+    const pluginToolbarItems = plugins.flatMap((p) => p.toolbar ?? []);
+
     // --- sync state (see module docs) ---
     const initialMd = typeof props.value === 'string' ? props.value : '';
     let lastEmittedMd: string | null = initialMd;
-    let lastDocFromElement: RichDoc = normalizeDoc(mdToDoc(initialMd));
+    let lastDocFromElement: RichDoc = normalizeDoc(mdToDoc(initialMd, 0, convertIn));
     let lastSeenVersion = 0;
     let composing = false;
     let pendingExternal: string | null = null;
@@ -113,13 +177,31 @@ export const MarkdownEditor = component<MarkdownEditorProps>(({ props }) => {
     // sizes views from styles, never from native intrinsic content.
     const reportedHeight = signal(0);
 
+    // --- trigger sessions (suggestion popup) ---
+    const triggers = plugins
+        .filter((p) => p.trigger)
+        .map((p) => ({ plugin: p.name, spec: p.trigger! }));
+    // Boxed like selBox: signal values must be objects.
+    const sessionBox = signal<{ current: TriggerSession | null }>({ current: null });
+    const triggerManager = triggers.length
+        ? createTriggerSessionManager({
+            triggers,
+            onUpdate: (s) => {
+                sessionBox.current = s;
+            },
+        })
+        : null;
+    // Page-absolute frame of the input's relative wrapper — the popup needs
+    // it to relate the element-local caret rect to the keyboard.
+    const { layout: inputFrame, onLayoutChange: onInputLayout } = useElementLayout();
+
     const applyExternal = (md: string): void => {
         if (md === lastEmittedMd) return; // our own echo
         if (composing) {
             pendingExternal = md;
             return;
         }
-        const doc = mdToDoc(md, lastSeenVersion);
+        const doc = mdToDoc(md, lastSeenVersion, convertIn);
         if (docEquals(normalizeDoc(doc), lastDocFromElement)) {
             lastEmittedMd = md; // same content, different markdown spelling
             return;
@@ -138,8 +220,9 @@ export const MarkdownEditor = component<MarkdownEditorProps>(({ props }) => {
         composing = isComposing;
         lastSeenVersion = doc.v;
         lastDocFromElement = normalizeDoc(doc);
+        triggerManager?.syncText(doc.text);
         if (isComposing) return;
-        const md = docToMd(doc);
+        const md = docToMd(doc, convertOut);
         if (md !== lastEmittedMd) {
             lastEmittedMd = md;
             props.onChange?.(md);
@@ -161,6 +244,12 @@ export const MarkdownEditor = component<MarkdownEditorProps>(({ props }) => {
             else RichTextMethods.setBlockType(el, 'heading', level);
         },
         insertText: (text) => RichTextMethods.insertText(el, text),
+        replaceRange: (start, end, text) => {
+            // insertText replaces the selection — two existing fire-and-forget
+            // commands compose into a range replace (no new native method).
+            RichTextMethods.setSelectionRange(el, start, end);
+            RichTextMethods.insertText(el, text);
+        },
         clear: () => RichTextMethods.setDocument(el, emptyDoc(lastSeenVersion)),
         focus: () => RichTextMethods.focus(el),
         blur: () => RichTextMethods.blur(el),
@@ -168,6 +257,21 @@ export const MarkdownEditor = component<MarkdownEditorProps>(({ props }) => {
         getSelection: () => selBox.current,
     };
     props.controllerRef?.(controller);
+
+    const handleTriggerSelect = (item: TriggerItem): void => {
+        const session = triggerManager?.session;
+        if (!session) return;
+        const spec = plugins.find((p) => p.name === session.plugin)?.trigger;
+        if (!spec) return;
+        const range = { start: session.anchor, end: session.caret };
+        const api: TriggerSelectApi = {
+            replaceQuery: (text) => controller.replaceRange(range.start, range.end, text),
+            range,
+            controller,
+        };
+        triggerManager!.close();
+        spec.onSelect(item, api);
+    };
 
     return () => {
         const fontSize = props.fontSize ?? DEFAULT_FONT_SIZE;
@@ -182,16 +286,78 @@ export const MarkdownEditor = component<MarkdownEditorProps>(({ props }) => {
         if (mode === 'fullscreen') maxHeight = 0; // unbounded; element fills parent
 
         const toolbarPlacement = props.toolbar === true ? 'bottom' : props.toolbar;
+        // Plugin items append after the base set (explicit `toolbarItems` wins
+        // as the base, otherwise the defaults).
+        const toolbarItems = pluginToolbarItems.length
+            ? [...(props.toolbarItems ?? defaultToolbarItems), ...pluginToolbarItems]
+            : props.toolbarItems;
         const toolbarNode = toolbarPlacement
             ? (
                 <EditorToolbar
                     controller={controller}
                     selection={selBox.current}
-                    items={props.toolbarItems}
+                    items={toolbarItems}
                     renderItem={props.renderToolbarItem}
                 />
             )
             : null;
+
+        const session = sessionBox.current;
+        const activeTrigger = session
+            ? plugins.find((p) => p.name === session.plugin)?.trigger
+            : undefined;
+        // Gate on the wrapper frame being measured — before the first
+        // bindlayoutchange the placement math would clamp against a 0-height
+        // container and misposition the popup.
+        const popupNode = session && activeTrigger && session.items.length > 0 && inputFrame.value
+            ? (
+                <SuggestionPopup
+                    items={session.items}
+                    caretRect={selBox.current?.caretRect ?? null}
+                    containerFrame={inputFrame.value}
+                    renderItem={activeTrigger.renderItem}
+                    onSelect={handleTriggerSelect}
+                />
+            )
+            : null;
+
+        const inputNode = (
+            <RichTextInput
+                value={mdToDoc(initialMd, 0, convertIn)}
+                placeholder={props.placeholder}
+                editable={props.disabled ? false : undefined}
+                minHeight={minHeight}
+                maxHeight={maxHeight}
+                fontSize={fontSize}
+                textColor={props.textColor}
+                accentColor={props.accentColor}
+                placeholderColor={props.placeholderColor}
+                confirmType={props.confirmType}
+                autoFocus={props.autoFocus}
+                style={
+                    mode === 'fullscreen'
+                        ? { flexGrow: 1 }
+                        : { height: Math.max(minHeight, Math.min(reportedHeight.value || minHeight, maxHeight)) }
+                }
+                onElement={(handle) => {
+                    el = handle;
+                }}
+                onHeightChange={(height) => {
+                    reportedHeight.value = height;
+                }}
+                onChange={handleChange}
+                onSelection={(sel) => {
+                    selBox.current = sel;
+                    triggerManager?.syncCaret(sel.start === sel.end ? sel.start : -1);
+                    props.onSelectionChange?.(sel);
+                }}
+                onFocus={() => props.onFocus?.()}
+                onBlur={() => {
+                    triggerManager?.close();
+                    props.onBlur?.();
+                }}
+            />
+        );
 
         return (
             <view
@@ -203,37 +369,24 @@ export const MarkdownEditor = component<MarkdownEditorProps>(({ props }) => {
                 }}
             >
                 {toolbarPlacement === 'top' ? toolbarNode : null}
-                <RichTextInput
-                    value={mdToDoc(initialMd)}
-                    placeholder={props.placeholder}
-                    editable={props.disabled ? false : undefined}
-                    minHeight={minHeight}
-                    maxHeight={maxHeight}
-                    fontSize={fontSize}
-                    textColor={props.textColor}
-                    accentColor={props.accentColor}
-                    placeholderColor={props.placeholderColor}
-                    confirmType={props.confirmType}
-                    autoFocus={props.autoFocus}
-                    style={
-                        mode === 'fullscreen'
-                            ? { flexGrow: 1 }
-                            : { height: Math.max(minHeight, Math.min(reportedHeight.value || minHeight, maxHeight)) }
-                    }
-                    onElement={(handle) => {
-                        el = handle;
-                    }}
-                    onHeightChange={(height) => {
-                        reportedHeight.value = height;
-                    }}
-                    onChange={handleChange}
-                    onSelection={(sel) => {
-                        selBox.current = sel;
-                        props.onSelectionChange?.(sel);
-                    }}
-                    onFocus={() => props.onFocus?.()}
-                    onBlur={() => props.onBlur?.()}
-                />
+                {triggers.length
+                    ? (
+                        // Relative layer the popup positions in; measured so the
+                        // popup can clamp against the keyboard in page coords.
+                        <view
+                            bindlayoutchange={onInputLayout}
+                            style={{
+                                position: 'relative',
+                                ...(mode === 'fullscreen'
+                                    ? { display: 'flex', flexDirection: 'column', flexGrow: 1 }
+                                    : {}),
+                            }}
+                        >
+                            {inputNode}
+                            {popupNode}
+                        </view>
+                    )
+                    : inputNode}
                 {toolbarPlacement === 'bottom' ? toolbarNode : null}
             </view>
         );

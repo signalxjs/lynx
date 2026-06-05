@@ -181,3 +181,146 @@ function coverage(doc: RichDoc, type: string): Array<[number, number]> {
     }
     return merged;
 }
+
+// ---------------------------------------------------------------------------
+// Plugin inline mapping (P3): extension node ↔ editor span ↔ markdown
+// ---------------------------------------------------------------------------
+
+describe('plugin inline mapping', () => {
+    // The reference mention shape (#157): @[label](id) ↔ a 'mention' span.
+    const mentionSyntax = {
+        name: 'mention',
+        triggerChars: ['@'] as const,
+        match(text: string, pos: number) {
+            const m = /^@\[([^\]\n]+)\]\(([^)\n]+)\)/.exec(text.slice(pos));
+            if (!m) return null;
+            return {
+                node: {
+                    type: 'extension' as const,
+                    name: 'mention',
+                    attrs: { label: m[1], id: m[2] },
+                    raw: m[0],
+                },
+                end: pos + m[0].length,
+            };
+        },
+    };
+    const inOpts = {
+        extensions: [mentionSyntax],
+        spanMappers: {
+            mention: (node: { attrs: Record<string, string> }) => ({
+                text: node.attrs.label,
+                span: { type: 'mention' as const, attrs: { id: node.attrs.id, label: node.attrs.label } },
+            }),
+        },
+    };
+    const outOpts = {
+        serializers: new Map([
+            ['mention', (span: { attrs?: Record<string, string> }, text: string) =>
+                `@[${text}](${span.attrs?.id ?? ''})`],
+        ]),
+    };
+
+    it('maps a mention to a span showing the label (not a raw block)', () => {
+        const doc = mdToDoc('ping @[Andy](u1)!', 0, inOpts);
+        expect(doc.text).toBe('ping Andy!');
+        expect(doc.blocks).toEqual([]);
+        expect(doc.spans).toEqual([
+            { start: 5, end: 9, type: 'mention', attrs: { id: 'u1', label: 'Andy' } },
+        ]);
+    });
+
+    it('serializes a mention span back atomically', () => {
+        const doc = mdToDoc('ping @[Andy](u1)!', 0, inOpts);
+        expect(docToMd(doc, outOpts)).toBe('ping @[Andy](u1)!');
+    });
+
+    it('round-trips a mention wrapped in other formatting', () => {
+        const md = '**hi @[Andy](u1) yo**';
+        const doc = mdToDoc(md, 0, inOpts);
+        expect(doc.text).toBe('hi Andy yo');
+        expect(docToMd(doc, outOpts)).toBe(md);
+    });
+
+    it('keeps the block raw when no mapper handles the extension', () => {
+        const doc = mdToDoc('ping @[Andy](u1)!', 0, { extensions: inOpts.extensions });
+        expect(doc.blocks).toEqual([{ start: 0, end: 17, type: 'raw' }]);
+        expect(doc.text).toBe('ping @[Andy](u1)!');
+        // Raw blocks serialize byte-for-byte even without plugin serializers.
+        expect(docToMd(doc)).toBe('ping @[Andy](u1)!');
+    });
+
+    it('mentions degrade to their label without a serializer (documented v1)', () => {
+        const doc = mdToDoc('ping @[Andy](u1)!', 0, inOpts);
+        expect(docToMd(doc)).toBe('ping Andy!');
+    });
+});
+
+describe('plugin mapper hardening', () => {
+    const syntax = {
+        name: 'mention',
+        triggerChars: ['@'] as const,
+        match(text: string, pos: number) {
+            const m = /^@\[([^\]\n]+)\]\(([^)\n]+)\)/.exec(text.slice(pos));
+            if (!m) return null;
+            return {
+                node: { type: 'extension' as const, name: 'mention', attrs: { label: m[1], id: m[2] }, raw: m[0] },
+                end: pos + m[0].length,
+            };
+        },
+    };
+
+    it('treats a throwing mapper as not representable (raw block, no crash)', () => {
+        const doc = mdToDoc('hi @[Andy](u1)', 0, {
+            extensions: [syntax],
+            spanMappers: {
+                mention: () => {
+                    throw new Error('plugin bug');
+                },
+            },
+        });
+        expect(doc.blocks).toEqual([{ start: 0, end: 14, type: 'raw' }]);
+        expect(doc.text).toBe('hi @[Andy](u1)');
+    });
+
+    it('falls back to raw text when an impure mapper disagrees with the probe', () => {
+        // Accepts the representability probe, then fails during flattening —
+        // the source text must survive instead of being dropped.
+        let calls = 0;
+        const doc = mdToDoc('hi @[Andy](u1)', 0, {
+            extensions: [syntax],
+            spanMappers: {
+                mention: (node) => {
+                    calls++;
+                    if (calls > 1) throw new Error('impure');
+                    return { text: node.attrs.label, span: { type: 'mention' } };
+                },
+            },
+        });
+        expect(doc.text).toBe('hi @[Andy](u1)');
+        expect(doc.spans).toEqual([]);
+    });
+});
+
+describe('overlapping plugin spans', () => {
+    it('degrades ambiguous runs to plain text instead of dropping content', () => {
+        // Two different plugin-owned span types over the same range — atomic
+        // serialization is ambiguous, so the covered text must survive as-is.
+        const doc: RichDoc = {
+            text: 'hi Andy!',
+            spans: [
+                { start: 3, end: 7, type: 'mention', attrs: { id: 'u1' } },
+                { start: 3, end: 7, type: 'code' },
+            ],
+            blocks: [],
+            v: 0,
+        };
+        const out = docToMd(doc, {
+            serializers: new Map([
+                ['mention', (s, t) => `@[${t}](${s.attrs?.id ?? ''})`],
+                ['code', (_s, t) => `~${t}~`],
+            ]),
+        });
+        expect(out).toContain('Andy');
+    });
+});
