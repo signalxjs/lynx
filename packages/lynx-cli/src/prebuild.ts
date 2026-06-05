@@ -531,8 +531,9 @@ export function injectAndroidFeatures(
         '    <!-- {{FEATURES}} -->',
         `    <!-- Feature declarations (app config + auto-linked modules) -->\n${featureLines}`
     );
-    writeFileIfChanged(manifestFile, content);
-    log(`Android: injected ${features.length} uses-feature declaration(s)`);
+    if (writeFileIfChanged(manifestFile, content)) {
+        log(`Android: injected ${features.length} uses-feature declaration(s)`);
+    }
 }
 
 /**
