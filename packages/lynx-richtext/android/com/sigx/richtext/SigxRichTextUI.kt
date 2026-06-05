@@ -249,16 +249,44 @@ class SigxRichTextUI(context: LynxContext) : LynxUI<RichEditText>(context) {
                 // Collapsed: tri-state typing override (Android's typingAttributes).
                 val inherited = formatActiveAt(editable, start, type)
                 val current = typingOverrides[type] ?: inherited
+                if (!current) {
+                    // `code` is terminal (mirrors the markdown serializer):
+                    // turning it on clears the marks it excludes, and the
+                    // excluded marks can't turn on inside it.
+                    val codeActive = typingOverrides["code"] ?: formatActiveAt(editable, start, "code")
+                    if (type == "code") {
+                        typingOverrides["bold"] = false
+                        typingOverrides["italic"] = false
+                        typingOverrides["strike"] = false
+                    } else if (codeActive) {
+                        fireSelection(start, end)
+                        callback?.invoke(LynxUIMethodConstants.SUCCESS, resultMap("active" to false))
+                        return@post
+                    }
+                }
                 typingOverrides[type] = !current
                 fireSelection(start, end)
                 callback?.invoke(LynxUIMethodConstants.SUCCESS, resultMap("active" to !current))
                 return@post
             }
             val active = rangeFullyHas(editable, type, start, end)
+            // `code` is terminal (mirrors the markdown serializer): the marks
+            // it excludes can't turn on across an all-code selection.
+            if (!active && type != "code" && rangeFullyHas(editable, "code", start, end)) {
+                fireSelection(start, end)
+                callback?.invoke(LynxUIMethodConstants.SUCCESS, resultMap("active" to false))
+                return@post
+            }
             isProgrammaticEdit = true
             if (active) {
                 removeFormatRange(editable, type, start, end)
             } else {
+                if (type == "code") {
+                    // Turning code on strips the marks it excludes.
+                    removeFormatRange(editable, "bold", start, end)
+                    removeFormatRange(editable, "italic", start, end)
+                    removeFormatRange(editable, "strike", start, end)
+                }
                 editable.setSpan(newMarker(type), start, end, DocumentMapper.INLINE_FLAGS)
             }
             isProgrammaticEdit = false

@@ -142,20 +142,25 @@ enum DocumentMapper {
                 font = theme.headingFont(level: block["level"] as? Int ?? 1)
             }
 
-            if attrs[SigxAttr.code] != nil {
+            // `code` is terminal (mirrors the markdown serializer, where
+            // computeRuns drops every mark but `link` inside a code span):
+            // bold/italic/strike never render inside a code run, so the
+            // field can't show styling that serialization would discard.
+            let isCode = attrs[SigxAttr.code] != nil
+            if isCode {
                 font = theme.codeFont
                 background = theme.codeBackground
             }
 
             var traits = font.fontDescriptor.symbolicTraits
-            if attrs[SigxAttr.bold] != nil { traits.insert(.traitBold) }
-            if attrs[SigxAttr.italic] != nil { traits.insert(.traitItalic) }
+            if !isCode, attrs[SigxAttr.bold] != nil { traits.insert(.traitBold) }
+            if !isCode, attrs[SigxAttr.italic] != nil { traits.insert(.traitItalic) }
             if traits != font.fontDescriptor.symbolicTraits,
                let descriptor = font.fontDescriptor.withSymbolicTraits(traits) {
                 font = UIFont(descriptor: descriptor, size: font.pointSize)
             }
 
-            if attrs[SigxAttr.strike] != nil { strike = true }
+            if !isCode, attrs[SigxAttr.strike] != nil { strike = true }
             if attrs[SigxAttr.link] != nil {
                 color = theme.accentColor
                 underline = true

@@ -263,7 +263,23 @@ public class SigxRichTextUI: LynxUI<RichTextView> {
                 // carries (or drops) the format.
                 var typing = view.typingAttributes
                 let active = typing[key] != nil
-                if active { typing.removeValue(forKey: key) } else { typing[key] = true }
+                if active {
+                    typing.removeValue(forKey: key)
+                } else {
+                    // `code` is terminal (mirrors the markdown serializer):
+                    // turning it on clears the marks it excludes, and the
+                    // excluded marks can't turn on inside it.
+                    if key == SigxAttr.code {
+                        typing.removeValue(forKey: SigxAttr.bold)
+                        typing.removeValue(forKey: SigxAttr.italic)
+                        typing.removeValue(forKey: SigxAttr.strike)
+                    } else if typing[SigxAttr.code] != nil, key != SigxAttr.link {
+                        self.fireSelection()
+                        callback(SigxRichTextUI.kUIMethodSuccess, ["active": false])
+                        return
+                    }
+                    typing[key] = true
+                }
                 typing[.font] = SigxRichTextUI.deriveTypingFont(from: typing, theme: self.theme)
                 view.typingAttributes = typing
                 self.fireSelection()
@@ -275,11 +291,25 @@ public class SigxRichTextUI: LynxUI<RichTextView> {
                 return
             }
             let active = SigxRichTextUI.rangeFullyHasAttribute(storage, key: key, range: selection)
+            // `code` is terminal (mirrors the markdown serializer): the marks
+            // it excludes can't turn on across an all-code selection.
+            if !active, key != SigxAttr.code, key != SigxAttr.link,
+               SigxRichTextUI.rangeFullyHasAttribute(storage, key: SigxAttr.code, range: selection) {
+                self.fireSelection()
+                callback(SigxRichTextUI.kUIMethodSuccess, ["active": false])
+                return
+            }
             self.isProgrammaticEdit = true
             storage.beginEditing()
             if active {
                 storage.removeAttribute(key, range: selection)
             } else {
+                if key == SigxAttr.code {
+                    // Turning code on strips the marks it excludes.
+                    storage.removeAttribute(SigxAttr.bold, range: selection)
+                    storage.removeAttribute(SigxAttr.italic, range: selection)
+                    storage.removeAttribute(SigxAttr.strike, range: selection)
+                }
                 storage.addAttribute(key, value: true, range: selection)
             }
             DocumentMapper.refreshVisuals(storage, range: selection, theme: self.theme)
@@ -503,7 +533,9 @@ public class SigxRichTextUI: LynxUI<RichTextView> {
            (block["type"] as? String) == "heading" {
             font = theme.headingFont(level: block["level"] as? Int ?? 1)
         }
-        if attrs[SigxAttr.code] != nil { font = theme.codeFont }
+        // `code` is terminal (matches the serializer + applyBaseVisuals):
+        // characters typed inside a code run never pick up bold/italic.
+        if attrs[SigxAttr.code] != nil { return theme.codeFont }
         var traits = font.fontDescriptor.symbolicTraits
         if attrs[SigxAttr.bold] != nil { traits.insert(.traitBold) }
         if attrs[SigxAttr.italic] != nil { traits.insert(.traitItalic) }
