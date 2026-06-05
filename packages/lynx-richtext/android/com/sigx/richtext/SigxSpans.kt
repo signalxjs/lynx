@@ -85,7 +85,11 @@ class SigxMentionSpan(
         workPaint.set(base)
         workPaint.textSize = base.textSize * 0.9f
         workPaint.typeface = Typeface.create(base.typeface, Typeface.BOLD)
+        // The base paint may carry decorations from overlapping spans
+        // (strike/underline/code background) — a chip never inherits them.
         workPaint.isUnderlineText = false
+        workPaint.isStrikeThruText = false
+        workPaint.bgColor = 0
         workPaint.isAntiAlias = true
         return workPaint
     }
