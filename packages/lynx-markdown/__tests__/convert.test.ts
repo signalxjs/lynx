@@ -130,6 +130,12 @@ describe('mdToDoc', () => {
         }
     });
 
+    it('degrades empty fences to raw (zero-length block attrs cannot persist natively)', () => {
+        const doc = mdToDoc('```\n```');
+        expect(doc.blocks).toEqual([{ start: 0, end: 7, type: 'raw' }]);
+        expect(doc.text).toBe('```\n```');
+    });
+
     it('degrades blockquotes containing non-paragraphs to raw', () => {
         for (const md of ['> - a\n> - b', '> # heading']) {
             const doc = mdToDoc(md);

@@ -68,7 +68,7 @@ describe('RichTextMethods.applyFormat', () => {
         expect(scheduleFlush).toHaveBeenCalled();
     });
 
-    it('omits attrs when not given (unlink form is an explicit empty href)', () => {
+    it('omits attrs when not given (native treats a missing/empty href as unlink)', () => {
         RichTextMethods.applyFormat(el, 'link', 3, 9);
         expect(pushOp).toHaveBeenCalledWith(OP.INVOKE_UI_METHOD, 42, 'applyFormat', {
             type: 'link',

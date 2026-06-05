@@ -129,6 +129,13 @@ export function mdToDoc(markdown: string, v = 0, options?: MdToDocOptions): Rich
                 break;
             }
             case 'codeBlock': {
+                // An empty fence would model as a zero-length block attr,
+                // which native can't persist (an empty paragraph can't hold
+                // one) — keep the source raw instead.
+                if (block.value === '') {
+                    push(block.raw, { type: 'raw' });
+                    break;
+                }
                 // Content is literal — one codeBlock line per content line
                 // (blank lines included), no inline parsing, `lang` on every
                 // line of the fence so adjacent fences with different langs
@@ -179,11 +186,15 @@ function isFlatList(list: ListBlock, mappers?: Record<string, ExtensionSpanMappe
 /**
  * A blockquote the flat model can hold losslessly: only plain paragraphs of
  * representable inline (a quote containing a list / heading / code / nested
- * quote degrades to raw).
+ * quote degrades to raw, as does an empty quote — it would model as no
+ * lines at all and lose its source).
  */
 function isFlatQuote(quote: BlockquoteBlock, mappers?: Record<string, ExtensionSpanMapper>): boolean {
-    return quote.children.every(
-        (child) => child.type === 'paragraph' && inlineRepresentable(child.children, mappers),
+    return (
+        quote.children.length > 0 &&
+        quote.children.every(
+            (child) => child.type === 'paragraph' && inlineRepresentable(child.children, mappers),
+        )
     );
 }
 

@@ -421,6 +421,14 @@ class SigxRichTextUI(context: LynxContext) : LynxUI<RichEditText>(context) {
                 callback?.invoke(LynxUIMethodConstants.SUCCESS, resultMap("applied" to false, "reason" to "emptyRange"))
                 return@post
             }
+            // Code blocks are literal — the serializer drops inline spans
+            // inside them, so a link there could never round-trip.
+            if (href.isNotEmpty() &&
+                editable.getSpans(start, end, SigxBlockSpan::class.java).any { it.type == "codeBlock" }
+            ) {
+                callback?.invoke(LynxUIMethodConstants.SUCCESS, resultMap("applied" to false, "reason" to "codeBlock"))
+                return@post
+            }
             isProgrammaticEdit = true
             // Replace any overlapping links (splitting ones that extend past
             // the range), then lay down the new one.

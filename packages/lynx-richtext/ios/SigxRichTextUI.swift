@@ -425,6 +425,21 @@ public class SigxRichTextUI: LynxUI<RichTextView> {
                 return
             }
             let range = NSRange(location: s, length: e - s)
+            // Code blocks are literal — the serializer drops inline spans
+            // inside them, so a link there could never round-trip.
+            if !href.isEmpty {
+                var intersectsCode = false
+                storage.enumerateAttribute(SigxAttr.block, in: range, options: []) { value, _, stop in
+                    if let block = value as? [String: Any], (block["type"] as? String) == "codeBlock" {
+                        intersectsCode = true
+                        stop.pointee = true
+                    }
+                }
+                if intersectsCode {
+                    callback(SigxRichTextUI.kUIMethodSuccess, ["applied": false, "reason": "codeBlock"])
+                    return
+                }
+            }
             self.isProgrammaticEdit = true
             storage.beginEditing()
             if href.isEmpty {
