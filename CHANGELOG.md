@@ -4,6 +4,8 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 ## [Unreleased]
 
+## [0.4.8] - 2026-06-05
+
 ### Added
 
 - `@sigx/lynx-richtext` — new package: a native rich-text input element
@@ -19,7 +21,29 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
   not-yet-modeled syntax (lists, tables, code fences). Chat-style sizing
   (`minLines`/`maxLines` auto-grow, `fixed`, `fullscreen`) and an imperative
   controller (`toggleBold`, `setHeading`, `clear`, …). The showcase gains a
-  **Markdown editor lab**.
+  **Markdown editor lab** and a **Markdown composer lab** (the full chat-composer
+  shape: editor + formatting toolbar riding `KeyboardStickyView`, scroll-to-newest
+  on send).
+- `@sigx/lynx-daisyui` — `useMarkdownEditorTheme()`: reactively resolves the
+  active theme's palette (normalized to hex — the native element can't read
+  CSS variables) into `MarkdownEditor` color props; a theme switch recolors
+  the editor live.
+- `@sigx/lynx-runtime` — `ignore-focus` is now a typed common JSX attribute.
+  Put it on input-accessory chrome (toolbars, send bars): without it, iOS
+  dispatches `endEditing:` on any touch-down outside the focused field and
+  folds the keyboard before the tapped command can run.
+
+### Fixed
+
+- `@sigx/lynx-gestures` — dynamic `Pressable` `disabled` never reached the
+  main-thread gesture worklets (the BG-side ref write doesn't cross threads):
+  a Pressable mounted disabled stayed dead at the gesture layer forever, even
+  after the prop flipped to enabled. Changes now ship via a `runOnMainThread`
+  worklet. Affects every Pressable-based control (`Button`, …).
+- `@sigx/lynx-webview` — `enable-debug` prop setter took a primitive `Bool`,
+  which the `propSetterLookUp` bridging path fills with object pointer bits;
+  now `NSNumber?` with manual unboxing (latent, same class of bug as the
+  richtext `editable` issue found during P1 QA).
 
 ### Removed (breaking)
 

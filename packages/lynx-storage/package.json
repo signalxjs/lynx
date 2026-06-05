@@ -1,6 +1,6 @@
 {
     "name": "@sigx/lynx-storage",
-    "version": "0.4.7",
+    "version": "0.4.8",
     "description": "Persistent key-value storage for sigx-lynx",
     "type": "module",
     "main": "./dist/index.js",
