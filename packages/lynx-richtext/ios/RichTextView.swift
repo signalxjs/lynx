@@ -107,8 +107,12 @@ public final class RichTextView: UITextView, UIGestureRecognizerDelegate {
     /// undo, and the change event all fire as for any keystroke.
     public override func deleteBackward() {
         let range = selectedRange
+        // Gate on the chip invariant (the char IS the U+FFFC), not just the
+        // mention attr — a non-conforming mention span covers regular text,
+        // where forcing a 1-unit deletion could split a surrogate pair.
         if range.length == 0, range.location > 0,
            let storage = attributedText, storage.length >= range.location,
+           (storage.string as NSString).character(at: range.location - 1) == 0xFFFC,
            storage.attribute(SigxAttr.mention, at: range.location - 1, effectiveRange: nil) != nil {
             selectedRange = NSRange(location: range.location - 1, length: 1)
         }
