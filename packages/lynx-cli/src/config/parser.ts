@@ -272,7 +272,10 @@ function pickIosIcon(
     raw: string | IosIconConfig | undefined,
     topLevelIcon: string | undefined,
 ): { light: string; dark: string | null; tinted: string | null } {
-    if (typeof raw === 'object') {
+    // The config is plain JS at runtime — guard against `ios.icon: null`
+    // (typeof null === 'object') so "unset via null" degrades to the
+    // string/undefined path instead of throwing.
+    if (raw !== null && typeof raw === 'object') {
         return {
             light: resolveAssetPath(cwd, raw.light, 'icon.png'),
             dark: raw.dark ? resolveAssetPath(cwd, raw.dark, '') : null,

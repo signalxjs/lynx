@@ -64,6 +64,16 @@ describe('resolveAssets', () => {
         expect(assets.ios.iconTinted).toBeNull();
     });
 
+    it('treats ios.icon: null as unset (plain-JS config)', () => {
+        const assets = resolveAssets(
+            { ...BASE_CONFIG, icon: 'top.png', ios: { icon: null as unknown as string } },
+            testDir,
+        );
+        expect(assets.ios.iconSource).toBe(join(testDir, 'top.png'));
+        expect(assets.ios.iconDark).toBeNull();
+        expect(assets.ios.iconTinted).toBeNull();
+    });
+
     it('resolves ios.icon object with dark/tinted variants', () => {
         const assets = resolveAssets(
             { ...BASE_CONFIG, ios: { icon: { light: 'l.png', dark: 'd.png', tinted: 't.png' } } },
