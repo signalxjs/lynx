@@ -1,10 +1,9 @@
-import { component, signal } from '@sigx/lynx';
+import { component, signal, pushOp, scheduleFlush, OP } from '@sigx/lynx';
 import { Screen } from '@sigx/lynx-navigation';
 import {
     Button,
     Col,
     Row,
-    ScrollView,
     markdownComponents,
     useMarkdownEditorTheme,
 } from '@sigx/lynx-daisyui';
@@ -46,12 +45,24 @@ export const MarkdownComposerLab = component(() => {
     const isActive = (format: string): boolean =>
         activeFormats.value.split(',').includes(format);
 
+    let scrollEl: { id: number } | null = null;
+    const scrollToBottom = (): void => {
+        if (!scrollEl) return;
+        // Defer one tick so layout includes the just-appended bubble.
+        setTimeout(() => {
+            if (!scrollEl) return;
+            pushOp(OP.INVOKE_UI_METHOD, scrollEl.id, 'scrollTo', { offset: 100000, smooth: true });
+            scheduleFlush();
+        }, 60);
+    };
+
     const send = (): void => {
         const md = controller?.getMarkdown().trim() ?? '';
         if (!md) return;
         messages.$set([...messages, { own: true, md }]);
         controller?.clear();
         draftEmpty.value = true;
+        scrollToBottom();
     };
 
     const formatButton = (label: string, format: string, run: () => void) => (
@@ -69,7 +80,7 @@ export const MarkdownComposerLab = component(() => {
         <Col class="flex-fill bg-base-100">
             <Screen title="Markdown composer" />
             <KeyboardAvoidingView behavior="padding">
-                <ScrollView class="flex-1">
+                <scroll-view class="flex-1" scroll-orientation="vertical" ref={(el: { id: number }) => { scrollEl = el; }}>
                     <Col gap={8} padding={12}>
                         {messages.map((m) => (
                             <Row justify={m.own ? 'flex-end' : 'flex-start'} class="px-1">
@@ -79,7 +90,7 @@ export const MarkdownComposerLab = component(() => {
                             </Row>
                         ))}
                     </Col>
-                </ScrollView>
+                </scroll-view>
             </KeyboardAvoidingView>
 
             <KeyboardStickyView>
