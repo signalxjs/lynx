@@ -120,7 +120,11 @@ class SigxRichTextUI(context: LynxContext) : LynxUI<RichEditText>(context) {
         mView.hint = value ?: ""
     }
 
-    @LynxProp(name = "editable")
+    /** Editable unless explicitly disabled — `defaultBoolean = true` makes a
+     *  null/absent value mean editable, mirroring iOS (`value?.boolValue ?? true`).
+     *  Without it, `editable={undefined}` from JS coerces to false and the
+     *  EditText becomes permanently unfocusable (#182). */
+    @LynxProp(name = "editable", defaultBoolean = true)
     fun setEditable(value: Boolean) {
         mView.isEnabled = value
         mView.isFocusable = value
