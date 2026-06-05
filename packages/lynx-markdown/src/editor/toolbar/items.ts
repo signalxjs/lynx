@@ -18,10 +18,11 @@ export interface ToolbarItem {
     /** Stable identifier (also the default `key`). */
     id: string;
     /**
-     * Short text rendering (`B`, `H1`, …). The neutral toolbar renders this;
-     * skins may render `icon` instead and fall back to `label`.
+     * Short text rendering (`B`, `H1`, …). The neutral toolbar renders this
+     * (falling back to `id` when omitted); skins may render `icon` instead.
+     * Optional so icon-only items/skins don't need a dummy label.
      */
-    label: string;
+    label?: string;
     /** Optional icon hint for skins (e.g. an icon-set name). Never required. */
     icon?: string;
     /** Items with the same group render adjacent (skins may add separators). */

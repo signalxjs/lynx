@@ -77,6 +77,30 @@ describe('EditorToolbar', () => {
         expect(run).not.toHaveBeenCalled();
     });
 
+    it('renders accessibility metadata on default items', () => {
+        const { container } = render(
+            <EditorToolbar items={[{ id: 'bold', label: 'B', isActive: () => true, run: () => {} }]} />,
+        );
+        const item = container
+            .findAllByType('view')
+            .find((v) => v._handlers.has('bindtap'))!;
+        expect(item.props['accessibility-element']).toBe(true);
+        expect(item.props['accessibility-label']).toBe('B');
+        expect(item.props['accessibility-trait']).toBe('button');
+        expect(item.props['accessibility-status']).toBe('selected');
+    });
+
+    it('falls back to id for icon-only items (label optional)', () => {
+        const { container } = render(
+            <EditorToolbar items={[{ id: 'mention', icon: 'at-sign', run: () => {} }]} />,
+        );
+        expect(container.findByText('mention')).toBeTruthy();
+        const item = container
+            .findAllByType('view')
+            .find((v) => v._handlers.has('bindtap'))!;
+        expect(item.props['accessibility-label']).toBe('mention');
+    });
+
     it('sets ignore-focus on the toolbar root', () => {
         const { container } = render(<EditorToolbar items={[]} />);
         const root = container

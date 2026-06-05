@@ -57,8 +57,12 @@ export const EditorToolbar = component<EditorToolbarProps>(({ props }) => {
             key={item.id}
             style={{ ...ITEM_STYLE, ...(active ? { backgroundColor: ACTIVE_BG } : {}) }}
             bindtap={runItem}
+            accessibility-element={true}
+            accessibility-label={item.label ?? item.id}
+            accessibility-trait="button"
+            accessibility-status={active ? 'selected' : undefined}
         >
-            <text style={active ? { fontWeight: 'bold' } : undefined}>{item.label}</text>
+            <text style={active ? { fontWeight: 'bold' } : undefined}>{item.label ?? item.id}</text>
         </view>
     );
 

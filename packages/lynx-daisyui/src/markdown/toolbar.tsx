@@ -33,7 +33,7 @@ export const daisyToolbarItem: ToolbarRenderItem = (item, active, run) => (
         variant={active ? 'primary' : 'ghost'}
         onPress={run}
     >
-        {item.label}
+        {item.label ?? item.id}
     </Button>
 );
 
