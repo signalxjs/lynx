@@ -78,7 +78,7 @@ export function createTriggerSessionManager(opts: TriggerSessionManagerOptions):
     };
 
     const emit = (): void => {
-        opts.onUpdate(session ? { ...session } : null);
+        opts.onUpdate(session ? { ...session, items: [...session.items] } : null);
     };
 
     const close = (): void => {
@@ -182,7 +182,9 @@ export function createTriggerSessionManager(opts: TriggerSessionManagerOptions):
         },
         close,
         get session() {
-            return session;
+            // Snapshot — mutating the returned object must not desync internal
+            // state or bypass onUpdate (which also emits clones).
+            return session ? { ...session, items: [...session.items] } : null;
         },
     };
 }

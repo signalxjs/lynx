@@ -29,6 +29,8 @@ export type SuggestionPopupProps =
     & Define.Prop<'containerFrame', ElementLayout | null, false>
     & Define.Prop<'renderItem', SuggestionRenderItem, false>
     & Define.Prop<'onSelect', (item: TriggerItem) => void, false>
+    /** Highlighted row index (e.g. hardware-keyboard navigation); `-1`/omitted = none. */
+    & Define.Prop<'activeIndex', number, false>
     & Define.Prop<'maxHeight', number, false>
     & Define.Prop<'width', number, false>
     & Define.Prop<'class', string, false>;
@@ -38,14 +40,21 @@ const DEFAULT_MAX_HEIGHT = 220;
 const BORDER = 'rgba(127, 127, 127, 0.32)';
 /** Opaque neutral surface — the popup floats over editor text. */
 const SURFACE = '#f4f4f5';
+const ACTIVE_BG = 'rgba(128,128,128,0.25)';
 
 export const SuggestionPopup = component<SuggestionPopupProps>(({ props }) => {
     const keyboard = useKeyboard();
 
-    const defaultRenderItem: SuggestionRenderItem = (item) => (
+    const defaultRenderItem: SuggestionRenderItem = (item, active) => (
         <view
             key={item.id}
-            style={{ paddingLeft: '12px', paddingRight: '12px', paddingTop: '8px', paddingBottom: '8px' }}
+            style={{
+                paddingLeft: '12px',
+                paddingRight: '12px',
+                paddingTop: '8px',
+                paddingBottom: '8px',
+                ...(active ? { backgroundColor: ACTIVE_BG } : {}),
+            }}
         >
             <text style={{ fontSize: 15 }}>{item.label}</text>
         </view>
@@ -88,7 +97,7 @@ export const SuggestionPopup = component<SuggestionPopupProps>(({ props }) => {
                 }}
             >
                 <scroll-view scroll-orientation="vertical" style={{ maxHeight: pos.maxHeight }}>
-                    {items.map((item) => (
+                    {items.map((item, index) => (
                         // Accessibility lives on the tappable wrapper so screen
                         // readers treat the whole row as one button, regardless
                         // of what a custom renderItem puts inside.
@@ -99,7 +108,7 @@ export const SuggestionPopup = component<SuggestionPopupProps>(({ props }) => {
                             accessibility-label={item.label}
                             accessibility-trait="button"
                         >
-                            {renderItem(item, false)}
+                            {renderItem(item, index === (props.activeIndex ?? -1))}
                         </view>
                     ))}
                 </scroll-view>

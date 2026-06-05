@@ -73,6 +73,17 @@ describe('trigger session manager', () => {
         expect(manager.session).toBeNull();
     });
 
+    it('returns session snapshots — external mutation cannot desync state', () => {
+        const { manager } = makeManager();
+        manager.syncText('@a');
+        manager.syncCaret(2);
+        const snapshot = manager.session!;
+        snapshot.items.push({ id: 'rogue', label: 'Rogue' });
+        snapshot.query = 'mutated';
+        expect(manager.session).toMatchObject({ query: 'a' });
+        expect(manager.session!.items).toEqual([{ id: 'u1', label: 'Andy' }]);
+    });
+
     it('closes on close() (blur / selection made)', () => {
         const { manager, updates } = makeManager();
         manager.syncText('@a');
