@@ -958,6 +958,107 @@ export function refreshIosManagedFiles(cwd: string, config: ResolvedConfig): voi
 }
 
 /**
+ * Write the shared Xcode scheme for the app target.
+ *
+ * `xcodebuild -scheme` and fastlane `gym` require a *shared* scheme
+ * (`xcshareddata/xcschemes/<App>.xcscheme`). Opening the project in the
+ * Xcode GUI auto-creates a private *user* scheme, but a headless CI runner
+ * never gets one — so without this the generated project can't be archived
+ * for TestFlight/App Store (#174).
+ *
+ * Runs every prebuild (idempotent via writeFileIfChanged). The app target's
+ * UUID is read from the project's own pbxproj — identical to the template
+ * placeholder for scaffolded projects, but follows along if the project was
+ * hand-curated.
+ */
+export function writeIosSharedScheme(cwd: string, config: ResolvedConfig): void {
+    const xcodeproj = iosXcodeProjPath(cwd, config);
+    const pbxprojPath = join(xcodeproj, 'project.pbxproj');
+    if (!existsSync(pbxprojPath)) return;
+
+    const templatePath = join(
+        getTemplatesDir(), 'ios',
+        '__AppName__.xcodeproj', 'xcshareddata', 'xcschemes', '__AppName__.xcscheme',
+    );
+    if (!existsSync(templatePath)) return;
+
+    // Prefer the native target whose name matches the app — hand-curated
+    // projects can carry extra targets (tests, extensions) and scaffolded
+    // ones have exactly one. Fall back to the first native target so legacy
+    // projects with a renamed app target still get a working scheme.
+    // UUIDs are 16 hex chars in our template's placeholder ids and 24 in
+    // Xcode-generated (and our fileUUID-generated) ids — accept both.
+    const pbx = readFileSync(pbxprojPath, 'utf-8');
+    const escapedName = config.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const byName = pbx.match(new RegExp(
+        `([A-F0-9]{16,24})\\s+/\\* ${escapedName} \\*/\\s*=\\s*\\{\\s*isa = PBXNativeTarget;`,
+    ));
+    const target = byName ?? pbx.match(/([A-F0-9]{16,24})\s+\/\*[^*]*\*\/\s*=\s*\{\s*isa = PBXNativeTarget;/);
+    if (!target) {
+        log(
+            `\x1b[33m!\x1b[0m Could not find a PBXNativeTarget UUID in ${pbxprojPath} — ` +
+            `writing the shared scheme with the template's default target id. ` +
+            `If \`xcodebuild -scheme "${config.name}"\` can't find the target, fix the ` +
+            `BlueprintIdentifier in the generated .xcscheme to match your app target.`,
+        );
+    }
+    const targetUuid = target?.[1] ?? 'E100000000000001';
+
+    const content = substituteVars(readFileSync(templatePath, 'utf-8'), { appName: config.name })
+        .replace(/E100000000000001/g, targetUuid);
+    const dest = join(xcodeproj, 'xcshareddata', 'xcschemes', `${config.name}.xcscheme`);
+    mkdirSync(dirname(dest), { recursive: true });
+    if (writeFileIfChanged(dest, content)) {
+        log(`iOS: wrote shared scheme ${config.name}.xcscheme`);
+    }
+}
+
+/**
+ * Apply config-driven signing settings (`ios.developmentTeam`,
+ * `ios.codeSignStyle`) to the existing pbxproj. Only rewrites a setting the
+ * config actually pins — with both unset this is a no-op, so values set via
+ * the Xcode GUI or fastlane's `update_code_signing_settings` survive
+ * prebuild untouched.
+ */
+export function applyIosSigningSettings(cwd: string, config: ResolvedConfig): void {
+    const team = config.ios.developmentTeam?.trim();
+    const style = config.ios.codeSignStyle;
+    if (!team && !style) return;
+
+    // Both values are spliced into project.pbxproj as raw build-setting
+    // values — validate at runtime (the config file is plain JS/TS, so the
+    // schema's union type guarantees nothing) so a typo'd team or a crafted
+    // value can't corrupt the project or smuggle in extra build settings.
+    if (team && !/^[A-Za-z0-9]{10}$/.test(team)) {
+        throw new Error(
+            `ios.developmentTeam must be a 10-character alphanumeric Apple Team ID ` +
+            `(e.g. "AB12CD34EF"), got: "${team}"`,
+        );
+    }
+    if (style && style !== 'Automatic' && style !== 'Manual') {
+        throw new Error(
+            `ios.codeSignStyle must be "Automatic" or "Manual", got: "${style}"`,
+        );
+    }
+
+    const pbxprojPath = join(iosXcodeProjPath(cwd, config), 'project.pbxproj');
+    if (!existsSync(pbxprojPath)) return;
+
+    let content = readFileSync(pbxprojPath, 'utf-8');
+    if (team) {
+        content = content.replace(/DEVELOPMENT_TEAM = [^;]*;/g, `DEVELOPMENT_TEAM = ${team};`);
+    }
+    if (style) {
+        content = content.replace(/CODE_SIGN_STYLE = [^;]*;/g, `CODE_SIGN_STYLE = ${style};`);
+    }
+    if (writeFileIfChanged(pbxprojPath, content)) {
+        const applied = [team && `DEVELOPMENT_TEAM=${team}`, style && `CODE_SIGN_STYLE=${style}`]
+            .filter(Boolean).join(', ');
+        log(`iOS: applied signing settings (${applied})`);
+    }
+}
+
+/**
  * Write the generated module registry Swift file.
  */
 export function writeIosRegistry(cwd: string, config: ResolvedConfig, registryCode: string): void {
@@ -1805,6 +1906,10 @@ export async function runPrebuild(opts: PrebuildOptions = {}): Promise<void> {
         await generateIosIcon(cwd, config, assets.ios);
         await generateIosSplash(cwd, config, assets.ios);
         applyIosPlistMeta(cwd, config, assets.ios);
+
+        // CI archivability: shared scheme + config-pinned signing settings.
+        writeIosSharedScheme(cwd, config);
+        applyIosSigningSettings(cwd, config);
 
         // Copy dev-client sources if found
         if (result.devClient) {
