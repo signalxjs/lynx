@@ -161,5 +161,15 @@ function renderInlineNode(node: InlineNode, ctx: RenderContext): MarkdownChild {
                 onImageTap: ctx.onImageTap,
                 node,
             });
+        case 'extension': {
+            const renderer = C.extension?.[node.name];
+            if (!renderer) return node.raw; // no renderer registered → literal source
+            return renderer({
+                name: node.name,
+                attrs: node.attrs,
+                children: node.children ? renderInline(node.children, ctx) : [],
+                node,
+            });
+        }
     }
 }

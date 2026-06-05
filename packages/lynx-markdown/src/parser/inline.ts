@@ -1,9 +1,10 @@
 /**
  * Inline tokenizer: a markdown text run → `InlineNode[]` (nested spans).
  *
- * Precedence (highest first): backtick code spans, backslash escapes, images,
- * links, angle/bare autolinks, then emphasis (`**`/`__` strong, `*`/`_` em,
- * `~~` del) resolved with a delimiter-run stack, then hard breaks, then text.
+ * Precedence (highest first): backslash escapes, plugin inline extensions
+ * (trigger-char gated), backtick code spans, images, links, angle/bare
+ * autolinks, then emphasis (`**`/`__` strong, `*`/`_` em, `~~` del) resolved
+ * with a delimiter-run stack, then hard breaks, then text.
  *
  * Robustness for streaming: any unmatched construct at the tail (a lone `**`,
  * a half-open `[text](`, an unterminated code span) degrades to literal text.
@@ -11,6 +12,7 @@
  */
 
 import type { InlineNode } from '../ast.js';
+import { buildTriggerSet, type ParserInlineExtension } from './extensions.js';
 import { isEscapable, sanitizeHref, trimAutolinkTail } from './scanner.js';
 
 interface Delim {
@@ -29,9 +31,17 @@ function isDelim(t: Token): t is Delim {
 
 const PUNCT = /[!-/:-@[-`{-~]/;
 
-/** Parse an inline text run into a node array. */
-export function parseInline(input: string): InlineNode[] {
-    const tokens = tokenize(input);
+/**
+ * Parse an inline text run into a node array.
+ *
+ * `extensions` add plugin-defined inline constructs at the same precedence
+ * tier as code spans/links (after backslash escapes; opaque to the emphasis
+ * stack). On shared trigger chars the first registered extension wins. Each
+ * extension's `match` must be pure and streaming-safe — see
+ * {@link ParserInlineExtension}.
+ */
+export function parseInline(input: string, extensions?: readonly ParserInlineExtension[]): InlineNode[] {
+    const tokens = tokenize(input, extensions);
     resolveEmphasis(tokens, 0);
     return coalesce(tokensToNodes(tokens));
 }
@@ -40,7 +50,11 @@ export function parseInline(input: string): InlineNode[] {
 // Tokenization
 // ---------------------------------------------------------------------------
 
-function tokenize(text: string): Token[] {
+function tokenize(text: string, extensions?: readonly ParserInlineExtension[]): Token[] {
+    // Normalize an empty trigger set back to null so the per-char fast path
+    // stays fully disabled when no extension can ever match.
+    const builtSet = extensions && extensions.length ? buildTriggerSet(extensions) : null;
+    const triggerSet = builtSet && builtSet.size ? builtSet : null;
     const tokens: Token[] = [];
     let buf = '';
     const flush = () => {
@@ -64,7 +78,9 @@ function tokenize(text: string): Token[] {
                 i += 2;
                 continue;
             }
-            if (next !== undefined && isEscapable(next)) {
+            // Trigger chars are escapable too, so `\@` always suppresses an
+            // `@`-triggered extension regardless of the built-in escape set.
+            if (next !== undefined && (isEscapable(next) || (triggerSet !== null && triggerSet.has(next)))) {
                 buf += next;
                 i += 2;
                 continue;
@@ -72,6 +88,34 @@ function tokenize(text: string): Token[] {
             buf += '\\';
             i++;
             continue;
+        }
+
+        // Inline extension (plugin construct; opaque to the emphasis stack).
+        // After escapes (so `\@` stays literal), before every built-in scanner.
+        if (triggerSet !== null && triggerSet.has(ch)) {
+            let matched = false;
+            for (const ext of extensions!) {
+                if (!ext.triggerChars.includes(ch)) continue;
+                // Misbehaving extensions must not break the "never throws,
+                // never hangs" guarantee: a throwing match is treated as no
+                // match, and a non-advancing (end <= pos) or out-of-bounds
+                // (end > length) match is ignored.
+                let m: ReturnType<typeof ext.match> = null;
+                try {
+                    m = ext.match(text, i);
+                } catch {
+                    m = null;
+                }
+                if (m && m.end > i && m.end <= n) {
+                    flush();
+                    tokens.push(m.node);
+                    i = m.end;
+                    matched = true;
+                    break;
+                }
+            }
+            if (matched) continue;
+            // No extension matched (or partial tail) → normal scanning.
         }
 
         // Code span.
@@ -116,7 +160,7 @@ function tokenize(text: string): Token[] {
                     type: 'link',
                     href: sanitizeHref(link.href),
                     ...(link.title ? { title: link.title } : {}),
-                    children: parseInline(link.label),
+                    children: parseInline(link.label, extensions),
                 });
                 i = link.end;
                 continue;

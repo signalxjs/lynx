@@ -20,6 +20,7 @@ import type {
     TableCell,
 } from '../ast.js';
 import { parseInline } from './inline.js';
+import type { ParserInlineExtension } from './extensions.js';
 import {
     indentOf,
     isBlank,
@@ -45,12 +46,20 @@ export function makeKeyGen(prefix: string): KeyGen {
 }
 
 /** Parse a complete (or partial) source string into block nodes. */
-export function parseBlocks(src: string, keys: KeyGen = makeKeyGen('b')): BlockNode[] {
+export function parseBlocks(
+    src: string,
+    keys: KeyGen = makeKeyGen('b'),
+    extensions?: readonly ParserInlineExtension[],
+): BlockNode[] {
     const lines = src.split('\n');
-    return parseLines(lines, keys);
+    return parseLines(lines, keys, extensions);
 }
 
-function parseLines(lines: string[], keys: KeyGen): BlockNode[] {
+function parseLines(
+    lines: string[],
+    keys: KeyGen,
+    extensions?: readonly ParserInlineExtension[],
+): BlockNode[] {
     const blocks: BlockNode[] = [];
     let i = 0;
 
@@ -98,7 +107,7 @@ function parseLines(lines: string[], keys: KeyGen): BlockNode[] {
                 key: keys.next(),
                 raw: line,
                 level: heading.level as HeadingLevel,
-                children: parseInline(heading.text),
+                children: parseInline(heading.text, extensions),
             });
             i++;
             continue;
@@ -123,7 +132,7 @@ function parseLines(lines: string[], keys: KeyGen): BlockNode[] {
                 type: 'blockquote',
                 key: keys.next(),
                 raw: lines.slice(start, i).join('\n'),
-                children: parseLines(inner, keys),
+                children: parseLines(inner, keys, extensions),
             });
             continue;
         }
@@ -131,7 +140,7 @@ function parseLines(lines: string[], keys: KeyGen): BlockNode[] {
         // List.
         const marker = matchListMarker(line) ?? matchEmptyListMarker(line);
         if (marker) {
-            const result = parseList(lines, i, marker, keys);
+            const result = parseList(lines, i, marker, keys, extensions);
             blocks.push(result.block);
             i = result.next;
             continue;
@@ -141,7 +150,7 @@ function parseLines(lines: string[], keys: KeyGen): BlockNode[] {
         if (line.indexOf('|') !== -1 && i + 1 < lines.length) {
             const align = matchTableDelimiter(lines[i + 1]);
             if (align) {
-                const result = parseTable(lines, i, align, keys);
+                const result = parseTable(lines, i, align, keys, extensions);
                 blocks.push(result.block);
                 i = result.next;
                 continue;
@@ -159,7 +168,7 @@ function parseLines(lines: string[], keys: KeyGen): BlockNode[] {
             type: 'paragraph',
             key: keys.next(),
             raw: lines.slice(start, i).join('\n'),
-            children: parseInline(para.join('\n')),
+            children: parseInline(para.join('\n'), extensions),
         });
     }
 
@@ -201,6 +210,7 @@ function parseList(
     start: number,
     first: ListMarkerInfo,
     keys: KeyGen,
+    extensions?: readonly ParserInlineExtension[],
 ): { block: BlockNode; next: number } {
     const items: ListItem[] = [];
     let i = start;
@@ -261,7 +271,7 @@ function parseList(
         items.push({
             key: keys.next(),
             checked,
-            children: parseLines(bodyLines, keys),
+            children: parseLines(bodyLines, keys, extensions),
         });
     }
 
@@ -299,12 +309,13 @@ function parseTable(
     start: number,
     align: (TableAlign | null)[],
     keys: KeyGen,
+    extensions?: readonly ParserInlineExtension[],
 ): { block: BlockNode; next: number } {
-    const header = splitTableRow(lines[start]).map((c): TableCell => ({ children: parseInline(c) }));
+    const header = splitTableRow(lines[start]).map((c): TableCell => ({ children: parseInline(c, extensions) }));
     let i = start + 2; // skip header + delimiter
     const rows: TableCell[][] = [];
     while (i < lines.length && !isBlank(lines[i]) && lines[i].indexOf('|') !== -1 && !interrupts(lines, i)) {
-        const cells = splitTableRow(lines[i]).map((c): TableCell => ({ children: parseInline(c) }));
+        const cells = splitTableRow(lines[i]).map((c): TableCell => ({ children: parseInline(c, extensions) }));
         // Normalize cell count to the header width.
         while (cells.length < header.length) cells.push({ children: [] });
         rows.push(cells.slice(0, header.length));

@@ -1,6 +1,7 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { parseInline } from '../src/parser/inline';
 import { parseBlocks } from '../src/parser/blocks';
+import type { ParserInlineExtension } from '../src/parser/extensions';
 import type { BlockNode } from '../src/ast';
 
 describe('parseInline', () => {
@@ -99,6 +100,127 @@ describe('parseInline', () => {
 
     it('renders an unterminated code span literally', () => {
         expect(parseInline('a `b')).toEqual([{ type: 'text', value: 'a `b' }]);
+    });
+});
+
+describe('parseInline (extensions)', () => {
+    /** Mention-style `@[label](id)` — the shape the reference plugin (#157) uses. */
+    const mention: ParserInlineExtension = {
+        name: 'mention',
+        triggerChars: ['@'],
+        match(text, pos) {
+            const m = /^@\[([^\]\n]+)\]\(([^)\n]+)\)/.exec(text.slice(pos));
+            if (!m) return null; // partial tail or no match → streaming-safe null
+            return {
+                node: {
+                    type: 'extension',
+                    name: 'mention',
+                    attrs: { label: m[1], id: m[2] },
+                    raw: m[0],
+                },
+                end: pos + m[0].length,
+            };
+        },
+    };
+
+    it('parses an extension node with attrs and raw', () => {
+        expect(parseInline('hi @[Andy](u1)!', [mention])).toEqual([
+            { type: 'text', value: 'hi ' },
+            { type: 'extension', name: 'mention', attrs: { label: 'Andy', id: 'u1' }, raw: '@[Andy](u1)' },
+            { type: 'text', value: '!' },
+        ]);
+    });
+
+    it('is opaque to the emphasis stack', () => {
+        expect(parseInline('**@[a](b)**', [mention])).toEqual([
+            {
+                type: 'strong',
+                children: [
+                    { type: 'extension', name: 'mention', attrs: { label: 'a', id: 'b' }, raw: '@[a](b)' },
+                ],
+            },
+        ]);
+    });
+
+    it('reaches extensions inside link labels', () => {
+        const out = parseInline('[see @[a](b)](http://x)', [mention]);
+        expect(out).toHaveLength(1);
+        expect(out[0]).toMatchObject({
+            type: 'link',
+            href: 'http://x',
+            children: [
+                { type: 'text', value: 'see ' },
+                { type: 'extension', name: 'mention' },
+            ],
+        });
+    });
+
+    it('degrades a partial tail to literal text (streaming-safe)', () => {
+        expect(parseInline('hi @[An', [mention])).toEqual([{ type: 'text', value: 'hi @[An' }]);
+        expect(parseInline('hi @[Andy](', [mention])).toEqual([{ type: 'text', value: 'hi @[Andy](' }]);
+    });
+
+    it('keeps a backslash-escaped trigger char literal', () => {
+        const out = parseInline('\\@[a](b)', [mention]);
+        expect(out.some((n) => n.type === 'extension')).toBe(false);
+        expect(out[0]).toEqual({ type: 'text', value: '@' });
+    });
+
+    it('ignores a non-advancing match instead of hanging', () => {
+        const broken: ParserInlineExtension = {
+            name: 'broken',
+            triggerChars: ['@'],
+            match: (_text, pos) => ({
+                node: { type: 'extension', name: 'broken', attrs: {}, raw: '' },
+                end: pos, // zero-width — must be rejected
+            }),
+        };
+        expect(parseInline('a @b', [broken])).toEqual([{ type: 'text', value: 'a @b' }]);
+    });
+
+    it('ignores an out-of-bounds match instead of skipping input', () => {
+        const greedy: ParserInlineExtension = {
+            name: 'greedy',
+            triggerChars: ['@'],
+            match: (text) => ({
+                node: { type: 'extension', name: 'greedy', attrs: {}, raw: '' },
+                end: text.length + 100, // past the input — must be rejected
+            }),
+        };
+        expect(parseInline('a @b', [greedy])).toEqual([{ type: 'text', value: 'a @b' }]);
+    });
+
+    it('treats a throwing match as no match (never throws)', () => {
+        const throwing: ParserInlineExtension = {
+            name: 'throwing',
+            triggerChars: ['@'],
+            match: () => {
+                throw new Error('plugin bug');
+            },
+        };
+        expect(parseInline('a @b', [throwing])).toEqual([{ type: 'text', value: 'a @b' }]);
+    });
+
+    it('never calls match when the trigger char is absent', () => {
+        const spy = vi.fn(() => null);
+        const ext: ParserInlineExtension = { name: 'x', triggerChars: ['@'], match: spy };
+        parseInline('plain **bold** `code` [l](h)', [ext]);
+        expect(spy).not.toHaveBeenCalled();
+    });
+
+    it('first registered extension wins on a shared trigger char', () => {
+        const first: ParserInlineExtension = {
+            name: 'first',
+            triggerChars: ['@'],
+            match: (text, pos) =>
+                text[pos + 1] === '!'
+                    ? { node: { type: 'extension', name: 'first', attrs: {}, raw: '@!' }, end: pos + 2 }
+                    : null,
+        };
+        const out = parseInline('@!', [first, mention]);
+        expect(out).toEqual([{ type: 'extension', name: 'first', attrs: {}, raw: '@!' }]);
+        // …and falls through to the next extension when the first declines.
+        expect(parseInline('@[a](b)', [first, mention])[0]).toMatchObject({ name: 'mention' });
     });
 });
 
