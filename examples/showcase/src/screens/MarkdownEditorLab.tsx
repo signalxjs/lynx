@@ -2,11 +2,14 @@ import { component, signal } from '@sigx/lynx';
 import { Screen } from '@sigx/lynx-navigation';
 import { Button, Card, Col, Heading, Row, ScrollView, Text, useMarkdownEditorTheme } from '@sigx/lynx-daisyui';
 import {
+    createMentionPlugin,
     MarkdownEditor,
     MarkdownView,
+    mentionSyntax,
     type MarkdownEditorController,
     type MarkdownEditorMode,
     type MarkdownEditorPlugin,
+    type MentionCandidate,
     type ParserInlineExtension,
 } from '@sigx/lynx-markdown';
 
@@ -53,10 +56,32 @@ const emojiPlugin: MarkdownEditorPlugin = {
     },
 };
 
-const emojiComponents = {
+/**
+ * Mention demo (#157): type `@` for user suggestions; selecting inserts a
+ * native chip (one U+FFFC backed by an attachment pill in the field) and the
+ * markdown output carries `@[label](id)`. The preview renders mentions via
+ * `components.extension.mention`.
+ */
+const USERS: MentionCandidate[] = [
+    { id: 'u1', label: 'Andy', kind: 'user' },
+    { id: 'u2', label: 'Bea', kind: 'user' },
+    { id: 'u3', label: 'Carol', kind: 'user' },
+    { id: 'u4', label: 'Dimitri', kind: 'user' },
+    { id: 'team-core', label: 'core-team', kind: 'team' },
+];
+
+const mentionPlugin = createMentionPlugin({
+    search: (q) => USERS.filter((u) => u.label.toLowerCase().startsWith(q.toLowerCase())),
+});
+
+const previewExtensions = [emojiSyntax, mentionSyntax];
+const previewComponents = {
     extension: {
         emoji: ({ attrs }: { attrs: Record<string, string> }) =>
             EMOJI.find((e) => e.id === attrs.name)?.glyph ?? `:${attrs.name}:`,
+        mention: ({ attrs }: { attrs: Record<string, string> }) => (
+            <text style={{ color: '#3478f6', fontWeight: 600 }}>@{attrs.label}</text>
+        ),
     },
 };
 
@@ -69,12 +94,13 @@ const emojiComponents = {
  *    below the input; a Clear button rides next to the mode switcher.
  *  • The output contract is markdown: the live `<MarkdownView>` below renders
  *    exactly what `onChange` emitted.
- *  • Plugin demo: type `:` for emoji suggestions (the P3 trigger/popup API);
- *    the preview renders shortcodes as glyphs via a parser inline extension.
+ *  • Plugin demos: type `:` for emoji suggestions (text replacement) and
+ *    `@` for mentions (native chips via insertChip, #157); the preview
+ *    renders both via parser inline extensions.
  */
 export const MarkdownEditorLab = component(() => {
     const editorTheme = useMarkdownEditorTheme();
-    const markdown = signal('Hello **world** — edit me, or type `:` for emoji :rocket:');
+    const markdown = signal('Hello **world** — type `:` for emoji :rocket: or `@` to mention @[Andy](u1)');
     const mode = signal<MarkdownEditorMode>('auto');
     let controller: MarkdownEditorController | null = null;
 
@@ -98,7 +124,7 @@ export const MarkdownEditorLab = component(() => {
                                     textColor={editorTheme.textColor}
                                     accentColor={editorTheme.accentColor}
                                     placeholderColor={editorTheme.placeholderColor}
-                                    plugins={[emojiPlugin]}
+                                    plugins={[emojiPlugin, mentionPlugin]}
                                     onChange={(md) => {
                                         markdown.value = md;
                                     }}
@@ -133,8 +159,8 @@ export const MarkdownEditorLab = component(() => {
                             <Heading level={4}>Rendered (MarkdownView + emoji extension)</Heading>
                             <MarkdownView
                                 value={markdown.value}
-                                extensions={[emojiSyntax]}
-                                components={emojiComponents}
+                                extensions={previewExtensions}
+                                components={previewComponents}
                             />
                         </Col>
                     </Card.Body>

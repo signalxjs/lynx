@@ -61,6 +61,10 @@ export type { SuggestionPopupProps, SuggestionRenderItem } from './editor/trigge
 export { createTriggerSessionManager } from './editor/trigger/session.js';
 export type { TriggerSession, TriggerSessionManager } from './editor/trigger/session.js';
 
+// Reference plugins.
+export { createMentionPlugin, mentionSyntax } from './plugins/mention.js';
+export type { MentionPluginOptions, MentionCandidate } from './plugins/mention.js';
+
 // Streaming controller for AI token loops.
 export { createMarkdownStream } from './stream.js';
 export type { MarkdownStream, CreateMarkdownStreamOptions } from './stream.js';
