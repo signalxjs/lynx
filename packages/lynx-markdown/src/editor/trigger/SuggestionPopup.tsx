@@ -5,9 +5,11 @@
  * (a plugin's `trigger.renderItem`).
  *
  * Anchored by the caret rect from `bindselection`, placed above the caret by
- * default and flipped below when there's no room, and always clamped so it
- * never extends under the keyboard (`@sigx/lynx-keyboard` insets) — see
- * `position.ts` for the math. The page-absolute frame of the relative
+ * default and flipped below when there's no room, and clamped so it never
+ * extends under the keyboard — see `position.ts` for the math. The keyboard
+ * inset comes from `@sigx/lynx-keyboard`'s `useKeyboard()`, which requires a
+ * `<SafeAreaProvider>` ancestor; without one it reads 0 and the keyboard
+ * clamp is effectively disabled. The page-absolute frame of the relative
  * container it's positioned in arrives via `containerFrame` (the editor
  * measures it with `bindlayoutchange`).
  *
