@@ -36,18 +36,30 @@ export const BackgroundTasks = component(() => {
         bgUnsubHandler?.();
     });
 
+    // Handlers guard availability and catch rejections — failures surface
+    // in the status readout instead of crashing the demo.
     const onBgRegister = async () => {
         Haptics.selection();
-        await Background.register('refresh-feed', {
-            minimumInterval: 15 * 60,
-            requiresNetwork: true,
-        });
-        bgRegistered.$set(await Background.getRegistered());
+        if (!Background.isAvailable()) return;
+        try {
+            await Background.register('refresh-feed', {
+                minimumInterval: 15 * 60,
+                requiresNetwork: true,
+            });
+            bgRegistered.$set(await Background.getRegistered());
+        } catch (err) {
+            bgFeedTitle.value = `error: ${String(err)}`;
+        }
     };
     const onBgUnregister = async () => {
         Haptics.selection();
-        await Background.unregister('refresh-feed');
-        bgRegistered.$set(await Background.getRegistered());
+        if (!Background.isAvailable()) return;
+        try {
+            await Background.unregister('refresh-feed');
+            bgRegistered.$set(await Background.getRegistered());
+        } catch (err) {
+            bgFeedTitle.value = `error: ${String(err)}`;
+        }
     };
 
     return () => (

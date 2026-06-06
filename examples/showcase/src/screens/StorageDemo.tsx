@@ -41,20 +41,26 @@ export const StorageDemo = component(() => {
 
     onMounted(refresh);
 
+    // The mutations are callSync() bridge calls — they throw (rather than
+    // reject) when the native module isn't registered, so each handler
+    // guards availability and swallows failures like refresh() does.
     const onSave = async () => {
         Haptics.selection();
-        Storage.setItem(DEMO_KEY, draft.value);
+        if (!Storage.isAvailable()) return;
+        try { Storage.setItem(DEMO_KEY, draft.value); } catch { /* keep UI alive */ }
         await refresh();
     };
     const onRemove = async () => {
         Haptics.selection();
-        Storage.removeItem(DEMO_KEY);
+        if (!Storage.isAvailable()) return;
+        try { Storage.removeItem(DEMO_KEY); } catch { /* keep UI alive */ }
         await refresh();
     };
     const onClearAll = async () => {
         Haptics.notification('warning');
-        Storage.clear();
         confirmOpen.value = false;
+        if (!Storage.isAvailable()) return;
+        try { Storage.clear(); } catch { /* keep UI alive */ }
         await refresh();
     };
 

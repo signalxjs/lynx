@@ -1,6 +1,6 @@
 import { component, signal } from '@sigx/lynx';
 import { Screen, useNav, useScreenOptions } from '@sigx/lynx-navigation';
-import { Col, Input, Row, Text, useTheme } from '@sigx/lynx-daisyui';
+import { Col, Input, Row, Text, useTheme, variantOf } from '@sigx/lynx-daisyui';
 import { Haptics } from '@sigx/lynx-haptics';
 import { LucideIcon } from '@sigx/lynx-icons-lucide/components';
 import { catalog, filterExamples, type FlatExample } from '../catalog.js';
@@ -52,8 +52,11 @@ export const Home = component(() => {
                             {/* `variant="primary"` resolves to a hex fill via the
                                 daisy ThemeProvider — parsed SVG content doesn't
                                 inherit host CSS. */}
+                            {/* variantOf reads the registry's variant for the
+                                active theme — `includes('dark')` would
+                                mis-detect synthwave/dracula and custom pairs. */}
                             <LucideIcon
-                                name={theme.name.includes('dark') ? 'sun' : 'moon'}
+                                name={variantOf(theme.name) === 'dark' ? 'sun' : 'moon'}
                                 size={22}
                                 variant="primary"
                             />

@@ -37,40 +37,73 @@ export const NotificationsDemo = component(() => {
         unsubMsg = Notifications.addPushListener((msg) => { lastMessage.value = msg; });
         unsubTap = Notifications.addNotificationResponseListener((resp) => { lastTap.value = resp; });
 
-        const status = await Notifications.getPermissionStatus();
-        permStatus.value = status.status;
-        const initial = await Notifications.getInitialNotification();
-        if (initial) initialTap.value = initial;
+        // Guard availability and swallow native failures — an unhandled
+        // rejection out of onMounted would take the whole screen down.
+        if (!Notifications.isAvailable()) {
+            permStatus.value = 'unavailable';
+            return;
+        }
+        try {
+            const status = await Notifications.getPermissionStatus();
+            permStatus.value = status.status;
+            const initial = await Notifications.getInitialNotification();
+            if (initial) initialTap.value = initial;
+        } catch (err) {
+            pushError.value = String(err);
+        }
     });
     onUnmounted(() => {
         unsubToken?.(); unsubTokenErr?.(); unsubMsg?.(); unsubTap?.();
     });
 
+    // Every handler guards availability and catches rejections — native
+    // bridge failures surface in the status readout instead of crashing
+    // the demo.
     const onRequestPerm = async () => {
         Haptics.selection();
-        const res = await Notifications.requestPermission();
-        permStatus.value = res.status;
+        if (!Notifications.isAvailable()) return;
+        try {
+            const res = await Notifications.requestPermission();
+            permStatus.value = res.status;
+        } catch (err) {
+            pushError.value = String(err);
+        }
     };
     const onRegister = async () => {
         Haptics.selection();
-        const res = await Notifications.registerForPushNotifications();
-        // iOS: real token arrives via listener. Android: token is here.
-        if (res.token) {
-            pushToken.value = res.token;
-            pushPlatform.value = res.platform ?? null;
+        if (!Notifications.isAvailable()) return;
+        try {
+            const res = await Notifications.registerForPushNotifications();
+            // iOS: real token arrives via listener. Android: token is here.
+            if (res.token) {
+                pushToken.value = res.token;
+                pushPlatform.value = res.platform ?? null;
+            }
+            if (res.error) pushError.value = res.error;
+        } catch (err) {
+            pushError.value = String(err);
         }
-        if (res.error) pushError.value = res.error;
     };
     const onScheduleLocal = async () => {
         Haptics.notification('success');
-        await Notifications.schedule(
-            { title: 'Test notification', body: 'Tap me to see the response payload', data: { source: 'showcase' } },
-            { delay: 5 },
-        );
+        if (!Notifications.isAvailable()) return;
+        try {
+            await Notifications.schedule(
+                { title: 'Test notification', body: 'Tap me to see the response payload', data: { source: 'showcase' } },
+                { delay: 5 },
+            );
+        } catch (err) {
+            pushError.value = String(err);
+        }
     };
     const onClearBadge = async () => {
         Haptics.selection();
-        await Notifications.setBadgeCount(0);
+        if (!Notifications.isAvailable()) return;
+        try {
+            await Notifications.setBadgeCount(0);
+        } catch (err) {
+            pushError.value = String(err);
+        }
     };
 
     return () => (

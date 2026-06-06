@@ -63,8 +63,11 @@ export const WebViewDemo = component(() => {
                         <view
                             class="bg-base-100 items-center justify-center"
                             style={{
+                                // top: 0 — the persistent NavHeader lives on the
+                                // Stack outside this screen layer, so screen
+                                // coordinates already start below it.
                                 position: 'absolute',
-                                top: 56,
+                                top: 0,
                                 left: 0,
                                 right: 0,
                                 bottom: 60,
@@ -80,8 +83,11 @@ export const WebViewDemo = component(() => {
                         <view
                             class="bg-error/10 items-center justify-center px-6"
                             style={{
+                                // top: 0 — the persistent NavHeader lives on the
+                                // Stack outside this screen layer, so screen
+                                // coordinates already start below it.
                                 position: 'absolute',
-                                top: 56,
+                                top: 0,
                                 left: 0,
                                 right: 0,
                                 bottom: 60,
