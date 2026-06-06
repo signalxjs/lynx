@@ -82,7 +82,7 @@ export const BackgroundTasks = component(() => {
                                 cmd jobscheduler run` — see the package README.
                             </Text>
                             <Row gap={8} align="center">
-                                <Button variant="primary" onPress={onBgRegister}>
+                                <Button color="primary" onPress={onBgRegister}>
                                     Register refresh-feed
                                 </Button>
                                 <Button variant="ghost" onPress={onBgUnregister}>

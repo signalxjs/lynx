@@ -48,7 +48,7 @@ export const LocationDemo = component(() => {
                                 requestPermission() then getCurrentPosition()
                                 with balanced accuracy and a 5s timeout.
                             </Text>
-                            <Button variant="primary" onPress={capture}>
+                            <Button color="primary" onPress={capture}>
                                 Get current position
                             </Button>
                             <Text class="font-mono text-sm opacity-70">

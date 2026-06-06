@@ -30,24 +30,21 @@ export const SystemBars = component(() => {
                             <Row gap={8} wrap>
                                 <Button
                                     size="sm"
-                                    variant="ghost"
-                                    outline
+                                    variant="outline"
                                     onPress={() => { void setStatusBarStyle('light'); }}
                                 >
                                     Status: light
                                 </Button>
                                 <Button
                                     size="sm"
-                                    variant="ghost"
-                                    outline
+                                    variant="outline"
                                     onPress={() => { void setStatusBarStyle('dark'); }}
                                 >
                                     Status: dark
                                 </Button>
                                 <Button
                                     size="sm"
-                                    variant="ghost"
-                                    outline
+                                    variant="outline"
                                     onPress={() => {
                                         void setSystemBarsStyle({
                                             statusBar: 'dark',

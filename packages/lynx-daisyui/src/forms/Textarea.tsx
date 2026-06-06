@@ -1,8 +1,9 @@
 import { component, type Define, type Model } from '@sigx/lynx';
+import type { ColorVariant } from '@sigx/lynx-zero';
 
 export type TextareaSize = 'xs' | 'sm' | 'md' | 'lg';
 export type TextareaVariant = 'bordered' | 'ghost';
-export type TextareaColor = 'primary' | 'secondary' | 'accent' | 'info' | 'success' | 'warning' | 'error';
+export type TextareaColor = Exclude<ColorVariant, 'neutral'>;
 
 export type TextareaProps =
   & Define.Prop<'placeholder', string, false>

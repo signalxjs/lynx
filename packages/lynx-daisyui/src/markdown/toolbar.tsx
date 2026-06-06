@@ -30,7 +30,8 @@ export const daisyToolbarItem: ToolbarRenderItem = (item, active, run) => (
         key={item.id}
         size="sm"
         square
-        variant={active ? 'primary' : 'ghost'}
+        color={active ? 'primary' : undefined}
+        variant={active ? undefined : 'ghost'}
         onPress={run}
     >
         {item.label ?? item.id}

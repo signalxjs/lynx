@@ -1,8 +1,9 @@
 import { component, type Define, type Model } from '@sigx/lynx';
+import type { ColorVariant } from '@sigx/lynx-zero';
 
 export type InputSize = 'xs' | 'sm' | 'md' | 'lg';
 export type InputVariant = 'bordered' | 'ghost';
-export type InputColor = 'primary' | 'secondary' | 'accent' | 'info' | 'success' | 'warning' | 'error';
+export type InputColor = Exclude<ColorVariant, 'neutral'>;
 
 export type InputProps =
   & Define.Prop<'placeholder', string, false>

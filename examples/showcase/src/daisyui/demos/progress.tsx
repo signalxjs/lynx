@@ -56,10 +56,10 @@ export const progressDemo: DaisyComponentDemo = {
                     <Col gap={12}>
                         <Progress value={value.value} color="primary" />
                         <Row gap={12} align="center">
-                            <Button variant="neutral" size="sm" onPress={() => { value.value = clamp(value.value - 10); }}>
+                            <Button color="neutral" size="sm" onPress={() => { value.value = clamp(value.value - 10); }}>
                                 −10
                             </Button>
-                            <Button variant="primary" size="sm" onPress={() => { value.value = clamp(value.value + 10); }}>
+                            <Button color="primary" size="sm" onPress={() => { value.value = clamp(value.value + 10); }}>
                                 +10
                             </Button>
                             <Text class="opacity-60">{value.value}%</Text>

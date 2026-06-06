@@ -85,7 +85,7 @@ export const StorageDemo = component(() => {
                                 model={() => draft.value}
                             />
                             <Row gap={8}>
-                                <Button variant="primary" onPress={onSave}>
+                                <Button color="primary" onPress={onSave}>
                                     Save
                                 </Button>
                                 <Button variant="ghost" onPress={onRemove}>
@@ -109,8 +109,8 @@ export const StorageDemo = component(() => {
                                 gated behind a Modal confirm.
                             </Text>
                             <Button
-                                variant="error"
-                                outline
+                                color="error"
+                                variant="outline"
                                 onPress={() => { confirmOpen.value = true; }}
                             >
                                 Clear all data
@@ -134,7 +134,7 @@ export const StorageDemo = component(() => {
                     <Button variant="ghost" onPress={() => { confirmOpen.value = false; }}>
                         Cancel
                     </Button>
-                    <Button variant="error" onPress={onClearAll}>
+                    <Button color="error" onPress={onClearAll}>
                         Clear
                     </Button>
                 </Modal.Actions>

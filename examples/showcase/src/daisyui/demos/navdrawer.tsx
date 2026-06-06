@@ -24,7 +24,7 @@ const DrawerToggle = component(() => {
     return () => (
         <Col gap={8} class="p-4 items-start">
             <Text class="opacity-70">Main content area.</Text>
-            <Button variant="primary" size="sm" onPress={() => drawer.toggle()}>
+            <Button color="primary" size="sm" onPress={() => drawer.toggle()}>
                 Toggle drawer
             </Button>
         </Col>

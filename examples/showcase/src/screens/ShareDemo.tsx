@@ -46,10 +46,10 @@ export const ShareDemo = component(() => {
                                 (UIActivityViewController / Intent.createChooser).
                                 Available: {String(Share.isAvailable())}.
                             </Text>
-                            <Button variant="primary" onPress={shareText}>
+                            <Button color="primary" onPress={shareText}>
                                 Share a message
                             </Button>
-                            <Button variant="secondary" outline onPress={shareUrl}>
+                            <Button color="secondary" variant="outline" onPress={shareUrl}>
                                 Share a URL
                             </Button>
                         </Col>

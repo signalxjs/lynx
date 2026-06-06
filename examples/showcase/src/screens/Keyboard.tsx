@@ -62,7 +62,7 @@ export const Keyboard = component(() => {
                 <ScrollView class="flex-1">
                     <Col gap={8} padding={12}>
                         <Row gap={8} align="center" justify="center" class="py-1">
-                            <Badge variant={kb.value.visible ? 'primary' : 'ghost'}>
+                            <Badge color={kb.value.visible ? 'primary' : undefined} variant={kb.value.visible ? undefined : 'ghost'}>
                                 {kb.value.visible ? `keyboard: ${kb.value.height}px` : 'keyboard hidden'}
                             </Badge>
                         </Row>
@@ -97,7 +97,7 @@ export const Keyboard = component(() => {
                         <view class="flex-1">
                             <Input placeholder="Type a message…" model={() => input.value} />
                         </view>
-                        <Button variant="primary" onPress={send}>
+                        <Button color="primary" onPress={send}>
                             Send
                         </Button>
                     </Row>

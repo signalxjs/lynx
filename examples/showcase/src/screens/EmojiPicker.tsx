@@ -33,8 +33,8 @@ export const EmojiPickerScreen = component(() => {
                             <Row gap={8} class="items-center">
                                 <Heading level={4}>Picked:</Heading>
                                 <Text size="lg" class="flex-1">{picked.value || '—'}</Text>
-                                <Button size="sm" variant="ghost" outline onPress={() => { picked.value = ''; }}>Clear</Button>
-                                <Button size="sm" variant="primary" onPress={() => { sheetOpen.value = true; }}>Sheet</Button>
+                                <Button size="sm" variant="outline" onPress={() => { picked.value = ''; }}>Clear</Button>
+                                <Button size="sm" color="primary" onPress={() => { sheetOpen.value = true; }}>Sheet</Button>
                             </Row>
                         </Card.Body>
                     </Card>

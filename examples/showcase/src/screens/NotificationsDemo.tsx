@@ -124,15 +124,15 @@ export const NotificationsDemo = component(() => {
                                 — see the package README.
                             </Text>
                             <Row gap={8} align="center">
-                                <Button variant="primary" outline onPress={onRequestPerm}>
+                                <Button color="primary" variant="outline" onPress={onRequestPerm}>
                                     Request permission
                                 </Button>
-                                <Button variant="primary" onPress={onRegister}>
+                                <Button color="primary" onPress={onRegister}>
                                     Register for push
                                 </Button>
                             </Row>
                             <Row gap={8} align="center">
-                                <Button variant="secondary" outline onPress={onScheduleLocal}>
+                                <Button color="secondary" variant="outline" onPress={onScheduleLocal}>
                                     Schedule local (5s)
                                 </Button>
                                 <Button variant="ghost" onPress={onClearBadge}>

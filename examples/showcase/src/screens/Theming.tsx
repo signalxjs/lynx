@@ -64,13 +64,13 @@ export const Theming = component(() => {
                                     Wrapped in a nested ThemeProvider. Content
                                     recolors; the status bar stays dark.
                                 </Text>
-                                <Button variant="primary">Synthwave button</Button>
+                                <Button color="primary">Synthwave button</Button>
                             </Col>
                         </Card.Body>
                     </Card>
                 </ThemeProvider>
 
-                <Button outline onPress={() => nav.pop()}>
+                <Button variant="outline" onPress={() => nav.pop()}>
                     Back
                 </Button>
             </Col>

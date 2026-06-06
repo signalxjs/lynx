@@ -23,7 +23,7 @@ export const modalDemo: DaisyComponentDemo = {
                 const open = signal(false);
                 return () => (
                     <Col gap={12}>
-                        <Button variant="primary" onPress={() => { open.value = true; }}>
+                        <Button color="primary" onPress={() => { open.value = true; }}>
                             Open modal
                         </Button>
                         <Modal open={open.value} onClose={() => { open.value = false; }}>
@@ -33,7 +33,7 @@ export const modalDemo: DaisyComponentDemo = {
                                 <Button variant="ghost" size="sm" onPress={() => { open.value = false; }}>
                                     Cancel
                                 </Button>
-                                <Button variant="primary" size="sm" onPress={() => { open.value = false; }}>
+                                <Button color="primary" size="sm" onPress={() => { open.value = false; }}>
                                     Confirm
                                 </Button>
                             </Modal.Actions>
@@ -49,7 +49,7 @@ export const modalDemo: DaisyComponentDemo = {
                 const open = signal(false);
                 return () => (
                     <Col gap={12}>
-                        <Button variant="secondary" onPress={() => { open.value = true; }}>
+                        <Button color="secondary" onPress={() => { open.value = true; }}>
                             Open (tap backdrop to close)
                         </Button>
                         <Modal open={open.value} onClose={() => { open.value = false; }}>

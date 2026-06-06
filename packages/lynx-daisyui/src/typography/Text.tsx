@@ -1,8 +1,9 @@
 import { component, type Define } from '@sigx/lynx';
+import type { ColorVariant } from '@sigx/lynx-zero';
 
 export type TextSize = 'xs' | 'sm' | 'base' | 'lg' | 'xl' | '2xl' | '3xl';
 export type TextWeight = 'light' | 'normal' | 'medium' | 'semibold' | 'bold';
-export type TextColor = 'base-content' | 'primary' | 'secondary' | 'accent' | 'info' | 'success' | 'warning' | 'error';
+export type TextColor = 'base-content' | Exclude<ColorVariant, 'neutral'>;
 
 /** One `line-range()` entry for `TextAutoSize.lineRanges` (Lynx 3.8+). */
 export interface TextAutoSizeLineRange {

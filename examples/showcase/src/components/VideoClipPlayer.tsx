@@ -26,8 +26,8 @@ export const VideoClipPlayer = component<VideoClipPlayerProps>(({ props }) => {
         if (!uri) {
             return (
                 <Button
-                    variant="secondary"
-                    outline
+                    color="secondary"
+                    variant="outline"
                     onPress={() => props.onAttach?.(SAMPLE_VIDEO_URL)}
                 >
                     Attach sample video
@@ -54,8 +54,8 @@ export const VideoClipPlayer = component<VideoClipPlayerProps>(({ props }) => {
                 <Row align="center" gap={8}>
                     <Button
                         size="sm"
-                        variant="primary"
-                        outline
+                        color="primary"
+                        variant="outline"
                         onPress={() => { playing.value = !playing.value; }}
                     >
                         {playing.value ? 'Pause' : 'Play'}

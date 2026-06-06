@@ -114,13 +114,13 @@ export const MarkdownEditorScreen = component(() => {
                             </view>
 
                             <Row gap={6}>
-                                <Button size="sm" variant={mode.value === 'auto' ? 'primary' : 'ghost'} outline={mode.value !== 'auto'} onPress={() => { mode.value = 'auto'; }}>auto</Button>
-                                <Button size="sm" variant={mode.value === 'fixed' ? 'primary' : 'ghost'} outline={mode.value !== 'fixed'} onPress={() => { mode.value = 'fixed'; }}>fixed</Button>
+                                <Button size="sm" color={mode.value === 'auto' ? 'primary' : undefined} variant={mode.value === 'auto' ? undefined : 'outline'} onPress={() => { mode.value = 'auto'; }}>auto</Button>
+                                <Button size="sm" color={mode.value === 'fixed' ? 'primary' : undefined} variant={mode.value === 'fixed' ? undefined : 'outline'} onPress={() => { mode.value = 'fixed'; }}>fixed</Button>
                                 {/* Controller-driven overlay — the same mounted
                                     editor restyles to absolute-inset, so the
                                     document/selection survive (close via ✕). */}
-                                <Button size="sm" variant="ghost" outline onPress={() => controller?.openFullscreen()}>fullscreen</Button>
-                                <Button size="sm" variant="ghost" outline onPress={() => controller?.clear()}>Clear</Button>
+                                <Button size="sm" variant="outline" onPress={() => controller?.openFullscreen()}>fullscreen</Button>
+                                <Button size="sm" variant="outline" onPress={() => controller?.clear()}>Clear</Button>
                             </Row>
                         </Col>
                     </Card.Body>
