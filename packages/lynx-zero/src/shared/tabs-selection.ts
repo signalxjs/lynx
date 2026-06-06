@@ -16,15 +16,15 @@
 import { defineInjectable, defineProvide } from '@sigx/lynx';
 
 export interface TabsSelection {
-    /** Whether the tab with this `value` is the selected one. Reactive. */
-    isActive(value: string): boolean;
-    /** Report a press on the tab with this `value` (drives `onChange`). */
-    select(value: string): void;
+  /** Whether the tab with this `value` is the selected one. Reactive. */
+  isActive(value: string): boolean;
+  /** Report a press on the tab with this `value` (drives `onChange`). */
+  select(value: string): void;
 }
 
 const NO_SELECTION: TabsSelection = {
-    isActive: () => false,
-    select: () => {},
+  isActive: () => false,
+  select: () => {},
 };
 
 /**
@@ -46,12 +46,12 @@ export const useTabsSelection = defineInjectable<TabsSelection>(() => NO_SELECTI
  * ```
  */
 export function provideTabsSelection(
-    getActive: () => string | undefined,
-    onSelect: (value: string) => void,
+  getActive: () => string | undefined,
+  onSelect: (value: string) => void,
 ): void {
-    const selection: TabsSelection = {
-        isActive: (value) => getActive() === value,
-        select: onSelect,
-    };
-    defineProvide(useTabsSelection, () => selection);
+  const selection: TabsSelection = {
+    isActive: (value) => getActive() === value,
+    select: onSelect,
+  };
+  defineProvide(useTabsSelection, () => selection);
 }
