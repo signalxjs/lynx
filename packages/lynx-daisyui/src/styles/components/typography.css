@@ -89,3 +89,14 @@
 .font-medium { font-weight: 500; }
 .font-semibold { font-weight: 600; }
 .font-bold { font-weight: 700; }
+
+/* Soft (tinted) surfaces — materialized in the palette by the theme
+ * registry (Lynx CSS can't alpha-compose var() colors). */
+.bg-primary-soft { background-color: var(--color-primary-soft); }
+.bg-secondary-soft { background-color: var(--color-secondary-soft); }
+.bg-accent-soft { background-color: var(--color-accent-soft); }
+.bg-neutral-soft { background-color: var(--color-neutral-soft); }
+.bg-info-soft { background-color: var(--color-info-soft); }
+.bg-success-soft { background-color: var(--color-success-soft); }
+.bg-warning-soft { background-color: var(--color-warning-soft); }
+.bg-error-soft { background-color: var(--color-error-soft); }

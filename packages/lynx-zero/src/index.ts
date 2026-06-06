@@ -11,6 +11,8 @@ export type {
   SizeScale,
   ColorVariant,
   ColorToken,
+  CoreColorToken,
+  SoftColorToken,
   BackgroundValue,
   WithClass,
   WithDisabled,
@@ -18,7 +20,7 @@ export type {
   WithSize,
   PressEvent,
 } from './contract.js';
-export { resolveColorToken } from './contract.js';
+export { resolveColorToken, COLOR_VARIANT_LIST } from './contract.js';
 
 // Box-model style helpers.
 export type { SpacingValue, BoxProps } from './shared/styles.js';
@@ -53,6 +55,10 @@ export type {
   ThemeSizes,
   ThemeVariant,
 } from './theme/ThemeProvider.js';
+// Palette completion (soft tints) + the JS-side color mixer behind it.
+export { completeTheme } from './theme/registry.js';
+export type { ThemeInput, ThemePaletteInput } from './theme/registry.js';
+export { mixColors } from './theme/color-mix.js';
 // Headless theme handle: import and call from anywhere — stores, services,
 // effects, app-boot — with no `<ThemeProvider>` ancestor required.
 export { themeController } from './theme/theme-state.js';

@@ -12,7 +12,7 @@
  * Colors are engine-safe strings — hex or `rgb()`. Lynx's CSS engine does not
  * parse `oklch()`, so convert before registering.
  */
-import { registerTheme, type Theme } from '@sigx/lynx-zero';
+import { completeTheme, registerTheme, type Theme, type ThemeInput } from '@sigx/lynx-zero';
 
 /**
  * Theme class applied to the provider's host view. The six color themes
@@ -43,9 +43,9 @@ const STATUS_LIGHT = {
  * emits the per-theme first-paint CSS classes from it at build time).
  * @internal
  */
-export const DAISY_BUILTIN_THEMES: readonly Theme[] = [
+const RAW_THEMES: readonly ThemeInput[] = [
   {
-    name: 'daisy-light', variant: 'light', pair: 'daisy-dark', staticCss: true,
+    name: 'daisy-light', variant: 'light', pair: 'daisy-dark', staticCss: true, softMix: 0.08,
     colors: {
       'primary': '#491dff', 'primary-content': '#d3dbff',
       'secondary': '#ff20cc', 'secondary-content': '#fff8fc',
@@ -57,7 +57,7 @@ export const DAISY_BUILTIN_THEMES: readonly Theme[] = [
     },
   },
   {
-    name: 'daisy-cupcake', variant: 'light', pair: 'daisy-synthwave', staticCss: true,
+    name: 'daisy-cupcake', variant: 'light', pair: 'daisy-synthwave', staticCss: true, softMix: 0.08,
     colors: {
       'primary': '#65c3c8', 'primary-content': '#052124',
       'secondary': '#ef9fbc', 'secondary-content': '#2d0a16',
@@ -69,7 +69,7 @@ export const DAISY_BUILTIN_THEMES: readonly Theme[] = [
     },
   },
   {
-    name: 'daisy-emerald', variant: 'light', pair: 'daisy-dracula', staticCss: true,
+    name: 'daisy-emerald', variant: 'light', pair: 'daisy-dracula', staticCss: true, softMix: 0.08,
     colors: {
       'primary': '#66cc8a', 'primary-content': '#06200f',
       'secondary': '#377cfb', 'secondary-content': '#02112d',
@@ -84,7 +84,7 @@ export const DAISY_BUILTIN_THEMES: readonly Theme[] = [
     },
   },
   {
-    name: 'daisy-dark', variant: 'dark', pair: 'daisy-light', staticCss: true,
+    name: 'daisy-dark', variant: 'dark', pair: 'daisy-light', staticCss: true, softMix: 0.08,
     colors: {
       'primary': '#7582ff', 'primary-content': '#050617',
       'secondary': '#ff71cf', 'secondary-content': '#190211',
@@ -96,7 +96,7 @@ export const DAISY_BUILTIN_THEMES: readonly Theme[] = [
     },
   },
   {
-    name: 'daisy-synthwave', variant: 'dark', pair: 'daisy-cupcake', staticCss: true,
+    name: 'daisy-synthwave', variant: 'dark', pair: 'daisy-cupcake', staticCss: true, softMix: 0.08,
     colors: {
       'primary': '#e779c1', 'primary-content': '#2a0a1f',
       'secondary': '#58c7f3', 'secondary-content': '#02141d',
@@ -111,7 +111,7 @@ export const DAISY_BUILTIN_THEMES: readonly Theme[] = [
     },
   },
   {
-    name: 'daisy-dracula', variant: 'dark', pair: 'daisy-emerald', staticCss: true,
+    name: 'daisy-dracula', variant: 'dark', pair: 'daisy-emerald', staticCss: true, softMix: 0.08,
     colors: {
       'primary': '#ff79c6', 'primary-content': '#2d0414',
       'secondary': '#bd93f9', 'secondary-content': '#160226',
@@ -129,4 +129,6 @@ export const DAISY_BUILTIN_THEMES: readonly Theme[] = [
 
 // Seed at module load. Registration order matters: daisy-light / daisy-dark
 // are first of their variants, so they are the follow-system defaults.
+export const DAISY_BUILTIN_THEMES: readonly Theme[] = RAW_THEMES.map(completeTheme);
+
 for (const theme of DAISY_BUILTIN_THEMES) registerTheme(theme);

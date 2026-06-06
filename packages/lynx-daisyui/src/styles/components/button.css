@@ -48,13 +48,14 @@
 .btn-outline.btn-error { border-color: var(--color-error); color: var(--color-error); }
 
 /* Soft modifier */
-.btn-soft.btn-primary { background-color: var(--color-primary-content); color: var(--color-primary); }
-.btn-soft.btn-secondary { background-color: var(--color-secondary-content); color: var(--color-secondary); }
-.btn-soft.btn-accent { background-color: var(--color-accent-content); color: var(--color-accent); }
-.btn-soft.btn-info { background-color: var(--color-info-content); color: var(--color-info); }
-.btn-soft.btn-success { background-color: var(--color-success-content); color: var(--color-success); }
-.btn-soft.btn-warning { background-color: var(--color-warning-content); color: var(--color-warning); }
-.btn-soft.btn-error { background-color: var(--color-error-content); color: var(--color-error); }
+.btn-soft.btn-primary { background-color: var(--color-primary-soft); color: var(--color-primary); }
+.btn-soft.btn-secondary { background-color: var(--color-secondary-soft); color: var(--color-secondary); }
+.btn-soft.btn-accent { background-color: var(--color-accent-soft); color: var(--color-accent); }
+.btn-soft.btn-info { background-color: var(--color-info-soft); color: var(--color-info); }
+.btn-soft.btn-success { background-color: var(--color-success-soft); color: var(--color-success); }
+.btn-soft.btn-warning { background-color: var(--color-warning-soft); color: var(--color-warning); }
+.btn-soft.btn-error { background-color: var(--color-error-soft); color: var(--color-error); }
+.btn-soft.btn-neutral { background-color: var(--color-neutral-soft); color: var(--color-base-content); }
 
 /* Shape modifiers */
 .btn-wide { width: 256px; }
