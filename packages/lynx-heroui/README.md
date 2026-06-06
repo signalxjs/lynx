@@ -8,17 +8,18 @@ built-in themes (`hero-light` / `hero-dark`) and a representative component
 set, growing from there.
 
 ```tsx
-import { ThemeProvider, Button } from '@sigx/lynx-heroui';
+import { ThemeProvider } from '@sigx/lynx-heroui';
 import '@sigx/lynx-heroui/styles';
 
 defineApp(() => () => (
     <ThemeProvider>
-        <Button color="primary">Get started</Button>
+        <App />
     </ThemeProvider>
 ));
 ```
 
-Components follow the shared contract: semantic `color`
+Components (arriving with the Phase 6 pilot) follow the shared contract:
+semantic `color`
 (`primary` … `error`), DS-specific `variant` fill styles
 (`solid` / `bordered` / `flat` / `ghost`), `size` on the shared scale, and
 sigx conventions (`disabled`, `onPress`). Switching an app between

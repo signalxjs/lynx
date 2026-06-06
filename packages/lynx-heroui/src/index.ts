@@ -3,8 +3,9 @@
 // representative component set arriving in Phase 6; grows as the shared
 // contract is validated.
 
-// Theme data — importing anything from this package seeds hero-light /
-// hero-dark into the shared registry.
+// Theme data — any JS import from this package's entrypoint seeds hero-light /
+// hero-dark into the shared registry. (The CSS-only `…/styles` subpath does
+// not execute JS; an app always imports both, like with daisyui.)
 export { HERO_BUILTIN_THEMES } from './theme/builtins.js';
 export type { HeroTheme } from './theme/builtins.js';
 
