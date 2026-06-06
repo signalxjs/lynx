@@ -62,7 +62,7 @@ export const Divider = component<DividerProps>(({ props, slots }) => {
           flexDirection: props.vertical ? 'column' : 'row',
           alignItems: 'center',
           alignSelf: 'stretch',
-          gap: '8px',
+          gap: 8,
           ...getMarginStyle(),
         }}
       >
