@@ -75,10 +75,14 @@ export const NavTabBar = component<NavTabBarProps>(({ props, emit }) => {
     // Mode is decided at mount: with `items` the navigator is never
     // consulted (so no <Tabs> ancestor is required); without it the bar
     // subscribes to the enclosing <Tabs>, which throws when absent.
-    const nav = props.items != null ? null : useTabs();
+    // `standalone` is captured here and branched on consistently below so a
+    // later change to `items` can't mix navigator state with standalone
+    // props (it renders an empty bar instead if `items` becomes undefined).
+    const standalone = props.items != null;
+    const nav = standalone ? null : useTabs();
     return () => {
-        const tabs = props.items ?? nav!.tabs;
-        const active = nav ? nav.active : props.activeId;
+        const tabs = standalone ? (props.items ?? []) : nav!.tabs;
+        const active = standalone ? props.activeId : nav!.active;
         const renderer = props.renderTab;
         const position = props.position ?? 'bottom';
         const bg = backgroundClass[props.background ?? 'base-200'];
