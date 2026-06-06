@@ -199,4 +199,105 @@ describe('MarkdownEditor', () => {
         await waitForUpdate();
         expect(container.findByType('sigx-richtext')!._style.height).toBe(88);
     });
+    it('fixed mode pins a stable box at maxLines regardless of reported height', async () => {
+        const { container } = render(<MarkdownEditor value="" minLines={1} maxLines={4} mode="fixed" />);
+        const el = container.findByType('sigx-richtext')!;
+        // 4 lines @ 24 + 16 padding = 112: min == max (internal scroll past it).
+        expect(el._style.height).toBe(112);
+        expect(el.props['min-height']).toBe(112);
+        expect(el.props['max-height']).toBe(112);
+
+        // A reported height (content shorter or longer) never moves the box.
+        for (const height of [40, 112, 300]) {
+            el._handlers.get('bindheightchange')!({
+                type: 'heightchange',
+                detail: { height, lines: 1 },
+            });
+            await waitForUpdate();
+            expect(container.findByType('sigx-richtext')!._style.height).toBe(112);
+        }
+    });
+
+    it('re-clamps height when the mode switches at runtime', async () => {
+        const mode = signal<{ current: 'auto' | 'fixed' }>({ current: 'auto' });
+        const Wrap = component(() => () => (
+            <MarkdownEditor value="" minLines={1} maxLines={4} mode={mode.current} />
+        ));
+        const { container } = render(<Wrap />);
+        expect(container.findByType('sigx-richtext')!._style.height).toBe(40);
+
+        // auto → fixed: the box jumps to the pinned height and the native
+        // element sees the new clamp props (it re-reports on prop change).
+        mode.current = 'fixed';
+        await waitForUpdate();
+        const fixed = container.findByType('sigx-richtext')!;
+        expect(fixed._style.height).toBe(112);
+        expect(fixed.props['min-height']).toBe(112);
+
+        // fixed → auto: back to the min until the native re-report arrives.
+        mode.current = 'auto';
+        await waitForUpdate();
+        const auto = container.findByType('sigx-richtext')!;
+        expect(auto._style.height).toBe(40);
+        expect(auto.props['min-height']).toBe(40);
+        expect(auto.props['max-height']).toBe(112);
+    });
+
+    it('openFullscreen restyles in place — same element, no document reset', async () => {
+        let ctrl: MarkdownEditorController | null = null;
+        const onFullscreenChange = vi.fn();
+        const { container } = render(
+            <MarkdownEditor
+                value="# Hi"
+                controllerRef={(c) => { ctrl = c; }}
+                onFullscreenChange={onFullscreenChange}
+                fullscreenClass="surface"
+            />,
+        );
+        const before = container.findByType('sigx-richtext')!;
+        expect(ctrl!.isFullscreen()).toBe(false);
+
+        ctrl!.openFullscreen();
+        await waitForUpdate();
+        expect(ctrl!.isFullscreen()).toBe(true);
+        expect(onFullscreenChange).toHaveBeenCalledWith(true);
+
+        // The SAME mounted element — never re-parented/recreated (the native
+        // doc would be lost: `value` is initial-only) and never re-seeded.
+        const after = container.findByType('sigx-richtext')!;
+        expect(after).toBe(before);
+        expect(spies.setDocument).not.toHaveBeenCalled();
+        // Overlay layout: fills instead of clamped height; unbounded max.
+        expect(after._style.height).toBeUndefined();
+        expect(after._style.flexGrow).toBe(1);
+        expect(after.props['max-height']).toBe(0);
+        // Root is an absolute-inset layer carrying the fullscreen class.
+        const root = container.findAllByType('view').find((v) => v._style.position === 'fixed');
+        expect(root).toBeTruthy();
+        expect(root!.props['class']).toContain('surface');
+
+        ctrl!.closeFullscreen();
+        await waitForUpdate();
+        expect(ctrl!.isFullscreen()).toBe(false);
+        expect(onFullscreenChange).toHaveBeenLastCalledWith(false);
+        const restored = container.findByType('sigx-richtext')!;
+        expect(restored).toBe(before);
+        expect(restored._style.height).toBe(40);
+        expect(container.findAllByType('view').some((v) => v._style.position === 'fixed')).toBe(false);
+    });
+
+    it('fullscreen shows a toolbar by default; explicit toolbar={false} suppresses it', async () => {
+        let ctrl: MarkdownEditorController | null = null;
+        const a = render(<MarkdownEditor value="" controllerRef={(c) => { ctrl = c; }} />);
+        expect(a.container.findAllByType('text').some((t) => t.textContent() === 'B')).toBe(false);
+        ctrl!.openFullscreen();
+        await waitForUpdate();
+        expect(a.container.findAllByType('text').some((t) => t.textContent() === 'B')).toBe(true);
+
+        let ctrl2: MarkdownEditorController | null = null;
+        const b = render(<MarkdownEditor value="" toolbar={false} controllerRef={(c) => { ctrl2 = c; }} />);
+        ctrl2!.openFullscreen();
+        await waitForUpdate();
+        expect(b.container.findAllByType('text').some((t) => t.textContent() === 'B')).toBe(false);
+    });
 });
