@@ -29,37 +29,12 @@ export type {
     ExtensionProps,
 } from './render/components.js';
 
-// True-WYSIWYG editor on the native <sigx-richtext> element
-// (requires the optional @sigx/lynx-richtext peer).
-export { MarkdownEditor } from './editor/MarkdownEditor.js';
-export type {
-    MarkdownEditorProps,
-    MarkdownEditorController,
-    MarkdownEditorMode,
-} from './editor/MarkdownEditor.js';
-export type { SelectionState } from '@sigx/lynx-richtext';
-export { EditorToolbar } from './editor/toolbar/Toolbar.js';
-export type { EditorToolbarProps, ToolbarRenderItem } from './editor/toolbar/Toolbar.js';
-export { defaultToolbarItems } from './editor/toolbar/items.js';
-export type { ToolbarItem, ToolbarContext } from './editor/toolbar/items.js';
-export { mdToDoc } from './editor/convert/mdToDoc.js';
-export type { MdToDocOptions, ExtensionSpanMapper } from './editor/convert/mdToDoc.js';
-export { docToMd } from './editor/convert/docToMd.js';
-export type { DocToMdOptions, SpanSerializer } from './editor/convert/docToMd.js';
-
-// Editor plugin API (P3): inline syntax + doc mapping, trigger suggestions,
-// toolbar contributions — see MarkdownEditorPlugin.
-export type {
-    MarkdownEditorPlugin,
-    InlinePluginSpec,
-    TriggerSpec,
-    TriggerItem,
-    TriggerSelectApi,
-} from './editor/plugin.js';
-export { SuggestionPopup } from './editor/trigger/SuggestionPopup.js';
-export type { SuggestionPopupProps, SuggestionRenderItem } from './editor/trigger/SuggestionPopup.js';
-export { createTriggerSessionManager } from './editor/trigger/session.js';
-export type { TriggerSession, TriggerSessionManager } from './editor/trigger/session.js';
+// The true-WYSIWYG editor surface lives on the `@sigx/lynx-markdown/editor`
+// subpath (#177): `MarkdownEditor` / `SuggestionPopup` statically import the
+// optional `@sigx/lynx-richtext` / `@sigx/lynx-keyboard` peers, and
+// re-exporting them here would make those peers required at module-link time
+// for every consumer - including renderer-only ones. This root entry carries
+// no runtime peer imports.
 
 // Reference plugins.
 export { createMentionPlugin, mentionSyntax } from './plugins/mention.js';

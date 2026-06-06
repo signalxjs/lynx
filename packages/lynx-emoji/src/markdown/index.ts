@@ -19,12 +19,8 @@
  */
 
 import type { JSXElement } from '@sigx/lynx';
-import type {
-    ExtensionProps,
-    MarkdownEditorPlugin,
-    ParserInlineExtension,
-    TriggerItem,
-} from '@sigx/lynx-markdown';
+import type { ExtensionProps, ParserInlineExtension } from '@sigx/lynx-markdown';
+import type { MarkdownEditorPlugin, TriggerItem } from '@sigx/lynx-markdown/editor';
 import { data as enData } from '../data/en.gen.js';
 import type { EmojiData, EmojiDatum } from '../data/schema.js';
 import { buildSearchIndex } from '../search/index.js';

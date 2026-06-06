@@ -3,13 +3,15 @@ import { Screen } from '@sigx/lynx-navigation';
 import { Button, Card, Col, EmojiPickerSheet, Heading, Row, ScrollView, Text, useMarkdownEditorTheme } from '@sigx/lynx-daisyui';
 import {
     createMentionPlugin,
-    MarkdownEditor,
     MarkdownView,
     mentionSyntax,
-    type MarkdownEditorController,
-    type MarkdownEditorMode,
     type MentionCandidate,
 } from '@sigx/lynx-markdown';
+import {
+    MarkdownEditor,
+    type MarkdownEditorController,
+    type MarkdownEditorMode,
+} from '@sigx/lynx-markdown/editor';
 import { enData } from '@sigx/lynx-emoji';
 import { createEmojiPlugin, createEmojiSyntax, emojiExtensionComponent } from '@sigx/lynx-emoji/markdown';
 
