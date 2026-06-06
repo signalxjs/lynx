@@ -58,8 +58,8 @@ export const Appearance = component(() => {
                                     <Button
                                         key={meta.name}
                                         size="sm"
-                                        variant={theme.name === meta.name ? 'primary' : 'ghost'}
-                                        outline={theme.name !== meta.name}
+                                        color={theme.name === meta.name ? 'primary' : undefined}
+                                        variant={theme.name === meta.name ? undefined : 'outline'}
                                         onPress={() => pickTheme(meta.name)}
                                     >
                                         {meta.name.replace('daisy-', '')} ({meta.variant[0]})
@@ -69,8 +69,7 @@ export const Appearance = component(() => {
                             <Row gap={8}>
                                 <Button
                                     size="sm"
-                                    variant="ghost"
-                                    outline
+                                    variant="outline"
                                     onPress={() => {
                                         Haptics.selection();
                                         theme.toggle();
@@ -80,8 +79,7 @@ export const Appearance = component(() => {
                                 </Button>
                                 <Button
                                     size="sm"
-                                    variant="ghost"
-                                    outline
+                                    variant="outline"
                                     onPress={() => {
                                         Haptics.selection();
                                         theme.followSystem();

@@ -69,9 +69,9 @@ export const swiperindicatorDemo: DaisyComponentDemo = {
                             onDotPress={(i) => { index.value = i; }}
                         />
                         <Row gap={12} align="center">
-                            <Button variant="primary" size="sm" outline onPress={() => go(-1)}>Prev</Button>
+                            <Button color="primary" size="sm" variant="outline" onPress={() => go(-1)}>Prev</Button>
                             <Text class="opacity-60">page {index.value + 1} / {COUNT}</Text>
-                            <Button variant="primary" size="sm" outline onPress={() => go(1)}>Next</Button>
+                            <Button color="primary" size="sm" variant="outline" onPress={() => go(1)}>Next</Button>
                         </Row>
                     </Col>
                 );

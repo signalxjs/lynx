@@ -169,7 +169,7 @@ export const AuthDemo = component(() => {
                                     type="password"
                                     model={() => password.value}
                                 />
-                                <Button variant="primary" onPress={onSignIn}>
+                                <Button color="primary" onPress={onSignIn}>
                                     Sign in
                                 </Button>
                             </Col>
@@ -187,7 +187,7 @@ export const AuthDemo = component(() => {
                                     biometrics to reveal it.
                                 </Text>
                                 <Row gap={8}>
-                                    <Button variant="primary" onPress={onUnlock}>
+                                    <Button color="primary" onPress={onUnlock}>
                                         Unlock with biometrics
                                     </Button>
                                     <Button variant="ghost" onPress={onSignOut}>
@@ -249,8 +249,7 @@ export const AuthDemo = component(() => {
                             </Text>
                             <Button
                                 size="sm"
-                                variant="ghost"
-                                outline
+                                variant="outline"
                                 onPress={() => { void refreshDiagnostics(); }}
                             >
                                 Refresh

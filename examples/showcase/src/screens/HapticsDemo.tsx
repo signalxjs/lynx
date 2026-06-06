@@ -26,8 +26,8 @@ export const HapticsDemo = component(() => {
                                     <Button
                                         key={style}
                                         size="sm"
-                                        variant="primary"
-                                        outline
+                                        color="primary"
+                                        variant="outline"
                                         onPress={() => Haptics.impact(style)}
                                     >
                                         {style}
@@ -50,8 +50,8 @@ export const HapticsDemo = component(() => {
                                     <Button
                                         key={type}
                                         size="sm"
-                                        variant="secondary"
-                                        outline
+                                        color="secondary"
+                                        variant="outline"
                                         onPress={() => Haptics.notification(type)}
                                     >
                                         {type}
@@ -69,7 +69,7 @@ export const HapticsDemo = component(() => {
                             <Text class="opacity-60 text-sm">
                                 The light tick for picker/segment changes.
                             </Text>
-                            <Button size="sm" variant="ghost" outline onPress={() => Haptics.selection()}>
+                            <Button size="sm" variant="outline" onPress={() => Haptics.selection()}>
                                 selection()
                             </Button>
                         </Col>

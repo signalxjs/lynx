@@ -1,10 +1,10 @@
 import { component, signal, type Define } from '@sigx/lynx';
 import { Pressable } from '@sigx/lynx-gestures';
-import { PRESSED_SCALE, PRESSED_OPACITY } from '@sigx/lynx-zero';
+import { PRESSED_SCALE, PRESSED_OPACITY, type ColorVariant } from '@sigx/lynx-zero';
 
 export type SelectSize = 'xs' | 'sm' | 'md' | 'lg';
 export type SelectVariant = 'bordered' | 'ghost';
-export type SelectColor = 'primary' | 'secondary' | 'accent' | 'info' | 'success' | 'warning' | 'error';
+export type SelectColor = Exclude<ColorVariant, 'neutral'>;
 
 export interface SelectOption {
   label: string;

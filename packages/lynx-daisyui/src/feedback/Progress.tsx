@@ -1,6 +1,7 @@
 import { component, type Define } from '@sigx/lynx';
+import type { ColorVariant } from '@sigx/lynx-zero';
 
-export type ProgressColor = 'primary' | 'secondary' | 'accent' | 'info' | 'success' | 'warning' | 'error';
+export type ProgressColor = Exclude<ColorVariant, 'neutral'>;
 
 export type ProgressProps =
   & Define.Prop<'value', number, false>

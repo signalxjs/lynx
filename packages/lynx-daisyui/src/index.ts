@@ -1,6 +1,6 @@
 // Buttons
 export { Button } from './buttons/Button.js';
-export type { ButtonProps, ButtonVariant, ButtonSize } from './buttons/Button.js';
+export type { ButtonProps, ButtonColor, ButtonVariant, ButtonSize } from './buttons/Button.js';
 
 // Layout — Card and Divider are daisy-styled; the neutral primitives
 // (Row/Col/Center/Spacer/ScrollView) live in @sigx/lynx-zero and are
@@ -46,9 +46,9 @@ export type { FormFieldProps } from './forms/FormField.js';
 
 // Feedback
 export { Badge } from './feedback/Badge.js';
-export type { BadgeProps, BadgeVariant, BadgeSize } from './feedback/Badge.js';
+export type { BadgeProps, BadgeColor, BadgeVariant, BadgeSize } from './feedback/Badge.js';
 export { Alert } from './feedback/Alert.js';
-export type { AlertProps, AlertVariant } from './feedback/Alert.js';
+export type { AlertProps, AlertColor } from './feedback/Alert.js';
 export { Loading } from './feedback/Loading.js';
 export type { LoadingProps, LoadingType, LoadingSize, LoadingColor } from './feedback/Loading.js';
 export { Progress } from './feedback/Progress.js';

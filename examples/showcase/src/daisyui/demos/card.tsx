@@ -28,7 +28,7 @@ export const cardDemo: DaisyComponentDemo = {
                             surface, padding and shadow.
                         </Text>
                         <Card.Actions class="justify-end">
-                            <Button variant="primary" size="sm">Action</Button>
+                            <Button color="primary" size="sm">Action</Button>
                         </Card.Actions>
                     </Card.Body>
                 </Card>

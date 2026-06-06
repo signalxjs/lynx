@@ -18,10 +18,10 @@ export const alertDemo: DaisyComponentDemo = {
             title: 'Variants',
             Demo: component(() => () => (
                 <Col gap={8}>
-                    <Alert variant="info"><Text>A new update is available.</Text></Alert>
-                    <Alert variant="success"><Text>Your changes were saved.</Text></Alert>
-                    <Alert variant="warning"><Text>Storage is almost full.</Text></Alert>
-                    <Alert variant="error"><Text>Failed to reach the server.</Text></Alert>
+                    <Alert color="info"><Text>A new update is available.</Text></Alert>
+                    <Alert color="success"><Text>Your changes were saved.</Text></Alert>
+                    <Alert color="warning"><Text>Storage is almost full.</Text></Alert>
+                    <Alert color="error"><Text>Failed to reach the server.</Text></Alert>
                 </Col>
             )),
         },
@@ -36,7 +36,7 @@ export const alertDemo: DaisyComponentDemo = {
             title: 'With trailing content',
             note: 'alerts can lay out a row of children',
             Demo: component(() => () => (
-                <Alert variant="warning">
+                <Alert color="warning">
                     <Row gap={12} align="center" class="justify-between">
                         <Text>Your trial ends in 3 days.</Text>
                         <Text class="font-semibold">Upgrade</Text>

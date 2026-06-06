@@ -131,7 +131,7 @@ export const VoiceNoteRecorder = component<VoiceNoteRecorderProps>(({ props }) =
                             }}
                         />
                     </view>
-                    <Button variant="error" onPress={stop}>Stop recording</Button>
+                    <Button color="error" onPress={stop}>Stop recording</Button>
                 </Col>
             );
         }
@@ -139,7 +139,7 @@ export const VoiceNoteRecorder = component<VoiceNoteRecorderProps>(({ props }) =
         if (hasClip) {
             return (
                 <Row align="center" gap={8}>
-                    <Button size="sm" variant="primary" outline onPress={togglePlayback}>
+                    <Button size="sm" color="primary" variant="outline" onPress={togglePlayback}>
                         {playing.value ? 'Stop' : 'Play voice note'}
                     </Button>
                     <Button size="sm" variant="ghost" onPress={clear}>
@@ -150,7 +150,7 @@ export const VoiceNoteRecorder = component<VoiceNoteRecorderProps>(({ props }) =
         }
 
         return (
-            <Button variant="secondary" outline onPress={record}>
+            <Button color="secondary" variant="outline" onPress={record}>
                 Record voice note
             </Button>
         );

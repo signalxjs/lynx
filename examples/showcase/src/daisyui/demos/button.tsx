@@ -20,14 +20,14 @@ export const buttonDemo: DaisyComponentDemo = {
             title: 'Variants',
             Demo: component(() => () => (
                 <Row gap={8} class="flex-wrap">
-                    <Button variant="primary">Primary</Button>
-                    <Button variant="secondary">Secondary</Button>
-                    <Button variant="accent">Accent</Button>
-                    <Button variant="neutral">Neutral</Button>
-                    <Button variant="info">Info</Button>
-                    <Button variant="success">Success</Button>
-                    <Button variant="warning">Warning</Button>
-                    <Button variant="error">Error</Button>
+                    <Button color="primary">Primary</Button>
+                    <Button color="secondary">Secondary</Button>
+                    <Button color="accent">Accent</Button>
+                    <Button color="neutral">Neutral</Button>
+                    <Button color="info">Info</Button>
+                    <Button color="success">Success</Button>
+                    <Button color="warning">Warning</Button>
+                    <Button color="error">Error</Button>
                     <Button variant="ghost">Ghost</Button>
                     <Button variant="link">Link</Button>
                 </Row>
@@ -37,11 +37,11 @@ export const buttonDemo: DaisyComponentDemo = {
             title: 'Sizes',
             Demo: component(() => () => (
                 <Row gap={8} align="center" class="flex-wrap">
-                    <Button variant="primary" size="xs">xs</Button>
-                    <Button variant="primary" size="sm">sm</Button>
-                    <Button variant="primary" size="md">md</Button>
-                    <Button variant="primary" size="lg">lg</Button>
-                    <Button variant="primary" size="xl">xl</Button>
+                    <Button color="primary" size="xs">xs</Button>
+                    <Button color="primary" size="sm">sm</Button>
+                    <Button color="primary" size="md">md</Button>
+                    <Button color="primary" size="lg">lg</Button>
+                    <Button color="primary" size="xl">xl</Button>
                 </Row>
             )),
         },
@@ -51,11 +51,11 @@ export const buttonDemo: DaisyComponentDemo = {
             Demo: component(() => () => (
                 <Col gap={8}>
                     <Row gap={8} class="flex-wrap">
-                        <Button variant="primary" outline>Outline</Button>
-                        <Button variant="primary" soft>Soft</Button>
-                        <Button variant="primary" wide>Wide</Button>
+                        <Button color="primary" variant="outline">Outline</Button>
+                        <Button color="primary" variant="soft">Soft</Button>
+                        <Button color="primary" wide>Wide</Button>
                     </Row>
-                    <Button variant="primary" block>Block</Button>
+                    <Button color="primary" block>Block</Button>
                 </Col>
             )),
         },
@@ -63,9 +63,9 @@ export const buttonDemo: DaisyComponentDemo = {
             title: 'States',
             Demo: component(() => () => (
                 <Row gap={8} class="flex-wrap">
-                    <Button variant="primary" loading>Loading</Button>
-                    <Button variant="primary" disabled>Disabled</Button>
-                    <Button variant="primary" active>Active</Button>
+                    <Button color="primary" loading>Loading</Button>
+                    <Button color="primary" disabled>Disabled</Button>
+                    <Button color="primary" active>Active</Button>
                 </Row>
             )),
         },
@@ -75,7 +75,7 @@ export const buttonDemo: DaisyComponentDemo = {
                 const count = signal(0);
                 return () => (
                     <Row gap={12} align="center">
-                        <Button variant="primary" onPress={() => { count.value = count.value + 1; }}>
+                        <Button color="primary" onPress={() => { count.value = count.value + 1; }}>
                             Tap me
                         </Button>
                         <Text class="opacity-60">pressed {count.value}×</Text>

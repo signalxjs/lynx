@@ -51,8 +51,8 @@ const ScaleSample = component(() => {
                     <Button
                         key={s}
                         size="sm"
-                        variant={theme.fontScale === s ? 'primary' : 'ghost'}
-                        outline={theme.fontScale !== s}
+                        color={theme.fontScale === s ? 'primary' : undefined}
+                        variant={theme.fontScale === s ? undefined : 'outline'}
                         onPress={() => theme.setFontScale(s)}
                     >
                         {Math.round(s * 100)}%

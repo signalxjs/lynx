@@ -64,14 +64,14 @@ export const stepsDemo: DaisyComponentDemo = {
                         </Steps>
                         <Row gap={12} align="center">
                             <Button
-                                variant="neutral"
+                                color="neutral"
                                 size="sm"
                                 onPress={() => { current.value = Math.max(current.value - 1, 0); }}
                             >
                                 Back
                             </Button>
                             <Button
-                                variant="primary"
+                                color="primary"
                                 size="sm"
                                 onPress={() => { current.value = Math.min(current.value + 1, steps.length - 1); }}
                             >

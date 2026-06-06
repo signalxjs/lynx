@@ -107,7 +107,7 @@ export const MarkdownComposerScreen = component(() => {
                                 }}
                             />
                         </view>
-                        <Button variant="primary" disabled={draftEmpty.value} onPress={send}>
+                        <Button color="primary" disabled={draftEmpty.value} onPress={send}>
                             Send
                         </Button>
                     </Row>

@@ -81,13 +81,13 @@ export const Markdown = component(() => {
                                 </Text>
                                 <Row gap={8}>
                                     <Button
-                                        variant="primary"
+                                        color="primary"
                                         disabled={streaming.value}
                                         onPress={play}
                                     >
                                         {streaming.value ? 'Streaming…' : 'Play stream'}
                                     </Button>
-                                    <Button variant="ghost" outline onPress={() => stream.reset()}>
+                                    <Button variant="outline" onPress={() => stream.reset()}>
                                         Reset
                                     </Button>
                                 </Row>

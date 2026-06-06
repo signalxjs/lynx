@@ -1,8 +1,9 @@
 import { component, type Define } from '@sigx/lynx';
+import type { ColorVariant } from '@sigx/lynx-zero';
 
 export type LoadingType = 'spinner' | 'dots' | 'ring' | 'ball' | 'bars' | 'infinity';
 export type LoadingSize = 'xs' | 'sm' | 'md' | 'lg';
-export type LoadingColor = 'primary' | 'secondary' | 'accent' | 'info' | 'success' | 'warning' | 'error';
+export type LoadingColor = Exclude<ColorVariant, 'neutral'>;
 
 export type LoadingProps =
   & Define.Prop<'type', LoadingType, false>

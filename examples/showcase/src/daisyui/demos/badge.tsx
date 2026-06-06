@@ -18,14 +18,14 @@ export const badgeDemo: DaisyComponentDemo = {
             title: 'Variants',
             Demo: component(() => () => (
                 <Row gap={8} class="flex-wrap">
-                    <Badge variant="primary">Primary</Badge>
-                    <Badge variant="secondary">Secondary</Badge>
-                    <Badge variant="accent">Accent</Badge>
-                    <Badge variant="neutral">Neutral</Badge>
-                    <Badge variant="info">Info</Badge>
-                    <Badge variant="success">Success</Badge>
-                    <Badge variant="warning">Warning</Badge>
-                    <Badge variant="error">Error</Badge>
+                    <Badge color="primary">Primary</Badge>
+                    <Badge color="secondary">Secondary</Badge>
+                    <Badge color="accent">Accent</Badge>
+                    <Badge color="neutral">Neutral</Badge>
+                    <Badge color="info">Info</Badge>
+                    <Badge color="success">Success</Badge>
+                    <Badge color="warning">Warning</Badge>
+                    <Badge color="error">Error</Badge>
                     <Badge variant="ghost">Ghost</Badge>
                 </Row>
             )),
@@ -34,10 +34,10 @@ export const badgeDemo: DaisyComponentDemo = {
             title: 'Sizes',
             Demo: component(() => () => (
                 <Row gap={8} align="center" class="flex-wrap">
-                    <Badge variant="primary" size="xs">xs</Badge>
-                    <Badge variant="primary" size="sm">sm</Badge>
-                    <Badge variant="primary" size="md">md</Badge>
-                    <Badge variant="primary" size="lg">lg</Badge>
+                    <Badge color="primary" size="xs">xs</Badge>
+                    <Badge color="primary" size="sm">sm</Badge>
+                    <Badge color="primary" size="md">md</Badge>
+                    <Badge color="primary" size="lg">lg</Badge>
                 </Row>
             )),
         },
@@ -46,10 +46,10 @@ export const badgeDemo: DaisyComponentDemo = {
             note: 'outline modifier across a few variants',
             Demo: component(() => () => (
                 <Row gap={8} class="flex-wrap">
-                    <Badge variant="primary" outline>Primary</Badge>
-                    <Badge variant="success" outline>Success</Badge>
-                    <Badge variant="warning" outline>Warning</Badge>
-                    <Badge variant="error" outline>Error</Badge>
+                    <Badge color="primary" variant="outline">Primary</Badge>
+                    <Badge color="success" variant="outline">Success</Badge>
+                    <Badge color="warning" variant="outline">Warning</Badge>
+                    <Badge color="error" variant="outline">Error</Badge>
                 </Row>
             )),
         },
@@ -60,11 +60,11 @@ export const badgeDemo: DaisyComponentDemo = {
                 <Col gap={8}>
                     <Row gap={6} align="center">
                         <Text>Inbox</Text>
-                        <Badge variant="primary" size="sm">12</Badge>
+                        <Badge color="primary" size="sm">12</Badge>
                     </Row>
                     <Row gap={6} align="center">
                         <Text>Status</Text>
-                        <Badge variant="success" size="sm">Active</Badge>
+                        <Badge color="success" size="sm">Active</Badge>
                     </Row>
                 </Col>
             )),

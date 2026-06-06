@@ -1,6 +1,7 @@
 import { component, compound, type Define } from '@sigx/lynx';
+import type { ColorVariant } from '@sigx/lynx-zero';
 
-export type StepColor = 'primary' | 'secondary' | 'accent' | 'info' | 'success' | 'warning' | 'error' | 'neutral';
+export type StepColor = ColorVariant;
 
 export type StepsProps =
   & Define.Prop<'vertical', boolean, false>

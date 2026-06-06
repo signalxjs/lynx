@@ -92,7 +92,7 @@ export const MediaDemo = component(() => {
                                     </view>
                                 </scroll-view>
                             )}
-                            <Button variant="secondary" outline onPress={pickPhoto}>
+                            <Button color="secondary" variant="outline" onPress={pickPhoto}>
                                 {photoUris.value.length > 0 ? 'Add more photos' : 'Pick photos'}
                             </Button>
                         </Col>
