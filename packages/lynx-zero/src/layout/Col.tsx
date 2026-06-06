@@ -1,7 +1,8 @@
 import { component, type Define } from '@sigx/lynx';
-import { type SpacingValue, type BackgroundValue, resolveBoxStyle } from '@sigx/lynx-zero';
+import type { BackgroundValue } from '../contract.js';
+import { type SpacingValue, resolveBoxStyle } from '../shared/styles.js';
 
-export type RowProps =
+export type ColProps =
   & Define.Prop<'gap', number, false>
   & Define.Prop<'align', 'flex-start' | 'center' | 'flex-end' | 'stretch' | 'baseline', false>
   & Define.Prop<'justify', 'flex-start' | 'center' | 'flex-end' | 'space-between' | 'space-around' | 'space-evenly', false>
@@ -16,11 +17,11 @@ export type RowProps =
   & Define.Prop<'class', string, false>
   & Define.Slot<'default'>;
 
-export const Row = component<RowProps>(({ props, slots }) => {
+export const Col = component<ColProps>(({ props, slots }) => {
   const getStyle = (): Record<string, string | number> => {
     const style: Record<string, string | number> = {
       display: 'flex',
-      flexDirection: 'row',
+      flexDirection: 'column',
     };
 
     if (props.gap !== undefined) style.gap = props.gap;

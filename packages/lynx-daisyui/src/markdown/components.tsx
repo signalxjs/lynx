@@ -27,8 +27,8 @@
 import type { MarkdownComponents } from '@sigx/lynx-markdown';
 import { Heading } from '../typography/Heading.js';
 import { Text } from '../typography/Text.js';
-import { Col } from '../layout/Col.js';
-import { Row } from '../layout/Row.js';
+import { Col, Row } from '@sigx/lynx-zero';
+
 import { Divider } from '../layout/Divider.js';
 import { Checkbox } from '../forms/Checkbox.js';
 
