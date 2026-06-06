@@ -1,7 +1,9 @@
 /**
  * `@sigx/lynx-emoji/markdown` — the MarkdownEditor integration (P3 plugin).
- * Separate subpath so the core picker never loads `@sigx/lynx-markdown`
- * (an optional peer; only this entry imports it).
+ * Separate subpath so the core picker stays decoupled from
+ * `@sigx/lynx-markdown` (an optional peer; only this entry references it,
+ * and only via `import type` — erased at runtime, so nothing here loads the
+ * markdown package or its editor peers).
  *
  * What you get:
  *  - **trigger**: typing `:` opens the suggestion popup against the full
@@ -19,12 +21,8 @@
  */
 
 import type { JSXElement } from '@sigx/lynx';
-import type {
-    ExtensionProps,
-    MarkdownEditorPlugin,
-    ParserInlineExtension,
-    TriggerItem,
-} from '@sigx/lynx-markdown';
+import type { ExtensionProps, ParserInlineExtension } from '@sigx/lynx-markdown';
+import type { MarkdownEditorPlugin, TriggerItem } from '@sigx/lynx-markdown/editor';
 import { data as enData } from '../data/en.gen.js';
 import type { EmojiData, EmojiDatum } from '../data/schema.js';
 import { buildSearchIndex } from '../search/index.js';

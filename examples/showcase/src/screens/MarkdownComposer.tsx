@@ -9,7 +9,8 @@ import {
     useMarkdownEditorTheme,
 } from '@sigx/lynx-daisyui';
 import { KeyboardAvoidingView, KeyboardStickyView } from '@sigx/lynx-keyboard';
-import { MarkdownEditor, MarkdownView, type MarkdownEditorController } from '@sigx/lynx-markdown';
+import { MarkdownView } from '@sigx/lynx-markdown';
+import { MarkdownEditor, type MarkdownEditorController } from '@sigx/lynx-markdown/editor';
 import type { SelectionState } from '@sigx/lynx-richtext';
 
 /**

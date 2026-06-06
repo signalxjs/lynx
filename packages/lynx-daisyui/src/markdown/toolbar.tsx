@@ -21,7 +21,7 @@ import {
     type ToolbarItem,
     type ToolbarRenderItem,
     type SelectionState,
-} from '@sigx/lynx-markdown';
+} from '@sigx/lynx-markdown/editor';
 import { Button } from '../buttons/Button.js';
 
 /** daisyUI item rendering — pass to `MarkdownEditor`'s `renderToolbarItem`. */

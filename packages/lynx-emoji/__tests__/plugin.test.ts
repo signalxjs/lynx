@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import type { TriggerSelectApi } from '@sigx/lynx-markdown';
+import type { TriggerSelectApi } from '@sigx/lynx-markdown/editor';
 import {
     createEmojiPlugin,
     createEmojiSyntax,
