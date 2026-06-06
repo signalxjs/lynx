@@ -13,7 +13,7 @@ import { MarkdownEditor, MarkdownView, type MarkdownEditorController } from '@si
 import type { SelectionState } from '@sigx/lynx-richtext';
 
 /**
- * Markdown composer lab — the full chat-composer shape, assembled from the
+ * Markdown composer — the full chat-composer shape, assembled from the
  * pieces this repo now ships:
  *
  *  • `<MarkdownEditor>` as the message input: true WYSIWYG (bold is bold in
@@ -25,7 +25,7 @@ import type { SelectionState } from '@sigx/lynx-richtext';
  *  • The message list sits in `<KeyboardAvoidingView behavior="padding">` so
  *    nothing hides behind the IME.
  *
- * Presented as a modal (same caveat as the Keyboard lab: the lift math assumes
+ * Presented as a modal (same caveat as the Keyboard demo: the lift math assumes
  * the bar sits directly above the bottom safe-area inset — on a tab screen,
  * compensate with `offset={tabBarHeight}`).
  */
@@ -36,7 +36,7 @@ const SEED: Array<{ own: boolean; md: string }> = [
     { own: false, md: 'Exactly — and what you send renders through **MarkdownView**:\n\n- lists\n- `code`\n- ~~everything~~' },
 ];
 
-export const MarkdownComposerLab = component(() => {
+export const MarkdownComposerScreen = component(() => {
     const editorTheme = useMarkdownEditorTheme();
     const messages = signal<Array<{ own: boolean; md: string }>>([...SEED]);
     const selBox = signal<{ current: SelectionState | null }>({ current: null });

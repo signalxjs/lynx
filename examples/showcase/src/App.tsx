@@ -1,6 +1,6 @@
 import { component } from '@sigx/lynx';
 import { AppearanceProvider } from '@sigx/lynx-appearance';
-import { StatusBarSync, ThemeProvider } from '@sigx/lynx-daisyui';
+import { NavHeader, StatusBarSync, ThemeProvider } from '@sigx/lynx-daisyui';
 import { NavigationRoot, Stack } from '@sigx/lynx-navigation';
 import { SafeAreaProvider, SafeAreaView } from '@sigx/lynx-safe-area';
 import { routes } from './routes.js';
@@ -20,7 +20,12 @@ import './themes.js';
 // StatusBarSync mirrors the active theme's variant out to the device's
 // status- and navigation-bar tint so the system icons stay legible.
 //
-// No root-level `<NavHeader />` — each screen owns its own chrome.
+// The single root Stack mounts one persistent `<NavHeader />` above the
+// screen-transition wrapper — iOS-style. The bar stays in place during
+// push/pop slides while its *contents* (title, back button, right items)
+// update to the destination screen's chrome via `useScreenChrome()`.
+// Modal screens (keyboard / markdownComposer) render their own header
+// inside the sheet instead.
 const App = component(() => () => (
     <AppearanceProvider>
         <SafeAreaProvider>
@@ -28,7 +33,9 @@ const App = component(() => () => (
                 <StatusBarSync />
                 <SafeAreaView edges={['top', 'bottom']} class="bg-base-100">
                     <NavigationRoot routes={routes} initialRoute="root">
-                        <Stack />
+                        <Stack>
+                            <NavHeader backIcon={{ set: 'lucide', name: 'chevron-left' }} />
+                        </Stack>
                     </NavigationRoot>
                 </SafeAreaView>
             </ThemeProvider>

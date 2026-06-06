@@ -15,7 +15,7 @@ import {
 } from '@sigx/lynx-daisyui';
 
 /**
- * Typography lab — exercises the daisy text ramp end to end.
+ * Typography — exercises the daisy text ramp end to end.
  *
  *  • The static ramp section proves `<Text size>` / `<Heading>` resolve to the
  *    `--text-*` tokens at the default scale (xs 12px … base 17px … 3xl 34px).
@@ -73,7 +73,7 @@ const ScaleSample = component(() => {
     );
 });
 
-export const TypographyLab = component(() => {
+export const Typography = component(() => {
     const nav = useNav();
     // The ambient theme — pin the nested sample to it so it scales fonts without
     // recoloring away from the app's current theme.
@@ -81,9 +81,9 @@ export const TypographyLab = component(() => {
 
     return () => (
         <ScrollView class="flex-fill bg-base-100">
-            <Screen title="Typography lab" />
+            <Screen title="Typography" />
             <Col gap={16} padding={16}>
-                <Heading level={2}>Typography lab</Heading>
+                <Heading level={2}>Typography</Heading>
                 <Text class="opacity-60 text-sm">
                     The text ramp is token-driven (--text-xs … --text-3xl). A
                     global fontScale multiplies it on top, independent of theme.

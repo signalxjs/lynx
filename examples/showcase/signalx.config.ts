@@ -44,11 +44,11 @@ export default defineLynxConfig({
         { id: 'fab', source: '@sigx/lynx-icons-fa-free', styles: ['brands'] },
         // Lucide names used by the showcase get picked up by the scanner
         // through their `<LucideIcon name="…">` and `IconSpec` literal
-        // call sites — no manual `include` required. `include: [...]`
-        // is still the escape hatch for icons with dynamic names
-        // (`<LucideIcon name={someVar} />`) or for icons referenced from
-        // user-defined pinned wrappers the scanner doesn't know about.
-        { id: 'lucide', source: '@sigx/lynx-icons-lucide' },
+        // call sites — the catalog (src/catalog.ts) keeps its icons as
+        // `{ set: 'lucide', name: '…' }` literals for exactly this reason.
+        // `include` is the escape hatch for genuinely dynamic names: Home's
+        // theme toggle picks sun/moon from a ternary the scanner can't see.
+        { id: 'lucide', source: '@sigx/lynx-icons-lucide', include: ['sun', 'moon'] },
     ],
 
     android: {

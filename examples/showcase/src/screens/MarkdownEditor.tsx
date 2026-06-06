@@ -86,7 +86,7 @@ const previewComponents = {
 };
 
 /**
- * Markdown editor lab — exercises the true-WYSIWYG `<MarkdownEditor>` built on
+ * Markdown editor — exercises the true-WYSIWYG `<MarkdownEditor>` built on
  * the native `<sigx-richtext>` element.
  *
  *  • Chat-style auto-grow: 1 line → 4 lines → internal scroll.
@@ -98,7 +98,7 @@ const previewComponents = {
  *    `@` for mentions (native chips via insertChip, #157); the preview
  *    renders both via parser inline extensions.
  */
-export const MarkdownEditorLab = component(() => {
+export const MarkdownEditorScreen = component(() => {
     const editorTheme = useMarkdownEditorTheme();
     const markdown = signal('Hello **world** — type `:` for emoji :rocket: or `@` to mention @[Andy](u1)');
     const mode = signal<MarkdownEditorMode>('auto');
@@ -106,7 +106,7 @@ export const MarkdownEditorLab = component(() => {
 
     return () => (
         <ScrollView class="flex-fill bg-base-100">
-            <Screen title="Markdown editor lab" />
+            <Screen title="Markdown editor" />
             <Col gap={16} padding={16}>
                 <Card bordered>
                     <Card.Body>
