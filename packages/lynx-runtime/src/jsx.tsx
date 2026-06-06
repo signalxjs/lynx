@@ -188,15 +188,22 @@ export interface TextAttributes extends LynxCommonAttributes {
     'text-overflow'?: 'clip' | 'ellipsis';
     /**
      * Enable native text selection (long-press to select, system context
-     * menu for copy/share). Lynx 3.7+.
+     * menu for copy/share). Requires `flatten={false}` on the same element.
+     * Lynx 3.7+ (3.8 fixed a crash when selection handlebars overlapped).
      */
     'text-selection'?: boolean;
     /**
-     * Suppress the system context menu after selection so the app can
-     * render its own. Only takes effect when `text-selection` is enabled.
-     * Lynx 3.7+.
+     * Disable Lynx's built-in selection handling so the app can drive
+     * selection itself (e.g. via the `setTextSelection` UI method). Only
+     * takes effect when `text-selection` is enabled. Lynx 3.7+.
      */
     'custom-text-selection'?: boolean;
+    /**
+     * Keep built-in selection but suppress the system context menu after
+     * selecting, so the app can render its own. Only takes effect when
+     * `text-selection` is enabled. Lynx 3.7+.
+     */
+    'custom-context-menu'?: boolean;
     /** Fires when the selection range changes (selection start/end). */
     bindselectionchange?: LynxEventHandler;
     /** Fires when text layout is computed (frame/baseline/line metrics). */
