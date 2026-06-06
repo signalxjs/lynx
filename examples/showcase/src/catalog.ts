@@ -50,6 +50,13 @@ export const catalog: Area[] = [
                 route: 'theming',
             },
             {
+                id: 'heroui-lab',
+                title: 'HeroUI Lab',
+                description: 'Second design system on the lynx-zero foundation — A/B vs daisy',
+                icon: { set: 'lucide', name: 'layers' },
+                route: 'herouiLab',
+            },
+            {
                 id: 'icons',
                 title: 'Icons',
                 description: 'Font Awesome + Lucide adapters, themed and dynamic names',

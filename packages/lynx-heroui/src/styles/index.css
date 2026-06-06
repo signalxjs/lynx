@@ -3,8 +3,8 @@
  * Theme COLORS live in the shared registry (@sigx/lynx-zero, seeded by
  * src/theme/builtins.ts) and are applied as CSS custom properties by
  * <ThemeProvider>; the theme-agnostic structural tokens ship from
- * @sigx/lynx-zero under the `.lynx-zero` base class. Component CSS
- * (hero- prefixed) arrives with the Phase 6 pilot components. */
+ * @sigx/lynx-zero under the `.lynx-zero` base class. All component classes
+ * are hero- prefixed so daisy + hero CSS can coexist in one bundle. */
 
 /* Structural design tokens (.lynx-zero, from @sigx/lynx-zero) */
 @import '@sigx/lynx-zero/styles/tokens.css';
@@ -13,3 +13,11 @@
  * theme data at build time (scripts/gen-theme-css.mjs). Declared as CSS rules
  * so `var(--color-*)` resolves on the first paint. */
 @import './themes/builtins.generated.css';
+
+/* Components */
+@import './components/button.css';
+@import './components/typography.css';
+@import './components/card.css';
+@import './components/input.css';
+@import './components/modal.css';
+@import './components/tabs.css';

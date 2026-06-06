@@ -74,6 +74,9 @@ importers:
       '@sigx/lynx-haptics':
         specifier: workspace:^
         version: link:../../packages/lynx-haptics
+      '@sigx/lynx-heroui':
+        specifier: workspace:^
+        version: link:../../packages/lynx-heroui
       '@sigx/lynx-icons':
         specifier: workspace:^
         version: link:../../packages/lynx-icons
@@ -510,6 +513,9 @@ importers:
       '@sigx/lynx':
         specifier: workspace:^
         version: link:../lynx
+      '@sigx/lynx-gestures':
+        specifier: workspace:^
+        version: link:../lynx-gestures
       '@sigx/lynx-zero':
         specifier: workspace:^
         version: link:../lynx-zero

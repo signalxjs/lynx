@@ -1,0 +1,42 @@
+/* Hero Modal — overlay, box, header, body, actions. */
+
+.hero-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.hero-modal-box {
+  max-width: var(--modal-max-width);
+  width: 90%;
+  border-radius: var(--radius-box);
+  background-color: var(--color-base-200);
+  padding: 0;
+  overflow: hidden;
+}
+
+.hero-modal-header {
+  padding: var(--padding-box);
+  padding-bottom: var(--padding-box-compact);
+}
+
+.hero-modal-body {
+  padding: var(--padding-box);
+  padding-top: var(--padding-box-compact);
+  padding-bottom: var(--padding-box-compact);
+}
+
+.hero-modal-actions {
+  display: flex;
+  padding: var(--padding-box);
+  padding-top: var(--padding-box-compact);
+  flex-direction: row;
+  justify-content: flex-end;
+  gap: var(--gap-box);
+}

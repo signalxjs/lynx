@@ -9,6 +9,23 @@
 export { HERO_BUILTIN_THEMES } from './theme/builtins.js';
 export type { HeroTheme } from './theme/builtins.js';
 
+// Pilot components — built against the shared contract (semantic `color`,
+// DS-specific `variant`, shared `size` scale, disabled/onPress conventions).
+export { Button } from './components/Button.js';
+export type { ButtonProps, ButtonColor, ButtonVariant, ButtonSize } from './components/Button.js';
+export { Text } from './components/Text.js';
+export type { TextProps, TextSize, TextWeight, TextColor } from './components/Text.js';
+export { Heading } from './components/Heading.js';
+export type { HeadingProps, HeadingLevel } from './components/Heading.js';
+export { Card } from './components/Card.js';
+export type { CardProps } from './components/Card.js';
+export { Input } from './components/Input.js';
+export type { InputProps, InputSize, InputVariant, InputColor } from './components/Input.js';
+export { Modal } from './components/Modal.js';
+export type { ModalProps } from './components/Modal.js';
+export { Tabs } from './components/Tabs.js';
+export type { TabsProps, TabProps } from './components/Tabs.js';
+
 // The engine + neutral primitives, re-exported so hero apps keep a single
 // import source (same shape as @sigx/lynx-daisyui).
 export {
