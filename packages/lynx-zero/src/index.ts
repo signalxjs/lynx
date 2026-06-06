@@ -1,9 +1,9 @@
 // @sigx/lynx-zero — design-system-neutral UI foundation.
 //
 // Holds what every design-system package (@sigx/lynx-daisyui,
-// @sigx/lynx-heroui, …) shares: the props/token contract, style utilities
-// and press-feedback defaults. The theme engine and layout primitives move
-// here in later phases (see signalxjs/lynx#219).
+// @sigx/lynx-heroui, …) shares: the props/token contract, the theme engine,
+// layout primitives, style utilities and press-feedback defaults
+// (see signalxjs/lynx#219).
 
 // The shared contract: scales, semantic colors, prop fragments,
 // token-name conventions.
@@ -26,6 +26,41 @@ export { resolveSpacing, resolveBoxStyle } from './shared/styles.js';
 
 // Press-feedback defaults for interactive components.
 export { PRESSED_SCALE, PRESSED_OPACITY } from './shared/press.js';
+
+// Theme engine — registry mechanism, provider, headless controller. Theme
+// *data* (palettes, generated first-paint CSS classes) lives in each
+// design-system package, which seeds the registry at module load.
+export {
+  ThemeProvider,
+  useTheme,
+  listThemes,
+  registerTheme,
+  extendTheme,
+  pickThemeFor,
+  pairOf,
+  variantOf,
+  colorsOf,
+  radiusOf,
+  sizesOf,
+} from './theme/ThemeProvider.js';
+export type {
+  ThemeName,
+  ThemeController,
+  ThemeProviderProps,
+  Theme,
+  ThemePalette,
+  ThemeRadius,
+  ThemeSizes,
+  ThemeVariant,
+} from './theme/ThemeProvider.js';
+// Headless theme handle: import and call from anywhere — stores, services,
+// effects, app-boot — with no `<ThemeProvider>` ancestor required.
+export { themeController } from './theme/theme-state.js';
+export { StatusBarSync } from './theme/StatusBarSync.js';
+export type { StatusBarSyncProps } from './theme/StatusBarSync.js';
+// Per-screen theming: pin the global theme while a navigation screen is focused
+// (requires the optional `@sigx/lynx-navigation` peer).
+export { useScreenTheme } from './theme/use-screen-theme.js';
 
 // Layout primitives — design-system-neutral structure (flex containers,
 // spacing, scrolling); no design-system class names involved.

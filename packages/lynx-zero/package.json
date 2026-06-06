@@ -9,16 +9,17 @@
         ".": {
             "types": "./dist/index.d.ts",
             "import": "./dist/index.js"
-        }
+        },
+        "./styles/tokens.css": "./dist/styles/tokens.css"
     },
     "files": [
         "src",
         "dist"
     ],
     "scripts": {
-        "build": "node ../../scripts/clean.mjs dist && tsgo",
+        "build": "node ../../scripts/clean.mjs dist && tsgo && node ../../scripts/copy-assets.mjs src/styles dist/styles",
         "dev": "tsgo --watch",
-        "prepublishOnly": "node ../../scripts/clean.mjs dist && tsgo",
+        "prepublishOnly": "node ../../scripts/clean.mjs dist && tsgo && node ../../scripts/copy-assets.mjs src/styles dist/styles",
         "clean": "node ../../scripts/clean.mjs dist .turbo"
     },
     "keywords": [
@@ -32,9 +33,19 @@
     "author": "Andreas Ekdahl",
     "license": "MIT",
     "dependencies": {
-        "@sigx/lynx": "workspace:^"
+        "@sigx/lynx": "workspace:^",
+        "@sigx/lynx-appearance": "workspace:^"
+    },
+    "peerDependencies": {
+        "@sigx/lynx-navigation": "workspace:^"
+    },
+    "peerDependenciesMeta": {
+        "@sigx/lynx-navigation": {
+            "optional": true
+        }
     },
     "devDependencies": {
+        "@sigx/lynx-navigation": "workspace:^",
         "@sigx/lynx-testing": "workspace:^",
         "@typescript/native-preview": "7.0.0-dev.20260521.1",
         "typescript": "^6.0.3"

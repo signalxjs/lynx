@@ -19,8 +19,8 @@
  * ```
  */
 
-import { useTheme } from '../theme/ThemeProvider.js';
-import { colorsOf, type ThemePalette } from '../theme/registry.js';
+import { useTheme, colorsOf, type ThemePalette } from '@sigx/lynx-zero';
+
 
 export interface MarkdownEditorThemeColors {
     /** `base-content` — the theme's text color. */
