@@ -1,0 +1,32 @@
+/* Hero typography utilities — hero-prefixed type ramp + weights + semantic
+ * text colors. The ramp reads the shared `--text-*` tokens from
+ * @sigx/lynx-zero, so `fontScale` and theme overrides apply identically to
+ * both design systems. Hand-written (not Tailwind-generated) so the
+ * dynamically composed classes survive purge — same rationale as daisy's
+ * typography.css. */
+
+/* Type ramp */
+.hero-text-xs { font-size: var(--text-xs); }
+.hero-text-sm { font-size: var(--text-sm); }
+.hero-text-base { font-size: var(--text-base); }
+.hero-text-lg { font-size: var(--text-lg); }
+.hero-text-xl { font-size: var(--text-xl); }
+.hero-text-2xl { font-size: var(--text-2xl); }
+.hero-text-3xl { font-size: var(--text-3xl); }
+
+/* Weights */
+.hero-font-light { font-weight: 300; }
+.hero-font-normal { font-weight: 400; }
+.hero-font-medium { font-weight: 500; }
+.hero-font-semibold { font-weight: 600; }
+.hero-font-bold { font-weight: 700; }
+
+/* Semantic text colors */
+.hero-text-base-content { color: var(--color-base-content); }
+.hero-text-primary { color: var(--color-primary); }
+.hero-text-secondary { color: var(--color-secondary); }
+.hero-text-accent { color: var(--color-accent); }
+.hero-text-info { color: var(--color-info); }
+.hero-text-success { color: var(--color-success); }
+.hero-text-warning { color: var(--color-warning); }
+.hero-text-error { color: var(--color-error); }

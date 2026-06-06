@@ -1,4 +1,5 @@
 import '@sigx/lynx-daisyui/styles';
+import '@sigx/lynx-heroui/styles';
 import './styles.css';
 import { defineApp } from '@sigx/lynx';
 import App from './App';

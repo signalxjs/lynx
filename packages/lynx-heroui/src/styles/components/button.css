@@ -1,0 +1,72 @@
+/* Hero Button — .hero-btn + color/variant/size, hero look: full radius from
+ * --radius-field (12px in hero themes), medium weight, solid default. */
+
+.hero-btn {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  height: var(--size-md);
+  min-height: var(--size-md);
+  padding-left: var(--padding-btn-md);
+  padding-right: var(--padding-btn-md);
+  border-radius: var(--radius-field);
+  font-size: var(--font-md);
+  font-weight: 500;
+  line-height: 1;
+  border-width: 0;
+  border-color: transparent;
+}
+
+/* Solid colors (default variant) */
+.hero-btn-primary { background-color: var(--color-primary); color: var(--color-primary-content); }
+.hero-btn-secondary { background-color: var(--color-secondary); color: var(--color-secondary-content); }
+.hero-btn-accent { background-color: var(--color-accent); color: var(--color-accent-content); }
+.hero-btn-neutral { background-color: var(--color-neutral); color: var(--color-neutral-content); }
+.hero-btn-info { background-color: var(--color-info); color: var(--color-info-content); }
+.hero-btn-success { background-color: var(--color-success); color: var(--color-success-content); }
+.hero-btn-warning { background-color: var(--color-warning); color: var(--color-warning-content); }
+.hero-btn-error { background-color: var(--color-error); color: var(--color-error-content); }
+
+/* Bordered — 2px colored border, transparent fill (upstream `bordered`). */
+.hero-btn-bordered { background-color: transparent; border-width: 2px; }
+.hero-btn-bordered.hero-btn-primary { border-color: var(--color-primary); color: var(--color-primary); }
+.hero-btn-bordered.hero-btn-secondary { border-color: var(--color-secondary); color: var(--color-secondary); }
+.hero-btn-bordered.hero-btn-accent { border-color: var(--color-accent); color: var(--color-accent); }
+.hero-btn-bordered.hero-btn-neutral { border-color: var(--color-neutral); color: var(--color-base-content); }
+.hero-btn-bordered.hero-btn-info { border-color: var(--color-info); color: var(--color-info); }
+.hero-btn-bordered.hero-btn-success { border-color: var(--color-success); color: var(--color-success); }
+.hero-btn-bordered.hero-btn-warning { border-color: var(--color-warning); color: var(--color-warning); }
+.hero-btn-bordered.hero-btn-error { border-color: var(--color-error); color: var(--color-error); }
+
+/* Flat — tinted surface + colored label. Upstream uses color/20 alpha;
+ * Lynx CSS can't alpha-compose var() colors, so the pilot approximates with
+ * the base-200 surface (validated in the #219 retro). */
+.hero-btn-flat { background-color: var(--color-base-200); }
+.hero-btn-flat.hero-btn-primary { color: var(--color-primary); }
+.hero-btn-flat.hero-btn-secondary { color: var(--color-secondary); }
+.hero-btn-flat.hero-btn-accent { color: var(--color-accent); }
+.hero-btn-flat.hero-btn-neutral { color: var(--color-base-content); }
+.hero-btn-flat.hero-btn-info { color: var(--color-info); }
+.hero-btn-flat.hero-btn-success { color: var(--color-success); }
+.hero-btn-flat.hero-btn-warning { color: var(--color-warning); }
+.hero-btn-flat.hero-btn-error { color: var(--color-error); }
+
+/* Ghost — transparent until pressed, colored label. */
+.hero-btn-ghost { background-color: transparent; }
+.hero-btn-ghost.hero-btn-primary { color: var(--color-primary); }
+.hero-btn-ghost.hero-btn-secondary { color: var(--color-secondary); }
+.hero-btn-ghost.hero-btn-accent { color: var(--color-accent); }
+.hero-btn-ghost.hero-btn-neutral { color: var(--color-base-content); }
+.hero-btn-ghost.hero-btn-info { color: var(--color-info); }
+.hero-btn-ghost.hero-btn-success { color: var(--color-success); }
+.hero-btn-ghost.hero-btn-warning { color: var(--color-warning); }
+.hero-btn-ghost.hero-btn-error { color: var(--color-error); }
+
+/* Sizes */
+.hero-btn-sm { height: var(--size-sm); min-height: var(--size-sm); padding-left: var(--padding-btn-sm); padding-right: var(--padding-btn-sm); font-size: var(--font-sm); }
+.hero-btn-lg { height: var(--size-lg); min-height: var(--size-lg); padding-left: var(--padding-btn-lg); padding-right: var(--padding-btn-lg); font-size: var(--font-lg); }
+
+/* Modifiers / states */
+.hero-btn-block { width: 100%; }
+.hero-btn-disabled { opacity: var(--disabled-opacity); }

@@ -36,6 +36,7 @@
     "license": "MIT",
     "dependencies": {
         "@sigx/lynx": "workspace:^",
+        "@sigx/lynx-gestures": "workspace:^",
         "@sigx/lynx-zero": "workspace:^"
     },
     "devDependencies": {

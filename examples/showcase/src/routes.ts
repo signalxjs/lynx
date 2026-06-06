@@ -6,6 +6,7 @@ import { DaisyComponentScreen } from './screens/DaisyComponentScreen.js';
 // UI & Theming
 import { Appearance } from './screens/Appearance.js';
 import { Theming } from './screens/Theming.js';
+import { HeroUILab } from './screens/HeroUILab.js';
 import { Icons } from './screens/Icons.js';
 import { SystemBars } from './screens/SystemBars.js';
 // Text & Markdown
@@ -50,6 +51,7 @@ export const routes = defineRoutes({
     // UI & Theming
     appearance: { component: Appearance, path: '/appearance' },
     theming: { component: Theming, path: '/theming' },
+    herouiLab: { component: HeroUILab, path: '/heroui-lab' },
     icons: { component: Icons, path: '/icons' },
     systemBars: { component: SystemBars, path: '/system-bars' },
 

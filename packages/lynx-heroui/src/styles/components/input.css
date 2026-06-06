@@ -1,0 +1,32 @@
+/* Hero Input — flat (filled surface, upstream default) + bordered. */
+
+.hero-input {
+  height: var(--size-md);
+  padding-left: 14px;
+  padding-right: 14px;
+  border-radius: var(--radius-field);
+  font-size: var(--font-md);
+  background-color: var(--color-base-200);
+  color: var(--color-base-content);
+  border-width: 0;
+  border-color: transparent;
+}
+
+.hero-input-bordered {
+  background-color: transparent;
+  border-width: 2px;
+  border-color: var(--color-base-300);
+}
+
+/* Color accents (border emphasis for bordered, label tint for flat) */
+.hero-input-primary { border-color: var(--color-primary); }
+.hero-input-secondary { border-color: var(--color-secondary); }
+.hero-input-accent { border-color: var(--color-accent); }
+.hero-input-info { border-color: var(--color-info); }
+.hero-input-success { border-color: var(--color-success); }
+.hero-input-warning { border-color: var(--color-warning); }
+.hero-input-error { border-color: var(--color-error); }
+
+/* Sizes */
+.hero-input-sm { height: var(--size-sm); font-size: var(--font-sm); padding-left: 10px; padding-right: 10px; }
+.hero-input-lg { height: var(--size-lg); font-size: var(--font-lg); padding-left: 18px; padding-right: 18px; }
