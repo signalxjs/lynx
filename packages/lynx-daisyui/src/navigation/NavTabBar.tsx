@@ -6,6 +6,14 @@
  * tab changes via `setActive`. Pure UI / styling; the navigation
  * package owns state.
  *
+ * **Standalone mode** (#210): pass an explicit `items` list and the bar
+ * renders without any navigation context — `activeId` controls the active
+ * tab and presses surface through `onSelect`. Fully controlled; nothing is
+ * highlighted until `activeId` matches an item. For embedded usage: docs
+ * pages, design-system galleries, previews. The mode is fixed at mount —
+ * with `items` the navigator is never consulted, without it `useTabs()`
+ * must resolve (throws outside `<Tabs>`).
+ *
  * Default visual treatment: bottom navigation bar — base-200 background,
  * top separator line, active label in primary color.
  *
@@ -44,7 +52,17 @@ export type NavTabBarProps =
     /** Show a separator line on the edge opposite `position`. Default true. */
     & Define.Prop<'bordered', boolean, false>
     /** Replace per-tab rendering entirely. */
-    & Define.Prop<'renderTab', (info: TabInfo, ctx: NavTabRenderContext) => JSXElement, false>;
+    & Define.Prop<'renderTab', (info: TabInfo, ctx: NavTabRenderContext) => JSXElement, false>
+    /**
+     * Standalone mode: explicit tab list. When set the bar never calls
+     * `useTabs()` — it renders these items, highlights `activeId` and
+     * reports presses via `onSelect`. Mode is fixed at mount.
+     */
+    & Define.Prop<'items', ReadonlyArray<TabInfo>, false>
+    /** Standalone mode: name of the active tab. No item is active when unset/unmatched. */
+    & Define.Prop<'activeId', string, false>
+    /** Tab pressed — payload is the tab's `name`. Fires in both modes (navigator mode also calls `setActive`). */
+    & Define.Event<'select', string>;
 
 const backgroundClass: Record<NavTabBarBackground, string> = {
     'base-100': 'bg-base-100',
@@ -53,11 +71,18 @@ const backgroundClass: Record<NavTabBarBackground, string> = {
     'transparent': '',
 };
 
-export const NavTabBar = component<NavTabBarProps>(({ props }) => {
-    const nav = useTabs();
+export const NavTabBar = component<NavTabBarProps>(({ props, emit }) => {
+    // Mode is decided at mount: with `items` the navigator is never
+    // consulted (so no <Tabs> ancestor is required); without it the bar
+    // subscribes to the enclosing <Tabs>, which throws when absent.
+    // `standalone` is captured here and branched on consistently below so a
+    // later change to `items` can't mix navigator state with standalone
+    // props (it renders an empty bar instead if `items` becomes undefined).
+    const standalone = props.items != null;
+    const nav = standalone ? null : useTabs();
     return () => {
-        const tabs = nav.tabs;
-        const active = nav.active;
+        const tabs = standalone ? (props.items ?? []) : nav!.tabs;
+        const active = standalone ? props.activeId : nav!.active;
         const renderer = props.renderTab;
         const position = props.position ?? 'bottom';
         const bg = backgroundClass[props.background ?? 'base-200'];
@@ -72,7 +97,10 @@ export const NavTabBar = component<NavTabBarProps>(({ props }) => {
             <view accessibility-element={false} class={containerClass}>
                 {tabs.map((info) => {
                     const isActive = info.name === active;
-                    const onPress = () => nav.setActive(info.name);
+                    const onPress = () => {
+                        nav?.setActive(info.name);
+                        emit('select', info.name);
+                    };
                     if (renderer) {
                         return renderer(info, { active: isActive, onPress });
                     }

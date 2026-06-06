@@ -1,73 +1,48 @@
 import { component, signal } from '@sigx/lynx';
-import { Col, Row, Tabs, Text } from '@sigx/lynx-daisyui';
-import { Icon } from '@sigx/lynx-icons';
+import { Col, NavTabBar, Text } from '@sigx/lynx-daisyui';
 import type { DaisyComponentDemo } from '../registry.js';
 
 /**
- * NavTabBar — the daisy-themed bottom tab bar for `@sigx/lynx-navigation`.
+ * NavTabBar — the daisy-themed tab bar for `@sigx/lynx-navigation`.
  *
- * Unlike the standalone `Tabs`, `NavTabBar` is *navigation-driven*: it calls
- * `useTabs()` at setup to read the active tab + tab list and dispatch changes,
- * so it can only be mounted inside a `<Tabs>` / `<Tabs.Screen>` tree from
- * `@sigx/lynx-navigation` (calling `useTabs()` elsewhere throws). It takes no
- * item props — the tab list comes from navigation. Props are presentational:
- * `position` ('top' | 'bottom'), `background` (base-100/200/300 | transparent),
- * `bordered`, and `renderTab` for full per-tab override.
- *
- * Because a plain catalog page has no `<Tabs>` navigation context, the
- * sections below reproduce the bar's *visual* treatment with the standalone
- * `Tabs` strip + icons rather than mounting the context-bound component. Use
- * `NavTabBar` itself only inside the navigation container (see the app shell).
+ * Two modes (#210): inside a `<Tabs>` / `<Tabs.Screen>` tree it is
+ * *navigation-driven* — `useTabs()` supplies the tab list + active tab and
+ * presses dispatch `setActive`. With an explicit `items` list it runs
+ * *standalone* (no navigation context required): `activeId` controls the
+ * highlight and presses surface through `onSelect`. The sections below mount
+ * the real component in standalone mode; the app shell shows the
+ * navigation-driven flavor.
  */
 export const navtabbarDemo: DaisyComponentDemo = {
     id: 'navtabbar',
     title: 'NavTabBar',
-    description: 'Navigation-driven bottom tab bar — position, surface & active-item styling',
+    description: 'Tab bar — navigation-driven or standalone items, position & surface styling',
     icon: { set: 'lucide', name: 'dock' },
     sections: [
         {
-            title: 'Bottom bar (visual)',
-            note: 'NavTabBar mounts inside a <Tabs> navigator; this mirrors its bottom-bar treatment',
+            title: 'Bottom bar',
+            note: 'standalone items + activeId; presses surface via onSelect',
             Demo: component(() => {
                 const active = signal('home');
                 const items = [
-                    { name: 'home', label: 'Home', icon: 'house' },
-                    { name: 'search', label: 'Search', icon: 'search' },
-                    { name: 'profile', label: 'Profile', icon: 'user' },
+                    { name: 'home', label: 'Home', icon: { set: 'lucide', name: 'house' } as const },
+                    { name: 'search', label: 'Search', icon: { set: 'lucide', name: 'search' } as const },
+                    { name: 'profile', label: 'Profile', icon: { set: 'lucide', name: 'user' } as const },
                 ];
                 return () => (
-                    <Col class="w-72 border-t border-base-300 bg-base-200">
-                        <Row class="justify-around">
-                            {items.map((it) => {
-                                const on = active.value === it.name;
-                                return (
-                                    <Tabs.Tab
-                                        key={it.name}
-                                        value={it.name}
-                                        active={on}
-                                        onPress={() => { active.value = it.name; }}
-                                        class="flex-1 flex-col items-center justify-center py-3 gap-1"
-                                    >
-                                        <Icon
-                                            set="lucide"
-                                            name={it.icon}
-                                            size={22}
-                                            variant={on ? 'primary' : 'base-content'}
-                                            class={on ? undefined : 'opacity-60'}
-                                        />
-                                        <Text class={on ? 'text-sm text-primary font-semibold' : 'text-sm opacity-60'}>
-                                            {it.label}
-                                        </Text>
-                                    </Tabs.Tab>
-                                );
-                            })}
-                        </Row>
+                    <Col gap={8} class="w-72">
+                        <NavTabBar
+                            items={items}
+                            activeId={active.value}
+                            onSelect={(name) => { active.value = name; }}
+                        />
+                        <Text class="opacity-60 text-sm">active: {active.value}</Text>
                     </Col>
                 );
             }),
         },
         {
-            title: 'Top bar (visual)',
+            title: 'Top bar',
             note: 'position="top" puts the separator on the bottom edge instead',
             Demo: component(() => {
                 const active = signal('all');
@@ -77,22 +52,30 @@ export const navtabbarDemo: DaisyComponentDemo = {
                     { name: 'archived', label: 'Archived' },
                 ];
                 return () => (
-                    <Col class="w-72 border-b border-base-300 bg-base-200">
-                        <Row class="justify-around">
-                            {items.map((it) => {
-                                const on = active.value === it.name;
-                                return (
-                                    <Tabs.Tab
-                                        key={it.name}
-                                        value={it.name}
-                                        label={it.label}
-                                        active={on}
-                                        onPress={() => { active.value = it.name; }}
-                                        class="flex-1 items-center justify-center py-3"
-                                    />
-                                );
-                            })}
-                        </Row>
+                    <Col class="w-72">
+                        <NavTabBar
+                            position="top"
+                            items={items}
+                            activeId={active.value}
+                            onSelect={(name) => { active.value = name; }}
+                        />
+                    </Col>
+                );
+            }),
+        },
+        {
+            title: 'Surfaces',
+            note: 'background tokens base-100 / base-300 / transparent',
+            Demo: component(() => {
+                const items = [
+                    { name: 'a', label: 'One' },
+                    { name: 'b', label: 'Two' },
+                ];
+                return () => (
+                    <Col gap={12} class="w-72">
+                        <NavTabBar items={items} activeId="a" background="base-100" />
+                        <NavTabBar items={items} activeId="a" background="base-300" />
+                        <NavTabBar items={items} activeId="a" background="transparent" bordered={false} />
                     </Col>
                 );
             }),
