@@ -18,7 +18,7 @@ export function LoginCard() {
         <Card>
             <Input placeholder="Email" />
             <Input type="password" placeholder="Password" />
-            <Button variant="primary">Sign in</Button>
+            <Button color="primary">Sign in</Button>
         </Card>
     );
 }
