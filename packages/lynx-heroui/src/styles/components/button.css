@@ -39,18 +39,18 @@
 .hero-btn-bordered.hero-btn-warning { border-color: var(--color-warning); color: var(--color-warning); }
 .hero-btn-bordered.hero-btn-error { border-color: var(--color-error); color: var(--color-error); }
 
-/* Flat — tinted surface + colored label. Upstream uses color/20 alpha;
- * Lynx CSS can't alpha-compose var() colors, so the pilot approximates with
- * the base-200 surface (validated in the #219 retro). */
-.hero-btn-flat { background-color: var(--color-base-200); }
-.hero-btn-flat.hero-btn-primary { color: var(--color-primary); }
-.hero-btn-flat.hero-btn-secondary { color: var(--color-secondary); }
-.hero-btn-flat.hero-btn-accent { color: var(--color-accent); }
-.hero-btn-flat.hero-btn-neutral { color: var(--color-base-content); }
-.hero-btn-flat.hero-btn-info { color: var(--color-info); }
-.hero-btn-flat.hero-btn-success { color: var(--color-success); }
-.hero-btn-flat.hero-btn-warning { color: var(--color-warning); }
-.hero-btn-flat.hero-btn-error { color: var(--color-error); }
+/* Flat — tinted surface + colored label, matching upstream's color/20 fills.
+ * The tint is the palette's materialized `*-soft` token (computed at theme
+ * registration with hero's softMix 0.2 — Lynx CSS can't alpha-compose var()
+ * colors, so the mix happens in JS where the palette lives). */
+.hero-btn-flat.hero-btn-primary { background-color: var(--color-primary-soft); color: var(--color-primary); }
+.hero-btn-flat.hero-btn-secondary { background-color: var(--color-secondary-soft); color: var(--color-secondary); }
+.hero-btn-flat.hero-btn-accent { background-color: var(--color-accent-soft); color: var(--color-accent); }
+.hero-btn-flat.hero-btn-neutral { background-color: var(--color-neutral-soft); color: var(--color-base-content); }
+.hero-btn-flat.hero-btn-info { background-color: var(--color-info-soft); color: var(--color-info); }
+.hero-btn-flat.hero-btn-success { background-color: var(--color-success-soft); color: var(--color-success); }
+.hero-btn-flat.hero-btn-warning { background-color: var(--color-warning-soft); color: var(--color-warning); }
+.hero-btn-flat.hero-btn-error { background-color: var(--color-error-soft); color: var(--color-error); }
 
 /* Ghost — transparent until pressed, colored label. */
 .hero-btn-ghost { background-color: transparent; }

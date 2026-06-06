@@ -36,36 +36,48 @@ export type SizeScale = 'xs' | 'sm' | 'md' | 'lg' | 'xl';
 /**
  * Semantic color names — the shared `color` prop vocabulary. A DS maps each
  * onto its palette (HeroUI: `danger`→`error`, `default`→`neutral`, …).
- */
-export type ColorVariant =
-  | 'primary' | 'secondary' | 'accent' | 'neutral'
-  | 'info' | 'success' | 'warning' | 'error';
-
-/**
- * The full set of semantic color tokens every theme defines, exposed as
- * `--color-<token>` CSS custom properties.
  *
- * Single source of truth: the `ColorToken` union and the runtime
- * `COLOR_TOKENS` Set both derive from this tuple.
+ * Single source of truth: the `ColorVariant` union, the `-content` / `-soft`
+ * token derivations, and the runtime `COLOR_TOKENS` Set all derive from this
+ * tuple.
  */
-const COLOR_TOKEN_LIST = [
-  'primary', 'primary-content',
-  'secondary', 'secondary-content',
-  'accent', 'accent-content',
-  'neutral', 'neutral-content',
-  'base-100', 'base-200', 'base-300', 'base-content',
-  'info', 'info-content',
-  'success', 'success-content',
-  'warning', 'warning-content',
-  'error', 'error-content',
+export const COLOR_VARIANT_LIST = [
+  'primary', 'secondary', 'accent', 'neutral',
+  'info', 'success', 'warning', 'error',
 ] as const;
 
-export type ColorToken = typeof COLOR_TOKEN_LIST[number];
+export type ColorVariant = typeof COLOR_VARIANT_LIST[number];
 
-// Compile-time guard: every ColorVariant must be a ColorToken.
-type _VariantIsToken = ColorVariant extends ColorToken ? true : never;
-const _variantIsToken: _VariantIsToken = true;
-void _variantIsToken;
+/**
+ * Tokens authored by every theme: each variant + its `-content` pairing,
+ * plus the base surfaces.
+ */
+export type CoreColorToken =
+  | ColorVariant
+  | `${ColorVariant}-content`
+  | 'base-100' | 'base-200' | 'base-300' | 'base-content';
+
+/**
+ * Soft (tinted-surface) tokens — one per variant, emitted as
+ * `--color-<variant>-soft`. Lynx CSS can't alpha-compose `var()` colors, so
+ * these are *materialized in the palette*: computed at theme registration
+ * (`Theme.softMix` of the variant color mixed into `base-100`) unless the
+ * theme provides them explicitly. They are what soft/flat component fills
+ * read (`btn-soft`, hero's `flat`).
+ */
+export type SoftColorToken = `${ColorVariant}-soft`;
+
+/**
+ * The full set of semantic color tokens every *registered* theme carries,
+ * exposed as `--color-<token>` CSS custom properties. Authors write the core
+ * tokens; the registry completes the soft ones.
+ */
+export type ColorToken = CoreColorToken | SoftColorToken;
+
+const COLOR_TOKEN_LIST: readonly ColorToken[] = [
+  ...COLOR_VARIANT_LIST.flatMap((v): ColorToken[] => [v, `${v}-content`, `${v}-soft`]),
+  'base-100', 'base-200', 'base-300', 'base-content',
+];
 
 const COLOR_TOKENS: ReadonlySet<ColorToken> = new Set(COLOR_TOKEN_LIST);
 

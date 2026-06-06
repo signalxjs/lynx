@@ -23,12 +23,30 @@
  * Colors are engine-safe strings — hex or `rgb()`. Lynx's CSS engine does not
  * parse `oklch()`, so convert before registering.
  */
-import type { ColorToken } from '../contract.js';
+import {
+  COLOR_VARIANT_LIST,
+  type ColorToken,
+  type CoreColorToken,
+  type SoftColorToken,
+} from '../contract.js';
+import { mixColors } from './color-mix.js';
 
 export type ThemeVariant = 'light' | 'dark';
 
-/** Full color palette — every semantic token, no holes. */
+/**
+ * Full *registered* color palette — every semantic token including the
+ * `*-soft` tints, no holes. This is what `colorsOf()` returns.
+ */
 export type ThemePalette = Record<ColorToken, string>;
+
+/**
+ * What a theme *author* writes: every core token, with the `*-soft` tints
+ * optional — any omitted soft is computed at registration (`softMix` of the
+ * variant color into `base-100`).
+ */
+export type ThemePaletteInput =
+  & Record<CoreColorToken, string>
+  & Partial<Record<SoftColorToken, string>>;
 
 /**
  * Roundness token overrides. Emitted as `--radius-selector` /
@@ -56,13 +74,13 @@ export interface ThemeSizes {
   field?: string;
 }
 
-export interface Theme {
+export interface ThemeInput {
   /** Unique id — also the value of `theme.name`. */
   name: string;
   /** Light or dark — drives follow-system selection and status-bar tint. */
   variant: ThemeVariant;
-  /** Complete color palette (all 20 semantic tokens). */
-  colors: ThemePalette;
+  /** Color palette — core tokens required, `*-soft` tints optional. */
+  colors: ThemePaletteInput;
   /**
    * Which theme `toggle()` flips to. Defaults to the first registered theme of
    * the opposite variant.
@@ -81,6 +99,42 @@ export interface Theme {
    * fallback.
    */
   staticCss?: boolean;
+  /**
+   * How strong the computed `*-soft` tints are: the ratio of the variant
+   * color mixed into `base-100` for any soft token the palette doesn't set
+   * explicitly. Design-system flavor, carried as theme data — daisy's
+   * built-ins use `0.08` (daisyUI v5's ~8% tints), hero's use `0.2`
+   * (HeroUI's `color/20`). Default `0.16`.
+   */
+  softMix?: number;
+}
+
+/** A registered theme — same shape as the input, with the palette completed. */
+export interface Theme extends Omit<ThemeInput, 'colors'> {
+  colors: ThemePalette;
+}
+
+const DEFAULT_SOFT_MIX = 0.16;
+
+/**
+ * Complete a theme's palette: any `*-soft` token the author didn't set is
+ * computed as `softMix` of the variant color mixed into `base-100` (in JS —
+ * Lynx CSS can't alpha-compose `var()` colors, so the tints are materialized
+ * in the palette). Idempotent; explicitly provided softs are kept verbatim.
+ *
+ * DS packages run their builtin arrays through this before exporting them so
+ * build scripts (gen-theme-css) see the same palette the registry serves.
+ */
+export function completeTheme(input: ThemeInput): Theme {
+  const mix = input.softMix ?? DEFAULT_SOFT_MIX;
+  const colors = { ...input.colors } as ThemePalette;
+  for (const variant of COLOR_VARIANT_LIST) {
+    const soft: SoftColorToken = `${variant}-soft`;
+    if (colors[soft] === undefined) {
+      colors[soft] = mixColors(colors[variant], colors['base-100'], mix);
+    }
+  }
+  return { ...input, colors };
 }
 
 const registry: Theme[] = [];
@@ -122,11 +176,14 @@ export function listThemes(): readonly Theme[] {
 /**
  * Register (or replace, by `name`) a theme. Call at module-load time before
  * mounting `<ThemeProvider>` so it shows up in `listThemes()` / `pickThemeFor()`.
+ * The palette is completed on the way in (`completeTheme`): any `*-soft`
+ * token the author didn't set is computed from `softMix`.
  */
-export function registerTheme(theme: Theme): void {
-  const i = registry.findIndex((t) => t.name === theme.name);
-  if (i >= 0) registry[i] = theme;
-  else registry.push(theme);
+export function registerTheme(theme: ThemeInput): void {
+  const complete = completeTheme(theme);
+  const i = registry.findIndex((t) => t.name === complete.name);
+  if (i >= 0) registry[i] = complete;
+  else registry.push(complete);
 }
 
 /**
@@ -150,6 +207,7 @@ export function extendTheme(
     colors?: Partial<ThemePalette>;
     radius?: ThemeRadius;
     sizes?: ThemeSizes;
+    softMix?: number;
   },
 ): Theme {
   const src = findTheme(base);
@@ -159,14 +217,23 @@ export function extendTheme(
       + `Register it first, or extend a theme your design system registered.`,
     );
   }
-  return {
+  // Merge core tokens, then RECOMPUTE every soft tint the patch didn't set
+  // explicitly — patching `primary` must not leave the base's stale
+  // `primary-soft` behind. (A soft the base author set explicitly is
+  // indistinguishable from a computed one post-registration; explicit softs
+  // therefore live in the patch when extending.)
+  const merged: Record<string, string> = { ...src.colors };
+  for (const variant of COLOR_VARIANT_LIST) delete merged[`${variant}-soft`];
+  Object.assign(merged, patch.colors);
+  return completeTheme({
     name: patch.name,
     variant: patch.variant ?? src.variant,
     pair: patch.pair ?? src.pair,
-    colors: { ...src.colors, ...patch.colors },
+    colors: merged as ThemePaletteInput,
     radius: patch.radius ?? src.radius,
     sizes: patch.sizes ?? src.sizes,
-  };
+    softMix: patch.softMix ?? src.softMix,
+  });
 }
 
 /** The variant of a registered theme, or `undefined` if not registered. */

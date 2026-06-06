@@ -20,7 +20,7 @@
  * HeroUI's default roundness is larger than daisy's — expressed via the
  * theme-level `radius` overrides (the engine emits them with the palette).
  */
-import { registerTheme, type Theme } from '@sigx/lynx-zero';
+import { completeTheme, registerTheme, type Theme, type ThemeInput } from '@sigx/lynx-zero';
 
 /**
  * Theme class applied to the provider's host view. The two built-ins get
@@ -34,9 +34,9 @@ export type HeroTheme = 'hero-light' | 'hero-dark' | (string & {});
  * emits the per-theme first-paint CSS classes from it at build time).
  * @internal
  */
-export const HERO_BUILTIN_THEMES: readonly Theme[] = [
+const RAW_THEMES: readonly ThemeInput[] = [
   {
-    name: 'hero-light', variant: 'light', pair: 'hero-dark', staticCss: true,
+    name: 'hero-light', variant: 'light', pair: 'hero-dark', staticCss: true, softMix: 0.2,
     radius: { selector: '12px', field: '12px', box: '14px' },
     colors: {
       'primary': '#006fee', 'primary-content': '#ffffff',
@@ -52,7 +52,7 @@ export const HERO_BUILTIN_THEMES: readonly Theme[] = [
     },
   },
   {
-    name: 'hero-dark', variant: 'dark', pair: 'hero-light', staticCss: true,
+    name: 'hero-dark', variant: 'dark', pair: 'hero-light', staticCss: true, softMix: 0.2,
     radius: { selector: '12px', field: '12px', box: '14px' },
     colors: {
       'primary': '#006fee', 'primary-content': '#ffffff',
@@ -71,4 +71,6 @@ export const HERO_BUILTIN_THEMES: readonly Theme[] = [
 
 // Seed at module load. hero-light / hero-dark are first of their variants, so
 // they are the follow-system defaults when hero is the app's design system.
+export const HERO_BUILTIN_THEMES: readonly Theme[] = RAW_THEMES.map(completeTheme);
+
 for (const theme of HERO_BUILTIN_THEMES) registerTheme(theme);
