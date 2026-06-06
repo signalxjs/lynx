@@ -70,12 +70,14 @@ export const swiperindicatorDemo: DaisyComponentDemo = {
                 const offset = useSharedValue(0);
                 const index = signal(0);
 
+                // Hoisted once in setup — wrapping per call would allocate a
+                // new MT runner on every prev/next/dot press.
+                const glideOffsetTo = runOnMainThread((to: number) => {
+                    'main thread';
+                    withTiming(offset, to, { duration: 0.28 });
+                });
                 const glideTo = (i: number) => {
-                    const target = i * PAGE_WIDTH;
-                    runOnMainThread((to: number) => {
-                        'main thread';
-                        withTiming(offset, to, { duration: 0.28 });
-                    })(target);
+                    glideOffsetTo(i * PAGE_WIDTH);
                 };
                 const go = (delta: number) => {
                     const next = Math.max(0, Math.min(COUNT - 1, index.value + delta));

@@ -57,7 +57,7 @@ export const stepsDemo: DaisyComponentDemo = {
                     <Col gap={12}>
                         <Steps>
                             {steps.map((label, i) => (
-                                <Steps.Step color={i <= current.value ? 'primary' : undefined}>
+                                <Steps.Step key={label} color={i <= current.value ? 'primary' : undefined}>
                                     <Text>{label}</Text>
                                 </Steps.Step>
                             ))}

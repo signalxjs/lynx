@@ -29,8 +29,8 @@ export const DaisyComponentScreen = component(() => {
                 <Screen title={demo.title} />
                 <Col gap={16} padding={16}>
                     <Text class="opacity-60">{demo.description}</Text>
-                    {demo.sections.map((section) => (
-                        <Card bordered key={section.title}>
+                    {demo.sections.map((section, i) => (
+                        <Card bordered key={`${demo.id}-${i}`}>
                             <Card.Body>
                                 <Col gap={12}>
                                     <Col gap={2}>

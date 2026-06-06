@@ -22,7 +22,7 @@ export const scrollviewDemo: DaisyComponentDemo = {
                 <ScrollView class="h-48 w-64 bg-base-200 rounded" showScrollbar>
                     <Col gap={8} padding={12}>
                         {rows.map((n) => (
-                            <Center class="bg-primary rounded" height={40}>
+                            <Center key={n} class="bg-primary rounded" height={40}>
                                 <Text class="text-primary-content">Row {n}</Text>
                             </Center>
                         ))}
@@ -37,7 +37,7 @@ export const scrollviewDemo: DaisyComponentDemo = {
                 <ScrollView direction="horizontal" class="w-64 bg-base-200 rounded" showScrollbar>
                     <Row gap={8} padding={12}>
                         {rows.map((n) => (
-                            <Center class="bg-secondary rounded" width={64} height={64}>
+                            <Center key={n} class="bg-secondary rounded" width={64} height={64}>
                                 <Text class="text-secondary-content">{n}</Text>
                             </Center>
                         ))}
