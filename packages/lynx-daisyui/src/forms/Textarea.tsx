@@ -1,5 +1,5 @@
 import { component, type Define, type Model } from '@sigx/lynx';
-import type { ColorVariant } from '@sigx/lynx-zero';
+import { useThemeColors, type ColorVariant } from '@sigx/lynx-zero';
 
 export type TextareaSize = 'xs' | 'sm' | 'md' | 'lg';
 export type TextareaVariant = 'bordered' | 'ghost';
@@ -20,6 +20,8 @@ const sizeClasses: Record<TextareaSize, string> = {
 };
 
 export const Textarea = component<TextareaProps>(({ props }) => {
+  const colors = useThemeColors();
+
   const getClasses = () => {
     const c = ['textarea'];
     if (props.variant === 'bordered') c.push('textarea-bordered');
@@ -43,7 +45,14 @@ export const Textarea = component<TextareaProps>(({ props }) => {
       placeholder={props.placeholder}
       disabled={props.disabled}
       model={props.model}
-      style={{ height: getHeight() }}
+      // Height plus the native-widget theme colors (#225): typed text and
+      // placeholder get literal hex from the active scoped palette — native
+      // text widgets can't read CSS custom properties.
+      style={{
+        height: getHeight(),
+        color: colors.colorOf('base-content'),
+        '-x-placeholder-color': colors.colorOf('base-content', 0.45),
+      }}
     />
   );
 });

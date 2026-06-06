@@ -19,7 +19,7 @@
  * ```
  */
 
-import { useTheme, colorsOf, type ThemePalette } from '@sigx/lynx-zero';
+import { useThemeColors } from '@sigx/lynx-zero';
 
 
 export interface MarkdownEditorThemeColors {
@@ -32,52 +32,21 @@ export interface MarkdownEditorThemeColors {
 }
 
 /**
- * Resolve the active daisyUI theme into `MarkdownEditor` color props.
- * Getters are reactive via the theme controller's `name` — read them in
- * render (e.g. spread onto the editor's props) to track theme switches.
+ * Resolve the active theme into `MarkdownEditor` color props. Built on
+ * `@sigx/lynx-zero`'s `useThemeColors()` (scoped + reactive: read the
+ * getters in render and a theme switch recolors the editor).
  */
 export function useMarkdownEditorTheme(): MarkdownEditorThemeColors {
-    const theme = useTheme();
-    const palette = (): ThemePalette =>
-        colorsOf(theme.name) ?? colorsOf('daisy-light')!;
+    const colors = useThemeColors();
     return {
         get textColor() {
-            return toHex(palette()['base-content']);
+            return colors.colorOf('base-content');
         },
         get accentColor() {
-            return toHex(palette()['primary']);
+            return colors.colorOf('primary');
         },
         get placeholderColor() {
-            return withAlpha(toHex(palette()['base-content']), '66'); // ~40%
+            return colors.colorOf('base-content', 0.4);
         },
     };
-}
-
-/**
- * Normalize a palette color to hex — the registry allows `rgb()`/`rgba()`
- * entries, but the native `<sigx-richtext>` color parsers are hex-only.
- */
-function toHex(color: string): string {
-    const c = color.trim();
-    if (c.startsWith('#')) return c;
-    const m = /^rgba?\(\s*(\d+)\s*[, ]\s*(\d+)\s*[, ]\s*(\d+)\s*(?:[,/]\s*([\d.]+%?)\s*)?\)$/i.exec(c);
-    if (!m) return c; // unknown notation — pass through unchanged
-    const byte = (v: string): string =>
-        Math.max(0, Math.min(255, Math.round(Number(v)))).toString(16).padStart(2, '0');
-    let hex = `#${byte(m[1])}${byte(m[2])}${byte(m[3])}`;
-    if (m[4] !== undefined) {
-        const a = m[4].endsWith('%') ? Number(m[4].slice(0, -1)) / 100 : Number(m[4]);
-        hex += byte(String(Math.max(0, Math.min(1, a)) * 255));
-    }
-    return hex;
-}
-
-/** Append an alpha byte to a hex color (`#RGB`/`#RRGGBB` → `#RRGGBBAA`). */
-function withAlpha(hex: string, alpha: string): string {
-    let h = hex.trim();
-    if (!h.startsWith('#')) return h;
-    h = h.slice(1);
-    if (h.length === 3) h = h.split('').map((c) => c + c).join('');
-    if (h.length === 8) h = h.slice(0, 6);
-    return `#${h}${alpha}`;
 }
