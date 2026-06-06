@@ -114,10 +114,11 @@ export type {
     ThemeSizes,
     ThemeVariant,
 } from './theme/ThemeProvider.js';
-// Headless theme handle (issue #113) + bar sync + per-screen theming — all
-// engine pieces, re-exported from @sigx/lynx-zero. `useScreenTheme` requires
-// the optional `@sigx/lynx-navigation` peer.
-export { StatusBarSync, themeController, useScreenTheme } from '@sigx/lynx-zero';
+// Headless theme handle (issue #113) + bar sync — engine pieces re-exported
+// from @sigx/lynx-zero. Per-screen theming (`useScreenTheme`) lives on the
+// `@sigx/lynx-zero/screen-theme` subpath (it needs the optional
+// `@sigx/lynx-navigation` peer, so it stays out of the barrels).
+export { StatusBarSync, themeController } from '@sigx/lynx-zero';
 export type { StatusBarSyncProps } from '@sigx/lynx-zero';
 
 // Data

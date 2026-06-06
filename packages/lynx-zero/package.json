@@ -10,6 +10,10 @@
             "types": "./dist/index.d.ts",
             "import": "./dist/index.js"
         },
+        "./screen-theme": {
+            "types": "./dist/theme/use-screen-theme.d.ts",
+            "import": "./dist/theme/use-screen-theme.js"
+        },
         "./styles/tokens.css": "./dist/styles/tokens.css"
     },
     "files": [

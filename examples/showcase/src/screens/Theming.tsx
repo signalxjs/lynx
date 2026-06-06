@@ -8,8 +8,8 @@ import {
     ScrollView,
     Text,
     ThemeProvider,
-    useScreenTheme,
 } from '@sigx/lynx-daisyui';
+import { useScreenTheme } from '@sigx/lynx-zero/screen-theme';
 
 /**
  * Theming — shows the two theming layers side by side:

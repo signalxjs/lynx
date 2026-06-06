@@ -26,8 +26,13 @@ describe('Modal', () => {
         </Modal.Body>
       </Modal>
     );
+    // Closed state: content fully unmounted; the placeholder is the
+    // zero-size out-of-flow shape (not display:none — see the
+    // lynx-display-none caveat).
+    expect(container.findByText('Hidden content')).toBeNull();
     const el = container.children[0];
-    expect(el._style.display).toBe('none');
+    expect(el._style.width).toBe('0px');
+    expect(el._style.position).toBe('absolute');
   });
 
   it('renders Header, Body, and Actions', () => {

@@ -68,9 +68,10 @@ export { mixColors } from './theme/color-mix.js';
 export { themeController } from './theme/theme-state.js';
 export { StatusBarSync } from './theme/StatusBarSync.js';
 export type { StatusBarSyncProps } from './theme/StatusBarSync.js';
-// Per-screen theming: pin the global theme while a navigation screen is focused
-// (requires the optional `@sigx/lynx-navigation` peer).
-export { useScreenTheme } from './theme/use-screen-theme.js';
+// Per-screen theming (`useScreenTheme`) is deliberately NOT re-exported here:
+// it statically imports the optional `@sigx/lynx-navigation` peer, and a
+// barrel re-export would force that resolution onto every consumer. Import it
+// from the subpath instead: `@sigx/lynx-zero/screen-theme`.
 
 // Layout primitives — design-system-neutral structure (flex containers,
 // spacing, scrolling); no design-system class names involved.
