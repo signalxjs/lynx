@@ -1,7 +1,7 @@
 {
     "name": "@sigx/lynx-zero",
     "version": "0.4.9",
-    "description": "Design-system-neutral UI foundation for sigx-lynx — shared props/token contract, theme engine, layout primitives and style utilities that design-system packages (daisyui, heroui, …) build on",
+    "description": "Design-system-neutral UI foundation for sigx-lynx — the shared props/token contract and style utilities that design-system packages (daisyui, heroui, …) build on",
     "type": "module",
     "main": "./dist/index.js",
     "types": "./dist/index.d.ts",
