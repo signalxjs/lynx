@@ -1,6 +1,6 @@
 import { component, signal } from '@sigx/lynx';
 import { Screen } from '@sigx/lynx-navigation';
-import { Button, Card, Col, Heading, Row, ScrollView, Text, useMarkdownEditorTheme } from '@sigx/lynx-daisyui';
+import { Button, Card, Col, EmojiPickerSheet, Heading, Row, ScrollView, Text, useMarkdownEditorTheme } from '@sigx/lynx-daisyui';
 import {
     createMentionPlugin,
     MarkdownEditor,
@@ -8,53 +8,24 @@ import {
     mentionSyntax,
     type MarkdownEditorController,
     type MarkdownEditorMode,
-    type MarkdownEditorPlugin,
     type MentionCandidate,
-    type ParserInlineExtension,
 } from '@sigx/lynx-markdown';
+import { enData } from '@sigx/lynx-emoji';
+import { createEmojiPlugin, createEmojiSyntax, emojiExtensionComponent } from '@sigx/lynx-emoji/markdown';
 
 /**
- * Minimal P3 plugin demo: `:emoji:` shortcodes, text-only (no native chips —
- * those are the mention plugin, #157).
+ * Emoji plugin (`@sigx/lynx-emoji/markdown`) over the full ~1900-emoji
+ * dataset:
  *
- *  • Parser extension: `:smile:` → an `emoji` extension node. `match` returns
- *    null on a partial tail (`:sm`), so streaming text never half-renders.
- *  • Trigger: typing `:` opens the suggestion popup against a static list;
- *    selecting replaces the typed query with the shortcode text.
- *  • Preview renderer: the MarkdownView below shows the actual glyph via
- *    `components.extension.emoji`.
+ *  • Trigger: typing `:` opens the suggestion popup with ranked search
+ *    (shortcodes, names, keywords); selecting inserts the glyph itself.
+ *  • Parser extension (`createEmojiSyntax`): `:rocket:` in markdown source
+ *    previews as 🚀 via `components.extension.emoji`. Unknown shortcodes and
+ *    partial tails (`:sm`) stay literal — streaming-safe.
+ *  • Toolbar: the plugin's 😊 item opens the daisy `EmojiPickerSheet`;
+ *    picks insert at the caret via `controller.insertText`.
  */
-const EMOJI: Array<{ id: string; glyph: string }> = [
-    { id: 'smile', glyph: '😄' },
-    { id: 'heart', glyph: '❤️' },
-    { id: 'rocket', glyph: '🚀' },
-    { id: 'tada', glyph: '🎉' },
-    { id: 'thinking', glyph: '🤔' },
-];
-
-const emojiSyntax: ParserInlineExtension = {
-    name: 'emoji',
-    triggerChars: [':'],
-    match(text, pos) {
-        const m = /^:([a-z0-9_+-]+):/.exec(text.slice(pos));
-        if (!m || !EMOJI.some((e) => e.id === m[1])) return null;
-        return {
-            node: { type: 'extension', name: 'emoji', attrs: { name: m[1] }, raw: m[0] },
-            end: pos + m[0].length,
-        };
-    },
-};
-
-const emojiPlugin: MarkdownEditorPlugin = {
-    name: 'emoji',
-    trigger: {
-        char: ':',
-        onQuery: (q) => EMOJI
-            .filter((e) => e.id.startsWith(q.toLowerCase()))
-            .map((e) => ({ id: e.id, label: `${e.glyph}  :${e.id}:` })),
-        onSelect: (item, api) => api.replaceQuery(`:${item.id}: `),
-    },
-};
+const emojiSyntax = createEmojiSyntax();
 
 /**
  * Mention demo (#157): type `@` for user suggestions; selecting inserts a
@@ -77,8 +48,7 @@ const mentionPlugin = createMentionPlugin({
 const previewExtensions = [emojiSyntax, mentionSyntax];
 const previewComponents = {
     extension: {
-        emoji: ({ attrs }: { attrs: Record<string, string> }) =>
-            EMOJI.find((e) => e.id === attrs.name)?.glyph ?? `:${attrs.name}:`,
+        emoji: emojiExtensionComponent,
         mention: ({ attrs }: { attrs: Record<string, string> }) => (
             <text style={{ color: '#3478f6', fontWeight: 600 }}>@{attrs.label}</text>
         ),
@@ -102,9 +72,16 @@ export const MarkdownEditorScreen = component(() => {
     const editorTheme = useMarkdownEditorTheme();
     const markdown = signal('Hello **world** — type `:` for emoji :rocket: or `@` to mention @[Andy](u1)');
     const mode = signal<MarkdownEditorMode>('auto');
+    const emojiSheetOpen = signal(false);
     let controller: MarkdownEditorController | null = null;
 
+    // Per-instance so the toolbar's 😊 item can flip this screen's sheet.
+    const emojiPlugin = createEmojiPlugin({
+        onPickerRequest: () => { emojiSheetOpen.value = true; },
+    });
+
     return () => (
+        <view class="flex-fill" style={{ position: 'relative', display: 'flex', flexDirection: 'column' }}>
         <ScrollView class="flex-fill bg-base-100">
             <Screen title="Markdown editor" />
             <Col gap={16} padding={16}>
@@ -172,5 +149,13 @@ export const MarkdownEditorScreen = component(() => {
                 </Card>
             </Col>
         </ScrollView>
+        {/* Toolbar 😊 → sheet → insert at caret. */}
+        <EmojiPickerSheet
+            open={emojiSheetOpen.value}
+            data={enData}
+            onPick={({ glyph }) => controller?.insertText(glyph)}
+            onClose={() => { emojiSheetOpen.value = false; }}
+        />
+        </view>
     );
 });

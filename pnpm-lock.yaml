@@ -65,6 +65,9 @@ importers:
       '@sigx/lynx-device-info':
         specifier: workspace:^
         version: link:../../packages/lynx-device-info
+      '@sigx/lynx-emoji':
+        specifier: workspace:^
+        version: link:../../packages/lynx-emoji
       '@sigx/lynx-gestures':
         specifier: workspace:^
         version: link:../../packages/lynx-gestures
@@ -369,6 +372,9 @@ importers:
         specifier: workspace:^
         version: link:../lynx-motion
     devDependencies:
+      '@sigx/lynx-emoji':
+        specifier: workspace:^
+        version: link:../lynx-emoji
       '@sigx/lynx-markdown':
         specifier: workspace:^
         version: link:../lynx-markdown
@@ -407,6 +413,40 @@ importers:
       '@typescript/native-preview':
         specifier: 7.0.0-dev.20260521.1
         version: 7.0.0-dev.20260521.1
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+
+  packages/lynx-emoji:
+    dependencies:
+      '@sigx/lynx-gestures':
+        specifier: workspace:^
+        version: link:../lynx-gestures
+      '@sigx/lynx-keyboard':
+        specifier: workspace:^
+        version: link:../lynx-keyboard
+    devDependencies:
+      '@sigx/lynx':
+        specifier: workspace:^
+        version: link:../lynx
+      '@sigx/lynx-markdown':
+        specifier: workspace:^
+        version: link:../lynx-markdown
+      '@sigx/lynx-storage':
+        specifier: workspace:^
+        version: link:../lynx-storage
+      '@sigx/lynx-testing':
+        specifier: workspace:^
+        version: link:../lynx-testing
+      '@types/node':
+        specifier: ^25.9.1
+        version: 25.9.1
+      '@typescript/native-preview':
+        specifier: 7.0.0-dev.20260521.1
+        version: 7.0.0-dev.20260521.1
+      emojibase-data:
+        specifier: ^17.0.0
+        version: 17.0.0(emojibase@17.0.0)
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -2677,6 +2717,15 @@ packages:
 
   electron-to-chromium@1.5.353:
     resolution: {integrity: sha512-kOrWphBi8TOZyiJZqsgqIle0lw+tzmnQK83pV9dZUd01Nm2POECSyFQMAuarzZdYqQW7FH9RaYOuaRo3h+bQ3w==}
+
+  emojibase-data@17.0.0:
+    resolution: {integrity: sha512-Yvgb5AWoHViHV/gq1qr5ZAarcBip+B27/ZLRsUJkbgAEaLlZ/fof9g882LTpmEpyhBNEC0m2SEmItljHsTygjA==}
+    peerDependencies:
+      emojibase: '*'
+
+  emojibase@17.0.0:
+    resolution: {integrity: sha512-bXdpf4HPY3p41zK5swVKZdC/VynsMZ4LoLxdYDE+GucqkFwzcM1GVc4ODfYAlwoKaf2U2oNNUoOO78N96ovpBA==}
+    engines: {node: '>=18.12.0'}
 
   engine.io-parser@5.2.3:
     resolution: {integrity: sha512-HqD3yTBfnBxIrbnM1DoD6Pcq8NECnh8d4As1Qgh0z5Gg3jRRIqijury0CL3ghu/edArpUYiYqQiDUQBIs4np3Q==}
@@ -5739,6 +5788,12 @@ snapshots:
       gopd: 1.2.0
 
   electron-to-chromium@1.5.353: {}
+
+  emojibase-data@17.0.0(emojibase@17.0.0):
+    dependencies:
+      emojibase: 17.0.0
+
+  emojibase@17.0.0: {}
 
   engine.io-parser@5.2.3: {}
 
