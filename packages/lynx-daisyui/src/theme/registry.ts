@@ -22,12 +22,12 @@
  * Colors are engine-safe strings — hex or `rgb()`. Lynx's CSS engine does not
  * parse `oklch()`, so convert before registering.
  */
-import type { DaisyColor } from '../shared/styles.js';
+import type { ColorToken } from '@sigx/lynx-zero';
 
 export type ThemeVariant = 'light' | 'dark';
 
 /** Full daisy color palette — every semantic token, no holes. */
-export type ThemePalette = Record<DaisyColor, string>;
+export type ThemePalette = Record<ColorToken, string>;
 
 /**
  * Roundness token overrides (DaisyUI v5 contract). Emitted as

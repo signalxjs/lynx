@@ -1,6 +1,6 @@
 import { component, type Define } from '@sigx/lynx';
 import { Pressable } from '@sigx/lynx-gestures';
-import { PRESSED_SCALE, PRESSED_OPACITY } from '../shared/press.js';
+import { PRESSED_SCALE, PRESSED_OPACITY } from '@sigx/lynx-zero';
 
 export type CheckboxColor = 'primary' | 'secondary' | 'accent' | 'info' | 'success' | 'warning' | 'error';
 export type CheckboxSize = 'xs' | 'sm' | 'md' | 'lg';

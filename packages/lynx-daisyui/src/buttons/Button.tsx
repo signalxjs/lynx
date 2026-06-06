@@ -1,14 +1,14 @@
 import { component, type Define } from '@sigx/lynx';
 import { Pressable } from '@sigx/lynx-gestures';
+import { PRESSED_SCALE, PRESSED_OPACITY, type ColorVariant, type SizeScale } from '@sigx/lynx-zero';
 import { Loading } from '../feedback/Loading.js';
-import { PRESSED_SCALE, PRESSED_OPACITY } from '../shared/press.js';
 
-export type ButtonVariant =
-  | 'primary' | 'secondary' | 'accent' | 'info'
-  | 'success' | 'warning' | 'error' | 'ghost'
-  | 'link' | 'neutral';
+// Color-bearing for now (`variant="primary"`); migrates to the contract's
+// `color` + DS-specific `variant` split in the Phase 4 harmonization
+// (signalxjs/lynx#219).
+export type ButtonVariant = ColorVariant | 'ghost' | 'link';
 
-export type ButtonSize = 'xs' | 'sm' | 'md' | 'lg' | 'xl';
+export type ButtonSize = SizeScale;
 
 export type ButtonProps =
   & Define.Prop<'variant', ButtonVariant, false>

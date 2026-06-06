@@ -1,6 +1,6 @@
 import { component, signal, type Define } from '@sigx/lynx';
 import { Pressable } from '@sigx/lynx-gestures';
-import { PRESSED_SCALE, PRESSED_OPACITY } from '../shared/press.js';
+import { PRESSED_SCALE, PRESSED_OPACITY } from '@sigx/lynx-zero';
 
 export type SelectSize = 'xs' | 'sm' | 'md' | 'lg';
 export type SelectVariant = 'bordered' | 'ghost';

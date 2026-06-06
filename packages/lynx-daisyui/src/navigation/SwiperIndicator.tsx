@@ -15,7 +15,7 @@ import {
   useSwiperDotTranslate,
 } from '@sigx/lynx-gestures';
 import { withTiming } from '@sigx/lynx-motion';
-import { resolveDaisyColor, type DaisyColor } from '../shared/styles.js';
+import { resolveColorToken, type ColorToken } from '@sigx/lynx-zero';
 
 /**
  * Visual style for the swiper page indicator.
@@ -77,8 +77,8 @@ export type SwiperIndicatorProps =
    * tap-to-jump.
    */
   & Define.Prop<'index', PrimitiveSignal<number>, false>
-  & Define.Prop<'color', DaisyColor, false>
-  & Define.Prop<'inactiveColor', DaisyColor, false>
+  & Define.Prop<'color', ColorToken, false>
+  & Define.Prop<'inactiveColor', ColorToken, false>
   & Define.Prop<'size', SwiperIndicatorSize, false>
   /**
    * Tap-to-jump handler. The receiver should typically write
@@ -156,8 +156,8 @@ export const SwiperIndicator = component<SwiperIndicatorProps>(({ props }) => {
   return () => {
     const variant: SwiperIndicatorVariant = props.variant ?? 'dots';
     const size = SIZE_TABLE[props.size ?? 'md'];
-    const activeColor = resolveDaisyColor(props.color ?? 'primary');
-    const inactiveColor = resolveDaisyColor(props.inactiveColor ?? 'base-content');
+    const activeColor = resolveColorToken(props.color ?? 'primary');
+    const inactiveColor = resolveColorToken(props.inactiveColor ?? 'base-content');
     const offset = indexOnly ? derivedOffset : props.offset;
     const pageWidth = indexOnly ? SYNTHETIC_PAGE_WIDTH : props.pageWidth;
 

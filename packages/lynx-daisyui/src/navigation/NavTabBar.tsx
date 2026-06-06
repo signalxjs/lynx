@@ -25,7 +25,7 @@ import { component, type Define, type JSXElement } from '@sigx/lynx';
 import { Pressable } from '@sigx/lynx-gestures';
 import { Icon, type IconSpec } from '@sigx/lynx-icons';
 import { useTabs, type TabInfo } from '@sigx/lynx-navigation';
-import { PRESSED_SCALE, PRESSED_OPACITY } from '../shared/press.js';
+import { PRESSED_SCALE, PRESSED_OPACITY } from '@sigx/lynx-zero';
 
 /** Narrow `TabInfo.icon` to its `IconSpec` variant — the bar renders `<Icon>` for these. */
 const isIconSpec = (v: unknown): v is IconSpec =>

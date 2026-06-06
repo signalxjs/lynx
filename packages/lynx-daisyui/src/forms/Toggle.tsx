@@ -1,6 +1,6 @@
 import { component, type Define } from '@sigx/lynx';
 import { Pressable } from '@sigx/lynx-gestures';
-import { PRESSED_SCALE, PRESSED_OPACITY } from '../shared/press.js';
+import { PRESSED_SCALE, PRESSED_OPACITY } from '@sigx/lynx-zero';
 
 export type ToggleColor = 'primary' | 'secondary' | 'accent' | 'info' | 'success' | 'warning' | 'error';
 export type ToggleSize = 'xs' | 'sm' | 'md' | 'lg';
