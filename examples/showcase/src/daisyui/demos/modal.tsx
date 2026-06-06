@@ -3,12 +3,13 @@ import { Button, Col, Modal, Text } from '@sigx/lynx-daisyui';
 import type { DaisyComponentDemo } from '../registry.js';
 
 /**
- * Modal — a live open/close dialog and a structural example showing the
- * Header / Body / Actions compound slots.
+ * Modal — live open/close dialogs exercising the Header / Body / Actions
+ * compound slots and backdrop dismissal.
  *
  * Modal renders its overlay only while `open` is true; tapping the backdrop
- * (or calling `onClose`) dismisses it. The first section owns the `open`
- * signal that drives it.
+ * (or calling `onClose`) dismisses it. Each section owns the `open` signal
+ * that drives its dialog — a modal is never left permanently open, since the
+ * overlay would cover the catalog page.
  */
 export const modalDemo: DaisyComponentDemo = {
     id: 'modal',
@@ -42,17 +43,22 @@ export const modalDemo: DaisyComponentDemo = {
             }),
         },
         {
-            title: 'Compound slots',
-            note: 'Header / Body / Actions kept always-open for reference',
-            Demo: component(() => () => (
-                <Modal open onClose={() => {}}>
-                    <Modal.Header><Text class="font-semibold">Title</Text></Modal.Header>
-                    <Modal.Body><Text>Body content goes here.</Text></Modal.Body>
-                    <Modal.Actions>
-                        <Button variant="primary" size="sm">OK</Button>
-                    </Modal.Actions>
-                </Modal>
-            )),
+            title: 'Backdrop dismiss',
+            note: 'no action buttons — tapping the backdrop calls onClose',
+            Demo: component(() => {
+                const open = signal(false);
+                return () => (
+                    <Col gap={12}>
+                        <Button variant="secondary" onPress={() => { open.value = true; }}>
+                            Open (tap backdrop to close)
+                        </Button>
+                        <Modal open={open.value} onClose={() => { open.value = false; }}>
+                            <Modal.Header><Text class="font-semibold">Title</Text></Modal.Header>
+                            <Modal.Body><Text>Body content goes here. Dismiss by tapping outside.</Text></Modal.Body>
+                        </Modal>
+                    </Col>
+                );
+            }),
         },
     ],
 };

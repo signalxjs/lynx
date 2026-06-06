@@ -29,8 +29,10 @@ export const DaisyComponentScreen = component(() => {
                 <Screen title={demo.title} />
                 <Col gap={16} padding={16}>
                     <Text class="opacity-60">{demo.description}</Text>
-                    {demo.sections.map((section, i) => (
-                        <Card bordered key={`${demo.id}-${i}`}>
+                    {/* Keyed by demo id + section title: stable across registry
+                        reorders, unique within a demo (registry data is static). */}
+                    {demo.sections.map((section) => (
+                        <Card bordered key={`${demo.id}:${section.title}`}>
                             <Card.Body>
                                 <Col gap={12}>
                                     <Col gap={2}>

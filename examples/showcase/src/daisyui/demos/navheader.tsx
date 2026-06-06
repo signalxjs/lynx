@@ -30,7 +30,7 @@ export const navheaderDemo: DaisyComponentDemo = {
             title: 'Layout (visual)',
             note: 'back chevron (left) · centred title · trailing action (right)',
             Demo: component(() => () => (
-                <Col class="w-72 h-12 flex-row items-center px-3 border-b border-base-300 bg-base-200">
+                <Row align="center" class="w-72 h-12 px-3 border-b border-base-300 bg-base-200">
                     <Row class="items-center" style={{ minWidth: 56 }}>
                         <Icon set="lucide" name="chevron-left" size={22} variant="primary" />
                     </Row>
@@ -40,14 +40,14 @@ export const navheaderDemo: DaisyComponentDemo = {
                     <Row class="items-center justify-end" style={{ minWidth: 56 }}>
                         <Icon set="lucide" name="ellipsis" size={20} variant="base-content" />
                     </Row>
-                </Col>
+                </Row>
             )),
         },
         {
             title: 'Transparent · no border',
             note: 'background="transparent" + bordered={false}',
             Demo: component(() => () => (
-                <Col class="w-72 h-12 flex-row items-center px-3">
+                <Row align="center" class="w-72 h-12 px-3">
                     <Row class="items-center" style={{ minWidth: 56 }}>
                         <Text class="text-primary text-base">‹ Back</Text>
                     </Row>
@@ -55,7 +55,7 @@ export const navheaderDemo: DaisyComponentDemo = {
                         <Text class="text-base font-semibold">Settings</Text>
                     </Col>
                     <Row style={{ minWidth: 56 }} />
-                </Col>
+                </Row>
             )),
         },
     ],
