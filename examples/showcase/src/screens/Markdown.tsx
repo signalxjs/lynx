@@ -4,7 +4,7 @@ import { Button, Card, Col, Heading, Row, ScrollView, Text, markdownComponents }
 import { MarkdownView, createMarkdownStream } from '@sigx/lynx-markdown';
 
 /**
- * Markdown lab — exercises `@sigx/lynx-markdown`'s SignalX-native renderer.
+ * Markdown — exercises `@sigx/lynx-markdown`'s SignalX-native renderer.
  *
  *  • The static section renders a document covering the full feature set
  *    (headings, emphasis, lists, task lists, code, blockquote, table, links).
@@ -13,7 +13,7 @@ import { MarkdownView, createMarkdownStream } from '@sigx/lynx-markdown';
  *    arrive — the property that matters for AI chat output.
  */
 
-const SAMPLE = `# Markdown lab
+const SAMPLE = `# Markdown
 
 A **native** renderer with _streaming_ and ~~no~~ full GFM support.
 
@@ -46,7 +46,7 @@ function chunk(text: string, size = 4): string[] {
     return out;
 }
 
-export const MarkdownLab = component(() => {
+export const Markdown = component(() => {
     const stream = createMarkdownStream({ flushIntervalMs: 16 });
     const streaming = signal(false);
 
@@ -69,7 +69,7 @@ export const MarkdownLab = component(() => {
 
     return () => (
         <ScrollView class="flex-fill bg-base-100">
-            <Screen title="Markdown lab" />
+            <Screen title="Markdown" />
             <Col gap={16} padding={16}>
                     <Card bordered>
                         <Card.Body>

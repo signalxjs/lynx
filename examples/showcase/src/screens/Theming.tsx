@@ -12,7 +12,7 @@ import {
 } from '@sigx/lynx-daisyui';
 
 /**
- * Theme lab — shows the two theming layers side by side:
+ * Theming — shows the two theming layers side by side:
  *
  *  • `useScreenTheme('daisy-dark')` pins the **global** theme while this screen
  *    is focused, so the whole surface — *including the OS status-bar icons* —
@@ -21,16 +21,16 @@ import {
  *    own card (a content sub-scope). The status bar stays on the screen theme —
  *    a sub-scope can't touch the OS bars.
  */
-export const ThemeLab = component(() => {
+export const Theming = component(() => {
     // Whole screen (content + status bar) is dark while focused; restored on pop.
     useScreenTheme('daisy-dark');
     const nav = useNav();
 
     return () => (
         <ScrollView class="flex-fill bg-base-100">
-            <Screen title="Theme lab" />
+            <Screen title="Theming" />
             <Col gap={16} padding={16}>
-                <Heading level={2}>Theme lab</Heading>
+                <Heading level={2}>Theming</Heading>
                 <Text class="opacity-60 text-sm">
                     This screen calls useScreenTheme('daisy-dark'): the whole
                     surface — including the status-bar icons — goes dark while

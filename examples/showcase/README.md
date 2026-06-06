@@ -1,37 +1,37 @@
-# Lynx Field Journal — `examples/showcase`
+# SignalX Lynx Showcase — `examples/showcase`
 
-A travel journal built with **SignalX Lynx**, used as the canonical
-example app for the framework. It runs natively on iOS and Android
-and is intentionally small enough to read top-to-bottom in one sitting
-while still touching every major piece of the stack:
+The canonical example app for **SignalX Lynx**: a searchable catalog of
+small, focused demos — one per framework capability. It runs natively on
+iOS and Android and each demo screen is intentionally small enough to read
+in one sitting.
 
-- **Navigation** — typed routes, per-tab nested stacks, modal screens
+- **Navigation** — typed routes, a single root stack, parametric sub views,
+  modal presentation
 - **UI kit** — daisyui-flavored components with theme switching
-- **Reactive state** — signal-backed store, deep `watch`, JSON-persisted
-- **Native modules** — storage, image picker, location, share, haptics
-- **Safe-area chrome** — header below notch, tab bar above home indicator
+- **Native modules** — maps, media, location, share, webview, biometric,
+  notifications, background tasks, storage, haptics
+- **Safe-area chrome** — persistent header below the notch
 
-If you want to see how the framework's pieces fit together in a real
-app, **read the source files in order**. Each module is small and
-self-contained.
+If you want to see how the framework's pieces fit together, **read in this
+order**: `src/catalog.ts` (the data model), `src/routes.ts` (the route
+table), `src/screens/Home.tsx` (search + area list), then any demo screen
+that interests you. Each is self-contained.
 
 ## What's in the app
 
-A field-journal flow:
+A catalog flow:
 
-1. **Trips tab** — list of trips ("Lisbon, May 2026", etc). Tap → detail.
-   Header `+` opens a modal to create a new trip.
-2. **Trip detail** — entries for that trip. Header **Share** exports a
-   formatted summary via the native share sheet. Header `+` opens a
-   modal to add a new entry. Each entry can hold a note, a photo
-   (image picker), and GPS coords (location). Ghost **Delete** removes
-   an entry with a warning haptic.
-3. **Map tab** — every geotagged entry across all trips, sorted by
-   recency, with its coords as a badge.
-4. **Settings tab** — light/dark theme toggle, **Clear all data**
-   button with confirm modal, version row.
-
-All state persists between launches via `@sigx/lynx-storage`.
+1. **Home** — a search input over a grouped list of areas. Typing filters
+   a flat list across every example; clearing restores the area list. The
+   header button toggles light/dark theme.
+2. **Area sub views** — tapping an area (UI & Theming, Text & Markdown,
+   Input & Keyboard, Native modules) pushes a list of that area's
+   examples. One generic, data-driven screen (`AreaScreen.tsx`) serves
+   all areas.
+3. **Example screens** — tapping an example pushes its demo screen. Most
+   are card pushes; the keyboard-centric demos (`keyboard`,
+   `markdownComposer`) present as modals because their keyboard-lift math
+   assumes the composer bar sits on the bottom inset.
 
 ## Running it
 
@@ -52,8 +52,8 @@ pnpm exec sigx run:android
 The first iOS build takes ~5 minutes (Xcode warms its caches). Subsequent
 rebuilds are seconds.
 
-**Map tab (Android):** the `@sigx/lynx-maps` demo uses the Google Maps SDK,
-which needs an API key. Export one before building so prebuild injects it:
+**Maps demo (Android):** `@sigx/lynx-maps` uses the Google Maps SDK, which
+needs an API key. Export one before building so prebuild injects it:
 
 ```bash
 GOOGLE_MAPS_API_KEY=AIza… pnpm exec sigx run:android
@@ -77,21 +77,43 @@ relaunch.
 
 ```
 src/
-├── App.tsx                # provider chain: safe-area → theme → navigation
-├── main.tsx               # daisyui styles import + bootstrap
-├── styles.css             # tailwind directives
-├── routes.ts              # defineRoutes(...) + Register type augmentation
-├── store/
-│   ├── types.ts           # Trip, Entry, Coords
-│   └── trips.ts           # signal store + watch-based persistence
+├── App.tsx                 # provider chain + root Stack with persistent NavHeader
+├── main.tsx                # daisyui styles import + bootstrap
+├── styles.css              # tailwind directives
+├── catalog.ts              # areas → examples data model + search filter
+├── routes.ts               # defineRoutes(...) + Register type augmentation
+├── themes.ts               # runtime custom theme registration (acme pair)
+├── components/
+│   ├── VoiceNoteRecorder.tsx  # @sigx/lynx-audio record/meter/play
+│   └── VideoClipPlayer.tsx    # @sigx/lynx-video playback
 └── screens/
-    ├── RootTabs.tsx       # Tabs + per-tab nested Stack
-    ├── TripsList.tsx      # tripsHome route
-    ├── TripDetail.tsx     # tripDetail route — Share + delete + add entry
-    ├── NewTrip.tsx        # newTrip modal route
-    ├── NewEntry.tsx       # newEntry modal route (photo + GPS)
-    ├── Map.tsx            # mapHome route — flat list of geotagged entries
-    └── Settings.tsx       # settingsHome route — theme + clear + version
+    ├── Home.tsx            # root route — search + area list
+    ├── AreaScreen.tsx      # area route — generic example list per area
+    │   # UI & Theming
+    ├── Appearance.tsx      # theme picker, dark toggle, follow-system
+    ├── Theming.tsx         # per-screen theme + nested ThemeProvider scope
+    ├── Typography.tsx      # text ramp + live font-scale control
+    ├── Icons.tsx           # FA/Lucide adapters, themed + dynamic names
+    ├── SystemBars.tsx      # raw status/navigation-bar styling APIs
+    ├── Forms.tsx           # Input/Textarea/Select/Checkbox/Radio/Toggle
+    │   # Text & Markdown
+    ├── Markdown.tsx        # GFM renderer + token streaming
+    ├── MarkdownEditor.tsx  # WYSIWYG editor + plugins + round-trip preview
+    ├── MarkdownComposer.tsx# chat-style composer (modal)
+    ├── TextApis.tsx        # selectable text + useElementLayout
+    │   # Input & Keyboard
+    ├── Keyboard.tsx        # KeyboardAvoidingView + KeyboardStickyView (modal)
+    │   # Native modules
+    ├── MapsDemo.tsx        # MapView + markers + selection card
+    ├── MediaDemo.tsx       # image picker + voice note + video clip
+    ├── LocationDemo.tsx    # permission + one-shot GPS fix
+    ├── ShareDemo.tsx       # native share sheet
+    ├── WebViewDemo.tsx     # embedded browser + imperative methods
+    ├── AuthDemo.tsx        # biometric + secure storage unlock flow
+    ├── NotificationsDemo.tsx # push registration + local scheduling
+    ├── BackgroundTasks.tsx # BGTaskScheduler / WorkManager
+    ├── StorageDemo.tsx     # key/value round-trip + clear-all confirm
+    └── HapticsDemo.tsx     # impact / notification / selection
 ```
 
 ## Frameworks used
@@ -99,46 +121,35 @@ src/
 | Package | What it provides |
 |---|---|
 | `@sigx/lynx` | Core runtime (component, signal, watch) |
-| `@sigx/lynx-navigation` | Typed routes, `<Stack>` (default slot for chrome), `<Tabs>`, modal presentation, `useScreenChrome()` |
-| `@sigx/lynx-daisyui` | UI primitives + themed `<NavHeader />` and `<NavTabBar />` |
+| `@sigx/lynx-navigation` | Typed routes, `<Stack>` (default slot for chrome), modal presentation, `useScreenChrome()` |
+| `@sigx/lynx-daisyui` | UI primitives + themed `<NavHeader />` |
 | `@sigx/lynx-safe-area` | `<SafeAreaProvider>` / `<SafeAreaView>` |
-
-## Native modules used
-
-| Module | Where it's used |
-|---|---|
-| `@sigx/lynx-storage` | `src/store/trips.ts` — persist all state |
-| `@sigx/lynx-image-picker` | `src/screens/NewEntry.tsx` — attach photo |
-| `@sigx/lynx-location` | `src/screens/NewEntry.tsx` — geotag entries |
-| `@sigx/lynx-haptics` | save, delete, share, theme-toggle feedback |
-| `@sigx/lynx-share` | `src/screens/TripDetail.tsx` — share trip summary |
-
-Camera capture, notifications, file-system, websocket and clipboard are
-**intentionally not used** — the focus is one coherent product flow, not
-a kitchen-sink demo.
 
 ## Things worth knowing if you're studying this code
 
-- **Reactive store pattern.** `src/store/trips.ts` shows the recommended
-  Lynx persistence loop: signal-backed proxy + `watch(..., { deep: true })`
-  → `Storage.setItem` on every mutation, gated by a `hydrated` flag so
-  the watcher doesn't overwrite the snapshot mid-load.
+- **The catalog drives everything.** `src/catalog.ts` is the single source
+  of truth: Home's area list, each `AreaScreen`, and search all read it.
+  An example's `route` field is typed `RoutesWithoutParams`, so a route
+  that was renamed or never registered fails `pnpm typecheck`.
 
-- **Tabs + nested stacks.** `src/screens/RootTabs.tsx` is the canonical
-  shape: each `<Tabs.Screen>` owns its own `<Stack initialRoute=…>`, so
-  pushing inside a tab stays inside that tab. Modal routes
-  (`presentation: 'modal'` in `routes.ts`) escalate to the root and
-  overlay the tabs.
+- **Single root stack.** `App.tsx` mounts one `<Stack>` with one
+  persistent `<NavHeader />` above the screen-transition wrapper. The bar
+  stays in place during push/pop slides while its contents (title, back
+  button, right items) update to the destination screen's chrome.
+  Modal routes render their own header inside the sheet instead.
 
-- **Themed tab bar.** `<NavTabBar />` from `@sigx/lynx-daisyui` reads
-  `useTabs()` internally — drop it inside `<Tabs>` and it just works.
-  No `class` strings, no `renderTab` boilerplate.
+- **Icon scanning.** `@sigx/lynx-plugin` subsets icon fonts at build time
+  by scanning for literal `<LucideIcon name="…">` and
+  `{ set: '…', name: '…' }` IconSpec call sites. The catalog keeps its
+  icons as object literals for exactly this reason; truly dynamic names
+  (Home's sun/moon theme toggle) are covered by `include:` in
+  `signalx.config.ts`.
 
 - **Theme switching.** `<ThemeProvider>` and `useTheme()` come from
   `@sigx/lynx-daisyui`. The provider wraps children in
   `<view class={themeName}>` so the scoped CSS variables in
-  `.daisy-light` / `.daisy-dark` inherit downstream. The Settings tab
-  calls `useTheme().toggle()` to flip between them.
+  `.daisy-light` / `.daisy-dark` inherit downstream. Home's header button
+  calls `useTheme().toggle()`; the Appearance demo shows the full picker.
 
 ## License
 

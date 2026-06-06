@@ -9,12 +9,11 @@ type VoiceNoteRecorderProps =
     & Define.Prop<'onCleared', () => void, false>;
 
 /**
- * One-shot voice-note recorder used by `NewEntry`.
+ * One-shot voice-note recorder used by the Media demo.
  *
  * Reactive states: idle (no clip yet) → recording → recorded. The component
  * owns the live recording handle and meter subscription; on stop, it hands
- * back the resulting file URI through `onRecorded` and the parent persists
- * it on the trip entry.
+ * back the resulting file URI through `onRecorded`.
  */
 export const VoiceNoteRecorder = component<VoiceNoteRecorderProps>(({ props }) => {
     const recording = signal<{ value: RecordingHandle | null }>({ value: null });

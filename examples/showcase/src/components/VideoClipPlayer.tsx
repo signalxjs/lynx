@@ -8,13 +8,12 @@ type VideoClipPlayerProps =
     & Define.Prop<'onCleared', () => void, false>;
 
 /**
- * Trip-entry video clip preview using `@sigx/lynx-video`.
+ * Video clip preview using `@sigx/lynx-video`.
  *
  * The showcase doesn't ship a video-capture path (the camera package is
  * still photo-only), so the "Attach video" button populates a remote sample
  * clip. This keeps the wiring honest end-to-end: the same URI a real capture
- * pipeline would emit gets persisted on the entry and rendered through
- * `<VideoPlayer>`.
+ * pipeline would emit gets rendered through `<VideoPlayer>`.
  */
 const SAMPLE_VIDEO_URL =
     'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';

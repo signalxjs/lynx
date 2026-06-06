@@ -4,7 +4,7 @@ import { Badge, Button, Col, Input, Row, ScrollView, Text } from '@sigx/lynx-dai
 import { KeyboardAvoidingView, KeyboardStickyView, useKeyboard } from '@sigx/lynx-keyboard';
 
 /**
- * Keyboard lab — exercises `@sigx/lynx-keyboard` in the proven chat-screen
+ * Keyboard — exercises `@sigx/lynx-keyboard` in the proven chat-screen
  * shape:
  *
  *  • The message area sits in `<KeyboardAvoidingView behavior="padding">`,
@@ -34,7 +34,7 @@ const SEED: Array<{ own: boolean; text: string }> = [
     { own: false, text: 'Type something below and watch the whole bar travel with the keyboard.' },
 ];
 
-export const KeyboardLab = component(() => {
+export const Keyboard = component(() => {
     const kb = useKeyboard();
     const input = signal('');
     const messages = signal<Array<{ own: boolean; text: string }>>([...SEED]);
@@ -57,7 +57,7 @@ export const KeyboardLab = component(() => {
 
     return () => (
         <Col class="flex-fill bg-base-100">
-            <Screen title="Keyboard lab" />
+            <Screen title="Keyboard" />
             <KeyboardAvoidingView behavior="padding">
                 <ScrollView class="flex-1">
                     <Col gap={8} padding={12}>

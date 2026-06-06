@@ -1,72 +1,75 @@
 import { defineRoutes } from '@sigx/lynx-navigation';
 import { z } from 'zod';
-import { RootTabs } from './screens/RootTabs.js';
-import { TripsList } from './screens/TripsList.js';
-import { TripDetail } from './screens/TripDetail.js';
-import { TripGuide } from './screens/TripGuide.js';
-import { NewTrip } from './screens/NewTrip.js';
-import { NewEntry } from './screens/NewEntry.js';
-import { ImageViewer } from './screens/ImageViewer.js';
-import { Map } from './screens/Map.js';
-import { Settings } from './screens/Settings.js';
+import { Home } from './screens/Home.js';
+import { AreaScreen } from './screens/AreaScreen.js';
+// UI & Theming
+import { Appearance } from './screens/Appearance.js';
+import { Theming } from './screens/Theming.js';
+import { Typography } from './screens/Typography.js';
+import { Icons } from './screens/Icons.js';
+import { SystemBars } from './screens/SystemBars.js';
+import { Forms } from './screens/Forms.js';
+// Text & Markdown
+import { Markdown } from './screens/Markdown.js';
+import { MarkdownEditorScreen } from './screens/MarkdownEditor.js';
+import { MarkdownComposerScreen } from './screens/MarkdownComposer.js';
+import { TextApis } from './screens/TextApis.js';
+// Input & Keyboard
+import { Keyboard } from './screens/Keyboard.js';
+// Native modules
+import { MapsDemo } from './screens/MapsDemo.js';
+import { MediaDemo } from './screens/MediaDemo.js';
+import { LocationDemo } from './screens/LocationDemo.js';
+import { ShareDemo } from './screens/ShareDemo.js';
+import { WebViewDemo } from './screens/WebViewDemo.js';
 import { AuthDemo } from './screens/AuthDemo.js';
-import { ThemeLab } from './screens/ThemeLab.js';
-import { TypographyLab } from './screens/TypographyLab.js';
-import { MarkdownLab } from './screens/MarkdownLab.js';
-import { MarkdownEditorLab } from './screens/MarkdownEditorLab.js';
-import { MarkdownComposerLab } from './screens/MarkdownComposerLab.js';
-import { KeyboardLab } from './screens/KeyboardLab.js';
+import { NotificationsDemo } from './screens/NotificationsDemo.js';
+import { BackgroundTasks } from './screens/BackgroundTasks.js';
+import { StorageDemo } from './screens/StorageDemo.js';
+import { HapticsDemo } from './screens/HapticsDemo.js';
 
 export const routes = defineRoutes({
-    root: { component: RootTabs },
-    // Per-tab home routes. Each is the bottom entry of its tab's nested
-    // <Stack initialRoute=…> — pushing more card routes from these screens
-    // stays inside the owning tab; modal routes (newTrip / newEntry) escalate
-    // to the root navigator.
-    tripsHome: { component: TripsList },
-    mapHome: { component: Map },
-    settingsHome: { component: Settings },
-    authDemo: { component: AuthDemo },
-    themeLab: { component: ThemeLab },
-    typographyLab: { component: TypographyLab },
-    markdownLab: { component: MarkdownLab, path: '/markdown-lab' },
-    markdownEditorLab: { component: MarkdownEditorLab, path: '/markdown-editor-lab' },
-    markdownComposerLab: { component: MarkdownComposerLab, path: '/markdown-composer-lab', presentation: 'modal' },
-    // Modal so the composer demo isn't sitting on top of the tab bar — a bar
-    // with extra chrome below it needs `offset` compensation (see KeyboardLab).
-    keyboardLab: { component: KeyboardLab, path: '/keyboard-lab', presentation: 'modal' },
-    tripDetail: {
-        component: TripDetail,
-        params: z.object({ tripId: z.string() }),
-        path: '/trips/:tripId',
+    // Home is the root of the single global stack: search + grouped catalog.
+    root: { component: Home },
+    // One parametric route serves every area sub view — the catalog
+    // (src/catalog.ts) is the data source, keyed by `areaId`.
+    area: {
+        component: AreaScreen,
+        params: z.object({ areaId: z.string() }),
+        path: '/area/:areaId',
     },
-    tripGuide: {
-        component: TripGuide,
-        params: z.object({ tripId: z.string() }),
-        path: '/trips/:tripId/guide',
-    },
-    newTrip: {
-        component: NewTrip,
-        presentation: 'modal',
-    },
-    newEntry: {
-        component: NewEntry,
-        // `entryId` optional — present → edit mode, absent → create mode.
-        params: z.object({
-            tripId: z.string(),
-            entryId: z.string().optional(),
-        }),
-        presentation: 'modal',
-    },
-    imageViewer: {
-        component: ImageViewer,
-        params: z.object({
-            tripId: z.string(),
-            entryId: z.string(),
-            index: z.number().optional(),
-        }),
-        presentation: 'fullScreen',
-    },
+
+    // UI & Theming
+    appearance: { component: Appearance, path: '/appearance' },
+    theming: { component: Theming, path: '/theming' },
+    typography: { component: Typography, path: '/typography' },
+    icons: { component: Icons, path: '/icons' },
+    systemBars: { component: SystemBars, path: '/system-bars' },
+    forms: { component: Forms, path: '/forms' },
+
+    // Text & Markdown
+    markdown: { component: Markdown, path: '/markdown' },
+    markdownEditor: { component: MarkdownEditorScreen, path: '/markdown-editor' },
+    // Modal: the composer's keyboard lift math assumes the bar sits on the
+    // bottom inset (same caveat as `keyboard` below).
+    markdownComposer: { component: MarkdownComposerScreen, path: '/markdown-composer', presentation: 'modal' },
+    textApis: { component: TextApis, path: '/text-apis' },
+
+    // Input & Keyboard — modal so no extra chrome sits below the sticky bar;
+    // a bar with chrome below it needs `offset` compensation.
+    keyboard: { component: Keyboard, path: '/keyboard', presentation: 'modal' },
+
+    // Native modules
+    mapsDemo: { component: MapsDemo, path: '/maps' },
+    mediaDemo: { component: MediaDemo, path: '/media' },
+    locationDemo: { component: LocationDemo, path: '/location' },
+    shareDemo: { component: ShareDemo, path: '/share' },
+    webviewDemo: { component: WebViewDemo, path: '/webview' },
+    authDemo: { component: AuthDemo, path: '/auth' },
+    notifications: { component: NotificationsDemo, path: '/notifications' },
+    backgroundTasks: { component: BackgroundTasks, path: '/background-tasks' },
+    storageDemo: { component: StorageDemo, path: '/storage' },
+    hapticsDemo: { component: HapticsDemo, path: '/haptics' },
 });
 
 declare module '@sigx/lynx-navigation' {
