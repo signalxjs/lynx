@@ -50,3 +50,53 @@ describe('Divider', () => {
     expect(el._class).toBe('custom');
   });
 });
+
+describe('Divider label slot (#212)', () => {
+  /** The wrapper's flanking-line views (slot content sits between them). */
+  function lines(wrapper: any): any[] {
+    return wrapper.children.filter(
+      (c: any) => c.type === 'view' && typeof c._class === 'string' && c._class.includes('divider'),
+    );
+  }
+
+  it('renders line · label · line with slot content', () => {
+    const result = render(<Divider><text>OR</text></Divider>);
+    const wrapper = result.container.children[0];
+    expect(wrapper._style.flexDirection).toBe('row');
+    expect(lines(wrapper).length).toBe(2);
+    expect(result.container.textContent()).toBe('OR');
+    result.unmount();
+  });
+
+  it('uses vertical lines and a column wrapper when vertical', () => {
+    const result = render(<Divider vertical><text>OR</text></Divider>);
+    const wrapper = result.container.children[0];
+    expect(wrapper._style.flexDirection).toBe('column');
+    for (const line of lines(wrapper)) {
+      expect(line._class).toContain('divider-vertical');
+    }
+    result.unmount();
+  });
+
+  it('tints the flanking lines via color and puts margin on the wrapper', () => {
+    const result = render(
+      <Divider color="#ff0000" margin={12}><text>OR</text></Divider>,
+    );
+    const wrapper = result.container.children[0];
+    expect(wrapper._style.marginTop).toBe(12);
+    expect(wrapper._style.marginBottom).toBe(12);
+    for (const line of lines(wrapper)) {
+      expect(line._style.backgroundColor).toBe('#ff0000');
+      expect(line._style.flex).toBe(1);
+    }
+    result.unmount();
+  });
+
+  it('keeps the plain single-view output without slot content', () => {
+    const result = render(<Divider />);
+    const el = result.container.children[0];
+    expect(el._class).toContain('divider');
+    expect(el.children.filter((c: any) => c.type === 'view').length).toBe(0);
+    result.unmount();
+  });
+});
