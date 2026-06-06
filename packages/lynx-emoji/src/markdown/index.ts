@@ -113,15 +113,22 @@ export function createEmojiPlugin(options?: EmojiPluginOptions): MarkdownEditorP
                 return index.search(query, limit).map((datum) => ({
                     // Stable id; the first shortcode names the suggestion.
                     id: datum.sc?.[0] ?? datum.e,
-                    label: `${datum.e}  :${datum.sc?.[0] ?? datum.n}:`,
+                    label: datum.sc?.[0] ? `${datum.e}  :${datum.sc[0]}:` : `${datum.e}  ${datum.n}`,
                     glyph: datum.e,
+                    // Carried separately from `id` so onSelect can tell a real
+                    // shortcode from the glyph fallback (sc is optional in the
+                    // schema — `:😄:` would be unparseable).
+                    ...(datum.sc?.[0] ? { sc: datum.sc[0] } : {}),
                 }));
             },
             ...(options?.renderItem ? { renderItem: options.renderItem } : {}),
             onSelect(item, api) {
-                const text = insert === 'glyph'
-                    ? `${typeof item.glyph === 'string' ? item.glyph : ''} `
-                    : `:${item.id}: `;
+                const sc = typeof item.sc === 'string' ? item.sc : null;
+                // Shortcode mode degrades to the glyph when the emoji has no
+                // shortcode — never emit invalid `:<glyph>:` source.
+                const text = insert === 'shortcode' && sc
+                    ? `:${sc}: `
+                    : `${typeof item.glyph === 'string' ? item.glyph : ''} `;
                 // Trailing space = boundary, so the run doesn't re-trigger
                 // (see TriggerSelectApi.replaceQuery).
                 api.replaceQuery(text);

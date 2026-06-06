@@ -66,6 +66,21 @@ describe('createEmojiPlugin', () => {
         expect(api.replaceQuery).toHaveBeenCalledWith(':joy: ');
     });
 
+    it('falls back to the glyph in shortcode mode when an emoji has no shortcode', async () => {
+        const data = {
+            locale: 'en',
+            categories: [{ key: 'smileys-emotion', label: 'smileys & emotion' }],
+            emojis: [{ e: '😀', n: 'grinning face', c: 0, o: 1, k: ['grin'] }], // no sc
+            skinTones: ['light', 'medium-light', 'medium', 'medium-dark', 'dark'],
+        };
+        const plugin = createEmojiPlugin({ insert: 'shortcode', data });
+        const items = await plugin.trigger!.onQuery('grin');
+        expect(items[0].sc).toBeUndefined();
+        const api = selectApi();
+        plugin.trigger!.onSelect(items[0], api);
+        expect(api.replaceQuery).toHaveBeenCalledWith('😀 ');
+    });
+
     it('adds the toolbar item only when onPickerRequest is provided', () => {
         expect(createEmojiPlugin().toolbar).toBeUndefined();
         const onPickerRequest = vi.fn();
