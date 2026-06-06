@@ -20,11 +20,11 @@
  */
 import { signal } from '@sigx/lynx';
 import { pairOf, pickThemeFor } from './registry.js';
-import type { DaisyTheme, ThemeController } from './ThemeProvider.js';
+import type { ThemeController, ThemeName } from './ThemeProvider.js';
 
 /** The mutable selection a `ThemeController` reads from and writes to. */
 export interface ThemeState {
-    name: DaisyTheme;
+    name: ThemeName;
     following: boolean;
     /**
      * Global text-scale multiplier applied on top of the theme's `--text-*`
@@ -82,12 +82,14 @@ export function makeThemeController(state: ThemeState): ThemeController {
     };
 }
 
-// Object signal (not primitive) so the `DaisyTheme` literal union survives —
-// `signal<T>` widens primitive literals to plain `string` via `Widen<T>`.
-// Seeded to a sane default; the root <ThemeProvider> re-seeds from the system
-// color scheme + its props on mount.
+// Object signal (not primitive) so theme-name literal unions a DS layers on
+// top survive — `signal<T>` widens primitive literals to plain `string` via
+// `Widen<T>`. Seeded from whatever is registered at first import (a DS package
+// seeds the registry at its own module load; until then the name is '') —
+// the root <ThemeProvider> re-seeds from the system color scheme + its props
+// on mount.
 const state = signal<ThemeState>({
-    name: pickThemeFor('light') as DaisyTheme,
+    name: pickThemeFor('light'),
     following: true,
     fontScale: 1,
 });
@@ -101,10 +103,10 @@ const state = signal<ThemeState>({
 export const globalThemeState = state;
 
 /**
- * The global theme controller — the headless handle for issue #113. Import and
- * call from anywhere (no `<ThemeProvider>` ancestor required); `useTheme()`'s
- * default factory returns this same instance, and the root `<ThemeProvider>`
- * provides it to its subtree. `StatusBarSync` binds to it so the OS bars always
- * follow the global/screen theme, never a content sub-scope.
+ * The global theme controller — the headless handle. Import and call from
+ * anywhere (no `<ThemeProvider>` ancestor required); `useTheme()`'s default
+ * factory returns this same instance, and the root `<ThemeProvider>` provides
+ * it to its subtree. `StatusBarSync` binds to it so the OS bars always follow
+ * the global/screen theme, never a content sub-scope.
  */
 export const themeController: ThemeController = makeThemeController(state);

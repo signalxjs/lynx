@@ -1,5 +1,5 @@
 /**
- * `useScreenTheme(name)` — pin the **global** daisy theme while a navigation
+ * `useScreenTheme(name)` — pin the **global** theme while a navigation
  * screen is focused, restoring the previous selection when it blurs.
  *
  * This is the right tool for *per-screen* theming — "this screen is dark, that
@@ -26,10 +26,10 @@
  */
 import { useFocusEffect } from '@sigx/lynx-navigation';
 import { themeController } from './theme-state.js';
-import type { DaisyTheme } from './ThemeProvider.js';
+import type { ThemeName } from './ThemeProvider.js';
 
 /** Pin the global theme to `name` while this screen is focused; restore on blur. */
-export function useScreenTheme(name: DaisyTheme): void {
+export function useScreenTheme(name: ThemeName): void {
     useFocusEffect(() => {
         const prevName = themeController.name;
         const prevFollowing = themeController.followingSystem;

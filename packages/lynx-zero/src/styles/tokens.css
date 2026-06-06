@@ -1,13 +1,13 @@
 /* Theme-agnostic structural design tokens.
  *
- * Theme COLORS come from the theme registry (src/theme/registry.ts) and are
+ * Theme COLORS come from the theme registry (seeded by the design-system package) and are
  * applied as inline CSS custom properties by <ThemeProvider>. These
  * radius / sizing / component tokens are identical across themes, so they
- * ship once here under the `.daisy` base class that <ThemeProvider> puts on
+ * ship once here under the `.lynx-zero` base class that <ThemeProvider> puts on
  * its host view; CSS inheritance propagates them to every descendant. A theme
  * may still override roundness via its `radius` field. */
 
-.daisy {
+.lynx-zero {
   /* ── Roundness (DaisyUI v5 contract) ── */
   --radius-selector: 8px;
   --radius-field: 8px;

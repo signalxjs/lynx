@@ -1,6 +1,6 @@
 /**
  * `<StatusBarSync />` — keeps the device status-bar (and Android's
- * navigation-bar) tint legible against the active daisyui theme.
+ * navigation-bar) tint legible against the active theme.
  *
  * Reads the current theme via `useTheme()`, looks up its variant in the
  * theme registry, and pushes the appropriate tint to the OS via

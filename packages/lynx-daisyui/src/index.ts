@@ -87,7 +87,10 @@ export type {
     SwiperIndicatorSize,
 } from './navigation/SwiperIndicator.js';
 
-// Theme
+// Theme — the engine lives in @sigx/lynx-zero; daisy wraps it with its six
+// built-in palettes (seeded at module load via ./theme/builtins.ts) and the
+// icon color resolver. ./theme/ThemeProvider.js re-exports the engine API so
+// daisy apps keep a single import source.
 export {
     ThemeProvider,
     useTheme,
@@ -111,15 +114,11 @@ export type {
     ThemeSizes,
     ThemeVariant,
 } from './theme/ThemeProvider.js';
-export { StatusBarSync } from './theme/StatusBarSync.js';
-export type { StatusBarSyncProps } from './theme/StatusBarSync.js';
-// Headless theme handle (issue #113): import and call from anywhere — stores,
-// services, effects, app-boot — with no `<ThemeProvider>` ancestor required.
-// `useTheme()` resolves to this when no provider is in scope.
-export { themeController } from './theme/theme-state.js';
-// Per-screen theming: pin the global theme while a navigation screen is focused
-// (requires the optional `@sigx/lynx-navigation` peer).
-export { useScreenTheme } from './theme/use-screen-theme.js';
+// Headless theme handle (issue #113) + bar sync + per-screen theming — all
+// engine pieces, re-exported from @sigx/lynx-zero. `useScreenTheme` requires
+// the optional `@sigx/lynx-navigation` peer.
+export { StatusBarSync, themeController, useScreenTheme } from '@sigx/lynx-zero';
+export type { StatusBarSyncProps } from '@sigx/lynx-zero';
 
 // Data
 export { Avatar } from './data/Avatar.js';

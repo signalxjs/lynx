@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { component } from '@sigx/lynx';
 import { render } from '@sigx/lynx-testing';
 import { ThemeProvider, useTheme } from '../src/theme/ThemeProvider';
-import { themeController } from '../src/theme/theme-state';
+import { themeController } from '@sigx/lynx-zero';
 
 // `useTheme().name` rendered as text, so we can assert which controller a given
 // point in the tree resolves to.
@@ -69,7 +69,7 @@ describe('theme — headless control + layered overrides (#113)', () => {
     const host = container.children[0];
     // Built-in palettes resolve via their generated CSS class on the first
     // frame — Lynx doesn't honor inline-declared custom properties (#116).
-    expect(host._class.split(' ')).toContain('daisy');
+    expect(host._class.split(' ')).toContain('lynx-zero');
     expect(host._class.split(' ')).toContain('daisy-dark');
     // base-100 / base-content are painted literally so the surface is themed
     // before descendants resolve var(--color-*) against the class.

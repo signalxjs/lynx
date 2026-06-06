@@ -1027,7 +1027,13 @@ importers:
       '@sigx/lynx':
         specifier: workspace:^
         version: link:../lynx
+      '@sigx/lynx-appearance':
+        specifier: workspace:^
+        version: link:../lynx-appearance
     devDependencies:
+      '@sigx/lynx-navigation':
+        specifier: workspace:^
+        version: link:../lynx-navigation
       '@sigx/lynx-testing':
         specifier: workspace:^
         version: link:../lynx-testing
