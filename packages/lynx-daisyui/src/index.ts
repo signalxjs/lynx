@@ -2,21 +2,17 @@
 export { Button } from './buttons/Button.js';
 export type { ButtonProps, ButtonVariant, ButtonSize } from './buttons/Button.js';
 
-// Layout
+// Layout — Card and Divider are daisy-styled; the neutral primitives
+// (Row/Col/Center/Spacer/ScrollView) live in @sigx/lynx-zero and are
+// re-exported here so daisy apps keep a single import source.
 export { Card } from './layout/Card.js';
 export type { CardProps } from './layout/Card.js';
-export { Row } from './layout/Row.js';
-export type { RowProps } from './layout/Row.js';
-export { Col } from './layout/Col.js';
-export type { ColProps } from './layout/Col.js';
-export { Center } from './layout/Center.js';
-export type { CenterProps } from './layout/Center.js';
-export { Spacer } from './layout/Spacer.js';
-export type { SpacerProps } from './layout/Spacer.js';
-export { ScrollView } from './layout/ScrollView.js';
-export type { ScrollViewProps } from './layout/ScrollView.js';
 export { Divider } from './layout/Divider.js';
 export type { DividerProps } from './layout/Divider.js';
+export { Row, Col, Center, Spacer, ScrollView } from '@sigx/lynx-zero';
+export type {
+  RowProps, ColProps, CenterProps, SpacerProps, ScrollViewProps,
+} from '@sigx/lynx-zero';
 
 // Shared style primitives + the design-system contract — re-exported from
 // the neutral foundation (@sigx/lynx-zero) so daisy apps keep a single
