@@ -6,6 +6,9 @@
         "declaration": true,
         "noEmit": false,
         "jsxImportSource": "@sigx/lynx",
+        "types": [
+            "node"
+        ],
         "paths": {}
     },
     "include": [

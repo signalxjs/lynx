@@ -15,15 +15,15 @@ export type SkinTone = 0 | 1 | 2 | 3 | 4 | 5;
 export interface EmojiDatum {
     /** Native glyph — the fully-qualified unicode sequence. */
     e: string;
-    /** Localized display name (CLDR annotation), lowercase. */
+    /** Localized display name (CLDR annotation) — mixed case ("Santa Claus"). */
     n: string;
     /** Index into {@link EmojiData.categories}. */
     c: number;
     /** CLDR sort order (stable within the dataset). */
     o: number;
-    /** Search keywords (CLDR tags), lowercase. */
+    /** Search keywords (CLDR tags). Casing is not guaranteed — the search index normalizes. */
     k?: string[];
-    /** Shortcodes (emojibase set), lowercase, without the wrapping colons. */
+    /** Shortcodes (emojibase set), without the wrapping colons. */
     sc?: string[];
     /**
      * Uniform skin-tone variant glyphs, index `tone - 1` (so `s[0]` is the
@@ -36,7 +36,7 @@ export interface EmojiDatum {
 export interface EmojiCategory {
     /** Stable key — the emojibase group key (`'smileys-emotion'`, …). */
     key: string;
-    /** Localized label (`'smileys & emotion'`, …), lowercase. */
+    /** Localized label (`'smileys & emotion'`, …). */
     label: string;
 }
 

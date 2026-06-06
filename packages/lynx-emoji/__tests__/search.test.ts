@@ -47,6 +47,11 @@ describe('search', () => {
         expect(index.search('face', 5)).toHaveLength(5);
     });
 
+    it('matches mixed-case CLDR names (index normalizes)', () => {
+        expect(index.search('santa').some((e) => e.e === '🎅')).toBe(true);
+        expect(index.search('rex').some((e) => e.e === '🦖')).toBe(true);
+    });
+
     it('returns no hits for nonsense', () => {
         expect(index.search('xqzzy')).toEqual([]);
     });

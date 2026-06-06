@@ -44,12 +44,14 @@ export function tokenize(query: string): string[] {
 }
 
 export function buildSearchIndex(data: EmojiData): EmojiSearchIndex {
+    // Normalize once at build time — CLDR names are mixed-case ("Santa
+    // Claus", "T-Rex") and tag/shortcode casing is convention, not contract.
     const entries: IndexedEmoji[] = data.emojis.map((datum) => ({
         datum,
-        name: datum.n,
+        name: datum.n.toLowerCase(),
         nameWords: tokenize(datum.n),
-        keywords: datum.k ?? [],
-        shortcodes: datum.sc ?? [],
+        keywords: (datum.k ?? []).map((k) => k.toLowerCase()),
+        shortcodes: (datum.sc ?? []).map((sc) => sc.toLowerCase()),
     }));
 
     function scoreToken(entry: IndexedEmoji, token: string): number {
