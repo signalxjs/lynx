@@ -1,5 +1,38 @@
 import type { IconSpec } from '@sigx/lynx-icons';
+// Actions
 import { buttonDemo } from './demos/button.js';
+// Layout
+import { cardDemo } from './demos/card.js';
+import { layoutDemo } from './demos/layout.js';
+import { scrollviewDemo } from './demos/scrollview.js';
+import { dividerDemo } from './demos/divider.js';
+// Forms
+import { inputDemo } from './demos/input.js';
+import { textareaDemo } from './demos/textarea.js';
+import { selectDemo } from './demos/select.js';
+import { checkboxDemo } from './demos/checkbox.js';
+import { radioDemo } from './demos/radio.js';
+import { toggleDemo } from './demos/toggle.js';
+import { formfieldDemo } from './demos/formfield.js';
+// Feedback
+import { badgeDemo } from './demos/badge.js';
+import { alertDemo } from './demos/alert.js';
+import { loadingDemo } from './demos/loading.js';
+import { progressDemo } from './demos/progress.js';
+import { modalDemo } from './demos/modal.js';
+import { skeletonDemo } from './demos/skeleton.js';
+import { stepsDemo } from './demos/steps.js';
+// Navigation
+import { tabsDemo } from './demos/tabs.js';
+import { navtabbarDemo } from './demos/navtabbar.js';
+import { navheaderDemo } from './demos/navheader.js';
+import { navdrawerDemo } from './demos/navdrawer.js';
+import { swiperindicatorDemo } from './demos/swiperindicator.js';
+// Data
+import { avatarDemo } from './demos/avatar.js';
+// Typography
+import { textDemo } from './demos/text.js';
+import { headingDemo } from './demos/heading.js';
 
 /**
  * DaisyUI component reference registry — single source of truth for the
@@ -42,7 +75,40 @@ export interface DaisyComponentDemo {
 }
 
 export const daisyDemos: DaisyComponentDemo[] = [
+    // Actions
     buttonDemo,
+    // Layout
+    cardDemo,
+    layoutDemo,
+    scrollviewDemo,
+    dividerDemo,
+    // Forms
+    inputDemo,
+    textareaDemo,
+    selectDemo,
+    checkboxDemo,
+    radioDemo,
+    toggleDemo,
+    formfieldDemo,
+    // Feedback
+    badgeDemo,
+    alertDemo,
+    loadingDemo,
+    progressDemo,
+    modalDemo,
+    skeletonDemo,
+    stepsDemo,
+    // Navigation
+    tabsDemo,
+    navtabbarDemo,
+    navheaderDemo,
+    navdrawerDemo,
+    swiperindicatorDemo,
+    // Data
+    avatarDemo,
+    // Typography
+    textDemo,
+    headingDemo,
 ];
 
 export function getDaisyDemo(id: string): DaisyComponentDemo | undefined {

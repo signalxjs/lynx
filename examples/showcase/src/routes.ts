@@ -6,10 +6,8 @@ import { DaisyComponentScreen } from './screens/DaisyComponentScreen.js';
 // UI & Theming
 import { Appearance } from './screens/Appearance.js';
 import { Theming } from './screens/Theming.js';
-import { Typography } from './screens/Typography.js';
 import { Icons } from './screens/Icons.js';
 import { SystemBars } from './screens/SystemBars.js';
-import { Forms } from './screens/Forms.js';
 // Text & Markdown
 import { Markdown } from './screens/Markdown.js';
 import { MarkdownEditorScreen } from './screens/MarkdownEditor.js';
@@ -51,10 +49,8 @@ export const routes = defineRoutes({
     // UI & Theming
     appearance: { component: Appearance, path: '/appearance' },
     theming: { component: Theming, path: '/theming' },
-    typography: { component: Typography, path: '/typography' },
     icons: { component: Icons, path: '/icons' },
     systemBars: { component: SystemBars, path: '/system-bars' },
-    forms: { component: Forms, path: '/forms' },
 
     // Text & Markdown
     markdown: { component: Markdown, path: '/markdown' },

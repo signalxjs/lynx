@@ -50,13 +50,6 @@ export const catalog: Area[] = [
                 route: 'theming',
             },
             {
-                id: 'typography',
-                title: 'Typography',
-                description: 'Text ramp xs→3xl with a live font-scale control',
-                icon: { set: 'lucide', name: 'type' },
-                route: 'typography',
-            },
-            {
                 id: 'icons',
                 title: 'Icons',
                 description: 'Font Awesome + Lucide adapters, themed and dynamic names',
@@ -69,13 +62,6 @@ export const catalog: Area[] = [
                 description: 'Raw status/navigation-bar styling APIs',
                 icon: { set: 'lucide', name: 'panel-top' },
                 route: 'systemBars',
-            },
-            {
-                id: 'forms',
-                title: 'Forms',
-                description: 'Input, Textarea, Select, Checkbox, Radio, Toggle',
-                icon: { set: 'lucide', name: 'list-checks' },
-                route: 'forms',
             },
         ],
     },
