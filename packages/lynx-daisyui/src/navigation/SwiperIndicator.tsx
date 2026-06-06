@@ -1,7 +1,9 @@
 import {
   component,
   effect,
+  runOnMainThread,
   signal,
+  useSharedValue,
   type Define,
   type PrimitiveSignal,
   type SharedValue,
@@ -12,6 +14,7 @@ import {
   useSwiperDotGrowX,
   useSwiperDotTranslate,
 } from '@sigx/lynx-gestures';
+import { withTiming } from '@sigx/lynx-motion';
 import { resolveDaisyColor, type DaisyColor } from '../shared/styles.js';
 
 /**
@@ -56,16 +59,22 @@ const SIZE_TABLE: Record<SwiperIndicatorSize, SizeSpec> = {
 
 export type SwiperIndicatorProps =
   & Define.Prop<'variant', SwiperIndicatorVariant, false>
-  /** Live MT pixel offset from the parent `<Swiper>`. Required for all animated variants. */
+  /**
+   * Live MT pixel offset from the parent `<Swiper>` — full scroll-linked
+   * fidelity for the animated variants. When omitted but `index` is wired,
+   * the indicator derives one internally (#211): it glides between page
+   * positions with a timing curve on every index change. Mode is fixed at
+   * mount.
+   */
   & Define.Prop<'offset', SharedValue<number>, false>
   /** Page width in CSS px. Must match the Swiper's effective page width. */
   & Define.Prop<'pageWidth', number, false>
   /** Total page count. */
   & Define.Prop<'count', number, true>
   /**
-   * Current page (whole-units). Required for `numbered`, used by `bar`
-   * as fallback when `offset` isn't wired, and consumed by all variants
-   * for tap-to-jump.
+   * Current page (whole-units). Required for `numbered`, drives the
+   * derived offset in index-only mode, and consumed by all variants for
+   * tap-to-jump.
    */
   & Define.Prop<'index', PrimitiveSignal<number>, false>
   & Define.Prop<'color', DaisyColor, false>
@@ -86,7 +95,7 @@ export type SwiperIndicatorProps =
  * `useSwiperDotTranslate`). For a fully custom indicator, compose the
  * hooks yourself rather than forking this file.
  *
- * @example
+ * @example Scroll-linked (full fidelity, wired to a `<Swiper>`)
  * ```tsx
  * const offset = useSharedValue(0);
  * const idx = signal({ value: 0 });
@@ -101,13 +110,56 @@ export type SwiperIndicatorProps =
  *   onDotPress={(i) => { idx.value = i; }}
  * />
  * ```
+ *
+ * @example Index-only (no Swiper — the offset is derived internally)
+ * ```tsx
+ * const idx = signal({ value: 0 });
+ * <SwiperIndicator
+ *   variant="dots"
+ *   count={5}
+ *   index={idx}
+ *   onDotPress={(i) => { idx.value = i; }}
+ * />
+ * ```
  */
+/**
+ * Nominal page width for the internally-derived offset (index-only mode).
+ * The animated variants consume `offset` and `pageWidth` only as the ratio
+ * `offset / pageWidth`, so any non-zero constant works.
+ */
+const SYNTHETIC_PAGE_WIDTH = 100;
+
+/** Timing used when gliding the derived offset between page positions. */
+const SYNTHETIC_GLIDE_SECONDS = 0.28;
+
 export const SwiperIndicator = component<SwiperIndicatorProps>(({ props }) => {
+  // Index-only mode (#211), fixed at mount: with no live `offset` wired but
+  // an `index`, own a SharedValue and glide it to `index × nominal width`
+  // with a timing curve whenever the index changes — the same push a real
+  // `<Swiper>` makes, minus the scroll-linked in-between frames.
+  const indexOnly = props.offset == null && props.index != null;
+  const derivedOffset = useSharedValue(
+    indexOnly ? (props.index!.value | 0) * SYNTHETIC_PAGE_WIDTH : 0,
+  );
+  if (indexOnly) {
+    // Hoisted once — wrapping per call would allocate a new MT runner on
+    // every index change.
+    const glideTo = runOnMainThread((to: number) => {
+      'main thread';
+      withTiming(derivedOffset, to, { duration: SYNTHETIC_GLIDE_SECONDS });
+    });
+    effect(() => {
+      glideTo((props.index!.value | 0) * SYNTHETIC_PAGE_WIDTH);
+    });
+  }
+
   return () => {
     const variant: SwiperIndicatorVariant = props.variant ?? 'dots';
     const size = SIZE_TABLE[props.size ?? 'md'];
     const activeColor = resolveDaisyColor(props.color ?? 'primary');
     const inactiveColor = resolveDaisyColor(props.inactiveColor ?? 'base-content');
+    const offset = indexOnly ? derivedOffset : props.offset;
+    const pageWidth = indexOnly ? SYNTHETIC_PAGE_WIDTH : props.pageWidth;
 
     if (variant === 'numbered') {
       return (
@@ -123,11 +175,11 @@ export const SwiperIndicator = component<SwiperIndicatorProps>(({ props }) => {
     }
 
     if (variant === 'bar') {
-      if (props.offset == null || props.pageWidth == null) return null;
+      if (offset == null || pageWidth == null) return null;
       return (
         <BarIndicator
-          offset={props.offset}
-          pageWidth={props.pageWidth}
+          offset={offset}
+          pageWidth={pageWidth}
           count={props.count}
           activeColor={activeColor}
           inactiveColor={inactiveColor}
@@ -141,7 +193,7 @@ export const SwiperIndicator = component<SwiperIndicatorProps>(({ props }) => {
       );
     }
 
-    if (props.offset == null || props.pageWidth == null) return null;
+    if (offset == null || pageWidth == null) return null;
     return (
       <view
         class={props.class}
@@ -158,8 +210,8 @@ export const SwiperIndicator = component<SwiperIndicatorProps>(({ props }) => {
           <Dot
             key={i}
             index={i}
-            offset={props.offset!}
-            pageWidth={props.pageWidth!}
+            offset={offset}
+            pageWidth={pageWidth}
             variant={variant}
             size={size}
             activeColor={activeColor}
