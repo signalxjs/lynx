@@ -50,13 +50,21 @@ export function useThemeColors(): ThemeColors {
 }
 
 /**
- * Normalize an engine-safe palette color to hex — the registry allows
- * `rgb()`/`rgba()` entries, but most native color parsers are hex-only.
+ * Normalize an engine-safe palette color to full-form hex
+ * (`#RRGGBB`/`#RRGGBBAA`) — the registry allows `rgb()`/`rgba()` entries and
+ * shorthand hex, but native color parsers may accept only the full forms.
  * Unknown notations pass through unchanged.
  */
 export function toHexColor(color: string): string {
   const c = color.trim();
-  if (c.startsWith('#')) return c;
+  if (c.startsWith('#')) {
+    const h = c.slice(1);
+    // Expand #RGB / #RGBA to the full form; leave other lengths as-is.
+    if (h.length === 3 || h.length === 4) {
+      return `#${h.split('').map((ch) => ch + ch).join('')}`;
+    }
+    return c;
+  }
   const m = /^rgba?\(\s*(\d+)\s*[, ]\s*(\d+)\s*[, ]\s*(\d+)\s*(?:[,/]\s*([\d.]+%?)\s*)?\)$/i.exec(c);
   if (!m) return c;
   const byte = (v: number): string =>
@@ -75,12 +83,15 @@ export function toHexColor(color: string): string {
  * through unchanged; non-finite alpha is treated as opaque.
  */
 export function withAlpha(hex: string, alpha: number): string {
-  let h = hex.trim();
-  if (!h.startsWith('#')) return h;
-  if (!Number.isFinite(alpha)) return h;
-  h = h.slice(1);
+  const input = hex.trim();
+  if (!input.startsWith('#')) return input;
+  if (!Number.isFinite(alpha)) return input;
+  let h = input.slice(1);
   if (h.length === 3) h = h.split('').map((c) => c + c).join('');
   if (h.length === 8) h = h.slice(0, 6);
+  // Anything that isn't #RRGGBB by now (#RGBA, bad lengths) is not a shape
+  // we can safely re-alpha — return it unchanged rather than corrupt it.
+  if (h.length !== 6) return input;
   const byte = Math.round(Math.max(0, Math.min(1, alpha)) * 255)
     .toString(16)
     .padStart(2, '0');

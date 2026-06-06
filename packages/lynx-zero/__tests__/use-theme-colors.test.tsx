@@ -48,8 +48,10 @@ describe('useThemeColors (#225)', () => {
 });
 
 describe('toHexColor / withAlpha', () => {
-  it('passes hex through, converts rgb()/rgba()', () => {
+  it('passes full hex through, expands shorthand, converts rgb()/rgba()', () => {
     expect(toHexColor('#abcdef')).toBe('#abcdef');
+    expect(toHexColor('#fff')).toBe('#ffffff');
+    expect(toHexColor('#f00a')).toBe('#ff0000aa');
     expect(toHexColor('rgb(255, 0, 0)')).toBe('#ff0000');
     expect(toHexColor('rgba(255, 0, 0, 0.5)')).toBe('#ff000080');
     expect(toHexColor('oklch(0.7 0.1 200)')).toBe('oklch(0.7 0.1 200)');
@@ -61,5 +63,8 @@ describe('toHexColor / withAlpha', () => {
     expect(withAlpha('#ff0000', 2)).toBe('#ff0000ff');
     expect(withAlpha('#ff0000', NaN)).toBe('#ff0000');
     expect(withAlpha('rgb(1,2,3)', 0.5)).toBe('rgb(1,2,3)');
+    // shapes that can't safely be re-alpha'd pass through unchanged
+    expect(withAlpha('#abcd', 0.5)).toBe('#abcd');
+    expect(withAlpha('#abcde', 0.5)).toBe('#abcde');
   });
 });
