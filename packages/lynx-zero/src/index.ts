@@ -18,6 +18,7 @@ export type {
   WithDisabled,
   WithColor,
   WithSize,
+  WithAccessibility,
   PressEvent,
 } from './contract.js';
 export { resolveColorToken, COLOR_VARIANT_LIST } from './contract.js';

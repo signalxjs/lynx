@@ -120,3 +120,17 @@ export type WithSize = Define.Prop<'size', SizeScale, false>;
 
 /** The shared press event — sigx convention is `onPress`, not `onTap`/`onClick`. */
 export type PressEvent = Define.Event<'press', void>;
+
+/**
+ * Accessibility passthrough for interactive components — mirrors the
+ * `accessibility-*` surface `@sigx/lynx-gestures`'s `Pressable` accepts on
+ * its host view (the same node that owns the gesture handler, so
+ * screen-reader activation works). DS components intersect this and forward
+ * the props verbatim.
+ */
+export type WithAccessibility =
+  & Define.Prop<'accessibility-element', boolean, false>
+  & Define.Prop<'accessibility-label', string, false>
+  & Define.Prop<'accessibility-role', string, false>
+  & Define.Prop<'accessibility-trait', string, false>
+  & Define.Prop<'accessibility-status', string, false>;

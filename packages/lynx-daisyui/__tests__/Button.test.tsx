@@ -35,3 +35,35 @@ describe('Button — color/variant split (#219 contract)', () => {
     expect(cls).toContain('btn-block');
   });
 });
+
+describe('Button — accessibility passthrough (#237)', () => {
+  function findWithProp(node: any, key: string): any {
+    if (node.props && node.props[key] !== undefined) return node;
+    for (const child of node.children || []) {
+      const found = findWithProp(child, key);
+      if (found) return found;
+    }
+    return null;
+  }
+
+  it('forwards accessibility props to the pressable host view', () => {
+    const { container } = render(
+      <Button
+        color="primary"
+        accessibility-element
+        accessibility-label="Sign in"
+        accessibility-role="button"
+      >
+        hi
+      </Button>,
+    );
+    const host = findWithProp(container, 'accessibility-label');
+    expect(host).toBeTruthy();
+    expect(host.props['accessibility-label']).toBe('Sign in');
+    expect(host.props['accessibility-role']).toBe('button');
+    expect(host.props['accessibility-element']).toBe(true);
+    // metadata sits on the same node that carries the btn classes (the
+    // gesture host), not a wrapper
+    expect(host._class).toContain('btn');
+  });
+});
