@@ -31,8 +31,10 @@ describe('Modal', () => {
     // lynx-display-none caveat).
     expect(container.findByText('Hidden content')).toBeNull();
     const el = container.children[0];
-    expect(el._style.width).toBe('0px');
     expect(el._style.position).toBe('absolute');
+    expect(el._style.width).toBe('0px');
+    expect(el._style.height).toBe('0px');
+    expect(el._style.opacity).toBe(0);
   });
 
   it('renders Header, Body, and Actions', () => {
