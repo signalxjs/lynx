@@ -48,6 +48,10 @@ import { headingDemo } from './demos/heading.js';
  * Structural component shape — matches navigation's `ComponentLike` so a
  * section's demo is any `component(...)` factory without importing sigx
  * types at value level.
+ *
+ * `any[]` (not `unknown[]`/`never[]`) is load-bearing: the JSX checker
+ * requires `<section.Demo />`'s props to be assignable to the factory's
+ * parameter type (`StripForJSX<…>`), which only `any` satisfies both ways.
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type DemoComponent = (...args: any[]) => unknown;
