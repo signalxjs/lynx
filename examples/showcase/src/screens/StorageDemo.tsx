@@ -28,8 +28,15 @@ export const StorageDemo = component(() => {
     const confirmOpen = signal(false);
 
     const refresh = async () => {
-        stored.value = await Storage.getItem(DEMO_KEY);
-        keys.$set(await Storage.getAllKeys());
+        // Guard availability and swallow native failures — an unhandled
+        // rejection out of onMounted would take the whole screen down.
+        if (!Storage.isAvailable()) return;
+        try {
+            stored.value = await Storage.getItem(DEMO_KEY);
+            keys.$set(await Storage.getAllKeys());
+        } catch {
+            // leave the last known values in place
+        }
     };
 
     onMounted(refresh);
