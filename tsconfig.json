@@ -109,6 +109,9 @@
       "@sigx/lynx-zero/screen-theme": [
         "./packages/lynx-zero/src/theme/use-screen-theme.ts"
       ],
+      "@sigx/lynx-zero/preset": [
+        "./packages/lynx-zero/src/preset/index.ts"
+      ],
       "@sigx/lynx-runtime": [
         "./packages/lynx-runtime/src/index.ts"
       ],

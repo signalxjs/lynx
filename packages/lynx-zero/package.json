@@ -14,6 +14,11 @@
             "types": "./dist/theme/use-screen-theme.d.ts",
             "import": "./dist/theme/use-screen-theme.js"
         },
+        "./preset": {
+            "types": "./dist/preset/index.d.ts",
+            "import": "./dist/preset/index.js",
+            "default": "./dist/preset/index.js"
+        },
         "./styles/tokens.css": "./dist/styles/tokens.css"
     },
     "files": [
@@ -41,10 +46,14 @@
         "@sigx/lynx-appearance": "workspace:^"
     },
     "peerDependencies": {
-        "@sigx/lynx-navigation": "workspace:^"
+        "@sigx/lynx-navigation": "workspace:^",
+        "tailwindcss": "^3.0.0 || ^4.0.0"
     },
     "peerDependenciesMeta": {
         "@sigx/lynx-navigation": {
+            "optional": true
+        },
+        "tailwindcss": {
             "optional": true
         }
     },
@@ -52,6 +61,7 @@
         "@sigx/lynx-navigation": "workspace:^",
         "@sigx/lynx-testing": "workspace:^",
         "@typescript/native-preview": "7.0.0-dev.20260521.1",
+        "tailwindcss": "^4.0.0",
         "typescript": "^6.0.3"
     },
     "repository": {
