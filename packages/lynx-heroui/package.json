@@ -1,0 +1,55 @@
+{
+    "name": "@sigx/lynx-heroui",
+    "version": "0.4.9",
+    "description": "HeroUI-flavored design system for sigx-lynx, built on the @sigx/lynx-zero foundation — pilot scope while the shared contract is validated",
+    "type": "module",
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.ts",
+            "import": "./dist/index.js"
+        },
+        "./styles": "./dist/styles/index.css"
+    },
+    "files": [
+        "src",
+        "dist"
+    ],
+    "scripts": {
+        "build": "node ../../scripts/clean.mjs dist && tsgo && node ../../scripts/copy-assets.mjs src/styles dist/styles && node scripts/gen-theme-css.mjs",
+        "dev": "tsgo --watch",
+        "prepublishOnly": "node ../../scripts/clean.mjs dist && tsgo && node ../../scripts/copy-assets.mjs src/styles dist/styles && node scripts/gen-theme-css.mjs",
+        "clean": "node ../../scripts/clean.mjs dist .turbo"
+    },
+    "keywords": [
+        "sigx",
+        "lynx",
+        "heroui",
+        "ui",
+        "design-system"
+    ],
+    "author": "Andreas Ekdahl",
+    "license": "MIT",
+    "dependencies": {
+        "@sigx/lynx": "workspace:^",
+        "@sigx/lynx-zero": "workspace:^"
+    },
+    "devDependencies": {
+        "@sigx/lynx-testing": "workspace:^",
+        "@typescript/native-preview": "7.0.0-dev.20260521.1",
+        "typescript": "^6.0.3"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/signalxjs/lynx.git",
+        "directory": "packages/lynx-heroui"
+    },
+    "homepage": "https://github.com/signalxjs/lynx/tree/main/packages/lynx-heroui",
+    "bugs": {
+        "url": "https://github.com/signalxjs/lynx/issues"
+    },
+    "publishConfig": {
+        "access": "public"
+    }
+}

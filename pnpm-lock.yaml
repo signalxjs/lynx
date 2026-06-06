@@ -505,6 +505,25 @@ importers:
         specifier: ^6.0.3
         version: 6.0.3
 
+  packages/lynx-heroui:
+    dependencies:
+      '@sigx/lynx':
+        specifier: workspace:^
+        version: link:../lynx
+      '@sigx/lynx-zero':
+        specifier: workspace:^
+        version: link:../lynx-zero
+    devDependencies:
+      '@sigx/lynx-testing':
+        specifier: workspace:^
+        version: link:../lynx-testing
+      '@typescript/native-preview':
+        specifier: 7.0.0-dev.20260521.1
+        version: 7.0.0-dev.20260521.1
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+
   packages/lynx-icons:
     devDependencies:
       '@sigx/lynx':

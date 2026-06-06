@@ -100,6 +100,9 @@
       "@sigx/lynx-websocket": [
         "./packages/lynx-websocket/src/index.ts"
       ],
+      "@sigx/lynx-heroui": [
+        "./packages/lynx-heroui/src/index.ts"
+      ],
       "@sigx/lynx-zero": [
         "./packages/lynx-zero/src/index.ts"
       ],
