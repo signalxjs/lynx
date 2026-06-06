@@ -49,8 +49,7 @@ import { headingDemo } from './demos/heading.js';
  * section's demo is any `component(...)` factory without importing sigx
  * types at value level.
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export type DemoComponent = (...args: any[]) => unknown;
+export type DemoComponent = (...args: unknown[]) => unknown;
 
 export interface DemoSection {
     title: string;
