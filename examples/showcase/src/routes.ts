@@ -2,6 +2,7 @@ import { defineRoutes } from '@sigx/lynx-navigation';
 import { z } from 'zod';
 import { Home } from './screens/Home.js';
 import { AreaScreen } from './screens/AreaScreen.js';
+import { DaisyComponentScreen } from './screens/DaisyComponentScreen.js';
 // UI & Theming
 import { Appearance } from './screens/Appearance.js';
 import { Theming } from './screens/Theming.js';
@@ -37,6 +38,14 @@ export const routes = defineRoutes({
         component: AreaScreen,
         params: z.object({ areaId: z.string() }),
         path: '/area/:areaId',
+    },
+    // One parametric route serves every DaisyUI component reference page —
+    // the registry (src/daisyui/registry.ts) is the data source, keyed by
+    // `componentId`.
+    daisyui: {
+        component: DaisyComponentScreen,
+        params: z.object({ componentId: z.string() }),
+        path: '/daisyui/:componentId',
     },
 
     // UI & Theming
