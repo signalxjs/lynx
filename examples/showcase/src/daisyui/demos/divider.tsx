@@ -3,11 +3,10 @@ import { Col, Divider, Row, Text } from '@sigx/lynx-daisyui';
 import type { DaisyComponentDemo } from '../registry.js';
 
 /**
- * Divider — a thin rule separating content. It's a self-closing element
- * (no label slot): `vertical` switches it to a column divider, `color`
- * overrides the line color, and `margin` adds spacing on the rule's axis.
- *
- * For a labeled separator, pair a `Divider` with `Text` in a `Row`/`Col`.
+ * Divider — a thin rule separating content. `vertical` switches it to a
+ * column divider, `color` overrides the line color, and `margin` adds
+ * spacing on the rule's axis. Slot content (#212) renders the daisyUI
+ * `line · label · line` composition with the label centered.
  */
 export const dividerDemo: DaisyComponentDemo = {
     id: 'divider',
@@ -49,14 +48,17 @@ export const dividerDemo: DaisyComponentDemo = {
             )),
         },
         {
-            title: 'Labeled (composed)',
-            note: 'Divider has no label slot — compose one with Text',
+            title: 'Labeled',
+            note: 'slot content centers between two flanking lines',
             Demo: component(() => () => (
-                <Row class="w-64" align="center" gap={8}>
-                    <Divider class="flex-1" />
-                    <Text class="opacity-60 text-xs">OR</Text>
-                    <Divider class="flex-1" />
-                </Row>
+                <Col class="w-64" gap={12}>
+                    <Divider>
+                        <Text class="opacity-60 text-xs">OR</Text>
+                    </Divider>
+                    <Divider color="var(--color-primary)">
+                        <Text class="text-primary text-xs">CONTINUE WITH</Text>
+                    </Divider>
+                </Col>
             )),
         },
     ],
