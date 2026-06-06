@@ -1,5 +1,6 @@
 import type { Config } from 'tailwindcss';
 import plugin from 'tailwindcss/plugin';
+import { COLOR_VARIANT_LIST } from '../contract.js';
 
 /**
  * The design-system-neutral Tailwind preset pieces — the parts of a DS preset
@@ -26,13 +27,8 @@ import plugin from 'tailwindcss/plugin';
  * apps normally consume the DS preset, not this one directly.
  */
 
-const SEMANTIC = [
-  'primary', 'secondary', 'accent', 'neutral',
-  'info', 'success', 'warning', 'error',
-] as const;
-
 export const contractColors: Record<string, string> = Object.fromEntries([
-  ...SEMANTIC.flatMap((v) => [
+  ...COLOR_VARIANT_LIST.flatMap((v) => [
     [v, `var(--color-${v})`],
     [`${v}-content`, `var(--color-${v}-content)`],
     [`${v}-soft`, `var(--color-${v}-soft)`],
