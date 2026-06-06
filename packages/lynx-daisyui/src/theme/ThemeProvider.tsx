@@ -48,7 +48,7 @@ import {
 import { useIconColorResolver, type IconColorResolver } from '@sigx/lynx-icons';
 import { useSystemColorScheme } from '@sigx/lynx-appearance';
 import type { ColorScheme } from '@sigx/lynx-appearance';
-import type { DaisyColor } from '../shared/styles.js';
+import type { ColorToken } from '@sigx/lynx-zero';
 import {
     colorsOf,
     isBuiltInTheme,
@@ -152,7 +152,7 @@ function buildThemeVars(name: string, fontScale: number): Record<string, string>
     const radius = radiusOf(name);
     const sizes = sizesOf(name);
     const vars: Record<string, string> = {};
-    for (const key in palette) vars[`--color-${key}`] = palette[key as DaisyColor];
+    for (const key in palette) vars[`--color-${key}`] = palette[key as ColorToken];
     if (radius) {
         if (radius.selector) vars['--radius-selector'] = radius.selector;
         if (radius.field) vars['--radius-field'] = radius.field;
@@ -183,7 +183,7 @@ declare module '@sigx/lynx-icons' {
          * runtime through `useIconColorResolver` (provided by
          * `<ThemeProvider>`) to the current theme's hex value.
          */
-        variant?: DaisyColor;
+        variant?: ColorToken;
     }
 }
 
@@ -388,7 +388,7 @@ export const ThemeProvider = component<ThemeProviderProps>(({ props, slots }) =>
     // the daisy primary hex automatically. Reading `state.name` inside
     // the resolver makes every icon's render re-run when the theme flips.
     const resolver: IconColorResolver = (iconProps) => {
-        const variant = (iconProps as { variant?: DaisyColor }).variant;
+        const variant = (iconProps as { variant?: ColorToken }).variant;
         if (!variant) return undefined;
         // Every theme's palette lives in the registry; fall back to daisy-light
         // if the active theme isn't registered. SVG fills can't read CSS vars,

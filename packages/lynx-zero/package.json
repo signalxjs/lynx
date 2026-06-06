@@ -1,0 +1,54 @@
+{
+    "name": "@sigx/lynx-zero",
+    "version": "0.4.9",
+    "description": "Design-system-neutral UI foundation for sigx-lynx — shared props/token contract, theme engine, layout primitives and style utilities that design-system packages (daisyui, heroui, …) build on",
+    "type": "module",
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.ts",
+            "import": "./dist/index.js"
+        }
+    },
+    "files": [
+        "src",
+        "dist"
+    ],
+    "scripts": {
+        "build": "node ../../scripts/clean.mjs dist && tsgo",
+        "dev": "tsgo --watch",
+        "prepublishOnly": "node ../../scripts/clean.mjs dist && tsgo",
+        "clean": "node ../../scripts/clean.mjs dist .turbo"
+    },
+    "keywords": [
+        "sigx",
+        "lynx",
+        "ui",
+        "design-system",
+        "headless",
+        "tokens"
+    ],
+    "author": "Andreas Ekdahl",
+    "license": "MIT",
+    "dependencies": {
+        "@sigx/lynx": "workspace:^"
+    },
+    "devDependencies": {
+        "@sigx/lynx-testing": "workspace:^",
+        "@typescript/native-preview": "7.0.0-dev.20260521.1",
+        "typescript": "^6.0.3"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/signalxjs/lynx.git",
+        "directory": "packages/lynx-zero"
+    },
+    "homepage": "https://github.com/signalxjs/lynx/tree/main/packages/lynx-zero",
+    "bugs": {
+        "url": "https://github.com/signalxjs/lynx/issues"
+    },
+    "publishConfig": {
+        "access": "public"
+    }
+}

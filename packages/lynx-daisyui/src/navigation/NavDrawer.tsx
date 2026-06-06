@@ -48,7 +48,7 @@ import {
 } from '@sigx/lynx';
 import { withTiming } from '@sigx/lynx-motion';
 import { Drawer, useDrawer } from '@sigx/lynx-navigation';
-import { resolveDaisyColor, type BackgroundValue } from '../shared/styles.js';
+import { resolveColorToken, type BackgroundValue } from '@sigx/lynx-zero';
 
 export type NavDrawerSide = 'left' | 'right';
 
@@ -259,7 +259,7 @@ const DrawerChrome = component<DrawerChromeProps>(({ props }) => {
         // (which the daisy preset compiles to a `var()` rule that DOES resolve);
         // raw CSS strings ('#facc15', 'rgb(...)', 'var(--my-custom)') fall through
         // to inline because there's no compiled class to use for them.
-        const resolved = resolveDaisyColor(props.background);
+        const resolved = resolveColorToken(props.background);
         const isDaisyToken = resolved !== props.background;
         const bgClass = isDaisyToken ? `bg-${props.background}` : '';
         // Border lives on the panel's *inner* edge (the one facing the

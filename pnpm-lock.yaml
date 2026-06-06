@@ -368,6 +368,9 @@ importers:
       '@sigx/lynx-motion':
         specifier: workspace:^
         version: link:../lynx-motion
+      '@sigx/lynx-zero':
+        specifier: workspace:^
+        version: link:../lynx-zero
     devDependencies:
       '@sigx/lynx-markdown':
         specifier: workspace:^
@@ -978,6 +981,22 @@ importers:
       vitest:
         specifier: ^4.1.7
         version: 4.1.7(@types/node@25.9.1)(@vitest/coverage-v8@4.1.7)(vite@8.0.14(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0))
+
+  packages/lynx-zero:
+    dependencies:
+      '@sigx/lynx':
+        specifier: workspace:^
+        version: link:../lynx
+    devDependencies:
+      '@sigx/lynx-testing':
+        specifier: workspace:^
+        version: link:../lynx-testing
+      '@typescript/native-preview':
+        specifier: 7.0.0-dev.20260521.1
+        version: 7.0.0-dev.20260521.1
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
 
 packages:
 

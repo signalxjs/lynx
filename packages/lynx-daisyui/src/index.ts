@@ -18,9 +18,19 @@ export type { ScrollViewProps } from './layout/ScrollView.js';
 export { Divider } from './layout/Divider.js';
 export type { DividerProps } from './layout/Divider.js';
 
-// Shared style primitives
-export type { DaisyColor, BackgroundValue, SpacingValue, BoxProps } from './shared/styles.js';
-export { resolveDaisyColor } from './shared/styles.js';
+// Shared style primitives + the design-system contract — re-exported from
+// the neutral foundation (@sigx/lynx-zero) so daisy apps keep a single
+// import source. `DaisyColor`/`resolveDaisyColor` are this package's
+// historical names for the contract's ColorToken/resolveColorToken.
+export type {
+  BackgroundValue, SpacingValue, BoxProps,
+  SizeScale, ColorVariant, ColorToken,
+  ColorToken as DaisyColor,
+} from '@sigx/lynx-zero';
+export {
+  resolveColorToken,
+  resolveColorToken as resolveDaisyColor,
+} from '@sigx/lynx-zero';
 
 // Forms
 export { Input } from './forms/Input.js';
