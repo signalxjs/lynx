@@ -11,6 +11,7 @@ import {
     Text,
     Toggle,
     useTheme,
+    variantOf,
     type DaisyTheme,
 } from '@sigx/lynx-daisyui';
 import { useSystemColorScheme } from '@sigx/lynx-appearance';
@@ -104,10 +105,11 @@ export const Appearance = component(() => {
                             </Text>
                             <Row align="center" justify="space-between">
                                 <Text>Dark variant active</Text>
+                                {/* variantOf reads the registry — name
+                                    substring checks mis-detect runtime-
+                                    registered pairs. */}
                                 <Toggle
-                                    checked={theme.name.includes('dark')
-                                        || theme.name.includes('synthwave')
-                                        || theme.name.includes('dracula')}
+                                    checked={variantOf(theme.name) === 'dark'}
                                     onChange={() => {
                                         Haptics.selection();
                                         theme.toggle();

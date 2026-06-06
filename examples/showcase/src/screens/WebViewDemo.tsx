@@ -1,5 +1,6 @@
 import {
     component,
+    runOnBackground,
     signal,
     useMainThreadRef,
     type MainThread,
@@ -27,16 +28,26 @@ export const WebViewDemo = component(() => {
         // Inline `.invoke()` instead of `WebViewMethods.*` — the
         // `'main thread'` directive compiles these handlers into a separate
         // MT bundle which can't reach cross-package imports.
+        // Back/forward only clear a stale error — they may be no-ops with no
+        // history, in which case no load event would ever clear a spinner.
+        // Reload always fires onLoad/onError, so it can safely re-arm the
+        // loading overlay. Signal writes hop to BG via runOnBackground.
         const onBack = () => {
             'main thread';
+            runOnBackground(() => { errorMessage.value = null; })();
             webRef.current?.invoke('goBack', {});
         };
         const onForward = () => {
             'main thread';
+            runOnBackground(() => { errorMessage.value = null; })();
             webRef.current?.invoke('goForward', {});
         };
         const onReload = () => {
             'main thread';
+            runOnBackground(() => {
+                loading.value = true;
+                errorMessage.value = null;
+            })();
             webRef.current?.invoke('reload', {});
         };
 

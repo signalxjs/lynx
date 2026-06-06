@@ -8,19 +8,27 @@ import { Share } from '@sigx/lynx-share';
  * Share — the native share sheet via @sigx/lynx-share.
  */
 export const ShareDemo = component(() => {
+    // Share.share() is a callSync bridge — it throws when the native module
+    // isn't registered, so guard availability and swallow failures.
     const shareText = () => {
         Haptics.selection();
-        Share.share({
-            title: 'SignalX for Lynx',
-            message: 'Built with sigx-lynx — dual-thread rendering on mobile.',
-        });
+        if (!Share.isAvailable()) return;
+        try {
+            Share.share({
+                title: 'SignalX for Lynx',
+                message: 'Built with sigx-lynx — dual-thread rendering on mobile.',
+            });
+        } catch { /* keep UI alive */ }
     };
     const shareUrl = () => {
         Haptics.selection();
-        Share.share({
-            title: 'SignalX',
-            url: 'https://signalx.dev',
-        });
+        if (!Share.isAvailable()) return;
+        try {
+            Share.share({
+                title: 'SignalX',
+                url: 'https://signalx.dev',
+            });
+        } catch { /* keep UI alive */ }
     };
 
     return () => (

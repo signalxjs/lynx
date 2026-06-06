@@ -24,8 +24,9 @@ import './themes.js';
 // screen-transition wrapper — iOS-style. The bar stays in place during
 // push/pop slides while its *contents* (title, back button, right items)
 // update to the destination screen's chrome via `useScreenChrome()`.
-// Modal screens (keyboard / markdownComposer) render their own header
-// inside the sheet instead.
+// Modal routes (keyboard / markdownComposer) escalate to an overlay layer
+// above the Stack — the persistent bar stays with the underlying screen
+// and the sheets own their full surface (chat chrome, no header).
 const App = component(() => () => (
     <AppearanceProvider>
         <SafeAreaProvider>
