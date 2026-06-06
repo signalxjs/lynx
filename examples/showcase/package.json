@@ -51,6 +51,7 @@
         "@sigx/lynx-video": "workspace:^",
         "@sigx/lynx-websocket": "workspace:^",
         "@sigx/lynx-webview": "workspace:^",
+        "@sigx/lynx-zero": "workspace:^",
         "@sigx/reactivity": "^0.4.8",
         "@sigx/runtime-core": "^0.4.8",
         "lucide": "^1.16.0",

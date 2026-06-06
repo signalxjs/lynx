@@ -33,7 +33,6 @@ export {
   useTheme,
   themeController,
   StatusBarSync,
-  useScreenTheme,
   listThemes,
   registerTheme,
   extendTheme,

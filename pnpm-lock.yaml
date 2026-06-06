@@ -149,6 +149,9 @@ importers:
       '@sigx/lynx-webview':
         specifier: workspace:^
         version: link:../../packages/lynx-webview
+      '@sigx/lynx-zero':
+        specifier: workspace:^
+        version: link:../../packages/lynx-zero
       '@sigx/reactivity':
         specifier: ^0.4.8
         version: 0.4.8

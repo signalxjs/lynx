@@ -134,7 +134,7 @@ follow the active screen so they stay legible. Because this drives the
 **global** theme, the bars update automatically:
 
 ```tsx
-import { useScreenTheme } from '@sigx/lynx-daisyui';
+import { useScreenTheme } from '@sigx/lynx-zero/screen-theme';
 
 const Gallery = component(() => {
     useScreenTheme('daisy-dark'); // dark (incl. status bar) while focused; restored on blur
