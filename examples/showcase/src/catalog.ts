@@ -128,6 +128,13 @@ export const catalog: Area[] = [
                 icon: { set: 'lucide', name: 'keyboard' },
                 route: 'keyboard',
             },
+            {
+                id: 'emoji-picker',
+                title: 'Emoji picker',
+                description: 'Searchable emoji grid with skin tones, recents and a sheet wrapper',
+                icon: { set: 'lucide', name: 'smile' },
+                route: 'emojiPicker',
+            },
         ],
     },
     {

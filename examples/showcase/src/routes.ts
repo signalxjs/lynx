@@ -15,6 +15,7 @@ import { MarkdownComposerScreen } from './screens/MarkdownComposer.js';
 import { TextApis } from './screens/TextApis.js';
 // Input & Keyboard
 import { Keyboard } from './screens/Keyboard.js';
+import { EmojiPickerScreen } from './screens/EmojiPicker.js';
 // Native modules
 import { MapsDemo } from './screens/MapsDemo.js';
 import { MediaDemo } from './screens/MediaDemo.js';
@@ -63,6 +64,7 @@ export const routes = defineRoutes({
     // Input & Keyboard — modal so no extra chrome sits below the sticky bar;
     // a bar with chrome below it needs `offset` compensation.
     keyboard: { component: Keyboard, path: '/keyboard', presentation: 'modal' },
+    emojiPicker: { component: EmojiPickerScreen, path: '/emoji-picker' },
 
     // Native modules
     mapsDemo: { component: MapsDemo, path: '/maps' },

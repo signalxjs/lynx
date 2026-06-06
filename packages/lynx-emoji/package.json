@@ -1,0 +1,87 @@
+{
+    "name": "@sigx/lynx-emoji",
+    "version": "0.4.9",
+    "description": "Themable emoji picker for sigx-lynx — headless categorized grid with search, skin-tone variants, recents, and an optional MarkdownEditor plugin. Pure JS, emoji data generated from emojibase.",
+    "type": "module",
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.ts",
+            "import": "./dist/index.js",
+            "default": "./dist/index.js"
+        },
+        "./markdown": {
+            "types": "./dist/markdown/index.d.ts",
+            "import": "./dist/markdown/index.js",
+            "default": "./dist/markdown/index.js"
+        },
+        "./data/en": {
+            "types": "./dist/data/en.gen.d.ts",
+            "import": "./dist/data/en.gen.js",
+            "default": "./dist/data/en.gen.js"
+        },
+        "./package.json": "./package.json"
+    },
+    "files": [
+        "dist",
+        "README.md",
+        "LICENSE"
+    ],
+    "scripts": {
+        "build": "node ../../scripts/clean.mjs dist && tsgo",
+        "dev": "tsgo --watch",
+        "test": "vitest run",
+        "gen:data": "node scripts/gen-data.mjs",
+        "clean": "node ../../scripts/clean.mjs dist .turbo"
+    },
+    "dependencies": {
+        "@sigx/lynx-gestures": "workspace:^",
+        "@sigx/lynx-keyboard": "workspace:^"
+    },
+    "peerDependencies": {
+        "@sigx/lynx": "workspace:^",
+        "@sigx/lynx-markdown": "workspace:^",
+        "@sigx/lynx-storage": "workspace:^"
+    },
+    "peerDependenciesMeta": {
+        "@sigx/lynx-markdown": {
+            "optional": true
+        },
+        "@sigx/lynx-storage": {
+            "optional": true
+        }
+    },
+    "devDependencies": {
+        "@sigx/lynx": "workspace:^",
+        "@sigx/lynx-markdown": "workspace:^",
+        "@sigx/lynx-storage": "workspace:^",
+        "@sigx/lynx-testing": "workspace:^",
+        "@types/node": "^25.9.1",
+        "@typescript/native-preview": "7.0.0-dev.20260521.1",
+        "emojibase-data": "^17.0.0",
+        "typescript": "^6.0.3"
+    },
+    "author": "Andreas Ekdahl",
+    "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/signalxjs/lynx.git",
+        "directory": "packages/lynx-emoji"
+    },
+    "homepage": "https://github.com/signalxjs/lynx/tree/main/packages/lynx-emoji",
+    "bugs": {
+        "url": "https://github.com/signalxjs/lynx/issues"
+    },
+    "publishConfig": {
+        "access": "public"
+    },
+    "keywords": [
+        "signalx",
+        "sigx",
+        "lynx",
+        "emoji",
+        "emoji-picker",
+        "emojibase"
+    ]
+}
