@@ -156,7 +156,7 @@ export function extendTheme(
   if (!src) {
     throw new Error(
       `[lynx-zero] extendTheme: unknown base theme "${base}". `
-      + `Register it first, or extend one your design system registered.`,
+      + `Register it first, or extend a theme your design system registered.`,
     );
   }
   return {
