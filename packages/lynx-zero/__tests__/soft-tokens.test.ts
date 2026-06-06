@@ -46,6 +46,12 @@ describe('mixColors', () => {
     expect(mixColors('#ff0000', '#ffffff', 2)).toBe('#ff0000');
     expect(mixColors('#ff0000', '#ffffff', -1)).toBe('#ffffff');
   });
+
+  it('treats non-finite ratios as unmixable (falls back to base)', () => {
+    expect(mixColors('#ff0000', '#ffffff', NaN)).toBe('#ffffff');
+    expect(mixColors('#ff0000', '#ffffff', Infinity)).toBe('#ffffff');
+    expect(mixColors('#ff0000', '#ffffff', -Infinity)).toBe('#ffffff');
+  });
 });
 
 describe('soft token completion (#219 retro)', () => {

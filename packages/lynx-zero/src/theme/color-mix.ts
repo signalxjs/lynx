@@ -59,7 +59,9 @@ const toHex = (n: number): string => Math.round(n).toString(16).padStart(2, '0')
 export function mixColors(color: string, base: string, ratio: number): string {
   const fg = parseColor(color);
   const bg = parseColor(base);
-  if (!fg || !bg) return base;
+  // Non-finite ratios (NaN softMix etc.) are unmixable — fall back to the
+  // base rather than emitting `#NaNNaNNaN`.
+  if (!fg || !bg || !Number.isFinite(ratio)) return base;
   const t = Math.min(1, Math.max(0, ratio));
   const mix = (i: 0 | 1 | 2) => fg[i] * t + bg[i] * (1 - t);
   return `#${toHex(mix(0))}${toHex(mix(1))}${toHex(mix(2))}`;
