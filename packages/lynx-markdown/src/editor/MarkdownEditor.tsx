@@ -152,6 +152,18 @@ const DEFAULT_FONT_SIZE = 16;
 /** Vertical padding the element applies internally (8 top + 8 bottom). */
 const ELEMENT_PADDING = 16;
 
+/**
+ * Keyboard-height spacer at the fullscreen overlay's bottom — keeps the
+ * input and a bottom toolbar visible while typing. Mounted only while the
+ * overlay is open, so editors that never go fullscreen don't instantiate
+ * the keyboard (safe-area) hook — no SafeAreaProvider requirement and no
+ * dev warning for them (trigger popups gate the same way).
+ */
+const KeyboardSpacer = component(() => {
+    const keyboard = useKeyboard();
+    return () => <view style={{ height: keyboard.value.height }} />;
+});
+
 export const MarkdownEditor = component<MarkdownEditorProps>(({ props }) => {
     let el: RichTextHandle = null;
 
@@ -220,11 +232,9 @@ export const MarkdownEditor = component<MarkdownEditorProps>(({ props }) => {
     // sizes views from styles, never from native intrinsic content.
     const reportedHeight = signal(0);
 
-    // Fullscreen overlay state (controller-driven). The keyboard height pads
-    // the overlay bottom so the input and a bottom toolbar stay visible while
-    // typing (reads zero without a SafeAreaProvider, like the popup).
+    // Fullscreen overlay state (controller-driven). Keyboard avoidance lives
+    // in the conditionally-mounted KeyboardSpacer.
     const fullscreenOpen = signal(false);
-    const keyboard = useKeyboard();
     const setFullscreen = (open: boolean): void => {
         if (fullscreenOpen.value === open) return;
         fullscreenOpen.value = open;
@@ -458,6 +468,7 @@ export const MarkdownEditor = component<MarkdownEditorProps>(({ props }) => {
                         ignore-focus
                         accessibility-element
                         accessibility-label="Close fullscreen"
+                        accessibility-trait="button"
                         bindtap={() => setFullscreen(false)}
                         style={{ paddingTop: 8, paddingBottom: 8, paddingLeft: 16, paddingRight: 16 }}
                     >
@@ -482,8 +493,7 @@ export const MarkdownEditor = component<MarkdownEditorProps>(({ props }) => {
                     // The overlay restyles THIS root in place — the element is
                     // never re-parented (e.g. into a Modal), which would
                     // recreate the native view and lose the document (the
-                    // `value` prop is initial-only). Keyboard height pads the
-                    // bottom so the input/toolbar stay visible while typing.
+                    // `value` prop is initial-only).
                     ...(overlay
                         ? {
                             position: 'fixed',
@@ -492,7 +502,6 @@ export const MarkdownEditor = component<MarkdownEditorProps>(({ props }) => {
                             right: 0,
                             bottom: 0,
                             zIndex: 100,
-                            paddingBottom: keyboard.value.height,
                             ...(props.fullscreenClass ? {} : { backgroundColor: '#ffffff' }),
                         }
                         : {}),
@@ -524,6 +533,7 @@ export const MarkdownEditor = component<MarkdownEditorProps>(({ props }) => {
                     )
                     : inputNode}
                 {toolbarPlacement === 'bottom' ? toolbarNode : null}
+                {overlay ? <KeyboardSpacer /> : null}
             </view>
         );
     };
