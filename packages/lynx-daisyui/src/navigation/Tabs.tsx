@@ -1,6 +1,11 @@
 import { component, compound, type Define } from '@sigx/lynx';
 import { Pressable } from '@sigx/lynx-gestures';
-import { PRESSED_SCALE, PRESSED_OPACITY } from '@sigx/lynx-zero';
+import {
+  PRESSED_SCALE,
+  PRESSED_OPACITY,
+  provideTabsSelection,
+  useTabsSelection,
+} from '@sigx/lynx-zero';
 
 export type TabsProps =
   & Define.Prop<'activeTab', string, false>
@@ -9,14 +14,24 @@ export type TabsProps =
   & Define.Slot<'default'>;
 
 export type TabProps =
-  & Define.Prop<'value', string>
-  & Define.Prop<'label', string, false>
+  & Define.Prop<'value', string, true>
+  /** Explicit override — when set, wins over the container's `activeTab`. */
   & Define.Prop<'active', boolean, false>
+  & Define.Prop<'label', string, false>
+  /** Pressed in addition to the container's `onChange`. */
   & Define.Prop<'onPress', () => void, false>
   & Define.Prop<'class', string, false>
   & Define.Slot<'default'>;
 
 const _Tabs = component<TabsProps>(({ props, slots }) => {
+  // Container-driven selection (headless, from @sigx/lynx-zero): tabs derive
+  // their active state from `activeTab` and presses report through
+  // `onChange`. Per-tab `active`/`onPress` overrides still win.
+  provideTabsSelection(
+    () => props.activeTab,
+    (value) => props.onChange?.(value),
+  );
+
   return () => (
     <view class={`tabs${props.class ? ' ' + props.class : ''}`}>
       {slots.default?.()}
@@ -25,8 +40,10 @@ const _Tabs = component<TabsProps>(({ props, slots }) => {
 });
 
 const Tab = component<TabProps>(({ props, slots }) => {
+  const selection = useTabsSelection();
+
   return () => {
-    const isActive = props.active ?? false;
+    const isActive = props.active ?? selection.isActive(props.value);
 
     return (
       <Pressable
@@ -36,6 +53,7 @@ const Tab = component<TabProps>(({ props, slots }) => {
         longPressDuration={0}
         onPress={() => {
           props.onPress?.();
+          selection.select(props.value);
         }}
       >
         {slots.default?.()}
