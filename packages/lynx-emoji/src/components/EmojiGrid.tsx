@@ -1,4 +1,4 @@
-import { component, type Define } from '@sigx/lynx';
+import { component, useElementLayout, type Define } from '@sigx/lynx';
 import type { EmojiDatum, SkinTone } from '../data/schema.js';
 import { glyphForTone } from '../data/glyph.js';
 import type { EmojiRenderCell } from '../types.js';
@@ -25,31 +25,49 @@ export type EmojiGridProps =
  * on-screen cells exist as views regardless of how many emoji are passed
  * (`item-type="emoji"` puts every cell in one shared recycle pool).
  *
- * Layout note: `<list>` sizes from its container — give the grid a bounded
- * height (`flex: 1` inside the picker column, or an explicit height).
+ * Layout: `class`/`style` land on a measuring wrapper `<view>`, so flex
+ * sizing works as usual (`style={{ flexGrow: 1 }}` in a column — avoid the
+ * inline `flex` shorthand; iOS Lynx 3.8 doesn't expand it). The native
+ * `<list>` itself only lays out with a *concrete* height (flex/percent
+ * resolve to zero → nothing renders — verified on iOS Lynx 3.8), so the
+ * wrapper measures itself via `bindlayoutchange` and pins the list to the
+ * measured px height. The list must stay mounted from the first render
+ * (1px placeholder until the measure lands) — `bindlayoutchange` does not
+ * fire on a childless view, so conditionally mounting on the measured
+ * height deadlocks at 0. First paint happens one frame after mount.
  */
 export const EmojiGrid = component<EmojiGridProps>(({ props, emit }) => {
-    return () => (
-        <list
-            class={props.class}
-            span-count={props.columns ?? 8}
-            list-type="flow"
-            scroll-orientation="vertical"
-            style={props.style}
-        >
-            {props.emojis.map((datum) => (
-                <list-item item-key={datum.e} item-type="emoji" key={datum.e}>
-                    <EmojiCell
-                        datum={datum}
-                        glyph={glyphForTone(datum, props.tone ?? 0)}
-                        size={props.cellSize}
-                        class={props.cellClass}
-                        render={props.renderCell}
-                        onPick={(d) => emit('pick', d)}
-                        onPickTone={(d) => emit('pickTone', d)}
-                    />
-                </list-item>
-            ))}
-        </list>
-    );
+    const { layout, onLayoutChange } = useElementLayout();
+
+    return () => {
+        const height = layout.value?.height ?? 0;
+        return (
+            <view
+                class={props.class}
+                style={props.style}
+                bindlayoutchange={onLayoutChange}
+            >
+                <list
+                    span-count={props.columns ?? 8}
+                    list-type="flow"
+                    scroll-orientation="vertical"
+                    style={{ height: height > 0 ? `${height}px` : '1px' }}
+                >
+                    {props.emojis.map((datum) => (
+                        <list-item item-key={datum.e} item-type="emoji" key={datum.e}>
+                            <EmojiCell
+                                datum={datum}
+                                glyph={glyphForTone(datum, props.tone ?? 0)}
+                                size={props.cellSize}
+                                class={props.cellClass}
+                                render={props.renderCell}
+                                onPick={(d) => emit('pick', d)}
+                                onPickTone={(d) => emit('pickTone', d)}
+                            />
+                        </list-item>
+                    ))}
+                </list>
+            </view>
+        );
+    };
 });

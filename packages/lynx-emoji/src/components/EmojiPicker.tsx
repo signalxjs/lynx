@@ -113,7 +113,11 @@ export const EmojiPicker = component<EmojiPickerProps>(({ props, emit }) => {
                     position: 'relative',
                     display: 'flex',
                     flexDirection: 'column',
-                    flex: 1,
+                    // NOT the `flex` shorthand — the inline-style path doesn't
+                    // expand it on iOS Lynx 3.8 (resolves to 0 height; the
+                    // class-based `flex-1` is unaffected).
+                    flexGrow: 1,
+                    flexShrink: 1,
                     ...props.style,
                 }}
             >
@@ -149,7 +153,7 @@ export const EmojiPicker = component<EmojiPickerProps>(({ props, emit }) => {
                     class={classes.grid}
                     cellClass={classes.cell}
                     renderCell={props.renderCell}
-                    style={{ flex: 1 }}
+                    style={{ flexGrow: 1, flexShrink: 1 }}
                     onPick={(datum) => pick(datum, ctx.skinTone.state.tone)}
                     onPickTone={(datum) => ui.$set({ tab: ui.tab, popover: datum })}
                 />
