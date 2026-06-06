@@ -30,6 +30,8 @@ export type EmojiPickerProps =
     /** Show the search row. Default true. */
     & Define.Prop<'showSearch', boolean, false>
     & Define.Prop<'searchPlaceholder', string, false>
+    /** Shown when the current slice is empty (no recents yet / no search hits). */
+    & Define.Prop<'emptyLabel', string, false>
     /** Glyph font size in grid cells. Default 26. */
     & Define.Prop<'cellSize', number, false>
     /** Per-slot class overrides — the theming surface. */
@@ -145,18 +147,38 @@ export const EmojiPicker = component<EmojiPickerProps>(({ props, emit }) => {
                         onSelect={(tab) => ui.$set({ tab: tab === 'recents' ? 'recents' : tab.key, popover: null })}
                     />
                 )}
-                <EmojiGrid
-                    emojis={emojis}
-                    tone={tone}
-                    columns={props.columns}
-                    cellSize={props.cellSize}
-                    class={classes.grid}
-                    cellClass={classes.cell}
-                    renderCell={props.renderCell}
-                    style={{ flexGrow: 1, flexShrink: 1 }}
-                    onPick={(datum) => pick(datum, ctx.skinTone.state.tone)}
-                    onPickTone={(datum) => ui.$set({ tab: ui.tab, popover: datum })}
-                />
+                {emojis.length === 0
+                    ? (
+                        <view
+                            class={classes.empty}
+                            style={{
+                                flexGrow: 1,
+                                flexShrink: 1,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                            }}
+                        >
+                            <text style={{ fontSize: 14, ...(classes.empty ? {} : { opacity: 0.55 }) }}>
+                                {props.emptyLabel
+                                    ?? (ui.tab === 'recents' && q === '' ? 'No recent emoji yet' : 'No emoji found')}
+                            </text>
+                        </view>
+                    )
+                    : (
+                        <EmojiGrid
+                            emojis={emojis}
+                            tone={tone}
+                            columns={props.columns}
+                            cellSize={props.cellSize}
+                            class={classes.grid}
+                            cellClass={classes.cell}
+                            renderCell={props.renderCell}
+                            style={{ flexGrow: 1, flexShrink: 1 }}
+                            onPick={(datum) => pick(datum, ctx.skinTone.state.tone)}
+                            onPickTone={(datum) => ui.$set({ tab: ui.tab, popover: datum })}
+                        />
+                    )}
                 {ui.popover && (
                     <SkinTonePopover
                         datum={ui.popover}
