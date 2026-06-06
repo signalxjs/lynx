@@ -125,6 +125,7 @@ export const MarkdownEditorLab = component(() => {
                                     accentColor={editorTheme.accentColor}
                                     placeholderColor={editorTheme.placeholderColor}
                                     plugins={[emojiPlugin, mentionPlugin]}
+                                    fullscreenClass="bg-base-100"
                                     onChange={(md) => {
                                         markdown.value = md;
                                     }}
@@ -138,6 +139,10 @@ export const MarkdownEditorLab = component(() => {
                             <Row gap={6}>
                                 <Button size="sm" variant={mode.value === 'auto' ? 'primary' : 'ghost'} outline={mode.value !== 'auto'} onPress={() => { mode.value = 'auto'; }}>auto</Button>
                                 <Button size="sm" variant={mode.value === 'fixed' ? 'primary' : 'ghost'} outline={mode.value !== 'fixed'} onPress={() => { mode.value = 'fixed'; }}>fixed</Button>
+                                {/* Controller-driven overlay — the same mounted
+                                    editor restyles to absolute-inset, so the
+                                    document/selection survive (close via ✕). */}
+                                <Button size="sm" variant="ghost" outline onPress={() => controller?.openFullscreen()}>fullscreen</Button>
                                 <Button size="sm" variant="ghost" outline onPress={() => controller?.clear()}>Clear</Button>
                             </Row>
                         </Col>

@@ -23,6 +23,7 @@
  */
 
 import { component, signal, useElementLayout, watch, type Define } from '@sigx/lynx';
+import { useKeyboard } from '@sigx/lynx-keyboard';
 import {
     RichTextInput,
     RichTextMethods,
@@ -84,6 +85,16 @@ export interface MarkdownEditorController {
     insertChip(chip: { id: string; label: string; kind?: string }, replace?: { from: number; to: number }): void;
     /** Clear the document (chat send). */
     clear(): void;
+    /**
+     * Expand the editor into an absolute-inset overlay (and back). The same
+     * mounted element is restyled — never re-parented — so the native
+     * document, selection, focus and keyboard all survive the transition
+     * (re-parenting would recreate the native view and lose its state).
+     * Style the overlay surface via the `fullscreenClass` prop.
+     */
+    openFullscreen(): void;
+    closeFullscreen(): void;
+    isFullscreen(): boolean;
     focus(): void;
     blur(): void;
     /** The current markdown (as of the last element change). */
@@ -122,6 +133,14 @@ export type MarkdownEditorProps =
      * constant); the set is captured at mount.
      */
     & Define.Prop<'plugins', MarkdownEditorPlugin[], false>
+    /**
+     * Extra root classes applied only while the fullscreen overlay is open —
+     * the consumer owns the surface (e.g. daisyUI `bg-base-100`). Without
+     * it the overlay falls back to a plain white background.
+     */
+    & Define.Prop<'fullscreenClass', string, false>
+    /** Fullscreen overlay opened/closed (controller or the ✕ affordance). */
+    & Define.Prop<'onFullscreenChange', (open: boolean) => void, false>
     & Define.Prop<'onChange', (markdown: string) => void, false>
     & Define.Prop<'onSelectionChange', (sel: SelectionState) => void, false>
     & Define.Prop<'onFocus', () => void, false>
@@ -132,6 +151,18 @@ export type MarkdownEditorProps =
 const DEFAULT_FONT_SIZE = 16;
 /** Vertical padding the element applies internally (8 top + 8 bottom). */
 const ELEMENT_PADDING = 16;
+
+/**
+ * Keyboard-height spacer at the fullscreen overlay's bottom — keeps the
+ * input and a bottom toolbar visible while typing. Mounted only while the
+ * overlay is open, so editors that never go fullscreen don't instantiate
+ * the keyboard (safe-area) hook — no SafeAreaProvider requirement and no
+ * dev warning for them (trigger popups gate the same way).
+ */
+const KeyboardSpacer = component(() => {
+    const keyboard = useKeyboard();
+    return () => <view style={{ height: keyboard.value.height }} />;
+});
 
 export const MarkdownEditor = component<MarkdownEditorProps>(({ props }) => {
     let el: RichTextHandle = null;
@@ -200,6 +231,15 @@ export const MarkdownEditor = component<MarkdownEditorProps>(({ props }) => {
     // the editor feeds it back as the element's layout height — Lynx layout
     // sizes views from styles, never from native intrinsic content.
     const reportedHeight = signal(0);
+
+    // Fullscreen overlay state (controller-driven). Keyboard avoidance lives
+    // in the conditionally-mounted KeyboardSpacer.
+    const fullscreenOpen = signal(false);
+    const setFullscreen = (open: boolean): void => {
+        if (fullscreenOpen.value === open) return;
+        fullscreenOpen.value = open;
+        props.onFullscreenChange?.(open);
+    };
 
     // --- trigger sessions (suggestion popup) ---
     const triggers = plugins
@@ -299,6 +339,9 @@ export const MarkdownEditor = component<MarkdownEditorProps>(({ props }) => {
         },
         insertChip: (chip, replace) => RichTextMethods.insertChip(el, chip, replace),
         clear: () => RichTextMethods.setDocument(el, emptyDoc(lastSeenVersion)),
+        openFullscreen: () => setFullscreen(true),
+        closeFullscreen: () => setFullscreen(false),
+        isFullscreen: () => fullscreenOpen.value,
         focus: () => RichTextMethods.focus(el),
         blur: () => RichTextMethods.blur(el),
         getMarkdown: () => lastEmittedMd ?? '',
@@ -328,12 +371,20 @@ export const MarkdownEditor = component<MarkdownEditorProps>(({ props }) => {
         const minLines = Math.max(1, props.minLines ?? 1);
         const maxLines = Math.max(minLines, props.maxLines ?? 4);
 
+        // The overlay reuses fullscreen-mode sizing on top of any base mode.
+        const overlay = fullscreenOpen.value;
+        const fills = overlay || mode === 'fullscreen';
+
         let minHeight = minLines * lineHeight + ELEMENT_PADDING;
         let maxHeight = maxLines * lineHeight + ELEMENT_PADDING;
         if (mode === 'fixed') minHeight = maxHeight;
-        if (mode === 'fullscreen') maxHeight = 0; // unbounded; element fills parent
+        if (fills) maxHeight = 0; // unbounded; element fills parent
 
-        const toolbarPlacement = props.toolbar === true ? 'bottom' : props.toolbar;
+        // Fullscreen gets a toolbar by default (its own slot); an explicit
+        // `toolbar={false}` still suppresses it.
+        const toolbarPlacement = props.toolbar === true || (overlay && props.toolbar === undefined)
+            ? 'bottom'
+            : props.toolbar;
         // Plugin items append after the base set (explicit `toolbarItems` wins
         // as the base, otherwise the defaults).
         const toolbarItems = pluginToolbarItems.length
@@ -383,7 +434,7 @@ export const MarkdownEditor = component<MarkdownEditorProps>(({ props }) => {
                 confirmType={props.confirmType}
                 autoFocus={props.autoFocus}
                 style={
-                    mode === 'fullscreen'
+                    fills
                         ? { flexGrow: 1 }
                         : { height: Math.max(minHeight, Math.min(reportedHeight.value || minHeight, maxHeight)) }
                 }
@@ -407,9 +458,29 @@ export const MarkdownEditor = component<MarkdownEditorProps>(({ props }) => {
             />
         );
 
+        // Fullscreen close affordance — the only chrome the overlay adds.
+        // `ignore-focus` so the tap doesn't blur the editor before closing
+        // (keyboard/selection survive back into the inline layout).
+        const closeNode = overlay
+            ? (
+                <view style={{ display: 'flex', flexDirection: 'row', justifyContent: 'flex-end' }}>
+                    <view
+                        ignore-focus
+                        accessibility-element
+                        accessibility-label="Close fullscreen"
+                        accessibility-trait="button"
+                        bindtap={() => setFullscreen(false)}
+                        style={{ paddingTop: 8, paddingBottom: 8, paddingLeft: 16, paddingRight: 16 }}
+                    >
+                        <text style={{ fontSize: 18 }}>✕</text>
+                    </view>
+                </view>
+            )
+            : null;
+
         return (
             <view
-                class={props.class}
+                class={overlay && props.fullscreenClass ? `${props.class ?? ''} ${props.fullscreenClass}`.trim() : props.class}
                 style={{
                     display: 'flex',
                     flexDirection: 'column',
@@ -418,9 +489,25 @@ export const MarkdownEditor = component<MarkdownEditorProps>(({ props }) => {
                     // overflow visible (LynxUI.containsPoint) — required for
                     // the above-the-caret suggestion popup to be tappable.
                     overflow: 'visible',
-                    ...(mode === 'fullscreen' ? { flexGrow: 1, flexShrink: 1 } : {}),
+                    ...(mode === 'fullscreen' && !overlay ? { flexGrow: 1, flexShrink: 1 } : {}),
+                    // The overlay restyles THIS root in place — the element is
+                    // never re-parented (e.g. into a Modal), which would
+                    // recreate the native view and lose the document (the
+                    // `value` prop is initial-only).
+                    ...(overlay
+                        ? {
+                            position: 'fixed',
+                            top: 0,
+                            left: 0,
+                            right: 0,
+                            bottom: 0,
+                            zIndex: 100,
+                            ...(props.fullscreenClass ? {} : { backgroundColor: '#ffffff' }),
+                        }
+                        : {}),
                 }}
             >
+                {closeNode}
                 {toolbarPlacement === 'top' ? toolbarNode : null}
                 {triggers.length
                     ? (
@@ -435,7 +522,7 @@ export const MarkdownEditor = component<MarkdownEditorProps>(({ props }) => {
                             style={{
                                 position: 'relative',
                                 overflow: 'visible',
-                                ...(mode === 'fullscreen'
+                                ...(fills
                                     ? { display: 'flex', flexDirection: 'column', flexGrow: 1 }
                                     : {}),
                             }}
@@ -446,6 +533,7 @@ export const MarkdownEditor = component<MarkdownEditorProps>(({ props }) => {
                     )
                     : inputNode}
                 {toolbarPlacement === 'bottom' ? toolbarNode : null}
+                {overlay ? <KeyboardSpacer /> : null}
             </view>
         );
     };
