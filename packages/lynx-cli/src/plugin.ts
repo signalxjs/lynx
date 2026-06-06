@@ -632,6 +632,7 @@ export default definePlugin({
                 const {
                     resolveIosSimulator, bootSimulator, installAppOnSimulator, findBuiltApp,
                     listConnectedIosDevices, installAppOnDevice, launchAppOnDevice, isDevicectlAvailable,
+                    iosDerivedDataPath,
                 } = await import('./device-detect.js');
                 const { podInstallIfStale } = await import('./ios-pods.js');
                 const { runWithBuildFilter, resolveVerbose } = await import('./build-output.js');
@@ -708,6 +709,8 @@ export default definePlugin({
                                 '-scheme', appName,
                                 '-destination', `id=${target.udid}`,
                                 '-configuration', configuration,
+                                // Project-local products dir — see #178.
+                                '-derivedDataPath', iosDerivedDataPath(ctx.cwd),
                                 'build',
                             ],
                             { cwd: ctx.cwd },
@@ -727,9 +730,9 @@ export default definePlugin({
                     configuration: 'Debug' | 'Release' = 'Debug',
                 ) {
                     const buildTarget = target.kind === 'device' ? 'device' : 'simulator';
-                    const appPath = findBuiltApp(appName, buildTarget, configuration);
+                    const appPath = findBuiltApp(ctx.cwd, appName, buildTarget, configuration);
                     if (!appPath) {
-                        ctx.logger.error(`Could not find built ${appName}.app in DerivedData (${buildTarget}, ${configuration})`);
+                        ctx.logger.error(`Could not find built ${appName}.app in ios/build (${buildTarget}, ${configuration})`);
                         return;
                     }
 
