@@ -1,0 +1,15 @@
+/* @sigx/lynx-heroui — structural tokens + hero theme classes.
+ *
+ * Theme COLORS live in the shared registry (@sigx/lynx-zero, seeded by
+ * src/theme/builtins.ts) and are applied as CSS custom properties by
+ * <ThemeProvider>; the theme-agnostic structural tokens ship from
+ * @sigx/lynx-zero under the `.lynx-zero` base class. Component CSS
+ * (hero- prefixed) arrives with the Phase 6 pilot components. */
+
+/* Structural design tokens (.lynx-zero, from @sigx/lynx-zero) */
+@import '@sigx/lynx-zero/styles/tokens.css';
+
+/* Per-theme color tokens for the built-in hero themes — generated from the
+ * theme data at build time (scripts/gen-theme-css.mjs). Declared as CSS rules
+ * so `var(--color-*)` resolves on the first paint. */
+@import './themes/builtins.generated.css';
