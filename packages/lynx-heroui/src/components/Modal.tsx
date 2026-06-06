@@ -8,9 +8,13 @@ export type ModalProps =
 
 const _Modal = component<ModalProps>(({ props, slots }) => {
   return () => {
-    // Mount/unmount rather than display:none — Lynx can leak unstyled text
-    // paint through display:none overlays (see lynx-display-none caveat).
-    if (!props.open) return <view style={{ display: 'none' }} />;
+    // Closed state renders a zero-size, out-of-flow placeholder (not
+    // display:none — Lynx can leak unstyled text paint through display:none
+    // overlays in some builds; zero-size + absolute is the safer shape, same
+    // as StatusBarSync). The modal content itself is fully unmounted.
+    if (!props.open) {
+      return <view style={{ position: 'absolute', width: '0px', height: '0px', opacity: 0 }} />;
+    }
     return (
       <view
         class="hero-modal-overlay"
