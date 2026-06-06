@@ -182,6 +182,14 @@ describe('iOS parity (simctl / devicectl)', () => {
         expect(msg).not.toContain('kill-server');
     });
 
+    it('refuses an unsafe bundle id without shelling out (injection guard)', () => {
+        execSyncMock.mockImplementation(() => '/some/container/path');
+        expect(isAppInstalledOnSimulator('UDID-1', 'com.example.app; rm -rf /')).toBe(false);
+        expect(execSyncMock).not.toHaveBeenCalled();
+        const msg = String(stderr.mock.calls[0][0]);
+        expect(msg).toContain('unsafe bundle identifier');
+    });
+
     it('booting a simulator uses the longer action timeout, not the probe timeout', () => {
         execSyncMock.mockImplementation(() => 'ok');
         bootSimulator('UDID-2');

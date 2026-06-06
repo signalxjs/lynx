@@ -15,9 +15,10 @@ import { podInstallIfStale } from './ios-pods.js';
 import { runWithBuildFilter } from './build-output.js';
 import {
     findBuiltApp,
+    getInstalledAppContainer,
     installAppOnDevice,
     installAppOnSimulator,
-    isAppInstalledOnSimulator,
+    iosDerivedDataPath,
     isAppInstalledOnDevice,
 } from './device-detect.js';
 import {
@@ -25,6 +26,7 @@ import {
     readCachedFingerprint,
     writeCachedFingerprint,
 } from './util/build-fingerprint.js';
+import { sameAppBinary } from './util/app-identity.js';
 
 export type IosBuildTarget =
     | { kind: 'simulator'; udid: string; name: string }
@@ -58,18 +60,35 @@ export async function ensureIosBuilt(opts: EnsureIosBuiltOptions): Promise<void>
     await runPrebuild({ android: false, ios: true, cwd });
 
     // Fast path: if the build-input fingerprint matches what we stored after
-    // the last successful install AND the app is still on the target, skip
-    // pod install / xcodebuild / install entirely. The dev-server's
+    // the last successful install AND the app on the target is provably OURS,
+    // skip pod install / xcodebuild / install entirely. The dev-server's
     // auto-launch loop will (re)launch with the fresh dev URL.
     if (bundleId) {
         const fingerprint = fingerprintIosBuild(cwd, appName, configuration);
         const cacheKey = iosFingerprintKey(target, configuration);
         const cached = readCachedFingerprint(cwd, cacheKey);
         if (cached === fingerprint) {
-            const installed = target.kind === 'simulator'
-                ? isAppInstalledOnSimulator(target.udid, bundleId)
-                : isAppInstalledOnDevice(target.udid, bundleId);
-            if (installed) {
+            let upToDate: boolean;
+            if (target.kind === 'simulator') {
+                // Identity-aware skip (#178): a matching fingerprint only
+                // proves THIS checkout's inputs haven't changed — another
+                // checkout of the same app (same bundle id) may have installed
+                // ITS binary over ours since. The simulator's app container is
+                // a plain host directory, so compare the installed executable
+                // against our local build products and skip only when they're
+                // byte-identical.
+                const installedApp = getInstalledAppContainer(target.udid, bundleId);
+                const localApp = findBuiltApp(cwd, appName, 'simulator', configuration);
+                upToDate = installedApp !== null && localApp !== null
+                    && sameAppBinary(installedApp, localApp);
+            } else {
+                // Physical devices: the installed bundle isn't host-readable
+                // via devicectl, so the identity check isn't possible — keep
+                // the is-installed probe. A cross-checkout overwrite on a
+                // device can still defeat this (documented limitation, #178).
+                upToDate = isAppInstalledOnDevice(target.udid, bundleId);
+            }
+            if (upToDate) {
                 logger.log(`\x1b[32m✓ ${target.name} up to date — skipping build\x1b[0m`);
                 return;
             }
@@ -88,6 +107,9 @@ export async function ensureIosBuilt(opts: EnsureIosBuiltOptions): Promise<void>
                 '-scheme', appName,
                 '-destination', `id=${target.udid}`,
                 '-configuration', configuration,
+                // Project-local products dir — two checkouts sharing a scheme
+                // name must never resolve each other's .app (#178).
+                '-derivedDataPath', iosDerivedDataPath(cwd),
                 'build',
             ],
             { cwd },
@@ -103,9 +125,9 @@ export async function ensureIosBuilt(opts: EnsureIosBuiltOptions): Promise<void>
     logger.log('\x1b[32m✓ App built\x1b[0m');
 
     const buildTarget = target.kind === 'device' ? 'device' : 'simulator';
-    const appPath = findBuiltApp(appName, buildTarget, configuration);
+    const appPath = findBuiltApp(cwd, appName, buildTarget, configuration);
     if (!appPath) {
-        throw new Error(`Could not find built ${appName}.app in DerivedData (${buildTarget}, ${configuration})`);
+        throw new Error(`Could not find built ${appName}.app in ios/build (${buildTarget}, ${configuration})`);
     }
 
     logger.log(`Installing on ${target.kind} (${target.name})...`);

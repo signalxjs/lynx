@@ -7,7 +7,7 @@
  */
 
 import { execSync } from 'node:child_process';
-import { readFileSync, unlinkSync } from 'node:fs';
+import { existsSync, readFileSync, unlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -504,13 +504,33 @@ export function bootSimulator(udid: string): boolean {
 }
 
 /**
+ * Resolve the installed .app container path for a bundle id on a simulator.
+ * Returns the on-host filesystem path (simulator containers live under
+ * `~/Library/Developer/CoreSimulator/...`), or null when not installed.
+ */
+export function getInstalledAppContainer(udid: string, bundleId: string): string | null {
+    // Interpolated into a shell command — same guard as device ids. The
+    // bundle-id charset (alnum, `.`, `-`) is a subset of what SAFE_DEVICE_ID
+    // allows (alnum plus `._:-`), so valid ids always pass.
+    if (!SAFE_DEVICE_ID.test(bundleId)) {
+        process.stderr.write(
+            `\x1b[33m⚠ Refusing simctl command for unsafe bundle identifier: ${JSON.stringify(bundleId)}\x1b[0m\n`,
+        );
+        return null;
+    }
+    const res = execTool(`xcrun simctl get_app_container ${udid} ${bundleId}`, {
+        tool: 'simctl',
+        key: udid,
+    });
+    if (!res.ok) return null;
+    return res.stdout.trim() || null;
+}
+
+/**
  * Check if an app is installed on an iOS simulator.
  */
 export function isAppInstalledOnSimulator(udid: string, bundleId: string): boolean {
-    return execTool(`xcrun simctl get_app_container ${udid} ${bundleId}`, {
-        tool: 'simctl',
-        key: udid,
-    }).ok;
+    return getInstalledAppContainer(udid, bundleId) !== null;
 }
 
 /**
@@ -525,26 +545,34 @@ export function installAppOnSimulator(udid: string, appPath: string): boolean {
 }
 
 /**
- * Find the built .app in DerivedData for a given scheme.
+ * Project-local derived-data directory all sigx xcodebuild invocations write
+ * into (`xcodebuild -derivedDataPath`). Keeping build products inside the
+ * checkout (the RN/Expo approach) means two checkouts of the same app —
+ * identical scheme + bundle id — can never pick up each other's .app, which
+ * the old shared-`~/Library/Developer/Xcode/DerivedData` glob did (#178).
+ */
+export function iosDerivedDataPath(cwd: string): string {
+    return join(cwd, 'ios', 'build');
+}
+
+/**
+ * Resolve the built .app for a scheme inside THIS project's derived-data dir
+ * ({@link iosDerivedDataPath}). Purely deterministic path resolution — no
+ * DerivedData globbing — so it returns this checkout's products or null.
  * `target` selects the simulator or device SDK build products directory.
  */
 export function findBuiltApp(
+    cwd: string,
     scheme: string,
     target: 'simulator' | 'device' = 'simulator',
     configuration: 'Debug' | 'Release' = 'Debug',
 ): string | null {
-    try {
-        const home = process.env.HOME ?? '';
-        const suffix = target === 'device' ? 'iphoneos' : 'iphonesimulator';
-        const productDir = `${configuration}-${suffix}`;
-        const output = execSync(
-            `find "${home}/Library/Developer/Xcode/DerivedData" -path "*${scheme}*/Build/Products/${productDir}/${scheme}.app" -maxdepth 6 2>/dev/null | head -1`,
-            { stdio: 'pipe', encoding: 'utf-8', timeout: DEVICE_CMD_TIMEOUT_MS },
-        ).trim();
-        return output || null;
-    } catch {
-        return null;
-    }
+    const suffix = target === 'device' ? 'iphoneos' : 'iphonesimulator';
+    const appPath = join(
+        iosDerivedDataPath(cwd),
+        'Build', 'Products', `${configuration}-${suffix}`, `${scheme}.app`,
+    );
+    return existsSync(appPath) ? appPath : null;
 }
 
 /**

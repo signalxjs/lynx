@@ -15,7 +15,7 @@ import { createServer } from 'node:net';
 import { request as httpRequest } from 'node:http';
 import { getAllLanIPs } from './network.js';
 import { generateQR } from './qr.js';
-import { getDeviceStatus, getDeviceStatusCached, invalidateDeviceStatusCache, launchLynxGo, launchApp, launchIosApp, launchAppOnDevice, resolveIosSimulator, bootSimulator, installAppOnSimulator, findBuiltApp, adbReverse, adbReverseRemove, forceStopApp, LYNX_GO_PACKAGE, type DeviceStatus } from './device-detect.js';
+import { getDeviceStatus, getDeviceStatusCached, invalidateDeviceStatusCache, launchLynxGo, launchApp, launchIosApp, launchAppOnDevice, resolveIosSimulator, bootSimulator, installAppOnSimulator, findBuiltApp, iosDerivedDataPath, adbReverse, adbReverseRemove, forceStopApp, LYNX_GO_PACKAGE, type DeviceStatus } from './device-detect.js';
 import { runWithBuildFilter } from './build-output.js';
 import type { Logger } from '@sigx/cli/plugin';
 import type { SelectedTarget } from './target-picker.js';
@@ -510,6 +510,8 @@ function setupKeyboardShortcuts(child: ChildProcess, opts: {
                                 '-scheme', appName,
                                 '-destination', `id=${simulator.udid}`,
                                 '-configuration', 'Debug',
+                                // Project-local products dir — see #178.
+                                '-derivedDataPath', iosDerivedDataPath(opts.cwd),
                                 'build',
                             ],
                             { cwd: opts.cwd },
@@ -521,9 +523,9 @@ function setupKeyboardShortcuts(child: ChildProcess, opts: {
                     }
                     opts.logger.log('\x1b[32m✓ iOS app built\x1b[0m');
 
-                    const appPath = findBuiltApp(appName);
+                    const appPath = findBuiltApp(opts.cwd, appName);
                     if (!appPath) {
-                        opts.logger.error(`Could not find built ${appName}.app in DerivedData`);
+                        opts.logger.error(`Could not find built ${appName}.app in ios/build`);
                         return;
                     }
                     opts.logger.log('Installing on simulator...');
