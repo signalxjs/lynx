@@ -63,6 +63,10 @@ export type {
 export { completeTheme } from './theme/registry.js';
 export type { ThemeInput, ThemePaletteInput } from './theme/registry.js';
 export { mixColors } from './theme/color-mix.js';
+// Scoped palette → concrete values for native consumers that can't read
+// CSS custom properties (platform inputs, sigx-richtext, SVG fills).
+export { useThemeColors, toHexColor, withAlpha } from './theme/use-theme-colors.js';
+export type { ThemeColors } from './theme/use-theme-colors.js';
 // Headless theme handle: import and call from anywhere — stores, services,
 // effects, app-boot — with no `<ThemeProvider>` ancestor required.
 export { themeController } from './theme/theme-state.js';
