@@ -121,7 +121,7 @@ export type { AvatarProps, AvatarSize } from './data/Avatar.js';
 
 // Typography
 export { Text } from './typography/Text.js';
-export type { TextProps, TextSize, TextWeight, TextColor } from './typography/Text.js';
+export type { TextProps, TextSize, TextWeight, TextColor, TextAutoSize, TextAutoSizeLineRange } from './typography/Text.js';
 export { Heading } from './typography/Heading.js';
 export type { HeadingProps, HeadingLevel } from './typography/Heading.js';
 
