@@ -177,24 +177,20 @@ class SigxRichTextUI(context: LynxContext) : LynxUI<RichEditText>(context) {
         val color = parseColor(value) ?: return
         theme.textColor = color
         mView.setTextColor(color)
+        // Block decorations (quote bar, list markers) derive from textColor
+        // at draw time — repaint existing runs (#155).
+        mView.invalidate()
     }
 
     @LynxProp(name = "accent-color")
     fun setAccentColor(value: String?) {
         val color = parseColor(value) ?: return
         theme.accentColor = color
-        // Retint live mention pills — spans capture their color at
-        // construction (iOS rebuilds attachments on theme changes; this is
-        // the Android analogue).
-        val editable = mView.text
-        var changed = false
-        for (span in editable.getSpans(0, editable.length, SigxMention::class.java)) {
-            if (span.color != color) {
-                span.color = color
-                changed = true
-            }
-        }
-        if (changed) mView.invalidate()
+        // Every color-carrying span reads the shared theme at draw time
+        // (links, mention pills, checked task boxes) — one repaint recolors
+        // all existing runs, the Android analogue of iOS refreshAllVisuals
+        // (#155).
+        mView.invalidate()
     }
 
     @LynxProp(name = "placeholder-color")
@@ -377,7 +373,7 @@ class SigxRichTextUI(context: LynxContext) : LynxUI<RichEditText>(context) {
                 )
                 if (type == "codeBlock") {
                     editable.setSpan(
-                        SigxCodeBlockBgSpan(theme.codeBackground),
+                        SigxCodeBlockBgSpan(theme),
                         pStart,
                         pEnd,
                         Spannable.SPAN_PARAGRAPH,
@@ -437,11 +433,11 @@ class SigxRichTextUI(context: LynxContext) : LynxUI<RichEditText>(context) {
                 val s = editable.getSpanStart(span)
                 val e = editable.getSpanEnd(span)
                 editable.removeSpan(span)
-                if (s < start) editable.setSpan(SigxLinkSpan(span.href, theme.accentColor), s, start, DocumentMapper.INLINE_FLAGS)
-                if (e > end) editable.setSpan(SigxLinkSpan(span.href, theme.accentColor), end, e, DocumentMapper.INLINE_FLAGS)
+                if (s < start) editable.setSpan(SigxLinkSpan(span.href, theme), s, start, DocumentMapper.INLINE_FLAGS)
+                if (e > end) editable.setSpan(SigxLinkSpan(span.href, theme), end, e, DocumentMapper.INLINE_FLAGS)
             }
             if (href.isNotEmpty()) {
-                editable.setSpan(SigxLinkSpan(href, theme.accentColor), start, end, DocumentMapper.INLINE_FLAGS)
+                editable.setSpan(SigxLinkSpan(href, theme), start, end, DocumentMapper.INLINE_FLAGS)
             }
             isProgrammaticEdit = false
             userHasEdited = true
@@ -521,7 +517,7 @@ class SigxRichTextUI(context: LynxContext) : LynxUI<RichEditText>(context) {
             // edits, so this must run here).
             cleanupCollapsedChips(editable)
             editable.setSpan(
-                SigxMentionSpan(attrs, theme.accentColor),
+                SigxMentionSpan(attrs, theme),
                 from,
                 from + 1,
                 DocumentMapper.MENTION_FLAGS,
@@ -740,7 +736,7 @@ class SigxRichTextUI(context: LynxContext) : LynxUI<RichEditText>(context) {
         )
         if (span.type == "codeBlock") {
             for (bg in editable.getSpans(pStart, pEnd, SigxCodeBlockBgSpan::class.java)) editable.removeSpan(bg)
-            editable.setSpan(SigxCodeBlockBgSpan(theme.codeBackground), pStart, nl + 1, Spannable.SPAN_PARAGRAPH)
+            editable.setSpan(SigxCodeBlockBgSpan(theme), pStart, nl + 1, Spannable.SPAN_PARAGRAPH)
         }
         // Continuation never carries the ordered start or a checked state.
         val continuation = SigxBlockSpan(span.type, 0, false, span.lang, theme)
@@ -749,7 +745,7 @@ class SigxRichTextUI(context: LynxContext) : LynxUI<RichEditText>(context) {
             // Mid-line split: the tail is its own block line immediately.
             editable.setSpan(continuation, nStart, nEnd, Spannable.SPAN_PARAGRAPH)
             if (span.type == "codeBlock") {
-                editable.setSpan(SigxCodeBlockBgSpan(theme.codeBackground), nStart, nEnd, Spannable.SPAN_PARAGRAPH)
+                editable.setSpan(SigxCodeBlockBgSpan(theme), nStart, nEnd, Spannable.SPAN_PARAGRAPH)
             }
         } else {
             pendingBlockStart = nl + 1
@@ -774,7 +770,7 @@ class SigxRichTextUI(context: LynxContext) : LynxUI<RichEditText>(context) {
         isProgrammaticEdit = true
         editable.setSpan(template, pStart, pEnd, Spannable.SPAN_PARAGRAPH)
         if (template.type == "codeBlock") {
-            editable.setSpan(SigxCodeBlockBgSpan(theme.codeBackground), pStart, pEnd, Spannable.SPAN_PARAGRAPH)
+            editable.setSpan(SigxCodeBlockBgSpan(theme), pStart, pEnd, Spannable.SPAN_PARAGRAPH)
         }
         isProgrammaticEdit = false
     }
@@ -831,7 +827,7 @@ class SigxRichTextUI(context: LynxContext) : LynxUI<RichEditText>(context) {
         "bold" -> SigxBoldSpan()
         "italic" -> SigxItalicSpan()
         "strike" -> SigxStrikeSpan()
-        "code" -> SigxCodeSpan(theme.codeBackground)
+        "code" -> SigxCodeSpan(theme)
         else -> throw IllegalArgumentException("unknown inline format: $type")
     }
 

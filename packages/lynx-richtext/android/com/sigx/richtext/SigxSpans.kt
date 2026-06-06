@@ -28,6 +28,12 @@ import android.text.style.StyleSpan
  * `SPAN_EXCLUSIVE_INCLUSIVE` so typing at a format's trailing edge extends it
  * (and at the leading edge does not) — matching iOS `typingAttributes`
  * inheritance.
+ *
+ * Color-carrying spans hold the shared [RichTextTheme] reference and read
+ * their colors at draw time — never captured at construction — so a theme
+ * switch (`text-color`/`accent-color` props) recolors every existing run
+ * with a single invalidate, the Android analogue of iOS `refreshAllVisuals`
+ * (#155).
  */
 
 class SigxBoldSpan : StyleSpan(Typeface.BOLD)
@@ -37,11 +43,11 @@ class SigxItalicSpan : StyleSpan(Typeface.ITALIC)
 class SigxStrikeSpan : StrikethroughSpan()
 
 /** Inline code: monospace, slightly smaller, subtle background. */
-class SigxCodeSpan(private val backgroundColor: Int) : MetricAffectingSpan() {
+class SigxCodeSpan(private val theme: RichTextTheme) : MetricAffectingSpan() {
     override fun updateMeasureState(paint: TextPaint) = apply(paint)
     override fun updateDrawState(paint: TextPaint) {
         apply(paint)
-        paint.bgColor = backgroundColor
+        paint.bgColor = theme.codeBackground
     }
 
     private fun apply(paint: TextPaint) {
@@ -51,9 +57,9 @@ class SigxCodeSpan(private val backgroundColor: Int) : MetricAffectingSpan() {
 }
 
 /** Link: accent color + underline. Carries the href (the model payload). */
-class SigxLinkSpan(val href: String, private val color: Int) : CharacterStyle() {
+class SigxLinkSpan(val href: String, private val theme: RichTextTheme) : CharacterStyle() {
     override fun updateDrawState(paint: TextPaint) {
-        paint.color = color
+        paint.color = theme.accentColor
         paint.isUnderlineText = true
     }
 }
@@ -61,9 +67,6 @@ class SigxLinkSpan(val href: String, private val color: Int) : CharacterStyle() 
 /** Common surface for mention model carriers — readback enumerates this. */
 interface SigxMention {
     val attrs: Map<String, String>
-
-    /** Mutable so `accent-color` prop updates retint live pills (iOS parity). */
-    var color: Int
 }
 
 /**
@@ -76,7 +79,7 @@ interface SigxMention {
  */
 class SigxMentionSpan(
     override val attrs: Map<String, String>,
-    override var color: Int,
+    private val theme: RichTextTheme,
 ) : ReplacementSpan(), SigxMention {
 
     private val pillText: String = "@${attrs["label"] ?: ""}"
@@ -131,9 +134,9 @@ class SigxMentionSpan(
         bgRect.set(x, top + inset, x + width, bottom - inset)
         // Accent at ~15% alpha for the fill, accent for the label — one
         // reused paint, two color passes (no per-draw allocations).
-        p.color = (color and 0x00FFFFFF) or (0x26 shl 24)
+        p.color = (theme.accentColor and 0x00FFFFFF) or (0x26 shl 24)
         canvas.drawRoundRect(bgRect, bgRect.height() / 2, bgRect.height() / 2, p)
-        p.color = color
+        p.color = theme.accentColor
         canvas.drawText(pillText, x + pad, y.toFloat(), p)
     }
 }
@@ -146,10 +149,10 @@ class SigxMentionSpan(
  */
 class SigxMentionTextSpan(
     override val attrs: Map<String, String>,
-    override var color: Int,
+    private val theme: RichTextTheme,
 ) : CharacterStyle(), SigxMention {
     override fun updateDrawState(paint: TextPaint) {
-        paint.color = color
+        paint.color = theme.accentColor
         paint.isUnderlineText = true
     }
 }
@@ -339,7 +342,7 @@ class SigxBlockSpan(
  * and **never enumerated by readback** (it carries no model fact).
  * `LeadingMarginSpan` can't paint behind the text, hence the separate span.
  */
-class SigxCodeBlockBgSpan(private val color: Int) : LineBackgroundSpan {
+class SigxCodeBlockBgSpan(private val theme: RichTextTheme) : LineBackgroundSpan {
     private val rect = RectF()
     private val bgPaint = Paint()
 
@@ -356,7 +359,7 @@ class SigxCodeBlockBgSpan(private val color: Int) : LineBackgroundSpan {
         end: Int,
         lineNumber: Int,
     ) {
-        bgPaint.color = color
+        bgPaint.color = theme.codeBackground
         rect.set(left.toFloat(), top.toFloat(), right.toFloat(), bottom.toFloat())
         canvas.drawRect(rect, bgPaint)
     }

@@ -59,8 +59,8 @@ object DocumentMapper {
                 "bold" -> SigxBoldSpan()
                 "italic" -> SigxItalicSpan()
                 "strike" -> SigxStrikeSpan()
-                "code" -> SigxCodeSpan(theme.codeBackground)
-                "link" -> SigxLinkSpan(attrs?.optString("href") ?: "", theme.accentColor)
+                "code" -> SigxCodeSpan(theme)
+                "link" -> SigxLinkSpan(attrs?.optString("href") ?: "", theme)
                 "mention" -> {
                     // The chip invariant: exactly one U+FFFC AND a usable
                     // payload (non-empty id + label, same rule as insertChip).
@@ -71,9 +71,9 @@ object DocumentMapper {
                     val chipAttrs = attrs.toStringMap()
                     val usable = !chipAttrs["id"].isNullOrEmpty() && !chipAttrs["label"].isNullOrEmpty()
                     if (usable && end - start == 1 && builder[start] == '\uFFFC') {
-                        SigxMentionSpan(chipAttrs, theme.accentColor)
+                        SigxMentionSpan(chipAttrs, theme)
                     } else {
-                        SigxMentionTextSpan(chipAttrs, theme.accentColor)
+                        SigxMentionTextSpan(chipAttrs, theme)
                     }
                 }
                 else -> null
@@ -108,7 +108,7 @@ object DocumentMapper {
             // Full-width background rides alongside the model span (visual only).
             if (type == "codeBlock") {
                 builder.setSpan(
-                    SigxCodeBlockBgSpan(theme.codeBackground),
+                    SigxCodeBlockBgSpan(theme),
                     snapped.first,
                     snapped.second,
                     Spanned.SPAN_PARAGRAPH,
