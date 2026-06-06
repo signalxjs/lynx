@@ -73,3 +73,37 @@ describe('Tabs', () => {
     expect(container.textContent()).toContain('Custom Content');
   });
 });
+
+describe('Tabs — container-driven selection (#219 retro)', () => {
+  function findByClass2(node: any, cls: string): any {
+    if (node._class && node._class.includes(cls)) return node;
+    for (const child of node.children || []) {
+      const found = findByClass2(child, cls);
+      if (found) return found;
+    }
+    return null;
+  }
+
+  it('derives active from activeTab/value without per-tab props', () => {
+    const { container } = render(
+      <Tabs activeTab="two">
+        <Tabs.Tab value="one" label="One" />
+        <Tabs.Tab value="two" label="Two" />
+      </Tabs>,
+    );
+    const active = findByClass2(container, 'tab-active');
+    expect(active).toBeTruthy();
+    expect(active.textContent()).toContain('Two');
+  });
+
+  it('explicit active prop overrides the container selection', () => {
+    const { container } = render(
+      <Tabs activeTab="one">
+        <Tabs.Tab value="one" label="One" active={false} />
+        <Tabs.Tab value="two" label="Two" active />
+      </Tabs>,
+    );
+    const active = findByClass2(container, 'tab-active');
+    expect(active.textContent()).toContain('Two');
+  });
+});

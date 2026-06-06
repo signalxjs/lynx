@@ -29,6 +29,10 @@ export { resolveSpacing, resolveBoxStyle } from './shared/styles.js';
 // Press-feedback defaults for interactive components.
 export { PRESSED_SCALE, PRESSED_OPACITY } from './shared/press.js';
 
+// Headless tabs selection — shared behavior behind every DS's Tabs/Tab.
+export { useTabsSelection, provideTabsSelection } from './shared/tabs-selection.js';
+export type { TabsSelection } from './shared/tabs-selection.js';
+
 // Theme engine — registry mechanism, provider, headless controller. Theme
 // *data* (palettes, generated first-paint CSS classes) lives in each
 // design-system package, which seeds the registry at module load.

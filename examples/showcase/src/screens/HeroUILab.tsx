@@ -75,25 +75,10 @@ export const HeroUILab = component(() => {
 
                         {heroButtons()}
 
-                        <HeroTabs>
-                            <HeroTabs.Tab
-                                value="photos"
-                                label="Photos"
-                                active={state.tab === 'photos'}
-                                onPress={() => { state.tab = 'photos'; }}
-                            />
-                            <HeroTabs.Tab
-                                value="music"
-                                label="Music"
-                                active={state.tab === 'music'}
-                                onPress={() => { state.tab = 'music'; }}
-                            />
-                            <HeroTabs.Tab
-                                value="videos"
-                                label="Videos"
-                                active={state.tab === 'videos'}
-                                onPress={() => { state.tab = 'videos'; }}
-                            />
+                        <HeroTabs activeTab={state.tab} onChange={(v) => { state.tab = v; }}>
+                            <HeroTabs.Tab value="photos" label="Photos" />
+                            <HeroTabs.Tab value="music" label="Music" />
+                            <HeroTabs.Tab value="videos" label="Videos" />
                         </HeroTabs>
                         <HeroText size="sm">active tab: {state.tab}</HeroText>
 

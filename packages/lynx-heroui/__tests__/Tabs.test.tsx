@@ -45,3 +45,28 @@ describe('hero Tabs', () => {
     expect(container.textContent()).toContain('Custom Content');
   });
 });
+
+describe('hero Tabs — container-driven selection (#219 retro)', () => {
+  it('derives active from activeTab/value without per-tab props', () => {
+    const { container } = render(
+      <Tabs activeTab="two">
+        <Tabs.Tab value="one" label="One" />
+        <Tabs.Tab value="two" label="Two" />
+      </Tabs>,
+    );
+    const active = findByClass(container, 'hero-tab-active');
+    expect(active).toBeTruthy();
+    expect(active.textContent()).toContain('Two');
+  });
+
+  it('explicit active prop overrides the container selection', () => {
+    const { container } = render(
+      <Tabs activeTab="one">
+        <Tabs.Tab value="one" label="One" active={false} />
+        <Tabs.Tab value="two" label="Two" active />
+      </Tabs>,
+    );
+    const active = findByClass(container, 'hero-tab-active');
+    expect(active.textContent()).toContain('Two');
+  });
+});
