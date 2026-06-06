@@ -28,7 +28,10 @@ export const Home = component(() => {
 
     const openExample = (example: FlatExample) => {
         Haptics.selection();
-        nav.push(example.route);
+        // The discriminated Example union ties `params` to the parametric
+        // `daisyui` route, so both branches are fully typed.
+        if (example.params) nav.push(example.route, example.params);
+        else nav.push(example.route);
     };
 
     return () => {

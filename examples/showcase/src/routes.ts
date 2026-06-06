@@ -2,13 +2,12 @@ import { defineRoutes } from '@sigx/lynx-navigation';
 import { z } from 'zod';
 import { Home } from './screens/Home.js';
 import { AreaScreen } from './screens/AreaScreen.js';
+import { DaisyComponentScreen } from './screens/DaisyComponentScreen.js';
 // UI & Theming
 import { Appearance } from './screens/Appearance.js';
 import { Theming } from './screens/Theming.js';
-import { Typography } from './screens/Typography.js';
 import { Icons } from './screens/Icons.js';
 import { SystemBars } from './screens/SystemBars.js';
-import { Forms } from './screens/Forms.js';
 // Text & Markdown
 import { Markdown } from './screens/Markdown.js';
 import { MarkdownEditorScreen } from './screens/MarkdownEditor.js';
@@ -38,14 +37,20 @@ export const routes = defineRoutes({
         params: z.object({ areaId: z.string() }),
         path: '/area/:areaId',
     },
+    // One parametric route serves every DaisyUI component reference page —
+    // the registry (src/daisyui/registry.ts) is the data source, keyed by
+    // `componentId`.
+    daisyui: {
+        component: DaisyComponentScreen,
+        params: z.object({ componentId: z.string() }),
+        path: '/daisyui/:componentId',
+    },
 
     // UI & Theming
     appearance: { component: Appearance, path: '/appearance' },
     theming: { component: Theming, path: '/theming' },
-    typography: { component: Typography, path: '/typography' },
     icons: { component: Icons, path: '/icons' },
     systemBars: { component: SystemBars, path: '/system-bars' },
-    forms: { component: Forms, path: '/forms' },
 
     // Text & Markdown
     markdown: { component: Markdown, path: '/markdown' },

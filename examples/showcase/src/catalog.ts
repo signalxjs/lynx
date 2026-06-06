@@ -1,21 +1,26 @@
 import type { RoutesWithoutParams } from '@sigx/lynx-navigation';
 import type { IconSpec } from '@sigx/lynx-icons';
+import { daisyDemos } from './daisyui/registry.js';
 
 /**
  * The example catalog — single source of truth for the Home screen's area
  * list, the per-area sub views, and search. Every example points at a
  * registered route; `route: RoutesWithoutParams` makes a dangling
  * reference a type error (keyed by the Register augmentation in routes.ts)
- * and guarantees `nav.push(example.route)` needs no params.
+ * and guarantees `nav.push(example.route)` needs no params — except the
+ * DaisyUI component pages, which all share the parametric `daisyui` route
+ * and carry their `componentId` in `params`.
  */
-export interface Example {
+export type Example = {
     id: string;
     title: string;
     /** One-liner shown in lists; also matched by search. */
     description: string;
     icon: IconSpec;
-    route: RoutesWithoutParams;
-}
+} & (
+    | { route: RoutesWithoutParams; params?: undefined }
+    | { route: 'daisyui'; params: { componentId: string } }
+);
 
 export interface Area {
     id: string;
@@ -45,13 +50,6 @@ export const catalog: Area[] = [
                 route: 'theming',
             },
             {
-                id: 'typography',
-                title: 'Typography',
-                description: 'Text ramp xs→3xl with a live font-scale control',
-                icon: { set: 'lucide', name: 'type' },
-                route: 'typography',
-            },
-            {
                 id: 'icons',
                 title: 'Icons',
                 description: 'Font Awesome + Lucide adapters, themed and dynamic names',
@@ -65,14 +63,23 @@ export const catalog: Area[] = [
                 icon: { set: 'lucide', name: 'panel-top' },
                 route: 'systemBars',
             },
-            {
-                id: 'forms',
-                title: 'Forms',
-                description: 'Input, Textarea, Select, Checkbox, Radio, Toggle',
-                icon: { set: 'lucide', name: 'list-checks' },
-                route: 'forms',
-            },
         ],
+    },
+    {
+        // Component reference — one page per @sigx/lynx-daisyui component,
+        // generated from the registry so adding a demo module is the only
+        // step to get a new page, list row, and search entry.
+        id: 'daisyui',
+        title: 'DaisyUI components',
+        icon: { set: 'lucide', name: 'component' },
+        examples: daisyDemos.map((demo) => ({
+            id: `daisy-${demo.id}`,
+            title: demo.title,
+            description: demo.description,
+            icon: demo.icon,
+            route: 'daisyui' as const,
+            params: { componentId: demo.id },
+        })),
     },
     {
         id: 'text-markdown',
@@ -203,9 +210,7 @@ export const catalog: Area[] = [
 ];
 
 /** Example flattened with its parent area title (shown in search results). */
-export interface FlatExample extends Example {
-    areaTitle: string;
-}
+export type FlatExample = Example & { areaTitle: string };
 
 export const allExamples: FlatExample[] = catalog.flatMap((area) =>
     area.examples.map((example) => ({ ...example, areaTitle: area.title })),
