@@ -1,6 +1,6 @@
 import { component, type Define } from '@sigx/lynx';
 import { Pressable } from '@sigx/lynx-gestures';
-import { PRESSED_SCALE, PRESSED_OPACITY, type ColorVariant, type SizeScale } from '@sigx/lynx-zero';
+import { PRESSED_SCALE, PRESSED_OPACITY, type ColorVariant, type SizeScale, type WithAccessibility } from '@sigx/lynx-zero';
 
 // The shared contract's color/variant split (signalxjs/lynx#219): `color` is
 // the semantic color, `variant` is hero's fill style (upstream HeroUI's
@@ -18,6 +18,9 @@ export type ButtonProps =
   & Define.Prop<'loading', boolean, false>
   & Define.Prop<'block', boolean, false>
   & Define.Prop<'class', string, false>
+  // Accessibility passthrough (shared contract fragment) — forwarded to
+  // Pressable's host view so the metadata sits on the gesture node.
+  & WithAccessibility
   & Define.Slot<'default'>
   & Define.Event<'press', void>;
 
@@ -46,6 +49,11 @@ export const Button = component<ButtonProps>(({ props, slots, emit }) => {
         pressedScale={PRESSED_SCALE}
         pressedOpacity={PRESSED_OPACITY}
         longPressDuration={0}
+        accessibility-element={props['accessibility-element']}
+        accessibility-label={props['accessibility-label']}
+        accessibility-role={props['accessibility-role']}
+        accessibility-trait={props['accessibility-trait']}
+        accessibility-status={props['accessibility-status']}
         onPress={() => { if (!inert) emit('press'); }}
       >
         {slots.default?.()}

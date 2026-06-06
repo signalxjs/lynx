@@ -33,3 +33,24 @@ describe('hero Button — shared contract shape (#219)', () => {
     expect(cls).toContain('hero-btn-disabled');
   });
 });
+
+describe('hero Button — accessibility passthrough (#237)', () => {
+  function findWithProp(node: any, key: string): any {
+    if (node.props && node.props[key] !== undefined) return node;
+    for (const child of node.children || []) {
+      const found = findWithProp(child, key);
+      if (found) return found;
+    }
+    return null;
+  }
+
+  it('forwards accessibility props to the pressable host view', () => {
+    const { container } = render(
+      <Button color="primary" accessibility-label="Get started" accessibility-role="button">hi</Button>,
+    );
+    const host = findWithProp(container, 'accessibility-label');
+    expect(host).toBeTruthy();
+    expect(host.props['accessibility-label']).toBe('Get started');
+    expect(host._class).toContain('hero-btn');
+  });
+});
