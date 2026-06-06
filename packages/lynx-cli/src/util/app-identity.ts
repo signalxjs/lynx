@@ -13,7 +13,7 @@
  */
 
 import { createHash } from 'node:crypto';
-import { readFileSync } from 'node:fs';
+import { closeSync, openSync, readSync } from 'node:fs';
 import { basename, join } from 'node:path';
 
 /**
@@ -21,13 +21,30 @@ import { basename, join } from 'node:path';
  * `CFBundleExecutable` defaults to the product name, which equals the .app
  * bundle's basename for sigx-generated projects — so the binary lives at
  * `<App>.app/<App>`.
+ *
+ * Hashed in fixed-size chunks — app binaries can run to tens/hundreds of MB,
+ * so a whole-file `readFileSync` would spike peak memory for no benefit.
  */
 export function appExecutableHash(appPath: string): string | null {
     const executable = join(appPath, basename(appPath, '.app'));
+    let fd: number;
     try {
-        return createHash('sha256').update(readFileSync(executable)).digest('hex');
+        fd = openSync(executable, 'r');
     } catch {
         return null;
+    }
+    try {
+        const hash = createHash('sha256');
+        const chunk = Buffer.allocUnsafe(1024 * 1024);
+        let bytesRead: number;
+        while ((bytesRead = readSync(fd, chunk, 0, chunk.length, null)) > 0) {
+            hash.update(chunk.subarray(0, bytesRead));
+        }
+        return hash.digest('hex');
+    } catch {
+        return null;
+    } finally {
+        closeSync(fd);
     }
 }
 

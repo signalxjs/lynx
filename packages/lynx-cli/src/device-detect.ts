@@ -509,6 +509,14 @@ export function bootSimulator(udid: string): boolean {
  * `~/Library/Developer/CoreSimulator/...`), or null when not installed.
  */
 export function getInstalledAppContainer(udid: string, bundleId: string): string | null {
+    // Interpolated into a shell command — same guard as device ids
+    // (SAFE_DEVICE_ID covers the bundle-id charset: alnum, `.`, `-`).
+    if (!SAFE_DEVICE_ID.test(bundleId)) {
+        process.stderr.write(
+            `\x1b[33m⚠ Refusing simctl command for unsafe bundle identifier: ${JSON.stringify(bundleId)}\x1b[0m\n`,
+        );
+        return null;
+    }
     const res = execTool(`xcrun simctl get_app_container ${udid} ${bundleId}`, {
         tool: 'simctl',
         key: udid,
