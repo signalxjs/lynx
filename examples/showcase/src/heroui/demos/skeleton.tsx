@@ -2,7 +2,7 @@ import { component } from '@sigx/lynx';
 import { Col, Row, Skeleton } from '@sigx/lynx-heroui';
 import type { HeroComponentDemo } from '../registry.js';
 
-/** Skeleton — shimmering placeholders. */
+/** Skeleton — pulsing placeholders. */
 export const skeletonDemo: HeroComponentDemo = {
     id: 'skeleton',
     title: 'Skeleton',
