@@ -164,6 +164,13 @@ export const catalog: Area[] = [
                 route: 'mediaDemo',
             },
             {
+                id: 'files',
+                title: 'Files',
+                description: 'Generic file picker + binary read round-trip',
+                icon: { set: 'lucide', name: 'file' },
+                route: 'filePickerDemo',
+            },
+            {
                 id: 'location',
                 title: 'Location',
                 description: 'Permission request + one-shot GPS fix',
@@ -176,6 +183,13 @@ export const catalog: Area[] = [
                 description: 'Native share sheet for text and URLs',
                 icon: { set: 'lucide', name: 'share-2' },
                 route: 'shareDemo',
+            },
+            {
+                id: 'datetime-picker',
+                title: 'Date & time picker',
+                description: 'Native date / time / datetime pickers',
+                icon: { set: 'lucide', name: 'calendar-clock' },
+                route: 'datetimePickerDemo',
             },
             {
                 id: 'webview',
