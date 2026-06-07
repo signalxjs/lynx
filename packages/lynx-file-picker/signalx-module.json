@@ -1,0 +1,16 @@
+{
+    "name": "FilePicker",
+    "package": "@sigx/lynx-file-picker",
+    "description": "Generic file picker (any file type)",
+    "platforms": ["android", "ios"],
+    "ios": {
+        "moduleClass": "FilePickerModule",
+        "sourceDir": "ios",
+        "methods": ["pick"]
+    },
+    "android": {
+        "moduleClass": "com.sigx.filepicker.FilePickerModule",
+        "sourceDir": "android",
+        "permissions": []
+    }
+}

@@ -10,6 +10,7 @@ class FileSystemModule: NSObject, LynxModule {
     @objc static var methodLookup: [String: String] {
         [
             "readFile": NSStringFromSelector(#selector(readFile(_:callback:))),
+            "readFileBase64": NSStringFromSelector(#selector(readFileBase64(_:callback:))),
             "writeFile": NSStringFromSelector(#selector(writeFile(_:content:callback:))),
             "deleteFile": NSStringFromSelector(#selector(deleteFile(_:callback:))),
             "getInfo": NSStringFromSelector(#selector(getInfo(_:callback:))),
@@ -36,6 +37,26 @@ class FileSystemModule: NSObject, LynxModule {
         do {
             let content = try String(contentsOfFile: resolvedPath, encoding: .utf8)
             callback?(content)
+        } catch {
+            callback?(["error": error.localizedDescription])
+        }
+    }
+
+    /// Read a file as raw bytes, returned base64-encoded. Accepts the same
+    /// paths as `readFile` plus `file://` URIs (what pickers hand back).
+    @objc func readFileBase64(_ path: String?, callback: LynxCallbackBlock?) {
+        guard let path = path else {
+            callback?(["error": "Path is required"])
+            return
+        }
+        let resolvedPath = resolveFile(path)
+        guard fileManager.fileExists(atPath: resolvedPath) else {
+            callback?(["error": "File not found: \(path)"])
+            return
+        }
+        do {
+            let data = try Data(contentsOf: URL(fileURLWithPath: resolvedPath))
+            callback?(data.base64EncodedString())
         } catch {
             callback?(["error": error.localizedDescription])
         }
@@ -96,6 +117,15 @@ class FileSystemModule: NSObject, LynxModule {
     }
 
     private func resolveFile(_ path: String) -> String {
+        // Accept `file://` URIs (pickers return these) alongside plain paths.
+        if path.hasPrefix("file://") {
+            if let url = URL(string: path) { return url.path }
+            // URL(string:) rejects unescaped characters (e.g. spaces in a
+            // JS-prefixed bare path) — strip the scheme manually instead of
+            // falling through to relative-path resolution.
+            let stripped = String(path.dropFirst("file://".count))
+            return stripped.removingPercentEncoding ?? stripped
+        }
         if (path as NSString).isAbsolutePath { return path }
         let docsDir = NSSearchPathForDirectoriesInDomains(.documentDirectory, .userDomainMask, true).first ?? ""
         return (docsDir as NSString).appendingPathComponent(path)

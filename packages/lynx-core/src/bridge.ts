@@ -20,6 +20,7 @@ const MODULE_PACKAGES: Record<string, string> = {
     Camera: '@sigx/lynx-camera',
     Location: '@sigx/lynx-location',
     ImagePicker: '@sigx/lynx-image-picker',
+    FilePicker: '@sigx/lynx-file-picker',
     FileSystem: '@sigx/lynx-file-system',
     Notifications: '@sigx/lynx-notifications',
     Network: '@sigx/lynx-network',

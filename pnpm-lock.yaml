@@ -71,6 +71,12 @@ importers:
       '@sigx/lynx-emoji':
         specifier: workspace:^
         version: link:../../packages/lynx-emoji
+      '@sigx/lynx-file-picker':
+        specifier: workspace:^
+        version: link:../../packages/lynx-file-picker
+      '@sigx/lynx-file-system':
+        specifier: workspace:^
+        version: link:../../packages/lynx-file-system
       '@sigx/lynx-gestures':
         specifier: workspace:^
         version: link:../../packages/lynx-gestures
@@ -475,6 +481,19 @@ importers:
       emojibase-data:
         specifier: ^17.0.0
         version: 17.0.0(emojibase@17.0.0)
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+
+  packages/lynx-file-picker:
+    dependencies:
+      '@sigx/lynx-core':
+        specifier: workspace:^
+        version: link:../lynx-core
+    devDependencies:
+      '@typescript/native-preview':
+        specifier: 7.0.0-dev.20260521.1
+        version: 7.0.0-dev.20260521.1
       typescript:
         specifier: ^6.0.3
         version: 6.0.3

@@ -6,7 +6,7 @@
     "ios": {
         "moduleClass": "FileSystemModule",
         "sourceDir": "ios",
-        "methods": ["readFile","writeFile","deleteFile","getInfo","getDocumentDirectory","getCacheDirectory"]
+        "methods": ["readFile","readFileBase64","writeFile","deleteFile","getInfo","getDocumentDirectory","getCacheDirectory"]
     },
     "android": {
         "moduleClass": "com.sigx.filesystem.FileSystemModule",
