@@ -420,13 +420,19 @@ export function createNavigatorState(opts: CreateNavigatorOptions): NavigatorSta
         // flush). Fall back to one macrotask, then to the default snap
         // config (lazy routes that still haven't resolved).
         const readSheetTarget = (): { target: number; heightFraction: number } | null => {
-            const screenOpts = untrack(() => {
-                const o = screens.get(newEntry.key)?.options;
-                return o?.snapPoints
-                    ? { snapPoints: o.snapPoints, initialSnapIndex: o.initialSnapIndex }
-                    : null;
-            });
-            if (!screenOpts) return null;
+            // Readiness signal is the REGISTRY's presence (EntryScope
+            // registers it at mount, in the same flush that runs the
+            // screen's `<Screen>` children) — not the snapPoints option:
+            // a sheet relying on the default snap config never declares
+            // one and must still start its animation without the
+            // macrotask fallback. (Lazy route bodies that register
+            // options later keep the documented default-config caveat.)
+            const reg = screens.get(newEntry.key);
+            if (!reg) return null;
+            const screenOpts = untrack(() => ({
+                snapPoints: reg.options.snapPoints,
+                initialSnapIndex: reg.options.initialSnapIndex,
+            }));
             const snaps = resolveSnapPoints(screenOpts.snapPoints);
             const target = initialSnapProgress(snaps, screenOpts.initialSnapIndex);
             return { target, heightFraction: target * snaps[snaps.length - 1] };
