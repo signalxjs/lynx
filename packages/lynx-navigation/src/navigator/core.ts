@@ -341,19 +341,26 @@ export function createNavigatorState(opts: CreateNavigatorOptions): NavigatorSta
         // underneath and the Stack would remount it on the next render.
         // Append eagerly so the new entry is queryable immediately
         // (`nav.current` = newEntry); the slide animation overlays the visual.
+        const txn: TransitionState = {
+            kind: 'push',
+            topEntry: newEntry,
+            underneathEntry: prevTop,
+            progress: sv,
+        };
         batch(() => {
             setStack([...cur, newEntry]);
-            if (animated) {
-                setTransition({
-                    kind: 'push',
-                    topEntry: newEntry,
-                    underneathEntry: prevTop,
-                    progress: sv,
-                });
-            }
+            if (animated) setTransition(txn);
         });
 
         if (!animated) return;
+
+        // Completion guard: only clear the transition if it's still THIS
+        // push's — a `reset()` (allowed mid-transition) can have cleared it
+        // and a successor transition can have started before the timer
+        // fires; clearing that one would cut the successor's animation off.
+        const clearOwnTransition = () => {
+            if (transitionBox.value === txn) setTransition(null);
+        };
 
         // A sheet opens to its initial snap point, not progress 1. The snap
         // config comes from the screen's `<Screen snapPoints>` registration,
@@ -386,8 +393,8 @@ export function createNavigatorState(opts: CreateNavigatorOptions): NavigatorSta
             ? startSheetPush()
             : animateProgress(sv, 0, 1, TRANSITION_DURATION_SEC)
         ).then(
-            () => setTransition(null),
-            () => setTransition(null), // best-effort cleanup on animation rejection
+            clearOwnTransition,
+            clearOwnTransition, // best-effort cleanup on animation rejection
         );
     }) as Nav['push'];
 
@@ -430,32 +437,32 @@ export function createNavigatorState(opts: CreateNavigatorOptions): NavigatorSta
         // animation. The stack mutation happens on completion.
         const popping = cur[cur.length - 1];
         const next = cur[cur.length - 2];
-        setTransition({
+        const txn: TransitionState = {
             kind: 'pop',
             topEntry: popping,
             underneathEntry: next,
             progress: sv,
-        });
+        };
+        setTransition(txn);
 
+        // Batch so the commit (drop the popped entry) and clearing the
+        // transition land in one render — no intermediate frame where the
+        // stack has mutated but the transition is still in flight. On
+        // animation failure, snap to the destination state anyway — leaving
+        // the popped entry rendered would be more confusing than skipping
+        // the animation. Guarded on the transition still being THIS pop's:
+        // a `reset()` (allowed mid-transition) can have replaced the stack,
+        // and committing the stale `cur` slice would overwrite it.
+        const commitOwnPop = () => {
+            if (transitionBox.value !== txn) return;
+            batch(() => {
+                setStack(cur.slice(0, cur.length - 1));
+                setTransition(null);
+            });
+        };
         animateProgress(sv, isSheet ? null : 0, isSheet ? 0 : 1, TRANSITION_DURATION_SEC).then(
-            () => {
-                // Batch so the commit (drop the popped entry) and clearing the
-                // transition land in one render — no intermediate frame where
-                // the stack has mutated but the transition is still in flight.
-                batch(() => {
-                    setStack(cur.slice(0, cur.length - 1));
-                    setTransition(null);
-                });
-            },
-            () => {
-                // On animation failure, snap to the destination state anyway —
-                // leaving the popped entry rendered would be more confusing
-                // than skipping the animation.
-                batch(() => {
-                    setStack(cur.slice(0, cur.length - 1));
-                    setTransition(null);
-                });
-            },
+            commitOwnPop,
+            commitOwnPop,
         );
     }
 
