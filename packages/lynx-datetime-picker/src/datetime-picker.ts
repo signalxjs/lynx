@@ -76,7 +76,9 @@ function toNative(opts: DateTimePickerOptions): NativeOptions {
 
 /** Rehydrate the bridge result into a `Date` plus local components. */
 function fromNative(result: NativeResult): DateTimePickerResult {
-    if (result.cancelled || typeof result.value !== 'number') {
+    // Non-finite epoch values would yield an Invalid Date with NaN
+    // components — treat them as malformed, i.e. cancelled.
+    if (result.cancelled || typeof result.value !== 'number' || !Number.isFinite(result.value)) {
         return { cancelled: true };
     }
     const value = new Date(result.value);

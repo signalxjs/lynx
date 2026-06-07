@@ -78,7 +78,12 @@ class DateTimePickerModule(context: Context) : LynxModule(context) {
                     finish(initial.timeInMillis)
                 }.setOnCancelListener { finish(null) }
 
-                "datetime" -> showDateDialog(activity, initial, minMs, maxMs) { y, m, d ->
+                // Widen instant bounds to whole days for the date step —
+                // a mid-day minimum must still allow picking the boundary
+                // day; the instant clamp in finish() enforces exactness.
+                "datetime" -> showDateDialog(
+                    activity, initial, minMs?.let(::dayStart), maxMs?.let(::dayEnd),
+                ) { y, m, d ->
                     initial.set(y, m, d)
                     // Chain into the time dialog for the time-of-day half.
                     showTimeDialog(activity, initial, is24Hour) { hour, minute ->
@@ -142,6 +147,22 @@ class DateTimePickerModule(context: Context) : LynxModule(context) {
     /** Read an epoch-ms option that may arrive as Int or Double from JS. */
     private fun optionalMs(options: ReadableMap?, key: String): Long? =
         options?.takeIf { it.hasKey(key) }?.getDouble(key)?.toLong()
+
+    private fun dayStart(ms: Long): Long = Calendar.getInstance().apply {
+        timeInMillis = ms
+        set(Calendar.HOUR_OF_DAY, 0)
+        set(Calendar.MINUTE, 0)
+        set(Calendar.SECOND, 0)
+        set(Calendar.MILLISECOND, 0)
+    }.timeInMillis
+
+    private fun dayEnd(ms: Long): Long = Calendar.getInstance().apply {
+        timeInMillis = ms
+        set(Calendar.HOUR_OF_DAY, 23)
+        set(Calendar.MINUTE, 59)
+        set(Calendar.SECOND, 59)
+        set(Calendar.MILLISECOND, 999)
+    }.timeInMillis
 
     private fun cancelled(): JavaOnlyMap = JavaOnlyMap().apply {
         putBoolean("cancelled", true)

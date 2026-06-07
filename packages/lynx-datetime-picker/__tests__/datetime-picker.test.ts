@@ -85,6 +85,13 @@ describe('DateTimePicker.pick', () => {
         expect(result).toEqual({ cancelled: true });
     });
 
+    it('treats a non-finite epoch value as cancelled', async () => {
+        bridge.callAsync.mockResolvedValueOnce({ cancelled: false, value: NaN });
+        expect(await DateTimePicker.pick()).toEqual({ cancelled: true });
+        bridge.callAsync.mockResolvedValueOnce({ cancelled: false, value: Infinity });
+        expect(await DateTimePicker.pick()).toEqual({ cancelled: true });
+    });
+
     it('resolves to { cancelled: true } when module is not registered', async () => {
         bridge.isModuleAvailable.mockReturnValueOnce(false);
         const result = await DateTimePicker.pick();
