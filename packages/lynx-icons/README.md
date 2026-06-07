@@ -127,6 +127,25 @@ The plugin dynamically `import()`s the adapter from the consumer's `node_modules
 - **HMR** for newly-added icon names requires a `pnpm dev` restart. The v1 scanner is a one-shot regex pass at plugin start; v1.1 replaces it with a real SWC-AST Rspack loader.
 - **FA Pro** and **Iconify** adapters are v1.1 follow-ups.
 
+## Troubleshooting
+
+### Icons render blank on Android emulators (x86_64)
+
+All icons go through Lynx's native `<svg>` element, and upstream's SVG engine
+(`org.lynxsdk.lynx:servalsvg`) ships **no `x86_64` native library** — on x86_64
+emulator images (the default AVD type on Windows/Linux/Intel-Mac hosts) the
+engine fails to load (`UnsatisfiedLinkError: SVGRenderEngine.render` in logcat)
+and every `<svg>` paints nothing. The icon's layout box is reserved, so you see
+blank gaps exactly where icons should be while all text renders fine.
+
+- **Real devices (arm64) and arm64 AVDs are unaffected** — verify icon
+  rendering there.
+- iOS is unaffected.
+- Tracked in [#270](https://github.com/signalxjs/lynx/issues/270); upstream
+  report: [lynx-family/lynx#7147](https://github.com/lynx-family/lynx/issues/7147).
+  `sigx doctor` and `sigx dev`/`run:android` warn when an x86_64 target is
+  detected.
+
 ## Reference app
 
 [`examples/showcase/src/screens/Settings.tsx`](https://github.com/signalxjs/lynx/blob/main/examples/showcase/src/screens/Settings.tsx) shows fa-solid, fa-brands, and lucide icons rendered side by side. The generated cache lives at `examples/showcase/node_modules/.cache/sigx-lynx-icons/` after `pnpm build`.

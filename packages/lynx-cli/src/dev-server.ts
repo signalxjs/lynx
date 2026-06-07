@@ -15,7 +15,7 @@ import { createServer } from 'node:net';
 import { request as httpRequest } from 'node:http';
 import { getAllLanIPs } from './network.js';
 import { generateQR } from './qr.js';
-import { getDeviceStatus, getDeviceStatusCached, invalidateDeviceStatusCache, launchLynxGo, launchApp, launchIosApp, launchAppOnDevice, resolveIosSimulator, bootSimulator, installAppOnSimulator, findBuiltApp, iosDerivedDataPath, adbReverse, adbReverseRemove, forceStopApp, LYNX_GO_PACKAGE, type DeviceStatus } from './device-detect.js';
+import { getDeviceStatus, getDeviceStatusCached, invalidateDeviceStatusCache, launchLynxGo, launchApp, launchIosApp, launchAppOnDevice, resolveIosSimulator, bootSimulator, installAppOnSimulator, findBuiltApp, iosDerivedDataPath, adbReverse, adbReverseRemove, forceStopApp, getDeviceCpuAbi, LYNX_GO_PACKAGE, type DeviceStatus } from './device-detect.js';
 import { runWithBuildFilter } from './build-output.js';
 import type { Logger } from '@sigx/cli/plugin';
 import type { SelectedTarget } from './target-picker.js';
@@ -572,6 +572,44 @@ async function findFreePort(start: number): Promise<number> {
 }
 
 /**
+ * Warn (once per device) when launching on an x86_64 Android target while the
+ * project bundles icon sets: upstream `servalsvg` ships no x86_64 native lib,
+ * so every `<svg>` — icons included — renders blank on those emulators
+ * (signalxjs/lynx#270). arm64 devices/AVDs and iOS are unaffected. Best-effort:
+ * config-load or adb failures just skip the warning.
+ */
+// Successful probes only — failed probes (null) are never cached, so the
+// next launch retries them (see the loop below).
+const _probedAbis = new Map<string, string>();
+const _warnedSvgAbi = new Set<string>();
+async function warnIfSvgAbiGap(cwd: string, deviceIds: string[], logger: Logger): Promise<void> {
+    const ids = deviceIds.filter((id) => !_warnedSvgAbi.has(id));
+    if (ids.length === 0) return;
+    try {
+        const { loadConfig } = await import('./prebuild.js');
+        const { resolveConfig } = await import('./config/index.js');
+        const config = resolveConfig(await loadConfig(cwd));
+        if (config.iconSets.length === 0) return;
+        for (const id of ids) {
+            // Cache successful ABI probes per device; a failed probe (null)
+            // stays uncached so a flaky adb gets retried on the next launch.
+            let abi: string | null | undefined = _probedAbis.get(id);
+            if (abi === undefined) {
+                abi = getDeviceCpuAbi(id);
+                if (abi !== null) _probedAbis.set(id, abi);
+            }
+            if (abi !== 'x86_64') continue;
+            _warnedSvgAbi.add(id);
+            logger.log(
+                `\x1b[33m!\x1b[0m ${id} is an x86_64 emulator — Lynx's SVG engine has no x86_64 ` +
+                `native lib, so icons (any <svg>) render blank there. Real devices and arm64 AVDs ` +
+                `are unaffected. https://github.com/signalxjs/lynx/issues/270`,
+            );
+        }
+    } catch { /* warning is best-effort only */ }
+}
+
+/**
  * Start the enhanced Lynx dev server.
  */
 export async function startDevServer(opts: DevServerOptions): Promise<void> {
@@ -748,6 +786,11 @@ export async function startDevServer(opts: DevServerOptions): Promise<void> {
             // Picker-driven: launch only what the user asked for. We just
             // finished `ensureAndroidBuilt` / `ensureIosBuilt` for each one,
             // so installation is guaranteed.
+            void warnIfSvgAbiGap(
+                cwd,
+                selectedTargets.filter((t) => t.kind === 'android-device').map((t) => t.deviceId),
+                logger,
+            );
             for (const t of selectedTargets) {
                 if (t.kind === 'android-device') {
                     addReverse(t.deviceId, serverState.port);
@@ -772,6 +815,7 @@ export async function startDevServer(opts: DevServerOptions): Promise<void> {
         // `sigx run:android` / `sigx run:ios` which set up their own target).
 
         // Android
+        void warnIfSvgAbiGap(cwd, deviceStatus.devices.map((d) => d.id), logger);
         for (const device of deviceStatus.devices) {
             addReverse(device.id, serverState.port);
             const url = `http://localhost:${serverState.port}/main.lynx.bundle`;
