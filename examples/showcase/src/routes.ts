@@ -9,6 +9,7 @@ import { Theming } from './screens/Theming.js';
 import { HeroUILab } from './screens/HeroUILab.js';
 import { Icons } from './screens/Icons.js';
 import { SystemBars } from './screens/SystemBars.js';
+import { SheetDemo } from './screens/SheetDemo.js';
 // Text & Markdown
 import { Markdown } from './screens/Markdown.js';
 import { MarkdownEditorScreen } from './screens/MarkdownEditor.js';
@@ -56,6 +57,9 @@ export const routes = defineRoutes({
     herouiLab: { component: HeroUILab, path: '/heroui-lab' },
     icons: { component: Icons, path: '/icons' },
     systemBars: { component: SystemBars, path: '/system-bars' },
+    // Bottom sheet: the route IS the sheet — pushing it slides the demo
+    // screen up to its 0.4 snap point over the dimmed catalog.
+    sheetDemo: { component: SheetDemo, path: '/sheet', presentation: 'sheet' },
 
     // Text & Markdown
     markdown: { component: Markdown, path: '/markdown' },
