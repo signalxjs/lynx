@@ -51,14 +51,15 @@ for (;;) {
     parseSseChunk(decoder.decode(value, { stream: true }));
 }
 ```
-> **Streaming status:** the JS surface above is final, but until the streaming native milestone (#250) lands the body arrives as a single chunk on completion — SSE code runs unchanged, it just sees everything at once instead of token-by-token.
+Chunks arrive as the network delivers them — `read()` resolves per network read, so SSE tokens render incrementally. `reader.cancel()` (or aborting the signal) cancels the native task mid-stream.
 
 ## API notes & deviations from spec
 - `Response`: `ok/status/statusText/headers/url/bodyUsed`, `text()/json()/arrayBuffer()`, `body.getReader()` → `{ read, cancel, releaseLock }`. No `clone()`, no `blob()` (no Blob in the runtime).
 - A body with no explicit `method` defaults to `POST` (spec says GET-and-throw; this is friendlier and doesn't affect portable code, which sets the method).
 - `AbortSignal` is duck-typed — any `{ aborted, addEventListener }` works; aborting rejects with an `AbortError`-named error and cancels the native task. `reader.cancel()` also aborts.
 - Backpressure is not implemented: chunks queue in JS until read (same tradeoff as `@sigx/lynx-websocket`). Very large downloads buffer in JS if you never read.
+- No inter-data timeout for `fetch` requests — matching browser fetch, a quiet-but-healthy connection (SSE between events) is never killed; use `AbortSignal` for deadlines. (`streaming: false` bridge callers get a 60s between-bytes timeout instead.)
 - Redirects follow silently (URLSession/OkHttp defaults); `response.url` is the request URL.
 
 ## Bridge protocol (for contributors)
-`Http.request(id, spec, cb)` / `Http.abort(id, cb)`; outcomes arrive as `__sigxHttpEvent` global events demuxed by id: `response` (once) → `progress`* → `chunk`* (base64) → `done` | `error`. The protocol is frozen across the buffered (#249) and streaming (#250) milestones — see `src/types.ts`.
+`Http.request(id, spec, cb)` / `Http.abort(id, cb)`; outcomes arrive as `__sigxHttpEvent` global events demuxed by id: `response` (once) → `progress`* → `chunk`* (base64) → `done` | `error`. `spec.streaming: true` (what `fetch` always sends) delivers one `chunk` per network read; `false` buffers the body into a single chunk — see `src/types.ts`.

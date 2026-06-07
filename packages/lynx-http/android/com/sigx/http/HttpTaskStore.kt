@@ -26,10 +26,10 @@ import java.util.concurrent.TimeUnit
  * Process-wide registry of live OkHttp [Call]s keyed by the JS-supplied
  * numeric id, plus the multipart body factory.
  *
- * Buffered implementation (#249): the response body is read whole and
- * flushed as a single `chunk` event. The streaming milestone (#250) will
- * read `response.body.source()` in a loop emitting one chunk per read
- * when the request's `streaming` flag is set — purely additive here.
+ * Delivery honors the spec's `streaming` flag (#250): streaming requests
+ * read the body stream in a loop emitting one `chunk` per network read
+ * (incremental SSE); non-streaming requests read the body whole and flush
+ * it as a single `chunk` (fewer bridge crossings for ordinary calls).
  */
 internal object HttpTaskStore {
 
@@ -60,10 +60,22 @@ internal object HttpTaskStore {
     private val client: OkHttpClient by lazy {
         OkHttpClient.Builder()
             // Between-bytes timeout matching iOS's timeoutIntervalForRequest.
-            // Long-lived streams (SSE) stay alive as long as the server
-            // keeps sending (keepalives reset the clock); a stalled server
-            // fails the call instead of hanging it forever.
+            // Buffered calls fail on a stalled server instead of hanging.
             .readTimeout(60, TimeUnit.SECONDS)
+            .build()
+    }
+
+    /**
+     * Client for streaming requests — SSE servers can legitimately go
+     * quiet for minutes between events, so the 60s between-bytes timeout
+     * would kill healthy connections. No read timeout (browser fetch has
+     * none either); deadlines come from AbortSignal / call.cancel(), and
+     * the shared connect timeout still fails dead hosts fast. newBuilder
+     * shares the connection pool and dispatcher with [client].
+     */
+    private val streamingClient: OkHttpClient by lazy {
+        client.newBuilder()
+            .readTimeout(0, TimeUnit.MILLISECONDS)
             .build()
     }
 
@@ -93,7 +105,7 @@ internal object HttpTaskStore {
 
         builder.method(spec.method, if (requiresBody(spec.method) && body == null) ByteArray(0).toRequestBody() else body)
 
-        val call = client.newCall(builder.build())
+        val call = (if (spec.streaming) streamingClient else client).newCall(builder.build())
         calls[id] = call
         call.enqueue(object : Callback {
             override fun onFailure(call: Call, e: IOException) {
@@ -112,10 +124,32 @@ internal object HttpTaskStore {
                     }
                     HttpEventBus.publishResponse(id, it.code, it.message, headers)
                     try {
-                        // Buffered mode: whole body as one chunk.
-                        val bytes = it.body?.bytes() ?: ByteArray(0)
-                        if (bytes.isNotEmpty()) {
-                            HttpEventBus.publishChunk(id, Base64.encodeToString(bytes, Base64.NO_WRAP))
+                        if (spec.streaming) {
+                            // Streaming mode: one chunk per network read so
+                            // SSE consumers render incrementally. This runs
+                            // on OkHttp's dispatcher thread — blocking reads
+                            // here are fine.
+                            val stream = it.body?.byteStream()
+                            if (stream != null) {
+                                val buf = ByteArray(64 * 1024)
+                                while (true) {
+                                    val n = stream.read(buf)
+                                    if (n < 0) break
+                                    if (n > 0) {
+                                        HttpEventBus.publishChunk(
+                                            id,
+                                            Base64.encodeToString(buf, 0, n, Base64.NO_WRAP),
+                                        )
+                                    }
+                                }
+                            }
+                        } else {
+                            // Buffered mode: whole body as one chunk (fewer
+                            // bridge crossings for ordinary JSON calls).
+                            val bytes = it.body?.bytes() ?: ByteArray(0)
+                            if (bytes.isNotEmpty()) {
+                                HttpEventBus.publishChunk(id, Base64.encodeToString(bytes, Base64.NO_WRAP))
+                            }
                         }
                         HttpEventBus.publishDone(id)
                     } catch (e: IOException) {

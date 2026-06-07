@@ -3,10 +3,10 @@ import Foundation
 /// Process-wide registry of live `URLSessionTask`s keyed by the
 /// JS-supplied numeric id, plus the multipart body composer.
 ///
-/// Buffered implementation (#249): response bytes accumulate per-task and
-/// flush as a single `chunk` event on completion. The streaming milestone
-/// (#250) will emit a `chunk` per `didReceive data:` when the request's
-/// `streaming` flag is set — a purely additive change here.
+/// Delivery honors the spec's `streaming` flag (#250): streaming requests
+/// emit a `chunk` event per `didReceive data:` so SSE consumers render
+/// incrementally; non-streaming requests accumulate and flush as a single
+/// `chunk` on completion (fewer bridge crossings for ordinary JSON calls).
 final class HttpTaskStore: NSObject, URLSessionDataDelegate {
 
     static let shared = HttpTaskStore()
@@ -16,6 +16,8 @@ final class HttpTaskStore: NSObject, URLSessionDataDelegate {
     private var idsByTask: [ObjectIdentifier: Int] = [:]
     /// Accumulated response bodies (buffered mode).
     private var buffers: [Int: Data] = [:]
+    /// Ids whose body is delivered incrementally (`streaming: true`).
+    private var streamingIds = Set<Int>()
     /// Temp multipart body files, deleted on completion.
     private var bodyFiles: [Int: URL] = [:]
 
@@ -24,6 +26,17 @@ final class HttpTaskStore: NSObject, URLSessionDataDelegate {
         let cfg = URLSessionConfiguration.default
         cfg.timeoutIntervalForRequest = 60
         // No resource timeout — large uploads/downloads drive their own pace.
+        cfg.timeoutIntervalForResource = 0
+        return URLSession(configuration: cfg, delegate: self, delegateQueue: nil)
+    }()
+
+    /// Session for streaming requests — SSE servers can legitimately go
+    /// quiet for minutes between events, so the 60s inter-data timeout of
+    /// the default session would kill healthy connections. Teardown comes
+    /// from the server closing, `abort()`, or transport failure.
+    private lazy var streamingSession: URLSession = {
+        let cfg = URLSessionConfiguration.default
+        cfg.timeoutIntervalForRequest = 86_400
         cfg.timeoutIntervalForResource = 0
         return URLSession(configuration: cfg, delegate: self, delegateQueue: nil)
     }()
@@ -87,20 +100,27 @@ final class HttpTaskStore: NSObject, URLSessionDataDelegate {
                 old.cancel()
                 idsByTask.removeValue(forKey: ObjectIdentifier(old))
                 buffers.removeValue(forKey: id)
+                streamingIds.remove(id)
                 if let oldFile = bodyFiles.removeValue(forKey: id) {
                     try? FileManager.default.removeItem(at: oldFile)
                 }
             }
+            let streaming = (spec["streaming"] as? Bool) == true
+            let taskSession = streaming ? streamingSession : session
             let task: URLSessionTask
             if let bodyFile = bodyFile {
-                task = session.uploadTask(with: request, fromFile: bodyFile)
+                task = taskSession.uploadTask(with: request, fromFile: bodyFile)
                 bodyFiles[id] = bodyFile
             } else {
-                task = session.dataTask(with: request)
+                task = taskSession.dataTask(with: request)
             }
             tasks[id] = task
             idsByTask[ObjectIdentifier(task)] = id
-            buffers[id] = Data()
+            if streaming {
+                streamingIds.insert(id)
+            } else {
+                buffers[id] = Data()
+            }
             task.resume()
         }
     }
@@ -136,10 +156,20 @@ final class HttpTaskStore: NSObject, URLSessionDataDelegate {
     }
 
     func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
-        queue.sync {
-            guard let id = idsByTask[ObjectIdentifier(dataTask)] else { return }
+        let streamingId: Int? = queue.sync {
+            guard let id = idsByTask[ObjectIdentifier(dataTask)] else { return nil }
+            if streamingIds.contains(id) { return id }
             // Buffered mode: accumulate; flushed as one chunk on completion.
             buffers[id]?.append(data)
+            return nil
+        }
+        // Streaming mode: one chunk event per network read — published
+        // outside the bookkeeping queue to keep it free for other tasks and
+        // avoid re-entrancy. (Listeners run synchronously, so a slow one
+        // still back-pressures this delegate thread — acceptable: it only
+        // slows this transfer's reads.)
+        if let id = streamingId {
+            HttpEventBus.shared.publish(chunk: data.base64EncodedString(), id: id)
         }
     }
 
@@ -158,7 +188,9 @@ final class HttpTaskStore: NSObject, URLSessionDataDelegate {
             guard let id = idsByTask[key] else { return nil }
             idsByTask.removeValue(forKey: key)
             tasks.removeValue(forKey: id)
+            // Streaming ids have no buffer — chunks already went out live.
             let buffer = buffers.removeValue(forKey: id) ?? Data()
+            streamingIds.remove(id)
             let bodyFile = bodyFiles.removeValue(forKey: id)
             return (id, buffer, bodyFile)
         }

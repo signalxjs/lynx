@@ -209,8 +209,9 @@ export function fetch(input: string | { url: string }, init: RequestInitLike = {
         url,
         method,
         headers: headers.toRecord(),
-        // Always allow incremental delivery — the buffered native build
-        // ignores the flag; JS queues chunks either way.
+        // Always request incremental delivery — small responses arrive in
+        // one network read (= one chunk) anyway, and SSE/large bodies
+        // stream without a non-standard opt-in. JS queues chunks either way.
         streaming: true,
         body,
     };

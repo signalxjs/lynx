@@ -131,7 +131,7 @@ The same split the web platform uses:
   const res = await fetch('https://api.example.com/users');
   const users = await res.json();
   ```
-  Includes `FormData` multipart uploads — picked-file bytes stream natively from their URI, never through the JS bridge — plus upload progress and a `TextDecoder` shim. When the native module is linked it replaces any engine-built-in fetch (which lacks `FormData`/streaming); web/Node hosts keep theirs. Streaming response bodies (`res.body.getReader()` for SSE) land with [#250](https://github.com/signalxjs/lynx/issues/250).
+  Includes `FormData` multipart uploads — picked-file bytes stream natively from their URI, never through the JS bridge — plus upload progress, streaming response bodies (`res.body.getReader()` delivers chunks as the network reads them, so SSE renders token-by-token), and a `TextDecoder` shim. When the native module is linked it replaces any engine-built-in fetch (which lacks `FormData`/streaming); web/Node hosts keep theirs.
 - **WebSocket** — install [`@sigx/lynx-websocket`](./packages/lynx-websocket) and run `sigx prebuild`. Registers a browser-standard `WebSocket` global backed by `URLSessionWebSocketTask` (iOS) and OkHttp (Android).
 - **Connectivity status** — [`@sigx/lynx-network`](./packages/lynx-network) reports online/offline + connection type. Not a transport; pair with `fetch` / `WebSocket`.
 
