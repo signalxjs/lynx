@@ -445,11 +445,13 @@ export function createNavigatorState(opts: CreateNavigatorOptions): NavigatorSta
             }
             if (read === null) {
                 await new Promise<void>((resolve) => { setTimeout(resolve, 0); });
+                read = readSheetTarget();
+            }
+            if (read === null) {
+                // Still unmounted (lazy route) — default snap config.
                 const snaps = resolveSnapPoints(undefined);
-                read = readSheetTarget() ?? {
-                    target: initialSnapProgress(snaps, undefined),
-                    heightFraction: snaps[snaps.length - 1],
-                };
+                const target = initialSnapProgress(snaps, undefined);
+                read = { target, heightFraction: target * snaps[snaps.length - 1] };
             }
             // The entry can have left the stack during the deferred wait
             // (e.g. a `reset()` — ordinary pops are blocked while the
