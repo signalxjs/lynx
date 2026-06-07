@@ -76,8 +76,15 @@ final class HttpTaskStore: NSObject, URLSessionDataDelegate {
 
         queue.sync {
             if let old = tasks[id] {
+                // Replacing an id skips the old task's didCompleteWithError
+                // cleanup (its idsByTask entry is gone) — release its
+                // bookkeeping here so buffers/temp body files can't leak.
                 old.cancel()
                 idsByTask.removeValue(forKey: ObjectIdentifier(old))
+                buffers.removeValue(forKey: id)
+                if let oldFile = bodyFiles.removeValue(forKey: id) {
+                    try? FileManager.default.removeItem(at: oldFile)
+                }
             }
             let task: URLSessionTask
             if let bodyFile = bodyFile {
@@ -185,7 +192,17 @@ enum MultipartBuilder {
             .appendingPathComponent("sigx-http-body-\(UUID().uuidString)")
         FileManager.default.createFile(atPath: tmp.path, contents: nil)
         let handle = try FileHandle(forWritingTo: tmp)
-        defer { try? handle.close() }
+        // Composition can throw mid-way (unreadable file URI) — delete the
+        // partial temp file on any non-success exit so failed uploads don't
+        // litter NSTemporaryDirectory(). On success the file is kept for
+        // uploadTask(fromFile:) and removed in didCompleteWithError.
+        var success = false
+        defer {
+            try? handle.close()
+            if !success {
+                try? FileManager.default.removeItem(at: tmp)
+            }
+        }
 
         func write(_ s: String) {
             if let d = s.data(using: .utf8) { handle.write(d) }
@@ -215,6 +232,7 @@ enum MultipartBuilder {
             }
         }
         write("--\(boundary)--\r\n")
+        success = true
         return tmp
     }
 
