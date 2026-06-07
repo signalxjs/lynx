@@ -68,4 +68,23 @@ describe('Modal', () => {
     const modalBox = overlay.children[0];
     expect(modalBox._class).toContain('custom-modal');
   });
+
+  // #260: the box must consume taps natively (catchtap → Lynx catchEvent).
+  // There is no e.stopPropagation() in this runtime, so a bindtap guard on
+  // the box is a silent no-op and every inner tap would bubble to the
+  // overlay's close handler.
+  it('overlay closes via bindtap; the box consumes taps via catchtap', () => {
+    const { container } = render(
+      <Modal open={true} onClose={() => {}}>
+        <Modal.Body>
+          <text>Content</text>
+        </Modal.Body>
+      </Modal>
+    );
+    const overlay = container.children[0];
+    const modalBox = overlay.children[0];
+    expect(overlay._handlers.has('bindtap')).toBe(true);
+    expect(modalBox._handlers.has('catchtap')).toBe(true);
+    expect(modalBox._handlers.has('bindtap')).toBe(false);
+  });
 });
