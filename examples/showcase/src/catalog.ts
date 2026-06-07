@@ -178,6 +178,13 @@ export const catalog: Area[] = [
                 route: 'shareDemo',
             },
             {
+                id: 'datetime-picker',
+                title: 'Date & time picker',
+                description: 'Native date / time / datetime pickers',
+                icon: { set: 'lucide', name: 'calendar-clock' },
+                route: 'datetimePickerDemo',
+            },
+            {
                 id: 'webview',
                 title: 'WebView',
                 description: 'Embedded browser with back/forward/reload',

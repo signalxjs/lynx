@@ -22,6 +22,7 @@ import { MapsDemo } from './screens/MapsDemo.js';
 import { MediaDemo } from './screens/MediaDemo.js';
 import { LocationDemo } from './screens/LocationDemo.js';
 import { ShareDemo } from './screens/ShareDemo.js';
+import { DateTimePickerDemo } from './screens/DateTimePickerDemo.js';
 import { WebViewDemo } from './screens/WebViewDemo.js';
 import { AuthDemo } from './screens/AuthDemo.js';
 import { NotificationsDemo } from './screens/NotificationsDemo.js';
@@ -73,6 +74,7 @@ export const routes = defineRoutes({
     mediaDemo: { component: MediaDemo, path: '/media' },
     locationDemo: { component: LocationDemo, path: '/location' },
     shareDemo: { component: ShareDemo, path: '/share' },
+    datetimePickerDemo: { component: DateTimePickerDemo, path: '/datetime-picker' },
     webviewDemo: { component: WebViewDemo, path: '/webview' },
     authDemo: { component: AuthDemo, path: '/auth' },
     notifications: { component: NotificationsDemo, path: '/notifications' },
