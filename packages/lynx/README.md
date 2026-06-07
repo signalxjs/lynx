@@ -8,6 +8,7 @@
 
 - **Native, not WebView.** Real `UIView` / `View` trees. Video maps to `AVPlayer` / `ExoPlayer`, maps to `MKMapView` / Google Maps, gestures hit the actual touch system — no DOM wrapper, no JS bridge in the hot path.
 - **Zero-config native modules.** `pnpm add @sigx/lynx-camera` → `sigx prebuild` → done. The autolinker wires Podfile, Gradle, `Info.plist`, `AndroidManifest.xml`, and the native module registry from each package's `signalx-module.json`. You never edit a `Podfile` to add a dependency.
+- **`fetch` is just there.** Importing `@sigx/lynx` installs a global WHATWG `fetch` (plus `Headers` / `FormData` / `Response` / a `TextDecoder` shim) backed by [`@sigx/lynx-http`](https://github.com/signalxjs/lynx/tree/main/packages/lynx-http) — URLSession / OkHttp underneath, `FormData` multipart uploads that stream picked-file bytes natively, upload progress, and streaming bodies (`res.body.getReader()` for SSE). The native side autolinks automatically; opt out with `excludeModules: ['@sigx/lynx-http']` in your `signalx.config.ts`.
 - **Main-thread gestures & animations.** Press, drag, swipe, scroll offsets, and spring + tween animations all run on Lepus (the platform's main thread). Your finger tracks at the display's refresh rate even when JS is busy.
 - **`SharedValue` — cross-thread state for free.** Mutate from a `'main thread'` worklet; read reactively from a SignalX `effect` on the background thread. Powers gestures, scroll, animation, and any custom "fast state lives on MT" use case. Not available in react-lynx or vue-lynx as of 2026-04.
 - **Type-first navigation.** `defineRoutes` plus module augmentation gives every navigator API (`useNav`, `useParams`, `useSearch`, `<Link>`) precise per-route inference. Native Stack / Tabs / Drawer / modals.
@@ -144,6 +145,19 @@ Scroll → `<ScrollView>`'s MT worklet writes `scrollY.current.value` → flush 
 
 - **Not bidirectional.** Writes from BG (`sv.value = 100`) are no-op'd with a dev warning. Authoritative state lives on MT; BG observes.
 - **Mappers register on MT.** Custom mappers must be registered from a MT-side module via `registerMapper(name, fn)` — BG-side `useAnimatedStyle` only carries the *name*.
+
+## Networking out of the box
+
+No import, no setup — `fetch` is global, like on the web:
+
+```ts
+const res = await fetch('https://api.example.com/items', {
+    headers: { Authorization: `Bearer ${token}` },
+});
+const items = await res.json();
+```
+
+Multipart uploads (with `@sigx/lynx-file-picker` handles) and streaming/SSE consumption (`res.body.getReader()`) work too — see [`@sigx/lynx-http`](https://github.com/signalxjs/lynx/tree/main/packages/lynx-http) for the full surface, spec deviations, and how the default wiring works. `WebSocket` and connectivity status remain separate installs ([`@sigx/lynx-websocket`](https://github.com/signalxjs/lynx/tree/main/packages/lynx-websocket), [`@sigx/lynx-network`](https://github.com/signalxjs/lynx/tree/main/packages/lynx-network)).
 
 ## The rest of the ecosystem
 
