@@ -35,7 +35,13 @@ type SheetBackdropProps =
     /** Sheet progress SV; null when animations are disabled (static dim). */
     & Define.Prop<'sheetProgress', SharedValue<number> | null, true>
     /** When true, tapping the backdrop pops the sheet. */
-    & Define.Prop<'dismissable', boolean, true>;
+    & Define.Prop<'dismissable', boolean, true>
+    /**
+     * Mirror of the sheet layer's retained-covered state: render with
+     * `display: none` (stays mounted, keeps `<SheetSlot>`'s child shape
+     * stable) while the sheet itself is hidden.
+     */
+    & Define.Prop<'hidden', boolean, true>;
 
 export const SheetBackdrop = component<SheetBackdropProps>(({ props }) => {
     const nav = useNav();
@@ -69,6 +75,7 @@ export const SheetBackdrop = component<SheetBackdropProps>(({ props }) => {
                 left: '0',
                 right: '0',
                 bottom: '0',
+                display: props.hidden ? 'none' : 'flex',
                 backgroundColor: '#000',
                 // With an SV the binding drives opacity (starting at the
                 // SV's current value); statically, render at full dim.

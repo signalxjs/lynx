@@ -7,6 +7,7 @@ import {
     untrack,
     useSharedValue,
     type Define,
+    type SharedValue,
 } from '@sigx/lynx';
 import { createNavigatorState } from '../navigator/core.js';
 import { useNav, type Nav } from '../hooks/use-nav.js';
@@ -16,11 +17,12 @@ import {
     useNavRoutes,
     type NavInternals,
 } from '../hooks/use-nav-internal.js';
-import type { Presentation, StackEntry } from '../types.js';
+import type { Presentation, RouteMap, StackEntry } from '../types.js';
 import {
     computeLayers,
     isOverlayPresentation,
     MAX_LAYERS,
+    type LayerAnimation,
     type SheetLayerContext,
 } from '../internal/layer-plan.js';
 import {
@@ -80,6 +82,49 @@ type StackProps =
     & Define.Slot<'default'>;
 
 let _nestedKeyCounter = 0;
+
+type SheetSlotProps =
+    & Define.Prop<'entry', StackEntry, true>
+    & Define.Prop<'routes', RouteMap, true>
+    & Define.Prop<'animation', LayerAnimation | null, false>
+    & Define.Prop<'hidden', boolean, false>
+    & Define.Prop<'staticOffsetY', number, false>
+    & Define.Prop<'sheetProgress', SharedValue<number> | null, true>
+    & Define.Prop<'dismissable', boolean, true>;
+
+/**
+ * One Stack slot hosting a sheet entry: its `<SheetBackdrop>` followed by
+ * the regular `<Layer>`. Wrapped in a component (fragment at the component
+ * root — the same proven shape as daisyui's ThemeProvider) rather than an
+ * inline fragment, because the Stack body's 24 unrolled slots are
+ * position-stable single children and an inline multi-child fragment in a
+ * slot is exactly the array-shape change the reconciler remounts on (see
+ * the slot comment in the render below). Document order inside: backdrop
+ * below, sheet surface above — Lynx has no z-index.
+ *
+ * Every sheet entry routes through this component — visible OR hidden
+ * (retained-covered) — so the slot's component type never flips between
+ * `<SheetSlot>` and `<Layer>` mid-life, which would remount the screen
+ * subtree. The fragment's child shape is constant too: the backdrop hides
+ * via `display: none` rather than unmounting.
+ */
+const SheetSlot = component<SheetSlotProps>(({ props }) => () => (
+    <>
+        <SheetBackdrop
+            sheetProgress={props.sheetProgress}
+            dismissable={props.dismissable ?? false}
+            hidden={props.hidden ?? false}
+        />
+        <Layer
+            key={`layer-${props.entry.key}`}
+            entry={props.entry}
+            routes={props.routes}
+            animation={props.animation}
+            hidden={props.hidden}
+            staticOffsetY={props.staticOffsetY}
+        />
+    </>
+));
 
 /**
  * Number of `renderLayerNode(layers[n])` slots unrolled in the render
@@ -372,40 +417,46 @@ export const Stack = component<StackProps>(({ props, slots }) => {
             sheetCtx,
         );
 
-        // Each visible sheet layer is preceded by its `<SheetBackdrop>`
-        // within the same slot — Lynx has no z-index, so document order
-        // puts the backdrop above all lower layers and beneath the sheet
-        // surface. The slot stays one position-stable child; only its
-        // content flips (Layer ↔ fragment), mirroring the null ↔ Layer
-        // flips the slots already do.
-        const renderLayerNode = (layer: typeof layers[number] | undefined) =>
-            layer ? (
-                <>
-                    {layer.entry.presentation === 'sheet' && !layer.hidden ? (
-                        <SheetBackdrop
-                            key={`backdrop-${layer.entry.key}`}
-                            sheetProgress={
-                                layer.entry.key === activeSheetEntry?.key
-                                    ? internals.sheetProgress
-                                    : null
-                            }
-                            dismissable={
-                                layer.entry.key === currentTop.key &&
-                                !nav.transition &&
-                                sheetConfigFor(layer.entry).backdropDismiss
-                            }
-                        />
-                    ) : null}
-                    <Layer
+        // A visible sheet entry renders through `<SheetSlot>` — its
+        // `<SheetBackdrop>` followed by the regular `<Layer>` — so the
+        // backdrop sits above all lower layers and beneath the sheet
+        // surface (document order; Lynx has no z-index). The slot stays
+        // one position-stable child either way.
+        const renderLayerNode = (layer: typeof layers[number] | undefined) => {
+            if (!layer) return null;
+            if (layer.entry.presentation === 'sheet') {
+                return (
+                    <SheetSlot
                         key={`layer-${layer.entry.key}`}
                         entry={layer.entry}
                         routes={routes}
                         animation={layer.animation}
                         hidden={layer.hidden}
                         staticOffsetY={layer.staticOffsetY}
+                        sheetProgress={
+                            layer.entry.key === activeSheetEntry?.key
+                                ? internals.sheetProgress
+                                : null
+                        }
+                        dismissable={
+                            layer.entry.key === currentTop.key &&
+                            !nav.transition &&
+                            sheetConfigFor(layer.entry).backdropDismiss
+                        }
                     />
-                </>
-            ) : null;
+                );
+            }
+            return (
+                <Layer
+                    key={`layer-${layer.entry.key}`}
+                    entry={layer.entry}
+                    routes={routes}
+                    animation={layer.animation}
+                    hidden={layer.hidden}
+                    staticOffsetY={layer.staticOffsetY}
+                />
+            );
+        };
         // sigx's reconciler treats a single array-valued JSX child as
         // one "slot": when the array's *length* changes between
         // renders, keyed children inside can be remounted even if

@@ -353,14 +353,17 @@ export function createNavigatorState(opts: CreateNavigatorOptions): NavigatorSta
 
         if (!animated) return;
 
-        // A sheet opens to its initial snap point, not progress 1. The batch
-        // above flushed synchronously, so the new screen has mounted and its
-        // `<Screen snapPoints>` registration (synchronous in setup) is
-        // readable here. Lazy sheet routes that haven't resolved yet fall
-        // back to the default snap config.
-        let target = 1;
-        let seed: number | null = 0;
-        if (isSheet) {
+        // A sheet opens to its initial snap point, not progress 1. The snap
+        // config comes from the screen's `<Screen snapPoints>` registration,
+        // which lands during the render flush — DEFERRED on the real
+        // runtime, so it is NOT readable synchronously here (it is under
+        // lynx-testing's eager flush, which is why only on-device testing
+        // catches this). Wait one macrotask for the mount before reading;
+        // the transition state is already committed so the sheet renders
+        // (off-screen at sv≈0) in the meantime. Lazy sheet routes that
+        // still haven't resolved fall back to the default snap config.
+        const startSheetPush = async (): Promise<void> => {
+            await new Promise<void>((resolve) => { setTimeout(resolve, 0); });
             const screenOpts = untrack(() => {
                 const o = screens.get(newEntry.key)?.options;
                 return {
@@ -369,10 +372,13 @@ export function createNavigatorState(opts: CreateNavigatorOptions): NavigatorSta
                 };
             });
             const snaps = resolveSnapPoints(screenOpts.snapPoints);
-            target = initialSnapProgress(snaps, screenOpts.initialSnapIndex);
-            seed = 0;
-        }
-        animateProgress(sv, seed, target, TRANSITION_DURATION_SEC).then(
+            const target = initialSnapProgress(snaps, screenOpts.initialSnapIndex);
+            return animateProgress(sv, 0, target, TRANSITION_DURATION_SEC);
+        };
+        (isSheet
+            ? startSheetPush()
+            : animateProgress(sv, 0, 1, TRANSITION_DURATION_SEC)
+        ).then(
             () => setTransition(null),
             () => setTransition(null), // best-effort cleanup on animation rejection
         );
