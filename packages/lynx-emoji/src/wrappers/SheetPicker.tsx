@@ -41,8 +41,12 @@ export const SheetPicker = component<SheetPickerProps>(({ props, emit }) => {
                     justifyContent: 'flex-end',
                 }}
             >
+                {/* catchtap (Lynx catchEvent) actually stops bubbling — there
+                    is no e.stopPropagation() in this runtime, so a bindtap
+                    no-op would let every tap inside the sheet reach the
+                    backdrop's close handler (#254). */}
                 <view
-                    bindtap={(e: { stopPropagation?: () => void }) => e?.stopPropagation?.()}
+                    catchtap={() => {}}
                     class={props.sheetClass}
                     style={{
                         height: `${props.height ?? 420}px`,
