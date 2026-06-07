@@ -189,6 +189,12 @@ importers:
       '@lynx-js/template-webpack-plugin':
         specifier: '>=0.11.1'
         version: 0.11.1(tslib@2.8.1)
+      '@lynx-js/web-core':
+        specifier: '>=0.20.4'
+        version: 0.20.4(@lynx-js/css-serializer@0.1.6)(tslib@2.8.1)
+      '@lynx-js/web-elements':
+        specifier: '>=0.12.2'
+        version: 0.12.2(tslib@2.8.1)
       '@lynx-js/webpack-dev-transport':
         specifier: '>=0.1.0'
         version: 0.2.0
