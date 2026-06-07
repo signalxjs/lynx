@@ -261,6 +261,29 @@ describe('lynx-runtime nodeOps (shadow-tree + op-queue)', () => {
       .toEqual({ flexGrow: 1, flexShrink: 1, flexBasis: '0%' });
   });
 
+  // Invalid per CSS (non-finite/negative factors, blank strings) must pass
+  // through unchanged, not expand to bogus longhands.
+  it('flex shorthand passes invalid values through unchanged', () => {
+    const styleFor = (style: Record<string, unknown>): Record<string, unknown> => {
+      const el = nodeOps.createElement('view');
+      drainOps();
+      nodeOps.patchProp(el, 'style', null, style);
+      const op = parseOps(drainOps()).find(r => r[0] === OP.SET_STYLE);
+      return op![2] as Record<string, unknown>;
+    };
+
+    expect(styleFor({ flex: NaN })).toEqual({ flex: NaN });
+    expect(styleFor({ flex: Infinity })).toEqual({ flex: Infinity });
+    expect(styleFor({ flex: -1 })).toEqual({ flex: -1 });
+    expect(styleFor({ flex: '' })).toEqual({ flex: '' });
+    expect(styleFor({ flex: '   ' })).toEqual({ flex: '   ' });
+    expect(styleFor({ flex: '-1' })).toEqual({ flex: '-1' });
+    expect(styleFor({ flex: 'Infinity' })).toEqual({ flex: 'Infinity' });
+    expect(styleFor({ flex: '1 -2' })).toEqual({ flex: '1 -2' });
+    expect(styleFor({ flex: '-1 2 0%' })).toEqual({ flex: '-1 2 0%' });
+    expect(styleFor({ flex: '1 2 3 4' })).toEqual({ flex: '1 2 3 4' });
+  });
+
   // Test 7: patchProp with class pushes SET_CLASS op
   it('patchProp with class pushes SET_CLASS op', () => {
     const el = nodeOps.createElement('view');

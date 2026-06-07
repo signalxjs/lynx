@@ -141,37 +141,51 @@ const DIMENSIONLESS = new Set([
  *   flex: '2 200px'      → grow 2, shrink 1, basis 200px
  *   flex: '2 3 200px'    → grow 2, shrink 3, basis 200px
  *
- * Returns null for values it can't make sense of (passed through as-is).
+ * Returns null for values it can't make sense of (passed through as-is) —
+ * including non-finite or negative grow/shrink (invalid per CSS) and
+ * empty/whitespace-only strings.
  */
 function expandFlexShorthand(
   val: unknown,
 ): { flexGrow: number; flexShrink: number; flexBasis: string } | null {
+  // CSS: grow/shrink must be finite and non-negative.
+  const factor = (raw: unknown): number | null => {
+    const n = typeof raw === 'number' ? raw : Number(raw);
+    return Number.isFinite(n) && n >= 0 ? n : null;
+  };
+
   if (typeof val === 'number') {
-    return { flexGrow: val, flexShrink: 1, flexBasis: '0%' };
+    const grow = factor(val);
+    return grow === null ? null : { flexGrow: grow, flexShrink: 1, flexBasis: '0%' };
   }
-  if (typeof val !== 'string') return null;
+  if (typeof val !== 'string' || val.trim() === '') return null;
   const tokens = val.trim().split(/\s+/);
   if (tokens.length === 1) {
     const t = tokens[0];
     if (t === 'none') return { flexGrow: 0, flexShrink: 0, flexBasis: 'auto' };
     if (t === 'auto') return { flexGrow: 1, flexShrink: 1, flexBasis: 'auto' };
     if (t === 'initial') return { flexGrow: 0, flexShrink: 1, flexBasis: 'auto' };
-    const n = Number(t);
-    if (!Number.isNaN(n)) return { flexGrow: n, flexShrink: 1, flexBasis: '0%' };
-    return { flexGrow: 1, flexShrink: 1, flexBasis: t }; // single <flex-basis>
+    const grow = factor(t);
+    if (grow !== null) return { flexGrow: grow, flexShrink: 1, flexBasis: '0%' };
+    // Not numeric-ish at all → single <flex-basis>; numeric-but-invalid
+    // ('-1', 'Infinity') → unparseable, pass through.
+    return Number.isNaN(Number(t))
+      ? { flexGrow: 1, flexShrink: 1, flexBasis: t }
+      : null;
   }
   if (tokens.length === 2) {
-    const grow = Number(tokens[0]);
-    if (Number.isNaN(grow)) return null;
-    const second = Number(tokens[1]);
-    return Number.isNaN(second)
-      ? { flexGrow: grow, flexShrink: 1, flexBasis: tokens[1] }
-      : { flexGrow: grow, flexShrink: second, flexBasis: '0%' };
+    const grow = factor(tokens[0]);
+    if (grow === null) return null;
+    if (Number.isNaN(Number(tokens[1]))) {
+      return { flexGrow: grow, flexShrink: 1, flexBasis: tokens[1] };
+    }
+    const shrink = factor(tokens[1]);
+    return shrink === null ? null : { flexGrow: grow, flexShrink: shrink, flexBasis: '0%' };
   }
   if (tokens.length === 3) {
-    const grow = Number(tokens[0]);
-    const shrink = Number(tokens[1]);
-    if (Number.isNaN(grow) || Number.isNaN(shrink)) return null;
+    const grow = factor(tokens[0]);
+    const shrink = factor(tokens[1]);
+    if (grow === null || shrink === null) return null;
     return { flexGrow: grow, flexShrink: shrink, flexBasis: tokens[2] };
   }
   return null;
