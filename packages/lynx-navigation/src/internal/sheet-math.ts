@@ -48,70 +48,75 @@ export function offsetYToProgress(
 }
 
 /**
- * Downward release speed (px/sec) past which the sheet dismisses regardless
- * of position. Mirrors `EdgeBackHandle`'s `COMMIT_VELOCITY`.
+ * How far ahead (seconds) a release projects the finger's velocity to pick
+ * its landing position. On-device testing showed a raw velocity threshold
+ * (the original 300 px/s, mirroring EdgeBackHandle) misfires for sheets: a
+ * controlled ~360 px/s downward drag from the upper detent read as a
+ * "dismiss fling" even though the finger clearly aimed at the lower
+ * detent. Projecting position instead unifies both decisions: a genuine
+ * fling projects past the dismiss line from anywhere; a controlled drag
+ * projects near a detent and settles there.
  */
-export const DISMISS_VELOCITY = 300;
+export const PROJECTION_SEC = 0.2;
 
 /**
- * Fraction of the smallest snap's progress below which a slow release
- * dismisses. Released at less than half-way to the lowest detent = the
- * user dragged it most of the way down.
+ * Fraction of the smallest snap's progress below which a (projected)
+ * release dismisses. Landing less than half-way to the lowest detent =
+ * the user let go most of the way down.
  */
 const DISMISS_PROGRESS_FACTOR = 0.5;
 
 /**
- * Whether a release should dismiss the sheet. `velocityY` is the finger's
- * vertical speed in px/sec, positive = downward (toward dismiss).
+ * Projected release progress: where the sheet would land if the finger's
+ * velocity (`velocityY` px/sec, positive = downward) carried it for
+ * `PROJECTION_SEC`. Unclamped — callers compare against thresholds.
+ */
+export function projectProgress(
+    progress: number,
+    velocityY: number,
+    travelPx: number,
+): number {
+    'main thread';
+    if (travelPx <= 0) return progress;
+    return progress - (velocityY * PROJECTION_SEC) / travelPx;
+}
+
+/**
+ * Whether a release should dismiss the sheet — true when the projected
+ * landing position falls below the dismiss line under the lowest detent.
  */
 export function shouldDismiss(
     progress: number,
     velocityY: number,
     minSnapProgress: number,
+    travelPx: number,
 ): boolean {
     'main thread';
-    if (velocityY > DISMISS_VELOCITY) return true;
-    // A fast upward fling is an explicit keep-open, even from a position
-    // below the slow-release dismiss line.
-    if (velocityY < -DISMISS_VELOCITY) return false;
-    return progress < minSnapProgress * DISMISS_PROGRESS_FACTOR;
+    return (
+        projectProgress(progress, velocityY, travelPx) <
+        minSnapProgress * DISMISS_PROGRESS_FACTOR
+    );
 }
 
 /**
- * Pick the snap progress to settle at on release. Velocity-biased: a fast
- * fling skips to the next detent in the fling direction even if the nearer
- * detent is behind the finger. `snapProgresses` must be ascending.
+ * Pick the snap progress to settle at on release: the detent nearest the
+ * PROJECTED landing position. A fling naturally selects the next detent
+ * in its direction; a slow release picks the nearest one to the finger.
+ * `snapProgresses` must be ascending.
  */
 export function nearestSnap(
     progress: number,
     velocityY: number,
     snapProgresses: readonly number[],
+    travelPx: number,
 ): number {
     'main thread';
     if (snapProgresses.length === 0) return progress;
-    // Fast downward fling → next detent below; fast upward → next above.
-    if (velocityY > DISMISS_VELOCITY || velocityY < -DISMISS_VELOCITY) {
-        const downward = velocityY > 0;
-        let candidate = downward
-            ? snapProgresses[0]
-            : snapProgresses[snapProgresses.length - 1];
-        for (let i = 0; i < snapProgresses.length; i += 1) {
-            const s = snapProgresses[i];
-            if (downward) {
-                // Largest detent strictly below current position.
-                if (s < progress - 1e-6 && s > candidate) candidate = s;
-            } else if (s > progress + 1e-6 && s < candidate) {
-                // Smallest detent strictly above current position.
-                candidate = s;
-            }
-        }
-        return candidate;
-    }
-    // Slow release → plain nearest.
+    const proj = projectProgress(progress, velocityY, travelPx);
     let nearest = snapProgresses[0];
-    let bestDist = Math.abs(progress - nearest);
+    let bestDist = Math.abs(proj - nearest);
     for (let i = 1; i < snapProgresses.length; i += 1) {
-        const d = Math.abs(progress - snapProgresses[i]);
+        const d = Math.abs(proj - snapProgresses[i]);
         if (d < bestDist) {
             bestDist = d;
             nearest = snapProgresses[i];

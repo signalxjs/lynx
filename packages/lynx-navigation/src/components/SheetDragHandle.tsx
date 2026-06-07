@@ -79,15 +79,20 @@ export const SheetDragHandle = component<SheetDragHandleProps>(({ props }) => {
     const sheetProgress = internals.sheetProgress;
     const commitSheetDismiss = internals.commitSheetDismiss;
 
-    // Per-gesture transient state — plain closure object, not a
-    // `useMainThreadRef` (see EdgeBackHandle's capture notes).
-    const state = {
+    // Per-gesture transient state — a `useMainThreadRef`, the pattern
+    // proven by lynx-gestures' `<Draggable>`. A plain closure object does
+    // NOT work here: each gesture handler (onStart/onUpdate/onEnd) is its
+    // own worklet with its own deep-copied `_c` capture, so mutations made
+    // in one handler are invisible to the others. (EdgeBackHandle's plain
+    // object only appears to work because an edge swipe starts at
+    // pageX ≈ 0, making `pageX - startPageX` accidentally right.)
+    const state = useMainThreadRef({
         startPageY: 0,
         startProgress: 0,
         prevPageY: 0,
         prevTime: 0,
         velocity: 0, // px/sec, positive = downward
-    };
+    });
 
     const pan = Gesture.Pan()
         .minDistance(MIN_DISTANCE)
@@ -99,11 +104,11 @@ export const SheetDragHandle = component<SheetDragHandleProps>(({ props }) => {
             if (!sheetProgress) return;
             const p = e && e.params;
             const pageY = (p && p.pageY) || 0;
-            state.startPageY = pageY;
-            state.startProgress = sheetProgress.current.value;
-            state.prevPageY = pageY;
-            state.prevTime = Date.now();
-            state.velocity = 0;
+            state.current.startPageY = pageY;
+            state.current.startProgress = sheetProgress.current.value;
+            state.current.prevPageY = pageY;
+            state.current.prevTime = Date.now();
+            state.current.velocity = 0;
         })
         .onUpdate((e: any) => {
             'main thread';
@@ -111,41 +116,46 @@ export const SheetDragHandle = component<SheetDragHandleProps>(({ props }) => {
             const p = e && e.params;
             const pageY = (p && p.pageY) || 0;
             // Drag down (dy > 0) closes: progress decreases.
-            const dy = pageY - state.startPageY;
+            const dy = pageY - state.current.startPageY;
             const prog = Math.max(
                 0,
-                Math.min(1, state.startProgress - dy / travelPx),
+                Math.min(1, state.current.startProgress - dy / travelPx),
             );
             sheetProgress.current.value = prog;
 
             const now = Date.now();
-            const dt = now - state.prevTime;
+            const dt = now - state.current.prevTime;
             if (dt > 0) {
-                state.velocity = ((pageY - state.prevPageY) / dt) * 1000;
+                state.current.velocity =
+                    ((pageY - state.current.prevPageY) / dt) * 1000;
             }
-            state.prevPageY = pageY;
-            state.prevTime = now;
+            state.current.prevPageY = pageY;
+            state.current.prevTime = now;
         })
         .onEnd(() => {
             'main thread';
             if (!sheetProgress) return;
             const prog = sheetProgress.current.value;
-            if (shouldDismiss(prog, state.velocity, minSnapProgress)) {
+            if (shouldDismiss(prog, state.current.velocity, minSnapProgress, travelPx)) {
                 withTiming(sheetProgress, 0, { duration: SNAP_DURATION_SEC });
                 runOnBackground(() => {
                     setTimeout(() => commitSheetDismiss(entryKey), SNAP_DURATION_MS);
                 })();
             } else {
-                const target = nearestSnap(prog, state.velocity, snapProgresses);
+                const target = nearestSnap(prog, state.current.velocity, snapProgresses, travelPx);
                 withTiming(sheetProgress, target, { duration: SNAP_DURATION_SEC });
                 // Record the new resting progress on BG so a later covered-
                 // sheet render places it statically at the right offset.
                 // Deferred until the snap animation lands (mirroring the
                 // dismiss path) so a navigation racing the settle doesn't
                 // read the final detent while the sheet is still mid-snap.
-                runOnBackground(() => {
-                    setTimeout(() => onSettle(target), SNAP_DURATION_MS);
-                })();
+                // `target` is a worklet-body local — it must cross to BG as
+                // an ARGUMENT (runOnBackground serializes params); capturing
+                // it in the closure throws "target is not defined" on BG
+                // (worklet locals are MT-only; see EdgeBackHandle's notes).
+                runOnBackground((t: number) => {
+                    setTimeout(() => onSettle(t), SNAP_DURATION_MS);
+                })(target);
             }
         });
 

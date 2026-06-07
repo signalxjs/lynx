@@ -7,7 +7,6 @@
 import { describe, expect, it } from 'vitest';
 import {
     DEFAULT_SNAP_POINTS,
-    DISMISS_VELOCITY,
     initialSnapProgress,
     nearestSnap,
     offsetYToProgress,
@@ -50,51 +49,65 @@ describe('snapToProgress / progressToOffsetY', () => {
 
 describe('shouldDismiss', () => {
     const minSnapProgress = snapToProgress(0.4, 0.9); // ≈ 0.444
+    const TRAVEL = 720; // px of full progress travel (0.9 * 800)
 
     it('dismisses on a fast downward fling regardless of position', () => {
-        expect(shouldDismiss(0.9, DISMISS_VELOCITY + 1, minSnapProgress)).toBe(true);
+        // 3000 px/s projects 3000*0.2/720 ≈ 0.83 of progress downward.
+        expect(shouldDismiss(0.9, 3000, minSnapProgress, TRAVEL)).toBe(true);
     });
 
-    it('does not dismiss on a fast upward fling', () => {
-        expect(shouldDismiss(0.2, -(DISMISS_VELOCITY + 1), minSnapProgress)).toBe(false);
+    it('does not dismiss on a fast upward fling from a low position', () => {
+        expect(shouldDismiss(0.2, -1500, minSnapProgress, TRAVEL)).toBe(false);
+    });
+
+    it('does NOT dismiss a controlled downward drag aimed at the lower detent', () => {
+        // The on-device repro: released at 0.6 progress moving ~360 px/s
+        // down — projects to ≈0.5, well above the dismiss line. The old
+        // raw velocity threshold (300 px/s) misread this as a fling.
+        expect(shouldDismiss(0.6, 360, minSnapProgress, TRAVEL)).toBe(false);
     });
 
     it('dismisses a slow release dragged well below the lowest detent', () => {
-        expect(shouldDismiss(minSnapProgress * 0.4, 0, minSnapProgress)).toBe(true);
+        expect(shouldDismiss(minSnapProgress * 0.4, 0, minSnapProgress, TRAVEL)).toBe(true);
     });
 
     it('keeps a slow release near the lowest detent', () => {
-        expect(shouldDismiss(minSnapProgress * 0.8, 0, minSnapProgress)).toBe(false);
+        expect(shouldDismiss(minSnapProgress * 0.8, 0, minSnapProgress, TRAVEL)).toBe(false);
     });
 });
 
 describe('nearestSnap', () => {
     const snaps = [0.444, 1] as const; // progresses of fractions [0.4, 0.9]
+    const TRAVEL = 720;
 
     it('picks the nearest detent on a slow release', () => {
-        expect(nearestSnap(0.5, 0, snaps)).toBeCloseTo(0.444);
-        expect(nearestSnap(0.9, 0, snaps)).toBe(1);
+        expect(nearestSnap(0.5, 0, snaps, TRAVEL)).toBeCloseTo(0.444);
+        expect(nearestSnap(0.9, 0, snaps, TRAVEL)).toBe(1);
     });
 
-    it('a fast downward fling skips to the next detent below', () => {
-        // Released just under fully-open but flung down → lower detent,
-        // even though 1 is nearer.
-        expect(nearestSnap(0.95, DISMISS_VELOCITY + 1, snaps)).toBeCloseTo(0.444);
+    it('a fast downward fling projects to the detent below', () => {
+        // Released just under fully-open but flung down at 1500 px/s →
+        // projects ≈0.42 lower → lower detent, even though 1 is nearer.
+        expect(nearestSnap(0.95, 1500, snaps, TRAVEL)).toBeCloseTo(0.444);
     });
 
-    it('a fast upward fling skips to the next detent above', () => {
-        expect(nearestSnap(0.5, -(DISMISS_VELOCITY + 1), snaps)).toBe(1);
+    it('a fast upward fling projects to the detent above', () => {
+        expect(nearestSnap(0.5, -1500, snaps, TRAVEL)).toBe(1);
     });
 
-    it('a fling with no detent in its direction stays at the boundary detent', () => {
-        // Below the lowest detent, flung down: lowest detent (dismissal is
-        // shouldDismiss's call, not nearestSnap's).
-        expect(nearestSnap(0.2, DISMISS_VELOCITY + 1, snaps)).toBeCloseTo(0.444);
-        expect(nearestSnap(1, -(DISMISS_VELOCITY + 1), snaps)).toBe(1);
+    it('a controlled downward drag settles at the detent it aims for', () => {
+        // The on-device repro companion: 0.6 progress at ~360 px/s down
+        // projects to ≈0.5 → lower detent.
+        expect(nearestSnap(0.6, 360, snaps, TRAVEL)).toBeCloseTo(0.444);
+    });
+
+    it('a fling past the boundary detent stays at the boundary detent', () => {
+        expect(nearestSnap(0.2, 1500, snaps, TRAVEL)).toBeCloseTo(0.444);
+        expect(nearestSnap(1, -1500, snaps, TRAVEL)).toBe(1);
     });
 
     it('returns the input when there are no snap points', () => {
-        expect(nearestSnap(0.3, 0, [])).toBe(0.3);
+        expect(nearestSnap(0.3, 0, [], TRAVEL)).toBe(0.3);
     });
 });
 
