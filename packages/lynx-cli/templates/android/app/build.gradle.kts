@@ -107,7 +107,9 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
     // MainActivity extends FragmentActivity (BiometricPrompt & co. need a
-    // FragmentActivity host) — keep this even with zero native modules linked.
+    // FragmentActivity host), and @sigx/lynx-core's copied SigxActivityHolder
+    // references it too. This is the sole source of the dependency — keep it
+    // even with zero native modules linked.
     implementation(libs.androidx.fragment.ktx)
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.ui)

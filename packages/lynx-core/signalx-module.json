@@ -8,8 +8,7 @@
             "class": "com.sigx.core.SigxActivityHook",
             "methods": ["onCreate", "onResume", "onPause"]
         },
-        "sourceDir": "android",
-        "dependencies": ["androidx.fragment:fragment-ktx:1.8.5"]
+        "sourceDir": "android"
     },
     "ios": {
         "sourceDir": "ios"

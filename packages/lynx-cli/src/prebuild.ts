@@ -257,7 +257,16 @@ export async function loadManifests(modulePackages: string[], cwd: string): Prom
     const index = buildManifestIndex(cwd);
     const manifests: ModuleManifest[] = [];
 
-    for (const pkg of modulePackages) {
+    // lynx-core's activity hook must dispatch before any other hook in the
+    // same lifecycle callback (GeneratedActivityHooks calls hooks in manifest
+    // order), so consumers of SigxActivityHolder always see a populated
+    // holder. Discovery already sorts it first, but config-declared modules
+    // (`modules:` in signalx.config) are prepended to the discovered list —
+    // enforce the invariant here regardless of how the list was assembled.
+    const ordered = [...modulePackages].sort((a, b) =>
+        a === '@sigx/lynx-core' ? -1 : b === '@sigx/lynx-core' ? 1 : 0);
+
+    for (const pkg of ordered) {
         try {
             const manifestPath = index.get(pkg) ?? require.resolve(`${pkg}/signalx-module.json`);
             const raw = readFileSync(manifestPath, 'utf-8');
