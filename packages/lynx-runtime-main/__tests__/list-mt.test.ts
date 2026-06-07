@@ -165,3 +165,97 @@ describe('list-mt', () => {
     expect(countAfterSecond).toBe(countAfterFirst);
   });
 });
+
+describe('list-mt keyed reorders', () => {
+  /**
+   * Set up list internalId=1 with one `<list-item>` per key (internal ids
+   * 2, 3, …) and flush, committing the initial order. Returns key → id.
+   */
+  function setupList(keys: string[]): Map<string, number> {
+    const listEl = createListElement(1);
+    elements.set(1, listEl as never);
+    const ids = new Map<string, number>();
+    keys.forEach((key, i) => {
+      const id = 2 + i;
+      elements.set(id, fakeEl() as never);
+      listInsertChild(1, id, -1);
+      noteListItemProp(id, 'item-key', key);
+      ids.set(key, id);
+    });
+    flushDirtyLists();
+    return ids;
+  }
+
+  /**
+   * Apply an `update-list-info` diff the way the native recycler does:
+   * removeAction (ascending OLD indices) first, then insertAction (ascending
+   * NEW positions). Asserts every insert position is within bounds.
+   */
+  function applyDiff(oldKeys: string[], info: any): string[] {
+    const removed = new Set<number>(info.removeAction);
+    const out = oldKeys.filter((_, i) => !removed.has(i));
+    for (const ins of info.insertAction) {
+      expect(ins.position).toBeLessThanOrEqual(out.length);
+      out.splice(ins.position, 0, ins['item-key']);
+    }
+    return out;
+  }
+
+  it('move: re-inserting an existing child does not duplicate it and the diff transforms old → new', () => {
+    const ids = setupList(['a', 'b', 'c']);
+    // BG moves c before a: the shadow tree detaches implicitly, so the MT
+    // sees ONLY an insert op for the already-present child.
+    listInsertChild(1, ids.get('c')!, ids.get('a')!);
+    flushDirtyLists();
+
+    const info = lastUpdateListInfo();
+    const applied = applyDiff(['a', 'b', 'c'], info);
+    expect(applied).toEqual(['c', 'a', 'b']);
+    expect(new Set(applied).size).toBe(applied.length); // no duplicate keys
+    // The moved item's insertAction must carry its platform info.
+    expect(info.insertAction).toEqual([
+      { position: 0, type: 'list-item', 'item-key': 'c' },
+    ]);
+    expect(info.removeAction).toEqual([2]);
+  });
+
+  it('combined move+insert+remove yields exactly the new key sequence', () => {
+    const ids = setupList(['a', 'b', 'c', 'd']);
+    // New render: [e, c, a] — b and d unmount, c moves, e mounts.
+    listRemoveChild(1, ids.get('b')!);
+    listRemoveChild(1, ids.get('d')!);
+    listInsertChild(1, ids.get('c')!, ids.get('a')!); // move c before a
+    const e = 6;
+    elements.set(e, fakeEl() as never);
+    listInsertChild(1, e, ids.get('c')!); // mount e before c
+    noteListItemProp(e, 'item-key', 'e');
+    flushDirtyLists();
+
+    const applied = applyDiff(['a', 'b', 'c', 'd'], lastUpdateListInfo());
+    expect(applied).toEqual(['e', 'c', 'a']);
+    expect(new Set(applied).size).toBe(applied.length);
+  });
+
+  it('repeated reorders across flushes keep committed state in sync', () => {
+    const ids = setupList(['a', 'b', 'c']);
+    listInsertChild(1, ids.get('c')!, ids.get('a')!); // → [c, a, b]
+    flushDirtyLists();
+    let native = applyDiff(['a', 'b', 'c'], lastUpdateListInfo());
+    expect(native).toEqual(['c', 'a', 'b']);
+
+    listInsertChild(1, ids.get('b')!, ids.get('c')!); // → [b, c, a]
+    flushDirtyLists();
+    native = applyDiff(native, lastUpdateListInfo());
+    expect(native).toEqual(['b', 'c', 'a']);
+    expect(new Set(native).size).toBe(native.length);
+  });
+
+  it('re-insert at the same position emits no diff', () => {
+    const ids = setupList(['a', 'b']);
+    const countBefore = setAttrCalls.filter((c) => c.key === 'update-list-info').length;
+    listInsertChild(1, ids.get('a')!, ids.get('b')!); // a already before b
+    flushDirtyLists();
+    const countAfter = setAttrCalls.filter((c) => c.key === 'update-list-info').length;
+    expect(countAfter).toBe(countBefore);
+  });
+});
