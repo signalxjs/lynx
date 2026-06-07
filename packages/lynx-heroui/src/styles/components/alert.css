@@ -6,7 +6,7 @@
   align-items: center;
   gap: 8px;
   padding: 12px 14px;
-  border-radius: var(--radius-box, var(--radius-field));
+  border-radius: var(--radius-box);
   font-size: var(--font-md);
 }
 

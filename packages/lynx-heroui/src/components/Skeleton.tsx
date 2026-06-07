@@ -6,7 +6,7 @@ export type SkeletonProps =
   & Define.Prop<'circle', boolean, false>
   & Define.Prop<'class', string, false>;
 
-/** Placeholder block with a shimmer; `circle` makes a round avatar stand-in. */
+/** Placeholder block with an opacity pulse; `circle` makes a round avatar stand-in. */
 export const Skeleton = component<SkeletonProps>(({ props }) => {
   return () => {
     const style: Record<string, string | number> = {};

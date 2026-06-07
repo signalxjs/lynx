@@ -18,7 +18,9 @@ export const Progress = component<ProgressProps>(({ props }) => {
   };
 
   return () => {
-    const max = props.max ?? 100;
+    // Guard a non-positive `max` (0/negative) so the ratio can't be NaN/±Inf.
+    const rawMax = props.max ?? 100;
+    const max = rawMax > 0 ? rawMax : 100;
     const pct = Math.min(Math.max((props.value ?? 0) / max, 0), 1) * 100;
     return (
       <view class={getClasses()}>

@@ -55,6 +55,10 @@ describe('hero Progress', () => {
     const cls = render(<Progress value={50} color="warning" />).container.children[0]._class.split(' ');
     expect(cls).toContain('hero-progress-warning');
   });
+  it('guards a non-positive max (no NaN width)', () => {
+    const bar = render(<Progress value={0} max={0} />).container.children[0].children[0];
+    expect(bar._style.width).toBe('0%');
+  });
 });
 
 describe('hero Skeleton', () => {
