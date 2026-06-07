@@ -22,6 +22,7 @@
         "@sigx/lynx-clipboard": "workspace:^",
         "@sigx/lynx-core": "workspace:^",
         "@sigx/lynx-daisyui": "workspace:^",
+        "@sigx/lynx-datetime-picker": "workspace:^",
         "@sigx/lynx-device-info": "workspace:^",
         "@sigx/lynx-emoji": "workspace:^",
         "@sigx/lynx-gestures": "workspace:^",

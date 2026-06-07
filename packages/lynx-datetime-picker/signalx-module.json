@@ -1,0 +1,19 @@
+{
+    "name": "DateTimePicker",
+    "package": "@sigx/lynx-datetime-picker",
+    "description": "Native date/time/datetime picker (UIDatePicker / DatePickerDialog)",
+    "platforms": ["android", "ios"],
+    "ios": {
+        "moduleClass": "DateTimePickerModule",
+        "sourceDir": "ios",
+        "methods": ["present"]
+    },
+    "android": {
+        "moduleClass": "com.sigx.datetimepicker.DateTimePickerModule",
+        "sourceDir": "android",
+        "activityHook": {
+            "class": "com.sigx.datetimepicker.DateTimePickerActivityHook",
+            "methods": ["onCreate", "onResume", "onPause"]
+        }
+    }
+}
