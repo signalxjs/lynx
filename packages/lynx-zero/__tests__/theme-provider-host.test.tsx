@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { render } from '@sigx/lynx-testing';
 import { registerTheme, themeController, ThemeProvider } from '../src/index';
 
@@ -65,5 +65,58 @@ describe('ThemeProvider host layout (#269)', () => {
     const nested = container.children[0].children[0];
     expect(nested._style.flexGrow).toBe(1);
     expect(nested._style.borderRadius).toBe(14);
+  });
+});
+
+describe('ThemeProvider runtime setProperty guard (web compat)', () => {
+  beforeEach(() => {
+    registerTheme({ name: 'tpg-light', variant: 'light', colors: { ...CORE } });
+    themeController.set('tpg-light');
+  });
+
+  afterEach(() => {
+    delete (globalThis as { lynx?: unknown }).lynx;
+  });
+
+  // `@lynx-js/web-core` resolves an element with no runtime `setProperty`. The
+  // provider's theme-var publish runs on the background thread, so an unguarded
+  // call would throw there and abort the whole card render. It must degrade.
+  it('mounts without throwing when the host element lacks setProperty (e.g. web)', () => {
+    let calls = 0;
+    (globalThis as { lynx?: unknown }).lynx = {
+      getElementById: () => {
+        calls++;
+        return {};
+      },
+    };
+    expect(() =>
+      render(
+        <ThemeProvider initial="tpg-light">
+          <text>x</text>
+        </ThemeProvider>,
+      ),
+    ).not.toThrow();
+    // The guarded publish path must actually run (else the test is vacuous).
+    expect(calls).toBeGreaterThan(0);
+  });
+
+  it('swallows a throwing setProperty without aborting render', () => {
+    let calls = 0;
+    (globalThis as { lynx?: unknown }).lynx = {
+      getElementById: () => ({
+        setProperty: () => {
+          calls++;
+          throw new Error('setProperty unsupported on this host');
+        },
+      }),
+    };
+    expect(() =>
+      render(
+        <ThemeProvider initial="tpg-light">
+          <text>x</text>
+        </ThemeProvider>,
+      ),
+    ).not.toThrow();
+    expect(calls).toBeGreaterThan(0);
   });
 });

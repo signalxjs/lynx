@@ -38,7 +38,9 @@ interface LynxLike {
   getJSModule?: (name: string) => GlobalEventEmitterLike | undefined;
   getElementById?: (
     id: string,
-  ) => { setProperty(props: Record<string, string>): void } | null;
+    // `setProperty` (runtime CSS-variable application) is optional: not every
+    // host implements it for every element — notably web (`@lynx-js/web-core`).
+  ) => { setProperty?(props: Record<string, string>): void } | null;
 }
 
 // Closure-injected identifier provided by
@@ -173,7 +175,22 @@ export const SafeAreaProvider = component<SafeAreaProviderProps>(({ props, slots
       const attempt = (): void => {
         if (gen !== insetsGen) return;
         const el = lynxObj!.getElementById!(hostId);
-        if (el) { el.setProperty(vars); return; }
+        if (el) {
+          // `setProperty` isn't implemented for every element on every host —
+          // notably web (`@lynx-js/web-core`), where the underlying element
+          // lacks it and the call throws on the background thread (aborting the
+          // whole card render). Degrade gracefully: publish the inset vars
+          // where supported, otherwise skip them. (`pt-[var(--sat)]` consumers
+          // simply get no inset on such hosts.)
+          if (typeof el.setProperty === 'function') {
+            try {
+              el.setProperty(vars);
+            } catch {
+              /* host rejected runtime setProperty (e.g. web) */
+            }
+          }
+          return;
+        }
         if (tries++ < 30) setTimeout(attempt, 16);
       };
       attempt();
