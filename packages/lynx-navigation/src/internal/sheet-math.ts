@@ -143,9 +143,14 @@ export function sheetDurationSec(
     heightFraction: number,
     fullSlideDurationSec: number,
 ): number {
-    return Math.max(
-        SHEET_MIN_DURATION_SEC,
-        fullSlideDurationSec * Math.min(1, Math.max(0, heightFraction)),
+    const scaled =
+        fullSlideDurationSec * Math.min(1, Math.max(0, heightFraction));
+    // Floor, but never past the full-slide duration itself — full-height
+    // travel must equal `fullSlideDurationSec` even if a caller passes a
+    // duration below the floor.
+    return Math.min(
+        fullSlideDurationSec,
+        Math.max(SHEET_MIN_DURATION_SEC, scaled),
     );
 }
 

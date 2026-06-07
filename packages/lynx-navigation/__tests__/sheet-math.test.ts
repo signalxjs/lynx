@@ -31,13 +31,18 @@ describe('sheetDurationSec', () => {
     });
 
     it('floors low detents so they still read as an animation', () => {
-        // 0.4 detent of a [0.4] config: 0.28 * 0.16 ≈ 0.045 → floored.
-        expect(sheetDurationSec(0.16, FULL)).toBe(SHEET_MIN_DURATION_SEC);
+        // A [0.4]-only config travels 40% of the screen: 0.28 * 0.4 =
+        // 0.112 → floored.
+        expect(sheetDurationSec(0.4, FULL)).toBe(SHEET_MIN_DURATION_SEC);
     });
 
     it('clamps out-of-range height fractions', () => {
         expect(sheetDurationSec(1.5, FULL)).toBe(FULL);
         expect(sheetDurationSec(-0.2, FULL)).toBe(SHEET_MIN_DURATION_SEC);
+    });
+
+    it('never exceeds the full slide duration, even below the floor', () => {
+        expect(sheetDurationSec(1, 0.1)).toBe(0.1);
     });
 });
 

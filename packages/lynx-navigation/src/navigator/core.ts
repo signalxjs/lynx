@@ -527,9 +527,16 @@ export function createNavigatorState(opts: CreateNavigatorOptions): NavigatorSta
         // dragged to another detent pops at the right speed too.
         let durationSec = TRANSITION_DURATION_SEC;
         if (isSheet && sv) {
-            const o = untrack(() => screens.get(popping.key)?.options);
-            const snaps = resolveSnapPoints(o?.snapPoints);
-            durationSec = sheetDurationSec(sv.value * snaps[snaps.length - 1], TRANSITION_DURATION_SEC);
+            // The whole options read sits inside untrack — `options` is a
+            // per-key reactive proxy, so reading `.snapPoints` outside the
+            // block would subscribe whatever reactive scope pop() runs in.
+            const snaps = untrack(() =>
+                resolveSnapPoints(screens.get(popping.key)?.options.snapPoints),
+            );
+            durationSec = sheetDurationSec(
+                sv.value * snaps[snaps.length - 1],
+                TRANSITION_DURATION_SEC,
+            );
         }
         animateProgress(sv, isSheet ? null : 0, isSheet ? 0 : 1, durationSec).then(
             commitOwnPop,
