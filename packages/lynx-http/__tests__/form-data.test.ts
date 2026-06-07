@@ -130,4 +130,15 @@ describe('formDataToNativeBody', () => {
         expect(part.name).not.toMatch(/[\r\n"]/);
         expect((part as { filename: string }).filename).not.toMatch(/[\r\n"]/);
     });
+
+    it('sanitizes CR/LF out of contentType (header-injection defense)', () => {
+        const f = new FormData();
+        f.append('file', { uri: 'file:///x', name: 'x', mimeType: 'text/plain\r\nX-Evil: 1' });
+        f.append('file2', { uri: 'file:///y', name: 'y', mimeType: '\r\n' });
+        const parts = formDataToNativeBody(f).parts as Array<{ contentType: string }>;
+        expect(parts[0].contentType).toBe('text/plainX-Evil: 1');
+        expect(parts[0].contentType).not.toMatch(/[\r\n]/);
+        // Nothing usable left → octet-stream fallback.
+        expect(parts[1].contentType).toBe('application/octet-stream');
+    });
 });

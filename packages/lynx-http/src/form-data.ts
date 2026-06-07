@@ -105,11 +105,45 @@ export class FormData {
     *values(): IterableIterator<FormDataEntryValueLike> {
         for (const e of this.entries_) yield e.value;
     }
+
+    /**
+     * @internal Serialize entries to native multipart part descriptors,
+     * preserving each entry's explicit `filename`. Lives on the class so
+     * serialization doesn't reach into private state from outside.
+     */
+    _toNativeParts(): NativeMultipartPart[] {
+        const parts: NativeMultipartPart[] = [];
+        for (const e of this.entries_) {
+            if (typeof e.value === 'string') {
+                parts.push({ kind: 'field', name: sanitizeForDisposition(e.name), value: e.value });
+            } else {
+                // Precedence: explicit filename → handle name → 'file'.
+                parts.push({
+                    kind: 'file',
+                    name: sanitizeForDisposition(e.name),
+                    uri: e.value.uri,
+                    filename: sanitizeForDisposition(e.filename ?? e.value.name ?? 'file'),
+                    contentType: sanitizeContentType(e.value.mimeType ?? e.value.type),
+                });
+            }
+        }
+        return parts;
+    }
 }
 
 /** RFC 2183 quoting for names/filenames inside Content-Disposition. */
 function sanitizeForDisposition(s: string): string {
     return s.replace(/[\r\n"]/g, '_');
+}
+
+/**
+ * The contentType lands on a multipart header line verbatim — strip CR/LF
+ * so a malicious/buggy handle can't inject extra headers, and fall back
+ * to octet-stream when nothing usable remains.
+ */
+function sanitizeContentType(ct: string | undefined): string {
+    const cleaned = (ct ?? '').replace(/[\r\n]/g, '').trim();
+    return cleaned.length > 0 ? cleaned : 'application/octet-stream';
 }
 
 /**
@@ -119,24 +153,5 @@ function sanitizeForDisposition(s: string): string {
  */
 export function formDataToNativeBody(form: FormData): Extract<NativeBody, { type: 'multipart' }> {
     const boundary = `----SigxFormBoundary${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`;
-    const parts: NativeMultipartPart[] = [];
-    // Iterate the raw entries (not the public [name, value] iterator) so
-    // each part keeps ITS OWN explicit `filename` argument — the same
-    // handle appended twice with different filenames must not collapse to
-    // the first one. Precedence: explicit filename → handle name → 'file'.
-    const entries = (form as unknown as { entries_: Entry[] }).entries_;
-    for (const e of entries) {
-        if (typeof e.value === 'string') {
-            parts.push({ kind: 'field', name: sanitizeForDisposition(e.name), value: e.value });
-        } else {
-            parts.push({
-                kind: 'file',
-                name: sanitizeForDisposition(e.name),
-                uri: e.value.uri,
-                filename: sanitizeForDisposition(e.filename ?? e.value.name ?? 'file'),
-                contentType: e.value.mimeType ?? e.value.type ?? 'application/octet-stream',
-            });
-        }
-    }
-    return { type: 'multipart', boundary, parts };
+    return { type: 'multipart', boundary, parts: form._toNativeParts() };
 }

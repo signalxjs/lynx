@@ -147,12 +147,18 @@ export class Response {
         }
         this.bodyUsed_ = true;
         const reader = this.body.getReader();
-        const parts: Uint8Array[] = [];
-        for (;;) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            if (value) parts.push(value);
+        try {
+            const parts: Uint8Array[] = [];
+            for (;;) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                if (value) parts.push(value);
+            }
+            return parts;
+        } finally {
+            // WHATWG behavior: the lock clears once consumption finishes,
+            // even when the read loop throws.
+            reader.releaseLock();
         }
-        return parts;
     }
 }

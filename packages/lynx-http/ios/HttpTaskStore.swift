@@ -193,11 +193,15 @@ enum MultipartBuilder {
 
         for part in parts {
             let kind = (part["kind"] as? String) ?? "field"
-            let name = (part["name"] as? String) ?? ""
+            // Defense in depth: JS sanitizes these too, but native callers
+            // could hit the bridge directly — never let CR/LF (or quotes in
+            // disposition params) reach a header line.
+            let name = dispositionSafe((part["name"] as? String) ?? "")
             write("--\(boundary)\r\n")
             if kind == "file" {
-                let filename = (part["filename"] as? String) ?? "file"
-                let contentType = (part["contentType"] as? String) ?? "application/octet-stream"
+                let filename = dispositionSafe((part["filename"] as? String) ?? "file")
+                var contentType = headerSafe((part["contentType"] as? String) ?? "")
+                if contentType.isEmpty { contentType = "application/octet-stream" }
                 let uriString = (part["uri"] as? String) ?? ""
                 write("Content-Disposition: form-data; name=\"\(name)\"; filename=\"\(filename)\"\r\n")
                 write("Content-Type: \(contentType)\r\n\r\n")
@@ -212,6 +216,17 @@ enum MultipartBuilder {
         }
         write("--\(boundary)--\r\n")
         return tmp
+    }
+
+    /// Strip CR/LF so a value can't terminate its header line early.
+    private static func headerSafe(_ s: String) -> String {
+        s.replacingOccurrences(of: "\r", with: "")
+            .replacingOccurrences(of: "\n", with: "")
+    }
+
+    /// Header-safe plus quote-stripping for quoted disposition params.
+    private static func dispositionSafe(_ s: String) -> String {
+        headerSafe(s).replacingOccurrences(of: "\"", with: "_")
     }
 
     private static func appendFile(at uriString: String, to handle: FileHandle) throws {
