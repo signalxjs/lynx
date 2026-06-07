@@ -54,9 +54,15 @@ class DateTimePickerModule(context: Context) : LynxModule(context) {
                 // or midnight (date mode) can land outside the range, so
                 // clamp the combined instant. Ignored in time mode, matching
                 // the documented option semantics.
+                // Sequential bounds rather than coerceIn — an inverted
+                // min/max pair must not throw (max wins if both apply).
                 val clamped = ms?.let { v ->
-                    if (mode == "time") v
-                    else v.coerceIn(minMs ?: Long.MIN_VALUE, maxMs ?: Long.MAX_VALUE)
+                    var out = v
+                    if (mode != "time") {
+                        minMs?.let { if (out < it) out = it }
+                        maxMs?.let { if (out > it) out = it }
+                    }
+                    out
                 }
                 callback?.invoke(if (clamped != null) result(clamped) else cancelled())
             }

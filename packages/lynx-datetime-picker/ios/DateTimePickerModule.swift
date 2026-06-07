@@ -18,6 +18,7 @@ class DateTimePickerModule: NSObject, LynxModule {
     }
 
     private var pendingCallback: LynxCallbackBlock?
+    private weak var presentedSheet: DateTimePickerSheetController?
 
     required override init() { super.init() }
     required init(param: Any) { super.init() }
@@ -26,9 +27,14 @@ class DateTimePickerModule: NSObject, LynxModule {
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
             // A new pick supersedes any in-flight one — resolve it as
-            // cancelled so its promise never hangs.
+            // cancelled and dismiss its sheet so no dead UI lingers.
             self.pendingCallback?(["cancelled": true])
             self.pendingCallback = nil
+            if let stale = self.presentedSheet {
+                stale.onFinish = nil
+                stale.dismiss(animated: false)
+                self.presentedSheet = nil
+            }
             guard let host = Self.topPresenter() else {
                 callback?(["cancelled": true])
                 return
@@ -37,7 +43,9 @@ class DateTimePickerModule: NSObject, LynxModule {
 
             let sheet = DateTimePickerSheetController(options: options)
             sheet.onFinish = { [weak self] date in
-                guard let self = self, let cb = self.pendingCallback else { return }
+                guard let self = self else { return }
+                self.presentedSheet = nil
+                guard let cb = self.pendingCallback else { return }
                 self.pendingCallback = nil // guard against double-fire
                 if let date = date {
                     cb([
@@ -48,6 +56,7 @@ class DateTimePickerModule: NSObject, LynxModule {
                     cb(["cancelled": true])
                 }
             }
+            self.presentedSheet = sheet
             host.present(sheet, animated: true)
         }
     }
@@ -81,7 +90,8 @@ private class DateTimePickerSheetController: UIViewController,
     init(options: [String: Any]?) {
         super.init(nibName: nil, bundle: nil)
 
-        switch options?["mode"] as? String {
+        let mode = options?["mode"] as? String
+        switch mode {
         case "time": picker.datePickerMode = .time
         case "datetime": picker.datePickerMode = .dateAndTime
         default: picker.datePickerMode = .date
@@ -90,25 +100,34 @@ private class DateTimePickerSheetController: UIViewController,
         // .inline/.compact expect an anchored layout we don't have here.
         picker.preferredDatePickerStyle = .wheels
 
-        if let ms = options?["value"] as? Double {
+        // Epoch-ms options arrive as NSNumber from the bridge — go through
+        // doubleValue rather than `as? Double` so integral values survive.
+        if let ms = (options?["value"] as? NSNumber)?.doubleValue {
             picker.date = Date(timeIntervalSince1970: ms / 1000)
         }
-        if let ms = options?["minimumDate"] as? Double {
-            picker.minimumDate = Date(timeIntervalSince1970: ms / 1000)
-        }
-        if let ms = options?["maximumDate"] as? Double {
-            picker.maximumDate = Date(timeIntervalSince1970: ms / 1000)
+        if mode != "time" {
+            // The JS contract documents min/max as ignored in time mode.
+            if let ms = (options?["minimumDate"] as? NSNumber)?.doubleValue {
+                picker.minimumDate = Date(timeIntervalSince1970: ms / 1000)
+            }
+            if let ms = (options?["maximumDate"] as? NSNumber)?.doubleValue {
+                picker.maximumDate = Date(timeIntervalSince1970: ms / 1000)
+            }
         }
         // UIDatePicker supports 1–30 and only values that evenly divide 60;
         // anything else asserts at runtime.
-        if let interval = options?["minuteInterval"] as? Int,
+        if let interval = (options?["minuteInterval"] as? NSNumber)?.intValue,
             (1...30).contains(interval), 60 % interval == 0 {
             picker.minuteInterval = interval
         }
         if let is24Hour = options?["is24Hour"] as? Bool {
-            // UIDatePicker has no 24h switch — the locale decides. Only
-            // override when the caller asked explicitly.
-            picker.locale = Locale(identifier: is24Hour ? "en_GB" : "en_US")
+            // UIDatePicker has no 24h switch — the locale decides. Override
+            // only the hour cycle via the BCP-47 `hc` extension so the
+            // user's month/day names and calendar stay localized.
+            let base = Locale.current.identifier
+                .split(separator: "@").first.map(String.init)?
+                .replacingOccurrences(of: "_", with: "-") ?? "en-US"
+            picker.locale = Locale(identifier: "\(base)-u-hc-\(is24Hour ? "h23" : "h12")")
         }
         if let title = options?["title"] as? String {
             self.title = title
