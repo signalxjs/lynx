@@ -4,6 +4,12 @@
   display: flex;
 }
 
+/* Rounded-square corner from the theme token; the circle case overrides
+ * border-radius inline (size-derived). */
+.hero-avatar-box {
+  border-radius: var(--radius-field);
+}
+
 .hero-avatar-placeholder {
   background-color: var(--color-neutral);
 }

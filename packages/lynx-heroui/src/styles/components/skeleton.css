@@ -1,4 +1,4 @@
-/* Hero Skeleton — placeholder with a left-to-right shimmer. */
+/* Hero Skeleton — placeholder with an opacity pulse. */
 
 @keyframes hero-skeleton-pulse {
   0% { opacity: 1; }

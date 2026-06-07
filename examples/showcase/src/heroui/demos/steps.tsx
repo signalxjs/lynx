@@ -1,5 +1,5 @@
 import { component } from '@sigx/lynx';
-import { Col, Steps, Text } from '@sigx/lynx-heroui';
+import { Steps, Text } from '@sigx/lynx-heroui';
 import type { HeroComponentDemo } from '../registry.js';
 
 /** Steps — indicator circles; color marks completed/active. */
