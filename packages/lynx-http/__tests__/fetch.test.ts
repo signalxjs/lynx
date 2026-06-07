@@ -142,6 +142,13 @@ describe('fetch — request spec', () => {
         await expect(fetch('https://x.test', { body: 42 as unknown as string })).rejects.toThrow(/unsupported body/);
         expect(bridge.callAsync.mock.calls.filter((c) => c[1] === 'request')).toHaveLength(0);
     });
+
+    it('rejects non-http(s) schemes up front (native would hang or throw)', async () => {
+        await expect(fetch('ftp://files.example.com/a')).rejects.toThrow(/unsupported URL scheme/);
+        await expect(fetch('ws://sock.example.com')).rejects.toThrow(/unsupported URL scheme/);
+        await expect(fetch('not-a-url')).rejects.toThrow(/unsupported URL scheme/);
+        expect(bridge.callAsync).not.toHaveBeenCalled();
+    });
 });
 
 describe('fetch — response lifecycle', () => {

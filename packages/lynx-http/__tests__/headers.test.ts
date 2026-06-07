@@ -58,6 +58,15 @@ describe('Headers — semantics', () => {
         expect(() => h.set('', 'x')).toThrow(TypeError);
     });
 
+    it('rejects embedded CR/LF/NUL in values (header injection)', () => {
+        const h = new Headers();
+        expect(() => h.set('x-a', 'evil\r\nX-Inject: 1')).toThrow(TypeError);
+        expect(() => h.append('x-b', 'nul\0byte')).toThrow(TypeError);
+        // Leading/trailing CR/LF is whitespace and trims fine.
+        h.set('x-c', '\r\nok\r\n');
+        expect(h.get('x-c')).toBe('ok');
+    });
+
     it('iterates lowercase names in sorted order', () => {
         const h = new Headers({ Zebra: 'z', alpha: 'a', Mid: 'm' });
         expect([...h.keys()]).toEqual(['alpha', 'mid', 'zebra']);

@@ -172,6 +172,14 @@ export function fetch(input: string | { url: string }, init: RequestInitLike = {
     if (typeof url !== 'string' || url.length === 0) {
         return Promise.reject(new TypeError('fetch: invalid URL'));
     }
+    // The native transports only speak HTTP(S) — fail fast on anything
+    // else (OkHttp throws on unknown schemes; URLSession may never emit a
+    // response event, leaving the promise pending forever).
+    const colon = url.indexOf(':');
+    const scheme = colon > 0 ? url.slice(0, colon).toLowerCase() : '';
+    if (scheme !== 'http' && scheme !== 'https') {
+        return Promise.reject(new TypeError(`fetch: unsupported URL scheme "${scheme || url}"`));
+    }
 
     if (init.signal?.aborted) {
         return Promise.reject(abortError(init.signal.reason));

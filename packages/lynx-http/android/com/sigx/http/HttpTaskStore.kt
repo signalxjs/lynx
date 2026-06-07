@@ -59,9 +59,11 @@ internal object HttpTaskStore {
 
     private val client: OkHttpClient by lazy {
         OkHttpClient.Builder()
-            // No read timeout — long-lived streamed responses (SSE) drive
-            // their own teardown; aborts come through call.cancel().
-            .readTimeout(0, TimeUnit.MILLISECONDS)
+            // Between-bytes timeout matching iOS's timeoutIntervalForRequest.
+            // Long-lived streams (SSE) stay alive as long as the server
+            // keeps sending (keepalives reset the clock); a stalled server
+            // fails the call instead of hanging it forever.
+            .readTimeout(60, TimeUnit.SECONDS)
             .build()
     }
 

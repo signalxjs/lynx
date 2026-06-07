@@ -19,7 +19,13 @@ function normalizeName(name: string): string {
 
 function normalizeValue(value: string): string {
     // Per spec: strip leading/trailing HTTP whitespace.
-    return String(value).replace(/^[\t\n\r ]+|[\t\n\r ]+$/g, '');
+    const v = String(value).replace(/^[\t\n\r ]+|[\t\n\r ]+$/g, '');
+    // Embedded CR/LF/NUL is a header-injection vector (and crashes OkHttp's
+    // header validation) — reject like platform Headers do.
+    if (/[\r\n\0]/.test(v)) {
+        throw new TypeError('Headers: header value contains forbidden control characters');
+    }
+    return v;
 }
 
 export class Headers {
