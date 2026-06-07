@@ -243,6 +243,32 @@ describe('discoverSigxPackages', () => {
         expect(discovered).toEqual(['@sigx/lynx-biometric']);
     });
 
+    it('walks the umbrella marker manifest to default-wired modules (@sigx/lynx → lynx-http)', async () => {
+        // @sigx/lynx ships a contribution-less marker manifest precisely so
+        // this walk happens: an app depending only on the umbrella gets its
+        // default-wired native deps (lynx-http) linked, while the umbrella's
+        // pure-JS deps stay invisible to the linker.
+        writeProject(testDir, {
+            dependencies: { '@sigx/lynx': '^1.0.0' },
+            installed: {
+                '@sigx/lynx': {
+                    manifest: true, // the marker — no native contributions
+                    dependencies: {
+                        '@sigx/lynx-http': '^1.0.0',
+                        '@sigx/lynx-runtime': '^1.0.0',
+                    },
+                },
+                '@sigx/lynx-http': 'with-manifest',
+                '@sigx/lynx-runtime': 'no-manifest',
+            },
+        });
+        const discovered = await discoverSigxPackages(testDir, []);
+        expect(discovered.sort()).toEqual(['@sigx/lynx', '@sigx/lynx-http']);
+        // Opt-out still works for default-wired modules.
+        const optedOut = await discoverSigxPackages(testDir, [], ['@sigx/lynx-http']);
+        expect(optedOut).toEqual(['@sigx/lynx']);
+    });
+
     it('resolves pnpm-style nested installs from the dependent module', async () => {
         // Strict (non-hoisted) layout: lynx-core only exists under the
         // module's own node_modules — invisible to the app's resolver.

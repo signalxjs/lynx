@@ -1,0 +1,8 @@
+{
+    "name": "SigxLynx",
+    "package": "@sigx/lynx",
+    "description": "Framework umbrella — contributes no native code itself; marks the package for the transitive module walk so default-wired deps (e.g. @sigx/lynx-http) autolink",
+    "platforms": ["android", "ios"],
+    "android": {},
+    "ios": {}
+}

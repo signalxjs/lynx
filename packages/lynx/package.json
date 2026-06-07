@@ -20,7 +20,8 @@
         "./client": {
             "types": "./dist/client.d.ts"
         },
-        "./package.json": "./package.json"
+        "./package.json": "./package.json",
+        "./signalx-module.json": "./signalx-module.json"
     },
     "repository": {
         "type": "git",
@@ -35,7 +36,8 @@
     "files": [
         "dist",
         "README.md",
-        "LICENSE"
+        "LICENSE",
+        "signalx-module.json"
     ],
     "scripts": {
         "build": "node ../../scripts/clean.mjs dist && tsgo && node ../../scripts/copy-assets.mjs src/client.d.ts dist/client.d.ts",
