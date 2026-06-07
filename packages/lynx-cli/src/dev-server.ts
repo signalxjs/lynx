@@ -589,8 +589,8 @@ async function warnIfSvgAbiGap(cwd: string, deviceIds: string[], logger: Logger)
         const config = resolveConfig(await loadConfig(cwd));
         if (config.iconSets.length === 0) return;
         for (const id of ids) {
-            // Probe each device's ABI at most once per process; a failed
-            // probe (null) stays uncached so a flaky adb gets retried.
+            // Cache successful ABI probes per device; a failed probe (null)
+            // stays uncached so a flaky adb gets retried on the next launch.
             let abi = _probedAbis.get(id);
             if (abi === undefined) {
                 abi = getDeviceCpuAbi(id);
