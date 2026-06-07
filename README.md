@@ -1,6 +1,14 @@
 # SignalX for Lynx
 
-[Lynx](https://lynxjs.org/) bindings, runtime, build plugin, CLI plugin, native modules, and UI kit for [SignalX](https://github.com/signalxjs/core) — a single import path (`@sigx/lynx`) on top of `@sigx/reactivity` + `@sigx/runtime-core`, with the Lynx-specific dual-thread renderer underneath.
+**The batteries-included way to ship native mobile apps with [SignalX](https://github.com/signalxjs/core).** Built on [Lynx](https://lynxjs.org/), it covers the whole stack — scaffold, build, run, and ship from one toolchain:
+
+- **One CLI** — `sigx dev` / `sigx build` / `sigx run:ios` / `sigx run:android` / `sigx prebuild` / `sigx doctor`. Scaffold with `npm create @sigx@latest` and be on a device in minutes.
+- **Autolinked native modules** — `pnpm add @sigx/lynx-haptics`, run `sigx prebuild`, done: the native code is linked and even the Android manifest permission is added for you. No pod wiring, no config. 25+ modules, from biometrics to WebSocket.
+- **Headless-first UI** — behavior and structure ship as headless components on a design-system-neutral foundation ([`lynx-zero`](./packages/lynx-zero)); skin them with the DaisyUI-flavored design system (or the HeroUI-flavored pilot), or bring your own. Plus type-safe navigation, icon sets tree-shaken at build time to the glyphs you actually use, and streaming markdown with a true WYSIWYG editor.
+- **A renderer built for 60fps** — dual-thread architecture: gestures and animations run frame-locked on the UI thread via `SharedValue`, even when JS is busy.
+- **Lockstep versioning** — 40+ packages, one version. Any combination at the same range just works together.
+
+The core is one import — `@sigx/lynx` re-exports `@sigx/reactivity`, `@sigx/runtime-core`, and the Lynx dual-thread renderer under a single import path. Everything else is opt-in: install the `@sigx/lynx-*` packages you need, and only what you add ships in your app.
 
 ## Quick start
 
