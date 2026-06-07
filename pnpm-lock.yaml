@@ -125,9 +125,6 @@ importers:
       '@sigx/lynx-notifications':
         specifier: workspace:^
         version: link:../../packages/lynx-notifications
-      '@sigx/lynx-permissions':
-        specifier: workspace:^
-        version: link:../../packages/lynx-permissions
       '@sigx/lynx-richtext':
         specifier: workspace:^
         version: link:../../packages/lynx-richtext
@@ -269,6 +266,9 @@ importers:
       '@sigx/lynx-core':
         specifier: workspace:^
         version: link:../lynx-core
+      '@sigx/lynx-permissions':
+        specifier: workspace:^
+        version: link:../lynx-permissions
     devDependencies:
       '@typescript/native-preview':
         specifier: 7.0.0-dev.20260521.1
@@ -314,6 +314,9 @@ importers:
       '@sigx/lynx-core':
         specifier: workspace:^
         version: link:../lynx-core
+      '@sigx/lynx-permissions':
+        specifier: workspace:^
+        version: link:../lynx-permissions
     devDependencies:
       '@typescript/native-preview':
         specifier: 7.0.0-dev.20260521.1
@@ -490,6 +493,9 @@ importers:
       '@sigx/lynx-core':
         specifier: workspace:^
         version: link:../lynx-core
+      '@sigx/lynx-permissions':
+        specifier: workspace:^
+        version: link:../lynx-permissions
     devDependencies:
       '@typescript/native-preview':
         specifier: 7.0.0-dev.20260521.1
@@ -642,6 +648,9 @@ importers:
       '@sigx/lynx-core':
         specifier: workspace:^
         version: link:../lynx-core
+      '@sigx/lynx-permissions':
+        specifier: workspace:^
+        version: link:../lynx-permissions
     devDependencies:
       '@typescript/native-preview':
         specifier: 7.0.0-dev.20260521.1
@@ -705,6 +714,9 @@ importers:
       '@sigx/lynx-core':
         specifier: workspace:^
         version: link:../lynx-core
+      '@sigx/lynx-permissions':
+        specifier: workspace:^
+        version: link:../lynx-permissions
     devDependencies:
       '@typescript/native-preview':
         specifier: 7.0.0-dev.20260521.1
@@ -816,6 +828,9 @@ importers:
       '@sigx/lynx-core':
         specifier: workspace:^
         version: link:../lynx-core
+      '@sigx/lynx-permissions':
+        specifier: workspace:^
+        version: link:../lynx-permissions
     devDependencies:
       '@typescript/native-preview':
         specifier: 7.0.0-dev.20260521.1

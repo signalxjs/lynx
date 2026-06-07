@@ -1,10 +1,11 @@
 /**
  * @sigx/lynx-permissions — shared Android permission helper.
  *
- * This package ships only Android Kotlin source (PermissionHelper.kt). It is
- * a peer dependency of camera/location/imagepicker/notifications/filesystem
- * modules that need to check or request runtime permissions. The host's
- * Activity must call:
+ * This package ships only Android Kotlin source (PermissionHelper.kt +
+ * MediaCapture.kt). It is a regular dependency of the permission-using
+ * modules (audio/camera/file-picker/image-picker/location/notifications),
+ * so the auto-linker pulls it in transitively. The host's Activity must
+ * call:
  *
  *   - `PermissionHelper.setActivity(this)` in `onResume()`
  *   - `PermissionHelper.clearActivity()` in `onPause()`

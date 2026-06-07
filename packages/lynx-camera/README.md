@@ -19,7 +19,7 @@ export default defineLynxConfig({
     },
 });
 ```
-> **Android requires `@sigx/lynx-permissions`** — that's where the runtime permission prompt + Activity Result wiring lives, and camera's Kotlin sources import `com.sigx.permissions.*` directly. Install it explicitly: `pnpm add @sigx/lynx-permissions`. The permission-using modules don't declare it as a peer dep, so the Android build will break without it.
+On Android the runtime permission prompt + Activity Result wiring comes from [`@sigx/lynx-permissions`](../lynx-permissions), a dependency of this package — the auto-linker pulls it in, nothing to install.
 ## Usage
 ```ts
 import { Camera } from '@sigx/lynx-camera';

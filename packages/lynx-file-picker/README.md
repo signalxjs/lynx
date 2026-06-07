@@ -8,7 +8,7 @@ Pick **any file** from the device for sigx-lynx. iOS uses `UIDocumentPickerViewC
 pnpm add @sigx/lynx-file-picker
 ```
 `sigx prebuild` auto-discovers the package and links the native module. No permissions and no iOS usage descriptions are needed — both platform pickers grant per-pick access on the fly.
-> **Android pairs with `@sigx/lynx-permissions`** — needed for the Activity Result wiring.
+On Android the Activity Result wiring comes from [`@sigx/lynx-permissions`](../lynx-permissions), a dependency of this package — the auto-linker pulls it in, nothing to install.
 ## Usage
 ```ts
 import { FilePicker } from '@sigx/lynx-file-picker';

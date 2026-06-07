@@ -15,7 +15,7 @@ pnpm add @sigx/lynx-notifications
 
 `sigx prebuild` auto-discovers the package, links the native module, adds `android.permission.POST_NOTIFICATIONS` (Android 13+), registers the FCM service in `AndroidManifest.xml`, adds `UIBackgroundModes: remote-notification` to iOS `Info.plist`, and wires the APNs callbacks through the generated `AppDelegate` dispatcher.
 
-> **Android pairs with `@sigx/lynx-permissions`** — needed for the runtime permission prompt on Android 13+.
+On Android 13+ the runtime permission prompt comes from [`@sigx/lynx-permissions`](../lynx-permissions), a dependency of this package — the auto-linker pulls it in, nothing to install.
 
 ### One-time manual setup for remote push
 

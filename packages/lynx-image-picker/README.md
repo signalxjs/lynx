@@ -8,7 +8,7 @@ pnpm add @sigx/lynx-image-picker
 - `READ_MEDIA_IMAGES`
 - `READ_MEDIA_VIDEO`
 - `READ_EXTERNAL_STORAGE` (older API levels)
-> **Android pairs with `@sigx/lynx-permissions`** — needed for the Activity Result wiring.
+On Android the Activity Result wiring comes from [`@sigx/lynx-permissions`](../lynx-permissions), a dependency of this package — the auto-linker pulls it in, nothing to install.
 ## Usage
 ```ts
 import { ImagePicker } from '@sigx/lynx-image-picker';

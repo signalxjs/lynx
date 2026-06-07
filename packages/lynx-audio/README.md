@@ -10,7 +10,7 @@ pnpm add @sigx/lynx-audio
 
 `sigx prebuild` auto-discovers the package, links the native module, injects `android.permission.RECORD_AUDIO`, adds `NSMicrophoneUsageDescription` to `Info.plist`, and enables the `audio` background mode for iOS.
 
-> **Android requires `@sigx/lynx-permissions`** — `RECORD_AUDIO` is requested through `PermissionHelper`. Install it explicitly: `pnpm add @sigx/lynx-permissions`.
+On Android, `RECORD_AUDIO` is requested through [`@sigx/lynx-permissions`](../lynx-permissions), a dependency of this package — the auto-linker pulls it in, nothing to install.
 
 ## Playback
 
