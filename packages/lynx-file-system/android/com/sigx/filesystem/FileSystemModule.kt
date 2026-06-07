@@ -46,8 +46,14 @@ class FileSystemModule(context: Context) : LynxModule(context) {
      */
     @LynxMethod
     fun readFileBase64(path: String?, callback: Callback?) {
+        if (path.isNullOrEmpty()) {
+            val error = JavaOnlyMap()
+            error.putString("error", "Path is required")
+            callback?.invoke(error)
+            return
+        }
         try {
-            val p = path ?: ""
+            val p = path
             val bytes: ByteArray? = if (p.startsWith("content://")) {
                 mContext.contentResolver.openInputStream(Uri.parse(p))?.use { it.readBytes() }
             } else {

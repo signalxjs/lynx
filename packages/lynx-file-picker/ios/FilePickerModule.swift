@@ -27,6 +27,9 @@ class FilePickerModule: NSObject, LynxModule, UIDocumentPickerDelegate {
     @objc func pick(_ options: [String: Any]?, callback: LynxCallbackBlock?) {
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
+            // Pre-empt any prior in-flight pick so its Promise can't hang
+            // (mirrors the Android MediaCapture pre-emption behavior).
+            self.pendingCallback?(["cancelled": true, "assets": []])
             self.pendingCallback = callback
             self.copyToCache = options?["copyToCache"] as? Bool ?? true
 

@@ -118,7 +118,14 @@ class FileSystemModule: NSObject, LynxModule {
 
     private func resolveFile(_ path: String) -> String {
         // Accept `file://` URIs (pickers return these) alongside plain paths.
-        if path.hasPrefix("file://"), let url = URL(string: path) { return url.path }
+        if path.hasPrefix("file://") {
+            if let url = URL(string: path) { return url.path }
+            // URL(string:) rejects unescaped characters (e.g. spaces in a
+            // JS-prefixed bare path) — strip the scheme manually instead of
+            // falling through to relative-path resolution.
+            let stripped = String(path.dropFirst("file://".count))
+            return stripped.removingPercentEncoding ?? stripped
+        }
         if (path as NSString).isAbsolutePath { return path }
         let docsDir = NSSearchPathForDirectoriesInDomains(.documentDirectory, .userDomainMask, true).first ?? ""
         return (docsDir as NSString).appendingPathComponent(path)

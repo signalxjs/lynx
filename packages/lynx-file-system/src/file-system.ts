@@ -40,7 +40,9 @@ export const FileSystem = {
 
     /** `readFileBase64` decoded to an `ArrayBuffer`. */
     async readFileAsArrayBuffer(path: string): Promise<ArrayBuffer> {
-        return base64ToArrayBuffer(await this.readFileBase64(path));
+        // Reference the sibling via the const (not `this`) so the method
+        // survives destructuring like the rest of the FileSystem API.
+        return base64ToArrayBuffer(await FileSystem.readFileBase64(path));
     },
 
     writeFile(path: string, content: string): Promise<void> {
