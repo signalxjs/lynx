@@ -21,9 +21,15 @@ const _Modal = component<ModalProps>(({ props, slots }) => {
         class="modal-overlay"
         bindtap={() => { props.onClose?.(); }}
       >
+        {/* catchtap (Lynx catchEvent) — there is no e.stopPropagation() in
+            this runtime, so the old bindtap guard was a silent no-op and any
+            tap inside the box bubbled to the overlay's close handler (#260).
+            Inner bindtap handlers (buttons, rows) still fire first; the box
+            only stops the bubble from continuing to the overlay. Same fix as
+            lynx-emoji's SheetPicker (#254/#258). */}
         <view
           class={`modal-box${props.class ? ' ' + props.class : ''}`}
-          bindtap={(e: any) => { e?.stopPropagation?.(); }}
+          catchtap={() => {}}
         >
           {slots.default?.()}
         </view>
