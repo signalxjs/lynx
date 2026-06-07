@@ -9,8 +9,8 @@ import { heroDemos } from './heroui/registry.js';
  * registered route; `route: RoutesWithoutParams` makes a dangling
  * reference a type error (keyed by the Register augmentation in routes.ts)
  * and guarantees `nav.push(example.route)` needs no params — except the
- * DaisyUI component pages, which all share the parametric `daisyui` route
- * and carry their `componentId` in `params`.
+ * DaisyUI and HeroUI component pages, which share the parametric `daisyui`
+ * / `heroui` routes respectively and carry their `componentId` in `params`.
  */
 export type Example = {
     id: string;
