@@ -2,6 +2,8 @@ package com.sigx.filepicker
 
 import android.content.Context
 import android.net.Uri
+import android.os.Handler
+import android.os.Looper
 import android.provider.OpenableColumns
 import android.util.Log
 import com.lynx.jsbridge.LynxMethod
@@ -42,8 +44,17 @@ class FilePickerModule(context: Context) : LynxModule(context) {
             }
         }
 
+        // The ActivityResult callback lands on the main thread, but
+        // resolveAssets queries ContentResolver metadata and may copy whole
+        // files into filesDir — do that work off-main and post the final
+        // result back (mirrors the iOS module's background-queue handling).
         val handler: (JavaOnlyMap) -> Unit = { result ->
-            callback?.invoke(resolveAssets(result, copyToCache))
+            Thread {
+                val resolved = resolveAssets(result, copyToCache)
+                Handler(Looper.getMainLooper()).post {
+                    callback?.invoke(resolved)
+                }
+            }.start()
         }
         if (multiple) {
             com.sigx.permissions.MediaCapture.pickFiles(types.toTypedArray(), handler)
