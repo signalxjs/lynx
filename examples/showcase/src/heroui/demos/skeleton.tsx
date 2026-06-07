@@ -6,7 +6,7 @@ import type { HeroComponentDemo } from '../registry.js';
 export const skeletonDemo: HeroComponentDemo = {
     id: 'skeleton',
     title: 'Skeleton',
-    description: 'Shimmering placeholders — blocks and circles',
+    description: 'Pulsing placeholders — blocks and circles',
     icon: { set: 'lucide', name: 'square-dashed' },
     sections: [
         {

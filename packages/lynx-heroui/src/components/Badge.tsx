@@ -27,5 +27,7 @@ export const Badge = component<BadgeProps>(({ props, slots }) => {
     return c.join(' ');
   };
 
-  return () => <text class={getClasses()}>{slots.default?.()}</text>;
+  // `<view>` root (box-model + flex styles apply reliably, matching daisy
+  // Badge); the label inherits the class's color.
+  return () => <view class={getClasses()}>{slots.default?.()}</view>;
 });
