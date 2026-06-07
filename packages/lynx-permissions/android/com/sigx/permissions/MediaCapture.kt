@@ -212,14 +212,8 @@ object MediaCapture {
             putString("error", "activity destroyed")
             putBoolean("cancelled", true)
         })
-        pendingOpenDocumentCallback?.invoke(JavaOnlyMap().apply {
-            putString("error", "activity destroyed")
-            putBoolean("cancelled", true)
-        })
-        pendingOpenMultipleDocumentsCallback?.invoke(JavaOnlyMap().apply {
-            putString("error", "activity destroyed")
-            putBoolean("cancelled", true)
-        })
+        pendingOpenDocumentCallback?.invoke(cancelledDocumentResult("activity destroyed"))
+        pendingOpenMultipleDocumentsCallback?.invoke(cancelledDocumentResult("activity destroyed"))
         pendingTakePictureCallback = null
         pendingPickMediaCallback = null
         pendingPickMultipleMediaCallback = null
@@ -350,6 +344,18 @@ object MediaCapture {
     }
 
     /**
+     * `{ cancelled: true, assets: [], error }` — the document-pick error
+     * shape. Always carries an `assets` array so the `{ cancelled, assets }`
+     * contract holds on every code path.
+     */
+    private fun cancelledDocumentResult(error: String): JavaOnlyMap =
+        JavaOnlyMap().apply {
+            putString("error", error)
+            putBoolean("cancelled", true)
+            putArray("assets", com.lynx.react.bridge.JavaOnlyArray())
+        }
+
+    /**
      * Launch the SAF document picker for a single file of any type. No
      * runtime permission needed — SAF grants per-pick read access. `types`
      * is the MIME-type filter; empty means any file. Returns
@@ -358,25 +364,16 @@ object MediaCapture {
     fun pickFile(types: Array<String>, callback: (JavaOnlyMap) -> Unit) {
         val launcher = openDocumentLauncher
         if (launcher == null) {
-            callback(JavaOnlyMap().apply {
-                putString("error", "MediaCapture not registered — wire MediaCapture.register(this) into MainActivity.onCreate")
-                putBoolean("cancelled", true)
-            })
+            callback(cancelledDocumentResult("MediaCapture not registered — wire MediaCapture.register(this) into MainActivity.onCreate"))
             return
         }
-        pendingOpenDocumentCallback?.invoke(JavaOnlyMap().apply {
-            putString("error", "cancelled by new pickFile")
-            putBoolean("cancelled", true)
-        })
+        pendingOpenDocumentCallback?.invoke(cancelledDocumentResult("cancelled by new pickFile"))
         pendingOpenDocumentCallback = callback
         try {
             launcher.launch(if (types.isEmpty()) arrayOf("*/*") else types)
         } catch (e: Throwable) {
             pendingOpenDocumentCallback = null
-            callback(JavaOnlyMap().apply {
-                putString("error", e.message ?: "launcher.launch failed")
-                putBoolean("cancelled", true)
-            })
+            callback(cancelledDocumentResult(e.message ?: "launcher.launch failed"))
         }
     }
 
@@ -387,25 +384,16 @@ object MediaCapture {
     fun pickFiles(types: Array<String>, callback: (JavaOnlyMap) -> Unit) {
         val launcher = openMultipleDocumentsLauncher
         if (launcher == null) {
-            callback(JavaOnlyMap().apply {
-                putString("error", "MediaCapture not registered — wire MediaCapture.register(this) into MainActivity.onCreate")
-                putBoolean("cancelled", true)
-            })
+            callback(cancelledDocumentResult("MediaCapture not registered — wire MediaCapture.register(this) into MainActivity.onCreate"))
             return
         }
-        pendingOpenMultipleDocumentsCallback?.invoke(JavaOnlyMap().apply {
-            putString("error", "cancelled by new pickFiles")
-            putBoolean("cancelled", true)
-        })
+        pendingOpenMultipleDocumentsCallback?.invoke(cancelledDocumentResult("cancelled by new pickFiles"))
         pendingOpenMultipleDocumentsCallback = callback
         try {
             launcher.launch(if (types.isEmpty()) arrayOf("*/*") else types)
         } catch (e: Throwable) {
             pendingOpenMultipleDocumentsCallback = null
-            callback(JavaOnlyMap().apply {
-                putString("error", e.message ?: "launcher.launch failed")
-                putBoolean("cancelled", true)
-            })
+            callback(cancelledDocumentResult(e.message ?: "launcher.launch failed"))
         }
     }
 }

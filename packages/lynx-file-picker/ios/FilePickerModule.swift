@@ -97,41 +97,50 @@ class FilePickerModule: NSObject, LynxModule, UIDocumentPickerDelegate {
 
     func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
         controller.dismiss(animated: true)
-        var assets: [[String: Any]] = []
-        for url in urls {
-            // `asCopy: true` placed an app-owned copy in tmp. Persist it into
-            // Documents/picked so the URI survives app restarts (tmp can be
-            // purged by iOS at any time) — same convention as image-picker.
-            var fileURL = url
-            if copyToCache {
-                let docsDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first
-                    ?? URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
-                let pickedDir = docsDir.appendingPathComponent("picked", isDirectory: true)
-                try? FileManager.default.createDirectory(at: pickedDir, withIntermediateDirectories: true)
-                let dest = pickedDir.appendingPathComponent("pick_\(UUID().uuidString)_\(url.lastPathComponent)")
-                do {
-                    try FileManager.default.copyItem(at: url, to: dest)
-                    fileURL = dest
-                } catch {
-                    // Fall back to the tmp copy rather than dropping the asset.
-                }
-            }
-
-            let attrs = try? FileManager.default.attributesOfItem(atPath: fileURL.path)
-            let size = (attrs?[.size] as? UInt64) ?? 0
-            let mime = UTType(filenameExtension: fileURL.pathExtension)?.preferredMIMEType
-                ?? "application/octet-stream"
-            assets.append([
-                // `file://` scheme included — bare paths silently fail in
-                // Lynx loaders and FileSystem expects a resolvable path.
-                "uri": fileURL.absoluteString,
-                "name": url.lastPathComponent,
-                "mimeType": mime,
-                "size": size,
-            ])
-        }
-        pendingCallback?(["cancelled": false, "assets": assets])
+        let callback = pendingCallback
         pendingCallback = nil
+        let copyToCache = self.copyToCache
+
+        // Copying + attribute reads can be slow for large/multi-select picks —
+        // do the filesystem work off the main thread and hop back to deliver.
+        DispatchQueue.global(qos: .userInitiated).async {
+            var assets: [[String: Any]] = []
+            for url in urls {
+                // `asCopy: true` placed an app-owned copy in tmp. Persist it into
+                // Documents/picked so the URI survives app restarts (tmp can be
+                // purged by iOS at any time) — same convention as image-picker.
+                var fileURL = url
+                if copyToCache {
+                    let docsDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first
+                        ?? URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
+                    let pickedDir = docsDir.appendingPathComponent("picked", isDirectory: true)
+                    try? FileManager.default.createDirectory(at: pickedDir, withIntermediateDirectories: true)
+                    let dest = pickedDir.appendingPathComponent("pick_\(UUID().uuidString)_\(url.lastPathComponent)")
+                    do {
+                        try FileManager.default.copyItem(at: url, to: dest)
+                        fileURL = dest
+                    } catch {
+                        // Fall back to the tmp copy rather than dropping the asset.
+                    }
+                }
+
+                let attrs = try? FileManager.default.attributesOfItem(atPath: fileURL.path)
+                let size = (attrs?[.size] as? UInt64) ?? 0
+                let mime = UTType(filenameExtension: fileURL.pathExtension)?.preferredMIMEType
+                    ?? "application/octet-stream"
+                assets.append([
+                    // `file://` scheme included — bare paths silently fail in
+                    // Lynx loaders and FileSystem expects a resolvable path.
+                    "uri": fileURL.absoluteString,
+                    "name": url.lastPathComponent,
+                    "mimeType": mime,
+                    "size": size,
+                ])
+            }
+            DispatchQueue.main.async {
+                callback?(["cancelled": false, "assets": assets])
+            }
+        }
     }
 
     func documentPickerWasCancelled(_ controller: UIDocumentPickerViewController) {
