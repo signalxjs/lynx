@@ -1,0 +1,49 @@
+/* Hero Badge — pill label; solid / flat (soft tint) / bordered. */
+
+.hero-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 24px;
+  padding-left: 10px;
+  padding-right: 10px;
+  border-radius: 9999px;
+  font-size: var(--font-sm);
+  font-weight: 500;
+  border-width: 0;
+  border-color: transparent;
+}
+
+.hero-badge-sm { height: 20px; padding-left: 8px; padding-right: 8px; font-size: var(--font-sm); }
+.hero-badge-lg { height: 28px; padding-left: 12px; padding-right: 12px; font-size: var(--font-md); }
+
+/* Solid (default) */
+.hero-badge-primary { background-color: var(--color-primary); color: var(--color-primary-content); }
+.hero-badge-secondary { background-color: var(--color-secondary); color: var(--color-secondary-content); }
+.hero-badge-accent { background-color: var(--color-accent); color: var(--color-accent-content); }
+.hero-badge-neutral { background-color: var(--color-neutral); color: var(--color-neutral-content); }
+.hero-badge-info { background-color: var(--color-info); color: var(--color-info-content); }
+.hero-badge-success { background-color: var(--color-success); color: var(--color-success-content); }
+.hero-badge-warning { background-color: var(--color-warning); color: var(--color-warning-content); }
+.hero-badge-error { background-color: var(--color-error); color: var(--color-error-content); }
+
+/* Flat — soft tint + colored label */
+.hero-badge-flat.hero-badge-primary { background-color: var(--color-primary-soft); color: var(--color-primary); }
+.hero-badge-flat.hero-badge-secondary { background-color: var(--color-secondary-soft); color: var(--color-secondary); }
+.hero-badge-flat.hero-badge-accent { background-color: var(--color-accent-soft); color: var(--color-accent); }
+.hero-badge-flat.hero-badge-neutral { background-color: var(--color-neutral-soft); color: var(--color-base-content); }
+.hero-badge-flat.hero-badge-info { background-color: var(--color-info-soft); color: var(--color-info); }
+.hero-badge-flat.hero-badge-success { background-color: var(--color-success-soft); color: var(--color-success); }
+.hero-badge-flat.hero-badge-warning { background-color: var(--color-warning-soft); color: var(--color-warning); }
+.hero-badge-flat.hero-badge-error { background-color: var(--color-error-soft); color: var(--color-error); }
+
+/* Bordered — outline + colored label */
+.hero-badge-bordered { background-color: transparent; border-width: 1px; }
+.hero-badge-bordered.hero-badge-primary { border-color: var(--color-primary); color: var(--color-primary); }
+.hero-badge-bordered.hero-badge-secondary { border-color: var(--color-secondary); color: var(--color-secondary); }
+.hero-badge-bordered.hero-badge-accent { border-color: var(--color-accent); color: var(--color-accent); }
+.hero-badge-bordered.hero-badge-neutral { border-color: var(--color-neutral); color: var(--color-base-content); }
+.hero-badge-bordered.hero-badge-info { border-color: var(--color-info); color: var(--color-info); }
+.hero-badge-bordered.hero-badge-success { border-color: var(--color-success); color: var(--color-success); }
+.hero-badge-bordered.hero-badge-warning { border-color: var(--color-warning); color: var(--color-warning); }
+.hero-badge-bordered.hero-badge-error { border-color: var(--color-error); color: var(--color-error); }

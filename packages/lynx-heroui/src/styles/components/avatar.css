@@ -1,0 +1,20 @@
+/* Hero Avatar — image or initials placeholder (sizing is inline per size). */
+
+.hero-avatar {
+  display: flex;
+}
+
+/* Rounded-square corner from the theme token; the circle case overrides
+ * border-radius inline (size-derived). */
+.hero-avatar-box {
+  border-radius: var(--radius-field);
+}
+
+.hero-avatar-placeholder {
+  background-color: var(--color-neutral);
+}
+.hero-avatar-initials {
+  color: var(--color-neutral-content);
+  font-weight: 500;
+  line-height: 1;
+}

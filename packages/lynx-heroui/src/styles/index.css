@@ -26,5 +26,12 @@
 @import './components/select.css';
 @import './components/form-field.css';
 @import './components/divider.css';
+@import './components/badge.css';
+@import './components/alert.css';
+@import './components/loading.css';
+@import './components/progress.css';
+@import './components/skeleton.css';
+@import './components/steps.css';
+@import './components/avatar.css';
 @import './components/modal.css';
 @import './components/tabs.css';

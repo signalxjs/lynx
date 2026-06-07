@@ -1,0 +1,13 @@
+/* Hero Skeleton — placeholder with an opacity pulse. */
+
+@keyframes hero-skeleton-pulse {
+  0% { opacity: 1; }
+  50% { opacity: 0.4; }
+  100% { opacity: 1; }
+}
+
+.hero-skeleton {
+  background-color: var(--color-base-300);
+  border-radius: var(--radius-field);
+  animation: hero-skeleton-pulse 1400ms ease-in-out infinite;
+}
