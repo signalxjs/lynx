@@ -2,6 +2,10 @@ import type { IconSpec } from '@sigx/lynx-icons';
 import { buttonDemo } from './demos/button.js';
 import { cardDemo } from './demos/card.js';
 import { inputDemo } from './demos/input.js';
+import { textareaDemo } from './demos/textarea.js';
+import { toggleDemo } from './demos/toggle.js';
+import { checkboxDemo } from './demos/checkbox.js';
+import { radioDemo } from './demos/radio.js';
 import { modalDemo } from './demos/modal.js';
 import { tabsDemo } from './demos/tabs.js';
 import { textDemo } from './demos/text.js';
@@ -53,6 +57,10 @@ export const heroDemos: HeroComponentDemo[] = [
     cardDemo,
     // Forms
     inputDemo,
+    textareaDemo,
+    toggleDemo,
+    checkboxDemo,
+    radioDemo,
     // Feedback
     modalDemo,
     // Navigation

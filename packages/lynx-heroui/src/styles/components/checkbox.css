@@ -1,0 +1,50 @@
+/* Hero Checkbox — rounded square box + checkmark glyph. */
+
+.hero-checkbox {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-selector);
+  border-width: 2px;
+  border-color: var(--color-base-300);
+  background-color: transparent;
+}
+
+.hero-checkbox-sm { width: 20px; height: 20px; }
+.hero-checkbox-lg { width: 28px; height: 28px; }
+
+.hero-checkbox-mark {
+  color: var(--color-primary-content);
+  line-height: 1;
+}
+
+/* Checkmark uses the matching `*-content` token so it stays legible on each
+ * filled semantic color (not just primary). */
+.hero-checkbox-secondary .hero-checkbox-mark { color: var(--color-secondary-content); }
+.hero-checkbox-accent .hero-checkbox-mark { color: var(--color-accent-content); }
+.hero-checkbox-info .hero-checkbox-mark { color: var(--color-info-content); }
+.hero-checkbox-success .hero-checkbox-mark { color: var(--color-success-content); }
+.hero-checkbox-warning .hero-checkbox-mark { color: var(--color-warning-content); }
+.hero-checkbox-error .hero-checkbox-mark { color: var(--color-error-content); }
+
+/* Checked — fill + border take the semantic color (primary default). */
+.hero-checkbox-checked { background-color: var(--color-primary); border-color: var(--color-primary); }
+.hero-checkbox-checked.hero-checkbox-secondary { background-color: var(--color-secondary); border-color: var(--color-secondary); }
+.hero-checkbox-checked.hero-checkbox-accent { background-color: var(--color-accent); border-color: var(--color-accent); }
+.hero-checkbox-checked.hero-checkbox-info { background-color: var(--color-info); border-color: var(--color-info); }
+.hero-checkbox-checked.hero-checkbox-success { background-color: var(--color-success); border-color: var(--color-success); }
+.hero-checkbox-checked.hero-checkbox-warning { background-color: var(--color-warning); border-color: var(--color-warning); }
+.hero-checkbox-checked.hero-checkbox-error { background-color: var(--color-error); border-color: var(--color-error); }
+
+/* Unchecked border accent follows the color too (subtle pre-check hint). */
+.hero-checkbox-primary { border-color: var(--color-primary); }
+.hero-checkbox-secondary { border-color: var(--color-secondary); }
+.hero-checkbox-accent { border-color: var(--color-accent); }
+.hero-checkbox-info { border-color: var(--color-info); }
+.hero-checkbox-success { border-color: var(--color-success); }
+.hero-checkbox-warning { border-color: var(--color-warning); }
+.hero-checkbox-error { border-color: var(--color-error); }
+
+.hero-checkbox-disabled { opacity: var(--disabled-opacity); }
