@@ -79,8 +79,10 @@ export interface NavInternals {
     /**
      * Commit a sheet drag-to-dismiss: pop the top sheet entry without
      * re-animating (the drag worklet already moved the sheet SV to 0).
+     * `expectedKey` (the gesture's entry) makes a stale commit a no-op
+     * if a different sheet became top before the BG timeout fired.
      */
-    commitSheetDismiss(): void;
+    commitSheetDismiss(expectedKey?: string): void;
     /** Whether the user opted into the edge-swipe-back gesture. */
     readonly edgeSwipeEnabled: boolean;
     /**

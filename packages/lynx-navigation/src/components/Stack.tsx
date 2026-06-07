@@ -22,6 +22,7 @@ import {
     computeLayers,
     isOverlayPresentation,
     MAX_LAYERS,
+    SHEET_BACKDROP_MAX_OPACITY,
     type LayerAnimation,
     type SheetLayerContext,
 } from '../internal/layer-plan.js';
@@ -90,6 +91,7 @@ type SheetSlotProps =
     & Define.Prop<'hidden', boolean, false>
     & Define.Prop<'staticOffsetY', number, false>
     & Define.Prop<'sheetProgress', SharedValue<number> | null, true>
+    & Define.Prop<'staticBackdropOpacity', number, true>
     & Define.Prop<'dismissable', boolean, true>;
 
 /**
@@ -112,6 +114,7 @@ const SheetSlot = component<SheetSlotProps>(({ props }) => () => (
     <>
         <SheetBackdrop
             sheetProgress={props.sheetProgress}
+            staticOpacity={props.staticBackdropOpacity}
             dismissable={props.dismissable ?? false}
             hidden={props.hidden ?? false}
         />
@@ -369,12 +372,16 @@ export const Stack = component<StackProps>(({ props, slots }) => {
         };
     };
 
+    /** Resting progress for a sheet: last gesture-settled detent, else initial. */
+    const sheetRestProgress = (entry: StackEntry): number => {
+        const { snaps, initialSnapIndex } = sheetConfigFor(entry);
+        return sheetRestBox[entry.key] ?? initialSnapProgress(snaps, initialSnapIndex);
+    };
+
     /** Resting translateY for a sheet that can't hold an animation binding. */
     const sheetStaticOffsetY = (entry: StackEntry): number => {
-        const { snaps, maxFraction, initialSnapIndex } = sheetConfigFor(entry);
-        const restProgress =
-            sheetRestBox[entry.key] ?? initialSnapProgress(snaps, initialSnapIndex);
-        return progressToOffsetY(restProgress, maxFraction, SCREEN_HEIGHT);
+        const { maxFraction } = sheetConfigFor(entry);
+        return progressToOffsetY(sheetRestProgress(entry), maxFraction, SCREEN_HEIGHT);
     };
 
     // Per-stack chrome (slots.default) renders *inside* this Stack's
@@ -450,6 +457,9 @@ export const Stack = component<StackProps>(({ props, slots }) => {
                             layer.entry.key === activeSheetEntry?.key
                                 ? internals.sheetProgress
                                 : null
+                        }
+                        staticBackdropOpacity={
+                            sheetRestProgress(layer.entry) * SHEET_BACKDROP_MAX_OPACITY
                         }
                         dismissable={
                             layer.entry.key === currentTop.key &&
@@ -529,7 +539,11 @@ export const Stack = component<StackProps>(({ props, slots }) => {
                 const entryKey = activeSheetEntry.key;
                 return (
                     <SheetDragHandle
-                        key={`sheet-handle-${entryKey}`}
+                        // Keyed by entry AND snap signature: the handle
+                        // snapshots its config at setup (worklet capture),
+                        // so a reactive snapPoints change must remount it.
+                        key={`sheet-handle-${entryKey}-${snaps.join('_')}`}
+                        entryKey={entryKey}
                         snapProgresses={snaps.map((f) => snapToProgress(f, maxFraction))}
                         maxSnapFraction={maxFraction}
                         onSettle={(p: number) => {

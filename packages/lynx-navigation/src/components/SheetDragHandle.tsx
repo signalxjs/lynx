@@ -51,6 +51,8 @@ const SNAP_DURATION_SEC = 0.18;
 const SNAP_DURATION_MS = Math.round(SNAP_DURATION_SEC * 1000);
 
 type SheetDragHandleProps =
+    /** Entry key of the sheet this handle drives — pins the dismiss commit. */
+    & Define.Prop<'entryKey', string, true>
     /** Snap progress values (ascending) for the active sheet. */
     & Define.Prop<'snapProgresses', readonly number[], true>
     /** Largest snap fraction — fixes the strip's translateY range. */
@@ -61,9 +63,11 @@ type SheetDragHandleProps =
 export const SheetDragHandle = component<SheetDragHandleProps>(({ props }) => {
     const ref = useMainThreadRef<MainThread.Element | null>(null);
 
-    // Snapshot config at setup — the Stack keys this component per sheet
-    // entry, so a different sheet remounts with fresh values. Plain arrays/
+    // Snapshot config at setup — the Stack keys this component by entry
+    // AND snap-config signature, so both a different sheet and a reactive
+    // snapPoints change remount it with fresh values. Plain arrays/
     // numbers worklet-capture cleanly (deep-copied into `_c` at register).
+    const entryKey = props.entryKey;
     const snapProgresses = [...props.snapProgresses];
     const minSnapProgress = snapProgresses[0] ?? 0;
     const maxSnapFraction = props.maxSnapFraction;
@@ -129,7 +133,7 @@ export const SheetDragHandle = component<SheetDragHandleProps>(({ props }) => {
             if (shouldDismiss(prog, state.velocity, minSnapProgress)) {
                 withTiming(sheetProgress, 0, { duration: SNAP_DURATION_SEC });
                 runOnBackground(() => {
-                    setTimeout(() => commitSheetDismiss(), SNAP_DURATION_MS);
+                    setTimeout(() => commitSheetDismiss(entryKey), SNAP_DURATION_MS);
                 })();
             } else {
                 const target = nearestSnap(prog, state.velocity, snapProgresses);

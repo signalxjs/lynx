@@ -55,9 +55,11 @@ export interface NavigatorState {
          * worklet has already animated the sheet SV to 0 (off-screen), so
          * this only mutates the stack — popping via `nav.pop()` would
          * re-animate and visibly glitch. No-ops unless the top entry is a
-         * sheet (gesture/state races resolve to nothing).
+         * sheet AND (when given) matches `expectedKey` — the commit arrives
+         * via a BG `setTimeout` after an MT animation, so a navigation race
+         * could otherwise pop a *different* sheet that became top meanwhile.
          */
-        commitSheetDismiss(): void;
+        commitSheetDismiss(expectedKey?: string): void;
     };
     /**
      * Internal: cross-entry `<Screen>` registry lookup.
@@ -364,6 +366,11 @@ export function createNavigatorState(opts: CreateNavigatorOptions): NavigatorSta
         // still haven't resolved fall back to the default snap config.
         const startSheetPush = async (): Promise<void> => {
             await new Promise<void>((resolve) => { setTimeout(resolve, 0); });
+            // The entry can have left the stack during the deferred tick
+            // (e.g. a `reset()` — ordinary pops are blocked while the
+            // transition is set). Don't animate the SV for a dead sheet.
+            const stackNow = getStack();
+            if (stackNow[stackNow.length - 1]?.key !== newEntry.key) return;
             const screenOpts = untrack(() => {
                 const o = screens.get(newEntry.key)?.options;
                 return {
@@ -533,11 +540,14 @@ export function createNavigatorState(opts: CreateNavigatorOptions): NavigatorSta
      * sheet SV to 0 — only the stack mutation remains. Unlike
      * `commitBackGesture` no transition was set during the drag (a resting
      * sheet's binding is live without one), and unlike `pop()` no animation
-     * runs here.
+     * runs here. `expectedKey` pins the commit to the sheet the gesture was
+     * for — it arrives via a BG `setTimeout`, so the top can have changed.
      */
-    function commitSheetDismiss(): void {
+    function commitSheetDismiss(expectedKey?: string): void {
         const cur = getStack();
-        if (cur.length < 2 || cur[cur.length - 1].presentation !== 'sheet') return;
+        const top = cur[cur.length - 1];
+        if (cur.length < 2 || top.presentation !== 'sheet') return;
+        if (expectedKey !== undefined && top.key !== expectedKey) return;
         batch(() => {
             setStack(cur.slice(0, cur.length - 1));
             setTransition(null);

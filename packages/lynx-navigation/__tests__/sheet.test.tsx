@@ -120,6 +120,21 @@ describe('Sheet presentation — stack model', () => {
         expect(probe.nav!.current.route).toBe('home');
     });
 
+    it('commitSheetDismiss with a stale entry key is a no-op (race guard)', () => {
+        const probe = renderRoot();
+        act(() => probe.nav!.push('filterSheet'));
+        const before = probe.nav!.stack.length;
+
+        // The drag-dismiss commit arrives via a BG timeout — if a different
+        // sheet became top meanwhile, the stale key must not pop it.
+        act(() => probe.internals!.commitSheetDismiss('entry-stale-xyz'));
+        expect(probe.nav!.stack.length).toBe(before);
+
+        // The matching key commits.
+        act(() => probe.internals!.commitSheetDismiss(probe.nav!.current.key));
+        expect(probe.nav!.stack.length).toBe(before - 1);
+    });
+
     it('commitSheetDismiss is a no-op when the top entry is not a sheet', () => {
         const probe = renderRoot();
         act(() => probe.nav!.push('profile', { id: '7' }));
