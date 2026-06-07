@@ -3,10 +3,12 @@ import { z } from 'zod';
 import { Home } from './screens/Home.js';
 import { AreaScreen } from './screens/AreaScreen.js';
 import { DaisyComponentScreen } from './screens/DaisyComponentScreen.js';
+import { HeroUIComponentScreen } from './screens/HeroUIComponentScreen.js';
 // UI & Theming
 import { Appearance } from './screens/Appearance.js';
 import { Theming } from './screens/Theming.js';
 import { HeroUILab } from './screens/HeroUILab.js';
+import { Foundation } from './screens/Foundation.js';
 import { Icons } from './screens/Icons.js';
 import { SystemBars } from './screens/SystemBars.js';
 // Text & Markdown
@@ -49,11 +51,19 @@ export const routes = defineRoutes({
         params: z.object({ componentId: z.string() }),
         path: '/daisyui/:componentId',
     },
+    // Same parametric pattern for the HeroUI component reference pages —
+    // the registry (src/heroui/registry.ts) is the data source.
+    heroui: {
+        component: HeroUIComponentScreen,
+        params: z.object({ componentId: z.string() }),
+        path: '/heroui/:componentId',
+    },
 
     // UI & Theming
     appearance: { component: Appearance, path: '/appearance' },
     theming: { component: Theming, path: '/theming' },
     herouiLab: { component: HeroUILab, path: '/heroui-lab' },
+    foundation: { component: Foundation, path: '/foundation' },
     icons: { component: Icons, path: '/icons' },
     systemBars: { component: SystemBars, path: '/system-bars' },
 
