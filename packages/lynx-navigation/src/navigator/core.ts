@@ -544,14 +544,17 @@ export function createNavigatorState(opts: CreateNavigatorOptions): NavigatorSta
      * for — it arrives via a BG `setTimeout`, so the top can have changed.
      */
     function commitSheetDismiss(expectedKey?: string): void {
+        // A transition that started during the BG-timeout window (hardware
+        // back, nav.pop()) owns the stack — mutating here would let its
+        // completion callback later overwrite newer state with its stale
+        // captured slice. If it's a pop of this same sheet, it lands the
+        // same result anyway.
+        if (isTransitioning()) return;
         const cur = getStack();
         const top = cur[cur.length - 1];
         if (cur.length < 2 || top.presentation !== 'sheet') return;
         if (expectedKey !== undefined && top.key !== expectedKey) return;
-        batch(() => {
-            setStack(cur.slice(0, cur.length - 1));
-            setTransition(null);
-        });
+        setStack(cur.slice(0, cur.length - 1));
     }
 
     const nav: Nav = {
