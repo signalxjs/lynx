@@ -80,7 +80,7 @@ Auto-linked by `sigx prebuild`: install the package with `pnpm add @sigx/lynx-fo
 | [`@sigx/lynx-maps`](./packages/lynx-maps) | Native map view — `MKMapView` (Apple Maps) on iOS, `com.google.android.gms.maps.MapView` (Google Maps, API key required) on Android. |
 | [`@sigx/lynx-network`](./packages/lynx-network) | Connectivity status (`wifi` / `cellular` / `none`). Not a transport — pair with `fetch` / `WebSocket`. |
 | [`@sigx/lynx-notifications`](./packages/lynx-notifications) | Local push notifications & schedule. |
-| [`@sigx/lynx-permissions`](./packages/lynx-permissions) | Shared Android permission helper — a dependency of the permission-using modules, linked automatically. You never install this directly. |
+| [`@sigx/lynx-permissions`](./packages/lynx-permissions) | Shared Android permission helper — a dependency of the permission-using modules, linked automatically. You typically don't need to install it directly. |
 | [`@sigx/lynx-richtext`](./packages/lynx-richtext) | Native attributed-text input `<sigx-richtext>` — `UITextView` / `EditText` with in-field rich formatting (bold is bold *inside* the input), a flat span/block document model over the bridge, and an IME-safe echo contract. Format-agnostic: powers `@sigx/lynx-markdown`'s `MarkdownEditor`, but serialization is the consumer's choice. |
 | [`@sigx/lynx-safe-area`](./packages/lynx-safe-area) | Safe-area insets (notch, home indicator, status bar, keyboard). |
 | [`@sigx/lynx-secure-storage`](./packages/lynx-secure-storage) | Encrypted KV storage — iOS Keychain, Android Keystore + `EncryptedSharedPreferences`. Optional per-key biometric gating. |

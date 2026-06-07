@@ -1,16 +1,12 @@
 # @sigx/lynx-permissions
 
-> **Android-only infrastructure.** Apps never install this directly — every permission-using module ([`@sigx/lynx-audio`](https://github.com/signalxjs/lynx/tree/main/packages/lynx-audio), [`@sigx/lynx-camera`](https://github.com/signalxjs/lynx/tree/main/packages/lynx-camera), [`@sigx/lynx-file-picker`](https://github.com/signalxjs/lynx/tree/main/packages/lynx-file-picker), [`@sigx/lynx-image-picker`](https://github.com/signalxjs/lynx/tree/main/packages/lynx-image-picker), [`@sigx/lynx-location`](https://github.com/signalxjs/lynx/tree/main/packages/lynx-location), [`@sigx/lynx-notifications`](https://github.com/signalxjs/lynx/tree/main/packages/lynx-notifications)) declares it as a dependency, and the auto-linker walks transitive dependencies, so it links automatically. This README is for native-module *authors*.
+> **Android-only infrastructure.** Apps typically don't need to install this directly — every permission-using module ([`@sigx/lynx-audio`](https://github.com/signalxjs/lynx/tree/main/packages/lynx-audio), [`@sigx/lynx-camera`](https://github.com/signalxjs/lynx/tree/main/packages/lynx-camera), [`@sigx/lynx-file-picker`](https://github.com/signalxjs/lynx/tree/main/packages/lynx-file-picker), [`@sigx/lynx-image-picker`](https://github.com/signalxjs/lynx/tree/main/packages/lynx-image-picker), [`@sigx/lynx-location`](https://github.com/signalxjs/lynx/tree/main/packages/lynx-location), [`@sigx/lynx-notifications`](https://github.com/signalxjs/lynx/tree/main/packages/lynx-notifications)) declares it as a dependency, and the auto-linker walks transitive dependencies, so it links automatically. This README is for native-module *authors*.
 
 Provides the shared `PermissionHelper` + `MediaCapture` Kotlin classes that the listed modules dispatch through to show OS permission dialogs and receive Activity Result callbacks. iOS doesn't need this — `UIImagePickerController`/`CLLocationManager`/etc. handle their own prompts.
 
 ## Install
 
-```bash
-pnpm add @sigx/lynx-permissions
-```
-
-`sigx prebuild` auto-discovers the package and copies the Kotlin sources (`PermissionHelper.kt` + `MediaCapture.kt`) into your Android source tree.
+Normally nothing to do — installing any of the modules above brings this in transitively, and `sigx prebuild` auto-discovers it and copies the Kotlin sources (`PermissionHelper.kt` + `MediaCapture.kt`) into your Android source tree. A direct `pnpm add @sigx/lynx-permissions` also works (e.g. when authoring a native module against it) and links the same way.
 
 ## How it works
 
