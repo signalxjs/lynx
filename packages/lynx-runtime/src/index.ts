@@ -3,6 +3,10 @@
 // global JSX intrinsic element types. Only activate when the app explicitly
 // imports '@sigx/lynx-runtime'.
 /// <reference path="./shims.d.ts" />
+// Side-effect (FIRST): install web-standard globals the Lynx BG thread doesn't
+// expose (e.g. queueMicrotask). Imported before everything else so its globals
+// are in place before any other module's side effects. See signalxjs/lynx#296.
+import './install-globals.js';
 import './jsx.js';
 import './types.js';
 import './model-processor.js';

@@ -12,6 +12,7 @@ Background-thread renderer for [SignalX](https://github.com/signalxjs) on Lynx. 
 - **Main-thread refs** — `MainThreadRef`, `useMainThreadRef` — the BG-side handle whose `.current` value lives on the main thread; the build pipeline serializes these into worklet captures via their `_wvid`.
 - **Cross-thread bridges** — `runOnMainThread` (BG→MT one-shot), `runOnBackground` (MT→BG dispatch handle), `transformToWorklet` (handle → JsFn marshal).
 - **AnimatedValue BG sink** — `registerBgSink`, `unregisterBgSink`, `ingestAvPublishes` — receive MT-published `AnimatedValue` writes into a `signal`-backed mirror so `effect(() => av.value)` re-runs reactively. The producer side lives in [`@sigx/lynx-gestures`](https://github.com/signalxjs/lynx/tree/main/packages/lynx-gestures); the MT side lives in [`@sigx/lynx-runtime-main`](https://github.com/signalxjs/lynx/tree/main/packages/lynx-runtime-main).
+- **BG globals** — installs web-standard globals the Lynx background thread doesn't expose on its own (engine-version dependent), so web-ported code works unchanged. Currently `queueMicrotask`, polyfilled on `Promise` (some engines, e.g. 3.7 pods, only offer `lynx.queueMicrotask`). Installed first at import, non-clobbering — engines that already expose the global keep theirs.
 - **JSX types** — `MainThread`, `Define`, `ViewAttributes`, etc.
 
 ## Wire protocol
