@@ -95,7 +95,9 @@ class DateTimePickerModule(context: Context) : LynxModule(context) {
                     }.setOnCancelListener { finish(null) }
                 }.setOnCancelListener { finish(null) }
 
-                else -> showDateDialog(activity, initial, minMs, maxMs) { y, m, d ->
+                else -> showDateDialog(
+                    activity, initial, minMs?.let(::dayStart), maxMs?.let(::dayEnd),
+                ) { y, m, d ->
                     initial.set(y, m, d)
                     initial.set(Calendar.HOUR_OF_DAY, 0)
                     initial.set(Calendar.MINUTE, 0)
