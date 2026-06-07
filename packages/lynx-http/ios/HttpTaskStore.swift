@@ -30,6 +30,17 @@ final class HttpTaskStore: NSObject, URLSessionDataDelegate {
         return URLSession(configuration: cfg, delegate: self, delegateQueue: nil)
     }()
 
+    /// Session for streaming requests — SSE servers can legitimately go
+    /// quiet for minutes between events, so the 60s inter-data timeout of
+    /// the default session would kill healthy connections. Teardown comes
+    /// from the server closing, `abort()`, or transport failure.
+    private lazy var streamingSession: URLSession = {
+        let cfg = URLSessionConfiguration.default
+        cfg.timeoutIntervalForRequest = 86_400
+        cfg.timeoutIntervalForResource = 0
+        return URLSession(configuration: cfg, delegate: self, delegateQueue: nil)
+    }()
+
     // MARK: - JS entry points (via HttpModule)
 
     func start(id: Int, spec: [String: Any]) {
@@ -94,16 +105,18 @@ final class HttpTaskStore: NSObject, URLSessionDataDelegate {
                     try? FileManager.default.removeItem(at: oldFile)
                 }
             }
+            let streaming = (spec["streaming"] as? Bool) == true
+            let taskSession = streaming ? streamingSession : session
             let task: URLSessionTask
             if let bodyFile = bodyFile {
-                task = session.uploadTask(with: request, fromFile: bodyFile)
+                task = taskSession.uploadTask(with: request, fromFile: bodyFile)
                 bodyFiles[id] = bodyFile
             } else {
-                task = session.dataTask(with: request)
+                task = taskSession.dataTask(with: request)
             }
             tasks[id] = task
             idsByTask[ObjectIdentifier(task)] = id
-            if (spec["streaming"] as? Bool) == true {
+            if streaming {
                 streamingIds.insert(id)
             } else {
                 buffers[id] = Data()
@@ -150,8 +163,11 @@ final class HttpTaskStore: NSObject, URLSessionDataDelegate {
             buffers[id]?.append(data)
             return nil
         }
-        // Streaming mode: one chunk event per network read — publish outside
-        // the bookkeeping queue so a slow listener can't stall the delegate.
+        // Streaming mode: one chunk event per network read — published
+        // outside the bookkeeping queue to keep it free for other tasks and
+        // avoid re-entrancy. (Listeners run synchronously, so a slow one
+        // still back-pressures this delegate thread — acceptable: it only
+        // slows this transfer's reads.)
         if let id = streamingId {
             HttpEventBus.shared.publish(chunk: data.base64EncodedString(), id: id)
         }

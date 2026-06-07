@@ -58,6 +58,7 @@ Chunks arrive as the network delivers them — `read()` resolves per network rea
 - A body with no explicit `method` defaults to `POST` (spec says GET-and-throw; this is friendlier and doesn't affect portable code, which sets the method).
 - `AbortSignal` is duck-typed — any `{ aborted, addEventListener }` works; aborting rejects with an `AbortError`-named error and cancels the native task. `reader.cancel()` also aborts.
 - Backpressure is not implemented: chunks queue in JS until read (same tradeoff as `@sigx/lynx-websocket`). Very large downloads buffer in JS if you never read.
+- No inter-data timeout for `fetch` requests — matching browser fetch, a quiet-but-healthy connection (SSE between events) is never killed; use `AbortSignal` for deadlines. (`streaming: false` bridge callers get a 60s between-bytes timeout instead.)
 - Redirects follow silently (URLSession/OkHttp defaults); `response.url` is the request URL.
 
 ## Bridge protocol (for contributors)

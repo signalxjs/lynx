@@ -60,10 +60,22 @@ internal object HttpTaskStore {
     private val client: OkHttpClient by lazy {
         OkHttpClient.Builder()
             // Between-bytes timeout matching iOS's timeoutIntervalForRequest.
-            // Long-lived streams (SSE) stay alive as long as the server
-            // keeps sending (keepalives reset the clock); a stalled server
-            // fails the call instead of hanging it forever.
+            // Buffered calls fail on a stalled server instead of hanging.
             .readTimeout(60, TimeUnit.SECONDS)
+            .build()
+    }
+
+    /**
+     * Client for streaming requests — SSE servers can legitimately go
+     * quiet for minutes between events, so the 60s between-bytes timeout
+     * would kill healthy connections. No read timeout (browser fetch has
+     * none either); deadlines come from AbortSignal / call.cancel(), and
+     * the shared connect timeout still fails dead hosts fast. newBuilder
+     * shares the connection pool and dispatcher with [client].
+     */
+    private val streamingClient: OkHttpClient by lazy {
+        client.newBuilder()
+            .readTimeout(0, TimeUnit.MILLISECONDS)
             .build()
     }
 
@@ -93,7 +105,7 @@ internal object HttpTaskStore {
 
         builder.method(spec.method, if (requiresBody(spec.method) && body == null) ByteArray(0).toRequestBody() else body)
 
-        val call = client.newCall(builder.build())
+        val call = (if (spec.streaming) streamingClient else client).newCall(builder.build())
         calls[id] = call
         call.enqueue(object : Callback {
             override fun onFailure(call: Call, e: IOException) {

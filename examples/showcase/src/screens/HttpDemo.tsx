@@ -35,10 +35,7 @@ export const HttpDemo = component(() => {
             const decoder = new TextDecoder();
             let lines = 0;
             let pending = '';
-            for (;;) {
-                const { done, value } = await reader.read();
-                if (done) break;
-                pending += decoder.decode(value, { stream: true });
+            const drain = () => {
                 for (;;) {
                     const nl = pending.indexOf('\n');
                     if (nl < 0) break;
@@ -46,7 +43,18 @@ export const HttpDemo = component(() => {
                     pending = pending.slice(nl + 1);
                     streamResult.value = `received ${lines} line(s)…`;
                 }
+            };
+            for (;;) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                pending += decoder.decode(value, { stream: true });
+                drain();
             }
+            // Flush the decoder and count a final unterminated line — bytes
+            // can end mid-UTF-8-sequence or without a trailing newline.
+            pending += decoder.decode();
+            drain();
+            if (pending.trim().length > 0) lines++;
             streamResult.value = `done — ${lines} lines streamed incrementally ✓`;
         } catch (e) {
             streamResult.value = `failed: ${e instanceof Error ? e.message : String(e)}`;
