@@ -13,7 +13,7 @@
 import { execSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { isAdbAvailable, listAndroidDevices, isLynxGoInstalled } from './device-detect.js';
+import { isAdbAvailable, listAndroidDevices, isLynxGoInstalled, getDeviceCpuAbi } from './device-detect.js';
 import { detectFromLockfile, getVersion as getPmVersion, detectFromBinaries } from './util/package-manager.js';
 import type { Logger } from '@sigx/cli/plugin';
 
@@ -161,6 +161,19 @@ function checkAdb(): Check {
     const devices = listAndroidDevices();
     if (devices.length === 0) {
         return { name: 'ADB', status: 'ok', message: 'Available (no devices connected)' };
+    }
+
+    // x86_64 emulators can't render Lynx `<svg>` (icons): upstream servalsvg
+    // ships no x86_64 native lib (signalxjs/lynx#270). Surface it here so the
+    // blank-icons symptom is diagnosable before anyone chases it as an app bug.
+    const x64 = devices.filter((d) => getDeviceCpuAbi(d.id) === 'x86_64');
+    if (x64.length > 0) {
+        return {
+            name: 'ADB',
+            status: 'warn',
+            message: `${devices.length} device(s) connected — ${x64.map((d) => d.model || d.id).join(', ')} is x86_64`,
+            detail: 'Lynx SVG (icons) renders blank on x86_64 emulators — upstream native-lib gap, see https://github.com/signalxjs/lynx/issues/270. Use an arm64 device/AVD to verify icons.',
+        };
     }
 
     return {

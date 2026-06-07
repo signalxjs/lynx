@@ -308,6 +308,18 @@ export function getRunningAvdName(serial: string): string | null {
 }
 
 /**
+ * A device's primary CPU ABI (`ro.product.cpu.abi` — e.g. `arm64-v8a`,
+ * `x86_64`). Null when the query fails. Used to flag x86_64 emulators,
+ * where Lynx's serval SVG engine has no native lib (signalxjs/lynx#270)
+ * and every `<svg>` — icons included — renders blank.
+ */
+export function getDeviceCpuAbi(deviceId: string): string | null {
+    const res = execDevice(`"${adbCmd()}" -s ${deviceId} shell getprop ro.product.cpu.abi`, deviceId);
+    const abi = res.ok ? res.stdout.trim() : '';
+    return abi || null;
+}
+
+/**
  * Check if sigx-lynx-go is installed on a specific device.
  */
 export function isLynxGoInstalled(deviceId: string): boolean {
