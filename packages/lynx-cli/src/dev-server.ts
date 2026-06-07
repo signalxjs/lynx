@@ -572,15 +572,13 @@ async function findFreePort(start: number): Promise<number> {
 }
 
 /**
- * Start the enhanced Lynx dev server.
- */
-/**
  * Warn (once per device) when launching on an x86_64 Android target while the
  * project bundles icon sets: upstream `servalsvg` ships no x86_64 native lib,
  * so every `<svg>` — icons included — renders blank on those emulators
  * (signalxjs/lynx#270). arm64 devices/AVDs and iOS are unaffected. Best-effort:
  * config-load or adb failures just skip the warning.
  */
+const _probedAbis = new Map<string, string | null>();
 const _warnedSvgAbi = new Set<string>();
 async function warnIfSvgAbiGap(cwd: string, deviceIds: string[], logger: Logger): Promise<void> {
     const ids = deviceIds.filter((id) => !_warnedSvgAbi.has(id));
@@ -591,7 +589,14 @@ async function warnIfSvgAbiGap(cwd: string, deviceIds: string[], logger: Logger)
         const config = resolveConfig(await loadConfig(cwd));
         if (config.iconSets.length === 0) return;
         for (const id of ids) {
-            if (getDeviceCpuAbi(id) !== 'x86_64') continue;
+            // Probe each device's ABI at most once per process; a failed
+            // probe (null) stays uncached so a flaky adb gets retried.
+            let abi = _probedAbis.get(id);
+            if (abi === undefined) {
+                abi = getDeviceCpuAbi(id);
+                if (abi !== null) _probedAbis.set(id, abi);
+            }
+            if (abi !== 'x86_64') continue;
             _warnedSvgAbi.add(id);
             logger.log(
                 `\x1b[33m!\x1b[0m ${id} is an x86_64 emulator — Lynx's SVG engine has no x86_64 ` +
@@ -602,6 +607,9 @@ async function warnIfSvgAbiGap(cwd: string, deviceIds: string[], logger: Logger)
     } catch { /* warning is best-effort only */ }
 }
 
+/**
+ * Start the enhanced Lynx dev server.
+ */
 export async function startDevServer(opts: DevServerOptions): Promise<void> {
     const { cwd, logger, launchAppId, launchBundleId, iosSimulatorName, selectedTargets } = opts;
     const desiredPort = Number(opts.port) || 8788;

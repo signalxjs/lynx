@@ -171,8 +171,8 @@ function checkAdb(): Check {
         return {
             name: 'ADB',
             status: 'warn',
-            message: `${devices.length} device(s) connected — ${x64.map((d) => d.model || d.id).join(', ')} is x86_64`,
-            detail: 'Lynx SVG (icons) renders blank on x86_64 emulators — upstream native-lib gap, see https://github.com/signalxjs/lynx/issues/270. Use an arm64 device/AVD to verify icons.',
+            message: `${devices.length} device(s) connected — ${x64.map((d) => d.model || d.id).join(', ')} ${x64.length === 1 ? 'is' : 'are'} x86_64`,
+            detail: 'Lynx SVG icons render blank on x86_64 emulators — upstream native-lib gap, see https://github.com/signalxjs/lynx/issues/270. Use an arm64 device/AVD to verify icons.',
         };
     }
 
