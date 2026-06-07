@@ -13,6 +13,7 @@ import type { ScreenRegistry } from '../internal/screen-registry.js';
 import {
     initialSnapProgress,
     resolveSnapPoints,
+    sheetDurationSec,
 } from '../internal/sheet-math.js';
 import type {
     PopOptions,
@@ -395,30 +396,59 @@ export function createNavigatorState(opts: CreateNavigatorOptions): NavigatorSta
 
         // A sheet opens to its initial snap point, not progress 1. The snap
         // config comes from the screen's `<Screen snapPoints>` registration,
-        // which lands during the render flush — DEFERRED on the real
+        // which lands during the render flush — deferred on the real
         // runtime, so it is NOT readable synchronously here (it is under
         // lynx-testing's eager flush, which is why only on-device testing
-        // catches this). Wait one macrotask for the mount before reading;
-        // the transition state is already committed so the sheet renders
-        // (off-screen at sv≈0) in the meantime. Lazy sheet routes that
-        // still haven't resolved fall back to the default snap config.
+        // catches this). Poll microtask-first: the flush usually lands
+        // within a microtask, and a macrotask wait added a perceptible
+        // hesitation between tap and slide (modal starts in the same
+        // flush). Fall back to one macrotask, then to the default snap
+        // config (lazy routes that still haven't resolved).
+        const readSheetTarget = (): { target: number; heightFraction: number } | null => {
+            // Readiness signal is the REGISTRY's presence (EntryScope
+            // registers it at mount, in the same flush that runs the
+            // screen's `<Screen>` children) — not the snapPoints option:
+            // a sheet relying on the default snap config never declares
+            // one and must still start its animation without the
+            // macrotask fallback. (Lazy route bodies that register
+            // options later keep the documented default-config caveat.)
+            const reg = screens.get(newEntry.key);
+            if (!reg) return null;
+            const screenOpts = untrack(() => ({
+                snapPoints: reg.options.snapPoints,
+                initialSnapIndex: reg.options.initialSnapIndex,
+            }));
+            const snaps = resolveSnapPoints(screenOpts.snapPoints);
+            const target = initialSnapProgress(snaps, screenOpts.initialSnapIndex);
+            return { target, heightFraction: target * snaps[snaps.length - 1] };
+        };
         const startSheetPush = async (): Promise<void> => {
-            await new Promise<void>((resolve) => { setTimeout(resolve, 0); });
-            // The entry can have left the stack during the deferred tick
+            let read = readSheetTarget();
+            if (read === null) {
+                await Promise.resolve(); // microtask — usual flush boundary
+                read = readSheetTarget();
+            }
+            if (read === null) {
+                await new Promise<void>((resolve) => { setTimeout(resolve, 0); });
+                read = readSheetTarget();
+            }
+            if (read === null) {
+                // Still unmounted (lazy route) — default snap config.
+                const snaps = resolveSnapPoints(undefined);
+                const target = initialSnapProgress(snaps, undefined);
+                read = { target, heightFraction: target * snaps[snaps.length - 1] };
+            }
+            // The entry can have left the stack during the deferred wait
             // (e.g. a `reset()` — ordinary pops are blocked while the
             // transition is set). Don't animate the SV for a dead sheet.
             const stackNow = getStack();
             if (stackNow[stackNow.length - 1]?.key !== newEntry.key) return;
-            const screenOpts = untrack(() => {
-                const o = screens.get(newEntry.key)?.options;
-                return {
-                    snapPoints: o?.snapPoints,
-                    initialSnapIndex: o?.initialSnapIndex,
-                };
-            });
-            const snaps = resolveSnapPoints(screenOpts.snapPoints);
-            const target = initialSnapProgress(snaps, screenOpts.initialSnapIndex);
-            return animateProgress(sv, 0, target, TRANSITION_DURATION_SEC);
+            return animateProgress(
+                sv,
+                0,
+                read.target,
+                sheetDurationSec(read.heightFraction, TRANSITION_DURATION_SEC),
+            );
         };
         (isSheet
             ? startSheetPush()
@@ -491,7 +521,24 @@ export function createNavigatorState(opts: CreateNavigatorOptions): NavigatorSta
                 setTransition(null);
             });
         };
-        animateProgress(sv, isSheet ? null : 0, isSheet ? 0 : 1, TRANSITION_DURATION_SEC).then(
+        // Sheet pop duration is velocity-matched like the push, derived
+        // from the sheet's LIVE position: `sv.value` is the BG-readable
+        // latest published snapshot (see SharedValue), so a sheet the user
+        // dragged to another detent pops at the right speed too.
+        let durationSec = TRANSITION_DURATION_SEC;
+        if (isSheet && sv) {
+            // The whole options read sits inside untrack — `options` is a
+            // per-key reactive proxy, so reading `.snapPoints` outside the
+            // block would subscribe whatever reactive scope pop() runs in.
+            const snaps = untrack(() =>
+                resolveSnapPoints(screens.get(popping.key)?.options.snapPoints),
+            );
+            durationSec = sheetDurationSec(
+                sv.value * snaps[snaps.length - 1],
+                TRANSITION_DURATION_SEC,
+            );
+        }
+        animateProgress(sv, isSheet ? null : 0, isSheet ? 0 : 1, durationSec).then(
             commitOwnPop,
             commitOwnPop,
         );

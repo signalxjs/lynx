@@ -125,6 +125,35 @@ export function nearestSnap(
     return nearest;
 }
 
+/**
+ * Floor for sheet transition durations — keeps very low detents from
+ * snapping open/closed instantly under velocity matching.
+ */
+export const SHEET_MIN_DURATION_SEC = 0.15;
+
+/**
+ * Sheet transition duration, velocity-matched to the card/modal slide:
+ * those travel the full screen in `fullSlideDurationSec`, while a sheet
+ * only travels to its detent — a flat duration made the sheet move at a
+ * fraction of the modal's speed and read as sluggish (#290).
+ * `heightFraction` is the share of screen height traveled (snap progress
+ * × largest snap fraction).
+ */
+export function sheetDurationSec(
+    heightFraction: number,
+    fullSlideDurationSec: number,
+): number {
+    const scaled =
+        fullSlideDurationSec * Math.min(1, Math.max(0, heightFraction));
+    // Floor, but never past the full-slide duration itself — full-height
+    // travel must equal `fullSlideDurationSec` even if a caller passes a
+    // duration below the floor.
+    return Math.min(
+        fullSlideDurationSec,
+        Math.max(SHEET_MIN_DURATION_SEC, scaled),
+    );
+}
+
 /** Default snap points when a sheet screen declares none. */
 export const DEFAULT_SNAP_POINTS: readonly number[] = [0.5];
 
