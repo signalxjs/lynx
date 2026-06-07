@@ -161,6 +161,29 @@ describe('discoverSigxPackages', () => {
         expect(discovered).toEqual(['@sigx/lynx-http']);
     });
 
+    it('does NOT scan a merely-resolvable umbrella the app never depends on', async () => {
+        // Monorepo hoisting can leave @sigx/lynx in node_modules even when
+        // this project doesn't use it — its deps must not be pulled in.
+        writeProject(testDir, {
+            dependencies: { lodash: '^4.0.0' },
+            installed: {
+                lodash: 'no-manifest',
+                '@sigx/lynx': 'no-manifest',
+                '@sigx/lynx-http': 'with-manifest',
+            },
+        });
+        writeFileSync(
+            join(testDir, 'node_modules', '@sigx', 'lynx', 'package.json'),
+            JSON.stringify({
+                name: '@sigx/lynx',
+                version: '1.0.0',
+                dependencies: { '@sigx/lynx-http': '^1.0.0' },
+            }),
+        );
+        const discovered = await discoverSigxPackages(testDir, []);
+        expect(discovered).toEqual([]);
+    });
+
     it('excludeModules opts out of umbrella default-wired modules too', async () => {
         writeProject(testDir, {
             dependencies: { '@sigx/lynx': '^1.0.0' },

@@ -800,17 +800,21 @@ export async function discoverSigxPackages(
     // One-hop umbrella scan: union @sigx/lynx's own dependencies into the
     // candidate set so default-wired native modules are discovered even
     // though they don't appear in the app's package.json. Scoped to the
-    // umbrella only — no general transitive walk.
-    try {
-        const umbrellaPkgPath = require.resolve('@sigx/lynx/package.json');
-        const umbrellaPkg = JSON.parse(readFileSync(umbrellaPkgPath, 'utf-8')) as {
-            dependencies?: Record<string, string>;
-        };
-        for (const dep of Object.keys(umbrellaPkg.dependencies ?? {})) {
-            candidates.add(dep);
+    // umbrella only — no general transitive walk — and gated on the app
+    // actually depending on @sigx/lynx (merely-resolvable in a monorepo's
+    // node_modules must not pull modules into a non-umbrella project).
+    if (candidates.has('@sigx/lynx')) {
+        try {
+            const umbrellaPkgPath = require.resolve('@sigx/lynx/package.json');
+            const umbrellaPkg = JSON.parse(readFileSync(umbrellaPkgPath, 'utf-8')) as {
+                dependencies?: Record<string, string>;
+            };
+            for (const dep of Object.keys(umbrellaPkg.dependencies ?? {})) {
+                candidates.add(dep);
+            }
+        } catch {
+            // Umbrella declared but not installed — nothing to add.
         }
-    } catch {
-        // Umbrella not installed (bare module project) — nothing to add.
     }
 
     for (const pkg of candidates) {
