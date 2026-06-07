@@ -511,9 +511,21 @@ export async function applyEntry(
     }
     if (isWeb && templateMod) {
       const { WebEncodePlugin } = templateMod;
+      // `WebEncodePlugin` was added to @lynx-js/template-webpack-plugin after
+      // the encode split; older versions in the (loose) peer range export only
+      // `LynxEncodePlugin`. Fail loudly here rather than letting
+      // `.use(undefined, …)` throw an opaque "is not a constructor" later.
+      if (!WebEncodePlugin) {
+        throw new Error(
+          '[sigx-lynx] The `web` environment requires `WebEncodePlugin` from ' +
+            '@lynx-js/template-webpack-plugin, but the installed version does ' +
+            'not export it. Upgrade @lynx-js/template-webpack-plugin (>=0.11) ' +
+            'or remove the `web` environment from your config.',
+        );
+      }
       chain
         .plugin(PLUGIN_ENCODE)
-        .use(WebEncodePlugin, [])
+        .use(WebEncodePlugin, [{}])
         .end();
     }
 
