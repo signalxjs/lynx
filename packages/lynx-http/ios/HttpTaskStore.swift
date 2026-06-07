@@ -66,6 +66,11 @@ final class HttpTaskStore: NSObject, URLSessionDataDelegate {
                     boundary: (body?["boundary"] as? String) ?? "----SigxFormBoundary",
                     parts: (body?["parts"] as? [[String: Any]]) ?? []
                 )
+            } catch MultipartBuilder.BuildError.unreadableFile(let uri) {
+                // localizedDescription on the enum is a useless
+                // "BuildError error 0" — name the offending URI instead.
+                HttpEventBus.shared.publish(error: "multipart compose failed: unreadable file \(uri)", id: id)
+                return
             } catch {
                 HttpEventBus.shared.publish(error: "multipart compose failed: \(error.localizedDescription)", id: id)
                 return

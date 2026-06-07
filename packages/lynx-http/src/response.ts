@@ -28,11 +28,17 @@ export class BodyStream {
     private error: unknown = null;
     private pending: PendingRead[] = [];
     private lockedFlag = false;
+    private disturbedFlag = false;
     /** Called when the consumer cancels mid-stream — aborts the request. */
     onCancel: ((reason?: unknown) => void) | null = null;
 
     get locked(): boolean {
         return this.lockedFlag;
+    }
+
+    /** WHATWG "disturbed": a reader has been acquired on this stream. */
+    get disturbed(): boolean {
+        return this.disturbedFlag;
     }
 
     /** Native side delivered body bytes. */
@@ -66,6 +72,7 @@ export class BodyStream {
             throw new TypeError('BodyStream: already locked to a reader');
         }
         this.lockedFlag = true;
+        this.disturbedFlag = true;
         return {
             read: () => {
                 if (this.error) return Promise.reject(this.error);
@@ -112,7 +119,9 @@ export class Response {
     }
 
     get bodyUsed(): boolean {
-        return this.bodyUsed_;
+        // Reader-based consumption disturbs the body too — `bodyUsed` must
+        // reflect it (WHATWG semantics), not just text()/json()/arrayBuffer().
+        return this.bodyUsed_ || this.body.disturbed;
     }
 
     async arrayBuffer(): Promise<ArrayBuffer> {
@@ -142,7 +151,7 @@ export class Response {
     }
 
     private async drain(): Promise<Uint8Array[]> {
-        if (this.bodyUsed_) {
+        if (this.bodyUsed) {
             throw new TypeError('Response: body already consumed');
         }
         this.bodyUsed_ = true;

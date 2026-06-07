@@ -210,6 +210,17 @@ describe('fetch — response lifecycle', () => {
         await expect(fetch('https://x.test')).rejects.toThrow(/invalid request spec/);
     });
 
+    it('bodyUsed reflects reader-based consumption too (WHATWG disturbed)', async () => {
+        const p = fetch('https://x.test');
+        const id = lastRequestId();
+        fire({ id, type: 'response', status: 200, statusText: 'OK', headers: {} });
+        const res = await p;
+        expect(res.bodyUsed).toBe(false);
+        res.body.getReader();
+        expect(res.bodyUsed).toBe(true);
+        await expect(res.text()).rejects.toThrow(/already consumed/);
+    });
+
     it('enforces single body consumption', async () => {
         const p = fetch('https://x.test');
         const id = lastRequestId();
