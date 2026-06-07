@@ -27,6 +27,12 @@ class FilePickerModule: NSObject, LynxModule, UIDocumentPickerDelegate {
     @objc func pick(_ options: [String: Any]?, callback: LynxCallbackBlock?) {
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
+            // Fail fast when nothing can present (multi-scene edge cases) —
+            // never leave the JS Promise hanging on an invisible picker.
+            guard let presenter = Self.presenterViewController() else {
+                callback?(["cancelled": true, "assets": [], "error": "no presenter available"])
+                return
+            }
             // Pre-empt any prior in-flight pick so its Promise can't hang
             // (mirrors the Android MediaCapture pre-emption behavior).
             self.pendingCallback?(["cancelled": true, "assets": []])
@@ -42,8 +48,22 @@ class FilePickerModule: NSObject, LynxModule, UIDocumentPickerDelegate {
             )
             picker.allowsMultipleSelection = multiple
             picker.delegate = self
-            UIApplication.shared.windows.first?.rootViewController?.present(picker, animated: true)
+            presenter.present(picker, animated: true)
         }
+    }
+
+    /// Root view controller of the active scene's key window — multi-scene
+    /// safe, with the legacy windows list as a fallback.
+    private static func presenterViewController() -> UIViewController? {
+        for scene in UIApplication.shared.connectedScenes {
+            guard scene.activationState == .foregroundActive,
+                  let windowScene = scene as? UIWindowScene else { continue }
+            let window = windowScene.windows.first { $0.isKeyWindow } ?? windowScene.windows.first
+            if let root = window?.rootViewController {
+                return root
+            }
+        }
+        return UIApplication.shared.windows.first?.rootViewController
     }
 
     /// Map JS-side MIME filters to UTTypes. Wildcard families map to their
