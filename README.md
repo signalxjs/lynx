@@ -2,13 +2,13 @@
 
 **The batteries-included way to ship native mobile apps with [SignalX](https://github.com/signalxjs/core).** Built on [Lynx](https://lynxjs.org/), it covers the whole stack — scaffold, build, run, and ship from one toolchain:
 
-- **One CLI** — `sigx dev` / `run:ios` / `run:android` / `prebuild` / `doctor`. Scaffold with `npm create @sigx@latest` and be on a device in minutes.
+- **One CLI** — `sigx dev` / `sigx run:ios` / `sigx run:android` / `sigx prebuild` / `sigx doctor`. Scaffold with `npm create @sigx@latest` and be on a device in minutes.
 - **Autolinked native modules** — `pnpm add @sigx/lynx-camera`, run `sigx prebuild`, done. No manifest edits, no pod wiring. 25+ modules, biometrics to websockets.
-- **Headless-first UI** — behavior and structure ship as headless components on a design-system-neutral foundation ([`lynx-zero`](./packages/lynx-zero)); skin them with the DaisyUI- or HeroUI-flavored design systems, or bring your own. Plus type-safe navigation, build-time-subset icon fonts, and streaming markdown with a true WYSIWYG editor.
+- **Headless-first UI** — behavior and structure ship as headless components on a design-system-neutral foundation ([`lynx-zero`](./packages/lynx-zero)); skin them with the DaisyUI-flavored design system (or the HeroUI-flavored pilot), or bring your own. Plus type-safe navigation, build-time-subset icon fonts, and streaming markdown with a true WYSIWYG editor.
 - **A renderer built for 60fps** — dual-thread architecture: gestures and animations run frame-locked on the UI thread via `SharedValue`, even when JS is busy.
 - **Lockstep versioning** — 40+ packages, one version. Any combination at the same range just works together.
 
-The core is one import — `@sigx/lynx` bundles `@sigx/reactivity`, `@sigx/runtime-core`, and the Lynx dual-thread renderer. Everything else is opt-in: install the `@sigx/lynx-*` packages you need, and only what you add ships in your app.
+The core is one import — `@sigx/lynx` re-exports `@sigx/reactivity`, `@sigx/runtime-core`, and the Lynx dual-thread renderer under a single import path. Everything else is opt-in: install the `@sigx/lynx-*` packages you need, and only what you add ships in your app.
 
 ## Quick start
 
