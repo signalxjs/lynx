@@ -124,8 +124,10 @@ export function nearestSnap(
 export const DEFAULT_SNAP_POINTS: readonly number[] = [0.5];
 
 /**
- * Normalize a screen's declared snap config: clamp fractions into (0, 1],
- * sort ascending, fall back to the default when empty/invalid.
+ * Normalize a screen's declared snap config: drop fractions outside
+ * (0, 1] (a snap point past the screen is a config error, not something
+ * to reinterpret), sort ascending, fall back to the default when nothing
+ * valid remains.
  */
 export function resolveSnapPoints(
     declared: readonly number[] | undefined,
