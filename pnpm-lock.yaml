@@ -210,6 +210,9 @@ importers:
 
   packages/lynx:
     dependencies:
+      '@sigx/lynx-http':
+        specifier: workspace:^
+        version: link:../lynx-http
       '@sigx/lynx-runtime':
         specifier: workspace:^
         version: link:../lynx-runtime
@@ -532,6 +535,19 @@ importers:
       tailwindcss:
         specifier: ^4.0.0
         version: 4.3.0
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+
+  packages/lynx-http:
+    dependencies:
+      '@sigx/lynx-core':
+        specifier: workspace:^
+        version: link:../lynx-core
+    devDependencies:
+      '@typescript/native-preview':
+        specifier: 7.0.0-dev.20260521.1
+        version: 7.0.0-dev.20260521.1
       typescript:
         specifier: ^6.0.3
         version: 6.0.3

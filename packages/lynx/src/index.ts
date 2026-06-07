@@ -4,6 +4,13 @@
 // and adds the global JSX intrinsic element types for <view>, <text>, etc.
 import '@sigx/lynx-runtime';
 
+// Side-effect import: installs `fetch`/`Headers`/`FormData`/`Response`
+// (and a TextDecoder shim) on globalThis when absent — the Lynx BG runtime
+// ships no fetch of its own. Every app that imports @sigx/lynx gets the
+// web networking baseline without an explicit import; the CLI default-
+// wires the native Http module via the umbrella's dependency entry.
+import '@sigx/lynx-http';
+
 // Re-export the public surface so users only need a single import:
 //
 //     import { component, signal, defineApp, type Define } from '@sigx/lynx';

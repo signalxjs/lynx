@@ -765,6 +765,12 @@ function collectSwiftFiles(root: string): string[] {
  * `existingPackages` (i.e. declared via `modules:` in the config) and
  * anything listed in `excludeModules`.
  *
+ * Also scans ONE hop into the umbrella `@sigx/lynx`'s own dependencies —
+ * default-wired native modules (e.g. @sigx/lynx-http, which provides the
+ * global `fetch`) ship as umbrella deps so every app gets them without
+ * listing them. The manifest gate below filters the umbrella's pure-JS
+ * deps; `excludeModules` still lets an app opt out of a default module.
+ *
  * The presence of `signalx-module.json` IS the "this is a Lynx native module"
  * marker — packages without it (icons, navigation, etc.) are silently ignored.
  */
@@ -790,6 +796,22 @@ export async function discoverSigxPackages(
         ...Object.keys(pkgJson.dependencies ?? {}),
         ...Object.keys(pkgJson.devDependencies ?? {}),
     ]);
+
+    // One-hop umbrella scan: union @sigx/lynx's own dependencies into the
+    // candidate set so default-wired native modules are discovered even
+    // though they don't appear in the app's package.json. Scoped to the
+    // umbrella only — no general transitive walk.
+    try {
+        const umbrellaPkgPath = require.resolve('@sigx/lynx/package.json');
+        const umbrellaPkg = JSON.parse(readFileSync(umbrellaPkgPath, 'utf-8')) as {
+            dependencies?: Record<string, string>;
+        };
+        for (const dep of Object.keys(umbrellaPkg.dependencies ?? {})) {
+            candidates.add(dep);
+        }
+    } catch {
+        // Umbrella not installed (bare module project) — nothing to add.
+    }
 
     for (const pkg of candidates) {
         if (existing.has(pkg) || excluded.has(pkg)) continue;

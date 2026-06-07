@@ -81,6 +81,7 @@ export const KNOWN_SIGX_LYNX_PACKAGES: ReadonlySet<string> = new Set([
     '@sigx/lynx-file-system',
     '@sigx/lynx-gestures',
     '@sigx/lynx-haptics',
+    '@sigx/lynx-http',
     '@sigx/lynx-icons',
     '@sigx/lynx-icons-fa-free',
     '@sigx/lynx-icons-lucide',

@@ -131,6 +131,55 @@ describe('discoverSigxPackages', () => {
         const discovered = await discoverSigxPackages(testDir, []);
         expect(discovered).toEqual([]);
     });
+
+    it('one-hop scans @sigx/lynx deps for default-wired native modules', async () => {
+        // The app depends only on the umbrella; the umbrella's own deps
+        // carry a native module (@sigx/lynx-http style). The umbrella has
+        // no manifest itself, its pure-JS deps are filtered by the
+        // manifest gate, and its native dep IS discovered.
+        writeProject(testDir, {
+            dependencies: { '@sigx/lynx': '^1.0.0' },
+            installed: {
+                '@sigx/lynx': 'no-manifest',
+                '@sigx/lynx-http': 'with-manifest',
+                '@sigx/lynx-runtime': 'no-manifest',
+            },
+        });
+        // Give the fake umbrella the dependencies the one-hop scan reads.
+        writeFileSync(
+            join(testDir, 'node_modules', '@sigx', 'lynx', 'package.json'),
+            JSON.stringify({
+                name: '@sigx/lynx',
+                version: '1.0.0',
+                dependencies: {
+                    '@sigx/lynx-http': '^1.0.0',
+                    '@sigx/lynx-runtime': '^1.0.0',
+                },
+            }),
+        );
+        const discovered = await discoverSigxPackages(testDir, []);
+        expect(discovered).toEqual(['@sigx/lynx-http']);
+    });
+
+    it('excludeModules opts out of umbrella default-wired modules too', async () => {
+        writeProject(testDir, {
+            dependencies: { '@sigx/lynx': '^1.0.0' },
+            installed: {
+                '@sigx/lynx': 'no-manifest',
+                '@sigx/lynx-http': 'with-manifest',
+            },
+        });
+        writeFileSync(
+            join(testDir, 'node_modules', '@sigx', 'lynx', 'package.json'),
+            JSON.stringify({
+                name: '@sigx/lynx',
+                version: '1.0.0',
+                dependencies: { '@sigx/lynx-http': '^1.0.0' },
+            }),
+        );
+        const discovered = await discoverSigxPackages(testDir, [], ['@sigx/lynx-http']);
+        expect(discovered).toEqual([]);
+    });
 });
 
 describe('resolveConfig — auto-discovery shape', () => {

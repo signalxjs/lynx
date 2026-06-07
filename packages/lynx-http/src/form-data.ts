@@ -1,0 +1,140 @@
+/**
+ * WHATWG-shaped `FormData` for multipart uploads.
+ *
+ * Values are strings or **file handles** — plain objects carrying a `uri`.
+ * Two handle shapes are accepted:
+ *
+ *   - `@sigx/lynx-file-picker` / `lynx-image-picker` assets:
+ *     `{ uri, name?, mimeType?, size? }`
+ *   - the React Native convention: `{ uri, name?, type? }`
+ *
+ * THE CORE INVARIANT: file bytes never cross the JS bridge. A file value
+ * serializes to a `{ kind: 'file', uri, ... }` descriptor and the native
+ * side streams the bytes from the URI straight into the multipart body
+ * (URLSession upload task on iOS, OkHttp RequestBody on Android).
+ */
+import type { NativeBody, NativeMultipartPart } from './types.js';
+
+export interface FileHandleLike {
+    /** `file://` or (Android) `content://` URI of the file to upload. */
+    uri: string;
+    /** File name for the `Content-Disposition` filename. */
+    name?: string;
+    /** MIME type — picker-asset spelling. */
+    mimeType?: string;
+    /** MIME type — React Native convention spelling. */
+    type?: string;
+    /** Size in bytes (informational; not sent on the wire). */
+    size?: number;
+}
+
+export type FormDataEntryValueLike = string | FileHandleLike;
+
+export function isFileHandle(value: unknown): value is FileHandleLike {
+    return typeof value === 'object'
+        && value !== null
+        && typeof (value as FileHandleLike).uri === 'string'
+        && (value as FileHandleLike).uri.length > 0;
+}
+
+interface Entry {
+    name: string;
+    value: FormDataEntryValueLike;
+    filename?: string;
+}
+
+export class FormData {
+    private entries_: Entry[] = [];
+
+    append(name: string, value: FormDataEntryValueLike, filename?: string): void {
+        if (typeof value !== 'string' && !isFileHandle(value)) {
+            throw new TypeError(
+                'FormData.append: value must be a string or a file handle with a `uri` ' +
+                '(e.g. a FilePicker/ImagePicker asset or { uri, name, type })',
+            );
+        }
+        this.entries_.push({ name: String(name), value, filename });
+    }
+
+    set(name: string, value: FormDataEntryValueLike, filename?: string): void {
+        const key = String(name);
+        const idx = this.entries_.findIndex((e) => e.name === key);
+        this.delete(key);
+        const entry: Entry = { name: key, value, filename };
+        if (idx >= 0) this.entries_.splice(idx, 0, entry);
+        else this.entries_.push(entry);
+    }
+
+    get(name: string): FormDataEntryValueLike | null {
+        return this.entries_.find((e) => e.name === name)?.value ?? null;
+    }
+
+    getAll(name: string): FormDataEntryValueLike[] {
+        return this.entries_.filter((e) => e.name === name).map((e) => e.value);
+    }
+
+    has(name: string): boolean {
+        return this.entries_.some((e) => e.name === name);
+    }
+
+    delete(name: string): void {
+        this.entries_ = this.entries_.filter((e) => e.name !== name);
+    }
+
+    forEach(fn: (value: FormDataEntryValueLike, name: string, parent: FormData) => void, thisArg?: unknown): void {
+        for (const e of this.entries_) fn.call(thisArg, e.value, e.name, this);
+    }
+
+    *[Symbol.iterator](): IterableIterator<[string, FormDataEntryValueLike]> {
+        for (const e of this.entries_) yield [e.name, e.value];
+    }
+
+    entries(): IterableIterator<[string, FormDataEntryValueLike]> {
+        return this[Symbol.iterator]();
+    }
+
+    *keys(): IterableIterator<string> {
+        for (const e of this.entries_) yield e.name;
+    }
+
+    *values(): IterableIterator<FormDataEntryValueLike> {
+        for (const e of this.entries_) yield e.value;
+    }
+}
+
+/** RFC 2183 quoting for names/filenames inside Content-Disposition. */
+function sanitizeForDisposition(s: string): string {
+    return s.replace(/[\r\n"]/g, '_');
+}
+
+/**
+ * Serialize a FormData to the native multipart descriptor. The boundary is
+ * generated here so `fetch` can put the SAME boundary in the Content-Type
+ * header — native composes the body with it verbatim.
+ */
+export function formDataToNativeBody(form: FormData): Extract<NativeBody, { type: 'multipart' }> {
+    const boundary = `----SigxFormBoundary${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`;
+    const parts: NativeMultipartPart[] = [];
+    for (const [name, value] of form) {
+        if (typeof value === 'string') {
+            parts.push({ kind: 'field', name: sanitizeForDisposition(name), value });
+        } else {
+            parts.push({
+                kind: 'file',
+                name: sanitizeForDisposition(name),
+                uri: value.uri,
+                filename: sanitizeForDisposition(fileNameOf(form, name, value)),
+                contentType: value.mimeType ?? value.type ?? 'application/octet-stream',
+            });
+        }
+    }
+    return { type: 'multipart', boundary, parts };
+}
+
+function fileNameOf(form: FormData, name: string, value: FileHandleLike): string {
+    // Explicit `append(name, file, filename)` wins, then the handle's own
+    // name, then a generic fallback.
+    const entry = (form as unknown as { entries_: Entry[] }).entries_
+        .find((e) => e.name === name && e.value === value);
+    return entry?.filename ?? value.name ?? 'file';
+}

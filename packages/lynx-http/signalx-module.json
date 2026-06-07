@@ -1,0 +1,19 @@
+{
+    "name": "Http",
+    "package": "@sigx/lynx-http",
+    "description": "HTTP transport (WHATWG fetch)",
+    "platforms": ["android", "ios"],
+    "ios": {
+        "moduleClass": "HttpModule",
+        "publisherClass": "HttpPublisher",
+        "sourceDir": "ios",
+        "methods": ["request", "abort"]
+    },
+    "android": {
+        "moduleClass": "com.sigx.http.HttpModule",
+        "publisherClass": "com.sigx.http.HttpPublisher",
+        "sourceDir": "android",
+        "dependencies": ["com.squareup.okhttp3:okhttp:4.12.0"],
+        "permissions": ["android.permission.INTERNET"]
+    }
+}
