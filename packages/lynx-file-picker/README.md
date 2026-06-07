@@ -54,6 +54,6 @@ interface FilePickerAsset {
 }
 ```
 ## Gotchas
-- **`copyToCache: false` on Android returns an ephemeral URI.** SAF's `content://` read grant is Activity-scoped — once the app is killed, the URI is unreadable. The default (`true`) copies the bytes into `filesDir/picked/` and returns a stable `file://` URI.
+- **`copyToCache: false` returns an ephemeral URI on both platforms.** Android: SAF's `content://` read grant is Activity-scoped — once the app is killed, the URI is unreadable. iOS: the picker runs with `asCopy: true`, so you get a temporary `file://` copy in tmp that iOS may purge at any time. The default (`true`) copies the bytes into app storage (`filesDir/picked/` / `Documents/picked/`) and returns a stable `file://` URI that survives restarts.
 - **MIME filters are best-effort on iOS.** MIME strings are mapped to UTTypes (`image/*` → `.image`, etc.); unknown MIME strings are skipped, and if nothing maps the picker falls back to "any file" rather than failing.
 - **No permission methods on purpose.** Unlike the photo library there is no runtime permission to request — the document picker UI itself is the consent.

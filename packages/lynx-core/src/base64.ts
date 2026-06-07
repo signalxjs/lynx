@@ -39,15 +39,22 @@ export function base64ToArrayBuffer(b64: string): ArrayBuffer {
             out[p++] = (buf >> bits) & 0xff;
         }
     }
-    return out.buffer;
+    // Skipped characters (whitespace/newlines) make the preallocation an
+    // over-estimate — size the result to what was actually decoded.
+    return p === out.length ? out.buffer : out.buffer.slice(0, p);
 }
 
 /**
- * Encode an `ArrayBuffer` / view to base64 for transport to native.
- * Native side base64-decodes back to raw bytes.
+ * Encode an `ArrayBuffer` / typed-array view to base64 for transport to
+ * native. Views are honored over their active `byteOffset`/`byteLength`
+ * range only. Native side base64-decodes back to raw bytes.
  */
-export function arrayBufferToBase64(buf: ArrayBuffer): string {
-    const bytes = new Uint8Array(buf);
+export function arrayBufferToBase64(buf: ArrayBuffer | ArrayBufferView): string {
+    const bytes = buf instanceof Uint8Array
+        ? buf
+        : ArrayBuffer.isView(buf)
+            ? new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength)
+            : new Uint8Array(buf);
     if (typeof btoa === 'function') {
         // Build the binary string in chunks to dodge call-stack limits on
         // large payloads (String.fromCharCode.apply blows up around ~64k args).

@@ -53,4 +53,24 @@ describe('base64 codec round-trip (pure-JS fallback path)', () => {
         expect(fallbackB64).toBe(nativeB64);
         expect(new Uint8Array(base64ToArrayBuffer(fallbackB64))).toEqual(new Uint8Array(buf));
     });
+
+    it('fallback decoder sizes output exactly when input contains whitespace', () => {
+        vi.stubGlobal('atob', undefined);
+        const expected = bytes(0x41, 0x42, 0x43, 0x44, 0x45);
+        const b64 = Buffer.from(new Uint8Array(expected)).toString('base64');
+        const noisy = `${b64.slice(0, 4)}\n  ${b64.slice(4)}\r\n`;
+        const decoded = new Uint8Array(base64ToArrayBuffer(noisy));
+        // No trailing zero padding from skipped characters.
+        expect(decoded).toEqual(new Uint8Array(expected));
+    });
+});
+
+describe('arrayBufferToBase64 — typed-array views', () => {
+    it('honors a view’s byteOffset/byteLength, not the whole backing buffer', () => {
+        const backing = Uint8Array.from([9, 9, 0x41, 0x42, 0x43, 9, 9]);
+        const view = backing.subarray(2, 5); // ABC
+        expect(arrayBufferToBase64(view)).toBe('QUJD');
+        const dataView = new DataView(backing.buffer, 2, 3);
+        expect(arrayBufferToBase64(dataView)).toBe('QUJD');
+    });
 });
