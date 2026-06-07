@@ -161,7 +161,7 @@ object MediaCapture {
         ) { uris ->
             val cb = pendingOpenMultipleDocumentsCallback
             pendingOpenMultipleDocumentsCallback = null
-            cb?.invoke(documentResult(uris ?: emptyList()))
+            cb?.invoke(documentResult(uris))
         }
 
         Log.i(TAG, "registered launchers on ${activity.javaClass.simpleName}")
