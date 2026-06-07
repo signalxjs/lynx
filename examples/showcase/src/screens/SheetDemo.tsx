@@ -30,7 +30,10 @@ export const SheetDemo = component(() => {
                     <view class="w-10 h-1 rounded-full bg-base-300" />
                 </Col>
 
-                <Col gap={12} padding={16} class="pt-0">
+                {/* Object-form padding: top spacing comes from the grabber
+                    block above (a pt-0 class can't beat the prop's inline
+                    style). */}
+                <Col gap={12} padding={{ x: 16, bottom: 16 }}>
                     <Col gap={4}>
                         <Heading level={3}>Bottom sheet</Heading>
                         <Text class="opacity-60 text-sm">
