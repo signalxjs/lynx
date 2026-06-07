@@ -114,6 +114,23 @@ function preloadRouteComponent(component: unknown): void {
     }
 }
 
+/**
+ * Whether the currently-stored transition is the one a completion callback
+ * set. Compared by kind + top-entry key (unique per push) rather than
+ * object identity: the transition signal is a deep proxy, so reads return
+ * a wrapped object that is never `===` the raw value that was stored.
+ */
+function isOwnTransition(
+    current: TransitionState | null,
+    own: TransitionState,
+): boolean {
+    return (
+        current !== null &&
+        current.kind === own.kind &&
+        current.topEntry.key === own.topEntry.key
+    );
+}
+
 let entryKeyCounter = 0;
 function nextEntryKey(): string {
     entryKeyCounter += 1;
@@ -358,8 +375,10 @@ export function createNavigatorState(opts: CreateNavigatorOptions): NavigatorSta
         // push's — a `reset()` (allowed mid-transition) can have cleared it
         // and a successor transition can have started before the timer
         // fires; clearing that one would cut the successor's animation off.
+        // Compared by kind + entry key, not object identity — the signal
+        // proxy wraps stored objects, so reads are never `===` the raw txn.
         const clearOwnTransition = () => {
-            if (transitionBox.value === txn) setTransition(null);
+            if (isOwnTransition(transitionBox.value, txn)) setTransition(null);
         };
 
         // A sheet opens to its initial snap point, not progress 1. The snap
@@ -454,7 +473,7 @@ export function createNavigatorState(opts: CreateNavigatorOptions): NavigatorSta
         // a `reset()` (allowed mid-transition) can have replaced the stack,
         // and committing the stale `cur` slice would overwrite it.
         const commitOwnPop = () => {
-            if (transitionBox.value !== txn) return;
+            if (!isOwnTransition(transitionBox.value, txn)) return;
             batch(() => {
                 setStack(cur.slice(0, cur.length - 1));
                 setTransition(null);
