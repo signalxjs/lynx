@@ -147,20 +147,31 @@ internal object HttpTaskStore {
         val builder = MultipartBody.Builder(spec.boundary ?: "----SigxFormBoundary")
             .setType(MultipartBody.FORM)
         for (part in spec.parts) {
+            // Defense in depth, mirroring the iOS MultipartBuilder: JS
+            // sanitizes these too, but direct bridge callers must not be
+            // able to inject header lines or trip OkHttp's header
+            // validation with control characters.
+            val name = dispositionSafe(part.name)
             if (part.kind == "file" && part.uri != null) {
                 builder.addFormDataPart(
-                    part.name,
-                    part.filename ?: "file",
-                    uriRequestBody(context, part.uri, part.contentType?.toMediaTypeOrNull()),
+                    name,
+                    dispositionSafe(part.filename ?: "file"),
+                    uriRequestBody(context, part.uri, headerSafe(part.contentType ?: "").toMediaTypeOrNull()),
                 )
             } else {
-                builder.addFormDataPart(part.name, part.value ?: "")
+                builder.addFormDataPart(name, part.value ?: "")
             }
         }
         return CountingRequestBody(builder.build()) { written, total ->
             HttpEventBus.publishProgress(id, written, total)
         }
     }
+
+    /** Strip CR/LF so a value can't terminate its header line early. */
+    private fun headerSafe(s: String): String = s.replace("\r", "").replace("\n", "")
+
+    /** Header-safe plus quote-stripping for quoted disposition params. */
+    private fun dispositionSafe(s: String): String = headerSafe(s).replace("\"", "_")
 
     private fun uriRequestBody(context: Context, uriStr: String, mediaType: MediaType?): RequestBody {
         return object : RequestBody() {
