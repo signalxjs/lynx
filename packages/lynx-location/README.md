@@ -10,7 +10,7 @@ pnpm add @sigx/lynx-location
 …and the Android permissions:
 - `ACCESS_FINE_LOCATION`
 - `ACCESS_COARSE_LOCATION`
-> **Android pairs with `@sigx/lynx-permissions`** — needed for the runtime permission prompt.
+On Android the runtime permission prompt comes from [`@sigx/lynx-permissions`](../lynx-permissions), a dependency of this package — the auto-linker pulls it in, nothing to install.
 ## Usage
 ```ts
 import { Location } from '@sigx/lynx-location';

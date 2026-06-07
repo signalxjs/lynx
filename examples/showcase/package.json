@@ -43,7 +43,6 @@
         "@sigx/lynx-navigation": "workspace:^",
         "@sigx/lynx-network": "workspace:^",
         "@sigx/lynx-notifications": "workspace:^",
-        "@sigx/lynx-permissions": "workspace:^",
         "@sigx/lynx-richtext": "workspace:^",
         "@sigx/lynx-runtime": "workspace:^",
         "@sigx/lynx-runtime-main": "workspace:^",

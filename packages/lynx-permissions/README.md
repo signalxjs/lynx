@@ -1,6 +1,6 @@
 # @sigx/lynx-permissions
 
-> **Android-only infrastructure.** Most apps don't import this directly — install any permission-using module ([`@sigx/lynx-camera`](https://github.com/signalxjs/lynx/tree/main/packages/lynx-camera), [`@sigx/lynx-image-picker`](https://github.com/signalxjs/lynx/tree/main/packages/lynx-image-picker), [`@sigx/lynx-location`](https://github.com/signalxjs/lynx/tree/main/packages/lynx-location), [`@sigx/lynx-notifications`](https://github.com/signalxjs/lynx/tree/main/packages/lynx-notifications)) and the auto-linker pulls this in. This README is for native-module *authors*.
+> **Android-only infrastructure.** Apps never install this directly — every permission-using module ([`@sigx/lynx-audio`](https://github.com/signalxjs/lynx/tree/main/packages/lynx-audio), [`@sigx/lynx-camera`](https://github.com/signalxjs/lynx/tree/main/packages/lynx-camera), [`@sigx/lynx-file-picker`](https://github.com/signalxjs/lynx/tree/main/packages/lynx-file-picker), [`@sigx/lynx-image-picker`](https://github.com/signalxjs/lynx/tree/main/packages/lynx-image-picker), [`@sigx/lynx-location`](https://github.com/signalxjs/lynx/tree/main/packages/lynx-location), [`@sigx/lynx-notifications`](https://github.com/signalxjs/lynx/tree/main/packages/lynx-notifications)) declares it as a dependency, and the auto-linker walks transitive dependencies, so it links automatically. This README is for native-module *authors*.
 
 Provides the shared `PermissionHelper` + `MediaCapture` Kotlin classes that the listed modules dispatch through to show OS permission dialogs and receive Activity Result callbacks. iOS doesn't need this — `UIImagePickerController`/`CLLocationManager`/etc. handle their own prompts.
 
@@ -48,7 +48,7 @@ import com.sigx.permissions.MediaCapture
 
 ## Why a separate module
 
-Camera + ImagePicker + Location + Notifications all need the same `requestPermissions()` plumbing on Android. Without a shared layer, each module would re-implement Activity Result wiring, hold its own static `Activity` reference, and fight over `onRequestPermissionsResult` request codes. Centralizing it here keeps each consumer module trivially small and avoids overlapping request-code namespaces.
+Audio + Camera + FilePicker + ImagePicker + Location + Notifications all need the same `requestPermissions()` / Activity Result plumbing on Android. Without a shared layer, each module would re-implement Activity Result wiring, hold its own static `Activity` reference, and fight over `onRequestPermissionsResult` request codes. Centralizing it here keeps each consumer module trivially small and avoids overlapping request-code namespaces.
 
 iOS has no equivalent because the OS-level pickers (`UIImagePickerController`, `PHPickerViewController`, `CLLocationManager`) all handle their own permission flows internally.
 

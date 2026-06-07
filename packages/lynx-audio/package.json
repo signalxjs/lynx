@@ -24,7 +24,8 @@
         "clean": "node ../../scripts/clean.mjs dist .turbo"
     },
     "dependencies": {
-        "@sigx/lynx-core": "workspace:^"
+        "@sigx/lynx-core": "workspace:^",
+        "@sigx/lynx-permissions": "workspace:^"
     },
     "devDependencies": {
         "@typescript/native-preview": "7.0.0-dev.20260521.1",
