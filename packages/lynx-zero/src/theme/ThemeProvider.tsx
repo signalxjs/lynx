@@ -69,7 +69,9 @@ import {
 // typed in this package's tsconfig). We use only its CSS-variable setter — the
 // documented way to apply theme variables at runtime.
 declare const lynx: {
-    getElementById(id: string): { setProperty(props: Record<string, string>): void } | null;
+    // `setProperty` (runtime CSS-variable application) is optional: not every
+    // host implements it for every element — notably web (`@lynx-js/web-core`).
+    getElementById(id: string): { setProperty?(props: Record<string, string>): void } | null;
 } | undefined;
 
 // Control dimensions are expressed as multiples of two base units
@@ -391,7 +393,20 @@ export const ThemeProvider = component<ThemeProviderProps>(({ props, slots }) =>
         applyVars = effect(() => {
             const vars = buildThemeVars(state.name, state.fontScale);
             if (typeof lynx !== 'undefined') {
-                lynx.getElementById(hostId)?.setProperty(vars);
+                // `setProperty` isn't implemented for every element on every
+                // host — notably web (`@lynx-js/web-core`), where it throws on
+                // the background thread and aborts the whole card render.
+                // Degrade gracefully: apply runtime-registered theme vars where
+                // supported; static themes still resolve via their generated
+                // CSS class (applied on the host element).
+                const el = lynx.getElementById(hostId);
+                if (el && typeof el.setProperty === 'function') {
+                    try {
+                        el.setProperty(vars);
+                    } catch {
+                        /* host rejected runtime setProperty (e.g. web) */
+                    }
+                }
             }
         });
     });
