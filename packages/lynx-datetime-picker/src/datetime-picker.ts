@@ -111,34 +111,38 @@ function fromNative(result: NativeResult): DateTimePickerResult {
  * }
  * ```
  */
+// Closed-over rather than a method so the API survives destructuring
+// (`const { pickDate } = DateTimePicker`) — no `this` dependence.
+function pick(opts: DateTimePickerOptions = {}): Promise<DateTimePickerResult> {
+    if (!isModuleAvailable(MODULE)) {
+        return Promise.resolve({ cancelled: true });
+    }
+    return callAsync<NativeResult>(MODULE, 'present', toNative(opts))
+        .then(fromNative)
+        .catch(() => ({ cancelled: true }));
+}
+
 export const DateTimePicker = {
     /**
      * Present the picker. Always resolves — cancellation (and any bridge
      * failure) comes back as `{ cancelled: true }` rather than rejecting,
      * so call sites don't need try/catch around the common dismiss case.
      */
-    pick(opts: DateTimePickerOptions = {}): Promise<DateTimePickerResult> {
-        if (!isModuleAvailable(MODULE)) {
-            return Promise.resolve({ cancelled: true });
-        }
-        return callAsync<NativeResult>(MODULE, 'present', toNative(opts))
-            .then(fromNative)
-            .catch(() => ({ cancelled: true }));
-    },
+    pick,
 
     /** Pick a calendar date (`mode: 'date'`). */
     pickDate(opts: Omit<DateTimePickerOptions, 'mode'> = {}): Promise<DateTimePickerResult> {
-        return this.pick({ ...opts, mode: 'date' });
+        return pick({ ...opts, mode: 'date' });
     },
 
     /** Pick a time of day (`mode: 'time'`). */
     pickTime(opts: Omit<DateTimePickerOptions, 'mode'> = {}): Promise<DateTimePickerResult> {
-        return this.pick({ ...opts, mode: 'time' });
+        return pick({ ...opts, mode: 'time' });
     },
 
     /** Pick a combined date and time (`mode: 'datetime'`). */
     pickDateTime(opts: Omit<DateTimePickerOptions, 'mode'> = {}): Promise<DateTimePickerResult> {
-        return this.pick({ ...opts, mode: 'datetime' });
+        return pick({ ...opts, mode: 'datetime' });
     },
 
     /** Whether the native module is wired in the current build. */
