@@ -10,6 +10,10 @@ import { isLazyComponent } from '@sigx/lynx';
 import { withTiming } from '@sigx/lynx-motion';
 import type { Nav } from '../hooks/use-nav.js';
 import type { ScreenRegistry } from '../internal/screen-registry.js';
+import {
+    initialSnapProgress,
+    resolveSnapPoints,
+} from '../internal/sheet-math.js';
 import type {
     PopOptions,
     Presentation,
@@ -46,6 +50,16 @@ export interface NavigatorState {
         beginBackGesture(): void;
         commitBackGesture(): void;
         cancelBackGesture(): void;
+        /**
+         * Commit a drag-to-dismiss of the top sheet entry. The sheet drag
+         * worklet has already animated the sheet SV to 0 (off-screen), so
+         * this only mutates the stack — popping via `nav.pop()` would
+         * re-animate and visibly glitch. No-ops unless the top entry is a
+         * sheet AND (when given) matches `expectedKey` — the commit arrives
+         * via a BG `setTimeout` after an MT animation, so a navigation race
+         * could otherwise pop a *different* sheet that became top meanwhile.
+         */
+        commitSheetDismiss(expectedKey?: string): void;
     };
     /**
      * Internal: cross-entry `<Screen>` registry lookup.
@@ -98,6 +112,23 @@ function preloadRouteComponent(component: unknown): void {
         // eslint-disable-next-line @typescript-eslint/no-empty-function
         component.preload().catch(() => {});
     }
+}
+
+/**
+ * Whether the currently-stored transition is the one a completion callback
+ * set. Compared by kind + top-entry key (unique per push) rather than
+ * object identity: the transition signal is a deep proxy, so reads return
+ * a wrapped object that is never `===` the raw value that was stored.
+ */
+function isOwnTransition(
+    current: TransitionState | null,
+    own: TransitionState,
+): boolean {
+    return (
+        current !== null &&
+        current.kind === own.kind &&
+        current.topEntry.key === own.topEntry.key
+    );
 }
 
 let entryKeyCounter = 0;
@@ -157,6 +188,15 @@ export interface CreateNavigatorOptions {
      */
     progress?: SharedValue<number>;
     /**
+     * Dedicated SharedValue for `presentation: 'sheet'` entries. Separate
+     * from `progress` because that SV is reset to 0 inside the MT worklet at
+     * the start of every transition — a resting sheet must hold its position
+     * across unrelated navigations, so its binding lives on an SV only sheet
+     * code writes. Only meaningful on the root navigator (sheets escalate);
+     * undefined disables sheet animation (tests / nested navs).
+     */
+    sheetProgress?: SharedValue<number>;
+    /**
      * Parent navigator. Set when this navigator is nested under another
      * (e.g. a per-tab `<Stack initialRoute>` under root). Drives the
      * `nav.parent` getter and the modal-escalation behaviour of `push`:
@@ -182,7 +222,12 @@ export interface CreateNavigatorOptions {
  * can subscribe to it.
  */
 export function createNavigatorState(opts: CreateNavigatorOptions): NavigatorState {
-    const { routes, initial, progress, parent = null } = opts;
+    const { routes, initial, progress, sheetProgress, parent = null } = opts;
+
+    // Hoisted (rather than created inline in the return) because `push`
+    // reads a just-mounted sheet screen's options to compute its open
+    // animation target.
+    const screens = createScreenRegistries();
 
     const stackSignal: Signal<StackEntry[]> = signal<StackEntry[]>([initial]);
     const focusedBox: Signal<{ value: boolean }> = signal<{ value: boolean }>({
@@ -241,22 +286,26 @@ export function createNavigatorState(opts: CreateNavigatorOptions): NavigatorSta
      * against the duration we passed to MT instead.
      */
     async function animateProgress(
+        sv: SharedValue<number> | undefined,
+        seed: number | null,
         target: number,
         durationSec: number,
     ): Promise<void> {
-        if (!progress) return;
-        const sv = progress;
-        const runner = runOnMainThread((t: number, d: number) => {
+        if (!sv) return;
+        const runner = runOnMainThread((s: number | null, t: number, d: number) => {
             'main thread';
             // MT-side direct write — `sv.value` is a BG-side getter/setter
             // that emits a "read-only on BG" warning when set; the actual
             // MT field (which `withTiming`'s animate() reads as the start
             // value) is `sv.current.value`. See `packages/lynx-runtime/src/
             // animated/shared-value.ts:14-44`.
-            sv.current.value = 0;
+            // `seed` is null for sheet pops: the dedicated sheet SV already
+            // holds the sheet's resting position and the animation runs
+            // from there toward 0 — resetting would snap it off-screen.
+            if (s !== null) sv.current.value = s;
             withTiming(sv, t, { duration: d });
         });
-        runner(target, durationSec);
+        runner(seed, target, durationSec);
         await new Promise<void>((resolve) => {
             setTimeout(resolve, Math.round(durationSec * 1000));
         });
@@ -295,7 +344,11 @@ export function createNavigatorState(opts: CreateNavigatorOptions): NavigatorSta
         const cur = getStack();
         const prevTop = cur[cur.length - 1];
 
-        const animated = options?.animated !== false && !!progress;
+        // Sheets animate on the dedicated sheet SV (see `sheetProgress` in
+        // CreateNavigatorOptions); everything else on the shared `progress`.
+        const isSheet = newEntry.presentation === 'sheet';
+        const sv = isSheet ? sheetProgress : progress;
+        const animated = options?.animated !== false && !!sv;
 
         // Commit the stack append and the transition in a single batch so the
         // Stack renders once with both screens already present. Without the
@@ -305,23 +358,74 @@ export function createNavigatorState(opts: CreateNavigatorOptions): NavigatorSta
         // underneath and the Stack would remount it on the next render.
         // Append eagerly so the new entry is queryable immediately
         // (`nav.current` = newEntry); the slide animation overlays the visual.
+        const txn: TransitionState = {
+            kind: 'push',
+            topEntry: newEntry,
+            underneathEntry: prevTop,
+            progress: sv,
+        };
         batch(() => {
             setStack([...cur, newEntry]);
-            if (animated) {
-                setTransition({
-                    kind: 'push',
-                    topEntry: newEntry,
-                    underneathEntry: prevTop,
-                    progress,
-                });
-            }
+            if (animated) setTransition(txn);
         });
 
         if (!animated) return;
 
-        animateProgress(1, TRANSITION_DURATION_SEC).then(
-            () => setTransition(null),
-            () => setTransition(null), // best-effort cleanup on animation rejection
+        // Completion guard: only clear the transition if it's still THIS
+        // push's — a `reset()` (allowed mid-transition) can have cleared it
+        // and a successor transition can have started before the timer
+        // fires; clearing that one would cut the successor's animation off.
+        // Compared by kind + entry key, not object identity — the signal
+        // proxy wraps stored objects, so reads are never `===` the raw txn.
+        const clearOwnTransition = () => {
+            if (isOwnTransition(transitionBox.value, txn)) setTransition(null);
+        };
+
+        // Seed the sheet SV off-screen immediately: this render binds the
+        // new sheet's layer to the SV, and a previously-open sheet can have
+        // left it non-zero — without the seed, the new sheet flashes at the
+        // stale height until the deferred animation start below resets it.
+        if (isSheet && sv) {
+            const seedRunner = runOnMainThread(() => {
+                'main thread';
+                sv.current.value = 0;
+            });
+            seedRunner();
+        }
+
+        // A sheet opens to its initial snap point, not progress 1. The snap
+        // config comes from the screen's `<Screen snapPoints>` registration,
+        // which lands during the render flush — DEFERRED on the real
+        // runtime, so it is NOT readable synchronously here (it is under
+        // lynx-testing's eager flush, which is why only on-device testing
+        // catches this). Wait one macrotask for the mount before reading;
+        // the transition state is already committed so the sheet renders
+        // (off-screen at sv≈0) in the meantime. Lazy sheet routes that
+        // still haven't resolved fall back to the default snap config.
+        const startSheetPush = async (): Promise<void> => {
+            await new Promise<void>((resolve) => { setTimeout(resolve, 0); });
+            // The entry can have left the stack during the deferred tick
+            // (e.g. a `reset()` — ordinary pops are blocked while the
+            // transition is set). Don't animate the SV for a dead sheet.
+            const stackNow = getStack();
+            if (stackNow[stackNow.length - 1]?.key !== newEntry.key) return;
+            const screenOpts = untrack(() => {
+                const o = screens.get(newEntry.key)?.options;
+                return {
+                    snapPoints: o?.snapPoints,
+                    initialSnapIndex: o?.initialSnapIndex,
+                };
+            });
+            const snaps = resolveSnapPoints(screenOpts.snapPoints);
+            const target = initialSnapProgress(snaps, screenOpts.initialSnapIndex);
+            return animateProgress(sv, 0, target, TRANSITION_DURATION_SEC);
+        };
+        (isSheet
+            ? startSheetPush()
+            : animateProgress(sv, 0, 1, TRANSITION_DURATION_SEC)
+        ).then(
+            clearOwnTransition,
+            clearOwnTransition, // best-effort cleanup on animation rejection
         );
     }) as Nav['push'];
 
@@ -347,8 +451,13 @@ export function createNavigatorState(opts: CreateNavigatorOptions): NavigatorSta
         const target = Math.max(1, cur.length - Math.max(1, count));
         if (target === cur.length) return;
 
+        // A sheet pop animates the dedicated sheet SV from its resting
+        // position back to 0 (off-screen); cards/modals animate the shared
+        // `progress` 0 → 1 with kind-specific transforms.
+        const isSheet = cur[cur.length - 1].presentation === 'sheet';
+        const sv = isSheet ? sheetProgress : progress;
         const animated =
-            options?.animated !== false && !!progress && count === 1 && cur.length >= 2;
+            options?.animated !== false && !!sv && count === 1 && cur.length >= 2;
         if (!animated) {
             setStack(cur.slice(0, target));
             return;
@@ -359,32 +468,32 @@ export function createNavigatorState(opts: CreateNavigatorOptions): NavigatorSta
         // animation. The stack mutation happens on completion.
         const popping = cur[cur.length - 1];
         const next = cur[cur.length - 2];
-        setTransition({
+        const txn: TransitionState = {
             kind: 'pop',
             topEntry: popping,
             underneathEntry: next,
-            progress,
-        });
+            progress: sv,
+        };
+        setTransition(txn);
 
-        animateProgress(1, TRANSITION_DURATION_SEC).then(
-            () => {
-                // Batch so the commit (drop the popped entry) and clearing the
-                // transition land in one render — no intermediate frame where
-                // the stack has mutated but the transition is still in flight.
-                batch(() => {
-                    setStack(cur.slice(0, cur.length - 1));
-                    setTransition(null);
-                });
-            },
-            () => {
-                // On animation failure, snap to the destination state anyway —
-                // leaving the popped entry rendered would be more confusing
-                // than skipping the animation.
-                batch(() => {
-                    setStack(cur.slice(0, cur.length - 1));
-                    setTransition(null);
-                });
-            },
+        // Batch so the commit (drop the popped entry) and clearing the
+        // transition land in one render — no intermediate frame where the
+        // stack has mutated but the transition is still in flight. On
+        // animation failure, snap to the destination state anyway — leaving
+        // the popped entry rendered would be more confusing than skipping
+        // the animation. Guarded on the transition still being THIS pop's:
+        // a `reset()` (allowed mid-transition) can have replaced the stack,
+        // and committing the stale `cur` slice would overwrite it.
+        const commitOwnPop = () => {
+            if (!isOwnTransition(transitionBox.value, txn)) return;
+            batch(() => {
+                setStack(cur.slice(0, cur.length - 1));
+                setTransition(null);
+            });
+        };
+        animateProgress(sv, isSheet ? null : 0, isSheet ? 0 : 1, TRANSITION_DURATION_SEC).then(
+            commitOwnPop,
+            commitOwnPop,
         );
     }
 
@@ -464,6 +573,28 @@ export function createNavigatorState(opts: CreateNavigatorOptions): NavigatorSta
         setTransition(null);
     }
 
+    /**
+     * Commit a sheet drag-to-dismiss. The drag worklet already animated the
+     * sheet SV to 0 — only the stack mutation remains. Unlike
+     * `commitBackGesture` no transition was set during the drag (a resting
+     * sheet's binding is live without one), and unlike `pop()` no animation
+     * runs here. `expectedKey` pins the commit to the sheet the gesture was
+     * for — it arrives via a BG `setTimeout`, so the top can have changed.
+     */
+    function commitSheetDismiss(expectedKey?: string): void {
+        // A transition that started during the BG-timeout window (hardware
+        // back, nav.pop()) owns the stack — mutating here would let its
+        // completion callback later overwrite newer state with its stale
+        // captured slice. If it's a pop of this same sheet, it lands the
+        // same result anyway.
+        if (isTransitioning()) return;
+        const cur = getStack();
+        const top = cur[cur.length - 1];
+        if (cur.length < 2 || top.presentation !== 'sheet') return;
+        if (expectedKey !== undefined && top.key !== expectedKey) return;
+        setStack(cur.slice(0, cur.length - 1));
+    }
+
     const nav: Nav = {
         push,
         replace,
@@ -511,8 +642,13 @@ export function createNavigatorState(opts: CreateNavigatorOptions): NavigatorSta
     return {
         nav,
         routes,
-        _gesture: { beginBackGesture, commitBackGesture, cancelBackGesture },
-        _screens: createScreenRegistries(),
+        _gesture: {
+            beginBackGesture,
+            commitBackGesture,
+            cancelBackGesture,
+            commitSheetDismiss,
+        },
+        _screens: screens,
         _setLocallyFocused: setLocallyFocused,
     };
 }

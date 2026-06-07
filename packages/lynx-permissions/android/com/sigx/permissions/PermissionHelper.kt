@@ -1,7 +1,6 @@
 package com.sigx.permissions
 
 import android.Manifest
-import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -12,7 +11,7 @@ import android.util.Log
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.lynx.react.bridge.JavaOnlyMap
-import java.lang.ref.WeakReference
+import com.sigx.core.SigxActivityHolder
 
 /**
  * Shared permission utility for sigx-lynx-go native modules.
@@ -20,30 +19,16 @@ import java.lang.ref.WeakReference
  * NOT a LynxModule — a Kotlin utility class that other modules (CameraModule,
  * LocationModule, etc.) call internally to check and request permissions.
  *
- * Requires [setActivity] to be called from MainActivity.onResume() so that
- * runtime permission requests can show the OS dialog.
+ * The foreground Activity (needed to show the OS permission dialog) comes
+ * from `@sigx/lynx-core`'s shared [SigxActivityHolder], populated via the
+ * auto-linked Activity lifecycle.
  */
 object PermissionHelper {
 
     private const val TAG = "PermissionHelper"
 
-    private var activityRef: WeakReference<Activity>? = null
     private var requestCode = 1000
     private val pendingCallbacks = mutableMapOf<Int, (JavaOnlyMap) -> Unit>()
-
-    /**
-     * Set the current Activity reference. Call from MainActivity.onResume().
-     */
-    fun setActivity(activity: Activity) {
-        activityRef = WeakReference(activity)
-    }
-
-    /**
-     * Clear the Activity reference. Call from MainActivity.onPause().
-     */
-    fun clearActivity() {
-        activityRef = null
-    }
 
     /**
      * Map a sigx permission key to Android permission string(s).
@@ -127,7 +112,7 @@ object PermissionHelper {
         }
 
         // Check if we can ask again (only meaningful if we have an Activity)
-        val activity = activityRef?.get()
+        val activity = SigxActivityHolder.current()
         val canAskAgain = if (activity != null) {
             androidPerms.any { perm ->
                 ActivityCompat.shouldShowRequestPermissionRationale(activity, perm)
@@ -188,7 +173,7 @@ object PermissionHelper {
             return
         }
 
-        val activity = activityRef?.get()
+        val activity = SigxActivityHolder.current()
         if (activity == null) {
             Log.w(TAG, "No Activity available to request permission: $permission")
             val result = JavaOnlyMap()
@@ -227,7 +212,7 @@ object PermissionHelper {
             result.putString("status", "granted")
             result.putBoolean("canAskAgain", false)
         } else {
-            val activity = activityRef?.get()
+            val activity = SigxActivityHolder.current()
             val canAskAgain = activity != null && permissions.any { perm ->
                 ActivityCompat.shouldShowRequestPermissionRationale(activity, perm)
             }

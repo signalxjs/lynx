@@ -281,10 +281,12 @@ export type ThemeProviderProps =
  * Wraps children in a `<view class={theme}>` so the CSS variables defined
  * inside the theme class inherit down to every descendant.
  *
- * Layout: defaults to flex-fill long-form so the wrapper doesn't collapse
- * between ancestors that flex (e.g. `<SafeAreaProvider>`) and descendants
- * that need a sized parent (`<SafeAreaView>`). Consumers override via
- * `style`.
+ * Layout: the root provider defaults to flex-fill long-form so the wrapper
+ * doesn't collapse between ancestors that flex (e.g. `<SafeAreaProvider>`)
+ * and descendants that need a sized parent (`<SafeAreaView>`). A nested
+ * provider is a content island and sizes to its content instead — flex-fill's
+ * `flexBasis: 0` computes to height 0 inside scroll-view content, where
+ * nothing grows it back (#269). Consumers override via `style`.
  *
  * Theme name is held in an *object* signal (not a primitive) so literal-union
  * types a DS layers on survive — `signal<T>` widens primitive literals to
@@ -420,14 +422,22 @@ export const ThemeProvider = component<ThemeProviderProps>(({ props, slots }) =>
             ? state.name
             : `${pickThemeFor(variantOf(state.name) ?? 'light')} ${state.name}`;
 
-        const style: Record<string, string | number> = {
-            flexGrow: 1,
-            flexShrink: 1,
-            flexBasis: 0,
-            minHeight: 0,
-            display: 'flex',
-            flexDirection: 'column',
-        };
+        // Root: flex-fill long-form (see the component doc comment). Nested:
+        // content-sized — a sub-scope inside scroll content would otherwise
+        // collapse to zero height via `flexBasis: 0` (#269).
+        const style: Record<string, string | number> = isRoot
+            ? {
+                flexGrow: 1,
+                flexShrink: 1,
+                flexBasis: 0,
+                minHeight: 0,
+                display: 'flex',
+                flexDirection: 'column',
+            }
+            : {
+                display: 'flex',
+                flexDirection: 'column',
+            };
         if (palette) {
             style.backgroundColor = palette['base-100'];
             style.color = palette['base-content'];

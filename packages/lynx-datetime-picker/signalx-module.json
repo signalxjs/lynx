@@ -10,10 +10,6 @@
     },
     "android": {
         "moduleClass": "com.sigx.datetimepicker.DateTimePickerModule",
-        "sourceDir": "android",
-        "activityHook": {
-            "class": "com.sigx.datetimepicker.DateTimePickerActivityHook",
-            "methods": ["onCreate", "onResume", "onPause"]
-        }
+        "sourceDir": "android"
     }
 }

@@ -126,12 +126,89 @@ const DIMENSIONLESS = new Set([
   'lineClamp',
 ]);
 
+/**
+ * Expand the CSS `flex` shorthand into its longhands. The native
+ * inline-style path does not expand shorthands (the stylesheet path does),
+ * so a raw `flex: 1` reaches the engine as an unknown property and the
+ * element silently gets no flex sizing at all (#264). CSS semantics:
+ *
+ *   flex: 2              → grow 2, shrink 1, basis 0%
+ *   flex: 'none'         → grow 0, shrink 0, basis auto
+ *   flex: 'auto'         → grow 1, shrink 1, basis auto
+ *   flex: 'initial'      → grow 0, shrink 1, basis auto
+ *   flex: '200px'        → grow 1, shrink 1, basis 200px
+ *   flex: '2 3'          → grow 2, shrink 3, basis 0%
+ *   flex: '2 200px'      → grow 2, shrink 1, basis 200px
+ *   flex: '2 3 200px'    → grow 2, shrink 3, basis 200px
+ *
+ * Returns null for values it can't make sense of (passed through as-is) —
+ * including non-finite or negative grow/shrink (invalid per CSS) and
+ * empty/whitespace-only strings.
+ */
+function expandFlexShorthand(
+  val: unknown,
+): { flexGrow: number; flexShrink: number; flexBasis: string } | null {
+  // CSS: grow/shrink must be finite and non-negative.
+  const factor = (raw: unknown): number | null => {
+    const n = typeof raw === 'number' ? raw : Number(raw);
+    return Number.isFinite(n) && n >= 0 ? n : null;
+  };
+
+  if (typeof val === 'number') {
+    const grow = factor(val);
+    return grow === null ? null : { flexGrow: grow, flexShrink: 1, flexBasis: '0%' };
+  }
+  if (typeof val !== 'string' || val.trim() === '') return null;
+  const tokens = val.trim().split(/\s+/);
+  if (tokens.length === 1) {
+    const t = tokens[0];
+    if (t === 'none') return { flexGrow: 0, flexShrink: 0, flexBasis: 'auto' };
+    if (t === 'auto') return { flexGrow: 1, flexShrink: 1, flexBasis: 'auto' };
+    if (t === 'initial') return { flexGrow: 0, flexShrink: 1, flexBasis: 'auto' };
+    const grow = factor(t);
+    if (grow !== null) return { flexGrow: grow, flexShrink: 1, flexBasis: '0%' };
+    // Not numeric-ish at all → single <flex-basis>; numeric-but-invalid
+    // ('-1', 'Infinity') → unparseable, pass through.
+    return Number.isNaN(Number(t))
+      ? { flexGrow: 1, flexShrink: 1, flexBasis: t }
+      : null;
+  }
+  if (tokens.length === 2) {
+    const grow = factor(tokens[0]);
+    if (grow === null) return null;
+    if (Number.isNaN(Number(tokens[1]))) {
+      return { flexGrow: grow, flexShrink: 1, flexBasis: tokens[1] };
+    }
+    const shrink = factor(tokens[1]);
+    return shrink === null ? null : { flexGrow: grow, flexShrink: shrink, flexBasis: '0%' };
+  }
+  if (tokens.length === 3) {
+    const grow = factor(tokens[0]);
+    const shrink = factor(tokens[1]);
+    if (grow === null || shrink === null) return null;
+    return { flexGrow: grow, flexShrink: shrink, flexBasis: tokens[2] };
+  }
+  return null;
+}
+
 function normalizeStyle(
   style: Record<string, unknown>,
 ): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   for (const key of Object.keys(style)) {
     const val = style[key];
+    if (key === 'flex') {
+      const expanded = expandFlexShorthand(val);
+      if (expanded) {
+        // Insertion order preserves CSS override semantics: an explicit
+        // longhand written *after* `flex` in the style object overwrites
+        // the expansion; one written before is overridden by it.
+        out.flexGrow = expanded.flexGrow;
+        out.flexShrink = expanded.flexShrink;
+        out.flexBasis = expanded.flexBasis;
+        continue;
+      }
+    }
     if (typeof val === 'number' && !DIMENSIONLESS.has(key) && val !== 0) {
       out[key] = `${val}px`;
     } else {

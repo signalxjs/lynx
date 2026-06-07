@@ -48,7 +48,13 @@ export type LayerProps =
      * Toggling this is a style change on the stable host view — never a
      * remount. Mirrors how `<Tabs>` hides inactive tab bodies.
      */
-    & Define.Prop<'hidden', boolean, false>;
+    & Define.Prop<'hidden', boolean, false>
+    /**
+     * Static `translateY` (px) for a resting sheet that holds no animation
+     * binding (covered sheet, or animations disabled). Plain style — see
+     * `Layer.staticOffsetY` in `layer-plan.ts`.
+     */
+    & Define.Prop<'staticOffsetY', number, false>;
 
 export const Layer = component<LayerProps>(({ props }) => {
     const ref = useMainThreadRef<MainThread.Element | null>(null);
@@ -65,7 +71,7 @@ export const Layer = component<LayerProps>(({ props }) => {
         if (!a) return null;
         return {
             sv: a.progress,
-            mapperName: a.axis,
+            mapperName: a.mapperName,
             params: {
                 inputRange: [a.inputRange[0], a.inputRange[1]],
                 outputRange: [a.outputRange[0], a.outputRange[1]],
@@ -104,6 +110,12 @@ export const Layer = component<LayerProps>(({ props }) => {
                     // when the layer is covered/revealed.
                     display: props.hidden ? 'none' : 'flex',
                     flexDirection: 'column',
+                    // Resting-sheet position without an animation binding.
+                    // Only set when no binding is active (see layer-plan);
+                    // an MT-bound transform overrides this static style.
+                    ...(props.staticOffsetY !== undefined
+                        ? { transform: `translateY(${props.staticOffsetY}px)` }
+                        : null),
                 }}
             >
                 <EntryScope key={props.entry.key} entry={props.entry}>

@@ -47,6 +47,25 @@ export type EmojiPickerProps =
 const RECENTS_GLYPH = '🕘';
 
 /**
+ * Curated tab icons per CLDR group key. The first-emoji-of-group fallback
+ * produces baffling tabs — the activities group literally starts with 🎃
+ * (event → jack-o-lantern) and symbols with 🏧 (#254) — so known groups get
+ * the icon every mainstream picker uses; unknown keys (future CLDR groups)
+ * fall back to their first emoji.
+ */
+const CATEGORY_GLYPHS: Record<string, string> = {
+    'smileys-emotion': '😀',
+    'people-body': '👋',
+    'animals-nature': '🐻',
+    'food-drink': '🍔',
+    'travel-places': '🌍',
+    'activities': '⚽',
+    'objects': '💡',
+    'symbols': '🔣',
+    'flags': '🚩',
+};
+
+/**
  * The headless emoji picker — search row, category tab bar, recycled glyph
  * grid, skin-tone long-press popover, persistent recents. Unstyled beyond
  * neutral fallbacks; theme via `classes`/render props (see `EmojiSlotClasses`)
@@ -74,7 +93,7 @@ export const EmojiPicker = component<EmojiPickerProps>(({ props, emit }) => {
 
     const tabs: CategoryTabEntry[] = ctx.data.categories.map((cat) => ({
         tab: cat,
-        glyph: byCategory.get(cat.key)?.[0]?.e ?? '❓',
+        glyph: CATEGORY_GLYPHS[cat.key] ?? byCategory.get(cat.key)?.[0]?.e ?? '❓',
     }));
 
     const query = signal('');

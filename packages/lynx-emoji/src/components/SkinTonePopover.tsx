@@ -48,8 +48,10 @@ export const SkinTonePopover = component<SkinTonePopoverProps>(({ props, emit })
                 justifyContent: 'center',
             }}
         >
+            {/* catchtap, not a bindtap stopPropagation no-op — the runtime
+                has no e.stopPropagation(); see SheetPicker (#254). */}
             <view
-                bindtap={(e: { stopPropagation?: () => void }) => e?.stopPropagation?.()}
+                catchtap={() => {}}
                 class={props.class}
                 style={props.class ? { display: 'flex', flexDirection: 'row' } : {
                     display: 'flex',

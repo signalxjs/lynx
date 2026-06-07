@@ -9,11 +9,41 @@ import type { LynxConfig } from '../src/config/schema.js';
 // Stand up a fake project tree under tmpdir with `node_modules/<pkg>/` entries.
 // Each fake module needs a package.json (so Node's resolver picks it up) and
 // a signalx-module.json (the marker discoverSigxPackages looks for).
+type InstalledSpec = 'with-manifest' | 'no-manifest' | {
+    manifest: boolean;
+    /** Runtime dependencies written into the installed package's package.json
+     *  — what the transitive discovery walk follows. */
+    dependencies?: Record<string, string>;
+};
+
+function writeInstalledPackage(nodeModulesDir: string, pkg: string, spec: InstalledSpec): void {
+    const { manifest, dependencies } = typeof spec === 'string'
+        ? { manifest: spec === 'with-manifest', dependencies: undefined }
+        : spec;
+    const pkgDir = join(nodeModulesDir, ...pkg.split('/'));
+    mkdirSync(pkgDir, { recursive: true });
+    writeFileSync(
+        join(pkgDir, 'package.json'),
+        JSON.stringify({
+            name: pkg,
+            version: '1.0.0',
+            // No `exports` — bare subpath resolution is what discoverSigxPackages relies on.
+            ...(dependencies ? { dependencies } : {}),
+        }),
+    );
+    if (manifest) {
+        writeFileSync(
+            join(pkgDir, 'signalx-module.json'),
+            JSON.stringify({ name: pkg, package: pkg, platforms: ['android', 'ios'] }),
+        );
+    }
+}
+
 function writeProject(root: string, opts: {
     dependencies?: Record<string, string>;
     devDependencies?: Record<string, string>;
-    /** Installed packages — keyed by package name, value: 'with-manifest' | 'no-manifest' */
-    installed: Record<string, 'with-manifest' | 'no-manifest'>;
+    /** Installed packages — keyed by package name. */
+    installed: Record<string, InstalledSpec>;
 }): void {
     mkdirSync(root, { recursive: true });
     writeFileSync(
@@ -24,23 +54,8 @@ function writeProject(root: string, opts: {
             devDependencies: opts.devDependencies ?? {},
         }),
     );
-    for (const [pkg, kind] of Object.entries(opts.installed)) {
-        const pkgDir = join(root, 'node_modules', ...pkg.split('/'));
-        mkdirSync(pkgDir, { recursive: true });
-        writeFileSync(
-            join(pkgDir, 'package.json'),
-            JSON.stringify({
-                name: pkg,
-                version: '1.0.0',
-                // No `exports` — bare subpath resolution is what discoverSigxPackages relies on.
-            }),
-        );
-        if (kind === 'with-manifest') {
-            writeFileSync(
-                join(pkgDir, 'signalx-module.json'),
-                JSON.stringify({ name: pkg, package: pkg, platforms: ['android', 'ios'] }),
-            );
-        }
+    for (const [pkg, spec] of Object.entries(opts.installed)) {
+        writeInstalledPackage(join(root, 'node_modules'), pkg, spec);
     }
 }
 
@@ -132,76 +147,121 @@ describe('discoverSigxPackages', () => {
         expect(discovered).toEqual([]);
     });
 
-    it('one-hop scans @sigx/lynx deps for default-wired native modules', async () => {
-        // The app depends only on the umbrella; the umbrella's own deps
-        // carry a native module (@sigx/lynx-http style). The umbrella has
-        // no manifest itself, its pure-JS deps are filtered by the
-        // manifest gate, and its native dep IS discovered.
+    // ── Transitive discovery (#257) ─────────────────────────────────────
+    // @sigx/lynx-core ships shared native helpers but apps never declare it
+    // directly — it's a runtime dependency of every native module. Discovery
+    // must walk module dependencies to find it.
+
+    it('discovers a module dependency of a discovered module (transitive)', async () => {
         writeProject(testDir, {
-            dependencies: { '@sigx/lynx': '^1.0.0' },
+            dependencies: { '@sigx/lynx-biometric': '^1.0.0' },
             installed: {
-                '@sigx/lynx': 'no-manifest',
-                '@sigx/lynx-http': 'with-manifest',
-                '@sigx/lynx-runtime': 'no-manifest',
-            },
-        });
-        // Give the fake umbrella the dependencies the one-hop scan reads.
-        writeFileSync(
-            join(testDir, 'node_modules', '@sigx', 'lynx', 'package.json'),
-            JSON.stringify({
-                name: '@sigx/lynx',
-                version: '1.0.0',
-                dependencies: {
-                    '@sigx/lynx-http': '^1.0.0',
-                    '@sigx/lynx-runtime': '^1.0.0',
+                '@sigx/lynx-biometric': {
+                    manifest: true,
+                    dependencies: { '@sigx/lynx-core': '^1.0.0' },
                 },
-            }),
-        );
-        const discovered = await discoverSigxPackages(testDir, []);
-        expect(discovered).toEqual(['@sigx/lynx-http']);
-    });
-
-    it('does NOT scan a merely-resolvable umbrella the app never depends on', async () => {
-        // Monorepo hoisting can leave @sigx/lynx in node_modules even when
-        // this project doesn't use it — its deps must not be pulled in.
-        writeProject(testDir, {
-            dependencies: { lodash: '^4.0.0' },
-            installed: {
-                lodash: 'no-manifest',
-                '@sigx/lynx': 'no-manifest',
-                '@sigx/lynx-http': 'with-manifest',
+                '@sigx/lynx-core': 'with-manifest', // installed, NOT an app dep
             },
         });
-        writeFileSync(
-            join(testDir, 'node_modules', '@sigx', 'lynx', 'package.json'),
-            JSON.stringify({
-                name: '@sigx/lynx',
-                version: '1.0.0',
-                dependencies: { '@sigx/lynx-http': '^1.0.0' },
-            }),
-        );
+        const discovered = await discoverSigxPackages(testDir, []);
+        expect(discovered.sort()).toEqual(['@sigx/lynx-biometric', '@sigx/lynx-core']);
+    });
+
+    it('sorts @sigx/lynx-core first so its activity hook runs before others', async () => {
+        writeProject(testDir, {
+            dependencies: {
+                '@sigx/lynx-biometric': '^1.0.0',
+                '@sigx/lynx-permissions': '^1.0.0',
+            },
+            installed: {
+                '@sigx/lynx-biometric': {
+                    manifest: true,
+                    dependencies: { '@sigx/lynx-core': '^1.0.0' },
+                },
+                '@sigx/lynx-permissions': {
+                    manifest: true,
+                    dependencies: { '@sigx/lynx-core': '^1.0.0' },
+                },
+                '@sigx/lynx-core': 'with-manifest',
+            },
+        });
+        const discovered = await discoverSigxPackages(testDir, []);
+        expect(discovered[0]).toBe('@sigx/lynx-core');
+        // Diamond: two dependents, discovered exactly once.
+        expect(discovered.filter((p) => p === '@sigx/lynx-core')).toHaveLength(1);
+        expect(discovered).toHaveLength(3);
+    });
+
+    it('does not walk dependencies of non-module packages', async () => {
+        // A manifest-bearing package reachable only through a plain JS dep
+        // is NOT discovered — only module dependencies are walked.
+        writeProject(testDir, {
+            dependencies: { '@sigx/lynx-icons': '^1.0.0' },
+            installed: {
+                '@sigx/lynx-icons': {
+                    manifest: false,
+                    dependencies: { '@sigx/lynx-core': '^1.0.0' },
+                },
+                '@sigx/lynx-core': 'with-manifest',
+            },
+        });
         const discovered = await discoverSigxPackages(testDir, []);
         expect(discovered).toEqual([]);
     });
 
-    it('excludeModules opts out of umbrella default-wired modules too', async () => {
+    it('does not walk devDependencies of modules (not shipped)', async () => {
         writeProject(testDir, {
-            dependencies: { '@sigx/lynx': '^1.0.0' },
+            dependencies: { '@sigx/lynx-biometric': '^1.0.0' },
             installed: {
-                '@sigx/lynx': 'no-manifest',
-                '@sigx/lynx-http': 'with-manifest',
+                '@sigx/lynx-biometric': 'with-manifest',
+                '@sigx/lynx-testing': 'with-manifest',
             },
         });
-        writeFileSync(
-            join(testDir, 'node_modules', '@sigx', 'lynx', 'package.json'),
-            JSON.stringify({
-                name: '@sigx/lynx',
-                version: '1.0.0',
-                dependencies: { '@sigx/lynx-http': '^1.0.0' },
-            }),
+        // Hand-edit the module's package.json to carry only a devDependency.
+        const pkgJsonPath = join(testDir, 'node_modules', '@sigx', 'lynx-biometric', 'package.json');
+        writeFileSync(pkgJsonPath, JSON.stringify({
+            name: '@sigx/lynx-biometric',
+            version: '1.0.0',
+            devDependencies: { '@sigx/lynx-testing': '^1.0.0' },
+        }));
+        const discovered = await discoverSigxPackages(testDir, []);
+        expect(discovered).toEqual(['@sigx/lynx-biometric']);
+    });
+
+    it('excludeModules applies to transitively discovered packages too', async () => {
+        writeProject(testDir, {
+            dependencies: { '@sigx/lynx-biometric': '^1.0.0' },
+            installed: {
+                '@sigx/lynx-biometric': {
+                    manifest: true,
+                    dependencies: { '@sigx/lynx-core': '^1.0.0' },
+                },
+                '@sigx/lynx-core': 'with-manifest',
+            },
+        });
+        const discovered = await discoverSigxPackages(testDir, [], ['@sigx/lynx-core']);
+        expect(discovered).toEqual(['@sigx/lynx-biometric']);
+    });
+
+    it('resolves pnpm-style nested installs from the dependent module', async () => {
+        // Strict (non-hoisted) layout: lynx-core only exists under the
+        // module's own node_modules — invisible to the app's resolver.
+        writeProject(testDir, {
+            dependencies: { '@sigx/lynx-biometric': '^1.0.0' },
+            installed: {
+                '@sigx/lynx-biometric': {
+                    manifest: true,
+                    dependencies: { '@sigx/lynx-core': '^1.0.0' },
+                },
+            },
+        });
+        writeInstalledPackage(
+            join(testDir, 'node_modules', '@sigx', 'lynx-biometric', 'node_modules'),
+            '@sigx/lynx-core',
+            'with-manifest',
         );
-        const discovered = await discoverSigxPackages(testDir, [], ['@sigx/lynx-http']);
-        expect(discovered).toEqual([]);
+        const discovered = await discoverSigxPackages(testDir, []);
+        expect(discovered).toEqual(['@sigx/lynx-core', '@sigx/lynx-biometric']);
     });
 });
 

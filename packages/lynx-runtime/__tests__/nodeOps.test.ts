@@ -221,6 +221,69 @@ describe('lynx-runtime nodeOps (shadow-tree + op-queue)', () => {
     expect(styleObj.opacity).toBe(0.5); // dimensionless — kept as number
   });
 
+  // The flex shorthand must expand to longhands — the native inline-style
+  // path doesn't expand CSS shorthands, so a raw `flex` reaches the engine
+  // as an unknown property and silently does nothing (#264).
+  it('expands the flex shorthand into flexGrow/flexShrink/flexBasis', () => {
+    const styleFor = (style: Record<string, unknown>): Record<string, unknown> => {
+      const el = nodeOps.createElement('view');
+      drainOps();
+      nodeOps.patchProp(el, 'style', null, style);
+      const op = parseOps(drainOps()).find(r => r[0] === OP.SET_STYLE);
+      return op![2] as Record<string, unknown>;
+    };
+
+    expect(styleFor({ flex: 1 })).toEqual({ flexGrow: 1, flexShrink: 1, flexBasis: '0%' });
+    expect(styleFor({ flex: 0 })).toEqual({ flexGrow: 0, flexShrink: 1, flexBasis: '0%' });
+    expect(styleFor({ flex: 'none' })).toEqual({ flexGrow: 0, flexShrink: 0, flexBasis: 'auto' });
+    expect(styleFor({ flex: 'auto' })).toEqual({ flexGrow: 1, flexShrink: 1, flexBasis: 'auto' });
+    expect(styleFor({ flex: 'initial' })).toEqual({ flexGrow: 0, flexShrink: 1, flexBasis: 'auto' });
+    expect(styleFor({ flex: '200px' })).toEqual({ flexGrow: 1, flexShrink: 1, flexBasis: '200px' });
+    expect(styleFor({ flex: '2 3' })).toEqual({ flexGrow: 2, flexShrink: 3, flexBasis: '0%' });
+    expect(styleFor({ flex: '2 200px' })).toEqual({ flexGrow: 2, flexShrink: 1, flexBasis: '200px' });
+    expect(styleFor({ flex: '2 3 200px' })).toEqual({ flexGrow: 2, flexShrink: 3, flexBasis: '200px' });
+  });
+
+  it('flex shorthand respects CSS source-order overrides', () => {
+    const styleFor = (style: Record<string, unknown>): Record<string, unknown> => {
+      const el = nodeOps.createElement('view');
+      drainOps();
+      nodeOps.patchProp(el, 'style', null, style);
+      const op = parseOps(drainOps()).find(r => r[0] === OP.SET_STYLE);
+      return op![2] as Record<string, unknown>;
+    };
+
+    // Longhand after the shorthand wins…
+    expect(styleFor({ flex: 1, flexShrink: 0 }))
+      .toEqual({ flexGrow: 1, flexShrink: 0, flexBasis: '0%' });
+    // …and the shorthand overrides an earlier longhand.
+    expect(styleFor({ flexGrow: 5, flex: 1 }))
+      .toEqual({ flexGrow: 1, flexShrink: 1, flexBasis: '0%' });
+  });
+
+  // Invalid per CSS (non-finite/negative factors, blank strings) must pass
+  // through unchanged, not expand to bogus longhands.
+  it('flex shorthand passes invalid values through unchanged', () => {
+    const styleFor = (style: Record<string, unknown>): Record<string, unknown> => {
+      const el = nodeOps.createElement('view');
+      drainOps();
+      nodeOps.patchProp(el, 'style', null, style);
+      const op = parseOps(drainOps()).find(r => r[0] === OP.SET_STYLE);
+      return op![2] as Record<string, unknown>;
+    };
+
+    expect(styleFor({ flex: NaN })).toEqual({ flex: NaN });
+    expect(styleFor({ flex: Infinity })).toEqual({ flex: Infinity });
+    expect(styleFor({ flex: -1 })).toEqual({ flex: -1 });
+    expect(styleFor({ flex: '' })).toEqual({ flex: '' });
+    expect(styleFor({ flex: '   ' })).toEqual({ flex: '   ' });
+    expect(styleFor({ flex: '-1' })).toEqual({ flex: '-1' });
+    expect(styleFor({ flex: 'Infinity' })).toEqual({ flex: 'Infinity' });
+    expect(styleFor({ flex: '1 -2' })).toEqual({ flex: '1 -2' });
+    expect(styleFor({ flex: '-1 2 0%' })).toEqual({ flex: '-1 2 0%' });
+    expect(styleFor({ flex: '1 2 3 4' })).toEqual({ flex: '1 2 3 4' });
+  });
+
   // Test 7: patchProp with class pushes SET_CLASS op
   it('patchProp with class pushes SET_CLASS op', () => {
     const el = nodeOps.createElement('view');

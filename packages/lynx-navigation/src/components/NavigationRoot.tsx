@@ -79,11 +79,16 @@ export const NavigationRoot = component<NavigationRootProps>(({ props, slots }) 
     // when animations are enabled — `createNavigatorState` falls back to
     // instant swaps when `progress` is undefined.
     const progressSv = useSharedValue(0);
+    // Dedicated SV for `presentation: 'sheet'` entries — `progressSv` resets
+    // to 0 at every transition start, so a resting sheet's position lives on
+    // its own SV that only sheet code writes (see NavInternals.sheetProgress).
+    const sheetProgressSv = useSharedValue(0);
     const animationsEnabled = props.animated !== false;
     const navState = createNavigatorState({
         routes,
         initial,
         progress: animationsEnabled ? progressSv : undefined,
+        sheetProgress: animationsEnabled ? sheetProgressSv : undefined,
     });
 
     defineProvide(useNav, () => navState.nav);
@@ -91,9 +96,11 @@ export const NavigationRoot = component<NavigationRootProps>(({ props, slots }) 
     const edgeSwipeEnabled = props.edgeSwipeEnabled !== false;
     defineProvide(useNavInternals, () => ({
         progress: animationsEnabled ? progressSv : null,
+        sheetProgress: animationsEnabled ? sheetProgressSv : null,
         beginBackGesture: navState._gesture.beginBackGesture,
         commitBackGesture: navState._gesture.commitBackGesture,
         cancelBackGesture: navState._gesture.cancelBackGesture,
+        commitSheetDismiss: navState._gesture.commitSheetDismiss,
         edgeSwipeEnabled,
         screens: navState._screens,
     }));
