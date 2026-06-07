@@ -33,6 +33,9 @@ describe('FormData — entry API', () => {
         const f = new FormData();
         expect(() => f.append('n', 42 as unknown as string)).toThrow(TypeError);
         expect(() => f.append('n', { notAUri: true } as unknown as string)).toThrow(TypeError);
+        // set() validates the same way as append().
+        expect(() => f.set('n', 42 as unknown as string)).toThrow(TypeError);
+        expect(() => f.set('n', { notAUri: true } as unknown as string)).toThrow(TypeError);
     });
 
     it('isFileHandle detects picker assets and RN-style objects', () => {
@@ -87,6 +90,17 @@ describe('formDataToNativeBody', () => {
         f.append('file', { uri: 'file:///tmp/x.bin', name: 'x.bin' }, 'renamed.bin');
         const body = formDataToNativeBody(f);
         expect(body.parts[0]).toMatchObject({ kind: 'file', filename: 'renamed.bin' });
+    });
+
+    it('keeps per-entry filenames when the same handle is appended twice', () => {
+        const handle = { uri: 'file:///tmp/x.bin', name: 'x.bin' };
+        const f = new FormData();
+        f.append('file', handle, 'first.bin');
+        f.append('file', handle, 'second.bin');
+        f.append('file', handle); // no explicit filename → handle name
+        const filenames = formDataToNativeBody(f).parts
+            .map((p) => (p as { filename: string }).filename);
+        expect(filenames).toEqual(['first.bin', 'second.bin', 'x.bin']);
     });
 
     it('falls back to application/octet-stream and "file" when metadata is missing', () => {

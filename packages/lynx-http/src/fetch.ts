@@ -192,6 +192,11 @@ export function fetch(input: string | { url: string }, init: RequestInitLike = {
     }
 
     const method = (init.method ?? (body.type === 'none' ? 'GET' : 'POST')).toUpperCase();
+    if ((method === 'GET' || method === 'HEAD') && body.type !== 'none') {
+        // Spec behavior — and the platforms disagree otherwise (OkHttp
+        // throws on GET-with-body, URLSession may send it). Fail fast.
+        return Promise.reject(new TypeError(`fetch: ${method} request cannot have a body`));
+    }
     const spec: NativeRequestSpec = {
         url,
         method,

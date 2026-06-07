@@ -131,6 +131,12 @@ describe('fetch — request spec', () => {
         await p;
     });
 
+    it('rejects GET/HEAD with a body (spec behavior; platforms disagree otherwise)', async () => {
+        await expect(fetch('https://x.test', { method: 'GET', body: 'nope' })).rejects.toThrow(/GET request cannot have a body/);
+        await expect(fetch('https://x.test', { method: 'head', body: 'nope' })).rejects.toThrow(/HEAD request cannot have a body/);
+        expect(bridge.callAsync.mock.calls.filter((c) => c[1] === 'request')).toHaveLength(0);
+    });
+
     it('rejects invalid URLs and unsupported bodies without hitting the bridge', async () => {
         await expect(fetch('')).rejects.toThrow(TypeError);
         await expect(fetch('https://x.test', { body: 42 as unknown as string })).rejects.toThrow(/unsupported body/);

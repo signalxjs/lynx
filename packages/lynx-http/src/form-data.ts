@@ -43,20 +43,25 @@ interface Entry {
     filename?: string;
 }
 
+function assertValidValue(method: string, value: unknown): void {
+    if (typeof value !== 'string' && !isFileHandle(value)) {
+        throw new TypeError(
+            `FormData.${method}: value must be a string or a file handle with a \`uri\` ` +
+            '(e.g. a FilePicker/ImagePicker asset or { uri, name, type })',
+        );
+    }
+}
+
 export class FormData {
     private entries_: Entry[] = [];
 
     append(name: string, value: FormDataEntryValueLike, filename?: string): void {
-        if (typeof value !== 'string' && !isFileHandle(value)) {
-            throw new TypeError(
-                'FormData.append: value must be a string or a file handle with a `uri` ' +
-                '(e.g. a FilePicker/ImagePicker asset or { uri, name, type })',
-            );
-        }
+        assertValidValue('append', value);
         this.entries_.push({ name: String(name), value, filename });
     }
 
     set(name: string, value: FormDataEntryValueLike, filename?: string): void {
+        assertValidValue('set', value);
         const key = String(name);
         const idx = this.entries_.findIndex((e) => e.name === key);
         this.delete(key);
@@ -115,26 +120,23 @@ function sanitizeForDisposition(s: string): string {
 export function formDataToNativeBody(form: FormData): Extract<NativeBody, { type: 'multipart' }> {
     const boundary = `----SigxFormBoundary${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`;
     const parts: NativeMultipartPart[] = [];
-    for (const [name, value] of form) {
-        if (typeof value === 'string') {
-            parts.push({ kind: 'field', name: sanitizeForDisposition(name), value });
+    // Iterate the raw entries (not the public [name, value] iterator) so
+    // each part keeps ITS OWN explicit `filename` argument — the same
+    // handle appended twice with different filenames must not collapse to
+    // the first one. Precedence: explicit filename → handle name → 'file'.
+    const entries = (form as unknown as { entries_: Entry[] }).entries_;
+    for (const e of entries) {
+        if (typeof e.value === 'string') {
+            parts.push({ kind: 'field', name: sanitizeForDisposition(e.name), value: e.value });
         } else {
             parts.push({
                 kind: 'file',
-                name: sanitizeForDisposition(name),
-                uri: value.uri,
-                filename: sanitizeForDisposition(fileNameOf(form, name, value)),
-                contentType: value.mimeType ?? value.type ?? 'application/octet-stream',
+                name: sanitizeForDisposition(e.name),
+                uri: e.value.uri,
+                filename: sanitizeForDisposition(e.filename ?? e.value.name ?? 'file'),
+                contentType: e.value.mimeType ?? e.value.type ?? 'application/octet-stream',
             });
         }
     }
     return { type: 'multipart', boundary, parts };
-}
-
-function fileNameOf(form: FormData, name: string, value: FileHandleLike): string {
-    // Explicit `append(name, file, filename)` wins, then the handle's own
-    // name, then a generic fallback.
-    const entry = (form as unknown as { entries_: Entry[] }).entries_
-        .find((e) => e.name === name && e.value === value);
-    return entry?.filename ?? value.name ?? 'file';
 }
