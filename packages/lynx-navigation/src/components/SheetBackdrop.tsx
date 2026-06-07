@@ -14,8 +14,9 @@
  *
  * Opacity binds the dedicated sheet SharedValue, so the dim tracks the
  * sheet position exactly — proportional at partial snap points, fading in
- * lockstep during drag-to-dismiss. With animations disabled (no SV) the
- * backdrop renders at full dim statically.
+ * lockstep during drag-to-dismiss. Without an SV (covered sheet, or
+ * animations disabled) it renders `staticOpacity` — the resting-progress
+ * proportional dim — statically.
  */
 import {
     component,
@@ -74,7 +75,12 @@ export const SheetBackdrop = component<SheetBackdropProps>(({ props }) => {
     return () => (
         <view
             main-thread:ref={ref}
-            bindtap={() => {
+            bindtap={(e: { stopPropagation?: () => void }) => {
+                // Consume the tap either way — the backdrop covers the
+                // underlying screen, so a tap on the dim must never reach
+                // interactive elements behind it (same stop-propagation
+                // treatment as lynx-emoji's SheetPicker).
+                e?.stopPropagation?.();
                 if (props.dismissable) nav.pop();
             }}
             style={{

@@ -547,7 +547,14 @@ export const Stack = component<StackProps>(({ props, slots }) => {
                         snapProgresses={snaps.map((f) => snapToProgress(f, maxFraction))}
                         maxSnapFraction={maxFraction}
                         onSettle={(p: number) => {
-                            sheetRestBox[entryKey] = p;
+                            // The settle callback arrives via a delayed BG
+                            // timeout — if the sheet was popped meanwhile,
+                            // writing would re-add a key the prune effect
+                            // already removed (and nothing would prune it
+                            // again until the next stack change).
+                            if (nav.stack.some((e) => e.key === entryKey)) {
+                                sheetRestBox[entryKey] = p;
+                            }
                         }}
                     />
                 );
