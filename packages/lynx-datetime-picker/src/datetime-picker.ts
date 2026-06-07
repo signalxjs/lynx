@@ -62,12 +62,23 @@ interface NativeResult {
     value?: number;
 }
 
+/** Epoch ms of a Date, or undefined when absent or invalid — an Invalid
+ *  Date behaves like an omitted option rather than sending NaN across
+ *  the bridge. */
+function epochMs(date: Date | undefined): number | undefined {
+    const ms = date?.getTime();
+    return ms !== undefined && Number.isFinite(ms) ? ms : undefined;
+}
+
 /** Convert JS options to the bridge shape, dropping absent optionals. */
 function toNative(opts: DateTimePickerOptions): NativeOptions {
     const native: NativeOptions = { mode: opts.mode ?? 'date' };
-    if (opts.value !== undefined) native.value = opts.value.getTime();
-    if (opts.minimumDate !== undefined) native.minimumDate = opts.minimumDate.getTime();
-    if (opts.maximumDate !== undefined) native.maximumDate = opts.maximumDate.getTime();
+    const value = epochMs(opts.value);
+    if (value !== undefined) native.value = value;
+    const minimumDate = epochMs(opts.minimumDate);
+    if (minimumDate !== undefined) native.minimumDate = minimumDate;
+    const maximumDate = epochMs(opts.maximumDate);
+    if (maximumDate !== undefined) native.maximumDate = maximumDate;
     if (opts.minuteInterval !== undefined) native.minuteInterval = opts.minuteInterval;
     if (opts.is24Hour !== undefined) native.is24Hour = opts.is24Hour;
     if (opts.title !== undefined) native.title = opts.title;
@@ -76,12 +87,15 @@ function toNative(opts: DateTimePickerOptions): NativeOptions {
 
 /** Rehydrate the bridge result into a `Date` plus local components. */
 function fromNative(result: NativeResult): DateTimePickerResult {
-    // Non-finite epoch values would yield an Invalid Date with NaN
-    // components — treat them as malformed, i.e. cancelled.
-    if (result.cancelled || typeof result.value !== 'number' || !Number.isFinite(result.value)) {
+    if (result.cancelled || typeof result.value !== 'number') {
         return { cancelled: true };
     }
     const value = new Date(result.value);
+    // Non-finite or out-of-range epoch values yield an Invalid Date with
+    // NaN components — treat them as malformed, i.e. cancelled.
+    if (Number.isNaN(value.getTime())) {
+        return { cancelled: true };
+    }
     return {
         cancelled: false,
         value,

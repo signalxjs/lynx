@@ -85,11 +85,23 @@ describe('DateTimePicker.pick', () => {
         expect(result).toEqual({ cancelled: true });
     });
 
-    it('treats a non-finite epoch value as cancelled', async () => {
+    it('treats a non-finite or out-of-range epoch value as cancelled', async () => {
         bridge.callAsync.mockResolvedValueOnce({ cancelled: false, value: NaN });
         expect(await DateTimePicker.pick()).toEqual({ cancelled: true });
         bridge.callAsync.mockResolvedValueOnce({ cancelled: false, value: Infinity });
         expect(await DateTimePicker.pick()).toEqual({ cancelled: true });
+        bridge.callAsync.mockResolvedValueOnce({ cancelled: false, value: 8.65e15 }); // > max Date range
+        expect(await DateTimePicker.pick()).toEqual({ cancelled: true });
+    });
+
+    it('drops Invalid Date options instead of sending NaN across the bridge', async () => {
+        await DateTimePicker.pick({
+            value: new Date(NaN),
+            minimumDate: new Date(NaN),
+        });
+        expect(bridge.callAsync).toHaveBeenCalledWith('DateTimePicker', 'present', {
+            mode: 'date',
+        });
     });
 
     it('resolves to { cancelled: true } when module is not registered', async () => {
