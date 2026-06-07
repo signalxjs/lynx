@@ -64,7 +64,7 @@ Auto-linked by `sigx prebuild`: install the package with `pnpm add @sigx/lynx-fo
 | [`@sigx/lynx-datetime-picker`](./packages/lynx-datetime-picker) | Native date/time/datetime picker — `UIDatePicker` in a presented sheet on iOS, `DatePickerDialog` / `TimePickerDialog` on Android. |
 | [`@sigx/lynx-device-info`](./packages/lynx-device-info) | Device model, OS version, locale, screen metrics. |
 | [`@sigx/lynx-file-picker`](./packages/lynx-file-picker) | Generic file picker — `UIDocumentPickerViewController` on iOS, Storage Access Framework on Android. Picks *any* file (Files app / document browser UX); for the photo-library grid use `@sigx/lynx-image-picker`. |
-| [`@sigx/lynx-file-system`](./packages/lynx-file-system) | Sandboxed file read/write/delete + file info in the app's documents/cache directories, plus binary reads (`readFileBase64` / `readFileAsArrayBuffer`) of any `file://` / `content://` URI a picker hands back. |
+| [`@sigx/lynx-file-system`](./packages/lynx-file-system) | Sandboxed file read/write/delete + file info in the app's documents/cache directories, plus binary reads (`readFileBase64` / `readFileAsArrayBuffer`) of any `file://` (and, on Android, `content://`) URI a picker hands back. |
 | [`@sigx/lynx-haptics`](./packages/lynx-haptics) | Impact / selection / notification haptic feedback. |
 | [`@sigx/lynx-image-picker`](./packages/lynx-image-picker) | Pick or capture images from the photo library / camera (PHPicker / Android Photo Picker). For arbitrary documents use `@sigx/lynx-file-picker`. |
 | [`@sigx/lynx-linking`](./packages/lynx-linking) | Deep-link & URL scheme handling — `openURL`, `getInitialURL`, inbound URL events. |
