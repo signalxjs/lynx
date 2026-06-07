@@ -805,8 +805,10 @@ export function buildManifestIndex(cwd: string): Map<string, string> {
         queue.push({ pkg, resolve: appRequire.resolve });
     }
 
-    while (queue.length > 0) {
-        const { pkg, resolve } = queue.shift()!;
+    // Index pointer rather than queue.shift() — shift() reindexes the array
+    // on every pop, turning the BFS O(n²) on large dependency graphs.
+    for (let head = 0; head < queue.length; head++) {
+        const { pkg, resolve } = queue[head];
         if (visited.has(pkg)) continue;
         visited.add(pkg);
 
