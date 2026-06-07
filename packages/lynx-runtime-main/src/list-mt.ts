@@ -148,6 +148,11 @@ export function createListElement(internalId: number): MainThreadElement {
  * list element here — the recycler attaches it on demand via
  * `componentAtIndex`. `anchorInternalId` is the real sibling to insert before,
  * or -1 to append.
+ *
+ * An insert of a child that is already in the list is a MOVE: the BG shadow
+ * tree detaches implicitly on insertBefore and emits no REMOVE op (keyed
+ * reorders arrive as bare inserts), so drop the old occurrence first —
+ * before the anchor lookup, so the anchor index isn't stale.
  */
 export function listInsertChild(
   listInternalId: number,
@@ -156,6 +161,8 @@ export function listInsertChild(
 ): void {
   const state = listsByInternalId.get(listInternalId);
   if (!state) return;
+  const existing = state.order.indexOf(childInternalId);
+  if (existing !== -1) state.order.splice(existing, 1);
   const idx = anchorInternalId === -1 ? -1 : state.order.indexOf(anchorInternalId);
   if (idx === -1) state.order.push(childInternalId);
   else state.order.splice(idx, 0, childInternalId);
@@ -220,15 +227,48 @@ export function noteListItemProp(
 }
 
 /**
+ * Set of values in `seq` forming one longest strictly-increasing subsequence
+ * (patience sorting, O(n log n)). Used to pick the "stable backbone" of a
+ * keyed reorder — the kept items whose relative order did not change.
+ */
+function longestIncreasingSubsequence(seq: number[]): Set<number> {
+  // tails[k] = index into seq of the smallest tail among increasing
+  // subsequences of length k+1; prev[] links reconstruct the chain.
+  const tails: number[] = [];
+  const prev = new Array<number>(seq.length).fill(-1);
+  for (let i = 0; i < seq.length; i++) {
+    let lo = 0;
+    let hi = tails.length;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (seq[tails[mid]] < seq[i]) lo = mid + 1;
+      else hi = mid;
+    }
+    if (lo > 0) prev[i] = tails[lo - 1];
+    tails[lo] = i;
+  }
+  const stable = new Set<number>();
+  let k = tails.length > 0 ? tails[tails.length - 1] : -1;
+  while (k !== -1) {
+    stable.add(seq[k]);
+    k = prev[k];
+  }
+  return stable;
+}
+
+/**
  * Emit `update-list-info` diffs for every list whose children changed during
  * the current ops batch. Called once per batch, before the final
  * `__FlushElementTree`.
  *
- * The diff is intentionally minimal — insert/remove only (no move/update). It
- * covers the common cases (initial render, append, delete). `removeAction`
- * carries ascending OLD indices; `insertAction` carries ascending NEW
- * positions, each with the item's type and platform info. This matches the
- * order the host/native recycler applies them (remove first, then insert).
+ * The wire format is insert/remove only, so a MOVE (keyed reorder) is encoded
+ * as remove + re-insert. Kept items whose relative order is unchanged — the
+ * longest increasing subsequence of old indices taken in new order — stay put;
+ * every other item is removed and re-inserted at its new position, so applying
+ * the diff reproduces `state.order` exactly on native. `removeAction` carries
+ * ascending OLD indices; `insertAction` carries ascending NEW positions, each
+ * with the item's type and platform info. This matches the order the
+ * host/native recycler applies them (remove first, then insert).
  */
 export function flushDirtyLists(): void {
   for (const state of listsByInternalId.values()) {
@@ -237,18 +277,29 @@ export function flushDirtyLists(): void {
 
     const oldArr = state.committed;
     const newArr = state.order;
-    const oldSet = new Set(oldArr);
     const newSet = new Set(newArr);
+    const oldIndex = new Map<number, number>();
+    for (let i = 0; i < oldArr.length; i++) oldIndex.set(oldArr[i], i);
+
+    // Old indices of kept items, in NEW order; their LIS is the backbone
+    // that needs no action.
+    const keptOldIndices: number[] = [];
+    for (const id of newArr) {
+      const oi = oldIndex.get(id);
+      if (oi !== undefined) keptOldIndices.push(oi);
+    }
+    const stable = longestIncreasingSubsequence(keptOldIndices);
 
     const removeAction: number[] = [];
     for (let i = 0; i < oldArr.length; i++) {
-      if (!newSet.has(oldArr[i])) removeAction.push(i);
+      if (!newSet.has(oldArr[i]) || !stable.has(i)) removeAction.push(i);
     }
 
     const insertAction: Array<Record<string, unknown>> = [];
     for (let pos = 0; pos < newArr.length; pos++) {
       const childInternalId = newArr[pos];
-      if (!oldSet.has(childInternalId)) {
+      const oi = oldIndex.get(childInternalId);
+      if (oi === undefined || !stable.has(oi)) {
         const info = itemPlatformInfo.get(childInternalId) ?? {};
         insertAction.push({ position: pos, type: 'list-item', ...info });
       }
