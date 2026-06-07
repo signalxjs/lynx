@@ -1,0 +1,44 @@
+/* Hero Radio — circular ring + inner dot when selected. */
+
+.hero-radio {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 9999px;
+  border-width: 2px;
+  border-color: var(--color-base-300);
+  background-color: transparent;
+}
+
+.hero-radio-sm { width: 20px; height: 20px; }
+.hero-radio-lg { width: 28px; height: 28px; }
+
+.hero-radio-mark {
+  width: 12px;
+  height: 12px;
+  border-radius: 9999px;
+  background-color: var(--color-primary);
+}
+.hero-radio-sm .hero-radio-mark { width: 10px; height: 10px; }
+.hero-radio-lg .hero-radio-mark { width: 14px; height: 14px; }
+
+.hero-radio-label { color: var(--color-base-content); font-size: var(--font-md); }
+
+/* Selected ring + dot take the semantic color (primary default). */
+.hero-radio-checked { border-color: var(--color-primary); }
+.hero-radio-primary { border-color: var(--color-primary); }
+.hero-radio-primary .hero-radio-mark { background-color: var(--color-primary); }
+.hero-radio-secondary { border-color: var(--color-secondary); }
+.hero-radio-secondary .hero-radio-mark { background-color: var(--color-secondary); }
+.hero-radio-accent { border-color: var(--color-accent); }
+.hero-radio-accent .hero-radio-mark { background-color: var(--color-accent); }
+.hero-radio-info { border-color: var(--color-info); }
+.hero-radio-info .hero-radio-mark { background-color: var(--color-info); }
+.hero-radio-success { border-color: var(--color-success); }
+.hero-radio-success .hero-radio-mark { background-color: var(--color-success); }
+.hero-radio-warning { border-color: var(--color-warning); }
+.hero-radio-warning .hero-radio-mark { background-color: var(--color-warning); }
+.hero-radio-error { border-color: var(--color-error); }
+.hero-radio-error .hero-radio-mark { background-color: var(--color-error); }

@@ -1,0 +1,31 @@
+/* Hero Textarea — flat (filled surface, upstream default) + bordered.
+ * Mirrors hero Input; height is set inline from the `rows` prop. */
+
+.hero-textarea {
+  padding: 10px 14px;
+  border-radius: var(--radius-field);
+  font-size: var(--font-md);
+  background-color: var(--color-base-200);
+  color: var(--color-base-content);
+  border-width: 0;
+  border-color: transparent;
+}
+
+.hero-textarea-bordered {
+  background-color: transparent;
+  border-width: 2px;
+  border-color: var(--color-base-300);
+}
+
+/* Color accents (border emphasis) */
+.hero-textarea-primary { border-color: var(--color-primary); }
+.hero-textarea-secondary { border-color: var(--color-secondary); }
+.hero-textarea-accent { border-color: var(--color-accent); }
+.hero-textarea-info { border-color: var(--color-info); }
+.hero-textarea-success { border-color: var(--color-success); }
+.hero-textarea-warning { border-color: var(--color-warning); }
+.hero-textarea-error { border-color: var(--color-error); }
+
+/* Sizes — font ramp (height comes from `rows`) */
+.hero-textarea-sm { font-size: var(--font-sm); padding: 8px 10px; }
+.hero-textarea-lg { font-size: var(--font-lg); padding: 12px 18px; }

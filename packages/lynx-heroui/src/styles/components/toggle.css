@@ -1,0 +1,36 @@
+/* Hero Toggle — pill track + circular thumb. Thumb travel is set inline
+ * (translateX) from the component, in sync with these dimensions. */
+
+.hero-toggle {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding-left: 3px;
+  padding-right: 3px;
+  border-radius: 9999px;
+  background-color: var(--color-base-300);
+}
+
+.hero-toggle-thumb {
+  background-color: var(--color-base-100);
+  border-radius: 9999px;
+}
+
+/* Sizes — md is the default (track 44×24, thumb 18). */
+.hero-toggle { width: 44px; height: 24px; }
+.hero-toggle .hero-toggle-thumb { width: 18px; height: 18px; }
+.hero-toggle-sm { width: 36px; height: 20px; }
+.hero-toggle-sm .hero-toggle-thumb { width: 14px; height: 14px; }
+.hero-toggle-lg { width: 52px; height: 28px; }
+.hero-toggle-lg .hero-toggle-thumb { width: 22px; height: 22px; }
+
+/* Checked — track takes the semantic color (primary default). */
+.hero-toggle-checked { background-color: var(--color-primary); }
+.hero-toggle-checked.hero-toggle-secondary { background-color: var(--color-secondary); }
+.hero-toggle-checked.hero-toggle-accent { background-color: var(--color-accent); }
+.hero-toggle-checked.hero-toggle-info { background-color: var(--color-info); }
+.hero-toggle-checked.hero-toggle-success { background-color: var(--color-success); }
+.hero-toggle-checked.hero-toggle-warning { background-color: var(--color-warning); }
+.hero-toggle-checked.hero-toggle-error { background-color: var(--color-error); }
+
+.hero-toggle-disabled { opacity: var(--disabled-opacity); }

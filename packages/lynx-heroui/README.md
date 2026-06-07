@@ -18,8 +18,7 @@ defineApp(() => () => (
 ));
 ```
 
-Components (arriving with the Phase 6 pilot) follow the shared contract:
-semantic `color`
+Components follow the shared contract: semantic `color`
 (`primary` … `error`), DS-specific `variant` fill styles
 (`solid` / `bordered` / `flat` / `ghost`), `size` on the shared scale, and
 sigx conventions (`disabled`, `onPress`). Switching an app between
@@ -28,3 +27,20 @@ sigx conventions (`disabled`, `onPress`). Switching an app between
 Upstream HeroUI token mapping: `danger`→`error`, `default`→`neutral`,
 `background`/`content2`/`content3`→`base-100/200/300`,
 `foreground`→`base-content`.
+
+## Components
+
+Growing toward `@sigx/lynx-daisyui` parity
+([signalxjs/lynx#287](https://github.com/signalxjs/lynx/issues/287)).
+Available today:
+
+- **Actions** — `Button`
+- **Forms** — `Input`, `Textarea`, `Toggle`, `Checkbox`, `Radio`
+- **Layout** — `Card`
+- **Navigation** — `Tabs`
+- **Feedback** — `Modal`
+- **Typography** — `Text`, `Heading`
+
+Plus the engine + neutral primitives re-exported from `@sigx/lynx-zero`
+(`ThemeProvider`, `useTheme`, `Row`/`Col`/`Center`/`Spacer`/`ScrollView`, …)
+so a hero app keeps a single import source.
