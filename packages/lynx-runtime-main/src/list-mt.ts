@@ -161,8 +161,15 @@ export function listInsertChild(
 ): void {
   const state = listsByInternalId.get(listInternalId);
   if (!state) return;
-  const existing = state.order.indexOf(childInternalId);
-  if (existing !== -1) state.order.splice(existing, 1);
+  // Remove ALL prior occurrences (not just the first) so the move logic
+  // self-heals even if `order` was ever corrupted by an earlier batch.
+  for (
+    let existing = state.order.indexOf(childInternalId);
+    existing !== -1;
+    existing = state.order.indexOf(childInternalId)
+  ) {
+    state.order.splice(existing, 1);
+  }
   const idx = anchorInternalId === -1 ? -1 : state.order.indexOf(anchorInternalId);
   if (idx === -1) state.order.push(childInternalId);
   else state.order.splice(idx, 0, childInternalId);
