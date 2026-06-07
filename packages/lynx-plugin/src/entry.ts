@@ -468,6 +468,16 @@ export async function applyEntry(
     // wrapper, lynx-runtime code can reference `lynx` and `lynxCoreInject`
     // as bare identifiers, giving us the official BG → MT bridge and
     // event dispatch hooks.
+    //
+    // Native (lynx) ONLY. Upstream `@lynx-js/web-core`'s worker runtime does
+    // NOT use the `__init_card_bundle__` calling convention (the string
+    // appears nowhere in its engine bundles) — it evaluates the background
+    // bundle at the worker's global scope and supplies `lynx` /
+    // `lynxCoreInject` as worker globals. Wrapping the BG bundle on web would
+    // define `__init_card_bundle__` and never call it, so the BG body never
+    // runs and no ops are ever sent (the page root renders empty). The bare
+    // `lynx` / `lynxCoreInject` references in `op-queue.ts` resolve straight
+    // to those worker globals, so web needs no wrapper.
     // ------------------------------------------------------------------
     if (isLynx && wrapperMod) {
       const { RuntimeWrapperWebpackPlugin } = wrapperMod;
@@ -483,13 +493,27 @@ export async function applyEntry(
     }
 
     // ------------------------------------------------------------------
-    // LynxEncodePlugin – binary-encode the .lynx template
+    // Encode plugin – finalizes the template emitted by LynxTemplatePlugin.
+    //   * native (lynx): LynxEncodePlugin binary-encodes the `.lynx` template.
+    //   * web: WebEncodePlugin produces the un-encoded web template
+    //     (`main.web.bundle`) that upstream `@lynx-js/web-core`'s
+    //     `<lynx-view>` loads in the browser.
+    // Exactly one must run per environment — without an encoder the template
+    // plugin's emit leaves an undefined result that downstream code
+    // destructures (`Cannot destructure property 'buffer' …`).
     // ------------------------------------------------------------------
     if (isLynx && templateMod) {
       const { LynxEncodePlugin } = templateMod;
       chain
         .plugin(PLUGIN_ENCODE)
         .use(LynxEncodePlugin, [{}])
+        .end();
+    }
+    if (isWeb && templateMod) {
+      const { WebEncodePlugin } = templateMod;
+      chain
+        .plugin(PLUGIN_ENCODE)
+        .use(WebEncodePlugin, [])
         .end();
     }
 

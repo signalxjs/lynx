@@ -66,6 +66,8 @@
         "@sigx/lynx-plugin": "workspace:^",
         "@sigx/lynx-dev-client": "workspace:^",
         "@lynx-js/rspeedy": ">=0.14.4",
+        "@lynx-js/web-core": ">=0.20.4",
+        "@lynx-js/web-elements": ">=0.12.2",
         "@lynx-js/css-extract-webpack-plugin": ">=0.1.0",
         "@lynx-js/template-webpack-plugin": ">=0.11.1",
         "@lynx-js/runtime-wrapper-webpack-plugin": ">=0.1.0",
