@@ -25,6 +25,11 @@
  * rather than being swallowed into an unhandled promise rejection — this is the
  * WHATWG-recommended `queueMicrotask` polyfill.
  *
+ * Matches the standard's runtime semantics: a non-callable argument throws
+ * `TypeError` synchronously, and the callback is invoked inside the `.then` (its
+ * return value ignored) so a returned rejected promise isn't mistaken for a
+ * thrown error — only a synchronous throw is reported.
+ *
  * Idempotent and non-clobbering: an existing global (a newer engine, a host
  * that already provides it, or a test stub) is left untouched.
  */
@@ -33,11 +38,20 @@ export function installGlobals(): void {
 
   if (typeof g['queueMicrotask'] !== 'function') {
     g['queueMicrotask'] = (cb: () => void) => {
-      void Promise.resolve().then(cb).catch((err: unknown) => {
-        setTimeout(() => {
-          throw err;
-        }, 0);
-      });
+      if (typeof cb !== 'function') {
+        throw new TypeError(
+          "Failed to execute 'queueMicrotask': parameter 1 is not of type 'Function'.",
+        );
+      }
+      void Promise.resolve()
+        .then(() => {
+          cb();
+        })
+        .catch((err: unknown) => {
+          setTimeout(() => {
+            throw err;
+          }, 0);
+        });
     };
   }
 }

@@ -39,6 +39,42 @@ describe('installGlobals: queueMicrotask', () => {
     expect(ran).toBe(true);
   });
 
+  it('throws TypeError synchronously for a non-callable argument (web semantics)', () => {
+    installGlobals();
+    const qmt = g['queueMicrotask'] as (cb: unknown) => void;
+    expect(() => qmt(undefined)).toThrow(TypeError);
+    expect(() => qmt(123)).toThrow(TypeError);
+    expect(() => qmt({})).toThrow(TypeError);
+  });
+
+  it("ignores the callback's return value — a returned rejected promise is not reported", async () => {
+    installGlobals();
+    // queueMicrotask ignores the callback's return value; only a *synchronous*
+    // throw is an error. A polyfill that chained `.then(cb)` (instead of
+    // `.then(() => cb())`) would ADOPT a returned rejected promise and re-throw
+    // it via setTimeout — an uncaught error. Assert that path is NOT taken.
+    let rethrown = false;
+    const onUncaught = () => {
+      rethrown = true;
+    };
+    process.on('uncaughtException', onUncaught);
+    // Pre-handled so the rejection isn't an independent floating rejection —
+    // the only way it could surface is the polyfill adopting + re-throwing it.
+    const rejected = Promise.reject(new Error('returned-rejection-ignored'));
+    rejected.catch(() => undefined);
+
+    let ran = false;
+    (g['queueMicrotask'] as (cb: () => unknown) => void)(() => {
+      ran = true;
+      return rejected;
+    });
+    await new Promise((r) => setTimeout(r, 10));
+    process.off('uncaughtException', onUncaught);
+
+    expect(ran).toBe(true);
+    expect(rethrown).toBe(false);
+  });
+
   it('preserves FIFO order across multiple scheduled callbacks', async () => {
     installGlobals();
     const order: number[] = [];
