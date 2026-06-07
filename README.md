@@ -62,8 +62,10 @@ Auto-linked by `sigx prebuild`: install the package with `pnpm add @sigx/lynx-fo
 | [`@sigx/lynx-camera`](./packages/lynx-camera) | Camera capture (photo + video). |
 | [`@sigx/lynx-clipboard`](./packages/lynx-clipboard) | System clipboard read/write. |
 | [`@sigx/lynx-device-info`](./packages/lynx-device-info) | Device model, OS version, locale, screen metrics. |
-| [`@sigx/lynx-file-system`](./packages/lynx-file-system) | Sandboxed read/write/delete + directory listing in the app's documents directory. |
+| [`@sigx/lynx-file-picker`](./packages/lynx-file-picker) | Generic file picker — any file type via `UIDocumentPickerViewController` / SAF `OpenDocument`. Assets resolve `{ uri, name, mimeType, size }`, ready for `FormData` uploads. |
+| [`@sigx/lynx-file-system`](./packages/lynx-file-system) | Sandboxed read/write/delete + directory listing in the app's documents directory. Binary reads via `readFileBase64` / `readFileAsArrayBuffer` (accepts `file://` and `content://` URIs). |
 | [`@sigx/lynx-haptics`](./packages/lynx-haptics) | Impact / selection / notification haptic feedback. |
+| [`@sigx/lynx-http`](./packages/lynx-http) | WHATWG `fetch` global — URLSession / OkHttp transport with `FormData` multipart uploads (file bytes stream natively from URIs) and upload progress. Default-wired through `@sigx/lynx`. |
 | [`@sigx/lynx-image-picker`](./packages/lynx-image-picker) | Pick or capture images from the photo library / camera. |
 | [`@sigx/lynx-linking`](./packages/lynx-linking) | Deep-link & URL scheme handling — `openURL`, `getInitialURL`, inbound URL events. |
 | [`@sigx/lynx-location`](./packages/lynx-location) | GPS coordinates, one-shot + watch APIs. |
@@ -109,12 +111,14 @@ Frame-locked touch handling and animation drivers. Both plug into the cross-thre
 
 ## Networking
 
-- **HTTP** — Lynx ships a built-in [`fetch()`](https://lynxjs.org/api/lynx-api/global/fetch.html) global on the BTS runtime, no import or wrapper needed:
+The same split the web platform uses:
+
+- **HTTP** — [`@sigx/lynx-http`](./packages/lynx-http) provides a WHATWG `fetch` global (URLSession on iOS, OkHttp on Android), **default-wired through `@sigx/lynx`** so every app has it with no install step:
   ```ts
   const res = await fetch('https://api.example.com/users');
   const users = await res.json();
   ```
-  Caveats vs the browser: no CORS, no `redirect`, no `keepalive`, no `FormData` / `Blob`. Standard `Request` / `Response` / `json()` / `text()` otherwise.
+  Includes `FormData` multipart uploads — picked-file bytes stream natively from their URI, never through the JS bridge — plus upload progress and a `TextDecoder` shim. When the native module is linked it replaces any engine-built-in fetch (which lacks `FormData`/streaming); web/Node hosts keep theirs. Streaming response bodies (`res.body.getReader()` for SSE) land with [#250](https://github.com/signalxjs/lynx/issues/250).
 - **WebSocket** — install [`@sigx/lynx-websocket`](./packages/lynx-websocket) and run `sigx prebuild`. Registers a browser-standard `WebSocket` global backed by `URLSessionWebSocketTask` (iOS) and OkHttp (Android).
 - **Connectivity status** — [`@sigx/lynx-network`](./packages/lynx-network) reports online/offline + connection type. Not a transport; pair with `fetch` / `WebSocket`.
 

@@ -12,7 +12,7 @@ This completes the web-platform networking split:
 ## Install
 **You usually don't.** The umbrella `@sigx/lynx` depends on this package and imports it for its side effect, and `sigx prebuild` discovers umbrella-carried native modules automatically — every app gets a global `fetch` out of the box. Standalone installs (`pnpm add @sigx/lynx-http`) work the same way.
 
-Importing installs `fetch`, `Headers`, `FormData`, `Response`, and a minimal UTF-8 `TextDecoder` on `globalThis` when absent (hosts that already ship them — web, Node — keep their native ones). Opt out of the native module with `excludeModules: ['@sigx/lynx-http']` in `signalx.config.ts`.
+Importing installs `fetch`, `Headers`, `FormData`, `Response`, and a minimal UTF-8 `TextDecoder` on `globalThis`. Precedence: when the `Http` native module is linked, the sigx stack **replaces** any engine-provided fetch — some Lynx runtimes ship a built-in fetch without `FormData`/streaming, and mixing the two breaks uploads platform-dependently. On hosts without the module (web, Node, tests) installs are `typeof`-guarded so the native fetch stack stays untouched. Opt out of the module with `excludeModules: ['@sigx/lynx-http']` in `signalx.config.ts`.
 
 ## Usage
 ```ts

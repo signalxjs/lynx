@@ -14,7 +14,7 @@
  * portable web code works unchanged. The umbrella `@sigx/lynx` imports it
  * for its side effect — every app gets `fetch` without an explicit import.
  */
-import { fetch as sigxFetch } from './fetch.js';
+import { fetch as sigxFetch, isHttpAvailable } from './fetch.js';
 import { Headers as SigxHeaders } from './headers.js';
 import { FormData as SigxFormData } from './form-data.js';
 import { Response as SigxResponse } from './response.js';
@@ -36,13 +36,27 @@ export type {
 } from './types.js';
 
 // Side-effect: register on the global so consumers don't need an import
-// site to call `fetch(...)`. Every install is `typeof`-guarded — in hosts
-// that already ship a fetch stack (web, Node/vitest) the native one wins.
+// site to call `fetch(...)`.
+//
+// Precedence: when the `Http` native module is linked into this runtime,
+// the sigx stack REPLACES any engine-provided fetch — some Lynx runtimes
+// ship a built-in fetch that lacks `FormData`/streaming, and a global
+// FormData that the engine fetch can't serialize would break uploads in
+// platform-dependent ways. When the module is absent (web, Node/vitest,
+// `excludeModules` opt-out), installs are `typeof`-guarded so the host's
+// own fetch stack stays untouched.
 {
     const g = globalThis as unknown as Record<string, unknown>;
-    if (typeof g.fetch === 'undefined') g.fetch = sigxFetch;
-    if (typeof g.Headers === 'undefined') g.Headers = SigxHeaders;
-    if (typeof g.FormData === 'undefined') g.FormData = SigxFormData;
-    if (typeof g.Response === 'undefined') g.Response = SigxResponse;
+    if (isHttpAvailable()) {
+        g.fetch = sigxFetch;
+        g.Headers = SigxHeaders;
+        g.FormData = SigxFormData;
+        g.Response = SigxResponse;
+    } else {
+        if (typeof g.fetch === 'undefined') g.fetch = sigxFetch;
+        if (typeof g.Headers === 'undefined') g.Headers = SigxHeaders;
+        if (typeof g.FormData === 'undefined') g.FormData = SigxFormData;
+        if (typeof g.Response === 'undefined') g.Response = SigxResponse;
+    }
     if (typeof g.TextDecoder === 'undefined') g.TextDecoder = SigxTextDecoder;
 }
