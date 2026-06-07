@@ -3,6 +3,7 @@ import {
     defineProvide,
     effect,
     onUnmounted,
+    signal,
     untrack,
     useSharedValue,
     type Define,
@@ -16,9 +17,23 @@ import {
     type NavInternals,
 } from '../hooks/use-nav-internal.js';
 import type { Presentation, StackEntry } from '../types.js';
-import { computeLayers, isOverlayPresentation, MAX_LAYERS } from '../internal/layer-plan.js';
+import {
+    computeLayers,
+    isOverlayPresentation,
+    MAX_LAYERS,
+    type SheetLayerContext,
+} from '../internal/layer-plan.js';
+import {
+    initialSnapProgress,
+    progressToOffsetY,
+    resolveSnapPoints,
+    snapToProgress,
+} from '../internal/sheet-math.js';
+import { SCREEN_HEIGHT } from '../internal/screen-width.js';
 import { EdgeBackHandle } from './EdgeBackHandle.js';
 import { Layer } from './Layer.js';
+import { SheetBackdrop } from './SheetBackdrop.js';
+import { SheetDragHandle } from './SheetDragHandle.js';
 import { useTabScreenName, useTabs } from './Tabs.js';
 
 type StackProps =
@@ -228,9 +243,13 @@ export const Stack = component<StackProps>(({ props, slots }) => {
         nav = navState.nav;
         internals = {
             progress: animationsEnabled ? progressSv : null,
+            // Sheets always escalate to the root navigator, so a nested
+            // stack never animates one itself.
+            sheetProgress: null,
             beginBackGesture: navState._gesture.beginBackGesture,
             commitBackGesture: navState._gesture.commitBackGesture,
             cancelBackGesture: navState._gesture.cancelBackGesture,
+            commitSheetDismiss: navState._gesture.commitSheetDismiss,
             edgeSwipeEnabled:
                 // Gate on animationsEnabled too — if there's no progress
                 // SharedValue (e.g. parent is `animated={false}`), the edge
@@ -274,6 +293,32 @@ export const Stack = component<StackProps>(({ props, slots }) => {
         internals = parentInternals;
     }
 
+    // Last gesture-settled snap progress per sheet entry key, written by
+    // `<SheetDragHandle>` on a snap release (one BG hop). Read when a sheet
+    // gets covered (something pushed above it) so its static layer keeps
+    // the user's chosen detent instead of reverting to the initial snap.
+    const sheetRestBox = signal<Record<string, number>>({});
+
+    /** Snap config for a sheet entry from its `<Screen>` registration. */
+    const sheetConfigFor = (entry: StackEntry) => {
+        const options = internals.screens.get(entry.key)?.options;
+        const snaps = resolveSnapPoints(options?.snapPoints);
+        return {
+            snaps,
+            maxFraction: snaps[snaps.length - 1],
+            initialSnapIndex: options?.initialSnapIndex,
+            backdropDismiss: options?.backdropDismiss !== false,
+        };
+    };
+
+    /** Resting translateY for a sheet that can't hold an animation binding. */
+    const sheetStaticOffsetY = (entry: StackEntry): number => {
+        const { snaps, maxFraction, initialSnapIndex } = sheetConfigFor(entry);
+        const restProgress =
+            sheetRestBox[entry.key] ?? initialSnapProgress(snaps, initialSnapIndex);
+        return progressToOffsetY(restProgress, maxFraction, SCREEN_HEIGHT);
+    };
+
     // Per-stack chrome (slots.default) renders *inside* this Stack's
     // nav scope so a `<Header />` placed there resolves `useNav()` to
     // the per-stack nav. Wrapping the active body in a flex-column
@@ -291,22 +336,75 @@ export const Stack = component<StackProps>(({ props, slots }) => {
 
     return () => {
         const chrome = slots.default?.();
+
+        // The "active" sheet — the one whose binding rides the dedicated
+        // sheet SV: a transitioning sheet top, else a resting top sheet.
+        const transitionTop = nav.transition?.topEntry;
+        const currentTop = nav.current;
+        const activeSheetEntry =
+            transitionTop?.presentation === 'sheet'
+                ? transitionTop
+                : currentTop.presentation === 'sheet'
+                    ? currentTop
+                    : null;
+        // Resolve the sheet context only when some sheet is in play —
+        // reading snap options here is reactive, so a late `<Screen
+        // snapPoints>` registration (lazy routes) re-renders with the
+        // corrected mapper range.
+        const hasSheet =
+            activeSheetEntry !== null ||
+            nav.stack.some((e) => e.presentation === 'sheet');
+        const sheetCtx: SheetLayerContext | undefined = hasSheet
+            ? {
+                sheetProgress: internals.sheetProgress,
+                maxSnapFraction: activeSheetEntry
+                    ? sheetConfigFor(activeSheetEntry).maxFraction
+                    : 1,
+                staticOffsetY: sheetStaticOffsetY,
+            }
+            : undefined;
+
         const layers = computeLayers(
             nav.stack,
             nav.transition,
             internals.progress,
             props.maxRetainedScreens,
+            sheetCtx,
         );
 
+        // Each visible sheet layer is preceded by its `<SheetBackdrop>`
+        // within the same slot — Lynx has no z-index, so document order
+        // puts the backdrop above all lower layers and beneath the sheet
+        // surface. The slot stays one position-stable child; only its
+        // content flips (Layer ↔ fragment), mirroring the null ↔ Layer
+        // flips the slots already do.
         const renderLayerNode = (layer: typeof layers[number] | undefined) =>
             layer ? (
-                <Layer
-                    key={`layer-${layer.entry.key}`}
-                    entry={layer.entry}
-                    routes={routes}
-                    animation={layer.animation}
-                    hidden={layer.hidden}
-                />
+                <>
+                    {layer.entry.presentation === 'sheet' && !layer.hidden ? (
+                        <SheetBackdrop
+                            key={`backdrop-${layer.entry.key}`}
+                            sheetProgress={
+                                layer.entry.key === activeSheetEntry?.key
+                                    ? internals.sheetProgress
+                                    : null
+                            }
+                            dismissable={
+                                layer.entry.key === currentTop.key &&
+                                !nav.transition &&
+                                sheetConfigFor(layer.entry).backdropDismiss
+                            }
+                        />
+                    ) : null}
+                    <Layer
+                        key={`layer-${layer.entry.key}`}
+                        entry={layer.entry}
+                        routes={routes}
+                        animation={layer.animation}
+                        hidden={layer.hidden}
+                        staticOffsetY={layer.staticOffsetY}
+                    />
+                </>
             ) : null;
         // sigx's reconciler treats a single array-valued JSX child as
         // one "slot": when the array's *length* changes between
@@ -346,6 +444,36 @@ export const Stack = component<StackProps>(({ props, slots }) => {
             && !isOverlayPresentation(top.presentation)
         )
             ? <EdgeBackHandle key="edge-back" />
+            : null;
+
+        // Sheet grabber strip — drag between snap points / drag down to
+        // dismiss. Mounted only for a top *resting* sheet with animations
+        // enabled (the gesture writes the sheet SV directly; nothing to
+        // drive otherwise). Keyed per entry so a different sheet remounts
+        // with its own snap config (the component snapshots props at
+        // setup). Its own translateY binds the same SV + mapper as the
+        // sheet's layer, so the strip tracks the sheet's top edge on MT.
+        const sheetHandle = (
+            activeSheetEntry
+            && activeSheetEntry.key === top.key
+            && !nav.transition
+            && internals.sheetProgress
+            && sheetConfigFor(activeSheetEntry).snaps.length > 0
+        )
+            ? (() => {
+                const { snaps, maxFraction } = sheetConfigFor(activeSheetEntry);
+                const entryKey = activeSheetEntry.key;
+                return (
+                    <SheetDragHandle
+                        key={`sheet-handle-${entryKey}`}
+                        snapProgresses={snaps.map((f) => snapToProgress(f, maxFraction))}
+                        maxSnapFraction={maxFraction}
+                        onSettle={(p: number) => {
+                            sheetRestBox[entryKey] = p;
+                        }}
+                    />
+                );
+            })()
             : null;
 
         const body = (
@@ -388,6 +516,7 @@ export const Stack = component<StackProps>(({ props, slots }) => {
                 {renderLayerNode(layers[21])}
                 {renderLayerNode(layers[22])}
                 {renderLayerNode(layers[23])}
+                {sheetHandle}
                 {edgeHandle}
             </view>
         );

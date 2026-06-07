@@ -134,7 +134,12 @@ describe('ScreenOptions / useScreenOptions', () => {
     it('ScreenOptions exposes the documented option keys', () => {
         type Keys = keyof ScreenOptions;
         expectTypeOf<Keys>().toEqualTypeOf<
-            'title' | 'headerShown' | 'gestureEnabled'
+            | 'title'
+            | 'headerShown'
+            | 'gestureEnabled'
+            | 'snapPoints'
+            | 'initialSnapIndex'
+            | 'backdropDismiss'
         >();
     });
 

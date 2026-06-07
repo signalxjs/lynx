@@ -69,7 +69,7 @@ const PARALLAX_FACTOR = 0.3;
 export const MAX_LAYERS = 24;
 
 export type LayerAnimation = {
-    axis: 'translateX' | 'translateY';
+    mapperName: 'translateX' | 'translateY' | 'opacity';
     inputRange: readonly [number, number];
     outputRange: readonly [number, number];
     progress: SharedValue<number>;
@@ -88,10 +88,42 @@ export interface Layer {
      * = visible.
      */
     readonly hidden?: boolean;
+    /**
+     * Static `translateY` (px) applied as a plain style on the host view.
+     * Used for a resting sheet that cannot hold an animation binding —
+     * either something was pushed above it (only the top sheet binds the
+     * dedicated sheet SharedValue) or animations are disabled. Keeps the
+     * sheet at its partial-height position without a binding.
+     */
+    readonly staticOffsetY?: number;
+}
+
+/**
+ * Sheet-specific inputs to `computeLayers`, resolved by `<Stack>` from the
+ * top sheet entry's `ScreenOptions`. Passed as a parameter so this module
+ * stays pure (unit-testable without the screen registry).
+ */
+export interface SheetLayerContext {
+    /**
+     * Dedicated sheet SharedValue — separate from the shared transition
+     * `progress`, which is reset to 0 at the start of every transition
+     * (see `core.ts`) and therefore can't hold a resting sheet's position.
+     * `null` when animations are disabled.
+     */
+    sheetProgress: SharedValue<number> | null;
+    /** Largest snap fraction of the top sheet — fixes the translateY range. */
+    maxSnapFraction: number;
+    /** Resting translateY (px) for a sheet that can't bind (non-top / no SV). */
+    staticOffsetY: (entry: StackEntry) => number;
 }
 
 export function isOverlayPresentation(p: Presentation): boolean {
-    return p === 'modal' || p === 'fullScreen' || p === 'transparent-modal';
+    return (
+        p === 'modal' ||
+        p === 'fullScreen' ||
+        p === 'transparent-modal' ||
+        p === 'sheet'
+    );
 }
 
 /**
@@ -105,15 +137,15 @@ function cardAnimation(
 ): LayerAnimation {
     if (kind === 'push') {
         if (role === 'top') {
-            return { axis: 'translateX', inputRange: [0, 1], outputRange: [SCREEN_WIDTH, 0], progress };
+            return { mapperName: 'translateX', inputRange: [0, 1], outputRange: [SCREEN_WIDTH, 0], progress };
         }
-        return { axis: 'translateX', inputRange: [0, 1], outputRange: [0, -PARALLAX_FACTOR * SCREEN_WIDTH], progress };
+        return { mapperName: 'translateX', inputRange: [0, 1], outputRange: [0, -PARALLAX_FACTOR * SCREEN_WIDTH], progress };
     }
     // pop
     if (role === 'top') {
-        return { axis: 'translateX', inputRange: [0, 1], outputRange: [0, SCREEN_WIDTH], progress };
+        return { mapperName: 'translateX', inputRange: [0, 1], outputRange: [0, SCREEN_WIDTH], progress };
     }
-    return { axis: 'translateX', inputRange: [0, 1], outputRange: [-PARALLAX_FACTOR * SCREEN_WIDTH, 0], progress };
+    return { mapperName: 'translateX', inputRange: [0, 1], outputRange: [-PARALLAX_FACTOR * SCREEN_WIDTH, 0], progress };
 }
 
 /**
@@ -127,9 +159,82 @@ function overlayTopAnimation(
     progress: SharedValue<number>,
 ): LayerAnimation {
     if (kind === 'push') {
-        return { axis: 'translateY', inputRange: [0, 1], outputRange: [SCREEN_HEIGHT, 0], progress };
+        return { mapperName: 'translateY', inputRange: [0, 1], outputRange: [SCREEN_HEIGHT, 0], progress };
     }
-    return { axis: 'translateY', inputRange: [0, 1], outputRange: [0, SCREEN_HEIGHT], progress };
+    return { mapperName: 'translateY', inputRange: [0, 1], outputRange: [0, SCREEN_HEIGHT], progress };
+}
+
+/**
+ * Sheet transform — one fixed mapper for every phase (push, pop, rest,
+ * drag). `sheetProgress` has "open fraction" semantics: 0 = off-screen
+ * (`translateY = SCREEN_HEIGHT`), 1 = fully open at the largest snap
+ * (`translateY = (1 - maxSnapFraction) * SCREEN_HEIGHT`). Because the SV
+ * value alone encodes position, `withTiming` between any two progress
+ * values (push-in, snap, dismiss) animates correctly without per-kind
+ * input/output ranges — unlike card/overlay transitions, the kind is
+ * irrelevant here.
+ */
+export function sheetAnimation(
+    sheetProgress: SharedValue<number>,
+    maxSnapFraction: number,
+): LayerAnimation {
+    return {
+        mapperName: 'translateY',
+        inputRange: [0, 1],
+        outputRange: [SCREEN_HEIGHT, (1 - maxSnapFraction) * SCREEN_HEIGHT],
+        progress: sheetProgress,
+    };
+}
+
+/** Peak backdrop dim behind a fully-open sheet. */
+export const SHEET_BACKDROP_MAX_OPACITY = 0.4;
+
+/**
+ * Backdrop opacity for `<SheetBackdrop>` — tracks the same sheet SV, so a
+ * partially-open snap point dims proportionally and a drag-to-dismiss
+ * fades the dim out in lockstep with the sheet sliding down.
+ */
+export function backdropAnimation(
+    sheetProgress: SharedValue<number>,
+): LayerAnimation {
+    return {
+        mapperName: 'opacity',
+        inputRange: [0, 1],
+        outputRange: [0, SHEET_BACKDROP_MAX_OPACITY],
+        progress: sheetProgress,
+    };
+}
+
+/**
+ * Layer for a resting (non-transitioning) visible entry. Non-sheets are
+ * plain static layers. The TOP sheet keeps a live `sheetAnimation` binding
+ * even at rest — safe because the binding is on the dedicated sheet SV,
+ * not the shared transition `progress` (which resets on every transition)
+ * — so the drag worklet can move the sheet between snap points without a
+ * rebind. A covered sheet (or one with animations disabled) instead gets
+ * a static translateY.
+ */
+function restingLayer(
+    entry: StackEntry,
+    isTop: boolean,
+    sheetCtx: SheetLayerContext | undefined,
+): Layer {
+    if (entry.presentation !== 'sheet' || !sheetCtx) {
+        return { entry, animation: null, hidden: false };
+    }
+    if (isTop && sheetCtx.sheetProgress) {
+        return {
+            entry,
+            animation: sheetAnimation(sheetCtx.sheetProgress, sheetCtx.maxSnapFraction),
+            hidden: false,
+        };
+    }
+    return {
+        entry,
+        animation: null,
+        hidden: false,
+        staticOffsetY: sheetCtx.staticOffsetY(entry),
+    };
 }
 
 /** Walk back from `from` past overlay entries to the topmost non-overlay. */
@@ -158,6 +263,7 @@ export function computeLayers(
     transition: TransitionState | null,
     progress: SharedValue<number> | null,
     maxRetained?: number,
+    sheetCtx?: SheetLayerContext,
 ): Layer[] {
     let visBaseIdx: number;
     let visible: Layer[];
@@ -167,11 +273,15 @@ export function computeLayers(
         visBaseIdx = nonOverlayBaseIdx(stack, stack.length - 1);
         visible = stack
             .slice(visBaseIdx)
-            .map((entry) => ({ entry, animation: null, hidden: false }));
+            .map((entry, i) =>
+                restingLayer(entry, visBaseIdx + i === stack.length - 1, sheetCtx),
+            );
     } else if (!isOverlayPresentation(transition.topEntry.presentation)) {
         // Card transition: the two participating entries, both animated
         // (parallax underneath + slide top). `progress` may be null when
         // animations are disabled — produce static layers in that case.
+        // A sheet underneath a card push keeps its partial-height position
+        // statically instead of the horizontal parallax.
         const underneathIdx = stack.findIndex(
             (e) => e.key === transition.underneathEntry.key,
         );
@@ -179,12 +289,16 @@ export function computeLayers(
         // mid-pop where the mutation already ran), retain nothing rather
         // than slicing with a negative index.
         visBaseIdx = underneathIdx >= 0 ? underneathIdx : 0;
+        const underneathIsSheet =
+            transition.underneathEntry.presentation === 'sheet';
         visible = [
-            {
-                entry: transition.underneathEntry,
-                animation: progress ? cardAnimation('underneath', transition.kind, progress) : null,
-                hidden: false,
-            },
+            underneathIsSheet
+                ? restingLayer(transition.underneathEntry, false, sheetCtx)
+                : {
+                    entry: transition.underneathEntry,
+                    animation: progress ? cardAnimation('underneath', transition.kind, progress) : null,
+                    hidden: false,
+                },
             {
                 entry: transition.topEntry,
                 animation: progress ? cardAnimation('top', transition.kind, progress) : null,
@@ -194,7 +308,7 @@ export function computeLayers(
     } else {
         // Overlay transition: the full layer stack up through the
         // underneath entry stays static (no transform) plus the animated
-        // top.
+        // top. (Sheets among the static run keep their resting offset.)
         const underneathIdx = stack.findIndex(
             (e) => e.key === transition.underneathEntry.key,
         );
@@ -205,12 +319,17 @@ export function computeLayers(
         visBaseIdx = nonOverlayBaseIdx(stack, lastStaticIdx);
         const staticLayers: Layer[] = stack
             .slice(visBaseIdx, lastStaticIdx + 1)
-            .map((entry) => ({ entry, animation: null, hidden: false }));
+            .map((entry) => restingLayer(entry, false, sheetCtx));
+        const topIsSheet = transition.topEntry.presentation === 'sheet';
         visible = [
             ...staticLayers,
             {
                 entry: transition.topEntry,
-                animation: progress ? overlayTopAnimation(transition.kind, progress) : null,
+                animation: topIsSheet
+                    ? (sheetCtx?.sheetProgress
+                        ? sheetAnimation(sheetCtx.sheetProgress, sheetCtx.maxSnapFraction)
+                        : null)
+                    : (progress ? overlayTopAnimation(transition.kind, progress) : null),
                 hidden: false,
             },
         ];
