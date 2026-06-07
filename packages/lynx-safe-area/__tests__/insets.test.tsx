@@ -202,6 +202,35 @@ describe('SafeAreaProvider', () => {
     expect(captured.keyboard).toBe(280);
   });
 
+  it('mounts without throwing when the host element lacks setProperty (e.g. web)', () => {
+    // `@lynx-js/web-core` resolves an element with no runtime `setProperty`.
+    // The provider must feature-detect and skip the CSS-var publish rather
+    // than throw on the background thread (which aborts the whole card render).
+    const emitter = makeEmitter();
+    (globalThis as { lynx?: unknown }).lynx = {
+      __globalProps: { [GLOBAL_PROPS_KEY]: { top: 50 } },
+      getJSModule: (name: string) =>
+        name === 'GlobalEventEmitter' ? emitter : undefined,
+      getElementById: () => ({}), // no setProperty
+    };
+    expect(() => render(<SafeAreaProvider />)).not.toThrow();
+  });
+
+  it('swallows a throwing setProperty without aborting render', () => {
+    const emitter = makeEmitter();
+    (globalThis as { lynx?: unknown }).lynx = {
+      __globalProps: { [GLOBAL_PROPS_KEY]: { top: 50 } },
+      getJSModule: (name: string) =>
+        name === 'GlobalEventEmitter' ? emitter : undefined,
+      getElementById: () => ({
+        setProperty: () => {
+          throw new Error('setProperty unsupported on this host');
+        },
+      }),
+    };
+    expect(() => render(<SafeAreaProvider />)).not.toThrow();
+  });
+
   it('cleans up the listener on unmount', () => {
     const emitter = makeEmitter();
     installMockLynx({ top: 0 }, emitter);
