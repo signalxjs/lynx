@@ -6,6 +6,9 @@ import { textareaDemo } from './demos/textarea.js';
 import { toggleDemo } from './demos/toggle.js';
 import { checkboxDemo } from './demos/checkbox.js';
 import { radioDemo } from './demos/radio.js';
+import { selectDemo } from './demos/select.js';
+import { formfieldDemo } from './demos/formfield.js';
+import { dividerDemo } from './demos/divider.js';
 import { modalDemo } from './demos/modal.js';
 import { tabsDemo } from './demos/tabs.js';
 import { textDemo } from './demos/text.js';
@@ -61,6 +64,10 @@ export const heroDemos: HeroComponentDemo[] = [
     toggleDemo,
     checkboxDemo,
     radioDemo,
+    selectDemo,
+    formfieldDemo,
+    // Layout
+    dividerDemo,
     // Feedback
     modalDemo,
     // Navigation

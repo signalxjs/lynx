@@ -1,0 +1,74 @@
+/* Hero Select — trigger (flat/bordered, like hero Input) + dropdown overlay. */
+
+.hero-select {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  height: var(--size-md);
+  padding-left: 14px;
+  padding-right: 14px;
+  border-radius: var(--radius-field);
+  font-size: var(--font-md);
+  background-color: var(--color-base-200);
+  color: var(--color-base-content);
+  border-width: 0;
+  border-color: transparent;
+}
+
+.hero-select-bordered {
+  background-color: transparent;
+  border-width: 2px;
+  border-color: var(--color-base-300);
+}
+
+.hero-select-primary { border-color: var(--color-primary); }
+.hero-select-secondary { border-color: var(--color-secondary); }
+.hero-select-accent { border-color: var(--color-accent); }
+.hero-select-info { border-color: var(--color-info); }
+.hero-select-success { border-color: var(--color-success); }
+.hero-select-warning { border-color: var(--color-warning); }
+.hero-select-error { border-color: var(--color-error); }
+
+.hero-select-sm { height: var(--size-sm); font-size: var(--font-sm); padding-left: 10px; padding-right: 10px; }
+.hero-select-lg { height: var(--size-lg); font-size: var(--font-lg); padding-left: 18px; padding-right: 18px; }
+
+.hero-select-label { color: var(--color-base-content); }
+.hero-select-caret { margin-left: auto; color: var(--color-base-content); font-size: var(--font-sm); }
+
+/* Dropdown — surface card floating under the trigger. */
+.hero-select-dropdown {
+  margin-top: 4px;
+  padding: 4px;
+  border-radius: var(--radius-field);
+  background-color: var(--color-base-100);
+  border-width: 1px;
+  border-color: var(--color-base-300);
+}
+
+.hero-select-option {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  height: var(--size-sm);
+  padding-left: 10px;
+  padding-right: 10px;
+  border-radius: var(--radius-selector);
+}
+.hero-select-option-active { background-color: var(--color-primary-soft); }
+.hero-select-option-label { color: var(--color-base-content); font-size: var(--font-md); }
+.hero-select-option-active .hero-select-option-label { color: var(--color-primary); }
+
+/* Active-option highlight follows the Select's `color` (the color class is
+ * mirrored onto the dropdown). Default (no color) uses primary above. */
+.hero-select-secondary .hero-select-option-active { background-color: var(--color-secondary-soft); }
+.hero-select-secondary .hero-select-option-active .hero-select-option-label { color: var(--color-secondary); }
+.hero-select-accent .hero-select-option-active { background-color: var(--color-accent-soft); }
+.hero-select-accent .hero-select-option-active .hero-select-option-label { color: var(--color-accent); }
+.hero-select-info .hero-select-option-active { background-color: var(--color-info-soft); }
+.hero-select-info .hero-select-option-active .hero-select-option-label { color: var(--color-info); }
+.hero-select-success .hero-select-option-active { background-color: var(--color-success-soft); }
+.hero-select-success .hero-select-option-active .hero-select-option-label { color: var(--color-success); }
+.hero-select-warning .hero-select-option-active { background-color: var(--color-warning-soft); }
+.hero-select-warning .hero-select-option-active .hero-select-option-label { color: var(--color-warning); }
+.hero-select-error .hero-select-option-active { background-color: var(--color-error-soft); }
+.hero-select-error .hero-select-option-active .hero-select-option-label { color: var(--color-error); }
