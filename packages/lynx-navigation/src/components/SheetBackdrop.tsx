@@ -75,12 +75,10 @@ export const SheetBackdrop = component<SheetBackdropProps>(({ props }) => {
     return () => (
         <view
             main-thread:ref={ref}
-            bindtap={(e: { stopPropagation?: () => void }) => {
-                // Consume the tap either way — the backdrop covers the
-                // underlying screen, so a tap on the dim must never reach
-                // interactive elements behind it (same stop-propagation
-                // treatment as lynx-emoji's SheetPicker).
-                e?.stopPropagation?.();
+            // `catch*` (vs `bind*`) consumes the event — the backdrop
+            // covers the underlying screen, so a tap on the dim must never
+            // reach interactive elements behind it, dismissable or not.
+            catchtap={() => {
                 if (props.dismissable) nav.pop();
             }}
             style={{
