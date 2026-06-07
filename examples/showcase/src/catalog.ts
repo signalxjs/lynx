@@ -70,6 +70,13 @@ export const catalog: Area[] = [
                 icon: { set: 'lucide', name: 'panel-top' },
                 route: 'systemBars',
             },
+            {
+                id: 'bottom-sheet',
+                title: 'Bottom sheet',
+                description: 'presentation: "sheet" — snap points, backdrop, drag-to-dismiss',
+                icon: { set: 'lucide', name: 'panel-bottom' },
+                route: 'sheetDemo',
+            },
         ],
     },
     {
