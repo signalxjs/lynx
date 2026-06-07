@@ -81,6 +81,9 @@ export const FilePickerDemo = component(() => {
                                     <view
                                         key={f.uri}
                                         bindtap={() => readBytes(f)}
+                                        accessibility-element={true}
+                                        accessibility-label={`Read bytes of ${f.name}`}
+                                        accessibility-trait="button"
                                         style={{ display: 'flex', flexDirection: 'column', gap: 2, paddingTop: 4, paddingBottom: 4 }}
                                     >
                                         <Text>{f.name}</Text>

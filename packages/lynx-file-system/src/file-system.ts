@@ -30,6 +30,11 @@ export const FileSystem = {
      * Read a file as raw bytes, returned base64-encoded. Accepts the same
      * paths as `readFile`, plus `file://` URIs and (Android) `content://`
      * URIs — i.e. anything a picker hands back. Rejects on read failure.
+     *
+     * The whole file is materialized in memory (raw bytes natively, then a
+     * base64 string ~33% larger crossing the bridge) — intended for small
+     * to medium files. Don't route uploads through this: `@sigx/lynx-http`
+     * FormData streams files natively from their URI instead.
      */
     async readFileBase64(path: string): Promise<string> {
         const r = await callAsync<unknown>(MODULE, 'readFileBase64', path);

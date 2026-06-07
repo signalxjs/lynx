@@ -68,6 +68,7 @@ class FilePickerModule: NSObject, LynxModule, UIDocumentPickerDelegate {
     // MARK: - UIDocumentPickerDelegate
 
     func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
+        controller.dismiss(animated: true)
         var assets: [[String: Any]] = []
         for url in urls {
             // `asCopy: true` placed an app-owned copy in tmp. Persist it into
@@ -106,6 +107,7 @@ class FilePickerModule: NSObject, LynxModule, UIDocumentPickerDelegate {
     }
 
     func documentPickerWasCancelled(_ controller: UIDocumentPickerViewController) {
+        controller.dismiss(animated: true)
         pendingCallback?(["cancelled": true, "assets": []])
         pendingCallback = nil
     }
