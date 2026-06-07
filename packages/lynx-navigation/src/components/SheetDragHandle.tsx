@@ -136,8 +136,11 @@ export const SheetDragHandle = component<SheetDragHandleProps>(({ props }) => {
                 withTiming(sheetProgress, target, { duration: SNAP_DURATION_SEC });
                 // Record the new resting progress on BG so a later covered-
                 // sheet render places it statically at the right offset.
+                // Deferred until the snap animation lands (mirroring the
+                // dismiss path) so a navigation racing the settle doesn't
+                // read the final detent while the sheet is still mid-snap.
                 runOnBackground(() => {
-                    onSettle(target);
+                    setTimeout(() => onSettle(target), SNAP_DURATION_MS);
                 })();
             }
         });

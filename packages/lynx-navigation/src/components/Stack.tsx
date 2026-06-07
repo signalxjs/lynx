@@ -344,6 +344,19 @@ export const Stack = component<StackProps>(({ props, slots }) => {
     // the user's chosen detent instead of reverting to the initial snap.
     const sheetRestBox = signal<Record<string, number>>({});
 
+    // Prune settled-snap records when their entries leave the stack —
+    // entry keys are unique per push, so without this the map grows for
+    // every sheet ever opened in the session.
+    const sheetPruneRunner = effect(() => {
+        const live = new Set(nav.stack.map((e) => e.key));
+        untrack(() => {
+            for (const key of Object.keys(sheetRestBox)) {
+                if (!live.has(key)) delete sheetRestBox[key];
+            }
+        });
+    });
+    onUnmounted(() => sheetPruneRunner.stop());
+
     /** Snap config for a sheet entry from its `<Screen>` registration. */
     const sheetConfigFor = (entry: StackEntry) => {
         const options = internals.screens.get(entry.key)?.options;
