@@ -109,4 +109,20 @@ describe('hero Radio', () => {
     expect(cls).toContain('hero-radio-secondary');
     expect(cls).toContain('hero-radio-lg');
   });
+
+  it('group value drives item selection and color is inherited', () => {
+    const { container } = render(
+      <Radio value="b" color="success">
+        <Radio.Item value="a" label="A" />
+        <Radio.Item value="b" label="B" />
+      </Radio>,
+    );
+    // The item matching the group value is checked (inner dot) and inherits color.
+    const checkedCircle = render(
+      <Radio value="b" color="success"><Radio.Item value="b" label="B" /></Radio>,
+    ).container.children[0].children[0].children[0];
+    expect(checkedCircle.children.length).toBeGreaterThan(0);
+    expect(checkedCircle._class.split(' ')).toContain('hero-radio-success');
+    expect(container).toBeTruthy();
+  });
 });

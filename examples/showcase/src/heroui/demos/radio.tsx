@@ -11,14 +11,15 @@ export const radioDemo: HeroComponentDemo = {
     sections: [
         {
             title: 'Interactive group',
+            note: 'Group-driven: `value` + `onChange` on Radio, items inherit color',
             Demo: component(() => {
                 const picked = signal('email');
                 return () => (
                     <Col gap={8}>
-                        <Radio>
-                            <Radio.Item value="email" label="Email" color="primary" checked={picked.value === 'email'} onSelect={(v) => { picked.value = v; }} />
-                            <Radio.Item value="sms" label="SMS" color="primary" checked={picked.value === 'sms'} onSelect={(v) => { picked.value = v; }} />
-                            <Radio.Item value="push" label="Push" color="primary" checked={picked.value === 'push'} onSelect={(v) => { picked.value = v; }} />
+                        <Radio value={picked.value} color="primary" onChange={(v) => { picked.value = v; }}>
+                            <Radio.Item value="email" label="Email" />
+                            <Radio.Item value="sms" label="SMS" />
+                            <Radio.Item value="push" label="Push" />
                         </Radio>
                         <Text size="sm" class="opacity-60">selected: {picked.value}</Text>
                     </Col>

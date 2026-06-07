@@ -1,6 +1,6 @@
 import { component, type Define } from '@sigx/lynx';
 import { Pressable } from '@sigx/lynx-gestures';
-import { PRESSED_SCALE, PRESSED_OPACITY, type ColorVariant, type SizeScale } from '@sigx/lynx-zero';
+import { PRESSED_SCALE, PRESSED_OPACITY, type ColorVariant, type SizeScale, type WithAccessibility } from '@sigx/lynx-zero';
 
 export type ToggleColor = Exclude<ColorVariant, 'neutral'>;
 export type ToggleSize = Extract<SizeScale, 'sm' | 'md' | 'lg'>;
@@ -11,6 +11,7 @@ export type ToggleProps =
   & Define.Prop<'size', ToggleSize, false>
   & Define.Prop<'disabled', boolean, false>
   & Define.Prop<'class', string, false>
+  & WithAccessibility
   & Define.Event<'change', boolean>;
 
 // Track-width minus thumb-width minus padding, per size — how far the thumb
@@ -45,6 +46,11 @@ export const Toggle = component<ToggleProps>(({ props, emit }) => {
         pressedScale={PRESSED_SCALE}
         pressedOpacity={PRESSED_OPACITY}
         longPressDuration={0}
+        accessibility-element={props['accessibility-element']}
+        accessibility-label={props['accessibility-label']}
+        accessibility-role={props['accessibility-role']}
+        accessibility-trait={props['accessibility-trait']}
+        accessibility-status={props['accessibility-status']}
         onPress={() => {
           if (!props.disabled) emit('change', !checked);
         }}

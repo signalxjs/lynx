@@ -20,6 +20,15 @@
   line-height: 1;
 }
 
+/* Checkmark uses the matching `*-content` token so it stays legible on each
+ * filled semantic color (not just primary). */
+.hero-checkbox-secondary .hero-checkbox-mark { color: var(--color-secondary-content); }
+.hero-checkbox-accent .hero-checkbox-mark { color: var(--color-accent-content); }
+.hero-checkbox-info .hero-checkbox-mark { color: var(--color-info-content); }
+.hero-checkbox-success .hero-checkbox-mark { color: var(--color-success-content); }
+.hero-checkbox-warning .hero-checkbox-mark { color: var(--color-warning-content); }
+.hero-checkbox-error .hero-checkbox-mark { color: var(--color-error-content); }
+
 /* Checked — fill + border take the semantic color (primary default). */
 .hero-checkbox-checked { background-color: var(--color-primary); border-color: var(--color-primary); }
 .hero-checkbox-checked.hero-checkbox-secondary { background-color: var(--color-secondary); border-color: var(--color-secondary); }
