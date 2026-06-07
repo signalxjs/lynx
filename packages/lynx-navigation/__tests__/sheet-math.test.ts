@@ -12,9 +12,34 @@ import {
     offsetYToProgress,
     progressToOffsetY,
     resolveSnapPoints,
+    SHEET_MIN_DURATION_SEC,
+    sheetDurationSec,
     shouldDismiss,
     snapToProgress,
 } from '../src/internal/sheet-math';
+
+describe('sheetDurationSec', () => {
+    const FULL = 0.28; // modal/card full-screen slide duration
+
+    it('matches the full slide duration at full-height travel', () => {
+        expect(sheetDurationSec(1, FULL)).toBe(FULL);
+    });
+
+    it('scales by the height fraction traveled (velocity matching)', () => {
+        // A 0.9-detent sheet travels 90% of the screen → 90% of the time.
+        expect(sheetDurationSec(0.9, FULL)).toBeCloseTo(0.252);
+    });
+
+    it('floors low detents so they still read as an animation', () => {
+        // 0.4 detent of a [0.4] config: 0.28 * 0.16 ≈ 0.045 → floored.
+        expect(sheetDurationSec(0.16, FULL)).toBe(SHEET_MIN_DURATION_SEC);
+    });
+
+    it('clamps out-of-range height fractions', () => {
+        expect(sheetDurationSec(1.5, FULL)).toBe(FULL);
+        expect(sheetDurationSec(-0.2, FULL)).toBe(SHEET_MIN_DURATION_SEC);
+    });
+});
 
 describe('snapToProgress / progressToOffsetY', () => {
     it('maps the largest snap fraction to progress 1', () => {

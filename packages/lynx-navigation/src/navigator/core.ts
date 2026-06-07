@@ -13,6 +13,7 @@ import type { ScreenRegistry } from '../internal/screen-registry.js';
 import {
     initialSnapProgress,
     resolveSnapPoints,
+    sheetDurationSec,
 } from '../internal/sheet-math.js';
 import type {
     PopOptions,
@@ -96,22 +97,6 @@ export interface NavigatorState {
  * what `@sigx/lynx-motion`'s `withTiming` expects (per `with-timing.ts`).
  */
 const TRANSITION_DURATION_SEC = 0.28;
-
-/**
- * Sheet transition duration, velocity-matched to the card/modal slide:
- * those travel the full screen in `TRANSITION_DURATION_SEC`, while a
- * sheet only travels to its detent — a flat duration made the sheet move
- * at a fraction of the modal's speed and read as sluggish (user feedback
- * on #290). `heightFraction` is the share of screen height traveled
- * (snap progress × largest snap fraction); the floor keeps very low
- * detents from snapping open instantly.
- */
-function sheetDurationSec(heightFraction: number): number {
-    return Math.max(
-        0.15,
-        TRANSITION_DURATION_SEC * Math.min(1, Math.max(0, heightFraction)),
-    );
-}
 
 /**
  * Kick off a lazy component's chunk fetch when its route is navigated to.
@@ -462,7 +447,7 @@ export function createNavigatorState(opts: CreateNavigatorOptions): NavigatorSta
                 sv,
                 0,
                 read.target,
-                sheetDurationSec(read.heightFraction),
+                sheetDurationSec(read.heightFraction, TRANSITION_DURATION_SEC),
             );
         };
         (isSheet
@@ -544,7 +529,7 @@ export function createNavigatorState(opts: CreateNavigatorOptions): NavigatorSta
         if (isSheet && sv) {
             const o = untrack(() => screens.get(popping.key)?.options);
             const snaps = resolveSnapPoints(o?.snapPoints);
-            durationSec = sheetDurationSec(sv.value * snaps[snaps.length - 1]);
+            durationSec = sheetDurationSec(sv.value * snaps[snaps.length - 1], TRANSITION_DURATION_SEC);
         }
         animateProgress(sv, isSheet ? null : 0, isSheet ? 0 : 1, durationSec).then(
             commitOwnPop,
