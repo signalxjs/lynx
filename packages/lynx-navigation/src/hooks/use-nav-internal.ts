@@ -59,6 +59,14 @@ export interface NavInternals {
     /** MT-driven transition progress; null when animations are disabled. */
     readonly progress: SharedValue<number> | null;
     /**
+     * Dedicated `presentation: 'sheet'` progress SV ("open fraction":
+     * 0 = off-screen, 1 = largest snap). Separate from `progress`, which
+     * resets at every transition start and so can't hold a resting sheet's
+     * position. Created by the root `<NavigationRoot>` only — sheets always
+     * escalate to the root stack; null when animations are disabled.
+     */
+    readonly sheetProgress: SharedValue<number> | null;
+    /**
      * Set transition state for a gesture-driven pop. Does not start any
      * automatic animation — the gesture worklet writes `progress` directly
      * per frame, then animates to the commit/cancel endpoint on release.
@@ -68,6 +76,13 @@ export interface NavInternals {
     commitBackGesture(): void;
     /** Cancel the back gesture: clear transition without popping. */
     cancelBackGesture(): void;
+    /**
+     * Commit a sheet drag-to-dismiss: pop the top sheet entry without
+     * re-animating (the drag worklet already moved the sheet SV to 0).
+     * `expectedKey` (the gesture's entry) makes a stale commit a no-op
+     * if a different sheet became top before the BG timeout fired.
+     */
+    commitSheetDismiss(expectedKey?: string): void;
     /** Whether the user opted into the edge-swipe-back gesture. */
     readonly edgeSwipeEnabled: boolean;
     /**

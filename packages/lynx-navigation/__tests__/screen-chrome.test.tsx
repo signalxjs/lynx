@@ -94,9 +94,11 @@ function makeSynthetic(initialStack: StackEntry[]): SyntheticEnv {
 
     const internals: NavInternals = {
         progress: null,
+        sheetProgress: null,
         beginBackGesture: () => {},
         commitBackGesture: () => {},
         cancelBackGesture: () => {},
+        commitSheetDismiss: () => {},
         edgeSwipeEnabled: false,
         screens: {
             register: (reg) => { screensMap.set(reg.entry.key, reg); },

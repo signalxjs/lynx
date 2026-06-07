@@ -31,9 +31,11 @@ export type EmptyParams = Record<string, never>;
 /**
  * How a route entry is presented on the stack.
  * `card` is the default push; `modal`/`fullScreen` slide up; `transparent-modal`
- * preserves the underlying screen visible (e.g. for popovers).
+ * preserves the underlying screen visible (e.g. for popovers); `sheet` is a
+ * partial-height bottom sheet with snap points, a built-in dimmed backdrop,
+ * and drag-to-dismiss (configured via `ScreenOptions.snapPoints`).
  */
-export type Presentation = 'card' | 'modal' | 'fullScreen' | 'transparent-modal';
+export type Presentation = 'card' | 'modal' | 'fullScreen' | 'transparent-modal' | 'sheet';
 
 /**
  * A route definition entry.
@@ -203,6 +205,17 @@ export interface ScreenOptions {
     headerShown?: boolean;
     /** When false, the iOS edge-swipe-back gesture is disabled for this screen. Default true. */
     gestureEnabled?: boolean;
+    /**
+     * Snap points for a `presentation: 'sheet'` entry, as fractions of screen
+     * height (0–1), ascending. The largest value is the fully-open height;
+     * dragging below the smallest past the dismiss threshold pops the sheet.
+     * Ignored for non-sheet presentations. Default `[0.5]`.
+     */
+    snapPoints?: readonly number[];
+    /** Index into `snapPoints` the sheet opens at. Default: last (most open). */
+    initialSnapIndex?: number;
+    /** When false, tapping the dimmed backdrop does not dismiss the sheet. Default true. */
+    backdropDismiss?: boolean;
 }
 
 /**

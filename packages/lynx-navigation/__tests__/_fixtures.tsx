@@ -7,6 +7,7 @@
  * sufficient — both `types.test.ts` and `runtime.test.tsx` import from here.
  */
 import { component } from '@sigx/lynx';
+import { Screen } from '../src/components/Screen';
 import { defineRoutes } from '../src/define-routes';
 import { useParams } from '../src/hooks/use-params';
 import { useSearch } from '../src/hooks/use-search';
@@ -44,6 +45,12 @@ export const ComposeMessage = component(() => () => (
     <view><text>ComposeMessage</text></view>
 ));
 
+export const FilterSheet = component(() => () => (
+    <Screen snapPoints={[0.4, 0.9]} initialSnapIndex={0}>
+        <view><text>FilterSheet</text></view>
+    </Screen>
+));
+
 export const routes = defineRoutes({
     home: { component: Home },
     profile: {
@@ -57,6 +64,10 @@ export const routes = defineRoutes({
         params: fakeSchema<{ recipientId: string }>(),
         component: ComposeMessage,
         presentation: 'modal',
+    },
+    filterSheet: {
+        component: FilterSheet,
+        presentation: 'sheet',
     },
 });
 

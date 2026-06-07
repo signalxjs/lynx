@@ -9,7 +9,14 @@
  */
 import { describe, expect, it } from 'vitest';
 import { useSharedValue, type SharedValue } from '@sigx/lynx';
-import { computeLayers, MAX_LAYERS } from '../src/internal/layer-plan';
+import {
+    backdropAnimation,
+    computeLayers,
+    MAX_LAYERS,
+    SHEET_BACKDROP_MAX_OPACITY,
+    type SheetLayerContext,
+} from '../src/internal/layer-plan';
+import { SCREEN_HEIGHT } from '../src/internal/screen-width';
 import type { Presentation, StackEntry, TransitionState } from '../src/types';
 
 function entry(key: string, route: string, presentation: Presentation = 'card'): StackEntry {
@@ -28,6 +35,19 @@ function entry(key: string, route: string, presentation: Presentation = 'card'):
 // flow through the transition spec.
 function fakeProgress(): SharedValue<number> {
     return useSharedValue(0);
+}
+
+/**
+ * Sheet context with snaps [0.4, 0.9]: max fraction 0.9 → fully-open rest
+ * offset 0.1 * SCREEN_HEIGHT; covered sheets rest at the same offset via
+ * the static lookup.
+ */
+function sheetCtx(sheetProgress: SharedValue<number> | null): SheetLayerContext {
+    return {
+        sheetProgress,
+        maxSnapFraction: 0.9,
+        staticOffsetY: () => 0.1 * SCREEN_HEIGHT,
+    };
 }
 
 describe('computeLayers — idle (no transition)', () => {
@@ -116,10 +136,10 @@ describe('computeLayers — card transitions', () => {
         const layers = computeLayers([a, b], transition, progress);
         expect(layers.map((l) => l.entry.key)).toEqual(['a', 'b']);
         // Underneath parallaxes left; top slides in from right.
-        expect(layers[0].animation?.axis).toBe('translateX');
+        expect(layers[0].animation?.mapperName).toBe('translateX');
         expect(layers[0].animation?.outputRange[0]).toBe(0);
         expect(layers[0].animation?.outputRange[1]).toBeLessThan(0);
-        expect(layers[1].animation?.axis).toBe('translateX');
+        expect(layers[1].animation?.mapperName).toBe('translateX');
         expect(layers[1].animation?.outputRange[0]).toBeGreaterThan(0);
         expect(layers[1].animation?.outputRange[1]).toBe(0);
     });
@@ -171,8 +191,8 @@ describe('computeLayers — card transitions', () => {
         // A and B retained hidden; C + D animate. D is last (highest slot).
         expect(layers.map((l) => l.entry.key)).toEqual(['a', 'b', 'c', 'd']);
         expect(layers.map((l) => l.hidden)).toEqual([true, true, false, false]);
-        expect(layers[2].animation?.axis).toBe('translateX');
-        expect(layers[3].animation?.axis).toBe('translateX');
+        expect(layers[2].animation?.mapperName).toBe('translateX');
+        expect(layers[3].animation?.mapperName).toBe('translateX');
     });
 
     it('retains cards below the underneath during a deep-stack pop (issue #124 deep case)', () => {
@@ -265,7 +285,7 @@ describe('computeLayers — overlay transitions', () => {
         // Base stays static; modal animates in via translateY.
         expect(layers.map((l) => l.entry.key)).toEqual(['a', 'm']);
         expect(layers[0].animation).toBeNull();
-        expect(layers[1].animation?.axis).toBe('translateY');
+        expect(layers[1].animation?.mapperName).toBe('translateY');
         expect(layers[1].animation?.outputRange[0]).toBeGreaterThan(0);
         expect(layers[1].animation?.outputRange[1]).toBe(0);
     });
@@ -290,7 +310,28 @@ describe('computeLayers — overlay transitions', () => {
         expect(layers.map((l) => l.entry.key)).toEqual(['a', 'm1', 'm2']);
         expect(layers[0].animation).toBeNull();
         expect(layers[1].animation).toBeNull();
-        expect(layers[2].animation?.axis).toBe('translateY');
+        expect(layers[2].animation?.mapperName).toBe('translateY');
+    });
+
+    it('keeps a covered sheet at its static offset during a modal push above it', () => {
+        // Stack: card base + resting sheet; push a modal on top. The sheet
+        // joins the static run but must keep its partial-height position.
+        const a = entry('a', 'home');
+        const s = entry('s', 'sheet-route', 'sheet');
+        const m = entry('m', 'modal-route', 'modal');
+        const progress = fakeProgress();
+        const sv = fakeProgress();
+        const transition: TransitionState = {
+            kind: 'push',
+            topEntry: m,
+            underneathEntry: s,
+            progress,
+        };
+        const layers = computeLayers([a, s, m], transition, progress, undefined, sheetCtx(sv));
+        expect(layers.map((l) => l.entry.key)).toEqual(['a', 's', 'm']);
+        expect(layers[1].animation).toBeNull();
+        expect(layers[1].staticOffsetY).toBe(0.1 * SCREEN_HEIGHT);
+        expect(layers[2].animation?.mapperName).toBe('translateY');
     });
 
     it('falls back to the stack top when the underneath has already been removed', () => {
@@ -310,5 +351,111 @@ describe('computeLayers — overlay transitions', () => {
         const layers = computeLayers([a, m], transition, progress);
         // Falls back to base + m + animated dropped (off-stack).
         expect(layers.map((l) => l.entry.key)).toEqual(['a', 'm', 'dropped']);
+    });
+});
+
+describe('computeLayers — sheet presentation', () => {
+    it('keeps the base visible and binds the top resting sheet to the sheet SV', () => {
+        const a = entry('a', 'home');
+        const s = entry('s', 'sheet-route', 'sheet');
+        const sv = fakeProgress();
+        const layers = computeLayers([a, s], null, null, undefined, sheetCtx(sv));
+        expect(layers.map((l) => l.entry.key)).toEqual(['a', 's']);
+        expect(layers.map((l) => l.hidden)).toEqual([false, false]);
+        // Base card: plain static. Sheet: live binding even at rest, so the
+        // drag worklet can move it between snap points without a rebind.
+        expect(layers[0].animation).toBeNull();
+        const anim = layers[1].animation;
+        expect(anim?.mapperName).toBe('translateY');
+        expect(anim?.progress).toBe(sv);
+        // Partial height: progress 1 rests at (1 - 0.9) * SCREEN_HEIGHT,
+        // not 0 like modal/fullScreen.
+        expect(anim?.outputRange[0]).toBe(SCREEN_HEIGHT);
+        expect(anim?.outputRange[1]).toBeCloseTo(0.1 * SCREEN_HEIGHT);
+    });
+
+    it('renders a resting sheet statically at its offset when animations are disabled', () => {
+        const a = entry('a', 'home');
+        const s = entry('s', 'sheet-route', 'sheet');
+        const layers = computeLayers([a, s], null, null, undefined, sheetCtx(null));
+        expect(layers[1].animation).toBeNull();
+        expect(layers[1].staticOffsetY).toBeCloseTo(0.1 * SCREEN_HEIGHT);
+    });
+
+    it('renders a sheet as a plain static layer when no sheet context is given', () => {
+        // Defensive: callers that don't resolve a sheet context (older
+        // tests, non-Stack consumers) still get a valid plan.
+        const a = entry('a', 'home');
+        const s = entry('s', 'sheet-route', 'sheet');
+        const layers = computeLayers([a, s], null, null);
+        expect(layers[1]).toEqual({ entry: s, animation: null, hidden: false });
+    });
+
+    it('animates a sheet push on the sheet SV with the same fixed range', () => {
+        const a = entry('a', 'home');
+        const s = entry('s', 'sheet-route', 'sheet');
+        const progress = fakeProgress();
+        const sv = fakeProgress();
+        const transition: TransitionState = {
+            kind: 'push',
+            topEntry: s,
+            underneathEntry: a,
+            progress: sv,
+        };
+        const layers = computeLayers([a, s], transition, progress, undefined, sheetCtx(sv));
+        expect(layers[0].animation).toBeNull(); // base static, like modal
+        const anim = layers[1].animation;
+        expect(anim?.progress).toBe(sv); // dedicated SV, not the shared progress
+        expect(anim?.outputRange[0]).toBe(SCREEN_HEIGHT);
+        expect(anim?.outputRange[1]).toBeCloseTo(0.1 * SCREEN_HEIGHT);
+    });
+
+    it('uses the identical mapper for a sheet pop (progress encodes position)', () => {
+        const a = entry('a', 'home');
+        const s = entry('s', 'sheet-route', 'sheet');
+        const progress = fakeProgress();
+        const sv = fakeProgress();
+        const transition: TransitionState = {
+            kind: 'pop',
+            topEntry: s,
+            underneathEntry: a,
+            progress: sv,
+        };
+        const layers = computeLayers([a, s], transition, progress, undefined, sheetCtx(sv));
+        const anim = layers[1].animation;
+        // Pop does NOT invert the range — the SV animates toward 0 instead.
+        expect(anim?.outputRange[0]).toBe(SCREEN_HEIGHT);
+        expect(anim?.outputRange[1]).toBeCloseTo(0.1 * SCREEN_HEIGHT);
+    });
+
+    it('gives a covered sheet a static offset when a card is pushed above it', () => {
+        // Card transition with a sheet underneath: the sheet must keep its
+        // vertical position, not parallax horizontally.
+        const a = entry('a', 'home');
+        const s = entry('s', 'sheet-route', 'sheet');
+        const c = entry('c', 'detail');
+        const progress = fakeProgress();
+        const sv = fakeProgress();
+        const transition: TransitionState = {
+            kind: 'push',
+            topEntry: c,
+            underneathEntry: s,
+            progress,
+        };
+        const layers = computeLayers([a, s, c], transition, progress, undefined, sheetCtx(sv));
+        const sheetLayer = layers.find((l) => l.entry.key === 's');
+        expect(sheetLayer?.animation).toBeNull();
+        expect(sheetLayer?.staticOffsetY).toBeCloseTo(0.1 * SCREEN_HEIGHT);
+        const topLayer = layers.find((l) => l.entry.key === 'c');
+        expect(topLayer?.animation?.mapperName).toBe('translateX');
+    });
+
+    it('backdropAnimation maps the sheet SV onto opacity', () => {
+        const sv = fakeProgress();
+        const anim = backdropAnimation(sv);
+        expect(anim.mapperName).toBe('opacity');
+        expect(anim.progress).toBe(sv);
+        expect(anim.inputRange).toEqual([0, 1]);
+        expect(anim.outputRange).toEqual([0, SHEET_BACKDROP_MAX_OPACITY]);
     });
 });

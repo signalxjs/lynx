@@ -39,6 +39,9 @@ type ScreenProps =
     & Define.Prop<'title', string | (() => string)>
     & Define.Prop<'headerShown', boolean>
     & Define.Prop<'gestureEnabled', boolean>
+    & Define.Prop<'snapPoints', readonly number[]>
+    & Define.Prop<'initialSnapIndex', number>
+    & Define.Prop<'backdropDismiss', boolean>
     & Define.Slot<'default'>;
 
 const ScreenRoot = component<ScreenProps>(({ props, slots }) => {
@@ -52,6 +55,9 @@ const ScreenRoot = component<ScreenProps>(({ props, slots }) => {
     if (props.title !== undefined) patch.title = props.title;
     if (props.headerShown !== undefined) patch.headerShown = props.headerShown;
     if (props.gestureEnabled !== undefined) patch.gestureEnabled = props.gestureEnabled;
+    if (props.snapPoints !== undefined) patch.snapPoints = props.snapPoints;
+    if (props.initialSnapIndex !== undefined) patch.initialSnapIndex = props.initialSnapIndex;
+    if (props.backdropDismiss !== undefined) patch.backdropDismiss = props.backdropDismiss;
     mergeOptions(registry, patch);
     return () => slots.default?.();
 });

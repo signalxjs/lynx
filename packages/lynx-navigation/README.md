@@ -6,9 +6,10 @@ interface, and every navigator API — `useNav`, `useParams`, `useSearch`,
 `<Link>`, `<Tabs.Screen>`, `<Drawer>` — picks up precise per-route
 param/search inference.
 
-The navigator ships native UI primitives (Stack, Tabs, Drawer, modal
-presentation), focus hooks, deep-link integration, lazy routes, screen
-options, and persistence — all reactive via sigx signals, all typed.
+The navigator ships native UI primitives (Stack, Tabs, Drawer, modal and
+bottom-sheet presentation), focus hooks, deep-link integration, lazy
+routes, screen options, and persistence — all reactive via sigx signals,
+all typed.
 
 > **Status — 1.0 candidate.** Public surface is frozen; every export below
 > is locked by the test suite in `__tests__/public-surface.test.ts`. The
@@ -78,7 +79,7 @@ interface RouteDefinition<P = unknown, S = unknown> {
     params?: StandardSchemaV1<P>;    // zod / valibot / arktype / etc.
     search?: StandardSchemaV1<S>;
     path?: string;                   // for deep-link parsing
-    presentation?: Presentation;     // 'card' (default) | 'modal' | 'fullScreen' | 'transparent-modal'
+    presentation?: Presentation;     // 'card' (default) | 'modal' | 'fullScreen' | 'transparent-modal' | 'sheet'
 }
 ```
 
@@ -499,9 +500,47 @@ folder for a working setup.
 ## Modal presentation
 
 Set `presentation: 'modal' | 'fullScreen' | 'transparent-modal'` on a
-route definition. Modals ship as stack entries with a different
-transition (bottom-sheet style) — there's no separate `<Modal>`
-navigator. Use `nav.pop()` to dismiss.
+route definition. Modals ship as stack entries with a slide-up
+transition — there's no separate `<Modal>` navigator. Use `nav.pop()` to
+dismiss. Modals render no backdrop of their own; the screen component
+owns its surface and any dimming.
+
+## Sheet presentation
+
+`presentation: 'sheet'` is a partial-height bottom sheet — still just a
+stack entry (escalates to the root navigator like a modal), but with
+snap points, a built-in dimmed backdrop, and drag-to-dismiss:
+
+```tsx
+const routes = defineRoutes({
+    // …
+    filters: { component: FiltersSheet, presentation: 'sheet' },
+});
+
+const FiltersSheet = component(() => () => (
+    <Screen snapPoints={[0.4, 0.9]} initialSnapIndex={0}>
+        <view className="bg-base-100">…sheet body…</view>
+    </Screen>
+));
+```
+
+- **Snap points** are fractions of screen height (ascending); the sheet
+  opens at `initialSnapIndex` (default: the last, most-open detent) and
+  the grabber strip at its top edge drags between detents — flinging
+  down past the lowest one (or tapping the backdrop) dismisses via
+  `nav.pop()`. Set `backdropDismiss={false}` to keep backdrop taps inert.
+- **Backdrop is built in** — unlike `modal`, the navigator renders the
+  dim behind a sheet, and its opacity tracks the sheet position (partial
+  snap → proportional dim). Don't add your own.
+- The sheet *surface* is your screen component, positioned by the
+  navigator: style its top (rounded corners, handle affordance) and give
+  it an opaque background.
+- `dismiss()`, hardware back, and `nav.pop()` all work as for modals.
+
+**v1 limitations:** dragging happens from the ~28px grabber strip at the
+sheet's top only (content below scrolls normally — no scroll/drag
+arbitration yet); snap fractions are of raw screen height (no safe-area
+adjustment); stacking sheets on sheets is untested.
 
 ## Testing
 
