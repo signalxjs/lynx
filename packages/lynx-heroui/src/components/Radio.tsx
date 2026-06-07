@@ -57,7 +57,10 @@ const RadioItem = component<RadioItemProps>(({ props, emit }) => {
   return () => {
     const color = props.color ?? group?.color();
     const size = props.size ?? group?.size();
-    const checked = props.checked ?? (group ? group.value() === props.value : false);
+    // Guard `props.value != null` so an item that forgot a value isn't treated
+    // as selected when the group value is also undefined (undefined === undefined).
+    const checked = props.checked
+      ?? (group != null && props.value != null && group.value() === props.value);
 
     const getClasses = () => {
       const c = ['hero-radio'];

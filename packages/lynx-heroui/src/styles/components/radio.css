@@ -26,7 +26,9 @@
 
 .hero-radio-label { color: var(--color-base-content); font-size: var(--font-md); }
 
-/* Selected ring + dot take the semantic color (primary default). */
+/* Semantic color: the ring border tints whenever a `color` is set (even
+ * unchecked, like the checkbox accent); the inner dot uses the same color when
+ * present. `.hero-radio-checked` covers the default (no explicit color) case. */
 .hero-radio-checked { border-color: var(--color-primary); }
 .hero-radio-primary { border-color: var(--color-primary); }
 .hero-radio-primary .hero-radio-mark { background-color: var(--color-primary); }
