@@ -536,18 +536,15 @@ export function createNavigatorState(opts: CreateNavigatorOptions): NavigatorSta
                 setTransition(null);
             });
         };
-        // Sheet pop duration is velocity-matched like the push. BG doesn't
-        // know the live SV value (a drag may have settled at another
-        // detent), so the initial-snap height is the best estimate — at
-        // worst the duration is off by one detent's distance.
+        // Sheet pop duration is velocity-matched like the push, derived
+        // from the sheet's LIVE position: `sv.value` is the BG-readable
+        // latest published snapshot (see SharedValue), so a sheet the user
+        // dragged to another detent pops at the right speed too.
         let durationSec = TRANSITION_DURATION_SEC;
-        if (isSheet) {
+        if (isSheet && sv) {
             const o = untrack(() => screens.get(popping.key)?.options);
             const snaps = resolveSnapPoints(o?.snapPoints);
-            durationSec = sheetDurationSec(
-                initialSnapProgress(snaps, o?.initialSnapIndex) *
-                    snaps[snaps.length - 1],
-            );
+            durationSec = sheetDurationSec(sv.value * snaps[snaps.length - 1]);
         }
         animateProgress(sv, isSheet ? null : 0, isSheet ? 0 : 1, durationSec).then(
             commitOwnPop,
