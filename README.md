@@ -61,10 +61,12 @@ Auto-linked by `sigx prebuild`: install the package with `pnpm add @sigx/lynx-fo
 | [`@sigx/lynx-biometric`](./packages/lynx-biometric) | Biometric authentication — Face ID / Touch ID / `BiometricPrompt`. |
 | [`@sigx/lynx-camera`](./packages/lynx-camera) | Camera capture (photo + video). |
 | [`@sigx/lynx-clipboard`](./packages/lynx-clipboard) | System clipboard read/write. |
+| [`@sigx/lynx-datetime-picker`](./packages/lynx-datetime-picker) | Native date/time/datetime picker — `UIDatePicker` in a presented sheet on iOS, `DatePickerDialog` / `TimePickerDialog` on Android. |
 | [`@sigx/lynx-device-info`](./packages/lynx-device-info) | Device model, OS version, locale, screen metrics. |
-| [`@sigx/lynx-file-system`](./packages/lynx-file-system) | Sandboxed read/write/delete + directory listing in the app's documents directory. |
+| [`@sigx/lynx-file-picker`](./packages/lynx-file-picker) | Generic file picker — `UIDocumentPickerViewController` on iOS, Storage Access Framework on Android. Picks *any* file (Files app / document browser UX); for the photo-library grid use `@sigx/lynx-image-picker`. |
+| [`@sigx/lynx-file-system`](./packages/lynx-file-system) | Sandboxed file read/write/delete + file info in the app's documents/cache directories, plus binary reads (`readFileBase64` / `readFileAsArrayBuffer`) of any `file://` / `content://` URI a picker hands back. |
 | [`@sigx/lynx-haptics`](./packages/lynx-haptics) | Impact / selection / notification haptic feedback. |
-| [`@sigx/lynx-image-picker`](./packages/lynx-image-picker) | Pick or capture images from the photo library / camera. |
+| [`@sigx/lynx-image-picker`](./packages/lynx-image-picker) | Pick or capture images from the photo library / camera (PHPicker / Android Photo Picker). For arbitrary documents use `@sigx/lynx-file-picker`. |
 | [`@sigx/lynx-linking`](./packages/lynx-linking) | Deep-link & URL scheme handling — `openURL`, `getInitialURL`, inbound URL events. |
 | [`@sigx/lynx-location`](./packages/lynx-location) | GPS coordinates, one-shot + watch APIs. |
 | [`@sigx/lynx-maps`](./packages/lynx-maps) | Native map view — `MKMapView` (Apple Maps) on iOS, `com.google.android.gms.maps.MapView` (Google Maps, API key required) on Android. |
@@ -91,8 +93,12 @@ Auto-linked by `sigx prebuild`: install the package with `pnpm add @sigx/lynx-fo
 
 | Package | Description |
 |---|---|
-| [`@sigx/lynx-daisyui`](./packages/lynx-daisyui) | DaisyUI-flavored component library, stylesheet, and Tailwind preset for Lynx. Also ships `markdownComponents` (themed rendering) and `useMarkdownEditorTheme()` (palette-driven editor colors) for `@sigx/lynx-markdown`. |
-| [`@sigx/lynx-markdown`](./packages/lynx-markdown) | SignalX-native, streaming-aware markdown renderer **and editor** — `<MarkdownView>` parses markdown in JS (zero deps) and renders to native `<view>`/`<text>` with a render-function override API, plus `createMarkdownStream()` for flicker-free AI output; `<MarkdownEditor>` is true-WYSIWYG editing (markdown in/out) on `@sigx/lynx-richtext`. |
+| [`@sigx/lynx-zero`](./packages/lynx-zero) | Design-system-neutral UI foundation — the shared props/token contract (`SizeScale`, `ColorVariant`, …), theme engine, layout primitives (`Row` / `Col` / `Center` / `Spacer` / `ScrollView`), style utilities, and a shared Tailwind preset. Design systems (`lynx-daisyui`, `lynx-heroui`) build on it; apps import via their chosen design system. |
+| [`@sigx/lynx-daisyui`](./packages/lynx-daisyui) | DaisyUI-flavored design system on the `@sigx/lynx-zero` foundation — components, stylesheet, themes, and Tailwind preset. Also ships `markdownComponents` / `useMarkdownEditorTheme()` for `@sigx/lynx-markdown` and a themed skin (`emojiClasses`, `EmojiPickerSheet`) for `@sigx/lynx-emoji`. |
+| [`@sigx/lynx-heroui`](./packages/lynx-heroui) | HeroUI-flavored design system on the `@sigx/lynx-zero` foundation. **Pilot scope** while the shared contract is validated — `hero-light` / `hero-dark` themes and a representative component set. |
+| [`@sigx/lynx-emoji`](./packages/lynx-emoji) | Themable emoji picker — headless `EmojiPicker` (search, category tabs, recycled grid, skin-tone variants, recents) or compose the parts yourself. Pure JS, emoji data generated from emojibase; optional `@sigx/lynx-markdown` editor plugin. |
+| [`@sigx/lynx-keyboard`](./packages/lynx-keyboard) | Soft-keyboard handling — `KeyboardAvoidingView`, `KeyboardStickyView` / `InputAccessoryView`, `useKeyboard`. Pure JS over the `@sigx/lynx-safe-area` bridge (no extra native module). |
+| [`@sigx/lynx-markdown`](./packages/lynx-markdown) | SignalX-native, streaming-aware markdown renderer **and editor** — `<MarkdownView>` parses markdown in JS (zero deps) and renders to native `<view>`/`<text>` with a render-function override API, plus `createMarkdownStream()` for flicker-free AI output; `<MarkdownEditor>` (from the `@sigx/lynx-markdown/editor` subpath) is true-WYSIWYG editing (markdown in/out) on `@sigx/lynx-richtext`. |
 | [`@sigx/lynx-icons`](./packages/lynx-icons) | `<Icon set name />` component + registry. Pairs with adapter packages (`@sigx/lynx-icons-fa-free`, `@sigx/lynx-icons-lucide`); used icons are auto-detected from JSX at build time and subset/tree-shaken. |
 | [`@sigx/lynx-icons-fa-free`](./packages/lynx-icons-fa-free) | Font Awesome Free adapter for `@sigx/lynx-icons` (solid/regular/brands). Reads glyph data from the user's installed `@fortawesome/free-*-svg-icons` packages. |
 | [`@sigx/lynx-icons-lucide`](./packages/lynx-icons-lucide) | Lucide adapter for `@sigx/lynx-icons`. SVG-mode only (lucide has no font distribution). |

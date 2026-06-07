@@ -142,6 +142,13 @@ digits, `.`, `_`, `-` only.
 - **Plan first for non-trivial work.** Both Claude Code and Copilot CLI have a built-in plan mode; use it and let the CLI manage the plan file.
 - **Verify before declaring done.** Run typecheck/tests for code changes; show evidence the change works.
 - **Minimal, surgical edits.** Don't refactor unrelated code. Don't add backward-compat shims for things that never shipped.
+- **READMEs stay in sync — same PR, not later.** Any user-facing change to a
+  package (new API, changed behavior, renamed export, new install step) must be
+  reflected in that package's `README.md` in the same PR. A **new package**
+  must also be added to the package tables in the **root `README.md`** — the
+  showcase of what the framework offers — in the PR that introduces it (pick
+  the right section: Framework / Runtime / Native modules / Dev tooling /
+  UI & routing / Gestures & motion).
 - **Cross-platform paths**: Contributors and CI run on Windows, macOS and Linux — use the path separator and shell syntax of the environment you're in, and prefer Node scripts over shell one-liners for anything committed to the repo.
 - **Git hygiene**: Stage specific files (`git add <path>`), never `git add -A` / `git add .`. Run `pnpm typecheck` before any commit touching `.ts`. Do **not** add co-author trailers to commits (e.g. `Co-Authored-By: Claude …` / `Co-authored-by: Copilot …`).
 
