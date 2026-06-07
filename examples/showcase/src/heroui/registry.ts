@@ -9,6 +9,13 @@ import { radioDemo } from './demos/radio.js';
 import { selectDemo } from './demos/select.js';
 import { formfieldDemo } from './demos/formfield.js';
 import { dividerDemo } from './demos/divider.js';
+import { badgeDemo } from './demos/badge.js';
+import { alertDemo } from './demos/alert.js';
+import { loadingDemo } from './demos/loading.js';
+import { progressDemo } from './demos/progress.js';
+import { skeletonDemo } from './demos/skeleton.js';
+import { stepsDemo } from './demos/steps.js';
+import { avatarDemo } from './demos/avatar.js';
 import { modalDemo } from './demos/modal.js';
 import { tabsDemo } from './demos/tabs.js';
 import { textDemo } from './demos/text.js';
@@ -69,7 +76,15 @@ export const heroDemos: HeroComponentDemo[] = [
     // Layout
     dividerDemo,
     // Feedback
+    badgeDemo,
+    alertDemo,
+    loadingDemo,
+    progressDemo,
+    skeletonDemo,
+    stepsDemo,
     modalDemo,
+    // Data
+    avatarDemo,
     // Navigation
     tabsDemo,
     // Typography

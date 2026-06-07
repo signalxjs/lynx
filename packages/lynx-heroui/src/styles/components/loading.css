@@ -1,0 +1,30 @@
+/* Hero Loading — rotating ring; the leading arc takes the color. */
+
+@keyframes hero-spin {
+  0% { transform: rotateZ(0deg); }
+  100% { transform: rotateZ(360deg); }
+}
+
+.hero-loading {
+  width: 24px;
+  height: 24px;
+  border-radius: 9999px;
+  border-width: 3px;
+  border-color: var(--color-base-300);
+  border-top-color: var(--color-primary);
+  align-self: center;
+  flex-shrink: 0;
+  flex-grow: 0;
+  animation: hero-spin 800ms linear infinite;
+}
+
+.hero-loading-sm { width: 18px; height: 18px; border-width: 2px; }
+.hero-loading-lg { width: 36px; height: 36px; border-width: 4px; }
+
+.hero-loading-primary { border-top-color: var(--color-primary); }
+.hero-loading-secondary { border-top-color: var(--color-secondary); }
+.hero-loading-accent { border-top-color: var(--color-accent); }
+.hero-loading-info { border-top-color: var(--color-info); }
+.hero-loading-success { border-top-color: var(--color-success); }
+.hero-loading-warning { border-top-color: var(--color-warning); }
+.hero-loading-error { border-top-color: var(--color-error); }

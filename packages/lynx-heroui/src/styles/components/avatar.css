@@ -1,0 +1,14 @@
+/* Hero Avatar — image or initials placeholder (sizing is inline per size). */
+
+.hero-avatar {
+  display: flex;
+}
+
+.hero-avatar-placeholder {
+  background-color: var(--color-neutral);
+}
+.hero-avatar-initials {
+  color: var(--color-neutral-content);
+  font-weight: 500;
+  line-height: 1;
+}

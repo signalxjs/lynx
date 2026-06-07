@@ -1,0 +1,37 @@
+/* Hero Steps — indicator circles; color fills completed/active steps. */
+
+.hero-steps {
+  display: flex;
+  gap: 4px;
+}
+.hero-steps-horizontal { flex-direction: row; align-items: center; }
+.hero-steps-vertical { flex-direction: column; align-items: flex-start; }
+
+.hero-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+  gap: 4px;
+}
+
+.hero-step-indicator {
+  display: flex;
+  width: 28px;
+  height: 28px;
+  border-radius: 9999px;
+  background-color: var(--color-base-300);
+  color: var(--color-base-content);
+  justify-content: center;
+  align-items: center;
+}
+.hero-step-content { font-size: var(--font-sm); line-height: 1; }
+
+.hero-step-primary .hero-step-indicator { background-color: var(--color-primary); color: var(--color-primary-content); }
+.hero-step-secondary .hero-step-indicator { background-color: var(--color-secondary); color: var(--color-secondary-content); }
+.hero-step-accent .hero-step-indicator { background-color: var(--color-accent); color: var(--color-accent-content); }
+.hero-step-neutral .hero-step-indicator { background-color: var(--color-neutral); color: var(--color-neutral-content); }
+.hero-step-info .hero-step-indicator { background-color: var(--color-info); color: var(--color-info-content); }
+.hero-step-success .hero-step-indicator { background-color: var(--color-success); color: var(--color-success-content); }
+.hero-step-warning .hero-step-indicator { background-color: var(--color-warning); color: var(--color-warning-content); }
+.hero-step-error .hero-step-indicator { background-color: var(--color-error); color: var(--color-error-content); }

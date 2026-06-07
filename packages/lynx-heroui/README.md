@@ -38,7 +38,8 @@ Available today:
 - **Forms** — `Input`, `Textarea`, `Toggle`, `Checkbox`, `Radio`, `Select`, `FormField`
 - **Layout** — `Card`, `Divider`
 - **Navigation** — `Tabs`
-- **Feedback** — `Modal`
+- **Feedback** — `Alert`, `Badge`, `Loading`, `Progress`, `Skeleton`, `Steps`, `Modal`
+- **Data** — `Avatar`
 - **Typography** — `Text`, `Heading`
 
 Plus the engine + neutral primitives re-exported from `@sigx/lynx-zero`
