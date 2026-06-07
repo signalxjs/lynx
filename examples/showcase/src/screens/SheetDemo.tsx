@@ -17,7 +17,7 @@ export const SheetDemo = component(() => {
 
     const tip = (icon: string, text: string) => (
         <Row style={{ alignItems: 'center', gap: '10px' }}>
-            <LucideIcon name={icon as never} size={18} variant="neutral" />
+            <LucideIcon name={icon} size={18} variant="neutral" />
             <Text class="text-base-content/80">{text}</Text>
         </Row>
     );
