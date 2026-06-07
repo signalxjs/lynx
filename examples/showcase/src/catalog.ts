@@ -1,6 +1,7 @@
 import type { RoutesWithoutParams } from '@sigx/lynx-navigation';
 import type { IconSpec } from '@sigx/lynx-icons';
 import { daisyDemos } from './daisyui/registry.js';
+import { heroDemos } from './heroui/registry.js';
 
 /**
  * The example catalog — single source of truth for the Home screen's area
@@ -8,8 +9,8 @@ import { daisyDemos } from './daisyui/registry.js';
  * registered route; `route: RoutesWithoutParams` makes a dangling
  * reference a type error (keyed by the Register augmentation in routes.ts)
  * and guarantees `nav.push(example.route)` needs no params — except the
- * DaisyUI component pages, which all share the parametric `daisyui` route
- * and carry their `componentId` in `params`.
+ * DaisyUI and HeroUI component pages, which share the parametric `daisyui`
+ * / `heroui` routes respectively and carry their `componentId` in `params`.
  */
 export type Example = {
     id: string;
@@ -20,6 +21,7 @@ export type Example = {
 } & (
     | { route: RoutesWithoutParams; params?: undefined }
     | { route: 'daisyui'; params: { componentId: string } }
+    | { route: 'heroui'; params: { componentId: string } }
 );
 
 export interface Area {
@@ -57,6 +59,13 @@ export const catalog: Area[] = [
                 route: 'herouiLab',
             },
             {
+                id: 'foundation',
+                title: 'Foundation (lynx-zero)',
+                description: 'The neutral layer under both design systems — contract, theme engine, layout primitives',
+                icon: { set: 'lucide', name: 'layers-2' },
+                route: 'foundation',
+            },
+            {
                 id: 'icons',
                 title: 'Icons',
                 description: 'Font Awesome + Lucide adapters, themed and dynamic names',
@@ -92,6 +101,22 @@ export const catalog: Area[] = [
             description: demo.description,
             icon: demo.icon,
             route: 'daisyui' as const,
+            params: { componentId: demo.id },
+        })),
+    },
+    {
+        // Same registry-driven pattern as the DaisyUI area — the second
+        // design system on the lynx-zero foundation gets the same first-class
+        // per-component reference pages (epic #287).
+        id: 'heroui',
+        title: 'HeroUI components',
+        icon: { set: 'lucide', name: 'layers' },
+        examples: heroDemos.map((demo) => ({
+            id: `hero-${demo.id}`,
+            title: demo.title,
+            description: demo.description,
+            icon: demo.icon,
+            route: 'heroui' as const,
             params: { componentId: demo.id },
         })),
     },
