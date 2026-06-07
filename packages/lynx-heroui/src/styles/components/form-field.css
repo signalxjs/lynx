@@ -1,0 +1,17 @@
+/* Hero FormField — label + control + error line. */
+
+.hero-form-field {
+  display: flex;
+  flex-direction: column;
+}
+
+.hero-form-field-label {
+  font-size: var(--font-sm);
+  font-weight: 500;
+  color: var(--color-base-content);
+}
+
+.hero-form-field-error {
+  font-size: var(--font-sm);
+  color: var(--color-error);
+}

@@ -23,5 +23,8 @@
 @import './components/toggle.css';
 @import './components/checkbox.css';
 @import './components/radio.css';
+@import './components/select.css';
+@import './components/form-field.css';
+@import './components/divider.css';
 @import './components/modal.css';
 @import './components/tabs.css';

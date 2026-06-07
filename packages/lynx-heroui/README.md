@@ -35,8 +35,8 @@ Growing toward `@sigx/lynx-daisyui` parity
 Available today:
 
 - **Actions** — `Button`
-- **Forms** — `Input`, `Textarea`, `Toggle`, `Checkbox`, `Radio`
-- **Layout** — `Card`
+- **Forms** — `Input`, `Textarea`, `Toggle`, `Checkbox`, `Radio`, `Select`, `FormField`
+- **Layout** — `Card`, `Divider`
 - **Navigation** — `Tabs`
 - **Feedback** — `Modal`
 - **Typography** — `Text`, `Heading`
