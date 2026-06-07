@@ -14,6 +14,8 @@ import { fetch, FormData } from '@sigx/lynx-http';
  *  • GET JSON with headers — the everyday path.
  *  • Multipart upload — pick a file, POST it as FormData field `file`
  *    with upload progress; bytes stream natively from the URI.
+ *  • Streaming body — res.body.getReader() renders lines as the
+ *    network delivers them (the SSE/chat-token path).
  *
  * Uses httpbin.org, which echoes back what it received.
  */
@@ -21,6 +23,35 @@ export const HttpDemo = component(() => {
     const getResult = signal<{ value: string | null }>({ value: null });
     const uploadResult = signal<{ value: string | null }>({ value: null });
     const progress = signal<{ value: number }>({ value: -1 });
+    const streamResult = signal<{ value: string | null }>({ value: null });
+
+    const runStream = async () => {
+        streamResult.value = 'streaming…';
+        try {
+            // httpbin streams 5 JSON objects, one per line, with flushes
+            // between them — a stand-in for an SSE/chat-token endpoint.
+            const res = await fetch('https://httpbin.org/stream/5');
+            const reader = res.body.getReader();
+            const decoder = new TextDecoder();
+            let lines = 0;
+            let pending = '';
+            for (;;) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                pending += decoder.decode(value, { stream: true });
+                for (;;) {
+                    const nl = pending.indexOf('\n');
+                    if (nl < 0) break;
+                    if (pending.slice(0, nl).trim().length > 0) lines++;
+                    pending = pending.slice(nl + 1);
+                    streamResult.value = `received ${lines} line(s)…`;
+                }
+            }
+            streamResult.value = `done — ${lines} lines streamed incrementally ✓`;
+        } catch (e) {
+            streamResult.value = `failed: ${e instanceof Error ? e.message : String(e)}`;
+        }
+    };
 
     const runGet = async () => {
         getResult.value = '…';
@@ -109,6 +140,23 @@ export const HttpDemo = component(() => {
                                 <Text class="text-sm">{`upload ${progress.value}%`}</Text>
                             )}
                             {uploadResult.value && <Text class="text-sm">{uploadResult.value}</Text>}
+                        </Col>
+                    </Card.Body>
+                </Card>
+
+                <Card bordered>
+                    <Card.Body>
+                        <Col gap={8}>
+                            <Text weight="semibold">Streaming body</Text>
+                            <Text class="opacity-60 text-sm">
+                                res.body.getReader() + TextDecoder — lines render
+                                as the network delivers them, the same path a
+                                chat SSE consumer uses.
+                            </Text>
+                            <Button color="secondary" variant="outline" onPress={runStream}>
+                                Stream 5 lines
+                            </Button>
+                            {streamResult.value && <Text class="text-sm">{streamResult.value}</Text>}
                         </Col>
                     </Card.Body>
                 </Card>

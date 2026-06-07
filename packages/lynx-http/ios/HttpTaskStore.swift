@@ -3,10 +3,10 @@ import Foundation
 /// Process-wide registry of live `URLSessionTask`s keyed by the
 /// JS-supplied numeric id, plus the multipart body composer.
 ///
-/// Buffered implementation (#249): response bytes accumulate per-task and
-/// flush as a single `chunk` event on completion. The streaming milestone
-/// (#250) will emit a `chunk` per `didReceive data:` when the request's
-/// `streaming` flag is set — a purely additive change here.
+/// Delivery honors the spec's `streaming` flag (#250): streaming requests
+/// emit a `chunk` event per `didReceive data:` so SSE consumers render
+/// incrementally; non-streaming requests accumulate and flush as a single
+/// `chunk` on completion (fewer bridge crossings for ordinary JSON calls).
 final class HttpTaskStore: NSObject, URLSessionDataDelegate {
 
     static let shared = HttpTaskStore()
@@ -16,6 +16,8 @@ final class HttpTaskStore: NSObject, URLSessionDataDelegate {
     private var idsByTask: [ObjectIdentifier: Int] = [:]
     /// Accumulated response bodies (buffered mode).
     private var buffers: [Int: Data] = [:]
+    /// Ids whose body is delivered incrementally (`streaming: true`).
+    private var streamingIds = Set<Int>()
     /// Temp multipart body files, deleted on completion.
     private var bodyFiles: [Int: URL] = [:]
 
@@ -87,6 +89,7 @@ final class HttpTaskStore: NSObject, URLSessionDataDelegate {
                 old.cancel()
                 idsByTask.removeValue(forKey: ObjectIdentifier(old))
                 buffers.removeValue(forKey: id)
+                streamingIds.remove(id)
                 if let oldFile = bodyFiles.removeValue(forKey: id) {
                     try? FileManager.default.removeItem(at: oldFile)
                 }
@@ -100,7 +103,11 @@ final class HttpTaskStore: NSObject, URLSessionDataDelegate {
             }
             tasks[id] = task
             idsByTask[ObjectIdentifier(task)] = id
-            buffers[id] = Data()
+            if (spec["streaming"] as? Bool) == true {
+                streamingIds.insert(id)
+            } else {
+                buffers[id] = Data()
+            }
             task.resume()
         }
     }
@@ -136,10 +143,17 @@ final class HttpTaskStore: NSObject, URLSessionDataDelegate {
     }
 
     func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
-        queue.sync {
-            guard let id = idsByTask[ObjectIdentifier(dataTask)] else { return }
+        let streamingId: Int? = queue.sync {
+            guard let id = idsByTask[ObjectIdentifier(dataTask)] else { return nil }
+            if streamingIds.contains(id) { return id }
             // Buffered mode: accumulate; flushed as one chunk on completion.
             buffers[id]?.append(data)
+            return nil
+        }
+        // Streaming mode: one chunk event per network read — publish outside
+        // the bookkeeping queue so a slow listener can't stall the delegate.
+        if let id = streamingId {
+            HttpEventBus.shared.publish(chunk: data.base64EncodedString(), id: id)
         }
     }
 
@@ -158,7 +172,9 @@ final class HttpTaskStore: NSObject, URLSessionDataDelegate {
             guard let id = idsByTask[key] else { return nil }
             idsByTask.removeValue(forKey: key)
             tasks.removeValue(forKey: id)
+            // Streaming ids have no buffer — chunks already went out live.
             let buffer = buffers.removeValue(forKey: id) ?? Data()
+            streamingIds.remove(id)
             let bodyFile = bodyFiles.removeValue(forKey: id)
             return (id, buffer, bodyFile)
         }

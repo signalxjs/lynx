@@ -51,7 +51,7 @@ for (;;) {
     parseSseChunk(decoder.decode(value, { stream: true }));
 }
 ```
-> **Streaming status:** the JS surface above is final, but until the streaming native milestone (#250) lands the body arrives as a single chunk on completion — SSE code runs unchanged, it just sees everything at once instead of token-by-token.
+Chunks arrive as the network delivers them — `read()` resolves per network read, so SSE tokens render incrementally. `reader.cancel()` (or aborting the signal) cancels the native task mid-stream.
 
 ## API notes & deviations from spec
 - `Response`: `ok/status/statusText/headers/url/bodyUsed`, `text()/json()/arrayBuffer()`, `body.getReader()` → `{ read, cancel, releaseLock }`. No `clone()`, no `blob()` (no Blob in the runtime).
@@ -61,4 +61,4 @@ for (;;) {
 - Redirects follow silently (URLSession/OkHttp defaults); `response.url` is the request URL.
 
 ## Bridge protocol (for contributors)
-`Http.request(id, spec, cb)` / `Http.abort(id, cb)`; outcomes arrive as `__sigxHttpEvent` global events demuxed by id: `response` (once) → `progress`* → `chunk`* (base64) → `done` | `error`. The protocol is frozen across the buffered (#249) and streaming (#250) milestones — see `src/types.ts`.
+`Http.request(id, spec, cb)` / `Http.abort(id, cb)`; outcomes arrive as `__sigxHttpEvent` global events demuxed by id: `response` (once) → `progress`* → `chunk`* (base64) → `done` | `error`. `spec.streaming: true` (what `fetch` always sends) delivers one `chunk` per network read; `false` buffers the body into a single chunk — see `src/types.ts`.

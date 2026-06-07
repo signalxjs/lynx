@@ -13,10 +13,11 @@
  *
  *   response (once) → progress* (upload) → chunk* (body) → done | error
  *
- * The buffered native implementation (#249) delivers the whole body as a
- * single `chunk`; the streaming one (#250) honors `streaming: true` and
- * emits one `chunk` per network read. The JS side is agnostic — it queues
- * chunks either way.
+ * Native honors `streaming: true` (#250) by emitting one `chunk` per
+ * network read — `fetch` always requests it, so `res.body.getReader()`
+ * sees bytes as they arrive (SSE renders incrementally). `streaming:
+ * false` buffers the whole body into a single `chunk` on completion;
+ * the JS side is agnostic — it queues chunks either way.
  */
 
 export type NativeMultipartPart =
@@ -35,9 +36,9 @@ export interface NativeRequestSpec {
     method: string;
     headers: Record<string, string>;
     /**
-     * When true the native side MAY deliver the body incrementally as
-     * multiple `chunk` events. The buffered implementation ignores the
-     * flag and always sends one chunk; JS handles both identically.
+     * When true the native side delivers the body incrementally as one
+     * `chunk` event per network read; when false it buffers and sends a
+     * single chunk on completion. JS handles both identically.
      */
     streaming: boolean;
     body: NativeBody;
