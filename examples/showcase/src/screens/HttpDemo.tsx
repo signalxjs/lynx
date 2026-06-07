@@ -2,10 +2,14 @@ import { component, signal } from '@sigx/lynx';
 import { Screen } from '@sigx/lynx-navigation';
 import { Button, Card, Col, Heading, ScrollView, Text } from '@sigx/lynx-daisyui';
 import { FilePicker } from '@sigx/lynx-file-picker';
+// On-device the global `fetch`/`FormData` need no import (@sigx/lynx
+// default-wires @sigx/lynx-http). The explicit import here is for the
+// sigx-specific TYPES — file-handle FormData values and the non-standard
+// onUploadProgress — which the ambient DOM lib doesn't know about.
+import { fetch, FormData } from '@sigx/lynx-http';
 
 /**
- * Fetch — the global `fetch` provided by @sigx/lynx-http (default-wired
- * through @sigx/lynx, so note: no http import in this file):
+ * Fetch — the HTTP transport provided by @sigx/lynx-http:
  *
  *  • GET JSON with headers — the everyday path.
  *  • Multipart upload — pick a file, POST it as FormData field `file`
@@ -78,8 +82,8 @@ export const HttpDemo = component(() => {
                         <Col gap={8}>
                             <Text weight="semibold">GET JSON</Text>
                             <Text class="opacity-60 text-sm">
-                                Global fetch — no import needed; @sigx/lynx wires
-                                @sigx/lynx-http into every app.
+                                fetch via @sigx/lynx-http — default-wired by
+                                @sigx/lynx, so apps get a global fetch too.
                             </Text>
                             <Button color="secondary" variant="outline" onPress={runGet}>
                                 GET httpbin.org/json

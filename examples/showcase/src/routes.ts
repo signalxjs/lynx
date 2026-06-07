@@ -21,6 +21,7 @@ import { EmojiPickerScreen } from './screens/EmojiPicker.js';
 import { MapsDemo } from './screens/MapsDemo.js';
 import { MediaDemo } from './screens/MediaDemo.js';
 import { FilePickerDemo } from './screens/FilePickerDemo.js';
+import { HttpDemo } from './screens/HttpDemo.js';
 import { LocationDemo } from './screens/LocationDemo.js';
 import { ShareDemo } from './screens/ShareDemo.js';
 import { DateTimePickerDemo } from './screens/DateTimePickerDemo.js';
@@ -74,6 +75,7 @@ export const routes = defineRoutes({
     mapsDemo: { component: MapsDemo, path: '/maps' },
     mediaDemo: { component: MediaDemo, path: '/media' },
     filePickerDemo: { component: FilePickerDemo, path: '/file-picker' },
+    httpDemo: { component: HttpDemo, path: '/http' },
     locationDemo: { component: LocationDemo, path: '/location' },
     shareDemo: { component: ShareDemo, path: '/share' },
     datetimePickerDemo: { component: DateTimePickerDemo, path: '/datetime-picker' },

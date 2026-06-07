@@ -86,6 +86,9 @@ importers:
       '@sigx/lynx-heroui':
         specifier: workspace:^
         version: link:../../packages/lynx-heroui
+      '@sigx/lynx-http':
+        specifier: workspace:^
+        version: link:../../packages/lynx-http
       '@sigx/lynx-icons':
         specifier: workspace:^
         version: link:../../packages/lynx-icons

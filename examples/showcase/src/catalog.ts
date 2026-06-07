@@ -171,6 +171,13 @@ export const catalog: Area[] = [
                 route: 'filePickerDemo',
             },
             {
+                id: 'http',
+                title: 'Fetch',
+                description: 'Global fetch — GET JSON + multipart upload with progress',
+                icon: { set: 'lucide', name: 'globe' },
+                route: 'httpDemo',
+            },
+            {
                 id: 'location',
                 title: 'Location',
                 description: 'Permission request + one-shot GPS fix',

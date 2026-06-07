@@ -21,7 +21,7 @@ describe('SigxTextDecoder — whole-input decode', () => {
 
     it('accepts ArrayBuffer and typed-array views', () => {
         const bytes = enc('viewé');
-        expect(new SigxTextDecoder().decode(bytes.buffer)).toBe('viewé');
+        expect(new SigxTextDecoder().decode(bytes.buffer as ArrayBuffer)).toBe('viewé');
         const offsetView = new Uint8Array([0, 0, ...bytes]).subarray(2);
         expect(new SigxTextDecoder().decode(offsetView)).toBe('viewé');
     });
