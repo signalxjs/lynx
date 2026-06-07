@@ -75,6 +75,9 @@ export const Select = component<SelectProps>(({ props, emit }) => {
               pressedScale={PRESSED_SCALE}
               pressedOpacity={PRESSED_OPACITY}
               longPressDuration={0}
+              accessibility-element={true}
+              accessibility-label={option.label}
+              accessibility-trait="button"
               onPress={() => {
                 emit('change', option.value);
                 state.open = false;
