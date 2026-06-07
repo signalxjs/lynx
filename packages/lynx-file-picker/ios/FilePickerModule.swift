@@ -52,18 +52,26 @@ class FilePickerModule: NSObject, LynxModule, UIDocumentPickerDelegate {
         }
     }
 
-    /// Root view controller of the active scene's key window — multi-scene
-    /// safe, with the legacy windows list as a fallback.
+    /// Topmost view controller of the active scene's key window — multi-
+    /// scene safe, with the legacy windows list as a fallback. Walks the
+    /// presented-controller chain so presenting over an existing modal
+    /// doesn't fail with "already presenting".
     private static func presenterViewController() -> UIViewController? {
+        var root: UIViewController? = nil
         for scene in UIApplication.shared.connectedScenes {
             guard scene.activationState == .foregroundActive,
                   let windowScene = scene as? UIWindowScene else { continue }
             let window = windowScene.windows.first { $0.isKeyWindow } ?? windowScene.windows.first
-            if let root = window?.rootViewController {
-                return root
+            if let candidate = window?.rootViewController {
+                root = candidate
+                break
             }
         }
-        return UIApplication.shared.windows.first?.rootViewController
+        var top = root ?? UIApplication.shared.windows.first?.rootViewController
+        while let presented = top?.presentedViewController {
+            top = presented
+        }
+        return top
     }
 
     /// Map JS-side MIME filters to UTTypes. Wildcard families map to their
