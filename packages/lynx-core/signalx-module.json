@@ -1,0 +1,17 @@
+{
+    "name": "SigxCore",
+    "package": "@sigx/lynx-core",
+    "description": "Shared native helpers (Activity holder + presentation) for sigx-lynx modules",
+    "platforms": ["android", "ios"],
+    "android": {
+        "activityHook": {
+            "class": "com.sigx.core.SigxActivityHook",
+            "methods": ["onCreate", "onResume", "onPause"]
+        },
+        "sourceDir": "android",
+        "dependencies": ["androidx.fragment:fragment-ktx:1.8.5"]
+    },
+    "ios": {
+        "sourceDir": "ios"
+    }
+}

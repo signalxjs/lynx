@@ -26,6 +26,7 @@ import {
 import { linkAndroid } from '../src/autolink/android.js';
 import { linkIos } from '../src/autolink/ios.js';
 import { resolveConfig } from '../src/config/parser.js';
+import { validateManifest } from '../src/manifest.js';
 import type { ModuleManifest } from '../src/manifest.js';
 import type { LynxConfig } from '../src/config/schema.js';
 
@@ -1230,5 +1231,75 @@ describe('generated registry — registeredCount reset', () => {
         const firstRegisterIdx = body.indexOf('register(on: config', registerAllIdx);
         expect(resetIdx).toBeGreaterThan(registerAllIdx);
         expect(resetIdx).toBeLessThan(firstRegisterIdx);
+    });
+});
+
+describe('shared native runtime — @sigx/lynx-core (#257)', () => {
+    // Mirrors packages/lynx-core/signalx-module.json: an activity hook +
+    // native sources but NO moduleClass on either platform.
+    const coreManifest: ModuleManifest = {
+        name: 'SigxCore',
+        package: '@sigx/lynx-core',
+        description: 'Shared native helpers',
+        platforms: ['android', 'ios'],
+        android: {
+            activityHook: {
+                class: 'com.sigx.core.SigxActivityHook',
+                methods: ['onCreate', 'onResume', 'onPause'],
+            },
+            sourceDir: 'android',
+            dependencies: ['androidx.fragment:fragment-ktx:1.8.5'],
+        },
+        ios: { sourceDir: 'ios' },
+    };
+    const permissionsManifest: ModuleManifest = {
+        name: 'Permissions',
+        package: '@sigx/lynx-permissions',
+        description: 'Permission helper',
+        platforms: ['android'],
+        android: {
+            activityHook: {
+                class: 'com.sigx.permissions.PermissionsActivityHook',
+                methods: ['onCreate', 'onRequestPermissionsResult'],
+            },
+            sourceDir: 'android',
+        },
+    };
+
+    it('the real lynx-core manifest validates cleanly', () => {
+        const manifestPath = new URL('../../lynx-core/signalx-module.json', import.meta.url);
+        const manifest = JSON.parse(readFileSync(manifestPath, 'utf-8'));
+        expect(validateManifest(manifest)).toEqual([]);
+    });
+
+    it('dispatches the lynx-core hook before other hooks (manifest order)', () => {
+        const config = resolveConfig(TEST_CONFIG);
+        const result = linkAndroid(config, [coreManifest, permissionsManifest]);
+
+        const onCreate = result.activityHooksCode;
+        const coreIdx = onCreate.indexOf('com.sigx.core.SigxActivityHook.onCreate');
+        const permsIdx = onCreate.indexOf('com.sigx.permissions.PermissionsActivityHook.onCreate');
+        expect(coreIdx).toBeGreaterThan(-1);
+        expect(permsIdx).toBeGreaterThan(-1);
+        expect(coreIdx).toBeLessThan(permsIdx);
+    });
+
+    it('a moduleClass-less manifest registers nothing on Android', () => {
+        const config = resolveConfig(TEST_CONFIG);
+        const result = linkAndroid(config, [coreManifest]);
+
+        expect(result.registryCode).not.toContain('SigxCore');
+        expect(result.registryCode).not.toContain('com.sigx.core');
+        // …but its gradle dependency still flows through.
+        expect(result.gradleDependencies).toContain('androidx.fragment:fragment-ktx:1.8.5');
+        // …and the lifecycle hooks are wired.
+        expect(result.activityHooksCode).toContain('com.sigx.core.SigxActivityHook.onResume');
+    });
+
+    it('a moduleClass-less manifest registers nothing on iOS', () => {
+        const config = resolveConfig(TEST_CONFIG);
+        const result = linkIos(config, [coreManifest]);
+
+        expect(result.registryCode).not.toContain('SigxCore');
     });
 });

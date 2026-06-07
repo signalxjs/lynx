@@ -11,10 +11,6 @@
     "android": {
         "moduleClass": "com.sigx.securestorage.SecureStorageModule",
         "sourceDir": "android",
-        "activityHook": {
-            "class": "com.sigx.securestorage.SecureStorageActivityHook",
-            "methods": ["onCreate", "onResume", "onPause"]
-        },
         "dependencies": [
             "androidx.security:security-crypto:1.1.0-alpha06",
             "androidx.biometric:biometric:1.2.0-alpha05"

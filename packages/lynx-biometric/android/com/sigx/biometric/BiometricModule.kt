@@ -13,6 +13,7 @@ import com.lynx.jsbridge.LynxModule
 import com.lynx.react.bridge.Callback
 import com.lynx.react.bridge.JavaOnlyMap
 import com.lynx.react.bridge.ReadableMap
+import com.sigx.core.SigxActivityHolder
 
 /**
  * Biometric authentication module — wraps `androidx.biometric.BiometricPrompt`.
@@ -20,8 +21,8 @@ import com.lynx.react.bridge.ReadableMap
  * JS usage: `NativeModules.Biometric.<method>(...)`.
  *
  * Needs a [FragmentActivity] host (the prompt is implemented as a
- * `DialogFragment`). The Activity is supplied by [BiometricActivityHook],
- * auto-wired via this package's `signalx-module.json`.
+ * `DialogFragment`). The Activity comes from `@sigx/lynx-core`'s shared
+ * [SigxActivityHolder], auto-wired via that package's `signalx-module.json`.
  */
 class BiometricModule(context: Context) : LynxModule(context) {
 
@@ -44,7 +45,7 @@ class BiometricModule(context: Context) : LynxModule(context) {
         val allowDeviceCredential = options?.takeIf { it.hasKey("allowDeviceCredential") }
             ?.getBoolean("allowDeviceCredential") ?: false
 
-        val activity = BiometricActivityHolder.current()
+        val activity = SigxActivityHolder.currentFragmentActivity()
         if (activity == null) {
             callback?.invoke(errorPayload("noActivity", "No FragmentActivity in foreground"))
             return

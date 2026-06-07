@@ -25,6 +25,12 @@ class ImagePickerModule: NSObject, LynxModule, PHPickerViewControllerDelegate {
     @objc func pickImage(_ options: [String: Any]?, callback: LynxCallbackBlock?) {
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
+            // Fail fast when nothing can present (multi-scene edge cases) —
+            // never leave the JS Promise hanging on an invisible picker.
+            guard let presenter = SigxPresentation.topPresenter() else {
+                callback?(["cancelled": true, "assets": []])
+                return
+            }
             self.pendingCallback = callback
 
             let selectionLimit = options?["selectionLimit"] as? Int ?? 1
@@ -35,13 +41,17 @@ class ImagePickerModule: NSObject, LynxModule, PHPickerViewControllerDelegate {
 
             let picker = PHPickerViewController(configuration: config)
             picker.delegate = self
-            UIApplication.shared.windows.first?.rootViewController?.present(picker, animated: true)
+            presenter.present(picker, animated: true)
         }
     }
 
     @objc func pickVideo(_ options: [String: Any]?, callback: LynxCallbackBlock?) {
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
+            guard let presenter = SigxPresentation.topPresenter() else {
+                callback?(["cancelled": true, "assets": []])
+                return
+            }
             self.pendingCallback = callback
 
             var config = PHPickerConfiguration()
@@ -50,7 +60,7 @@ class ImagePickerModule: NSObject, LynxModule, PHPickerViewControllerDelegate {
 
             let picker = PHPickerViewController(configuration: config)
             picker.delegate = self
-            UIApplication.shared.windows.first?.rootViewController?.present(picker, animated: true)
+            presenter.present(picker, animated: true)
         }
     }
 
