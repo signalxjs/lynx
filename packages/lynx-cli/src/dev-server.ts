@@ -578,7 +578,9 @@ async function findFreePort(start: number): Promise<number> {
  * (signalxjs/lynx#270). arm64 devices/AVDs and iOS are unaffected. Best-effort:
  * config-load or adb failures just skip the warning.
  */
-const _probedAbis = new Map<string, string | null>();
+// Successful probes only — failed probes (null) are never cached, so the
+// next launch retries them (see the loop below).
+const _probedAbis = new Map<string, string>();
 const _warnedSvgAbi = new Set<string>();
 async function warnIfSvgAbiGap(cwd: string, deviceIds: string[], logger: Logger): Promise<void> {
     const ids = deviceIds.filter((id) => !_warnedSvgAbi.has(id));
@@ -591,7 +593,7 @@ async function warnIfSvgAbiGap(cwd: string, deviceIds: string[], logger: Logger)
         for (const id of ids) {
             // Cache successful ABI probes per device; a failed probe (null)
             // stays uncached so a flaky adb gets retried on the next launch.
-            let abi = _probedAbis.get(id);
+            let abi: string | null | undefined = _probedAbis.get(id);
             if (abi === undefined) {
                 abi = getDeviceCpuAbi(id);
                 if (abi !== null) _probedAbis.set(id, abi);
