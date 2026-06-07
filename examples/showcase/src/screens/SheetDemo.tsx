@@ -12,8 +12,10 @@ import { Button, Col, Heading, Text } from '@sigx/lynx-daisyui';
  * by the navigator; this just shows the user where to grab.
  *
  * Styling follows the showcase screen conventions (Keyboard/HapticsDemo):
- * daisy utility classes + `<Col gap padding>` props — inline px padding
- * styles don't reliably apply on device.
+ * daisy utility classes + `<Col gap padding>` props. Note `Col`/`Row`
+ * have no `style` prop — a `style={{...}}` attribute is silently
+ * dropped, so layout must go through their typed props (or a raw
+ * `<view>` for genuinely custom inline styles).
  */
 export const SheetDemo = component(() => {
     const nav = useNav();
