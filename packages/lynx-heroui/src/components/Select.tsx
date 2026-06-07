@@ -67,7 +67,7 @@ export const Select = component<SelectProps>(({ props, emit }) => {
       </Pressable>
 
       {state.open && !props.disabled ? (
-        <view class="hero-select-dropdown" style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 10 }}>
+        <view class={`hero-select-dropdown${props.color ? ' hero-select-' + props.color : ''}`} style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 10 }}>
           {(props.options ?? []).map((option) => (
             <Pressable
               key={option.value}

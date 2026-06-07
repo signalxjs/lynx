@@ -57,3 +57,18 @@
 .hero-select-option-active { background-color: var(--color-primary-soft); }
 .hero-select-option-label { color: var(--color-base-content); font-size: var(--font-md); }
 .hero-select-option-active .hero-select-option-label { color: var(--color-primary); }
+
+/* Active-option highlight follows the Select's `color` (the color class is
+ * mirrored onto the dropdown). Default (no color) uses primary above. */
+.hero-select-secondary .hero-select-option-active { background-color: var(--color-secondary-soft); }
+.hero-select-secondary .hero-select-option-active .hero-select-option-label { color: var(--color-secondary); }
+.hero-select-accent .hero-select-option-active { background-color: var(--color-accent-soft); }
+.hero-select-accent .hero-select-option-active .hero-select-option-label { color: var(--color-accent); }
+.hero-select-info .hero-select-option-active { background-color: var(--color-info-soft); }
+.hero-select-info .hero-select-option-active .hero-select-option-label { color: var(--color-info); }
+.hero-select-success .hero-select-option-active { background-color: var(--color-success-soft); }
+.hero-select-success .hero-select-option-active .hero-select-option-label { color: var(--color-success); }
+.hero-select-warning .hero-select-option-active { background-color: var(--color-warning-soft); }
+.hero-select-warning .hero-select-option-active .hero-select-option-label { color: var(--color-warning); }
+.hero-select-error .hero-select-option-active { background-color: var(--color-error-soft); }
+.hero-select-error .hero-select-option-active .hero-select-option-label { color: var(--color-error); }
