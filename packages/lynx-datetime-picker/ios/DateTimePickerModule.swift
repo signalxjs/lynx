@@ -25,7 +25,11 @@ class DateTimePickerModule: NSObject, LynxModule {
     @objc func present(_ options: [String: Any]?, callback: LynxCallbackBlock?) {
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
-            guard let host = UIApplication.shared.windows.first?.rootViewController else {
+            // A new pick supersedes any in-flight one — resolve it as
+            // cancelled so its promise never hangs.
+            self.pendingCallback?(["cancelled": true])
+            self.pendingCallback = nil
+            guard let host = Self.topPresenter() else {
                 callback?(["cancelled": true])
                 return
             }
@@ -46,6 +50,21 @@ class DateTimePickerModule: NSObject, LynxModule {
             }
             host.present(sheet, animated: true)
         }
+    }
+
+    /// Top-most presenter on the key window — scene-safe (multi-scene apps
+    /// may have several windows) and able to present above existing modals.
+    private static func topPresenter() -> UIViewController? {
+        let keyWindow = UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .flatMap { $0.windows }
+            .first { $0.isKeyWindow }
+            ?? UIApplication.shared.windows.first
+        var top = keyWindow?.rootViewController
+        while let presented = top?.presentedViewController {
+            top = presented
+        }
+        return top
     }
 }
 
@@ -80,7 +99,10 @@ private class DateTimePickerSheetController: UIViewController,
         if let ms = options?["maximumDate"] as? Double {
             picker.maximumDate = Date(timeIntervalSince1970: ms / 1000)
         }
-        if let interval = options?["minuteInterval"] as? Int, 60 % max(interval, 1) == 0 {
+        // UIDatePicker supports 1–30 and only values that evenly divide 60;
+        // anything else asserts at runtime.
+        if let interval = options?["minuteInterval"] as? Int,
+            (1...30).contains(interval), 60 % interval == 0 {
             picker.minuteInterval = interval
         }
         if let is24Hour = options?["is24Hour"] as? Bool {
@@ -92,7 +114,9 @@ private class DateTimePickerSheetController: UIViewController,
             self.title = title
         }
 
-        modalPresentationStyle = .formSheet
+        // .pageSheet participates in the iOS 15+ detent system (bottom
+        // sheet); .formSheet would center on iPad and ignore detents.
+        modalPresentationStyle = .pageSheet
         if #available(iOS 15.0, *) {
             sheetPresentationController?.detents = [.medium()]
         }

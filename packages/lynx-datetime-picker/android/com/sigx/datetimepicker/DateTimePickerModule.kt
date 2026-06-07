@@ -48,7 +48,17 @@ class DateTimePickerModule(context: Context) : LynxModule(context) {
         val finish: (Long?) -> Unit = { ms ->
             if (!fired[0]) {
                 fired[0] = true
-                callback?.invoke(if (ms != null) result(ms) else cancelled())
+                // minimumDate/maximumDate are instant bounds per the JS
+                // contract, but DatePickerDialog only constrains the day —
+                // picking the min day with an earlier time (datetime mode)
+                // or midnight (date mode) can land outside the range, so
+                // clamp the combined instant. Ignored in time mode, matching
+                // the documented option semantics.
+                val clamped = ms?.let { v ->
+                    if (mode == "time") v
+                    else v.coerceIn(minMs ?: Long.MIN_VALUE, maxMs ?: Long.MAX_VALUE)
+                }
+                callback?.invoke(if (clamped != null) result(clamped) else cancelled())
             }
         }
 
