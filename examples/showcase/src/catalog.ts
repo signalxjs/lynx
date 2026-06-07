@@ -164,6 +164,13 @@ export const catalog: Area[] = [
                 route: 'mediaDemo',
             },
             {
+                id: 'files',
+                title: 'Files',
+                description: 'Generic file picker + binary read round-trip',
+                icon: { set: 'lucide', name: 'file' },
+                route: 'filePickerDemo',
+            },
+            {
                 id: 'location',
                 title: 'Location',
                 description: 'Permission request + one-shot GPS fix',

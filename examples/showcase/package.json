@@ -24,6 +24,8 @@
         "@sigx/lynx-daisyui": "workspace:^",
         "@sigx/lynx-device-info": "workspace:^",
         "@sigx/lynx-emoji": "workspace:^",
+        "@sigx/lynx-file-picker": "workspace:^",
+        "@sigx/lynx-file-system": "workspace:^",
         "@sigx/lynx-gestures": "workspace:^",
         "@sigx/lynx-haptics": "workspace:^",
         "@sigx/lynx-heroui": "workspace:^",

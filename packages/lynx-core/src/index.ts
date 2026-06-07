@@ -8,4 +8,5 @@
  */
 
 export { getModule, callSync, callAsync, isModuleAvailable, guardModule } from './bridge.js';
+export { base64ToArrayBuffer, arrayBufferToBase64 } from './base64.js';
 export type { PermissionStatus, PermissionResponse } from './permissions.js';

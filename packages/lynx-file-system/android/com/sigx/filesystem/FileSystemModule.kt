@@ -1,6 +1,8 @@
 package com.sigx.filesystem
 
 import android.content.Context
+import android.net.Uri
+import android.util.Base64
 import android.util.Log
 import com.lynx.jsbridge.LynxMethod
 import com.lynx.jsbridge.LynxModule
@@ -29,6 +31,42 @@ class FileSystemModule(context: Context) : LynxModule(context) {
                 return
             }
             callback?.invoke(file.readText())
+        } catch (e: Exception) {
+            val error = JavaOnlyMap()
+            error.putString("error", e.message ?: "Unknown error")
+            callback?.invoke(error)
+        }
+    }
+
+    /**
+     * Read a file as raw bytes, returned base64-encoded. Accepts the same
+     * paths as `readFile`, plus `file://` URIs and `content://` URIs —
+     * i.e. anything a picker hands back (`content://` grants are read via
+     * the ContentResolver, not the File API).
+     */
+    @LynxMethod
+    fun readFileBase64(path: String?, callback: Callback?) {
+        try {
+            val p = path ?: ""
+            val bytes: ByteArray? = if (p.startsWith("content://")) {
+                mContext.contentResolver.openInputStream(Uri.parse(p))?.use { it.readBytes() }
+            } else {
+                val file = resolveFile(p)
+                if (!file.exists()) {
+                    val error = JavaOnlyMap()
+                    error.putString("error", "File not found: $path")
+                    callback?.invoke(error)
+                    return
+                }
+                file.readBytes()
+            }
+            if (bytes == null) {
+                val error = JavaOnlyMap()
+                error.putString("error", "Could not open stream: $path")
+                callback?.invoke(error)
+                return
+            }
+            callback?.invoke(Base64.encodeToString(bytes, Base64.NO_WRAP))
         } catch (e: Exception) {
             val error = JavaOnlyMap()
             error.putString("error", e.message ?: "Unknown error")
@@ -92,8 +130,10 @@ class FileSystemModule(context: Context) : LynxModule(context) {
     }
 
     private fun resolveFile(path: String): File {
-        val f = File(path)
-        return if (f.isAbsolute) f else File(mContext.filesDir, path)
+        // Accept `file://` URIs (pickers return these) alongside plain paths.
+        val p = if (path.startsWith("file://")) Uri.parse(path).path ?: path else path
+        val f = File(p)
+        return if (f.isAbsolute) f else File(mContext.filesDir, p)
     }
 }
 

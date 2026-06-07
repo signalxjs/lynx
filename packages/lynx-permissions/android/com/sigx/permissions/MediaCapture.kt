@@ -49,11 +49,15 @@ object MediaCapture {
     private var takePictureLauncher: ActivityResultLauncher<Uri>? = null
     private var pickMediaLauncher: ActivityResultLauncher<PickVisualMediaRequest>? = null
     private var pickMultipleMediaLauncher: ActivityResultLauncher<PickVisualMediaRequest>? = null
+    private var openDocumentLauncher: ActivityResultLauncher<Array<String>>? = null
+    private var openMultipleDocumentsLauncher: ActivityResultLauncher<Array<String>>? = null
 
     private var pendingPhotoUri: Uri? = null
     private var pendingTakePictureCallback: ((JavaOnlyMap) -> Unit)? = null
     private var pendingPickMediaCallback: ((JavaOnlyMap) -> Unit)? = null
     private var pendingPickMultipleMediaCallback: ((JavaOnlyMap) -> Unit)? = null
+    private var pendingOpenDocumentCallback: ((JavaOnlyMap) -> Unit)? = null
+    private var pendingOpenMultipleDocumentsCallback: ((JavaOnlyMap) -> Unit)? = null
     /**
      * Caller-requested cap for multi-pick. The Android `PickMultipleVisualMedia`
      * launcher is registered with a fixed upper bound; we trim the returned
@@ -141,7 +145,48 @@ object MediaCapture {
             cb?.invoke(result)
         }
 
+        // SAF document pickers (any file type, not just visual media). The
+        // MIME-type filter is a per-launch input (unlike PickMultipleVisualMedia's
+        // cap), so a single launcher pair covers every FilePicker call.
+        openDocumentLauncher = activity.registerForActivityResult(
+            ActivityResultContracts.OpenDocument()
+        ) { uri ->
+            val cb = pendingOpenDocumentCallback
+            pendingOpenDocumentCallback = null
+            cb?.invoke(documentResult(if (uri != null) listOf(uri) else emptyList()))
+        }
+
+        openMultipleDocumentsLauncher = activity.registerForActivityResult(
+            ActivityResultContracts.OpenMultipleDocuments()
+        ) { uris ->
+            val cb = pendingOpenMultipleDocumentsCallback
+            pendingOpenMultipleDocumentsCallback = null
+            cb?.invoke(documentResult(uris ?: emptyList()))
+        }
+
         Log.i(TAG, "registered launchers on ${activity.javaClass.simpleName}")
+    }
+
+    /**
+     * Build the `{ cancelled, assets: [{ uri }] }` shape for SAF document
+     * picks. Metadata (name/size/MIME) and persistence are resolved by the
+     * FilePicker module — this layer only routes URIs, matching how the
+     * visual-media launchers leave `persistAssets` to ImagePickerModule.
+     */
+    private fun documentResult(uris: List<Uri>): JavaOnlyMap {
+        val result = JavaOnlyMap()
+        if (uris.isEmpty()) {
+            result.putBoolean("cancelled", true)
+            result.putArray("assets", com.lynx.react.bridge.JavaOnlyArray())
+        } else {
+            val assets = com.lynx.react.bridge.JavaOnlyArray()
+            for (uri in uris) {
+                assets.pushMap(JavaOnlyMap().apply { putString("uri", uri.toString()) })
+            }
+            result.putArray("assets", assets)
+            result.putBoolean("cancelled", false)
+        }
+        return result
     }
 
     /**
@@ -152,6 +197,8 @@ object MediaCapture {
         takePictureLauncher = null
         pickMediaLauncher = null
         pickMultipleMediaLauncher = null
+        openDocumentLauncher = null
+        openMultipleDocumentsLauncher = null
         // Resolve any pending callbacks with cancel so JS Promises don't hang.
         pendingTakePictureCallback?.invoke(JavaOnlyMap().apply {
             putString("error", "activity destroyed")
@@ -165,9 +212,19 @@ object MediaCapture {
             putString("error", "activity destroyed")
             putBoolean("cancelled", true)
         })
+        pendingOpenDocumentCallback?.invoke(JavaOnlyMap().apply {
+            putString("error", "activity destroyed")
+            putBoolean("cancelled", true)
+        })
+        pendingOpenMultipleDocumentsCallback?.invoke(JavaOnlyMap().apply {
+            putString("error", "activity destroyed")
+            putBoolean("cancelled", true)
+        })
         pendingTakePictureCallback = null
         pendingPickMediaCallback = null
         pendingPickMultipleMediaCallback = null
+        pendingOpenDocumentCallback = null
+        pendingOpenMultipleDocumentsCallback = null
         pendingPhotoUri = null
     }
 
@@ -285,6 +342,66 @@ object MediaCapture {
             )
         } catch (e: Throwable) {
             pendingPickMultipleMediaCallback = null
+            callback(JavaOnlyMap().apply {
+                putString("error", e.message ?: "launcher.launch failed")
+                putBoolean("cancelled", true)
+            })
+        }
+    }
+
+    /**
+     * Launch the SAF document picker for a single file of any type. No
+     * runtime permission needed — SAF grants per-pick read access. `types`
+     * is the MIME-type filter; empty means any file. Returns
+     * `{ cancelled, assets: [{ uri }] }` with a `content://` URI.
+     */
+    fun pickFile(types: Array<String>, callback: (JavaOnlyMap) -> Unit) {
+        val launcher = openDocumentLauncher
+        if (launcher == null) {
+            callback(JavaOnlyMap().apply {
+                putString("error", "MediaCapture not registered — wire MediaCapture.register(this) into MainActivity.onCreate")
+                putBoolean("cancelled", true)
+            })
+            return
+        }
+        pendingOpenDocumentCallback?.invoke(JavaOnlyMap().apply {
+            putString("error", "cancelled by new pickFile")
+            putBoolean("cancelled", true)
+        })
+        pendingOpenDocumentCallback = callback
+        try {
+            launcher.launch(if (types.isEmpty()) arrayOf("*/*") else types)
+        } catch (e: Throwable) {
+            pendingOpenDocumentCallback = null
+            callback(JavaOnlyMap().apply {
+                putString("error", e.message ?: "launcher.launch failed")
+                putBoolean("cancelled", true)
+            })
+        }
+    }
+
+    /**
+     * Multi-file variant of `pickFile`. SAF's OpenMultipleDocuments has no
+     * selection cap concept, so unlike `pickImages` there's no trim step.
+     */
+    fun pickFiles(types: Array<String>, callback: (JavaOnlyMap) -> Unit) {
+        val launcher = openMultipleDocumentsLauncher
+        if (launcher == null) {
+            callback(JavaOnlyMap().apply {
+                putString("error", "MediaCapture not registered — wire MediaCapture.register(this) into MainActivity.onCreate")
+                putBoolean("cancelled", true)
+            })
+            return
+        }
+        pendingOpenMultipleDocumentsCallback?.invoke(JavaOnlyMap().apply {
+            putString("error", "cancelled by new pickFiles")
+            putBoolean("cancelled", true)
+        })
+        pendingOpenMultipleDocumentsCallback = callback
+        try {
+            launcher.launch(if (types.isEmpty()) arrayOf("*/*") else types)
+        } catch (e: Throwable) {
+            pendingOpenMultipleDocumentsCallback = null
             callback(JavaOnlyMap().apply {
                 putString("error", e.message ?: "launcher.launch failed")
                 putBoolean("cancelled", true)

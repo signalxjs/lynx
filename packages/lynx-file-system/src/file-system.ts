@@ -1,4 +1,4 @@
-import { callSync, callAsync, isModuleAvailable } from '@sigx/lynx-core';
+import { callSync, callAsync, isModuleAvailable, base64ToArrayBuffer } from '@sigx/lynx-core';
 
 const MODULE = 'FileSystem';
 
@@ -24,6 +24,23 @@ export interface FileInfo {
 export const FileSystem = {
     readFile(path: string): Promise<string> {
         return callAsync<string>(MODULE, 'readFile', path);
+    },
+
+    /**
+     * Read a file as raw bytes, returned base64-encoded. Accepts the same
+     * paths as `readFile`, plus `file://` URIs and (Android) `content://`
+     * URIs — i.e. anything a picker hands back. Rejects on read failure.
+     */
+    async readFileBase64(path: string): Promise<string> {
+        const r = await callAsync<unknown>(MODULE, 'readFileBase64', path);
+        if (typeof r === 'string') return r;
+        const err = (r as { error?: string } | null)?.error ?? 'readFileBase64 failed';
+        throw new Error(`[@sigx/lynx-file-system] ${err}`);
+    },
+
+    /** `readFileBase64` decoded to an `ArrayBuffer`. */
+    async readFileAsArrayBuffer(path: string): Promise<ArrayBuffer> {
+        return base64ToArrayBuffer(await this.readFileBase64(path));
     },
 
     writeFile(path: string, content: string): Promise<void> {
