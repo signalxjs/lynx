@@ -24,6 +24,9 @@
         "prepublishOnly": "node ../../scripts/clean.mjs dist && tsgo",
         "clean": "node ../../scripts/clean.mjs dist .turbo"
     },
+    "dependencies": {
+        "@sigx/lynx-core": "workspace:^"
+    },
     "devDependencies": {
         "@typescript/native-preview": "7.0.0-dev.20260521.1",
         "typescript": "^6.0.3"

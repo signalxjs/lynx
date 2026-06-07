@@ -6,7 +6,7 @@
     "android": {
         "activityHook": {
             "class": "com.sigx.permissions.PermissionsActivityHook",
-            "methods": ["onCreate", "onResume", "onPause", "onRequestPermissionsResult"]
+            "methods": ["onCreate", "onRequestPermissionsResult"]
         },
         "sourceDir": "android",
         "dependencies": [

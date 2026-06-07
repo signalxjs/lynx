@@ -29,7 +29,7 @@ class FilePickerModule: NSObject, LynxModule, UIDocumentPickerDelegate {
             guard let self = self else { return }
             // Fail fast when nothing can present (multi-scene edge cases) —
             // never leave the JS Promise hanging on an invisible picker.
-            guard let presenter = Self.presenterViewController() else {
+            guard let presenter = SigxPresentation.topPresenter() else {
                 callback?(["cancelled": true, "assets": [], "error": "no presenter available"])
                 return
             }
@@ -50,28 +50,6 @@ class FilePickerModule: NSObject, LynxModule, UIDocumentPickerDelegate {
             picker.delegate = self
             presenter.present(picker, animated: true)
         }
-    }
-
-    /// Topmost view controller of the active scene's key window — multi-
-    /// scene safe, with the legacy windows list as a fallback. Walks the
-    /// presented-controller chain so presenting over an existing modal
-    /// doesn't fail with "already presenting".
-    private static func presenterViewController() -> UIViewController? {
-        var root: UIViewController? = nil
-        for scene in UIApplication.shared.connectedScenes {
-            guard scene.activationState == .foregroundActive,
-                  let windowScene = scene as? UIWindowScene else { continue }
-            let window = windowScene.windows.first { $0.isKeyWindow } ?? windowScene.windows.first
-            if let candidate = window?.rootViewController {
-                root = candidate
-                break
-            }
-        }
-        var top = root ?? UIApplication.shared.windows.first?.rootViewController
-        while let presented = top?.presentedViewController {
-            top = presented
-        }
-        return top
     }
 
     /// Map JS-side MIME filters to UTTypes. Wildcard families map to their

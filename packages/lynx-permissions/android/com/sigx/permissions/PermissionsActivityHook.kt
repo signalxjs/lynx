@@ -8,9 +8,10 @@ import androidx.activity.ComponentActivity
  * Activity-lifecycle hook for `@sigx/lynx-permissions`.
  *
  * Discovered by the auto-linker via `signalx-module.json`'s
- * `android.activityHook`. Wires the host Activity into [PermissionHelper]
- * (so runtime permission prompts can show their OS dialog) and registers
- * Activity-result launchers used by Camera + ImagePicker.
+ * `android.activityHook`. Registers Activity-result launchers used by
+ * Camera + ImagePicker and routes permission results into [PermissionHelper].
+ * (The foreground-Activity reference itself lives in `@sigx/lynx-core`'s
+ * shared `SigxActivityHolder` — no per-package holder here.)
  *
  * `MediaCapture.register` MUST run before the Activity reaches STARTED — the
  * Android Activity-result API enforces this — so we call it from `onCreate`
@@ -23,16 +24,6 @@ object PermissionsActivityHook {
         if (activity is ComponentActivity) {
             MediaCapture.register(activity)
         }
-    }
-
-    @JvmStatic
-    fun onResume(activity: Activity) {
-        PermissionHelper.setActivity(activity)
-    }
-
-    @JvmStatic
-    fun onPause(activity: Activity) {
-        PermissionHelper.clearActivity()
     }
 
     @JvmStatic

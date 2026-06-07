@@ -35,7 +35,7 @@ class DateTimePickerModule: NSObject, LynxModule {
                 stale.dismiss(animated: false)
                 self.presentedSheet = nil
             }
-            guard let host = Self.topPresenter() else {
+            guard let host = SigxPresentation.topPresenter() else {
                 callback?(["cancelled": true])
                 return
             }
@@ -59,21 +59,6 @@ class DateTimePickerModule: NSObject, LynxModule {
             self.presentedSheet = sheet
             host.present(sheet, animated: true)
         }
-    }
-
-    /// Top-most presenter on the key window — scene-safe (multi-scene apps
-    /// may have several windows) and able to present above existing modals.
-    private static func topPresenter() -> UIViewController? {
-        let keyWindow = UIApplication.shared.connectedScenes
-            .compactMap { $0 as? UIWindowScene }
-            .flatMap { $0.windows }
-            .first { $0.isKeyWindow }
-            ?? UIApplication.shared.windows.first
-        var top = keyWindow?.rootViewController
-        while let presented = top?.presentedViewController {
-            top = presented
-        }
-        return top
     }
 }
 

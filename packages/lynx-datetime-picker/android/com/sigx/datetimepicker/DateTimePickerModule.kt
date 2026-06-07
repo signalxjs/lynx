@@ -10,6 +10,7 @@ import com.lynx.jsbridge.LynxModule
 import com.lynx.react.bridge.Callback
 import com.lynx.react.bridge.JavaOnlyMap
 import com.lynx.react.bridge.ReadableMap
+import com.sigx.core.SigxActivityHolder
 import java.util.Calendar
 
 /**
@@ -19,15 +20,15 @@ import java.util.Calendar
  * dialog; cancelling either step cancels the whole pick.
  *
  * JS usage: `NativeModules.DateTimePicker.present(options, callback)`.
- * All instants cross the bridge as epoch milliseconds. The Activity is
- * supplied by [DateTimePickerActivityHook], auto-wired via this package's
- * `signalx-module.json`.
+ * All instants cross the bridge as epoch milliseconds. The Activity comes
+ * from `@sigx/lynx-core`'s shared [SigxActivityHolder], auto-wired via that
+ * package's `signalx-module.json`.
  */
 class DateTimePickerModule(context: Context) : LynxModule(context) {
 
     @LynxMethod
     fun present(options: ReadableMap?, callback: Callback?) {
-        val activity = DateTimePickerActivityHolder.current()
+        val activity = SigxActivityHolder.current()
         if (activity == null) {
             callback?.invoke(cancelled())
             return

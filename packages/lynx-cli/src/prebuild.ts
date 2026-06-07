@@ -251,11 +251,24 @@ export async function loadConfig(cwd: string): Promise<LynxConfig> {
  */
 export async function loadManifests(modulePackages: string[], cwd: string): Promise<ModuleManifest[]> {
     const require = createRequire(join(cwd, 'package.json'));
+    // Transitively-discovered packages (e.g. @sigx/lynx-core pulled in by a
+    // module's own deps) aren't resolvable from the app root under pnpm's
+    // strict node_modules — the index resolves them from their dependent.
+    const index = buildManifestIndex(cwd);
     const manifests: ModuleManifest[] = [];
 
-    for (const pkg of modulePackages) {
+    // lynx-core's activity hook must dispatch before any other hook in the
+    // same lifecycle callback (GeneratedActivityHooks calls hooks in manifest
+    // order), so consumers of SigxActivityHolder always see a populated
+    // holder. Discovery already sorts it first, but config-declared modules
+    // (`modules:` in signalx.config) are prepended to the discovered list —
+    // enforce the invariant here regardless of how the list was assembled.
+    const ordered = [...modulePackages].sort((a, b) =>
+        a === '@sigx/lynx-core' ? -1 : b === '@sigx/lynx-core' ? 1 : 0);
+
+    for (const pkg of ordered) {
         try {
-            const manifestPath = require.resolve(`${pkg}/signalx-module.json`);
+            const manifestPath = index.get(pkg) ?? require.resolve(`${pkg}/signalx-module.json`);
             const raw = readFileSync(manifestPath, 'utf-8');
             const manifest = JSON.parse(raw);
             const errors = validateManifest(manifest);
@@ -615,6 +628,7 @@ export function copyDevClientSources(cwd: string, config: ResolvedConfig, devCli
  */
 export function copyAndroidModuleSources(cwd: string, config: ResolvedConfig, manifests: ModuleManifest[]): void {
     const require = createRequire(join(cwd, 'package.json'));
+    const index = buildManifestIndex(cwd);
 
     let copiedPackages = 0;
     for (const manifest of manifests) {
@@ -630,8 +644,10 @@ export function copyAndroidModuleSources(cwd: string, config: ResolvedConfig, ma
             // Resolve via signalx-module.json (which we know is exported — it
             // had to be for autolink to find the manifest in the first place)
             // rather than package.json (which packages with `exports` fields
-            // don't always expose).
-            const manifestPath = require.resolve(`${manifest.package}/signalx-module.json`);
+            // don't always expose). Index first: transitively-discovered
+            // packages don't resolve from the app root under pnpm.
+            const manifestPath = index.get(manifest.package)
+                ?? require.resolve(`${manifest.package}/signalx-module.json`);
             pkgDir = dirname(manifestPath);
         } catch (e) {
             log(`${manifest.package}: not in node_modules, skipping Android source copy (${(e as Error).message})`);
@@ -662,6 +678,7 @@ export function copyAndroidModuleSources(cwd: string, config: ResolvedConfig, ma
  */
 export function copyIosModuleSources(cwd: string, config: ResolvedConfig, manifests: ModuleManifest[]): void {
     const require = createRequire(join(cwd, 'package.json'));
+    const index = buildManifestIndex(cwd);
     // Group names match the destination dir names — Xcode resolves
     // `sourceTree = "<group>"` files relative to their group's path.
     const moduleDest = join(iosSourceRoot(cwd, config), 'GeneratedModules');
@@ -678,8 +695,11 @@ export function copyIosModuleSources(cwd: string, config: ResolvedConfig, manife
         let pkgDir: string;
         try {
             // Resolve via signalx-module.json (always exported); package.json
-            // isn't always exposed when an `exports` field exists.
-            const manifestPath = require.resolve(`${manifest.package}/signalx-module.json`);
+            // isn't always exposed when an `exports` field exists. Index
+            // first: transitively-discovered packages don't resolve from the
+            // app root under pnpm.
+            const manifestPath = index.get(manifest.package)
+                ?? require.resolve(`${manifest.package}/signalx-module.json`);
             pkgDir = dirname(manifestPath);
         } catch (e) {
             log(`${manifest.package}: not in node_modules, skipping iOS source copy (${(e as Error).message})`);
@@ -757,53 +777,114 @@ function collectSwiftFiles(root: string): string[] {
 }
 
 /**
- * Auto-discover sigx native module packages installed in the consumer app.
+ * Build an index of every resolvable sigx module manifest reachable from the
+ * consumer app: `package name → absolute path of its signalx-module.json`.
  *
- * Iterates the app's direct dependencies (and devDependencies, so packages
- * scoped to dev like @sigx/lynx-dev-client still get linked) and includes
- * any whose `signalx-module.json` is resolvable. Skips packages already in
- * `existingPackages` (i.e. declared via `modules:` in the config) and
- * anything listed in `excludeModules`.
+ * Starts from the app's direct dependencies (and devDependencies, so packages
+ * scoped to dev like @sigx/lynx-dev-client still get indexed) and walks each
+ * found module's own runtime `dependencies` the same way (breadth-first), so
+ * a native module that depends on another native package — e.g. every
+ * module's dependency on `@sigx/lynx-core`, which ships the shared Activity
+ * holder — is indexed without the app declaring it directly. Resolution for
+ * transitive candidates is anchored at the *dependent* package's own
+ * location, which matters under pnpm's strict (non-hoisted) node_modules:
+ * the app's resolver cannot see its transitive dependencies at all.
  *
  * The presence of `signalx-module.json` IS the "this is a Lynx native module"
  * marker — packages without it (icons, navigation, etc.) are silently ignored.
  */
-export async function discoverSigxPackages(
-    cwd: string,
-    existingPackages: string[],
-    excludeModules: string[] = [],
-): Promise<string[]> {
-    const discovered: string[] = [];
-    const require = createRequire(join(cwd, 'package.json'));
+export function buildManifestIndex(cwd: string): Map<string, string> {
+    const index = new Map<string, string>();
 
     let pkgJson: { dependencies?: Record<string, string>; devDependencies?: Record<string, string> };
     try {
         pkgJson = JSON.parse(readFileSync(join(cwd, 'package.json'), 'utf-8'));
     } catch {
         // No package.json — nothing to scan.
-        return discovered;
+        return index;
     }
 
-    const existing = new Set(existingPackages);
-    const excluded = new Set(excludeModules);
-    const candidates = new Set<string>([
+    const visited = new Set<string>();
+    const appRequire = createRequire(join(cwd, 'package.json'));
+    const queue: Array<{ pkg: string; resolve: NodeJS.RequireResolve }> = [];
+    for (const pkg of new Set([
         ...Object.keys(pkgJson.dependencies ?? {}),
         ...Object.keys(pkgJson.devDependencies ?? {}),
-    ]);
+    ])) {
+        queue.push({ pkg, resolve: appRequire.resolve });
+    }
 
-    for (const pkg of candidates) {
-        if (existing.has(pkg) || excluded.has(pkg)) continue;
+    // Index pointer rather than queue.shift() — shift() reindexes the array
+    // on every pop, turning the BFS O(n²) on large dependency graphs.
+    for (let head = 0; head < queue.length; head++) {
+        const { pkg, resolve } = queue[head];
+        if (visited.has(pkg)) continue;
+        visited.add(pkg);
+
+        let manifestPath: string;
         try {
-            require.resolve(`${pkg}/signalx-module.json`);
-            discovered.push(pkg);
+            manifestPath = resolve(`${pkg}/signalx-module.json`);
         } catch {
             // Either MODULE_NOT_FOUND (package isn't a Lynx module / not installed)
             // or ERR_PACKAGE_PATH_NOT_EXPORTED (package's `exports` field doesn't
             // list this subpath — fires for every non-Lynx package that uses
             // exports). Both are expected for the vast majority of deps; surfacing
             // either as a warning would drown the user in false positives.
+            continue;
+        }
+        index.set(pkg, manifestPath);
+
+        // Walk this module's own runtime dependencies (devDependencies aren't
+        // shipped). The manifest always sits at the package root, so its
+        // sibling package.json is readable from disk even when the package's
+        // `exports` field doesn't expose it — and anchoring the resolver there
+        // is what makes transitive-only packages resolvable under pnpm.
+        const modPkgJsonPath = join(dirname(manifestPath), 'package.json');
+        let modPkg: { dependencies?: Record<string, string> };
+        try {
+            modPkg = JSON.parse(readFileSync(modPkgJsonPath, 'utf-8'));
+        } catch {
+            continue;
+        }
+        const modResolve = createRequire(modPkgJsonPath).resolve;
+        for (const dep of Object.keys(modPkg.dependencies ?? {})) {
+            if (!visited.has(dep)) {
+                queue.push({ pkg: dep, resolve: modResolve });
+            }
         }
     }
+
+    return index;
+}
+
+/**
+ * Auto-discover sigx native module packages installed in the consumer app —
+ * direct dependencies plus their transitive module dependencies (see
+ * [buildManifestIndex]). Skips packages already in `existingPackages` (i.e.
+ * declared via `modules:` in the config) and anything listed in
+ * `excludeModules` (which applies to transitive finds too).
+ */
+export async function discoverSigxPackages(
+    cwd: string,
+    existingPackages: string[],
+    excludeModules: string[] = [],
+): Promise<string[]> {
+    const existing = new Set(existingPackages);
+    const excluded = new Set(excludeModules);
+    const discovered = [...buildManifestIndex(cwd).keys()]
+        .filter((pkg) => !existing.has(pkg) && !excluded.has(pkg));
+
+    // Excluding lynx-core silently breaks every module that reads the shared
+    // SigxActivityHolder — allow it (pre-1.0, user's choice) but say so.
+    if (excluded.has('@sigx/lynx-core') && (discovered.length > 0 || existing.size > 0)) {
+        log('⚠ @sigx/lynx-core is excluded — modules relying on its shared native helpers (biometric, pickers, …) will not find an Activity.');
+    }
+
+    // The lynx-core activity hook must run before other modules' hooks within
+    // the same lifecycle callback, so consumers of SigxActivityHolder see a
+    // populated holder. GeneratedActivityHooks dispatches in manifest order.
+    discovered.sort((a, b) =>
+        a === '@sigx/lynx-core' ? -1 : b === '@sigx/lynx-core' ? 1 : 0);
 
     return discovered;
 }
@@ -1800,21 +1881,12 @@ export function fingerprintPrebuildInputs(cwd: string, platforms: { android: boo
     const hookPath = readCachedFingerprint(cwd, 'prebuild-post-hook-path');
     if (hookPath) files.push(hookPath);
 
-    const req = createRequire(join(cwd, 'package.json'));
-    let pkgJson: { dependencies?: Record<string, string>; devDependencies?: Record<string, string> };
-    try {
-        pkgJson = JSON.parse(readFileSync(join(cwd, 'package.json'), 'utf-8'));
-    } catch {
-        pkgJson = {};
-    }
-    const candidates = new Set([
-        ...Object.keys(pkgJson.dependencies ?? {}),
-        ...Object.keys(pkgJson.devDependencies ?? {}),
-    ]);
-    for (const pkg of [...candidates].sort()) {
-        let manifestPath: string;
-        try { manifestPath = req.resolve(`${pkg}/signalx-module.json`); }
-        catch { continue; } // not a sigx module
+    // Index covers transitive module dependencies too (e.g. @sigx/lynx-core
+    // pulled in by another module) — their copied sources are prebuild
+    // outputs just like direct deps', so they must invalidate the fast path.
+    const index = buildManifestIndex(cwd);
+    for (const pkg of [...index.keys()].sort()) {
+        const manifestPath = index.get(pkg)!;
         files.push(manifestPath);
 
         // Also fold every file under the package's declared sourceDir into
@@ -1853,7 +1925,9 @@ export function fingerprintPrebuildInputs(cwd: string, platforms: { android: boo
         // v3: include android.releaseStubsDir contents; dev-client sources
         //     moved to src/debug + release stubs to src/release (#172).
         // v4: include the prebuild.post hook script (via sidecar path, #175).
-        fingerprintFormat: 'v4',
+        // v5: manifests come from buildManifestIndex, so transitively
+        //     discovered modules (e.g. @sigx/lynx-core) are fingerprinted too.
+        fingerprintFormat: 'v5',
         cliVersion: getCliVersion(),
         platforms: `android=${platforms.android};ios=${platforms.ios}`,
     });

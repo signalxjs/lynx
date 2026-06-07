@@ -14,10 +14,6 @@
     "android": {
         "moduleClass": "com.sigx.biometric.BiometricModule",
         "sourceDir": "android",
-        "activityHook": {
-            "class": "com.sigx.biometric.BiometricActivityHook",
-            "methods": ["onCreate", "onResume", "onPause"]
-        },
         "dependencies": [
             "androidx.biometric:biometric:1.2.0-alpha05"
         ],

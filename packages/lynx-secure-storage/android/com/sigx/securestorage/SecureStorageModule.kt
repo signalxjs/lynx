@@ -17,6 +17,7 @@ import com.lynx.jsbridge.LynxModule
 import com.lynx.react.bridge.Callback
 import com.lynx.react.bridge.JavaOnlyMap
 import com.lynx.react.bridge.ReadableMap
+import com.sigx.core.SigxActivityHolder
 import java.security.KeyStore
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
@@ -213,7 +214,7 @@ class SecureStorageModule(context: Context) : LynxModule(context) {
             return
         }
 
-        val activity = SecureStorageActivityHolder.current()
+        val activity = SigxActivityHolder.currentFragmentActivity()
         if (activity == null) {
             callback?.invoke(errorPayload("No FragmentActivity in foreground for BiometricPrompt"))
             return
