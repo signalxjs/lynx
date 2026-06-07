@@ -381,6 +381,18 @@ export function createNavigatorState(opts: CreateNavigatorOptions): NavigatorSta
             if (isOwnTransition(transitionBox.value, txn)) setTransition(null);
         };
 
+        // Seed the sheet SV off-screen immediately: this render binds the
+        // new sheet's layer to the SV, and a previously-open sheet can have
+        // left it non-zero — without the seed, the new sheet flashes at the
+        // stale height until the deferred animation start below resets it.
+        if (isSheet && sv) {
+            const seedRunner = runOnMainThread(() => {
+                'main thread';
+                sv.current.value = 0;
+            });
+            seedRunner();
+        }
+
         // A sheet opens to its initial snap point, not progress 1. The snap
         // config comes from the screen's `<Screen snapPoints>` registration,
         // which lands during the render flush — DEFERRED on the real
