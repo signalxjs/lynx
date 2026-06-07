@@ -1,5 +1,5 @@
 import { component, signal } from '@sigx/lynx';
-import { Col, Row, Toggle, Text } from '@sigx/lynx-heroui';
+import { Row, Toggle, Text } from '@sigx/lynx-heroui';
 import type { HeroComponentDemo } from '../registry.js';
 
 /** Toggle — pill switch; semantic color when on, sm/md/lg sizes. */

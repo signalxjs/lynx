@@ -32,11 +32,14 @@ export const Textarea = component<TextareaProps>(({ props }) => {
     return c.join(' ');
   };
 
+  // Vertical padding matches textarea.css per size (sm 8 / md 10 / lg 12, top+bottom)
+  // so the computed height lines up with the rendered padding.
+  const verticalPadding: Record<TextareaSize, number> = { sm: 16, md: 20, lg: 24 };
+
   const getHeight = () => {
     const rows = props.rows ?? 3;
     const lineHeight = 20;
-    const padding = 20;
-    return rows * lineHeight + padding;
+    return rows * lineHeight + verticalPadding[props.size ?? 'md'];
   };
 
   return () => (

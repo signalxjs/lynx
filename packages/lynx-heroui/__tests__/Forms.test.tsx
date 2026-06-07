@@ -110,19 +110,19 @@ describe('hero Radio', () => {
     expect(cls).toContain('hero-radio-lg');
   });
 
-  it('group value drives item selection and color is inherited', () => {
-    const { container } = render(
-      <Radio value="b" color="success">
-        <Radio.Item value="a" label="A" />
-        <Radio.Item value="b" label="B" />
-      </Radio>,
-    );
-    // The item matching the group value is checked (inner dot) and inherits color.
-    const checkedCircle = render(
+  it('group value drives item selection; matching item is checked + inherits color', () => {
+    const matches = render(
       <Radio value="b" color="success"><Radio.Item value="b" label="B" /></Radio>,
     ).container.children[0].children[0].children[0];
-    expect(checkedCircle.children.length).toBeGreaterThan(0);
-    expect(checkedCircle._class.split(' ')).toContain('hero-radio-success');
-    expect(container).toBeTruthy();
+    expect(matches.children.length).toBeGreaterThan(0); // inner dot present
+    expect(matches._class.split(' ')).toContain('hero-radio-success');
+  });
+
+  it('group value leaves a non-matching item unchecked', () => {
+    const other = render(
+      <Radio value="b" color="success"><Radio.Item value="a" label="A" /></Radio>,
+    ).container.children[0].children[0].children[0];
+    expect(other.children.length).toBe(0); // no inner dot
+    expect(other._class.split(' ')).toContain('hero-radio-success'); // color still inherited
   });
 });

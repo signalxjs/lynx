@@ -1,5 +1,5 @@
 import { component, signal } from '@sigx/lynx';
-import { Checkbox, Col, Row, Text } from '@sigx/lynx-heroui';
+import { Checkbox, Row, Text } from '@sigx/lynx-heroui';
 import type { HeroComponentDemo } from '../registry.js';
 
 /** Checkbox — rounded box + checkmark; semantic color, size ramp. */
