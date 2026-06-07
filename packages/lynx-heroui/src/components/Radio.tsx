@@ -20,7 +20,10 @@ export type RadioGroupProps =
   & Define.Event<'change', string>;
 
 export type RadioItemProps =
-  & Define.Prop<'value', string, true>
+  // Optional for parity with daisy's Radio.Item — supports purely controlled
+  // use (`checked` without group-driven selection). The onPress guard below
+  // no-ops when it's absent.
+  & Define.Prop<'value', string, false>
   & Define.Prop<'label', string, false>
   & Define.Prop<'disabled', boolean, false>
   /** Explicit override — when set, wins over the group's `value`. */
