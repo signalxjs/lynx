@@ -30,6 +30,7 @@
         "@sigx/lynx-gestures": "workspace:^",
         "@sigx/lynx-haptics": "workspace:^",
         "@sigx/lynx-heroui": "workspace:^",
+        "@sigx/lynx-http": "workspace:^",
         "@sigx/lynx-icons": "workspace:^",
         "@sigx/lynx-icons-fa-free": "workspace:^",
         "@sigx/lynx-icons-lucide": "workspace:^",
