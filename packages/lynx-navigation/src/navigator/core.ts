@@ -98,6 +98,22 @@ export interface NavigatorState {
 const TRANSITION_DURATION_SEC = 0.28;
 
 /**
+ * Sheet transition duration, velocity-matched to the card/modal slide:
+ * those travel the full screen in `TRANSITION_DURATION_SEC`, while a
+ * sheet only travels to its detent — a flat duration made the sheet move
+ * at a fraction of the modal's speed and read as sluggish (user feedback
+ * on #290). `heightFraction` is the share of screen height traveled
+ * (snap progress × largest snap fraction); the floor keeps very low
+ * detents from snapping open instantly.
+ */
+function sheetDurationSec(heightFraction: number): number {
+    return Math.max(
+        0.15,
+        TRANSITION_DURATION_SEC * Math.min(1, Math.max(0, heightFraction)),
+    );
+}
+
+/**
  * Kick off a lazy component's chunk fetch when its route is navigated to.
  *
  * Lazy routes (`component: lazy(() => import('./Heavy.js'))`) start loading
@@ -395,30 +411,51 @@ export function createNavigatorState(opts: CreateNavigatorOptions): NavigatorSta
 
         // A sheet opens to its initial snap point, not progress 1. The snap
         // config comes from the screen's `<Screen snapPoints>` registration,
-        // which lands during the render flush — DEFERRED on the real
+        // which lands during the render flush — deferred on the real
         // runtime, so it is NOT readable synchronously here (it is under
         // lynx-testing's eager flush, which is why only on-device testing
-        // catches this). Wait one macrotask for the mount before reading;
-        // the transition state is already committed so the sheet renders
-        // (off-screen at sv≈0) in the meantime. Lazy sheet routes that
-        // still haven't resolved fall back to the default snap config.
+        // catches this). Poll microtask-first: the flush usually lands
+        // within a microtask, and a macrotask wait added a perceptible
+        // hesitation between tap and slide (modal starts in the same
+        // flush). Fall back to one macrotask, then to the default snap
+        // config (lazy routes that still haven't resolved).
+        const readSheetTarget = (): { target: number; heightFraction: number } | null => {
+            const screenOpts = untrack(() => {
+                const o = screens.get(newEntry.key)?.options;
+                return o?.snapPoints
+                    ? { snapPoints: o.snapPoints, initialSnapIndex: o.initialSnapIndex }
+                    : null;
+            });
+            if (!screenOpts) return null;
+            const snaps = resolveSnapPoints(screenOpts.snapPoints);
+            const target = initialSnapProgress(snaps, screenOpts.initialSnapIndex);
+            return { target, heightFraction: target * snaps[snaps.length - 1] };
+        };
         const startSheetPush = async (): Promise<void> => {
-            await new Promise<void>((resolve) => { setTimeout(resolve, 0); });
-            // The entry can have left the stack during the deferred tick
+            let read = readSheetTarget();
+            if (read === null) {
+                await Promise.resolve(); // microtask — usual flush boundary
+                read = readSheetTarget();
+            }
+            if (read === null) {
+                await new Promise<void>((resolve) => { setTimeout(resolve, 0); });
+                const snaps = resolveSnapPoints(undefined);
+                read = readSheetTarget() ?? {
+                    target: initialSnapProgress(snaps, undefined),
+                    heightFraction: snaps[snaps.length - 1],
+                };
+            }
+            // The entry can have left the stack during the deferred wait
             // (e.g. a `reset()` — ordinary pops are blocked while the
             // transition is set). Don't animate the SV for a dead sheet.
             const stackNow = getStack();
             if (stackNow[stackNow.length - 1]?.key !== newEntry.key) return;
-            const screenOpts = untrack(() => {
-                const o = screens.get(newEntry.key)?.options;
-                return {
-                    snapPoints: o?.snapPoints,
-                    initialSnapIndex: o?.initialSnapIndex,
-                };
-            });
-            const snaps = resolveSnapPoints(screenOpts.snapPoints);
-            const target = initialSnapProgress(snaps, screenOpts.initialSnapIndex);
-            return animateProgress(sv, 0, target, TRANSITION_DURATION_SEC);
+            return animateProgress(
+                sv,
+                0,
+                read.target,
+                sheetDurationSec(read.heightFraction),
+            );
         };
         (isSheet
             ? startSheetPush()
@@ -491,7 +528,20 @@ export function createNavigatorState(opts: CreateNavigatorOptions): NavigatorSta
                 setTransition(null);
             });
         };
-        animateProgress(sv, isSheet ? null : 0, isSheet ? 0 : 1, TRANSITION_DURATION_SEC).then(
+        // Sheet pop duration is velocity-matched like the push. BG doesn't
+        // know the live SV value (a drag may have settled at another
+        // detent), so the initial-snap height is the best estimate — at
+        // worst the duration is off by one detent's distance.
+        let durationSec = TRANSITION_DURATION_SEC;
+        if (isSheet) {
+            const o = untrack(() => screens.get(popping.key)?.options);
+            const snaps = resolveSnapPoints(o?.snapPoints);
+            durationSec = sheetDurationSec(
+                initialSnapProgress(snaps, o?.initialSnapIndex) *
+                    snaps[snaps.length - 1],
+            );
+        }
+        animateProgress(sv, isSheet ? null : 0, isSheet ? 0 : 1, durationSec).then(
             commitOwnPop,
             commitOwnPop,
         );
