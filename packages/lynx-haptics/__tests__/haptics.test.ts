@@ -15,7 +15,9 @@ afterEach(() => {
 
 describe('Haptics graceful degradation', () => {
   it('no-ops (does not throw) when NativeModules is absent (e.g. web)', () => {
-    // No `NativeModules` global in this environment — the web/unsupported case.
+    // Explicitly force the web/unsupported case so the test never depends on
+    // ambient global state another test file might leave behind.
+    vi.stubGlobal('NativeModules', undefined);
     expect(() => Haptics.selection()).not.toThrow();
     expect(() => Haptics.impact('medium')).not.toThrow();
     expect(() => Haptics.notification('success')).not.toThrow();
