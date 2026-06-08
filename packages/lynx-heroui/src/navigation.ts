@@ -4,7 +4,7 @@
 // `@sigx/lynx-zero/screen-theme`). Apps using these install the peer and import
 // from this subpath:
 //
-//   import { NavHeader, NavTabBar } from '@sigx/lynx-heroui/navigation';
+//   import { NavHeader, NavTabBar, NavDrawer } from '@sigx/lynx-heroui/navigation';
 export { NavHeader } from './components/NavHeader.js';
 export type { NavHeaderProps, NavHeaderBackground } from './components/NavHeader.js';
 export { NavTabBar } from './components/NavTabBar.js';
@@ -14,3 +14,5 @@ export type {
   NavTabBarBackground,
   NavTabRenderContext,
 } from './components/NavTabBar.js';
+export { NavDrawer } from './components/NavDrawer.js';
+export type { NavDrawerProps, NavDrawerSide } from './components/NavDrawer.js';
