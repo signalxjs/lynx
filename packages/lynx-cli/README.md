@@ -1,6 +1,6 @@
 # @sigx/lynx-cli
 
-The Lynx plugin for [`@sigx/cli`](https://github.com/signalxjs/cli/tree/main/packages/cli) — adds `dev`, `build`, `prebuild`, `doctor`, `run:android`, and `run:ios` commands for SignalX projects targeting [Lynx](https://lynxjs.org/).
+The Lynx plugin for [`@sigx/cli`](https://github.com/signalxjs/cli/tree/main/packages/cli) — adds `dev`, `build`, `prebuild`, `doctor`, `run:android`, `run:ios`, and `run:web` commands for SignalX projects targeting [Lynx](https://lynxjs.org/).
 
 This package is auto-installed when you scaffold a Lynx project:
 
@@ -19,6 +19,7 @@ npm create @sigx@latest my-app
 | `sigx doctor`      | Verify your toolchain (rspeedy, JDK, ADB, Xcode, CocoaPods, devices) |
 | `sigx run:android` | `prebuild` → install via Gradle → launch on the connected device |
 | `sigx run:ios`     | `prebuild` → `pod install` → build and launch on the iOS simulator |
+| `sigx run:web`     | Build the web bundle, serve it in the browser via Lynx for Web, and live-reload on change |
 
 The plugin is auto-discovered by `@sigx/cli` because of this entry in its `package.json`:
 
@@ -27,6 +28,35 @@ The plugin is auto-discovered by `@sigx/cli` because of this entry in its `packa
     "sigx-cli": { "plugin": "./dist/plugin.js" }
 }
 ```
+
+## Running on the web
+
+`sigx run:web` runs your app in a desktop browser through upstream
+[Lynx for Web](https://lynxjs.org/) (`@lynx-js/web-core`) — handy for quick
+previews, sharing a link, or debugging UI with browser devtools. It builds the
+web bundle (`rspeedy build --environment web`), then serves it together with the
+web-core engine and a generated `<lynx-view>` host page on a local port, and
+opens your browser. Edit a source file and the browser reloads automatically.
+
+```bash
+sigx run:web                 # build, serve, open the browser, watch for changes
+sigx run:web --port 9000     # pick the port (default: 8900)
+sigx run:web --no-open       # don't open a browser
+sigx run:web --no-watch      # build + serve once, no live reload
+sigx run:web --host          # also expose on your LAN
+```
+
+Requirements & notes:
+
+- Your `lynx.config.ts` must declare a web environment:
+  `environments: { lynx: {}, web: {} }`.
+- The page is served with cross-origin-isolation (COOP/COEP) headers, which
+  `web-core` needs for `SharedArrayBuffer`. This works on `localhost` (a secure
+  context); a plain-http LAN address (`--host`) is **not** isolated, so some
+  features may degrade there.
+- Live reload is a **full reload** (re-fetch the bundle), not hot-swap — Lynx's
+  HMR transport is device-oriented and is off for the web target (matching
+  upstream).
 
 ## Auto-linking
 
