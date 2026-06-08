@@ -57,9 +57,12 @@ const roles = [
 </Radio>
 ```
 
-`Checkbox`/`Toggle` also accept a static `checked` prop (plus an `onChange`
-event) for controlled/display-only usage; `Select`/`Radio.Item` accept a static
-`value`/`checked` for the same. When a `model` is bound it takes precedence.
+`Checkbox`/`Toggle` also accept a static `checked` prop **and** an `onChange`
+event for controlled (non-model) usage. `Select`/`Radio.Item` take a static
+`value`/`checked` as **display-only** initial state — they have no change
+callback (a prop named `value` collides with runtime-core's `emit` handler
+lookup, so events on them never fire), so use `model` for any interactivity.
+When a `model` is bound it always takes precedence over the static prop.
 
 ## Use the styles
 
