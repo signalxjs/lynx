@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { render } from '@sigx/lynx-testing';
+import { signal } from '@sigx/lynx';
 import { Radio } from '../src/forms/Radio';
 
 describe('Radio', () => {
@@ -81,5 +82,25 @@ describe('Radio', () => {
     );
     const group = container.children[0];
     expect(group._class).toBe('custom-group');
+  });
+
+  it('marks an item checked when its value equals the bound model', () => {
+    const plan = signal('pro');
+    const { container } = render(
+      <Radio.Item value="pro" label="Pro" model={() => plan.value} />
+    );
+    const circle = container.children[0].children[0];
+    expect(circle._class).toContain('radio-checked');
+    expect(circle.children.length).toBeGreaterThan(0); // radio-mark present
+  });
+
+  it('leaves an item unchecked when its value differs from the model', () => {
+    const plan = signal('pro');
+    const { container } = render(
+      <Radio.Item value="free" label="Free" model={() => plan.value} />
+    );
+    const circle = container.children[0].children[0];
+    expect(circle._class).not.toContain('radio-checked');
+    expect(circle.children.length).toBe(0);
   });
 });

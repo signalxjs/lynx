@@ -4,12 +4,12 @@ import type { DaisyComponentDemo } from '../registry.js';
 
 /**
  * Radio — a grouped `Radio` with `Radio.Item`s: the color ramp, the size
- * ramp, the disabled state and a live `onSelect`-bound group echoing its value.
+ * ramp, the disabled state and a live `model`-bound group echoing its value.
  */
 export const radioDemo: DaisyComponentDemo = {
     id: 'radio',
     title: 'Radio',
-    description: 'Grouped Radio.Item color & size ramps, disabled state, live onSelect binding',
+    description: 'Grouped Radio.Item color & size ramps, disabled state, live two-way model binding',
     icon: { set: 'lucide', name: 'circle-dot' },
     sections: [
         {
@@ -46,7 +46,7 @@ export const radioDemo: DaisyComponentDemo = {
             )),
         },
         {
-            title: 'Select events',
+            title: 'Two-way binding',
             Demo: component(() => {
                 const plan = signal('free');
                 return () => (
@@ -58,8 +58,7 @@ export const radioDemo: DaisyComponentDemo = {
                                     value={value}
                                     label={value}
                                     color="primary"
-                                    checked={plan.value === value}
-                                    onSelect={(picked) => { plan.value = picked; }}
+                                    model={() => plan.value}
                                 />
                             ))}
                         </Radio>

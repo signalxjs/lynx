@@ -26,6 +26,50 @@ export function LoginCard() {
 
 The full component surface lives under `src/{buttons,data,feedback,forms,layout,navigation,typography}` — see the package source for the current inventory.
 
+## Form controls — two-way binding
+
+The form controls (`Input`, `Textarea`, `Checkbox`, `Toggle`, `Select`, `Radio.Item`)
+bind with the sigx [`model`](https://sigx.dev/core/docs/two-way-binding) getter
+syntax — `model={() => state.field}`. Interacting with the control writes the new
+value straight back into the bound signal; no `onChange` plumbing required.
+
+```tsx
+import { signal } from '@sigx/lynx';
+import { Checkbox, Toggle, Select, Radio, Input } from '@sigx/lynx-daisyui';
+
+const form = signal({ name: '', agreed: false, dark: false, role: 'design' });
+const plan = signal('free');
+const roles = [
+    { label: 'Design', value: 'design' },
+    { label: 'Engineering', value: 'eng' },
+];
+
+<Input model={() => form.name} />
+<Checkbox model={() => form.agreed} />
+<Toggle model={() => form.dark} />
+<Select options={roles} model={() => form.role} />
+
+// Radio: bind every item in the group to the same signal; each carries its
+// own `value`. The item whose `value` matches the model renders checked.
+<Radio>
+    <Radio.Item value="free" label="Free" model={() => plan.value} />
+    <Radio.Item value="pro"  label="Pro"  model={() => plan.value} />
+</Radio>
+```
+
+`Checkbox`/`Toggle` also accept a static `checked` prop **and** an `onChange`
+event for controlled (non-model) usage. `Select`/`Radio.Item` take a static
+`value`/`checked` that is **display-only** — it's reflected on every render but
+never written back, and there's no change callback (a prop named `value`
+collides with runtime-core's `emit` handler lookup, so events on them never
+fire), so use `model` for any interactivity. When a `model` is bound it always
+takes precedence over the static prop.
+
+`Select`'s option menu opens as a floating overlay (`position: fixed`) anchored
+to the trigger, so it's never clipped inside a scroll view; it flips open
+upward when there isn't room below. Only one `Select` menu is open at a time —
+opening one closes any other. Tapping outside (the backdrop) closes it.
+
 ## Use the styles
 
 The package exports a single stylesheet you can pull in from your app entry:

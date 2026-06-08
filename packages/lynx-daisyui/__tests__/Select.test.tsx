@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { render } from '@sigx/lynx-testing';
+import { signal } from '@sigx/lynx';
 import { Select } from '../src/forms/Select';
 
 const options = [
@@ -66,5 +67,13 @@ describe('Select', () => {
     const select = container.children[0];
     const trigger = select.children[0];
     expect(trigger._class).toContain('custom');
+  });
+
+  it('resolves the selected label from a bound model', () => {
+    const fruit = signal('cherry');
+    const { container } = render(
+      <Select options={options} model={() => fruit.value} />
+    );
+    expect(container.findByText('Cherry')).toBeTruthy();
   });
 });
