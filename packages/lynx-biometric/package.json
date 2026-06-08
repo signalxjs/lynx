@@ -1,6 +1,6 @@
 {
     "name": "@sigx/lynx-biometric",
-    "version": "0.4.9",
+    "version": "0.5.0",
     "description": "Biometric authentication (Face ID / Touch ID / BiometricPrompt) for sigx-lynx",
     "type": "module",
     "main": "./dist/index.js",
