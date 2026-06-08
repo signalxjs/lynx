@@ -19,6 +19,10 @@
             "import": "./dist/preset/index.js",
             "default": "./dist/preset/index.js"
         },
+        "./registry": {
+            "types": "./dist/theme/registry.d.ts",
+            "import": "./dist/theme/registry.js"
+        },
         "./styles/tokens.css": "./dist/styles/tokens.css"
     },
     "files": [
@@ -45,6 +49,7 @@
         "@sigx/lynx": "workspace:^",
         "@sigx/lynx-appearance": "workspace:^",
         "@sigx/lynx-gestures": "workspace:^",
+        "@sigx/lynx-icons": "workspace:^",
         "@sigx/lynx-motion": "workspace:^"
     },
     "peerDependencies": {

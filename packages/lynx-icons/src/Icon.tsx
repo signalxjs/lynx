@@ -1,22 +1,12 @@
-import { component, defineInjectable, type Define } from '@sigx/lynx';
+import { component, type Define } from '@sigx/lynx';
 import { codepoints } from '@sigx/lynx-icons/__codepoints';
 import { svgs } from '@sigx/lynx-icons/__svgs';
 import '@sigx/lynx-icons/__font-face.css';
 import { lookupGlyph } from './registry.js';
-import type { IconColorResolver, IconPropsExtensions } from './types.js';
-
-/**
- * Injectable for the active theme's color resolver. Receives the full
- * `<Icon>` props (including theme-augmented fields like daisy's
- * `variant`) and returns a CSS color value to substitute into the SVG
- * `fill=`, or `undefined` to fall through.
- *
- * Themes provide this via `defineProvide(useIconColorResolver, …)` from
- * inside a provider component (e.g. daisy's `<ThemeProvider>`). Core
- * `<Icon>` has no concept of named variants — it just asks the resolver
- * for a color.
- */
-export const useIconColorResolver = defineInjectable<IconColorResolver | null>(() => null);
+// The resolver DI key lives in the CSS-free `./context.js` (so the theme engine
+// can provide it without importing this asset-heavy module). `<Icon>` consumes it.
+import { useIconColorResolver } from './context.js';
+import type { IconPropsExtensions } from './types.js';
 
 export type IconProps =
     & Define.Prop<'set', string, true>

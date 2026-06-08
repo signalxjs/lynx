@@ -46,6 +46,9 @@ import {
 } from '@sigx/lynx';
 import { useSystemColorScheme } from '@sigx/lynx-appearance';
 import type { ColorScheme } from '@sigx/lynx-appearance';
+// CSS-free subpath: just the resolver DI key + type — importing the icons
+// barrel here would drag Icon's font-face/svg/codepoint assets into zero's barrel.
+import { useIconColorResolver, type IconColorResolver } from '@sigx/lynx-icons/context';
 import type { ColorToken } from '../contract.js';
 import {
     colorsOf,
@@ -64,6 +67,22 @@ import {
     themeController,
     type ThemeState,
 } from './theme-state.js';
+
+/**
+ * Declaration-merge a typed `variant` prop onto `<Icon>` (and the pinned
+ * adapters). `@sigx/lynx-icons` has no notion of variants; the foundation owns
+ * the concept so every design system inherits it. The merge fires the moment
+ * any consumer imports anything from `@sigx/lynx-zero` (or a DS that re-exports
+ * it). `<ThemeProvider>` provides the resolver that turns the variant into the
+ * active theme's hex (below).
+ */
+declare module '@sigx/lynx-icons' {
+    interface IconPropsExtensions {
+        /** Semantic color token applied as the icon's `fill`, resolved to the
+         *  active theme's hex via `useIconColorResolver`. */
+        variant?: ColorToken;
+    }
+}
 
 // Lynx background-thread runtime global (closure-injected by the runtime; not
 // typed in this package's tsconfig). We use only its CSS-variable setter — the
@@ -277,6 +296,13 @@ export type ThemeProviderProps =
     & Define.Prop<'class', string, false>
     /** Extra inline style on the host view. Merged after the base flex-fill defaults. */
     & Define.Prop<'style', Record<string, string | number>, false>
+    /**
+     * Override the icon-color resolver this scope provides. By default the
+     * provider resolves an `<Icon variant>` to the active theme's palette hex
+     * — design-system-agnostic, works for any registered theme. Supply this to
+     * customize the mapping (e.g. a DS-specific token aliasing).
+     */
+    & Define.Prop<'iconColorResolver', IconColorResolver, false>
     & Define.Slot<'default'>;
 
 /**
@@ -360,6 +386,20 @@ export const ThemeProvider = component<ThemeProviderProps>(({ props, slots }) =>
     defineProvide(useTheme, () => controller);
     // Re-provide this scope's current scale so nested providers inherit it.
     defineProvide(useAmbientFontScale, () => state.fontScale);
+
+    // Icon-color resolver for this scope: map `<Icon variant>` to the active
+    // theme's palette hex (SVG fills can't read CSS vars, so the hex is
+    // substituted into `fill=` at render). Design-system-agnostic — reads the
+    // registered palette for whatever theme this scope shows, so daisy and hero
+    // icons both theme correctly, per sub-scope. A consumer can override via the
+    // `iconColorResolver` prop. Reading `state.name` re-runs icons on theme flip.
+    const defaultIconResolver: IconColorResolver = (iconProps) => {
+        const variant = (iconProps as { variant?: ColorToken }).variant;
+        if (!variant) return undefined;
+        const palette = colorsOf(state.name) ?? fallbackPalette();
+        return palette?.[variant];
+    };
+    defineProvide(useIconColorResolver, () => props.iconColorResolver ?? defaultIconResolver);
 
     // Follow the system color scheme while `following`. Reactive: re-runs when
     // `following` flips true (e.g. `controller.followSystem()`, including the

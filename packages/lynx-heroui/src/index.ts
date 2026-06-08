@@ -53,6 +53,10 @@ export { Modal } from './components/Modal.js';
 export type { ModalProps } from './components/Modal.js';
 export { Tabs } from './components/Tabs.js';
 export type { TabsProps, TabProps } from './components/Tabs.js';
+// NavHeader / NavTabBar statically import the optional `@sigx/lynx-navigation`
+// peer, so they live behind the `@sigx/lynx-heroui/navigation` subpath (not the
+// root barrel) — importing `@sigx/lynx-heroui` never forces navigation
+// resolution. Same pattern as `@sigx/lynx-zero/screen-theme`.
 
 // The engine + neutral primitives, re-exported so hero apps keep a single
 // import source (same shape as @sigx/lynx-daisyui).

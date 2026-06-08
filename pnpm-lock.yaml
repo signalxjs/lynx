@@ -584,10 +584,16 @@ importers:
       '@sigx/lynx-gestures':
         specifier: workspace:^
         version: link:../lynx-gestures
+      '@sigx/lynx-icons':
+        specifier: workspace:^
+        version: link:../lynx-icons
       '@sigx/lynx-zero':
         specifier: workspace:^
         version: link:../lynx-zero
     devDependencies:
+      '@sigx/lynx-navigation':
+        specifier: workspace:^
+        version: link:../lynx-navigation
       '@sigx/lynx-testing':
         specifier: workspace:^
         version: link:../lynx-testing
@@ -1155,6 +1161,9 @@ importers:
       '@sigx/lynx-gestures':
         specifier: workspace:^
         version: link:../lynx-gestures
+      '@sigx/lynx-icons':
+        specifier: workspace:^
+        version: link:../lynx-icons
       '@sigx/lynx-motion':
         specifier: workspace:^
         version: link:../lynx-motion

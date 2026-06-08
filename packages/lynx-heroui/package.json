@@ -15,6 +15,10 @@
             "import": "./dist/preset/index.js",
             "default": "./dist/preset/index.js"
         },
+        "./navigation": {
+            "types": "./dist/navigation.d.ts",
+            "import": "./dist/navigation.js"
+        },
         "./styles": {
             "types": "./dist/styles/index.css.d.ts",
             "default": "./dist/styles/index.css"
@@ -42,9 +46,23 @@
     "dependencies": {
         "@sigx/lynx": "workspace:^",
         "@sigx/lynx-gestures": "workspace:^",
+        "@sigx/lynx-icons": "workspace:^",
         "@sigx/lynx-zero": "workspace:^"
     },
+    "peerDependencies": {
+        "@sigx/lynx-navigation": "workspace:^",
+        "tailwindcss": "^3.0.0 || ^4.0.0"
+    },
+    "peerDependenciesMeta": {
+        "@sigx/lynx-navigation": {
+            "optional": true
+        },
+        "tailwindcss": {
+            "optional": true
+        }
+    },
     "devDependencies": {
+        "@sigx/lynx-navigation": "workspace:^",
         "@sigx/lynx-testing": "workspace:^",
         "@typescript/native-preview": "7.0.0-dev.20260521.1",
         "tailwindcss": "^4.0.0",
@@ -61,13 +79,5 @@
     },
     "publishConfig": {
         "access": "public"
-    },
-    "peerDependencies": {
-        "tailwindcss": "^3.0.0 || ^4.0.0"
-    },
-    "peerDependenciesMeta": {
-        "tailwindcss": {
-            "optional": true
-        }
     }
 }

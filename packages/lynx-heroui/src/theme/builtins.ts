@@ -20,7 +20,7 @@
  * HeroUI's default roundness is larger than daisy's — expressed via the
  * theme-level `radius` overrides (the engine emits them with the palette).
  */
-import { completeTheme, registerTheme, type Theme, type ThemeInput } from '@sigx/lynx-zero';
+import { completeTheme, registerTheme, type Theme, type ThemeInput } from '@sigx/lynx-zero/registry';
 
 /**
  * Theme class applied to the provider's host view. The two built-ins get
