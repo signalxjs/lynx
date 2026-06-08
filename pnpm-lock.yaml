@@ -1143,6 +1143,12 @@ importers:
       '@sigx/lynx-appearance':
         specifier: workspace:^
         version: link:../lynx-appearance
+      '@sigx/lynx-gestures':
+        specifier: workspace:^
+        version: link:../lynx-gestures
+      '@sigx/lynx-motion':
+        specifier: workspace:^
+        version: link:../lynx-motion
     devDependencies:
       '@sigx/lynx-navigation':
         specifier: workspace:^

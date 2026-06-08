@@ -75,6 +75,7 @@ export {
   Center,
   Spacer,
   ScrollView,
+  SwiperIndicator,
   resolveColorToken,
 } from '@sigx/lynx-zero';
 export type {
@@ -92,6 +93,9 @@ export type {
   CenterProps,
   SpacerProps,
   ScrollViewProps,
+  SwiperIndicatorProps,
+  SwiperIndicatorVariant,
+  SwiperIndicatorSize,
   SizeScale,
   ColorVariant,
   ColorToken,

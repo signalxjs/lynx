@@ -90,3 +90,12 @@ export { Spacer } from './layout/Spacer.js';
 export type { SpacerProps } from './layout/Spacer.js';
 export { ScrollView } from './layout/ScrollView.js';
 export type { ScrollViewProps } from './layout/ScrollView.js';
+
+// Swiper page indicator — design-system-neutral (pure tokens + headless
+// gesture/motion hooks, no DS class names). Both design systems re-export it.
+export { SwiperIndicator } from './components/SwiperIndicator.js';
+export type {
+  SwiperIndicatorProps,
+  SwiperIndicatorVariant,
+  SwiperIndicatorSize,
+} from './components/SwiperIndicator.js';
