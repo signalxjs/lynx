@@ -2,14 +2,18 @@
  * Web gesture recognizer (MT side).
  *
  * Upstream `@lynx-js/web-core` has **no** gesture arena — `__SetGestureDetector`
- * is undefined there. But it DOES deliver `touchstart`/`touchend`/`touchcancel`
- * as Lynx events (root-delegated DOM listeners, see web-core's `WASMJSBinding`)
- * and runs MT worklet callbacks via `globalThis.runWorklet`. So on web we
- * reimplement the recognizer here: register touch events on the element, run a
- * small state machine, and invoke the gesture's `'main thread'` worklet
- * callbacks (`onBegin`/`onStart`/`onEnd`) — exactly the ones the native arena
- * would. The callbacks then do their thing (visual via `setStyleProperties`,
- * emit via `runOnBackground`), both of which already work on web.
+ * is undefined there. But it DOES deliver pointer events
+ * (`pointerdown`/`pointerup`/`pointercancel`) as Lynx events (root-delegated DOM
+ * listeners, see web-core's `WASMJSBinding`) and runs MT worklet callbacks via
+ * `globalThis.runWorklet`. So on web we reimplement the recognizer here:
+ * register those pointer events on the element, run a small state machine, and
+ * invoke the gesture's `'main thread'` worklet callbacks (`onBegin`/`onStart`/
+ * `onEnd`) — exactly the ones the native arena would. The callbacks then do
+ * their thing (visual via `setStyleProperties`, emit via `runOnBackground`),
+ * both of which already work on web.
+ *
+ * We use pointer (not touch) events so mouse, touch and pen all work with no
+ * mouse/touch double-fire.
  *
  * Scope: **Tap** only (the dominant gesture — `Pressable`). LongPress / Pan /
  * Pinch / Rotation / Fling and arena relations (waitFor/simultaneous/…) are
@@ -29,7 +33,7 @@ const TAP = 3;
 
 const DEFAULT_MAX_DISTANCE = 10;
 
-/** Worklet-map id under which we register the touch dispatcher. */
+/** Worklet-map id under which we register the pointer dispatcher. */
 const WEB_GESTURE_WKLT = '__sigxWebGestureTouch';
 
 interface WorkletCtx {
@@ -44,13 +48,13 @@ interface GestureEntry {
 }
 
 interface ElementGestures {
-  /** Raw MainThreadElement — kept for unregistering the touch events. */
+  /** Raw MainThreadElement — kept for unregistering the pointer events. */
   el: MainThreadElement;
   gestures: Map<number, GestureEntry>;
-  touch?: { x: number; y: number; t: number };
+  down?: { x: number; y: number; t: number };
 }
 
-/** elementWvid → registered gestures + transient touch state. */
+/** elementWvid → registered gestures + transient pointer-down state. */
 const byElement = new Map<number, ElementGestures>();
 /** Raw element → elementWvid, for resolving the dispatcher's target. */
 const wvidByElement = new Map<MainThreadElement, number>();
@@ -66,8 +70,8 @@ function getWorkletImpl(): WorkletImpl | undefined {
 }
 
 /**
- * Install the touch dispatcher into upstream's `_workletMap` once. web-core
- * runs it via `runWorklet({_wkltId}, [event])` when a registered touch event
+ * Install the pointer dispatcher into upstream's `_workletMap` once. web-core
+ * runs it via `runWorklet({_wkltId}, [event])` when a registered pointer event
  * fires; it binds `this` to `{_c}`, so we read the element wvid from `this._c.ev`
  * (with a `currentTarget` fallback).
  */
@@ -86,7 +90,7 @@ function ensureDispatcher(): void {
         ?.currentTarget?.elementRefptr;
       if (ct) wvid = wvidByElement.get(ct);
     }
-    if (typeof wvid === 'number') handleTouch(wvid, event);
+    if (typeof wvid === 'number') handlePointer(wvid, event);
   };
   dispatcherInstalled = true;
 }
@@ -96,15 +100,15 @@ function ensureDispatcher(): void {
 // same way. Trade-off: web-core only extracts coordinates for `touch*`/`mouse*`
 // events, not `pointer*`, so the movement-cancel check degrades to "always a
 // tap" on web for now — fine for buttons; revisit with the Pan recognizer.
-const TOUCH_EVENTS = ['pointerdown', 'pointerup', 'pointercancel'] as const;
+const POINTER_EVENTS = ['pointerdown', 'pointerup', 'pointercancel'] as const;
 
-function touchHandler(wvid: number): { type: 'worklet'; value: WorkletCtx } {
+function pointerHandler(wvid: number): { type: 'worklet'; value: WorkletCtx } {
   return { type: 'worklet', value: { _wkltId: WEB_GESTURE_WKLT, _c: { ev: wvid } } };
 }
 
 /**
  * Register one gesture on an element (web path). The first gesture on an element
- * also installs the shared touch listeners.
+ * also installs the shared pointer listeners.
  */
 export function registerWebGesture(
   el: MainThreadElement,
@@ -135,8 +139,8 @@ export function registerWebGesture(
   });
 
   if (firstForElement) {
-    const handler = touchHandler(elementWvid);
-    for (const name of TOUCH_EVENTS) {
+    const handler = pointerHandler(elementWvid);
+    for (const name of POINTER_EVENTS) {
       try {
         __AddEvent(el, 'bindEvent', name, handler as unknown as string);
       } catch {
@@ -146,14 +150,14 @@ export function registerWebGesture(
   }
 }
 
-/** Remove one gesture; tear down touch listeners when the element has none left. */
+/** Remove one gesture; tear down pointer listeners when the element has none left. */
 export function unregisterWebGesture(elementWvid: number, gestureId: number): void {
   const entry = byElement.get(elementWvid);
   if (!entry) return;
   entry.gestures.delete(gestureId);
   if (entry.gestures.size > 0) return;
 
-  for (const name of TOUCH_EVENTS) {
+  for (const name of POINTER_EVENTS) {
     try {
       // Lynx PAPI: `undefined` as the 4th arg unregisters the slot.
       __AddEvent(entry.el, 'bindEvent', name, undefined as unknown as string);
@@ -218,22 +222,22 @@ function tapMaxDistance(entry: ElementGestures): number {
   return max;
 }
 
-/** Touch state machine — invoked by the dispatcher on each touch event. */
-function handleTouch(elementWvid: number, event: unknown): void {
+/** Pointer state machine — invoked by the dispatcher on each pointer event. */
+function handlePointer(elementWvid: number, event: unknown): void {
   const entry = byElement.get(elementWvid);
   if (!entry) return;
   const type = (event as { type?: string }).type ?? '';
   const p = pointOf(event);
 
   if (type === 'pointerdown') {
-    entry.touch = { x: p.x, y: p.y, t: nowMs() };
+    entry.down = { x: p.x, y: p.y, t: nowMs() };
     for (const g of entry.gestures.values()) runCb(g, 'onBegin', synthEvent(type, p));
     return;
   }
 
   if (type === 'pointerup') {
-    const start = entry.touch;
-    entry.touch = undefined;
+    const start = entry.down;
+    entry.down = undefined;
     const maxD = tapMaxDistance(entry);
     const dx = start ? p.x - start.x : 0;
     const dy = start ? p.y - start.y : 0;
@@ -252,7 +256,7 @@ function handleTouch(elementWvid: number, event: unknown): void {
   }
 
   if (type === 'pointercancel') {
-    entry.touch = undefined;
+    entry.down = undefined;
     const evt = synthEvent(type, p);
     for (const g of entry.gestures.values()) runCb(g, 'onEnd', evt);
   }

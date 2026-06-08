@@ -500,7 +500,7 @@ export function applyOps(ops: unknown[]): void {
 
         // The gesture-arena PAPI isn't implemented on every host — notably web
         // (`@lynx-js/web-core`, where `__SetGestureDetector` is undefined).
-        // There, recognize the gesture on the MT side from web-core's touch
+        // There, recognize the gesture on the MT side from web-core's pointer
         // events instead of the native arena. (All operands are already
         // consumed above, so `i` stays aligned for the next op.)
         if (typeof __SetGestureDetector !== 'function') {
