@@ -38,6 +38,12 @@ import {
   noteListItemProp,
   resetListState,
 } from './list-mt.js';
+import {
+  registerWebGesture,
+  unregisterWebGesture,
+  resetWebGestures,
+} from './web-gesture-mt.js';
+import { MTElementWrapper } from './mt-element.js';
 
 /**
  * Placeholder element inserted by renderPage() to give the host a non-empty
@@ -359,6 +365,46 @@ export function applyOps(ops: unknown[]): void {
               refMap[wvid] = { current: null, _wvid: wvid };
             }
             impl._refImpl.updateWorkletRef({ _wvid: wvid }, el);
+
+            // Web (`@lynx-js/web-core`): upstream's worklet element wrapper
+            // applies styles via `setProperty`, which web-core's element
+            // doesn't implement — it throws. Worklet callbacks (e.g.
+            // `Pressable`'s press-down visual) call
+            // `ref.current.setStyleProperties(...)` directly, so patch that one
+            // method to fall back to a web-safe `MTElementWrapper` (raw
+            // `__SetInlineStyles` + debounced flush). Native is untouched: the
+            // original path succeeds there, so the fallback never runs.
+            if (typeof __SetGestureDetector !== 'function') {
+              const slot = refMap[wvid] as {
+                current?: {
+                  __sigxWebSafe?: boolean;
+                  setStyleProperties?: (s: Record<string, string | number>) => void;
+                };
+              };
+              const wrapper = slot?.current;
+              if (wrapper && !wrapper.__sigxWebSafe) {
+                const safe = new MTElementWrapper(el);
+                const orig = typeof wrapper.setStyleProperties === 'function'
+                  ? wrapper.setStyleProperties.bind(wrapper)
+                  : null;
+                try {
+                  wrapper.setStyleProperties = (styles) => {
+                    if (orig) {
+                      try {
+                        orig(styles);
+                        return;
+                      } catch {
+                        /* web: wrapper.setProperty missing — fall through */
+                      }
+                    }
+                    safe.setStyleProperties(styles);
+                  };
+                  wrapper.__sigxWebSafe = true;
+                } catch {
+                  /* frozen wrapper — degrade to no press visual */
+                }
+              }
+            }
           }
           // Record wvid → raw elementId so SET_GESTURE_DETECTOR can resolve
           // the unwrapped MainThreadElement for `__SetAttribute` /
@@ -452,16 +498,23 @@ export function applyOps(ops: unknown[]): void {
         const el = resolveElementByWvid(elementWvid);
         if (!el) break;
 
-        // Gesture registration PAPI isn't implemented on every host — notably
-        // web (`@lynx-js/web-core`). Calling the vendored `processGesture`
-        // (which references `__SetGestureDetector`) there throws a
-        // ReferenceError that aborts the entire ops batch, so a navigation
-        // push that registers the Stack's swipe-back gesture would leave the
-        // new screen unrendered. Skip gracefully: gesture-driven interactions
-        // degrade, but the screen still mounts. Mirrors the
-        // `__RemoveGestureDetector` guard below. (All operands are already
+        // The gesture-arena PAPI isn't implemented on every host — notably web
+        // (`@lynx-js/web-core`, where `__SetGestureDetector` is undefined).
+        // There, recognize the gesture on the MT side from web-core's pointer
+        // events instead of the native arena. (All operands are already
         // consumed above, so `i` stays aligned for the next op.)
-        if (typeof __SetGestureDetector !== 'function') break;
+        if (typeof __SetGestureDetector !== 'function') {
+          registerWebGesture(el, elementWvid, gestureId, type, config);
+          // Track the attachment so REMOVE can tear down the web recognizer,
+          // mirroring the native bookkeeping below.
+          let webAttached = gesturesByElementWvid.get(elementWvid);
+          if (!webAttached) {
+            webAttached = new Set();
+            gesturesByElementWvid.set(elementWvid, webAttached);
+          }
+          webAttached.add(gestureId);
+          break;
+        }
 
         // Reconstruct callbacks Record from the wire's array shape.
         const callbacksRecord: Record<string, Record<string, unknown>> = {};
@@ -521,6 +574,16 @@ export function applyOps(ops: unknown[]): void {
         const elementWvid = ops[i++] as number;
         const gestureId = ops[i++] as number;
         const el = resolveElementByWvid(elementWvid);
+        // Web path: tear down the MT recognizer + its touch listeners.
+        if (el && typeof __SetGestureDetector !== 'function') {
+          unregisterWebGesture(elementWvid, gestureId);
+          const attached = gesturesByElementWvid.get(elementWvid);
+          if (attached) {
+            attached.delete(gestureId);
+            if (attached.size === 0) gesturesByElementWvid.delete(elementWvid);
+          }
+          break;
+        }
         if (el && typeof __RemoveGestureDetector === 'function') {
           __RemoveGestureDetector(el, gestureId);
           const attached = gesturesByElementWvid.get(elementWvid);
@@ -581,6 +644,7 @@ export function resetMainThreadState(): void {
   elementIdByWvid.clear();
   resetAnimatedStyleBindings();
   resetListState();
+  resetWebGestures();
   // Clear upstream's worklet ref map too on hard reset (HMR / test).
   const impl = (globalThis as Record<string, unknown>)['lynxWorkletImpl'] as
     { _refImpl: { _workletRefMap: Record<number, unknown> } } | undefined;
