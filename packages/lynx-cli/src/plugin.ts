@@ -830,5 +830,18 @@ export default definePlugin({
                 });
             },
         },
+        'run:web': {
+            description: 'Build and serve the Lynx web bundle in the browser (live reload)',
+            args: {
+                port: { type: 'string', description: 'HTTP port (default: 8900)' },
+                open: { type: 'boolean', description: 'Open the browser', default: true },
+                watch: { type: 'boolean', description: 'Rebuild + reload on change', default: true },
+                host: { type: 'boolean', description: 'Expose on the LAN', default: false },
+            },
+            async run(ctx) {
+                const { runWeb } = await import('./web-server.js');
+                await runWeb(ctx);
+            },
+        },
     },
 });
