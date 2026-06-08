@@ -1,10 +1,11 @@
 /**
- * Web Tap recognizer (`web-gesture-mt.ts`).
+ * Web gesture recognizer (`web-gesture-mt.ts`).
  *
- * On web (`@lynx-js/web-core`, no gesture arena) the gesture op routes here:
- * register pointer events on the element, run a state machine, and invoke the
- * gesture's worklet callbacks via `globalThis.runWorklet`. These tests drive the
- * dispatcher directly (the fn web-core would call on each pointer event).
+ * On web (`@lynx-js/web-core`, no gesture arena) the gesture op routes here. The
+ * recognizer attaches native pointer listeners on the element (a real DOM node)
+ * and invokes the gesture's worklet callbacks via `globalThis.runWorklet`. These
+ * tests drive a fake element whose `addEventListener` captures the handlers, then
+ * fire synthetic pointer events at them.
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
@@ -17,106 +18,202 @@ import {
 import { applyOps, resetMainThreadState } from '../src/ops-apply';
 import { elements } from '../src/element-registry';
 
+const PAN = 0;
 const TAP = 3;
-const DISPATCH_ID = '__sigxWebGestureTouch';
+const LONGPRESS = 4;
 
-let runCalls: Array<{ wkltId: unknown; event: { type?: string } }>;
+let runCalls: Array<{ wkltId: unknown; event: { params: { pageX: number; pageY: number } } }>;
 
-function getDispatcher(): (this: { _c?: { ev?: number } }, e: unknown) => void {
-  const impl = (globalThis as { lynxWorkletImpl?: { _workletMap?: Record<string, (...a: unknown[]) => unknown> } })
-    .lynxWorkletImpl;
-  return impl!._workletMap![DISPATCH_ID] as never;
+interface FakeEl {
+  listeners: Record<string, (e: unknown) => void>;
+  style: { touchAction: string };
+  addEventListener: (t: string, fn: (e: unknown) => void) => void;
+  removeEventListener: (t: string) => void;
+  setPointerCapture: ReturnType<typeof vi.fn>;
+  fire: (type: string, x: number, y: number, pageX?: number, pageY?: number) => void;
 }
 
-/** Fire a pointer event at the dispatcher as web-core would (this._c.ev = wvid). */
-function fire(wvid: number, type: string): void {
-  getDispatcher().call({ _c: { ev: wvid } }, { type });
+function makeEl(): FakeEl {
+  const listeners: Record<string, (e: unknown) => void> = {};
+  return {
+    listeners,
+    style: { touchAction: '' },
+    addEventListener: (t, fn) => {
+      listeners[t] = fn;
+    },
+    removeEventListener: (t) => {
+      delete listeners[t];
+    },
+    setPointerCapture: vi.fn(),
+    fire(type, x, y, pageX, pageY) {
+      listeners[type]?.({ type, clientX: x, clientY: y, pageX, pageY, pointerId: 1 });
+    },
+  };
 }
+
+function reg(
+  el: FakeEl,
+  wvid: number,
+  gid: number,
+  type: number,
+  callbacks: { name: string; callback: { _wkltId: string } }[],
+  config?: Record<string, unknown>,
+): void {
+  registerWebGesture(el as never, wvid, gid, type, { callbacks, config });
+}
+
+const fired = (): unknown[] => runCalls.map((c) => c.wkltId);
 
 beforeEach(() => {
   resetWebGestures();
   runCalls = [];
-  vi.stubGlobal('__AddEvent', vi.fn());
-  vi.stubGlobal('lynxWorkletImpl', { _workletMap: {} });
   vi.stubGlobal('runWorklet', (ctx: { _wkltId: unknown }, args: unknown[]) => {
-    runCalls.push({ wkltId: ctx._wkltId, event: args[0] as { type?: string } });
+    runCalls.push({ wkltId: ctx._wkltId, event: args[0] as never });
   });
+  vi.useFakeTimers();
 });
 
 afterEach(() => {
+  vi.useRealTimers();
   vi.unstubAllGlobals();
   resetWebGestures();
 });
 
-describe('web Tap recognizer', () => {
-  function registerTap(wvid = 5, gid = 1): void {
-    registerWebGesture({} as never, wvid, gid, TAP, {
-      callbacks: [
-        { name: 'onBegin', callback: { _wkltId: 'cb-begin' } },
-        { name: 'onStart', callback: { _wkltId: 'cb-start' } },
-        { name: 'onEnd', callback: { _wkltId: 'cb-end' } },
+describe('web gesture recognizer (pointer listeners)', () => {
+  it('attaches the four pointer listeners on the first gesture', () => {
+    const el = makeEl();
+    reg(el, 5, 1, TAP, []);
+    expect(Object.keys(el.listeners).sort()).toEqual([
+      'pointercancel',
+      'pointerdown',
+      'pointermove',
+      'pointerup',
+    ]);
+  });
+
+  it('Tap: onBegin on down, then onStart + onEnd on a near-still up', () => {
+    const el = makeEl();
+    reg(el, 5, 1, TAP, [
+      { name: 'onBegin', callback: { _wkltId: 'begin' } },
+      { name: 'onStart', callback: { _wkltId: 'start' } },
+      { name: 'onEnd', callback: { _wkltId: 'end' } },
+    ]);
+    el.fire('pointerdown', 100, 100);
+    el.fire('pointerup', 102, 101); // within maxDistance
+    expect(fired()).toEqual(['begin', 'start', 'end']);
+  });
+
+  it('Tap: a drag past maxDistance suppresses onStart but still ends', () => {
+    const el = makeEl();
+    reg(el, 5, 1, TAP, [
+      { name: 'onStart', callback: { _wkltId: 'start' } },
+      { name: 'onEnd', callback: { _wkltId: 'end' } },
+    ]);
+    el.fire('pointerdown', 100, 100);
+    el.fire('pointermove', 200, 100);
+    el.fire('pointerup', 200, 100);
+    expect(fired()).not.toContain('start');
+    expect(fired()).toContain('end');
+  });
+
+  it('LongPress: onStart fires after minDuration on a still press', () => {
+    const el = makeEl();
+    reg(el, 5, 1, LONGPRESS, [{ name: 'onStart', callback: { _wkltId: 'lp' } }], {
+      minDuration: 500,
+    });
+    el.fire('pointerdown', 50, 50);
+    expect(fired()).not.toContain('lp');
+    vi.advanceTimersByTime(500);
+    expect(fired()).toContain('lp');
+  });
+
+  it('LongPress: moving past tolerance cancels the timer', () => {
+    const el = makeEl();
+    reg(el, 5, 1, LONGPRESS, [{ name: 'onStart', callback: { _wkltId: 'lp' } }], {
+      minDuration: 500,
+      maxDistance: 10,
+    });
+    el.fire('pointerdown', 50, 50);
+    el.fire('pointermove', 100, 50); // 50px > 10px tolerance
+    vi.advanceTimersByTime(500);
+    expect(fired()).not.toContain('lp');
+  });
+
+  it('Pan: onStart once, onUpdate per move (carrying pageX), onEnd on up', () => {
+    const el = makeEl();
+    reg(
+      el,
+      5,
+      1,
+      PAN,
+      [
+        { name: 'onBegin', callback: { _wkltId: 'b' } },
+        { name: 'onStart', callback: { _wkltId: 's' } },
+        { name: 'onUpdate', callback: { _wkltId: 'u' } },
+        { name: 'onEnd', callback: { _wkltId: 'e' } },
       ],
-    });
-  }
-
-  it('registers pointer events on the first gesture for an element', () => {
-    const addEvent = globalThis.__AddEvent as unknown as ReturnType<typeof vi.fn>;
-    registerTap();
-    const names = addEvent.mock.calls.map((c) => c[2]);
-    expect(names).toEqual(['pointerdown', 'pointerup', 'pointercancel']);
+      { minDistance: 0 },
+    );
+    el.fire('pointerdown', 0, 0);
+    el.fire('pointermove', 5, 0);
+    el.fire('pointermove', 12, 0);
+    el.fire('pointerup', 12, 0);
+    const f = fired();
+    expect(f[0]).toBe('b');
+    expect(f.filter((x) => x === 's')).toHaveLength(1); // onStart once
+    expect(f.filter((x) => x === 'u')).toHaveLength(2); // onUpdate per move
+    expect(f[f.length - 1]).toBe('e');
+    expect(runCalls.find((c) => c.wkltId === 'u')!.event.params.pageX).toBe(5);
   });
 
-  it('fires onBegin on pointerdown, then onStart + onEnd on pointerup, in order', () => {
-    registerTap();
-    fire(5, 'pointerdown');
-    fire(5, 'pointerup');
-    const fired = runCalls.map((c) => c.wkltId);
-    expect(fired).toContain('cb-begin');
-    expect(fired).toContain('cb-start');
-    expect(fired).toContain('cb-end');
-    // onBegin < onStart < onEnd (onStart must precede onEnd so a press emit is
-    // recorded before any onEnd fallback runs).
-    expect(fired.indexOf('cb-begin')).toBeLessThan(fired.indexOf('cb-start'));
-    expect(fired.indexOf('cb-start')).toBeLessThan(fired.indexOf('cb-end'));
-  });
-
-  it('does not fire onStart on pointercancel (no tap), but resets via onEnd', () => {
-    registerTap();
-    fire(5, 'pointerdown');
-    runCalls = [];
-    fire(5, 'pointercancel');
-    const fired = runCalls.map((c) => c.wkltId);
-    expect(fired).toContain('cb-end');
-    expect(fired).not.toContain('cb-start');
-  });
-
-  it('drives onEnd for ALL gestures on the element (so a composed Pressable resets its visual)', () => {
-    // Pressable registers Simultaneous(Tap, LongPress); the visual reset lives
-    // in LongPress.onEnd, so the recognizer must end every gesture on pointerup.
-    registerWebGesture({} as never, 5, 1, TAP, {
-      callbacks: [{ name: 'onStart', callback: { _wkltId: 'tap-start' } }],
-    });
-    registerWebGesture({} as never, 5, 2, 4 /* LONGPRESS */, {
-      callbacks: [{ name: 'onEnd', callback: { _wkltId: 'lp-end' } }],
-    });
-    fire(5, 'pointerdown');
-    fire(5, 'pointerup');
-    const fired = runCalls.map((c) => c.wkltId);
-    expect(fired).toContain('tap-start'); // Tap emits
-    expect(fired).toContain('lp-end'); // LongPress.onEnd resets the visual
-  });
-
-  it('unregister tears down the pointer listeners when the last gesture is removed', () => {
-    const addEvent = globalThis.__AddEvent as unknown as ReturnType<typeof vi.fn>;
-    registerTap(5, 1);
-    addEvent.mockClear();
+  it('Pan sets touch-action:none and restores it on teardown', () => {
+    const el = makeEl();
+    el.style.touchAction = 'auto';
+    reg(el, 5, 1, PAN, []);
+    expect(el.style.touchAction).toBe('none');
     unregisterWebGesture(5, 1);
-    expect(addEvent).toHaveBeenCalledTimes(3);
-    expect(addEvent.mock.calls.every((c) => c[3] === undefined)).toBe(true);
-    // After teardown a stray pointer event is a no-op.
-    runCalls = [];
-    fire(5, 'pointerdown');
-    expect(runCalls).toHaveLength(0);
+    expect(el.style.touchAction).toBe('auto');
+  });
+
+  it('restores touch-action when the Pan is removed but other gestures remain', () => {
+    const el = makeEl();
+    el.style.touchAction = 'pan-y';
+    reg(el, 5, 1, PAN, []); // sets touch-action:none
+    reg(el, 5, 2, TAP, []); // Tap also on the element
+    expect(el.style.touchAction).toBe('none');
+    unregisterWebGesture(5, 1); // remove the Pan; Tap stays
+    expect(el.style.touchAction).toBe('pan-y'); // restored despite the Tap
+    expect(Object.keys(el.listeners).length).toBeGreaterThan(0); // listeners stay
+  });
+
+  it('Pan onUpdate carries the event pageX (scroll-offset aware), not clientX', () => {
+    const el = makeEl();
+    reg(el, 5, 1, PAN, [{ name: 'onUpdate', callback: { _wkltId: 'u' } }], {
+      minDistance: 0,
+    });
+    el.fire('pointerdown', 0, 0, 100, 200); // clientX 0, pageX 100
+    el.fire('pointermove', 5, 0, 105, 200);
+    expect(runCalls.find((c) => c.wkltId === 'u')!.event.params.pageX).toBe(105);
+  });
+
+  it('composed Tap+LongPress: a quick tap emits Tap.onStart and ends every gesture', () => {
+    // Pressable's shape — visual reset lives in LongPress.onEnd.
+    const el = makeEl();
+    reg(el, 5, 1, TAP, [{ name: 'onStart', callback: { _wkltId: 'tap-start' } }]);
+    reg(el, 5, 2, LONGPRESS, [{ name: 'onEnd', callback: { _wkltId: 'lp-end' } }], {
+      minDuration: 500,
+    });
+    el.fire('pointerdown', 0, 0);
+    el.fire('pointerup', 1, 0);
+    expect(fired()).toContain('tap-start');
+    expect(fired()).toContain('lp-end');
+  });
+
+  it('unregister removes the listeners when the last gesture goes', () => {
+    const el = makeEl();
+    reg(el, 5, 1, TAP, []);
+    unregisterWebGesture(5, 1);
+    expect(Object.keys(el.listeners)).toHaveLength(0);
   });
 });
 
@@ -126,11 +223,8 @@ describe('worklet setStyleProperties web fallback (SET_MT_REF)', () => {
     const setInline = vi.fn();
     vi.stubGlobal('__SetInlineStyles', setInline);
     vi.stubGlobal('__FlushElementTree', vi.fn());
-    // Web signal: the gesture-arena PAPI is absent.
-    vi.stubGlobal('__SetGestureDetector', undefined);
+    vi.stubGlobal('__SetGestureDetector', undefined); // web signal
 
-    // Upstream's worklet element wrapper, whose setStyleProperties throws on web
-    // (web-core's element has no setProperty).
     const wrapper: { setStyleProperties: (s: Record<string, string | number>) => void } = {
       setStyleProperties: () => {
         throw new Error('web: element has no setProperty');
@@ -151,7 +245,6 @@ describe('worklet setStyleProperties web fallback (SET_MT_REF)', () => {
     elements.set(100, rawEl as never);
     applyOps([OP.SET_MT_REF, 100, 7]);
 
-    // The patched wrapper now routes a failing apply to __SetInlineStyles.
     wrapper.setStyleProperties({ opacity: 0.5 });
     expect(setInline).toHaveBeenCalledWith(rawEl, { opacity: 0.5 });
     // The wrapper's debounced flush schedules a `__FlushElementTree()`
