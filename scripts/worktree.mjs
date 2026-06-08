@@ -30,6 +30,10 @@ function sh(command, opts = {}) {
     return spawnSync(command, { shell: true, encoding: 'utf8', ...opts });
 }
 
+// Flags that are always boolean — never consume the following token as a value
+// (so `wt rm x --force` and `wt rm x --force anything` both mean force=true).
+const BOOLEAN_FLAGS = new Set(['force']);
+
 function parseArgs(argv) {
     const positional = [];
     const flags = {};
@@ -38,7 +42,7 @@ function parseArgs(argv) {
         if (a.startsWith('--')) {
             const key = a.slice(2);
             const next = argv[i + 1];
-            if (next === undefined || next.startsWith('--')) {
+            if (BOOLEAN_FLAGS.has(key) || next === undefined || next.startsWith('--')) {
                 flags[key] = true;
             } else {
                 flags[key] = next;
@@ -76,21 +80,32 @@ function branchesDir() {
     return path.join(path.dirname(main), 'branches');
 }
 
+/** Resolve a path, lowercasing on Windows so comparisons match the OS's
+ *  case-insensitive filesystem. `path.relative` is case-SENSITIVE even on win32,
+ *  so two paths differing only in case (e.g. drive letter) would otherwise be
+ *  treated as different — breaking `wt list` labels and `wt rm` safety checks. */
+function normPath(p) {
+    const resolved = path.resolve(p);
+    return process.platform === 'win32' ? resolved.toLowerCase() : resolved;
+}
+
 /** Platform-correct path equality (case-insensitive on Windows). */
 function samePath(a, b) {
-    return path.relative(path.resolve(a), path.resolve(b)) === '';
+    return normPath(a) === normPath(b);
 }
 
 /** Is `child` equal to or inside `parent`? (platform-correct) */
 function isInside(child, parent) {
-    const rel = path.relative(path.resolve(parent), path.resolve(child));
+    const rel = path.relative(normPath(parent), normPath(child));
     return rel === '' || (!rel.startsWith('..') && !path.isAbsolute(rel));
 }
 
 /** Reject names that could escape ../<name> as a path or be invalid as a git branch. */
 function assertSafeName(name) {
-    if (!/^[A-Za-z0-9._-]+$/.test(name) || name.includes('..')) {
-        die(`Invalid name '${name}' — use letters, digits, '.', '_', '-' only (no slashes or '..').`);
+    // Reject a leading '-' too: a name like '--force' would otherwise be parsed as
+    // an option by the git commands below (and elsewhere), not as a branch name.
+    if (!/^[A-Za-z0-9._-]+$/.test(name) || name.includes('..') || name.startsWith('-')) {
+        die(`Invalid name '${name}' — use letters, digits, '.', '_', '-' only (no leading '-', slashes, or '..').`);
     }
     // Path-safe but still possibly invalid as a ref (e.g. 'x.lock', trailing '.') — let git decide.
     try {
@@ -140,7 +155,7 @@ function cmdNew(positional, flags) {
 
     console.log(`\n✓ Worktree '${name}' ready.\nNext:`);
     console.log(`  cd "${worktree}"`);
-    console.log('  pnpm typecheck && pnpm test   # verify the checkout works');
+    console.log('  pnpm typecheck   # plus the repo\'s test/build scripts, to verify the checkout works');
     console.log('  # …or launch an agent session from that directory for isolated parallel work.');
 }
 
@@ -167,8 +182,10 @@ function cmdRm(positional, flags) {
         die(`Refusing to remove the worktree you are currently in — run this from another checkout.`);
     }
 
-    const args = ['worktree', 'remove', worktree];
+    // Options before the path: `git worktree remove [--force] <worktree>`.
+    const args = ['worktree', 'remove'];
     if (flags.force) args.push('--force');
+    args.push(worktree);
     try {
         git(args, { stdio: 'inherit' });
     } catch {
