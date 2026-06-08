@@ -25,8 +25,15 @@ export type SelectProps =
   // when no model is bound (controlled/showcase rows).
   & Define.Model<string>;
 
+// Only one dropdown is open at a time across the whole tree. Each instance
+// claims a unique id and the shared signal holds whichever is currently open,
+// so opening one select collapses any other (no stacked/sticky menus).
+let nextSelectId = 0;
+const openSelectId = signal<number | null>(null);
+
 export const Select = component<SelectProps>(({ props }) => {
-  const state = signal({ open: false });
+  const id = nextSelectId++;
+  const isOpen = () => openSelectId.value === id;
 
   // Resolved selection: the bound model wins, else the static `value` prop.
   const selectedValue = () => (props.model ? props.model.value : props.value);
@@ -48,7 +55,7 @@ export const Select = component<SelectProps>(({ props }) => {
   };
 
   return () => (
-    <view style={{ position: 'relative', opacity: props.disabled ? 0.5 : 1 }}>
+    <view style={{ opacity: props.disabled ? 0.5 : 1 }}>
       <Pressable
         class={getClasses()}
         disabled={!!props.disabled}
@@ -56,15 +63,19 @@ export const Select = component<SelectProps>(({ props }) => {
         pressedOpacity={PRESSED_OPACITY}
         longPressDuration={0}
         onPress={() => {
-          if (!props.disabled) state.open = !state.open;
+          if (props.disabled) return;
+          openSelectId.value = isOpen() ? null : id;
         }}
       >
         <text>{getSelectedLabel()}</text>
-        <view style={{ marginLeft: 'auto' }}><text>{state.open ? '▲' : '▼'}</text></view>
+        <view style={{ marginLeft: 'auto' }}><text>{isOpen() ? '▲' : '▼'}</text></view>
       </Pressable>
 
-      {state.open && !props.disabled && (
-        <view class="select-dropdown" style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 10 }}>
+      {/* Rendered in-flow (expands the row, pushing siblings down) rather than
+          absolutely positioned: Lynx doesn't reliably resolve `top: 100%`
+          against a `position: relative` ancestor, which detached the menu. */}
+      {isOpen() && !props.disabled && (
+        <view class="select-dropdown" style={{ marginTop: 4 }}>
           {(props.options ?? []).map((option) => (
             <Pressable
               class={`select-option${option.value === selectedValue() ? ' select-option-active' : ''}`}
@@ -73,7 +84,7 @@ export const Select = component<SelectProps>(({ props }) => {
               longPressDuration={0}
               onPress={() => {
                 if (props.model) props.model.value = option.value;
-                state.open = false;
+                openSelectId.value = null;
               }}
             >
               <text>{option.label}</text>
