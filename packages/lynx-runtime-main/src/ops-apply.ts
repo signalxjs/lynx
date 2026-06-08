@@ -86,7 +86,7 @@ const lastTreeByElementWvid = new Map<number, unknown>();
  */
 const elementIdByWvid = new Map<number, number>();
 
-function resolveElementByWvid(wvid: number): MainThreadElement | undefined {
+export function resolveElementByWvid(wvid: number): MainThreadElement | undefined {
   const elementId = elementIdByWvid.get(wvid);
   if (elementId === undefined) return undefined;
   return elements.get(elementId);
