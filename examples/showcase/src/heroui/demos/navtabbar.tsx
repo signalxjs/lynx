@@ -1,5 +1,6 @@
 import { component, signal } from '@sigx/lynx';
-import { Col, NavTabBar, Text } from '@sigx/lynx-heroui';
+import { Col, Text } from '@sigx/lynx-heroui';
+import { NavTabBar } from '@sigx/lynx-heroui/navigation';
 import type { HeroComponentDemo } from '../registry.js';
 
 /**

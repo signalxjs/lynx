@@ -37,7 +37,11 @@ Available today:
 - **Actions** — `Button`
 - **Forms** — `Input`, `Textarea`, `Toggle`, `Checkbox`, `Radio`, `Select`, `FormField`
 - **Layout** — `Card`, `Divider`
-- **Navigation** — `Tabs`, `SwiperIndicator`, `NavHeader`, `NavTabBar` (the Nav* components need the optional `@sigx/lynx-navigation` peer)
+- **Navigation** — `Tabs`, `SwiperIndicator`; and `NavHeader` / `NavTabBar` via the **`@sigx/lynx-heroui/navigation`** subpath (they need the optional `@sigx/lynx-navigation` peer, so they're kept off the root entrypoint — importing `@sigx/lynx-heroui` never forces navigation resolution):
+
+  ```tsx
+  import { NavHeader, NavTabBar } from '@sigx/lynx-heroui/navigation';
+  ```
 - **Feedback** — `Alert`, `Badge`, `Loading`, `Progress`, `Skeleton`, `Steps`, `Modal`
 - **Data** — `Avatar`
 - **Typography** — `Text`, `Heading`

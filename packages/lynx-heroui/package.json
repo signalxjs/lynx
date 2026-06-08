@@ -15,6 +15,10 @@
             "import": "./dist/preset/index.js",
             "default": "./dist/preset/index.js"
         },
+        "./navigation": {
+            "types": "./dist/navigation.d.ts",
+            "import": "./dist/navigation.js"
+        },
         "./styles": {
             "types": "./dist/styles/index.css.d.ts",
             "default": "./dist/styles/index.css"
