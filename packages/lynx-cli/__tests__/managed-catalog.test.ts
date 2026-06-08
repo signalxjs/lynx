@@ -75,4 +75,15 @@ describe('cleanPrebuild(full) — what `prebuild --clean` now triggers', () => {
         expect(existsSync(join(testDir, 'android'))).toBe(false);
         expect(existsSync(join(testDir, 'ios'))).toBe(false);
     });
+
+    it('scopes the clean to the selected platform — leaves the other intact', () => {
+        const config = resolveConfig(BASE_CONFIG);
+        scaffoldAndroid(testDir, config);
+        scaffoldIos(testDir, config);
+
+        cleanPrebuild(testDir, config, true, { android: true, ios: false });
+
+        expect(existsSync(join(testDir, 'android'))).toBe(false);
+        expect(existsSync(join(testDir, 'ios'))).toBe(true);
+    });
 });

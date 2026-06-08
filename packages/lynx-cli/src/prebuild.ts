@@ -1817,17 +1817,27 @@ function escapeRegex(s: string): string {
 // ────────────────────────────────────────────────────────────────
 
 /**
- * Clean generated prebuild artifacts.
+ * Clean generated prebuild artifacts. `platforms` scopes the clean so a
+ * platform-targeted prebuild (`--android` / `--ios`) never touches the other
+ * platform's project; omitted entries default to cleaning that platform.
  */
-export function cleanPrebuild(cwd: string, config: ResolvedConfig, full: boolean): void {
+export function cleanPrebuild(
+    cwd: string,
+    config: ResolvedConfig,
+    full: boolean,
+    platforms: { android?: boolean; ios?: boolean } = {},
+): void {
+    const cleanAndroid = platforms.android !== false;
+    const cleanIos = platforms.ios !== false;
+
     if (full) {
         const androidDir = join(cwd, 'android');
         const iosDir = join(cwd, 'ios');
-        if (existsSync(androidDir)) {
+        if (cleanAndroid && existsSync(androidDir)) {
             rmSync(androidDir, { recursive: true, force: true });
             log('Cleaned android/ directory');
         }
-        if (existsSync(iosDir)) {
+        if (cleanIos && existsSync(iosDir)) {
             rmSync(iosDir, { recursive: true, force: true });
             log('Cleaned ios/ directory');
         }
@@ -1840,11 +1850,11 @@ export function cleanPrebuild(cwd: string, config: ResolvedConfig, full: boolean
     const androidRegistry = join(cwd, 'android', 'app', 'src', 'main', 'kotlin', packagePath, 'GeneratedModuleRegistry.kt');
     const iosRegistry = join(cwd, 'ios', config.name, 'GeneratedModuleRegistry.swift');
 
-    if (existsSync(androidRegistry)) {
+    if (cleanAndroid && existsSync(androidRegistry)) {
         unlinkSync(androidRegistry);
         log('Cleaned Android GeneratedModuleRegistry.kt');
     }
-    if (existsSync(iosRegistry)) {
+    if (cleanIos && existsSync(iosRegistry)) {
         unlinkSync(iosRegistry);
         log('Cleaned iOS GeneratedModuleRegistry.swift');
     }
@@ -2009,7 +2019,7 @@ export async function runPrebuild(opts: PrebuildOptions = {}): Promise<void> {
     // from the template; the partial clean (registry files only) is rewritten
     // every prebuild anyway, so it was effectively a no-op here.
     if (opts.clean) {
-        cleanPrebuild(cwd, config, true);
+        cleanPrebuild(cwd, config, true, { android: buildAndroid, ios: buildIos });
     }
 
     // ── Android ──────────────────────────────────────────────
