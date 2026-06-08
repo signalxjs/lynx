@@ -30,7 +30,7 @@ interface FakeEl {
   addEventListener: (t: string, fn: (e: unknown) => void) => void;
   removeEventListener: (t: string) => void;
   setPointerCapture: ReturnType<typeof vi.fn>;
-  fire: (type: string, x: number, y: number) => void;
+  fire: (type: string, x: number, y: number, pageX?: number, pageY?: number) => void;
 }
 
 function makeEl(): FakeEl {
@@ -45,8 +45,8 @@ function makeEl(): FakeEl {
       delete listeners[t];
     },
     setPointerCapture: vi.fn(),
-    fire(type, x, y) {
-      listeners[type]?.({ type, clientX: x, clientY: y, pointerId: 1 });
+    fire(type, x, y, pageX, pageY) {
+      listeners[type]?.({ type, clientX: x, clientY: y, pageX, pageY, pointerId: 1 });
     },
   };
 }
@@ -173,6 +173,27 @@ describe('web gesture recognizer (pointer listeners)', () => {
     expect(el.style.touchAction).toBe('none');
     unregisterWebGesture(5, 1);
     expect(el.style.touchAction).toBe('auto');
+  });
+
+  it('restores touch-action when the Pan is removed but other gestures remain', () => {
+    const el = makeEl();
+    el.style.touchAction = 'pan-y';
+    reg(el, 5, 1, PAN, []); // sets touch-action:none
+    reg(el, 5, 2, TAP, []); // Tap also on the element
+    expect(el.style.touchAction).toBe('none');
+    unregisterWebGesture(5, 1); // remove the Pan; Tap stays
+    expect(el.style.touchAction).toBe('pan-y'); // restored despite the Tap
+    expect(Object.keys(el.listeners).length).toBeGreaterThan(0); // listeners stay
+  });
+
+  it('Pan onUpdate carries the event pageX (scroll-offset aware), not clientX', () => {
+    const el = makeEl();
+    reg(el, 5, 1, PAN, [{ name: 'onUpdate', callback: { _wkltId: 'u' } }], {
+      minDistance: 0,
+    });
+    el.fire('pointerdown', 0, 0, 100, 200); // clientX 0, pageX 100
+    el.fire('pointermove', 5, 0, 105, 200);
+    expect(runCalls.find((c) => c.wkltId === 'u')!.event.params.pageX).toBe(105);
   });
 
   it('composed Tap+LongPress: a quick tap emits Tap.onStart and ends every gesture', () => {

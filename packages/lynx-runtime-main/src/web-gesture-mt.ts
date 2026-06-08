@@ -52,6 +52,9 @@ interface PointerLike {
   type: string;
   clientX: number;
   clientY: number;
+  /** Page coords (scroll-offset aware) — preferred for the callbacks' pageX/Y. */
+  pageX?: number;
+  pageY?: number;
   pointerId?: number;
 }
 
@@ -122,10 +125,26 @@ export function unregisterWebGesture(elementWvid: number, gestureId: number): vo
   const entry = byElement.get(elementWvid);
   if (!entry) return;
   entry.gestures.delete(gestureId);
+  // Restore `touch-action` as soon as no Pan remains — even if other (non-Pan)
+  // gestures stay on the element — so a removed drag doesn't leave the element
+  // stuck unscrollable.
+  if (!hasPan(entry)) restoreTouchAction(entry);
   if (entry.gestures.size > 0) return;
   clearLpTimers(entry);
   detachListeners(entry);
   byElement.delete(elementWvid);
+}
+
+function hasPan(entry: ElementGestures): boolean {
+  for (const g of entry.gestures.values()) if (g.type === PAN) return true;
+  return false;
+}
+
+function restoreTouchAction(entry: ElementGestures): void {
+  if (entry.prevTouchAction === undefined) return;
+  const el = entry.el as unknown as DomEl;
+  if (el.style) el.style.touchAction = entry.prevTouchAction;
+  entry.prevTouchAction = undefined;
 }
 
 function attachListeners(entry: ElementGestures): void {
@@ -149,10 +168,7 @@ function detachListeners(entry: ElementGestures): void {
   const el = entry.el as unknown as DomEl;
   for (const l of entry.listeners ?? []) el.removeEventListener?.(l.type, l.fn);
   entry.listeners = undefined;
-  if (entry.prevTouchAction !== undefined && el.style) {
-    el.style.touchAction = entry.prevTouchAction;
-    entry.prevTouchAction = undefined;
-  }
+  restoreTouchAction(entry);
 }
 
 function setTouchActionNone(entry: ElementGestures): void {
@@ -187,7 +203,7 @@ function onDown(entry: ElementGestures, e: PointerLike): void {
       /* capture unsupported — drag tracking degrades to in-bounds only */
     }
   }
-  const evt = synthEvent('pointerdown', e.clientX, e.clientY);
+  const evt = synthEvent('pointerdown', e);
   for (const [gid, g] of entry.gestures) {
     runCb(g, 'onBegin', evt);
     if (g.type === LONGPRESS) {
@@ -206,7 +222,7 @@ function fireLongPress(entry: ElementGestures, gid: number): void {
   if (!g) return;
   entry.lpFired!.add(gid);
   const l = entry.last!;
-  runCb(g, 'onStart', synthEvent('longpress', l.x, l.y));
+  runCb(g, 'onStart', synthEvent('longpress', { clientX: l.x, clientY: l.y }));
 }
 
 function onMove(entry: ElementGestures, e: PointerLike): void {
@@ -220,7 +236,7 @@ function onMove(entry: ElementGestures, e: PointerLike): void {
     entry.moved = true;
     clearLpTimers(entry); // moved too far to still be a long-press
   }
-  const evt = synthEvent('pointermove', e.clientX, e.clientY);
+  const evt = synthEvent('pointermove', e);
   for (const [gid, g] of entry.gestures) {
     if (g.type !== PAN) continue;
     if (!entry.panStarted!.has(gid)) {
@@ -244,7 +260,7 @@ function onUp(entry: ElementGestures, e: PointerLike): void {
   const tapMax = tapMaxDistance(entry);
   const withinTap = !!start && dx * dx + dy * dy <= tapMax * tapMax;
   const isTap = withinTap && entry.lpFired!.size === 0 && entry.panStarted!.size === 0;
-  const evt = synthEvent('pointerup', e.clientX, e.clientY);
+  const evt = synthEvent('pointerup', e);
   // Pass 1: Tap.onStart (emits press) — before onEnd so a LongPress.onEnd
   // press-fallback sees the emit.
   if (isTap) {
@@ -259,7 +275,7 @@ function onCancel(entry: ElementGestures, e: PointerLike): void {
   if (!entry.active) return;
   entry.active = false;
   clearLpTimers(entry);
-  const evt = synthEvent('pointercancel', e.clientX, e.clientY);
+  const evt = synthEvent('pointercancel', e);
   for (const g of entry.gestures.values()) runCb(g, 'onEnd', evt);
   resetTransient(entry);
 }
@@ -309,9 +325,18 @@ function tapMaxDistance(entry: ElementGestures): number {
   return max;
 }
 
-/** The `{ params }` event shape the gesture worklet callbacks read (pageX/Y). */
-function synthEvent(type: string, x: number, y: number): unknown {
-  return { type, params: { pageX: x, pageY: y, x, y } };
+/**
+ * The `{ params }` event shape the gesture worklet callbacks read. Uses the
+ * pointer event's page coordinates (scroll-offset aware) for `pageX/Y`, falling
+ * back to client coords when absent (e.g. synthesized long-press point).
+ */
+function synthEvent(
+  type: string,
+  e: { clientX: number; clientY: number; pageX?: number; pageY?: number },
+): unknown {
+  const px = e.pageX ?? e.clientX;
+  const py = e.pageY ?? e.clientY;
+  return { type, params: { pageX: px, pageY: py, x: e.clientX, y: e.clientY } };
 }
 
 function nowMs(): number {
