@@ -1,6 +1,6 @@
 {
     "name": "@sigx/lynx-icons-lucide",
-    "version": "0.4.9",
+    "version": "0.5.0",
     "description": "Lucide adapter for @sigx/lynx-icons. SVG-mode only — lucide is not distributed as a font.",
     "type": "module",
     "main": "./dist/index.js",
