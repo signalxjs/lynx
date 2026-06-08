@@ -19,6 +19,8 @@ import { avatarDemo } from './demos/avatar.js';
 import { swiperindicatorDemo } from './demos/swiperindicator.js';
 import { modalDemo } from './demos/modal.js';
 import { tabsDemo } from './demos/tabs.js';
+import { navtabbarDemo } from './demos/navtabbar.js';
+import { navheaderDemo } from './demos/navheader.js';
 import { textDemo } from './demos/text.js';
 import { headingDemo } from './demos/heading.js';
 
@@ -89,6 +91,8 @@ export const heroDemos: HeroComponentDemo[] = [
     // Navigation
     tabsDemo,
     swiperindicatorDemo,
+    navtabbarDemo,
+    navheaderDemo,
     // Typography
     textDemo,
     headingDemo,

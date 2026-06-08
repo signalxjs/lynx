@@ -33,62 +33,17 @@
  * <ThemeProvider light="daisy-cupcake" dark="daisy-synthwave">…</ThemeProvider>
  * ```
  */
-import { component, defineProvide, type Define } from '@sigx/lynx';
-import { useIconColorResolver, type IconColorResolver } from '@sigx/lynx-icons';
-import {
-    ThemeProvider as ZeroThemeProvider,
-    useTheme,
-    colorsOf,
-    type ColorToken,
-} from '@sigx/lynx-zero';
+import { component, type Define } from '@sigx/lynx';
+import { ThemeProvider as ZeroThemeProvider } from '@sigx/lynx-zero';
 import { DAISY_BUILTIN_THEMES, type DaisyTheme } from './builtins.js';
 
 // Referencing the built-ins keeps the seeding side effect (`./builtins.ts`
 // registers them at module load) safe from over-eager treeshaking.
 void DAISY_BUILTIN_THEMES;
 
-/**
- * Declaration-merge extension: add a typed `variant` prop to `<Icon>`,
- * `<FaSolidIcon>`, `<LucideIcon>`, etc. Daisy owns the entire concept
- * — `@sigx/lynx-icons` has no notion of variants. Without this merge
- * being in scope (i.e. an app that doesn't depend on daisy), `<Icon
- * variant="…">` is a compile error: the property doesn't exist.
- *
- * The merge fires the moment any consumer imports anything from
- * `@sigx/lynx-daisyui`. No subpath, no extra import dance.
- */
-declare module '@sigx/lynx-icons' {
-    interface IconPropsExtensions {
-        /**
-         * Daisy color token applied as the icon's `fill`. Resolved at
-         * runtime through `useIconColorResolver` (provided by
-         * `<ThemeProvider>`) to the current theme's hex value.
-         */
-        variant?: ColorToken;
-    }
-}
-
-/**
- * Bridges the active theme to `@sigx/lynx-icons`. Rendered *inside* the
- * engine's provider so `useTheme()` resolves to that provider's controller —
- * root or nested — and the resolver therefore recolors icons per sub-scope.
- */
-const IconThemeBridge = component<Define.Slot<'default'>>(({ slots }) => {
-    const theme = useTheme();
-    // Reading `theme.name` inside the resolver makes every icon's render
-    // re-run when the theme flips.
-    const resolver: IconColorResolver = (iconProps) => {
-        const variant = (iconProps as { variant?: ColorToken }).variant;
-        if (!variant) return undefined;
-        // Every theme's palette lives in the registry; fall back to daisy-light
-        // if the active theme isn't registered. SVG fills can't read CSS vars,
-        // so the resolved hex/rgb is substituted into the fill at render time.
-        const palette = colorsOf(theme.name) ?? colorsOf('daisy-light');
-        return palette?.[variant];
-    };
-    defineProvide(useIconColorResolver, () => resolver);
-    return () => <>{slots.default?.()}</>;
-});
+// The `<Icon variant>` typed prop and its theme-driven color resolver now live
+// in `@sigx/lynx-zero`'s `<ThemeProvider>` (#324) — design-system-agnostic, so
+// daisy inherits both by wrapping it. Nothing icon-specific to declare here.
 
 export type ThemeProviderProps =
     /**
@@ -133,7 +88,7 @@ export const ThemeProvider = component<ThemeProviderProps>(({ props, slots }) =>
             class={props.class}
             style={props.style}
         >
-            <IconThemeBridge>{slots.default?.()}</IconThemeBridge>
+            {slots.default?.()}
         </ZeroThemeProvider>
     );
 });

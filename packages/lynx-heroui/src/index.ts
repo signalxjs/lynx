@@ -53,6 +53,17 @@ export { Modal } from './components/Modal.js';
 export type { ModalProps } from './components/Modal.js';
 export { Tabs } from './components/Tabs.js';
 export type { TabsProps, TabProps } from './components/Tabs.js';
+// Navigation chrome for @sigx/lynx-navigation (optional peer). These statically
+// import the nav package; consumers that use them must have it installed.
+export { NavHeader } from './components/NavHeader.js';
+export type { NavHeaderProps, NavHeaderBackground } from './components/NavHeader.js';
+export { NavTabBar } from './components/NavTabBar.js';
+export type {
+  NavTabBarProps,
+  NavTabBarPosition,
+  NavTabBarBackground,
+  NavTabRenderContext,
+} from './components/NavTabBar.js';
 
 // The engine + neutral primitives, re-exported so hero apps keep a single
 // import source (same shape as @sigx/lynx-daisyui).

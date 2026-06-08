@@ -37,7 +37,7 @@ Available today:
 - **Actions** — `Button`
 - **Forms** — `Input`, `Textarea`, `Toggle`, `Checkbox`, `Radio`, `Select`, `FormField`
 - **Layout** — `Card`, `Divider`
-- **Navigation** — `Tabs`, `SwiperIndicator`
+- **Navigation** — `Tabs`, `SwiperIndicator`, `NavHeader`, `NavTabBar` (the Nav* components need the optional `@sigx/lynx-navigation` peer)
 - **Feedback** — `Alert`, `Badge`, `Loading`, `Progress`, `Skeleton`, `Steps`, `Modal`
 - **Data** — `Avatar`
 - **Typography** — `Text`, `Heading`

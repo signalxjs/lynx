@@ -12,7 +12,7 @@
  * Colors are engine-safe strings — hex or `rgb()`. Lynx's CSS engine does not
  * parse `oklch()`, so convert before registering.
  */
-import { completeTheme, registerTheme, type Theme, type ThemeInput } from '@sigx/lynx-zero';
+import { completeTheme, registerTheme, type Theme, type ThemeInput } from '@sigx/lynx-zero/registry';
 
 /**
  * Theme class applied to the provider's host view. The six color themes
