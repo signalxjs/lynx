@@ -44,10 +44,10 @@ const roles = [
     { label: 'Engineering', value: 'eng' },
 ];
 
-<Input model={() => form.value.name} />
-<Checkbox model={() => form.value.agreed} />
-<Toggle model={() => form.value.dark} />
-<Select options={roles} model={() => form.value.role} />
+<Input model={() => form.name} />
+<Checkbox model={() => form.agreed} />
+<Toggle model={() => form.dark} />
+<Select options={roles} model={() => form.role} />
 
 // Radio: bind every item in the group to the same signal; each carries its
 // own `value`. The item whose `value` matches the model renders checked.
@@ -59,10 +59,11 @@ const roles = [
 
 `Checkbox`/`Toggle` also accept a static `checked` prop **and** an `onChange`
 event for controlled (non-model) usage. `Select`/`Radio.Item` take a static
-`value`/`checked` as **display-only** initial state — they have no change
-callback (a prop named `value` collides with runtime-core's `emit` handler
-lookup, so events on them never fire), so use `model` for any interactivity.
-When a `model` is bound it always takes precedence over the static prop.
+`value`/`checked` that is **display-only** — it's reflected on every render but
+never written back, and there's no change callback (a prop named `value`
+collides with runtime-core's `emit` handler lookup, so events on them never
+fire), so use `model` for any interactivity. When a `model` is bound it always
+takes precedence over the static prop.
 
 `Select`'s option menu opens as a floating overlay (`position: fixed`) anchored
 to the trigger, so it's never clipped inside a scroll view; it flips open
