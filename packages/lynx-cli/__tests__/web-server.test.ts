@@ -65,6 +65,12 @@ describe('safeJoin', () => {
     // Forward slashes are separators on every platform CI runs on.
     expect(safeJoin(root, '../etc/passwd')).toBeNull();
   });
+
+  it('rejects a sibling dir that shares the root name as a string prefix', () => {
+    // The classic naive-`startsWith` bypass: `sigx-root2` starts with `sigx-root`.
+    const root = join(tmpdir(), 'sigx-root');
+    expect(safeJoin(root, '../sigx-root2/secret')).toBeNull();
+  });
 });
 
 describe('hostHtml', () => {

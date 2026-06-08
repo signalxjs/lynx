@@ -24,7 +24,7 @@ import { createServer as createNetServer } from 'node:net';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { existsSync, readdirSync, statSync, watch } from 'node:fs';
-import { basename, dirname, extname, join, normalize } from 'node:path';
+import { basename, dirname, extname, isAbsolute, join, normalize, relative } from 'node:path';
 import { createRequire } from 'node:module';
 import { WebSocketServer } from 'ws';
 
@@ -125,10 +125,15 @@ export function contentType(file: string): string {
   return MIME[extname(file).toLowerCase()] ?? 'application/octet-stream';
 }
 
-/** Join `rel` under `root`, or null if it would escape the root. */
+/**
+ * Join `rel` under `root`, or null if it would escape the root. Uses
+ * `path.relative` (not `startsWith`) so a sibling that merely shares the root's
+ * name as a string prefix — e.g. `root/../root2/x` — is correctly rejected.
+ */
 export function safeJoin(root: string, rel: string): string | null {
   const abs = normalize(join(root, rel));
-  return abs.startsWith(normalize(root)) ? abs : null;
+  const within = relative(normalize(root), abs);
+  return within.startsWith('..') || isAbsolute(within) ? null : abs;
 }
 
 export function hostHtml(projectName: string, bundle: string): string {
@@ -215,7 +220,14 @@ export async function runWeb(ctx: RunWebCtx): Promise<void> {
     res.setHeader('Cross-Origin-Embedder-Policy', 'require-corp');
     res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
 
-    const url = decodeURIComponent((req.url ?? '/').split('?')[0] ?? '/');
+    let url: string;
+    try {
+      url = decodeURIComponent((req.url ?? '/').split('?')[0] ?? '/');
+    } catch {
+      // Malformed percent-encoding — answer 400 instead of crashing the server.
+      res.writeHead(400).end('Bad request');
+      return;
+    }
 
     if (url === '/' || url === '/index.html') {
       res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache' });
@@ -269,7 +281,9 @@ export async function runWeb(ctx: RunWebCtx): Promise<void> {
     });
   }
 
-  await new Promise<void>((resolve) => server.listen(port, '0.0.0.0', resolve));
+  // Bind loopback by default; only expose on all interfaces with --host.
+  const bindHost = exposeHost ? '0.0.0.0' : '127.0.0.1';
+  await new Promise<void>((resolve) => server.listen(port, bindHost, resolve));
 
   const localUrl = `http://localhost:${port}/`;
   console.log('\n  \x1b[1m⚡ sigx run:web\x1b[0m\n');
