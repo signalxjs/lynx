@@ -452,6 +452,17 @@ export function applyOps(ops: unknown[]): void {
         const el = resolveElementByWvid(elementWvid);
         if (!el) break;
 
+        // Gesture registration PAPI isn't implemented on every host — notably
+        // web (`@lynx-js/web-core`). Calling the vendored `processGesture`
+        // (which references `__SetGestureDetector`) there throws a
+        // ReferenceError that aborts the entire ops batch, so a navigation
+        // push that registers the Stack's swipe-back gesture would leave the
+        // new screen unrendered. Skip gracefully: gesture-driven interactions
+        // degrade, but the screen still mounts. Mirrors the
+        // `__RemoveGestureDetector` guard below. (All operands are already
+        // consumed above, so `i` stays aligned for the next op.)
+        if (typeof __SetGestureDetector !== 'function') break;
+
         // Reconstruct callbacks Record from the wire's array shape.
         const callbacksRecord: Record<string, Record<string, unknown>> = {};
         for (const cb of config.callbacks) {
