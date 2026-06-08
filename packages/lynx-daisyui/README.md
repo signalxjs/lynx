@@ -64,6 +64,11 @@ callback (a prop named `value` collides with runtime-core's `emit` handler
 lookup, so events on them never fire), so use `model` for any interactivity.
 When a `model` is bound it always takes precedence over the static prop.
 
+`Select`'s option menu opens as a floating overlay (`position: fixed`) anchored
+to the trigger, so it's never clipped inside a scroll view; it flips open
+upward when there isn't room below. Only one `Select` menu is open at a time —
+opening one closes any other. Tapping outside (the backdrop) closes it.
+
 ## Use the styles
 
 The package exports a single stylesheet you can pull in from your app entry:
