@@ -959,6 +959,14 @@ function iosTemplateVars(config: ResolvedConfig): Record<string, string> {
  * customizations (custom Compose UI, services, etc.) belong in separate
  * files; the template's MainActivity is framework code that needs to stay
  * in lockstep with the autolinker.
+ *
+ * `gradle/libs.versions.toml` is managed for the same reason: the managed
+ * `build.gradle.kts` references its aliases (e.g. `libs.androidx.fragment.ktx`),
+ * so the version catalog must travel with it. If it were scaffold-once, a
+ * template change that adds a new alias to both files would leave existing
+ * projects with a refreshed `build.gradle.kts` referencing an alias their stale
+ * catalog lacks → `Unresolved reference`. The catalog holds only framework
+ * version pins (module deps inject into `build.gradle.kts` directly, not here).
  */
 const MANAGED_ANDROID_FILES = [
     'app/src/main/AndroidManifest.xml',
@@ -967,6 +975,7 @@ const MANAGED_ANDROID_FILES = [
     'app/src/main/res/xml/network_security_config.xml',
     'app/src/debug/res/xml/network_security_config.xml',
     'app/build.gradle.kts',
+    'gradle/libs.versions.toml',
     'app/src/main/kotlin/__package__/MainActivity.kt',
 ];
 
@@ -1808,17 +1817,27 @@ function escapeRegex(s: string): string {
 // ────────────────────────────────────────────────────────────────
 
 /**
- * Clean generated prebuild artifacts.
+ * Clean generated prebuild artifacts. `platforms` scopes the clean so a
+ * platform-targeted prebuild (`--android` / `--ios`) never touches the other
+ * platform's project; omitted entries default to cleaning that platform.
  */
-export function cleanPrebuild(cwd: string, config: ResolvedConfig, full: boolean): void {
+export function cleanPrebuild(
+    cwd: string,
+    config: ResolvedConfig,
+    full: boolean,
+    platforms: { android?: boolean; ios?: boolean } = {},
+): void {
+    const cleanAndroid = platforms.android !== false;
+    const cleanIos = platforms.ios !== false;
+
     if (full) {
         const androidDir = join(cwd, 'android');
         const iosDir = join(cwd, 'ios');
-        if (existsSync(androidDir)) {
+        if (cleanAndroid && existsSync(androidDir)) {
             rmSync(androidDir, { recursive: true, force: true });
             log('Cleaned android/ directory');
         }
-        if (existsSync(iosDir)) {
+        if (cleanIos && existsSync(iosDir)) {
             rmSync(iosDir, { recursive: true, force: true });
             log('Cleaned ios/ directory');
         }
@@ -1831,11 +1850,11 @@ export function cleanPrebuild(cwd: string, config: ResolvedConfig, full: boolean
     const androidRegistry = join(cwd, 'android', 'app', 'src', 'main', 'kotlin', packagePath, 'GeneratedModuleRegistry.kt');
     const iosRegistry = join(cwd, 'ios', config.name, 'GeneratedModuleRegistry.swift');
 
-    if (existsSync(androidRegistry)) {
+    if (cleanAndroid && existsSync(androidRegistry)) {
         unlinkSync(androidRegistry);
         log('Cleaned Android GeneratedModuleRegistry.kt');
     }
-    if (existsSync(iosRegistry)) {
+    if (cleanIos && existsSync(iosRegistry)) {
         unlinkSync(iosRegistry);
         log('Cleaned iOS GeneratedModuleRegistry.swift');
     }
@@ -1994,9 +2013,13 @@ export async function runPrebuild(opts: PrebuildOptions = {}): Promise<void> {
     // a working install.
     const assets = resolveAssets(rawConfig, cwd);
 
-    // Clean if requested
+    // Clean if requested — full re-scaffold (delete android/ + ios/ and
+    // regenerate from the template), matching the Expo-prebuild `--clean`
+    // mental model. This is the escape hatch when generated native state drifts
+    // from the template; the partial clean (registry files only) is rewritten
+    // every prebuild anyway, so it was effectively a no-op here.
     if (opts.clean) {
-        cleanPrebuild(cwd, config, false);
+        cleanPrebuild(cwd, config, true, { android: buildAndroid, ios: buildIos });
     }
 
     // ── Android ──────────────────────────────────────────────
