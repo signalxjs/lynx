@@ -60,7 +60,9 @@ export type NavDrawerProps =
 
 const ENTER_DURATION_SEC = 0.28;
 const EXIT_DURATION_SEC = 0.22;
-const EXIT_DURATION_MS = Math.round(EXIT_DURATION_SEC * 1000);
+// `ceil` so the unmount timer never fires before the exit animation finishes
+// (which would pop the panel/backdrop out instead of letting it slide).
+const EXIT_DURATION_MS = Math.ceil(EXIT_DURATION_SEC * 1000);
 
 const BACKDROP_OPACITY = 0.3;
 
@@ -201,9 +203,10 @@ const DrawerChrome = component<DrawerChromeProps>(({ props }) => {
 
     return () => {
         const isRight = props.side === 'right';
-        // Lynx resolves `var(--color-*)` in CSS-pipeline rules (Tailwind classes)
-        // but NOT in inline `style.backgroundColor`. So semantic tokens apply via
-        // `bg-<token>`; raw CSS strings fall through to inline.
+        // `resolveColorToken` rewrites a semantic token to `var(--color-*)` and
+        // passes raw CSS values through unchanged. We use that only to branch:
+        // semantic tokens apply via the `bg-<token>` class (the preset compiles
+        // it to a resolvable rule); raw CSS color strings apply inline.
         const resolved = resolveColorToken(props.background);
         const isToken = resolved !== props.background;
         const bgClass = isToken ? `bg-${props.background}` : '';
