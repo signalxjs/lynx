@@ -4,12 +4,12 @@ import type { DaisyComponentDemo } from '../registry.js';
 
 /**
  * Checkbox — the color ramp, the size ramp, checked/disabled states and a
- * live `onChange`-bound box echoing its value.
+ * live `model`-bound box echoing its value.
  */
 export const checkboxDemo: DaisyComponentDemo = {
     id: 'checkbox',
     title: 'Checkbox',
-    description: 'Color & size ramps, checked & disabled states, live onChange binding',
+    description: 'Color & size ramps, checked & disabled states, live two-way model binding',
     icon: { set: 'lucide', name: 'square-check' },
     sections: [
         {
@@ -49,18 +49,17 @@ export const checkboxDemo: DaisyComponentDemo = {
             )),
         },
         {
-            title: 'Change events',
+            title: 'Two-way binding',
             Demo: component(() => {
                 const newsletter = signal(false);
                 return () => (
-                    <Row gap={12} align="center" justify="space-between">
-                        <Text>Subscribe to newsletter</Text>
-                        <Checkbox
-                            color="primary"
-                            checked={newsletter.value}
-                            onChange={(checked) => { newsletter.value = checked; }}
-                        />
-                    </Row>
+                    <Col gap={8}>
+                        <Row gap={12} align="center" justify="space-between">
+                            <Text>Subscribe to newsletter</Text>
+                            <Checkbox color="primary" model={() => newsletter.value} />
+                        </Row>
+                        <Text class="opacity-60">subscribed: {newsletter.value ? 'yes' : 'no'}</Text>
+                    </Col>
                 );
             }),
         },

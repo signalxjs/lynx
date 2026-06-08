@@ -4,12 +4,12 @@ import type { DaisyComponentDemo } from '../registry.js';
 
 /**
  * Toggle — the color ramp, the size ramp, checked/disabled states and a
- * live `onChange`-bound switch echoing its value.
+ * live `model`-bound switch echoing its value.
  */
 export const toggleDemo: DaisyComponentDemo = {
     id: 'toggle',
     title: 'Toggle',
-    description: 'Color & size ramps, checked & disabled states, live onChange binding',
+    description: 'Color & size ramps, checked & disabled states, live two-way model binding',
     icon: { set: 'lucide', name: 'toggle-left' },
     sections: [
         {
@@ -49,18 +49,17 @@ export const toggleDemo: DaisyComponentDemo = {
             )),
         },
         {
-            title: 'Change events',
+            title: 'Two-way binding',
             Demo: component(() => {
                 const darkPreview = signal(false);
                 return () => (
-                    <Row gap={12} align="center" justify="space-between">
-                        <Text>Dark preview</Text>
-                        <Toggle
-                            color="primary"
-                            checked={darkPreview.value}
-                            onChange={(checked) => { darkPreview.value = checked; }}
-                        />
-                    </Row>
+                    <Col gap={8}>
+                        <Row gap={12} align="center" justify="space-between">
+                            <Text>Dark preview</Text>
+                            <Toggle color="primary" model={() => darkPreview.value} />
+                        </Row>
+                        <Text class="opacity-60">dark: {darkPreview.value ? 'on' : 'off'}</Text>
+                    </Col>
                 );
             }),
         },

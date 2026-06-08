@@ -26,6 +26,41 @@ export function LoginCard() {
 
 The full component surface lives under `src/{buttons,data,feedback,forms,layout,navigation,typography}` — see the package source for the current inventory.
 
+## Form controls — two-way binding
+
+The form controls (`Input`, `Textarea`, `Checkbox`, `Toggle`, `Select`, `Radio.Item`)
+bind with the sigx [`model`](https://sigx.dev/core/docs/two-way-binding) getter
+syntax — `model={() => state.field}`. Interacting with the control writes the new
+value straight back into the bound signal; no `onChange` plumbing required.
+
+```tsx
+import { signal } from '@sigx/lynx';
+import { Checkbox, Toggle, Select, Radio, Input } from '@sigx/lynx-daisyui';
+
+const form = signal({ name: '', agreed: false, dark: false, role: 'design' });
+const plan = signal('free');
+const roles = [
+    { label: 'Design', value: 'design' },
+    { label: 'Engineering', value: 'eng' },
+];
+
+<Input model={() => form.value.name} />
+<Checkbox model={() => form.value.agreed} />
+<Toggle model={() => form.value.dark} />
+<Select options={roles} model={() => form.value.role} />
+
+// Radio: bind every item in the group to the same signal; each carries its
+// own `value`. The item whose `value` matches the model renders checked.
+<Radio>
+    <Radio.Item value="free" label="Free" model={() => plan.value} />
+    <Radio.Item value="pro"  label="Pro"  model={() => plan.value} />
+</Radio>
+```
+
+`Checkbox`/`Toggle` also accept a static `checked` prop (plus an `onChange`
+event) for controlled/display-only usage; `Select`/`Radio.Item` accept a static
+`value`/`checked` for the same. When a `model` is bound it takes precedence.
+
 ## Use the styles
 
 The package exports a single stylesheet you can pull in from your app entry:

@@ -20,10 +20,16 @@ export type SelectProps =
   & Define.Prop<'color', SelectColor, false>
   & Define.Prop<'disabled', boolean, false>
   & Define.Prop<'class', string, false>
-  & Define.Event<'change', string>;
+  // Two-way binding (the sigx way): `model={() => state.country}`. Picking an
+  // option writes its value into the model. The static `value` prop is honored
+  // when no model is bound (controlled/showcase rows).
+  & Define.Model<string>;
 
-export const Select = component<SelectProps>(({ props, emit }) => {
+export const Select = component<SelectProps>(({ props }) => {
   const state = signal({ open: false });
+
+  // Resolved selection: the bound model wins, else the static `value` prop.
+  const selectedValue = () => (props.model ? props.model.value : props.value);
 
   const getClasses = () => {
     const c = ['select'];
@@ -37,7 +43,7 @@ export const Select = component<SelectProps>(({ props, emit }) => {
 
   const getSelectedLabel = () => {
     const opts = props.options ?? [];
-    const found = opts.find((o) => o.value === props.value);
+    const found = opts.find((o) => o.value === selectedValue());
     return found ? found.label : (props.placeholder ?? 'Select...');
   };
 
@@ -61,12 +67,12 @@ export const Select = component<SelectProps>(({ props, emit }) => {
         <view class="select-dropdown" style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 10 }}>
           {(props.options ?? []).map((option) => (
             <Pressable
-              class={`select-option${option.value === props.value ? ' select-option-active' : ''}`}
+              class={`select-option${option.value === selectedValue() ? ' select-option-active' : ''}`}
               pressedScale={PRESSED_SCALE}
               pressedOpacity={PRESSED_OPACITY}
               longPressDuration={0}
               onPress={() => {
-                emit('change', option.value);
+                if (props.model) props.model.value = option.value;
                 state.open = false;
               }}
             >

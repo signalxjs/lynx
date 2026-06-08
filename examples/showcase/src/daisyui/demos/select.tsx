@@ -10,12 +10,12 @@ const roles = [
 
 /**
  * Select — bordered/ghost variants, the color ramp, the size ramp, the
- * disabled state and a live `onChange`-bound dropdown echoing its value.
+ * disabled state and a live `model`-bound dropdown echoing its value.
  */
 export const selectDemo: DaisyComponentDemo = {
     id: 'select',
     title: 'Select',
-    description: 'Bordered/ghost variants, color & size ramps, placeholder, disabled, live onChange binding',
+    description: 'Bordered/ghost variants, color & size ramps, placeholder, disabled, live two-way model binding',
     icon: { set: 'lucide', name: 'chevrons-up-down' },
     sections: [
         {
@@ -59,7 +59,7 @@ export const selectDemo: DaisyComponentDemo = {
             )),
         },
         {
-            title: 'Change events',
+            title: 'Two-way binding',
             Demo: component(() => {
                 const role = signal('design');
                 return () => (
@@ -67,8 +67,7 @@ export const selectDemo: DaisyComponentDemo = {
                         <Select
                             options={roles}
                             variant="bordered"
-                            value={role.value}
-                            onChange={(value) => { role.value = value; }}
+                            model={() => role.value}
                         />
                         <Text class="opacity-60">selected: {role.value}</Text>
                     </Col>
