@@ -478,7 +478,7 @@ export default definePlugin({
             args: {
                 android: { type: 'boolean', description: 'Android only' },
                 ios: { type: 'boolean', description: 'iOS only' },
-                clean: { type: 'boolean', description: 'Clean generated files first' },
+                clean: { type: 'boolean', description: 'Delete and regenerate the native projects (android/, ios/) from scratch' },
             },
             async run(ctx) {
                 const { runPrebuild } = await import('./prebuild.js');
