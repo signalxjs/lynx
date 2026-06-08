@@ -50,10 +50,14 @@
         "@sigx/lynx-zero": "workspace:^"
     },
     "peerDependencies": {
-        "@sigx/lynx-navigation": "workspace:^"
+        "@sigx/lynx-navigation": "workspace:^",
+        "tailwindcss": "^3.0.0 || ^4.0.0"
     },
     "peerDependenciesMeta": {
         "@sigx/lynx-navigation": {
+            "optional": true
+        },
+        "tailwindcss": {
             "optional": true
         }
     },
@@ -75,13 +79,5 @@
     },
     "publishConfig": {
         "access": "public"
-    },
-    "peerDependencies": {
-        "tailwindcss": "^3.0.0 || ^4.0.0"
-    },
-    "peerDependenciesMeta": {
-        "tailwindcss": {
-            "optional": true
-        }
     }
 }
