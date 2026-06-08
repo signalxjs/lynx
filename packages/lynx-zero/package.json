@@ -43,7 +43,9 @@
     "license": "MIT",
     "dependencies": {
         "@sigx/lynx": "workspace:^",
-        "@sigx/lynx-appearance": "workspace:^"
+        "@sigx/lynx-appearance": "workspace:^",
+        "@sigx/lynx-gestures": "workspace:^",
+        "@sigx/lynx-motion": "workspace:^"
     },
     "peerDependencies": {
         "@sigx/lynx-navigation": "workspace:^",

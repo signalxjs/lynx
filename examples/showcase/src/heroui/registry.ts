@@ -16,6 +16,7 @@ import { progressDemo } from './demos/progress.js';
 import { skeletonDemo } from './demos/skeleton.js';
 import { stepsDemo } from './demos/steps.js';
 import { avatarDemo } from './demos/avatar.js';
+import { swiperindicatorDemo } from './demos/swiperindicator.js';
 import { modalDemo } from './demos/modal.js';
 import { tabsDemo } from './demos/tabs.js';
 import { textDemo } from './demos/text.js';
@@ -87,6 +88,7 @@ export const heroDemos: HeroComponentDemo[] = [
     avatarDemo,
     // Navigation
     tabsDemo,
+    swiperindicatorDemo,
     // Typography
     textDemo,
     headingDemo,

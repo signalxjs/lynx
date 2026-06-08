@@ -11,7 +11,7 @@
 import { describe, expect, it } from 'vitest';
 import { signal, useSharedValue, component } from '@sigx/lynx';
 import { render, act } from '@sigx/lynx-testing';
-import { SwiperIndicator } from '../src/navigation/SwiperIndicator';
+import { SwiperIndicator } from '../src/components/SwiperIndicator';
 
 /**
  * Count the dot views in the wrapper row. Each `<Dot>` contributes a

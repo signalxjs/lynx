@@ -15,7 +15,7 @@ import {
   useSwiperDotTranslate,
 } from '@sigx/lynx-gestures';
 import { withTiming } from '@sigx/lynx-motion';
-import { resolveColorToken, type ColorToken } from '@sigx/lynx-zero';
+import { resolveColorToken, type ColorToken } from '../contract.js';
 
 /**
  * Visual style for the swiper page indicator.
@@ -203,7 +203,7 @@ export const SwiperIndicator = component<SwiperIndicatorProps>(({ props }) => {
           alignItems: 'center',
           justifyContent: 'center',
           gap: size.gap + 'px',
-          ...(props.style || {}),
+          ...props.style,
         }}
       >
         {Array.from({ length: props.count }, (_, i) => (
@@ -430,7 +430,7 @@ const BarIndicator = component<BarProps>(({ props }) => {
           borderRadius: (props.barHeight / 2) + 'px',
           backgroundColor: withAlpha(props.inactiveColor, 0.25),
           overflow: 'visible',
-          ...(props.style || {}),
+          ...props.style,
         }}
       >
         {props.onDotPress
@@ -497,7 +497,7 @@ const NumberedIndicator = component<NumberedProps>(({ props }) => {
         color: props.color,
         fontSize: props.fontSize + 'px',
         fontWeight: '600',
-        ...(props.style || {}),
+        ...props.style,
       }}
     >
       {label.value}

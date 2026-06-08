@@ -37,11 +37,12 @@ Available today:
 - **Actions** — `Button`
 - **Forms** — `Input`, `Textarea`, `Toggle`, `Checkbox`, `Radio`, `Select`, `FormField`
 - **Layout** — `Card`, `Divider`
-- **Navigation** — `Tabs`
+- **Navigation** — `Tabs`, `SwiperIndicator`
 - **Feedback** — `Alert`, `Badge`, `Loading`, `Progress`, `Skeleton`, `Steps`, `Modal`
 - **Data** — `Avatar`
 - **Typography** — `Text`, `Heading`
 
 Plus the engine + neutral primitives re-exported from `@sigx/lynx-zero`
-(`ThemeProvider`, `useTheme`, `Row`/`Col`/`Center`/`Spacer`/`ScrollView`, …)
+(`ThemeProvider`, `useTheme`, `Row`/`Col`/`Center`/`Spacer`/`ScrollView`,
+`SwiperIndicator`, …)
 so a hero app keeps a single import source.

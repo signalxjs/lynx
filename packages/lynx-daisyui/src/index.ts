@@ -80,12 +80,14 @@ export type {
     NavDrawerProps,
     NavDrawerSide,
 } from './navigation/NavDrawer.js';
-export { SwiperIndicator } from './navigation/SwiperIndicator.js';
+// SwiperIndicator is design-system-neutral — it now lives in @sigx/lynx-zero
+// (#317) and daisy re-exports it so the public API is unchanged.
+export { SwiperIndicator } from '@sigx/lynx-zero';
 export type {
     SwiperIndicatorProps,
     SwiperIndicatorVariant,
     SwiperIndicatorSize,
-} from './navigation/SwiperIndicator.js';
+} from '@sigx/lynx-zero';
 
 // Theme — the engine lives in @sigx/lynx-zero; daisy wraps it with its six
 // built-in palettes (seeded at module load via ./theme/builtins.ts) and the
