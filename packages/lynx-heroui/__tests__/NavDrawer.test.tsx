@@ -4,7 +4,7 @@
  * resolution, side/width geometry, and mount/unmount on open/close. Underlying
  * drawer state is owned by the primitive (covered in lynx-navigation tests).
  */
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { component } from '@sigx/lynx';
 import { render, act } from '@sigx/lynx-testing';
 import { useDrawer, type DrawerNav } from '@sigx/lynx-navigation';
@@ -36,14 +36,14 @@ const findPanel = (root: any, token: string) =>
         && typeof n.props?.style?.width === 'number');
 
 describe('hero NavDrawer', () => {
-    it('mounts the sidebar + main slots only while open', () => {
+    it('mounts the chrome (panel + sidebar) only while open', () => {
         const probe: Probe = { nav: null };
         const { container } = render(
             <NavDrawer side="left" width={200} background="base-100" slots={{ sidebar: () => <text>SIDEBAR</text> }}>
                 <Capture probe={probe} />
             </NavDrawer>,
         );
-        // Closed at mount: no themed panel.
+        // Closed at mount: the default slot renders, but no themed chrome panel.
         expect(findPanel(container, 'base-100')).toBeNull();
         // Open → panel + sidebar mount.
         act(() => probe.nav!.open());
@@ -51,6 +51,30 @@ describe('hero NavDrawer', () => {
         expect(panel).toBeTruthy();
         expect(panel.props.style.width).toBe(200);
         expect(container.findByText('SIDEBAR')).toBeTruthy();
+    });
+
+    it('unmounts the chrome after the exit animation on close', () => {
+        vi.useFakeTimers();
+        try {
+            const probe: Probe = { nav: null };
+            const { container } = render(
+                <NavDrawer side="left" width={200} background="base-100" slots={{ sidebar: () => <text>S</text> }}>
+                    <Capture probe={probe} />
+                </NavDrawer>,
+            );
+            act(() => probe.nav!.open());
+            expect(findPanel(container, 'base-100')).toBeTruthy();
+
+            // Close: chrome stays mounted during the exit animation…
+            act(() => probe.nav!.close());
+            expect(findPanel(container, 'base-100')).toBeTruthy();
+
+            // …and unmounts once the exit timer (EXIT_DURATION_MS = 220) fires.
+            act(() => { vi.advanceTimersByTime(250); });
+            expect(findPanel(container, 'base-100')).toBeNull();
+        } finally {
+            vi.useRealTimers();
+        }
     });
 
     it('left side anchors the panel to the left edge; right to the right', () => {
