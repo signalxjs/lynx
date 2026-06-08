@@ -24,7 +24,11 @@
  * within one flush window collapse to one BG event with N entries.
  */
 
-import { bridgedAvWvids, bridgedAvLastValues } from './ops-apply.js';
+import {
+  bridgedAvWvids,
+  bridgedAvLastValues,
+  resolveElementByWvid,
+} from './ops-apply.js';
 import { lookupMapper } from './animated-style-mappers.js';
 
 const AV_PUBLISH = 'Lynx.Sigx.AvPublish';
@@ -234,15 +238,37 @@ export function flushAnimatedStyleBindings(): void {
     }
   }
 
-  // Phase 3 — one setStyleProperties per dirty element.
+  // Phase 3 — apply the merged style per dirty element.
   for (const [elementWvid, styleObj] of merged) {
     const elRef = refMap[elementWvid];
     const el = elRef?.current as unknown as ElementWithStyleApply | null | undefined;
-    if (!el?.setStyleProperties) continue;
-    try {
-      el.setStyleProperties(styleObj);
-    } catch (e) {
-      console.log('[sigx-mt] av-style setStyleProperties threw:', String(e));
+
+    // Preferred path (native): the worklet-ref wrapper's `setStyleProperties`
+    // applies via the platform's optimized per-frame worklet write.
+    if (el?.setStyleProperties) {
+      try {
+        el.setStyleProperties(styleObj);
+        continue;
+      } catch {
+        // Wrapper apply failed — notably web (`@lynx-js/web-core`), where the
+        // wrapper's `setStyleProperties` → `setProperty` isn't implemented for
+        // the underlying element. Fall through to the raw PAPI below so
+        // animations still run instead of silently freezing.
+      }
+    }
+
+    // Fallback: apply directly on the unwrapped MainThreadElement via
+    // `__SetInlineStyles` — the same PAPI the `SET_STYLE` op uses, which works
+    // on web. The surrounding `__FlushElementTree` commits it. Resolves
+    // wvid → elementId → element from the shared registry. On native this
+    // never runs (the wrapper path above succeeds).
+    const rawEl = resolveElementByWvid(elementWvid);
+    if (rawEl && typeof __SetInlineStyles === 'function') {
+      try {
+        __SetInlineStyles(rawEl, styleObj);
+      } catch (e) {
+        console.log('[sigx-mt] av-style raw apply threw:', String(e));
+      }
     }
   }
 }

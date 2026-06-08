@@ -25,6 +25,7 @@ import {
   animatedStyleBindingCount,
 } from '../src/animated-bridge-mt';
 import { lookupMapper, registerMapper } from '../src/animated-style-mappers';
+import { elements } from '../src/element-registry';
 
 interface FakeRef {
   current: { value: unknown };
@@ -540,6 +541,66 @@ describe('flushAnimatedStyleBindings', () => {
     expect(animatedStyleBindingCount()).toBe(1);
     resetMainThreadState();
     expect(animatedStyleBindingCount()).toBe(0);
+  });
+
+  // Web (@lynx-js/web-core): the worklet-ref wrapper's setStyleProperties
+  // throws because the underlying element has no setProperty, so per-frame
+  // animated styles would silently freeze. The bridge falls back to the raw
+  // MainThreadElement via __SetInlineStyles (resolved wvid → elementId →
+  // element), the same PAPI the SET_STYLE op uses, which works on web.
+  it('falls back to __SetInlineStyles on the raw element when the wrapper setStyleProperties throws (web)', () => {
+    const setInlineCalls: Array<{ el: unknown; styles: unknown }> = [];
+    vi.stubGlobal('__SetInlineStyles', (el: unknown, styles: unknown) => {
+      setInlineCalls.push({ el, styles });
+    });
+    // SET_MT_REF delegates to the worklet runtime's updateWorkletRef.
+    (globalThis as unknown as {
+      lynxWorkletImpl: { _refImpl: { updateWorkletRef: unknown } };
+    }).lynxWorkletImpl._refImpl.updateWorkletRef = vi.fn();
+
+    const av = seedRef(1, 0);
+    // Element worklet-ref whose setStyleProperties throws — the web-core case.
+    const refMap = (globalThis as unknown as {
+      lynxWorkletImpl: { _refImpl: { _workletRefMap: Record<number, FakeRef> } };
+    }).lynxWorkletImpl._refImpl._workletRefMap;
+    refMap[2] = {
+      current: {
+        setStyleProperties: () => {
+          throw new Error('web: underlying element has no setProperty');
+        },
+      } as unknown as { value: unknown },
+      _wvid: 2,
+    };
+
+    // Raw element + wvid → elementId mapping (populated by SET_MT_REF).
+    const rawEl = { __brand: 'raw-200' };
+    elements.set(200, rawEl as never);
+    applyOps([OP.SET_MT_REF, 200, 2]);
+
+    applyOps([OP.REGISTER_AV_STYLE_BINDING, 100, 2, 1, 'translateX', null]);
+    setInlineCalls.length = 0; // ignore the initial apply from REGISTER's flush
+
+    av.current.value = 30;
+    flushAnimatedStyleBindings();
+
+    expect(setInlineCalls).toEqual([
+      { el: rawEl, styles: { transform: 'translateX(30px)' } },
+    ]);
+  });
+
+  it('does NOT use the raw fallback when the wrapper setStyleProperties succeeds (native unchanged)', () => {
+    const setInline = vi.fn();
+    vi.stubGlobal('__SetInlineStyles', setInline);
+
+    const av = seedRef(1, 0);
+    const el = seedElementRef(2); // working setStyleProperties
+    applyOps([OP.REGISTER_AV_STYLE_BINDING, 100, 2, 1, 'translateX', null]);
+
+    av.current.value = 30;
+    flushAnimatedStyleBindings();
+
+    expect(el.setStyleProperties).toHaveBeenLastCalledWith({ transform: 'translateX(30px)' });
+    expect(setInline).not.toHaveBeenCalled();
   });
 });
 
