@@ -11,6 +11,11 @@
             "import": "./dist/index.js",
             "default": "./dist/index.js"
         },
+        "./context": {
+            "types": "./dist/context.d.ts",
+            "import": "./dist/context.js",
+            "default": "./dist/context.js"
+        },
         "./__codepoints": {
             "types": "./dist/stubs/codepoints.d.ts",
             "import": "./dist/stubs/codepoints.js",

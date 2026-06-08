@@ -46,7 +46,9 @@ import {
 } from '@sigx/lynx';
 import { useSystemColorScheme } from '@sigx/lynx-appearance';
 import type { ColorScheme } from '@sigx/lynx-appearance';
-import { useIconColorResolver, type IconColorResolver } from '@sigx/lynx-icons';
+// CSS-free subpath: just the resolver DI key + type — importing the icons
+// barrel here would drag Icon's font-face/svg/codepoint assets into zero's barrel.
+import { useIconColorResolver, type IconColorResolver } from '@sigx/lynx-icons/context';
 import type { ColorToken } from '../contract.js';
 import {
     colorsOf,
