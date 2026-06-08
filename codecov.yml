@@ -1,0 +1,40 @@
+# Codecov config — https://docs.codecov.com/docs/codecovyml-reference
+#
+# This is the mechanical backstop for the "test-first bug fixes" convention in
+# AGENTS.md: the `codecov/patch` check fails a PR whose *changed* lines aren't
+# covered, so a fix shipped without a test can't go green. Make `codecov/patch`
+# a required status check on `main` to enforce it (see docs/branch-protection.md).
+
+coverage:
+  status:
+    # Whole-project coverage: report only, never block. Project-level gates are
+    # noisy (refactors, deleting tested code, moved files) — we enforce on the
+    # patch instead, where new/changed code actually lives.
+    project:
+      default:
+        informational: true
+
+    # Patch coverage = % of the lines THIS PR changed that are covered. This is
+    # the gate. 80% leaves room for trivial/untestable lines while still failing
+    # a change that adds no test. Raise toward 100% per repo if you want it tighter.
+    patch:
+      default:
+        target: 80%
+        threshold: 0%
+        informational: false
+
+# Don't post coverage status before the upload actually arrives. after_n_builds
+# is the number of coverage uploads per commit — this template uploads once, from
+# the `coverage` job in ci.yml. Bump it if you add more upload sources.
+codecov:
+  notify:
+    after_n_builds: 1
+  require_ci_to_pass: true
+
+# Inline annotations on the exact uncovered changed lines, right in the PR diff.
+github_checks:
+  annotations: true
+
+comment:
+  layout: "condensed_header, condensed_files, condensed_footer"
+  require_changes: true # only comment when coverage actually changes
