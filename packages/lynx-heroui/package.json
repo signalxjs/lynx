@@ -47,6 +47,7 @@
         "@sigx/lynx": "workspace:^",
         "@sigx/lynx-gestures": "workspace:^",
         "@sigx/lynx-icons": "workspace:^",
+        "@sigx/lynx-motion": "workspace:^",
         "@sigx/lynx-zero": "workspace:^"
     },
     "peerDependencies": {

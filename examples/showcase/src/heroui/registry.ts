@@ -21,6 +21,7 @@ import { modalDemo } from './demos/modal.js';
 import { tabsDemo } from './demos/tabs.js';
 import { navtabbarDemo } from './demos/navtabbar.js';
 import { navheaderDemo } from './demos/navheader.js';
+import { navdrawerDemo } from './demos/navdrawer.js';
 import { textDemo } from './demos/text.js';
 import { headingDemo } from './demos/heading.js';
 
@@ -93,6 +94,7 @@ export const heroDemos: HeroComponentDemo[] = [
     swiperindicatorDemo,
     navtabbarDemo,
     navheaderDemo,
+    navdrawerDemo,
     // Typography
     textDemo,
     headingDemo,

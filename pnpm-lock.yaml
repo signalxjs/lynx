@@ -587,6 +587,9 @@ importers:
       '@sigx/lynx-icons':
         specifier: workspace:^
         version: link:../lynx-icons
+      '@sigx/lynx-motion':
+        specifier: workspace:^
+        version: link:../lynx-motion
       '@sigx/lynx-zero':
         specifier: workspace:^
         version: link:../lynx-zero
