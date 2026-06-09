@@ -35,19 +35,31 @@ export type {
     NativeHttpEvent,
 } from './types.js';
 
+// The Lynx native runtime injects `NativeModules` / `lynx` before the bundle
+// runs; this is true even when the `Http` module isn't yet enumerable on
+// `NativeModules` at import time (it resolves by the time a request fires).
+declare const NativeModules: Record<string, unknown> | undefined;
+declare const lynx: unknown | undefined;
+
 // Side-effect: register on the global so consumers don't need an import
 // site to call `fetch(...)`.
 //
-// Precedence: when the `Http` native module is linked into this runtime,
-// the sigx stack REPLACES any engine-provided fetch — some Lynx runtimes
-// ship a built-in fetch that lacks `FormData`/streaming, and a global
-// FormData that the engine fetch can't serialize would break uploads in
-// platform-dependent ways. When the module is absent (web, Node/vitest,
-// `excludeModules` opt-out), installs are `typeof`-guarded so the host's
-// own fetch stack stays untouched.
+// On the **Lynx native runtime** `sigxFetch` IS the fetch — replace whatever
+// the engine provided. Some Lynx runtimes (0.5.0+) ship a built-in fetch whose
+// `Response` lacks WHATWG `headers`/streaming and can't serialize our
+// `FormData`, so a consumer's `res.headers.get(...)` would hit `undefined`; the
+// sigx stack is strictly better there, so it always wins. We key on RUNTIME
+// PRESENCE (`NativeModules`/`lynx`), not the import-time `isHttpAvailable()`
+// check — the `Http` module may not be enumerable on `NativeModules` yet when
+// this module is first imported, but `sigxFetch` resolves it lazily at call
+// time. (If `Http` was genuinely excluded via `excludeModules`, `sigxFetch`
+// throws a descriptive "module not linked" error at call time — preferable to
+// silently using the engine's broken fetch.) Off-Lynx (web, Node/vitest) we
+// only fill gaps so the host's real fetch/Headers/etc. stay intact.
 {
     const g = globalThis as unknown as Record<string, unknown>;
-    if (isHttpAvailable()) {
+    const onLynxRuntime = typeof NativeModules !== 'undefined' || typeof lynx !== 'undefined';
+    if (isHttpAvailable() || onLynxRuntime) {
         g.fetch = sigxFetch;
         g.Headers = SigxHeaders;
         g.FormData = SigxFormData;
