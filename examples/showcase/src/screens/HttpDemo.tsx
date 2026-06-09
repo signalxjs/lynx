@@ -15,11 +15,11 @@ import { fetch, FormData } from '@sigx/lynx-http';
  *  • GET JSON with headers — the everyday path.
  *  • Multipart upload — pick a file, POST it as FormData field `file`
  *    with upload progress; bytes stream natively from the URI.
- *  • Streaming body — res.body.getReader() feeds a streaming
- *    `<MarkdownView>` so an assistant reply types out and renders as
- *    markdown live (the SSE/chat-token path).
+ *  • Streaming body — res.body.getReader() reads a real Server-Sent-Events
+ *    feed (Wikimedia recentchange) and renders each live event into a
+ *    streaming `<MarkdownView>` as it arrives (the SSE/chat path).
  *
- * Uses httpbin.org, which echoes back what it received.
+ * GET/upload use httpbin.org, which echoes back what it received.
  */
 export const HttpDemo = component(() => {
     const getResult = signal<{ value: string | null }>({ value: null });
@@ -86,41 +86,56 @@ export const HttpDemo = component(() => {
         }
     };
 
-    // A markdown "assistant reply", tokenized word-by-word. Each token is
-    // revealed as one byte arrives from the paced network stream below.
-    const ANSWER =
-        '## Streaming markdown\n\n' +
-        'This reply is rendered **token by token** as bytes arrive over ' +
-        '`res.body.getReader()` — the same path an LLM chat uses.\n\n' +
-        '- finalized blocks don\'t reflow or flicker\n' +
-        '- the parser is incremental\n\n' +
-        '```ts\n' +
-        'for await (const tok of completion) md.append(tok);\n' +
-        '```\n\n' +
-        'Done — streamed straight from `@sigx/lynx-http`. ✅\n';
-    const TOKENS = ANSWER.match(/\s+|\S+/g) ?? [ANSWER];
+    // Neutralize markdown control chars in live text so a page title can't
+    // break the rendered list (wrap the value in an inline-code span).
+    const code = (s: string) => `\`${String(s).replace(/`/g, "'")}\``;
 
+    const STREAM_LIMIT = 14;
     const runStream = async () => {
         md.reset();
-        streamResult.value = 'streaming…';
+        md.append('## Live edits — Wikimedia SSE\n\n');
+        streamResult.value = 'connecting…';
         try {
-            // httpbin's `drip` paces `TOKENS.length` bytes over ~5s. We read
-            // them with res.body.getReader() and, per byte delivered, append
-            // the next markdown token to the streaming `<MarkdownView>` — so
-            // the reply types out and renders live, driven by the real stream.
-            const res = await fetch(`https://httpbin.org/drip?duration=5&numbytes=${TOKENS.length}&delay=0`);
+            // A REAL server-sent-events feed: every byte rendered comes off the
+            // wire. res.body.getReader() yields events the instant they arrive
+            // (no artificial pacing) and each one is appended to the streaming
+            // <MarkdownView> — the genuine chat/SSE path, as snappy as the feed.
+            const res = await fetch('https://stream.wikimedia.org/v2/stream/recentchange');
             const reader = res.body.getReader();
-            let i = 0;
-            for (;;) {
+            const decoder = new TextDecoder();
+            let buf = '';
+            let data = '';
+            let count = 0;
+            outer: for (;;) {
                 const { done, value } = await reader.read();
                 if (done) break;
-                const n = value?.byteLength ?? 0;
-                for (let b = 0; b < n && i < TOKENS.length; b++) md.append(TOKENS[i++]);
-                streamResult.value = `streaming… ${i}/${TOKENS.length} tokens`;
+                buf += decoder.decode(value, { stream: true });
+                let nl: number;
+                while ((nl = buf.indexOf('\n')) >= 0) {
+                    const line = buf.slice(0, nl).replace(/\r$/, '');
+                    buf = buf.slice(nl + 1);
+                    if (line.startsWith('data:')) {
+                        data += line.slice(5).trim();
+                    } else if (line === '') {
+                        // Blank line = SSE event boundary; render the event now.
+                        if (data) {
+                            try {
+                                const ev = JSON.parse(data) as {
+                                    type?: string; title?: string; user?: string; server_name?: string;
+                                };
+                                if (ev.type && ev.title) {
+                                    md.append(`- **${ev.type}** ${code(ev.server_name ?? '')} — ${code(ev.title)} by ${code(ev.user ?? '?')}\n`);
+                                    streamResult.value = `${++count}/${STREAM_LIMIT} live events…`;
+                                    if (count >= STREAM_LIMIT) { await reader.cancel(); break outer; }
+                                }
+                            } catch { /* skip keep-alive / non-JSON frames */ }
+                        }
+                        data = '';
+                    }
+                }
             }
-            while (i < TOKENS.length) md.append(TOKENS[i++]); // flush any remainder
             md.done();
-            streamResult.value = `done — ${TOKENS.length} tokens streamed & rendered ✓`;
+            streamResult.value = `done — ${count} live events streamed off the wire ✓`;
         } catch (e) {
             streamResult.value = `failed: ${e instanceof Error ? e.message : String(e)}`;
         }
@@ -261,13 +276,13 @@ export const HttpDemo = component(() => {
                         <Col gap={8}>
                             <Text weight="semibold">Streaming body → markdown</Text>
                             <Text class="opacity-60 text-sm">
-                                res.body.getReader() feeds a streaming
-                                MarkdownView — an assistant reply types out and
-                                renders as markdown live, the same path a chat
-                                SSE consumer uses.
+                                A real Server-Sent-Events feed: res.body.getReader()
+                                yields live Wikimedia edits the instant they hit
+                                the wire and renders each into a streaming
+                                MarkdownView — the genuine chat/SSE path.
                             </Text>
                             <Button color="secondary" variant="outline" onPress={runStream}>
-                                Stream a reply
+                                Stream live events
                             </Button>
                             {md.value.value.length > 0 && (
                                 <view class="bg-base-200 rounded-box p-3">
