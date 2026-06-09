@@ -269,6 +269,40 @@ export async function applyEntry(
     );
   }
 
+  // Auto-wire `@sigx/lynx-observability` in release builds when the app's
+  // `signalx.config.ts` declares `logging.production` (plumbed via the
+  // `SIGX_LYNX_LOGGING` env by `@sigx/lynx-cli`). Resolve its install entry the
+  // same way as the dev-client, and prepend it to the BG entry below so error
+  // capture + the remote sink are wired before app code runs — no manual
+  // `initObservability()` call needed.
+  let hasProductionLogging = false;
+  try {
+    const raw = process.env['SIGX_LYNX_LOGGING'];
+    const parsed = raw ? (JSON.parse(raw) as { production?: unknown }) : undefined;
+    hasProductionLogging = !!(parsed && typeof parsed === 'object' && parsed.production);
+  } catch { /* malformed — treat as unset */ }
+
+  let observabilityInstallPath: string | undefined;
+  if (hasProductionLogging) {
+    for (const base of resolveBases) {
+      try {
+        observabilityInstallPath = createRequire(base).resolve('@sigx/lynx-observability/install');
+        break;
+      } catch {
+        try {
+          const pkgJson = createRequire(base).resolve('@sigx/lynx-observability/package.json');
+          const candidate = path.join(path.dirname(pkgJson), 'dist', 'install.js');
+          if (existsSync(candidate)) { observabilityInstallPath = candidate; break; }
+        } catch { /* try next base */ }
+      }
+    }
+    if (observabilityInstallPath) {
+      api.logger.info('[sigx-lynx] production observability → enabled (release builds)');
+    } else {
+      api.logger.warn('[sigx-lynx] logging.production is set but @sigx/lynx-observability is not installed — add it as a dependency.');
+    }
+  }
+
   api.modifyBundlerChain((chain, { environment, isProd }) => {
     const isRspeedy = api.context.callerName === 'rspeedy';
     if (!isRspeedy) return;
@@ -406,6 +440,16 @@ export async function applyEntry(
         bgEntry.prepend({
           layer: LAYERS.BACKGROUND,
           import: devClientInstallPath,
+        });
+      }
+
+      // Auto-wire production observability in release builds (when configured +
+      // installed). Prepended so error capture + the sink are live before app
+      // code runs. Dev uses the console streamer above; release uses this.
+      if (isProd && !isWeb && observabilityInstallPath) {
+        bgEntry.prepend({
+          layer: LAYERS.BACKGROUND,
+          import: observabilityInstallPath,
         });
       }
 

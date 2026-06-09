@@ -114,6 +114,16 @@ export function resolveConfig(raw: LynxConfig): ResolvedConfig {
     const platforms = raw.platforms ?? DEFAULTS.platforms!;
     const buildNumber = raw.buildNumber ?? DEFAULTS.buildNumber!;
 
+    // Make the app's logging config available to the rspeedy child process(es)
+    // the build/dev/run commands spawn — they inherit this process's env, and
+    // `@sigx/lynx-plugin` reads `SIGX_LYNX_LOGGING` to inject the logger's
+    // default level / disabled namespaces and to auto-wire
+    // `@sigx/lynx-observability` in release builds. Resolving the config is the
+    // one step every command runs before spawning, so this can't miss a site.
+    try {
+        process.env['SIGX_LYNX_LOGGING'] = JSON.stringify(raw.logging ?? {});
+    } catch { /* non-serializable config — skip, plugin falls back to defaults */ }
+
     return {
         name: raw.name,
         version: raw.version ?? DEFAULTS.version!,

@@ -343,6 +343,48 @@ export interface LynxConfig {
     platforms?: Platform[];
     /** Prebuild lifecycle hooks. */
     prebuild?: PrebuildHooksConfig;
+    /** Logging & observability. See {@link LoggingConfig}. */
+    logging?: LoggingConfig;
+}
+
+/** Log level for `@sigx/lynx-core`'s logger (ascending severity; `silent` mutes all). */
+export type LogLevelName = 'trace' | 'debug' | 'info' | 'warn' | 'error' | 'silent';
+
+/**
+ * Logging & observability (`logging: { … }` in `defineLynxConfig`). Honored by
+ * the build: the level/disabled namespaces are baked into the bundle, and in
+ * **release** builds `production` auto-wires `@sigx/lynx-observability` (install
+ * it as a dependency) — no manual `initObservability()` call needed.
+ */
+export interface LoggingConfig {
+    /**
+     * Minimum level emitted at runtime. Overridable at runtime via `setLogLevel()`.
+     * Defaults to `'debug'` under `sigx dev` and `'warn'` for release builds.
+     */
+    level?: LogLevelName;
+    /** Namespace controls. */
+    namespaces?: {
+        /** Namespaces silenced at startup (e.g. `['http']` to mute request logs). */
+        disabled?: string[];
+    };
+    /**
+     * Production observability — auto-wired in release builds when set (requires
+     * `@sigx/lynx-observability` installed). Captures uncaught errors and ships
+     * records to a remote sink.
+     */
+    production?: {
+        /** Remote sink to POST batched records to. Omit to only capture errors. */
+        sink?: {
+            url: string;
+            headers?: Record<string, string>;
+            /** Only send records at or above this level. */
+            minLevel?: LogLevelName;
+            /** Keep this fraction (0–1) of non-error records; errors always kept. */
+            sampleRate?: number;
+        };
+        /** Capture uncaught errors / unhandled rejections. Default `true`. */
+        captureErrors?: boolean;
+    };
 }
 
 /** Prebuild lifecycle hooks (`prebuild: { … }` in `defineLynxConfig`). */

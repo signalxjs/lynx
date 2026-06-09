@@ -15,6 +15,8 @@ export type {
     IconSetConfig,
     IconMode,
     IconStyle,
+    LoggingConfig,
+    LogLevelName,
 } from './schema.js';
 
 export { resolveConfig, modulesForPlatform, resolveAssets } from './parser.js';
