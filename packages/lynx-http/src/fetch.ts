@@ -14,6 +14,7 @@ import { Headers, type HeadersInitLike } from './headers.js';
 import { FormData, formDataToNativeBody } from './form-data.js';
 import { BodyStream, Response } from './response.js';
 import type { NativeBody, NativeHttpEvent, NativeRequestSpec } from './types.js';
+import * as httplog from './httplog.js';
 
 const MODULE = 'Http';
 const EVENT_NAME = '__sigxHttpEvent';
@@ -99,6 +100,7 @@ function dispatch(id: number, pending: PendingRequest, evt: NativeHttpEvent): vo
     switch (evt.type) {
         case 'response': {
             pending.responded = true;
+            httplog.response(id, evt.status ?? 0);
             pending.resolve(new Response({
                 status: evt.status ?? 0,
                 statusText: evt.statusText ?? '',
@@ -114,17 +116,21 @@ function dispatch(id: number, pending: PendingRequest, evt: NativeHttpEvent): vo
         }
         case 'chunk': {
             if (typeof evt.data === 'string' && evt.data.length > 0) {
-                pending.stream.push(new Uint8Array(base64ToArrayBuffer(evt.data)));
+                const u8 = new Uint8Array(base64ToArrayBuffer(evt.data));
+                pending.stream.push(u8);
+                httplog.addBytes(id, u8.byteLength);
             }
             break;
         }
         case 'done': {
             pending.stream.end();
+            httplog.finish(id);
             requests.delete(id);
             break;
         }
         case 'error': {
             const err = new TypeError(`fetch failed: ${evt.message ?? 'network error'}`);
+            httplog.fail(id, evt.message ?? 'network error');
             if (!pending.responded) pending.reject(err);
             else pending.stream.fail(err);
             requests.delete(id);
@@ -232,16 +238,19 @@ export function fetch(input: string | { url: string }, init: RequestInitLike = {
             onUploadProgress: init.onUploadProgress,
         };
         requests.set(id, pending);
+        httplog.start(id, method, url);
         ensureSubscribed();
 
         stream.onCancel = () => {
             requests.delete(id);
+            httplog.abort(id, 'reader.cancel');
             void callAsync<void>(MODULE, 'abort', id).catch(() => { /* already gone */ });
         };
 
         init.signal?.addEventListener?.('abort', () => {
             if (!requests.has(id) && pending.responded) return;
             requests.delete(id);
+            httplog.abort(id, 'signal');
             const err = abortError(init.signal?.reason);
             if (!pending.responded) reject(err);
             stream.fail(err);
@@ -254,6 +263,7 @@ export function fetch(input: string | { url: string }, init: RequestInitLike = {
             const error = (ack as { error?: string } | null | undefined)?.error;
             if (error) {
                 requests.delete(id);
+                httplog.fail(id, error);
                 const err = new TypeError(`fetch failed: ${error}`);
                 if (!pending.responded) reject(err);
                 else stream.fail(err);
@@ -261,6 +271,7 @@ export function fetch(input: string | { url: string }, init: RequestInitLike = {
         }).catch((e) => {
             requests.delete(id);
             const err = e instanceof Error ? e : new TypeError(String(e));
+            httplog.fail(id, err.message);
             if (!pending.responded) reject(err);
             else stream.fail(err);
         });

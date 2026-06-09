@@ -155,6 +155,15 @@ export function pluginSigxLynx(
           source: {
             define: {
               __DEV__: 'process.env.NODE_ENV !== \'production\'',
+              // Default level for `@sigx/lynx-core`'s logger, injected as a
+              // plain string literal (resolved here in Node, where `process`
+              // is safe): verbose in dev, quiet in release. The logger reads
+              // this and must NOT reference `__DEV__` itself — that define
+              // expands to a `process.env` expression that throws in the
+              // Lynx BG runtime. Overridable at runtime via `setLogLevel()`.
+              __SIGX_LOG_LEVEL__: JSON.stringify(
+                process.env['NODE_ENV'] === 'production' ? 'warn' : 'debug',
+              ),
             },
           },
           tools: {
