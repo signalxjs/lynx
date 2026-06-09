@@ -582,13 +582,17 @@ async function findFreePort(start: number): Promise<number> {
  *
  * The live-lock check runs FIRST (before the free-port probe) so a stale fallback
  * scenario — session A on 8790, 8788 later frees — can't slip a second server in.
+ *
+ * Returns the chosen port plus `ownLock`: `false` only for the explicit-`--port`
+ * escape-hatch secondary (a live primary still owns the project lock), so the
+ * caller leaves the primary's lock intact rather than clobbering it.
  */
 async function acquireDevPort(
     desiredPort: number,
     explicitPort: boolean,
     cwd: string,
     logger: Logger,
-): Promise<number> {
+): Promise<{ port: number; ownLock: boolean }> {
     const lock = readDevLock(cwd);
     const liveLock = lock && isPidAlive(lock.pid) ? lock : null;
 
@@ -602,7 +606,11 @@ async function acquireDevPort(
         process.exit(1);
     }
 
-    if (await isPortFree(desiredPort)) return desiredPort;
+    // If we got here with a live lock, we're the explicit-port secondary — the
+    // primary keeps the project lock; we don't own it.
+    const ownLock = liveLock === null;
+
+    if (await isPortFree(desiredPort)) return { port: desiredPort, ownLock };
 
     // Busy, and our own (now-dead) lock owned this port — the orphan didn't
     // release it. Give the OS a moment to free the socket, then reclaim the
@@ -610,7 +618,7 @@ async function acquireDevPort(
     if (lock && !liveLock && lock.httpPort === desiredPort) {
         if (await waitForPortFree(desiredPort)) {
             logger.log(`Reclaimed dev port ${desiredPort} from a previous session.`);
-            return desiredPort;
+            return { port: desiredPort, ownLock };
         }
     }
 
@@ -622,7 +630,7 @@ async function acquireDevPort(
             `A previously launched app may need a manual relaunch to reconnect.`,
         );
     }
-    return fallback;
+    return { port: fallback, ownLock };
 }
 
 /**
@@ -688,7 +696,7 @@ export async function startDevServer(opts: DevServerOptions): Promise<void> {
     // refuses to double-run a live one, and only walks to a new port as a last
     // resort. If rsbuild still has to fall back, the stdout parser below
     // catches the "is in use" line.
-    const requestedPort = await acquireDevPort(desiredPort, explicitPort, cwd, logger);
+    const { port: requestedPort, ownLock } = await acquireDevPort(desiredPort, explicitPort, cwd, logger);
     const projectName = getProjectName(cwd);
     const lanIPs = getAllLanIPs();
     const primaryIP = lanIPs.length > 0 ? lanIPs[0].address : null;
@@ -710,7 +718,11 @@ export async function startDevServer(opts: DevServerOptions): Promise<void> {
 
     // Record ourselves as the owner of this port so a later `sigx dev` can
     // reclaim it after we exit, or refuse to double-run while we're alive.
-    writeDevLock(cwd, { version: 1, pid: process.pid, httpPort: requestedPort, wsPort, startedAt: Date.now() });
+    // Skipped for the explicit-`--port` secondary: a live primary already owns
+    // the project lock and we must not clobber it.
+    if (ownLock) {
+        writeDevLock(cwd, { version: 1, pid: process.pid, httpPort: requestedPort, wsPort, startedAt: Date.now() });
+    }
 
     // Detect devices in parallel with server start. When the caller passed
     // an explicit target list (from the picker / flags), we skip the full
@@ -1007,6 +1019,20 @@ export async function startDevServer(opts: DevServerOptions): Promise<void> {
     // created (a crash/early-failure exit never goes through shutdown()), and
     // exit with its code. removeReverses() is idempotent, so this is a no-op
     // when shutdown() already ran.
+    // If the rspeedy child can't even be spawned (`npx`/`rspeedy` missing,
+    // EACCES, …), `exit`/`close` may never fire — we'd hang on the await below
+    // and leave a live-pid lock behind, making later runs refuse incorrectly.
+    // Release everything and bail with a clear message.
+    child.once('error', (err) => {
+        if (process.stdin.isTTY) {
+            try { process.stdin.setRawMode(false); } catch { /* ignore */ }
+        }
+        removeReverses();
+        if (readDevLock(cwd)?.pid === process.pid) clearDevLock(cwd);
+        logger.error(`Failed to start dev server: ${(err as Error).message}`);
+        process.exit(1);
+    });
+
     child.on('exit', (code) => {
         if (process.stdin.isTTY) {
             try { process.stdin.setRawMode(false); } catch { /* ignore */ }

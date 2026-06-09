@@ -115,11 +115,11 @@ export function isPortFree(port: number): Promise<boolean> {
 }
 
 /**
- * Wait for `port` to become free, polling up to `attempts` times every
- * `intervalMs`. Used to reclaim the stable port right after the previous owner
- * is found dead — the OS may take a moment to release the listening socket.
- * Resolves `true` as soon as the port frees, `false` if it never does within
- * the budget.
+ * Wait for `port` to become free, probing it up to `attempts` times with
+ * `intervalMs` between probes (so `attempts - 1` sleeps total). Used to
+ * reclaim the stable port right after the previous owner is found dead — the
+ * OS may take a moment to release the listening socket. Resolves `true` as
+ * soon as the port frees, `false` if it never does within the budget.
  */
 export async function waitForPortFree(
     port: number,
@@ -129,8 +129,10 @@ export async function waitForPortFree(
     for (let i = 0; i < attempts; i++) {
         // eslint-disable-next-line no-await-in-loop
         if (await isPortFree(port)) return true;
-        // eslint-disable-next-line no-await-in-loop
-        await new Promise((resolve) => setTimeout(resolve, intervalMs));
+        if (i < attempts - 1) {
+            // eslint-disable-next-line no-await-in-loop
+            await new Promise((resolve) => setTimeout(resolve, intervalMs));
+        }
     }
-    return isPortFree(port);
+    return false;
 }
