@@ -159,6 +159,25 @@ const items = await res.json();
 
 Multipart uploads (with `@sigx/lynx-file-picker` handles) and streaming/SSE consumption (`res.body.getReader()`) work too — see [`@sigx/lynx-http`](https://github.com/signalxjs/lynx/tree/main/packages/lynx-http) for the full surface, spec deviations, and how the default wiring works. `WebSocket` and connectivity status remain separate installs ([`@sigx/lynx-websocket`](https://github.com/signalxjs/lynx/tree/main/packages/lynx-websocket), [`@sigx/lynx-network`](https://github.com/signalxjs/lynx/tree/main/packages/lynx-network)).
 
+## Logging
+
+A leveled, namespaced logger is built in — use it in your own app code:
+
+```ts
+import { createLogger, setLogLevel } from '@sigx/lynx';
+
+const log = createLogger('checkout');
+log.debug('cart opened', { items: cart.length });
+log.warn('coupon expired', code);
+log.error('charge failed', err);
+```
+
+Levels are `trace < debug < info < warn < error` (plus `silent`); the default is `debug` in development
+and `warn` in release builds, so verbose traces are dev-only with zero config. In development, logs stream
+to the `sigx dev` terminal automatically. Tune at runtime with `setLogLevel('warn')` / `disableNamespace('http')`,
+or add a transport (`addTransport`) to forward records elsewhere. The framework's own `fetch` logs under the
+`http` namespace. See [`@sigx/lynx-core`](https://github.com/signalxjs/lynx/tree/main/packages/lynx-core#logging) for the full API.
+
 ## The rest of the ecosystem
 
 This package is the framework entry point. For the full list of native modules, UI packages, gestures, animation, navigation, icons, and dev tooling — see the [monorepo README](https://github.com/signalxjs/lynx#packages).

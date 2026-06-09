@@ -25,9 +25,12 @@ import {
 ## Logging
 
 A tiny leveled + namespaced logger lives here so any package can log without taking a new dependency.
+**App code should import it from the umbrella** — `import { createLogger } from '@sigx/lynx'` (which
+re-exports the logging API); the `@sigx/lynx-core` import below is for module authors / packages that
+already depend on core.
 
 ```ts
-import { createLogger, setLogLevel, disableNamespace } from '@sigx/lynx-core';
+import { createLogger, setLogLevel, disableNamespace } from '@sigx/lynx-core'; // app code: from '@sigx/lynx'
 
 const log = createLogger('checkout');
 log.debug('cart opened', { items: 3 });

@@ -225,6 +225,9 @@ importers:
 
   packages/lynx:
     dependencies:
+      '@sigx/lynx-core':
+        specifier: workspace:^
+        version: link:../lynx-core
       '@sigx/lynx-http':
         specifier: workspace:^
         version: link:../lynx-http
