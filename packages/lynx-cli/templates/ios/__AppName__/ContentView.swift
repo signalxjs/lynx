@@ -24,6 +24,7 @@ final class DevLynxController: ObservableObject {
         guard !currentUrl.isEmpty else { return }
         loading = true
         error = nil
+        perfMetrics = []
         lynxView?.loadTemplate(fromURL: currentUrl)
     }
 
@@ -31,6 +32,7 @@ final class DevLynxController: ObservableObject {
         currentUrl = url
         loading = true
         error = nil
+        perfMetrics = []
         #if DEBUG
         SigxDevClient.lastConnectedUrl = url
         #endif
