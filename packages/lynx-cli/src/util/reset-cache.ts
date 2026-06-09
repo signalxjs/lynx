@@ -20,13 +20,21 @@ import type { Logger } from '@sigx/cli/plugin';
  * path is ignored, since the worst case is one extra rebuild.
  */
 export function resetBuildCaches(cwd: string, logger?: Logger): void {
-    // `dist/` contains `dist/.rspeedy`, so removing it covers both.
+    // `dist/` contains `dist/.rspeedy`, so removing it covers both. With
+    // `force: true`, a missing path is NOT an error — only a real failure
+    // (e.g. EPERM, a locked file) throws, which we surface rather than
+    // reporting a clean wipe that didn't happen.
     const targets = [
         join(cwd, 'dist'),
         join(cwd, 'node_modules', '.cache'),
     ];
+    const failed: string[] = [];
     for (const target of targets) {
-        try { rmSync(target, { recursive: true, force: true }); } catch { /* ignore */ }
+        try { rmSync(target, { recursive: true, force: true }); } catch { failed.push(target); }
     }
-    logger?.log('Cleared build caches (dist/, node_modules/.cache).');
+    if (failed.length > 0) {
+        logger?.warn(`Could not clear ${failed.join(', ')} — delete manually if a stale build persists.`);
+    } else {
+        logger?.log('Cleared build caches (dist/, node_modules/.cache).');
+    }
 }

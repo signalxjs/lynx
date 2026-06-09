@@ -38,10 +38,12 @@ restarted), the dev client **reloads itself** to pick up the latest bundle.
 
 ### Build caching
 
-`sigx dev` / `build` / `run:*` skip work via fingerprint caches under
-`node_modules/.cache/@sigx/lynx-cli/`. Those fingerprints include the **JS
-lockfile**, so bumping a `@sigx/lynx-*` dependency and reinstalling invalidates
-them automatically — you get the new code without a manual cache wipe.
+`sigx dev` / `run:android` / `run:ios` skip native-project regeneration and
+native rebuilds via fingerprint caches under `node_modules/.cache/@sigx/lynx-cli/`
+(`sigx build` just runs `rspeedy build` and isn't governed by these). Those
+fingerprints include the **JS lockfile**, so bumping a `@sigx/lynx-*` dependency
+and reinstalling invalidates them automatically — you get the new code without a
+manual cache wipe.
 
 rspack/rsbuild keep their own persistent cache under `dist/` that the
 fingerprints don't govern. If you ever need a guaranteed-clean rebuild (or hit a
