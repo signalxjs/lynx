@@ -55,7 +55,7 @@ The dual-thread renderer. Application code rarely imports these directly — `@s
 | [`@sigx/lynx-runtime`](./packages/lynx-runtime) | Background-thread renderer: sigx `RuntimeRenderer` adapter, op queue, `useMainThreadRef`, `useSharedValue`, `runOnMainThread`. |
 | [`@sigx/lynx-runtime-main`](./packages/lynx-runtime-main) | Main-thread (Lepus) runtime: applies the BG → MT op stream via Lynx PAPI, runs `'main thread'` worklets, drives `useAnimatedStyle`. |
 | [`@sigx/lynx-runtime-internal`](./packages/lynx-runtime-internal) | Shared op-code + mapper types so the BG and MT runtimes stay in lockstep. Not a user-facing package. |
-| [`@sigx/lynx-core`](./packages/lynx-core) | Low-level `NativeModules` bridge (`getModule`, `callSync`, `callAsync`, `guardModule`). Every native-module package depends on this. |
+| [`@sigx/lynx-core`](./packages/lynx-core) | Low-level `NativeModules` bridge (`getModule`, `callSync`, `callAsync`, `guardModule`) plus a tiny leveled + namespaced **logger** (`createLogger`, pluggable transports; dev-streamed to the `sigx dev` terminal). Every native-module package depends on this. |
 
 ### Native modules
 

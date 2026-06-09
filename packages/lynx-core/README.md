@@ -22,6 +22,36 @@ import {
 - **`isModuleAvailable(name)`** — feature-detect a module without throwing.
 - **`guardModule(name)`** — throw a descriptive error if the module isn't linked (use at module-package entry points).
 
+## Logging
+
+A tiny leveled + namespaced logger lives here so any package can log without taking a new dependency.
+
+```ts
+import { createLogger, setLogLevel, disableNamespace } from '@sigx/lynx-core';
+
+const log = createLogger('checkout');
+log.debug('cart opened', { items: 3 });
+log.warn('coupon expired', code);
+log.error('charge failed', err);
+```
+
+- **Levels**: `trace` < `debug` < `info` < `warn` < `error` (plus `silent`). Records at or above the
+  current threshold are emitted; below are dropped.
+- **Default level**: `debug` in development, `warn` in release builds — so verbose traces are dev-only
+  with zero config. Override at runtime with `setLogLevel('info' | 'warn' | 'silent' | …)`.
+- **Namespaces**: `createLogger(ns)` tags every record; silence one with `disableNamespace(ns)` /
+  restore with `enableNamespace(ns)`. `log.enabled(level)` lets you guard expensive log construction on hot paths.
+- **Transports**: records flow to pluggable sinks. The default `consoleTransport` routes by level to
+  `console.*`, which `@sigx/lynx-dev-client` streams to the `sigx dev` terminal in development (no extra
+  wiring). Add your own with `addTransport(record => …)`; `clearTransports()` replaces the default.
+  Production error capture and remote provider sinks will live in the opt-in `@sigx/lynx-observability`
+  package, which registers transports here.
+
+```ts
+import { addTransport, type LogRecord } from '@sigx/lynx-core';
+addTransport((r: LogRecord) => myBackend.send(r)); // { level, namespace, msg, fields, ts }
+```
+
 ## Permissions helpers
 
 For modules that need runtime permissions (camera, location, notifications, …) the package re-exports the shared `PermissionStatus` / `PermissionResponse` types used by `@sigx/lynx-permissions`.

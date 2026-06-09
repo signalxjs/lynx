@@ -16,6 +16,7 @@ vi.mock('@sigx/lynx-core', () => ({
         return buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength);
     },
     arrayBufferToBase64: (buf: ArrayBuffer) => Buffer.from(buf).toString('base64'),
+    createLogger: () => ({ trace() {}, debug() {}, info() {}, warn() {}, error() {}, enabled: () => false }),
 }));
 
 const original = {
