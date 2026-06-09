@@ -568,31 +568,46 @@ async function findFreePort(start: number): Promise<number> {
  * restarts so an already-running app — whose dev URLs are baked into the bundle
  * at build time — reconnects instead of being stranded:
  *
+ *  - lock's owner is ALIVE           → a real `sigx dev` already serves this
+ *                                      project; refuse + exit (never silently
+ *                                      fork a second server). The escape hatch
+ *                                      is an explicit `--port` on a DIFFERENT
+ *                                      port, for intentionally running two.
  *  - desired port free               → take it.
  *  - busy, our lock's owner is DEAD  → an orphan that didn't release the port;
  *                                      wait briefly for the OS to free the
  *                                      socket, then reclaim the SAME port.
- *  - busy, our lock's owner is ALIVE → a real `sigx dev` already serves this
- *                                      project; refuse + exit (never silently
- *                                      fork a second server on a new port).
- *  - busy, no/other lock             → fall back to the free-port walk with a
+ *  - busy, no usable lock            → fall back to the free-port walk with a
  *                                      warning (a running app may need relaunch).
+ *
+ * The live-lock check runs FIRST (before the free-port probe) so a stale fallback
+ * scenario — session A on 8790, 8788 later frees — can't slip a second server in.
  */
-async function acquireDevPort(desiredPort: number, cwd: string, logger: Logger): Promise<number> {
+async function acquireDevPort(
+    desiredPort: number,
+    explicitPort: boolean,
+    cwd: string,
+    logger: Logger,
+): Promise<number> {
+    const lock = readDevLock(cwd);
+    const liveLock = lock && isPidAlive(lock.pid) ? lock : null;
+
+    // A live server owns this project. Refuse regardless of which port happens
+    // to be free now — unless the user explicitly asked for a DIFFERENT port.
+    if (liveLock && !(explicitPort && desiredPort !== liveLock.httpPort)) {
+        logger.error(
+            `Another sigx dev is already running for this project ` +
+            `(pid ${liveLock.pid}, port ${liveLock.httpPort}). Stop it first, or run with --port <n>.`,
+        );
+        process.exit(1);
+    }
+
     if (await isPortFree(desiredPort)) return desiredPort;
 
-    const lock = readDevLock(cwd);
-    if (lock && lock.httpPort === desiredPort) {
-        if (isPidAlive(lock.pid)) {
-            logger.error(
-                `Another sigx dev is already running for this project ` +
-                `(pid ${lock.pid}, port ${lock.httpPort}). Stop it first, or run with --port <n>.`,
-            );
-            process.exit(1);
-        }
-        // Stale lock — the previous owner died without releasing the port.
-        // Give the OS a moment to free the listening socket, then reclaim the
-        // SAME port so the running app's baked URLs stay valid.
+    // Busy, and our own (now-dead) lock owned this port — the orphan didn't
+    // release it. Give the OS a moment to free the socket, then reclaim the
+    // SAME port so the running app's baked URLs stay valid.
+    if (lock && !liveLock && lock.httpPort === desiredPort) {
         if (await waitForPortFree(desiredPort)) {
             logger.log(`Reclaimed dev port ${desiredPort} from a previous session.`);
             return desiredPort;
@@ -617,7 +632,7 @@ async function acquireDevPort(desiredPort: number, cwd: string, logger: Logger):
  * `adb reverse` forwards it transparently).
  */
 function bundleUrlFor(host: string, port: number, buildId: string): string {
-    return `http://${host}:${port}/main.lynx.bundle?v=${buildId}`;
+    return `http://${host}:${port}/main.lynx.bundle?v=${encodeURIComponent(buildId)}`;
 }
 
 /**
@@ -663,6 +678,7 @@ async function warnIfSvgAbiGap(cwd: string, deviceIds: string[], logger: Logger)
  */
 export async function startDevServer(opts: DevServerOptions): Promise<void> {
     const { cwd, logger, launchAppId, launchBundleId, iosSimulatorName, selectedTargets } = opts;
+    const explicitPort = opts.port !== undefined && String(opts.port).length > 0;
     const desiredPort = Number(opts.port) || 8788;
     // Acquire a STABLE port (default 8788) so we can bake the correct URL into
     // `__SIGX_DEV_LOG_URL__` (device log streaming) and the device-launch
@@ -672,7 +688,7 @@ export async function startDevServer(opts: DevServerOptions): Promise<void> {
     // refuses to double-run a live one, and only walks to a new port as a last
     // resort. If rsbuild still has to fall back, the stdout parser below
     // catches the "is in use" line.
-    const requestedPort = await acquireDevPort(desiredPort, cwd, logger);
+    const requestedPort = await acquireDevPort(desiredPort, explicitPort, cwd, logger);
     const projectName = getProjectName(cwd);
     const lanIPs = getAllLanIPs();
     const primaryIP = lanIPs.length > 0 ? lanIPs[0].address : null;
@@ -813,9 +829,12 @@ export async function startDevServer(opts: DevServerOptions): Promise<void> {
         // child `exit` handler calls process.exit once the tree is gone.
         killChildTree('SIGTERM');
         removeReverses();
-        // Release the port lock only if we still own it (don't clobber a
-        // newer session that may have already reclaimed the port).
-        if (readDevLock(cwd)?.pid === process.pid) clearDevLock(cwd);
+        // NB: we do NOT clear the lock here. The rspeedy child still holds the
+        // port during the SIGTERM→SIGKILL window, and our pid is still alive —
+        // so a racing restart should still see a live lock and refuse, rather
+        // than slip a second server in. The lock is released in `child.on('exit')`
+        // (port actually freed); if we're force-killed first, the next run finds
+        // a dead-pid lock and reclaims it.
 
         const escalate = setTimeout(() => {
             logger.warn('Dev server did not exit after SIGTERM — forcing SIGKILL.');
