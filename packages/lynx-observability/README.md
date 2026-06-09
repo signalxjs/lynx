@@ -10,15 +10,36 @@ Opt-in **production error capture** and **provider-agnostic log/error sinks** fo
 pnpm add @sigx/lynx-observability
 ```
 
-## Quick start
+## Quick start — declarative (recommended)
 
-Call once in your app entry (same shape as `Sentry.init()`):
+Declare it in `signalx.config.ts` and it auto-wires in **release** builds — no code in your app entry:
+
+```ts
+// signalx.config.ts
+export default defineLynxConfig({
+    name: 'my-app',
+    logging: {
+        level: 'warn',                     // logger level (also dev: 'debug' / release: 'warn' default)
+        namespaces: { disabled: ['http'] },// silence namespaces at startup
+        production: {
+            sink: { url: 'https://logs.example.com/ingest', headers: { 'x-api-key': KEY }, sampleRate: 0.25 },
+            captureErrors: true,           // default
+        },
+    },
+});
+```
+
+Just install the package (`pnpm add @sigx/lynx-observability`) — `@sigx/lynx-plugin` prepends the init for you in release builds. (Dev uses the console streamer; observability auto-wiring is release-only.)
+
+## Quick start — manual
+
+Or wire it yourself, `Sentry.init()`-style (call once in your app entry):
 
 ```ts
 import { initObservability } from '@sigx/lynx-observability';
 
 initObservability({
-    level: 'warn',                    // optional: override the default level in production
+    level: 'warn',                    // optional: override the default level
     captureErrors: true,              // default — catch uncaught errors / rejections
     sink: {                           // optional remote sink
         url: 'https://logs.example.com/ingest',
@@ -79,4 +100,4 @@ The same shape works for Datadog, a custom backend, etc.
 
 - `lynx.onError` is **background-thread only** upstream; main-thread error capture may need a separate path in the future.
 - For readable stack traces in release builds, upload your source maps to your provider (out of scope here).
-- Declarative configuration (`logging` in `signalx.config.ts`, auto-wired by the build plugin) is planned as a follow-up; today you call `initObservability()` from your app entry.
+- Declarative `signalx.config.ts` `logging.production` config auto-wires this package in release builds (see Quick start above); `initObservability()` remains for manual/dev setup.

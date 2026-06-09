@@ -10,6 +10,10 @@
             "import": "./dist/index.js",
             "types": "./dist/index.d.ts"
         },
+        "./install": {
+            "import": "./dist/install.js",
+            "types": "./dist/install.d.ts"
+        },
         "./package.json": "./package.json"
     },
     "files": [

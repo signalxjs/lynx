@@ -65,6 +65,25 @@ function detectLanIPv4(): string {
   return fallback ?? '127.0.0.1';
 }
 
+/** Shape of the `logging` config plumbed from `@sigx/lynx-cli` via env. */
+interface LoggingConfigLike {
+  level?: string;
+  namespaces?: { disabled?: string[] };
+  production?: unknown;
+}
+
+/** Parse the app's `logging` config from `SIGX_LYNX_LOGGING` (set by lynx-cli). */
+function readLoggingConfig(): LoggingConfigLike {
+  const raw = process.env['SIGX_LYNX_LOGGING'];
+  if (!raw) return {};
+  try {
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? (parsed as LoggingConfigLike) : {};
+  } catch {
+    return {};
+  }
+}
+
 /** Extract the hostname from a URL string (may be inside JSON quotes). */
 function extractHost(s: string): string {
   const m = s.match(/\/\/([^:/]+)/);
@@ -151,19 +170,27 @@ export function pluginSigxLynx(
           });
         }
 
+        // App logging config, plumbed from `signalx.config.ts` by
+        // `@sigx/lynx-cli` (via `SIGX_LYNX_LOGGING` on this process's env, which
+        // the rspeedy child inherits). Drives the logger defaults below and the
+        // release auto-wire of `@sigx/lynx-observability` in `applyEntry`.
+        const logging = readLoggingConfig();
+        const isProd = process.env['NODE_ENV'] === 'production';
+
         return mergeRsbuildConfig(config, {
           source: {
             define: {
               __DEV__: 'process.env.NODE_ENV !== \'production\'',
-              // Default level for `@sigx/lynx-core`'s logger, injected as a
-              // plain string literal (resolved here in Node, where `process`
-              // is safe): verbose in dev, quiet in release. The logger reads
-              // this and must NOT reference `__DEV__` itself — that define
-              // expands to a `process.env` expression that throws in the
-              // Lynx BG runtime. Overridable at runtime via `setLogLevel()`.
-              __SIGX_LOG_LEVEL__: JSON.stringify(
-                process.env['NODE_ENV'] === 'production' ? 'warn' : 'debug',
-              ),
+              // Logger defaults, injected as plain literals (resolved here in
+              // Node, where `process` is safe). The logger reads these and must
+              // NOT reference `__DEV__` — that define expands to a `process.env`
+              // expression that throws in the Lynx BG runtime. Overridable at
+              // runtime via `setLogLevel()` / `enableNamespace()`.
+              __SIGX_LOG_LEVEL__: JSON.stringify(logging.level ?? (isProd ? 'warn' : 'debug')),
+              __SIGX_LOG_DISABLED__: JSON.stringify(logging.namespaces?.disabled ?? []),
+              // Production observability config (read by the auto-wired
+              // `@sigx/lynx-observability/install` entry). `null` when unset.
+              __SIGX_OBSERVABILITY_CONFIG__: JSON.stringify(logging.production ?? null),
             },
           },
           tools: {
