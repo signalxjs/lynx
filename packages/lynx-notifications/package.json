@@ -1,6 +1,6 @@
 {
     "name": "@sigx/lynx-notifications",
-    "version": "0.5.1",
+    "version": "0.5.2",
     "description": "Local push notifications for sigx-lynx",
     "type": "module",
     "main": "./dist/index.js",
