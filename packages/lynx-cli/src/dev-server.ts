@@ -595,7 +595,11 @@ async function acquireDevPort(
     logger: Logger,
 ): Promise<{ port: number; ownLock: boolean }> {
     const lock = readDevLock(cwd);
-    const liveLock = lock && isPidAlive(lock.pid) ? lock : null;
+    // Treat the lock as a live server only if BOTH its pid is alive AND its
+    // recorded HTTP port is still in use. This avoids a false "already running"
+    // refusal when the pid was recycled by an unrelated process (or the CLI is
+    // alive but no longer serving) and the dev port is actually free.
+    const liveLock = lock && isPidAlive(lock.pid) && !(await isPortFree(lock.httpPort)) ? lock : null;
 
     // A live server owns this project. Refuse regardless of which port happens
     // to be free now — unless the user explicitly asked for a DIFFERENT port.
@@ -765,7 +769,8 @@ export async function startDevServer(opts: DevServerOptions): Promise<void> {
     // define, and the log-server `hello` all agree. A reconnecting app compares
     // the hello's id to the one baked in its running bundle and reloads when
     // they differ; `?v=<buildId>` on launch URLs busts a stale native cache.
-    const buildId = String(Date.now());
+    // Include the pid so two restarts in the same millisecond get distinct ids.
+    const buildId = `${Date.now()}-${process.pid}`;
 
     // Record ourselves as the owner of this port so a later `sigx dev` can
     // reclaim it after we exit, or refuse to double-run while we're alive.

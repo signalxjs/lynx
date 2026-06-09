@@ -202,7 +202,7 @@ export function pluginSigxLynx(
         // plumbs it through `SIGX_LYNX_BUILD_ID` so the launch URL, the baked
         // `__SIGX_BUILD_ID__` define, and the log-server hello all match. When
         // rspeedy is run directly (no CLI), fall back to a per-process id.
-        const buildId = process.env['SIGX_LYNX_BUILD_ID'] || String(Date.now());
+        const buildId = process.env['SIGX_LYNX_BUILD_ID'] || `${Date.now()}-${process.pid}`;
 
         api.modifyRsbuildConfig((config, { mergeRsbuildConfig }) => {
           const envPort = process.env['SIGX_LYNX_DEV_PORT'];
