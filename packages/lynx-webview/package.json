@@ -1,6 +1,6 @@
 {
     "name": "@sigx/lynx-webview",
-    "version": "0.5.2",
+    "version": "0.5.3",
     "description": "Native WebView component for sigx-lynx (WKWebView on iOS, android.webkit.WebView on Android).",
     "type": "module",
     "main": "./dist/index.js",

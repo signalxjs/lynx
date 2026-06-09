@@ -1,6 +1,6 @@
 {
     "name": "@sigx/lynx-runtime-internal",
-    "version": "0.5.2",
+    "version": "0.5.3",
     "description": "Shared op types for SignalX Lynx renderer (BG ↔ MTS wire protocol)",
     "type": "module",
     "main": "./dist/index.js",
