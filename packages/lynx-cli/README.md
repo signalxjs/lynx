@@ -53,6 +53,7 @@ change), pass `--reset-cache` to `dev` / `build` / `run:android` / `run:ios`:
 ```bash
 sigx dev --reset-cache
 sigx build --reset-cache
+sigx run:android --reset-cache
 sigx run:ios --reset-cache
 ```
 

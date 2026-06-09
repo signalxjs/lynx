@@ -62,10 +62,12 @@ export function resetBuildCaches(cwd: string, logger?: Logger): void {
     const cacheDir = join(cwd, 'node_modules', '.cache');
     for (const entry of safeReaddir(cacheDir)) {
         const entryPath = join(cacheDir, entry.name);
-        if (entry.name !== '@sigx') { tryRm(entryPath); continue; }
+        // Only descend into a real `@sigx` directory; anything else (including
+        // a file or symlink masquerading as it) is just removed wholesale.
+        if (entry.name !== '@sigx' || !entry.isDirectory()) { tryRm(entryPath); continue; }
         for (const pkg of safeReaddir(entryPath)) {
             const pkgPath = join(entryPath, pkg.name);
-            if (pkg.name !== 'lynx-cli') { tryRm(pkgPath); continue; }
+            if (pkg.name !== 'lynx-cli' || !pkg.isDirectory()) { tryRm(pkgPath); continue; }
             for (const file of safeReaddir(pkgPath)) {
                 if (!PRESERVE_SIGX_STATE.has(file.name)) tryRm(join(pkgPath, file.name));
             }
