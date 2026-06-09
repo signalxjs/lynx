@@ -150,6 +150,44 @@ object SigxDevClient {
         }
     }
 
+    // ── Connection-state bridge ────────────────────────────────────────────
+    // The JS streamer calls `DevClientModule.setConnectionState(connected)`
+    // when its log WebSocket drops/reconnects. `DevLynxScreen` registers a
+    // handler that toggles the "disconnected" banner. We remember the last
+    // value so a screen registering after a drop still reflects reality.
+
+    @Volatile
+    private var connectionHandler: ((Boolean) -> Unit)? = null
+    @Volatile
+    private var lastConnected: Boolean = true
+
+    /**
+     * Register a connection-state handler. Immediately invoked with the
+     * last-known state. Returns an unregister lambda the caller MUST invoke
+     * when its screen goes away.
+     */
+    fun setConnectionHandler(handler: (Boolean) -> Unit): () -> Unit {
+        connectionHandler = handler
+        val current = lastConnected
+        mainHandler.post { if (connectionHandler === handler) handler(current) }
+        return {
+            if (connectionHandler === handler) connectionHandler = null
+        }
+    }
+
+    /** Push a new connection state to the active screen on the main thread. */
+    fun setConnectionState(connected: Boolean) {
+        lastConnected = connected
+        mainHandler.post {
+            val handler = connectionHandler ?: return@post
+            try {
+                handler(connected)
+            } catch (e: Exception) {
+                Log.w(TAG, "Connection-state handler threw: ${e.message}", e)
+            }
+        }
+    }
+
     /**
      * Configure a LynxViewBuilder for dev mode (HTTP resource fetching + HMR).
      * Call when launching with a dev server URL.

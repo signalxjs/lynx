@@ -9,13 +9,26 @@ final class DevLynxController: ObservableObject {
     weak var lynxView: LynxView?
     @Published var currentUrl: String = ""
 
+    // Dev overlay state (driven by a DevLifecycleClient + the connection bridge).
+    @Published var loading: Bool = true
+    @Published var error: String?
+    @Published var connected: Bool = true
+    @Published var perfMetrics: [DevPerfMetric] = []
+    @Published var perfHudEnabled: Bool = false
+    @Published var logBoxEnabled: Bool = true
+    @Published var inspectorEnabled: Bool = false
+
     func reload() {
         guard !currentUrl.isEmpty else { return }
+        loading = true
+        error = nil
         lynxView?.loadTemplate(fromURL: currentUrl)
     }
 
     func loadUrl(_ url: String) {
         currentUrl = url
+        loading = true
+        error = nil
         #if DEBUG
         SigxDevClient.lastConnectedUrl = url
         #endif
@@ -24,6 +37,22 @@ final class DevLynxController: ObservableObject {
 
     func copyUrlToPasteboard() {
         UIPasteboard.general.string = currentUrl
+    }
+
+    // Dev-menu toggles — mirror Android's. Perf HUD is pure UI; logbox and
+    // inspector flip native Lynx devtool flags (best-effort, degrade safely).
+    func togglePerfHud() { perfHudEnabled.toggle() }
+    func toggleLogBox() {
+        logBoxEnabled.toggle()
+        #if DEBUG
+        SigxDevClient.setLogBoxEnabled(logBoxEnabled)
+        #endif
+    }
+    func toggleInspector() {
+        inspectorEnabled.toggle()
+        #if DEBUG
+        SigxDevClient.setInspectorEnabled(inspectorEnabled)
+        #endif
     }
 }
 
@@ -74,42 +103,76 @@ struct ContentView: View {
             .padding()
             #endif
         } else {
+            #if DEBUG
+            // Dev mode: layer the dev overlays (loading spinner, perf HUD,
+            // error screen, connection banner) on top of the LynxView, matching
+            // Android's DevLynxScreen.
+            ZStack(alignment: .top) {
+                LynxContainerView(devUrl: effectiveDevUrl, devController: devController)
+                    .edgesIgnoringSafeArea(.all)
+
+                if devController.loading {
+                    DevLoadingOverlay(visible: true)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
+                DevPerfHud(visible: devController.perfHudEnabled, metrics: devController.perfMetrics)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+                DevErrorOverlay(
+                    error: devController.error,
+                    onReload: { devController.reload() },
+                    onDismiss: { devController.error = nil }
+                )
+                ConnectionBanner(connected: devController.connected)
+            }
+            .animation(.easeInOut(duration: 0.2), value: devController.connected)
+            .onShake {
+                if effectiveDevUrl != nil { showDevMenu = true }
+            }
+            // Hardware-keyboard reload — pressing `R` (or `⌘R`) in the iOS
+            // Simulator window triggers an in-place reload. Bubbles up via the
+            // dev-client's global UIWindow `pressesEnded:` swizzle, so a focused
+            // text input still gets the `R` key.
+            .onDevReloadKey {
+                if effectiveDevUrl != nil { devController.reload() }
+            }
+            // Remote-reload bridge — CLI `r` key (or anything else that POSTs
+            // to `/__sigx/reload` on the plugin's log WS server) hits
+            // `DevClientModule.reload()` over the JS bridge, which posts this
+            // notification on the main queue.
+            .onReceive(NotificationCenter.default.publisher(for: SigxDevClient.reloadNotification)) { _ in
+                if effectiveDevUrl != nil { devController.reload() }
+            }
+            // Connection-state bridge — the JS streamer reports its log WS
+            // up/down via DevClientModule.setConnectionState, surfaced here as
+            // a notification that toggles the disconnected banner.
+            .onReceive(NotificationCenter.default.publisher(for: SigxDevClient.connectionStateNotification)) { note in
+                if let connected = note.userInfo?["connected"] as? Bool {
+                    devController.connected = connected
+                }
+            }
+            .sheet(isPresented: $showDevMenu) {
+                DevMenuView(
+                    isPresented: $showDevMenu,
+                    actions: DevMenuActions(
+                        onReload: { devController.reload() },
+                        onChangeUrl: { devController.loadUrl($0) },
+                        onCopyUrl: { devController.copyUrlToPasteboard() },
+                        // Sandbox apps (no baked bundle) get a "Back to Home"
+                        // affordance — disconnects and returns to DevHomeScreen.
+                        onDisconnect: hasBakedBundle ? nil : { resolvedDevUrl = nil },
+                        onTogglePerfHud: { devController.togglePerfHud() },
+                        onToggleLogBox: { devController.toggleLogBox() },
+                        onToggleInspector: { devController.toggleInspector() },
+                        currentUrl: devController.currentUrl,
+                        perfHudEnabled: devController.perfHudEnabled,
+                        logBoxEnabled: devController.logBoxEnabled,
+                        inspectorEnabled: devController.inspectorEnabled
+                    )
+                )
+            }
+            #else
             LynxContainerView(devUrl: effectiveDevUrl, devController: devController)
                 .edgesIgnoringSafeArea(.all)
-            #if DEBUG
-                .onShake {
-                    if effectiveDevUrl != nil { showDevMenu = true }
-                }
-                // Hardware-keyboard reload — pressing `R` (or `⌘R`) in the
-                // iOS Simulator window triggers an in-place reload. Bubbles
-                // up via the dev-client's global UIWindow `pressesEnded:`
-                // swizzle, so a focused text input still gets the `R` key.
-                .onDevReloadKey {
-                    if effectiveDevUrl != nil { devController.reload() }
-                }
-                // Remote-reload bridge — CLI `r` key (or anything else that
-                // POSTs to `/__sigx/reload` on the plugin's log WS server)
-                // hits `DevClientModule.reload()` over the JS bridge, which
-                // posts this notification on the main queue. We just forward
-                // it to the dev controller so the LynxView reloads in-place.
-                .onReceive(NotificationCenter.default.publisher(for: SigxDevClient.reloadNotification)) { _ in
-                    if effectiveDevUrl != nil { devController.reload() }
-                }
-                .sheet(isPresented: $showDevMenu) {
-                    DevMenuView(
-                        isPresented: $showDevMenu,
-                        actions: DevMenuActions(
-                            onReload: { devController.reload() },
-                            onChangeUrl: { devController.loadUrl($0) },
-                            onCopyUrl: { devController.copyUrlToPasteboard() },
-                            // Sandbox apps (no baked bundle) get a "Back to
-                            // Home" affordance in the dev menu — disconnects
-                            // and returns to DevHomeScreen.
-                            onDisconnect: hasBakedBundle ? nil : { resolvedDevUrl = nil },
-                            currentUrl: devController.currentUrl
-                        )
-                    )
-                }
             #endif
         }
     }
@@ -127,6 +190,8 @@ struct LynxContainerView: UIViewRepresentable {
     /// adding a new publisher is a one-package change.
     final class Coordinator {
         var lifecyclePublishers: [Any] = []
+        // Strong ref so the dev lifecycle client lives as long as the LynxView.
+        var devLifecycleClient: AnyObject?
     }
 
     func makeCoordinator() -> Coordinator {
@@ -158,6 +223,21 @@ struct LynxContainerView: UIViewRepresentable {
         // initial updateGlobalProps lands before MT's renderPage runs —
         // gives e.g. SafeArea inset-aware first paint.
         context.coordinator.lifecyclePublishers = GeneratedLifecyclePublishers.attachAll(to: lynxView)
+
+        #if DEBUG
+        // Dev mode: feed Lynx lifecycle callbacks (load start/finish, errors,
+        // perf) into the controller so the SwiftUI overlays can react. Register
+        // BEFORE loadTemplate so we catch the first load's start/finish events.
+        if isDevMode {
+            let client = DevLifecycleClient(
+                onLoadingChange: { [weak devController] loading in devController?.loading = loading },
+                onError: { [weak devController] message in devController?.error = message },
+                onPerf: { [weak devController] metrics in devController?.perfMetrics = metrics }
+            )
+            lynxView.addLifecycleClient(client)
+            context.coordinator.devLifecycleClient = client
+        }
+        #endif
 
         if let devUrl = devUrl {
             // Dev mode: load from dev server URL (supports HMR).

@@ -236,6 +236,25 @@ function triggerNativeReload(): void {
 }
 
 /**
+ * Tell the dev-client native module whether the dev-server connection is up,
+ * so the host can show/hide a "disconnected from dev server" banner. Called on
+ * socket open (true) and on socket close/error (false).
+ *
+ * Best-effort: silently no-ops if the module or method isn't available (older
+ * host runtime, tests). Never throws back into the streamer.
+ */
+function setNativeConnectionState(connected: boolean): void {
+    try {
+        if (typeof NativeModules === 'undefined' || !NativeModules) return;
+        const mod = NativeModules.DevClient;
+        if (!mod || typeof mod.setConnectionState !== 'function') return;
+        mod.setConnectionState(connected);
+    } catch {
+        // ignore
+    }
+}
+
+/**
  * Async, authoritative platform probe via the dev-client's own native
  * module. Mirrors the @sigx/lynx-device-info pattern (NativeModules bridge
  * call) but avoids a hard dep on lynx-device-info — the dev-client's own
@@ -417,10 +436,20 @@ export function installConsoleStreamer(url: string, opts: InstallOptions = {}): 
         }, delay) as ReturnType<typeof setTimeout>;
     };
 
+    // Push connection state to the native banner only on an actual transition,
+    // so a flurry of failed reconnect attempts doesn't spam the bridge.
+    let lastConnNotified: boolean | undefined;
+    const notifyConnection = (connected: boolean): void => {
+        if (lastConnNotified === connected) return;
+        lastConnNotified = connected;
+        setNativeConnectionState(connected);
+    };
+
     const onSocketDown = (err?: unknown): void => {
         if (uninstalled) return;
         teardownSocket();
         clearFlushTimer();
+        notifyConnection(false);
         if (err !== undefined) {
             originals.warn(
                 '[sigx-dev-client] log stream WS closed, reconnecting:',
@@ -444,6 +473,7 @@ export function installConsoleStreamer(url: string, opts: InstallOptions = {}): 
         socket.onopen = () => {
             if (uninstalled || ws !== socket) return;
             backoff = backoffInitialMs;
+            notifyConnection(true);
             pump();
         };
         // Server-initiated commands. The only one today is a remote reload

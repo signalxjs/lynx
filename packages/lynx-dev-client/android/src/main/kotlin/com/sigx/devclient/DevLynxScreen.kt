@@ -56,6 +56,9 @@ fun DevLynxScreen(
     var perfHudEnabled by remember { mutableStateOf(devSettings.perfHudEnabled) }
     var logBoxEnabled by remember { mutableStateOf(devSettings.logBoxEnabled) }
     var inspectorEnabled by remember { mutableStateOf(false) }
+    // Dev-server connection state, toggled by the JS streamer via
+    // SigxDevClient.setConnectionState → the handler registered below.
+    var connected by remember { mutableStateOf(true) }
 
     // Persist last connected URL
     LaunchedEffect(currentUrl) {
@@ -98,6 +101,13 @@ fun DevLynxScreen(
     val latestReload by rememberUpdatedState(performReload)
     DisposableEffect(Unit) {
         val unregister = SigxDevClient.setReloadHandler { latestReload() }
+        onDispose { unregister() }
+    }
+
+    // Connection-state bridge — the JS streamer reports its log WS up/down via
+    // DevClientModule.setConnectionState, dispatched here to toggle the banner.
+    DisposableEffect(Unit) {
+        val unregister = SigxDevClient.setConnectionHandler { isConnected -> connected = isConnected }
         onDispose { unregister() }
     }
 
@@ -167,6 +177,13 @@ fun DevLynxScreen(
             error = error,
             onDismiss = { error = null },
             onReload = performReload,
+        )
+
+        // Connection-state banner (top) — sits above everything so it's visible
+        // even while the error overlay is showing.
+        ConnectionBanner(
+            connected = connected,
+            modifier = Modifier.align(Alignment.TopCenter),
         )
     }
 

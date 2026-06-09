@@ -42,4 +42,15 @@ class DevClientModule(context: Context) : LynxModule(context) {
     fun reload() {
         SigxDevClient.triggerRemoteReload()
     }
+
+    /**
+     * Report the dev-server connection state from the JS streamer (`false`
+     * when its log WebSocket drops, `true` when it reconnects). Routes through
+     * `SigxDevClient.setConnectionState`, which dispatches to the active dev
+     * screen on the main thread so it can show/hide the "disconnected" banner.
+     */
+    @LynxMethod
+    fun setConnectionState(connected: Boolean) {
+        SigxDevClient.setConnectionState(connected)
+    }
 }
