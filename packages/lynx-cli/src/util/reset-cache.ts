@@ -33,7 +33,9 @@ const PRESERVE_SIGX_STATE = new Set(['dev-server.json', 'last-targets.json']);
 export function resetBuildCaches(cwd: string, logger?: Logger): void {
     const failed: string[] = [];
     const tryRm = (p: string): void => {
-        try { rmSync(p, { recursive: true, force: true }); }
+        // maxRetries/retryDelay smooth over Windows' transient EPERM/EBUSY on
+        // recently-touched files, keeping --reset-cache a reliable escape hatch.
+        try { rmSync(p, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 }); }
         catch (err) { failed.push(`${p} (${(err as Error).message})`); }
     };
     const safeReaddir = (d: string): Dirent[] => {
