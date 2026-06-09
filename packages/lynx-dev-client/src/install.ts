@@ -15,6 +15,7 @@
 import '@sigx/lynx-websocket';
 
 import { installConsoleStreamer } from './streamer.js';
+import { installDevErrorLogging } from './errors.js';
 
 declare const __SIGX_DEV_LOG_URL__: string | undefined;
 // Build identity baked in by `@sigx/lynx-plugin` (same value the dev server
@@ -47,6 +48,9 @@ try {
         }
         const runningBuildId = typeof __SIGX_BUILD_ID__ !== 'undefined' ? __SIGX_BUILD_ID__ : undefined;
         installConsoleStreamer(url, { extraTargets, runningBuildId });
+        // Surface uncaught errors to the streamed console (→ `sigx dev`
+        // terminal). Without this, errors only hit the bare native overlay.
+        installDevErrorLogging();
         // First post-install log — this goes through the patched console,
         // so it exercises the full WS → server → sentinel → CLI pipeline.
         try {
