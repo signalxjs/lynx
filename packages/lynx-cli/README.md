@@ -13,13 +13,28 @@ npm create @sigx@latest my-app
 
 | Command | Description |
 |---|---|
-| `sigx dev`         | Start the rspeedy dev server with HMR. JS `console.*` from running devices is streamed back to the terminal; pass `--no-device-logs` to disable. |
+| `sigx dev`         | Start the rspeedy dev server with HMR. Claims a stable port (default `8788`) and keeps it across restarts so a running app reconnects and reloads itself automatically. JS `console.*` from running devices is streamed back to the terminal; pass `--no-device-logs` to disable. |
 | `sigx build`       | Production bundle for both Lynx runtime tiers |
 | `sigx prebuild`    | Generate `ios/` and `android/` native projects from your config + auto-link installed `@sigx/lynx-*` modules |
 | `sigx doctor`      | Verify your toolchain (rspeedy, JDK, ADB, Xcode, CocoaPods, devices) |
 | `sigx run:android` | `prebuild` → install via Gradle → launch on the connected device |
 | `sigx run:ios`     | `prebuild` → `pod install` → build and launch on the iOS simulator |
 | `sigx run:web`     | Build the web bundle, serve it in the browser via Lynx for Web, and live-reload on change |
+
+### Dev server reliability
+
+`sigx dev` claims one **stable port per project** (default `8788`) and records
+it in `node_modules/.cache/@sigx/lynx-cli/dev-server.json`. On restart it
+reclaims the same port from the previous (now-exited) session instead of
+walking to a new one, so an already-running app — whose dev-server URL is baked
+into its bundle — reconnects to the same address. If a `sigx dev` is **already
+running** for the project, a second one refuses to start rather than silently
+spawning another server on a different port (stop the first, or pass
+`--port <n>`).
+
+Each server run carries a build id. When an app reconnects to a server whose
+build id differs from the one in its running bundle (i.e. the server was
+restarted), the dev client **reloads itself** to pick up the latest bundle.
 
 The plugin is auto-discovered by `@sigx/cli` because of this entry in its `package.json`:
 

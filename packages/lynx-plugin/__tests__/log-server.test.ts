@@ -263,6 +263,42 @@ describe('reload broadcast', () => {
     });
 });
 
+describe('hello on connect', () => {
+    it('greets each connection with {type:"hello",buildId} when buildId is set', async () => {
+        const s = await createLogWebSocketServer({
+            port: 0,
+            host: '127.0.0.1',
+            buildId: 'build-123',
+            writeLine: () => { /* ignore logs here */ },
+        });
+        try {
+            const url = `ws://127.0.0.1:${s.port}${LOG_ENDPOINT_PATH}`;
+            const w = new WebSocket(url);
+            const messages: string[] = [];
+            w.on('message', (raw) => { messages.push(raw.toString('utf8')); });
+            await new Promise<void>((r, j) => { w.once('open', r); w.once('error', j); });
+            await new Promise((r) => setTimeout(r, 30));
+            expect(messages).toHaveLength(1);
+            expect(JSON.parse(messages[0])).toEqual({ type: 'hello', buildId: 'build-123' });
+            w.close();
+        } finally {
+            await s.close();
+        }
+    });
+
+    it('does not send a hello when no buildId is configured', async () => {
+        // The default `server` (beforeEach) is created without a buildId.
+        const url = `ws://127.0.0.1:${server.port}${LOG_ENDPOINT_PATH}`;
+        const w = new WebSocket(url);
+        const messages: string[] = [];
+        w.on('message', (raw) => { messages.push(raw.toString('utf8')); });
+        await new Promise<void>((r, j) => { w.once('open', r); w.once('error', j); });
+        await new Promise((r) => setTimeout(r, 30));
+        expect(messages).toEqual([]);
+        w.close();
+    });
+});
+
 describe('detectPlatformFromUserAgent', () => {
     it('detects android from okhttp', () => {
         expect(detectPlatformFromUserAgent('okhttp/4.12.0')).toBe('android');

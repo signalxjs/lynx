@@ -11,7 +11,6 @@
 import { spawn, execSync, type ChildProcess } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { createServer } from 'node:net';
 import { request as httpRequest } from 'node:http';
 import { getAllLanIPs } from './network.js';
 import { generateQR } from './qr.js';
@@ -20,6 +19,7 @@ import { runWithBuildFilter } from './build-output.js';
 import type { Logger } from '@sigx/cli/plugin';
 import type { SelectedTarget } from './target-picker.js';
 import { parseDeviceLogLine, formatDeviceLogLine, LOG_SENTINEL } from './device-log.js';
+import { isPortFree, readDevLock, writeDevLock, clearDevLock, isPidAlive, waitForPortFree } from './dev-lock.js';
 
 export interface DevServerOptions {
     cwd: string;
@@ -156,25 +156,24 @@ function formatSelectedTargets(targets: SelectedTarget[]): string[] {
 function printBanner(opts: {
     projectName: string;
     port: number;
+    buildId: string;
     lanIPs: { name: string; address: string }[];
     deviceStatus: DeviceStatus;
     appId?: string;
     bundleId?: string;
     selectedTargets?: SelectedTarget[];
 }) {
-    const { projectName, port, lanIPs, deviceStatus, appId, bundleId, selectedTargets } = opts;
-    const localUrl = `http://localhost:${port}`;
-    const bundlePath = '/main.lynx.bundle';
+    const { projectName, port, buildId, lanIPs, deviceStatus, appId, bundleId, selectedTargets } = opts;
 
     const lines = [
         '',
         `  \x1b[1m⚡ sigx dev\x1b[0m · \x1b[33m${projectName}\x1b[0m`,
         '',
-        `  Local:    \x1b[4m${localUrl}${bundlePath}\x1b[0m`,
+        `  Local:    \x1b[4m${bundleUrlFor('localhost', port, buildId)}\x1b[0m`,
     ];
 
     for (const { name, address } of lanIPs) {
-        const url = `http://${address}:${port}${bundlePath}`;
+        const url = bundleUrlFor(address, port, buildId);
         lines.push(`  Network:  \x1b[4m${url}\x1b[0m \x1b[2m(${name})\x1b[0m`);
     }
 
@@ -182,7 +181,7 @@ function printBanner(opts: {
 
     // QR code for the primary bundle URL
     if (lanIPs.length > 0) {
-        const primaryBundleUrl = `http://${lanIPs[0].address}:${port}${bundlePath}`;
+        const primaryBundleUrl = bundleUrlFor(lanIPs[0].address, port, buildId);
         lines.push('  \x1b[2mScan with sigx-lynx-go:\x1b[0m');
         const qr = generateQR(primaryBundleUrl);
         for (const qrLine of qr.split('\n')) {
@@ -262,6 +261,8 @@ function setupKeyboardShortcuts(child: ChildProcess, opts: {
     serverState: { port: number };
     /** Port of the dev-client log/reload WS server (plugin-side). */
     wsPort: number;
+    /** Build id baked into the bundle, appended to launch URLs as `?v=`. */
+    buildId: string;
     lanIPs: { name: string; address: string }[];
     projectName: string;
     logger: Logger;
@@ -284,16 +285,14 @@ function setupKeyboardShortcuts(child: ChildProcess, opts: {
 
     process.stdin.on('data', (key: string) => {
         const primaryIP = opts.lanIPs.length > 0 ? opts.lanIPs[0].address : null;
-        const bundleUrl = primaryIP
-            ? `http://${primaryIP}:${opts.serverState.port}/main.lynx.bundle`
-            : `http://localhost:${opts.serverState.port}/main.lynx.bundle`;
+        const bundleUrl = bundleUrlFor(primaryIP ?? 'localhost', opts.serverState.port, opts.buildId);
 
         // Android devices reach the dev server via `adb reverse`, so their
         // per-device URL is always localhost (works over USB, Wi-Fi, or
         // no-network-at-all provided adb is connected).
         const androidUrlFor = (deviceId: string): string => {
             opts.addReverse(deviceId, opts.serverState.port);
-            return `http://localhost:${opts.serverState.port}/main.lynx.bundle`;
+            return bundleUrlFor('localhost', opts.serverState.port, opts.buildId);
         };
 
         switch (key) {
@@ -555,20 +554,70 @@ function setupKeyboardShortcuts(child: ChildProcess, opts: {
  * returned unchanged and we let rsbuild's fallback handle it).
  */
 async function findFreePort(start: number): Promise<number> {
-    const check = (port: number): Promise<boolean> =>
-        new Promise((resolve) => {
-            const srv = createServer();
-            srv.unref();
-            srv.once('error', () => resolve(false));
-            srv.listen(port, '0.0.0.0', () => {
-                srv.close(() => resolve(true));
-            });
-        });
     for (let p = start; p < start + 50; p++) {
         // eslint-disable-next-line no-await-in-loop
-        if (await check(p)) return p;
+        if (await isPortFree(p)) return p;
     }
     return start;
+}
+
+/**
+ * Acquire a STABLE dev-server port for this project.
+ *
+ * Unlike a blind free-port walk, this keeps `sigx dev` on the same port across
+ * restarts so an already-running app — whose dev URLs are baked into the bundle
+ * at build time — reconnects instead of being stranded:
+ *
+ *  - desired port free               → take it.
+ *  - busy, our lock's owner is DEAD  → an orphan that didn't release the port;
+ *                                      wait briefly for the OS to free the
+ *                                      socket, then reclaim the SAME port.
+ *  - busy, our lock's owner is ALIVE → a real `sigx dev` already serves this
+ *                                      project; refuse + exit (never silently
+ *                                      fork a second server on a new port).
+ *  - busy, no/other lock             → fall back to the free-port walk with a
+ *                                      warning (a running app may need relaunch).
+ */
+async function acquireDevPort(desiredPort: number, cwd: string, logger: Logger): Promise<number> {
+    if (await isPortFree(desiredPort)) return desiredPort;
+
+    const lock = readDevLock(cwd);
+    if (lock && lock.httpPort === desiredPort) {
+        if (isPidAlive(lock.pid)) {
+            logger.error(
+                `Another sigx dev is already running for this project ` +
+                `(pid ${lock.pid}, port ${lock.httpPort}). Stop it first, or run with --port <n>.`,
+            );
+            process.exit(1);
+        }
+        // Stale lock — the previous owner died without releasing the port.
+        // Give the OS a moment to free the listening socket, then reclaim the
+        // SAME port so the running app's baked URLs stay valid.
+        if (await waitForPortFree(desiredPort)) {
+            logger.log(`Reclaimed dev port ${desiredPort} from a previous session.`);
+            return desiredPort;
+        }
+    }
+
+    // Genuinely contended (an unrelated process, or another project's server).
+    const fallback = await findFreePort(desiredPort);
+    if (fallback !== desiredPort) {
+        logger.warn(
+            `Port ${desiredPort} is busy — using ${fallback} instead. ` +
+            `A previously launched app may need a manual relaunch to reconnect.`,
+        );
+    }
+    return fallback;
+}
+
+/**
+ * Build the dev bundle URL for a host:port, tagged with the build id. The
+ * `?v=<buildId>` query changes every server run, so a native relaunch after a
+ * restart can't serve a prior-run cached template (rspeedy ignores the query;
+ * `adb reverse` forwards it transparently).
+ */
+function bundleUrlFor(host: string, port: number, buildId: string): string {
+    return `http://${host}:${port}/main.lynx.bundle?v=${buildId}`;
 }
 
 /**
@@ -615,13 +664,15 @@ async function warnIfSvgAbiGap(cwd: string, deviceIds: string[], logger: Logger)
 export async function startDevServer(opts: DevServerOptions): Promise<void> {
     const { cwd, logger, launchAppId, launchBundleId, iosSimulatorName, selectedTargets } = opts;
     const desiredPort = Number(opts.port) || 8788;
-    // Probe for the first free port at/after `desiredPort` so we can bake the
-    // correct URL into `__SIGX_DEV_LOG_URL__` (device log streaming) and the
-    // device-launch banner BEFORE rspeedy starts binding. Without this, when
-    // rsbuild falls back to a higher port the device-side log fetch targets
-    // a dead URL and `serverState.port` is stale until the stdout parser
-    // catches the "is in use" line — which the device build has already passed.
-    const requestedPort = await findFreePort(desiredPort);
+    // Acquire a STABLE port (default 8788) so we can bake the correct URL into
+    // `__SIGX_DEV_LOG_URL__` (device log streaming) and the device-launch
+    // banner BEFORE rspeedy starts binding, AND so the same port survives a
+    // restart — letting an already-running app reconnect instead of being
+    // stranded. acquireDevPort reclaims the port from a dead previous session,
+    // refuses to double-run a live one, and only walks to a new port as a last
+    // resort. If rsbuild still has to fall back, the stdout parser below
+    // catches the "is in use" line.
+    const requestedPort = await acquireDevPort(desiredPort, cwd, logger);
     const projectName = getProjectName(cwd);
     const lanIPs = getAllLanIPs();
     const primaryIP = lanIPs.length > 0 ? lanIPs[0].address : null;
@@ -633,6 +684,17 @@ export async function startDevServer(opts: DevServerOptions): Promise<void> {
     // POST stays aimed at the right port even if rsbuild later bumps the
     // HTTP port — the plugin's WS port doesn't move once it's bound.
     const wsPort = requestedPort + 1;
+
+    // One identity per server lifetime. The CLI owns it (rather than letting
+    // the plugin invent its own) so the launch URL, the baked `__SIGX_BUILD_ID__`
+    // define, and the log-server `hello` all agree. A reconnecting app compares
+    // the hello's id to the one baked in its running bundle and reloads when
+    // they differ; `?v=<buildId>` on launch URLs busts a stale native cache.
+    const buildId = String(Date.now());
+
+    // Record ourselves as the owner of this port so a later `sigx dev` can
+    // reclaim it after we exit, or refuse to double-run while we're alive.
+    writeDevLock(cwd, { version: 1, pid: process.pid, httpPort: requestedPort, wsPort, startedAt: Date.now() });
 
     // Detect devices in parallel with server start. When the caller passed
     // an explicit target list (from the picker / flags), we skip the full
@@ -687,6 +749,7 @@ export async function startDevServer(opts: DevServerOptions): Promise<void> {
         env: {
             ...process.env,
             SIGX_LYNX_DEV_PORT: String(requestedPort),
+            SIGX_LYNX_BUILD_ID: buildId,
         },
     });
 
@@ -750,6 +813,9 @@ export async function startDevServer(opts: DevServerOptions): Promise<void> {
         // child `exit` handler calls process.exit once the tree is gone.
         killChildTree('SIGTERM');
         removeReverses();
+        // Release the port lock only if we still own it (don't clobber a
+        // newer session that may have already reclaimed the port).
+        if (readDevLock(cwd)?.pid === process.pid) clearDevLock(cwd);
 
         const escalate = setTimeout(() => {
             logger.warn('Dev server did not exit after SIGTERM — forcing SIGKILL.');
@@ -768,6 +834,7 @@ export async function startDevServer(opts: DevServerOptions): Promise<void> {
         printBanner({
             projectName,
             port: serverState.port,
+            buildId,
             lanIPs,
             deviceStatus,
             appId: launchAppId,
@@ -778,9 +845,7 @@ export async function startDevServer(opts: DevServerOptions): Promise<void> {
         // Auto-launch on devices.
         // iOS uses LAN IP (simulator shares host network; devices are on Wi-Fi).
         // Android uses `adb reverse` + localhost so USB-only devices work too.
-        const iosBundleUrl = primaryIP
-            ? `http://${primaryIP}:${serverState.port}/main.lynx.bundle`
-            : `http://localhost:${serverState.port}/main.lynx.bundle`;
+        const iosBundleUrl = bundleUrlFor(primaryIP ?? 'localhost', serverState.port, buildId);
 
         if (selectedTargets) {
             // Picker-driven: launch only what the user asked for. We just
@@ -794,7 +859,7 @@ export async function startDevServer(opts: DevServerOptions): Promise<void> {
             for (const t of selectedTargets) {
                 if (t.kind === 'android-device') {
                     addReverse(t.deviceId, serverState.port);
-                    const url = `http://localhost:${serverState.port}/main.lynx.bundle`;
+                    const url = bundleUrlFor('localhost', serverState.port, buildId);
                     if (launchAppId) {
                         logger.log(`Auto-launching ${launchAppId} on ${t.model || t.deviceId}...`);
                         launchApp(t.deviceId, launchAppId, url);
@@ -818,7 +883,7 @@ export async function startDevServer(opts: DevServerOptions): Promise<void> {
         void warnIfSvgAbiGap(cwd, deviceStatus.devices.map((d) => d.id), logger);
         for (const device of deviceStatus.devices) {
             addReverse(device.id, serverState.port);
-            const url = `http://localhost:${serverState.port}/main.lynx.bundle`;
+            const url = bundleUrlFor('localhost', serverState.port, buildId);
             if (launchAppId && deviceStatus.appInstalled?.get(device.id)) {
                 logger.log(`Auto-launching ${launchAppId} on ${device.model || device.id}...`);
                 launchApp(device.id, launchAppId, url);
@@ -916,7 +981,7 @@ export async function startDevServer(opts: DevServerOptions): Promise<void> {
     });
 
     // Setup keyboard shortcuts
-    setupKeyboardShortcuts(child, { cwd, serverState, wsPort, lanIPs, projectName, logger, appId: launchAppId, bundleId: launchBundleId, iosSimulatorName, verbose: opts.verbose, shutdown, addReverse });
+    setupKeyboardShortcuts(child, { cwd, serverState, wsPort, buildId, lanIPs, projectName, logger, appId: launchAppId, bundleId: launchBundleId, iosSimulatorName, verbose: opts.verbose, shutdown, addReverse });
 
     // Handle child exit — the rspeedy tree died (on its own or because we
     // signaled it during shutdown). Restore the TTY, drop any adb forwards we
@@ -928,6 +993,7 @@ export async function startDevServer(opts: DevServerOptions): Promise<void> {
             try { process.stdin.setRawMode(false); } catch { /* ignore */ }
         }
         removeReverses();
+        if (readDevLock(cwd)?.pid === process.pid) clearDevLock(cwd);
         process.exit(code ?? 0);
     });
 

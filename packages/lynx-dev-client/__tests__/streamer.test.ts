@@ -470,6 +470,66 @@ describe('installConsoleStreamer', () => {
         }
     });
 
+    // -----------------------------------------------------------------------
+    // Reload-on-reconnect — the server greets each (re)connect with its build
+    // id; the streamer reloads only when it differs from the running build.
+    // -----------------------------------------------------------------------
+
+    /** Install with a runningBuildId, open the socket, return a reload counter + the ws factory. */
+    const installWithReloadSpy = (runningBuildId?: string) => {
+        const { console: c } = createConsole();
+        globalThis.console = c;
+        const sched = createScheduler();
+        const ws = createFakeWSFactory();
+        const reloadCalls: number[] = [];
+        const g = globalThis as { NativeModules?: unknown };
+        const prevNM = g.NativeModules;
+        g.NativeModules = { DevClient: { reload: () => { reloadCalls.push(1); } } };
+        installConsoleStreamer('ws://x/__sigx/logs', {
+            webSocketImpl: ws.ctor,
+            setTimeoutImpl: sched.setTimeout,
+            clearTimeoutImpl: sched.clearTimeout,
+            platform: 'ios',
+            runningBuildId,
+        });
+        ws.last()._open();
+        const restore = () => { if (prevNM === undefined) delete g.NativeModules; else g.NativeModules = prevNM; };
+        return { ws, reloadCalls, restore };
+    };
+
+    it('reloads when the server hello carries a different build id', () => {
+        const { ws, reloadCalls, restore } = installWithReloadSpy('build-A');
+        try {
+            ws.last().onmessage?.({ data: JSON.stringify({ type: 'hello', buildId: 'build-B' }) });
+            expect(reloadCalls).toHaveLength(1);
+        } finally { restore(); }
+    });
+
+    it('does NOT reload when the hello build id matches (loop guard)', () => {
+        const { ws, reloadCalls, restore } = installWithReloadSpy('build-A');
+        try {
+            ws.last().onmessage?.({ data: JSON.stringify({ type: 'hello', buildId: 'build-A' }) });
+            expect(reloadCalls).toHaveLength(0);
+        } finally { restore(); }
+    });
+
+    it('does NOT reload on hello when the running build id is unknown', () => {
+        const { ws, reloadCalls, restore } = installWithReloadSpy(undefined);
+        try {
+            ws.last().onmessage?.({ data: JSON.stringify({ type: 'hello', buildId: 'build-B' }) });
+            expect(reloadCalls).toHaveLength(0);
+        } finally { restore(); }
+    });
+
+    it('ignores a hello with a missing/empty build id', () => {
+        const { ws, reloadCalls, restore } = installWithReloadSpy('build-A');
+        try {
+            ws.last().onmessage?.({ data: JSON.stringify({ type: 'hello' }) });
+            ws.last().onmessage?.({ data: JSON.stringify({ type: 'hello', buildId: '' }) });
+            expect(reloadCalls).toHaveLength(0);
+        } finally { restore(); }
+    });
+
     it('ignores reload messages when DevClient.reload is unavailable', () => {
         const { console: c } = createConsole();
         globalThis.console = c;

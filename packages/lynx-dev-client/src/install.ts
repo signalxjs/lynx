@@ -17,6 +17,10 @@ import '@sigx/lynx-websocket';
 import { installConsoleStreamer } from './streamer.js';
 
 declare const __SIGX_DEV_LOG_URL__: string | undefined;
+// Build identity baked in by `@sigx/lynx-plugin` (same value the dev server
+// greets us with). Lets the streamer reload when it reconnects to a server
+// serving a different build.
+declare const __SIGX_BUILD_ID__: string | undefined;
 
 // On the Lynx BG runtime the whole bundle is wrapped in a single
 // `tt.define("background.js", function(..., console, ...) { ... })` factory.
@@ -41,7 +45,8 @@ try {
         if (factoryConsole && typeof factoryConsole === 'object') {
             extraTargets.push(factoryConsole as never);
         }
-        installConsoleStreamer(url, { extraTargets });
+        const runningBuildId = typeof __SIGX_BUILD_ID__ !== 'undefined' ? __SIGX_BUILD_ID__ : undefined;
+        installConsoleStreamer(url, { extraTargets, runningBuildId });
         // First post-install log — this goes through the patched console,
         // so it exercises the full WS → server → sentinel → CLI pipeline.
         try {

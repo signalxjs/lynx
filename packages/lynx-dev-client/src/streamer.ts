@@ -98,6 +98,14 @@ export interface InstallOptions {
      * Must resolve, never reject — return `undefined` for unknown.
      */
     platformProbe?: () => Promise<string | undefined>;
+    /**
+     * Identity of the build this bundle was compiled as (the baked
+     * `__SIGX_BUILD_ID__`). When the server greets a (re)connect with a
+     * different build id, the streamer asks the host to reload so the app
+     * picks up the latest bundle. Omit (or leave `undefined`) to disable
+     * reload-on-reconnect — e.g. in tests or when the define isn't present.
+     */
+    runningBuildId?: string;
 }
 
 export type Uninstall = () => void;
@@ -449,8 +457,27 @@ export function installConsoleStreamer(url: string, opts: InstallOptions = {}): 
             try {
                 const data = (ev as { data?: unknown })?.data;
                 if (typeof data !== 'string') return;
-                const parsed = JSON.parse(data) as { type?: unknown };
-                if (parsed && parsed.type === 'reload') triggerNativeReload();
+                const parsed = JSON.parse(data) as { type?: unknown; buildId?: unknown };
+                if (!parsed || typeof parsed !== 'object') return;
+                if (parsed.type === 'reload') {
+                    triggerNativeReload();
+                } else if (parsed.type === 'hello') {
+                    // The server greets every (re)connect with its build id.
+                    // Reload only when we can confirm a DIFFERENT build is being
+                    // served. A matching id (a transient reconnect to the same
+                    // server) must NOT reload, or we'd loop forever: a reload
+                    // re-fetches the new bundle whose baked __SIGX_BUILD_ID__
+                    // then equals the server's, so the next hello matches and
+                    // stops. This guard is load-bearing.
+                    const running = opts.runningBuildId;
+                    if (
+                        typeof running === 'string' && running.length > 0 &&
+                        typeof parsed.buildId === 'string' && parsed.buildId.length > 0 &&
+                        parsed.buildId !== running
+                    ) {
+                        triggerNativeReload();
+                    }
+                }
             } catch {
                 // ignore
             }
