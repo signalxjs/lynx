@@ -11,10 +11,11 @@
  */
 
 import { execSync } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { isAdbAvailable, listAndroidDevices, isLynxGoInstalled, getDeviceCpuAbi } from './device-detect.js';
 import { detectFromLockfile, getVersion as getPmVersion, detectFromBinaries } from './util/package-manager.js';
+import { collectLynxVersions, assessLynxVersions, compareSemver, fetchLatestVersion } from './util/lynx-versions.js';
 import type { Logger } from '@sigx/cli/plugin';
 
 interface Check {
@@ -313,9 +314,44 @@ function formatCheck(check: Check): string {
 /**
  * Run all doctor checks and print results.
  */
+/**
+ * `@sigx/lynx-*` are lockstep — they must all be the same version, and ideally
+ * the latest release (stale versions miss fixes like #342, where an old
+ * `@sigx/lynx-http` made `res.ok` false on real 200s → cryptic "network error").
+ * Errors on version skew; warns when behind the latest published release.
+ */
+async function checkSigxLynxVersions(cwd: string): Promise<Check> {
+    const name = '@sigx/lynx-* versions';
+    const verdict = assessLynxVersions(collectLynxVersions(cwd));
+    if (verdict.kind === 'none') {
+        return { name, status: 'skip', message: 'no @sigx/lynx-* packages installed' };
+    }
+    if (verdict.kind === 'skew') {
+        const detail = verdict.groups.map((g) => `${g.version}×${g.names.length}`).join(', ');
+        return {
+            name,
+            status: 'error',
+            message: `version skew (${detail}) — these are lockstep and MUST all match. Run \`pnpm up "@sigx/lynx*@latest"\` then reinstall.`,
+            detail: verdict.groups.map((g) => `  ${g.version}: ${g.names.join(', ')}`).join('\n'),
+        };
+    }
+    // Aligned — best-effort staleness check against the registry (non-fatal/offline-safe).
+    const latest = await fetchLatestVersion('@sigx/lynx');
+    if (latest && compareSemver(latest, verdict.version) > 0) {
+        return {
+            name,
+            status: 'warn',
+            message: `on ${verdict.version}; ${latest} is published — run \`pnpm up "@sigx/lynx*@latest"\` (then reinstall + rebuild the native app for native fixes).`,
+        };
+    }
+    return { name, status: 'ok', message: `all aligned at ${verdict.version}` };
+}
+
 export async function runDoctor(cwd: string, logger: Logger): Promise<void> {
     console.log('\n  \x1b[1msigx doctor\x1b[0m\n');
     console.log('  Checking your development environment...\n');
+
+    const lynxVersions = await checkSigxLynxVersions(cwd);
 
     const sections: { title: string; checks: Check[] }[] = [
         {
@@ -332,7 +368,7 @@ export async function runDoctor(cwd: string, logger: Logger): Promise<void> {
         },
         {
             title: 'Lynx',
-            checks: [checkRspeedy(), checkProjectConfig(cwd), checkLynxGoApp()],
+            checks: [checkRspeedy(), lynxVersions, checkProjectConfig(cwd), checkLynxGoApp()],
         },
     ];
 
