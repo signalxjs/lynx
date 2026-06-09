@@ -1,0 +1,52 @@
+{
+    "name": "@sigx/lynx-observability",
+    "version": "0.5.1",
+    "description": "Opt-in production error capture + provider-agnostic log/error sinks for sigx-lynx",
+    "type": "module",
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+        ".": {
+            "import": "./dist/index.js",
+            "types": "./dist/index.d.ts"
+        },
+        "./package.json": "./package.json"
+    },
+    "files": [
+        "dist"
+    ],
+    "scripts": {
+        "build": "node ../../scripts/clean.mjs dist && tsgo",
+        "dev": "tsgo --watch",
+        "clean": "node ../../scripts/clean.mjs dist .turbo"
+    },
+    "keywords": [
+        "sigx",
+        "lynx",
+        "logging",
+        "observability",
+        "error-reporting"
+    ],
+    "author": "Andreas Ekdahl",
+    "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/signalxjs/lynx.git",
+        "directory": "packages/lynx-observability"
+    },
+    "homepage": "https://github.com/signalxjs/lynx/tree/main/packages/lynx-observability",
+    "bugs": {
+        "url": "https://github.com/signalxjs/lynx/issues"
+    },
+    "dependencies": {
+        "@sigx/lynx-core": "workspace:^",
+        "@sigx/lynx-http": "workspace:^"
+    },
+    "devDependencies": {
+        "@typescript/native-preview": "7.0.0-dev.20260521.1",
+        "typescript": "^6.0.3"
+    },
+    "publishConfig": {
+        "access": "public"
+    }
+}
