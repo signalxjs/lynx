@@ -70,11 +70,38 @@ public final class DevLifecycleClient: NSObject, LynxViewLifecycle {
     // ── Errors ─────────────────────────────────────────────────────────────
     // Note the SDK's historical spelling "didRecieveError".
     public func lynxView(_ view: LynxView!, didRecieveError error: Error!) {
-        let message = (error as NSError?)?.localizedDescription ?? "Unknown Lynx error"
+        let message = Self.describe(error)
+        NSLog("[sigx-dev] Lynx error: %@", message)
         onMain {
             self.onLoadingChange(false)
             self.onError(message)
         }
+    }
+
+    /// Lynx hands us a generic `NSError` whose `localizedDescription` is just
+    /// "The operation couldn't be completed. (com.lynx.error error 0.)" — the
+    /// real message/stack live in `userInfo`. Surface all of it.
+    static func describe(_ error: Error?) -> String {
+        guard let ns = error as NSError? else { return "Unknown Lynx error" }
+        var lines: [String] = []
+        for (key, value) in ns.userInfo {
+            guard let k = key as? String, k != NSLocalizedDescriptionKey else { continue }
+            if let s = value as? String {
+                if !s.isEmpty { lines.append("\(k): \(s)") }
+            } else if let n = value as? NSNumber {
+                lines.append("\(k): \(n)")
+            } else {
+                // Underlying NSError, arrays, dicts, etc. often carry the real
+                // detail — don't drop them.
+                lines.append("\(k): \(String(describing: value))")
+            }
+        }
+        // Fall back to the localized description when userInfo had nothing useful.
+        if lines.isEmpty {
+            lines.append(ns.localizedDescription)
+        }
+        lines.append("[\(ns.domain) #\(ns.code)]")
+        return lines.joined(separator: "\n")
     }
 
     // ── Perf ───────────────────────────────────────────────────────────────
