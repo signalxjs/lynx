@@ -275,12 +275,17 @@ export async function applyEntry(
   // same way as the dev-client, and prepend it to the BG entry below so error
   // capture + the remote sink are wired before app code runs — no manual
   // `initObservability()` call needed.
+  // Only relevant for release builds (the prepend below is `isProd`-gated);
+  // resolving/logging in dev would emit a misleading "enabled" message.
+  const isReleaseBuild = process.env['NODE_ENV'] === 'production';
   let hasProductionLogging = false;
-  try {
-    const raw = process.env['SIGX_LYNX_LOGGING'];
-    const parsed = raw ? (JSON.parse(raw) as { production?: unknown }) : undefined;
-    hasProductionLogging = !!(parsed && typeof parsed === 'object' && parsed.production);
-  } catch { /* malformed — treat as unset */ }
+  if (isReleaseBuild) {
+    try {
+      const raw = process.env['SIGX_LYNX_LOGGING'];
+      const parsed = raw ? (JSON.parse(raw) as { production?: unknown }) : undefined;
+      hasProductionLogging = !!(parsed && typeof parsed === 'object' && parsed.production);
+    } catch { /* malformed — treat as unset */ }
+  }
 
   let observabilityInstallPath: string | undefined;
   if (hasProductionLogging) {
@@ -296,8 +301,13 @@ export async function applyEntry(
         } catch { /* try next base */ }
       }
     }
+    if (!observabilityInstallPath) {
+      try {
+        observabilityInstallPath = createRequire(import.meta.url).resolve('@sigx/lynx-observability/install');
+      } catch { observabilityInstallPath = undefined; }
+    }
     if (observabilityInstallPath) {
-      api.logger.info('[sigx-lynx] production observability → enabled (release builds)');
+      api.logger.info('[sigx-lynx] production observability → enabled');
     } else {
       api.logger.warn('[sigx-lynx] logging.production is set but @sigx/lynx-observability is not installed — add it as a dependency.');
     }

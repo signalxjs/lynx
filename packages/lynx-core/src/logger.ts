@@ -28,10 +28,11 @@
 // the `__DEV__` define expands to a `process.env` expression that throws in
 // the Lynx BG runtime, so the logger must not depend on it).
 declare const __SIGX_LOG_LEVEL__: string | undefined;
-// JSON array string of namespaces to disable at startup (from
-// `logging.namespaces.disabled` in `signalx.config.ts`). Same injection +
-// `typeof`-guard rules as the level above.
-declare const __SIGX_LOG_DISABLED__: string | undefined;
+// Namespaces to disable at startup (from `logging.namespaces.disabled` in
+// `signalx.config.ts`). The plugin injects this as an array LITERAL (e.g.
+// `["http"]`), so read it as an array — not a JSON string. Same `typeof`-guard
+// rules as the level above.
+declare const __SIGX_LOG_DISABLED__: readonly string[] | undefined;
 
 export type LogLevelName = 'trace' | 'debug' | 'info' | 'warn' | 'error' | 'silent';
 
@@ -82,13 +83,8 @@ function resolveDefaultLevel(): LogLevelName {
 
 function resolveDisabledNamespaces(): string[] {
     const injected = typeof __SIGX_LOG_DISABLED__ !== 'undefined' ? __SIGX_LOG_DISABLED__ : undefined;
-    if (!injected) return [];
-    try {
-        const parsed = JSON.parse(injected);
-        return Array.isArray(parsed) ? parsed.filter((n): n is string => typeof n === 'string') : [];
-    } catch {
-        return [];
-    }
+    if (!Array.isArray(injected)) return [];
+    return injected.filter((n): n is string => typeof n === 'string');
 }
 
 let threshold: number = SEVERITY[resolveDefaultLevel()];
