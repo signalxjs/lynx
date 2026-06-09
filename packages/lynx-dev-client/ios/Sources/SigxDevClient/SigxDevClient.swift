@@ -147,8 +147,15 @@ class SigxDevClient {
     /// changes. `userInfo["connected"]` is a `Bool`.
     public static let connectionStateNotification = Notification.Name("com.sigx.devclient.connectionState")
 
+    /// Last connection state the streamer reported. The notification isn't
+    /// sticky and the streamer de-dups repeated `false`s, so a view appearing
+    /// AFTER a drop (e.g. server down at boot) must seed its banner from this
+    /// rather than wait for an update that already fired.
+    public private(set) static var lastConnectionState: Bool = true
+
     /// Post the current dev-server connection state. Safe from any thread.
     public static func postConnectionState(_ connected: Bool) {
+        lastConnectionState = connected
         let post = {
             NotificationCenter.default.post(
                 name: connectionStateNotification,

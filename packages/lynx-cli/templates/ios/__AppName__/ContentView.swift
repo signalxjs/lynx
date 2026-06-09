@@ -10,7 +10,9 @@ final class DevLynxController: ObservableObject {
     @Published var currentUrl: String = ""
 
     // Dev overlay state (driven by a DevLifecycleClient + the connection bridge).
-    @Published var loading: Bool = true
+    // `loading` defaults false so it can never stick on — the lifecycle client
+    // sets it true on load start and false on first screen.
+    @Published var loading: Bool = false
     @Published var error: String?
     @Published var connected: Bool = true
     @Published var perfMetrics: [DevPerfMetric] = []
@@ -125,6 +127,9 @@ struct ContentView: View {
                 ConnectionBanner(connected: devController.connected)
             }
             .animation(.easeInOut(duration: 0.2), value: devController.connected)
+            // Seed from the last-known state so a drop that happened before this
+            // view subscribed (server down at boot) still shows the banner.
+            .onAppear { devController.connected = SigxDevClient.lastConnectionState }
             .onShake {
                 if effectiveDevUrl != nil { showDevMenu = true }
             }
@@ -228,18 +233,18 @@ struct LynxContainerView: UIViewRepresentable {
         context.coordinator.lifecyclePublishers = GeneratedLifecyclePublishers.attachAll(to: lynxView)
 
         #if DEBUG
-        // Dev mode: feed Lynx lifecycle callbacks (load start/finish, errors,
-        // perf) into the controller so the SwiftUI overlays can react. Register
-        // BEFORE loadTemplate so we catch the first load's start/finish events.
-        if isDevMode {
-            let client = DevLifecycleClient(
-                onLoadingChange: { [weak devController] loading in devController?.loading = loading },
-                onError: { [weak devController] message in devController?.error = message },
-                onPerf: { [weak devController] metrics in devController?.perfMetrics = metrics }
-            )
-            lynxView.addLifecycleClient(client)
-            context.coordinator.devLifecycleClient = client
-        }
+        // Feed Lynx lifecycle callbacks (load start/finish, errors, perf) into
+        // the controller so the SwiftUI overlays can react. Registered for both
+        // dev-URL and baked-bundle DEBUG builds (so the loading/error overlays
+        // work either way), BEFORE loadTemplate so we catch the first load's
+        // start/finish events.
+        let client = DevLifecycleClient(
+            onLoadingChange: { [weak devController] loading in devController?.loading = loading },
+            onError: { [weak devController] message in devController?.error = message },
+            onPerf: { [weak devController] metrics in devController?.perfMetrics = metrics }
+        )
+        lynxView.addLifecycleClient(client)
+        context.coordinator.devLifecycleClient = client
         #endif
 
         if let devUrl = devUrl {
