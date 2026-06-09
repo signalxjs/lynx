@@ -8,6 +8,9 @@ import Lynx
 final class DevLynxController: ObservableObject {
     weak var lynxView: LynxView?
     @Published var currentUrl: String = ""
+    /// Path to the baked bundle in baked-bundle DEBUG runs (no dev URL), so the
+    /// error overlay's Reload can re-load from bytes.
+    var bundlePath: String?
 
     // Dev overlay state (driven by a DevLifecycleClient + the connection bridge).
     // `loading` defaults false so it can never stick on — the lifecycle client
@@ -20,19 +23,28 @@ final class DevLynxController: ObservableObject {
     @Published var logBoxEnabled: Bool = true
     @Published var inspectorEnabled: Bool = false
 
-    func reload() {
-        guard !currentUrl.isEmpty else { return }
+    private func startLoad() {
         loading = true
         error = nil
         perfMetrics = []
-        lynxView?.loadTemplate(fromURL: currentUrl)
+    }
+
+    func reload() {
+        // Dev URL → reload over HTTP; otherwise reload the baked bundle from
+        // bytes so Reload still works in a baked-bundle DEBUG run. No-op (don't
+        // strand the spinner) when there's nothing to reload.
+        if !currentUrl.isEmpty {
+            startLoad()
+            lynxView?.loadTemplate(fromURL: currentUrl)
+        } else if let path = bundlePath, let data = try? Data(contentsOf: URL(fileURLWithPath: path)) {
+            startLoad()
+            lynxView?.loadTemplate(data, withURL: path)
+        }
     }
 
     func loadUrl(_ url: String) {
         currentUrl = url
-        loading = true
-        error = nil
-        perfMetrics = []
+        startLoad()
         #if DEBUG
         SigxDevClient.lastConnectedUrl = url
         #endif
@@ -268,6 +280,9 @@ struct LynxContainerView: UIViewRepresentable {
             if let bundlePath = Bundle.main.path(forResource: "main.lynx", ofType: "bundle"),
                let bundleData = try? Data(contentsOf: URL(fileURLWithPath: bundlePath)) {
                 lynxView.loadTemplate(bundleData, withURL: bundlePath)
+                // Keep the controller functional (error-overlay Reload) without a dev URL.
+                devController.lynxView = lynxView
+                devController.bundlePath = bundlePath
             }
         }
 
