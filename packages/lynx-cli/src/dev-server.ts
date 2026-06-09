@@ -1038,11 +1038,24 @@ export async function startDevServer(opts: DevServerOptions): Promise<void> {
             // We need this *before* showBanner fires, because the banner
             // computes the device-launch URL from serverState.port.
             if (line.includes('is in use')) {
+                // The CLI already reserved a free HTTP+WS pair and passed the
+                // HTTP port via SIGX_LYNX_DEV_PORT, so a fallback here means the
+                // port was taken in the TOCTOU window between our probe and
+                // rsbuild's bind. Serving on the fallback port would leave the
+                // lock recording the wrong port (later runs misclassify this
+                // server as stale and fork) and the log/reload WS server still
+                // bound to the original port + 1. Fail clearly instead and let
+                // the user retry — they'll get a fresh free pair. Teardown clears
+                // the lock via the child-exit handler.
                 const match = line.match(/using port (\d+)/);
-                if (match) {
-                    serverState.port = Number(match[1]);
-                    logger.log(`Dev server fell back to port ${serverState.port}`);
-                }
+                const fallbackPort = match ? Number(match[1]) : undefined;
+                logger.error(
+                    `Dev server port ${requestedPort} was taken before it could bind` +
+                    `${fallbackPort ? ` (rsbuild fell back to ${fallbackPort})` : ''}. ` +
+                    `Re-run \`sigx dev\` to grab a fresh port.`,
+                );
+                shutdown(1);
+                return;
             }
 
             // Print banner once rspeedy is ready. No timeout-based
