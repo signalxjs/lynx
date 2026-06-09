@@ -606,6 +606,22 @@ async function acquireDevPort(
         process.exit(1);
     }
 
+    // Allowed explicit-`--port` secondary, but its HTTP port and log/reload WS
+    // port (`desiredPort + 1`) must not overlap the primary's pair — otherwise
+    // the bundler binds while device logs/reload silently fail to start.
+    if (liveLock && (
+        desiredPort + 1 === liveLock.httpPort ||
+        desiredPort === liveLock.wsPort ||
+        desiredPort + 1 === liveLock.wsPort
+    )) {
+        logger.error(
+            `--port ${desiredPort} collides with the running dev server ` +
+            `(HTTP ${liveLock.httpPort}, log WS ${liveLock.wsPort}); its log WS would use ` +
+            `${desiredPort + 1}. Pick a port at least 2 away.`,
+        );
+        process.exit(1);
+    }
+
     // If we got here with a live lock, we're the explicit-port secondary — the
     // primary keeps the project lock; we don't own it.
     const ownLock = liveLock === null;
@@ -692,8 +708,24 @@ async function warnIfSvgAbiGap(cwd: string, deviceIds: string[], logger: Logger)
  */
 export async function startDevServer(opts: DevServerOptions): Promise<void> {
     const { cwd, logger, launchAppId, launchBundleId, iosSimulatorName, selectedTargets } = opts;
-    const explicitPort = opts.port !== undefined && String(opts.port).length > 0;
-    const desiredPort = Number(opts.port) || 8788;
+    // Parse an explicit `--port`. Reject invalid values instead of silently
+    // falling back to 8788 (which would behave as an "explicit" override and
+    // bypass the stable-port reclaim). Cap at 65534 because the log/reload WS
+    // server binds `port + 1`, which must stay ≤ 65535.
+    let desiredPort = 8788;
+    let explicitPort = false;
+    if (opts.port !== undefined && String(opts.port).trim() !== '') {
+        const parsed = Number(opts.port);
+        if (!Number.isInteger(parsed) || parsed < 1 || parsed > 65534) {
+            logger.error(
+                `Invalid --port "${opts.port}". Use an integer between 1 and 65534 ` +
+                `(the device log/reload WS server binds port + 1).`,
+            );
+            process.exit(1);
+        }
+        desiredPort = parsed;
+        explicitPort = true;
+    }
     // Acquire a STABLE port (default 8788) so we can bake the correct URL into
     // `__SIGX_DEV_LOG_URL__` (device log streaming) and the device-launch
     // banner BEFORE rspeedy starts binding, AND so the same port survives a

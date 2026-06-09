@@ -294,11 +294,16 @@ describe('hello on connect', () => {
         // The default `server` (beforeEach) is created without a buildId.
         const url = `ws://127.0.0.1:${server.port}${LOG_ENDPOINT_PATH}`;
         const w = new WebSocket(url);
-        const messages: string[] = [];
-        w.on('message', (raw) => { messages.push(raw.toString('utf8')); });
+        const sawFrame = new Promise<string>((resolve) => {
+            w.once('message', (raw) => resolve(raw.toString('utf8')));
+        });
+        const quiet = new Promise<'quiet'>((resolve) => {
+            const t = setTimeout(() => resolve('quiet'), 100);
+            if (typeof t.unref === 'function') t.unref();
+        });
         await new Promise<void>((r, j) => { w.once('open', r); w.once('error', j); });
-        await new Promise((r) => setTimeout(r, 30));
-        expect(messages).toEqual([]);
+        // Fails fast if any frame arrives within the window; otherwise 'quiet'.
+        await expect(Promise.race([sawFrame, quiet])).resolves.toBe('quiet');
         w.close();
     });
 });
