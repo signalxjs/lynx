@@ -30,15 +30,16 @@ final class DevLynxController: ObservableObject {
     }
 
     func reload() {
+        // Need a live LynxView to load into, else we'd strand the spinner.
+        guard let view = lynxView else { return }
         // Dev URL → reload over HTTP; otherwise reload the baked bundle from
-        // bytes so Reload still works in a baked-bundle DEBUG run. No-op (don't
-        // strand the spinner) when there's nothing to reload.
+        // bytes so Reload still works in a baked-bundle DEBUG run.
         if !currentUrl.isEmpty {
             startLoad()
-            lynxView?.loadTemplate(fromURL: currentUrl)
+            view.loadTemplate(fromURL: currentUrl)
         } else if let path = bundlePath, let data = try? Data(contentsOf: URL(fileURLWithPath: path)) {
             startLoad()
-            lynxView?.loadTemplate(data, withURL: path)
+            view.loadTemplate(data, withURL: path)
         }
     }
 

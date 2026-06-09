@@ -169,7 +169,15 @@ object SigxDevClient {
     fun setConnectionHandler(handler: (Boolean) -> Unit): () -> Unit {
         connectionHandler = handler
         val current = lastConnected
-        mainHandler.post { if (connectionHandler === handler) handler(current) }
+        mainHandler.post {
+            if (connectionHandler === handler) {
+                try {
+                    handler(current)
+                } catch (e: Exception) {
+                    Log.w(TAG, "Connection-state handler threw: ${e.message}", e)
+                }
+            }
+        }
         return {
             if (connectionHandler === handler) connectionHandler = null
         }

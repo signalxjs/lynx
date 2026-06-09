@@ -79,12 +79,14 @@ public final class DevLifecycleClient: NSObject, LynxViewLifecycle {
 
     // ── Perf ───────────────────────────────────────────────────────────────
     public func lynxView(_ view: LynxView!, didReceiveFirstLoadPerf perf: LynxPerformance!) {
-        ingest(perf)
+        onMain { self.ingest(perf) }
     }
     public func lynxView(_ view: LynxView!, didReceiveUpdatePerf perf: LynxPerformance!) {
-        ingest(perf)
+        onMain { self.ingest(perf) }
     }
 
+    // Always called on the main queue (via onMain at the call sites), so all
+    // `metrics` mutation stays serialized there.
     private func ingest(_ perf: LynxPerformance?) {
         guard let perf = perf else { return }
         if perf.hasActualFMP, perf.actualFMPDuration > 0 {
@@ -98,11 +100,13 @@ public final class DevLifecycleClient: NSObject, LynxViewLifecycle {
     // plausible DURATIONS (0 < v < 60s) and skip epoch-style timestamps so the
     // HUD shows meaningful millisecond figures rather than huge clock values.
     public func lynxView(_ lynxView: LynxView!, onSetup info: [AnyHashable: Any]!) {
-        mergeTiming(info)
+        onMain { self.mergeTiming(info) }
     }
     public func lynxView(_ lynxView: LynxView!, onUpdate info: [AnyHashable: Any]!, timing updateTiming: [AnyHashable: Any]!) {
-        mergeTiming(info)
-        mergeTiming(updateTiming)
+        onMain {
+            self.mergeTiming(info)
+            self.mergeTiming(updateTiming)
+        }
     }
 
     private func mergeTiming(_ dict: [AnyHashable: Any]?) {
