@@ -38,6 +38,12 @@ function size(n: number): string {
     return `${(n / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+/** Drop query + fragment so credentials/tokens in them don't reach logs. */
+function safeUrl(url: string): string {
+    const cut = url.search(/[?#]/);
+    return cut === -1 ? url : url.slice(0, cut);
+}
+
 export function start(id: number, method: string, url: string): void {
     timings.set(id, { method, url, start: Date.now(), bytes: 0 });
     if (log.enabled('debug')) log.debug(`→ ${method} ${url}`);
@@ -47,7 +53,9 @@ export function response(id: number, status: number): void {
     const t = timings.get(id);
     if (!t) return;
     t.firstByteAt = Date.now();
-    t.status = status;
+    // 0 is the shim's "native omitted status" sentinel — leave undefined so
+    // the finish line shows `?` rather than `0`.
+    if (status > 0) t.status = status;
 }
 
 export function addBytes(id: number, n: number): void {
@@ -75,7 +83,9 @@ export function fail(id: number, message: string): void {
     const t = timings.get(id);
     if (!t) return;
     timings.delete(id);
-    log.warn(`✕ ${t.method} ${t.url}  (${ms(Date.now() - t.start)} · ${size(t.bytes)}) — ${message}`);
+    // warn is visible at the production default level — strip query/fragment
+    // so any credentials embedded there don't leak into logs.
+    log.warn(`✕ ${t.method} ${safeUrl(t.url)}  (${ms(Date.now() - t.start)} · ${size(t.bytes)}) — ${message}`);
 }
 
 export function abort(id: number, reason: string): void {

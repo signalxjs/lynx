@@ -26,6 +26,15 @@ export { consoleTransport } from './transports/console.js';
 
 // Install the default transport once at import time. The package entry is this
 // barrel, so importing anything from `@sigx/lynx-core` wires console logging.
+// Guard with a globalThis flag so module re-evaluation (HMR / multiple bundle
+// copies) can't register the console transport twice and duplicate every line.
 import { addTransport as __addTransport } from './logger.js';
 import { consoleTransport as __consoleTransport } from './transports/console.js';
-__addTransport(__consoleTransport);
+{
+    const g = globalThis as Record<string, unknown>;
+    const INSTALLED = '__sigxCoreConsoleTransportInstalled';
+    if (!g[INSTALLED]) {
+        g[INSTALLED] = true;
+        __addTransport(__consoleTransport);
+    }
+}

@@ -45,6 +45,23 @@ describe('http request logging', () => {
         );
     });
 
+    it('shows ? for an unknown (0) status in the finish line', () => {
+        httplog.start(8, 'GET', 'https://api.test/q');
+        httplog.response(8, 0); // shim sentinel for "native omitted status"
+        httplog.finish(8);
+        const finish = records.find((r) => r.msg.startsWith('←'))!;
+        expect(finish.msg).toContain('← ? GET');
+    });
+
+    it('strips query/fragment from the warn-level failure URL (no credential leak)', () => {
+        httplog.start(9, 'GET', 'https://api.test/login?token=secret#frag');
+        httplog.fail(9, 'boom');
+        const fail = records.find((r) => r.msg.startsWith('✕'))!;
+        expect(fail.msg).toContain('https://api.test/login');
+        expect(fail.msg).not.toContain('secret');
+        expect(fail.msg).not.toContain('frag');
+    });
+
     it('logs failures at warn with method/url context', () => {
         httplog.start(2, 'POST', 'https://api.test/login');
         const fail = (() => { httplog.fail(2, 'connection refused'); return records.find((r) => r.msg.startsWith('✕'))!; })();
