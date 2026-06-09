@@ -610,23 +610,29 @@ async function acquireDevPort(
     // primary keeps the project lock; we don't own it.
     const ownLock = liveLock === null;
 
-    if (await isPortFree(desiredPort)) return { port: desiredPort, ownLock };
+    // The stable port is whatever the LAST session used (from a dead lock),
+    // not necessarily the default — so an app that baked the previous session's
+    // fallback port (e.g. 8790, because 8788 was busy back then) can still
+    // reconnect after a restart. An explicit `--port` always wins.
+    const targetPort = !explicitPort && lock && !liveLock ? lock.httpPort : desiredPort;
+
+    if (await isPortFree(targetPort)) return { port: targetPort, ownLock };
 
     // Busy, and our own (now-dead) lock owned this port — the orphan didn't
     // release it. Give the OS a moment to free the socket, then reclaim the
     // SAME port so the running app's baked URLs stay valid.
-    if (lock && !liveLock && lock.httpPort === desiredPort) {
-        if (await waitForPortFree(desiredPort)) {
-            logger.log(`Reclaimed dev port ${desiredPort} from a previous session.`);
-            return { port: desiredPort, ownLock };
+    if (lock && !liveLock && lock.httpPort === targetPort) {
+        if (await waitForPortFree(targetPort)) {
+            logger.log(`Reclaimed dev port ${targetPort} from a previous session.`);
+            return { port: targetPort, ownLock };
         }
     }
 
     // Genuinely contended (an unrelated process, or another project's server).
-    const fallback = await findFreePort(desiredPort);
-    if (fallback !== desiredPort) {
+    const fallback = await findFreePort(targetPort);
+    if (fallback !== targetPort) {
         logger.warn(
-            `Port ${desiredPort} is busy — using ${fallback} instead. ` +
+            `Port ${targetPort} is busy — using ${fallback} instead. ` +
             `A previously launched app may need a manual relaunch to reconnect.`,
         );
     }

@@ -277,10 +277,10 @@ describe('hello on connect', () => {
             // Deterministic: await the first frame (with a timeout) rather than
             // sleeping a fixed interval, so this can't flake on slow runners.
             const firstFrame = new Promise<string>((resolve, reject) => {
-                w.once('message', (raw) => resolve(raw.toString('utf8')));
-                w.once('error', reject);
                 const t = setTimeout(() => reject(new Error('timed out waiting for hello')), 2000);
                 if (typeof t.unref === 'function') t.unref();
+                w.once('message', (raw) => { clearTimeout(t); resolve(raw.toString('utf8')); });
+                w.once('error', (err) => { clearTimeout(t); reject(err); });
             });
             const frame = await firstFrame;
             expect(JSON.parse(frame)).toEqual({ type: 'hello', buildId: 'build-123' });
