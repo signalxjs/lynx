@@ -85,20 +85,28 @@ describe('lockfile-keyed fingerprints (#348)', () => {
 });
 
 describe('resetBuildCaches', () => {
-    it('removes dist/ and node_modules/.cache', () => {
+    it('removes build caches but preserves @sigx/lynx-cli state files', () => {
         const dist = join(dir, 'dist', '.rspeedy');
-        const nmCache = join(dir, 'node_modules', '.cache', '@sigx', 'lynx-cli');
+        const sigxCli = join(dir, 'node_modules', '.cache', '@sigx', 'lynx-cli');
+        const rspackCache = join(dir, 'node_modules', '.cache', 'rspack');
         mkdirSync(dist, { recursive: true });
-        mkdirSync(nmCache, { recursive: true });
+        mkdirSync(sigxCli, { recursive: true });
+        mkdirSync(rspackCache, { recursive: true });
         writeFileSync(join(dist, 'x'), 'cache', 'utf-8');
-        writeFileSync(join(nmCache, 'y.hash'), 'abc', 'utf-8');
+        writeFileSync(join(sigxCli, 'android-debug.hash'), 'abc', 'utf-8');
+        writeFileSync(join(sigxCli, 'dev-server.json'), '{"pid":1}', 'utf-8');
+        writeFileSync(join(sigxCli, 'last-targets.json'), '{}', 'utf-8');
+        writeFileSync(join(rspackCache, 'c'), 'x', 'utf-8');
 
         resetBuildCaches(dir);
 
+        // Build caches gone.
         expect(existsSync(join(dir, 'dist'))).toBe(false);
-        expect(existsSync(join(dir, 'node_modules', '.cache'))).toBe(false);
-        // Leaves the rest of node_modules untouched (only .cache removed).
-        // (node_modules itself may now be empty, which is fine.)
+        expect(existsSync(rspackCache)).toBe(false);
+        expect(existsSync(join(sigxCli, 'android-debug.hash'))).toBe(false);
+        // State files preserved (wiping the port lock would re-enable #350).
+        expect(existsSync(join(sigxCli, 'dev-server.json'))).toBe(true);
+        expect(existsSync(join(sigxCli, 'last-targets.json'))).toBe(true);
     });
 
     it('is a no-op (no throw) when the caches do not exist', () => {

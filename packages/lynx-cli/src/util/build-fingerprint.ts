@@ -35,7 +35,10 @@ function sha256OfFile(p: string): string {
  */
 function lockfileHash(cwd: string): string {
     const lock = findLockfile(cwd);
-    return lock ? sha256OfFile(lock) : 'none';
+    if (!lock) return 'none';
+    // Best-effort, like combineHash's per-file read: a transiently unreadable
+    // lockfile (e.g. mid-install) must not throw and break fingerprinting.
+    try { return sha256OfFile(lock); } catch { return 'unreadable'; }
 }
 
 /**

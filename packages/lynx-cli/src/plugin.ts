@@ -370,8 +370,13 @@ export default definePlugin({
             description: 'Production Lynx build',
             args: {
                 analyze: { type: 'boolean', description: 'Analyze bundle size', default: false },
+                'reset-cache': { type: 'boolean', description: 'Clear build caches (dist/, node_modules/.cache) before building — use after a dependency version bump', default: false },
             },
             async run(ctx) {
+                if (ctx.args['reset-cache']) {
+                    const { resetBuildCaches } = await import('./util/reset-cache.js');
+                    resetBuildCaches(ctx.cwd, ctx.logger);
+                }
                 const { spawn } = await import('node:child_process');
                 const startTime = Date.now();
 
