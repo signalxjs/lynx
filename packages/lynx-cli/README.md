@@ -36,6 +36,30 @@ Each server run carries a build id. When an app reconnects to a server whose
 build id differs from the one in its running bundle (i.e. the server was
 restarted), the dev client **reloads itself** to pick up the latest bundle.
 
+### Build caching
+
+`sigx dev` / `run:android` / `run:ios` skip native-project regeneration and
+native rebuilds via fingerprint caches under `node_modules/.cache/@sigx/lynx-cli/`
+(`sigx build` just runs `rspeedy build` and isn't governed by these). Those
+fingerprints include the **JS lockfile**, so bumping a `@sigx/lynx-*` dependency
+and reinstalling invalidates them automatically — you get the new code without a
+manual cache wipe.
+
+rspack/rsbuild keep their own persistent cache (under `dist/`, `.rsbuild/`, and
+`node_modules/.cache`) that the fingerprints don't govern. If you ever need a
+guaranteed-clean rebuild (or hit a stale bundle after an unusual dependency
+change), pass `--reset-cache` to `dev` / `build` / `run:android` / `run:ios`:
+
+```bash
+sigx dev --reset-cache
+sigx build --reset-cache
+sigx run:android --reset-cache
+sigx run:ios --reset-cache
+```
+
+It wipes those caches before building while preserving the dev-server port lock
+and target history (also under `node_modules/.cache/@sigx/lynx-cli/`).
+
 The plugin is auto-discovered by `@sigx/cli` because of this entry in its `package.json`:
 
 ```json

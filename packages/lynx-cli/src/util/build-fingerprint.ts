@@ -5,7 +5,8 @@
  * Hashes everything that affects the resulting .app / .apk:
  *   - Sources (Swift, Kotlin, plist, manifest, gradle)
  *   - Xcode project file / gradle scripts
- *   - Resolved dependency state (Podfile.lock)
+ *   - Resolved dependency state (Podfile.lock + the JS lockfile, so a
+ *     `@sigx/*` version bump invalidates the fast path — #348)
  *   - Configuration (Debug/Release)
  *   - CLI version (templates can change between releases)
  *
@@ -20,9 +21,24 @@ import {
 } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { findLockfile } from './package-manager.js';
 
 function sha256OfFile(p: string): string {
     return createHash('sha256').update(readFileSync(p)).digest('hex');
+}
+
+/**
+ * Content hash of the nearest lockfile, or `'none'`. Folded into every build
+ * fingerprint so that bumping a dependency version + reinstalling invalidates
+ * the fast path — the installed `@sigx/*` sources change without any tracked
+ * source file in the project changing (signalxjs/lynx#348).
+ */
+function lockfileHash(cwd: string): string {
+    const lock = findLockfile(cwd);
+    if (!lock) return 'none';
+    // Best-effort, like combineHash's per-file read: a transiently unreadable
+    // lockfile (e.g. mid-install) must not throw and break fingerprinting.
+    try { return sha256OfFile(lock); } catch { return 'unreadable'; }
 }
 
 /**
@@ -115,6 +131,8 @@ export function fingerprintIosBuild(
     const extras: Record<string, string> = {
         configuration,
         cliVersion: getCliVersion(),
+        // Invalidate when an installed dependency version changes (#348).
+        lockfile: lockfileHash(cwd),
     };
     // Both Podfile and Podfile.lock affect the final .app. Hashing only the
     // lock would let a Podfile-only edit (new pod added, post_install tweak)
@@ -147,6 +165,8 @@ export function fingerprintAndroidBuild(cwd: string): string {
     ];
     return combineHash(files, {
         cliVersion: getCliVersion(),
+        // Invalidate when an installed dependency version changes (#348).
+        lockfile: lockfileHash(cwd),
     });
 }
 
