@@ -1,6 +1,6 @@
 package com.sigx.http
 
-import com.lynx.react.bridge.JavaOnlyMap
+import org.json.JSONObject
 import java.util.UUID
 import java.util.concurrent.CopyOnWriteArrayList
 
@@ -12,15 +12,22 @@ import java.util.concurrent.CopyOnWriteArrayList
  * Mirrors `WebSocketEventBus` — native lifecycle is decoupled from any
  * specific LynxView so in-flight requests survive view recreation.
  *
- * Payload keys match the `NativeHttpEvent` interface in `src/types.ts`.
+ * Payloads are emitted as a **JSON string** whose parsed shape matches the
+ * `NativeHttpEvent` interface in `src/types.ts`. A string (rather than a
+ * structured `JavaOnlyMap`) survives Lynx 0.5.0's bridge marshalling intact
+ * — a map carrying a nested map (the `response` event's `headers`) drops its
+ * sibling scalar fields crossing the bridge, so `Response.status` arrived
+ * undefined and `res.ok` was false for every request (#342). The JS shim
+ * already parses string-form events.
+ *
  * Event order per request id: response (once) → progress* → chunk* →
  * done | error.
  */
 internal object HttpEventBus {
 
-    private val listeners = CopyOnWriteArrayList<Pair<UUID, (JavaOnlyMap) -> Unit>>()
+    private val listeners = CopyOnWriteArrayList<Pair<UUID, (String) -> Unit>>()
 
-    fun addListener(fn: (JavaOnlyMap) -> Unit): UUID {
+    fun addListener(fn: (String) -> Unit): UUID {
         val token = UUID.randomUUID()
         listeners.add(token to fn)
         return token
@@ -31,50 +38,51 @@ internal object HttpEventBus {
     }
 
     fun publishResponse(id: Int, status: Int, statusText: String, headers: Map<String, String>) {
-        val map = JavaOnlyMap()
-        map.putInt("id", id)
-        map.putString("type", "response")
-        map.putInt("status", status)
-        map.putString("statusText", statusText)
-        val headerMap = JavaOnlyMap()
-        for ((k, v) in headers) headerMap.putString(k, v)
-        map.putMap("headers", headerMap)
-        emit(map)
+        val obj = JSONObject()
+        obj.put("id", id)
+        obj.put("type", "response")
+        obj.put("status", status)
+        obj.put("statusText", statusText)
+        val headerObj = JSONObject()
+        for ((k, v) in headers) headerObj.put(k, v)
+        obj.put("headers", headerObj)
+        emit(obj)
     }
 
     fun publishChunk(id: Int, base64: String) {
-        val map = JavaOnlyMap()
-        map.putInt("id", id)
-        map.putString("type", "chunk")
-        map.putString("data", base64)
-        emit(map)
+        val obj = JSONObject()
+        obj.put("id", id)
+        obj.put("type", "chunk")
+        obj.put("data", base64)
+        emit(obj)
     }
 
     fun publishProgress(id: Int, loaded: Long, total: Long) {
-        val map = JavaOnlyMap()
-        map.putInt("id", id)
-        map.putString("type", "progress")
-        map.putDouble("loaded", loaded.toDouble())
-        map.putDouble("total", total.toDouble())
-        emit(map)
+        val obj = JSONObject()
+        obj.put("id", id)
+        obj.put("type", "progress")
+        obj.put("loaded", loaded)
+        obj.put("total", total)
+        emit(obj)
     }
 
     fun publishDone(id: Int) {
-        val map = JavaOnlyMap()
-        map.putInt("id", id)
-        map.putString("type", "done")
-        emit(map)
+        val obj = JSONObject()
+        obj.put("id", id)
+        obj.put("type", "done")
+        emit(obj)
     }
 
     fun publishError(id: Int, message: String) {
-        val map = JavaOnlyMap()
-        map.putInt("id", id)
-        map.putString("type", "error")
-        map.putString("message", message)
-        emit(map)
+        val obj = JSONObject()
+        obj.put("id", id)
+        obj.put("type", "error")
+        obj.put("message", message)
+        emit(obj)
     }
 
-    private fun emit(payload: JavaOnlyMap) {
-        for ((_, fn) in listeners) fn(payload)
+    private fun emit(payload: JSONObject) {
+        val json = payload.toString()
+        for ((_, fn) in listeners) fn(json)
     }
 }

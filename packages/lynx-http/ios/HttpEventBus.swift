@@ -15,7 +15,9 @@ final class HttpEventBus {
     static let shared = HttpEventBus()
 
     typealias Payload = [String: Any]
-    typealias Listener = (Payload) -> Void
+    /// Listeners receive each event as a **JSON string**, not a structured
+    /// map — see `emit(_:)`.
+    typealias Listener = (String) -> Void
 
     private let queue = DispatchQueue(label: "com.sigx.http.bus")
     private var listeners: [(token: UUID, fn: Listener)] = []
@@ -76,7 +78,16 @@ final class HttpEventBus {
     }
 
     private func emit(_ payload: Payload) {
+        // Lynx 0.5.0 / PrimJS 3.8 regressed `sendGlobalEvent` marshalling of
+        // structured params: the one payload carrying a nested map (the
+        // `response` event's `headers`) loses its sibling scalar fields
+        // (`status`/`statusText`) crossing the bridge, so `Response.status`
+        // arrives undefined and `res.ok` is false for every request (#342).
+        // Strings cross intact (the base64 body chunks already do), so emit a
+        // single JSON string — the JS shim already parses string-form events.
+        guard let data = try? JSONSerialization.data(withJSONObject: payload),
+              let json = String(data: data, encoding: .utf8) else { return }
         let snapshot = queue.sync { listeners }
-        for (_, fn) in snapshot { fn(payload) }
+        for (_, fn) in snapshot { fn(json) }
     }
 }

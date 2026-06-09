@@ -74,6 +74,9 @@ function ensureSubscribed(): void {
     const emitter = lynxObj()?.getJSModule?.('GlobalEventEmitter');
     if (!emitter) return; // web/SSR/test — events simply won't arrive
     emitter.addListener(EVENT_NAME, (raw: unknown) => {
+        // Native delivers each event as a JSON string (see `types.ts` — a
+        // structured map loses fields on Lynx 0.5.0's bridge, #342). Older
+        // native sent the map directly, so tolerate both shapes.
         const evt: NativeHttpEvent | undefined =
             typeof raw === 'string' ? safeParse(raw) : (raw as NativeHttpEvent | undefined);
         if (!evt || typeof evt.id !== 'number') return;

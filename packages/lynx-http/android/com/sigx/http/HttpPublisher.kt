@@ -18,10 +18,14 @@ class HttpPublisher(private val lynxView: LynxView) {
     private var token: UUID? = null
 
     fun attach() {
-        token = HttpEventBus.addListener { payload ->
+        token = HttpEventBus.addListener { json ->
             try {
+                // Pass a single JSON string as the only param — the JS shim
+                // parses the first arg as `NativeHttpEvent`. A string survives
+                // Lynx 0.5.0's bridge marshalling intact where a structured
+                // map carrying a nested `headers` map does not (#342).
                 val params = JavaOnlyArray()
-                params.pushMap(payload)
+                params.pushString(json)
                 lynxView.sendGlobalEvent(EVENT_NAME, params)
             } catch (e: Throwable) {
                 Log.w(TAG, "publish failed: ${e.message}")

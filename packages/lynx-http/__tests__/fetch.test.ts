@@ -62,6 +62,11 @@ function fire(evt: Record<string, unknown>): void {
     emitter.fire(EVENT, evt);
 }
 
+/** Native delivery shape since #342: one JSON-string param per event. */
+function fireJson(evt: Record<string, unknown>): void {
+    emitter.fire(EVENT, JSON.stringify(evt));
+}
+
 function b64(s: string): string {
     return Buffer.from(s, 'utf-8').toString('base64');
 }
@@ -169,6 +174,29 @@ describe('fetch — response lifecycle', () => {
         fire({ id, type: 'chunk', data: b64('{"hello":"wörld"}') });
         fire({ id, type: 'done' });
         expect(await res.json()).toEqual({ hello: 'wörld' });
+    });
+
+    it('populates status/statusText/headers from a JSON-string event (native bridge form, #342)', async () => {
+        // Native sends each event as a single JSON-string param (a structured
+        // map drops `status`/`statusText`/`headers` on Lynx 0.5.0's bridge).
+        // The shim must parse the string so `res.ok`/`res.status` are real.
+        const p = fetch('https://x.test/login');
+        const id = lastRequestId();
+        fireJson({
+            id,
+            type: 'response',
+            status: 200,
+            statusText: 'OK',
+            headers: { 'content-type': 'application/json', 'x-trace': 't9' },
+        });
+        const res = await p;
+        expect(res.status).toBe(200);
+        expect(res.ok).toBe(true);
+        expect(res.statusText).toBe('OK');
+        expect(res.headers.get('X-Trace')).toBe('t9');
+        fireJson({ id, type: 'chunk', data: b64('{"jwt":"abc"}') });
+        fireJson({ id, type: 'done' });
+        expect(await res.json()).toEqual({ jwt: 'abc' });
     });
 
     it('resolves BEFORE the body completes so the reader can stream', async () => {
