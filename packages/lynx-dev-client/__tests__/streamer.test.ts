@@ -303,7 +303,7 @@ describe('installConsoleStreamer', () => {
             clearTimeoutImpl: sched.clearTimeout,
             nowImpl: () => 1700000000000,
             platform: 'ios',
-            extraTargets: [factory as never],
+            extraTargets: [factory],
         });
 
         // User `console.log` resolves to the factory-scope console.
