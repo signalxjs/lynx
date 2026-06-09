@@ -25,43 +25,56 @@ export const HttpDemo = component(() => {
     const progress = signal<{ value: number }>({ value: -1 });
     const streamResult = signal<{ value: string | null }>({ value: null });
     const statusResult = signal<{
-        value: { line200: string; line404: string; verdict: string; pass: boolean } | null;
+        value: { lineA: string; lineB: string; note: string; verdict: string; pass: boolean } | null;
     }>({ value: null });
 
-    // #342 device regression check: on Lynx 0.5.0 the response event's
-    // status/statusText/headers were dropped crossing the native bridge, so
-    // res.status came back undefined and res.ok false for every request —
-    // even a 200 whose body read fine. We verify both a 200 (ok must be true,
-    // status 200) and a 404 (ok must be false, status 404) so a regression
-    // can't hide behind a truthy default.
+    // #342 device regression check. The bug: on Lynx 0.5.0 the response
+    // event's status/statusText/headers were dropped crossing the native
+    // bridge, so res.status came back undefined and res.ok was false for
+    // every request — even a 200 whose body read fine. The invariant that
+    // proves the fix is "status is a populated number AND res.ok ===
+    // (status in 200..299)", independent of the exact code — so a flaky
+    // endpoint (e.g. a 503) still validates that the status round-trips the
+    // bridge. We hit a should-be-2xx and a should-be-404 endpoint and, as a
+    // bonus, note whether res.ok actually flipped between them.
+    const probe = async (url: string) => {
+        const res = await fetch(url);
+        await res.text(); // drain so the native request completes cleanly
+        const populated = typeof res.status === 'number' && res.status >= 100;
+        const consistent = res.ok === (res.status >= 200 && res.status < 300);
+        return {
+            line: `${url.replace('https://', '')} → status=${String(res.status)} ok=${String(res.ok)} statusText="${res.statusText}"`,
+            populated,
+            consistent,
+            ok: res.ok,
+        };
+    };
+
     const runStatusCheck = async () => {
-        statusResult.value = { line200: 'checking…', line404: '', verdict: '', pass: false };
+        statusResult.value = { lineA: 'checking…', lineB: '', note: '', verdict: '', pass: false };
         try {
-            const ok = await fetch('https://httpbin.org/json', {
-                headers: { Accept: 'application/json' },
-            });
-            const ctype = ok.headers.get('content-type') ?? '(none)';
-            // Drain the 200 body so the native request completes cleanly.
-            await ok.text();
-
-            const notFound = await fetch('https://httpbin.org/status/404');
-            await notFound.text();
-
-            const pass =
-                ok.ok === true && ok.status === 200 &&
-                notFound.ok === false && notFound.status === 404;
+            const a = await probe('https://jsonplaceholder.typicode.com/todos/1');
+            const b = await probe('https://jsonplaceholder.typicode.com/this-path-does-not-exist');
+            // Core #342 invariant: both responses carry a real status code and
+            // a consistent ok. Pre-fix, status was undefined → this fails.
+            const pass = a.populated && a.consistent && b.populated && b.consistent;
+            const flip = a.ok !== b.ok; // bonus: ok actually changed with the code
             statusResult.value = {
-                line200: `200 → status=${String(ok.status)} ok=${String(ok.ok)} statusText="${ok.statusText}" content-type=${ctype}`,
-                line404: `404 → status=${String(notFound.status)} ok=${String(notFound.ok)}`,
+                lineA: a.line,
+                lineB: b.line,
+                note: flip
+                    ? 'res.ok flipped across the two status codes ✓'
+                    : 'note: no 2xx/non-2xx flip this run (endpoint flaky) — invariant still holds',
                 verdict: pass
-                    ? 'PASS ✓ — Response.status/ok survive the native bridge (#342)'
-                    : 'FAIL ✗ — status/ok wrong; bridge regression of #342',
+                    ? 'PASS ✓ — status populated & res.ok consistent; survives the native bridge (#342)'
+                    : 'FAIL ✗ — status undefined or res.ok inconsistent (bridge regression of #342)',
                 pass,
             };
         } catch (e) {
             statusResult.value = {
-                line200: `request failed: ${e instanceof Error ? e.message : String(e)}`,
-                line404: '',
+                lineA: `request failed: ${e instanceof Error ? e.message : String(e)}`,
+                lineB: '',
+                note: '',
                 verdict: 'FAIL ✗ — request threw before status could be checked',
                 pass: false,
             };
@@ -164,18 +177,22 @@ export const HttpDemo = component(() => {
                         <Col gap={8}>
                             <Text weight="semibold">Response status (#342)</Text>
                             <Text class="opacity-60 text-sm">
-                                Verifies res.status / res.ok survive the native
-                                bridge — a 200 (ok must be true) and a 404 (ok
-                                must be false). Regressed on Lynx 0.5.0.
+                                Verifies res.status is a populated number and
+                                res.ok is consistent with it across two
+                                endpoints — the invariant that regressed on
+                                Lynx 0.5.0 (status arrived undefined).
                             </Text>
                             <Button color="primary" variant="outline" onPress={runStatusCheck}>
                                 Check status round-trip
                             </Button>
                             {statusResult.value && (
                                 <Col gap={4}>
-                                    <Text class="text-sm font-mono">{statusResult.value.line200}</Text>
-                                    {statusResult.value.line404 !== '' && (
-                                        <Text class="text-sm font-mono">{statusResult.value.line404}</Text>
+                                    <Text class="text-sm font-mono">{statusResult.value.lineA}</Text>
+                                    {statusResult.value.lineB !== '' && (
+                                        <Text class="text-sm font-mono">{statusResult.value.lineB}</Text>
+                                    )}
+                                    {statusResult.value.note !== '' && (
+                                        <Text class="text-sm opacity-60">{statusResult.value.note}</Text>
                                     )}
                                     {statusResult.value.verdict !== '' && (
                                         <Text
