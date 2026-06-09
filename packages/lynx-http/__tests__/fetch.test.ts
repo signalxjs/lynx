@@ -20,6 +20,12 @@ vi.mock('@sigx/lynx-core', () => ({
         return buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength);
     },
     arrayBufferToBase64: (buf: ArrayBuffer) => Buffer.from(buf).toString('base64'),
+    // httplog.ts uses the core logger; stub it so this suite stays focused on
+    // request behavior (logger formatting is covered in httplog.test.ts).
+    createLogger: () => ({
+        trace() {}, debug() {}, info() {}, warn() {}, error() {},
+        enabled: () => false,
+    }),
 }));
 
 type Listener = (...a: unknown[]) => void;

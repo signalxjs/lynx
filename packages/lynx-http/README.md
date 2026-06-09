@@ -61,5 +61,17 @@ Chunks arrive as the network delivers them — `read()` resolves per network rea
 - No inter-data timeout for `fetch` requests — matching browser fetch, a quiet-but-healthy connection (SSE between events) is never killed; use `AbortSignal` for deadlines. (`streaming: false` bridge callers get a 60s between-bytes timeout instead.)
 - Redirects follow silently (URLSession/OkHttp defaults); `response.url` is the request URL.
 
+## Request logging
+
+Every request logs through the shared `@sigx/lynx-core` logger under the `http` namespace:
+
+- a `→ GET <url>` start line and a `← <status> GET <url>  (<total>ms · TTFB <ms> · body <ms> · <bytes>)`
+  finish line at **`debug`** — on by default in dev, silent in release (default level `warn`). The
+  TTFB-vs-body split shows whether latency is server/network (time-to-first-byte) or body download.
+- failures at **`warn`** (`✕ <method> <url> … — <reason>`), so they stay visible at the production default level.
+
+Control it with the core logger: `setLogLevel('trace'|'debug'|'warn'|'silent')` or `disableNamespace('http')`.
+Per-chunk events are intentionally not logged (they'd flood SSE/streaming responses).
+
 ## Bridge protocol (for contributors)
 `Http.request(id, spec, cb)` / `Http.abort(id, cb)`; outcomes arrive as `__sigxHttpEvent` global events demuxed by id: `response` (once) → `progress`* → `chunk`* (base64) → `done` | `error`. `spec.streaming: true` (what `fetch` always sends) delivers one `chunk` per network read; `false` buffers the body into a single chunk — see `src/types.ts`.
