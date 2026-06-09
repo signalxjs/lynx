@@ -20,6 +20,21 @@ export * from '@sigx/reactivity';
 export * from '@sigx/runtime-core';
 export * from '@sigx/lynx-runtime';
 
+// Logging — re-export just the leveled/namespaced logger from @sigx/lynx-core
+// so app code uses the blessed `@sigx/lynx` import. The low-level bridge
+// (`getModule`/`callAsync`/…) stays internal to `@sigx/lynx-core` on purpose.
+export {
+    createLogger,
+    setLogLevel,
+    getLogLevel,
+    enableNamespace,
+    disableNamespace,
+    addTransport,
+    clearTransports,
+    consoleTransport,
+} from '@sigx/lynx-core';
+export type { Logger, LogLevelName, LogRecord, LogTransport } from '@sigx/lynx-core';
+
 // Internal-use re-export, needed by the HMR loader. The loader injects an
 // import of `__setCurrentInstanceForHMR` alongside `__registerComponentPlugin`
 // so the HMR runtime can push the current ctx onto the renderer's instance

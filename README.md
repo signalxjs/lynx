@@ -96,6 +96,7 @@ Auto-linked by `sigx prebuild`: install the package with `pnpm add @sigx/lynx-fo
 | Package | Description |
 |---|---|
 | [`@sigx/lynx-dev-client`](./packages/lynx-dev-client) | Debug-only auto-linked module — resource fetchers, template provider, on-device dev menu, QR scanner, devtool wiring. Install as a `devDependency` so release builds drop it entirely. |
+| [`@sigx/lynx-observability`](./packages/lynx-observability) | Opt-in production error capture (`lynx.onError` + global handlers) and provider-agnostic log/error sinks (batching HTTP sink; Sentry/Datadog as `LogTransport` adapters). Builds on the core logger. |
 | [`@sigx/lynx-testing`](./packages/lynx-testing) | Component testing utilities: `render`, `fireEvent`, queries — no native runtime needed. |
 
 ### UI & routing
