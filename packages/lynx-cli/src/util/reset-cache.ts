@@ -37,7 +37,16 @@ export function resetBuildCaches(cwd: string, logger?: Logger): void {
         catch (err) { failed.push(`${p} (${(err as Error).message})`); }
     };
     const safeReaddir = (d: string): Dirent[] => {
-        try { return readdirSync(d, { withFileTypes: true }); } catch { return []; }
+        try {
+            return readdirSync(d, { withFileTypes: true });
+        } catch (err) {
+            // A missing directory is expected (nothing to clear there); any
+            // other failure (e.g. EPERM) is real and surfaced like an rm error.
+            if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
+                failed.push(`${d} (${(err as Error).message})`);
+            }
+            return [];
+        }
     };
 
     // rsbuild/rspack output + persistent caches at the project root.
