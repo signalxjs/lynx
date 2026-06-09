@@ -73,6 +73,6 @@ export function resetBuildCaches(cwd: string, logger?: Logger): void {
     if (failed.length > 0) {
         logger?.warn(`Could not clear ${failed.join('; ')} — delete manually if a stale build persists.`);
     } else {
-        logger?.log('Cleared build caches (dist/, .rsbuild/, node_modules/.cache; kept dev-server state).');
+        logger?.log('Cleared build caches (dist/, .rsbuild/, node_modules/.cache; kept the dev-server lock + target history).');
     }
 }
