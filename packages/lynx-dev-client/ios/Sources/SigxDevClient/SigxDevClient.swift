@@ -153,10 +153,13 @@ class SigxDevClient {
     /// rather than wait for an update that already fired.
     public private(set) static var lastConnectionState: Bool = true
 
-    /// Post the current dev-server connection state. Safe from any thread.
+    /// Post the current dev-server connection state. Safe from any thread —
+    /// `lastConnectionState` is mutated only on the main queue (alongside the
+    /// SwiftUI reads in `onAppear`) so there's no data race even when the Lynx
+    /// bridge invokes this off-main.
     public static func postConnectionState(_ connected: Bool) {
-        lastConnectionState = connected
         let post = {
+            lastConnectionState = connected
             NotificationCenter.default.post(
                 name: connectionStateNotification,
                 object: nil,

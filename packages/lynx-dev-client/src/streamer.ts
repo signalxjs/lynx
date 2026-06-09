@@ -469,6 +469,7 @@ export function installConsoleStreamer(url: string, opts: InstallOptions = {}): 
             socket = new WS(url);
         } catch (err) {
             originals.warn('[sigx-dev-client] log stream WS construct failed:', err);
+            notifyConnection(false);
             scheduleReconnect();
             return;
         }
