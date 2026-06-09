@@ -1,7 +1,9 @@
 /**
  * Tests for the leveled + namespaced logger. The logger keeps module-global
- * state (threshold, disabled namespaces, transports), so each test resets it
- * via the public API in `beforeEach` and installs a capturing transport.
+ * state (threshold, disabled namespaces, transports), so `beforeEach` resets
+ * all three via the public API — clears transports and installs a capturing
+ * one, resets the level, and re-enables every namespace these tests touch —
+ * so cases can't leak state into one another.
  */
 import { readFileSync } from 'node:fs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -24,6 +26,9 @@ beforeEach(() => {
     captured = [];
     addTransport((r) => captured.push(r));
     setLogLevel('trace'); // emit everything unless a test narrows it
+    // Reset disabled-namespace state (no clear-all API) so a test that
+    // disables one can't leak into the next.
+    for (const ns of ['a', 'b', 't', 'x', 'http']) enableNamespace(ns);
 });
 
 describe('logger — levels & threshold', () => {

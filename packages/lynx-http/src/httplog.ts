@@ -46,7 +46,9 @@ function safeUrl(url: string): string {
 
 export function start(id: number, method: string, url: string): void {
     timings.set(id, { method, url, start: Date.now(), bytes: 0 });
-    if (log.enabled('debug')) log.debug(`→ ${method} ${url}`);
+    // Redact query/fragment everywhere (not just warn) — `debug` can be force-
+    // enabled in production via setLogLevel, and tokens often live in the query.
+    if (log.enabled('debug')) log.debug(`→ ${method} ${safeUrl(url)}`);
 }
 
 export function response(id: number, status: number): void {
@@ -73,7 +75,7 @@ export function finish(id: number): void {
     const ttfb = t.firstByteAt ? t.firstByteAt - t.start : total;
     const body = t.firstByteAt ? now - t.firstByteAt : 0;
     log.debug(
-        `← ${t.status ?? '?'} ${t.method} ${t.url}  ` +
+        `← ${t.status ?? '?'} ${t.method} ${safeUrl(t.url)}  ` +
         `(${ms(total)} total · TTFB ${ms(ttfb)} · body ${ms(body)} · ${size(t.bytes)})`,
     );
 }
@@ -93,5 +95,5 @@ export function abort(id: number, reason: string): void {
     if (!t) return;
     timings.delete(id);
     if (!log.enabled('debug')) return;
-    log.debug(`⊘ ${t.method} ${t.url}  (${ms(Date.now() - t.start)} · ${size(t.bytes)}) — aborted (${reason})`);
+    log.debug(`⊘ ${t.method} ${safeUrl(t.url)}  (${ms(Date.now() - t.start)} · ${size(t.bytes)}) — aborted (${reason})`);
 }
