@@ -17,7 +17,7 @@ export function collectLynxVersions(cwd: string): Map<string, string> {
     if (!existsSync(scope)) return out;
     let dirs: string[];
     try {
-        dirs = readdirSync(scope);
+        dirs = readdirSync(scope).sort(); // sorted → deterministic group/name order downstream
     } catch {
         return out;
     }
@@ -73,27 +73,10 @@ export function assessLynxVersions(versions: Map<string, string>): LynxVersionVe
     const byVersion = groupByVersion(versions);
     if (byVersion.size > 1) {
         const groups = [...byVersion.entries()]
-            .map(([version, names]) => ({ version, names }))
-            .sort((a, b) => b.names.length - a.names.length);
+            .map(([version, names]) => ({ version, names: [...names].sort() }))
+            // most-common version first; tie-break by version (newest first) for stable output
+            .sort((a, b) => b.names.length - a.names.length || compareSemver(b.version, a.version));
         return { kind: 'skew', groups };
     }
     return { kind: 'ok', version: [...byVersion.keys()][0] };
-}
-
-/** Best-effort latest-version lookup from the npm registry; `undefined` on any failure/timeout. */
-export async function fetchLatestVersion(pkg: string, timeoutMs = 3000): Promise<string | undefined> {
-    try {
-        const ctrl = new AbortController();
-        const timer = setTimeout(() => ctrl.abort(), timeoutMs);
-        try {
-            const res = await fetch(`https://registry.npmjs.org/${pkg}/latest`, { signal: ctrl.signal });
-            if (!res.ok) return undefined;
-            const data = (await res.json()) as { version?: string };
-            return typeof data.version === 'string' ? data.version : undefined;
-        } finally {
-            clearTimeout(timer);
-        }
-    } catch {
-        return undefined;
-    }
 }

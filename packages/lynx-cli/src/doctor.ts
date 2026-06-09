@@ -15,7 +15,8 @@ import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { isAdbAvailable, listAndroidDevices, isLynxGoInstalled, getDeviceCpuAbi } from './device-detect.js';
 import { detectFromLockfile, getVersion as getPmVersion, detectFromBinaries } from './util/package-manager.js';
-import { collectLynxVersions, assessLynxVersions, compareSemver, fetchLatestVersion } from './util/lynx-versions.js';
+import { collectLynxVersions, assessLynxVersions, compareSemver } from './util/lynx-versions.js';
+import { fetchLatestVersion } from './util/registry.js';
 import type { Logger } from '@sigx/cli/plugin';
 
 interface Check {
@@ -312,15 +313,12 @@ function formatCheck(check: Check): string {
 }
 
 /**
- * Run all doctor checks and print results.
- */
-/**
  * `@sigx/lynx-*` are lockstep — they must all be the same version, and ideally
  * the latest release (stale versions miss fixes like #342, where an old
  * `@sigx/lynx-http` made `res.ok` false on real 200s → cryptic "network error").
  * Errors on version skew; warns when behind the latest published release.
  */
-async function checkSigxLynxVersions(cwd: string): Promise<Check> {
+function checkSigxLynxVersions(cwd: string): Check {
     const name = '@sigx/lynx-* versions';
     const verdict = assessLynxVersions(collectLynxVersions(cwd));
     if (verdict.kind === 'none') {
@@ -335,8 +333,15 @@ async function checkSigxLynxVersions(cwd: string): Promise<Check> {
             detail: verdict.groups.map((g) => `  ${g.version}: ${g.names.join(', ')}`).join('\n'),
         };
     }
-    // Aligned — best-effort staleness check against the registry (non-fatal/offline-safe).
-    const latest = await fetchLatestVersion('@sigx/lynx');
+    // Aligned — best-effort staleness check against the registry. `npm view`
+    // can throw (offline / not published / timeout) — treat any failure as
+    // "can't tell" and report ok rather than failing the doctor run.
+    let latest: string | undefined;
+    try {
+        latest = fetchLatestVersion('@sigx/lynx', { timeoutMs: 4000 });
+    } catch {
+        latest = undefined;
+    }
     if (latest && compareSemver(latest, verdict.version) > 0) {
         return {
             name,
@@ -347,11 +352,14 @@ async function checkSigxLynxVersions(cwd: string): Promise<Check> {
     return { name, status: 'ok', message: `all aligned at ${verdict.version}` };
 }
 
+/**
+ * Run all doctor checks and print results.
+ */
 export async function runDoctor(cwd: string, logger: Logger): Promise<void> {
     console.log('\n  \x1b[1msigx doctor\x1b[0m\n');
     console.log('  Checking your development environment...\n');
 
-    const lynxVersions = await checkSigxLynxVersions(cwd);
+    const lynxVersions = checkSigxLynxVersions(cwd);
 
     const sections: { title: string; checks: Check[] }[] = [
         {

@@ -3,7 +3,7 @@
  * skew assessment, node_modules collection (temp fixture), and the best-effort
  * registry lookup (mocked fetch).
  */
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -12,7 +12,6 @@ import {
     groupByVersion,
     compareSemver,
     assessLynxVersions,
-    fetchLatestVersion,
 } from '../src/util/lynx-versions.js';
 
 describe('compareSemver', () => {
@@ -46,7 +45,8 @@ describe('assessLynxVersions / groupByVersion', () => {
         const r = assessLynxVersions(v);
         expect(r.kind).toBe('skew');
         if (r.kind === 'skew') {
-            expect(r.groups[0]).toEqual({ version: '0.5.0', names: ['@sigx/lynx-http', '@sigx/lynx-core'] });
+            // most-common version first; names sorted for deterministic output
+            expect(r.groups[0]).toEqual({ version: '0.5.0', names: ['@sigx/lynx-core', '@sigx/lynx-http'] });
             expect(r.groups[1]).toEqual({ version: '0.5.2', names: ['@sigx/lynx'] });
         }
         expect(groupByVersion(v).size).toBe(2);
@@ -82,19 +82,5 @@ describe('collectLynxVersions', () => {
         const empty = mkdtempSync(join(tmpdir(), 'sigx-empty-'));
         expect(collectLynxVersions(empty).size).toBe(0);
         rmSync(empty, { recursive: true, force: true });
-    });
-});
-
-describe('fetchLatestVersion', () => {
-    afterEach(() => vi.unstubAllGlobals());
-    it('returns the version on a 200', async () => {
-        vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => ({ version: '0.5.2' }) })));
-        expect(await fetchLatestVersion('@sigx/lynx')).toBe('0.5.2');
-    });
-    it('returns undefined on non-ok / network failure', async () => {
-        vi.stubGlobal('fetch', vi.fn(async () => ({ ok: false, json: async () => ({}) })));
-        expect(await fetchLatestVersion('@sigx/lynx')).toBeUndefined();
-        vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('offline'); }));
-        expect(await fetchLatestVersion('@sigx/lynx')).toBeUndefined();
     });
 });
