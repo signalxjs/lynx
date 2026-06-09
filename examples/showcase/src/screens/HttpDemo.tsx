@@ -24,6 +24,49 @@ export const HttpDemo = component(() => {
     const uploadResult = signal<{ value: string | null }>({ value: null });
     const progress = signal<{ value: number }>({ value: -1 });
     const streamResult = signal<{ value: string | null }>({ value: null });
+    const statusResult = signal<{
+        value: { line200: string; line404: string; verdict: string; pass: boolean } | null;
+    }>({ value: null });
+
+    // #342 device regression check: on Lynx 0.5.0 the response event's
+    // status/statusText/headers were dropped crossing the native bridge, so
+    // res.status came back undefined and res.ok false for every request —
+    // even a 200 whose body read fine. We verify both a 200 (ok must be true,
+    // status 200) and a 404 (ok must be false, status 404) so a regression
+    // can't hide behind a truthy default.
+    const runStatusCheck = async () => {
+        statusResult.value = { line200: 'checking…', line404: '', verdict: '', pass: false };
+        try {
+            const ok = await fetch('https://httpbin.org/json', {
+                headers: { Accept: 'application/json' },
+            });
+            const ctype = ok.headers.get('content-type') ?? '(none)';
+            // Drain the 200 body so the native request completes cleanly.
+            await ok.text();
+
+            const notFound = await fetch('https://httpbin.org/status/404');
+            await notFound.text();
+
+            const pass =
+                ok.ok === true && ok.status === 200 &&
+                notFound.ok === false && notFound.status === 404;
+            statusResult.value = {
+                line200: `200 → status=${String(ok.status)} ok=${String(ok.ok)} statusText="${ok.statusText}" content-type=${ctype}`,
+                line404: `404 → status=${String(notFound.status)} ok=${String(notFound.ok)}`,
+                verdict: pass
+                    ? 'PASS ✓ — Response.status/ok survive the native bridge (#342)'
+                    : 'FAIL ✗ — status/ok wrong; bridge regression of #342',
+                pass,
+            };
+        } catch (e) {
+            statusResult.value = {
+                line200: `failed: ${e instanceof Error ? e.message : String(e)}`,
+                line404: '',
+                verdict: '',
+                pass: false,
+            };
+        }
+    };
 
     const runStream = async () => {
         streamResult.value = 'streaming…';
@@ -115,6 +158,38 @@ export const HttpDemo = component(() => {
             <Screen title="Fetch" />
             <Col gap={16} padding={16}>
                 <Heading level={2}>Fetch (lynx-http)</Heading>
+
+                <Card bordered>
+                    <Card.Body>
+                        <Col gap={8}>
+                            <Text weight="semibold">Response status (#342)</Text>
+                            <Text class="opacity-60 text-sm">
+                                Verifies res.status / res.ok survive the native
+                                bridge — a 200 (ok must be true) and a 404 (ok
+                                must be false). Regressed on Lynx 0.5.0.
+                            </Text>
+                            <Button color="primary" variant="outline" onPress={runStatusCheck}>
+                                Check status round-trip
+                            </Button>
+                            {statusResult.value && (
+                                <Col gap={4}>
+                                    <Text class="text-sm font-mono">{statusResult.value.line200}</Text>
+                                    {statusResult.value.line404 !== '' && (
+                                        <Text class="text-sm font-mono">{statusResult.value.line404}</Text>
+                                    )}
+                                    {statusResult.value.verdict !== '' && (
+                                        <Text
+                                            weight="semibold"
+                                            class={statusResult.value.pass ? 'text-success' : 'text-error'}
+                                        >
+                                            {statusResult.value.verdict}
+                                        </Text>
+                                    )}
+                                </Col>
+                            )}
+                        </Col>
+                    </Card.Body>
+                </Card>
 
                 <Card bordered>
                     <Card.Body>
