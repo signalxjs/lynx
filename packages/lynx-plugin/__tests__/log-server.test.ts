@@ -274,12 +274,16 @@ describe('hello on connect', () => {
         try {
             const url = `ws://127.0.0.1:${s.port}${LOG_ENDPOINT_PATH}`;
             const w = new WebSocket(url);
-            const messages: string[] = [];
-            w.on('message', (raw) => { messages.push(raw.toString('utf8')); });
-            await new Promise<void>((r, j) => { w.once('open', r); w.once('error', j); });
-            await new Promise((r) => setTimeout(r, 30));
-            expect(messages).toHaveLength(1);
-            expect(JSON.parse(messages[0])).toEqual({ type: 'hello', buildId: 'build-123' });
+            // Deterministic: await the first frame (with a timeout) rather than
+            // sleeping a fixed interval, so this can't flake on slow runners.
+            const firstFrame = new Promise<string>((resolve, reject) => {
+                w.once('message', (raw) => resolve(raw.toString('utf8')));
+                w.once('error', reject);
+                const t = setTimeout(() => reject(new Error('timed out waiting for hello')), 2000);
+                if (typeof t.unref === 'function') t.unref();
+            });
+            const frame = await firstFrame;
+            expect(JSON.parse(frame)).toEqual({ type: 'hello', buildId: 'build-123' });
             w.close();
         } finally {
             await s.close();

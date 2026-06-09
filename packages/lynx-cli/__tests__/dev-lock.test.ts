@@ -123,6 +123,13 @@ describe('isPortFree / waitForPortFree', () => {
         expect(await waitForPortFree(port, 3, 10)).toBe(true);
     });
 
+    it('isPortFree resolves false (no throw) for out-of-range / invalid ports', async () => {
+        expect(await isPortFree(0)).toBe(false);
+        expect(await isPortFree(70000)).toBe(false);
+        expect(await isPortFree(Number.NaN)).toBe(false);
+        expect(await isPortFree(-5)).toBe(false);
+    });
+
     it('waitForPortFree resolves false when the port stays held', async () => {
         const { port, close } = await listen();
         try {

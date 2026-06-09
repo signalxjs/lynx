@@ -102,15 +102,27 @@ export function isPidAlive(pid: number): boolean {
 /**
  * Probe whether a TCP port is bindable on all interfaces. Mirrors the bind the
  * dev server itself performs, so `true` here means `sigx dev` can take it.
+ *
+ * Always resolves (never rejects/throws): an out-of-range or non-integer port
+ * — e.g. a bad user-supplied `--port` — resolves `false` rather than crashing,
+ * since `server.listen()` throws synchronously on such values.
  */
 export function isPortFree(port: number): Promise<boolean> {
     return new Promise((resolve) => {
-        const srv = createServer();
-        srv.unref();
-        srv.once('error', () => resolve(false));
-        srv.listen(port, '0.0.0.0', () => {
-            srv.close(() => resolve(true));
-        });
+        if (!Number.isInteger(port) || port < 1 || port > 65535) {
+            resolve(false);
+            return;
+        }
+        try {
+            const srv = createServer();
+            srv.unref();
+            srv.once('error', () => resolve(false));
+            srv.listen(port, '0.0.0.0', () => {
+                srv.close(() => resolve(true));
+            });
+        } catch {
+            resolve(false);
+        }
     });
 }
 
