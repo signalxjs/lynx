@@ -19,7 +19,7 @@ import { runWithBuildFilter } from './build-output.js';
 import type { Logger } from '@sigx/cli/plugin';
 import type { SelectedTarget } from './target-picker.js';
 import { parseDeviceLogLine, formatDeviceLogLine, LOG_SENTINEL } from './device-log.js';
-import { isPortFree, isPortPairFree, readDevLock, writeDevLock, clearDevLock, isPidAlive, waitForPortFree } from './dev-lock.js';
+import { isPortFree, isPortPairFree, readDevLock, writeDevLock, clearDevLock, isPidAlive, waitForPortFree, type DevLock } from './dev-lock.js';
 
 export interface DevServerOptions {
     cwd: string;
@@ -595,11 +595,22 @@ async function acquireDevPort(
     logger: Logger,
 ): Promise<{ port: number; ownLock: boolean }> {
     const lock = readDevLock(cwd);
-    // Treat the lock as a live server only if BOTH its pid is alive AND its
-    // recorded HTTP port is still in use. This avoids a false "already running"
-    // refusal when the pid was recycled by an unrelated process (or the CLI is
-    // alive but no longer serving) and the dev port is actually free.
-    const liveLock = lock && isPidAlive(lock.pid) && !(await isPortFree(lock.httpPort)) ? lock : null;
+    // Decide whether the lock represents a server that's actually running.
+    //
+    // A live pid is a strong signal but not conclusive: the pid could have been
+    // recycled by an unrelated process, or the CLI could be alive but no longer
+    // serving — in which case the recorded port is free and we should NOT refuse.
+    // So we also consult the port. But the lock is written BEFORE rsbuild binds
+    // the port, so a just-started owner legitimately has a free port during its
+    // startup window. We bridge that with `startedAt` freshness: a recently
+    // written lock with a live pid counts as live even before its port binds;
+    // only an OLD lock whose port is free is treated as stale.
+    const STARTUP_GRACE_MS = 60_000;
+    let liveLock: DevLock | null = null;
+    if (lock && isPidAlive(lock.pid)) {
+        const fresh = Date.now() - lock.startedAt < STARTUP_GRACE_MS;
+        if (fresh || !(await isPortFree(lock.httpPort))) liveLock = lock;
+    }
 
     // A live server owns this project. Refuse regardless of which port happens
     // to be free now — unless the user explicitly asked for a DIFFERENT port.
