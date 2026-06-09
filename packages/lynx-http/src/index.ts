@@ -44,34 +44,26 @@ declare const lynx: unknown | undefined;
 // Side-effect: register on the global so consumers don't need an import
 // site to call `fetch(...)`.
 //
-// Three cases:
-//  1. `Http` linked at import → REPLACE the engine stack outright (some Lynx
-//     runtimes ship a built-in fetch whose `Response` lacks WHATWG `headers`/
-//     streaming and can't serialize our `FormData`).
-//  2. On the Lynx runtime but `Http` not enumerable yet (Lynx 0.5.0 populates
-//     `NativeModules` lazily) — install a LAZY fetch that, per call, prefers
-//     `sigxFetch` once `Http` resolves, else delegates to whatever fetch the
-//     engine provided. This fixes the import-time race AND doesn't break an
-//     intentional `excludeModules` opt-out (Http never resolves → engine fetch
-//     keeps working). Other globals only fill genuine gaps.
-//  3. Off-Lynx host (web, Node/vitest) → only fill gaps so the host's real
-//     fetch/Headers/etc. stay intact.
+// On the **Lynx native runtime** `sigxFetch` IS the fetch — replace whatever
+// the engine provided. Some Lynx runtimes (0.5.0+) ship a built-in fetch whose
+// `Response` lacks WHATWG `headers`/streaming and can't serialize our
+// `FormData`, so a consumer's `res.headers.get(...)` would hit `undefined`; the
+// sigx stack is strictly better there, so it always wins. We key on RUNTIME
+// PRESENCE (`NativeModules`/`lynx`), not the import-time `isHttpAvailable()`
+// check — the `Http` module may not be enumerable on `NativeModules` yet when
+// this module is first imported, but `sigxFetch` resolves it lazily at call
+// time. (If `Http` was genuinely excluded via `excludeModules`, `sigxFetch`
+// throws a descriptive "module not linked" error at call time — preferable to
+// silently using the engine's broken fetch.) Off-Lynx (web, Node/vitest) we
+// only fill gaps so the host's real fetch/Headers/etc. stay intact.
 {
     const g = globalThis as unknown as Record<string, unknown>;
     const onLynxRuntime = typeof NativeModules !== 'undefined' || typeof lynx !== 'undefined';
-    if (isHttpAvailable()) {
+    if (isHttpAvailable() || onLynxRuntime) {
         g.fetch = sigxFetch;
         g.Headers = SigxHeaders;
         g.FormData = SigxFormData;
         g.Response = SigxResponse;
-    } else if (onLynxRuntime) {
-        const engineFetch = typeof g.fetch === 'function' ? (g.fetch as typeof sigxFetch) : undefined;
-        const lazyFetch: typeof sigxFetch = (input, init) =>
-            (isHttpAvailable() || !engineFetch ? sigxFetch : engineFetch)(input, init);
-        g.fetch = lazyFetch;
-        if (typeof g.Headers === 'undefined') g.Headers = SigxHeaders;
-        if (typeof g.FormData === 'undefined') g.FormData = SigxFormData;
-        if (typeof g.Response === 'undefined') g.Response = SigxResponse;
     } else {
         if (typeof g.fetch === 'undefined') g.fetch = sigxFetch;
         if (typeof g.Headers === 'undefined') g.Headers = SigxHeaders;

@@ -2,21 +2,18 @@
  * Regression for #373: on the Lynx 0.5.0 runtime the `Http` module may not be
  * enumerable on `NativeModules` at import time AND the engine ships its own
  * global `fetch` (whose `Response` lacks WHATWG `headers`). The install must
- * hand the global to a LAZY fetch that prefers `sigxFetch` once `Http`
- * resolves, but delegates to the engine fetch until then (and forever, if the
- * module is intentionally excluded — don't break a working engine fetch).
+ * still replace the global with `sigxFetch` — keyed on RUNTIME PRESENCE, not
+ * the import-time `isHttpAvailable()` check — because `sigxFetch` resolves the
+ * `Http` module lazily at call time and is strictly better than the engine's.
  *
  * Separate file so the import-time side effect is isolated from install.test.ts.
  */
 import { afterAll, describe, expect, it, vi } from 'vitest';
 
-// Toggled by the tests; the lazy fetch re-checks it on every call.
-const h = vi.hoisted(() => ({ httpReady: false }));
-
 vi.mock('@sigx/lynx-core', () => ({
     callAsync: vi.fn(async () => undefined),
     guardModule: vi.fn(),
-    isModuleAvailable: vi.fn(() => h.httpReady), // not enumerable at import; flips later
+    isModuleAvailable: vi.fn(() => false), // Http NOT enumerable at import time
     base64ToArrayBuffer: (b64: string) => {
         const buf = Buffer.from(b64, 'base64');
         return buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength);
@@ -38,9 +35,9 @@ const original = {
 
 // Simulate the Lynx runtime: `NativeModules` injected, plus a pre-existing
 // engine-provided global `fetch` (non-WHATWG).
-const engineFetch = vi.fn(async () => undefined as unknown);
+const engineFetch = (() => undefined) as unknown as typeof fetch;
 G['NativeModules'] = {};
-globalThis.fetch = engineFetch as unknown as typeof fetch;
+globalThis.fetch = engineFetch;
 
 const mod = await import('../src/index.js');
 
@@ -56,23 +53,10 @@ afterAll(() => {
     else delete G['NativeModules'];
 });
 
-describe('#373 — lazy global fetch on the Lynx runtime', () => {
-    it('installs a wrapper (not the engine fetch, not sigxFetch directly)', () => {
+describe('#373 — global install on the Lynx runtime when Http is not yet enumerable', () => {
+    it('replaces the engine fetch with sigxFetch (runtime-keyed, not import-time module check)', () => {
+        expect(globalThis.fetch).toBe(mod.fetch);
         expect(globalThis.fetch).not.toBe(engineFetch);
-        expect(globalThis.fetch).not.toBe(mod.fetch);
-    });
-
-    it('delegates to the engine fetch while Http is unavailable', () => {
-        h.httpReady = false;
-        engineFetch.mockClear();
-        void (globalThis.fetch as typeof fetch)('https://x.test');
-        expect(engineFetch).toHaveBeenCalledTimes(1);
-    });
-
-    it('uses sigxFetch once Http resolves (no longer hits the engine fetch)', () => {
-        h.httpReady = true;
-        engineFetch.mockClear();
-        void (globalThis.fetch as typeof fetch)('https://x.test').catch(() => undefined);
-        expect(engineFetch).not.toHaveBeenCalled();
+        expect(globalThis.Response).toBe(mod.Response);
     });
 });
