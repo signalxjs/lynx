@@ -19,7 +19,7 @@ import { runWithBuildFilter } from './build-output.js';
 import type { Logger } from '@sigx/cli/plugin';
 import type { SelectedTarget } from './target-picker.js';
 import { parseDeviceLogLine, formatDeviceLogLine, LOG_SENTINEL } from './device-log.js';
-import { isPortFree, readDevLock, writeDevLock, clearDevLock, isPidAlive, waitForPortFree } from './dev-lock.js';
+import { isPortFree, isPortPairFree, readDevLock, writeDevLock, clearDevLock, isPidAlive, waitForPortFree } from './dev-lock.js';
 
 export interface DevServerOptions {
     cwd: string;
@@ -555,8 +555,9 @@ function setupKeyboardShortcuts(child: ChildProcess, opts: {
  */
 async function findFreePort(start: number): Promise<number> {
     for (let p = start; p < start + 50; p++) {
+        // Need the HTTP+WS pair (p and p+1), since the plugin binds p+1.
         // eslint-disable-next-line no-await-in-loop
-        if (await isPortFree(p)) return p;
+        if (await isPortPairFree(p)) return p;
     }
     return start;
 }
@@ -632,16 +633,28 @@ async function acquireDevPort(
     // reconnect after a restart. An explicit `--port` always wins.
     const targetPort = !explicitPort && lock && !liveLock ? lock.httpPort : desiredPort;
 
-    if (await isPortFree(targetPort)) return { port: targetPort, ownLock };
+    // The dev server needs the whole pair (targetPort + the WS port targetPort+1).
+    if (await isPortPairFree(targetPort)) return { port: targetPort, ownLock };
 
     // Busy, and our own (now-dead) lock owned this port — the orphan didn't
-    // release it. Give the OS a moment to free the socket, then reclaim the
-    // SAME port so the running app's baked URLs stay valid.
+    // release it. Wait for the HTTP port to free, then confirm the WS port is
+    // free too, and reclaim the SAME port so the running app's baked URLs stay
+    // valid.
     if (lock && !liveLock && lock.httpPort === targetPort) {
-        if (await waitForPortFree(targetPort)) {
+        if (await waitForPortFree(targetPort) && await isPortFree(targetPort + 1)) {
             logger.log(`Reclaimed dev port ${targetPort} from a previous session.`);
             return { port: targetPort, ownLock };
         }
+    }
+
+    // An explicit `--port` we can't honor (HTTP or WS half taken) is a hard
+    // error — don't silently move to a different port the user didn't ask for.
+    if (explicitPort) {
+        logger.error(
+            `Port ${targetPort} or its log/reload WS port ${targetPort + 1} is in use. ` +
+            `Choose another --port.`,
+        );
+        process.exit(1);
     }
 
     // Genuinely contended (an unrelated process, or another project's server).

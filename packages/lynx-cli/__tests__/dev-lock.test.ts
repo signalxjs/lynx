@@ -20,6 +20,7 @@ import {
     clearDevLock,
     isPidAlive,
     isPortFree,
+    isPortPairFree,
     waitForPortFree,
     type DevLock,
 } from '../src/dev-lock.js';
@@ -85,9 +86,21 @@ describe('dev lock round-trip', () => {
     it('readDevLock returns null on wrong shape or version', () => {
         const dir = join(cwd, 'node_modules', '.cache', '@sigx', 'lynx-cli');
         mkdirSync(dir, { recursive: true });
-        writeFileSync(lockPath(cwd), JSON.stringify({ version: 1, pid: 'x' }), 'utf-8');
+        const write = (v: unknown) => writeFileSync(lockPath(cwd), JSON.stringify(v), 'utf-8');
+
+        write({ version: 1, pid: 'x' });
         expect(readDevLock(cwd)).toBeNull();
-        writeFileSync(lockPath(cwd), JSON.stringify(sampleLock({ version: 2 as 1 })), 'utf-8');
+        write(sampleLock({ version: 2 as 1 }));
+        expect(readDevLock(cwd)).toBeNull();
+        // Unusable numeric values are rejected too.
+        write(sampleLock({ pid: 0 }));
+        expect(readDevLock(cwd)).toBeNull();
+        write(sampleLock({ httpPort: 0 }));
+        expect(readDevLock(cwd)).toBeNull();
+        write(sampleLock({ httpPort: 70000 }));
+        expect(readDevLock(cwd)).toBeNull();
+        // wsPort must equal httpPort + 1.
+        write(sampleLock({ httpPort: 8788, wsPort: 9000 }));
         expect(readDevLock(cwd)).toBeNull();
     });
 });
@@ -134,6 +147,17 @@ describe('isPortFree / waitForPortFree', () => {
         const { port, close } = await listen();
         try {
             expect(await waitForPortFree(port, 2, 10)).toBe(false);
+        } finally {
+            await close();
+        }
+    });
+
+    it('isPortPairFree is false when the WS half (port+1) is taken', async () => {
+        // Hold a port, then probe the one BELOW it so its `+1` collides.
+        const { port, close } = await listen();
+        try {
+            expect(await isPortFree(port - 1)).toBe(true);   // HTTP half free
+            expect(await isPortPairFree(port - 1)).toBe(false); // but +1 is held
         } finally {
             await close();
         }

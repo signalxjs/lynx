@@ -43,11 +43,17 @@ export function lockPath(cwd: string): string {
 function isDevLock(v: unknown): v is DevLock {
     if (!v || typeof v !== 'object') return false;
     const o = v as Record<string, unknown>;
-    return o.version === FILE_VERSION
-        && typeof o.pid === 'number'
-        && typeof o.httpPort === 'number'
-        && typeof o.wsPort === 'number'
-        && typeof o.startedAt === 'number';
+    if (o.version !== FILE_VERSION) return false;
+    // Reject NaN / 0 / out-of-range / mismatched values so a corrupt or
+    // unusable lock degrades to `null` (→ normal free-port probe) instead of
+    // making `sigx dev` try to bind port 0 or trust a bogus targetPort.
+    if (!Number.isInteger(o.pid) || (o.pid as number) < 1) return false;
+    if (!Number.isInteger(o.httpPort) || (o.httpPort as number) < 1 || (o.httpPort as number) > 65534) return false;
+    // The log/reload WS server always binds httpPort + 1 — enforce it so a
+    // tampered/legacy lock can't yield an inconsistent pair.
+    if (o.wsPort !== (o.httpPort as number) + 1) return false;
+    if (typeof o.startedAt !== 'number' || !Number.isFinite(o.startedAt)) return false;
+    return true;
 }
 
 /** Read the lock, returning `null` on any missing/parse/shape/version failure. */
@@ -124,6 +130,15 @@ export function isPortFree(port: number): Promise<boolean> {
             resolve(false);
         }
     });
+}
+
+/**
+ * True when both `port` (the bundler HTTP port) and `port + 1` (the device
+ * log/reload WS port the plugin binds) are bindable. The dev server needs the
+ * whole pair, so this is the real "can I take this port?" check.
+ */
+export async function isPortPairFree(port: number): Promise<boolean> {
+    return (await isPortFree(port)) && (await isPortFree(port + 1));
 }
 
 /**
