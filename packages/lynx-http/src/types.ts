@@ -13,6 +13,13 @@
  *
  *   response (once) → progress* (upload) → chunk* (body) → done | error
  *
+ * Each event crosses the bridge as a single **JSON string** param (parsed
+ * back to `NativeHttpEvent` by the shim). Native used to send a structured
+ * map, but Lynx 0.5.0 / PrimJS 3.8 regressed `sendGlobalEvent` marshalling
+ * of maps containing a nested map (the `response` event's `headers`),
+ * silently dropping sibling scalars (`status`/`statusText`) — see #342. A
+ * flat JSON string survives intact; the shim tolerates both shapes.
+ *
  * Native honors `streaming: true` (#250) by emitting one `chunk` per
  * network read — `fetch` always requests it, so `res.body.getReader()`
  * sees bytes as they arrive (SSE renders incrementally). `streaming:

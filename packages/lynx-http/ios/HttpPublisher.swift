@@ -14,12 +14,14 @@ final class HttpPublisher {
 
     init(lynxView: LynxView) {
         self.lynxView = lynxView
-        self.token = HttpEventBus.shared.addListener { [weak self] payload in
+        self.token = HttpEventBus.shared.addListener { [weak self] json in
             guard let view = self?.lynxView else { return }
-            // sendGlobalEvent expects an array of params; pass a single
-            // dictionary as the only param — the JS shim reads the first
-            // arg as `NativeHttpEvent`.
-            view.sendGlobalEvent("__sigxHttpEvent", withParams: [payload])
+            // sendGlobalEvent expects an array of params; pass a single JSON
+            // string as the only param — the JS shim parses the first arg as
+            // `NativeHttpEvent`. A string (rather than a structured map)
+            // survives Lynx 0.5.0's bridge marshalling intact (see #342 /
+            // `HttpEventBus.emit`).
+            view.sendGlobalEvent("__sigxHttpEvent", withParams: [json])
         }
     }
 
