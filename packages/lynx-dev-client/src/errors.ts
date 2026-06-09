@@ -76,6 +76,8 @@ export function installDevErrorLogging(): void {
     // 2. globalThis handlers where present (web/dev and hosts exposing them).
     const g = globalThis as unknown as {
         addEventListener?: (type: string, fn: (e: unknown) => void) => void;
+        onerror?: ((...args: unknown[]) => unknown) | null;
+        onunhandledrejection?: ((e: unknown) => unknown) | null;
     };
     if (typeof g.addEventListener === 'function') {
         try {
@@ -88,5 +90,19 @@ export function installDevErrorLogging(): void {
         } catch {
             /* ignore */
         }
+    } else {
+        // Hosts without `addEventListener` — fall back to the on* properties,
+        // chaining to any handler already installed (don't clobber it).
+        const priorErr = typeof g.onerror === 'function' ? g.onerror : undefined;
+        g.onerror = (...args: unknown[]) => {
+            // (message, source, lineno, colno, error) — prefer the Error object.
+            emit(args[4] ?? args[0], 'error');
+            return priorErr ? priorErr(...args) : false;
+        };
+        const priorRej = typeof g.onunhandledrejection === 'function' ? g.onunhandledrejection : undefined;
+        g.onunhandledrejection = (e: unknown) => {
+            emit(e, 'unhandledrejection');
+            return priorRej ? priorRej(e) : undefined;
+        };
     }
 }

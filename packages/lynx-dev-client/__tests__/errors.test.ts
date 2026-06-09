@@ -29,17 +29,20 @@ describe('formatError', () => {
 describe('installDevErrorLogging', () => {
     let captured: ((e: unknown) => void) | undefined;
     let errorSpy: ReturnType<typeof vi.fn>;
+    let priorConsole: unknown;
 
     beforeEach(() => {
         delete G['__sigxDevErrorLoggingInstalled'];
         captured = undefined;
         G['lynx'] = { onError: (cb: (e: unknown) => void) => { captured = cb; } };
         errorSpy = vi.fn();
+        priorConsole = G['console'];
         G['console'] = { error: errorSpy };
     });
     afterEach(() => {
         delete G['lynx'];
         delete G['__sigxDevErrorLoggingInstalled'];
+        G['console'] = priorConsole; // restore — don't leak into other suites
     });
 
     it('routes a lynx.onError error to console.error with message + source tag', () => {

@@ -86,10 +86,14 @@ public final class DevLifecycleClient: NSObject, LynxViewLifecycle {
         var lines: [String] = []
         for (key, value) in ns.userInfo {
             guard let k = key as? String, k != NSLocalizedDescriptionKey else { continue }
-            if let s = value as? String, !s.isEmpty {
-                lines.append("\(k): \(s)")
+            if let s = value as? String {
+                if !s.isEmpty { lines.append("\(k): \(s)") }
             } else if let n = value as? NSNumber {
                 lines.append("\(k): \(n)")
+            } else {
+                // Underlying NSError, arrays, dicts, etc. often carry the real
+                // detail — don't drop them.
+                lines.append("\(k): \(String(describing: value))")
             }
         }
         // Fall back to the localized description when userInfo had nothing useful.
