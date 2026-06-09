@@ -408,6 +408,14 @@ export function installConsoleStreamer(url: string, opts: InstallOptions = {}): 
     let backoff = backoffInitialMs;
     let reentrant = false;
     let uninstalled = false;
+    // True while a patched console method is running. On the Lynx BG runtime
+    // the factory-scope `console` and `globalThis.console` delegate to one
+    // another (or are the same object), so one `console.log(...)` re-enters
+    // the other patched method — without this guard the line would `enqueue`
+    // twice (and print twice in the dev terminal). Only the OUTERMOST patched
+    // call enqueues; inner/delegated calls still forward to their `original`
+    // for real device output but skip the duplicate enqueue.
+    let emitting = false;
 
     const clearFlushTimer = (): void => {
         if (pendingFlushTimer !== undefined) {
@@ -620,8 +628,19 @@ export function installConsoleStreamer(url: string, opts: InstallOptions = {}): 
         for (const level of LEVELS) {
             const original = targetOriginals[level];
             const patched = function patched(this: unknown, ...args: unknown[]): void {
-                try { original(...args); } catch { /* ignore */ }
-                enqueue(level, args);
+                // Outermost patched call wins. `original(...)` may delegate to
+                // another patched console (factory ↔ globalThis); those nested
+                // calls run their own original (real output) but must not
+                // enqueue again. Reset in `finally` so a throwing original
+                // can't wedge the guard.
+                const outer = !emitting;
+                if (outer) emitting = true;
+                try {
+                    try { original(...args); } catch { /* ignore */ }
+                    if (outer) enqueue(level, args);
+                } finally {
+                    if (outer) emitting = false;
+                }
             };
             let installed = false;
             try {

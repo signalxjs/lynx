@@ -279,6 +279,44 @@ describe('installConsoleStreamer', () => {
         expect(body.entries[1].args).toEqual(['two']);
     });
 
+    it('does not double-enqueue when a delegating factory console is also patched', () => {
+        // Mirrors the Lynx BG runtime: a factory-scope `console` whose methods
+        // delegate to `globalThis.console`. Both get patched (extraTargets), so
+        // one `console.log` re-enters the other patched method — must still
+        // enqueue exactly ONCE and print to the real sink exactly once.
+        const { console: c, logs } = createConsole(); // the "global" sink
+        globalThis.console = c;
+        const factory = {
+            log: (...a: unknown[]) => (globalThis.console.log as (...x: unknown[]) => void)(...a),
+            info: (...a: unknown[]) => (globalThis.console.info as (...x: unknown[]) => void)(...a),
+            warn: (...a: unknown[]) => (globalThis.console.warn as (...x: unknown[]) => void)(...a),
+            error: (...a: unknown[]) => (globalThis.console.error as (...x: unknown[]) => void)(...a),
+            debug: (...a: unknown[]) => (globalThis.console.debug as (...x: unknown[]) => void)(...a),
+            trace: (...a: unknown[]) => (globalThis.console.trace as (...x: unknown[]) => void)(...a),
+        };
+        const sched = createScheduler();
+        const ws = createFakeWSFactory();
+
+        installConsoleStreamer('ws://x/__sigx/logs', {
+            webSocketImpl: ws.ctor,
+            setTimeoutImpl: sched.setTimeout,
+            clearTimeoutImpl: sched.clearTimeout,
+            nowImpl: () => 1700000000000,
+            platform: 'ios',
+            extraTargets: [factory as never],
+        });
+
+        // User `console.log` resolves to the factory-scope console.
+        factory.log('once');
+        ws.last()._open();
+
+        const body = JSON.parse(ws.last().sent[0]) as { entries: LogEntry[] };
+        expect(body.entries).toHaveLength(1); // not 2
+        expect(body.entries[0].args).toEqual(['once']);
+        // Real device output happened exactly once (via the global sink).
+        expect(logs.filter((l) => l.level === 'log')).toHaveLength(1);
+    });
+
     it('coalesces non-error logs after open via flushIntervalMs', () => {
         const { console: c } = createConsole();
         globalThis.console = c;
