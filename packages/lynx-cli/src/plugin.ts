@@ -62,7 +62,7 @@ export default definePlugin({
                 last: { type: 'boolean', description: 'Reuse last selected targets (skip picker)', default: false },
                 verbose: { type: 'boolean', description: 'Stream raw xcodebuild/gradle output (default: filtered)', default: false },
                 'no-device-logs': { type: 'boolean', description: 'Suppress JS console.* streaming from running devices', default: false },
-                'reset-cache': { type: 'boolean', description: 'Clear build caches (dist/, node_modules/.cache) before building — use after a dependency version bump', default: false },
+                'reset-cache': { type: 'boolean', description: 'Clear build caches (dist/, .rsbuild/, node_modules/.cache) before building — use after a dependency version bump', default: false },
             },
             async run(ctx) {
                 if (ctx.args['reset-cache']) {
@@ -370,7 +370,7 @@ export default definePlugin({
             description: 'Production Lynx build',
             args: {
                 analyze: { type: 'boolean', description: 'Analyze bundle size', default: false },
-                'reset-cache': { type: 'boolean', description: 'Clear build caches (dist/, node_modules/.cache) before building — use after a dependency version bump', default: false },
+                'reset-cache': { type: 'boolean', description: 'Clear build caches (dist/, .rsbuild/, node_modules/.cache) before building — use after a dependency version bump', default: false },
             },
             async run(ctx) {
                 if (ctx.args['reset-cache']) {
@@ -509,7 +509,7 @@ export default definePlugin({
             args: {
                 release: { type: 'boolean', description: 'Build in release mode (no dev server)', default: false },
                 verbose: { type: 'boolean', description: 'Stream raw gradle output (default: filtered)', default: false },
-                'reset-cache': { type: 'boolean', description: 'Clear build caches (dist/, node_modules/.cache) before building — use after a dependency version bump', default: false },
+                'reset-cache': { type: 'boolean', description: 'Clear build caches (dist/, .rsbuild/, node_modules/.cache) before building — use after a dependency version bump', default: false },
             },
             async run(ctx) {
                 if (ctx.args['reset-cache']) {
@@ -633,7 +633,7 @@ export default definePlugin({
                 simulator: { type: 'string', description: 'Simulator name (auto-detected if omitted)' },
                 device: { type: 'string', description: 'Physical device name or UDID (requires Xcode 15+)' },
                 verbose: { type: 'boolean', description: 'Stream raw xcodebuild output (default: filtered)', default: false },
-                'reset-cache': { type: 'boolean', description: 'Clear build caches (dist/, node_modules/.cache) before building — use after a dependency version bump', default: false },
+                'reset-cache': { type: 'boolean', description: 'Clear build caches (dist/, .rsbuild/, node_modules/.cache) before building — use after a dependency version bump', default: false },
             },
             async run(ctx) {
                 if (process.platform !== 'darwin') {

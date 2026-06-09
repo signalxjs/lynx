@@ -41,11 +41,14 @@ describe('findLockfile', () => {
         expect(findLockfile(nested)).toBe(join(dir, 'pnpm-lock.yaml'));
     });
 
-    it('returns null when no lockfile exists', () => {
+    it('does not return a false positive from a lockfile-free tree', () => {
         const nested = join(dir, 'a', 'b');
         mkdirSync(nested, { recursive: true });
-        // tmpdir() ancestors shouldn't contain a JS lockfile.
-        expect(findLockfile(nested)).toBeNull();
+        const found = findLockfile(nested);
+        // Either null, or a lockfile from OUTSIDE our temp tree (a stray one in
+        // a host ancestor of tmpdir) — but never invented inside our tree. This
+        // avoids flaking on machines where an ancestor of tmpdir has a lockfile.
+        if (found !== null) expect(found.startsWith(dir)).toBe(false);
     });
 });
 
