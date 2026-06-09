@@ -20,6 +20,7 @@ import {
     combineHash, getCliVersion, walkFiles,
     readCachedFingerprint, writeCachedFingerprint,
 } from './util/build-fingerprint.js';
+import { findLockfile } from './util/package-manager.js';
 import {
     iosProjectRoot, iosSourceRoot, iosXcodeProjPath, iosPodfilePath, iosInfoPlistPath,
     androidProjectRoot, androidAppDir, androidKotlinRoot,
@@ -1892,6 +1893,13 @@ export function fingerprintPrebuildInputs(cwd: string, platforms: { android: boo
     }
     files.push(join(cwd, 'package.json'));
 
+    // The lockfile pins resolved dependency versions. Folding it in means a
+    // `@sigx/*` version bump + reinstall invalidates the fast path even when no
+    // tracked project source changed — the installed module sources change, and
+    // those are what get copied into the native projects (#348).
+    const lockfile = findLockfile(cwd);
+    if (lockfile) files.push(lockfile);
+
     // The prebuild.post hook script is an input too — its output lands in
     // the generated native projects. The fast path runs before the config is
     // loaded, so the path comes from the cache sidecar the last successful
@@ -1946,7 +1954,9 @@ export function fingerprintPrebuildInputs(cwd: string, platforms: { android: boo
         // v4: include the prebuild.post hook script (via sidecar path, #175).
         // v5: manifests come from buildManifestIndex, so transitively
         //     discovered modules (e.g. @sigx/lynx-core) are fingerprinted too.
-        fingerprintFormat: 'v5',
+        // v6: include the JS lockfile, so a dependency version bump invalidates
+        //     the fast path even with no project source change (#348).
+        fingerprintFormat: 'v6',
         cliVersion: getCliVersion(),
         platforms: `android=${platforms.android};ios=${platforms.ios}`,
     });

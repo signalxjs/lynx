@@ -8,7 +8,7 @@
 
 import { execSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 
 export type PackageManager = 'pnpm' | 'npm' | 'yarn' | 'bun';
 
@@ -39,6 +39,28 @@ const LOCKFILES: Array<{ file: string; pm: PackageManager }> = [
 export function detectFromLockfile(cwd: string): PackageManager | null {
     for (const { file, pm } of LOCKFILES) {
         if (existsSync(join(cwd, file))) return pm;
+    }
+    return null;
+}
+
+/**
+ * Find the nearest lockfile at or above `cwd`, returning its absolute path (or
+ * `null` if none exists up to the filesystem root). The walk matters for
+ * monorepos, where the app dir (e.g. `examples/showcase`) has no lockfile of
+ * its own — it lives at the workspace root. Used to fold the resolved
+ * dependency set into build fingerprints so a version bump invalidates caches.
+ */
+export function findLockfile(cwd: string): string | null {
+    let dir = cwd;
+    // Bound the walk to avoid pathological loops on exotic filesystems.
+    for (let i = 0; i < 64; i++) {
+        for (const { file } of LOCKFILES) {
+            const p = join(dir, file);
+            if (existsSync(p)) return p;
+        }
+        const parent = dirname(dir);
+        if (parent === dir) break;
+        dir = parent;
     }
     return null;
 }
