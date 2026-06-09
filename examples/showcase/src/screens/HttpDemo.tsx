@@ -60,9 +60,9 @@ export const HttpDemo = component(() => {
             };
         } catch (e) {
             statusResult.value = {
-                line200: `failed: ${e instanceof Error ? e.message : String(e)}`,
+                line200: `request failed: ${e instanceof Error ? e.message : String(e)}`,
                 line404: '',
-                verdict: '',
+                verdict: 'FAIL ✗ — request threw before status could be checked',
                 pass: false,
             };
         }
