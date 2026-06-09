@@ -106,9 +106,17 @@ export function installErrorCapture(opts: ErrorCaptureOptions = {}): () => void 
         g.onerror = (...args: unknown[]): boolean => {
             // (message, source, lineno, colno, error)
             report(args[4] ?? args[0], 'error');
+            // Chain to any pre-existing handler so we don't clobber host/app
+            // error reporting; preserve its return value (truthy = handled).
+            if (typeof prevErr === 'function') {
+                return (prevErr as (...a: unknown[]) => boolean)(...args);
+            }
             return false;
         };
-        g.onunhandledrejection = (e: unknown): void => report((e as { reason?: unknown })?.reason ?? e, 'unhandledrejection');
+        g.onunhandledrejection = (e: unknown): void => {
+            report((e as { reason?: unknown })?.reason ?? e, 'unhandledrejection');
+            if (typeof prevRej === 'function') (prevRej as (ev: unknown) => void)(e);
+        };
         undo.push(() => {
             g.onerror = prevErr;
             g.onunhandledrejection = prevRej;

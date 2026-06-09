@@ -71,7 +71,8 @@ export function createHttpSink(opts: HttpSinkOptions): HttpSink {
         // errors back into the logger (which would loop into this transport).
         void fetch(opts.url, {
             method: 'POST',
-            headers: { 'content-type': 'application/json', ...opts.headers },
+            // content-type is set for us — caller headers can't override it.
+            headers: { ...opts.headers, 'content-type': 'application/json' },
             body: JSON.stringify({ records: batch }),
         }).catch(() => { /* dropped */ });
     };

@@ -73,6 +73,33 @@ describe('installErrorCapture', () => {
         expect(seen[0].message).toBe('plain string error');
     });
 
+    it('chains to pre-existing onerror/onunhandledrejection (fallback branch) and preserves the return', () => {
+        const g = globalThis as Record<string, unknown>;
+        const savedAEL = g['addEventListener'];
+        const savedOnErr = g['onerror'];
+        const savedOnRej = g['onunhandledrejection'];
+        g['addEventListener'] = undefined; // force the property-handler fallback
+        const prevErrCalls: unknown[][] = [];
+        const prevRejCalls: unknown[] = [];
+        g['onerror'] = (...a: unknown[]) => { prevErrCalls.push(a); return true; };
+        g['onunhandledrejection'] = (e: unknown) => { prevRejCalls.push(e); };
+        try {
+            uninstall = installErrorCapture();
+            const ret = (g['onerror'] as (...a: unknown[]) => boolean)('msg', 'src', 1, 1, new Error('boom'));
+            expect(records.some((r) => r.msg.includes('boom'))).toBe(true);
+            expect(prevErrCalls).toHaveLength(1); // chained to previous handler
+            expect(ret).toBe(true);               // preserved its return value
+            (g['onunhandledrejection'] as (e: unknown) => void)({ reason: new Error('rej') });
+            expect(prevRejCalls).toHaveLength(1);
+        } finally {
+            uninstall?.();
+            uninstall = undefined;
+            g['addEventListener'] = savedAEL;
+            g['onerror'] = savedOnErr;
+            g['onunhandledrejection'] = savedOnRej;
+        }
+    });
+
     it('is idempotent (second install is a no-op)', () => {
         let calls = 0;
         G['lynx'] = { onError: () => { calls++; } };
