@@ -198,6 +198,11 @@ export function pluginSigxLynx(
         const lanIP = detectLanIPv4();
         let logServer: LogWebSocketServer | undefined;
         let wsPort = 0;
+        // Build identity for this server lifetime. `@sigx/lynx-cli` owns it and
+        // plumbs it through `SIGX_LYNX_BUILD_ID` so the launch URL, the baked
+        // `__SIGX_BUILD_ID__` define, and the log-server hello all match. When
+        // rspeedy is run directly (no CLI), fall back to a per-process id.
+        const buildId = process.env['SIGX_LYNX_BUILD_ID'] || `${Date.now()}-${process.pid}`;
 
         api.modifyRsbuildConfig((config, { mergeRsbuildConfig }) => {
           const envPort = process.env['SIGX_LYNX_DEV_PORT'];
@@ -211,6 +216,10 @@ export function pluginSigxLynx(
             source: {
               define: {
                 __SIGX_DEV_LOG_URL__: JSON.stringify(logUrl),
+                // The device streamer compares this to the server's hello id
+                // and reloads when they differ — so a reconnect after a
+                // restart picks up the latest bundle.
+                __SIGX_BUILD_ID__: JSON.stringify(buildId),
               },
             },
           });
@@ -219,7 +228,7 @@ export function pluginSigxLynx(
         api.onAfterStartDevServer(async () => {
           if (logServer) return;
           try {
-            logServer = await createLogWebSocketServer({ port: wsPort });
+            logServer = await createLogWebSocketServer({ port: wsPort, buildId });
             api.logger.info(
               `[sigx-lynx] device log ws → ws://${lanIP}:${logServer.port}${LOG_ENDPOINT_PATH}`,
             );

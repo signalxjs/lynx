@@ -263,6 +263,51 @@ describe('reload broadcast', () => {
     });
 });
 
+describe('hello on connect', () => {
+    it('greets each connection with {type:"hello",buildId} when buildId is set', async () => {
+        const s = await createLogWebSocketServer({
+            port: 0,
+            host: '127.0.0.1',
+            buildId: 'build-123',
+            writeLine: () => { /* ignore logs here */ },
+        });
+        try {
+            const url = `ws://127.0.0.1:${s.port}${LOG_ENDPOINT_PATH}`;
+            const w = new WebSocket(url);
+            // Deterministic: await the first frame (with a timeout) rather than
+            // sleeping a fixed interval, so this can't flake on slow runners.
+            const firstFrame = new Promise<string>((resolve, reject) => {
+                const t = setTimeout(() => reject(new Error('timed out waiting for hello')), 2000);
+                if (typeof t.unref === 'function') t.unref();
+                w.once('message', (raw) => { clearTimeout(t); resolve(raw.toString('utf8')); });
+                w.once('error', (err) => { clearTimeout(t); reject(err); });
+            });
+            const frame = await firstFrame;
+            expect(JSON.parse(frame)).toEqual({ type: 'hello', buildId: 'build-123' });
+            w.close();
+        } finally {
+            await s.close();
+        }
+    });
+
+    it('does not send a hello when no buildId is configured', async () => {
+        // The default `server` (beforeEach) is created without a buildId.
+        const url = `ws://127.0.0.1:${server.port}${LOG_ENDPOINT_PATH}`;
+        const w = new WebSocket(url);
+        const sawFrame = new Promise<string>((resolve) => {
+            w.once('message', (raw) => resolve(raw.toString('utf8')));
+        });
+        const quiet = new Promise<'quiet'>((resolve) => {
+            const t = setTimeout(() => resolve('quiet'), 100);
+            if (typeof t.unref === 'function') t.unref();
+        });
+        await new Promise<void>((r, j) => { w.once('open', r); w.once('error', j); });
+        // Fails fast if any frame arrives within the window; otherwise 'quiet'.
+        await expect(Promise.race([sawFrame, quiet])).resolves.toBe('quiet');
+        w.close();
+    });
+});
+
 describe('detectPlatformFromUserAgent', () => {
     it('detects android from okhttp', () => {
         expect(detectPlatformFromUserAgent('okhttp/4.12.0')).toBe('android');
