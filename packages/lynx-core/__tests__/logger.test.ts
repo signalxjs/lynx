@@ -3,6 +3,7 @@
  * state (threshold, disabled namespaces, transports), so each test resets it
  * via the public API in `beforeEach` and installs a capturing transport.
  */
+import { readFileSync } from 'node:fs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
     createLogger,
@@ -118,9 +119,18 @@ describe('consoleTransport — level routing', () => {
 });
 
 describe('logger — default level', () => {
-    it('defaults to warn when no __DEV__/__SIGX_LOG_LEVEL__ is injected (this test env)', async () => {
+    it('defaults to debug when no __SIGX_LOG_LEVEL__ is injected (this test env)', async () => {
         vi.resetModules();
         const fresh = await import('../src/logger.js');
-        expect(fresh.getLogLevel()).toBe('warn');
+        expect(fresh.getLogLevel()).toBe('debug');
+    });
+
+    it('built dist references neither `process` nor `__DEV__` (Lynx BG has no process global)', () => {
+        // The first __DEV__-based default crashed the BG bundle with
+        // "ReferenceError: process is not defined" (the __DEV__ define expands
+        // to a process.env expression). Assert the SHIPPED artifact is clean.
+        const dist = readFileSync(new URL('../dist/logger.js', import.meta.url), 'utf-8');
+        expect(dist).not.toContain('process');
+        expect(dist).not.toContain('__DEV__');
     });
 });

@@ -21,10 +21,12 @@
  * ```
  */
 
-// Injected at app-build time by `@sigx/lynx-plugin` (source.define). Guarded
-// with `typeof` so this stays safe under tsgo, vitest, and any host where the
-// define didn't run.
-declare const __DEV__: boolean;
+// Injected at app-build time by `@sigx/lynx-plugin` (source.define) as a plain
+// string literal — `'debug'` under `sigx dev`, `'warn'` for release builds.
+// Read via a `typeof` guard so it stays safe under tsgo, vitest, and any host
+// where the define didn't run (no `__DEV__`/`process` reference at runtime —
+// the `__DEV__` define expands to a `process.env` expression that throws in
+// the Lynx BG runtime, so the logger must not depend on it).
 declare const __SIGX_LOG_LEVEL__: string | undefined;
 
 export type LogLevelName = 'trace' | 'debug' | 'info' | 'warn' | 'error' | 'silent';
@@ -64,14 +66,14 @@ export interface Logger {
     enabled(level: LogLevelName): boolean;
 }
 
-const DEV = typeof __DEV__ !== 'undefined' && __DEV__;
-
 function resolveDefaultLevel(): LogLevelName {
     const injected = typeof __SIGX_LOG_LEVEL__ !== 'undefined' ? __SIGX_LOG_LEVEL__ : undefined;
     if (injected && Object.prototype.hasOwnProperty.call(SEVERITY, injected)) {
         return injected as LogLevelName;
     }
-    return DEV ? 'debug' : 'warn';
+    // Not injected (vitest, or a build without @sigx/lynx-plugin): default to
+    // `debug`. The plugin injects `'warn'` for release builds.
+    return 'debug';
 }
 
 let threshold: number = SEVERITY[resolveDefaultLevel()];
