@@ -9,11 +9,14 @@
  *
  * Design notes
  * ------------
- * - WebSocket (not HTTP) — the Lynx BG runtime on Android lacks `fetch`,
- *   `XMLHttpRequest`, and `lynx.fetch`, but ships a native WebSocket via
- *   `@sigx/lynx-websocket` (URLSessionWebSocketTask on iOS, OkHttp on
- *   Android). Importing `@sigx/lynx-websocket` attaches a WHATWG-shaped
- *   `WebSocket` class to `globalThis`, which this module consumes.
+ * - WebSocket (not HTTP) — a single persistent socket is the natural fit for a
+ *   continuous log stream, and it lets the dev client stand alone: the Lynx BG
+ *   runtime ships no built-in `fetch` / `XMLHttpRequest` (an app can add one
+ *   via `@sigx/lynx-http`, but the dev client can't assume that's installed).
+ *   It does ship a native WebSocket via `@sigx/lynx-websocket`
+ *   (URLSessionWebSocketTask on iOS, OkHttp on Android). Importing
+ *   `@sigx/lynx-websocket` attaches a WHATWG-shaped `WebSocket` class to
+ *   `globalThis`, which this module consumes.
  * - Bounded queue (`maxQueueSize`) protects against runaway log loops if the
  *   server is unreachable for an extended period.
  * - Re-entrancy guard prevents `console.log` calls triggered inside our own

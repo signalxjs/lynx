@@ -146,7 +146,10 @@ struct ContentView: View {
             // up/down via DevClientModule.setConnectionState, surfaced here as
             // a notification that toggles the disconnected banner.
             .onReceive(NotificationCenter.default.publisher(for: SigxDevClient.connectionStateNotification)) { note in
-                if let connected = note.userInfo?["connected"] as? Bool {
+                // `userInfo` bridges through Obj-C, so the Bool may arrive as an
+                // NSNumber/CFBoolean — read both forms.
+                let raw = note.userInfo?["connected"]
+                if let connected = (raw as? Bool) ?? (raw as? NSNumber)?.boolValue {
                     devController.connected = connected
                 }
             }
