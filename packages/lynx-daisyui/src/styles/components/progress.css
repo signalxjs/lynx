@@ -12,6 +12,10 @@
   height: var(--progress-height);
   border-radius: 9999px;
   background-color: var(--color-primary);
+  /* Animate width changes so coarse/discrete updates (e.g. upload progress,
+     which the OS reports in a few large steps) sweep smoothly instead of
+     snapping. */
+  transition: width 0.25s ease;
 }
 
 /* Color variants */

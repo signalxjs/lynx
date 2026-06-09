@@ -1,7 +1,8 @@
 import { component, signal } from '@sigx/lynx';
 import { Screen } from '@sigx/lynx-navigation';
-import { Button, Card, Col, Heading, ScrollView, Text } from '@sigx/lynx-daisyui';
+import { Button, Card, Col, Heading, Progress, ScrollView, Text, markdownComponents } from '@sigx/lynx-daisyui';
 import { FilePicker } from '@sigx/lynx-file-picker';
+import { MarkdownView, createMarkdownStream } from '@sigx/lynx-markdown';
 // On-device the global `fetch`/`FormData` need no import (@sigx/lynx
 // default-wires @sigx/lynx-http). The explicit import here is for the
 // sigx-specific TYPES — file-handle FormData values and the non-standard
@@ -14,8 +15,9 @@ import { fetch, FormData } from '@sigx/lynx-http';
  *  • GET JSON with headers — the everyday path.
  *  • Multipart upload — pick a file, POST it as FormData field `file`
  *    with upload progress; bytes stream natively from the URI.
- *  • Streaming body — res.body.getReader() renders lines as the
- *    network delivers them (the SSE/chat-token path).
+ *  • Streaming body — res.body.getReader() feeds a streaming
+ *    `<MarkdownView>` so an assistant reply types out and renders as
+ *    markdown live (the SSE/chat-token path).
  *
  * Uses httpbin.org, which echoes back what it received.
  */
@@ -24,6 +26,9 @@ export const HttpDemo = component(() => {
     const uploadResult = signal<{ value: string | null }>({ value: null });
     const progress = signal<{ value: number }>({ value: -1 });
     const streamResult = signal<{ value: string | null }>({ value: null });
+    // Streaming markdown sink — `append()` per token, `<MarkdownView>` renders
+    // its reactive `value` progressively (finalized blocks don't reflow).
+    const md = createMarkdownStream({ flushIntervalMs: 16 });
     const statusResult = signal<{
         value: { lineA: string; lineB: string; note: string; verdict: string; pass: boolean } | null;
     }>({ value: null });
@@ -81,37 +86,41 @@ export const HttpDemo = component(() => {
         }
     };
 
+    // A markdown "assistant reply", tokenized word-by-word. Each token is
+    // revealed as one byte arrives from the paced network stream below.
+    const ANSWER =
+        '## Streaming markdown\n\n' +
+        'This reply is rendered **token by token** as bytes arrive over ' +
+        '`res.body.getReader()` — the same path an LLM chat uses.\n\n' +
+        '- finalized blocks don\'t reflow or flicker\n' +
+        '- the parser is incremental\n\n' +
+        '```ts\n' +
+        'for await (const tok of completion) md.append(tok);\n' +
+        '```\n\n' +
+        'Done — streamed straight from `@sigx/lynx-http`. ✅\n';
+    const TOKENS = ANSWER.match(/\s+|\S+/g) ?? [ANSWER];
+
     const runStream = async () => {
+        md.reset();
         streamResult.value = 'streaming…';
         try {
-            // httpbin streams 5 JSON objects, one per line, with flushes
-            // between them — a stand-in for an SSE/chat-token endpoint.
-            const res = await fetch('https://httpbin.org/stream/5');
+            // httpbin's `drip` paces `TOKENS.length` bytes over ~5s. We read
+            // them with res.body.getReader() and, per byte delivered, append
+            // the next markdown token to the streaming `<MarkdownView>` — so
+            // the reply types out and renders live, driven by the real stream.
+            const res = await fetch(`https://httpbin.org/drip?duration=5&numbytes=${TOKENS.length}&delay=0`);
             const reader = res.body.getReader();
-            const decoder = new TextDecoder();
-            let lines = 0;
-            let pending = '';
-            const drain = () => {
-                for (;;) {
-                    const nl = pending.indexOf('\n');
-                    if (nl < 0) break;
-                    if (pending.slice(0, nl).trim().length > 0) lines++;
-                    pending = pending.slice(nl + 1);
-                    streamResult.value = `received ${lines} line(s)…`;
-                }
-            };
+            let i = 0;
             for (;;) {
                 const { done, value } = await reader.read();
                 if (done) break;
-                pending += decoder.decode(value, { stream: true });
-                drain();
+                const n = value?.byteLength ?? 0;
+                for (let b = 0; b < n && i < TOKENS.length; b++) md.append(TOKENS[i++]);
+                streamResult.value = `streaming… ${i}/${TOKENS.length} tokens`;
             }
-            // Flush the decoder and count a final unterminated line — bytes
-            // can end mid-UTF-8-sequence or without a trailing newline.
-            pending += decoder.decode();
-            drain();
-            if (pending.trim().length > 0) lines++;
-            streamResult.value = `done — ${lines} lines streamed incrementally ✓`;
+            while (i < TOKENS.length) md.append(TOKENS[i++]); // flush any remainder
+            md.done();
+            streamResult.value = `done — ${TOKENS.length} tokens streamed & rendered ✓`;
         } catch (e) {
             streamResult.value = `failed: ${e instanceof Error ? e.message : String(e)}`;
         }
@@ -237,7 +246,10 @@ export const HttpDemo = component(() => {
                                 Pick & upload
                             </Button>
                             {progress.value >= 0 && (
-                                <Text class="text-sm">{`upload ${progress.value}%`}</Text>
+                                <Col gap={4}>
+                                    <Progress value={progress.value} max={100} color="secondary" />
+                                    <Text class="text-sm opacity-60">{`uploading… ${progress.value}%`}</Text>
+                                </Col>
                             )}
                             {uploadResult.value && <Text class="text-sm">{uploadResult.value}</Text>}
                         </Col>
@@ -247,16 +259,22 @@ export const HttpDemo = component(() => {
                 <Card bordered>
                     <Card.Body>
                         <Col gap={8}>
-                            <Text weight="semibold">Streaming body</Text>
+                            <Text weight="semibold">Streaming body → markdown</Text>
                             <Text class="opacity-60 text-sm">
-                                res.body.getReader() + TextDecoder — lines render
-                                as the network delivers them, the same path a
-                                chat SSE consumer uses.
+                                res.body.getReader() feeds a streaming
+                                MarkdownView — an assistant reply types out and
+                                renders as markdown live, the same path a chat
+                                SSE consumer uses.
                             </Text>
                             <Button color="secondary" variant="outline" onPress={runStream}>
-                                Stream 5 lines
+                                Stream a reply
                             </Button>
-                            {streamResult.value && <Text class="text-sm">{streamResult.value}</Text>}
+                            {md.value.value.length > 0 && (
+                                <view class="bg-base-200 rounded-box p-3">
+                                    <MarkdownView value={md.value.value} components={markdownComponents} />
+                                </view>
+                            )}
+                            {streamResult.value && <Text class="text-sm opacity-60">{streamResult.value}</Text>}
                         </Col>
                     </Card.Body>
                 </Card>
