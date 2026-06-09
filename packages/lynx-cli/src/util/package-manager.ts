@@ -52,17 +52,16 @@ export function detectFromLockfile(cwd: string): PackageManager | null {
  */
 export function findLockfile(cwd: string): string | null {
     let dir = cwd;
-    // Bound the walk to avoid pathological loops on exotic filesystems.
-    for (let i = 0; i < 64; i++) {
+    // Walk up until we hit the filesystem root, where `dirname(dir) === dir`.
+    for (;;) {
         for (const { file } of LOCKFILES) {
             const p = join(dir, file);
             if (existsSync(p)) return p;
         }
         const parent = dirname(dir);
-        if (parent === dir) break;
+        if (parent === dir) return null;
         dir = parent;
     }
-    return null;
 }
 
 export function detectFromBinaries(): PackageManager | null {
