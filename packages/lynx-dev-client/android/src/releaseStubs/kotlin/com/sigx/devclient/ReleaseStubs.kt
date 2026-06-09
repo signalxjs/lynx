@@ -33,6 +33,8 @@ object SigxDevClient {
     fun init(app: Application) {}
     fun setReloadHandler(handler: () -> Unit): () -> Unit = {}
     fun triggerRemoteReload() {}
+    fun setConnectionHandler(handler: (Boolean) -> Unit): () -> Unit = {}
+    fun setConnectionState(connected: Boolean) {}
     fun configureForDev(builder: LynxViewBuilder, context: Context) {}
 }
 

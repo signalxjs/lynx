@@ -558,3 +558,85 @@ describe('installConsoleStreamer', () => {
         }
     });
 });
+
+// ---------------------------------------------------------------------------
+// Connection-state bridge — the streamer reports its log WS up/down to the
+// native module so the host can show/hide a "disconnected" banner.
+// ---------------------------------------------------------------------------
+
+describe('connection-state bridge', () => {
+    function withConnSpy(fn: (ws: ReturnType<typeof createFakeWSFactory>, sched: ReturnType<typeof createScheduler>, calls: boolean[]) => void): void {
+        const { console: c } = createConsole();
+        globalThis.console = c;
+        const sched = createScheduler();
+        const ws = createFakeWSFactory();
+        const calls: boolean[] = [];
+        const g = globalThis as { NativeModules?: unknown };
+        const prevNM = g.NativeModules;
+        g.NativeModules = { DevClient: { setConnectionState: (v: boolean) => { calls.push(v); } } };
+        try {
+            installConsoleStreamer('ws://x/__sigx/logs', {
+                webSocketImpl: ws.ctor,
+                setTimeoutImpl: sched.setTimeout,
+                clearTimeoutImpl: sched.clearTimeout,
+                platform: 'ios',
+            });
+            fn(ws, sched, calls);
+        } finally {
+            if (prevNM === undefined) delete g.NativeModules;
+            else g.NativeModules = prevNM;
+        }
+    }
+
+    it('reports connected on open, disconnected on close, and again on reconnect', () => {
+        withConnSpy((ws, sched, calls) => {
+            ws.last()._open();
+            expect(calls).toEqual([true]);
+            ws.last()._close();
+            expect(calls).toEqual([true, false]);
+            // Reconnect timer fires → new socket → opens → connected again.
+            sched.runAll();
+            ws.last()._open();
+            expect(calls).toEqual([true, false, true]);
+        });
+    });
+
+    it('reports disconnected when the server is down at boot', () => {
+        withConnSpy((ws, _sched, calls) => {
+            ws.last()._error();
+            expect(calls).toEqual([false]);
+        });
+    });
+
+    it('does not repeat the same state on redundant transitions', () => {
+        withConnSpy((ws, sched, calls) => {
+            ws.last()._open();
+            ws.last()._close();           // → false (schedules reconnect)
+            sched.runAll();               // reconnect connect() — still CONNECTING
+            ws.last()._error();           // errors again → onSocketDown, already false
+            expect(calls).toEqual([true, false]);
+        });
+    });
+
+    it('no-ops when the native module lacks setConnectionState', () => {
+        const { console: c } = createConsole();
+        globalThis.console = c;
+        const sched = createScheduler();
+        const ws = createFakeWSFactory();
+        const g = globalThis as { NativeModules?: unknown };
+        const prevNM = g.NativeModules;
+        g.NativeModules = { DevClient: {} };
+        try {
+            installConsoleStreamer('ws://x/__sigx/logs', {
+                webSocketImpl: ws.ctor,
+                setTimeoutImpl: sched.setTimeout,
+                clearTimeoutImpl: sched.clearTimeout,
+                platform: 'ios',
+            });
+            expect(() => { ws.last()._open(); ws.last()._close(); }).not.toThrow();
+        } finally {
+            if (prevNM === undefined) delete g.NativeModules;
+            else g.NativeModules = prevNM;
+        }
+    });
+});

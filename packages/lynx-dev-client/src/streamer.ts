@@ -9,11 +9,14 @@
  *
  * Design notes
  * ------------
- * - WebSocket (not HTTP) — the Lynx BG runtime on Android lacks `fetch`,
- *   `XMLHttpRequest`, and `lynx.fetch`, but ships a native WebSocket via
- *   `@sigx/lynx-websocket` (URLSessionWebSocketTask on iOS, OkHttp on
- *   Android). Importing `@sigx/lynx-websocket` attaches a WHATWG-shaped
- *   `WebSocket` class to `globalThis`, which this module consumes.
+ * - WebSocket (not HTTP) — a single persistent socket is the natural fit for a
+ *   continuous log stream, and it lets the dev client stand alone: the Lynx BG
+ *   runtime ships no built-in `fetch` / `XMLHttpRequest` (an app can add one
+ *   via `@sigx/lynx-http`, but the dev client can't assume that's installed).
+ *   It does ship a native WebSocket via `@sigx/lynx-websocket`
+ *   (URLSessionWebSocketTask on iOS, OkHttp on Android). Importing
+ *   `@sigx/lynx-websocket` attaches a WHATWG-shaped `WebSocket` class to
+ *   `globalThis`, which this module consumes.
  * - Bounded queue (`maxQueueSize`) protects against runaway log loops if the
  *   server is unreachable for an extended period.
  * - Re-entrancy guard prevents `console.log` calls triggered inside our own
@@ -236,6 +239,25 @@ function triggerNativeReload(): void {
 }
 
 /**
+ * Tell the dev-client native module whether the dev-server connection is up,
+ * so the host can show/hide a "disconnected from dev server" banner. Called on
+ * socket open (true) and on socket close/error (false).
+ *
+ * Best-effort: silently no-ops if the module or method isn't available (older
+ * host runtime, tests). Never throws back into the streamer.
+ */
+function setNativeConnectionState(connected: boolean): void {
+    try {
+        if (typeof NativeModules === 'undefined' || !NativeModules) return;
+        const mod = NativeModules.DevClient;
+        if (!mod || typeof mod.setConnectionState !== 'function') return;
+        mod.setConnectionState(connected);
+    } catch {
+        // ignore
+    }
+}
+
+/**
  * Async, authoritative platform probe via the dev-client's own native
  * module. Mirrors the @sigx/lynx-device-info pattern (NativeModules bridge
  * call) but avoids a hard dep on lynx-device-info — the dev-client's own
@@ -417,10 +439,20 @@ export function installConsoleStreamer(url: string, opts: InstallOptions = {}): 
         }, delay) as ReturnType<typeof setTimeout>;
     };
 
+    // Push connection state to the native banner only on an actual transition,
+    // so a flurry of failed reconnect attempts doesn't spam the bridge.
+    let lastConnNotified: boolean | undefined;
+    const notifyConnection = (connected: boolean): void => {
+        if (lastConnNotified === connected) return;
+        lastConnNotified = connected;
+        setNativeConnectionState(connected);
+    };
+
     const onSocketDown = (err?: unknown): void => {
         if (uninstalled) return;
         teardownSocket();
         clearFlushTimer();
+        notifyConnection(false);
         if (err !== undefined) {
             originals.warn(
                 '[sigx-dev-client] log stream WS closed, reconnecting:',
@@ -437,6 +469,7 @@ export function installConsoleStreamer(url: string, opts: InstallOptions = {}): 
             socket = new WS(url);
         } catch (err) {
             originals.warn('[sigx-dev-client] log stream WS construct failed:', err);
+            notifyConnection(false);
             scheduleReconnect();
             return;
         }
@@ -444,6 +477,7 @@ export function installConsoleStreamer(url: string, opts: InstallOptions = {}): 
         socket.onopen = () => {
             if (uninstalled || ws !== socket) return;
             backoff = backoffInitialMs;
+            notifyConnection(true);
             pump();
         };
         // Server-initiated commands. The only one today is a remote reload

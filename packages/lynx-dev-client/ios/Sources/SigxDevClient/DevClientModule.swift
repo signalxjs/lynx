@@ -23,6 +23,7 @@ class DevClientModule: NSObject, LynxModule {
         [
             "getPlatform": NSStringFromSelector(#selector(getPlatform(_:))),
             "reload": NSStringFromSelector(#selector(reload)),
+            "setConnectionState": NSStringFromSelector(#selector(setConnectionState(_:))),
         ]
     }
 
@@ -40,5 +41,14 @@ class DevClientModule: NSObject, LynxModule {
     /// actual `loadTemplate(fromURL:)` on the main queue.
     @objc func reload() {
         SigxDevClient.postRemoteReload()
+    }
+
+    /// Report the dev-server connection state from the JS streamer (called
+    /// `false` when its log WebSocket drops, `true` when it reconnects). Routes
+    /// through `SigxDevClient.postConnectionState` so the template's
+    /// `ContentView` can show/hide the "disconnected" banner on the main queue.
+    /// The bridge marshals the JS boolean as an `NSNumber`.
+    @objc func setConnectionState(_ connected: NSNumber) {
+        SigxDevClient.postConnectionState(connected.boolValue)
     }
 }

@@ -135,4 +135,61 @@ class SigxDevClient {
             }
         }
     }
+
+    // ── Connection-state bridge ────────────────────────────────────────────
+    //
+    // The JS streamer calls `DevClientModule.setConnectionState(connected)`
+    // when its log WebSocket drops/reconnects. We re-broadcast as a main-queue
+    // notification whose `userInfo["connected"]` is a Bool; the template's
+    // `ContentView` observes it to toggle the "disconnected" banner.
+
+    /// Notification posted (main queue) when the dev-server connection state
+    /// changes. `userInfo["connected"]` is a `Bool`.
+    public static let connectionStateNotification = Notification.Name("com.sigx.devclient.connectionState")
+
+    /// Last connection state the streamer reported. The notification isn't
+    /// sticky and the streamer de-dups repeated `false`s, so a view appearing
+    /// AFTER a drop (e.g. server down at boot) must seed its banner from this
+    /// rather than wait for an update that already fired.
+    public private(set) static var lastConnectionState: Bool = true
+
+    /// Post the current dev-server connection state. Safe from any thread —
+    /// `lastConnectionState` is mutated only on the main queue (alongside the
+    /// SwiftUI reads in `onAppear`) so there's no data race even when the Lynx
+    /// bridge invokes this off-main.
+    public static func postConnectionState(_ connected: Bool) {
+        let post = {
+            lastConnectionState = connected
+            NotificationCenter.default.post(
+                name: connectionStateNotification,
+                object: nil,
+                userInfo: ["connected": connected]
+            )
+        }
+        if Thread.isMainThread { post() } else { DispatchQueue.main.async { post() } }
+    }
+
+    // ── Dev-menu devtool toggles ───────────────────────────────────────────
+    //
+    // Mirror Android's best-effort reflection toggles in `DevLynxScreen`'s
+    // dev menu. Each flips a flag on `LynxEnv` / the devtool service and is a
+    // no-op if the underlying API isn't present, so they degrade gracefully.
+
+    /// Toggle the native Lynx logbox (the red error overlay the engine shows
+    /// on a JS/render error). Flips `LynxServiceDevToolProtocol.logBoxPresetValue`,
+    /// the same flag `registerServices()` seeds. Returns the new value.
+    @discardableResult
+    public static func setLogBoxEnabled(_ enabled: Bool) -> Bool {
+        setDevToolPresetValue(enabled, forKey: "logBoxPresetValue")
+        return enabled
+    }
+
+    /// Toggle the Lynx element inspector (devtool) on `LynxEnv`. Returns the
+    /// new value. No-op-safe — `LynxEnv.devtoolEnabled` always exists, so this
+    /// is the one toggle guaranteed to take effect.
+    @discardableResult
+    public static func setInspectorEnabled(_ enabled: Bool) -> Bool {
+        LynxEnv.sharedInstance().devtoolEnabled = enabled
+        return enabled
+    }
 }
