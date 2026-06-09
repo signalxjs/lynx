@@ -1,6 +1,6 @@
 {
     "name": "@sigx/lynx-gestures",
-    "version": "0.5.0",
+    "version": "0.5.1",
     "description": "Gesture system for sigx-lynx - declarative composables for tap, pan, pinch, swipe, long press",
     "type": "module",
     "main": "./dist/index.js",
