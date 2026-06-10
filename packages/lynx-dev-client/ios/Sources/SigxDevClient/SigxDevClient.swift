@@ -16,16 +16,17 @@ class SigxDevClient {
         let env = LynxEnv.sharedInstance()
         env.lynxDebugEnabled = true
 
-        // Mirror Android's setLogBoxPresetValue(true): LynxEnv.logBoxEnabled
-        // ANDs in `[LynxService(LynxServiceDevToolProtocol) logBoxPresetValue]`,
-        // which is initialised to NO. Without this flip, errors give a silent
-        // white screen on iOS instead of the native Lynx logbox overlay.
-        // We dispatch through the Obj-C runtime (rather than the typed Swift
-        // import) because the Lynx pods don't ship a Swift-friendly facade
-        // for `+[LynxServices getInstanceWithProtocol:]`.
-        setDevToolPresetValue(true, forKey: "logBoxPresetValue")
+        // The native Lynx LogBox is OFF by default: our `DevErrorOverlay`
+        // (driven by `didReceiveError`) is the sole error UI, so enabling the
+        // LogBox too would double up (a bottom toast under our full-screen
+        // overlay). The overlay also covers the silent-white-screen case the
+        // LogBox used to guard. The dev-menu "LogBox" toggle flips this back on
+        // via `setLogBoxEnabled(true)`. (`logBoxPresetValue` initialises to NO;
+        // we dispatch through the Obj-C runtime because the Lynx pods ship no
+        // Swift facade for `+[LynxServices getInstanceWithProtocol:]`.)
+        setDevToolPresetValue(false, forKey: "logBoxPresetValue")
 
-        print("[SigxDevClient] Set lynxDebugEnabled and logBoxPresetValue (before prepareConfig)")
+        print("[SigxDevClient] Set lynxDebugEnabled (LogBox off by default — overlay handles errors)")
     }
 
     /// Flip a BOOL `@property` on the registered `LynxServiceDevToolProtocol`

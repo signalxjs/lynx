@@ -50,9 +50,12 @@ object SigxDevClient {
             // Set preset values via the concrete class methods
             devToolServiceClass.getMethod("setLynxDebugPresetValue", Boolean::class.java)
                 .invoke(instance, true)
+            // LogBox OFF by default — our ErrorOverlay is the sole error UI, so
+            // showing the native LogBox too would double up. The dev-menu
+            // "LogBox" toggle flips it back on via setLogBoxPresetValue.
             devToolServiceClass.getMethod("setLogBoxPresetValue", Boolean::class.java)
-                .invoke(instance, true)
-            Log.i(TAG, "Set debug preset values")
+                .invoke(instance, false)
+            Log.i(TAG, "Set debug preset values (LogBox off — overlay handles errors)")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to register devtool service: ${e.message}", e)
             return
@@ -86,7 +89,7 @@ object SigxDevClient {
     fun enableDevMode() {
         LynxEnv.inst().enableLynxDebug(true)
         LynxEnv.inst().enableDevtool(true)
-        LynxEnv.inst().enableLogBox(true)
+        LynxEnv.inst().enableLogBox(false) // overlay handles errors; dev-menu toggle re-enables
         // Without these the Lynx DevTools desktop app can attach but the JS
         // inspector bridge never comes up — logcat shows
         // "CreateRuntimeManagerDelegate failed, JS debugging is not available"

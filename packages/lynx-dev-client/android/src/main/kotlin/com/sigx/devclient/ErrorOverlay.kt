@@ -137,6 +137,8 @@ fun ErrorOverlay(
                 }
             }
             Spacer(modifier = Modifier.height(16.dp))
+            // Navigation is the ‹ N/M › pager up top — keep the action row to
+            // three so it never cramps/wraps.
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Button(
                     onClick = onReload,
@@ -146,15 +148,6 @@ fun ErrorOverlay(
                     onClick = { copy(stripped(current), "Copied") },
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0x33FFFFFF), contentColor = Color.White)
                 ) { Text("Copy") }
-                if (errors.size > 1) {
-                    Button(
-                        onClick = {
-                            val all = errors.mapIndexed { i, e -> "#${i + 1}\n${stripped(e)}" }.joinToString("\n\n———\n\n")
-                            copy(all, "Copied all")
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0x33FFFFFF), contentColor = Color.White)
-                    ) { Text("Copy all") }
-                }
                 Button(
                     onClick = onDismiss,
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0x33FFFFFF), contentColor = Color.White)

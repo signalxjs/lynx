@@ -10,6 +10,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
 import com.lynx.tasm.LynxError
+import org.json.JSONObject
 import com.lynx.tasm.LynxView
 import com.lynx.tasm.LynxViewBuilder
 import com.lynx.tasm.LynxViewClient
@@ -159,7 +160,11 @@ fun DevLynxScreen(
                     // exceptions, not errors that fire after first paint.
                     lynxView.addLynxViewClient(object : LynxViewClient() {
                         override fun onReceivedError(error: LynxError) {
-                            pushError(error.toString())
+                            val msg = formatLynxError(error.toString())
+                            // Drop dev-server / HMR artifacts (e.g. "Failed to
+                            // load CSS update file …hot-update.json").
+                            if (isDevNoise(msg)) return
+                            pushError(msg)
                         }
                     })
 
@@ -273,4 +278,34 @@ fun DevLynxScreen(
 private fun formatThrowable(t: Throwable, fallback: String): String {
     val reason = t.message?.takeIf { it.isNotBlank() } ?: fallback
     return "$reason\n$DETAIL_MARKER\n${t.stackTraceToString()}"
+}
+
+/** Dev-server / HMR artifacts that aren't real app errors. */
+private fun isDevNoise(s: String): Boolean {
+    val m = s.lowercase()
+    return m.contains("hot-update") || m.contains("failed to load css update file")
+}
+
+/**
+ * Lynx routes JS/internal errors as a JSON blob (`{…"error":"{…rawError:
+ * {message,stack}…}"…}`). Dig out the human message + stack so the overlay
+ * shows those instead of the raw JSON; returns the input unchanged otherwise.
+ */
+private fun formatLynxError(raw: String): String {
+    if (!raw.trimStart().startsWith("{")) return raw
+    return try {
+        var node = JSONObject(raw)
+        node.optString("error").takeIf { it.isNotBlank() }?.let { inner ->
+            try { node = JSONObject(inner) } catch (_: Exception) { /* not nested JSON */ }
+        }
+        val rawErr = node.optJSONObject("rawError")
+        val reason = rawErr?.optString("message")?.takeIf { it.isNotBlank() }
+            ?: node.optString("message").takeIf { it.isNotBlank() }
+            ?: raw
+        val stack = rawErr?.optString("stack")?.takeIf { it.isNotBlank() }
+            ?: node.optString("stack").takeIf { it.isNotBlank() }
+        if (stack != null) "$reason\n$DETAIL_MARKER\n$stack" else reason
+    } catch (_: Exception) {
+        raw
+    }
 }
