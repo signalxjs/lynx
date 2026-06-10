@@ -7,13 +7,13 @@ import {
     useAnimatedStyle,
     type Define,
     type MainThread,
+    type SharedValue,
 } from '@sigx/lynx';
 import { Screen } from '@sigx/lynx-navigation';
 import {
     Swiper,
     useSwiperDotProgress,
     useSwiperDotScale,
-    type SharedValue,
 } from '@sigx/lynx-gestures';
 import { Haptics } from '@sigx/lynx-haptics';
 import { Card, Col, Heading, ScrollView, Text } from '@sigx/lynx-daisyui';

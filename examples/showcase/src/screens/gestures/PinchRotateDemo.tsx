@@ -23,13 +23,13 @@ export const PinchRotateDemo = component(() => {
     const pinch = usePinch({
         onPinch: (s) => {
             if (s.phase === 'active') scale.value = clampScale(baseScale * s.scale);
-            else if (s.phase === 'ended') baseScale = scale.value;
+            else if (s.phase === 'ended' || s.phase === 'cancelled') baseScale = scale.value;
         },
     });
     const rotation = useRotation({
         onRotation: (r) => {
             if (r.phase === 'active') angle.value = baseAngle + (r.rotation * 180) / Math.PI;
-            else if (r.phase === 'ended') baseAngle = angle.value;
+            else if (r.phase === 'ended' || r.phase === 'cancelled') baseAngle = angle.value;
         },
     });
 
