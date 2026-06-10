@@ -6,7 +6,7 @@
  * hermetic and the FA peerDep isn't pulled into lynx-plugin's test runtime.
  */
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { mkdirSync, rmSync, writeFileSync, readFileSync, existsSync, mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -104,7 +104,21 @@ afterEach(() => {
 // Tests
 // ---------------------------------------------------------------------------
 
-describe('applyIcons', () => {
+// `retry` rides out a rare transient: under parallel vitest workers the
+// integration path's dynamic `import()`s (the `@sigx/lynx-cli` dist barrel, the
+// temp config `.mjs`, the temp adapter `.mjs`) can intermittently fail the
+// first time, which `applyIcons` swallows as "lynx-cli not installed → skip" →
+// 0 aliases. Seen only on CI (green on rerun); the `beforeAll` warm-up below
+// removes the most common one. Not a product bug.
+describe('applyIcons', { retry: 2 }, () => {
+    beforeAll(async () => {
+        // Warm `@sigx/lynx-cli` into this worker's ESM module cache so
+        // `applyIcons`' internal dynamic import can't hit a transient first-load
+        // failure — and so a genuinely-missing build fails loudly here instead
+        // of masquerading as "0 aliases" in every assertion.
+        await import('@sigx/lynx-cli');
+    });
+
     it('is a no-op when signalx.config.ts is missing', async () => {
         const recorder: AliasRecorder = { aliases: {} };
         await applyIcons(makeFakeApi(recorder), { cwd: projectRoot });
