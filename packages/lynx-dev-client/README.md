@@ -18,7 +18,7 @@ The lynx project templates already include this; manual install is only needed f
 
 ## What it does
 
-- **Resource fetchers** — `DevGenericResourceFetcher` / `DevTemplateResourceFetcher` (iOS and Android) load Lynx templates from the dev server over HTTP so HMR works.
+- **Resource fetchers** — `DevGenericResourceFetcher` / `DevTemplateResourceFetcher` (iOS and Android) load Lynx templates from the dev server over HTTP so HMR works. A **404 for a `*.css.hot-update.json`** is treated as "no CSS change for this chunk" (returns an empty `{}`) — the CSS-HMR runtime probes every chunk each update, and JS-only chunks have no CSS file, so this avoids a spurious `Failed to load CSS update file` on every save while leaving real CSS hot-reload untouched.
 - **Template provider** — `DevTemplateProvider`, consumed by your `App.swift` / `MainActivity.kt` under `#if DEBUG`, points the LynxEnv at the dev server URL.
 - **Dev overlays** — a loading spinner while a bundle (re)loads, a red error overlay (with Reload / Dismiss) on a load failure, a perf HUD, and a "disconnected from dev server" banner. Driven by a `DevLifecycleClient` (iOS) / the Compose `DevLynxScreen` state (Android), so both platforms show the same feedback.
 - **Dev menu** — reload, change/copy dev-server URL, and toggles for the perf HUD, logbox, and element inspector. Triggered by the shake gesture (`ShakeDetector`) on iOS and the equivalent on Android.

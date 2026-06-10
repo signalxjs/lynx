@@ -40,6 +40,15 @@ class DevGenericResourceFetcher : LynxGenericResourceFetcher() {
                 response.use {
                     if (it.isSuccessful && it.body != null) {
                         callback.onResponse(LynxResourceResponse.onSuccess(it.body!!.bytes()))
+                    } else if (it.code == 404 && request.url.contains(".css.hot-update.json")) {
+                        // Missing CSS hot-update = no CSS change for this chunk.
+                        // The css-extract HMR runtime iterates every chunk's
+                        // `.css.hot-update.json` and only acts `if (ret.content)`,
+                        // so return an empty module `{}` (no `content`) and it
+                        // no-ops cleanly instead of throwing "Failed to load CSS
+                        // update file". Chunks that DID change still 200 with
+                        // real content, so CSS HMR is unaffected.
+                        callback.onResponse(LynxResourceResponse.onSuccess("{}".toByteArray()))
                     } else {
                         callback.onResponse(failed("HTTP ${it.code}: ${it.message}"))
                     }
