@@ -12,6 +12,10 @@ export type ToggleProps =
   & Define.Prop<'disabled', boolean, false>
   & Define.Prop<'class', string, false>
   & WithAccessibility
+  // Two-way binding (the sigx way): `model={() => state.on}`. When a model is
+  // bound it drives the on/off state and the press writes back to it; the
+  // static `checked` prop + `change` event still work when no model is bound.
+  & Define.Model<boolean>
   & Define.Event<'change', boolean>;
 
 // Track-width minus thumb-width minus padding, per size — how far the thumb
@@ -25,18 +29,20 @@ const sizeClasses: Record<ToggleSize, string> = {
 };
 
 export const Toggle = component<ToggleProps>(({ props, emit }) => {
+  const isChecked = () => (props.model ? !!props.model.value : !!props.checked);
+
   const getClasses = () => {
     const c = ['hero-toggle'];
     if (props.size) { const s = sizeClasses[props.size]; if (s) c.push(s); }
     if (props.color) c.push(`hero-toggle-${props.color}`);
-    if (props.checked) c.push('hero-toggle-checked');
+    if (isChecked()) c.push('hero-toggle-checked');
     if (props.disabled) c.push('hero-toggle-disabled');
     if (props.class) c.push(props.class);
     return c.join(' ');
   };
 
   return () => {
-    const checked = !!props.checked;
+    const checked = isChecked();
     const offset = checked ? thumbOffsetMap[props.size ?? 'md'] : 0;
 
     return (
@@ -52,7 +58,10 @@ export const Toggle = component<ToggleProps>(({ props, emit }) => {
         accessibility-trait={props['accessibility-trait']}
         accessibility-status={props['accessibility-status']}
         onPress={() => {
-          if (!props.disabled) emit('change', !checked);
+          if (props.disabled) return;
+          const next = !checked;
+          if (props.model) props.model.value = next;
+          emit('change', next);
         }}
       >
         <view

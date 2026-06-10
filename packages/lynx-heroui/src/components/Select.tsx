@@ -22,14 +22,22 @@ export type SelectProps =
   & Define.Prop<'disabled', boolean, false>
   & Define.Prop<'class', string, false>
   & WithAccessibility
-  & Define.Event<'change', string>;
+  // Two-way binding (the sigx way): `model={() => state.country}`. Picking an
+  // option writes its value into the model. The static `value` prop is honored
+  // as display-only initial selection when no model is bound. There is no
+  // `change` event: a prop named `value` trips runtime-core's emit lookup, so
+  // use `model` for interactivity.
+  & Define.Model<string>;
 
 const sizeClasses: Record<SelectSize, string> = {
   sm: 'hero-select-sm', md: '', lg: 'hero-select-lg',
 };
 
-export const Select = component<SelectProps>(({ props, emit }) => {
+export const Select = component<SelectProps>(({ props }) => {
   const state = signal({ open: false });
+
+  // Resolved selection: the bound model wins, else the static `value` prop.
+  const selectedValue = () => (props.model ? props.model.value : props.value);
 
   const getClasses = () => {
     const c = ['hero-select'];
@@ -41,7 +49,7 @@ export const Select = component<SelectProps>(({ props, emit }) => {
   };
 
   const getSelectedLabel = () => {
-    const found = (props.options ?? []).find((o) => o.value === props.value);
+    const found = (props.options ?? []).find((o) => o.value === selectedValue());
     return found ? found.label : (props.placeholder ?? 'Select…');
   };
 
@@ -71,7 +79,7 @@ export const Select = component<SelectProps>(({ props, emit }) => {
           {(props.options ?? []).map((option) => (
             <Pressable
               key={option.value}
-              class={`hero-select-option${option.value === props.value ? ' hero-select-option-active' : ''}`}
+              class={`hero-select-option${option.value === selectedValue() ? ' hero-select-option-active' : ''}`}
               pressedScale={PRESSED_SCALE}
               pressedOpacity={PRESSED_OPACITY}
               longPressDuration={0}
@@ -79,7 +87,7 @@ export const Select = component<SelectProps>(({ props, emit }) => {
               accessibility-label={option.label}
               accessibility-trait="button"
               onPress={() => {
-                emit('change', option.value);
+                if (props.model) props.model.value = option.value;
                 state.open = false;
               }}
             >

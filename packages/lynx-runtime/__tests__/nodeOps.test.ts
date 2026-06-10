@@ -1,7 +1,7 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { createRenderer } from '@sigx/runtime-core/internals';
 import { jsx } from '@sigx/runtime-core';
-import { nodeOps, resetNodeOpsState } from '../src/nodeOps';
+import { nodeOps, resetNodeOpsState, flushPendingInitialValues } from '../src/nodeOps';
 import { resetOpQueue, takeOps } from '../src/op-queue';
 import { publishEvent, resetRegistry } from '../src/event-registry';
 import { resetShadowState } from '../src/shadow-element';
@@ -309,8 +309,12 @@ describe('lynx-runtime nodeOps (shadow-tree + op-queue)', () => {
 // or cursor/IME composition gets disturbed on every keystroke.
 // ---------------------------------------------------------------------------
 
-describe('patchProp input value → INVOKE_UI_METHOD (#143)', () => {
+describe('patchProp input value → INVOKE_UI_METHOD (#143, #404)', () => {
   beforeEach(() => {
+    // Fake timers so the #404 deferred initial-value setValue (a setTimeout)
+    // is driven explicitly via advanceTimersByTime / flushPendingInitialValues
+    // and never leaks a real timer into a later test.
+    vi.useFakeTimers();
     resetOpQueue();
     resetRegistry();
     // Both resets together: recycling element ids (resetShadowState) is only
@@ -318,6 +322,10 @@ describe('patchProp input value → INVOKE_UI_METHOD (#143)', () => {
     // stale event slots from earlier tests would be resolved by id.
     resetNodeOpsState();
     resetShadowState();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   function invokeOps(records: unknown[][]): unknown[][] {
@@ -344,29 +352,139 @@ describe('patchProp input value → INVOKE_UI_METHOD (#143)', () => {
     return { el, sign };
   }
 
-  it('initial mount emits SET_PROP only (attribute covers first render)', () => {
+  // A non-empty initial value (model prefill / synchronously-seeded signal) is
+  // (re)applied to the native field via a short DEFERRED setValue, because iOS
+  // ignores the `value` attribute for initial display and drops a setValue
+  // invoked before the input view is laid out (#404). The mount batch carries
+  // only the `value` attribute (which Android honors); no setValue yet.
+  it('initial mount with a non-empty value emits the attribute, defers setValue (#404)', () => {
     const parent = nodeOps.createElement('view');
     const el = nodeOps.createElement('input');
     drainOps();
 
     nodeOps.patchProp(el, 'value', null, 'seed'); // before insert, as on mount
     nodeOps.insert(el, parent);
-    const records = parseOps(drainOps());
+    const mount = parseOps(drainOps());
 
-    expect(records.find(r => r[0] === OP.SET_PROP && r[2] === 'value' && r[3] === 'seed')).toBeDefined();
-    expect(invokeOps(records)).toHaveLength(0);
+    // Mount batch: value attribute set, but setValue is deferred (not yet).
+    expect(mount.find(r => r[0] === OP.SET_PROP && r[2] === 'value' && r[3] === 'seed')).toBeDefined();
+    expect(invokeOps(mount)).toHaveLength(0);
+
+    // After the deferred tick, setValue lands (the input view now exists).
+    vi.advanceTimersByTime(100);
+    const deferred = invokeOps(parseOps(drainOps()));
+    expect(deferred).toHaveLength(1);
+    expect(deferred[0]![1]).toBe(el.id);
+    expect(deferred[0]![2]).toBe('setValue');
+    expect(deferred[0]![3]).toEqual({ value: 'seed' });
   });
 
-  it('real renderer mount of <input value=…> emits no INVOKE_UI_METHOD', () => {
+  it('initial mount with an empty value emits SET_PROP only — no deferred setValue (#404)', () => {
+    const parent = nodeOps.createElement('view');
+    const el = nodeOps.createElement('input');
+    drainOps();
+
+    nodeOps.patchProp(el, 'value', null, ''); // empty initial value
+    nodeOps.insert(el, parent);
+    expect(invokeOps(parseOps(drainOps()))).toHaveLength(0);
+
+    vi.advanceTimersByTime(100);
+    expect(invokeOps(parseOps(drainOps()))).toHaveLength(0);
+  });
+
+  it('deferred setValue seeds _lastInputValue so the first echo does not re-invoke (#404)', () => {
+    const { el } = mountField('input', 'seed', true);
+    flushPendingInitialValues(); // run the deferred initial-value sync
+    drainOps();                  // discard its setValue('seed')
+
+    // A re-render echoing exactly the prefilled value must not re-invoke.
+    nodeOps.patchProp(el, 'value', 'seed', 'seed');
+    expect(invokeOps(parseOps(drainOps()))).toHaveLength(0);
+  });
+
+  it('re-patching to empty before insert supersedes the stashed initial value (#404)', () => {
+    const parent = nodeOps.createElement('view');
+    const el = nodeOps.createElement('input');
+    drainOps();
+
+    nodeOps.patchProp(el, 'value', null, 'seed'); // stash non-empty (pre-insert)
+    nodeOps.patchProp(el, 'value', 'seed', '');    // re-patched empty, still uninserted
+    nodeOps.insert(el, parent);
+    drainOps();
+
+    // The deferred sync must NOT emit the stale 'seed'.
+    vi.advanceTimersByTime(100);
+    expect(invokeOps(parseOps(drainOps()))).toHaveLength(0);
+  });
+
+  it('does not emit a deferred setValue for an element removed before the timer (#404)', () => {
+    const parent = nodeOps.createElement('view');
+    const el = nodeOps.createElement('input');
+    drainOps();
+
+    nodeOps.patchProp(el, 'value', null, 'seed');
+    nodeOps.insert(el, parent);
+    nodeOps.remove(el); // unmounted within the deferral window (parent nulled)
+    drainOps();
+
+    vi.advanceTimersByTime(100);
+    expect(invokeOps(parseOps(drainOps()))).toHaveLength(0);
+  });
+
+  it('skips the deferred setValue if the user typed during the deferral window (#404)', () => {
+    const { el, sign } = mountField('input', 'seed', true);
+
+    // User types before the timer fires — the bindinput event records it.
+    publishEvent(sign, { detail: { value: 'typed' } });
+    expect(el._lastInputValue).toBe('typed');
+    drainOps();
+
+    // The deferred sync must not clobber the typed text back to 'seed'.
+    vi.advanceTimersByTime(100);
+    expect(invokeOps(parseOps(drainOps()))).toHaveLength(0);
+  });
+
+  it('a same-value re-render during the window keeps the deferral, no early setValue (#404)', () => {
+    const { el } = mountField('input', 'seed');
+
+    // Unrelated re-render re-patches the SAME initial value before the timer.
+    nodeOps.patchProp(el, 'value', 'seed', 'seed');
+    expect(invokeOps(parseOps(drainOps()))).toHaveLength(0); // no iOS-too-early setValue
+
+    // The deferred sync still applies it once, after layout.
+    vi.advanceTimersByTime(100);
+    const deferred = invokeOps(parseOps(drainOps()));
+    expect(deferred).toHaveLength(1);
+    expect(deferred[0]![3]).toEqual({ value: 'seed' });
+  });
+
+  it('a post-mount value change supersedes the not-yet-flushed initial value (#404)', () => {
+    const { el } = mountField('input', 'seed');
+
+    // Programmatic change within the deferral window.
+    nodeOps.patchProp(el, 'value', 'seed', 'changed');
+    drainOps();
+
+    // The deferred sync must NOT clobber it back to 'seed'.
+    flushPendingInitialValues();
+    expect(invokeOps(parseOps(drainOps()))).toHaveLength(0);
+  });
+
+  it('real renderer mount of <input value=…> defers a setValue (#404)', () => {
     const renderer = createRenderer(nodeOps) as { render: (v: unknown, c: unknown) => void };
     const root = nodeOps.createElement('page');
     drainOps();
 
     renderer.render(jsx('input', { value: 'seed' }), root);
-    const records = parseOps(drainOps());
+    const mount = parseOps(drainOps());
+    expect(mount.find(r => r[0] === OP.SET_PROP && r[2] === 'value' && r[3] === 'seed')).toBeDefined();
+    expect(invokeOps(mount)).toHaveLength(0);
 
-    expect(records.find(r => r[0] === OP.SET_PROP && r[2] === 'value' && r[3] === 'seed')).toBeDefined();
-    expect(invokeOps(records)).toHaveLength(0);
+    vi.advanceTimersByTime(100);
+    const deferred = invokeOps(parseOps(drainOps()));
+    expect(deferred).toHaveLength(1);
+    expect(deferred[0]![2]).toBe('setValue');
+    expect(deferred[0]![3]).toEqual({ value: 'seed' });
   });
 
   it('programmatic update emits SET_PROP + INVOKE_UI_METHOD setValue', () => {

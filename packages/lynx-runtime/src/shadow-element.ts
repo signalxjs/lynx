@@ -39,6 +39,15 @@ export class ShadowElement {
   // initialize it).
   _lastInputValue: string | undefined = undefined;
 
+  // Non-empty initial <input>/<textarea> value captured at mount (before the
+  // element is inserted). nodeOps' `flushPendingInitialValues` re-applies it via
+  // a short deferred `setValue` (timer) once the native view is laid out, then
+  // clears it. Needed because iOS ignores the `value` attribute for initial
+  // display AND drops a setValue invoked in the mount batch (view not laid out
+  // yet) — so model-bound prefill would otherwise show only the placeholder
+  // (#404). `undefined` when nothing pending.
+  _pendingInitialValue: string | undefined = undefined;
+
   constructor(type: string, forceId?: number) {
     this.id = forceId !== undefined ? forceId : ShadowElement.nextId++;
     this.type = type;

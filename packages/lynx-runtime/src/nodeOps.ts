@@ -96,6 +96,60 @@ const elementEventSigns = new Map<number, Map<string, string>>();
 // a multi-handler wrapper in the BG registry.
 const nativeEventSlots = new Map<number, Map<string, { sign: string; handlers: Map<string, (data: unknown) => void> }>>();
 
+// <input>/<textarea> elements whose non-empty initial value was captured at
+// mount (`el.parent == null`, before insertion). The `value` attribute set at
+// mount is honored by Android but ignored by iOS for initial display, and a
+// `setValue` UI method invoked in the mount batch is dropped too — the native
+// iOS input view isn't laid out yet. So the value is (re)applied via setValue
+// on a short deferred tick, once the view exists, which makes the model-bound
+// prefill appear on iOS while staying a harmless no-op repeat on Android. (#404)
+const pendingInitialValues = new Set<ShadowElement>();
+let initialValueFlushScheduled = false;
+
+// Delay before the deferred setValue. Long enough for the first native layout
+// pass (the input view must exist for setValue to take effect), short enough to
+// be barely perceptible. Post-mount programmatic value changes don't need this
+// (the field is already laid out) and go through patchProp's immediate path.
+const INITIAL_VALUE_SYNC_DELAY_MS = 50;
+
+/**
+ * Emit a deferred `setValue` for each input/textarea that captured a non-empty
+ * initial value at mount, seeding `_lastInputValue` so the first
+ * model-echo/programmatic comparison is correct. Exported for tests (which
+ * drive it directly instead of waiting on the timer).
+ */
+export function flushPendingInitialValues(): void {
+  initialValueFlushScheduled = false;
+  if (pendingInitialValues.size === 0) return;
+  let emitted = false;
+  for (const el of pendingInitialValues) {
+    const v = el._pendingInitialValue;
+    el._pendingInitialValue = undefined;
+    // Skip when:
+    //  - removed/detached before the timer fired (`parent == null`) — the
+    //    native node is gone, so setValue would target nothing; or
+    //  - the field already has known content (`_lastInputValue` set by a
+    //    bindinput event from the user typing, or by a programmatic write)
+    //    during the deferral window — re-applying the initial value would
+    //    clobber what's there.
+    if (v != null && el.parent != null && el._lastInputValue === undefined) {
+      pushOp(OP.INVOKE_UI_METHOD, el.id, 'setValue', { value: v });
+      el._lastInputValue = v;
+      emitted = true;
+    }
+  }
+  pendingInitialValues.clear();
+  if (emitted) scheduleFlush();
+}
+
+/** Register an input/textarea for a deferred initial-value setValue (coalesced). */
+function scheduleInitialValueSync(el: ShadowElement): void {
+  pendingInitialValues.add(el);
+  if (initialValueFlushScheduled) return;
+  initialValueFlushScheduled = true;
+  setTimeout(flushPendingInitialValues, INITIAL_VALUE_SYNC_DELAY_MS);
+}
+
 /**
  * Test-only: clear the module-level per-element maps above. They are keyed by
  * element id, so a test suite that recycles ids via `resetShadowState()`
@@ -107,6 +161,8 @@ export function resetNodeOpsState(): void {
   sentWorklets.clear();
   elementEventSigns.clear();
   nativeEventSlots.clear();
+  pendingInitialValues.clear();
+  initialValueFlushScheduled = false;
 }
 
 // ---------------------------------------------------------------------------
@@ -473,14 +529,10 @@ export const nodeOps: RendererOptions<ShadowElement, ShadowElement> = {
       // The native field treats the `value` attribute as initial-only once
       // the user has edited it — programmatic writes (clear-on-send, editor
       // toolbar inserts) must additionally go through the element's
-      // `setValue` UI method or the visible text never changes (#143).
-      // Skip during initial mount (`el.parent == null`: props are patched
-      // before insertion, and the attribute covers the initial value) — NOT
-      // by `_prevValue == null`, which would also skip legitimate post-mount
-      // transitions like value={null} → value={'text'}. Also skip the model
-      // echo (the re-render caused by the user's own typing, where the new
-      // value is exactly what the input event just reported) so cursor/IME
-      // composition isn't disturbed while typing.
+      // `setValue` UI method or the visible text never changes (#143). Also
+      // skip the model echo (the re-render caused by the user's own typing,
+      // where the new value is exactly what the input event just reported) so
+      // cursor/IME composition isn't disturbed while typing.
       // Normalize to a string ('' for nullish) on BOTH sides of the
       // comparison — `value` is typed string on input/textarea but user code
       // can write a number/boolean by mistake, and setValue is a native
@@ -488,11 +540,41 @@ export const nodeOps: RendererOptions<ShadowElement, ShadowElement> = {
       // would desync `_lastInputValue` from the native field and re-invoke
       // redundantly on later renders.
       const next = nextValue == null ? '' : String(nextValue);
-      if (el.parent != null && next !== el._lastInputValue) {
-        pushOp(OP.INVOKE_UI_METHOD, el.id, 'setValue', { value: next });
-        // The programmatic write replaces whatever the user had typed; track
-        // it so the next echo comparison stays correct.
-        el._lastInputValue = next;
+      if (el.parent != null) {
+        if (el._pendingInitialValue !== undefined && next === el._pendingInitialValue) {
+          // An (unrelated) re-render re-patched the same initial value before
+          // the deferred sync fired. Leave the deferral to apply it after the
+          // view is laid out — emitting now would be the iOS-too-early setValue
+          // the deferral exists to avoid. Keep pending; don't touch
+          // _lastInputValue. (#404)
+        } else {
+          // A post-mount value *change* supersedes any not-yet-flushed initial
+          // value, so the deferred setValue can't later clobber it (#404).
+          if (el._pendingInitialValue !== undefined) {
+            el._pendingInitialValue = undefined;
+            pendingInitialValues.delete(el);
+          }
+          if (next !== el._lastInputValue) {
+            pushOp(OP.INVOKE_UI_METHOD, el.id, 'setValue', { value: next });
+            // The programmatic write replaces whatever the user had typed;
+            // track it so the next echo comparison stays correct.
+            el._lastInputValue = next;
+          }
+        }
+      } else if (next !== '') {
+        // Initial mount (props patched before insertion): iOS ignores the
+        // `value` attribute for initial display and drops a setValue invoked
+        // before the input view is laid out, so a model-bound prefill would
+        // show only the placeholder. Stash the value and (re)apply it via a
+        // short deferred setValue once the view exists. An empty initial value
+        // needs nothing extra (the attribute covers it). (#404)
+        el._pendingInitialValue = next;
+        scheduleInitialValueSync(el);
+      } else if (el._pendingInitialValue !== undefined) {
+        // Re-patched to empty while still uninserted — supersede the earlier
+        // non-empty stash so the deferred setValue can't emit a stale value.
+        el._pendingInitialValue = undefined;
+        pendingInitialValues.delete(el);
       }
     } else {
       pushOp(OP.SET_PROP, el.id, key, nextValue);

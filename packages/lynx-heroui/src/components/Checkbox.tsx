@@ -12,6 +12,10 @@ export type CheckboxProps =
   & Define.Prop<'disabled', boolean, false>
   & Define.Prop<'class', string, false>
   & WithAccessibility
+  // Two-way binding (the sigx way): `model={() => state.agreed}`. When a model
+  // is bound it drives the checked state and the press writes back to it; the
+  // static `checked` prop + `change` event still work when no model is bound.
+  & Define.Model<boolean>
   & Define.Event<'change', boolean>;
 
 const checkmarkSizeMap: Record<CheckboxSize, number> = {
@@ -23,18 +27,20 @@ const sizeClasses: Record<CheckboxSize, string> = {
 };
 
 export const Checkbox = component<CheckboxProps>(({ props, emit }) => {
+  const isChecked = () => (props.model ? !!props.model.value : !!props.checked);
+
   const getClasses = () => {
     const c = ['hero-checkbox'];
     if (props.size) { const s = sizeClasses[props.size]; if (s) c.push(s); }
     if (props.color) c.push(`hero-checkbox-${props.color}`);
-    if (props.checked) c.push('hero-checkbox-checked');
+    if (isChecked()) c.push('hero-checkbox-checked');
     if (props.disabled) c.push('hero-checkbox-disabled');
     if (props.class) c.push(props.class);
     return c.join(' ');
   };
 
   return () => {
-    const checked = !!props.checked;
+    const checked = isChecked();
 
     return (
       <Pressable
@@ -49,7 +55,10 @@ export const Checkbox = component<CheckboxProps>(({ props, emit }) => {
         accessibility-trait={props['accessibility-trait']}
         accessibility-status={props['accessibility-status']}
         onPress={() => {
-          if (!props.disabled) emit('change', !checked);
+          if (props.disabled) return;
+          const next = !checked;
+          if (props.model) props.model.value = next;
+          emit('change', next);
         }}
       >
         {checked ? (

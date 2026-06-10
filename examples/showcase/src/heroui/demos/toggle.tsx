@@ -15,7 +15,7 @@ export const toggleDemo: HeroComponentDemo = {
                 const on = signal(true);
                 return () => (
                     <Row gap={12} align="center">
-                        <Toggle checked={on.value} onChange={(v) => { on.value = v; }} />
+                        <Toggle model={() => on.value} />
                         <Text size="sm" class="opacity-60">{on.value ? 'on' : 'off'}</Text>
                     </Row>
                 );

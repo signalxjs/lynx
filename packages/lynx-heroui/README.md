@@ -39,7 +39,7 @@ Growing toward `@sigx/lynx-daisyui` parity
 Available today:
 
 - **Actions** — `Button`
-- **Forms** — `Input`, `Textarea`, `Toggle`, `Checkbox`, `Radio`, `Select`, `FormField`
+- **Forms** — `Input`, `Textarea`, `Toggle`, `Checkbox`, `Radio`, `Select`, `FormField`. All inputs support **two-way binding** via the sigx [`model`](https://sigx.dev/core/docs/two-way-binding) getter syntax (`model={() => state.field}`) — no `onChange` plumbing. `Toggle`/`Checkbox` also keep a static `checked` prop + `change` event; `Radio`/`Select` keep a static `value` for display-only initial selection and have no change callback (a prop named `value` trips the emit lookup), so use `model` for interactivity.
 - **Layout** — `Card`, `Divider`
 - **Navigation** — `Tabs`, `SwiperIndicator`; and `NavHeader` / `NavTabBar` / `NavDrawer` via the **`@sigx/lynx-heroui/navigation`** subpath (they need the optional `@sigx/lynx-navigation` peer, so they're kept off the root entrypoint — importing `@sigx/lynx-heroui` never forces navigation resolution):
 
