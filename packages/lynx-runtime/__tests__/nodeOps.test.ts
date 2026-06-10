@@ -431,6 +431,33 @@ describe('patchProp input value → INVOKE_UI_METHOD (#143, #404)', () => {
     expect(invokeOps(parseOps(drainOps()))).toHaveLength(0);
   });
 
+  it('skips the deferred setValue if the user typed during the deferral window (#404)', () => {
+    const { el, sign } = mountField('input', 'seed', true);
+
+    // User types before the timer fires — the bindinput event records it.
+    publishEvent(sign, { detail: { value: 'typed' } });
+    expect(el._lastInputValue).toBe('typed');
+    drainOps();
+
+    // The deferred sync must not clobber the typed text back to 'seed'.
+    vi.advanceTimersByTime(100);
+    expect(invokeOps(parseOps(drainOps()))).toHaveLength(0);
+  });
+
+  it('a same-value re-render during the window keeps the deferral, no early setValue (#404)', () => {
+    const { el } = mountField('input', 'seed');
+
+    // Unrelated re-render re-patches the SAME initial value before the timer.
+    nodeOps.patchProp(el, 'value', 'seed', 'seed');
+    expect(invokeOps(parseOps(drainOps()))).toHaveLength(0); // no iOS-too-early setValue
+
+    // The deferred sync still applies it once, after layout.
+    vi.advanceTimersByTime(100);
+    const deferred = invokeOps(parseOps(drainOps()));
+    expect(deferred).toHaveLength(1);
+    expect(deferred[0]![3]).toEqual({ value: 'seed' });
+  });
+
   it('a post-mount value change supersedes the not-yet-flushed initial value (#404)', () => {
     const { el } = mountField('input', 'seed');
 

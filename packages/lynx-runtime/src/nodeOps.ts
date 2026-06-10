@@ -125,9 +125,14 @@ export function flushPendingInitialValues(): void {
   for (const el of pendingInitialValues) {
     const v = el._pendingInitialValue;
     el._pendingInitialValue = undefined;
-    // Skip elements removed/detached before the timer fired (`parent == null`):
-    // the native node is gone, so a setValue would target nothing.
-    if (v != null && el.parent != null) {
+    // Skip when:
+    //  - removed/detached before the timer fired (`parent == null`) — the
+    //    native node is gone, so setValue would target nothing; or
+    //  - the field already has known content (`_lastInputValue` set by a
+    //    bindinput event from the user typing, or by a programmatic write)
+    //    during the deferral window — re-applying the initial value would
+    //    clobber what's there.
+    if (v != null && el.parent != null && el._lastInputValue === undefined) {
       pushOp(OP.INVOKE_UI_METHOD, el.id, 'setValue', { value: v });
       el._lastInputValue = v;
       emitted = true;
@@ -536,17 +541,25 @@ export const nodeOps: RendererOptions<ShadowElement, ShadowElement> = {
       // redundantly on later renders.
       const next = nextValue == null ? '' : String(nextValue);
       if (el.parent != null) {
-        // A post-mount value change supersedes any not-yet-flushed initial
-        // value, so the deferred setValue can't later clobber it (#404).
-        if (el._pendingInitialValue !== undefined) {
-          el._pendingInitialValue = undefined;
-          pendingInitialValues.delete(el);
-        }
-        if (next !== el._lastInputValue) {
-          pushOp(OP.INVOKE_UI_METHOD, el.id, 'setValue', { value: next });
-          // The programmatic write replaces whatever the user had typed; track
-          // it so the next echo comparison stays correct.
-          el._lastInputValue = next;
+        if (el._pendingInitialValue !== undefined && next === el._pendingInitialValue) {
+          // An (unrelated) re-render re-patched the same initial value before
+          // the deferred sync fired. Leave the deferral to apply it after the
+          // view is laid out — emitting now would be the iOS-too-early setValue
+          // the deferral exists to avoid. Keep pending; don't touch
+          // _lastInputValue. (#404)
+        } else {
+          // A post-mount value *change* supersedes any not-yet-flushed initial
+          // value, so the deferred setValue can't later clobber it (#404).
+          if (el._pendingInitialValue !== undefined) {
+            el._pendingInitialValue = undefined;
+            pendingInitialValues.delete(el);
+          }
+          if (next !== el._lastInputValue) {
+            pushOp(OP.INVOKE_UI_METHOD, el.id, 'setValue', { value: next });
+            // The programmatic write replaces whatever the user had typed;
+            // track it so the next echo comparison stays correct.
+            el._lastInputValue = next;
+          }
         }
       } else if (next !== '') {
         // Initial mount (props patched before insertion): iOS ignores the
