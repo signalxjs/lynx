@@ -61,4 +61,13 @@ describe('installDevErrorLogging', () => {
         installDevErrorLogging(); // no-op (guard set)
         expect(captured).toBe(first);
     });
+
+    it('drops dev-server / HMR noise (hot-update / CSS update failures)', () => {
+        installDevErrorLogging();
+        captured!(new Error('Failed to load CSS update file: foo.css.hot-update.json'));
+        captured!({ message: 'something.hot-update.json missing' });
+        expect(errorSpy).not.toHaveBeenCalled();
+        captured!(new Error('real app error')); // a genuine error still logs
+        expect(errorSpy).toHaveBeenCalledTimes(1);
+    });
 });

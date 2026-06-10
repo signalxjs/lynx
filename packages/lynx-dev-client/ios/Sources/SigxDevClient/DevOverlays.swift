@@ -72,6 +72,12 @@ public final class DevLifecycleClient: NSObject, LynxViewLifecycle {
     // Note the SDK's historical spelling "didRecieveError".
     public func lynxView(_ view: LynxView!, didRecieveError error: Error!) {
         let message = Self.describe(error)
+        // Drop dev-server / HMR artifacts (e.g. "Failed to load CSS update
+        // file …hot-update.json") — they fire constantly and aren't app errors.
+        if Self.isDevNoise(message) {
+            NSLog("[sigx-dev] (filtered HMR noise) %@", message)
+            return
+        }
         NSLog("[sigx-dev] Lynx error: %@", message)
         onMain {
             self.onLoadingChange(false)
@@ -79,9 +85,43 @@ public final class DevLifecycleClient: NSObject, LynxViewLifecycle {
         }
     }
 
+    /// Dev-server / HMR artifacts that aren't real app errors. Checks only the
+    /// HEADLINE (before `detailMarker`) so a stack frame mentioning "hot-update"
+    /// can't suppress a real error.
+    static func isDevNoise(_ message: String) -> Bool {
+        let head = (message.components(separatedBy: detailMarker).first ?? message).lowercased()
+        return head.contains("hot-update") || head.contains("failed to load css update file")
+    }
+
     /// Separates the human-readable REASON (shown by default) from the
     /// details/stack (hidden behind "Show stacktrace") with `detailMarker`.
     static let detailMarker = "##SIGX_STACKTRACE##"
+
+    /// Lynx routes JS/internal errors as a JSON blob (`{…"error":"{…rawError:
+    /// {message,stack}…}"…}`). Dig out the human message + stack so the overlay
+    /// shows those instead of the raw JSON. Returns `(head, nil)` unchanged when
+    /// it isn't a JSON blob.
+    static func cleanReason(_ head: String) -> (reason: String, stack: String?) {
+        let trimmed = head.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.hasPrefix("{"),
+              let data = trimmed.data(using: .utf8),
+              let outer = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+        else { return (head, nil) }
+
+        // The inner error may be a JSON string under "error", or already a dict.
+        var node = outer
+        if let errStr = outer["error"] as? String,
+           let d = errStr.data(using: .utf8),
+           let inner = try? JSONSerialization.jsonObject(with: d) as? [String: Any] {
+            node = inner
+        } else if let errObj = outer["error"] as? [String: Any] {
+            node = errObj
+        }
+        let raw = node["rawError"] as? [String: Any]
+        let reason = (raw?["message"] as? String) ?? (node["message"] as? String)
+        let stack = (raw?["stack"] as? String) ?? (node["stack"] as? String)
+        return (reason ?? head, stack)
+    }
 
     /// Lynx hands us a generic `NSError` whose `localizedDescription` is just
     /// "The operation couldn't be completed. (com.lynx.error error 0.)" — the
@@ -92,17 +132,16 @@ public final class DevLifecycleClient: NSObject, LynxViewLifecycle {
         let info = ns.userInfo
         var consumed: Set<String> = [NSLocalizedDescriptionKey]
 
-        // The human-readable REASON — keep it a concise headline. (We avoid
-        // `rawError`, which is often a multi-line JSON blob; it lands in the
-        // collapsible details below instead.)
-        var reason: String?
+        var rawReason: String?
         for k in ["message", "error_message", "reason"] {
-            if let s = info[k] as? String, !s.isEmpty { reason = s; consumed.insert(k); break }
+            if let s = info[k] as? String, !s.isEmpty { rawReason = s; consumed.insert(k); break }
         }
-        let head = reason ?? ns.localizedDescription
+        // Unwrap Lynx's JSON-blob errors → concise reason + stack.
+        let (head, jsonStack) = cleanReason(rawReason ?? ns.localizedDescription)
 
-        // Details: the stack first, then any remaining userInfo, then ctx.
+        // Details: the parsed/keyed stacks first, then remaining userInfo, then ctx.
         var details: [String] = []
+        if let jsonStack = jsonStack, !jsonStack.isEmpty { details.append("stack:\n\(jsonStack)") }
         for k in ["stackInfo", "stack", "error_stack"] {
             if let s = info[k] as? String, !s.isEmpty, !consumed.contains(k) {
                 details.append("\(k):\n\(s)")
@@ -343,16 +382,10 @@ public struct DevErrorOverlay: View {
 
                         VStack(alignment: .leading, spacing: 10) {
                             HStack(spacing: 12) {
+                                // Navigation is the ‹ N/M › pager up top — keep the
+                                // action row to three so it never cramps/wraps.
                                 button("Reload", filled: true, action: onReload)
                                 button(copyToast ?? "Copy", filled: false) { copy(fullText(current), label: "Copied") }
-                                if errors.count > 1 {
-                                    button("Copy all", filled: false) {
-                                        let all = errors.enumerated()
-                                            .map { "#\($0.offset + 1)\n\(fullText($0.element))" }
-                                            .joined(separator: "\n\n———\n\n")
-                                        copy(all, label: "Copied all")
-                                    }
-                                }
                                 button("Dismiss", filled: false, action: dismissCurrent)
                             }
                             Text("sigx dev client — shake device or open the dev menu for tools")
