@@ -45,8 +45,8 @@
         "clean": "node ../../scripts/clean.mjs dist .turbo"
     },
     "dependencies": {
-        "@sigx/reactivity": "^0.4.8",
-        "@sigx/runtime-core": "^0.4.8",
+        "@sigx/reactivity": "^0.4.9",
+        "@sigx/runtime-core": "^0.4.9",
         "@sigx/lynx-runtime": "workspace:^",
         "@sigx/lynx-http": "workspace:^",
         "@sigx/lynx-core": "workspace:^"

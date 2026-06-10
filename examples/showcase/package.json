@@ -55,9 +55,9 @@
         "@sigx/lynx-websocket": "workspace:^",
         "@sigx/lynx-webview": "workspace:^",
         "@sigx/lynx-zero": "workspace:^",
-        "@sigx/reactivity": "^0.4.8",
-        "@sigx/runtime-core": "^0.4.8",
-        "lucide": "^1.16.0",
+        "@sigx/reactivity": "^0.4.9",
+        "@sigx/runtime-core": "^0.4.9",
+        "lucide": "^1.17.0",
         "zod": "^4.4.3"
     },
     "devDependencies": {
@@ -66,7 +66,7 @@
         "@sigx/lynx-plugin": "workspace:^",
         "@sigx/lynx-dev-client": "workspace:^",
         "@lynx-js/rspeedy": ">=0.14.4",
-        "@lynx-js/web-core": ">=0.20.4",
+        "@lynx-js/web-core": ">=0.21.0",
         "@lynx-js/web-elements": ">=0.12.2",
         "@lynx-js/css-extract-webpack-plugin": ">=0.1.0",
         "@lynx-js/template-webpack-plugin": ">=0.11.1",
