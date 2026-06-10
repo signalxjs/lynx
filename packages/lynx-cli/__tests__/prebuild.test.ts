@@ -130,6 +130,17 @@ describe('scaffoldAndroid', () => {
         expect(gradle).toContain('targetSdk = 35');
         expect(gradle).toContain('compileSdk = 35');
     });
+
+    it('ships R8 -dontwarn for SmartRefreshLayout/material gap (#383)', () => {
+        const config = resolveConfig(TEST_CONFIG);
+        scaffoldAndroid(testDir, config);
+
+        const proguard = readFileSync(
+            join(testDir, 'android', 'app', 'proguard-rules.pro'),
+            'utf-8',
+        );
+        expect(proguard).toContain('-dontwarn com.google.android.material.appbar.**');
+    });
 });
 
 describe('network security config', () => {
