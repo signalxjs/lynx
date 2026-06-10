@@ -4,6 +4,127 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 ## [Unreleased]
 
+## [0.5.6] - 2026-06-10
+
+### Added
+
+- `@sigx/lynx-heroui` — Checkbox / Toggle / Radio / Select adopt the sigx `model` two-way binding, matching daisyUI (#405).
+
+### Fixed
+
+- `@sigx/lynx-runtime` — `<input>` / `<textarea>` `model` binding now displays the bound value (prefill / edit), not just write-back. The value is applied via a short deferred `setValue` after the native view is laid out, since iOS ignores the `value` attribute and an in-mount-batch `setValue` for initial display (#404).
+
+## [0.5.5] - 2026-06-10
+
+### Fixed
+
+- `@sigx/lynx-dev-client` — graceful 404 for missing CSS hot-update files, stopping a spurious HMR error (#396).
+- `@sigx/lynx-dev-client` — dedupe the error overlay with LogBox, filter HMR noise, and parse Lynx-JSON errors (#394).
+
+### Changed
+
+- `@sigx/lynx-plugin` — de-flake the icons-apply integration test (#398).
+- Docs — update the stale module count in the README (25+ → 40+) (#392).
+
+## [0.5.4] - 2026-06-10
+
+### Added
+
+- `@sigx/lynx-dev-client` — reason-first error overlay: collapsible stack, multi-error pager, copy (#389).
+- `@sigx/lynx-plugin` — transparent bare `fetch()` on Lynx via `ProvidePlugin` (#384).
+- `@sigx/lynx` — re-export `fetch` from the umbrella (Lynx 0.5.0 bare-fetch fix) + docs (#380).
+
+### Fixed
+
+- `@sigx/lynx-cli` — add R8 `-dontwarn` for the SmartRefreshLayout/material gap (#385).
+- `@sigx/lynx-richtext` (iOS) — guard `NSNumber` prop setters against `NSNull` (#381).
+
+### Changed
+
+- Docs — repoint homepage/docs links to sigx.dev and trim README drift (#388); surface logging/observability in the root README + showcase config (#382).
+
+## [0.5.3] - 2026-06-09
+
+### Added
+
+- `@sigx/lynx-dev-client` — surface uncaught errors in dev (terminal + richer iOS overlay) (#376).
+- `@sigx/lynx-cli` — `sigx doctor` checks `@sigx/lynx-*` version consistency + staleness (#372).
+- Logging — declarative `signalx.config.ts` config + release observability auto-wiring (Phase 2b) (#369).
+
+### Fixed
+
+- `@sigx/lynx-http` — global `fetch` must win on the Lynx runtime (Lynx 0.5.0 engine-fetch regression) (#374).
+
+### Changed
+
+- Docs — trim the README package tables, point to sigx.dev/lynx (#363).
+
+## [0.5.2] - 2026-06-09
+
+### Added
+
+- `@sigx/lynx-core` — logging layer: leveled + namespaced logger with HTTP request/timing logs (#352).
+- `@sigx/lynx-observability` — opt-in production error capture + provider-agnostic sinks (logging Phase 2) (#361).
+- `@sigx/lynx` — re-export the logger from the umbrella for app code (#359).
+- `@sigx/lynx-cli` — stable dev-server port + reload-on-reconnect (#350); invalidate build caches on a dependency version change (#353).
+- `@sigx/lynx-dev-client` — iOS dev-feature parity with Android + a connection banner (#357).
+
+### Fixed
+
+- `@sigx/lynx-dev-client` — stop double-logging device console lines in the dev terminal (#365).
+
+## [0.5.1] - 2026-06-09
+
+### Added
+
+- `showcase` — Fetch demo: status check, upload progress bar, streaming-markdown render (#345).
+
+### Fixed
+
+- `@sigx/lynx-http` — deliver fetch events as a JSON string so `Response.status` survives the Lynx 0.5.0 bridge (#343).
+
+## [0.5.0] - 2026-06-08
+
+Major release: the `@sigx/lynx-zero` neutral foundation + the `@sigx/lynx-heroui` pilot design system (epic #219), a web build target, and WHATWG `fetch`.
+
+### Added
+
+- `@sigx/lynx-zero` — neutral UI foundation: shared contract, style utils and press constants (#221); layout primitives `Row`/`Col`/`Center`/`Spacer`/`ScrollView` (#223, #224); theme engine moved from daisyui (#227); soft color tokens (#235); headless tabs selection context (#238); shared Tailwind preset (#242); `SwiperIndicator` hoisted from daisy (#317, #318).
+- `@sigx/lynx-heroui` — HeroUI pilot package + theme data (#231); pilot components + showcase Lab (#233); forms batch 1 — Textarea/Toggle/Checkbox/Radio (#297, #299); forms batch 2 + layout — Select/FormField/Divider (#300, #301); feedback + data — Badge/Alert/Loading/Progress/Skeleton/Steps/Avatar (#303, #304); `NavHeader` + `NavTabBar` (#324, #325); `NavDrawer` (daisy parity) (#328, #331).
+- Web target — `sigx run:web` build/serve/live-reload (#326, #327); web template emit from the plugin (#305); `Gesture.Tap` on web (#316, #319); LongPress + Pan gestures on web (#320, #321).
+- `@sigx/lynx-http` — WHATWG `fetch` + `FormData` multipart upload, default-wired through `@sigx/lynx` (#249, #253); streaming response bodies via `res.body.getReader()` for SSE (#250, #289).
+- `@sigx/lynx-daisyui` — two-way `model` binding for form controls (#323); Divider label slot (#217); `SwiperIndicator` index-only animation (#215); `NavTabBar` standalone mode (#214); `Text` `autoSize` for Lynx 3.8 (#167, #213); Button accessibility passthrough (#237, #246).
+- `@sigx/lynx-core`! — shared native runtime: `SigxActivityHolder` + iOS top-presenter (#257, #276).
+- `@sigx/lynx-navigation` — `'sheet'` presentation: partial-height bottom sheet with snap points (#259, #273).
+- `@sigx/lynx-datetime-picker` — native date/time picker module (#251).
+- `@sigx/lynx-file-picker` — generic native file picker + FileSystem binary read (#248, #252).
+- `@sigx/lynx-emoji` — themable emoji picker package (#218).
+- `@sigx/lynx-markdown`! — editor surface moves to the `./editor` subpath (#177, #245); block-level WYSIWYG — lists, blockquote, code block, headings 4–6, links (#153, #200); reference mention plugin (#157 part 2, #198); `MarkdownEditor` fullscreen overlay + fixed-mode polish (#154, #202).
+- `@sigx/lynx-richtext` — native mention chips: U+FFFC attachment pills + `insertChip` (#157 part 1, #184).
+- `@sigx/lynx-runtime` — install a web-standard `queueMicrotask` global in the BG bootstrap (#298).
+- `@sigx/lynx-cli` — device support & orientation (#197); icon & splash modernization (#195); post-prebuild hook (#190); iOS CI archivability (#187); exclude the iOS dev client from Release builds (#199); warn on x86_64 Android targets where Lynx SVG icons render blank (#270, #279).
+- Native — bump Lynx/PrimJS pins from 3.7.0 to 3.8.0 (#207).
+- `showcase` — HeroUI components area + Foundation page (#288, #295); DaisyUI component reference catalog (#209); searchable example catalog (#206).
+
+### Fixed
+
+- `@sigx/lynx-runtime-main` — apply animated styles via raw `__SetInlineStyles` on web (#312, #313); handle keyed moves in `<list>` diffing (#277).
+- Web — make tap→navigation work (Haptics no-op + gesture PAPI guard) (#310, #311); guard runtime `setProperty` so SignalX apps render on web (#307, #308).
+- `@sigx/lynx-runtime` — expand the inline-style `flex` shorthand into longhands (#266).
+- `@sigx/lynx-daisyui` — Modal no longer closes on taps inside the box (#268); themed text & placeholder colors on native Input/Textarea (#225, #243).
+- `@sigx/lynx-zero` — nested `ThemeProvider` no longer collapses to zero height inside scroll content (#269, #271); screen-theme subpath packaging + Modal placeholder alignment (#240).
+- `@sigx/lynx-cli` — keep the Android version catalog managed, `--clean` does a full re-scaffold (#334, #337); fix `run:ios` picking up a stale `.app` from another checkout's DerivedData (#244); restrict cleartext traffic to debug builds (#193).
+- `@sigx/lynx-permissions` — declared as a dependency of permission-using modules (#283); declare `androidx.fragment` 1.8.5 so `lintVitalRelease` passes (#191).
+- `@sigx/lynx-richtext` — qualify `CGFloat.greatestFiniteMagnitude` for Xcode 26 (#205); Android spans recolor live on theme switch (#155, #201).
+- Sheet — animation feel + drag-gesture fixes + showcase examples (#290, #291, #285, #284, #286, #258).
+
+### Changed
+
+- `@sigx/lynx-daisyui`! — color/variant split per the shared contract (#229).
+- Icon-color resolver hoisted to the zero `ThemeProvider` (#324, #325).
+- Docs — root README full-stack pitch rewrite (#275); README-upkeep rules in AGENTS.md (#267); document the built-in global `fetch` (#292, #293).
+- Chore — sync standard scripts from `signalxjs/repo-template` (#338); add `codecov.yml` patch-coverage gate (#339).
+
 ## [0.4.9] - 2026-06-05
 
 ### Added
