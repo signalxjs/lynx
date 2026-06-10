@@ -61,7 +61,9 @@ export const inputDemo: DaisyComponentDemo = {
         {
             title: 'Model binding',
             Demo: component(() => {
-                const text = signal('');
+                // Seeded with a value so the field is prefilled on first render —
+                // editing/restoring through `model` alone, not just typing (#404).
+                const text = signal('Ada Lovelace');
                 return () => (
                     <Col gap={8}>
                         <Input

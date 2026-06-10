@@ -96,6 +96,51 @@ const elementEventSigns = new Map<number, Map<string, string>>();
 // a multi-handler wrapper in the BG registry.
 const nativeEventSlots = new Map<number, Map<string, { sign: string; handlers: Map<string, (data: unknown) => void> }>>();
 
+// <input>/<textarea> elements whose non-empty initial value was captured at
+// mount (`el.parent == null`, before insertion). The `value` attribute set at
+// mount is honored by Android but ignored by iOS for initial display, and a
+// `setValue` UI method invoked in the mount batch is dropped too — the native
+// iOS input view isn't laid out yet. So the value is (re)applied via setValue
+// on a short deferred tick, once the view exists, which makes the model-bound
+// prefill appear on iOS while staying a harmless no-op repeat on Android. (#404)
+const pendingInitialValues = new Set<ShadowElement>();
+let initialValueFlushScheduled = false;
+
+// Delay before the deferred setValue. Long enough for the first native layout
+// pass (the input view must exist for setValue to take effect), short enough to
+// be barely perceptible. Post-mount programmatic value changes don't need this
+// (the field is already laid out) and go through patchProp's immediate path.
+const INITIAL_VALUE_SYNC_DELAY_MS = 50;
+
+/**
+ * Emit a deferred `setValue` for each input/textarea that captured a non-empty
+ * initial value at mount, seeding `_lastInputValue` so the first
+ * model-echo/programmatic comparison is correct. Exported for tests (which
+ * drive it directly instead of waiting on the timer).
+ */
+export function flushPendingInitialValues(): void {
+  initialValueFlushScheduled = false;
+  if (pendingInitialValues.size === 0) return;
+  for (const el of pendingInitialValues) {
+    const v = el._pendingInitialValue;
+    if (v != null) {
+      pushOp(OP.INVOKE_UI_METHOD, el.id, 'setValue', { value: v });
+      el._lastInputValue = v;
+      el._pendingInitialValue = undefined;
+    }
+  }
+  pendingInitialValues.clear();
+  scheduleFlush();
+}
+
+/** Register an input/textarea for a deferred initial-value setValue (coalesced). */
+function scheduleInitialValueSync(el: ShadowElement): void {
+  pendingInitialValues.add(el);
+  if (initialValueFlushScheduled) return;
+  initialValueFlushScheduled = true;
+  setTimeout(flushPendingInitialValues, INITIAL_VALUE_SYNC_DELAY_MS);
+}
+
 /**
  * Test-only: clear the module-level per-element maps above. They are keyed by
  * element id, so a test suite that recycles ids via `resetShadowState()`
@@ -107,6 +152,8 @@ export function resetNodeOpsState(): void {
   sentWorklets.clear();
   elementEventSigns.clear();
   nativeEventSlots.clear();
+  pendingInitialValues.clear();
+  initialValueFlushScheduled = false;
 }
 
 // ---------------------------------------------------------------------------
@@ -321,20 +368,6 @@ export const nodeOps: RendererOptions<ShadowElement, ShadowElement> = {
 
     const anchorId = resolvedAnchor ? resolvedAnchor.id : -1;
     pushOp(OP.INSERT, parent.id, child.id, anchorId);
-
-    // Flush a non-empty initial <input>/<textarea> value captured at mount,
-    // now that the element is live and the setValue UI method can target it.
-    // iOS ignores the `value` attribute for initial display, so this is what
-    // makes a model-bound prefill actually appear (#404). Seed _lastInputValue
-    // so the first echo/programmatic comparison stays correct, then clear.
-    if (child._pendingInitialValue != null) {
-      pushOp(OP.INVOKE_UI_METHOD, child.id, 'setValue', {
-        value: child._pendingInitialValue,
-      });
-      child._lastInputValue = child._pendingInitialValue;
-      child._pendingInitialValue = undefined;
-    }
-
     scheduleFlush();
   },
 
@@ -499,6 +532,12 @@ export const nodeOps: RendererOptions<ShadowElement, ShadowElement> = {
       // redundantly on later renders.
       const next = nextValue == null ? '' : String(nextValue);
       if (el.parent != null) {
+        // A post-mount value change supersedes any not-yet-flushed initial
+        // value, so the deferred setValue can't later clobber it (#404).
+        if (el._pendingInitialValue !== undefined) {
+          el._pendingInitialValue = undefined;
+          pendingInitialValues.delete(el);
+        }
         if (next !== el._lastInputValue) {
           pushOp(OP.INVOKE_UI_METHOD, el.id, 'setValue', { value: next });
           // The programmatic write replaces whatever the user had typed; track
@@ -506,14 +545,14 @@ export const nodeOps: RendererOptions<ShadowElement, ShadowElement> = {
           el._lastInputValue = next;
         }
       } else if (next !== '') {
-        // Initial mount: props are patched before insertion, so the element
-        // isn't live yet and a setValue UI method can't target it. iOS ignores
-        // the `value` attribute for initial display (only setValue updates the
-        // field), so a model-bound prefill would show only the placeholder.
-        // Stash the value; insert() flushes setValue once the element is in the
-        // tree. An empty initial value needs no setValue (the attribute covers
-        // it), matching the previous mount behavior. (#404)
+        // Initial mount (props patched before insertion): iOS ignores the
+        // `value` attribute for initial display and drops a setValue invoked
+        // before the input view is laid out, so a model-bound prefill would
+        // show only the placeholder. Stash the value and (re)apply it via a
+        // short deferred setValue once the view exists. An empty initial value
+        // needs nothing extra (the attribute covers it). (#404)
         el._pendingInitialValue = next;
+        scheduleInitialValueSync(el);
       }
     } else {
       pushOp(OP.SET_PROP, el.id, key, nextValue);
