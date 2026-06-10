@@ -49,7 +49,7 @@
         "url": "git+https://github.com/signalxjs/lynx.git",
         "directory": "packages/lynx-gestures"
     },
-    "homepage": "https://github.com/signalxjs/lynx/tree/main/packages/lynx-gestures",
+    "homepage": "https://sigx.dev/lynx/modules/gestures/overview/",
     "bugs": {
         "url": "https://github.com/signalxjs/lynx/issues"
     },

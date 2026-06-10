@@ -67,7 +67,7 @@
         "url": "git+https://github.com/signalxjs/lynx.git",
         "directory": "packages/lynx-testing"
     },
-    "homepage": "https://github.com/signalxjs/lynx/tree/main/packages/lynx-testing",
+    "homepage": "https://sigx.dev/lynx/modules/testing/overview/",
     "bugs": {
         "url": "https://github.com/signalxjs/lynx/issues"
     },

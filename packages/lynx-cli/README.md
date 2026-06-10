@@ -1,101 +1,19 @@
 # @sigx/lynx-cli
 
-The Lynx plugin for [`@sigx/cli`](https://github.com/signalxjs/cli/tree/main/packages/cli) — adds `dev`, `build`, `prebuild`, `doctor`, `run:android`, `run:ios`, and `run:web` commands for SignalX projects targeting [Lynx](https://lynxjs.org/).
+The Lynx plugin for [`@sigx/cli`](https://sigx.dev/cli/) — adds `dev`, `build`, `prebuild`, `doctor`, `run:android`, `run:ios`, and `run:web` commands for SignalX projects targeting [Lynx](https://lynxjs.org/).
 
-This package is auto-installed when you scaffold a Lynx project:
+This package is auto-installed when you scaffold a Lynx project, so you rarely depend on it directly:
 
 ```bash
 npm create @sigx@latest my-app
 # pick: lynx (or lynx-tailwind)
 ```
 
-## What you get
+It gives you a single toolchain — start a dev server with HMR and streamed device logs, produce production bundles, generate and auto-link native iOS/Android projects, diagnose your toolchain, and run on a device, simulator, or the browser.
 
-| Command | Description |
-|---|---|
-| `sigx dev`         | Start the rspeedy dev server with HMR. Claims a stable port (default `8788`) and keeps it across restarts so a running app reconnects and reloads itself automatically. JS `console.*` from running devices is streamed back to the terminal; pass `--no-device-logs` to disable. |
-| `sigx build`       | Production bundle for both Lynx runtime tiers |
-| `sigx prebuild`    | Generate `ios/` and `android/` native projects from your config + auto-link installed `@sigx/lynx-*` modules |
-| `sigx doctor`      | Verify your toolchain (rspeedy, JDK, ADB, Xcode, CocoaPods, devices) |
-| `sigx run:android` | `prebuild` → install via Gradle → launch on the connected device |
-| `sigx run:ios`     | `prebuild` → `pod install` → build and launch on the iOS simulator |
-| `sigx run:web`     | Build the web bundle, serve it in the browser via Lynx for Web, and live-reload on change |
+## 📚 Documentation
 
-### Dev server reliability
-
-`sigx dev` claims one **stable port per project** (default `8788`) and records
-it in `node_modules/.cache/@sigx/lynx-cli/dev-server.json`. On restart it
-reclaims the same port from the previous (now-exited) session instead of
-walking to a new one, so an already-running app — whose dev-server URL is baked
-into its bundle — reconnects to the same address. If a `sigx dev` is **already
-running** for the project, a second one refuses to start rather than silently
-spawning another server on a different port (stop the first, or pass
-`--port <n>`).
-
-Each server run carries a build id. When an app reconnects to a server whose
-build id differs from the one in its running bundle (i.e. the server was
-restarted), the dev client **reloads itself** to pick up the latest bundle.
-
-### Build caching
-
-`sigx dev` / `run:android` / `run:ios` skip native-project regeneration and
-native rebuilds via fingerprint caches under `node_modules/.cache/@sigx/lynx-cli/`
-(`sigx build` just runs `rspeedy build` and isn't governed by these). Those
-fingerprints include the **JS lockfile**, so bumping a `@sigx/lynx-*` dependency
-and reinstalling invalidates them automatically — you get the new code without a
-manual cache wipe.
-
-rspack/rsbuild keep their own persistent cache (under `dist/`, `.rsbuild/`, and
-`node_modules/.cache`) that the fingerprints don't govern. If you ever need a
-guaranteed-clean rebuild (or hit a stale bundle after an unusual dependency
-change), pass `--reset-cache` to `dev` / `build` / `run:android` / `run:ios`:
-
-```bash
-sigx dev --reset-cache
-sigx build --reset-cache
-sigx run:android --reset-cache
-sigx run:ios --reset-cache
-```
-
-It wipes those caches before building while preserving the dev-server port lock
-and target history (also under `node_modules/.cache/@sigx/lynx-cli/`).
-
-The plugin is auto-discovered by `@sigx/cli` because of this entry in its `package.json`:
-
-```json
-{
-    "sigx-cli": { "plugin": "./dist/plugin.js" }
-}
-```
-
-## Running on the web
-
-`sigx run:web` runs your app in a desktop browser through upstream
-[Lynx for Web](https://lynxjs.org/) (`@lynx-js/web-core`) — handy for quick
-previews, sharing a link, or debugging UI with browser devtools. It builds the
-web bundle (`rspeedy build --environment web`), then serves it together with the
-web-core engine and a generated `<lynx-view>` host page on a local port, and
-opens your browser. Edit a source file and the browser reloads automatically.
-
-```bash
-sigx run:web                 # build, serve, open the browser, watch for changes
-sigx run:web --port 9000     # pick the port (default: 8900)
-sigx run:web --no-open       # don't open a browser
-sigx run:web --no-watch      # build + serve once, no live reload
-sigx run:web --host          # also expose on your LAN
-```
-
-Requirements & notes:
-
-- Your `lynx.config.ts` must declare a web environment:
-  `environments: { lynx: {}, web: {} }`.
-- The page is served with cross-origin-isolation (COOP/COEP) headers, which
-  `web-core` needs for `SharedArrayBuffer`. This works on `localhost` (a secure
-  context); a plain-http LAN address (`--host`) is **not** isolated, so some
-  features may degrade there.
-- Live reload is a **full reload** (re-fetch the bundle), not hot-swap — Lynx's
-  HMR transport is device-oriented and is off for the web target (matching
-  upstream).
+Full command reference, dev-server and caching details, web target setup and native-module auto-linking → **[sigx.dev/lynx/modules/cli/overview](https://sigx.dev/lynx/modules/cli/overview/)**
 
 ## Auto-linking
 
@@ -117,4 +35,4 @@ MIT — © Andreas Ekdahl
 
 ---
 
-Part of [SignalX for Lynx](https://github.com/signalxjs/lynx) — the SignalX runtime, components, and native modules for building Lynx apps with a React-like API.
+Part of [SignalX for Lynx](https://sigx.dev/lynx/) — the SignalX runtime, components, and native modules for building Lynx apps with a React-like API.

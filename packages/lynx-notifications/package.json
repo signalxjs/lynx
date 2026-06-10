@@ -40,7 +40,7 @@
         "url": "git+https://github.com/signalxjs/lynx.git",
         "directory": "packages/lynx-notifications"
     },
-    "homepage": "https://github.com/signalxjs/lynx/tree/main/packages/lynx-notifications",
+    "homepage": "https://sigx.dev/lynx/modules/notifications/overview/",
     "bugs": {
         "url": "https://github.com/signalxjs/lynx/issues"
     },

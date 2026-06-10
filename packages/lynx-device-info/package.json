@@ -37,7 +37,7 @@
         "url": "git+https://github.com/signalxjs/lynx.git",
         "directory": "packages/lynx-device-info"
     },
-    "homepage": "https://github.com/signalxjs/lynx/tree/main/packages/lynx-device-info",
+    "homepage": "https://sigx.dev/lynx/modules/device-info/overview/",
     "bugs": {
         "url": "https://github.com/signalxjs/lynx/issues"
     },

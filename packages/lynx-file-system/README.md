@@ -1,5 +1,10 @@
 # @sigx/lynx-file-system
 File read/write/delete plus document and cache directory paths for sigx-lynx. Scoped to the app's sandbox — no broad storage access required.
+
+## 📚 Documentation
+
+Full guides, API reference and live examples → **[https://sigx.dev/lynx/modules/file-system/overview/](https://sigx.dev/lynx/modules/file-system/overview/)**
+
 ## Install
 ```bash
 pnpm add @sigx/lynx-file-system

@@ -74,7 +74,7 @@
         "url": "git+https://github.com/signalxjs/lynx.git",
         "directory": "packages/lynx-heroui"
     },
-    "homepage": "https://github.com/signalxjs/lynx/tree/main/packages/lynx-heroui",
+    "homepage": "https://sigx.dev/lynx/modules/heroui/overview/",
     "bugs": {
         "url": "https://github.com/signalxjs/lynx/issues"
     },

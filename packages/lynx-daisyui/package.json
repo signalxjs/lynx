@@ -26,7 +26,7 @@
         "url": "git+https://github.com/signalxjs/lynx.git",
         "directory": "packages/lynx-daisyui"
     },
-    "homepage": "https://github.com/signalxjs/lynx/tree/main/packages/lynx-daisyui",
+    "homepage": "https://sigx.dev/lynx/modules/daisyui/overview/",
     "bugs": {
         "url": "https://github.com/signalxjs/lynx/issues"
     },

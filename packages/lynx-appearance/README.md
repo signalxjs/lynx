@@ -2,6 +2,10 @@
 
 System color-scheme observer + status-bar / navigation-bar tint setters for sigx-lynx. The native publisher writes `lynx.__globalProps.appearance` before MT first paint, so the initial light/dark value is available on cold start with no flash; subsequent system flips publish through `GlobalEventEmitter` and update a BG signal.
 
+## 📚 Documentation
+
+Full guides, API reference and live examples → **[https://sigx.dev/lynx/modules/appearance/overview/](https://sigx.dev/lynx/modules/appearance/overview/)**
+
 ## Install
 
 ```bash
@@ -84,7 +88,7 @@ All setters return `Promise<SetterResult>` and **never reject** — unwired plat
 ## Gotchas
 
 - **iOS status-bar style needs host VC forwarding.** `setStatusBarStyle(...)` resolves successfully but won't visibly change anything unless the host view controller forwards `preferredStatusBarStyle` to `AppearanceModule.preferredStatusBarStyle`. The lynx-cli iOS template does this automatically; if you're integrating into an existing UIViewController, copy the forwarding pattern.
-- **Android 15+ (API 35) edge-to-edge.** `setStatusBarBackgroundColor` is a no-op at the system level on API 35+ because edge-to-edge is enforced. Render your own background view inside the safe-area top padding instead — pairs naturally with [`@sigx/lynx-safe-area`](https://github.com/signalxjs/lynx/tree/main/packages/lynx-safe-area).
+- **Android 15+ (API 35) edge-to-edge.** `setStatusBarBackgroundColor` is a no-op at the system level on API 35+ because edge-to-edge is enforced. Render your own background view inside the safe-area top padding instead — pairs naturally with [`@sigx/lynx-safe-area`](https://sigx.dev/lynx/modules/safe-area/overview/).
 - **`'light'` vs `'dark'` is the *content* tint, not the background.** `style: 'light'` means "light-colored icons" (so a dark background behind them is legible). Easy to flip the wrong way the first time.
 - **Cold-start value.** `readGlobalColorScheme()` reads the value the native publisher wrote before first paint. If it returns `null` (e.g. running on a host that didn't link the publisher), the hook seeds `'light'` as a safe default.
 

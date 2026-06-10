@@ -1,5 +1,10 @@
 # @sigx/lynx-share
 Native share dialog for sigx-lynx. `UIActivityViewController` on iOS, `Intent.ACTION_SEND` chooser on Android.
+
+## 📚 Documentation
+
+Full guides, API reference and live examples → **[https://sigx.dev/lynx/modules/share/overview/](https://sigx.dev/lynx/modules/share/overview/)**
+
 ## Install
 ```bash
 pnpm add @sigx/lynx-share

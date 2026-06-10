@@ -32,7 +32,7 @@
         "url": "git+https://github.com/signalxjs/lynx.git",
         "directory": "packages/lynx-runtime-internal"
     },
-    "homepage": "https://github.com/signalxjs/lynx/tree/main/packages/lynx-runtime-internal",
+    "homepage": "https://sigx.dev/lynx/",
     "bugs": {
         "url": "https://github.com/signalxjs/lynx/issues"
     },

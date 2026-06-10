@@ -1,5 +1,10 @@
 # @sigx/lynx-haptics
 Vibration and haptic feedback for sigx-lynx. Maps to `UIImpactFeedbackGenerator` / `UINotificationFeedbackGenerator` / `UISelectionFeedbackGenerator` on iOS and `Vibrator` (with `VibrationEffect` amplitude control where available) on Android.
+
+## 📚 Documentation
+
+Full guides, API reference and live examples → **[https://sigx.dev/lynx/modules/haptics/overview/](https://sigx.dev/lynx/modules/haptics/overview/)**
+
 ## Install
 ```bash
 pnpm add @sigx/lynx-haptics

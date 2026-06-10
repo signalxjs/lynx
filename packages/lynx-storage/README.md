@@ -1,5 +1,10 @@
 # @sigx/lynx-storage
 Persistent key-value storage for sigx-lynx. `UserDefaults` on iOS, `SharedPreferences` on Android. Same shape as `localStorage` / `AsyncStorage` (string keys, string values).
+
+## 📚 Documentation
+
+Full guides, API reference and live examples → **[https://sigx.dev/lynx/modules/storage/overview/](https://sigx.dev/lynx/modules/storage/overview/)**
+
 ## Install
 ```bash
 pnpm add @sigx/lynx-storage

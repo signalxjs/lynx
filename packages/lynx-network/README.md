@@ -1,5 +1,10 @@
 # @sigx/lynx-network
 Network connectivity status for sigx-lynx. `NWPathMonitor` on iOS, `ConnectivityManager` on Android.
+
+## 📚 Documentation
+
+Full guides, API reference and live examples → **[https://sigx.dev/lynx/modules/network/overview/](https://sigx.dev/lynx/modules/network/overview/)**
+
 ## Install
 ```bash
 pnpm add @sigx/lynx-network

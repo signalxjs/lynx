@@ -1,8 +1,12 @@
 # @sigx/lynx-runtime-internal
 
-> **Internal package.** Shared type declarations only. If you're writing application code, depend on [`@sigx/lynx`](https://github.com/signalxjs/lynx/tree/main/packages/lynx) instead — the public surface is re-exported there.
+> **Internal package.** Shared type declarations only. If you're writing application code, depend on [`@sigx/lynx`](https://sigx.dev/lynx/) instead — the public surface is re-exported there.
 
-Shared types for the BG ↔ MT wire protocol used by [`@sigx/lynx-runtime`](https://github.com/signalxjs/lynx/tree/main/packages/lynx-runtime) and [`@sigx/lynx-runtime-main`](https://github.com/signalxjs/lynx/tree/main/packages/lynx-runtime-main). Re-exports nothing user-facing; ship-time decoupling only.
+Shared types for the BG ↔ MT wire protocol used by [`@sigx/lynx-runtime`](https://sigx.dev/lynx/modules/runtime/overview/) and [`@sigx/lynx-runtime-main`](https://sigx.dev/lynx/modules/runtime-main/overview/). Re-exports nothing user-facing; ship-time decoupling only.
+
+## 📚 Documentation
+
+Full guides, API reference and live examples → **[https://sigx.dev/lynx/](https://sigx.dev/lynx/)**
 
 ## Contents
 

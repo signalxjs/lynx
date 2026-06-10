@@ -1,6 +1,10 @@
 # @sigx/lynx-file-picker
 Pick **any file** from the device for sigx-lynx. iOS uses `UIDocumentPickerViewController` (iOS 14+); Android uses the Storage Access Framework (`OpenDocument` / `OpenMultipleDocuments`).
 
+## 📚 Documentation
+
+Full guides, API reference and live examples → **[https://sigx.dev/lynx/modules/file-picker/overview/](https://sigx.dev/lynx/modules/file-picker/overview/)**
+
 > **Two pickers, two UIs.** This is the *generic* file picker (Files app / SAF document browser) — it can pick anything, media included. For the photo-library grid UX (PHPicker / Android Photo Picker) use `@sigx/lynx-image-picker` — the OS ships two distinct picker UIs and so do we.
 
 ## Install
@@ -8,7 +12,7 @@ Pick **any file** from the device for sigx-lynx. iOS uses `UIDocumentPickerViewC
 pnpm add @sigx/lynx-file-picker
 ```
 `sigx prebuild` auto-discovers the package and links the native module. No permissions and no iOS usage descriptions are needed — both platform pickers grant per-pick access on the fly.
-On Android the Activity Result wiring comes from [`@sigx/lynx-permissions`](../lynx-permissions), a dependency of this package — the auto-linker pulls it in, nothing to install.
+On Android the Activity Result wiring comes from [`@sigx/lynx-permissions`](https://sigx.dev/lynx/modules/permissions/overview/), a dependency of this package — the auto-linker pulls it in, nothing to install.
 ## Usage
 ```ts
 import { FilePicker } from '@sigx/lynx-file-picker';

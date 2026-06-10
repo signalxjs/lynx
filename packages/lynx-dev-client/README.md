@@ -4,6 +4,10 @@ Dev-only client for sigx-lynx apps: resource fetchers, template provider, devtoo
 
 Install it as a `devDependency`; `@sigx/lynx-cli`'s autolinker picks it up from `node_modules` automatically — like every other `@sigx/lynx-*` module.
 
+## 📚 Documentation
+
+Full guides, API reference and live examples → **[https://sigx.dev/lynx/modules/dev-client/overview/](https://sigx.dev/lynx/modules/dev-client/overview/)**
+
 ## Install
 
 ```bash

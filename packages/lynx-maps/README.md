@@ -2,6 +2,10 @@
 
 Native map view for sigx-lynx. Backed by:
 
+## 📚 Documentation
+
+Full guides, API reference and live examples → **[https://sigx.dev/lynx/modules/maps/overview/](https://sigx.dev/lynx/modules/maps/overview/)**
+
 - **iOS** — `MKMapView` (Apple Maps, no key required).
 - **Android** — `com.google.android.gms.maps.MapView` (Google Maps,
   requires an API key — see [setup](#android-api-key-setup) below).

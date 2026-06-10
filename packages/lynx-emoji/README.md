@@ -6,6 +6,10 @@ every major chat app) the picker is rendered in-framework, backed by a
 compact dataset generated from [emojibase](https://emojibase.dev) (MIT,
 Unicode 17).
 
+## 📚 Documentation
+
+Full guides, API reference and live examples → **[https://sigx.dev/lynx/modules/emoji/overview/](https://sigx.dev/lynx/modules/emoji/overview/)**
+
 - **Headless components** — `EmojiPicker` (search + category tabs + grid +
   skin-tone popover), or compose `EmojiGrid` / `SearchInput` /
   `CategoryTabBar` / `SkinTonePopover` yourself. Theme via the

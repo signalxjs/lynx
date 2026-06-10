@@ -63,7 +63,7 @@
         "url": "git+https://github.com/signalxjs/lynx.git",
         "directory": "packages/lynx-navigation"
     },
-    "homepage": "https://github.com/signalxjs/lynx/tree/main/packages/lynx-navigation",
+    "homepage": "https://sigx.dev/lynx/modules/navigation/overview/",
     "bugs": {
         "url": "https://github.com/signalxjs/lynx/issues"
     },

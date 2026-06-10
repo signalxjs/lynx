@@ -1,8 +1,12 @@
 # @sigx/lynx-icons-fa-free
 
-[Font Awesome Free](https://fontawesome.com/icons?d=gallery&p=2&m=free) adapter for [`@sigx/lynx-icons`](https://github.com/signalxjs/lynx/tree/main/packages/lynx-icons). Reads glyph data from the official `@fortawesome/*` packages — no glyph data is re-bundled here, so adapter updates and FA releases stay decoupled.
+[Font Awesome Free](https://fontawesome.com/icons?d=gallery&p=2&m=free) adapter for [`@sigx/lynx-icons`](https://sigx.dev/lynx/modules/icons/overview/). Reads glyph data from the official `@fortawesome/*` packages — no glyph data is re-bundled here, so adapter updates and FA releases stay decoupled.
 
 Supports the three Free styles: **solid**, **regular**, **brands**.
+
+## 📚 Documentation
+
+Full guides, API reference and live examples → **[https://sigx.dev/lynx/modules/icons-fa/overview/](https://sigx.dev/lynx/modules/icons-fa/overview/)**
 
 ## Install
 

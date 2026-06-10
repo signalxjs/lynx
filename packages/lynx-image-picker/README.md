@@ -1,5 +1,10 @@
 # @sigx/lynx-image-picker
 Pick photos and videos from the system gallery for sigx-lynx. iOS uses `PHPickerViewController` (iOS 14+) / `UIImagePickerController` (older); Android uses the system photo picker (Android 13+) / `ACTION_OPEN_DOCUMENT` (older).
+
+## 📚 Documentation
+
+Full guides, API reference and live examples → **[https://sigx.dev/lynx/modules/image-picker/overview/](https://sigx.dev/lynx/modules/image-picker/overview/)**
+
 ## Install
 ```bash
 pnpm add @sigx/lynx-image-picker
@@ -8,7 +13,7 @@ pnpm add @sigx/lynx-image-picker
 - `READ_MEDIA_IMAGES`
 - `READ_MEDIA_VIDEO`
 - `READ_EXTERNAL_STORAGE` (older API levels)
-On Android the Activity Result wiring comes from [`@sigx/lynx-permissions`](../lynx-permissions), a dependency of this package — the auto-linker pulls it in, nothing to install.
+On Android the Activity Result wiring comes from [`@sigx/lynx-permissions`](https://sigx.dev/lynx/modules/permissions/overview/), a dependency of this package — the auto-linker pulls it in, nothing to install.
 ## Usage
 ```ts
 import { ImagePicker } from '@sigx/lynx-image-picker';

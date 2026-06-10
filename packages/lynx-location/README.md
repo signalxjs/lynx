@@ -1,5 +1,10 @@
 # @sigx/lynx-location
 GPS / network location for sigx-lynx. `CLLocationManager` on iOS, `FusedLocationProviderClient` on Android.
+
+## 📚 Documentation
+
+Full guides, API reference and live examples → **[https://sigx.dev/lynx/modules/location/overview/](https://sigx.dev/lynx/modules/location/overview/)**
+
 ## Install
 ```bash
 pnpm add @sigx/lynx-location
@@ -10,7 +15,7 @@ pnpm add @sigx/lynx-location
 …and the Android permissions:
 - `ACCESS_FINE_LOCATION`
 - `ACCESS_COARSE_LOCATION`
-On Android the runtime permission prompt comes from [`@sigx/lynx-permissions`](../lynx-permissions), a dependency of this package — the auto-linker pulls it in, nothing to install.
+On Android the runtime permission prompt comes from [`@sigx/lynx-permissions`](https://sigx.dev/lynx/modules/permissions/overview/), a dependency of this package — the auto-linker pulls it in, nothing to install.
 ## Usage
 ```ts
 import { Location } from '@sigx/lynx-location';

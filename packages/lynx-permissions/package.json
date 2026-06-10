@@ -38,7 +38,7 @@
         "url": "git+https://github.com/signalxjs/lynx.git",
         "directory": "packages/lynx-permissions"
     },
-    "homepage": "https://github.com/signalxjs/lynx/tree/main/packages/lynx-permissions",
+    "homepage": "https://sigx.dev/lynx/modules/permissions/overview/",
     "bugs": {
         "url": "https://github.com/signalxjs/lynx/issues"
     },

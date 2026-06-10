@@ -1,8 +1,12 @@
 # @sigx/lynx-icons-lucide
 
-[Lucide](https://lucide.dev/) adapter for [`@sigx/lynx-icons`](https://github.com/signalxjs/lynx/tree/main/packages/lynx-icons). Reads icon data from the official `lucide` package and renders each glyph as a stroked SVG with the wrapper attributes (`fill="none"`, `stroke="currentColor"`, `stroke-width="2"`, rounded caps/joins) that match the Lucide design.
+[Lucide](https://lucide.dev/) adapter for [`@sigx/lynx-icons`](https://sigx.dev/lynx/modules/icons/overview/). Reads icon data from the official `lucide` package and renders each glyph as a stroked SVG with the wrapper attributes (`fill="none"`, `stroke="currentColor"`, `stroke-width="2"`, rounded caps/joins) that match the Lucide design.
 
 SVG-mode only — Lucide isn't distributed as a font.
+
+## 📚 Documentation
+
+Full guides, API reference and live examples → **[https://sigx.dev/lynx/modules/icons-lucide/overview/](https://sigx.dev/lynx/modules/icons-lucide/overview/)**
 
 ## Install
 

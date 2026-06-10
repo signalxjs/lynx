@@ -1,8 +1,12 @@
 # @sigx/lynx-observability
 
-Opt-in **production error capture** and **provider-agnostic log/error sinks** for sigx-lynx. Builds on the logger in [`@sigx/lynx-core`](https://github.com/signalxjs/lynx/tree/main/packages/lynx-core#logging): uncaught errors are funneled in as `error`-level records, and a "sink" is just a `LogTransport`. No hard dependency on any vendor SDK.
+Opt-in **production error capture** and **provider-agnostic log/error sinks** for sigx-lynx. Builds on the logger in [`@sigx/lynx-core`](https://sigx.dev/lynx/modules/core/overview/): uncaught errors are funneled in as `error`-level records, and a "sink" is just a `LogTransport`. No hard dependency on any vendor SDK.
 
 > Logging itself ships in the framework (`import { createLogger } from '@sigx/lynx'`). This package adds the *production* pieces — catching crashes and shipping records off-device — and is installed only when you want them.
+
+## 📚 Documentation
+
+Full guides, API reference and live examples → **[https://sigx.dev/lynx/](https://sigx.dev/lynx/)**
 
 ## Install
 

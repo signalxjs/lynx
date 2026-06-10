@@ -62,7 +62,7 @@
         "url": "git+https://github.com/signalxjs/lynx.git",
         "directory": "packages/lynx-icons-fa-free"
     },
-    "homepage": "https://github.com/signalxjs/lynx/tree/main/packages/lynx-icons-fa-free",
+    "homepage": "https://sigx.dev/lynx/modules/icons-fa/overview/",
     "bugs": {
         "url": "https://github.com/signalxjs/lynx/issues"
     },

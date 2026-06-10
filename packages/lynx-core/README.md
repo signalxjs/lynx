@@ -1,8 +1,12 @@
 # @sigx/lynx-core
 
-> **Low-level internals.** Most app code should import from [`@sigx/lynx`](https://github.com/signalxjs/lynx/tree/main/packages/lynx) or the specific module package (`@sigx/lynx-camera`, `@sigx/lynx-haptics`, …). This package's API is intended for authors of new native modules.
+> **Low-level internals.** Most app code should import from [`@sigx/lynx`](https://sigx.dev/lynx/) or the specific module package (`@sigx/lynx-camera`, `@sigx/lynx-haptics`, …). This package's API is intended for authors of new native modules.
 
 Low-level native-module bridge for sigx-lynx. Every `@sigx/lynx-*` native module package (`-camera`, `-haptics`, `-storage`, `-network`, …) depends on this for its iOS/Android plumbing.
+
+## 📚 Documentation
+
+Full guides, API reference and live examples → **[https://sigx.dev/lynx/modules/core/overview/](https://sigx.dev/lynx/modules/core/overview/)**
 
 ## API
 

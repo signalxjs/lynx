@@ -44,7 +44,7 @@
         "url": "git+https://github.com/signalxjs/lynx.git",
         "directory": "packages/lynx-dev-client"
     },
-    "homepage": "https://github.com/signalxjs/lynx/tree/main/packages/lynx-dev-client",
+    "homepage": "https://sigx.dev/lynx/modules/dev-client/overview/",
     "bugs": {
         "url": "https://github.com/signalxjs/lynx/issues"
     },

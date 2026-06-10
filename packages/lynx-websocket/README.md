@@ -9,6 +9,10 @@ portable web code works unchanged.
 > Lynx already ships a global `fetch()`. See [Networking](#networking)
 > below.
 
+## 📚 Documentation
+
+Full guides, API reference and live examples → **[https://sigx.dev/lynx/modules/websocket/overview/](https://sigx.dev/lynx/modules/websocket/overview/)**
+
 ## Install
 
 ```bash
@@ -127,7 +131,7 @@ re-attaching to.
 - **HTTP**: just call `fetch()` — it's a built-in Lynx global. No package
   needed. See [upstream Lynx fetch docs](https://lynxjs.org/api/lynx-api/global/fetch.html)
   for the Lynx subset (no CORS / redirect / keepalive / FormData / Blob).
-- **Connectivity**: [`@sigx/lynx-network`](https://github.com/signalxjs/lynx/tree/main/packages/lynx-network) for online /
+- **Connectivity**: [`@sigx/lynx-network`](https://sigx.dev/lynx/modules/network/overview/) for online /
   offline and connection-type state.
 
 ## Smoke test

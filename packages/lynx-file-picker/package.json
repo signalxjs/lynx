@@ -38,7 +38,7 @@
         "url": "git+https://github.com/signalxjs/lynx.git",
         "directory": "packages/lynx-file-picker"
     },
-    "homepage": "https://github.com/signalxjs/lynx/tree/main/packages/lynx-file-picker",
+    "homepage": "https://sigx.dev/lynx/modules/file-picker/overview/",
     "bugs": {
         "url": "https://github.com/signalxjs/lynx/issues"
     },
