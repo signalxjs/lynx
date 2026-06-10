@@ -9,8 +9,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
+import com.lynx.tasm.LynxError
 import com.lynx.tasm.LynxView
 import com.lynx.tasm.LynxViewBuilder
+import com.lynx.tasm.LynxViewClient
 import com.lynx.tasm.TemplateData
 import com.lynx.xelement.XElementBehaviors
 
@@ -46,7 +48,11 @@ fun DevLynxScreen(
     onLynxViewCreated: ((LynxView) -> Unit)? = null,
 ) {
     var loading by remember { mutableStateOf(true) }
-    var error by remember { mutableStateOf<String?>(null) }
+    // Accumulated errors (build/reload exceptions + Lynx runtime errors), paged
+    // by the overlay. Latest-appended; `errorIndex` is the shown one.
+    val errors = remember { mutableStateListOf<String>() }
+    var errorIndex by remember { mutableStateOf(0) }
+    val pushError: (String) -> Unit = { errors.add(it); errorIndex = errors.lastIndex }
     var showDevMenu by remember { mutableStateOf(false) }
     var currentUrl by remember { mutableStateOf(url) }
     val context = LocalContext.current
@@ -81,12 +87,12 @@ fun DevLynxScreen(
     val performReload: () -> Unit = {
         lynxViewRef?.let { view ->
             loading = true
-            error = null
+            errors.clear(); errorIndex = 0
             try {
                 view.reloadAndInit()
                 view.renderTemplateUrl(currentUrl, TemplateData.empty())
             } catch (e: Exception) {
-                error = e.message ?: "Reload failed"
+                pushError(formatThrowable(e, "Reload failed"))
             }
             loading = false
         }
@@ -147,12 +153,22 @@ fun DevLynxScreen(
                     // the first MT paint.
                     onLynxViewCreated?.invoke(lynxView)
 
+                    // Capture Lynx RUNTIME errors (JS exceptions, prop-setter
+                    // throws, …) — the Android analog of iOS's didReceiveError.
+                    // Without this the overlay would only see build/reload
+                    // exceptions, not errors that fire after first paint.
+                    lynxView.addLynxViewClient(object : LynxViewClient() {
+                        override fun onReceivedError(error: LynxError) {
+                            pushError(error.toString())
+                        }
+                    })
+
                     lynxView.renderTemplateUrl(currentUrl, TemplateData.empty())
                     lynxViewRef = lynxView
                     loading = false
                     lynxView
                 } catch (e: Exception) {
-                    error = e.message ?: "Failed to create LynxView"
+                    pushError(formatThrowable(e, "Failed to create LynxView"))
                     loading = false
                     android.view.View(ctx)
                 }
@@ -172,10 +188,20 @@ fun DevLynxScreen(
             modifier = Modifier.align(Alignment.TopEnd)
         )
 
-        // Error overlay
+        // Error overlay (paged when multiple errors accumulate)
         ErrorOverlay(
-            error = error,
-            onDismiss = { error = null },
+            errors = errors,
+            index = errorIndex,
+            onPrev = { if (errorIndex > 0) errorIndex-- },
+            onNext = { if (errorIndex < errors.lastIndex) errorIndex++ },
+            onDismiss = {
+                if (errors.size <= 1) {
+                    errors.clear(); errorIndex = 0
+                } else {
+                    errors.removeAt(errorIndex.coerceIn(0, errors.lastIndex))
+                    if (errorIndex > errors.lastIndex) errorIndex = errors.lastIndex
+                }
+            },
             onReload = performReload,
         )
 
@@ -197,11 +223,11 @@ fun DevLynxScreen(
                 currentUrl = newUrl
                 lynxViewRef?.let { view ->
                     loading = true
-                    error = null
+                    errors.clear(); errorIndex = 0
                     try {
                         view.renderTemplateUrl(newUrl, TemplateData.empty())
                     } catch (e: Exception) {
-                        error = e.message ?: "Failed to load URL"
+                        pushError(formatThrowable(e, "Failed to load URL"))
                     }
                     loading = false
                 }
@@ -241,4 +267,10 @@ fun DevLynxScreen(
             nativeModules = nativeModules
         )
     )
+}
+
+/** Reason up top, stack behind `DETAIL_MARKER` (collapsible in the overlay). */
+private fun formatThrowable(t: Throwable, fallback: String): String {
+    val reason = t.message?.takeIf { it.isNotBlank() } ?: fallback
+    return "$reason\n$DETAIL_MARKER\n${t.stackTraceToString()}"
 }
