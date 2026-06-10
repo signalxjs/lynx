@@ -5,10 +5,13 @@
 import '@sigx/lynx-runtime';
 
 // Side-effect import: installs `fetch`/`Headers`/`FormData`/`Response`
-// (and a TextDecoder shim) on globalThis when absent — the Lynx BG runtime
-// ships no fetch of its own. Every app that imports @sigx/lynx gets the
-// web networking baseline without an explicit import; the CLI default-
-// wires the native Http module via the umbrella's dependency entry.
+// (and a TextDecoder shim) on `globalThis`. Older Lynx BG runtimes shipped no
+// fetch at all; Lynx 0.5.0+ ships its own (non-WHATWG) one as a factory
+// parameter. Either way the install patches `globalThis.fetch` so that and the
+// re-export below bind to the sigx implementation — but a BARE `fetch(...)`
+// still resolves to the factory parameter, so app code should import `fetch`
+// (below) or call `globalThis.fetch(...)`, never a bare `fetch()`. The CLI
+// default-wires the native Http module via the umbrella's dependency entry.
 import '@sigx/lynx-http';
 
 // Re-export the networking surface so app code binds to the sigx fetch with a
