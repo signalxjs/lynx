@@ -89,6 +89,62 @@ export const catalog: Area[] = [
         ],
     },
     {
+        id: 'gestures-motion',
+        title: 'Gestures & Motion',
+        icon: { set: 'lucide', name: 'hand' },
+        examples: [
+            {
+                id: 'spring-lab',
+                title: 'Spring Lab',
+                description: 'Interactive spring physics — tune stiffness/damping/mass, race presets',
+                icon: { set: 'lucide', name: 'activity' },
+                route: 'springLab',
+            },
+            {
+                id: 'drag-snap',
+                title: 'Drag & Snap',
+                description: 'Draggable with bounds — fling to a corner with velocity handoff',
+                icon: { set: 'lucide', name: 'move' },
+                route: 'dragSnap',
+            },
+            {
+                id: 'swipe-actions',
+                title: 'Swipe Actions',
+                description: 'Email-style swipeable rows — archive, flag, delete',
+                icon: { set: 'lucide', name: 'inbox' },
+                route: 'swipeActions',
+            },
+            {
+                id: 'carousel',
+                title: 'Carousel',
+                description: 'Swiper with parallax, scale pop and animated dot indicators',
+                icon: { set: 'lucide', name: 'gallery-horizontal' },
+                route: 'carousel',
+            },
+            {
+                id: 'gesture-lab',
+                title: 'Gesture Lab',
+                description: 'Race / Simultaneous / Exclusive composition with a live event feed',
+                icon: { set: 'lucide', name: 'git-merge' },
+                route: 'gestureLab',
+            },
+            {
+                id: 'press-feedback',
+                title: 'Press Feedback',
+                description: 'Pressable gallery — opacity/scale feedback, long-press, cancel',
+                icon: { set: 'lucide', name: 'pointer' },
+                route: 'pressFeedback',
+            },
+            {
+                id: 'pinch-rotate',
+                title: 'Pinch & Rotate',
+                description: 'Two-finger pinch/zoom and rotation on a photo card',
+                icon: { set: 'lucide', name: 'maximize-2' },
+                route: 'pinchRotate',
+            },
+        ],
+    },
+    {
         // Component reference — one page per @sigx/lynx-daisyui component,
         // generated from the registry so adding a demo module is the only
         // step to get a new page, list row, and search entry.
