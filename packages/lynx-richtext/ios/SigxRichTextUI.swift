@@ -119,24 +119,35 @@ public class SigxRichTextUI: LynxUI<RichTextView> {
     // path derives the arg type from ObjC argument 0 (= self, type "@"), so the
     // value is always delivered as an object — a primitive Bool/CGFloat param
     // slot would be filled with pointer bits (observed: editable=true -> 0).
+    //
+    // A JSON `null` prop (e.g. `auto-focus={null}`) is delivered as `NSNull`,
+    // NOT Swift `nil` — `NSNull` is a non-nil object, so `value?.boolValue`
+    // does NOT short-circuit and instead sends `boolValue`/`doubleValue` to
+    // `NSNull`, which throws `unrecognized selector` (signalxjs/lynx#379).
+    // `asNumber` returns the value only when it is a real `NSNumber`.
+    private func asNumber(_ value: NSNumber?) -> NSNumber? {
+        guard let v = value, v.isKind(of: NSNumber.self) else { return nil }
+        return v
+    }
+
     @objc public func setEditable(_ value: NSNumber?, requestReset: Bool) {
-        let editable = value?.boolValue ?? true
+        let editable = asNumber(value)?.boolValue ?? true
         view().isEditable = editable
         view().isSelectable = true
     }
 
     @objc public func setMinHeight(_ value: NSNumber?, requestReset: Bool) {
-        minHeight = CGFloat(value?.doubleValue ?? 0)
+        minHeight = CGFloat(asNumber(value)?.doubleValue ?? 0)
         reportHeightIfChanged()
     }
 
     @objc public func setMaxHeight(_ value: NSNumber?, requestReset: Bool) {
-        maxHeight = CGFloat(value?.doubleValue ?? 0)
+        maxHeight = CGFloat(asNumber(value)?.doubleValue ?? 0)
         reportHeightIfChanged()
     }
 
     @objc public func setFontSize(_ value: NSNumber?, requestReset: Bool) {
-        let size = CGFloat(value?.doubleValue ?? 0)
+        let size = CGFloat(asNumber(value)?.doubleValue ?? 0)
         guard size > 0 else { return }
         theme.fontSize = size
         view().font = theme.baseFont
@@ -175,7 +186,7 @@ public class SigxRichTextUI: LynxUI<RichTextView> {
     }
 
     @objc public func setAutoFocus(_ value: NSNumber?, requestReset: Bool) {
-        guard value?.boolValue == true else { return }
+        guard asNumber(value)?.boolValue == true else { return }
         DispatchQueue.main.async { self.view().becomeFirstResponder() }
     }
 
