@@ -15,6 +15,7 @@ import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
 
 import type { RsbuildPluginAPI } from '@rsbuild/core';
+import { ProvidePlugin } from '@rspack/core';
 
 import { LAYERS } from './layers.js';
 
@@ -322,6 +323,29 @@ export async function applyEntry(
       environment.name === 'lynx' || environment.name.startsWith('lynx-');
     const isWeb =
       environment.name === 'web' || environment.name.startsWith('web-');
+
+    // Make a *bare* `fetch`/`FormData`/`Headers`/`Response` resolve to the
+    // `@sigx/lynx-http` implementations. On the Lynx BG runtime the whole
+    // bundle is wrapped in one `tt.define(…, function(…, fetch, …))` factory,
+    // so a bare `fetch` identifier binds to the engine's factory parameter (a
+    // non-WHATWG fetch whose `Response` has no `.headers`) — patching
+    // `globalThis.fetch` can't override it. ProvidePlugin rewrites these free
+    // identifiers to module imports during compilation (before the factory
+    // wrapping), so app code can call a bare `fetch(...)` and get the sigx
+    // stack. Lynx-only: on web the host's real fetch is correct and `sigxFetch`
+    // (which calls the native `Http` module) wouldn't work. `TextDecoder` is
+    // intentionally NOT provided — the lynx-http install only shims it when
+    // absent, so we keep any host-provided one. (signalxjs/lynx#373, #378.)
+    if (isLynx) {
+      chain
+        .plugin('sigx-lynx-http-globals')
+        .use(ProvidePlugin, [{
+          fetch: ['@sigx/lynx-http', 'fetch'],
+          FormData: ['@sigx/lynx-http', 'FormData'],
+          Headers: ['@sigx/lynx-http', 'Headers'],
+          Response: ['@sigx/lynx-http', 'Response'],
+        }]);
+    }
 
     // HMR / Live Reload flags (same logic as vue-lynx / React plugin)
     const { hmr, liveReload } = environment.config.dev ?? {};
