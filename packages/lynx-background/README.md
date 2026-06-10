@@ -17,16 +17,17 @@ Full API, scheduling caveats, time budgets, permitted-identifier setup and live 
 pnpm add @sigx/lynx-background
 ```
 
-`sigx prebuild` auto-discovers the package, links the native module, adds `UIBackgroundModes` to iOS, populates `BGTaskSchedulerPermittedIdentifiers` from the identifiers you declare in your app config, and adds the `androidx.work` dependency on Android. iOS task identifiers must be known at build time — declare them in `sigx.config.ts`.
+`sigx prebuild` auto-discovers the package, links the native module, adds `UIBackgroundModes` to iOS, populates `BGTaskSchedulerPermittedIdentifiers` from the identifiers you declare in your app config, and adds the `androidx.work` dependency on Android. iOS task identifiers must be known at build time — declare them in `signalx.config.ts`.
 
 ## A taste
 
 ```ts
 import { Background } from '@sigx/lynx-background';
+import { Storage } from '@sigx/lynx-storage';
 
 // Register a handler at app startup, before the first foreground frame.
 Background.setHandler('refresh-feed', async () => {
-    const res = await fetch('https://example.com/feed.json');
+    const res = await globalThis.fetch('https://example.com/feed.json');
     await Storage.set('feed', JSON.stringify(await res.json()));
 });
 
