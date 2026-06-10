@@ -121,16 +121,20 @@ const INITIAL_VALUE_SYNC_DELAY_MS = 50;
 export function flushPendingInitialValues(): void {
   initialValueFlushScheduled = false;
   if (pendingInitialValues.size === 0) return;
+  let emitted = false;
   for (const el of pendingInitialValues) {
     const v = el._pendingInitialValue;
-    if (v != null) {
+    el._pendingInitialValue = undefined;
+    // Skip elements removed/detached before the timer fired (`parent == null`):
+    // the native node is gone, so a setValue would target nothing.
+    if (v != null && el.parent != null) {
       pushOp(OP.INVOKE_UI_METHOD, el.id, 'setValue', { value: v });
       el._lastInputValue = v;
-      el._pendingInitialValue = undefined;
+      emitted = true;
     }
   }
   pendingInitialValues.clear();
-  scheduleFlush();
+  if (emitted) scheduleFlush();
 }
 
 /** Register an input/textarea for a deferred initial-value setValue (coalesced). */

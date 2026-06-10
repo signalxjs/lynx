@@ -417,6 +417,20 @@ describe('patchProp input value → INVOKE_UI_METHOD (#143, #404)', () => {
     expect(invokeOps(parseOps(drainOps()))).toHaveLength(0);
   });
 
+  it('does not emit a deferred setValue for an element removed before the timer (#404)', () => {
+    const parent = nodeOps.createElement('view');
+    const el = nodeOps.createElement('input');
+    drainOps();
+
+    nodeOps.patchProp(el, 'value', null, 'seed');
+    nodeOps.insert(el, parent);
+    nodeOps.remove(el); // unmounted within the deferral window (parent nulled)
+    drainOps();
+
+    vi.advanceTimersByTime(100);
+    expect(invokeOps(parseOps(drainOps()))).toHaveLength(0);
+  });
+
   it('a post-mount value change supersedes the not-yet-flushed initial value (#404)', () => {
     const { el } = mountField('input', 'seed');
 
