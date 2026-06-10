@@ -35,8 +35,10 @@ class DevGenericResourceFetcher: NSObject, LynxGenericResourceFetcher {
             // "Failed to load CSS update file …". Return an empty module `{}`
             // (no `content`) so it no-ops cleanly instead. Chunks that DID
             // change still 200 with real content, so CSS HMR is unaffected.
+            // Only a 404 means "no CSS change for this chunk" — pass other
+            // failures (500/503/…) through so real dev-server problems surface.
             let status = (response as? HTTPURLResponse)?.statusCode ?? 200
-            if status >= 400, (request.url ?? "").contains(".css.hot-update.json") {
+            if status == 404, (request.url ?? "").contains(".css.hot-update.json") {
                 callback("{}".data(using: .utf8), nil)
                 return
             }
