@@ -323,6 +323,34 @@ export async function applyEntry(
     const isWeb =
       environment.name === 'web' || environment.name.startsWith('web-');
 
+    // Make a *bare* `fetch`/`FormData`/`Headers`/`Response` resolve to the
+    // `@sigx/lynx-http` implementations. On the Lynx BG runtime the whole
+    // bundle is wrapped in one `tt.define(…, function(…, fetch, …))` factory,
+    // so a bare `fetch` identifier binds to the engine's factory parameter (a
+    // non-WHATWG fetch whose `Response` has no `.headers`) — patching
+    // `globalThis.fetch` can't override it. ProvidePlugin rewrites these free
+    // identifiers to module imports during compilation (before the factory
+    // wrapping), so app code can call a bare `fetch(...)` and get the sigx
+    // stack. Lynx-only: on web the host's real fetch is correct and `sigxFetch`
+    // (which calls the native `Http` module) wouldn't work. `TextDecoder` is
+    // intentionally NOT provided — the lynx-http install only shims it when
+    // absent, so we keep any host-provided one. (signalxjs/lynx#373, #378.)
+    if (isLynx) {
+      // Lazy `require` so `@rspack/core` stays an OPTIONAL peer — importing it
+      // at the top would make it a hard runtime requirement even for consumers
+      // that never build (type-only, web-only). Here we're in a real rspeedy
+      // Lynx build, so rspack is present.
+      const { ProvidePlugin } = createRequire(import.meta.url)('@rspack/core') as typeof import('@rspack/core');
+      chain
+        .plugin('sigx-lynx-http-globals')
+        .use(ProvidePlugin, [{
+          fetch: ['@sigx/lynx-http', 'fetch'],
+          FormData: ['@sigx/lynx-http', 'FormData'],
+          Headers: ['@sigx/lynx-http', 'Headers'],
+          Response: ['@sigx/lynx-http', 'Response'],
+        }]);
+    }
+
     // HMR / Live Reload flags (same logic as vue-lynx / React plugin)
     const { hmr, liveReload } = environment.config.dev ?? {};
     const enabledHMR = isDev && !isWeb && hmr !== false;
