@@ -225,6 +225,40 @@ describe('mention plugin in MarkdownEditor', () => {
         );
     });
 
+    it('carries extra candidate fields through to renderItem (rich rows)', async () => {
+        const plugin = createMentionPlugin({
+            // A candidate with a display-only `avatar` beyond id/label.
+            search: () => [{ id: 'u)1', label: 'An]dy', avatar: 'a.png' }],
+            // renderItem reads the passthrough field — proves it survived toItems.
+            renderItem: (item) => (
+                <view>
+                    <text>{String((item as { avatar?: string }).avatar)}</text>
+                    <text>{item.label}</text>
+                </view>
+            ),
+        });
+        const { container } = render(<MarkdownEditor value="" plugins={[plugin]} />);
+        const el = container.findByType('sigx-richtext')!;
+        fireWrapperLayout(container);
+
+        fireChange(el, doc('@a'));
+        fireSelection(el, 2);
+        await waitForUpdate();
+
+        const popup = container.findAllByType('view').find((v) => v.props['ignore-focus'] === true)!;
+        // The extra field reached the row…
+        expect(popup.findByText('a.png')).toBeTruthy();
+        // …while id/label were still cleaned to the v1 rule.
+        expect(popup.findByText('Andy')).toBeTruthy();
+        const row = popup.findAllByType('view').find((v) => v._handlers.has('bindtap'))!;
+        fireEvent.tap(row);
+        expect(spies.insertChip).toHaveBeenCalledWith(
+            expect.anything(),
+            { id: 'u1', label: 'Andy' },
+            { from: 0, to: 2 },
+        );
+    });
+
     it('supports async search sources', async () => {
         const plugin = createMentionPlugin({
             search: async (q) => search(q),

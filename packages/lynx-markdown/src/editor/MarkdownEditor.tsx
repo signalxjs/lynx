@@ -40,7 +40,7 @@ import { EditorToolbar, type ToolbarRenderItem } from './toolbar/Toolbar.js';
 import { defaultToolbarItems, type ToolbarItem } from './toolbar/items.js';
 import type { MarkdownEditorPlugin, TriggerItem, TriggerSelectApi } from './plugin.js';
 import { createTriggerSessionManager, type TriggerSession } from './trigger/session.js';
-import { SuggestionPopup } from './trigger/SuggestionPopup.js';
+import { SuggestionPopup, type SuggestionPopupStyle } from './trigger/SuggestionPopup.js';
 
 export type MarkdownEditorMode = 'auto' | 'fixed' | 'fullscreen';
 
@@ -133,6 +133,15 @@ export type MarkdownEditorProps =
      * constant); the set is captured at mount.
      */
     & Define.Prop<'plugins', MarkdownEditorPlugin[], false>
+    /**
+     * Style the trigger suggestion popup (mentions, etc.) — surface/border/
+     * active/text colors, width, maxHeight, class. Generic to *any* trigger;
+     * omitted fields keep neutral defaults. daisyUI wires this from the active
+     * theme via `useMarkdownEditorTheme().suggestionPopup`, mirroring how
+     * `textColor`/`accentColor` theme the editor body. Per-row content stays a
+     * plugin concern (`trigger.renderItem`).
+     */
+    & Define.Prop<'suggestionPopup', SuggestionPopupStyle, false>
     /**
      * Extra root classes applied only while the fullscreen overlay is open —
      * the consumer owns the surface (e.g. daisyUI `bg-base-100`). Without
@@ -416,6 +425,7 @@ export const MarkdownEditor = component<MarkdownEditorProps>(({ props }) => {
                     containerFrame={inputFrame.value}
                     renderItem={activeTrigger.renderItem}
                     onSelect={handleTriggerSelect}
+                    {...(props.suggestionPopup ?? {})}
                 />
             )
             : null;

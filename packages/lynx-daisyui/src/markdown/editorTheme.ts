@@ -14,11 +14,13 @@
  *   textColor={editorTheme.textColor}
  *   accentColor={editorTheme.accentColor}
  *   placeholderColor={editorTheme.placeholderColor}
+ *   suggestionPopup={editorTheme.suggestionPopup}
  *   …
  * />
  * ```
  */
 
+import type { SuggestionPopupStyle } from '@sigx/lynx-markdown/editor';
 import { useThemeColors } from '@sigx/lynx-zero';
 
 
@@ -29,6 +31,14 @@ export interface MarkdownEditorThemeColors {
     readonly accentColor: string;
     /** `base-content` at 40% alpha. */
     readonly placeholderColor: string;
+    /**
+     * Theme colors for the trigger suggestion popup (mentions, etc.) — pass to
+     * `MarkdownEditor`'s `suggestionPopup` prop so the floating surface matches
+     * the active theme instead of the package's neutral light default. The
+     * popup is a plain `<view>`, but its inline styles would override a CSS
+     * class, so (like the editor body) it takes concrete colors.
+     */
+    readonly suggestionPopup: SuggestionPopupStyle;
 }
 
 /**
@@ -47,6 +57,14 @@ export function useMarkdownEditorTheme(): MarkdownEditorThemeColors {
         },
         get placeholderColor() {
             return colors.colorOf('base-content', 0.4);
+        },
+        get suggestionPopup() {
+            return {
+                surfaceColor: colors.colorOf('base-100'),
+                borderColor: colors.colorOf('base-300'),
+                activeColor: colors.colorOf('base-content', 0.1),
+                textColor: colors.colorOf('base-content'),
+            };
         },
     };
 }
