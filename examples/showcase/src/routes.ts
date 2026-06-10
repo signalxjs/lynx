@@ -12,6 +12,14 @@ import { Foundation } from './screens/Foundation.js';
 import { Icons } from './screens/Icons.js';
 import { SystemBars } from './screens/SystemBars.js';
 import { SheetDemo } from './screens/SheetDemo.js';
+// Gestures & Motion
+import { SpringLab } from './screens/gestures/SpringLab.js';
+import { DragSnapDemo } from './screens/gestures/DragSnapDemo.js';
+import { SwipeActionsDemo } from './screens/gestures/SwipeActionsDemo.js';
+import { CarouselDemo } from './screens/gestures/CarouselDemo.js';
+import { GestureLab } from './screens/gestures/GestureLab.js';
+import { PressFeedbackDemo } from './screens/gestures/PressFeedbackDemo.js';
+import { PinchRotateDemo } from './screens/gestures/PinchRotateDemo.js';
 // Text & Markdown
 import { Markdown } from './screens/Markdown.js';
 import { MarkdownEditorScreen } from './screens/MarkdownEditor.js';
@@ -71,6 +79,15 @@ export const routes = defineRoutes({
     // Bottom sheet: the route IS the sheet — pushing it slides the demo
     // screen up to its 0.4 snap point over the dimmed catalog.
     sheetDemo: { component: SheetDemo, path: '/sheet', presentation: 'sheet' },
+
+    // Gestures & Motion
+    springLab: { component: SpringLab, path: '/gestures/spring-lab' },
+    dragSnap: { component: DragSnapDemo, path: '/gestures/drag-snap' },
+    swipeActions: { component: SwipeActionsDemo, path: '/gestures/swipe-actions' },
+    carousel: { component: CarouselDemo, path: '/gestures/carousel' },
+    gestureLab: { component: GestureLab, path: '/gestures/gesture-lab' },
+    pressFeedback: { component: PressFeedbackDemo, path: '/gestures/press-feedback' },
+    pinchRotate: { component: PinchRotateDemo, path: '/gestures/pinch-rotate' },
 
     // Text & Markdown
     markdown: { component: Markdown, path: '/markdown' },
