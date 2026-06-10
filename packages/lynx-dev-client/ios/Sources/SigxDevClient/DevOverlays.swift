@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 import Lynx
 
 // ───────────────────────────────────────────────────────────────────────────
@@ -78,30 +79,48 @@ public final class DevLifecycleClient: NSObject, LynxViewLifecycle {
         }
     }
 
+    /// Separates the human-readable REASON (shown by default) from the
+    /// details/stack (hidden behind "Show stacktrace") with `detailMarker`.
+    static let detailMarker = "##SIGX_STACKTRACE##"
+
     /// Lynx hands us a generic `NSError` whose `localizedDescription` is just
     /// "The operation couldn't be completed. (com.lynx.error error 0.)" — the
-    /// real message/stack live in `userInfo`. Surface all of it.
+    /// real message/stack live in `userInfo`. We surface the **reason first**,
+    /// then everything else after `detailMarker` so the overlay can collapse it.
     static func describe(_ error: Error?) -> String {
         guard let ns = error as NSError? else { return "Unknown Lynx error" }
-        var lines: [String] = []
-        for (key, value) in ns.userInfo {
-            guard let k = key as? String, k != NSLocalizedDescriptionKey else { continue }
-            if let s = value as? String {
-                if !s.isEmpty { lines.append("\(k): \(s)") }
-            } else if let n = value as? NSNumber {
-                lines.append("\(k): \(n)")
-            } else {
-                // Underlying NSError, arrays, dicts, etc. often carry the real
-                // detail — don't drop them.
-                lines.append("\(k): \(String(describing: value))")
+        let info = ns.userInfo
+        var consumed: Set<String> = [NSLocalizedDescriptionKey]
+
+        // The human-readable REASON — keep it a concise headline. (We avoid
+        // `rawError`, which is often a multi-line JSON blob; it lands in the
+        // collapsible details below instead.)
+        var reason: String?
+        for k in ["message", "error_message", "reason"] {
+            if let s = info[k] as? String, !s.isEmpty { reason = s; consumed.insert(k); break }
+        }
+        let head = reason ?? ns.localizedDescription
+
+        // Details: the stack first, then any remaining userInfo, then ctx.
+        var details: [String] = []
+        for k in ["stackInfo", "stack", "error_stack"] {
+            if let s = info[k] as? String, !s.isEmpty, !consumed.contains(k) {
+                details.append("\(k):\n\(s)")
+                consumed.insert(k)
             }
         }
-        // Fall back to the localized description when userInfo had nothing useful.
-        if lines.isEmpty {
-            lines.append(ns.localizedDescription)
+        for (k, value) in info where !consumed.contains(k) {
+            if let s = value as? String {
+                if !s.isEmpty { details.append("\(k): \(s)") }
+            } else if let n = value as? NSNumber {
+                details.append("\(k): \(n)")
+            } else {
+                details.append("\(k): \(String(describing: value))")
+            }
         }
-        lines.append("[\(ns.domain) #\(ns.code)]")
-        return lines.joined(separator: "\n")
+        details.append("[\(ns.domain) #\(ns.code)]")
+
+        return details.isEmpty ? head : head + "\n" + detailMarker + "\n" + details.joined(separator: "\n")
     }
 
     // ── Perf ───────────────────────────────────────────────────────────────
@@ -201,54 +220,164 @@ public struct DevLoadingOverlay: View {
     }
 }
 
-/// React-Native-style red error screen with Reload / Dismiss. Mirrors
-/// Android's `ErrorOverlay`.
+/// React-Native-style red error screen with Reload / Copy / Dismiss and a
+/// LogBox-style multi-error pager. Mirrors Android's `ErrorOverlay`.
+///
+/// The host (`ContentView`) keeps passing the latest error via the existing
+/// `error: String?` prop; this view accumulates them internally so a burst of
+/// errors is paginated (‹ N/M ›) instead of overwritten. Dismiss drops the
+/// current one and only clears the host binding (via `onDismiss`) when the last
+/// one goes — so a `nil` from the host means "all clear".
 public struct DevErrorOverlay: View {
     let error: String?
     let onReload: () -> Void
     let onDismiss: () -> Void
+
+    @State private var errors: [String] = []
+    @State private var index: Int = 0
+    @State private var copyToast: String?
+    @State private var showStack: Bool = false
+
     public init(error: String?, onReload: @escaping () -> Void, onDismiss: @escaping () -> Void) {
         self.error = error
         self.onReload = onReload
         self.onDismiss = onDismiss
     }
 
+    /// Split a `describe()` string into (reason, details?) on `detailMarker`.
+    private func split(_ s: String) -> (reason: String, details: String?) {
+        let parts = s.components(separatedBy: DevLifecycleClient.detailMarker)
+        let reason = parts[0].trimmingCharacters(in: .whitespacesAndNewlines)
+        let details = parts.count > 1 ? parts[1].trimmingCharacters(in: .whitespacesAndNewlines) : nil
+        return (reason, details)
+    }
+
+    /// Full text (reason + details, marker stripped) for Copy.
+    private func fullText(_ s: String) -> String {
+        s.components(separatedBy: DevLifecycleClient.detailMarker)
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .joined(separator: "\n\n")
+    }
+
+    private static let red = Color(red: 0.8, green: 0.0, blue: 0.0)
+
+    private func ingest(_ value: String?) {
+        guard let value = value, !value.isEmpty else { errors = []; index = 0; return }
+        if errors.last != value {
+            errors.append(value)
+            index = errors.count - 1
+        }
+    }
+
+    private func copy(_ text: String, label: String) {
+        UIPasteboard.general.string = text
+        copyToast = label
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) { copyToast = nil }
+    }
+
+    private func dismissCurrent() {
+        if errors.count <= 1 {
+            onDismiss() // clears the host binding → onChange(nil) hides the overlay
+        } else {
+            errors.remove(at: index)
+            if index >= errors.count { index = errors.count - 1 }
+        }
+    }
+
     public var body: some View {
-        if let error = error {
-            ZStack {
-                Color(red: 0.8, green: 0.0, blue: 0.0).ignoresSafeArea()
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 16) {
-                        Text("Error")
-                            .font(.system(size: 24, weight: .bold))
-                            .foregroundColor(.white)
-                        Text(error)
-                            .font(.system(size: 14, design: .monospaced))
-                            .foregroundColor(Color(red: 1.0, green: 0.8, blue: 0.8))
-                        HStack(spacing: 12) {
-                            Button(action: onReload) {
-                                Text("Reload").fontWeight(.bold)
-                                    .padding(.horizontal, 16).padding(.vertical, 8)
-                                    .background(Color.white)
-                                    .foregroundColor(Color(red: 0.8, green: 0.0, blue: 0.0))
-                                    .cornerRadius(6)
-                            }
-                            Button(action: onDismiss) {
-                                Text("Dismiss")
-                                    .padding(.horizontal, 16).padding(.vertical, 8)
-                                    .background(Color.white.opacity(0.2))
-                                    .foregroundColor(.white)
-                                    .cornerRadius(6)
+        Group {
+            if !errors.isEmpty {
+                let current = errors[min(index, errors.count - 1)]
+                let parts = split(current)
+                ZStack {
+                    Self.red.ignoresSafeArea()
+                    // Header + action bar are pinned; only the message/stack
+                    // scrolls — so the reason, the pager and the buttons are
+                    // always reachable without scrolling past the stack.
+                    VStack(alignment: .leading, spacing: 0) {
+                        HStack {
+                            Text("Error")
+                                .font(.system(size: 24, weight: .bold))
+                                .foregroundColor(.white)
+                            Spacer()
+                            if errors.count > 1 {
+                                HStack(spacing: 14) {
+                                    Button(action: { if index > 0 { index -= 1 } }) {
+                                        Image(systemName: "chevron.left").foregroundColor(.white)
+                                    }.disabled(index == 0)
+                                    Text("\(index + 1)/\(errors.count)")
+                                        .font(.system(size: 15, weight: .semibold, design: .monospaced))
+                                        .foregroundColor(.white)
+                                    Button(action: { if index < errors.count - 1 { index += 1 } }) {
+                                        Image(systemName: "chevron.right").foregroundColor(.white)
+                                    }.disabled(index == errors.count - 1)
+                                }
                             }
                         }
-                        Text("sigx dev client — shake device or open the dev menu for tools")
-                            .font(.system(size: 11))
-                            .foregroundColor(.white.opacity(0.6))
+                        .padding(.horizontal, 24).padding(.top, 24).padding(.bottom, 12)
+
+                        ScrollView {
+                            VStack(alignment: .leading, spacing: 12) {
+                                // Reason — shown by default, selectable.
+                                Text(parts.reason)
+                                    .font(.system(size: 14, design: .monospaced))
+                                    .foregroundColor(Color(red: 1.0, green: 0.8, blue: 0.8))
+                                    .textSelection(.enabled)
+                                if let details = parts.details {
+                                    Button(action: { showStack.toggle() }) {
+                                        Text(showStack ? "▾ Hide stacktrace" : "▸ Show stacktrace")
+                                            .font(.system(size: 13, weight: .semibold))
+                                            .foregroundColor(.white)
+                                    }
+                                    if showStack {
+                                        Text(details)
+                                            .font(.system(size: 12, design: .monospaced))
+                                            .foregroundColor(Color(red: 1.0, green: 0.8, blue: 0.8).opacity(0.85))
+                                            .textSelection(.enabled)
+                                    }
+                                }
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, 24)
+                        }
+
+                        VStack(alignment: .leading, spacing: 10) {
+                            HStack(spacing: 12) {
+                                button("Reload", filled: true, action: onReload)
+                                button(copyToast ?? "Copy", filled: false) { copy(fullText(current), label: "Copied") }
+                                if errors.count > 1 {
+                                    button("Copy all", filled: false) {
+                                        let all = errors.enumerated()
+                                            .map { "#\($0.offset + 1)\n\(fullText($0.element))" }
+                                            .joined(separator: "\n\n———\n\n")
+                                        copy(all, label: "Copied all")
+                                    }
+                                }
+                                button("Dismiss", filled: false, action: dismissCurrent)
+                            }
+                            Text("sigx dev client — shake device or open the dev menu for tools")
+                                .font(.system(size: 11))
+                                .foregroundColor(.white.opacity(0.6))
+                        }
+                        .padding(24)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                     }
-                    .padding(24)
-                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
             }
+        }
+        .onAppear { ingest(error) }
+        .onChange(of: error) { ingest($0) }
+        .onChange(of: index) { _ in showStack = false } // collapse stack per error
+    }
+
+    @ViewBuilder
+    private func button(_ label: String, filled: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(label).fontWeight(filled ? .bold : .regular)
+                .padding(.horizontal, 16).padding(.vertical, 8)
+                .background(filled ? Color.white : Color.white.opacity(0.2))
+                .foregroundColor(filled ? Self.red : .white)
+                .cornerRadius(6)
         }
     }
 }
