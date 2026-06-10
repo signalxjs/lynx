@@ -1,6 +1,6 @@
 {
     "name": "@sigx/lynx-safe-area",
-    "version": "0.5.5",
+    "version": "0.5.6",
     "description": "Safe area insets (notch, home indicator, status bar, keyboard) for sigx-lynx",
     "type": "module",
     "main": "./dist/index.js",
