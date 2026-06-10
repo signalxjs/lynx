@@ -280,10 +280,12 @@ private fun formatThrowable(t: Throwable, fallback: String): String {
     return "$reason\n$DETAIL_MARKER\n${t.stackTraceToString()}"
 }
 
-/** Dev-server / HMR artifacts that aren't real app errors. */
+/** Dev-server / HMR artifacts that aren't real app errors. Checks only the
+ *  HEADLINE (before DETAIL_MARKER) so a stack frame mentioning "hot-update"
+ *  can't suppress a real error. */
 private fun isDevNoise(s: String): Boolean {
-    val m = s.lowercase()
-    return m.contains("hot-update") || m.contains("failed to load css update file")
+    val head = s.substringBefore(DETAIL_MARKER).lowercase()
+    return head.contains("hot-update") || head.contains("failed to load css update file")
 }
 
 /**

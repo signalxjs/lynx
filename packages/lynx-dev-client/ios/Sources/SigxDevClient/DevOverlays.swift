@@ -85,10 +85,12 @@ public final class DevLifecycleClient: NSObject, LynxViewLifecycle {
         }
     }
 
-    /// Dev-server / HMR artifacts that aren't real app errors.
+    /// Dev-server / HMR artifacts that aren't real app errors. Checks only the
+    /// HEADLINE (before `detailMarker`) so a stack frame mentioning "hot-update"
+    /// can't suppress a real error.
     static func isDevNoise(_ message: String) -> Bool {
-        let m = message.lowercased()
-        return m.contains("hot-update") || m.contains("failed to load css update file")
+        let head = (message.components(separatedBy: detailMarker).first ?? message).lowercased()
+        return head.contains("hot-update") || head.contains("failed to load css update file")
     }
 
     /// Separates the human-readable REASON (shown by default) from the
@@ -100,8 +102,9 @@ public final class DevLifecycleClient: NSObject, LynxViewLifecycle {
     /// shows those instead of the raw JSON. Returns `(head, nil)` unchanged when
     /// it isn't a JSON blob.
     static func cleanReason(_ head: String) -> (reason: String, stack: String?) {
-        guard head.hasPrefix("{"),
-              let data = head.data(using: .utf8),
+        let trimmed = head.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.hasPrefix("{"),
+              let data = trimmed.data(using: .utf8),
               let outer = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
         else { return (head, nil) }
 

@@ -89,7 +89,10 @@ object SigxDevClient {
     fun enableDevMode() {
         LynxEnv.inst().enableLynxDebug(true)
         LynxEnv.inst().enableDevtool(true)
-        LynxEnv.inst().enableLogBox(false) // overlay handles errors; dev-menu toggle re-enables
+        // Keep the LogBox CAPABILITY enabled, but hidden via the preset
+        // (`setLogBoxPresetValue(false)` in registerServices) — so the dev-menu
+        // "LogBox" toggle (which flips the preset) can still re-enable it.
+        LynxEnv.inst().enableLogBox(true)
         // Without these the Lynx DevTools desktop app can attach but the JS
         // inspector bridge never comes up — logcat shows
         // "CreateRuntimeManagerDelegate failed, JS debugging is not available"

@@ -58,8 +58,10 @@ export function installDevErrorLogging(): void {
             const text = formatError(input);
             // Drop dev-server / HMR artifacts — they fire constantly and aren't
             // app errors (e.g. "Failed to load CSS update file …hot-update.json").
-            const lower = text.toLowerCase();
-            if (lower.includes('hot-update') || lower.includes('failed to load css update file')) return;
+            // Check only the headline (first line) so a stack frame mentioning
+            // "hot-update" can't suppress a real error.
+            const headline = (text.split('\n', 1)[0] ?? '').toLowerCase();
+            if (headline.includes('hot-update') || headline.includes('failed to load css update file')) return;
             (globalThis as { console?: { error?: (...a: unknown[]) => void } }).console?.error?.(
                 `[lynx:${source}] ${text}`,
             );
