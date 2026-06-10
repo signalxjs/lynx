@@ -366,8 +366,11 @@ describe('patchProp input value → INVOKE_UI_METHOD (#143)', () => {
     expect(invokes[0]![1]).toBe(el.id);
     expect(invokes[0]![2]).toBe('setValue');
     expect(invokes[0]![3]).toEqual({ value: 'seed' });
-    // Ordered after INSERT so the UI method targets a live element.
+    // Ordered after INSERT so the UI method targets a live element. Assert the
+    // INSERT op actually exists first, or the ordering check passes vacuously
+    // (insert === -1 is < any real op index).
     const invokeIdx = records.findIndex(r => r[0] === OP.INVOKE_UI_METHOD);
+    expect(insert).toBeGreaterThanOrEqual(0);
     expect(invokeIdx).toBeGreaterThan(insert);
   });
 
