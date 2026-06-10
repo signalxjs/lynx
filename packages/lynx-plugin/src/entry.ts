@@ -15,7 +15,6 @@ import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
 
 import type { RsbuildPluginAPI } from '@rsbuild/core';
-import { ProvidePlugin } from '@rspack/core';
 
 import { LAYERS } from './layers.js';
 
@@ -337,6 +336,11 @@ export async function applyEntry(
     // intentionally NOT provided — the lynx-http install only shims it when
     // absent, so we keep any host-provided one. (signalxjs/lynx#373, #378.)
     if (isLynx) {
+      // Lazy `require` so `@rspack/core` stays an OPTIONAL peer — importing it
+      // at the top would make it a hard runtime requirement even for consumers
+      // that never build (type-only, web-only). Here we're in a real rspeedy
+      // Lynx build, so rspack is present.
+      const { ProvidePlugin } = createRequire(import.meta.url)('@rspack/core') as typeof import('@rspack/core');
       chain
         .plugin('sigx-lynx-http-globals')
         .use(ProvidePlugin, [{
