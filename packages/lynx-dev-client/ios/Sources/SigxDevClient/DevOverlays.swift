@@ -118,9 +118,9 @@ public final class DevLifecycleClient: NSObject, LynxViewLifecycle {
                 details.append("\(k): \(String(describing: value))")
             }
         }
-        details.append("[\(ns.domain) #\(ns.code)]")
+        details.append("[\(ns.domain) #\(ns.code)]") // always present → details is never empty
 
-        return details.isEmpty ? head : head + "\n" + detailMarker + "\n" + details.joined(separator: "\n")
+        return head + "\n" + detailMarker + "\n" + details.joined(separator: "\n")
     }
 
     // ── Perf ───────────────────────────────────────────────────────────────
