@@ -104,18 +104,20 @@ afterEach(() => {
 // Tests
 // ---------------------------------------------------------------------------
 
-// `retry` rides out a rare transient: under parallel vitest workers the
-// integration path's dynamic `import()`s (the `@sigx/lynx-cli` dist barrel, the
-// temp config `.mjs`, the temp adapter `.mjs`) can intermittently fail the
-// first time, which `applyIcons` swallows as "lynx-cli not installed → skip" →
-// 0 aliases. Seen only on CI (green on rerun); the `beforeAll` warm-up below
-// removes the most common one. Not a product bug.
+// De-flake: under parallel vitest workers, `applyIcons`' internal
+// `import('@sigx/lynx-cli')` can intermittently fail on first load. That ONE
+// import is the only step swallowed silently — its catch returns as
+// "lynx-cli not installed → skip", leaving `recorder.aliases` empty (the
+// observed `expected 3, got 0`). (A bad config throws and an adapter miss still
+// proceeds, so neither produces this signature.) Seen only on CI, green on
+// rerun — not a product bug. The `beforeAll` warm-up below removes the cause;
+// `retry` is defense-in-depth.
 describe('applyIcons', { retry: 2 }, () => {
     beforeAll(async () => {
         // Warm `@sigx/lynx-cli` into this worker's ESM module cache so
-        // `applyIcons`' internal dynamic import can't hit a transient first-load
-        // failure — and so a genuinely-missing build fails loudly here instead
-        // of masquerading as "0 aliases" in every assertion.
+        // `applyIcons`' internal dynamic import always hits the cache — and so a
+        // genuinely-missing build fails loudly here instead of masquerading as
+        // "0 aliases" in every assertion.
         await import('@sigx/lynx-cli');
     });
 
