@@ -11,6 +11,24 @@ import '@sigx/lynx-runtime';
 // wires the native Http module via the umbrella's dependency entry.
 import '@sigx/lynx-http';
 
+// Re-export the networking surface so app code binds to the sigx fetch with a
+// plain `import { fetch } from '@sigx/lynx'`. This is REQUIRED on the Lynx BG
+// runtime: the bundle is wrapped in one `tt.define(…, function(…, fetch, …))`
+// factory, so a *bare* `fetch` identifier resolves to the engine's factory
+// parameter (a non-WHATWG fetch whose `Response` has no `.headers`), NOT the
+// `globalThis.fetch` the side-effect above patches. Importing binds `fetch`
+// (and friends) to the sigx implementation, which is the only reliable way to
+// get a spec `Response` on-device. See signalxjs/lynx#373, #378.
+export { fetch, FormData, Headers, Response, TextDecoder, isHttpAvailable } from '@sigx/lynx-http';
+export type {
+    RequestInitLike,
+    BodyInitLike,
+    AbortSignalLike,
+    HeadersInitLike,
+    FileHandleLike,
+    FormDataEntryValueLike,
+} from '@sigx/lynx-http';
+
 // Re-export the public surface so users only need a single import:
 //
 //     import { component, signal, defineApp, type Define } from '@sigx/lynx';

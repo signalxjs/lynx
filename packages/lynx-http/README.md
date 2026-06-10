@@ -14,9 +14,12 @@ This completes the web-platform networking split:
 
 Importing installs `fetch`, `Headers`, `FormData`, `Response`, and a minimal UTF-8 `TextDecoder` on `globalThis`. Precedence: when the `Http` native module is linked, the sigx stack **replaces** any engine-provided fetch — some Lynx runtimes ship a built-in fetch without `FormData`/streaming, and mixing the two breaks uploads platform-dependently. On hosts without the module (web, Node, tests) installs are `typeof`-guarded so the native fetch stack stays untouched. Opt out of the module with `excludeModules: ['@sigx/lynx-http']` in `signalx.config.ts`.
 
+> ⚠️ **Import `fetch` — don't rely on the bare global on-device.** The Lynx BG runtime wraps the whole bundle in one `tt.define(…, function(…, fetch, …))` factory, so a *bare* `fetch(...)` resolves to the engine's factory parameter (a non-WHATWG fetch whose `Response` has no `.headers`), **not** the `globalThis.fetch` this package patches. Always `import { fetch } from '@sigx/lynx'` (or `'@sigx/lynx-http'`) so the call binds to the sigx implementation. The `globalThis` patch only helps libraries that read `globalThis.fetch` directly. (signalxjs/lynx#373, #378.)
+
 ## Usage
 ```ts
-// No import needed — fetch is global.
+import { fetch } from '@sigx/lynx'; // re-exported here; required on-device (see note above)
+
 const res = await fetch('https://api.example.com/items', {
     headers: { Authorization: `Bearer ${token}` },
 });
@@ -25,6 +28,7 @@ const items = await res.json();
 ### Multipart upload (chat attachments)
 File bytes **never cross the JS bridge** — `FormData` carries a URI descriptor and the native side streams the file straight into the request body.
 ```ts
+import { fetch, FormData } from '@sigx/lynx';
 import { FilePicker } from '@sigx/lynx-file-picker';
 
 const { assets } = await FilePicker.pick();
