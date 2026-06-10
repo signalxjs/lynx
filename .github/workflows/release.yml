@@ -4,6 +4,18 @@ on:
   push:
     tags:
       - 'v*.*.*'
+  # Manual escape hatch to COMPLETE a stuck/partial publish: if a tag-triggered
+  # run dies mid-way (e.g. a transient sigstore/rekor error), re-running with
+  # provenance can hit `TLOG_CREATE_ENTRY_ERROR (409) equivalent entry already
+  # exists` on the orphaned transparency-log entries. Dispatch with
+  # `provenance=false` to publish the remaining packages (already-published ones
+  # are skipped) without provenance.
+  workflow_dispatch:
+    inputs:
+      provenance:
+        description: 'Attach npm provenance (uncheck to finish a stuck publish whose tlog entries are orphaned)'
+        type: boolean
+        default: true
 
 # Top-level permissions are intentionally minimal. Each job declares what it
 # actually needs.
@@ -56,10 +68,12 @@ jobs:
       - name: Verify pack
         run: pnpm verify:pack
 
+      # Tag pushes always attach provenance. A manual dispatch may turn it off
+      # (`provenance=false`) to complete a publish stuck on orphaned tlog entries.
       - name: Publish to npm
         env:
-          NPM_CONFIG_PROVENANCE: 'true'
-        run: node scripts/publish.js --provenance
+          NPM_CONFIG_PROVENANCE: ${{ (github.event_name == 'workflow_dispatch' && !inputs.provenance) && 'false' || 'true' }}
+        run: node scripts/publish.js ${{ (github.event_name == 'workflow_dispatch' && !inputs.provenance) && ' ' || '--provenance' }}
 
   github-release:
     needs: publish-npm
