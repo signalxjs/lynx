@@ -1,6 +1,6 @@
 {
     "name": "@sigx/lynx-camera",
-    "version": "0.5.4",
+    "version": "0.5.5",
     "description": "Camera capture for sigx-lynx",
     "type": "module",
     "main": "./dist/index.js",
