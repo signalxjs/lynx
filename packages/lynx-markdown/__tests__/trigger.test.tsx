@@ -388,6 +388,69 @@ describe('MarkdownEditor trigger sessions', () => {
         expect(popup!.findByText('Andy')).toBeTruthy();
     });
 
+    it('uses neutral popup defaults when suggestionPopup is omitted', async () => {
+        const { plugin } = mentionTriggerPlugin();
+        const { container } = render(<MarkdownEditor value="" plugins={[plugin]} />);
+        const el = container.findByType('sigx-richtext')!;
+        fireWrapperLayout(container);
+
+        fireChange(el, doc('hi @an'));
+        fireSelection(el, 6);
+        await waitForUpdate();
+
+        const popup = container.findAllByType('view').find((v) => v.props['ignore-focus'] === true)!;
+        expect(popup.props.style).toMatchObject({
+            backgroundColor: '#f4f4f5',
+            borderColor: 'rgba(127, 127, 127, 0.32)',
+            width: 240,
+        });
+    });
+
+    it('forwards suggestionPopup styling to the popup container', async () => {
+        const { plugin } = mentionTriggerPlugin();
+        const { container } = render(
+            <MarkdownEditor
+                value=""
+                plugins={[plugin]}
+                suggestionPopup={{ surfaceColor: '#18181b', borderColor: '#3f3f46', width: 300 }}
+            />,
+        );
+        const el = container.findByType('sigx-richtext')!;
+        fireWrapperLayout(container);
+
+        fireChange(el, doc('hi @an'));
+        fireSelection(el, 6);
+        await waitForUpdate();
+
+        const popup = container.findAllByType('view').find((v) => v.props['ignore-focus'] === true)!;
+        expect(popup.props.style).toMatchObject({
+            backgroundColor: '#18181b',
+            borderColor: '#3f3f46',
+            width: 300,
+        });
+    });
+
+    it('applies textColor to the built-in suggestion row', async () => {
+        const { plugin } = mentionTriggerPlugin();
+        const { container } = render(
+            <MarkdownEditor value="" plugins={[plugin]} suggestionPopup={{ textColor: '#e5e7eb' }} />,
+        );
+        const el = container.findByType('sigx-richtext')!;
+        fireWrapperLayout(container);
+
+        fireChange(el, doc('hi @an'));
+        fireSelection(el, 6);
+        await waitForUpdate();
+
+        const popup = container.findAllByType('view').find((v) => v.props['ignore-focus'] === true)!;
+        // The built-in row's <text> carries the forwarded color (fontSize 15
+        // disambiguates it from any other text in the tree).
+        const rowText = popup
+            .findAllByType('text')
+            .find((t) => (t.props.style as { fontSize?: number } | undefined)?.fontSize === 15)!;
+        expect(rowText.props.style).toMatchObject({ color: '#e5e7eb', fontSize: 15 });
+    });
+
     it('replaces the trigger run on select and closes the popup', async () => {
         const { plugin, onSelect } = mentionTriggerPlugin();
         const { container } = render(<MarkdownEditor value="" plugins={[plugin]} />);

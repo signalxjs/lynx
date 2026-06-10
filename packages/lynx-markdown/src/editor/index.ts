@@ -36,6 +36,10 @@ export type {
     TriggerSelectApi,
 } from './plugin.js';
 export { SuggestionPopup } from './trigger/SuggestionPopup.js';
-export type { SuggestionPopupProps, SuggestionRenderItem } from './trigger/SuggestionPopup.js';
+export type {
+    SuggestionPopupProps,
+    SuggestionRenderItem,
+    SuggestionPopupStyle,
+} from './trigger/SuggestionPopup.js';
 export { createTriggerSessionManager } from './trigger/session.js';
 export type { TriggerSession, TriggerSessionManager } from './trigger/session.js';

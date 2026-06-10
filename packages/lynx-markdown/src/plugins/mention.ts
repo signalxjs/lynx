@@ -38,6 +38,14 @@ export interface MentionCandidate {
     id: string;
     label: string;
     kind?: string;
+    /**
+     * Extra **display-only** fields (e.g. `avatar`, `subtitle`) — carried
+     * through to the suggestion row's `renderItem` as `item.<field>` for a
+     * richer popup UI. They never reach the chip payload or the serialized
+     * markdown (only `id`/`label`/`kind` do), so they can hold anything the row
+     * needs without affecting round-tripping.
+     */
+    [key: string]: unknown;
 }
 
 export interface MentionPluginOptions {
@@ -136,10 +144,14 @@ export function createMentionPlugin(options: MentionPluginOptions): MarkdownEdit
                 // and serialize another.
                 const toItems = (candidates: MentionCandidate[]): TriggerItem[] =>
                     candidates
+                        // Spread the candidate first so display-only extras
+                        // (avatar, subtitle, …) reach `renderItem`, then clean
+                        // id/label last so the chip payload/markdown stay v1-safe
+                        // regardless of what the extras carry.
                         .map((c) => ({
+                            ...c,
                             id: clean(c.id),
                             label: clean(c.label),
-                            ...(c.kind !== undefined ? { kind: c.kind } : {}),
                         }))
                         // A candidate that cleans to empty would serialize to
                         // @[]() — unparseable. Never offer it.
