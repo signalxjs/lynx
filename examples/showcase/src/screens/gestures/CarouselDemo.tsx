@@ -16,7 +16,7 @@ import {
     type SharedValue,
 } from '@sigx/lynx-gestures';
 import { Haptics } from '@sigx/lynx-haptics';
-import { Card, Col, Heading, ScrollView, SwiperIndicator, Text } from '@sigx/lynx-daisyui';
+import { Card, Col, Heading, ScrollView, Text } from '@sigx/lynx-daisyui';
 
 declare const lynx:
     | { SystemInfo?: { pixelWidth?: number; pixelRatio?: number } }
@@ -138,19 +138,13 @@ export const CarouselDemo = component(() => {
                 <Card bordered>
                     <Card.Body>
                         <Col gap={12} align="center">
+                            <Text class="text-xs opacity-60">page {index.value + 1} / {SLIDES.length}</Text>
                             <Text class="text-xs opacity-60">
-                                Prefab indicator (pill variant) · page {index.value + 1} / {SLIDES.length}
+                                Dots via useSwiperDotScale + useSwiperDotProgress
                             </Text>
-                            <SwiperIndicator
-                                variant="pill"
-                                count={SLIDES.length}
-                                offset={offset}
-                                pageWidth={PAGE_W}
-                                index={index}
-                            />
-                            <Text class="text-xs opacity-60">
-                                Hand-rolled via useSwiperDotScale + useSwiperDotProgress
-                            </Text>
+                            {/* The prefab <SwiperIndicator> is skipped here until #420
+                                lands — its token colors resolve to inline var(--color-*),
+                                which Lynx doesn't honor, so the dots paint transparent. */}
                             <CustomDots count={SLIDES.length} offset={offset} />
                         </Col>
                     </Card.Body>
@@ -172,7 +166,7 @@ const CustomDots = component<CustomDotsProps>(({ props }) => {
     }));
 
     return () => (
-        <view style={{ flexDirection: 'row', gap: '10px' }}>
+        <view style={{ display: 'flex', flexDirection: 'row', gap: '10px' }}>
             {dots.map((dot, i) => (
                 <view key={i} main-thread:ref={dot.scaleRef}>
                     <view
