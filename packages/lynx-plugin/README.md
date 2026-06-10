@@ -1,6 +1,10 @@
 # @sigx/lynx-plugin
 
-Rspack/Rspeedy plugin for [SignalX](https://github.com/signalxjs) on Lynx. Splits a single user app into the two bundles Lynx requires (background JS + main-thread Lepus) and runs the SWC worklet transform that powers `'main thread'`-marked event handlers.
+Rspack/Rspeedy plugin for [SignalX](https://sigx.dev/lynx/) on Lynx. Splits a single user app into the two bundles Lynx requires (background JS + main-thread Lepus) and runs the SWC worklet transform that powers `'main thread'`-marked event handlers.
+
+## 📚 Documentation
+
+Full guides, API reference and live examples → **[https://sigx.dev/lynx/modules/plugin/overview/](https://sigx.dev/lynx/modules/plugin/overview/)**
 
 ## Installation
 
@@ -54,7 +58,7 @@ Mark an event handler as MT-thread by adding the directive as the first statemen
 
 The plugin handles the rest — the handler body lives in the MT bundle, the BG bundle keeps a `{_wkltId, _c}` placeholder, and Lynx native dispatches the touch event directly to the MT thread.
 
-For higher-level abstractions (drag, tap, swipe, animations), see [`@sigx/lynx-gestures`](https://github.com/signalxjs/lynx/tree/main/packages/lynx-gestures).
+For higher-level abstractions (drag, tap, swipe, animations), see [`@sigx/lynx-gestures`](https://sigx.dev/lynx/modules/gestures/overview/).
 
 ## Limitations
 

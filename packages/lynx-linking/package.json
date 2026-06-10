@@ -55,7 +55,7 @@
         "url": "git+https://github.com/signalxjs/lynx.git",
         "directory": "packages/lynx-linking"
     },
-    "homepage": "https://github.com/signalxjs/lynx/tree/main/packages/lynx-linking",
+    "homepage": "https://sigx.dev/lynx/modules/linking/overview/",
     "bugs": {
         "url": "https://github.com/signalxjs/lynx/issues"
     },

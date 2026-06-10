@@ -48,7 +48,7 @@
         "url": "git+https://github.com/signalxjs/lynx.git",
         "directory": "packages/lynx-keyboard"
     },
-    "homepage": "https://github.com/signalxjs/lynx/tree/main/packages/lynx-keyboard",
+    "homepage": "https://sigx.dev/lynx/modules/keyboard/overview/",
     "bugs": {
         "url": "https://github.com/signalxjs/lynx/issues"
     },

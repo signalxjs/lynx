@@ -44,7 +44,7 @@
         "url": "git+https://github.com/signalxjs/lynx.git",
         "directory": "packages/lynx-richtext"
     },
-    "homepage": "https://github.com/signalxjs/lynx/tree/main/packages/lynx-richtext",
+    "homepage": "https://sigx.dev/lynx/modules/richtext/overview/",
     "bugs": {
         "url": "https://github.com/signalxjs/lynx/issues"
     },

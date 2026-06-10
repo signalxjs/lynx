@@ -69,7 +69,7 @@
         "url": "git+https://github.com/signalxjs/lynx.git",
         "directory": "packages/lynx-emoji"
     },
-    "homepage": "https://github.com/signalxjs/lynx/tree/main/packages/lynx-emoji",
+    "homepage": "https://sigx.dev/lynx/modules/emoji/overview/",
     "bugs": {
         "url": "https://github.com/signalxjs/lynx/issues"
     },

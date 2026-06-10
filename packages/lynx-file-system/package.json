@@ -37,7 +37,7 @@
         "url": "git+https://github.com/signalxjs/lynx.git",
         "directory": "packages/lynx-file-system"
     },
-    "homepage": "https://github.com/signalxjs/lynx/tree/main/packages/lynx-file-system",
+    "homepage": "https://sigx.dev/lynx/modules/file-system/overview/",
     "bugs": {
         "url": "https://github.com/signalxjs/lynx/issues"
     },

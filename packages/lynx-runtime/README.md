@@ -1,8 +1,12 @@
 # @sigx/lynx-runtime
 
-Background-thread renderer for [SignalX](https://github.com/signalxjs) on Lynx. Translates sigx component output into the BG → MT op stream that drives the native render tree.
+Background-thread renderer for [SignalX](https://sigx.dev/lynx/) on Lynx. Translates sigx component output into the BG → MT op stream that drives the native render tree.
 
-> Most apps should depend on [`@sigx/lynx`](https://github.com/signalxjs/lynx/tree/main/packages/lynx) instead, which re-exports this package's public surface alongside `@sigx/reactivity` and `@sigx/runtime-core` for a single import path.
+> Most apps should depend on [`@sigx/lynx`](https://sigx.dev/lynx/) instead, which re-exports this package's public surface alongside `@sigx/reactivity` and `@sigx/runtime-core` for a single import path.
+
+## 📚 Documentation
+
+Full guides, API reference and live examples → **[https://sigx.dev/lynx/modules/runtime/overview/](https://sigx.dev/lynx/modules/runtime/overview/)**
 
 ## Responsibilities
 
@@ -11,13 +15,13 @@ Background-thread renderer for [SignalX](https://github.com/signalxjs) on Lynx. 
 - **Op queue** — `pushOp`, `scheduleFlush`, `takeOps`, `flushNow` — the wire protocol carrying renders from BG to MT.
 - **Main-thread refs** — `MainThreadRef`, `useMainThreadRef` — the BG-side handle whose `.current` value lives on the main thread; the build pipeline serializes these into worklet captures via their `_wvid`.
 - **Cross-thread bridges** — `runOnMainThread` (BG→MT one-shot), `runOnBackground` (MT→BG dispatch handle), `transformToWorklet` (handle → JsFn marshal).
-- **AnimatedValue BG sink** — `registerBgSink`, `unregisterBgSink`, `ingestAvPublishes` — receive MT-published `AnimatedValue` writes into a `signal`-backed mirror so `effect(() => av.value)` re-runs reactively. The producer side lives in [`@sigx/lynx-gestures`](https://github.com/signalxjs/lynx/tree/main/packages/lynx-gestures); the MT side lives in [`@sigx/lynx-runtime-main`](https://github.com/signalxjs/lynx/tree/main/packages/lynx-runtime-main).
+- **AnimatedValue BG sink** — `registerBgSink`, `unregisterBgSink`, `ingestAvPublishes` — receive MT-published `AnimatedValue` writes into a `signal`-backed mirror so `effect(() => av.value)` re-runs reactively. The producer side lives in [`@sigx/lynx-gestures`](https://sigx.dev/lynx/modules/gestures/overview/); the MT side lives in [`@sigx/lynx-runtime-main`](https://sigx.dev/lynx/modules/runtime-main/overview/).
 - **BG globals** — installs web-standard globals the Lynx background thread doesn't expose on its own (engine-version dependent), so web-ported code works unchanged. Currently `queueMicrotask`, polyfilled on `Promise` (some engines, e.g. 3.7 pods, only offer `lynx.queueMicrotask`). Installed first at import, non-clobbering — engines that already expose the global keep theirs.
 - **JSX types** — `MainThread`, `Define`, `ViewAttributes`, etc.
 
 ## Wire protocol
 
-Ops are flat-array tuples produced on BG and consumed on MT. The op codes (`CREATE`, `INSERT`, `SET_STYLE`, `SET_WORKLET_EVENT`, `INIT_MT_REF`, `REGISTER_AV_BRIDGE`, ...) are defined in [`@sigx/lynx-runtime-internal`](https://github.com/signalxjs/lynx/tree/main/packages/lynx-runtime-internal) so both sides stay in sync.
+Ops are flat-array tuples produced on BG and consumed on MT. The op codes (`CREATE`, `INSERT`, `SET_STYLE`, `SET_WORKLET_EVENT`, `INIT_MT_REF`, `REGISTER_AV_BRIDGE`, ...) are defined in [`@sigx/lynx-runtime-internal`](https://sigx.dev/lynx/) so both sides stay in sync.
 
 A typical batch:
 

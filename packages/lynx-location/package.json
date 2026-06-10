@@ -38,7 +38,7 @@
         "url": "git+https://github.com/signalxjs/lynx.git",
         "directory": "packages/lynx-location"
     },
-    "homepage": "https://github.com/signalxjs/lynx/tree/main/packages/lynx-location",
+    "homepage": "https://sigx.dev/lynx/modules/location/overview/",
     "bugs": {
         "url": "https://github.com/signalxjs/lynx/issues"
     },

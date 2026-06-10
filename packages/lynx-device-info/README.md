@@ -1,5 +1,10 @@
 # @sigx/lynx-device-info
 Device hardware + OS + screen + app metadata for sigx-lynx. One async call, all the fields.
+
+## 📚 Documentation
+
+Full guides, API reference and live examples → **[https://sigx.dev/lynx/modules/device-info/overview/](https://sigx.dev/lynx/modules/device-info/overview/)**
+
 ## Install
 ```bash
 pnpm add @sigx/lynx-device-info

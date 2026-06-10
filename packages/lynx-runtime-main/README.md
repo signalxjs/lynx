@@ -1,8 +1,12 @@
 # @sigx/lynx-runtime-main
 
-Main-thread (Lepus) runtime for [SignalX](https://github.com/signalxjs) on Lynx. Receives the op stream from `@sigx/lynx-runtime`, mutates the native render tree via Lynx PAPI, and runs `'main thread'`-marked worklets at the host's display refresh rate.
+Main-thread (Lepus) runtime for [SignalX](https://sigx.dev/lynx/) on Lynx. Receives the op stream from `@sigx/lynx-runtime`, mutates the native render tree via Lynx PAPI, and runs `'main thread'`-marked worklets at the host's display refresh rate.
 
-> Application code rarely imports from this package directly. The build pipeline ([`@sigx/lynx-plugin`](https://github.com/signalxjs/lynx/tree/main/packages/lynx-plugin)) wires it into the main-thread bundle automatically.
+> Application code rarely imports from this package directly. The build pipeline ([`@sigx/lynx-plugin`](https://sigx.dev/lynx/modules/plugin/overview/)) wires it into the main-thread bundle automatically.
+
+## 📚 Documentation
+
+Full guides, API reference and live examples → **[https://sigx.dev/lynx/modules/runtime-main/overview/](https://sigx.dev/lynx/modules/runtime-main/overview/)**
 
 ## Responsibilities
 

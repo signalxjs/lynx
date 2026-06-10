@@ -48,7 +48,7 @@
         "url": "git+https://github.com/signalxjs/lynx.git",
         "directory": "packages/lynx-icons-lucide"
     },
-    "homepage": "https://github.com/signalxjs/lynx/tree/main/packages/lynx-icons-lucide",
+    "homepage": "https://sigx.dev/lynx/modules/icons-lucide/overview/",
     "bugs": {
         "url": "https://github.com/signalxjs/lynx/issues"
     },

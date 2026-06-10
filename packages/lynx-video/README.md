@@ -2,6 +2,10 @@
 
 Native video player component for sigx-lynx. iOS uses `AVPlayer` + `AVPlayerLayer`; Android uses `androidx.media3` (`ExoPlayer` + `PlayerView`).
 
+## 📚 Documentation
+
+Full guides, API reference and live examples → **[https://sigx.dev/lynx/modules/video/overview/](https://sigx.dev/lynx/modules/video/overview/)**
+
 Registers a `<video-player>` JSX intrinsic that participates in Lynx's layout tree. The typed `<VideoPlayer>` wrapper is the recommended entry point.
 
 ## Install

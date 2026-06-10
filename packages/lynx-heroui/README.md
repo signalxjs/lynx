@@ -1,11 +1,15 @@
 # @sigx/lynx-heroui
 
 HeroUI-flavored design system for sigx-lynx, built on the
-[`@sigx/lynx-zero`](../lynx-zero) foundation. **Pilot scope** while the shared
+[`@sigx/lynx-zero`](https://sigx.dev/lynx/modules/zero/overview/) foundation. **Pilot scope** while the shared
 design-system contract is validated
 ([signalxjs/lynx#219](https://github.com/signalxjs/lynx/issues/219)) — two
 built-in themes (`hero-light` / `hero-dark`) and a representative component
 set, growing from there.
+
+## 📚 Documentation
+
+Full guides, API reference and live examples → **[https://sigx.dev/lynx/modules/heroui/overview/](https://sigx.dev/lynx/modules/heroui/overview/)**
 
 ```tsx
 import { ThemeProvider } from '@sigx/lynx-heroui';

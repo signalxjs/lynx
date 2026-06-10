@@ -2,6 +2,10 @@
 
 Native date/time picker for sigx-lynx — `UIDatePicker` presented in a sheet on iOS, `DatePickerDialog` / `TimePickerDialog` on Android.
 
+## 📚 Documentation
+
+Full guides, API reference and live examples → **[https://sigx.dev/lynx/modules/datetime-picker/overview/](https://sigx.dev/lynx/modules/datetime-picker/overview/)**
+
 - **iOS**: `UIDatePicker` (`.wheels`) in a presented sheet with Cancel/Done.
 - **Android**: platform `android.app.DatePickerDialog` / `TimePickerDialog` — no Material or AndroidX dependency. `'datetime'` mode chains the date dialog into the time dialog.
 

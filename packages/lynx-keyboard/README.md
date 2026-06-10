@@ -1,8 +1,12 @@
 # @sigx/lynx-keyboard
 
-Soft-keyboard handling for [SignalX](https://github.com/signalxjs) on Lynx, with an API mirroring React Native's (`KeyboardAvoidingView`, `KeyboardStickyView`/`InputAccessoryView`, `useKeyboard`). Keeps a composer input — and an accessory toolbar above it — pinned to the top edge of the on-screen keyboard.
+Soft-keyboard handling for [SignalX](https://sigx.dev/lynx/) on Lynx, with an API mirroring React Native's (`KeyboardAvoidingView`, `KeyboardStickyView`/`InputAccessoryView`, `useKeyboard`). Keeps a composer input — and an accessory toolbar above it — pinned to the top edge of the on-screen keyboard.
 
-Keyboard height reaches JS through the safe-area bridge ([`@sigx/lynx-safe-area`](../lynx-safe-area)): the native publisher reports the IME height as the `keyboard` inset on every `safeAreaChanged` event. This package turns that inset into ready-made layout primitives — no extra native module needed. Keyboard handling stays a separate concern from safe-area, mirroring the RN ecosystem split (`react-native` core / `react-native-keyboard-controller` vs `react-native-safe-area-context`).
+Keyboard height reaches JS through the safe-area bridge ([`@sigx/lynx-safe-area`](https://sigx.dev/lynx/modules/safe-area/overview/)): the native publisher reports the IME height as the `keyboard` inset on every `safeAreaChanged` event. This package turns that inset into ready-made layout primitives — no extra native module needed. Keyboard handling stays a separate concern from safe-area, mirroring the RN ecosystem split (`react-native` core / `react-native-keyboard-controller` vs `react-native-safe-area-context`).
+
+## 📚 Documentation
+
+Full guides, API reference and live examples → **[https://sigx.dev/lynx/modules/keyboard/overview/](https://sigx.dev/lynx/modules/keyboard/overview/)**
 
 ## Installation
 
@@ -71,7 +75,7 @@ Wraps content and keeps it above the keyboard. Layout-affecting, so it applies i
 
 - **Height source** — `useSafeAreaInsets().value.keyboard`. There is no separate keyboard event API in Lynx; the safe-area publisher is canonical.
 - **The lift** — `max(0, keyboard - bottomInset)`: the keyboard covers the home-indicator region, so a bar that already sits above the bottom inset only needs to rise by the difference. Never add both.
-- **BG→MT bridge** — the keyboard inset is a BG-only signal (deliberately not a SharedValue in lynx-safe-area). `useKeyboardLiftSV` watches it from a BG effect and dispatches an MT `withTiming` (from [`@sigx/lynx-motion`](../lynx-motion)) toward each new target; the tween then runs entirely on the main thread.
+- **BG→MT bridge** — the keyboard inset is a BG-only signal (deliberately not a SharedValue in lynx-safe-area). `useKeyboardLiftSV` watches it from a BG effect and dispatches an MT `withTiming` (from [`@sigx/lynx-motion`](https://sigx.dev/lynx/modules/motion/overview/)) toward each new target; the tween then runs entirely on the main thread.
 - **Transform vs layout** — only `translateY` is MT-animated. Padding/height go through inline BG styles because MT layout writes land after the first layout pass and `<scroll-view>` won't reflow.
 
 ## Demo

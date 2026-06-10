@@ -5,6 +5,10 @@ A **native rich-text input element** for Lynx: `<sigx-richtext>` wraps
 bold is bold *inside* the editable field. It powers `@sigx/lynx-markdown`'s
 `MarkdownEditor`, but is markdown-agnostic and usable on its own.
 
+## 📚 Documentation
+
+Full guides, API reference and live examples → **[https://sigx.dev/lynx/modules/richtext/overview/](https://sigx.dev/lynx/modules/richtext/overview/)**
+
 ## The document model
 
 A flat, span-based `RichDoc` crosses the bridge — it maps 1:1 onto

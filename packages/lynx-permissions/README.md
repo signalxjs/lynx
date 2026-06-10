@@ -1,8 +1,12 @@
 # @sigx/lynx-permissions
 
-> **Android-only infrastructure.** Apps typically don't need to install this directly — every permission-using module ([`@sigx/lynx-audio`](https://github.com/signalxjs/lynx/tree/main/packages/lynx-audio), [`@sigx/lynx-camera`](https://github.com/signalxjs/lynx/tree/main/packages/lynx-camera), [`@sigx/lynx-file-picker`](https://github.com/signalxjs/lynx/tree/main/packages/lynx-file-picker), [`@sigx/lynx-image-picker`](https://github.com/signalxjs/lynx/tree/main/packages/lynx-image-picker), [`@sigx/lynx-location`](https://github.com/signalxjs/lynx/tree/main/packages/lynx-location), [`@sigx/lynx-notifications`](https://github.com/signalxjs/lynx/tree/main/packages/lynx-notifications)) declares it as a dependency, and the auto-linker walks transitive dependencies, so it links automatically. This README is for native-module *authors*.
+> **Android-only infrastructure.** Apps typically don't need to install this directly — every permission-using module ([`@sigx/lynx-audio`](https://sigx.dev/lynx/modules/audio/overview/), [`@sigx/lynx-camera`](https://sigx.dev/lynx/modules/camera/overview/), [`@sigx/lynx-file-picker`](https://sigx.dev/lynx/modules/file-picker/overview/), [`@sigx/lynx-image-picker`](https://sigx.dev/lynx/modules/image-picker/overview/), [`@sigx/lynx-location`](https://sigx.dev/lynx/modules/location/overview/), [`@sigx/lynx-notifications`](https://sigx.dev/lynx/modules/notifications/overview/)) declares it as a dependency, and the auto-linker walks transitive dependencies, so it links automatically. This README is for native-module *authors*.
 
 Provides the shared `PermissionHelper` + `MediaCapture` Kotlin classes that the listed modules dispatch through to show OS permission dialogs and receive Activity Result callbacks. iOS doesn't need this — `UIImagePickerController`/`CLLocationManager`/etc. handle their own prompts.
+
+## 📚 Documentation
+
+Full guides, API reference and live examples → **[https://sigx.dev/lynx/modules/permissions/overview/](https://sigx.dev/lynx/modules/permissions/overview/)**
 
 ## Install
 

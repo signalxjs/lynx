@@ -1,5 +1,10 @@
 # @sigx/lynx-clipboard
 System clipboard access for sigx-lynx. `UIPasteboard` on iOS, `ClipboardManager` on Android.
+
+## 📚 Documentation
+
+Full guides, API reference and live examples → **[https://sigx.dev/lynx/modules/clipboard/overview/](https://sigx.dev/lynx/modules/clipboard/overview/)**
+
 ## Install
 ```bash
 pnpm add @sigx/lynx-clipboard

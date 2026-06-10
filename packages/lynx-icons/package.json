@@ -59,7 +59,7 @@
         "url": "git+https://github.com/signalxjs/lynx.git",
         "directory": "packages/lynx-icons"
     },
-    "homepage": "https://github.com/signalxjs/lynx/tree/main/packages/lynx-icons",
+    "homepage": "https://sigx.dev/lynx/modules/icons/overview/",
     "bugs": {
         "url": "https://github.com/signalxjs/lynx/issues"
     },

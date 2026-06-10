@@ -37,7 +37,7 @@
         "url": "git+https://github.com/signalxjs/lynx.git",
         "directory": "packages/lynx-network"
     },
-    "homepage": "https://github.com/signalxjs/lynx/tree/main/packages/lynx-network",
+    "homepage": "https://sigx.dev/lynx/modules/network/overview/",
     "bugs": {
         "url": "https://github.com/signalxjs/lynx/issues"
     },

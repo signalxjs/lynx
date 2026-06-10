@@ -2,6 +2,10 @@
 
 Audio recording and playback for sigx-lynx. iOS uses `AVAudioPlayer` / `AVAudioRecorder`; Android uses `MediaPlayer` / `MediaRecorder`.
 
+## 📚 Documentation
+
+Full guides, API reference and live examples → **[https://sigx.dev/lynx/modules/audio/overview/](https://sigx.dev/lynx/modules/audio/overview/)**
+
 ## Install
 
 ```bash
@@ -10,7 +14,7 @@ pnpm add @sigx/lynx-audio
 
 `sigx prebuild` auto-discovers the package, links the native module, injects `android.permission.RECORD_AUDIO`, adds `NSMicrophoneUsageDescription` to `Info.plist`, and enables the `audio` background mode for iOS.
 
-On Android, `RECORD_AUDIO` is requested through [`@sigx/lynx-permissions`](../lynx-permissions), a dependency of this package — the auto-linker pulls it in, nothing to install.
+On Android, `RECORD_AUDIO` is requested through [`@sigx/lynx-permissions`](https://sigx.dev/lynx/modules/permissions/overview/), a dependency of this package — the auto-linker pulls it in, nothing to install.
 
 ## Playback
 

@@ -1,5 +1,10 @@
 # @sigx/lynx-camera
 Photo capture via the system camera for sigx-lynx. iOS uses `UIImagePickerController`; Android uses an `ACTION_IMAGE_CAPTURE` intent fed by a `FileProvider` URI (the cache-path is wired by the app template's manifest).
+
+## 📚 Documentation
+
+Full guides, API reference and live examples → **[https://sigx.dev/lynx/modules/camera/overview/](https://sigx.dev/lynx/modules/camera/overview/)**
+
 ## Install
 ```bash
 pnpm add @sigx/lynx-camera
@@ -19,7 +24,7 @@ export default defineLynxConfig({
     },
 });
 ```
-On Android the runtime permission prompt + Activity Result wiring comes from [`@sigx/lynx-permissions`](../lynx-permissions), a dependency of this package — the auto-linker pulls it in, nothing to install.
+On Android the runtime permission prompt + Activity Result wiring comes from [`@sigx/lynx-permissions`](https://sigx.dev/lynx/modules/permissions/overview/), a dependency of this package — the auto-linker pulls it in, nothing to install.
 ## Usage
 ```ts
 import { Camera } from '@sigx/lynx-camera';

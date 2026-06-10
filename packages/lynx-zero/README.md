@@ -5,6 +5,10 @@ Design-system-neutral UI foundation for sigx-lynx. Design-system packages
 import from their chosen design system, which re-exports what it uses from
 here.
 
+## 📚 Documentation
+
+Full guides, API reference and live examples → **[https://sigx.dev/lynx/modules/zero/overview/](https://sigx.dev/lynx/modules/zero/overview/)**
+
 What lives here (growing per the phases in
 [signalxjs/lynx#219](https://github.com/signalxjs/lynx/issues/219)):
 

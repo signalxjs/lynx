@@ -37,7 +37,7 @@
         "url": "git+https://github.com/signalxjs/lynx.git",
         "directory": "packages/lynx-clipboard"
     },
-    "homepage": "https://github.com/signalxjs/lynx/tree/main/packages/lynx-clipboard",
+    "homepage": "https://sigx.dev/lynx/modules/clipboard/overview/",
     "bugs": {
         "url": "https://github.com/signalxjs/lynx/issues"
     },

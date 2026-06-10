@@ -52,7 +52,7 @@
         "url": "git+https://github.com/signalxjs/lynx.git",
         "directory": "packages/lynx-safe-area"
     },
-    "homepage": "https://github.com/signalxjs/lynx/tree/main/packages/lynx-safe-area",
+    "homepage": "https://sigx.dev/lynx/modules/safe-area/overview/",
     "bugs": {
         "url": "https://github.com/signalxjs/lynx/issues"
     },
