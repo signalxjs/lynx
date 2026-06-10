@@ -402,6 +402,21 @@ describe('patchProp input value → INVOKE_UI_METHOD (#143, #404)', () => {
     expect(invokeOps(parseOps(drainOps()))).toHaveLength(0);
   });
 
+  it('re-patching to empty before insert supersedes the stashed initial value (#404)', () => {
+    const parent = nodeOps.createElement('view');
+    const el = nodeOps.createElement('input');
+    drainOps();
+
+    nodeOps.patchProp(el, 'value', null, 'seed'); // stash non-empty (pre-insert)
+    nodeOps.patchProp(el, 'value', 'seed', '');    // re-patched empty, still uninserted
+    nodeOps.insert(el, parent);
+    drainOps();
+
+    // The deferred sync must NOT emit the stale 'seed'.
+    vi.advanceTimersByTime(100);
+    expect(invokeOps(parseOps(drainOps()))).toHaveLength(0);
+  });
+
   it('a post-mount value change supersedes the not-yet-flushed initial value (#404)', () => {
     const { el } = mountField('input', 'seed');
 

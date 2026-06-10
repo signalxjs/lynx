@@ -553,6 +553,11 @@ export const nodeOps: RendererOptions<ShadowElement, ShadowElement> = {
         // needs nothing extra (the attribute covers it). (#404)
         el._pendingInitialValue = next;
         scheduleInitialValueSync(el);
+      } else if (el._pendingInitialValue !== undefined) {
+        // Re-patched to empty while still uninserted — supersede the earlier
+        // non-empty stash so the deferred setValue can't emit a stale value.
+        el._pendingInitialValue = undefined;
+        pendingInitialValues.delete(el);
       }
     } else {
       pushOp(OP.SET_PROP, el.id, key, nextValue);
