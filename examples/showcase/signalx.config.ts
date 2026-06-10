@@ -20,23 +20,22 @@ export default defineLynxConfig({
     // 'portrait' | 'landscape' | 'default'
     orientation: 'portrait',
 
-    // Logging — all optional. The leveled/namespaced logger
-    // (`import { createLogger } from '@sigx/lynx'`) streams to the `sigx dev`
-    // terminal in development; tune it here without touching code.
-    logging: {
-        // Default level: 'debug' in dev, 'warn' in release. Override globally:
-        level: 'debug',
-        // Silence noisy namespaces at startup (e.g. HTTP request logs):
-        // namespaces: { disabled: ['http'] },
-        //
-        // Production error capture + remote sink — auto-wires
-        // @sigx/lynx-observability in release builds when installed. Uncomment
-        // and `pnpm add @sigx/lynx-observability` to enable:
-        // production: {
-        //     sink: { url: 'https://logs.example.com/ingest', minLevel: 'info' },
-        //     captureErrors: true,
-        // },
-    },
+    // Logging — all optional, shown for reference (defaults apply as-is). The
+    // leveled/namespaced logger (`import { createLogger } from '@sigx/lynx'`)
+    // streams to the `sigx dev` terminal in development. Uncomment to tune
+    // without touching code:
+    // logging: {
+    //     // Default level is 'debug' in dev, 'warn' in release. Override globally:
+    //     level: 'debug',
+    //     // Silence noisy namespaces at startup (e.g. HTTP request logs):
+    //     namespaces: { disabled: ['http'] },
+    //     // Production error capture + remote sink — auto-wires
+    //     // @sigx/lynx-observability in release builds (`pnpm add @sigx/lynx-observability`):
+    //     production: {
+    //         sink: { url: 'https://logs.example.com/ingest', minLevel: 'info' },
+    //         captureErrors: true,
+    //     },
+    // },
 
     // Native modules auto-link from package.json — `@sigx/lynx-storage`,
     // `@sigx/lynx-haptics`, etc. are picked up via their `signalx-module.json`.
