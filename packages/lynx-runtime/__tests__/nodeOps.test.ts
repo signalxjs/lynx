@@ -344,7 +344,12 @@ describe('patchProp input value → INVOKE_UI_METHOD (#143)', () => {
     return { el, sign };
   }
 
-  it('initial mount emits SET_PROP only (attribute covers first render)', () => {
+  // A non-empty initial value (model prefill / synchronously-seeded signal) is
+  // pushed to the native field via setValue once the element is live, because
+  // iOS ignores the `value` attribute for initial display (#404). The setValue
+  // is ordered AFTER the INSERT op (the UI method needs a live element) and the
+  // attribute is still set for platforms that honor it.
+  it('initial mount with a non-empty value emits SET_PROP + setValue after INSERT (#404)', () => {
     const parent = nodeOps.createElement('view');
     const el = nodeOps.createElement('input');
     drainOps();
@@ -353,11 +358,41 @@ describe('patchProp input value → INVOKE_UI_METHOD (#143)', () => {
     nodeOps.insert(el, parent);
     const records = parseOps(drainOps());
 
-    expect(records.find(r => r[0] === OP.SET_PROP && r[2] === 'value' && r[3] === 'seed')).toBeDefined();
+    const setProp = records.findIndex(r => r[0] === OP.SET_PROP && r[2] === 'value' && r[3] === 'seed');
+    const insert = records.findIndex(r => r[0] === OP.INSERT);
+    const invokes = invokeOps(records);
+    expect(setProp).toBeGreaterThanOrEqual(0);
+    expect(invokes).toHaveLength(1);
+    expect(invokes[0]![1]).toBe(el.id);
+    expect(invokes[0]![2]).toBe('setValue');
+    expect(invokes[0]![3]).toEqual({ value: 'seed' });
+    // Ordered after INSERT so the UI method targets a live element.
+    const invokeIdx = records.findIndex(r => r[0] === OP.INVOKE_UI_METHOD);
+    expect(invokeIdx).toBeGreaterThan(insert);
+  });
+
+  it('initial mount with an empty value emits SET_PROP only — no setValue (#404)', () => {
+    const parent = nodeOps.createElement('view');
+    const el = nodeOps.createElement('input');
+    drainOps();
+
+    nodeOps.patchProp(el, 'value', null, ''); // empty initial value
+    nodeOps.insert(el, parent);
+    const records = parseOps(drainOps());
+
+    expect(records.find(r => r[0] === OP.SET_PROP && r[2] === 'value')).toBeDefined();
     expect(invokeOps(records)).toHaveLength(0);
   });
 
-  it('real renderer mount of <input value=…> emits no INVOKE_UI_METHOD', () => {
+  it('mount setValue seeds _lastInputValue so the first echo does not re-invoke (#404)', () => {
+    const { el } = mountField('input', 'seed', true);
+
+    // A re-render echoing exactly the prefilled value must not re-invoke.
+    nodeOps.patchProp(el, 'value', 'seed', 'seed');
+    expect(invokeOps(parseOps(drainOps()))).toHaveLength(0);
+  });
+
+  it('real renderer mount of <input value=…> emits setValue after INSERT (#404)', () => {
     const renderer = createRenderer(nodeOps) as { render: (v: unknown, c: unknown) => void };
     const root = nodeOps.createElement('page');
     drainOps();
@@ -366,7 +401,10 @@ describe('patchProp input value → INVOKE_UI_METHOD (#143)', () => {
     const records = parseOps(drainOps());
 
     expect(records.find(r => r[0] === OP.SET_PROP && r[2] === 'value' && r[3] === 'seed')).toBeDefined();
-    expect(invokeOps(records)).toHaveLength(0);
+    const invokes = invokeOps(records);
+    expect(invokes).toHaveLength(1);
+    expect(invokes[0]![2]).toBe('setValue');
+    expect(invokes[0]![3]).toEqual({ value: 'seed' });
   });
 
   it('programmatic update emits SET_PROP + INVOKE_UI_METHOD setValue', () => {

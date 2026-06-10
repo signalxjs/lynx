@@ -23,9 +23,8 @@ export const selectDemo: HeroComponentDemo = {
                     <Col gap={8}>
                         <Select
                             options={FRUITS}
-                            value={fruit.value}
                             placeholder="Pick a fruit…"
-                            onChange={(v) => { fruit.value = v; }}
+                            model={() => fruit.value}
                         />
                         <Text size="sm" class="opacity-60">selected: {fruit.value || '(none)'}</Text>
                     </Col>

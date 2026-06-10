@@ -15,7 +15,7 @@ export const checkboxDemo: HeroComponentDemo = {
                 const checked = signal(true);
                 return () => (
                     <Row gap={12} align="center">
-                        <Checkbox checked={checked.value} onChange={(v) => { checked.value = v; }} />
+                        <Checkbox model={() => checked.value} />
                         <Text size="sm" class="opacity-60">{checked.value ? 'checked' : 'unchecked'}</Text>
                     </Row>
                 );

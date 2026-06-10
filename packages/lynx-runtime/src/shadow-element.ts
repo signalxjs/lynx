@@ -39,6 +39,14 @@ export class ShadowElement {
   // initialize it).
   _lastInputValue: string | undefined = undefined;
 
+  // Non-empty initial <input>/<textarea> value captured at mount, when the
+  // element isn't inserted yet so a setValue UI method can't target it. insert()
+  // flushes it via setValue once the element is live and then clears it. Needed
+  // because iOS ignores the `value` attribute for initial display — only the
+  // setValue UI method updates the field — so model-bound prefill would
+  // otherwise show only the placeholder (#404). `undefined` when nothing pending.
+  _pendingInitialValue: string | undefined = undefined;
+
   constructor(type: string, forceId?: number) {
     this.id = forceId !== undefined ? forceId : ShadowElement.nextId++;
     this.type = type;

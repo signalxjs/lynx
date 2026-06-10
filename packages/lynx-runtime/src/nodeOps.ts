@@ -321,6 +321,20 @@ export const nodeOps: RendererOptions<ShadowElement, ShadowElement> = {
 
     const anchorId = resolvedAnchor ? resolvedAnchor.id : -1;
     pushOp(OP.INSERT, parent.id, child.id, anchorId);
+
+    // Flush a non-empty initial <input>/<textarea> value captured at mount,
+    // now that the element is live and the setValue UI method can target it.
+    // iOS ignores the `value` attribute for initial display, so this is what
+    // makes a model-bound prefill actually appear (#404). Seed _lastInputValue
+    // so the first echo/programmatic comparison stays correct, then clear.
+    if (child._pendingInitialValue != null) {
+      pushOp(OP.INVOKE_UI_METHOD, child.id, 'setValue', {
+        value: child._pendingInitialValue,
+      });
+      child._lastInputValue = child._pendingInitialValue;
+      child._pendingInitialValue = undefined;
+    }
+
     scheduleFlush();
   },
 
@@ -473,14 +487,10 @@ export const nodeOps: RendererOptions<ShadowElement, ShadowElement> = {
       // The native field treats the `value` attribute as initial-only once
       // the user has edited it — programmatic writes (clear-on-send, editor
       // toolbar inserts) must additionally go through the element's
-      // `setValue` UI method or the visible text never changes (#143).
-      // Skip during initial mount (`el.parent == null`: props are patched
-      // before insertion, and the attribute covers the initial value) — NOT
-      // by `_prevValue == null`, which would also skip legitimate post-mount
-      // transitions like value={null} → value={'text'}. Also skip the model
-      // echo (the re-render caused by the user's own typing, where the new
-      // value is exactly what the input event just reported) so cursor/IME
-      // composition isn't disturbed while typing.
+      // `setValue` UI method or the visible text never changes (#143). Also
+      // skip the model echo (the re-render caused by the user's own typing,
+      // where the new value is exactly what the input event just reported) so
+      // cursor/IME composition isn't disturbed while typing.
       // Normalize to a string ('' for nullish) on BOTH sides of the
       // comparison — `value` is typed string on input/textarea but user code
       // can write a number/boolean by mistake, and setValue is a native
@@ -488,11 +498,22 @@ export const nodeOps: RendererOptions<ShadowElement, ShadowElement> = {
       // would desync `_lastInputValue` from the native field and re-invoke
       // redundantly on later renders.
       const next = nextValue == null ? '' : String(nextValue);
-      if (el.parent != null && next !== el._lastInputValue) {
-        pushOp(OP.INVOKE_UI_METHOD, el.id, 'setValue', { value: next });
-        // The programmatic write replaces whatever the user had typed; track
-        // it so the next echo comparison stays correct.
-        el._lastInputValue = next;
+      if (el.parent != null) {
+        if (next !== el._lastInputValue) {
+          pushOp(OP.INVOKE_UI_METHOD, el.id, 'setValue', { value: next });
+          // The programmatic write replaces whatever the user had typed; track
+          // it so the next echo comparison stays correct.
+          el._lastInputValue = next;
+        }
+      } else if (next !== '') {
+        // Initial mount: props are patched before insertion, so the element
+        // isn't live yet and a setValue UI method can't target it. iOS ignores
+        // the `value` attribute for initial display (only setValue updates the
+        // field), so a model-bound prefill would show only the placeholder.
+        // Stash the value; insert() flushes setValue once the element is in the
+        // tree. An empty initial value needs no setValue (the attribute covers
+        // it), matching the previous mount behavior. (#404)
+        el._pendingInitialValue = next;
       }
     } else {
       pushOp(OP.SET_PROP, el.id, key, nextValue);
