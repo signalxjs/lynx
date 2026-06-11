@@ -149,8 +149,8 @@ surfaces, two rules:
 
 | When you… | Update… |
 |---|---|
-| add / rename / remove a package | `AGENTS.md` "Packages" and the README package table — plus, **whichever of these the repo has**: `CONTRIBUTING` layout, the issue-template package dropdowns, `.size-limit.json`, and the `tsconfig` / `vitest` path aliases |
-| change a build / test / lint script | `AGENTS.md` "Build, Test, Lint", `CONTRIBUTING` "Common tasks", `package.json` |
+| add / rename / remove a package | `AGENTS.md` "Packages" and the README package table — plus, **whichever of these the repo has**: `CONTRIBUTING.md` layout, the issue-template package dropdowns, `.size-limit.json`, and the `tsconfig` / `vitest` path aliases |
+| change a build / test / lint script | `AGENTS.md` "Build, Test, Lint", `CONTRIBUTING.md` "Common tasks", `package.json` |
 | change or add public API / behaviour | the package's own `README.md` and `CHANGELOG.md` under `[Unreleased]` |
 | change the workflow / process itself | `AGENTS.md` here — and, since it is the shared standard, upstream the same change to [`signalxjs/repo-template`](https://github.com/signalxjs/repo-template) |
 
