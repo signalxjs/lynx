@@ -8,6 +8,10 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 - `showcase` — Gestures & Motion area: 7 gesture/animation demos (#421).
 
+### Fixed
+
+- `lynx-cli` — iOS Release archive failed to compile: the generated `ContentView.swift` referenced `DevPerfMetric` (a `SigxDevClient` type excluded from Release via `EXCLUDED_SOURCE_FILE_NAMES`) outside a `#if DEBUG` guard. The `perfMetrics` state is now DEBUG-gated, matching its other usages.
+
 ## [0.5.6] - 2026-06-10
 
 ### Added
