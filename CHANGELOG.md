@@ -4,6 +4,10 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 ## [Unreleased]
 
+### Added
+
+- `showcase` — Gestures & Motion area: 7 gesture/animation demos (#421).
+
 ## [0.5.6] - 2026-06-10
 
 ### Added
