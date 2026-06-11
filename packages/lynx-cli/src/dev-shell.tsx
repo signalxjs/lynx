@@ -12,7 +12,7 @@
  */
 import { runShell, type ShellConfig } from '@sigx/cli/shell';
 import type { ShellHandle, SigxPlugin, StatusItem } from '@sigx/cli/plugin';
-import { signal, Text, Col, Row, QRCode, LogView, Spacer } from '@sigx/terminal';
+import { signal, Text, Col, Row, QRCode, LogView, Spacer, getTerminalSize } from '@sigx/terminal';
 import type { SelectedTarget } from './target-picker.js';
 import type { DevActions } from './dev-server.js';
 
@@ -73,6 +73,7 @@ export async function createDevShell(opts: {
     });
 
     const config: ShellConfig = {
+        mode: 'fullscreen',
         title: `⚡ sigx dev · ${opts.projectName}`,
         version: opts.version,
         plugins: opts.plugins,
@@ -115,8 +116,11 @@ export async function createDevShell(opts: {
             {
                 id: 'logs',
                 label: 'Logs',
+                // Full-height: terminal rows minus the shell chrome
+                // (title bar 3 + tabs 3 + spacer 1 + status/hints 2) and the
+                // LogView's own border/footer.
                 render: () => (handle
-                    ? <LogView store={handle.store as never} height={14} />
+                    ? <LogView store={handle.store as never} height={Math.max(8, getTerminalSize().rows - 13)} />
                     : <Text color="dim">…</Text>),
             },
             {
