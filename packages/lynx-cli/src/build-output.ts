@@ -38,6 +38,12 @@ export interface RunWithBuildFilterOptions {
      * sniff the unmodified stream regardless of verbose mode.
      */
     onChunk?: (chunk: Buffer, source: 'stdout' | 'stderr') => void;
+    /**
+     * Where emitted lines go. Default: process stdout/stderr. Set when a
+     * live TUI region is mounted (writing around it corrupts frames) — e.g.
+     * the dev shell routes builds into its log store.
+     */
+    sink?: (line: string) => void;
 }
 
 const XCBEAUTIFY_CANDIDATES = [
@@ -75,7 +81,7 @@ export async function runWithBuildFilter(
     if (opts.verbose) {
         return runVerbose(cmd, args, spawnOpts, opts);
     }
-    if (opts.kind === 'xcodebuild') {
+    if (opts.kind === 'xcodebuild' && !opts.sink) {
         const xcbeautify = detectXcbeautify();
         if (xcbeautify) {
             return runThroughXcbeautify(cmd, args, spawnOpts, xcbeautify, opts);
@@ -99,16 +105,28 @@ function runVerbose(
         const child = spawn(cmd, args, { ...spawnOpts, stdio: ['inherit', 'pipe', 'pipe'] });
         child.stdout?.on('data', (chunk: Buffer) => {
             opts.onChunk!(chunk, 'stdout');
-            process.stdout.write(chunk);
+            if (opts.sink) opts.sink(chunk.toString());
+            else process.stdout.write(chunk);
         });
         child.stderr?.on('data', (chunk: Buffer) => {
             opts.onChunk!(chunk, 'stderr');
-            process.stderr.write(chunk);
+            if (opts.sink) opts.sink(chunk.toString());
+            else process.stderr.write(chunk);
         });
         return awaitExit(child);
     }
+    if (opts.sink) {
+        const piped = spawn(cmd, args, { ...spawnOpts, stdio: ['inherit', 'pipe', 'pipe'] });
+        piped.stdout?.on('data', (c: Buffer) => opts.sink!(c.toString()));
+        piped.stderr?.on('data', (c: Buffer) => opts.sink!(c.toString()));
+        return awaitExit(piped);
+    }
     const child = spawn(cmd, args, { ...spawnOpts, stdio: 'inherit' });
     return awaitExit(child);
+}
+
+function sinkEmit(opts: RunWithBuildFilterOptions): ((line: string, source: 'stdout' | 'stderr') => void) | undefined {
+    return opts.sink ? (line) => opts.sink!(line) : undefined;
 }
 
 function runWithStreamingFilter(
@@ -118,7 +136,7 @@ function runWithStreamingFilter(
     opts: RunWithBuildFilterOptions,
 ): Promise<void> {
     const child = spawn(cmd, args, { ...spawnOpts, stdio: ['inherit', 'pipe', 'pipe'] });
-    const filter = opts.kind === 'xcodebuild' ? createXcodebuildFilter() : createGradleFilter();
+    const filter = opts.kind === 'xcodebuild' ? createXcodebuildFilter(sinkEmit(opts)) : createGradleFilter(sinkEmit(opts));
 
     const wire = (stream: NodeJS.ReadableStream | null, source: 'stdout' | 'stderr') => {
         if (!stream) return;
@@ -226,7 +244,10 @@ const XC_SKIP_PREFIXES = [
 const XC_ALWAYS_PRINT_RE = /(\berror:|\*\* (BUILD|ARCHIVE|CLEAN|TEST) (SUCCEEDED|FAILED) \*\*|^ld: |Undefined symbol|Linker command failed|fatal error:|SwiftCompiler Error|❌)/;
 const XC_WARNING_RE = /\bwarning:/;
 
-function createXcodebuildFilter(): StreamFilter {
+function createXcodebuildFilter(emit?: (line: string, source: 'stdout' | 'stderr') => void): StreamFilter {
+    const out = emit ?? ((line, source) => {
+        (source === 'stderr' ? process.stderr : process.stdout).write(line + '\n');
+    });
     let compileCount = 0;
     let warningCount = 0;
     const WARNING_LIMIT = 20;
@@ -239,8 +260,7 @@ function createXcodebuildFilter(): StreamFilter {
 
         // Errors and build banners — always print, untouched.
         if (XC_ALWAYS_PRINT_RE.test(line)) {
-            const sink = source === 'stderr' ? process.stderr : process.stdout;
-            sink.write(line + '\n');
+            out(line, source);
             return;
         }
 
@@ -248,10 +268,10 @@ function createXcodebuildFilter(): StreamFilter {
         if (XC_WARNING_RE.test(line)) {
             warningCount++;
             if (warningCount <= WARNING_LIMIT) {
-                process.stdout.write(line + '\n');
+                out(line, 'stdout');
             } else if (!warningCapReached) {
                 warningCapReached = true;
-                process.stdout.write(`\x1b[2m… more warnings suppressed; re-run with --verbose to see them\x1b[0m\n`);
+                out(`\x1b[2m… more warnings suppressed; re-run with --verbose to see them\x1b[0m\n`, 'stdout');
             }
             return;
         }
@@ -269,31 +289,31 @@ function createXcodebuildFilter(): StreamFilter {
                 const label = target && file
                     ? `${target}/${file}`
                     : (file ?? target ?? 'object');
-                process.stdout.write(`\x1b[2m▸\x1b[0m Compiling [${compileCount}] ${label}\n`);
+                out(`\x1b[2m▸\x1b[0m Compiling [${compileCount}] ${label}\n`, 'stdout');
                 return;
             }
             if (line.startsWith('SwiftCompile') || line.startsWith('SwiftDriverJobDiscovery')) {
                 if (!target) return; // Sub-step noise.
                 compileCount++;
-                process.stdout.write(`\x1b[2m▸\x1b[0m Compiling Swift [${compileCount}] ${target}\n`);
+                out(`\x1b[2m▸\x1b[0m Compiling Swift [${compileCount}] ${target}\n`, 'stdout');
                 return;
             }
             if (line.startsWith('Ld ')) {
-                process.stdout.write(`\x1b[2m▸\x1b[0m Linking ${target ?? ''}\n`);
+                out(`\x1b[2m▸\x1b[0m Linking ${target ?? ''}\n`, 'stdout');
                 return;
             }
             if (line.startsWith('CodeSign')) {
-                process.stdout.write(`\x1b[2m▸\x1b[0m Signing ${target ?? ''}\n`);
+                out(`\x1b[2m▸\x1b[0m Signing ${target ?? ''}\n`, 'stdout');
                 return;
             }
             if (line.startsWith('PhaseScriptExecution')) {
                 const phaseMatch = line.match(/^PhaseScriptExecution\s+([^\s]+(?:\s+[^\s]+)*?)\s+\//);
-                process.stdout.write(`\x1b[2m▸\x1b[0m Script ${phaseMatch?.[1] ?? ''} ${target ? `(${target})` : ''}\n`);
+                out(`\x1b[2m▸\x1b[0m Script ${phaseMatch?.[1] ?? ''} ${target ? `(${target})` : ''}`, 'stdout');
                 return;
             }
             // Catch-all: verb + target.
             const verb = line.split(/\s/, 1)[0];
-            process.stdout.write(`\x1b[2m▸\x1b[0m ${verb} ${target ?? ''}\n`);
+            out(`\x1b[2m▸\x1b[0m ${verb} ${target ?? ''}\n`, 'stdout');
             return;
         }
 
@@ -317,7 +337,7 @@ function createXcodebuildFilter(): StreamFilter {
         flush: () => {
             splitter.flush();
             if (compileCount > 0) {
-                process.stdout.write(`\x1b[2m▸ ${compileCount} files compiled\x1b[0m\n`);
+                out(`\x1b[2m▸ ${compileCount} files compiled\x1b[0m\n`, 'stdout');
             }
         },
     };
@@ -331,7 +351,10 @@ const GRADLE_NINJA_LINK_RE = /^\[(\d+)\/(\d+)\]\s+Linking\s+.*?(\S+)\s*$/;
 const GRADLE_ALWAYS_PRINT_RE = /(^FAILURE:|^\* What went wrong:|^\* Try:|^\* Where:|^BUILD SUCCESSFUL|^BUILD FAILED|^Execution failed|^A problem occurred|^FAILED:|^ninja: error:|^\s*\^|: error:|: fatal error:)/;
 const GRADLE_PROGRESS_BAR_RE = /^<[-=]+>\s+\d+%/;
 
-function createGradleFilter(): StreamFilter {
+function createGradleFilter(emit?: (line: string, source: 'stdout' | 'stderr') => void): StreamFilter {
+    const out = emit ?? ((line, source) => {
+        (source === 'stderr' ? process.stderr : process.stdout).write(line + '\n');
+    });
     let skippedTaskCount = 0;
     let lastTaskHeader: string | null = null;
     const seenWarnings = new Set<string>();
@@ -340,7 +363,7 @@ function createGradleFilter(): StreamFilter {
     const handleLine = (raw: string, source: 'stdout' | 'stderr') => {
         const line = raw.replace(/\r$/, '');
         if (line.length === 0) {
-            if (printingFailureBlock) process.stdout.write('\n');
+            if (printingFailureBlock) out('', 'stdout');
             return;
         }
 
@@ -350,8 +373,7 @@ function createGradleFilter(): StreamFilter {
 
         // Always-print band.
         if (GRADLE_ALWAYS_PRINT_RE.test(line)) {
-            const sink = source === 'stderr' ? process.stderr : process.stdout;
-            sink.write(line + '\n');
+            out(line, source);
             if (line.startsWith('FAILURE:') || line.startsWith('* What went wrong:')) {
                 printingFailureBlock = true;
             }
@@ -365,7 +387,7 @@ function createGradleFilter(): StreamFilter {
         // through verbatim until we see BUILD SUCCESSFUL/FAILED or a blank
         // run terminates it.
         if (printingFailureBlock) {
-            process.stdout.write(line + '\n');
+            out(line, 'stdout');
             return;
         }
 
@@ -383,7 +405,7 @@ function createGradleFilter(): StreamFilter {
             // log lines split by other output).
             if (lastTaskHeader === name) return;
             lastTaskHeader = name;
-            process.stdout.write(`\x1b[2m▸\x1b[0m ${name}\n`);
+            out(`\x1b[2m▸\x1b[0m ${name}\n`, 'stdout');
             return;
         }
 
@@ -391,13 +413,13 @@ function createGradleFilter(): StreamFilter {
         const ninjaCxx = line.match(GRADLE_NINJA_CXX_RE);
         if (ninjaCxx) {
             const [, n, total, file] = ninjaCxx;
-            process.stdout.write(`  \x1b[2m▸\x1b[0m Compiling [${n}/${total}] ${file}\n`);
+            out(`  \x1b[2m▸\x1b[0m Compiling [${n}/${total}] ${file}\n`, 'stdout');
             return;
         }
         const ninjaLink = line.match(GRADLE_NINJA_LINK_RE);
         if (ninjaLink) {
             const [, n, total, target] = ninjaLink;
-            process.stdout.write(`  \x1b[2m▸\x1b[0m Linking [${n}/${total}] ${target}\n`);
+            out(`  \x1b[2m▸\x1b[0m Linking [${n}/${total}] ${target}\n`, 'stdout');
             return;
         }
 
@@ -406,7 +428,7 @@ function createGradleFilter(): StreamFilter {
             const key = line.slice(0, 80);
             if (seenWarnings.has(key)) return;
             seenWarnings.add(key);
-            process.stdout.write(line + '\n');
+            out(line, 'stdout');
             return;
         }
 
@@ -427,7 +449,7 @@ function createGradleFilter(): StreamFilter {
         flush: () => {
             splitter.flush();
             if (skippedTaskCount > 0) {
-                process.stdout.write(`\x1b[2m▸ ${skippedTaskCount} tasks up-to-date\x1b[0m\n`);
+                out(`\x1b[2m▸ ${skippedTaskCount} tasks up-to-date\x1b[0m\n`, 'stdout');
             }
         },
     };

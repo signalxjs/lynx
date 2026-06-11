@@ -62,6 +62,7 @@ export default definePlugin({
                 last: { type: 'boolean', description: 'Reuse last selected targets (skip picker)', default: false },
                 verbose: { type: 'boolean', description: 'Stream raw xcodebuild/gradle output (default: filtered)', default: false },
                 'no-device-logs': { type: 'boolean', description: 'Suppress JS console.* streaming from running devices', default: false },
+                'no-ui': { type: 'boolean', description: 'Plain console output instead of the interactive dashboard', default: false },
                 'reset-cache': { type: 'boolean', description: 'Clear build caches (dist/, .rsbuild/, node_modules/.cache) before building — use after a dependency version bump', default: false },
             },
             async run(ctx) {
@@ -353,16 +354,44 @@ export default definePlugin({
                 }
 
                 const { startDevServer } = await import('./dev-server.js');
+
+                // Interactive dashboard (tabs/QR/logs/shortcuts) unless the
+                // user opted out or there is no TTY — runShell's non-TTY
+                // fallback is plain streaming, but skipping it entirely keeps
+                // --no-ui byte-identical to the legacy output.
+                const useUi = !(ctx.args['no-ui'] as boolean)
+                    && !!process.stdout.isTTY && !!process.stdin.isTTY;
+                let devShell: import('./dev-shell.js').DevShellController | undefined;
+                let logger = ctx.logger;
+                if (useUi) {
+                    const { createDevShell } = await import('./dev-shell.js');
+                    const { createShellLogger } = await import('@sigx/cli/shell');
+                    const { readFileSync } = await import('node:fs');
+                    let projectName = 'sigx-lynx';
+                    try {
+                        projectName = JSON.parse(readFileSync(join(ctx.cwd, 'package.json'), 'utf-8')).name || projectName;
+                    } catch { /* default */ }
+                    devShell = await createDevShell({
+                        projectName,
+                        targets: live,
+                        plugins: ctx.plugins,
+                        hasAndroidApp: !!launchAppId,
+                        hasIosApp: !!launchBundleId && process.platform === 'darwin',
+                    });
+                    logger = createShellLogger(devShell.handle);
+                }
+
                 await startDevServer({
                     cwd: ctx.cwd,
                     port: ctx.args.port as string | undefined,
                     host: ctx.args.host as boolean | undefined,
-                    logger: ctx.logger,
+                    logger,
                     launchAppId,
                     launchBundleId,
                     selectedTargets: live,
                     verbose,
                     disableDeviceLogs: ctx.args['no-device-logs'] as boolean | undefined,
+                    shell: devShell,
                 });
             },
         },
@@ -522,7 +551,7 @@ export default definePlugin({
                 const { existsSync: fsExists, mkdirSync, copyFileSync } = await import('node:fs');
                 const { getAllLanIPs } = await import('./network.js');
                 const { getDeviceStatus, launchApp, resolveAdb } = await import('./device-detect.js');
-                const { generateQR } = await import('./qr.js');
+                const { generateQR } = await import('@sigx/terminal');
                 const { resolveVerbose } = await import('./build-output.js');
 
                 const androidDir = join(ctx.cwd, 'android');
