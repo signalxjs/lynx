@@ -3,19 +3,42 @@ name: Release drafter
 on:
   push:
     branches: [main]
-  pull_request:
+  # pull_request_target (not pull_request) so the token can label PRs from
+  # forks too. Safe ONLY because the autolabel job never checks out or runs PR
+  # code — the drafter config is read from the base branch via the API. Never
+  # add a checkout of PR code to this workflow.
+  pull_request_target:
     types: [opened, reopened, synchronize]
     branches: [main]
 
-permissions:
-  contents: write
-  pull-requests: write
+permissions: {}
 
 jobs:
+  # Keeps the draft release's notes up to date as PRs land on main.
   update_release_draft:
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: read
     steps:
       - uses: release-drafter/release-drafter@v7
+        with:
+          config-name: release-drafter.yml
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # v7 split the autolabeler out of the main action — without this job PRs get
+  # no labels, which silently drops the category sections from release notes
+  # and pins the version-resolver to the default patch bump.
+  autolabel:
+    if: github.event_name == 'pull_request_target'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: release-drafter/release-drafter/autolabeler@v7
         with:
           config-name: release-drafter.yml
         env:

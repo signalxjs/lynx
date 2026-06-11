@@ -41,10 +41,10 @@ change-title-escapes: '\<*_&'
 # Strips the leading `feat(scope):` / `fix(scope):` / `chore(scope)!:` prefix
 # from $TITLE before substitution. Untitled-scope PRs render unchanged.
 replacers:
-  - search: '/^(feat|fix|chore|docs|refactor|test|perf|build|ci|style)\(([^)]+)\)!?:\s*/i'
-    replace: '**$2:** '
-  - search: '/^(feat|fix|chore|docs|refactor|test|perf|build|ci|style)!?:\s*/i'
-    replace: ''
+  - search: '/^- (feat|fix|chore|docs|refactor|test|perf|build|ci|style)\(([^)]+)\)!?:\s*/gim'
+    replace: '- **$2:** '
+  - search: '/^- (feat|fix|chore|docs|refactor|test|perf|build|ci|style)!?:\s*/gim'
+    replace: '- '
 
 version-resolver:
   major:
