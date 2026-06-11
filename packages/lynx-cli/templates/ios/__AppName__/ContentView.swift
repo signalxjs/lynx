@@ -18,7 +18,12 @@ final class DevLynxController: ObservableObject {
     @Published var loading: Bool = false
     @Published var error: String?
     @Published var connected: Bool = true
+    // `DevPerfMetric` lives in SigxDevClient, which is excluded from Release
+    // builds (EXCLUDED_SOURCE_FILE_NAMES), so this dev-only state must be
+    // DEBUG-gated or the Release archive fails to compile.
+    #if DEBUG
     @Published var perfMetrics: [DevPerfMetric] = []
+    #endif
     @Published var perfHudEnabled: Bool = false
     @Published var logBoxEnabled: Bool = true
     @Published var inspectorEnabled: Bool = false
@@ -26,7 +31,9 @@ final class DevLynxController: ObservableObject {
     private func startLoad() {
         loading = true
         error = nil
+        #if DEBUG
         perfMetrics = []
+        #endif
     }
 
     func reload() {
