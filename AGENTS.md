@@ -80,8 +80,9 @@ flow below is required.)
    Repeat until Copilot has no remaining actionable feedback.
 
 6. **Merge it yourself.** Once Copilot's feedback is resolved, CI is green, and —
-   for user-facing changes — the docs-repo issue is filed (see "Documentation"),
-   merge (squash — repo rules block merge commits) and clean up:
+   for user-facing changes — the docs issue is filed on the docs repo and linked
+   from the PR (see "Documentation"), merge (squash — repo rules block merge
+   commits) and clean up:
    ```sh
    gh pr checks <pr>                          # must be all green first
    gh pr merge <pr> --squash --delete-branch
@@ -140,8 +141,9 @@ digits, `.`, `_`, `-` only.
 
 ## Documentation
 
-Docs are part of the change, not a follow-up — a change isn't done until the docs
-that describe it are updated. Two surfaces, two rules:
+Docs are part of the change, not a follow-up — in-repo docs ship in the same
+PR, and the docs-site update is queued (as a docs-repo issue) before merge. Two
+surfaces, two rules:
 
 **In-repo docs — update in *this* PR when you touch the matching thing:**
 
