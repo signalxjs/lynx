@@ -1,6 +1,6 @@
 {
     "name": "@sigx/lynx-richtext",
-    "version": "0.5.6",
+    "version": "0.6.0",
     "description": "Native rich-text input element for Lynx (<sigx-richtext>): attributed editing (UITextView / EditText) with a span-based document model, selection events, and formatting commands. Powers @sigx/lynx-markdown's MarkdownEditor.",
     "type": "module",
     "main": "./dist/index.js",

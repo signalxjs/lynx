@@ -351,6 +351,9 @@ importers:
       '@sigx/lynx-core':
         specifier: workspace:^
         version: link:../lynx-core
+      '@sigx/terminal':
+        specifier: ^0.5.0
+        version: 0.5.0
       esbuild:
         specifier: ^0.28.0
         version: 0.28.0

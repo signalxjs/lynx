@@ -62,6 +62,7 @@ export default definePlugin({
                 last: { type: 'boolean', description: 'Reuse last selected targets (skip picker)', default: false },
                 verbose: { type: 'boolean', description: 'Stream raw xcodebuild/gradle output (default: filtered)', default: false },
                 'no-device-logs': { type: 'boolean', description: 'Suppress JS console.* streaming from running devices', default: false },
+                'no-ui': { type: 'boolean', description: 'Plain console output instead of the interactive dashboard', default: false },
                 'reset-cache': { type: 'boolean', description: 'Clear build caches (dist/, .rsbuild/, node_modules/.cache) before building — use after a dependency version bump', default: false },
             },
             async run(ctx) {
@@ -119,6 +120,16 @@ export default definePlugin({
                 const verbose = resolveVerbose(ctx.args.verbose);
 
                 const { pickTargets, materializeTargets, listAndroidAvds, avdMtime } = await import('./target-picker.js');
+                const { paintToken, spinner } = await import('@sigx/terminal');
+
+                // Pre-shell phase (pick -> boot -> build) speaks the prompt
+                // kit's language on a TTY — no '[sigx]' console prefixes.
+                const interactiveTty = !!process.stdout.isTTY && !!process.stdin.isTTY;
+                const pre = interactiveTty ? {
+                    log: (m: string) => console.log(`${paintToken('│', 'dim')}  ${m}`),
+                    warn: (m: string) => console.log(`${paintToken('▲', 'warn')}  ${m}`),
+                    error: (m: string) => console.error(`${paintToken('✖', 'danger')}  ${m}`),
+                } : ctx.logger;
                 const { readLastTargets, writeLastTargets } = await import('./target-history.js');
                 type Target = import('./target-picker.js').SelectedTarget;
 
@@ -208,7 +219,7 @@ export default definePlugin({
                             if (mru) {
                                 all.push({ kind: 'android-avd', avdName: mru });
                             } else {
-                                ctx.logger.warn('No Android devices connected and no AVDs found. Open Android Studio → Device Manager to create one.');
+                                pre.warn('No Android devices connected and no AVDs found. Open Android Studio → Device Manager to create one.');
                             }
                         }
                     }
@@ -216,7 +227,7 @@ export default definePlugin({
                 } else if (selected === null && process.stdin.isTTY) {
                     selected = await pickTargets({ hasAndroid, hasIos, lastTargets });
                     if (selected === null) {
-                        ctx.logger.log('Cancelled.');
+                        pre.log('Cancelled.');
                         process.exit(0);
                     }
                     pickedInteractively = true;
@@ -257,7 +268,7 @@ export default definePlugin({
                 // (scripted invocations), and non-TTY paths.
                 if (pickedInteractively && selected && selected.length > 0) {
                     writeLastTargets(ctx.cwd, selected);
-                    ctx.logger.log('\x1b[2m✓ Saved target selection — next `sigx dev` will pre-check these. Use `sigx dev --last` to skip the picker entirely.\x1b[0m');
+                    pre.log('\x1b[2m✓ Saved target selection — next `sigx dev` will pre-check these. Use `sigx dev --last` to skip the picker entirely.\x1b[0m');
                 }
 
                 if (selected === null) {
@@ -266,8 +277,27 @@ export default definePlugin({
                     process.exit(1);
                 }
 
-                // Materialize (boot sims, launch AVDs, wait for them to come up).
-                const live = await materializeTargets(selected, ctx.logger);
+                // Materialize (boot sims, launch AVDs, wait for them to come
+                // up) — on a TTY the progress lines become a live spinner
+                // label instead of scrolling console output.
+                let live: Awaited<ReturnType<typeof materializeTargets>>;
+                if (interactiveTty) {
+                    const s = spinner();
+                    s.start('Preparing targets…');
+                    try {
+                        live = await materializeTargets(selected, {
+                            log: (m: string) => s.message(m),
+                            warn: (m: string) => s.message(m),
+                            error: (m: string) => s.message(m),
+                        });
+                        s.stop(`${live.length} target${live.length === 1 ? '' : 's'} ready`);
+                    } catch (err) {
+                        s.stop('Target preparation failed', 'error');
+                        throw err;
+                    }
+                } else {
+                    live = await materializeTargets(selected, ctx.logger);
+                }
 
                 // Build / install per platform.
                 const hasAndroidTarget = live.some((t) => t.kind === 'android-device');
@@ -281,13 +311,13 @@ export default definePlugin({
                     try {
                         await ensureAndroidBuilt({
                             cwd: ctx.cwd,
-                            logger: ctx.logger,
+                            logger: pre,
                             applicationId: launchAppId,
                             targetDeviceIds,
                             verbose,
                         });
                     } catch (err) {
-                        ctx.logger.error(err instanceof Error ? err.message : String(err));
+                        pre.error(err instanceof Error ? err.message : String(err));
                         process.exit(1);
                     }
                 }
@@ -303,14 +333,14 @@ export default definePlugin({
                         try {
                             await ensureIosBuilt({
                                 cwd: ctx.cwd,
-                                logger: ctx.logger,
+                                logger: pre,
                                 appName,
                                 target: { kind: t.kind === 'ios-simulator' ? 'simulator' : 'device', udid: t.udid, name: t.name },
                                 bundleId: launchBundleId,
                                 verbose,
                             });
                         } catch (err) {
-                            ctx.logger.error(err instanceof Error ? err.message : String(err));
+                            pre.error(err instanceof Error ? err.message : String(err));
                             // Keep going — other targets may still be usable.
                         }
                     }
@@ -353,16 +383,44 @@ export default definePlugin({
                 }
 
                 const { startDevServer } = await import('./dev-server.js');
+
+                // Interactive dashboard (tabs/QR/logs/shortcuts) unless the
+                // user opted out or there is no TTY — runShell's non-TTY
+                // fallback is plain streaming, but skipping it entirely keeps
+                // --no-ui byte-identical to the legacy output.
+                const useUi = !(ctx.args['no-ui'] as boolean)
+                    && !!process.stdout.isTTY && !!process.stdin.isTTY;
+                let devShell: import('./dev-shell.js').DevShellController | undefined;
+                let logger = ctx.logger;
+                if (useUi) {
+                    const { createDevShell } = await import('./dev-shell.js');
+                    const { createShellLogger } = await import('@sigx/cli/shell');
+                    const { readFileSync } = await import('node:fs');
+                    let projectName = 'sigx-lynx';
+                    try {
+                        projectName = JSON.parse(readFileSync(join(ctx.cwd, 'package.json'), 'utf-8')).name || projectName;
+                    } catch { /* default */ }
+                    devShell = await createDevShell({
+                        projectName,
+                        targets: live,
+                        plugins: ctx.plugins,
+                        hasAndroidApp: !!launchAppId,
+                        hasIosApp: !!launchBundleId && process.platform === 'darwin',
+                    });
+                    logger = createShellLogger(devShell.handle);
+                }
+
                 await startDevServer({
                     cwd: ctx.cwd,
                     port: ctx.args.port as string | undefined,
                     host: ctx.args.host as boolean | undefined,
-                    logger: ctx.logger,
+                    logger,
                     launchAppId,
                     launchBundleId,
                     selectedTargets: live,
                     verbose,
                     disableDeviceLogs: ctx.args['no-device-logs'] as boolean | undefined,
+                    shell: devShell,
                 });
             },
         },
@@ -522,7 +580,7 @@ export default definePlugin({
                 const { existsSync: fsExists, mkdirSync, copyFileSync } = await import('node:fs');
                 const { getAllLanIPs } = await import('./network.js');
                 const { getDeviceStatus, launchApp, resolveAdb } = await import('./device-detect.js');
-                const { generateQR } = await import('./qr.js');
+                const { generateQR } = await import('@sigx/terminal');
                 const { resolveVerbose } = await import('./build-output.js');
 
                 const androidDir = join(ctx.cwd, 'android');

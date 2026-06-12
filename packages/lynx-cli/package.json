@@ -1,12 +1,13 @@
 {
     "name": "@sigx/lynx-cli",
-    "version": "0.5.6",
+    "version": "0.6.0",
     "description": "Lynx CLI plugin for sigx — config, prebuild, auto-linking",
     "type": "module",
     "main": "./dist/index.js",
     "types": "./dist/index.d.ts",
     "sigx-cli": {
-        "plugin": "./dist/plugin.js"
+        "plugin": "./dist/plugin.js",
+        "requires": ">=0.3.0"
     },
     "exports": {
         ".": {
@@ -33,7 +34,8 @@
         "@sigx/lynx-core": "workspace:^",
         "esbuild": "^0.28.0",
         "sharp": "^0.34.0",
-        "ws": "^8.20.1"
+        "ws": "^8.20.1",
+        "@sigx/terminal": "^0.5.0"
     },
     "devDependencies": {
         "@types/node": "^25.9.1",

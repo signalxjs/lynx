@@ -77,8 +77,16 @@ export async function generateIosIcon(cwd: string, config: ResolvedConfig, ios: 
     mkdirSync(appIconDir, { recursive: true });
 
     const filename = 'AppIcon-1024.png';
+    // Flatten the marketing icon onto an opaque background: App Store Connect
+    // rejects a large app icon with an alpha channel (transparent rounded
+    // corners are common in source art), and iOS applies its own rounded mask
+    // at display time, so a full opaque square is correct. flatten() always
+    // removes alpha — forcing it rather than trusting the source, whose channel
+    // output is inconsistent across runs. Dark/tinted variants are left alone
+    // (the system composites those over its own background and they keep alpha).
     const iconBuf = await sharp(ios.iconSource)
         .resize(1024, 1024, { fit: 'cover' })
+        .flatten({ background: ios.iconBackground })
         .png()
         .toBuffer();
     writeFileIfChanged(join(appIconDir, filename), iconBuf);

@@ -38,13 +38,14 @@ change-title-escapes: '\<*_&'
 
 # Surface the package scope from Conventional-Commit-style PR titles so the
 # generated notes read e.g. "**lynx-cli:** support --android (#123) @user".
-# Strips the leading `feat(scope):` / `fix(scope):` / `chore(scope)!:` prefix
-# from $TITLE before substitution. Untitled-scope PRs render unchanged.
+# Replacers run against the generated body, so the patterns match each
+# "- feat(scope): …" bullet line (per the change-template) and rewrite it to
+# "- **scope:** …". Un-prefixed titles render unchanged.
 replacers:
-  - search: '/^(feat|fix|chore|docs|refactor|test|perf|build|ci|style)\(([^)]+)\)!?:\s*/i'
-    replace: '**$2:** '
-  - search: '/^(feat|fix|chore|docs|refactor|test|perf|build|ci|style)!?:\s*/i'
-    replace: ''
+  - search: '/^- (feat|fix|chore|docs|refactor|test|perf|build|ci|style)\(([^)]+)\)!?:\s*/gim'
+    replace: '- **$2:** '
+  - search: '/^- (feat|fix|chore|docs|refactor|test|perf|build|ci|style)!?:\s*/gim'
+    replace: '- '
 
 version-resolver:
   major:
