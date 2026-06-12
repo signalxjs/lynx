@@ -541,6 +541,35 @@ export default definePlugin({
                 await runRemove({ cwd: ctx.cwd, modules });
             },
         },
+        'updates:publish': {
+            description: 'Package a built .lynx.bundle as an OTA update (static-manifest layout for @sigx/lynx-updates)',
+            args: {
+                bundle: { type: 'string', description: 'Bundle path (default: dist/main.lynx.bundle)' },
+                out: { type: 'string', description: 'Output directory (default: updates-dist)' },
+                channel: { type: 'string', description: 'Release channel (default: updates.defaultChannel or "production")' },
+                mandatory: { type: 'boolean', description: 'Mark the update mandatory (blocking install)', default: false },
+                'runtime-version': { type: 'string', description: 'Override the runtime version for both platforms (manual compatibility management)' },
+                notes: { type: 'string', description: 'Release notes (surfaced to update UI)' },
+            },
+            async run(ctx) {
+                const { runUpdatesPublish } = await import('./updates-publish.js');
+                try {
+                    await runUpdatesPublish({
+                        cwd: ctx.cwd,
+                        bundle: ctx.args.bundle as string | undefined,
+                        out: ctx.args.out as string | undefined,
+                        channel: ctx.args.channel as string | undefined,
+                        mandatory: ctx.args.mandatory as boolean | undefined,
+                        runtimeVersion: ctx.args['runtime-version'] as string | undefined,
+                        notes: ctx.args.notes as string | undefined,
+                        logger: ctx.logger,
+                    });
+                } catch (err) {
+                    ctx.logger.error(`${(err as Error).message}`);
+                    process.exit(1);
+                }
+            },
+        },
         prebuild: {
             description: 'Generate native project files from signalx.config.ts',
             args: {

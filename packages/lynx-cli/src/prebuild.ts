@@ -21,6 +21,7 @@ import {
     readCachedFingerprint, writeCachedFingerprint,
 } from './util/build-fingerprint.js';
 import { findLockfile } from './util/package-manager.js';
+import { computeRuntimeVersion, runtimeVersionsSidecarPath, writeRuntimeVersionsSidecar } from './util/runtime-version.js';
 import {
     iosProjectRoot, iosSourceRoot, iosXcodeProjPath, iosPodfilePath, iosInfoPlistPath,
     androidProjectRoot, androidAppDir, androidKotlinRoot,
@@ -414,6 +415,53 @@ export function writeAndroidBehaviors(cwd: string, config: ResolvedConfig, behav
     mkdirSync(dir, { recursive: true });
     writeFileIfChanged(file, code);
     log(`Android: wrote GeneratedBehaviors.kt`);
+}
+
+/**
+ * Android runtime-version manifest meta-data key. Copied module sources
+ * can't reference the app's `BuildConfig` (its package isn't known at
+ * module-authoring time), so the fingerprint travels as `<meta-data>` and
+ * `@sigx/lynx-updates` reads it via PackageManager — same mechanism as the
+ * Maps API key.
+ */
+export const ANDROID_RUNTIME_VERSION_META_KEY = 'com.sigx.updates.RUNTIME_VERSION';
+
+/**
+ * Inject the runtime-version fingerprint into the release Info.plist as
+ * `SigxRuntimeVersion`. Must run BEFORE `writeIosDebugInfoPlist`, which
+ * snapshots the final release plist for the Debug configuration.
+ */
+export function injectIosRuntimeVersion(cwd: string, config: ResolvedConfig, runtimeVersion: string): void {
+    const plistFile = iosInfoPlistPath(cwd, config);
+    if (!existsSync(plistFile)) return;
+    let content = readFileSync(plistFile, 'utf-8');
+    content = content.replace(
+        '    <!-- {{RUNTIME_VERSION}} -->',
+        `    <key>SigxRuntimeVersion</key>\n    <string>${runtimeVersion}</string>`
+    );
+    writeFileIfChanged(plistFile, content);
+    log(`iOS: runtime version ${runtimeVersion}`);
+}
+
+/**
+ * Write the generated startup bundle resolver Kotlin file. Lives alongside
+ * the other generated Android files so MainActivity can call
+ * `GeneratedBundleResolver.resolveStartupBundlePath(this)` with no import.
+ */
+export function writeAndroidBundleResolver(cwd: string, config: ResolvedConfig, resolverCode: string): void {
+    const applicationId = resolveApplicationId(config);
+    const packagePath = packageToPath(applicationId);
+    const dir = join(androidKotlinRoot(cwd, config), packagePath);
+    const file = join(dir, 'GeneratedBundleResolver.kt');
+
+    const code = resolverCode.replace(
+        /^package .*$/m,
+        `package ${applicationId}`
+    );
+
+    mkdirSync(dir, { recursive: true });
+    writeFileIfChanged(file, code);
+    log(`Android: wrote GeneratedBundleResolver.kt`);
 }
 
 /**
@@ -1261,6 +1309,19 @@ export function writeIosComponentRegistry(cwd: string, config: ResolvedConfig, r
 }
 
 /**
+ * Write the generated startup bundle resolver Swift file. Sibling to the
+ * other generated iOS files; ContentView resolves it once at init before
+ * falling back to the baked bundle resource.
+ */
+export function writeIosBundleResolver(cwd: string, config: ResolvedConfig, resolverCode: string): void {
+    const file = join(iosSourceRoot(cwd, config), 'GeneratedBundleResolver.swift');
+    mkdirSync(dirname(file), { recursive: true });
+    writeFileIfChanged(file, resolverCode);
+    addFilesToXcodeProject(cwd, config, '', ['GeneratedBundleResolver.swift']);
+    log(`iOS: wrote GeneratedBundleResolver.swift`);
+}
+
+/**
  * Inject pod entries into the Podfile.
  */
 export function injectPodfileEntries(cwd: string, config: ResolvedConfig, pods: string[]): void {
@@ -1995,10 +2056,13 @@ export async function runPrebuild(opts: PrebuildOptions = {}): Promise<void> {
         // very cost we're trying to avoid.
         const iosSentinels = [
             join(cwd, 'ios', 'Podfile'),
+            // OTA runtime-version sidecar — `sigx updates:publish` needs it.
+            runtimeVersionsSidecarPath(cwd),
         ];
         const androidSentinels = [
             join(cwd, 'android', 'app', 'build.gradle.kts'),
             join(cwd, 'android', 'app', 'src', 'main', 'AndroidManifest.xml'),
+            runtimeVersionsSidecarPath(cwd),
         ];
         const outputsIntact =
             (!buildIos || iosSentinels.every((p) => existsSync(p))) &&
@@ -2073,7 +2137,23 @@ export async function runPrebuild(opts: PrebuildOptions = {}): Promise<void> {
         writeAndroidLifecyclePublishers(cwd, config, result.lifecycleCode);
         writeAndroidActivityHooks(cwd, config, result.activityHooksCode);
         writeAndroidBehaviors(cwd, config, result.behaviorsCode);
+        writeAndroidBundleResolver(cwd, config, result.bundleResolverCode);
+        if (result.bundleResolverClass) {
+            log(`Android: linked startup bundle resolver (${result.bundleResolverClass})`);
+        }
         injectGradleDependencies(cwd, config, result.gradleDependencies, result.debugGradleDependencies);
+
+        // OTA runtime-version fingerprint — injected as manifest <meta-data>
+        // (readable by the copied @sigx/lynx-updates sources) and written to
+        // the sidecar `sigx updates:publish` stamps into update manifests.
+        const androidRuntimeVersion = computeRuntimeVersion(
+            'android', manifests, buildManifestIndex(cwd), config.updates?.runtimeVersion);
+        if (!result.metaData.some((m) => m.name === ANDROID_RUNTIME_VERSION_META_KEY)) {
+            result.metaData.push({ name: ANDROID_RUNTIME_VERSION_META_KEY, value: androidRuntimeVersion });
+        }
+        writeRuntimeVersionsSidecar(cwd, 'android', androidRuntimeVersion);
+        log(`Android: runtime version ${androidRuntimeVersion}`);
+
         injectAndroidPermissions(cwd, config, result.permissions);
         injectAndroidFeatures(cwd, config, result.features);
         writeAndroidDebugManifest(cwd, config, result.debugPermissions);
@@ -2159,9 +2239,21 @@ export async function runPrebuild(opts: PrebuildOptions = {}): Promise<void> {
         writeIosLifecyclePublishers(cwd, config, result.lifecycleCode);
         writeIosAppDelegateHooks(cwd, config, result.appDelegateHooksCode);
         writeIosComponentRegistry(cwd, config, result.componentRegistryCode);
+        writeIosBundleResolver(cwd, config, result.bundleResolverCode);
+        if (result.bundleResolverClass) {
+            log(`iOS: linked startup bundle resolver (${result.bundleResolverClass})`);
+        }
         injectPodfileEntries(cwd, config, result.podfileEntries);
         injectDebugPodfileEntries(cwd, config, result.debugPodfileEntries);
         injectInfoPlistDescriptions(cwd, config, result.usageDescriptions);
+
+        // OTA runtime-version fingerprint — must precede writeIosDebugInfoPlist
+        // (which snapshots the release plist).
+        const iosRuntimeVersion = computeRuntimeVersion(
+            'ios', manifests, buildManifestIndex(cwd), config.updates?.runtimeVersion);
+        injectIosRuntimeVersion(cwd, config, iosRuntimeVersion);
+        writeRuntimeVersionsSidecar(cwd, 'ios', iosRuntimeVersion);
+
         injectInfoPlistBackgroundModes(cwd, config, result.backgroundModes);
         injectInfoPlistBgTaskIdentifiers(cwd, config, result.bgTaskIdentifiers);
 

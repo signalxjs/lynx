@@ -82,6 +82,24 @@ final class DevLynxController: ObservableObject {
 
 struct ContentView: View {
     let devUrl: String?
+    /// Startup bundle path resolved by `GeneratedBundleResolver` — non-nil
+    /// when a linked OTA package (e.g. `@sigx/lynx-updates`) staged a
+    /// downloaded bundle. Resolved exactly ONCE at init: the resolver
+    /// mutates rollback state (launch-attempt counter), so it must not run
+    /// per body evaluation. Never consulted in dev-URL runs.
+    private let startupBundlePath: String?
+
+    init(devUrl: String?) {
+        self.devUrl = devUrl
+        // The readability re-check guards the resolver-to-load gap (and any
+        // misbehaving resolver): an unreadable path must fall through to the
+        // baked-bundle / DevHomeScreen gating, not white-screen production.
+        self.startupBundlePath = devUrl == nil
+            ? GeneratedBundleResolver.resolveStartupBundlePath().flatMap { path in
+                FileManager.default.isReadableFile(atPath: path) ? path : nil
+            }
+            : nil
+    }
 
     @StateObject private var devController = DevLynxController()
     @State private var showDevMenu = false
@@ -108,7 +126,7 @@ struct ContentView: View {
     }
 
     var body: some View {
-        if effectiveDevUrl == nil && !hasBakedBundle {
+        if effectiveDevUrl == nil && !hasBakedBundle && startupBundlePath == nil {
             #if DEBUG
             DevHomeScreen { url in
                 resolvedDevUrl = url
@@ -132,7 +150,7 @@ struct ContentView: View {
             // error screen, connection banner) on top of the LynxView, matching
             // Android's DevLynxScreen.
             ZStack(alignment: .top) {
-                LynxContainerView(devUrl: effectiveDevUrl, devController: devController)
+                LynxContainerView(devUrl: effectiveDevUrl, startupBundlePath: startupBundlePath, devController: devController)
                     .edgesIgnoringSafeArea(.all)
 
                 if devController.loading {
@@ -201,7 +219,7 @@ struct ContentView: View {
                 )
             }
             #else
-            LynxContainerView(devUrl: effectiveDevUrl, devController: devController)
+            LynxContainerView(devUrl: effectiveDevUrl, startupBundlePath: startupBundlePath, devController: devController)
                 .edgesIgnoringSafeArea(.all)
             #endif
         }
@@ -211,6 +229,9 @@ struct ContentView: View {
 /// UIViewRepresentable wrapper for LynxView.
 struct LynxContainerView: UIViewRepresentable {
     let devUrl: String?
+    /// OTA bundle path resolved once by ContentView; preferred over the
+    /// baked `main.lynx.bundle` resource when non-nil.
+    let startupBundlePath: String?
     let devController: DevLynxController
 
     /// Coordinator owns lifecycle publishers (safe-area, future device
@@ -285,7 +306,13 @@ struct LynxContainerView: UIViewRepresentable {
             // Production mode: read bundled bytes and hand them to Lynx
             // directly. `loadTemplate(fromURL:)` expects an HTTP(S) URL and
             // fails silently (white screen) when given a filesystem path.
-            if let bundlePath = Bundle.main.path(forResource: "main.lynx", ofType: "bundle"),
+            // An OTA bundle (resolved by GeneratedBundleResolver) wins over
+            // the baked resource; fall back to the baked bundle if the OTA
+            // file can't be read.
+            let otaPath = startupBundlePath.flatMap { path in
+                FileManager.default.isReadableFile(atPath: path) ? path : nil
+            }
+            if let bundlePath = otaPath ?? Bundle.main.path(forResource: "main.lynx", ofType: "bundle"),
                let bundleData = try? Data(contentsOf: URL(fileURLWithPath: bundlePath)) {
                 lynxView.loadTemplate(bundleData, withURL: bundlePath)
                 // Keep the controller functional (error-overlay Reload) without a dev URL.

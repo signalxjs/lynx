@@ -58,6 +58,9 @@ flow below is required.)
    gh pr create --base main --title "<title>" \
      --body "Closes #N. <short summary of the change>" --reviewer @copilot
    ```
+   The PR description becomes the squash commit **body** verbatim, and the PR
+   title (with ` (#<pr>)` appended) becomes its subject — see step 6. Write the
+   description as the commit body you want on `main`.
    (On an already-open PR: `gh pr edit <pr> --add-reviewer @copilot`.) The bot
    `copilot-pull-request-reviewer` posts its review within a minute or two. If your
    `gh` is too old to resolve `@copilot` (error: `'@copilot' not found`), request it
@@ -84,10 +87,17 @@ flow below is required.)
    from the PR (see "Documentation"), merge (squash — repo rules block merge
    commits) and clean up:
    ```sh
-   gh pr checks <pr>                          # must be all green first
-   gh pr merge <pr> --squash --delete-branch
+   pr=123                                     # your PR number (digits only)
+   gh pr checks "$pr"                         # must be all green first
+   gh pr merge "$pr" --squash --delete-branch \
+     --subject "$(gh pr view "$pr" --json title -q .title) (#$pr)" \
+     --body "$(gh pr view "$pr" --json body -q .body)"
    ```
-   If you used a worktree, remove it afterward: `pnpm wt rm <name>`.
+   Pass `--subject`/`--body` explicitly, exactly as above — GitHub appends
+   `Co-authored-by:` trailers to every message it generates itself (in **all**
+   squash-message modes, even PR_TITLE/PR_BODY) whenever a branch-commit author
+   differs from the merging account; an explicit message is used verbatim, so
+   no trailers. If you used a worktree, remove it afterward: `pnpm wt rm <name>`.
 
 ## Build, Test, Lint
 
@@ -112,7 +122,7 @@ pnpm verify:pack   # publish dry-run
 
 - **Framework / build**: `@sigx/lynx` (umbrella), `@sigx/lynx-plugin`, `@sigx/lynx-cli` (SWC/Rspack transforms, `sigx dev` / `sigx run:android` / `sigx run:ios`).
 - **Runtime**: `@sigx/lynx-runtime`, `@sigx/lynx-runtime-main`, `@sigx/lynx-runtime-internal` — the dual-thread renderer.
-- **Native modules (30+)**: `@sigx/lynx-<capability>` packages (camera, storage, location, biometric, notifications, websocket, webview, …).
+- **Native modules (30+)**: `@sigx/lynx-<capability>` packages (camera, storage, location, biometric, notifications, websocket, webview, updates (OTA, + `lynx-updates-ui` prompts), …).
 - **UI / motion / gestures**: daisyui, icons (+ adapters), gestures, motion, navigation.
 - **Dev / testing**: dev-client, testing.
 
