@@ -32,17 +32,27 @@ export const Input = component<InputProps>(({ props }) => {
     return c.join(' ');
   };
 
+  // Native text widgets can't read CSS custom properties (#225) — every themed
+  // color (background, border, text, placeholder) is resolved from the active
+  // scoped palette to literal hex and applied inline. Reactive: reads
+  // theme.name via useThemeColors, so a theme switch recolors the field
+  // immediately instead of only after a remount (the .input class's
+  // var()-based colors never repaint a live native input).
+  const getStyle = () => {
+    const style: Record<string, string> = {
+      backgroundColor: props.variant === 'ghost' ? 'transparent' : colors.colorOf('base-100'),
+      color: colors.colorOf('base-content'),
+      '-x-placeholder-color': colors.colorOf('base-content', 0.45),
+    };
+    if (props.color) style.borderColor = colors.colorOf(props.color);
+    else if (props.variant === 'bordered') style.borderColor = colors.colorOf('base-300');
+    return style;
+  };
+
   return () => (
     <input
       class={getClasses()}
-      // Native text widgets can't read CSS custom properties (#225) — the
-      // typed-text and placeholder colors are resolved from the active
-      // scoped palette to literal hex. Reactive: reads theme.name via
-      // useThemeColors, so a theme switch recolors the field.
-      style={{
-        color: colors.colorOf('base-content'),
-        '-x-placeholder-color': colors.colorOf('base-content', 0.45),
-      }}
+      style={getStyle()}
       placeholder={props.placeholder}
       type={props.type ?? 'text'}
       disabled={props.disabled}
