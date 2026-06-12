@@ -19,6 +19,6 @@ export * from './autolink/index.js';
 export { runPrebuild, loadConfig, loadManifests } from './prebuild.js';
 export { startDevServer } from './dev-server.js';
 export { runDoctor } from './doctor.js';
-export { generateQR } from './qr.js';
+export { generateQR } from '@sigx/terminal';
 export { getLanIP, getAllLanIPs } from './network.js';
 export { getDeviceStatus, listAndroidDevices, isAdbAvailable, isLynxGoInstalled, launchLynxGo } from './device-detect.js';
