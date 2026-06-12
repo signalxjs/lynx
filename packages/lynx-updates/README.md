@@ -70,7 +70,7 @@ After a store update, all downloaded OTA updates are dropped automatically
 
 Updates commit in two phases. A downloaded update is *pending* until the app
 signals a healthy boot via `markReady()` — called automatically just after
-`configure()` (set `autoMarkReady: false` to gate on your own signal, e.g.
+`defineUpdates()` (set `autoMarkReady: false` to gate on your own signal, e.g.
 first screen rendered). If the app crashes before `markReady()` on
 `rollback.maxFailedLaunches` consecutive launches (default 2), the native
 side deletes the update and reverts to the previous bundle. Detect it:

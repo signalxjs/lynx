@@ -154,7 +154,7 @@ export async function runUpdatesPublish(opts: UpdatesPublishOptions): Promise<vo
     if (opts.mandatory) log.log('  Mandatory:   yes');
     log.log('');
     log.log(`  Output: ${channelDir}`);
-    log.log('  Upload the directory to your static host; point defineUpdates at');
+    log.log('  Upload the directory to your static host; point defineUpdates() at');
     log.log(`  <host>/${channel}/manifest.json. Clients on a DIFFERENT runtime version`);
     log.log('  (older/newer native binary) will skip this update by design.');
     log.log('');
