@@ -4,6 +4,10 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking**: `@sigx/lynx-updates` — `Updates.configure()` is replaced by the top-level `defineUpdates()` export, aligning the boot declaration with the `define*` family (`defineApp`, `defineRoutes`, `defineLynxConfig`). The `Updates` runtime object (check/download/apply/markReady/…) is unchanged. 0.6.1 consumers: rename the call (#457).
+
 ## [0.6.1] - 2026-06-12
 
 ### Added

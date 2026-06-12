@@ -60,7 +60,7 @@ let bootstrapScheduled = false;
 
 function requireConfig(): ResolvedUpdatesConfig {
     if (!config) {
-        throw new UpdatesError('not-configured', 'Call Updates.configure() before using the Updates API');
+        throw new UpdatesError('not-configured', 'Call defineUpdates() before using the Updates API');
     }
     return config;
 }

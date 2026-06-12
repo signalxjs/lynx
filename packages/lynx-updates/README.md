@@ -14,10 +14,10 @@ sigx prebuild   # links the native module + bakes the runtime fingerprint
 ```tsx
 // src/main.tsx
 import { defineApp } from '@sigx/lynx';
-import { Updates } from '@sigx/lynx-updates';
+import { defineUpdates } from '@sigx/lynx-updates';
 import App from './App';
 
-Updates.configure({
+defineUpdates({
     provider: { url: 'https://cdn.example.com/myapp/production/manifest.json' },
     mode: 'silent',                    // download now, apply on next launch
     checkOn: ['launch', 'foreground'],
@@ -82,7 +82,7 @@ const { didRollBack } = await Updates.getCurrentlyRunning();
 ## API
 
 ```ts
-Updates.configure(config)         // sync, idempotent — call before defineApp()
+defineUpdates(config)             // boot declaration — sync, idempotent, call before defineApp()
 Updates.checkForUpdate()          // → { type: 'update-available' | 'up-to-date' | 'incompatible', ... }
 Updates.download(manifest?)       // download + verify + stage for next launch
 Updates.apply()                   // apply staged update NOW (in-place reload; only rejects)
@@ -119,7 +119,7 @@ const myBackend: UpdateProvider = {
     },
 };
 
-Updates.configure({ provider: myBackend });
+defineUpdates({ provider: myBackend });
 ```
 
 The byte transfer always happens natively (streamed to disk with incremental

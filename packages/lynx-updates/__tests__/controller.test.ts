@@ -1,10 +1,10 @@
 /**
  * State-machine + mode-policy tests for the controller, driven through the
- * public `Updates` facade with a scripted provider and a stubbed native
- * module — the same seams the device uses.
+ * public `defineUpdates` + `Updates` surface with a scripted provider and a
+ * stubbed native module — the same seams the device uses.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { Updates } from '../src/updates';
+import { defineUpdates, Updates } from '../src/updates';
 import { __resetForTests as resetController } from '../src/controller';
 import { __resetForTests as resetState } from '../src/state';
 import type { UpdateCheckResult, UpdateManifest, UpdateProvider } from '../src/types';
@@ -81,13 +81,17 @@ afterEach(() => {
     vi.unstubAllGlobals();
 });
 
-describe('configure + modes', () => {
+describe('defineUpdates + modes', () => {
+    it('exposes no configure method on the runtime object (boot config is defineUpdates only)', () => {
+        expect('configure' in Updates).toBe(false);
+    });
+
     it('silent mode: checks on launch, downloads, stops at ready', async () => {
         const native = stubNative();
         const provider = new ScriptedProvider();
         provider.result = { type: 'update-available', manifest: manifest() };
 
-        Updates.configure({ provider, mode: 'silent' });
+        defineUpdates({ provider, mode: 'silent' });
         await settle();
 
         expect(provider.checks).toBe(1);
@@ -102,7 +106,7 @@ describe('configure + modes', () => {
         const provider = new ScriptedProvider();
         provider.result = { type: 'update-available', manifest: manifest() };
 
-        Updates.configure({ provider, mode: 'immediate' });
+        defineUpdates({ provider, mode: 'immediate' });
         await settle();
 
         expect(native.applyNow).toHaveBeenCalledOnce();
@@ -113,7 +117,7 @@ describe('configure + modes', () => {
         const provider = new ScriptedProvider();
         provider.result = { type: 'update-available', manifest: manifest() };
 
-        Updates.configure({ provider, mode: 'manual' });
+        defineUpdates({ provider, mode: 'manual' });
         await settle();
 
         expect(provider.checks).toBe(0);
@@ -126,7 +130,7 @@ describe('configure + modes', () => {
         const provider = new ScriptedProvider();
         provider.result = { type: 'update-available', manifest: manifest({ mandatory: true }) };
 
-        Updates.configure({ provider, mode: 'manual' });
+        defineUpdates({ provider, mode: 'manual' });
         await settle();
         // Manual mode never auto-checks…
         expect(provider.checks).toBe(0);
@@ -143,7 +147,7 @@ describe('configure + modes', () => {
         stubNative();
         const provider = new ScriptedProvider();
         provider.result = { type: 'update-available', manifest: manifest({ mandatory: true }) };
-        Updates.configure({ provider, mode: 'manual' });
+        defineUpdates({ provider, mode: 'manual' });
         await settle();
 
         await Updates.checkForUpdate();
@@ -163,7 +167,7 @@ describe('configure + modes', () => {
         // A download that never completes, so the first call stays in flight.
         stubNative({ downloadUpdate: vi.fn(() => { /* never calls back */ }) });
         const provider = new ScriptedProvider();
-        Updates.configure({ provider, mode: 'manual' });
+        defineUpdates({ provider, mode: 'manual' });
         await settle();
 
         void Updates.download(manifest({ id: 'first000' }));
@@ -181,37 +185,37 @@ describe('configure + modes', () => {
         const provider = new ScriptedProvider();
         provider.result = { type: 'update-available', manifest: manifest({ mandatory: true }) };
 
-        Updates.configure({ provider, mode: 'manual', honorMandatory: false });
+        defineUpdates({ provider, mode: 'manual', honorMandatory: false });
         await settle();
         await Updates.checkForUpdate();
 
         expect(Updates.getState().mandatory).toBe(false);
     });
 
-    it('configure is idempotent: re-configuring never re-runs the bootstrap', async () => {
+    it('defineUpdates is idempotent: re-declaring never re-runs the bootstrap', async () => {
         const native = stubNative();
         const provider = new ScriptedProvider();
-        Updates.configure({ provider, mode: 'silent' });
+        defineUpdates({ provider, mode: 'silent' });
         await settle();
         expect(native.markReady).toHaveBeenCalledOnce();
         expect(provider.checks).toBe(1);
 
-        Updates.configure({ provider, mode: 'silent' });
+        defineUpdates({ provider, mode: 'silent' });
         await settle();
         expect(native.markReady).toHaveBeenCalledOnce();
         expect(provider.checks).toBe(1);
     });
 
-    it('autoMarkReady (default) calls native markReady after configure', async () => {
+    it('autoMarkReady (default) calls native markReady after defineUpdates', async () => {
         const native = stubNative();
-        Updates.configure({ provider: new ScriptedProvider(), mode: 'manual' });
+        defineUpdates({ provider: new ScriptedProvider(), mode: 'manual' });
         await settle();
         expect(native.markReady).toHaveBeenCalled();
     });
 
     it('autoMarkReady: false defers the health signal to the app', async () => {
         const native = stubNative();
-        Updates.configure({ provider: new ScriptedProvider(), mode: 'manual', autoMarkReady: false });
+        defineUpdates({ provider: new ScriptedProvider(), mode: 'manual', autoMarkReady: false });
         await settle();
         expect(native.markReady).not.toHaveBeenCalled();
         await Updates.markReady();
@@ -220,7 +224,7 @@ describe('configure + modes', () => {
 
     it('forwards rollback.maxFailedLaunches to native', async () => {
         const native = stubNative();
-        Updates.configure({
+        defineUpdates({
             provider: new ScriptedProvider(),
             mode: 'manual',
             rollback: { maxFailedLaunches: 3 },
@@ -232,7 +236,7 @@ describe('configure + modes', () => {
 
     it('no-ops gracefully when the native module is absent', async () => {
         vi.stubGlobal('NativeModules', undefined);
-        expect(() => Updates.configure({ provider: new ScriptedProvider() })).not.toThrow();
+        expect(() => defineUpdates({ provider: new ScriptedProvider() })).not.toThrow();
         await settle();
         expect(Updates.isAvailable()).toBe(false);
         expect(Updates.getState().status).toBe('idle');
@@ -247,7 +251,7 @@ describe('runtime-version gate', () => {
             type: 'update-available',
             manifest: manifest({ runtimeVersion: 'fp1-NEWER' }),
         };
-        Updates.configure({ provider, mode: 'manual' });
+        defineUpdates({ provider, mode: 'manual' });
         await settle();
 
         const events: string[] = [];
@@ -261,7 +265,7 @@ describe('runtime-version gate', () => {
 
     it('refuses to download an incompatible manifest without sticking the single-flight latch', async () => {
         const native = stubNative();
-        Updates.configure({ provider: new ScriptedProvider(), mode: 'manual' });
+        defineUpdates({ provider: new ScriptedProvider(), mode: 'manual' });
         await settle();
         await expect(
             Updates.download(manifest({ runtimeVersion: 'fp1-NEWER' })),
@@ -277,7 +281,7 @@ describe('error handling', () => {
         stubNative();
         const provider = new ScriptedProvider();
         provider.checkForUpdate = async () => { throw new Error('network down'); };
-        Updates.configure({ provider, mode: 'manual' });
+        defineUpdates({ provider, mode: 'manual' });
         await settle();
 
         await expect(Updates.checkForUpdate()).rejects.toMatchObject({ code: 'check-failed' });
@@ -297,7 +301,7 @@ describe('error handling', () => {
         });
         const provider = new ScriptedProvider();
         provider.result = { type: 'update-available', manifest: manifest() };
-        Updates.configure({ provider, mode: 'manual' });
+        defineUpdates({ provider, mode: 'manual' });
         await settle();
 
         await Updates.checkForUpdate();
@@ -307,12 +311,12 @@ describe('error handling', () => {
 
     it('apply without a ready download rejects', async () => {
         stubNative();
-        Updates.configure({ provider: new ScriptedProvider(), mode: 'manual' });
+        defineUpdates({ provider: new ScriptedProvider(), mode: 'manual' });
         await settle();
         await expect(Updates.apply()).rejects.toMatchObject({ code: 'apply-failed' });
     });
 
-    it('calls before configure() reject with not-configured', async () => {
+    it('calls before defineUpdates() reject with not-configured', async () => {
         stubNative();
         await expect(Updates.checkForUpdate()).rejects.toMatchObject({ code: 'not-configured' });
     });
@@ -330,7 +334,7 @@ describe('rollback surfacing', () => {
             }),
         });
         const events: Array<{ type: string; fromUpdateId?: string }> = [];
-        Updates.configure({ provider: new ScriptedProvider(), mode: 'manual' });
+        defineUpdates({ provider: new ScriptedProvider(), mode: 'manual' });
         Updates.addListener((e) => events.push(e as never));
         await settle();
         const rolledBack = events.find((e) => e.type === 'rolledBack');
