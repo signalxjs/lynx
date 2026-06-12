@@ -110,7 +110,10 @@ const baseFlags = [
 if (dryRun) baseFlags.push('--dry-run');
 if (provenance) baseFlags.push('--provenance');
 
-const filters = [...toSkip].map(n => `--filter '!${n}'`).join(' ');
+// Double quotes, not single: execSync goes through cmd.exe on Windows,
+// where single quotes are literal — pnpm would receive `'!name'` as an
+// inclusion pattern matching nothing and publish zero projects.
+const filters = [...toSkip].map(n => `--filter "!${n}"`).join(' ');
 const filterArg = filters ? ` ${filters}` : '';
 
 // 6. Publish

@@ -8,6 +8,10 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 - `@sigx/lynx-webrtc` — W3C-shaped WebRTC module (Android; iOS follows): `RTCPeerConnection` (offer/answer, trickle + non-trickle ICE, `iceServers`, state events, `ontrack`, `ondatachannel`), `RTCDataChannel` (text + binary), `mediaDevices.getUserMedia({ audio })` with browser-style `NotAllowedError` on denial, and `MediaStream`/`MediaStreamTrack` (`enabled` mute, `stop()`). Remote audio plays automatically through the device audio module. Non-W3C extras: `WebRTC.setAudioOutput('speaker'|'earpiece')` and the camera/audio-style `requestPermission()`/`getPermissionStatus()` (#479).
 
+### Fixed
+
+- `scripts/publish.js` — already-published skip filters were quoted with single quotes, which cmd.exe treats as literal characters: on Windows a partial-failure re-run selected zero projects and quietly published nothing. Filters now use double quotes, valid on both cmd.exe and POSIX shells (#477).
+
 ## [0.7.0] - 2026-06-12
 
 New module: `@sigx/lynx-sqlite`. Breaking: `Updates.configure()` → `defineUpdates()`. lynx-cli moves to the sigx CLI 0.4 fluent arg contract.
