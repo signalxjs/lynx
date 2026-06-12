@@ -51,11 +51,23 @@ export function emit(event: UpdatesEvent): void {
     }
 }
 
+/**
+ * Fully detached manifest copy — `metadata` is the only nested field, so
+ * cloning it makes the snapshot deep. @internal
+ */
+export function cloneManifest(manifest: UpdatesState['manifest']): UpdatesState['manifest'] {
+    if (!manifest) return null;
+    return {
+        ...manifest,
+        ...(manifest.metadata ? { metadata: { ...manifest.metadata } } : {}),
+    };
+}
+
 /** Snapshot of the current state (plain object, detached from the proxy). */
 export function getStateSnapshot(): UpdatesState {
     return {
         status: store.status,
-        manifest: store.manifest ? { ...store.manifest } : null,
+        manifest: cloneManifest(store.manifest),
         progress: store.progress ? { ...store.progress } : null,
         mandatory: store.mandatory,
         error: store.error,
