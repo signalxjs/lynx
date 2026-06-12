@@ -87,19 +87,12 @@ Subsequent publishes happen automatically via OIDC. Tarballs carry npm provenanc
 
 ## Dist-tag strategy
 
-Every release lands on `@beta` first, never directly on `@latest`. This lets us:
+Releases publish **directly to `@latest`** — there is no beta/soak stage for now, since we ship fast and have no beta channel. The CI gate (lint, typecheck, build, test, verify pack) plus a post-release smoke test is the safety net. If a release turns out bad, roll back by pointing `@latest` at the previous version for each package:
 
-- Smoke-test with real installs (`npm i pkg@beta`) before users on `@latest` are affected.
-- Roll back trivially by republishing the previous version under `@latest` without unpublishing.
+```bash
+npm dist-tag add <pkg>@<previous-version> latest
+```
 
-Workflow per release:
+After the workflow finishes, smoke-test: scaffold a Lynx template and run `sigx prebuild && sigx run:android`. Then update `CHANGELOG.md` and finalize the GitHub Release.
 
-1. Bump versions (lockstep, see above), tag, push — release workflow publishes under `@beta`.
-2. Run smoke tests:
-   - `npm create @sigx@beta my-app` (cli repo) — verify scaffolder & generated project boots.
-   - For `lynx`: scaffold a Lynx template and run `sigx prebuild && sigx run:android`.
-3. Soak ≥ 24 h. Watch for issues.
-4. Promote: `npm dist-tag add <pkg>@<version> latest` for each package.
-5. Update `CHANGELOG.md`, finalize the GitHub Release.
-
-Patch versions for urgent fixes follow the same path. Pre-release identifiers (`0.4.0-rc.1`) are reserved for breaking changes that deserve broader review.
+The publish script still supports `--tag beta` (`pnpm publish:beta`) if a release ever needs a pre-release channel. Pre-release identifiers (`0.4.0-rc.1`) are reserved for breaking changes that deserve broader review.
