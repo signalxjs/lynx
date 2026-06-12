@@ -84,7 +84,62 @@ const DEFAULT_MAX_HEIGHT = 220;
 const DEFAULT_BORDER = 'rgba(127, 127, 127, 0.32)';
 /** Opaque neutral surface — the popup floats over editor text. */
 const DEFAULT_SURFACE = '#f4f4f5';
+/** Opaque dark surface — the derived counterpart of {@link DEFAULT_SURFACE}. */
+const DARK_SURFACE = '#1f1f23';
 const DEFAULT_ACTIVE_BG = 'rgba(128,128,128,0.25)';
+
+/** Parse `#RGB`/`#RGBA`/`#RRGGBB`/`#RRGGBBAA` to 0–255 channels (alpha ignored); `null` otherwise. */
+function parseHexRgb(color: string): { r: number; g: number; b: number } | null {
+    const c = color.trim();
+    if (!c.startsWith('#')) return null;
+    let h = c.slice(1);
+    if (h.length === 3 || h.length === 4) h = h.split('').map((ch) => ch + ch).join('');
+    if (h.length !== 6 && h.length !== 8) return null;
+    // Validate every digit (incl. the alpha bytes) — `Number.parseInt` would
+    // silently stop at the first non-hex char (e.g. `#12345g` → `0x12345`) or
+    // ignore trailing junk (`#fffz` → `ffffffzz` → `0xffffff`), letting a
+    // malformed color drive the derived style instead of falling back.
+    if (!/^[0-9a-fA-F]+$/.test(h)) return null;
+    return {
+        r: Number.parseInt(h.slice(0, 2), 16),
+        g: Number.parseInt(h.slice(2, 4), 16),
+        b: Number.parseInt(h.slice(4, 6), 16),
+    };
+}
+
+/**
+ * Synthesize a popup style from the editor's resolved `textColor`, so a host
+ * that themes the editor body (`textColor`) but leaves the popup colors unset
+ * still gets a popup that doesn't clash — the white-on-dark trap. Used by
+ * `MarkdownEditor` as a *per-field fallback*: it spreads this before any
+ * explicit `suggestionPopup`, so each color the host sets (e.g. daisyUI's
+ * `useMarkdownEditorTheme().suggestionPopup`) wins, while colors it omits —
+ * including when it passes only layout fields (`width`/`maxHeight`/`class`) —
+ * fall back to this tint rather than the neutral light default.
+ *
+ *  • `surfaceColor` flips to a dark neutral when the text is light (every daisy
+ *    theme's `base-100` is the near-inverse luminance of `base-content`), else
+ *    keeps the light neutral.
+ *  • `borderColor`/`activeColor` are the text color at low alpha, so they read
+ *    on either surface.
+ *
+ * Returns `{}` for an absent or non-hex color (named/`rgb()`), leaving the
+ * neutral standalone defaults untouched — no regression for unthemed use.
+ */
+export function derivePopupStyleFromText(textColor?: string): SuggestionPopupStyle {
+    if (!textColor) return {};
+    const rgb = parseHexRgb(textColor);
+    if (!rgb) return {};
+    // Perceptual luminance, 0–1.
+    const lum = (0.2126 * rgb.r + 0.7152 * rgb.g + 0.0722 * rgb.b) / 255;
+    const rgba = (a: number): string => `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${a})`;
+    return {
+        surfaceColor: lum > 0.5 ? DARK_SURFACE : DEFAULT_SURFACE,
+        borderColor: rgba(0.25),
+        activeColor: rgba(0.12),
+        textColor,
+    };
+}
 
 export const SuggestionPopup = component<SuggestionPopupProps>(({ props }) => {
     const keyboard = useKeyboard();

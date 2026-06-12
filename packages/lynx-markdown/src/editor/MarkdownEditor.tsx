@@ -40,7 +40,7 @@ import { EditorToolbar, type ToolbarRenderItem } from './toolbar/Toolbar.js';
 import { defaultToolbarItems, type ToolbarItem } from './toolbar/items.js';
 import type { MarkdownEditorPlugin, TriggerItem, TriggerSelectApi } from './plugin.js';
 import { createTriggerSessionManager, type TriggerSession } from './trigger/session.js';
-import { SuggestionPopup, type SuggestionPopupStyle } from './trigger/SuggestionPopup.js';
+import { SuggestionPopup, derivePopupStyleFromText, type SuggestionPopupStyle } from './trigger/SuggestionPopup.js';
 
 export type MarkdownEditorMode = 'auto' | 'fixed' | 'fullscreen';
 
@@ -425,6 +425,13 @@ export const MarkdownEditor = component<MarkdownEditorProps>(({ props }) => {
                     containerFrame={inputFrame.value}
                     renderItem={activeTrigger.renderItem}
                     onSelect={handleTriggerSelect}
+                    // Auto-tint from the editor's text color so a themed body
+                    // doesn't leave a clashing popup. Merged per field: explicit
+                    // `suggestionPopup` colors spread last and win, while any the
+                    // host left unset (incl. when it passes only layout fields
+                    // like `width`) fall back to the derived tint, not the
+                    // neutral light default.
+                    {...derivePopupStyleFromText(props.textColor)}
                     {...(props.suggestionPopup ?? {})}
                 />
             )
