@@ -35,7 +35,7 @@ export type {
     TriggerItem,
     TriggerSelectApi,
 } from './plugin.js';
-export { SuggestionPopup } from './trigger/SuggestionPopup.js';
+export { SuggestionPopup, derivePopupStyleFromText } from './trigger/SuggestionPopup.js';
 export type {
     SuggestionPopupProps,
     SuggestionRenderItem,
