@@ -14,7 +14,7 @@ Full guides, API reference and live examples → **[https://sigx.dev/lynx/module
 pnpm add @sigx/lynx-updates-ui
 ```
 
-Requires `@sigx/lynx-updates` (configured) and `@sigx/lynx-daisyui` (with its styles in your CSS pipeline). "Later" dismissals persist through `@sigx/lynx-storage` when the native Storage module is present, and degrade to session-only suppression when it isn't.
+Requires `@sigx/lynx-updates` (declared via `defineUpdates()`) and `@sigx/lynx-daisyui` (with its styles in your CSS pipeline). "Later" dismissals persist across launches via `@sigx/lynx-storage` — it's installed with this package and `sigx prebuild` links the native Storage module automatically, so there is nothing to set up. Only on web preview and in tests (where no native modules exist) do dismissals degrade to session-only suppression.
 
 ## Quick start
 
@@ -96,4 +96,4 @@ await isDismissed(manifest.id); // has the user said "Later" to this update?
 await dismiss(manifest.id);     // suppress future prompts for it
 ```
 
-Storage-backed (`@sigx/lynx-storage`); degrades to an in-process Set when the native module is unavailable.
+Storage-backed (`@sigx/lynx-storage`, linked automatically at prebuild); on web preview and in tests it degrades to an in-process Set.
