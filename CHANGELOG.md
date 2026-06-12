@@ -4,6 +4,13 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 ## [Unreleased]
 
+### Added
+
+- `@sigx/lynx-updates` — OTA bundle updates: pluggable `UpdateProvider` backends (static-manifest built in), silent / immediate / mandatory / manual modes, native streaming download with SHA-256 verify, two-phase apply with crash-driven rollback, and a prebuild-computed runtime-version fingerprint that refuses updates requiring a newer native build (#432).
+- `@sigx/lynx-updates-ui` — prebuilt update UI on daisyUI: `<UpdateGate>` (mandatory blocking), `<UpdatePrompt>`, `<UpdateProgress>`, `<UpdateReadyBanner>` (#432).
+- `@sigx/lynx-cli` — `sigx updates:publish` packages a built bundle into a static-host OTA layout; `bundleResolverClass` autolink hook + always-generated `GeneratedBundleResolver` lets a linked package redirect startup bundle loading; runtime-version fingerprint computed at prebuild (`.sigx/runtime-versions.json`, Android manifest meta-data, iOS `SigxRuntimeVersion` Info.plist key); `updates` block in `signalx.config.ts` (#432).
+- `@sigx/lynx-plugin` — `__SIGX_RUNTIME_VERSIONS__` / `__SIGX_UPDATES_CHANNEL__` build defines (#432).
+
 ## [0.5.7] - 2026-06-12
 
 ### Added

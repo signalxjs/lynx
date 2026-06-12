@@ -9,7 +9,12 @@ import {
     useMarkdownEditorTheme,
 } from '@sigx/lynx-daisyui';
 import { KeyboardAvoidingView, KeyboardStickyView } from '@sigx/lynx-keyboard';
-import { MarkdownView } from '@sigx/lynx-markdown';
+import {
+    createMentionPlugin,
+    MarkdownView,
+    mentionSyntax,
+    type MentionCandidate,
+} from '@sigx/lynx-markdown';
 import { MarkdownEditor, type MarkdownEditorController } from '@sigx/lynx-markdown/editor';
 import type { SelectionState } from '@sigx/lynx-richtext';
 
@@ -25,6 +30,10 @@ import type { SelectionState } from '@sigx/lynx-richtext';
  *    `markdownComponents`.
  *  • The message list sits in `<KeyboardAvoidingView behavior="padding">` so
  *    nothing hides behind the IME.
+ *  • Type `@` for mentions: the suggestion popup is themed via
+ *    `useMarkdownEditorTheme().suggestionPopup` and — because the composer is
+ *    docked at the bottom — `SuggestionPopup` flips it *up* above the caret.
+ *    Sent messages render their `@[label](id)` chips via `mentionSyntax`.
  *
  * Presented as a modal (same caveat as the Keyboard demo: the lift math assumes
  * the bar sits directly above the bottom safe-area inset — on a tab screen,
@@ -34,8 +43,34 @@ import type { SelectionState } from '@sigx/lynx-richtext';
 const SEED: Array<{ own: boolean; md: string }> = [
     { own: false, md: 'This composer is a **MarkdownEditor** riding a `KeyboardStickyView`.' },
     { own: true, md: 'So the toolbar travels with the keyboard?' },
-    { own: false, md: 'Exactly — and what you send renders through **MarkdownView**:\n\n- lists\n- `code`\n- ~~everything~~' },
+    { own: false, md: 'Exactly — type `@` to mention @[Andy](u1), and what you send renders through **MarkdownView**:\n\n- lists\n- `code`\n- ~~everything~~' },
 ];
+
+const USERS: MentionCandidate[] = [
+    { id: 'u1', label: 'Andy', kind: 'user' },
+    { id: 'u2', label: 'Bea', kind: 'user' },
+    { id: 'u3', label: 'Carol', kind: 'user' },
+    { id: 'u4', label: 'Dimitri', kind: 'user' },
+    { id: 'team-core', label: 'core-team', kind: 'team' },
+];
+
+const mentionPlugin = createMentionPlugin({
+    search: (q) => USERS.filter((u) => u.label.toLowerCase().startsWith(q.toLowerCase())),
+});
+
+// Sent bubbles carry `@[label](id)`; render the chip via the mention
+// extension. A themed pill (its own `base-100` surface) so it follows the
+// active theme and stays legible inside both the `bg-primary` (own) and
+// `bg-base-200` (other) bubbles.
+const bubbleComponents = {
+    ...markdownComponents,
+    extension: {
+        ...markdownComponents.extension,
+        mention: ({ attrs }: { attrs: Record<string, string> }) => (
+            <text class="bg-base-100 text-primary rounded px-1 font-semibold">@{attrs.label}</text>
+        ),
+    },
+};
 
 export const MarkdownComposerScreen = component(() => {
     const editorTheme = useMarkdownEditorTheme();
@@ -73,7 +108,7 @@ export const MarkdownComposerScreen = component(() => {
                         {messages.map((m) => (
                             <Row justify={m.own ? 'flex-end' : 'flex-start'} class="px-1">
                                 <view class={`rounded-2xl px-3 py-2 max-w-[85%] ${m.own ? 'bg-primary' : 'bg-base-200'}`}>
-                                    <MarkdownView value={m.md} components={markdownComponents} />
+                                    <MarkdownView value={m.md} extensions={[mentionSyntax]} components={bubbleComponents} />
                                 </view>
                             </Row>
                         ))}
@@ -97,6 +132,8 @@ export const MarkdownComposerScreen = component(() => {
                                 textColor={editorTheme.textColor}
                                 accentColor={editorTheme.accentColor}
                                 placeholderColor={editorTheme.placeholderColor}
+                                suggestionPopup={editorTheme.suggestionPopup}
+                                plugins={[mentionPlugin]}
                                 onChange={(md) => {
                                     draftEmpty.value = md.trim() === '';
                                 }}
