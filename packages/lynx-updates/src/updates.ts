@@ -1,8 +1,6 @@
 /**
- * Public API — `defineUpdates()` (the boot-time declaration, in the
- * `defineApp`/`defineRoutes` family) and the `Updates` runtime object (a
- * thin facade over the controller, the store and the native module, in the
- * `Haptics`/`Storage` native-module family). See the package README.
+ * Public `Updates` API — a thin facade over the controller, the store and
+ * the native module. See the package README for usage.
  */
 
 import * as controller from './controller.js';
@@ -17,25 +15,18 @@ import type {
     UpdatesState,
 } from './types.js';
 
-/**
- * Declare the OTA update behavior for this app. Call once in `main.tsx`
- * before `defineApp` — idempotent and synchronous; re-declaring updates the
- * config but never re-runs the boot work (markReady / launch check).
- * Kicks off the configured mode's automatic behavior on a deferred task
- * (never blocks first paint). No-ops gracefully (with one warning) when the
- * native module is absent (web preview, tests).
- *
- * @example
- * ```tsx
- * defineUpdates({ provider: { url: 'https://cdn.example.com/updates.json' } });
- * defineApp(<App />).mount(null);
- * ```
- */
-export function defineUpdates(config: UpdatesConfig): void {
-    controller.configure(config);
-}
-
 export const Updates = {
+    /**
+     * Configure the updates client. Idempotent and synchronous; must run
+     * before any other call — typically in `main.tsx` before `defineApp`.
+     * Kicks off the configured mode's automatic behavior on a deferred task
+     * (never blocks first paint). No-ops gracefully (with one warning) when
+     * the native module is absent (web preview, tests).
+     */
+    configure(config: UpdatesConfig): void {
+        controller.configure(config);
+    },
+
     /** Ask the provider for the best available update. Works in every mode. */
     checkForUpdate(): Promise<UpdateCheckResult> {
         return controller.checkForUpdate();
@@ -60,7 +51,7 @@ export const Updates = {
 
     /**
      * Health signal: commits the pending update so native stops counting
-     * launch attempts against it. Called automatically after defineUpdates()
+     * launch attempts against it. Called automatically after configure()
      * unless `autoMarkReady: false`. Safe to call repeatedly.
      */
     markReady(): Promise<void> {
