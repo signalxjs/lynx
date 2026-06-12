@@ -1,0 +1,59 @@
+{
+    "name": "@sigx/lynx-updates-ui",
+    "version": "0.5.6",
+    "description": "Prebuilt OTA update UI for sigx-lynx — blocking update gate, prompt modal, download progress and restart banner over @sigx/lynx-updates",
+    "type": "module",
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+        ".": {
+            "import": "./dist/index.js",
+            "types": "./dist/index.d.ts"
+        }
+    },
+    "files": [
+        "dist"
+    ],
+    "scripts": {
+        "build": "node ../../scripts/clean.mjs dist && tsgo",
+        "dev": "tsgo --watch",
+        "clean": "node ../../scripts/clean.mjs dist .turbo"
+    },
+    "dependencies": {
+        "@sigx/lynx": "workspace:^",
+        "@sigx/lynx-daisyui": "workspace:^",
+        "@sigx/lynx-storage": "workspace:^",
+        "@sigx/lynx-updates": "workspace:^"
+    },
+    "devDependencies": {
+        "@sigx/lynx-testing": "workspace:^",
+        "@typescript/native-preview": "7.0.0-dev.20260521.1",
+        "typescript": "^6.0.3"
+    },
+    "author": "Andreas Ekdahl",
+    "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/signalxjs/lynx.git",
+        "directory": "packages/lynx-updates-ui"
+    },
+    "homepage": "https://sigx.dev/lynx/modules/updates/overview/",
+    "bugs": {
+        "url": "https://github.com/signalxjs/lynx/issues"
+    },
+    "publishConfig": {
+        "access": "public"
+    },
+    "keywords": [
+        "signalx",
+        "sigx",
+        "lynx",
+        "mobile",
+        "ios",
+        "android",
+        "ota",
+        "updates",
+        "codepush",
+        "ui"
+    ]
+}
