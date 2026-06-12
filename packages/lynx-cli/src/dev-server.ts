@@ -13,13 +13,14 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { request as httpRequest } from 'node:http';
 import { getAllLanIPs } from './network.js';
-import { generateQR } from './qr.js';
+import { generateQR } from '@sigx/terminal';
 import { getDeviceStatus, getDeviceStatusCached, invalidateDeviceStatusCache, launchLynxGo, launchApp, launchIosApp, launchAppOnDevice, resolveIosSimulator, bootSimulator, installAppOnSimulator, findBuiltApp, iosDerivedDataPath, adbReverse, adbReverseRemove, forceStopApp, getDeviceCpuAbi, LYNX_GO_PACKAGE, type DeviceStatus } from './device-detect.js';
 import { runWithBuildFilter } from './build-output.js';
 import type { Logger } from '@sigx/cli/plugin';
 import type { SelectedTarget } from './target-picker.js';
 import { parseDeviceLogLine, formatDeviceLogLine, LOG_SENTINEL } from './device-log.js';
 import { isPortFree, isPortPairFree, readDevLock, writeDevLock, clearDevLock, isPidAlive, waitForPortFree, type DevLock } from './dev-lock.js';
+import type { DevShellController } from './dev-shell.js';
 
 export interface DevServerOptions {
     cwd: string;
@@ -46,6 +47,14 @@ export interface DevServerOptions {
      * lines from the plugin are still parsed, just not printed.
      */
     disableDeviceLogs?: boolean;
+    /**
+     * The interactive dev dashboard (from createDevShell). When present, the
+     * banner becomes reactive tab state, raw-stdin shortcuts are skipped
+     * (the shell owns the keyboard), and streaming output (rspeedy, device
+     * logs, stderr) goes into the shell's log store instead of stdout —
+     * writing around the live region would corrupt its frames.
+     */
+    shell?: DevShellController;
 }
 
 function getProjectName(cwd: string): string {
@@ -256,7 +265,8 @@ function requestJsReload(wsPort: number): Promise<number> {
     });
 }
 
-function setupKeyboardShortcuts(child: ChildProcess, opts: {
+/** Control-surface options shared by keyboard shortcuts and the dev shell. */
+interface DevControlOpts {
     cwd: string;
     serverState: { port: number };
     /** Port of the dev-client log/reload WS server (plugin-side). */
@@ -276,28 +286,40 @@ function setupKeyboardShortcuts(child: ChildProcess, opts: {
      *  relaunch paths must use this (not `adbReverse` directly) so the mapping
      *  is removed on shutdown. */
     addReverse: (deviceId: string, port: number) => void;
-}) {
-    if (!process.stdin.isTTY) return;
+    /** Where multi-line device listings print (transcript in shell mode). */
+    printLines: (lines: string[]) => void;
+    /** Filtered gradle/xcodebuild lines (shell mode: the log store). */
+    buildSink?: (line: string) => void;
+    /** Build started (label) / finished (null) — drives the shell's status chip. */
+    onBuildState?: (label: string | null) => void;
+}
 
-    process.stdin.setRawMode(true);
-    process.stdin.resume();
-    process.stdin.setEncoding('utf-8');
+/** The dev-server actions behind r/d/a/i — shared by the legacy raw-stdin
+ *  shortcuts and the @sigx/cli/shell dashboard. */
+export interface DevActions {
+    reload(): void;
+    showDevices(): void;
+    installAndroid(): void;
+    buildLaunchIos(): void;
+}
 
-    process.stdin.on('data', (key: string) => {
+function createDevActions(opts: DevControlOpts): DevActions {
+    const currentBundleUrl = () => {
         const primaryIP = opts.lanIPs.length > 0 ? opts.lanIPs[0].address : null;
-        const bundleUrl = bundleUrlFor(primaryIP ?? 'localhost', opts.serverState.port, opts.buildId);
+        return bundleUrlFor(primaryIP ?? 'localhost', opts.serverState.port, opts.buildId);
+    };
 
-        // Android devices reach the dev server via `adb reverse`, so their
-        // per-device URL is always localhost (works over USB, Wi-Fi, or
-        // no-network-at-all provided adb is connected).
-        const androidUrlFor = (deviceId: string): string => {
-            opts.addReverse(deviceId, opts.serverState.port);
-            return bundleUrlFor('localhost', opts.serverState.port, opts.buildId);
-        };
+    // Android devices reach the dev server via `adb reverse`, so their
+    // per-device URL is always localhost (works over USB, Wi-Fi, or
+    // no-network-at-all provided adb is connected).
+    const androidUrlFor = (deviceId: string): string => {
+        opts.addReverse(deviceId, opts.serverState.port);
+        return bundleUrlFor('localhost', opts.serverState.port, opts.buildId);
+    };
 
-        switch (key) {
-            case 'r':
-            case 'R': {
+    return {
+        reload() {
+            const bundleUrl = currentBundleUrl();
                 // Two-stage reload: first ask the plugin's WS server to push a
                 // `{ type: 'reload' }` message to every connected device — the
                 // dev-client reloads the LynxView in-place without a full
@@ -367,14 +389,13 @@ function setupKeyboardShortcuts(child: ChildProcess, opts: {
                         opts.logger.log('No installed devices/simulators found. Press "i" to build & install iOS or "a" for Android.');
                     }
                 })();
-                break;
-            }
-            case 'd':
-            case 'D': {
+        },
+        showDevices() {
+            const bundleUrl = currentBundleUrl();
                 opts.logger.log('Scanning devices...');
                 const status = getDeviceStatusCached(opts.appId, opts.bundleId);
                 const deviceLines = formatDeviceStatus(status, opts.appId, opts.bundleId);
-                console.log(deviceLines.join('\n'));
+                opts.printLines(deviceLines);
 
                 // Auto-launch on Android devices that have the custom app or sigx-lynx-go
                 for (const device of status.devices) {
@@ -403,16 +424,15 @@ function setupKeyboardShortcuts(child: ChildProcess, opts: {
                         }
                     }
                 }
-                break;
-            }
-            case 'a':
-            case 'A': {
+        },
+        installAndroid() {
                 if (!opts.appId) {
                     opts.logger.log('No custom app configured. Use `sigx run:android` first.');
-                    break;
+                    return;
                 }
                 opts.logger.log('Installing and launching Android app...');
                 void (async () => {
+                    opts.onBuildState?.('gradle installDebug');
                     const androidDir = join(opts.cwd, 'android');
                     const gradleCmd = process.platform === 'win32' ? 'gradlew.bat' : 'gradlew';
                     try {
@@ -423,12 +443,14 @@ function setupKeyboardShortcuts(child: ChildProcess, opts: {
                                 cwd: androidDir,
                                 shell: process.platform === 'win32',
                             },
-                            { kind: 'gradle', verbose: opts.verbose ?? false, logger: opts.logger },
+                            { kind: 'gradle', verbose: opts.verbose ?? false, logger: opts.logger, sink: opts.buildSink },
                         );
                     } catch {
+                        opts.onBuildState?.(null);
                         opts.logger.error('Android build failed');
                         return;
                     }
+                    opts.onBuildState?.(null);
                     opts.logger.log('\x1b[32m✓ App installed\x1b[0m');
 
                     invalidateDeviceStatusCache();
@@ -439,24 +461,18 @@ function setupKeyboardShortcuts(child: ChildProcess, opts: {
                         launchApp(device.id, opts.appId!, url);
                     }
                 })();
-                break;
-            }
-            case 'q':
-            case 'Q':
-            case '\u0003': // Ctrl+C
-                opts.shutdown();
-                break;
-            case 'i':
-            case 'I': {
+        },
+        buildLaunchIos() {
+            const bundleUrl = currentBundleUrl();
                 if (!opts.bundleId || process.platform !== 'darwin') {
                     opts.logger.log('iOS shortcut requires macOS and a configured bundle id.');
-                    break;
+                    return;
                 }
 
                 const simulator = resolveIosSimulator(opts.iosSimulatorName);
                 if (!simulator) {
                     opts.logger.error('No iOS simulators available. Install simulators via Xcode → Settings → Platforms.');
-                    break;
+                    return;
                 }
 
                 opts.logger.log(`Using simulator: ${simulator.name} (${simulator.runtime})`);
@@ -479,11 +495,12 @@ function setupKeyboardShortcuts(child: ChildProcess, opts: {
                         execSync(`xcrun simctl terminate "${simulator.udid}" "${opts.bundleId}"`, { stdio: 'pipe' });
                     } catch { /* not running */ }
                     launchIosApp(simulator.udid, opts.bundleId, bundleUrl);
-                    break;
+                    return;
                 }
 
                 opts.logger.log('App not installed — building...');
                 void (async () => {
+                    opts.onBuildState?.('xcodebuild');
                     const iosDir = join(opts.cwd, 'ios');
 
                     // Determine app name from config (fallback to workspace listing)
@@ -514,12 +531,14 @@ function setupKeyboardShortcuts(child: ChildProcess, opts: {
                                 'build',
                             ],
                             { cwd: opts.cwd },
-                            { kind: 'xcodebuild', verbose: opts.verbose ?? false, logger: opts.logger },
+                            { kind: 'xcodebuild', verbose: opts.verbose ?? false, logger: opts.logger, sink: opts.buildSink },
                         );
                     } catch {
+                        opts.onBuildState?.(null);
                         opts.logger.error('iOS build failed');
                         return;
                     }
+                    opts.onBuildState?.(null);
                     opts.logger.log('\x1b[32m✓ iOS app built\x1b[0m');
 
                     const appPath = findBuiltApp(opts.cwd, appName);
@@ -541,8 +560,42 @@ function setupKeyboardShortcuts(child: ChildProcess, opts: {
                     } catch { /* not running */ }
                     launchIosApp(simulator.udid, opts.bundleId!, bundleUrl);
                 })();
+        },
+    };
+}
+
+function setupKeyboardShortcuts(child: ChildProcess, opts: DevControlOpts) {
+    if (!process.stdin.isTTY) return;
+
+    const actions = createDevActions(opts);
+
+    process.stdin.setRawMode(true);
+    process.stdin.resume();
+    process.stdin.setEncoding('utf-8');
+
+    process.stdin.on('data', (key: string) => {
+        switch (key) {
+            case 'r':
+            case 'R':
+                actions.reload();
                 break;
-            }
+            case 'd':
+            case 'D':
+                actions.showDevices();
+                break;
+            case 'a':
+            case 'A':
+                actions.installAndroid();
+                break;
+            case 'i':
+            case 'I':
+                actions.buildLaunchIos();
+                break;
+            case 'q':
+            case 'Q':
+            case '\u0003': // Ctrl+C
+                opts.shutdown();
+                break;
         }
     });
 }
@@ -924,21 +977,48 @@ export async function startDevServer(opts: DevServerOptions): Promise<void> {
         setTimeout(() => process.exit(exitCode), 6_000).unref();
     };
 
+    const ui = opts.shell?.handle;
+    // Streaming lines (build output, device logs) go to the log store in
+    // shell mode — NEVER to stdout while the live region is mounted.
+    const streamLine = (line: string): void => {
+        if (ui) ui.store.push(line + '\n');
+        else console.log(line);
+    };
+
     let bannerPrinted = false;
 
     const showBanner = () => {
         if (bannerPrinted) return;
         bannerPrinted = true;
-        printBanner({
-            projectName,
-            port: serverState.port,
-            buildId,
-            lanIPs,
-            deviceStatus,
-            appId: launchAppId,
-            bundleId: launchBundleId,
-            selectedTargets,
-        });
+        if (opts.shell) {
+            // Reactive dashboard instead of a printed banner: fill the shell
+            // state; the Devices/Connect tabs re-render from it.
+            const state = opts.shell.state;
+            state.port = serverState.port;
+            state.buildId = buildId;
+            state.urls = [
+                { label: 'Local', url: bundleUrlFor('localhost', serverState.port, buildId) },
+                ...lanIPs.map(({ name, address }) => ({
+                    label: `Network (${name})`,
+                    url: bundleUrlFor(address, serverState.port, buildId),
+                })),
+            ];
+            state.primaryUrl = bundleUrlFor(primaryIP ?? 'localhost', serverState.port, buildId);
+            state.targets = selectedTargets ?? [];
+            state.ready = true;
+            ui?.say(`dev server ready on :${serverState.port}`);
+        } else {
+            printBanner({
+                projectName,
+                port: serverState.port,
+                buildId,
+                lanIPs,
+                deviceStatus,
+                appId: launchAppId,
+                bundleId: launchBundleId,
+                selectedTargets,
+            });
+        }
 
         // Auto-launch on devices.
         // iOS uses LAN IP (simulator shares host network; devices are on Wi-Fi).
@@ -1027,7 +1107,7 @@ export async function startDevServer(opts: DevServerOptions): Promise<void> {
             if (rawLine.startsWith(LOG_SENTINEL)) {
                 const entry = parseDeviceLogLine(rawLine);
                 if (entry && !opts.disableDeviceLogs) {
-                    console.log(formatDeviceLogLine(entry));
+                    streamLine(formatDeviceLogLine(entry));
                 }
                 continue;
             }
@@ -1077,7 +1157,7 @@ export async function startDevServer(opts: DevServerOptions): Promise<void> {
             } else if (line.includes('warn') || line.includes('Warning')) {
                 logger.warn(line);
             } else {
-                console.log(`  ${line}`);
+                streamLine(`  ${line}`);
             }
         }
     });
@@ -1087,12 +1167,33 @@ export async function startDevServer(opts: DevServerOptions): Promise<void> {
         if (text) {
             // Filter common non-error stderr noise
             if (text.includes('ExperimentalWarning') || text.includes('DEP0')) return;
-            console.error(`  \x1b[31m${text}\x1b[0m`);
+            if (ui) ui.store.push(`${text}\n`);
+            else console.error(`  \x1b[31m${text}\x1b[0m`);
         }
     });
 
-    // Setup keyboard shortcuts
-    setupKeyboardShortcuts(child, { cwd, serverState, wsPort, buildId, lanIPs, projectName, logger, appId: launchAppId, bundleId: launchBundleId, iosSimulatorName, verbose: opts.verbose, shutdown, addReverse });
+    const childClosed = new Promise<void>((resolve) => {
+        child.on('close', () => resolve());
+    });
+
+    const controlOpts: DevControlOpts = {
+        cwd, serverState, wsPort, buildId, lanIPs, projectName, logger,
+        appId: launchAppId, bundleId: launchBundleId, iosSimulatorName,
+        verbose: opts.verbose, shutdown, addReverse,
+        printLines: (lines) => {
+            if (ui) for (const l of lines) ui.say(l);
+            else console.log(lines.join('\n'));
+        },
+        buildSink: ui ? (line) => ui.store.push(line.endsWith('\n') ? line : line + '\n') : undefined,
+        onBuildState: opts.shell ? (label) => { opts.shell!.state.building = label; } : undefined,
+    };
+
+    if (opts.shell) {
+        // The shell owns the keyboard; expose the actions + teardown to it.
+        opts.shell.bind({ actions: createDevActions(controlOpts), shutdown: () => shutdown(), childClosed });
+    } else {
+        setupKeyboardShortcuts(child, controlOpts);
+    }
 
     // Handle child exit — the rspeedy tree died (on its own or because we
     // signaled it during shutdown). Restore the TTY, drop any adb forwards we
@@ -1130,7 +1231,5 @@ export async function startDevServer(opts: DevServerOptions): Promise<void> {
     process.on('SIGHUP', () => shutdown());
 
     // Keep running until child exits
-    await new Promise<void>((resolve) => {
-        child.on('close', () => resolve());
-    });
+    await childClosed;
 }

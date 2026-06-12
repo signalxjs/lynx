@@ -1,6 +1,6 @@
 {
     "name": "@sigx/lynx-audio",
-    "version": "0.5.6",
+    "version": "0.6.0",
     "description": "Audio recording and playback for sigx-lynx",
     "type": "module",
     "main": "./dist/index.js",

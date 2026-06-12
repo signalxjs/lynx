@@ -26,6 +26,7 @@ import {
     resolveAdb,
 } from './device-detect.js';
 import { targetKey } from './target-history.js';
+import { multiselect, isCancel } from '@sigx/terminal';
 
 export type SelectedTarget =
     | { kind: 'android-device'; deviceId: string; model?: string }
@@ -87,19 +88,8 @@ export function avdMtime(name: string): number {
 // TTY helpers
 // ────────────────────────────────────────────────────────────────
 
-const HIDE_CURSOR = '\x1b[?25l';
-const SHOW_CURSOR = '\x1b[?25h';
 const DIM = '\x1b[2m';
-const BOLD = '\x1b[1m';
-const CYAN = '\x1b[36m';
-const GREEN = '\x1b[32m';
 const RESET = '\x1b[0m';
-
-function clearLines(n: number): string {
-    if (n <= 0) return '';
-    // Move up n lines, clear from cursor to end of screen
-    return `\x1b[${n}F\x1b[J`;
-}
 
 // ────────────────────────────────────────────────────────────────
 // AVD discovery
@@ -294,158 +284,56 @@ function buildItems(opts: PickTargetsOptions, lastKeys: Set<string>): Item[] {
     return items;
 }
 
-// ────────────────────────────────────────────────────────────────
-// Rendering + input loop
+// Picker — prompt-kit multiselect (section headers become option groups,
+// previously-used targets are pre-selected via initialValues).
 // ────────────────────────────────────────────────────────────────
 
-function render(items: Item[], cursor: number, selected: Set<string>, title: string): string {
-    const lines: string[] = [];
-    lines.push('');
-    lines.push(`  ${BOLD}${title}${RESET}`);
-    lines.push(`  ${DIM}↑↓ move · space toggle · enter confirm · q cancel${RESET}`);
-    lines.push('');
-    for (let i = 0; i < items.length; i++) {
-        const item = items[i];
-        if (item.header) {
-            lines.push(`  ${DIM}${item.label}${RESET}`);
-            continue;
-        }
-        const isCursor = i === cursor;
-        const pointer = isCursor ? `${CYAN}❯${RESET}` : ' ';
-        const box = selected.has(item.id)
-            ? `${GREEN}[x]${RESET}`
-            : '[ ]';
-        const labelText = isCursor ? `${BOLD}${item.label}${RESET}` : item.label;
-        const detail = item.detail ? `  ${DIM}${item.detail}${RESET}` : '';
-        lines.push(`  ${pointer} ${box} ${labelText}${detail}`);
-    }
-    lines.push('');
-    return lines.join('\n') + '\n';
-}
-
-function nextSelectable(items: Item[], from: number, dir: 1 | -1): number {
-    const n = items.length;
-    for (let step = 1; step <= n; step++) {
-        const i = ((from + step * dir) % n + n) % n;
-        const item = items[i];
-        if (!item.header) return i;
-    }
-    return from;
-}
-
-// ────────────────────────────────────────────────────────────────
-// Main entry
-// ────────────────────────────────────────────────────────────────
+const stripAnsiCodes = (s: string): string => s.replace(/\x1b\[[0-9;]*m/g, '');
 
 export async function pickTargets(opts: PickTargetsOptions): Promise<SelectedTarget[] | null> {
     if (!process.stdin.isTTY) return null;
 
     const lastKeys = new Set((opts.lastTargets ?? []).map(targetKey));
     const items = buildItems(opts, lastKeys);
-    // Nothing selectable at all — don't prompt, just signal empty.
-    const selectable = items.filter((i) => !i.header);
+    const selectable = items.filter((i) => !i.header && i.target);
     if (selectable.length === 0) {
-        console.log(`\n  ${DIM}(no iOS or Android targets detected — connect a device or boot a simulator)${RESET}\n`);
+        console.log(`
+  ${DIM}(no iOS or Android targets detected — connect a device or boot a simulator)${RESET}
+`);
         return [];
     }
 
-    // Pre-select any items that match a previously-used target, and land the
-    // cursor on the first one — so Enter alone confirms the same selection
-    // as last time.
-    const selected = new Set<string>();
+    let group: string | undefined;
+    const options: { value: string; label: string; description?: string; group?: string }[] = [];
     for (const item of items) {
-        if (!item.header && item.target && lastKeys.has(targetKey(item.target))) {
-            selected.add(item.id);
+        if (item.header) {
+            group = stripAnsiCodes(item.label);
+            continue;
         }
+        if (!item.target) continue;
+        options.push({
+            value: item.id,
+            label: stripAnsiCodes(item.label),
+            description: item.detail ? stripAnsiCodes(item.detail) : undefined,
+            group,
+        });
     }
-    let cursor = 0;
-    if (selected.size > 0) {
-        const firstSelectedIdx = items.findIndex((i) => !i.header && selected.has(i.id));
-        if (firstSelectedIdx >= 0) cursor = firstSelectedIdx;
-    } else {
-        while (items[cursor]?.header) cursor++;
-    }
+    const initialValues = selectable
+        .filter((i) => i.target && lastKeys.has(targetKey(i.target)))
+        .map((i) => i.id);
 
-    const stdin = process.stdin;
-    stdin.setRawMode(true);
-    stdin.resume();
-    stdin.setEncoding('utf-8');
-    process.stdout.write(HIDE_CURSOR);
-
-    let linesRendered = 0;
-    const draw = () => {
-        const out = render(items, cursor, selected, 'Select dev targets');
-        process.stdout.write(clearLines(linesRendered) + out);
-        linesRendered = out.split('\n').length - 1;
-    };
-    draw();
-
-    const picked = await new Promise<Item[] | null>((resolve) => {
-        const onData = (key: string) => {
-            if (key === '\r' || key === '\n') {
-                // Enter with nothing toggled falls back to the highlighted
-                // item — saves users from having to press Space first when
-                // they just want the one thing under the cursor.
-                if (selected.size === 0) {
-                    const cur = items[cursor];
-                    if (cur && !cur.header && cur.target) {
-                        cleanup();
-                        resolve([cur]);
-                        return;
-                    }
-                }
-                cleanup();
-                resolve(Array.from(selected).map((id) => items.find((i) => i.id === id)!));
-                return;
-            }
-            if (key === '\x03' || key === 'q' || key === '\x1b') {
-                cleanup();
-                resolve(null);
-                return;
-            }
-            if (key === ' ') {
-                const item = items[cursor];
-                if (!item.header) {
-                    if (selected.has(item.id)) selected.delete(item.id);
-                    else selected.add(item.id);
-                    draw();
-                }
-                return;
-            }
-            if (key === 'a' || key === 'A') {
-                // toggle all: if everything currently selectable is selected, clear; else select all
-                const allIds = items.filter((i) => !i.header).map((i) => i.id);
-                const allSelected = allIds.every((id) => selected.has(id));
-                selected.clear();
-                if (!allSelected) for (const id of allIds) selected.add(id);
-                draw();
-                return;
-            }
-            if (key === '\x1b[A' || key === 'k') {
-                cursor = nextSelectable(items, cursor, -1);
-                draw();
-                return;
-            }
-            if (key === '\x1b[B' || key === 'j') {
-                cursor = nextSelectable(items, cursor, 1);
-                draw();
-                return;
-            }
-        };
-        const cleanup = () => {
-            stdin.off('data', onData);
-            stdin.setRawMode(false);
-            stdin.pause();
-            process.stdout.write(SHOW_CURSOR);
-        };
-        stdin.on('data', onData);
+    const picked = await multiselect<string>({
+        message: 'Select dev targets',
+        options,
+        initialValues,
     });
-
-    if (picked === null) return null;
-
-    return picked.map((item) => item.target).filter((t): t is SelectedTarget => !!t);
+    if (isCancel(picked)) return null;
+    return picked
+        .map((id) => selectable.find((i) => i.id === id)?.target)
+        .filter((t): t is SelectedTarget => !!t);
 }
 
+// ────────────────────────────────────────────────────────────────
 // ────────────────────────────────────────────────────────────────
 // Materialize: boot simulators / launch emulators that aren't live yet
 // ────────────────────────────────────────────────────────────────
