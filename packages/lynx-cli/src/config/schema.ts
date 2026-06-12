@@ -406,7 +406,7 @@ export interface LynxConfig {
 /**
  * OTA updates configuration (`updates: { … }` in `defineLynxConfig`).
  * Build-time settings only — runtime behavior (provider URL, update mode)
- * is configured in JS via `Updates.configure()` from `@sigx/lynx-updates`.
+ * is declared in JS via `defineUpdates()` from `@sigx/lynx-updates`.
  */
 export interface UpdatesConfig {
     /**
@@ -421,7 +421,7 @@ export interface UpdatesConfig {
     runtimeVersion?: string;
     /**
      * Release channel baked into the JS bundle as the default for
-     * `Updates.configure()` (overridable there). Default: `'production'`.
+     * `defineUpdates()` (overridable there). Default: `'production'`.
      */
     defaultChannel?: string;
 }

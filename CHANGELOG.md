@@ -4,6 +4,12 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking**: `@sigx/lynx-updates` — `Updates.configure()` is replaced by the top-level `defineUpdates()` export, aligning the boot declaration with the `define*` family (`defineApp`, `defineRoutes`, `defineLynxConfig`). The `Updates` runtime object (check/download/apply/markReady/…) is unchanged. Consumers upgrading from 0.6.1 (the last version with `configure`): rename the call (#457).
+
+## [0.6.1] - 2026-06-12
+
 ### Added
 
 - `@sigx/lynx-updates` — OTA bundle updates: pluggable `UpdateProvider` backends (static-manifest built in), silent / immediate / mandatory / manual modes, native streaming download with SHA-256 verify, two-phase apply with crash-driven rollback, and a prebuild-computed runtime-version fingerprint that refuses updates requiring a newer native build (#432).
