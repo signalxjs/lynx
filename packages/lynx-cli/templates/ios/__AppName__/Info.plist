@@ -49,5 +49,6 @@
     <!-- {{BACKGROUND_MODES}} -->
     <!-- {{BG_TASK_IDENTIFIERS}} -->
     <!-- {{URL_SCHEMES}} -->
+    <!-- {{RUNTIME_VERSION}} -->
 </dict>
 </plist>
