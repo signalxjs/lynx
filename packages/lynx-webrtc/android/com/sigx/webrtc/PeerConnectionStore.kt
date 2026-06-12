@@ -420,14 +420,7 @@ internal object PeerConnectionStore {
             dc ?: return
             val entry = peers[peerId] ?: return
             val dcId = nativeIds.getAndDecrement()
-            WebRTCEventBus.publishDataChannel(
-                peerId,
-                dcId,
-                dc.label() ?: "",
-                "", // protocol is not exposed by the Android SDK
-                true,
-                dc.id(),
-            )
+            WebRTCEventBus.publishDataChannel(peerId, dcId, dc.label() ?: "")
             // Register after announcing so dcopen (if already open) follows the
             // datachannel event, matching the JS contract.
             registerChannel(dcId, dc, peerId, entry)

@@ -1,7 +1,7 @@
 package com.sigx.webrtc
 
-import com.lynx.react.bridge.JavaOnlyArray
-import com.lynx.react.bridge.JavaOnlyMap
+import org.json.JSONArray
+import org.json.JSONObject
 import java.util.UUID
 import java.util.concurrent.CopyOnWriteArrayList
 
@@ -10,6 +10,12 @@ import java.util.concurrent.CopyOnWriteArrayList
  * event payloads. WebRTC observers (signaling thread) write here;
  * per-LynxView [WebRTCPublisher] instances read.
  *
+ * Payloads are emitted as JSON **strings**, not structured maps: Lynx
+ * 0.5.0's bridge drops sibling scalar fields when a map carries a nested
+ * map (#342), and WebRTC events nest objects (`candidate`). A string
+ * survives marshalling intact — the JS shim already parses string events
+ * (same workaround as `HttpEventBus`).
+ *
  * Payload keys match the `NativeEvent` interface in `src/events.ts`.
  * Demux key is `id`: positive ids belong to JS-created entities (peers,
  * local tracks, local data channels), negative ids to native-created ones
@@ -17,9 +23,9 @@ import java.util.concurrent.CopyOnWriteArrayList
  */
 internal object WebRTCEventBus {
 
-    private val listeners = CopyOnWriteArrayList<Pair<UUID, (JavaOnlyMap) -> Unit>>()
+    private val listeners = CopyOnWriteArrayList<Pair<UUID, (String) -> Unit>>()
 
-    fun addListener(fn: (JavaOnlyMap) -> Unit): UUID {
+    fun addListener(fn: (String) -> Unit): UUID {
         val token = UUID.randomUUID()
         listeners.add(token to fn)
         return token
@@ -32,42 +38,48 @@ internal object WebRTCEventBus {
     // MARK: - Peer connection events
 
     fun publishStateChange(peerId: Int, type: String, state: String) {
-        emit(JavaOnlyMap().apply {
-            putInt("id", peerId)
-            putString("type", type)
-            putString("state", state)
-        })
+        emit(
+            JSONObject()
+                .put("id", peerId)
+                .put("type", type)
+                .put("state", state)
+        )
     }
 
     /** Gathering-state change carries the current local SDP so the JS shim can cache it. */
     fun publishIceGatheringChange(peerId: Int, state: String, sdpType: String?, sdp: String?) {
-        emit(JavaOnlyMap().apply {
-            putInt("id", peerId)
-            putString("type", "icegatheringstatechange")
-            putString("state", state)
-            if (sdpType != null) putString("sdpType", sdpType)
-            if (sdp != null) putString("sdp", sdp)
-        })
+        emit(
+            JSONObject()
+                .put("id", peerId)
+                .put("type", "icegatheringstatechange")
+                .put("state", state)
+                .putOpt("sdpType", sdpType)
+                .putOpt("sdp", sdp)
+        )
     }
 
     fun publishIceCandidate(peerId: Int, candidate: String, sdpMid: String?, sdpMLineIndex: Int) {
-        emit(JavaOnlyMap().apply {
-            putInt("id", peerId)
-            putString("type", "icecandidate")
-            putMap("candidate", JavaOnlyMap().apply {
-                putString("candidate", candidate)
-                if (sdpMid != null) putString("sdpMid", sdpMid)
-                putInt("sdpMLineIndex", sdpMLineIndex)
-            })
-        })
+        emit(
+            JSONObject()
+                .put("id", peerId)
+                .put("type", "icecandidate")
+                .put(
+                    "candidate",
+                    JSONObject()
+                        .put("candidate", candidate)
+                        .putOpt("sdpMid", sdpMid)
+                        .put("sdpMLineIndex", sdpMLineIndex)
+                )
+        )
     }
 
     fun publishEndOfCandidates(peerId: Int) {
         // No "candidate" key — the JS shim coalesces the absent field to null.
-        emit(JavaOnlyMap().apply {
-            putInt("id", peerId)
-            putString("type", "icecandidate")
-        })
+        emit(
+            JSONObject()
+                .put("id", peerId)
+                .put("type", "icecandidate")
+        )
     }
 
     fun publishTrack(
@@ -78,89 +90,93 @@ internal object WebRTCEventBus {
         streamIds: List<String>,
         muted: Boolean,
     ) {
-        emit(JavaOnlyMap().apply {
-            putInt("id", peerId)
-            putString("type", "track")
-            putInt("trackId", trackId)
-            putString("trackKind", kind)
-            putString("trackLabel", label)
-            putArray("streamIds", JavaOnlyArray().apply { streamIds.forEach { pushString(it) } })
-            putBoolean("muted", muted)
-        })
+        emit(
+            JSONObject()
+                .put("id", peerId)
+                .put("type", "track")
+                .put("trackId", trackId)
+                .put("trackKind", kind)
+                .put("trackLabel", label)
+                .put("streamIds", JSONArray(streamIds))
+                .put("muted", muted)
+        )
     }
 
-    fun publishDataChannel(
-        peerId: Int,
-        dcId: Int,
-        label: String,
-        protocol: String,
-        ordered: Boolean,
-        sctpId: Int,
-    ) {
-        emit(JavaOnlyMap().apply {
-            putInt("id", peerId)
-            putString("type", "datachannel")
-            putInt("dcId", dcId)
-            putString("label", label)
-            putString("protocol", protocol)
-            putBoolean("ordered", ordered)
-            putInt("sctpId", sctpId)
-        })
+    /**
+     * `ordered` / `protocol` are intentionally absent — the Android SDK does
+     * not expose them on a received channel, so rather than asserting
+     * placeholders the JS shim applies its own defaults.
+     */
+    fun publishDataChannel(peerId: Int, dcId: Int, label: String) {
+        emit(
+            JSONObject()
+                .put("id", peerId)
+                .put("type", "datachannel")
+                .put("dcId", dcId)
+                .put("label", label)
+        )
     }
 
     // MARK: - Data channel events
 
     fun publishDcOpen(dcId: Int, sctpId: Int) {
-        emit(JavaOnlyMap().apply {
-            putInt("id", dcId)
-            putString("type", "dcopen")
-            putInt("sctpId", sctpId)
-        })
+        emit(
+            JSONObject()
+                .put("id", dcId)
+                .put("type", "dcopen")
+                .put("sctpId", sctpId)
+        )
     }
 
     fun publishDcMessageText(dcId: Int, text: String) {
-        emit(JavaOnlyMap().apply {
-            putInt("id", dcId)
-            putString("type", "dcmessage")
-            putString("data", text)
-            putBoolean("isBinary", false)
-        })
+        emit(
+            JSONObject()
+                .put("id", dcId)
+                .put("type", "dcmessage")
+                .put("data", text)
+                .put("isBinary", false)
+        )
     }
 
     fun publishDcMessageBinary(dcId: Int, base64: String) {
-        emit(JavaOnlyMap().apply {
-            putInt("id", dcId)
-            putString("type", "dcmessage")
-            putString("binary", base64)
-            putBoolean("isBinary", true)
-        })
+        emit(
+            JSONObject()
+                .put("id", dcId)
+                .put("type", "dcmessage")
+                .put("binary", base64)
+                .put("isBinary", true)
+        )
     }
 
     fun publishDcError(dcId: Int, message: String) {
-        emit(JavaOnlyMap().apply {
-            putInt("id", dcId)
-            putString("type", "dcerror")
-            putString("message", message)
-        })
+        emit(
+            JSONObject()
+                .put("id", dcId)
+                .put("type", "dcerror")
+                .put("message", message)
+        )
     }
 
     fun publishDcClose(dcId: Int) {
-        emit(JavaOnlyMap().apply {
-            putInt("id", dcId)
-            putString("type", "dcclose")
-        })
+        emit(
+            JSONObject()
+                .put("id", dcId)
+                .put("type", "dcclose")
+        )
     }
 
     // MARK: - Track events
 
     fun publishTrackEnded(trackId: Int) {
-        emit(JavaOnlyMap().apply {
-            putInt("id", trackId)
-            putString("type", "trackended")
-        })
+        emit(
+            JSONObject()
+                .put("id", trackId)
+                .put("type", "trackended")
+        )
     }
 
-    private fun emit(payload: JavaOnlyMap) {
-        for ((_, fn) in listeners) fn(payload)
+    private fun emit(payload: JSONObject) {
+        val json = payload.toString()
+        for ((_, fn) in listeners) fn(json)
     }
 }

@@ -324,6 +324,28 @@ describe('RTCPeerConnection — outbound tracks', () => {
         const call = callOf('removeTrack', idOf(peer))!;
         expect(call[3]).toBe(7);
     });
+
+    it('removeTrack throws InvalidAccessError for a foreign sender, no-ops on repeats', async () => {
+        const peer = new RTCPeerConnection();
+        const other = new RTCPeerConnection();
+        const sender = other.addTrack(makeLocalTrack());
+        expect(() => peer.removeTrack(sender)).toThrow(/InvalidAccessError/);
+
+        other.removeTrack(sender);
+        await flush();
+        const calls = bridge.callAsync.mock.calls.filter(c => c[1] === 'removeTrack').length;
+        other.removeTrack(sender); // repeat — W3C no-op
+        await flush();
+        expect(bridge.callAsync.mock.calls.filter(c => c[1] === 'removeTrack').length).toBe(calls);
+    });
+
+    it('allows re-adding a track after removeTrack', () => {
+        const peer = new RTCPeerConnection();
+        const track = makeLocalTrack();
+        const sender = peer.addTrack(track);
+        peer.removeTrack(sender);
+        expect(() => peer.addTrack(track)).not.toThrow();
+    });
 });
 
 describe('RTCPeerConnection — close', () => {
@@ -377,5 +399,18 @@ describe('RTCPeerConnection — remote data channels', () => {
         fire(-8, { type: 'dcopen', sctpId: 2 });
         expect(channel.readyState).toBe('open');
         expect(channel.id).toBe(2);
+    });
+
+    it('drops channels from the peer registry once they close', () => {
+        const peer = new RTCPeerConnection();
+        const registry = (peer as unknown as { _dataChannels: Set<unknown> })._dataChannels;
+        const dc = peer.createDataChannel('short-lived');
+        fire(idOf(peer), { type: 'datachannel', dcId: -9, label: 'remote' });
+        expect(registry.size).toBe(2);
+
+        fire((dc as unknown as { _handle: number })._handle, { type: 'dcopen', sctpId: 1 });
+        fire((dc as unknown as { _handle: number })._handle, { type: 'dcclose' });
+        fire(-9, { type: 'dcclose' });
+        expect(registry.size).toBe(0);
     });
 });

@@ -47,6 +47,9 @@ export interface RTCRtpSender {
 }
 
 class RtpSender implements RTCRtpSender {
+    /** @internal set once removeTrack has run — repeat calls are no-ops, per W3C. */
+    _removed = false;
+
     constructor(
         readonly track: MediaStreamTrack | null,
         /** @internal resolves to the native senderId once addTrack lands. */
@@ -167,7 +170,7 @@ export class RTCPeerConnection extends RTCEventTargetBase {
     addTrack(track: MediaStreamTrack, ...streams: MediaStream[]): RTCRtpSender {
         this._guardOpen('addTrack');
         for (const s of this._senders) {
-            if (s.track === track) {
+            if (s.track === track && !s._removed) {
                 throw new Error('InvalidAccessError: track has already been added to this connection.');
             }
         }
@@ -183,8 +186,12 @@ export class RTCPeerConnection extends RTCEventTargetBase {
     removeTrack(sender: RTCRtpSender): void {
         this._guardOpen('removeTrack');
         const impl = sender as RtpSender;
-        if (!this._senders.has(impl)) return;
-        this._senders.delete(impl);
+        if (!this._senders.has(impl)) {
+            // W3C: the sender must have been created by this connection.
+            throw new Error('InvalidAccessError: sender was not created by this RTCPeerConnection.');
+        }
+        if (impl._removed) return; // repeat removal is a no-op, per W3C
+        impl._removed = true;
         impl._idPromise
             .then(senderId => callAsync(MODULE, 'removeTrack', this._id, senderId))
             .then(unwrap)
@@ -196,7 +203,7 @@ export class RTCPeerConnection extends RTCEventTargetBase {
         this._guardOpen('createDataChannel');
         const dcId = allocId();
         const dc = new RTCDataChannel(dcId, label, init ?? {}, { state: 'connecting' });
-        this._dataChannels.add(dc);
+        this._trackChannel(dc);
         callAsync(MODULE, 'createDataChannel', this._id, dcId, label, init ?? {})
             .then(unwrap)
             .catch(err => {
@@ -235,6 +242,12 @@ export class RTCPeerConnection extends RTCEventTargetBase {
         if (this._signalingState === 'closed') {
             throw new Error(`InvalidStateError: ${method} called on a closed RTCPeerConnection.`);
         }
+    }
+
+    /** Track a child channel, dropping it from the registry once it closes. */
+    private _trackChannel(dc: RTCDataChannel): void {
+        this._dataChannels.add(dc);
+        dc.addEventListener('close', () => this._dataChannels.delete(dc));
     }
 
     /** @internal — called by the shared global-event subscriber. */
@@ -306,7 +319,7 @@ export class RTCPeerConnection extends RTCEventTargetBase {
                     // SCTP stream id.
                     { state: 'connecting' },
                 );
-                this._dataChannels.add(dc);
+                this._trackChannel(dc);
                 this._emit('datachannel', { ...this._event('datachannel'), channel: dc });
                 break;
             }
