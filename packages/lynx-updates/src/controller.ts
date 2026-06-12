@@ -96,6 +96,9 @@ export function configure(raw: UpdatesConfig): void {
     unsubscribeNative?.();
     unsubscribeNative = addNativeUpdatesListener((event) => {
         if (event.kind === 'progress') {
+            // Late events (delivered after the download settled) must not
+            // resurrect progress state outside 'downloading'.
+            if (store.status !== 'downloading') return;
             const progress = { receivedBytes: event.receivedBytes, totalBytes: event.totalBytes };
             store.progress = progress;
             emit({ type: 'downloadProgress', progress });
@@ -179,6 +182,7 @@ export async function checkForUpdate(): Promise<UpdateCheckResult> {
     checkInFlight = (async () => {
         store.status = 'checking';
         store.error = null;
+        store.progress = null;
         emit({ type: 'checkStarted' });
         try {
             const ctx = buildContext(cfg);
