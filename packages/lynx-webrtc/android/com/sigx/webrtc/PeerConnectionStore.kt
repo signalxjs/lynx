@@ -206,8 +206,11 @@ internal object PeerConnectionStore {
         }
         val sdp = if (candidate.hasKey("candidate")) candidate.getString("candidate") ?: "" else ""
         val sdpMid = if (candidate.hasKey("sdpMid")) candidate.getString("sdpMid") else null
-        val sdpMLineIndex =
-            if (candidate.hasKey("sdpMLineIndex")) candidate.getInt("sdpMLineIndex") else 0
+        // sdpMLineIndex is `number | null` on the JS side — getInt throws on
+        // an explicit null, so parse defensively.
+        val sdpMLineIndex = if (candidate.hasKey("sdpMLineIndex")) {
+            runCatching { candidate.getInt("sdpMLineIndex") }.getOrDefault(0)
+        } else 0
         entry.pc.addIceCandidate(IceCandidate(sdpMid, sdpMLineIndex, sdp))
         done(null)
     }

@@ -16,9 +16,10 @@ pnpm add @sigx/lynx-webrtc
 sigx prebuild
 ```
 
-Autolinking adds the native SDK dependency, the `RECORD_AUDIO` /
-`MODIFY_AUDIO_SETTINGS` permissions, and the microphone usage description for
-you. Note the native SDK adds roughly 5–10 MB per ABI to the app.
+Autolinking adds the native SDK dependency and the `RECORD_AUDIO` /
+`MODIFY_AUDIO_SETTINGS` permissions for you (the iOS microphone usage
+description lands with iOS support). Note the native SDK adds roughly
+5–10 MB per ABI to the app.
 
 ## Usage
 

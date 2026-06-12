@@ -93,8 +93,9 @@ export const WebRTCDemo = component(() => {
             await a.setRemoteDescription(answer);
             append('offer/answer exchanged');
         } catch (err) {
-            status.value = `error: ${err instanceof Error ? `${err.name}: ${err.message}` : String(err)}`;
-            hangUp();
+            const message = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
+            hangUp(); // resets status — set the error message after
+            status.value = `error: ${message}`;
         }
     };
 
