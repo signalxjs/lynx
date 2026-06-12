@@ -15,12 +15,16 @@ import type { UpdatesState } from './types.js';
  * ```
  */
 export function useUpdates(): Computed<UpdatesState> {
+    // Shallow-cloned snapshots (matching Updates.getState()) — the controller
+    // is the only writer, and handing out live proxy references would let a
+    // consumer mutate the state machine by accident. The spreads also read
+    // every field, so the computed re-evaluates on any nested change.
     return computed(() => ({
         status: store.status,
-        manifest: store.manifest,
-        progress: store.progress,
+        manifest: store.manifest ? { ...store.manifest } : null,
+        progress: store.progress ? { ...store.progress } : null,
         mandatory: store.mandatory,
         error: store.error,
-        currentlyRunning: store.currentlyRunning,
+        currentlyRunning: { ...store.currentlyRunning },
     }));
 }
