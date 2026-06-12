@@ -1,6 +1,6 @@
 # @sigx/lynx-updates-ui
 
-Prebuilt OTA update UI for [SignalX](https://sigx.dev/lynx/) on Lynx — the drop-in companion to the headless [`@sigx/lynx-updates`](../lynx-updates) package. Four components cover the whole update lifecycle: a blocking gate for mandatory updates, a prompt modal for optional ones, an inline download progress row, and a "restart to update" banner. All of them read the reactive `useUpdates()` state, so there is nothing to wire up beyond `Updates.configure()`.
+Prebuilt OTA update UI for [SignalX](https://sigx.dev/lynx/) on Lynx — the drop-in companion to the headless [`@sigx/lynx-updates`](../lynx-updates) package. Four components cover the whole update lifecycle: a blocking gate for mandatory updates, a prompt modal for optional ones, an inline download progress row, and a "restart to update" banner. All of them read the reactive `useUpdates()` state, so there is nothing to wire up beyond `defineUpdates()`.
 
 Built from [`@sigx/lynx-daisyui`](../lynx-daisyui) building blocks (Modal, Progress, Button, Alert), so everything follows your daisy theme.
 
@@ -20,10 +20,10 @@ Requires `@sigx/lynx-updates` (configured) and `@sigx/lynx-daisyui` (with its st
 
 ```tsx
 import { component } from '@sigx/lynx';
-import { Updates } from '@sigx/lynx-updates';
+import { defineUpdates } from '@sigx/lynx-updates';
 import { UpdateGate, UpdatePrompt, UpdateReadyBanner } from '@sigx/lynx-updates-ui';
 
-Updates.configure({
+defineUpdates({
   provider: { url: 'https://updates.example.com/manifest.json' },
   mode: 'manual',
 });
