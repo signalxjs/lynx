@@ -139,6 +139,43 @@ describe('configure + modes', () => {
         expect(native.applyNow).toHaveBeenCalledOnce();
     });
 
+    it('clears the mandatory flag when a later check no longer returns a mandatory update', async () => {
+        stubNative();
+        const provider = new ScriptedProvider();
+        provider.result = { type: 'update-available', manifest: manifest({ mandatory: true }) };
+        Updates.configure({ provider, mode: 'manual' });
+        await settle();
+
+        await Updates.checkForUpdate();
+        await settle();
+        expect(Updates.getState().mandatory).toBe(true);
+
+        provider.result = { type: 'up-to-date' };
+        await Updates.checkForUpdate();
+        expect(Updates.getState().mandatory).toBe(false);
+
+        provider.result = { type: 'update-available', manifest: manifest({ id: 'other', mandatory: false }) };
+        await Updates.checkForUpdate();
+        expect(Updates.getState().mandatory).toBe(false);
+    });
+
+    it('rejects downloading a different update while one is in flight', async () => {
+        // A download that never completes, so the first call stays in flight.
+        stubNative({ downloadUpdate: vi.fn(() => { /* never calls back */ }) });
+        const provider = new ScriptedProvider();
+        Updates.configure({ provider, mode: 'manual' });
+        await settle();
+
+        void Updates.download(manifest({ id: 'first000' }));
+        await expect(Updates.download(manifest({ id: 'second00' })))
+            .rejects.toMatchObject({ code: 'download-in-progress' });
+        // Joining the SAME in-flight update is allowed — it must NOT reject.
+        let rejected = false;
+        Updates.download(manifest({ id: 'first000' })).catch(() => { rejected = true; });
+        await settle();
+        expect(rejected).toBe(false);
+    });
+
     it('honorMandatory: false leaves mandatory updates non-blocking', async () => {
         stubNative();
         const provider = new ScriptedProvider();

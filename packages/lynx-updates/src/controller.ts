@@ -55,6 +55,7 @@ let unsubscribeNative: (() => void) | null = null;
 let warnedUnavailable = false;
 let checkInFlight: Promise<UpdateCheckResult> | null = null;
 let downloadInFlight: Promise<void> | null = null;
+let downloadInFlightId: string | null = null;
 
 function requireConfig(): ResolvedUpdatesConfig {
     if (!config) {
@@ -100,6 +101,13 @@ export function configure(raw: UpdatesConfig): void {
             return;
         }
         if (event.kind === 'foreground' && config?.mode !== 'manual' && config?.checkOn.includes('foreground')) {
+            // Don't interleave with an installation already in flight — a
+            // re-check would flip status to 'checking' mid-download and hide
+            // progress UI. The next foreground (or the post-apply launch)
+            // picks it up.
+            if (downloadInFlight || store.status === 'downloading' || store.status === 'applying') {
+                return;
+            }
             void checkAndMaybeDownload();
         }
     });
@@ -182,11 +190,13 @@ export async function checkForUpdate(): Promise<UpdateCheckResult> {
                 case 'up-to-date':
                     store.status = 'up-to-date';
                     store.manifest = null;
+                    store.mandatory = false;
                     emit({ type: 'upToDate' });
                     break;
                 case 'incompatible':
                     store.status = 'incompatible';
                     store.manifest = result.manifest;
+                    store.mandatory = false;
                     emit({ type: 'incompatibleUpdate', manifest: result.manifest });
                     break;
                 case 'update-available':
@@ -199,6 +209,11 @@ export async function checkForUpdate(): Promise<UpdateCheckResult> {
                         // the UI is blocked, so install immediately. Fire and
                         // forget — progress/errors surface via state/events.
                         void runMandatoryPipeline(result.manifest);
+                    } else {
+                        // The blocking flag tracks the CURRENT best update —
+                        // a previously-seen mandatory update that has since
+                        // been superseded must not keep the UI blocked.
+                        store.mandatory = false;
                     }
                     break;
             }
@@ -225,8 +240,17 @@ export async function download(manifest?: UpdateManifest): Promise<void> {
     if (!target) {
         throw new UpdatesError('download-failed', 'No update to download — call checkForUpdate() first');
     }
-    if (downloadInFlight) return downloadInFlight;
+    if (downloadInFlight) {
+        // Same update → join the in-flight download. A DIFFERENT update must
+        // not silently resolve against the wrong bytes.
+        if (downloadInFlightId === target.id) return downloadInFlight;
+        throw new UpdatesError(
+            'download-in-progress',
+            `Download of update ${downloadInFlightId} is in progress — cannot start ${target.id}`,
+        );
+    }
 
+    downloadInFlightId = target.id;
     downloadInFlight = (async () => {
         const ctx = buildContext(cfg);
         if (target.runtimeVersion !== ctx.runtimeVersion) {
@@ -262,6 +286,7 @@ export async function download(manifest?: UpdateManifest): Promise<void> {
             throw error;
         } finally {
             downloadInFlight = null;
+            downloadInFlightId = null;
         }
     })();
     return downloadInFlight;
@@ -347,4 +372,5 @@ export function __resetForTests(): void {
     warnedUnavailable = false;
     checkInFlight = null;
     downloadInFlight = null;
+    downloadInFlightId = null;
 }
