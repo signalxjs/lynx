@@ -84,7 +84,11 @@ final class WebRTCAudioController {
         session.isAudioEnabled = false
         session.lockForConfiguration()
         do {
-            try session.setActive(false)
+            // RTCAudioSession.setActive takes no options — deactivate through
+            // the wrapped AVAudioSession so interrupted audio (other apps,
+            // lynx-audio players) gets the resume notification, matching
+            // AudioSessionCoordinator's behavior.
+            try session.session.setActive(false, options: [.notifyOthersOnDeactivation])
         } catch {
             // Deactivation races with other audio users — log and move on.
             NSLog("[lynx-webrtc] audio session deactivate failed: \(error)")

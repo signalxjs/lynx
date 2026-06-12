@@ -111,12 +111,6 @@ final class PeerConnectionStore {
 
     func createPeer(peerId: Int, config: [String: Any]?) -> String? {
         let f = ensureFactory()
-        lock.lock()
-        guard peers[peerId] == nil else {
-            lock.unlock()
-            return "Peer \(peerId) already exists"
-        }
-        lock.unlock()
 
         let rtcConfig = RTCConfiguration()
         rtcConfig.sdpSemantics = .unifiedPlan
@@ -128,7 +122,15 @@ final class PeerConnectionStore {
             return "createPeerConnection failed"
         }
 
+        // The authoritative duplicate check happens under the lock AFTER
+        // creation — two racing calls can't both store, and the loser's
+        // connection is closed instead of leaking.
         lock.lock()
+        guard peers[peerId] == nil else {
+            lock.unlock()
+            pc.close()
+            return "Peer \(peerId) already exists"
+        }
         peers[peerId] = PeerEntry(pc: pc, delegate: delegate)
         lock.unlock()
         WebRTCAudioController.shared.retain()
