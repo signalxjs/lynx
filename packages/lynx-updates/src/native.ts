@@ -95,6 +95,8 @@ function throwIfNativeError(result: unknown, code: UpdatesError['code']): void {
 export async function getCurrentUpdate(): Promise<CurrentUpdateInfo> {
     if (!nativeAvailable()) return EMBEDDED_INFO;
     const raw = await callAsync<Partial<CurrentUpdateInfo> | null>(MODULE, 'getCurrentUpdate');
+    // Reads surface native failures too — callAsync resolves error maps.
+    throwIfNativeError(raw, 'native-error');
     if (!raw || typeof raw !== 'object') return EMBEDDED_INFO;
     const embeddedVersion = typeof raw.embeddedVersion === 'string' ? raw.embeddedVersion : '';
     const isEmbedded = raw.isEmbedded !== false && typeof raw.updateId !== 'string';

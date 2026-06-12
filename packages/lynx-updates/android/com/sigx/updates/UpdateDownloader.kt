@@ -124,7 +124,19 @@ object UpdateDownloader {
             meta.put("sizeBytes", receivedBytes)
             meta.put("sourceUrl", url)
             meta.put("downloadedAt", System.currentTimeMillis())
-            UpdateStore.updateJsonFile(context, updateId).writeText(meta.toString())
+            // Atomic + fsynced: a truncated update.json would fail
+            // verifySha256() on next launch and roll back a perfectly good
+            // bundle as "corrupt".
+            val metaFile = UpdateStore.updateJsonFile(context, updateId)
+            val metaTmp = File(dir, "update.json.tmp")
+            FileOutputStream(metaTmp).use { out ->
+                out.write(meta.toString().toByteArray(Charsets.UTF_8))
+                out.fd.sync()
+            }
+            if (!metaTmp.renameTo(metaFile)) {
+                metaFile.delete()
+                metaTmp.renameTo(metaFile)
+            }
             val bundle = UpdateStore.bundleFile(context, updateId)
             if (!partial.renameTo(bundle)) {
                 partial.copyTo(bundle, overwrite = true)
