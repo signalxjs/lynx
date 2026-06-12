@@ -1,6 +1,6 @@
 {
     "name": "@sigx/lynx-emoji",
-    "version": "0.6.1",
+    "version": "0.7.0",
     "description": "Themable emoji picker for sigx-lynx — headless categorized grid with search, skin-tone variants, recents, and an optional MarkdownEditor plugin. Pure JS, emoji data generated from emojibase.",
     "type": "module",
     "main": "./dist/index.js",

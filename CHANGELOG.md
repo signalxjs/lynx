@@ -4,6 +4,10 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-06-12
+
+New module: `@sigx/lynx-sqlite`. Breaking: `Updates.configure()` → `defineUpdates()`. lynx-cli moves to the sigx CLI 0.4 fluent arg contract.
+
 ### Added
 
 - `@sigx/lynx-sqlite` — embedded SQLite database module (Android + iOS, platform-provided SQLite, no bundled C library): `openDatabase`, parameterized `execute`, atomic `executeBatch`, interactive `transaction()`, `PRAGMA user_version` migrations, and a `useLiveQuery` hook that re-runs queries when their tables are written — the persistence layer for chat-style offline-first apps (#466).
