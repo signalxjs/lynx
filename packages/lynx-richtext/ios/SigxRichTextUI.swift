@@ -102,7 +102,7 @@ public class SigxRichTextUI: LynxUI<RichTextView> {
     /// replacements go through the `setDocument` UI method (same contract as
     /// the stock input's `value` + `setValue`).
     @objc public func setValue(_ value: NSString?, requestReset: Bool) {
-        guard !userHasEdited, let json = value as String?, !json.isEmpty else { return }
+        guard !userHasEdited, let json = asString(value), !json.isEmpty else { return }
         guard let (parsed, version) = DocumentMapper.parse(json: json, theme: theme) else { return }
         isProgrammaticEdit = true
         view().attributedText = parsed
@@ -112,7 +112,7 @@ public class SigxRichTextUI: LynxUI<RichTextView> {
     }
 
     @objc public func setPlaceholder(_ value: NSString?, requestReset: Bool) {
-        view().placeholderText = (value as String?) ?? ""
+        view().placeholderText = asString(value) ?? ""
     }
 
     // Primitive props arrive as NSNumber: LynxPropsProcessor's propSetterLookUp
@@ -128,6 +128,17 @@ public class SigxRichTextUI: LynxUI<RichTextView> {
     private func asNumber(_ value: NSNumber?) -> NSNumber? {
         guard let v = value, v.isKind(of: NSNumber.self) else { return nil }
         return v
+    }
+
+    /// String sibling of `asNumber`. A JSON `null` (or any unset optional
+    /// string prop — JS `undefined` ops serialize to `null`) arrives as
+    /// `NSNull`, not Swift `nil`. `value as String?` would bridge it and send
+    /// `-length` to `NSNull` → `unrecognized selector` (same class of bug as
+    /// the numeric path, signalxjs/lynx#379). The `isKind` check returns the
+    /// value only when it is a real `NSString`.
+    private func asString(_ value: NSString?) -> String? {
+        guard let v = value, v.isKind(of: NSString.self) else { return nil }
+        return v as String
     }
 
     @objc public func setEditable(_ value: NSNumber?, requestReset: Bool) {
@@ -155,27 +166,27 @@ public class SigxRichTextUI: LynxUI<RichTextView> {
     }
 
     @objc public func setTextColor(_ value: NSString?, requestReset: Bool) {
-        guard let color = UIColor.sigxColor(hex: value as String?) else { return }
+        guard let color = UIColor.sigxColor(hex: asString(value)) else { return }
         theme.textColor = color
         view().textColor = color
         refreshAllVisuals()
     }
 
     @objc public func setAccentColor(_ value: NSString?, requestReset: Bool) {
-        guard let color = UIColor.sigxColor(hex: value as String?) else { return }
+        guard let color = UIColor.sigxColor(hex: asString(value)) else { return }
         theme.accentColor = color
         view().tintColor = color
         refreshAllVisuals()
     }
 
     @objc public func setPlaceholderColor(_ value: NSString?, requestReset: Bool) {
-        guard let color = UIColor.sigxColor(hex: value as String?) else { return }
+        guard let color = UIColor.sigxColor(hex: asString(value)) else { return }
         theme.placeholderColor = color
         view().placeholderColor = color
     }
 
     @objc public func setConfirmType(_ value: NSString?, requestReset: Bool) {
-        switch (value as String?) ?? "" {
+        switch asString(value) ?? "" {
         case "send": view().returnKeyType = .send
         case "search": view().returnKeyType = .search
         case "next": view().returnKeyType = .next
