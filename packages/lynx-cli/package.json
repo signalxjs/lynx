@@ -29,12 +29,12 @@
         "clean": "node ../../scripts/clean.mjs dist .turbo"
     },
     "dependencies": {
-        "@lynx-js/web-core": "^0.20.4",
-        "@sigx/cli": "^0.3.0",
+        "@lynx-js/web-core": "^0.21.0",
+        "@sigx/cli": "^0.3.1",
         "@sigx/lynx-core": "workspace:^",
-        "esbuild": "^0.28.0",
-        "sharp": "^0.34.0",
-        "ws": "^8.20.1",
+        "esbuild": "^0.28.1",
+        "sharp": "^0.35.1",
+        "ws": "^8.21.0",
         "@sigx/terminal": "^0.5.0"
     },
     "devDependencies": {
