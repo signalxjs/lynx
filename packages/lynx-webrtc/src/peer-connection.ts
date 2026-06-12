@@ -300,9 +300,11 @@ export class RTCPeerConnection extends RTCEventTargetBase {
                     evt.dcId,
                     evt.label ?? '',
                     { ordered: evt.ordered ?? true, protocol: evt.protocol ?? '' },
-                    // Starts 'connecting'; native emits dcopen right after
-                    // announcing a channel that is already open.
-                    { state: 'connecting', sctpId: evt.sctpId ?? null },
+                    // Starts 'connecting' with a null id, like locally-created
+                    // channels — the dcopen event (which native emits right
+                    // after announcing an already-open channel) fills the
+                    // SCTP stream id.
+                    { state: 'connecting' },
                 );
                 this._dataChannels.add(dc);
                 this._emit('datachannel', { ...this._event('datachannel'), channel: dc });

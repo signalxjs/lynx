@@ -372,6 +372,7 @@ describe('RTCPeerConnection — remote data channels', () => {
         expect(channel.label).toBe('srv');
         expect(channel.protocol).toBe('p');
         expect(channel.readyState).toBe('connecting');
+        expect(channel.id).toBeNull(); // null until open, same as local channels
 
         fire(-8, { type: 'dcopen', sctpId: 2 });
         expect(channel.readyState).toBe('open');
