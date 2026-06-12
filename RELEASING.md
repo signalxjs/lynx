@@ -93,6 +93,6 @@ Releases publish **directly to `@latest`** — there is no beta/soak stage for n
 npm dist-tag add <pkg>@<previous-version> latest
 ```
 
-After the workflow finishes, smoke-test: scaffold a Lynx template and run `sigx prebuild && sigx run:android`. Then update `CHANGELOG.md` and finalize the GitHub Release.
+After the workflow finishes, smoke-test: scaffold a Lynx template and run `sigx prebuild && sigx run:android`. (`CHANGELOG.md` is updated pre-release, and `release.yml` promotes the Drafter draft to the final GitHub Release — see "Release notes" above.)
 
 The publish script still supports `--tag beta` (`pnpm publish:beta`) if a release ever needs a pre-release channel. Pre-release identifiers (`0.4.0-rc.1`) are reserved for breaking changes that deserve broader review.
