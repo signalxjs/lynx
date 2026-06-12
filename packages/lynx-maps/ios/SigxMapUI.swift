@@ -118,8 +118,14 @@ public class SigxMapUI: LynxUI<MKMapView> {
 
     // MARK: - Prop setters
 
-    @objc public func setRegion(_ value: NSString?, requestReset: Bool) {
-        guard let raw = value as String?, !raw.isEmpty else { return }
+    // Param is `Any?`, not `NSString?`: Lynx delivers JS `null` (and any unset
+    // optional string prop — JSON.stringify turns `undefined` ops into `null`)
+    // as `NSNull`, not `nil`. Casting an `NSString?` that secretly holds
+    // `NSNull` via `value as String?` messages it with `-length` and crashes
+    // (`-[NSNull length]`). The type-checked `value as? String` returns nil for
+    // `NSNull` instead of bridging it.
+    @objc public func setRegion(_ value: Any?, requestReset: Bool) {
+        guard let raw = value as? String, !raw.isEmpty else { return }
         guard
             let data = raw.data(using: .utf8),
             let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
@@ -152,8 +158,8 @@ public class SigxMapUI: LynxUI<MKMapView> {
         return ["shows-user-location", "setShowsUserLocation", "BOOL"]
     }
 
-    @objc public func setMapType(_ value: NSString?, requestReset: Bool) {
-        switch (value as String?) ?? "" {
+    @objc public func setMapType(_ value: Any?, requestReset: Bool) {
+        switch (value as? String) ?? "" {
         case "satellite": view().mapType = .satellite
         case "hybrid":    view().mapType = .hybrid
         default:          view().mapType = .standard

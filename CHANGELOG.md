@@ -4,6 +4,10 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 ## [Unreleased]
 
+### Fixed
+
+- iOS red-box crash `Exception occurs while updating property … -[NSNull length]: unrecognized selector` when an optional native string prop was left unset (e.g. a `<Map>` without `mapType`). A JS `undefined`/`null` prop reaches native as `NSNull`, and the affected `NSString *` setters bridged it with `value as String?` — which messages `NSNull` with `-length` and crashes. Hardened every `NSString *` prop setter in `@sigx/lynx-maps`, `@sigx/lynx-webview`, `@sigx/lynx-richtext` and `@sigx/lynx-video` to use the type-checked `value as? String` (returns `nil` for `NSNull`), and `@sigx/lynx-maps` now omits unset optional string props instead of emitting them (#475).
+
 ## [0.7.0] - 2026-06-12
 
 New module: `@sigx/lynx-sqlite`. Breaking: `Updates.configure()` → `defineUpdates()`. lynx-cli moves to the sigx CLI 0.4 fluent arg contract.

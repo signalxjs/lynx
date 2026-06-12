@@ -56,18 +56,29 @@ export type MapProps =
  *   blocks WebView's `goBack` / `reload`.
  */
 export const Map = component<MapProps>(({ props }) => {
-    return () => (
-        <sigx-map
-            region={props.region == null ? undefined : JSON.stringify(props.region)}
-            shows-user-location={props.showsUserLocation}
-            map-type={props.mapType}
-            class={props.class}
-            style={props.style}
-            bindregionchange={props.onRegionChange}
-            bindpress={props.onPress}
-            bindmarkerpress={props.onMarkerPress}
-        >
-            {props.children}
-        </sigx-map>
-    );
+    return () => {
+        // Only attach the native string props (`region`, `map-type`) when set.
+        // A JSX attribute set to `undefined` is still emitted, and the BG→MT op
+        // queue serializes ops with JSON.stringify, which turns `undefined` into
+        // `null` — so an unset optional reaches the native `NSString *` setter
+        // as `NSNull` and crashes it (`-[NSNull length]`). Omitting the
+        // attribute keeps it off the wire entirely. The native setters are also
+        // hardened against `NSNull` as a backstop (covers prop removal). #475
+        const nativeProps: Record<string, unknown> = {};
+        if (props.region != null) nativeProps.region = JSON.stringify(props.region);
+        if (props.mapType != null) nativeProps['map-type'] = props.mapType;
+        return (
+            <sigx-map
+                {...nativeProps}
+                shows-user-location={props.showsUserLocation}
+                class={props.class}
+                style={props.style}
+                bindregionchange={props.onRegionChange}
+                bindpress={props.onPress}
+                bindmarkerpress={props.onMarkerPress}
+            >
+                {props.children}
+            </sigx-map>
+        );
+    };
 });

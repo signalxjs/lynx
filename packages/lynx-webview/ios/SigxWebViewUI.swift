@@ -93,8 +93,12 @@ public class SigxWebViewUI: LynxUI<WKWebView> {
     //     -(void)set<Name>:(type)value requestReset:(BOOL)requestReset
     // which Swift emits naturally for `@objc func setX(_:requestReset:)`.
 
-    @objc public func setSrc(_ value: NSString?, requestReset: Bool) {
-        guard let raw = value as String?, !raw.isEmpty, let url = URL(string: raw) else { return }
+    // Params are `Any?`, not `NSString?`: Lynx delivers JS `null` (and any unset
+    // optional string prop) as `NSNull`. Casting via `value as String?` then
+    // messages `NSNull` with `-length` and crashes (`-[NSNull length]`);
+    // the type-checked `value as? String` returns nil for `NSNull` instead.
+    @objc public func setSrc(_ value: Any?, requestReset: Bool) {
+        guard let raw = value as? String, !raw.isEmpty, let url = URL(string: raw) else { return }
         guard SigxWebViewUI.isSchemeAllowed(url) else {
             NSLog("[SigxWebView] Rejected src with unsupported scheme: \(raw.prefix(32))")
             return
@@ -120,8 +124,8 @@ public class SigxWebViewUI: LynxUI<WKWebView> {
         return scheme == "http" || scheme == "https"
     }
 
-    @objc public func setHtml(_ value: NSString?, requestReset: Bool) {
-        guard let raw = value as String? else { return }
+    @objc public func setHtml(_ value: Any?, requestReset: Bool) {
+        guard let raw = value as? String else { return }
         view().loadHTMLString(raw, baseURL: nil)
     }
 
@@ -130,12 +134,12 @@ public class SigxWebViewUI: LynxUI<WKWebView> {
         return ["html", "setHtml", "NSString *"]
     }
 
-    @objc public func setUserAgent(_ value: NSString?, requestReset: Bool) {
+    @objc public func setUserAgent(_ value: Any?, requestReset: Bool) {
         // `view()` is lazily built — calling it from a prop setter is safe
         // because LynxUI has already created the underlying view by the
         // time the runtime hands us prop values. No "view not built yet"
         // branch needed.
-        let ua = (value as String?) ?? ""
+        let ua = (value as? String) ?? ""
         view().customUserAgent = ua.isEmpty ? nil : ua
     }
 

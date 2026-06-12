@@ -55,8 +55,12 @@ public class SigxMapMarkerUI: LynxUI<UIView> {
 
     // MARK: - Prop setters
 
-    @objc public func setCoordinate(_ value: NSString?, requestReset: Bool) {
-        guard let raw = value as String?, !raw.isEmpty,
+    // Params are `Any?`, not `NSString?`: Lynx delivers JS `null` (and any unset
+    // optional string prop) as `NSNull`. Casting via `value as String?` then
+    // messages `NSNull` with `-length` and crashes; `value as? String` is
+    // type-checked and returns nil for `NSNull`. See SigxMapUI.setRegion.
+    @objc public func setCoordinate(_ value: Any?, requestReset: Bool) {
+        guard let raw = value as? String, !raw.isEmpty,
               let data = raw.data(using: .utf8),
               let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let lat = (obj["latitude"] as? NSNumber)?.doubleValue,
@@ -71,8 +75,8 @@ public class SigxMapMarkerUI: LynxUI<UIView> {
         return ["coordinate", "setCoordinate", "NSString *"]
     }
 
-    @objc public func setTitle(_ value: NSString?, requestReset: Bool) {
-        currentTitle = value as String?
+    @objc public func setTitle(_ value: Any?, requestReset: Bool) {
+        currentTitle = value as? String
         owningMap?.markerDidUpdate(self)
     }
 
@@ -81,8 +85,8 @@ public class SigxMapMarkerUI: LynxUI<UIView> {
         return ["title", "setTitle", "NSString *"]
     }
 
-    @objc public func setDescription(_ value: NSString?, requestReset: Bool) {
-        currentSubtitle = value as String?
+    @objc public func setDescription(_ value: Any?, requestReset: Bool) {
+        currentSubtitle = value as? String
         owningMap?.markerDidUpdate(self)
     }
 
@@ -91,8 +95,8 @@ public class SigxMapMarkerUI: LynxUI<UIView> {
         return ["description", "setDescription", "NSString *"]
     }
 
-    @objc public func setMarkerId(_ value: NSString?, requestReset: Bool) {
-        markerId = (value as String?) ?? ""
+    @objc public func setMarkerId(_ value: Any?, requestReset: Bool) {
+        markerId = (value as? String) ?? ""
     }
 
     @objc(__lynx_prop_config__marker_id)
