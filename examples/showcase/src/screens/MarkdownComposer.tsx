@@ -58,13 +58,16 @@ const mentionPlugin = createMentionPlugin({
     search: (q) => USERS.filter((u) => u.label.toLowerCase().startsWith(q.toLowerCase())),
 });
 
-// Sent bubbles carry `@[label](id)`; render the chip via the mention extension.
+// Sent bubbles carry `@[label](id)`; render the chip via the mention
+// extension. A themed pill (its own `base-100` surface) so it follows the
+// active theme and stays legible inside both the `bg-primary` (own) and
+// `bg-base-200` (other) bubbles.
 const bubbleComponents = {
     ...markdownComponents,
     extension: {
-        ...(markdownComponents as { extension?: Record<string, unknown> }).extension,
+        ...markdownComponents.extension,
         mention: ({ attrs }: { attrs: Record<string, string> }) => (
-            <text style={{ color: '#3478f6', fontWeight: 600 }}>@{attrs.label}</text>
+            <text class="bg-base-100 text-primary rounded px-1 font-semibold">@{attrs.label}</text>
         ),
     },
 };
