@@ -162,6 +162,18 @@ describe('RTCDataChannel — send', () => {
         expect(call[3]).toBe('AQID');
     });
 
+    it('dispatches an error event when native resolves { error }', async () => {
+        const { dc } = openChannel();
+        const onerror = vi.fn();
+        dc.onerror = onerror;
+        bridge.callAsync.mockImplementationOnce(async () => ({ error: 'sctp send failed' }));
+        dc.send('doomed');
+        await Promise.resolve();
+        await Promise.resolve();
+        expect(onerror).toHaveBeenCalledTimes(1);
+        expect(onerror.mock.calls[0]![0]!.message).toBe('sctp send failed');
+    });
+
     it('tracks bufferedAmount as a write-through counter', () => {
         const { dc } = openChannel();
         dc.send('abc'); // 3 utf-8 bytes

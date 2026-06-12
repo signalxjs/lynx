@@ -343,6 +343,17 @@ describe('RTCPeerConnection — outbound tracks', () => {
         expect(bridge.callAsync.mock.calls.filter(c => c[1] === 'removeTrack').length).toBe(calls);
     });
 
+    it('retracts the sender when native addTrack fails, so re-adding works', async () => {
+        const peer = new RTCPeerConnection();
+        const track = makeLocalTrack();
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+        bridge.callAsync.mockImplementationOnce(async () => ({ error: 'no transceiver' }));
+        peer.addTrack(track);
+        await flush();
+        expect(() => peer.addTrack(track)).not.toThrow();
+        warn.mockRestore();
+    });
+
     it('allows re-adding a track after removeTrack', () => {
         const peer = new RTCPeerConnection();
         const track = makeLocalTrack();

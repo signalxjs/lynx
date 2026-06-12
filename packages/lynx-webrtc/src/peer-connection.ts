@@ -183,9 +183,15 @@ export class RTCPeerConnection extends RTCEventTargetBase {
         const streamIds = streams.map(s => s.id);
         const idPromise = callAsync(MODULE, 'addTrack', this._id, track._handle, streamIds)
             .then(r => unwrap<{ senderId: number }>(r).senderId);
-        idPromise.catch(err => console.warn('[WebRTC] addTrack failed:', err));
         const sender = new RtpSender(track, idPromise);
         this._senders.add(sender);
+        idPromise.catch(err => {
+            // Retract the sender so the duplicate-track guard doesn't block a
+            // retry after a transient native failure.
+            sender._removed = true;
+            this._senders.delete(sender);
+            console.warn('[WebRTC] addTrack failed:', err);
+        });
         return sender;
     }
 
@@ -237,9 +243,11 @@ export class RTCPeerConnection extends RTCEventTargetBase {
         this._remoteTracks.clear();
         this._remoteStreams.clear();
         this._senders.clear();
-        callAsync(MODULE, 'closePeer', this._id).catch(err => {
-            console.warn('[WebRTC] closePeer failed:', err);
-        });
+        callAsync(MODULE, 'closePeer', this._id)
+            .then(unwrap)
+            .catch(err => {
+                console.warn('[WebRTC] closePeer failed:', err);
+            });
     }
 
     // -- Internal -------------------------------------------------------------

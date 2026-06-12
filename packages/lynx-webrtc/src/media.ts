@@ -83,10 +83,15 @@ export class MediaStreamTrack extends RTCEventTargetBase {
     set enabled(value: boolean) {
         const v = Boolean(value);
         if (v === this._enabled) return;
+        const prev = this._enabled;
         this._enabled = v;
-        callAsync(MODULE, 'setTrackEnabled', this._handle, v).catch(err => {
-            console.warn('[WebRTC] setTrackEnabled failed:', err);
-        });
+        callAsync(MODULE, 'setTrackEnabled', this._handle, v)
+            .then(unwrap)
+            .catch(err => {
+                // Keep the JS flag in sync with native (unless it changed again).
+                if (this._enabled === v) this._enabled = prev;
+                console.warn('[WebRTC] setTrackEnabled failed:', err);
+            });
     }
 
     /** Permanently end the track and release the capturer. Does not fire `ended` (per W3C). */
@@ -94,9 +99,11 @@ export class MediaStreamTrack extends RTCEventTargetBase {
         if (this._readyState === 'ended') return;
         this._readyState = 'ended';
         unregisterDispatcher(this._handle);
-        callAsync(MODULE, 'stopTrack', this._handle).catch(err => {
-            console.warn('[WebRTC] stopTrack failed:', err);
-        });
+        callAsync(MODULE, 'stopTrack', this._handle)
+            .then(unwrap)
+            .catch(err => {
+                console.warn('[WebRTC] stopTrack failed:', err);
+            });
     }
 
     /** @internal — mark ended without a native round-trip (peer close, native event). */

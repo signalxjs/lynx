@@ -13,6 +13,7 @@ import {
     RTCEventTargetBase,
     registerDispatcher,
     unregisterDispatcher,
+    unwrap,
 } from './events.js';
 import type { RTCDataChannelInit, RTCDataChannelState } from './types.js';
 
@@ -86,22 +87,28 @@ export class RTCDataChannel extends RTCEventTargetBase {
 
         this.bufferedAmount += isBinary ? base64ByteLength(payload) : utf8ByteLength(payload);
 
-        callAsync(MODULE, 'dcSend', this._handle, payload, isBinary).catch(err => {
-            this._dispatch({
-                id: this._handle,
-                type: 'dcerror',
-                message: err instanceof Error ? err.message : String(err),
+        // unwrap surfaces the `{ error }` callback convention as a rejection
+        // so resolved native failures dispatch an error event too.
+        callAsync(MODULE, 'dcSend', this._handle, payload, isBinary)
+            .then(unwrap)
+            .catch(err => {
+                this._dispatch({
+                    id: this._handle,
+                    type: 'dcerror',
+                    message: err instanceof Error ? err.message : String(err),
+                });
             });
-        });
     }
 
     close(): void {
         if (this._readyState === 'closing' || this._readyState === 'closed') return;
         this._readyState = 'closing';
-        callAsync(MODULE, 'dcClose', this._handle).catch(() => {
-            // Bridge call failed — close locally so we don't hang in 'closing'.
-            this._dispatch({ id: this._handle, type: 'dcclose' });
-        });
+        callAsync(MODULE, 'dcClose', this._handle)
+            .then(unwrap)
+            .catch(() => {
+                // Close failed natively — settle locally so we don't hang in 'closing'.
+                this._dispatch({ id: this._handle, type: 'dcclose' });
+            });
     }
 
     /** @internal — close without a native round-trip (peer.close()). */

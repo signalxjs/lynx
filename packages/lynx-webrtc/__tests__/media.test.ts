@@ -96,6 +96,19 @@ describe('MediaStreamTrack', () => {
         expect(track.enabled).toBe(false);
     });
 
+    it('reverts enabled when native resolves { error }', async () => {
+        const track = new MediaStreamTrack(15, 'audio', 'mic', { remote: false });
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+        bridge.callAsync.mockImplementationOnce(async () => ({ error: 'no track' }));
+        track.enabled = false;
+        expect(track.enabled).toBe(false); // optimistic
+        await Promise.resolve();
+        await Promise.resolve();
+        await Promise.resolve();
+        expect(track.enabled).toBe(true); // reverted to stay in sync with native
+        warn.mockRestore();
+    });
+
     it('stop() ends the track once and releases the native capturer', () => {
         const track = new MediaStreamTrack(12, 'audio', 'mic', { remote: false });
         track.stop();
