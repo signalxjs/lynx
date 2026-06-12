@@ -65,10 +65,23 @@ class MainActivity : FragmentActivity() {
         val hasBakedBundle = runCatching {
             assets.open("main.lynx.bundle").use { it.available() > 0 }
         }.getOrDefault(false)
+        // Startup bundle resolver — a linked OTA package (e.g.
+        // @sigx/lynx-updates) can redirect startup to a downloaded bundle.
+        // Never consulted in dev-URL runs (the dev server owns the bundle),
+        // and the resolver mutates rollback state, so resolve exactly once
+        // here — not inside a composable.
+        // The readability re-check guards the resolver-to-load gap (and any
+        // misbehaving resolver): an unreadable path must fall through to the
+        // baked-bundle / sandbox gating below, not white-screen production.
+        val otaBundlePath = if (devUrl == null) {
+            GeneratedBundleResolver.resolveStartupBundlePath(this)
+                ?.takeIf { java.io.File(it).isFile }
+        } else null
 
         when {
             intentDevUrl != null -> Log.d("SigxDevClient", "Dev mode: loading bundle from $devUrl (intent)")
             persistedDevUrl != null -> Log.d("SigxDevClient", "Dev mode: loading bundle from $devUrl (persisted)")
+            otaBundlePath != null -> Log.d("SigxDevClient", "Production mode: loading OTA bundle from $otaBundlePath")
             hasBakedBundle -> Log.d("SigxDevClient", "Production mode: loading bundle from assets")
             else -> Log.d("SigxDevClient", "Sandbox mode: no URL and no bundle — DevHomeScreen")
         }
@@ -95,6 +108,9 @@ class MainActivity : FragmentActivity() {
                                     GeneratedLifecyclePublishers.attachAll(lynxView)
                                 },
                             )
+                        }
+                        otaBundlePath != null -> {
+                            ProductionLynxScreen(bundleName = "main.lynx.bundle", bundleFilePath = otaBundlePath)
                         }
                         hasBakedBundle -> {
                             ProductionLynxScreen(bundleName = "main.lynx.bundle")
@@ -171,7 +187,7 @@ class MainActivity : FragmentActivity() {
 }
 
 @Composable
-fun ProductionLynxScreen(bundleName: String) {
+fun ProductionLynxScreen(bundleName: String, bundleFilePath: String? = null) {
     var loading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
 
@@ -197,8 +213,17 @@ fun ProductionLynxScreen(bundleName: String) {
 
                     GeneratedLifecyclePublishers.attachAll(lynxView)
 
-                    val bundle = ctx.assets.open(bundleName).readBytes()
-                    lynxView.renderTemplateWithBaseUrl(bundle, TemplateData.empty(), "")
+                    // OTA path (resolved by GeneratedBundleResolver) wins over
+                    // the baked asset; fall back to the asset if the file
+                    // vanished between resolution and load.
+                    val bundle = bundleFilePath
+                        ?.let { path -> runCatching { java.io.File(path).readBytes() }.getOrNull() }
+                        ?: ctx.assets.open(bundleName).readBytes()
+                    lynxView.renderTemplateWithBaseUrl(
+                        bundle,
+                        TemplateData.empty(),
+                        bundleFilePath?.let { "file://$it" } ?: ""
+                    )
 
                     loading = false
                     lynxView

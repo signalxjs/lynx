@@ -355,6 +355,31 @@ export interface LynxConfig {
     prebuild?: PrebuildHooksConfig;
     /** Logging & observability. See {@link LoggingConfig}. */
     logging?: LoggingConfig;
+    /** OTA updates (`@sigx/lynx-updates`). See {@link UpdatesConfig}. */
+    updates?: UpdatesConfig;
+}
+
+/**
+ * OTA updates configuration (`updates: { … }` in `defineLynxConfig`).
+ * Build-time settings only — runtime behavior (provider URL, update mode)
+ * is configured in JS via `Updates.configure()` from `@sigx/lynx-updates`.
+ */
+export interface UpdatesConfig {
+    /**
+     * Pin the runtime version instead of using the computed fingerprint.
+     * By default prebuild fingerprints the native runtime (linked native
+     * modules' source content + Lynx SDK version + scaffold revision) and
+     * updates only apply on binaries with a matching fingerprint. Set an
+     * explicit string (e.g. `'1.0.0'`) to manage compatibility manually,
+     * Expo-style — you then own the guarantee that every binary sharing the
+     * pin can run every update published for it.
+     */
+    runtimeVersion?: string;
+    /**
+     * Release channel baked into the JS bundle as the default for
+     * `Updates.configure()` (overridable there). Default: `'production'`.
+     */
+    defaultChannel?: string;
 }
 
 /** Log level for `@sigx/lynx-core`'s logger (ascending severity; `silent` mutes all). */

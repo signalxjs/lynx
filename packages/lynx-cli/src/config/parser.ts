@@ -107,6 +107,7 @@ export interface ResolvedConfig {
     ios: Required<Pick<NonNullable<LynxConfig['ios']>, 'deploymentTarget' | 'buildNumber'>> &
         Omit<NonNullable<LynxConfig['ios']>, 'deploymentTarget' | 'buildNumber'>;
     prebuild?: LynxConfig['prebuild'];
+    updates?: LynxConfig['updates'];
 }
 
 /**
@@ -126,6 +127,11 @@ export function resolveConfig(raw: LynxConfig): ResolvedConfig {
     try {
         process.env['SIGX_LYNX_LOGGING'] = JSON.stringify(raw.logging ?? {});
     } catch { /* non-serializable config — skip, plugin falls back to defaults */ }
+    // Same plumbing for the OTA updates channel — `@sigx/lynx-plugin` bakes
+    // it into the bundle as the __SIGX_UPDATES_CHANNEL__ define.
+    if (raw.updates?.defaultChannel) {
+        process.env['SIGX_LYNX_UPDATES_CHANNEL'] = raw.updates.defaultChannel;
+    }
 
     return {
         name: raw.name,
@@ -149,6 +155,7 @@ export function resolveConfig(raw: LynxConfig): ResolvedConfig {
             usageDescriptions: raw.ios?.usageDescriptions ?? {},
         },
         prebuild: raw.prebuild,
+        updates: raw.updates,
     };
 }
 

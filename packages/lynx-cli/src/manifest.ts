@@ -46,6 +46,16 @@ export interface AndroidManifest {
     activityHook?: ActivityHookManifest;
     /** Fully-qualified class name of the init facade (for dev-client type modules). */
     initClass?: string;
+    /**
+     * Fully-qualified Kotlin object (singleton) exposing
+     * `resolveStartupBundlePath(context: Context): String?`. The generated
+     * `GeneratedBundleResolver` delegates to it, and the host consults it
+     * before falling back to the baked `main.lynx.bundle` asset — this is how
+     * an OTA-updates package redirects startup to a downloaded bundle. At
+     * most ONE linked module may declare this per platform; the autolinker
+     * fails the prebuild when two do.
+     */
+    bundleResolverClass?: string;
     /** Relative path to Kotlin/Java source directory (for source-based linking). */
     sourceDir?: string;
     /**
@@ -212,6 +222,16 @@ export interface IosManifest {
     appDelegateHook?: IosAppDelegateHookManifest;
     /** Fully-qualified class name of the init facade (for dev-client type modules). */
     initClass?: string;
+    /**
+     * Swift class/enum exposing
+     * `static func resolveStartupBundlePath() -> String?`. The generated
+     * `GeneratedBundleResolver` delegates to it, and the host consults it
+     * before falling back to the baked `main.lynx.bundle` resource — this is
+     * how an OTA-updates package redirects startup to a downloaded bundle.
+     * At most ONE linked module may declare this per platform; the
+     * autolinker fails the prebuild when two do.
+     */
+    bundleResolverClass?: string;
     /** Relative path to Swift source directory (for source-based linking). */
     sourceDir?: string;
     /**
