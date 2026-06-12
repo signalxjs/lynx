@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { render } from '@sigx/lynx-testing';
-import { themeController, colorsOf, toHexColor, withAlpha } from '@sigx/lynx-zero';
+import { themeController, colorsOf, toHexColor, withAlpha, type ColorToken } from '@sigx/lynx-zero';
 // Seed the daisy built-in themes (importing component modules directly
 // bypasses the barrel that normally does this).
 import '../src/theme/builtins';
@@ -15,7 +15,7 @@ describe('Input/Textarea — native-widget theme colors (#225)', () => {
   // Compare against the same normalization the components use, so the tests
   // stay correct if a theme ever ships rgb()/shorthand-hex palette entries.
   const expected = (theme: string) => toHexColor(colorsOf(theme)!['base-content']);
-  const token = (theme: string, name: string) => toHexColor(colorsOf(theme)![name]);
+  const token = (theme: string, name: ColorToken) => toHexColor(colorsOf(theme)![name]);
 
   it('Input carries the active theme base-content as a literal inline color', () => {
     const { container } = render(<Input placeholder="x" />);
