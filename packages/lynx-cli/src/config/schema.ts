@@ -142,6 +142,16 @@ export interface IosIconConfig {
     dark?: string;
     /** Tinted appearance — grayscale source the system tints. */
     tinted?: string;
+    /**
+     * Background color used to fill transparency when flattening the standard
+     * (light) icon to an opaque PNG. App Store Connect rejects a large app icon
+     * that has an alpha channel, so the 1024 marketing icon is always flattened.
+     * Hex string, default '#FFFFFF'. iOS masks its own rounded corners at
+     * display time, so this only shows if the source art is transparent *within*
+     * the square. Does not affect the dark/tinted variants (the system
+     * composites those over its own background and they keep their alpha).
+     */
+    background?: string;
 }
 
 /**
