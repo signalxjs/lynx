@@ -122,12 +122,18 @@ export function linkIos(
     // `ios.infoPlist` (an explicit key there wins over the convenience).
     // Module-contributed keys are added in the loop only when not already
     // present, so app-level config always wins on collision.
-    const infoPlist: Record<string, PlistValue> = {
-        ...(config.ios.usesNonExemptEncryption !== undefined
-            ? { ITSAppUsesNonExemptEncryption: config.ios.usesNonExemptEncryption }
-            : {}),
-        ...(config.ios.infoPlist ?? {}),
-    };
+    //
+    // A null-prototype accumulator: keys come from JSON module manifests, so a
+    // `__proto__`/`constructor` key must be a plain own entry — never mutate a
+    // prototype — and the later `key in infoPlist` de-dupe must reflect only
+    // keys we actually added.
+    const infoPlist: Record<string, PlistValue> = Object.create(null);
+    if (config.ios.usesNonExemptEncryption !== undefined) {
+        infoPlist['ITSAppUsesNonExemptEncryption'] = config.ios.usesNonExemptEncryption;
+    }
+    for (const [key, value] of Object.entries(config.ios.infoPlist ?? {})) {
+        infoPlist[key] = value; // app passthrough wins over the convenience
+    }
     const uiComponents: IosUiComponentEntry[] = [];
     const seenUiComponentNames = new Set<string>();
     const registrations: string[] = [];

@@ -432,6 +432,35 @@ describe('linkAndroid — applicationAttributes merge', () => {
             usesCleartextTraffic: 'true',
         });
     });
+
+    it('strips an accidental android: prefix from app and module names', () => {
+        const prefixed: ModuleManifest = {
+            ...moduleManifest,
+            android: { applicationAttributes: { 'android:hardwareAccelerated': false } },
+        };
+        const config = resolveConfig({
+            ...TEST_CONFIG,
+            android: { ...TEST_CONFIG.android, applicationAttributes: { 'android:largeHeap': true } },
+        });
+        const result = linkAndroid(config, [prefixed]);
+        expect(result.applicationAttributes).toEqual({
+            largeHeap: 'true',
+            hardwareAccelerated: 'false',
+        });
+    });
+
+    it('treats a JSON __proto__ key as a plain entry without polluting the prototype', () => {
+        // JSON.parse produces an OWN `__proto__` key (a TS object literal would
+        // not) — the accumulator must keep it a normal entry, not pollute.
+        const polluted: ModuleManifest = {
+            ...moduleManifest,
+            android: { applicationAttributes: JSON.parse('{"__proto__":"evil","largeHeap":true}') },
+        };
+        const result = linkAndroid(resolveConfig(TEST_CONFIG), [polluted]);
+        expect(({} as Record<string, unknown>)['evil']).toBeUndefined();
+        expect(Object.prototype).not.toHaveProperty('evil');
+        expect(result.applicationAttributes['largeHeap']).toBe('true');
+    });
 });
 
 describe('linkAndroid — metaData resolution', () => {
@@ -791,6 +820,20 @@ describe('linkIos — infoPlist merge', () => {
         });
         const result = linkIos(config, []);
         expect(result.infoPlist.ITSAppUsesNonExemptEncryption).toBe(true);
+    });
+
+    it('treats a JSON __proto__ key as a plain entry without polluting the prototype', () => {
+        const polluted: ModuleManifest = {
+            name: 'Evil',
+            package: '@x/evil',
+            description: 'x',
+            platforms: ['ios'],
+            ios: { infoPlist: JSON.parse('{"__proto__":{"polluted":true},"UIFileSharingEnabled":true}') },
+        };
+        const result = linkIos(resolveConfig(TEST_CONFIG), [polluted]);
+        expect(({} as Record<string, unknown>)['polluted']).toBeUndefined();
+        expect(Object.prototype).not.toHaveProperty('polluted');
+        expect(result.infoPlist.UIFileSharingEnabled).toBe(true);
     });
 });
 
