@@ -1,6 +1,6 @@
 {
     "name": "@sigx/lynx-linking",
-    "version": "0.6.0",
+    "version": "0.6.1",
     "description": "Deep links and URL scheme handling for sigx-lynx",
     "type": "module",
     "main": "./dist/index.js",

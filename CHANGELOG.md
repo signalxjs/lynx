@@ -4,6 +4,8 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-06-12
+
 ### Added
 
 - `@sigx/lynx-updates` — OTA bundle updates: pluggable `UpdateProvider` backends (static-manifest built in), silent / immediate / mandatory / manual modes, native streaming download with SHA-256 verify, two-phase apply with crash-driven rollback, and a prebuild-computed runtime-version fingerprint that refuses updates requiring a newer native build (#432).
