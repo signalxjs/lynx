@@ -49,7 +49,8 @@ import WebRTC
 
     // MARK: - Media
 
-    @objc func getUserMedia(_ trackId: NSNumber, constraints: [String: Any]?, callback: LynxCallbackBlock?) {
+    // `constraints` keeps the JS-callable selector; v1 captures with platform defaults.
+    @objc func getUserMedia(_ trackId: NSNumber, constraints _: [String: Any]?, callback: LynxCallbackBlock?) {
         // Browser semantics: prompt whenever the permission is promptable,
         // resolve immediately when granted, fail fast when denied (iOS never
         // re-prompts — the user must visit Settings).
@@ -103,7 +104,8 @@ import WebRTC
         }
     }
 
-    @objc func createAnswer(_ peerId: NSNumber, options: [String: Any]?, callback: LynxCallbackBlock?) {
+    // `options` keeps signature parity with createOffer; answers take none.
+    @objc func createAnswer(_ peerId: NSNumber, options _: [String: Any]?, callback: LynxCallbackBlock?) {
         PeerConnectionStore.shared.createAnswer(peerId: peerId.intValue) { sdp, error in
             callback?(Self.descriptionResult(sdp, error))
         }

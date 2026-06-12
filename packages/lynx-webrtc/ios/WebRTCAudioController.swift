@@ -126,7 +126,7 @@ final class WebRTCAudioController {
         )
     }
 
-    @objc private func handleRouteChange(_ notification: Notification) {
+    @objc private func handleRouteChange(_: Notification) {
         queue.async { [weak self] in
             guard let self = self, self.livePeers > 0 else { return }
             _ = self.applyRouteLocked()
