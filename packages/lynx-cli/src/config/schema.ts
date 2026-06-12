@@ -29,6 +29,18 @@ export type IconMode = 'svg' | 'font';
 /** Font Awesome (and FA-compatible) style variants. */
 export type IconStyle = 'solid' | 'regular' | 'brands' | 'light' | 'thin' | 'duotone';
 
+/**
+ * A JSON-serializable Info.plist value: a scalar (`<true/>`/`<false/>`,
+ * `<integer>`/`<real>`, `<string>`), an `<array>`, or a nested `<dict>`.
+ * Used by the `ios.infoPlist` passthrough (and the module-manifest equivalent).
+ */
+export type PlistValue =
+    | boolean
+    | number
+    | string
+    | PlistValue[]
+    | { [key: string]: PlistValue };
+
 /** A single icon-set declaration. */
 export interface IconSetConfig {
     /** Call-site alias: `<Icon set="fa" name="user" />`. Must be unique across sets. */
@@ -208,6 +220,18 @@ export interface AndroidConfig {
      * meta-data contributed by linked modules.
      */
     manifestMetaData?: Record<string, string>;
+    /**
+     * Arbitrary attributes merged onto the `<application>` element in
+     * AndroidManifest.xml on every prebuild — the `<application>`-attribute
+     * counterpart to `manifestMetaData` (which only adds `<meta-data>`
+     * children). Use it for attributes without a dedicated config field, e.g.
+     * `{ usesCleartextTraffic: false, largeHeap: true }`. The `android:`
+     * namespace prefix is added automatically; booleans and numbers are
+     * stringified. Overrides the generated attribute when the name collides
+     * (last-write-wins) — XML forbids duplicate attributes. Merged with any
+     * attributes contributed by linked modules; these app-level entries win.
+     */
+    applicationAttributes?: Record<string, string | boolean | number>;
     /** Override top-level icon for Android only. */
     icon?: string;
     /** Adaptive icon for Android 8+ (foreground + background color). */
@@ -286,6 +310,26 @@ export interface IosConfig {
      * Merged with any identifiers contributed by linked modules.
      */
     bgTaskIdentifiers?: string[];
+    /**
+     * Arbitrary Info.plist keys merged over the generated plist on every
+     * prebuild (last-write-wins), so a custom key survives without
+     * post-prebuild patching. The general escape hatch for keys without a
+     * dedicated config field; values may be scalars, arrays, or nested dicts.
+     * Merged with any keys contributed by linked modules — these app-level
+     * entries win on collision. Example:
+     *
+     *     infoPlist: { ITSAppUsesNonExemptEncryption: false }
+     */
+    infoPlist?: Record<string, PlistValue>;
+    /**
+     * Convenience for the near-universal `ITSAppUsesNonExemptEncryption`
+     * Info.plist key. Set `false` if the app uses only standard, exempt
+     * encryption (e.g. HTTPS) to auto-clear App Store Connect's "Missing
+     * Compliance" prompt on every TestFlight / App Store build. Maps straight
+     * to the key; an explicit `infoPlist.ITSAppUsesNonExemptEncryption` wins
+     * if both are set.
+     */
+    usesNonExemptEncryption?: boolean;
     /**
      * Override top-level icon for iOS only. A string is the light icon; an
      * `IosIconConfig` object adds iOS 18 dark/tinted appearance variants.

@@ -16,6 +16,7 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 - `@sigx/lynx-updates-ui` — prebuilt update UI on daisyUI: `<UpdateGate>` (mandatory blocking), `<UpdatePrompt>`, `<UpdateProgress>`, `<UpdateReadyBanner>` (#432).
 - `@sigx/lynx-cli` — `sigx updates:publish` packages a built bundle into a static-host OTA layout; `bundleResolverClass` autolink hook + always-generated `GeneratedBundleResolver` lets a linked package redirect startup bundle loading; runtime-version fingerprint computed at prebuild (`.sigx/runtime-versions.json`, Android manifest meta-data, iOS `SigxRuntimeVersion` Info.plist key); `updates` block in `signalx.config.ts` (#432).
 - `@sigx/lynx-plugin` — `__SIGX_RUNTIME_VERSIONS__` / `__SIGX_UPDATES_CHANNEL__` build defines (#432).
+- `@sigx/lynx-cli` — typed passthrough for native app config without a dedicated field, applied on every prebuild (no post-prebuild patching). iOS `ios.infoPlist` merges arbitrary Info.plist keys (scalars, arrays, nested dicts) and `ios.usesNonExemptEncryption` is a convenience for `ITSAppUsesNonExemptEncryption` (clears App Store "Missing Compliance"); Android `android.applicationAttributes` merges arbitrary `<application>` attributes (the counterpart to `manifestMetaData`). Native modules can declare the same `infoPlist` / `applicationAttributes` in `signalx-module.json`; app config wins on key collision (#456).
 
 ## [0.5.7] - 2026-06-12
 

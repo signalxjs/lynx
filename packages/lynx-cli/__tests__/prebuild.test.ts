@@ -10,10 +10,13 @@ import {
     injectGradleDependencies,
     injectAndroidPermissions,
     injectAndroidMetaData,
+    injectAndroidApplicationAttributes,
     injectPodfileEntries,
     injectInfoPlistDescriptions,
     injectInfoPlistBackgroundModes,
     injectInfoPlistBgTaskIdentifiers,
+    injectInfoPlistExtra,
+    plistValueToXml,
     cleanPrebuild,
     fingerprintPrebuildInputs,
     loadManifests,
@@ -347,6 +350,119 @@ describe('injectAndroidMetaData', () => {
     });
 });
 
+describe('injectAndroidApplicationAttributes', () => {
+    const manifestPath = () =>
+        join(testDir, 'android', 'app', 'src', 'main', 'AndroidManifest.xml');
+
+    it('appends a new attribute to the <application> element', () => {
+        const config = resolveConfig(TEST_CONFIG);
+        scaffoldAndroid(testDir, config);
+
+        injectAndroidApplicationAttributes(testDir, config, { usesCleartextTraffic: 'false' });
+
+        const manifest = readFileSync(manifestPath(), 'utf-8');
+        expect(manifest).toContain('android:usesCleartextTraffic="false"');
+        // Still a single, well-formed open tag.
+        expect(manifest.match(/<application\b/g)).toHaveLength(1);
+    });
+
+    it('overrides an existing template attribute in place (no duplicate)', () => {
+        const config = resolveConfig(TEST_CONFIG);
+        scaffoldAndroid(testDir, config);
+
+        injectAndroidApplicationAttributes(testDir, config, { allowBackup: 'false' });
+
+        const openTag = readFileSync(manifestPath(), 'utf-8').match(/<application\b[^>]*>/)![0];
+        expect(openTag).toContain('android:allowBackup="false"');
+        // Exactly one allowBackup attribute — XML forbids duplicates.
+        expect(openTag.match(/android:allowBackup=/g)).toHaveLength(1);
+    });
+
+    it('XML-escapes values', () => {
+        const config = resolveConfig(TEST_CONFIG);
+        scaffoldAndroid(testDir, config);
+
+        injectAndroidApplicationAttributes(testDir, config, { 'custom': 'a&b<c>"d"' });
+
+        const manifest = readFileSync(manifestPath(), 'utf-8');
+        expect(manifest).toContain('android:custom="a&amp;b&lt;c&gt;&quot;d&quot;"');
+    });
+
+    it('is idempotent on re-run', () => {
+        const config = resolveConfig(TEST_CONFIG);
+        scaffoldAndroid(testDir, config);
+
+        const attrs = { usesCleartextTraffic: 'false', allowBackup: 'false' };
+        injectAndroidApplicationAttributes(testDir, config, attrs);
+        const first = readFileSync(manifestPath(), 'utf-8');
+        injectAndroidApplicationAttributes(testDir, config, attrs);
+        const second = readFileSync(manifestPath(), 'utf-8');
+        expect(second).toEqual(first);
+    });
+
+    it('does nothing for empty attributes', () => {
+        const config = resolveConfig(TEST_CONFIG);
+        scaffoldAndroid(testDir, config);
+
+        const before = readFileSync(manifestPath(), 'utf-8');
+        injectAndroidApplicationAttributes(testDir, config, {});
+        const after = readFileSync(manifestPath(), 'utf-8');
+        expect(after).toBe(before);
+    });
+});
+
+describe('linkAndroid — applicationAttributes merge', () => {
+    const moduleManifest: ModuleManifest = {
+        name: 'Net',
+        package: '@sigx/lynx-net',
+        description: 'Networking',
+        platforms: ['android'],
+        android: { applicationAttributes: { usesCleartextTraffic: true, largeHeap: true } },
+    };
+
+    it('stringifies app values and merges module attributes', () => {
+        const config = resolveConfig({
+            ...TEST_CONFIG,
+            android: { ...TEST_CONFIG.android, applicationAttributes: { largeHeap: false } },
+        });
+        const result = linkAndroid(config, [moduleManifest]);
+        // App `largeHeap: false` wins; the module's `usesCleartextTraffic` is added.
+        expect(result.applicationAttributes).toEqual({
+            largeHeap: 'false',
+            usesCleartextTraffic: 'true',
+        });
+    });
+
+    it('strips an accidental android: prefix from app and module names', () => {
+        const prefixed: ModuleManifest = {
+            ...moduleManifest,
+            android: { applicationAttributes: { 'android:hardwareAccelerated': false } },
+        };
+        const config = resolveConfig({
+            ...TEST_CONFIG,
+            android: { ...TEST_CONFIG.android, applicationAttributes: { 'android:largeHeap': true } },
+        });
+        const result = linkAndroid(config, [prefixed]);
+        expect(result.applicationAttributes).toEqual({
+            largeHeap: 'true',
+            hardwareAccelerated: 'false',
+        });
+    });
+
+    it('treats a JSON __proto__ key as a plain entry without polluting the prototype', () => {
+        // JSON.parse produces an OWN `__proto__` key (a TS object literal would
+        // not) — the accumulator must keep it a normal entry, not pollute.
+        const polluted: ModuleManifest = {
+            ...moduleManifest,
+            android: { applicationAttributes: JSON.parse('{"__proto__":"evil","largeHeap":true}') },
+        };
+        const result = linkAndroid(resolveConfig(TEST_CONFIG), [polluted]);
+        expect(({} as Record<string, unknown>)['evil']).toBeUndefined();
+        expect(Object.prototype).not.toHaveProperty('evil');
+        expect(result.applicationAttributes['largeHeap']).toBe('true');
+    });
+});
+
 describe('linkAndroid — metaData resolution', () => {
     const mapsManifest: ModuleManifest = {
         name: 'Maps',
@@ -554,6 +670,170 @@ describe('injectInfoPlistBgTaskIdentifiers', () => {
         const matches = plist.match(/<string>com\.test\.myapp\.bg\.refresh-feed<\/string>/g);
         expect(matches).toHaveLength(1);
         expect(plist).toContain('<string>com.test.myapp.bg.sync-outbox</string>');
+    });
+});
+
+describe('plistValueToXml', () => {
+    it('serializes booleans', () => {
+        expect(plistValueToXml(true, '')).toBe('<true/>');
+        expect(plistValueToXml(false, '')).toBe('<false/>');
+    });
+
+    it('distinguishes integers from reals', () => {
+        expect(plistValueToXml(42, '')).toBe('<integer>42</integer>');
+        expect(plistValueToXml(3.5, '')).toBe('<real>3.5</real>');
+    });
+
+    it('escapes string content', () => {
+        expect(plistValueToXml('a&b<c>', '')).toBe('<string>a&amp;b&lt;c&gt;</string>');
+    });
+
+    it('serializes arrays and nested dicts', () => {
+        expect(plistValueToXml(['_googlecast._tcp'], '')).toBe(
+            '<array>\n    <string>_googlecast._tcp</string>\n</array>',
+        );
+        expect(plistValueToXml({ NSAllowsArbitraryLoads: true }, '')).toBe(
+            '<dict>\n    <key>NSAllowsArbitraryLoads</key>\n    <true/>\n</dict>',
+        );
+    });
+
+    it('emits self-closing tags for empty array/dict', () => {
+        expect(plistValueToXml([], '')).toBe('<array/>');
+        expect(plistValueToXml({}, '')).toBe('<dict/>');
+    });
+
+    it('throws on a non-serializable value', () => {
+        expect(() => plistValueToXml(Infinity, '')).toThrow(/finite/);
+        expect(() => plistValueToXml(null as unknown as boolean, '')).toThrow(/Unsupported/);
+    });
+});
+
+describe('injectInfoPlistExtra', () => {
+    const plistPath = () => join(testDir, 'ios', 'TestApp', 'Info.plist');
+
+    it('appends a boolean key (ITSAppUsesNonExemptEncryption)', () => {
+        const config = resolveConfig(TEST_CONFIG);
+        scaffoldIos(testDir, config);
+
+        injectInfoPlistExtra(testDir, config, { ITSAppUsesNonExemptEncryption: false });
+
+        const plist = readFileSync(plistPath(), 'utf-8');
+        expect(plist).toContain('<key>ITSAppUsesNonExemptEncryption</key>\n    <false/>');
+    });
+
+    it('overrides a generated top-level scalar without leaving a duplicate', () => {
+        const config = resolveConfig(TEST_CONFIG);
+        scaffoldIos(testDir, config);
+
+        // The template ships UIViewControllerBasedStatusBarAppearance => <false/>.
+        injectInfoPlistExtra(testDir, config, { UIViewControllerBasedStatusBarAppearance: true });
+
+        const plist = readFileSync(plistPath(), 'utf-8');
+        expect(plist.match(/<key>UIViewControllerBasedStatusBarAppearance<\/key>/g)).toHaveLength(1);
+        expect(plist).toContain('<key>UIViewControllerBasedStatusBarAppearance</key>\n    <true/>');
+    });
+
+    it('leaves nested keys of the same name untouched', () => {
+        const config = resolveConfig(TEST_CONFIG);
+        scaffoldIos(testDir, config);
+
+        // UIApplicationSupportsMultipleScenes lives nested (8-space indent) in
+        // the template's UIApplicationSceneManifest dict — overriding it at the
+        // top level must not strip the nested original.
+        injectInfoPlistExtra(testDir, config, { UIApplicationSupportsMultipleScenes: true });
+
+        const plist = readFileSync(plistPath(), 'utf-8');
+        expect(plist).toContain('        <key>UIApplicationSupportsMultipleScenes</key>');
+        expect(plist).toContain('    <key>UIApplicationSupportsMultipleScenes</key>\n    <true/>');
+    });
+
+    it('serializes a nested array value', () => {
+        const config = resolveConfig(TEST_CONFIG);
+        scaffoldIos(testDir, config);
+
+        injectInfoPlistExtra(testDir, config, { NSBonjourServices: ['_myapp._tcp'] });
+
+        const plist = readFileSync(plistPath(), 'utf-8');
+        expect(plist).toContain('<key>NSBonjourServices</key>');
+        expect(plist).toContain('<string>_myapp._tcp</string>');
+    });
+
+    it('writes a placeholder comment when empty', () => {
+        const config = resolveConfig(TEST_CONFIG);
+        scaffoldIos(testDir, config);
+
+        injectInfoPlistExtra(testDir, config, {});
+
+        const plist = readFileSync(plistPath(), 'utf-8');
+        expect(plist).toContain('no extra Info.plist keys');
+    });
+
+    it('is idempotent on re-run', () => {
+        const config = resolveConfig(TEST_CONFIG);
+        scaffoldIos(testDir, config);
+
+        const extra = { ITSAppUsesNonExemptEncryption: false };
+        injectInfoPlistExtra(testDir, config, extra);
+        const first = readFileSync(plistPath(), 'utf-8');
+        injectInfoPlistExtra(testDir, config, extra);
+        const second = readFileSync(plistPath(), 'utf-8');
+        expect(second).toEqual(first);
+    });
+});
+
+describe('linkIos — infoPlist merge', () => {
+    const moduleManifest: ModuleManifest = {
+        name: 'LocalNet',
+        package: '@sigx/lynx-localnet',
+        description: 'Local networking',
+        platforms: ['ios'],
+        ios: { infoPlist: { NSBonjourServices: ['_module._tcp'], ITSAppUsesNonExemptEncryption: true } },
+    };
+
+    it('maps usesNonExemptEncryption and lets ios.infoPlist + app win over modules', () => {
+        const config = resolveConfig({
+            ...TEST_CONFIG,
+            ios: {
+                ...TEST_CONFIG.ios,
+                usesNonExemptEncryption: false,
+                infoPlist: { UIFileSharingEnabled: true },
+            },
+        });
+        const result = linkIos(config, [moduleManifest]);
+        // Convenience maps to the key; app value wins over the module's `true`;
+        // module-only key is still added.
+        expect(result.infoPlist).toEqual({
+            ITSAppUsesNonExemptEncryption: false,
+            UIFileSharingEnabled: true,
+            NSBonjourServices: ['_module._tcp'],
+        });
+    });
+
+    it('explicit ios.infoPlist wins over the usesNonExemptEncryption convenience', () => {
+        const config = resolveConfig({
+            ...TEST_CONFIG,
+            ios: {
+                ...TEST_CONFIG.ios,
+                usesNonExemptEncryption: false,
+                infoPlist: { ITSAppUsesNonExemptEncryption: true },
+            },
+        });
+        const result = linkIos(config, []);
+        expect(result.infoPlist.ITSAppUsesNonExemptEncryption).toBe(true);
+    });
+
+    it('treats a JSON __proto__ key as a plain entry without polluting the prototype', () => {
+        const polluted: ModuleManifest = {
+            name: 'Evil',
+            package: '@x/evil',
+            description: 'x',
+            platforms: ['ios'],
+            ios: { infoPlist: JSON.parse('{"__proto__":{"polluted":true},"UIFileSharingEnabled":true}') },
+        };
+        const result = linkIos(resolveConfig(TEST_CONFIG), [polluted]);
+        expect(({} as Record<string, unknown>)['polluted']).toBeUndefined();
+        expect(Object.prototype).not.toHaveProperty('polluted');
+        expect(result.infoPlist.UIFileSharingEnabled).toBe(true);
     });
 });
 

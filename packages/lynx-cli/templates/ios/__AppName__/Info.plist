@@ -50,5 +50,6 @@
     <!-- {{BG_TASK_IDENTIFIERS}} -->
     <!-- {{URL_SCHEMES}} -->
     <!-- {{RUNTIME_VERSION}} -->
+    <!-- {{INFO_PLIST_EXTRA}} -->
 </dict>
 </plist>
