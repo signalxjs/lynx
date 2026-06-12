@@ -1,6 +1,6 @@
 {
     "name": "@sigx/lynx-device-info",
-    "version": "0.6.1",
+    "version": "0.7.0",
     "description": "Device information for sigx-lynx",
     "type": "module",
     "main": "./dist/index.js",

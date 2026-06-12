@@ -1,6 +1,6 @@
 {
     "name": "@sigx/lynx-maps",
-    "version": "0.6.1",
+    "version": "0.7.0",
     "description": "Native map view for sigx-lynx (MKMapView on iOS, Google Maps on Android).",
     "type": "module",
     "main": "./dist/index.js",
