@@ -335,6 +335,13 @@ export const catalog: Area[] = [
                 icon: { set: 'lucide', name: 'vibrate' },
                 route: 'hapticsDemo',
             },
+            {
+                id: 'webrtc',
+                title: 'WebRTC',
+                description: 'Loopback echo call — mic, remote audio, data channel',
+                icon: { set: 'lucide', name: 'phone-call' },
+                route: 'webrtcDemo',
+            },
         ],
     },
 ];

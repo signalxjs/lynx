@@ -53,6 +53,7 @@
         "@sigx/lynx-sqlite": "workspace:^",
         "@sigx/lynx-storage": "workspace:^",
         "@sigx/lynx-video": "workspace:^",
+        "@sigx/lynx-webrtc": "workspace:^",
         "@sigx/lynx-websocket": "workspace:^",
         "@sigx/lynx-webview": "workspace:^",
         "@sigx/lynx-zero": "workspace:^",

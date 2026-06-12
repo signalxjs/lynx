@@ -1,0 +1,19 @@
+{
+    "name": "WebRTC",
+    "package": "@sigx/lynx-webrtc",
+    "description": "W3C-shaped WebRTC: peer connections, audio tracks, data channels",
+    "platforms": ["android"],
+    "android": {
+        "moduleClass": "com.sigx.webrtc.WebRTCModule",
+        "publisherClass": "com.sigx.webrtc.WebRTCPublisher",
+        "sourceDir": "android",
+        "dependencies": ["io.github.webrtc-sdk:android:125.6422.07"],
+        "permissions": [
+            "android.permission.RECORD_AUDIO",
+            "android.permission.MODIFY_AUDIO_SETTINGS"
+        ],
+        "features": [
+            { "name": "android.hardware.microphone", "required": false }
+        ]
+    }
+}

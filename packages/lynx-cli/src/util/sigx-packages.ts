@@ -102,6 +102,7 @@ export const KNOWN_SIGX_LYNX_PACKAGES: ReadonlySet<string> = new Set([
     '@sigx/lynx-share',
     '@sigx/lynx-storage',
     '@sigx/lynx-testing',
+    '@sigx/lynx-webrtc',
     '@sigx/lynx-websocket',
 ]);
 
