@@ -5,7 +5,7 @@
  * Auto-detected when a project has signalx.config.ts.
  */
 
-import { definePlugin } from '@sigx/cli/plugin';
+import { a, definePlugin } from '@sigx/cli/plugin';
 import { existsSync, statSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -54,16 +54,16 @@ export default definePlugin({
         dev: {
             description: 'Start Lynx development server with sigx-lynx-go integration',
             args: {
-                port: { type: 'string', description: 'Port number (default: 8788)' },
-                host: { type: 'boolean', description: 'Expose to network', default: false },
-                ios: { type: 'boolean', description: 'Target iOS only (skip picker)', default: false },
-                android: { type: 'boolean', description: 'Target Android only (skip picker)', default: false },
-                all: { type: 'boolean', description: 'Auto-target every connected device (skip picker)', default: false },
-                last: { type: 'boolean', description: 'Reuse last selected targets (skip picker)', default: false },
-                verbose: { type: 'boolean', description: 'Stream raw xcodebuild/gradle output (default: filtered)', default: false },
-                'no-device-logs': { type: 'boolean', description: 'Suppress JS console.* streaming from running devices', default: false },
-                'no-ui': { type: 'boolean', description: 'Plain console output instead of the interactive dashboard', default: false },
-                'reset-cache': { type: 'boolean', description: 'Clear build caches (dist/, .rsbuild/, node_modules/.cache) before building — use after a dependency version bump', default: false },
+                port: a.string().describe('Port number (default: 8788)'),
+                host: a.boolean().default(false).describe('Expose to network'),
+                ios: a.boolean().default(false).describe('Target iOS only (skip picker)'),
+                android: a.boolean().default(false).describe('Target Android only (skip picker)'),
+                all: a.boolean().default(false).describe('Auto-target every connected device (skip picker)'),
+                last: a.boolean().default(false).describe('Reuse last selected targets (skip picker)'),
+                verbose: a.boolean().default(false).describe('Stream raw xcodebuild/gradle output (default: filtered)'),
+                'no-device-logs': a.boolean().default(false).describe('Suppress JS console.* streaming from running devices'),
+                'no-ui': a.boolean().default(false).describe('Plain console output instead of the interactive dashboard'),
+                'reset-cache': a.boolean().default(false).describe('Clear build caches (dist/, .rsbuild/, node_modules/.cache) before building — use after a dependency version bump'),
             },
             async run(ctx) {
                 if (ctx.args['reset-cache']) {
@@ -427,8 +427,8 @@ export default definePlugin({
         build: {
             description: 'Production Lynx build',
             args: {
-                analyze: { type: 'boolean', description: 'Analyze bundle size', default: false },
-                'reset-cache': { type: 'boolean', description: 'Clear build caches (dist/, .rsbuild/, node_modules/.cache) before building — use after a dependency version bump', default: false },
+                analyze: a.boolean().default(false).describe('Analyze bundle size'),
+                'reset-cache': a.boolean().default(false).describe('Clear build caches (dist/, .rsbuild/, node_modules/.cache) before building — use after a dependency version bump'),
             },
             async run(ctx) {
                 if (ctx.args['reset-cache']) {
@@ -482,7 +482,7 @@ export default definePlugin({
         outdated: {
             description: 'List installed @sigx/lynx-* packages and check for updates',
             args: {
-                tag: { type: 'string', description: 'Compare against a dist-tag instead of "latest" (e.g. "canary"). When set, exit code only reflects lockstep drift, not "behind tag".' },
+                tag: a.string().describe('Compare against a dist-tag instead of "latest" (e.g. "canary"). When set, exit code only reflects lockstep drift, not "behind tag".'),
             },
             async run(ctx) {
                 const { runOutdated } = await import('./outdated.js');
@@ -500,10 +500,10 @@ export default definePlugin({
         upgrade: {
             description: 'Upgrade all @sigx/lynx-* packages to the latest (or a target) version',
             args: {
-                to: { type: 'string', description: 'Target version (e.g. "0.5.0") or dist-tag (e.g. "canary"). Default: latest.' },
-                'dry-run': { type: 'boolean', description: 'Print the planned diff without writing package.json or installing', default: false },
-                caret: { type: 'boolean', description: 'Use ^x.y.z ranges instead of exact pins. Default: exact (matches lockstep).', default: false },
-                force: { type: 'boolean', description: 'Bypass the dirty-tree gate', default: false },
+                to: a.string().describe('Target version (e.g. "0.5.0") or dist-tag (e.g. "canary"). Default: latest.'),
+                'dry-run': a.boolean().default(false).describe('Print the planned diff without writing package.json or installing'),
+                caret: a.boolean().default(false).describe('Use ^x.y.z ranges instead of exact pins. Default: exact (matches lockstep).'),
+                force: a.boolean().default(false).describe('Bypass the dirty-tree gate'),
             },
             async run(ctx) {
                 const { runUpgrade } = await import('./upgrade.js');
@@ -519,12 +519,13 @@ export default definePlugin({
         add: {
             description: 'Add @sigx/lynx-* module(s) at the version matching your existing sigx deps',
             args: {
-                caret: { type: 'boolean', description: 'Use ^x.y.z range instead of exact pin. Default: exact (matches lockstep).', default: false },
-                force: { type: 'boolean', description: 'Bypass the dirty-tree gate', default: false },
+                modules: a.rest().describe('Module name(s), e.g. "updates haptics"'),
+                caret: a.boolean().default(false).describe('Use ^x.y.z range instead of exact pin. Default: exact (matches lockstep).'),
+                force: a.boolean().default(false).describe('Bypass the dirty-tree gate'),
             },
             async run(ctx) {
                 const { runAdd } = await import('./packages.js');
-                const modules = ((ctx.args._ as string[] | undefined) ?? []).filter((s) => typeof s === 'string');
+                const modules = (ctx.args.modules as string[] | undefined) ?? [];
                 await runAdd({
                     cwd: ctx.cwd,
                     modules,
@@ -535,21 +536,24 @@ export default definePlugin({
         },
         remove: {
             description: 'Remove @sigx/lynx-* module(s) from the project',
+            args: {
+                modules: a.rest().describe('Module name(s), e.g. "updates haptics"'),
+            },
             async run(ctx) {
                 const { runRemove } = await import('./packages.js');
-                const modules = ((ctx.args._ as string[] | undefined) ?? []).filter((s) => typeof s === 'string');
+                const modules = (ctx.args.modules as string[] | undefined) ?? [];
                 await runRemove({ cwd: ctx.cwd, modules });
             },
         },
         'updates:publish': {
             description: 'Package a built .lynx.bundle as an OTA update (static-manifest layout for @sigx/lynx-updates)',
             args: {
-                bundle: { type: 'string', description: 'Bundle path (default: dist/main.lynx.bundle)' },
-                out: { type: 'string', description: 'Output directory (default: updates-dist)' },
-                channel: { type: 'string', description: 'Release channel (default: updates.defaultChannel or "production")' },
-                mandatory: { type: 'boolean', description: 'Mark the update mandatory (blocking install)', default: false },
-                'runtime-version': { type: 'string', description: 'Override the runtime version for both platforms (manual compatibility management)' },
-                notes: { type: 'string', description: 'Release notes (surfaced to update UI)' },
+                bundle: a.string().describe('Bundle path (default: dist/main.lynx.bundle)'),
+                out: a.string().describe('Output directory (default: updates-dist)'),
+                channel: a.string().describe('Release channel (default: updates.defaultChannel or "production")'),
+                mandatory: a.boolean().default(false).describe('Mark the update mandatory (blocking install)'),
+                'runtime-version': a.string().describe('Override the runtime version for both platforms (manual compatibility management)'),
+                notes: a.string().describe('Release notes (surfaced to update UI)'),
             },
             async run(ctx) {
                 const { runUpdatesPublish } = await import('./updates-publish.js');
@@ -573,9 +577,9 @@ export default definePlugin({
         prebuild: {
             description: 'Generate native project files from signalx.config.ts',
             args: {
-                android: { type: 'boolean', description: 'Android only' },
-                ios: { type: 'boolean', description: 'iOS only' },
-                clean: { type: 'boolean', description: 'Delete and regenerate the native projects (android/, ios/) from scratch' },
+                android: a.boolean().describe('Android only'),
+                ios: a.boolean().describe('iOS only'),
+                clean: a.boolean().describe('Delete and regenerate the native projects (android/, ios/) from scratch'),
             },
             async run(ctx) {
                 const { runPrebuild } = await import('./prebuild.js');
@@ -594,9 +598,9 @@ export default definePlugin({
         'run:android': {
             description: 'Build and launch on Android device/emulator',
             args: {
-                release: { type: 'boolean', description: 'Build in release mode (no dev server)', default: false },
-                verbose: { type: 'boolean', description: 'Stream raw gradle output (default: filtered)', default: false },
-                'reset-cache': { type: 'boolean', description: 'Clear build caches (dist/, .rsbuild/, node_modules/.cache) before building — use after a dependency version bump', default: false },
+                release: a.boolean().default(false).describe('Build in release mode (no dev server)'),
+                verbose: a.boolean().default(false).describe('Stream raw gradle output (default: filtered)'),
+                'reset-cache': a.boolean().default(false).describe('Clear build caches (dist/, .rsbuild/, node_modules/.cache) before building — use after a dependency version bump'),
             },
             async run(ctx) {
                 if (ctx.args['reset-cache']) {
@@ -716,11 +720,11 @@ export default definePlugin({
         'run:ios': {
             description: 'Build and launch on iOS simulator or connected device',
             args: {
-                release: { type: 'boolean', description: 'Build in release mode (no dev server)', default: false },
-                simulator: { type: 'string', description: 'Simulator name (auto-detected if omitted)' },
-                device: { type: 'string', description: 'Physical device name or UDID (requires Xcode 15+)' },
-                verbose: { type: 'boolean', description: 'Stream raw xcodebuild output (default: filtered)', default: false },
-                'reset-cache': { type: 'boolean', description: 'Clear build caches (dist/, .rsbuild/, node_modules/.cache) before building — use after a dependency version bump', default: false },
+                release: a.boolean().default(false).describe('Build in release mode (no dev server)'),
+                simulator: a.string().describe('Simulator name (auto-detected if omitted)'),
+                device: a.string().describe('Physical device name or UDID (requires Xcode 15+)'),
+                verbose: a.boolean().default(false).describe('Stream raw xcodebuild output (default: filtered)'),
+                'reset-cache': a.boolean().default(false).describe('Clear build caches (dist/, .rsbuild/, node_modules/.cache) before building — use after a dependency version bump'),
             },
             async run(ctx) {
                 if (process.platform !== 'darwin') {
@@ -941,10 +945,10 @@ export default definePlugin({
         'run:web': {
             description: 'Build and serve the Lynx web bundle in the browser (live reload)',
             args: {
-                port: { type: 'string', description: 'HTTP port (default: 8900)' },
-                open: { type: 'boolean', description: 'Open the browser', default: true },
-                watch: { type: 'boolean', description: 'Rebuild + reload on change', default: true },
-                host: { type: 'boolean', description: 'Expose on the LAN', default: false },
+                port: a.string().describe('HTTP port (default: 8900)'),
+                open: a.boolean().default(true).describe('Open the browser'),
+                watch: a.boolean().default(true).describe('Rebuild + reload on change'),
+                host: a.boolean().default(false).describe('Expose on the LAN'),
             },
             async run(ctx) {
                 const { runWeb } = await import('./web-server.js');
