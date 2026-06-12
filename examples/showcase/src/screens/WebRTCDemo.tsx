@@ -9,6 +9,7 @@ import {
     WebRTC,
     isWebRTCAvailable,
     mediaDevices,
+    type AudioOutputRoute,
     type RTCIceCandidateInit,
 } from '@sigx/lynx-webrtc';
 
@@ -24,7 +25,7 @@ import {
  */
 export const WebRTCDemo = component(() => {
     const status = signal<string>('idle');
-    const route = signal<string>('speaker');
+    const route = signal<AudioOutputRoute>('speaker');
     const muted = signal(false);
     const log = signal<{ lines: string[] }>({ lines: [] });
 

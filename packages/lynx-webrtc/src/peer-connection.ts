@@ -100,6 +100,10 @@ export class RTCPeerConnection extends RTCEventTargetBase {
             .catch(err => {
                 console.warn('[WebRTC] createPeer failed:', err);
                 this._dispatch({ id: this._id, type: 'connectionstatechange', state: 'failed' });
+                // The peer never existed natively — release the dispatcher slot
+                // and gate further calls, so an abandoned instance can't leak.
+                this._signalingState = 'closed';
+                unregisterDispatcher(this._id);
             });
     }
 
