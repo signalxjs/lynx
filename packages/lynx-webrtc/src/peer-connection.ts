@@ -161,10 +161,16 @@ export class RTCPeerConnection extends RTCEventTargetBase {
         this._remoteDescription = makeDescription(description.type, description.sdp ?? '');
     }
 
-    /** `null`/omitted candidate signals end-of-candidates, per W3C. */
+    /**
+     * `null`/omitted candidate signals end-of-candidates, per W3C — and so
+     * does an empty/absent `candidate` string (`RTCIceCandidateInit.candidate`
+     * defaults to `""` in the spec), so native never builds a candidate from
+     * an empty SDP string.
+     */
     async addIceCandidate(candidate?: RTCIceCandidateInit | null): Promise<void> {
         this._guardOpen('addIceCandidate');
-        unwrap(await callAsync(MODULE, 'addIceCandidate', this._id, candidate ?? null));
+        const payload = candidate && candidate.candidate ? candidate : null;
+        unwrap(await callAsync(MODULE, 'addIceCandidate', this._id, payload));
     }
 
     addTrack(track: MediaStreamTrack, ...streams: MediaStream[]): RTCRtpSender {

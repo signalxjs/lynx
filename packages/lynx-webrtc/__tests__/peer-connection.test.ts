@@ -169,8 +169,12 @@ describe('RTCPeerConnection — SDP negotiation', () => {
         });
 
         await peer.addIceCandidate(null); // end of candidates
+        await peer.addIceCandidate({ candidate: '' }); // W3C: same marker
+        await peer.addIceCandidate({ sdpMid: '0' }); // absent candidate string too
         const calls = bridge.callAsync.mock.calls.filter(c => c[1] === 'addIceCandidate');
         expect(calls[1]![3]).toBeNull();
+        expect(calls[2]![3]).toBeNull();
+        expect(calls[3]![3]).toBeNull();
     });
 });
 

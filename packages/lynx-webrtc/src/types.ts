@@ -36,6 +36,11 @@ export interface RTCSessionDescription {
 }
 
 export interface RTCIceCandidateInit {
+    /**
+     * Optional with default `""`, matching `lib.dom.d.ts` — an empty/absent
+     * candidate string is the W3C end-of-candidates marker, which
+     * `addIceCandidate` forwards as null.
+     */
     candidate?: string;
     sdpMid?: string | null;
     sdpMLineIndex?: number | null;
