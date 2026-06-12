@@ -39,20 +39,31 @@ export const Textarea = component<TextareaProps>(({ props }) => {
     return rows * lineHeight + padding;
   };
 
+  // Height plus the native-widget theme colors (#225): every themed color
+  // (background, border, text, placeholder) is resolved from the active scoped
+  // palette to literal hex — native text widgets can't read CSS custom
+  // properties. Reactive via useThemeColors, so a theme switch recolors the
+  // field immediately instead of only after a remount (the .textarea class's
+  // var()-based colors never repaint a live native textarea).
+  const getStyle = () => {
+    const style: Record<string, string | number> = {
+      height: getHeight(),
+      backgroundColor: props.variant === 'ghost' ? 'transparent' : colors.colorOf('base-100'),
+      color: colors.colorOf('base-content'),
+      '-x-placeholder-color': colors.colorOf('base-content', 0.45),
+    };
+    if (props.color) style.borderColor = colors.colorOf(props.color);
+    else if (props.variant === 'bordered') style.borderColor = colors.colorOf('base-300');
+    return style;
+  };
+
   return () => (
     <textarea
       class={getClasses()}
       placeholder={props.placeholder}
       disabled={props.disabled}
       model={props.model}
-      // Height plus the native-widget theme colors (#225): typed text and
-      // placeholder get literal hex from the active scoped palette — native
-      // text widgets can't read CSS custom properties.
-      style={{
-        height: getHeight(),
-        color: colors.colorOf('base-content'),
-        '-x-placeholder-color': colors.colorOf('base-content', 0.45),
-      }}
+      style={getStyle()}
     />
   );
 });

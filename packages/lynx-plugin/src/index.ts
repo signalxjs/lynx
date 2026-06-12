@@ -16,6 +16,7 @@
  * ```
  */
 
+import { readFileSync } from 'node:fs';
 import { networkInterfaces } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -88,6 +89,29 @@ function readLoggingConfig(): LoggingConfigLike {
 function extractHost(s: string): string {
   const m = s.match(/\/\/([^:/]+)/);
   return m ? m[1] : '';
+}
+
+/**
+ * Read the per-platform OTA runtime-version fingerprints written by
+ * `sigx prebuild` (`.sigx/runtime-versions.json`). Informational in the JS
+ * bundle (`__SIGX_RUNTIME_VERSIONS__`) — the native binary's baked value is
+ * authoritative at update-check time. `null` when no prebuild has run.
+ */
+function readRuntimeVersions(rootPath: string): { android?: string; ios?: string } | null {
+  try {
+    const raw = readFileSync(path.join(rootPath, '.sigx', 'runtime-versions.json'), 'utf-8');
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === 'object') {
+      const { android, ios } = parsed as { android?: string; ios?: string };
+      return {
+        ...(typeof android === 'string' ? { android } : {}),
+        ...(typeof ios === 'string' ? { ios } : {}),
+      };
+    }
+  } catch {
+    // No sidecar (prebuild not run / web-only project) — define null.
+  }
+  return null;
 }
 
 /**
@@ -191,6 +215,12 @@ export function pluginSigxLynx(
               // Production observability config (read by the auto-wired
               // `@sigx/lynx-observability/install` entry). `null` when unset.
               __SIGX_OBSERVABILITY_CONFIG__: JSON.stringify(logging.production ?? null),
+              // OTA updates (`@sigx/lynx-updates`): per-platform runtime
+              // fingerprints from the last prebuild (informational; native
+              // value is authoritative) and the default release channel
+              // (plumbed from signalx.config.ts by lynx-cli).
+              __SIGX_RUNTIME_VERSIONS__: JSON.stringify(readRuntimeVersions(api.context.rootPath)),
+              __SIGX_UPDATES_CHANNEL__: JSON.stringify(process.env['SIGX_LYNX_UPDATES_CHANNEL'] || 'production'),
             },
           },
           tools: {

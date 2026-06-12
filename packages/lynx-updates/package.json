@@ -1,0 +1,59 @@
+{
+    "name": "@sigx/lynx-updates",
+    "version": "0.6.0",
+    "description": "OTA bundle updates for sigx-lynx — pluggable backends, update modes, crash rollback",
+    "type": "module",
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+        ".": {
+            "import": "./dist/index.js",
+            "types": "./dist/index.d.ts"
+        },
+        "./signalx-module.json": "./signalx-module.json"
+    },
+    "files": [
+        "dist",
+        "ios",
+        "android",
+        "signalx-module.json"
+    ],
+    "scripts": {
+        "build": "node ../../scripts/clean.mjs dist && tsgo",
+        "dev": "tsgo --watch",
+        "clean": "node ../../scripts/clean.mjs dist .turbo"
+    },
+    "dependencies": {
+        "@sigx/lynx": "workspace:^",
+        "@sigx/lynx-core": "workspace:^"
+    },
+    "devDependencies": {
+        "@typescript/native-preview": "7.0.0-dev.20260521.1",
+        "typescript": "^6.0.3"
+    },
+    "author": "Andreas Ekdahl",
+    "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/signalxjs/lynx.git",
+        "directory": "packages/lynx-updates"
+    },
+    "homepage": "https://sigx.dev/lynx/modules/updates/overview/",
+    "bugs": {
+        "url": "https://github.com/signalxjs/lynx/issues"
+    },
+    "publishConfig": {
+        "access": "public"
+    },
+    "keywords": [
+        "signalx",
+        "sigx",
+        "lynx",
+        "mobile",
+        "ios",
+        "android",
+        "ota",
+        "updates",
+        "codepush"
+    ]
+}
