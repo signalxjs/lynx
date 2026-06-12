@@ -178,7 +178,7 @@ export interface UpdatesConfig {
     honorMandatory?: boolean;
     /**
      * true (default): `markReady()` is called automatically shortly after
-     * `configure()` — "JS booted" is the health bar for rollback. Set false
+     * `Updates.configure()` — "JS booted" is the health bar for rollback. Set false
      * to gate on your own signal (first screen rendered, critical fetch OK)
      * and call `Updates.markReady()` yourself.
      */
