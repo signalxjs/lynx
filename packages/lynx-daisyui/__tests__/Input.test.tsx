@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { render } from '@sigx/lynx-testing';
-import { themeController, colorsOf, toHexColor, withAlpha } from '@sigx/lynx-zero';
+import { themeController, colorsOf, toHexColor, withAlpha, type ColorToken } from '@sigx/lynx-zero';
 // Seed the daisy built-in themes (importing component modules directly
 // bypasses the barrel that normally does this).
 import '../src/theme/builtins';
@@ -15,6 +15,7 @@ describe('Input/Textarea — native-widget theme colors (#225)', () => {
   // Compare against the same normalization the components use, so the tests
   // stay correct if a theme ever ships rgb()/shorthand-hex palette entries.
   const expected = (theme: string) => toHexColor(colorsOf(theme)!['base-content']);
+  const token = (theme: string, name: ColorToken) => toHexColor(colorsOf(theme)![name]);
 
   it('Input carries the active theme base-content as a literal inline color', () => {
     const { container } = render(<Input placeholder="x" />);
@@ -37,5 +38,48 @@ describe('Input/Textarea — native-widget theme colors (#225)', () => {
     themeController.set('daisy-dark');
     const { container } = render(<Input />);
     expect(container.children[0]._style.color).toBe(expected('daisy-dark'));
+  });
+
+  it('Input fills its background with the active theme base-100 literal', () => {
+    const { container } = render(<Input />);
+    expect(container.children[0]._style.backgroundColor).toBe(token('daisy-light', 'base-100'));
+  });
+
+  it('Input ghost variant keeps a transparent background', () => {
+    const { container } = render(<Input variant="ghost" />);
+    expect(container.children[0]._style.backgroundColor).toBe('transparent');
+  });
+
+  it('Input bordered variant resolves base-300 as the literal border color', () => {
+    const { container } = render(<Input variant="bordered" />);
+    expect(container.children[0]._style.borderColor).toBe(token('daisy-light', 'base-300'));
+  });
+
+  it('Input color prop wins over the bordered default for border color', () => {
+    const { container } = render(<Input variant="bordered" color="primary" />);
+    expect(container.children[0]._style.borderColor).toBe(token('daisy-light', 'primary'));
+  });
+
+  it('Input without a variant carries no inline border color', () => {
+    const { container } = render(<Input />);
+    expect(container.children[0]._style.borderColor).toBeUndefined();
+  });
+
+  it('Textarea fills its background and resolves bordered border colors too', () => {
+    const { container } = render(<Textarea variant="bordered" />);
+    const el = container.children[0];
+    expect(el._style.backgroundColor).toBe(token('daisy-light', 'base-100'));
+    expect(el._style.borderColor).toBe(token('daisy-light', 'base-300'));
+  });
+
+  it('Textarea ghost variant keeps a transparent background', () => {
+    const { container } = render(<Textarea variant="ghost" />);
+    expect(container.children[0]._style.backgroundColor).toBe('transparent');
+  });
+
+  it('the background literal tracks the active theme', () => {
+    themeController.set('daisy-dark');
+    const { container } = render(<Input />);
+    expect(container.children[0]._style.backgroundColor).toBe(token('daisy-dark', 'base-100'));
   });
 });
