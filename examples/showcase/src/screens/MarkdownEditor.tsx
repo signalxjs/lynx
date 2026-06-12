@@ -103,6 +103,7 @@ export const MarkdownEditorScreen = component(() => {
                                     textColor={editorTheme.textColor}
                                     accentColor={editorTheme.accentColor}
                                     placeholderColor={editorTheme.placeholderColor}
+                                    suggestionPopup={editorTheme.suggestionPopup}
                                     plugins={[emojiPlugin, mentionPlugin]}
                                     fullscreenClass="bg-base-100"
                                     onChange={(md) => {
