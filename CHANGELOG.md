@@ -6,7 +6,7 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 ### Added
 
-- `@sigx/lynx-webrtc` — W3C-shaped WebRTC module (Android; iOS follows): `RTCPeerConnection` (offer/answer, trickle + non-trickle ICE, `iceServers`, state events, `ontrack`, `ondatachannel`), `RTCDataChannel` (text + binary), `mediaDevices.getUserMedia({ audio })` with browser-style `NotAllowedError` on denial, and `MediaStream`/`MediaStreamTrack` (`enabled` mute, `stop()`). Remote audio plays automatically through the device audio module. Non-W3C extras: `WebRTC.setAudioOutput('speaker'|'earpiece')` and the camera/audio-style `requestPermission()`/`getPermissionStatus()` (#479).
+- `@sigx/lynx-webrtc` — W3C-shaped WebRTC module (Android + iOS): `RTCPeerConnection` (offer/answer, trickle + non-trickle ICE, `iceServers`, state events, `ontrack`, `ondatachannel`), `RTCDataChannel` (text + binary), `mediaDevices.getUserMedia({ audio })` with browser-style `NotAllowedError` on denial, and `MediaStream`/`MediaStreamTrack` (`enabled` mute, `stop()`). Remote audio plays automatically through the device audio module. Non-W3C extras: `WebRTC.setAudioOutput('speaker'|'earpiece')` and the camera/audio-style `requestPermission()`/`getPermissionStatus()` (#479). iOS rides WebRTC's `RTCAudioSession` manual-audio mode (`.playAndRecord`/`.voiceChat`, defaultToSpeaker, background `audio` mode).
 
 ### Fixed
 
