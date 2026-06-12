@@ -18,6 +18,8 @@ import type { DevActions } from './dev-server.js';
 
 export interface DevShellState {
     ready: boolean;
+    /** Label of an in-flight gradle/xcodebuild run, or null. */
+    building: string | null;
     port: number;
     buildId: string;
     urls: { label: string; url: string }[];
@@ -51,6 +53,7 @@ export async function createDevShell(opts: {
 }): Promise<DevShellController> {
     const state = signal<DevShellState>({
         ready: false,
+        building: null,
         port: 0,
         buildId: '',
         urls: [],
@@ -158,12 +161,16 @@ export async function createDevShell(opts: {
                 ? [{ name: '/ios', description: 'build + launch the iOS app', run: () => act((a) => a.buildLaunchIos()) }]
                 : []),
         ],
-        status: (): StatusItem[] => (state.ready
-            ? [
-                { label: 'port', value: String(state.port), tone: 'accent' },
-                { label: 'targets', value: String(state.targets.length), tone: state.targets.length > 0 ? 'success' : 'dim' },
-            ]
-            : [{ label: 'status', value: 'starting…', tone: 'warn' }]),
+        status: (): StatusItem[] => {
+            const items: StatusItem[] = state.ready
+                ? [
+                    { label: 'port', value: String(state.port), tone: 'accent' },
+                    { label: 'targets', value: String(state.targets.length), tone: state.targets.length > 0 ? 'success' : 'dim' },
+                ]
+                : [{ label: 'status', value: 'starting…', tone: 'warn' }];
+            if (state.building) items.push({ label: 'build', value: state.building, tone: 'warn' });
+            return items;
+        },
         onExit: async () => {
             bound?.shutdown();
             await waitForTeardown();

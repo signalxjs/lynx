@@ -290,6 +290,8 @@ interface DevControlOpts {
     printLines: (lines: string[]) => void;
     /** Filtered gradle/xcodebuild lines (shell mode: the log store). */
     buildSink?: (line: string) => void;
+    /** Build started (label) / finished (null) — drives the shell's status chip. */
+    onBuildState?: (label: string | null) => void;
 }
 
 /** The dev-server actions behind r/d/a/i — shared by the legacy raw-stdin
@@ -430,6 +432,7 @@ function createDevActions(opts: DevControlOpts): DevActions {
                 }
                 opts.logger.log('Installing and launching Android app...');
                 void (async () => {
+                    opts.onBuildState?.('gradle installDebug');
                     const androidDir = join(opts.cwd, 'android');
                     const gradleCmd = process.platform === 'win32' ? 'gradlew.bat' : 'gradlew';
                     try {
@@ -443,9 +446,11 @@ function createDevActions(opts: DevControlOpts): DevActions {
                             { kind: 'gradle', verbose: opts.verbose ?? false, logger: opts.logger, sink: opts.buildSink },
                         );
                     } catch {
+                        opts.onBuildState?.(null);
                         opts.logger.error('Android build failed');
                         return;
                     }
+                    opts.onBuildState?.(null);
                     opts.logger.log('\x1b[32m✓ App installed\x1b[0m');
 
                     invalidateDeviceStatusCache();
@@ -495,6 +500,7 @@ function createDevActions(opts: DevControlOpts): DevActions {
 
                 opts.logger.log('App not installed — building...');
                 void (async () => {
+                    opts.onBuildState?.('xcodebuild');
                     const iosDir = join(opts.cwd, 'ios');
 
                     // Determine app name from config (fallback to workspace listing)
@@ -528,9 +534,11 @@ function createDevActions(opts: DevControlOpts): DevActions {
                             { kind: 'xcodebuild', verbose: opts.verbose ?? false, logger: opts.logger, sink: opts.buildSink },
                         );
                     } catch {
+                        opts.onBuildState?.(null);
                         opts.logger.error('iOS build failed');
                         return;
                     }
+                    opts.onBuildState?.(null);
                     opts.logger.log('\x1b[32m✓ iOS app built\x1b[0m');
 
                     const appPath = findBuiltApp(opts.cwd, appName);
@@ -1177,6 +1185,7 @@ export async function startDevServer(opts: DevServerOptions): Promise<void> {
             else console.log(lines.join('\n'));
         },
         buildSink: ui ? (line) => ui.store.push(line.endsWith('\n') ? line : line + '\n') : undefined,
+        onBuildState: opts.shell ? (label) => { opts.shell!.state.building = label; } : undefined,
     };
 
     if (opts.shell) {
