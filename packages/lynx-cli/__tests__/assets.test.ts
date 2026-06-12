@@ -84,6 +84,16 @@ describe('resolveAssets', () => {
         expect(assets.ios.iconTinted).toBe(join(testDir, 't.png'));
     });
 
+    it('defaults ios icon background to white, overridable via ios.icon.background', () => {
+        expect(resolveAssets(BASE_CONFIG, testDir).ios.iconBackground).toBe('#FFFFFF');
+        expect(resolveAssets({ ...BASE_CONFIG, ios: { icon: 'a.png' } }, testDir).ios.iconBackground).toBe('#FFFFFF');
+        const custom = resolveAssets(
+            { ...BASE_CONFIG, ios: { icon: { light: 'l.png', background: '#0D9488' } } },
+            testDir,
+        );
+        expect(custom.ios.iconBackground).toBe('#0D9488');
+    });
+
     it('resolves adaptive icon monochrome (opt-in)', () => {
         const without = resolveAssets(
             { ...BASE_CONFIG, android: { adaptiveIcon: { foreground: 'fg.png' } } },
@@ -220,6 +230,18 @@ describe('generateIosIcon (dark/tinted variants)', () => {
         expect(dark.appearances).toEqual([{ appearance: 'luminosity', value: 'dark' }]);
         const tinted = contents.images.find((i: { filename: string }) => i.filename === 'AppIcon-1024-tinted.png');
         expect(tinted.appearances).toEqual([{ appearance: 'luminosity', value: 'tinted' }]);
+    });
+
+    it('flattens the marketing icon to an opaque PNG even when the source has alpha (App Store rejects alpha)', async () => {
+        // Source with fully transparent pixels (e.g. rounded corners).
+        await writePng('transparent.png', { r: 13, g: 148, b: 136, alpha: 0 });
+        const config = resolveConfig({ ...BASE_CONFIG });
+        const assets = resolveAssets({ ...BASE_CONFIG, ios: { icon: 'transparent.png' } }, testDir);
+        await generateIosIcon(testDir, config, assets.ios);
+
+        const meta = await sharp(join(appIconDir(), 'AppIcon-1024.png')).metadata();
+        expect(meta.hasAlpha).toBe(false);
+        expect(meta.channels).toBe(3);
     });
 
     it('emits light-only Contents.json and cleans up stale variants when unset', async () => {
