@@ -245,13 +245,16 @@ describe('runtime-version gate', () => {
         expect(events).toContain('incompatibleUpdate');
     });
 
-    it('refuses to download an incompatible manifest', async () => {
-        stubNative();
+    it('refuses to download an incompatible manifest without sticking the single-flight latch', async () => {
+        const native = stubNative();
         Updates.configure({ provider: new ScriptedProvider(), mode: 'manual' });
         await settle();
         await expect(
             Updates.download(manifest({ runtimeVersion: 'fp1-NEWER' })),
         ).rejects.toMatchObject({ code: 'runtime-mismatch' });
+        // The refused download must not block a subsequent compatible one.
+        await Updates.download(manifest());
+        expect(native.downloadUpdate).toHaveBeenCalledOnce();
     });
 });
 

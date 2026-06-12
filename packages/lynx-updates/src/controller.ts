@@ -248,15 +248,18 @@ export async function download(manifest?: UpdateManifest): Promise<void> {
         );
     }
 
+    // Validate BEFORE arming the single-flight latch — a throw past this
+    // point would leave downloadInFlight set forever.
+    const ctx = buildContext(cfg);
+    if (target.runtimeVersion !== ctx.runtimeVersion) {
+        throw new UpdatesError(
+            'runtime-mismatch',
+            `Update ${target.id} requires runtime ${target.runtimeVersion}; this binary is ${ctx.runtimeVersion} — a store release is needed`,
+        );
+    }
+
     downloadInFlightId = target.id;
     downloadInFlight = (async () => {
-        const ctx = buildContext(cfg);
-        if (target.runtimeVersion !== ctx.runtimeVersion) {
-            throw new UpdatesError(
-                'runtime-mismatch',
-                `Update ${target.id} requires runtime ${target.runtimeVersion}; this binary is ${ctx.runtimeVersion} — a store release is needed`,
-            );
-        }
         store.status = 'downloading';
         store.manifest = target;
         store.progress = { receivedBytes: 0, totalBytes: null };

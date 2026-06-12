@@ -100,7 +100,9 @@ function canonicalJson(value: unknown): string {
         const keys = Object.keys(obj).sort();
         return `{${keys.map((k) => `${JSON.stringify(k)}:${canonicalJson(obj[k])}`).join(',')}}`;
     }
-    return JSON.stringify(value);
+    // JSON.stringify returns undefined for undefined/functions/symbols —
+    // normalize to 'null' so the canonical string is always defined.
+    return JSON.stringify(value) ?? 'null';
 }
 
 /**

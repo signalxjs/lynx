@@ -207,7 +207,7 @@ object UpdateStore {
             val pending = state.pendingUpdateId
             if (pending != null) {
                 if (state.pendingLaunchAttempts >= state.maxLaunchAttempts) {
-                    Log.w(TAG, "Update $pending failed $state.pendingLaunchAttempts launches — rolling back")
+                    Log.w(TAG, "Update $pending failed ${state.pendingLaunchAttempts} launches — rolling back")
                     rollbackPending(context, state, "crash")
                     state = readState(context) ?: return null
                 } else {
