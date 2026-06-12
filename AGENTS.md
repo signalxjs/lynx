@@ -87,7 +87,7 @@ flow below is required.)
    from the PR (see "Documentation"), merge (squash — repo rules block merge
    commits) and clean up:
    ```sh
-   pr=<pr>                                    # the PR number, once
+   pr=123                                     # your PR number (digits only)
    gh pr checks "$pr"                         # must be all green first
    gh pr merge "$pr" --squash --delete-branch \
      --subject "$(gh pr view "$pr" --json title -q .title) (#$pr)" \
