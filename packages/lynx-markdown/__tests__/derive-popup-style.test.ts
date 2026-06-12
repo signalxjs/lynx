@@ -13,6 +13,13 @@ describe('derivePopupStyleFromText', () => {
         expect(derivePopupStyleFromText('#xyz')).toEqual({});
     });
 
+    it('returns {} for hex with non-hex digits in any position (incl. the alpha bytes)', () => {
+        expect(derivePopupStyleFromText('#fffz')).toEqual({}); // bad alpha nibble
+        expect(derivePopupStyleFromText('#ffffffzz')).toEqual({}); // bad alpha byte
+        expect(derivePopupStyleFromText('#12345g')).toEqual({}); // bad rgb digit
+        expect(derivePopupStyleFromText('#ff')).toEqual({}); // wrong length
+    });
+
     it('light text (dark theme) ⇒ dark surface, text passes through', () => {
         const s = derivePopupStyleFromText('#e6e6e6');
         expect(s.surfaceColor).toBe('#1f1f23');

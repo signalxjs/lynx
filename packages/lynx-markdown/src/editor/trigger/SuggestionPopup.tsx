@@ -95,9 +95,16 @@ function parseHexRgb(color: string): { r: number; g: number; b: number } | null 
     let h = c.slice(1);
     if (h.length === 3 || h.length === 4) h = h.split('').map((ch) => ch + ch).join('');
     if (h.length !== 6 && h.length !== 8) return null;
-    const n = Number.parseInt(h.slice(0, 6), 16);
-    if (Number.isNaN(n)) return null;
-    return { r: (n >> 16) & 0xff, g: (n >> 8) & 0xff, b: n & 0xff };
+    // Validate every digit (incl. the alpha bytes) — `Number.parseInt` would
+    // silently stop at the first non-hex char (e.g. `#12345g` → `0x12345`) or
+    // ignore trailing junk (`#fffz` → `ffffffzz` → `0xffffff`), letting a
+    // malformed color drive the derived style instead of falling back.
+    if (!/^[0-9a-fA-F]+$/.test(h)) return null;
+    return {
+        r: Number.parseInt(h.slice(0, 2), 16),
+        g: Number.parseInt(h.slice(2, 4), 16),
+        b: Number.parseInt(h.slice(4, 6), 16),
+    };
 }
 
 /**
