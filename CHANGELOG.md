@@ -4,6 +4,10 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 ## [Unreleased]
 
+### Added
+
+- `@sigx/lynx-sqlite` — embedded SQLite database module (Android + iOS, platform-provided SQLite, no bundled C library): `openDatabase`, parameterized `execute`, atomic `executeBatch`, interactive `transaction()`, `PRAGMA user_version` migrations, and a `useLiveQuery` hook that re-runs queries when their tables are written — the persistence layer for chat-style offline-first apps (#466).
+
 ### Changed
 
 - **Breaking**: `@sigx/lynx-updates` — `Updates.configure()` is replaced by the top-level `defineUpdates()` export, aligning the boot declaration with the `define*` family (`defineApp`, `defineRoutes`, `defineLynxConfig`). The `Updates` runtime object (check/download/apply/markReady/…) is unchanged. Consumers upgrading from 0.6.1 (the last version with `configure`): rename the call (#457).

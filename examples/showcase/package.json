@@ -50,6 +50,7 @@
         "@sigx/lynx-safe-area": "workspace:^",
         "@sigx/lynx-secure-storage": "workspace:^",
         "@sigx/lynx-share": "workspace:^",
+        "@sigx/lynx-sqlite": "workspace:^",
         "@sigx/lynx-storage": "workspace:^",
         "@sigx/lynx-video": "workspace:^",
         "@sigx/lynx-websocket": "workspace:^",
