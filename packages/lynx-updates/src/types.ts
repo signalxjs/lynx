@@ -202,7 +202,9 @@ export type UpdatesErrorCode =
     | 'no-view'
     | 'runtime-mismatch'
     | 'not-configured'
-    | 'native-unavailable';
+    | 'native-unavailable'
+    /** A native call failed without a more specific code. */
+    | 'native-error';
 
 export class UpdatesError extends Error {
     constructor(

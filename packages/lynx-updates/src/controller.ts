@@ -56,6 +56,7 @@ let warnedUnavailable = false;
 let checkInFlight: Promise<UpdateCheckResult> | null = null;
 let downloadInFlight: Promise<void> | null = null;
 let downloadInFlightId: string | null = null;
+let bootstrapScheduled = false;
 
 function requireConfig(): ResolvedUpdatesConfig {
     if (!config) {
@@ -113,13 +114,20 @@ export function configure(raw: UpdatesConfig): void {
     });
 
     if (raw.rollback?.maxFailedLaunches !== undefined) {
-        void nativeSetRollbackOptions(raw.rollback.maxFailedLaunches);
+        nativeSetRollbackOptions(raw.rollback.maxFailedLaunches).catch((err) => {
+            log.warn('setRollbackOptions failed:', err);
+        });
     }
 
     // Defer everything else off the boot path — never block first paint.
-    setTimeout(() => {
-        void bootstrap();
-    }, 0);
+    // Latched: re-configuring updates the config but must not re-run
+    // markReady / the launch check (that's the documented idempotence).
+    if (!bootstrapScheduled) {
+        bootstrapScheduled = true;
+        setTimeout(() => {
+            void bootstrap();
+        }, 0);
+    }
 }
 
 async function bootstrap(): Promise<void> {
@@ -374,4 +382,5 @@ export function __resetForTests(): void {
     checkInFlight = null;
     downloadInFlight = null;
     downloadInFlightId = null;
+    bootstrapScheduled = false;
 }

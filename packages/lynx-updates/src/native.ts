@@ -166,17 +166,20 @@ export async function nativeApplyNow(updateId: string): Promise<void> {
 /** Commit the pending update as healthy (idempotent). */
 export async function nativeMarkReady(): Promise<void> {
     if (!nativeAvailable()) return;
-    await callAsync<unknown>(MODULE, 'markReady');
+    const result = await callAsync<unknown>(MODULE, 'markReady');
+    throwIfNativeError(result, 'native-error');
 }
 
 /** Configure rollback tuning for subsequent launches. */
 export async function nativeSetRollbackOptions(maxFailedLaunches: number): Promise<void> {
     if (!nativeAvailable()) return;
-    await callAsync<unknown>(MODULE, 'setRollbackOptions', { maxFailedLaunches });
+    const result = await callAsync<unknown>(MODULE, 'setRollbackOptions', { maxFailedLaunches });
+    throwIfNativeError(result, 'native-error');
 }
 
 /** Drop every downloaded update; the baked bundle loads on next launch. */
 export async function nativeClearUpdates(): Promise<void> {
     if (!nativeAvailable()) return;
-    await callAsync<unknown>(MODULE, 'clearUpdates');
+    const result = await callAsync<unknown>(MODULE, 'clearUpdates');
+    throwIfNativeError(result, 'native-error');
 }

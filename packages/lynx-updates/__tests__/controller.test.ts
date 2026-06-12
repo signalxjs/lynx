@@ -188,6 +188,20 @@ describe('configure + modes', () => {
         expect(Updates.getState().mandatory).toBe(false);
     });
 
+    it('configure is idempotent: re-configuring never re-runs the bootstrap', async () => {
+        const native = stubNative();
+        const provider = new ScriptedProvider();
+        Updates.configure({ provider, mode: 'silent' });
+        await settle();
+        expect(native.markReady).toHaveBeenCalledOnce();
+        expect(provider.checks).toBe(1);
+
+        Updates.configure({ provider, mode: 'silent' });
+        await settle();
+        expect(native.markReady).toHaveBeenCalledOnce();
+        expect(provider.checks).toBe(1);
+    });
+
     it('autoMarkReady (default) calls native markReady after configure', async () => {
         const native = stubNative();
         Updates.configure({ provider: new ScriptedProvider(), mode: 'manual' });
