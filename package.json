@@ -54,10 +54,5 @@
     "homepage": "https://sigx.dev/lynx/",
     "bugs": {
         "url": "https://github.com/signalxjs/lynx/issues"
-    },
-    "pnpm": {
-        "overrides": {
-            "@sigx/cli": "file:../../cli/main/packages/cli"
-        }
     }
 }
