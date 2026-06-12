@@ -118,6 +118,8 @@ export interface CurrentUpdateInfo {
     isFirstLaunchAfterUpdate: boolean;
     /** True when native rolled back because the previous launch never reached markReady. */
     didRollBack: boolean;
+    /** Id of the update that was rolled back at this startup (null when none). */
+    rolledBackUpdateId: string | null;
 }
 
 export interface UpdatesState {

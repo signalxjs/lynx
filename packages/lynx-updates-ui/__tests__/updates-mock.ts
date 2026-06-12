@@ -18,6 +18,7 @@ const RUNNING: CurrentUpdateInfo = {
     isEmbedded: true,
     isFirstLaunchAfterUpdate: false,
     didRollBack: false,
+    rolledBackUpdateId: null,
 };
 
 export function initialState(): UpdatesState {

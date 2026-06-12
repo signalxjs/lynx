@@ -61,6 +61,7 @@ const EMBEDDED_INFO: CurrentUpdateInfo = {
     isEmbedded: true,
     isFirstLaunchAfterUpdate: false,
     didRollBack: false,
+    rolledBackUpdateId: null,
 };
 
 interface NativeError {
@@ -109,6 +110,10 @@ export async function getCurrentUpdate(): Promise<CurrentUpdateInfo> {
         isEmbedded,
         isFirstLaunchAfterUpdate: raw.isFirstLaunchAfterUpdate === true,
         didRollBack: raw.didRollBack === true,
+        rolledBackUpdateId:
+            typeof raw.rolledBackUpdateId === 'string' && raw.rolledBackUpdateId.length > 0
+                ? raw.rolledBackUpdateId
+                : null,
     };
 }
 

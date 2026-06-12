@@ -302,20 +302,23 @@ describe('error handling', () => {
 });
 
 describe('rollback surfacing', () => {
-    it('emits rolledBack when native reports a rollback at startup', async () => {
+    it('emits rolledBack with the failed update id reported by native', async () => {
         stubNative({
             getCurrentUpdate: (cb) => cb({
                 isEmbedded: true,
                 runtimeVersion: RUNTIME,
                 isFirstLaunchAfterUpdate: false,
                 didRollBack: true,
+                rolledBackUpdateId: 'failed99',
             }),
         });
-        const events: string[] = [];
+        const events: Array<{ type: string; fromUpdateId?: string }> = [];
         Updates.configure({ provider: new ScriptedProvider(), mode: 'manual' });
-        Updates.addListener((e) => events.push(e.type));
+        Updates.addListener((e) => events.push(e as never));
         await settle();
-        expect(events).toContain('rolledBack');
+        const rolledBack = events.find((e) => e.type === 'rolledBack');
+        expect(rolledBack?.fromUpdateId).toBe('failed99');
         expect(Updates.getState().currentlyRunning.didRollBack).toBe(true);
+        expect(Updates.getState().currentlyRunning.rolledBackUpdateId).toBe('failed99');
     });
 });

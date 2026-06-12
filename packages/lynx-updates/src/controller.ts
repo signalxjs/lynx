@@ -129,10 +129,8 @@ async function bootstrap(): Promise<void> {
     try {
         const running = await getCurrentUpdate();
         store.currentlyRunning = running;
-        if (running.didRollBack && running.updateId !== null) {
-            emit({ type: 'rolledBack', fromUpdateId: running.updateId });
-        } else if (running.didRollBack) {
-            emit({ type: 'rolledBack', fromUpdateId: 'unknown' });
+        if (running.didRollBack) {
+            emit({ type: 'rolledBack', fromUpdateId: running.rolledBackUpdateId ?? 'unknown' });
         }
     } catch (err) {
         log.warn('getCurrentUpdate failed:', err);
