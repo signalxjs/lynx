@@ -79,6 +79,12 @@ export interface AndroidLinkResult {
     metaData: ResolvedAndroidMetaData[];
     /** Human-readable warnings about meta-data that fell back to a placeholder. */
     metaDataWarnings: string[];
+    /**
+     * Attributes to merge onto the `<application>` element (name → stringified
+     * value, without the `android:` prefix) — app `applicationAttributes` with
+     * module-contributed attributes added underneath (app wins on collision).
+     */
+    applicationAttributes: Record<string, string>;
     /** Modules that were linked. */
     linkedModules: string[];
     /** Lifecycle publishers that were linked. */
@@ -94,6 +100,18 @@ export interface AndroidLinkResult {
 /** Per-method `(hookClass, manifestName)` pairs collected during linking. */
 type ActivityHookInvocation = { hookClass: string; manifestName: string };
 type ActivityHookGroups = Record<AndroidActivityHookMethod, ActivityHookInvocation[]>;
+
+/**
+ * Normalize an `<application>` attribute name: trim, then drop an accidental
+ * `android:` prefix (the injector adds it — a name copied from docs as
+ * `android:largeHeap` would otherwise emit `android:android:largeHeap` and fail
+ * AAPT2). Applied to both the app-config and module sources so behavior is
+ * source-independent.
+ */
+function normalizeApplicationAttributeName(raw: string): string {
+    const name = raw.trim();
+    return name.startsWith('android:') ? name.slice('android:'.length) : name;
+}
 
 /** Trim a value and return `undefined` if it's nullish or empty. */
 function nonEmpty(value: string | undefined | null): string | undefined {
@@ -163,6 +181,18 @@ export function linkAndroid(
     const seenMetaDataNames = new Set<string>();
     const behaviors: AndroidBehaviorEntry[] = [];
     const seenBehaviorNames = new Set<string>();
+    // App-level `<application>` attributes are seeded first (stringified) so
+    // they win the de-dupe over any module-contributed attribute of the same
+    // name; modules only add names not already present. Null-prototype map so a
+    // JSON-sourced `__proto__`/`constructor` key stays a plain own entry and
+    // the `name in attrs` de-dupe reflects only added names.
+    const applicationAttributes: Record<string, string> = Object.create(null);
+    for (const [rawName, rawValue] of Object.entries(config.android.applicationAttributes ?? {})) {
+        const name = normalizeApplicationAttributeName(rawName);
+        if (!name || rawValue == null) continue;
+        if (name in applicationAttributes) continue;
+        applicationAttributes[name] = String(rawValue);
+    }
     const registrations: string[] = [];
     const lifecycleAttachments: string[] = [];
     const lifecycleImports: string[] = [];
@@ -330,6 +360,15 @@ export function linkAndroid(
                 behaviors.push(entry);
             }
         }
+        if (android.applicationAttributes) {
+            // App config (and earlier modules) win — only add new names.
+            for (const [rawName, rawValue] of Object.entries(android.applicationAttributes)) {
+                const name = normalizeApplicationAttributeName(rawName);
+                if (!name || rawValue == null) continue;
+                if (name in applicationAttributes) continue;
+                applicationAttributes[name] = String(rawValue);
+            }
+        }
     }
 
     const registryCode = generateRegistryKotlin(registrations, linkedModules);
@@ -356,6 +395,7 @@ export function linkAndroid(
         services,
         metaData,
         metaDataWarnings,
+        applicationAttributes,
         linkedModules,
         linkedLifecyclePublishers,
         lifecyclePublishers,

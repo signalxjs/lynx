@@ -17,6 +17,7 @@ export type {
     IconStyle,
     LoggingConfig,
     LogLevelName,
+    PlistValue,
 } from './schema.js';
 
 export { resolveConfig, modulesForPlatform, resolveAssets } from './parser.js';

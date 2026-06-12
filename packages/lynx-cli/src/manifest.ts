@@ -6,6 +6,8 @@
  * Community modules follow the same spec.
  */
 
+import type { PlistValue } from './config/schema.js';
+
 export interface ModuleManifest {
     /** Module bridge name as registered in NativeModules (e.g. 'Camera'). */
     name: string;
@@ -121,6 +123,15 @@ export interface AndroidManifest {
      * key in multiple modules is safe.
      */
     metaData?: AndroidMetaDataEntry[];
+    /**
+     * Arbitrary attributes this module requires on the host's `<application>`
+     * element (e.g. `{ usesCleartextTraffic: true }`). The `<application>`-
+     * attribute counterpart to `metaData`. The `android:` prefix is added
+     * automatically; booleans/numbers are stringified. App-level
+     * `android.applicationAttributes` wins on name collision; across modules,
+     * the first to declare a name wins.
+     */
+    applicationAttributes?: Record<string, string | boolean | number>;
 }
 
 /**
@@ -276,6 +287,14 @@ export interface IosManifest {
      * autolinker copies the package's `sourceDir`.
      */
     uiComponents?: IosUiComponentEntry[];
+    /**
+     * Arbitrary Info.plist keys this module requires, merged into the host's
+     * Info.plist. The general escape hatch for keys without a dedicated field
+     * (e.g. `NSBonjourServices` for a local-network module). Values may be
+     * scalars, arrays, or nested dicts. App-level `ios.infoPlist` wins on key
+     * collision; across modules, the first to declare a key wins.
+     */
+    infoPlist?: Record<string, PlistValue>;
     /** Minimum iOS deployment target required. */
     deploymentTarget?: string;
 }

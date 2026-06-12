@@ -1,3 +1,4 @@
+import type { PlistValue } from '../config/schema.js';
 import type { ResolvedConfig } from '../config/parser.js';
 import type { IosAppDelegateHookMethod, IosUiComponentEntry, ModuleManifest } from '../manifest.js';
 
@@ -50,6 +51,12 @@ export interface IosLinkResult {
     backgroundModes: string[];
     /** BGTaskSchedulerPermittedIdentifiers entries to add to Info.plist. */
     bgTaskIdentifiers: string[];
+    /**
+     * Arbitrary Info.plist keys to merge over the generated plist — app
+     * `ios.infoPlist` (plus the `usesNonExemptEncryption` convenience) with
+     * module-contributed keys added underneath (app wins on collision).
+     */
+    infoPlist: Record<string, PlistValue>;
     /** Swift source for module registration. */
     registryCode: string;
     /** Swift source for lifecycle-publisher attachment. */
@@ -110,6 +117,23 @@ export function linkIos(
     const backgroundModes = new Set<string>();
     const bgTaskIdentifiers = new Set<string>();
     for (const id of config.ios.bgTaskIdentifiers ?? []) bgTaskIdentifiers.add(id);
+    // Arbitrary Info.plist passthrough. Seed from the app: the
+    // `usesNonExemptEncryption` convenience first, then the general
+    // `ios.infoPlist` (an explicit key there wins over the convenience).
+    // Module-contributed keys are added in the loop only when not already
+    // present, so app-level config always wins on collision.
+    //
+    // A null-prototype accumulator: keys come from JSON module manifests, so a
+    // `__proto__`/`constructor` key must be a plain own entry — never mutate a
+    // prototype — and the later `key in infoPlist` de-dupe must reflect only
+    // keys we actually added.
+    const infoPlist: Record<string, PlistValue> = Object.create(null);
+    if (config.ios.usesNonExemptEncryption !== undefined) {
+        infoPlist['ITSAppUsesNonExemptEncryption'] = config.ios.usesNonExemptEncryption;
+    }
+    for (const [key, value] of Object.entries(config.ios.infoPlist ?? {})) {
+        infoPlist[key] = value; // app passthrough wins over the convenience
+    }
     const uiComponents: IosUiComponentEntry[] = [];
     const seenUiComponentNames = new Set<string>();
     const registrations: string[] = [];
@@ -239,6 +263,12 @@ export function linkIos(
         if (ios.bgTaskIdentifiers) {
             for (const id of ios.bgTaskIdentifiers) bgTaskIdentifiers.add(id);
         }
+        if (ios.infoPlist) {
+            // App config (and earlier modules) win — only add keys not yet set.
+            for (const [key, value] of Object.entries(ios.infoPlist)) {
+                if (!(key in infoPlist)) infoPlist[key] = value;
+            }
+        }
         if (ios.uiComponents) {
             for (const entry of ios.uiComponents) {
                 // De-dup on tag name — two packages declaring the same tag is
@@ -280,6 +310,7 @@ export function linkIos(
         ),
         backgroundModes: [...backgroundModes],
         bgTaskIdentifiers: [...bgTaskIdentifiers],
+        infoPlist,
         registryCode,
         lifecycleCode,
         appDelegateHooksCode,

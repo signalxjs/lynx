@@ -33,7 +33,7 @@ import { validateManifest } from './manifest.js';
 import { generateIosIcon, generateAndroidIcons, generateAndroidAdaptiveIcon, generateAndroidNotificationIcon } from './assets/icons.js';
 import { generateIosSplash, generateAndroidSplash } from './assets/splash.js';
 import { applyIosPlistMeta, applyAndroidManifestMeta, applyAndroidGradleMeta } from './assets/manifest.js';
-import type { LynxConfig } from './config/index.js';
+import type { LynxConfig, PlistValue } from './config/index.js';
 import type { ResolvedConfig } from './config/parser.js';
 import type { ModuleManifest } from './manifest.js';
 import type { AndroidLinkResult, DevClientInfo } from './autolink/android.js';
@@ -1462,6 +1462,52 @@ export function injectAndroidMetaData(
 }
 
 /**
+ * Merge attributes onto the `<application>` element in AndroidManifest.xml
+ * (app `android.applicationAttributes` + module-contributed attributes, already
+ * merged app-wins by the autolinker; values already stringified). For each
+ * name: if `android:NAME` already exists on the element its value is replaced
+ * (XML forbids duplicate attributes — a second copy is a hard AAPT2 failure),
+ * otherwise it's appended before the tag's `>`. No template marker is used
+ * because a comment can't live inside an element's open tag; the unique
+ * `<application …>` tag is the anchor. Re-applied every prebuild (the manifest
+ * is regenerated from the template), so the attributes survive.
+ */
+export function injectAndroidApplicationAttributes(
+    cwd: string,
+    config: ResolvedConfig,
+    attrs: Record<string, string>,
+): void {
+    const names = Object.keys(attrs);
+    if (names.length === 0) return;
+    const manifestFile = androidManifestPath(cwd, config);
+    if (!existsSync(manifestFile)) return;
+    let content = readFileSync(manifestFile, 'utf-8');
+
+    const openTagRe = /<application\b[^>]*>/;
+    const match = content.match(openTagRe);
+    if (!match) return;
+
+    let openTag = match[0];
+    let appended = '';
+    for (const name of names) {
+        const value = escapeXmlAttr(attrs[name]);
+        const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const attrRe = new RegExp(`(\\sandroid:${escapedName}=")[^"]*(")`);
+        if (attrRe.test(openTag)) {
+            // Replace via a function so a `$` in the value isn't treated as a
+            // replacement-pattern token.
+            openTag = openTag.replace(attrRe, (_full, p1, p2) => `${p1}${value}${p2}`);
+        } else {
+            appended += `\n        android:${name}="${value}"`;
+        }
+    }
+    if (appended) openTag = openTag.replace(/\s*>$/, `${appended}>`);
+    content = content.replace(openTagRe, () => openTag);
+    writeFileIfChanged(manifestFile, content);
+    log(`Android: applied ${names.length} <application> attribute(s) (${names.join(', ')})`);
+}
+
+/**
  * Inject usage descriptions into Info.plist.
  */
 export function injectInfoPlistDescriptions(
@@ -1482,6 +1528,102 @@ export function injectInfoPlistDescriptions(
     content = content.replace('    <!-- {{USAGE_DESCRIPTIONS}} -->', replacement);
     writeFileIfChanged(plistFile, content);
     if (keys.length > 0) log(`iOS: injected ${keys.length} usage descriptions`);
+}
+
+/**
+ * Serialize one Info.plist value to its XML node(s), indented under `indent`.
+ * The toolchain ships no plist library, so this hand-rolls the plist grammar
+ * (matching the rest of the template-based plist generation):
+ *   boolean → `<true/>`/`<false/>`, integer → `<integer>`, other finite number
+ *   → `<real>`, string → `<string>`, array → `<array>`, object → `<dict>`.
+ * Throws on a non-serializable value (null / non-finite / function) so the
+ * misconfiguration surfaces at prebuild rather than producing an invalid plist.
+ */
+export function plistValueToXml(value: PlistValue, indent: string): string {
+    if (typeof value === 'boolean') return `${indent}<${value}/>`;
+    if (typeof value === 'number') {
+        if (!Number.isFinite(value)) {
+            throw new Error(`Info.plist values must be finite numbers (got ${value}).`);
+        }
+        return Number.isInteger(value)
+            ? `${indent}<integer>${value}</integer>`
+            : `${indent}<real>${value}</real>`;
+    }
+    if (typeof value === 'string') return `${indent}<string>${escapeXmlAttr(value)}</string>`;
+    if (Array.isArray(value)) {
+        if (value.length === 0) return `${indent}<array/>`;
+        const items = value.map((v) => plistValueToXml(v, `${indent}    `)).join('\n');
+        return `${indent}<array>\n${items}\n${indent}</array>`;
+    }
+    if (value !== null && typeof value === 'object') {
+        const keys = Object.keys(value);
+        if (keys.length === 0) return `${indent}<dict/>`;
+        const entries = keys
+            .map((k) => `${indent}    <key>${escapeXmlAttr(k)}</key>\n${plistValueToXml(value[k], `${indent}    `)}`)
+            .join('\n');
+        return `${indent}<dict>\n${entries}\n${indent}</dict>`;
+    }
+    throw new Error(
+        `Unsupported Info.plist value (${value === null ? 'null' : typeof value}); ` +
+        `use a boolean, finite number, string, array, or nested object.`,
+    );
+}
+
+/**
+ * Remove a top-level `<key>NAME</key>` + its immediately-following SCALAR value
+ * node from a plist's root dict. Anchored to the root dict's 4-space
+ * indentation so nested keys (e.g. `UIApplicationSupportsMultipleScenes` inside
+ * `UIApplicationSceneManifest`, at 8 spaces) are left untouched. Used to de-dup
+ * a generated scalar before `injectInfoPlistExtra` re-emits it — keeping the
+ * file clean and free of `plutil` duplicate-key warnings. Array/dict values
+ * aren't matched (their nesting can't be removed safely with a regex); a
+ * duplicate there falls back to last-write-wins.
+ */
+function removeTopLevelScalarKey(content: string, key: string): string {
+    const k = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const scalar = '(?:<(?:true|false)/>|<(?:string|integer|real|date|data)>.*?</(?:string|integer|real|date|data)>)';
+    const re = new RegExp(`^    <key>${k}</key>\\r?\\n    ${scalar}\\r?\\n`, 'gm');
+    return content.replace(re, '');
+}
+
+/**
+ * Merge arbitrary Info.plist keys (app `ios.infoPlist` + the
+ * `usesNonExemptEncryption` convenience + module-contributed keys — already
+ * merged app-wins by the autolinker) over the generated plist. Entries are
+ * emitted at the `{{INFO_PLIST_EXTRA}}` marker, which sits last in the dict so
+ * they win for plist readers (which take the last value on a duplicate key);
+ * any prior top-level scalar with the same key is also stripped so the key
+ * stays unique. Re-applied every prebuild (the plist is regenerated from the
+ * template), so a custom key like `ITSAppUsesNonExemptEncryption` survives
+ * without post-prebuild patching.
+ */
+export function injectInfoPlistExtra(
+    cwd: string,
+    config: ResolvedConfig,
+    extra: Record<string, PlistValue>,
+): void {
+    const plistFile = iosInfoPlistPath(cwd, config);
+    if (!existsSync(plistFile)) return;
+    const keys = Object.keys(extra);
+    let content = readFileSync(plistFile, 'utf-8');
+
+    // The marker only exists on a freshly-rendered plist (every prebuild
+    // regenerates it from the template). If it's already gone the file was
+    // processed this run — no-op, so re-invocation stays idempotent and we
+    // never strip keys we just injected.
+    const marker = '    <!-- {{INFO_PLIST_EXTRA}} -->';
+    if (!content.includes(marker)) return;
+
+    for (const key of keys) content = removeTopLevelScalarKey(content, key);
+
+    const replacement = keys.length > 0
+        ? `    <!-- App + module Info.plist passthrough (ios.infoPlist) -->\n${
+            keys.map((k) => `    <key>${escapeXmlAttr(k)}</key>\n${plistValueToXml(extra[k], '    ')}`).join('\n')
+          }`
+        : '    <!-- (no extra Info.plist keys) -->';
+    content = content.replace(marker, replacement);
+    writeFileIfChanged(plistFile, content);
+    if (keys.length > 0) log(`iOS: injected ${keys.length} extra Info.plist key(s) (${keys.join(', ')})`);
 }
 
 /**
@@ -2159,6 +2301,7 @@ export async function runPrebuild(opts: PrebuildOptions = {}): Promise<void> {
         writeAndroidDebugManifest(cwd, config, result.debugPermissions);
         injectAndroidServices(cwd, config, result.services);
         injectAndroidMetaData(cwd, config, result.metaData);
+        injectAndroidApplicationAttributes(cwd, config, result.applicationAttributes);
         for (const warning of result.metaDataWarnings) {
             log(`\x1b[33m!\x1b[0m ${warning}`);
         }
@@ -2256,6 +2399,10 @@ export async function runPrebuild(opts: PrebuildOptions = {}): Promise<void> {
 
         injectInfoPlistBackgroundModes(cwd, config, result.backgroundModes);
         injectInfoPlistBgTaskIdentifiers(cwd, config, result.bgTaskIdentifiers);
+        // Arbitrary Info.plist passthrough (app ios.infoPlist /
+        // usesNonExemptEncryption + module-contributed keys). Before
+        // writeIosDebugInfoPlist, which snapshots the final release plist.
+        injectInfoPlistExtra(cwd, config, result.infoPlist);
 
         // App-shell assets (icons, splash, plist meta).
         await generateIosIcon(cwd, config, assets.ios);
