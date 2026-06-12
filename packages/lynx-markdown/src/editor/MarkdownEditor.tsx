@@ -425,9 +425,12 @@ export const MarkdownEditor = component<MarkdownEditorProps>(({ props }) => {
                     containerFrame={inputFrame.value}
                     renderItem={activeTrigger.renderItem}
                     onSelect={handleTriggerSelect}
-                    // Auto-tint from the editor's text color so a host that
-                    // themes the body but omits `suggestionPopup` still gets a
-                    // non-clashing popup; explicit fields spread last and win.
+                    // Auto-tint from the editor's text color so a themed body
+                    // doesn't leave a clashing popup. Merged per field: explicit
+                    // `suggestionPopup` colors spread last and win, while any the
+                    // host left unset (incl. when it passes only layout fields
+                    // like `width`) fall back to the derived tint, not the
+                    // neutral light default.
                     {...derivePopupStyleFromText(props.textColor)}
                     {...(props.suggestionPopup ?? {})}
                 />

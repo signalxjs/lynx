@@ -109,11 +109,13 @@ function parseHexRgb(color: string): { r: number; g: number; b: number } | null 
 
 /**
  * Synthesize a popup style from the editor's resolved `textColor`, so a host
- * that themes the editor body (`textColor`) but omits `suggestionPopup` still
- * gets a popup that doesn't clash — the white-on-dark trap. Used by
- * `MarkdownEditor` as a *fallback*: it spreads this before any explicit
- * `suggestionPopup`, so per-field overrides (e.g. daisyUI's
- * `useMarkdownEditorTheme().suggestionPopup`) always win.
+ * that themes the editor body (`textColor`) but leaves the popup colors unset
+ * still gets a popup that doesn't clash — the white-on-dark trap. Used by
+ * `MarkdownEditor` as a *per-field fallback*: it spreads this before any
+ * explicit `suggestionPopup`, so each color the host sets (e.g. daisyUI's
+ * `useMarkdownEditorTheme().suggestionPopup`) wins, while colors it omits —
+ * including when it passes only layout fields (`width`/`maxHeight`/`class`) —
+ * fall back to this tint rather than the neutral light default.
  *
  *  • `surfaceColor` flips to a dark neutral when the text is light (every daisy
  *    theme's `base-100` is the near-inverse luminance of `base-content`), else
