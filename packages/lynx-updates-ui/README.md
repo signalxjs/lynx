@@ -14,7 +14,7 @@ Full guides, API reference and live examples → **[https://sigx.dev/lynx/module
 pnpm add @sigx/lynx-updates-ui
 ```
 
-Requires `@sigx/lynx-updates` (declared via `defineUpdates()`) and `@sigx/lynx-daisyui` (with its styles in your CSS pipeline). "Later" dismissals persist across launches via `@sigx/lynx-storage` — it's installed with this package and `sigx prebuild` links the native Storage module automatically, so there is nothing to set up. Only on web preview and in tests (where no native modules exist) do dismissals degrade to session-only suppression.
+Requires `@sigx/lynx-updates` (configured via `Updates.configure()`) and `@sigx/lynx-daisyui` (with its styles in your CSS pipeline). "Later" dismissals persist across launches via `@sigx/lynx-storage` — it's installed with this package and `sigx prebuild` links the native Storage module automatically, so there is nothing to set up. Only on web preview and in tests (where no native modules exist) do dismissals degrade to session-only suppression.
 
 ## Quick start
 
