@@ -10,10 +10,6 @@
             "import": "./dist/index.js",
             "types": "./dist/index.d.ts"
         },
-        "./router": {
-            "import": "./dist/router.js",
-            "types": "./dist/router.d.ts"
-        },
         "./signalx-module.json": "./signalx-module.json"
     },
     "files": [
@@ -30,18 +26,6 @@
     },
     "dependencies": {
         "@sigx/lynx-core": "workspace:^"
-    },
-    "peerDependencies": {
-        "@sigx/router": "^0.3.2",
-        "sigx": "^0.4.1"
-    },
-    "peerDependenciesMeta": {
-        "@sigx/router": {
-            "optional": true
-        },
-        "sigx": {
-            "optional": true
-        }
     },
     "devDependencies": {
         "@typescript/native-preview": "7.0.0-dev.20260521.1",

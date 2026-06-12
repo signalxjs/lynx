@@ -37,7 +37,7 @@
     "license": "MIT",
     "dependencies": {
         "@sigx/lynx": "workspace:^",
-        "@sigx/runtime-core": "^0.4.8"
+        "@sigx/runtime-core": "^0.6.0"
     },
     "peerDependencies": {
         "@lynx-js/react": "^0.121.0",
