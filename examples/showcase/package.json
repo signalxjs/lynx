@@ -61,7 +61,7 @@
         "zod": "^4.4.3"
     },
     "devDependencies": {
-        "@sigx/cli": "^0.2.8",
+        "@sigx/cli": "^0.3.0",
         "@sigx/lynx-cli": "workspace:^",
         "@sigx/lynx-plugin": "workspace:^",
         "@sigx/lynx-dev-client": "workspace:^",
