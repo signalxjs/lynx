@@ -36,12 +36,10 @@ class SqliteModule(context: Context) : LynxModule(context) {
 
     @LynxMethod
     fun open(name: String?, @Suppress("UNUSED_PARAMETER") options: ReadableMap?, callback: Callback?) {
-        if (name.isNullOrEmpty()) {
-            err(callback, "Database name is required")
-            return
-        }
+        val dbName = name?.takeIf { isPlainName(it) }
+            ?: return err(callback, "Database name must be a plain file name")
         try {
-            val file = mContext.getDatabasePath(name)
+            val file = mContext.getDatabasePath(dbName)
             file.parentFile?.mkdirs()
             val db = SQLiteDatabase.openOrCreateDatabase(file, null)
             db.enableWriteAheadLogging()
@@ -161,10 +159,11 @@ class SqliteModule(context: Context) : LynxModule(context) {
 
     @LynxMethod
     fun deleteDatabase(name: String?, callback: Callback?) {
-        if (name.isNullOrEmpty()) return err(callback, "Database name is required")
+        val dbName = name?.takeIf { isPlainName(it) }
+            ?: return err(callback, "Database name must be a plain file name")
         try {
             // Also removes the -wal/-shm sidecars.
-            mContext.deleteDatabase(name)
+            mContext.deleteDatabase(dbName)
             callback?.invoke(JavaOnlyMap())
         } catch (e: Exception) {
             err(callback, e.message ?: "deleteDatabase failed")
@@ -295,7 +294,16 @@ class SqliteModule(context: Context) : LynxModule(context) {
         callback?.invoke(JavaOnlyMap().apply { putString("error", message) })
     }
 
+    /**
+     * The name becomes a filesystem path — restrict it to a plain file name
+     * so a caller bypassing the JS wrapper can't traverse out of the app's
+     * database directory. Mirrors the JS-side validation.
+     */
+    private fun isPlainName(name: String): Boolean =
+        name != "." && name != ".." && PLAIN_NAME.matches(name)
+
     private companion object {
+        val PLAIN_NAME = Regex("^[A-Za-z0-9._-]+$")
         val HEAD_KEYWORD = Regex("^[\\s(]*([A-Za-z]+)")
         val WRITE_VERB = Regex("\\b(insert|update|delete|replace)\\b", RegexOption.IGNORE_CASE)
         const val MAX_SAFE_INTEGER = 9007199254740992.0 // 2^53

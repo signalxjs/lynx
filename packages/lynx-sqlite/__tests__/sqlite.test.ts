@@ -65,6 +65,10 @@ describe('openDatabase', () => {
     it('rejects names that are not plain file names', async () => {
         await expect(openDatabase('../escape.db')).rejects.toThrow(/plain file name/);
         await expect(openDatabase('a/b.db')).rejects.toThrow(/plain file name/);
+        await expect(openDatabase('..')).rejects.toThrow(/plain file name/);
+        await expect(openDatabase('.')).rejects.toThrow(/plain file name/);
+        await expect(deleteDatabase('../escape.db')).rejects.toThrow(/plain file name/);
+        await expect(deleteDatabase('..')).rejects.toThrow(/plain file name/);
         expect(calls).toHaveLength(0);
     });
 

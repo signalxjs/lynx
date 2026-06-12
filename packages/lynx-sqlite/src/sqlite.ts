@@ -59,6 +59,23 @@ interface Subscription {
     fn: ChangeListener;
 }
 
+/**
+ * Database names must be plain file names — both native sides build
+ * filesystem paths from them ("." / ".." / separators would escape the
+ * app's database directory). Natively re-validated too, since modules are
+ * callable without this wrapper.
+ */
+function validateName(name: string): void {
+    if (
+        typeof name !== 'string' ||
+        !/^[A-Za-z0-9._-]+$/.test(name) ||
+        name === '.' ||
+        name === '..'
+    ) {
+        fail('database name must be a plain file name (letters, digits, ".", "_", "-")');
+    }
+}
+
 /** One shared instance per database name — see `openDatabase`. */
 const registry = new Map<string, SQLiteDatabase>();
 const opening = new Map<string, Promise<SQLiteDatabase>>();
@@ -148,6 +165,13 @@ export class SQLiteDatabase {
      * Interactive transaction. Rolls back if `fn` throws; other calls on
      * this database queue behind it. Change notifications for everything
      * written inside fire once, on commit — never on rollback.
+     *
+     * Inside `fn`, ONLY use the provided `tx.execute` — awaiting
+     * `db.execute(...)` (or a nested `db.transaction`) from within the
+     * callback deadlocks, because that call queues behind the very
+     * transaction that is awaiting it. (The queue can't tell a call made
+     * inside the callback from a legitimate concurrent caller on another
+     * screen, so this can't fail fast — it's a contract.)
      */
     async transaction<T>(fn: (tx: SQLiteTransaction) => Promise<T>): Promise<T> {
         this.#assertOpen();
@@ -237,9 +261,7 @@ export class SQLiteDatabase {
  * change bus — so live queries see writes from every screen.
  */
 export async function openDatabase(name: string, options: OpenOptions = {}): Promise<SQLiteDatabase> {
-    if (typeof name !== 'string' || !/^[A-Za-z0-9._-]+$/.test(name)) {
-        fail('database name must be a plain file name (letters, digits, ".", "_", "-")');
-    }
+    validateName(name);
     const existing = registry.get(name);
     if (existing) return existing;
     const pending = opening.get(name);
@@ -264,6 +286,7 @@ export async function openDatabase(name: string, options: OpenOptions = {}): Pro
  * must not be open — `close()` it first.
  */
 export async function deleteDatabase(name: string): Promise<void> {
+    validateName(name);
     if (registry.has(name) || opening.has(name)) {
         fail(`database "${name}" is open — close() it before deleting`);
     }

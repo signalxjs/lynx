@@ -102,6 +102,11 @@ return () => (
 - **Don't issue `BEGIN`/`COMMIT` yourself** — use `transaction()` /
   `executeBatch()`, which keep the JS-side operation queue and change
   notifications consistent.
+- **Inside `transaction(fn)`, only use `tx.execute`.** Awaiting
+  `db.execute(...)` (or a nested `db.transaction`) from within the callback
+  deadlocks: the call queues behind the open transaction, which is awaiting
+  it. Concurrent `db.execute` calls from *elsewhere* are fine — they simply
+  run after the commit.
 - **Duplicate column names** in joined SELECTs collide (rows are objects)
   — use `AS` aliases.
 - Encryption at rest (SQLCipher), FTS5 full-text search guidance and a web

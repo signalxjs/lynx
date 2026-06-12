@@ -93,8 +93,8 @@ class SqliteModule: NSObject, LynxModule {
     // MARK: - JS-callable methods
 
     @objc func open(_ name: String?, options: NSDictionary?, callback: LynxCallbackBlock?) {
-        guard let name = name, !name.isEmpty else {
-            callback?(["error": "Database name is required"])
+        guard let name = name, Self.isPlainName(name) else {
+            callback?(["error": "Database name must be a plain file name"])
             return
         }
         let path = Self.databasePath(for: name)
@@ -212,8 +212,8 @@ class SqliteModule: NSObject, LynxModule {
     }
 
     @objc func deleteDatabase(_ name: String?, callback: LynxCallbackBlock?) {
-        guard let name = name, !name.isEmpty else {
-            callback?(["error": "Database name is required"])
+        guard let name = name, Self.isPlainName(name) else {
+            callback?(["error": "Database name must be a plain file name"])
             return
         }
         let path = Self.databasePath(for: name)
@@ -233,6 +233,16 @@ class SqliteModule: NSObject, LynxModule {
     }
 
     // MARK: - statement execution
+
+    /// The name becomes a filesystem path — restrict it to a plain file
+    /// name so a caller bypassing the JS wrapper can't traverse out of the
+    /// SQLite directory. Mirrors the JS-side validation.
+    private static let plainName = try! NSRegularExpression(pattern: "^[A-Za-z0-9._-]+$")
+    private static func isPlainName(_ name: String) -> Bool {
+        if name == "." || name == ".." { return false }
+        let range = NSRange(name.startIndex..., in: name)
+        return plainName.firstMatch(in: name, options: [], range: range) != nil
+    }
 
     private static func databasePath(for name: String) -> String {
         let base = NSSearchPathForDirectoriesInDomains(
