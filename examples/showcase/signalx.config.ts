@@ -88,6 +88,10 @@ export default defineLynxConfig({
     ios: {
         bundleIdentifier: 'com.example.showcase',
         deploymentTarget: '15.0',
+        // Standard-encryption (HTTPS-only) app: declare export-compliance once
+        // so every TestFlight / App Store build skips the "Missing Compliance"
+        // prompt. Maps to Info.plist's ITSAppUsesNonExemptEncryption.
+        usesNonExemptEncryption: false,
         // The `@sigx/lynx-background` package namespaces task identifiers as
         // `${bundleId}.bg.${taskName}`. Apple requires every identifier the
         // app might submit to BGTaskScheduler to appear in Info.plist's

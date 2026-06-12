@@ -79,6 +79,12 @@ export interface AndroidLinkResult {
     metaData: ResolvedAndroidMetaData[];
     /** Human-readable warnings about meta-data that fell back to a placeholder. */
     metaDataWarnings: string[];
+    /**
+     * Attributes to merge onto the `<application>` element (name → stringified
+     * value, without the `android:` prefix) — app `applicationAttributes` with
+     * module-contributed attributes added underneath (app wins on collision).
+     */
+    applicationAttributes: Record<string, string>;
     /** Modules that were linked. */
     linkedModules: string[];
     /** Lifecycle publishers that were linked. */
@@ -163,6 +169,16 @@ export function linkAndroid(
     const seenMetaDataNames = new Set<string>();
     const behaviors: AndroidBehaviorEntry[] = [];
     const seenBehaviorNames = new Set<string>();
+    // App-level `<application>` attributes are seeded first (stringified) so
+    // they win the de-dupe over any module-contributed attribute of the same
+    // name; modules only add names not already present.
+    const applicationAttributes: Record<string, string> = {};
+    for (const [rawName, rawValue] of Object.entries(config.android.applicationAttributes ?? {})) {
+        const name = rawName.trim();
+        if (!name || rawValue == null) continue;
+        if (name in applicationAttributes) continue;
+        applicationAttributes[name] = String(rawValue);
+    }
     const registrations: string[] = [];
     const lifecycleAttachments: string[] = [];
     const lifecycleImports: string[] = [];
@@ -330,6 +346,15 @@ export function linkAndroid(
                 behaviors.push(entry);
             }
         }
+        if (android.applicationAttributes) {
+            // App config (and earlier modules) win — only add new names.
+            for (const [rawName, rawValue] of Object.entries(android.applicationAttributes)) {
+                const name = rawName.trim();
+                if (!name || rawValue == null) continue;
+                if (name in applicationAttributes) continue;
+                applicationAttributes[name] = String(rawValue);
+            }
+        }
     }
 
     const registryCode = generateRegistryKotlin(registrations, linkedModules);
@@ -356,6 +381,7 @@ export function linkAndroid(
         services,
         metaData,
         metaDataWarnings,
+        applicationAttributes,
         linkedModules,
         linkedLifecyclePublishers,
         lifecyclePublishers,
