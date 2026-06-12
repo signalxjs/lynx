@@ -114,6 +114,18 @@ describe('StaticManifestProvider selection', () => {
         await expect(provider.checkForUpdate(ctx())).rejects.toMatchObject({ code: 'check-failed' });
     });
 
+    it('rejects malformed optional fields as check-failed, not a TypeError', async () => {
+        for (const bad of [
+            entry({ platforms: 123 }),
+            entry({ platforms: ['windows'] }),
+            entry({ channel: 42 }),
+            entry({ mandatory: 'yes' }),
+        ]) {
+            const { provider } = providerFor({ schemaVersion: 1, updates: [bad] });
+            await expect(provider.checkForUpdate(ctx())).rejects.toMatchObject({ code: 'check-failed' });
+        }
+    });
+
     it('throws check-failed on HTTP errors', async () => {
         const fetchImpl = vi.fn(async () => ({
             ok: false,

@@ -85,6 +85,21 @@ export function validateUpdatesManifest(doc: unknown): string[] {
         if (typeof e.sha256 === 'string' && !/^[0-9a-f]{64}$/i.test(e.sha256)) {
             errors.push(`updates[${i}].sha256 must be 64 hex characters`);
         }
+        // Optional fields must still be well-typed — selection logic calls
+        // .includes()/string compares on them, and a malformed value must
+        // surface as check-failed, not a TypeError.
+        if (e.platforms !== undefined &&
+            (!Array.isArray(e.platforms) || !e.platforms.every((p) => p === 'android' || p === 'ios'))) {
+            errors.push(`updates[${i}].platforms must be an array of 'android' | 'ios'`);
+        }
+        for (const field of ['channel', 'id', 'createdAt'] as const) {
+            if (e[field] !== undefined && typeof e[field] !== 'string') {
+                errors.push(`updates[${i}].${field} must be a string when present`);
+            }
+        }
+        if (e.mandatory !== undefined && typeof e.mandatory !== 'boolean') {
+            errors.push(`updates[${i}].mandatory must be a boolean when present`);
+        }
     });
     return errors;
 }

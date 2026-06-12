@@ -91,8 +91,13 @@ struct ContentView: View {
 
     init(devUrl: String?) {
         self.devUrl = devUrl
+        // The readability re-check guards the resolver-to-load gap (and any
+        // misbehaving resolver): an unreadable path must fall through to the
+        // baked-bundle / DevHomeScreen gating, not white-screen production.
         self.startupBundlePath = devUrl == nil
-            ? GeneratedBundleResolver.resolveStartupBundlePath()
+            ? GeneratedBundleResolver.resolveStartupBundlePath().flatMap { path in
+                FileManager.default.isReadableFile(atPath: path) ? path : nil
+            }
             : nil
     }
 

@@ -70,8 +70,12 @@ class MainActivity : FragmentActivity() {
         // Never consulted in dev-URL runs (the dev server owns the bundle),
         // and the resolver mutates rollback state, so resolve exactly once
         // here — not inside a composable.
+        // The readability re-check guards the resolver-to-load gap (and any
+        // misbehaving resolver): an unreadable path must fall through to the
+        // baked-bundle / sandbox gating below, not white-screen production.
         val otaBundlePath = if (devUrl == null) {
             GeneratedBundleResolver.resolveStartupBundlePath(this)
+                ?.takeIf { java.io.File(it).isFile }
         } else null
 
         when {
