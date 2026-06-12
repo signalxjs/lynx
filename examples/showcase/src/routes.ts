@@ -41,6 +41,7 @@ import { AuthDemo } from './screens/AuthDemo.js';
 import { NotificationsDemo } from './screens/NotificationsDemo.js';
 import { BackgroundTasks } from './screens/BackgroundTasks.js';
 import { StorageDemo } from './screens/StorageDemo.js';
+import { SqliteChatDemo } from './screens/SqliteChatDemo.js';
 import { HapticsDemo } from './screens/HapticsDemo.js';
 
 export const routes = defineRoutes({
@@ -115,6 +116,7 @@ export const routes = defineRoutes({
     notifications: { component: NotificationsDemo, path: '/notifications' },
     backgroundTasks: { component: BackgroundTasks, path: '/background-tasks' },
     storageDemo: { component: StorageDemo, path: '/storage' },
+    sqliteChatDemo: { component: SqliteChatDemo, path: '/sqlite-chat' },
     hapticsDemo: { component: HapticsDemo, path: '/haptics' },
 });
 

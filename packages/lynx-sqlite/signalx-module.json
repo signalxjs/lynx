@@ -1,0 +1,16 @@
+{
+    "name": "Sqlite",
+    "package": "@sigx/lynx-sqlite",
+    "description": "Embedded SQLite database",
+    "platforms": ["android", "ios"],
+    "ios": {
+        "moduleClass": "SqliteModule",
+        "sourceDir": "ios",
+        "methods": ["open","execute","executeBatch","beginTransaction","commit","rollback","close","deleteDatabase"]
+    },
+    "android": {
+        "moduleClass": "com.sigx.sqlite.SqliteModule",
+        "sourceDir": "android",
+        "permissions": []
+    }
+}

@@ -13,6 +13,7 @@ const MODULE_PACKAGES: Record<string, string> = {
     Clipboard: '@sigx/lynx-clipboard',
     Storage: '@sigx/lynx-storage',
     SecureStorage: '@sigx/lynx-secure-storage',
+    Sqlite: '@sigx/lynx-sqlite',
     Biometric: '@sigx/lynx-biometric',
     DeviceInfo: '@sigx/lynx-device-info',
     Share: '@sigx/lynx-share',

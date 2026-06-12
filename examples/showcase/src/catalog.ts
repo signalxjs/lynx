@@ -322,6 +322,13 @@ export const catalog: Area[] = [
                 route: 'storageDemo',
             },
             {
+                id: 'sqlite',
+                title: 'SQLite',
+                description: 'Chat-style message store: SQL, migrations, live queries',
+                icon: { set: 'lucide', name: 'messages-square' },
+                route: 'sqliteChatDemo',
+            },
+            {
                 id: 'haptics',
                 title: 'Haptics',
                 description: 'Impact, notification and selection feedback',
