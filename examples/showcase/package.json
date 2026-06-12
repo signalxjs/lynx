@@ -55,13 +55,13 @@
         "@sigx/lynx-websocket": "workspace:^",
         "@sigx/lynx-webview": "workspace:^",
         "@sigx/lynx-zero": "workspace:^",
-        "@sigx/reactivity": "^0.4.8",
-        "@sigx/runtime-core": "^0.4.8",
+        "@sigx/reactivity": "^0.6.0",
+        "@sigx/runtime-core": "^0.6.0",
         "lucide": "^1.16.0",
         "zod": "^4.4.3"
     },
     "devDependencies": {
-        "@sigx/cli": "^0.2.8",
+        "@sigx/cli": "^0.3.0",
         "@sigx/lynx-cli": "workspace:^",
         "@sigx/lynx-plugin": "workspace:^",
         "@sigx/lynx-dev-client": "workspace:^",

@@ -38,7 +38,8 @@ if (initial) handle(initial);
 const sub = Linking.addEventListener('url', ({ url }) => handle(url));
 ```
 
-A `useLinkingRouter` composable wires the cold-start + warm-listener dance into [`@sigx/router`](https://sigx.dev/router/), and `parse` / `createURL` are pure-JS helpers. The full API, platform gotchas, and Universal/App Links setup are documented on the docs site.
+`parse` / `createURL` are pure-JS helpers for working with deep-link URLs. To route
+incoming links into a navigator, use [`@sigx/lynx-navigation`](https://sigx.dev/lynx/modules/navigation/overview/)'s `useLinkingNav`, which wires the cold-start + warm-listener dance into the Lynx navigator. The full API, platform gotchas, and Universal/App Links setup are documented on the docs site.
 
 ## License
 

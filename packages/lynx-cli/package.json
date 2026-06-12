@@ -29,7 +29,7 @@
     },
     "dependencies": {
         "@lynx-js/web-core": "^0.20.4",
-        "@sigx/cli": "^0.2.8",
+        "@sigx/cli": "^0.3.0",
         "@sigx/lynx-core": "workspace:^",
         "esbuild": "^0.28.0",
         "sharp": "^0.34.0",
