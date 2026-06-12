@@ -199,8 +199,8 @@ importers:
         specifier: '>=0.1.0'
         version: 0.2.0
       '@sigx/cli':
-        specifier: ^0.2.8
-        version: 0.2.8
+        specifier: ^0.3.0
+        version: 0.3.0
       '@sigx/lynx-cli':
         specifier: workspace:^
         version: link:../../packages/lynx-cli
@@ -2295,10 +2295,6 @@ packages:
   '@rspack/resolver@0.2.8':
     resolution: {integrity: sha512-FBWqdHhzS8mcf/WN4Ktzr7EaeaN+hsxbN98EweegX3924beZuY6H70CSFWCv1fIHAieCUv/9XCjKggHvhCsLwA==}
 
-  '@sigx/cli@0.2.8':
-    resolution: {integrity: sha512-VF9i5jAkBIyBGtl8MAcvrj4D19cSs5AcQe8ymmkeL8tP7FhMZhrCtigOI36dZZ9xssyAa+eFz9yUz3fHPgDmQg==}
-    hasBin: true
-
   '@sigx/cli@0.3.0':
     resolution: {integrity: sha512-n/+lDSE0RLMO20j9f0KQjsnDqu395FrBPZiPtXCWe9Tz9vio78ivOlNiPTmSFpaAD32GYuRPuUGt7RCNwXHJkQ==}
     hasBin: true
@@ -2340,9 +2336,6 @@ packages:
     resolution: {integrity: sha512-1G5PC5xSdNgdiUjNKnm1mIg6+QYmt1S9nQIkR2ON0vz+rsvAGeysTEwM3PCUe98HHBpqrkIk/9iqH2VRUd5BCA==}
     engines: {node: ^20.19.0 || >=22.12.0}
 
-  '@sigx/runtime-terminal@0.4.4':
-    resolution: {integrity: sha512-M3EIvDxuoYuNl2e+vO6U0MjSunYkhkx3O9dde45PBKQWLtVXx3bxKQtL8IRpBCuw3tDw0PRH9oI4naPLeVvcdA==}
-
   '@sigx/runtime-terminal@0.5.0':
     resolution: {integrity: sha512-K+pnVFJcT64KfevYzgOpkNCmx+kmKGea7uokEBKl4Y6gDAaRxW+VGRHiC1ewMhtXTZL9pYOuQYxSE3IM/MszGg==}
 
@@ -2351,9 +2344,6 @@ packages:
 
   '@sigx/terminal-zero@0.5.0':
     resolution: {integrity: sha512-/IJz6CXBSBONe6xxDAIVX3VQgIypF5/EOhoab/G9bL/U+p/P55BH9KaHk6k4fvdig2r/ew5hD8uVX1kRolQ4xg==}
-
-  '@sigx/terminal@0.4.4':
-    resolution: {integrity: sha512-pQYkQuJQ6Tg7JIF1YXaCiupXZy2gMJpbJCrmMJ5EpV/cURhgJICDLxnQKB0gfjt+ggMGucUOtR4o2WtULpqCQw==}
 
   '@sigx/terminal@0.5.0':
     resolution: {integrity: sha512-PGXhS/BlZMxsQBk1w2RlsPYBNC38K8/+N6rXSzmEn1RUvcvDWzzAjkLJdcZhTmpyZvVmtw/ggc2xsWPfDNBT+A==}
@@ -5328,11 +5318,6 @@ snapshots:
       - '@emnapi/core'
       - '@emnapi/runtime'
 
-  '@sigx/cli@0.2.8':
-    dependencies:
-      '@sigx/terminal': 0.4.4
-      citty: 0.2.2
-
   '@sigx/cli@0.3.0':
     dependencies:
       '@sigx/terminal': 0.5.0
@@ -5373,11 +5358,6 @@ snapshots:
       '@sigx/reactivity': 0.4.8
       '@sigx/runtime-core': 0.4.8
 
-  '@sigx/runtime-terminal@0.4.4':
-    dependencies:
-      '@sigx/reactivity': 0.4.9
-      '@sigx/runtime-core': 0.4.9
-
   '@sigx/runtime-terminal@0.5.0':
     dependencies:
       '@sigx/reactivity': 0.4.9
@@ -5394,12 +5374,6 @@ snapshots:
       '@sigx/reactivity': 0.4.9
       '@sigx/runtime-core': 0.4.9
       '@sigx/runtime-terminal': 0.5.0
-
-  '@sigx/terminal@0.4.4':
-    dependencies:
-      '@sigx/reactivity': 0.4.9
-      '@sigx/runtime-core': 0.4.9
-      '@sigx/runtime-terminal': 0.4.4
 
   '@sigx/terminal@0.5.0':
     dependencies:
