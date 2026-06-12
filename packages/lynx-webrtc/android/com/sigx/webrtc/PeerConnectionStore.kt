@@ -6,6 +6,7 @@ import android.util.Log
 import com.lynx.react.bridge.ReadableMap
 import java.nio.ByteBuffer
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicInteger
 import org.webrtc.AudioSource
 import org.webrtc.AudioTrack
@@ -61,6 +62,14 @@ internal object PeerConnectionStore {
 
     /** Sender handles live in their own (positive) space — never used for event demux. */
     private val senderIds = AtomicInteger(1)
+
+    /**
+     * Disposal of channels that closed on their own runs here — never on the
+     * WebRTC signaling thread that is delivering the state callback.
+     */
+    private val cleanupExecutor = Executors.newSingleThreadExecutor { r ->
+        Thread(r, "sigx-webrtc-cleanup")
+    }
 
     @Synchronized
     private fun ensureFactory(context: Context): PeerConnectionFactory {
@@ -247,7 +256,7 @@ internal object PeerConnectionStore {
         }
         val dc = entry.pc.createDataChannel(label, dcInit)
             ?: return "createDataChannel failed"
-        registerChannel(dcId, dc, entry)
+        registerChannel(dcId, dc, peerId, entry)
         return null
     }
 
@@ -277,8 +286,8 @@ internal object PeerConnectionStore {
 
     // MARK: - Internals
 
-    private fun registerChannel(dcId: Int, dc: DataChannel, peerEntry: PeerEntry) {
-        val observer = DcObserver(dcId, dc)
+    private fun registerChannel(dcId: Int, dc: DataChannel, peerId: Int, peerEntry: PeerEntry) {
+        val observer = DcObserver(dcId, dc, peerId)
         channels[dcId] = DcEntry(dc, observer)
         peerEntry.dcIds.add(dcId)
         dc.registerObserver(observer)
@@ -421,7 +430,7 @@ internal object PeerConnectionStore {
             )
             // Register after announcing so dcopen (if already open) follows the
             // datachannel event, matching the JS contract.
-            registerChannel(dcId, dc, entry)
+            registerChannel(dcId, dc, peerId, entry)
         }
 
         override fun onAddTrack(receiver: RtpReceiver?, streams: Array<out MediaStream>?) {
@@ -444,8 +453,11 @@ internal object PeerConnectionStore {
     }
 
     /** Data channel callbacks → event bus. Runs on the WebRTC signaling thread. */
-    private class DcObserver(private val dcId: Int, private val dc: DataChannel) :
-        DataChannel.Observer {
+    private class DcObserver(
+        private val dcId: Int,
+        private val dc: DataChannel,
+        private val peerId: Int,
+    ) : DataChannel.Observer {
 
         override fun onBufferedAmountChange(previousAmount: Long) {}
 
@@ -454,7 +466,19 @@ internal object PeerConnectionStore {
                 DataChannel.State.OPEN -> WebRTCEventBus.publishDcOpen(dcId, dc.id())
                 DataChannel.State.CLOSED -> {
                     WebRTCEventBus.publishDcClose(dcId)
-                    channels.remove(dcId)
+                    // Fully release the channel so long-lived peers don't
+                    // accumulate closed channels. Disposal is deferred off
+                    // this (signaling) thread, which is mid-callback, and
+                    // gated on winning the registry removal so a racing
+                    // closePeer() can't dispose the same channel twice.
+                    val won = channels.remove(dcId) != null
+                    peers[peerId]?.dcIds?.remove(dcId)
+                    if (won) {
+                        cleanupExecutor.execute {
+                            runCatching { dc.unregisterObserver() }
+                            runCatching { dc.dispose() }
+                        }
+                    }
                 }
                 else -> {}
             }

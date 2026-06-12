@@ -31,6 +31,9 @@ class WebRTCModule(context: Context) : LynxModule(context) {
 
     // MARK: - Media
 
+    // `constraints` is part of the JS-callable signature; v1 ignores it and
+    // captures with platform defaults.
+    @Suppress("UNUSED_PARAMETER")
     @LynxMethod
     fun getUserMedia(trackId: Int, constraints: ReadableMap?, callback: Callback?) {
         // Browser semantics: prompt whenever the permission is promptable,
@@ -78,6 +81,8 @@ class WebRTCModule(context: Context) : LynxModule(context) {
         }
     }
 
+    // `options` keeps signature parity with createOffer; answers take none.
+    @Suppress("UNUSED_PARAMETER")
     @LynxMethod
     fun createAnswer(peerId: Int, options: ReadableMap?, callback: Callback?) {
         PeerConnectionStore.createAnswer(peerId) { desc, error ->
