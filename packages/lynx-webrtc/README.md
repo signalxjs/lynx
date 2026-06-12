@@ -4,8 +4,7 @@ W3C-shaped WebRTC for sigx-lynx: peer connections, microphone audio tracks, and
 data channels, backed by libwebrtc ([webrtc-sdk](https://github.com/webrtc-sdk)
 builds). Code written against browser WebRTC ports nearly unchanged.
 
-> **Platforms:** Android. iOS support is tracked in
-> [signalxjs/lynx#479](https://github.com/signalxjs/lynx/issues/479).
+> **Platforms:** Android + iOS.
 > Not available on the web runtime (the background thread has no
 > `RTCPeerConnection`) — gate with `isWebRTCAvailable()`.
 
@@ -16,10 +15,11 @@ pnpm add @sigx/lynx-webrtc
 sigx prebuild
 ```
 
-Autolinking adds the native SDK dependency and the `RECORD_AUDIO` /
-`MODIFY_AUDIO_SETTINGS` permissions for you (the iOS microphone usage
-description lands with iOS support). Note the native SDK adds roughly
-5–10 MB per ABI to the app.
+Autolinking adds the native SDK dependency (gradle dep / `WebRTC-SDK` pod),
+the Android `RECORD_AUDIO` / `MODIFY_AUDIO_SETTINGS` permissions, the iOS
+microphone usage description, and the iOS `audio` background mode (so calls
+survive backgrounding). Note the native SDK adds roughly 5–10 MB per ABI on
+Android and ~10 MB on iOS.
 
 ## Usage
 
@@ -122,12 +122,20 @@ isWebRTCAvailable();                          // false on web / when not linked
 ## Platform notes
 
 - **Call audio session:** while at least one peer connection is live, the
-  module holds the platform in communication mode (Android
-  `MODE_IN_COMMUNICATION`) and routes output to the loudspeaker by default;
-  the previous state is restored when the last peer closes.
-- **Bluetooth headsets:** SCO routing is not wired up yet — calls use the
-  built-in speaker or earpiece.
+  module holds the platform in call mode (Android `MODE_IN_COMMUNICATION`;
+  iOS `AVAudioSession` `.playAndRecord`/`.voiceChat` via WebRTC's
+  manual-audio mode) and routes output to the loudspeaker by default; the
+  previous state is restored when the last peer closes. On iOS the
+  configuration is re-asserted after route changes and interruptions.
+- **Backgrounding (iOS):** the manifest contributes the `audio`
+  `UIBackgroundModes` entry, so an active call keeps streaming when the app
+  is backgrounded.
+- **Bluetooth headsets:** Android SCO routing is not wired up yet — calls
+  use the built-in speaker or earpiece (iOS allows Bluetooth via
+  `.allowBluetooth`).
 - **`@sigx/lynx-audio` interplay:** avoid starting/stopping its recorders or
   players during an active call; both packages manage the audio session.
+- **iOS simulator:** WebRTC's audio unit is unreliable there — SDP and data
+  channels work, but verify audio on a physical device.
 
 License: MIT
