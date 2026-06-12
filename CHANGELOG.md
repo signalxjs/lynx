@@ -11,7 +11,6 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 ### Changed
 
 - `@sigx/lynx-cli` — plugin arg schemas migrated to `@sigx/cli@0.4.x`'s fluent `a.*` builders (`@sigx/args` under the hood); requires sigx CLI >= 0.4.0 (#468). `sigx add`/`sigx remove` now declare their module names as a proper rest argument (the new parser no longer passes loose positionals via `args._`), and every flag gets typed `--help` output. User-visible deltas inherited from the CLI: unknown flags now error instead of being silently ignored, and boolean flags accept `--no-<flag>` negation.
-- **Breaking**: `@sigx/lynx-updates` — `Updates.configure()` is replaced by the top-level `defineUpdates()` export, aligning the boot declaration with the `define*` family (`defineApp`, `defineRoutes`, `defineLynxConfig`). The `Updates` runtime object (check/download/apply/markReady/…) is unchanged. Consumers upgrading from 0.6.1 (the last version with `configure`): rename the call (#457).
 
 ## [0.6.1] - 2026-06-12
 

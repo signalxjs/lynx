@@ -1,4 +1,4 @@
-export { defineUpdates, Updates } from './updates.js';
+export { Updates } from './updates.js';
 export { useUpdates } from './use-updates.js';
 export {
     StaticManifestProvider,
