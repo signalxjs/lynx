@@ -47,6 +47,7 @@ const IOS_DEFAULTS = {
 
 const SPLASH_BG_DEFAULT = '#FFFFFF';
 const ADAPTIVE_BG_DEFAULT = '#FFFFFF';
+const IOS_ICON_BG_DEFAULT = '#FFFFFF';
 
 /** Normalised module entry with all fields resolved. */
 export interface ResolvedModule {
@@ -81,6 +82,8 @@ export interface ResolvedIosAssets extends ResolvedPlatformAssets {
     /** iOS 18 appearance variants; null entries mean "no variant shipped". */
     iconDark: string | null;
     iconTinted: string | null;
+    /** Background the light marketing icon is flattened onto (App Store rejects alpha). Hex. */
+    iconBackground: string;
 }
 
 export interface ResolvedAndroidAssets extends ResolvedPlatformAssets {
@@ -281,7 +284,7 @@ function pickIosIcon(
     cwd: string,
     raw: string | IosIconConfig | undefined,
     topLevelIcon: string | undefined,
-): { light: string; dark: string | null; tinted: string | null } {
+): { light: string; dark: string | null; tinted: string | null; background: string } {
     // The config is plain JS at runtime — guard against `ios.icon: null`
     // (typeof null === 'object') so "unset via null" degrades to the
     // string/undefined path instead of throwing.
@@ -290,12 +293,14 @@ function pickIosIcon(
             light: resolveAssetPath(cwd, raw.light, 'icon.png'),
             dark: raw.dark ? resolveAssetPath(cwd, raw.dark, '') : null,
             tinted: raw.tinted ? resolveAssetPath(cwd, raw.tinted, '') : null,
+            background: raw.background ?? IOS_ICON_BG_DEFAULT,
         };
     }
     return {
         light: resolveAssetPath(cwd, raw ?? topLevelIcon, 'icon.png'),
         dark: null,
         tinted: null,
+        background: IOS_ICON_BG_DEFAULT,
     };
 }
 
@@ -321,6 +326,7 @@ export function resolveAssets(raw: LynxConfig, cwd: string): {
             iconSource: iosIcon.light,
             iconDark: iosIcon.dark,
             iconTinted: iosIcon.tinted,
+            iconBackground: iosIcon.background,
             splashImage: iosSplash.image,
             splashBackground: iosSplash.backgroundColor,
             splashResizeMode: iosSplash.resizeMode,
