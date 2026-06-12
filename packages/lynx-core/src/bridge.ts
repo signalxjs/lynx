@@ -27,6 +27,7 @@ const MODULE_PACKAGES: Record<string, string> = {
     Linking: '@sigx/lynx-linking',
     WebSocket: '@sigx/lynx-websocket',
     Http: '@sigx/lynx-http',
+    Updates: '@sigx/lynx-updates',
 };
 
 /**

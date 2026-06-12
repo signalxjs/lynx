@@ -1,0 +1,35 @@
+{
+    "name": "Updates",
+    "package": "@sigx/lynx-updates",
+    "description": "OTA bundle updates: download, two-phase apply, crash rollback",
+    "platforms": ["android", "ios"],
+    "android": {
+        "moduleClass": "com.sigx.updates.UpdatesModule",
+        "publisherClass": "com.sigx.updates.UpdatesLifecyclePublisher",
+        "bundleResolverClass": "com.sigx.updates.UpdatesBundleResolver",
+        "activityHook": {
+            "class": "com.sigx.updates.UpdatesActivityHook",
+            "methods": ["onResume", "onPause"]
+        },
+        "sourceDir": "android",
+        "permissions": ["android.permission.INTERNET"]
+    },
+    "ios": {
+        "moduleClass": "UpdatesModule",
+        "publisherClass": "UpdatesLifecyclePublisher",
+        "bundleResolverClass": "UpdatesBundleResolver",
+        "sourceDir": "ios",
+        "methods": [
+            "getInstalledRuntimeVersion",
+            "getPlatform",
+            "getState",
+            "getCurrentUpdate",
+            "downloadUpdate",
+            "applyOnNextLaunch",
+            "applyNow",
+            "markReady",
+            "setRollbackOptions",
+            "clearUpdates"
+        ]
+    }
+}
