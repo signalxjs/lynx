@@ -288,7 +288,7 @@ function buildItems(opts: PickTargetsOptions, lastKeys: Set<string>): Item[] {
 // previously-used targets are pre-selected via initialValues).
 // ────────────────────────────────────────────────────────────────
 
-const stripAnsiCodes = (s: string): string => s.replace(/[[0-9;]*m/g, '');
+const stripAnsiCodes = (s: string): string => s.replace(/\x1b\[[0-9;]*m/g, '');
 
 export async function pickTargets(opts: PickTargetsOptions): Promise<SelectedTarget[] | null> {
     if (!process.stdin.isTTY) return null;

@@ -103,23 +103,43 @@ function runVerbose(
     // Verbose still needs onChunk to fire (signature-mismatch detection).
     if (opts.onChunk) {
         const child = spawn(cmd, args, { ...spawnOpts, stdio: ['inherit', 'pipe', 'pipe'] });
+        // Sinks treat one call as one line — buffer arbitrary chunk
+        // boundaries (onChunk listeners keep getting the raw chunks).
+        let chunkBuf = '';
+        const sinkFeed = (c: Buffer) => {
+            chunkBuf += c.toString();
+            const idx = chunkBuf.lastIndexOf('\n');
+            if (idx === -1) return;
+            for (const line of chunkBuf.slice(0, idx).split('\n')) opts.sink!(line);
+            chunkBuf = chunkBuf.slice(idx + 1);
+        };
         child.stdout?.on('data', (chunk: Buffer) => {
             opts.onChunk!(chunk, 'stdout');
-            if (opts.sink) opts.sink(chunk.toString());
+            if (opts.sink) sinkFeed(chunk);
             else process.stdout.write(chunk);
         });
         child.stderr?.on('data', (chunk: Buffer) => {
             opts.onChunk!(chunk, 'stderr');
-            if (opts.sink) opts.sink(chunk.toString());
+            if (opts.sink) sinkFeed(chunk);
             else process.stderr.write(chunk);
         });
-        return awaitExit(child);
+        return awaitExit(child).finally(() => { if (chunkBuf && opts.sink) opts.sink(chunkBuf); });
     }
     if (opts.sink) {
         const piped = spawn(cmd, args, { ...spawnOpts, stdio: ['inherit', 'pipe', 'pipe'] });
-        piped.stdout?.on('data', (c: Buffer) => opts.sink!(c.toString()));
-        piped.stderr?.on('data', (c: Buffer) => opts.sink!(c.toString()));
-        return awaitExit(piped);
+        // Line-buffer: chunk boundaries are arbitrary, and sinks treat one
+        // call as one line.
+        let buf = '';
+        const feed = (c: Buffer) => {
+            buf += c.toString();
+            const idx = buf.lastIndexOf('\n');
+            if (idx === -1) return;
+            for (const line of buf.slice(0, idx).split('\n')) opts.sink!(line);
+            buf = buf.slice(idx + 1);
+        };
+        piped.stdout?.on('data', feed);
+        piped.stderr?.on('data', feed);
+        return awaitExit(piped).finally(() => { if (buf) opts.sink!(buf); });
     }
     const child = spawn(cmd, args, { ...spawnOpts, stdio: 'inherit' });
     return awaitExit(child);
@@ -271,7 +291,7 @@ function createXcodebuildFilter(emit?: (line: string, source: 'stdout' | 'stderr
                 out(line, 'stdout');
             } else if (!warningCapReached) {
                 warningCapReached = true;
-                out(`\x1b[2m… more warnings suppressed; re-run with --verbose to see them\x1b[0m\n`, 'stdout');
+                out(`\x1b[2m… more warnings suppressed; re-run with --verbose to see them\x1b[0m`, 'stdout');
             }
             return;
         }
@@ -289,21 +309,21 @@ function createXcodebuildFilter(emit?: (line: string, source: 'stdout' | 'stderr
                 const label = target && file
                     ? `${target}/${file}`
                     : (file ?? target ?? 'object');
-                out(`\x1b[2m▸\x1b[0m Compiling [${compileCount}] ${label}\n`, 'stdout');
+                out(`\x1b[2m▸\x1b[0m Compiling [${compileCount}] ${label}`, 'stdout');
                 return;
             }
             if (line.startsWith('SwiftCompile') || line.startsWith('SwiftDriverJobDiscovery')) {
                 if (!target) return; // Sub-step noise.
                 compileCount++;
-                out(`\x1b[2m▸\x1b[0m Compiling Swift [${compileCount}] ${target}\n`, 'stdout');
+                out(`\x1b[2m▸\x1b[0m Compiling Swift [${compileCount}] ${target}`, 'stdout');
                 return;
             }
             if (line.startsWith('Ld ')) {
-                out(`\x1b[2m▸\x1b[0m Linking ${target ?? ''}\n`, 'stdout');
+                out(`\x1b[2m▸\x1b[0m Linking ${target ?? ''}`, 'stdout');
                 return;
             }
             if (line.startsWith('CodeSign')) {
-                out(`\x1b[2m▸\x1b[0m Signing ${target ?? ''}\n`, 'stdout');
+                out(`\x1b[2m▸\x1b[0m Signing ${target ?? ''}`, 'stdout');
                 return;
             }
             if (line.startsWith('PhaseScriptExecution')) {
@@ -313,7 +333,7 @@ function createXcodebuildFilter(emit?: (line: string, source: 'stdout' | 'stderr
             }
             // Catch-all: verb + target.
             const verb = line.split(/\s/, 1)[0];
-            out(`\x1b[2m▸\x1b[0m ${verb} ${target ?? ''}\n`, 'stdout');
+            out(`\x1b[2m▸\x1b[0m ${verb} ${target ?? ''}`, 'stdout');
             return;
         }
 
@@ -337,7 +357,7 @@ function createXcodebuildFilter(emit?: (line: string, source: 'stdout' | 'stderr
         flush: () => {
             splitter.flush();
             if (compileCount > 0) {
-                out(`\x1b[2m▸ ${compileCount} files compiled\x1b[0m\n`, 'stdout');
+                out(`\x1b[2m▸ ${compileCount} files compiled\x1b[0m`, 'stdout');
             }
         },
     };
@@ -405,7 +425,7 @@ function createGradleFilter(emit?: (line: string, source: 'stdout' | 'stderr') =
             // log lines split by other output).
             if (lastTaskHeader === name) return;
             lastTaskHeader = name;
-            out(`\x1b[2m▸\x1b[0m ${name}\n`, 'stdout');
+            out(`\x1b[2m▸\x1b[0m ${name}`, 'stdout');
             return;
         }
 
@@ -413,13 +433,13 @@ function createGradleFilter(emit?: (line: string, source: 'stdout' | 'stderr') =
         const ninjaCxx = line.match(GRADLE_NINJA_CXX_RE);
         if (ninjaCxx) {
             const [, n, total, file] = ninjaCxx;
-            out(`  \x1b[2m▸\x1b[0m Compiling [${n}/${total}] ${file}\n`, 'stdout');
+            out(`  \x1b[2m▸\x1b[0m Compiling [${n}/${total}] ${file}`, 'stdout');
             return;
         }
         const ninjaLink = line.match(GRADLE_NINJA_LINK_RE);
         if (ninjaLink) {
             const [, n, total, target] = ninjaLink;
-            out(`  \x1b[2m▸\x1b[0m Linking [${n}/${total}] ${target}\n`, 'stdout');
+            out(`  \x1b[2m▸\x1b[0m Linking [${n}/${total}] ${target}`, 'stdout');
             return;
         }
 
@@ -449,7 +469,7 @@ function createGradleFilter(emit?: (line: string, source: 'stdout' | 'stderr') =
         flush: () => {
             splitter.flush();
             if (skippedTaskCount > 0) {
-                out(`\x1b[2m▸ ${skippedTaskCount} tasks up-to-date\x1b[0m\n`, 'stdout');
+                out(`\x1b[2m▸ ${skippedTaskCount} tasks up-to-date\x1b[0m`, 'stdout');
             }
         },
     };
