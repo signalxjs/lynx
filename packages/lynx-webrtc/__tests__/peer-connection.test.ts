@@ -298,6 +298,16 @@ describe('RTCPeerConnection — outbound tracks', () => {
         return new MediaStreamTrack(101, 'audio', 'mic', { remote: false });
     }
 
+    let nextSenderId = 1;
+    beforeEach(() => {
+        // Realistic default: native addTrack resolves a senderId (the shim
+        // retracts the sender when it doesn't, which other tests cover).
+        nextSenderId = 1;
+        bridge.callAsync.mockImplementation(async (...args: unknown[]) =>
+            args[1] === 'addTrack' ? { senderId: nextSenderId++ } : undefined,
+        );
+    });
+
     it('addTrack calls native with the track handle and stream ids', () => {
         const peer = new RTCPeerConnection();
         const track = makeLocalTrack();
