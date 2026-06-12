@@ -1,6 +1,6 @@
 {
     "name": "@sigx/lynx-updates",
-    "version": "0.5.6",
+    "version": "0.6.0",
     "description": "OTA bundle updates for sigx-lynx — pluggable backends, update modes, crash rollback",
     "type": "module",
     "main": "./dist/index.js",
