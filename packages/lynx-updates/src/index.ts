@@ -9,6 +9,7 @@ export {
 } from './provider/static-manifest.js';
 export {
     UpdatesError,
+    type UpdatesErrorCode,
     type CurrentUpdateInfo,
     type DownloadProgress,
     type DownloadSpec,

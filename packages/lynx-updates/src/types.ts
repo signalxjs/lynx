@@ -106,6 +106,12 @@ export interface CurrentUpdateInfo {
     /** null → running the embedded (store-shipped) bundle. */
     updateId: string | null;
     version: string;
+    /**
+     * The store-shipped app version (Android versionName / iOS
+     * CFBundleShortVersionString — `version` from signalx.config.ts).
+     * Always present, whichever bundle is running.
+     */
+    embeddedVersion: string;
     runtimeVersion: string;
     isEmbedded: boolean;
     /** True on the first launch running a freshly applied update. */
@@ -185,16 +191,20 @@ export interface UpdatesConfig {
     };
 }
 
+export type UpdatesErrorCode =
+    | 'check-failed'
+    | 'download-failed'
+    | 'download-in-progress'
+    | 'hash-mismatch'
+    | 'apply-failed'
+    | 'no-view'
+    | 'runtime-mismatch'
+    | 'not-configured'
+    | 'native-unavailable';
+
 export class UpdatesError extends Error {
     constructor(
-        public readonly code:
-            | 'check-failed'
-            | 'download-failed'
-            | 'hash-mismatch'
-            | 'apply-failed'
-            | 'runtime-mismatch'
-            | 'not-configured'
-            | 'native-unavailable',
+        public readonly code: UpdatesErrorCode,
         message: string,
     ) {
         super(message);

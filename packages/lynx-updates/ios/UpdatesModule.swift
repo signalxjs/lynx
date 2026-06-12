@@ -43,6 +43,9 @@ class UpdatesModule: NSObject, LynxModule {
         let store = UpdateStore.shared
         var map: [String: Any] = [
             "runtimeVersion": store.installedRuntimeVersion(),
+            // Store-shipped app version — providers receive it as
+            // UpdateCheckContext.embeddedVersion.
+            "embeddedVersion": (Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String) ?? "",
             "isFirstLaunchAfterUpdate": store.isFirstLaunchAfterUpdate,
             "didRollBack": store.didRollBack,
         ]

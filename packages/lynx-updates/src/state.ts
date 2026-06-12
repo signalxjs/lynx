@@ -10,6 +10,7 @@ import type { CurrentUpdateInfo, UpdatesEvent, UpdatesState } from './types.js';
 const INITIAL_RUNNING: CurrentUpdateInfo = {
     updateId: null,
     version: '',
+    embeddedVersion: '',
     runtimeVersion: 'unknown',
     isEmbedded: true,
     isFirstLaunchAfterUpdate: false,

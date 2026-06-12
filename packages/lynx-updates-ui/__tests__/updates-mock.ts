@@ -13,6 +13,7 @@ import type { CurrentUpdateInfo, UpdateManifest, UpdatesState } from '@sigx/lynx
 const RUNNING: CurrentUpdateInfo = {
     updateId: null,
     version: '1.0.0',
+    embeddedVersion: '1.0.0',
     runtimeVersion: 'rt-1',
     isEmbedded: true,
     isFirstLaunchAfterUpdate: false,

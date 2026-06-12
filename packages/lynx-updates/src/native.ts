@@ -56,6 +56,7 @@ export function getPlatform(): 'android' | 'ios' {
 const EMBEDDED_INFO: CurrentUpdateInfo = {
     updateId: null,
     version: '',
+    embeddedVersion: '',
     runtimeVersion: 'unknown',
     isEmbedded: true,
     isFirstLaunchAfterUpdate: false,
@@ -67,13 +68,26 @@ interface NativeError {
     code?: string;
 }
 
+/**
+ * Normalize native-side codes (E_* prefixed) to the public
+ * {@link UpdatesErrorCode} union so consumers never see an out-of-contract
+ * code. Unknown codes collapse to the call site's fallback.
+ */
+function normalizeCode(raw: string | undefined, fallback: UpdatesError['code']): UpdatesError['code'] {
+    switch (raw) {
+        case 'E_DOWNLOAD_IN_PROGRESS': return 'download-in-progress';
+        case 'E_RUNTIME_MISMATCH': return 'runtime-mismatch';
+        case 'E_NO_VIEW': return 'no-view';
+        case 'hash-mismatch': return 'hash-mismatch';
+        case 'apply-failed': return 'apply-failed';
+        default: return fallback;
+    }
+}
+
 function throwIfNativeError(result: unknown, code: UpdatesError['code']): void {
     const err = result as NativeError | null;
     if (err && typeof err === 'object' && typeof err.error === 'string') {
-        throw new UpdatesError(
-            (err.code as UpdatesError['code']) ?? code,
-            err.error,
-        );
+        throw new UpdatesError(normalizeCode(err.code, code), err.error);
     }
 }
 
@@ -81,11 +95,18 @@ export async function getCurrentUpdate(): Promise<CurrentUpdateInfo> {
     if (!nativeAvailable()) return EMBEDDED_INFO;
     const raw = await callAsync<Partial<CurrentUpdateInfo> | null>(MODULE, 'getCurrentUpdate');
     if (!raw || typeof raw !== 'object') return EMBEDDED_INFO;
+    const embeddedVersion = typeof raw.embeddedVersion === 'string' ? raw.embeddedVersion : '';
+    const isEmbedded = raw.isEmbedded !== false && typeof raw.updateId !== 'string';
     return {
         updateId: typeof raw.updateId === 'string' ? raw.updateId : null,
-        version: typeof raw.version === 'string' ? raw.version : '',
+        // The embedded bundle carries no update.json — its version IS the
+        // store-shipped app version.
+        version: typeof raw.version === 'string' && raw.version.length > 0
+            ? raw.version
+            : (isEmbedded ? embeddedVersion : ''),
+        embeddedVersion,
         runtimeVersion: typeof raw.runtimeVersion === 'string' ? raw.runtimeVersion : getInstalledRuntimeVersion(),
-        isEmbedded: raw.isEmbedded !== false && typeof raw.updateId !== 'string',
+        isEmbedded,
         isFirstLaunchAfterUpdate: raw.isFirstLaunchAfterUpdate === true,
         didRollBack: raw.didRollBack === true,
     };

@@ -71,6 +71,12 @@ class UpdatesModule(context: Context) : LynxModule(context) {
                 map.putBoolean("isEmbedded", true)
             }
             map.putString("runtimeVersion", UpdateStore.installedRuntimeVersion(mContext))
+            // Store-shipped app version — providers receive it as
+            // UpdateCheckContext.embeddedVersion.
+            val versionName = runCatching {
+                mContext.packageManager.getPackageInfo(mContext.packageName, 0).versionName
+            }.getOrNull()
+            map.putString("embeddedVersion", versionName ?: "")
             map.putBoolean("isFirstLaunchAfterUpdate", UpdateStore.isFirstLaunchAfterUpdate)
             map.putBoolean("didRollBack", UpdateStore.didRollBack)
             UpdateStore.rolledBackUpdateId?.let { map.putString("rolledBackUpdateId", it) }

@@ -152,7 +152,7 @@ function buildContext(cfg: ResolvedUpdatesConfig): UpdateCheckContext {
         platform: getPlatform(),
         runtimeVersion: getInstalledRuntimeVersion(),
         currentUpdateId: running.updateId,
-        embeddedVersion: running.isEmbedded ? running.version : '',
+        embeddedVersion: running.embeddedVersion,
         channel: cfg.channel,
     };
 }
