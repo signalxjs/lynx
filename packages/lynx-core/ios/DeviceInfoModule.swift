@@ -1,11 +1,11 @@
 import UIKit
 import Lynx
 
-/// Device information module.
-/// JS usage: NativeModules.DeviceInfo.getDeviceInfo(callback)
+/// Device information module, hosted by core's own native module.
+/// JS usage: NativeModules.SigxCore.getDeviceInfo(callback)
 class DeviceInfoModule: NSObject, LynxModule {
 
-    @objc static var name: String { "DeviceInfo" }
+    @objc static var name: String { "SigxCore" }
 
     @objc static var methodLookup: [String: String] {
         [

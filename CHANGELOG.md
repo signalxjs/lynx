@@ -6,7 +6,12 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 ### Added
 
+- `@sigx/lynx-core` — `Platform` API for platform checks & rendering, sourced from the Lynx `SystemInfo` global and re-exported from `@sigx/lynx`: `Platform.OS` (`'ios' | 'android' | 'web'`), `Platform.Version`, `pixelRatio`/`pixelWidth`/`pixelHeight`, best-effort `isPad`, and `Platform.select({ ios, android, web, native, default })`. Plus build-time, tree-shakeable platform splitting: `@sigx/lynx-plugin` injects `__WEB__` / `__NATIVE__` defines per rspeedy environment (typed via `@sigx/lynx/client`) and resolves `.web.tsx` / `.lynx.tsx` / `.native.tsx` file extensions ahead of the generic file (web↔native only; iOS↔Android stay runtime) (#484).
 - `@sigx/lynx-webrtc` — W3C-shaped WebRTC module (Android + iOS): `RTCPeerConnection` (offer/answer, trickle + non-trickle ICE, `iceServers`, state events, `ontrack`, `ondatachannel`), `RTCDataChannel` (text + binary), `mediaDevices.getUserMedia({ audio })` with browser-style `NotAllowedError` on denial, and `MediaStream`/`MediaStreamTrack` (`enabled` mute, `stop()`). Remote audio plays automatically through the device audio module. Non-W3C extras: `WebRTC.setAudioOutput('speaker'|'earpiece')` and the camera/audio-style `requestPermission()`/`getPermissionStatus()` (#479). iOS rides WebRTC's `RTCAudioSession` manual-audio mode (`.playAndRecord`/`.voiceChat`, defaultToSpeaker, background `audio` mode).
+
+### Removed
+
+- `@sigx/lynx-device-info` — folded into `@sigx/lynx-core`. The `DeviceInfo` API is unchanged but now imports from `@sigx/lynx` (or `@sigx/lynx-core`); its native module is served by core's own `SigxCore` module. Remove the `@sigx/lynx-device-info` dependency and re-run `sigx prebuild` (#484).
 
 ### Fixed
 

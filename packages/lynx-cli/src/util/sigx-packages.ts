@@ -77,7 +77,6 @@ export const KNOWN_SIGX_LYNX_PACKAGES: ReadonlySet<string> = new Set([
     '@sigx/lynx-core',
     '@sigx/lynx-daisyui',
     '@sigx/lynx-dev-client',
-    '@sigx/lynx-device-info',
     '@sigx/lynx-file-picker',
     '@sigx/lynx-file-system',
     '@sigx/lynx-gestures',

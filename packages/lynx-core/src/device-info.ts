@@ -1,6 +1,9 @@
-import { callAsync, isModuleAvailable } from '@sigx/lynx-core';
+import { callAsync, isModuleAvailable } from './bridge.js';
 
-const MODULE = 'DeviceInfo';
+// Device info is served by core's own native module (`SigxCore`), which also
+// hosts the activity hook. See signalx-module.json + the moved
+// DeviceInfoModule.{swift,kt} under ios/ and android/.
+const MODULE = 'SigxCore';
 
 export interface DeviceInfoResult {
     manufacturer: string;
@@ -17,11 +20,13 @@ export interface DeviceInfoResult {
 }
 
 /**
- * Device information APIs.
+ * Device information APIs. Async, native-backed (manufacturer / model / brand /
+ * app version) — complements the synchronous {@link Platform} surface, which is
+ * sourced from `SystemInfo`.
  *
  * @example
  * ```ts
- * import { DeviceInfo } from '@sigx/lynx-device-info';
+ * import { DeviceInfo } from '@sigx/lynx';
  *
  * const info = await DeviceInfo.getInfo();
  * console.log(info.model);
