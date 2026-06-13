@@ -83,9 +83,14 @@ function detectNativeOS(): 'ios' | 'android' {
 
 // `__WEB__` folds to a literal in real plugin builds, so on the web bundle this
 // is `true` and `detectNativeOS()` (plus its SystemInfo/navigator refs) is
-// dead-code-eliminated. The `typeof` guard avoids a ReferenceError under
-// Vitest where the define is never injected.
-const isWeb = typeof __WEB__ !== 'undefined' && __WEB__;
+// dead-code-eliminated (the ternary's condition is constant, so the fallback
+// branch is dropped). When the define is absent — Vitest / non-plugin embeds —
+// fall back to reading `globalThis.__WEB__` so behavior stays deterministic
+// without relying on a free identifier resolving through the global scope.
+const isWeb =
+    typeof __WEB__ !== 'undefined'
+        ? __WEB__
+        : (globalThis as { __WEB__?: boolean }).__WEB__ === true;
 
 const info = readSystemInfo();
 
