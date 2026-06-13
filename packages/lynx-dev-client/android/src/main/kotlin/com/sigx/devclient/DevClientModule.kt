@@ -24,9 +24,8 @@ class DevClientModule(context: Context) : LynxModule(context) {
 
     @LynxMethod
     fun getPlatform(callback: Callback?) {
-        // Mirror @sigx/lynx-device-info's `getConstants.platform` shape so the
-        // streamer can use the same key regardless of which module it ends up
-        // calling.
+        // Mirror core's `SigxCore.getConstants.platform` shape so the streamer
+        // can use the same key regardless of which module it ends up calling.
         val map = com.lynx.react.bridge.JavaOnlyMap()
         map.putString("platform", "android")
         callback?.invoke(map)

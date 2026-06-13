@@ -15,7 +15,6 @@ const MODULE_PACKAGES: Record<string, string> = {
     SecureStorage: '@sigx/lynx-secure-storage',
     Sqlite: '@sigx/lynx-sqlite',
     Biometric: '@sigx/lynx-biometric',
-    DeviceInfo: '@sigx/lynx-device-info',
     Share: '@sigx/lynx-share',
     Audio: '@sigx/lynx-audio',
     Camera: '@sigx/lynx-camera',

@@ -1,4 +1,4 @@
-package com.sigx.deviceinfo
+package com.sigx.core
 
 import android.content.Context
 import android.os.Build
@@ -10,8 +10,8 @@ import com.lynx.react.bridge.Callback
 import com.lynx.react.bridge.JavaOnlyMap
 
 /**
- * Device information module.
- * JS usage: NativeModules.DeviceInfo.getDeviceInfo(callback)
+ * Device information module, hosted by core's own native module.
+ * JS usage: NativeModules.SigxCore.getDeviceInfo(callback)
  */
 class DeviceInfoModule(context: Context) : LynxModule(context) {
 
@@ -59,4 +59,3 @@ class DeviceInfoModule(context: Context) : LynxModule(context) {
         }
     }
 }
-
