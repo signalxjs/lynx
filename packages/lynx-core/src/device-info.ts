@@ -7,8 +7,9 @@ const MODULE = 'SigxCore';
 
 /**
  * Fields guaranteed on every platform, with identical semantics and units. The
- * native side ({@link DeviceInfoModule}) normalizes its raw payload to these
- * keys before resolving, so consumers never branch for the common case.
+ * native `SigxCore` module (`DeviceInfoModule.{swift,kt}`) normalizes its raw
+ * payload to these keys before resolving, so consumers never branch for the
+ * common case.
  */
 interface DeviceInfoCommon {
     /** Discriminant — narrows to the per-platform extras below. */
@@ -56,8 +57,9 @@ export interface AndroidDeviceInfo extends DeviceInfoCommon {
 }
 
 /**
- * Platform-discriminated device info. Switch on {@link DeviceInfoCommon.platform}
- * to access the per-platform extras type-safely.
+ * Platform-discriminated device info. Switch on the `platform` field to access
+ * the per-platform extras ({@link IosDeviceInfo} / {@link AndroidDeviceInfo})
+ * type-safely.
  */
 export type DeviceInfoResult = IosDeviceInfo | AndroidDeviceInfo;
 
