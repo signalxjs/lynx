@@ -23,6 +23,7 @@ class DeviceInfoModule: NSObject, LynxModule {
         let bundle = Bundle.main
 
         let info: [String: Any] = [
+            "platform": "ios",
             "brand": "Apple",
             "model": device.model,
             "modelName": modelIdentifier(),

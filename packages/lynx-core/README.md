@@ -100,14 +100,38 @@ if (__WEB__) { /* web-only code, absent from the native bundle */ }
 OS/app version, screen metrics) — complementing the synchronous `Platform`
 surface. Served by core's own `SigxCore` native module.
 
+`getInfo()` resolves a **platform-discriminated** `DeviceInfoResult`: a common
+core present on every platform, plus a `platform` discriminant that narrows to
+per-platform extras. Switch on `info.platform` to read them type-safely.
+
 ```ts
 import { DeviceInfo } from '@sigx/lynx'; // module authors: from '@sigx/lynx-core'
 
 if (DeviceInfo.isAvailable()) {
     const info = await DeviceInfo.getInfo();
     console.log(info.model, info.systemVersion);
+
+    if (info.platform === 'ios') {
+        console.log(info.bundleId, info.modelName); // iOS-only extras
+    } else {
+        console.log(info.appPackage, info.sdkVersion); // Android-only extras
+    }
 }
 ```
+
+**Common fields** (both platforms, identical semantics): `platform`,
+`manufacturer`, `model`, `brand`, `systemName`, `systemVersion`, `appVersion`,
+`deviceId`, `screenWidth`, `screenHeight`, `screenScale`. Screen dimensions are
+**density-independent points (dp/pt)** on both platforms and `screenScale` is the
+dp→physical-px multiplier — physical pixels ≈ `Math.round(screenWidth * screenScale)`
+(approximate: dp is reported as an integer, so exact pixel recovery isn't guaranteed).
+**iOS extras**: `modelName` (hardware id, e.g. `"iPhone16,2"`), `appBuildNumber`,
+`bundleId`. **Android extras**: `sdkVersion`, `appPackage`.
+
+> Field caveats: `model` is a friendly name on Android (`Build.MODEL`) but the
+> generic `"iPhone"`/`"iPad"` on iOS (the hardware id is the iOS-only `modelName`).
+> `deviceId` is a per-vendor stable UUID on iOS (`identifierForVendor`) but
+> `Build.ID` — a build identifier, not a stable device id — on Android.
 
 ## Permissions helpers
 

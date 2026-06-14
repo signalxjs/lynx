@@ -18,7 +18,7 @@ export type { PlatformOS, PlatformSelectSpec } from './platform.js';
 // Device information (async, native-backed). Complements the synchronous
 // Platform surface; served by core's own native module.
 export { DeviceInfo } from './device-info.js';
-export type { DeviceInfoResult } from './device-info.js';
+export type { DeviceInfoResult, IosDeviceInfo, AndroidDeviceInfo } from './device-info.js';
 
 // Logging — leveled + namespaced logger usable by any package (see logger.ts).
 export {
