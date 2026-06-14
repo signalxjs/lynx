@@ -34,7 +34,11 @@ interface DeviceInfoCommon {
     screenWidth: number;
     /** Density-independent points (dp / pt) on both platforms. */
     screenHeight: number;
-    /** Logical→physical multiplier — physical px = `screenWidth * screenScale`. */
+    /**
+     * Logical→physical multiplier. Physical pixels ≈
+     * `Math.round(screenWidth * screenScale)` — approximate, since `screenWidth` /
+     * `screenHeight` are integer points/dp, so exact pixel recovery isn't guaranteed.
+     */
     screenScale: number;
 }
 

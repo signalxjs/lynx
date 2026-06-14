@@ -32,7 +32,8 @@ class DeviceInfoModule(context: Context) : LynxModule(context) {
 
         // Screen info — report dimensions in density-independent points (dp) so
         // they're comparable with iOS (which reports points); `screenScale` is the
-        // dp→physical-px multiplier (physical px = dp * scale).
+        // dp→physical-px multiplier. dp is rounded to an int here, so physical px
+        // is only approximately Math.round(dp * scale) — exact px isn't recoverable.
         val wm = mContext.getSystemService(Context.WINDOW_SERVICE) as WindowManager
         val metrics = DisplayMetrics()
         @Suppress("DEPRECATION")

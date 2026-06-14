@@ -123,7 +123,8 @@ if (DeviceInfo.isAvailable()) {
 `manufacturer`, `model`, `brand`, `systemName`, `systemVersion`, `appVersion`,
 `deviceId`, `screenWidth`, `screenHeight`, `screenScale`. Screen dimensions are
 **density-independent points (dp/pt)** on both platforms and `screenScale` is the
-dp→physical-px multiplier (physical px = `screenWidth * screenScale`).
+dp→physical-px multiplier — physical pixels ≈ `Math.round(screenWidth * screenScale)`
+(approximate: dp is reported as an integer, so exact pixel recovery isn't guaranteed).
 **iOS extras**: `modelName` (hardware id, e.g. `"iPhone16,2"`), `appBuildNumber`,
 `bundleId`. **Android extras**: `sdkVersion`, `appPackage`.
 
