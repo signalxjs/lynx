@@ -186,6 +186,16 @@ export async function publishUpdate(opts: PublishUpdateOptions): Promise<Publish
     const channel = opts.channel ?? 'production';
     const mandatory = opts.mandatory === true;
 
+    // The channel is a name, not a path — it's used as a path segment AND served
+    // as a URL segment, so reject separators / traversal rather than writing
+    // outside the output directory (or emitting an unservable manifest path).
+    if (!/^[A-Za-z0-9._-]+$/.test(channel)) {
+        throw new Error(
+            `Invalid channel "${channel}": use only letters, digits, '.', '_' or '-' ` +
+            `(it is used as a directory and URL segment).`,
+        );
+    }
+
     // 4. Write the static-hosting layout.
     const outDir = resolve(cwd, opts.out ?? 'updates-dist');
     const channelDir = join(outDir, channel);

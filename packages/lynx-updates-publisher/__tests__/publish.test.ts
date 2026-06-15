@@ -136,6 +136,13 @@ describe('publishUpdate', () => {
         expect(manifest.updates.some((e: any) => e.platforms?.[0] === 'android' && e.id === result.updateId)).toBe(true);
     });
 
+    it('rejects a channel with path separators / traversal (no escaping the output dir)', async () => {
+        const cwd = makeProject({ bundle: 'bundle', sidecar: { android: 'fp1-a' } });
+        for (const channel of ['../../etc', 'a/b', 'a\\b', '']) {
+            await expect(publishUpdate({ cwd, channel })).rejects.toThrow(/channel/i);
+        }
+    });
+
     it('errors with actionable messages for missing bundle / missing sidecar / empty bundle', async () => {
         const noBundle = makeProject({ sidecar: { android: 'fp1-a' } });
         await expect(publishUpdate({ cwd: noBundle })).rejects.toThrow(/sigx build/);
