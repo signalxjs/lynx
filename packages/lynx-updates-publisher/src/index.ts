@@ -165,16 +165,33 @@ function isWellFormedEntry(e: unknown): e is ManifestEntry {
     return true;
 }
 
+/**
+ * Normalize one existing entry, or drop it (null) when it's unrecoverably
+ * malformed. A missing `platforms` is filled to both (the client's default for
+ * an omitted value) rather than dropped — so migrating a manifest from another
+ * tool/version never silently deletes valid historical entries.
+ */
+function normalizeEntry(e: unknown): ManifestEntry | null {
+    const candidate = e && typeof e === 'object' && (e as Record<string, unknown>).platforms === undefined
+        ? { ...(e as Record<string, unknown>), platforms: ['android', 'ios'] }
+        : e;
+    return isWellFormedEntry(candidate) ? candidate : null;
+}
+
 function readManifest(path: string): ManifestDocument {
     if (existsSync(path)) {
         try {
             const doc = JSON.parse(readFileSync(path, 'utf-8'));
             if (doc?.schemaVersion === 1 && Array.isArray(doc.updates)) {
-                // Drop malformed entries so each publish self-heals the manifest
-                // into a document StaticManifestProvider will accept — it rejects
-                // the WHOLE document if any single entry is invalid, so a stray
-                // bad entry would otherwise break the channel permanently.
-                return { schemaVersion: 1, updates: doc.updates.filter(isWellFormedEntry) };
+                // Drop unrecoverably-malformed entries (and normalize fixable
+                // ones) so each publish self-heals the manifest into a document
+                // StaticManifestProvider will accept — it rejects the WHOLE
+                // document if any single entry is invalid, so a stray bad entry
+                // would otherwise break the channel permanently.
+                const updates = doc.updates
+                    .map(normalizeEntry)
+                    .filter((e: ManifestEntry | null): e is ManifestEntry => e !== null);
+                return { schemaVersion: 1, updates };
             }
         } catch {
             // fall through to a fresh document
@@ -226,12 +243,13 @@ export async function publishUpdate(opts: PublishUpdateOptions): Promise<Publish
     const mandatory = opts.mandatory === true;
 
     // The channel is a name, not a path — it's used as a path segment AND served
-    // as a URL segment, so reject separators / traversal rather than writing
-    // outside the output directory (or emitting an unservable manifest path).
-    if (!/^[A-Za-z0-9._-]+$/.test(channel)) {
+    // as a URL segment, so reject separators and the `.`/`..` traversal segments
+    // rather than writing outside the output directory. `.` is allowed *within*
+    // a name (e.g. "2.0") but the bare `.`/`..` segments are not.
+    if (!/^[A-Za-z0-9._-]+$/.test(channel) || channel === '.' || channel === '..') {
         throw new Error(
             `Invalid channel "${channel}": use only letters, digits, '.', '_' or '-' ` +
-            `(it is used as a directory and URL segment).`,
+            `(not '.'/'..'); it is used as a directory and URL segment.`,
         );
     }
 

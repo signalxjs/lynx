@@ -138,6 +138,10 @@ describe('publishUpdate', () => {
             // but still client-invalid (bad platform value, non-hex sha256).
             JSON.stringify({ schemaVersion: 1, updates: [
                 goodForeign,
+                // Valid but with `platforms` omitted (client default = both) —
+                // must be kept and normalized, not dropped.
+                { id: 'noplat', version: '1.0.0', runtimeVersion: 'fp1-both',
+                    bundleUrl: 'updates/noplat/main.lynx.bundle', sha256: 'd'.repeat(64), mandatory: false },
                 { id: 'broken', runtimeVersion: 'fp1-a' },                       // missing required fields
                 { ...goodForeign, id: 'badplat', platforms: ['windows'] },       // invalid platform
                 { ...goodForeign, id: 'badsha', sha256: 'nothex' },              // sha256 not 64-hex
@@ -156,6 +160,9 @@ describe('publishUpdate', () => {
         expect(manifest.updates.some((e: any) => e === null || typeof e !== 'object')).toBe(false);
         // …the valid foreign-platform entry is preserved…
         expect(manifest.updates.some((e: any) => e.id === 'keepme')).toBe(true);
+        // …the platforms-omitted entry is kept and normalized to both…
+        const noplat = manifest.updates.find((e: any) => e.id === 'noplat');
+        expect(noplat?.platforms).toEqual(['android', 'ios']);
         // …the new entry is appended…
         expect(manifest.updates.some((e: any) => e.platforms?.[0] === 'android' && e.id === result.updateId)).toBe(true);
         // …and the rewritten document passes the REAL client-side validator.
@@ -170,9 +177,11 @@ describe('publishUpdate', () => {
 
     it('rejects a channel with path separators / traversal (no escaping the output dir)', async () => {
         const cwd = makeProject({ bundle: 'bundle', sidecar: { android: 'fp1-a' } });
-        for (const channel of ['../../etc', 'a/b', 'a\\b', '']) {
+        for (const channel of ['../../etc', 'a/b', 'a\\b', '', '.', '..']) {
             await expect(publishUpdate({ cwd, channel })).rejects.toThrow(/channel/i);
         }
+        // A dotted name is still fine (e.g. a versioned channel).
+        await expect(publishUpdate({ cwd, channel: '2.0' })).resolves.toBeTruthy();
     });
 
     it('errors with actionable messages for missing bundle / missing sidecar / empty bundle', async () => {
