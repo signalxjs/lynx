@@ -9,13 +9,16 @@ declare const NativeModules: Record<string, Record<string, (...args: any[]) => a
 
 /** Known module → package mapping for actionable error messages. */
 const MODULE_PACKAGES: Record<string, string> = {
+    // Core's own native module (backs DeviceInfo). Built into @sigx/lynx-core,
+    // so the only way it's missing is an older host runtime / tests — but map
+    // it anyway so the error names a real package, not @sigx/lynx-sigxcore.
+    SigxCore: '@sigx/lynx-core',
     Haptics: '@sigx/lynx-haptics',
     Clipboard: '@sigx/lynx-clipboard',
     Storage: '@sigx/lynx-storage',
     SecureStorage: '@sigx/lynx-secure-storage',
     Sqlite: '@sigx/lynx-sqlite',
     Biometric: '@sigx/lynx-biometric',
-    DeviceInfo: '@sigx/lynx-device-info',
     Share: '@sigx/lynx-share',
     Audio: '@sigx/lynx-audio',
     Camera: '@sigx/lynx-camera',

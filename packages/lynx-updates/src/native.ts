@@ -8,7 +8,7 @@
  * mutations reject with `native-unavailable`.
  */
 
-import { callAsync, callSync, isModuleAvailable } from '@sigx/lynx-core';
+import { callAsync, callSync, isModuleAvailable, Platform } from '@sigx/lynx-core';
 import { UpdatesError, type CurrentUpdateInfo, type DownloadSpec } from './types.js';
 
 const MODULE = 'Updates';
@@ -50,7 +50,9 @@ export function getPlatform(): 'android' | 'ios' {
         const p = callSync<string | null>(MODULE, 'getPlatform');
         if (p === 'android' || p === 'ios') return p;
     }
-    return 'android';
+    // Native is authoritative; fall back to core's SystemInfo-based detection
+    // (web preview / tests / module absent). 'web' maps to 'android' here.
+    return Platform.OS === 'ios' ? 'ios' : 'android';
 }
 
 const EMBEDDED_INFO: CurrentUpdateInfo = {

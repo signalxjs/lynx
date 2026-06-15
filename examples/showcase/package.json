@@ -23,7 +23,6 @@
         "@sigx/lynx-core": "workspace:^",
         "@sigx/lynx-daisyui": "workspace:^",
         "@sigx/lynx-datetime-picker": "workspace:^",
-        "@sigx/lynx-device-info": "workspace:^",
         "@sigx/lynx-emoji": "workspace:^",
         "@sigx/lynx-file-picker": "workspace:^",
         "@sigx/lynx-file-system": "workspace:^",
@@ -57,8 +56,8 @@
         "@sigx/lynx-websocket": "workspace:^",
         "@sigx/lynx-webview": "workspace:^",
         "@sigx/lynx-zero": "workspace:^",
-        "@sigx/reactivity": "^0.6.0",
-        "@sigx/runtime-core": "^0.6.0",
+        "@sigx/reactivity": "^0.6.3",
+        "@sigx/runtime-core": "^0.6.3",
         "lucide": "^1.16.0",
         "zod": "^4.4.3"
     },

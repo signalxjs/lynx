@@ -45,9 +45,9 @@
         "url": "https://github.com/signalxjs/lynx/issues"
     },
     "dependencies": {
-        "@sigx/runtime-core": "^0.6.0",
-        "@sigx/reactivity": "^0.6.0",
-        "@sigx/lynx-runtime-internal": "workspace:^"
+        "@sigx/lynx-runtime-internal": "workspace:^",
+        "@sigx/reactivity": "^0.6.3",
+        "@sigx/runtime-core": "^0.6.3"
     },
     "peerDependencies": {
         "@lynx-js/types": "*"

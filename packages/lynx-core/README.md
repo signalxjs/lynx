@@ -59,6 +59,80 @@ import { addTransport, type LogRecord } from '@sigx/lynx-core';
 addTransport((r: LogRecord) => myBackend.send(r)); // { level, namespace, msg, fields, ts }
 ```
 
+## Platform checks & rendering
+
+`Platform` gives RN-style platform checks, sourced from the Lynx `SystemInfo`
+global. **App code should import it from the umbrella** — `import { Platform } from '@sigx/lynx'`.
+
+```ts
+import { Platform } from '@sigx/lynx'; // module authors: from '@sigx/lynx-core'
+
+Platform.OS;          // 'ios' | 'android' | 'web'
+Platform.Version;     // OS version string, e.g. '17.4'
+Platform.pixelRatio;  // device pixel ratio (also pixelWidth / pixelHeight)
+Platform.isPad;       // best-effort iPad detection
+
+const gap = Platform.select({ ios: 8, android: 12, web: 16, default: 0 });
+```
+
+`Platform.select(spec)` precedence is exact OS key → `native` (ios/android) →
+`default`. Provide `default` and the return type is `T`; omit it and it's `T | undefined`.
+
+**Two tiers.** `Platform.OS` is a *runtime* convenience — both platform branches
+ship in every bundle, like React Native. For *tree-shakeable* platform code,
+branch on the build-time defines `@sigx/lynx-plugin` injects, or use
+platform file extensions:
+
+```ts
+// __WEB__ / __NATIVE__ fold to literals per rspeedy environment, so the dead
+// branch is dropped from the other bundle. (Types via `@sigx/lynx/client`.)
+if (__WEB__) { /* web-only code, absent from the native bundle */ }
+```
+
+- **File extensions**: `Foo.web.tsx` resolves on the web bundle, `Foo.lynx.tsx`
+  / `Foo.native.tsx` on the native bundle, each ahead of `Foo.tsx`. **Only
+  web↔native swaps** — iOS and Android share one native bundle, so use
+  `Platform.OS` / `Platform.select` at runtime to split those.
+
+## Device info
+
+`DeviceInfo` is an async, native-backed snapshot (manufacturer, model, brand,
+OS/app version, screen metrics) — complementing the synchronous `Platform`
+surface. Served by core's own `SigxCore` native module.
+
+`getInfo()` resolves a **platform-discriminated** `DeviceInfoResult`: a common
+core present on every platform, plus a `platform` discriminant that narrows to
+per-platform extras. Switch on `info.platform` to read them type-safely.
+
+```ts
+import { DeviceInfo } from '@sigx/lynx'; // module authors: from '@sigx/lynx-core'
+
+if (DeviceInfo.isAvailable()) {
+    const info = await DeviceInfo.getInfo();
+    console.log(info.model, info.systemVersion);
+
+    if (info.platform === 'ios') {
+        console.log(info.bundleId, info.modelName); // iOS-only extras
+    } else {
+        console.log(info.appPackage, info.sdkVersion); // Android-only extras
+    }
+}
+```
+
+**Common fields** (both platforms, identical semantics): `platform`,
+`manufacturer`, `model`, `brand`, `systemName`, `systemVersion`, `appVersion`,
+`deviceId`, `screenWidth`, `screenHeight`, `screenScale`. Screen dimensions are
+**density-independent points (dp/pt)** on both platforms and `screenScale` is the
+dp→physical-px multiplier — physical pixels ≈ `Math.round(screenWidth * screenScale)`
+(approximate: dp is reported as an integer, so exact pixel recovery isn't guaranteed).
+**iOS extras**: `modelName` (hardware id, e.g. `"iPhone16,2"`), `appBuildNumber`,
+`bundleId`. **Android extras**: `sdkVersion`, `appPackage`.
+
+> Field caveats: `model` is a friendly name on Android (`Build.MODEL`) but the
+> generic `"iPhone"`/`"iPad"` on iOS (the hardware id is the iOS-only `modelName`).
+> `deviceId` is a per-vendor stable UUID on iOS (`identifierForVendor`) but
+> `Build.ID` — a build identifier, not a stable device id — on Android.
+
 ## Permissions helpers
 
 For modules that need runtime permissions (camera, location, notifications, …) the package re-exports the shared `PermissionStatus` / `PermissionResponse` types used by `@sigx/lynx-permissions`.
@@ -69,6 +143,8 @@ Besides the JS bridge, the package ships a small shared native runtime that the 
 
 - **Android — `com.sigx.core.SigxActivityHolder`**: weak reference to the current foreground Activity, fed by the auto-linked `SigxActivityHook` lifecycle hook. Modules that present platform UI (`BiometricPrompt`, `DatePickerDialog`, permission dialogs, …) read `current()` or `currentFragmentActivity()` at call time instead of each shipping their own holder.
 - **iOS — `SigxPresentation.topPresenter()`**: top-most `UIViewController` on the active scene's key window (multi-scene safe, walks the presented-modal chain). Used by the picker modules to present sheets.
+
+The package also registers core's own native module, **`SigxCore`**, which backs `DeviceInfo` (`getDeviceInfo` / `getConstants`).
 
 Module authors: don't add a per-package Activity holder or top-presenter helper — use these.
 
