@@ -187,6 +187,15 @@ describe('StaticManifestProvider runtime-resolved endpoint + auth hooks', () => 
         });
     });
 
+    it('surfaces a malformed url-resolver result as a clear check-failed', async () => {
+        const fetchImpl = spyFetch({ schemaVersion: 1, updates: [entry()] });
+        for (const bad of [null, undefined, 42, {}, { url: 123 }]) {
+            const provider = new StaticManifestProvider({ url: (() => bad) as never, fetchImpl });
+            await expect(provider.checkForUpdate(ctx())).rejects.toMatchObject({ code: 'check-failed' });
+        }
+        expect(fetchImpl).not.toHaveBeenCalled();
+    });
+
     it('surfaces a throwing onBeforeCheck as check-failed', async () => {
         const fetchImpl = spyFetch({ schemaVersion: 1, updates: [entry()] });
         const provider = new StaticManifestProvider({

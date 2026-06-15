@@ -119,21 +119,27 @@ describe('publishUpdate', () => {
         expect(manifest.updates[0].runtimeVersion).toBe('fp1-explicit-ios');
     });
 
-    it('survives a partially-corrupted existing manifest (entry missing platforms)', async () => {
+    it('survives a partially-corrupted existing manifest (missing platforms, null/string entries)', async () => {
         const cwd = makeProject({ bundle: 'bundle', sidecar: { android: 'fp1-a' } });
-        // Hand-edited / corrupted manifest: a well-formed array, malformed entry.
+        // Hand-edited / corrupted manifest: a well-formed array, malformed entries.
         const channelDir = join(cwd, 'updates-dist', 'production');
         mkdirSync(channelDir, { recursive: true });
         writeFileSync(
             join(channelDir, 'manifest.json'),
-            JSON.stringify({ schemaVersion: 1, updates: [{ id: 'broken', runtimeVersion: 'fp1-a' }] }),
+            JSON.stringify({ schemaVersion: 1, updates: [{ id: 'broken', runtimeVersion: 'fp1-a' }, null, 'bad'] }),
         );
 
         const result = await publishUpdate({ cwd });
         const manifest = JSON.parse(readFileSync(result.manifestPath, 'utf-8'));
-        // The malformed entry is preserved (not crashed on); the new one is appended.
-        expect(manifest.updates.some((e: any) => e.id === 'broken')).toBe(true);
-        expect(manifest.updates.some((e: any) => e.platforms?.[0] === 'android' && e.id === result.updateId)).toBe(true);
+        // Malformed entries are preserved (not crashed on); the new one is appended.
+        expect(manifest.updates.some((e: any) => e?.id === 'broken')).toBe(true);
+        expect(manifest.updates.some((e: any) => e?.platforms?.[0] === 'android' && e?.id === result.updateId)).toBe(true);
+    });
+
+    it('ignores non-string runtime-version values (malformed sidecar)', async () => {
+        const cwd = makeProject({ bundle: 'bundle', sidecar: { android: 123, ios: '' } });
+        // Neither is a usable fingerprint → same actionable error as no sidecar.
+        await expect(publishUpdate({ cwd })).rejects.toThrow(/sigx prebuild/);
     });
 
     it('rejects a channel with path separators / traversal (no escaping the output dir)', async () => {

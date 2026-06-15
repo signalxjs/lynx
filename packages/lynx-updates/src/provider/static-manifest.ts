@@ -197,7 +197,13 @@ export class StaticManifestProvider implements UpdateProvider {
     private async resolveEndpoint(ctx: UpdateCheckContext): Promise<ManifestEndpoint> {
         const { url } = this.options;
         const resolved = typeof url === 'function' ? await url(ctx) : url;
-        return typeof resolved === 'string' ? { url: resolved } : resolved;
+        if (typeof resolved === 'string') return { url: resolved };
+        if (resolved && typeof resolved === 'object' && typeof resolved.url === 'string') {
+            return resolved;
+        }
+        // A misbehaving resolver would otherwise throw an opaque TypeError —
+        // surface a clear, actionable error instead.
+        throw new UpdatesError('check-failed', 'Manifest `url` resolver must return a string or { url: string }');
     }
 
     async checkForUpdate(ctx: UpdateCheckContext): Promise<UpdateCheckResult> {

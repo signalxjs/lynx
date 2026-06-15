@@ -125,8 +125,15 @@ function resolveRuntimeVersions(
     }
     const source = opts.runtimeVersions ?? readRuntimeVersionsSidecar(opts.cwd) ?? {};
     const out: Array<{ platform: PublishPlatform; runtimeVersion: string }> = [];
-    if (source.android) out.push({ platform: 'android', runtimeVersion: source.android });
-    if (source.ios) out.push({ platform: 'ios', runtimeVersion: source.ios });
+    // Only accept non-empty strings — a malformed sidecar (or a non-string
+    // passed via `runtimeVersions`) must not be stamped into the manifest,
+    // where clients would later reject it.
+    for (const platform of ['android', 'ios'] as const) {
+        const value = source[platform];
+        if (typeof value === 'string' && value.length > 0) {
+            out.push({ platform, runtimeVersion: value });
+        }
+    }
     return out;
 }
 
@@ -214,7 +221,7 @@ export async function publishUpdate(opts: PublishUpdateOptions): Promise<Publish
         // predicate so a hand-edited / partially-corrupted manifest (e.g. an
         // entry missing `platforms`) is skipped rather than throwing.
         doc.updates = doc.updates.filter((e) =>
-            !(Array.isArray(e.platforms) && e.platforms.length === 1 &&
+            !(e && typeof e === 'object' && Array.isArray(e.platforms) && e.platforms.length === 1 &&
                 e.platforms[0] === platform && e.runtimeVersion === runtimeVersion),
         );
         doc.updates.push({
