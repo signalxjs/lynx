@@ -1156,6 +1156,9 @@ importers:
 
   packages/lynx-updates-publisher:
     devDependencies:
+      '@sigx/lynx-updates':
+        specifier: workspace:^
+        version: link:../lynx-updates
       '@types/node':
         specifier: ^25.9.1
         version: 25.9.3

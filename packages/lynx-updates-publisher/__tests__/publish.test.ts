@@ -3,6 +3,9 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
+// Dev-only import (test scope; not a runtime dep of the published package) — used
+// to prove the rewritten manifest passes the real client-side validator.
+import { validateUpdatesManifest } from '@sigx/lynx-updates';
 import { publishUpdate } from '../src/index';
 
 const tempDirs: string[] = [];
@@ -130,22 +133,33 @@ describe('publishUpdate', () => {
         };
         writeFileSync(
             join(channelDir, 'manifest.json'),
-            // A well-formed array with one valid entry plus several malformed ones.
+            // A well-formed array with one valid entry plus entries that are
+            // malformed in different ways — including ones that are "objecty"
+            // but still client-invalid (bad platform value, non-hex sha256).
             JSON.stringify({ schemaVersion: 1, updates: [
-                goodForeign, { id: 'broken', runtimeVersion: 'fp1-a' }, null, 'bad',
+                goodForeign,
+                { id: 'broken', runtimeVersion: 'fp1-a' },                       // missing required fields
+                { ...goodForeign, id: 'badplat', platforms: ['windows'] },       // invalid platform
+                { ...goodForeign, id: 'badsha', sha256: 'nothex' },              // sha256 not 64-hex
+                null,
+                'bad',
             ] }),
         );
 
         const result = await publishUpdate({ cwd });
         const manifest = JSON.parse(readFileSync(result.manifestPath, 'utf-8'));
 
-        // Malformed entries are dropped so the rewritten manifest stays valid…
-        expect(manifest.updates.some((e: any) => e?.id === 'broken')).toBe(false);
+        // Every kind of malformed entry is dropped…
+        for (const badId of ['broken', 'badplat', 'badsha']) {
+            expect(manifest.updates.some((e: any) => e?.id === badId)).toBe(false);
+        }
         expect(manifest.updates.some((e: any) => e === null || typeof e !== 'object')).toBe(false);
         // …the valid foreign-platform entry is preserved…
         expect(manifest.updates.some((e: any) => e.id === 'keepme')).toBe(true);
-        // …and the new entry is appended.
+        // …the new entry is appended…
         expect(manifest.updates.some((e: any) => e.platforms?.[0] === 'android' && e.id === result.updateId)).toBe(true);
+        // …and the rewritten document passes the REAL client-side validator.
+        expect(validateUpdatesManifest(manifest)).toEqual([]);
     });
 
     it('ignores non-string runtime-version values (malformed sidecar)', async () => {

@@ -138,20 +138,31 @@ function resolveRuntimeVersions(
 }
 
 /**
- * An entry worth carrying forward when republishing: an object with the
- * required string fields (and a `platforms` array). Anything else is a
- * hand-edit / corruption we drop, so the rewritten manifest stays valid.
+ * An entry worth carrying forward when republishing. This MUST stay in sync
+ * with `validateUpdatesManifest` in `@sigx/lynx-updates` (kept inline rather
+ * than imported so the publisher stays dependency-light for CI): the client
+ * rejects the WHOLE manifest if any single entry is invalid, so the rewritten
+ * document must contain only entries that pass the client's rules.
  */
 function isWellFormedEntry(e: unknown): e is ManifestEntry {
     if (!e || typeof e !== 'object') return false;
     const r = e as Record<string, unknown>;
-    return (
-        Array.isArray(r.platforms) &&
-        typeof r.version === 'string' &&
-        typeof r.runtimeVersion === 'string' && r.runtimeVersion.length > 0 &&
-        typeof r.bundleUrl === 'string' && r.bundleUrl.length > 0 &&
-        typeof r.sha256 === 'string' && r.sha256.length > 0
-    );
+    // Required non-empty strings.
+    for (const field of ['version', 'runtimeVersion', 'bundleUrl', 'sha256'] as const) {
+        if (typeof r[field] !== 'string' || (r[field] as string).length === 0) return false;
+    }
+    if (!/^[0-9a-f]{64}$/i.test(r.sha256 as string)) return false;
+    // The publisher always writes a single-platform array; require a valid one
+    // (the de-dupe filter below indexes `platforms`).
+    if (!Array.isArray(r.platforms) || !r.platforms.every((p) => p === 'android' || p === 'ios')) {
+        return false;
+    }
+    // Optional fields must still be well-typed when present.
+    for (const field of ['channel', 'id', 'createdAt'] as const) {
+        if (r[field] !== undefined && typeof r[field] !== 'string') return false;
+    }
+    if (r.mandatory !== undefined && typeof r.mandatory !== 'boolean') return false;
+    return true;
 }
 
 function readManifest(path: string): ManifestDocument {
