@@ -1,6 +1,6 @@
 {
     "name": "@sigx/lynx",
-    "version": "0.7.0",
+    "version": "0.8.0",
     "description": "sigx-lynx framework",
     "type": "module",
     "main": "./dist/index.js",
@@ -48,8 +48,8 @@
         "@sigx/lynx-core": "workspace:^",
         "@sigx/lynx-http": "workspace:^",
         "@sigx/lynx-runtime": "workspace:^",
-        "@sigx/reactivity": "^0.6.3",
-        "@sigx/runtime-core": "^0.6.3"
+        "@sigx/reactivity": "^0.7.0",
+        "@sigx/runtime-core": "^0.7.0"
     },
     "devDependencies": {
         "@typescript/native-preview": "7.0.0-dev.20260521.1",

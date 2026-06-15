@@ -1,6 +1,6 @@
 {
     "name": "@sigx/lynx-motion",
-    "version": "0.7.0",
+    "version": "0.8.0",
     "description": "Animation primitives for sigx-lynx — spring/tween drivers built on SharedValue",
     "type": "module",
     "main": "./dist/index.js",

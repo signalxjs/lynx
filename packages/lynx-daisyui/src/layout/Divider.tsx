@@ -41,9 +41,9 @@ export const Divider = component<DividerProps>(({ props, slots }) => {
   };
 
   return () => {
-    // `slots.default` always exists — presence of label content is the
-    // returned children array being non-empty.
-    const label = slots.default();
+    // A declared slot accessor is optional in the slot type; an absent
+    // `default` slot is equivalent to no label content (empty children).
+    const label = slots.default?.() ?? [];
     if (label.length === 0) {
       return <view class={getClasses()} style={getStyle()} />;
     }

@@ -1,6 +1,6 @@
 {
     "name": "@sigx/lynx-runtime",
-    "version": "0.7.0",
+    "version": "0.8.0",
     "description": "Lynx renderer for SignalX (background thread)",
     "type": "module",
     "main": "./dist/index.js",
@@ -46,8 +46,8 @@
     },
     "dependencies": {
         "@sigx/lynx-runtime-internal": "workspace:^",
-        "@sigx/reactivity": "^0.6.3",
-        "@sigx/runtime-core": "^0.6.3"
+        "@sigx/reactivity": "^0.7.0",
+        "@sigx/runtime-core": "^0.7.0"
     },
     "peerDependencies": {
         "@lynx-js/types": "*"
