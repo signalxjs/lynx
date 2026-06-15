@@ -25,15 +25,31 @@
  * `sigx updates:publish` emits this document; relative `bundleUrl`s resolve
  * against the manifest URL so the output directory can be dropped onto any
  * static host unchanged.
+ *
+ * Self-hosted / authenticated backends are supported without writing a custom
+ * provider: `url` may be an async resolver (compute the endpoint from runtime
+ * context discovered after launch — sign-in, environment selection), and
+ * `onBeforeCheck` / `onBeforeDownload` inject fresh per-request headers (a
+ * short-lived bearer token refreshed each call) on top of the static `headers`.
  */
 
 import {
     UpdatesError,
+    type DownloadSpec,
     type UpdateCheckContext,
     type UpdateCheckResult,
     type UpdateManifest,
     type UpdateProvider,
 } from '../types.js';
+
+type MaybePromise<T> = T | Promise<T>;
+type HeadersMap = Record<string, string>;
+
+/** A resolved manifest endpoint: the URL, optionally with endpoint-specific headers. */
+export interface ManifestEndpoint {
+    url: string;
+    headers?: HeadersMap;
+}
 
 export interface StaticManifestEntry extends Omit<UpdateManifest, 'id' | 'mandatory'> {
     id?: string;
@@ -50,10 +66,29 @@ export interface StaticManifestDocument {
 }
 
 export interface StaticManifestProviderOptions {
-    /** Absolute URL of the manifest JSON. */
-    url: string;
-    /** Extra headers sent with the manifest request AND bundle download. */
-    headers?: Record<string, string>;
+    /**
+     * Manifest JSON location. Either:
+     * - a static absolute URL, or
+     * - an async resolver invoked before every check — return the URL (or
+     *   `{ url, headers }`) computed from `ctx`. Use this when the backend host
+     *   isn't known until after launch (sign-in, environment selection,
+     *   per-deployment configuration). Relative `bundleUrl`s in the manifest
+     *   resolve against whichever URL the resolver returned for that check.
+     */
+    url: string | ((ctx: UpdateCheckContext) => MaybePromise<string | ManifestEndpoint>);
+    /** Static headers, merged into every manifest request AND bundle download. */
+    headers?: HeadersMap;
+    /**
+     * Per-check auth hook. Returned headers are merged over `headers` (and over
+     * any headers from the `url` resolver) for the manifest request — inject a
+     * fresh short-lived token here and refresh it inside the hook on expiry.
+     */
+    onBeforeCheck?: (ctx: UpdateCheckContext) => MaybePromise<HeadersMap>;
+    /**
+     * Per-download auth hook. Returned headers are merged over `headers` for the
+     * bundle download (a separate, often longer-lived request than the check).
+     */
+    onBeforeDownload?: (manifest: UpdateManifest, ctx: UpdateCheckContext) => MaybePromise<HeadersMap>;
     /** Injectable fetch for tests. Defaults to `globalThis.fetch`. */
     fetchImpl?: typeof globalThis.fetch;
 }
@@ -130,6 +165,15 @@ function toManifest(entry: StaticManifestEntry, manifestUrl: string): UpdateMani
     };
 }
 
+/** Merge header maps left-to-right (later wins); undefined when the result is empty. */
+function mergeHeaders(...parts: Array<HeadersMap | undefined>): HeadersMap | undefined {
+    const out: HeadersMap = {};
+    for (const part of parts) {
+        if (part) Object.assign(out, part);
+    }
+    return Object.keys(out).length > 0 ? out : undefined;
+}
+
 /** Newest entry wins: by createdAt when present, else last in array order. */
 function newest(entries: StaticManifestEntry[]): StaticManifestEntry | undefined {
     if (entries.length === 0) return undefined;
@@ -149,6 +193,13 @@ export class StaticManifestProvider implements UpdateProvider {
 
     constructor(private readonly options: StaticManifestProviderOptions) {}
 
+    /** Resolve the manifest URL (+ optional endpoint headers) for this check. */
+    private async resolveEndpoint(ctx: UpdateCheckContext): Promise<ManifestEndpoint> {
+        const { url } = this.options;
+        const resolved = typeof url === 'function' ? await url(ctx) : url;
+        return typeof resolved === 'string' ? { url: resolved } : resolved;
+    }
+
     async checkForUpdate(ctx: UpdateCheckContext): Promise<UpdateCheckResult> {
         const fetchImpl = this.options.fetchImpl ?? globalThis.fetch;
         if (typeof fetchImpl !== 'function') {
@@ -156,8 +207,18 @@ export class StaticManifestProvider implements UpdateProvider {
         }
 
         let doc: unknown;
+        // Assigned inside the try before any throw the catch re-raises, so it is
+        // always set by the time selection runs below.
+        let manifestUrl!: string;
         try {
-            const res = await fetchImpl(this.options.url, { headers: this.options.headers });
+            const endpoint = await this.resolveEndpoint(ctx);
+            manifestUrl = endpoint.url;
+            const headers = mergeHeaders(
+                this.options.headers,
+                endpoint.headers,
+                await this.options.onBeforeCheck?.(ctx),
+            );
+            const res = await fetchImpl(endpoint.url, { headers });
             if (!res.ok) {
                 throw new UpdatesError('check-failed', `Manifest request failed: HTTP ${res.status}`);
             }
@@ -181,7 +242,7 @@ export class StaticManifestProvider implements UpdateProvider {
         const compatible = candidates.filter((e) => e.runtimeVersion === ctx.runtimeVersion);
         const best = newest(compatible);
         if (best) {
-            const manifest = toManifest(best, this.options.url);
+            const manifest = toManifest(best, manifestUrl);
             return manifest.id === ctx.currentUpdateId
                 ? { type: 'up-to-date' }
                 : { type: 'update-available', manifest };
@@ -192,16 +253,16 @@ export class StaticManifestProvider implements UpdateProvider {
         // exists but needs a store update".
         const incompatible = newest(candidates);
         if (incompatible) {
-            return { type: 'incompatible', manifest: toManifest(incompatible, this.options.url) };
+            return { type: 'incompatible', manifest: toManifest(incompatible, manifestUrl) };
         }
         return { type: 'up-to-date' };
     }
 
-    async resolveDownload(manifest: UpdateManifest) {
+    async resolveDownload(manifest: UpdateManifest, ctx: UpdateCheckContext): Promise<DownloadSpec> {
         return {
             url: manifest.bundleUrl,
             sha256: manifest.sha256,
-            headers: this.options.headers,
+            headers: mergeHeaders(this.options.headers, await this.options.onBeforeDownload?.(manifest, ctx)),
         };
     }
 }

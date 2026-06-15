@@ -3,6 +3,7 @@ export { useUpdates } from './use-updates.js';
 export {
     StaticManifestProvider,
     validateUpdatesManifest,
+    type ManifestEndpoint,
     type StaticManifestDocument,
     type StaticManifestEntry,
     type StaticManifestProviderOptions,

@@ -200,6 +200,36 @@ describe('configure + modes', () => {
         await settle();
         expect(native.markReady).toHaveBeenCalledOnce();
         expect(provider.checks).toBe(1);
+
+        Updates.configure({ provider, mode: 'silent' });
+        await settle();
+        expect(native.markReady).toHaveBeenCalledOnce();
+        expect(provider.checks).toBe(1);
+    });
+
+    it('re-configuring swaps the provider for later checks without re-running the launch check', async () => {
+        // Backend discovered after launch (sign-in / environment selection):
+        // a second configure() replaces the provider. The latched bootstrap
+        // must NOT re-run the launch check, but later checks use the new one.
+        stubNative();
+        const first = new ScriptedProvider();
+        first.result = { type: 'up-to-date' };
+        Updates.configure({ provider: first, mode: 'silent' });
+        await settle();
+        expect(first.checks).toBe(1); // launch check ran via the first provider
+
+        const second = new ScriptedProvider();
+        second.result = { type: 'update-available', manifest: manifest({ id: 'fromsecond' }) };
+        Updates.configure({ provider: second, mode: 'silent' });
+        await settle();
+        expect(second.checks).toBe(0); // no duplicate launch check on re-configure
+
+        const result = await Updates.checkForUpdate();
+        expect(second.checks).toBe(1); // the explicit check hit the NEW provider
+        expect(first.checks).toBe(1);  // the old provider is untouched
+        expect(result.type).toBe('update-available');
+        if (result.type !== 'update-available') return;
+        expect(result.manifest.id).toBe('fromsecond');
     });
 
     it('autoMarkReady (default) calls native markReady after configure', async () => {

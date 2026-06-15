@@ -3,6 +3,11 @@
  * `UpdateProvider` backend contract, and the reactive state machine.
  */
 
+// Type-only import (erased at runtime, so no import cycle with the provider):
+// lets the `UpdatesConfig.provider` shorthand accept the full static-manifest
+// options — including the async `url` resolver and the auth hooks.
+import type { StaticManifestProviderOptions } from './provider/static-manifest.js';
+
 export type UpdatePlatform = 'android' | 'ios';
 
 /** A single published update, as resolved by a provider. */
@@ -161,9 +166,11 @@ export type UpdateMode = 'silent' | 'immediate' | 'manual';
 export interface UpdatesConfig {
     /**
      * Provider instance, or shorthand for the built-in static-manifest
-     * provider (`{ url }` → fetch that JSON manifest).
+     * provider (`{ url }` → fetch that JSON manifest; the shorthand also
+     * accepts the async `url` resolver and `onBeforeCheck`/`onBeforeDownload`
+     * auth hooks — see {@link StaticManifestProviderOptions}).
      */
-    provider: UpdateProvider | { url: string; headers?: Record<string, string> };
+    provider: UpdateProvider | StaticManifestProviderOptions;
     /** Release channel. Default: the baked `__SIGX_UPDATES_CHANNEL__` define (usually 'production'). */
     channel?: string;
     /** Update mode. Default `'silent'`. */
