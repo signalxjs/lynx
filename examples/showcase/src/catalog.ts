@@ -66,6 +66,13 @@ export const catalog: Area[] = [
                 route: 'foundation',
             },
             {
+                id: 'directives',
+                title: 'Directives (use:show)',
+                description: 'use:show — toggle visibility without unmount/remount; preserves state',
+                icon: { set: 'lucide', name: 'eye' },
+                route: 'directives',
+            },
+            {
                 id: 'icons',
                 title: 'Icons',
                 description: 'Font Awesome + Lucide adapters, themed and dynamic names',
