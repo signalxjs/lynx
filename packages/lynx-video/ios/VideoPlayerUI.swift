@@ -77,8 +77,12 @@ public class VideoPlayerUI: LynxUI<UIView> {
 
     // MARK: - Prop setters
 
-    @objc public func setSrc(_ value: NSString?, requestReset: Bool) {
-        let raw = (value as String?) ?? ""
+    // Params are `Any?`, not `NSString?`: Lynx delivers JS `null` (and any unset
+    // optional string prop) as `NSNull`. Casting via `value as String?` then
+    // messages `NSNull` with `-length` and crashes (`-[NSNull length]`);
+    // the type-checked `value as? String` returns nil for `NSNull` instead.
+    @objc public func setSrc(_ value: Any?, requestReset: Bool) {
+        let raw = (value as? String) ?? ""
         if raw.isEmpty {
             // Clearing the prop must actually stop and release the current
             // asset — otherwise a re-render that drops `src` would leave
@@ -101,8 +105,8 @@ public class VideoPlayerUI: LynxUI<UIView> {
         return ["src", "setSrc:requestReset:", "NSString *"]
     }
 
-    @objc public func setPoster(_ value: NSString?, requestReset: Bool) {
-        guard let raw = value as String?, !raw.isEmpty, let url = resolveURL(raw) else {
+    @objc public func setPoster(_ value: Any?, requestReset: Bool) {
+        guard let raw = value as? String, !raw.isEmpty, let url = resolveURL(raw) else {
             posterView?.removeFromSuperview()
             posterView = nil
             return
@@ -191,8 +195,8 @@ public class VideoPlayerUI: LynxUI<UIView> {
         return ["controls", "setControls:requestReset:", "BOOL"]
     }
 
-    @objc public func setResizeMode(_ value: NSString?, requestReset: Bool) {
-        let mode = (value as String?) ?? "contain"
+    @objc public func setResizeMode(_ value: Any?, requestReset: Bool) {
+        let mode = (value as? String) ?? "contain"
         let gravity: AVLayerVideoGravity
         switch mode {
         case "cover":   gravity = .resizeAspectFill

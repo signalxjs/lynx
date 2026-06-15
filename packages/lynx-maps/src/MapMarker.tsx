@@ -33,12 +33,24 @@ export type MapMarkerProps =
  * draggable pins, no callout views. Those land in v2.
  */
 export const MapMarker = component<MapMarkerProps>(({ props }) => {
-    return () => (
-        <sigx-map-marker
-            coordinate={JSON.stringify(props.coordinate)}
-            title={props.title}
-            description={props.description}
-            marker-id={props.id}
-        />
-    );
+    return () => {
+        // Only attach the optional native string props when set — an
+        // `undefined` JSX attribute is serialized to `null` over the op queue
+        // and crashes the native `NSString *` setter (`-[NSNull length]`).
+        // `coordinate` is required, so it is always emitted. See Map.tsx / #475.
+        const optionalProps: {
+            title?: string;
+            description?: string;
+            'marker-id'?: string;
+        } = {};
+        if (props.title != null) optionalProps.title = props.title;
+        if (props.description != null) optionalProps.description = props.description;
+        if (props.id != null) optionalProps['marker-id'] = props.id;
+        return (
+            <sigx-map-marker
+                coordinate={JSON.stringify(props.coordinate)}
+                {...optionalProps}
+            />
+        );
+    };
 });
