@@ -4,7 +4,21 @@
  */
 import { createRenderer } from '@sigx/runtime-core/internals';
 import type { RendererOptions } from '@sigx/runtime-core/internals';
+// Importing the directive runtime from @sigx/lynx also runs @sigx/lynx-runtime's
+// side effects (which register the real `show`); we then override `show` below
+// with the test-host implementation. ES module side effects run once, so the
+// override is final regardless of later @sigx/lynx imports by the components
+// under test, and only files importing @sigx/lynx-testing are affected.
+import {
+  patchDirective as runDirective,
+  onElementMounted as runDirectiveMounted,
+  onElementUnmounted as runDirectiveUnmounted,
+  registerBuiltInDirective,
+} from '@sigx/lynx';
 import { TestNode } from './test-node.js';
+import { testShow } from './directives.js';
+
+registerBuiltInDirective('show', testShow);
 
 const nodeOps: RendererOptions<TestNode, TestNode> = {
   createElement(type: string): TestNode {
@@ -66,7 +80,8 @@ const nodeOps: RendererOptions<TestNode, TestNode> = {
     nextValue: unknown,
   ): void {
     if (key === 'style') {
-      el._style = (nextValue as Record<string, unknown>) ?? {};
+      el._rawStyle = (nextValue as Record<string, unknown>) ?? {};
+      el._applyStyle(); // recompute effective _style (honors use:show)
       el.props[key] = nextValue;
     } else if (key === 'class') {
       el._class = (nextValue as string) ?? '';
@@ -107,6 +122,20 @@ const nodeOps: RendererOptions<TestNode, TestNode> = {
 
   cloneNode(node: TestNode): TestNode {
     return new TestNode(node.type);
+  },
+
+  // use:* directive lifecycle — delegate to the shared host-agnostic runtime
+  // so custom directives work under test and `use:show` toggles visibility.
+  patchDirective(el, name, prevValue, nextValue, appContext): void {
+    runDirective(el, name, prevValue, nextValue, appContext);
+  },
+
+  onElementMounted(el): void {
+    runDirectiveMounted(el);
+  },
+
+  onElementUnmounted(el): void {
+    runDirectiveUnmounted(el);
   },
 };
 

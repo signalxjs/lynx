@@ -37,10 +37,22 @@ import type { ShadowElement } from '../shadow-element.js';
  */
 export type LynxDirective<T = any> = DirectiveDefinition<T, ShadowElement>;
 
-/** Per-directive state stored on a {@link ShadowElement}. @internal */
+/** Per-directive state stored on a host element. @internal */
 export interface DirectiveState {
   def: DirectiveDefinition;
   value: any;
+}
+
+/**
+ * The minimal host-element shape this runtime needs: a slot to stash per-element
+ * directive state. `ShadowElement` (the real renderer) and `TestNode`
+ * (`@sigx/lynx-testing`) both satisfy it, so the lifecycle driver below is
+ * host-agnostic — only the directive *definitions* (e.g. `show`) are
+ * platform-specific.
+ * @internal
+ */
+export interface DirectiveHost {
+  _directives?: Map<string, DirectiveState>;
 }
 
 /**
@@ -65,7 +77,7 @@ export function resolveBuiltInDirective(name: string): DirectiveDefinition | und
   return builtInDirectives.get(name);
 }
 
-function getDirectiveMap(el: ShadowElement): Map<string, DirectiveState> {
+function getDirectiveMap(el: DirectiveHost): Map<string, DirectiveState> {
   let map = el._directives;
   if (!map) {
     map = new Map();
@@ -81,7 +93,7 @@ function getDirectiveMap(el: ShadowElement): Map<string, DirectiveState> {
  * @internal
  */
 export function patchDirective(
-  el: ShadowElement,
+  el: DirectiveHost,
   name: string,
   _prevValue: unknown,
   nextValue: unknown,
@@ -169,7 +181,7 @@ export function patchDirective(
  * inserted. Called by `nodeOps.onElementMounted`.
  * @internal
  */
-export function onElementMounted(el: ShadowElement): void {
+export function onElementMounted(el: DirectiveHost): void {
   const map = el._directives;
   if (!map) return;
   for (const [, state] of map) {
@@ -183,7 +195,7 @@ export function onElementMounted(el: ShadowElement): void {
  * `nodeOps.onElementUnmounted`.
  * @internal
  */
-export function onElementUnmounted(el: ShadowElement): void {
+export function onElementUnmounted(el: DirectiveHost): void {
   const map = el._directives;
   if (!map) return;
   for (const [, state] of map) {

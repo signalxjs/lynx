@@ -37,7 +37,7 @@ export {
   onElementMounted,
   onElementUnmounted,
 } from './directives/index.js';
-export type { LynxDirective } from './directives/index.js';
+export type { LynxDirective, DirectiveHost, DirectiveState } from './directives/index.js';
 export { pushOp, takeOps, scheduleFlush, flushNow, resetOpQueue } from './op-queue.js';
 export { OP } from '@sigx/lynx-runtime-internal';
 export type {

@@ -1,3 +1,5 @@
+import type { DirectiveState } from '@sigx/lynx';
+
 /**
  * TestNode — lightweight in-memory tree node for test rendering.
  * Replaces ShadowElement + Lynx PAPI for testing purposes.
@@ -12,14 +14,49 @@ export class TestNode {
   /** Event handlers keyed by prop name (e.g. 'bindtap', 'bindtouchstart'). */
   _handlers: Map<string, Function> = new Map();
 
-  /** Style object (last value from patchProp 'style'). */
+  /**
+   * Effective style — the raw style merged with the `show` directive's
+   * visibility (`display:none` when hidden). This is what assertions read, so
+   * `use:show` is observable in the test tree (mirrors the real renderer, where
+   * the effective style is what gets pushed to the main thread).
+   */
   _style: Record<string, unknown> = {};
+
+  /** Raw style last set via patchProp('style'), before the `show` merge. */
+  _rawStyle: Record<string, unknown> = {};
+
+  /** Set by the `show` directive when the element should be hidden. */
+  _vShowHidden = false;
+
+  /** Per-name state for `use:*` directives (managed by the shared runtime). */
+  _directives?: Map<string, DirectiveState>;
 
   /** Class string. */
   _class = '';
 
   constructor(type: string) {
     this.type = type;
+  }
+
+  /**
+   * Recompute the effective `_style` from `_rawStyle` + `_vShowHidden`. Called
+   * by the test renderer's patchProp and by the test `show` directive.
+   */
+  _applyStyle(): void {
+    this._style = this._vShowHidden
+      ? { ...this._rawStyle, display: 'none' }
+      : this._rawStyle;
+  }
+
+  /**
+   * Whether the node is currently visible — i.e. its effective style isn't
+   * `display: 'none'`. This reflects the *result*, so a `use:show={false}` or an
+   * explicit `style={{ display: 'none' }}` both read as not visible (usually
+   * what you want to assert). Read `_vShowHidden` if you need the `use:show`
+   * state specifically.
+   */
+  get isVisible(): boolean {
+    return this._style['display'] !== 'none';
   }
 
   // -- Tree queries --
