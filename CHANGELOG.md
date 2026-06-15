@@ -4,6 +4,10 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-06-15
+
+Adopts **sigx core 0.7.0** (`@sigx/reactivity` / `@sigx/runtime-core`) across the runtime, and ships the accumulated backlog: the `use:*` directive system with the built-in `show` directive, the `Platform` API with build-time platform splitting, the W3C-shaped `@sigx/lynx-webrtc` module, and `@sigx/lynx-device-info` folded into `@sigx/lynx-core` (breaking `DeviceInfo` shape).
+
 ### Added
 
 - `@sigx/lynx-runtime` — `use:*` directive system wired into the renderer, with the built-in **`show`** directive. `use:show={cond}` toggles an element's visibility via `display` while keeping it mounted (a single style op + preserved native state like input focus/value and scroll position), unlike conditional rendering which unmounts/remounts. Define custom directives with `defineDirective` (typed via the `LynxDirective`/`DirectiveAttribute` helpers) and register them with `registerBuiltInDirective` or per-app `app.directive()`. Also fixes a latent style-dedup issue where a `show`-hidden element re-emitted `display:none` on every re-render (#491).
@@ -14,6 +18,8 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 ### Changed
 
 - `@sigx/lynx-core` — `DeviceInfo.getInfo()` now resolves a **platform-discriminated** `DeviceInfoResult` instead of returning the raw native payload verbatim. The native modules normalize to one documented shape: a guaranteed common core (`platform`, `manufacturer`, `model`, `brand`, `systemName`, `systemVersion`, `appVersion`, `deviceId`, `screenWidth`, `screenHeight`, `screenScale`) plus a `platform` discriminant narrowing to per-platform extras (`IosDeviceInfo`: `modelName`, `appBuildNumber`, `bundleId`; `AndroidDeviceInfo`: `sdkVersion`, `appPackage`). Breaking: `screenWidth`/`screenHeight` are now density-independent points (dp/pt) on **both** platforms — Android previously reported physical pixels — and `screenDensity` was renamed to `screenScale` (the dp→px multiplier). Re-run `sigx prebuild` to pick up the native changes (#486).
+- `@sigx/lynx-runtime`, `@sigx/lynx`, `@sigx/lynx-appearance`, `@sigx/lynx-safe-area`, `@sigx/lynx-testing` — adopt **sigx core 0.7.0**: `@sigx/reactivity` and `@sigx/runtime-core` bumped `^0.6.3` → `^0.7.0`. Core 0.7.0 types a declared slot accessor as optional, so `@sigx/lynx-daisyui`'s `<Divider>` now calls `slots.default?.()` (an absent `default` slot is treated as no label content) (#499).
+- `@sigx/lynx-cli` — bump the sigx CLI toolchain: `@sigx/cli` `^0.4.1` → `^0.4.2` and `@sigx/terminal` `^0.5.0` → `^0.6.1` (#499).
 
 ### Removed
 
