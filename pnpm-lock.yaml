@@ -165,11 +165,11 @@ importers:
         specifier: workspace:^
         version: link:../../packages/lynx-zero
       '@sigx/reactivity':
-        specifier: ^0.6.0
-        version: 0.6.0
+        specifier: ^0.6.3
+        version: 0.6.3
       '@sigx/runtime-core':
-        specifier: ^0.6.0
-        version: 0.6.0
+        specifier: ^0.6.3
+        version: 0.6.3
       lucide:
         specifier: ^1.16.0
         version: 1.16.0
@@ -238,11 +238,11 @@ importers:
         specifier: workspace:^
         version: link:../lynx-runtime
       '@sigx/reactivity':
-        specifier: ^0.6.0
-        version: 0.6.0
+        specifier: ^0.6.3
+        version: 0.6.3
       '@sigx/runtime-core':
-        specifier: ^0.6.0
-        version: 0.6.0
+        specifier: ^0.6.3
+        version: 0.6.3
     devDependencies:
       '@typescript/native-preview':
         specifier: 7.0.0-dev.20260521.1
@@ -260,8 +260,8 @@ importers:
         specifier: workspace:^
         version: link:../lynx-core
       '@sigx/reactivity':
-        specifier: ^0.6.0
-        version: 0.6.0
+        specifier: ^0.6.3
+        version: 0.6.3
     devDependencies:
       '@sigx/lynx-plugin':
         specifier: workspace:^
@@ -980,11 +980,11 @@ importers:
         specifier: workspace:^
         version: link:../lynx-runtime-internal
       '@sigx/reactivity':
-        specifier: ^0.6.0
-        version: 0.6.0
+        specifier: ^0.6.3
+        version: 0.6.3
       '@sigx/runtime-core':
-        specifier: ^0.6.0
-        version: 0.6.0
+        specifier: ^0.6.3
+        version: 0.6.3
     devDependencies:
       '@typescript/native-preview':
         specifier: 7.0.0-dev.20260521.1
@@ -1030,8 +1030,8 @@ importers:
         specifier: workspace:^
         version: link:../lynx-runtime-internal
       '@sigx/reactivity':
-        specifier: ^0.6.0
-        version: 0.6.0
+        specifier: ^0.6.3
+        version: 0.6.3
     devDependencies:
       '@sigx/lynx-plugin':
         specifier: workspace:^
@@ -1116,8 +1116,8 @@ importers:
         specifier: workspace:^
         version: link:../lynx
       '@sigx/runtime-core':
-        specifier: ^0.6.0
-        version: 0.6.0
+        specifier: ^0.6.3
+        version: 0.6.3
     devDependencies:
       '@lynx-js/react':
         specifier: ^0.121.0
@@ -2369,16 +2369,16 @@ packages:
     resolution: {integrity: sha512-YIvfliXJ1UAf2ypC8nIzo/qFwwrUK8BzQnns83onb9b5nfcRADj93iwYDgeqGDrDBMiHZ4QDu5TxXQt2d4zjog==}
     engines: {node: ^20.19.0 || >=22.12.0}
 
-  '@sigx/reactivity@0.6.0':
-    resolution: {integrity: sha512-s51qJ/MXEhWRkoccXAHDX7ERRlFytcbrM/5f7SV+9S0JK9x9MpSxwV2Y7CBpLz1CfZE5JoxqnEWLCFssG5DG3Q==}
+  '@sigx/reactivity@0.6.3':
+    resolution: {integrity: sha512-YJOxBxaDY3EoyckTo5m2bYRpBupQN5gmMYBc+v/fCzx50NC13KnDOUlkpNZ6CNOcrZpWSp/RrVOYdmuXyczI1Q==}
     engines: {node: ^20.19.0 || >=22.12.0}
 
   '@sigx/runtime-core@0.4.9':
     resolution: {integrity: sha512-7XoYZrjT4DCSgivgOXEAUj/7V7ebVlI13SlxWUO5ZYM7GZz4Xg1uYDg6ibjSTEFvSQ+5XESWZT4ViV8Uoi4B3g==}
     engines: {node: ^20.19.0 || >=22.12.0}
 
-  '@sigx/runtime-core@0.6.0':
-    resolution: {integrity: sha512-nFLrzsefS7T2kJK6q7yPT5aY/1UG2hmaj9m1LOhy+Ly6+SXOroIRh7S2mVVwHOgyxnsMqyA3R0MUZpf+u68AvQ==}
+  '@sigx/runtime-core@0.6.3':
+    resolution: {integrity: sha512-g148a1uWxDdOYtYuioQpcxiEJCF3LJ3cPa4Rne5FChijlQqgkeq1sTMpMmNQieRGgtjZmomE0gFhSkrABdzMsQ==}
     engines: {node: ^20.19.0 || >=22.12.0}
 
   '@sigx/runtime-terminal@0.5.0':
@@ -5373,15 +5373,15 @@ snapshots:
 
   '@sigx/reactivity@0.4.9': {}
 
-  '@sigx/reactivity@0.6.0': {}
+  '@sigx/reactivity@0.6.3': {}
 
   '@sigx/runtime-core@0.4.9':
     dependencies:
       '@sigx/reactivity': 0.4.9
 
-  '@sigx/runtime-core@0.6.0':
+  '@sigx/runtime-core@0.6.3':
     dependencies:
-      '@sigx/reactivity': 0.6.0
+      '@sigx/reactivity': 0.6.3
 
   '@sigx/runtime-terminal@0.5.0':
     dependencies:
