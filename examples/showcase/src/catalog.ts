@@ -66,6 +66,13 @@ export const catalog: Area[] = [
                 route: 'foundation',
             },
             {
+                id: 'directives',
+                title: 'Directives (use:show)',
+                description: 'use:show — toggle visibility without unmount/remount; preserves state',
+                icon: { set: 'lucide', name: 'eye' },
+                route: 'directives',
+            },
+            {
                 id: 'icons',
                 title: 'Icons',
                 description: 'Font Awesome + Lucide adapters, themed and dynamic names',
@@ -334,6 +341,13 @@ export const catalog: Area[] = [
                 description: 'Impact, notification and selection feedback',
                 icon: { set: 'lucide', name: 'vibrate' },
                 route: 'hapticsDemo',
+            },
+            {
+                id: 'webrtc',
+                title: 'WebRTC',
+                description: 'Loopback echo call — mic, remote audio, data channel',
+                icon: { set: 'lucide', name: 'phone-call' },
+                route: 'webrtcDemo',
             },
         ],
     },

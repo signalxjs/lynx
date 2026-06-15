@@ -64,7 +64,7 @@ export const Map = component<MapProps>(({ props }) => {
         // as `NSNull` and crashes it (`-[NSNull length]`). Omitting the
         // attribute keeps it off the wire entirely. The native setters are also
         // hardened against `NSNull` as a backstop (covers prop removal). #475
-        const nativeProps: Record<string, unknown> = {};
+        const nativeProps: { region?: string; 'map-type'?: MapType } = {};
         if (props.region != null) nativeProps.region = JSON.stringify(props.region);
         if (props.mapType != null) nativeProps['map-type'] = props.mapType;
         return (

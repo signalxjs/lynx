@@ -259,9 +259,10 @@ function setNativeConnectionState(connected: boolean): void {
 
 /**
  * Async, authoritative platform probe via the dev-client's own native
- * module. Mirrors the @sigx/lynx-device-info pattern (NativeModules bridge
- * call) but avoids a hard dep on lynx-device-info — the dev-client's own
- * `DevClient` native module is always linked when the streamer is active.
+ * module. Uses the standard NativeModules bridge call, but via the
+ * dev-client's own `DevClient` native module (always linked when the streamer
+ * is active) rather than a shared device-info module — so the dev-client keeps
+ * its tri-state `'unknown'` semantics that drive this upgrade.
  *
  * Never throws. Resolves with `undefined` when the module isn't available
  * (e.g. older host runtime, JSDOM tests) so callers can fall back silently.

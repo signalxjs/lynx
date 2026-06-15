@@ -1,7 +1,7 @@
 {
-    "name": "@sigx/lynx-device-info",
+    "name": "@sigx/lynx-webrtc",
     "version": "0.7.0",
-    "description": "Device information for sigx-lynx",
+    "description": "W3C-shaped WebRTC for sigx-lynx: peer connections, audio tracks, data channels",
     "type": "module",
     "main": "./dist/index.js",
     "types": "./dist/index.d.ts",
@@ -21,23 +21,26 @@
     "scripts": {
         "build": "node ../../scripts/clean.mjs dist && tsgo",
         "dev": "tsgo --watch",
+        "test": "vitest run",
         "clean": "node ../../scripts/clean.mjs dist .turbo"
     },
     "dependencies": {
-        "@sigx/lynx-core": "workspace:^"
+        "@sigx/lynx-core": "workspace:^",
+        "@sigx/lynx-permissions": "workspace:^"
     },
     "devDependencies": {
         "@typescript/native-preview": "7.0.0-dev.20260521.1",
-        "typescript": "^6.0.3"
+        "typescript": "^6.0.3",
+        "vitest": "^4.1.7"
     },
     "author": "Andreas Ekdahl",
     "license": "MIT",
     "repository": {
         "type": "git",
         "url": "git+https://github.com/signalxjs/lynx.git",
-        "directory": "packages/lynx-device-info"
+        "directory": "packages/lynx-webrtc"
     },
-    "homepage": "https://sigx.dev/lynx/modules/device-info/overview/",
+    "homepage": "https://sigx.dev/lynx/modules/webrtc/overview/",
     "bugs": {
         "url": "https://github.com/signalxjs/lynx/issues"
     },
@@ -51,6 +54,10 @@
         "mobile",
         "ios",
         "android",
-        "device-info"
+        "webrtc",
+        "rtc",
+        "peerconnection",
+        "voip",
+        "realtime"
     ]
 }

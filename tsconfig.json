@@ -37,9 +37,6 @@
       "@sigx/lynx-dev-client": [
         "./packages/lynx-dev-client/src/index.ts"
       ],
-      "@sigx/lynx-device-info": [
-        "./packages/lynx-device-info/src/index.ts"
-      ],
       "@sigx/lynx-file-system": [
         "./packages/lynx-file-system/src/index.ts"
       ],
@@ -102,6 +99,9 @@
       ],
       "@sigx/lynx-websocket": [
         "./packages/lynx-websocket/src/index.ts"
+      ],
+      "@sigx/lynx-webrtc": [
+        "./packages/lynx-webrtc/src/index.ts"
       ],
       "@sigx/lynx-heroui": [
         "./packages/lynx-heroui/src/index.ts"

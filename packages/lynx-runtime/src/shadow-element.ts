@@ -7,6 +7,8 @@
  * Regular elements start from id=2.
  */
 
+import type { DirectiveState } from './directives/index.js';
+
 export class ShadowElement {
   static nextId = 2; // 1 is reserved for the page root
 
@@ -18,11 +20,21 @@ export class ShadowElement {
   prev: ShadowElement | null = null;
   next: ShadowElement | null = null;
 
-  // Cached style object (last value passed to patchProp 'style').
-  // Used by vShow to merge display:none without losing the original styles.
+  // Cached RAW style object (last normalized value passed to patchProp 'style').
+  // The source of truth for the `show` directive, which merges display:none on
+  // top without losing the user's original styles.
   _style: Record<string, unknown> = {};
-  // Set to true by vShow when the element should be hidden.
+  // Last *effective* style actually pushed via SET_STYLE (raw style, possibly
+  // merged with display:none for `show`). Dedup key for SET_STYLE ops — kept
+  // separate from _style so toggling _vShowHidden re-emits correctly and a
+  // hidden element doesn't re-push display:none on every unrelated re-render.
+  _lastPushedStyle: Record<string, unknown> | null = null;
+  // Set to true by the `show` directive when the element should be hidden.
   _vShowHidden = false;
+
+  // Per-name state for `use:*` directives (created/mounted/updated/unmounted),
+  // lazily created on first directive. Undefined for the common no-directive case.
+  _directives?: Map<string, DirectiveState>;
 
   // Class management for Transition support.
   _baseClass = '';

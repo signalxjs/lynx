@@ -9,6 +9,7 @@ import { Appearance } from './screens/Appearance.js';
 import { Theming } from './screens/Theming.js';
 import { HeroUILab } from './screens/HeroUILab.js';
 import { Foundation } from './screens/Foundation.js';
+import { DirectivesDemo } from './screens/DirectivesDemo.js';
 import { Icons } from './screens/Icons.js';
 import { SystemBars } from './screens/SystemBars.js';
 import { SheetDemo } from './screens/SheetDemo.js';
@@ -43,6 +44,7 @@ import { BackgroundTasks } from './screens/BackgroundTasks.js';
 import { StorageDemo } from './screens/StorageDemo.js';
 import { SqliteChatDemo } from './screens/SqliteChatDemo.js';
 import { HapticsDemo } from './screens/HapticsDemo.js';
+import { WebRTCDemo } from './screens/WebRTCDemo.js';
 
 export const routes = defineRoutes({
     // Home is the root of the single global stack: search + grouped catalog.
@@ -75,6 +77,7 @@ export const routes = defineRoutes({
     theming: { component: Theming, path: '/theming' },
     herouiLab: { component: HeroUILab, path: '/heroui-lab' },
     foundation: { component: Foundation, path: '/foundation' },
+    directives: { component: DirectivesDemo, path: '/directives' },
     icons: { component: Icons, path: '/icons' },
     systemBars: { component: SystemBars, path: '/system-bars' },
     // Bottom sheet: the route IS the sheet — pushing it slides the demo
@@ -118,6 +121,7 @@ export const routes = defineRoutes({
     storageDemo: { component: StorageDemo, path: '/storage' },
     sqliteChatDemo: { component: SqliteChatDemo, path: '/sqlite-chat' },
     hapticsDemo: { component: HapticsDemo, path: '/haptics' },
+    webrtcDemo: { component: WebRTCDemo, path: '/webrtc' },
 });
 
 declare module '@sigx/lynx-navigation' {

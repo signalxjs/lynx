@@ -1,0 +1,49 @@
+{
+    "name": "WebRTC",
+    "package": "@sigx/lynx-webrtc",
+    "description": "W3C-shaped WebRTC: peer connections, audio tracks, data channels",
+    "platforms": ["android", "ios"],
+    "ios": {
+        "moduleClass": "WebRTCModule",
+        "publisherClass": "WebRTCPublisher",
+        "sourceDir": "ios",
+        "methods": [
+            "getUserMedia",
+            "requestPermission",
+            "getPermissionStatus",
+            "createPeer",
+            "createOffer",
+            "createAnswer",
+            "setLocalDescription",
+            "setRemoteDescription",
+            "addIceCandidate",
+            "addTrack",
+            "removeTrack",
+            "createDataChannel",
+            "dcSend",
+            "dcClose",
+            "setTrackEnabled",
+            "stopTrack",
+            "closePeer",
+            "setAudioOutput"
+        ],
+        "pods": { "WebRTC-SDK": "125.6422.07" },
+        "usageDescriptions": {
+            "NSMicrophoneUsageDescription": "Allow microphone access for voice calls."
+        },
+        "backgroundModes": ["audio"]
+    },
+    "android": {
+        "moduleClass": "com.sigx.webrtc.WebRTCModule",
+        "publisherClass": "com.sigx.webrtc.WebRTCPublisher",
+        "sourceDir": "android",
+        "dependencies": ["io.github.webrtc-sdk:android:125.6422.07"],
+        "permissions": [
+            "android.permission.RECORD_AUDIO",
+            "android.permission.MODIFY_AUDIO_SETTINGS"
+        ],
+        "features": [
+            { "name": "android.hardware.microphone", "required": false }
+        ]
+    }
+}

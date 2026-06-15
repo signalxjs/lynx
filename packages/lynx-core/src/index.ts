@@ -11,6 +11,15 @@ export { getModule, callSync, callAsync, isModuleAvailable, guardModule } from '
 export { base64ToArrayBuffer, arrayBufferToBase64 } from './base64.js';
 export type { PermissionStatus, PermissionResponse } from './permissions.js';
 
+// Platform checks + select(), sourced from the Lynx SystemInfo global.
+export { Platform, OS, select } from './platform.js';
+export type { PlatformOS, PlatformSelectSpec } from './platform.js';
+
+// Device information (async, native-backed). Complements the synchronous
+// Platform surface; served by core's own native module.
+export { DeviceInfo } from './device-info.js';
+export type { DeviceInfoResult, IosDeviceInfo, AndroidDeviceInfo } from './device-info.js';
+
 // Logging — leveled + namespaced logger usable by any package (see logger.ts).
 export {
     createLogger,

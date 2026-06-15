@@ -200,7 +200,9 @@ class SqliteModule(context: Context) : LynxModule(context) {
                     bindParams(q, params)
                     SQLiteCursor(driver, editTable, q)
                 },
-                sql, null, null,
+                // editTable is annotated non-null in current SDKs; "" means
+                // no editable table, which is right for a read-only query.
+                sql, null, "",
             )
         }
         val rows = JavaOnlyArray()

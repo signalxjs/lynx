@@ -17,8 +17,9 @@
  * the imports — see lynx-runtime README for details.
  */
 
-import type { Model } from '@sigx/runtime-core';
+import type { Model, DirectiveDefinition } from '@sigx/runtime-core';
 import type { MainThreadRef } from './main-thread-ref.js';
+import type { ShadowElement } from './shadow-element.js';
 
 // ---------------------------------------------------------------------------
 // Common Lynx event handler types
@@ -63,7 +64,13 @@ export namespace MainThread {
 // Common attributes shared by all Lynx elements
 // ---------------------------------------------------------------------------
 
-export interface LynxCommonAttributes {
+// `extends`: every intrinsic element accepts `use:*` directive props — the
+// `use:${string}` catch-all (UseDirectiveAttributes) lets any custom directive
+// compile, while named built-ins like `use:show` get IntelliSense +
+// value-typing from JSX.DirectiveAttributeExtensions. (Directives apply to host
+// elements only, so this lives on the element base, not IntrinsicAttributes.)
+export interface LynxCommonAttributes
+    extends UseDirectiveAttributes, JSX.DirectiveAttributeExtensions {
     /** Unique identifier */
     id?: string;
     /** CSS class name(s) */
@@ -437,8 +444,45 @@ export interface FilterImageAttributes extends LynxCommonAttributes {
 // emitted .d.ts doesn't double-declare it across consumers.
 type DataAriaAttributes = Record<`data-${string}` | `aria-${string}`, unknown>;
 
+// `use:*` directive props. Declared as a module-scope mapped type for the same
+// reason as DataAriaAttributes (tsgo rejects multiple template-literal index
+// signatures on one interface). This is the catch-all that lets any custom
+// directive compile; named built-ins like `use:show` add IntelliSense via
+// JSX.DirectiveAttributeExtensions.
+type UseDirectiveAttributes = Record<`use:${string}`, unknown>;
+
+/**
+ * The value shape a `use:<name>` prop accepts: the bare value (shorthand — the
+ * directive must be registered), the directive definition itself, or the
+ * explicit `[definition, value]` tuple. Use it to type a directive's JSX
+ * attribute in one line.
+ *
+ * Declared at module scope (not inside `declare global namespace JSX`) on
+ * purpose — a `type` alias in the global JSX namespace would collide with its
+ * own emitted `.d.ts` ("Duplicate identifier"), since type aliases don't merge
+ * the way interfaces do.
+ */
+export type DirectiveAttribute<
+    T,
+    El = ShadowElement,
+> =
+    | T
+    | DirectiveDefinition<T, El>
+    | [DirectiveDefinition<T, El>, T];
+
 declare global {
     namespace JSX {
+        /**
+         * Extension point for directive `use:*` props with IntelliSense.
+         * Directive packs augment this interface to register named `use:*`
+         * props (e.g. `'use:show'`, see show-jsx-types.ts). The `use:${string}`
+         * catch-all on every element still accepts any custom directive.
+         */
+        // eslint-disable-next-line @typescript-eslint/no-empty-object-type
+        interface DirectiveAttributeExtensions {
+            // Filled via declaration merging by directive packs.
+        }
+
         /**
          * Cross-cutting attributes valid on every JSX element (intrinsic + components).
          *
@@ -450,6 +494,8 @@ declare global {
          *
          * No `[key: string]: any` catch-all here on purpose — that would re-disable
          * the prop checks. `data-*` / `aria-*` are scoped via template-literal types.
+         * (`use:*` directives live on the element base LynxCommonAttributes —
+         * directives apply to host elements, not components.)
          */
         interface IntrinsicAttributes extends DataAriaAttributes {
             /** Stable identity for list reconciliation. */

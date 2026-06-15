@@ -11,6 +11,11 @@ import { OP, pushOp, scheduleFlush } from './op-queue.js';
 import { register, unregister } from './event-registry.js';
 import { ShadowElement } from './shadow-element.js';
 import { registerWorkletCtx } from './run-on-background.js';
+import {
+  patchDirective as runDirective,
+  onElementMounted as runDirectiveMounted,
+  onElementUnmounted as runDirectiveUnmounted,
+} from './directives/index.js';
 
 // ---------------------------------------------------------------------------
 // Re-export ShadowElement as the HostNode / HostElement type
@@ -300,6 +305,46 @@ export function resolveClass(el: ShadowElement): string {
 }
 
 // ---------------------------------------------------------------------------
+// Style application — merges the raw user style with the `show` visibility
+// override and emits a deduped SET_STYLE op
+// ---------------------------------------------------------------------------
+
+/**
+ * Push a SET_STYLE op for an element's *effective* style — its raw user style
+ * (`el._style`) merged with `display:none` when hidden by the `show` directive
+ * (`el._vShowHidden`). Deduped against the last effective style actually sent
+ * (`el._lastPushedStyle`), not the raw style, so:
+ *   - a hidden element does not re-emit `display:none` on every re-render, and
+ *   - toggling `show` back on re-emits the raw style (removing `display:none`).
+ * Re-emitting only on a real change also preserves any MT worklet
+ * `setStyleProperties` writes (tap scale/colour, etc.) from being clobbered.
+ */
+function applyElementStyle(el: ShadowElement): void {
+  const effective = el._vShowHidden
+    ? { ...el._style, display: 'none' }
+    : el._style;
+  const prev = el._lastPushedStyle;
+  if (prev != null) {
+    if (shallowEqual(prev, effective)) return;
+  } else if (Object.keys(effective).length === 0) {
+    // Nothing pushed yet and nothing to push — don't emit an empty SET_STYLE.
+    return;
+  }
+  el._lastPushedStyle = effective;
+  pushOp(OP.SET_STYLE, el.id, effective);
+  scheduleFlush();
+}
+
+/**
+ * Set an element's visibility for the `show` directive: flip the vShow flag and
+ * re-emit the (deduped) effective style. Exported for `directives/show.ts`.
+ */
+export function applyElementVisibility(el: ShadowElement, visible: boolean): void {
+  el._vShowHidden = !visible;
+  applyElementStyle(el);
+}
+
+// ---------------------------------------------------------------------------
 // RendererOptions implementation
 // ---------------------------------------------------------------------------
 
@@ -502,22 +547,14 @@ export const nodeOps: RendererOptions<ShadowElement, ShadowElement> = {
         propSigns?.delete(key);
       }
     } else if (key === 'style') {
-      const style = nextValue != null && typeof nextValue === 'object'
+      // Cache the raw normalized style, then emit the effective (deduped) op.
+      // JSX inline `style={{...}}` makes a fresh object every render but its
+      // keys/values usually don't change; applyElementStyle skips unchanged
+      // ops so MT worklet setStyleProperties writes aren't clobbered.
+      el._style = nextValue != null && typeof nextValue === 'object'
         ? normalizeStyle(nextValue as Record<string, unknown>)
         : {};
-      const effective = el._vShowHidden ? { ...style, display: 'none' } : style;
-      // Skip SET_STYLE when structurally unchanged. JSX inline `style={{...}}`
-      // creates a fresh object every render but its keys/values typically don't
-      // change between renders. Re-emitting SET_STYLE would overwrite any MT
-      // worklet's setStyleProperties calls (pink/scale on tap, etc.) on every
-      // unrelated signal change. Shallow-equal previous _style suffices since
-      // sigx normalises everything to a flat string→string|number map.
-      const prev = el._style;
-      const sameStyle = prev != null && shallowEqual(prev, effective);
-      el._style = style;
-      if (!sameStyle) {
-        pushOp(OP.SET_STYLE, el.id, effective);
-      }
+      applyElementStyle(el);
     } else if (key === 'class') {
       el._baseClass = (nextValue as string) ?? '';
       const finalClass = resolveClass(el);
@@ -600,5 +637,24 @@ export const nodeOps: RendererOptions<ShadowElement, ShadowElement> = {
     }
     scheduleFlush();
     return el;
+  },
+
+  // --- use:* directive lifecycle (created/updated, then mounted/unmounted) ---
+  // The renderer calls these for `use:<name>` props and around element
+  // insert/remove. Directive hooks may push ops (e.g. `show` emits SET_STYLE),
+  // so flush after the create/update paths.
+
+  patchDirective(el, name, prevValue, nextValue, appContext): void {
+    runDirective(el, name, prevValue, nextValue, appContext);
+    scheduleFlush();
+  },
+
+  onElementMounted(el): void {
+    runDirectiveMounted(el);
+    scheduleFlush();
+  },
+
+  onElementUnmounted(el): void {
+    runDirectiveUnmounted(el);
   },
 };

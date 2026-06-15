@@ -4,8 +4,24 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 ## [Unreleased]
 
+### Added
+
+- `@sigx/lynx-runtime` — `use:*` directive system wired into the renderer, with the built-in **`show`** directive. `use:show={cond}` toggles an element's visibility via `display` while keeping it mounted (a single style op + preserved native state like input focus/value and scroll position), unlike conditional rendering which unmounts/remounts. Define custom directives with `defineDirective` (typed via the `LynxDirective`/`DirectiveAttribute` helpers) and register them with `registerBuiltInDirective` or per-app `app.directive()`. Also fixes a latent style-dedup issue where a `show`-hidden element re-emitted `display:none` on every re-render (#491).
+- `@sigx/lynx-testing` — the test renderer now runs the `use:*` directive lifecycle, so `use:show` and custom directives work in component tests. `use:show` toggles a node's effective `_style.display` (kept mounted), assertable via the new `TestNode.isVisible` getter; custom directives' `created`/`mounted`/`updated`/`unmounted` hooks fire. The shared directive runtime in `@sigx/lynx-runtime` is now host-agnostic (`DirectiveHost`), and `show` is a per-host definition (the test host gets a `TestNode`-based one) (#493).
+- `@sigx/lynx-core` — `Platform` API for platform checks & rendering, sourced from the Lynx `SystemInfo` global and re-exported from `@sigx/lynx`: `Platform.OS` (`'ios' | 'android' | 'web'`), `Platform.Version`, `pixelRatio`/`pixelWidth`/`pixelHeight`, best-effort `isPad`, and `Platform.select({ ios, android, web, native, default })`. Plus build-time, tree-shakeable platform splitting: `@sigx/lynx-plugin` injects `__WEB__` / `__NATIVE__` defines per rspeedy environment (typed via `@sigx/lynx/client`) and resolves `.web.tsx` / `.lynx.tsx` / `.native.tsx` file extensions ahead of the generic file (web↔native only; iOS↔Android stay runtime) (#484).
+- `@sigx/lynx-webrtc` — W3C-shaped WebRTC module (Android + iOS): `RTCPeerConnection` (offer/answer, trickle + non-trickle ICE, `iceServers`, state events, `ontrack`, `ondatachannel`), `RTCDataChannel` (text + binary), `mediaDevices.getUserMedia({ audio })` with browser-style `NotAllowedError` on denial, and `MediaStream`/`MediaStreamTrack` (`enabled` mute, `stop()`). Remote audio plays automatically through the device audio module. Non-W3C extras: `WebRTC.setAudioOutput('speaker'|'earpiece')` and the camera/audio-style `requestPermission()`/`getPermissionStatus()` (#479). iOS rides WebRTC's `RTCAudioSession` manual-audio mode (`.playAndRecord`/`.voiceChat`, defaultToSpeaker, background `audio` mode).
+
+### Changed
+
+- `@sigx/lynx-core` — `DeviceInfo.getInfo()` now resolves a **platform-discriminated** `DeviceInfoResult` instead of returning the raw native payload verbatim. The native modules normalize to one documented shape: a guaranteed common core (`platform`, `manufacturer`, `model`, `brand`, `systemName`, `systemVersion`, `appVersion`, `deviceId`, `screenWidth`, `screenHeight`, `screenScale`) plus a `platform` discriminant narrowing to per-platform extras (`IosDeviceInfo`: `modelName`, `appBuildNumber`, `bundleId`; `AndroidDeviceInfo`: `sdkVersion`, `appPackage`). Breaking: `screenWidth`/`screenHeight` are now density-independent points (dp/pt) on **both** platforms — Android previously reported physical pixels — and `screenDensity` was renamed to `screenScale` (the dp→px multiplier). Re-run `sigx prebuild` to pick up the native changes (#486).
+
+### Removed
+
+- `@sigx/lynx-device-info` — folded into `@sigx/lynx-core`. The `DeviceInfo` API is unchanged but now imports from `@sigx/lynx` (or `@sigx/lynx-core`); its native module is served by core's own `SigxCore` module. Remove the `@sigx/lynx-device-info` dependency and re-run `sigx prebuild` (#484).
+
 ### Fixed
 
+- `scripts/publish.js` — already-published skip filters were quoted with single quotes, which cmd.exe treats as literal characters: on Windows a partial-failure re-run selected zero projects and quietly published nothing. Filters now use double quotes, valid on both cmd.exe and POSIX shells (#477).
 - iOS red-box crash `Exception occurs while updating property … -[NSNull length]: unrecognized selector` when an optional native string prop was left unset (e.g. a `<Map>` without `mapType`). A JS `undefined`/`null` prop reaches native as `NSNull`, and the affected `NSString *` setters bridged it with `value as String?` — which messages `NSNull` with `-length` and crashes. Hardened every `NSString *` prop setter in `@sigx/lynx-maps`, `@sigx/lynx-webview`, `@sigx/lynx-richtext` and `@sigx/lynx-video` to use the type-checked `value as? String` (returns `nil` for `NSNull`), and `@sigx/lynx-maps` now omits unset optional string props instead of emitting them (#475).
 
 ## [0.7.0] - 2026-06-12
@@ -19,7 +35,6 @@ New module: `@sigx/lynx-sqlite`. Breaking: `Updates.configure()` → `defineUpda
 ### Changed
 
 - `@sigx/lynx-cli` — plugin arg schemas migrated to `@sigx/cli@0.4.x`'s fluent `a.*` builders (`@sigx/args` under the hood); requires sigx CLI >= 0.4.0 (#468). `sigx add`/`sigx remove` now declare their module names as a proper rest argument (the new parser no longer passes loose positionals via `args._`), and every flag gets typed `--help` output. User-visible deltas inherited from the CLI: unknown flags now error instead of being silently ignored, and boolean flags accept `--no-<flag>` negation.
-- **Breaking**: `@sigx/lynx-updates` — `Updates.configure()` is replaced by the top-level `defineUpdates()` export, aligning the boot declaration with the `define*` family (`defineApp`, `defineRoutes`, `defineLynxConfig`). The `Updates` runtime object (check/download/apply/markReady/…) is unchanged. Consumers upgrading from 0.6.1 (the last version with `configure`): rename the call (#457).
 
 ## [0.6.1] - 2026-06-12
 

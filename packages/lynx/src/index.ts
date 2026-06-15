@@ -56,6 +56,12 @@ export {
 } from '@sigx/lynx-core';
 export type { Logger, LogLevelName, LogRecord, LogTransport } from '@sigx/lynx-core';
 
+// Platform checks + select() and device info, from @sigx/lynx-core. The
+// low-level bridge (getModule/callAsync/…) stays internal to core; these are
+// the blessed app-facing surface.
+export { Platform, DeviceInfo } from '@sigx/lynx-core';
+export type { PlatformOS, PlatformSelectSpec, DeviceInfoResult } from '@sigx/lynx-core';
+
 // Internal-use re-export, needed by the HMR loader. The loader injects an
 // import of `__setCurrentInstanceForHMR` alongside `__registerComponentPlugin`
 // so the HMR runtime can push the current ctx onto the renderer's instance

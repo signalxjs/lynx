@@ -38,7 +38,11 @@ export const MapMarker = component<MapMarkerProps>(({ props }) => {
         // `undefined` JSX attribute is serialized to `null` over the op queue
         // and crashes the native `NSString *` setter (`-[NSNull length]`).
         // `coordinate` is required, so it is always emitted. See Map.tsx / #475.
-        const optionalProps: Record<string, unknown> = {};
+        const optionalProps: {
+            title?: string;
+            description?: string;
+            'marker-id'?: string;
+        } = {};
         if (props.title != null) optionalProps.title = props.title;
         if (props.description != null) optionalProps.description = props.description;
         if (props.id != null) optionalProps['marker-id'] = props.id;

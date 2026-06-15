@@ -44,12 +44,12 @@ export function useSafeAreaSharedValues(): SafeAreaContextValue['sv'] | null {
  * Useful for absolute-positioned overlays, modal bounds, and layout math
  * that needs to know "the visible content rect" rather than just the inset
  * deltas. The frame size is computed from the host viewport — you must pass
- * `viewportWidth`/`viewportHeight` (typically read once via
- * `@sigx/lynx-device-info`) since the safe-area module deliberately avoids
- * pulling that whole dependency.
+ * `viewportWidth`/`viewportHeight` (e.g. read once via the `DeviceInfo` API
+ * re-exported from `@sigx/lynx`).
  *
  * @example
  * ```tsx
+ * import { DeviceInfo } from '@sigx/lynx';
  * const { screenWidth, screenHeight } = await DeviceInfo.getInfo();
  * const frame = useSafeAreaFrame(screenWidth, screenHeight);
  * return () => <view style={{
