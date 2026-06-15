@@ -119,6 +119,23 @@ describe('publishUpdate', () => {
         expect(manifest.updates[0].runtimeVersion).toBe('fp1-explicit-ios');
     });
 
+    it('survives a partially-corrupted existing manifest (entry missing platforms)', async () => {
+        const cwd = makeProject({ bundle: 'bundle', sidecar: { android: 'fp1-a' } });
+        // Hand-edited / corrupted manifest: a well-formed array, malformed entry.
+        const channelDir = join(cwd, 'updates-dist', 'production');
+        mkdirSync(channelDir, { recursive: true });
+        writeFileSync(
+            join(channelDir, 'manifest.json'),
+            JSON.stringify({ schemaVersion: 1, updates: [{ id: 'broken', runtimeVersion: 'fp1-a' }] }),
+        );
+
+        const result = await publishUpdate({ cwd });
+        const manifest = JSON.parse(readFileSync(result.manifestPath, 'utf-8'));
+        // The malformed entry is preserved (not crashed on); the new one is appended.
+        expect(manifest.updates.some((e: any) => e.id === 'broken')).toBe(true);
+        expect(manifest.updates.some((e: any) => e.platforms?.[0] === 'android' && e.id === result.updateId)).toBe(true);
+    });
+
     it('errors with actionable messages for missing bundle / missing sidecar / empty bundle', async () => {
         const noBundle = makeProject({ sidecar: { android: 'fp1-a' } });
         await expect(publishUpdate({ cwd: noBundle })).rejects.toThrow(/sigx build/);

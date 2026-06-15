@@ -23,7 +23,7 @@
  */
 
 import { createHash } from 'node:crypto';
-import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 
 export type PublishPlatform = 'android' | 'ios';
@@ -192,16 +192,20 @@ export async function publishUpdate(opts: PublishUpdateOptions): Promise<Publish
     const bundleUrl = `updates/${updateId}/main.lynx.bundle`;
     const bundleDest = join(channelDir, 'updates', updateId, 'main.lynx.bundle');
     mkdirSync(dirname(bundleDest), { recursive: true });
-    copyFileSync(bundlePath, bundleDest);
+    // Write the bytes we already read (single read), rather than re-reading.
+    writeFileSync(bundleDest, bundleBytes);
 
     const manifestPath = join(channelDir, 'manifest.json');
     const doc = readManifest(manifestPath);
     const createdAt = new Date().toISOString();
     for (const { platform, runtimeVersion } of runtimeVersions) {
         // Replace any prior entry for the same (platform, runtimeVersion) — the
-        // manifest is the moving pointer; old bundles stay on disk.
+        // manifest is the moving pointer; old bundles stay on disk. Guard the
+        // predicate so a hand-edited / partially-corrupted manifest (e.g. an
+        // entry missing `platforms`) is skipped rather than throwing.
         doc.updates = doc.updates.filter((e) =>
-            !(e.platforms.length === 1 && e.platforms[0] === platform && e.runtimeVersion === runtimeVersion),
+            !(Array.isArray(e.platforms) && e.platforms.length === 1 &&
+                e.platforms[0] === platform && e.runtimeVersion === runtimeVersion),
         );
         doc.updates.push({
             id: updateId,
