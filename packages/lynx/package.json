@@ -45,11 +45,11 @@
         "clean": "node ../../scripts/clean.mjs dist .turbo"
     },
     "dependencies": {
-        "@sigx/reactivity": "^0.6.0",
-        "@sigx/runtime-core": "^0.6.0",
-        "@sigx/lynx-runtime": "workspace:^",
+        "@sigx/lynx-core": "workspace:^",
         "@sigx/lynx-http": "workspace:^",
-        "@sigx/lynx-core": "workspace:^"
+        "@sigx/lynx-runtime": "workspace:^",
+        "@sigx/reactivity": "^0.6.3",
+        "@sigx/runtime-core": "^0.6.3"
     },
     "devDependencies": {
         "@typescript/native-preview": "7.0.0-dev.20260521.1",
