@@ -46,6 +46,9 @@ so components that use directives behave under test like they do on device.
 assert with the `isVisible` getter:
 
 ```tsx
+import { render, waitForUpdate } from '@sigx/lynx-testing';
+import { component, signal, jsx } from '@sigx/lynx';
+
 const shown = signal(true);
 const App = component(() => () =>
   jsx('view', { 'use:show': shown.value, children: [jsx('text', { children: 'hi' })] }));

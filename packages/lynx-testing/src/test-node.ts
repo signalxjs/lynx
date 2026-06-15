@@ -48,7 +48,13 @@ export class TestNode {
       : this._rawStyle;
   }
 
-  /** Whether the node is visible (not hidden by `use:show`). */
+  /**
+   * Whether the node is currently visible — i.e. its effective style isn't
+   * `display: 'none'`. This reflects the *result*, so a `use:show={false}` or an
+   * explicit `style={{ display: 'none' }}` both read as not visible (usually
+   * what you want to assert). Read `_vShowHidden` if you need the `use:show`
+   * state specifically.
+   */
   get isVisible(): boolean {
     return this._style['display'] !== 'none';
   }
