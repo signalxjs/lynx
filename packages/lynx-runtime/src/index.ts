@@ -10,6 +10,9 @@ import './install-globals.js';
 import './jsx.js';
 import './types.js';
 import './model-processor.js';
+// Side-effect: register the built-in `show` directive + its JSX type so the
+// `use:show` shorthand resolves at runtime and gets IntelliSense.
+import './directives/register.js';
 // Side-effect: subscribes to Lynx.Sigx.PublishEvent on the JS context so
 // MT-side hybrid worklets can fire BG handlers via the existing event-registry.
 import './bg-bridge.js';
@@ -22,6 +25,19 @@ export { render, lynxMount } from './render.js';
 export { nodeOps } from './nodeOps.js';
 export type { LynxNode, LynxElement } from './nodeOps.js';
 export { ShadowElement, createPageRoot, resetShadowState } from './shadow-element.js';
+
+// use:* directive system + the built-in `show` directive. The directive
+// lifecycle hooks are wired into nodeOps; `show` is registered with the
+// platform on import (see ./directives/register.js).
+export { show } from './directives/show.js';
+export {
+  registerBuiltInDirective,
+  resolveBuiltInDirective,
+  patchDirective,
+  onElementMounted,
+  onElementUnmounted,
+} from './directives/index.js';
+export type { LynxDirective } from './directives/index.js';
 export { pushOp, takeOps, scheduleFlush, flushNow, resetOpQueue } from './op-queue.js';
 export { OP } from '@sigx/lynx-runtime-internal';
 export type {
@@ -114,6 +130,7 @@ export type {
 // Re-export Lynx JSX attribute types so users can write
 //   import type { ViewAttributes } from '@sigx/lynx-runtime'
 // the same way they would from runtime-dom.
+export type { DirectiveAttribute } from './jsx.js';
 export type {
   LynxEventHandler,
   LynxCommonAttributes,
