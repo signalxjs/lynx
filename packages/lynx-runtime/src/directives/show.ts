@@ -40,8 +40,10 @@ export const show = defineDirective<boolean, ShadowElement>({
   },
 
   unmounted(el) {
-    // The element is being removed; just reset the flag (no style op needed —
-    // a fresh ShadowElement starts visible, and cloneNode makes new nodes).
-    el._vShowHidden = false;
+    // Restore visibility. This fires both when the element is removed (a cheap
+    // extra op before its REMOVE) and — importantly — when the `use:show` prop
+    // is removed while the element stays mounted, where the last pushed style
+    // still carries display:none and must be cleared.
+    applyElementVisibility(el, true);
   },
 });

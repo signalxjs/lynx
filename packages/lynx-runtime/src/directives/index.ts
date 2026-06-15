@@ -90,8 +90,15 @@ export function patchDirective(
   const dirMap = getDirectiveMap(el);
 
   if (nextValue == null) {
-    // Directive removed — `unmounted` runs via onElementUnmounted on removal.
-    dirMap.delete(name);
+    // Directive removed from a still-mounted element — run its `unmounted` hook
+    // now and drop the state. (onElementUnmounted only fires when the *element*
+    // is removed; without this, e.g. removing `use:show` would leave the element
+    // hidden / stale.)
+    const removed = dirMap.get(name);
+    if (removed) {
+      removed.def.unmounted?.(el, { value: removed.value });
+      dirMap.delete(name);
+    }
     return;
   }
 

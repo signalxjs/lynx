@@ -44,7 +44,10 @@ function drainStyles(): Record<string, unknown>[] {
       case OP.SET_CLASS: i += 2; break;
       case OP.SET_ID: i += 2; break;
       case OP.INVOKE_UI_METHOD: i += 3; break;
-      default: break;
+      default:
+        // Fail loudly on an unknown opcode rather than silently misparsing the
+        // rest of the stream as opcodes.
+        throw new Error(`drainStyles: unhandled op code ${code}`);
     }
   }
   return styles;
@@ -168,6 +171,20 @@ describe('show directive', () => {
     // Toggle hidden again.
     patchDirective(el, 'show', [show, true], [show, false], null);
     expect(drainStyles()).toEqual([{ color: 'red', display: 'none' }]);
+  });
+
+  it('restores visibility when the show directive is removed from a mounted element', () => {
+    const el = nodeOps.createElement('view');
+    nodeOps.patchProp(el, 'style', null, { color: 'red' });
+    patchDirective(el, 'show', null, [show, false], null);
+    onElementMounted(el);
+    drainStyles(); // clear: { color:red }, { color:red, display:none }
+
+    // Removing the use:show prop (nextValue == null) while the element stays
+    // mounted must run unmounted -> restore the raw style (no display:none).
+    patchDirective(el, 'show', [show, false], null, null);
+    expect(drainStyles()).toEqual([{ color: 'red' }]);
+    expect(el._directives?.has('show')).toBeFalsy();
   });
 
   it('does not re-emit SET_STYLE when the bound value is unchanged', () => {
