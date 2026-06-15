@@ -28,6 +28,7 @@
  */
 import { defineDirective } from '@sigx/runtime-core';
 import type { ShadowElement } from '../shadow-element.js';
+import type { DirectiveAttribute } from '../jsx.js';
 import { applyElementVisibility } from '../nodeOps.js';
 
 export const show = defineDirective<boolean, ShadowElement>({
@@ -47,3 +48,28 @@ export const show = defineDirective<boolean, ShadowElement>({
     applyElementVisibility(el, true);
   },
 });
+
+// JSX type augmentation — adds `use:show` to the directive IntelliSense seam.
+// Lives here (alongside the runtime) rather than in a separate type-only module
+// so the augmentation rides this already-imported value module — no extra
+// runtime side-effect import just to carry types.
+declare global {
+    namespace JSX {
+        interface DirectiveAttributeExtensions {
+            /**
+             * Toggle element visibility via `display`. The element stays
+             * mounted — only its `display` is toggled (one style op vs an
+             * unmount/remount), preserving its state.
+             *
+             * Tradeoff: a hidden subtree stays mounted as live native views.
+             * Prefer conditional rendering for large, rarely-shown branches.
+             *
+             * @example
+             * ```tsx
+             * <view use:show={isVisible.value}>Content</view>
+             * ```
+             */
+            'use:show'?: DirectiveAttribute<boolean>;
+        }
+    }
+}

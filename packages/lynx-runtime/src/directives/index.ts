@@ -87,17 +87,17 @@ export function patchDirective(
   nextValue: unknown,
   appContext: AppContext | null,
 ): void {
-  const dirMap = getDirectiveMap(el);
-
   if (nextValue == null) {
     // Directive removed from a still-mounted element — run its `unmounted` hook
     // now and drop the state. (onElementUnmounted only fires when the *element*
     // is removed; without this, e.g. removing `use:show` would leave the element
     // hidden / stale.)
-    const removed = dirMap.get(name);
+    const map = el._directives;
+    const removed = map?.get(name);
     if (removed) {
       removed.def.unmounted?.(el, { value: removed.value });
-      dirMap.delete(name);
+      map!.delete(name);
+      if (map!.size === 0) el._directives = undefined;
     }
     return;
   }
@@ -145,6 +145,9 @@ export function patchDirective(
     }
   }
 
+  // Resolution succeeded — only now allocate the per-element directive map (an
+  // unresolved/typo'd directive returns above without retaining an empty Map).
+  const dirMap = getDirectiveMap(el);
   const existing = dirMap.get(name);
   if (!existing) {
     // First time — call created hook.
