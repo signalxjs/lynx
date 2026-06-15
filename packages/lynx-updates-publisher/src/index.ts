@@ -137,12 +137,33 @@ function resolveRuntimeVersions(
     return out;
 }
 
+/**
+ * An entry worth carrying forward when republishing: an object with the
+ * required string fields (and a `platforms` array). Anything else is a
+ * hand-edit / corruption we drop, so the rewritten manifest stays valid.
+ */
+function isWellFormedEntry(e: unknown): e is ManifestEntry {
+    if (!e || typeof e !== 'object') return false;
+    const r = e as Record<string, unknown>;
+    return (
+        Array.isArray(r.platforms) &&
+        typeof r.version === 'string' &&
+        typeof r.runtimeVersion === 'string' && r.runtimeVersion.length > 0 &&
+        typeof r.bundleUrl === 'string' && r.bundleUrl.length > 0 &&
+        typeof r.sha256 === 'string' && r.sha256.length > 0
+    );
+}
+
 function readManifest(path: string): ManifestDocument {
     if (existsSync(path)) {
         try {
             const doc = JSON.parse(readFileSync(path, 'utf-8'));
             if (doc?.schemaVersion === 1 && Array.isArray(doc.updates)) {
-                return doc as ManifestDocument;
+                // Drop malformed entries so each publish self-heals the manifest
+                // into a document StaticManifestProvider will accept — it rejects
+                // the WHOLE document if any single entry is invalid, so a stray
+                // bad entry would otherwise break the channel permanently.
+                return { schemaVersion: 1, updates: doc.updates.filter(isWellFormedEntry) };
             }
         } catch {
             // fall through to a fresh document
@@ -217,12 +238,10 @@ export async function publishUpdate(opts: PublishUpdateOptions): Promise<Publish
     const createdAt = new Date().toISOString();
     for (const { platform, runtimeVersion } of runtimeVersions) {
         // Replace any prior entry for the same (platform, runtimeVersion) — the
-        // manifest is the moving pointer; old bundles stay on disk. Guard the
-        // predicate so a hand-edited / partially-corrupted manifest (e.g. an
-        // entry missing `platforms`) is skipped rather than throwing.
+        // manifest is the moving pointer; old bundles stay on disk. Entries are
+        // already sanitized by readManifest(), so `platforms` is always an array.
         doc.updates = doc.updates.filter((e) =>
-            !(e && typeof e === 'object' && Array.isArray(e.platforms) && e.platforms.length === 1 &&
-                e.platforms[0] === platform && e.runtimeVersion === runtimeVersion),
+            !(e.platforms.length === 1 && e.platforms[0] === platform && e.runtimeVersion === runtimeVersion),
         );
         doc.updates.push({
             id: updateId,

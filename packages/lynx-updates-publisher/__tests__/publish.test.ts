@@ -119,21 +119,33 @@ describe('publishUpdate', () => {
         expect(manifest.updates[0].runtimeVersion).toBe('fp1-explicit-ios');
     });
 
-    it('survives a partially-corrupted existing manifest (missing platforms, null/string entries)', async () => {
+    it('self-heals a corrupted manifest: drops malformed entries, keeps valid ones', async () => {
         const cwd = makeProject({ bundle: 'bundle', sidecar: { android: 'fp1-a' } });
-        // Hand-edited / corrupted manifest: a well-formed array, malformed entries.
         const channelDir = join(cwd, 'updates-dist', 'production');
         mkdirSync(channelDir, { recursive: true });
+        const goodForeign = {
+            id: 'keepme', version: '1.0.0', channel: 'production', platforms: ['ios'],
+            runtimeVersion: 'fp1-ios', bundleUrl: 'updates/keepme/main.lynx.bundle',
+            sha256: 'c'.repeat(64), mandatory: false, createdAt: '2026-06-01T00:00:00Z',
+        };
         writeFileSync(
             join(channelDir, 'manifest.json'),
-            JSON.stringify({ schemaVersion: 1, updates: [{ id: 'broken', runtimeVersion: 'fp1-a' }, null, 'bad'] }),
+            // A well-formed array with one valid entry plus several malformed ones.
+            JSON.stringify({ schemaVersion: 1, updates: [
+                goodForeign, { id: 'broken', runtimeVersion: 'fp1-a' }, null, 'bad',
+            ] }),
         );
 
         const result = await publishUpdate({ cwd });
         const manifest = JSON.parse(readFileSync(result.manifestPath, 'utf-8'));
-        // Malformed entries are preserved (not crashed on); the new one is appended.
-        expect(manifest.updates.some((e: any) => e?.id === 'broken')).toBe(true);
-        expect(manifest.updates.some((e: any) => e?.platforms?.[0] === 'android' && e?.id === result.updateId)).toBe(true);
+
+        // Malformed entries are dropped so the rewritten manifest stays valid…
+        expect(manifest.updates.some((e: any) => e?.id === 'broken')).toBe(false);
+        expect(manifest.updates.some((e: any) => e === null || typeof e !== 'object')).toBe(false);
+        // …the valid foreign-platform entry is preserved…
+        expect(manifest.updates.some((e: any) => e.id === 'keepme')).toBe(true);
+        // …and the new entry is appended.
+        expect(manifest.updates.some((e: any) => e.platforms?.[0] === 'android' && e.id === result.updateId)).toBe(true);
     });
 
     it('ignores non-string runtime-version values (malformed sidecar)', async () => {
