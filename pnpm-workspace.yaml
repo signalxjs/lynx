@@ -13,11 +13,11 @@ onlyBuiltDependencies:
 # a 0.7-compatible @sigx/terminal is published.
 peerDependencyRules:
   allowedVersions:
-    "@sigx/terminal>@sigx/reactivity": "0.7.0"
-    "@sigx/terminal>@sigx/runtime-core": "0.7.0"
-    "@sigx/terminal-ui>@sigx/reactivity": "0.7.0"
-    "@sigx/terminal-ui>@sigx/runtime-core": "0.7.0"
-    "@sigx/terminal-zero>@sigx/reactivity": "0.7.0"
-    "@sigx/terminal-zero>@sigx/runtime-core": "0.7.0"
-    "@sigx/runtime-terminal>@sigx/reactivity": "0.7.0"
-    "@sigx/runtime-terminal>@sigx/runtime-core": "0.7.0"
+    "@sigx/terminal>@sigx/reactivity": ">=0.7.0 <0.8.0"
+    "@sigx/terminal>@sigx/runtime-core": ">=0.7.0 <0.8.0"
+    "@sigx/terminal-ui>@sigx/reactivity": ">=0.7.0 <0.8.0"
+    "@sigx/terminal-ui>@sigx/runtime-core": ">=0.7.0 <0.8.0"
+    "@sigx/terminal-zero>@sigx/reactivity": ">=0.7.0 <0.8.0"
+    "@sigx/terminal-zero>@sigx/runtime-core": ">=0.7.0 <0.8.0"
+    "@sigx/runtime-terminal>@sigx/reactivity": ">=0.7.0 <0.8.0"
+    "@sigx/runtime-terminal>@sigx/runtime-core": ">=0.7.0 <0.8.0"
