@@ -65,9 +65,6 @@ importers:
       '@sigx/lynx-datetime-picker':
         specifier: workspace:^
         version: link:../../packages/lynx-datetime-picker
-      '@sigx/lynx-device-info':
-        specifier: workspace:^
-        version: link:../../packages/lynx-device-info
       '@sigx/lynx-emoji':
         specifier: workspace:^
         version: link:../../packages/lynx-emoji
@@ -466,19 +463,6 @@ importers:
       '@sigx/lynx-websocket':
         specifier: workspace:^
         version: link:../lynx-websocket
-    devDependencies:
-      '@typescript/native-preview':
-        specifier: 7.0.0-dev.20260521.1
-        version: 7.0.0-dev.20260521.1
-      typescript:
-        specifier: ^6.0.3
-        version: 6.0.3
-
-  packages/lynx-device-info:
-    dependencies:
-      '@sigx/lynx-core':
-        specifier: workspace:^
-        version: link:../lynx-core
     devDependencies:
       '@typescript/native-preview':
         specifier: 7.0.0-dev.20260521.1

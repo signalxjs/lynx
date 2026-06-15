@@ -351,6 +351,36 @@ export async function applyEntry(
         }]);
     }
 
+    // Platform tier-2 (build-time). `__WEB__` / `__NATIVE__` are folded to
+    // literals per environment so app code can branch on them and have the
+    // dead platform's branch tree-shaken (the runtime `Platform.OS` is a
+    // convenience that does NOT tree-shake — a property read can't fold). The
+    // `@sigx/lynx-core` Platform module reads `__WEB__` to drop native
+    // detection from the web bundle. Lazy `require` for the same reason as the
+    // HTTP globals above — keep `@rspack/core` an optional peer.
+    {
+      const { DefinePlugin } = createRequire(import.meta.url)('@rspack/core') as typeof import('@rspack/core');
+      chain
+        .plugin('sigx-platform-define')
+        .use(DefinePlugin, [{
+          __WEB__: JSON.stringify(isWeb),
+          __NATIVE__: JSON.stringify(!isWeb),
+        }]);
+
+      // Platform file-extension resolution: `Foo.web.tsx` wins on the web
+      // bundle, `Foo.lynx.tsx` / `Foo.native.tsx` on the native bundle, each
+      // ahead of the generic `Foo.tsx`. Only web↔native swaps work this way —
+      // iOS↔Android share one native bundle, so use `Platform.OS` at runtime
+      // for those. Prepend in reverse so the array's first entry ends up first.
+      const platformExts = isWeb
+        ? ['.web.tsx', '.web.ts', '.web.jsx', '.web.js']
+        : ['.lynx.tsx', '.lynx.ts', '.lynx.jsx', '.lynx.js',
+           '.native.tsx', '.native.ts', '.native.jsx', '.native.js'];
+      for (let i = platformExts.length - 1; i >= 0; i--) {
+        chain.resolve.extensions.prepend(platformExts[i]);
+      }
+    }
+
     // HMR / Live Reload flags (same logic as vue-lynx / React plugin)
     const { hmr, liveReload } = environment.config.dev ?? {};
     const enabledHMR = isDev && !isWeb && hmr !== false;

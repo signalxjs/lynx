@@ -1527,16 +1527,33 @@ describe('generated registry — registeredCount reset', () => {
 });
 
 describe('shared native runtime — @sigx/lynx-core (#257)', () => {
-    // Mirrors packages/lynx-core/signalx-module.json: an activity hook +
-    // native sources but NO moduleClass on either platform.
+    // Mirrors packages/lynx-core/signalx-module.json: an activity hook AND a
+    // native module (DeviceInfoModule, registered under the manifest name
+    // SigxCore) — the two coexist in one manifest.
     const coreManifest: ModuleManifest = {
         name: 'SigxCore',
         package: '@sigx/lynx-core',
-        description: 'Shared native helpers',
+        description: 'Shared native helpers + device info',
+        platforms: ['android', 'ios'],
+        android: {
+            moduleClass: 'com.sigx.core.DeviceInfoModule',
+            activityHook: {
+                class: 'com.sigx.core.SigxActivityHook',
+                methods: ['onCreate', 'onResume', 'onPause'],
+            },
+            sourceDir: 'android',
+        },
+        ios: { moduleClass: 'DeviceInfoModule', sourceDir: 'ios' },
+    };
+    // A package that contributes only an activity hook (no callable module).
+    const hookOnlyManifest: ModuleManifest = {
+        name: 'HookOnly',
+        package: '@sigx/lynx-example-hook',
+        description: 'Activity hook, no module',
         platforms: ['android', 'ios'],
         android: {
             activityHook: {
-                class: 'com.sigx.core.SigxActivityHook',
+                class: 'com.example.hook.ExampleActivityHook',
                 methods: ['onCreate', 'onResume', 'onPause'],
             },
             sourceDir: 'android',
@@ -1577,19 +1594,32 @@ describe('shared native runtime — @sigx/lynx-core (#257)', () => {
 
     it('a moduleClass-less manifest registers nothing on Android', () => {
         const config = resolveConfig(TEST_CONFIG);
-        const result = linkAndroid(config, [coreManifest]);
+        const result = linkAndroid(config, [hookOnlyManifest]);
 
-        expect(result.registryCode).not.toContain('SigxCore');
-        expect(result.registryCode).not.toContain('com.sigx.core');
+        expect(result.registryCode).not.toContain('HookOnly');
+        expect(result.registryCode).not.toContain('com.example.hook');
         // …but the lifecycle hooks are wired.
-        expect(result.activityHooksCode).toContain('com.sigx.core.SigxActivityHook.onResume');
+        expect(result.activityHooksCode).toContain('com.example.hook.ExampleActivityHook.onResume');
     });
 
     it('a moduleClass-less manifest registers nothing on iOS', () => {
         const config = resolveConfig(TEST_CONFIG);
-        const result = linkIos(config, [coreManifest]);
+        const result = linkIos(config, [hookOnlyManifest]);
 
-        expect(result.registryCode).not.toContain('SigxCore');
+        expect(result.registryCode).not.toContain('HookOnly');
+    });
+
+    it('registers core\'s SigxCore module alongside its activity hook', () => {
+        const config = resolveConfig(TEST_CONFIG);
+
+        const android = linkAndroid(config, [coreManifest]);
+        expect(android.registryCode).toContain('register("SigxCore"');
+        expect(android.registryCode).toContain('com.sigx.core.DeviceInfoModule');
+        // The activity hook still wires up from the same manifest.
+        expect(android.activityHooksCode).toContain('com.sigx.core.SigxActivityHook.onResume');
+
+        const ios = linkIos(config, [coreManifest]);
+        expect(ios.registryCode).toContain('DeviceInfoModule');
     });
 
     it('loadManifests orders @sigx/lynx-core first regardless of input order', async () => {

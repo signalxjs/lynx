@@ -14,6 +14,13 @@
 // module shape.
 declare module '*.css';
 
+// Platform build-time defines, folded to literals per rspeedy environment by
+// `@sigx/lynx-plugin`. Branch on these for tree-shakeable platform code:
+// `if (__WEB__) { … }` drops the dead branch from the other bundle (unlike the
+// runtime `Platform.OS`, which keeps both). `__NATIVE__` is always `!__WEB__`.
+declare const __WEB__: boolean;
+declare const __NATIVE__: boolean;
+
 // The webpack/rspeedy HMR `module.hot` global. We type only the surface lynx
 // apps actually use (`accept` / `dispose`) to keep the ambient minimal and
 // avoid pulling in `@types/webpack-env` or `@types/node`.
