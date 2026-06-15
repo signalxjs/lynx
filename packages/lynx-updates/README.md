@@ -97,10 +97,47 @@ State machine: `idle → checking → up-to-date | available | incompatible`,
 `available → downloading → ready → applying`; failures land in `error` and
 every transition fires a typed `UpdatesEvent`.
 
+## Self-hosted & authenticated backends
+
+The built-in `StaticManifestProvider` works against more than a static CDN — you
+don't need a custom backend just to point at a runtime-resolved host or attach a
+short-lived token. Pass these on the provider shorthand (or to
+`new StaticManifestProvider({ ... })`):
+
+```ts
+Updates.configure({
+    provider: {
+        // Host discovered after launch (sign-in, environment selection):
+        // a resolver runs before every check. Return a URL, or { url, headers }.
+        url: (ctx) => `${session.apiBase}/updates/${ctx.channel}/manifest.json`,
+
+        // Static headers, merged into BOTH the manifest fetch and the download.
+        headers: { Accept: 'application/json' },
+
+        // Per-request auth — inject (and refresh) a short-lived token. The
+        // returned headers are merged over `headers`. onBeforeCheck guards the
+        // manifest request; onBeforeDownload guards the bundle download.
+        onBeforeCheck: async (ctx) => ({ Authorization: `Bearer ${await auth.token()}` }),
+        onBeforeDownload: async (manifest, ctx) => ({ Authorization: `Bearer ${await auth.token()}` }),
+    },
+});
+```
+
+- Relative `bundleUrl`s resolve against whatever URL the resolver returned for
+  that check, so per-environment hosts just work.
+- The hooks run on **every** check/download — return a fresh token each time and
+  refresh inside the hook when it's near expiry.
+
+**Replacing the provider at runtime.** `Updates.configure()` is idempotent: a
+second call swaps the provider (and channel/mode) for subsequent checks without
+re-running the launch check. Use it for a wholesale backend switch; for the
+common "discover the host after sign-in" case prefer the `url` resolver above —
+no re-wiring.
+
 ## Custom backends
 
 The static-manifest provider is ~150 lines over `fetch`. Anything else —
-auth, signed manifests, staged rollout services, the Expo Updates protocol —
+signed manifests, staged rollout services, the Expo Updates protocol —
 implements `UpdateProvider` in its own package, no core changes:
 
 ```ts

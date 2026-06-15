@@ -1,46 +1,27 @@
 {
-    "name": "@sigx/lynx-cli",
+    "name": "@sigx/lynx-updates-publisher",
     "version": "0.7.0",
-    "description": "Lynx CLI plugin for sigx — config, prebuild, auto-linking",
+    "description": "Programmatic OTA publish for @sigx/lynx-updates — package a built .lynx.bundle into the static-manifest layout from CI, no shelling out",
     "type": "module",
     "main": "./dist/index.js",
     "types": "./dist/index.d.ts",
-    "sigx-cli": {
-        "plugin": "./dist/plugin.js",
-        "requires": ">=0.4.0"
-    },
     "exports": {
         ".": {
             "import": "./dist/index.js",
             "types": "./dist/index.d.ts"
-        },
-        "./config": {
-            "import": "./dist/config/index.js",
-            "types": "./dist/config/index.d.ts"
         }
     },
     "files": [
-        "dist",
-        "templates"
+        "dist"
     ],
     "scripts": {
         "build": "node ../../scripts/clean.mjs dist && tsgo",
         "dev": "tsgo --watch",
         "clean": "node ../../scripts/clean.mjs dist .turbo"
     },
-    "dependencies": {
-        "@lynx-js/web-core": "^0.20.4",
-        "@sigx/cli": "^0.4.1",
-        "@sigx/lynx-core": "workspace:^",
-        "@sigx/lynx-updates-publisher": "workspace:^",
-        "@sigx/terminal": "^0.5.0",
-        "esbuild": "^0.28.0",
-        "sharp": "^0.34.0",
-        "ws": "^8.20.1"
-    },
     "devDependencies": {
+        "@sigx/lynx-updates": "workspace:^",
         "@types/node": "^25.9.1",
-        "@types/ws": "^8.18.1",
         "@typescript/native-preview": "7.0.0-dev.20260521.1",
         "typescript": "^6.0.3"
     },
@@ -49,23 +30,25 @@
     "repository": {
         "type": "git",
         "url": "git+https://github.com/signalxjs/lynx.git",
-        "directory": "packages/lynx-cli"
+        "directory": "packages/lynx-updates-publisher"
     },
-    "homepage": "https://sigx.dev/lynx/modules/cli/overview/",
+    "homepage": "https://sigx.dev/lynx/modules/updates/overview/",
     "bugs": {
         "url": "https://github.com/signalxjs/lynx/issues"
+    },
+    "publishConfig": {
+        "access": "public"
     },
     "keywords": [
         "signalx",
         "sigx",
         "lynx",
-        "cli",
-        "plugin",
         "mobile",
         "ios",
-        "android"
-    ],
-    "publishConfig": {
-        "access": "public"
-    }
+        "android",
+        "ota",
+        "updates",
+        "ci",
+        "publish"
+    ]
 }

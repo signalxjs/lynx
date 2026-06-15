@@ -29,6 +29,25 @@ You normally don't depend on this package directly — `npm create @sigx@latest`
 pnpm add -D @sigx/cli @sigx/lynx-cli
 ```
 
+## OTA publishing
+
+`sigx updates:publish` packages a built `.lynx.bundle` into the static-manifest
+layout `@sigx/lynx-updates` consumes. The programmatic core is also exported, so
+CI can publish **without shelling out and scraping stdout** — `runUpdatesPublish`
+(resolves app version / channel from `signalx.config.ts`, then prints a summary)
+and the dependency-light `publishUpdate` (re-exported from
+[`@sigx/lynx-updates-publisher`](../lynx-updates-publisher), returns structured
+`{ updateId, manifestPath, bundleUrl, sha256, … }`):
+
+```ts
+import { publishUpdate } from '@sigx/lynx-cli'; // or '@sigx/lynx-updates-publisher'
+
+const { updateId, manifestPath, bundleUrl, sha256 } = await publishUpdate({ cwd: process.cwd() });
+```
+
+For CI that only packages a prebuilt artifact, import `@sigx/lynx-updates-publisher`
+directly — it pulls only Node built-ins, not this package's build toolchain.
+
 ## License
 
 MIT — © Andreas Ekdahl

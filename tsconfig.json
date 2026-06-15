@@ -126,6 +126,9 @@
       ],
       "@sigx/lynx-testing": [
         "./packages/lynx-testing/src/index.ts"
+      ],
+      "@sigx/lynx-updates-publisher": [
+        "./packages/lynx-updates-publisher/src/index.ts"
       ]
     }
   },

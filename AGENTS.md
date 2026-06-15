@@ -120,7 +120,7 @@ pnpm verify:pack   # publish dry-run
 
 40+ workspace packages under `packages/`, grouped roughly as:
 
-- **Framework / build**: `@sigx/lynx` (umbrella), `@sigx/lynx-plugin`, `@sigx/lynx-cli` (SWC/Rspack transforms, `sigx dev` / `sigx run:android` / `sigx run:ios`).
+- **Framework / build**: `@sigx/lynx` (umbrella), `@sigx/lynx-plugin`, `@sigx/lynx-cli` (SWC/Rspack transforms, `sigx dev` / `sigx run:android` / `sigx run:ios`), `@sigx/lynx-updates-publisher` (dependency-light programmatic OTA publish for CI).
 - **Runtime**: `@sigx/lynx-runtime`, `@sigx/lynx-runtime-main`, `@sigx/lynx-runtime-internal` — the dual-thread renderer.
 - **Native modules (30+)**: `@sigx/lynx-<capability>` packages (camera, storage, sqlite, location, biometric, notifications, websocket, webview, updates (OTA, + `lynx-updates-ui` prompts), …).
 - **UI / motion / gestures**: daisyui, icons (+ adapters), gestures, motion, navigation.
