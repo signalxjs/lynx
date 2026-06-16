@@ -16,6 +16,14 @@
 
 .rating-readonly { opacity: 0.9; }
 
+/* Half-step layout (allowHalf): each star is a relative cell; the half overlay
+ * clips a filled glyph to the left half, and the two hit zones cover each half.
+ * Size-dependent dimensions (width/height, the right zone's left offset) are
+ * applied inline since they track the glyph font-size. */
+.rating-star { position: relative; }
+.rating-half { position: absolute; left: 0; top: 0; overflow: hidden; }
+.rating-hit { position: absolute; top: 0; }
+
 /* Glyphs: empty stars are muted; filled (active) stars default to the warning
  * (gold) tint. Color variants override the filled tint via the container class.
  * `var(--color-*)` resolves from these class rules at first paint (text honors

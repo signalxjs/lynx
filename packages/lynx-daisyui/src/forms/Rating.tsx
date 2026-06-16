@@ -74,10 +74,7 @@ export const Rating = component<RatingProps>(({ props, emit }) => {
         ];
         if (half) {
           layers.push(
-            <view
-              class="rating-half"
-              style={{ position: 'absolute', left: 0, top: 0, width: fontSize / 2, height: fontSize, overflow: 'hidden' }}
-            >
+            <view class="rating-half" style={{ width: fontSize / 2, height: fontSize }}>
               <text class="rating-icon rating-icon-active" style={glyphStyle}>{FILLED}</text>
             </view>,
           );
@@ -90,7 +87,7 @@ export const Rating = component<RatingProps>(({ props, emit }) => {
               accessibility-element={true}
               accessibility-label={`Rate ${index - 0.5}`}
               accessibility-trait="button"
-              style={{ position: 'absolute', left: 0, top: 0, width: fontSize / 2, height: fontSize }}
+              style={{ left: 0, width: fontSize / 2, height: fontSize }}
               onPress={() => setVal(index - 0.5)}
             />,
             <Pressable
@@ -99,13 +96,13 @@ export const Rating = component<RatingProps>(({ props, emit }) => {
               accessibility-element={true}
               accessibility-label={`Rate ${index}`}
               accessibility-trait="button"
-              style={{ position: 'absolute', left: fontSize / 2, top: 0, width: fontSize / 2, height: fontSize }}
+              style={{ left: fontSize / 2, width: fontSize / 2, height: fontSize }}
               onPress={() => setVal(index)}
             />,
           );
         }
         icons.push(
-          <view class="rating-star" style={{ position: 'relative', width: fontSize, height: fontSize }}>
+          <view class="rating-star" style={{ width: fontSize, height: fontSize }}>
             {layers}
           </view>,
         );
