@@ -1,0 +1,62 @@
+/* Table — .table (header + body rows), zebra + size variants */
+
+.table {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  /* Give the table its own surface so zebra stripes (base-200) contrast,
+   * regardless of the container's background. */
+  background-color: var(--color-base-100);
+  border-radius: var(--radius-box);
+  overflow: hidden;
+}
+
+/* Rows are horizontal; Lynx views aren't flex by default, so display:flex is
+ * required for flex-direction/justify-content to apply. */
+.table-header,
+.table-row {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+}
+
+.table-header {
+  border-bottom-width: 2px;
+  border-bottom-color: var(--color-base-300);
+}
+
+.table-row {
+  border-bottom-width: 1px;
+  border-bottom-color: var(--color-base-200);
+}
+
+/* Zebra striping is applied per-row (Lynx CSS has no :nth-child). */
+.table-row-alt {
+  background-color: var(--color-base-200);
+}
+
+.table-cell {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding: 12px 16px;
+  overflow: hidden;
+}
+
+.table-th-text {
+  font-weight: 700;
+  font-size: var(--font-sm);
+  color: var(--color-base-content);
+}
+
+.table-td-text {
+  font-size: var(--font-md);
+  color: var(--color-base-content);
+}
+
+/* Size variants tighten the cell padding / text. */
+.table-sm .table-cell { padding: 8px 12px; }
+.table-sm .table-td-text { font-size: var(--font-sm); }
+.table-xs .table-cell { padding: 4px 8px; }
+.table-xs .table-th-text,
+.table-xs .table-td-text { font-size: var(--font-xs); }

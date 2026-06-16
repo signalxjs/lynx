@@ -132,6 +132,8 @@ export type { StatusBarSyncProps } from '@sigx/lynx-zero';
 // Data
 export { Avatar } from './data/Avatar.js';
 export type { AvatarProps, AvatarSize } from './data/Avatar.js';
+export { Table } from './data/Table.js';
+export type { TableProps, TableColumn, TableRow, TableSize, TableAlign } from './data/Table.js';
 
 // Typography
 export { Text } from './typography/Text.js';
