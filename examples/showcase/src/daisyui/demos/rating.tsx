@@ -1,5 +1,5 @@
 import { component, signal } from '@sigx/lynx';
-import { Col, Rating, Row, Text } from '@sigx/lynx-daisyui';
+import { Col, Rating, Text } from '@sigx/lynx-daisyui';
 import type { DaisyComponentDemo } from '../registry.js';
 
 /**
