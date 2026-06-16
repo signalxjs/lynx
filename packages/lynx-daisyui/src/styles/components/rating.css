@@ -1,0 +1,19 @@
+/* Rating — .rating row + .rating-icon star glyphs */
+
+.rating {
+  flex-direction: row;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Size variants tighten/loosen the gap; glyph font-size is applied inline. */
+.rating-xs { gap: 2px; }
+.rating-sm { gap: 3px; }
+.rating-lg { gap: 6px; }
+
+.rating-readonly { opacity: 0.9; }
+
+/* Glyph weight; fill color is resolved from the active theme and applied inline
+ * (CSS `color` on <text> is honored; the per-icon color must be a literal so it
+ * tracks the bound value). */
+.rating-icon { font-weight: 700; }
