@@ -68,7 +68,7 @@ describe('Collapse', () => {
   });
 
   it('accordion: only the item matching the group model is open', () => {
-    const openItem = signal('b');
+    const openItem = signal<string | undefined>('b');
     const { container } = render(
       <Collapse.Group model={() => openItem.value}>
         <Collapse value="a" title="A">{'A body'}</Collapse>
@@ -86,7 +86,7 @@ describe('Collapse', () => {
   it('accordion: all closed when the group model matches nothing', () => {
     const openItem = signal<string | undefined>(undefined);
     const { container } = render(
-      <Collapse.Group model={() => openItem.value as string}>
+      <Collapse.Group model={() => openItem.value}>
         <Collapse value="a" title="A">{'A body'}</Collapse>
         <Collapse value="b" title="B">{'B body'}</Collapse>
       </Collapse.Group>,

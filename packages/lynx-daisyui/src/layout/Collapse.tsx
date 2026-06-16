@@ -19,14 +19,15 @@ export type CollapseGroupProps =
   // Two-way binding: the `value` of the currently-open item (or undefined for
   // all-closed). `defaultValue` seeds the uncontrolled case.
   & Define.Prop<'defaultValue', string, false>
-  & Define.Model<string>
+  // `undefined` is a valid value — "all closed" — so the model is nullable.
+  & Define.Model<string | undefined>
   & Define.Slot<'default'>;
 
 const _CollapseGroup = component<CollapseGroupProps>(({ props, slots }) => {
   const internal = signal<string | undefined>(props.defaultValue);
   const openValue = () => (props.model ? props.model.value : internal.value);
   const setOpen = (v: string | undefined) => {
-    if (props.model) props.model.value = v as string;
+    if (props.model) props.model.value = v;
     else internal.value = v;
   };
 
@@ -95,7 +96,7 @@ const _Collapse = component<CollapseProps>(({ props, emit, slots }) => {
           pressedOpacity={PRESSED_OPACITY}
           longPressDuration={0}
           accessibility-element={true}
-          accessibility-label={props.title}
+          accessibility-label={props.title ?? 'Toggle section'}
           accessibility-trait="button"
           onPress={toggle}
         >

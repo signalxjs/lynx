@@ -53,7 +53,7 @@ export const collapseDemo: DaisyComponentDemo = {
             title: 'Accordion group',
             note: 'only one open at a time',
             Demo: component(() => {
-                const openItem = signal('shipping');
+                const openItem = signal<string | undefined>('shipping');
                 return () => (
                     <Col gap={8}>
                         <Collapse.Group model={() => openItem.value}>
