@@ -214,10 +214,13 @@ export const Range = component<RangeProps>(({ props, emit }) => {
       void syncConfig(dis, b.min, b.max, b.step, b.precision);
     }
 
-    // Percent of the track the value occupies — rendered purely from the model
-    // (or static `value`), reactive to min/max changes.
-    const raw = props.model ? (props.model.value ?? b.min) : (props.value ?? b.min);
-    const val = Math.min(b.max, Math.max(b.min, raw));
+    // Percent of the track the value occupies — rendered from the model (or
+    // static `value`), reactive to min/max changes. Quantize/clamp the same way
+    // the gesture does so an off-step or non-finite value can't show an
+    // in-between thumb or a NaN% string.
+    let raw = props.model ? (props.model.value ?? b.min) : (props.value ?? b.min);
+    if (typeof raw !== 'number' || !Number.isFinite(raw)) raw = b.min;
+    const val = quantizeRangeValue(raw, b.min, b.max, b.step);
     const pct = ((val - b.min) / b.span) * 100;
 
     return (
