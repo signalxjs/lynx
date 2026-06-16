@@ -52,7 +52,7 @@ export type CollapseProps =
   & Define.Prop<'defaultOpen', boolean, false>
   & Define.Prop<'class', string, false>
   // Two-way binding for standalone use: `model={() => state.open}`. Inside a
-  // group the group's state wins; the `change`/`toggle` event still fires.
+  // group the group's state wins; the `toggle` event still fires.
   & Define.Model<boolean>
   & Define.Event<'toggle', boolean>
   & Define.Slot<'default'>
