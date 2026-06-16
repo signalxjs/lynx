@@ -1,6 +1,9 @@
 /* Rating — .rating row + .rating-icon star glyphs */
 
 .rating {
+  /* Lynx views are not flex by default — flex-direction is ignored without an
+   * explicit `display: flex`, so the stars would stack vertically otherwise. */
+  display: flex;
   flex-direction: row;
   align-items: center;
   gap: 4px;
@@ -13,7 +16,17 @@
 
 .rating-readonly { opacity: 0.9; }
 
-/* Glyph weight; fill color is resolved from the active theme and applied inline
- * (CSS `color` on <text> is honored; the per-icon color must be a literal so it
- * tracks the bound value). */
-.rating-icon { font-weight: 700; }
+/* Glyphs: empty stars are muted; filled (active) stars default to the warning
+ * (gold) tint. Color variants override the filled tint via the container class.
+ * `var(--color-*)` resolves from these class rules at first paint (text honors
+ * CSS-rule custom properties), so no inline color is needed. */
+.rating-icon { font-weight: 700; color: var(--color-base-300); }
+.rating-icon-active { color: var(--color-warning); }
+
+.rating-primary .rating-icon-active { color: var(--color-primary); }
+.rating-secondary .rating-icon-active { color: var(--color-secondary); }
+.rating-accent .rating-icon-active { color: var(--color-accent); }
+.rating-info .rating-icon-active { color: var(--color-info); }
+.rating-success .rating-icon-active { color: var(--color-success); }
+.rating-warning .rating-icon-active { color: var(--color-warning); }
+.rating-error .rating-icon-active { color: var(--color-error); }
