@@ -1,6 +1,9 @@
 /* Rating — .rating row + .rating-icon star glyphs */
 
 .rating {
+  /* Lynx views are not flex by default — flex-direction is ignored without an
+   * explicit `display: flex`, so the stars would stack vertically otherwise. */
+  display: flex;
   flex-direction: row;
   align-items: center;
   gap: 4px;
