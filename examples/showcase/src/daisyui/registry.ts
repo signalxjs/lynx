@@ -14,6 +14,7 @@ import { selectDemo } from './demos/select.js';
 import { checkboxDemo } from './demos/checkbox.js';
 import { radioDemo } from './demos/radio.js';
 import { ratingDemo } from './demos/rating.js';
+import { rangeDemo } from './demos/range.js';
 import { toggleDemo } from './demos/toggle.js';
 import { formfieldDemo } from './demos/formfield.js';
 // Feedback
@@ -96,6 +97,7 @@ export const daisyDemos: DaisyComponentDemo[] = [
     checkboxDemo,
     radioDemo,
     ratingDemo,
+    rangeDemo,
     toggleDemo,
     formfieldDemo,
     // Feedback
