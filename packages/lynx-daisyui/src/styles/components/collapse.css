@@ -1,0 +1,44 @@
+/* Collapse — .collapse disclosure + .collapse-group accordion */
+
+.collapse {
+  background-color: var(--color-base-200);
+  color: var(--color-base-content);
+  border-radius: var(--radius-box);
+  overflow: hidden;
+}
+
+/* The title is a horizontal row (label + indicator). Lynx views aren't flex by
+ * default, so `display: flex` is required for `flex-direction`/`justify-content`. */
+.collapse-title {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--padding-box);
+}
+
+.collapse-title-content { flex: 1; }
+
+.collapse-title-text {
+  font-weight: 600;
+  color: var(--color-base-content);
+}
+
+.collapse-indicator {
+  color: var(--color-base-content);
+  font-size: var(--font-lg);
+  opacity: 0.6;
+}
+
+.collapse-content {
+  padding: var(--padding-box);
+  padding-top: 0;
+  color: var(--color-base-content);
+}
+
+/* Accordion group: stack the collapses vertically with a small gap. */
+.collapse-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}

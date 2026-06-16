@@ -9,6 +9,8 @@ export { Card } from './layout/Card.js';
 export type { CardProps } from './layout/Card.js';
 export { Divider } from './layout/Divider.js';
 export type { DividerProps } from './layout/Divider.js';
+export { Collapse } from './layout/Collapse.js';
+export type { CollapseProps, CollapseGroupProps, CollapseIcon } from './layout/Collapse.js';
 export { Row, Col, Center, Spacer, ScrollView } from '@sigx/lynx-zero';
 export type {
   RowProps, ColProps, CenterProps, SpacerProps, ScrollViewProps,

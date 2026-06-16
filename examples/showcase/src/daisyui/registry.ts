@@ -6,6 +6,7 @@ import { cardDemo } from './demos/card.js';
 import { layoutDemo } from './demos/layout.js';
 import { scrollviewDemo } from './demos/scrollview.js';
 import { dividerDemo } from './demos/divider.js';
+import { collapseDemo } from './demos/collapse.js';
 // Forms
 import { inputDemo } from './demos/input.js';
 import { textareaDemo } from './demos/textarea.js';
@@ -87,6 +88,7 @@ export const daisyDemos: DaisyComponentDemo[] = [
     layoutDemo,
     scrollviewDemo,
     dividerDemo,
+    collapseDemo,
     // Forms
     inputDemo,
     textareaDemo,
