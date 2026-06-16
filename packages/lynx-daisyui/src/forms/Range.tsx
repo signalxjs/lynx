@@ -77,10 +77,16 @@ export const Range = component<RangeProps>(({ props, emit }) => {
     if (frac < 0) frac = 0;
     if (frac > 1) frac = 1;
     let v = min + frac * span;
-    v = Math.round(v / step) * step;
+    // Quantize relative to `min` (not 0) so steps land on min, min+step, …
+    // even when `min` isn't a multiple of `step`. Skip if step is non-positive.
+    if (step > 0) v = min + Math.round((v - min) / step) * step;
     if (v < min) v = min;
     if (v > max) v = max;
     runOnBackground((next: number) => {
+      // Bail when unchanged — avoids redundant renders and repeated `change`
+      // events on every gesture frame.
+      const cur = props.model ? (props.model.value ?? min) : (props.value ?? min);
+      if (next === cur) return;
       if (props.model) props.model.value = next;
       emit('change', next);
     })(v);
@@ -99,7 +105,11 @@ export const Range = component<RangeProps>(({ props, emit }) => {
           }
           commitFromPageX(pageX);
         })
-        .catch(() => {});
+        // On measurement failure, still commit using the last-known frame
+        // (a no-op only on the very first interaction, when width is still 0).
+        .catch(() => {
+          commitFromPageX(pageX);
+        });
     } else {
       commitFromPageX(pageX);
     }
