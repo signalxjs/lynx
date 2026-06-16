@@ -30,15 +30,32 @@ export type RangeProps =
 const DEFAULT_MIN = 0;
 const DEFAULT_MAX = 100;
 
-// Track frame measured on the main thread (page-relative left + pixel width).
+/**
+ * Quantize a raw value to `step` (relative to `min`, so steps land on
+ * min, min+step, … even when min isn't a multiple of step) and clamp to
+ * [min, max]. `step <= 0` means continuous. Exported for testing; the gesture
+ * worklet inlines the same math because Lynx worklets can't call imported
+ * functions across the main-thread boundary.
+ */
+export function quantizeRangeValue(raw: number, min: number, max: number, step: number): number {
+  let v = raw;
+  if (step > 0) v = min + Math.round((v - min) / step) * step;
+  if (v < min) v = min;
+  if (v > max) v = max;
+  return v;
+}
+
+// Track frame measured on the main thread (page-relative left + pixel width)
+// plus the last value bridged to BG, for MT-side dedup.
 interface TrackFrame {
   left: number;
   width: number;
+  lastV: number;
 }
 
 export const Range = component<RangeProps>(({ props, emit }) => {
   const trackRef = useMainThreadRef<MainThread.Element | null>(null);
-  const frame = useMainThreadRef<TrackFrame>({ left: 0, width: 0 });
+  const frame = useMainThreadRef<TrackFrame>({ left: 0, width: 0, lastV: Number.NaN });
 
   // Captured at setup — min/max/step rarely change and the gesture worklet
   // deep-copies its closure once. `disabled` is re-read live via the ref guard.
@@ -49,9 +66,6 @@ export const Range = component<RangeProps>(({ props, emit }) => {
   const max = Math.max(rawMin, rawMax);
   const step = props.step ?? 1;
   const span = max - min || 1;
-  // Last value committed to the model — guards against duplicate `change`
-  // events across gesture frames when the controlled `value` prop lags.
-  const lastRef = { v: Number.NaN };
 
   const current = () => {
     const raw = props.model ? (props.model.value ?? min) : (props.value ?? min);
@@ -82,18 +96,20 @@ export const Range = component<RangeProps>(({ props, emit }) => {
     let frac = (pageX - f.left) / f.width;
     if (frac < 0) frac = 0;
     if (frac > 1) frac = 1;
+    // Inlined `quantizeRangeValue` (worklets can't call imported fns): quantize
+    // relative to `min` so steps land on min, min+step, … and clamp to range.
     let v = min + frac * span;
-    // Quantize relative to `min` (not 0) so steps land on min, min+step, …
-    // even when `min` isn't a multiple of `step`. Skip if step is non-positive.
     if (step > 0) v = min + Math.round((v - min) / step) * step;
     if (v < min) v = min;
     if (v > max) v = max;
+    // MT-side dedup: only bridge to BG when the quantized value actually
+    // changes, so a slow drag within one step doesn't spam MT→BG hops.
+    if (v === f.lastV) return;
+    f.lastV = v;
     runOnBackground((next: number) => {
-      // Bail when unchanged — avoids redundant renders and repeated `change`
-      // events on every gesture frame.
+      // Defensive BG guard for the case where the model already equals `next`.
       const cur = props.model ? (props.model.value ?? min) : (props.value ?? min);
-      if (next === cur || next === lastRef.v) return;
-      lastRef.v = next;
+      if (next === cur) return;
       if (props.model) props.model.value = next;
       emit('change', next);
     })(v);

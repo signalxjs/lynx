@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { render } from '@sigx/lynx-testing';
 import { signal } from '@sigx/lynx';
-import { Range } from '../src/forms/Range';
+import { Range, quantizeRangeValue } from '../src/forms/Range';
 
 // First node in the subtree carrying an exact class token.
 function find(node: any, token: string): any {
@@ -60,5 +60,26 @@ describe('Range', () => {
   it('applies the disabled class', () => {
     const { container } = render(<Range value={10} disabled />);
     expect(container.children[0]._class).toContain('range-disabled');
+  });
+});
+
+describe('quantizeRangeValue', () => {
+  it('snaps to the step (min 0, step 2 → even values)', () => {
+    expect(quantizeRangeValue(2.9, 0, 10, 2)).toBe(2);
+    expect(quantizeRangeValue(3.2, 0, 10, 2)).toBe(4);
+  });
+
+  it('quantizes relative to min (min 3, step 2 → 3, 5, 7, …)', () => {
+    expect(quantizeRangeValue(3.4, 3, 11, 2)).toBe(3);
+    expect(quantizeRangeValue(6.2, 3, 11, 2)).toBe(7);
+  });
+
+  it('clamps to [min, max]', () => {
+    expect(quantizeRangeValue(15, 0, 10, 1)).toBe(10);
+    expect(quantizeRangeValue(-3, 0, 10, 1)).toBe(0);
+  });
+
+  it('is continuous when step <= 0', () => {
+    expect(quantizeRangeValue(3.7, 0, 10, 0)).toBe(3.7);
   });
 });
