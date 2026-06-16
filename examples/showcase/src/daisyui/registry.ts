@@ -33,6 +33,7 @@ import { navdrawerDemo } from './demos/navdrawer.js';
 import { swiperindicatorDemo } from './demos/swiperindicator.js';
 // Data
 import { avatarDemo } from './demos/avatar.js';
+import { tableDemo } from './demos/table.js';
 // Typography
 import { textDemo } from './demos/text.js';
 import { headingDemo } from './demos/heading.js';
@@ -116,6 +117,7 @@ export const daisyDemos: DaisyComponentDemo[] = [
     swiperindicatorDemo,
     // Data
     avatarDemo,
+    tableDemo,
     // Typography
     textDemo,
     headingDemo,
