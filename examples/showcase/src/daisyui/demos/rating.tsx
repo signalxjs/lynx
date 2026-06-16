@@ -66,5 +66,25 @@ export const ratingDemo: DaisyComponentDemo = {
                 );
             }),
         },
+        {
+            title: 'Half steps',
+            note: 'allowHalf — tap the left/right half of a star',
+            Demo: component(() => {
+                const half = signal(2.5);
+                return () => (
+                    <Col gap={8}>
+                        <Rating model={() => half.value} allowHalf size="lg" />
+                        <Text class="opacity-60">value: {half.value}</Text>
+                    </Col>
+                );
+            }),
+        },
+        {
+            title: 'Read-only average',
+            note: 'allowHalf display of a fractional score',
+            Demo: component(() => () => (
+                <Rating value={3.5} allowHalf readOnly />
+            )),
+        },
     ],
 };
