@@ -11,6 +11,10 @@ export type RatingProps =
   & Define.Prop<'color', RatingColor, false>
   & Define.Prop<'size', RatingSize, false>
   & Define.Prop<'readOnly', boolean, false>
+  // Enable half-step ratings: the value can be in 0.5 increments and each icon
+  // renders a left-half fill. Tapping the left/right half of an icon sets
+  // `i - 0.5` / `i`. Off by default (integer-only).
+  & Define.Prop<'allowHalf', boolean, false>
   & Define.Prop<'class', string, false>
   // Two-way binding (the sigx way): `model={() => state.stars}`. Tapping an icon
   // writes its 1-based index into the model; an icon is filled when its index is
@@ -47,35 +51,87 @@ export const Rating = component<RatingProps>(({ props, emit }) => {
     const glyphStyle = { fontSize } as const;
     const selected = current();
     const readOnly = !!props.readOnly;
+    const allowHalf = !!props.allowHalf;
+
+    const setVal = (v: number) => {
+      if (props.model) props.model.value = v;
+      emit('change', v);
+    };
 
     const icons = [];
     for (let i = 1; i <= max(); i++) {
-      const filled = i <= selected;
-      const className = filled ? 'rating-icon rating-icon-active' : 'rating-icon';
+      const full = selected >= i;
+      const half = !full && allowHalf && selected >= i - 0.5;
 
-      if (readOnly) {
+      if (allowHalf) {
+        // Layered cell: an empty (or full) base glyph, an optional left-half
+        // clipped filled overlay, and two tap zones (left → i-0.5, right → i).
+        const index = i;
+        const layers = [
+          <text class={full ? 'rating-icon rating-icon-active' : 'rating-icon'} style={glyphStyle}>
+            {full ? FILLED : EMPTY}
+          </text>,
+        ];
+        if (half) {
+          layers.push(
+            <view
+              class="rating-half"
+              style={{ position: 'absolute', left: 0, top: 0, width: fontSize / 2, height: fontSize, overflow: 'hidden' }}
+            >
+              <text class="rating-icon rating-icon-active" style={glyphStyle}>{FILLED}</text>
+            </view>,
+          );
+        }
+        if (!readOnly) {
+          layers.push(
+            <Pressable
+              class="rating-hit"
+              longPressDuration={0}
+              accessibility-element={true}
+              accessibility-label={`Rate ${index - 0.5}`}
+              accessibility-trait="button"
+              style={{ position: 'absolute', left: 0, top: 0, width: fontSize / 2, height: fontSize }}
+              onPress={() => setVal(index - 0.5)}
+            />,
+            <Pressable
+              class="rating-hit"
+              longPressDuration={0}
+              accessibility-element={true}
+              accessibility-label={`Rate ${index}`}
+              accessibility-trait="button"
+              style={{ position: 'absolute', left: fontSize / 2, top: 0, width: fontSize / 2, height: fontSize }}
+              onPress={() => setVal(index)}
+            />,
+          );
+        }
         icons.push(
-          <text class={className} style={glyphStyle}>{filled ? FILLED : EMPTY}</text>,
+          <view class="rating-star" style={{ position: 'relative', width: fontSize, height: fontSize }}>
+            {layers}
+          </view>,
         );
       } else {
-        const index = i;
-        icons.push(
-          <Pressable
-            pressedScale={PRESSED_SCALE}
-            pressedOpacity={PRESSED_OPACITY}
-            longPressDuration={0}
-            accessibility-element={true}
-            accessibility-label={`Rate ${index}`}
-            accessibility-trait="button"
-            onPress={() => {
-              const next = index;
-              if (props.model) props.model.value = next;
-              emit('change', next);
-            }}
-          >
-            <text class={className} style={glyphStyle}>{filled ? FILLED : EMPTY}</text>
-          </Pressable>,
-        );
+        // Integer mode: a single full-width tap target per icon.
+        const className = full ? 'rating-icon rating-icon-active' : 'rating-icon';
+        if (readOnly) {
+          icons.push(
+            <text class={className} style={glyphStyle}>{full ? FILLED : EMPTY}</text>,
+          );
+        } else {
+          const index = i;
+          icons.push(
+            <Pressable
+              pressedScale={PRESSED_SCALE}
+              pressedOpacity={PRESSED_OPACITY}
+              longPressDuration={0}
+              accessibility-element={true}
+              accessibility-label={`Rate ${index}`}
+              accessibility-trait="button"
+              onPress={() => setVal(index)}
+            >
+              <text class={className} style={glyphStyle}>{full ? FILLED : EMPTY}</text>
+            </Pressable>,
+          );
+        }
       }
     }
 
