@@ -38,9 +38,20 @@ const DEFAULT_MAX = 100;
  * worklet inlines the same math because Lynx worklets can't call imported
  * functions across the main-thread boundary.
  */
+// Decimal places implied by a step (0.1 → 1, 0.25 → 2, 2 → 0), used to strip
+// floating-point drift from stepped values.
+function stepDecimals(step: number): number {
+  return (String(step).split('.')[1] || '').length;
+}
+
 export function quantizeRangeValue(raw: number, min: number, max: number, step: number): number {
   let v = raw;
-  if (step > 0) v = min + Math.round((v - min) / step) * step;
+  if (step > 0) {
+    v = min + Math.round((v - min) / step) * step;
+    // Strip floating-point drift (e.g. step 0.1 → 0.30000000000000004).
+    const p = Math.pow(10, stepDecimals(step));
+    v = Math.round(v * p) / p;
+  }
   if (v < min) v = min;
   if (v > max) v = max;
   return v;
@@ -52,7 +63,8 @@ function boundsOf(props: { min?: number; max?: number; step?: number }) {
   const b = props.max ?? DEFAULT_MAX;
   const min = Math.min(a, b);
   const max = Math.max(a, b);
-  return { min, max, step: props.step ?? 1, span: (max - min) || 1 };
+  const step = props.step ?? 1;
+  return { min, max, step, span: (max - min) || 1, precision: Math.pow(10, stepDecimals(step)) };
 }
 
 // Track frame measured on the main thread (page-relative left + pixel width)
@@ -70,6 +82,7 @@ interface RangeConfig {
   min: number;
   max: number;
   step: number;
+  precision: number;
 }
 
 export const Range = component<RangeProps>(({ props, emit }) => {
@@ -85,13 +98,15 @@ export const Range = component<RangeProps>(({ props, emit }) => {
     min: seed.min,
     max: seed.max,
     step: seed.step,
+    precision: seed.precision,
   });
-  const syncConfig = runOnMainThread((disabled: boolean, min: number, max: number, step: number) => {
+  const syncConfig = runOnMainThread((disabled: boolean, min: number, max: number, step: number, precision: number) => {
     'main thread';
     cfg.current.disabled = disabled;
     cfg.current.min = min;
     cfg.current.max = max;
     cfg.current.step = step;
+    cfg.current.precision = precision;
   });
   let lastCfgKey = '';
 
@@ -119,7 +134,11 @@ export const Range = component<RangeProps>(({ props, emit }) => {
     if (frac > 1) frac = 1;
     // Inlined `quantizeRangeValue` (worklets can't call imported fns).
     let v = c.min + frac * span;
-    if (c.step > 0) v = c.min + Math.round((v - c.min) / c.step) * c.step;
+    if (c.step > 0) {
+      v = c.min + Math.round((v - c.min) / c.step) * c.step;
+      // Strip FP drift so dedup stays exact and `%` strings don't get noisy.
+      v = Math.round(v * c.precision) / c.precision;
+    }
     if (v < c.min) v = c.min;
     if (v > c.max) v = c.max;
     // MT-side dedup: only bridge to BG when the quantized value changes.
@@ -192,7 +211,7 @@ export const Range = component<RangeProps>(({ props, emit }) => {
     const key = `${dis}|${b.min}|${b.max}|${b.step}`;
     if (key !== lastCfgKey) {
       lastCfgKey = key;
-      void syncConfig(dis, b.min, b.max, b.step);
+      void syncConfig(dis, b.min, b.max, b.step, b.precision);
     }
 
     // Percent of the track the value occupies — rendered purely from the model

@@ -82,4 +82,10 @@ describe('quantizeRangeValue', () => {
   it('is continuous when step <= 0', () => {
     expect(quantizeRangeValue(3.7, 0, 10, 0)).toBe(3.7);
   });
+
+  it('lands on exact tenths for fractional step (no float drift)', () => {
+    expect(quantizeRangeValue(0.3, 0, 1, 0.1)).toBe(0.3);
+    expect(quantizeRangeValue(0.7, 0, 1, 0.1)).toBe(0.7);
+    expect(quantizeRangeValue(0.31, 0, 1, 0.1)).toBe(0.3);
+  });
 });
