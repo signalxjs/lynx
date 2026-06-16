@@ -39,6 +39,8 @@ export { Select } from './forms/Select.js';
 export type { SelectProps, SelectSize, SelectVariant, SelectColor, SelectOption } from './forms/Select.js';
 export { Radio } from './forms/Radio.js';
 export type { RadioGroupProps, RadioItemProps, RadioColor, RadioSize } from './forms/Radio.js';
+export { Rating } from './forms/Rating.js';
+export type { RatingProps, RatingColor, RatingSize } from './forms/Rating.js';
 export { Textarea } from './forms/Textarea.js';
 export type { TextareaProps, TextareaSize, TextareaVariant, TextareaColor } from './forms/Textarea.js';
 export { FormField } from './forms/FormField.js';

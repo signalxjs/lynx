@@ -12,6 +12,7 @@ import { textareaDemo } from './demos/textarea.js';
 import { selectDemo } from './demos/select.js';
 import { checkboxDemo } from './demos/checkbox.js';
 import { radioDemo } from './demos/radio.js';
+import { ratingDemo } from './demos/rating.js';
 import { toggleDemo } from './demos/toggle.js';
 import { formfieldDemo } from './demos/formfield.js';
 // Feedback
@@ -92,6 +93,7 @@ export const daisyDemos: DaisyComponentDemo[] = [
     selectDemo,
     checkboxDemo,
     radioDemo,
+    ratingDemo,
     toggleDemo,
     formfieldDemo,
     // Feedback
