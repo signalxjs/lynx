@@ -57,13 +57,19 @@ export function quantizeRangeValue(raw: number, min: number, max: number, step: 
   return v;
 }
 
-// Normalized bounds for a set of props (min <= max even if inverted).
+// Coerce to a finite number, falling back to a default for NaN/Infinity/non-numbers.
+function finite(n: unknown, fallback: number): number {
+  return typeof n === 'number' && Number.isFinite(n) ? n : fallback;
+}
+
+// Normalized bounds for a set of props (min <= max even if inverted; non-finite
+// inputs fall back to defaults so NaN can't leak into the rendered % or model).
 function boundsOf(props: { min?: number; max?: number; step?: number }) {
-  const a = props.min ?? DEFAULT_MIN;
-  const b = props.max ?? DEFAULT_MAX;
+  const a = finite(props.min, DEFAULT_MIN);
+  const b = finite(props.max, DEFAULT_MAX);
   const min = Math.min(a, b);
   const max = Math.max(a, b);
-  const step = props.step ?? 1;
+  const step = finite(props.step, 1);
   return { min, max, step, span: (max - min) || 1, precision: Math.pow(10, stepDecimals(step)) };
 }
 
