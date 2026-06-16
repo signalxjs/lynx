@@ -26,6 +26,7 @@
 @import './components/toggle.css';
 @import './components/radio.css';
 @import './components/rating.css';
+@import './components/range.css';
 @import './components/input.css';
 @import './components/textarea.css';
 @import './components/select.css';
