@@ -1,6 +1,6 @@
 import { component, type Define } from '@sigx/lynx';
 import { Pressable } from '@sigx/lynx-gestures';
-import { PRESSED_SCALE, PRESSED_OPACITY, useThemeColors, type ColorVariant } from '@sigx/lynx-zero';
+import { PRESSED_SCALE, PRESSED_OPACITY, type ColorVariant } from '@sigx/lynx-zero';
 
 export type RatingColor = Exclude<ColorVariant, 'neutral'>;
 export type RatingSize = 'xs' | 'sm' | 'md' | 'lg';
@@ -28,8 +28,6 @@ const glyphSizeMap: Record<RatingSize, number> = {
 };
 
 export const Rating = component<RatingProps>(({ props, emit }) => {
-  const colors = useThemeColors();
-
   const current = () => (props.model ? (props.model.value ?? 0) : (props.value ?? 0));
   const max = () => props.max ?? DEFAULT_MAX;
 
@@ -46,18 +44,13 @@ export const Rating = component<RatingProps>(({ props, emit }) => {
   return () => {
     const size = props.size ?? 'md';
     const fontSize = glyphSizeMap[size];
-    const filledColor = colors.colorOf(props.color ?? 'warning');
-    const emptyColor = colors.colorOf('base-300');
+    const glyphStyle = { fontSize } as const;
     const selected = current();
     const readOnly = !!props.readOnly;
 
     const icons = [];
     for (let i = 1; i <= max(); i++) {
       const filled = i <= selected;
-      const glyphStyle = {
-        fontSize,
-        color: filled ? filledColor : emptyColor,
-      } as const;
       const className = filled ? 'rating-icon rating-icon-active' : 'rating-icon';
 
       if (readOnly) {
