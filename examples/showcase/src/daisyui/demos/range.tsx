@@ -3,13 +3,13 @@ import { Col, Range, Text } from '@sigx/lynx-daisyui';
 import type { DaisyComponentDemo } from '../registry.js';
 
 /**
- * Range — drag/tap slider: a live `model`-bound value, the color ramp, the size
+ * Range — drag slider: a live `model`-bound value, the color ramp, the size
  * ramp, custom min/max/step, and a disabled state.
  */
 export const rangeDemo: DaisyComponentDemo = {
     id: 'range',
     title: 'Range',
-    description: 'Drag/tap slider — color & size ramps, min/max/step, disabled, live two-way model binding',
+    description: 'Drag slider — color & size ramps, min/max/step, disabled, live two-way model binding',
     icon: { set: 'lucide', name: 'sliders-horizontal' },
     sections: [
         {

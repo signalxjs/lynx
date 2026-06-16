@@ -21,9 +21,9 @@ export type RangeProps =
   & Define.Prop<'size', RangeSize, false>
   & Define.Prop<'disabled', boolean, false>
   & Define.Prop<'class', string, false>
-  // Two-way binding (the sigx way): `model={() => state.volume}`. Dragging or
-  // tapping the track writes the mapped value into the model; the static
-  // `value` prop + `change` event still work when no model is bound.
+  // Two-way binding (the sigx way): `model={() => state.volume}`. Dragging the
+  // thumb writes the mapped value into the model; the static `value` prop +
+  // `change` event still work when no model is bound.
   & Define.Model<number>
   & Define.Event<'change', number>;
 
@@ -42,10 +42,16 @@ export const Range = component<RangeProps>(({ props, emit }) => {
 
   // Captured at setup — min/max/step rarely change and the gesture worklet
   // deep-copies its closure once. `disabled` is re-read live via the ref guard.
-  const min = props.min ?? DEFAULT_MIN;
-  const max = props.max ?? DEFAULT_MAX;
+  // Normalize so min <= max even if the caller passes them inverted.
+  const rawMin = props.min ?? DEFAULT_MIN;
+  const rawMax = props.max ?? DEFAULT_MAX;
+  const min = Math.min(rawMin, rawMax);
+  const max = Math.max(rawMin, rawMax);
   const step = props.step ?? 1;
   const span = max - min || 1;
+  // Last value committed to the model — guards against duplicate `change`
+  // events across gesture frames when the controlled `value` prop lags.
+  const lastRef = { v: Number.NaN };
 
   const current = () => {
     const raw = props.model ? (props.model.value ?? min) : (props.value ?? min);
@@ -86,7 +92,8 @@ export const Range = component<RangeProps>(({ props, emit }) => {
       // Bail when unchanged — avoids redundant renders and repeated `change`
       // events on every gesture frame.
       const cur = props.model ? (props.model.value ?? min) : (props.value ?? min);
-      if (next === cur) return;
+      if (next === cur || next === lastRef.v) return;
+      lastRef.v = next;
       if (props.model) props.model.value = next;
       emit('change', next);
     })(v);
