@@ -184,7 +184,10 @@ export const Range = component<RangeProps>(({ props, emit }) => {
 
   const pan = Gesture.Pan()
     .axis('x')
-    .minDistance(0)
+    // Small threshold so only an intentional drag activates — a stray tap or a
+    // scroll gesture won't accidentally move the value (interaction is
+    // drag-driven; tap-to-seek would be a separate Tap gesture follow-up).
+    .minDistance(6)
     // Empty onBegin gates iOS so onStart/onEnd fire (same quirk as Swipeable).
     .onBegin(() => {
       'main thread';
@@ -230,7 +233,13 @@ export const Range = component<RangeProps>(({ props, emit }) => {
     const pct = ((val - b.min) / b.span) * 100;
 
     return (
-      <view class={getClasses()} main-thread:ref={trackRef}>
+      <view
+        class={getClasses()}
+        main-thread:ref={trackRef}
+        accessibility-element={true}
+        accessibility-label="Slider"
+        accessibility-trait="adjustable"
+      >
         <view class="range-track">
           <view class="range-fill" style={{ width: `${pct}%` }} />
         </view>
