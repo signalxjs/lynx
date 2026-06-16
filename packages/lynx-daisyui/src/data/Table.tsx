@@ -58,23 +58,26 @@ export const Table = component<TableProps>(({ props }) => {
     const tableClass = c.join(' ');
 
     // For horizontal scrolling the row needs a fixed total width so it can
-    // overflow the viewport; sum the explicit column widths.
+    // overflow the viewport; sum the explicit column widths. Only lock the
+    // width when *every* column is fixed-width — otherwise auto (flex) columns
+    // would collapse to 0 inside the fixed sum.
+    const allWidths = cols.length > 0 && cols.every((col) => col.width != null);
     const totalWidth = cols.reduce((sum, col) => sum + (col.width ?? 0), 0);
-    const tableStyle = props.scrollX && totalWidth > 0 ? { width: totalWidth } : undefined;
+    const tableStyle = props.scrollX && allWidths ? { width: totalWidth } : undefined;
 
     const table = (
       <view class={tableClass} style={tableStyle}>
         <view class="table-header">
           {cols.map((col) => (
-            <view class="table-cell table-th" style={cellStyle(col)}>
+            <view key={col.key} class="table-cell table-th" style={cellStyle(col)}>
               <text class="table-th-text">{col.header}</text>
             </view>
           ))}
         </view>
         {rows.map((row, i) => (
-          <view class={`table-row${zebra && i % 2 === 1 ? ' table-row-alt' : ''}`}>
+          <view key={i} class={`table-row${zebra && i % 2 === 1 ? ' table-row-alt' : ''}`}>
             {cols.map((col) => (
-              <view class="table-cell table-td" style={cellStyle(col)}>
+              <view key={col.key} class="table-cell table-td" style={cellStyle(col)}>
                 <text class="table-td-text">{String(row[col.key] ?? '')}</text>
               </view>
             ))}
