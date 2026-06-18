@@ -1,6 +1,6 @@
 {
     "name": "@sigx/lynx-clipboard",
-    "version": "0.8.0",
+    "version": "0.8.1",
     "description": "Clipboard access for sigx-lynx",
     "type": "module",
     "main": "./dist/index.js",
