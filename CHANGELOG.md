@@ -4,6 +4,23 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 ## [Unreleased]
 
+## [0.8.1] - 2026-06-18
+
+Toolchain-compatibility release: unblocks mobile release builds on current CI toolchains (Xcode 26 and Linux runners). Also rounds out the `@sigx/lynx-daisyui` form/disclosure components.
+
+### Added
+
+- `@sigx/lynx-daisyui` — `Table` component (#513).
+- `@sigx/lynx-daisyui` — `Range` (slider) form control (#512).
+- `@sigx/lynx-daisyui` — `Collapse` / `Accordion` disclosure component (#511).
+- `@sigx/lynx-daisyui` — `Rating` star-input form control (#506), with half-step support via `allowHalf` (#510).
+
+### Fixed
+
+- `@sigx/lynx-cli` — the generated iOS `Podfile` now appends `-Wno-c99-designator` to every pod target (including per-pod subprojects). Xcode 26's clang flags the Lynx C++ core's C99 designated initializers, and the pod compiles with `-Werror`, which aborted the archive (`** ARCHIVE FAILED **`); this unblocks iOS release builds on Xcode 26 (#516).
+- `gradlew` template — pinned to LF via a new repo-level `.gitattributes`. A publish with `core.autocrlf` enabled had shipped the wrapper with a CRLF (`#!/bin/sh\r`) shebang, failing on Linux/macOS with `bad interpreter: /bin/sh^M: no such file or directory`; this restores Android builds from the generated project (#516).
+- `@sigx/lynx-daisyui` — `Rating` colors now apply via CSS classes, with a horizontal layout (#508).
+
 ## [0.8.0] - 2026-06-15
 
 Adopts **sigx core 0.7.0** (`@sigx/reactivity` / `@sigx/runtime-core`) across the runtime, and ships the accumulated backlog: the `use:*` directive system with the built-in `show` directive, the `Platform` API with build-time platform splitting, the W3C-shaped `@sigx/lynx-webrtc` module, and `@sigx/lynx-device-info` folded into `@sigx/lynx-core` (breaking `DeviceInfo` shape).
