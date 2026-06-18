@@ -4,6 +4,13 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 ## [Unreleased]
 
+## [0.9.1] - 2026-06-18
+
+### Fixed
+
+- `@sigx/lynx-webauth` — Android: on a programmatic `AbortSignal` cancel, keep consuming a late redirect from a still-open Custom Tab until the tab is dismissed, so an abandoned auth flow can't leak back as a global `Linking` 'url' event (#523).
+- `@sigx/lynx-webauth` — validate `authorizeUrl` is an `http(s)` URL on both platforms (and drop the dead `Uri.parse` catch on Android); normalize a full redirect URI down to the bare scheme; distinguish "missing required parameter" from "invalid authorizeUrl" in error messages (#523).
+
 ## [0.9.0] - 2026-06-18
 
 ### Added
