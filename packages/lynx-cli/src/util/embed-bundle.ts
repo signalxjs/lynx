@@ -67,6 +67,8 @@ export function embedBundle(opts: EmbedBundleOptions): boolean {
     mkdirSync(join(dest, '..'), { recursive: true });
     const changed = copyFileIfChanged(distBundle, dest);
     const label = platform === 'ios' ? 'iOS' : 'Android';
-    log(`${label}: embedded dist/main.lynx.bundle (${size} bytes)`);
+    log(changed
+        ? `${label}: embedded dist/main.lynx.bundle (${size} bytes)`
+        : `${label}: main.lynx.bundle already up to date (${size} bytes)`);
     return changed;
 }
