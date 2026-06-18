@@ -31,7 +31,7 @@ class WebAuthModule(context: Context) : LynxModule(context) {
         val authorizeUrl = options.string("authorizeUrl")
         val callbackScheme = options.string("callbackScheme")
         if (sessionId.isNullOrEmpty() || authorizeUrl.isNullOrEmpty() || callbackScheme.isNullOrEmpty()) {
-            callback?.invoke(error("authorizeUrl and callbackScheme are required"))
+            callback?.invoke(error("Missing required parameter(s): sessionId, authorizeUrl, callbackScheme"))
             return
         }
 
