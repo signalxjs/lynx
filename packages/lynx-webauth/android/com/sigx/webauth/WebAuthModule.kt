@@ -35,10 +35,13 @@ class WebAuthModule(context: Context) : LynxModule(context) {
             return
         }
 
-        val uri = try {
-            Uri.parse(authorizeUrl)
-        } catch (e: Exception) {
-            callback?.invoke(error("Invalid authorizeUrl: ${e.message}"))
+        // Uri.parse never throws on Android — validate the result instead. An
+        // authorize endpoint is always http(s); rejecting other schemes avoids
+        // launching an unintended URI in the Custom Tab.
+        val uri = Uri.parse(authorizeUrl)
+        val urlScheme = uri.scheme?.lowercase()
+        if (urlScheme != "http" && urlScheme != "https") {
+            callback?.invoke(error("authorizeUrl must be an http(s) URL"))
             return
         }
 
