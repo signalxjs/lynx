@@ -4,6 +4,13 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-06-18
+
+### Added
+
+- `@sigx/lynx-webauth` — new package: a system web-auth-session primitive for OAuth / OpenID-Connect sign-in. `openAuthSession(authorizeUrl, callbackScheme, options?)` presents `ASWebAuthenticationSession` on iOS and Chrome Custom Tabs on Android, returning the callback URL inline (`{ url }` / `{ canceled: true }` / `{ error }`). Supports `AbortSignal`, iOS ephemeral sessions, and Android toolbar color / preferred browser. Ships an opt-in `@sigx/lynx-webauth/oauth` helper (PKCE per RFC 7636, `state`, callback parsing) — pure JS, no token-exchange opinions (#518).
+- `@sigx/lynx-linking` — `LinkingState.addInterceptor` (Android): a one-shot URL interceptor consulted before a deep link is published, so a claimed URL (e.g. an OAuth callback) isn't also delivered as a `Linking` 'url' event. Used by `@sigx/lynx-webauth` (#518).
+
 ## [0.8.1] - 2026-06-18
 
 Toolchain-compatibility release: unblocks mobile release builds on current CI toolchains (Xcode 26 and Linux runners). Also rounds out the `@sigx/lynx-daisyui` form/disclosure components.

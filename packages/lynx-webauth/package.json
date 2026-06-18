@@ -1,0 +1,69 @@
+{
+    "name": "@sigx/lynx-webauth",
+    "version": "0.9.0",
+    "description": "System web-auth session (ASWebAuthenticationSession / Chrome Custom Tabs) for sigx-lynx OAuth flows",
+    "type": "module",
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+        ".": {
+            "import": "./dist/index.js",
+            "types": "./dist/index.d.ts"
+        },
+        "./oauth": {
+            "import": "./dist/oauth.js",
+            "types": "./dist/oauth.d.ts"
+        },
+        "./signalx-module.json": "./signalx-module.json"
+    },
+    "files": [
+        "dist",
+        "ios",
+        "android",
+        "signalx-module.json"
+    ],
+    "scripts": {
+        "build": "node ../../scripts/clean.mjs dist && tsgo",
+        "dev": "tsgo --watch",
+        "test": "vitest run",
+        "clean": "node ../../scripts/clean.mjs dist .turbo"
+    },
+    "dependencies": {
+        "@sigx/lynx-core": "workspace:^",
+        "@sigx/lynx-linking": "workspace:^"
+    },
+    "devDependencies": {
+        "@typescript/native-preview": "7.0.0-dev.20260521.1",
+        "typescript": "^6.0.3",
+        "vitest": "^4.1.7"
+    },
+    "author": "Andreas Ekdahl",
+    "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/signalxjs/lynx.git",
+        "directory": "packages/lynx-webauth"
+    },
+    "homepage": "https://sigx.dev/lynx/modules/webauth/overview/",
+    "bugs": {
+        "url": "https://github.com/signalxjs/lynx/issues"
+    },
+    "publishConfig": {
+        "access": "public"
+    },
+    "keywords": [
+        "signalx",
+        "sigx",
+        "lynx",
+        "mobile",
+        "ios",
+        "android",
+        "webauth",
+        "oauth",
+        "oidc",
+        "pkce",
+        "authentication",
+        "custom-tabs",
+        "aswebauthenticationsession"
+    ]
+}
