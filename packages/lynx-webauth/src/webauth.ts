@@ -156,9 +156,15 @@ export function isWebAuthAvailable(): boolean {
     return isModuleAvailable(MODULE);
 }
 
-/** Strip a trailing `://` or `:` so callers can pass `"myapp"`, `"myapp:"`, or `"myapp://"`. */
+/**
+ * Reduce any scheme-ish input to the bare scheme. Accepts `"myapp"`, `"myapp:"`,
+ * `"myapp://"`, and a full redirect URI like `"myapp://cb"` — all → `"myapp"`.
+ * Forgiving on purpose: a caller who passes their `redirect_uri` instead of the
+ * bare scheme would otherwise hit a silent no-match on the native side.
+ */
 function normalizeScheme(scheme: string): string {
-    return scheme.replace(/:\/\/$/, '').replace(/:$/, '');
+    const colon = scheme.indexOf(':');
+    return colon === -1 ? scheme : scheme.slice(0, colon);
 }
 
 function normalizeResult(raw: unknown): OpenAuthSessionResult {

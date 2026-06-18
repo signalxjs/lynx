@@ -59,6 +59,11 @@ describe('openAuthSession', () => {
         bridge.callAsync.mockResolvedValueOnce({ url: 'myapp://cb' });
         await openAuthSession('https://idp.test/authorize', 'myapp:');
         expect((lastOpenCall()[2] as { callbackScheme: string }).callbackScheme).toBe('myapp');
+
+        // Forgiving: a full redirect URI reduces to the bare scheme.
+        bridge.callAsync.mockResolvedValueOnce({ url: 'myapp://cb' });
+        await openAuthSession('https://idp.test/authorize', 'myapp://cb');
+        expect((lastOpenCall()[2] as { callbackScheme: string }).callbackScheme).toBe('myapp');
     });
 
     it('passes through a { canceled: true } result', async () => {

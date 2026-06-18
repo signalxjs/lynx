@@ -36,10 +36,13 @@ class WebAuthModule: NSObject, LynxModule {
         guard let options = options,
             let sessionId = options["sessionId"] as? String,
             let authorizeUrl = options["authorizeUrl"] as? String,
-            let callbackScheme = options["callbackScheme"] as? String,
-            let url = URL(string: authorizeUrl)
+            let callbackScheme = options["callbackScheme"] as? String
         else {
-            callback?(["error": "authorizeUrl and callbackScheme are required"])
+            callback?(["error": "Missing required parameter(s): sessionId, authorizeUrl, callbackScheme"])
+            return
+        }
+        guard let url = URL(string: authorizeUrl) else {
+            callback?(["error": "Invalid authorizeUrl: \(authorizeUrl)"])
             return
         }
         let ephemeral = (options["ephemeral"] as? Bool) ?? false
