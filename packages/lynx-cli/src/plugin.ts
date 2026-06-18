@@ -580,6 +580,7 @@ export default definePlugin({
                 android: a.boolean().describe('Android only'),
                 ios: a.boolean().describe('iOS only'),
                 clean: a.boolean().describe('Delete and regenerate the native projects (android/, ios/) from scratch'),
+                'embed-bundle': a.boolean().describe('Embed the built dist/main.lynx.bundle into the native project(s) for external release archiving (run `sigx build` first)'),
             },
             async run(ctx) {
                 const { runPrebuild } = await import('./prebuild.js');
@@ -587,12 +588,18 @@ export default definePlugin({
                 const android = ctx.args.android as boolean | undefined;
                 const ios = ctx.args.ios as boolean | undefined;
 
-                await runPrebuild({
-                    android: (!android && !ios) ? true : !!android,
-                    ios: (!android && !ios) ? true : !!ios,
-                    clean: ctx.args.clean as boolean | undefined,
-                    cwd: ctx.cwd,
-                });
+                try {
+                    await runPrebuild({
+                        android: (!android && !ios) ? true : !!android,
+                        ios: (!android && !ios) ? true : !!ios,
+                        clean: ctx.args.clean as boolean | undefined,
+                        embedBundle: ctx.args['embed-bundle'] as boolean | undefined,
+                        cwd: ctx.cwd,
+                    });
+                } catch (err) {
+                    ctx.logger.error(err instanceof Error ? err.message : String(err));
+                    process.exit(1);
+                }
             },
         },
         'run:android': {
@@ -610,7 +617,6 @@ export default definePlugin({
                 const { runPrebuild, loadConfig } = await import('./prebuild.js');
                 const { resolveConfig } = await import('./config/index.js');
                 const { spawn, execSync } = await import('node:child_process');
-                const { existsSync: fsExists, mkdirSync, copyFileSync } = await import('node:fs');
                 const { getAllLanIPs } = await import('./network.js');
                 const { getDeviceStatus, launchApp, resolveAdb } = await import('./device-detect.js');
                 const { generateQR } = await import('@sigx/terminal');
@@ -644,19 +650,13 @@ export default definePlugin({
                         });
                     });
 
-                    // Prebuild
+                    // Prebuild + embed the just-built bundle into assets/
+                    // (same path external pipelines use via `prebuild --embed-bundle`).
                     ctx.logger.log('Running prebuild for Android...');
-                    await runPrebuild({ android: true, ios: false, cwd: ctx.cwd });
-
-                    // Copy bundle to assets
-                    const distBundle = join(ctx.cwd, 'dist', 'main.lynx.bundle');
-                    const assetsDir = join(androidDir, 'app', 'src', 'main', 'assets');
-                    if (!fsExists(assetsDir)) mkdirSync(assetsDir, { recursive: true });
-                    if (fsExists(distBundle)) {
-                        copyFileSync(distBundle, join(assetsDir, 'main.lynx.bundle'));
-                        ctx.logger.log('Bundle copied to android assets');
-                    } else {
-                        ctx.logger.error('Bundle not found at dist/main.lynx.bundle');
+                    try {
+                        await runPrebuild({ android: true, ios: false, embedBundle: true, cwd: ctx.cwd });
+                    } catch (err) {
+                        ctx.logger.error(err instanceof Error ? err.message : String(err));
                         process.exit(1);
                     }
 
@@ -740,7 +740,7 @@ export default definePlugin({
                 const { runPrebuild, loadConfig } = await import('./prebuild.js');
                 const { resolveConfig } = await import('./config/index.js');
                 const { spawn, execSync } = await import('node:child_process');
-                const { existsSync: fsExists, mkdirSync, copyFileSync } = await import('node:fs');
+                const { existsSync: fsExists } = await import('node:fs');
                 const {
                     resolveIosSimulator, bootSimulator, installAppOnSimulator, findBuiltApp,
                     listConnectedIosDevices, installAppOnDevice, launchAppOnDevice, isDevicectlAvailable,
@@ -890,17 +890,14 @@ export default definePlugin({
                         });
                     });
 
+                    // Prebuild + embed the just-built bundle over the iOS
+                    // placeholder (same path external pipelines use via
+                    // `prebuild --embed-bundle`).
                     ctx.logger.log('Running prebuild for iOS...');
-                    await runPrebuild({ android: false, ios: true, cwd: ctx.cwd });
-
-                    // Copy bundle to iOS app directory
-                    const distBundle = join(ctx.cwd, 'dist', 'main.lynx.bundle');
-                    const appDir = join(iosDir, appName);
-                    if (fsExists(distBundle)) {
-                        copyFileSync(distBundle, join(appDir, 'main.lynx.bundle'));
-                        ctx.logger.log('Bundle copied to iOS app');
-                    } else {
-                        ctx.logger.error('Bundle not found at dist/main.lynx.bundle');
+                    try {
+                        await runPrebuild({ android: false, ios: true, embedBundle: true, cwd: ctx.cwd });
+                    } catch (err) {
+                        ctx.logger.error(err instanceof Error ? err.message : String(err));
                         process.exit(1);
                     }
 

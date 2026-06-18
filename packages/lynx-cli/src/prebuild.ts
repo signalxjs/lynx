@@ -16,6 +16,7 @@ import { pathToFileURL, fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
 import { resolveConfig, modulesForPlatform, resolveAssets } from './config/index.js';
 import { writeFileIfChanged, copyFileIfChanged } from './util/idempotent-write.js';
+import { embedBundle } from './util/embed-bundle.js';
 import {
     combineHash, getCliVersion, walkFiles,
     readCachedFingerprint, writeCachedFingerprint,
@@ -44,6 +45,14 @@ export interface PrebuildOptions {
     ios?: boolean;
     clean?: boolean;
     cwd?: string;
+    /**
+     * Copy the built `dist/main.lynx.bundle` into the native project(s) so an
+     * external release pipeline (fastlane, plain `xcodebuild archive`,
+     * `gradle bundleRelease`, …) ships the real bundle. Requires a prior
+     * `sigx build`. Off by default — plain prebuild keeps seeding the empty
+     * placeholder so dev/sandbox builds fall through to the dev server. (#521)
+     */
+    embedBundle?: boolean;
 }
 
 function log(msg: string) {
@@ -2344,6 +2353,13 @@ export async function runPrebuild(opts: PrebuildOptions = {}): Promise<void> {
             log(`  Components: ${result.linkedBehaviors.join(', ')}`);
         }
         warnUnlinkedModules(configModulePackages, manifests, 'Android');
+
+        // Explicit release intent (external archive pipeline) — bake the real
+        // built bundle into assets/. Android seeds no placeholder, so without
+        // this the APK/AAB has no bundle to load. Throws if unbuilt.
+        if (opts.embedBundle) {
+            embedBundle({ cwd, config, platform: 'android', log });
+        }
     }
 
     // ── iOS ──────────────────────────────────────────────────
@@ -2442,7 +2458,11 @@ export async function runPrebuild(opts: PrebuildOptions = {}): Promise<void> {
         // placeholder on first prebuild. ContentView treats a 0-byte bundle
         // as "missing" so sandbox apps still hit DevHomeScreen.
         const bundlePath = join(iosSourceRoot(cwd, config), 'main.lynx.bundle');
-        if (!existsSync(bundlePath)) {
+        if (opts.embedBundle) {
+            // Explicit release intent (external archive pipeline) — bake the
+            // real built bundle over any placeholder. Throws if unbuilt.
+            embedBundle({ cwd, config, platform: 'ios', log });
+        } else if (!existsSync(bundlePath)) {
             writeFileSync(bundlePath, '');
             log('iOS: seeded empty main.lynx.bundle placeholder (overwritten by run:ios --release)');
         }
