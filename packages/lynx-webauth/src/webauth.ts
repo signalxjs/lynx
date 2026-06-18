@@ -140,6 +140,10 @@ export function openAuthSession(
             void callAsync(MODULE, 'cancelAuthSession', { sessionId }).catch(() => {});
         };
         signal.addEventListener('abort', onAbort, { once: true });
+        // Close the gap between the early aborted-check and listener
+        // registration: if it aborted in between, the 'abort' event won't fire
+        // again for this listener, so nudge native to cancel now.
+        if (signal.aborted) onAbort();
     }
 
     return promise.finally(() => {

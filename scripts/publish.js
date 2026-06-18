@@ -42,17 +42,26 @@ const allowDirty = args.includes('--allow-dirty');
 // `--only` restricts the run to specific publishable package(s). Repeatable,
 // comma-separated, and `--only=<name>` are all accepted.
 const only = new Set();
+let onlyFlagSeen = false;
 for (let i = 0; i < args.length; i++) {
     const a = args[i];
     if (a === '--only') {
+        onlyFlagSeen = true;
         const next = args[i + 1];
         if (next && !next.startsWith('--')) {
             next.split(',').forEach(n => n.trim() && only.add(n.trim()));
             i++;
         }
     } else if (a.startsWith('--only=')) {
+        onlyFlagSeen = true;
         a.slice('--only='.length).split(',').forEach(n => n.trim() && only.add(n.trim()));
     }
+}
+// Fail fast rather than silently falling back to publishing EVERYTHING when
+// `--only` was given without a package name (e.g. `--only --dry-run`).
+if (onlyFlagSeen && only.size === 0) {
+    console.error('❌ --only requires at least one package name, e.g. `--only @sigx/lynx-webauth`.');
+    process.exit(1);
 }
 
 function run(cmd, opts = {}) {

@@ -76,7 +76,7 @@ export function sha256(bytes: Uint8Array): Uint8Array {
     }
 
     const out = new Uint8Array(32);
-    new DataView(out.buffer).setUint32(0, h[0], false);
-    for (let i = 0; i < 8; i++) new DataView(out.buffer).setUint32(i * 4, h[i], false);
+    const view = new DataView(out.buffer);
+    for (let i = 0; i < 8; i++) view.setUint32(i * 4, h[i], false);
     return out;
 }
