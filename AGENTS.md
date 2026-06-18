@@ -122,7 +122,7 @@ pnpm verify:pack   # publish dry-run
 
 - **Framework / build**: `@sigx/lynx` (umbrella), `@sigx/lynx-plugin`, `@sigx/lynx-cli` (SWC/Rspack transforms, `sigx dev` / `sigx run:android` / `sigx run:ios`), `@sigx/lynx-updates-publisher` (dependency-light programmatic OTA publish for CI).
 - **Runtime**: `@sigx/lynx-runtime`, `@sigx/lynx-runtime-main`, `@sigx/lynx-runtime-internal` — the dual-thread renderer.
-- **Native modules (30+)**: `@sigx/lynx-<capability>` packages (camera, storage, sqlite, location, biometric, notifications, websocket, webview, updates (OTA, + `lynx-updates-ui` prompts), …).
+- **Native modules (30+)**: `@sigx/lynx-<capability>` packages (camera, storage, sqlite, location, biometric, webauth (OAuth via ASWebAuthenticationSession / Custom Tabs), notifications, websocket, webview, updates (OTA, + `lynx-updates-ui` prompts), …).
 - **UI / motion / gestures**: daisyui, icons (+ adapters), gestures, motion, navigation.
 - **Dev / testing**: dev-client, testing.
 

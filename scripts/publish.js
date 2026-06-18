@@ -8,8 +8,14 @@
  *   node scripts/publish.js --dry-run       # show what would happen, no network
  *   node scripts/publish.js --provenance    # attach npm provenance (CI/OIDC)
  *   node scripts/publish.js --allow-dirty   # bypass the clean-tree check
+ *   node scripts/publish.js --only @sigx/lynx-webauth   # publish ONLY these package(s)
  *
  * Notes:
+ * - `--only <name>` (repeatable, or comma-separated, or `--only=<name>`) restricts the
+ *   run to the named publishable package(s) — used to bootstrap a brand-new package
+ *   locally before its first CI/Trusted-Publishing release (OIDC can't first-publish a
+ *   package that doesn't exist on npm yet). Run it WITHOUT `--provenance` (provenance
+ *   needs OIDC); the later lockstep release publishes the rest and skips this one.
  * - Relies on `pnpm publish -r` for topological ordering and `workspace:^` rewrites.
  * - Skips private packages automatically (`pnpm publish` honors `private: true`).
  * - Already-published versions are skipped per-package via an `npm view` precheck,
@@ -32,6 +38,22 @@ const tag =
 const dryRun = args.includes('--dry-run');
 const provenance = args.includes('--provenance');
 const allowDirty = args.includes('--allow-dirty');
+
+// `--only` restricts the run to specific publishable package(s). Repeatable,
+// comma-separated, and `--only=<name>` are all accepted.
+const only = new Set();
+for (let i = 0; i < args.length; i++) {
+    const a = args[i];
+    if (a === '--only') {
+        const next = args[i + 1];
+        if (next && !next.startsWith('--')) {
+            next.split(',').forEach(n => n.trim() && only.add(n.trim()));
+            i++;
+        }
+    } else if (a.startsWith('--only=')) {
+        a.slice('--only='.length).split(',').forEach(n => n.trim() && only.add(n.trim()));
+    }
+}
 
 function run(cmd, opts = {}) {
     console.log(`\x1b[2m$ ${cmd}\x1b[0m`);
@@ -66,12 +88,24 @@ if (!allowDirty && !dryRun) {
 
 // 2. Enumerate publishable packages from the pnpm workspace
 const pkgs = JSON.parse(exec('pnpm -r ls --json --depth -1'));
-const publishable = pkgs
+let publishable = pkgs
     .filter(p => !p.private && p.name && p.path !== repoRoot)
     .map(p => {
         const local = JSON.parse(readFileSync(resolve(p.path, 'package.json'), 'utf8'));
         return { name: p.name, version: local.version, path: p.path };
     });
+
+// `--only`: restrict to the named package(s), failing loudly on a typo.
+if (only.size) {
+    const known = new Set(publishable.map(p => p.name));
+    const unknown = [...only].filter(n => !known.has(n));
+    if (unknown.length) {
+        console.error(`❌ --only: unknown publishable package(s): ${unknown.join(', ')}`);
+        console.error(`   Known publishable packages:\n     ${[...known].sort().join('\n     ')}`);
+        process.exit(1);
+    }
+    publishable = publishable.filter(p => only.has(p.name));
+}
 
 console.log(
     `\nPublishing ${publishable.length} package(s) to dist-tag "${tag}"${
@@ -95,9 +129,16 @@ if (!dryRun) {
     if (toSkip.size) console.log('');
 }
 
-// 4. Build everything first so dist/ is fresh
-console.log('Building all packages...');
-run('pnpm -r run build');
+// 4. Build first so dist/ is fresh. In --only mode, build just the requested
+//    package(s) and their dependencies (`...`); otherwise build everything.
+if (only.size) {
+    const buildFilters = [...only].map(n => `--filter "${n}..."`).join(' ');
+    console.log('Building requested package(s) + dependencies...');
+    run(`pnpm ${buildFilters} run build`);
+} else {
+    console.log('Building all packages...');
+    run('pnpm -r run build');
+}
 
 // 5. Compose `pnpm publish` invocation
 const baseFlags = [
@@ -113,8 +154,20 @@ if (provenance) baseFlags.push('--provenance');
 // Double quotes, not single: execSync goes through cmd.exe on Windows,
 // where single quotes are literal — pnpm would receive `'!name'` as an
 // inclusion pattern matching nothing and publish zero projects.
-const filters = [...toSkip].map(n => `--filter "!${n}"`).join(' ');
-const filterArg = filters ? ` ${filters}` : '';
+let filterArg;
+if (only.size) {
+    // Positive filter: publish exactly the requested package(s), minus any
+    // already on the registry at this version.
+    const toPublish = publishable.filter(p => !toSkip.has(p.name));
+    if (toPublish.length === 0) {
+        console.log('✅ Nothing to publish — requested package(s) already published.');
+        process.exit(0);
+    }
+    filterArg = ' ' + toPublish.map(p => `--filter "${p.name}"`).join(' ');
+} else {
+    const filters = [...toSkip].map(n => `--filter "!${n}"`).join(' ');
+    filterArg = filters ? ` ${filters}` : '';
+}
 
 // 6. Publish
 run(`pnpm${filterArg} publish -r ${baseFlags.join(' ')}`);

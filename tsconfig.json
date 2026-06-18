@@ -103,6 +103,12 @@
       "@sigx/lynx-webrtc": [
         "./packages/lynx-webrtc/src/index.ts"
       ],
+      "@sigx/lynx-webauth": [
+        "./packages/lynx-webauth/src/index.ts"
+      ],
+      "@sigx/lynx-webauth/oauth": [
+        "./packages/lynx-webauth/src/oauth.ts"
+      ],
       "@sigx/lynx-heroui": [
         "./packages/lynx-heroui/src/index.ts"
       ],

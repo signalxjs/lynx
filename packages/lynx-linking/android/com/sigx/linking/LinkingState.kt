@@ -24,6 +24,7 @@ object LinkingState {
         private set
 
     private val listeners = mutableListOf<(String) -> Unit>()
+    private val interceptors = mutableListOf<(String) -> Boolean>()
     private val lock = Any()
 
     /**
@@ -35,6 +36,23 @@ object LinkingState {
     @JvmStatic
     fun handleNewIntent(intent: Intent?) {
         val url = intent?.data?.toString() ?: return
+
+        // Interceptors get first refusal. If one claims the URL (returns true)
+        // it is considered consumed and is NOT published as a deep-link event —
+        // this is how `@sigx/lynx-webauth` captures the OAuth redirect back to
+        // the app's scheme without it also reaching `useLinkingNav` & friends.
+        val interceptorSnapshot = synchronized(lock) { interceptors.toList() }
+        for (interceptor in interceptorSnapshot) {
+            val claimed =
+                try {
+                    interceptor(url)
+                } catch (e: Throwable) {
+                    Log.w(TAG, "Interceptor threw: ${e.message}")
+                    false
+                }
+            if (claimed) return
+        }
+
         val snapshot: List<(String) -> Unit>
         synchronized(lock) {
             latestURL = url
@@ -54,6 +72,22 @@ object LinkingState {
         synchronized(lock) { listeners.add(listener) }
         return {
             synchronized(lock) { listeners.remove(listener) }
+        }
+    }
+
+    /**
+     * Register a one-shot-style interceptor consulted *before* a deep link is
+     * published. Returning `true` consumes the URL so it is NOT delivered as a
+     * `Linking` 'url' event (nor stored as [latestURL]); returning `false`
+     * lets it fall through to listeners as usual. Returns an unsubscribe.
+     *
+     * Used by `@sigx/lynx-webauth` to claim the OAuth callback redirect for the
+     * duration of an auth session, so it's never mistaken for an app deep link.
+     */
+    fun addInterceptor(interceptor: (String) -> Boolean): () -> Unit {
+        synchronized(lock) { interceptors.add(interceptor) }
+        return {
+            synchronized(lock) { interceptors.remove(interceptor) }
         }
     }
 }

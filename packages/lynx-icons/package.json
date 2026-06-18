@@ -1,6 +1,6 @@
 {
     "name": "@sigx/lynx-icons",
-    "version": "0.8.1",
+    "version": "0.9.0",
     "description": "Icon component and registry for sigx-lynx — works with adapter packages like @sigx/lynx-icons-fa-free and @sigx/lynx-icons-lucide.",
     "type": "module",
     "main": "./dist/index.js",

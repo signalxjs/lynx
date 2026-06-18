@@ -1,6 +1,6 @@
 {
     "name": "@sigx/lynx-image-picker",
-    "version": "0.8.1",
+    "version": "0.9.0",
     "description": "Image picker for sigx-lynx",
     "type": "module",
     "main": "./dist/index.js",
