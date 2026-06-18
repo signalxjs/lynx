@@ -30,7 +30,7 @@
     "devDependencies": {
         "@typescript/native-preview": "7.0.0-dev.20260521.1",
         "typescript": "^6.0.3",
-        "vitest": "^4.1.7"
+        "vitest": "^4.1.9"
     },
     "author": "Andreas Ekdahl",
     "license": "MIT",
