@@ -29,6 +29,29 @@ You normally don't depend on this package directly — `npm create @sigx@latest`
 pnpm add -D @sigx/cli @sigx/lynx-cli
 ```
 
+## Release builds with an external pipeline
+
+`sigx run:ios --release` and `sigx run:android --release` build the JS bundle,
+embed it into the native project, and archive + launch in one step. When you
+archive with an **external** tool instead — fastlane/gym, a plain `xcodebuild
+archive`, `gradle bundleRelease`, Xcode Cloud — embed the built bundle yourself
+with `sigx prebuild --embed-bundle` so the archive ships the real bundle and not
+the empty placeholder:
+
+```bash
+sigx build                              # produces dist/main.lynx.bundle
+sigx prebuild --ios --embed-bundle      # bakes it into ios/<App>/main.lynx.bundle
+xcodebuild -workspace ios/<App>.xcworkspace -scheme <App> archive ...
+
+# Android
+sigx prebuild --android --embed-bundle  # bakes it into android/app/src/main/assets/
+./gradlew bundleRelease
+```
+
+`--embed-bundle` requires a prior `sigx build` and errors if `dist/main.lynx.bundle`
+is missing or empty. Plain `sigx prebuild` (without the flag) keeps seeding the
+empty iOS placeholder so dev/sandbox builds fall through to the dev server.
+
 ## OTA publishing
 
 `sigx updates:publish` packages a built `.lynx.bundle` into the static-manifest
