@@ -143,7 +143,7 @@ private final class WebAuthSessionHolder {
 
 @available(iOS 13.0, *)
 private final class WebAuthAnchorProvider: NSObject,
-    ASWebAuthenticationSessionPresentationContextProviding
+    ASWebAuthenticationPresentationContextProviding
 {
     func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {
         for scene in UIApplication.shared.connectedScenes {
