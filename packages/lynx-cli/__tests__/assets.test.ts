@@ -156,7 +156,7 @@ describe('generateAndroidAdaptiveIcon (monochrome)', () => {
             { ...BASE_CONFIG, android: { adaptiveIcon: { foreground: 'fg.png', monochrome: 'mono.png' } } },
             testDir,
         );
-        await generateAndroidAdaptiveIcon(testDir, assets.android);
+        await generateAndroidAdaptiveIcon(testDir, resolveConfig(BASE_CONFIG), assets.android);
 
         for (const density of ['mipmap-mdpi', 'mipmap-hdpi', 'mipmap-xhdpi', 'mipmap-xxhdpi', 'mipmap-xxxhdpi']) {
             expect(existsSync(join(resDir(), density, 'ic_launcher_monochrome.png'))).toBe(true);
@@ -172,13 +172,13 @@ describe('generateAndroidAdaptiveIcon (monochrome)', () => {
             { ...BASE_CONFIG, android: { adaptiveIcon: { foreground: 'fg.png', monochrome: 'mono.png' } } },
             testDir,
         );
-        await generateAndroidAdaptiveIcon(testDir, withMono.android);
+        await generateAndroidAdaptiveIcon(testDir, resolveConfig(BASE_CONFIG), withMono.android);
 
         const withoutMono = resolveAssets(
             { ...BASE_CONFIG, android: { adaptiveIcon: { foreground: 'fg.png' } } },
             testDir,
         );
-        await generateAndroidAdaptiveIcon(testDir, withoutMono.android);
+        await generateAndroidAdaptiveIcon(testDir, resolveConfig(BASE_CONFIG), withoutMono.android);
 
         expect(existsSync(join(resDir(), 'mipmap-xxxhdpi', 'ic_launcher_monochrome.png'))).toBe(false);
         const xml = readFileSync(join(resDir(), 'mipmap-anydpi-v26', 'ic_launcher.xml'), 'utf-8');
@@ -192,10 +192,10 @@ describe('generateAndroidAdaptiveIcon (monochrome)', () => {
             { ...BASE_CONFIG, android: { adaptiveIcon: { foreground: 'fg.png', monochrome: 'mono.png' } } },
             testDir,
         );
-        await generateAndroidAdaptiveIcon(testDir, withMono.android);
+        await generateAndroidAdaptiveIcon(testDir, resolveConfig(BASE_CONFIG), withMono.android);
 
         const none = resolveAssets(BASE_CONFIG, testDir);
-        await generateAndroidAdaptiveIcon(testDir, none.android);
+        await generateAndroidAdaptiveIcon(testDir, resolveConfig(BASE_CONFIG), none.android);
 
         expect(existsSync(join(resDir(), 'mipmap-anydpi-v26', 'ic_launcher.xml'))).toBe(false);
         expect(existsSync(join(resDir(), 'mipmap-xxxhdpi', 'ic_launcher_monochrome.png'))).toBe(false);
@@ -277,7 +277,7 @@ describe('generateAndroidNotificationIcon', () => {
             { ...BASE_CONFIG, android: { notificationIcon: 'notif.png', notificationColor: '#0D9488' } },
             testDir,
         );
-        await generateAndroidNotificationIcon(testDir, assets.android);
+        await generateAndroidNotificationIcon(testDir, resolveConfig(BASE_CONFIG), assets.android);
 
         for (const density of ['drawable-mdpi', 'drawable-hdpi', 'drawable-xhdpi', 'drawable-xxhdpi', 'drawable-xxxhdpi']) {
             expect(existsSync(join(resDir(), density, 'ic_notification.png'))).toBe(true);
@@ -292,10 +292,10 @@ describe('generateAndroidNotificationIcon', () => {
             { ...BASE_CONFIG, android: { notificationIcon: 'notif.png', notificationColor: '#0D9488' } },
             testDir,
         );
-        await generateAndroidNotificationIcon(testDir, configured.android);
+        await generateAndroidNotificationIcon(testDir, resolveConfig(BASE_CONFIG), configured.android);
 
         const unconfigured = resolveAssets(BASE_CONFIG, testDir);
-        await generateAndroidNotificationIcon(testDir, unconfigured.android);
+        await generateAndroidNotificationIcon(testDir, resolveConfig(BASE_CONFIG), unconfigured.android);
 
         expect(existsSync(join(resDir(), 'drawable-xxxhdpi', 'ic_notification.png'))).toBe(false);
         expect(existsSync(join(resDir(), 'values', 'notification_colors.xml'))).toBe(false);
@@ -311,7 +311,7 @@ describe('generateAndroidNotificationIcon', () => {
             { ...BASE_CONFIG, android: { notificationIcon: 'notif.png', notificationColor: '#0D9488' } },
             testDir,
         );
-        applyAndroidManifestMeta(testDir, assets.android);
+        applyAndroidManifestMeta(testDir, resolveConfig(BASE_CONFIG), assets.android);
 
         const manifest = readFileSync(
             join(testDir, 'android', 'app', 'src', 'main', 'AndroidManifest.xml'),
@@ -330,7 +330,7 @@ describe('generateAndroidNotificationIcon', () => {
         const config = resolveConfig(BASE_CONFIG);
         scaffoldAndroid(testDir, config);
         const assets = resolveAssets(BASE_CONFIG, testDir);
-        applyAndroidManifestMeta(testDir, assets.android);
+        applyAndroidManifestMeta(testDir, resolveConfig(BASE_CONFIG), assets.android);
 
         const manifest = readFileSync(
             join(testDir, 'android', 'app', 'src', 'main', 'AndroidManifest.xml'),
@@ -351,14 +351,14 @@ describe('generateAndroidSplash', () => {
     it('uses gravity center by default and fill for cover', async () => {
         await writePng('splash.png');
         const center = resolveAssets({ ...BASE_CONFIG, splash: { image: 'splash.png' } }, testDir);
-        await generateAndroidSplash(testDir, center.android);
+        await generateAndroidSplash(testDir, resolveConfig(BASE_CONFIG), center.android);
         expect(readFileSync(join(resDir(), 'drawable', 'splash.xml'), 'utf-8')).toContain('android:gravity="center"');
 
         const cover = resolveAssets(
             { ...BASE_CONFIG, splash: { image: 'splash.png', resizeMode: 'cover' } },
             testDir,
         );
-        await generateAndroidSplash(testDir, cover.android);
+        await generateAndroidSplash(testDir, resolveConfig(BASE_CONFIG), cover.android);
         expect(readFileSync(join(resDir(), 'drawable', 'splash.xml'), 'utf-8')).toContain('android:gravity="fill"');
     });
 
@@ -369,7 +369,7 @@ describe('generateAndroidSplash', () => {
             { ...BASE_CONFIG, splash: { image: 'splash.png', dark: { image: 'splash-dark.png', backgroundColor: '#111111' } } },
             testDir,
         );
-        await generateAndroidSplash(testDir, dark.android);
+        await generateAndroidSplash(testDir, resolveConfig(BASE_CONFIG), dark.android);
 
         expect(existsSync(join(resDir(), 'drawable-night', 'splash.xml'))).toBe(true);
         expect(existsSync(join(resDir(), 'drawable-night', 'splash_logo.png'))).toBe(true);
@@ -377,7 +377,7 @@ describe('generateAndroidSplash', () => {
         expect(nightColors).toContain('<color name="splash_background">#111111</color>');
 
         const light = resolveAssets({ ...BASE_CONFIG, splash: { image: 'splash.png' } }, testDir);
-        await generateAndroidSplash(testDir, light.android);
+        await generateAndroidSplash(testDir, resolveConfig(BASE_CONFIG), light.android);
         expect(existsSync(join(resDir(), 'drawable-night', 'splash.xml'))).toBe(false);
         expect(existsSync(join(resDir(), 'values-night', 'splash_colors.xml'))).toBe(false);
     });
@@ -450,9 +450,9 @@ describe('idempotency', () => {
             },
             testDir,
         );
-        await generateAndroidAdaptiveIcon(testDir, assets.android);
-        await generateAndroidNotificationIcon(testDir, assets.android);
-        await generateAndroidSplash(testDir, assets.android);
+        await generateAndroidAdaptiveIcon(testDir, resolveConfig(BASE_CONFIG), assets.android);
+        await generateAndroidNotificationIcon(testDir, resolveConfig(BASE_CONFIG), assets.android);
+        await generateAndroidSplash(testDir, resolveConfig(BASE_CONFIG), assets.android);
         await generateIosIcon(testDir, config, assets.ios);
         await generateIosSplash(testDir, config, assets.ios);
 
@@ -465,9 +465,9 @@ describe('idempotency', () => {
         ];
         const before = tracked.map((p) => statSync(p).mtimeMs);
 
-        await generateAndroidAdaptiveIcon(testDir, assets.android);
-        await generateAndroidNotificationIcon(testDir, assets.android);
-        await generateAndroidSplash(testDir, assets.android);
+        await generateAndroidAdaptiveIcon(testDir, resolveConfig(BASE_CONFIG), assets.android);
+        await generateAndroidNotificationIcon(testDir, resolveConfig(BASE_CONFIG), assets.android);
+        await generateAndroidSplash(testDir, resolveConfig(BASE_CONFIG), assets.android);
         await generateIosIcon(testDir, config, assets.ios);
         await generateIosSplash(testDir, config, assets.ios);
 

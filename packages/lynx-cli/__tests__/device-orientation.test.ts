@@ -154,7 +154,7 @@ describe('applyAndroidManifestMeta — orientation', () => {
         const config = resolveConfig(raw);
         scaffoldAndroid(testDir, config);
         const assets = resolveAssets(raw, testDir);
-        applyAndroidManifestMeta(testDir, assets.android);
+        applyAndroidManifestMeta(testDir, config, assets.android);
         return readFileSync(join(testDir, 'android', 'app', 'src', 'main', 'AndroidManifest.xml'), 'utf-8');
     }
 

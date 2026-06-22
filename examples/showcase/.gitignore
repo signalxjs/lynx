@@ -10,9 +10,12 @@ dist/
 
 # Generated native projects — emitted by `sigx prebuild` from
 # signalx.config.ts + auto-linked @sigx/lynx-* modules.
-# Regenerated on demand; do not commit.
+# Regenerated on demand; do not commit. The `-*` patterns cover per-variant
+# output dirs (`--variant dev` → android-dev/ ios-dev/).
 android/
 ios/
+android-*/
+ios-*/
 
 # Logs
 *.log

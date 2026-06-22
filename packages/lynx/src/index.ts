@@ -62,6 +62,10 @@ export type { Logger, LogLevelName, LogRecord, LogTransport } from '@sigx/lynx-c
 export { Platform, DeviceInfo } from '@sigx/lynx-core';
 export type { PlatformOS, PlatformSelectSpec, DeviceInfoResult } from '@sigx/lynx-core';
 
+// Active build variant (#530) — `variant`/`isVariant()`/`isBaseBuild()` report
+// which `--variant` build this is (or '' for base), for env badges / branching.
+export { variant, isVariant, isBaseBuild } from '@sigx/lynx-core';
+
 // Internal-use re-export, needed by the HMR loader. The loader injects an
 // import of `__setCurrentInstanceForHMR` alongside `__registerComponentPlugin`
 // so the HMR runtime can push the current ctx onto the renderer's instance

@@ -13,8 +13,8 @@
  */
 
 import { readFileSync, existsSync } from 'node:fs';
-import { join } from 'node:path';
 import type { ResolvedConfig, ResolvedAndroidAssets, ResolvedPlatformAssets } from '../config/index.js';
+import { iosInfoPlistPath, androidManifestPath, androidBuildGradlePath } from '../config/paths.js';
 import { writeFileIfChanged } from '../util/idempotent-write.js';
 
 function log(msg: string) {
@@ -112,7 +112,7 @@ function iosUrlSchemesXml(scheme: string | null): string {
  * Apply orientation, URL schemes, launch screen, and CFBundleVersion to Info.plist.
  */
 export function applyIosPlistMeta(cwd: string, config: ResolvedConfig, ios: ResolvedPlatformAssets): void {
-    const plistFile = join(cwd, 'ios', config.name, 'Info.plist');
+    const plistFile = iosInfoPlistPath(cwd, config);
     if (!existsSync(plistFile)) return;
 
     const supportsTablet = config.ios.supportsTablet ?? true;
@@ -188,8 +188,8 @@ function androidAppMetaDataXml(android: ResolvedAndroidAssets): string {
  * Apply orientation + intent-filter (deep link scheme) + app meta-data to
  * AndroidManifest.xml.
  */
-export function applyAndroidManifestMeta(cwd: string, android: ResolvedAndroidAssets): void {
-    const manifestFile = join(cwd, 'android', 'app', 'src', 'main', 'AndroidManifest.xml');
+export function applyAndroidManifestMeta(cwd: string, config: ResolvedConfig, android: ResolvedAndroidAssets): void {
+    const manifestFile = androidManifestPath(cwd, config);
     if (!existsSync(manifestFile)) return;
 
     let content = readFileSync(manifestFile, 'utf-8');
@@ -206,7 +206,7 @@ export function applyAndroidManifestMeta(cwd: string, android: ResolvedAndroidAs
  * we also recognise an existing numeric `versionCode = N` line as a no-op match.
  */
 export function applyAndroidGradleMeta(cwd: string, config: ResolvedConfig): void {
-    const gradleFile = join(cwd, 'android', 'app', 'build.gradle.kts');
+    const gradleFile = androidBuildGradlePath(cwd, config);
     if (!existsSync(gradleFile)) return;
 
     let content = readFileSync(gradleFile, 'utf-8');
