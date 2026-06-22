@@ -13,4 +13,7 @@ export type {
     VideoErrorEventDetail,
     VideoTimeUpdateEvent,
     VideoTimeUpdateEventDetail,
+    VideoPlaybackState,
+    VideoStateChangeEvent,
+    VideoStateChangeEventDetail,
 } from './jsx-augment.js';

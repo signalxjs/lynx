@@ -19,10 +19,12 @@ import Lynx
 ///   - `volume`        → 0..1
 ///   - `controls`      → show platform-default controls overlay
 ///   - `resize-mode`   → contain | cover | stretch
+///   - `start-time`    → one-shot initial seek (seconds) before first play
 ///   - `bindload`      → asset metadata ready
 ///   - `bindend`       → playback finished
 ///   - `binderror`     → load / playback failure
 ///   - `bindtimeupdate` → ~4×/sec position broadcast
+///   - `bindstatechange` → playing | paused | buffering | ended transitions
 ///
 /// Imperative methods (`seek`, `getStatus`) are tracked as a v2 follow-up
 /// — they need the Lynx UIMethodInvoker surface that isn't wired through
@@ -39,6 +41,7 @@ public class VideoPlayerUI: LynxUI<UIView> {
     private var controlsView: UIView?
     private var timeObserver: Any?
     private var statusObservation: NSKeyValueObservation?
+    private var rateObservation: NSKeyValueObservation?
     private var didReachEndObserver: NSObjectProtocol?
 
     // Pending prop values applied after createView() and after the asset
@@ -51,7 +54,12 @@ public class VideoPlayerUI: LynxUI<UIView> {
     private var pendingResizeMode: AVLayerVideoGravity = .resizeAspect
     private var pendingControls = false
     private var pendingPosterURL: URL?
+    private var pendingStartTime: Double?
     private var didEmitLoad = false
+    // Suppresses the `paused` statechange that AVPlayer's timeControlStatus
+    // emits when a clip finishes — `bindend`/the `ended` statechange already
+    // cover that transition. Re-armed once playback resumes.
+    private var reachedEnd = false
 
     // MARK: - LynxUI overrides
 
@@ -212,6 +220,16 @@ public class VideoPlayerUI: LynxUI<UIView> {
         return ["resize-mode", "setResizeMode:requestReset:", "NSString *"]
     }
 
+    @objc public func setStartTime(_ value: NSNumber?, requestReset: Bool) {
+        let v = value?.doubleValue ?? 0
+        pendingStartTime = v > 0 ? v : nil
+    }
+
+    @objc(__lynx_prop_config__start_time)
+    public class func __lynxPropConfigStartTime() -> [String] {
+        return ["start-time", "setStartTime:requestReset:", "NSNumber *"]
+    }
+
     // MARK: - Asset lifecycle
 
     private func loadAsset(url: URL) {
@@ -231,6 +249,30 @@ public class VideoPlayerUI: LynxUI<UIView> {
         self.player = player
         self.playerLayer = layer
         self.didEmitLoad = false
+        self.reachedEnd = false
+
+        // KVO on timeControlStatus — emit a `statechange` whenever playback
+        // transitions between playing / paused / buffering. This surfaces
+        // pauses driven by the system controls overlay or OS interruptions
+        // that the declarative `playing` prop can't observe.
+        rateObservation = player.observe(\.timeControlStatus, options: [.new]) { [weak self] player, _ in
+            guard let self = self else { return }
+            let positionMs = msFromSeconds(CMTimeGetSeconds(player.currentTime()))
+            switch player.timeControlStatus {
+            case .playing:
+                self.reachedEnd = false
+                self.fireEvent("statechange", params: ["state": "playing", "positionMs": positionMs])
+            case .waitingToPlayAtSpecifiedRate:
+                self.fireEvent("statechange", params: ["state": "buffering", "positionMs": positionMs])
+            case .paused:
+                // The end-of-clip pause is reported as `ended` instead.
+                if !self.reachedEnd {
+                    self.fireEvent("statechange", params: ["state": "paused", "positionMs": positionMs])
+                }
+            @unknown default:
+                break
+            }
+        }
 
         // KVO on item.status — first time we hit `.readyToPlay`, fire
         // `bindload` with the asset's duration + natural size and apply
@@ -290,6 +332,12 @@ public class VideoPlayerUI: LynxUI<UIView> {
             "height": height,
         ])
 
+        // One-shot initial seek before the first play.
+        if let startSec = pendingStartTime, startSec > 0 {
+            player?.seek(to: CMTime(seconds: startSec, preferredTimescale: 600))
+            pendingStartTime = nil
+        }
+
         // Apply queued props. `playing` overrides `autoplay` if both set.
         if let playing = pendingPlaying {
             if playing { player?.play() } else { player?.pause() }
@@ -307,6 +355,9 @@ public class VideoPlayerUI: LynxUI<UIView> {
             player?.play()
             return
         }
+        reachedEnd = true
+        let positionMs = msFromSeconds(CMTimeGetSeconds(player?.currentItem?.duration ?? .zero))
+        fireEvent("statechange", params: ["state": "ended", "positionMs": positionMs])
         fireEvent("end", params: [:])
     }
 
@@ -315,6 +366,8 @@ public class VideoPlayerUI: LynxUI<UIView> {
         timeObserver = nil
         statusObservation?.invalidate()
         statusObservation = nil
+        rateObservation?.invalidate()
+        rateObservation = nil
         if let observer = didReachEndObserver {
             NotificationCenter.default.removeObserver(observer)
         }
