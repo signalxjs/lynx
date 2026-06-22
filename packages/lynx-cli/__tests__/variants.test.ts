@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { mergeVariant, deepMerge } from '../src/config/variant.js';
+import { resolveVariantName } from '../src/util/variant.js';
 import { resolveConfig } from '../src/config/parser.js';
 import { androidDirName, iosDirName } from '../src/config/paths.js';
 import type { LynxConfig } from '../src/config/schema.js';
@@ -29,6 +30,14 @@ describe('deepMerge', () => {
     it('ignores undefined override values', () => {
         const out = deepMerge({ a: 1, b: 2 }, { a: undefined, b: 5 });
         expect(out).toEqual({ a: 1, b: 5 });
+    });
+
+    it('does not pollute the prototype via __proto__/constructor/prototype', () => {
+        const evil = JSON.parse('{"__proto__": {"polluted": true}, "constructor": {"x": 1}}');
+        deepMerge({ a: 1 }, evil);
+        expect(({} as Record<string, unknown>).polluted).toBeUndefined();
+        const out = deepMerge({ a: 1 }, evil) as Record<string, unknown>;
+        expect(out.polluted).toBeUndefined();
     });
 });
 
@@ -137,6 +146,13 @@ describe('mergeVariant — extends composition', () => {
         expect(() => mergeVariant(BASE, 'nope')).toThrow(/Unknown variant "nope"/);
     });
 
+    it('rejects unsafe variant names (path traversal)', () => {
+        const cfg: LynxConfig = { name: 'A', variants: { dev: { idSuffix: '.dev' } } };
+        for (const bad of ['../tmp', 'a/b', '.evil', 'a b', 'a\\b']) {
+            expect(() => mergeVariant(cfg, bad)).toThrow(/Invalid variant name/);
+        }
+    });
+
     it('throws on an extends cycle', () => {
         const cfg: LynxConfig = {
             name: 'A',
@@ -175,6 +191,23 @@ describe('resolveConfig with a variant', () => {
         expect(resolved.name).toBe('My App');
         expect(resolved.android.applicationId).toBe('com.example.app');
         expect(process.env['SIGX_LYNX_VARIANT']).toBe('');
+    });
+});
+
+describe('resolveVariantName', () => {
+    it('prefers the flag, falls back to SIGX_VARIANT, else undefined', () => {
+        delete process.env['SIGX_VARIANT'];
+        expect(resolveVariantName({ variant: 'dev' })).toBe('dev');
+        expect(resolveVariantName({})).toBeUndefined();
+        expect(resolveVariantName({ variant: true })).toBeUndefined();
+        process.env['SIGX_VARIANT'] = 'staging';
+        expect(resolveVariantName({})).toBe('staging');
+        expect(resolveVariantName({ variant: 'dev' })).toBe('dev'); // flag wins
+        delete process.env['SIGX_VARIANT'];
+    });
+
+    it('rejects an unsafe name from the flag', () => {
+        expect(() => resolveVariantName({ variant: '../tmp' })).toThrow(/Invalid variant name/);
     });
 });
 

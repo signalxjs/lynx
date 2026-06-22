@@ -18,6 +18,28 @@ import type { LynxConfig, VariantConfig } from './schema.js';
 /** Variant-only control fields that are NOT part of the config override. */
 const CONTROL_KEYS = ['extends', 'idSuffix', 'nameSuffix', 'schemeSuffix', 'release', 'iconBadge'] as const;
 
+/**
+ * Variant names flow into filesystem dir names (`android-<name>/`), cache keys,
+ * and the app id — so restrict them to a conservative charset. Rejecting path
+ * separators / `..` / odd characters prevents path traversal (writing outside
+ * the project) and keeps generated ids/dirs well-formed. Fails fast with a
+ * clear message.
+ */
+const VARIANT_NAME_RE = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
+
+/** Throw unless `name` is a safe variant identifier. */
+export function assertValidVariantName(name: string): void {
+    if (!VARIANT_NAME_RE.test(name)) {
+        throw new Error(
+            `Invalid variant name "${name}". Use only letters, digits, '.', '_', '-' ` +
+            `(starting with a letter or digit) — names map to the android-<name>/ output dir.`,
+        );
+    }
+}
+
+/** Keys that could mutate a prototype if assigned during a merge. */
+const FORBIDDEN_MERGE_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+
 /** Resolved per-variant control fields (see {@link VariantConfig}). */
 export interface VariantControls {
     idSuffix?: string;
@@ -46,6 +68,8 @@ export function deepMerge<T>(base: T, override: unknown): T {
     const out: Record<string, unknown> = { ...base };
     for (const [key, value] of Object.entries(override)) {
         if (value === undefined) continue;
+        // Never copy keys that could rewrite a prototype (prototype pollution).
+        if (FORBIDDEN_MERGE_KEYS.has(key)) continue;
         out[key] = isPlainObject(value) && isPlainObject(out[key])
             ? deepMerge(out[key], value)
             : value;
@@ -105,6 +129,7 @@ export function mergeVariant(
     raw: LynxConfig,
     variantName: string,
 ): { config: LynxConfig; controls: VariantControls } {
+    assertValidVariantName(variantName);
     const variants = raw.variants ?? {};
     const chain = resolveChain(variants, variantName);
 
