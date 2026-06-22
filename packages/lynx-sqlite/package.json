@@ -29,7 +29,7 @@
         "@sigx/lynx-core": "workspace:^"
     },
     "devDependencies": {
-        "@typescript/native-preview": "7.0.0-dev.20260521.1",
+        "@typescript/native-preview": "7.0.0-dev.20260621.1",
         "typescript": "^6.0.3",
         "vitest": "^4.1.7"
     },

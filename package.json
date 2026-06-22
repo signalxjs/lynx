@@ -29,7 +29,7 @@
         "wt": "node scripts/worktree.mjs"
     },
     "devDependencies": {
-        "@typescript/native-preview": "7.0.0-dev.20260521.1",
+        "@typescript/native-preview": "7.0.0-dev.20260621.1",
         "@vitest/coverage-v8": "^4.1.7",
         "oxlint": "^1.66.0",
         "typescript": "^6.0.3",

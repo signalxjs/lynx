@@ -52,7 +52,7 @@
         "@sigx/runtime-core": "^0.7.0"
     },
     "devDependencies": {
-        "@typescript/native-preview": "7.0.0-dev.20260521.1",
+        "@typescript/native-preview": "7.0.0-dev.20260621.1",
         "typescript": "^6.0.3"
     },
     "publishConfig": {
