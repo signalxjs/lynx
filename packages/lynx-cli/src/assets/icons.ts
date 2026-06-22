@@ -18,6 +18,7 @@ import sharp from 'sharp';
 import { mkdirSync, existsSync, unlinkSync } from 'node:fs';
 import { join } from 'node:path';
 import type { ResolvedConfig, ResolvedAndroidAssets, ResolvedIosAssets } from '../config/index.js';
+import { iosAssetsDir, androidResDir } from '../config/paths.js';
 import { writeFileIfChanged } from '../util/idempotent-write.js';
 
 // Android density buckets for the legacy launcher icon.
@@ -51,6 +52,36 @@ function log(msg: string) {
     console.log(`[sigx] ${msg}`);
 }
 
+/**
+ * Variant icon badge (issue #530). Overlays a bottom banner with the variant
+ * label onto a generated icon so dev/staging installs are visually distinct on
+ * the home screen. The label is centered, so it stays legible even when a
+ * launcher masks the icon to a circle and clips the banner's ends.
+ */
+function badgeSvg(label: string, px: number, safe: boolean): string {
+    // `safe` keeps the banner inside the adaptive-icon safe zone (center ~66%)
+    // so the launcher's circular/squircle mask can't clip it; otherwise it
+    // spans the full width at the very bottom (legacy launcher + iOS icon).
+    const bandH = Math.round(px * (safe ? 0.18 : 0.27));
+    const top = safe ? Math.round(px * 0.52) : px - bandH;
+    const bandX = safe ? Math.round(px * 0.17) : 0;
+    const bandW = safe ? Math.round(px * 0.66) : px;
+    const radius = safe ? Math.round(bandH * 0.2) : 0;
+    const fontSize = Math.max(6, Math.round(bandH * 0.52));
+    const text = label.replace(/[<>&"']/g, '').slice(0, 10).toUpperCase();
+    return `<svg xmlns="http://www.w3.org/2000/svg" width="${px}" height="${px}" viewBox="0 0 ${px} ${px}">`
+        + `<rect x="${bandX}" y="${top}" width="${bandW}" height="${bandH}" rx="${radius}" fill="rgba(12,12,14,0.66)"/>`
+        + `<text x="${px / 2}" y="${top + bandH / 2}" fill="#ffffff" font-family="Helvetica,Arial,sans-serif" `
+        + `font-size="${fontSize}" font-weight="700" text-anchor="middle" dominant-baseline="central" `
+        + `letter-spacing="${Math.round(fontSize * 0.04)}">${text}</text></svg>`;
+}
+
+/** Composite the variant badge banner over a square icon buffer. */
+async function withBadge(baseBuf: Buffer, label: string, px: number, safe = false): Promise<Buffer> {
+    const overlay = Buffer.from(badgeSvg(label, px, safe));
+    return sharp(baseBuf).composite([{ input: overlay, top: 0, left: 0 }]).png().toBuffer();
+}
+
 /** Remove previously-generated files; returns how many were removed. */
 function removeArtifacts(baseDir: string, rels: string[]): number {
     let removed = 0;
@@ -73,7 +104,7 @@ const IOS_ICON_TINTED_FILE = 'AppIcon-1024-tinted.png';
  * universal single-size icon.
  */
 export async function generateIosIcon(cwd: string, config: ResolvedConfig, ios: ResolvedIosAssets): Promise<void> {
-    const appIconDir = join(cwd, 'ios', config.name, 'Assets.xcassets', 'AppIcon.appiconset');
+    const appIconDir = join(iosAssetsDir(cwd, config), 'AppIcon.appiconset');
     mkdirSync(appIconDir, { recursive: true });
 
     const filename = 'AppIcon-1024.png';
@@ -84,11 +115,14 @@ export async function generateIosIcon(cwd: string, config: ResolvedConfig, ios: 
     // removes alpha — forcing it rather than trusting the source, whose channel
     // output is inconsistent across runs. Dark/tinted variants are left alone
     // (the system composites those over its own background and they keep alpha).
-    const iconBuf = await sharp(ios.iconSource)
+    let iconBuf = await sharp(ios.iconSource)
         .resize(1024, 1024, { fit: 'cover' })
         .flatten({ background: ios.iconBackground })
         .png()
         .toBuffer();
+    // Variant badge (#530) — overlay the variant label so a dev/staging build
+    // is distinguishable from production on the home screen.
+    if (config.iconBadge) iconBuf = await withBadge(iconBuf, config.iconBadge, 1024);
     writeFileIfChanged(join(appIconDir, filename), iconBuf);
 
     type IconImage = {
@@ -140,15 +174,17 @@ export async function generateIosIcon(cwd: string, config: ResolvedConfig, ios: 
  * Generate the legacy Android launcher icons at 5 densities, both square
  * (ic_launcher.png) and round (ic_launcher_round.png).
  */
-export async function generateAndroidIcons(cwd: string, android: ResolvedAndroidAssets): Promise<void> {
-    const resDir = join(cwd, 'android', 'app', 'src', 'main', 'res');
+export async function generateAndroidIcons(cwd: string, config: ResolvedConfig, android: ResolvedAndroidAssets): Promise<void> {
+    const resDir = androidResDir(cwd, config);
     for (const { name, px } of ANDROID_DENSITIES) {
         const dir = join(resDir, name);
         mkdirSync(dir, { recursive: true });
-        const buf = await sharp(android.iconSource)
+        let buf = await sharp(android.iconSource)
             .resize(px, px, { fit: 'cover' })
             .png()
             .toBuffer();
+        // Variant badge (#530) — pre-26 devices show this legacy launcher icon.
+        if (config.iconBadge) buf = await withBadge(buf, config.iconBadge, px);
         writeFileIfChanged(join(dir, 'ic_launcher.png'), buf);
         writeFileIfChanged(join(dir, 'ic_launcher_round.png'), buf);
     }
@@ -182,8 +218,8 @@ const MONOCHROME_ICON_ARTIFACTS = ADAPTIVE_FOREGROUND_DENSITIES.map(
  * If `adaptiveIcon` is not configured, removes any previously-generated
  * artifacts so the app cleanly reverts to the legacy launcher icon.
  */
-export async function generateAndroidAdaptiveIcon(cwd: string, android: ResolvedAndroidAssets): Promise<void> {
-    const resDir = join(cwd, 'android', 'app', 'src', 'main', 'res');
+export async function generateAndroidAdaptiveIcon(cwd: string, config: ResolvedConfig, android: ResolvedAndroidAssets): Promise<void> {
+    const resDir = androidResDir(cwd, config);
     const adaptive = android.adaptiveIcon;
 
     if (!adaptive) {
@@ -196,10 +232,13 @@ export async function generateAndroidAdaptiveIcon(cwd: string, android: Resolved
     for (const { name, px } of ADAPTIVE_FOREGROUND_DENSITIES) {
         const dir = join(resDir, name);
         mkdirSync(dir, { recursive: true });
-        const buf = await sharp(adaptive.foreground)
+        let buf = await sharp(adaptive.foreground)
             .resize(px, px, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
             .png()
             .toBuffer();
+        // Variant badge (#530) — API 26+ devices render the adaptive icon, so
+        // badge the foreground too, kept inside the mask-safe zone.
+        if (config.iconBadge) buf = await withBadge(buf, config.iconBadge, px, true);
         writeFileIfChanged(join(dir, 'ic_launcher_foreground.png'), buf);
     }
 
@@ -264,8 +303,8 @@ const NOTIFICATION_COLOR_ARTIFACT = 'values/notification_colors.xml';
  * opt-in; `@sigx/lynx-notifications` resolves them by resource name at
  * runtime and falls back to the launcher icon / system default when absent.
  */
-export async function generateAndroidNotificationIcon(cwd: string, android: ResolvedAndroidAssets): Promise<void> {
-    const resDir = join(cwd, 'android', 'app', 'src', 'main', 'res');
+export async function generateAndroidNotificationIcon(cwd: string, config: ResolvedConfig, android: ResolvedAndroidAssets): Promise<void> {
+    const resDir = androidResDir(cwd, config);
 
     if (android.notificationIcon) {
         for (const { name, px } of NOTIFICATION_ICON_DENSITIES) {

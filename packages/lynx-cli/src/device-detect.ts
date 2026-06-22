@@ -10,6 +10,7 @@ import { execSync } from 'node:child_process';
 import { existsSync, readFileSync, unlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { iosDirName } from './config/paths.js';
 
 export interface AndroidDevice {
     id: string;
@@ -563,8 +564,8 @@ export function installAppOnSimulator(udid: string, appPath: string): boolean {
  * identical scheme + bundle id — can never pick up each other's .app, which
  * the old shared-`~/Library/Developer/Xcode/DerivedData` glob did (#178).
  */
-export function iosDerivedDataPath(cwd: string): string {
-    return join(cwd, 'ios', 'build');
+export function iosDerivedDataPath(cwd: string, variant?: string): string {
+    return join(cwd, iosDirName(variant), 'build');
 }
 
 /**
@@ -578,10 +579,11 @@ export function findBuiltApp(
     scheme: string,
     target: 'simulator' | 'device' = 'simulator',
     configuration: 'Debug' | 'Release' = 'Debug',
+    variant?: string,
 ): string | null {
     const suffix = target === 'device' ? 'iphoneos' : 'iphonesimulator';
     const appPath = join(
-        iosDerivedDataPath(cwd),
+        iosDerivedDataPath(cwd, variant),
         'Build', 'Products', `${configuration}-${suffix}`, `${scheme}.app`,
     );
     return existsSync(appPath) ? appPath : null;

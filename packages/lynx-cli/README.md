@@ -52,6 +52,81 @@ sigx prebuild --android --embed-bundle  # bakes it into android/app/src/main/ass
 is missing or empty. Plain `sigx prebuild` (without the flag) keeps seeding the
 empty iOS placeholder so dev/sandbox builds fall through to the dev server.
 
+## Build variants
+
+A single app identity (`name`, `scheme`, `android.applicationId`,
+`ios.bundleIdentifier`) means every build shares one application id — so a dev or
+staging build **overwrites** the production app on a device. Build variants give
+each environment its own identity and its own generated native project, so they
+install side by side.
+
+Declare a `variants` map in `signalx.config.ts`:
+
+```ts
+export default defineLynxConfig({
+  name: 'My App',
+  scheme: 'myapp',
+  android: { applicationId: 'com.example.app' },
+  ios: { bundleIdentifier: 'com.example.app' },
+
+  variants: {
+    dev: {
+      idSuffix: '.dev',        // → com.example.app.dev (installs beside prod)
+      nameSuffix: ' (Dev)',    // home-screen label "My App (Dev)"
+      schemeSuffix: 'dev',     // deep-link scheme myappdev:// (no collision)
+      // …plus a deep-merged partial override of ANY config field:
+      // icon, ios.codeSignStyle, android.adaptiveIcon, infoPlist, updates, …
+    },
+    pr: { extends: 'dev', idSuffix: '.pr', nameSuffix: ' (PR)' },
+  },
+});
+```
+
+Then pass `--variant <name>` to any native command (or set `SIGX_VARIANT`):
+
+```bash
+sigx prebuild --variant dev      # → android-dev/ and ios-dev/
+sigx run:android --variant dev   # build + install the dev variant alongside prod
+sigx run:ios --variant dev
+sigx dev --variant dev
+SIGX_VARIANT=dev sigx prebuild   # env fallback for CI / scripts
+```
+
+No flag → the base (production) identity into `android/` / `ios/`, exactly as
+before.
+
+**What a variant does**
+
+- **Auto-suffixes** the app id + bundle id (`idSuffix`), display name
+  (`nameSuffix`), and deep-link scheme (`schemeSuffix`). An explicit `scheme` /
+  `android.applicationId` override wins over the suffix.
+- **Renders into its own output dir** — `android-<name>/`, `ios-<name>/` — so
+  variants never overwrite each other's generated native project. Add
+  `android-*/` and `ios-*/` to `.gitignore`.
+- **Deep-merges** any other config field (objects merge; arrays/scalars
+  replace). `extends: '<other>'` inherits another variant first.
+- **Defaults iOS signing to `Automatic`** for non-release variants, so a dev
+  build installs on a physical device via a free personal Apple team (no
+  provisioning-profile setup). Set `release: true` to keep production signing.
+- **Auto-binds the OTA channel** — when `updates` is configured, a variant
+  defaults `updates.defaultChannel` to its own name (`dev` → `dev` channel), so
+  standalone OTA testing on a variant build just works.
+- **Badges the launcher icon** with the variant label (e.g. `DEV`) so it's
+  visually distinct on the home screen. Customize with `iconBadge: 'BETA'` or
+  disable with `iconBadge: false`.
+
+**Read the active variant at runtime** via `@sigx/lynx`:
+
+```ts
+import { variant, isVariant, isBaseBuild } from '@sigx/lynx';
+
+if (!isBaseBuild()) showRibbon(variant.toUpperCase());   // "DEV" / "STAGING"
+```
+
+(Baked into the bundle as the `__SIGX_VARIANT__` define; also exposed natively as
+the Android `<meta-data com.sigx.VARIANT>` and the iOS `SigxVariant` Info.plist
+key. Empty string for the base build.)
+
 ## OTA publishing
 
 `sigx updates:publish` packages a built `.lynx.bundle` into the static-manifest

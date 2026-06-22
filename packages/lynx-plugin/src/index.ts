@@ -221,6 +221,10 @@ export function pluginSigxLynx(
               // (plumbed from signalx.config.ts by lynx-cli).
               __SIGX_RUNTIME_VERSIONS__: JSON.stringify(readRuntimeVersions(api.context.rootPath)),
               __SIGX_UPDATES_CHANNEL__: JSON.stringify(process.env['SIGX_LYNX_UPDATES_CHANNEL'] || 'production'),
+              // Active build variant (#530), plumbed from signalx.config.ts by
+              // lynx-cli via `SIGX_LYNX_VARIANT`. Empty string for the base
+              // (production) build. Read by `variant`/`isVariant()` in core.
+              __SIGX_VARIANT__: JSON.stringify(process.env['SIGX_LYNX_VARIANT'] || ''),
             },
           },
           tools: {

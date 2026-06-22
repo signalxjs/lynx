@@ -8,6 +8,11 @@
 import { a, definePlugin } from '@sigx/cli/plugin';
 import { existsSync, statSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
+import { androidDirName, iosDirName } from './config/paths.js';
+import { resolveVariantName } from './util/variant.js';
+
+/** Shared `--variant` flag declaration for the native-targeting commands. */
+const variantArg = a.string().describe('Build variant from signalx.config.ts (e.g. dev) — own app id + output dir (or set SIGX_VARIANT)');
 
 function isLynxProject(cwd: string): boolean {
     return (
@@ -64,14 +69,16 @@ export default definePlugin({
                 'no-device-logs': a.boolean().default(false).describe('Suppress JS console.* streaming from running devices'),
                 'no-ui': a.boolean().default(false).describe('Plain console output instead of the interactive dashboard'),
                 'reset-cache': a.boolean().default(false).describe('Clear build caches (dist/, .rsbuild/, node_modules/.cache) before building — use after a dependency version bump'),
+                variant: variantArg,
             },
             async run(ctx) {
                 if (ctx.args['reset-cache']) {
                     const { resetBuildCaches } = await import('./util/reset-cache.js');
                     resetBuildCaches(ctx.cwd, ctx.logger);
                 }
-                const androidDir = join(ctx.cwd, 'android');
-                const iosDir = join(ctx.cwd, 'ios');
+                const variant = resolveVariantName(ctx.args);
+                const androidDir = join(ctx.cwd, androidDirName(variant));
+                const iosDir = join(ctx.cwd, iosDirName(variant));
                 let hasAndroid = existsSync(androidDir);
                 let hasIos = existsSync(iosDir) && process.platform === 'darwin';
 
@@ -86,7 +93,7 @@ export default definePlugin({
                 if (!hasAndroid && !hasIos && isLynxProject(ctx.cwd)) {
                     ctx.logger.log('First-time setup: no android/ or ios/ folder found — running prebuild...');
                     const { runPrebuild } = await import('./prebuild.js');
-                    await runPrebuild({ cwd: ctx.cwd });
+                    await runPrebuild({ cwd: ctx.cwd, variant });
                     hasAndroid = existsSync(androidDir);
                     hasIos = existsSync(iosDir) && process.platform === 'darwin';
                 }
@@ -100,7 +107,7 @@ export default definePlugin({
                         const { loadConfig } = await import('./prebuild.js');
                         const { resolveConfig } = await import('./config/index.js');
                         const rawConfig = await loadConfig(ctx.cwd);
-                        const config = resolveConfig(rawConfig);
+                        const config = resolveConfig(rawConfig, variant);
                         appName = config.name;
                         const fallback = `com.sigx.${config.name.toLowerCase().replace(/[^a-z0-9]/g, '')}`;
                         if (hasAndroid) launchAppId = config.android.applicationId ?? fallback;
@@ -315,6 +322,7 @@ export default definePlugin({
                             applicationId: launchAppId,
                             targetDeviceIds,
                             verbose,
+                            variant,
                         });
                     } catch (err) {
                         pre.error(err instanceof Error ? err.message : String(err));
@@ -338,6 +346,7 @@ export default definePlugin({
                                 target: { kind: t.kind === 'ios-simulator' ? 'simulator' : 'device', udid: t.udid, name: t.name },
                                 bundleId: launchBundleId,
                                 verbose,
+                                variant,
                             });
                         } catch (err) {
                             pre.error(err instanceof Error ? err.message : String(err));
@@ -419,6 +428,7 @@ export default definePlugin({
                     launchBundleId,
                     selectedTargets: live,
                     verbose,
+                    variant,
                     disableDeviceLogs: ctx.args['no-device-logs'] as boolean | undefined,
                     shell: devShell,
                 });
@@ -429,11 +439,28 @@ export default definePlugin({
             args: {
                 analyze: a.boolean().default(false).describe('Analyze bundle size'),
                 'reset-cache': a.boolean().default(false).describe('Clear build caches (dist/, .rsbuild/, node_modules/.cache) before building — use after a dependency version bump'),
+                variant: variantArg,
             },
             async run(ctx) {
                 if (ctx.args['reset-cache']) {
                     const { resetBuildCaches } = await import('./util/reset-cache.js');
                     resetBuildCaches(ctx.cwd, ctx.logger);
+                }
+                // Resolve the variant so the rspeedy child bakes the
+                // __SIGX_VARIANT__ define (+ the variant's updates channel) into
+                // the JS bundle. resolveConfig sets the SIGX_LYNX_* env the
+                // child inherits. (The native id/dir don't apply to a JS build.)
+                const variant = resolveVariantName(ctx.args);
+                if (variant) {
+                    try {
+                        const { loadConfig } = await import('./prebuild.js');
+                        const { resolveConfig } = await import('./config/index.js');
+                        resolveConfig(await loadConfig(ctx.cwd), variant);
+                        ctx.logger.log(`Variant: ${variant}`);
+                    } catch (err) {
+                        ctx.logger.error(err instanceof Error ? err.message : String(err));
+                        process.exit(1);
+                    }
                 }
                 const { spawn } = await import('node:child_process');
                 const startTime = Date.now();
@@ -579,8 +606,9 @@ export default definePlugin({
             args: {
                 android: a.boolean().describe('Android only'),
                 ios: a.boolean().describe('iOS only'),
-                clean: a.boolean().describe('Delete and regenerate the native projects (android/, ios/) from scratch'),
+                clean: a.boolean().describe('Delete and regenerate the native projects from scratch'),
                 'embed-bundle': a.boolean().describe('Embed the built dist/main.lynx.bundle into the native project(s) for external release archiving (run `sigx build` first)'),
+                variant: variantArg,
             },
             async run(ctx) {
                 const { runPrebuild } = await import('./prebuild.js');
@@ -595,6 +623,7 @@ export default definePlugin({
                         clean: ctx.args.clean as boolean | undefined,
                         embedBundle: ctx.args['embed-bundle'] as boolean | undefined,
                         cwd: ctx.cwd,
+                        variant: resolveVariantName(ctx.args),
                     });
                 } catch (err) {
                     ctx.logger.error(err instanceof Error ? err.message : String(err));
@@ -608,6 +637,7 @@ export default definePlugin({
                 release: a.boolean().default(false).describe('Build in release mode (no dev server)'),
                 verbose: a.boolean().default(false).describe('Stream raw gradle output (default: filtered)'),
                 'reset-cache': a.boolean().default(false).describe('Clear build caches (dist/, .rsbuild/, node_modules/.cache) before building — use after a dependency version bump'),
+                variant: variantArg,
             },
             async run(ctx) {
                 if (ctx.args['reset-cache']) {
@@ -622,13 +652,14 @@ export default definePlugin({
                 const { generateQR } = await import('@sigx/terminal');
                 const { resolveVerbose } = await import('./build-output.js');
 
-                const androidDir = join(ctx.cwd, 'android');
+                const variant = resolveVariantName(ctx.args);
+                const androidDir = join(ctx.cwd, androidDirName(variant));
                 const isRelease = ctx.args.release as boolean;
                 const verbose = resolveVerbose(ctx.args.verbose);
 
                 // Load config for applicationId
                 const rawConfig = await loadConfig(ctx.cwd);
-                const config = resolveConfig(rawConfig);
+                const config = resolveConfig(rawConfig, variant);
                 const applicationId = config.android.applicationId ??
                     `com.sigx.${config.name.toLowerCase().replace(/[^a-z0-9]/g, '')}`;
 
@@ -654,7 +685,7 @@ export default definePlugin({
                     // (same path external pipelines use via `prebuild --embed-bundle`).
                     ctx.logger.log('Running prebuild for Android...');
                     try {
-                        await runPrebuild({ android: true, ios: false, embedBundle: true, cwd: ctx.cwd });
+                        await runPrebuild({ android: true, ios: false, embedBundle: true, cwd: ctx.cwd, variant });
                     } catch (err) {
                         ctx.logger.error(err instanceof Error ? err.message : String(err));
                         process.exit(1);
@@ -705,6 +736,7 @@ export default definePlugin({
                     applicationId,
                     targetDeviceIds: listAndroidDevicesForRun().map((d) => d.id),
                     verbose,
+                    variant,
                 });
 
                 // Start dev server
@@ -714,6 +746,7 @@ export default definePlugin({
                     logger: ctx.logger,
                     launchAppId: applicationId,
                     verbose,
+                    variant,
                 });
             },
         },
@@ -725,6 +758,7 @@ export default definePlugin({
                 device: a.string().describe('Physical device name or UDID (requires Xcode 15+)'),
                 verbose: a.boolean().default(false).describe('Stream raw xcodebuild output (default: filtered)'),
                 'reset-cache': a.boolean().default(false).describe('Clear build caches (dist/, .rsbuild/, node_modules/.cache) before building — use after a dependency version bump'),
+                variant: variantArg,
             },
             async run(ctx) {
                 if (process.platform !== 'darwin') {
@@ -749,7 +783,9 @@ export default definePlugin({
                 const { podInstallIfStale } = await import('./ios-pods.js');
                 const { runWithBuildFilter, resolveVerbose } = await import('./build-output.js');
 
-                const iosDir = join(ctx.cwd, 'ios');
+                const variant = resolveVariantName(ctx.args);
+                const iosDirRel = iosDirName(variant);
+                const iosDir = join(ctx.cwd, iosDirRel);
                 const isRelease = ctx.args.release as boolean;
                 const requestedSimulator = ctx.args.simulator as string | undefined;
                 const requestedDevice = ctx.args.device as string | undefined;
@@ -757,7 +793,7 @@ export default definePlugin({
 
                 // Load config
                 const rawConfig = await loadConfig(ctx.cwd);
-                const config = resolveConfig(rawConfig);
+                const config = resolveConfig(rawConfig, variant);
                 const appName = config.name;
                 const bundleId = config.ios.bundleIdentifier ??
                     `com.sigx.${appName.toLowerCase().replace(/[^a-z0-9]/g, '')}`;
@@ -811,7 +847,7 @@ export default definePlugin({
 
                 // Helper: xcodebuild for the chosen target.
                 async function xcodeBuild(configuration: string) {
-                    const workspace = join('ios', `${appName}.xcworkspace`);
+                    const workspace = join(iosDirRel, `${appName}.xcworkspace`);
                     ctx.logger.log(`Building iOS (${configuration}) for ${target.kind}...`);
                     try {
                         await runWithBuildFilter(
@@ -822,7 +858,7 @@ export default definePlugin({
                                 '-destination', `id=${target.udid}`,
                                 '-configuration', configuration,
                                 // Project-local products dir — see #178.
-                                '-derivedDataPath', iosDerivedDataPath(ctx.cwd),
+                                '-derivedDataPath', iosDerivedDataPath(ctx.cwd, variant),
                                 'build',
                             ],
                             { cwd: ctx.cwd },
@@ -842,9 +878,9 @@ export default definePlugin({
                     configuration: 'Debug' | 'Release' = 'Debug',
                 ) {
                     const buildTarget = target.kind === 'device' ? 'device' : 'simulator';
-                    const appPath = findBuiltApp(ctx.cwd, appName, buildTarget, configuration);
+                    const appPath = findBuiltApp(ctx.cwd, appName, buildTarget, configuration, variant);
                     if (!appPath) {
-                        ctx.logger.error(`Could not find built ${appName}.app in ios/build (${buildTarget}, ${configuration})`);
+                        ctx.logger.error(`Could not find built ${appName}.app in ${iosDirRel}/build (${buildTarget}, ${configuration})`);
                         return;
                     }
 
@@ -895,7 +931,7 @@ export default definePlugin({
                     // `prebuild --embed-bundle`).
                     ctx.logger.log('Running prebuild for iOS...');
                     try {
-                        await runPrebuild({ android: false, ios: true, embedBundle: true, cwd: ctx.cwd });
+                        await runPrebuild({ android: false, ios: true, embedBundle: true, cwd: ctx.cwd, variant });
                     } catch (err) {
                         ctx.logger.error(err instanceof Error ? err.message : String(err));
                         process.exit(1);
@@ -922,6 +958,7 @@ export default definePlugin({
                         target,
                         bundleId,
                         verbose,
+                        variant,
                     });
                 } catch (err) {
                     ctx.logger.error(err instanceof Error ? err.message : String(err));
@@ -936,6 +973,7 @@ export default definePlugin({
                     launchBundleId: bundleId,
                     iosSimulatorName: target.kind === 'simulator' ? target.name : undefined,
                     verbose,
+                    variant,
                 });
             },
         },

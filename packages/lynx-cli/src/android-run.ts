@@ -11,6 +11,7 @@ import { execSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Logger } from '@sigx/cli/plugin';
+import { androidDirName } from './config/paths.js';
 import { runPrebuild } from './prebuild.js';
 import { resolveAdb, isAppInstalled, pingDevice } from './device-detect.js';
 import { runWithBuildFilter } from './build-output.js';
@@ -198,13 +199,15 @@ export interface EnsureAndroidBuiltOptions {
      */
     targetDeviceIds?: string[];
     verbose?: boolean;
+    /** Build variant (#530) — selects the `android-<variant>/` output dir. */
+    variant?: string;
 }
 
-function androidFingerprintKey(): string {
+function androidFingerprintKey(variant?: string): string {
     // Gradle installs to every connected device, so the fingerprint isn't
     // per-device — we just track "what we last installed" alongside which
     // devices it landed on (checked separately via adb).
-    return `android-debug`;
+    return variant ? `android-${variant}-debug` : `android-debug`;
 }
 
 /**
@@ -215,11 +218,11 @@ function androidFingerprintKey(): string {
  * app is still on every target device.
  */
 export async function ensureAndroidBuilt(opts: EnsureAndroidBuiltOptions): Promise<void> {
-    const { cwd, logger, applicationId, targetDeviceIds } = opts;
-    const androidDir = join(cwd, 'android');
+    const { cwd, logger, applicationId, targetDeviceIds, variant } = opts;
+    const androidDir = join(cwd, androidDirName(variant));
 
     logger.log('Running prebuild for Android...');
-    await runPrebuild({ android: true, ios: false, cwd });
+    await runPrebuild({ android: true, ios: false, cwd, variant });
 
     // Pre-flight: catch a wedged `adbd` (device shows as connected but
     // `adb shell` blocks) before it hangs the whole flow silently right after
@@ -243,8 +246,8 @@ export async function ensureAndroidBuilt(opts: EnsureAndroidBuiltOptions): Promi
     // already installed on every target. Cheap (a few stat + sha256 of small
     // files, plus one adb per target) compared to gradle's ~2-5s startup.
     if (applicationId && targetDeviceIds && targetDeviceIds.length > 0) {
-        const fingerprint = fingerprintAndroidBuild(cwd);
-        const cached = readCachedFingerprint(cwd, androidFingerprintKey());
+        const fingerprint = fingerprintAndroidBuild(cwd, variant);
+        const cached = readCachedFingerprint(cwd, androidFingerprintKey(variant));
         if (cached === fingerprint) {
             const allInstalled = targetDeviceIds.every((id) => isAppInstalled(id, applicationId));
             if (allInstalled) {
@@ -265,7 +268,7 @@ export async function ensureAndroidBuilt(opts: EnsureAndroidBuiltOptions): Promi
     logger.log('\x1b[32m✓ App installed\x1b[0m');
 
     if (applicationId && targetDeviceIds && targetDeviceIds.length > 0) {
-        const fingerprint = fingerprintAndroidBuild(cwd);
-        writeCachedFingerprint(cwd, androidFingerprintKey(), fingerprint);
+        const fingerprint = fingerprintAndroidBuild(cwd, variant);
+        writeCachedFingerprint(cwd, androidFingerprintKey(variant), fingerprint);
     }
 }

@@ -25,8 +25,9 @@ import { findLockfile } from './util/package-manager.js';
 import { computeRuntimeVersion, runtimeVersionsSidecarPath, writeRuntimeVersionsSidecar } from './util/runtime-version.js';
 import {
     iosProjectRoot, iosSourceRoot, iosXcodeProjPath, iosPodfilePath, iosInfoPlistPath,
-    androidProjectRoot, androidAppDir, androidKotlinRoot,
+    androidProjectRoot, androidKotlinRoot,
     androidManifestPath, androidDebugManifestPath, androidBuildGradlePath,
+    androidDirName, iosDirName,
 } from './config/paths.js';
 import { linkAndroid } from './autolink/android.js';
 import { linkIos } from './autolink/ios.js';
@@ -53,6 +54,13 @@ export interface PrebuildOptions {
      * placeholder so dev/sandbox builds fall through to the dev server. (#521)
      */
     embedBundle?: boolean;
+    /**
+     * Build variant to render (issue #530). Deep-merges the named variant from
+     * `signalx.config.ts` onto the base config and renders into its own
+     * `android-<variant>/` / `ios-<variant>/` output dir. Undefined → the base
+     * (production) identity into `android/` / `ios/`.
+     */
+    variant?: string;
 }
 
 function log(msg: string) {
@@ -321,7 +329,7 @@ export async function loadManifests(modulePackages: string[], cwd: string): Prom
  * Scaffold the Android project from the template.
  */
 export function scaffoldAndroid(cwd: string, config: ResolvedConfig): void {
-    const androidDir = join(cwd, 'android');
+    const androidDir = androidProjectRoot(cwd, config);
     const templateDir = join(getTemplatesDir(), 'android');
 
     if (!existsSync(templateDir)) {
@@ -434,6 +442,13 @@ export function writeAndroidBehaviors(cwd: string, config: ResolvedConfig, behav
  * Maps API key.
  */
 export const ANDROID_RUNTIME_VERSION_META_KEY = 'com.sigx.updates.RUNTIME_VERSION';
+
+/**
+ * Android manifest meta-data key carrying the active build variant name
+ * (issue #530). Mirrors {@link ANDROID_RUNTIME_VERSION_META_KEY}'s mechanism so
+ * native code can read the variant without an app-package-scoped BuildConfig.
+ */
+export const ANDROID_VARIANT_META_KEY = 'com.sigx.VARIANT';
 
 /**
  * Inject the runtime-version fingerprint into the release Info.plist as
@@ -1072,7 +1087,7 @@ export function refreshAndroidManagedFiles(cwd: string, config: ResolvedConfig):
         const resolvedRel = rel.split('/').map((seg) =>
             seg === '__package__' ? vars.packagePath : seg,
         ).join('/');
-        const destPath = join(cwd, 'android', resolvedRel);
+        const destPath = join(androidProjectRoot(cwd, config), resolvedRel);
         if (!existsSync(srcPath)) continue;
         const content = substituteVars(readFileSync(srcPath, 'utf-8'), vars);
         mkdirSync(dirname(destPath), { recursive: true });
@@ -1085,7 +1100,7 @@ export function refreshAndroidManagedFiles(cwd: string, config: ResolvedConfig):
  * Scaffold the iOS project from the template.
  */
 export function scaffoldIos(cwd: string, config: ResolvedConfig): void {
-    const iosDir = join(cwd, 'ios');
+    const iosDir = iosProjectRoot(cwd, config);
     const templateDir = join(getTemplatesDir(), 'ios');
 
     if (!existsSync(templateDir)) {
@@ -1111,7 +1126,7 @@ export function refreshIosManagedFiles(cwd: string, config: ResolvedConfig): voi
     if (!existsSync(templateAppDir)) return;
 
     const vars = iosTemplateVars(config);
-    const destAppDir = join(cwd, 'ios', config.name);
+    const destAppDir = iosSourceRoot(cwd, config);
 
     let refreshed = 0;
     for (const rel of MANAGED_IOS_FILES) {
@@ -1127,7 +1142,7 @@ export function refreshIosManagedFiles(cwd: string, config: ResolvedConfig): voi
     // the installed SDK version. {{POD_ENTRIES}} / {{DEBUG_POD_ENTRIES}}
     // placeholders are then re-injected by the autolinker.
     const podfileSrc = join(templateRootDir, 'Podfile');
-    const podfileDest = join(cwd, 'ios', 'Podfile');
+    const podfileDest = iosPodfilePath(cwd, config);
     if (existsSync(podfileSrc)) {
         const content = substituteVars(readFileSync(podfileSrc, 'utf-8'), vars);
         if (writeFileIfChanged(podfileDest, content)) refreshed++;
@@ -2044,15 +2059,15 @@ export function cleanPrebuild(
     const cleanIos = platforms.ios !== false;
 
     if (full) {
-        const androidDir = join(cwd, 'android');
-        const iosDir = join(cwd, 'ios');
+        const androidDir = androidProjectRoot(cwd, config);
+        const iosDir = iosProjectRoot(cwd, config);
         if (cleanAndroid && existsSync(androidDir)) {
             rmSync(androidDir, { recursive: true, force: true });
-            log('Cleaned android/ directory');
+            log(`Cleaned ${androidDirName(config.variant)}/ directory`);
         }
         if (cleanIos && existsSync(iosDir)) {
             rmSync(iosDir, { recursive: true, force: true });
-            log('Cleaned ios/ directory');
+            log(`Cleaned ${iosDirName(config.variant)}/ directory`);
         }
         return;
     }
@@ -2060,8 +2075,8 @@ export function cleanPrebuild(
     // Partial clean — only remove generated registry files
     const applicationId = resolveApplicationId(config);
     const packagePath = packageToPath(applicationId);
-    const androidRegistry = join(cwd, 'android', 'app', 'src', 'main', 'kotlin', packagePath, 'GeneratedModuleRegistry.kt');
-    const iosRegistry = join(cwd, 'ios', config.name, 'GeneratedModuleRegistry.swift');
+    const androidRegistry = join(androidKotlinRoot(cwd, config), packagePath, 'GeneratedModuleRegistry.kt');
+    const iosRegistry = join(iosSourceRoot(cwd, config), 'GeneratedModuleRegistry.swift');
 
     if (cleanAndroid && existsSync(androidRegistry)) {
         unlinkSync(androidRegistry);
@@ -2096,7 +2111,7 @@ export function cleanPrebuild(
  * fast-path skips and the consumer keeps using a stale generated registry
  * + stale copies of the package's native files.
  */
-export function fingerprintPrebuildInputs(cwd: string, platforms: { android: boolean; ios: boolean }): string {
+export function fingerprintPrebuildInputs(cwd: string, platforms: { android: boolean; ios: boolean }, variant?: string): string {
     const files: string[] = [];
 
     for (const name of ['signalx.config.ts', 'signalx.config.js', 'signalx.config.mjs', 'lynx.config.ts', 'lynx.config.js', 'lynx.config.mjs']) {
@@ -2117,7 +2132,7 @@ export function fingerprintPrebuildInputs(cwd: string, platforms: { android: boo
     // loaded, so the path comes from the cache sidecar the last successful
     // run wrote. (A newly configured hook is caught via the config file
     // hash; a *moved* one via the sidecar path changing on the next run.)
-    const hookPath = readCachedFingerprint(cwd, 'prebuild-post-hook-path');
+    const hookPath = readCachedFingerprint(cwd, variant ? `prebuild-post-hook-path-${variant}` : 'prebuild-post-hook-path');
     if (hookPath) files.push(hookPath);
 
     // Index covers transitive module dependencies too (e.g. @sigx/lynx-core
@@ -2171,6 +2186,9 @@ export function fingerprintPrebuildInputs(cwd: string, platforms: { android: boo
         fingerprintFormat: 'v6',
         cliVersion: getCliVersion(),
         platforms: `android=${platforms.android};ios=${platforms.ios}`,
+        // Variant identity changes the rendered output (suffixed ids, signing,
+        // badge) and the output dir, so it must invalidate the fast path.
+        variant: variant ?? '',
     });
 }
 
@@ -2189,6 +2207,15 @@ export async function runPrebuild(opts: PrebuildOptions = {}): Promise<void> {
     const cwd = opts.cwd || process.cwd();
     const buildAndroid = opts.android ?? true;
     const buildIos = opts.ios ?? true;
+    const variant = opts.variant;
+    // Per-variant cache slots + output dirs so a base build and a variant build
+    // don't share a fingerprint cache entry (same config inputs → same hash)
+    // and so the variant's sentinels point at *its* dir, not the base's. The
+    // dir names depend only on the variant string, available before config load.
+    const cacheKey = variant ? `prebuild-inputs-${variant}` : 'prebuild-inputs';
+    const hookCacheKey = variant ? `prebuild-post-hook-path-${variant}` : 'prebuild-post-hook-path';
+    const androidDirName_ = androidDirName(variant);
+    const iosDirName_ = iosDirName(variant);
 
     // Fast path: skip the whole pipeline (including the esbuild-driven config
     // load) when the inputs haven't changed since the last run AND a small
@@ -2199,20 +2226,22 @@ export async function runPrebuild(opts: PrebuildOptions = {}): Promise<void> {
     // (xcodebuild / gradle / pod install) would fail in a confusing way.
     // `--clean` bypasses both checks.
     if (!opts.clean) {
-        const fingerprint = fingerprintPrebuildInputs(cwd, { android: buildAndroid, ios: buildIos });
-        const cached = readCachedFingerprint(cwd, 'prebuild-inputs');
+        const fingerprint = fingerprintPrebuildInputs(cwd, { android: buildAndroid, ios: buildIos }, variant);
+        const cached = readCachedFingerprint(cwd, cacheKey);
         // Sentinels are intentionally appName-independent so we can run them
         // *before* the esbuild config load — that's the whole point of the
         // fast path. If we picked appName-scoped sentinels we'd be paying the
-        // very cost we're trying to avoid.
+        // very cost we're trying to avoid. They ARE variant-scoped (the dir
+        // name depends only on the variant string) so a variant's fast path
+        // never reads the base build's outputs.
         const iosSentinels = [
-            join(cwd, 'ios', 'Podfile'),
+            join(cwd, iosDirName_, 'Podfile'),
             // OTA runtime-version sidecar — `sigx updates:publish` needs it.
             runtimeVersionsSidecarPath(cwd),
         ];
         const androidSentinels = [
-            join(cwd, 'android', 'app', 'build.gradle.kts'),
-            join(cwd, 'android', 'app', 'src', 'main', 'AndroidManifest.xml'),
+            join(cwd, androidDirName_, 'app', 'build.gradle.kts'),
+            join(cwd, androidDirName_, 'app', 'src', 'main', 'AndroidManifest.xml'),
             runtimeVersionsSidecarPath(cwd),
         ];
         const outputsIntact =
@@ -2224,19 +2253,22 @@ export async function runPrebuild(opts: PrebuildOptions = {}): Promise<void> {
         }
     }
 
-    log('Starting prebuild...');
+    log(variant ? `Starting prebuild (variant: ${variant})...` : 'Starting prebuild...');
 
     const rawConfig = await loadConfig(cwd);
-    const config = resolveConfig(rawConfig);
+    const config = resolveConfig(rawConfig, variant);
 
     log(`App: ${config.name} v${config.version}`);
+    if (variant) {
+        log(`Variant: ${variant} → ${config.android.applicationId ?? config.ios.bundleIdentifier} (${androidDirName_}/ ${iosDirName_}/)`);
+    }
     log(`Modules: ${config.modules.length}`);
 
     // Resolve all asset paths and per-platform overrides up front. Falls back
     // to the bundled placeholders in templates/defaults/ when the user hasn't
     // configured icon/splash/adaptiveIcon — guarantees first prebuild produces
     // a working install.
-    const assets = resolveAssets(rawConfig, cwd);
+    const assets = resolveAssets(rawConfig, cwd, variant);
 
     // Clean if requested — full re-scaffold (delete android/ + ios/ and
     // regenerate from the template), matching the Expo-prebuild `--clean`
@@ -2302,6 +2334,12 @@ export async function runPrebuild(opts: PrebuildOptions = {}): Promise<void> {
         if (!result.metaData.some((m) => m.name === ANDROID_RUNTIME_VERSION_META_KEY)) {
             result.metaData.push({ name: ANDROID_RUNTIME_VERSION_META_KEY, value: androidRuntimeVersion });
         }
+        // Active build variant (#530) — travels as <meta-data> so native code
+        // (splash, crash reporter) can read it via PackageManager. The JS side
+        // gets it from the __SIGX_VARIANT__ define instead.
+        if (config.variant && !result.metaData.some((m) => m.name === ANDROID_VARIANT_META_KEY)) {
+            result.metaData.push({ name: ANDROID_VARIANT_META_KEY, value: config.variant });
+        }
         writeRuntimeVersionsSidecar(cwd, 'android', androidRuntimeVersion);
         log(`Android: runtime version ${androidRuntimeVersion}`);
 
@@ -2316,11 +2354,11 @@ export async function runPrebuild(opts: PrebuildOptions = {}): Promise<void> {
         }
 
         // App-shell assets (icons, splash, manifest meta).
-        await generateAndroidIcons(cwd, assets.android);
-        await generateAndroidAdaptiveIcon(cwd, assets.android);
-        await generateAndroidNotificationIcon(cwd, assets.android);
-        await generateAndroidSplash(cwd, assets.android);
-        applyAndroidManifestMeta(cwd, assets.android);
+        await generateAndroidIcons(cwd, config, assets.android);
+        await generateAndroidAdaptiveIcon(cwd, config, assets.android);
+        await generateAndroidNotificationIcon(cwd, config, assets.android);
+        await generateAndroidSplash(cwd, config, assets.android);
+        applyAndroidManifestMeta(cwd, config, assets.android);
         applyAndroidGradleMeta(cwd, config);
 
         // Copy dev-client sources if found
@@ -2415,6 +2453,13 @@ export async function runPrebuild(opts: PrebuildOptions = {}): Promise<void> {
 
         injectInfoPlistBackgroundModes(cwd, config, result.backgroundModes);
         injectInfoPlistBgTaskIdentifiers(cwd, config, result.bgTaskIdentifiers);
+        // Active build variant (#530) — surfaced as a plain Info.plist key so
+        // native code can read it; the JS side uses the __SIGX_VARIANT__ define.
+        // An explicit infoPlist.SigxVariant (unlikely) still wins.
+        if (config.variant && !('SigxVariant' in result.infoPlist)) {
+            result.infoPlist['SigxVariant'] = config.variant;
+        }
+
         // Arbitrary Info.plist passthrough (app ios.infoPlist /
         // usesNonExemptEncryption + module-contributed keys). Before
         // writeIosDebugInfoPlist, which snapshots the final release plist.
@@ -2499,14 +2544,14 @@ export async function runPrebuild(opts: PrebuildOptions = {}): Promise<void> {
     // Remember where the hook script lives so fingerprintPrebuildInputs —
     // which runs before the config is loaded — can hash it on the next run.
     writeCachedFingerprint(
-        cwd, 'prebuild-post-hook-path',
+        cwd, hookCacheKey,
         config.prebuild?.post ? resolveHookPath(cwd, config.prebuild.post) : '',
     );
 
     // Record what we just successfully built from so the next runPrebuild
     // can short-circuit when inputs haven't changed.
-    const fingerprint = fingerprintPrebuildInputs(cwd, { android: buildAndroid, ios: buildIos });
-    writeCachedFingerprint(cwd, 'prebuild-inputs', fingerprint);
+    const fingerprint = fingerprintPrebuildInputs(cwd, { android: buildAndroid, ios: buildIos }, variant);
+    writeCachedFingerprint(cwd, cacheKey, fingerprint);
 
     log('Prebuild complete!');
 }

@@ -14,6 +14,7 @@ import type {
     IconStyle,
     IosIconConfig,
 } from './schema.js';
+import { mergeVariant } from './variant.js';
 
 const VALID_ICON_MODES: ReadonlySet<IconMode> = new Set(['svg', 'font']);
 const VALID_ICON_STYLES: ReadonlySet<IconStyle> = new Set([
@@ -108,13 +109,48 @@ export interface ResolvedConfig {
         Omit<NonNullable<LynxConfig['ios']>, 'deploymentTarget' | 'buildNumber'>;
     prebuild?: LynxConfig['prebuild'];
     updates?: LynxConfig['updates'];
+    /**
+     * Active build variant name (issue #530), or undefined for the base
+     * (production) build. Drives the per-variant output dir via the
+     * `androidDirName`/`iosDirName` path helpers.
+     */
+    variant?: string;
+    /**
+     * Effective launcher-icon badge label for the active variant, or null when
+     * unbadged (always null for the base build). Read by the icon generators.
+     */
+    iconBadge?: string | null;
 }
 
 /**
  * Parse and resolve a raw LynxConfig into a fully-resolved config
  * with defaults applied and modules normalised.
+ *
+ * When `variantName` is set (issue #530), the named variant is deep-merged onto
+ * the base config first (auto-suffixing id / name / scheme, applying non-release
+ * signing + OTA-channel defaults) and the result is stamped with `variant` +
+ * `iconBadge` so downstream consumers render the variant identity. Omitting it
+ * yields the base (production) config, byte-for-byte as before.
  */
-export function resolveConfig(raw: LynxConfig): ResolvedConfig {
+export function resolveConfig(raw: LynxConfig, variantName?: string): ResolvedConfig {
+    let variant: string | undefined;
+    let iconBadge: string | null = null;
+    if (variantName) {
+        const merged = mergeVariant(raw, variantName);
+        raw = merged.config;
+        variant = variantName;
+        iconBadge = merged.controls.iconBadge;
+    }
+
+    // Make the active variant available to the rspeedy child process(es) the
+    // build/dev/run commands spawn — `@sigx/lynx-plugin` reads
+    // `SIGX_LYNX_VARIANT` and bakes it into the bundle as the
+    // `__SIGX_VARIANT__` define (mirrors the logging / updates-channel plumbing
+    // below). Empty string = base/production build.
+    try {
+        process.env['SIGX_LYNX_VARIANT'] = variantName ?? '';
+    } catch { /* ignore */ }
+
     const platforms = raw.platforms ?? DEFAULTS.platforms!;
     const buildNumber = raw.buildNumber ?? DEFAULTS.buildNumber!;
 
@@ -156,6 +192,8 @@ export function resolveConfig(raw: LynxConfig): ResolvedConfig {
         },
         prebuild: raw.prebuild,
         updates: raw.updates,
+        variant,
+        iconBadge,
     };
 }
 
@@ -316,10 +354,14 @@ function pickIosIcon(
  * Paths are absolute. Falls back to bundled placeholders in templates/defaults/
  * when the user hasn't configured an icon/splash.
  */
-export function resolveAssets(raw: LynxConfig, cwd: string): {
+export function resolveAssets(raw: LynxConfig, cwd: string, variantName?: string): {
     ios: ResolvedIosAssets;
     android: ResolvedAndroidAssets;
 } {
+    // Merge the variant first so per-variant icon/splash/scheme overrides (and
+    // the suffixed scheme) flow into resolved assets. Pure + independent of
+    // resolveConfig — the two stay in lockstep because both merge from `raw`.
+    if (variantName) raw = mergeVariant(raw, variantName).config;
     const baseOrientation = raw.orientation ?? DEFAULTS.orientation!;
     const baseScheme = raw.scheme ?? null;
     const iosIcon = pickIosIcon(cwd, raw.ios?.icon, raw.icon);

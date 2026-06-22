@@ -20,6 +20,10 @@ export type { PlatformOS, PlatformSelectSpec } from './platform.js';
 export { DeviceInfo } from './device-info.js';
 export type { DeviceInfoResult, IosDeviceInfo, AndroidDeviceInfo } from './device-info.js';
 
+// Active build variant (#530) — baked from `signalx.config.ts` `variants` by
+// `--variant`. Lets an app render a "DEV"/"STAGING" badge or branch by env.
+export { variant, isVariant, isBaseBuild } from './variant.js';
+
 // Logging — leveled + namespaced logger usable by any package (see logger.ts).
 export {
     createLogger,

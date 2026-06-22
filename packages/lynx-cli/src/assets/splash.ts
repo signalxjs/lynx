@@ -19,6 +19,7 @@ import sharp from 'sharp';
 import { mkdirSync, existsSync, unlinkSync } from 'node:fs';
 import { join } from 'node:path';
 import type { ResolvedConfig, ResolvedAndroidAssets, ResolvedIosAssets, SplashResizeMode } from '../config/index.js';
+import { iosAssetsDir, androidResDir } from '../config/paths.js';
 import { writeFileIfChanged } from '../util/idempotent-write.js';
 
 function log(msg: string) {
@@ -81,7 +82,7 @@ const IOS_DARK_SPLASH_FILES = ['splash-dark.png', 'splash-dark@2x.png', 'splash-
  * Info.plist `UILaunchScreen` dict is wired up by applyIosPlistMeta.
  */
 export async function generateIosSplash(cwd: string, config: ResolvedConfig, ios: ResolvedIosAssets): Promise<void> {
-    const xcassets = join(cwd, 'ios', config.name, 'Assets.xcassets');
+    const xcassets = iosAssetsDir(cwd, config);
     const base = iosSplashBase(ios.splashResizeMode);
 
     // SplashImage.imageset
@@ -187,8 +188,8 @@ const ANDROID_DARK_SPLASH_ARTIFACTS = [
  * when a dark splash is configured). Theme wiring is done at template time
  * (themes.xml ships Theme.SigxApp.Splash; manifest activity uses it).
  */
-export async function generateAndroidSplash(cwd: string, android: ResolvedAndroidAssets): Promise<void> {
-    const resDir = join(cwd, 'android', 'app', 'src', 'main', 'res');
+export async function generateAndroidSplash(cwd: string, config: ResolvedConfig, android: ResolvedAndroidAssets): Promise<void> {
+    const resDir = androidResDir(cwd, config);
     const logoPx = androidSplashLogoPx(android.splashResizeMode);
 
     // Single-density drawable PNG (gravity handles placement across screen sizes).
