@@ -1,6 +1,6 @@
 {
     "name": "@sigx/lynx-http",
-    "version": "0.9.1",
+    "version": "0.9.2",
     "description": "WHATWG fetch for sigx-lynx — HTTP transport with FormData multipart upload and streaming response bodies",
     "type": "module",
     "main": "./dist/index.js",

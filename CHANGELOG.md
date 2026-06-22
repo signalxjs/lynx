@@ -4,6 +4,8 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 ## [Unreleased]
 
+## [0.9.2] - 2026-06-22
+
 ### Fixed
 
 - `@sigx/lynx-webauth` — iOS: fix a typo'd protocol name (`ASWebAuthenticationSessionPresentationContextProviding` → `ASWebAuthenticationPresentationContextProviding`) that made `WebAuthModule.swift` fail to compile, so the package could not build into an iOS app at all in 0.9.0/0.9.1.
