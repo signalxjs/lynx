@@ -211,7 +211,7 @@ public class VideoPlayerUI: LynxUI<UIView> {
     // the slot, and `value?.doubleValue` then messages `-doubleValue` on
     // `NSNull` and crashes (`-[NSNull doubleValue]`). The type-checked
     // `value as? NSNumber` returns nil for `NSNull` instead. (Same trap as the
-    // string setters and `setStartTime` above.)
+    // string setters above and `setStartTime` below.)
     @objc public func setVolume(_ value: Any?, requestReset: Bool) {
         let v = Float(max(0, min(1, ((value as? NSNumber)?.doubleValue ?? 1.0))))
         pendingVolume = v
