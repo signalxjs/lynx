@@ -362,12 +362,17 @@ public class VideoPlayerUI: LynxUI<UIView> {
     }
 
     private func handleDidReachEnd() {
+        // The clip hit its boundary — latch `reachedEnd` before anything else
+        // so the KVO handler suppresses the trailing `paused` that AVPlayer's
+        // timeControlStatus emits there. This applies to both paths: when
+        // looping, the `.playing` KVO case re-arms `reachedEnd = false` as the
+        // restart begins; when not looping, it stays latched through teardown.
+        reachedEnd = true
         if pendingLoop {
             player?.seek(to: .zero)
             player?.play()
             return
         }
-        reachedEnd = true
         let positionMs = msFromSeconds(CMTimeGetSeconds(player?.currentItem?.duration ?? .zero))
         fireEvent("statechange", params: ["state": "ended", "positionMs": positionMs])
         fireEvent("end", params: [:])
