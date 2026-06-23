@@ -5,6 +5,7 @@ import type {
     VideoErrorEvent,
     VideoLoadEvent,
     VideoResizeMode,
+    VideoStateChangeEvent,
     VideoTimeUpdateEvent,
 } from './jsx-augment.js';
 
@@ -18,12 +19,14 @@ export type VideoPlayerProps =
     & Define.Prop<'volume', number, false>
     & Define.Prop<'controls', boolean, false>
     & Define.Prop<'resizeMode', VideoResizeMode, false>
+    & Define.Prop<'startTime', number, false>
     & Define.Prop<'class', string, false>
     & Define.Prop<'style', string | Record<string, string | number>, false>
     & Define.Prop<'onLoad', (e: VideoLoadEvent) => void, false>
     & Define.Prop<'onEnd', (e: VideoEndEvent) => void, false>
     & Define.Prop<'onError', (e: VideoErrorEvent) => void, false>
-    & Define.Prop<'onTimeUpdate', (e: VideoTimeUpdateEvent) => void, false>;
+    & Define.Prop<'onTimeUpdate', (e: VideoTimeUpdateEvent) => void, false>
+    & Define.Prop<'onStateChange', (e: VideoStateChangeEvent) => void, false>;
 
 /**
  * Native video player.
@@ -46,8 +49,10 @@ export type VideoPlayerProps =
  * ```
  *
  * @remarks
- * Imperative methods (`seek`, `getStatus`) are not yet implemented — see the
- * package README. v1 is declarative-only via the `playing` / `src` props.
+ * Playback is driven declaratively (`playing` / `src` / `startTime`) with
+ * `onStateChange` reporting play/pause/buffering/ended transitions. Imperative
+ * methods (`seek`, `getStatus`) are still pending the Lynx UIMethodInvoker
+ * surface — see the package README.
  */
 export const VideoPlayer = component<VideoPlayerProps>(({ props }) => {
     return () => (
@@ -61,12 +66,14 @@ export const VideoPlayer = component<VideoPlayerProps>(({ props }) => {
             volume={props.volume}
             controls={props.controls}
             resize-mode={props.resizeMode}
+            start-time={props.startTime}
             class={props.class}
             style={props.style}
             bindload={props.onLoad}
             bindend={props.onEnd}
             binderror={props.onError}
             bindtimeupdate={props.onTimeUpdate}
+            bindstatechange={props.onStateChange}
         />
     );
 });

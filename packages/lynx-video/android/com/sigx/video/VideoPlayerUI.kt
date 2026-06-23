@@ -34,10 +34,12 @@ import com.lynx.tasm.event.LynxDetailEvent
  *   - `volume`        → 0..1
  *   - `controls`      → show PlayerView's built-in transport controls
  *   - `resize-mode`   → contain | cover | stretch
+ *   - `start-time`    → one-shot initial seek (seconds) before first play
  *   - `bindload`      → asset metadata ready
  *   - `bindend`       → playback finished
  *   - `binderror`     → load / playback failure
  *   - `bindtimeupdate` → ~4×/sec position broadcast
+ *   - `bindstatechange` → playing | paused | buffering | ended transitions
  *
  * Imperative methods (`seek`, `getStatus`) are tracked as a v2 follow-up
  * — same UIMethodInvoker blocker as `WebView`/`Map`. Drive playback
@@ -64,6 +66,7 @@ class VideoPlayerUI(context: LynxContext) : LynxUI<PlayerView>(context) {
     private var pendingVolume = 1f
     private var pendingControls = false
     private var pendingResizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
+    private var pendingStartTimeMs: Long? = null
 
     private val timeUpdateRunnable = object : Runnable {
         override fun run() {
@@ -124,9 +127,15 @@ class VideoPlayerUI(context: LynxContext) : LynxUI<PlayerView>(context) {
                         applyQueuedPlayState()
                     }
                 }
+                Player.STATE_BUFFERING -> {
+                    val pos = exoPlayer?.currentPosition?.coerceAtLeast(0L) ?: 0L
+                    fireEvent("statechange", mapOf("state" to "buffering", "positionMs" to pos))
+                }
                 Player.STATE_ENDED -> {
                     // ExoPlayer.REPEAT_MODE_ONE handles looping natively, so
                     // reaching STATE_ENDED means we truly finished.
+                    val pos = exoPlayer?.currentPosition?.coerceAtLeast(0L) ?: 0L
+                    fireEvent("statechange", mapOf("state" to "ended", "positionMs" to pos))
                     fireEvent("end", emptyMap())
                 }
                 else -> {}
@@ -135,8 +144,18 @@ class VideoPlayerUI(context: LynxContext) : LynxUI<PlayerView>(context) {
 
         override fun onIsPlayingChanged(isPlaying: Boolean) {
             handler.removeCallbacks(timeUpdateRunnable)
+            val player = exoPlayer ?: return
+            val pos = player.currentPosition.coerceAtLeast(0L)
             if (isPlaying) {
+                fireEvent("statechange", mapOf("state" to "playing", "positionMs" to pos))
                 handler.postDelayed(timeUpdateRunnable, TIME_UPDATE_INTERVAL_MS)
+            } else if (player.playbackState == Player.STATE_READY) {
+                // Only emit `paused` for a genuine pause. ExoPlayer also drops
+                // `isPlaying` to false while buffering (STATE_BUFFERING) and at
+                // end-of-clip (STATE_ENDED); those transitions are reported as
+                // `buffering` / `ended` via onPlaybackStateChanged, so gating
+                // on STATE_READY here avoids a spurious `paused` around them.
+                fireEvent("statechange", mapOf("state" to "paused", "positionMs" to pos))
             }
         }
 
@@ -228,6 +247,22 @@ class VideoPlayerUI(context: LynxContext) : LynxUI<PlayerView>(context) {
         mView.useController = value
     }
 
+    @LynxProp(name = "start-time")
+    fun setStartTime(value: Double) {
+        pendingStartTimeMs = if (value > 0) (value * 1000).toLong() else null
+        // `applyQueuedPlayState()` consumes the pending seek, but it only runs
+        // once, on the first STATE_READY. If the prop is set/updated after the
+        // player is already ready (but still at the start, before the first
+        // play), that path won't run again and the initial offset would be
+        // silently dropped — so apply the one-shot seek now and clear it.
+        val player = exoPlayer ?: return
+        val startMs = pendingStartTimeMs ?: return
+        if (player.playbackState == Player.STATE_READY && player.currentPosition <= 0L) {
+            player.seekTo(startMs)
+            pendingStartTimeMs = null
+        }
+    }
+
     @LynxProp(name = "resize-mode")
     fun setResizeMode(value: String?) {
         val mode = when (value) {
@@ -256,6 +291,8 @@ class VideoPlayerUI(context: LynxContext) : LynxUI<PlayerView>(context) {
 
     private fun applyQueuedPlayState() {
         val player = exoPlayer ?: return
+        // One-shot initial seek before the first play.
+        pendingStartTimeMs?.let { player.seekTo(it); pendingStartTimeMs = null }
         val explicit = pendingPlaying
         when {
             explicit == true  -> player.play()

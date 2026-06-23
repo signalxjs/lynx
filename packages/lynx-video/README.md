@@ -52,10 +52,12 @@ function ClipScreen() {
 | `volume`      | `number?`                             | 0..1. Independent of `muted`.                          |
 | `controls`    | `boolean?`                            | Show platform-default playback controls.               |
 | `resizeMode`  | `'contain' \| 'cover' \| 'stretch'`   | Default `'contain'`.                                   |
+| `startTime`   | `number?`                             | One-shot initial seek (seconds) before the first play. |
 | `onLoad`      | `(e) => void`                         | `detail: { durationMs, width, height }`                |
 | `onEnd`       | `(e) => void`                         | Playback reached end of clip.                          |
 | `onError`     | `(e) => void`                         | `detail: { message }`                                  |
 | `onTimeUpdate`| `(e) => void`                         | ~4×/sec. `detail: { positionMs }`                      |
+| `onStateChange`| `(e) => void`                        | `detail: { state, positionMs }` — `state` is `'playing' \| 'paused' \| 'buffering' \| 'ended'`. Catches system/OS-driven pauses the `playing` prop can't. |
 
 ## Gotchas
 

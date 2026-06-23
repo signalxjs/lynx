@@ -55,6 +55,20 @@ export interface VideoTimeUpdateEvent {
     detail: VideoTimeUpdateEventDetail;
 }
 
+/** Playback state reported by `bindstatechange`. */
+export type VideoPlaybackState = 'playing' | 'paused' | 'buffering' | 'ended';
+export interface VideoStateChangeEventDetail {
+    /** The state playback just transitioned into. */
+    state: VideoPlaybackState;
+    /** Current position in milliseconds at the transition. */
+    positionMs: number;
+    [k: string]: unknown;
+}
+export interface VideoStateChangeEvent {
+    type: 'statechange';
+    detail: VideoStateChangeEventDetail;
+}
+
 export type VideoResizeMode = 'contain' | 'cover' | 'stretch';
 
 export interface VideoPlayerAttributes extends LynxCommonAttributes {
@@ -79,6 +93,11 @@ export interface VideoPlayerAttributes extends LynxCommonAttributes {
     controls?: boolean;
     /** How the video frame fits inside the element box. Default: `'contain'`. */
     'resize-mode'?: VideoResizeMode;
+    /**
+     * Seek to this offset (seconds) once the asset is ready, before the first
+     * play. Applied once per loaded source. Use for resuming/deep-linking.
+     */
+    'start-time'?: number;
 
     /** Fires once asset metadata is available (duration, dimensions). */
     bindload?: LynxEventHandler<VideoLoadEvent>;
@@ -92,6 +111,13 @@ export interface VideoPlayerAttributes extends LynxCommonAttributes {
      * subscribe to the asset duration once and animate locally instead.
      */
     bindtimeupdate?: LynxEventHandler<VideoTimeUpdateEvent>;
+    /**
+     * Fires when playback transitions between playing / paused / buffering /
+     * ended — including pauses driven by the OS or platform controls overlay,
+     * which the `playing` prop can't observe. Lets apps mirror native play
+     * state without polling.
+     */
+    bindstatechange?: LynxEventHandler<VideoStateChangeEvent>;
 }
 
 declare global {
