@@ -32,7 +32,18 @@ import Lynx
 // Class is NOT marked `@objc` — Swift forbids that on generic subclasses
 // of an ObjC lightweight-generic type like `LynxUI<__covariant V>`. Member-
 // level `@objc` / `@objc(name)` annotations still bridge because `LynxUI`
-// itself is `@objc`, so `__lynx_prop_config__*` discovery still works.
+// itself is `@objc`.
+//
+// IMPORTANT: prop setters MUST be registered via `propSetterLookUp()` (see
+// below), NOT by relying on the per-method `__lynx_prop_config__*` discovery
+// alone. On a non-`@objc` subclass of a specialized generic ObjC base, the
+// runtime's discovery path (`class_copyMethodList(metaclass)`) doesn't
+// reliably enumerate the Swift `@objc(name)` class methods, so a prop's
+// setter info comes back without a usable selector — `methodSignatureForSelector:`
+// returns nil and Lynx crashes with `NSInvocation … method signature argument
+// cannot be nil` on the first prop apply (see signalxjs/lynx#535). The
+// explicit `propSetterLookUp()` table is the robust path every other sigx
+// LynxUI component (WebView / Map / RichText) already uses.
 public class VideoPlayerUI: LynxUI<UIView> {
 
     private var player: AVPlayer?
@@ -83,6 +94,29 @@ public class VideoPlayerUI: LynxUI<UIView> {
         teardownPlayer()
     }
 
+    // MARK: - Prop-setter registration
+
+    // Explicit prop-setter registration. The runtime prefers this single
+    // `[propName, fullSelector]` table over the per-method
+    // `__lynx_prop_config__*` discovery — see SigxWebViewUI for the full
+    // rationale. It's the path that actually works for a non-`@objc` generic
+    // LynxUI subclass; the `__lynx_prop_config__*` methods below are kept for
+    // parity with the macro convention but the table is what Lynx uses.
+    @objc public class func propSetterLookUp() -> NSArray {
+        return [
+            ["src", "setSrc:requestReset:"],
+            ["poster", "setPoster:requestReset:"],
+            ["autoplay", "setAutoplay:requestReset:"],
+            ["playing", "setPlaying:requestReset:"],
+            ["loop", "setLoop:requestReset:"],
+            ["muted", "setMuted:requestReset:"],
+            ["volume", "setVolume:requestReset:"],
+            ["controls", "setControls:requestReset:"],
+            ["resize-mode", "setResizeMode:requestReset:"],
+            ["start-time", "setStartTime:requestReset:"],
+        ] as NSArray
+    }
+
     // MARK: - Prop setters
 
     // Params are `Any?`, not `NSString?`: Lynx delivers JS `null` (and any unset
@@ -110,7 +144,7 @@ public class VideoPlayerUI: LynxUI<UIView> {
 
     @objc(__lynx_prop_config__src)
     public class func __lynxPropConfigSrc() -> [String] {
-        return ["src", "setSrc:requestReset:", "NSString *"]
+        return ["src", "setSrc", "NSString *"]
     }
 
     @objc public func setPoster(_ value: Any?, requestReset: Bool) {
@@ -125,7 +159,7 @@ public class VideoPlayerUI: LynxUI<UIView> {
 
     @objc(__lynx_prop_config__poster)
     public class func __lynxPropConfigPoster() -> [String] {
-        return ["poster", "setPoster:requestReset:", "NSString *"]
+        return ["poster", "setPoster", "NSString *"]
     }
 
     @objc public func setAutoplay(_ value: Bool, requestReset: Bool) {
@@ -137,7 +171,7 @@ public class VideoPlayerUI: LynxUI<UIView> {
 
     @objc(__lynx_prop_config__autoplay)
     public class func __lynxPropConfigAutoplay() -> [String] {
-        return ["autoplay", "setAutoplay:requestReset:", "BOOL"]
+        return ["autoplay", "setAutoplay", "BOOL"]
     }
 
     @objc public func setPlaying(_ value: Bool, requestReset: Bool) {
@@ -150,7 +184,7 @@ public class VideoPlayerUI: LynxUI<UIView> {
 
     @objc(__lynx_prop_config__playing)
     public class func __lynxPropConfigPlaying() -> [String] {
-        return ["playing", "setPlaying:requestReset:", "BOOL"]
+        return ["playing", "setPlaying", "BOOL"]
     }
 
     @objc public func setLoop(_ value: Bool, requestReset: Bool) {
@@ -159,7 +193,7 @@ public class VideoPlayerUI: LynxUI<UIView> {
 
     @objc(__lynx_prop_config__loop)
     public class func __lynxPropConfigLoop() -> [String] {
-        return ["loop", "setLoop:requestReset:", "BOOL"]
+        return ["loop", "setLoop", "BOOL"]
     }
 
     @objc public func setMuted(_ value: Bool, requestReset: Bool) {
@@ -169,18 +203,24 @@ public class VideoPlayerUI: LynxUI<UIView> {
 
     @objc(__lynx_prop_config__muted)
     public class func __lynxPropConfigMuted() -> [String] {
-        return ["muted", "setMuted:requestReset:", "BOOL"]
+        return ["muted", "setMuted", "BOOL"]
     }
 
-    @objc public func setVolume(_ value: NSNumber?, requestReset: Bool) {
-        let v = Float(max(0, min(1, (value?.doubleValue ?? 1.0))))
+    // Param is `Any?`, not `NSNumber?`: an unset/cleared number prop arrives as
+    // `NSNull`, not `nil`. A typed `NSNumber?` parameter bridges `NSNull` into
+    // the slot, and `value?.doubleValue` then messages `-doubleValue` on
+    // `NSNull` and crashes (`-[NSNull doubleValue]`). The type-checked
+    // `value as? NSNumber` returns nil for `NSNull` instead. (Same trap as the
+    // string setters and `setStartTime` above.)
+    @objc public func setVolume(_ value: Any?, requestReset: Bool) {
+        let v = Float(max(0, min(1, ((value as? NSNumber)?.doubleValue ?? 1.0))))
         pendingVolume = v
         player?.volume = v
     }
 
     @objc(__lynx_prop_config__volume)
     public class func __lynxPropConfigVolume() -> [String] {
-        return ["volume", "setVolume:requestReset:", "NSNumber *"]
+        return ["volume", "setVolume", "NSNumber *"]
     }
 
     @objc public func setControls(_ value: Bool, requestReset: Bool) {
@@ -200,7 +240,7 @@ public class VideoPlayerUI: LynxUI<UIView> {
 
     @objc(__lynx_prop_config__controls)
     public class func __lynxPropConfigControls() -> [String] {
-        return ["controls", "setControls:requestReset:", "BOOL"]
+        return ["controls", "setControls", "BOOL"]
     }
 
     @objc public func setResizeMode(_ value: Any?, requestReset: Bool) {
@@ -217,7 +257,7 @@ public class VideoPlayerUI: LynxUI<UIView> {
 
     @objc(__lynx_prop_config__resize_mode)
     public class func __lynxPropConfigResizeMode() -> [String] {
-        return ["resize-mode", "setResizeMode:requestReset:", "NSString *"]
+        return ["resize-mode", "setResizeMode", "NSString *"]
     }
 
     // Param is `Any?`, not `NSNumber?`: like the string props above, a cleared
@@ -243,7 +283,7 @@ public class VideoPlayerUI: LynxUI<UIView> {
 
     @objc(__lynx_prop_config__start_time)
     public class func __lynxPropConfigStartTime() -> [String] {
-        return ["start-time", "setStartTime:requestReset:", "NSNumber *"]
+        return ["start-time", "setStartTime", "NSNumber *"]
     }
 
     // MARK: - Asset lifecycle

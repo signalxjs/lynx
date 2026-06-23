@@ -15,8 +15,12 @@ type VideoClipPlayerProps =
  * clip. This keeps the wiring honest end-to-end: the same URI a real capture
  * pipeline would emit gets rendered through `<VideoPlayer>`.
  */
+// Official Blender-hosted Big Buck Bunny clip. The previous
+// `commondatastorage.googleapis.com/gtv-videos-bucket` sample bucket now
+// returns 403, so the player surface stayed black; this host serves
+// `video/mp4` with HTTP range support (which AVPlayer / ExoPlayer need).
 const SAMPLE_VIDEO_URL =
-    'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
+    'https://download.blender.org/peach/bigbuckbunny_movies/BigBuckBunny_320x180.mp4';
 
 export const VideoClipPlayer = component<VideoClipPlayerProps>(({ props }) => {
     const playing = signal(false);
