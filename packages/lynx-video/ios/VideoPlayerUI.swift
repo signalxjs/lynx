@@ -220,8 +220,12 @@ public class VideoPlayerUI: LynxUI<UIView> {
         return ["resize-mode", "setResizeMode:requestReset:", "NSString *"]
     }
 
-    @objc public func setStartTime(_ value: NSNumber?, requestReset: Bool) {
-        let v = value?.doubleValue ?? 0
+    // Param is `Any?`, not `NSNumber?`: like the string props above, a cleared
+    // or undefined number prop can arrive as `NSNull`. A typed `NSNumber?`
+    // parameter would reinterpret that pointer and crash when `doubleValue` is
+    // messaged on it; `value as? NSNumber` returns nil for `NSNull` instead.
+    @objc public func setStartTime(_ value: Any?, requestReset: Bool) {
+        let v = (value as? NSNumber)?.doubleValue ?? 0
         pendingStartTime = v > 0 ? v : nil
         // `handleReadyToPlay` consumes the pending seek, but it only runs once,
         // on the first `.readyToPlay`. If the prop is set/updated after the
