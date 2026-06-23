@@ -247,6 +247,17 @@ class VideoPlayerUI(context: LynxContext) : LynxUI<PlayerView>(context) {
     @LynxProp(name = "start-time")
     fun setStartTime(value: Double) {
         pendingStartTimeMs = if (value > 0) (value * 1000).toLong() else null
+        // `applyQueuedPlayState()` consumes the pending seek, but it only runs
+        // once, on the first STATE_READY. If the prop is set/updated after the
+        // player is already ready (but still at the start, before the first
+        // play), that path won't run again and the initial offset would be
+        // silently dropped — so apply the one-shot seek now and clear it.
+        val player = exoPlayer ?: return
+        val startMs = pendingStartTimeMs ?: return
+        if (player.playbackState == Player.STATE_READY && player.currentPosition <= 0L) {
+            player.seekTo(startMs)
+            pendingStartTimeMs = null
+        }
     }
 
     @LynxProp(name = "resize-mode")

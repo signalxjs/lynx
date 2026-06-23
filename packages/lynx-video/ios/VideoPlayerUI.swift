@@ -41,7 +41,7 @@ public class VideoPlayerUI: LynxUI<UIView> {
     private var controlsView: UIView?
     private var timeObserver: Any?
     private var statusObservation: NSKeyValueObservation?
-    private var rateObservation: NSKeyValueObservation?
+    private var timeControlStatusObservation: NSKeyValueObservation?
     private var didReachEndObserver: NSObjectProtocol?
 
     // Pending prop values applied after createView() and after the asset
@@ -223,6 +223,18 @@ public class VideoPlayerUI: LynxUI<UIView> {
     @objc public func setStartTime(_ value: NSNumber?, requestReset: Bool) {
         let v = value?.doubleValue ?? 0
         pendingStartTime = v > 0 ? v : nil
+        // `handleReadyToPlay` consumes the pending seek, but it only runs once,
+        // on the first `.readyToPlay`. If the prop is set/updated after the
+        // item is already ready (but still at the start, before the first
+        // play), that handler won't run again and the initial offset would be
+        // silently dropped — so apply the one-shot seek now and clear it.
+        if let startSec = pendingStartTime,
+           let player = player,
+           player.currentItem?.status == .readyToPlay,
+           CMTimeGetSeconds(player.currentTime()) < 0.001 {
+            player.seek(to: CMTime(seconds: startSec, preferredTimescale: 600))
+            pendingStartTime = nil
+        }
     }
 
     @objc(__lynx_prop_config__start_time)
@@ -255,7 +267,7 @@ public class VideoPlayerUI: LynxUI<UIView> {
         // transitions between playing / paused / buffering. This surfaces
         // pauses driven by the system controls overlay or OS interruptions
         // that the declarative `playing` prop can't observe.
-        rateObservation = player.observe(\.timeControlStatus, options: [.new]) { [weak self] player, _ in
+        timeControlStatusObservation = player.observe(\.timeControlStatus, options: [.new]) { [weak self] player, _ in
             guard let self = self else { return }
             let positionMs = msFromSeconds(CMTimeGetSeconds(player.currentTime()))
             switch player.timeControlStatus {
@@ -366,8 +378,8 @@ public class VideoPlayerUI: LynxUI<UIView> {
         timeObserver = nil
         statusObservation?.invalidate()
         statusObservation = nil
-        rateObservation?.invalidate()
-        rateObservation = nil
+        timeControlStatusObservation?.invalidate()
+        timeControlStatusObservation = nil
         if let observer = didReachEndObserver {
             NotificationCenter.default.removeObserver(observer)
         }
