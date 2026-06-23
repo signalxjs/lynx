@@ -1,6 +1,6 @@
 {
     "name": "@sigx/lynx-runtime",
-    "version": "0.9.2",
+    "version": "0.10.0",
     "description": "Lynx renderer for SignalX (background thread)",
     "type": "module",
     "main": "./dist/index.js",
