@@ -149,9 +149,12 @@ class VideoPlayerUI(context: LynxContext) : LynxUI<PlayerView>(context) {
             if (isPlaying) {
                 fireEvent("statechange", mapOf("state" to "playing", "positionMs" to pos))
                 handler.postDelayed(timeUpdateRunnable, TIME_UPDATE_INTERVAL_MS)
-            } else if (player.playbackState != Player.STATE_ENDED) {
-                // The end-of-clip stop is reported as `ended` via
-                // onPlaybackStateChanged; avoid a spurious `paused` there.
+            } else if (player.playbackState == Player.STATE_READY) {
+                // Only emit `paused` for a genuine pause. ExoPlayer also drops
+                // `isPlaying` to false while buffering (STATE_BUFFERING) and at
+                // end-of-clip (STATE_ENDED); those transitions are reported as
+                // `buffering` / `ended` via onPlaybackStateChanged, so gating
+                // on STATE_READY here avoids a spurious `paused` around them.
                 fireEvent("statechange", mapOf("state" to "paused", "positionMs" to pos))
             }
         }
