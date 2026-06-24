@@ -341,6 +341,16 @@ describe('List', () => {
   const big = (n: number): Row[] =>
     Array.from({ length: n }, (_, i) => ({ id: String(i), text: `m${i}` }));
 
+  it('windows on the very first render (no flush) — no full-list mount spike', () => {
+    // Eager init: the window is resolved at setup, so the first frame already
+    // renders only `windowSize` cells instead of materializing all 1000 and
+    // waiting for the init effect's microtask. Asserted synchronously (no act).
+    const { container } = render(
+      <List items={big(1000)} keyExtractor={(i) => i.id} renderItem={renderRow} windowSize={60} />,
+    );
+    expect(getAllByType(container, 'list-item').length).toBe(60);
+  });
+
   it('windowing renders only a bounded slice of a large feed', async () => {
     const { container } = render(
       <List items={big(1000)} keyExtractor={(i) => i.id} renderItem={renderRow} windowSize={60} />,

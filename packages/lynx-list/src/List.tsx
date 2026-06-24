@@ -246,9 +246,17 @@ const ListImpl = component<ListProps>(({ props, slots, emit }) => {
   // so the window is initialised before the first scroll-to-bottom reads it.
   const windowingEnabled = props.windowSize !== undefined;
   const winCfg = resolveWindowConfig(props.windowSize, props.pageSize, props.maxWindow);
-  const winStart = signal(0);
-  const winEnd = signal(0);
-  let winInit = false;
+  // Initialise the window SYNCHRONOUSLY at setup. Effects flush on a microtask
+  // *after* the first render, so a deferred init would let the first frame
+  // materialize every item before windowing engaged — exactly the mount spike
+  // windowing exists to prevent. The effect below only handles the
+  // empty-at-mount case (items arrive later) and subsequent count changes.
+  const win0 = windowingEnabled && props.items.length > 0
+    ? initialWindow(props.items.length, winCfg, chatEnabled)
+    : { start: 0, end: 0 };
+  const winStart = signal(win0.start);
+  const winEnd = signal(win0.end);
+  let winInit = windowingEnabled && props.items.length > 0;
   let winPrevLen = props.items.length;
 
   const setWindow = (w: ListWindow): void => {
