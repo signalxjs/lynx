@@ -86,6 +86,21 @@ describe('List', () => {
     expect(cells.map((c) => c.props['item-type'])).toEqual(['normal', 'special', 'normal']);
   });
 
+  it('omits optional native attributes when their props are unset', () => {
+    // An undefined prop would otherwise serialize to a native null write and
+    // clobber the recycler defaults — so the keys must be absent entirely.
+    const { container } = render(
+      <List items={ITEMS} keyExtractor={(i) => i.id} renderItem={renderRow} />,
+    );
+    const list = getByType(container, 'list');
+    expect('item-snap' in list.props).toBe(false);
+    expect('lower-threshold-item-count' in list.props).toBe(false);
+    expect('upper-threshold-item-count' in list.props).toBe(false);
+    expect('scroll-event-throttle' in list.props).toBe(false);
+    const cell = getAllByType(container, 'list-item')[0];
+    expect('estimated-main-axis-size-px' in cell.props).toBe(false);
+  });
+
   it('renders header and footer as full-span cells with reserved keys', () => {
     const { container } = render(
       <List

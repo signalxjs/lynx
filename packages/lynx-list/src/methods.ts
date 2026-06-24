@@ -46,6 +46,12 @@ function invokeScroll(
  * All methods accept `el | null` so call sites can pass `ref.current` directly;
  * a null element is a silent no-op.
  *
+ * **Indices are rendered-cell indices, not data indices.** A `header` slot is
+ * itself the first cell (index 0), so when a header is present a data item at
+ * data-index `i` lives at cell index `i + 1`. `scrollToTop` is unaffected (the
+ * header *is* the top). A header-aware scroll-to-bottom that accounts for the
+ * footer cell ships with chat mode, where the list owns the cell layout.
+ *
  * @example
  * ```tsx
  * import { useMainThreadRef, type MainThread } from '@sigx/lynx';
@@ -58,7 +64,11 @@ function invokeScroll(
  * ```
  */
 export const ListMethods = {
-  /** Scroll so the cell at `index` aligns per `opts.align` (default `top`). */
+  /**
+   * Scroll so the rendered cell at `index` aligns per `opts.align` (default
+   * `top`). `index` is the cell index — add 1 to a data index when a `header`
+   * slot is present (see the note above).
+   */
   scrollToIndex(
     el: MainThread.Element | null,
     index: number,
@@ -66,20 +76,8 @@ export const ListMethods = {
   ): void {
     invokeScroll(el, index, opts);
   },
-  /** Scroll to the first cell. */
+  /** Scroll to the first cell (the top of the list, header included). */
   scrollToTop(el: MainThread.Element | null, opts: { smooth?: boolean } = {}): void {
     invokeScroll(el, 0, { align: 'top', smooth: opts.smooth });
-  },
-  /**
-   * Scroll to the last cell (aligned to the bottom/right edge). Pass the
-   * current `items.length` so it can target the final index.
-   */
-  scrollToEnd(
-    el: MainThread.Element | null,
-    itemCount: number,
-    opts: { smooth?: boolean } = {},
-  ): void {
-    if (itemCount <= 0) return;
-    invokeScroll(el, itemCount - 1, { align: 'bottom', smooth: opts.smooth });
   },
 } as const;

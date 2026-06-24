@@ -73,11 +73,20 @@ const ListImpl = component<ListProps>(({ props, slots, emit }) => {
             scroll-orientation={horizontal ? 'horizontal' : 'vertical'}
             list-type={props.listType ?? 'single'}
             span-count={props.numColumns ?? 1}
-            item-snap={props.itemSnap}
             main-thread:ref={props.mtRef}
-            lower-threshold-item-count={props.onEndReachedThreshold}
-            upper-threshold-item-count={props.onStartReachedThreshold}
-            scroll-event-throttle={props.scrollEventThrottle}
+            // Spread optional attrs only when set — an `undefined` prop is
+            // serialized as a native `null` attribute write (no skip in
+            // patchProp), which would clobber the native default.
+            {...(props.itemSnap !== undefined ? { 'item-snap': props.itemSnap } : {})}
+            {...(props.onEndReachedThreshold !== undefined
+              ? { 'lower-threshold-item-count': props.onEndReachedThreshold }
+              : {})}
+            {...(props.onStartReachedThreshold !== undefined
+              ? { 'upper-threshold-item-count': props.onStartReachedThreshold }
+              : {})}
+            {...(props.scrollEventThrottle !== undefined
+              ? { 'scroll-event-throttle': props.scrollEventThrottle }
+              : {})}
             bindscrolltolower={() => emit('endReached')}
             bindscrolltoupper={() => emit('startReached')}
             bindscroll={(e: ScrollDetail) => {
@@ -98,7 +107,9 @@ const ListImpl = component<ListProps>(({ props, slots, emit }) => {
                   key={key}
                   item-key={key}
                   item-type={typeOf ? typeOf(item, i) : 'item'}
-                  estimated-main-axis-size-px={estimated}
+                  {...(estimated !== undefined
+                    ? { 'estimated-main-axis-size-px': estimated }
+                    : {})}
                 >
                   {props.renderItem(item, i)}
                 </list-item>

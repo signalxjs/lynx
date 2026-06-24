@@ -76,8 +76,10 @@ const toTop = () => { 'main thread'; ListMethods.scrollToTop(ref.current, { smoo
 <List mtRef={ref} items={items} renderItem={renderRow} />;
 ```
 
-`ListMethods.scrollToIndex(el, i, { align, offset, smooth })`,
-`scrollToTop(el, { smooth })`, `scrollToEnd(el, itemCount, { smooth })`.
+`ListMethods.scrollToIndex(el, i, { align, offset, smooth })` and
+`scrollToTop(el, { smooth })`. `i` is the **rendered cell index**, not the data
+index — a `header` slot is itself cell 0, so add 1 to a data index when a header
+is present. (A header/footer-aware scroll-to-bottom ships with chat mode.)
 
 ## Props
 
