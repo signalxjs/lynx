@@ -320,8 +320,10 @@ const ListImpl = component<ListProps>(({ props, slots, emit }) => {
       ? { width: mainAxisPx, height: '100%' }
       : { height: mainAxisPx, width: '100%' };
     // Chat mode: stay invisible until the first scroll-to-bottom lands so the
-    // initial frame doesn't flash at the top.
-    if (chatEnabled && !ready.value) listStyle.opacity = 0;
+    // initial frame doesn't flash at the top. Only when there's something to
+    // scroll to — an empty chat has no first-scroll target, so `ready` would
+    // never flip and it would render invisible forever.
+    if (chatEnabled && !ready.value && count > 0) listStyle.opacity = 0;
 
     const keyOf = props.keyExtractor;
     const typeOf = props.itemType;
@@ -435,8 +437,11 @@ const ListImpl = component<ListProps>(({ props, slots, emit }) => {
       body = slots.empty?.();
     } else if (chatEnabled) {
       // Chat: the list fills the wrapper; the unread affordance floats at the
-      // bottom when messages arrived while scrolled up.
-      const showUnread = unreadCount.value > 0 && !atBottom.value;
+      // bottom whenever there are unseen messages. `unreadCount` only grows when
+      // we didn't auto-scroll to them (scrolled up, or stickToBottom off) and is
+      // cleared on reaching the bottom — so `> 0` alone is the right condition
+      // (gating on `!atBottom` hid the affordance for stickToBottom:false).
+      const showUnread = unreadCount.value > 0;
       body = (
         <view style={{ height: '100%', position: 'relative' }}>
           {listEl}

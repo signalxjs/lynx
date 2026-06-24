@@ -308,4 +308,31 @@ describe('List', () => {
     await act(() => { rows.value = [...rows.value, { id: 'd', text: 'Delta' }]; });
     expect(queryByText(container, '1 new ↓')).toBeNull();
   });
+
+  it('chat mode: an empty inverted list is not opacity-gated (nothing to scroll to)', () => {
+    const { container } = render(
+      <List items={[] as Row[]} keyExtractor={(i) => i.id} renderItem={renderRow} inverted />,
+    );
+    const list = getByType(container, 'list');
+    expect(list._style.opacity).toBeUndefined();
+  });
+
+  it('chat mode: surfaces unread even at the bottom when stickToBottom is off', async () => {
+    const rows = signal<{ value: Row[] }>({ value: ITEMS });
+    const Harness = component(() => () => (
+      <List
+        items={rows.value}
+        keyExtractor={(i) => i.id}
+        renderItem={renderRow}
+        inverted
+        stickToBottom={false}
+      />
+    ));
+    const { container } = render(<Harness />);
+    await act(() => fireLayout(container));
+    // At the bottom but not auto-following → a new message must surface the
+    // affordance rather than silently incrementing an invisible counter.
+    await act(() => { rows.value = [...rows.value, { id: 'd', text: 'Delta' }]; });
+    expect(getByText(container, '1 new ↓')).toBeTruthy();
+  });
 });
