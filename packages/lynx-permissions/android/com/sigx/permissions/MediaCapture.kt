@@ -262,7 +262,7 @@ object MediaCapture {
         val launcher = takePictureLauncher
         if (activity == null || launcher == null) {
             callback(JavaOnlyMap().apply {
-                putString("error", "MediaCapture not registered — wire MediaCapture.register(this) into MainActivity.onCreate")
+                putString("error", "MediaCapture not registered — @sigx/lynx-permissions normally wires this automatically via PermissionsActivityHook at Activity onCreate; ensure the package is installed and autolinked")
                 putBoolean("cancelled", true)
             })
             return
@@ -311,7 +311,7 @@ object MediaCapture {
         val launcher = captureVideoLauncher
         if (activity == null || launcher == null) {
             callback(JavaOnlyMap().apply {
-                putString("error", "MediaCapture not registered — wire MediaCapture.register(this) into MainActivity.onCreate")
+                putString("error", "MediaCapture not registered — @sigx/lynx-permissions normally wires this automatically via PermissionsActivityHook at Activity onCreate; ensure the package is installed and autolinked")
                 putBoolean("cancelled", true)
             })
             return
@@ -357,7 +357,7 @@ object MediaCapture {
         val launcher = pickMediaLauncher
         if (launcher == null) {
             callback(JavaOnlyMap().apply {
-                putString("error", "MediaCapture not registered — wire MediaCapture.register(this) into MainActivity.onCreate")
+                putString("error", "MediaCapture not registered — @sigx/lynx-permissions normally wires this automatically via PermissionsActivityHook at Activity onCreate; ensure the package is installed and autolinked")
                 putBoolean("cancelled", true)
             })
             return
@@ -394,7 +394,7 @@ object MediaCapture {
         val launcher = pickMultipleMediaLauncher
         if (launcher == null) {
             callback(JavaOnlyMap().apply {
-                putString("error", "MediaCapture not registered — wire MediaCapture.register(this) into MainActivity.onCreate")
+                putString("error", "MediaCapture not registered — @sigx/lynx-permissions normally wires this automatically via PermissionsActivityHook at Activity onCreate; ensure the package is installed and autolinked")
                 putBoolean("cancelled", true)
             })
             return
@@ -441,7 +441,7 @@ object MediaCapture {
     fun pickFile(types: Array<String>, callback: (JavaOnlyMap) -> Unit) {
         val launcher = openDocumentLauncher
         if (launcher == null) {
-            callback(cancelledDocumentResult("MediaCapture not registered — wire MediaCapture.register(this) into MainActivity.onCreate"))
+            callback(cancelledDocumentResult("MediaCapture not registered — @sigx/lynx-permissions normally wires this automatically via PermissionsActivityHook at Activity onCreate; ensure the package is installed and autolinked"))
             return
         }
         pendingOpenDocumentCallback?.invoke(cancelledDocumentResult("cancelled by new pickFile"))
@@ -461,7 +461,7 @@ object MediaCapture {
     fun pickFiles(types: Array<String>, callback: (JavaOnlyMap) -> Unit) {
         val launcher = openMultipleDocumentsLauncher
         if (launcher == null) {
-            callback(cancelledDocumentResult("MediaCapture not registered — wire MediaCapture.register(this) into MainActivity.onCreate"))
+            callback(cancelledDocumentResult("MediaCapture not registered — @sigx/lynx-permissions normally wires this automatically via PermissionsActivityHook at Activity onCreate; ensure the package is installed and autolinked"))
             return
         }
         pendingOpenMultipleDocumentsCallback?.invoke(cancelledDocumentResult("cancelled by new pickFiles"))
