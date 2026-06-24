@@ -99,8 +99,29 @@ class CameraModule: NSObject, LynxModule, UIImagePickerControllerDelegate, UINav
                 }
             }
 
-            UIApplication.shared.windows.first?.rootViewController?.present(picker, animated: true)
+            guard let presenter = self.topViewController() else {
+                // No window/VC to present from — resolve so the JS Promise
+                // never hangs.
+                self.pendingCallback?(["error": "No view controller available to present the camera"])
+                self.pendingCallback = nil
+                return
+            }
+            presenter.present(picker, animated: true)
         }
+    }
+
+    /// Multi-scene-safe lookup of the front-most view controller to present
+    /// from. `UIApplication.windows.first` is unreliable: the first window
+    /// isn't necessarily the key/active one, and presenting on the wrong window
+    /// silently no-ops (leaving the JS Promise unresolved).
+    private func topViewController() -> UIViewController? {
+        let windows = UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .flatMap { $0.windows }
+        let keyWindow = windows.first { $0.isKeyWindow } ?? windows.first
+        var top = keyWindow?.rootViewController
+        while let presented = top?.presentedViewController { top = presented }
+        return top
     }
 
     func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey: Any]) {
@@ -142,49 +163,57 @@ class CameraModule: NSObject, LynxModule, UIImagePickerControllerDelegate, UINav
         pendingCallback = nil
     }
 
-    /// Copy the picker's temp clip somewhere stable and report duration /
+    /// Move the picker's temp clip somewhere stable and report duration /
     /// dimensions / size. The URL handed to us may be cleared once the picker
-    /// is torn down, so we copy before returning.
+    /// is torn down, so we relocate it before returning. The file move and the
+    /// synchronous `AVURLAsset` metadata reads run off the main thread (this
+    /// delegate fires on the main runloop) so a large recording doesn't jank
+    /// the UI; the callback hops back to main.
     private func handleVideo(at sourceURL: URL) {
-        let fileName = "camera_\(UUID().uuidString).mov"
-        let destPath = NSTemporaryDirectory() + fileName
-        let destURL = URL(fileURLWithPath: destPath)
-        do {
-            if FileManager.default.fileExists(atPath: destPath) {
-                try FileManager.default.removeItem(at: destURL)
-            }
-            // The picker's temp clip is ours to consume — move it (cheap, same
-            // filesystem) rather than copying, which would double I/O and
-            // storage for large recordings. Fall back to a copy if the move
-            // fails (e.g. cross-volume).
-            do {
-                try FileManager.default.moveItem(at: sourceURL, to: destURL)
-            } catch {
-                try FileManager.default.copyItem(at: sourceURL, to: destURL)
-            }
-        } catch {
-            pendingCallback?(["error": error.localizedDescription])
-            pendingCallback = nil
-            return
-        }
-
-        var result: [String: Any] = ["uri": destPath]
-        let asset = AVURLAsset(url: destURL)
-        let durationSeconds = CMTimeGetSeconds(asset.duration)
-        if durationSeconds.isFinite && durationSeconds > 0 {
-            result["durationMs"] = Int(durationSeconds * 1000)
-        }
-        if let track = asset.tracks(withMediaType: .video).first {
-            let size = track.naturalSize.applying(track.preferredTransform)
-            result["width"] = Int(abs(size.width))
-            result["height"] = Int(abs(size.height))
-        }
-        if let attrs = try? FileManager.default.attributesOfItem(atPath: destPath),
-           let bytes = (attrs[.size] as? NSNumber)?.intValue {
-            result["fileSize"] = bytes
-        }
-        pendingCallback?(result)
+        let callback = pendingCallback
         pendingCallback = nil
+        DispatchQueue.global(qos: .userInitiated).async {
+            let fileName = "camera_\(UUID().uuidString).mov"
+            let destPath = NSTemporaryDirectory() + fileName
+            let destURL = URL(fileURLWithPath: destPath)
+            func finish(_ result: [String: Any]) {
+                DispatchQueue.main.async { callback?(result) }
+            }
+            do {
+                if FileManager.default.fileExists(atPath: destPath) {
+                    try FileManager.default.removeItem(at: destURL)
+                }
+                // The picker's temp clip is ours to consume — move it (cheap,
+                // same filesystem) rather than copying, which would double I/O
+                // and storage for large recordings. Fall back to a copy if the
+                // move fails (e.g. cross-volume).
+                do {
+                    try FileManager.default.moveItem(at: sourceURL, to: destURL)
+                } catch {
+                    try FileManager.default.copyItem(at: sourceURL, to: destURL)
+                }
+            } catch {
+                finish(["error": error.localizedDescription])
+                return
+            }
+
+            var result: [String: Any] = ["uri": destPath]
+            let asset = AVURLAsset(url: destURL)
+            let durationSeconds = CMTimeGetSeconds(asset.duration)
+            if durationSeconds.isFinite && durationSeconds > 0 {
+                result["durationMs"] = Int(durationSeconds * 1000)
+            }
+            if let track = asset.tracks(withMediaType: .video).first {
+                let size = track.naturalSize.applying(track.preferredTransform)
+                result["width"] = Int(abs(size.width))
+                result["height"] = Int(abs(size.height))
+            }
+            if let attrs = try? FileManager.default.attributesOfItem(atPath: destPath),
+               let bytes = (attrs[.size] as? NSNumber)?.intValue {
+                result["fileSize"] = bytes
+            }
+            finish(result)
+        }
     }
 
     func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {

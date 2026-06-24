@@ -54,6 +54,13 @@ describe('Camera.takePicture', () => {
         expect(result).toEqual({ cancelled: true });
     });
 
+    it('treats re-entrant pre-emption as cancel, not failure', async () => {
+        // MediaCapture pre-empts a pending call with a "cancelled by new …" error.
+        bridge.callAsync.mockResolvedValueOnce({ cancelled: true, error: 'cancelled by new takePicture' });
+        const result = await Camera.takePicture();
+        expect(result).toEqual({ cancelled: true });
+    });
+
     it('throws on a native failure error', async () => {
         bridge.callAsync.mockResolvedValueOnce({ error: 'Camera not available on this device' });
         await expect(Camera.takePicture()).rejects.toThrow('Camera not available on this device');

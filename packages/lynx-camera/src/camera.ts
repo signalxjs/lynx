@@ -77,10 +77,11 @@ function normalizeUri(uri: string): string {
  *
  *  - **success** — a `{ uri, ... }` result, with the URI normalized to a scheme
  *    Lynx can load (iOS hands back a bare path; Android a `content://` URI).
- *  - **cancel** — the documented `{ cancelled: true }` shape. Android's native
- *    side flags user-cancel with an `{ error: "cancelled" }` sentinel; we
- *    collapse that here so callers never special-case it per platform.
- *  - **failure** — throws. Native errors (permission denied, camera
+ *  - **cancel** — the documented `{ cancelled: true }` shape. Android flags
+ *    user-cancel and re-entrant pre-emption with `cancelled`-prefixed sentinels
+ *    (`"cancelled"`, `"cancelled by new takePicture"`, …); we collapse those so
+ *    callers never special-case them per platform.
+ *  - **failure** — throws. Genuine native errors (permission denied, camera
  *    unavailable, FileProvider misconfigured) arrive as `{ error }` on the
  *    resolved callback rather than a rejection; rethrow so callers can
  *    `try/catch` instead of inspecting an untyped error field.
@@ -90,7 +91,9 @@ function settleCapture<T extends { uri: string }>(raw: unknown): T | CameraCance
     if (typeof r.uri === 'string') {
         return { ...(r as T), uri: normalizeUri(r.uri) };
     }
-    if (typeof r.error === 'string' && r.error !== 'cancelled') {
+    // Cancel/pre-emption sentinels all start with "cancelled"; any other error
+    // string is a genuine failure. Real failures never use that prefix.
+    if (typeof r.error === 'string' && !r.error.startsWith('cancelled')) {
         throw new Error(r.error);
     }
     return { cancelled: true };
