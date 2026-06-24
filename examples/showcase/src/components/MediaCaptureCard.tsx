@@ -43,12 +43,13 @@ export const MediaCaptureCard = component(() => {
     };
 
     const surfaceNativeError = (r: unknown) => {
-        const result = r as { error?: unknown; cancelled?: boolean } | null | undefined;
-        // User cancel isn't an error. Android reports it as
-        // `{ error: "cancelled", cancelled: true }`; ignore both signals and
-        // only surface real failures (e.g. "Camera not available").
-        if (result?.cancelled || result?.error === 'cancelled') return;
-        if (result?.error) error.value = String(result.error);
+        const result = r as { error?: unknown } | null | undefined;
+        // Surface only real failures. User cancel carries no error on iOS and
+        // the `"cancelled"` sentinel on Android — but Android also sets
+        // `cancelled: true` on genuine failures (FileProvider misconfig, not
+        // registered, activity destroyed), so we key off the error string, not
+        // the cancelled flag, to keep those visible.
+        if (result?.error && result.error !== 'cancelled') error.value = String(result.error);
     };
 
     const takePhoto = () => run(async () => {

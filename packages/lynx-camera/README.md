@@ -56,7 +56,7 @@ interface CameraOptions {
     maxHeight?: number;          // pixels
 }
 interface PhotoResult {
-    uri: string;        // file:// URI
+    uri: string;        // file:// (iOS) or content:// (Android)
     width: number;
     height: number;
     base64?: string;    // populated only if requested

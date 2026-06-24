@@ -91,11 +91,15 @@ function normalizeUri(uri: string): string {
  */
 export const Camera = {
     /**
-     * Open the system camera in photo mode. Resolves with `{ cancelled: true }`
+     * Open the system camera in photo mode. Resolves with the captured photo
+     * (its `uri` is loadable by Lynx's `<image>`), or `{ cancelled: true }`
      * (no `uri`) if the user dismisses the camera — narrow on `result.uri`.
      */
-    takePicture(options: CameraOptions = {}): Promise<PhotoResult | CameraCancelled> {
-        return callAsync<PhotoResult | CameraCancelled>(MODULE, 'takePicture', options);
+    async takePicture(options: CameraOptions = {}): Promise<PhotoResult | CameraCancelled> {
+        const r = await callAsync<PhotoResult | CameraCancelled>(MODULE, 'takePicture', options);
+        // iOS returns a bare temp path; normalize to a `file://` URI so `<image>`
+        // can load it (Android already returns a scheme'd `content://` URI).
+        return r && typeof r.uri === 'string' ? { ...r, uri: normalizeUri(r.uri) } : r;
     },
 
     /**

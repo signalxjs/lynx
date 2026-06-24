@@ -34,6 +34,18 @@ describe('Camera.takePicture', () => {
             quality: 0.5,
         });
     });
+
+    it('normalizes the bare iOS path to a file:// URI', async () => {
+        bridge.callAsync.mockResolvedValueOnce({ uri: '/var/mobile/tmp/camera_x.jpg', width: 1, height: 1 });
+        const result = await Camera.takePicture();
+        expect(result.uri).toBe('file:///var/mobile/tmp/camera_x.jpg');
+    });
+
+    it('leaves the cancel shape (no uri) untouched', async () => {
+        bridge.callAsync.mockResolvedValueOnce({ cancelled: true });
+        const result = await Camera.takePicture();
+        expect(result).toEqual({ cancelled: true });
+    });
 });
 
 describe('Camera.recordVideo — options mapping', () => {
