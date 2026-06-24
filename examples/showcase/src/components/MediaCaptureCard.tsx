@@ -43,8 +43,12 @@ export const MediaCaptureCard = component(() => {
     };
 
     const surfaceNativeError = (r: unknown) => {
-        const e = (r as { error?: unknown } | null | undefined)?.error;
-        if (e) error.value = String(e);
+        const result = r as { error?: unknown; cancelled?: boolean } | null | undefined;
+        // User cancel isn't an error. Android reports it as
+        // `{ error: "cancelled", cancelled: true }`; ignore both signals and
+        // only surface real failures (e.g. "Camera not available").
+        if (result?.cancelled || result?.error === 'cancelled') return;
+        if (result?.error) error.value = String(result.error);
     };
 
     const takePhoto = () => run(async () => {

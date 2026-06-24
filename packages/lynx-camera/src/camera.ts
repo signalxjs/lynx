@@ -50,6 +50,16 @@ export interface VideoResult {
 }
 
 /**
+ * Resolved when the user dismisses the camera without capturing. `uri` is
+ * typed as `undefined` so callers can narrow on `result.uri` to distinguish a
+ * successful capture from a cancel.
+ */
+export interface CameraCancelled {
+    cancelled: true;
+    uri?: undefined;
+}
+
+/**
  * Normalize a native capture URI so Lynx elements can load it. iOS returns a
  * bare absolute filesystem path (e.g. `/var/.../tmp/camera_xxx.mov`); Lynx's
  * loaders expect a scheme (`file://...`). Android returns `content://...` URIs
@@ -72,27 +82,32 @@ function normalizeUri(uri: string): string {
  * const { status } = await Camera.requestPermission();
  * if (status === 'granted') {
  *     const photo = await Camera.takePicture({ quality: 0.8 });
- *     console.log(photo.uri);
+ *     if (photo.uri) console.log(photo.uri);
  *
  *     const clip = await Camera.recordVideo({ maxDurationMs: 30_000 });
- *     console.log(clip.uri);
+ *     if (clip.uri) console.log(clip.uri);
  * }
  * ```
  */
 export const Camera = {
-    takePicture(options: CameraOptions = {}): Promise<PhotoResult> {
-        return callAsync<PhotoResult>(MODULE, 'takePicture', options);
+    /**
+     * Open the system camera in photo mode. Resolves with `{ cancelled: true }`
+     * (no `uri`) if the user dismisses the camera — narrow on `result.uri`.
+     */
+    takePicture(options: CameraOptions = {}): Promise<PhotoResult | CameraCancelled> {
+        return callAsync<PhotoResult | CameraCancelled>(MODULE, 'takePicture', options);
     },
 
     /**
-     * Open the system camera in video mode and record a clip. Resolves once
-     * the user finishes recording; the returned `uri` is loadable by
-     * `@sigx/lynx-video`'s `VideoPlayer`.
+     * Open the system camera in video mode and record a clip. Resolves with the
+     * recorded clip (its `uri` is loadable by `@sigx/lynx-video`'s
+     * `VideoPlayer`), or `{ cancelled: true }` (no `uri`) on cancel — narrow on
+     * `result.uri`.
      */
-    async recordVideo(options: CameraVideoOptions = {}): Promise<VideoResult> {
-        const r = await callAsync<VideoResult>(MODULE, 'recordVideo', options);
-        // On cancel the native side returns `{ cancelled: true }` with no
-        // `uri` (matching `takePicture`); leave that shape untouched.
+    async recordVideo(options: CameraVideoOptions = {}): Promise<VideoResult | CameraCancelled> {
+        const r = await callAsync<VideoResult | CameraCancelled>(MODULE, 'recordVideo', options);
+        // On cancel the native side returns `{ cancelled: true }` with no `uri`;
+        // leave that shape untouched.
         return r && typeof r.uri === 'string' ? { ...r, uri: normalizeUri(r.uri) } : r;
     },
 

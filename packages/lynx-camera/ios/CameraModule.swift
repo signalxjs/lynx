@@ -153,7 +153,15 @@ class CameraModule: NSObject, LynxModule, UIImagePickerControllerDelegate, UINav
             if FileManager.default.fileExists(atPath: destPath) {
                 try FileManager.default.removeItem(at: destURL)
             }
-            try FileManager.default.copyItem(at: sourceURL, to: destURL)
+            // The picker's temp clip is ours to consume — move it (cheap, same
+            // filesystem) rather than copying, which would double I/O and
+            // storage for large recordings. Fall back to a copy if the move
+            // fails (e.g. cross-volume).
+            do {
+                try FileManager.default.moveItem(at: sourceURL, to: destURL)
+            } catch {
+                try FileManager.default.copyItem(at: sourceURL, to: destURL)
+            }
         } catch {
             pendingCallback?(["error": error.localizedDescription])
             pendingCallback = nil

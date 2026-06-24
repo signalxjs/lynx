@@ -64,6 +64,9 @@ describe('Camera.recordVideo — result normalization', () => {
         });
         const result = await Camera.recordVideo();
         expect(result.uri).toBe('file:///var/mobile/tmp/camera_x.mov');
+        // Narrow the cancel arm out (CameraCancelled has no uri) before reading
+        // clip-only fields.
+        if (!result.uri) throw new Error('expected a clip');
         expect(result.durationMs).toBe(4200);
         expect(result.width).toBe(1920);
     });

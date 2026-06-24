@@ -41,13 +41,13 @@ if (status === 'granted') {
 ## API
 | Method                                                    | Notes                                                                                                                |
 | --------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| `takePicture(options?: CameraOptions): Promise<PhotoResult>` | Opens the system camera in photo mode. Returns the captured photo's file URI + dimensions.                        |
-| `recordVideo(options?: CameraVideoOptions): Promise<VideoResult>` | Opens the system camera in video mode. Returns the recorded clip's URI (`file://` on iOS, `content://` on Android) loadable by `@sigx/lynx-video`. |
+| `takePicture(options?: CameraOptions): Promise<PhotoResult \| CameraCancelled>` | Opens the system camera in photo mode. Returns the captured photo's file URI + dimensions, or `{ cancelled: true }` on cancel. |
+| `recordVideo(options?: CameraVideoOptions): Promise<VideoResult \| CameraCancelled>` | Opens the system camera in video mode. Returns the recorded clip's URI (`file://` on iOS, `content://` on Android) loadable by `@sigx/lynx-video`, or `{ cancelled: true }` on cancel. |
 | `requestPermission(): Promise<PermissionResponse>`        | Shows the OS permission dialog if needed. Re-call to surface the dialog again on first denial.                       |
 | `getPermissionStatus(): Promise<PermissionResponse>`      | Read-only check — no prompt.                                                                                         |
 | `isAvailable(): boolean`                                  | Whether the native module is registered in the current build.                                                        |
 
-On cancel, both `takePicture` and `recordVideo` resolve with `{ cancelled: true }` (no `uri`) — check `result.uri` before using it.
+On cancel, both `takePicture` and `recordVideo` resolve with `{ cancelled: true }` (no `uri`) — narrow on `result.uri` before using it.
 ```ts
 interface CameraOptions {
     facing?: 'front' | 'back';   // default: 'back'
@@ -71,6 +71,10 @@ interface VideoResult {
     width?: number;
     height?: number;
     fileSize?: number;
+}
+interface CameraCancelled {
+    cancelled: true;
+    uri?: undefined;      // present so callers can narrow on `result.uri`
 }
 ```
 ## Gotchas
