@@ -45,6 +45,13 @@ export const catalog: Area[] = [
                 route: 'listDemo',
             },
             {
+                id: 'chat',
+                title: 'Chat',
+                description: 'Chat mode — bottom-anchored, stick-to-bottom, unread pill, load-older',
+                icon: { set: 'lucide', name: 'message-circle' },
+                route: 'chatDemo',
+            },
+            {
                 id: 'appearance',
                 title: 'Appearance',
                 description: 'Global theme switching, dark toggle, follow-system',
