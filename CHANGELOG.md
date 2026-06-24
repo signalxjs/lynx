@@ -4,6 +4,10 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 ## [Unreleased]
 
+### Added
+
+- `@sigx/lynx-dev-client` / `@sigx/lynx-plugin` — **device runtime exceptions now stream to the `sigx dev` terminal.** The native red-screen error sink (Android `LynxViewClient.onReceivedError`, iOS `didRecieveError`) — a *superset* of the JS `lynx.onError` hook that also catches main-thread-script, template, render and native-module errors — is POSTed to a new `/__sigx/device-error` endpoint on the dev log server (dev port + 1) and printed as a `📱 <platform> … ERR …` line, so anything on the on-device red screen is also copyable in the terminal's Logs tab. Errors that also travel the existing JS console path are de-duplicated server-side within a short window, so each error shows up once (#540).
+
 ## [0.10.0] - 2026-06-23
 
 ### Added
