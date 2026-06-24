@@ -223,4 +223,20 @@ describe('List', () => {
     const list = getByType(container, 'list');
     expect('enable-scroll' in list.props).toBe(false);
   });
+
+  it('ignores pull-to-refresh on a horizontal list (vertical-only)', () => {
+    // refreshing + horizontal must NOT gate enable-scroll, or a horizontal
+    // list would have its scroll disabled off a misread vertical scrollTop.
+    const { container } = render(
+      <List
+        items={ITEMS}
+        horizontal
+        keyExtractor={(i) => i.id}
+        renderItem={renderRow}
+        refreshing={false}
+      />,
+    );
+    const list = getByType(container, 'list');
+    expect('enable-scroll' in list.props).toBe(false);
+  });
 });

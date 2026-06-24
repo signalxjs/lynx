@@ -69,7 +69,8 @@ export type ListProps<T = unknown> =
    * the list into pull-to-refresh**: pulling down past `pullThreshold` while
    * scrolled to the top emits `refresh`; keep the indicator open by holding
    * `refreshing` true, then set it back to `false` to dismiss. Omit the prop
-   * entirely to disable pull-to-refresh (zero gesture overhead).
+   * entirely to disable pull-to-refresh (zero gesture overhead). Vertical lists
+   * only — a `horizontal` list ignores it (there is no pull-down-from-top).
    */
   & Define.Prop<'refreshing', boolean, false>
   /** Pull distance in px that triggers a refresh (and the indicator height). Default 64. */

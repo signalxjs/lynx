@@ -70,14 +70,15 @@ const ListImpl = component<ListProps>(({ props, slots, emit }) => {
 
   // ── Pull-to-refresh wiring (captured once at setup, like <Draggable>) ──
   // Opting in is signalled by passing the controlled `refreshing` prop; when
-  // it's absent the gesture/animation paths stay inert (the refs never bind to
-  // a rendered element) so plain feeds pay nothing.
-  const refreshEnabled = props.refreshing !== undefined;
+  // it's absent the gesture/animation registrations are skipped entirely (see
+  // the guarded block below) so plain feeds pay nothing. Pull-to-refresh is
+  // vertical-only — a horizontal list has no "pull down from the top" — so a
+  // horizontal list opts out even if `refreshing` is passed.
+  const refreshEnabled = props.refreshing !== undefined && !(props.horizontal ?? false);
   const pullThreshold = props.pullThreshold ?? DEFAULT_PULL_THRESHOLD;
 
   const contentRef = useMainThreadRef<MainThread.Element | null>(null);
   const pull = useSharedValue(0);
-  useAnimatedStyle(contentRef, pull, 'translateY');
 
   // MT-side mirrors read by the gesture worklets.
   const atTopRef = useMainThreadRef<boolean>(true);
@@ -162,7 +163,13 @@ const ListImpl = component<ListProps>(({ props, slots, emit }) => {
       }
     });
 
-  useGestureDetector(contentRef, pan);
+  // Register the animated-style binding + gesture detector only when opted in.
+  // Setup runs once, so a conditional call simply means "don't emit the
+  // REGISTER_AV_STYLE_BINDING / SET_GESTURE_DETECTOR ops at all" for plain feeds.
+  if (refreshEnabled) {
+    useAnimatedStyle(contentRef, pull, 'translateY');
+    useGestureDetector(contentRef, pan);
+  }
 
   // Mirror the controlled `refreshing` prop to MT: close the indicator (tween
   // pull→0) when a refresh completes, and open it for a programmatic refresh
@@ -192,7 +199,8 @@ const ListImpl = component<ListProps>(({ props, slots, emit }) => {
   });
   effect(() => {
     const r = props.refreshing ?? false;
-    if (refreshEnabled) syncRefreshing(r);
+    // void: runOnMainThread returns a Promise; we don't await the MT tween.
+    if (refreshEnabled) void syncRefreshing(r);
   });
 
   // ── Load-more de-dup (BG; persists across renders since setup runs once) ──
