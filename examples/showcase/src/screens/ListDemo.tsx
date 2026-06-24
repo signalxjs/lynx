@@ -20,12 +20,16 @@ const TOPICS = [
     'Tree-shaken icons',
 ];
 
-// A 10,000-item virtual source. Only a bounded slice is ever held in `items`
-// (load-on-demand) and only a `windowSize` window of that is mounted as cells
-// (virtualization) — so memory stays flat no matter how far you scroll.
+// A 10,000-item virtual source. `items` grows as you page in (load-on-demand,
+// up to TOTAL), but only a bounded window of it is ever mounted as <list-item>
+// cells (virtualization, capped at MAXWINDOW) — so the native / shadow-tree
+// footprint stays bounded however far you scroll, even as the loaded array grows.
 const TOTAL = 10_000;
 const PAGE = 100;
 const WINDOW = 40;
+// Cap the mounted-cell count: with only windowSize set, maxWindow would default
+// to max(120, windowSize*2), so pin it so the "cells mounted" label is honest.
+const MAXWINDOW = WINDOW * 2;
 
 function makeRange(start: number, n: number): FeedRow[] {
     const rows: FeedRow[] = [];
@@ -58,19 +62,28 @@ export const ListDemo = component(() => {
     const loadingMore = signal(false);
     const refreshing = signal(false);
 
+    // Bumped whenever a refresh resets the feed, so an in-flight load-more append
+    // that resolves after the reset is discarded instead of racing it back past
+    // the first page.
+    let epoch = 0;
+
     const loadMore = (): void => {
         if (loadingMore.value || refreshing.value) return;
         if (rows.value.length >= TOTAL) return;
         loadingMore.value = true;
+        const myEpoch = epoch;
         // Simulate a network/db page so the loading footer is visible briefly.
         setTimeout(() => {
-            rows.value = [...rows.value, ...makeRange(rows.value.length, PAGE)];
+            if (epoch === myEpoch) {
+                rows.value = [...rows.value, ...makeRange(rows.value.length, PAGE)];
+            }
             loadingMore.value = false;
         }, 400);
     };
 
     const onRefresh = (): void => {
         refreshing.value = true;
+        epoch++; // invalidate any in-flight load-more
         setTimeout(() => {
             rows.value = makeRange(0, PAGE);
             refreshing.value = false;
@@ -89,7 +102,7 @@ export const ListDemo = component(() => {
                     <Col gap={2} class="flex-1">
                         <Heading level={4}>{loaded.toLocaleString()} / {TOTAL.toLocaleString()} loaded</Heading>
                         <Text size="sm" class="opacity-60">
-                            windowed to ~{WINDOW} mounted cells
+                            windowed — ≤{MAXWINDOW} cells mounted
                         </Text>
                     </Col>
                     <Button
@@ -111,6 +124,7 @@ export const ListDemo = component(() => {
                         listType={columns.value > 1 ? 'flow' : 'single'}
                         estimatedItemSize={88}
                         windowSize={WINDOW}
+                        maxWindow={MAXWINDOW}
                         onEndReachedThreshold={8}
                         onEndReached={loadMore}
                         loadingMore={loadingMore.value}
