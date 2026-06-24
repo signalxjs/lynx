@@ -67,6 +67,9 @@
       "@sigx/lynx-linking": [
         "./packages/lynx-linking/src/index.ts"
       ],
+      "@sigx/lynx-list": [
+        "./packages/lynx-list/src/index.ts"
+      ],
       "@sigx/lynx-location": [
         "./packages/lynx-location/src/index.ts"
       ],

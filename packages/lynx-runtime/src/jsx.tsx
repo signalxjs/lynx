@@ -291,6 +291,12 @@ export interface ListAttributes extends LynxCommonAttributes {
     'sticky-top'?: number;
     /** Sticky footer offset from bottom */
     'sticky-bottom'?: number;
+    /** Fire `scrolltolower` when this many items remain below the viewport */
+    'lower-threshold-item-count'?: number;
+    /** Fire `scrolltoupper` when this many items remain above the viewport */
+    'upper-threshold-item-count'?: number;
+    /** Throttle interval (ms) between `scroll` events */
+    'scroll-event-throttle'?: number;
 
     bindscroll?: LynxEventHandler;
     bindscrolltoupper?: LynxEventHandler;
@@ -316,6 +322,16 @@ export interface ListItemAttributes extends LynxCommonAttributes {
     'sticky-bottom'?: number;
     /** Whether this item is full-span in a grid list */
     'full-span'?: boolean;
+    /**
+     * Estimated main-axis size (px) used by the recycler to size the scroll
+     * track before this cell is measured — improves scroll-to-index accuracy
+     * on long lists.
+     */
+    'estimated-main-axis-size-px'?: number;
+    /** Whether this item may be recycled when scrolled off-screen (default true) */
+    'recyclable'?: boolean;
+    /** Restrict view reuse to cells sharing this identifier */
+    'reuse-identifier'?: string;
 }
 
 export interface InputAttributes extends LynxCommonAttributes {

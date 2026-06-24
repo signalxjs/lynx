@@ -1,0 +1,59 @@
+{
+    "name": "@sigx/lynx-list",
+    "version": "0.11.0",
+    "description": "High-performance virtualized list for sigx-lynx — data-driven wrapper over the native <list> recycler with grid/waterfall layouts, header/footer/empty slots, edge-reached events and an imperative scroll API. Pure JS.",
+    "type": "module",
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.ts",
+            "import": "./dist/index.js",
+            "default": "./dist/index.js"
+        },
+        "./package.json": "./package.json"
+    },
+    "files": [
+        "dist",
+        "README.md",
+        "LICENSE"
+    ],
+    "scripts": {
+        "build": "node ../../scripts/clean.mjs dist && tsgo",
+        "dev": "tsgo --watch",
+        "test": "vitest run",
+        "clean": "node ../../scripts/clean.mjs dist .turbo"
+    },
+    "peerDependencies": {
+        "@sigx/lynx": "workspace:^"
+    },
+    "devDependencies": {
+        "@sigx/lynx": "workspace:^",
+        "@sigx/lynx-testing": "workspace:^",
+        "@typescript/native-preview": "7.0.0-dev.20260521.1",
+        "typescript": "^6.0.3"
+    },
+    "author": "Andreas Ekdahl",
+    "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/signalxjs/lynx.git",
+        "directory": "packages/lynx-list"
+    },
+    "homepage": "https://sigx.dev/lynx/modules/list/overview/",
+    "bugs": {
+        "url": "https://github.com/signalxjs/lynx/issues"
+    },
+    "publishConfig": {
+        "access": "public"
+    },
+    "keywords": [
+        "signalx",
+        "sigx",
+        "lynx",
+        "list",
+        "virtualized",
+        "recycler",
+        "flatlist"
+    ]
+}

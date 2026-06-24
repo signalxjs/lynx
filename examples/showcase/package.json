@@ -37,6 +37,7 @@
         "@sigx/lynx-image-picker": "workspace:^",
         "@sigx/lynx-keyboard": "workspace:^",
         "@sigx/lynx-linking": "workspace:^",
+        "@sigx/lynx-list": "workspace:^",
         "@sigx/lynx-location": "workspace:^",
         "@sigx/lynx-maps": "workspace:^",
         "@sigx/lynx-markdown": "workspace:^",

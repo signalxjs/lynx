@@ -13,6 +13,7 @@ import { DirectivesDemo } from './screens/DirectivesDemo.js';
 import { Icons } from './screens/Icons.js';
 import { SystemBars } from './screens/SystemBars.js';
 import { SheetDemo } from './screens/SheetDemo.js';
+import { ListDemo } from './screens/ListDemo.js';
 // Gestures & Motion
 import { SpringLab } from './screens/gestures/SpringLab.js';
 import { DragSnapDemo } from './screens/gestures/DragSnapDemo.js';
@@ -73,6 +74,7 @@ export const routes = defineRoutes({
     },
 
     // UI & Theming
+    listDemo: { component: ListDemo, path: '/list' },
     appearance: { component: Appearance, path: '/appearance' },
     theming: { component: Theming, path: '/theming' },
     herouiLab: { component: HeroUILab, path: '/heroui-lab' },
