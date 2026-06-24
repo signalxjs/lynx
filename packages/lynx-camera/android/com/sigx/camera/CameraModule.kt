@@ -1,11 +1,14 @@
 package com.sigx.camera
 
+import android.Manifest
 import android.content.Context
+import android.content.pm.PackageManager
 import android.util.Log
 import com.lynx.jsbridge.LynxMethod
 import com.lynx.jsbridge.LynxModule
 import com.lynx.react.bridge.Callback
 import com.lynx.react.bridge.JavaOnlyMap
+import com.sigx.permissions.MediaCapture
 import com.sigx.permissions.PermissionHelper
 
 /**
@@ -21,29 +24,66 @@ class CameraModule(context: Context) : LynxModule(context) {
 
     @LynxMethod
     fun takePicture(options: com.lynx.react.bridge.ReadableMap?, callback: Callback?) {
-        // Delegates to MediaCapture (in @sigx/lynx-permissions) which holds
-        // the ActivityResultContracts.TakePicture launcher registered at
-        // MainActivity.onCreate. On success, the JS callback receives
-        // { uri: "content://...", canceled: false } pointing at a JPEG in
-        // the app's cacheDir. Quality option is currently ignored — the
-        // system camera picks its own settings; we'll plumb it through
-        // when we add a CameraX-based custom-UI module.
-        com.sigx.permissions.MediaCapture.takePicture(mContext) { result ->
-            callback?.invoke(result)
+        // The autolinker injects `android.permission.CAMERA` into the manifest,
+        // and once an app *declares* CAMERA the system requires it to be GRANTED
+        // before ACTION_IMAGE_CAPTURE will fire — otherwise the launch is denied
+        // ("Permission Denial: ... requires android.permission.CAMERA"). iOS
+        // requests at the AVCaptureDevice layer; mirror that here so callers
+        // don't have to remember to call requestPermission() first.
+        ensureCameraPermission(callback) {
+            // Delegates to MediaCapture (in @sigx/lynx-permissions) which holds
+            // the ActivityResultContracts.TakePicture launcher. On success the JS
+            // callback receives { uri: "content://...", cancelled: false }.
+            MediaCapture.takePicture(mContext) { result -> callback?.invoke(result) }
         }
     }
 
     @LynxMethod
     fun recordVideo(_options: com.lynx.react.bridge.ReadableMap?, callback: Callback?) {
-        // Delegates to MediaCapture's CaptureVideo launcher (registered at
-        // MainActivity.onCreate). On success the JS callback receives
-        // { uri: "content://...", cancelled: false } pointing at an mp4 in the
-        // app's cacheDir. ACTION_VIDEO_CAPTURE has no duration/quality knobs, so
-        // CameraVideoOptions.maxDurationMs is honored on iOS only.
-        com.sigx.permissions.MediaCapture.recordVideo(mContext) { result ->
-            callback?.invoke(result)
+        // Same CAMERA gotcha as takePicture. Additionally, ACTION_VIDEO_CAPTURE
+        // requires RECORD_AUDIO to be granted *when the app declares it* (e.g.
+        // when @sigx/lynx-audio is also installed); request it only in that case
+        // so camera-only apps aren't prompted for a permission they don't hold.
+        ensureCameraPermission(callback) {
+            if (hasDeclaredPermission(Manifest.permission.RECORD_AUDIO)) {
+                PermissionHelper.requestPermission(mContext, "microphone") { mic ->
+                    if (mic.getString("status") == "granted") {
+                        MediaCapture.recordVideo(mContext) { result -> callback?.invoke(result) }
+                    } else {
+                        callback?.invoke(errorResult("Microphone permission denied"))
+                    }
+                }
+            } else {
+                MediaCapture.recordVideo(mContext) { result -> callback?.invoke(result) }
+            }
         }
     }
+
+    /** Run [proceed] only once CAMERA is granted; otherwise report an error. */
+    private fun ensureCameraPermission(callback: Callback?, proceed: () -> Unit) {
+        PermissionHelper.requestPermission(mContext, "camera") { perm ->
+            if (perm.getString("status") == "granted") {
+                proceed()
+            } else {
+                callback?.invoke(errorResult("Camera permission denied"))
+            }
+        }
+    }
+
+    /** True if [perm] is declared in the merged manifest (uses-permission). */
+    private fun hasDeclaredPermission(perm: String): Boolean {
+        return try {
+            val info = mContext.packageManager.getPackageInfo(
+                mContext.packageName, PackageManager.GET_PERMISSIONS
+            )
+            info.requestedPermissions?.contains(perm) == true
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    private fun errorResult(message: String): JavaOnlyMap =
+        JavaOnlyMap().apply { putString("error", message) }
 
     @LynxMethod
     fun requestPermission(callback: Callback?) {

@@ -19,6 +19,7 @@
         "@sigx/lynx-audio": "workspace:^",
         "@sigx/lynx-background": "workspace:^",
         "@sigx/lynx-biometric": "workspace:^",
+        "@sigx/lynx-camera": "workspace:^",
         "@sigx/lynx-clipboard": "workspace:^",
         "@sigx/lynx-core": "workspace:^",
         "@sigx/lynx-daisyui": "workspace:^",

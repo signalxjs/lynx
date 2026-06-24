@@ -89,6 +89,7 @@ interface CameraCancelled {
 }
 ```
 ## Gotchas
+- **Permission is auto-requested** — `takePicture` / `recordVideo` request the camera permission for you before opening the camera (iOS via `AVCaptureDevice`; Android via the runtime `CAMERA` prompt, plus microphone for `recordVideo` when the app declares `RECORD_AUDIO`). Calling `requestPermission()` first is optional — useful only to gate UI on the status ahead of time. On Android it's also *required* internally: the manifest declares `CAMERA`, and the OS refuses `ACTION_IMAGE_CAPTURE` / `ACTION_VIDEO_CAPTURE` unless it's been granted.
 - **Android FileProvider** — the auto-injected `<provider>` in the app template's `AndroidManifest.xml` exposes the cache directory under `${applicationId}.fileprovider`. If you customize the manifest, keep that authority intact or the camera intent won't have a valid write target.
 - **iOS simulator camera** — the simulator has no real camera, so `takePicture` / `recordVideo` report "Camera not available". Test capture on a physical device.
 - **Options are honored on iOS only** — Android delegates to the system camera intent, which ignores `CameraOptions` / `CameraVideoOptions` entirely (the user can still switch cameras in its UI; just don't rely on `facing` to pick one programmatically on Android). On iOS, `facing`, `quality`, and `maxDurationMs` (video) are applied; `maxWidth` / `maxHeight` are reserved and **not yet applied on either platform**.
