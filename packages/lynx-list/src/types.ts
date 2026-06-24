@@ -87,8 +87,8 @@ export type ListProps<T = unknown> =
    * message), and — unless `stickToBottom` is `false` — auto-scrolls to the
    * bottom when new items arrive while you're already at the bottom; if you've
    * scrolled up, it surfaces the `newMessages` affordance instead. Vertical
-   * lists only. (Windowing for very long histories + load-older lands in a
-   * follow-up; this mode is correctness of bottom-anchoring.)
+   * lists only. For very long histories pair it with `windowSize` to bound how
+   * many cells are rendered at once.
    */
   & Define.Prop<'inverted', boolean, false>
   /**
@@ -97,6 +97,23 @@ export type ListProps<T = unknown> =
    * auto-scroll (new items always go to the unread affordance when off-screen).
    */
   & Define.Prop<'stickToBottom', boolean, false>
+  /**
+   * **Enables windowing.** Render only a bounded sliding slice of `items`
+   * instead of all of them — essential for very long histories, since the
+   * runtime materializes every *rendered* cell (only native views recycle). The
+   * window starts at the newest in chat mode (the start in a feed) and pages
+   * older/newer as you scroll. This is the number of items rendered initially.
+   * Omit to render every item (default). Default when set: 60.
+   */
+  & Define.Prop<'windowSize', number, false>
+  /** Items revealed per scroll-edge page when windowing. Default 30. */
+  & Define.Prop<'pageSize', number, false>
+  /**
+   * Hard cap on the rendered window length when windowing — once the window
+   * grows past this, the far (off-screen) end is trimmed to stay bounded.
+   * Default `max(120, windowSize × 2)`.
+   */
+  & Define.Prop<'maxWindow', number, false>
   /** Capture the native `<list>` element for imperative scrolling. */
   & Define.Prop<'mtRef', ListRef, false>
   /** Class applied to the measuring wrapper that sizes the list. */

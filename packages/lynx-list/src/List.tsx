@@ -14,6 +14,15 @@ import {
 } from '@sigx/lynx';
 import type { ListProps } from './types.js';
 import { SCROLL_METHOD } from './methods.js';
+import {
+  resolveWindowConfig,
+  initialWindow,
+  expandOlder,
+  expandNewer,
+  slideToEnd,
+  clampWindow,
+  type ListWindow,
+} from './windowing.js';
 
 // Reserved item-keys for the optional header/footer/loading cells. Prefixed so
 // they never collide with a consumer's keyExtractor output.
@@ -228,11 +237,81 @@ const ListImpl = component<ListProps>(({ props, slots, emit }) => {
   const atBottom = signal(true);
   const unreadCount = signal(0);
 
-  // Total rendered cells = header + items + trailing(footer/loading). The last
-  // cell index is the scroll-to-bottom target (correct whether or not a footer
-  // sits below the newest item).
+  // ── Windowing ──────────────────────────────────────────────────────────────
+  // Render only a bounded sliding slice of `items` (opt-in via `windowSize`) so
+  // a thousands-long history doesn't materialize thousands of <list-item>s — the
+  // runtime renders every *rendered* cell eagerly (only native views recycle).
+  // The math lives in windowing.ts; here we hold the range as signals and move
+  // it from the scroll-edge handlers. Registered before the chat effects below
+  // so the window is initialised before the first scroll-to-bottom reads it.
+  const windowingEnabled = props.windowSize !== undefined;
+  const winCfg = resolveWindowConfig(props.windowSize, props.pageSize, props.maxWindow);
+  // Initialise the window SYNCHRONOUSLY at setup. Effects flush on a microtask
+  // *after* the first render, so a deferred init would let the first frame
+  // materialize every item before windowing engaged — exactly the mount spike
+  // windowing exists to prevent. The effect below only handles the
+  // empty-at-mount case (items arrive later) and subsequent count changes.
+  const win0 = windowingEnabled && props.items.length > 0
+    ? initialWindow(props.items.length, winCfg, chatEnabled)
+    : { start: 0, end: 0 };
+  const winStart = signal(win0.start);
+  const winEnd = signal(win0.end);
+  let winInit = windowingEnabled && props.items.length > 0;
+  let winPrevLen = props.items.length;
+
+  const setWindow = (w: ListWindow): void => {
+    if (w.start !== winStart.value) winStart.value = w.start;
+    if (w.end !== winEnd.value) winEnd.value = w.end;
+  };
+
+  // Best-effort prepend anchoring (DEVICE-PENDING): after revealing an older
+  // page above the viewport, scroll back to the item that was on top so the view
+  // doesn't jump. Relies on the native <list> scroll UI-method, still unverified
+  // on device (see methods.ts) — so it's wrapped best-effort; the at-top-only
+  // reveal works without it.
+  const anchorRestoreMT = runOnMainThread((cellIndex: number, method: string) => {
+    'main thread';
+    const el = listRef.current;
+    if (!el || cellIndex <= 0) return;
+    const p = el.invoke(method, { position: cellIndex, alignTo: 'top', offset: 0, smooth: false });
+    if (p && typeof p.catch === 'function') p.catch(() => {});
+  });
+
+  // Initialise the window once items exist, then keep it valid as the count
+  // changes: an append while anchored at the bottom slides to the newest;
+  // anything else just clamps so the indices stay in range.
+  effect(() => {
+    if (!windowingEnabled) return;
+    const len = props.items.length;
+    if (!winInit) {
+      if (len > 0) {
+        setWindow(initialWindow(len, winCfg, chatEnabled));
+        winInit = true;
+        winPrevLen = len;
+      }
+      return;
+    }
+    if (len !== winPrevLen) {
+      const grewAtEnd = len > winPrevLen;
+      const cur: ListWindow = { start: winStart.value, end: winEnd.value };
+      if (grewAtEnd && chatEnabled && stickToBottom && atBottom.value) {
+        setWindow(slideToEnd(cur, len, winCfg));
+      } else {
+        setWindow(clampWindow(cur, len));
+      }
+      winPrevLen = len;
+    }
+  });
+
+  // Item cells currently rendered (the window slice, or all items when
+  // windowing is off) — drives the chat scroll-to-bottom target index.
+  const renderedItemCount = (): number =>
+    windowingEnabled && winInit ? Math.max(0, winEnd.value - winStart.value) : props.items.length;
+
+  // Total rendered cells = header + rendered items + trailing(footer/loading).
+  // The last cell index is the scroll-to-bottom target.
   const totalCells = (): number =>
-    (slots.header ? 1 : 0) + props.items.length + (props.loadingMore || slots.footer ? 1 : 0);
+    (slots.header ? 1 : 0) + renderedItemCount() + (props.loadingMore || slots.footer ? 1 : 0);
 
   // Scroll the <list> to its last cell on MT. method/lastIndex/smooth are passed
   // as args — worklet `_c` capture doesn't carry imported function refs, and the
@@ -329,6 +408,12 @@ const ListImpl = component<ListProps>(({ props, slots, emit }) => {
     const typeOf = props.itemType;
     const estimated = props.estimatedItemSize;
 
+    // Windowing: render only the bounded slice. Local map indices are mapped
+    // back to the real item index so keys / renderItem(item, index) stay correct.
+    const windowed = windowingEnabled && winInit;
+    const sliceStart = windowed ? winStart.value : 0;
+    const visibleItems = windowed ? items.slice(sliceStart, winEnd.value) : items;
+
     // Empty state replaces the list body (the wrapper still has a child, so it
     // keeps measuring and the list can mount once items arrive).
     const showEmpty = count === 0 && !!slots.empty;
@@ -356,7 +441,7 @@ const ListImpl = component<ListProps>(({ props, slots, emit }) => {
         scroll-orientation={horizontal ? 'horizontal' : 'vertical'}
         list-type={props.listType ?? 'single'}
         span-count={props.numColumns ?? 1}
-        main-thread:ref={chatEnabled ? listRef : props.mtRef}
+        main-thread:ref={chatEnabled || windowingEnabled ? listRef : props.mtRef}
         // Spread optional attrs only when set — an `undefined` prop is
         // serialized as a native `null` attribute write (no skip in
         // patchProp), which would clobber the native default.
@@ -389,9 +474,27 @@ const ListImpl = component<ListProps>(({ props, slots, emit }) => {
             atBottom.value = true;
             unreadCount.value = 0;
           }
+          // Windowing: at the bottom edge, reveal a newer page if the window
+          // doesn't already reach the end (scrolled-down feed, or a chat that
+          // paged up and scrolled back).
+          if (windowingEnabled && winInit && winEnd.value < count) {
+            setWindow(expandNewer({ start: winStart.value, end: winEnd.value }, count, winCfg));
+          }
         }}
         bindscrolltoupper={() => {
           endReachedFired = false;
+          // Windowing: at the top edge, reveal an older page already in `items`.
+          // bindscrolltoupper only fires at the top, so this is the at-top-only
+          // prepend path (expanding above a top-pinned viewport is the expected
+          // "load older" reveal). anchorRestoreMT is the best-effort zero-jump
+          // polish (device-pending). Still emit startReached so a consumer can
+          // lazily page more history into `items`.
+          if (windowingEnabled && winInit && winStart.value > 0) {
+            const prevStart = winStart.value;
+            setWindow(expandOlder({ start: prevStart, end: winEnd.value }, winCfg));
+            const anchorCell = (slots.header ? 1 : 0) + (prevStart - winStart.value);
+            void anchorRestoreMT(anchorCell, SCROLL_METHOD);
+          }
           emit('startReached');
         }}
         bindscroll={(e: ScrollDetail) => {
@@ -413,7 +516,8 @@ const ListImpl = component<ListProps>(({ props, slots, emit }) => {
             {slots.header()}
           </list-item>
         )}
-        {items.map((item, i) => {
+        {visibleItems.map((item, localI) => {
+          const i = sliceStart + localI;
           const key = keyOf ? keyOf(item, i) : String(i);
           return (
             <list-item
