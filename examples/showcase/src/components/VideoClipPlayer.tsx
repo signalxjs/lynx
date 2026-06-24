@@ -10,10 +10,10 @@ type VideoClipPlayerProps =
 /**
  * Video clip preview using `@sigx/lynx-video`.
  *
- * The showcase doesn't ship a video-capture path (the camera package is
- * still photo-only), so the "Attach video" button populates a remote sample
- * clip. This keeps the wiring honest end-to-end: the same URI a real capture
- * pipeline would emit gets rendered through `<VideoPlayer>`.
+ * This card focuses on playback, so the "Attach video" button populates a
+ * remote sample clip rather than capturing one (camera capture lives in
+ * MediaCaptureCard). The same URI a real capture pipeline emits gets rendered
+ * through `<VideoPlayer>`.
  */
 // Official Blender-hosted Big Buck Bunny clip. The previous
 // `commondatastorage.googleapis.com/gtv-videos-bucket` sample bucket now

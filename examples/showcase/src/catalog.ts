@@ -254,7 +254,7 @@ export const catalog: Area[] = [
             {
                 id: 'media',
                 title: 'Media',
-                description: 'Image picker, voice-note recording, video playback',
+                description: 'Camera capture, image/video picker, voice notes, video playback',
                 icon: { set: 'lucide', name: 'image' },
                 route: 'mediaDemo',
             },
