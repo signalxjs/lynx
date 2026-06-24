@@ -4,6 +4,8 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-06-24
+
 ### Added
 
 - `@sigx/lynx-camera` — **video recording**: `Camera.recordVideo(options?: CameraVideoOptions): Promise<VideoResult | CameraCancelled>` opens the system camera in video mode and returns the recorded clip's URI (`file://` on iOS, `content://` on Android), loadable directly by `@sigx/lynx-video`. iOS uses `UIImagePickerController` movie mode (honoring `maxDurationMs` via `videoMaximumDuration` and `facing` via `cameraDevice`); Android uses an `ACTION_VIDEO_CAPTURE` launcher wired through `@sigx/lynx-permissions`' `MediaCapture`. New exports: `CameraVideoOptions`, `VideoResult`, and `CameraCancelled`. Both `takePicture` and `recordVideo` now follow a three-outcome contract — resolve with a result (always carrying a `uri`), resolve with `{ cancelled: true }` (no `uri`) on user-cancel, or **throw** on failure (permission denied, no camera, …) — so callers narrow on `result.uri` and `try/catch` failures (the Android `{ error: "cancelled" }` cancel sentinel is normalized away). The cross-platform "photo or video" choice is an app-level chooser (see the showcase's `MediaCaptureCard`); a single in-camera toggle is iOS-only at the system level (#541).
