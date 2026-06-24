@@ -73,46 +73,69 @@ function normalizeUri(uri: string): string {
 }
 
 /**
+ * Settle a raw native capture payload into the public three-outcome contract:
+ *
+ *  - **success** — a `{ uri, ... }` result, with the URI normalized to a scheme
+ *    Lynx can load (iOS hands back a bare path; Android a `content://` URI).
+ *  - **cancel** — the documented `{ cancelled: true }` shape. Android's native
+ *    side flags user-cancel with an `{ error: "cancelled" }` sentinel; we
+ *    collapse that here so callers never special-case it per platform.
+ *  - **failure** — throws. Native errors (permission denied, camera
+ *    unavailable, FileProvider misconfigured) arrive as `{ error }` on the
+ *    resolved callback rather than a rejection; rethrow so callers can
+ *    `try/catch` instead of inspecting an untyped error field.
+ */
+function settleCapture<T extends { uri: string }>(raw: unknown): T | CameraCancelled {
+    const r = (raw ?? {}) as { uri?: unknown; error?: unknown };
+    if (typeof r.uri === 'string') {
+        return { ...(r as T), uri: normalizeUri(r.uri) };
+    }
+    if (typeof r.error === 'string' && r.error !== 'cancelled') {
+        throw new Error(r.error);
+    }
+    return { cancelled: true };
+}
+
+/**
  * Camera capture APIs.
+ *
+ * Each capture has three outcomes: it resolves with a result (always carrying a
+ * `uri`), resolves with `{ cancelled: true }` if the user dismisses the camera,
+ * or **throws** on failure (permission denied, no camera, …).
  *
  * @example
  * ```ts
  * import { Camera } from '@sigx/lynx-camera';
  *
- * const { status } = await Camera.requestPermission();
- * if (status === 'granted') {
+ * try {
  *     const photo = await Camera.takePicture({ quality: 0.8 });
- *     if (photo.uri) console.log(photo.uri);
+ *     if (photo.uri) console.log(photo.uri);  // else: user cancelled
  *
  *     const clip = await Camera.recordVideo({ maxDurationMs: 30_000 });
  *     if (clip.uri) console.log(clip.uri);
+ * } catch (e) {
+ *     console.warn('capture failed:', e);
  * }
  * ```
  */
 export const Camera = {
     /**
      * Open the system camera in photo mode. Resolves with the captured photo
-     * (its `uri` is loadable by Lynx's `<image>`), or `{ cancelled: true }`
-     * (no `uri`) if the user dismisses the camera — narrow on `result.uri`.
+     * (its `uri` is loadable by Lynx's `<image>`) or `{ cancelled: true }` if
+     * the user dismisses the camera; throws on failure. Narrow on `result.uri`.
      */
     async takePicture(options: CameraOptions = {}): Promise<PhotoResult | CameraCancelled> {
-        const r = await callAsync<PhotoResult | CameraCancelled>(MODULE, 'takePicture', options);
-        // iOS returns a bare temp path; normalize to a `file://` URI so `<image>`
-        // can load it (Android already returns a scheme'd `content://` URI).
-        return r && typeof r.uri === 'string' ? { ...r, uri: normalizeUri(r.uri) } : r;
+        return settleCapture<PhotoResult>(await callAsync<unknown>(MODULE, 'takePicture', options));
     },
 
     /**
      * Open the system camera in video mode and record a clip. Resolves with the
      * recorded clip (its `uri` is loadable by `@sigx/lynx-video`'s
-     * `VideoPlayer`), or `{ cancelled: true }` (no `uri`) on cancel — narrow on
-     * `result.uri`.
+     * `VideoPlayer`) or `{ cancelled: true }` if the user dismisses the camera;
+     * throws on failure. Narrow on `result.uri`.
      */
     async recordVideo(options: CameraVideoOptions = {}): Promise<VideoResult | CameraCancelled> {
-        const r = await callAsync<VideoResult | CameraCancelled>(MODULE, 'recordVideo', options);
-        // On cancel the native side returns `{ cancelled: true }` with no `uri`;
-        // leave that shape untouched.
-        return r && typeof r.uri === 'string' ? { ...r, uri: normalizeUri(r.uri) } : r;
+        return settleCapture<VideoResult>(await callAsync<unknown>(MODULE, 'recordVideo', options));
     },
 
     /** Request camera permission, showing the OS dialog if needed. */

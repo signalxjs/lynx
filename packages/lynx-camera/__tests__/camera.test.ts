@@ -41,10 +41,22 @@ describe('Camera.takePicture', () => {
         expect(result.uri).toBe('file:///var/mobile/tmp/camera_x.jpg');
     });
 
-    it('leaves the cancel shape (no uri) untouched', async () => {
+    it('normalizes Android\'s cancel sentinel to the documented shape', async () => {
+        // Android marks user-cancel as `{ cancelled: true, error: "cancelled" }`.
+        bridge.callAsync.mockResolvedValueOnce({ cancelled: true, error: 'cancelled' });
+        const result = await Camera.takePicture();
+        expect(result).toEqual({ cancelled: true });
+    });
+
+    it('leaves the iOS cancel shape (no uri) untouched', async () => {
         bridge.callAsync.mockResolvedValueOnce({ cancelled: true });
         const result = await Camera.takePicture();
         expect(result).toEqual({ cancelled: true });
+    });
+
+    it('throws on a native failure error', async () => {
+        bridge.callAsync.mockResolvedValueOnce({ error: 'Camera not available on this device' });
+        await expect(Camera.takePicture()).rejects.toThrow('Camera not available on this device');
     });
 });
 
@@ -89,10 +101,21 @@ describe('Camera.recordVideo — result normalization', () => {
         expect(result.uri).toBe('content://media/external/video/1');
     });
 
-    it('leaves the cancel shape (no uri) untouched without throwing', async () => {
+    it('normalizes Android\'s cancel sentinel to the documented shape', async () => {
+        bridge.callAsync.mockResolvedValueOnce({ cancelled: true, error: 'cancelled' });
+        const result = await Camera.recordVideo();
+        expect(result).toEqual({ cancelled: true });
+    });
+
+    it('leaves the iOS cancel shape (no uri) untouched without throwing', async () => {
         bridge.callAsync.mockResolvedValueOnce({ cancelled: true });
         const result = await Camera.recordVideo();
         expect(result).toEqual({ cancelled: true });
+    });
+
+    it('throws on a native failure error', async () => {
+        bridge.callAsync.mockResolvedValueOnce({ error: 'Camera permission denied' });
+        await expect(Camera.recordVideo()).rejects.toThrow('Camera permission denied');
     });
 });
 

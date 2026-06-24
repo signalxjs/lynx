@@ -30,24 +30,34 @@ On Android the runtime permission prompt + Activity Result wiring comes from [`@
 import { Camera } from '@sigx/lynx-camera';
 const { status } = await Camera.requestPermission();
 if (status === 'granted') {
-    const photo = await Camera.takePicture({ quality: 0.8, facing: 'back' });
-    console.log(photo.uri, photo.width, photo.height);
+    try {
+        const photo = await Camera.takePicture({ quality: 0.8, facing: 'back' });
+        if (photo.uri) console.log(photo.uri, photo.width, photo.height);
+        // else: the user cancelled (resolves with `{ cancelled: true }`)
 
-    // Record a clip — the returned URI loads directly in @sigx/lynx-video.
-    const clip = await Camera.recordVideo({ maxDurationMs: 30_000 });
-    console.log(clip.uri, clip.durationMs);
+        // Record a clip — the returned URI loads directly in @sigx/lynx-video.
+        const clip = await Camera.recordVideo({ maxDurationMs: 30_000 });
+        if (clip.uri) console.log(clip.uri, clip.durationMs);
+    } catch (e) {
+        // Failure (permission denied, no camera, …) rejects.
+        console.warn('capture failed:', e);
+    }
 }
 ```
+
+Each capture has **three outcomes**: it resolves with a result (always carrying a
+`uri`), resolves with `{ cancelled: true }` (no `uri`) if the user dismisses the
+camera, or **throws** on failure. Narrow on `result.uri` and wrap in `try/catch`.
+
 ## API
 | Method                                                    | Notes                                                                                                                |
 | --------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| `takePicture(options?: CameraOptions): Promise<PhotoResult \| CameraCancelled>` | Opens the system camera in photo mode. Returns the captured photo's file URI + dimensions, or `{ cancelled: true }` on cancel. |
-| `recordVideo(options?: CameraVideoOptions): Promise<VideoResult \| CameraCancelled>` | Opens the system camera in video mode. Returns the recorded clip's URI (`file://` on iOS, `content://` on Android) loadable by `@sigx/lynx-video`, or `{ cancelled: true }` on cancel. |
+| `takePicture(options?: CameraOptions): Promise<PhotoResult \| CameraCancelled>` | Opens the system camera in photo mode. Resolves with the captured photo's URI + dimensions, or `{ cancelled: true }` on cancel; throws on failure. |
+| `recordVideo(options?: CameraVideoOptions): Promise<VideoResult \| CameraCancelled>` | Opens the system camera in video mode. Resolves with the recorded clip's URI (`file://` on iOS, `content://` on Android) loadable by `@sigx/lynx-video`, or `{ cancelled: true }` on cancel; throws on failure. |
 | `requestPermission(): Promise<PermissionResponse>`        | Shows the OS permission dialog if needed. Re-call to surface the dialog again on first denial.                       |
 | `getPermissionStatus(): Promise<PermissionResponse>`      | Read-only check — no prompt.                                                                                         |
 | `isAvailable(): boolean`                                  | Whether the native module is registered in the current build.                                                        |
 
-On cancel, both `takePicture` and `recordVideo` resolve with `{ cancelled: true }` (no `uri`) — narrow on `result.uri` before using it.
 ```ts
 interface CameraOptions {
     facing?: 'front' | 'back';   // default: 'back'

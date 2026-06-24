@@ -30,8 +30,9 @@ export const MediaCaptureCard = component(() => {
     const remove = (uri: string) => { assets.value = assets.value.filter((x) => x.uri !== uri); };
     const close = () => { menuOpen.value = false; };
 
-    // Native errors (permission denied, no camera on the iOS Simulator) come
-    // back as `{ error }` rather than a rejected Promise; surface either path.
+    // Camera capture throws on real failure (permission denied, no camera on
+    // the iOS Simulator); user-cancel just resolves without a `uri`. The
+    // try/catch surfaces failures and ignores cancels.
     const run = async (fn: () => Promise<void>) => {
         close();
         error.value = null;
@@ -42,26 +43,14 @@ export const MediaCaptureCard = component(() => {
         }
     };
 
-    const surfaceNativeError = (r: unknown) => {
-        const result = r as { error?: unknown } | null | undefined;
-        // Surface only real failures. User cancel carries no error on iOS and
-        // the `"cancelled"` sentinel on Android — but Android also sets
-        // `cancelled: true` on genuine failures (FileProvider misconfig, not
-        // registered, activity destroyed), so we key off the error string, not
-        // the cancelled flag, to keep those visible.
-        if (result?.error && result.error !== 'cancelled') error.value = String(result.error);
-    };
-
     const takePhoto = () => run(async () => {
         const r = await Camera.takePicture({ quality: 0.8 });
-        if (r?.uri) add({ uri: r.uri, type: 'image' });
-        else surfaceNativeError(r);
+        if (r.uri) add({ uri: r.uri, type: 'image' });
     });
 
     const recordVideo = () => run(async () => {
         const r = await Camera.recordVideo({ maxDurationMs: 60_000 });
-        if (r?.uri) add({ uri: r.uri, type: 'video' });
-        else surfaceNativeError(r);
+        if (r.uri) add({ uri: r.uri, type: 'video' });
     });
 
     const pickPhoto = () => run(async () => {
