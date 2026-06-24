@@ -40,7 +40,7 @@ export const catalog: Area[] = [
             {
                 id: 'list',
                 title: 'List',
-                description: 'Virtualized feed over the native <list> recycler — grid, slots, infinite scroll',
+                description: '10k-item stress test — windowing + load-on-demand over the native <list> recycler',
                 icon: { set: 'lucide', name: 'list' },
                 route: 'listDemo',
             },
