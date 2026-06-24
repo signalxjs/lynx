@@ -64,6 +64,22 @@ export type ListProps<T = unknown> =
   & Define.Prop<'onStartReachedThreshold', number, false>
   /** Throttle interval (ms) for the `scroll` event (`scroll-event-throttle`). */
   & Define.Prop<'scrollEventThrottle', number, false>
+  /**
+   * Controlled pull-to-refresh state. **Passing this prop (even `false`) opts
+   * the list into pull-to-refresh**: pulling down past `pullThreshold` while
+   * scrolled to the top emits `refresh`; keep the indicator open by holding
+   * `refreshing` true, then set it back to `false` to dismiss. Omit the prop
+   * entirely to disable pull-to-refresh (zero gesture overhead).
+   */
+  & Define.Prop<'refreshing', boolean, false>
+  /** Pull distance in px that triggers a refresh (and the indicator height). Default 64. */
+  & Define.Prop<'pullThreshold', number, false>
+  /**
+   * Show a loading indicator cell at the end of the list (for infinite
+   * load-more, paired with `onEndReached`). Uses the `footer` slot content
+   * when provided, else a default row.
+   */
+  & Define.Prop<'loadingMore', boolean, false>
   /** Capture the native `<list>` element for imperative scrolling. */
   & Define.Prop<'mtRef', ListRef, false>
   /** Class applied to the measuring wrapper that sizes the list. */
@@ -76,9 +92,16 @@ export type ListProps<T = unknown> =
   & Define.Slot<'footer'>
   /** Rendered in place of the list when `items` is empty. */
   & Define.Slot<'empty'>
+  /**
+   * Custom pull-to-refresh indicator, shown in the area revealed by the pull.
+   * Defaults to a simple "Refreshing…" row. Requires the `refreshing` prop.
+   */
+  & Define.Slot<'refresh'>
   /** Emitted when scrolling reaches the end (bottom / right edge). */
   & Define.Event<'endReached', void>
   /** Emitted when scrolling reaches the start (top / left edge). */
   & Define.Event<'startReached', void>
   /** Emitted on scroll with the current main-axis pixel offset. */
-  & Define.Event<'scroll', { offset: number }>;
+  & Define.Event<'scroll', { offset: number }>
+  /** Emitted when a pull-to-refresh gesture crosses `pullThreshold` and releases. */
+  & Define.Event<'refresh', void>;

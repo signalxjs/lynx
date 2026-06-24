@@ -297,6 +297,8 @@ export interface ListAttributes extends LynxCommonAttributes {
     'upper-threshold-item-count'?: number;
     /** Throttle interval (ms) between `scroll` events */
     'scroll-event-throttle'?: number;
+    /** Toggle native scroll responsiveness (e.g. lock while pulling-to-refresh) */
+    'enable-scroll'?: boolean;
 
     bindscroll?: LynxEventHandler;
     bindscrolltoupper?: LynxEventHandler;
