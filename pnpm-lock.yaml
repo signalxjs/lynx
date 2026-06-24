@@ -53,6 +53,9 @@ importers:
       '@sigx/lynx-biometric':
         specifier: workspace:^
         version: link:../../packages/lynx-biometric
+      '@sigx/lynx-camera':
+        specifier: workspace:^
+        version: link:../../packages/lynx-camera
       '@sigx/lynx-clipboard':
         specifier: workspace:^
         version: link:../../packages/lynx-clipboard
