@@ -38,6 +38,14 @@ class CameraModule: NSObject, LynxModule, UIImagePickerControllerDelegate, UINav
     /// Shared entry for photo (`takePicture`) and video (`recordVideo`):
     /// availability + permission gate, then present the camera in the right mode.
     private func capture(options: [String: Any]?, video: Bool, callback: LynxCallbackBlock?) {
+        // Fail fast if a capture is already in flight — the picker is modal, so
+        // a second present would clobber `pendingCallback` and orphan the first
+        // Promise.
+        guard pendingCallback == nil else {
+            callback?(["error": "A capture is already in progress"])
+            return
+        }
+
         guard UIImagePickerController.isSourceTypeAvailable(.camera) else {
             callback?(["error": "Camera not available on this device"])
             return
