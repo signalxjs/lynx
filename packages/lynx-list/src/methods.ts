@@ -24,7 +24,9 @@ function fireAndForget(p: Promise<unknown> | undefined): void {
 // Per the Lynx `<list>` docs this is `scrollToPosition({ position, alignTo,
 // offset, smooth })`. TODO(device-verify): confirm name/params on iOS+Android
 // (the runtime also references `scrollToIndex` in mt-element.ts).
-const SCROLL_METHOD = 'scrollToPosition';
+// Exported so chat mode's scroll-to-bottom worklets share the single source of
+// truth (and the one device-verification point).
+export const SCROLL_METHOD = 'scrollToPosition';
 
 function invokeScroll(
   el: MainThread.Element | null,

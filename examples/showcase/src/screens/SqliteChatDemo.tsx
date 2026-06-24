@@ -11,6 +11,7 @@ import {
     Text,
 } from '@sigx/lynx-daisyui';
 import { Haptics } from '@sigx/lynx-haptics';
+import { List } from '@sigx/lynx-list';
 import {
     isAvailable,
     openDatabase,
@@ -133,22 +134,17 @@ const ChatThread = component(() => {
     return () => (
         <Col class="flex-fill bg-base-100">
             <Screen title="SQLite" />
-            <ScrollView class="flex-fill">
-                <Col gap={8} padding={16}>
-                    <Heading level={2}>SQLite chat</Heading>
-                    <Text class="opacity-60 text-sm">
-                        Messages persist in `{DB_NAME}` and survive an app
-                        relaunch. The thread is a live query over the messages
-                        table.
-                    </Text>
-                    {messages.value.error ? (
-                        <Card bordered>
-                            <Card.Body>
-                                <Text class="text-error">{messages.value.error.message}</Text>
-                            </Card.Body>
-                        </Card>
-                    ) : null}
-                    {messages.value.rows.map((m) => (
+            {/* Recycled chat thread: bottom-anchored, sticks to the newest
+                message as the live query inserts rows, and shows a "new
+                messages" pill if you've scrolled up. */}
+            <List
+                items={messages.value.rows}
+                keyExtractor={(m) => String(m.id)}
+                estimatedItemSize={56}
+                inverted
+                style={{ flexGrow: 1 }}
+                renderItem={(m) => (
+                    <view style={{ paddingLeft: '16px', paddingRight: '16px', paddingTop: '4px', paddingBottom: '4px' }}>
                         <Col
                             class={
                                 m.author === 'me'
@@ -158,9 +154,29 @@ const ChatThread = component(() => {
                         >
                             <Text>{m.body}</Text>
                         </Col>
-                    ))}
-                </Col>
-            </ScrollView>
+                    </view>
+                )}
+                slots={{
+                    header: () => (
+                        <Col gap={8} padding={16}>
+                            <Heading level={2}>SQLite chat</Heading>
+                            <Text class="opacity-60 text-sm">
+                                Messages persist in `{DB_NAME}` and survive an app
+                                relaunch. The thread is a live query over the
+                                messages table, rendered with a recycled
+                                `@sigx/lynx-list` in chat mode.
+                            </Text>
+                            {messages.value.error ? (
+                                <Card bordered>
+                                    <Card.Body>
+                                        <Text class="text-error">{messages.value.error.message}</Text>
+                                    </Card.Body>
+                                </Card>
+                            ) : null}
+                        </Col>
+                    ),
+                }}
+            />
             <Col gap={8} padding={16}>
                 <Row gap={8}>
                     <view class="flex-fill">

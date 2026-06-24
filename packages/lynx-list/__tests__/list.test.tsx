@@ -1,14 +1,27 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, getByType, getAllByType, getByText } from '@sigx/lynx-testing';
+import { component, signal } from '@sigx/lynx';
+import { render, getByType, getAllByType, getByText, queryByText, act } from '@sigx/lynx-testing';
 import { List } from '../src/List';
 
-const ITEMS = [
+interface Row { id: string; text: string }
+const ITEMS: Row[] = [
   { id: 'a', text: 'Alpha' },
   { id: 'b', text: 'Beta' },
   { id: 'c', text: 'Gamma' },
 ];
 
-const renderRow = (it: { id: string; text: string }) => <text>{it.text}</text>;
+const renderRow = (it: Row) => <text>{it.text}</text>;
+
+// Find the measuring wrapper and fire a layout pass so chat mode's first-paint
+// scroll-to-bottom completes (which un-gates stick-to-bottom).
+function fireLayout(container: { findAllByType(t: string): { _handlers: Map<string, Function> }[] }, height = 500): void {
+  const wrapper = container
+    .findAllByType('view')
+    .find((v) => v._handlers.has('bindlayoutchange'))!;
+  wrapper._handlers.get('bindlayoutchange')!({
+    detail: { width: 320, height, top: 0, left: 0, right: 320, bottom: height },
+  });
+}
 
 describe('List', () => {
   it('wraps a native <list> in a measuring <view>, vertical by default', () => {
@@ -238,5 +251,88 @@ describe('List', () => {
     );
     const list = getByType(container, 'list');
     expect('enable-scroll' in list.props).toBe(false);
+  });
+
+  // ── Chat / bottom-anchored mode ──────────────────────────────────────────
+
+  it('chat mode: a vertical inverted list is opacity-gated until first scroll', () => {
+    const { container } = render(
+      <List items={ITEMS} keyExtractor={(i) => i.id} renderItem={renderRow} inverted />,
+    );
+    const list = getByType(container, 'list');
+    expect(list._style.opacity).toBe(0);
+  });
+
+  it('chat mode is vertical-only: a horizontal inverted list is not gated', () => {
+    const { container } = render(
+      <List items={ITEMS} horizontal keyExtractor={(i) => i.id} renderItem={renderRow} inverted />,
+    );
+    const list = getByType(container, 'list');
+    expect(list._style.opacity).toBeUndefined();
+  });
+
+  it('chat mode: no unread affordance initially (at bottom)', () => {
+    const { container } = render(
+      <List items={ITEMS} keyExtractor={(i) => i.id} renderItem={renderRow} inverted />,
+    );
+    expect(queryByText(container, '1 new ↓')).toBeNull();
+  });
+
+  it('chat mode: shows the unread affordance when items arrive while scrolled up', async () => {
+    const rows = signal<{ value: Row[] }>({ value: ITEMS });
+    const Harness = component(() => () => (
+      <List items={rows.value} keyExtractor={(i) => i.id} renderItem={renderRow} inverted />
+    ));
+    const { container } = render(<Harness />);
+    // Complete the first paint so stick/unread tracking engages.
+    await act(() => fireLayout(container));
+    const list = getByType(container, 'list');
+    // Scroll up → not at bottom.
+    await act(() => {
+      list._handlers.get('bindscroll')!({ detail: { scrollTop: 400 } });
+      list._handlers.get('bindscroll')!({ detail: { scrollTop: 80 } });
+    });
+    // A new message arrives while scrolled up → unread affordance.
+    await act(() => { rows.value = [...rows.value, { id: 'd', text: 'Delta' }]; });
+    expect(getByText(container, '1 new ↓')).toBeTruthy();
+  });
+
+  it('chat mode: sticks to the bottom (no unread) when items arrive at the bottom', async () => {
+    const rows = signal<{ value: Row[] }>({ value: ITEMS });
+    const Harness = component(() => () => (
+      <List items={rows.value} keyExtractor={(i) => i.id} renderItem={renderRow} inverted />
+    ));
+    const { container } = render(<Harness />);
+    await act(() => fireLayout(container));
+    // Still at the bottom → a new message must not raise the unread affordance.
+    await act(() => { rows.value = [...rows.value, { id: 'd', text: 'Delta' }]; });
+    expect(queryByText(container, '1 new ↓')).toBeNull();
+  });
+
+  it('chat mode: an empty inverted list is not opacity-gated (nothing to scroll to)', () => {
+    const { container } = render(
+      <List items={[] as Row[]} keyExtractor={(i) => i.id} renderItem={renderRow} inverted />,
+    );
+    const list = getByType(container, 'list');
+    expect(list._style.opacity).toBeUndefined();
+  });
+
+  it('chat mode: surfaces unread even at the bottom when stickToBottom is off', async () => {
+    const rows = signal<{ value: Row[] }>({ value: ITEMS });
+    const Harness = component(() => () => (
+      <List
+        items={rows.value}
+        keyExtractor={(i) => i.id}
+        renderItem={renderRow}
+        inverted
+        stickToBottom={false}
+      />
+    ));
+    const { container } = render(<Harness />);
+    await act(() => fireLayout(container));
+    // At the bottom but not auto-following → a new message must surface the
+    // affordance rather than silently incrementing an invisible counter.
+    await act(() => { rows.value = [...rows.value, { id: 'd', text: 'Delta' }]; });
+    expect(getByText(container, '1 new ↓')).toBeTruthy();
   });
 });
