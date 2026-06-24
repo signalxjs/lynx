@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, getByType, getAllByType } from '@sigx/lynx-testing';
+import { render, getByType, getAllByType, getByText } from '@sigx/lynx-testing';
 import { List } from '../src/List';
 
 const ITEMS = [
@@ -160,5 +160,83 @@ describe('List', () => {
     const list = getByType(container, 'list');
     list._handlers.get('bindscroll')?.({ detail: { scrollTop: 120 } });
     expect(onScroll).toHaveBeenCalledWith({ offset: 120 });
+  });
+
+  it('de-dups onEndReached per edge-hit, re-arming after a scroll-up', () => {
+    const onEndReached = vi.fn();
+    const { container } = render(
+      <List items={ITEMS} keyExtractor={(i) => i.id} renderItem={renderRow} onEndReached={onEndReached} />,
+    );
+    const list = getByType(container, 'list');
+    const lower = () => list._handlers.get('bindscrolltolower')?.({});
+    const scrollTo = (top: number) => list._handlers.get('bindscroll')?.({ detail: { scrollTop: top } });
+
+    lower();
+    lower(); // still in-flight at the same edge → no second emit
+    expect(onEndReached).toHaveBeenCalledTimes(1);
+
+    scrollTo(500); // move down
+    scrollTo(100); // scrolled back up → re-arm
+    lower();
+    expect(onEndReached).toHaveBeenCalledTimes(2);
+  });
+
+  it('renders a trailing loading cell when loadingMore is set', () => {
+    const { container } = render(
+      <List items={ITEMS} keyExtractor={(i) => i.id} renderItem={renderRow} loadingMore />,
+    );
+    const cells = getAllByType(container, 'list-item');
+    const last = cells[cells.length - 1];
+    expect(last.props['item-key']).toBe('__sigx_list_loading__');
+    expect(last.props['full-span']).toBe(true);
+    expect(getByText(container, 'Loading…')).toBeTruthy();
+  });
+
+  it('opts into pull-to-refresh when the refreshing prop is passed', () => {
+    const { container } = render(
+      <List items={ITEMS} keyExtractor={(i) => i.id} renderItem={renderRow} refreshing={false} />,
+    );
+    const list = getByType(container, 'list');
+    // Scroll is enabled while not actively pulling, and the default indicator
+    // is mounted (revealed by the pull, hidden otherwise).
+    expect(list.props['enable-scroll']).toBe(true);
+    expect(getByText(container, 'Refreshing…')).toBeTruthy();
+  });
+
+  it('renders a custom refresh indicator slot', () => {
+    const { container } = render(
+      <List
+        items={ITEMS}
+        keyExtractor={(i) => i.id}
+        renderItem={renderRow}
+        refreshing={false}
+        slots={{ refresh: () => <text>Custom pull</text> }}
+      />,
+    );
+    expect(getByText(container, 'Custom pull')).toBeTruthy();
+  });
+
+  it('does not add scroll gating when pull-to-refresh is not opted into', () => {
+    const { container } = render(
+      <List items={ITEMS} keyExtractor={(i) => i.id} renderItem={renderRow} />,
+    );
+    const list = getByType(container, 'list');
+    expect('enable-scroll' in list.props).toBe(false);
+  });
+
+  it('ignores pull-to-refresh on a horizontal list (vertical-only)', () => {
+    // refreshing + horizontal must NOT gate enable-scroll, or a horizontal
+    // list would have its scroll disabled off a misread vertical scrollTop.
+    const { container } = render(
+      <List
+        items={ITEMS}
+        horizontal
+        keyExtractor={(i) => i.id}
+        renderItem={renderRow}
+        refreshing={false}
+      />,
+    );
+    const list = getByType(container, 'list');
+    expect('enable-scroll' in list.props).toBe(false);
   });
 });

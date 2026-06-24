@@ -48,14 +48,26 @@ function makePage(start: number, n: number): FeedRow[] {
 export const ListDemo = component(() => {
     const rows = signal<{ value: FeedRow[] }>({ value: makePage(0, 1000) });
     const columns = signal(1);
-    const loading = signal(false);
+    const loadingMore = signal(false);
+    const refreshing = signal(false);
 
     const loadMore = (): void => {
-        if (loading.value) return;
-        loading.value = true;
-        const next = makePage(rows.value.length, PAGE);
-        rows.value = [...rows.value, ...next];
-        loading.value = false;
+        if (loadingMore.value || refreshing.value) return;
+        loadingMore.value = true;
+        // Simulate a network page so the loading footer is visible briefly.
+        setTimeout(() => {
+            rows.value = [...rows.value, ...makePage(rows.value.length, PAGE)];
+            loadingMore.value = false;
+        }, 600);
+    };
+
+    const onRefresh = (): void => {
+        refreshing.value = true;
+        // Simulate a refresh: rebuild the feed from the top.
+        setTimeout(() => {
+            rows.value = makePage(0, 1000);
+            refreshing.value = false;
+        }, 1000);
     };
 
     return () => (
@@ -86,6 +98,9 @@ export const ListDemo = component(() => {
                     estimatedItemSize={88}
                     onEndReachedThreshold={8}
                     onEndReached={loadMore}
+                    loadingMore={loadingMore.value}
+                    refreshing={refreshing.value}
+                    onRefresh={onRefresh}
                     style={{ flexGrow: 1 }}
                     renderItem={(r) => (
                         <view style={{ padding: '6px 12px' }}>
@@ -107,13 +122,8 @@ export const ListDemo = component(() => {
                             <Col padding={12} gap={4}>
                                 <Heading level={3}>Virtualized feed</Heading>
                                 <Text class="opacity-60">
-                                    Scroll to the bottom to auto-load the next page.
+                                    Pull down to refresh · scroll to the bottom to load more.
                                 </Text>
-                            </Col>
-                        ),
-                        footer: () => (
-                            <Col padding={16} class="items-center">
-                                <Text class="opacity-60">Loading more…</Text>
                             </Col>
                         ),
                     }}
