@@ -55,7 +55,7 @@ export interface VideoTimeUpdateEvent {
     detail: VideoTimeUpdateEventDetail;
 }
 
-/** Playback state reported by `bindstatechange`. */
+/** Playback state reported by `bindvideostatechange`. */
 export type VideoPlaybackState = 'playing' | 'paused' | 'buffering' | 'ended';
 export interface VideoStateChangeEventDetail {
     /** The state playback just transitioned into. */
@@ -65,7 +65,7 @@ export interface VideoStateChangeEventDetail {
     [k: string]: unknown;
 }
 export interface VideoStateChangeEvent {
-    type: 'statechange';
+    type: 'videostatechange';
     detail: VideoStateChangeEventDetail;
 }
 
@@ -117,7 +117,7 @@ export interface VideoPlayerAttributes extends LynxCommonAttributes {
      * which the `playing` prop can't observe. Lets apps mirror native play
      * state without polling.
      */
-    bindstatechange?: LynxEventHandler<VideoStateChangeEvent>;
+    bindvideostatechange?: LynxEventHandler<VideoStateChangeEvent>;
 }
 
 declare global {

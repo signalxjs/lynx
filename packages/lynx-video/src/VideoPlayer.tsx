@@ -73,7 +73,7 @@ export const VideoPlayer = component<VideoPlayerProps>(({ props }) => {
             bindend={props.onEnd}
             binderror={props.onError}
             bindtimeupdate={props.onTimeUpdate}
-            bindstatechange={props.onStateChange}
+            bindvideostatechange={props.onStateChange}
         />
     );
 });

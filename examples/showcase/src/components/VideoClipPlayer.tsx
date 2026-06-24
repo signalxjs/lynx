@@ -47,6 +47,15 @@ export const VideoClipPlayer = component<VideoClipPlayerProps>(({ props }) => {
                         playing={playing.value}
                         controls
                         resizeMode="contain"
+                        // `controls` shows the platform transport UI, which can
+                        // play/pause without going through our `playing` signal.
+                        // Mirror the real playback state back so the Play/Pause
+                        // button below never disagrees with what's on screen.
+                        onStateChange={(e) => {
+                            const state = e.detail.state;
+                            if (state === 'playing') playing.value = true;
+                            else if (state === 'paused' || state === 'ended') playing.value = false;
+                        }}
                         onEnd={() => { playing.value = false; }}
                         onError={(e) => {
                             console.warn('[VideoClip] error:', e.detail.message);
