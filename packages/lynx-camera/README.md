@@ -59,11 +59,11 @@ camera, or **throws** on failure. Narrow on `result.uri` and wrap in `try/catch`
 | `isAvailable(): boolean`                                  | Whether the native module is registered in the current build.                                                        |
 
 ```ts
-interface CameraOptions {       // all iOS-only — Android's intent ignores options
-    facing?: 'front' | 'back';   // default: 'back'
-    quality?: number;            // 0..1
-    maxWidth?: number;           // pixels
-    maxHeight?: number;          // pixels
+interface CameraOptions {        // Android's intent ignores all of these
+    facing?: 'front' | 'back';   // iOS only; default: 'back'
+    quality?: number;            // iOS only; 0..1 (default 0.8)
+    maxWidth?: number;           // reserved — not yet applied on either platform
+    maxHeight?: number;          // reserved — not yet applied on either platform
 }
 interface PhotoResult {
     uri: string;        // file:// (iOS) or content:// (Android)
@@ -90,5 +90,5 @@ interface CameraCancelled {
 ## Gotchas
 - **Android FileProvider** — the auto-injected `<provider>` in the app template's `AndroidManifest.xml` exposes the cache directory under `${applicationId}.fileprovider`. If you customize the manifest, keep that authority intact or the camera intent won't have a valid write target.
 - **iOS simulator camera** — the simulator has no real camera, so `takePicture` / `recordVideo` report "Camera not available". Test capture on a physical device.
-- **Capture options are iOS-only** — Android delegates to the system camera intent, which ignores `CameraOptions` / `CameraVideoOptions` entirely (`facing`, `quality`, `maxWidth`/`maxHeight`, `maxDurationMs`). The user can still switch cameras in the system UI; just don't rely on `facing` to pick one programmatically on Android.
+- **Options are honored on iOS only** — Android delegates to the system camera intent, which ignores `CameraOptions` / `CameraVideoOptions` entirely (the user can still switch cameras in its UI; just don't rely on `facing` to pick one programmatically on Android). On iOS, `facing`, `quality`, and `maxDurationMs` (video) are applied; `maxWidth` / `maxHeight` are reserved and **not yet applied on either platform**.
 - **A single in-camera photo/video toggle** (one screen, switch mode in-camera) is iOS-only at the system level; Android has separate photo/video intents. Present your own chooser (Take Photo / Record Video) for a consistent cross-platform flow — see `examples/showcase`'s `MediaCaptureCard`. An iOS-native `capture({ mediaType: 'mixed' })` toggle may be added later.

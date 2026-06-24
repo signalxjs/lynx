@@ -19,6 +19,10 @@ class CameraModule: NSObject, LynxModule, UIImagePickerControllerDelegate, UINav
     }
 
     private var pendingCallback: LynxCallbackBlock?
+    /// JPEG compression quality for the next photo capture, taken from
+    /// `CameraOptions.quality` (defaults to 0.8). `maxWidth`/`maxHeight` are not
+    /// yet applied.
+    private var pendingPhotoQuality: CGFloat = 0.8
 
     required override init() { super.init() }
     required init(param: Any) { super.init() }
@@ -78,6 +82,11 @@ class CameraModule: NSObject, LynxModule, UIImagePickerControllerDelegate, UINav
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
             self.pendingCallback = callback
+            if let q = (options?["quality"] as? NSNumber)?.doubleValue, q >= 0, q <= 1 {
+                self.pendingPhotoQuality = CGFloat(q)
+            } else {
+                self.pendingPhotoQuality = 0.8
+            }
 
             let picker = UIImagePickerController()
             picker.sourceType = .camera
@@ -139,8 +148,7 @@ class CameraModule: NSObject, LynxModule, UIImagePickerControllerDelegate, UINav
             return
         }
 
-        let quality: CGFloat = 0.8
-        guard let data = image.jpegData(compressionQuality: quality) else {
+        guard let data = image.jpegData(compressionQuality: pendingPhotoQuality) else {
             pendingCallback?(["error": "Failed to compress image"])
             pendingCallback = nil
             return

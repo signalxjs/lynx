@@ -9,11 +9,11 @@ export interface CameraOptions {
      * ignores capture options; the user can still switch cameras in its UI.
      */
     facing?: 'front' | 'back';
-    /** Image quality 0-1. **iOS only** (see `facing`). */
+    /** JPEG quality 0-1 (default 0.8). **iOS only** — Android's intent ignores it. */
     quality?: number;
-    /** Max width in pixels. **iOS only** (see `facing`). */
+    /** Max width in pixels. **Reserved — not yet applied on either platform.** */
     maxWidth?: number;
-    /** Max height in pixels. **iOS only** (see `facing`). */
+    /** Max height in pixels. **Reserved — not yet applied on either platform.** */
     maxHeight?: number;
 }
 
