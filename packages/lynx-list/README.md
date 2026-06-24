@@ -79,7 +79,47 @@ const toTop = () => { 'main thread'; ListMethods.scrollToTop(ref.current, { smoo
 `ListMethods.scrollToIndex(el, i, { align, offset, smooth })` and
 `scrollToTop(el, { smooth })`. `i` is the **rendered cell index**, not the data
 index — a `header` slot is itself cell 0, so add 1 to a data index when a header
-is present. (A header/footer-aware scroll-to-bottom ships with chat mode.)
+is present.
+
+### Pull-to-refresh & load-more
+
+Opt into pull-to-refresh by passing the controlled `refreshing` prop (vertical
+lists only). Pulling down past `pullThreshold` while at the top emits `onRefresh`;
+hold `refreshing` true to keep the indicator open, set it back to `false` to
+dismiss. Customize the indicator with the `refresh` slot. For infinite scroll,
+debounce on `onEndReached` and set `loadingMore` to show a trailing loading cell.
+
+```tsx
+<List
+  items={items}
+  renderItem={renderRow}
+  refreshing={refreshing.value}
+  onRefresh={() => reload()}
+  loadingMore={loadingMore.value}
+  onEndReached={() => loadMore()}
+/>
+```
+
+### Chat mode
+
+Pass `inverted` for a WhatsApp-style chat (vertical only): items render
+oldest→newest, the first paint is already scrolled to the newest message
+(opacity-gated to hide the jump), and new items **stick to the bottom** while
+you're there — or raise the `newMessages` affordance when you've scrolled up
+(tap it to jump back down). `stickToBottom` (default `true`) opts out of the
+auto-scroll. Provide a real `keyExtractor` so the recycler tracks messages.
+
+```tsx
+<List
+  items={messages.value}
+  keyExtractor={(m) => m.id}
+  estimatedItemSize={56}
+  inverted
+  style={{ flexGrow: 1 }}
+  renderItem={(m) => <MessageBubble message={m} />}
+  slots={{ newMessages: ({ count }) => <Pill>{count} new ↓</Pill> }}
+/>
+```
 
 ## Props
 
@@ -96,19 +136,22 @@ is present. (A header/footer-aware scroll-to-bottom ships with chat mode.)
 | `itemSnap` | `'start' \| 'center' \| 'end' \| 'none'` | Paginated snap. |
 | `onEndReachedThreshold` | `number` | Items-from-end to fire `onEndReached`. |
 | `onStartReachedThreshold` | `number` | Items-from-start to fire `onStartReached`. |
+| `loadingMore` | `boolean` | Show a trailing loading cell (infinite scroll). |
+| `refreshing` | `boolean` | Controlled pull-to-refresh state; passing it opts in (vertical only). |
+| `pullThreshold` | `number` | Pull distance (px) that triggers a refresh. Default 64. |
+| `inverted` | `boolean` | Chat mode: bottom-anchored + stick-to-bottom (vertical only). |
+| `stickToBottom` | `boolean` | In chat mode, auto-scroll on new items when at the bottom. Default `true`. |
 | `mtRef` | `ListRef` | Capture the native element for `ListMethods`. |
 | `class` / `style` | — | Applied to the measuring wrapper. |
 
-**Events:** `onEndReached`, `onStartReached`, `onScroll({ offset })`.
-**Slots:** `header`, `footer`, `empty`.
+**Events:** `onEndReached`, `onStartReached`, `onScroll({ offset })`, `onRefresh`.
+**Slots:** `header`, `footer`, `empty`, `refresh`, `newMessages({ count })`.
 
 ## Roadmap
 
-This is the core feed-mode list. Coming in follow-up releases:
-
-- **Pull-to-refresh + infinite load-more** with customizable indicators.
-- **Chat mode** — bottom-anchored, stick-to-bottom, load-older-on-scroll-up.
-- **Windowing** for WhatsApp-scale message histories.
+- **Windowing** for WhatsApp-scale message histories (load-older-on-scroll-up
+  with prepend anchoring).
+- **Lazy runtime virtualization** so off-screen cells aren't eagerly built.
 
 ## License
 

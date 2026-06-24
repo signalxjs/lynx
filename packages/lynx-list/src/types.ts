@@ -81,6 +81,22 @@ export type ListProps<T = unknown> =
    * when provided, else a default row.
    */
   & Define.Prop<'loadingMore', boolean, false>
+  /**
+   * Chat / bottom-anchored mode. Renders items in natural order (oldest →
+   * newest) but first-paints already scrolled to the bottom (the newest
+   * message), and — unless `stickToBottom` is `false` — auto-scrolls to the
+   * bottom when new items arrive while you're already at the bottom; if you've
+   * scrolled up, it surfaces the `newMessages` affordance instead. Vertical
+   * lists only. (Windowing for very long histories + load-older lands in a
+   * follow-up; this mode is correctness of bottom-anchoring.)
+   */
+  & Define.Prop<'inverted', boolean, false>
+  /**
+   * In chat mode (`inverted`), stick to the bottom when new items arrive while
+   * already scrolled to the bottom. Default `true`. Set `false` to never
+   * auto-scroll (new items always go to the unread affordance when off-screen).
+   */
+  & Define.Prop<'stickToBottom', boolean, false>
   /** Capture the native `<list>` element for imperative scrolling. */
   & Define.Prop<'mtRef', ListRef, false>
   /** Class applied to the measuring wrapper that sizes the list. */
@@ -98,6 +114,13 @@ export type ListProps<T = unknown> =
    * Defaults to a simple "Refreshing…" row. Requires the `refreshing` prop.
    */
   & Define.Slot<'refresh'>
+  /**
+   * Chat-mode "new messages" affordance, shown floating at the bottom when
+   * messages arrive while you're scrolled up. Receives the unread `count`;
+   * tapping it scrolls to the bottom and clears the count. Defaults to a
+   * simple pill. Requires `inverted`.
+   */
+  & Define.Slot<'newMessages', { count: number }>
   /** Emitted when scrolling reaches the end (bottom / right edge). */
   & Define.Event<'endReached', void>
   /** Emitted when scrolling reaches the start (top / left edge). */

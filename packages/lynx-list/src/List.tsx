@@ -13,6 +13,7 @@ import {
   type MainThread,
 } from '@sigx/lynx';
 import type { ListProps } from './types.js';
+import { SCROLL_METHOD } from './methods.js';
 
 // Reserved item-keys for the optional header/footer/loading cells. Prefixed so
 // they never collide with a consumer's keyExtractor output.
@@ -50,6 +51,12 @@ type ScrollDetail = { detail?: { scrollTop?: number; scrollLeft?: number } };
  * ## Load-more
  * `onEndReached` fires once per edge-hit (de-duped until you scroll back up or
  * new items arrive). Set `loadingMore` to show a trailing loading cell.
+ *
+ * ## Chat mode
+ * Pass `inverted` for a bottom-anchored chat: items render oldest→newest, the
+ * first paint is already scrolled to the newest (opacity-gated to hide the
+ * jump), and new items stick to the bottom while you're there — or surface the
+ * `newMessages` affordance when you've scrolled up. Vertical-only.
  *
  * @example
  * ```tsx
@@ -203,6 +210,92 @@ const ListImpl = component<ListProps>(({ props, slots, emit }) => {
     if (refreshEnabled) void syncRefreshing(r);
   });
 
+  // ── Chat / bottom-anchored mode ───────────────────────────────────────────
+  // Natural order (oldest→newest), first-painted at the bottom, optionally
+  // sticking to the bottom as new items arrive (else surfacing an unread
+  // affordance). Vertical-only; opting in = passing `inverted`.
+  const chatEnabled = (props.inverted ?? false) && !(props.horizontal ?? false);
+  const stickToBottom = props.stickToBottom ?? true;
+
+  // Our own ref to the <list> for the auto-scroll worklets; reuses the
+  // consumer's `mtRef` when they passed one (same element, one binding).
+  const ownListRef = useMainThreadRef<MainThread.Element | null>(null);
+  const listRef = props.mtRef ?? ownListRef;
+
+  // BG state: `ready` gates the opacity reveal until the first scroll-to-bottom
+  // lands; `atBottom`/`unreadCount` drive stick-to-bottom + the affordance.
+  const ready = signal(!chatEnabled);
+  const atBottom = signal(true);
+  const unreadCount = signal(0);
+
+  // Total rendered cells = header + items + trailing(footer/loading). The last
+  // cell index is the scroll-to-bottom target (correct whether or not a footer
+  // sits below the newest item).
+  const totalCells = (): number =>
+    (slots.header ? 1 : 0) + props.items.length + (props.loadingMore || slots.footer ? 1 : 0);
+
+  // Scroll the <list> to its last cell on MT. method/lastIndex/smooth are passed
+  // as args — worklet `_c` capture doesn't carry imported function refs, and the
+  // module constant is passed explicitly to stay on the safe side.
+  const scrollToBottomMT = runOnMainThread((lastIndex: number, smooth: boolean, method: string) => {
+    'main thread';
+    const el = listRef.current;
+    if (!el || lastIndex < 0) return;
+    const p = el.invoke(method, { position: lastIndex, alignTo: 'bottom', offset: 0, smooth });
+    if (p && typeof p.catch === 'function') p.catch(() => {});
+  });
+
+  // First paint: jump to the bottom (MT, scroll-only) once the wrapper has a
+  // real height, then reveal a frame or two later so the jump has landed (the
+  // opacity gate hides the "starts at top" flash until then).
+  let firstScrollDone = false;
+  const firstScrollMT = runOnMainThread((lastIndex: number, method: string) => {
+    'main thread';
+    const el = listRef.current;
+    if (!el || lastIndex < 0) return;
+    const p = el.invoke(method, { position: lastIndex, alignTo: 'bottom', offset: 0, smooth: false });
+    if (p && typeof p.catch === 'function') p.catch(() => {});
+  });
+  effect(() => {
+    const h = layout.value?.height ?? 0;
+    if (!chatEnabled || firstScrollDone) return;
+    if (h > 0 && props.items.length > 0) {
+      firstScrollDone = true;
+      void firstScrollMT(totalCells() - 1, SCROLL_METHOD);
+      // Reveal on the BG side: the MT worklet can't call back here without
+      // runOnBackground (which needs a real worklet host), so we time the
+      // reveal to roughly when the jump lands. Exact timing is device-tunable
+      // (see the PR notes on first-paint flash).
+      const g = globalThis as Record<string, unknown>;
+      const raf = g['requestAnimationFrame'] as ((cb: () => void) => void) | undefined;
+      const st = g['setTimeout'] as ((cb: () => void, ms: number) => unknown) | undefined;
+      const reveal = (): void => { ready.value = true; };
+      if (raf) raf(() => { raf(reveal); });
+      else if (st) st(reveal, 32);
+      else reveal();
+    }
+  });
+
+  // Stick-to-bottom / unread: when the item count grows, either follow the
+  // bottom (already there) or bump the unread count (scrolled up).
+  let chatPrevCount = props.items.length;
+  effect(() => {
+    const count = props.items.length;
+    if (chatEnabled && firstScrollDone && count > chatPrevCount) {
+      const added = count - chatPrevCount;
+      if (stickToBottom && atBottom.value) void scrollToBottomMT(totalCells() - 1, true, SCROLL_METHOD);
+      else unreadCount.value += added;
+    }
+    chatPrevCount = count;
+  });
+
+  // Tap the unread affordance → scroll to bottom + clear.
+  const onUnreadTap = (): void => {
+    void scrollToBottomMT(totalCells() - 1, true, SCROLL_METHOD);
+    atBottom.value = true;
+    unreadCount.value = 0;
+  };
+
   // ── Load-more de-dup (BG; persists across renders since setup runs once) ──
   let endReachedFired = false;
   let lastTop = 0;
@@ -226,6 +319,9 @@ const ListImpl = component<ListProps>(({ props, slots, emit }) => {
     const listStyle: Record<string, string | number> = horizontal
       ? { width: mainAxisPx, height: '100%' }
       : { height: mainAxisPx, width: '100%' };
+    // Chat mode: stay invisible until the first scroll-to-bottom lands so the
+    // initial frame doesn't flash at the top.
+    if (chatEnabled && !ready.value) listStyle.opacity = 0;
 
     const keyOf = props.keyExtractor;
     const typeOf = props.itemType;
@@ -258,7 +354,7 @@ const ListImpl = component<ListProps>(({ props, slots, emit }) => {
         scroll-orientation={horizontal ? 'horizontal' : 'vertical'}
         list-type={props.listType ?? 'single'}
         span-count={props.numColumns ?? 1}
-        main-thread:ref={props.mtRef}
+        main-thread:ref={chatEnabled ? listRef : props.mtRef}
         // Spread optional attrs only when set — an `undefined` prop is
         // serialized as a native `null` attribute write (no skip in
         // patchProp), which would clobber the native default.
@@ -286,6 +382,11 @@ const ListImpl = component<ListProps>(({ props, slots, emit }) => {
             endReachedFired = true;
             emit('endReached');
           }
+          // Chat: reaching the bottom clears the unread affordance.
+          if (chatEnabled) {
+            atBottom.value = true;
+            unreadCount.value = 0;
+          }
         }}
         bindscrolltoupper={() => {
           endReachedFired = false;
@@ -295,8 +396,12 @@ const ListImpl = component<ListProps>(({ props, slots, emit }) => {
           const d = e?.detail;
           if (!d) return;
           const top = (horizontal ? d.scrollLeft : d.scrollTop) ?? 0;
-          // Scrolled back up away from the end → re-arm onEndReached.
-          if (top < lastTop - 4) endReachedFired = false;
+          // Scrolled back up away from the end → re-arm onEndReached, and (chat)
+          // mark not-at-bottom so new messages surface the affordance.
+          if (top < lastTop - 4) {
+            endReachedFired = false;
+            if (chatEnabled) atBottom.value = false;
+          }
           lastTop = top;
           emit('scroll', { offset: top });
         }}
@@ -328,6 +433,48 @@ const ListImpl = component<ListProps>(({ props, slots, emit }) => {
     let body: unknown;
     if (showEmpty) {
       body = slots.empty?.();
+    } else if (chatEnabled) {
+      // Chat: the list fills the wrapper; the unread affordance floats at the
+      // bottom when messages arrived while scrolled up.
+      const showUnread = unreadCount.value > 0 && !atBottom.value;
+      body = (
+        <view style={{ height: '100%', position: 'relative' }}>
+          {listEl}
+          {showUnread && (
+            <view
+              bindtap={onUnreadTap}
+              style={{
+                position: 'absolute',
+                bottom: '12px',
+                left: 0,
+                right: 0,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              {slots.newMessages
+                ? slots.newMessages({ count: unreadCount.value })
+                : (
+                  <view
+                    style={{
+                      paddingTop: '6px',
+                      paddingBottom: '6px',
+                      paddingLeft: '14px',
+                      paddingRight: '14px',
+                      borderRadius: '16px',
+                      background: '#2563eb',
+                    }}
+                  >
+                    <text style={{ color: '#ffffff', fontSize: '13px' }}>
+                      {`${unreadCount.value} new ↓`}
+                    </text>
+                  </view>
+                )}
+            </view>
+          )}
+        </view>
+      );
     } else if (refreshEnabled) {
       // Content wrapper is translated down by `pull`; the indicator sits one
       // threshold above it (hidden) and is revealed as the pull grows.
