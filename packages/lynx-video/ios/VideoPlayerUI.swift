@@ -24,7 +24,7 @@ import Lynx
 ///   - `bindend`       → playback finished
 ///   - `binderror`     → load / playback failure
 ///   - `bindtimeupdate` → ~4×/sec position broadcast
-///   - `bindstatechange` → playing | paused | buffering | ended transitions
+///   - `bindvideostatechange` → playing | paused | buffering | ended transitions
 ///
 /// Imperative methods (`seek`, `getStatus`) are tracked as a v2 follow-up
 /// — they need the Lynx UIMethodInvoker surface that isn't wired through
@@ -317,13 +317,13 @@ public class VideoPlayerUI: LynxUI<UIView> {
             switch player.timeControlStatus {
             case .playing:
                 self.reachedEnd = false
-                self.fireEvent("statechange", params: ["state": "playing", "positionMs": positionMs])
+                self.fireEvent("videostatechange", params: ["state": "playing", "positionMs": positionMs])
             case .waitingToPlayAtSpecifiedRate:
-                self.fireEvent("statechange", params: ["state": "buffering", "positionMs": positionMs])
+                self.fireEvent("videostatechange", params: ["state": "buffering", "positionMs": positionMs])
             case .paused:
                 // The end-of-clip pause is reported as `ended` instead.
                 if !self.reachedEnd {
-                    self.fireEvent("statechange", params: ["state": "paused", "positionMs": positionMs])
+                    self.fireEvent("videostatechange", params: ["state": "paused", "positionMs": positionMs])
                 }
             @unknown default:
                 break
@@ -418,7 +418,7 @@ public class VideoPlayerUI: LynxUI<UIView> {
             return
         }
         let positionMs = msFromSeconds(CMTimeGetSeconds(player?.currentItem?.duration ?? .zero))
-        fireEvent("statechange", params: ["state": "ended", "positionMs": positionMs])
+        fireEvent("videostatechange", params: ["state": "ended", "positionMs": positionMs])
         fireEvent("end", params: [:])
     }
 
