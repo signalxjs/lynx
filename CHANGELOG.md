@@ -4,12 +4,17 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 ## [Unreleased]
 
+### Fixed
+
+- `@sigx/lynx-video` — Android: `<video-player>` crashed on mount (`createUI catch error … ExoPlayerImpl.addListener`, surfaced to the app as Lynx's `Insertion (new) failed due to unknown child signature`). `LynxUI`'s super constructor calls `createView()` before the subclass's property initializers run, so the `playerListener` field was still `null` when `createView` registered it on ExoPlayer (whose `addListener` rejects null). Build the listener in a function and seed the player with explicit defaults instead (#537).
+- `@sigx/lynx-video` — the `onStateChange` event never reached JS handlers on either platform: `statechange` is a reserved event name in the Lynx engine, so custom `bind` handlers for it were silently dropped (sibling events `load` / `timeupdate` / `end` / `error` were unaffected). Renamed the underlying wire event `statechange` → `videostatechange`; the public `onStateChange` prop is unchanged (#539).
+
 ## [0.10.0] - 2026-06-23
 
 ### Added
 
 - `@sigx/lynx-cli` — first-class **build variants**: a `variants` map in `signalx.config.ts` and a `--variant <name>` flag (or `SIGX_VARIANT`) on `prebuild` / `build` / `run:android` / `run:ios` / `dev`, so a dev/staging/preview build installs **alongside** the production app instead of overwriting it. Each variant is a deep-partial config override plus convenience fields (`idSuffix`, `nameSuffix`, `schemeSuffix`, `extends`, `release`, `iconBadge`); `resolveConfig` deep-merges it and auto-suffixes the app id / display name / deep-link scheme, with per-variant output dirs (`android-<name>/`, `ios-<name>/`). Extras: automatic iOS signing for non-release variants, OTA channel auto-bind, an auto launcher-icon badge, and a runtime `variant` / `isVariant()` / `isBaseBuild()` flag (`__SIGX_VARIANT__`, also exposed natively). Base builds (no flag) are byte-for-byte unchanged (#531).
-- `@sigx/lynx-video` — `<VideoPlayer>` gains a `startTime` prop (a one-shot initial seek in seconds applied before the first play, for resume / deep-link into a clip) and an `onStateChange` event (`bindstatechange`) firing `playing` / `paused` / `buffering` / `ended` transitions with `{ state, positionMs }`, surfacing OS- and controls-driven pauses the declarative `playing` prop can't observe. New exports: `VideoPlaybackState`, `VideoStateChangeEvent`, `VideoStateChangeEventDetail` (#532).
+- `@sigx/lynx-video` — `<VideoPlayer>` gains a `startTime` prop (a one-shot initial seek in seconds applied before the first play, for resume / deep-link into a clip) and an `onStateChange` event (`bindvideostatechange`) firing `playing` / `paused` / `buffering` / `ended` transitions with `{ state, positionMs }`, surfacing OS- and controls-driven pauses the declarative `playing` prop can't observe. New exports: `VideoPlaybackState`, `VideoStateChangeEvent`, `VideoStateChangeEventDetail` (#532).
 
 ## [0.9.2] - 2026-06-22
 

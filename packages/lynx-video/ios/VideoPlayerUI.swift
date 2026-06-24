@@ -307,7 +307,7 @@ public class VideoPlayerUI: LynxUI<UIView> {
         self.didEmitLoad = false
         self.reachedEnd = false
 
-        // KVO on timeControlStatus — emit a `statechange` whenever playback
+        // KVO on timeControlStatus — emit a `videostatechange` whenever playback
         // transitions between playing / paused / buffering. This surfaces
         // pauses driven by the system controls overlay or OS interruptions
         // that the declarative `playing` prop can't observe.

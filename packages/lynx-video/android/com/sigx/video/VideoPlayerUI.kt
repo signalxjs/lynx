@@ -98,6 +98,8 @@ class VideoPlayerUI(context: LynxContext) : LynxUI<PlayerView>(context) {
         view.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
 
         val player = ExoPlayer.Builder(context).build()
+        player.volume = 1f
+        player.repeatMode = Player.REPEAT_MODE_OFF
         player.addListener(makePlayerListener())
         view.player = player
         exoPlayer = player
