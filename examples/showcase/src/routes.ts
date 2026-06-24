@@ -14,6 +14,7 @@ import { Icons } from './screens/Icons.js';
 import { SystemBars } from './screens/SystemBars.js';
 import { SheetDemo } from './screens/SheetDemo.js';
 import { ListDemo } from './screens/ListDemo.js';
+import { ChatDemo } from './screens/ChatDemo.js';
 // Gestures & Motion
 import { SpringLab } from './screens/gestures/SpringLab.js';
 import { DragSnapDemo } from './screens/gestures/DragSnapDemo.js';
@@ -75,6 +76,7 @@ export const routes = defineRoutes({
 
     // UI & Theming
     listDemo: { component: ListDemo, path: '/list' },
+    chatDemo: { component: ChatDemo, path: '/chat' },
     appearance: { component: Appearance, path: '/appearance' },
     theming: { component: Theming, path: '/theming' },
     herouiLab: { component: HeroUILab, path: '/heroui-lab' },
