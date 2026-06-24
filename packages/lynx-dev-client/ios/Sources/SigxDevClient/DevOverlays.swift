@@ -42,6 +42,10 @@ public final class DevLifecycleClient: NSObject, LynxViewLifecycle {
     /// timing dictionary merge into one HUD view.
     private var metrics: [String: Double] = [:]
 
+    /// Last URL the LynxView finished loading — used to derive the dev-server
+    /// endpoint when mirroring errors to the `sigx dev` terminal.
+    private var lastLoadedUrl: String?
+
     public init(
         onLoadingChange: @escaping (Bool) -> Void,
         onError: @escaping (String) -> Void,
@@ -62,6 +66,7 @@ public final class DevLifecycleClient: NSObject, LynxViewLifecycle {
         onMain { self.onLoadingChange(true) }
     }
     public func lynxView(_ view: LynxView!, didLoadFinishedWithUrl url: String!) {
+        lastLoadedUrl = url
         onMain { self.onLoadingChange(false) }
     }
     public func lynxViewDidFirstScreen(_ view: LynxView!) {
@@ -79,6 +84,9 @@ public final class DevLifecycleClient: NSObject, LynxViewLifecycle {
             return
         }
         NSLog("[sigx-dev] Lynx error: %@", message)
+        // Mirror the error to the `sigx dev` terminal so it isn't trapped on the
+        // red screen. Fire-and-forget; deduped server-side against the JS path.
+        DevServerReporter.report(bundleUrl: lastLoadedUrl, message: message)
         onMain {
             self.onLoadingChange(false)
             self.onError(message)
