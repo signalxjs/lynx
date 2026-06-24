@@ -4,6 +4,11 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 ## [Unreleased]
 
+### Added
+
+- `@sigx/lynx-camera` — **video recording**: `Camera.recordVideo(options?: CameraVideoOptions): Promise<VideoResult>` opens the system camera in video mode and returns the recorded clip's URI (`file://` on iOS, `content://` on Android), loadable directly by `@sigx/lynx-video`. iOS uses `UIImagePickerController` movie mode (honoring `maxDurationMs` via `videoMaximumDuration` and `facing` via `cameraDevice`); Android uses an `ACTION_VIDEO_CAPTURE` launcher wired through `@sigx/lynx-permissions`' `MediaCapture`. New exports: `CameraVideoOptions`, `VideoResult`. The cross-platform "photo or video" choice is an app-level chooser (see the showcase's `MediaCaptureCard`); a single in-camera toggle is iOS-only at the system level (#541).
+- `examples/showcase` — the **Media** screen gains a WhatsApp-style "Capture or pick" card (`MediaCaptureCard`) whose one button fans out to Take Photo, Record Video, Pick Photo, and Pick Video — surfacing camera capture and the already-existing `ImagePicker.pickVideo` library video picker (#541).
+
 ## [0.10.0] - 2026-06-23
 
 ### Added

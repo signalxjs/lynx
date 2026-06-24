@@ -1,5 +1,5 @@
 # @sigx/lynx-camera
-Photo capture via the system camera for sigx-lynx. iOS uses `UIImagePickerController`; Android uses an `ACTION_IMAGE_CAPTURE` intent fed by a `FileProvider` URI (the cache-path is wired by the app template's manifest).
+Photo & video capture via the system camera for sigx-lynx. iOS uses `UIImagePickerController`; Android uses an `ACTION_IMAGE_CAPTURE` / `ACTION_VIDEO_CAPTURE` intent fed by a `FileProvider` URI (the cache-path is wired by the app template's manifest).
 
 ## 📚 Documentation
 
@@ -32,15 +32,22 @@ const { status } = await Camera.requestPermission();
 if (status === 'granted') {
     const photo = await Camera.takePicture({ quality: 0.8, facing: 'back' });
     console.log(photo.uri, photo.width, photo.height);
+
+    // Record a clip — the returned URI loads directly in @sigx/lynx-video.
+    const clip = await Camera.recordVideo({ maxDurationMs: 30_000 });
+    console.log(clip.uri, clip.durationMs);
 }
 ```
 ## API
 | Method                                                    | Notes                                                                                                                |
 | --------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| `takePicture(options?: CameraOptions): Promise<PhotoResult>` | Opens the system camera. Returns the captured photo's file URI + dimensions. Throws if cancelled or denied.       |
+| `takePicture(options?: CameraOptions): Promise<PhotoResult>` | Opens the system camera in photo mode. Returns the captured photo's file URI + dimensions.                        |
+| `recordVideo(options?: CameraVideoOptions): Promise<VideoResult>` | Opens the system camera in video mode. Returns the recorded clip's URI (`file://` on iOS, `content://` on Android) loadable by `@sigx/lynx-video`. |
 | `requestPermission(): Promise<PermissionResponse>`        | Shows the OS permission dialog if needed. Re-call to surface the dialog again on first denial.                       |
 | `getPermissionStatus(): Promise<PermissionResponse>`      | Read-only check — no prompt.                                                                                         |
 | `isAvailable(): boolean`                                  | Whether the native module is registered in the current build.                                                        |
+
+On cancel, both `takePicture` and `recordVideo` resolve with `{ cancelled: true }` (no `uri`) — check `result.uri` before using it.
 ```ts
 interface CameraOptions {
     facing?: 'front' | 'back';   // default: 'back'
@@ -54,7 +61,20 @@ interface PhotoResult {
     height: number;
     base64?: string;    // populated only if requested
 }
+interface CameraVideoOptions {
+    facing?: 'front' | 'back';   // default: 'back'
+    maxDurationMs?: number;      // iOS only — Android's intent has no duration cap
+}
+interface VideoResult {
+    uri: string;          // file:// (iOS) or content:// (Android)
+    durationMs?: number;  // reported where the platform provides it
+    width?: number;
+    height?: number;
+    fileSize?: number;
+}
 ```
 ## Gotchas
 - **Android FileProvider** — the auto-injected `<provider>` in the app template's `AndroidManifest.xml` exposes the cache directory under `${applicationId}.fileprovider`. If you customize the manifest, keep that authority intact or the camera intent won't have a valid write target.
-- **iOS simulator camera** — the simulator has a synthetic camera feed, not a real one. Test capture on a physical device.
+- **iOS simulator camera** — the simulator has no real camera, so `takePicture` / `recordVideo` report "Camera not available". Test capture on a physical device.
+- **`maxDurationMs` is iOS-only** — Android's `ACTION_VIDEO_CAPTURE` contract exposes no duration cap, so the option is ignored there.
+- **A single in-camera photo/video toggle** (one screen, switch mode in-camera) is iOS-only at the system level; Android has separate photo/video intents. Present your own chooser (Take Photo / Record Video) for a consistent cross-platform flow — see `examples/showcase`'s `MediaCaptureCard`. An iOS-native `capture({ mediaType: 'mixed' })` toggle may be added later.

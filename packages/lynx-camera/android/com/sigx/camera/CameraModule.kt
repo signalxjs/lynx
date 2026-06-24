@@ -34,6 +34,18 @@ class CameraModule(context: Context) : LynxModule(context) {
     }
 
     @LynxMethod
+    fun recordVideo(options: com.lynx.react.bridge.ReadableMap?, callback: Callback?) {
+        // Delegates to MediaCapture's CaptureVideo launcher (registered at
+        // MainActivity.onCreate). On success the JS callback receives
+        // { uri: "content://...", cancelled: false } pointing at an mp4 in the
+        // app's cacheDir. ACTION_VIDEO_CAPTURE has no duration/quality knobs, so
+        // CameraVideoOptions.maxDurationMs is honored on iOS only.
+        com.sigx.permissions.MediaCapture.recordVideo(mContext) { result ->
+            callback?.invoke(result)
+        }
+    }
+
+    @LynxMethod
     fun requestPermission(callback: Callback?) {
         PermissionHelper.requestPermission(mContext, "camera") { result ->
             callback?.invoke(result)

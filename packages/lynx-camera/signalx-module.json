@@ -6,7 +6,7 @@
     "ios": {
         "moduleClass": "CameraModule",
         "sourceDir": "ios",
-        "methods": ["takePicture","requestPermission","getPermissionStatus"],
+        "methods": ["takePicture","recordVideo","requestPermission","getPermissionStatus"],
         "usageDescriptions": {
             "NSCameraUsageDescription": "Allow camera access to take photos and videos.",
             "NSMicrophoneUsageDescription": "Allow microphone access to record video with audio.",

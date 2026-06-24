@@ -4,6 +4,7 @@ import Lynx
 
 /// Camera capture module.
 /// JS usage: NativeModules.Camera.takePicture({ quality: 0.8 }, callback)
+///           NativeModules.Camera.recordVideo({ maxDurationMs: 30000 }, callback)
 class CameraModule: NSObject, LynxModule, UIImagePickerControllerDelegate, UINavigationControllerDelegate {
 
     @objc static var name: String { "Camera" }
@@ -11,6 +12,7 @@ class CameraModule: NSObject, LynxModule, UIImagePickerControllerDelegate, UINav
     @objc static var methodLookup: [String: String] {
         [
             "takePicture": NSStringFromSelector(#selector(takePicture(_:callback:))),
+            "recordVideo": NSStringFromSelector(#selector(recordVideo(_:callback:))),
             "requestPermission": NSStringFromSelector(#selector(requestPermission(_:))),
             "getPermissionStatus": NSStringFromSelector(#selector(getPermissionStatus(_:))),
         ]
@@ -22,6 +24,16 @@ class CameraModule: NSObject, LynxModule, UIImagePickerControllerDelegate, UINav
     required init(param: Any) { super.init() }
 
     @objc func takePicture(_ options: [String: Any]?, callback: LynxCallbackBlock?) {
+        capture(options: options, video: false, callback: callback)
+    }
+
+    @objc func recordVideo(_ options: [String: Any]?, callback: LynxCallbackBlock?) {
+        capture(options: options, video: true, callback: callback)
+    }
+
+    /// Shared entry for photo (`takePicture`) and video (`recordVideo`):
+    /// availability + permission gate, then present the camera in the right mode.
+    private func capture(options: [String: Any]?, video: Bool, callback: LynxCallbackBlock?) {
         guard UIImagePickerController.isSourceTypeAvailable(.camera) else {
             callback?(["error": "Camera not available on this device"])
             return
@@ -32,7 +44,7 @@ class CameraModule: NSObject, LynxModule, UIImagePickerControllerDelegate, UINav
             if status == .notDetermined {
                 AVCaptureDevice.requestAccess(for: .video) { [weak self] granted in
                     if granted {
-                        self?.presentCamera(options: options, callback: callback)
+                        self?.presentCamera(options: options, video: video, callback: callback)
                     } else {
                         callback?(["error": "Camera permission denied"])
                     }
@@ -43,7 +55,7 @@ class CameraModule: NSObject, LynxModule, UIImagePickerControllerDelegate, UINav
             return
         }
 
-        presentCamera(options: options, callback: callback)
+        presentCamera(options: options, video: video, callback: callback)
     }
 
     @objc func requestPermission(_ callback: LynxCallbackBlock?) {
@@ -62,7 +74,7 @@ class CameraModule: NSObject, LynxModule, UIImagePickerControllerDelegate, UINav
         callback?(["status": permissionString(for: status)])
     }
 
-    private func presentCamera(options: [String: Any]?, callback: LynxCallbackBlock?) {
+    private func presentCamera(options: [String: Any]?, video: Bool, callback: LynxCallbackBlock?) {
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
             self.pendingCallback = callback
@@ -72,12 +84,33 @@ class CameraModule: NSObject, LynxModule, UIImagePickerControllerDelegate, UINav
             picker.delegate = self
             picker.allowsEditing = false
 
+            if video {
+                picker.mediaTypes = ["public.movie"]
+                picker.cameraCaptureMode = .video
+                if let ms = (options?["maxDurationMs"] as? NSNumber)?.doubleValue, ms > 0 {
+                    picker.videoMaximumDuration = ms / 1000.0
+                }
+            }
+
+            if let facing = options?["facing"] as? String {
+                let device: UIImagePickerController.CameraDevice = facing == "front" ? .front : .rear
+                if UIImagePickerController.isCameraDeviceAvailable(device) {
+                    picker.cameraDevice = device
+                }
+            }
+
             UIApplication.shared.windows.first?.rootViewController?.present(picker, animated: true)
         }
     }
 
     func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey: Any]) {
         picker.dismiss(animated: true)
+
+        // Video capture: the recorded clip arrives as a temp file URL.
+        if let mediaURL = info[.mediaURL] as? URL {
+            handleVideo(at: mediaURL)
+            return
+        }
 
         guard let image = info[.originalImage] as? UIImage else {
             pendingCallback?(["error": "Failed to capture image"])
@@ -106,6 +139,43 @@ class CameraModule: NSObject, LynxModule, UIImagePickerControllerDelegate, UINav
         } catch {
             pendingCallback?(["error": error.localizedDescription])
         }
+        pendingCallback = nil
+    }
+
+    /// Copy the picker's temp clip somewhere stable and report duration /
+    /// dimensions / size. The URL handed to us may be cleared once the picker
+    /// is torn down, so we copy before returning.
+    private func handleVideo(at sourceURL: URL) {
+        let fileName = "camera_\(UUID().uuidString).mov"
+        let destPath = NSTemporaryDirectory() + fileName
+        let destURL = URL(fileURLWithPath: destPath)
+        do {
+            if FileManager.default.fileExists(atPath: destPath) {
+                try FileManager.default.removeItem(at: destURL)
+            }
+            try FileManager.default.copyItem(at: sourceURL, to: destURL)
+        } catch {
+            pendingCallback?(["error": error.localizedDescription])
+            pendingCallback = nil
+            return
+        }
+
+        var result: [String: Any] = ["uri": destPath]
+        let asset = AVURLAsset(url: destURL)
+        let durationSeconds = CMTimeGetSeconds(asset.duration)
+        if durationSeconds.isFinite && durationSeconds > 0 {
+            result["durationMs"] = Int(durationSeconds * 1000)
+        }
+        if let track = asset.tracks(withMediaType: .video).first {
+            let size = track.naturalSize.applying(track.preferredTransform)
+            result["width"] = Int(abs(size.width))
+            result["height"] = Int(abs(size.height))
+        }
+        if let attrs = try? FileManager.default.attributesOfItem(atPath: destPath),
+           let bytes = (attrs[.size] as? NSNumber)?.intValue {
+            result["fileSize"] = bytes
+        }
+        pendingCallback?(result)
         pendingCallback = nil
     }
 
