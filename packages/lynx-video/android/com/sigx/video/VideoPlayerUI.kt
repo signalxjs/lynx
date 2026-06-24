@@ -39,7 +39,7 @@ import com.lynx.tasm.event.LynxDetailEvent
  *   - `bindend`       → playback finished
  *   - `binderror`     → load / playback failure
  *   - `bindtimeupdate` → ~4×/sec position broadcast
- *   - `bindstatechange` → playing | paused | buffering | ended transitions
+ *   - `bindvideostatechange` → playing | paused | buffering | ended transitions
  *
  * Imperative methods (`seek`, `getStatus`) are tracked as a v2 follow-up
  * — same UIMethodInvoker blocker as `WebView`/`Map`. Drive playback
@@ -56,16 +56,15 @@ class VideoPlayerUI(context: LynxContext) : LynxUI<PlayerView>(context) {
     private val handler = Handler(Looper.getMainLooper())
     private var didEmitLoad = false
 
-    // Pending prop values applied either at createView() time or once the
-    // player transitions to STATE_READY (autoplay, playing, muted, volume).
-    private var pendingSrc: String? = null
+    // Prop values that can't be applied immediately — they're consumed once the
+    // player transitions to STATE_READY (autoplay/playing/start-time) or are
+    // read by a sibling setter (muted ↔ volume). Props that can be applied
+    // straight to the view/player (controls, resize-mode, loop, src) do so in
+    // their setters and need no pending field.
     private var pendingAutoplay = false
     private var pendingPlaying: Boolean? = null
-    private var pendingLoop = false
     private var pendingMuted = false
     private var pendingVolume = 1f
-    private var pendingControls = false
-    private var pendingResizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
     private var pendingStartTimeMs: Long? = null
 
     private val timeUpdateRunnable = object : Runnable {
@@ -82,18 +81,28 @@ class VideoPlayerUI(context: LynxContext) : LynxUI<PlayerView>(context) {
     }
 
     override fun createView(context: Context): PlayerView {
+        // NB: LynxUI's super constructor calls createView() BEFORE this class's
+        // property initializers run, so the `pending*` fields and any instance
+        // object fields are NOT yet initialized here — reading them yields JVM
+        // defaults (null / 0 / false). Reading the old `playerListener` property
+        // as null and calling `player.addListener(null)` is what threw inside
+        // ExoPlayer (Assertions.checkNotNull) and aborted UI creation, surfacing
+        // as Lynx's "Insertion failed due to unknown child signature: <n>". So:
+        // build the listener via a function (always callable) and seed the
+        // view/player with explicit defaults. The prop setters — which Lynx
+        // invokes after createView, once the fields are initialized — apply the
+        // real values. These defaults match the field initializers (no controls,
+        // resize=fit, volume=1.0, no loop), so an unset prop still behaves right.
         val view = PlayerView(context)
-        view.useController = pendingControls
-        view.resizeMode = pendingResizeMode
+        view.useController = false
+        view.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
 
         val player = ExoPlayer.Builder(context).build()
-        player.volume = if (pendingMuted) 0f else pendingVolume
-        player.repeatMode = if (pendingLoop) Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_OFF
-        player.addListener(playerListener)
+        player.volume = 1f
+        player.repeatMode = Player.REPEAT_MODE_OFF
+        player.addListener(makePlayerListener())
         view.player = player
         exoPlayer = player
-
-        pendingSrc?.let { loadSource(it) }
         return view
     }
 
@@ -104,7 +113,11 @@ class VideoPlayerUI(context: LynxContext) : LynxUI<PlayerView>(context) {
         exoPlayer = null
     }
 
-    private val playerListener = object : Player.Listener {
+    // Built lazily via a function (not a property) so createView() can construct
+    // it during the super constructor — see the note in createView(). The
+    // callbacks below only run during playback, long after the instance fields
+    // (exoPlayer, handler, timeUpdateRunnable, didEmitLoad) are initialized.
+    private fun makePlayerListener() = object : Player.Listener {
         override fun onPlaybackStateChanged(state: Int) {
             when (state) {
                 Player.STATE_READY -> {
@@ -129,13 +142,13 @@ class VideoPlayerUI(context: LynxContext) : LynxUI<PlayerView>(context) {
                 }
                 Player.STATE_BUFFERING -> {
                     val pos = exoPlayer?.currentPosition?.coerceAtLeast(0L) ?: 0L
-                    fireEvent("statechange", mapOf("state" to "buffering", "positionMs" to pos))
+                    fireEvent("videostatechange", mapOf("state" to "buffering", "positionMs" to pos))
                 }
                 Player.STATE_ENDED -> {
                     // ExoPlayer.REPEAT_MODE_ONE handles looping natively, so
                     // reaching STATE_ENDED means we truly finished.
                     val pos = exoPlayer?.currentPosition?.coerceAtLeast(0L) ?: 0L
-                    fireEvent("statechange", mapOf("state" to "ended", "positionMs" to pos))
+                    fireEvent("videostatechange", mapOf("state" to "ended", "positionMs" to pos))
                     fireEvent("end", emptyMap())
                 }
                 else -> {}
@@ -147,7 +160,7 @@ class VideoPlayerUI(context: LynxContext) : LynxUI<PlayerView>(context) {
             val player = exoPlayer ?: return
             val pos = player.currentPosition.coerceAtLeast(0L)
             if (isPlaying) {
-                fireEvent("statechange", mapOf("state" to "playing", "positionMs" to pos))
+                fireEvent("videostatechange", mapOf("state" to "playing", "positionMs" to pos))
                 handler.postDelayed(timeUpdateRunnable, TIME_UPDATE_INTERVAL_MS)
             } else if (player.playbackState == Player.STATE_READY) {
                 // Only emit `paused` for a genuine pause. ExoPlayer also drops
@@ -155,7 +168,7 @@ class VideoPlayerUI(context: LynxContext) : LynxUI<PlayerView>(context) {
                 // end-of-clip (STATE_ENDED); those transitions are reported as
                 // `buffering` / `ended` via onPlaybackStateChanged, so gating
                 // on STATE_READY here avoids a spurious `paused` around them.
-                fireEvent("statechange", mapOf("state" to "paused", "positionMs" to pos))
+                fireEvent("videostatechange", mapOf("state" to "paused", "positionMs" to pos))
             }
         }
 
@@ -181,7 +194,6 @@ class VideoPlayerUI(context: LynxContext) : LynxUI<PlayerView>(context) {
             // otherwise a re-render that drops `src` would keep the
             // previous clip playing. We stop the timer loop and clear
             // any pending media item.
-            pendingSrc = null
             didEmitLoad = false
             handler.removeCallbacks(timeUpdateRunnable)
             exoPlayer?.let { player ->
@@ -190,8 +202,9 @@ class VideoPlayerUI(context: LynxContext) : LynxUI<PlayerView>(context) {
             }
             return
         }
-        pendingSrc = value
-        if (exoPlayer != null) loadSource(value)
+        // exoPlayer is created in createView() before any prop is applied;
+        // loadSource() no-ops safely if it were somehow absent.
+        loadSource(value)
     }
 
     @LynxProp(name = "poster")
@@ -224,7 +237,6 @@ class VideoPlayerUI(context: LynxContext) : LynxUI<PlayerView>(context) {
 
     @LynxProp(name = "loop")
     fun setLoop(value: Boolean) {
-        pendingLoop = value
         exoPlayer?.repeatMode = if (value) Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_OFF
     }
 
@@ -243,7 +255,6 @@ class VideoPlayerUI(context: LynxContext) : LynxUI<PlayerView>(context) {
 
     @LynxProp(name = "controls")
     fun setControls(value: Boolean) {
-        pendingControls = value
         mView.useController = value
     }
 
@@ -270,7 +281,6 @@ class VideoPlayerUI(context: LynxContext) : LynxUI<PlayerView>(context) {
             "stretch" -> AspectRatioFrameLayout.RESIZE_MODE_FILL
             else      -> AspectRatioFrameLayout.RESIZE_MODE_FIT
         }
-        pendingResizeMode = mode
         mView.resizeMode = mode
     }
 
