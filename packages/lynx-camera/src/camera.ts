@@ -4,13 +4,16 @@ import type { PermissionResponse } from '@sigx/lynx-core';
 const MODULE = 'Camera';
 
 export interface CameraOptions {
-    /** 'front' or 'back' camera */
+    /**
+     * 'front' or 'back' camera. **iOS only** — Android's system-camera intent
+     * ignores capture options; the user can still switch cameras in its UI.
+     */
     facing?: 'front' | 'back';
-    /** Image quality 0-1 */
+    /** Image quality 0-1. **iOS only** (see `facing`). */
     quality?: number;
-    /** Max width in pixels */
+    /** Max width in pixels. **iOS only** (see `facing`). */
     maxWidth?: number;
-    /** Max height in pixels */
+    /** Max height in pixels. **iOS only** (see `facing`). */
     maxHeight?: number;
 }
 
@@ -26,7 +29,10 @@ export interface PhotoResult {
 }
 
 export interface CameraVideoOptions {
-    /** 'front' or 'back' camera */
+    /**
+     * 'front' or 'back' camera. **iOS only** — Android's `ACTION_VIDEO_CAPTURE`
+     * intent ignores options; the user can still switch cameras in its UI.
+     */
     facing?: 'front' | 'back';
     /**
      * Max recording length in milliseconds. Honored on iOS

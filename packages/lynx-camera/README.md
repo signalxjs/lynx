@@ -59,7 +59,7 @@ camera, or **throws** on failure. Narrow on `result.uri` and wrap in `try/catch`
 | `isAvailable(): boolean`                                  | Whether the native module is registered in the current build.                                                        |
 
 ```ts
-interface CameraOptions {
+interface CameraOptions {       // all iOS-only — Android's intent ignores options
     facing?: 'front' | 'back';   // default: 'back'
     quality?: number;            // 0..1
     maxWidth?: number;           // pixels
@@ -71,7 +71,7 @@ interface PhotoResult {
     height: number;
     base64?: string;    // populated only if requested
 }
-interface CameraVideoOptions {
+interface CameraVideoOptions {  // all iOS-only — Android's intent ignores options
     facing?: 'front' | 'back';   // default: 'back'
     maxDurationMs?: number;      // iOS only — Android's intent has no duration cap
 }
@@ -90,5 +90,5 @@ interface CameraCancelled {
 ## Gotchas
 - **Android FileProvider** — the auto-injected `<provider>` in the app template's `AndroidManifest.xml` exposes the cache directory under `${applicationId}.fileprovider`. If you customize the manifest, keep that authority intact or the camera intent won't have a valid write target.
 - **iOS simulator camera** — the simulator has no real camera, so `takePicture` / `recordVideo` report "Camera not available". Test capture on a physical device.
-- **`maxDurationMs` is iOS-only** — Android's `ACTION_VIDEO_CAPTURE` contract exposes no duration cap, so the option is ignored there.
+- **Capture options are iOS-only** — Android delegates to the system camera intent, which ignores `CameraOptions` / `CameraVideoOptions` entirely (`facing`, `quality`, `maxWidth`/`maxHeight`, `maxDurationMs`). The user can still switch cameras in the system UI; just don't rely on `facing` to pick one programmatically on Android.
 - **A single in-camera photo/video toggle** (one screen, switch mode in-camera) is iOS-only at the system level; Android has separate photo/video intents. Present your own chooser (Take Photo / Record Video) for a consistent cross-platform flow — see `examples/showcase`'s `MediaCaptureCard`. An iOS-native `capture({ mediaType: 'mixed' })` toggle may be added later.
