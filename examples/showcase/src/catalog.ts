@@ -38,6 +38,13 @@ export const catalog: Area[] = [
         icon: { set: 'lucide', name: 'palette' },
         examples: [
             {
+                id: 'list',
+                title: 'List',
+                description: 'Virtualized feed over the native <list> recycler — grid, slots, infinite scroll',
+                icon: { set: 'lucide', name: 'list' },
+                route: 'listDemo',
+            },
+            {
                 id: 'appearance',
                 title: 'Appearance',
                 description: 'Global theme switching, dark toggle, follow-system',
