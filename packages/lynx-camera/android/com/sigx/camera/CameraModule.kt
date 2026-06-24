@@ -3,7 +3,6 @@ package com.sigx.camera
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
-import android.util.Log
 import com.lynx.jsbridge.LynxMethod
 import com.lynx.jsbridge.LynxModule
 import com.lynx.react.bridge.Callback
@@ -16,11 +15,6 @@ import com.sigx.permissions.PermissionHelper
  * JS usage: NativeModules.Camera.takePicture({ quality: 0.8 }, callback)
  */
 class CameraModule(context: Context) : LynxModule(context) {
-
-    companion object {
-        private const val TAG = "CameraModule"
-        const val REQUEST_IMAGE_CAPTURE = 9001
-    }
 
     @LynxMethod
     fun takePicture(options: com.lynx.react.bridge.ReadableMap?, callback: Callback?) {
