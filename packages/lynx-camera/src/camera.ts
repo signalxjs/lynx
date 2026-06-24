@@ -18,12 +18,14 @@ export interface CameraOptions {
 }
 
 export interface PhotoResult {
-    /** File URI of the captured photo */
+    /** File URI of the captured photo (`file://` on iOS, `content://` on Android) */
     uri: string;
-    /** Width in pixels */
-    width: number;
-    /** Height in pixels */
-    height: number;
+    /** Width in pixels (iOS only — Android's intent doesn't report dimensions) */
+    width?: number;
+    /** Height in pixels (iOS only — Android's intent doesn't report dimensions) */
+    height?: number;
+    /** File size in bytes (iOS only) */
+    fileSize?: number;
     /** Base64-encoded image data (if requested) */
     base64?: string;
 }
@@ -83,23 +85,30 @@ function normalizeUri(uri: string): string {
  *
  *  - **success** — a `{ uri, ... }` result, with the URI normalized to a scheme
  *    Lynx can load (iOS hands back a bare path; Android a `content://` URI).
- *  - **cancel** — the documented `{ cancelled: true }` shape. Android flags
- *    user-cancel and re-entrant pre-emption with `cancelled`-prefixed sentinels
- *    (`"cancelled"`, `"cancelled by new takePicture"`, …); we collapse those so
- *    callers never special-case them per platform.
+ *  - **cancel** — the documented `{ cancelled: true }` shape. Native flags
+ *    non-failure terminations with sentinel error strings: user-cancel and
+ *    re-entrant pre-emption are `cancelled`-prefixed (`"cancelled"`,
+ *    `"cancelled by new takePicture"`, …) and Activity teardown is
+ *    `"activity destroyed"`; we collapse all of these so callers never
+ *    special-case them per platform.
  *  - **failure** — throws. Genuine native errors (permission denied, camera
  *    unavailable, FileProvider misconfigured) arrive as `{ error }` on the
  *    resolved callback rather than a rejection; rethrow so callers can
  *    `try/catch` instead of inspecting an untyped error field.
  */
+function isCancelSentinel(error: string): boolean {
+    return error.startsWith('cancelled') || error === 'activity destroyed';
+}
+
 function settleCapture<T extends { uri: string }>(raw: unknown): T | CameraCancelled {
     const r = (raw ?? {}) as { uri?: unknown; error?: unknown };
     if (typeof r.uri === 'string') {
         return { ...(r as T), uri: normalizeUri(r.uri) };
     }
-    // Cancel/pre-emption sentinels all start with "cancelled"; any other error
-    // string is a genuine failure. Real failures never use that prefix.
-    if (typeof r.error === 'string' && !r.error.startsWith('cancelled')) {
+    // Sentinel error strings are non-failure terminations (cancel / pre-empt /
+    // teardown) → resolve as cancel; any other error string is a genuine
+    // failure → throw.
+    if (typeof r.error === 'string' && !isCancelSentinel(r.error)) {
         throw new Error(r.error);
     }
     return { cancelled: true };

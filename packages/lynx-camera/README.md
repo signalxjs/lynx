@@ -52,7 +52,7 @@ camera, or **throws** on failure. Narrow on `result.uri` and wrap in `try/catch`
 ## API
 | Method                                                    | Notes                                                                                                                |
 | --------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| `takePicture(options?: CameraOptions): Promise<PhotoResult \| CameraCancelled>` | Opens the system camera in photo mode. Resolves with the captured photo's URI + dimensions, or `{ cancelled: true }` on cancel; throws on failure. |
+| `takePicture(options?: CameraOptions): Promise<PhotoResult \| CameraCancelled>` | Opens the system camera in photo mode. Resolves with the captured photo's URI (plus dimensions where available — iOS only), or `{ cancelled: true }` on cancel; throws on failure. |
 | `recordVideo(options?: CameraVideoOptions): Promise<VideoResult \| CameraCancelled>` | Opens the system camera in video mode. Resolves with the recorded clip's URI (`file://` on iOS, `content://` on Android) loadable by `@sigx/lynx-video`, or `{ cancelled: true }` on cancel; throws on failure. |
 | `requestPermission(): Promise<PermissionResponse>`        | Shows the OS permission dialog if needed. Re-call to surface the dialog again on first denial.                       |
 | `getPermissionStatus(): Promise<PermissionResponse>`      | Read-only check — no prompt.                                                                                         |
@@ -67,8 +67,9 @@ interface CameraOptions {        // Android's intent ignores all of these
 }
 interface PhotoResult {
     uri: string;        // file:// (iOS) or content:// (Android)
-    width: number;
-    height: number;
+    width?: number;     // iOS only — Android's intent doesn't report dimensions
+    height?: number;    // iOS only
+    fileSize?: number;  // iOS only
     base64?: string;    // populated only if requested
 }
 interface CameraVideoOptions {  // all iOS-only — Android's intent ignores options

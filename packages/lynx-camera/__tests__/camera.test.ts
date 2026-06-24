@@ -61,6 +61,12 @@ describe('Camera.takePicture', () => {
         expect(result).toEqual({ cancelled: true });
     });
 
+    it('treats Activity teardown ("activity destroyed") as cancel, not failure', async () => {
+        bridge.callAsync.mockResolvedValueOnce({ cancelled: true, error: 'activity destroyed' });
+        const result = await Camera.takePicture();
+        expect(result).toEqual({ cancelled: true });
+    });
+
     it('throws on a native failure error', async () => {
         bridge.callAsync.mockResolvedValueOnce({ error: 'Camera not available on this device' });
         await expect(Camera.takePicture()).rejects.toThrow('Camera not available on this device');
