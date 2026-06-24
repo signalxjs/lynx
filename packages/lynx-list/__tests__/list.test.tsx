@@ -335,4 +335,59 @@ describe('List', () => {
     await act(() => { rows.value = [...rows.value, { id: 'd', text: 'Delta' }]; });
     expect(getByText(container, '1 new ↓')).toBeTruthy();
   });
+
+  // ── Windowing ────────────────────────────────────────────────────────────
+
+  const big = (n: number): Row[] =>
+    Array.from({ length: n }, (_, i) => ({ id: String(i), text: `m${i}` }));
+
+  it('windowing renders only a bounded slice of a large feed', async () => {
+    const { container } = render(
+      <List items={big(1000)} keyExtractor={(i) => i.id} renderItem={renderRow} windowSize={60} />,
+    );
+    await act(() => {});
+    const cells = getAllByType(container, 'list-item');
+    expect(cells.length).toBe(60);
+    // A feed anchors the window to the start.
+    expect(cells[0].props['item-key']).toBe('0');
+    expect(cells[59].props['item-key']).toBe('59');
+  });
+
+  it('without windowSize every item is rendered (no windowing)', () => {
+    const { container } = render(
+      <List items={big(200)} keyExtractor={(i) => i.id} renderItem={renderRow} />,
+    );
+    expect(getAllByType(container, 'list-item').length).toBe(200);
+  });
+
+  it('chat windowing anchors the initial window to the newest items', async () => {
+    const { container } = render(
+      <List items={big(1000)} keyExtractor={(i) => i.id} renderItem={renderRow} inverted windowSize={60} />,
+    );
+    await act(() => {});
+    const cells = getAllByType(container, 'list-item');
+    expect(cells.length).toBe(60);
+    expect(cells[0].props['item-key']).toBe('940');
+    expect(cells[59].props['item-key']).toBe('999');
+  });
+
+  it('scrolltoupper reveals an older page in a chat window', async () => {
+    const { container } = render(
+      <List
+        items={big(1000)}
+        keyExtractor={(i) => i.id}
+        renderItem={renderRow}
+        inverted
+        windowSize={60}
+        pageSize={30}
+      />,
+    );
+    await act(() => {});
+    const list = getByType(container, 'list');
+    expect(getAllByType(container, 'list-item').length).toBe(60);
+    await act(() => { list._handlers.get('bindscrolltoupper')!(); });
+    const cells = getAllByType(container, 'list-item');
+    expect(cells.length).toBe(90); // 60 + one page of 30 older
+    expect(cells[0].props['item-key']).toBe('910');
+  });
 });

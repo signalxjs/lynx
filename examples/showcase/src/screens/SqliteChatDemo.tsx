@@ -54,10 +54,29 @@ function chatDb(): Promise<SQLiteDatabase> {
         ]);
         const seeded = await db.execute<{ n: number }>('SELECT COUNT(*) AS n FROM messages');
         if ((seeded.rows[0]?.n ?? 0) === 0) {
-            await db.execute(
-                'INSERT INTO messages (author, body, sent_at) VALUES (?, ?, ?)',
-                ['bot', 'Welcome! Every message here lives in a local SQLite database.', Date.now()],
-            );
+            // Seed a large history so the windowed list has thousands of rows to
+            // page over — only a bounded slice is ever rendered as native cells.
+            const SEED = 2000;
+            const base = Date.now() - SEED * 1000;
+            const BATCH = 200;
+            for (let start = 0; start < SEED; start += BATCH) {
+                const n = Math.min(BATCH, SEED - start);
+                const tuples: string[] = [];
+                const params: (string | number)[] = [];
+                for (let k = 0; k < n; k++) {
+                    const i = start + k;
+                    tuples.push('(?, ?, ?)');
+                    params.push(
+                        i % 7 === 0 ? 'bot' : 'me',
+                        `Message #${i + 1} — seeded into SQLite.`,
+                        base + i * 1000,
+                    );
+                }
+                await db.execute(
+                    `INSERT INTO messages (author, body, sent_at) VALUES ${tuples.join(',')}`,
+                    params,
+                );
+            }
         }
         return db;
     });
@@ -91,9 +110,11 @@ const ChatThread = component(() => {
     const draft = signal('');
     let replyIndex = 0;
 
+    // Load the whole thread into memory; windowing on the List keeps only a
+    // bounded slice rendered as native cells, so thousands of rows stay smooth.
     const messages = useLiveQuery<ChatMessage>(
         chatDb(),
-        'SELECT id, author, body, sent_at FROM messages ORDER BY sent_at ASC, id ASC LIMIT 200',
+        'SELECT id, author, body, sent_at FROM messages ORDER BY sent_at ASC, id ASC LIMIT 5000',
     );
 
     const send = async () => {
@@ -142,6 +163,8 @@ const ChatThread = component(() => {
                 keyExtractor={(m) => String(m.id)}
                 estimatedItemSize={56}
                 inverted
+                windowSize={60}
+                pageSize={30}
                 style={{ flexGrow: 1 }}
                 renderItem={(m) => (
                     <view style={{ paddingLeft: '16px', paddingRight: '16px', paddingTop: '4px', paddingBottom: '4px' }}>
@@ -161,10 +184,10 @@ const ChatThread = component(() => {
                         <Col gap={8} padding={16}>
                             <Heading level={2}>SQLite chat</Heading>
                             <Text class="opacity-60 text-sm">
-                                Messages persist in `{DB_NAME}` and survive an app
-                                relaunch. The thread is a live query over the
-                                messages table, rendered with a recycled
-                                `@sigx/lynx-list` in chat mode.
+                                {messages.value.rows.length} messages persisted in
+                                `{DB_NAME}`. The whole thread loads into memory, but the
+                                recycled `@sigx/lynx-list` (chat mode + windowing) only
+                                renders a bounded slice — scroll up to page older.
                             </Text>
                             {messages.value.error ? (
                                 <Card bordered>

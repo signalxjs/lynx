@@ -121,6 +121,31 @@ auto-scroll. Provide a real `keyExtractor` so the recycler tracks messages.
 />
 ```
 
+### Windowing (long histories)
+
+For thousands of items, pass `windowSize` to render only a bounded sliding
+slice of `items` as native cells (the runtime materializes every *rendered*
+cell — only native views recycle). The window anchors to the newest in chat
+mode (the start in a feed) and pages older/newer as you scroll, trimming the
+off-screen far end to stay within `maxWindow`.
+
+```tsx
+<List
+  items={allMessages.value}   // the full history in memory…
+  keyExtractor={(m) => m.id}
+  inverted
+  windowSize={60}             // …but only ~60 cells are ever rendered
+  pageSize={30}
+  style={{ flexGrow: 1 }}
+  renderItem={(m) => <MessageBubble message={m} />}
+  onStartReached={() => loadOlderFromStore()}  // optional: lazy-page into `items`
+/>
+```
+
+Scrolling to the top reveals an older page (at-top, so no visible jump); a
+zero-jump anchored expansion mid-list is device-pending. Omit `windowSize` to
+render every item.
+
 ## Props
 
 | Prop | Type | Notes |
@@ -141,6 +166,9 @@ auto-scroll. Provide a real `keyExtractor` so the recycler tracks messages.
 | `pullThreshold` | `number` | Pull distance (px) that triggers a refresh. Default 64. |
 | `inverted` | `boolean` | Chat mode: bottom-anchored + stick-to-bottom (vertical only). |
 | `stickToBottom` | `boolean` | In chat mode, auto-scroll on new items when at the bottom. Default `true`. |
+| `windowSize` | `number` | Enables windowing: render only this many cells of a long `items`. |
+| `pageSize` | `number` | Items revealed per scroll-edge page when windowing. Default 30. |
+| `maxWindow` | `number` | Cap on rendered window length; the far end trims past it. Default `max(120, windowSize×2)`. |
 | `mtRef` | `ListRef` | Capture the native element for `ListMethods`. |
 | `class` / `style` | — | Applied to the measuring wrapper. |
 
@@ -149,9 +177,8 @@ auto-scroll. Provide a real `keyExtractor` so the recycler tracks messages.
 
 ## Roadmap
 
-- **Windowing** for WhatsApp-scale message histories (load-older-on-scroll-up
-  with prepend anchoring).
-- **Lazy runtime virtualization** so off-screen cells aren't eagerly built.
+- **Lazy runtime virtualization** so off-screen cells aren't eagerly built —
+  removing the need for windowing entirely.
 
 ## License
 
