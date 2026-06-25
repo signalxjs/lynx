@@ -8,6 +8,7 @@ plugins {
     // throws "PropsSetter not generated … add module lynxProcessor" at render
     // time. kapt (not KSP) because the processor is an APT processor.
     id("kotlin-kapt")
+    // {{GRADLE_PLUGINS}}
 }
 
 android {

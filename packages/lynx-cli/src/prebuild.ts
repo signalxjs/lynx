@@ -519,6 +519,108 @@ export function injectGradleDependencies(cwd: string, config: ResolvedConfig, de
 }
 
 /**
+ * Inject auto-linked Gradle plugins into the app `plugins {}` block. Each
+ * entry becomes an `id("<id>") version "<version>"` line at the
+ * `// {{GRADLE_PLUGINS}}` marker. The marker only exists on a freshly
+ * regenerated `build.gradle.kts` (a managed file), so re-running is
+ * idempotent — once the marker is consumed the function no-ops.
+ *
+ * `id`/`version` are spliced raw into a build script, so both are validated
+ * against a strict character format first (same hardening rationale as
+ * `applyIosSigningSettings`): a crafted manifest can't smuggle arbitrary
+ * Kotlin into the plugins block. This is injection-hardening, NOT a trust
+ * allowlist — a well-formed id from a linked module is applied as-is, the
+ * same trust model as `android.dependencies` (Gradle coordinates can carry
+ * build logic) and `sourceDir` (arbitrary native code compiled into the app).
+ */
+export function injectGradlePlugins(
+    cwd: string,
+    config: ResolvedConfig,
+    plugins: import('./manifest.js').AndroidGradlePluginEntry[],
+): void {
+    const gradleFile = androidBuildGradlePath(cwd, config);
+    if (!existsSync(gradleFile)) return;
+
+    let content = readFileSync(gradleFile, 'utf-8');
+    const marker = '    // {{GRADLE_PLUGINS}}';
+    if (!content.includes(marker)) return;
+
+    for (const plugin of plugins) {
+        if (!/^[a-z][a-z0-9.-]*$/.test(plugin.id)) {
+            throw new Error(
+                `Invalid Gradle plugin id "${plugin.id}" — expected a reverse-DNS ` +
+                `plugin id (lowercase letters, digits, '.', '-').`,
+            );
+        }
+        if (!/^[A-Za-z0-9][A-Za-z0-9.+_-]*$/.test(plugin.version)) {
+            throw new Error(
+                `Invalid Gradle plugin version "${plugin.version}" for "${plugin.id}".`,
+            );
+        }
+    }
+
+    const replacement = plugins.length > 0
+        ? `    // Auto-linked module Gradle plugins\n${
+            plugins.map((p) => `    id("${p.id}") version "${p.version}"`).join('\n')
+          }`
+        : '    // (no auto-linked Gradle plugins)';
+    content = content.replace(marker, replacement);
+    writeFileIfChanged(gradleFile, content);
+    if (plugins.length > 0) {
+        log(`Android: injected ${plugins.length} Gradle plugin(s) (${plugins.map((p) => p.id).join(', ')})`);
+    }
+}
+
+/** FCM messaging-service intent-filter action — marks a module as needing FCM. */
+const FCM_MESSAGING_EVENT_ACTION = 'com.google.firebase.MESSAGING_EVENT';
+
+/**
+ * Copy the configured Firebase `google-services.json` into
+ * `android/app/google-services.json` so it survives `android/` regeneration.
+ * The `com.google.gms.google-services` plugin reads it at build time to emit
+ * the `google_app_id` / `gcm_defaultSenderId` resources that auto-initialize
+ * the default `FirebaseApp` — without it FCM token retrieval fails.
+ *
+ * When `android.googleServicesFile` is unset but a linked module registers an
+ * FCM messaging service (the `MESSAGING_EVENT` action), warn — mirrors the
+ * Maps API-key `metaDataWarnings` nudge — so remote push doesn't silently
+ * fail to initialize.
+ */
+export function copyGoogleServicesFile(
+    cwd: string,
+    config: ResolvedConfig,
+    services: import('./manifest.js').AndroidServiceEntry[],
+): void {
+    const configured = config.android.googleServicesFile?.trim();
+    const fcmLinked = services.some((s) => s.actions?.includes(FCM_MESSAGING_EVENT_ACTION));
+
+    if (!configured) {
+        if (fcmLinked) {
+            log(
+                `\x1b[33m!\x1b[0m An FCM messaging service is linked but ` +
+                `\`android.googleServicesFile\` is not set — remote push won't ` +
+                `initialize. Point it at your Firebase google-services.json in signalx.config.ts.`,
+            );
+        }
+        return;
+    }
+
+    const srcPath = isAbsolute(configured) ? configured : join(cwd, configured);
+    if (!existsSync(srcPath)) {
+        throw new Error(
+            `android.googleServicesFile points at "${configured}" but no file exists at ` +
+            `${srcPath}. Set it to your Firebase google-services.json path (relative to the project root).`,
+        );
+    }
+
+    const destPath = join(androidProjectRoot(cwd, config), 'app', 'google-services.json');
+    mkdirSync(dirname(destPath), { recursive: true });
+    if (writeFileIfChanged(destPath, readFileSync(srcPath, 'utf-8'))) {
+        log(`Android: copied google-services.json from ${configured}`);
+    }
+}
+
+/**
  * Marker identifying `src/debug/AndroidManifest.xml` as prebuild-owned.
  * A debug manifest without it is user-managed — never overwrite or delete it.
  */
@@ -1743,6 +1845,102 @@ export function applyIosDevClientBuildSettings(cwd: string, config: ResolvedConf
     }
 }
 
+/** Build an `.entitlements` plist body from an aggregated entitlements map. */
+function buildEntitlementsPlist(
+    entitlements: Record<string, PlistValue>,
+    apsEnvironment: 'development' | 'production',
+): string {
+    const keys = Object.keys(entitlements);
+    const body = keys
+        .map((k) => {
+            // aps-environment is build-config-dependent by Apple's design:
+            // development for Debug, production for Release — regardless of the
+            // value a module declared.
+            const value = k === 'aps-environment' ? apsEnvironment : entitlements[k];
+            return `    <key>${escapeXmlAttr(k)}</key>\n${plistValueToXml(value, '    ')}`;
+        })
+        .join('\n');
+    return `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+${body}
+</dict>
+</plist>
+`;
+}
+
+/**
+ * Write the app's code-signing entitlements. Mirrors the Info.plist /
+ * Info.debug.plist split: `<App>.entitlements` (Release) and
+ * `<App>.debug.entitlements` (Debug) are generated from the same aggregated
+ * map, differing only in the build-config-dependent `aps-environment` value
+ * (production vs development). Returns `true` when entitlements were written
+ * (so the caller wires `CODE_SIGN_ENTITLEMENTS`), `false` when none were
+ * declared (signing is left untouched).
+ */
+export function writeIosEntitlements(
+    cwd: string,
+    config: ResolvedConfig,
+    entitlements: Record<string, PlistValue>,
+): boolean {
+    if (Object.keys(entitlements).length === 0) return false;
+
+    const sourceRoot = iosSourceRoot(cwd, config);
+    mkdirSync(sourceRoot, { recursive: true });
+
+    const releaseFile = join(sourceRoot, `${config.name}.entitlements`);
+    const debugFile = join(sourceRoot, `${config.name}.debug.entitlements`);
+    writeFileIfChanged(releaseFile, buildEntitlementsPlist(entitlements, 'production'));
+    writeFileIfChanged(debugFile, buildEntitlementsPlist(entitlements, 'development'));
+
+    log(`iOS: wrote entitlements (${Object.keys(entitlements).join(', ')})`);
+    return true;
+}
+
+/**
+ * Wire `CODE_SIGN_ENTITLEMENTS` per `XCBuildConfiguration` block — Debug points
+ * at `<App>.debug.entitlements`, Release at `<App>.entitlements`. The path
+ * prefix is taken from the block's existing `INFOPLIST_FILE` so it tracks the
+ * app source dir exactly (same per-block approach as
+ * `applyIosDevClientBuildSettings`). When `hasEntitlements` is false the
+ * setting is left as-is (signing untouched).
+ */
+export function applyIosEntitlementsBuildSettings(
+    cwd: string,
+    config: ResolvedConfig,
+    hasEntitlements: boolean,
+): void {
+    if (!hasEntitlements) return;
+    const pbxprojPath = join(iosXcodeProjPath(cwd, config), 'project.pbxproj');
+    if (!existsSync(pbxprojPath)) return;
+
+    let content = readFileSync(pbxprojPath, 'utf-8');
+    content = content.replace(
+        /isa = XCBuildConfiguration;[\s\S]*?name = (?:Debug|Release);/g,
+        (block) => {
+            const infoPlistMatch = block.match(/INFOPLIST_FILE = "([^"]*)\/Info(?:\.debug)?\.plist";/);
+            if (!infoPlistMatch) return block;
+            const dir = infoPlistMatch[1];
+            const isDebug = block.endsWith('name = Debug;');
+            const entFile = isDebug ? `${config.name}.debug.entitlements` : `${config.name}.entitlements`;
+            const value = `"${dir}/${entFile}"`;
+            if (block.includes('CODE_SIGN_ENTITLEMENTS')) {
+                return block.replace(/CODE_SIGN_ENTITLEMENTS = [^;]*;/, `CODE_SIGN_ENTITLEMENTS = ${value};`);
+            }
+            // Insert next to INFOPLIST_FILE, matching its indentation.
+            return block.replace(
+                /(\n(\s*)INFOPLIST_FILE = )/,
+                `\n$2CODE_SIGN_ENTITLEMENTS = ${value};$1`,
+            );
+        },
+    );
+
+    if (writeFileIfChanged(pbxprojPath, content)) {
+        log('iOS: wired CODE_SIGN_ENTITLEMENTS per build configuration');
+    }
+}
+
 /**
  * Inject debug-only pod entries into the Podfile.
  */
@@ -2135,6 +2333,14 @@ export function fingerprintPrebuildInputs(cwd: string, platforms: { android: boo
     const hookPath = readCachedFingerprint(cwd, variant ? `prebuild-post-hook-path-${variant}` : 'prebuild-post-hook-path');
     if (hookPath) files.push(hookPath);
 
+    // The Firebase google-services.json is copied into android/app on every
+    // prebuild. Swapping its *contents* (e.g. a different Firebase project)
+    // without touching the config path wouldn't otherwise invalidate the fast
+    // path. Like the hook, its resolved path comes from a sidecar the last
+    // successful run wrote (the fast path runs before config is loaded).
+    const googleServicesPath = readCachedFingerprint(cwd, variant ? `prebuild-google-services-path-${variant}` : 'prebuild-google-services-path');
+    if (googleServicesPath && existsSync(googleServicesPath)) files.push(googleServicesPath);
+
     // Index covers transitive module dependencies too (e.g. @sigx/lynx-core
     // pulled in by another module) — their copied sources are prebuild
     // outputs just like direct deps', so they must invalidate the fast path.
@@ -2183,7 +2389,9 @@ export function fingerprintPrebuildInputs(cwd: string, platforms: { android: boo
         //     discovered modules (e.g. @sigx/lynx-core) are fingerprinted too.
         // v6: include the JS lockfile, so a dependency version bump invalidates
         //     the fast path even with no project source change (#348).
-        fingerprintFormat: 'v6',
+        // v7: include the Firebase google-services.json contents (via sidecar
+        //     path), so swapping FCM credentials invalidates the fast path (#560).
+        fingerprintFormat: 'v7',
         cliVersion: getCliVersion(),
         platforms: `android=${platforms.android};ios=${platforms.ios}`,
         // Variant identity changes the rendered output (suffixed ids, signing,
@@ -2214,6 +2422,7 @@ export async function runPrebuild(opts: PrebuildOptions = {}): Promise<void> {
     // dir names depend only on the variant string, available before config load.
     const cacheKey = variant ? `prebuild-inputs-${variant}` : 'prebuild-inputs';
     const hookCacheKey = variant ? `prebuild-post-hook-path-${variant}` : 'prebuild-post-hook-path';
+    const googleServicesCacheKey = variant ? `prebuild-google-services-path-${variant}` : 'prebuild-google-services-path';
     const androidDirName_ = androidDirName(variant);
     const iosDirName_ = iosDirName(variant);
 
@@ -2325,6 +2534,8 @@ export async function runPrebuild(opts: PrebuildOptions = {}): Promise<void> {
             log(`Android: linked startup bundle resolver (${result.bundleResolverClass})`);
         }
         injectGradleDependencies(cwd, config, result.gradleDependencies, result.debugGradleDependencies);
+        injectGradlePlugins(cwd, config, result.gradlePlugins);
+        copyGoogleServicesFile(cwd, config, result.services);
 
         // OTA runtime-version fingerprint — injected as manifest <meta-data>
         // (readable by the copied @sigx/lynx-updates sources) and written to
@@ -2483,6 +2694,12 @@ export async function runPrebuild(opts: PrebuildOptions = {}): Promise<void> {
         // scaffolded before these settings landed in the pbxproj template.
         applyIosDevClientBuildSettings(cwd, config);
 
+        // Code-signing entitlements (Push, keychain groups, associated
+        // domains, …). Writes the .entitlements files then wires
+        // CODE_SIGN_ENTITLEMENTS per build config — no-op when none declared.
+        const hasEntitlements = writeIosEntitlements(cwd, config, result.entitlements);
+        applyIosEntitlementsBuildSettings(cwd, config, hasEntitlements);
+
         // Copy dev-client sources if found
         if (result.devClient) {
             copyDevClientSourcesIos(cwd, config, result.devClient);
@@ -2546,6 +2763,14 @@ export async function runPrebuild(opts: PrebuildOptions = {}): Promise<void> {
     writeCachedFingerprint(
         cwd, hookCacheKey,
         config.prebuild?.post ? resolveHookPath(cwd, config.prebuild.post) : '',
+    );
+
+    // Same for the google-services.json: record its resolved path so the next
+    // fast-path run folds its contents into the fingerprint (see above).
+    const gsFile = config.android.googleServicesFile?.trim();
+    writeCachedFingerprint(
+        cwd, googleServicesCacheKey,
+        gsFile ? (isAbsolute(gsFile) ? gsFile : join(cwd, gsFile)) : '',
     );
 
     // Record what we just successfully built from so the next runPrebuild
