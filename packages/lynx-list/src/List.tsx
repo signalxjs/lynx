@@ -324,51 +324,43 @@ const ListImpl = component<ListProps>(({ props, slots, emit }) => {
     if (p && typeof p.catch === 'function') p.catch(() => {});
   });
 
-  // First paint: jump to the bottom (MT, scroll-only) once the wrapper has a
-  // real height, then reveal a frame or two later so the jump has landed (the
-  // opacity gate hides the "starts at top" flash until then).
+  // Scroll-to-bottom is driven by the native list's `layoutcomplete` event, NOT
+  // the moment items change. When a message is appended, the new <list-item> and
+  // its `update-list-info` reach native asynchronously — calling scrollToPosition
+  // in the same tick targets an index native doesn't have yet and the recycler
+  // throws `position >= data count`. `layoutcomplete` fires *after* native has
+  // laid out the current cells, so the target index is one it actually has. We
+  // set `wantBottom` (on first paint and on stick-to-bottom appends) and consume
+  // it in the handler; `firstScrollDone` gates the one-time opacity reveal.
+  let wantBottom = chatEnabled;   // chat starts wanting to be pinned to the bottom
+  let wantBottomSmooth = false;   // first jump is instant; later follows animate
   let firstScrollDone = false;
-  const firstScrollMT = runOnMainThread((lastIndex: number, method: string) => {
-    'main thread';
-    const el = listRef.current;
-    if (!el || lastIndex < 0) return;
-    const p = el.invoke(method, { position: lastIndex, alignTo: 'bottom', offset: 0, smooth: false });
-    if (p && typeof p.catch === 'function') p.catch(() => {});
-  });
-  effect(() => {
-    const h = layout.value?.height ?? 0;
-    if (!chatEnabled || firstScrollDone) return;
-    if (h > 0 && props.items.length > 0) {
+  const onChatLayoutComplete = (): void => {
+    if (!wantBottom) return;
+    wantBottom = false;
+    void scrollToBottomMT(totalCells() - 1, wantBottomSmooth, SCROLL_METHOD);
+    wantBottomSmooth = true;
+    if (!firstScrollDone) {
       firstScrollDone = true;
-      void firstScrollMT(totalCells() - 1, SCROLL_METHOD);
-      // Reveal on the BG side: the MT worklet can't call back here without
-      // runOnBackground (which needs a real worklet host), so we time the
-      // reveal to roughly when the jump lands. Exact timing is device-tunable
-      // (see the PR notes on first-paint flash).
-      const g = globalThis as Record<string, unknown>;
-      const raf = g['requestAnimationFrame'] as ((cb: () => void) => void) | undefined;
-      const st = g['setTimeout'] as ((cb: () => void, ms: number) => unknown) | undefined;
-      const reveal = (): void => { ready.value = true; };
-      if (raf) raf(() => { raf(reveal); });
-      else if (st) st(reveal, 32);
-      else reveal();
+      ready.value = true;          // reveal now that the first jump has landed
     }
-  });
+  };
 
-  // Stick-to-bottom / unread: when the item count grows, either follow the
-  // bottom (already there) or bump the unread count (scrolled up).
+  // Stick-to-bottom / unread: when the item count grows, either request a
+  // follow-to-bottom (the next layoutcomplete performs it) or bump unread.
   let chatPrevCount = props.items.length;
   effect(() => {
     const count = props.items.length;
-    if (chatEnabled && firstScrollDone && count > chatPrevCount) {
+    if (chatEnabled && count > chatPrevCount) {
       const added = count - chatPrevCount;
-      if (stickToBottom && atBottom.value) void scrollToBottomMT(totalCells() - 1, true, SCROLL_METHOD);
+      if (stickToBottom && atBottom.value) wantBottom = true;
       else unreadCount.value += added;
     }
     chatPrevCount = count;
   });
 
-  // Tap the unread affordance → scroll to bottom + clear.
+  // Tap the unread affordance → scroll to bottom + clear. Every cell is already
+  // laid out here (no pending layout), so scroll directly.
   const onUnreadTap = (): void => {
     void scrollToBottomMT(totalCells() - 1, true, SCROLL_METHOD);
     atBottom.value = true;
@@ -456,6 +448,7 @@ const ListImpl = component<ListProps>(({ props, slots, emit }) => {
           ? { 'scroll-event-throttle': props.scrollEventThrottle }
           : {})}
         {...(refreshEnabled ? { 'enable-scroll': !pulling.value } : {})}
+        {...(chatEnabled ? { bindlayoutcomplete: onChatLayoutComplete } : {})}
         {...(refreshEnabled
           ? {
             'main-thread-bindscroll': (e: ScrollDetail) => {

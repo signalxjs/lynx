@@ -109,11 +109,14 @@ you're there — or raise the `newMessages` affordance when you've scrolled up
 (tap it to jump back down). `stickToBottom` (default `true`) opts out of the
 auto-scroll. Provide a real `keyExtractor` so the recycler tracks messages.
 
+Don't pass `estimatedItemSize` for chat — bubbles are variable-height, and a
+fixed estimate briefly clips taller messages as they scroll in (see the prop
+note below). Let the cells self-measure.
+
 ```tsx
 <List
   items={messages.value}
   keyExtractor={(m) => m.id}
-  estimatedItemSize={56}
   inverted
   style={{ flexGrow: 1 }}
   renderItem={(m) => <MessageBubble message={m} />}
@@ -154,7 +157,7 @@ render every item.
 | `renderItem` | `(item: T, index) => JSX` | **Required.** Per-cell renderer. |
 | `keyExtractor` | `(item: T, index) => string` | Stable recycler key (`item-key`). Defaults to the index — set it for lists that mutate. |
 | `itemType` | `(item: T, index) => string` | Recycle-pool selector (`item-type`). |
-| `estimatedItemSize` | `number` | Main-axis px estimate; improves scroll accuracy. |
+| `estimatedItemSize` | `number` | Main-axis px estimate for **uniform** rows; improves scroll accuracy. Omit for variable-height content (chat) — a too-small estimate clips items until measured. |
 | `horizontal` | `boolean` | Horizontal scrolling. |
 | `numColumns` | `number` | Grid columns (`span-count`). |
 | `listType` | `'single' \| 'flow' \| 'waterfall'` | Layout mode. |

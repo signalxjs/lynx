@@ -303,9 +303,12 @@ export interface ListAttributes extends LynxCommonAttributes {
     bindscroll?: LynxEventHandler;
     bindscrolltoupper?: LynxEventHandler;
     bindscrolltolower?: LynxEventHandler;
+    /** Fires after the recycler finishes a layout pass (native has laid out cells) */
+    bindlayoutcomplete?: LynxEventHandler;
     onScroll?: LynxEventHandler;
     onScrolltoupper?: LynxEventHandler;
     onScrolltolower?: LynxEventHandler;
+    onLayoutcomplete?: LynxEventHandler;
 }
 
 export interface ListItemAttributes extends LynxCommonAttributes {
