@@ -14,11 +14,13 @@ const SAMPLE = [
     'Hey! How did the list rollout go?',
     'Shipped — feed, grid, pull-to-refresh, chat mode, windowing.',
     'Nice. Does it scroll smoothly with a long history?',
-    'Yep, only a bounded window is mounted no matter how far up you scroll.',
+    'Yep — only a bounded window is mounted no matter how far up you scroll, so a thread with thousands of messages stays just as smooth as a short one and memory stays flat.',
     'And it sticks to the bottom on new messages?',
-    'When you are at the bottom, yes — otherwise it shows an unread pill.',
-    'Love it.',
-    'Scroll up and tap “Receive” to see the pill in action.',
+    'When you are at the bottom it auto-follows; if you have scrolled up to read history it leaves you there and shows a “new messages” pill so you never lose your place.',
+    'Love it. 🎉',
+    'Here is a deliberately long one to make sure variable-height bubbles lay out correctly: chat messages have no fixed size, so a wall of text like this that wraps across four or five lines must render fully — no clipping at the bottom edge, even right as it arrives and the list scrolls down to it.',
+    'Short.',
+    'Another multi-line message so consecutive tall bubbles get exercised back-to-back as they arrive and the list animates to the bottom.',
 ];
 
 // Seed a back-history so "load older" (scroll up) has something to page in.
@@ -78,13 +80,13 @@ export const ChatDemo = component(() => {
         oldestLoaded = start;
     };
 
+
     return () => (
         <Col class="flex-fill bg-base-100">
             <Screen title="Chat" />
             <List
                 items={messages.value}
                 keyExtractor={(m) => String(m.id)}
-                estimatedItemSize={48}
                 inverted
                 stickToBottom
                 onStartReached={loadOlder}

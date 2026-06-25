@@ -161,7 +161,6 @@ const ChatThread = component(() => {
             <List
                 items={messages.value.rows}
                 keyExtractor={(m) => String(m.id)}
-                estimatedItemSize={56}
                 inverted
                 windowSize={60}
                 pageSize={30}
