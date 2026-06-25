@@ -232,6 +232,18 @@ export interface AndroidConfig {
      * attributes contributed by linked modules; these app-level entries win.
      */
     applicationAttributes?: Record<string, string | boolean | number>;
+    /**
+     * Path (relative to the project root) to a Firebase `google-services.json`.
+     * Copied to `android/app/google-services.json` on every prebuild so it
+     * survives `android/` regeneration. Required for FCM remote push
+     * (`@sigx/lynx-notifications`): the `com.google.gms.google-services`
+     * plugin processes it into the `google_app_id` / `gcm_defaultSenderId`
+     * string resources that auto-initialize the default `FirebaseApp`.
+     *
+     * Point it at a gitignored path (e.g. `'./firebase/google-services.json'`)
+     * to keep the credentials out of source control.
+     */
+    googleServicesFile?: string;
     /** Override top-level icon for Android only. */
     icon?: string;
     /** Adaptive icon for Android 8+ (foreground + background color). */
@@ -330,6 +342,23 @@ export interface IosConfig {
      * if both are set.
      */
     usesNonExemptEncryption?: boolean;
+    /**
+     * Code-signing entitlements merged into the app's generated `.entitlements`
+     * files on every prebuild — the entitlements counterpart to `infoPlist`.
+     * The escape hatch for capabilities without a dedicated config field, e.g.
+     * `{ 'keychain-access-groups': ['$(AppIdentifierPrefix)com.acme.app'] }` or
+     * `{ 'com.apple.developer.associated-domains': ['applinks:acme.com'] }`.
+     * Values may be scalars, arrays, or nested dicts. Merged with any
+     * entitlements contributed by linked modules — these app-level entries win
+     * on key collision.
+     *
+     * Setting any entitlement (here or via a linked module) makes prebuild
+     * generate `<App>.entitlements` (Release) + `<App>.debug.entitlements`
+     * (Debug) and wire `CODE_SIGN_ENTITLEMENTS` per build configuration. The
+     * `aps-environment` key is special-cased to `production` (Release) /
+     * `development` (Debug) regardless of the declared value.
+     */
+    entitlements?: Record<string, PlistValue>;
     /**
      * Override top-level icon for iOS only. A string is the light icon; an
      * `IosIconConfig` object adds iOS 18 dark/tinted appearance variants.

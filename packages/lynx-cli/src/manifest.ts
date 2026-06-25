@@ -78,6 +78,23 @@ export interface AndroidManifest {
     debugOnly?: boolean;
     /** Gradle dependencies to inject into app/build.gradle.kts. */
     dependencies?: string[];
+    /**
+     * Gradle plugins this module needs applied to the app module. Each entry
+     * is injected into the `plugins {}` block of `app/build.gradle.kts` as
+     * `id("<id>") version "<version>"`. The canonical case is
+     * `@sigx/lynx-notifications`, which needs
+     * `com.google.gms.google-services` so the FCM dependency's
+     * `google-services.json` is processed into the `google_app_id` /
+     * `gcm_defaultSenderId` string resources `FirebaseInitProvider` reads to
+     * auto-initialize the default `FirebaseApp` (without it, FCM token
+     * retrieval lands in the module's "Firebase not initialised" branch).
+     *
+     * De-duped on `id` (first wins), so listing the same plugin in multiple
+     * modules is safe. The app is a single Gradle module (`include(":app")`),
+     * so an inline `version` in the app block is valid — no root `apply false`
+     * or version-catalog entry is required.
+     */
+    gradlePlugins?: AndroidGradlePluginEntry[];
     /** AndroidManifest.xml permissions required. */
     permissions?: string[];
     /**
@@ -168,6 +185,14 @@ export interface AndroidMetaDataEntry {
 export interface AndroidBehaviorEntry {
     name: string;
     behaviorClass: string;
+}
+
+/** A single Gradle plugin contribution applied to `app/build.gradle.kts`. */
+export interface AndroidGradlePluginEntry {
+    /** Plugin id, e.g. `"com.google.gms.google-services"`. */
+    id: string;
+    /** Plugin version, e.g. `"4.4.2"`. */
+    version: string;
 }
 
 /** A single `<uses-feature>` contribution. */
@@ -295,6 +320,20 @@ export interface IosManifest {
      * collision; across modules, the first to declare a key wins.
      */
     infoPlist?: Record<string, PlistValue>;
+    /**
+     * Code-signing entitlements this module requires, aggregated into the
+     * app's generated `.entitlements` files. The canonical case is
+     * `@sigx/lynx-notifications`, which declares
+     * `{ "aps-environment": "development" }` so `registerForRemoteNotifications()`
+     * can obtain an APNs token (the Push Notifications capability).
+     *
+     * `aps-environment` is build-config-dependent by Apple's design: prebuild
+     * emits `development` in the Debug entitlements and `production` in the
+     * Release entitlements regardless of the declared value. All other keys
+     * are written identically to both. App-level `ios.entitlements` wins on
+     * key collision; across modules, the first to declare a key wins.
+     */
+    entitlements?: Record<string, PlistValue>;
     /** Minimum iOS deployment target required. */
     deploymentTarget?: string;
 }

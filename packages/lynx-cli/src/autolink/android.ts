@@ -1,5 +1,5 @@
 import type { ResolvedConfig, ResolvedModule } from '../config/parser.js';
-import type { AndroidActivityHookMethod, AndroidBehaviorEntry, AndroidFeatureEntry, AndroidServiceEntry, ModuleManifest } from '../manifest.js';
+import type { AndroidActivityHookMethod, AndroidBehaviorEntry, AndroidFeatureEntry, AndroidGradlePluginEntry, AndroidServiceEntry, ModuleManifest } from '../manifest.js';
 
 /** A `<meta-data>` entry with its value already resolved against config. */
 export interface ResolvedAndroidMetaData {
@@ -62,6 +62,8 @@ export interface AndroidLinkResult {
     gradleDependencies: string[];
     /** Debug-only Gradle dependencies. */
     debugGradleDependencies: string[];
+    /** Gradle plugins to apply in the app `plugins {}` block (de-duped by id). */
+    gradlePlugins: AndroidGradlePluginEntry[];
     /** AndroidManifest permissions to add (release + debug builds). */
     permissions: string[];
     /**
@@ -176,6 +178,8 @@ export function linkAndroid(
     }
     const services: AndroidServiceEntry[] = [];
     const seenServiceNames = new Set<string>();
+    const gradlePlugins: AndroidGradlePluginEntry[] = [];
+    const seenGradlePluginIds = new Set<string>();
     const metaData: ResolvedAndroidMetaData[] = [];
     const metaDataWarnings: string[] = [];
     const seenMetaDataNames = new Set<string>();
@@ -329,6 +333,13 @@ export function linkAndroid(
                 services.push(svc);
             }
         }
+        if (android.gradlePlugins) {
+            for (const plugin of android.gradlePlugins) {
+                if (seenGradlePluginIds.has(plugin.id)) continue;
+                seenGradlePluginIds.add(plugin.id);
+                gradlePlugins.push(plugin);
+            }
+        }
         if (android.metaData) {
             for (const entry of android.metaData) {
                 if (seenMetaDataNames.has(entry.name)) continue;
@@ -388,6 +399,7 @@ export function linkAndroid(
         linkedBehaviors,
         gradleDependencies: [...new Set(gradleDependencies)],
         debugGradleDependencies: [...new Set(debugGradleDependencies)],
+        gradlePlugins,
         permissions: [...new Set(permissions)],
         // A permission already granted to all builds doesn't need a debug copy.
         debugPermissions: [...new Set(debugPermissions)].filter((p) => !permissions.includes(p)),
