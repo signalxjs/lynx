@@ -526,9 +526,12 @@ export function injectGradleDependencies(cwd: string, config: ResolvedConfig, de
  * idempotent — once the marker is consumed the function no-ops.
  *
  * `id`/`version` are spliced raw into a build script, so both are validated
- * against a strict allowlist first (same hardening rationale as
+ * against a strict character format first (same hardening rationale as
  * `applyIosSigningSettings`): a crafted manifest can't smuggle arbitrary
- * Kotlin into the plugins block.
+ * Kotlin into the plugins block. This is injection-hardening, NOT a trust
+ * allowlist — a well-formed id from a linked module is applied as-is, the
+ * same trust model as `android.dependencies` (Gradle coordinates can carry
+ * build logic) and `sourceDir` (arbitrary native code compiled into the app).
  */
 export function injectGradlePlugins(
     cwd: string,
