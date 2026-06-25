@@ -43,12 +43,12 @@ export type ListProps<T = unknown> =
    * it can size the scroll track before every cell is measured. Useful for long
    * lists of **uniform** rows.
    *
-   * **Omit it for variable-height content (e.g. chat bubbles).** It's a
-   * placeholder native draws the cell at *until it measures the real content*,
-   * so a value smaller than an item briefly clips it (most visible as a new
-   * message scrolls into view). With no estimate, cells self-measure and never
-   * clip — at the cost of a less precise scroll track, which is unnoticeable for
-   * a bounded/windowed list.
+   * **Omit it for variable-height content (e.g. chat bubbles).** Native draws a
+   * not-yet-measured cell at this placeholder height until it measures the real
+   * content, so a value smaller than an item briefly clips it (most visible as a
+   * new message scrolls into view). With no estimate, cells self-measure and
+   * never clip — at the cost of a less precise scroll track, which is
+   * unnoticeable for a bounded/windowed list.
    */
   & Define.Prop<'estimatedItemSize', number, false>
   /** Scroll horizontally instead of vertically (`scroll-orientation`). */
