@@ -40,8 +40,15 @@ export type ListProps<T = unknown> =
   /**
    * Estimated main-axis size (height when vertical, width when horizontal)
    * of a cell in px, fed to the recycler as `estimated-main-axis-size-px` so
-   * it can size the scroll track before every cell is measured. Important for
-   * accurate scroll-to-index on long lists.
+   * it can size the scroll track before every cell is measured. Useful for long
+   * lists of **uniform** rows.
+   *
+   * **Omit it for variable-height content (e.g. chat bubbles).** Native draws a
+   * not-yet-measured cell at this placeholder height until it measures the real
+   * content, so a value smaller than an item briefly clips it (most visible as a
+   * new message scrolls into view). With no estimate, cells self-measure and
+   * never clip — at the cost of a less precise scroll track, which is
+   * unnoticeable for a bounded/windowed list.
    */
   & Define.Prop<'estimatedItemSize', number, false>
   /** Scroll horizontally instead of vertically (`scroll-orientation`). */
