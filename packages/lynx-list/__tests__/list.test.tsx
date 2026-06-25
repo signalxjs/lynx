@@ -261,6 +261,21 @@ describe('List', () => {
     );
     const list = getByType(container, 'list');
     expect(list._style.opacity).toBe(0);
+    // The scroll-to-bottom + reveal are driven by the native list's
+    // `layoutcomplete` event (fires after native lays out the cells), not the
+    // wrapper layout — invoking scrollToPosition before native has the cells
+    // throws `position >= data count` on device.
+    expect(list._handlers.has('bindlayoutcomplete')).toBe(true);
+  });
+
+  it('chat mode: lifts the opacity gate on the list layoutcomplete', async () => {
+    const { container } = render(
+      <List items={ITEMS} keyExtractor={(i) => i.id} renderItem={renderRow} inverted />,
+    );
+    expect(getByType(container, 'list')._style.opacity).toBe(0);
+    // layoutcomplete = native has laid out the cells → scroll-to-bottom + reveal.
+    await act(() => { getByType(container, 'list')._handlers.get('bindlayoutcomplete')!({}); });
+    expect(getByType(container, 'list')._style.opacity).toBeUndefined();
   });
 
   it('chat mode is vertical-only: a horizontal inverted list is not gated', () => {
