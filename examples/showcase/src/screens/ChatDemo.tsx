@@ -1,6 +1,6 @@
 import { component, signal } from '@sigx/lynx';
 import { Screen } from '@sigx/lynx-navigation';
-import { Button, Col, Heading, Input, Row, Text } from '@sigx/lynx-daisyui';
+import { Button, Col, Input, Row, Text } from '@sigx/lynx-daisyui';
 import { Haptics } from '@sigx/lynx-haptics';
 import { List } from '@sigx/lynx-list';
 
@@ -45,6 +45,7 @@ const PAGE = 25;
  */
 export const ChatDemo = component(() => {
     const draft = signal('');
+    const loadingOlder = signal(false);
     const messages = signal<{ value: Msg[] }>({
         value: HISTORY.slice(HISTORY.length - INITIAL),
     });
@@ -72,12 +73,18 @@ export const ChatDemo = component(() => {
         append({ id: nextId++, author: 'bot', body: SAMPLE[replyIndex++ % SAMPLE.length] });
     };
 
-    // Page older history in when the user scrolls to the top (chat load-older).
-    const loadOlder = (): void => {
-        if (oldestLoaded <= 0) return;
+    // Page older history in when the user scrolls to the top. This is the real
+    // backend pattern: onStartReached → await fetch(beforeCursor) → prepend. The
+    // in-flight guard de-dups the edge event; the artificial latency stands in
+    // for a network round-trip.
+    const loadOlder = async (): Promise<void> => {
+        if (loadingOlder.value || oldestLoaded <= 0) return;
+        loadingOlder.value = true;
+        await new Promise<void>((resolve) => setTimeout(resolve, 600));
         const start = Math.max(0, oldestLoaded - PAGE);
         messages.value = [...HISTORY.slice(start, oldestLoaded), ...messages.value];
         oldestLoaded = start;
+        loadingOlder.value = false;
     };
 
 
@@ -89,7 +96,7 @@ export const ChatDemo = component(() => {
                 keyExtractor={(m) => String(m.id)}
                 inverted
                 stickToBottom
-                onStartReached={loadOlder}
+                onStartReached={() => { void loadOlder(); }}
                 style={{ flexGrow: 1 }}
                 renderItem={(m) => (
                     <view style={{ paddingLeft: '16px', paddingRight: '16px', paddingTop: '4px', paddingBottom: '4px' }}>
@@ -106,11 +113,14 @@ export const ChatDemo = component(() => {
                 )}
                 slots={{
                     header: () => (
-                        <Col gap={4} padding={16}>
-                            <Heading level={3}>Chat mode</Heading>
-                            <Text class="opacity-60 text-sm">
-                                Bottom-anchored · sticks to newest · scroll up to load older.
-                            </Text>
+                        <Col gap={4} padding={16} class="items-center">
+                            {loadingOlder.value ? (
+                                <Text class="opacity-60 text-sm">Loading earlier messages…</Text>
+                            ) : oldestLoaded > 0 ? (
+                                <Text class="opacity-60 text-sm">Scroll up to load older history</Text>
+                            ) : (
+                                <Text class="opacity-40 text-sm">· beginning of conversation ·</Text>
+                            )}
                         </Col>
                     ),
                     newMessages: ({ count }: { count: number }) => (
