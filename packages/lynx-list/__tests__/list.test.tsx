@@ -377,6 +377,31 @@ describe('List', () => {
     expect(getByText(container, '1 new ↓')).toBeTruthy();
   });
 
+  it('chat mode: a simultaneous prepend + append counts only the appended item', async () => {
+    const rows = signal<{ value: Row[] }>({ value: ITEMS });
+    const Harness = component(() => () => (
+      <List items={rows.value} keyExtractor={(i) => i.id} renderItem={renderRow} inverted />
+    ));
+    const { container } = render(<Harness />);
+    await act(() => fireLayout(container));
+    const list = getByType(container, 'list');
+    await act(() => {
+      list._handlers.get('bindscroll')!({ detail: { scrollTop: 400 } });
+      list._handlers.get('bindscroll')!({ detail: { scrollTop: 80 } });
+    });
+    // Two older prepended AND one new appended in the same update → unread = 1,
+    // not 3 (prepended history must not be counted as new).
+    await act(() => {
+      rows.value = [
+        { id: 'o1', text: 'older' }, { id: 'o2', text: 'older2' },
+        ...rows.value,
+        { id: 'z', text: 'new' },
+      ];
+    });
+    expect(getByText(container, '1 new ↓')).toBeTruthy();
+    expect(queryByText(container, '3 new ↓')).toBeNull();
+  });
+
   // ── Windowing ────────────────────────────────────────────────────────────
 
   const big = (n: number): Row[] =>

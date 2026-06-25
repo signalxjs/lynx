@@ -353,22 +353,35 @@ const ListImpl = component<ListProps>(({ props, slots, emit }) => {
   // loading older messages would wrongly show "N new" and yank the view. We
   // detect it by whether the LAST item changed (needs a real `keyExtractor`;
   // with the default index key, prepends shift indices and read as appends).
-  const lastKeyOf = (arr: readonly unknown[]): string | undefined => {
-    const n = arr.length;
-    if (n === 0) return undefined;
-    const k = props.keyExtractor as ((it: unknown, i: number) => string) | undefined;
-    return k ? k(arr[n - 1], n - 1) : String(n - 1);
+  const keyAt = (arr: readonly unknown[], i: number): string => {
+    const k = props.keyExtractor as ((it: unknown, idx: number) => string) | undefined;
+    return k ? k(arr[i], i) : String(i);
   };
+  const lastKeyOf = (arr: readonly unknown[]): string | undefined =>
+    arr.length === 0 ? undefined : keyAt(arr, arr.length - 1);
   let chatPrevCount = props.items.length;
-  let chatPrevLastKey = lastKeyOf(props.items);
+  let chatPrevLastKey = chatEnabled ? lastKeyOf(props.items) : undefined;
   effect(() => {
-    const count = props.items.length;
-    const lastKey = lastKeyOf(props.items);
-    if (chatEnabled && count > chatPrevCount && lastKey !== chatPrevLastKey) {
-      // New item(s) at the end → a real append.
-      const added = count - chatPrevCount;
-      if (stickToBottom && atBottom.value) wantBottom = true;
-      else unreadCount.value += added;
+    // Inert for non-chat lists — return before reading anything reactive so the
+    // effect never re-runs (and never calls keyExtractor) when chat is off.
+    if (!chatEnabled) return;
+    const items = props.items;
+    const count = items.length;
+    const lastKey = lastKeyOf(items);
+    if (count > chatPrevCount && lastKey !== chatPrevLastKey) {
+      // A new item at the end → a real append. Count only the genuinely-new
+      // trailing items (locate the previous last item and take what's after it),
+      // so a simultaneous prepend + append doesn't count prepended history as new.
+      let appended = count - chatPrevCount;
+      if (chatPrevLastKey !== undefined) {
+        for (let i = count - 1; i >= 0; i--) {
+          if (keyAt(items, i) === chatPrevLastKey) { appended = count - 1 - i; break; }
+        }
+      }
+      if (appended > 0) {
+        if (stickToBottom && atBottom.value) wantBottom = true;
+        else unreadCount.value += appended;
+      }
     }
     chatPrevCount = count;
     chatPrevLastKey = lastKey;
