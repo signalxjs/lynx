@@ -351,6 +351,32 @@ describe('List', () => {
     expect(getByText(container, '1 new ↓')).toBeTruthy();
   });
 
+  it('chat mode: load-older (prepend) does not raise the unread affordance', async () => {
+    // The backend pattern: scroll up → fetch older → prepend at the front. Those
+    // are NOT new messages, so the unread count must stay put (only an append at
+    // the end counts). Detected via the last item's key, so use a real keyExtractor.
+    const rows = signal<{ value: Row[] }>({ value: ITEMS });
+    const Harness = component(() => () => (
+      <List items={rows.value} keyExtractor={(i) => i.id} renderItem={renderRow} inverted />
+    ));
+    const { container } = render(<Harness />);
+    await act(() => fireLayout(container));
+    const list = getByType(container, 'list');
+    // scroll up → not at bottom
+    await act(() => {
+      list._handlers.get('bindscroll')!({ detail: { scrollTop: 400 } });
+      list._handlers.get('bindscroll')!({ detail: { scrollTop: 80 } });
+    });
+    // PREPEND two older messages (front grows, last item unchanged) → no unread.
+    await act(() => {
+      rows.value = [{ id: 'o1', text: 'older' }, { id: 'o2', text: 'older2' }, ...rows.value];
+    });
+    expect(queryByText(container, '2 new ↓')).toBeNull();
+    // sanity: a real APPEND (new last item) still raises it.
+    await act(() => { rows.value = [...rows.value, { id: 'z', text: 'new' }]; });
+    expect(getByText(container, '1 new ↓')).toBeTruthy();
+  });
+
   // ── Windowing ────────────────────────────────────────────────────────────
 
   const big = (n: number): Row[] =>

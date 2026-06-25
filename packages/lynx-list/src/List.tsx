@@ -346,17 +346,32 @@ const ListImpl = component<ListProps>(({ props, slots, emit }) => {
     }
   };
 
-  // Stick-to-bottom / unread: when the item count grows, either request a
-  // follow-to-bottom (the next layoutcomplete performs it) or bump unread.
+  // Stick-to-bottom / unread: distinguish an APPEND (a new message at the end)
+  // from a PREPEND (older history paged in at the front via `onStartReached`).
+  // Only an append should stick-to-bottom / bump unread; a prepend is just
+  // history filling in above the viewport and must do neither — otherwise
+  // loading older messages would wrongly show "N new" and yank the view. We
+  // detect it by whether the LAST item changed (needs a real `keyExtractor`;
+  // with the default index key, prepends shift indices and read as appends).
+  const lastKeyOf = (arr: readonly unknown[]): string | undefined => {
+    const n = arr.length;
+    if (n === 0) return undefined;
+    const k = props.keyExtractor as ((it: unknown, i: number) => string) | undefined;
+    return k ? k(arr[n - 1], n - 1) : String(n - 1);
+  };
   let chatPrevCount = props.items.length;
+  let chatPrevLastKey = lastKeyOf(props.items);
   effect(() => {
     const count = props.items.length;
-    if (chatEnabled && count > chatPrevCount) {
+    const lastKey = lastKeyOf(props.items);
+    if (chatEnabled && count > chatPrevCount && lastKey !== chatPrevLastKey) {
+      // New item(s) at the end → a real append.
       const added = count - chatPrevCount;
       if (stickToBottom && atBottom.value) wantBottom = true;
       else unreadCount.value += added;
     }
     chatPrevCount = count;
+    chatPrevLastKey = lastKey;
   });
 
   // Tap the unread affordance → scroll to bottom + clear. Every cell is already
