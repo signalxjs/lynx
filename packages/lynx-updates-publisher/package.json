@@ -21,7 +21,7 @@
     },
     "devDependencies": {
         "@sigx/lynx-updates": "workspace:^",
-        "@types/node": "^25.9.1",
+        "@types/node": "^26.0.1",
         "@typescript/native-preview": "7.0.0-dev.20260521.1",
         "typescript": "^6.0.3"
     },
