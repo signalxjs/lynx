@@ -9,8 +9,8 @@ importers:
   .:
     devDependencies:
       '@typescript/native-preview':
-        specifier: 7.0.0-dev.20260521.1
-        version: 7.0.0-dev.20260521.1
+        specifier: 7.0.0-dev.20260628.1
+        version: 7.0.0-dev.20260628.1
       '@vitest/coverage-v8':
         specifier: ^4.1.7
         version: 4.1.7(vitest@4.1.7)
@@ -22,10 +22,10 @@ importers:
         version: 6.0.3
       vite:
         specifier: ^8.0.14
-        version: 8.0.14(@types/node@25.9.3)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0)
+        version: 8.0.14(@types/node@26.0.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0)
       vitest:
         specifier: ^4.1.7
-        version: 4.1.7(@types/node@25.9.3)(@vitest/coverage-v8@4.1.7)(vite@8.0.14(@types/node@25.9.3)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0))
+        version: 4.1.7(@types/node@26.0.1)(@vitest/coverage-v8@4.1.7)(vite@8.0.14(@types/node@26.0.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0))
 
   examples/showcase:
     dependencies:
@@ -251,8 +251,8 @@ importers:
         version: 0.7.0
     devDependencies:
       '@typescript/native-preview':
-        specifier: 7.0.0-dev.20260521.1
-        version: 7.0.0-dev.20260521.1
+        specifier: 7.0.0-dev.20260628.1
+        version: 7.0.0-dev.20260628.1
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -279,8 +279,8 @@ importers:
         specifier: workspace:^
         version: link:../lynx-testing
       '@typescript/native-preview':
-        specifier: 7.0.0-dev.20260521.1
-        version: 7.0.0-dev.20260521.1
+        specifier: 7.0.0-dev.20260628.1
+        version: 7.0.0-dev.20260628.1
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -295,8 +295,8 @@ importers:
         version: link:../lynx-permissions
     devDependencies:
       '@typescript/native-preview':
-        specifier: 7.0.0-dev.20260521.1
-        version: 7.0.0-dev.20260521.1
+        specifier: 7.0.0-dev.20260628.1
+        version: 7.0.0-dev.20260628.1
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -308,14 +308,14 @@ importers:
         version: link:../lynx-core
     devDependencies:
       '@typescript/native-preview':
-        specifier: 7.0.0-dev.20260521.1
-        version: 7.0.0-dev.20260521.1
+        specifier: 7.0.0-dev.20260628.1
+        version: 7.0.0-dev.20260628.1
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
       vitest:
         specifier: ^4.1.7
-        version: 4.1.7(@types/node@25.9.3)(@vitest/coverage-v8@4.1.7)(vite@8.0.14(@types/node@25.9.3)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0))
+        version: 4.1.7(@types/node@26.0.1)(@vitest/coverage-v8@4.1.7)(vite@8.0.14(@types/node@26.0.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0))
 
   packages/lynx-biometric:
     dependencies:
@@ -324,14 +324,14 @@ importers:
         version: link:../lynx-core
     devDependencies:
       '@typescript/native-preview':
-        specifier: 7.0.0-dev.20260521.1
-        version: 7.0.0-dev.20260521.1
+        specifier: 7.0.0-dev.20260628.1
+        version: 7.0.0-dev.20260628.1
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
       vitest:
         specifier: ^4.1.7
-        version: 4.1.7(@types/node@25.9.3)(@vitest/coverage-v8@4.1.7)(vite@8.0.14(@types/node@25.9.3)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0))
+        version: 4.1.7(@types/node@26.0.1)(@vitest/coverage-v8@4.1.7)(vite@8.0.14(@types/node@26.0.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0))
 
   packages/lynx-camera:
     dependencies:
@@ -343,8 +343,8 @@ importers:
         version: link:../lynx-permissions
     devDependencies:
       '@typescript/native-preview':
-        specifier: 7.0.0-dev.20260521.1
-        version: 7.0.0-dev.20260521.1
+        specifier: 7.0.0-dev.20260628.1
+        version: 7.0.0-dev.20260628.1
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -383,8 +383,8 @@ importers:
         specifier: ^8.18.1
         version: 8.18.1
       '@typescript/native-preview':
-        specifier: 7.0.0-dev.20260521.1
-        version: 7.0.0-dev.20260521.1
+        specifier: 7.0.0-dev.20260628.1
+        version: 7.0.0-dev.20260628.1
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -396,8 +396,8 @@ importers:
         version: link:../lynx-core
     devDependencies:
       '@typescript/native-preview':
-        specifier: 7.0.0-dev.20260521.1
-        version: 7.0.0-dev.20260521.1
+        specifier: 7.0.0-dev.20260628.1
+        version: 7.0.0-dev.20260628.1
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -405,8 +405,8 @@ importers:
   packages/lynx-core:
     devDependencies:
       '@typescript/native-preview':
-        specifier: 7.0.0-dev.20260521.1
-        version: 7.0.0-dev.20260521.1
+        specifier: 7.0.0-dev.20260628.1
+        version: 7.0.0-dev.20260628.1
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -442,8 +442,8 @@ importers:
         specifier: workspace:^
         version: link:../lynx-navigation
       '@typescript/native-preview':
-        specifier: 7.0.0-dev.20260521.1
-        version: 7.0.0-dev.20260521.1
+        specifier: 7.0.0-dev.20260628.1
+        version: 7.0.0-dev.20260628.1
       tailwindcss:
         specifier: ^4.0.0
         version: 4.3.0
@@ -458,14 +458,14 @@ importers:
         version: link:../lynx-core
     devDependencies:
       '@typescript/native-preview':
-        specifier: 7.0.0-dev.20260521.1
-        version: 7.0.0-dev.20260521.1
+        specifier: 7.0.0-dev.20260628.1
+        version: 7.0.0-dev.20260628.1
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
       vitest:
         specifier: ^4.1.7
-        version: 4.1.7(@types/node@25.9.3)(@vitest/coverage-v8@4.1.7)(vite@8.0.14(@types/node@25.9.3)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0))
+        version: 4.1.7(@types/node@26.0.1)(@vitest/coverage-v8@4.1.7)(vite@8.0.14(@types/node@26.0.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0))
 
   packages/lynx-dev-client:
     dependencies:
@@ -474,8 +474,8 @@ importers:
         version: link:../lynx-websocket
     devDependencies:
       '@typescript/native-preview':
-        specifier: 7.0.0-dev.20260521.1
-        version: 7.0.0-dev.20260521.1
+        specifier: 7.0.0-dev.20260628.1
+        version: 7.0.0-dev.20260628.1
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -505,8 +505,8 @@ importers:
         specifier: ^25.9.1
         version: 25.9.1
       '@typescript/native-preview':
-        specifier: 7.0.0-dev.20260521.1
-        version: 7.0.0-dev.20260521.1
+        specifier: 7.0.0-dev.20260628.1
+        version: 7.0.0-dev.20260628.1
       emojibase-data:
         specifier: ^17.0.0
         version: 17.0.0(emojibase@17.0.0)
@@ -524,8 +524,8 @@ importers:
         version: link:../lynx-permissions
     devDependencies:
       '@typescript/native-preview':
-        specifier: 7.0.0-dev.20260521.1
-        version: 7.0.0-dev.20260521.1
+        specifier: 7.0.0-dev.20260628.1
+        version: 7.0.0-dev.20260628.1
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -537,8 +537,8 @@ importers:
         version: link:../lynx-core
     devDependencies:
       '@typescript/native-preview':
-        specifier: 7.0.0-dev.20260521.1
-        version: 7.0.0-dev.20260521.1
+        specifier: 7.0.0-dev.20260628.1
+        version: 7.0.0-dev.20260628.1
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -562,8 +562,8 @@ importers:
         specifier: workspace:^
         version: link:../lynx-testing
       '@typescript/native-preview':
-        specifier: 7.0.0-dev.20260521.1
-        version: 7.0.0-dev.20260521.1
+        specifier: 7.0.0-dev.20260628.1
+        version: 7.0.0-dev.20260628.1
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -575,8 +575,8 @@ importers:
         version: link:../lynx-core
     devDependencies:
       '@typescript/native-preview':
-        specifier: 7.0.0-dev.20260521.1
-        version: 7.0.0-dev.20260521.1
+        specifier: 7.0.0-dev.20260628.1
+        version: 7.0.0-dev.20260628.1
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -606,8 +606,8 @@ importers:
         specifier: workspace:^
         version: link:../lynx-testing
       '@typescript/native-preview':
-        specifier: 7.0.0-dev.20260521.1
-        version: 7.0.0-dev.20260521.1
+        specifier: 7.0.0-dev.20260628.1
+        version: 7.0.0-dev.20260628.1
       tailwindcss:
         specifier: ^4.0.0
         version: 4.3.0
@@ -622,8 +622,8 @@ importers:
         version: link:../lynx-core
     devDependencies:
       '@typescript/native-preview':
-        specifier: 7.0.0-dev.20260521.1
-        version: 7.0.0-dev.20260521.1
+        specifier: 7.0.0-dev.20260628.1
+        version: 7.0.0-dev.20260628.1
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -634,8 +634,8 @@ importers:
         specifier: workspace:^
         version: link:../lynx
       '@typescript/native-preview':
-        specifier: 7.0.0-dev.20260521.1
-        version: 7.0.0-dev.20260521.1
+        specifier: 7.0.0-dev.20260628.1
+        version: 7.0.0-dev.20260628.1
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -664,8 +664,8 @@ importers:
         specifier: ^25.9.1
         version: 25.9.1
       '@typescript/native-preview':
-        specifier: 7.0.0-dev.20260521.1
-        version: 7.0.0-dev.20260521.1
+        specifier: 7.0.0-dev.20260628.1
+        version: 7.0.0-dev.20260628.1
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -682,8 +682,8 @@ importers:
         specifier: ^25.9.1
         version: 25.9.1
       '@typescript/native-preview':
-        specifier: 7.0.0-dev.20260521.1
-        version: 7.0.0-dev.20260521.1
+        specifier: 7.0.0-dev.20260628.1
+        version: 7.0.0-dev.20260628.1
       lucide:
         specifier: ^1.16.0
         version: 1.16.0
@@ -701,8 +701,8 @@ importers:
         version: link:../lynx-permissions
     devDependencies:
       '@typescript/native-preview':
-        specifier: 7.0.0-dev.20260521.1
-        version: 7.0.0-dev.20260521.1
+        specifier: 7.0.0-dev.20260628.1
+        version: 7.0.0-dev.20260628.1
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -729,8 +729,8 @@ importers:
         specifier: workspace:^
         version: link:../lynx-testing
       '@typescript/native-preview':
-        specifier: 7.0.0-dev.20260521.1
-        version: 7.0.0-dev.20260521.1
+        specifier: 7.0.0-dev.20260628.1
+        version: 7.0.0-dev.20260628.1
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -742,14 +742,14 @@ importers:
         version: link:../lynx-core
     devDependencies:
       '@typescript/native-preview':
-        specifier: 7.0.0-dev.20260521.1
-        version: 7.0.0-dev.20260521.1
+        specifier: 7.0.0-dev.20260628.1
+        version: 7.0.0-dev.20260628.1
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
       vitest:
         specifier: ^4.1.7
-        version: 4.1.7(@types/node@25.9.3)(@vitest/coverage-v8@4.1.7)(vite@8.0.14(@types/node@25.9.3)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0))
+        version: 4.1.7(@types/node@26.0.1)(@vitest/coverage-v8@4.1.7)(vite@8.0.14(@types/node@26.0.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0))
 
   packages/lynx-list:
     devDependencies:
@@ -760,8 +760,8 @@ importers:
         specifier: workspace:^
         version: link:../lynx-testing
       '@typescript/native-preview':
-        specifier: 7.0.0-dev.20260521.1
-        version: 7.0.0-dev.20260521.1
+        specifier: 7.0.0-dev.20260628.1
+        version: 7.0.0-dev.20260628.1
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -776,8 +776,8 @@ importers:
         version: link:../lynx-permissions
     devDependencies:
       '@typescript/native-preview':
-        specifier: 7.0.0-dev.20260521.1
-        version: 7.0.0-dev.20260521.1
+        specifier: 7.0.0-dev.20260628.1
+        version: 7.0.0-dev.20260628.1
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -788,14 +788,14 @@ importers:
         specifier: workspace:^
         version: link:../lynx
       '@typescript/native-preview':
-        specifier: 7.0.0-dev.20260521.1
-        version: 7.0.0-dev.20260521.1
+        specifier: 7.0.0-dev.20260628.1
+        version: 7.0.0-dev.20260628.1
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
       vitest:
         specifier: ^4.1.7
-        version: 4.1.7(@types/node@25.9.3)(@vitest/coverage-v8@4.1.7)(vite@8.0.14(@types/node@25.9.3)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0))
+        version: 4.1.7(@types/node@26.0.1)(@vitest/coverage-v8@4.1.7)(vite@8.0.14(@types/node@26.0.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0))
 
   packages/lynx-markdown:
     devDependencies:
@@ -812,8 +812,8 @@ importers:
         specifier: workspace:^
         version: link:../lynx-testing
       '@typescript/native-preview':
-        specifier: 7.0.0-dev.20260521.1
-        version: 7.0.0-dev.20260521.1
+        specifier: 7.0.0-dev.20260628.1
+        version: 7.0.0-dev.20260628.1
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -834,8 +834,8 @@ importers:
         specifier: workspace:^
         version: link:../lynx-runtime-main
       '@typescript/native-preview':
-        specifier: 7.0.0-dev.20260521.1
-        version: 7.0.0-dev.20260521.1
+        specifier: 7.0.0-dev.20260628.1
+        version: 7.0.0-dev.20260628.1
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -858,14 +858,14 @@ importers:
         specifier: workspace:^
         version: link:../lynx-testing
       '@typescript/native-preview':
-        specifier: 7.0.0-dev.20260521.1
-        version: 7.0.0-dev.20260521.1
+        specifier: 7.0.0-dev.20260628.1
+        version: 7.0.0-dev.20260628.1
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
       vitest:
         specifier: ^4.1.7
-        version: 4.1.7(@types/node@25.9.3)(@vitest/coverage-v8@4.1.7)(vite@8.0.14(@types/node@25.9.3)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0))
+        version: 4.1.7(@types/node@26.0.1)(@vitest/coverage-v8@4.1.7)(vite@8.0.14(@types/node@26.0.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0))
 
   packages/lynx-network:
     dependencies:
@@ -874,8 +874,8 @@ importers:
         version: link:../lynx-core
     devDependencies:
       '@typescript/native-preview':
-        specifier: 7.0.0-dev.20260521.1
-        version: 7.0.0-dev.20260521.1
+        specifier: 7.0.0-dev.20260628.1
+        version: 7.0.0-dev.20260628.1
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -890,14 +890,14 @@ importers:
         version: link:../lynx-permissions
     devDependencies:
       '@typescript/native-preview':
-        specifier: 7.0.0-dev.20260521.1
-        version: 7.0.0-dev.20260521.1
+        specifier: 7.0.0-dev.20260628.1
+        version: 7.0.0-dev.20260628.1
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
       vitest:
         specifier: ^4.1.7
-        version: 4.1.7(@types/node@25.9.3)(@vitest/coverage-v8@4.1.7)(vite@8.0.14(@types/node@25.9.3)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0))
+        version: 4.1.7(@types/node@26.0.1)(@vitest/coverage-v8@4.1.7)(vite@8.0.14(@types/node@26.0.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0))
 
   packages/lynx-observability:
     dependencies:
@@ -909,8 +909,8 @@ importers:
         version: link:../lynx-http
     devDependencies:
       '@typescript/native-preview':
-        specifier: 7.0.0-dev.20260521.1
-        version: 7.0.0-dev.20260521.1
+        specifier: 7.0.0-dev.20260628.1
+        version: 7.0.0-dev.20260628.1
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -922,8 +922,8 @@ importers:
         version: link:../lynx-core
     devDependencies:
       '@typescript/native-preview':
-        specifier: 7.0.0-dev.20260521.1
-        version: 7.0.0-dev.20260521.1
+        specifier: 7.0.0-dev.20260628.1
+        version: 7.0.0-dev.20260628.1
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -974,8 +974,8 @@ importers:
         specifier: ^8.5.13
         version: 8.18.1
       '@typescript/native-preview':
-        specifier: 7.0.0-dev.20260521.1
-        version: 7.0.0-dev.20260521.1
+        specifier: 7.0.0-dev.20260628.1
+        version: 7.0.0-dev.20260628.1
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -989,8 +989,8 @@ importers:
         specifier: workspace:^
         version: link:../lynx-testing
       '@typescript/native-preview':
-        specifier: 7.0.0-dev.20260521.1
-        version: 7.0.0-dev.20260521.1
+        specifier: 7.0.0-dev.20260628.1
+        version: 7.0.0-dev.20260628.1
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -1011,20 +1011,20 @@ importers:
         version: 0.7.0
     devDependencies:
       '@typescript/native-preview':
-        specifier: 7.0.0-dev.20260521.1
-        version: 7.0.0-dev.20260521.1
+        specifier: 7.0.0-dev.20260628.1
+        version: 7.0.0-dev.20260628.1
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
       vitest:
         specifier: ^4.1.7
-        version: 4.1.7(@types/node@25.9.3)(@vitest/coverage-v8@4.1.7)(vite@8.0.14(@types/node@25.9.3)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0))
+        version: 4.1.7(@types/node@26.0.1)(@vitest/coverage-v8@4.1.7)(vite@8.0.14(@types/node@26.0.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0))
 
   packages/lynx-runtime-internal:
     devDependencies:
       '@typescript/native-preview':
-        specifier: 7.0.0-dev.20260521.1
-        version: 7.0.0-dev.20260521.1
+        specifier: 7.0.0-dev.20260628.1
+        version: 7.0.0-dev.20260628.1
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -1039,8 +1039,8 @@ importers:
         specifier: ^3.9.0
         version: 3.9.0
       '@typescript/native-preview':
-        specifier: 7.0.0-dev.20260521.1
-        version: 7.0.0-dev.20260521.1
+        specifier: 7.0.0-dev.20260628.1
+        version: 7.0.0-dev.20260628.1
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -1067,8 +1067,8 @@ importers:
         specifier: workspace:^
         version: link:../lynx-testing
       '@typescript/native-preview':
-        specifier: 7.0.0-dev.20260521.1
-        version: 7.0.0-dev.20260521.1
+        specifier: 7.0.0-dev.20260628.1
+        version: 7.0.0-dev.20260628.1
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -1080,14 +1080,14 @@ importers:
         version: link:../lynx-core
     devDependencies:
       '@typescript/native-preview':
-        specifier: 7.0.0-dev.20260521.1
-        version: 7.0.0-dev.20260521.1
+        specifier: 7.0.0-dev.20260628.1
+        version: 7.0.0-dev.20260628.1
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
       vitest:
         specifier: ^4.1.7
-        version: 4.1.7(@types/node@25.9.3)(@vitest/coverage-v8@4.1.7)(vite@8.0.14(@types/node@25.9.3)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0))
+        version: 4.1.7(@types/node@26.0.1)(@vitest/coverage-v8@4.1.7)(vite@8.0.14(@types/node@26.0.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0))
 
   packages/lynx-share:
     dependencies:
@@ -1096,8 +1096,8 @@ importers:
         version: link:../lynx-core
     devDependencies:
       '@typescript/native-preview':
-        specifier: 7.0.0-dev.20260521.1
-        version: 7.0.0-dev.20260521.1
+        specifier: 7.0.0-dev.20260628.1
+        version: 7.0.0-dev.20260628.1
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -1112,14 +1112,14 @@ importers:
         version: link:../lynx-core
     devDependencies:
       '@typescript/native-preview':
-        specifier: 7.0.0-dev.20260521.1
-        version: 7.0.0-dev.20260521.1
+        specifier: 7.0.0-dev.20260628.1
+        version: 7.0.0-dev.20260628.1
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
       vitest:
         specifier: ^4.1.7
-        version: 4.1.7(@types/node@25.9.3)(@vitest/coverage-v8@4.1.7)(vite@8.0.14(@types/node@25.9.3)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0))
+        version: 4.1.7(@types/node@26.0.1)(@vitest/coverage-v8@4.1.7)(vite@8.0.14(@types/node@26.0.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0))
 
   packages/lynx-storage:
     dependencies:
@@ -1128,8 +1128,8 @@ importers:
         version: link:../lynx-core
     devDependencies:
       '@typescript/native-preview':
-        specifier: 7.0.0-dev.20260521.1
-        version: 7.0.0-dev.20260521.1
+        specifier: 7.0.0-dev.20260628.1
+        version: 7.0.0-dev.20260628.1
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -1150,14 +1150,14 @@ importers:
         specifier: workspace:^
         version: link:../lynx-runtime-main
       '@typescript/native-preview':
-        specifier: 7.0.0-dev.20260521.1
-        version: 7.0.0-dev.20260521.1
+        specifier: 7.0.0-dev.20260628.1
+        version: 7.0.0-dev.20260628.1
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
       vitest:
         specifier: ^4.1.7
-        version: 4.1.7(@types/node@25.9.3)(@vitest/coverage-v8@4.1.7)(vite@8.0.14(@types/node@25.9.3)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0))
+        version: 4.1.7(@types/node@26.0.1)(@vitest/coverage-v8@4.1.7)(vite@8.0.14(@types/node@26.0.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0))
 
   packages/lynx-updates:
     dependencies:
@@ -1169,8 +1169,8 @@ importers:
         version: link:../lynx-core
     devDependencies:
       '@typescript/native-preview':
-        specifier: 7.0.0-dev.20260521.1
-        version: 7.0.0-dev.20260521.1
+        specifier: 7.0.0-dev.20260628.1
+        version: 7.0.0-dev.20260628.1
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -1184,8 +1184,8 @@ importers:
         specifier: ^25.9.1
         version: 25.9.3
       '@typescript/native-preview':
-        specifier: 7.0.0-dev.20260521.1
-        version: 7.0.0-dev.20260521.1
+        specifier: 7.0.0-dev.20260628.1
+        version: 7.0.0-dev.20260628.1
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -1209,8 +1209,8 @@ importers:
         specifier: workspace:^
         version: link:../lynx-testing
       '@typescript/native-preview':
-        specifier: 7.0.0-dev.20260521.1
-        version: 7.0.0-dev.20260521.1
+        specifier: 7.0.0-dev.20260628.1
+        version: 7.0.0-dev.20260628.1
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -1221,8 +1221,8 @@ importers:
         specifier: workspace:^
         version: link:../lynx
       '@typescript/native-preview':
-        specifier: 7.0.0-dev.20260521.1
-        version: 7.0.0-dev.20260521.1
+        specifier: 7.0.0-dev.20260628.1
+        version: 7.0.0-dev.20260628.1
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -1237,14 +1237,14 @@ importers:
         version: link:../lynx-linking
     devDependencies:
       '@typescript/native-preview':
-        specifier: 7.0.0-dev.20260521.1
-        version: 7.0.0-dev.20260521.1
+        specifier: 7.0.0-dev.20260628.1
+        version: 7.0.0-dev.20260628.1
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
       vitest:
         specifier: ^4.1.7
-        version: 4.1.7(@types/node@25.9.3)(@vitest/coverage-v8@4.1.7)(vite@8.0.14(@types/node@25.9.3)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0))
+        version: 4.1.7(@types/node@26.0.1)(@vitest/coverage-v8@4.1.7)(vite@8.0.14(@types/node@26.0.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0))
 
   packages/lynx-webrtc:
     dependencies:
@@ -1256,14 +1256,14 @@ importers:
         version: link:../lynx-permissions
     devDependencies:
       '@typescript/native-preview':
-        specifier: 7.0.0-dev.20260521.1
-        version: 7.0.0-dev.20260521.1
+        specifier: 7.0.0-dev.20260628.1
+        version: 7.0.0-dev.20260628.1
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
       vitest:
         specifier: ^4.1.7
-        version: 4.1.7(@types/node@25.9.3)(@vitest/coverage-v8@4.1.7)(vite@8.0.14(@types/node@25.9.3)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0))
+        version: 4.1.7(@types/node@26.0.1)(@vitest/coverage-v8@4.1.7)(vite@8.0.14(@types/node@26.0.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0))
 
   packages/lynx-websocket:
     dependencies:
@@ -1272,14 +1272,14 @@ importers:
         version: link:../lynx-core
     devDependencies:
       '@typescript/native-preview':
-        specifier: 7.0.0-dev.20260521.1
-        version: 7.0.0-dev.20260521.1
+        specifier: 7.0.0-dev.20260628.1
+        version: 7.0.0-dev.20260628.1
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
       vitest:
         specifier: ^4.1.7
-        version: 4.1.7(@types/node@25.9.3)(@vitest/coverage-v8@4.1.7)(vite@8.0.14(@types/node@25.9.3)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0))
+        version: 4.1.7(@types/node@26.0.1)(@vitest/coverage-v8@4.1.7)(vite@8.0.14(@types/node@26.0.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0))
 
   packages/lynx-webview:
     devDependencies:
@@ -1287,14 +1287,14 @@ importers:
         specifier: workspace:^
         version: link:../lynx
       '@typescript/native-preview':
-        specifier: 7.0.0-dev.20260521.1
-        version: 7.0.0-dev.20260521.1
+        specifier: 7.0.0-dev.20260628.1
+        version: 7.0.0-dev.20260628.1
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
       vitest:
         specifier: ^4.1.7
-        version: 4.1.7(@types/node@25.9.3)(@vitest/coverage-v8@4.1.7)(vite@8.0.14(@types/node@25.9.3)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0))
+        version: 4.1.7(@types/node@26.0.1)(@vitest/coverage-v8@4.1.7)(vite@8.0.14(@types/node@26.0.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0))
 
   packages/lynx-zero:
     dependencies:
@@ -1321,8 +1321,8 @@ importers:
         specifier: workspace:^
         version: link:../lynx-testing
       '@typescript/native-preview':
-        specifier: 7.0.0-dev.20260521.1
-        version: 7.0.0-dev.20260521.1
+        specifier: 7.0.0-dev.20260628.1
+        version: 7.0.0-dev.20260628.1
       tailwindcss:
         specifier: ^4.0.0
         version: 4.3.0
@@ -2532,6 +2532,9 @@ packages:
   '@types/node@25.9.3':
     resolution: {integrity: sha512-603BddQMv3pUcr4U2dhujk83N2tTDVr/34wII2B6bJy6g+8WD6yUb11jszNs0gdi4PesVWl7ABt8nYMVpnLUcg==}
 
+  '@types/node@26.0.1':
+    resolution: {integrity: sha512-fc3KiUoBt6kie0N9bIW3E47vZsuaMf0PM2AaUpLCLT0s/LvX1nxAim6Fc049cNxODPpGm6qRAuUOB86SkRuPQw==}
+
   '@types/prop-types@15.7.15':
     resolution: {integrity: sha512-F6bEyamV9jKGAFBEmlQnesRPGOQqS2+Uwi0Em15xenOxHaf2hv6L8YCVn3rPdPJOiJfPiCnLIRyvwVaqMY3MIw==}
 
@@ -2553,50 +2556,50 @@ packages:
   '@types/yargs@17.0.35':
     resolution: {integrity: sha512-qUHkeCyQFxMXg79wQfTtfndEC+N9ZZg76HJftDJp+qH2tV7Gj4OJi7l+PiWwJ+pWtW8GwSmqsDj/oymhrTWXjg==}
 
-  '@typescript/native-preview-darwin-arm64@7.0.0-dev.20260521.1':
-    resolution: {integrity: sha512-DfwzV0Qc8VDHqQXG4uc0+bbHB23u/Twrl+D7H1Izo16MmwBse3kjdKAKCJDqeboYvofx/AetKZP9yo+VxjvOWg==}
+  '@typescript/native-preview-darwin-arm64@7.0.0-dev.20260628.1':
+    resolution: {integrity: sha512-eHHDHAZjbZ681sHyW87tg8mH4+xIs+Q7cHKIlrdafqeny1KYWorj3O9Qfnjvcl2Yd2Eq+IzJxffF6Tepy13L4Q==}
     engines: {node: '>=16.20.0'}
     cpu: [arm64]
     os: [darwin]
 
-  '@typescript/native-preview-darwin-x64@7.0.0-dev.20260521.1':
-    resolution: {integrity: sha512-tTtyAkx7VUgfRa+DGJa1/nR40/LsdbA5EUlSTnGV/3I6la7JB5hJxhWz+B99WjHjJbZrMrLxf6S4YHTj13GWew==}
+  '@typescript/native-preview-darwin-x64@7.0.0-dev.20260628.1':
+    resolution: {integrity: sha512-xIsJSXa0Fsv0pPfQ0YYa7nUQJ/nGRF/r8p60e0Aa29SexxgOXMsu3YhOnUnJEdbvaPzqlKqa1GqNGpbGnLQcLA==}
     engines: {node: '>=16.20.0'}
     cpu: [x64]
     os: [darwin]
 
-  '@typescript/native-preview-linux-arm64@7.0.0-dev.20260521.1':
-    resolution: {integrity: sha512-IMyER6SquHD/0rr7727rqTILbY7XWATFp/O1l9CRAEs9E0OY0yPmyHXFT8MYja5m4+isgsMBh618zLt8Ex1h/w==}
+  '@typescript/native-preview-linux-arm64@7.0.0-dev.20260628.1':
+    resolution: {integrity: sha512-p3yj2a70vkaFB3OD+Vt4oNUaiE7I30fwiXs6LVNAW6k0GSHNc4ucYcWVlpcp8+cej9RBQgxMnMH5MSVYmNhUvw==}
     engines: {node: '>=16.20.0'}
     cpu: [arm64]
     os: [linux]
 
-  '@typescript/native-preview-linux-arm@7.0.0-dev.20260521.1':
-    resolution: {integrity: sha512-R+KzxOA6M6AX4p757xNBy8bZgNTXUxjQkEnJk2UzDpB317pwBbrpOaOaIlgB6Giw79jvKH2E428VWhXAk4ydlw==}
+  '@typescript/native-preview-linux-arm@7.0.0-dev.20260628.1':
+    resolution: {integrity: sha512-BoclteE+MBOnfK0Qh21mQgrvYPy/v2k7CPTPufcNp1g1fsSvsF3Xv6K8I/grEjo3ZjNrgIvVxivoAqaQhSMlGA==}
     engines: {node: '>=16.20.0'}
     cpu: [arm]
     os: [linux]
 
-  '@typescript/native-preview-linux-x64@7.0.0-dev.20260521.1':
-    resolution: {integrity: sha512-xLfDu7chsn0TJagd2oX2Z4nj3m/TRiwQmijGUgF8O0+IblKgbQcp6Egjd9VCRsGwfPidoLgElVrfcAkYfUSnGA==}
+  '@typescript/native-preview-linux-x64@7.0.0-dev.20260628.1':
+    resolution: {integrity: sha512-LKNKDoTnM8aacpbt1u8kJR1feXpBuLlvKKbVt0RYBL4j1OA148TXKjLtbVu37I0lcVxjqERYuAybpvut2xq31w==}
     engines: {node: '>=16.20.0'}
     cpu: [x64]
     os: [linux]
 
-  '@typescript/native-preview-win32-arm64@7.0.0-dev.20260521.1':
-    resolution: {integrity: sha512-+kcewCXj0A0bpJOx/BVjjcTs8vglcxfYuZdzyQl8O9vM1GoA7LF+jUf5Z7E2qlpKt5By/8c7wXp+4/ACM9drzQ==}
+  '@typescript/native-preview-win32-arm64@7.0.0-dev.20260628.1':
+    resolution: {integrity: sha512-XUGCYlDAfeA4PIm7ZSZtVHmvffVoMct0LhTA/CoALhSQFnFnJdipOfsZghSyU6TCpTuzBoOhWCjBufrQC23xOQ==}
     engines: {node: '>=16.20.0'}
     cpu: [arm64]
     os: [win32]
 
-  '@typescript/native-preview-win32-x64@7.0.0-dev.20260521.1':
-    resolution: {integrity: sha512-Uh2PjzN3S/TGTDERgaT4O5rexiWO0nn0oXdCnBVyo0d1rbgDxq/zxsSOZdzdrQn6BRGa8x+6fVtrVFcIw4B+7w==}
+  '@typescript/native-preview-win32-x64@7.0.0-dev.20260628.1':
+    resolution: {integrity: sha512-rJMZ+YaRv9XybOZBYAsJt7x/K2IWmX9bgRatHobl0wwkKmfKd3giNnRXcDwOqYeCaWzunCbUhAirUtuUprRcnQ==}
     engines: {node: '>=16.20.0'}
     cpu: [x64]
     os: [win32]
 
-  '@typescript/native-preview@7.0.0-dev.20260521.1':
-    resolution: {integrity: sha512-JhaYbA+BVmHfya8h4QA1HsX6EZr7qaLOoOOHEwwR1ps42wN8LFDSSTbf1y2nPO3h927yh2Udl7gto1u7WGXjAQ==}
+  '@typescript/native-preview@7.0.0-dev.20260628.1':
+    resolution: {integrity: sha512-359WmBk3vA/bJxfeWyLbFeeejmky7Wssc8HMu0Iabu490WJLj/FqkDC51V65yuDp+anMAEkgeKO43fj6pMb/ZA==}
     engines: {node: '>=16.20.0'}
     hasBin: true
 
@@ -3071,8 +3074,8 @@ packages:
     resolution: {integrity: sha512-2agL3ueZhqxoVrfmntO8yuVj+uNSlIOnhykYHk3Cq0ShYPdUjjUiSJrQvXjq01I9jAuI0Zl2YO8Evv5Mqytm5g==}
     engines: {node: '>=10.2.0'}
 
-  enhanced-resolve@5.24.0:
-    resolution: {integrity: sha512-SkE2t82KlkkxQRVMVLAGKxLfORGQfrkx5dkj+vlgXRVNEdPc4eZcR+J/Fvj8C+yKSFH5L0q3NFlyufOVQnCcYQ==}
+  enhanced-resolve@5.24.1:
+    resolution: {integrity: sha512-7DdUaTjmNwMcH2gLr1qycesKII3BK4RLy/mdAb7x10Lq7bR4aNKHt1BR1ZALSv0rPM/hF5wYF0PhGop/rJm8vw==}
     engines: {node: '>=10.13.0'}
 
   entities@4.5.0:
@@ -4260,6 +4263,9 @@ packages:
 
   undici-types@7.24.6:
     resolution: {integrity: sha512-WRNW+sJgj5OBN4/0JpHFqtqzhpbnV0GuB+OozA9gCL7a993SmU+1JBZCzLNxYsbMfIeDL+lTsphD5jN5N+n0zg==}
+
+  undici-types@8.3.0:
+    resolution: {integrity: sha512-j375ScV60dom+YkPFIfTLcOiPxkN/buHz5GobjLhixFuANaNs3C9l4GmrWqejgXWJ7BbJcFYpTEUkS1Ge8bpZQ==}
 
   universalify@2.0.1:
     resolution: {integrity: sha512-gptHNQghINnc/vTGIk0SOFGFNXw7JVrlRUtConJRlvaw6DuX0wO5Jeko9sWrMBhh+PsYAZ7oXAiOnf/UKogyiw==}
@@ -5579,6 +5585,11 @@ snapshots:
     dependencies:
       undici-types: 7.24.6
 
+  '@types/node@26.0.1':
+    dependencies:
+      undici-types: 8.3.0
+    optional: true
+
   '@types/prop-types@15.7.15': {}
 
   '@types/react@18.3.28':
@@ -5603,36 +5614,36 @@ snapshots:
     dependencies:
       '@types/yargs-parser': 21.0.3
 
-  '@typescript/native-preview-darwin-arm64@7.0.0-dev.20260521.1':
+  '@typescript/native-preview-darwin-arm64@7.0.0-dev.20260628.1':
     optional: true
 
-  '@typescript/native-preview-darwin-x64@7.0.0-dev.20260521.1':
+  '@typescript/native-preview-darwin-x64@7.0.0-dev.20260628.1':
     optional: true
 
-  '@typescript/native-preview-linux-arm64@7.0.0-dev.20260521.1':
+  '@typescript/native-preview-linux-arm64@7.0.0-dev.20260628.1':
     optional: true
 
-  '@typescript/native-preview-linux-arm@7.0.0-dev.20260521.1':
+  '@typescript/native-preview-linux-arm@7.0.0-dev.20260628.1':
     optional: true
 
-  '@typescript/native-preview-linux-x64@7.0.0-dev.20260521.1':
+  '@typescript/native-preview-linux-x64@7.0.0-dev.20260628.1':
     optional: true
 
-  '@typescript/native-preview-win32-arm64@7.0.0-dev.20260521.1':
+  '@typescript/native-preview-win32-arm64@7.0.0-dev.20260628.1':
     optional: true
 
-  '@typescript/native-preview-win32-x64@7.0.0-dev.20260521.1':
+  '@typescript/native-preview-win32-x64@7.0.0-dev.20260628.1':
     optional: true
 
-  '@typescript/native-preview@7.0.0-dev.20260521.1':
+  '@typescript/native-preview@7.0.0-dev.20260628.1':
     optionalDependencies:
-      '@typescript/native-preview-darwin-arm64': 7.0.0-dev.20260521.1
-      '@typescript/native-preview-darwin-x64': 7.0.0-dev.20260521.1
-      '@typescript/native-preview-linux-arm': 7.0.0-dev.20260521.1
-      '@typescript/native-preview-linux-arm64': 7.0.0-dev.20260521.1
-      '@typescript/native-preview-linux-x64': 7.0.0-dev.20260521.1
-      '@typescript/native-preview-win32-arm64': 7.0.0-dev.20260521.1
-      '@typescript/native-preview-win32-x64': 7.0.0-dev.20260521.1
+      '@typescript/native-preview-darwin-arm64': 7.0.0-dev.20260628.1
+      '@typescript/native-preview-darwin-x64': 7.0.0-dev.20260628.1
+      '@typescript/native-preview-linux-arm': 7.0.0-dev.20260628.1
+      '@typescript/native-preview-linux-arm64': 7.0.0-dev.20260628.1
+      '@typescript/native-preview-linux-x64': 7.0.0-dev.20260628.1
+      '@typescript/native-preview-win32-arm64': 7.0.0-dev.20260628.1
+      '@typescript/native-preview-win32-x64': 7.0.0-dev.20260628.1
 
   '@vitest/coverage-v8@4.1.7(vitest@4.1.7)':
     dependencies:
@@ -5646,7 +5657,7 @@ snapshots:
       obug: 2.1.1
       std-env: 4.1.0
       tinyrainbow: 3.1.0
-      vitest: 4.1.7(@types/node@25.9.3)(@vitest/coverage-v8@4.1.7)(vite@8.0.14(@types/node@25.9.3)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0))
+      vitest: 4.1.7(@types/node@26.0.1)(@vitest/coverage-v8@4.1.7)(vite@8.0.14(@types/node@26.0.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0))
 
   '@vitest/expect@4.1.7':
     dependencies:
@@ -5657,13 +5668,13 @@ snapshots:
       chai: 6.2.2
       tinyrainbow: 3.1.0
 
-  '@vitest/mocker@4.1.7(vite@8.0.14(@types/node@25.9.3)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0))':
+  '@vitest/mocker@4.1.7(vite@8.0.14(@types/node@26.0.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0))':
     dependencies:
       '@vitest/spy': 4.1.7
       estree-walker: 3.0.3
       magic-string: 0.30.21
     optionalDependencies:
-      vite: 8.0.14(@types/node@25.9.3)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0)
+      vite: 8.0.14(@types/node@26.0.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0)
 
   '@vitest/pretty-format@4.1.7':
     dependencies:
@@ -6174,7 +6185,7 @@ snapshots:
       - supports-color
       - utf-8-validate
 
-  enhanced-resolve@5.24.0:
+  enhanced-resolve@5.24.1:
     dependencies:
       graceful-fs: 4.2.11
       tapable: 2.3.3
@@ -7495,6 +7506,9 @@ snapshots:
 
   undici-types@7.24.6: {}
 
+  undici-types@8.3.0:
+    optional: true
+
   universalify@2.0.1: {}
 
   update-browserslist-db@1.2.3(browserslist@4.28.2):
@@ -7507,7 +7521,7 @@ snapshots:
 
   vary@1.1.2: {}
 
-  vite@8.0.14(@types/node@25.9.3)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0):
+  vite@8.0.14(@types/node@26.0.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0):
     dependencies:
       lightningcss: 1.32.0
       picomatch: 4.0.4
@@ -7515,16 +7529,16 @@ snapshots:
       rolldown: 1.0.2
       tinyglobby: 0.2.16
     optionalDependencies:
-      '@types/node': 25.9.3
+      '@types/node': 26.0.1
       esbuild: 0.28.0
       fsevents: 2.3.3
       jiti: 2.7.0
       terser: 5.48.0
 
-  vitest@4.1.7(@types/node@25.9.3)(@vitest/coverage-v8@4.1.7)(vite@8.0.14(@types/node@25.9.3)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0)):
+  vitest@4.1.7(@types/node@26.0.1)(@vitest/coverage-v8@4.1.7)(vite@8.0.14(@types/node@26.0.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0)):
     dependencies:
       '@vitest/expect': 4.1.7
-      '@vitest/mocker': 4.1.7(vite@8.0.14(@types/node@25.9.3)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0))
+      '@vitest/mocker': 4.1.7(vite@8.0.14(@types/node@26.0.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0))
       '@vitest/pretty-format': 4.1.7
       '@vitest/runner': 4.1.7
       '@vitest/snapshot': 4.1.7
@@ -7541,10 +7555,10 @@ snapshots:
       tinyexec: 1.1.2
       tinyglobby: 0.2.16
       tinyrainbow: 3.1.0
-      vite: 8.0.14(@types/node@25.9.3)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0)
+      vite: 8.0.14(@types/node@26.0.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0)
       why-is-node-running: 2.3.0
     optionalDependencies:
-      '@types/node': 25.9.3
+      '@types/node': 26.0.1
       '@vitest/coverage-v8': 4.1.7(vitest@4.1.7)
     transitivePeerDependencies:
       - msw
@@ -7569,7 +7583,7 @@ snapshots:
       acorn-import-phases: 1.0.4(acorn@8.17.0)
       browserslist: 4.28.2
       chrome-trace-event: 1.0.4
-      enhanced-resolve: 5.24.0
+      enhanced-resolve: 5.24.1
       es-module-lexer: 2.1.0
       eslint-scope: 5.1.1
       events: 3.3.0
@@ -7609,7 +7623,7 @@ snapshots:
       acorn-import-phases: 1.0.4(acorn@8.17.0)
       browserslist: 4.28.2
       chrome-trace-event: 1.0.4
-      enhanced-resolve: 5.24.0
+      enhanced-resolve: 5.24.1
       es-module-lexer: 2.1.0
       eslint-scope: 5.1.1
       events: 3.3.0
