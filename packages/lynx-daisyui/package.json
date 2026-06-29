@@ -70,7 +70,7 @@
         "@sigx/lynx-emoji": "workspace:^",
         "@sigx/lynx-markdown": "workspace:^",
         "@sigx/lynx-navigation": "workspace:^",
-        "@typescript/native-preview": "7.0.0-dev.20260521.1",
+        "@typescript/native-preview": "7.0.0-dev.20260628.1",
         "tailwindcss": "^4.0.0",
         "typescript": "^6.0.3"
     },

@@ -34,7 +34,7 @@
         "@sigx/lynx-websocket": "workspace:^"
     },
     "devDependencies": {
-        "@typescript/native-preview": "7.0.0-dev.20260521.1",
+        "@typescript/native-preview": "7.0.0-dev.20260628.1",
         "typescript": "^6.0.3"
     },
     "author": "Andreas Ekdahl",
