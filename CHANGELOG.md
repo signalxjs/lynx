@@ -8,7 +8,7 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 ### Changed
 
-- `@sigx/lynx-cli` — adopted `@sigx/cli` 0.5.0's typed plugin args (#588): the dependency moves `^0.4.2` → `^0.5.0` and all ~30 `ctx.args.<flag> as boolean` / `as string | undefined` casts in `plugin.ts` are gone — `ctx.args` now infers its exact types from the `a` builders inside `definePlugin`. No behavior change; `sigx-cli.requires` stays `>=0.4.0` since no new runtime contract features are used.
+- `@sigx/lynx-cli` — adopted `@sigx/cli` 0.5.0's typed plugin args (#589): the dependency moves `^0.4.2` → `^0.5.0` and all ~30 `ctx.args.<flag> as boolean` / `as string | undefined` casts in `plugin.ts` are gone — `ctx.args` now infers its exact types from the `a` builders inside `definePlugin`. No behavior change; `sigx-cli.requires` stays `>=0.4.0` since no new runtime contract features are used.
 
 ## [0.12.0] - 2026-07-13
 
