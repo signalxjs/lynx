@@ -1,6 +1,6 @@
 {
     "name": "@sigx/lynx-navigation",
-    "version": "0.11.0",
+    "version": "0.12.0",
     "description": "Type-first native navigator for sigx-lynx — Stack, Tabs, Drawer, modals, lazy routes, deep links",
     "type": "module",
     "main": "./dist/index.js",
