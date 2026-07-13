@@ -355,8 +355,8 @@ importers:
         specifier: ^0.20.4
         version: 0.20.4(@lynx-js/css-serializer@0.1.6)(tslib@2.8.1)
       '@sigx/cli':
-        specifier: ^0.4.2
-        version: 0.4.2
+        specifier: ^0.5.0
+        version: 0.5.0
       '@sigx/lynx-core':
         specifier: workspace:^
         version: link:../lynx-core
@@ -2421,6 +2421,10 @@ packages:
 
   '@sigx/cli@0.4.2':
     resolution: {integrity: sha512-uJp4pJqKpshK9KcxxI7CUG8gJRaUZHs72mynTOtTw3KjdcshXVbEZtju+qzY8ft1XPi+P8qWXBgZkZKIQ7fpCw==}
+    hasBin: true
+
+  '@sigx/cli@0.5.0':
+    resolution: {integrity: sha512-k7/YWbIWMJUZXSCj8pbpIU80kJKlGDIcd2sEJKbRhbH8xVmOHvapMaXwM8sHz91vtVs3l8S8XMCH0793tPnILA==}
     hasBin: true
 
   '@sigx/reactivity@0.4.9':
@@ -5449,6 +5453,11 @@ snapshots:
   '@sigx/args@0.6.0': {}
 
   '@sigx/cli@0.4.2':
+    dependencies:
+      '@sigx/args': 0.6.0
+      '@sigx/terminal': 0.5.0
+
+  '@sigx/cli@0.5.0':
     dependencies:
       '@sigx/args': 0.6.0
       '@sigx/terminal': 0.5.0
