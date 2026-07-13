@@ -4,9 +4,24 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 ## [Unreleased]
 
+## [0.12.1] - 2026-07-13
+
 ### Changed
 
-- `@sigx/lynx-cli` — adopted `@sigx/cli` 0.5.0's typed plugin args (#588): the dependency moves `^0.4.2` → `^0.5.0` and all ~30 `ctx.args.<flag> as boolean` / `as string | undefined` casts in `plugin.ts` are gone — `ctx.args` now infers its exact types from the `a` builders inside `definePlugin`. No behavior change; `sigx-cli.requires` stays `>=0.4.0` since no new runtime contract features are used.
+- `@sigx/lynx-cli` — adopted `@sigx/cli` 0.5.0's typed plugin args (#589): the dependency moves `^0.4.2` → `^0.5.0` and all ~30 `ctx.args.<flag> as boolean` / `as string | undefined` casts in `plugin.ts` are gone — `ctx.args` now infers its exact types from the `a` builders inside `definePlugin`. No behavior change; `sigx-cli.requires` stays `>=0.4.0` since no new runtime contract features are used.
+
+## [0.12.0] - 2026-07-13
+
+_Backfilled — the 0.12.0 release PR (#586) shipped without rolling this file._
+
+### Added
+
+- `@sigx/lynx-list` — new data-driven virtualized list: feed mode, chat mode (bottom-anchored + stick-to-bottom), pull-to-refresh + infinite load-more, windowing / load-older for large histories (#548, #550, #552, #554).
+- `@sigx/lynx-cli` — FCM google-services plugin/json + iOS aps-environment wired for remote push (#565).
+
+### Fixed
+
+- `@sigx/lynx-list` — clipping/scroll/prepend fixes (#562, #564, #567).
 
 ## [0.11.0] - 2026-06-24
 
