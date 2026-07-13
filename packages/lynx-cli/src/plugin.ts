@@ -117,10 +117,10 @@ export default definePlugin({
                     }
                 }
 
-                const flagIos = ctx.args.ios as boolean;
-                const flagAndroid = ctx.args.android as boolean;
-                const flagAll = ctx.args.all as boolean;
-                const flagLast = ctx.args.last as boolean;
+                const flagIos = ctx.args.ios;
+                const flagAndroid = ctx.args.android;
+                const flagAll = ctx.args.all;
+                const flagLast = ctx.args.last;
                 const anyFlag = flagIos || flagAndroid || flagAll;
 
                 const { resolveVerbose } = await import('./build-output.js');
@@ -397,7 +397,7 @@ export default definePlugin({
                 // user opted out or there is no TTY — runShell's non-TTY
                 // fallback is plain streaming, but skipping it entirely keeps
                 // --no-ui byte-identical to the legacy output.
-                const useUi = !(ctx.args['no-ui'] as boolean)
+                const useUi = !ctx.args['no-ui']
                     && !!process.stdout.isTTY && !!process.stdin.isTTY;
                 let devShell: import('./dev-shell.js').DevShellController | undefined;
                 let logger = ctx.logger;
@@ -421,15 +421,15 @@ export default definePlugin({
 
                 await startDevServer({
                     cwd: ctx.cwd,
-                    port: ctx.args.port as string | undefined,
-                    host: ctx.args.host as boolean | undefined,
+                    port: ctx.args.port,
+                    host: ctx.args.host,
                     logger,
                     launchAppId,
                     launchBundleId,
                     selectedTargets: live,
                     verbose,
                     variant,
-                    disableDeviceLogs: ctx.args['no-device-logs'] as boolean | undefined,
+                    disableDeviceLogs: ctx.args['no-device-logs'],
                     shell: devShell,
                 });
             },
@@ -513,7 +513,7 @@ export default definePlugin({
             },
             async run(ctx) {
                 const { runOutdated } = await import('./outdated.js');
-                const tag = ctx.args.tag as string | undefined;
+                const tag = ctx.args.tag;
                 const result = await runOutdated({ cwd: ctx.cwd, tag });
                 // Lockstep drift is always an error. "Update available"
                 // only fails the build for the default (latest) check —
@@ -536,10 +536,10 @@ export default definePlugin({
                 const { runUpgrade } = await import('./upgrade.js');
                 await runUpgrade({
                     cwd: ctx.cwd,
-                    target: ctx.args.to as string | undefined,
-                    dryRun: ctx.args['dry-run'] as boolean | undefined,
-                    caret: ctx.args.caret as boolean | undefined,
-                    force: ctx.args.force as boolean | undefined,
+                    target: ctx.args.to,
+                    dryRun: ctx.args['dry-run'],
+                    caret: ctx.args.caret,
+                    force: ctx.args.force,
                 });
             },
         },
@@ -552,12 +552,12 @@ export default definePlugin({
             },
             async run(ctx) {
                 const { runAdd } = await import('./packages.js');
-                const modules = (ctx.args.modules as string[] | undefined) ?? [];
+                const modules = ctx.args.modules;
                 await runAdd({
                     cwd: ctx.cwd,
                     modules,
-                    caret: ctx.args.caret as boolean | undefined,
-                    force: ctx.args.force as boolean | undefined,
+                    caret: ctx.args.caret,
+                    force: ctx.args.force,
                 });
             },
         },
@@ -568,7 +568,7 @@ export default definePlugin({
             },
             async run(ctx) {
                 const { runRemove } = await import('./packages.js');
-                const modules = (ctx.args.modules as string[] | undefined) ?? [];
+                const modules = ctx.args.modules;
                 await runRemove({ cwd: ctx.cwd, modules });
             },
         },
@@ -587,12 +587,12 @@ export default definePlugin({
                 try {
                     await runUpdatesPublish({
                         cwd: ctx.cwd,
-                        bundle: ctx.args.bundle as string | undefined,
-                        out: ctx.args.out as string | undefined,
-                        channel: ctx.args.channel as string | undefined,
-                        mandatory: ctx.args.mandatory as boolean | undefined,
-                        runtimeVersion: ctx.args['runtime-version'] as string | undefined,
-                        notes: ctx.args.notes as string | undefined,
+                        bundle: ctx.args.bundle,
+                        out: ctx.args.out,
+                        channel: ctx.args.channel,
+                        mandatory: ctx.args.mandatory,
+                        runtimeVersion: ctx.args['runtime-version'],
+                        notes: ctx.args.notes,
                         logger: ctx.logger,
                     });
                 } catch (err) {
@@ -613,15 +613,15 @@ export default definePlugin({
             async run(ctx) {
                 const { runPrebuild } = await import('./prebuild.js');
 
-                const android = ctx.args.android as boolean | undefined;
-                const ios = ctx.args.ios as boolean | undefined;
+                const android = ctx.args.android;
+                const ios = ctx.args.ios;
 
                 try {
                     await runPrebuild({
                         android: (!android && !ios) ? true : !!android,
                         ios: (!android && !ios) ? true : !!ios,
-                        clean: ctx.args.clean as boolean | undefined,
-                        embedBundle: ctx.args['embed-bundle'] as boolean | undefined,
+                        clean: ctx.args.clean,
+                        embedBundle: ctx.args['embed-bundle'],
                         cwd: ctx.cwd,
                         variant: resolveVariantName(ctx.args),
                     });
@@ -654,7 +654,7 @@ export default definePlugin({
 
                 const variant = resolveVariantName(ctx.args);
                 const androidDir = join(ctx.cwd, androidDirName(variant));
-                const isRelease = ctx.args.release as boolean;
+                const isRelease = ctx.args.release;
                 const verbose = resolveVerbose(ctx.args.verbose);
 
                 // Load config for applicationId
@@ -786,9 +786,9 @@ export default definePlugin({
                 const variant = resolveVariantName(ctx.args);
                 const iosDirRel = iosDirName(variant);
                 const iosDir = join(ctx.cwd, iosDirRel);
-                const isRelease = ctx.args.release as boolean;
-                const requestedSimulator = ctx.args.simulator as string | undefined;
-                const requestedDevice = ctx.args.device as string | undefined;
+                const isRelease = ctx.args.release;
+                const requestedSimulator = ctx.args.simulator;
+                const requestedDevice = ctx.args.device;
                 const verbose = resolveVerbose(ctx.args.verbose);
 
                 // Load config
