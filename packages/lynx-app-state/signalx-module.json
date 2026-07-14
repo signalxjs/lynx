@@ -1,0 +1,23 @@
+{
+    "name": "AppState",
+    "package": "@sigx/lynx-app-state",
+    "description": "App foreground/background state: current value + change events",
+    "platforms": ["android", "ios"],
+    "ios": {
+        "moduleClass": "AppStateModule",
+        "publisherClass": "AppStatePublisher",
+        "sourceDir": "ios",
+        "methods": [
+            "getAppState"
+        ]
+    },
+    "android": {
+        "moduleClass": "com.sigx.appstate.AppStateModule",
+        "publisherClass": "com.sigx.appstate.AppStatePublisher",
+        "activityHook": {
+            "class": "com.sigx.appstate.AppStateActivityHook",
+            "methods": ["onResume", "onPause"]
+        },
+        "sourceDir": "android"
+    }
+}

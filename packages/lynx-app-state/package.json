@@ -1,0 +1,59 @@
+{
+    "name": "@sigx/lynx-app-state",
+    "version": "0.12.2",
+    "description": "App foreground/background state for sigx-lynx — current value + change events",
+    "type": "module",
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.ts",
+            "import": "./dist/index.js"
+        },
+        "./signalx-module.json": "./signalx-module.json"
+    },
+    "files": [
+        "src",
+        "dist",
+        "ios",
+        "android",
+        "signalx-module.json"
+    ],
+    "scripts": {
+        "build": "node ../../scripts/clean.mjs dist && tsgo",
+        "dev": "tsgo --watch",
+        "prepublishOnly": "node ../../scripts/clean.mjs dist && tsgo",
+        "clean": "node ../../scripts/clean.mjs dist .turbo"
+    },
+    "keywords": [
+        "sigx",
+        "lynx",
+        "app-state",
+        "foreground",
+        "background",
+        "lifecycle"
+    ],
+    "author": "Andreas Ekdahl",
+    "license": "MIT",
+    "dependencies": {
+        "@sigx/lynx-core": "workspace:^",
+        "@sigx/reactivity": "^0.7.0"
+    },
+    "devDependencies": {
+        "@typescript/native-preview": "7.0.0-dev.20260521.1",
+        "typescript": "^6.0.3",
+        "vitest": "^4.1.7"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/signalxjs/lynx.git",
+        "directory": "packages/lynx-app-state"
+    },
+    "homepage": "https://sigx.dev/lynx/modules/app-state/overview/",
+    "bugs": {
+        "url": "https://github.com/signalxjs/lynx/issues"
+    },
+    "publishConfig": {
+        "access": "public"
+    }
+}
