@@ -71,12 +71,13 @@ const ensureWired = (): void => {
 
     // Authoritative seed for the rare background boot (e.g. launched by the
     // OS while backgrounded). Fire-and-forget: the default 'active' is right
-    // for every ordinary launch.
+    // for every ordinary launch. A transient failure resets the latch so a
+    // later API call retries instead of trusting the default forever.
     if (!seeded && isModuleAvailable(MODULE)) {
         seeded = true;
         void callAsync<{ state?: unknown }>(MODULE, 'getAppState')
             .then((res) => { if (isStatus(res?.state)) dispatch(res.state); })
-            .catch(() => { /* module present but call failed — keep the default */ });
+            .catch(() => { seeded = false; });
     }
 };
 

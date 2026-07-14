@@ -2,6 +2,10 @@
  * Unit tests for the JS-side AppState API. Mocks `@sigx/lynx-core` and the
  * Lynx GlobalEventEmitter — real transitions are exercised on-device via
  * examples/showcase.
+ *
+ * The module keeps process-level state (current value, wiring latches), so
+ * every test loads a FRESH module instance via `vi.resetModules()` + dynamic
+ * import — no ordering dependencies between tests.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -16,16 +20,14 @@ vi.mock('@sigx/lynx-core', () => ({
         bridge.isModuleAvailable(...(args as [])),
 }));
 
-// Install a GlobalEventEmitter-shaped `lynx` global BEFORE the module wires
-// itself (it captures the listener at first API call).
+// GlobalEventEmitter-shaped `lynx` global. `emitterAvailable` gates
+// getJSModule so individual tests can model an API call racing runtime init.
 type Listener = (...a: unknown[]) => void;
 const emitterListeners = new Map<string, Set<Listener>>();
+let emitterAvailable = true;
 const emit = (name: string, payload: unknown) => {
     for (const fn of emitterListeners.get(name) ?? []) fn(payload);
 };
-// Gate emitter availability so the first test can model an API call racing
-// runtime init (getJSModule not ready yet) and verify wiring is retried.
-let emitterAvailable = false;
 (globalThis as Record<string, unknown>).lynx = {
     getJSModule: (name: string) =>
         emitterAvailable && name === 'GlobalEventEmitter'
@@ -42,86 +44,121 @@ let emitterAvailable = false;
             : undefined,
 };
 
-const { currentAppState, addAppStateListener, useAppState, isAvailable, APP_STATE_EVENT } =
-    await import('../src/state.js');
+type AppStateModule = typeof import('../src/state.js');
+
+/** Fresh module instance per test — resets the process-level latches. */
+const loadFresh = async (): Promise<AppStateModule> => {
+    vi.resetModules();
+    emitterListeners.clear();
+    return await import('../src/state.js');
+};
 
 const flush = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
 
 beforeEach(() => {
-    bridge.callAsync.mockClear();
-    bridge.isModuleAvailable.mockClear();
+    emitterAvailable = true;
+    bridge.callAsync.mockReset();
+    bridge.callAsync.mockResolvedValue({ state: 'active' });
+    bridge.isModuleAvailable.mockReset();
+    bridge.isModuleAvailable.mockReturnValue(true);
 });
 
 describe('AppState', () => {
-    it('defaults to active, seeds once, and retries emitter wiring until it is reachable', async () => {
-        // First API call races runtime init: no emitter yet. The native seed
-        // still fires (its latch is independent), but events can't flow.
-        expect(currentAppState()).toBe('active');
-        expect(isAvailable()).toBe(true);
+    it('defaults to active, reports availability, and seeds from the native module once', async () => {
+        const api = await loadFresh();
+        expect(api.currentAppState()).toBe('active');   // first API call — wires + seeds
+        expect(api.isAvailable()).toBe(true);
         await flush();
         expect(bridge.callAsync).toHaveBeenCalledWith('AppState', 'getAppState');
         expect(bridge.callAsync).toHaveBeenCalledTimes(1);
-        emit(APP_STATE_EVENT, { state: 'background' });   // no listener registered yet
-        expect(currentAppState()).toBe('active');
+    });
+
+    it('retries emitter wiring when the first API call races runtime init', async () => {
+        const api = await loadFresh();
+        emitterAvailable = false;
+
+        // No emitter yet: the call succeeds but events can't flow.
+        expect(api.currentAppState()).toBe('active');
+        emit(api.APP_STATE_EVENT, { state: 'background' });
+        expect(api.currentAppState()).toBe('active');
 
         // Emitter comes up — the next API call must wire instead of having
         // latched permanently on the failed first attempt.
         emitterAvailable = true;
-        expect(currentAppState()).toBe('active');
-        emit(APP_STATE_EVENT, { state: 'background' });
-        expect(currentAppState()).toBe('background');
-        emit(APP_STATE_EVENT, { state: 'active' });       // restore for later tests
+        api.currentAppState();
+        emit(api.APP_STATE_EVENT, { state: 'background' });
+        expect(api.currentAppState()).toBe('background');
     });
 
-    it('dispatches transitions to listeners and dedups consecutive duplicates', () => {
-        const seen: string[] = [];
-        const off = addAppStateListener((s) => seen.push(s));
+    it('retries the native seed after a transient failure', async () => {
+        bridge.callAsync.mockRejectedValueOnce(new Error('bridge not ready'));
+        const api = await loadFresh();
 
-        emit(APP_STATE_EVENT, { state: 'active' });      // duplicate of default — dropped
-        emit(APP_STATE_EVENT, { state: 'background' });
-        emit(APP_STATE_EVENT, { state: 'background' });   // duplicate — dropped
-        emit(APP_STATE_EVENT, { state: 'active' });
+        api.currentAppState();                          // seed attempt #1 — fails
+        await flush();
+        expect(bridge.callAsync).toHaveBeenCalledTimes(1);
+
+        bridge.callAsync.mockResolvedValueOnce({ state: 'background' });
+        api.currentAppState();                          // retry — succeeds
+        await flush();
+        expect(bridge.callAsync).toHaveBeenCalledTimes(2);
+        expect(api.currentAppState()).toBe('background');
+    });
+
+    it('dispatches transitions to listeners and dedups consecutive duplicates', async () => {
+        const api = await loadFresh();
+        const seen: string[] = [];
+        const off = api.addAppStateListener((s) => seen.push(s));
+
+        emit(api.APP_STATE_EVENT, { state: 'active' });      // duplicate of default — dropped
+        emit(api.APP_STATE_EVENT, { state: 'background' });
+        emit(api.APP_STATE_EVENT, { state: 'background' });   // duplicate — dropped
+        emit(api.APP_STATE_EVENT, { state: 'active' });
 
         expect(seen).toEqual(['background', 'active']);
-        expect(currentAppState()).toBe('active');
+        expect(api.currentAppState()).toBe('active');
 
         off();
-        emit(APP_STATE_EVENT, { state: 'background' });
-        expect(seen).toEqual(['background', 'active']);   // unsubscribed — no more calls
-        emit(APP_STATE_EVENT, { state: 'active' });       // restore for later tests
+        emit(api.APP_STATE_EVENT, { state: 'background' });
+        expect(seen).toEqual(['background', 'active']);       // unsubscribed — no more calls
     });
 
-    it('ignores malformed payloads', () => {
+    it('ignores malformed payloads', async () => {
+        const api = await loadFresh();
         const seen: string[] = [];
-        const off = addAppStateListener((s) => seen.push(s));
+        api.addAppStateListener((s) => seen.push(s));
 
-        emit(APP_STATE_EVENT, undefined);
-        emit(APP_STATE_EVENT, {});
-        emit(APP_STATE_EVENT, { state: 'suspended' });
-        emit(APP_STATE_EVENT, 'background');
+        emit(api.APP_STATE_EVENT, undefined);
+        emit(api.APP_STATE_EVENT, {});
+        emit(api.APP_STATE_EVENT, { state: 'suspended' });
+        emit(api.APP_STATE_EVENT, 'background');
 
         expect(seen).toEqual([]);
-        expect(currentAppState()).toBe('active');
-        off();
+        expect(api.currentAppState()).toBe('active');
     });
 
-    it('exposes a reactive signal that tracks transitions', () => {
-        const sig = useAppState();
-        expect(sig.value).toBe(currentAppState());
+    it('exposes a reactive signal that tracks transitions', async () => {
+        const api = await loadFresh();
+        const sig = api.useAppState();
+        expect(sig.value).toBe('active');
 
-        emit(APP_STATE_EVENT, { state: 'background' });
+        emit(api.APP_STATE_EVENT, { state: 'background' });
         expect(sig.value).toBe('background');
-        emit(APP_STATE_EVENT, { state: 'active' });
+        emit(api.APP_STATE_EVENT, { state: 'active' });
         expect(sig.value).toBe('active');
     });
 
-    it('never re-wires or re-seeds on subsequent API calls', async () => {
-        // beforeEach cleared the mock; the module-level latch means no
-        // further callAsync regardless of how many API calls follow.
-        currentAppState();
-        addAppStateListener(() => {})();
-        useAppState();
+    it('never re-wires or re-seeds after a successful first call', async () => {
+        const api = await loadFresh();
+        api.currentAppState();                          // wires + seeds
         await flush();
-        expect(bridge.callAsync).not.toHaveBeenCalled();
+        expect(bridge.callAsync).toHaveBeenCalledTimes(1);
+
+        api.currentAppState();
+        api.addAppStateListener(() => {})();
+        api.useAppState();
+        await flush();
+        expect(bridge.callAsync).toHaveBeenCalledTimes(1);   // no additional seed
+        expect(emitterListeners.get(api.APP_STATE_EVENT)?.size).toBe(1);   // single forwarder
     });
 });
