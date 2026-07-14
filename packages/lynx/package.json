@@ -1,6 +1,6 @@
 {
     "name": "@sigx/lynx",
-    "version": "0.12.1",
+    "version": "0.12.2",
     "description": "sigx-lynx framework",
     "type": "module",
     "main": "./dist/index.js",
