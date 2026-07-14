@@ -51,6 +51,16 @@ const makeData = (): EmojiData => ({
     skinTones: ['light', 'medium-light', 'medium', 'medium-dark', 'dark'],
 });
 
+// Six small categories (10 cells each, prefixes P..U) for the mounted-grid
+// LRU tests — enough tabs to overflow MAX_MOUNTED_GRIDS (4).
+const LRU_PREFIXES = ['P', 'Q', 'R', 'S', 'T', 'U'];
+const makeLruData = (): EmojiData => ({
+    locale: 'en',
+    categories: LRU_PREFIXES.map((p) => ({ key: `cat-${p}`, label: `category ${p}` })),
+    emojis: LRU_PREFIXES.flatMap((p, i) => makeEmojis(p, 10, i)),
+    skinTones: ['light', 'medium-light', 'medium', 'medium-dark', 'dark'],
+});
+
 type TestNode = {
     _handlers: Map<string, (e?: unknown) => void>;
     children: TestNode[];
@@ -131,6 +141,38 @@ describe('EmojiPicker (windowed grid integration)', () => {
         expect(keys.length).toBe(WINDOW_CELLS + CAT_B.length);
         expect(keys).toContain('B0');
         expect(keys).toContain('A0');
+    });
+
+    it('caps mounted grids at 4 (LRU) — visiting a 5th evicts the oldest', async () => {
+        const { container } = render(
+            <EmojiPicker data={makeLruData()} showSearch={false} showRecents={false} />,
+        );
+        await act(() => {});
+        // Visit P (initial) then Q, R, S, T — five tabs, cap is four.
+        for (const p of ['Q', 'R', 'S', 'T']) await tapTab(container, `${p}0`);
+        const keys = getAllByType(container, 'list-item').map((c) => c.props['item-key'] as string);
+        expect(keys.length).toBe(4 * 10);
+        expect(keys).not.toContain('P0');            // oldest evicted
+        for (const p of ['Q', 'R', 'S', 'T']) expect(keys).toContain(`${p}0`);
+    });
+
+    it('revisiting an LRU-retained tab rebuilds nothing; an evicted one rebuilds', async () => {
+        const renderCell = vi.fn((d: EmojiDatum, glyph: string) => <text>{`cell:${glyph}`}</text>);
+        const { container } = render(
+            <EmojiPicker
+                data={makeLruData()}
+                showSearch={false}
+                showRecents={false}
+                renderCell={renderCell}
+            />,
+        );
+        await act(() => {});
+        for (const p of ['Q', 'R', 'S', 'T']) await tapTab(container, `${p}0`); // P evicted
+        renderCell.mockClear();
+        await tapTab(container, 'R0');               // retained → zero rebuilds
+        expect(renderCell).not.toHaveBeenCalled();
+        await tapTab(container, 'P0');               // evicted → rebuilds its 10 cells
+        expect(renderCell).toHaveBeenCalledTimes(10);
     });
 
     it('revisiting a category re-renders zero cells (grid kept mounted)', async () => {
