@@ -37,7 +37,8 @@
     },
     "dependencies": {
         "@sigx/lynx-gestures": "workspace:^",
-        "@sigx/lynx-keyboard": "workspace:^"
+        "@sigx/lynx-keyboard": "workspace:^",
+        "@sigx/lynx-list": "workspace:^"
     },
     "peerDependencies": {
         "@sigx/lynx": "workspace:^",
