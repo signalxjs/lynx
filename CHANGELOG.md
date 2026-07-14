@@ -10,7 +10,7 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 ### Fixed
 
-- `@sigx/lynx-updates` — Android: a purely numeric `updates.runtimeVersion` pin (e.g. `'2'`) made every `checkForUpdate()` report `incompatible`: aapt stores numeric-looking `<meta-data android:value>`s as typed (non-String) values, and the native reader used `Bundle.getString()`, which returns null for them — the binary's runtime version read back as `"unknown"`. The reader is now type-tolerant (`get(...)?.toString()`), and `@sigx/lynx-cli` prebuild warns when a pinned runtimeVersion would be re-typed by aapt (already-shipped binaries keep the old reader, and non-canonical forms like `0x1A` or `1e3` still can't round-trip). iOS was unaffected. Note: the fix changes `@sigx/lynx-updates`' Android source content, so auto-computed runtime fingerprints change on next prebuild (#598).
+- `@sigx/lynx-updates` — Android: a purely numeric `updates.runtimeVersion` pin (e.g. `'2'`) made every `checkForUpdate()` report `incompatible`: aapt stores numeric-looking `<meta-data android:value>`s as typed (non-String) values, and the native reader used `Bundle.getString()`, which logs a `ClassCastException` warning and returns null for them — the binary's runtime version read back as `"unknown"`. The reader is now type-tolerant (`get(...)?.toString()`), and `@sigx/lynx-cli` prebuild warns when a pinned runtimeVersion would be re-typed by aapt (already-shipped binaries keep the old reader, and non-canonical forms like `0x1A` or `1e3` still can't round-trip). iOS was unaffected. Note: the fix changes `@sigx/lynx-updates`' Android source content, so auto-computed runtime fingerprints change on next prebuild (#598).
 
 ## [0.12.1] - 2026-07-13
 

@@ -74,7 +74,8 @@ object UpdateStore {
             val ai = context.packageManager.getApplicationInfo(
                 context.packageName, PackageManager.GET_META_DATA)
             // Not getString(): aapt stores numeric-looking android:value entries
-            // as Int/Float/Boolean, for which getString() returns null (#598).
+            // as Int/Float/Boolean, for which getString() logs a
+            // ClassCastException warning and returns null (#598).
             ai.metaData?.get(RUNTIME_VERSION_META_KEY)?.toString() ?: "unknown"
         } catch (e: Exception) {
             Log.w(TAG, "Could not read runtime version meta-data: ${e.message}")

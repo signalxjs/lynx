@@ -486,7 +486,8 @@ export const ANDROID_RUNTIME_VERSION_META_KEY = 'com.sigx.updates.RUNTIME_VERSIO
 /**
  * True when aapt would store this manifest `<meta-data android:value>` as a
  * non-String typed value (boolean/int/float/dimension/fraction/color/
- * resource reference), which `Bundle.getString()` reads back as null (#598).
+ * resource reference), for which `Bundle.getString()` logs a
+ * ClassCastException warning and returns null (#598).
  */
 export function aaptRetypesManifestValue(value: string): boolean {
     const v = value.trim();
