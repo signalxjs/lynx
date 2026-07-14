@@ -2616,9 +2616,9 @@ export async function runPrebuild(opts: PrebuildOptions = {}): Promise<void> {
             result.metaData.push({ name: ANDROID_RUNTIME_VERSION_META_KEY, value: androidRuntimeVersion });
         }
         if (config.updates?.runtimeVersion && aaptRetypesManifestValue(config.updates.runtimeVersion)) {
-            log(`\x1b[33m!\x1b[0m updates.runtimeVersion '${config.updates.runtimeVersion}' is numeric/boolean-like — ` +
-                `aapt stores it as a non-string manifest value, which @sigx/lynx-updates ≤ 0.12.2 ` +
-                `reads as "unknown" (updates report incompatible forever). Prefer a non-numeric pin like '1.0.0' or 'v2'.`);
+            log(`\x1b[33m!\x1b[0m updates.runtimeVersion '${config.updates.runtimeVersion}' would be stored ` +
+                `as a typed (non-string) manifest value by aapt, which @sigx/lynx-updates ≤ 0.12.2 ` +
+                `reads as "unknown" (updates report incompatible forever). Prefer a plain-string pin like '1.0.0' or 'v2'.`);
         }
         // Active build variant (#530) — travels as <meta-data> so native code
         // (splash, crash reporter) can read it via PackageManager. The JS side
