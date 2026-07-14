@@ -149,6 +149,28 @@ Scrolling to the top reveals an older page (at-top, so no visible jump); a
 zero-jump anchored expansion mid-list is device-pending. Omit `windowSize` to
 render every item.
 
+### Swapping datasets (`itemsKey`)
+
+The window and scroll position survive item updates by design — appends,
+prepends and edits keep the viewport where it is. But when you replace `items`
+**wholesale** (switching tabs or categories, a new search result set), that's
+wrong: the viewport stays stranded wherever scrolling had left it in the *old*
+dataset. Pass `itemsKey` — an identity for the dataset — and when it changes
+the list treats `items` as brand new: the window re-anchors to its initial
+position and the scroll resets to the start (the bottom in chat mode).
+
+```tsx
+<List
+  items={byCategory[activeTab.value]}
+  itemsKey={activeTab.value}      // tab switch = a new dataset → back to the top
+  keyExtractor={(e) => e.id}
+  windowSize={120}
+  renderItem={renderCell}
+/>
+```
+
+Zero-cost when omitted; omit it for append/prepend/edit flows.
+
 ## Props
 
 | Prop | Type | Notes |
@@ -172,6 +194,7 @@ render every item.
 | `windowSize` | `number` | Enables windowing: render only this many cells of a long `items`. |
 | `pageSize` | `number` | Items revealed per scroll-edge page when windowing. Default 30. |
 | `maxWindow` | `number` | Cap on rendered window length; the far end trims past it. Default `max(120, windowSize×2)`. |
+| `itemsKey` | `string` | Dataset identity — when it changes, the window re-anchors and scroll resets (see "Swapping datasets"). |
 | `mtRef` | `ListRef` | Capture the native element for `ListMethods`. |
 | `class` / `style` | — | Applied to the measuring wrapper. |
 

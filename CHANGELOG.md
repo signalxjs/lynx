@@ -4,6 +4,10 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 ## [Unreleased]
 
+### Added
+
+- `@sigx/lynx-list` — new `itemsKey` prop: an identity for the dataset. When it changes, `items` is treated as a brand-new list instead of an update — the window (when windowing) re-anchors to its initial position and the scroll resets to the start (the bottom in chat mode). Use it when swapping wholesale between datasets (tabs, categories, a new search); previously such a swap left the viewport and window stranded wherever scrolling had left them in the old dataset. Zero-cost when omitted. The showcase `ListDemo` now passes its refresh epoch as `itemsKey`, fixing its stranded-window-on-refresh bug (#600).
+
 ## [0.12.1] - 2026-07-13
 
 ### Changed

@@ -6,6 +6,7 @@ import {
   expandNewer,
   slideToEnd,
   clampWindow,
+  windowAfterItemsChange,
 } from '../src/windowing';
 
 describe('windowing math', () => {
@@ -64,5 +65,70 @@ describe('windowing math', () => {
   it('clampWindow keeps the range valid when items shrink', () => {
     expect(clampWindow({ start: 940, end: 1000 }, 500)).toEqual({ start: 500, end: 500 });
     expect(clampWindow({ start: 10, end: 50 }, 1000)).toEqual({ start: 10, end: 50 });
+  });
+});
+
+describe('windowAfterItemsChange', () => {
+  const cfg = resolveWindowConfig(60, 30, 120);
+  const mid = { start: 100, end: 160 }; // a window deep into the old dataset
+
+  it('swap re-anchors: feed to the start, chat to the newest', () => {
+    expect(windowAfterItemsChange(
+      mid,
+      { len: 500, prevLen: 1000, swapped: true, chat: false, anchoredAtEnd: false },
+      cfg,
+    )).toEqual({ start: 0, end: 60 });
+    expect(windowAfterItemsChange(
+      mid,
+      { len: 500, prevLen: 1000, swapped: true, chat: true, anchoredAtEnd: false },
+      cfg,
+    )).toEqual({ start: 440, end: 500 });
+  });
+
+  it('swap re-anchors even when the length is unchanged (invisible to clamping)', () => {
+    expect(windowAfterItemsChange(
+      mid,
+      { len: 1000, prevLen: 1000, swapped: true, chat: false, anchoredAtEnd: false },
+      cfg,
+    )).toEqual({ start: 0, end: 60 });
+  });
+
+  it('swap to an empty dataset collapses the window', () => {
+    expect(windowAfterItemsChange(
+      mid,
+      { len: 0, prevLen: 1000, swapped: true, chat: false, anchoredAtEnd: false },
+      cfg,
+    )).toEqual({ start: 0, end: 0 });
+  });
+
+  it('same length without a swap keeps the window untouched', () => {
+    expect(windowAfterItemsChange(
+      mid,
+      { len: 1000, prevLen: 1000, swapped: false, chat: false, anchoredAtEnd: false },
+      cfg,
+    )).toBe(mid);
+  });
+
+  it('chat append while anchored at the end slides to the newest', () => {
+    expect(windowAfterItemsChange(
+      { start: 940, end: 1000 },
+      { len: 1001, prevLen: 1000, swapped: false, chat: true, anchoredAtEnd: true },
+      cfg,
+    )).toEqual({ start: 940, end: 1001 });
+  });
+
+  it('growth while not anchored, and any shrink, just clamp', () => {
+    // chat grew but the viewport is scrolled up → don't yank to the end
+    expect(windowAfterItemsChange(
+      { start: 940, end: 1000 },
+      { len: 1001, prevLen: 1000, swapped: false, chat: true, anchoredAtEnd: false },
+      cfg,
+    )).toEqual({ start: 940, end: 1000 });
+    // feed shrank under the window → clamp into range
+    expect(windowAfterItemsChange(
+      { start: 940, end: 1000 },
+      { len: 500, prevLen: 1000, swapped: false, chat: false, anchoredAtEnd: false },
+      cfg,
+    )).toEqual({ start: 500, end: 500 });
   });
 });

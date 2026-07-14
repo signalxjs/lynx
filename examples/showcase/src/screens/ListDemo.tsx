@@ -64,7 +64,10 @@ export const ListDemo = component(() => {
 
     // Bumped whenever a refresh resets the feed, so an in-flight load-more append
     // that resolves after the reset is discarded instead of racing it back past
-    // the first page.
+    // the first page. Doubles as the List's `itemsKey`: a bump marks the reset
+    // as a dataset swap, so the window re-anchors to the first page instead of
+    // staying clamped wherever scrolling had left it. Plain `let` is enough —
+    // it's bumped before the signal write that triggers the re-render.
     let epoch = 0;
 
     const loadMore = (): void => {
@@ -119,6 +122,7 @@ export const ListDemo = component(() => {
                 >
                     <List
                         items={rows.value}
+                        itemsKey={String(epoch)}
                         keyExtractor={(r) => String(r.id)}
                         numColumns={columns.value}
                         listType={columns.value > 1 ? 'flow' : 'single'}

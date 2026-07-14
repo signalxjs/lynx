@@ -95,3 +95,33 @@ export function clampWindow(win: ListWindow, len: number): ListWindow {
   const end = Math.max(0, Math.min(win.end, len));
   return { start: Math.max(0, Math.min(win.start, end)), end };
 }
+
+/** How `items` changed since the window was last moved. */
+export interface ItemsChange {
+  /** New `items.length`. */
+  len: number;
+  /** Previous `items.length`. */
+  prevLen: number;
+  /** `itemsKey` changed → a brand-new dataset, not an edit of the old one. */
+  swapped: boolean;
+  /** Chat / bottom-anchored mode. */
+  chat: boolean;
+  /** Chat is sticking to the bottom (stickToBottom on and viewport at bottom). */
+  anchoredAtEnd: boolean;
+}
+
+/**
+ * Window transition for an items/itemsKey change (swap > append > clamp): a
+ * swap re-anchors to the initial window; a chat append while anchored at the
+ * bottom slides to the newest; anything else just clamps into range.
+ */
+export function windowAfterItemsChange(
+  cur: ListWindow,
+  c: ItemsChange,
+  cfg: WindowConfig,
+): ListWindow {
+  if (c.swapped) return initialWindow(c.len, cfg, c.chat);
+  if (c.len === c.prevLen) return cur;
+  if (c.len > c.prevLen && c.chat && c.anchoredAtEnd) return slideToEnd(cur, c.len, cfg);
+  return clampWindow(cur, c.len);
+}

@@ -19,8 +19,7 @@ import {
   initialWindow,
   expandOlder,
   expandNewer,
-  slideToEnd,
-  clampWindow,
+  windowAfterItemsChange,
   type ListWindow,
 } from './windowing.js';
 
@@ -277,6 +276,56 @@ const ListImpl = component<ListProps>(({ props, slots, emit }) => {
     if (p && typeof p.catch === 'function') p.catch(() => {});
   });
 
+  // Scroll the <list> back to its first cell on MT (dataset swap). Position 0
+  // is content-independent, so unlike the chat scroll-to-bottom it needs no
+  // `layoutcomplete` deferral — there is no `position >= data count` risk.
+  const scrollToTopMT = runOnMainThread((method: string) => {
+    'main thread';
+    const el = listRef.current;
+    if (!el) return;
+    const p = el.invoke(method, { position: 0, alignTo: 'top', offset: 0, smooth: false });
+    if (p && typeof p.catch === 'function') p.catch(() => {});
+  });
+
+  // Dataset swap (`itemsKey` changed): treat `items` as a brand-new list —
+  // re-anchor the window to its initial position and reset scroll to the start
+  // (the bottom in chat mode). Registered BEFORE the count effect below and
+  // updating `winPrevLen` itself, so the same flush's count change is consumed
+  // here and the count effect no-ops instead of clamping the fresh window. The
+  // early return keeps the effect subscribed to `itemsKey` only until a swap
+  // actually happens. The chat/load-more `let`s referenced here are declared
+  // later in setup — fine, effects first flush after setup completes.
+  let prevItemsKey = props.itemsKey;
+  effect(() => {
+    const k = props.itemsKey;
+    if (k === prevItemsKey) return;
+    prevItemsKey = k;
+    const len = props.items.length;
+    if (windowingEnabled) {
+      setWindow(windowAfterItemsChange(
+        { start: winStart.value, end: winEnd.value },
+        { len, prevLen: winPrevLen, swapped: true, chat: chatEnabled, anchoredAtEnd: false },
+        winCfg,
+      ));
+      winInit = len > 0;  // empty swap → re-init via the count effect when items arrive
+      winPrevLen = len;
+    }
+    endReachedFired = false;
+    if (chatEnabled) {
+      // The new dataset first-paints pinned to its newest, unread state clean.
+      // chatPrev* are synced so the append effect below doesn't misread the
+      // swap as "count grew → N new messages".
+      atBottom.value = true;
+      unreadCount.value = 0;
+      chatPrevCount = len;
+      chatPrevLastKey = lastKeyOf(props.items);
+      wantBottom = true;          // consumed by onChatLayoutComplete
+      wantBottomSmooth = false;
+    } else {
+      void scrollToTopMT(SCROLL_METHOD);
+    }
+  });
+
   // Initialise the window once items exist, then keep it valid as the count
   // changes: an append while anchored at the bottom slides to the newest;
   // anything else just clamps so the indices stay in range.
@@ -292,13 +341,18 @@ const ListImpl = component<ListProps>(({ props, slots, emit }) => {
       return;
     }
     if (len !== winPrevLen) {
-      const grewAtEnd = len > winPrevLen;
-      const cur: ListWindow = { start: winStart.value, end: winEnd.value };
-      if (grewAtEnd && chatEnabled && stickToBottom && atBottom.value) {
-        setWindow(slideToEnd(cur, len, winCfg));
-      } else {
-        setWindow(clampWindow(cur, len));
-      }
+      setWindow(windowAfterItemsChange(
+        { start: winStart.value, end: winEnd.value },
+        {
+          len,
+          prevLen: winPrevLen,
+          swapped: false,
+          chat: chatEnabled,
+          // Short-circuit: non-chat lists never read (so never track) atBottom.
+          anchoredAtEnd: chatEnabled && stickToBottom && atBottom.value,
+        },
+        winCfg,
+      ));
       winPrevLen = len;
     }
   });
@@ -461,7 +515,9 @@ const ListImpl = component<ListProps>(({ props, slots, emit }) => {
         scroll-orientation={horizontal ? 'horizontal' : 'vertical'}
         list-type={props.listType ?? 'single'}
         span-count={props.numColumns ?? 1}
-        main-thread:ref={chatEnabled || windowingEnabled ? listRef : props.mtRef}
+        main-thread:ref={chatEnabled || windowingEnabled || props.itemsKey !== undefined
+          ? listRef
+          : props.mtRef}
         // Spread optional attrs only when set — an `undefined` prop is
         // serialized as a native `null` attribute write (no skip in
         // patchProp), which would clobber the native default.
