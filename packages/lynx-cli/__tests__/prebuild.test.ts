@@ -11,6 +11,7 @@ import {
     injectGradleDependencies,
     injectAndroidPermissions,
     injectAndroidMetaData,
+    aaptRetypesManifestValue,
     injectAndroidApplicationAttributes,
     injectPodfileEntries,
     injectInfoPlistDescriptions,
@@ -417,6 +418,21 @@ describe('injectAndroidMetaData', () => {
             'utf-8',
         );
         expect(after).toBe(before);
+    });
+});
+
+describe('aaptRetypesManifestValue (#598)', () => {
+    it.each([
+        '2', '-7', '0x1A', 'true', 'FALSE', '1.0', '.5', '1e3',
+        '12dp', '50%', '#FF0000', '@string/rv', ' 2 ',
+    ])('flags aapt-retyped value %j', (value) => {
+        expect(aaptRetypesManifestValue(value)).toBe(true);
+    });
+
+    it.each([
+        '1.0.0', 'v2', 'fp1-abc123def456', '2-beta', '2026.07.14', '',
+    ])('passes string-safe value %j', (value) => {
+        expect(aaptRetypesManifestValue(value)).toBe(false);
     });
 });
 

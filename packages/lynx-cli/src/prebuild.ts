@@ -484,6 +484,23 @@ export function writeAndroidBehaviors(cwd: string, config: ResolvedConfig, behav
 export const ANDROID_RUNTIME_VERSION_META_KEY = 'com.sigx.updates.RUNTIME_VERSION';
 
 /**
+ * True when aapt would store this manifest `<meta-data android:value>` as a
+ * non-String typed value (boolean/int/float/dimension/fraction/color/
+ * resource reference), which `Bundle.getString()` reads back as null (#598).
+ */
+export function aaptRetypesManifestValue(value: string): boolean {
+    const v = value.trim();
+    return [
+        /^(?:true|false)$/i, // boolean
+        /^-?\d+$/, // integer (decimal)
+        /^0x[0-9a-f]+$/i, // integer (hex)
+        /^-?(?:\d+\.\d*|\.\d+|\d+)(?:e[+-]?\d+)?(?:dp|dip|sp|pt|px|mm|in|%p?)?$/i, // float / dimension / fraction
+        /^#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i, // color
+        /^[@?]./, // resource / attr reference
+    ].some((re) => re.test(v));
+}
+
+/**
  * Android manifest meta-data key carrying the active build variant name
  * (issue #530). Mirrors {@link ANDROID_RUNTIME_VERSION_META_KEY}'s mechanism so
  * native code can read the variant without an app-package-scoped BuildConfig.
@@ -2596,6 +2613,11 @@ export async function runPrebuild(opts: PrebuildOptions = {}): Promise<void> {
             'android', manifests, buildManifestIndex(cwd), config.updates?.runtimeVersion);
         if (!result.metaData.some((m) => m.name === ANDROID_RUNTIME_VERSION_META_KEY)) {
             result.metaData.push({ name: ANDROID_RUNTIME_VERSION_META_KEY, value: androidRuntimeVersion });
+        }
+        if (config.updates?.runtimeVersion && aaptRetypesManifestValue(config.updates.runtimeVersion)) {
+            log(`\x1b[33m!\x1b[0m updates.runtimeVersion '${config.updates.runtimeVersion}' is numeric/boolean-like — ` +
+                `aapt stores it as a non-string manifest value, which @sigx/lynx-updates ≤ 0.12.2 ` +
+                `reads as "unknown" (updates report incompatible forever). Prefer a non-numeric pin like '1.0.0' or 'v2'.`);
         }
         // Active build variant (#530) — travels as <meta-data> so native code
         // (splash, crash reporter) can read it via PackageManager. The JS side
