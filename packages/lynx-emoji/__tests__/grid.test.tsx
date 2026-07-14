@@ -57,15 +57,17 @@ type TestNode = {
     textContent(): string;
 };
 
-/** Innermost node with the given handler whose subtree contains the text. */
+/**
+ * Deepest node with the given handler whose subtree contains the text —
+ * post-order, so children win over ancestors and the first deepest match
+ * is returned deterministically.
+ */
 function findByHandler(root: TestNode, handler: string, text: string): TestNode | null {
-    let found: TestNode | null = null;
-    const walk = (node: TestNode): void => {
-        if (node._handlers.has(handler) && node.textContent().includes(text)) found = node;
-        for (const child of node.children) walk(child);
-    };
-    walk(root);
-    return found;
+    for (const child of root.children) {
+        const hit = findByHandler(child, handler, text);
+        if (hit) return hit;
+    }
+    return root._handlers.has(handler) && root.textContent().includes(text) ? root : null;
 }
 
 describe('EmojiGrid (windowed List)', () => {
