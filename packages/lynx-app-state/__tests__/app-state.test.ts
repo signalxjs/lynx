@@ -105,6 +105,26 @@ describe('AppState', () => {
         expect(api.currentAppState()).toBe('background');
     });
 
+    it('retries the native seed after an error-shaped resolved payload', async () => {
+        // The Lynx bridge resolves whatever the native callback passes —
+        // failures commonly arrive as resolved { error } payloads, not
+        // rejections. The seed latch must treat those as failures too.
+        bridge.callAsync.mockResolvedValueOnce({ error: 'native module not ready' });
+        const api = await loadFresh();
+
+        api.currentAppState();                          // seed attempt #1 — error payload
+        await flush();
+        expect(bridge.callAsync).toHaveBeenCalledTimes(1);
+
+        // Queue the good payload BEFORE the next call — any API call triggers
+        // the retry, including the assertion below.
+        bridge.callAsync.mockResolvedValueOnce({ state: 'background' });
+        expect(api.currentAppState()).toBe('active');   // default kept; fires retry
+        await flush();
+        expect(bridge.callAsync).toHaveBeenCalledTimes(2);
+        expect(api.currentAppState()).toBe('background');
+    });
+
     it('dispatches transitions to listeners and dedups consecutive duplicates', async () => {
         const api = await loadFresh();
         const seen: string[] = [];

@@ -76,7 +76,12 @@ const ensureWired = (): void => {
     if (!seeded && isModuleAvailable(MODULE)) {
         seeded = true;
         void callAsync<{ state?: unknown }>(MODULE, 'getAppState')
-            .then((res) => { if (isStatus(res?.state)) dispatch(res.state); })
+            .then((res) => {
+                // The bridge resolves whatever the native callback passes —
+                // an error-shaped or malformed payload is a failure too.
+                if (isStatus(res?.state)) dispatch(res.state);
+                else seeded = false;
+            })
             .catch(() => { seeded = false; });
     }
 };
