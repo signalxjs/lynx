@@ -89,7 +89,9 @@ const CRLF_EXTENSIONS = new Set(['.bat', '.cmd']);
  * scripts get CRLF, regardless of host OS. See issue #594.
  */
 function normalizeLineEndings(content: string, fileName: string): string {
-    const lf = content.replace(/\r\n/g, '\n');
+    // Collapse every terminator (CRLF and lone CR) to LF first so the result is
+    // deterministic regardless of how the template was edited or checked out.
+    const lf = content.replace(/\r\n?/g, '\n');
     return CRLF_EXTENSIONS.has(extname(fileName).toLowerCase())
         ? lf.replace(/\n/g, '\r\n')
         : lf;
@@ -379,7 +381,7 @@ export function ensureGradlewLf(cwd: string, config: ResolvedConfig): void {
     const gradlew = join(androidProjectRoot(cwd, config), 'gradlew');
     if (!existsSync(gradlew)) return;
     const content = readFileSync(gradlew, 'utf-8');
-    const lf = content.replace(/\r\n/g, '\n');
+    const lf = normalizeLineEndings(content, 'gradlew');
     if (lf !== content) {
         writeFileSync(gradlew, lf);
         log('Android: normalized gradlew line endings to LF');
@@ -1290,7 +1292,10 @@ export function refreshIosManagedFiles(cwd: string, config: ResolvedConfig): voi
     const podfileSrc = join(templateRootDir, 'Podfile');
     const podfileDest = iosPodfilePath(cwd, config);
     if (existsSync(podfileSrc)) {
-        const content = substituteVars(readFileSync(podfileSrc, 'utf-8'), vars);
+        const content = normalizeLineEndings(
+            substituteVars(readFileSync(podfileSrc, 'utf-8'), vars),
+            'Podfile',
+        );
         if (writeFileIfChanged(podfileDest, content)) refreshed++;
     }
 

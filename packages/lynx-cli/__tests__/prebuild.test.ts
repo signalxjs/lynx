@@ -166,8 +166,8 @@ describe('gradle wrapper line endings (#594)', () => {
 
         const bat = readFileSync(join(testDir, 'android', 'gradlew.bat'), 'utf-8');
         expect(bat).toContain('\r\n');
-        // No lone LF that isn't part of a CRLF pair.
-        expect(/[^\r]\n/.test(bat)).toBe(false);
+        // No lone LF that isn't part of a CRLF pair — including a leading LF.
+        expect(/(^|[^\r])\n/.test(bat)).toBe(false);
     });
 
     it('scaffolds gradle config files (.kts/.properties) with LF', () => {
@@ -200,6 +200,19 @@ describe('gradle wrapper line endings (#594)', () => {
         const healed = readFileSync(gradlewPath, 'utf-8');
         expect(healed).not.toContain('\r');
         expect(healed).toBe(lf);
+    });
+
+    it('heals lone CR (old-Mac) line endings too', () => {
+        const config = resolveConfig(TEST_CONFIG);
+        scaffoldAndroid(testDir, config);
+
+        const gradlewPath = join(testDir, 'android', 'gradlew');
+        const lf = readFileSync(gradlewPath, 'utf-8');
+        writeFileSync(gradlewPath, lf.replace(/\n/g, '\r'));
+
+        ensureGradlewLf(testDir, config);
+
+        expect(readFileSync(gradlewPath, 'utf-8')).toBe(lf);
     });
 });
 
