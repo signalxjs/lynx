@@ -28,7 +28,8 @@ declare const lynx: unknown | undefined;
 // JS boots with the app foregrounded in every ordinary launch; the async
 // native seed (below) corrects the rare background boot.
 let current: AppStateStatus = 'active';
-let wired = false;
+let emitterWired = false;
+let seeded = false;
 const listeners = new Set<AppStateListener>();
 let stateSignal: PrimitiveSignal<AppStateStatus> | undefined;
 
@@ -43,27 +44,36 @@ const dispatch = (next: AppStateStatus): void => {
 
 const isStatus = (v: unknown): v is AppStateStatus => v === 'active' || v === 'background';
 
-/** Wire the GlobalEventEmitter listener + native seed once, lazily. */
+/**
+ * Wire the GlobalEventEmitter listener + native seed, lazily. Each latch is
+ * only set on SUCCESS (same pattern as lynx-http's `ensureSubscribed`): if
+ * the first API call races runtime init and the emitter isn't reachable yet,
+ * a later call retries instead of leaving the module permanently unwired.
+ * Off-device (web preview, SSR, tests) neither ever succeeds — a silent no-op.
+ */
 const ensureWired = (): void => {
-    if (wired) return;
-    wired = true;
-
-    try {
-        const emitter = typeof lynx !== 'undefined'
-            ? (lynx as LynxLike).getJSModule?.('GlobalEventEmitter')
-            : undefined;
-        emitter?.addListener(APP_STATE_EVENT, (payload: unknown) => {
-            const state = (payload as { state?: unknown } | undefined)?.state;
-            if (isStatus(state)) dispatch(state);
-        });
-    } catch {
-        // Non-Lynx host (web preview, SSR, tests) — stay a silent no-op.
+    if (!emitterWired) {
+        try {
+            const emitter = typeof lynx !== 'undefined'
+                ? (lynx as LynxLike).getJSModule?.('GlobalEventEmitter')
+                : undefined;
+            if (emitter) {
+                emitter.addListener(APP_STATE_EVENT, (payload: unknown) => {
+                    const state = (payload as { state?: unknown } | undefined)?.state;
+                    if (isStatus(state)) dispatch(state);
+                });
+                emitterWired = true;
+            }
+        } catch {
+            // getJSModule threw — retry on the next API call.
+        }
     }
 
     // Authoritative seed for the rare background boot (e.g. launched by the
     // OS while backgrounded). Fire-and-forget: the default 'active' is right
     // for every ordinary launch.
-    if (isModuleAvailable(MODULE)) {
+    if (!seeded && isModuleAvailable(MODULE)) {
+        seeded = true;
         void callAsync<{ state?: unknown }>(MODULE, 'getAppState')
             .then((res) => { if (isStatus(res?.state)) dispatch(res.state); })
             .catch(() => { /* module present but call failed — keep the default */ });

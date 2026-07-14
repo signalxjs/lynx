@@ -23,9 +23,12 @@ const emitterListeners = new Map<string, Set<Listener>>();
 const emit = (name: string, payload: unknown) => {
     for (const fn of emitterListeners.get(name) ?? []) fn(payload);
 };
+// Gate emitter availability so the first test can model an API call racing
+// runtime init (getJSModule not ready yet) and verify wiring is retried.
+let emitterAvailable = false;
 (globalThis as Record<string, unknown>).lynx = {
     getJSModule: (name: string) =>
-        name === 'GlobalEventEmitter'
+        emitterAvailable && name === 'GlobalEventEmitter'
             ? {
                 addListener: (event: string, fn: Listener) => {
                     let set = emitterListeners.get(event);
@@ -50,12 +53,24 @@ beforeEach(() => {
 });
 
 describe('AppState', () => {
-    it('defaults to active, reports availability, and seeds from the native module once', async () => {
-        expect(currentAppState()).toBe('active');   // first API call — wires + seeds
+    it('defaults to active, seeds once, and retries emitter wiring until it is reachable', async () => {
+        // First API call races runtime init: no emitter yet. The native seed
+        // still fires (its latch is independent), but events can't flow.
+        expect(currentAppState()).toBe('active');
         expect(isAvailable()).toBe(true);
         await flush();
         expect(bridge.callAsync).toHaveBeenCalledWith('AppState', 'getAppState');
         expect(bridge.callAsync).toHaveBeenCalledTimes(1);
+        emit(APP_STATE_EVENT, { state: 'background' });   // no listener registered yet
+        expect(currentAppState()).toBe('active');
+
+        // Emitter comes up — the next API call must wire instead of having
+        // latched permanently on the failed first attempt.
+        emitterAvailable = true;
+        expect(currentAppState()).toBe('active');
+        emit(APP_STATE_EVENT, { state: 'background' });
+        expect(currentAppState()).toBe('background');
+        emit(APP_STATE_EVENT, { state: 'active' });       // restore for later tests
     });
 
     it('dispatches transitions to listeners and dedups consecutive duplicates', () => {
