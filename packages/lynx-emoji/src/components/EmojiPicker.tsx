@@ -128,12 +128,21 @@ export const EmojiPicker = component<EmojiPickerProps>(({ props, emit }) => {
     const tab = signal(initialTab);
     const gridTab = signal(initialTab);
     const popover = signal<{ datum: EmojiDatum | null }>({ datum: null });
-    // Visited categories keep their grid MOUNTED (hidden via `use:show`, one
-    // SET_STYLE op to toggle): a first visit builds its ~120-cell window once,
-    // every revisit is instant — zero cells rebuilt (the native list resets
-    // its scroll to the top while hidden, which matches what other pickers do
-    // on a category tap). Bounded cost: categories × window (≤ ~120 cells
-    // each), and only for tabs actually opened.
+    // Recently visited categories keep their grid MOUNTED (hidden via
+    // `use:show`, one SET_STYLE op to toggle): a first visit builds its
+    // ~120-cell window once, revisiting a still-mounted tab rebuilds zero
+    // cells (the native list resets its scroll to the top while hidden,
+    // which matches what other pickers do on a category tap).
+    //
+    // LRU-capped: each kept grid is a live native <list>, and past ~9
+    // mounted lists their per-layout page events — dispatched even with no
+    // JS consumer — trip the engine's dispatch rate limiter (error 204,
+    // "called too frequently"; #606) and the dev overlay red-screens.
+    // Keeping the current tab plus the three most recently visited covers
+    // the tabs users actually bounce between while staying far below the
+    // flood threshold; evicted tabs simply rebuild their window (still
+    // windowed, still behind the two-phase highlight) on the next visit.
+    const MAX_MOUNTED_GRIDS = 4;
     const visitedTabs = signal<{ keys: string[] }>({ keys: [initialTab] });
 
     // Per-element style objects, cached per tab key — identity-stable across
@@ -159,8 +168,15 @@ export const EmojiPicker = component<EmojiPickerProps>(({ props, emit }) => {
         setTimeout(() => {
             // Stale-tap guard: rapid taps only swap the grid to the final tab.
             if (tab.value !== key) return;
-            if (!visitedTabs.keys.includes(key)) {
-                visitedTabs.$set({ keys: [...visitedTabs.keys, key] });
+            // LRU bump: move to most-recent, evict past the mounted cap.
+            // Skipped when the key is already most-recent (a re-tap of the
+            // active tab) so no-op selections don't churn a state update.
+            const current = visitedTabs.keys;
+            if (current[current.length - 1] !== key) {
+                const keys = current.filter((k) => k !== key);
+                keys.push(key);
+                while (keys.length > MAX_MOUNTED_GRIDS) keys.shift();
+                visitedTabs.$set({ keys });
             }
             gridTab.value = key;
         }, 0);
