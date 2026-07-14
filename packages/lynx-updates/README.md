@@ -62,6 +62,10 @@ same fingerprint into the manifest, and the client refuses mismatches:
   the fingerprint stable — published updates stay valid.
 - Prefer manual control? Pin it: `updates: { runtimeVersion: '1.0.0' }` in
   `signalx.config.ts` (Expo-style — you own the compatibility guarantee).
+  Avoid purely numeric pins (`'2'`, `'1.0'`): Android's aapt stores them as
+  typed manifest values, which binaries built with ≤ 0.12.2 read back as
+  `unknown` — prefer `'1.0.0'` or `'v2'`. `sigx prebuild` warns about such
+  pins (#598).
 
 After a store update, all downloaded OTA updates are dropped automatically
 (the binary's fingerprint/versionCode no longer match the recorded state).
