@@ -122,7 +122,9 @@ describe('EmojiPicker (windowed grid integration)', () => {
     });
 
     it('opening the skin-tone popover does not rebuild the grid cells', async () => {
-        const renderCell = vi.fn((d: EmojiDatum, glyph: string) => <text>{glyph}</text>);
+        // Prefix the cell text so the long-press target can't collide with the
+        // tab bar (tab 'cat-a' falls back to the same 'A0' glyph).
+        const renderCell = vi.fn((d: EmojiDatum, glyph: string) => <text>{`cell:${glyph}`}</text>);
         const { container } = render(
             <EmojiPicker
                 data={makeData()}
@@ -135,7 +137,7 @@ describe('EmojiPicker (windowed grid integration)', () => {
         expect(renderCell).toHaveBeenCalledTimes(WINDOW_CELLS);
         renderCell.mockClear();
         // Long-press the tonal 'A0' cell → the popover opens…
-        const cell = findByHandler(container as never, 'bindlongpress', 'A0');
+        const cell = findByHandler(container as never, 'bindlongpress', 'cell:A0');
         expect(cell).toBeTruthy();
         await act(() => { cell!._handlers.get('bindlongpress')!(); });
         expect(getByText(container, 'A0~1')).toBeTruthy();
