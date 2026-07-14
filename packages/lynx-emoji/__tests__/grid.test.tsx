@@ -192,17 +192,43 @@ describe('EmojiPicker (windowed grid integration)', () => {
         expect(keys).toContain('R0');
     });
 
+    // NOTE on fake timers here: lynx-testing's act/waitForUpdate flushes via
+    // a real setTimeout(0), so `act` deadlocks while timers are faked. The
+    // pattern is: fake → advance async (fires the prefetch timers, runs the
+    // microtask effects between them) → restore real timers → one act() to
+    // let the final flush land.
     it('idle prefetch pre-mounts the next two categories', async () => {
+        vi.useFakeTimers();
         const { container } = render(
             <EmojiPicker data={makeLruData()} showSearch={false} showRecents={false} />,
         );
+        try {
+            expect(getAllByType(container, 'list-item').length).toBe(10);   // P only
+            await vi.advanceTimersByTimeAsync(1100);
+        } finally {
+            vi.useRealTimers();
+        }
         await act(() => {});
-        expect(getAllByType(container, 'list-item').length).toBe(10);   // P only
-        await act(async () => { await new Promise((r) => setTimeout(r, 1200)); });
         const keys = getAllByType(container, 'list-item').map((c) => c.props['item-key'] as string);
-        expect(keys.length).toBe(30);                                    // P + prefetched Q, R
+        expect(keys.length).toBe(30);                                        // P + prefetched Q, R
         expect(keys).toContain('Q0');
         expect(keys).toContain('R0');
+    });
+
+    it('unmounting cancels pending prefetch timers (no late signal writes)', async () => {
+        vi.useFakeTimers();
+        const { unmount } = render(
+            <EmojiPicker data={makeLruData()} showSearch={false} showRecents={false} />,
+        );
+        try {
+            unmount();
+            // Firing the would-be prefetch window after unmount must be a
+            // no-op (a late $set on a torn-down component would throw/warn).
+            await vi.advanceTimersByTimeAsync(2000);
+        } finally {
+            vi.useRealTimers();
+        }
+        await act(() => {});
     });
 
     it('revisiting a category re-renders zero cells (grid kept mounted)', async () => {

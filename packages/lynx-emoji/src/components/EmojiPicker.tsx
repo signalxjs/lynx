@@ -1,4 +1,4 @@
-import { component, signal, useElementLayout, type Define } from '@sigx/lynx';
+import { component, onUnmounted, signal, useElementLayout, type Define } from '@sigx/lynx';
 import type { EmojiData, EmojiDatum, SkinTone } from '../data/schema.js';
 import { glyphForTone } from '../data/glyph.js';
 import { createEmojiContext, useEmojiContext, type EmojiContextValue } from '../state/context.js';
@@ -188,9 +188,24 @@ export const EmojiPicker = component<EmojiPickerProps>(({ props, emit }) => {
         visitedTabs.$set({ keys });
     }
 
+    // Pending timers, cleared on unmount so no callback mutates signals
+    // after the picker is gone; the swap timer is also cleared per-tap so
+    // rapid tapping never queues more than one deferred mount (the last tap
+    // wins outright, not via the stale-tap check alone).
+    let swapTimer: ReturnType<typeof setTimeout> | undefined;
+    const prefetchTimers: ReturnType<typeof setTimeout>[] = [];
+    onUnmounted(() => {
+        if (swapTimer !== undefined) clearTimeout(swapTimer);
+        prefetchTimers.forEach((t) => clearTimeout(t));
+    });
+
     function selectTab(key: string): void {
         tab.value = key;
         popover.datum = null;
+        if (swapTimer !== undefined) {
+            clearTimeout(swapTimer);
+            swapTimer = undefined;
+        }
         // Already mounted → the swap is a use:show style flip; do it in the
         // same flush as the highlight, no deferral needed.
         if (visitedTabs.keys.includes(key)) {
@@ -200,9 +215,8 @@ export const EmojiPicker = component<EmojiPickerProps>(({ props, emit }) => {
         }
         // Fresh mount (~120-cell window build) → defer one tick so the tab
         // highlight paints in its own cheap flush first.
-        setTimeout(() => {
-            // Stale-tap guard: rapid taps only mount the final tab.
-            if (tab.value !== key) return;
+        swapTimer = setTimeout(() => {
+            swapTimer = undefined;
             bumpMounted(key);
             gridTab.value = key;
         }, 0);
@@ -214,11 +228,11 @@ export const EmojiPicker = component<EmojiPickerProps>(({ props, emit }) => {
     // them within the mounted-grid LRU; the cap guard keeps interactive visits
     // ahead of idle work.
     ctx.data.categories.slice(1, 3).forEach((cat, i) => {
-        setTimeout(() => {
+        prefetchTimers.push(setTimeout(() => {
             const current = visitedTabs.keys;
             if (current.includes(cat.key) || current.length >= MAX_MOUNTED_GRIDS) return;
             visitedTabs.$set({ keys: [cat.key, ...current] });
-        }, 600 + i * 400);
+        }, 600 + i * 400));
     });
 
     function pick(datum: EmojiDatum, tone: SkinTone): void {
