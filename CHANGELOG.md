@@ -4,7 +4,13 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 ## [Unreleased]
 
+### Added
+
+- `@sigx/lynx-list` — `initialMainAxisSize` prop: pins the native list to a known main-axis size on its very first frame instead of the 1px placeholder, killing the mount-frame flash + re-layout for consumers that already know the box (the live measure still wins once it lands) (#610).
+
 ### Fixed
+
+- `@sigx/lynx-emoji` — first visits to a category no longer flash a white grid that re-lays-out: the picker measures its grid region once and hands the height to every grid (`EmojiGrid.initialHeight` → `List.initialMainAxisSize`), revisits to still-mounted tabs swap in the same flush as the tab highlight (no deferred tick), and the two categories after the initial one are pre-built during idle so the most likely first taps land on ready grids (#610).
 
 - `@sigx/lynx-emoji` — visiting every category no longer trips the Lynx engine's event-dispatch rate limiter (error 204 "DispatchEvent called too frequently", red-screened by the dev overlay). Kept-mounted category grids are now LRU-capped at 4 (current + 3 most recent): each kept grid is a live native `<list>` whose per-layout page events dispatch even with no JS consumer, and ~10 mounted lists crossed the 800-per-window limit. Evicted tabs rebuild their (windowed) grid on the next visit (#606).
 

@@ -1,4 +1,4 @@
-import { component, signal, type Define } from '@sigx/lynx';
+import { component, onUnmounted, signal, useElementLayout, type Define } from '@sigx/lynx';
 import type { EmojiData, EmojiDatum, SkinTone } from '../data/schema.js';
 import { glyphForTone } from '../data/glyph.js';
 import { createEmojiContext, useEmojiContext, type EmojiContextValue } from '../state/context.js';
@@ -162,25 +162,78 @@ export const EmojiPicker = component<EmojiPickerProps>(({ props, emit }) => {
         return style;
     };
 
+    // LRU bump: move to most-recent, evict past the mounted cap. Skipped
+    // when the key is already most-recent (a re-tap of the active tab) so
+    // no-op selections don't churn a state update.
+    // The grid region is measured once (all tab grids share its box) and the
+    // height is handed to every grid as `initialHeight`, so a freshly mounted
+    // grid lays out at full size in its mount frame instead of spending it at
+    // the 1px placeholder and visibly re-laying-out.
+    const { layout: regionLayout, onLayoutChange: onRegionLayoutChange } = useElementLayout();
+    // Per-instance (not module-level): two pickers must not share the object.
+    const regionStyle: Record<string, string | number> = {
+        flexGrow: 1,
+        flexShrink: 1,
+        display: 'flex',
+        flexDirection: 'column',
+        position: 'relative',
+    };
+
+    function bumpMounted(key: string): void {
+        const current = visitedTabs.keys;
+        if (current[current.length - 1] === key) return;
+        const keys = current.filter((k) => k !== key);
+        keys.push(key);
+        while (keys.length > MAX_MOUNTED_GRIDS) keys.shift();
+        visitedTabs.$set({ keys });
+    }
+
+    // Pending timers, cleared on unmount so no callback mutates signals
+    // after the picker is gone; the swap timer is also cleared per-tap so
+    // rapid tapping never queues more than one deferred mount (the last tap
+    // wins outright, not via the stale-tap check alone).
+    let swapTimer: ReturnType<typeof setTimeout> | undefined;
+    const prefetchTimers: ReturnType<typeof setTimeout>[] = [];
+    onUnmounted(() => {
+        if (swapTimer !== undefined) clearTimeout(swapTimer);
+        prefetchTimers.forEach((t) => clearTimeout(t));
+    });
+
     function selectTab(key: string): void {
         tab.value = key;
         popover.datum = null;
-        setTimeout(() => {
-            // Stale-tap guard: rapid taps only swap the grid to the final tab.
-            if (tab.value !== key) return;
-            // LRU bump: move to most-recent, evict past the mounted cap.
-            // Skipped when the key is already most-recent (a re-tap of the
-            // active tab) so no-op selections don't churn a state update.
-            const current = visitedTabs.keys;
-            if (current[current.length - 1] !== key) {
-                const keys = current.filter((k) => k !== key);
-                keys.push(key);
-                while (keys.length > MAX_MOUNTED_GRIDS) keys.shift();
-                visitedTabs.$set({ keys });
-            }
+        if (swapTimer !== undefined) {
+            clearTimeout(swapTimer);
+            swapTimer = undefined;
+        }
+        // Already mounted → the swap is a use:show style flip; do it in the
+        // same flush as the highlight, no deferral needed.
+        if (visitedTabs.keys.includes(key)) {
+            bumpMounted(key);
+            gridTab.value = key;
+            return;
+        }
+        // Fresh mount (~120-cell window build) → defer one tick so the tab
+        // highlight paints in its own cheap flush first.
+        swapTimer = setTimeout(() => {
+            swapTimer = undefined;
+            bumpMounted(key);
             gridTab.value = key;
         }, 0);
     }
+
+    // Idle prefetch: shortly after the picker settles, pre-mount the next two
+    // categories so the most likely first taps land on an already-built grid.
+    // Prefetched keys are inserted least-recent, so real visits out-prioritize
+    // them within the mounted-grid LRU; the cap guard keeps interactive visits
+    // ahead of idle work.
+    ctx.data.categories.slice(1, 3).forEach((cat, i) => {
+        prefetchTimers.push(setTimeout(() => {
+            const current = visitedTabs.keys;
+            if (current.includes(cat.key) || current.length >= MAX_MOUNTED_GRIDS) return;
+            visitedTabs.$set({ keys: [cat.key, ...current] });
+        }, 600 + i * 400));
+    });
 
     function pick(datum: EmojiDatum, tone: SkinTone): void {
         ctx!.recents.push(datum);
@@ -202,6 +255,7 @@ export const EmojiPicker = component<EmojiPickerProps>(({ props, emit }) => {
             ? [{ tab: 'recents' as EmojiTab, glyph: RECENTS_GLYPH }, ...tabs]
             : tabs;
         const searchHits = q !== '' ? ctx.index.search(q) : null;
+        const regionHeight = regionLayout.value?.height ?? 0;
         const sliceFor = (key: string): EmojiDatum[] =>
             key === 'recents' ? ctx.recents.recents.map((e) => e) : byCategory.get(key) ?? [];
 
@@ -226,6 +280,7 @@ export const EmojiPicker = component<EmojiPickerProps>(({ props, emit }) => {
             <EmojiGrid
                 emojis={emojis}
                 itemsKey={itemsKey}
+                initialHeight={regionHeight > 0 ? regionHeight : undefined}
                 tone={tone}
                 columns={props.columns}
                 cellSize={props.cellSize}
@@ -277,6 +332,7 @@ export const EmojiPicker = component<EmojiPickerProps>(({ props, emit }) => {
                         onSelect={(t) => selectTab(t === 'recents' ? 'recents' : t.key)}
                     />
                 )}
+                <view style={regionStyle} bindlayoutchange={onRegionLayoutChange}>
                 {searchHits !== null
                     ? (searchHits.length === 0
                         ? renderEmpty('No emoji found')
@@ -300,6 +356,7 @@ export const EmojiPicker = component<EmojiPickerProps>(({ props, emit }) => {
                             </view>
                         );
                     })}
+                </view>
                 {popover.datum && (
                     <SkinTonePopover
                         datum={popover.datum}

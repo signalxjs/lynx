@@ -131,6 +131,15 @@ export type ListProps<T = unknown> =
    * append/prepend/edit flows.
    */
   & Define.Prop<'itemsKey', string, false>
+  /**
+   * Concrete main-axis size (px) to pin the native `<list>` to on its very
+   * first frame, before the measuring wrapper's live measure lands. Without
+   * it a freshly mounted list spends its mount frame at a 1px placeholder and
+   * visibly re-lays-out once measured. Pass it when the consumer already
+   * knows the box size (e.g. sibling lists sharing one container). The live
+   * measure still wins as soon as it arrives.
+   */
+  & Define.Prop<'initialMainAxisSize', number, false>
   /** Capture the native `<list>` element for imperative scrolling. */
   & Define.Prop<'mtRef', ListRef, false>
   /** Class applied to the measuring wrapper that sizes the list. */

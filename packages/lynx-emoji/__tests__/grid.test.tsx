@@ -175,6 +175,62 @@ describe('EmojiPicker (windowed grid integration)', () => {
         expect(renderCell).toHaveBeenCalledTimes(10);
     });
 
+    it('revisiting a mounted tab swaps in the same flush (LRU bumps without the deferred tick)', async () => {
+        const { container } = render(
+            <EmojiPicker data={makeLruData()} showSearch={false} showRecents={false} />,
+        );
+        await act(() => {});
+        for (const p of ['Q', 'R', 'S', 'T']) await tapTab(container, `${p}0`); // LRU: Q R S T (P evicted)
+        // Re-tap R with NO timer hop — the mounted-tab path is synchronous.
+        const bar = getByType(container as never, 'scroll-view');
+        const tabR = findByHandler(bar as never, 'bindtap', 'R0');
+        await act(() => { tabR!._handlers.get('bindtap')!(); });        // LRU: Q S T R
+        // A fresh visit now evicts Q — proving R was bumped without the tick.
+        await tapTab(container, 'U0');                                   // LRU: S T R U
+        const keys = getAllByType(container, 'list-item').map((c) => c.props['item-key'] as string);
+        expect(keys).not.toContain('Q0');
+        expect(keys).toContain('R0');
+    });
+
+    // NOTE on fake timers here: lynx-testing's act/waitForUpdate flushes via
+    // a real setTimeout(0), so `act` deadlocks while timers are faked. The
+    // pattern is: fake → advance async (fires the prefetch timers, runs the
+    // microtask effects between them) → restore real timers → one act() to
+    // let the final flush land.
+    it('idle prefetch pre-mounts the next two categories', async () => {
+        vi.useFakeTimers();
+        const { container } = render(
+            <EmojiPicker data={makeLruData()} showSearch={false} showRecents={false} />,
+        );
+        try {
+            expect(getAllByType(container, 'list-item').length).toBe(10);   // P only
+            await vi.advanceTimersByTimeAsync(1100);
+        } finally {
+            vi.useRealTimers();
+        }
+        await act(() => {});
+        const keys = getAllByType(container, 'list-item').map((c) => c.props['item-key'] as string);
+        expect(keys.length).toBe(30);                                        // P + prefetched Q, R
+        expect(keys).toContain('Q0');
+        expect(keys).toContain('R0');
+    });
+
+    it('unmounting cancels pending prefetch timers (no late signal writes)', async () => {
+        vi.useFakeTimers();
+        const { unmount } = render(
+            <EmojiPicker data={makeLruData()} showSearch={false} showRecents={false} />,
+        );
+        try {
+            unmount();
+            // Firing the would-be prefetch window after unmount must be a
+            // no-op (a late $set on a torn-down component would throw/warn).
+            await vi.advanceTimersByTimeAsync(2000);
+        } finally {
+            vi.useRealTimers();
+        }
+        await act(() => {});
+    });
+
     it('revisiting a category re-renders zero cells (grid kept mounted)', async () => {
         const renderCell = vi.fn((d: EmojiDatum, glyph: string) => <text>{`cell:${glyph}`}</text>);
         const { container } = render(
