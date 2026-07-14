@@ -111,4 +111,18 @@ describe('updates:publish', () => {
         await expect(runUpdatesPublish({ cwd: emptyBundle, logger: silent }))
             .rejects.toThrow(/empty/i);
     });
+
+    it('refuses to publish when dist/ contains async chunks (#599)', async () => {
+        const cwd = makeProject({ bundle: 'bundle', sidecar: { android: 'fp1-a' } });
+        const asyncDir = join(cwd, 'dist', 'static', 'js', 'async');
+        mkdirSync(asyncDir, { recursive: true });
+        writeFileSync(join(asyncDir, '101.abc.js'), 'chunk');
+
+        await expect(runUpdatesPublish({ cwd, logger: silent }))
+            .rejects.toThrow(/--allow-async-chunks/);
+
+        // Escape hatch for remotely-hosted chunks.
+        const result = await runUpdatesPublish({ cwd, logger: silent, allowAsyncChunks: true });
+        expect(result.updateId).toBeTruthy();
+    });
 });

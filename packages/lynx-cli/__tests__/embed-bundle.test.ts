@@ -11,7 +11,10 @@ import { mkdtempSync, mkdirSync, rmSync, writeFileSync, readFileSync, existsSync
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { embedBundle, embeddedBundleDest } from '../src/util/embed-bundle.js';
+import {
+    embedBundle, embeddedBundleDest,
+    collectAsyncAssets, embedAsyncAssets, asyncAssetsRoot,
+} from '../src/util/embed-bundle.js';
 import { resolveConfig } from '../src/config/parser.js';
 import type { LynxConfig } from '../src/config/schema.js';
 
@@ -90,5 +93,92 @@ describe('embedBundle', () => {
         const cwd = makeProject('');
         expect(() => embedBundle({ cwd, config, platform: 'android', log: () => {} }))
             .toThrow(/empty/);
+    });
+});
+
+function addAsyncChunk(cwd: string, rel: string, contents: string): void {
+    const abs = join(cwd, 'dist', ...rel.split('/'));
+    mkdirSync(join(abs, '..'), { recursive: true });
+    writeFileSync(abs, contents);
+}
+
+/** Seed a pbxproj that already carries the LynxAssets folder reference. */
+function seedIosPbxproj(cwd: string, content = '/* LynxAssets */'): void {
+    const projDir = join(cwd, 'ios', 'TestApp.xcodeproj');
+    mkdirSync(projDir, { recursive: true });
+    writeFileSync(join(projDir, 'project.pbxproj'), content);
+}
+
+describe('collectAsyncAssets', () => {
+    it('returns an empty list when dist has no async chunks', () => {
+        const cwd = makeProject('BUNDLE');
+        expect(collectAsyncAssets(cwd)).toEqual([]);
+    });
+
+    it('discovers async chunks with posix rel paths, sorted', () => {
+        const cwd = makeProject('BUNDLE');
+        addAsyncChunk(cwd, 'static/js/async/b.123.js', 'chunk-b');
+        addAsyncChunk(cwd, 'static/js/async/a.456.js', 'chunk-a');
+        addAsyncChunk(cwd, 'static/js/async/nested/c.789.js', 'chunk-c');
+        const assets = collectAsyncAssets(cwd);
+        expect(assets.map((a) => a.rel)).toEqual([
+            'static/js/async/a.456.js',
+            'static/js/async/b.123.js',
+            'static/js/async/nested/c.789.js',
+        ]);
+        expect(assets[0]?.size).toBe('chunk-a'.length);
+    });
+});
+
+describe('embedAsyncAssets', () => {
+    it('mirrors chunks into Android assets preserving rel paths (via embedBundle)', () => {
+        const cwd = makeProject('BUNDLE');
+        addAsyncChunk(cwd, 'static/js/async/101.abc.js', 'chunk-101');
+        embedBundle({ cwd, config, platform: 'android', log: () => {} });
+        const dest = join(asyncAssetsRoot(cwd, config, 'android'), 'static', 'js', 'async', '101.abc.js');
+        expect(readFileSync(dest, 'utf8')).toBe('chunk-101');
+    });
+
+    it('mirrors chunks into iOS LynxAssets/ when the pbxproj has the folder ref', () => {
+        const cwd = makeProject('BUNDLE');
+        addAsyncChunk(cwd, 'static/js/async/101.abc.js', 'chunk-101');
+        seedIosPbxproj(cwd);
+        embedBundle({ cwd, config, platform: 'ios', log: () => {} });
+        const dest = join(cwd, 'ios', 'TestApp', 'LynxAssets', 'static', 'js', 'async', '101.abc.js');
+        expect(readFileSync(dest, 'utf8')).toBe('chunk-101');
+    });
+
+    it('removes stale chunks from a previous build', () => {
+        const cwd = makeProject('BUNDLE');
+        addAsyncChunk(cwd, 'static/js/async/old.111.js', 'old');
+        embedBundle({ cwd, config, platform: 'android', log: () => {} });
+        rmSync(join(cwd, 'dist', 'static'), { recursive: true });
+        addAsyncChunk(cwd, 'static/js/async/new.222.js', 'new');
+        embedBundle({ cwd, config, platform: 'android', log: () => {} });
+        const root = join(asyncAssetsRoot(cwd, config, 'android'), 'static', 'js', 'async');
+        expect(existsSync(join(root, 'old.111.js'))).toBe(false);
+        expect(readFileSync(join(root, 'new.222.js'), 'utf8')).toBe('new');
+    });
+
+    it('clears the embedded subtree when the new build has no async chunks', () => {
+        const cwd = makeProject('BUNDLE');
+        addAsyncChunk(cwd, 'static/js/async/old.111.js', 'old');
+        embedBundle({ cwd, config, platform: 'android', log: () => {} });
+        rmSync(join(cwd, 'dist', 'static'), { recursive: true });
+        embedBundle({ cwd, config, platform: 'android', log: () => {} });
+        expect(existsSync(join(asyncAssetsRoot(cwd, config, 'android'), 'static', 'js', 'async'))).toBe(false);
+    });
+
+    it('throws on iOS when chunks exist but the pbxproj lacks the LynxAssets folder ref', () => {
+        const cwd = makeProject('BUNDLE');
+        addAsyncChunk(cwd, 'static/js/async/101.abc.js', 'chunk-101');
+        seedIosPbxproj(cwd, '/* no folder ref here */');
+        expect(() => embedBundle({ cwd, config, platform: 'ios', log: () => {} }))
+            .toThrow(/sigx prebuild/);
+    });
+
+    it('is a silent no-op when there are no chunks and no stale subtree', () => {
+        const cwd = makeProject('BUNDLE');
+        expect(embedAsyncAssets({ cwd, config, platform: 'android', log: () => {} })).toBe(0);
     });
 });

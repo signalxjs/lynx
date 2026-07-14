@@ -476,7 +476,7 @@ export default definePlugin({
                     shell: true,
                 });
 
-                child.on('exit', (code) => {
+                child.on('exit', async (code) => {
                     const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
 
                     if (code === 0) {
@@ -489,6 +489,19 @@ export default definePlugin({
                         console.log(`  Output:  ${distDir}`);
                         if (files > 0) {
                             console.log(`  Size:    ${formatBytes(size)} (${files} files)`);
+                        }
+
+                        // Dynamic import() emits async chunks that standalone
+                        // builds must carry — surface them so nobody ships a
+                        // build that fails only at runtime (#599).
+                        const { collectAsyncAssets } = await import('./util/embed-bundle.js');
+                        const asyncAssets = collectAsyncAssets(ctx.cwd);
+                        if (asyncAssets.length > 0) {
+                            console.log(`  Async:   ${asyncAssets.length} chunk(s) from dynamic import()`);
+                            console.log('           Embedded automatically by `sigx run:* --release` and');
+                            console.log('           `sigx prebuild --embed-bundle`.');
+                            console.log('  \x1b[33m⚠ OTA (`sigx updates:publish`) does not include async chunks —\x1b[0m');
+                            console.log('  \x1b[33m  an OTA-updated bundle referencing new chunks will fail to load them.\x1b[0m');
                         }
                         console.log('');
                     } else {
@@ -581,6 +594,7 @@ export default definePlugin({
                 mandatory: a.boolean().default(false).describe('Mark the update mandatory (blocking install)'),
                 'runtime-version': a.string().describe('Override the runtime version for both platforms (manual compatibility management)'),
                 notes: a.string().describe('Release notes (surfaced to update UI)'),
+                'allow-async-chunks': a.boolean().default(false).describe('Publish even when dist/ contains async chunks from dynamic import() (only safe when chunks are hosted remotely via a custom assetPrefix)'),
             },
             async run(ctx) {
                 const { runUpdatesPublish } = await import('./updates-publish.js');
@@ -593,6 +607,7 @@ export default definePlugin({
                         mandatory: ctx.args.mandatory,
                         runtimeVersion: ctx.args['runtime-version'],
                         notes: ctx.args.notes,
+                        allowAsyncChunks: ctx.args['allow-async-chunks'],
                         logger: ctx.logger,
                     });
                 } catch (err) {

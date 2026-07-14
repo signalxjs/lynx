@@ -12,6 +12,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.AndroidView
+import com.lynx.tasm.LynxBooleanOption
 import com.lynx.tasm.LynxView
 import com.lynx.tasm.LynxViewBuilder
 import com.lynx.tasm.TemplateData
@@ -204,6 +205,17 @@ fun ProductionLynxScreen(bundleName: String, bundleFilePath: String? = null) {
                     viewBuilder.addBehaviors(com.lynx.tasm.behavior.BuiltInBehavior().create())
                     viewBuilder.addBehaviors(XElementBehaviors().create())
                     GeneratedBehaviors.attachAll(viewBuilder)
+
+                    // Serve dynamic-import chunks from embedded assets (#599).
+                    // Mirrors the dev-mode fetchers, which read from the dev
+                    // server instead.
+                    viewBuilder.setTemplateResourceFetcher(ProductionTemplateResourceFetcher(ctx))
+                    viewBuilder.setEnableGenericResourceFetcher(LynxBooleanOption.TRUE)
+                    viewBuilder.setGenericResourceFetcher(ProductionGenericResourceFetcher(ctx))
+                    // An OTA update directory may carry its own async chunks in
+                    // the future — search it before the baked assets.
+                    SigxEmbeddedAssets.extraRoots =
+                        bundleFilePath?.let { java.io.File(it).parentFile?.let(::listOf) } ?: emptyList()
 
                     val lynxView = viewBuilder.build(ctx)
                     lynxView.layoutParams = ViewGroup.LayoutParams(

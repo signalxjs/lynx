@@ -173,12 +173,38 @@ export async function applyEntry(
   // Lynx's single-file bundle requirement.
   api.modifyRsbuildConfig((config, { mergeRsbuildConfig }) => {
     const userConfig = api.getRsbuildConfig('original');
+    let merged = config;
     if (!userConfig.performance?.chunkSplit?.strategy) {
-      return mergeRsbuildConfig(config, {
+      merged = mergeRsbuildConfig(merged, {
         performance: { chunkSplit: { strategy: 'all-in-one' } },
       });
     }
-    return config;
+    // Dynamic-import async chunks are still emitted regardless of the
+    // strategy above. Pin the production assetPrefix so their request URLs
+    // are root-relative (`/static/js/async/<hash>.js`) — the native
+    // production fetchers map those 1:1 onto embedded assets (#599). Dev is
+    // untouched: the dev assetPrefix is rewritten to the LAN dev-server URL.
+    if (!userConfig.output?.assetPrefix) {
+      merged = mergeRsbuildConfig(merged, { output: { assetPrefix: '/' } });
+    }
+    return merged;
+  });
+
+  // Surface emitted async chunks after production builds — they only load in
+  // standalone apps when embedded by a release flow, and never over OTA. The
+  // `sigx build` summary prints the same warning; this covers direct
+  // `rspeedy build` invocations (external/CI pipelines). (#599)
+  api.onAfterBuild(async () => {
+    const { readdirSync } = await import('node:fs');
+    const asyncDir = path.join(api.context.distPath, 'static', 'js', 'async');
+    if (!existsSync(asyncDir)) return;
+    const chunks = readdirSync(asyncDir, { recursive: true, encoding: 'utf-8' });
+    if (chunks.length === 0) return;
+    api.logger.info(
+      `[sigx] ${chunks.length} async chunk(s) emitted by dynamic import() under static/js/async/. `
+      + 'Standalone builds load them from embedded assets — embed via `sigx run:* --release` or '
+      + '`sigx prebuild --embed-bundle`. OTA updates (`sigx updates:publish`) do NOT carry them.',
+    );
   });
 
   // Exclude main-thread chunks from chunk splitting so each remains
