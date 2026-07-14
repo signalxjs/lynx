@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { component, signal } from '@sigx/lynx';
-import { render, getAllByType, getByText, queryByText, act } from '@sigx/lynx-testing';
+import { render, getAllByType, getByType, getByText, queryByText, act } from '@sigx/lynx-testing';
 import { EmojiGrid } from '../src/components/EmojiGrid';
 import { EmojiPicker } from '../src/components/EmojiPicker';
 import type { EmojiData, EmojiDatum } from '../src/data/schema';
@@ -105,20 +105,52 @@ describe('EmojiGrid (windowed List)', () => {
 });
 
 describe('EmojiPicker (windowed grid integration)', () => {
-    it('switches categories via the tab bar and re-anchors the grid', async () => {
+    // Tab taps are two-phase (highlight now, grid swap on the next tick), so
+    // drive the deferred phase with a real timer hop inside act. Tabs are
+    // looked up inside the tab bar's scroll-view — grid cells can contain the
+    // same glyph text once a category has mounted.
+    async function tapTab(container: unknown, glyph: string): Promise<void> {
+        const bar = getByType(container as never, 'scroll-view');
+        const tabNode = findByHandler(bar as never, 'bindtap', glyph);
+        expect(tabNode).toBeTruthy();
+        await act(async () => {
+            tabNode!._handlers.get('bindtap')!();
+            await new Promise((resolve) => setTimeout(resolve, 1));
+        });
+    }
+
+    it('switches categories via the tab bar; visited grids stay mounted', async () => {
         const { container } = render(
             <EmojiPicker data={makeData()} showSearch={false} showRecents={false} />,
         );
         await act(() => {});
         expect(getAllByType(container, 'list-item').length).toBe(WINDOW_CELLS);
-        // Tabs fall back to the category's first glyph (unknown CLDR keys) —
-        // before switching, 'B0' only exists in the tab bar.
-        const tabB = findByHandler(container as never, 'bindtap', 'B0');
-        expect(tabB).toBeTruthy();
-        await act(() => { tabB!._handlers.get('bindtap')!(); });
-        const cells = getAllByType(container, 'list-item');
-        expect(cells.length).toBe(CAT_B.length);
-        expect(cells[0].props['item-key']).toBe('B0');
+        await tapTab(container, 'B0');
+        const keys = getAllByType(container, 'list-item').map((c) => c.props['item-key'] as string);
+        // Category A's grid stays mounted (hidden via use:show) next to B's.
+        expect(keys.length).toBe(WINDOW_CELLS + CAT_B.length);
+        expect(keys).toContain('B0');
+        expect(keys).toContain('A0');
+    });
+
+    it('revisiting a category re-renders zero cells (grid kept mounted)', async () => {
+        const renderCell = vi.fn((d: EmojiDatum, glyph: string) => <text>{`cell:${glyph}`}</text>);
+        const { container } = render(
+            <EmojiPicker
+                data={makeData()}
+                showSearch={false}
+                showRecents={false}
+                renderCell={renderCell}
+            />,
+        );
+        await act(() => {});
+        expect(renderCell).toHaveBeenCalledTimes(WINDOW_CELLS);
+        await tapTab(container, 'B0');   // first visit builds B's window…
+        expect(renderCell).toHaveBeenCalledTimes(WINDOW_CELLS + CAT_B.length);
+        renderCell.mockClear();
+        await tapTab(container, 'A0');   // …revisits build nothing
+        await tapTab(container, 'B0');
+        expect(renderCell).not.toHaveBeenCalled();
     });
 
     it('opening the skin-tone popover does not rebuild the grid cells', async () => {

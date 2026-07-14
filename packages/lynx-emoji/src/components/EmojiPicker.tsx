@@ -46,11 +46,22 @@ export type EmojiPickerProps =
 
 const RECENTS_GLYPH = '🕘';
 
-// Module scope so its identity is stable across renders: the grid's render
-// reads `props.style`, so a fresh inline literal here would re-run it — and
-// re-map every windowed cell — on every picker re-render (each popover
-// toggle, each search keystroke).
-const GRID_STYLE: Record<string, string | number> = { flexGrow: 1, flexShrink: 1 };
+// Style TEMPLATES — spread into per-element objects, never passed directly.
+// Two identity constraints pull in opposite directions here: a style object
+// must be IDENTITY-STABLE per element across renders (a fresh literal would
+// re-run the grid's render — re-mapping every windowed cell — on every
+// picker re-render), yet must NOT be one shared instance across sibling
+// elements (sharing one object across several elements' style props trips
+// the same silent runtime paint bug as sharing a data array across prop
+// proxies — signalxjs/lynx#603 — and blanks the whole surface). The
+// per-key caches in setup scope below satisfy both.
+const GRID_STYLE_TEMPLATE: Record<string, string | number> = { flexGrow: 1, flexShrink: 1 };
+const GRID_WRAP_STYLE_TEMPLATE: Record<string, string | number> = {
+    flexGrow: 1,
+    flexShrink: 1,
+    display: 'flex',
+    flexDirection: 'column',
+};
 
 /**
  * Curated tab icons per CLDR group key. The first-emoji-of-group fallback
@@ -103,12 +114,57 @@ export const EmojiPicker = component<EmojiPickerProps>(({ props, emit }) => {
     }));
 
     const query = signal('');
-    // Split signals: the grid's slice depends on `tab`, the popover overlay
-    // on `popover.datum` — keeping them apart (and the grid's props
+    // Split signals: the grid's slice depends on `gridTab`, the popover
+    // overlay on `popover.datum` — keeping them apart (and the grid's props
     // identity-stable, see GRID_STYLE) means toggling the popover leaves the
     // mounted grid untouched.
-    const tab = signal(ctx.data.categories[0]?.key ?? 'recents');
+    //
+    // Tab switches are two-phase: `tab` flips immediately (the tab bar's
+    // highlight is a cheap flush that paints right away), `gridTab` follows
+    // one tick later — otherwise the highlight and the ~120-cell grid swap
+    // share one flush and the selection doesn't show until the grid is
+    // built, which reads as lag on the tap itself.
+    const initialTab = ctx.data.categories[0]?.key ?? 'recents';
+    const tab = signal(initialTab);
+    const gridTab = signal(initialTab);
     const popover = signal<{ datum: EmojiDatum | null }>({ datum: null });
+    // Visited categories keep their grid MOUNTED (hidden via `use:show`, one
+    // SET_STYLE op to toggle): a first visit builds its ~120-cell window once,
+    // every revisit is instant — zero cells rebuilt (the native list resets
+    // its scroll to the top while hidden, which matches what other pickers do
+    // on a category tap). Bounded cost: categories × window (≤ ~120 cells
+    // each), and only for tabs actually opened.
+    const visitedTabs = signal<{ keys: string[] }>({ keys: [initialTab] });
+
+    // Per-element style objects, cached per tab key — identity-stable across
+    // renders AND unique per element (see the template note above / #603).
+    const wrapStyles = new Map<string, Record<string, string | number>>();
+    const gridStyles = new Map<string, Record<string, string | number>>();
+    const styleFor = (
+        cache: Map<string, Record<string, string | number>>,
+        template: Record<string, string | number>,
+        key: string,
+    ): Record<string, string | number> => {
+        let style = cache.get(key);
+        if (!style) {
+            style = { ...template };
+            cache.set(key, style);
+        }
+        return style;
+    };
+
+    function selectTab(key: string): void {
+        tab.value = key;
+        popover.datum = null;
+        setTimeout(() => {
+            // Stale-tap guard: rapid taps only swap the grid to the final tab.
+            if (tab.value !== key) return;
+            if (!visitedTabs.keys.includes(key)) {
+                visitedTabs.$set({ keys: [...visitedTabs.keys, key] });
+            }
+            gridTab.value = key;
+        }, 0);
+    }
 
     function pick(datum: EmojiDatum, tone: SkinTone): void {
         ctx!.recents.push(datum);
@@ -129,11 +185,42 @@ export const EmojiPicker = component<EmojiPickerProps>(({ props, emit }) => {
         const allTabs = showRecents
             ? [{ tab: 'recents' as EmojiTab, glyph: RECENTS_GLYPH }, ...tabs]
             : tabs;
-        const emojis = q !== ''
-            ? ctx.index.search(q)
-            : tab.value === 'recents'
-                ? ctx.recents.recents.map((e) => e)
-                : byCategory.get(tab.value) ?? [];
+        const searchHits = q !== '' ? ctx.index.search(q) : null;
+        const sliceFor = (key: string): EmojiDatum[] =>
+            key === 'recents' ? ctx.recents.recents.map((e) => e) : byCategory.get(key) ?? [];
+
+        const renderEmpty = (label: string): unknown => (
+            <view
+                class={classes.empty}
+                style={{
+                    flexGrow: 1,
+                    flexShrink: 1,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                }}
+            >
+                <text style={{ fontSize: 14, ...(classes.empty ? {} : { opacity: 0.55 }) }}>
+                    {props.emptyLabel ?? label}
+                </text>
+            </view>
+        );
+
+        const renderGrid = (emojis: EmojiDatum[], styleKey: string, itemsKey: string): unknown => (
+            <EmojiGrid
+                emojis={emojis}
+                itemsKey={itemsKey}
+                tone={tone}
+                columns={props.columns}
+                cellSize={props.cellSize}
+                class={classes.grid}
+                cellClass={classes.cell}
+                renderCell={props.renderCell}
+                style={styleFor(gridStyles, GRID_STYLE_TEMPLATE, styleKey)}
+                onPick={(datum) => pick(datum, ctx.skinTone.state.tone)}
+                onPickTone={(datum) => { popover.datum = datum; }}
+            />
+        );
 
         return (
             <view
@@ -171,45 +258,32 @@ export const EmojiPicker = component<EmojiPickerProps>(({ props, emit }) => {
                         tabClass={classes.tab}
                         tabActiveClass={classes.tabActive}
                         render={props.renderCategoryTab}
-                        onSelect={(t) => {
-                            tab.value = t === 'recents' ? 'recents' : t.key;
-                            popover.datum = null;
-                        }}
+                        onSelect={(t) => selectTab(t === 'recents' ? 'recents' : t.key)}
                     />
                 )}
-                {emojis.length === 0
-                    ? (
-                        <view
-                            class={classes.empty}
-                            style={{
-                                flexGrow: 1,
-                                flexShrink: 1,
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                            }}
-                        >
-                            <text style={{ fontSize: 14, ...(classes.empty ? {} : { opacity: 0.55 }) }}>
-                                {props.emptyLabel
-                                    ?? (tab.value === 'recents' && q === '' ? 'No recent emoji yet' : 'No emoji found')}
-                            </text>
-                        </view>
-                    )
-                    : (
-                        <EmojiGrid
-                            emojis={emojis}
-                            itemsKey={q !== '' ? 'q:' + q : 't:' + tab.value}
-                            tone={tone}
-                            columns={props.columns}
-                            cellSize={props.cellSize}
-                            class={classes.grid}
-                            cellClass={classes.cell}
-                            renderCell={props.renderCell}
-                            style={GRID_STYLE}
-                            onPick={(datum) => pick(datum, ctx.skinTone.state.tone)}
-                            onPickTone={(datum) => { popover.datum = datum; }}
-                        />
-                    )}
+                {searchHits !== null
+                    ? (searchHits.length === 0
+                        ? renderEmpty('No emoji found')
+                        : renderGrid(searchHits, 'search', 'q:' + q))
+                    // One wrapper per tab, ALWAYS — a constant-shape keyed
+                    // array, so mounting one tab's grid never disturbs the
+                    // siblings (a growing array re-anchors the whole set).
+                    // A wrapper stays empty until its tab is first visited.
+                    : allTabs.map((entry) => {
+                        const key = entry.tab === 'recents' ? 'recents' : entry.tab.key;
+                        const slice = visitedTabs.keys.includes(key) ? sliceFor(key) : null;
+                        return (
+                            <view
+                                key={key}
+                                use:show={gridTab.value === key}
+                                style={styleFor(wrapStyles, GRID_WRAP_STYLE_TEMPLATE, key)}
+                            >
+                                {slice !== null && (slice.length === 0
+                                    ? renderEmpty(key === 'recents' ? 'No recent emoji yet' : 'No emoji found')
+                                    : renderGrid(slice, key, 't:' + key))}
+                            </view>
+                        );
+                    })}
                 {popover.datum && (
                     <SkinTonePopover
                         datum={popover.datum}

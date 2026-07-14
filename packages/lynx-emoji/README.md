@@ -18,11 +18,13 @@ Full guides, API reference and live examples → **[https://sigx.dev/lynx/module
 - **Windowed grid** — a windowed `List` (`@sigx/lynx-list`) in flow layout:
   the native recycler keeps the on-screen view count constant while
   scrolling, and windowing bounds how many cells are ever *built* — so
-  switching to a big category constructs ~120 cells instead of up to ~388.
-  Headless `EmojiGrid` users can pass `itemsKey` (a dataset identity string)
-  to re-anchor the grid to the top when handing it a different dataset;
-  `EmojiPicker` does this automatically on tab switches and search-query
-  changes.
+  opening a big category constructs ~120 cells instead of up to ~388.
+  Category switches are two-phase (the tab highlight paints immediately,
+  the grid follows a tick later) and visited categories stay mounted, so
+  revisiting a tab rebuilds zero cells. Headless `EmojiGrid` users can pass
+  `itemsKey` (a dataset identity string) to re-anchor the grid to the top
+  when handing it a different dataset; `EmojiPicker` handles all of this
+  automatically on tab switches and search-query changes.
 - **Search** — ranked shortcode/name/keyword search (`useEmojiSearch`-free:
   `buildSearchIndex(data).search('fire')`).
 - **Skin tones** — long-press a tonal emoji; the choice is sticky grid-wide
