@@ -121,6 +121,16 @@ export type ListProps<T = unknown> =
    * Default `max(120, windowSize × 2)`.
    */
   & Define.Prop<'maxWindow', number, false>
+  /**
+   * Identity of the dataset. When it changes, `items` is treated as a
+   * brand-new list rather than an update to the old one: the window (when
+   * windowing) re-anchors to its initial position and the scroll resets to
+   * the start (the bottom in chat mode). Use it when swapping wholesale
+   * between datasets — tabs, categories, a new search — where clamping the
+   * old window/scroll would strand the viewport mid-list. Omit for
+   * append/prepend/edit flows.
+   */
+  & Define.Prop<'itemsKey', string, false>
   /** Capture the native `<list>` element for imperative scrolling. */
   & Define.Prop<'mtRef', ListRef, false>
   /** Class applied to the measuring wrapper that sizes the list. */

@@ -447,6 +447,120 @@ describe('List', () => {
     expect(cells[59].props['item-key']).toBe('999');
   });
 
+  // ── Dataset swaps (`itemsKey`) ───────────────────────────────────────────
+
+  const bigB = (n: number): Row[] =>
+    Array.from({ length: n }, (_, i) => ({ id: `b${i}`, text: `b${i}` }));
+
+  it('itemsKey swap re-anchors a windowed feed to the start', async () => {
+    const data = signal<{ items: Row[]; key: string }>({ items: big(1000), key: 'A' });
+    const Harness = component(() => () => (
+      <List
+        items={data.items}
+        itemsKey={data.key}
+        keyExtractor={(i) => i.id}
+        renderItem={renderRow}
+        windowSize={60}
+        pageSize={30}
+      />
+    ));
+    const { container } = render(<Harness />);
+    await act(() => {});
+    // Scroll the window deeper into dataset A.
+    const list = getByType(container, 'list');
+    await act(() => { list._handlers.get('bindscrolltolower')!(); });
+    expect(getAllByType(container, 'list-item').length).toBe(90);
+    // Swap to dataset B → back to the initial window over the new items.
+    await act(() => { data.$set({ items: bigB(500), key: 'B' }); });
+    const cells = getAllByType(container, 'list-item');
+    expect(cells.length).toBe(60);
+    expect(cells[0].props['item-key']).toBe('b0');
+    expect(cells[59].props['item-key']).toBe('b59');
+  });
+
+  it('swapping items WITHOUT changing itemsKey keeps clamp-only behavior', async () => {
+    // Regression pin: the swap path must be driven by the key, not by the
+    // items identity — appends/prepends/edits keep the old clamping semantics.
+    const data = signal<{ items: Row[]; key: string }>({ items: big(1000), key: 'A' });
+    const Harness = component(() => () => (
+      <List
+        items={data.items}
+        itemsKey={data.key}
+        keyExtractor={(i) => i.id}
+        renderItem={renderRow}
+        windowSize={60}
+        pageSize={30}
+      />
+    ));
+    const { container } = render(<Harness />);
+    await act(() => {});
+    const list = getByType(container, 'list');
+    await act(() => { list._handlers.get('bindscrolltolower')!(); });
+    expect(getAllByType(container, 'list-item').length).toBe(90);
+    // New array, same itemsKey → the window is only clamped, not re-anchored.
+    await act(() => { data.$set({ items: bigB(100), key: 'A' }); });
+    expect(getAllByType(container, 'list-item').length).toBe(90);
+  });
+
+  it('itemsKey swap resets scroll to the start', async () => {
+    // In the test env runOnMainThread executes inline, so the scroll worklet's
+    // invoke lands on a fake mtRef element synchronously.
+    const fake = { current: { invoke: vi.fn() } };
+    const data = signal<{ items: Row[]; key: string }>({ items: ITEMS, key: 'A' });
+    const Harness = component(() => () => (
+      <List
+        items={data.items}
+        itemsKey={data.key}
+        mtRef={fake as never}
+        keyExtractor={(i) => i.id}
+        renderItem={renderRow}
+      />
+    ));
+    render(<Harness />);
+    await act(() => {});
+    expect(fake.current.invoke).not.toHaveBeenCalled();
+    await act(() => { data.$set({ items: bigB(3), key: 'B' }); });
+    expect(fake.current.invoke).toHaveBeenCalledWith(
+      'scrollToPosition',
+      { position: 0, alignTo: 'top', offset: 0, smooth: false },
+    );
+    // And it's the key change that triggers it, not the items change.
+    fake.current.invoke.mockClear();
+    await act(() => { data.$set({ items: bigB(5), key: 'B' }); });
+    expect(fake.current.invoke).not.toHaveBeenCalled();
+  });
+
+  it('itemsKey swap in chat mode anchors to the new newest and clears unread', async () => {
+    const data = signal<{ items: Row[]; key: string }>({ items: big(1000), key: 'A' });
+    const Harness = component(() => () => (
+      <List
+        items={data.items}
+        itemsKey={data.key}
+        keyExtractor={(i) => i.id}
+        renderItem={renderRow}
+        inverted
+        windowSize={60}
+      />
+    ));
+    const { container } = render(<Harness />);
+    await act(() => fireLayout(container));
+    const list = getByType(container, 'list');
+    // Scroll up, then append → the unread affordance shows.
+    await act(() => {
+      list._handlers.get('bindscroll')!({ detail: { scrollTop: 400 } });
+      list._handlers.get('bindscroll')!({ detail: { scrollTop: 80 } });
+    });
+    await act(() => { data.$set({ items: [...data.items, { id: 'z', text: 'new' }], key: 'A' }); });
+    expect(getByText(container, '1 new ↓')).toBeTruthy();
+    // Swap datasets → window anchored to the new end, unread cleared.
+    await act(() => { data.$set({ items: bigB(200), key: 'B' }); });
+    const cells = getAllByType(container, 'list-item');
+    expect(cells.length).toBe(60);
+    expect(cells[0].props['item-key']).toBe('b140');
+    expect(cells[59].props['item-key']).toBe('b199');
+    expect(queryByText(container, '1 new ↓')).toBeNull();
+  });
+
   it('scrolltoupper reveals an older page in a chat window', async () => {
     const { container } = render(
       <List
