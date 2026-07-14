@@ -7,7 +7,7 @@
  * every test loads a FRESH module instance via `vi.resetModules()` + dynamic
  * import — no ordering dependencies between tests.
  */
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const bridge = {
     callAsync: vi.fn(async (..._args: unknown[]) => ({ state: 'active' }) as unknown),
@@ -28,7 +28,7 @@ let emitterAvailable = true;
 const emit = (name: string, payload: unknown) => {
     for (const fn of emitterListeners.get(name) ?? []) fn(payload);
 };
-(globalThis as Record<string, unknown>).lynx = {
+const lynxStub = {
     getJSModule: (name: string) =>
         emitterAvailable && name === 'GlobalEventEmitter'
             ? {
@@ -56,11 +56,18 @@ const loadFresh = async (): Promise<AppStateModule> => {
 const flush = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
 
 beforeEach(() => {
+    // Install the `lynx` global per test (not at module eval) so the stub
+    // can't leak into other files sharing this Vitest worker.
+    vi.stubGlobal('lynx', lynxStub);
     emitterAvailable = true;
     bridge.callAsync.mockReset();
     bridge.callAsync.mockResolvedValue({ state: 'active' });
     bridge.isModuleAvailable.mockReset();
     bridge.isModuleAvailable.mockReturnValue(true);
+});
+
+afterEach(() => {
+    vi.unstubAllGlobals();
 });
 
 describe('AppState', () => {
