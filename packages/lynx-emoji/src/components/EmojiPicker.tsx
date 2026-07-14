@@ -46,6 +46,12 @@ export type EmojiPickerProps =
 
 const RECENTS_GLYPH = '🕘';
 
+// Module scope so its identity is stable across renders: the grid's render
+// reads `props.style`, so a fresh inline literal here would re-run it — and
+// re-map every windowed cell — on every picker re-render (each popover
+// toggle, each search keystroke).
+const GRID_STYLE: Record<string, string | number> = { flexGrow: 1, flexShrink: 1 };
+
 /**
  * Curated tab icons per CLDR group key. The first-emoji-of-group fallback
  * produces baffling tabs — the activities group literally starts with 🎃
@@ -97,10 +103,12 @@ export const EmojiPicker = component<EmojiPickerProps>(({ props, emit }) => {
     }));
 
     const query = signal('');
-    const ui = signal<{ tab: string; popover: EmojiDatum | null }>({
-        tab: ctx.data.categories[0]?.key ?? 'recents',
-        popover: null,
-    });
+    // Split signals: the grid's slice depends on `tab`, the popover overlay
+    // on `popover.datum` — keeping them apart (and the grid's props
+    // identity-stable, see GRID_STYLE) means toggling the popover leaves the
+    // mounted grid untouched.
+    const tab = signal(ctx.data.categories[0]?.key ?? 'recents');
+    const popover = signal<{ datum: EmojiDatum | null }>({ datum: null });
 
     function pick(datum: EmojiDatum, tone: SkinTone): void {
         ctx!.recents.push(datum);
@@ -123,9 +131,9 @@ export const EmojiPicker = component<EmojiPickerProps>(({ props, emit }) => {
             : tabs;
         const emojis = q !== ''
             ? ctx.index.search(q)
-            : ui.tab === 'recents'
+            : tab.value === 'recents'
                 ? ctx.recents.recents.map((e) => e)
-                : byCategory.get(ui.tab) ?? [];
+                : byCategory.get(tab.value) ?? [];
 
         return (
             <view
@@ -158,12 +166,15 @@ export const EmojiPicker = component<EmojiPickerProps>(({ props, emit }) => {
                 {q === '' && (
                     <CategoryTabBar
                         tabs={allTabs}
-                        active={ui.tab}
+                        active={tab.value}
                         class={classes.tabBar}
                         tabClass={classes.tab}
                         tabActiveClass={classes.tabActive}
                         render={props.renderCategoryTab}
-                        onSelect={(tab) => ui.$set({ tab: tab === 'recents' ? 'recents' : tab.key, popover: null })}
+                        onSelect={(t) => {
+                            tab.value = t === 'recents' ? 'recents' : t.key;
+                            popover.datum = null;
+                        }}
                     />
                 )}
                 {emojis.length === 0
@@ -180,40 +191,41 @@ export const EmojiPicker = component<EmojiPickerProps>(({ props, emit }) => {
                         >
                             <text style={{ fontSize: 14, ...(classes.empty ? {} : { opacity: 0.55 }) }}>
                                 {props.emptyLabel
-                                    ?? (ui.tab === 'recents' && q === '' ? 'No recent emoji yet' : 'No emoji found')}
+                                    ?? (tab.value === 'recents' && q === '' ? 'No recent emoji yet' : 'No emoji found')}
                             </text>
                         </view>
                     )
                     : (
                         <EmojiGrid
                             emojis={emojis}
+                            itemsKey={q !== '' ? 'q:' + q : 't:' + tab.value}
                             tone={tone}
                             columns={props.columns}
                             cellSize={props.cellSize}
                             class={classes.grid}
                             cellClass={classes.cell}
                             renderCell={props.renderCell}
-                            style={{ flexGrow: 1, flexShrink: 1 }}
+                            style={GRID_STYLE}
                             onPick={(datum) => pick(datum, ctx.skinTone.state.tone)}
-                            onPickTone={(datum) => ui.$set({ tab: ui.tab, popover: datum })}
+                            onPickTone={(datum) => { popover.datum = datum; }}
                         />
                     )}
-                {ui.popover && (
+                {popover.datum && (
                     <SkinTonePopover
-                        datum={ui.popover}
+                        datum={popover.datum}
                         toneLabels={ctx.data.skinTones}
                         activeTone={tone}
                         backdropClass={classes.popoverBackdrop}
                         class={classes.popover}
                         cellClass={classes.popoverCell}
                         onSelect={(t) => {
-                            const datum = ui.popover;
-                            ui.$set({ tab: ui.tab, popover: null });
+                            const datum = popover.datum;
+                            popover.datum = null;
                             if (!datum) return;
                             ctx.skinTone.set(t);
                             pick(datum, t);
                         }}
-                        onClose={() => ui.$set({ tab: ui.tab, popover: null })}
+                        onClose={() => { popover.datum = null; }}
                     />
                 )}
             </view>

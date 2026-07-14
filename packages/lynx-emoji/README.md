@@ -15,8 +15,14 @@ Full guides, API reference and live examples → **[https://sigx.dev/lynx/module
   `CategoryTabBar` / `SkinTonePopover` yourself. Theme via the
   `classes` slot map and render props; `@sigx/lynx-daisyui` ships a skin
   (`emojiClasses`, `EmojiPickerSheet`).
-- **Recycled grid** — the native `<list span-count>` recycler, so ~1900
-  glyphs scroll with a constant view count.
+- **Windowed grid** — a windowed `List` (`@sigx/lynx-list`) in flow layout:
+  the native recycler keeps the on-screen view count constant while
+  scrolling, and windowing bounds how many cells are ever *built* — so
+  switching to a big category constructs ~120 cells instead of up to ~388.
+  Headless `EmojiGrid` users can pass `itemsKey` (a dataset identity string)
+  to re-anchor the grid to the top when handing it a different dataset;
+  `EmojiPicker` does this automatically on tab switches and search-query
+  changes.
 - **Search** — ranked shortcode/name/keyword search (`useEmojiSearch`-free:
   `buildSearchIndex(data).search('fire')`).
 - **Skin tones** — long-press a tonal emoji; the choice is sticky grid-wide

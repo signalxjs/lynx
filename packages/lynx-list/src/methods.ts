@@ -22,8 +22,9 @@ function fireAndForget(p: Promise<unknown> | undefined): void {
 // The native `<list>` scroll UI-method name + param shape. Centralized here so
 // it's a one-line change if device verification turns up a different contract.
 // Per the Lynx `<list>` docs this is `scrollToPosition({ position, alignTo,
-// offset, smooth })`. TODO(device-verify): confirm name/params on iOS+Android
-// (the runtime also references `scrollToIndex` in mt-element.ts).
+// offset, smooth })`. Device-verified on iOS (sim, Lynx 3.x): the emoji picker's
+// `itemsKey` swap visibly resets a deep-scrolled grid to the top through this
+// exact invoke. TODO(device-verify): still unconfirmed on Android.
 // Exported so chat mode's scroll-to-bottom worklets share the single source of
 // truth (and the one device-verification point).
 export const SCROLL_METHOD = 'scrollToPosition';

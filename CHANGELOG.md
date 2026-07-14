@@ -4,8 +4,14 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 ## [Unreleased]
 
+### Fixed
+
+- `@sigx/lynx-emoji` — the picker no longer renders a fully blank screen on device. `createEmojiContext` now snapshots the dataset to plain objects once (it is static by contract and JSON-born, so the round-trip is lossless): grid items and search entries read proxy-free, which sidesteps a runtime paint bug triggered by sharing one array instance across two components' prop proxies (#603, tracked separately) and drops deep-proxy read overhead over ~1900 entries (#602).
+- `@sigx/lynx-emoji` — switching categories in `EmojiPicker` no longer freezes on big categories. `EmojiGrid` now renders through a windowed `List` (`@sigx/lynx-list`) — the sigx renderer eagerly builds every rendered `<list-item>` subtree (the native recycler only virtualizes views for scrolling), so a switch to people-body previously tore down and rebuilt ~388 cell subtrees in one pass; windowing caps that at 120 (8 columns × 15 rows, scaling with `columns`). Opening/closing the skin-tone popover also no longer re-renders the grid (the grid's style prop is identity-stable now), and switching tabs or changing the search query resets the grid scroll to the top via the new `List.itemsKey` (#602).
+
 ### Added
 
+- `@sigx/lynx-emoji` — `EmojiGrid` gains an optional `itemsKey` prop (dataset identity — forwards to `List.itemsKey`) so headless grid users can re-anchor to the top when swapping datasets (#602).
 - `@sigx/lynx-list` — new `itemsKey` prop: an identity for the dataset. When it changes, `items` is treated as a brand-new list instead of an update — the window (when windowing) re-anchors to its initial position and the scroll resets to the start (the bottom in chat mode). Use it when swapping wholesale between datasets (tabs, categories, a new search); previously such a swap left the viewport and window stranded wherever scrolling had left them in the old dataset. Zero-cost when omitted. The showcase `ListDemo` now passes its refresh epoch as `itemsKey`, fixing its stranded-window-on-refresh bug (#600).
 
 ## [0.12.1] - 2026-07-13

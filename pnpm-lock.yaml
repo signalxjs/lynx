@@ -488,6 +488,9 @@ importers:
       '@sigx/lynx-keyboard':
         specifier: workspace:^
         version: link:../lynx-keyboard
+      '@sigx/lynx-list':
+        specifier: workspace:^
+        version: link:../lynx-list
     devDependencies:
       '@sigx/lynx':
         specifier: workspace:^
