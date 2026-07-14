@@ -465,10 +465,15 @@ const ListImpl = component<ListProps>(({ props, slots, emit }) => {
       prevCount = count;
     }
 
-    // Pin the list to the measured main-axis size; 1px placeholder until the
-    // wrapper's first layout pass lands.
+    // Pin the list to the measured main-axis size. Until the wrapper's first
+    // layout pass lands, fall back to the consumer's `initialMainAxisSize`
+    // hint (when they already know the box) so the mount frame lays out at
+    // full size — else a 1px placeholder.
     const measured = horizontal ? layout.value?.width : layout.value?.height;
-    const mainAxisPx = measured && measured > 0 ? `${measured}px` : '1px';
+    const hinted = props.initialMainAxisSize;
+    const mainAxisPx = measured && measured > 0
+      ? `${measured}px`
+      : hinted && hinted > 0 ? `${hinted}px` : '1px';
     const listStyle: Record<string, string | number> = horizontal
       ? { width: mainAxisPx, height: '100%' }
       : { height: mainAxisPx, width: '100%' };

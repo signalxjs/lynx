@@ -447,6 +447,15 @@ describe('List', () => {
     expect(cells[59].props['item-key']).toBe('999');
   });
 
+  it('initialMainAxisSize pins the list at full size on the first frame', () => {
+    const { container } = render(
+      <List items={ITEMS} keyExtractor={(i) => i.id} renderItem={renderRow} initialMainAxisSize={420} />,
+    );
+    const list = getByType(container, 'list');
+    // No 1px placeholder frame — the hint applies until the live measure lands.
+    expect(list._style.height).toBe('420px');
+  });
+
   // ── Dataset swaps (`itemsKey`) ───────────────────────────────────────────
 
   const bigB = (n: number): Row[] =>

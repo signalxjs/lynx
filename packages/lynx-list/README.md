@@ -35,7 +35,10 @@ resolve to zero and nothing renders. So `class`/`style` land on a measuring
 wrapper `<view>` (where flex sizing works as usual, e.g. `style={{ flexGrow: 1 }}`
 inside a column); the wrapper measures itself and pins the list to the measured
 px. First paint is one frame after mount (a 1px placeholder until the measure
-lands). This mirrors the pattern proven by `EmojiGrid` in `@sigx/lynx-emoji`.
+lands) — unless you pass `initialMainAxisSize` with a size you already know
+(e.g. sibling lists sharing one container), which pins the list at full size
+from its very first frame; the live measure still wins once it arrives. This
+mirrors the pattern proven by `EmojiGrid` in `@sigx/lynx-emoji`.
 
 ### Grid & waterfall
 
@@ -195,6 +198,7 @@ Zero-cost when omitted; omit it for append/prepend/edit flows.
 | `pageSize` | `number` | Items revealed per scroll-edge page when windowing. Default 30. |
 | `maxWindow` | `number` | Cap on rendered window length; the far end trims past it. Default `max(120, windowSize×2)`. |
 | `itemsKey` | `string` | Dataset identity — when it changes, the window re-anchors and scroll resets (see "Swapping datasets"). |
+| `initialMainAxisSize` | `number` | Known main-axis px to pin the list to on its first frame (skips the 1px placeholder); the live measure refines it. |
 | `mtRef` | `ListRef` | Capture the native element for `ListMethods`. |
 | `class` / `style` | — | Applied to the measuring wrapper. |
 

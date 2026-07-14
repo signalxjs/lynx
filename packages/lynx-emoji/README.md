@@ -19,9 +19,12 @@ Full guides, API reference and live examples → **[https://sigx.dev/lynx/module
   the native recycler keeps the on-screen view count constant while
   scrolling, and windowing bounds how many cells are ever *built* — so
   opening a big category constructs ~120 cells instead of up to ~388.
-  Category switches are two-phase (the tab highlight paints immediately,
-  the grid follows a tick later) and visited categories stay mounted, so
-  revisiting a tab rebuilds zero cells. Headless `EmojiGrid` users can pass
+  Category switches are two-phase (the tab highlight paints immediately;
+  a first visit builds its grid a tick later, already laid out at full
+  height; revisits swap in the same flush), recently visited categories
+  stay mounted (LRU of 4) so revisiting rebuilds zero cells, and the next
+  two categories are pre-built during idle so the most likely first taps
+  are instant. Headless `EmojiGrid` users can pass
   `itemsKey` (a dataset identity string) to re-anchor the grid to the top
   when handing it a different dataset; `EmojiPicker` handles all of this
   automatically on tab switches and search-query changes.
