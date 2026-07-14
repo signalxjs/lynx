@@ -169,10 +169,15 @@ export const EmojiPicker = component<EmojiPickerProps>(({ props, emit }) => {
             // Stale-tap guard: rapid taps only swap the grid to the final tab.
             if (tab.value !== key) return;
             // LRU bump: move to most-recent, evict past the mounted cap.
-            const keys = visitedTabs.keys.filter((k) => k !== key);
-            keys.push(key);
-            while (keys.length > MAX_MOUNTED_GRIDS) keys.shift();
-            visitedTabs.$set({ keys });
+            // Skipped when the key is already most-recent (a re-tap of the
+            // active tab) so no-op selections don't churn a state update.
+            const current = visitedTabs.keys;
+            if (current[current.length - 1] !== key) {
+                const keys = current.filter((k) => k !== key);
+                keys.push(key);
+                while (keys.length > MAX_MOUNTED_GRIDS) keys.shift();
+                visitedTabs.$set({ keys });
+            }
             gridTab.value = key;
         }, 0);
     }
