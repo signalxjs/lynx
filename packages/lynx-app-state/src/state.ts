@@ -63,6 +63,12 @@ const ensureWired = (): void => {
                     if (isStatus(state)) dispatch(state);
                 });
                 emitterWired = true;
+                // Transitions that happened between an earlier successful seed
+                // and this (possibly late) wiring were never delivered — force
+                // a one-time re-seed below to sync to the native state. On the
+                // normal path (wiring succeeds on the first call) the seed
+                // hasn't run yet, so this is a no-op.
+                seeded = false;
             }
         } catch {
             // getJSModule threw — retry on the next API call.

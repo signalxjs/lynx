@@ -90,6 +90,25 @@ describe('AppState', () => {
         expect(api.currentAppState()).toBe('background');
     });
 
+    it('re-seeds after late emitter wiring so transitions in the gap are not missed', async () => {
+        const api = await loadFresh();
+        emitterAvailable = false;
+
+        api.currentAppState();                          // seed #1 succeeds ('active'), emitter still down
+        await flush();
+        expect(bridge.callAsync).toHaveBeenCalledTimes(1);
+
+        // The app backgrounds while the emitter is still unavailable — the
+        // event is lost. When wiring finally succeeds, a one-time re-seed
+        // must sync to the authoritative native state.
+        bridge.callAsync.mockResolvedValueOnce({ state: 'background' });
+        emitterAvailable = true;
+        api.currentAppState();                          // wires + re-seeds
+        await flush();
+        expect(bridge.callAsync).toHaveBeenCalledTimes(2);
+        expect(api.currentAppState()).toBe('background');
+    });
+
     it('retries the native seed after a transient failure', async () => {
         bridge.callAsync.mockRejectedValueOnce(new Error('bridge not ready'));
         const api = await loadFresh();
