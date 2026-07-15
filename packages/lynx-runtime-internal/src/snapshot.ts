@@ -133,15 +133,21 @@ export function createSnapshot(
 export function getSnapshotDef(uniqID: string): SnapshotDef | undefined {
   const existing = snapshotManager.values.get(uniqID);
   if (existing) return existing;
-  const creator = snapshotCreatorMap[uniqID];
-  if (!creator) return undefined;
-  creator(uniqID);
+  // Own-key check: a plain-object registry must not resolve inherited
+  // properties ("toString" is not a template).
+  if (!Object.prototype.hasOwnProperty.call(snapshotCreatorMap, uniqID)) {
+    return undefined;
+  }
+  snapshotCreatorMap[uniqID](uniqID);
   return snapshotManager.values.get(uniqID);
 }
 
 /** True when `type` names a registered template (registry-based, not prefix-based). */
 export function isSnapshotType(type: string): boolean {
-  return snapshotManager.values.has(type) || type in snapshotCreatorMap;
+  return (
+    snapshotManager.values.has(type)
+    || Object.prototype.hasOwnProperty.call(snapshotCreatorMap, type)
+  );
 }
 
 /** Test/HMR reset. Does not touch installed hooks. */
