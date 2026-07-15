@@ -77,7 +77,7 @@ object PushActivityHook {
         val intent = activity.intent ?: return
         if (!isNotificationTap(intent)) return
         val (id, data) = extractPayload(intent)
-        consume(intent)
+        consume(intent, data.keys)
         logTap("cold-start", id, data)
         PushEventBus.captureInitialResponse(
             notificationId = id,
@@ -93,7 +93,7 @@ object PushActivityHook {
         // MainActivity calls setIntent(intent), so this intent becomes
         // activity.intent — clear the markers here too, or a later recreate
         // would re-deliver it through onCreate.
-        consume(intent)
+        consume(intent, data.keys)
         logTap("warm", id, data)
         PushEventBus.publishResponse(
             notificationId = id,
@@ -125,27 +125,34 @@ object PushActivityHook {
      * Strip the markers AND the harvested payload so one tap is delivered
      * exactly once and nothing is left behind.
      *
-     * The payload extras go too, not just the markers: they are app data —
-     * routinely user data — and would otherwise sit on `activity.intent` for
-     * the Activity's whole lifetime, readable by anything holding the Activity
-     * and re-harvestable by a later recreate.
+     * The payload goes too, not just the markers: it is app data — routinely
+     * user data — and would otherwise sit on `activity.intent` for the
+     * Activity's whole lifetime, readable by anything holding the Activity and
+     * re-harvestable by a later recreate. It has to be cleared from BOTH
+     * shapes, which look nothing alike: our own intents namespace it under
+     * [SIGX_DATA_PREFIX], while an FCM-built intent carries the sender's keys
+     * flat and unprefixed — so [harvestedKeys] (what [extractPayload] actually
+     * read) is the only thing that identifies them.
      *
      * Note this cannot defend against process-death restore-from-recents: the
      * system rebuilds the Activity from the *persisted* task intent, a fresh
      * object that never saw this mutation. The [onCreate] savedInstanceState
      * guard covers the in-process recreates, which is every case we can reach.
      */
-    private fun consume(intent: Intent) {
+    private fun consume(intent: Intent, harvestedKeys: Set<String>) {
         intent.removeExtra(EXTRA_NOTIFICATION_TAP)
         intent.removeExtra(EXTRA_FCM_MESSAGE_ID)
         intent.removeExtra(EXTRA_FCM_MESSAGE_ID_LEGACY)
-        // Snapshot the keys first — removeExtra mutates the bundle we'd be
-        // iterating.
-        val payloadKeys = intent.extras
+        // Our own namespaced copies. Snapshot the keys first — removeExtra
+        // mutates the bundle we'd be iterating.
+        val namespaced = intent.extras
             ?.keySet()
             ?.filter { it.startsWith(SIGX_DATA_PREFIX) }
             ?: emptyList()
-        for (key in payloadKeys) intent.removeExtra(key)
+        for (key in namespaced) intent.removeExtra(key)
+        // FCM's flat sender keys. A no-op for our own intents, where the
+        // harvested names are the un-prefixed forms and no such extra exists.
+        for (key in harvestedKeys) intent.removeExtra(key)
     }
 
     private fun extractPayload(intent: Intent): Pair<String, Map<String, String>> {
