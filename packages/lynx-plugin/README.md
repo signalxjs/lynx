@@ -85,9 +85,11 @@ patches. Measured ~25–30x cheaper cell construction on release builds.
   off (template HMR is #620 phase 4c) with a console warning.
 - **JSX must be statically analyzable.** Dynamic parts (attribute expressions,
   children) become numbered holes; the subtree *shape* is fixed at compile
-  time. Non-static subtrees — and whole files using `use:*` directive
-  attributes — keep today's per-element path automatically (a build warning
-  names any file that had to fall back).
+  time. Non-static subtrees keep today's per-element path automatically.
+  Whole files using `use:*` directive attributes or raw `<list>` JSX are
+  pre-filtered to the per-element path silently (known-unsupported until
+  #620's list phase); only an *unexpected* transform failure emits a build
+  warning naming the file that fell back.
 - **App/workspace-src only.** Published dists ship pre-lowered `_jsx()` calls
   and keep the per-element path.
 
