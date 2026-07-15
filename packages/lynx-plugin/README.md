@@ -81,8 +81,10 @@ main thread constructs each compiled subtree itself from one snapshot op
 (instead of ~10 per-element ops + a thread hop), then receives hole-granular
 patches. Measured ~25–30x cheaper cell construction on release builds.
 
-- **Default off.** Production builds only for now — dev-server builds force it
-  off (template HMR is #620 phase 4c) with a console warning.
+- **Default off.** Works in dev and production: under `sigx dev`, template
+  registrations ride the MT hot-update bridge, an edit's stale templates are
+  purged per file (the id's filename-hash prefix is edit-stable), and op
+  batches that outrun a registration park and replay after the next update.
 - **JSX must be statically analyzable.** Dynamic parts (attribute expressions,
   children) become numbered holes; the subtree *shape* is fixed at compile
   time. Non-static subtrees keep today's per-element path automatically.

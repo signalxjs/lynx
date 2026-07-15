@@ -33,6 +33,7 @@ import {
   type SnapshotHooks,
   type SnapshotInstanceLike,
 } from '@sigx/lynx-runtime-internal/snapshot';
+import { OP } from '@sigx/lynx-runtime-internal';
 import { elements } from './element-registry.js';
 import { clearElementSlots, setSlotBgSign, setSlotWorklet } from './event-slots.js';
 import { bindMtRef, releaseMtRefBinding } from './mt-ref-bind.js';
@@ -229,6 +230,76 @@ export function resetSnapshotInstances(): void {
   }
   instances.clear();
   nextSyntheticId = -2;
+  parked.clear();
+}
+
+// ---------------------------------------------------------------------------
+// Park-and-retry (#637). Dev HMR delivers template registrations and the op
+// batches that use them over two unordered channels — a SNAPSHOT_CREATE can
+// name a uniqID whose registration hasn't arrived yet. Park the create plus
+// every op targeting its id, and replay after the next
+// `sigxApplyMtHotUpdate` registers the template.
+// ---------------------------------------------------------------------------
+
+/** Hot-update cycles a parked create may survive before being dropped. */
+const PARK_MAX_AGE = 3;
+
+interface ParkedCreate {
+  id: number;
+  templateId: string;
+  /** Raw op tuples targeting `id`, replayed in arrival order on retry. */
+  queued: unknown[][];
+  age: number;
+}
+
+const parked = new Map<number, ParkedCreate>();
+
+/** Park a SNAPSHOT_CREATE whose template isn't registered (yet). */
+export function parkSnapshotCreate(id: number, templateId: string): void {
+  parked.set(id, { id, templateId, queued: [], age: 0 });
+}
+
+export function isParkedSnapshot(id: number): boolean {
+  return parked.has(id);
+}
+
+/** Queue a raw op tuple (opcode-first) that targets a parked instance id. */
+export function queueOpForParked(id: number, tuple: unknown[]): void {
+  parked.get(id)?.queued.push(tuple);
+}
+
+/** Drop one parked create (its subtree was removed before it could resolve). */
+export function dropParkedSnapshot(id: number): void {
+  parked.delete(id);
+}
+
+/**
+ * Called after each `sigxApplyMtHotUpdate`: creates whose templates are now
+ * registered replay as a real op batch (SNAPSHOT_CREATE + their queued ops,
+ * in order) through `applyBatch`; the rest age out with a loud log after
+ * PARK_MAX_AGE cycles.
+ */
+export function retryParkedSnapshots(applyBatch: (ops: unknown[]) => void): void {
+  if (parked.size === 0) return;
+  const ready: ParkedCreate[] = [];
+  // Only the CURRENT entry is ever deleted mid-iteration — safe on a Map.
+  for (const entry of parked.values()) {
+    if (getSnapshotDef(entry.templateId)) {
+      parked.delete(entry.id);
+      ready.push(entry);
+    } else if (++entry.age >= PARK_MAX_AGE) {
+      parked.delete(entry.id);
+      console.log(
+        `[sigx-snapshot] dropping parked instance ${entry.id}: template `
+          + `"${entry.templateId}" never arrived after ${PARK_MAX_AGE} hot updates`,
+      );
+    }
+  }
+  for (const entry of ready) {
+    const batch: unknown[] = [OP.SNAPSHOT_CREATE, entry.id, entry.templateId];
+    for (const tuple of entry.queued) batch.push(...tuple);
+    applyBatch(batch);
+  }
 }
 
 // ---------------------------------------------------------------------------

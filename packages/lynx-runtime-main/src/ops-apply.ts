@@ -52,10 +52,15 @@ import {
 import {
   createSnapshotInstance,
   destroySnapshotInstance,
+  dropParkedSnapshot,
   getSnapshotInstance,
+  isParkedSnapshot,
   isSnapshotInstance,
+  parkSnapshotCreate,
+  queueOpForParked,
   resetSnapshotInstances,
 } from './snapshot-mt.js';
+import { getSnapshotDef } from '@sigx/lynx-runtime-internal/snapshot';
 
 /**
  * Placeholder element inserted by renderPage() to give the host a non-empty
@@ -226,6 +231,12 @@ export function applyOps(ops: unknown[]): void {
           listInsertChild(parentId, childId, anchorId);
           break;
         }
+        // An INSERT of a parked instance queues with it (the parent may be
+        // long materialized by the time the template registration arrives).
+        if (isParkedSnapshot(childId)) {
+          queueOpForParked(childId, [OP.INSERT, parentId, childId, anchorId]);
+          break;
+        }
         // A staged snapshot instance materializes on first non-list insert:
         // build its elements and register the root under the instance id so
         // this (and any later) INSERT/REMOVE resolves it like any element.
@@ -267,6 +278,8 @@ export function applyOps(ops: unknown[]): void {
           destroySnapshotInstance(childId);
           elements.delete(childId);
         }
+        // A parked create whose subtree is removed will never materialize.
+        dropParkedSnapshot(childId);
         break;
       }
 
@@ -328,12 +341,23 @@ export function applyOps(ops: unknown[]): void {
       case OP.SNAPSHOT_CREATE: {
         const id = ops[i++] as number;
         const templateId = ops[i++] as string;
+        // Unknown template: PARK instead of dropping — dev HMR delivers
+        // registrations and the op batches that use them over two unordered
+        // channels, so the registration may simply not have arrived yet.
+        // Ops targeting the parked id queue with it; retryParkedSnapshots
+        // replays after each hot update (snapshot-mt.ts).
+        if (!getSnapshotDef(templateId)) {
+          parkSnapshotCreate(id, templateId);
+          console.log(
+            `[sigx-mt] SNAPSHOT_CREATE parked: template "${templateId}" not registered (yet)`,
+          );
+          break;
+        }
         try {
           createSnapshotInstance(id, templateId);
         } catch (e) {
-          // Unknown template: fail loudly per-instance but keep the batch
-          // alive — the op stream is self-delimiting, so skipping this op
-          // cannot desync the interpreter.
+          // Other failures stay loud per-instance; the stream is
+          // self-delimiting, so skipping cannot desync the interpreter.
           console.log('[sigx-mt] SNAPSHOT_CREATE failed:', String(e));
         }
         break;
@@ -342,6 +366,10 @@ export function applyOps(ops: unknown[]): void {
       case OP.SNAPSHOT_SET_VALUES: {
         const id = ops[i++] as number;
         const values = ops[i++] as unknown[];
+        if (isParkedSnapshot(id)) {
+          queueOpForParked(id, [OP.SNAPSHOT_SET_VALUES, id, values]);
+          break;
+        }
         const inst = getSnapshotInstance(id);
         if (inst && Array.isArray(values)) inst.setValues(values);
         break;
@@ -351,6 +379,10 @@ export function applyOps(ops: unknown[]): void {
         const id = ops[i++] as number;
         const holeIndex = ops[i++] as number;
         const value = ops[i++];
+        if (isParkedSnapshot(id)) {
+          queueOpForParked(id, [OP.SNAPSHOT_SET_VALUE, id, holeIndex, value]);
+          break;
+        }
         getSnapshotInstance(id)?.setValue(holeIndex, value);
         break;
       }
@@ -359,6 +391,10 @@ export function applyOps(ops: unknown[]): void {
         const snapshotId = ops[i++] as number;
         const slotIndex = ops[i++] as number;
         const slotElId = ops[i++] as number;
+        if (isParkedSnapshot(snapshotId)) {
+          queueOpForParked(snapshotId, [OP.SNAPSHOT_BIND_SLOT, snapshotId, slotIndex, slotElId]);
+          break;
+        }
         const inst = getSnapshotInstance(snapshotId);
         const slotEl = inst?.slotElement(slotIndex);
         if (inst && slotEl) {

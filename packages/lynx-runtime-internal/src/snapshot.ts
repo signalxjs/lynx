@@ -158,6 +158,53 @@ export function resetSnapshotRegistry(): void {
   }
 }
 
+/**
+ * The file-stable segment of a template id. Ids are
+ * `__snapshot_<filenameHash>_<contentHash>_<n>` — an edit rotates the content
+ * hash (and thus every id in the file) while the filename hash stays put, so
+ * `__snapshot_<filenameHash>_` identifies "templates from this file".
+ */
+function snapshotFilePrefix(id: string): string | null {
+  const m = /^(__snapshot_[A-Za-z0-9]+_)/.exec(id);
+  return m ? m[1] : null;
+}
+
+/**
+ * HMR stale-template purge: for every file prefix present in `incomingIds`,
+ * drop registry entries under that prefix that are NOT in the incoming set —
+ * they are the previous edit's creators, unreachable forever (and, worse,
+ * still resolvable by stale op batches). Ids under untouched files' prefixes
+ * are left alone. Returns the number of purged entries.
+ */
+export function purgeSnapshotTemplatesByPrefix(incomingIds: readonly string[]): number {
+  const incoming = new Set(incomingIds);
+  const prefixes = new Set<string>();
+  for (const id of incomingIds) {
+    const p = snapshotFilePrefix(id);
+    if (p) prefixes.add(p);
+  }
+  if (prefixes.size === 0) return 0;
+
+  let purged = 0;
+  const stale = (key: string): boolean => {
+    const p = snapshotFilePrefix(key);
+    return p !== null && prefixes.has(p) && !incoming.has(key);
+  };
+  for (const key of Object.keys(snapshotCreatorMap)) {
+    if (stale(key)) {
+      delete snapshotCreatorMap[key];
+      purged++;
+    }
+  }
+  for (const key of [...snapshotManager.values.keys()]) {
+    if (stale(key)) {
+      snapshotManager.values.delete(key);
+      purged++;
+    }
+  }
+  return purged;
+}
+
 // ---------------------------------------------------------------------------
 // Page id (compiled `create` bodies read `ReactLynx.__pageId`)
 // ---------------------------------------------------------------------------
