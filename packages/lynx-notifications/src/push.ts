@@ -30,13 +30,19 @@ export interface NotificationResponse {
     notificationId: string;
     data: Record<string, string>;
     /**
-     * `'default'` for the standard tap, `'dismiss'` when the user clears the
-     * notification, or a custom action id when categories ship.
+     * `'default'` for the standard tap — today the only value either platform
+     * emits.
      *
      * Normalized across platforms: iOS reports Apple's
      * `UNNotificationDefaultActionIdentifier` for a plain tap, which the native
      * side maps onto `'default'` so `actionIdentifier === 'default'` means the
-     * same thing on both. Custom action ids are passed through untouched.
+     * same thing on both.
+     *
+     * Custom action ids will arrive verbatim once notification categories ship.
+     * The native side also maps Apple's dismiss constant onto `'dismiss'`, but
+     * nothing emits it yet: iOS only delivers that action for a category
+     * registered with `.customDismissAction` (none are), and Android sets no
+     * `deleteIntent`. Don't branch on it expecting dismissals.
      */
     actionIdentifier: string;
 }

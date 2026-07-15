@@ -109,6 +109,11 @@ import UserNotifications
     /// here rather than in the JS shim so the raw event channels carry the same
     /// contract as the typed API. Custom category actions pass through untouched
     /// — those names are the app's own.
+    ///
+    /// The dismiss mapping is forward-looking, not live: iOS only delivers that
+    /// action for a category registered with `.customDismissAction`, and we
+    /// register no categories yet. It's here so the contract is already right
+    /// when they ship.
     static func normalizedActionIdentifier(_ raw: String) -> String {
         switch raw {
         case UNNotificationDefaultActionIdentifier: return "default"
