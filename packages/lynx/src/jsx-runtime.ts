@@ -55,6 +55,9 @@ function rewriteSnapshotProps(
       rest[k] = v;
     }
   }
+  // A '$'-prefixed prop that isn't a strict $<digits> slot (hasSlots is a
+  // charCode pre-filter) must not overwrite real children with [].
+  if (indices.length === 0) return props;
   indices.sort((a, b) => a - b);
   rest['children'] = indices.map((slotIndex) =>
     coreJsx(

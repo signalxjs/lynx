@@ -89,6 +89,8 @@ function normalizeOne(
 ): unknown {
   if (typeof value === 'function') {
     el.sentWorkletIds.delete(holeKey); // worklet → function kind switch
+    sweepStaleUnder(el, `${holeKey}:`, () => false); // composite → function
+    sweepStaleUnder(el, `${holeKey}[`, () => false);
     const existing = el.holeSigns.get(holeKey);
     if (existing) {
       updateHandler(existing, value as (data: unknown) => void);
@@ -105,6 +107,8 @@ function normalizeOne(
       unregister(staleSign);
       el.holeSigns.delete(holeKey);
     }
+    sweepStaleUnder(el, `${holeKey}:`, () => false); // composite → worklet
+    sweepStaleUnder(el, `${holeKey}[`, () => false);
     // Same _wkltId → the compiled body is unchanged; reuse the previous wire
     // ctx so the diff gate sees no change (captures re-ship only with a new
     // worklet identity, matching the SET_WORKLET_EVENT dedup).
@@ -142,7 +146,8 @@ function normalizeOne(
   if (isPlainObject(value)) {
     clearStaleFor(el, holeKey);
     sweepStaleUnder(el, `${holeKey}[`, () => false); // array → object switch
-    sweepStaleUnder(el, `${holeKey}:`, (sub) => sub in value);
+    sweepStaleUnder(el, `${holeKey}:`, (sub) =>
+      Object.prototype.hasOwnProperty.call(value, sub));
     const wire: Record<string, unknown> = {};
     const prevObj = isPlainObject(prevWire) ? prevWire : {};
     for (const [k, v] of Object.entries(value)) {
