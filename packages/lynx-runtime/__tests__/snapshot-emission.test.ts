@@ -180,6 +180,30 @@ describe('snapshot emission', () => {
     expect(fired).toBe(false);
   });
 
+  it('dropping slot content removes the children against the slot alias id, never the slot itself', () => {
+    renderer.render(
+      snap({ values: ['a'] }, jsx('view', {} as never)) as never,
+      root as never,
+    );
+    const mount = parseOps(takeOps());
+    const bind = mount.find((r) => r[0] === OP.SNAPSHOT_BIND_SLOT)!;
+    const snapId = bind[1];
+    const slotElId = bind[3];
+
+    // Re-render with the slot content gone (no $0 prop → no slot child).
+    renderer.render(snap({ values: ['a'] }) as never, root as never);
+    const records = parseOps(takeOps());
+    const removes = records.filter((r) => r[0] === OP.REMOVE);
+    // Children detach against the slot's alias id...
+    expect(removes.some((r) => r[1] === slotElId)).toBe(true);
+    // ...and nothing ever names (snapshotId, slotId) — that would detach
+    // template structure on the MT.
+    expect(removes.some((r) => r[1] === snapId && r[2] === slotElId)).toBe(false);
+    // No duplicate removals of the same child.
+    const keys = removes.map((r) => `${r[1]}|${r[2]}`);
+    expect(new Set(keys).size).toBe(keys.length);
+  });
+
   it('wireEqual distinguishes key sets even when all values are undefined', () => {
     expect(wireEqual({ x: undefined }, { y: undefined })).toBe(false);
     expect(wireEqual({ x: undefined }, { x: undefined })).toBe(true);

@@ -126,11 +126,14 @@ function normalizeOne(
 
   if (value instanceof MainThreadRef) {
     clearStaleFor(el, holeKey);
+    sweepStaleUnder(el, `${holeKey}:`, () => false); // composite → ref switch
+    sweepStaleUnder(el, `${holeKey}[`, () => false);
     return { __wvid: value._wvid };
   }
 
   if (Array.isArray(value)) {
     clearStaleFor(el, holeKey);
+    sweepStaleUnder(el, `${holeKey}:`, () => false); // object → array switch
     sweepStaleUnder(el, `${holeKey}[`, (sub) => Number(sub) < value.length);
     const prevArr = Array.isArray(prevWire) ? prevWire : [];
     return value.map((entry, idx) => normalizeOne(el, `${holeKey}[${idx}]`, entry, prevArr[idx]));
@@ -138,6 +141,7 @@ function normalizeOne(
 
   if (isPlainObject(value)) {
     clearStaleFor(el, holeKey);
+    sweepStaleUnder(el, `${holeKey}[`, () => false); // array → object switch
     sweepStaleUnder(el, `${holeKey}:`, (sub) => sub in value);
     const wire: Record<string, unknown> = {};
     const prevObj = isPlainObject(prevWire) ? prevWire : {};
@@ -147,10 +151,13 @@ function normalizeOne(
     return wire;
   }
 
-  // Primitive / null: any prior function/worklet bookkeeping for this key is
-  // a kind switch. undefined normalizes to null explicitly — the op queue
+  // Primitive / null: any prior function/worklet bookkeeping for this key —
+  // including nested paths from a composite that collapsed — is a kind
+  // switch. undefined normalizes to null explicitly: the op queue
   // JSON.stringifies, and diff baselines must match what the MT decodes.
   clearStaleFor(el, holeKey);
+  sweepStaleUnder(el, `${holeKey}:`, () => false);
+  sweepStaleUnder(el, `${holeKey}[`, () => false);
   return value === undefined ? null : value;
 }
 
