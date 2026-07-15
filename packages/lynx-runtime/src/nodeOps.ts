@@ -575,11 +575,15 @@ export const nodeOps: RendererOptions<ShadowElement, ShadowElement> = {
     if (isShadowSlotElement(el)) {
       // slotIndex feeds SNAPSHOT_BIND_SLOT routing — reject anything but a
       // non-negative integer (leave unset; the bind guard skips it).
-      if (key === '__slotIndex' && nextValue != null) {
-        // != null guard: Number(null) is 0 — a cleared prop must not bind
-        // the slot to index 0.
-        const n = Number(nextValue);
-        if (Number.isInteger(n) && n >= 0) el.slotIndex = n;
+      if (key === '__slotIndex') {
+        // Cleared prop → unbindable (-1), never index 0 (Number(null) is 0);
+        // otherwise require a non-negative integer.
+        if (nextValue == null) {
+          el.slotIndex = -1;
+        } else {
+          const n = Number(nextValue);
+          if (Number.isInteger(n) && n >= 0) el.slotIndex = n;
+        }
       }
       return;
     }
