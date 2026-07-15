@@ -70,10 +70,10 @@ The plugin handles the rest — the handler body lives in the MT bundle, the BG 
 
 For higher-level abstractions (drag, tap, swipe, animations), see [`@sigx/lynx-gestures`](https://sigx.dev/lynx/modules/gestures/overview/).
 
-## Snapshot templates (`snapshots: true`, experimental)
+## Snapshot templates (default ON)
 
 ```ts
-pluginSigxLynx({ snapshots: true })
+pluginSigxLynx({ snapshots: false }) // kill switch — keeps the per-element path
 ```
 
 Compiles static JSX subtrees to **main-thread snapshot templates** (#620): the
@@ -81,7 +81,8 @@ main thread constructs each compiled subtree itself from one snapshot op
 (instead of ~10 per-element ops + a thread hop), then receives hole-granular
 patches. Measured ~25–30x cheaper cell construction on release builds.
 
-- **Default off.** Works in dev and production: under `sigx dev`, template
+- **Default ON** (since #642; `snapshots: false` remains as a kill switch for
+  one release). Works in dev and production: under `sigx dev`, template
   registrations ride the MT hot-update bridge, an edit's stale templates are
   purged per file (the id's filename-hash prefix is edit-stable), and op
   batches that outrun a registration park and replay after the next update.
