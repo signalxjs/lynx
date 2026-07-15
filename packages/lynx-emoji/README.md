@@ -15,19 +15,14 @@ Full guides, API reference and live examples → **[https://sigx.dev/lynx/module
   `CategoryTabBar` / `SkinTonePopover` yourself. Theme via the
   `classes` slot map and render props; `@sigx/lynx-daisyui` ships a skin
   (`emojiClasses`, `EmojiPickerSheet`).
-- **Windowed grid** — a windowed `List` (`@sigx/lynx-list`) in flow layout:
-  the native recycler keeps the on-screen view count constant while
-  scrolling, and windowing bounds how many cells are ever *built* — so
-  opening a big category constructs ~120 cells instead of up to ~388.
-  Category switches are two-phase (the tab highlight paints immediately;
-  a first visit builds its grid a tick later, already laid out at full
-  height; revisits swap in the same flush), recently visited categories
-  stay mounted (LRU of 4) so revisiting rebuilds zero cells, and the next
-  two categories are pre-built during idle so the most likely first taps
-  are instant. Headless `EmojiGrid` users can pass
-  `itemsKey` (a dataset identity string) to re-anchor the grid to the top
-  when handing it a different dataset; `EmojiPicker` handles all of this
-  automatically on tab switches and search-query changes.
+- **Windowed grid** — a windowed `List` (`@sigx/lynx-list`) in flow layout,
+  deliberately capped at 64 cells (96 expanded): the native list produces
+  invalid layout above roughly 130-150 mounted cells, and a hidden list
+  dispatches scroll events forever, so exactly one grid is mounted at a time.
+  Switching categories paints the tab highlight immediately and swaps the grid
+  a tick later. Headless `EmojiGrid` users can pass `itemsKey` (dataset
+  identity) to re-anchor to the top on a swap, and `initialHeight` to lay the
+  grid out at full size on its first frame; `EmojiPicker` does both.
 - **Search** — ranked shortcode/name/keyword search (`useEmojiSearch`-free:
   `buildSearchIndex(data).search('fire')`).
 - **Skin tones** — long-press a tonal emoji; the choice is sticky grid-wide

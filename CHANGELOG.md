@@ -6,7 +6,9 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 ### Fixed
 
-- `@sigx/lynx-emoji` — the picker no longer renders blank (or with displaced content) on device. Its grid window is cut to 64 cells initially / 96 at full expansion (was 120/240): the native list produces invalid layout once roughly 130-150+ cells are mounted at once — a racy, silent failure that predates the windowed grid (release 0.12.2 mounted all 171 smileys and blanked the same way) and reproduces with no emoji code at all (#603). Measured 5/5 clean renders at 64 vs consistently blank at 120+ (#603).
+- `@sigx/lynx-emoji` — the picker no longer renders blank, and switching categories no longer trips the engine's event-dispatch limiter (error 204, red-screened by the dev overlay). Two independent causes, both measured on device:
+  - **Blank:** the native list produces invalid layout — blank, or content displaced off-screen — once roughly 130-150+ cells are mounted at once. It is racy (the same count renders on one run and blanks on the next), it predates the windowed grid (release 0.12.2 mounted all 171 smileys and blanked identically), and it reproduces with no emoji code at all by raising the List showcase demo's window to ~250 (#603). The grid window is cut 120/240 → **64/96 cells**, which renders reliably where 120+ did not.
+  - **204 flood:** category grids are no longer kept mounted behind `use:show`. A hidden grid has a zero-height container, so it believes it is permanently parked at its bottom edge and dispatches `scrolltolower` to JS forever — 599 dispatches over 3 tab switches with 4 kept grids, vs 8 with only the active one. Exactly one grid is mounted now; the instant-revisit and idle-prefetch behaviour built on kept-mounted grids is withdrawn with it. Tab switches still paint the highlight immediately and swap the grid a tick later (#606).
 
 ### Added
 

@@ -56,12 +56,6 @@ const RECENTS_GLYPH = '🕘';
 // proxies — signalxjs/lynx#603 — and blanks the whole surface). The
 // per-key caches in setup scope below satisfy both.
 const GRID_STYLE_TEMPLATE: Record<string, string | number> = { flexGrow: 1, flexShrink: 1 };
-const GRID_WRAP_STYLE_TEMPLATE: Record<string, string | number> = {
-    flexGrow: 1,
-    flexShrink: 1,
-    display: 'flex',
-    flexDirection: 'column',
-};
 
 /**
  * Curated tab icons per CLDR group key. The first-emoji-of-group fallback
@@ -128,26 +122,17 @@ export const EmojiPicker = component<EmojiPickerProps>(({ props, emit }) => {
     const tab = signal(initialTab);
     const gridTab = signal(initialTab);
     const popover = signal<{ datum: EmojiDatum | null }>({ datum: null });
-    // Recently visited categories keep their grid MOUNTED (hidden via
-    // `use:show`, one SET_STYLE op to toggle): a first visit builds its
-    // ~120-cell window once, revisiting a still-mounted tab rebuilds zero
-    // cells (the native list resets its scroll to the top while hidden,
-    // which matches what other pickers do on a category tap).
+    // Exactly ONE grid is mounted at a time — the active tab's.
     //
-    // LRU-capped: each kept grid is a live native <list>, and past ~9
-    // mounted lists their per-layout page events — dispatched even with no
-    // JS consumer — trip the engine's dispatch rate limiter (error 204,
-    // "called too frequently"; #606) and the dev overlay red-screens.
-    // Keeping the current tab plus the three most recently visited covers
-    // the tabs users actually bounce between while staying far below the
-    // flood threshold; evicted tabs simply rebuild their window (still
-    // windowed, still behind the two-phase highlight) on the next visit.
-    const MAX_MOUNTED_GRIDS = 4;
-    const visitedTabs = signal<{ keys: string[] }>({ keys: [initialTab] });
-
+    // Keeping other tabs' grids mounted (hidden behind `use:show`) made
+    // revisits instant, but it is fundamentally incompatible with the native
+    // list: a hidden grid has a zero-height container, so it believes it is
+    // permanently parked at its bottom edge and dispatches `scrolltolower` to
+    // JS forever. Measured on device, 3 tab switches: 599 dispatches with 4
+    // kept-mounted grids vs 8 with only the active one — the former floods the
+    // engine's limiter (error 204) and red-screens the dev overlay. See #606.
     // Per-element style objects, cached per tab key — identity-stable across
     // renders AND unique per element (see the template note above / #603).
-    const wrapStyles = new Map<string, Record<string, string | number>>();
     const gridStyles = new Map<string, Record<string, string | number>>();
     const styleFor = (
         cache: Map<string, Record<string, string | number>>,
@@ -179,61 +164,24 @@ export const EmojiPicker = component<EmojiPickerProps>(({ props, emit }) => {
         position: 'relative',
     };
 
-    function bumpMounted(key: string): void {
-        const current = visitedTabs.keys;
-        if (current[current.length - 1] === key) return;
-        const keys = current.filter((k) => k !== key);
-        keys.push(key);
-        while (keys.length > MAX_MOUNTED_GRIDS) keys.shift();
-        visitedTabs.$set({ keys });
-    }
-
-    // Pending timers, cleared on unmount so no callback mutates signals
-    // after the picker is gone; the swap timer is also cleared per-tap so
-    // rapid tapping never queues more than one deferred mount (the last tap
-    // wins outright, not via the stale-tap check alone).
+    // Pending swap timer, cleared per-tap (last tap wins) and on unmount so no
+    // callback mutates signals after the picker is gone.
     let swapTimer: ReturnType<typeof setTimeout> | undefined;
-    const prefetchTimers: ReturnType<typeof setTimeout>[] = [];
     onUnmounted(() => {
         if (swapTimer !== undefined) clearTimeout(swapTimer);
-        prefetchTimers.forEach((t) => clearTimeout(t));
     });
 
     function selectTab(key: string): void {
         tab.value = key;
         popover.datum = null;
-        if (swapTimer !== undefined) {
-            clearTimeout(swapTimer);
-            swapTimer = undefined;
-        }
-        // Already mounted → the swap is a use:show style flip; do it in the
-        // same flush as the highlight, no deferral needed.
-        if (visitedTabs.keys.includes(key)) {
-            bumpMounted(key);
-            gridTab.value = key;
-            return;
-        }
-        // Fresh mount (~120-cell window build) → defer one tick so the tab
-        // highlight paints in its own cheap flush first.
+        if (swapTimer !== undefined) clearTimeout(swapTimer);
+        // Defer the grid swap one tick so the tab highlight paints in its own
+        // cheap flush first — building the new window is the expensive half.
         swapTimer = setTimeout(() => {
             swapTimer = undefined;
-            bumpMounted(key);
             gridTab.value = key;
         }, 0);
     }
-
-    // Idle prefetch: shortly after the picker settles, pre-mount the next two
-    // categories so the most likely first taps land on an already-built grid.
-    // Prefetched keys are inserted least-recent, so real visits out-prioritize
-    // them within the mounted-grid LRU; the cap guard keeps interactive visits
-    // ahead of idle work.
-    ctx.data.categories.slice(1, 3).forEach((cat, i) => {
-        prefetchTimers.push(setTimeout(() => {
-            const current = visitedTabs.keys;
-            if (current.includes(cat.key) || current.length >= MAX_MOUNTED_GRIDS) return;
-            visitedTabs.$set({ keys: [cat.key, ...current] });
-        }, 600 + i * 400));
-    });
 
     function pick(datum: EmojiDatum, tone: SkinTone): void {
         ctx!.recents.push(datum);
@@ -337,25 +285,13 @@ export const EmojiPicker = component<EmojiPickerProps>(({ props, emit }) => {
                     ? (searchHits.length === 0
                         ? renderEmpty('No emoji found')
                         : renderGrid(searchHits, 'search', 'q:' + q))
-                    // One wrapper per tab, ALWAYS — a constant-shape keyed
-                    // array, so mounting one tab's grid never disturbs the
-                    // siblings (a growing array re-anchors the whole set).
-                    // A wrapper stays empty until its tab is first visited.
-                    : allTabs.map((entry) => {
-                        const key = entry.tab === 'recents' ? 'recents' : entry.tab.key;
-                        const slice = visitedTabs.keys.includes(key) ? sliceFor(key) : null;
-                        return (
-                            <view
-                                key={key}
-                                use:show={gridTab.value === key}
-                                style={styleFor(wrapStyles, GRID_WRAP_STYLE_TEMPLATE, key)}
-                            >
-                                {slice !== null && (slice.length === 0
-                                    ? renderEmpty(key === 'recents' ? 'No recent emoji yet' : 'No emoji found')
-                                    : renderGrid(slice, key, 't:' + key))}
-                            </view>
-                        );
-                    })}
+                    : (() => {
+                        const key = gridTab.value;
+                        const slice = sliceFor(key);
+                        return slice.length === 0
+                            ? renderEmpty(key === 'recents' ? 'No recent emoji yet' : 'No emoji found')
+                            : renderGrid(slice, key, 't:' + key);
+                    })()}
                 </view>
                 {popover.datum && (
                     <SkinTonePopover

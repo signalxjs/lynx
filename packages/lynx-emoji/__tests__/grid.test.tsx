@@ -129,7 +129,10 @@ describe('EmojiPicker (windowed grid integration)', () => {
         });
     }
 
-    it('switches categories via the tab bar; visited grids stay mounted', async () => {
+    it('switches categories via the tab bar, keeping exactly one grid mounted', async () => {
+        // Only the active tab's grid is mounted: a hidden grid has a
+        // zero-height container and dispatches `scrolltolower` to JS forever,
+        // flooding the engine's limiter (#606).
         const { container } = render(
             <EmojiPicker data={makeData()} showSearch={false} showRecents={false} />,
         );
@@ -137,120 +140,24 @@ describe('EmojiPicker (windowed grid integration)', () => {
         expect(getAllByType(container, 'list-item').length).toBe(WINDOW_CELLS);
         await tapTab(container, 'B0');
         const keys = getAllByType(container, 'list-item').map((c) => c.props['item-key'] as string);
-        // Category A's grid stays mounted (hidden via use:show) next to B's.
-        expect(keys.length).toBe(WINDOW_CELLS + CAT_B.length);
+        expect(keys.length).toBe(CAT_B.length);   // B only — A is gone, not hidden
         expect(keys).toContain('B0');
-        expect(keys).toContain('A0');
+        expect(keys).not.toContain('A0');
     });
 
-    it('caps mounted grids at 4 (LRU) — visiting a 5th evicts the oldest', async () => {
-        const { container } = render(
-            <EmojiPicker data={makeLruData()} showSearch={false} showRecents={false} />,
-        );
-        await act(() => {});
-        // Visit P (initial) then Q, R, S, T — five tabs, cap is four.
-        for (const p of ['Q', 'R', 'S', 'T']) await tapTab(container, `${p}0`);
-        const keys = getAllByType(container, 'list-item').map((c) => c.props['item-key'] as string);
-        expect(keys.length).toBe(4 * 10);
-        expect(keys).not.toContain('P0');            // oldest evicted
-        for (const p of ['Q', 'R', 'S', 'T']) expect(keys).toContain(`${p}0`);
-    });
-
-    it('revisiting an LRU-retained tab rebuilds nothing; an evicted one rebuilds', async () => {
-        const renderCell = vi.fn((d: EmojiDatum, glyph: string) => <text>{`cell:${glyph}`}</text>);
-        const { container } = render(
-            <EmojiPicker
-                data={makeLruData()}
-                showSearch={false}
-                showRecents={false}
-                renderCell={renderCell}
-            />,
-        );
-        await act(() => {});
-        for (const p of ['Q', 'R', 'S', 'T']) await tapTab(container, `${p}0`); // P evicted
-        renderCell.mockClear();
-        await tapTab(container, 'R0');               // retained → zero rebuilds
-        expect(renderCell).not.toHaveBeenCalled();
-        await tapTab(container, 'P0');               // evicted → rebuilds its 10 cells
-        expect(renderCell).toHaveBeenCalledTimes(10);
-    });
-
-    it('revisiting a mounted tab swaps in the same flush (LRU bumps without the deferred tick)', async () => {
-        const { container } = render(
-            <EmojiPicker data={makeLruData()} showSearch={false} showRecents={false} />,
-        );
-        await act(() => {});
-        for (const p of ['Q', 'R', 'S', 'T']) await tapTab(container, `${p}0`); // LRU: Q R S T (P evicted)
-        // Re-tap R with NO timer hop — the mounted-tab path is synchronous.
-        const bar = getByType(container as never, 'scroll-view');
-        const tabR = findByHandler(bar as never, 'bindtap', 'R0');
-        await act(() => { tabR!._handlers.get('bindtap')!(); });        // LRU: Q S T R
-        // A fresh visit now evicts Q — proving R was bumped without the tick.
-        await tapTab(container, 'U0');                                   // LRU: S T R U
-        const keys = getAllByType(container, 'list-item').map((c) => c.props['item-key'] as string);
-        expect(keys).not.toContain('Q0');
-        expect(keys).toContain('R0');
-    });
-
-    // NOTE on fake timers here: lynx-testing's act/waitForUpdate flushes via
-    // a real setTimeout(0), so `act` deadlocks while timers are faked. The
-    // pattern is: fake → advance async (fires the prefetch timers, runs the
-    // microtask effects between them) → restore real timers → one act() to
-    // let the final flush land.
-    it('idle prefetch pre-mounts the next two categories', async () => {
-        vi.useFakeTimers();
-        const { container } = render(
-            <EmojiPicker data={makeLruData()} showSearch={false} showRecents={false} />,
-        );
-        try {
-            expect(getAllByType(container, 'list-item').length).toBe(10);   // P only
-            await vi.advanceTimersByTimeAsync(1100);
-        } finally {
-            vi.useRealTimers();
-        }
-        await act(() => {});
-        const keys = getAllByType(container, 'list-item').map((c) => c.props['item-key'] as string);
-        expect(keys.length).toBe(30);                                        // P + prefetched Q, R
-        expect(keys).toContain('Q0');
-        expect(keys).toContain('R0');
-    });
-
-    it('unmounting cancels pending prefetch timers (no late signal writes)', async () => {
+    it('unmounting cancels the pending tab swap (no late signal writes)', async () => {
         vi.useFakeTimers();
         const { unmount } = render(
             <EmojiPicker data={makeLruData()} showSearch={false} showRecents={false} />,
         );
         try {
             unmount();
-            // Firing the would-be prefetch window after unmount must be a
-            // no-op (a late $set on a torn-down component would throw/warn).
             await vi.advanceTimersByTimeAsync(2000);
         } finally {
             vi.useRealTimers();
         }
         await act(() => {});
     });
-
-    it('revisiting a category re-renders zero cells (grid kept mounted)', async () => {
-        const renderCell = vi.fn((d: EmojiDatum, glyph: string) => <text>{`cell:${glyph}`}</text>);
-        const { container } = render(
-            <EmojiPicker
-                data={makeData()}
-                showSearch={false}
-                showRecents={false}
-                renderCell={renderCell}
-            />,
-        );
-        await act(() => {});
-        expect(renderCell).toHaveBeenCalledTimes(WINDOW_CELLS);
-        await tapTab(container, 'B0');   // first visit builds B's window…
-        expect(renderCell).toHaveBeenCalledTimes(WINDOW_CELLS + CAT_B.length);
-        renderCell.mockClear();
-        await tapTab(container, 'A0');   // …revisits build nothing
-        await tapTab(container, 'B0');
-        expect(renderCell).not.toHaveBeenCalled();
-    });
-
     it('opening the skin-tone popover does not rebuild the grid cells', async () => {
         // Prefix the cell text so the long-press target can't collide with the
         // tab bar (tab 'cat-a' falls back to the same 'A0' glyph).

@@ -31,6 +31,14 @@ const LOADING_KEY = '__sigx_list_loading__';
 
 const DEFAULT_PULL_THRESHOLD = 64;
 
+// `List` always binds `bindscroll` internally (load-more re-arm, chat
+// at-bottom tracking), so an unthrottled list streams scroll events to JS at
+// frame rate — which helps trip the engine's dispatch limiter during a fling
+// (error 204, #606). Nothing internal needs per-frame resolution, so default
+// to a coarse interval; consumers can opt into finer ticks via
+// `scrollEventThrottle`.
+const DEFAULT_SCROLL_THROTTLE = 100;
+
 type ScrollDetail = { detail?: { scrollTop?: number; scrollLeft?: number } };
 
 /**
@@ -449,13 +457,33 @@ const ListImpl = component<ListProps>(({ props, slots, emit }) => {
     unreadCount.value = 0;
   };
 
-  // ── Load-more de-dup (BG; persists across renders since setup runs once) ──
+  // ── Edge-event de-dup (BG; persists across renders since setup runs once) ──
+  // Native re-fires `scrolltoupper`/`scrolltolower` CONTINUOUSLY while the list
+  // sits at an edge (~240/s, far above frame rate), and a list whose container
+  // size is momentarily invalid reports BOTH edges at once. Acting on every
+  // dispatch then ping-pongs the window (expandNewer trims the head → the top
+  // edge re-fires → expandOlder trims the tail → repeat), which spins hundreds
+  // of re-renders and floods the engine's dispatch limiter (error 204, #606).
+  // So each edge acts ONCE per arrival and only re-arms when a real scroll
+  // moves away from it — the flags are never reset by the opposite edge, which
+  // is what allowed the loop to sustain itself.
+  let startReachedFired = false;
   let endReachedFired = false;
   let lastTop = 0;
   let prevCount = props.items.length;
 
   return () => {
     const horizontal = props.horizontal ?? false;
+    // The native `<list>` re-fires `scrolltoupper` CONTINUOUSLY while it sits
+    // at its top edge — measured ~1,674 dispatches on one list with no
+    // scrolling at all and only 2 renders (~240/s, far above frame rate).
+    // Every one is a native→JS `__SendPageEvent`, so registering the handler
+    // unconditionally floods the engine's dispatch limiter (error 204,
+    // "called too frequently") within a few list mounts, and hands consumers
+    // hundreds of bogus `startReached` calls. Register it only when it can do
+    // real work: chat mode (load-older is its documented use), a window that
+    // actually has older items to reveal, or a consumer explicitly listening.
+    // See #606.
     const items = props.items;
     const count = items.length;
 
@@ -482,6 +510,10 @@ const ListImpl = component<ListProps>(({ props, slots, emit }) => {
     // scroll to — an empty chat has no first-scroll target, so `ready` would
     // never flip and it would render invisible forever.
     if (chatEnabled && !ready.value && count > 0) listStyle.opacity = 0;
+
+    const wantUpperEdge = chatEnabled
+      || (windowingEnabled && winInit && winStart.value > 0)
+      || (props as { onStartReached?: unknown }).onStartReached !== undefined;
 
     const keyOf = props.keyExtractor;
     const typeOf = props.itemType;
@@ -533,9 +565,7 @@ const ListImpl = component<ListProps>(({ props, slots, emit }) => {
         {...(props.onStartReachedThreshold !== undefined
           ? { 'upper-threshold-item-count': props.onStartReachedThreshold }
           : {})}
-        {...(props.scrollEventThrottle !== undefined
-          ? { 'scroll-event-throttle': props.scrollEventThrottle }
-          : {})}
+        scroll-event-throttle={props.scrollEventThrottle ?? DEFAULT_SCROLL_THROTTLE}
         {...(refreshEnabled ? { 'enable-scroll': !pulling.value } : {})}
         {...(chatEnabled ? { bindlayoutcomplete: onChatLayoutComplete } : {})}
         {...(refreshEnabled
@@ -547,10 +577,9 @@ const ListImpl = component<ListProps>(({ props, slots, emit }) => {
           }
           : {})}
         bindscrolltolower={() => {
-          if (!endReachedFired) {
-            endReachedFired = true;
-            emit('endReached');
-          }
+          if (endReachedFired) return;   // continuous re-fire while at the edge
+          endReachedFired = true;
+          emit('endReached');
           // Chat: reaching the bottom clears the unread affordance.
           if (chatEnabled) {
             atBottom.value = true;
@@ -563,8 +592,9 @@ const ListImpl = component<ListProps>(({ props, slots, emit }) => {
             setWindow(expandNewer({ start: winStart.value, end: winEnd.value }, count, winCfg));
           }
         }}
-        bindscrolltoupper={() => {
-          endReachedFired = false;
+        {...(wantUpperEdge ? { bindscrolltoupper: () => {
+          if (startReachedFired) return;  // continuous re-fire while at the edge
+          startReachedFired = true;
           // Windowing: at the top edge, reveal an older page already in `items`.
           // bindscrolltoupper only fires at the top, so this is the at-top-only
           // prepend path (expanding above a top-pinned viewport is the expected
@@ -578,16 +608,19 @@ const ListImpl = component<ListProps>(({ props, slots, emit }) => {
             void anchorRestoreMT(anchorCell, SCROLL_METHOD);
           }
           emit('startReached');
-        }}
+        } } : {})}
         bindscroll={(e: ScrollDetail) => {
           const d = e?.detail;
           if (!d) return;
           const top = (horizontal ? d.scrollLeft : d.scrollTop) ?? 0;
-          // Scrolled back up away from the end → re-arm onEndReached, and (chat)
-          // mark not-at-bottom so new messages surface the affordance.
+          // Genuine movement away from an edge re-arms that edge (and only
+          // that one). Chat: moving up means new messages surface the unread
+          // affordance instead of auto-scrolling.
           if (top < lastTop - 4) {
             endReachedFired = false;
             if (chatEnabled) atBottom.value = false;
+          } else if (top > lastTop + 4) {
+            startReachedFired = false;
           }
           lastTop = top;
           emit('scroll', { offset: top });
