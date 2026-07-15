@@ -9,8 +9,10 @@
  *   - globalThis.sigxPatchUpdate — receives ops from Background Thread
  */
 
+import { setSnapshotPageId } from '@sigx/lynx-runtime-internal/snapshot';
 import { elements, setPageUniqueId } from './element-registry.js';
 import { applyOps, resetMainThreadState, setPlaceholder } from './ops-apply.js';
+import { installSnapshotMTHooks } from './snapshot-mt.js';
 import { invokeWorklet } from './worklet-events.js';
 import { runOnBackground } from './run-on-background-mt.js';
 import { installAvBridgeFlushHook } from './animated-bridge-mt.js';
@@ -30,6 +32,12 @@ if (g['SystemInfo'] === undefined) {
 /** PAGE_ROOT_ID must match the value used in the BG-thread renderer */
 const PAGE_ROOT_ID = 1;
 
+// Install the snapshot-template hole updaters into the shared contract
+// module before any user module (whose extracted `snapshotCreatorMap`
+// registrations may evaluate later in the same bundle) can instantiate a
+// template. See snapshot-mt.ts (#626).
+installSnapshotMTHooks();
+
 // Lynx Lepus runtime requires globalThis.processData to be set.
 // It is called to transform initial data before renderPage runs.
 // For sigx we have no data processors, so just pass data through.
@@ -45,6 +53,7 @@ g['renderPage'] = function (_data: unknown): void {
   const page = __CreatePage('0', 0);
   __SetCSSId([page], 0);
   setPageUniqueId(__GetElementUniqueID(page));
+  setSnapshotPageId(__GetElementUniqueID(page));
   elements.set(PAGE_ROOT_ID, page);
 
   // Append a placeholder __CreateView under the page root so the host sees a
@@ -87,6 +96,7 @@ g['sigxHotReload'] = function (): void {
   const page = existingPage ?? __CreatePage('0', 0);
   __SetCSSId([page], 0);
   setPageUniqueId(__GetElementUniqueID(page));
+  setSnapshotPageId(__GetElementUniqueID(page));
   elements.set(PAGE_ROOT_ID, page);
 
   const placeholder = __CreateView(__GetElementUniqueID(page));
