@@ -68,12 +68,12 @@ object PushActivityHook {
 
     @JvmStatic
     fun onCreate(activity: Activity, savedInstanceState: Bundle?) {
-        // A recreate (rotation, theme/locale change) re-runs onCreate against
-        // the SAME launch intent. Without this guard the tap payload is
-        // re-stashed after JS already drained it via getInitialNotification(),
-        // and the app deep-links a second time. A genuine cold-start-from-tap
-        // always has a null bundle, so this never suppresses a real tap.
-        if (savedInstanceState != null) return
+        // NOTE: deliberately NOT gated on `savedInstanceState == null`.
+        // Re-delivery is already prevented by [consume] stripping the markers
+        // off the intent, and gating here would drop real taps: a tap that
+        // relaunches the app after process death can arrive with restored
+        // instance state, which is precisely the cold start this hook exists
+        // for.
         val intent = activity.intent ?: return
         if (!isNotificationTap(intent)) return
         val (id, data) = extractPayload(intent)
@@ -122,22 +122,32 @@ object PushActivityHook {
             intent.hasExtra(EXTRA_FCM_MESSAGE_ID_LEGACY)
 
     /**
-     * Strip the markers AND the harvested payload so one tap is delivered
-     * exactly once and nothing is left behind.
+     * Strip our tap markers and the sender's payload, so one tap is delivered
+     * exactly once and no app data lingers.
      *
-     * The payload goes too, not just the markers: it is app data — routinely
-     * user data — and would otherwise sit on `activity.intent` for the
-     * Activity's whole lifetime, readable by anything holding the Activity and
-     * re-harvestable by a later recreate. It has to be cleared from BOTH
-     * shapes, which look nothing alike: our own intents namespace it under
+     * Removing the markers is what makes delivery once-only: `activity.intent`
+     * is the same `Intent` object the ActivityThread record holds, so a
+     * config-change recreate re-runs [onCreate] against this mutated instance
+     * and [isNotificationTap] is false the second time. (Verified on device: a
+     * font-scale recreate re-delivers nothing.)
+     *
+     * The payload goes too because it is app data — routinely user data — and
+     * would otherwise sit on the intent for the Activity's whole lifetime,
+     * readable by anything holding it. It has to be cleared from BOTH shapes,
+     * which look nothing alike: our own intents namespace it under
      * [SIGX_DATA_PREFIX], while an FCM-built intent carries the sender's keys
      * flat and unprefixed — so [harvestedKeys] (what [extractPayload] actually
      * read) is the only thing that identifies them.
      *
-     * Note this cannot defend against process-death restore-from-recents: the
-     * system rebuilds the Activity from the *persisted* task intent, a fresh
-     * object that never saw this mutation. The [onCreate] savedInstanceState
-     * guard covers the in-process recreates, which is every case we can reach.
+     * Two things this deliberately does NOT do:
+     *  - FCM's own transport metadata (`from`, `collapse_key`,
+     *    `google.sent_time`, the priority keys) stays on an OS-built intent. It
+     *    is not app payload and not sensitive; only the keys that gate
+     *    re-delivery are worth removing.
+     *  - It cannot scrub the system's copy. AMS keeps its own `Intent` in the
+     *    `ActivityRecord` — `dumpsys activity activities` still reports
+     *    `(has extras)` afterwards — and that lives until the task dies. This
+     *    narrows in-process exposure; it doesn't erase the payload.
      */
     private fun consume(intent: Intent, harvestedKeys: Set<String>) {
         intent.removeExtra(EXTRA_NOTIFICATION_TAP)
