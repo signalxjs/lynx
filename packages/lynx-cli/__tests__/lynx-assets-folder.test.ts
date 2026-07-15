@@ -129,6 +129,20 @@ describe('isResourceFolderRegistered', () => {
             .toBe(false);
     });
 
+    it('treats regex metacharacters in the folder name literally', () => {
+        // `My.Assets` must not match `MyXAssets` via an unescaped `.`.
+        const pbx = [
+            'AAAAAAAAAAAAAAAAAAAAAAAA /* MyXAssets in Resources */ = {isa = PBXBuildFile; fileRef = BBBBBBBBBBBBBBBBBBBBBBBB /* MyXAssets */; };',
+            'BBBBBBBBBBBBBBBBBBBBBBBB /* MyXAssets */ = {isa = PBXFileReference; lastKnownFileType = folder; path = MyXAssets; sourceTree = "<group>"; };',
+            'isa = PBXResourcesBuildPhase;',
+            'files = (',
+            '\tAAAAAAAAAAAAAAAAAAAAAAAA /* MyXAssets in Resources */,',
+            ');',
+        ].join('\n');
+        expect(isResourceFolderRegistered(pbx, 'MyXAssets')).toBe(true);
+        expect(isResourceFolderRegistered(pbx, 'My.Assets')).toBe(false);
+    });
+
     it('rejects a build file listed only in the Sources phase', () => {
         const pbx = [
             'AAAAAAAAAAAAAAAAAAAAAAAA /* LynxAssets in Resources */ = {isa = PBXBuildFile; fileRef = BBBBBBBBBBBBBBBBBBBBBBBB /* LynxAssets */; };',

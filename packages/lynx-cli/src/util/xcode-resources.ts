@@ -15,6 +15,16 @@
  * hard-coded ids while retrofitted ones get deterministic generated ids.
  */
 
+/**
+ * Escape a folder name for embedding in a RegExp. Only `LynxAssets` is passed
+ * today, but a name with `.` or `+` in it would otherwise quietly mis-detect
+ * the registration state and drive the injector to the wrong branch.
+ * (Local copy: prebuild.ts imports this module, so we can't import from it.)
+ */
+function escapeRegex(s: string): string {
+    return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 export interface ResourceFolderRegistration {
     /** `<uuid> /* Name *\/ = {isa = PBXFileReference; ... path = Name; }` */
     hasFileReference: boolean;
@@ -29,15 +39,17 @@ export function resourceFolderRegistration(
     pbxproj: string,
     folderName: string,
 ): ResourceFolderRegistration {
+    const name = escapeRegex(folderName);
+
     const hasFileReference = new RegExp(
-        `/\\* ${folderName} \\*/ = \\{isa = PBXFileReference;[^}]*path = ${folderName};`,
+        `/\\* ${name} \\*/ = \\{isa = PBXFileReference;[^}]*path = ${name};`,
     ).test(pbxproj);
 
     // Ids are 16 hex chars in our scaffolded template, 24 in projects Xcode
     // has rewritten, and 24 for the ones the injector generates — so match on
     // shape, not length.
     const buildFile = new RegExp(
-        `([A-Za-z0-9]{16,32}) /\\* ${folderName} in Resources \\*/ = \\{isa = PBXBuildFile;`,
+        `([A-Za-z0-9]{16,32}) /\\* ${name} in Resources \\*/ = \\{isa = PBXBuildFile;`,
     ).exec(pbxproj);
 
     let inResourcesPhase = false;
