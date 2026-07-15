@@ -182,6 +182,18 @@ describe('MTSnapshotInstance', () => {
     expect(textWrites.map((c) => c.value)).toEqual(['a', 'b']);
   });
 
+  it('setValues clears trailing stale holes on a shorter payload', () => {
+    registerCellTemplate();
+    const inst = createSnapshotInstance(17, CELL_ID);
+    inst.ensureElements();
+    inst.setValues(['sign:1', 'hello']);
+    inst.setValues(['sign:1']); // shorter reuse payload
+    expect(inst.__values).toHaveLength(1);
+    // The text hole was patched to undefined (cleared), not left at 'hello'.
+    const textWrites = setAttrCalls.filter((c) => c.key === 'text');
+    expect(textWrites.map((c) => c.value)).toEqual(['hello', undefined]);
+  });
+
   it('resolves slot elements by slot index', () => {
     registerCellTemplate();
     const inst = createSnapshotInstance(14, CELL_ID);

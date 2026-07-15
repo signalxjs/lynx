@@ -110,11 +110,20 @@ export class MTSnapshotInstance implements SnapshotInstanceLike {
     this.def.update?.[index]?.(this, index, old);
   }
 
-  /** Replace the whole values array (instantiation payload). */
+  /**
+   * Replace the whole values array (instantiation / reuse payload). Holes
+   * beyond the new payload's length are cleared through their updaters
+   * (stale values must not survive instance reuse), then the array shrinks
+   * to match.
+   */
   setValues(values: unknown[]): void {
     for (let i = 0; i < values.length; i++) {
       this.setValue(i, values[i]);
     }
+    for (let i = values.length; i < this.__values.length; i++) {
+      if (this.__values[i] !== undefined) this.setValue(i, undefined);
+    }
+    this.__values.length = values.length;
   }
 
   /**
