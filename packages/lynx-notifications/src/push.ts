@@ -29,7 +29,15 @@ export interface RemoteMessage {
 export interface NotificationResponse {
     notificationId: string;
     data: Record<string, string>;
-    /** 'default' for the standard tap; custom action ids when categories ship. */
+    /**
+     * `'default'` for the standard tap, `'dismiss'` when the user clears the
+     * notification, or a custom action id when categories ship.
+     *
+     * Normalized across platforms: iOS reports Apple's
+     * `UNNotificationDefaultActionIdentifier` for a plain tap, which the native
+     * side maps onto `'default'` so `actionIdentifier === 'default'` means the
+     * same thing on both. Custom action ids are passed through untouched.
+     */
     actionIdentifier: string;
 }
 

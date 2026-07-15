@@ -99,6 +99,24 @@ import UserNotifications
         return (notificationId, data)
     }
 
+    /// Map Apple's action identifiers onto the module's cross-platform names.
+    ///
+    /// `UNNotificationResponse.actionIdentifier` is
+    /// `"com.apple.UNNotificationDefaultActionIdentifier"` for a standard tap,
+    /// where Android sends `"default"` — so an app routing on
+    /// `actionIdentifier === 'default'` (which is what `NotificationResponse`
+    /// documents) worked on Android and silently never matched on iOS. Normalise
+    /// here rather than in the JS shim so the raw event channels carry the same
+    /// contract as the typed API. Custom category actions pass through untouched
+    /// — those names are the app's own.
+    static func normalizedActionIdentifier(_ raw: String) -> String {
+        switch raw {
+        case UNNotificationDefaultActionIdentifier: return "default"
+        case UNNotificationDismissActionIdentifier: return "dismiss"
+        default: return raw
+        }
+    }
+
     /// Coerce an APNs custom value to a string.
     ///
     /// The JS wire type is `Record<string, string>` — FCM's `data` map is
@@ -168,19 +186,21 @@ final class PushNotificationDelegate: NSObject, UNUserNotificationCenterDelegate
     ) {
         let content = response.notification.request.content
         let (idFromPayload, data) = PushAppDelegateHook.extractData(from: content.userInfo)
+        let actionIdentifier = PushAppDelegateHook
+            .normalizedActionIdentifier(response.actionIdentifier)
         let notificationId = response.notification.request.identifier.isEmpty
             ? idFromPayload
             : response.notification.request.identifier
         let captured = PushEventBus.shared.captureInitialResponseIfColdStart(
             notificationId: notificationId,
             data: data,
-            actionIdentifier: response.actionIdentifier
+            actionIdentifier: actionIdentifier
         )
         if !captured {
             PushEventBus.shared.publishResponse(
                 notificationId: notificationId,
                 data: data,
-                actionIdentifier: response.actionIdentifier
+                actionIdentifier: actionIdentifier
             )
         }
         completionHandler()
