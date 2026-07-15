@@ -192,4 +192,28 @@ describe('park-and-retry', () => {
     resetSnapshotInstances();
     expect(isParkedSnapshot(33)).toBe(false);
   });
+
+  it('queues INSERTs whose PARENT is a parked slot-el id, replaying them after registration', () => {
+    // BG replays deferred slot children with parentId = slotElId; while the
+    // instance is parked, those INSERTs must queue with it — keying only on
+    // a parked CHILD id would drop them (review catch on #638).
+    applyOps([
+      OP.SNAPSHOT_CREATE, 34, '__snapshot_hmr_park_slot_1',
+      OP.SNAPSHOT_SET_VALUES, 34, ['v'],
+      OP.INSERT, 1, 34, -1,
+      OP.SNAPSHOT_BIND_SLOT, 34, 0, 70, // queued: slotElId 70 belongs to parked 34
+      OP.CREATE, 71, 'view',
+      OP.INSERT, 70, 71, -1, // parent is the parked slot id
+      OP.CREATE, 72, 'view',
+      OP.INSERT, 70, 72, -1,
+      OP.REMOVE, 70, 72, // removed while parked — must not resurrect on replay
+    ]);
+    expect(isParkedSnapshot(34)).toBe(true);
+    registerTemplate('__snapshot_hmr_park_slot_1');
+    retryParkedSnapshots(applyOps);
+    expect(isParkedSnapshot(34)).toBe(false);
+    const slotEl = elements.get(70) as unknown as { children: Array<{ tag: string }> };
+    expect(slotEl).toBeDefined();
+    expect(slotEl.children.filter((c) => c.tag === 'view')).toHaveLength(1);
+  });
 });

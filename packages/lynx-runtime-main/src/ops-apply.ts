@@ -55,6 +55,7 @@ import {
   dropParkedSnapshot,
   getSnapshotInstance,
   isParkedSnapshot,
+  parkedOwnerOf,
   isSnapshotInstance,
   parkSnapshotCreate,
   queueOpForParked,
@@ -231,10 +232,15 @@ export function applyOps(ops: unknown[]): void {
           listInsertChild(parentId, childId, anchorId);
           break;
         }
-        // An INSERT of a parked instance queues with it (the parent may be
-        // long materialized by the time the template registration arrives).
-        if (isParkedSnapshot(childId)) {
-          queueOpForParked(childId, [OP.INSERT, parentId, childId, anchorId]);
+        // An INSERT queues with a parked instance when the CHILD is parked,
+        // or when the PARENT is a slot-el id minted by the parked instance's
+        // queued BIND_SLOT (the BG replays slot children with
+        // parentId = slotElId — see nodeOps' bind replay).
+        if (parkedOwnerOf(childId) !== undefined || parkedOwnerOf(parentId) !== undefined) {
+          queueOpForParked(
+            parkedOwnerOf(childId) !== undefined ? childId : parentId,
+            [OP.INSERT, parentId, childId, anchorId],
+          );
           break;
         }
         // A staged snapshot instance materializes on first non-list insert:
@@ -280,6 +286,11 @@ export function applyOps(ops: unknown[]): void {
         }
         // A parked create whose subtree is removed will never materialize.
         dropParkedSnapshot(childId);
+        // A REMOVE under a parked slot must queue like its INSERT did, or
+        // the replay would resurrect the removed child.
+        if (parkedOwnerOf(_parentId) !== undefined) {
+          queueOpForParked(_parentId, [OP.REMOVE, _parentId, childId]);
+        }
         break;
       }
 
