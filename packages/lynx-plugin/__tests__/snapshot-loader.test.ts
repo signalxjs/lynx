@@ -226,9 +226,11 @@ export function Toggle({ shown }) {
     expect(mtOut).toContain('entry-main.js'); // normal body-drop path
   });
 
-  it('files with raw <list> JSX keep the per-element path until list templates land', () => {
-    // A compiled <list> template's create() calls snapshotCreateList, which
-    // the MT runtime rejects until #620 phase 5 — the whole file falls back.
+  it('compiles raw <list> JSX: snapshotCreateList, ListSlotV2 and the platform-info hole', () => {
+    // The list phase (#639): a <list> template's create() calls
+    // snapshotCreateList; <list-item> platform attributes hoist into hole 0
+    // handled by updateListItemPlatformInfo (list-mt reads __values[0] for
+    // update-list-info at flush time — this shape is the contract).
     const src = `
 export function Rows({ items }) {
   return (
@@ -238,11 +240,16 @@ export function Rows({ items }) {
   );
 }
 `;
-    const bgOut = bg(src, '/app/src/Rows.tsx');
-    expect(bgOut).not.toContain('__snapshot_');
-    expect(bgOut).toContain('<list');
     const mtOut = mt(src, '/app/src/Rows.tsx');
-    expect(mtOut).not.toContain('snapshotCreatorMap');
+    expect(mtOut).toContain('snapshotCreateList(');
+    expect(mtOut).toContain('__DynamicPartListSlotV2');
+    expect(mtOut).toMatch(/updateListItemPlatformInfo\([^)]*, 0\)/);
+    expect(mtOut).toContain('__CreateElement("list-item"');
+    const bgOut = bg(src, '/app/src/Rows.tsx');
+    expect(bgOut).toMatch(/_jsx\(__snapshot_/);
+    expect(bgOut).toContain('"item-key": it');
+    // Same template ids on both layers.
+    expect(snapshotIds(mtOut)).toEqual(snapshotIds(bgOut));
   });
 });
 

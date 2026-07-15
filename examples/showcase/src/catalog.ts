@@ -45,6 +45,13 @@ export const catalog: Area[] = [
                 route: 'listDemo',
             },
             {
+                id: 'snapshot-list-bench',
+                title: 'Snapshot list bench',
+                description: 'Raw templated <list> — sync componentAtIndex + recycling (#620), needs snapshots: true',
+                icon: { set: 'lucide', name: 'zap' },
+                route: 'snapshotListBench',
+            },
+            {
                 id: 'chat',
                 title: 'Chat',
                 description: 'Chat mode — bottom-anchored, stick-to-bottom, unread pill, load-older',

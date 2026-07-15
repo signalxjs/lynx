@@ -36,6 +36,7 @@ import {
   listInsertChild,
   listRemoveChild,
   noteListItemProp,
+  registerListSlotAlias,
   resetListState,
 } from './list-mt.js';
 import {
@@ -61,7 +62,7 @@ import {
   queueOpForParked,
   resetSnapshotInstances,
 } from './snapshot-mt.js';
-import { getSnapshotDef } from '@sigx/lynx-runtime-internal/snapshot';
+import { __DynamicPartListSlotV2, getSnapshotDef } from '@sigx/lynx-runtime-internal/snapshot';
 
 /**
  * Placeholder element inserted by renderPage() to give the host a non-empty
@@ -411,6 +412,14 @@ export function applyOps(ops: unknown[]): void {
         if (inst && slotEl) {
           elements.set(slotElId, slotEl);
           inst.slotElIds.add(slotElId); // released on instance teardown
+          // A ListSlotV2 slot's id must route INSERT/REMOVE of item
+          // instances through the recycler bookkeeping, not tree appends.
+          if (
+            inst.def.slot?.[slotIndex]?.[0] === __DynamicPartListSlotV2
+            && isListElement(snapshotId)
+          ) {
+            registerListSlotAlias(snapshotId, slotElId);
+          }
         } else {
           console.log(
             `[sigx-mt] SNAPSHOT_BIND_SLOT: no slot ${slotIndex} on instance ${snapshotId}`,

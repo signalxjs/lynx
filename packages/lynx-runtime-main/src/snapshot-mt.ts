@@ -20,9 +20,9 @@
  *  - Hole updaters are installed into the contract module via
  *    `installSnapshotMTHooks()` (called from entry-main's bootstrap).
  *
- * NOT here (later phases): the snapshot op protocol (#620 phase 3), BG-side
- * emission (phase 4), list templates + recycling (phase 5). `createList`
- * throws descriptively until phase 5.
+ * The snapshot op protocol lives in ops-apply.ts (#629); BG-side emission in
+ * lynx-runtime (#631); list templates, the synchronous `componentAtIndex`
+ * pull path, and template-keyed recycling in list-mt.ts (#639).
  */
 
 import {
@@ -36,6 +36,9 @@ import {
 import { OP } from '@sigx/lynx-runtime-internal';
 import { elements } from './element-registry.js';
 import { clearElementSlots, setSlotBgSign, setSlotWorklet } from './event-slots.js';
+// Call-time circular import (list-mt imports instance accessors from this
+// module); neither side touches the other at module-eval time.
+import { createListElementForSnapshot } from './list-mt.js';
 import { bindMtRef, releaseMtRefBinding } from './mt-ref-bind.js';
 import type { WorkletPlaceholder } from './worklet-events.js';
 
@@ -449,11 +452,10 @@ const mtHooks: SnapshotHooks = {
     }
   },
 
-  // List templates land with the list-integration phase (#620 phase 5).
+  // Compiled `<list>` create bodies: a real __CreateList with the recycler
+  // callbacks, state keyed by the template instance's BG id (list-mt.ts).
   createList(_pageId, ctx, _expIndex): SnapshotElement {
-    throw new Error(
-      `[sigx-snapshot] <list> templates are not supported yet (template "${asInstance(ctx).type}")`,
-    );
+    return createListElementForSnapshot(asInstance(ctx));
   },
 };
 
