@@ -22,9 +22,16 @@ import './bg-bridge.js';
 import './run-on-background.js';
 
 export { render, lynxMount } from './render.js';
-export { nodeOps } from './nodeOps.js';
+export { nodeOps, resetNodeOpsState } from './nodeOps.js';
 export type { LynxNode, LynxElement } from './nodeOps.js';
 export { ShadowElement, createPageRoot, resetShadowState } from './shadow-element.js';
+export {
+  ShadowSlotElement,
+  ShadowSnapshotElement,
+  isShadowSlotElement,
+  isShadowSnapshotElement,
+} from './shadow-snapshot.js';
+export { normalizeHole, releaseHoleValues, wireEqual } from './snapshot-values.js';
 
 // use:* directive system + the built-in `show` directive. The directive
 // lifecycle hooks are wired into nodeOps; `show` is registered with the
