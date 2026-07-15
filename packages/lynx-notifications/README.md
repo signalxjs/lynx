@@ -56,14 +56,16 @@ The full remote-push flow (`registerForPushNotifications`, token/message/tap lis
 
 ## Message shapes
 
-All three shapes work; what each one *can do* differs per platform, and those are
-APNs/FCM constraints rather than module policy. Pick the row that matches what you need.
+All three shapes are accepted, but what each one can actually *do* differs sharply by
+platform — read the row before you pick. Most of that asymmetry is an APNs/FCM constraint
+rather than module policy; the one exception is iOS data-only delivery to JS, which is a
+gap on our side ([#621](https://github.com/signalxjs/lynx/issues/621)), not Apple's.
 
 | Shape | iOS / APNs | Android / FCM |
 |---|---|---|
 | **`notification` + `data`** | Tray entry rendered by the OS. Foreground → `addPushListener`. Tap → response listener; cold-start tap → `getInitialNotification()`. | Same. The OS renders the tray entry while backgrounded and the module recovers the tap payload from the launch intent. |
 | **`notification` only** | As above, with `data` empty. | As above, with `data` empty. |
-| **`data` only**<br>(iOS also needs `"content-available": 1`, `apns-push-type: background`, `apns-priority: 5`) | **No tray entry — APNs cannot display one without an `alert`**, so there is no tap and no cold-start payload. Not currently delivered to JS either (see below). | Tray entry rendered by the module, reading `title`/`body` out of `data`. Delivered to `addPushListener`; tap → response listener / `getInitialNotification()`. |
+| **`data` only**<br>(iOS also needs `"content-available": 1`, `apns-push-type: background`, `apns-priority: 5`) | **No tray entry — APNs cannot display one without an `alert`**, so there is no tap and no cold-start payload. Not delivered to JS either yet — see the iOS data-only note below. | Tray entry rendered by the module, reading `title`/`body` out of `data`. Delivered to `addPushListener`; tap → response listener / `getInitialNotification()`. |
 
 Notes worth knowing before you pick:
 
