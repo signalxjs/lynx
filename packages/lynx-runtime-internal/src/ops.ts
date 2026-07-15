@@ -24,6 +24,21 @@
  *   SET_GESTURE_DETECTOR:    [19, elementId, gestureId, type, config, relationMap]
  *   REMOVE_GESTURE_DETECTOR: [20, elementId, gestureId]
  *   INVOKE_UI_METHOD:        [21, id, methodName, params]   fire-and-forget native UI method
+ *
+ * Snapshot-template ops (#620 — compiled subtrees instantiate on the MT;
+ * see @sigx/lynx-runtime-internal/snapshot for the template contract):
+ *   SNAPSHOT_CREATE:     [22, id, templateId]        stage an instance (lazy — no elements yet)
+ *   SNAPSHOT_SET_VALUES: [23, id, values[]]          full dynamic-hole payload (one wire slot)
+ *   SNAPSHOT_SET_VALUE:  [24, id, holeIndex, value]  hole-granular patch
+ *   SNAPSHOT_BIND_SLOT:  [25, snapshotId, slotIndex, slotElId]
+ *                        register slot slotIndex's host element under slotElId
+ *                        so slot children flow through ordinary INSERT/REMOVE
+ *
+ * Snapshot instances share the element id namespace: their roots and slot
+ * targets register in the MT `elements` map, so INSERT/REMOVE/SET_EVENT/
+ * SET_MT_REF/gesture ops address template-built trees exactly like op-built
+ * ones. There is deliberately no SNAPSHOT_REMOVE — REMOVE tears instances
+ * down.
  */
 export const OP = {
   CREATE: 0,
@@ -48,6 +63,10 @@ export const OP = {
   SET_GESTURE_DETECTOR: 19,
   REMOVE_GESTURE_DETECTOR: 20,
   INVOKE_UI_METHOD: 21,
+  SNAPSHOT_CREATE: 22,
+  SNAPSHOT_SET_VALUES: 23,
+  SNAPSHOT_SET_VALUE: 24,
+  SNAPSHOT_BIND_SLOT: 25,
 } as const;
 
 export type OpCode = (typeof OP)[keyof typeof OP];
