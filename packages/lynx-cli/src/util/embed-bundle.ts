@@ -93,7 +93,16 @@ export interface AsyncAsset {
 
 /** Discover async chunks in `dist/` that a standalone build must carry. */
 export function collectAsyncAssets(cwd: string): AsyncAsset[] {
-    const root = join(cwd, 'dist', ASYNC_ASSETS_SUBTREE);
+    return collectAsyncAssetsIn(join(cwd, 'dist'));
+}
+
+/**
+ * Discover async chunks under an explicit build-output root — for callers that
+ * don't build into `<cwd>/dist`, e.g. `updates:publish --bundle` pointed at a
+ * CI artifact directory.
+ */
+export function collectAsyncAssetsIn(distRoot: string): AsyncAsset[] {
+    const root = join(distRoot, ASYNC_ASSETS_SUBTREE);
     if (!existsSync(root)) return [];
     const assets: AsyncAsset[] = [];
     const walk = (dir: string) => {
@@ -102,7 +111,7 @@ export function collectAsyncAssets(cwd: string): AsyncAsset[] {
             if (entry.isDirectory()) walk(abs);
             else if (entry.isFile()) {
                 assets.push({
-                    rel: relative(join(cwd, 'dist'), abs).split(sep).join('/'),
+                    rel: relative(distRoot, abs).split(sep).join('/'),
                     abs,
                     size: statSync(abs).size,
                 });

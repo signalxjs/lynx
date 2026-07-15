@@ -10,10 +10,10 @@
  * structured metadata (`updateId`, `manifestPath`, `bundleUrl`, `sha256`, …).
  */
 
-import { dirname } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { publishUpdate, type PublishUpdateResult } from '@sigx/lynx-updates-publisher';
 import { loadConfig } from './prebuild.js';
-import { collectAsyncAssets } from './util/embed-bundle.js';
+import { collectAsyncAssetsIn } from './util/embed-bundle.js';
 
 export interface UpdatesPublishOptions {
     cwd: string;
@@ -42,11 +42,17 @@ export interface UpdatesPublishOptions {
 export async function runUpdatesPublish(opts: UpdatesPublishOptions): Promise<PublishUpdateResult> {
     const log = opts.logger ?? { log: console.log, error: console.error };
 
-    const asyncAssets = collectAsyncAssets(opts.cwd);
+    // Check next to the bundle being published, not a hard-coded `<cwd>/dist`:
+    // with `--bundle` pointed at a CI artifact, the latter would both miss that
+    // bundle's own chunks and trip over unrelated stale ones left in dist/.
+    // Resolution mirrors publishUpdate's.
+    const bundlePath = resolve(opts.cwd, opts.bundle ?? join('dist', 'main.lynx.bundle'));
+    const buildRoot = dirname(bundlePath);
+    const asyncAssets = collectAsyncAssetsIn(buildRoot);
     if (asyncAssets.length > 0 && !opts.allowAsyncChunks) {
         throw new Error(
-            `dist/ contains ${asyncAssets.length} async chunk(s) from dynamic import() `
-            + '(dist/static/js/async/), but OTA updates carry only main.lynx.bundle — '
+            `${buildRoot} contains ${asyncAssets.length} async chunk(s) from dynamic import() `
+            + '(static/js/async/), but OTA updates carry only main.lynx.bundle — '
             + 'devices receiving this update could not load those chunks. Convert the '
             + 'dynamic imports to static ones, or pass --allow-async-chunks if the chunks '
             + 'are hosted remotely via a custom output.assetPrefix.',
