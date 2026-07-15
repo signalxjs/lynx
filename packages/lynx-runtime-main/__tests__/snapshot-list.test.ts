@@ -299,3 +299,29 @@ describe('list templates', () => {
     expect(capturedCAI!(listEl, 424242, 0, 1, false)).toBe(-1);
   });
 });
+
+describe('slot-bearing cells', () => {
+  it('dematerializes instead of pooling; scroll-back rebuilds', () => {
+    // A cell with a bound slot must not enter the pool (row-specific slot
+    // content would resurrect); its instance stays staged for re-pulls.
+    mountList([['a', 'Alpha'], ['b', 'Beta']]);
+    const sign0 = capturedCAI!(listEl, listEl!.__id, 0, 1, false);
+    expect(sign0).toBeGreaterThan(0);
+    // Simulate a bound slot on the materialized instance (row id 100).
+    const inst = getSnapshotInstance(100)!;
+    inst.slotElIds.add(-99);
+    elements.set(-99, inst.__elements![0] as never);
+    const builtBefore = createdCells;
+
+    capturedEnqueue!(listEl, listEl!.__id, sign0);
+    expect(elements.has(-99)).toBe(false); // alias released
+    expect(isSnapshotInstance(100)).toBe(true); // still staged
+    expect(getSnapshotInstance(100)!.__elements).toBeNull();
+
+    // Scroll-back REBUILDS from the template (no pool adoption possible).
+    const rebuiltSign = capturedCAI!(listEl, listEl!.__id, 0, 2, false);
+    expect(rebuiltSign).toBeGreaterThan(0);
+    expect(getSnapshotInstance(100)!.__elements).not.toBeNull();
+    expect(createdCells).toBeGreaterThan(builtBefore);
+  });
+});

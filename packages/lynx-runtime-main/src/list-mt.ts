@@ -52,6 +52,7 @@ import { releaseMtRefBinding } from './mt-ref-bind.js';
 // createListElementForSnapshot below. Neither module touches the other at
 // module-eval time, so initialization order is irrelevant.
 import {
+  dematerializeSnapshotInstance,
   destroySnapshotInstance,
   getSnapshotInstance,
   isSnapshotInstance,
@@ -262,13 +263,25 @@ function enqueueComponent(
   // dedicated subtree, native merely detaches the offscreen view.
   if (!inst || !inst.__elements || !inst.__element_root) return;
 
-  // Detach and move the tree into the pool; the instance reverts to a staged
-  // record (future SET_VALUEs stage into __values until the next pull).
+  // Detach the tree first in every case.
   if (state.appended.delete(childInternalId)) {
     __RemoveElement(state.listEl, inst.__element_root);
   }
   state.signToChild.delete(sign);
   elements.delete(childInternalId);
+
+  // Cells with BOUND SLOTS don't pool: their slot content is row-specific
+  // BG-built structure that no hole re-patch replaces — a reused tree would
+  // resurrect the old row's children (and the slot alias ids would keep
+  // pointing into the pooled tree). Dematerialize instead: the instance
+  // stays staged so a scroll-back pull rebuilds it.
+  if (inst.slotElIds.size > 0) {
+    dematerializeSnapshotInstance(inst);
+    return;
+  }
+
+  // Move the tree into the pool; the instance reverts to a staged record
+  // (future SET_VALUEs stage into __values until the next pull).
   const key = reuseKeyOf(inst);
   let pool = state.pools.get(key);
   if (!pool) {
