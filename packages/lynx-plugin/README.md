@@ -33,6 +33,7 @@ export default defineConfig({
 2. **Worklet transform.** Files containing the string `'main thread'` are run through `@lynx-js/react/transform`. The transform:
    - Replaces a worklet expression in the BG bundle with a `{_wkltId, _c}` placeholder so the BG renderer can reference it without shipping the function body.
    - Emits `registerWorkletInternal("main-thread", "<id>", function(...) { ... })` calls into the MT bundle so Lynx native can invoke the worklet body when it dispatches a touch event.
+   - Folds the **thread defines** `__MAIN_THREAD__` / `__BACKGROUND__` to literals per layer (BG: `false`/`true`, MT: the inverse) with dead-branch elimination, so `if (__MAIN_THREAD__) { … }` inside a worklet body ships only in the registered MT form and `if (__BACKGROUND__) { … }` only in the BG bundle. Files containing either token are transformed even without a worklet directive. **App/workspace-src only** — published dists pass through the MT layer verbatim (cross-layer module identity), so packages must use a runtime check instead. Types come from `@sigx/lynx/client`.
 
 3. **MT-bundle bootstrap.** Every file in the MT bundle gets three side-effect imports prepended:
    - `@sigx/lynx-runtime-main/entry-main` — installs the `processData` / `renderPage` / `sigxPatchUpdate` globals Lynx expects.

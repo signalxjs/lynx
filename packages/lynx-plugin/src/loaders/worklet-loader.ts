@@ -13,6 +13,7 @@
 
 import type { Rspack } from '@rsbuild/core';
 import { transformReactLynxSync } from '@lynx-js/react/transform';
+import { BG_DEFINES, DEFINE_RE } from './worklet-utils.js';
 
 // runtimePkg controls where SWC emits `import { transformToWorklet } from <X>`
 // at the top of transformed BG output (used when `runOnBackground(fn)` is
@@ -52,7 +53,10 @@ export default function workletLoader(
 ): string {
   this.cacheable(true);
 
-  if (!DIRECTIVE_RE.test(source)) {
+  // Transform when the file contains a worklet directive OR a thread define
+  // (`__MAIN_THREAD__` / `__BACKGROUND__` — folded per layer, see
+  // worklet-utils.ts). Everything else passes through untouched.
+  if (!DIRECTIVE_RE.test(source) && !DEFINE_RE.test(source)) {
     return source;
   }
 
@@ -65,7 +69,7 @@ export default function workletLoader(
     shake: false,
     compat: false,
     refresh: false,
-    defineDCE: false,
+    defineDCE: { define: BG_DEFINES },
     directiveDCE: false,
     snapshot: false,
     worklet: { target: 'JS', filename, runtimePkg: RUNTIME_PKG },

@@ -43,7 +43,11 @@ import type { Rspack } from '@rsbuild/core';
 import { transformReactLynxSync } from '@lynx-js/react/transform';
 import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
-import { extractLocalImports, extractRegistrations } from './worklet-utils.js';
+import {
+  extractLocalImports,
+  extractRegistrations,
+  MT_DEFINES,
+} from './worklet-utils.js';
 
 // Same idiomatic-barrel matching as the BG loader (see worklet-loader.ts:23
 // for the full rationale). The LEPUS pass emits an `import { loadWorkletRuntime
@@ -144,7 +148,11 @@ export default function workletLoaderMT(
     shake: false,
     compat: false,
     refresh: false,
-    defineDCE: false,
+    // MT-side thread defines (see worklet-utils.ts). defineDCE runs before
+    // the worklet pass, so registered worklet bodies keep only their
+    // `__MAIN_THREAD__` branches. No-directive user files never reach this
+    // transform — their bodies are dropped above, defines and all.
+    defineDCE: { define: MT_DEFINES },
     directiveDCE: false,
     snapshot: false,
     worklet: { target: 'LEPUS', filename, runtimePkg: RUNTIME_PKG },

@@ -87,6 +87,13 @@ platform file extensions:
 // __WEB__ / __NATIVE__ fold to literals per rspeedy environment, so the dead
 // branch is dropped from the other bundle. (Types via `@sigx/lynx/client`.)
 if (__WEB__) { /* web-only code, absent from the native bundle */ }
+
+// __MAIN_THREAD__ / __BACKGROUND__ fold to literals per bundle LAYER (Lepus
+// main thread vs background JS). Inside a 'main thread' worklet body the
+// registered MT form keeps only its __MAIN_THREAD__ branch; everywhere else
+// only __BACKGROUND__ branches survive. App/workspace-src code only —
+// published dists must use a runtime check instead.
+if (__BACKGROUND__) { /* absent from the main-thread bundle */ }
 ```
 
 - **File extensions**: `Foo.web.tsx` resolves on the web bundle, `Foo.lynx.tsx`

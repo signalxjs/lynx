@@ -7,6 +7,38 @@
  */
 
 /**
+ * Per-layer thread defines (#623, phase 0 of #620).
+ *
+ * `__MAIN_THREAD__` / `__BACKGROUND__` fold to literals per bundle layer via
+ * the transform's `defineDCE` pass — NOT rspack's DefinePlugin, which is
+ * compilation-wide (it cannot be scoped to a layer) and runs after loaders.
+ * `defineDCE` runs before the worklet pass, so a `'main thread'` function
+ * body is folded with the MT values in its registered (MT) form and with the
+ * BG values everywhere else — each branch of `if (__MAIN_THREAD__)` lands
+ * only in the bundle that can execute it.
+ *
+ * Scope: app/workspace-src code only. Published dists pass through the MT
+ * layer verbatim (library-preserve branch — cross-layer module identity), so
+ * a bare `__MAIN_THREAD__` token in a dist would throw at MT runtime.
+ * Libraries need a runtime check instead.
+ *
+ * Both loaders must fold the exact same identifier set — worklet/snapshot
+ * content hashes are computed on the pre-DCE source, so defines are
+ * ID-neutral, but an asymmetric define set would still desync outputs.
+ */
+export const DEFINE_RE = /__MAIN_THREAD__|__BACKGROUND__/;
+
+export const BG_DEFINES = {
+  __MAIN_THREAD__: 'false',
+  __BACKGROUND__: 'true',
+} as const;
+
+export const MT_DEFINES = {
+  __MAIN_THREAD__: 'true',
+  __BACKGROUND__: 'false',
+} as const;
+
+/**
  * Extract import statements whose target may contain `'main thread'` worklets
  * the MT bundle needs to register.
  *
