@@ -10,6 +10,7 @@ import { mkdtempSync, rmSync, existsSync, readFileSync, writeFileSync } from 'no
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { scaffoldIos, ensureIosLynxAssetsFolder } from '../src/prebuild.js';
+import { isResourceFolderRegistered } from '../src/util/xcode-resources.js';
 import { resolveConfig } from '../src/config/parser.js';
 import type { LynxConfig } from '../src/config/schema.js';
 
@@ -72,5 +73,71 @@ describe('ensureIosLynxAssetsFolder', () => {
 
         ensureIosLynxAssetsFolder(testDir, config);
         expect(readFileSync(pbxprojPath(), 'utf-8')).toBe(injected);
+    });
+
+    // A pbxproj can carry the name without actually shipping the folder. The
+    // old name-substring check treated these as done, so prebuild skipped the
+    // repair and the release build silently contained no chunks (#599).
+    describe('partial registrations are repaired, not skipped', () => {
+        const dropLines = (match: string) => {
+            const kept = readFileSync(pbxprojPath(), 'utf-8')
+                .split('\n')
+                .filter((line) => !(line.includes('LynxAssets') && line.includes(match)))
+                .join('\n');
+            writeFileSync(pbxprojPath(), kept);
+        };
+
+        it('repairs a folder ref that is missing from the Resources phase', () => {
+            dropLines('in Resources */,'); // build-phase entry only
+            expect(isResourceFolderRegistered(readFileSync(pbxprojPath(), 'utf-8'), 'LynxAssets'))
+                .toBe(false);
+
+            ensureIosLynxAssetsFolder(testDir, config);
+            expect(isResourceFolderRegistered(readFileSync(pbxprojPath(), 'utf-8'), 'LynxAssets'))
+                .toBe(true);
+        });
+
+        it('repairs a missing PBXFileReference', () => {
+            dropLines('isa = PBXFileReference');
+            expect(isResourceFolderRegistered(readFileSync(pbxprojPath(), 'utf-8'), 'LynxAssets'))
+                .toBe(false);
+
+            ensureIosLynxAssetsFolder(testDir, config);
+            const repaired = readFileSync(pbxprojPath(), 'utf-8');
+            expect(isResourceFolderRegistered(repaired, 'LynxAssets')).toBe(true);
+            // Repair must not leave the old build file behind as a duplicate.
+            expect(repaired.split('/* LynxAssets in Resources */ = {').length - 1).toBe(1);
+        });
+
+        it('repairs a missing PBXBuildFile', () => {
+            dropLines('isa = PBXBuildFile');
+            expect(isResourceFolderRegistered(readFileSync(pbxprojPath(), 'utf-8'), 'LynxAssets'))
+                .toBe(false);
+
+            ensureIosLynxAssetsFolder(testDir, config);
+            expect(isResourceFolderRegistered(readFileSync(pbxprojPath(), 'utf-8'), 'LynxAssets'))
+                .toBe(true);
+        });
+    });
+});
+
+describe('isResourceFolderRegistered', () => {
+    it('rejects a bare name mention with no real wiring', () => {
+        // e.g. the folder sits in a group, or the name appears in a comment —
+        // Xcode would ship nothing.
+        expect(isResourceFolderRegistered('/* LynxAssets */ mentioned nowhere useful', 'LynxAssets'))
+            .toBe(false);
+    });
+
+    it('rejects a build file listed only in the Sources phase', () => {
+        const pbx = [
+            'AAAAAAAAAAAAAAAAAAAAAAAA /* LynxAssets in Resources */ = {isa = PBXBuildFile; fileRef = BBBBBBBBBBBBBBBBBBBBBBBB /* LynxAssets */; };',
+            'BBBBBBBBBBBBBBBBBBBBBBBB /* LynxAssets */ = {isa = PBXFileReference; lastKnownFileType = folder; path = LynxAssets; sourceTree = "<group>"; };',
+            'isa = PBXSourcesBuildPhase;',
+            'files = (',
+            '\tAAAAAAAAAAAAAAAAAAAAAAAA /* LynxAssets in Resources */,',
+            ');',
+        ].join('\n');
+        expect(isResourceFolderRegistered(pbx, 'LynxAssets')).toBe(false);
     });
 });

@@ -102,8 +102,29 @@ function addAsyncChunk(cwd: string, rel: string, contents: string): void {
     writeFileSync(abs, contents);
 }
 
-/** Seed a pbxproj that already carries the LynxAssets folder reference. */
-function seedIosPbxproj(cwd: string, content = '/* LynxAssets */'): void {
+/**
+ * A pbxproj wired the way prebuild leaves it: folder reference + build file +
+ * an entry in the Resources phase. All three are required — anything less and
+ * Xcode ships no chunks, which is what `embedAsyncAssets` refuses to enable.
+ */
+const REGISTERED_PBXPROJ = [
+    '/* Begin PBXBuildFile section */',
+    '\t\tA10000000000000A /* LynxAssets in Resources */ = {isa = PBXBuildFile; fileRef = B10000000000000D /* LynxAssets */; };',
+    '/* End PBXBuildFile section */',
+    '/* Begin PBXFileReference section */',
+    '\t\tB10000000000000D /* LynxAssets */ = {isa = PBXFileReference; lastKnownFileType = folder; path = LynxAssets; sourceTree = "<group>"; };',
+    '/* End PBXFileReference section */',
+    '/* Begin PBXResourcesBuildPhase section */',
+    '\t\tF100000000000004 /* Resources */ = {',
+    '\t\t\tisa = PBXResourcesBuildPhase;',
+    '\t\t\tfiles = (',
+    '\t\t\t\tA10000000000000A /* LynxAssets in Resources */,',
+    '\t\t\t);',
+    '\t\t};',
+    '/* End PBXResourcesBuildPhase section */',
+].join('\n');
+
+function seedIosPbxproj(cwd: string, content = REGISTERED_PBXPROJ): void {
     const projDir = join(cwd, 'ios', 'TestApp.xcodeproj');
     mkdirSync(projDir, { recursive: true });
     writeFileSync(join(projDir, 'project.pbxproj'), content);
@@ -175,6 +196,20 @@ describe('embedAsyncAssets', () => {
         seedIosPbxproj(cwd, '/* no folder ref here */');
         expect(() => embedBundle({ cwd, config, platform: 'ios', log: () => {} }))
             .toThrow(/sigx prebuild/);
+    });
+
+    it('throws on iOS when LynxAssets is referenced but not in the Resources phase', () => {
+        // The dangerous middle state: the name is present, so a substring check
+        // would wave it through, but Xcode copies nothing into the .app and the
+        // dynamic import only fails once the release build is on a device.
+        const cwd = makeProject('BUNDLE');
+        addAsyncChunk(cwd, 'static/js/async/101.abc.js', 'chunk-101');
+        seedIosPbxproj(cwd, REGISTERED_PBXPROJ
+            .split('\n')
+            .filter((line) => !line.includes('A10000000000000A /* LynxAssets in Resources */,'))
+            .join('\n'));
+        expect(() => embedBundle({ cwd, config, platform: 'ios', log: () => {} }))
+            .toThrow(/Copy Bundle\s+Resources|prebuild/);
     });
 
     it('is a silent no-op when there are no chunks and no stale subtree', () => {

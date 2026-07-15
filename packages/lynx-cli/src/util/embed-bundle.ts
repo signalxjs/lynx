@@ -15,6 +15,7 @@
 import { join, relative, sep } from 'node:path';
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs';
 import { copyFileIfChanged } from './idempotent-write.js';
+import { isResourceFolderRegistered } from './xcode-resources.js';
 import { iosSourceRoot, iosXcodeProjPath, androidAppDir } from '../config/paths.js';
 import type { ResolvedConfig } from '../config/parser.js';
 
@@ -153,12 +154,17 @@ export function embedAsyncAssets(opts: EmbedBundleOptions): number {
 
     if (platform === 'ios') {
         // The LynxAssets folder reference is injected into the pbxproj by
-        // prebuild; without it Xcode silently ships none of the chunks.
+        // prebuild. Check it's *fully* wired (file reference + build file +
+        // Resources-phase entry) rather than just name-present: a partial
+        // registration would let us copy chunks that Xcode then silently
+        // drops, turning into a runtime-only failure in the release build.
         const pbxprojPath = join(iosXcodeProjPath(cwd, config), 'project.pbxproj');
-        if (existsSync(pbxprojPath) && !readFileSync(pbxprojPath, 'utf-8').includes('LynxAssets')) {
+        if (existsSync(pbxprojPath)
+            && !isResourceFolderRegistered(readFileSync(pbxprojPath, 'utf-8'), 'LynxAssets')) {
             throw new Error(
                 'The build emitted async chunks (dynamic import()), but the Xcode project '
-                + 'has no LynxAssets folder reference — run `sigx prebuild` first to register it.',
+                + 'does not carry a complete LynxAssets folder reference in its Copy Bundle '
+                + 'Resources phase — run `sigx prebuild` first to register it.',
             );
         }
     }

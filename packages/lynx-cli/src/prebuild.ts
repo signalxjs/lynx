@@ -17,6 +17,7 @@ import { createRequire } from 'node:module';
 import { resolveConfig, modulesForPlatform, resolveAssets } from './config/index.js';
 import { writeFileIfChanged, copyFileIfChanged } from './util/idempotent-write.js';
 import { embedBundle } from './util/embed-bundle.js';
+import { isResourceFolderRegistered, stripResourceFolderEntries } from './util/xcode-resources.js';
 import {
     combineHash, getCliVersion, walkFiles,
     readCachedFingerprint, writeCachedFingerprint,
@@ -2317,9 +2318,14 @@ export function ensureIosLynxAssetsFolder(cwd: string, config: ResolvedConfig): 
 
 /**
  * Register a folder reference in the pbxproj and add it to the app target's
- * Resources build phase. Idempotent: no-ops when the folder is already
- * referenced. Sibling of `addFilesToXcodeProject`, which only handles Swift
- * sources in the Sources phase.
+ * Resources build phase. Sibling of `addFilesToXcodeProject`, which only
+ * handles Swift sources in the Sources phase.
+ *
+ * Idempotent, and repairs partial state: it no-ops only when the folder is
+ * *fully* registered (file reference + build file + Resources-phase entry).
+ * A project carrying only some of those would otherwise be left alone by a
+ * name-substring check while Xcode quietly shipped none of the files — so any
+ * incomplete registration is stripped and re-injected from scratch.
  */
 function addResourceFolderToXcodeProject(
     cwd: string,
@@ -2330,7 +2336,13 @@ function addResourceFolderToXcodeProject(
     if (!existsSync(pbxprojPath)) return;
 
     let content = readFileSync(pbxprojPath, 'utf-8');
-    if (content.includes(`/* ${folderName} in Resources */`)) return;
+    if (isResourceFolderRegistered(content, folderName)) return;
+    const wasPartial = content.includes(`/* ${folderName} */`)
+        || content.includes(`/* ${folderName} in Resources */`);
+    if (wasPartial) {
+        content = stripResourceFolderEntries(content, folderName);
+        log(`iOS: repairing incomplete ${folderName} registration in Xcode project`);
+    }
 
     // Deterministic UUIDs (same scheme as addFilesToXcodeProject, distinct
     // prefixes so a source file with the same name can't collide).
