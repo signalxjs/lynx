@@ -264,6 +264,26 @@ describe('hole updaters', () => {
     expect(resolveElementIdByWvid(51)).toBeUndefined();
   });
 
+  it('nulls the upstream ref holder on release so worklets see "unbound"', () => {
+    const refMap: Record<number, { current: unknown; _wvid: number }> = {};
+    vi.stubGlobal('lynxWorkletImpl', {
+      _refImpl: {
+        _workletRefMap: refMap,
+        updateWorkletRef: (refImpl: { _wvid: number }, el: unknown) => {
+          refMap[refImpl._wvid].current = el;
+        },
+      },
+    });
+    registerCellTemplate();
+    const inst = createSnapshotInstance(39, CELL_ID);
+    inst.__values[0] = { __wvid: 70 };
+    updateWorkletRef(inst, 0, undefined, 0);
+    expect(refMap[70]?.current).not.toBeNull();
+    inst.__values[0] = null;
+    updateWorkletRef(inst, 0, undefined, 0);
+    expect(refMap[70]?.current).toBeNull();
+  });
+
   it('stamps worklet event holes with _workletType like the op path', () => {
     registerCellTemplate();
     const inst = createSnapshotInstance(37, CELL_ID);

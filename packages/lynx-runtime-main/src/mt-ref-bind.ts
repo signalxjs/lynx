@@ -91,9 +91,20 @@ export function bindMtRef(
   elementIdByWvid.set(wvid, elementId);
 }
 
-/** Drop one binding (RELEASE_MT_REF). */
+/**
+ * Drop one binding: the wvid → elementId record, plus resetting the upstream
+ * ref holder's `current` to null so worklets that still capture the ref see
+ * "unbound" instead of a stale element wrapper. (The RELEASE_MT_REF op
+ * additionally deletes the upstream entry — there the BG-side ref object
+ * itself is gone; here it may be re-pointed at another element later.)
+ */
 export function releaseMtRefBinding(wvid: number): void {
   elementIdByWvid.delete(wvid);
+  const impl = (globalThis as Record<string, unknown>)['lynxWorkletImpl'] as
+    | { _refImpl: { _workletRefMap: Record<number, { current: unknown }> } }
+    | undefined;
+  const entry = impl?._refImpl?._workletRefMap?.[wvid];
+  if (entry) entry.current = null;
 }
 
 /** Hot-reload / test reset hook. */
