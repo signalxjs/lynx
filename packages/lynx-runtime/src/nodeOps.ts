@@ -375,7 +375,9 @@ function patchSnapshotValues(el: ShadowSnapshotElement, nextValue: unknown): voi
   let emitted = false;
   const max = Math.max(values.length, el.wireValues.length);
   for (let i = 0; i < max; i++) {
-    const wire = i < values.length ? normalizeHole(el, i, values[i]) : undefined;
+    // Removed trailing holes clear as explicit null (the wire's normalized
+    // empty form — see snapshot-values.ts), not via JSON's undefined→null.
+    const wire = i < values.length ? normalizeHole(el, i, values[i]) : null;
     if (!wireEqual(wire, el.wireValues[i])) {
       el.wireValues[i] = wire;
       pushOp(OP.SNAPSHOT_SET_VALUE, el.id, i, wire);
@@ -560,7 +562,9 @@ export const nodeOps: RendererOptions<ShadowElement, ShadowElement> = {
     if (isShadowSlotElement(el)) {
       // slotIndex feeds SNAPSHOT_BIND_SLOT routing — reject anything but a
       // non-negative integer (leave unset; the bind guard skips it).
-      if (key === '__slotIndex') {
+      if (key === '__slotIndex' && nextValue != null) {
+        // != null guard: Number(null) is 0 — a cleared prop must not bind
+        // the slot to index 0.
         const n = Number(nextValue);
         if (Number.isInteger(n) && n >= 0) el.slotIndex = n;
       }
