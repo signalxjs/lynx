@@ -20,10 +20,16 @@ class PushPublisher(private val lynxView: LynxView) {
     private var token: UUID? = null
 
     fun attach() {
-        token = PushEventBus.addListener { channel, payload ->
+        token = PushEventBus.addListener { channel, json ->
             try {
+                // Pass a single JSON string as the only param — the JS shim
+                // parses the first arg. A string survives Lynx 0.5.0's bridge
+                // marshalling intact where a structured map carrying a nested
+                // `data` map does not: its sibling scalars (`title`,
+                // `foreground`, `notificationId`, …) are dropped (#342, see
+                // `PushEventBus`).
                 val params = JavaOnlyArray()
-                params.pushMap(payload)
+                params.pushString(json)
                 lynxView.sendGlobalEvent(channel, params)
             } catch (e: Throwable) {
                 Log.w(TAG, "publish failed: ${e.message}")

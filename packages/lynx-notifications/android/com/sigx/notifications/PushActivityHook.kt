@@ -3,6 +3,9 @@ package com.sigx.notifications
 import android.app.Activity
 import android.content.Intent
 import android.os.Bundle
+import android.util.Log
+import com.google.firebase.messaging.RemoteMessage
+import java.util.UUID
 
 /**
  * Activity-lifecycle hook for push notifications. Discovered by the auto-linker
@@ -15,33 +18,83 @@ import android.os.Bundle
  *   - `onNewIntent`: app foregrounded by a tap while alive → publish to JS
  *     immediately via [PushEventBus.publishResponse].
  *
- * The launch intent is populated by [SigxFirebaseMessagingService]
- * (`EXTRA_NOTIFICATION_TAP` + `sigx_push_data_*` extras). Local notifications
- * scheduled via [NotificationsModule.schedule] don't currently set this flag
- * (they show via the system manager directly), so local-tap routing on Android
- * lands here only when scheduled with a launch intent — TODO for v2.
+ * Two tap sources land here, and they are mutually exclusive per message:
+ *
+ *  1. **Ours.** [SigxFirebaseMessagingService] posted the tray entry for a
+ *     data-only message and built the tap intent itself
+ *     ([EXTRA_NOTIFICATION_TAP] + `sigx_push_data_*` extras).
+ *  2. **FCM's.** The message carried a `notification` block and the app was
+ *     backgrounded/terminated, so FCM never called `onMessageReceived` — the OS
+ *     rendered the tray entry and owns the tap intent. That intent carries the
+ *     sender's `data` keys as flat String extras alongside FCM's own transport
+ *     metadata. We detect it via [EXTRA_FCM_MESSAGE_ID] and harvest the data
+ *     keys back out with [extractFcmData] (#619).
+ *
+ * (2) is a *degradation* path, not the supported one. We don't control that
+ * intent's flags, and FCM builds it from `getLaunchIntentForPackage()` — the
+ * same construction that broke our own warm taps (see
+ * [SigxFirebaseMessagingService.buildTapIntent]) — so it reliably recovers the
+ * COLD-START payload but a warm tap may never be delivered at all. Senders
+ * wanting dependable tap routing on Android should use data-only messages; see
+ * the README's message-shape matrix.
+ *
+ * Local notifications scheduled via [NotificationsModule.schedule] don't set a
+ * contentIntent, so local-tap routing on Android still lands nowhere — TODO v2.
  */
 object PushActivityHook {
 
+    private const val TAG = "SigxPushActivityHook"
+
     const val EXTRA_NOTIFICATION_TAP = "sigx_notification_tap"
+
+    /** Namespace for the data extras we stash on our own tap intents. */
+    const val SIGX_DATA_PREFIX = "sigx_push_data_"
+
+    /**
+     * `Constants.MessagePayloadKeys.MSGID`. FCM sets it as transport metadata on
+     * every message, and `NotificationParams.isReservedKey` (which strips only
+     * `google.c.` / `gcm.n.` / `gcm.notification.` from the click intent)
+     * provably leaves it in place — so its presence is a sound "this launch came
+     * from an FCM notification tap" signal. react-native-firebase, Capacitor and
+     * cordova-plugin-firebasex all gate on exactly this key.
+     */
+    private const val EXTRA_FCM_MESSAGE_ID = "google.message_id"
+
+    /** Pre-v1 alias of [EXTRA_FCM_MESSAGE_ID]; still read as an id fallback. */
+    private const val EXTRA_FCM_MESSAGE_ID_LEGACY = "message_id"
+
+    /** Our own extras namespace — see [stripNonSenderKeys]. */
+    private const val SIGX_PREFIX = "sigx_"
 
     @JvmStatic
     fun onCreate(activity: Activity, savedInstanceState: Bundle?) {
+        // NOTE: deliberately NOT gated on `savedInstanceState == null`.
+        // Re-delivery is already prevented by [consume] stripping the markers
+        // off the intent, and gating here would drop real taps: a tap that
+        // relaunches the app after process death can arrive with restored
+        // instance state, which is precisely the cold start this hook exists
+        // for.
         val intent = activity.intent ?: return
-        if (intent.getBooleanExtra(EXTRA_NOTIFICATION_TAP, false)) {
-            val (id, data) = extractPayload(intent)
-            PushEventBus.captureInitialResponse(
-                notificationId = id,
-                data = data,
-                actionIdentifier = "default",
-            )
-        }
+        if (!isNotificationTap(intent)) return
+        val (id, data) = extractPayload(intent)
+        consume(intent, data.keys)
+        logTap("cold-start", id, data)
+        PushEventBus.captureInitialResponse(
+            notificationId = id,
+            data = data,
+            actionIdentifier = "default",
+        )
     }
 
     @JvmStatic
     fun onNewIntent(activity: Activity, intent: Intent) {
-        if (!intent.getBooleanExtra(EXTRA_NOTIFICATION_TAP, false)) return
+        if (!isNotificationTap(intent)) return
         val (id, data) = extractPayload(intent)
+        // MainActivity calls setIntent(intent), so this intent becomes
+        // activity.intent — clear the markers here too, or a later recreate
+        // would re-deliver it through onCreate.
+        consume(intent, data.keys)
+        logTap("warm", id, data)
         PushEventBus.publishResponse(
             notificationId = id,
             data = data,
@@ -49,18 +102,131 @@ object PushActivityHook {
         )
     }
 
+    /**
+     * Trace a routed tap. Logs the notification id and the data KEYS only —
+     * never the values, which are app payload and routinely carry user data.
+     * Enough to tell "the tap arrived and carried `route`" from "the payload
+     * was lost", which is the failure this module kept hitting silently (#619).
+     */
+    private fun logTap(kind: String, id: String, data: Map<String, String>) {
+        Log.d(TAG, "$kind tap routed: id=$id, data keys=${data.keys.sorted()}")
+    }
+
+    private fun isNotificationTap(intent: Intent): Boolean =
+        intent.getBooleanExtra(EXTRA_NOTIFICATION_TAP, false) ||
+            intent.hasExtra(EXTRA_FCM_MESSAGE_ID) ||
+            // Read the legacy alias here too, not just as an id fallback: an
+            // intent carrying only `message_id` (pre-v1 senders) would
+            // otherwise not register as a tap at all, while still being used to
+            // name one. react-native-firebase probes both keys the same way.
+            intent.hasExtra(EXTRA_FCM_MESSAGE_ID_LEGACY)
+
+    /**
+     * Strip our tap markers and the sender's payload, so one tap is delivered
+     * exactly once and no app data lingers.
+     *
+     * Removing the markers is what makes delivery once-only: `activity.intent`
+     * is the same `Intent` object the ActivityThread record holds, so a
+     * config-change recreate re-runs [onCreate] against this mutated instance
+     * and [isNotificationTap] is false the second time. (Verified on device: a
+     * font-scale recreate re-delivers nothing.)
+     *
+     * The payload goes too because it is app data — routinely user data — and
+     * would otherwise sit on the intent for the Activity's whole lifetime,
+     * readable by anything holding it. It has to be cleared from BOTH shapes,
+     * which look nothing alike: our own intents namespace it under
+     * [SIGX_DATA_PREFIX], while an FCM-built intent carries the sender's keys
+     * flat and unprefixed — so [harvestedKeys] (what [extractPayload] actually
+     * read) is the only thing that identifies them.
+     *
+     * Two things this deliberately does NOT do:
+     *  - FCM's own transport metadata (`from`, `collapse_key`,
+     *    `google.sent_time`, the priority keys) stays on an OS-built intent. It
+     *    is not app payload and not sensitive; only the keys that gate
+     *    re-delivery are worth removing.
+     *  - It cannot scrub the system's copy. AMS keeps its own `Intent` in the
+     *    `ActivityRecord` — `dumpsys activity activities` still reports
+     *    `(has extras)` afterwards — and that lives until the task dies. This
+     *    narrows in-process exposure; it doesn't erase the payload.
+     */
+    private fun consume(intent: Intent, harvestedKeys: Set<String>) {
+        intent.removeExtra(EXTRA_NOTIFICATION_TAP)
+        intent.removeExtra(EXTRA_FCM_MESSAGE_ID)
+        intent.removeExtra(EXTRA_FCM_MESSAGE_ID_LEGACY)
+        // Our own namespaced copies. Snapshot the keys first — removeExtra
+        // mutates the bundle we'd be iterating.
+        val namespaced = intent.extras
+            ?.keySet()
+            ?.filter { it.startsWith(SIGX_DATA_PREFIX) }
+            ?: emptyList()
+        for (key in namespaced) intent.removeExtra(key)
+        // FCM's flat sender keys. A no-op for our own intents, where the
+        // harvested names are the un-prefixed forms and no such extra exists.
+        for (key in harvestedKeys) intent.removeExtra(key)
+    }
+
     private fun extractPayload(intent: Intent): Pair<String, Map<String, String>> {
-        val data = mutableMapOf<String, String>()
-        val extras = intent.extras ?: return "" to data
-        for (key in extras.keySet()) {
-            if (!key.startsWith("sigx_push_data_")) continue
-            val short = key.removePrefix("sigx_push_data_")
-            val v = extras.getString(key) ?: continue
-            data[short] = v
-        }
+        val extras = intent.extras ?: return "" to emptyMap()
+        // Prefer our own namespaced extras; fall back to FCM's flat bundle.
+        // Ordered, so the two sources can never merge: our intents never carry
+        // google.message_id, and FCM's never carry sigx_push_data_*.
+        val data = extractSigxData(extras).ifEmpty { extractFcmData(extras) }
         val id = data["notification_id"]
             ?: data["notificationId"]
-            ?: java.util.UUID.randomUUID().toString()
+            // An OS-rendered notification carries no id of ours — FCM's message
+            // id is the only stable handle, and it's what the sender sees in the
+            // FCM v1 send response.
+            ?: extras.getString(EXTRA_FCM_MESSAGE_ID)
+            ?: extras.getString(EXTRA_FCM_MESSAGE_ID_LEGACY)
+            ?: UUID.randomUUID().toString()
         return id to data
     }
+
+    private fun extractSigxData(extras: Bundle): Map<String, String> {
+        val data = mutableMapOf<String, String>()
+        for (key in extras.keySet()) {
+            if (!key.startsWith(SIGX_DATA_PREFIX)) continue
+            val v = extras.getString(key) ?: continue
+            data[key.removePrefix(SIGX_DATA_PREFIX)] = v
+        }
+        return data
+    }
+
+    /**
+     * Harvest the sender's `data` keys out of an intent FCM built.
+     *
+     * The filter is delegated to `RemoteMessage.getData()`
+     * (`MessagePayloadKeys.extractDeveloperDefinedPayload`), which drops the
+     * `google.` / `gcm.` prefixes plus `from` / `message_type` /
+     * `collapse_key`, and skips non-String values — so the Long `google.sent_time`
+     * and Int `google.ttl` can't reach us as garbage. Delegating rather than
+     * hand-rolling a denylist means Google's reserved set stays authoritative as
+     * it evolves; `RemoteMessage(Bundle)` is public and is exactly what
+     * react-native-firebase and flutterfire use on this path.
+     *
+     * Worth knowing: the click intent's own filter is NARROWER than
+     * `getData()`'s — `NotificationParams.isReservedKey` strips only `google.c.`
+     * / `gcm.n.` / `gcm.notification.`, so `from`, `collapse_key`,
+     * `google.message_id`, `google.sent_time` and the priority keys DO ride
+     * along on the intent. `getData()` is a safe superset of both.
+     */
+    private fun extractFcmData(extras: Bundle): Map<String, String> =
+        stripNonSenderKeys(RemoteMessage(extras).data)
+
+    /**
+     * `getData()` only knows FCM's own reserved words. Two more classes of key
+     * are not sender data and must not leak into `data`:
+     *
+     *  - **Ours.** A dev-client launch carries `sigx_dev_url`
+     *    (`MainActivity.EXTRA_DEV_URL`) and our own taps carry
+     *    `sigx_notification_tap`, so drop the namespace wholesale.
+     *  - **[EXTRA_FCM_MESSAGE_ID_LEGACY].** `getData()` deliberately keeps bare
+     *    `message_id` (only `google.`-prefixed keys are reserved), but we read
+     *    it as transport metadata — it's a tap signal and the id fallback — so
+     *    surfacing it as an app key too would be incoherent. The cost is a
+     *    sender that genuinely names a data key `message_id`; it still reaches
+     *    them as `notificationId`, and FCM's own docs steer senders off the name.
+     */
+    private fun stripNonSenderKeys(data: Map<String, String>): Map<String, String> =
+        data.filterKeys { !it.startsWith(SIGX_PREFIX) && it != EXTRA_FCM_MESSAGE_ID_LEGACY }
 }

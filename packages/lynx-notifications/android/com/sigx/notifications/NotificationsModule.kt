@@ -182,15 +182,24 @@ class NotificationsModule(context: Context) : LynxModule(context) {
 
     /**
      * One-shot: drain the cold-start tap payload, or null.
-     * Marshals JavaOnlyMap → callback so JS sees the same shape as remote events.
+     *
+     * Returns a **JSON string**, not a map. The payload nests `data`, and the
+     * bridge's map marshaller drops sibling scalars next to a nested map
+     * (#342) — which here would strip `notificationId` / `actionIdentifier`
+     * and leave only `data`, i.e. the very failure this path exists to fix.
+     * Whether that regression reaches `Callback` as well as `sendGlobalEvent`
+     * is unproven (the one nested-callback precedent in the repo,
+     * `FilePickerModule`, is masked by JS-side defaulting), so we sidestep the
+     * question: `Callback.invoke(String)` is already exercised by [schedule].
+     * The JS shim parses it — see `parseNotificationResponse` in `src/push.ts`.
      */
     @LynxMethod
     fun getInitialNotification(callback: Callback?) {
-        val payload = PushEventBus.consumeInitialResponse()
-        if (payload == null) {
+        val json = PushEventBus.consumeInitialResponse()
+        if (json == null) {
             callback?.invoke(null as Any?)
         } else {
-            callback?.invoke(payload)
+            callback?.invoke(json)
         }
     }
 
