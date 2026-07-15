@@ -14,6 +14,12 @@
 import type { Rspack } from '@rsbuild/core';
 import { transformReactLynxSync } from '@lynx-js/react/transform';
 import { BG_DEFINES, DEFINE_RE, LIBRARY_PATH_RE } from './worklet-utils.js';
+import {
+  JSXISH_EXT_RE,
+  SNAPSHOT_INJECT,
+  SNAPSHOT_UNSUPPORTED_RE,
+  snapshotConfig,
+} from './snapshot-config.js';
 
 // runtimePkg controls where SWC emits `import { transformToWorklet } from <X>`
 // at the top of transformed BG output (used when `runOnBackground(fn)` is
@@ -53,30 +59,61 @@ export default function workletLoader(
 ): string {
   this.cacheable(true);
 
+  const { snapshots = false } = (this.getOptions?.() ?? {}) as { snapshots?: boolean };
+  const isLibrary = LIBRARY_PATH_RE.test(this.resourcePath);
+  // Snapshot lowering applies to app/workspace-src JSX files only (#635):
+  // library dists ship pre-lowered `_jsx()` calls with no JSX to compile.
+  // Files using constructs the snapshot pass can't lower (use:* directives)
+  // keep today's per-element path wholesale.
+  const wantSnapshot = snapshots && !isLibrary
+    && JSXISH_EXT_RE.test(this.resourcePath)
+    && !SNAPSHOT_UNSUPPORTED_RE.test(source);
+
   // Transform when the file contains a worklet directive, OR — for
   // app/workspace-src files only — a thread define (`__MAIN_THREAD__` /
-  // `__BACKGROUND__`, folded per layer; see worklet-utils.ts). Library files
-  // (`node_modules/`, `dist/`) never trigger on defines and are never folded:
+  // `__BACKGROUND__`, folded per layer; see worklet-utils.ts) or, with the
+  // `snapshots` flag on, JSX to lower. Library files (`node_modules/`,
+  // `dist/`) never trigger on defines/snapshots and are never folded:
   // a dist that merely mentions a token must not be reparsed or rewritten.
-  const isLibrary = LIBRARY_PATH_RE.test(this.resourcePath);
-  if (!DIRECTIVE_RE.test(source) && (isLibrary || !DEFINE_RE.test(source))) {
+  if (!DIRECTIVE_RE.test(source) && !wantSnapshot && (isLibrary || !DEFINE_RE.test(source))) {
     return source;
   }
 
   const filename = this.resourcePath;
-  const result = transformReactLynxSync(source, {
-    pluginName: 'sigx:worklet',
-    filename,
-    sourcemap: false,
-    cssScope: false,
-    shake: false,
-    compat: false,
-    refresh: false,
-    defineDCE: isLibrary ? false : { define: BG_DEFINES },
-    directiveDCE: false,
-    snapshot: false,
-    worklet: { target: 'JS', filename, runtimePkg: RUNTIME_PKG },
-  });
+  const transform = (withSnapshot: boolean) =>
+    transformReactLynxSync(source, {
+      pluginName: 'sigx:worklet',
+      filename,
+      sourcemap: false,
+      cssScope: false,
+      shake: false,
+      compat: false,
+      refresh: false,
+      defineDCE: isLibrary ? false : { define: BG_DEFINES },
+      directiveDCE: false,
+      // sigx owns dynamic import() handling (#599/#612 async chunks) — the
+      // transform's lazy-bundle rewrite would inject a hardcoded
+      // @lynx-js/react/internal import and consume the import() call.
+      dynamicImport: false,
+      snapshot: withSnapshot ? snapshotConfig('JS', filename) : false,
+      ...(withSnapshot ? { inject: SNAPSHOT_INJECT } : {}),
+      worklet: { target: 'JS', filename, runtimePkg: RUNTIME_PKG },
+    });
+
+  let result;
+  try {
+    result = transform(wantSnapshot);
+  } catch (e) {
+    // The WASM snapshot pass panics on some JSX (safety net behind the
+    // SNAPSHOT_UNSUPPORTED_RE pre-filter). Degrade this file to the
+    // per-element path rather than failing the build.
+    if (!wantSnapshot) throw e;
+    this.emitWarning?.(new Error(
+      `[sigx-worklet] snapshot lowering failed for ${filename} — `
+        + `falling back to the per-element path (${String(e).slice(0, 100)})`,
+    ));
+    result = transform(false);
+  }
 
   if (result.errors && result.errors.length > 0) {
     for (const err of result.errors) {

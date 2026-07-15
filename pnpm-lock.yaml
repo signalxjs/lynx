@@ -940,7 +940,7 @@ importers:
         specifier: '>=0.1.0'
         version: 0.7.1(@lynx-js/template-webpack-plugin@0.11.0(tslib@2.8.1))(webpack@5.106.2(esbuild@0.28.0))
       '@lynx-js/react':
-        specifier: ^0.121.0
+        specifier: 0.121.0
         version: 0.121.0(@lynx-js/types@3.9.0)(@types/react@18.3.28)
       '@lynx-js/rspeedy':
         specifier: '>=0.1.0'
