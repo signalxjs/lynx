@@ -25,7 +25,7 @@ vi.mock('@sigx/lynx-gestures', async (importOriginal) => {
 });
 
 // 8 columns × 15 rows — must match EmojiGrid's ROWS_INITIAL window math.
-const WINDOW_CELLS = 8 * 15;
+const WINDOW_CELLS = 8 * 8;  // must track EmojiGrid ROWS_INITIAL
 
 const makeEmojis = (prefix: string, n: number, c: number): EmojiDatum[] =>
     Array.from({ length: n }, (_, i) => ({
@@ -96,7 +96,7 @@ describe('EmojiGrid (windowed List)', () => {
         const list = getAllByType(container, 'list')[0];
         expect(list.props['span-count']).toBe(4);
         expect(list.props['list-type']).toBe('flow');
-        expect(getAllByType(container, 'list-item').length).toBe(4 * 15);
+        expect(getAllByType(container, 'list-item').length).toBe(4 * 8);
     });
 
     it('itemsKey swap re-anchors the grid to the new dataset', async () => {

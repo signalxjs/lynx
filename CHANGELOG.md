@@ -4,6 +4,10 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 ## [Unreleased]
 
+### Fixed
+
+- `@sigx/lynx-emoji` — the picker no longer renders blank (or with displaced content) on device. Its grid window is cut to 64 cells initially / 96 at full expansion (was 120/240): the native list produces invalid layout once roughly 130-150+ cells are mounted at once — a racy, silent failure that predates the windowed grid (release 0.12.2 mounted all 171 smileys and blanked the same way) and reproduces with no emoji code at all (#603). Measured 5/5 clean renders at 64 vs consistently blank at 120+ (#603).
+
 ### Added
 
 - `@sigx/lynx-list` — `initialMainAxisSize` prop: pins the native list to a known main-axis size on its very first frame instead of the 1px placeholder, killing the mount-frame flash + re-layout for consumers that already know the box (the live measure still wins once it lands) (#610).

@@ -6,14 +6,15 @@ import type { EmojiRenderCell } from '../types.js';
 import { EmojiCell } from './EmojiCell.js';
 
 // Window sizing in ROWS so the mounted-cell budget tracks the column count.
-// At the default 8 columns and ~44px rows, the initial window is 120 cells
-// (~660px of grid — comfortably taller than any plausible picker viewport,
-// with buffer rows before the first scroll-edge expand), against up to ~388
-// eagerly-built cells for the biggest category without windowing. Row
-// multiples keep grid rows composition-stable as the window expands.
-const ROWS_INITIAL = 15;
-const ROWS_PAGE = 8;
-const ROWS_MAX = 30;
+// Kept DELIBERATELY SMALL: the native list produces invalid layout — blank or
+// displaced content, racy and no JS error — once roughly 130-150+ cells are
+// mounted at once (#603; reproducible with no emoji code at all by raising the
+// List showcase demo's window to ~250). At 8 columns this is 64 cells
+// initially and 96 at full expansion, measured to render reliably where 120/240
+// did not. Do NOT raise these without re-testing on device.
+const ROWS_INITIAL = 8;
+const ROWS_PAGE = 4;
+const ROWS_MAX = 12;
 
 export type EmojiGridProps =
     /** The emoji to show (one category, search hits, recents…). */
