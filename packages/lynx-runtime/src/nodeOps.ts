@@ -7,9 +7,17 @@
  * sigxPatchUpdate, where ops-apply.ts dispatches them to real PAPI calls.
  */
 import type { RendererOptions } from '@sigx/runtime-core/internals';
+import { isSnapshotType } from '@sigx/lynx-runtime-internal/snapshot';
 import { OP, pushOp, scheduleFlush } from './op-queue.js';
 import { register, unregister } from './event-registry.js';
 import { ShadowElement } from './shadow-element.js';
+import {
+  ShadowSlotElement,
+  ShadowSnapshotElement,
+  isShadowSlotElement,
+  isShadowSnapshotElement,
+} from './shadow-snapshot.js';
+import { normalizeHole, releaseHoleValues, wireEqual } from './snapshot-values.js';
 import { registerWorkletCtx } from './run-on-background.js';
 import {
   patchDirective as runDirective,
@@ -348,8 +356,58 @@ export function applyElementVisibility(el: ShadowElement, visible: boolean): voi
 // RendererOptions implementation
 // ---------------------------------------------------------------------------
 
+/**
+ * Diff a snapshot instance's dynamic-hole values at the WIRE level: mount
+ * pushes one SNAPSHOT_SET_VALUES; re-renders push SNAPSHOT_SET_VALUE only for
+ * holes whose normalized form changed. Handler-only changes are op-free by
+ * construction (stable signs — see snapshot-values.ts).
+ */
+function patchSnapshotValues(el: ShadowSnapshotElement, nextValue: unknown): void {
+  const values = Array.isArray(nextValue) ? nextValue : [];
+  const first = el.wireValues.length === 0 && values.length > 0;
+  if (first) {
+    const wire = values.map((v, i) => normalizeHole(el, i, v));
+    el.wireValues = wire;
+    pushOp(OP.SNAPSHOT_SET_VALUES, el.id, wire);
+    scheduleFlush();
+    return;
+  }
+  let emitted = false;
+  const max = Math.max(values.length, el.wireValues.length);
+  for (let i = 0; i < max; i++) {
+    const wire = i < values.length ? normalizeHole(el, i, values[i]) : undefined;
+    if (!wireEqual(wire, el.wireValues[i])) {
+      el.wireValues[i] = wire;
+      pushOp(OP.SNAPSHOT_SET_VALUE, el.id, i, wire);
+      emitted = true;
+    }
+  }
+  el.wireValues.length = values.length;
+  if (emitted) scheduleFlush();
+}
+
+/** Release event signs for every snapshot instance in a detached subtree. */
+function releaseSnapshotSigns(root: ShadowElement): void {
+  if (isShadowSnapshotElement(root)) releaseHoleValues(root);
+  for (let c = root.firstChild; c; c = c.next) {
+    releaseSnapshotSigns(c);
+  }
+}
+
 export const nodeOps: RendererOptions<ShadowElement, ShadowElement> = {
   createElement(type: string): ShadowElement {
+    // Snapshot templates (#620): the id becomes a staged MT instance; slots
+    // are synthetic (they alias template-inner elements via SNAPSHOT_BIND_SLOT
+    // at insert time, so no create op at all).
+    if (type === '__sigx-slot') {
+      return new ShadowSlotElement();
+    }
+    if (isSnapshotType(type)) {
+      const el = new ShadowSnapshotElement(type);
+      pushOp(OP.SNAPSHOT_CREATE, el.id, type);
+      scheduleFlush();
+      return el;
+    }
     const el = new ShadowElement(type);
     pushOp(OP.CREATE, el.id, type);
     scheduleFlush();
@@ -398,6 +456,28 @@ export const nodeOps: RendererOptions<ShadowElement, ShadowElement> = {
     // Always update the shadow tree (the core renderer needs sync tree queries).
     parent.insertBefore(child, anchor ?? null);
 
+    // Snapshot slots (#620): children mount into the slot BEFORE the slot
+    // inserts into its snapshot parent, so their INSERTs defer (the MT has no
+    // element for the slot id yet). The slot's own insert emits
+    // SNAPSHOT_BIND_SLOT — registering the aliased template element under the
+    // slot id — then replays the deferred child inserts in shadow order.
+    if (isShadowSlotElement(parent) && !parent.bound) {
+      return;
+    }
+    if (isShadowSlotElement(child)) {
+      if (isShadowSnapshotElement(parent)) {
+        pushOp(OP.SNAPSHOT_BIND_SLOT, parent.id, child.slotIndex, child.id);
+        child.bound = true;
+        for (let c = child.firstChild; c; c = c.next) {
+          pushOp(OP.INSERT, child.id, c.id, -1);
+        }
+        scheduleFlush();
+      }
+      // A slot outside a snapshot parent is a transform-contract violation;
+      // stay silent on the wire (the MT can't resolve it anyway).
+      return;
+    }
+
     // Lynx's native <list> only accepts <list-item> children.
     // Skip comment/text anchors to avoid NSInvalidArgumentException.
     if (
@@ -428,9 +508,16 @@ export const nodeOps: RendererOptions<ShadowElement, ShadowElement> = {
   remove(child: ShadowElement): void {
     if (child.parent) {
       const parentId = child.parent.id;
+      // Removal from an unbound slot never reached the MT tree — shadow-only.
+      const shadowOnly = isShadowSlotElement(child.parent) && !child.parent.bound;
       child.parent.removeChild(child);
-      pushOp(OP.REMOVE, parentId, child.id);
-      scheduleFlush();
+      // The subtree may contain snapshot instances (directly or inside slot
+      // content) whose event signs must not outlive their elements.
+      releaseSnapshotSigns(child);
+      if (!shadowOnly) {
+        pushOp(OP.REMOVE, parentId, child.id);
+        scheduleFlush();
+      }
     }
   },
 
@@ -440,6 +527,18 @@ export const nodeOps: RendererOptions<ShadowElement, ShadowElement> = {
     _prevValue: unknown,
     nextValue: unknown,
   ): void {
+    // Snapshot templates (#620): the only live props are the values array
+    // (per-hole wire diffing) and the slot index; everything else on these
+    // synthetic elements is compile-time metadata.
+    if (isShadowSnapshotElement(el)) {
+      if (key === 'values') patchSnapshotValues(el, nextValue);
+      return;
+    }
+    if (isShadowSlotElement(el)) {
+      if (key === '__slotIndex') el.slotIndex = Number(nextValue);
+      return;
+    }
+
     // Handle main-thread:ref — bind a MainThreadRef to this element
     if (key === 'main-thread:ref') {
       if (nextValue != null) {

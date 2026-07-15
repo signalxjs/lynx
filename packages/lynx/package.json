@@ -20,6 +20,10 @@
         "./client": {
             "types": "./dist/client.d.ts"
         },
+        "./internal": {
+            "types": "./dist/internal.d.ts",
+            "import": "./dist/internal.js"
+        },
         "./package.json": "./package.json",
         "./signalx-module.json": "./signalx-module.json"
     },
@@ -48,6 +52,7 @@
         "@sigx/lynx-core": "workspace:^",
         "@sigx/lynx-http": "workspace:^",
         "@sigx/lynx-runtime": "workspace:^",
+        "@sigx/lynx-runtime-internal": "workspace:*",
         "@sigx/reactivity": "^0.7.0",
         "@sigx/runtime-core": "^0.7.0"
     },
