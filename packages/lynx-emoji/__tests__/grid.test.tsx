@@ -24,8 +24,8 @@ vi.mock('@sigx/lynx-gestures', async (importOriginal) => {
     return { ...actual, Pressable };
 });
 
-// 8 columns × 15 rows — must match EmojiGrid's ROWS_INITIAL window math.
-const WINDOW_CELLS = 8 * 8;  // must track EmojiGrid ROWS_INITIAL
+// Must track EmojiGrid's window math: 8 columns × ROWS_INITIAL rows.
+const WINDOW_CELLS = 8 * 8;
 
 const makeEmojis = (prefix: string, n: number, c: number): EmojiDatum[] =>
     Array.from({ length: n }, (_, i) => ({
