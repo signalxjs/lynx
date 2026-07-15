@@ -52,4 +52,10 @@ export const SNAPSHOT_INJECT: InjectVisitorConfig = {
  * without paying a panic+retry; the try/catch retry in the loaders remains
  * the safety net for anything this regex misses.
  */
-export const SNAPSHOT_UNSUPPORTED_RE = /\buse:[A-Za-z_$][\w$]*\s*=/;
+export const SNAPSHOT_UNSUPPORTED_RE =
+  // - `use:*` directive attributes panic the upstream WASM pass;
+  // - raw <list> JSX compiles to snapshotCreateList, which the MT runtime
+  //   rejects until list templates land (#620 phase 5) — such files keep the
+  //   per-element path wholesale. (List usage through @sigx/lynx-list is a
+  //   library dist and never reaches the snapshot pass.)
+  /\buse:[A-Za-z_$][\w$]*\s*=|<list[\s>/]/;

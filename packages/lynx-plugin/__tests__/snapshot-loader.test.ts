@@ -205,6 +205,25 @@ export function Toggle({ shown }) {
     expect(mtOut).not.toContain('snapshotCreatorMap');
     expect(mtOut).toContain('entry-main.js'); // normal body-drop path
   });
+
+  it('files with raw <list> JSX keep the per-element path until list templates land', () => {
+    // A compiled <list> template's create() calls snapshotCreateList, which
+    // the MT runtime rejects until #620 phase 5 — the whole file falls back.
+    const src = `
+export function Rows({ items }) {
+  return (
+    <list list-type="single">
+      {items.map((it) => <list-item item-key={it} key={it}><text>{it}</text></list-item>)}
+    </list>
+  );
+}
+`;
+    const bgOut = bg(src, '/app/src/Rows.tsx');
+    expect(bgOut).not.toContain('__snapshot_');
+    expect(bgOut).toContain('<list');
+    const mtOut = mt(src, '/app/src/Rows.tsx');
+    expect(mtOut).not.toContain('snapshotCreatorMap');
+  });
 });
 
 describe('extraction helpers', () => {
