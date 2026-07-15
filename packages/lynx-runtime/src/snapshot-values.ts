@@ -40,6 +40,45 @@ function isPlainObject(v: unknown): v is Record<string, unknown> {
   return proto === Object.prototype || proto === null;
 }
 
+/**
+ * Drop bookkeeping for a hole key whose value changed KIND (function → data,
+ * worklet → function, spread key removed, …) so signs never leak in the
+ * global registry across re-renders.
+ */
+function clearStaleFor(el: ShadowSnapshotElement, holeKey: string): void {
+  const sign = el.holeSigns.get(holeKey);
+  if (sign) {
+    unregister(sign);
+    el.holeSigns.delete(holeKey);
+  }
+  el.sentWorkletIds.delete(holeKey);
+}
+
+/**
+ * Sweep bookkeeping under `prefix` whose immediate sub-key no longer passes
+ * `keep` (removed spread keys, shrunk arrays). Sub-keys are delimited by the
+ * `:`/`[` the recursion itself appends.
+ */
+function sweepStaleUnder(
+  el: ShadowSnapshotElement,
+  prefix: string,
+  keep: (subKey: string) => boolean,
+): void {
+  for (const key of [...el.holeSigns.keys()]) {
+    if (!key.startsWith(prefix)) continue;
+    const sub = key.slice(prefix.length).split(/[:[]/, 1)[0];
+    if (!keep(sub)) {
+      unregister(el.holeSigns.get(key)!);
+      el.holeSigns.delete(key);
+    }
+  }
+  for (const key of [...el.sentWorkletIds.keys()]) {
+    if (!key.startsWith(prefix)) continue;
+    const sub = key.slice(prefix.length).split(/[:[]/, 1)[0];
+    if (!keep(sub)) el.sentWorkletIds.delete(key);
+  }
+}
+
 function normalizeOne(
   el: ShadowSnapshotElement,
   holeKey: string,
@@ -47,6 +86,7 @@ function normalizeOne(
   prevWire: unknown,
 ): unknown {
   if (typeof value === 'function') {
+    el.sentWorkletIds.delete(holeKey); // worklet → function kind switch
     const existing = el.holeSigns.get(holeKey);
     if (existing) {
       updateHandler(existing, value as (data: unknown) => void);
@@ -58,6 +98,11 @@ function normalizeOne(
   }
 
   if (isWorkletPlaceholder(value)) {
+    const staleSign = el.holeSigns.get(holeKey);
+    if (staleSign) { // function → worklet kind switch
+      unregister(staleSign);
+      el.holeSigns.delete(holeKey);
+    }
     // Same _wkltId → the compiled body is unchanged; reuse the previous wire
     // ctx so the diff gate sees no change (captures re-ship only with a new
     // worklet identity, matching the SET_WORKLET_EVENT dedup).
@@ -78,23 +123,31 @@ function normalizeOne(
   }
 
   if (value instanceof MainThreadRef) {
+    clearStaleFor(el, holeKey);
     return { __wvid: value._wvid };
   }
 
   if (Array.isArray(value)) {
+    clearStaleFor(el, holeKey);
+    sweepStaleUnder(el, `${holeKey}[`, (sub) => Number(sub) < value.length);
     const prevArr = Array.isArray(prevWire) ? prevWire : [];
     return value.map((entry, idx) => normalizeOne(el, `${holeKey}[${idx}]`, entry, prevArr[idx]));
   }
 
   if (isPlainObject(value)) {
-    const prevObj = isPlainObject(prevWire) ? prevWire : {};
+    clearStaleFor(el, holeKey);
+    sweepStaleUnder(el, `${holeKey}:`, (sub) => sub in value);
     const wire: Record<string, unknown> = {};
+    const prevObj = isPlainObject(prevWire) ? prevWire : {};
     for (const [k, v] of Object.entries(value)) {
       wire[k] = normalizeOne(el, `${holeKey}:${k}`, v, prevObj[k]);
     }
     return wire;
   }
 
+  // Primitive / null: any prior function/worklet bookkeeping for this key is
+  // a kind switch.
+  clearStaleFor(el, holeKey);
   return value;
 }
 

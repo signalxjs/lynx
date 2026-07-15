@@ -508,8 +508,23 @@ export const nodeOps: RendererOptions<ShadowElement, ShadowElement> = {
   remove(child: ShadowElement): void {
     if (child.parent) {
       const parentId = child.parent.id;
-      // Removal from an unbound slot never reached the MT tree — shadow-only.
-      const shadowOnly = isShadowSlotElement(child.parent) && !child.parent.bound;
+      // Shadow-only removals — no wire op:
+      //  - children of a never-bound slot never reached the MT tree;
+      //  - a bound slot itself ALIASES a template-inner element on the MT
+      //    (registered via SNAPSHOT_BIND_SLOT); REMOVE(snapshotId, slotId)
+      //    would name the wrong parent and detach template structure. The
+      //    alias entry dies with the instance's teardown.
+      const shadowOnly = (isShadowSlotElement(child.parent) && !child.parent.bound)
+        || isShadowSlotElement(child);
+      // A bound slot's inserted children are real MT elements inside the
+      // aliased template element — detach each explicitly before the slot
+      // itself vanishes shadow-only.
+      if (isShadowSlotElement(child) && child.bound) {
+        for (let c = child.firstChild; c; c = c.next) {
+          pushOp(OP.REMOVE, child.id, c.id);
+        }
+        scheduleFlush();
+      }
       child.parent.removeChild(child);
       // The subtree may contain snapshot instances (directly or inside slot
       // content) whose event signs must not outlive their elements.
