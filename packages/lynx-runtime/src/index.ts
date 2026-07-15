@@ -38,7 +38,8 @@ export {
   onElementUnmounted,
 } from './directives/index.js';
 export type { LynxDirective, DirectiveHost, DirectiveState } from './directives/index.js';
-export { pushOp, takeOps, scheduleFlush, flushNow, resetOpQueue } from './op-queue.js';
+// waitForFlush exported for the #620 spike benchmark (throwaway branch).
+export { pushOp, takeOps, scheduleFlush, flushNow, resetOpQueue, waitForFlush } from './op-queue.js';
 export { OP } from '@sigx/lynx-runtime-internal';
 export type {
   OpCode,

@@ -251,6 +251,13 @@ export const catalog: Area[] = [
                 icon: { set: 'lucide', name: 'smile' },
                 route: 'emojiPicker',
             },
+            {
+                id: 'snapshot-spike',
+                title: '620 Spike',
+                description: 'THROWAWAY: MT snapshot-template cell construction benchmark',
+                icon: { set: 'lucide', name: 'zap' },
+                route: 'snapshotSpike',
+            },
         ],
     },
     {

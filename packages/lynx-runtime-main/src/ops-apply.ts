@@ -36,6 +36,7 @@ import {
   listInsertChild,
   listRemoveChild,
   noteListItemProp,
+  noteSpikeRowsProp,
   resetListState,
 } from './list-mt.js';
 import {
@@ -244,6 +245,8 @@ export function applyOps(ops: unknown[]): void {
         const id = ops[i++] as number;
         const key = ops[i++] as string;
         const value = ops[i++];
+        // #620 spike marker attr — consumed on MT, must not reach native.
+        if (key === 'spike-snapshot-rows' && noteSpikeRowsProp(id, value)) break;
         const el = elements.get(id);
         if (el) __SetAttribute(el, key, value);
         // Mirror `<list-item>` platform-info props (item-key, full-span, …)

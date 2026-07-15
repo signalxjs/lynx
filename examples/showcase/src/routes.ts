@@ -49,6 +49,8 @@ import { HapticsDemo } from './screens/HapticsDemo.js';
 import { WebRTCDemo } from './screens/WebRTCDemo.js';
 // Framework
 import { DynamicImportDemo } from './screens/DynamicImportDemo.js';
+// #620 spike — throwaway
+import { SnapshotSpikeScreen } from './screens/SnapshotSpike.js';
 
 export const routes = defineRoutes({
     // Home is the root of the single global stack: search + grouped catalog.
@@ -111,6 +113,8 @@ export const routes = defineRoutes({
     // a bar with chrome below it needs `offset` compensation.
     keyboard: { component: Keyboard, path: '/keyboard', presentation: 'modal' },
     emojiPicker: { component: EmojiPickerScreen, path: '/emoji-picker' },
+    // #620 spike — throwaway
+    snapshotSpike: { component: SnapshotSpikeScreen, path: '/snapshot-spike' },
 
     // Native modules
     mapsDemo: { component: MapsDemo, path: '/maps' },

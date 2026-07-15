@@ -27,6 +27,13 @@
  */
 
 import { elements, pageUniqueId } from './element-registry.js';
+// #620 spike — throwaway wiring, never for merge.
+import {
+  destroySpikeList,
+  isSpikeList,
+  noteSpikeRows,
+  spikePull,
+} from './spike-snapshot.js';
 
 /**
  * Per-`<list-item>` platform-info attribute keys (kebab-case). These are
@@ -89,6 +96,23 @@ function componentAtIndex(
 ): number {
   const state = listByListID.get(listID);
   if (!state) return -1;
+  // #620 spike: synchronous MT-side cell construction, no BG involvement.
+  if (isSpikeList(state.internalId)) {
+    const cell = spikePull(state.internalId, cellIndex);
+    if (!cell) return -1;
+    const sign = __GetElementUniqueID(cell);
+    if (!state.appended.has(-cellIndex - 1)) {
+      __AppendElement(state.listEl, cell);
+      state.appended.add(-cellIndex - 1);
+    }
+    __FlushElementTree(cell, {
+      triggerLayout: true,
+      operationID,
+      elementID: sign,
+      listID,
+    });
+    return sign;
+  }
   const childInternalId = state.order[cellIndex];
   if (childInternalId === undefined) return -1;
   const root = elements.get(childInternalId);
@@ -195,8 +219,35 @@ export function listRemoveChild(
   state.dirty = true;
 }
 
+/**
+ * #620 spike: intercept the `spike-snapshot-rows` marker attr on a <list>.
+ * Returns true when consumed (the payload must not reach native). Synthesizes
+ * the update-list-info manifest for all rows so native starts pulling cells —
+ * there are NO BG-built children; every cell is constructed synchronously on
+ * the MT inside componentAtIndex.
+ */
+export function noteSpikeRowsProp(listInternalId: number, value: unknown): boolean {
+  const state = listsByInternalId.get(listInternalId);
+  if (!state) return false;
+  const payload = noteSpikeRows(listInternalId, value);
+  if (!payload) return false;
+  __SetAttribute(state.listEl, 'update-list-info', {
+    insertAction: payload.glyphs.map((_, i) => ({
+      position: i,
+      type: 'list-item',
+      'item-key': `spike-${i}`,
+      'estimated-main-axis-size-px': 100,
+    })),
+    removeAction: [],
+    updateAction: [],
+  });
+  __UpdateListCallbacks(state.listEl, componentAtIndex, enqueueComponent);
+  return true;
+}
+
 /** Tear down a `<list>` element (detach callbacks, drop all state). */
 export function destroyListElement(internalId: number): void {
+  destroySpikeList(internalId); // #620 spike
   const state = listsByInternalId.get(internalId);
   if (!state) return;
   __UpdateListCallbacks(state.listEl, null, null);
