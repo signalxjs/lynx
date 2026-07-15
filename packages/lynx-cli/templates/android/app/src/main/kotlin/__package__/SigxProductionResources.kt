@@ -49,7 +49,10 @@ object SigxEmbeddedAssets {
             val slash = afterScheme.indexOf('/')
             path = if (slash >= 0) afterScheme.substring(slash) else ""
         }
-        val trimmed = path.trimStart('/').substringBefore('?')
+        // Strip any query / fragment — a cache-busting `?v=…` would otherwise
+        // become part of the filename we look for on disk. (Matches the iOS
+        // fetcher.)
+        val trimmed = path.trimStart('/').substringBefore('?').substringBefore('#')
         if (trimmed.isEmpty()) return null
         if (trimmed.startsWith("static/")) return trimmed
         val marker = trimmed.indexOf("static/js/async/")

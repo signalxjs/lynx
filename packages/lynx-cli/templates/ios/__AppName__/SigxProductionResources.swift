@@ -32,7 +32,13 @@ enum SigxEmbeddedAssets {
     static func relativePath(from urlString: String) -> String? {
         var path = urlString
         if let url = URL(string: urlString), url.scheme != nil {
+            // `.path` already excludes any query / fragment.
             path = url.path
+        } else {
+            // Root-relative or bare path: strip a query / fragment ourselves,
+            // or a cache-busting `?v=…` would become part of the filename we
+            // look for on disk. (Matches the Kotlin fetcher.)
+            path = String(path.prefix(while: { $0 != "?" && $0 != "#" }))
         }
         let trimmed = String(path.drop(while: { $0 == "/" }))
         if trimmed.isEmpty { return nil }
