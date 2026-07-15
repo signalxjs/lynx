@@ -109,9 +109,47 @@ describe('List', () => {
     expect('item-snap' in list.props).toBe(false);
     expect('lower-threshold-item-count' in list.props).toBe(false);
     expect('upper-threshold-item-count' in list.props).toBe(false);
-    expect('scroll-event-throttle' in list.props).toBe(false);
     const cell = getAllByType(container, 'list-item')[0];
     expect('estimated-main-axis-size-px' in cell.props).toBe(false);
+  });
+
+  it('throttles scroll events by default, and never binds the top edge needlessly', () => {
+    // `List` always binds `bindscroll` internally, so an unthrottled feed
+    // streams scroll events to JS at frame rate; and the native list re-fires
+    // `scrolltoupper` continuously while parked at the top. Both feed the
+    // engine's dispatch limiter (#606), so a plain feed opts out of the top
+    // edge entirely and gets a coarse scroll interval.
+    const { container } = render(
+      <List items={ITEMS} keyExtractor={(i) => i.id} renderItem={renderRow} />,
+    );
+    const list = getByType(container, 'list');
+    expect(list.props['scroll-event-throttle']).toBe(100);
+    expect(list._handlers.has('bindscrolltoupper')).toBe(false);
+  });
+
+  it('binds the top edge for chat, which needs load-older', () => {
+    const { container } = render(
+      <List items={ITEMS} keyExtractor={(i) => i.id} renderItem={renderRow} inverted />,
+    );
+    expect(getByType(container, 'list')._handlers.has('bindscrolltoupper')).toBe(true);
+  });
+
+  it('acts on each edge once per arrival, not per native re-fire', () => {
+    // Native re-fires the edge events continuously while parked at an edge; a
+    // list whose container size is momentarily invalid reports both at once.
+    // Acting on every dispatch ping-pongs the window and spins re-renders.
+    const onEndReached = vi.fn();
+    const { container } = render(
+      <List items={ITEMS} keyExtractor={(i) => i.id} renderItem={renderRow} onEndReached={onEndReached} />,
+    );
+    const list = getByType(container, 'list');
+    for (let i = 0; i < 20; i++) list._handlers.get('bindscrolltolower')?.({});
+    expect(onEndReached).toHaveBeenCalledTimes(1);
+    // Only genuine movement away from the edge re-arms it.
+    list._handlers.get('bindscroll')?.({ detail: { scrollTop: 500 } });
+    list._handlers.get('bindscroll')?.({ detail: { scrollTop: 100 } });
+    list._handlers.get('bindscrolltolower')?.({});
+    expect(onEndReached).toHaveBeenCalledTimes(2);
   });
 
   it('renders header and footer as full-span cells with reserved keys', () => {
