@@ -58,7 +58,7 @@ function regexCanStartAt(source: string, idx: number): boolean {
   if ('(,=:[!&|?{;+-*%<>^~'.includes(prev)) return true;
   // `return /re/` — check for an identifier tail that is a keyword.
   const tail = /([A-Za-z_$][\w$]*)$/.exec(source.slice(Math.max(0, j - 11), j + 1));
-  return tail !== null && /^(?:return|typeof|case|in|of|new|delete|void|do|else)$/.test(tail[1]);
+  return tail !== null && /^(?:return|typeof|case|in|of|new|delete|void|do|else|await|throw|yield)$/.test(tail[1]);
 }
 
 export function scanBalanced(source: string, openIdx: number): number {
