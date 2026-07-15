@@ -53,8 +53,9 @@ import { DynamicImportDemo } from './screens/DynamicImportDemo.js';
 import { SnapshotSpikeScreen } from './screens/SnapshotSpike.js';
 
 export const routes = defineRoutes({
-    // Home is the root of the single global stack: search + grouped catalog.
-    root: { component: Home },
+    // #620 spike (throwaway branch): spike screen as root for headless runs.
+    root: { component: SnapshotSpikeScreen },
+    home: { component: Home, path: '/home' },
     // One parametric route serves every area sub view — the catalog
     // (src/catalog.ts) is the data source, keyed by `areaId`.
     area: {

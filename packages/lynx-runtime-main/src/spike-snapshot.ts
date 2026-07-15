@@ -263,6 +263,17 @@ export function isSpikeList(listInternalId: number): boolean {
 }
 
 /**
+ * `spike-op-echo` marker attr: the moment this op is applied on the MT, echo
+ * back to the BG over the report bridge. Rides at the tail of an op batch to
+ * timestamp "batch fully applied" without relying on the callLepusMethod ack.
+ */
+export function spikeOpEcho(value: unknown): void {
+  const v = value as { sign?: string; tag?: unknown } | null;
+  if (!v || typeof v.sign !== 'string') return;
+  report(v.sign, { kind: 'op-echo', tag: v.tag });
+}
+
+/**
  * Synchronous cell construction for a spike list. Returns the cell root
  * (building it on first pull), or null when out of range / not a spike list.
  * The caller (list-mt componentAtIndex) appends + flushes + returns the sign,

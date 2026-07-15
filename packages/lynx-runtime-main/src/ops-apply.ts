@@ -39,6 +39,7 @@ import {
   noteSpikeRowsProp,
   resetListState,
 } from './list-mt.js';
+import { spikeOpEcho } from './spike-snapshot.js';
 import {
   registerWebGesture,
   unregisterWebGesture,
@@ -245,8 +246,12 @@ export function applyOps(ops: unknown[]): void {
         const id = ops[i++] as number;
         const key = ops[i++] as string;
         const value = ops[i++];
-        // #620 spike marker attr — consumed on MT, must not reach native.
+        // #620 spike marker attrs — consumed on MT, must not reach native.
         if (key === 'spike-snapshot-rows' && noteSpikeRowsProp(id, value)) break;
+        if (key === 'spike-op-echo') {
+          spikeOpEcho(value);
+          break;
+        }
         const el = elements.get(id);
         if (el) __SetAttribute(el, key, value);
         // Mirror `<list-item>` platform-info props (item-key, full-span, …)

@@ -41,6 +41,21 @@ export const SnapshotSpikeScreen = component(() => {
     const showGrid = signal(false);
     const warm = signal(0);
 
+    // Headless auto-run (iOS sim has no tap tooling): op-path baselines first
+    // (their lines must be visible in the ~15s screenshot window); the sweep
+    // mounts the grid afterwards.
+    setTimeout(async () => {
+        await runOpBaseline(500);
+        await runOpBaseline(500);
+        await runOpBaseline(500);
+    }, 2000);
+    setTimeout(() => {
+        variant.value = 'sweep';
+        warm.value++;
+        showGrid.value = true;
+        run.value++;
+    }, 30000);
+
     // warmLoops: [] — entry must be instant; warm runs are button-triggered
     // (each remounts the list via the key, re-noting the marker attr).
     const payloads = Object.fromEntries(VARIANTS.map((v) => [
@@ -59,24 +74,45 @@ export const SnapshotSpikeScreen = component(() => {
         console.log('[620-spike]', msg);
         lines.$set([...lines.slice(-11), msg]);
     }
+
+    // MT echo: resolves when the op batch containing the echo marker has been
+    // fully applied on the MT (the marker rides AFTER the 500 cells' ops).
+    // Independent of the callLepusMethod ack, which appears not to fire on
+    // some hosts (diagnosed via the race below).
+    let echoResolve: ((tag: unknown) => void) | null = null;
+    const echoSign = register((data) => {
+        const d = data as { tag?: unknown };
+        echoResolve?.(d?.tag);
+        echoResolve = null;
+    });
+    const opRun = signal(0);
+
     async function runOpBaseline(n: number): Promise<void> {
         try {
             pushLine(`{"kind":"op-start","cells":${n}}`);
             opCells.value = 0;
             await new Promise((r) => setTimeout(r, 50));
-            await waitForFlush();
+            const echoPromise = new Promise<string>((r) => {
+                echoResolve = () => r('echo');
+            });
             const t0 = Date.now();
             opCells.value = n;
-            // Render effects run on microtasks; a macrotask boundary guarantees
-            // the ops batch has been sent before we await the MT ack.
+            opRun.value++;
+            // Ack path (works on Android; under diagnosis on iOS) raced with
+            // the MT echo and a hard timeout — nothing may hang the harness.
             await new Promise((r) => setTimeout(r, 0));
-            await waitForFlush();
+            const first = await Promise.race([
+                waitForFlush().then(() => 'ack'),
+                echoPromise,
+                new Promise<string>((r) => setTimeout(() => r('timeout'), 3000)),
+            ]);
             const total = Date.now() - t0;
             pushLine(JSON.stringify({
                 kind: 'op-path',
                 cells: n,
                 totalMs: total,
                 msPerCell: total / n,
+                via: first,
             }));
         } catch (e) {
             pushLine(JSON.stringify({ kind: 'op-error', error: String(e) }));
@@ -158,6 +194,15 @@ export const SnapshotSpikeScreen = component(() => {
                         <text style={{ fontSize: 26 }}>{BASE[i % BASE.length]}</text>
                     </view>
                 ))}
+                {opCells.value > 0
+                    ? (
+                        <view
+                            {...({
+                                'spike-op-echo': { sign: echoSign, tag: opRun.value },
+                            } as Record<string, unknown>)}
+                        />
+                    )
+                    : null}
             </view>
             <view style={{ height: '190px', overflow: 'hidden', padding: '4px' }}>
                 {lines.map((l, i) => (
