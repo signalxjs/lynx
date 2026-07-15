@@ -43,7 +43,12 @@ import type { Rspack } from '@rsbuild/core';
 import { transformReactLynxSync } from '@lynx-js/react/transform';
 import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
-import { extractLocalImports, extractRegistrations } from './worklet-utils.js';
+import {
+  extractLocalImports,
+  extractRegistrations,
+  LIBRARY_PATH_RE,
+  MT_DEFINES,
+} from './worklet-utils.js';
 
 // Same idiomatic-barrel matching as the BG loader (see worklet-loader.ts:23
 // for the full rationale). The LEPUS pass emits an `import { loadWorkletRuntime
@@ -114,11 +119,11 @@ const BOOTSTRAP_PREAMBLE =
 const DIRECTIVE_RE = /['"]main thread['"]\s*(?:;|\n)/;
 
 // Library paths (`node_modules/` and any `dist/`) get the body-preserve
-// branches above. Rspack shares module identity across BG/MT layers, so
+// branches above (LIBRARY_PATH_RE now lives in worklet-utils.ts, shared with
+// the BG loader). Rspack shares module identity across BG/MT layers, so
 // stripping the MT-side body of a library file would wipe its named
 // exports for BG consumers too — daisyui couldn't resolve `useTabs` from
 // lynx-navigation, runtime-main's MT globals would disappear, etc.
-const LIBRARY_PATH_RE = /[\\/](?:node_modules|dist)[\\/]/;
 
 export default function workletLoaderMT(
   this: Rspack.LoaderContext,
@@ -144,7 +149,14 @@ export default function workletLoaderMT(
     shake: false,
     compat: false,
     refresh: false,
-    defineDCE: false,
+    // MT-side thread defines (see worklet-utils.ts). defineDCE runs before
+    // the worklet pass, so registered worklet bodies keep only their
+    // `__MAIN_THREAD__` branches. No-directive user files never reach this
+    // transform — their bodies are dropped above, defines and all. Library
+    // files are never folded (app/workspace-src scope), matching the BG side.
+    defineDCE: LIBRARY_PATH_RE.test(this.resourcePath)
+      ? false
+      : { define: MT_DEFINES },
     directiveDCE: false,
     snapshot: false,
     worklet: { target: 'LEPUS', filename, runtimePkg: RUNTIME_PKG },
