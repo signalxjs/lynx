@@ -127,9 +127,7 @@ export interface PluginSigxLynxOptions {
 
   /**
    * Whether to enable CSS inheritance in the Lynx engine.
-   * Default ON since #642 (the flag remains as a kill switch for one
-   * release — pass `snapshots: false` to keep the per-element path).
-   * @defaultValue true
+   * @defaultValue false
    */
   enableCSSInheritance?: boolean;
 
