@@ -131,6 +131,35 @@ function stripJsComments(code: string): string {
     .replace(/(^|[^:])\/\/[^\n]*/g, '$1');
 }
 
+/**
+ * Scan from `open` (an opening `(` or `[`) to the index of its balancing
+ * closer, skipping string literals ('…', "…", `…` incl. escapes). String
+ * awareness matters for snapshot create bodies, which embed user attribute
+ * strings like `__SetClasses(el, "grid(2)")` — a naive counter desyncs on
+ * the paren inside the string.
+ */
+function scanBalanced(code: string, open: number): number {
+  const opener = code[open];
+  const closer = opener === '(' ? ')' : opener === '[' ? ']' : '}';
+  let depth = 0;
+  for (let i = open; i < code.length; i++) {
+    const ch = code[i];
+    if (ch === "'" || ch === '"' || ch === '`') {
+      for (i++; i < code.length; i++) {
+        if (code[i] === '\\') i++;
+        else if (code[i] === ch) break;
+      }
+      continue;
+    }
+    if (ch === opener) depth++;
+    else if (ch === closer) {
+      depth--;
+      if (depth === 0) return i;
+    }
+  }
+  return -1;
+}
+
 export function extractRegistrations(lepusCode: string): string {
   const code = stripJsComments(lepusCode);
   const out: string[] = [];
@@ -141,22 +170,84 @@ export function extractRegistrations(lepusCode: string): string {
     const idx = code.indexOf(marker, from);
     if (idx === -1) break;
 
-    let depth = 0;
-    let i = idx + marker.length - 1; // points at the opening '('
-    for (; i < code.length; i++) {
-      const ch = code[i];
-      if (ch === '(') depth++;
-      else if (ch === ')') {
-        depth--;
-        if (depth === 0) break;
-      }
-    }
+    const close = scanBalanced(code, idx + marker.length - 1);
+    if (close === -1) break;
 
-    let end = i + 1;
+    let end = close + 1;
     if (end < code.length && code[end] === ';') end++;
     out.push(code.slice(idx, end));
     from = end;
   }
 
   return out.join('\n');
+}
+
+/**
+ * Extract snapshot-template registrations from a LEPUS-target transform
+ * output (#635): the id declarations
+ *   `const __snapshot_<hash>_<n> = "__snapshot_<hash>_<n>";`
+ * and the lazy-creator assignments
+ *   `<ns>.snapshotCreatorMap[__snapshot_…] = (id)=><ns>.createSnapshot(…);`
+ * where `<ns>` is the namespace local of the emitted
+ * `import * as <ns> from '<runtimePkg>'` (the transform renames it when the
+ * user shadows the default `ReactLynx` binding — always detect, never
+ * hardcode). Statement order is preserved (each const precedes its
+ * assignment). The caller binds `<ns>` to `globalThis.__sigxSnapshotInternal`
+ * so registrations run without the import — in the static MT bundle and in
+ * HMR eval realms alike.
+ */
+export function extractSnapshotRegistrations(
+  lepusCode: string,
+  ns: string,
+): string {
+  const code = stripJsComments(lepusCode);
+  const out: string[] = [];
+
+  const declRe = /const (__snapshot_[A-Za-z0-9_]+) = "(?:__snapshot_[A-Za-z0-9_]+)";/g;
+  const declByName = new Map<string, string>();
+  let m: RegExpExecArray | null;
+  while ((m = declRe.exec(code)) !== null) {
+    declByName.set(m[1]!, m[0]);
+  }
+
+  const marker = `${ns}.snapshotCreatorMap[`;
+  let from = 0;
+  while (true) {
+    const idx = code.indexOf(marker, from);
+    if (idx === -1) break;
+    const keyClose = scanBalanced(code, idx + marker.length - 1);
+    if (keyClose === -1) break;
+    const key = code.slice(idx + marker.length, keyClose).trim();
+
+    // The RHS is `= (id)=>ns.createSnapshot( … )` — find the createSnapshot
+    // call's balanced close, then the statement terminator.
+    const callOpen = code.indexOf('(', code.indexOf('createSnapshot', keyClose));
+    if (callOpen === -1) break;
+    const callClose = scanBalanced(code, callOpen);
+    if (callClose === -1) break;
+    let end = callClose + 1;
+    if (end < code.length && code[end] === ';') end++;
+
+    const decl = declByName.get(key);
+    if (decl) out.push(decl);
+    out.push(code.slice(idx, end));
+    from = end;
+  }
+
+  return out.join('\n');
+}
+
+/**
+ * Namespace local of the transform's emitted runtimePkg import
+ * (`import * as <ns> from "<pkg>"`), or null when the file registered no
+ * snapshots.
+ */
+export function detectSnapshotNamespace(
+  code: string,
+  runtimePkg: string,
+): string | null {
+  const re = new RegExp(
+    `import \\* as (\\w+) from ["']${runtimePkg.replace(/[/\\]/g, '\\$&')}["']`,
+  );
+  return re.exec(code)?.[1] ?? null;
 }

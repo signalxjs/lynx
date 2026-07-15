@@ -70,6 +70,27 @@ The plugin handles the rest — the handler body lives in the MT bundle, the BG 
 
 For higher-level abstractions (drag, tap, swipe, animations), see [`@sigx/lynx-gestures`](https://sigx.dev/lynx/modules/gestures/overview/).
 
+## Snapshot templates (`snapshots: true`, experimental)
+
+```ts
+pluginSigxLynx({ snapshots: true })
+```
+
+Compiles static JSX subtrees to **main-thread snapshot templates** (#620): the
+main thread constructs each compiled subtree itself from one snapshot op
+(instead of ~10 per-element ops + a thread hop), then receives hole-granular
+patches. Measured ~25–30x cheaper cell construction on release builds.
+
+- **Default off.** Production builds only for now — dev-server builds force it
+  off (template HMR is #620 phase 4c) with a console warning.
+- **JSX must be statically analyzable.** Dynamic parts (attribute expressions,
+  children) become numbered holes; the subtree *shape* is fixed at compile
+  time. Non-static subtrees — and whole files using `use:*` directive
+  attributes — keep today's per-element path automatically (a build warning
+  names any file that had to fall back).
+- **App/workspace-src only.** Published dists ship pre-lowered `_jsx()` calls
+  and keep the per-element path.
+
 ## Limitations
 
 - **Custom worklet bodies require `'main thread'` directives.** Worklets aren't auto-detected from JSX shape; the directive is the marker.

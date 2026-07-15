@@ -134,6 +134,8 @@ export interface ApplyEntryOptions {
   enableCSSInheritance?: boolean;
   customCSSInheritanceList?: string[];
   debugInfoOutside?: boolean;
+  /** Enable the snapshot-template transform in both worklet loaders (#620). */
+  snapshots?: boolean;
 }
 
 export async function applyEntry(
@@ -741,6 +743,7 @@ export async function applyEntry(
       .enforce('pre')
       .use('sigx-worklet-loader')
         .loader(path.resolve(_dirname, './loaders/worklet-loader'))
+        .options({ snapshots: opts.snapshots === true })
         .end();
 
     chain.module
@@ -750,6 +753,7 @@ export async function applyEntry(
       .enforce('pre')
       .use('sigx-worklet-mt-loader')
         .loader(path.resolve(_dirname, './loaders/worklet-loader-mt'))
+        .options({ snapshots: opts.snapshots === true })
         .end();
 
     // Disable IIFE wrapping – Lynx handles module scoping itself

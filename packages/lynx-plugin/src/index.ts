@@ -142,6 +142,19 @@ export interface PluginSigxLynxOptions {
    * @defaultValue true
    */
   debugInfoOutside?: boolean;
+
+  /**
+   * Compile static JSX subtrees to main-thread snapshot templates (#620):
+   * cells and other compiled subtrees are constructed BY the main thread
+   * (one snapshot op instead of ~10 element ops + a thread hop), with
+   * hole-granular patches after mount. Requires statically analyzable JSX;
+   * non-static subtrees keep today's per-element path automatically.
+   *
+   * Production builds only for now — dev-server builds force this off (the
+   * HMR story for template registrations is #620 phase 4c).
+   * @defaultValue false
+   */
+  snapshots?: boolean;
 }
 
 /**
@@ -157,7 +170,20 @@ export function pluginSigxLynx(
     enableCSSInheritance: _enableCSSInheritance = false,
     customCSSInheritanceList: _customCSSInheritanceList,
     debugInfoOutside: _debugInfoOutside = true,
+    snapshots: _snapshotsRequested = false,
   } = options;
+
+  // Snapshot templates are production-only until the HMR phase lands
+  // (#620 phase 4c): dev edits would leave the MT running stale template
+  // registrations. Same dev detection as the log-server wiring below.
+  const _isDevServer = process.env['NODE_ENV'] !== 'production';
+  const _snapshots = _snapshotsRequested && !_isDevServer;
+  if (_snapshotsRequested && _isDevServer) {
+    console.warn(
+      '[sigx-lynx] snapshots: disabled in dev builds until template HMR lands '
+        + '(#620 phase 4c) — production builds are unaffected',
+    );
+  }
 
   return {
     name: 'lynx:sigx',
@@ -534,6 +560,7 @@ export function pluginSigxLynx(
         debugInfoOutside: _debugInfoOutside,
         enableCSSInheritance: _enableCSSInheritance,
         customCSSInheritanceList: _customCSSInheritanceList,
+        snapshots: _snapshots,
       });
 
       // Wire @sigx/lynx-icons — reads iconSets from signalx.config.ts,

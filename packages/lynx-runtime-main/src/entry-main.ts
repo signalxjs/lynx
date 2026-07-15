@@ -9,6 +9,7 @@
  *   - globalThis.sigxPatchUpdate — receives ops from Background Thread
  */
 
+import * as snapshotContract from '@sigx/lynx-runtime-internal/snapshot';
 import { setSnapshotPageId } from '@sigx/lynx-runtime-internal/snapshot';
 import { elements, setPageUniqueId } from './element-registry.js';
 import { applyOps, resetMainThreadState, setPlaceholder } from './ops-apply.js';
@@ -37,6 +38,14 @@ const PAGE_ROOT_ID = 1;
 // registrations may evaluate later in the same bundle) can instantiate a
 // template. See snapshot-mt.ts (#626).
 installSnapshotMTHooks();
+
+// The MT loader binds extracted snapshot registrations to this global
+// (`const <ns> = globalThis.__sigxSnapshotInternal`) instead of an import —
+// a global works in the static bundle AND in HMR eval realms (#635; the
+// `registerWorkletInternal` global is the precedent). Installed at module
+// scope: the bootstrap preamble guarantees entry-main evaluates before any
+// user module.
+g['__sigxSnapshotInternal'] = snapshotContract;
 
 // Lynx Lepus runtime requires globalThis.processData to be set.
 // It is called to transform initial data before renderPage runs.
