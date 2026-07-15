@@ -184,7 +184,9 @@ export async function applyEntry(
     // are root-relative (`/static/js/async/<hash>.js`) — the native
     // production fetchers map those 1:1 onto embedded assets (#599). Dev is
     // untouched: the dev assetPrefix is rewritten to the LAN dev-server URL.
-    if (!userConfig.output?.assetPrefix) {
+    // Only pin when genuinely unset — `assetPrefix: ''` is a deliberate
+    // choice (relative URLs) the fetchers' marker fallback still resolves.
+    if (userConfig.output?.assetPrefix == null) {
       merged = mergeRsbuildConfig(merged, { output: { assetPrefix: '/' } });
     }
     return merged;

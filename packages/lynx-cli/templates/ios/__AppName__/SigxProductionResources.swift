@@ -42,6 +42,17 @@ enum SigxEmbeddedAssets {
         }
         return trimmed
     }
+
+    /// Non-2xx as an error. `URLSession` reports `error == nil` for 404/500,
+    /// so without this the engine would try to parse an error page as a chunk
+    /// and fail later with something unrecognizable.
+    static func httpError(_ response: URLResponse?, url: String) -> NSError? {
+        guard let status = (response as? HTTPURLResponse)?.statusCode,
+              !(200...299).contains(status) else { return nil }
+        return NSError(domain: "com.sigx", code: status, userInfo: [
+            NSLocalizedDescriptionKey: "HTTP \(status) for \(url)",
+        ])
+    }
 }
 
 /// Serves dynamic-import chunks (`lynx.requireModuleAsync`) from embedded
@@ -67,8 +78,18 @@ final class ProductionGenericResourceFetcher: NSObject, LynxGenericResourceFetch
         }
 
         if let url = URL(string: urlString), url.scheme == "http" || url.scheme == "https" {
-            let task = URLSession.shared.dataTask(with: url) { data, _, error in
-                callback(data, error)
+            let task = URLSession.shared.dataTask(with: url) { data, response, error in
+                if let error = error {
+                    callback(nil, error)
+                    return
+                }
+                // URLSession reports no error for 404/500 — surface those here
+                // rather than handing the engine an error page to parse.
+                if let httpError = SigxEmbeddedAssets.httpError(response, url: urlString) {
+                    callback(nil, httpError)
+                    return
+                }
+                callback(data, nil)
             }
             task.resume()
             return { task.cancel() }
@@ -117,12 +138,22 @@ final class ProductionTemplateResourceFetcher: NSObject, LynxTemplateResourceFet
         }
 
         if let url = URL(string: urlString), url.scheme == "http" || url.scheme == "https" {
-            URLSession.shared.dataTask(with: url) { data, _, error in
-                if let data = data {
-                    callback(LynxTemplateResource(nsData: data), nil)
-                } else {
+            URLSession.shared.dataTask(with: url) { data, response, error in
+                if let error = error {
                     callback(nil, error)
+                    return
                 }
+                if let httpError = SigxEmbeddedAssets.httpError(response, url: urlString) {
+                    callback(nil, httpError)
+                    return
+                }
+                guard let data = data else {
+                    callback(nil, NSError(domain: "com.sigx", code: 404, userInfo: [
+                        NSLocalizedDescriptionKey: "No data for \(urlString)",
+                    ]))
+                    return
+                }
+                callback(LynxTemplateResource(nsData: data), nil)
             }.resume()
             return
         }
