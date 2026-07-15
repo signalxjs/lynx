@@ -20,9 +20,12 @@ import java.util.concurrent.TimeUnit
 /**
  * Resolves embedded Lynx assets (async chunks from dynamic `import()`) in
  * production builds. `sigx run:android --release` / `sigx prebuild
- * --embed-bundle` mirror `dist/static/js/async/**` into `src/main/assets/`;
- * the fetchers below map the runtime's root-relative request URLs
- * (`/static/js/async/<hash>.js`) back onto those assets. (#599)
+ * --embed-bundle` mirror everything under `dist/static/js/async/` into
+ * `src/main/assets/`; the fetchers below map the runtime's root-relative
+ * request URLs (`/static/js/async/<hash>.js`) back onto those assets.
+ *
+ * Note: Kotlin block comments nest, so never write a `/`+`**` glob in one —
+ * it opens a nested comment and swallows the rest of the file. (#599)
  */
 object SigxEmbeddedAssets {
     /**
@@ -83,9 +86,18 @@ class ProductionGenericResourceFetcher(context: Context) : LynxGenericResourceFe
         .build()
 
     override fun fetchResource(
-        request: LynxResourceRequest,
+        request: LynxResourceRequest?,
         callback: LynxResourceCallback<ByteArray>
     ) {
+        // `LynxResourceRequest` is an unannotated Java type, so declare it
+        // nullable and guard: a non-null declaration would make Kotlin's
+        // intrinsic throw an NPE before this body could return a structured
+        // failure (and render the check dead code).
+        if (request == null) {
+            callback.onResponse(failed("request is null"))
+            return
+        }
+
         SigxEmbeddedAssets.open(appContext, request.url)?.let {
             callback.onResponse(LynxResourceResponse.onSuccess(it))
             return
@@ -152,9 +164,14 @@ class ProductionTemplateResourceFetcher(context: Context) : LynxTemplateResource
         .build()
 
     override fun fetchTemplate(
-        request: LynxResourceRequest,
+        request: LynxResourceRequest?,
         callback: LynxResourceCallback<TemplateProviderResult>
     ) {
+        if (request == null) {
+            callback.onResponse(failed("request is null"))
+            return
+        }
+
         SigxEmbeddedAssets.open(appContext, request.url)?.let {
             callback.onResponse(LynxResourceResponse.onSuccess(TemplateProviderResult.fromBinary(it)))
             return
@@ -186,7 +203,7 @@ class ProductionTemplateResourceFetcher(context: Context) : LynxTemplateResource
     }
 
     override fun fetchSSRData(
-        request: LynxResourceRequest,
+        request: LynxResourceRequest?,
         callback: LynxResourceCallback<ByteArray>
     ) {
         callback.onResponse(failed("SSR not supported"))

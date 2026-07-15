@@ -200,10 +200,20 @@ export async function applyEntry(
     const { readdirSync } = await import('node:fs');
     const asyncDir = path.join(api.context.distPath, 'static', 'js', 'async');
     if (!existsSync(asyncDir)) return;
-    const chunks = readdirSync(asyncDir, { recursive: true, encoding: 'utf-8' });
-    if (chunks.length === 0) return;
+    // Hand-rolled walk rather than `readdirSync(..., { recursive: true })` —
+    // that option needs Node >= 18.17/20.1 and this plugin declares no engines
+    // floor, so an older host would throw here and take the build down with it.
+    const countFiles = (dir: string): number => {
+      let n = 0;
+      for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        n += entry.isDirectory() ? countFiles(path.join(dir, entry.name)) : 1;
+      }
+      return n;
+    };
+    const chunkCount = countFiles(asyncDir);
+    if (chunkCount === 0) return;
     api.logger.info(
-      `[sigx] ${chunks.length} async chunk(s) emitted by dynamic import() under static/js/async/. `
+      `[sigx] ${chunkCount} async chunk(s) emitted by dynamic import() under static/js/async/. `
       + 'Standalone builds load them from embedded assets — embed via `sigx run:* --release` or '
       + '`sigx prebuild --embed-bundle`. OTA updates (`sigx updates:publish`) do NOT carry them.',
     );
