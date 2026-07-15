@@ -54,6 +54,11 @@ object SigxEmbeddedAssets {
         // fetcher.)
         val trimmed = path.trimStart('/').substringBefore('?').substringBefore('#')
         if (trimmed.isEmpty()) return null
+        // Refuse traversal: this fetcher resolves against the APK assets and
+        // the OTA directory, and an OTA bundle is downloaded content — without
+        // this, a crafted `…/async/../../../secret` URL would read arbitrary
+        // local files via File(root, rel).
+        if (trimmed.split('/').any { it == ".." }) return null
         if (trimmed.startsWith("static/")) return trimmed
         val marker = trimmed.indexOf("static/js/async/")
         if (marker >= 0) return trimmed.substring(marker)

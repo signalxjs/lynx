@@ -42,6 +42,11 @@ enum SigxEmbeddedAssets {
         }
         let trimmed = String(path.drop(while: { $0 == "/" }))
         if trimmed.isEmpty { return nil }
+        // Refuse traversal: this fetcher resolves against the app bundle and
+        // the OTA directory, and an OTA bundle is downloaded content — without
+        // this, a crafted `…/async/../../../secret` URL would read arbitrary
+        // local files.
+        if trimmed.split(separator: "/").contains("..") { return nil }
         if trimmed.hasPrefix("static/") { return trimmed }
         if let range = trimmed.range(of: "static/js/async/") {
             return String(trimmed[range.lowerBound...])
