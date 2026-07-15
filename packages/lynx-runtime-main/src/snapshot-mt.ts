@@ -307,15 +307,20 @@ const mtHooks: SnapshotHooks = {
   // …, … }): applied as element attributes (minus virtual keys) so native
   // list bookkeeping sees them; update-list-info mirroring arrives with the
   // list integration phase.
-  updateListItemPlatformInfo(ctx, index, _old, elementIndex) {
+  updateListItemPlatformInfo(ctx, index, oldValue, elementIndex) {
     const inst = asInstance(ctx);
     inst.ensureElements();
     const el = inst.__elements?.[elementIndex];
     if (!el) return;
     const info = (inst.__values[index] ?? {}) as Record<string, unknown>;
+    const prev = (oldValue ?? {}) as Record<string, unknown>;
+    for (const key of Object.keys(prev)) {
+      if (VIRTUAL_PLATFORM_INFO_KEYS.has(key)) continue;
+      if (!(key in info)) __SetAttribute(el, key, undefined);
+    }
     for (const [key, value] of Object.entries(info)) {
       if (VIRTUAL_PLATFORM_INFO_KEYS.has(key)) continue;
-      __SetAttribute(el, key, value);
+      if (prev[key] !== value) __SetAttribute(el, key, value);
     }
   },
 
@@ -327,7 +332,39 @@ const mtHooks: SnapshotHooks = {
   },
 };
 
-const EVENT_KEY_RE = /^(?:main-thread:)?(?:bind|catch|capture-bind|capture-catch|global-bind)(.+)$/;
+/**
+ * Parse a spread event key to its canonical `__AddEvent` type + name.
+ * Mirrors the BG renderer's `parseEventProp` (nodeOps.ts) exactly —
+ * including the `bindingx` false-positive guard — minus the `on*` alias
+ * (spread wire values are already kebab-case by the time they reach MT).
+ */
+function parseSpreadEventKey(key: string): { type: string; name: string } | null {
+  if (key.startsWith('main-thread-bind')) {
+    return { type: 'bindEvent', name: key.slice('main-thread-bind'.length) };
+  }
+  if (key.startsWith('main-thread-catch')) {
+    return { type: 'catchEvent', name: key.slice('main-thread-catch'.length) };
+  }
+  if (key.startsWith('main-thread:bind')) {
+    return { type: 'bindEvent', name: key.slice('main-thread:bind'.length) };
+  }
+  if (key.startsWith('main-thread:catch')) {
+    return { type: 'catchEvent', name: key.slice('main-thread:catch'.length) };
+  }
+  if (key.startsWith('global-bind')) {
+    return { type: 'bindGlobalEvent', name: key.slice('global-bind'.length) };
+  }
+  if (key.startsWith('global-catch')) {
+    return { type: 'catchGlobalEvent', name: key.slice('global-catch'.length) };
+  }
+  if (key.startsWith('catch')) {
+    return { type: 'catchEvent', name: key.slice('catch'.length) };
+  }
+  if (/^bind(?!ingx)/.test(key)) {
+    return { type: 'bindEvent', name: key.slice('bind'.length) };
+  }
+  return null;
+}
 
 function applySpreadEntry(
   inst: MTSnapshotInstance,
@@ -345,19 +382,19 @@ function applySpreadEntry(
     return;
   }
   if (key === 'id') {
-    __SetID(el, String(value ?? ''));
+    // undefined clears; '' would be a real (empty) id on some hosts.
+    __SetID(el, value == null ? undefined : String(value));
     return;
   }
-  const eventMatch = EVENT_KEY_RE.exec(key);
-  if (eventMatch) {
+  const event = parseSpreadEventKey(key);
+  if (event) {
     const synId = ensureSyntheticId(inst, elementIndex);
-    const eventName = eventMatch[1];
     if (value && typeof value === 'object' && '_wkltId' in (value as object)) {
       // Same ctx stamp as the non-spread path / SET_WORKLET_EVENT op.
       (value as Record<string, unknown>)['_workletType'] = 'main-thread';
-      setSlotWorklet(synId, 'bindEvent', eventName, value as WorkletPlaceholder);
+      setSlotWorklet(synId, event.type, event.name, value as WorkletPlaceholder);
     } else {
-      setSlotBgSign(synId, 'bindEvent', eventName, typeof value === 'string' ? value : undefined);
+      setSlotBgSign(synId, event.type, event.name, typeof value === 'string' ? value : undefined);
     }
     return;
   }

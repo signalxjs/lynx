@@ -330,6 +330,48 @@ describe('hole updaters', () => {
     expect(setStylesCalls[1]?.styles).toEqual({});
   });
 
+  it('routes catch/global spread events by canonical type and rejects bindingx', () => {
+    registerCellTemplate();
+    const inst = createSnapshotInstance(41, CELL_ID);
+    inst.__values[0] = {
+      catchtap: 'sign:c',
+      'global-bindexposure': 'sign:g',
+      bindingx: 'not-an-event',
+    };
+    updateSpread(inst, 0, undefined, 0);
+    flushDirtySlots();
+    const types = addEventCalls.map((c) => `${c.type}:${c.name}`);
+    expect(types).toContain('catchEvent:tap');
+    expect(types).toContain('bindGlobalEvent:exposure');
+    // bindingx is an attribute, never an event.
+    expect(setAttrCalls.some((c) => c.key === 'bindingx')).toBe(true);
+  });
+
+  it('clears id with undefined, not an empty string', () => {
+    const setIdCalls: unknown[] = [];
+    vi.stubGlobal('__SetID', vi.fn((_el: FakeEl, v: unknown) => setIdCalls.push(v)));
+    registerCellTemplate();
+    const inst = createSnapshotInstance(42, CELL_ID);
+    inst.__values[0] = { id: 'a' };
+    updateSpread(inst, 0, undefined, 0);
+    const prev = inst.__values[0];
+    inst.__values[0] = { id: null };
+    updateSpread(inst, 0, prev, 0);
+    expect(setIdCalls).toEqual(['a', undefined]);
+  });
+
+  it('unsets platform-info keys that were removed', () => {
+    registerCellTemplate();
+    const inst = createSnapshotInstance(43, CELL_ID);
+    inst.__values[0] = { 'item-key': 'k1', 'sticky-top': true };
+    updateListItemPlatformInfo(inst, 0, undefined, 0);
+    const prev = inst.__values[0];
+    inst.__values[0] = { 'item-key': 'k1' };
+    updateListItemPlatformInfo(inst, 0, prev, 0);
+    const stickyWrites = setAttrCalls.filter((c) => c.key === 'sticky-top');
+    expect(stickyWrites.map((c) => c.value)).toEqual([true, undefined]);
+  });
+
   it('applies platform info as attributes minus virtual keys', () => {
     registerCellTemplate();
     const inst = createSnapshotInstance(34, CELL_ID);
