@@ -220,8 +220,12 @@ export function extractSnapshotRegistrations(
     const key = code.slice(idx + marker.length, keyClose).trim();
 
     // The RHS is `= (id)=>ns.createSnapshot( … )` — find the createSnapshot
-    // call's balanced close, then the statement terminator.
-    const callOpen = code.indexOf('(', code.indexOf('createSnapshot', keyClose));
+    // call's balanced close, then the statement terminator. Guard the
+    // callee lookup explicitly: indexOf treats fromIndex -1 as 0, which
+    // would silently slice from the file's first '('.
+    const calleeAt = code.indexOf('createSnapshot', keyClose);
+    if (calleeAt === -1) break;
+    const callOpen = code.indexOf('(', calleeAt);
     if (callOpen === -1) break;
     const callClose = scanBalanced(code, callOpen);
     if (callClose === -1) break;

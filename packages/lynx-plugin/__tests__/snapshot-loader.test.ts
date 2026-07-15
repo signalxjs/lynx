@@ -81,6 +81,26 @@ describe('snapshots flag OFF (default)', () => {
   it('plain JSX file without directives passes through on BG', () => {
     expect(bg(CELL, '/app/src/Cell.tsx', false)).toBe(CELL);
   });
+
+  it('flag-off output is string-equal to options-omitted output on both loaders', () => {
+    // The real default path passes NO options object at all — assert full
+    // string equality, not substrings, so any accidental divergence in the
+    // off state fails loudly.
+    const noOptsCtx = (path: string) => ({
+      resourcePath: path,
+      cacheable: () => {},
+      emitError: (e: Error) => { throw e; },
+      emitWarning: () => {},
+      getOptions: () => ({}),
+      mode: 'production',
+    } as any);
+    for (const src of [CELL, CELL_WITH_WORKLET, 'export const x = 1;']) {
+      expect(workletLoader.call(noOptsCtx('/app/src/F.tsx'), src))
+        .toBe(bg(src, '/app/src/F.tsx', false));
+      expect(workletLoaderMT.call(noOptsCtx('/app/src/F.tsx'), src))
+        .toBe(mt(src, '/app/src/F.tsx', false));
+    }
+  });
 });
 
 describe('snapshots flag ON — BG loader', () => {
