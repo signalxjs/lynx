@@ -33,6 +33,7 @@ import {
   type SnapshotHooks,
   type SnapshotInstanceLike,
 } from '@sigx/lynx-runtime-internal/snapshot';
+import { OP } from '@sigx/lynx-runtime-internal';
 import { elements } from './element-registry.js';
 import { clearElementSlots, setSlotBgSign, setSlotWorklet } from './event-slots.js';
 import { bindMtRef, releaseMtRefBinding } from './mt-ref-bind.js';
@@ -229,6 +230,107 @@ export function resetSnapshotInstances(): void {
   }
   instances.clear();
   nextSyntheticId = -2;
+  parked.clear();
+  parkedSlotIds.clear();
+}
+
+// ---------------------------------------------------------------------------
+// Park-and-retry (#637). Dev HMR delivers template registrations and the op
+// batches that use them over two unordered channels — a SNAPSHOT_CREATE can
+// name a uniqID whose registration hasn't arrived yet. Park the create plus
+// every op targeting its id, and replay after the next
+// `sigxApplyMtHotUpdate` registers the template.
+// ---------------------------------------------------------------------------
+
+/** Hot-update cycles a parked create may survive before being dropped. */
+const PARK_MAX_AGE = 3;
+
+interface ParkedCreate {
+  id: number;
+  templateId: string;
+  /** Raw op tuples targeting `id`, replayed in arrival order on retry. */
+  queued: unknown[][];
+  age: number;
+}
+
+const parked = new Map<number, ParkedCreate>();
+/** slotElId (from a queued BIND_SLOT) → owning parked instance id. */
+const parkedSlotIds = new Map<number, number>();
+
+/** Park a SNAPSHOT_CREATE whose template isn't registered (yet). */
+export function parkSnapshotCreate(id: number, templateId: string): void {
+  parked.set(id, { id, templateId, queued: [], age: 0 });
+}
+
+export function isParkedSnapshot(id: number): boolean {
+  return parked.has(id);
+}
+
+/**
+ * Resolve an id that belongs to a parked instance's world: the instance id
+ * itself, or a slot-el id from one of its queued BIND_SLOTs (the BG replays
+ * slot children with parentId = slotElId — those INSERTs must queue too).
+ */
+export function parkedOwnerOf(id: number): number | undefined {
+  if (parked.has(id)) return id;
+  return parkedSlotIds.get(id);
+}
+
+/** Queue a raw op tuple (opcode-first) that targets a parked instance id. */
+export function queueOpForParked(id: number, tuple: unknown[]): void {
+  const owner = parkedOwnerOf(id);
+  if (owner === undefined) return;
+  parked.get(owner)?.queued.push(tuple);
+  // A queued BIND_SLOT mints a slot-el id whose later child INSERTs name it
+  // as PARENT — track it so they route here as well.
+  if (tuple[0] === OP.SNAPSHOT_BIND_SLOT) {
+    parkedSlotIds.set(tuple[3] as number, owner);
+  }
+}
+
+function clearParkedSlotIds(ownerId: number): void {
+  for (const [slotId, owner] of parkedSlotIds) {
+    if (owner === ownerId) parkedSlotIds.delete(slotId);
+  }
+}
+
+/** Drop one parked create (its subtree was removed before it could resolve). */
+export function dropParkedSnapshot(id: number): void {
+  parked.delete(id);
+  clearParkedSlotIds(id);
+}
+
+/**
+ * Called after each `sigxApplyMtHotUpdate`: creates whose templates are now
+ * registered replay as a real op batch (SNAPSHOT_CREATE + their queued ops,
+ * in order) through `applyBatch`; the rest age out with a loud log after
+ * PARK_MAX_AGE cycles.
+ */
+export function retryParkedSnapshots(applyBatch: (ops: unknown[]) => void): void {
+  if (parked.size === 0) return;
+  const ready: ParkedCreate[] = [];
+  // Only the CURRENT entry is ever deleted mid-iteration — safe on a Map.
+  for (const entry of parked.values()) {
+    if (getSnapshotDef(entry.templateId)) {
+      parked.delete(entry.id);
+      // Clear the slot-id aliases BEFORE replaying, or the replayed child
+      // INSERTs would re-queue into the just-deleted entry and vanish.
+      clearParkedSlotIds(entry.id);
+      ready.push(entry);
+    } else if (++entry.age >= PARK_MAX_AGE) {
+      parked.delete(entry.id);
+      clearParkedSlotIds(entry.id);
+      console.log(
+        `[sigx-snapshot] dropping parked instance ${entry.id}: template `
+          + `"${entry.templateId}" never arrived after ${PARK_MAX_AGE} hot updates`,
+      );
+    }
+  }
+  for (const entry of ready) {
+    const batch: unknown[] = [OP.SNAPSHOT_CREATE, entry.id, entry.templateId];
+    for (const tuple of entry.queued) batch.push(...tuple);
+    applyBatch(batch);
+  }
 }
 
 // ---------------------------------------------------------------------------

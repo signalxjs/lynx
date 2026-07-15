@@ -10,10 +10,13 @@
  */
 
 import * as snapshotContract from '@sigx/lynx-runtime-internal/snapshot';
-import { setSnapshotPageId } from '@sigx/lynx-runtime-internal/snapshot';
+import {
+  purgeSnapshotTemplatesByPrefix,
+  setSnapshotPageId,
+} from '@sigx/lynx-runtime-internal/snapshot';
 import { elements, setPageUniqueId } from './element-registry.js';
 import { applyOps, resetMainThreadState, setPlaceholder } from './ops-apply.js';
-import { installSnapshotMTHooks } from './snapshot-mt.js';
+import { installSnapshotMTHooks, retryParkedSnapshots } from './snapshot-mt.js';
 import { invokeWorklet } from './worklet-events.js';
 import { runOnBackground } from './run-on-background-mt.js';
 import { installAvBridgeFlushHook } from './animated-bridge-mt.js';
@@ -116,20 +119,46 @@ g['sigxHotReload'] = function (): void {
   __FlushElementTree(page);
 };
 
-// Called by the BG Thread via callLepusMethod('sigxApplyMtHotUpdate', { code }).
-// `code` is the concatenated `registerWorkletInternal(...)` calls extracted
-// from the matching `main__main-thread.<hash>.hot-update.js` file. Eval'd in
-// the existing realm so new content-hash worklet IDs land in the live
-// `_workletMap` before the user taps a re-rendered button.
+// Called by the BG Thread via
+// callLepusMethod('sigxApplyMtHotUpdate', { code, snapshotCode }).
+// `code` is the concatenated `registerWorkletInternal(...)` calls and
+// `snapshotCode` the snapshot template registrations (namespace rebound to
+// the fixed parameter `__SigxSnap`), both extracted from the matching
+// `main__main-thread.<hash>.hot-update.js` file. Eval'd in the existing
+// realm so new content-hash ids land in the live registries before the user
+// taps a re-rendered button.
 //
 // See `lynx-runtime/src/mt-hmr-bridge.ts` for the BG-side fetch + forward.
-g['sigxApplyMtHotUpdate'] = function ({ code }: { code: string }): void {
-  if (!code) return;
-  try {
-    new Function(code)();
-  } catch (e) {
-    console.log('[sigx-mt] sigxApplyMtHotUpdate eval failed:', String(e));
+g['sigxApplyMtHotUpdate'] = function (
+  { code, snapshotCode }: { code: string; snapshotCode?: string },
+): void {
+  if (code) {
+    try {
+      new Function(code)();
+    } catch (e) {
+      console.log('[sigx-mt] sigxApplyMtHotUpdate eval failed:', String(e));
+    }
   }
+  if (snapshotCode) {
+    try {
+      // Purge the previous edit's now-unreachable templates first: an edit
+      // rotates every content-hashed id in the file, but the filename-hash
+      // prefix is stable, so incoming ids identify exactly which files'
+      // stale entries to drop.
+      const incomingIds = [...new Set(snapshotCode.match(/__snapshot_[A-Za-z0-9_]+/g) ?? [])];
+      // Eval FIRST, purge on success — purging before a throwing eval would
+      // leave the registry missing both old and new templates for the file.
+      new Function('__SigxSnap', snapshotCode)(
+        (globalThis as Record<string, unknown>)['__sigxSnapshotInternal'],
+      );
+      purgeSnapshotTemplatesByPrefix(incomingIds);
+    } catch (e) {
+      console.log('[sigx-mt] sigxApplyMtHotUpdate snapshot eval failed:', String(e));
+    }
+  }
+  // Op batches can outrun registrations (two unordered dev channels) —
+  // replay any creates that parked on a template this update delivered.
+  retryParkedSnapshots(applyOps);
 };
 
 // Called by the BG Thread via callLepusMethod('sigxPatchUpdate', { data }).

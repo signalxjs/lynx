@@ -150,8 +150,9 @@ export interface PluginSigxLynxOptions {
    * hole-granular patches after mount. Requires statically analyzable JSX;
    * non-static subtrees keep today's per-element path automatically.
    *
-   * Production builds only for now — dev-server builds force this off (the
-   * HMR story for template registrations is #620 phase 4c).
+   * Works in dev too: template registrations ride the MT hot-update bridge,
+   * stale templates are purged by file, and op batches that outrun a
+   * registration park and replay (#637).
    * @defaultValue false
    */
   snapshots?: boolean;
@@ -170,20 +171,8 @@ export function pluginSigxLynx(
     enableCSSInheritance: _enableCSSInheritance = false,
     customCSSInheritanceList: _customCSSInheritanceList,
     debugInfoOutside: _debugInfoOutside = true,
-    snapshots: _snapshotsRequested = false,
+    snapshots: _snapshots = false,
   } = options;
-
-  // Snapshot templates are production-only until the HMR phase lands
-  // (#620 phase 4c): dev edits would leave the MT running stale template
-  // registrations. Same dev detection as the log-server wiring below.
-  const _isDevServer = process.env['NODE_ENV'] !== 'production';
-  const _snapshots = _snapshotsRequested && !_isDevServer;
-  if (_snapshotsRequested && _isDevServer) {
-    console.warn(
-      '[sigx-lynx] snapshots: disabled in dev builds until template HMR lands '
-        + '(#620 phase 4c) — production builds are unaffected',
-    );
-  }
 
   return {
     name: 'lynx:sigx',
