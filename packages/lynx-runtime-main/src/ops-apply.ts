@@ -49,7 +49,13 @@ import {
   resetMtRefBindings,
   resolveElementIdByWvid,
 } from './mt-ref-bind.js';
-import { resetSnapshotInstances } from './snapshot-mt.js';
+import {
+  createSnapshotInstance,
+  destroySnapshotInstance,
+  getSnapshotInstance,
+  isSnapshotInstance,
+  resetSnapshotInstances,
+} from './snapshot-mt.js';
 
 /**
  * Placeholder element inserted by renderPage() to give the host a non-empty
@@ -158,11 +164,17 @@ export function applyOps(ops: unknown[]): void {
   // Detect duplicate batch from double BG bundle evaluation.
   // Each __init_card_bundle__ invocation gets a fresh webpack module cache, so
   // ShadowElement.nextId resets to 2, producing the same element IDs.
-  // If the first CREATE op targets an ID that already exists in our elements Map,
-  // this is a duplicate batch — skip it entirely.
+  // If the first CREATE / SNAPSHOT_CREATE op targets an ID that already
+  // exists, this is a duplicate batch — skip it entirely.
   if (len >= 3 && ops[0] === OP.CREATE) {
     const firstId = ops[1] as number;
     if (elements.has(firstId)) {
+      return;
+    }
+  }
+  if (len >= 3 && ops[0] === OP.SNAPSHOT_CREATE) {
+    const firstId = ops[1] as number;
+    if (isSnapshotInstance(firstId)) {
       return;
     }
   }
@@ -214,6 +226,14 @@ export function applyOps(ops: unknown[]): void {
           listInsertChild(parentId, childId, anchorId);
           break;
         }
+        // A staged snapshot instance materializes on first non-list insert:
+        // build its elements and register the root under the instance id so
+        // this (and any later) INSERT/REMOVE resolves it like any element.
+        if (!elements.has(childId) && isSnapshotInstance(childId)) {
+          const inst = getSnapshotInstance(childId)!;
+          inst.ensureElements();
+          if (inst.__element_root) elements.set(childId, inst.__element_root);
+        }
         const parent = elements.get(parentId);
         const child = elements.get(childId);
         if (parent && child) {
@@ -240,6 +260,12 @@ export function applyOps(ops: unknown[]): void {
         const child = elements.get(childId);
         if (parent && child) {
           __RemoveElement(parent, child);
+        }
+        // Snapshot instance teardown: drop the instance record, its synthetic
+        // ids, slot/ref side state, and the root's registry entry.
+        if (isSnapshotInstance(childId)) {
+          destroySnapshotInstance(childId);
+          elements.delete(childId);
         }
         break;
       }
@@ -289,6 +315,59 @@ export function applyOps(ops: unknown[]): void {
           try {
             __InvokeUIMethod(el, method, params, () => { /* fire-and-forget */ });
           } catch { /* swallow — see above */ }
+        }
+        break;
+      }
+
+      // -----------------------------------------------------------------
+      // Snapshot-template ops (#620). Instances stay staged records until
+      // an INSERT into a non-list parent (or a future componentAtIndex
+      // pull) materializes them; see snapshot-mt.ts.
+      // -----------------------------------------------------------------
+
+      case OP.SNAPSHOT_CREATE: {
+        const id = ops[i++] as number;
+        const templateId = ops[i++] as string;
+        try {
+          createSnapshotInstance(id, templateId);
+        } catch (e) {
+          // Unknown template: fail loudly per-instance but keep the batch
+          // alive — the op stream is self-delimiting, so skipping this op
+          // cannot desync the interpreter.
+          console.log('[sigx-mt] SNAPSHOT_CREATE failed:', String(e));
+        }
+        break;
+      }
+
+      case OP.SNAPSHOT_SET_VALUES: {
+        const id = ops[i++] as number;
+        const values = ops[i++] as unknown[];
+        const inst = getSnapshotInstance(id);
+        if (inst && Array.isArray(values)) inst.setValues(values);
+        break;
+      }
+
+      case OP.SNAPSHOT_SET_VALUE: {
+        const id = ops[i++] as number;
+        const holeIndex = ops[i++] as number;
+        const value = ops[i++];
+        getSnapshotInstance(id)?.setValue(holeIndex, value);
+        break;
+      }
+
+      case OP.SNAPSHOT_BIND_SLOT: {
+        const snapshotId = ops[i++] as number;
+        const slotIndex = ops[i++] as number;
+        const slotElId = ops[i++] as number;
+        const inst = getSnapshotInstance(snapshotId);
+        const slotEl = inst?.slotElement(slotIndex);
+        if (inst && slotEl) {
+          elements.set(slotElId, slotEl);
+          inst.slotElIds.add(slotElId); // released on instance teardown
+        } else {
+          console.log(
+            `[sigx-mt] SNAPSHOT_BIND_SLOT: no slot ${slotIndex} on instance ${snapshotId}`,
+          );
         }
         break;
       }

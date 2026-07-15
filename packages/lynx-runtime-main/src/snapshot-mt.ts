@@ -56,6 +56,8 @@ export class MTSnapshotInstance implements SnapshotInstanceLike {
   syntheticIds: Map<number, number> = new Map();
   /** hole index → wvid currently bound through a ref hole (for teardown). */
   boundWvids: Map<number, number> = new Map();
+  /** element-registry ids minted by SNAPSHOT_BIND_SLOT (for teardown). */
+  slotElIds: Set<number> = new Set();
 
   constructor(id: number, type: string) {
     const def = getSnapshotDef(type);
@@ -182,6 +184,9 @@ export function destroySnapshotInstance(id: number): void {
   for (const wvid of inst.boundWvids.values()) {
     releaseMtRefBinding(wvid);
   }
+  for (const slotElId of inst.slotElIds) {
+    elements.delete(slotElId);
+  }
   instances.delete(id);
 }
 
@@ -215,6 +220,9 @@ export function resetSnapshotInstances(): void {
     }
     for (const wvid of inst.boundWvids.values()) {
       releaseMtRefBinding(wvid);
+    }
+    for (const slotElId of inst.slotElIds) {
+      elements.delete(slotElId);
     }
   }
   instances.clear();
