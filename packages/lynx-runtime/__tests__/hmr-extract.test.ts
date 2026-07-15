@@ -99,3 +99,10 @@ describe('scanBalanced regex literals', () => {
     expect(scanBalanced(src, 1)).toBe(src.length - 1);
   });
 });
+
+describe('scanBalanced template literals', () => {
+  it('tracks ${} interpolation and nested templates', () => {
+    const src = 'f(`a${g(")")}b`, `c${`d${h("]")}e`}f`)';
+    expect(scanBalanced(src, 1)).toBe(src.length - 1);
+  });
+});

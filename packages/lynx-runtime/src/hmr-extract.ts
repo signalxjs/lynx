@@ -67,12 +67,33 @@ export function scanBalanced(source: string, openIdx: number): number {
   let depth = 0;
   for (let i = openIdx; i < source.length; i++) {
     const ch = source[i];
-    if (ch === "'" || ch === '"' || ch === '`') {
+    if (ch === "'" || ch === '"') {
       i++;
       while (i < source.length && source[i] !== ch) {
         if (source[i] === '\\') i++;
         i++;
       }
+      continue;
+    }
+    if (ch === '`') {
+      // Template literal: `${}` interpolation depth AND nested backticks
+      // must be tracked — `a${`b`}c` would otherwise end the skip at the
+      // inner backtick and desync everything after.
+      i++;
+      // One expression-depth counter per open template level.
+      const tplStack: number[] = [0];
+      while (i < source.length && tplStack.length > 0) {
+        const t = source[i];
+        if (t === '\\') i++;
+        else if (t === '$' && source[i + 1] === '{') { tplStack[tplStack.length - 1]++; i++; }
+        else if (t === '}' && tplStack[tplStack.length - 1] > 0) tplStack[tplStack.length - 1]--;
+        else if (t === '`') {
+          if (tplStack[tplStack.length - 1] > 0) tplStack.push(0); // nested opens inside ${}
+          else tplStack.pop(); // current template closes
+        }
+        i++;
+      }
+      i--; // for-loop increment
       continue;
     }
     if (ch === '/' && source[i + 1] === '/') {
