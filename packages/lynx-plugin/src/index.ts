@@ -127,7 +127,9 @@ export interface PluginSigxLynxOptions {
 
   /**
    * Whether to enable CSS inheritance in the Lynx engine.
-   * @defaultValue false
+   * Default ON since #642 (the flag remains as a kill switch for one
+   * release — pass `snapshots: false` to keep the per-element path).
+   * @defaultValue true
    */
   enableCSSInheritance?: boolean;
 
@@ -153,7 +155,9 @@ export interface PluginSigxLynxOptions {
    * Works in dev too: template registrations ride the MT hot-update bridge,
    * stale templates are purged by file, and op batches that outrun a
    * registration park and replay (#637).
-   * @defaultValue false
+   * Default ON since #642 (the flag remains as a kill switch for one
+   * release — pass `snapshots: false` to keep the per-element path).
+   * @defaultValue true
    */
   snapshots?: boolean;
 }
@@ -171,7 +175,7 @@ export function pluginSigxLynx(
     enableCSSInheritance: _enableCSSInheritance = false,
     customCSSInheritanceList: _customCSSInheritanceList,
     debugInfoOutside: _debugInfoOutside = true,
-    snapshots: _snapshots = false,
+    snapshots: _snapshots = true,
   } = options;
 
   return {
