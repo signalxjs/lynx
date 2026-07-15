@@ -47,6 +47,8 @@ import { StorageDemo } from './screens/StorageDemo.js';
 import { SqliteChatDemo } from './screens/SqliteChatDemo.js';
 import { HapticsDemo } from './screens/HapticsDemo.js';
 import { WebRTCDemo } from './screens/WebRTCDemo.js';
+// Framework
+import { DynamicImportDemo } from './screens/DynamicImportDemo.js';
 
 export const routes = defineRoutes({
     // Home is the root of the single global stack: search + grouped catalog.
@@ -126,6 +128,9 @@ export const routes = defineRoutes({
     sqliteChatDemo: { component: SqliteChatDemo, path: '/sqlite-chat' },
     hapticsDemo: { component: HapticsDemo, path: '/haptics' },
     webrtcDemo: { component: WebRTCDemo, path: '/webrtc' },
+
+    // Framework
+    dynamicImportDemo: { component: DynamicImportDemo, path: '/dynamic-import' },
 });
 
 declare module '@sigx/lynx-navigation' {

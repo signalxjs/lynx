@@ -32,6 +32,8 @@ declare module '@rsbuild/core' {
       bundlerType: string;
       /** Absolute path to the project root (the dir containing the rsbuild config). */
       rootPath: string;
+      /** Absolute path to the build output directory (output.distPath.root). */
+      distPath: string;
     };
     expose: (key: symbol, value: any) => void;
     useExposed: (key: symbol) => any;
@@ -42,6 +44,8 @@ declare module '@rsbuild/core' {
       error(...args: unknown[]): void;
       debug(...args: unknown[]): void;
     };
+    /** Build lifecycle hook fired after each production build completes. */
+    onAfterBuild: (cb: () => void | Promise<void>) => void;
     /** Dev-server lifecycle hook fired after the dev server starts. */
     onAfterStartDevServer: (cb: () => void | Promise<void>) => void;
     /** Dev-server lifecycle hook fired when the dev server stops. */

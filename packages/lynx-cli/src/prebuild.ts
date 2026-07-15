@@ -17,6 +17,7 @@ import { createRequire } from 'node:module';
 import { resolveConfig, modulesForPlatform, resolveAssets } from './config/index.js';
 import { writeFileIfChanged, copyFileIfChanged } from './util/idempotent-write.js';
 import { embedBundle } from './util/embed-bundle.js';
+import { isResourceFolderRegistered, stripResourceFolderEntries } from './util/xcode-resources.js';
 import {
     combineHash, getCliVersion, walkFiles,
     readCachedFingerprint, writeCachedFingerprint,
@@ -1163,6 +1164,7 @@ export function checkDevClientVersion(cwd: string, devClientPkg: string): void {
 const MANAGED_IOS_FILES = [
     'App.swift',
     'ContentView.swift',
+    'SigxProductionResources.swift',
     'Services/LynxSetupService.swift',
     // Info.plist is fully driven by config (orientation, scheme, buildNumber,
     // launch screen, usage descriptions). Refreshing it every prebuild keeps
@@ -1210,6 +1212,7 @@ const MANAGED_ANDROID_FILES = [
     'app/build.gradle.kts',
     'gradle/libs.versions.toml',
     'app/src/main/kotlin/__package__/MainActivity.kt',
+    'app/src/main/kotlin/__package__/SigxProductionResources.kt',
 ];
 
 function androidTemplateVars(config: ResolvedConfig): Record<string, string> {
@@ -2300,6 +2303,94 @@ function addFilesToXcodeProject(
     }
 }
 
+/**
+ * Ensure the iOS project carries the `LynxAssets` folder (async chunks from
+ * dynamic `import()`, mirrored in by `embedAsyncAssets`, #599). A blue folder
+ * reference copies the directory recursively into the app bundle, so hashed
+ * chunk filenames need no per-build pbxproj edits. The directory itself is
+ * created on every prebuild — a referenced-but-missing folder fails
+ * `xcodebuild`, while an empty one is harmless.
+ */
+export function ensureIosLynxAssetsFolder(cwd: string, config: ResolvedConfig): void {
+    mkdirSync(join(iosSourceRoot(cwd, config), 'LynxAssets'), { recursive: true });
+    addResourceFolderToXcodeProject(cwd, config, 'LynxAssets');
+}
+
+/**
+ * Register a folder reference in the pbxproj and add it to the app target's
+ * Resources build phase. Sibling of `addFilesToXcodeProject`, which only
+ * handles Swift sources in the Sources phase.
+ *
+ * Idempotent, and repairs partial state: it no-ops only when the folder is
+ * *fully* registered (file reference + build file + Resources-phase entry).
+ * A project carrying only some of those would otherwise be left alone by a
+ * name-substring check while Xcode quietly shipped none of the files — so any
+ * incomplete registration is stripped and re-injected from scratch.
+ */
+function addResourceFolderToXcodeProject(
+    cwd: string,
+    config: ResolvedConfig,
+    folderName: string,
+): void {
+    const pbxprojPath = join(iosXcodeProjPath(cwd, config), 'project.pbxproj');
+    if (!existsSync(pbxprojPath)) return;
+
+    let content = readFileSync(pbxprojPath, 'utf-8');
+    if (isResourceFolderRegistered(content, folderName)) return;
+    const wasPartial = content.includes(`/* ${folderName} */`)
+        || content.includes(`/* ${folderName} in Resources */`);
+    if (wasPartial) {
+        content = stripResourceFolderEntries(content, folderName);
+        log(`iOS: repairing incomplete ${folderName} registration in Xcode project`);
+    }
+
+    // Deterministic UUIDs (same scheme as addFilesToXcodeProject, distinct
+    // prefixes so a source file with the same name can't collide).
+    function folderUUID(prefix: string, name: string): string {
+        let hash = 0;
+        const str = prefix + name;
+        for (let i = 0; i < str.length; i++) {
+            const chr = str.charCodeAt(i);
+            hash = ((hash << 5) - hash) + chr;
+            hash |= 0;
+        }
+        const hex = Math.abs(hash).toString(16).padStart(8, '0').slice(0, 8);
+        return `DC${prefix.slice(0, 2)}${hex}0000`.padEnd(24, '0').slice(0, 24);
+    }
+    const buildUUID = folderUUID('RB', folderName);
+    const refUUID = folderUUID('RF', folderName);
+
+    content = content.replace(
+        '/* End PBXBuildFile section */',
+        `\t\t${buildUUID} /* ${folderName} in Resources */ = {isa = PBXBuildFile; fileRef = ${refUUID} /* ${folderName} */; };`
+        + '\n/* End PBXBuildFile section */',
+    );
+    content = content.replace(
+        '/* End PBXFileReference section */',
+        `\t\t${refUUID} /* ${folderName} */ = {isa = PBXFileReference; lastKnownFileType = folder; path = ${folderName}; sourceTree = "<group>"; };`
+        + '\n/* End PBXFileReference section */',
+    );
+
+    // Add the folder ref to the app's main group children (same anchor as
+    // addFilesToXcodeProject's skip-group path).
+    const appNameRegex = new RegExp(
+        `(\\/\\* ${escapeRegex(config.name)} \\*\\/ = \\{[\\s\\S]*?children = \\(\\s*\\n)([\\s\\S]*?)(\\s*\\);[\\s\\S]*?path = "?${escapeRegex(config.name)}"?;)`,
+    );
+    content = content.replace(appNameRegex, (_m, open, existing, close) => {
+        return open + existing + `\t\t\t\t${refUUID} /* ${folderName} */,` + '\n' + close;
+    });
+
+    // Add to the Resources build phase (anchor on the phase marker so we don't
+    // touch Sources/Frameworks).
+    content = content.replace(
+        /(isa = PBXResourcesBuildPhase;[\s\S]*?files = \([\s\S]*?)(\s*\);)/,
+        (_m, before, close) => before + '\n' + `\t\t\t\t${buildUUID} /* ${folderName} in Resources */,` + close,
+    );
+
+    writeFileIfChanged(pbxprojPath, content);
+    log(`iOS: registered ${folderName} folder reference in Xcode project`);
+}
+
 /** Escape a string for use inside a RegExp literal. */
 function escapeRegex(s: string): string {
     return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -2787,6 +2878,13 @@ export async function runPrebuild(opts: PrebuildOptions = {}): Promise<void> {
         // the Xcode project. Without this step the generated registry
         // references Swift classes that don't exist in the build.
         copyIosModuleSources(cwd, config, manifests);
+
+        // Async-chunk support (#599): production resource fetchers + the
+        // LynxAssets/ carrier folder. The template pbxproj seeds entries for
+        // both; the injectors below retrofit projects scaffolded before this
+        // landed (idempotent no-ops otherwise).
+        addFilesToXcodeProject(cwd, config, '', ['SigxProductionResources.swift']);
+        ensureIosLynxAssetsFolder(cwd, config);
 
         // The pbxproj permanently references `main.lynx.bundle` in the Copy
         // Bundle Resources phase so release builds pick it up. Dev builds
