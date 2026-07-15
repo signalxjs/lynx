@@ -105,4 +105,9 @@ describe('scanBalanced template literals', () => {
     const src = 'f(`a${g(")")}b`, `c${`d${h("]")}e`}f`)';
     expect(scanBalanced(src, 1)).toBe(src.length - 1);
   });
+
+  it('counts object-literal braces inside interpolations', () => {
+    const src = 'f(`x${{ a: 1, b: { c: ")" } }}y`)';
+    expect(scanBalanced(src, 1)).toBe(src.length - 1);
+  });
 });

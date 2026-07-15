@@ -86,6 +86,9 @@ export function scanBalanced(source: string, openIdx: number): number {
         const t = source[i];
         if (t === '\\') i++;
         else if (t === '$' && source[i + 1] === '{') { tplStack[tplStack.length - 1]++; i++; }
+        // ALL braces count inside an open interpolation — `${{a: 1}}` must
+        // not close the expression on the object literal's brace.
+        else if (t === '{' && tplStack[tplStack.length - 1] > 0) tplStack[tplStack.length - 1]++;
         else if (t === '}' && tplStack[tplStack.length - 1] > 0) tplStack[tplStack.length - 1]--;
         else if (t === '`') {
           if (tplStack[tplStack.length - 1] > 0) tplStack.push(0); // nested opens inside ${}
