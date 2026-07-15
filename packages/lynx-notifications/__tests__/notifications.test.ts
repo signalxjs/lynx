@@ -86,6 +86,13 @@ describe('getInitialNotification', () => {
         expect(await Notifications.getInitialNotification()).toBeNull();
     });
 
+    it('returns null for a top-level array payload', async () => {
+        // Arrays are objects in JS — the "plain object" contract is enforced,
+        // not implied.
+        bridge.callAsync.mockResolvedValueOnce(JSON.stringify([{ notificationId: 'n-1' }]));
+        expect(await Notifications.getInitialNotification()).toBeNull();
+    });
+
     it('returns null for malformed JSON rather than throwing', async () => {
         bridge.callAsync.mockResolvedValueOnce('{not json');
         expect(await Notifications.getInitialNotification()).toBeNull();

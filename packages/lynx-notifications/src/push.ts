@@ -92,7 +92,10 @@ function safeParse(s: string): unknown {
  */
 export function parseNotificationResponse(raw: unknown): NotificationResponse | null {
     const v = typeof raw === 'string' ? safeParse(raw) : raw;
-    if (v === null || typeof v !== 'object') return null;
+    // Arrays are objects in JS; reject them here so the "plain object" contract
+    // is enforced rather than implied. Belt-and-braces — an array can't carry a
+    // string `notificationId` through JSON anyway, so it would fall out below.
+    if (v === null || typeof v !== 'object' || Array.isArray(v)) return null;
     const o = v as Record<string, unknown>;
     if (typeof o['notificationId'] !== 'string') return null;
     return {
