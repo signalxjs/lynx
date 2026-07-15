@@ -116,19 +116,63 @@ export function extractLocalImports(source: string): string {
  * Strip comments before scanning so only real statements survive.
  */
 function stripJsComments(code: string): string {
-  // Two passes — block comments first, then line comments. Block-first
-  // is important: a `// inside */` sequence inside a `/* ... */` block
-  // would otherwise have the inner `//` eaten by the line-comment pass
-  // before the outer block is matched, leaving stray `*/` in the output.
-  // We don't try to be string-literal-aware (a comment-looking sequence
-  // inside a string would be wrongly stripped) because:
-  //   1. The input is SWC output, which doesn't put `//` or `/* */` inside
-  //      strings except in trivial constant cases we don't care about.
-  //   2. `extractRegistrations` only cares about call shapes; the surrounding
-  //      code is discarded anyway.
-  return code
-    .replace(/\/\*[\s\S]*?\*\//g, '')
-    .replace(/(^|[^:])\/\/[^\n]*/g, '$1');
+  // Single-pass, string-literal-aware scanner. Snapshot create bodies embed
+  // arbitrary user attribute strings (a className of "a //b" or "/*x*/" is
+  // legal), so regex stripping would corrupt literals before the extraction
+  // slices run. Comments are replaced with a single space to keep token
+  // separation; newlines inside block comments are preserved for line
+  // stability. Template-literal `${}` interpolation is handled with a small
+  // depth counter.
+  let out = '';
+  let i = 0;
+  const n = code.length;
+  while (i < n) {
+    const c = code[i];
+    const next = code[i + 1];
+    if (c === '/' && next === '/') {
+      while (i < n && code[i] !== '\n') i++;
+      out += ' ';
+      continue;
+    }
+    if (c === '/' && next === '*') {
+      i += 2;
+      while (i < n && !(code[i] === '*' && code[i + 1] === '/')) {
+        if (code[i] === '\n') out += '\n';
+        i++;
+      }
+      i += 2;
+      out += ' ';
+      continue;
+    }
+    if (c === "'" || c === '"') {
+      out += c;
+      i++;
+      while (i < n && code[i] !== c) {
+        if (code[i] === '\\') { out += code[i]; i++; }
+        if (i < n) { out += code[i]; i++; }
+      }
+      if (i < n) { out += code[i]; i++; }
+      continue;
+    }
+    if (c === '`') {
+      out += c;
+      i++;
+      let depth = 0;
+      while (i < n) {
+        if (code[i] === '\\') { out += code[i] + (code[i + 1] ?? ''); i += 2; continue; }
+        if (code[i] === '$' && code[i + 1] === '{') { depth++; out += '${'; i += 2; continue; }
+        if (code[i] === '}' && depth > 0) { depth--; out += '}'; i++; continue; }
+        if (code[i] === '`' && depth === 0) break;
+        out += code[i];
+        i++;
+      }
+      if (i < n) { out += code[i]; i++; }
+      continue;
+    }
+    out += c;
+    i++;
+  }
+  return out;
 }
 
 /**

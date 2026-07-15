@@ -271,3 +271,17 @@ describe('extraction helpers', () => {
     expect(out).not.toContain('export function');
   });
 });
+
+describe('stripJsComments string-awareness (via extraction)', () => {
+  it('does not corrupt attribute strings that look like comments', () => {
+    const src = `
+export function Weird() {
+  return <view class="a //b" accessibility-label={"/* not a comment */"}><text>x</text></view>;
+}
+`;
+    const out = mt(src, '/app/src/Weird.tsx');
+    expect(out).toContain('snapshotCreatorMap');
+    expect(out).toContain('a //b');
+    expect(out).toContain('/* not a comment */');
+  });
+});
