@@ -63,7 +63,7 @@ object PushActivityHook {
     /** Pre-v1 alias of [EXTRA_FCM_MESSAGE_ID]; still read as an id fallback. */
     private const val EXTRA_FCM_MESSAGE_ID_LEGACY = "message_id"
 
-    /** Our own extras namespace — see [stripSigxKeys]. */
+    /** Our own extras namespace — see [stripNonSenderKeys]. */
     private const val SIGX_PREFIX = "sigx_"
 
     @JvmStatic
@@ -114,10 +114,21 @@ object PushActivityHook {
 
     private fun isNotificationTap(intent: Intent): Boolean =
         intent.getBooleanExtra(EXTRA_NOTIFICATION_TAP, false) ||
-            intent.hasExtra(EXTRA_FCM_MESSAGE_ID)
+            intent.hasExtra(EXTRA_FCM_MESSAGE_ID) ||
+            // Read the legacy alias here too, not just as an id fallback: an
+            // intent carrying only `message_id` (pre-v1 senders) would
+            // otherwise not register as a tap at all, while still being used to
+            // name one. react-native-firebase probes both keys the same way.
+            intent.hasExtra(EXTRA_FCM_MESSAGE_ID_LEGACY)
 
     /**
-     * Strip the markers so one tap is delivered exactly once.
+     * Strip the markers AND the harvested payload so one tap is delivered
+     * exactly once and nothing is left behind.
+     *
+     * The payload extras go too, not just the markers: they are app data —
+     * routinely user data — and would otherwise sit on `activity.intent` for
+     * the Activity's whole lifetime, readable by anything holding the Activity
+     * and re-harvestable by a later recreate.
      *
      * Note this cannot defend against process-death restore-from-recents: the
      * system rebuilds the Activity from the *persisted* task intent, a fresh
@@ -127,6 +138,14 @@ object PushActivityHook {
     private fun consume(intent: Intent) {
         intent.removeExtra(EXTRA_NOTIFICATION_TAP)
         intent.removeExtra(EXTRA_FCM_MESSAGE_ID)
+        intent.removeExtra(EXTRA_FCM_MESSAGE_ID_LEGACY)
+        // Snapshot the keys first — removeExtra mutates the bundle we'd be
+        // iterating.
+        val payloadKeys = intent.extras
+            ?.keySet()
+            ?.filter { it.startsWith(SIGX_DATA_PREFIX) }
+            ?: emptyList()
+        for (key in payloadKeys) intent.removeExtra(key)
     }
 
     private fun extractPayload(intent: Intent): Pair<String, Map<String, String>> {
@@ -175,14 +194,22 @@ object PushActivityHook {
      * along on the intent. `getData()` is a safe superset of both.
      */
     private fun extractFcmData(extras: Bundle): Map<String, String> =
-        stripSigxKeys(RemoteMessage(extras).data)
+        stripNonSenderKeys(RemoteMessage(extras).data)
 
     /**
-     * `getData()` only knows FCM's reserved words, not ours. A dev-client launch
-     * carries `sigx_dev_url` (`MainActivity.EXTRA_DEV_URL`) and our own taps
-     * carry `sigx_notification_tap`; neither is sender data, so drop the
-     * namespace wholesale rather than leak it into `data`.
+     * `getData()` only knows FCM's own reserved words. Two more classes of key
+     * are not sender data and must not leak into `data`:
+     *
+     *  - **Ours.** A dev-client launch carries `sigx_dev_url`
+     *    (`MainActivity.EXTRA_DEV_URL`) and our own taps carry
+     *    `sigx_notification_tap`, so drop the namespace wholesale.
+     *  - **[EXTRA_FCM_MESSAGE_ID_LEGACY].** `getData()` deliberately keeps bare
+     *    `message_id` (only `google.`-prefixed keys are reserved), but we read
+     *    it as transport metadata — it's a tap signal and the id fallback — so
+     *    surfacing it as an app key too would be incoherent. The cost is a
+     *    sender that genuinely names a data key `message_id`; it still reaches
+     *    them as `notificationId`, and FCM's own docs steer senders off the name.
      */
-    private fun stripSigxKeys(data: Map<String, String>): Map<String, String> =
-        data.filterKeys { !it.startsWith(SIGX_PREFIX) }
+    private fun stripNonSenderKeys(data: Map<String, String>): Map<String, String> =
+        data.filterKeys { !it.startsWith(SIGX_PREFIX) && it != EXTRA_FCM_MESSAGE_ID_LEGACY }
 }

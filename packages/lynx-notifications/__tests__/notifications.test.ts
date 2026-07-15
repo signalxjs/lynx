@@ -107,6 +107,28 @@ describe('getInitialNotification', () => {
         });
     });
 
+    it('drops data values that are not strings', async () => {
+        // The wire type is Record<string, string> and both platforms only send
+        // strings. A non-string means the payload isn't what it claims — drop
+        // the key rather than hand back a value contradicting the signature.
+        bridge.callAsync.mockResolvedValueOnce(JSON.stringify({
+            notificationId: 'n-4',
+            data: { route: '/ok', count: 7, nested: { a: 1 }, gone: null },
+        }));
+        const res = await Notifications.getInitialNotification();
+        expect(res!.data).toEqual({ route: '/ok' });
+    });
+
+    it('treats an array data payload as empty', async () => {
+        // Arrays are objects in JS — without an explicit reject, `data` would
+        // come back with numeric keys.
+        bridge.callAsync.mockResolvedValueOnce(JSON.stringify({
+            notificationId: 'n-5',
+            data: ['a', 'b'],
+        }));
+        expect((await Notifications.getInitialNotification())!.data).toEqual({});
+    });
+
     it('round-trips a nested iOS data value as a parseable JSON string', async () => {
         // iOS JSON-encodes non-string APNs custom values, so a nested object
         // recovers via JSON.parse rather than arriving as a Swift debug

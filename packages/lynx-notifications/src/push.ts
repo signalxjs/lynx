@@ -95,13 +95,30 @@ export function parseNotificationResponse(raw: unknown): NotificationResponse | 
     if (v === null || typeof v !== 'object') return null;
     const o = v as Record<string, unknown>;
     if (typeof o['notificationId'] !== 'string') return null;
-    const data = o['data'];
     return {
         notificationId: o['notificationId'],
-        data: (data !== null && typeof data === 'object' ? data : {}) as Record<string, string>,
+        data: stringRecord(o['data']),
         actionIdentifier:
             typeof o['actionIdentifier'] === 'string' ? o['actionIdentifier'] : 'default',
     };
+}
+
+/**
+ * Coerce a raw `data` value to the documented `Record<string, string>`.
+ *
+ * Both platforms only ever send string values (FCM's `data` map is string-only,
+ * and iOS JSON-encodes anything else), so a non-string value means the payload
+ * isn't what it claims. Drop those keys rather than hand a consumer a value
+ * whose type contradicts the signature. Arrays are objects in JS — reject them
+ * too, or `data` would come back with numeric keys.
+ */
+function stringRecord(raw: unknown): Record<string, string> {
+    if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) return {};
+    const out: Record<string, string> = {};
+    for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
+        if (typeof v === 'string') out[k] = v;
+    }
+    return out;
 }
 
 export function addTokenListener(cb: (event: PushTokenEvent) => void): () => void {
