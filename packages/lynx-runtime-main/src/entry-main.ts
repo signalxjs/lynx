@@ -146,10 +146,12 @@ g['sigxApplyMtHotUpdate'] = function (
       // prefix is stable, so incoming ids identify exactly which files'
       // stale entries to drop.
       const incomingIds = [...new Set(snapshotCode.match(/__snapshot_[A-Za-z0-9_]+/g) ?? [])];
-      purgeSnapshotTemplatesByPrefix(incomingIds);
+      // Eval FIRST, purge on success — purging before a throwing eval would
+      // leave the registry missing both old and new templates for the file.
       new Function('__SigxSnap', snapshotCode)(
         (globalThis as Record<string, unknown>)['__sigxSnapshotInternal'],
       );
+      purgeSnapshotTemplatesByPrefix(incomingIds);
     } catch (e) {
       console.log('[sigx-mt] sigxApplyMtHotUpdate snapshot eval failed:', String(e));
     }

@@ -141,6 +141,7 @@ export function extractSnapshotRegistrations(source: string): string {
   // Assignments: `<ns>.snapshotCreatorMap[` … balanced to the createSnapshot
   // call's close paren + terminator.
   const marker = `${ns}.snapshotCreatorMap[`;
+  let assignments = 0;
   let from = 0;
   while (true) {
     const idx = source.indexOf(marker, from);
@@ -154,10 +155,13 @@ export function extractSnapshotRegistrations(source: string): string {
     let end = callClose + 1;
     if (end < source.length && source[end] === ';') end++;
     out.push(source.slice(idx, end));
+    assignments++;
     from = end;
   }
 
-  if (out.length === 0 || seenDecls.size === 0) return '';
+  // Decl-only output must not ship: the MT would purge the file's old
+  // templates against an incoming set that registers nothing.
+  if (assignments === 0 || seenDecls.size === 0) return '';
   // Rebind every `<ns>.` member access to the fixed parameter. The namespace
   // local is a generated identifier — a plain word-boundary replace is safe.
   const nsRe = new RegExp(`\\b${ns.replace(/\$/g, '\\$')}\\.`, 'g');
