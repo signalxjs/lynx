@@ -49,6 +49,8 @@ import { HapticsDemo } from './screens/HapticsDemo.js';
 import { WebRTCDemo } from './screens/WebRTCDemo.js';
 // Framework
 import { DynamicImportDemo } from './screens/DynamicImportDemo.js';
+// #620 phase-5 bench (raw templated list)
+import { SnapshotListBenchScreen } from './screens/SnapshotListBench.js';
 
 export const routes = defineRoutes({
     // Home is the root of the single global stack: search + grouped catalog.
@@ -78,6 +80,7 @@ export const routes = defineRoutes({
 
     // UI & Theming
     listDemo: { component: ListDemo, path: '/list' },
+    snapshotListBench: { component: SnapshotListBenchScreen, path: '/snapshot-list-bench' },
     chatDemo: { component: ChatDemo, path: '/chat' },
     appearance: { component: Appearance, path: '/appearance' },
     theming: { component: Theming, path: '/theming' },

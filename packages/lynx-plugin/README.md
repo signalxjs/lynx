@@ -88,10 +88,13 @@ patches. Measured ~25–30x cheaper cell construction on release builds.
 - **JSX must be statically analyzable.** Dynamic parts (attribute expressions,
   children) become numbered holes; the subtree *shape* is fixed at compile
   time. Non-static subtrees keep today's per-element path automatically.
-  Whole files using `use:*` directive attributes or raw `<list>` JSX are
-  pre-filtered to the per-element path silently (known-unsupported until
-  #620's list phase); only an *unexpected* transform failure emits a build
-  warning naming the file that fell back.
+  Whole files using `use:*` directive attributes are pre-filtered to the
+  per-element path silently (they panic the upstream WASM pass); only an
+  *unexpected* transform failure emits a build warning naming the file that
+  fell back. Raw `<list>` JSX compiles: cells are staged instance records
+  that `componentAtIndex` materializes synchronously on first pull, and
+  offscreen cells recycle through template-keyed pools (`enqueueComponent`
+  re-patches a pooled tree instead of constructing).
 - **App/workspace-src only.** Published dists ship pre-lowered `_jsx()` calls
   and keep the per-element path.
 

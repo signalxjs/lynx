@@ -29,6 +29,7 @@ import {
 } from '@sigx/lynx-runtime-internal/snapshot';
 import { elements } from '../src/element-registry';
 import { flushDirtySlots, resetSlotStates } from '../src/event-slots';
+import { isListElement, resetListState } from '../src/list-mt';
 import { resetMtRefBindings, resolveElementIdByWvid } from '../src/mt-ref-bind';
 import {
   createSnapshotInstance,
@@ -57,6 +58,7 @@ beforeEach(() => {
   resetSnapshotRegistry();
   resetSnapshotInstances();
   resetSlotStates();
+  resetListState();
   resetMtRefBindings();
   elements.clear();
   delete (globalThis as Record<string, unknown>)['lynxWorkletImpl'];
@@ -401,9 +403,19 @@ describe('hole updaters', () => {
     expect(keys).not.toContain('recyclable');
   });
 
-  it('snapshotCreateList throws descriptively until list templates land', () => {
+  it('snapshotCreateList creates a real recycler-registered list (list-mt state)', () => {
+    const created: unknown[] = [];
+    vi.stubGlobal('__CreateList', vi.fn((_pid: number, cai: unknown, eq: unknown) => {
+      created.push([cai, eq]);
+      return makeEl('list');
+    }));
+    vi.stubGlobal('__UpdateListCallbacks', vi.fn());
+    vi.stubGlobal('__GetElementUniqueID', vi.fn((el: FakeEl) => el.__id));
     registerCellTemplate();
     const inst = createSnapshotInstance(35, CELL_ID);
-    expect(() => snapshotCreateList(7, inst, 0)).toThrow(/not supported yet/);
+    const el = snapshotCreateList(7, inst, 0) as FakeEl;
+    expect(el.tag).toBe('list');
+    expect(created).toHaveLength(1);
+    expect(isListElement(35)).toBe(true); // state keyed by the instance's BG id
   });
 });
