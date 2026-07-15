@@ -365,6 +365,20 @@ export const catalog: Area[] = [
             },
         ],
     },
+    {
+        id: 'framework',
+        title: 'Framework',
+        icon: { set: 'lucide', name: 'package' },
+        examples: [
+            {
+                id: 'dynamic-import',
+                title: 'Dynamic import',
+                description: 'Code-splitting via import() — async chunk loaded on demand, in dev and store builds',
+                icon: { set: 'lucide', name: 'package-open' },
+                route: 'dynamicImportDemo',
+            },
+        ],
+    },
 ];
 
 /** Example flattened with its parent area title (shown in search results). */

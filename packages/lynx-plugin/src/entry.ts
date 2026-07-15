@@ -173,12 +173,59 @@ export async function applyEntry(
   // Lynx's single-file bundle requirement.
   api.modifyRsbuildConfig((config, { mergeRsbuildConfig }) => {
     const userConfig = api.getRsbuildConfig('original');
+    let merged = config;
     if (!userConfig.performance?.chunkSplit?.strategy) {
-      return mergeRsbuildConfig(config, {
+      merged = mergeRsbuildConfig(merged, {
         performance: { chunkSplit: { strategy: 'all-in-one' } },
       });
     }
-    return config;
+    // Dynamic-import async chunks are still emitted regardless of the
+    // strategy above. Pin the production assetPrefix so their request URLs
+    // are root-relative (`/static/js/async/<hash>.js`) — the native
+    // production fetchers map those 1:1 onto embedded assets (#599). Dev is
+    // untouched: the dev assetPrefix is rewritten to the LAN dev-server URL.
+    // Only pin when genuinely unset — `assetPrefix: ''` is a deliberate
+    // choice (relative URLs) the fetchers' marker fallback still resolves.
+    if (userConfig.output?.assetPrefix == null) {
+      merged = mergeRsbuildConfig(merged, { output: { assetPrefix: '/' } });
+    }
+    return merged;
+  });
+
+  // Surface emitted async chunks after production builds — they only load in
+  // standalone apps when embedded by a release flow, and never over OTA. The
+  // `sigx build` summary prints the same warning; this covers direct
+  // `rspeedy build` invocations (external/CI pipelines). (#599)
+  // This hook is pure diagnostics and runs once the build has already
+  // succeeded, so everything below is wrapped: an fs hiccup or an unexpected
+  // distPath must never be able to turn a green build red.
+  api.onAfterBuild(async () => {
+    try {
+      const { readdirSync } = await import('node:fs');
+      const asyncDir = path.join(api.context.distPath, 'static', 'js', 'async');
+      if (!existsSync(asyncDir)) return;
+      // Hand-rolled walk rather than `readdirSync(..., { recursive: true })` —
+      // that option needs Node >= 18.17/20.1 and this plugin declares no engines
+      // floor, so an older host would throw here and take the build down with it.
+      const countFiles = (dir: string): number => {
+        let n = 0;
+        for (const entry of readdirSync(dir, { withFileTypes: true })) {
+          n += entry.isDirectory() ? countFiles(path.join(dir, entry.name)) : 1;
+        }
+        return n;
+      };
+      const chunkCount = countFiles(asyncDir);
+      if (chunkCount === 0) return;
+      api.logger.info(
+        `[sigx] ${chunkCount} async chunk(s) emitted by dynamic import() under static/js/async/. `
+        + 'Standalone builds load them from embedded assets — embed via `sigx run:* --release` or '
+        + '`sigx prebuild --embed-bundle`. OTA updates (`sigx updates:publish`) do NOT carry them.',
+      );
+    } catch (err) {
+      api.logger.warn(
+        `[sigx] Could not inspect async chunks: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
   });
 
   // Exclude main-thread chunks from chunk splitting so each remains

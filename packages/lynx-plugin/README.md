@@ -41,7 +41,16 @@ export default defineConfig({
 
    Listing them as separate entries in webpack isn't sufficient because the chunk graph can evaluate user code before the bootstrap chain. Prepending side-effect imports per-file forces the dep-graph order.
 
-4. **Cross-package worklet pickup.** The worklet rules run on every JS/TS file in the BG / MT layers, including `node_modules` and pre-built `dist/`. Any package shipping `'main thread'` directives in its dist (`@sigx/lynx-motion`, `@sigx/lynx-navigation`, `@sigx/lynx-gestures`, future additions) is picked up automatically — no allowlist or opt-in flag. See [CONTRIBUTING.md](https://github.com/signalxjs/lynx/blob/main/CONTRIBUTING.md#lynx-plugin-internals-cross-package-worklet-pickup) for the loader-branching details.
+4. **Async-chunk plumbing (#599).** Dynamic `import()` emits async chunks
+   (`dist/static/js/async/<hash>.js`). The plugin pins the production
+   `output.assetPrefix` to `/` (only when you haven't set one) so chunk
+   request URLs are root-relative and map 1:1 onto the assets
+   `@sigx/lynx-cli`'s release flows embed into the native app, and it logs
+   every emitted async chunk after a production build. Set your own
+   `output.assetPrefix` to host chunks remotely instead — the generated app
+   shells fall back to http(s) for non-local chunk URLs.
+
+5. **Cross-package worklet pickup.** The worklet rules run on every JS/TS file in the BG / MT layers, including `node_modules` and pre-built `dist/`. Any package shipping `'main thread'` directives in its dist (`@sigx/lynx-motion`, `@sigx/lynx-navigation`, `@sigx/lynx-gestures`, future additions) is picked up automatically — no allowlist or opt-in flag. See [CONTRIBUTING.md](https://github.com/signalxjs/lynx/blob/main/CONTRIBUTING.md#lynx-plugin-internals-cross-package-worklet-pickup) for the loader-branching details.
 
 ## Worklet author quick reference
 
