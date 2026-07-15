@@ -78,6 +78,32 @@ function safeParse(s: string): unknown {
     try { return JSON.parse(s); } catch { return undefined; }
 }
 
+/**
+ * Normalize a raw native notification-response payload.
+ *
+ * Accepts the JSON-string form the native side emits — both the response
+ * channel and `getInitialNotification`'s callback JSON-encode, because a
+ * structured map loses its sibling scalars crossing the bridge (#342) — as
+ * well as a plain object, so a host that marshals maps faithfully still works.
+ *
+ * Returns null for anything unusable: a missing `notificationId` means the
+ * payload didn't survive, and a caller routing on it should treat that as "no
+ * tap" rather than deep-link into a partial.
+ */
+export function parseNotificationResponse(raw: unknown): NotificationResponse | null {
+    const v = typeof raw === 'string' ? safeParse(raw) : raw;
+    if (v === null || typeof v !== 'object') return null;
+    const o = v as Record<string, unknown>;
+    if (typeof o['notificationId'] !== 'string') return null;
+    const data = o['data'];
+    return {
+        notificationId: o['notificationId'],
+        data: (data !== null && typeof data === 'object' ? data : {}) as Record<string, string>,
+        actionIdentifier:
+            typeof o['actionIdentifier'] === 'string' ? o['actionIdentifier'] : 'default',
+    };
+}
+
 export function addTokenListener(cb: (event: PushTokenEvent) => void): () => void {
     return subscribe<PushTokenEvent>(TOKEN_CHANNEL, cb);
 }
@@ -91,5 +117,11 @@ export function addPushListener(cb: (event: RemoteMessage) => void): () => void 
 }
 
 export function addNotificationResponseListener(cb: (event: NotificationResponse) => void): () => void {
-    return subscribe<NotificationResponse>(RESPONSE_CHANNEL, cb);
+    // Normalize rather than pass the raw event through: `notificationId` and
+    // `actionIdentifier` are the fields consumers route on, and a payload that
+    // lost them shouldn't reach a listener as a partial (#342 / #619).
+    return subscribe<unknown>(RESPONSE_CHANNEL, (raw) => {
+        const event = parseNotificationResponse(raw);
+        if (event) cb(event);
+    });
 }

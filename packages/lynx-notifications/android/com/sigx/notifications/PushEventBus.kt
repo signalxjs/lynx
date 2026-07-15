@@ -1,6 +1,6 @@
 package com.sigx.notifications
 
-import com.lynx.react.bridge.JavaOnlyMap
+import org.json.JSONObject
 import java.util.UUID
 
 /**
@@ -11,6 +11,17 @@ import java.util.UUID
  * Mirrors the [com.sigx.websocket.WebSocketEventBus] pattern. Decoupled from
  * any specific LynxView so events that fire before the JS heap is ready
  * (cold-start taps, async token refresh) survive view recreation.
+ *
+ * Payloads are emitted as a **JSON string** whose parsed shape matches the
+ * interfaces in `src/push.ts`. A string (rather than a structured
+ * `JavaOnlyMap`) survives Lynx 0.5.0's bridge marshalling intact — a map
+ * carrying a nested map drops its *sibling scalar* fields crossing the bridge
+ * (#342), and every payload here nests `data`. That silently ate `title` /
+ * `body` / `foreground` / `notificationId` / `actionIdentifier` from every
+ * push event while `data` arrived intact — which is why the bug read as "the
+ * data is there but tap routing does nothing". Same fix, same reason as
+ * `HttpEventBus` / `WebRTCEventBus`; the JS shim already parses string-form
+ * events.
  */
 internal object PushEventBus {
 
@@ -24,26 +35,26 @@ internal object PushEventBus {
      * callback) must not deadlock.
      */
     private val lock = Any()
-    private val listeners = mutableListOf<Pair<UUID, (String, JavaOnlyMap) -> Unit>>()
+    private val listeners = mutableListOf<Pair<UUID, (String, String) -> Unit>>()
 
-    /** Cached cold-start tap. Drained by [consumeInitialResponse]. */
-    private var initialResponse: JavaOnlyMap? = null
+    /** Cached cold-start tap, JSON-encoded. Drained by [consumeInitialResponse]. */
+    private var initialResponse: String? = null
 
     /**
      * Cached last token so a JS subscriber that attaches after FCM has already
      * returned the token still sees the value on subscribe. FCM returns the
      * same token across calls until rotation.
      */
-    private var lastToken: JavaOnlyMap? = null
+    private var lastToken: String? = null
 
-    fun addListener(fn: (String, JavaOnlyMap) -> Unit): UUID {
+    fun addListener(fn: (String, String) -> Unit): UUID {
         val token = UUID.randomUUID()
         // Snapshot the cached token in the same critical section as the
         // listener append — without this, a concurrent publishToken can slip
         // between `listeners.add` and reading `lastToken`, causing the new
         // listener to fire twice (once from the publish, once from the
         // replay). Matches the iOS bus' semantics.
-        val cached: JavaOnlyMap?
+        val cached: String?
         synchronized(lock) {
             listeners.add(token to fn)
             cached = lastToken
@@ -59,19 +70,16 @@ internal object PushEventBus {
     }
 
     fun publishToken(token: String, platform: String = "fcm") {
-        val payload = JavaOnlyMap().apply {
-            putString("token", token)
-            putString("platform", platform)
-        }
-        synchronized(lock) { lastToken = payload }
-        emit(Channel.TOKEN, payload)
+        val json = JSONObject()
+            .put("token", token)
+            .put("platform", platform)
+            .toString()
+        synchronized(lock) { lastToken = json }
+        emit(Channel.TOKEN, json)
     }
 
     fun publishTokenError(message: String) {
-        emit(
-            Channel.TOKEN_ERROR,
-            JavaOnlyMap().apply { putString("error", message) },
-        )
+        emit(Channel.TOKEN_ERROR, JSONObject().put("error", message).toString())
     }
 
     fun publishMessage(
@@ -80,13 +88,15 @@ internal object PushEventBus {
         data: Map<String, String>,
         foreground: Boolean,
     ) {
-        val payload = JavaOnlyMap().apply {
-            if (title != null) putString("title", title)
-            if (body != null) putString("body", body)
-            putMap("data", data.toJavaOnlyMap())
-            putBoolean("foreground", foreground)
-        }
-        emit(Channel.MESSAGE, payload)
+        val obj = JSONObject()
+        // Omit rather than null-fill: `title`/`body` are optional in
+        // `RemoteMessage` (`src/push.ts`), and a data-only message with no
+        // `data["title"]` legitimately has neither.
+        if (title != null) obj.put("title", title)
+        if (body != null) obj.put("body", body)
+        obj.put("data", data.toJson())
+        obj.put("foreground", foreground)
+        emit(Channel.MESSAGE, obj.toString())
     }
 
     fun publishResponse(
@@ -94,12 +104,7 @@ internal object PushEventBus {
         data: Map<String, String>,
         actionIdentifier: String,
     ) {
-        val payload = JavaOnlyMap().apply {
-            putString("notificationId", notificationId)
-            putMap("data", data.toJavaOnlyMap())
-            putString("actionIdentifier", actionIdentifier)
-        }
-        emit(Channel.RESPONSE, payload)
+        emit(Channel.RESPONSE, responseJson(notificationId, data, actionIdentifier))
     }
 
     /** Stash a cold-start tap until JS calls `getInitialNotification`. */
@@ -108,16 +113,12 @@ internal object PushEventBus {
         data: Map<String, String>,
         actionIdentifier: String,
     ) {
-        val payload = JavaOnlyMap().apply {
-            putString("notificationId", notificationId)
-            putMap("data", data.toJavaOnlyMap())
-            putString("actionIdentifier", actionIdentifier)
-        }
-        synchronized(lock) { initialResponse = payload }
+        val json = responseJson(notificationId, data, actionIdentifier)
+        synchronized(lock) { initialResponse = json }
     }
 
-    /** One-shot drain. */
-    fun consumeInitialResponse(): JavaOnlyMap? {
+    /** One-shot drain. JSON string — the JS shim parses it. */
+    fun consumeInitialResponse(): String? {
         return synchronized(lock) {
             val p = initialResponse
             initialResponse = null
@@ -125,18 +126,28 @@ internal object PushEventBus {
         }
     }
 
-    private fun emit(channel: String, payload: JavaOnlyMap) {
+    private fun responseJson(
+        notificationId: String,
+        data: Map<String, String>,
+        actionIdentifier: String,
+    ): String = JSONObject()
+        .put("notificationId", notificationId)
+        .put("data", data.toJson())
+        .put("actionIdentifier", actionIdentifier)
+        .toString()
+
+    private fun emit(channel: String, json: String) {
         // Snapshot under the lock so a concurrent add/remove can't tear the
         // iteration. Call listeners OUTSIDE the lock so a callback that
         // re-enters the bus doesn't deadlock.
         val snapshot = synchronized(lock) { listeners.toList() }
-        for ((_, fn) in snapshot) fn(channel, payload)
+        for ((_, fn) in snapshot) fn(channel, json)
     }
 
-    private fun Map<String, String>.toJavaOnlyMap(): JavaOnlyMap {
-        val m = JavaOnlyMap()
-        for ((k, v) in this) m.putString(k, v)
-        return m
+    private fun Map<String, String>.toJson(): JSONObject {
+        val o = JSONObject()
+        for ((k, v) in this) o.put(k, v)
+        return o
     }
 
     object Channel {
