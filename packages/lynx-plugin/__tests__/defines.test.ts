@@ -66,6 +66,34 @@ describe('per-layer defines (BG loader)', () => {
     expect(bg(source)).toBe(source);
   });
 
+  it('leaves define-only library files untouched, tokens and all', () => {
+    // Same scope constraint as the MT side: a dist that merely mentions a
+    // token (even in executable position) is never triggered on, reparsed,
+    // or folded by the BG loader.
+    const source = `export const mode = __BACKGROUND__ ? 'bg' : 'mt';`;
+    const out = bg(source, '/app/node_modules/@sigx/lynx-thing/dist/index.js');
+    expect(out).toBe(source);
+  });
+
+  it('does not fold defines in directive-bearing library files', () => {
+    // Library worklets still transform (BG needs the {_wkltId} placeholder),
+    // but defineDCE stays off for them — token mentions survive verbatim.
+    const source = `
+      export function use() {
+        return _jsx('view', {
+          'main-thread-bindtap': () => {
+            'main thread';
+            probe();
+          },
+        });
+      }
+      export const note = "__BACKGROUND__ is app-only";
+    `;
+    const out = bg(source, '/app/node_modules/@sigx/lynx-thing/dist/index.js');
+    expect(out).toMatch(/_wkltId:\s*"[^"]+"/);
+    expect(out).toContain('__BACKGROUND__ is app-only');
+  });
+
   it('folds defines while preserving JSX for the downstream SWC pass', () => {
     const source = `
       export function Panel({ items }: { items: string[] }) {

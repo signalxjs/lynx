@@ -28,6 +28,15 @@
  */
 export const DEFINE_RE = /__MAIN_THREAD__|__BACKGROUND__/;
 
+/**
+ * Library paths (`node_modules/` and any `dist/`). Shared by both loaders:
+ * the MT loader's body-preserve branches key on it (see worklet-loader-mt.ts
+ * header), and both loaders exempt library files from define folding — a
+ * dist that merely MENTIONS a define token (e.g. in an error string) must
+ * not be reparsed or rewritten.
+ */
+export const LIBRARY_PATH_RE = /[\\/](?:node_modules|dist)[\\/]/;
+
 export const BG_DEFINES = {
   __MAIN_THREAD__: 'false',
   __BACKGROUND__: 'true',
