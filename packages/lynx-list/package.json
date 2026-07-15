@@ -1,6 +1,6 @@
 {
     "name": "@sigx/lynx-list",
-    "version": "0.12.2",
+    "version": "0.13.0",
     "description": "High-performance virtualized list for sigx-lynx — data-driven wrapper over the native <list> recycler with grid/waterfall layouts, header/footer/empty slots, edge-reached events and an imperative scroll API. Pure JS.",
     "type": "module",
     "main": "./dist/index.js",

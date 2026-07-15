@@ -1,6 +1,6 @@
 {
     "name": "@sigx/lynx-location",
-    "version": "0.12.2",
+    "version": "0.13.0",
     "description": "Location services for sigx-lynx",
     "type": "module",
     "main": "./dist/index.js",

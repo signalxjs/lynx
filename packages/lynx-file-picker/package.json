@@ -1,6 +1,6 @@
 {
     "name": "@sigx/lynx-file-picker",
-    "version": "0.12.2",
+    "version": "0.13.0",
     "description": "Generic file picker for sigx-lynx",
     "type": "module",
     "main": "./dist/index.js",
