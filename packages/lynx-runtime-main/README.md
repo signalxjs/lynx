@@ -16,6 +16,8 @@ Full guides, API reference and live examples → **[https://sigx.dev/lynx/module
 - **Hybrid worklet dispatch** — the slot machine in `event-slots.ts` plus the hybrid context in `hybrid-worklet.ts` lets a single MT slot carry both a worklet handler *and* a BG-side handler for the same event, dispatching to both.
 - **AnimatedValue bridge** — `animated-bridge-mt.ts` diffs registered AVs against last-published snapshots and dispatches batched `Lynx.Sigx.AvPublish` events to BG once per `__FlushElementTree` boundary. The matching BG sink lives in `@sigx/lynx-runtime`.
 - **`useAnimatedStyle` mapper registry** — `animated-style-mappers.ts` ships built-in mappers (`translateX`, `scale`, `opacity`, ...) and exposes `registerMapper(name, fn)` so MT-side code can add custom ones.
+- **Snapshot runtime** — `snapshot-mt.ts` (#620) instantiates compiled snapshot templates on the MT: lazy `ensureElements()` (staged records until first materialization), hole patching through each template's `update[i]`, synthetic negative ids feeding the same event-slot/ref machinery as op-built elements, and the hole-updater hooks installed into `@sigx/lynx-runtime-internal/snapshot` at bootstrap. No production callers yet — the wire protocol and the transform arrive in later #620 phases.
+- **`mt-ref-bind.ts`** — `MainThreadRef` → element binding (upstream ref map + web style fallback + the wvid → elementId record), shared by the SET_MT_REF op and the snapshot runtime.
 
 ## Bootstrap order
 

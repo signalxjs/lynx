@@ -43,7 +43,13 @@ import {
   unregisterWebGesture,
   resetWebGestures,
 } from './web-gesture-mt.js';
-import { MTElementWrapper } from './mt-element.js';
+import {
+  bindMtRef,
+  releaseMtRefBinding,
+  resetMtRefBindings,
+  resolveElementIdByWvid,
+} from './mt-ref-bind.js';
+import { resetSnapshotInstances } from './snapshot-mt.js';
 
 /**
  * Placeholder element inserted by renderPage() to give the host a non-empty
@@ -78,10 +84,10 @@ const gesturesByElementWvid = new Map<number, Set<number>>();
 const lastTreeByElementWvid = new Map<number, unknown>();
 
 /**
- * elementWvid → elementId mapping populated by SET_MT_REF when a
- * `main-thread:ref` binds to an element. Gesture ops carry the elRef's wvid
- * (set at BG-side useGestureDetector time, before the renderer assigns an
- * element id), so resolution is wvid → elementId → raw MainThreadElement.
+ * Gesture ops carry the elRef's wvid (set at BG-side useGestureDetector time,
+ * before the renderer assigns an element id), so resolution is wvid →
+ * elementId → raw MainThreadElement. The wvid → elementId map lives in
+ * mt-ref-bind.ts (shared with the snapshot runtime, #626).
  *
  * We deliberately do NOT use `lynxWorkletImpl._refImpl._workletRefMap[wvid].current`:
  * that map stores the upstream-wrapped `Element` class (with `setStyleProperties`
@@ -90,10 +96,8 @@ const lastTreeByElementWvid = new Map<number, unknown>();
  * Passing the wrapper trips the `FiberSetAttribute param 0 should be RefCounted`
  * native error.
  */
-const elementIdByWvid = new Map<number, number>();
-
 export function resolveElementByWvid(wvid: number): MainThreadElement | undefined {
-  const elementId = elementIdByWvid.get(wvid);
+  const elementId = resolveElementIdByWvid(wvid);
   if (elementId === undefined) return undefined;
   return elements.get(elementId);
 }
@@ -354,64 +358,10 @@ export function applyOps(ops: unknown[]): void {
         const id = ops[i++] as number;
         const wvid = ops[i++] as number;
         const el = elements.get(id);
-        if (el) {
-          // Delegate to upstream's worklet-runtime. updateWorkletRef wraps the
-          // element in its own Element class and stores it under _wvid.
-          const impl = (globalThis as Record<string, unknown>)['lynxWorkletImpl'] as
-            { _refImpl: { _workletRefMap: Record<number, { current: unknown; _wvid: number }>; updateWorkletRef: (refImpl: unknown, el: unknown) => void } } | undefined;
-          if (impl?._refImpl) {
-            const refMap = impl._refImpl._workletRefMap;
-            if (!(wvid in refMap)) {
-              refMap[wvid] = { current: null, _wvid: wvid };
-            }
-            impl._refImpl.updateWorkletRef({ _wvid: wvid }, el);
-
-            // Web (`@lynx-js/web-core`): upstream's worklet element wrapper
-            // applies styles via `setProperty`, which web-core's element
-            // doesn't implement — it throws. Worklet callbacks (e.g.
-            // `Pressable`'s press-down visual) call
-            // `ref.current.setStyleProperties(...)` directly, so patch that one
-            // method to fall back to a web-safe `MTElementWrapper` (raw
-            // `__SetInlineStyles` + debounced flush). Native is untouched: the
-            // original path succeeds there, so the fallback never runs.
-            if (typeof __SetGestureDetector !== 'function') {
-              const slot = refMap[wvid] as {
-                current?: {
-                  __sigxWebSafe?: boolean;
-                  setStyleProperties?: (s: Record<string, string | number>) => void;
-                };
-              };
-              const wrapper = slot?.current;
-              if (wrapper && !wrapper.__sigxWebSafe) {
-                const safe = new MTElementWrapper(el);
-                const orig = typeof wrapper.setStyleProperties === 'function'
-                  ? wrapper.setStyleProperties.bind(wrapper)
-                  : null;
-                try {
-                  wrapper.setStyleProperties = (styles) => {
-                    if (orig) {
-                      try {
-                        orig(styles);
-                        return;
-                      } catch {
-                        /* web: wrapper.setProperty missing — fall through */
-                      }
-                    }
-                    safe.setStyleProperties(styles);
-                  };
-                  wrapper.__sigxWebSafe = true;
-                } catch {
-                  /* frozen wrapper — degrade to no press visual */
-                }
-              }
-            }
-          }
-          // Record wvid → raw elementId so SET_GESTURE_DETECTOR can resolve
-          // the unwrapped MainThreadElement for `__SetAttribute` /
-          // `__SetGestureDetector` (which require RefCounted handles, not
-          // upstream's Element wrapper).
-          elementIdByWvid.set(wvid, id);
-        }
+        // Full binding logic (upstream ref map + web style fallback + the
+        // wvid → elementId record) lives in mt-ref-bind.ts, shared with the
+        // snapshot runtime (#626).
+        if (el) bindMtRef(el, id, wvid);
         break;
       }
 
@@ -440,7 +390,7 @@ export function applyOps(ops: unknown[]): void {
         if (impl?._refImpl) {
           delete impl._refImpl._workletRefMap[wvid];
         }
-        elementIdByWvid.delete(wvid);
+        releaseMtRefBinding(wvid);
         break;
       }
 
@@ -641,10 +591,11 @@ export function resetMainThreadState(): void {
   bridgedAvLastValues.clear();
   gesturesByElementWvid.clear();
   lastTreeByElementWvid.clear();
-  elementIdByWvid.clear();
+  resetMtRefBindings();
   resetAnimatedStyleBindings();
   resetListState();
   resetWebGestures();
+  resetSnapshotInstances();
   // Clear upstream's worklet ref map too on hard reset (HMR / test).
   const impl = (globalThis as Record<string, unknown>)['lynxWorkletImpl'] as
     { _refImpl: { _workletRefMap: Record<number, unknown> } } | undefined;

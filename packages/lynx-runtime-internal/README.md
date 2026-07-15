@@ -12,6 +12,7 @@ Full guides, API reference and live examples → **[https://sigx.dev/lynx/](http
 
 - **`OP`** — the numeric op codes that travel from the background thread to the main thread (`CREATE`, `SET_STYLE`, `SET_WORKLET_EVENT`, `INIT_MT_REF`, `REGISTER_AV_BRIDGE`, etc.). Both runtime packages import these so they stay aligned.
 - **`MapperParams`, `BuiltinMapperName`, `AnimatedStyleMapper`** — the type signatures consumed by `useAnimatedStyle` (`@sigx/lynx-gestures`) and the MT-side mapper registry (`@sigx/lynx-runtime-main`).
+- **`./snapshot` subpath** — the snapshot-template transform contract (#620): `createSnapshot`, `snapshotCreatorMap`, `__pageId`, the `__DynamicPart*` constants, and the hole updaters that compiled template registrations reference. Thread-neutral by design — the module is byte-identical in both bundles; element-specific behavior is installed by `@sigx/lynx-runtime-main`'s bootstrap via `installSnapshotHooks`. Nothing in production emits or instantiates templates yet (the transform stays off until the loader phase).
 
 ## License
 
