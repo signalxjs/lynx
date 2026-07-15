@@ -31,7 +31,10 @@ interface WorkletPlaceholder {
 }
 
 function isWorkletPlaceholder(v: unknown): v is WorkletPlaceholder {
-  return typeof v === 'object' && v !== null && '_wkltId' in (v as object);
+  // string _wkltId required — an arbitrary user object with a same-named
+  // property must not become a wire worklet ctx.
+  return typeof v === 'object' && v !== null
+    && typeof (v as { _wkltId?: unknown })._wkltId === 'string';
 }
 
 function isPlainObject(v: unknown): v is Record<string, unknown> {

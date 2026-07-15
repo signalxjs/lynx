@@ -375,9 +375,9 @@ function patchSnapshotValues(el: ShadowSnapshotElement, nextValue: unknown): voi
   let emitted = false;
   const max = Math.max(values.length, el.wireValues.length);
   for (let i = 0; i < max; i++) {
-    // Removed trailing holes clear as explicit null (the wire's normalized
-    // empty form — see snapshot-values.ts), not via JSON's undefined→null.
-    const wire = i < values.length ? normalizeHole(el, i, values[i]) : null;
+    // Removed trailing holes normalize like any other (undefined → null on
+    // the wire) so their sign/worklet bookkeeping is released, not skipped.
+    const wire = normalizeHole(el, i, i < values.length ? values[i] : undefined);
     if (!wireEqual(wire, el.wireValues[i])) {
       el.wireValues[i] = wire;
       pushOp(OP.SNAPSHOT_SET_VALUE, el.id, i, wire);
