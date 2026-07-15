@@ -132,6 +132,19 @@ function sameRef(a: unknown, b: unknown): boolean {
   return a === b;
 }
 
+/**
+ * Drop all slot state for one element (snapshot-instance teardown — the
+ * synthetic id is about to leave the `elements` map, so pending dirty
+ * entries would no-op but the per-element map would leak).
+ */
+export function clearElementSlots(elId: number): void {
+  if (!slotStates.delete(elId)) return;
+  const prefix = `${elId}|`;
+  for (const key of dirtySlots) {
+    if (key.startsWith(prefix)) dirtySlots.delete(key);
+  }
+}
+
 /** Hot-reload / test reset hook — clears all slot state. */
 export function resetSlotStates(): void {
   slotStates.clear();

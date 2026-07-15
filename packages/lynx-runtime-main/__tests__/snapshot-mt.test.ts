@@ -247,6 +247,46 @@ describe('hole updaters', () => {
     expect(resolveElementIdByWvid(42)).toBe(synId);
   });
 
+  it('releases the previous binding when a ref hole is cleared or re-pointed', () => {
+    registerCellTemplate();
+    const inst = createSnapshotInstance(36, CELL_ID);
+    inst.__values[0] = { __wvid: 50 };
+    updateWorkletRef(inst, 0, undefined, 0);
+    expect(resolveElementIdByWvid(50)).toBeDefined();
+
+    inst.__values[0] = { __wvid: 51 }; // re-point
+    updateWorkletRef(inst, 0, undefined, 0);
+    expect(resolveElementIdByWvid(50)).toBeUndefined();
+    expect(resolveElementIdByWvid(51)).toBeDefined();
+
+    inst.__values[0] = null; // clear
+    updateWorkletRef(inst, 0, undefined, 0);
+    expect(resolveElementIdByWvid(51)).toBeUndefined();
+  });
+
+  it('stamps worklet event holes with _workletType like the op path', () => {
+    registerCellTemplate();
+    const inst = createSnapshotInstance(37, CELL_ID);
+    inst.ensureElements();
+    const worklet: Record<string, unknown> = { _wkltId: 'w:2' };
+    inst.__values[0] = worklet;
+    updateWorkletEvent(inst, 0, undefined, 0, 'main-thread', 'bindEvent', 'tap');
+    expect(worklet['_workletType']).toBe('main-thread');
+  });
+
+  it('destroy releases ref bindings and event-slot state for synthetic ids', () => {
+    registerCellTemplate();
+    const inst = createSnapshotInstance(38, CELL_ID);
+    inst.__values[0] = { __wvid: 60 };
+    updateWorkletRef(inst, 0, undefined, 0);
+    inst.__values[1] = 'sign:x';
+    updateEvent(inst, 1, undefined, 0, 'bindEvent', 'tap', '');
+    destroySnapshotInstance(38);
+    expect(resolveElementIdByWvid(60)).toBeUndefined();
+    flushDirtySlots(); // pending dirty entry for the dead synthetic id
+    expect(addEventCalls).toHaveLength(0);
+  });
+
   it('routes spread entries to styles/classes/attrs/events and unsets removed keys', () => {
     registerCellTemplate();
     const inst = createSnapshotInstance(33, CELL_ID);

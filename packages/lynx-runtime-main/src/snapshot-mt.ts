@@ -34,8 +34,8 @@ import {
   type SnapshotInstanceLike,
 } from '@sigx/lynx-runtime-internal/snapshot';
 import { elements } from './element-registry.js';
-import { setSlotBgSign, setSlotWorklet } from './event-slots.js';
-import { bindMtRef } from './mt-ref-bind.js';
+import { clearElementSlots, setSlotBgSign, setSlotWorklet } from './event-slots.js';
+import { bindMtRef, releaseMtRefBinding } from './mt-ref-bind.js';
 import type { WorkletPlaceholder } from './worklet-events.js';
 
 // ---------------------------------------------------------------------------
@@ -54,6 +54,8 @@ export class MTSnapshotInstance implements SnapshotInstanceLike {
   readonly def: SnapshotDef;
   /** elementIndex → synthetic negative id (for event/ref plumbing). */
   syntheticIds: Map<number, number> = new Map();
+  /** hole index → wvid currently bound through a ref hole (for teardown). */
+  boundWvids: Map<number, number> = new Map();
 
   constructor(id: number, type: string) {
     const def = getSnapshotDef(type);
@@ -154,14 +156,19 @@ export function isSnapshotInstance(id: number): boolean {
 }
 
 /**
- * Drop an instance and every registry entry it minted (synthetic ids stay in
- * `elements` otherwise and would pin the whole subtree).
+ * Drop an instance and every registry entry it minted: synthetic ids in
+ * `elements` (which would pin the whole subtree), their event-slot state,
+ * and any ref bindings its holes created.
  */
 export function destroySnapshotInstance(id: number): void {
   const inst = instances.get(id);
   if (!inst) return;
   for (const synId of inst.syntheticIds.values()) {
+    clearElementSlots(synId);
     elements.delete(synId);
+  }
+  for (const wvid of inst.boundWvids.values()) {
+    releaseMtRefBinding(wvid);
   }
   instances.delete(id);
 }
@@ -191,7 +198,11 @@ export function ensureSyntheticId(inst: MTSnapshotInstance, elementIndex: number
 export function resetSnapshotInstances(): void {
   for (const inst of instances.values()) {
     for (const synId of inst.syntheticIds.values()) {
+      clearElementSlots(synId);
       elements.delete(synId);
+    }
+    for (const wvid of inst.boundWvids.values()) {
+      releaseMtRefBinding(wvid);
     }
   }
   instances.clear();
@@ -230,6 +241,11 @@ const mtHooks: SnapshotHooks = {
     const inst = asInstance(ctx);
     const value = inst.__values[index] as WorkletPlaceholder | undefined;
     const synId = ensureSyntheticId(inst, elementIndex);
+    // Stamp the ctx like the op path (SET_WORKLET_EVENT) does — native
+    // worklet dispatch keys off _workletType.
+    if (value && value._wkltId) {
+      (value as unknown as Record<string, unknown>)['_workletType'] = 'main-thread';
+    }
     setSlotWorklet(synId, eventType, eventName, value ?? undefined);
   },
 
@@ -243,10 +259,20 @@ const mtHooks: SnapshotHooks = {
     const inst = asInstance(ctx);
     const value = inst.__values[index] as { __wvid?: number } | null | undefined;
     const wvid = value?.__wvid;
+    // Unbind on clear or wvid change so gesture resolution can't hit a stale
+    // element and the binding map doesn't leak across updates.
+    const prevWvid = inst.boundWvids.get(index);
+    if (prevWvid !== undefined && prevWvid !== wvid) {
+      releaseMtRefBinding(prevWvid);
+      inst.boundWvids.delete(index);
+    }
     if (typeof wvid !== 'number') return;
     const synId = ensureSyntheticId(inst, elementIndex);
     const el = elements.get(synId);
-    if (el) bindMtRef(el, synId, wvid);
+    if (el) {
+      bindMtRef(el, synId, wvid);
+      inst.boundWvids.set(index, wvid);
+    }
   },
 
   // sigx gestures flow through `main-thread:ref` + useGestureDetector ops,
@@ -327,6 +353,8 @@ function applySpreadEntry(
     const synId = ensureSyntheticId(inst, elementIndex);
     const eventName = eventMatch[1];
     if (value && typeof value === 'object' && '_wkltId' in (value as object)) {
+      // Same ctx stamp as the non-spread path / SET_WORKLET_EVENT op.
+      (value as Record<string, unknown>)['_workletType'] = 'main-thread';
       setSlotWorklet(synId, 'bindEvent', eventName, value as WorkletPlaceholder);
     } else {
       setSlotBgSign(synId, 'bindEvent', eventName, typeof value === 'string' ? value : undefined);
