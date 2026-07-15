@@ -28,16 +28,20 @@ export const SnapshotListBenchScreen = component(() => {
         return (
             <view class="flex-fill bg-base-100" style={{ display: 'flex', flexDirection: 'column' }}>
                 <Screen title="Snapshot list bench" />
-                <Row gap={8} padding={8}>
-                    <Button size="sm" variant="outline" onPress={() => palette.value++}>
-                        swap palette
-                    </Button>
-                    <Button size="sm" variant="outline" onPress={() => offset.value += 7}>
-                        shift rows
-                    </Button>
-                </Row>
+                {/* Fixed-height band: the native list below sizes to a hard
+                    main-axis px value and must not bleed into the controls. */}
+                <view style={{ height: '64px' }}>
+                    <Row gap={8} padding={8}>
+                        <Button size="sm" variant="outline" onPress={() => palette.value++}>
+                            swap palette
+                        </Button>
+                        <Button size="sm" variant="outline" onPress={() => offset.value += 7}>
+                            shift rows
+                        </Button>
+                    </Row>
+                </view>
                 <list
-                    style={{ height: '1600px', width: '100%' }}
+                    style={{ height: '1450px', width: '100%' }}
                     scroll-orientation="vertical"
                     list-type="single"
                     span-count={1}

@@ -294,6 +294,10 @@ function enqueueComponent(
 
 /** Create a `<list>` element and register its recycler callbacks. */
 export function createListElement(internalId: number): MainThreadElement {
+  // Re-creating an id (HMR / duplicate batches): tear the old state down
+  // first — its aliases, listByListID entry, and pools must not stay
+  // reachable and misroute future ops.
+  if (listsByInternalId.has(internalId)) destroyListElement(internalId);
   const listEl = __CreateList(pageUniqueId, componentAtIndex, enqueueComponent);
   const listID = __GetElementUniqueID(listEl);
   const state: ListState = {
@@ -332,6 +336,11 @@ export function createListElementForSnapshot(inst: MTSnapshotInstance): MainThre
 export function registerListSlotAlias(listInternalId: number, aliasId: number): void {
   const state = listsByInternalId.get(listInternalId);
   if (!state) return;
+  // Re-binding an alias (hot reload / re-bind): detach it from its previous
+  // state's bookkeeping first, or that state's teardown would later unmap an
+  // alias it no longer owns.
+  const prev = listsByInternalId.get(aliasId);
+  if (prev && prev !== state) prev.aliases.delete(aliasId);
   listsByInternalId.set(aliasId, state);
   state.aliases.add(aliasId);
 }
