@@ -54,6 +54,41 @@ if (status === 'granted') {
 
 The full remote-push flow (`registerForPushNotifications`, token/message/tap listeners, cold-start handling, badge management), the complete API, the raw event channels and platform gotchas are documented on the docs site.
 
+## Message shapes
+
+All three shapes are accepted, but what each one can actually *do* differs sharply by
+platform — read the row before you pick. Most of that asymmetry is an APNs/FCM constraint
+rather than module policy; the one exception is iOS data-only delivery to JS, which is a
+gap on our side ([#621](https://github.com/signalxjs/lynx/issues/621)), not Apple's.
+
+| Shape | iOS / APNs | Android / FCM |
+|---|---|---|
+| **`notification` + `data`** | Tray entry rendered by the OS. Foreground → `addPushListener`. Tap → response listener; cold-start tap → `getInitialNotification()`. | Same. The OS renders the tray entry while backgrounded and the module recovers the tap payload from the launch intent. |
+| **`notification` only** | As above, with `data` empty. | As above, with `data` empty. |
+| **`data` only**<br>(iOS also needs `"content-available": 1`, `apns-push-type: background`, `apns-priority: 5`) | **No tray entry — APNs cannot display one without an `alert`**, so there is no tap and no cold-start payload. Not delivered to JS either yet — see the iOS data-only note below. | Tray entry rendered by the module, reading `title`/`body` out of `data`. Delivered to `addPushListener`; tap → response listener / `getInitialNotification()`. |
+
+Notes worth knowing before you pick:
+
+- **`notification` + `data` is the only shape whose tray entry, tap routing and
+  cold-start payload work on both platforms.** Add `"content-available": 1` if you
+  also want an iOS background wake.
+- **Android, data-only:** the one shape FCM delivers to the app while backgrounded
+  or terminated — a message carrying `notification` is rendered by the OS and never
+  reaches `onMessageReceived`. Set `data.title` (and optionally `data.body`) or no
+  tray entry is posted. Set `data.notification_id` for a stable notification id.
+- **Android, `notification` + `data`:** tap payload is recovered from the launch
+  intent on a **best-effort** basis. Cold start is reliable; a warm tap goes through
+  an intent FCM builds and may not be delivered at all. Data-only is the dependable
+  path if tap routing matters.
+- **iOS, data-only:** a silent `content-available` push — throttled (a few per hour)
+  and **not delivered at all once the user force-quits the app**. Reaching JS at all
+  needs `didReceiveRemoteNotification`, which isn't wired yet — see
+  [#621](https://github.com/signalxjs/lynx/issues/621).
+
+Custom `data` values are strings on both platforms (FCM's `data` map is string-only).
+iOS JSON-encodes non-string APNs values, so a nested custom object round-trips via
+`JSON.parse(msg.data.yourKey)`.
+
 ## License
 
 MIT

@@ -3,6 +3,7 @@ package com.sigx.notifications
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
+import android.content.Intent
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import com.google.firebase.messaging.FirebaseMessagingService
@@ -34,9 +35,21 @@ class SigxFirebaseMessagingService : FirebaseMessagingService() {
     override fun onMessageReceived(message: RemoteMessage) {
         super.onMessageReceived(message)
         val notification = message.notification
-        val title = notification?.title
-        val body = notification?.body
         val data = message.data
+        // Display fields fall back to the `data` map. FCM only calls
+        // onMessageReceived for a backgrounded/terminated app when the message
+        // is DATA-ONLY — a message carrying a `notification` block is rendered
+        // by the OS and never reaches us. So data-only is the one shape that
+        // reliably delivers a payload in the background, and a data-only
+        // message has `message.notification == null`: reading title/body
+        // solely from the notification block meant the only shape that works
+        // for delivery produced no tray entry at all (#619).
+        //
+        // Fields sourced from `data` stay in `data` too — an app that keys off
+        // `data.title` shouldn't find it missing just because we also used it
+        // for the tray entry.
+        val title = notification?.title ?: data["title"]
+        val body = notification?.body ?: data["body"]
         // foreground=true here is "the JS heap is alive". FCM service runs
         // regardless of activity foreground state, but the JS shim and apps
         // typically treat `foreground` as "received while app was in use" —
@@ -76,26 +89,63 @@ class SigxFirebaseMessagingService : FirebaseMessagingService() {
             .setAutoCancel(true)
         NotificationAppearance.accentColor(this)?.let { builder.setColor(it) }
 
-        // Stash data on the launch intent so [PushActivityHook.onNewIntent]
-        // can route the tap to [PushEventBus.publishResponse] / capture as
-        // the cold-start payload.
-        val pm = packageManager
-        val launchIntent = pm.getLaunchIntentForPackage(packageName)?.apply {
-            putExtra(PushActivityHook.EXTRA_NOTIFICATION_TAP, true)
-            for ((k, v) in data) putExtra("sigx_push_data_$k", v)
-        }
         val notificationId = (data["notification_id"] ?: data["notificationId"] ?: System.currentTimeMillis().toString())
-        if (launchIntent != null) {
+        buildTapIntent(data)?.let { tapIntent ->
+            // FLAG_UPDATE_CURRENT matters: PendingIntent equality ignores
+            // extras, so two notifications sharing a request code would
+            // otherwise replay the FIRST one's payload.
             val pending = android.app.PendingIntent.getActivity(
                 this,
                 notificationId.hashCode(),
-                launchIntent,
+                tapIntent,
                 android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE,
             )
             builder.setContentIntent(pending)
         }
 
         manager.notify(notificationId.hashCode(), builder.build())
+    }
+
+    /**
+     * Tap intent for a notification we posted ourselves. Stashes the payload
+     * so [PushActivityHook] can route the tap to [PushEventBus.publishResponse]
+     * (warm) or capture it as the cold-start payload.
+     *
+     * Deliberately NOT `getLaunchIntentForPackage()`'s intent as-is: that is an
+     * ACTION_MAIN/CATEGORY_LAUNCHER intent, and starting one against an
+     * already-running task is treated as a *launcher relaunch* — the task is
+     * brought to the front and the intent is never delivered, so the extras
+     * evaporate and `onNewIntent` never fires. Warm taps silently lost the
+     * payload. We reuse it only to RESOLVE the launcher component, then build a
+     * plain explicit intent.
+     *
+     * Flags:
+     *  - NEW_TASK: mandatory — the PendingIntent fires from outside an Activity.
+     *  - CLEAR_TOP + SINGLE_TOP: reuse the existing MainActivity and deliver via
+     *    `onNewIntent` rather than stacking a second instance (a second LynxView
+     *    and JS heap). SINGLE_TOP is set explicitly rather than leaning on the
+     *    template's `launchMode="singleTop"`, so an app that changes launchMode
+     *    to `standard` still gets `onNewIntent` instead of a destroy/recreate.
+     *
+     * Trade-off: CLEAR_TOP finishes any activities the host app stacked ABOVE
+     * MainActivity. For a Lynx app the whole UI is one Activity and "take me to
+     * the notification target" is the tap's semantic, so that's the intent — but
+     * an app with extra native activities will see them dismissed. SINGLE_TOP
+     * alone is worse: if MainActivity isn't on top, a duplicate is created.
+     */
+    private fun buildTapIntent(data: Map<String, String>): Intent? {
+        val component = packageManager
+            .getLaunchIntentForPackage(packageName)
+            ?.component
+            ?: return null
+        return Intent().apply {
+            setComponent(component)
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or
+                Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                Intent.FLAG_ACTIVITY_SINGLE_TOP
+            putExtra(PushActivityHook.EXTRA_NOTIFICATION_TAP, true)
+            for ((k, v) in data) putExtra("${PushActivityHook.SIGX_DATA_PREFIX}$k", v)
+        }
     }
 
     private fun ensureChannel(manager: NotificationManager) {

@@ -5,6 +5,7 @@ import {
     addTokenErrorListener,
     addPushListener,
     addNotificationResponseListener,
+    parseNotificationResponse,
     type NotificationResponse,
     type PushTokenEvent,
     type PushTokenError,
@@ -143,9 +144,15 @@ export const Notifications = {
     /**
      * If the app was launched by a notification tap, returns the payload.
      * One-shot: subsequent calls return null. Call exactly once during startup.
+     *
+     * Native returns a JSON string (or null) — the payload nests `data`, and a
+     * structured map loses its sibling scalars crossing the bridge (#342). See
+     * `parseNotificationResponse`.
      */
-    getInitialNotification(): Promise<NotificationResponse | null> {
-        return callAsync<NotificationResponse | null>(MODULE, 'getInitialNotification');
+    async getInitialNotification(): Promise<NotificationResponse | null> {
+        return parseNotificationResponse(
+            await callAsync<unknown>(MODULE, 'getInitialNotification'),
+        );
     },
 
     // ── Event subscriptions ─────────────────────────────────────────────────
