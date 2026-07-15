@@ -483,8 +483,18 @@ export const nodeOps: RendererOptions<ShadowElement, ShadowElement> = {
         }
         scheduleFlush();
       }
-      // A slot outside a snapshot parent is a transform-contract violation;
-      // stay silent on the wire (the MT can't resolve it anyway).
+      // A slot that cannot bind — non-snapshot parent or invalid index — is
+      // a transform-contract violation. Its children's CREATE/prop ops have
+      // already shipped; fail LOUDLY so the orphaned-elements symptom is
+      // diagnosable at the cause (nothing more to do wire-side: the MT never
+      // registered the slot id).
+      if (!child.bound) {
+        console.log(
+          `[sigx-bg] '__sigx-slot' (index ${String(child.slotIndex)}) inserted into `
+            + `non-snapshot parent <${parent.type}> — transform contract violation; `
+            + 'slot content will not render',
+        );
+      }
       return;
     }
 
@@ -518,14 +528,17 @@ export const nodeOps: RendererOptions<ShadowElement, ShadowElement> = {
   remove(child: ShadowElement): void {
     if (child.parent) {
       const parentId = child.parent.id;
-      // Shadow-only removals — no wire op:
-      //  - children of a never-bound slot never reached the MT tree;
-      //  - a bound slot itself ALIASES a template-inner element on the MT
+      // Shadow-only removals — no wire op for the node itself:
+      //  - a bound slot ALIASES a template-inner element on the MT
       //    (registered via SNAPSHOT_BIND_SLOT); REMOVE(snapshotId, slotId)
       //    would name the wrong parent and detach template structure. The
       //    alias entry dies with the instance's teardown.
-      const shadowOnly = (isShadowSlotElement(child.parent) && !child.parent.bound)
-        || isShadowSlotElement(child);
+      //  - children of a never-bound slot were never INSERTed on the MT;
+      //    their REMOVEs still ship (parent lookup no-ops there) so intent
+      //    stays uniform with the element path. Their created-but-detached
+      //    MT elements share the pre-existing element-registry retention
+      //    semantics of every removed subtree (tracked separately).
+      const shadowOnly = isShadowSlotElement(child);
       // A bound slot's inserted children are real MT elements inside the
       // aliased template element — detach each explicitly before the slot
       // itself vanishes shadow-only.
