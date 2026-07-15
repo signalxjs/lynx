@@ -22,6 +22,7 @@ import { resetOpQueue, takeOps } from '../src/op-queue';
 import { publishEvent, resetRegistry } from '../src/event-registry';
 import { ShadowElement, resetShadowState } from '../src/shadow-element';
 import { MainThreadRef, resetWvidCounter } from '../src/main-thread-ref';
+import { wireEqual } from '../src/snapshot-values';
 
 const TPL = '__snapshot_emit_1';
 
@@ -177,5 +178,11 @@ describe('snapshot emission', () => {
     // Dispatching the released sign is a no-op (handler unregistered).
     publishEvent(captured, {});
     expect(fired).toBe(false);
+  });
+
+  it('wireEqual distinguishes key sets even when all values are undefined', () => {
+    expect(wireEqual({ x: undefined }, { y: undefined })).toBe(false);
+    expect(wireEqual({ x: undefined }, { x: undefined })).toBe(true);
+    expect(wireEqual({ x: 1, y: undefined }, { x: 1 })).toBe(false);
   });
 });

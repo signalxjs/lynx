@@ -139,6 +139,9 @@ export function wireEqual(a: unknown, b: unknown): boolean {
     const bk = Object.keys(b);
     if (ak.length !== bk.length) return false;
     for (const k of ak) {
+      // Key-set check, not just value check — {x: undefined} and
+      // {y: undefined} have equal lengths and undefined lookups both ways.
+      if (!Object.prototype.hasOwnProperty.call(b, k)) return false;
       if (!wireEqual(a[k], b[k])) return false;
     }
     return true;
