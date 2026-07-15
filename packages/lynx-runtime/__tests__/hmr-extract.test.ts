@@ -10,6 +10,7 @@ import { describe, expect, it } from 'vitest';
 import {
   extractRegistrations,
   extractSnapshotRegistrations,
+  scanBalanced,
 } from '../src/hmr-extract';
 
 const FACTORY = `
@@ -84,5 +85,17 @@ describe('extractRegistrations (worklets, string-aware)', () => {
     expect(out).toContain('registerWorkletInternal("main-thread", "ab:1"');
     // The body's string containing an unbalanced paren doesn't truncate it.
     expect(out).toContain('console.log("tap(", e, ")")');
+  });
+});
+
+describe('scanBalanced regex literals', () => {
+  it('does not count brackets inside regex literals', () => {
+    const src = `f(function() { const re = /\\)/; const cls = /[)\\]]/; return re.test(cls.source); })`;
+    expect(scanBalanced(src, 1)).toBe(src.length - 1);
+  });
+
+  it('still treats division as division', () => {
+    const src = `f(a / b, (c) / 2)`;
+    expect(scanBalanced(src, 1)).toBe(src.length - 1);
   });
 });

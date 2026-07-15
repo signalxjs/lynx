@@ -44,6 +44,23 @@ export function extractRegistrations(source: string): string {
  * Runtime twin of `lynx-plugin/src/loaders/worklet-utils.ts:scanBalanced`
  * (dev-only code; duplicated to avoid a runtime → build-time dep).
  */
+/**
+ * True when a `/` at `idx` starts a regex literal rather than division: the
+ * previous non-whitespace char is an operator/opener/keyword tail. The usual
+ * pragmatic heuristic — full disambiguation needs a tokenizer, and this
+ * scanner only guards extraction slicing in dev.
+ */
+function regexCanStartAt(source: string, idx: number): boolean {
+  let j = idx - 1;
+  while (j >= 0 && /\s/.test(source[j])) j--;
+  if (j < 0) return true;
+  const prev = source[j];
+  if ('(,=:[!&|?{;+-*%<>^~'.includes(prev)) return true;
+  // `return /re/` — check for an identifier tail that is a keyword.
+  const tail = /([A-Za-z_$][\w$]*)$/.exec(source.slice(Math.max(0, j - 11), j + 1));
+  return tail !== null && /^(?:return|typeof|case|in|of|new|delete|void|do|else)$/.test(tail[1]);
+}
+
 export function scanBalanced(source: string, openIdx: number): number {
   const open = source[openIdx];
   const close = open === '(' ? ')' : open === '[' ? ']' : '}';
@@ -66,6 +83,20 @@ export function scanBalanced(source: string, openIdx: number): number {
       i += 2;
       while (i < source.length && !(source[i] === '*' && source[i + 1] === '/')) i++;
       i++;
+      continue;
+    }
+    if (ch === '/' && regexCanStartAt(source, i)) {
+      // Regex literal — brackets inside (e.g. /\)/ or /[)}]/) must not move
+      // the depth counter. Char classes may contain unescaped delimiters.
+      i++;
+      let inClass = false;
+      while (i < source.length && (inClass || source[i] !== '/')) {
+        if (source[i] === '\\') i++;
+        else if (source[i] === '[') inClass = true;
+        else if (source[i] === ']') inClass = false;
+        else if (source[i] === '\n') break; // not a regex after all — bail
+        i++;
+      }
       continue;
     }
     if (ch === open) depth++;
