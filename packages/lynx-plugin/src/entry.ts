@@ -196,27 +196,36 @@ export async function applyEntry(
   // standalone apps when embedded by a release flow, and never over OTA. The
   // `sigx build` summary prints the same warning; this covers direct
   // `rspeedy build` invocations (external/CI pipelines). (#599)
+  // This hook is pure diagnostics and runs once the build has already
+  // succeeded, so everything below is wrapped: an fs hiccup or an unexpected
+  // distPath must never be able to turn a green build red.
   api.onAfterBuild(async () => {
-    const { readdirSync } = await import('node:fs');
-    const asyncDir = path.join(api.context.distPath, 'static', 'js', 'async');
-    if (!existsSync(asyncDir)) return;
-    // Hand-rolled walk rather than `readdirSync(..., { recursive: true })` —
-    // that option needs Node >= 18.17/20.1 and this plugin declares no engines
-    // floor, so an older host would throw here and take the build down with it.
-    const countFiles = (dir: string): number => {
-      let n = 0;
-      for (const entry of readdirSync(dir, { withFileTypes: true })) {
-        n += entry.isDirectory() ? countFiles(path.join(dir, entry.name)) : 1;
-      }
-      return n;
-    };
-    const chunkCount = countFiles(asyncDir);
-    if (chunkCount === 0) return;
-    api.logger.info(
-      `[sigx] ${chunkCount} async chunk(s) emitted by dynamic import() under static/js/async/. `
-      + 'Standalone builds load them from embedded assets — embed via `sigx run:* --release` or '
-      + '`sigx prebuild --embed-bundle`. OTA updates (`sigx updates:publish`) do NOT carry them.',
-    );
+    try {
+      const { readdirSync } = await import('node:fs');
+      const asyncDir = path.join(api.context.distPath, 'static', 'js', 'async');
+      if (!existsSync(asyncDir)) return;
+      // Hand-rolled walk rather than `readdirSync(..., { recursive: true })` —
+      // that option needs Node >= 18.17/20.1 and this plugin declares no engines
+      // floor, so an older host would throw here and take the build down with it.
+      const countFiles = (dir: string): number => {
+        let n = 0;
+        for (const entry of readdirSync(dir, { withFileTypes: true })) {
+          n += entry.isDirectory() ? countFiles(path.join(dir, entry.name)) : 1;
+        }
+        return n;
+      };
+      const chunkCount = countFiles(asyncDir);
+      if (chunkCount === 0) return;
+      api.logger.info(
+        `[sigx] ${chunkCount} async chunk(s) emitted by dynamic import() under static/js/async/. `
+        + 'Standalone builds load them from embedded assets — embed via `sigx run:* --release` or '
+        + '`sigx prebuild --embed-bundle`. OTA updates (`sigx updates:publish`) do NOT carry them.',
+      );
+    } catch (err) {
+      api.logger.warn(
+        `[sigx] Could not inspect async chunks: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
   });
 
   // Exclude main-thread chunks from chunk splitting so each remains
