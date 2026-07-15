@@ -64,18 +64,20 @@ function sweepStaleUnder(
   prefix: string,
   keep: (subKey: string) => boolean,
 ): void {
+  // Sub-key = everything up to the next delimiter (`:`/`[`) or an array
+  // key's own closing `]` — "2[0]:x" under prefix "2[" must yield "0".
+  const subKeyOf = (key: string): string =>
+    /^[^:[\]]*/.exec(key.slice(prefix.length))![0];
   for (const key of [...el.holeSigns.keys()]) {
     if (!key.startsWith(prefix)) continue;
-    const sub = key.slice(prefix.length).split(/[:[]/, 1)[0];
-    if (!keep(sub)) {
+    if (!keep(subKeyOf(key))) {
       unregister(el.holeSigns.get(key)!);
       el.holeSigns.delete(key);
     }
   }
   for (const key of [...el.sentWorkletIds.keys()]) {
     if (!key.startsWith(prefix)) continue;
-    const sub = key.slice(prefix.length).split(/[:[]/, 1)[0];
-    if (!keep(sub)) el.sentWorkletIds.delete(key);
+    if (!keep(subKeyOf(key))) el.sentWorkletIds.delete(key);
   }
 }
 
@@ -146,9 +148,10 @@ function normalizeOne(
   }
 
   // Primitive / null: any prior function/worklet bookkeeping for this key is
-  // a kind switch.
+  // a kind switch. undefined normalizes to null explicitly — the op queue
+  // JSON.stringifies, and diff baselines must match what the MT decodes.
   clearStaleFor(el, holeKey);
-  return value;
+  return value === undefined ? null : value;
 }
 
 /** Normalize hole `index` of `el` to its wire form. */

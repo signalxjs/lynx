@@ -52,7 +52,7 @@
         "@sigx/lynx-core": "workspace:^",
         "@sigx/lynx-http": "workspace:^",
         "@sigx/lynx-runtime": "workspace:^",
-        "@sigx/lynx-runtime-internal": "workspace:*",
+        "@sigx/lynx-runtime-internal": "workspace:^",
         "@sigx/reactivity": "^0.7.0",
         "@sigx/runtime-core": "^0.7.0"
     },

@@ -42,20 +42,26 @@ function rewriteSnapshotProps(
   if (!hasSlots) return props;
 
   const rest: Record<string, unknown> = {};
-  const slots: unknown[] = [];
+  // Only strict `$<digits>` keys are slot holes; ordering is by numeric
+  // index, never object insertion order.
+  const indices: number[] = [];
+  const byIndex = new Map<number, unknown>();
   for (const [k, v] of Object.entries(props)) {
-    if (k.charCodeAt(0) === 36 /* '$' */) {
+    if (/^\$\d+$/.test(k)) {
       const slotIndex = Number(k.slice(1));
-      slots.push(coreJsx(
-        '__sigx-slot',
-        { __slotIndex: slotIndex, children: v } as Parameters<typeof coreJsx>[1],
-        `$${slotIndex}`,
-      ));
+      indices.push(slotIndex);
+      byIndex.set(slotIndex, v);
     } else {
       rest[k] = v;
     }
   }
-  rest['children'] = slots;
+  indices.sort((a, b) => a - b);
+  rest['children'] = indices.map((slotIndex) =>
+    coreJsx(
+      '__sigx-slot',
+      { __slotIndex: slotIndex, children: byIndex.get(slotIndex) } as Parameters<typeof coreJsx>[1],
+      `$${slotIndex}`,
+    ));
   return rest;
 }
 

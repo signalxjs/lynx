@@ -244,7 +244,7 @@ importers:
         specifier: workspace:^
         version: link:../lynx-runtime
       '@sigx/lynx-runtime-internal':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../lynx-runtime-internal
       '@sigx/reactivity':
         specifier: ^0.7.0

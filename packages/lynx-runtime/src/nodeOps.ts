@@ -465,7 +465,15 @@ export const nodeOps: RendererOptions<ShadowElement, ShadowElement> = {
       return;
     }
     if (isShadowSlotElement(child)) {
-      if (isShadowSnapshotElement(parent)) {
+      // Bind exactly once (a keyed-diff MOVE re-inserts the same slot — a
+      // second bind would replay child INSERTs and duplicate MT children)
+      // and only with a valid slot index.
+      if (
+        isShadowSnapshotElement(parent)
+        && !child.bound
+        && Number.isInteger(child.slotIndex)
+        && child.slotIndex >= 0
+      ) {
         pushOp(OP.SNAPSHOT_BIND_SLOT, parent.id, child.slotIndex, child.id);
         child.bound = true;
         for (let c = child.firstChild; c; c = c.next) {
@@ -550,7 +558,12 @@ export const nodeOps: RendererOptions<ShadowElement, ShadowElement> = {
       return;
     }
     if (isShadowSlotElement(el)) {
-      if (key === '__slotIndex') el.slotIndex = Number(nextValue);
+      // slotIndex feeds SNAPSHOT_BIND_SLOT routing — reject anything but a
+      // non-negative integer (leave unset; the bind guard skips it).
+      if (key === '__slotIndex') {
+        const n = Number(nextValue);
+        if (Number.isInteger(n) && n >= 0) el.slotIndex = n;
+      }
       return;
     }
 
