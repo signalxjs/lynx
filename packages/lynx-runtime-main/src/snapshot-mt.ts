@@ -150,6 +150,9 @@ const instances = new Map<number, MTSnapshotInstance>();
 let nextSyntheticId = -2;
 
 export function createSnapshotInstance(id: number, type: string): MTSnapshotInstance {
+  // Defensive: re-creating an id (HMR / duplicate-batch edges) must not leak
+  // the previous instance's synthetic ids, slot state, or ref bindings.
+  if (instances.has(id)) destroySnapshotInstance(id);
   const inst = new MTSnapshotInstance(id, type);
   instances.set(id, inst);
   return inst;
@@ -246,14 +249,15 @@ const mtHooks: SnapshotHooks = {
   },
 
   // Wire value is the sanitized worklet ctx ({ _wkltId, _c?, _execId? }).
-  updateWorkletEvent(ctx, index, _old, elementIndex, _workletType, eventType, eventName) {
+  updateWorkletEvent(ctx, index, _old, elementIndex, workletType, eventType, eventName) {
     const inst = asInstance(ctx);
     const value = inst.__values[index] as WorkletPlaceholder | undefined;
     const synId = ensureSyntheticId(inst, elementIndex);
     // Stamp the ctx like the op path (SET_WORKLET_EVENT) does — native
-    // worklet dispatch keys off _workletType.
+    // worklet dispatch keys off _workletType. Honor the transform-provided
+    // type ('main-thread' today).
     if (value && value._wkltId) {
-      (value as unknown as Record<string, unknown>)['_workletType'] = 'main-thread';
+      (value as unknown as Record<string, unknown>)['_workletType'] = workletType || 'main-thread';
     }
     setSlotWorklet(synId, eventType, eventName, value ?? undefined);
   },
