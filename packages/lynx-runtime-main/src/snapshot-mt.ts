@@ -185,6 +185,7 @@ export function destroySnapshotInstance(id: number): void {
     releaseMtRefBinding(wvid);
   }
   for (const slotElId of inst.slotElIds) {
+    clearElementSlots(slotElId);
     elements.delete(slotElId);
   }
   instances.delete(id);
@@ -222,6 +223,7 @@ export function resetSnapshotInstances(): void {
       releaseMtRefBinding(wvid);
     }
     for (const slotElId of inst.slotElIds) {
+      clearElementSlots(slotElId);
       elements.delete(slotElId);
     }
   }
