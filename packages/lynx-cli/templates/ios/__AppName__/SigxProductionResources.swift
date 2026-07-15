@@ -71,8 +71,8 @@ final class ProductionGenericResourceFetcher: NSObject, LynxGenericResourceFetch
     func fetchResource(
         _ request: LynxResourceRequest,
         onComplete callback: @escaping LynxGenericResourceCompletionBlock
-    ) -> (() -> Void)! {
-        let urlString = request.url ?? ""
+    ) -> () -> Void {
+        let urlString = request.url
 
         if let local = SigxEmbeddedAssets.resolve(urlString) {
             do {
@@ -95,6 +95,15 @@ final class ProductionGenericResourceFetcher: NSObject, LynxGenericResourceFetch
                     callback(nil, httpError)
                     return
                 }
+                // A 2xx with no body still means we have no chunk — report it
+                // rather than passing an ambiguous (nil, nil) down. (Matches
+                // ProductionTemplateResourceFetcher.)
+                guard let data = data else {
+                    callback(nil, NSError(domain: "com.sigx", code: 404, userInfo: [
+                        NSLocalizedDescriptionKey: "No data for \(urlString)",
+                    ]))
+                    return
+                }
                 callback(data, nil)
             }
             task.resume()
@@ -112,12 +121,12 @@ final class ProductionGenericResourceFetcher: NSObject, LynxGenericResourceFetch
     func fetchResourcePath(
         _ request: LynxResourceRequest,
         onComplete callback: @escaping LynxGenericResourcePathCompletionBlock
-    ) -> (() -> Void)! {
-        if let local = SigxEmbeddedAssets.resolve(request.url ?? "") {
+    ) -> () -> Void {
+        if let local = SigxEmbeddedAssets.resolve(request.url) {
             callback(local.path, nil)
         } else {
             callback(nil, NSError(domain: "com.sigx", code: 404, userInfo: [
-                NSLocalizedDescriptionKey: "No embedded asset for \(request.url ?? "")",
+                NSLocalizedDescriptionKey: "No embedded asset for \(request.url)",
             ]))
         }
         return {}
@@ -132,7 +141,7 @@ final class ProductionTemplateResourceFetcher: NSObject, LynxTemplateResourceFet
         _ request: LynxResourceRequest,
         onComplete callback: @escaping (LynxTemplateResource?, Error?) -> Void
     ) {
-        let urlString = request.url ?? ""
+        let urlString = request.url
 
         if let local = SigxEmbeddedAssets.resolve(urlString) {
             do {
