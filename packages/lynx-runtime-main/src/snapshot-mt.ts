@@ -174,31 +174,6 @@ export function isSnapshotInstance(id: number): boolean {
 }
 
 /**
- * Release an instance's element-side footprint — synthetic ids (+ their
- * event-slot state), ref bindings, bound slot-alias ids — and revert it to a
- * staged record (values kept, `instances` entry kept). For recycler paths
- * that discard a tree but must keep the row re-buildable on a later pull.
- */
-export function dematerializeSnapshotInstance(inst: MTSnapshotInstance): void {
-  for (const synId of inst.syntheticIds.values()) {
-    clearElementSlots(synId);
-    elements.delete(synId);
-  }
-  inst.syntheticIds.clear();
-  for (const wvid of inst.boundWvids.values()) {
-    releaseMtRefBinding(wvid);
-  }
-  inst.boundWvids.clear();
-  for (const slotElId of inst.slotElIds) {
-    clearElementSlots(slotElId);
-    elements.delete(slotElId);
-  }
-  inst.slotElIds.clear();
-  inst.__elements = null;
-  inst.__element_root = null;
-}
-
-/**
  * Drop an instance and every registry entry it minted: synthetic ids in
  * `elements` (which would pin the whole subtree), their event-slot state,
  * and any ref bindings its holes created.

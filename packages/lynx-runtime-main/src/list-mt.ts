@@ -52,7 +52,6 @@ import { releaseMtRefBinding } from './mt-ref-bind.js';
 // createListElementForSnapshot below. Neither module touches the other at
 // module-eval time, so initialization order is irrelevant.
 import {
-  dematerializeSnapshotInstance,
   destroySnapshotInstance,
   getSnapshotInstance,
   isSnapshotInstance,
@@ -263,25 +262,22 @@ function enqueueComponent(
   // dedicated subtree, native merely detaches the offscreen view.
   if (!inst || !inst.__elements || !inst.__element_root) return;
 
-  // Detach the tree first in every case.
+  // Cells with BOUND SLOTS keep the eager-cell behavior: the tree stays
+  // materialized and registered. Their slot content is row-specific BG-built
+  // structure no hole re-patch replaces (pooling would resurrect the old
+  // row's children), and the BG emits SNAPSHOT_BIND_SLOT exactly once — if
+  // the alias ids dropped here, every future slot-content INSERT/REMOVE
+  // would be orphaned. Native detaches the offscreen view on its own; the
+  // next pull re-surfaces this same tree by sign.
+  if (inst.slotElIds.size > 0) return;
+
+  // Detach and move the tree into the pool; the instance reverts to a staged
+  // record (future SET_VALUEs stage into __values until the next pull).
   if (state.appended.delete(childInternalId)) {
     __RemoveElement(state.listEl, inst.__element_root);
   }
   state.signToChild.delete(sign);
   elements.delete(childInternalId);
-
-  // Cells with BOUND SLOTS don't pool: their slot content is row-specific
-  // BG-built structure that no hole re-patch replaces — a reused tree would
-  // resurrect the old row's children (and the slot alias ids would keep
-  // pointing into the pooled tree). Dematerialize instead: the instance
-  // stays staged so a scroll-back pull rebuilds it.
-  if (inst.slotElIds.size > 0) {
-    dematerializeSnapshotInstance(inst);
-    return;
-  }
-
-  // Move the tree into the pool; the instance reverts to a staged record
-  // (future SET_VALUEs stage into __values until the next pull).
   const key = reuseKeyOf(inst);
   let pool = state.pools.get(key);
   if (!pool) {

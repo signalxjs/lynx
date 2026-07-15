@@ -301,9 +301,11 @@ describe('list templates', () => {
 });
 
 describe('slot-bearing cells', () => {
-  it('dematerializes instead of pooling; scroll-back rebuilds', () => {
-    // A cell with a bound slot must not enter the pool (row-specific slot
-    // content would resurrect); its instance stays staged for re-pulls.
+  it('keeps the tree materialized across enqueue (no pool, aliases intact)', () => {
+    // BG emits SNAPSHOT_BIND_SLOT once — dropping the alias on recycle would
+    // orphan every future slot-content op. Slot-bearing cells behave like
+    // eager cells: dedicated tree, native detaches the view, next pull
+    // re-surfaces the same tree by sign.
     mountList([['a', 'Alpha'], ['b', 'Beta']]);
     const sign0 = capturedCAI!(listEl, listEl!.__id, 0, 1, false);
     expect(sign0).toBeGreaterThan(0);
@@ -314,14 +316,13 @@ describe('slot-bearing cells', () => {
     const builtBefore = createdCells;
 
     capturedEnqueue!(listEl, listEl!.__id, sign0);
-    expect(elements.has(-99)).toBe(false); // alias released
-    expect(isSnapshotInstance(100)).toBe(true); // still staged
-    expect(getSnapshotInstance(100)!.__elements).toBeNull();
+    expect(elements.has(-99)).toBe(true); // alias intact for future slot ops
+    expect(inst.__elements).not.toBeNull(); // still materialized
+    expect(elements.has(100)).toBe(true); // root still registered
 
-    // Scroll-back REBUILDS from the template (no pool adoption possible).
-    const rebuiltSign = capturedCAI!(listEl, listEl!.__id, 0, 2, false);
-    expect(rebuiltSign).toBeGreaterThan(0);
-    expect(getSnapshotInstance(100)!.__elements).not.toBeNull();
-    expect(createdCells).toBeGreaterThan(builtBefore);
+    // Scroll-back re-surfaces the SAME tree — same sign, nothing rebuilt.
+    const sign1 = capturedCAI!(listEl, listEl!.__id, 0, 2, false);
+    expect(sign1).toBe(sign0);
+    expect(createdCells).toBe(builtBefore);
   });
 });
