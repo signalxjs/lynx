@@ -25,6 +25,13 @@ export type EmojiGridProps =
      * Omit for in-place updates to the same dataset.
      */
     & Define.Prop<'itemsKey', string, false>
+    /**
+     * Known height (px) of the grid's box, used to lay the native list out at
+     * full size on its very first frame (forwarded to
+     * `List.initialMainAxisSize`). Without it a freshly mounted grid spends a
+     * frame at a 1px placeholder and visibly re-lays-out once measured.
+     */
+    & Define.Prop<'initialHeight', number, false>
     /** Sticky skin tone applied to every tonal cell. Default 0 (base). */
     & Define.Prop<'tone', SkinTone, false>
     /** Grid columns. Default 8. */
@@ -74,6 +81,7 @@ export const EmojiGrid = component<EmojiGridProps>(({ props, emit }) => {
             <List
                 items={props.emojis}
                 itemsKey={props.itemsKey}
+                initialMainAxisSize={props.initialHeight}
                 keyExtractor={keyExtractor}
                 itemType={itemType}
                 renderItem={renderItem}
