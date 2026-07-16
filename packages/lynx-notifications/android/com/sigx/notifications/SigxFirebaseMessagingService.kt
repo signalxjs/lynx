@@ -164,7 +164,12 @@ class SigxFirebaseMessagingService : FirebaseMessagingService() {
         val conversationTitle = data["conversation_title"]
             ?: data["conversationTitle"]
             ?: existingStyle?.conversationTitle?.toString()
-        conversationTitle?.let { style.setConversationTitle(it) }
+        conversationTitle?.let {
+            style.setConversationTitle(it)
+            // Since P the platform ignores the title unless the style is
+            // marked a group conversation.
+            style.setGroupConversation(true)
+        }
         for (message in messages.takeLast(MAX_MESSAGING_HISTORY)) style.addMessage(message)
         builder.setStyle(style)
     }
