@@ -4,6 +4,8 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-07-16
+
 ### Changed (breaking)
 
 - `@sigx/lynx`, `@sigx/lynx-runtime`, `@sigx/lynx-appearance`, `@sigx/lynx-safe-area`, `@sigx/lynx-testing` — adopt **sigx core 0.10.0**: `@sigx/reactivity` and `@sigx/runtime-core` bumped `^0.7.0` → `^0.10.0`, skipping three minors. This is how core's renderer work reaches Lynx: `@sigx/lynx-runtime`'s renderer *is* runtime-core's `createRenderer`, and core 0.8.0 was a heavy perf release for exactly that code — an LIS-based keyed diff, a single-child reconciliation fast path, fewer per-vnode allocations in `jsx()`, plus reactivity proxy-trap and dependency-link reuse. `@sigx/reactivity` has no public API change across 0.7.0 → 0.10.0 (pure perf); `@sigx/runtime-core` drops four exports, which the `@sigx/lynx` umbrella re-exports and therefore no longer provides (#647):
