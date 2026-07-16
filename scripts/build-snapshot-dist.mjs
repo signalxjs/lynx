@@ -234,6 +234,45 @@ function stripJsComments(code) {
     return out;
 }
 
+/**
+ * Slice the LEPUS target's `__workletRuntimeLoaded && registerWorkletInternal(
+ * kind, id, function …);` statements — the worklet-body analog of the
+ * snapshot registrations. The JS target strips every `'main thread'` body to
+ * a `{_wkltId}` placeholder; without re-registering the bodies, ANY
+ * runOnMainThread / MT event worklet in a templated dist is structurally
+ * dead: the MT registry lookup returns undefined and the invoke throws
+ * (#664, found by #663's device gate). Returns statements WITHOUT the
+ * `__workletRuntimeLoaded && ` gate (the caller substitutes its own guard).
+ */
+function sliceWorkletRegistrations(rawCode) {
+    const code = stripJsComments(rawCode);
+    const out = [];
+    const gate = '__workletRuntimeLoaded && ';
+    const marker = `${gate}registerWorkletInternal(`;
+    let from = 0;
+    while (true) {
+        const idx = code.indexOf(marker, from);
+        if (idx === -1) break;
+        const callOpen = idx + marker.length - 1;
+        const callClose = scanBalanced(code, callOpen);
+        if (callClose === -1) break;
+        let end = callClose + 1;
+        if (end < code.length && code[end] === ';') end++;
+        out.push(code.slice(idx + gate.length, end));
+        from = end;
+    }
+    return out;
+}
+
+/** Distinct `_wkltId` values referenced by (transformed) module code. */
+function workletIdsIn(rawCode) {
+    const ids = new Set();
+    for (const m of stripJsComments(rawCode).matchAll(/_wkltId:\s*['"]([^'"]+)['"]/g)) {
+        ids.add(m[1]);
+    }
+    return ids;
+}
+
 /** Slice `<ns>.snapshotCreatorMap[…] = …createSnapshot(…);` assignments. */
 function sliceCreatorAssignments(rawCode, ns) {
     const code = stripJsComments(rawCode);
@@ -284,6 +323,11 @@ for (const abs of walk(srcDir)) {
 
     const wantSnapshot = /\.tsx$/.test(abs) && !SNAPSHOT_UNSUPPORTED_RE.test(source);
     let code;
+    // LEPUS output computed by the snapshot branch, reused for worklet
+    // registrations below (must come from the SAME withSnapshot flag as the
+    // JS run so worklet ids can't diverge).
+    let lepusCode = null;
+    let usedSnapshot = false;
     if (!wantSnapshot) {
         code = transformOnce(source, filename, 'JS', false).code;
     } else {
@@ -296,11 +340,14 @@ for (const abs of walk(srcDir)) {
             console.warn(`[snapshot-dist] ${relPosix}: snapshot pass failed, per-element fallback (${String(e).slice(0, 80)})`);
             fellBack++;
             js = transformOnce(source, filename, 'JS', false);
+            js.__fellBack = true;
         }
         code = js.code;
+        usedSnapshot = js.__fellBack !== true;
         const jsNs = detectSnapshotNamespace(code);
         if (jsNs) {
             const lepus = transformOnce(source, filename, 'LEPUS', true);
+            lepusCode = lepus.code;
             const lepusNs = detectSnapshotNamespace(lepus.code);
             if (lepusNs !== jsNs) {
                 throw new Error(`[snapshot-dist] ${relPosix}: namespace local diverged between targets (${jsNs} vs ${lepusNs})`);
@@ -354,6 +401,39 @@ for (const abs of walk(srcDir)) {
                 templated++;
             }
         }
+    }
+
+    // Worklet-body registrations (#664): the JS target stripped every
+    // `'main thread'` body to a `{_wkltId}` placeholder — append the LEPUS
+    // target's real-body registrations or the worklet is dead on MT. Applies
+    // to ANY file referencing a worklet (plain .ts runOnMainThread helpers
+    // included), not just snapshot-bearing ones.
+    const wkltIds = workletIdsIn(code);
+    if (wkltIds.size > 0) {
+        if (lepusCode === null) {
+            lepusCode = transformOnce(source, filename, 'LEPUS', usedSnapshot).code;
+        }
+        const regs = sliceWorkletRegistrations(lepusCode);
+        const registered = new Set(
+            regs.map((r) => /registerWorkletInternal\(\s*['"][^'"]*['"]\s*,\s*['"]([^'"]+)['"]/.exec(r)?.[1]),
+        );
+        for (const id of wkltIds) {
+            if (!registered.has(id)) {
+                throw new Error(
+                    `[snapshot-dist] ${relPosix}: module code references worklet ${id} but the `
+                    + 'LEPUS output registers no body for it — scanner edge case or transform '
+                    + 'divergence; refusing to emit a dist with a dead worklet',
+                );
+            }
+        }
+        // `registerWorkletInternal` is a GLOBAL the MT entry installs before
+        // user code; it does not exist on BG or web, so the typeof guard
+        // makes these statements no-ops everywhere but the main thread.
+        code += '\n// #664: main-thread worklet-body registrations (LEPUS target). The dist\n'
+            + '// executes on both bundle layers; registerWorkletInternal exists only on\n'
+            + '// the MT (installed by the entry before user code) — guarded elsewhere.\n'
+            + regs.map((r) => `typeof registerWorkletInternal === 'function' && ${r}`).join('\n')
+            + '\n';
     }
 
     const outPath = join(distDir, rel.replace(/\.tsx?$/, '.js'));
