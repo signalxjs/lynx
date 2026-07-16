@@ -245,13 +245,26 @@ const ListImpl = component<ListProps>(({ props, slots, emit }) => {
   const unreadCount = signal(0);
 
   // ── Windowing ──────────────────────────────────────────────────────────────
+  // Template-native cells (#645): renderItem returns a consumer-compiled
+  // <list-item> template and List passes it through unwrapped. Template rows
+  // are cheap staged records on the wire (the MT builds cells on demand and
+  // recycles them), so windowing — which exists to bound eager per-element
+  // materialization — is unnecessary and is disabled outright.
+  const templateCells = props.templateCells === true;
+  if (templateCells && props.windowSize !== undefined) {
+    console.warn(
+      '[sigx-list] templateCells makes windowing unnecessary — windowSize is ignored '
+        + '(template rows are staged records; cells build on demand and recycle)',
+    );
+  }
+
   // Render only a bounded sliding slice of `items` (opt-in via `windowSize`) so
   // a thousands-long history doesn't materialize thousands of <list-item>s — the
   // runtime renders every *rendered* cell eagerly (only native views recycle).
   // The math lives in windowing.ts; here we hold the range as signals and move
   // it from the scroll-edge handlers. Registered before the chat effects below
   // so the window is initialised before the first scroll-to-bottom reads it.
-  const windowingEnabled = props.windowSize !== undefined;
+  const windowingEnabled = props.windowSize !== undefined && !templateCells;
   const winCfg = resolveWindowConfig(props.windowSize, props.pageSize, props.maxWindow);
   // Initialise the window SYNCHRONOUSLY at setup. Effects flush on a microtask
   // *after* the first render, so a deferred init would let the first frame
@@ -634,6 +647,21 @@ const ListImpl = component<ListProps>(({ props, slots, emit }) => {
         {visibleItems.map((item, localI) => {
           const i = sliceStart + localI;
           const key = keyOf ? keyOf(item, i) : String(i);
+          // Template-native rows (#645): the consumer's <list-item> template
+          // flows through unwrapped — wrapping would make it slot content
+          // (unpoolable, early-materialized). We own the vnode between
+          // renderItem() and the reconciler, so keying it in place is safe;
+          // an explicit consumer key wins.
+          if (templateCells) {
+            const cell = props.renderItem(item, i) as
+              | { key?: unknown }
+              | null
+              | undefined;
+            if (cell && typeof cell === 'object' && cell.key == null) {
+              cell.key = key;
+            }
+            return cell;
+          }
           return (
             <list-item
               key={key}

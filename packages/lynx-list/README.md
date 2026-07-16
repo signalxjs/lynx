@@ -194,7 +194,8 @@ Zero-cost when omitted; omit it for append/prepend/edit flows.
 | `pullThreshold` | `number` | Pull distance (px) that triggers a refresh. Default 64. |
 | `inverted` | `boolean` | Chat mode: bottom-anchored + stick-to-bottom (vertical only). |
 | `stickToBottom` | `boolean` | In chat mode, auto-scroll on new items when at the bottom. Default `true`. |
-| `windowSize` | `number` | Enables windowing: render only this many cells of a long `items`. |
+| `templateCells` | `boolean` | **Template-native rows** — `renderItem` returns a `<list-item>` written in your own source and List passes it through unwrapped. See below. |
+| `windowSize` | `number` | Enables windowing: render only this many cells of a long `items`. Ignored under `templateCells`. |
 | `pageSize` | `number` | Items revealed per scroll-edge page when windowing. Default 30. |
 | `maxWindow` | `number` | Cap on rendered window length; the far end trims past it. Default `max(120, windowSize×2)`. |
 | `itemsKey` | `string` | Dataset identity — when it changes, the window re-anchors and scroll resets (see "Swapping datasets"). |
@@ -205,10 +206,51 @@ Zero-cost when omitted; omit it for append/prepend/edit flows.
 **Events:** `onEndReached`, `onStartReached`, `onScroll({ offset })`, `onRefresh`.
 **Slots:** `header`, `footer`, `empty`, `refresh`, `newMessages({ count })`.
 
+## Template-native cells (`templateCells`)
+
+With `snapshots` builds (the default), JSX written in your app or in a package
+built with the snapshot dist emitter compiles to main-thread templates. When
+`renderItem` returns a **`<list-item>` element from your own source**, pass
+`templateCells` and List stops wrapping it:
+
+```tsx
+<List
+  items={rows}
+  templateCells
+  keyExtractor={(r) => r.id}
+  renderItem={(r) => (
+    <list-item item-key={r.id} estimated-main-axis-size-px={56}>
+      <text>{r.title}</text>
+    </list-item>
+  )}
+/>
+```
+
+What this changes:
+
+- **Rows are staged records, not rendered subtrees.** The main thread builds
+  each cell synchronously the moment the native recycler asks for it — a
+  fling can never observe a blank cell — and off-screen cell trees recycle
+  through template-keyed pools.
+- **Windowing becomes unnecessary** and is disabled (a warning fires if
+  `windowSize` is also set). Pass all your items.
+- Your `<list-item>` owns `item-key`, `item-type`,
+  `estimated-main-axis-size-px`, etc. as JSX attributes; List's `itemType` /
+  `estimatedItemSize` props do not apply to pass-through rows. `keyExtractor`
+  still supplies the reconciliation key (set as the vnode key unless your JSX
+  passes an explicit `key`).
+- Keep the cell **self-contained**: a cell whose template has slot children
+  (e.g. wrapping a component like `Pressable` around your content) renders
+  but never pools. Rows whose root isn't a `<list-item>` don't paint at all —
+  a DEV check on the main thread names the offending template.
+
+Header, footer, loading and empty slots keep the classic wrapped path; the
+two row kinds coexist in one list.
+
 ## Roadmap
 
-- **Lazy runtime virtualization** so off-screen cells aren't eagerly built —
-  removing the need for windowing entirely.
+- ~~Lazy runtime virtualization so off-screen cells aren't eagerly built~~ —
+  shipped as `templateCells` (#645, on the #620 snapshot-template runtime).
 
 ## License
 

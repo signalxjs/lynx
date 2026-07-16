@@ -116,6 +116,27 @@ export type ListProps<T = unknown> =
   /** Items revealed per scroll-edge page when windowing. Default 30. */
   & Define.Prop<'pageSize', number, false>
   /**
+   * **Template-native cells** (#645): `renderItem` returns a `<list-item>`
+   * element written in YOUR package/app source (so it compiles to a snapshot
+   * template — requires a `snapshots` build, the default), and `List` passes
+   * it through **unwrapped**. Rows then exist as cheap staged records: the
+   * main thread builds each cell synchronously when the native recycler asks
+   * for it (a fling can never observe a blank), offscreen cell trees recycle
+   * through template-keyed pools, and **windowing becomes unnecessary** — if
+   * `windowSize` is also set, `templateCells` wins (DEV warning).
+   *
+   * Your `<list-item>` owns `item-key` / `estimated-main-axis-size-px` /
+   * `item-type` etc. as JSX attributes (List's `itemType` / `estimatedItemSize`
+   * props are not applied to pass-through rows). `keyExtractor` still provides
+   * the reconciliation key: it is set as the vnode key unless your JSX already
+   * carries an explicit `key`.
+   *
+   * Rows that are NOT a single compiled `<list-item>` template will render but
+   * never pool — and a non-`list-item` root silently fails to paint on native
+   * (a DEV check on the main thread names the offending template).
+   */
+  & Define.Prop<'templateCells', boolean, false>
+  /**
    * Hard cap on the rendered window length when windowing — once the window
    * grows past this, the far (off-screen) end is trimmed to stay bounded.
    * Default `max(120, windowSize × 2)`.

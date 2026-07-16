@@ -149,6 +149,25 @@ function platformInfoFor(childInternalId: number): Record<string, unknown> {
   return {};
 }
 
+/**
+ * A template cell whose root is not a `<list-item>` element builds, flushes,
+ * and returns a valid sign — and then silently never paints (#620 spike).
+ * Name the cause once per template type, right where it materializes.
+ */
+const warnedNonListItemRoots = new Set<string>();
+function warnIfNotListItemRoot(inst: MTSnapshotInstance): void {
+  if (typeof __GetTag !== 'function') return; // host without introspection
+  if (!inst.__element_root || warnedNonListItemRoots.has(inst.type)) return;
+  const tag = __GetTag(inst.__element_root);
+  if (tag !== 'list-item') {
+    warnedNonListItemRoots.add(inst.type);
+    console.log(
+      `[sigx-mt] list cell template "${inst.type}" roots at <${tag}>, not <list-item> — `
+        + 'it will not paint. renderItem must return a <list-item> element under templateCells.',
+    );
+  }
+}
+
 function reuseKeyOf(inst: MTSnapshotInstance): string {
   const reuseId = platformInfoFor(inst.__id)['reuse-identifier'];
   return `${inst.type}|${typeof reuseId === 'string' ? reuseId : ''}`;
@@ -220,6 +239,7 @@ function componentAtIndex(
       const entry = pool?.pop();
       if (entry) adoptPooled(inst, entry);
       else inst.ensureElements();
+      warnIfNotListItemRoot(inst);
     }
     if (!inst.__element_root) return -1;
     root = inst.__element_root;
@@ -567,4 +587,5 @@ export function resetListState(): void {
   listByListID.clear();
   listItemOwner.clear();
   itemPlatformInfo.clear();
+  warnedNonListItemRoots.clear();
 }
