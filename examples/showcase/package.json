@@ -60,7 +60,7 @@
         "@sigx/lynx-zero": "workspace:^",
         "@sigx/reactivity": "catalog:",
         "@sigx/runtime-core": "catalog:",
-        "lucide": "^1.16.0",
+        "lucide": "^1.24.0",
         "zod": "^4.4.3"
     },
     "devDependencies": {
@@ -69,10 +69,10 @@
         "@lynx-js/runtime-wrapper-webpack-plugin": ">=0.1.0",
         "@lynx-js/tailwind-preset": "^0.4.0",
         "@lynx-js/template-webpack-plugin": ">=0.11.1",
-        "@lynx-js/web-core": ">=0.20.4",
+        "@lynx-js/web-core": ">=0.22.2",
         "@lynx-js/web-elements": ">=0.12.2",
         "@lynx-js/webpack-dev-transport": ">=0.1.0",
-        "@sigx/cli": "^0.4.2",
+        "@sigx/cli": "^0.5.1",
         "@sigx/lynx-cli": "workspace:^",
         "@sigx/lynx-dev-client": "workspace:^",
         "@sigx/lynx-plugin": "workspace:^",
