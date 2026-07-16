@@ -85,6 +85,25 @@ describe('staging driver reset (#666 review)', () => {
         expect(d.staged.value).toBeGreaterThan(240);
     });
 
+    it('reset() also resets the adaptive slice size', async () => {
+        const d = createStagingDriver(240);
+        // Test slices are near-instant, so the adaptive size climbs fast —
+        // run a few against a huge dataset to inflate it well past initial.
+        for (let i = 0; i < 4; i++) {
+            d.ensure(100_000);
+            await new Promise((r) => setTimeout(r, 5));
+        }
+        const grownBy = d.staged.value - 240;
+        expect(grownBy).toBeGreaterThan(96 * 2);   // it adapted upward
+        d.reset();
+        expect(d.staged.value).toBe(240);
+        // First slice of the NEW dataset must be back at the initial size —
+        // a carried-over 512-row slice could blow the frame budget.
+        d.ensure(100_000);
+        await new Promise((r) => setTimeout(r, 15));
+        expect(d.staged.value).toBe(240 + 96);
+    });
+
     it('an itemsKey swap mid-staging restarts staging on the new dataset only', async () => {
         const state = signal<{ sections: EmojiSection[]; key: string }>({ sections: BIG, key: 'one' });
         const Harness = component(() => () => (
@@ -140,6 +159,48 @@ describe('staged-aware scroll-to-section (#666)', () => {
         handle.current!('cat-c');
         await settleStaging();
         expect(scrollCalls).toEqual([[sectionRowIndex(BIG, 'cat-c'), SCROLL_METHOD]]);
+    });
+
+    /**
+     * Poll in tight ticks until the staged row count crosses `needed`, so a
+     * cancel/retarget can be injected INSIDE the ~32ms deferred-fire window
+     * that opens at the crossing render.
+     */
+    async function pollUntilStaged(container: unknown, needed: number): Promise<void> {
+        for (let i = 0; i < 400; i++) {
+            if ((getAllByType(container as never, 'list-item') as unknown[]).length >= needed) return;
+            await new Promise((r) => setTimeout(r, 1));
+            await act(() => {});
+        }
+        throw new Error('pollUntilStaged: staging never crossed the target');
+    }
+
+    it('a manual scroll inside the deferred-fire window still cancels', async () => {
+        scrollCalls.length = 0;
+        const { handle, container } = mountGrid(BIG);
+        await act(() => {});
+        handle.current!('cat-c');            // tail: fires only at full staging
+        const total = BIG.length + BIG.reduce((n, s) => n + s.emojis.length, 0);
+        await pollUntilStaged(container, total);
+        // Crossing render just scheduled the deferred fire — cancel NOW.
+        const list = getByType(container as never, 'list') as unknown as TestNode;
+        await act(() => { list._handlers.get('bindscroll')!({ detail: { scrollTop: 500 } }); });
+        await new Promise((r) => setTimeout(r, 60));
+        expect(scrollCalls).toEqual([]);
+    });
+
+    it('a newer staged tap inside the deferred-fire window wins — exactly one scroll', async () => {
+        scrollCalls.length = 0;
+        const { handle, container } = mountGrid(BIG);
+        await act(() => {});
+        handle.current!('cat-c');
+        const total = BIG.length + BIG.reduce((n, s) => n + s.emojis.length, 0);
+        await pollUntilStaged(container, total);
+        // Inside the window: retarget to an already-coverable section — it
+        // fires immediately and the old deferred callback must no-op.
+        handle.current!('cat-b');
+        await new Promise((r) => setTimeout(r, 60));
+        expect(scrollCalls).toEqual([[sectionRowIndex(BIG, 'cat-b'), SCROLL_METHOD]]);
     });
 
     it('genuine manual scrolling cancels a parked target', async () => {

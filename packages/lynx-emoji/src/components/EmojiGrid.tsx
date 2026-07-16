@@ -95,7 +95,8 @@ export function createStagingDriver(initial: number): {
 } {
     const staged = signal(initial);
     let timer: ReturnType<typeof setTimeout> | undefined;
-    let sliceRows = 96;
+    const INITIAL_SLICE_ROWS = 96;
+    let sliceRows = INITIAL_SLICE_ROWS;
     let sliceStartedAt = 0;
     let sliceStartedCount = 0;
     const ensure = (total: number): void => {
@@ -131,6 +132,9 @@ export function createStagingDriver(initial: number): {
             }
             staged.value = initial;
             sliceStartedAt = 0;
+            // The adaptive size was tuned for the PREVIOUS dataset's rows —
+            // carried over, a 512-row first slice could blow the budget.
+            sliceRows = INITIAL_SLICE_ROWS;
         },
     };
 }
@@ -344,6 +348,7 @@ export const EmojiGrid = component<EmojiGridProps>(({ props, emit }) => {
         if (p && typeof p.catch === 'function') p.catch(() => { /* stale el: no-op */ });
     });
     let pendingScrollKey: string | null = null;
+    let pendingFireTimer: ReturnType<typeof setTimeout> | undefined;
     let lastScrollOffset = 0;
     /**
      * Staged rows needed for an align-top scroll to `row` to LAND there:
@@ -435,16 +440,31 @@ export const EmojiGrid = component<EmojiGridProps>(({ props, emit }) => {
             const stagedCount = Math.min(stagedRows.value, rows.length);
             const items = stagedCount < rows.length ? rows.slice(0, stagedCount) : rows;
             if (stagedCount < rows.length) driver.ensure(rows.length);
-            if (pendingScrollKey !== null) {
+            if (pendingScrollKey !== null && pendingFireTimer === undefined) {
                 const row = sectionRowIndex(sections, pendingScrollKey);
                 if (row < 0) {
                     pendingScrollKey = null;
                 } else if (stagedNeededFor(row, sections) <= stagedCount) {
-                    pendingScrollKey = null;
                     // One macrotask later: the slice's ops batch (and its
                     // update-list-info) must reach native BEFORE the scroll
-                    // or the index is still out of range and dropped.
-                    setTimeout(() => { void scrollToRow(row, SCROLL_METHOD); }, 32);
+                    // or the index is still out of range and dropped. The
+                    // pending key stays SET until the callback runs so the
+                    // cancel semantics hold through the deferral window: a
+                    // manual scroll nulls it (callback no-ops) and a newer
+                    // tap retargets it (callback re-validates: fires if the
+                    // new target is coverable, else leaves it parked for its
+                    // own crossing).
+                    pendingFireTimer = setTimeout(() => {
+                        pendingFireTimer = undefined;
+                        if (pendingScrollKey === null) return;   // cancelled in the window
+                        const sectionsNow = props.sections;
+                        if (!sectionsNow) { pendingScrollKey = null; return; }
+                        const rowNow = sectionRowIndex(sectionsNow, pendingScrollKey);
+                        if (rowNow < 0) { pendingScrollKey = null; return; }
+                        if (stagedNeededFor(rowNow, sectionsNow) > stagedRows.value) return;
+                        pendingScrollKey = null;
+                        void scrollToRow(rowNow, SCROLL_METHOD);
+                    }, 32);
                 }
             }
             return (
