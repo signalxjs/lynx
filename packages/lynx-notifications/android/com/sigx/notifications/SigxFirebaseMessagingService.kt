@@ -161,10 +161,10 @@ class SigxFirebaseMessagingService : FirebaseMessagingService() {
             (existingStyle?.messages ?: emptyList()) +
                 NotificationCompat.MessagingStyle.Message(body, System.currentTimeMillis(), sender)
 
-        // MessagingStyle requires a "user" Person (the device owner); it only
-        // renders for messages attributed to the user, which we never add.
-        // Use the app label rather than a hard-coded English string in case a
-        // launcher surfaces it anyway.
+        // MessagingStyle requires a Person representing the local user, and
+        // its name can surface in the rendered UI on some OS versions. We
+        // never attribute messages to the user, but use the app label rather
+        // than a hard-coded (non-localizable) string for wherever it shows.
         val style = NotificationCompat.MessagingStyle(Person.Builder().setName(appLabel()).build())
         val conversationTitle = data["conversation_title"]
             ?: data["conversationTitle"]
@@ -191,14 +191,16 @@ class SigxFirebaseMessagingService : FirebaseMessagingService() {
      */
     private fun showGroupSummary(manager: NotificationManager, group: String) {
         // Id-space guard, part two (the call site excludes the current
-        // conversation): if any OTHER active non-summary notification already
-        // occupies group.hashCode(), posting the summary would overwrite it.
+        // conversation): only post when group.hashCode() is free or already
+        // holds THIS group's summary — anything else (a conversation entry,
+        // another group's summary) would be overwritten.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             val occupant = manager.activeNotifications.firstOrNull { it.id == group.hashCode() }
-            if (occupant != null &&
-                (occupant.notification.flags and android.app.Notification.FLAG_GROUP_SUMMARY) == 0
-            ) {
-                return
+            if (occupant != null) {
+                val n = occupant.notification
+                val isOwnSummary =
+                    (n.flags and android.app.Notification.FLAG_GROUP_SUMMARY) != 0 && n.group == group
+                if (!isOwnSummary) return
             }
         }
         val builder = NotificationCompat.Builder(this, NotificationsModule.CHANNEL_ID)
