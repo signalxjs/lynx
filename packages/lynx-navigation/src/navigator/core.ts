@@ -105,8 +105,8 @@ const TRANSITION_DURATION_SEC = 0.28;
  * the moment `push`/`replace` is called rather than waiting until render
  * tries to instantiate them — by the time `<Stack>` swaps screens the chunk
  * is usually already resolved, so the user sees the screen instead of the
- * `<Suspense fallback>`. Fire-and-forget: errors here surface through
- * `<Suspense>` at render time.
+ * `<Defer fallback>`. Fire-and-forget: errors here surface through
+ * `<Defer>` at render time.
  */
 function preloadRouteComponent(component: unknown): void {
     if (isLazyComponent(component)) {

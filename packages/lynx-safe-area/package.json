@@ -38,7 +38,7 @@
     "dependencies": {
         "@sigx/lynx": "workspace:^",
         "@sigx/lynx-runtime-internal": "workspace:^",
-        "@sigx/reactivity": "^0.7.0"
+        "@sigx/reactivity": "catalog:"
     },
     "devDependencies": {
         "@sigx/lynx-plugin": "workspace:^",

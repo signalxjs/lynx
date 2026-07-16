@@ -45,7 +45,7 @@ export type Presentation = 'card' | 'modal' | 'fullScreen' | 'transparent-modal'
  * `useSearch`, `nav.push`, `<Link>`, etc.
  *
  * `component` accepts an eager component factory or a lazy import — both shapes
- * resolve through sigx's `<Suspense>` boundary at render time.
+ * resolve through sigx's `<Defer>` boundary at render time.
  */
 export interface RouteDefinition<
     Params extends StandardSchemaV1 | undefined = StandardSchemaV1 | undefined,
@@ -57,10 +57,10 @@ export interface RouteDefinition<
      * Fallback shown while a lazy `component` is loading.
      *
      * Set this only on routes whose `component` was created with `lazy(...)`.
-     * The fallback is rendered inside a `<Suspense>` boundary wrapping the
+     * The fallback is rendered inside a `<Defer>` boundary wrapping the
      * screen mount, so the user sees this UI while the screen's chunk is
      * being fetched. When omitted, lazy routes still work — the caller is
-     * responsible for placing its own `<Suspense>` boundary (e.g. above the
+     * responsible for placing its own `<Defer>` boundary (e.g. above the
      * `<NavigationRoot>` or inside the screen component).
      *
      * Accepts a component factory (`MyLoadingScreen`) or a function returning

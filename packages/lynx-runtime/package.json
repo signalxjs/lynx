@@ -46,8 +46,8 @@
     },
     "dependencies": {
         "@sigx/lynx-runtime-internal": "workspace:^",
-        "@sigx/reactivity": "^0.7.0",
-        "@sigx/runtime-core": "^0.7.0"
+        "@sigx/reactivity": "catalog:",
+        "@sigx/runtime-core": "catalog:"
     },
     "peerDependencies": {
         "@lynx-js/types": "*"

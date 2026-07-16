@@ -6,7 +6,7 @@
  *  - Eager components (plain factories, not wrapped in `lazy()`) are left
  *    untouched.
  *
- * We don't render the Suspense path in vitest (no MT runtime, fragile);
+ * We don't render the Defer path in vitest (no MT runtime, fragile);
  * those characteristics are verified in the example app. These tests pin
  * the preload contract — that's the part regressing-easy code (changing
  * `push` internals) would silently break.
