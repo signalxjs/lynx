@@ -311,7 +311,8 @@ for (const abs of walk(srcDir)) {
             // a dist whose null-body registrations lack their real-body
             // overwrites — MT materialization would throw at render time,
             // far from the cause. Fail the BUILD instead.
-            const lepusIds = new Set(stripJsComments(lepus.code).match(/snapshotCreatorMap\[(?:__snapshot_[A-Za-z0-9_]+)\]/g) ?? []);
+            const strippedLepus = stripJsComments(lepus.code);
+            const lepusIds = new Set(strippedLepus.match(/snapshotCreatorMap\[(?:__snapshot_[A-Za-z0-9_]+)\]/g) ?? []);
             if (assignments.length !== lepusIds.size) {
                 throw new Error(
                     `[snapshot-dist] ${relPosix}: sliced ${assignments.length} registrations `
@@ -329,7 +330,7 @@ for (const abs of walk(srcDir)) {
             // First arg may be any simple element expression — an identifier
             // (`el2`) or a member/index chain (`ctx.__elements[1]`); anything
             // without commas or parens up to the `"model"` literal counts.
-            if (/__SetAttribute\(\s*[^,()]{1,200}?\s*,\s*["']model["']/.test(stripJsComments(lepus.code))) {
+            if (/__SetAttribute\(\s*[^,()]{1,200}?\s*,\s*["']model["']/.test(strippedLepus)) {
                 throw new Error(
                     `[snapshot-dist] ${relPosix}: model={...} on an intrinsic element inside a `
                     + `snapshot template — the model processor cannot run there. Wire it as a `
