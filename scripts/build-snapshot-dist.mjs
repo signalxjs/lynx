@@ -318,6 +318,21 @@ for (const abs of walk(srcDir)) {
                     + `but the LEPUS output registers ${lepusIds.size} — scanner edge case; refusing to emit`,
                 );
             }
+            // `model` two-way binding on an intrinsic element cannot work
+            // inside a template: the element never passes through the
+            // jsx-runtime, so the platform model processor that expands it
+            // to value + bindinput never runs — the directive would ship to
+            // the main thread as a dead `model` attribute (and the input
+            // would never write back, see #650). Detectable right here in
+            // the compiled create/update bodies; fail the BUILD with the
+            // authoring fix instead of shipping a silently broken binding.
+            if (/__SetAttribute\(\s*[A-Za-z_$][\w$]*\s*,\s*["']model["']/.test(stripJsComments(lepus.code))) {
+                throw new Error(
+                    `[snapshot-dist] ${relPosix}: model={...} on an intrinsic element inside a `
+                    + `snapshot template — the model processor cannot run there. Wire it as a `
+                    + `controlled input instead: value={model.value} + bindinput.`,
+                );
+            }
             // Every assignment's template id must already be declared by the
             // JS module code (same source, same ids) — a miss means the
             // slicing or the id contract broke.

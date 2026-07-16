@@ -19,15 +19,28 @@ const FALLBACK_STYLE = {
  * Themes restyle via `class` (the neutral border/padding fallback applies
  * only when no class is given) or replace the whole row with the picker's
  * `renderSearchInput`.
+ *
+ * The binding is wired manually as a controlled input (`value` +
+ * `bindinput`) instead of `model={...}`: this package compiles to snapshot
+ * templates, and inside a template an intrinsic element never passes
+ * through the jsx-runtime, so the platform model processor that would
+ * expand `model` cannot run — the directive would ship to the main thread
+ * as a meaningless `model` attribute and the input would never write back.
  */
 export const SearchInput = component<SearchInputProps>(({ props }) => {
+    const onInput = (e: { detail?: { value?: unknown } }): void => {
+        const model = props.model;
+        if (model) model.value = String(e?.detail?.value ?? '');
+    };
+
     return () => (
         <input
             class={props.class}
             placeholder={props.placeholder ?? 'Search emoji'}
             type="text"
             confirm-type="search"
-            model={props.model}
+            value={props.model?.value ?? ''}
+            bindinput={onInput}
             style={props.class ? undefined : FALLBACK_STYLE}
         />
     );
