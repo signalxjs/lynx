@@ -66,9 +66,25 @@ class NotificationsModule: NSObject, LynxModule {
             callback?(false)
             return
         }
-        UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: [notificationId])
-        UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: [notificationId])
-        callback?(true)
+        let center = UNUserNotificationCenter.current()
+        center.removePendingNotificationRequests(withIdentifiers: [notificationId])
+        // Delivered remote pushes carry a system-assigned request identifier;
+        // the JS-visible id lives in the payload (data.notification_id — the
+        // same contract Android keys the tray entry on). Match both so
+        // cancel(id) reaches local schedules (identifier == id) and remote
+        // pushes (payload id == id), including collapse-id senders.
+        center.getDeliveredNotifications { delivered in
+            var identifiers = [notificationId]
+            for notification in delivered {
+                let info = notification.request.content.userInfo
+                let payloadId = (info["notification_id"] as? String) ?? (info["notificationId"] as? String)
+                if payloadId == notificationId {
+                    identifiers.append(notification.request.identifier)
+                }
+            }
+            center.removeDeliveredNotifications(withIdentifiers: identifiers)
+            callback?(true)
+        }
     }
 
     @objc func cancelAll(_ callback: LynxCallbackBlock?) {

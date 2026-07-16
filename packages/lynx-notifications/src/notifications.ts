@@ -73,6 +73,13 @@ export const Notifications = {
         return callAsync<string>(MODULE, 'schedule', content, options);
     },
 
+    /**
+     * Cancel a pending scheduled notification and dismiss any delivered tray
+     * entry — local (id returned by `schedule`) or **remote push** — matching
+     * the id. Remote pushes match when they were sent with
+     * `data.notification_id === notificationId` (both platforms), e.g. to
+     * clear a conversation's notification when it's read on another device.
+     */
     cancel(notificationId: string): Promise<void> {
         return callAsync<void>(MODULE, 'cancel', notificationId);
     },
