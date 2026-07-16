@@ -326,7 +326,10 @@ for (const abs of walk(srcDir)) {
             // would never write back, see #650). Detectable right here in
             // the compiled create/update bodies; fail the BUILD with the
             // authoring fix instead of shipping a silently broken binding.
-            if (/__SetAttribute\(\s*[A-Za-z_$][\w$]*\s*,\s*["']model["']/.test(stripJsComments(lepus.code))) {
+            // First arg may be any simple element expression — an identifier
+            // (`el2`) or a member/index chain (`ctx.__elements[1]`); anything
+            // without commas or parens up to the `"model"` literal counts.
+            if (/__SetAttribute\(\s*[^,()]{1,200}?\s*,\s*["']model["']/.test(stripJsComments(lepus.code))) {
                 throw new Error(
                     `[snapshot-dist] ${relPosix}: model={...} on an intrinsic element inside a `
                     + `snapshot template — the model processor cannot run there. Wire it as a `

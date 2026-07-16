@@ -77,6 +77,8 @@ describe('EmojiGrid (template cells, #649)', () => {
         expect(cells[0].props['item-key']).toBe('A0');
         // Default cell estimate: 6+6px padding + 32px glyph at ~1.2 line-height.
         expect(cells[0].props['estimated-main-axis-size-px']).toBe(50);
+        // Native reuse group — parity with the pre-template itemType wrapper.
+        expect(cells[0].props['item-type']).toBe('emoji');
         // The glyph is a `text` ATTRIBUTE (keeps the template slot-free).
         const textEl = cells[0].children.find((c: { type?: string }) => (c as { type: string }).type === 'text') as
             | { props: Record<string, unknown> }

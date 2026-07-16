@@ -48,6 +48,7 @@ export const EmojiCell = component<EmojiCellProps>(({ props, emit }) => {
             // from the default shape so default cells stay slot-free.
             <list-item
                 item-key={props.datum.e}
+                item-type="emoji-custom"
                 estimated-main-axis-size-px={estRowPx()}
                 class={props.class}
                 accessibility-element={true}
@@ -69,6 +70,7 @@ export const EmojiCell = component<EmojiCellProps>(({ props, emit }) => {
         : (
             <list-item
                 item-key={props.datum.e}
+                item-type="emoji"
                 estimated-main-axis-size-px={estRowPx()}
                 class={props.class}
                 accessibility-element={true}
