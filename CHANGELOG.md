@@ -13,6 +13,10 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
   - **`SuspenseProps` → `DeferProps`.**
 - `@sigx/lynx-navigation` — lazy routes now mount their `fallback` inside a `<Defer>` boundary instead of `<Suspense>` (#647). No API change: `RouteDefinition.fallback` keeps its shape and meaning, and eager routes are unaffected. Callers placing their own boundary above `<NavigationRoot>` (the documented alternative to a per-route `fallback`) must rename it to `<Defer>`.
 
+### Fixed
+
+- `@sigx/lynx-runtime` — `useData` / `useAction` now run on Lynx. Core gates its async fetchers on `isLiveClient()`, whose fallback is `typeof window !== 'undefined'` — false on the Lynx BG thread — so without an explicit declaration core treated every Lynx app as a *server render* and never ran a fetcher: the cell sat at `pending` forever, silently. The runtime now calls core's `declareLiveClient()` on import (the seam core added for exactly this, naming Lynx as a target), before any component setup can read a cell. Verified on device: a `useData` read goes from `pending` (hung) to `ready` with the fetched value (#647).
+
 ### Changed
 
 - The sigx core versions are now declared once, as a pnpm **`catalog:`** in `pnpm-workspace.yaml`, instead of an `^x.y.z` range hand-copied into each package. Future core bumps are a one-line change rather than a ten-range sweep across eight manifests, which is what let `examples/showcase` drift onto a stale `@sigx/cli` unnoticed. Published manifests are unaffected — `pnpm publish` rewrites `catalog:` to the concrete range exactly as it already does for `workspace:^` (#647).
