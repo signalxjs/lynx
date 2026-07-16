@@ -247,17 +247,33 @@ describe('sectioned grid (#662)', () => {
 
     it('the picker tab highlight follows the scroll', async () => {
         const { container } = render(
-            <EmojiPicker data={makeData()} showSearch={false} showRecents={false} />,
+            <EmojiPicker
+                data={makeData()}
+                showSearch={false}
+                showRecents={false}
+                classes={{ tabActive: 'is-active' }}
+            />,
         );
         await act(() => {});
+        const activeGlyphs = (): string[] => {
+            const bar = getByType(container, 'scroll-view') as unknown as TestNode;
+            const glyphs: string[] = [];
+            const walk = (n: TestNode & { props?: Record<string, unknown> }): void => {
+                const cls = (n as { props?: { class?: string } }).props?.class ?? '';
+                if (cls.split(' ').includes('is-active')) glyphs.push(n.textContent());
+                for (const c of n.children) walk(c as never);
+            };
+            walk(bar as never);
+            return glyphs;
+        };
+        // cat-a active at the top; crossing cat-b's start flips the highlight.
+        expect(activeGlyphs()).toEqual(['A0']);
         const list = getByType(container, 'list') as unknown as TestNode;
         const catBStart = sectionStartOffsets(SECTIONS, 8)[1]!;
         await act(() => { list._handlers.get('bindscroll')!({ detail: { scrollTop: catBStart + 5 } }); });
-        // The active tab carries the extra active class; find the tab bar
-        // node bound to B0 (cat-b's fallback glyph) and check it.
-        const bar = getByType(container, 'scroll-view');
-        const tabB = findByHandler(bar as never, 'bindtap', 'B0');
-        expect(tabB).toBeTruthy();
+        expect(activeGlyphs()).toEqual(['B0']);
+        await act(() => { list._handlers.get('bindscroll')!({ detail: { scrollTop: 0 } }); });
+        expect(activeGlyphs()).toEqual(['A0']);
     });
 
     it('recents: no section and no tab when empty at mount', async () => {
