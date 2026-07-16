@@ -72,10 +72,12 @@ class NotificationsModule: NSObject, LynxModule {
         // the JS-visible id lives in the payload (data.notification_id — the
         // same contract Android keys the tray entry on). Match both so
         // cancel(id) reaches local schedules (identifier == id) and remote
-        // pushes (payload id == id), including collapse-id senders.
+        // pushes (payload id == id), including collapse-id senders. Payload
+        // matching is remote-only: a local schedule whose data dict contains
+        // notification_id stays keyed on its schedule UUID, as on Android.
         center.getDeliveredNotifications { delivered in
             var identifiers = [notificationId]
-            for notification in delivered {
+            for notification in delivered where notification.request.trigger is UNPushNotificationTrigger {
                 let info = notification.request.content.userInfo
                 let payloadId = (info["notification_id"] as? String) ?? (info["notificationId"] as? String)
                 if payloadId == notificationId {

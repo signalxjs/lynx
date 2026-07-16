@@ -79,9 +79,13 @@ export const Notifications = {
      * the id. Remote pushes match when they were sent with
      * `data.notification_id === notificationId` (both platforms), e.g. to
      * clear a conversation's notification when it's read on another device.
+     *
+     * Resolves `false` when the native side could not process the call
+     * (missing id / platform error); note `true` does not imply a matching
+     * tray entry existed.
      */
-    cancel(notificationId: string): Promise<void> {
-        return callAsync<void>(MODULE, 'cancel', notificationId);
+    cancel(notificationId: string): Promise<boolean> {
+        return callAsync<boolean>(MODULE, 'cancel', notificationId);
     },
 
     cancelAll(): Promise<void> {
