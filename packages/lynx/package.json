@@ -1,6 +1,6 @@
 {
     "name": "@sigx/lynx",
-    "version": "0.7.0",
+    "version": "0.14.0",
     "description": "sigx-lynx framework",
     "type": "module",
     "main": "./dist/index.js",
@@ -19,6 +19,10 @@
         },
         "./client": {
             "types": "./dist/client.d.ts"
+        },
+        "./internal": {
+            "types": "./dist/internal.d.ts",
+            "import": "./dist/internal.js"
         },
         "./package.json": "./package.json",
         "./signalx-module.json": "./signalx-module.json"
@@ -48,8 +52,9 @@
         "@sigx/lynx-core": "workspace:^",
         "@sigx/lynx-http": "workspace:^",
         "@sigx/lynx-runtime": "workspace:^",
-        "@sigx/reactivity": "^0.6.3",
-        "@sigx/runtime-core": "^0.6.3"
+        "@sigx/lynx-runtime-internal": "workspace:^",
+        "@sigx/reactivity": "catalog:",
+        "@sigx/runtime-core": "catalog:"
     },
     "devDependencies": {
         "@typescript/native-preview": "7.0.0-dev.20260521.1",

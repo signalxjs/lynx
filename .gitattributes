@@ -1,0 +1,12 @@
+# Pin line endings for files where they are load-bearing, regardless of a
+# contributor's or publisher's core.autocrlf. The Gradle wrapper and shell
+# scripts MUST stay LF: a CRLF shebang becomes `#!/bin/sh^M`, which fails with
+# `bad interpreter: /bin/sh^M: no such file or directory` on Linux/macOS and
+# breaks Android builds from the generated project. Windows scripts stay CRLF.
+gradlew      text eol=lf
+*.sh         text eol=lf
+*.bash       text eol=lf
+
+gradlew.bat  text eol=crlf
+*.bat        text eol=crlf
+*.cmd        text eol=crlf

@@ -15,8 +15,18 @@ Full guides, API reference and live examples → **[https://sigx.dev/lynx/module
   `CategoryTabBar` / `SkinTonePopover` yourself. Theme via the
   `classes` slot map and render props; `@sigx/lynx-daisyui` ships a skin
   (`emojiClasses`, `EmojiPickerSheet`).
-- **Recycled grid** — the native `<list span-count>` recycler, so ~1900
-  glyphs scroll with a constant view count.
+- **Template grid** — a `List` (`@sigx/lynx-list`) in flow layout running
+  snapshot-template cells: the full category ships as staged row records, the
+  main thread builds each cell synchronously the moment the native recycler
+  pulls it, and offscreen cells recycle through the template pool — no
+  windowing, no per-cell background rendering on scroll. Passing `renderCell`
+  swaps in a slot-bearing cell template: still synchronous, but such cells are
+  excluded from recycling (each keeps a dedicated tree), so prefer the default
+  glyph cell for large grids. A hidden list dispatches scroll events forever,
+  so exactly one grid is mounted at a time. Headless `EmojiGrid` users can
+  pass `itemsKey` (dataset identity) to re-anchor to the top on a swap, and
+  `initialHeight` to lay the grid out at full size on its first frame;
+  `EmojiPicker` does both.
 - **Search** — ranked shortcode/name/keyword search (`useEmojiSearch`-free:
   `buildSearchIndex(data).search('fire')`).
 - **Skin tones** — long-press a tonal emoji; the choice is sticky grid-wide

@@ -19,10 +19,12 @@ import Lynx
 ///   - `volume`        → 0..1
 ///   - `controls`      → show platform-default controls overlay
 ///   - `resize-mode`   → contain | cover | stretch
+///   - `start-time`    → one-shot initial seek (seconds) before first play
 ///   - `bindload`      → asset metadata ready
 ///   - `bindend`       → playback finished
 ///   - `binderror`     → load / playback failure
 ///   - `bindtimeupdate` → ~4×/sec position broadcast
+///   - `bindvideostatechange` → playing | paused | buffering | ended transitions
 ///
 /// Imperative methods (`seek`, `getStatus`) are tracked as a v2 follow-up
 /// — they need the Lynx UIMethodInvoker surface that isn't wired through
@@ -30,7 +32,18 @@ import Lynx
 // Class is NOT marked `@objc` — Swift forbids that on generic subclasses
 // of an ObjC lightweight-generic type like `LynxUI<__covariant V>`. Member-
 // level `@objc` / `@objc(name)` annotations still bridge because `LynxUI`
-// itself is `@objc`, so `__lynx_prop_config__*` discovery still works.
+// itself is `@objc`.
+//
+// IMPORTANT: prop setters MUST be registered via `propSetterLookUp()` (see
+// below), NOT by relying on the per-method `__lynx_prop_config__*` discovery
+// alone. On a non-`@objc` subclass of a specialized generic ObjC base, the
+// runtime's discovery path (`class_copyMethodList(metaclass)`) doesn't
+// reliably enumerate the Swift `@objc(name)` class methods, so a prop's
+// setter info comes back without a usable selector — `methodSignatureForSelector:`
+// returns nil and Lynx crashes with `NSInvocation … method signature argument
+// cannot be nil` on the first prop apply (see signalxjs/lynx#535). The
+// explicit `propSetterLookUp()` table is the robust path every other sigx
+// LynxUI component (WebView / Map / RichText) already uses.
 public class VideoPlayerUI: LynxUI<UIView> {
 
     private var player: AVPlayer?
@@ -39,6 +52,7 @@ public class VideoPlayerUI: LynxUI<UIView> {
     private var controlsView: UIView?
     private var timeObserver: Any?
     private var statusObservation: NSKeyValueObservation?
+    private var timeControlStatusObservation: NSKeyValueObservation?
     private var didReachEndObserver: NSObjectProtocol?
 
     // Pending prop values applied after createView() and after the asset
@@ -51,7 +65,12 @@ public class VideoPlayerUI: LynxUI<UIView> {
     private var pendingResizeMode: AVLayerVideoGravity = .resizeAspect
     private var pendingControls = false
     private var pendingPosterURL: URL?
+    private var pendingStartTime: Double?
     private var didEmitLoad = false
+    // Suppresses the `paused` statechange that AVPlayer's timeControlStatus
+    // emits when a clip finishes — `bindend`/the `ended` statechange already
+    // cover that transition. Re-armed once playback resumes.
+    private var reachedEnd = false
 
     // MARK: - LynxUI overrides
 
@@ -73,6 +92,29 @@ public class VideoPlayerUI: LynxUI<UIView> {
 
     deinit {
         teardownPlayer()
+    }
+
+    // MARK: - Prop-setter registration
+
+    // Explicit prop-setter registration. The runtime prefers this single
+    // `[propName, fullSelector]` table over the per-method
+    // `__lynx_prop_config__*` discovery — see SigxWebViewUI for the full
+    // rationale. It's the path that actually works for a non-`@objc` generic
+    // LynxUI subclass; the `__lynx_prop_config__*` methods below are kept for
+    // parity with the macro convention but the table is what Lynx uses.
+    @objc public class func propSetterLookUp() -> NSArray {
+        return [
+            ["src", "setSrc:requestReset:"],
+            ["poster", "setPoster:requestReset:"],
+            ["autoplay", "setAutoplay:requestReset:"],
+            ["playing", "setPlaying:requestReset:"],
+            ["loop", "setLoop:requestReset:"],
+            ["muted", "setMuted:requestReset:"],
+            ["volume", "setVolume:requestReset:"],
+            ["controls", "setControls:requestReset:"],
+            ["resize-mode", "setResizeMode:requestReset:"],
+            ["start-time", "setStartTime:requestReset:"],
+        ] as NSArray
     }
 
     // MARK: - Prop setters
@@ -102,7 +144,7 @@ public class VideoPlayerUI: LynxUI<UIView> {
 
     @objc(__lynx_prop_config__src)
     public class func __lynxPropConfigSrc() -> [String] {
-        return ["src", "setSrc:requestReset:", "NSString *"]
+        return ["src", "setSrc", "NSString *"]
     }
 
     @objc public func setPoster(_ value: Any?, requestReset: Bool) {
@@ -117,7 +159,7 @@ public class VideoPlayerUI: LynxUI<UIView> {
 
     @objc(__lynx_prop_config__poster)
     public class func __lynxPropConfigPoster() -> [String] {
-        return ["poster", "setPoster:requestReset:", "NSString *"]
+        return ["poster", "setPoster", "NSString *"]
     }
 
     @objc public func setAutoplay(_ value: Bool, requestReset: Bool) {
@@ -129,7 +171,7 @@ public class VideoPlayerUI: LynxUI<UIView> {
 
     @objc(__lynx_prop_config__autoplay)
     public class func __lynxPropConfigAutoplay() -> [String] {
-        return ["autoplay", "setAutoplay:requestReset:", "BOOL"]
+        return ["autoplay", "setAutoplay", "BOOL"]
     }
 
     @objc public func setPlaying(_ value: Bool, requestReset: Bool) {
@@ -142,7 +184,7 @@ public class VideoPlayerUI: LynxUI<UIView> {
 
     @objc(__lynx_prop_config__playing)
     public class func __lynxPropConfigPlaying() -> [String] {
-        return ["playing", "setPlaying:requestReset:", "BOOL"]
+        return ["playing", "setPlaying", "BOOL"]
     }
 
     @objc public func setLoop(_ value: Bool, requestReset: Bool) {
@@ -151,7 +193,7 @@ public class VideoPlayerUI: LynxUI<UIView> {
 
     @objc(__lynx_prop_config__loop)
     public class func __lynxPropConfigLoop() -> [String] {
-        return ["loop", "setLoop:requestReset:", "BOOL"]
+        return ["loop", "setLoop", "BOOL"]
     }
 
     @objc public func setMuted(_ value: Bool, requestReset: Bool) {
@@ -161,18 +203,24 @@ public class VideoPlayerUI: LynxUI<UIView> {
 
     @objc(__lynx_prop_config__muted)
     public class func __lynxPropConfigMuted() -> [String] {
-        return ["muted", "setMuted:requestReset:", "BOOL"]
+        return ["muted", "setMuted", "BOOL"]
     }
 
-    @objc public func setVolume(_ value: NSNumber?, requestReset: Bool) {
-        let v = Float(max(0, min(1, (value?.doubleValue ?? 1.0))))
+    // Param is `Any?`, not `NSNumber?`: an unset/cleared number prop arrives as
+    // `NSNull`, not `nil`. A typed `NSNumber?` parameter bridges `NSNull` into
+    // the slot, and `value?.doubleValue` then messages `-doubleValue` on
+    // `NSNull` and crashes (`-[NSNull doubleValue]`). The type-checked
+    // `value as? NSNumber` returns nil for `NSNull` instead. (Same trap as the
+    // string setters above and `setStartTime` below.)
+    @objc public func setVolume(_ value: Any?, requestReset: Bool) {
+        let v = Float(max(0, min(1, ((value as? NSNumber)?.doubleValue ?? 1.0))))
         pendingVolume = v
         player?.volume = v
     }
 
     @objc(__lynx_prop_config__volume)
     public class func __lynxPropConfigVolume() -> [String] {
-        return ["volume", "setVolume:requestReset:", "NSNumber *"]
+        return ["volume", "setVolume", "NSNumber *"]
     }
 
     @objc public func setControls(_ value: Bool, requestReset: Bool) {
@@ -192,7 +240,7 @@ public class VideoPlayerUI: LynxUI<UIView> {
 
     @objc(__lynx_prop_config__controls)
     public class func __lynxPropConfigControls() -> [String] {
-        return ["controls", "setControls:requestReset:", "BOOL"]
+        return ["controls", "setControls", "BOOL"]
     }
 
     @objc public func setResizeMode(_ value: Any?, requestReset: Bool) {
@@ -209,7 +257,33 @@ public class VideoPlayerUI: LynxUI<UIView> {
 
     @objc(__lynx_prop_config__resize_mode)
     public class func __lynxPropConfigResizeMode() -> [String] {
-        return ["resize-mode", "setResizeMode:requestReset:", "NSString *"]
+        return ["resize-mode", "setResizeMode", "NSString *"]
+    }
+
+    // Param is `Any?`, not `NSNumber?`: like the string props above, a cleared
+    // or undefined number prop can arrive as `NSNull`. A typed `NSNumber?`
+    // parameter would reinterpret that pointer and crash when `doubleValue` is
+    // messaged on it; `value as? NSNumber` returns nil for `NSNull` instead.
+    @objc public func setStartTime(_ value: Any?, requestReset: Bool) {
+        let v = (value as? NSNumber)?.doubleValue ?? 0
+        pendingStartTime = v > 0 ? v : nil
+        // `handleReadyToPlay` consumes the pending seek, but it only runs once,
+        // on the first `.readyToPlay`. If the prop is set/updated after the
+        // item is already ready (but still at the start, before the first
+        // play), that handler won't run again and the initial offset would be
+        // silently dropped — so apply the one-shot seek now and clear it.
+        if let startSec = pendingStartTime,
+           let player = player,
+           player.currentItem?.status == .readyToPlay,
+           CMTimeGetSeconds(player.currentTime()) < 0.001 {
+            player.seek(to: CMTime(seconds: startSec, preferredTimescale: 600))
+            pendingStartTime = nil
+        }
+    }
+
+    @objc(__lynx_prop_config__start_time)
+    public class func __lynxPropConfigStartTime() -> [String] {
+        return ["start-time", "setStartTime", "NSNumber *"]
     }
 
     // MARK: - Asset lifecycle
@@ -231,6 +305,30 @@ public class VideoPlayerUI: LynxUI<UIView> {
         self.player = player
         self.playerLayer = layer
         self.didEmitLoad = false
+        self.reachedEnd = false
+
+        // KVO on timeControlStatus — emit a `videostatechange` whenever playback
+        // transitions between playing / paused / buffering. This surfaces
+        // pauses driven by the system controls overlay or OS interruptions
+        // that the declarative `playing` prop can't observe.
+        timeControlStatusObservation = player.observe(\.timeControlStatus, options: [.new]) { [weak self] player, _ in
+            guard let self = self else { return }
+            let positionMs = msFromSeconds(CMTimeGetSeconds(player.currentTime()))
+            switch player.timeControlStatus {
+            case .playing:
+                self.reachedEnd = false
+                self.fireEvent("videostatechange", params: ["state": "playing", "positionMs": positionMs])
+            case .waitingToPlayAtSpecifiedRate:
+                self.fireEvent("videostatechange", params: ["state": "buffering", "positionMs": positionMs])
+            case .paused:
+                // The end-of-clip pause is reported as `ended` instead.
+                if !self.reachedEnd {
+                    self.fireEvent("videostatechange", params: ["state": "paused", "positionMs": positionMs])
+                }
+            @unknown default:
+                break
+            }
+        }
 
         // KVO on item.status — first time we hit `.readyToPlay`, fire
         // `bindload` with the asset's duration + natural size and apply
@@ -290,6 +388,12 @@ public class VideoPlayerUI: LynxUI<UIView> {
             "height": height,
         ])
 
+        // One-shot initial seek before the first play.
+        if let startSec = pendingStartTime, startSec > 0 {
+            player?.seek(to: CMTime(seconds: startSec, preferredTimescale: 600))
+            pendingStartTime = nil
+        }
+
         // Apply queued props. `playing` overrides `autoplay` if both set.
         if let playing = pendingPlaying {
             if playing { player?.play() } else { player?.pause() }
@@ -302,11 +406,19 @@ public class VideoPlayerUI: LynxUI<UIView> {
     }
 
     private func handleDidReachEnd() {
+        // The clip hit its boundary — latch `reachedEnd` before anything else
+        // so the KVO handler suppresses the trailing `paused` that AVPlayer's
+        // timeControlStatus emits there. This applies to both paths: when
+        // looping, the `.playing` KVO case re-arms `reachedEnd = false` as the
+        // restart begins; when not looping, it stays latched through teardown.
+        reachedEnd = true
         if pendingLoop {
             player?.seek(to: .zero)
             player?.play()
             return
         }
+        let positionMs = msFromSeconds(CMTimeGetSeconds(player?.currentItem?.duration ?? .zero))
+        fireEvent("videostatechange", params: ["state": "ended", "positionMs": positionMs])
         fireEvent("end", params: [:])
     }
 
@@ -315,6 +427,8 @@ public class VideoPlayerUI: LynxUI<UIView> {
         timeObserver = nil
         statusObservation?.invalidate()
         statusObservation = nil
+        timeControlStatusObservation?.invalidate()
+        timeControlStatusObservation = nil
         if let observer = didReachEndObserver {
             NotificationCenter.default.removeObserver(observer)
         }

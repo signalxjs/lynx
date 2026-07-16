@@ -4,12 +4,14 @@ import { basename, join, win32 } from 'node:path';
 import { tmpdir } from 'node:os';
 import {
     scaffoldAndroid,
+    ensureGradlewLf,
     scaffoldIos,
     writeAndroidRegistry,
     writeIosRegistry,
     injectGradleDependencies,
     injectAndroidPermissions,
     injectAndroidMetaData,
+    aaptRetypesManifestValue,
     injectAndroidApplicationAttributes,
     injectPodfileEntries,
     injectInfoPlistDescriptions,
@@ -143,6 +145,75 @@ describe('scaffoldAndroid', () => {
             'utf-8',
         );
         expect(proguard).toContain('-dontwarn com.google.android.material.appbar.**');
+    });
+});
+
+describe('gradle wrapper line endings (#594)', () => {
+    // gradlew is an executed shell script: a CRLF shebang becomes `#!/bin/sh^M`
+    // → `bad interpreter` on macOS/Linux and the Android build dies. Everything
+    // the wrapper needs must come out LF regardless of the template's bytes.
+    it('scaffolds gradlew with LF line endings and no CR bytes', () => {
+        const config = resolveConfig(TEST_CONFIG);
+        scaffoldAndroid(testDir, config);
+
+        const gradlew = readFileSync(join(testDir, 'android', 'gradlew'), 'utf-8');
+        expect(gradlew).not.toContain('\r');
+        expect(gradlew.startsWith('#!/bin/sh\n') || gradlew.startsWith('#!/usr/bin/env sh\n')).toBe(true);
+    });
+
+    it('keeps gradlew.bat on CRLF for Windows', () => {
+        const config = resolveConfig(TEST_CONFIG);
+        scaffoldAndroid(testDir, config);
+
+        const bat = readFileSync(join(testDir, 'android', 'gradlew.bat'), 'utf-8');
+        expect(bat).toContain('\r\n');
+        // No lone LF that isn't part of a CRLF pair — including a leading LF.
+        expect(/(^|[^\r])\n/.test(bat)).toBe(false);
+    });
+
+    it('scaffolds gradle config files (.kts/.properties) with LF', () => {
+        const config = resolveConfig(TEST_CONFIG);
+        scaffoldAndroid(testDir, config);
+
+        for (const rel of [
+            'settings.gradle.kts',
+            'build.gradle.kts',
+            'gradle.properties',
+            join('gradle', 'wrapper', 'gradle-wrapper.properties'),
+        ]) {
+            const content = readFileSync(join(testDir, 'android', rel), 'utf-8');
+            expect(content, `${rel} must be LF`).not.toContain('\r');
+        }
+    });
+
+    it('heals an existing CRLF gradlew in place (idempotent)', () => {
+        const config = resolveConfig(TEST_CONFIG);
+        scaffoldAndroid(testDir, config);
+
+        // Simulate a project scaffolded by a pre-fix CLI: rewrite with CRLF.
+        const gradlewPath = join(testDir, 'android', 'gradlew');
+        const lf = readFileSync(gradlewPath, 'utf-8');
+        writeFileSync(gradlewPath, lf.replace(/\n/g, '\r\n'));
+        expect(readFileSync(gradlewPath, 'utf-8')).toContain('\r');
+
+        ensureGradlewLf(testDir, config);
+
+        const healed = readFileSync(gradlewPath, 'utf-8');
+        expect(healed).not.toContain('\r');
+        expect(healed).toBe(lf);
+    });
+
+    it('heals lone CR (old-Mac) line endings too', () => {
+        const config = resolveConfig(TEST_CONFIG);
+        scaffoldAndroid(testDir, config);
+
+        const gradlewPath = join(testDir, 'android', 'gradlew');
+        const lf = readFileSync(gradlewPath, 'utf-8');
+        writeFileSync(gradlewPath, lf.replace(/\n/g, '\r'));
+
+        ensureGradlewLf(testDir, config);
+
+        expect(readFileSync(gradlewPath, 'utf-8')).toBe(lf);
     });
 });
 
@@ -347,6 +418,21 @@ describe('injectAndroidMetaData', () => {
             'utf-8',
         );
         expect(after).toBe(before);
+    });
+});
+
+describe('aaptRetypesManifestValue (#598)', () => {
+    it.each([
+        '2', '-7', '0x1A', 'true', 'FALSE', '1.0', '.5', '1e3',
+        '12dp', '50%', '#FF0000', '@string/rv', ' 2 ',
+    ])('flags aapt-retyped value %j', (value) => {
+        expect(aaptRetypesManifestValue(value)).toBe(true);
+    });
+
+    it.each([
+        '1.0.0', 'v2', 'fp1-abc123def456', '2-beta', '2026.07.14', '',
+    ])('passes string-safe value %j', (value) => {
+        expect(aaptRetypesManifestValue(value)).toBe(false);
     });
 });
 

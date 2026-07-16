@@ -4,6 +4,143 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 ## [Unreleased]
 
+### Changed
+
+- `@sigx/lynx-notifications` — `cancel(id)` now dismisses delivered **remote** pushes whose `data.notification_id` matches the id, on both platforms. This was previously incidental on Android (same `hashCode` keying, now a documented contract) and impossible on iOS (delivered remote entries carry a system-assigned request identifier; `cancel` now also matches on the payload id). Gives apps a cross-platform "clear this notification from JS" — e.g. dismissing a conversation's tray entry when it's read on another device. Also fixed on iOS: notification tap responses now report the payload's `notification_id` (falling back to the request identifier for local schedules) instead of the system-assigned identifier, so the tap contract from #619 holds for remote pushes. `cancel()` is now typed `Promise<boolean>` (what the native side always resolved) instead of `Promise<void>`. Re-run `sigx prebuild` to pick up the native changes (#659).
+
+## [0.14.0] - 2026-07-16
+
+### Changed (breaking)
+
+- `@sigx/lynx`, `@sigx/lynx-runtime`, `@sigx/lynx-appearance`, `@sigx/lynx-safe-area`, `@sigx/lynx-testing` — adopt **sigx core 0.10.0**: `@sigx/reactivity` and `@sigx/runtime-core` bumped `^0.7.0` → `^0.10.0`, skipping three minors. This is how core's renderer work reaches Lynx: `@sigx/lynx-runtime`'s renderer *is* runtime-core's `createRenderer`, and core 0.8.0 was a heavy perf release for exactly that code — an LIS-based keyed diff, a single-child reconciliation fast path, fewer per-vnode allocations in `jsx()`, plus reactivity proxy-trap and dependency-link reuse. `@sigx/reactivity` has no public API change across 0.7.0 → 0.10.0 (pure perf); `@sigx/runtime-core` drops four exports, which the `@sigx/lynx` umbrella re-exports and therefore no longer provides (#647):
+  - **`Suspense` → `Defer`.** Core 0.9.0's value-first async rework retires `Suspense` in favour of `<Defer fallback>`, whose fallback covers lazy *chunk* loading. Apps wrapping a `lazy()` route or component in `<Suspense>` should rename it to `<Defer>`; the props are the same shape. `lazy()` / `isLazyComponent()` are unchanged.
+  - **`ErrorBoundary` → `errorScope`.** Replaced by the `errorScope` seam from the same rework.
+  - **`useAsync` → `useData` / `useAction`.** Superseded by the value-first pair, read through `match`.
+  - **`SuspenseProps` → `DeferProps`.**
+- `@sigx/lynx-navigation` — lazy routes now mount their `fallback` inside a `<Defer>` boundary instead of `<Suspense>` (#647). No API change: `RouteDefinition.fallback` keeps its shape and meaning, and eager routes are unaffected. Callers placing their own boundary above `<NavigationRoot>` (the documented alternative to a per-route `fallback`) must rename it to `<Defer>`.
+
+### Fixed
+
+- `@sigx/lynx-runtime` — `useData` / `useAction` now run on Lynx. Core gates its async fetchers on `isLiveClient()`, whose fallback is `typeof window !== 'undefined'` — false on the Lynx BG thread — so without an explicit declaration core treated every Lynx app as a *server render* and never ran a fetcher: the cell sat at `pending` forever, silently. The runtime now calls core's `declareLiveClient()` on import (the seam core added for exactly this, naming Lynx as a target), before any component setup can read a cell. Verified on device: a `useData` read goes from `pending` (hung) to `ready` with the fetched value (#647).
+
+### Changed
+
+- The sigx core versions are now declared once, as a pnpm **`catalog:`** in `pnpm-workspace.yaml`, instead of an `^x.y.z` range hand-copied into each package. Future core bumps are a one-line change rather than a ten-range sweep across eight manifests, which is what let `examples/showcase` drift onto a stale `@sigx/cli` unnoticed. Published manifests are unaffected — `pnpm publish` rewrites `catalog:` to the concrete range exactly as it already does for `workspace:^` (#647).
+
+## [0.13.0] - 2026-07-15
+
+### Added
+
+- `@sigx/lynx-list` — new `itemsKey` prop: an identity for the dataset. When it changes, `items` is treated as a brand-new list instead of an update — the window (when windowing) re-anchors to its initial position and the scroll resets to the start (the bottom in chat mode). Use it when swapping wholesale between datasets (tabs, categories, a new search); previously such a swap left the viewport stranded wherever scrolling had left it in the old dataset. Zero-cost when omitted (#600).
+- `@sigx/lynx-list` — new `initialMainAxisSize` prop: pins the native list to a known main-axis size on its very first frame instead of the 1px placeholder, killing the mount-frame flash + re-layout for consumers that already know the box (the live measure still wins once it lands) (#610).
+- `@sigx/lynx-emoji` — `EmojiGrid` gains optional `itemsKey` (dataset identity, forwards to `List.itemsKey`) and `initialHeight` (forwards to `List.initialMainAxisSize`) props for headless grid users (#602, #610).
+
+### Fixed
+
+- `@sigx/lynx-notifications` — notification-tap payloads now survive to JS, on both platforms and for every message shape. Five defects on one path, each of which alone made tap routing look broken (#619):
+  - **Tap events arrived with every scalar field stripped (both platforms).** `sendGlobalEvent` drops a payload's sibling scalars when it carries a nested map (#342 — the same Lynx 0.5.0 / PrimJS 3.8 regression `@sigx/lynx-http` documents), and *every* notification payload nests `data`. So `title`, `body`, `foreground`, `notificationId` and `actionIdentifier` all arrived `undefined` while `data` came through intact — which is exactly why the bug read as "the data is there but tap routing does nothing", and why nobody noticed the missing scalars. Both buses now JSON-encode each event and emit it as a single string, mirroring `HttpEventBus` / `WebRTCEventBus`; the JS shim already parsed string-form events. `getInitialNotification()` returns a JSON string for the same reason — it is the one callback in the module carrying a nested map, and nested-map marshalling over `Callback` / `LynxCallbackBlock` is unproven (the sole precedent, `FilePickerModule`, is masked by JS-side defaulting) — and `src/notifications.ts` parses it.
+  - **Android: a tap on an OS-rendered notification lost the payload entirely.** FCM only calls `onMessageReceived` for a backgrounded/terminated app when the message is data-only; a message carrying a `notification` block is rendered by the OS, which never invokes it — so the module never built its tap intent, and `getInitialNotification()` came back empty on exactly the cold start deep-linking exists for. `PushActivityHook` now also treats a launch intent carrying `google.message_id` as a tap and harvests the sender's `data` keys back out of it, delegating the reserved-key filter to `RemoteMessage(Bundle).getData()` (the SDK's own, so Google's reserved set stays authoritative — the approach react-native-firebase and flutterfire use). Best-effort by nature: cold start is reliable, but the warm tap goes through an intent FCM builds and may not be delivered at all, so data-only remains the dependable path when tap routing matters.
+  - **Android: data-only messages showed no tray entry.** `title` was read only from `message.notification`, so the one shape that *does* reach `onMessageReceived` in the background produced no notification at all — making the standard fix for the above (switch the sender to data-only) trade one failure for another. `title`/`body` now fall back to the `data` map.
+  - **Android: warm taps never reached `onNewIntent`.** The tap intent was `getLaunchIntentForPackage()`'s ACTION_MAIN/CATEGORY_LAUNCHER intent; starting one against an existing task is treated as a launcher relaunch — the task is brought forward and the intent is never delivered, so the extras evaporated and `addNotificationResponseListener` never fired for a background-but-alive tap. The module now builds an explicit-component intent with `SINGLE_TOP | CLEAR_TOP`.
+  - **Android: a config-change recreate re-delivered a drained tap.** The tap marker was never cleared from `activity.intent`, so a rotation or font-scale change re-ran `onCreate` and re-stashed a payload JS had already consumed, deep-linking a second time. The markers are now consumed, and `onCreate` ignores a recreate.
+- `@sigx/lynx-notifications` — iOS: `getInitialNotification()` no longer reports a notification the user never tapped. iOS populates `launchOptions[.remoteNotification]` when a `content-available` push launches the app **in the background**, with no interaction; the hook stashed that as the initial tap, so the next manual open deep-linked off a silent push. The same branch also double-handled genuine taps (captured at launch *and* republished by `didReceive`). The launchOptions branch is gone — `didReceive` fires for every real tap including cold start, since the delegate is installed before `didFinishLaunching` returns, and is now the single source of truth (the approach RN Firebase and Expo rely on) (#619).
+- `@sigx/lynx-notifications` — iOS: a cold-start tap is no longer stranded when JS calls `getInitialNotification()` early. The cold-start window closed on the first `consume` even when it returned nil, so a call landing in the gap between launch and `didReceive` — the normal path for a local notification launched from a terminated state — sent the tap to the response channel, where nothing was listening yet. The window is now keyed on whether the app has ever reached `.active` (a launch tap precedes activation; an in-session tap follows it) and `consume` is a pure one-shot drain (#619).
+- `@sigx/lynx-notifications` — iOS: `actionIdentifier` now means the same thing on both platforms. iOS reported Apple's raw `UNNotificationDefaultActionIdentifier` (`"com.apple.UNNotificationDefaultActionIdentifier"`) for a standard tap while Android sent `"default"` — which `NotificationResponse` documents — so an app routing on `actionIdentifier === 'default'` worked on Android and silently never matched on iOS. The native side now maps Apple's default constant onto `'default'`; custom category action ids pass through untouched. Normalized natively rather than in the JS shim, so the raw event channels carry the same contract as the typed API. Apple's dismiss constant is mapped to `'dismiss'` for the same reason, though nothing emits it yet — iOS only delivers that action for a category registered with `.customDismissAction`, and Android sets no `deleteIntent` (#619).
+- `@sigx/lynx-notifications` — iOS: nested APNs custom values are recoverable. Values were coerced with `"\(v)"`, which renders a nested object as Swift's *debug* description (`{ id = 42; }`) and a JSON `true` as `"1"`. Non-string values are now JSON-encoded, so `data.yourKey` round-trips via `JSON.parse` and booleans read as `"true"`. The wire type stays `Record<string, string>` — FCM's `data` map is string-only, so strings remain the cross-platform floor (#619).
+- `@sigx/lynx-cli` + `@sigx/lynx-plugin` — dynamic `import()` now works in standalone/store builds (#599). Async chunks (`dist/static/js/async/<hash>.js`) previously loaded only in `sigx dev` (the dev server served them); release builds shipped without them and no fetcher, so every dynamic import rejected at runtime with the native `No available provider or fetcher` error — silently, since nothing warned at build time. Now: (1) release flows (`sigx run:* --release`, `sigx prebuild --embed-bundle`) mirror `dist/static/js/async/**` into the native projects (iOS `LynxAssets/` blue-folder reference — injected idempotently into existing pbxprojs on prebuild — and Android `assets/`); (2) the managed native shells register production resource fetchers (`SigxProductionResources.swift`/`.kt`) that map the runtime's root-relative chunk URLs onto those embedded assets, with an http(s) fallback for remotely-hosted chunks; (3) `@sigx/lynx-plugin` pins the production `output.assetPrefix` to `/` (only when unset) so chunk request URLs stay root-relative and map 1:1; (4) `sigx build` and the plugin's after-build hook surface every emitted async chunk, and `sigx updates:publish` refuses to publish while `dist/` contains async chunks (OTA payloads carry only `main.lynx.bundle`) unless `--allow-async-chunks` is passed for remotely-hosted setups. Existing apps pick everything up on the next `sigx prebuild`.
+- `@sigx/lynx-list` — edge events (`scrolltoupper`/`scrolltolower`) now act **once per arrival** and only re-arm when a real scroll moves away from that edge. Native re-fires them continuously while a list is parked at an edge — measured 1,674 `scrolltoupper` dispatches with no scrolling at all and only 2 renders (~240/s, far above frame rate) — and a list whose container size is momentarily invalid reports both edges at once. Acting on every dispatch ping-ponged the window (expandNewer trims the head → the top edge re-fires → expandOlder trims the tail → repeat), spun hundreds of re-renders, and handed consumers hundreds of bogus `startReached` calls (#606).
+- `@sigx/lynx-list` — the top edge is now bound only when it can do work (chat mode, a window with older items to reveal, or a real `onStartReached` listener), and `bindscroll` is throttled by default (100ms). `List` always binds `bindscroll` internally and nothing internal needs per-frame resolution; both changes cut needless native→JS dispatch (#606).
+- `@sigx/lynx-emoji` — the picker no longer renders blank, and switching categories no longer trips the engine's event-dispatch limiter (error 204, red-screened by the dev overlay). Two independent causes, both measured on device:
+  - **Blank:** the native list produces invalid layout — blank, or content displaced off-screen — once roughly 130-150+ cells are mounted at once. It is racy (the same count renders on one run and blanks on the next), it predates the windowed grid (release 0.12.2 mounted all 171 smileys and blanked identically), and it reproduces with no emoji code at all by raising the List showcase demo's window to ~250 (#603). The grid window is **64 cells initially / 96 at full expansion**, which renders reliably where 120+ did not.
+  - **204 flood:** category grids are no longer kept mounted behind `use:show`, and exactly one grid is mounted at a time. A hidden grid has a zero-height container, so it believes it is permanently parked at its bottom edge and dispatches `scrolltolower` to JS forever — 599 dispatches over 3 tab switches with 4 kept grids, vs 8 with only the active one (#606).
+- `@sigx/lynx-emoji` — switching categories no longer freezes on big categories, and tapping a tab highlights it immediately. `EmojiGrid` renders through a windowed `List` (`@sigx/lynx-list`): the sigx renderer eagerly builds every rendered `<list-item>` subtree (the native recycler only virtualizes views for scrolling), so a switch to people-body previously tore down and rebuilt ~388 cell subtrees in one pass. Switches are two-phase — the tab highlight paints in its own cheap flush, the grid swap follows a tick later — and the grid lays out at full height on its first frame instead of flashing a 1px placeholder (#602, #610).
+- `@sigx/lynx-emoji` — the picker no longer renders a fully blank screen on device. `createEmojiContext` now snapshots the dataset to plain objects once (it is static by contract and JSON-born, so the round-trip is lossless): grid items and search entries read proxy-free, dropping deep-proxy read overhead over ~1900 entries (#602).
+
+
+- `@sigx/lynx-updates` — Android: a purely numeric `updates.runtimeVersion` pin (e.g. `'2'`) made every `checkForUpdate()` report `incompatible`: aapt stores numeric-looking `<meta-data android:value>`s as typed (non-String) values, and the native reader used `Bundle.getString()`, which logs a `ClassCastException` warning and returns null for them — the binary's runtime version read back as `"unknown"`. The reader is now type-tolerant (`get(...)?.toString()`), and `@sigx/lynx-cli` prebuild warns when a pinned runtimeVersion would be re-typed by aapt (already-shipped binaries keep the old reader, and non-canonical forms like `0x1A` or `1e3` still can't round-trip). iOS was unaffected. Note: the fix changes `@sigx/lynx-updates`' Android source content, so auto-computed runtime fingerprints change on next prebuild (#598).
+
+## [0.12.1] - 2026-07-13
+
+### Changed
+
+- `@sigx/lynx-cli` — adopted `@sigx/cli` 0.5.0's typed plugin args (#589): the dependency moves `^0.4.2` → `^0.5.0` and all ~30 `ctx.args.<flag> as boolean` / `as string | undefined` casts in `plugin.ts` are gone — `ctx.args` now infers its exact types from the `a` builders inside `definePlugin`. No behavior change; `sigx-cli.requires` stays `>=0.4.0` since no new runtime contract features are used.
+
+## [0.12.0] - 2026-07-13
+
+_Backfilled — the 0.12.0 release PR (#586) shipped without rolling this file._
+
+### Added
+
+- `@sigx/lynx-list` — new data-driven virtualized list: feed mode, chat mode (bottom-anchored + stick-to-bottom), pull-to-refresh + infinite load-more, windowing / load-older for large histories (#548, #550, #552, #554).
+- `@sigx/lynx-cli` — FCM google-services plugin/json + iOS aps-environment wired for remote push (#565).
+
+### Fixed
+
+- `@sigx/lynx-list` — clipping/scroll/prepend fixes (#562, #564, #567).
+
+## [0.11.0] - 2026-06-24
+
+### Added
+
+- `@sigx/lynx-camera` — **video recording**: `Camera.recordVideo(options?: CameraVideoOptions): Promise<VideoResult | CameraCancelled>` opens the system camera in video mode and returns the recorded clip's URI (`file://` on iOS, `content://` on Android), loadable directly by `@sigx/lynx-video`. iOS uses `UIImagePickerController` movie mode (honoring `maxDurationMs` via `videoMaximumDuration` and `facing` via `cameraDevice`); Android uses an `ACTION_VIDEO_CAPTURE` launcher wired through `@sigx/lynx-permissions`' `MediaCapture`. New exports: `CameraVideoOptions`, `VideoResult`, and `CameraCancelled`. Both `takePicture` and `recordVideo` now follow a three-outcome contract — resolve with a result (always carrying a `uri`), resolve with `{ cancelled: true }` (no `uri`) on user-cancel, or **throw** on failure (permission denied, no camera, …) — so callers narrow on `result.uri` and `try/catch` failures (the Android `{ error: "cancelled" }` cancel sentinel is normalized away). The cross-platform "photo or video" choice is an app-level chooser (see the showcase's `MediaCaptureCard`); a single in-camera toggle is iOS-only at the system level (#541).
+- `examples/showcase` — the **Media** screen gains a WhatsApp-style "Capture or pick" card (`MediaCaptureCard`) whose one button fans out to Take Photo, Record Video, Pick Photo, and Pick Video — surfacing camera capture and the already-existing `ImagePicker.pickVideo` library video picker (#541).
+- `@sigx/lynx-dev-client` / `@sigx/lynx-plugin` — **device runtime exceptions now stream to the `sigx dev` terminal.** The native red-screen error sink (Android `LynxViewClient.onReceivedError`, iOS `didRecieveError`) — a *superset* of the JS `lynx.onError` hook that also catches main-thread-script, template, render and native-module errors — is POSTed to a new `/__sigx/device-error` endpoint on the dev log server (dev port + 1) and printed as a `📱 <platform> … ERR …` line, so anything on the on-device red screen is also copyable in the terminal's Logs tab. Errors that also travel the existing JS console path are de-duplicated server-side within a short window, so each error shows up once (#540).
+
+### Fixed
+
+- `@sigx/lynx-camera` — Android: `takePicture` / `recordVideo` now request the `CAMERA` runtime permission before launching the system-camera intent. Because the autolinker declares `CAMERA` in the manifest, Android **requires it granted** before `ACTION_IMAGE_CAPTURE` / `ACTION_VIDEO_CAPTURE` will fire — without it the launch failed with *"Permission Denial … requires android.permission.CAMERA"*. `recordVideo` additionally requests microphone, but only when the app declares `RECORD_AUDIO` (e.g. `@sigx/lynx-audio` is installed), so camera-only apps aren't over-prompted. This brings Android to parity with iOS (which already auto-requests at the `AVCaptureDevice` layer), so callers no longer have to call `requestPermission()` first (#544).
+- `examples/showcase` — declare the `@sigx/lynx-camera` dependency that `MediaCaptureCard` uses. It resolved via pnpm workspace hoisting so the JS bundle built, but the autolinker keys off declared dependencies, so the native `Camera` module wasn't linked and capture failed at runtime (#544).
+- `@sigx/lynx-video` — Android: `<video-player>` crashed on mount (`createUI catch error … ExoPlayerImpl.addListener`, surfaced to the app as Lynx's `Insertion (new) failed due to unknown child signature`). `LynxUI`'s super constructor calls `createView()` before the subclass's property initializers run, so the `playerListener` field was still `null` when `createView` registered it on ExoPlayer (whose `addListener` rejects null). Build the listener in a function and seed the player with explicit defaults instead (#537).
+- `@sigx/lynx-video` — the `onStateChange` event never reached JS handlers on either platform: `statechange` is a reserved event name in the Lynx engine, so custom `bind` handlers for it were silently dropped (sibling events `load` / `timeupdate` / `end` / `error` were unaffected). Renamed the underlying wire event `statechange` → `videostatechange`; the public `onStateChange` prop is unchanged (#539).
+
+## [0.10.0] - 2026-06-23
+
+### Added
+
+- `@sigx/lynx-cli` — first-class **build variants**: a `variants` map in `signalx.config.ts` and a `--variant <name>` flag (or `SIGX_VARIANT`) on `prebuild` / `build` / `run:android` / `run:ios` / `dev`, so a dev/staging/preview build installs **alongside** the production app instead of overwriting it. Each variant is a deep-partial config override plus convenience fields (`idSuffix`, `nameSuffix`, `schemeSuffix`, `extends`, `release`, `iconBadge`); `resolveConfig` deep-merges it and auto-suffixes the app id / display name / deep-link scheme, with per-variant output dirs (`android-<name>/`, `ios-<name>/`). Extras: automatic iOS signing for non-release variants, OTA channel auto-bind, an auto launcher-icon badge, and a runtime `variant` / `isVariant()` / `isBaseBuild()` flag (`__SIGX_VARIANT__`, also exposed natively). Base builds (no flag) are byte-for-byte unchanged (#531).
+- `@sigx/lynx-video` — `<VideoPlayer>` gains a `startTime` prop (a one-shot initial seek in seconds applied before the first play, for resume / deep-link into a clip) and an `onStateChange` event (`bindvideostatechange`) firing `playing` / `paused` / `buffering` / `ended` transitions with `{ state, positionMs }`, surfacing OS- and controls-driven pauses the declarative `playing` prop can't observe. New exports: `VideoPlaybackState`, `VideoStateChangeEvent`, `VideoStateChangeEventDetail` (#532).
+
+## [0.9.2] - 2026-06-22
+
+### Fixed
+
+- `@sigx/lynx-webauth` — iOS: fix a typo'd protocol name (`ASWebAuthenticationSessionPresentationContextProviding` → `ASWebAuthenticationPresentationContextProviding`) that made `WebAuthModule.swift` fail to compile, so the package could not build into an iOS app at all in 0.9.0/0.9.1.
+
+## [0.9.1] - 2026-06-18
+
+### Fixed
+
+- `@sigx/lynx-webauth` — Android: on a programmatic `AbortSignal` cancel, keep consuming a late redirect from a still-open Custom Tab until the tab is dismissed, so an abandoned auth flow can't leak back as a global `Linking` 'url' event (#523).
+- `@sigx/lynx-webauth` — validate `authorizeUrl` is an `http(s)` URL on both platforms (and drop the dead `Uri.parse` catch on Android); normalize a full redirect URI down to the bare scheme; distinguish "missing required parameter" from "invalid authorizeUrl" in error messages (#523).
+
+## [0.9.0] - 2026-06-18
+
+### Added
+
+- `@sigx/lynx-webauth` — new package: a system web-auth-session primitive for OAuth / OpenID-Connect sign-in. `openAuthSession(authorizeUrl, callbackScheme, options?)` presents `ASWebAuthenticationSession` on iOS and Chrome Custom Tabs on Android, returning the callback URL inline (`{ url }` / `{ canceled: true }` / `{ error }`). Supports `AbortSignal`, iOS ephemeral sessions, and Android toolbar color / preferred browser. Ships an opt-in `@sigx/lynx-webauth/oauth` helper (PKCE per RFC 7636, `state`, callback parsing) — pure JS, no token-exchange opinions (#518).
+- `@sigx/lynx-linking` — `LinkingState.addInterceptor` (Android): a one-shot URL interceptor consulted before a deep link is published, so a claimed URL (e.g. an OAuth callback) isn't also delivered as a `Linking` 'url' event. Used by `@sigx/lynx-webauth` (#518).
+
+## [0.8.1] - 2026-06-18
+
+Toolchain-compatibility release: unblocks mobile release builds on current CI toolchains (Xcode 26 and Linux runners). Also rounds out the `@sigx/lynx-daisyui` form/disclosure components.
+
+### Added
+
+- `@sigx/lynx-daisyui` — `Table` component (#513).
+- `@sigx/lynx-daisyui` — `Range` (slider) form control (#512).
+- `@sigx/lynx-daisyui` — `Collapse` / `Accordion` disclosure component (#511).
+- `@sigx/lynx-daisyui` — `Rating` star-input form control (#506), with half-step support via `allowHalf` (#510).
+
+### Fixed
+
+- `@sigx/lynx-cli` — the generated iOS `Podfile` now appends `-Wno-c99-designator` to every pod target (including per-pod subprojects). Xcode 26's clang flags the Lynx C++ core's C99 designated initializers, and the pod compiles with `-Werror`, which aborted the archive (`** ARCHIVE FAILED **`); this unblocks iOS release builds on Xcode 26 (#516).
+- `gradlew` template — pinned to LF via a new repo-level `.gitattributes`. A publish with `core.autocrlf` enabled had shipped the wrapper with a CRLF (`#!/bin/sh\r`) shebang, failing on Linux/macOS with `bad interpreter: /bin/sh^M: no such file or directory`; this restores Android builds from the generated project (#516).
+- `@sigx/lynx-daisyui` — `Rating` colors now apply via CSS classes, with a horizontal layout (#508).
+
+## [0.8.0] - 2026-06-15
+
+Adopts **sigx core 0.7.0** (`@sigx/reactivity` / `@sigx/runtime-core`) across the runtime, and ships the accumulated backlog: the `use:*` directive system with the built-in `show` directive, the `Platform` API with build-time platform splitting, the W3C-shaped `@sigx/lynx-webrtc` module, and `@sigx/lynx-device-info` folded into `@sigx/lynx-core` (breaking `DeviceInfo` shape).
+
 ### Added
 
 - `@sigx/lynx-runtime` — `use:*` directive system wired into the renderer, with the built-in **`show`** directive. `use:show={cond}` toggles an element's visibility via `display` while keeping it mounted (a single style op + preserved native state like input focus/value and scroll position), unlike conditional rendering which unmounts/remounts. Define custom directives with `defineDirective` (typed via the `LynxDirective`/`DirectiveAttribute` helpers) and register them with `registerBuiltInDirective` or per-app `app.directive()`. Also fixes a latent style-dedup issue where a `show`-hidden element re-emitted `display:none` on every re-render (#491).
@@ -13,9 +150,9 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 ### Changed
 
-- `@sigx/lynx-notifications` — `cancel(id)` now dismisses delivered **remote** pushes whose `data.notification_id` matches the id, on both platforms. This was previously incidental on Android (same `hashCode` keying, now a documented contract) and impossible on iOS (delivered remote entries carry a system-assigned request identifier; `cancel` now also matches on the payload id). Gives apps a cross-platform "clear this notification from JS" — e.g. dismissing a conversation's tray entry when it's read on another device. Also fixed on iOS: notification tap responses now report the payload's `notification_id` (falling back to the request identifier for local schedules) instead of the system-assigned identifier, so the tap contract from #619 holds for remote pushes. `cancel()` is now typed `Promise<boolean>` (what the native side always resolved) instead of `Promise<void>`. Re-run `sigx prebuild` to pick up the native changes (#659).
-
 - `@sigx/lynx-core` — `DeviceInfo.getInfo()` now resolves a **platform-discriminated** `DeviceInfoResult` instead of returning the raw native payload verbatim. The native modules normalize to one documented shape: a guaranteed common core (`platform`, `manufacturer`, `model`, `brand`, `systemName`, `systemVersion`, `appVersion`, `deviceId`, `screenWidth`, `screenHeight`, `screenScale`) plus a `platform` discriminant narrowing to per-platform extras (`IosDeviceInfo`: `modelName`, `appBuildNumber`, `bundleId`; `AndroidDeviceInfo`: `sdkVersion`, `appPackage`). Breaking: `screenWidth`/`screenHeight` are now density-independent points (dp/pt) on **both** platforms — Android previously reported physical pixels — and `screenDensity` was renamed to `screenScale` (the dp→px multiplier). Re-run `sigx prebuild` to pick up the native changes (#486).
+- `@sigx/lynx-runtime`, `@sigx/lynx`, `@sigx/lynx-appearance`, `@sigx/lynx-safe-area`, `@sigx/lynx-testing` — adopt **sigx core 0.7.0**: `@sigx/reactivity` and `@sigx/runtime-core` bumped `^0.6.3` → `^0.7.0`. Core 0.7.0 types a declared slot accessor as optional, so `@sigx/lynx-daisyui`'s `<Divider>` now calls `slots.default?.()` (an absent `default` slot is treated as no label content) (#499).
+- `@sigx/lynx-cli` — bump the sigx CLI toolchain: `@sigx/cli` `^0.4.1` → `^0.4.2` and `@sigx/terminal` `^0.5.0` → `^0.6.1` (#499).
 
 ### Removed
 

@@ -232,6 +232,18 @@ export interface AndroidConfig {
      * attributes contributed by linked modules; these app-level entries win.
      */
     applicationAttributes?: Record<string, string | boolean | number>;
+    /**
+     * Path (relative to the project root) to a Firebase `google-services.json`.
+     * Copied to `android/app/google-services.json` on every prebuild so it
+     * survives `android/` regeneration. Required for FCM remote push
+     * (`@sigx/lynx-notifications`): the `com.google.gms.google-services`
+     * plugin processes it into the `google_app_id` / `gcm_defaultSenderId`
+     * string resources that auto-initialize the default `FirebaseApp`.
+     *
+     * Point it at a gitignored path (e.g. `'./firebase/google-services.json'`)
+     * to keep the credentials out of source control.
+     */
+    googleServicesFile?: string;
     /** Override top-level icon for Android only. */
     icon?: string;
     /** Adaptive icon for Android 8+ (foreground + background color). */
@@ -331,6 +343,23 @@ export interface IosConfig {
      */
     usesNonExemptEncryption?: boolean;
     /**
+     * Code-signing entitlements merged into the app's generated `.entitlements`
+     * files on every prebuild — the entitlements counterpart to `infoPlist`.
+     * The escape hatch for capabilities without a dedicated config field, e.g.
+     * `{ 'keychain-access-groups': ['$(AppIdentifierPrefix)com.acme.app'] }` or
+     * `{ 'com.apple.developer.associated-domains': ['applinks:acme.com'] }`.
+     * Values may be scalars, arrays, or nested dicts. Merged with any
+     * entitlements contributed by linked modules — these app-level entries win
+     * on key collision.
+     *
+     * Setting any entitlement (here or via a linked module) makes prebuild
+     * generate `<App>.entitlements` (Release) + `<App>.debug.entitlements`
+     * (Debug) and wire `CODE_SIGN_ENTITLEMENTS` per build configuration. The
+     * `aps-environment` key is special-cased to `production` (Release) /
+     * `development` (Debug) regardless of the declared value.
+     */
+    entitlements?: Record<string, PlistValue>;
+    /**
      * Override top-level icon for iOS only. A string is the light icon; an
      * `IosIconConfig` object adds iOS 18 dark/tinted appearance variants.
      */
@@ -341,6 +370,74 @@ export interface IosConfig {
     scheme?: string;
     /** Override top-level orientation for iOS only. */
     orientation?: Orientation;
+}
+
+/**
+ * Recursive `Partial` — every field (and nested object field) becomes
+ * optional. Arrays are kept whole: a variant that sets `android.permissions`
+ * *replaces* the base array rather than deep-merging element-by-element, which
+ * keeps overrides predictable.
+ */
+export type DeepPartial<T> = T extends readonly unknown[]
+    ? T
+    : T extends object
+        ? { [K in keyof T]?: DeepPartial<T[K]> }
+        : T;
+
+/**
+ * A build variant — a per-environment override of the base config (issue #530).
+ *
+ * A variant is a deep-partial of the whole {@link LynxConfig} (override any
+ * field — icon, `ios.codeSignStyle`, `infoPlist`, …) plus the convenience and
+ * control fields below. Selected with `--variant <name>` on
+ * `prebuild`/`build`/`run:*`/`dev` (or the `SIGX_VARIANT` env var); the variant
+ * is deep-merged onto the base, the app id + display name are auto-suffixed, and
+ * the native project renders into its own `android-<name>/` / `ios-<name>/`
+ * output dir so it can install **alongside** the production app on one device.
+ *
+ * @example
+ * ```ts
+ * variants: {
+ *   dev: { idSuffix: '.dev', nameSuffix: ' (Dev)', schemeSuffix: 'dev' },
+ *   pr:  { extends: 'dev', idSuffix: '.pr', nameSuffix: ' (PR)' },
+ * }
+ * ```
+ */
+export interface VariantConfig extends DeepPartial<Omit<LynxConfig, 'variants'>> {
+    /**
+     * Inherit another variant first, then apply this one on top. Resolved
+     * base-most → requested before suffixes are applied. Cycles throw.
+     */
+    extends?: string;
+    /**
+     * Appended to `android.applicationId` and `ios.bundleIdentifier` (and the
+     * derived fallback id when those are unset). e.g. `'.dev'` →
+     * `com.example.app.dev`. Lets the variant install beside the base app.
+     */
+    idSuffix?: string;
+    /** Appended to the display `name`. e.g. `' (Dev)'` → `"My App (Dev)"`. */
+    nameSuffix?: string;
+    /**
+     * Appended to the deep-link `scheme` (e.g. `'dev'` → `myappdev`) so a
+     * variant's deep links don't collide with the base app's. An explicit
+     * `scheme` override wins over this.
+     */
+    schemeSuffix?: string;
+    /**
+     * Treat this variant as a release build. Default `false`. A non-release
+     * variant defaults `ios.codeSignStyle` to `'Automatic'` (so a dev build
+     * installs on a physical device via a free personal team) and gets an
+     * auto icon badge. Set `true` for a store-bound variant to keep the
+     * production signing/icon behavior.
+     */
+    release?: boolean;
+    /**
+     * Label overlaid on the launcher icon so this variant is visually distinct
+     * on the home screen. Defaults to the trimmed `nameSuffix` (or the variant
+     * name) for non-release variants; set a string to customize, or `false` to
+     * disable badging entirely.
+     */
+    iconBadge?: string | false;
 }
 
 /** Full sigx-lynx project configuration. */
@@ -401,6 +498,14 @@ export interface LynxConfig {
     logging?: LoggingConfig;
     /** OTA updates (`@sigx/lynx-updates`). See {@link UpdatesConfig}. */
     updates?: UpdatesConfig;
+    /**
+     * Build variants — per-environment app identity (issue #530). Each entry
+     * is a {@link VariantConfig} deep-merged onto this base config when
+     * selected via `--variant <name>` (or `SIGX_VARIANT`). A variant gets its
+     * own suffixed app id + its own `android-<name>/` / `ios-<name>/` output
+     * dir, so e.g. a dev build installs alongside the production app.
+     */
+    variants?: Record<string, VariantConfig>;
 }
 
 /**

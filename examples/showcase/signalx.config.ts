@@ -99,4 +99,18 @@ export default defineLynxConfig({
         // them here.
         bgTaskIdentifiers: ['com.example.showcase.bg.refresh-feed'],
     },
+
+    // Build variants (#530) — per-environment app identity. Select one with
+    // `sigx prebuild|build|run:android|run:ios|dev --variant <name>` (or set
+    // SIGX_VARIANT). Each variant deep-merges onto the config above, suffixes
+    // the app id + display name, and renders into its own android-<name>/ /
+    // ios-<name>/ output dir — so a dev build installs ALONGSIDE production.
+    // Non-release variants default iOS signing to Automatic (free personal
+    // team → physical device) and get an auto launcher-icon badge.
+    variants: {
+        // com.example.showcase.dev · "showcase (Dev)" · showcasedev:// · badge "DEV"
+        dev: { idSuffix: '.dev', nameSuffix: ' (Dev)', schemeSuffix: 'dev' },
+        // PR/preview builds inherit dev, then override the id + label.
+        pr: { extends: 'dev', idSuffix: '.pr', nameSuffix: ' (PR)' },
+    },
 });

@@ -33,6 +33,7 @@ export default defineConfig({
 2. **Worklet transform.** Files containing the string `'main thread'` are run through `@lynx-js/react/transform`. The transform:
    - Replaces a worklet expression in the BG bundle with a `{_wkltId, _c}` placeholder so the BG renderer can reference it without shipping the function body.
    - Emits `registerWorkletInternal("main-thread", "<id>", function(...) { ... })` calls into the MT bundle so Lynx native can invoke the worklet body when it dispatches a touch event.
+   - Folds the **thread defines** `__MAIN_THREAD__` / `__BACKGROUND__` to literals per layer (BG: `false`/`true`, MT: the inverse) with dead-branch elimination, so `if (__MAIN_THREAD__) { … }` inside a worklet body ships only in the registered MT form and `if (__BACKGROUND__) { … }` only in the BG bundle. Files containing either token are transformed even without a worklet directive. **App/workspace-src only** — published dists pass through the MT layer verbatim (cross-layer module identity), so packages must use a runtime check instead. Types come from `@sigx/lynx/client`.
 
 3. **MT-bundle bootstrap.** Every file in the MT bundle gets three side-effect imports prepended:
    - `@sigx/lynx-runtime-main/entry-main` — installs the `processData` / `renderPage` / `sigxPatchUpdate` globals Lynx expects.
@@ -41,7 +42,16 @@ export default defineConfig({
 
    Listing them as separate entries in webpack isn't sufficient because the chunk graph can evaluate user code before the bootstrap chain. Prepending side-effect imports per-file forces the dep-graph order.
 
-4. **Cross-package worklet pickup.** The worklet rules run on every JS/TS file in the BG / MT layers, including `node_modules` and pre-built `dist/`. Any package shipping `'main thread'` directives in its dist (`@sigx/lynx-motion`, `@sigx/lynx-navigation`, `@sigx/lynx-gestures`, future additions) is picked up automatically — no allowlist or opt-in flag. See [CONTRIBUTING.md](https://github.com/signalxjs/lynx/blob/main/CONTRIBUTING.md#lynx-plugin-internals-cross-package-worklet-pickup) for the loader-branching details.
+4. **Async-chunk plumbing (#599).** Dynamic `import()` emits async chunks
+   (`dist/static/js/async/<hash>.js`). The plugin pins the production
+   `output.assetPrefix` to `/` (only when you haven't set one) so chunk
+   request URLs are root-relative and map 1:1 onto the assets
+   `@sigx/lynx-cli`'s release flows embed into the native app, and it logs
+   every emitted async chunk after a production build. Set your own
+   `output.assetPrefix` to host chunks remotely instead — the generated app
+   shells fall back to http(s) for non-local chunk URLs.
+
+5. **Cross-package worklet pickup.** The worklet rules run on every JS/TS file in the BG / MT layers, including `node_modules` and pre-built `dist/`. Any package shipping `'main thread'` directives in its dist (`@sigx/lynx-motion`, `@sigx/lynx-navigation`, `@sigx/lynx-gestures`, future additions) is picked up automatically — no allowlist or opt-in flag. See [CONTRIBUTING.md](https://github.com/signalxjs/lynx/blob/main/CONTRIBUTING.md#lynx-plugin-internals-cross-package-worklet-pickup) for the loader-branching details.
 
 ## Worklet author quick reference
 
@@ -59,6 +69,35 @@ Mark an event handler as MT-thread by adding the directive as the first statemen
 The plugin handles the rest — the handler body lives in the MT bundle, the BG bundle keeps a `{_wkltId, _c}` placeholder, and Lynx native dispatches the touch event directly to the MT thread.
 
 For higher-level abstractions (drag, tap, swipe, animations), see [`@sigx/lynx-gestures`](https://sigx.dev/lynx/modules/gestures/overview/).
+
+## Snapshot templates (default ON)
+
+```ts
+pluginSigxLynx({ snapshots: false }) // kill switch — keeps the per-element path
+```
+
+Compiles static JSX subtrees to **main-thread snapshot templates** (#620): the
+main thread constructs each compiled subtree itself from one snapshot op
+(instead of ~10 per-element ops + a thread hop), then receives hole-granular
+patches. Measured ~25–30x cheaper cell construction on release builds.
+
+- **Default ON** (since #642; `snapshots: false` remains as a kill switch for
+  one release). Works in dev and production: under `sigx dev`, template
+  registrations ride the MT hot-update bridge, an edit's stale templates are
+  purged per file (the id's filename-hash prefix is edit-stable), and op
+  batches that outrun a registration park and replay after the next update.
+- **JSX must be statically analyzable.** Dynamic parts (attribute expressions,
+  children) become numbered holes; the subtree *shape* is fixed at compile
+  time. Non-static subtrees keep today's per-element path automatically.
+  Whole files using `use:*` directive attributes are pre-filtered to the
+  per-element path silently (they panic the upstream WASM pass); only an
+  *unexpected* transform failure emits a build warning naming the file that
+  fell back. Raw `<list>` JSX compiles: cells are staged instance records
+  that `componentAtIndex` materializes synchronously on first pull, and
+  offscreen cells recycle through template-keyed pools (`enqueueComponent`
+  re-patches a pooled tree instead of constructing).
+- **App/workspace-src only.** Published dists ship pre-lowered `_jsx()` calls
+  and keep the per-element path.
 
 ## Limitations
 

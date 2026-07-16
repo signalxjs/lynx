@@ -2,17 +2,21 @@ import { component, signal } from '@sigx/lynx';
 import { Screen } from '@sigx/lynx-navigation';
 import { Button, Card, Col, Heading, ScrollView, Text } from '@sigx/lynx-daisyui';
 import { ImagePicker } from '@sigx/lynx-image-picker';
+import { MediaCaptureCard } from '../components/MediaCaptureCard.js';
 import { VoiceNoteRecorder } from '../components/VoiceNoteRecorder.js';
 import { VideoClipPlayer } from '../components/VideoClipPlayer.js';
 
 /**
- * Media — three capture/playback capabilities on one screen:
+ * Media — capture/pick/playback capabilities on one screen:
  *
+ *  • Capture or pick — a WhatsApp-style chooser (MediaCaptureCard) fanning out
+ *    to Camera.takePicture / Camera.recordVideo / ImagePicker.pickImage /
+ *    ImagePicker.pickVideo.
  *  • @sigx/lynx-image-picker — system photo picker (PHPicker /
  *    PickVisualMedia), multi-select, no permission prompt needed.
  *  • @sigx/lynx-audio — record + meter + playback via VoiceNoteRecorder.
  *  • @sigx/lynx-video — playback via VideoClipPlayer (attaches a remote
- *    sample clip; capture is out of scope for the camera package today).
+ *    sample clip).
  */
 export const MediaDemo = component(() => {
     // Wrapped in an object so the signal proxy gives a stable `.value` slot
@@ -45,6 +49,21 @@ export const MediaDemo = component(() => {
             <Screen title="Media" />
             <Col gap={16} padding={16}>
                 <Heading level={2}>Media</Heading>
+
+                <Card bordered>
+                    <Card.Body>
+                        <Col gap={8}>
+                            <Text weight="semibold">Capture or pick</Text>
+                            <Text class="opacity-60 text-sm">
+                                One button, four sources — Take Photo, Record
+                                Video, Pick Photo, Pick Video. Camera capture
+                                needs a real device (the iOS Simulator has no
+                                camera); the library pickers work everywhere.
+                            </Text>
+                            <MediaCaptureCard />
+                        </Col>
+                    </Card.Body>
+                </Card>
 
                 <Card bordered>
                     <Card.Body>

@@ -6,12 +6,15 @@ import { cardDemo } from './demos/card.js';
 import { layoutDemo } from './demos/layout.js';
 import { scrollviewDemo } from './demos/scrollview.js';
 import { dividerDemo } from './demos/divider.js';
+import { collapseDemo } from './demos/collapse.js';
 // Forms
 import { inputDemo } from './demos/input.js';
 import { textareaDemo } from './demos/textarea.js';
 import { selectDemo } from './demos/select.js';
 import { checkboxDemo } from './demos/checkbox.js';
 import { radioDemo } from './demos/radio.js';
+import { ratingDemo } from './demos/rating.js';
+import { rangeDemo } from './demos/range.js';
 import { toggleDemo } from './demos/toggle.js';
 import { formfieldDemo } from './demos/formfield.js';
 // Feedback
@@ -30,6 +33,7 @@ import { navdrawerDemo } from './demos/navdrawer.js';
 import { swiperindicatorDemo } from './demos/swiperindicator.js';
 // Data
 import { avatarDemo } from './demos/avatar.js';
+import { tableDemo } from './demos/table.js';
 // Typography
 import { textDemo } from './demos/text.js';
 import { headingDemo } from './demos/heading.js';
@@ -86,12 +90,15 @@ export const daisyDemos: DaisyComponentDemo[] = [
     layoutDemo,
     scrollviewDemo,
     dividerDemo,
+    collapseDemo,
     // Forms
     inputDemo,
     textareaDemo,
     selectDemo,
     checkboxDemo,
     radioDemo,
+    ratingDemo,
+    rangeDemo,
     toggleDemo,
     formfieldDemo,
     // Feedback
@@ -110,6 +117,7 @@ export const daisyDemos: DaisyComponentDemo[] = [
     swiperindicatorDemo,
     // Data
     avatarDemo,
+    tableDemo,
     // Typography
     textDemo,
     headingDemo,

@@ -1,6 +1,6 @@
 {
     "name": "@sigx/lynx-runtime-internal",
-    "version": "0.7.0",
+    "version": "0.14.0",
     "description": "Shared op types for SignalX Lynx renderer (BG ↔ MTS wire protocol)",
     "type": "module",
     "main": "./dist/index.js",
@@ -9,6 +9,10 @@
         ".": {
             "import": "./dist/index.js",
             "types": "./dist/index.d.ts"
+        },
+        "./snapshot": {
+            "import": "./dist/snapshot.js",
+            "types": "./dist/snapshot.d.ts"
         }
     },
     "files": [

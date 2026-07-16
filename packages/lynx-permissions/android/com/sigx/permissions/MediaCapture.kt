@@ -47,6 +47,7 @@ object MediaCapture {
 
     private var activityRef: WeakReference<ComponentActivity>? = null
     private var takePictureLauncher: ActivityResultLauncher<Uri>? = null
+    private var captureVideoLauncher: ActivityResultLauncher<Uri>? = null
     private var pickMediaLauncher: ActivityResultLauncher<PickVisualMediaRequest>? = null
     private var pickMultipleMediaLauncher: ActivityResultLauncher<PickVisualMediaRequest>? = null
     private var openDocumentLauncher: ActivityResultLauncher<Array<String>>? = null
@@ -54,6 +55,8 @@ object MediaCapture {
 
     private var pendingPhotoUri: Uri? = null
     private var pendingTakePictureCallback: ((JavaOnlyMap) -> Unit)? = null
+    private var pendingVideoUri: Uri? = null
+    private var pendingRecordVideoCallback: ((JavaOnlyMap) -> Unit)? = null
     private var pendingPickMediaCallback: ((JavaOnlyMap) -> Unit)? = null
     private var pendingPickMultipleMediaCallback: ((JavaOnlyMap) -> Unit)? = null
     private var pendingOpenDocumentCallback: ((JavaOnlyMap) -> Unit)? = null
@@ -83,6 +86,24 @@ object MediaCapture {
             val cb = pendingTakePictureCallback
             pendingPhotoUri = null
             pendingTakePictureCallback = null
+            val result = JavaOnlyMap()
+            if (success && uri != null) {
+                result.putString("uri", uri.toString())
+                result.putBoolean("cancelled", false)
+            } else {
+                result.putString("error", "cancelled")
+                result.putBoolean("cancelled", true)
+            }
+            cb?.invoke(result)
+        }
+
+        captureVideoLauncher = activity.registerForActivityResult(
+            ActivityResultContracts.CaptureVideo()
+        ) { success ->
+            val uri = pendingVideoUri
+            val cb = pendingRecordVideoCallback
+            pendingVideoUri = null
+            pendingRecordVideoCallback = null
             val result = JavaOnlyMap()
             if (success && uri != null) {
                 result.putString("uri", uri.toString())
@@ -195,12 +216,17 @@ object MediaCapture {
     fun unregister() {
         activityRef = null
         takePictureLauncher = null
+        captureVideoLauncher = null
         pickMediaLauncher = null
         pickMultipleMediaLauncher = null
         openDocumentLauncher = null
         openMultipleDocumentsLauncher = null
         // Resolve any pending callbacks with cancel so JS Promises don't hang.
         pendingTakePictureCallback?.invoke(JavaOnlyMap().apply {
+            putString("error", "activity destroyed")
+            putBoolean("cancelled", true)
+        })
+        pendingRecordVideoCallback?.invoke(JavaOnlyMap().apply {
             putString("error", "activity destroyed")
             putBoolean("cancelled", true)
         })
@@ -215,11 +241,13 @@ object MediaCapture {
         pendingOpenDocumentCallback?.invoke(cancelledDocumentResult("activity destroyed"))
         pendingOpenMultipleDocumentsCallback?.invoke(cancelledDocumentResult("activity destroyed"))
         pendingTakePictureCallback = null
+        pendingRecordVideoCallback = null
         pendingPickMediaCallback = null
         pendingPickMultipleMediaCallback = null
         pendingOpenDocumentCallback = null
         pendingOpenMultipleDocumentsCallback = null
         pendingPhotoUri = null
+        pendingVideoUri = null
     }
 
     /**
@@ -234,7 +262,7 @@ object MediaCapture {
         val launcher = takePictureLauncher
         if (activity == null || launcher == null) {
             callback(JavaOnlyMap().apply {
-                putString("error", "MediaCapture not registered — wire MediaCapture.register(this) into MainActivity.onCreate")
+                putString("error", "MediaCapture not registered — @sigx/lynx-permissions normally wires this automatically via PermissionsActivityHook at Activity onCreate; ensure the package is installed and autolinked")
                 putBoolean("cancelled", true)
             })
             return
@@ -272,6 +300,55 @@ object MediaCapture {
     }
 
     /**
+     * Launch the system camera in video mode. Same requirements as
+     * `takePicture` (CAMERA permission + a configured FileProvider authority).
+     * The clip lands at cacheDir/sigx-camera-<timestamp>.mp4; the JS callback
+     * receives a content:// URI pointing at it. `ACTION_VIDEO_CAPTURE` exposes
+     * no duration / quality knobs, so those options are iOS-only.
+     */
+    fun recordVideo(context: Context, callback: (JavaOnlyMap) -> Unit) {
+        val activity = activityRef?.get()
+        val launcher = captureVideoLauncher
+        if (activity == null || launcher == null) {
+            callback(JavaOnlyMap().apply {
+                putString("error", "MediaCapture not registered — @sigx/lynx-permissions normally wires this automatically via PermissionsActivityHook at Activity onCreate; ensure the package is installed and autolinked")
+                putBoolean("cancelled", true)
+            })
+            return
+        }
+        // Pre-empt any prior pending call.
+        pendingRecordVideoCallback?.invoke(JavaOnlyMap().apply {
+            putString("error", "cancelled by new recordVideo")
+            putBoolean("cancelled", true)
+        })
+
+        val videoFile = File(context.cacheDir, "sigx-camera-${System.currentTimeMillis()}.mp4")
+        val authority = "${context.packageName}.fileprovider"
+        val videoUri = try {
+            FileProvider.getUriForFile(context, authority, videoFile)
+        } catch (e: Throwable) {
+            callback(JavaOnlyMap().apply {
+                putString("error", "FileProvider authority '$authority' not configured: ${e.message}")
+                putBoolean("cancelled", true)
+            })
+            return
+        }
+
+        pendingVideoUri = videoUri
+        pendingRecordVideoCallback = callback
+        try {
+            launcher.launch(videoUri)
+        } catch (e: Throwable) {
+            pendingVideoUri = null
+            pendingRecordVideoCallback = null
+            callback(JavaOnlyMap().apply {
+                putString("error", e.message ?: "launcher.launch failed")
+                putBoolean("cancelled", true)
+            })
+        }
+    }
+
+    /**
      * Launch the system photo picker. No CAMERA / READ_MEDIA_IMAGES permission
      * needed — Android 13+'s photo picker grants per-pick access on the fly.
      * Returns a content:// URI for the picked image (or cancelled=true).
@@ -280,7 +357,7 @@ object MediaCapture {
         val launcher = pickMediaLauncher
         if (launcher == null) {
             callback(JavaOnlyMap().apply {
-                putString("error", "MediaCapture not registered — wire MediaCapture.register(this) into MainActivity.onCreate")
+                putString("error", "MediaCapture not registered — @sigx/lynx-permissions normally wires this automatically via PermissionsActivityHook at Activity onCreate; ensure the package is installed and autolinked")
                 putBoolean("cancelled", true)
             })
             return
@@ -317,7 +394,7 @@ object MediaCapture {
         val launcher = pickMultipleMediaLauncher
         if (launcher == null) {
             callback(JavaOnlyMap().apply {
-                putString("error", "MediaCapture not registered — wire MediaCapture.register(this) into MainActivity.onCreate")
+                putString("error", "MediaCapture not registered — @sigx/lynx-permissions normally wires this automatically via PermissionsActivityHook at Activity onCreate; ensure the package is installed and autolinked")
                 putBoolean("cancelled", true)
             })
             return
@@ -364,7 +441,7 @@ object MediaCapture {
     fun pickFile(types: Array<String>, callback: (JavaOnlyMap) -> Unit) {
         val launcher = openDocumentLauncher
         if (launcher == null) {
-            callback(cancelledDocumentResult("MediaCapture not registered — wire MediaCapture.register(this) into MainActivity.onCreate"))
+            callback(cancelledDocumentResult("MediaCapture not registered — @sigx/lynx-permissions normally wires this automatically via PermissionsActivityHook at Activity onCreate; ensure the package is installed and autolinked"))
             return
         }
         pendingOpenDocumentCallback?.invoke(cancelledDocumentResult("cancelled by new pickFile"))
@@ -384,7 +461,7 @@ object MediaCapture {
     fun pickFiles(types: Array<String>, callback: (JavaOnlyMap) -> Unit) {
         val launcher = openMultipleDocumentsLauncher
         if (launcher == null) {
-            callback(cancelledDocumentResult("MediaCapture not registered — wire MediaCapture.register(this) into MainActivity.onCreate"))
+            callback(cancelledDocumentResult("MediaCapture not registered — @sigx/lynx-permissions normally wires this automatically via PermissionsActivityHook at Activity onCreate; ensure the package is installed and autolinked"))
             return
         }
         pendingOpenMultipleDocumentsCallback?.invoke(cancelledDocumentResult("cancelled by new pickFiles"))

@@ -10,6 +10,7 @@
 
 import { join } from 'node:path';
 import type { Logger } from '@sigx/cli/plugin';
+import { iosDirName } from './config/paths.js';
 import { runPrebuild } from './prebuild.js';
 import { podInstallIfStale } from './ios-pods.js';
 import { runWithBuildFilter } from './build-output.js';
@@ -46,26 +47,29 @@ export interface EnsureIosBuiltOptions {
     bundleId?: string;
     configuration?: 'Debug' | 'Release';
     verbose?: boolean;
+    /** Build variant (#530) — selects the `ios-<variant>/` output dir. */
+    variant?: string;
 }
 
-function iosFingerprintKey(target: IosBuildTarget, configuration: string): string {
-    return `ios-${configuration.toLowerCase()}-${target.kind}-${target.udid}`;
+function iosFingerprintKey(target: IosBuildTarget, configuration: string, variant?: string): string {
+    return `ios-${variant ? `${variant}-` : ''}${configuration.toLowerCase()}-${target.kind}-${target.udid}`;
 }
 
 export async function ensureIosBuilt(opts: EnsureIosBuiltOptions): Promise<void> {
-    const { cwd, logger, appName, target, bundleId, configuration = 'Debug', verbose = false } = opts;
-    const iosDir = join(cwd, 'ios');
+    const { cwd, logger, appName, target, bundleId, configuration = 'Debug', verbose = false, variant } = opts;
+    const iosDirRel = iosDirName(variant);
+    const iosDir = join(cwd, iosDirRel);
 
     logger.log('Running prebuild for iOS...');
-    await runPrebuild({ android: false, ios: true, cwd });
+    await runPrebuild({ android: false, ios: true, cwd, variant });
 
     // Fast path: if the build-input fingerprint matches what we stored after
     // the last successful install AND the app on the target is provably OURS,
     // skip pod install / xcodebuild / install entirely. The dev-server's
     // auto-launch loop will (re)launch with the fresh dev URL.
     if (bundleId) {
-        const fingerprint = fingerprintIosBuild(cwd, appName, configuration);
-        const cacheKey = iosFingerprintKey(target, configuration);
+        const fingerprint = fingerprintIosBuild(cwd, appName, configuration, variant);
+        const cacheKey = iosFingerprintKey(target, configuration, variant);
         const cached = readCachedFingerprint(cwd, cacheKey);
         if (cached === fingerprint) {
             let upToDate: boolean;
@@ -78,7 +82,7 @@ export async function ensureIosBuilt(opts: EnsureIosBuiltOptions): Promise<void>
                 // against our local build products and skip only when they're
                 // byte-identical.
                 const installedApp = getInstalledAppContainer(target.udid, bundleId);
-                const localApp = findBuiltApp(cwd, appName, 'simulator', configuration);
+                const localApp = findBuiltApp(cwd, appName, 'simulator', configuration, variant);
                 upToDate = installedApp !== null && localApp !== null
                     && sameAppBinary(installedApp, localApp);
             } else {
@@ -98,7 +102,7 @@ export async function ensureIosBuilt(opts: EnsureIosBuiltOptions): Promise<void>
     await podInstallIfStale(iosDir, logger);
 
     logger.log(`Building iOS (${configuration}) for ${target.kind}...`);
-    const workspace = join('ios', `${appName}.xcworkspace`);
+    const workspace = join(iosDirRel, `${appName}.xcworkspace`);
     try {
         await runWithBuildFilter(
             'xcodebuild',
@@ -109,7 +113,7 @@ export async function ensureIosBuilt(opts: EnsureIosBuiltOptions): Promise<void>
                 '-configuration', configuration,
                 // Project-local products dir — two checkouts sharing a scheme
                 // name must never resolve each other's .app (#178).
-                '-derivedDataPath', iosDerivedDataPath(cwd),
+                '-derivedDataPath', iosDerivedDataPath(cwd, variant),
                 'build',
             ],
             { cwd },
@@ -125,9 +129,9 @@ export async function ensureIosBuilt(opts: EnsureIosBuiltOptions): Promise<void>
     logger.log('\x1b[32m✓ App built\x1b[0m');
 
     const buildTarget = target.kind === 'device' ? 'device' : 'simulator';
-    const appPath = findBuiltApp(cwd, appName, buildTarget, configuration);
+    const appPath = findBuiltApp(cwd, appName, buildTarget, configuration, variant);
     if (!appPath) {
-        throw new Error(`Could not find built ${appName}.app in ios/build (${buildTarget}, ${configuration})`);
+        throw new Error(`Could not find built ${appName}.app in ${iosDirRel}/build (${buildTarget}, ${configuration})`);
     }
 
     logger.log(`Installing on ${target.kind} (${target.name})...`);
@@ -147,7 +151,7 @@ export async function ensureIosBuilt(opts: EnsureIosBuiltOptions): Promise<void>
     // which is fine — prebuild's outputs are deterministic for a given
     // config, and xcodebuild itself doesn't modify input sources.
     if (bundleId) {
-        const fingerprint = fingerprintIosBuild(cwd, appName, configuration);
-        writeCachedFingerprint(cwd, iosFingerprintKey(target, configuration), fingerprint);
+        const fingerprint = fingerprintIosBuild(cwd, appName, configuration, variant);
+        writeCachedFingerprint(cwd, iosFingerprintKey(target, configuration, variant), fingerprint);
     }
 }

@@ -111,4 +111,45 @@ describe('updates:publish', () => {
         await expect(runUpdatesPublish({ cwd: emptyBundle, logger: silent }))
             .rejects.toThrow(/empty/i);
     });
+
+    it('refuses to publish when dist/ contains async chunks (#599)', async () => {
+        const cwd = makeProject({ bundle: 'bundle', sidecar: { android: 'fp1-a' } });
+        const asyncDir = join(cwd, 'dist', 'static', 'js', 'async');
+        mkdirSync(asyncDir, { recursive: true });
+        writeFileSync(join(asyncDir, '101.abc.js'), 'chunk');
+
+        await expect(runUpdatesPublish({ cwd, logger: silent }))
+            .rejects.toThrow(/--allow-async-chunks/);
+
+        // Escape hatch for remotely-hosted chunks.
+        const result = await runUpdatesPublish({ cwd, logger: silent, allowAsyncChunks: true });
+        expect(result.updateId).toBeTruthy();
+    });
+
+    it('scopes the async-chunk check to the published bundle, not cwd/dist (#599)', async () => {
+        // A CI artifact bundle outside dist/, while dist/ holds stale chunks
+        // from some unrelated earlier build.
+        const cwd = makeProject({ bundle: 'stale', sidecar: { android: 'fp1-a' } });
+        const staleChunks = join(cwd, 'dist', 'static', 'js', 'async');
+        mkdirSync(staleChunks, { recursive: true });
+        writeFileSync(join(staleChunks, 'stale.js'), 'stale');
+
+        const artifactDir = join(cwd, 'artifacts');
+        mkdirSync(artifactDir, { recursive: true });
+        writeFileSync(join(artifactDir, 'main.lynx.bundle'), 'ci artifact bundle');
+
+        // Stale dist/ chunks must not block publishing this bundle.
+        const ok = await runUpdatesPublish({
+            cwd, logger: silent, bundle: 'artifacts/main.lynx.bundle',
+        });
+        expect(ok.updateId).toBeTruthy();
+
+        // ...but chunks sitting next to THAT bundle must still be caught.
+        const artifactChunks = join(artifactDir, 'static', 'js', 'async');
+        mkdirSync(artifactChunks, { recursive: true });
+        writeFileSync(join(artifactChunks, '101.abc.js'), 'chunk');
+        await expect(runUpdatesPublish({
+            cwd, logger: silent, bundle: 'artifacts/main.lynx.bundle',
+        })).rejects.toThrow(/--allow-async-chunks/);
+    });
 });

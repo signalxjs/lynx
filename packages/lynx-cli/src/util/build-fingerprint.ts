@@ -22,6 +22,7 @@ import {
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { findLockfile } from './package-manager.js';
+import { androidDirName, iosDirName } from '../config/paths.js';
 
 function sha256OfFile(p: string): string {
     return createHash('sha256').update(readFileSync(p)).digest('hex');
@@ -120,8 +121,9 @@ export function fingerprintIosBuild(
     cwd: string,
     appName: string,
     configuration: 'Debug' | 'Release',
+    variant?: string,
 ): string {
-    const iosDir = join(cwd, 'ios');
+    const iosDir = join(cwd, iosDirName(variant));
     const appDir = join(iosDir, appName);
     const pbxproj = join(iosDir, `${appName}.xcodeproj`, 'project.pbxproj');
     const files = [
@@ -149,8 +151,8 @@ export function fingerprintIosBuild(
  * Compute a fingerprint over everything that affects the Android .apk.
  * Run AFTER prebuild.
  */
-export function fingerprintAndroidBuild(cwd: string): string {
-    const androidDir = join(cwd, 'android');
+export function fingerprintAndroidBuild(cwd: string, variant?: string): string {
+    const androidDir = join(cwd, androidDirName(variant));
     const files = [
         ...walkFiles(join(androidDir, 'app', 'src', 'main')),
         // Per-variant source sets: prebuild writes the dev-client sources and

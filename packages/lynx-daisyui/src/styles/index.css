@@ -25,6 +25,8 @@
 @import './components/checkbox.css';
 @import './components/toggle.css';
 @import './components/radio.css';
+@import './components/rating.css';
+@import './components/range.css';
 @import './components/input.css';
 @import './components/textarea.css';
 @import './components/select.css';
@@ -35,6 +37,8 @@
 @import './components/tabs.css';
 @import './components/steps.css';
 @import './components/avatar.css';
+@import './components/table.css';
 @import './components/skeleton.css';
 @import './components/divider.css';
+@import './components/collapse.css';
 @import './components/typography.css';

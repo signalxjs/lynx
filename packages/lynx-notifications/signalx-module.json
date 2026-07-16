@@ -15,6 +15,9 @@
             ]
         },
         "sourceDir": "ios",
+        "entitlements": {
+            "aps-environment": "development"
+        },
         "methods": [
             "schedule",
             "cancel",
@@ -42,6 +45,9 @@
             "com.google.firebase:firebase-messaging:24.0.0",
             "com.google.firebase:firebase-common-ktx:21.0.0",
             "com.google.android.gms:play-services-base:18.5.0"
+        ],
+        "gradlePlugins": [
+            { "id": "com.google.gms.google-services", "version": "4.4.2" }
         ],
         "services": [
             {

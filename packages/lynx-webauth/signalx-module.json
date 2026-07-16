@@ -1,0 +1,22 @@
+{
+    "name": "WebAuth",
+    "package": "@sigx/lynx-webauth",
+    "description": "System web-auth session (ASWebAuthenticationSession / Chrome Custom Tabs)",
+    "platforms": ["android", "ios"],
+    "ios": {
+        "moduleClass": "WebAuthModule",
+        "sourceDir": "ios",
+        "methods": ["openAuthSession", "cancelAuthSession"]
+    },
+    "android": {
+        "moduleClass": "com.sigx.webauth.WebAuthModule",
+        "sourceDir": "android",
+        "activityHook": {
+            "class": "com.sigx.webauth.WebAuthActivityHook",
+            "methods": ["onResume"]
+        },
+        "dependencies": [
+            "androidx.browser:browser:1.8.0"
+        ]
+    }
+}

@@ -13,6 +13,8 @@ import { DirectivesDemo } from './screens/DirectivesDemo.js';
 import { Icons } from './screens/Icons.js';
 import { SystemBars } from './screens/SystemBars.js';
 import { SheetDemo } from './screens/SheetDemo.js';
+import { ListDemo } from './screens/ListDemo.js';
+import { ChatDemo } from './screens/ChatDemo.js';
 // Gestures & Motion
 import { SpringLab } from './screens/gestures/SpringLab.js';
 import { DragSnapDemo } from './screens/gestures/DragSnapDemo.js';
@@ -45,6 +47,10 @@ import { StorageDemo } from './screens/StorageDemo.js';
 import { SqliteChatDemo } from './screens/SqliteChatDemo.js';
 import { HapticsDemo } from './screens/HapticsDemo.js';
 import { WebRTCDemo } from './screens/WebRTCDemo.js';
+// Framework
+import { DynamicImportDemo } from './screens/DynamicImportDemo.js';
+// #620 phase-5 bench (raw templated list)
+import { SnapshotListBenchScreen } from './screens/SnapshotListBench.js';
 
 export const routes = defineRoutes({
     // Home is the root of the single global stack: search + grouped catalog.
@@ -73,6 +79,9 @@ export const routes = defineRoutes({
     },
 
     // UI & Theming
+    listDemo: { component: ListDemo, path: '/list' },
+    snapshotListBench: { component: SnapshotListBenchScreen, path: '/snapshot-list-bench' },
+    chatDemo: { component: ChatDemo, path: '/chat' },
     appearance: { component: Appearance, path: '/appearance' },
     theming: { component: Theming, path: '/theming' },
     herouiLab: { component: HeroUILab, path: '/heroui-lab' },
@@ -122,6 +131,9 @@ export const routes = defineRoutes({
     sqliteChatDemo: { component: SqliteChatDemo, path: '/sqlite-chat' },
     hapticsDemo: { component: HapticsDemo, path: '/haptics' },
     webrtcDemo: { component: WebRTCDemo, path: '/webrtc' },
+
+    // Framework
+    dynamicImportDemo: { component: DynamicImportDemo, path: '/dynamic-import' },
 });
 
 declare module '@sigx/lynx-navigation' {

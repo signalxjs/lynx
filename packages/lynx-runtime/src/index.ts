@@ -7,6 +7,11 @@
 // expose (e.g. queueMicrotask). Imported before everything else so its globals
 // are in place before any other module's side effects. See signalxjs/lynx#296.
 import './install-globals.js';
+// Side-effect: tell core this runtime is a live client, not a server render.
+// Must precede any component setup that calls `useData`/`useAction` — core
+// skips the fetcher entirely when `isLiveClient()` is false, and its fallback
+// (`typeof window`) is false on the BG thread. See ./live-client.ts.
+import './live-client.js';
 import './jsx.js';
 import './types.js';
 import './model-processor.js';
@@ -22,9 +27,16 @@ import './bg-bridge.js';
 import './run-on-background.js';
 
 export { render, lynxMount } from './render.js';
-export { nodeOps } from './nodeOps.js';
+export { nodeOps, resetNodeOpsState } from './nodeOps.js';
 export type { LynxNode, LynxElement } from './nodeOps.js';
 export { ShadowElement, createPageRoot, resetShadowState } from './shadow-element.js';
+export {
+  ShadowSlotElement,
+  ShadowSnapshotElement,
+  isShadowSlotElement,
+  isShadowSnapshotElement,
+} from './shadow-snapshot.js';
+export { normalizeHole, releaseHoleValues, wireEqual } from './snapshot-values.js';
 
 // use:* directive system + the built-in `show` directive. The directive
 // lifecycle hooks are wired into nodeOps; `show` is registered with the

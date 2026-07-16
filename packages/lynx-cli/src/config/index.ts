@@ -1,6 +1,7 @@
 export { defineLynxConfig } from './schema.js';
 export type {
     LynxConfig,
+    VariantConfig,
     ModuleConfig,
     AndroidConfig,
     AndroidFeatureConfig,

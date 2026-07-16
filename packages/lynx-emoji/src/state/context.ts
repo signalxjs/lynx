@@ -22,10 +22,19 @@ export interface EmojiContextOptions {
  * `<EmojiPicker data={…}>` creates for itself when no provider is in scope.
  */
 export function createEmojiContext(data: EmojiData, options?: EmojiContextOptions): EmojiContextValue {
+    // Snapshot the dataset to plain objects. `data` is static by contract
+    // ("fixed at mount") but usually arrives through component props, where
+    // every read returns a deep reactive proxy: ~1900 entries' worth of
+    // proxy overhead on every grid slice/search pass — and sharing one array
+    // instance across two components' prop proxies currently blanks the
+    // whole surface's paint on device (runtime issue signalxjs/lynx#603).
+    // The dataset is JSON-parsed to begin with, so the round-trip is
+    // lossless and runs once per provider.
+    const raw = JSON.parse(JSON.stringify(data)) as EmojiData;
     return {
-        data,
-        index: buildSearchIndex(data),
-        recents: createRecentsStore(data, options?.recentsCap),
+        data: raw,
+        index: buildSearchIndex(raw),
+        recents: createRecentsStore(raw, options?.recentsCap),
         skinTone: createSkinToneStore(),
     };
 }

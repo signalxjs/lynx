@@ -1,6 +1,6 @@
 {
     "name": "@sigx/lynx-plugin",
-    "version": "0.7.0",
+    "version": "0.14.0",
     "description": "Rspack/Rspeedy plugin for SignalX Lynx dual-thread rendering",
     "type": "module",
     "main": "./dist/index.js",
@@ -38,7 +38,7 @@
         "url": "https://github.com/signalxjs/lynx/issues"
     },
     "dependencies": {
-        "@lynx-js/react": "^0.121.0",
+        "@lynx-js/react": "0.121.0",
         "@sigx/lynx-runtime-internal": "workspace:*",
         "ws": "^8.20.1"
     },

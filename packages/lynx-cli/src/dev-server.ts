@@ -16,6 +16,7 @@ import { getAllLanIPs } from './network.js';
 import { generateQR } from '@sigx/terminal';
 import { getDeviceStatus, getDeviceStatusCached, invalidateDeviceStatusCache, launchLynxGo, launchApp, launchIosApp, launchAppOnDevice, resolveIosSimulator, bootSimulator, installAppOnSimulator, findBuiltApp, iosDerivedDataPath, adbReverse, adbReverseRemove, forceStopApp, getDeviceCpuAbi, LYNX_GO_PACKAGE, type DeviceStatus } from './device-detect.js';
 import { runWithBuildFilter } from './build-output.js';
+import { androidDirName, iosDirName } from './config/paths.js';
 import type { Logger } from '@sigx/cli/plugin';
 import type { SelectedTarget } from './target-picker.js';
 import { parseDeviceLogLine, formatDeviceLogLine, LOG_SENTINEL } from './device-log.js';
@@ -33,6 +34,8 @@ export interface DevServerOptions {
     launchBundleId?: string;
     /** iOS simulator name (for build + launch shortcut) */
     iosSimulatorName?: string;
+    /** Active build variant (#530) — selects the android-<variant>/ ios-<variant>/ dirs for rebuild shortcuts. */
+    variant?: string;
     /**
      * Explicit target list from the picker / flags. When provided, the
      * banner and auto-launch loop use this instead of scanning the whole
@@ -280,6 +283,8 @@ interface DevControlOpts {
     bundleId?: string;
     iosSimulatorName?: string;
     verbose?: boolean;
+    /** Active build variant (#530) — selects the variant's native output dir. */
+    variant?: string;
     /** Centralized teardown: removes adb forwards + kills the rspeedy tree. */
     shutdown: () => void;
     /** Create an `adb reverse` forward AND record it for teardown. Keyboard
@@ -433,7 +438,7 @@ function createDevActions(opts: DevControlOpts): DevActions {
                 opts.logger.log('Installing and launching Android app...');
                 void (async () => {
                     opts.onBuildState?.('gradle installDebug');
-                    const androidDir = join(opts.cwd, 'android');
+                    const androidDir = join(opts.cwd, androidDirName(opts.variant));
                     const gradleCmd = process.platform === 'win32' ? 'gradlew.bat' : 'gradlew';
                     try {
                         await runWithBuildFilter(
@@ -501,7 +506,8 @@ function createDevActions(opts: DevControlOpts): DevActions {
                 opts.logger.log('App not installed — building...');
                 void (async () => {
                     opts.onBuildState?.('xcodebuild');
-                    const iosDir = join(opts.cwd, 'ios');
+                    const iosDirRel = iosDirName(opts.variant);
+                    const iosDir = join(opts.cwd, iosDirRel);
 
                     // Determine app name from config (fallback to workspace listing)
                     let appName = 'app';
@@ -509,7 +515,7 @@ function createDevActions(opts: DevControlOpts): DevActions {
                         const { loadConfig } = await import('./prebuild.js');
                         const { resolveConfig } = await import('./config/index.js');
                         const rawConfig = await loadConfig(opts.cwd);
-                        const config = resolveConfig(rawConfig);
+                        const config = resolveConfig(rawConfig, opts.variant);
                         appName = config.name;
                     } catch {
                         const { readdirSync } = await import('node:fs');
@@ -517,7 +523,7 @@ function createDevActions(opts: DevControlOpts): DevActions {
                         if (workspaces.length > 0) appName = workspaces[0].replace('.xcworkspace', '');
                     }
 
-                    const workspace = join('ios', `${appName}.xcworkspace`);
+                    const workspace = join(iosDirRel, `${appName}.xcworkspace`);
                     try {
                         await runWithBuildFilter(
                             'xcodebuild',
@@ -527,7 +533,7 @@ function createDevActions(opts: DevControlOpts): DevActions {
                                 '-destination', `id=${simulator.udid}`,
                                 '-configuration', 'Debug',
                                 // Project-local products dir — see #178.
-                                '-derivedDataPath', iosDerivedDataPath(opts.cwd),
+                                '-derivedDataPath', iosDerivedDataPath(opts.cwd, opts.variant),
                                 'build',
                             ],
                             { cwd: opts.cwd },
@@ -541,9 +547,9 @@ function createDevActions(opts: DevControlOpts): DevActions {
                     opts.onBuildState?.(null);
                     opts.logger.log('\x1b[32m✓ iOS app built\x1b[0m');
 
-                    const appPath = findBuiltApp(opts.cwd, appName);
+                    const appPath = findBuiltApp(opts.cwd, appName, 'simulator', 'Debug', opts.variant);
                     if (!appPath) {
-                        opts.logger.error(`Could not find built ${appName}.app in ios/build`);
+                        opts.logger.error(`Could not find built ${appName}.app in ${iosDirRel}/build`);
                         return;
                     }
                     opts.logger.log('Installing on simulator...');
@@ -1179,7 +1185,7 @@ export async function startDevServer(opts: DevServerOptions): Promise<void> {
     const controlOpts: DevControlOpts = {
         cwd, serverState, wsPort, buildId, lanIPs, projectName, logger,
         appId: launchAppId, bundleId: launchBundleId, iosSimulatorName,
-        verbose: opts.verbose, shutdown, addReverse,
+        verbose: opts.verbose, variant: opts.variant, shutdown, addReverse,
         printLines: (lines) => {
             if (ui) for (const l of lines) ui.say(l);
             else console.log(lines.join('\n'));

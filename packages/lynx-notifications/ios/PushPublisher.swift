@@ -16,9 +16,12 @@ final class PushPublisher {
 
     init(lynxView: LynxView) {
         self.lynxView = lynxView
-        self.token = PushEventBus.shared.addListener { [weak self] channel, payload in
+        self.token = PushEventBus.shared.addListener { [weak self] channel, json in
             guard let view = self?.lynxView else { return }
-            view.sendGlobalEvent(channel, withParams: [payload])
+            // A single JSON string as the only param — a structured map loses
+            // its sibling scalars crossing Lynx 0.5.0's bridge (#342, see
+            // `PushEventBus.emit`). The JS shim parses the first arg.
+            view.sendGlobalEvent(channel, withParams: [json])
         }
     }
 

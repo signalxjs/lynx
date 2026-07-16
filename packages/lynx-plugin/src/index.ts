@@ -142,6 +142,22 @@ export interface PluginSigxLynxOptions {
    * @defaultValue true
    */
   debugInfoOutside?: boolean;
+
+  /**
+   * Compile static JSX subtrees to main-thread snapshot templates (#620):
+   * cells and other compiled subtrees are constructed BY the main thread
+   * (one snapshot op instead of ~10 element ops + a thread hop), with
+   * hole-granular patches after mount. Requires statically analyzable JSX;
+   * non-static subtrees keep today's per-element path automatically.
+   *
+   * Works in dev too: template registrations ride the MT hot-update bridge,
+   * stale templates are purged by file, and op batches that outrun a
+   * registration park and replay (#637).
+   * Default ON since #642 (the flag remains as a kill switch for one
+   * release — pass `snapshots: false` to keep the per-element path).
+   * @defaultValue true
+   */
+  snapshots?: boolean;
 }
 
 /**
@@ -157,6 +173,7 @@ export function pluginSigxLynx(
     enableCSSInheritance: _enableCSSInheritance = false,
     customCSSInheritanceList: _customCSSInheritanceList,
     debugInfoOutside: _debugInfoOutside = true,
+    snapshots: _snapshots = true,
   } = options;
 
   return {
@@ -221,6 +238,10 @@ export function pluginSigxLynx(
               // (plumbed from signalx.config.ts by lynx-cli).
               __SIGX_RUNTIME_VERSIONS__: JSON.stringify(readRuntimeVersions(api.context.rootPath)),
               __SIGX_UPDATES_CHANNEL__: JSON.stringify(process.env['SIGX_LYNX_UPDATES_CHANNEL'] || 'production'),
+              // Active build variant (#530), plumbed from signalx.config.ts by
+              // lynx-cli via `SIGX_LYNX_VARIANT`. Empty string for the base
+              // (production) build. Read by `variant`/`isVariant()` in core.
+              __SIGX_VARIANT__: JSON.stringify(process.env['SIGX_LYNX_VARIANT'] || ''),
             },
           },
           tools: {
@@ -530,6 +551,7 @@ export function pluginSigxLynx(
         debugInfoOutside: _debugInfoOutside,
         enableCSSInheritance: _enableCSSInheritance,
         customCSSInheritanceList: _customCSSInheritanceList,
+        snapshots: _snapshots,
       });
 
       // Wire @sigx/lynx-icons — reads iconSets from signalx.config.ts,

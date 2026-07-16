@@ -53,9 +53,15 @@ fun DevLynxScreen(
     // by the overlay. Latest-appended; `errorIndex` is the shown one.
     val errors = remember { mutableStateListOf<String>() }
     var errorIndex by remember { mutableStateOf(0) }
-    val pushError: (String) -> Unit = { errors.add(it); errorIndex = errors.lastIndex }
-    var showDevMenu by remember { mutableStateOf(false) }
     var currentUrl by remember { mutableStateOf(url) }
+    val pushError: (String) -> Unit = { msg ->
+        errors.add(msg); errorIndex = errors.lastIndex
+        // Mirror every overlay error to the `sigx dev` terminal (Logs tab), so
+        // device exceptions aren't trapped on the red screen. Reads the live
+        // `currentUrl` so the endpoint tracks the bundle actually rendering.
+        DevServerReporter.report(currentUrl, msg)
+    }
+    var showDevMenu by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val devSettings = remember { DevSettings(context) }
 

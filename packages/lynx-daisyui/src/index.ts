@@ -9,6 +9,8 @@ export { Card } from './layout/Card.js';
 export type { CardProps } from './layout/Card.js';
 export { Divider } from './layout/Divider.js';
 export type { DividerProps } from './layout/Divider.js';
+export { Collapse } from './layout/Collapse.js';
+export type { CollapseProps, CollapseGroupProps, CollapseIcon } from './layout/Collapse.js';
 export { Row, Col, Center, Spacer, ScrollView } from '@sigx/lynx-zero';
 export type {
   RowProps, ColProps, CenterProps, SpacerProps, ScrollViewProps,
@@ -39,6 +41,10 @@ export { Select } from './forms/Select.js';
 export type { SelectProps, SelectSize, SelectVariant, SelectColor, SelectOption } from './forms/Select.js';
 export { Radio } from './forms/Radio.js';
 export type { RadioGroupProps, RadioItemProps, RadioColor, RadioSize } from './forms/Radio.js';
+export { Range } from './forms/Range.js';
+export type { RangeProps, RangeColor, RangeSize } from './forms/Range.js';
+export { Rating } from './forms/Rating.js';
+export type { RatingProps, RatingColor, RatingSize } from './forms/Rating.js';
 export { Textarea } from './forms/Textarea.js';
 export type { TextareaProps, TextareaSize, TextareaVariant, TextareaColor } from './forms/Textarea.js';
 export { FormField } from './forms/FormField.js';
@@ -126,6 +132,8 @@ export type { StatusBarSyncProps } from '@sigx/lynx-zero';
 // Data
 export { Avatar } from './data/Avatar.js';
 export type { AvatarProps, AvatarSize } from './data/Avatar.js';
+export { Table } from './data/Table.js';
+export type { TableProps, TableColumn, TableRow, TableSize, TableAlign } from './data/Table.js';
 
 // Typography
 export { Text } from './typography/Text.js';

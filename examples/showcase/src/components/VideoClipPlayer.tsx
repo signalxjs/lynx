@@ -10,13 +10,17 @@ type VideoClipPlayerProps =
 /**
  * Video clip preview using `@sigx/lynx-video`.
  *
- * The showcase doesn't ship a video-capture path (the camera package is
- * still photo-only), so the "Attach video" button populates a remote sample
- * clip. This keeps the wiring honest end-to-end: the same URI a real capture
- * pipeline would emit gets rendered through `<VideoPlayer>`.
+ * This card focuses on playback, so the "Attach video" button populates a
+ * remote sample clip rather than capturing one (camera capture lives in
+ * MediaCaptureCard). The same URI a real capture pipeline emits gets rendered
+ * through `<VideoPlayer>`.
  */
+// Official Blender-hosted Big Buck Bunny clip. The previous
+// `commondatastorage.googleapis.com/gtv-videos-bucket` sample bucket now
+// returns 403, so the player surface stayed black; this host serves
+// `video/mp4` with HTTP range support (which AVPlayer / ExoPlayer need).
 const SAMPLE_VIDEO_URL =
-    'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
+    'https://download.blender.org/peach/bigbuckbunny_movies/BigBuckBunny_320x180.mp4';
 
 export const VideoClipPlayer = component<VideoClipPlayerProps>(({ props }) => {
     const playing = signal(false);
@@ -43,6 +47,15 @@ export const VideoClipPlayer = component<VideoClipPlayerProps>(({ props }) => {
                         playing={playing.value}
                         controls
                         resizeMode="contain"
+                        // `controls` shows the platform transport UI, which can
+                        // play/pause without going through our `playing` signal.
+                        // Mirror the real playback state back so the Play/Pause
+                        // button below never disagrees with what's on screen.
+                        onStateChange={(e) => {
+                            const state = e.detail.state;
+                            if (state === 'playing') playing.value = true;
+                            else if (state === 'paused' || state === 'ended') playing.value = false;
+                        }}
                         onEnd={() => { playing.value = false; }}
                         onError={(e) => {
                             console.warn('[VideoClip] error:', e.detail.message);

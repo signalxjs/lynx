@@ -1,6 +1,6 @@
 {
     "name": "@sigx/lynx-testing",
-    "version": "0.7.0",
+    "version": "0.14.0",
     "description": "Testing utilities for SignalX Lynx components - render, fireEvent, queries",
     "type": "module",
     "main": "./dist/index.js",
@@ -37,7 +37,7 @@
     "license": "MIT",
     "dependencies": {
         "@sigx/lynx": "workspace:^",
-        "@sigx/runtime-core": "^0.6.3"
+        "@sigx/runtime-core": "catalog:"
     },
     "peerDependencies": {
         "@lynx-js/react": "^0.121.0",

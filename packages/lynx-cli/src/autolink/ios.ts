@@ -57,6 +57,12 @@ export interface IosLinkResult {
      * module-contributed keys added underneath (app wins on collision).
      */
     infoPlist: Record<string, PlistValue>;
+    /**
+     * Code-signing entitlements to write into the app's `.entitlements` files —
+     * app `ios.entitlements` with module-contributed keys added underneath (app
+     * wins on collision). When empty, prebuild leaves signing untouched.
+     */
+    entitlements: Record<string, PlistValue>;
     /** Swift source for module registration. */
     registryCode: string;
     /** Swift source for lifecycle-publisher attachment. */
@@ -133,6 +139,13 @@ export function linkIos(
     }
     for (const [key, value] of Object.entries(config.ios.infoPlist ?? {})) {
         infoPlist[key] = value; // app passthrough wins over the convenience
+    }
+    // Code-signing entitlements — same null-prototype + app-wins-on-collision
+    // discipline as infoPlist. Seeded from app config; modules add only keys
+    // not already present.
+    const entitlements: Record<string, PlistValue> = Object.create(null);
+    for (const [key, value] of Object.entries(config.ios.entitlements ?? {})) {
+        entitlements[key] = value;
     }
     const uiComponents: IosUiComponentEntry[] = [];
     const seenUiComponentNames = new Set<string>();
@@ -269,6 +282,12 @@ export function linkIos(
                 if (!(key in infoPlist)) infoPlist[key] = value;
             }
         }
+        if (ios.entitlements) {
+            // App config (and earlier modules) win — only add keys not yet set.
+            for (const [key, value] of Object.entries(ios.entitlements)) {
+                if (!(key in entitlements)) entitlements[key] = value;
+            }
+        }
         if (ios.uiComponents) {
             for (const entry of ios.uiComponents) {
                 // De-dup on tag name — two packages declaring the same tag is
@@ -311,6 +330,7 @@ export function linkIos(
         backgroundModes: [...backgroundModes],
         bgTaskIdentifiers: [...bgTaskIdentifiers],
         infoPlist,
+        entitlements,
         registryCode,
         lifecycleCode,
         appDelegateHooksCode,

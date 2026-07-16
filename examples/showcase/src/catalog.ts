@@ -38,6 +38,27 @@ export const catalog: Area[] = [
         icon: { set: 'lucide', name: 'palette' },
         examples: [
             {
+                id: 'list',
+                title: 'List',
+                description: '10k-item stress test — windowing + load-on-demand over the native <list> recycler',
+                icon: { set: 'lucide', name: 'list' },
+                route: 'listDemo',
+            },
+            {
+                id: 'snapshot-list-bench',
+                title: 'Snapshot list bench',
+                description: 'Raw templated <list> — sync componentAtIndex + recycling (#620), needs snapshots: true',
+                icon: { set: 'lucide', name: 'zap' },
+                route: 'snapshotListBench',
+            },
+            {
+                id: 'chat',
+                title: 'Chat',
+                description: 'Chat mode — bottom-anchored, stick-to-bottom, unread pill, load-older',
+                icon: { set: 'lucide', name: 'message-circle' },
+                route: 'chatDemo',
+            },
+            {
                 id: 'appearance',
                 title: 'Appearance',
                 description: 'Global theme switching, dark toggle, follow-system',
@@ -254,7 +275,7 @@ export const catalog: Area[] = [
             {
                 id: 'media',
                 title: 'Media',
-                description: 'Image picker, voice-note recording, video playback',
+                description: 'Camera capture, image/video picker, voice notes, video playback',
                 icon: { set: 'lucide', name: 'image' },
                 route: 'mediaDemo',
             },
@@ -348,6 +369,20 @@ export const catalog: Area[] = [
                 description: 'Loopback echo call — mic, remote audio, data channel',
                 icon: { set: 'lucide', name: 'phone-call' },
                 route: 'webrtcDemo',
+            },
+        ],
+    },
+    {
+        id: 'framework',
+        title: 'Framework',
+        icon: { set: 'lucide', name: 'package' },
+        examples: [
+            {
+                id: 'dynamic-import',
+                title: 'Dynamic import',
+                description: 'Code-splitting via import() — async chunk loaded on demand, in dev and store builds',
+                icon: { set: 'lucide', name: 'package-open' },
+                route: 'dynamicImportDemo',
             },
         ],
     },

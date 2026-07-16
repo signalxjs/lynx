@@ -169,13 +169,23 @@ class NotificationsModule: NSObject, LynxModule {
         }
     }
 
-    /// One-shot: return the payload that launched the app from a cold start,
-    /// or nil. Subsequent calls return nil even if the original payload was
+    /// One-shot: return the payload that launched the app from a cold-start
+    /// tap, or nil. Subsequent calls return nil even if the original payload was
     /// non-nil — JS code that wants to react to launch payloads should call
     /// this exactly once during startup.
+    ///
+    /// Returns a **JSON string**, not a dict: the payload nests `data`, and a
+    /// structured map loses its sibling scalars crossing the bridge (#342) —
+    /// which here would strip `notificationId` / `actionIdentifier` and leave
+    /// only `data`, i.e. the very failure this path exists to fix. Whether that
+    /// regression reaches `LynxCallbackBlock` as well as `sendGlobalEvent` is
+    /// unproven (the one nested-callback precedent, `FilePickerModule`, is
+    /// masked by JS-side defaulting), so we sidestep it: a bare `String` is
+    /// already carried by `schedule`. `src/notifications.ts` parses it via
+    /// `parseNotificationResponse`.
     @objc func getInitialNotification(_ callback: LynxCallbackBlock?) {
-        if let payload = PushEventBus.shared.consumeInitialResponse() {
-            callback?(payload)
+        if let json = PushEventBus.shared.consumeInitialResponse() {
+            callback?(json)
         } else {
             callback?(NSNull())
         }

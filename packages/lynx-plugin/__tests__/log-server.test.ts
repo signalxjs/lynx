@@ -9,10 +9,13 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { WebSocket } from 'ws';
 
 import {
+    createErrorDeduper,
     createLogWebSocketServer,
     detectPlatformFromUserAgent,
+    DEVICE_ERROR_ENDPOINT_PATH,
     LOG_ENDPOINT_PATH,
     LOG_SENTINEL,
+    normalizeErrorHeadline,
     RELOAD_ENDPOINT_PATH,
     type LogWebSocketServer,
     type ServerLogEntry,
@@ -52,6 +55,38 @@ async function sendBatches(batches: unknown[], opts: { wait?: number } = {}): Pr
     // Give the server's `message` handler a moment to drain before close.
     await new Promise((r) => setTimeout(r, opts.wait ?? 20));
     await new Promise<void>((resolve) => { ws.once('close', () => resolve()); ws.close(); });
+}
+
+/** POST a JSON body to a path on the test server. */
+async function postJson(
+    path: string,
+    body: unknown,
+    headers: Record<string, string> = {},
+): Promise<{ status: number; body: string }> {
+    const payload = typeof body === 'string' ? body : JSON.stringify(body);
+    return new Promise((resolve, reject) => {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const http = require('node:http') as typeof import('node:http');
+        const req = http.request({
+            hostname: '127.0.0.1',
+            port: server.port,
+            path,
+            method: 'POST',
+            headers: { 'content-type': 'application/json', ...headers },
+        }, (res) => {
+            let out = '';
+            res.setEncoding('utf-8');
+            res.on('data', (c: string) => { out += c; });
+            res.on('end', () => resolve({ status: res.statusCode ?? 0, body: out }));
+        });
+        req.on('error', reject);
+        req.end(payload);
+    });
+}
+
+/** Parse the sentinel lines captured by `writeLine` into entries. */
+function parsedLines(): ServerLogEntry[] {
+    return lines.map((l) => JSON.parse(l.slice(LOG_SENTINEL.length)) as ServerLogEntry);
 }
 
 describe('createLogWebSocketServer', () => {
@@ -305,6 +340,134 @@ describe('hello on connect', () => {
         // Fails fast if any frame arrives within the window; otherwise 'quiet'.
         await expect(Promise.race([sawFrame, quiet])).resolves.toBe('quiet');
         w.close();
+    });
+});
+
+describe('device errors (POST /__sigx/device-error)', () => {
+    it('emits a single level:error line for a { message } body', async () => {
+        const res = await postJson(DEVICE_ERROR_ENDPOINT_PATH, {
+            message: 'TypeError: boom\n##SIGX_STACKTRACE##\nat foo (app.js:1)',
+            platform: 'ios',
+            ts: 1234,
+        });
+        expect(res.status).toBe(200);
+        expect(JSON.parse(res.body)).toEqual({ received: 1 });
+
+        expect(lines).toHaveLength(1);
+        const entry = parsedLines()[0];
+        expect(entry.level).toBe('error');
+        expect(entry.platform).toBe('ios');
+        expect(entry.ts).toBe(1234);
+        expect(entry.args).toEqual(['TypeError: boom\n##SIGX_STACKTRACE##\nat foo (app.js:1)']);
+    });
+
+    it('emits one line per message for an { errors: [...] } batch', async () => {
+        const res = await postJson(DEVICE_ERROR_ENDPOINT_PATH, {
+            platform: 'android',
+            errors: [{ message: 'first error' }, { message: 'second error' }],
+        });
+        expect(JSON.parse(res.body)).toEqual({ received: 2 });
+        const entries = parsedLines();
+        expect(entries.map((e) => e.args[0])).toEqual(['first error', 'second error']);
+        expect(entries.every((e) => e.level === 'error' && e.platform === 'android')).toBe(true);
+    });
+
+    it('falls back to the UA-sniffed platform when none is supplied', async () => {
+        const res = await postJson(
+            DEVICE_ERROR_ENDPOINT_PATH,
+            { message: 'no platform here' },
+            { 'user-agent': 'okhttp/4.12.0' },
+        );
+        expect(JSON.parse(res.body)).toEqual({ received: 1 });
+        expect(parsedLines()[0].platform).toBe('android');
+    });
+
+    it('drops empty / missing messages (received:0, no line)', async () => {
+        const a = await postJson(DEVICE_ERROR_ENDPOINT_PATH, { message: '   ' });
+        const b = await postJson(DEVICE_ERROR_ENDPOINT_PATH, { notMessage: 'x' });
+        const c = await postJson(DEVICE_ERROR_ENDPOINT_PATH, '{not json');
+        expect(JSON.parse(a.body)).toEqual({ received: 0 });
+        expect(JSON.parse(b.body)).toEqual({ received: 0 });
+        expect(JSON.parse(c.body)).toEqual({ received: 0 });
+        expect(lines).toEqual([]);
+    });
+
+    it('de-duplicates a native error matching a just-seen JS console error', async () => {
+        const ts = Date.now();
+        // The JS console path forwards the error first (immediate flush).
+        await sendBatches([{
+            entries: [{
+                level: 'error',
+                args: ['[lynx:onError] TypeError: boom\nat foo (app.js:1)'],
+                ts,
+                platform: 'ios',
+            }],
+        }]);
+        expect(lines).toHaveLength(1);
+
+        // The native overlay POSTs the same error moments later — suppressed.
+        const res = await postJson(DEVICE_ERROR_ENDPOINT_PATH, {
+            message: 'TypeError: boom\n##SIGX_STACKTRACE##\nat foo (app.js:1)',
+            platform: 'ios',
+            ts: ts + 5,
+        });
+        expect(JSON.parse(res.body)).toEqual({ received: 0 });
+        expect(lines).toHaveLength(1); // still just the JS line
+    });
+
+    it('keeps a native error whose message differs from recent console errors', async () => {
+        const ts = Date.now();
+        await sendBatches([{
+            entries: [{ level: 'error', args: ['[lynx:onError] one'], ts, platform: 'ios' }],
+        }]);
+        const res = await postJson(DEVICE_ERROR_ENDPOINT_PATH, {
+            message: 'a totally different error',
+            platform: 'ios',
+            ts: ts + 5,
+        });
+        expect(JSON.parse(res.body)).toEqual({ received: 1 });
+        expect(lines).toHaveLength(2);
+    });
+});
+
+describe('normalizeErrorHeadline', () => {
+    it('keeps only the first line', () => {
+        expect(normalizeErrorHeadline('boom\nat foo\nat bar')).toBe('boom');
+    });
+    it('strips the [lynx:source] tag added by the JS hook', () => {
+        expect(normalizeErrorHeadline('[lynx:onError] Boom')).toBe('boom');
+        expect(normalizeErrorHeadline('[lynx:unhandledrejection] Nope')).toBe('nope');
+    });
+    it('strips an inline ##SIGX_STACKTRACE## marker', () => {
+        expect(normalizeErrorHeadline('Boom ##SIGX_STACKTRACE## details')).toBe('boom');
+    });
+    it('normalises JS and native formats of the same error to one key', () => {
+        const js = normalizeErrorHeadline('[lynx:onError] TypeError: boom\nat foo');
+        const native = normalizeErrorHeadline('TypeError: boom\n##SIGX_STACKTRACE##\nat foo');
+        expect(js).toBe(native);
+    });
+});
+
+describe('createErrorDeduper', () => {
+    it('accepts the first occurrence and suppresses a duplicate within the window', () => {
+        const d = createErrorDeduper(2000);
+        expect(d.accept('1.2.3.4', 'boom', 1000)).toBe(true);
+        expect(d.accept('1.2.3.4', 'boom', 1500)).toBe(false);
+    });
+    it('accepts the same message again once the window has elapsed', () => {
+        const d = createErrorDeduper(2000);
+        expect(d.accept('1.2.3.4', 'boom', 1000)).toBe(true);
+        expect(d.accept('1.2.3.4', 'boom', 3500)).toBe(true);
+    });
+    it('keys per device address — same message from a different device emits', () => {
+        const d = createErrorDeduper(2000);
+        expect(d.accept('1.2.3.4', 'boom', 1000)).toBe(true);
+        expect(d.accept('5.6.7.8', 'boom', 1000)).toBe(true);
+    });
+    it('treats JS-tagged and native-formatted copies as the same error', () => {
+        const d = createErrorDeduper(2000);
+        expect(d.accept('::1', '[lynx:onError] boom\nat foo', 1000)).toBe(true);
+        expect(d.accept('::1', 'boom\n##SIGX_STACKTRACE##\nat foo', 1010)).toBe(false);
     });
 });
 

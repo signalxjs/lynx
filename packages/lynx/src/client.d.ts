@@ -21,6 +21,16 @@ declare module '*.css';
 declare const __WEB__: boolean;
 declare const __NATIVE__: boolean;
 
+// Thread build-time defines, folded to literals per bundle layer (main thread
+// vs background) by `@sigx/lynx-plugin`'s worklet loaders. Branch on these
+// for tree-shakeable per-thread code: inside a `'main thread'` function,
+// `if (__MAIN_THREAD__) { … }` keeps the branch only in the registered MT
+// body; elsewhere `if (__BACKGROUND__) { … }` keeps it only in the background
+// bundle. App/workspace-src code only — published dists pass through the MT
+// layer verbatim, so packages must use a runtime check instead.
+declare const __MAIN_THREAD__: boolean;
+declare const __BACKGROUND__: boolean;
+
 // The webpack/rspeedy HMR `module.hot` global. We type only the surface lynx
 // apps actually use (`accept` / `dispose`) to keep the ambient minimal and
 // avoid pulling in `@types/webpack-env` or `@types/node`.

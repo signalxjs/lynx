@@ -189,6 +189,14 @@ export interface ViewAttributes extends LynxCommonAttributes {
 
 export interface TextAttributes extends LynxCommonAttributes {
     children?: any;
+    /**
+     * Text content as an ATTRIBUTE instead of a child. Equivalent on the main
+     * thread (the runtime's own text nodes set content via the `text`
+     * attribute), but under snapshot templates a dynamic child becomes a slot
+     * — making a cell slot-bearing and unpoolable — while this stays a plain
+     * attribute hole. Prefer it for recyclable list-cell templates.
+     */
+    text?: string;
     /** Max number of lines before truncation */
     'number-of-lines'?: number;
     /** Text overflow mode */
@@ -291,13 +299,24 @@ export interface ListAttributes extends LynxCommonAttributes {
     'sticky-top'?: number;
     /** Sticky footer offset from bottom */
     'sticky-bottom'?: number;
+    /** Fire `scrolltolower` when this many items remain below the viewport */
+    'lower-threshold-item-count'?: number;
+    /** Fire `scrolltoupper` when this many items remain above the viewport */
+    'upper-threshold-item-count'?: number;
+    /** Throttle interval (ms) between `scroll` events */
+    'scroll-event-throttle'?: number;
+    /** Toggle native scroll responsiveness (e.g. lock while pulling-to-refresh) */
+    'enable-scroll'?: boolean;
 
     bindscroll?: LynxEventHandler;
     bindscrolltoupper?: LynxEventHandler;
     bindscrolltolower?: LynxEventHandler;
+    /** Fires after the recycler finishes a layout pass (native has laid out cells) */
+    bindlayoutcomplete?: LynxEventHandler;
     onScroll?: LynxEventHandler;
     onScrolltoupper?: LynxEventHandler;
     onScrolltolower?: LynxEventHandler;
+    onLayoutcomplete?: LynxEventHandler;
 }
 
 export interface ListItemAttributes extends LynxCommonAttributes {
@@ -316,6 +335,16 @@ export interface ListItemAttributes extends LynxCommonAttributes {
     'sticky-bottom'?: number;
     /** Whether this item is full-span in a grid list */
     'full-span'?: boolean;
+    /**
+     * Estimated main-axis size (px) used by the recycler to size the scroll
+     * track before this cell is measured — improves scroll-to-index accuracy
+     * on long lists.
+     */
+    'estimated-main-axis-size-px'?: number;
+    /** Whether this item may be recycled when scrolled off-screen (default true) */
+    'recyclable'?: boolean;
+    /** Restrict view reuse to cells sharing this identifier */
+    'reuse-identifier'?: string;
 }
 
 export interface InputAttributes extends LynxCommonAttributes {

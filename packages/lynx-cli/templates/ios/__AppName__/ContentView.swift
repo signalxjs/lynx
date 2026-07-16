@@ -263,6 +263,14 @@ struct LynxContainerView: UIViewRepresentable {
                 SigxDevClient.configureForDev(builder: builder)
             }
             #endif
+            if !isDevMode {
+                // Serve dynamic-import chunks from embedded assets (#599).
+                // Mirrors the dev-mode fetchers, which read from the dev
+                // server instead.
+                builder.templateResourceFetcher = ProductionTemplateResourceFetcher()
+                builder.enableGenericResourceFetcher = .true
+                builder.genericResourceFetcher = ProductionGenericResourceFetcher()
+            }
         }
 
         lynxView.preferredLayoutWidth = screenSize.width
@@ -312,6 +320,11 @@ struct LynxContainerView: UIViewRepresentable {
             let otaPath = startupBundlePath.flatMap { path in
                 FileManager.default.isReadableFile(atPath: path) ? path : nil
             }
+            // An OTA update directory may carry its own async chunks in the
+            // future — search it before the baked LynxAssets/ folder.
+            SigxEmbeddedAssets.searchRoots = otaPath.map {
+                [URL(fileURLWithPath: $0).deletingLastPathComponent()]
+            } ?? []
             if let bundlePath = otaPath ?? Bundle.main.path(forResource: "main.lynx", ofType: "bundle"),
                let bundleData = try? Data(contentsOf: URL(fileURLWithPath: bundlePath)) {
                 lynxView.loadTemplate(bundleData, withURL: bundlePath)

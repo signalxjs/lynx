@@ -10,9 +10,10 @@ import UserNotifications
 ///
 /// Responsibilities:
 ///   - `didFinishLaunching` — install the singleton `UNUserNotificationCenter`
-///     delegate so foreground banners and tap callbacks reach JS. Also captures
-///     a cold-start notification payload (`launchOptions[.remoteNotification]`)
-///     for `Notifications.getInitialNotification()`.
+///     delegate so foreground banners and tap callbacks reach JS, and observe
+///     first-activation so a launch tap can be told from an in-session one.
+///     Cold-start payloads for `Notifications.getInitialNotification()` are
+///     captured in `didReceive`, not from `launchOptions` — see the note there.
 ///   - `didRegisterForRemoteNotificationsWithDeviceToken` — converts the APNs
 ///     `Data` token to its canonical hex form and publishes via `PushEventBus`.
 ///   - `didFailToRegisterForRemoteNotificationsWithError` — surfaces the error
@@ -23,30 +24,42 @@ import UserNotifications
         _ application: UIApplication,
         launchOptions: [UIApplication.LaunchOptionsKey: Any]?
     ) {
-        // Take ownership of the notification-center delegate. Apps that need
-        // to interpose their own delegate should set it AFTER our hook runs
-        // and forward to PushNotificationDelegate.shared from their
-        // implementation. (Standard pattern for Firebase / OneSignal / etc.)
+        // Take ownership of the notification-center delegate BEFORE this method
+        // returns — Apple requires the delegate be set by then for `didReceive`
+        // to be delivered for the tap that launched us, which is what makes it
+        // the single source of truth below. Apps that need to interpose their
+        // own delegate should set it AFTER our hook runs and forward to
+        // PushNotificationDelegate.shared. (Standard pattern for Firebase /
+        // OneSignal / etc.)
         UNUserNotificationCenter.current().delegate = PushNotificationDelegate.shared
 
-        // Open the cold-start capture window. The first `didReceive` tap
-        // after launch (which is how local notifications launched from a
-        // terminated state arrive — they never appear in launchOptions) will
-        // be stashed as the initial payload instead of fired on the response
-        // channel. JS drains it via `getInitialNotification()`.
-        PushEventBus.shared.beginColdStartWindow()
-
-        // Cold-start REMOTE push: iOS also pre-populates
-        // `launchOptions[.remoteNotification]` for these. Capture the payload
-        // here too — same destination, just a different source.
-        if let userInfo = launchOptions?[.remoteNotification] as? [AnyHashable: Any] {
-            let (payloadId, data) = extractData(from: userInfo)
-            PushEventBus.shared.captureInitialResponse(
-                notificationId: payloadId ?? UUID().uuidString,
-                data: data,
-                actionIdentifier: UNNotificationDefaultActionIdentifier
-            )
+        // Close the cold-start window the first time the app reaches .active.
+        // Until then a tap is the tap that launched us and is stashed for
+        // `getInitialNotification()`; after, it's an in-session tap and belongs
+        // on the response channel. Never removed — process-lifetime singleton.
+        NotificationCenter.default.addObserver(
+            forName: UIApplication.didBecomeActiveNotification,
+            object: nil,
+            queue: .main
+        ) { _ in
+            if UNUserNotificationCenter.current().delegate !== PushNotificationDelegate.shared {
+                NSLog("[lynx-notifications] UNUserNotificationCenter.delegate was replaced; "
+                    + "notification taps will not reach JS unless the replacement forwards to "
+                    + "PushNotificationDelegate.shared")
+            }
+            PushEventBus.shared.markBecameActive()
         }
+
+        // NOTE: `launchOptions[.remoteNotification]` is deliberately NOT read.
+        // iOS populates it for a `content-available` push that launches the app
+        // into the BACKGROUND with no user interaction, so treating it as a tap
+        // made `getInitialNotification()` hand back a payload the user never
+        // tapped — a spurious deep-link on the next manual open. It also
+        // double-handled genuine taps (captured here AND redelivered via
+        // `didReceive`, which then published on the response channel because
+        // the window was already closed). `didReceive` fires for every real tap
+        // including cold start, carries the true `actionIdentifier`, and is now
+        // the only tap path — the approach RN Firebase and Expo rely on (#619).
     }
 
     @objc public static func didRegisterForRemoteNotificationsWithDeviceToken(
@@ -82,9 +95,53 @@ import UserNotifications
                 if !(v is NSNull) { notificationId = "\(v)" }
                 continue
             }
-            data[key] = "\(v)"
+            data[key] = jsonScalar(v)
         }
         return (notificationId, data)
+    }
+
+    /// Map Apple's action identifiers onto the module's cross-platform names.
+    ///
+    /// `UNNotificationResponse.actionIdentifier` is
+    /// `"com.apple.UNNotificationDefaultActionIdentifier"` for a standard tap,
+    /// where Android sends `"default"` — so an app routing on
+    /// `actionIdentifier === 'default'` (which is what `NotificationResponse`
+    /// documents) worked on Android and silently never matched on iOS. Normalise
+    /// here rather than in the JS shim so the raw event channels carry the same
+    /// contract as the typed API. Custom category actions pass through untouched
+    /// — those names are the app's own.
+    ///
+    /// The dismiss mapping is forward-looking, not live: iOS only delivers that
+    /// action for a category registered with `.customDismissAction`, and we
+    /// register no categories yet. It's here so the contract is already right
+    /// when they ship.
+    static func normalizedActionIdentifier(_ raw: String) -> String {
+        switch raw {
+        case UNNotificationDefaultActionIdentifier: return "default"
+        case UNNotificationDismissActionIdentifier: return "dismiss"
+        default: return raw
+        }
+    }
+
+    /// Coerce an APNs custom value to a string.
+    ///
+    /// The JS wire type is `Record<string, string>` — FCM's `data` map is
+    /// string-only, so strings are the cross-platform floor. But APNs custom
+    /// keys are arbitrary JSON: a sender CAN put `{"route":{"id":42}}`
+    /// alongside `aps`. Plain `"\(v)"` rendered that as Swift's *debug*
+    /// description (`{ id = 42; }`) — unparseable, with nondeterministic key
+    /// order — and rendered a JSON `true` as NSNumber's `"1"`. JSON-encode
+    /// instead, so a nested value recovers via `JSON.parse(msg.data.route)` and
+    /// booleans read as `"true"`.
+    private static func jsonScalar(_ v: Any) -> String {
+        // Don't round-trip plain strings — that would double-quote them.
+        if let s = v as? String { return s }
+        if let data = try? JSONSerialization.data(withJSONObject: v, options: [.fragmentsAllowed]),
+           let s = String(data: data, encoding: .utf8) {
+            return s
+        }
+        // Last resort for values JSONSerialization rejects (e.g. NSDate).
+        return "\(v)"
     }
 }
 
@@ -124,11 +181,10 @@ final class PushNotificationDelegate: NSObject, UNUserNotificationCenterDelegate
     /// previous README flagged as "Tap callbacks aren't surfaced in JS yet" —
     /// now they are.
     ///
-    /// If we're still in the cold-start window opened by
-    /// `didFinishLaunching`, the first tap is stashed as the initial payload
-    /// (drained later by `getInitialNotification()`) instead of fired on the
-    /// response channel — this covers local notifications launched from a
-    /// terminated state, where `launchOptions[.remoteNotification]` is empty.
+    /// This is the ONLY tap path — remote and local, cold and warm. If the app
+    /// hasn't yet become active, this tap is what launched the process, so it's
+    /// stashed as the initial payload (drained later by
+    /// `getInitialNotification()`) instead of fired on the response channel.
     func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         didReceive response: UNNotificationResponse,
@@ -136,6 +192,8 @@ final class PushNotificationDelegate: NSObject, UNUserNotificationCenterDelegate
     ) {
         let content = response.notification.request.content
         let (idFromPayload, data) = PushAppDelegateHook.extractData(from: content.userInfo)
+        let actionIdentifier = PushAppDelegateHook
+            .normalizedActionIdentifier(response.actionIdentifier)
         // For remote pushes, prefer the payload's data.notification_id — the
         // request identifier is system-assigned, and JS keys tap routing and
         // cancel(id) on the payload id. Local schedules keep their request
@@ -153,13 +211,13 @@ final class PushNotificationDelegate: NSObject, UNUserNotificationCenterDelegate
         let captured = PushEventBus.shared.captureInitialResponseIfColdStart(
             notificationId: notificationId,
             data: data,
-            actionIdentifier: response.actionIdentifier
+            actionIdentifier: actionIdentifier
         )
         if !captured {
             PushEventBus.shared.publishResponse(
                 notificationId: notificationId,
                 data: data,
-                actionIdentifier: response.actionIdentifier
+                actionIdentifier: actionIdentifier
             )
         }
         completionHandler()

@@ -40,5 +40,23 @@ target '{{appName}}' do
         config.build_settings['CODE_SIGNING_ALLOWED'] = 'NO'
       end
     end
+
+    # Lynx's vendored C++ core uses C99 designated/array initializers that
+    # Xcode 26's clang flags as -Wc99-designator; the pod compiles with -Werror,
+    # so the archive aborts on it. Silence just that one warning across every pod
+    # target. Pods that compile from source (Lynx) live in their own subprojects
+    # when generate_multiple_pod_projects is on, so cover those too.
+    projects = [installer.pods_project]
+    projects += installer.pod_target_subprojects if installer.respond_to?(:pod_target_subprojects)
+    projects.each do |project|
+      project.targets.each do |target|
+        target.build_configurations.each do |config|
+          flags = config.build_settings['OTHER_CPLUSPLUSFLAGS'] || ['$(inherited)']
+          flags = [flags] unless flags.is_a?(Array)
+          flags << '-Wno-c99-designator' unless flags.include?('-Wno-c99-designator')
+          config.build_settings['OTHER_CPLUSPLUSFLAGS'] = flags
+        end
+      end
+    end
   end
 end
