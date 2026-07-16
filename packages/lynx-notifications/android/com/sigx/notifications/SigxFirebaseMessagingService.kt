@@ -158,7 +158,9 @@ class SigxFirebaseMessagingService : FirebaseMessagingService() {
 
         // MessagingStyle requires a "user" Person (the device owner); it only
         // renders for messages attributed to the user, which we never add.
-        val style = NotificationCompat.MessagingStyle(Person.Builder().setName("You").build())
+        // Use the app label rather than a hard-coded English string in case a
+        // launcher surfaces it anyway.
+        val style = NotificationCompat.MessagingStyle(Person.Builder().setName(appLabel()).build())
         val conversationTitle = data["conversation_title"]
             ?: data["conversationTitle"]
             ?: existingStyle?.conversationTitle?.toString()
@@ -179,6 +181,9 @@ class SigxFirebaseMessagingService : FirebaseMessagingService() {
      */
     private fun showGroupSummary(manager: NotificationManager, group: String) {
         val builder = NotificationCompat.Builder(this, NotificationsModule.CHANNEL_ID)
+            // A summary without a title renders as a blank row on some
+            // devices; the app label is a neutral, localized header.
+            .setContentTitle(appLabel())
             .setSmallIcon(NotificationAppearance.smallIcon(this))
             .setAutoCancel(true)
             .setGroup(group)
@@ -229,6 +234,8 @@ class SigxFirebaseMessagingService : FirebaseMessagingService() {
             for ((k, v) in data) putExtra("${PushActivityHook.SIGX_DATA_PREFIX}$k", v)
         }
     }
+
+    private fun appLabel(): String = applicationInfo.loadLabel(packageManager).toString()
 
     /** Bare launcher intent (see [buildTapIntent] for the flag rationale) — no payload extras. */
     private fun buildLaunchIntent(): Intent? {
