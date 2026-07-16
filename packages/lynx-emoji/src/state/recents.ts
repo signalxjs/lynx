@@ -11,6 +11,8 @@ export interface RecentsStore {
     recents: Signal<EmojiDatum[]>;
     /** Record a pick: moves/adds `datum` to the front (LRU, capped). */
     push(datum: EmojiDatum): void;
+    /** Resolves once persisted recents have hydrated (or were absent). */
+    loaded: Promise<void>;
 }
 
 /**
@@ -26,7 +28,7 @@ export function createRecentsStore(data: EmojiData, cap = DEFAULT_CAP): RecentsS
     // Hydration races a fast first pick: a push before getItem resolves must
     // win (the stored list it would be merged into is stale by definition).
     let touched = false;
-    void loadString(KEY_RECENTS).then((raw) => {
+    const loaded = loadString(KEY_RECENTS).then((raw) => {
         if (!raw || touched) return;
         try {
             const glyphs = JSON.parse(raw) as unknown;
@@ -39,7 +41,7 @@ export function createRecentsStore(data: EmojiData, cap = DEFAULT_CAP): RecentsS
         } catch {
             // corrupt payload — start fresh
         }
-    });
+    }).catch(() => { /* hydrate failure = empty */ });
 
     let saveTimer: ReturnType<typeof setTimeout> | undefined;
     function persist(): void {
@@ -52,6 +54,7 @@ export function createRecentsStore(data: EmojiData, cap = DEFAULT_CAP): RecentsS
 
     return {
         recents,
+        loaded,
         push(datum) {
             touched = true;
             recents.$set([datum, ...recents.filter((e) => e.e !== datum.e)].slice(0, cap));

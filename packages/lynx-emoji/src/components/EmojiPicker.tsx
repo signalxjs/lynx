@@ -121,11 +121,16 @@ export const EmojiPicker = component<EmojiPickerProps>(({ props, emit }) => {
     }));
 
     const query = signal('');
-    // Recents are SNAPSHOTTED at mount (WhatsApp behavior): a pick mid-session
-    // must not reorder the recents section under the user's thumb — the fresh
-    // list shows on the next mount. (`ctx.recents` still updates live for
-    // other surfaces sharing the provider.)
-    const recentsAtMount: EmojiDatum[] = ctx.recents.recents.map((e) => e);
+    // Recents are SNAPSHOTTED once hydration lands (WhatsApp behavior): a
+    // pick mid-session must not reorder the recents section under the
+    // user's thumb — the fresh list shows on the next mount. The snapshot is
+    // LAZY (first post-`ctx.ready` read), because at setup time the
+    // persisted recents may not have hydrated yet.
+    let recentsSnapshot: EmojiDatum[] | null = null;
+    const recentsAtMount = (): EmojiDatum[] => {
+        if (recentsSnapshot === null) recentsSnapshot = ctx!.recents.recents.map((e) => e);
+        return recentsSnapshot;
+    };
 
     /**
      * The sections of the ONE continuous list (#662): recents first (when
@@ -133,18 +138,26 @@ export const EmojiPicker = component<EmojiPickerProps>(({ props, emit }) => {
      * then every category. Content is fixed per mount; the grid caches its
      * row composition against `itemsKey`.
      */
+    // Memoized per composition key: a fresh array per render would change
+    // the grid's `sections` identity and re-render it for nothing.
+    let sectionsMemo: { key: string; list: EmojiSection[] } | null = null;
+    /** Only call once `ctx.ready` is true (the recents snapshot hydrates then). */
     const sectionsFor = (): EmojiSection[] => {
+        const withRecents = (props.showRecents ?? true) && recentsAtMount().length > 0;
+        const memoKey = `${withRecents ? 'r' : ''}#${props.recentsLabel ?? ''}`;
+        if (sectionsMemo && sectionsMemo.key === memoKey) return sectionsMemo.list;
         const list: EmojiSection[] = [];
-        if ((props.showRecents ?? true) && recentsAtMount.length > 0) {
+        if (withRecents) {
             list.push({
                 key: 'recents',
                 label: props.recentsLabel ?? 'Recently used',
-                emojis: recentsAtMount,
+                emojis: recentsAtMount(),
             });
         }
         for (const cat of ctx!.data.categories) {
             list.push({ key: cat.key, label: cat.label, emojis: byCategory.get(cat.key) ?? [] });
         }
+        sectionsMemo = { key: memoKey, list };
         return list;
     };
 
@@ -152,8 +165,9 @@ export const EmojiPicker = component<EmojiPickerProps>(({ props, emit }) => {
     // on `popover.datum` — keeping them apart (and the grid's props
     // identity-stable, see GRID_STYLE) means toggling either leaves the
     // mounted grid untouched.
-    const initialTab = sectionsFor()[0]?.key ?? 'recents';
-    const tab = signal(initialTab);
+    // '' until the first tap/scroll — the render derives the effective
+    // active tab (first section) so nothing here needs the sections early.
+    const tab = signal('');
     const popover = signal<{ datum: EmojiDatum | null }>({ datum: null });
 
     // Tab taps SCROLL the one sectioned list — no grid re-mount (#662; the
@@ -219,17 +233,27 @@ export const EmojiPicker = component<EmojiPickerProps>(({ props, emit }) => {
 
     return () => {
         const classes = props.classes ?? {};
-        const showRecents = props.showRecents ?? true;
         const q = query.value.trim();
         const tone = ctx.skinTone.state.tone;
 
+        // The ~1,900-row grid mounts exactly ONCE, with everything it needs
+        // known: persisted tone + recents hydrated (`ctx.ready`) and the
+        // region measured. Mounting earlier meant a full row re-render per
+        // late arrival — three mount-blocking passes of the whole dataset
+        // (#666). Both normally land within milliseconds of setup; the
+        // pre-ready frame renders the measuring shell only.
+        const ready = ctx.ready.value;
+        const regionHeight = regionLayout.value?.height ?? 0;
+        const sections = ready ? sectionsFor() : null;
+
         // The recents TAB tracks the recents SECTION: hidden when there were
         // no recents at mount (a tab that scrolls nowhere is worse than none).
-        const allTabs = showRecents && recentsAtMount.length > 0
+        const allTabs = sections?.[0]?.key === 'recents'
             ? [{ tab: 'recents' as EmojiTab, glyph: RECENTS_GLYPH }, ...tabs]
             : tabs;
+        // Until the first tap/scroll sets `tab`, the first section is active.
+        const activeTab = tab.value !== '' ? tab.value : sections?.[0]?.key ?? '';
         const searchHits = q !== '' ? ctx.index.search(q) : null;
-        const regionHeight = regionLayout.value?.height ?? 0;
 
         const renderEmpty = (label: string): unknown => (
             <view
@@ -272,11 +296,11 @@ export const EmojiPicker = component<EmojiPickerProps>(({ props, emit }) => {
         // the composition depends on (recents presence via the key list,
         // plus the recents label).
         const renderSectioned = (): unknown => {
-            const sections = sectionsFor();
-            const sectionsKey = `s:${sections.map((s) => s.key).join(',')}#${props.recentsLabel ?? ''}`;
+            const secs = sections!;
+            const sectionsKey = `s:${secs.map((x) => x.key).join(',')}#${props.recentsLabel ?? ''}`;
             return (
             <EmojiGrid
-                sections={sections}
+                sections={secs}
                 itemsKey={sectionsKey}
                 mtRef={listRef}
                 initialHeight={regionHeight > 0 ? regionHeight : undefined}
@@ -323,10 +347,10 @@ export const EmojiPicker = component<EmojiPickerProps>(({ props, emit }) => {
                             )}
                     </view>
                 )}
-                {q === '' && (
+                {q === '' && sections !== null && (
                     <CategoryTabBar
                         tabs={allTabs}
-                        active={tab.value}
+                        active={activeTab}
                         class={classes.tabBar}
                         tabClass={classes.tab}
                         tabActiveClass={classes.tabActive}
@@ -339,7 +363,7 @@ export const EmojiPicker = component<EmojiPickerProps>(({ props, emit }) => {
                     ? (searchHits.length === 0
                         ? renderEmpty('No emoji found')
                         : renderGrid(searchHits, 'search', 'q:' + q))
-                    : renderSectioned()}
+                    : (sections !== null && regionHeight > 0 ? renderSectioned() : null)}
                 </view>
                 {popover.datum && (
                     <SkinTonePopover
