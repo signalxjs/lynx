@@ -89,8 +89,9 @@ export const Notifications = {
         return callAsync<boolean>(MODULE, 'cancel', notificationId);
     },
 
-    cancelAll(): Promise<void> {
-        return callAsync<void>(MODULE, 'cancelAll');
+    /** Cancel all pending notifications and clear every delivered tray entry. */
+    cancelAll(): Promise<boolean> {
+        return callAsync<boolean>(MODULE, 'cancelAll');
     },
 
     /** Request notification permission, showing the OS dialog if needed. */
