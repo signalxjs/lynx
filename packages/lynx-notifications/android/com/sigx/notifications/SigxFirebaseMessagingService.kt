@@ -30,7 +30,7 @@ class SigxFirebaseMessagingService : FirebaseMessagingService() {
 
     companion object {
         /** Messages kept per conversation — the platform renders at most ~7. */
-        const val MAX_MESSAGING_HISTORY = 7
+        private const val MAX_MESSAGING_HISTORY = 7
     }
 
     override fun onNewToken(token: String) {
@@ -190,6 +190,17 @@ class SigxFirebaseMessagingService : FirebaseMessagingService() {
      * opens the app; per-conversation routing belongs to the child entries.
      */
     private fun showGroupSummary(manager: NotificationManager, group: String) {
+        // Id-space guard, part two (the call site excludes the current
+        // conversation): if any OTHER active non-summary notification already
+        // occupies group.hashCode(), posting the summary would overwrite it.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            val occupant = manager.activeNotifications.firstOrNull { it.id == group.hashCode() }
+            if (occupant != null &&
+                (occupant.notification.flags and android.app.Notification.FLAG_GROUP_SUMMARY) == 0
+            ) {
+                return
+            }
+        }
         val builder = NotificationCompat.Builder(this, NotificationsModule.CHANNEL_ID)
             // A summary without a title renders as a blank row on some
             // devices; the app label is a neutral, localized header.
