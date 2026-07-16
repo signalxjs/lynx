@@ -104,7 +104,7 @@ describe('EmojiCell template shape (#649)', () => {
     for (const def of defs) {
       const inst = createSnapshotInstance(nextUid + 500 + defs.indexOf(def), def.uniqID);
       inst.setValues([
-        { 'item-key': 'k', 'estimated-main-axis-size-px': 43 },
+        { 'item-key': 'k', 'estimated-main-axis-size-px': 50 },
         'h1', 'h2', 'sig:tap', 'sig:long', 'h5', 'h6', 'h7',
       ]);
       inst.ensureElements();

@@ -26,6 +26,11 @@ const FALLBACK_STYLE = {
  * through the jsx-runtime, so the platform model processor that would
  * expand `model` cannot run — the directive would ship to the main thread
  * as a meaningless `model` attribute and the input would never write back.
+ *
+ * Without a model the field is uncontrolled — a separate template branch
+ * rather than `value={undefined}`, because an undefined hole would still
+ * ship to the native input (as NSNull on iOS) instead of leaving the
+ * attribute unset.
  */
 export const SearchInput = component<SearchInputProps>(({ props }) => {
     const onInput = (e: { detail?: { value?: unknown } }): void => {
@@ -33,15 +38,25 @@ export const SearchInput = component<SearchInputProps>(({ props }) => {
         if (model) model.value = String(e?.detail?.value ?? '');
     };
 
-    return () => (
-        <input
-            class={props.class}
-            placeholder={props.placeholder ?? 'Search emoji'}
-            type="text"
-            confirm-type="search"
-            value={props.model?.value ?? ''}
-            bindinput={onInput}
-            style={props.class ? undefined : FALLBACK_STYLE}
-        />
-    );
+    return () => props.model
+        ? (
+            <input
+                class={props.class}
+                placeholder={props.placeholder ?? 'Search emoji'}
+                type="text"
+                confirm-type="search"
+                value={props.model.value ?? ''}
+                bindinput={onInput}
+                style={props.class ? undefined : FALLBACK_STYLE}
+            />
+        )
+        : (
+            <input
+                class={props.class}
+                placeholder={props.placeholder ?? 'Search emoji'}
+                type="text"
+                confirm-type="search"
+                style={props.class ? undefined : FALLBACK_STYLE}
+            />
+        );
 });
