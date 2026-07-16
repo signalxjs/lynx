@@ -128,12 +128,13 @@ export type ListProps<T = unknown> =
    * Your `<list-item>` owns `item-key` / `estimated-main-axis-size-px` /
    * `item-type` etc. as JSX attributes (List's `itemType` / `estimatedItemSize`
    * props are not applied to pass-through rows). `keyExtractor` still provides
-   * the reconciliation key: it is set as the vnode key unless your JSX already
-   * carries an explicit `key`.
+   * the RECONCILIATION key only (set as the vnode key unless your JSX already
+   * carries an explicit `key`) — it does NOT become the native `item-key`,
+   * which must come from your `<list-item>` JSX.
    *
    * Rows that are NOT a single compiled `<list-item>` template will render but
    * never pool — and a non-`list-item` root silently fails to paint on native
-   * (a DEV check on the main thread names the offending template).
+   * (a main-thread diagnostic — active on hosts exposing __GetTag — names the offending template).
    */
   & Define.Prop<'templateCells', boolean, false>
   /**

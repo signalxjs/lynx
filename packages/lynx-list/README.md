@@ -242,7 +242,7 @@ What this changes:
 - Keep the cell **self-contained**: a cell whose template has slot children
   (e.g. wrapping a component like `Pressable` around your content) renders
   but never pools. Rows whose root isn't a `<list-item>` don't paint at all —
-  a DEV check on the main thread names the offending template.
+  a main-thread diagnostic (active on hosts exposing `__GetTag`, one introspection per template type, all builds) names the offending template.
 
 Header, footer, loading and empty slots keep the classic wrapped path; the
 two row kinds coexist in one list.
