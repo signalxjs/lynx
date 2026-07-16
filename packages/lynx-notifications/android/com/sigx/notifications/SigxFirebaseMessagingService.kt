@@ -193,6 +193,10 @@ class SigxFirebaseMessagingService : FirebaseMessagingService() {
             .setAutoCancel(true)
             .setGroup(group)
             .setGroupSummary(true)
+            // The summary is re-posted on every push under the same id; the
+            // children carry the alert, the summary must stay silent.
+            .setGroupAlertBehavior(NotificationCompat.GROUP_ALERT_CHILDREN)
+            .setOnlyAlertOnce(true)
         NotificationAppearance.accentColor(this)?.let { builder.setColor(it) }
         buildLaunchIntent()?.let { intent ->
             val pending = android.app.PendingIntent.getActivity(
