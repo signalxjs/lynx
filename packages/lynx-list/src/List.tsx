@@ -578,7 +578,7 @@ const ListImpl = component<ListProps>(({ props, slots, emit }) => {
         // patchProp), which would clobber the native default.
         {...(props.itemSnap !== undefined ? { 'item-snap': props.itemSnap } : {})}
         {...(props.sticky ? { sticky: true } : {})}
-        {...(props.stickyOffset !== undefined
+        {...(props.sticky && props.stickyOffset !== undefined
           ? { 'sticky-offset': props.stickyOffset }
           : {})}
         {...(props.onEndReachedThreshold !== undefined
