@@ -23,6 +23,9 @@ import {
   type ListWindow,
 } from './windowing.js';
 
+// App-build define (see lynx-plugin source.define); typeof-guarded at use.
+declare const __DEV__: boolean;
+
 // Reserved item-keys for the optional header/footer/loading cells. Prefixed so
 // they never collide with a consumer's keyExtractor output.
 const HEADER_KEY = '__sigx_list_header__';
@@ -251,7 +254,9 @@ const ListImpl = component<ListProps>(({ props, slots, emit }) => {
   // recycles them), so windowing — which exists to bound eager per-element
   // materialization — is unnecessary and is disabled outright.
   const templateCells = props.templateCells === true;
-  if (templateCells && props.windowSize !== undefined) {
+  // __DEV__ is an app-build define (lynx-plugin source.define) substituted at
+  // bundle time even inside this dist; typeof-guarded for non-plugin bundlers.
+  if (typeof __DEV__ !== 'undefined' && __DEV__ && templateCells && props.windowSize !== undefined) {
     console.warn(
       '[sigx-list] templateCells makes windowing unnecessary — windowSize is ignored '
         + '(template rows are staged records; cells build on demand and recycle)',

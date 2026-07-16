@@ -651,6 +651,7 @@ describe('templateCells (#645)', () => {
   });
 
   it('bypasses windowing entirely (templateCells wins, with a warning)', () => {
+    vi.stubGlobal('__DEV__', true); // the warning is dev-only (app-build define)
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const many: Row[] = Array.from({ length: 150 }, (_, i) => ({ id: `r${i}`, text: `Row ${i}` }));
     const { container } = render(
@@ -659,6 +660,7 @@ describe('templateCells (#645)', () => {
     expect(getAllByType(container, 'list-item')).toHaveLength(150);
     expect(warn).toHaveBeenCalledWith(expect.stringContaining('windowSize is ignored'));
     warn.mockRestore();
+    vi.unstubAllGlobals();
   });
 
   it('keyed reorders reconcile pass-through rows', async () => {

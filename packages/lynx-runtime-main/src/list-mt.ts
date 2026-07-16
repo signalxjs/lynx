@@ -154,13 +154,15 @@ function platformInfoFor(childInternalId: number): Record<string, unknown> {
  * and returns a valid sign — and then silently never paints (#620 spike).
  * Name the cause once per template type, right where it materializes.
  */
-const warnedNonListItemRoots = new Set<string>();
+const checkedListItemRoots = new Set<string>();
 function warnIfNotListItemRoot(inst: MTSnapshotInstance): void {
   if (typeof __GetTag !== 'function') return; // host without introspection
-  if (!inst.__element_root || warnedNonListItemRoots.has(inst.type)) return;
+  // One __GetTag per template TYPE — correct templates must not pay the
+  // introspection per materialization on large lists.
+  if (!inst.__element_root || checkedListItemRoots.has(inst.type)) return;
+  checkedListItemRoots.add(inst.type);
   const tag = __GetTag(inst.__element_root);
   if (tag !== 'list-item') {
-    warnedNonListItemRoots.add(inst.type);
     console.log(
       `[sigx-mt] list cell template "${inst.type}" roots at <${tag}>, not <list-item> — `
         + 'it will not paint. renderItem must return a <list-item> element under templateCells.',
@@ -587,5 +589,5 @@ export function resetListState(): void {
   listByListID.clear();
   listItemOwner.clear();
   itemPlatformInfo.clear();
-  warnedNonListItemRoots.clear();
+  checkedListItemRoots.clear();
 }
