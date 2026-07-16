@@ -1,4 +1,4 @@
-import { defineInjectable } from '@sigx/lynx';
+import { defineInjectable, signal, type PrimitiveSignal } from '@sigx/lynx';
 import type { EmojiData } from '../data/schema.js';
 import { buildSearchIndex, type EmojiSearchIndex } from '../search/index.js';
 import { createRecentsStore, type RecentsStore } from './recents.js';
@@ -10,6 +10,12 @@ export interface EmojiContextValue {
     index: EmojiSearchIndex;
     recents: RecentsStore;
     skinTone: SkinToneStore;
+    /**
+     * Flips true once persisted recents + skin tone have hydrated. The
+     * picker defers mounting its ~1,900-row sectioned grid until then — a
+     * mid-mount tone/recents arrival would re-render every row (#666).
+     */
+    ready: PrimitiveSignal<boolean>;
 }
 
 export interface EmojiContextOptions {
@@ -31,11 +37,16 @@ export function createEmojiContext(data: EmojiData, options?: EmojiContextOption
     // The dataset is JSON-parsed to begin with, so the round-trip is
     // lossless and runs once per provider.
     const raw = JSON.parse(JSON.stringify(data)) as EmojiData;
+    const recents = createRecentsStore(raw, options?.recentsCap);
+    const skinTone = createSkinToneStore();
+    const ready = signal<boolean>(false);
+    void Promise.all([recents.loaded, skinTone.loaded]).then(() => { ready.value = true; });
     return {
         data: raw,
         index: buildSearchIndex(raw),
-        recents: createRecentsStore(raw, options?.recentsCap),
-        skinTone: createSkinToneStore(),
+        recents,
+        skinTone,
+        ready,
     };
 }
 

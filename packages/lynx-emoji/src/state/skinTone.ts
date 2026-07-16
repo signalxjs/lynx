@@ -9,6 +9,8 @@ export interface SkinToneStore {
     state: Signal<{ tone: SkinTone }>;
     /** Set the sticky preference (applies grid-wide, persists immediately). */
     set(tone: SkinTone): void;
+    /** Resolves once the persisted tone has hydrated (or was absent). */
+    loaded: Promise<void>;
 }
 
 /**
@@ -20,16 +22,17 @@ export function createSkinToneStore(): SkinToneStore {
     const state = signal<{ tone: SkinTone }>({ tone: 0 });
 
     let touched = false;
-    void loadString(KEY_SKIN_TONE).then((raw) => {
+    const loaded = loadString(KEY_SKIN_TONE).then((raw) => {
         if (raw === null || touched) return;
         const tone = Number(raw);
         if (tone >= 0 && tone <= 5 && Number.isInteger(tone)) {
             state.$set({ tone: tone as SkinTone });
         }
-    });
+    }).catch(() => { /* hydrate failure = defaults */ });
 
     return {
         state,
+        loaded,
         set(tone) {
             touched = true;
             state.$set({ tone });

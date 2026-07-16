@@ -21,8 +21,8 @@ export type { SkinToneStore } from './state/skinTone.js';
 // Components
 export { EmojiPicker } from './components/EmojiPicker.js';
 export type { EmojiPickerProps } from './components/EmojiPicker.js';
-export { EmojiGrid, sectionRowIndex, sectionStartOffsets } from './components/EmojiGrid.js';
-export type { EmojiGridProps, EmojiSection } from './components/EmojiGrid.js';
+export { createStagingDriver, EmojiGrid, sectionRowIndex, sectionStartOffsets } from './components/EmojiGrid.js';
+export type { EmojiGridProps, EmojiGridScrollHandle, EmojiSection } from './components/EmojiGrid.js';
 export { SectionHeader, HEADER_PX } from './components/SectionHeader.js';
 export type { SectionHeaderProps } from './components/SectionHeader.js';
 export { emojiRowPx } from './components/EmojiCell.js';

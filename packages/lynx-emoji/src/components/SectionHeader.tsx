@@ -1,4 +1,4 @@
-import { component, type Define } from '@sigx/lynx';
+import { component, type Define, type JSXElement } from '@sigx/lynx';
 
 /**
  * Header row height (px) — the fixed value the sectioned grid's scroll-offset
@@ -28,16 +28,22 @@ export type SectionHeaderProps =
  * a theme that changed the real height would land every section jump and
  * tab-follow boundary off target. Theme colors/padding, not height.
  */
-export const SectionHeader = component<SectionHeaderProps>(({ props }) => {
-    return () => (
+/**
+ * The header as a PLAIN template row — no component instance (see
+ * `emojiCellRow` for why: per-row component instances dominated the
+ * sectioned mount, #666). The `SectionHeader` component below wraps this
+ * for external composition.
+ */
+export function sectionHeaderRow(args: { itemKey: string; label: string; class?: string }): JSXElement {
+    return (
         <list-item
-            item-key={props.itemKey}
+            item-key={args.itemKey}
             item-type="emoji-header"
             full-span={true}
             sticky-top={true}
             estimated-main-axis-size-px={HEADER_PX}
-            class={props.class}
-            style={props.class
+            class={args.class}
+            style={args.class
                 ? { height: `${HEADER_PX}px` }
                 : {
                     display: 'flex',
@@ -47,9 +53,13 @@ export const SectionHeader = component<SectionHeaderProps>(({ props }) => {
                 }}
         >
             <text
-                text={props.label}
+                text={args.label}
                 style={{ fontSize: '12px', opacity: 0.55 }}
             />
         </list-item>
     );
+}
+
+export const SectionHeader = component<SectionHeaderProps>(({ props }) => {
+    return () => sectionHeaderRow({ itemKey: props.itemKey, label: props.label, class: props.class });
 });
