@@ -6,7 +6,7 @@ export type EmojiCellProps =
     & Define.Prop<'datum', EmojiDatum, true>
     /** Tone-resolved glyph to render (the caller applies the sticky tone). */
     & Define.Prop<'glyph', string, true>
-    /** Glyph font size. Default 26. */
+    /** Glyph font size. Default 32. */
     & Define.Prop<'size', number, false>
     & Define.Prop<'class', string, false>
     /**
@@ -39,7 +39,7 @@ export const EmojiCell = component<EmojiCellProps>(({ props, emit }) => {
     };
     // 6+6px padding + the glyph at ~1.2 line-height (the row estimate native
     // uses to size the scroll range before cells build).
-    const estRowPx = (): number => Math.round((props.size ?? 26) * 1.2) + 12;
+    const estRowPx = (): number => Math.round((props.size ?? 32) * 1.2) + 12;
 
     return () => props.render
         ? (
@@ -84,7 +84,7 @@ export const EmojiCell = component<EmojiCellProps>(({ props, emit }) => {
                     paddingBottom: '6px',
                 }}
             >
-                <text style={{ fontSize: props.size ?? 26 }} text={props.glyph} />
+                <text style={{ fontSize: props.size ?? 32 }} text={props.glyph} />
             </list-item>
         );
 });

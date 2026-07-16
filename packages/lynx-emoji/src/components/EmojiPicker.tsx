@@ -32,7 +32,7 @@ export type EmojiPickerProps =
     & Define.Prop<'searchPlaceholder', string, false>
     /** Shown when the current slice is empty (no recents yet / no search hits). */
     & Define.Prop<'emptyLabel', string, false>
-    /** Glyph font size in grid cells. Default 26. */
+    /** Glyph font size in grid cells. Default 32. */
     & Define.Prop<'cellSize', number, false>
     /** Per-slot class overrides — the theming surface. */
     & Define.Prop<'classes', EmojiSlotClasses, false>

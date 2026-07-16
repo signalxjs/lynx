@@ -26,7 +26,7 @@ export type EmojiGridProps =
     & Define.Prop<'tone', SkinTone, false>
     /** Grid columns. Default 8. */
     & Define.Prop<'columns', number, false>
-    /** Glyph font size. Default 26. */
+    /** Glyph font size. Default 32. */
     & Define.Prop<'cellSize', number, false>
     & Define.Prop<'class', string, false>
     & Define.Prop<'cellClass', string, false>

@@ -75,8 +75,8 @@ describe('EmojiGrid (template cells, #649)', () => {
         expect(cells.length).toBe(CAT_A.length); // all 388 — staged rows are cheap
         // Platform attrs come from the cell's own JSX now (not List props).
         expect(cells[0].props['item-key']).toBe('A0');
-        // Default cell estimate: 6+6px padding + 26px glyph at ~1.2 line-height.
-        expect(cells[0].props['estimated-main-axis-size-px']).toBe(43);
+        // Default cell estimate: 6+6px padding + 32px glyph at ~1.2 line-height.
+        expect(cells[0].props['estimated-main-axis-size-px']).toBe(50);
         // The glyph is a `text` ATTRIBUTE (keeps the template slot-free).
         const textEl = cells[0].children.find((c: { type?: string }) => (c as { type: string }).type === 'text') as
             | { props: Record<string, unknown> }
