@@ -4,6 +4,10 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 ## [Unreleased]
 
+### Changed
+
+- `@sigx/lynx-notifications` — `cancel(id)` now dismisses delivered **remote** pushes whose `data.notification_id` matches the id, on both platforms. This was previously incidental on Android (same `hashCode` keying, now a documented contract) and impossible on iOS (delivered remote entries carry a system-assigned request identifier; `cancel` now also matches on the payload id). Gives apps a cross-platform "clear this notification from JS" — e.g. dismissing a conversation's tray entry when it's read on another device. Also fixed on iOS: notification tap responses now report the payload's `notification_id` (falling back to the request identifier for local schedules) instead of the system-assigned identifier, so the tap contract from #619 holds for remote pushes. `cancel()`/`cancelAll()` are now typed `Promise<boolean>` (what the native side always resolved) instead of `Promise<void>`, and `cancel()` rejects a null/empty id with `false` (previously Android hashed `''` and cancelled notification id 0). Re-run `sigx prebuild` to pick up the native changes (#659).
+
 ## [0.14.0] - 2026-07-16
 
 ### Changed (breaking)

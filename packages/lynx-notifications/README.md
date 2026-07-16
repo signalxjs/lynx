@@ -89,6 +89,16 @@ Custom `data` values are strings on both platforms (FCM's `data` map is string-o
 iOS JSON-encodes non-string APNs values, so a nested custom object round-trips via
 `JSON.parse(msg.data.yourKey)`.
 
+## Dismissing notifications
+
+`Notifications.cancel(id)` cancels a pending scheduled notification **and** dismisses delivered tray entries — including remote pushes sent with `data.notification_id === id` (both platforms). Give related pushes a stable `notification_id` (e.g. one per conversation) and you can clear them from JS when they're no longer relevant — say, when the user reads the conversation on another device:
+
+```ts
+await Notifications.cancel('chat-4711');   // dismisses the tray entry for data.notification_id 'chat-4711'
+```
+
+The same `notification_id` also keys tap responses (`addNotificationResponseListener`). Optionally, senders can set the APNs `apns-collapse-id` header to the same id — that makes iOS replace the tray entry in place on each push, matching Android's behavior.
+
 ## License
 
 MIT

@@ -78,12 +78,11 @@ import UserNotifications
     }
 
     /// Pull a notification id and string-coerced data dict out of an APNs
-    /// userInfo payload. Notification id falls back to a generated UUID when
-    /// the payload doesn't carry one (APNs doesn't require it; some servers
-    /// set it as `apns-collapse-id` or in a custom field).
-    static func extractData(from userInfo: [AnyHashable: Any]) -> (String, [String: String]) {
+    /// userInfo payload. Notification id is nil when the payload doesn't
+    /// carry one (APNs doesn't require it) — callers pick their own fallback.
+    static func extractData(from userInfo: [AnyHashable: Any]) -> (String?, [String: String]) {
         var data: [String: String] = [:]
-        var notificationId = UUID().uuidString
+        var notificationId: String? = nil
         for (k, v) in userInfo {
             guard let key = k as? String else { continue }
             // `aps` carries title/body/sound — strip it from the JS-visible
@@ -91,7 +90,9 @@ import UserNotifications
             // already by the foreground / response handlers.
             if key == "aps" { continue }
             if key == "notification_id" || key == "notificationId" {
-                if let s = v as? String { notificationId = s }
+                // String-coerce like the data values below — senders may
+                // encode the id as a JSON number, which arrives as NSNumber.
+                if !(v is NSNull) { notificationId = "\(v)" }
                 continue
             }
             data[key] = jsonScalar(v)
@@ -193,9 +194,20 @@ final class PushNotificationDelegate: NSObject, UNUserNotificationCenterDelegate
         let (idFromPayload, data) = PushAppDelegateHook.extractData(from: content.userInfo)
         let actionIdentifier = PushAppDelegateHook
             .normalizedActionIdentifier(response.actionIdentifier)
-        let notificationId = response.notification.request.identifier.isEmpty
-            ? idFromPayload
-            : response.notification.request.identifier
+        // For remote pushes, prefer the payload's data.notification_id — the
+        // request identifier is system-assigned, and JS keys tap routing and
+        // cancel(id) on the payload id. Local schedules keep their request
+        // identifier (the UUID `schedule` returned) even if the user's data
+        // dict happens to contain a notification_id key, since that UUID is
+        // the id JS holds for them.
+        let requestId = response.notification.request.identifier
+        let isRemote = response.notification.request.trigger is UNPushNotificationTrigger
+        let notificationId: String
+        if isRemote {
+            notificationId = idFromPayload ?? (requestId.isEmpty ? UUID().uuidString : requestId)
+        } else {
+            notificationId = requestId.isEmpty ? (idFromPayload ?? UUID().uuidString) : requestId
+        }
         let captured = PushEventBus.shared.captureInitialResponseIfColdStart(
             notificationId: notificationId,
             data: data,

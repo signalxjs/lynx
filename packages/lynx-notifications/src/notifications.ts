@@ -74,12 +74,24 @@ export const Notifications = {
         return callAsync<string>(MODULE, 'schedule', content, options);
     },
 
-    cancel(notificationId: string): Promise<void> {
-        return callAsync<void>(MODULE, 'cancel', notificationId);
+    /**
+     * Cancel a pending scheduled notification and dismiss any delivered tray
+     * entry — local (id returned by `schedule`) or **remote push** — matching
+     * the id. Remote pushes match when they were sent with
+     * `data.notification_id === notificationId` (both platforms), e.g. to
+     * clear a conversation's notification when it's read on another device.
+     *
+     * Resolves `false` when the native side could not process the call
+     * (missing id / platform error); note `true` does not imply a matching
+     * tray entry existed.
+     */
+    cancel(notificationId: string): Promise<boolean> {
+        return callAsync<boolean>(MODULE, 'cancel', notificationId);
     },
 
-    cancelAll(): Promise<void> {
-        return callAsync<void>(MODULE, 'cancelAll');
+    /** Cancel all pending notifications and clear every delivered tray entry. */
+    cancelAll(): Promise<boolean> {
+        return callAsync<boolean>(MODULE, 'cancelAll');
     },
 
     /** Request notification permission, showing the OS dialog if needed. */
