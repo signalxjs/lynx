@@ -5,19 +5,31 @@ packages:
 onlyBuiltDependencies:
   - esbuild
 
+# The sigx core versions this repo builds against. Every workspace package
+# declares these as "catalog:" — bump here, once.
+catalog:
+  "@sigx/reactivity": ^0.10.0
+  "@sigx/runtime-core": ^0.10.0
+
 # @sigx/terminal (and its sub-packages, pulled in transitively via
 # @sigx/lynx-cli) still declares its core peers as ">=0.6.0 <0.7.0". This repo
-# runs ahead on sigx core 0.7.0; the combination is verified compatible (build,
-# typecheck and the full test suite pass against 0.7.0), so allow it explicitly
+# runs ahead on sigx core 0.10.0; the combination is verified compatible (build,
+# typecheck and the full test suite pass against 0.10.0), so allow it explicitly
 # rather than emit an unmet-peer warning / fail strict installs. Drop these once
-# a 0.7-compatible @sigx/terminal is published.
+# a 0.10-compatible @sigx/terminal is published.
+#
+# Safe because terminal is CLI-only: @sigx/lynx-cli uses it for prompts and QR
+# rendering in the Node CLI process and never imports reactivity/runtime-core
+# itself, so it shares no signal graph with the app runtime. Core 0.10.0 dropped
+# Suspense/ErrorBoundary/useAsync; no package in the terminal family references
+# any of them.
 peerDependencyRules:
   allowedVersions:
-    "@sigx/terminal>@sigx/reactivity": ">=0.7.0 <0.8.0"
-    "@sigx/terminal>@sigx/runtime-core": ">=0.7.0 <0.8.0"
-    "@sigx/terminal-ui>@sigx/reactivity": ">=0.7.0 <0.8.0"
-    "@sigx/terminal-ui>@sigx/runtime-core": ">=0.7.0 <0.8.0"
-    "@sigx/terminal-zero>@sigx/reactivity": ">=0.7.0 <0.8.0"
-    "@sigx/terminal-zero>@sigx/runtime-core": ">=0.7.0 <0.8.0"
-    "@sigx/runtime-terminal>@sigx/reactivity": ">=0.7.0 <0.8.0"
-    "@sigx/runtime-terminal>@sigx/runtime-core": ">=0.7.0 <0.8.0"
+    "@sigx/terminal>@sigx/reactivity": ">=0.10.0 <0.11.0"
+    "@sigx/terminal>@sigx/runtime-core": ">=0.10.0 <0.11.0"
+    "@sigx/terminal-ui>@sigx/reactivity": ">=0.10.0 <0.11.0"
+    "@sigx/terminal-ui>@sigx/runtime-core": ">=0.10.0 <0.11.0"
+    "@sigx/terminal-zero>@sigx/reactivity": ">=0.10.0 <0.11.0"
+    "@sigx/terminal-zero>@sigx/runtime-core": ">=0.10.0 <0.11.0"
+    "@sigx/runtime-terminal>@sigx/reactivity": ">=0.10.0 <0.11.0"
+    "@sigx/runtime-terminal>@sigx/runtime-core": ">=0.10.0 <0.11.0"

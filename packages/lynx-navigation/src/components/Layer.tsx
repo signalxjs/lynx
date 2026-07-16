@@ -31,7 +31,7 @@ import {
     type Define,
     type MainThread,
 } from '@sigx/lynx';
-import { Suspense, isLazyComponent } from '@sigx/lynx';
+import { Defer, isLazyComponent } from '@sigx/lynx';
 import type { LayerAnimation } from '../internal/layer-plan.js';
 import type { RouteMap, StackEntry } from '../types.js';
 import { EntryScope } from './EntryScope.js';
@@ -91,9 +91,9 @@ export const Layer = component<LayerProps>(({ props }) => {
         const entryParams = props.entry.params as Record<string, unknown>;
         const body = isLazyComponent(Comp) && route.fallback
             ? (
-                <Suspense fallback={route.fallback as never}>
+                <Defer fallback={route.fallback as never}>
                     <Comp {...entryParams} />
-                </Suspense>
+                </Defer>
             )
             : <Comp {...entryParams} />;
         return (
