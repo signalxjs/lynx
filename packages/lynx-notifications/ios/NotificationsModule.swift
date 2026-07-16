@@ -62,7 +62,7 @@ class NotificationsModule: NSObject, LynxModule {
     }
 
     @objc func cancel(_ notificationId: String?, callback: LynxCallbackBlock?) {
-        guard let notificationId = notificationId else {
+        guard let notificationId = notificationId, !notificationId.isEmpty else {
             callback?(false)
             return
         }

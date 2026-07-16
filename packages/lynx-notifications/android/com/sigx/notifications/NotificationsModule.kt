@@ -61,13 +61,17 @@ class NotificationsModule(context: Context) : LynxModule(context) {
 
     @LynxMethod
     fun cancel(notificationId: String?, callback: Callback?) {
+        if (notificationId.isNullOrEmpty()) {
+            callback?.invoke(false)
+            return
+        }
         try {
             val manager = mContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             // Contract: hashCode() here must match how tray entries are posted —
             // schedule() above and SigxFirebaseMessagingService (remote pushes,
             // keyed on data.notification_id) both notify under id.hashCode(),
             // so cancel(id) dismisses remote pushes too.
-            manager.cancel((notificationId ?: "").hashCode())
+            manager.cancel(notificationId.hashCode())
             callback?.invoke(true)
         } catch (e: Exception) {
             callback?.invoke(false)
