@@ -10,6 +10,8 @@ export type SkinTonePopoverProps =
     & Define.Prop<'toneLabels', string[], true>
     /** Currently sticky tone (highlighted). */
     & Define.Prop<'activeTone', SkinTone, false>
+    /** Variant glyph font size — the picker passes its resolved cell size. Default 32. */
+    & Define.Prop<'size', number, false>
     & Define.Prop<'backdropClass', string, false>
     & Define.Prop<'class', string, false>
     & Define.Prop<'cellClass', string, false>
@@ -86,7 +88,7 @@ export const SkinTonePopover = component<SkinTonePopoverProps>(({ props, emit })
                             accessibility-status={active ? 'selected' : undefined}
                             onPress={() => emit('select', tone)}
                         >
-                            <text style={{ fontSize: 26 }}>{glyphForTone(props.datum, tone)}</text>
+                            <text style={{ fontSize: props.size ?? 32 }}>{glyphForTone(props.datum, tone)}</text>
                         </Pressable>
                     );
                 })}

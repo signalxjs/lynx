@@ -61,7 +61,7 @@ export const CategoryTabBar = component<CategoryTabBarProps>(({ props, emit }) =
                         >
                             {props.render
                                 ? props.render(tab, glyph, active)
-                                : <text style={{ fontSize: 20 }}>{glyph}</text>}
+                                : <text style={{ fontSize: 24 }}>{glyph}</text>}
                         </Pressable>
                     );
                 })}

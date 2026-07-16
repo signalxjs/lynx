@@ -51,6 +51,10 @@ Full guides, API reference and live examples → **[https://sigx.dev/lynx/module
   pass `itemsKey` (dataset identity) to re-anchor to the top on a swap, and
   `initialHeight` to lay the grid out at full size on its first frame;
   `EmojiPicker` does both.
+- **Screen-adaptive sizing** — the default glyph size derives from the
+  measured grid width (`width / columns × 0.78`, clamped 28–44 — ≈40 on a
+  typical phone at 8 columns), resolved once at mount; category tabs and the
+  skin-tone popover scale to match. Pass `cellSize` for full manual control.
 - **Search** — ranked shortcode/name/keyword search (`useEmojiSearch`-free:
   `buildSearchIndex(data).search('fire')`).
 - **Skin tones** — long-press a tonal emoji; the choice is sticky grid-wide
