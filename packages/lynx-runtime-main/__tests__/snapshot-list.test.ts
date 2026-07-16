@@ -375,5 +375,6 @@ describe('non-list-item root DEV guard (#645)', () => {
     expect(warns).toHaveLength(1);
     expect(warns[0]).toContain(BAD_TPL);
     logSpy.mockRestore();
+    vi.unstubAllGlobals();
   });
 });
