@@ -70,6 +70,42 @@ function findByHandler(root: TestNode, handler: string, text: string): TestNode 
     return root._handlers.has(handler) && root.textContent().includes(text) ? root : null;
 }
 
+/**
+ * The sectioned grid mounts only after (a) `ctx.ready` (persisted
+ * recents/tone hydrated — microtasks, flushed by act) and (b) the grid
+ * region reporting a measured height (#666: mounting earlier meant a
+ * full ~1,900-row re-render per late arrival). The fake renderer never
+ * fires layout events, so drive the region's bindlayoutchange by hand.
+ */
+async function measureRegion(container: unknown): Promise<void> {
+    const fire = (n: TestNode): boolean => {
+        const h = n._handlers.get('bindlayoutchange');
+        if (h) {
+            h({ detail: { width: 400, height: 600, top: 0, left: 0 } });
+            return true;
+        }
+        return n.children.some(fire);
+    };
+    await act(() => { fire(container as TestNode); });
+    // `ctx.ready` flips after the persistence seam's guarded dynamic import
+    // settles — a macrotask or two in vitest, not just microtasks. Then the
+    // sectioned grid STAGES rows in zero-delay chunks (#666), so also poll
+    // until the mounted row count stops growing.
+    let last = -1;
+    for (let i = 0; i < 40; i++) {
+        const count = getAllByType(container as never, 'list-item').length;
+        if (count > 0 && count === last) return;
+        last = count;
+        await new Promise((r) => setTimeout(r, 0));
+        await act(() => { fire(container as TestNode); });
+    }
+    // Never stabilized = a hydration/measure/staging regression. Fail LOUDLY
+    // — a silent return here would let downstream assertions flake instead.
+    throw new Error(
+        `measureRegion: staged row count never stabilized within the retry budget (last saw ${last} list-items)`,
+    );
+}
+
 describe('EmojiGrid (template cells, #649)', () => {
     it('renders every cell of a big category — no windowing', () => {
         const { container } = render(<EmojiGrid emojis={CAT_A} />);
@@ -147,7 +183,7 @@ describe('EmojiPicker (template grid integration)', () => {
         const { container } = render(
             <EmojiPicker data={makeData()} showSearch={false} showRecents={false} />,
         );
-        await act(() => {});
+        await measureRegion(container);
         const rows = getAllByType(container, 'list-item');
         // Every category in one list, plus one sticky header per section.
         expect(rows.length).toBe(CAT_A.length + CAT_B.length + 2);
@@ -178,7 +214,7 @@ describe('EmojiPicker (template grid integration)', () => {
                 renderCell={renderCell}
             />,
         );
-        await act(() => {});
+        await measureRegion(container);
         expect(renderCell).toHaveBeenCalledTimes(CAT_A.length + CAT_B.length);
         renderCell.mockClear();
         // Long-press the tonal 'A0' cell → the popover opens…
@@ -194,7 +230,7 @@ describe('EmojiPicker (template grid integration)', () => {
         const { container } = render(
             <EmojiPicker data={makeData()} showSearch={false} showRecents={false} />,
         );
-        await act(() => {});
+        await measureRegion(container);
         // Default cells carry the glyph as a `text` ATTRIBUTE (slot-free
         // template), so find the cell by item-key rather than subtree text.
         const cell = getAllByType(container, 'list-item')
@@ -254,7 +290,7 @@ describe('sectioned grid (#662)', () => {
                 classes={{ tabActive: 'is-active' }}
             />,
         );
-        await act(() => {});
+        await measureRegion(container);
         const activeGlyphs = (): string[] => {
             const bar = getByType(container, 'scroll-view') as unknown as TestNode;
             const glyphs: string[] = [];
@@ -280,7 +316,7 @@ describe('sectioned grid (#662)', () => {
         const { container } = render(
             <EmojiPicker data={makeData()} showSearch={false} />,
         );
-        await act(() => {});
+        await measureRegion(container);
         const keys = getAllByType(container, 'list-item').map((c) => c.props['item-key'] as string);
         expect(keys).not.toContain('hdr:recents');
         expect(queryByText(container, '\u{1F558}')).toBeNull();  // no recents tab glyph

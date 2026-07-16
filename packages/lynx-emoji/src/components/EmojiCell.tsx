@@ -1,4 +1,4 @@
-import { component, type Define } from '@sigx/lynx';
+import { component, type Define, type JSXElement } from '@sigx/lynx';
 import type { EmojiDatum } from '../data/schema.js';
 import type { EmojiRenderCell } from '../types.js';
 
@@ -10,6 +10,60 @@ import type { EmojiRenderCell } from '../types.js';
  * by construction (padding-derived heights drifted; #663 device gate).
  */
 export const emojiRowPx = (size?: number): number => Math.round((size ?? 32) * 1.2) + 12;
+
+/** Everything the default (glyph) cell row needs — see {@link emojiCellRow}. */
+export interface EmojiCellRowArgs {
+    datum: EmojiDatum;
+    /** Tone-resolved glyph to render (the caller applies the sticky tone). */
+    glyph: string;
+    /** Unique `item-key` (sectioned grids prefix with the section key). */
+    itemKey: string;
+    /** Glyph font size. Default 32. */
+    size?: number;
+    class?: string;
+    onPick: (datum: EmojiDatum) => void;
+    onPickTone: (datum: EmojiDatum) => void;
+}
+
+/**
+ * The default glyph cell as a PLAIN template row — no component instance.
+ *
+ * A `component()` wrapper costs a runtime-core instance (proxies, effect,
+ * lifecycle) PER ROW; at ~1,900 rows that dominated the sectioned picker's
+ * mount (#666: ~1.6s of reconcile on a release build). This function returns
+ * the `<list-item>` template vnode directly — the reconciler keys it by
+ * `item-key`, snapshot event signs stay stable per instance, and mount cost
+ * collapses to vnode + hole normalization.
+ *
+ * The template compiles to a ZERO-SLOT shape (the glyph is a `text`
+ * ATTRIBUTE hole, not a child), so cells pool/recycle. `item-key` is
+ * tone-free, so a sticky-tone change re-patches glyph holes in place.
+ */
+export function emojiCellRow(args: EmojiCellRowArgs): JSXElement {
+    const { datum, onPick, onPickTone } = args;
+    const rowPx = emojiRowPx(args.size);
+    return (
+        <list-item
+            item-key={args.itemKey}
+            item-type="emoji"
+            estimated-main-axis-size-px={rowPx}
+            class={args.class}
+            accessibility-element={true}
+            accessibility-label={datum.n}
+            accessibility-trait="button"
+            bindtap={() => onPick(datum)}
+            bindlongpress={() => { if (datum.s) onPickTone(datum); }}
+            style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                height: `${rowPx}px`,
+            }}
+        >
+            <text style={{ fontSize: args.size ?? 32 }} text={args.glyph} />
+        </list-item>
+    );
+}
 
 export type EmojiCellProps =
     & Define.Prop<'datum', EmojiDatum, true>
@@ -37,15 +91,10 @@ export type EmojiCellProps =
 /**
  * One grid cell — a self-contained `<list-item>` snapshot template (#649).
  *
- * The default shape compiles to a ZERO-SLOT template (the glyph is a `text`
- * ATTRIBUTE hole, not a child), so under `List`'s `templateCells` the cell is
- * staged as a record, built synchronously on the main thread when pulled, and
- * RECYCLED through the template pool. Tap picks; long-press asks for the
- * skin-tone popover when the emoji has uniform tone variants.
- *
- * `item-key` is the base emoji (`datum.e`) — deliberately tone-free, so a
- * sticky-tone change re-patches every cell's glyph hole in place instead of
- * removing and re-inserting the whole dataset.
+ * Component wrapper around {@link emojiCellRow} (the grid calls that plain
+ * function directly for its ~1,900 default rows — see its TSDoc); this
+ * component exists for external composition and for the `render`-prop
+ * branch, whose content is a slot (non-poolable, dedicated tree per cell).
  */
 export const EmojiCell = component<EmojiCellProps>(({ props, emit }) => {
     const onTap = (): void => emit('pick', props.datum);
@@ -73,41 +122,22 @@ export const EmojiCell = component<EmojiCellProps>(({ props, emit }) => {
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    // Height is PINNED to the estimate (not padding-derived):
-                    // the native size estimate and the sectioned grid's
-                    // scroll-offset math both assume emojiRowPx exactly —
-                    // measured drift (~45px real vs 50 estimated) made
-                    // tab-follow lag whole sections (#663 device gate).
+                    // Height PINNED to the estimate — the native size estimate
+                    // and the sectioned grid's scroll-offset math both assume
+                    // emojiRowPx exactly (#663 device gate).
                     height: `${estRowPx()}px`,
                 }}
             >
                 {props.render(props.datum, props.glyph)}
             </list-item>
         )
-        : (
-            <list-item
-                item-key={props.itemKey ?? props.datum.e}
-                item-type="emoji"
-                estimated-main-axis-size-px={estRowPx()}
-                class={props.class}
-                accessibility-element={true}
-                accessibility-label={props.datum.n}
-                accessibility-trait="button"
-                bindtap={onTap}
-                bindlongpress={onLongPress}
-                style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    // Height is PINNED to the estimate (not padding-derived):
-                    // the native size estimate and the sectioned grid's
-                    // scroll-offset math both assume emojiRowPx exactly —
-                    // measured drift (~45px real vs 50 estimated) made
-                    // tab-follow lag whole sections (#663 device gate).
-                    height: `${estRowPx()}px`,
-                }}
-            >
-                <text style={{ fontSize: props.size ?? 32 }} text={props.glyph} />
-            </list-item>
-        );
+        : emojiCellRow({
+            datum: props.datum,
+            glyph: props.glyph,
+            itemKey: props.itemKey ?? props.datum.e,
+            size: props.size,
+            class: props.class,
+            onPick: (d) => emit('pick', d),
+            onPickTone: (d) => emit('pickTone', d),
+        });
 });

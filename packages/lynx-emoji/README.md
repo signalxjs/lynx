@@ -27,6 +27,18 @@ Full guides, API reference and live examples → **[https://sigx.dev/lynx/module
   (plus `sectionRowIndex`/`sectionStartOffsets` for scroll targets and the
   `activeSection` event for a following tab bar); search results still use
   the flat `emojis` mode.
+- **Instant, non-blocking mount** — the sectioned grid renders its rows as
+  plain template vnodes (no per-row component instance), mounts exactly once
+  (gated on the context's `ready` signal — recents/tone stores expose
+  `loaded` — and the measured region), and stages the first viewports
+  synchronously while the rest streams through `createStagingDriver`'s
+  budget-adaptive slices (~a frame of work each, own ops batch per slice), so
+  neither thread is ever blocked past a frame while ~2k rows load. The driver
+  is exported for warm pre-staging (e.g. behind a keyboard panel). Tab taps
+  during the brief staging tail are never dropped: pass `scrollHandle` from
+  `EmojiGrid` (the picker wires it internally) and scrolls to not-yet-staged
+  sections park and fire the moment their rows land — latest tap wins, a
+  manual scroll cancels.
 - **Template grid** — a `List` (`@sigx/lynx-list`) in flow layout running
   snapshot-template cells: the full dataset ships as staged row records, the
   main thread builds each cell synchronously the moment the native recycler
