@@ -510,6 +510,12 @@ importers:
       '@sigx/lynx-markdown':
         specifier: workspace:^
         version: link:../lynx-markdown
+      '@sigx/lynx-runtime-internal':
+        specifier: workspace:^
+        version: link:../lynx-runtime-internal
+      '@sigx/lynx-runtime-main':
+        specifier: workspace:^
+        version: link:../lynx-runtime-main
       '@sigx/lynx-storage':
         specifier: workspace:^
         version: link:../lynx-storage

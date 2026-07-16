@@ -9,7 +9,7 @@ export interface EmojiPickEvent {
     tone: SkinTone;
 }
 
-/** Replace a grid cell's content (rendered inside the cell's Pressable). */
+/** Replace a grid cell's content (rendered inside the cell's <list-item> — slot content: such cells build synchronously but are excluded from recycling). */
 export type EmojiRenderCell = (datum: EmojiDatum, glyph: string) => JSXElement;
 
 /** The synthetic recents tab uses `'recents'` in place of a category. */

@@ -103,6 +103,17 @@ interface ListState {
   signToChild: Map<number, number>;
   /** `${templateId}|${reuse-identifier}` → recycled cell trees. */
   pools: Map<string, PoolEntry[]>;
+  /**
+   * Snapshot cells removed from `order` while native still holds their item
+   * holder. Native learns about a removal only from the NEXT
+   * `update-list-info` diff, and reconciling it touches the outgoing cell
+   * (RecycleRemovedItemHolders fires an exposure event through the element —
+   * core#275). Tearing the cell down at REMOVE-op time therefore hands
+   * native a freed element: detach + destroy must wait until native releases
+   * the holder via `enqueueComponent`. Ids here stay fully wired (elements,
+   * sign, appended) until that release.
+   */
+  zombies: Set<number>;
   dirty: boolean;
 }
 
@@ -147,6 +158,28 @@ function platformInfoFor(childInternalId: number): Record<string, unknown> {
     return v0 as Record<string, unknown>;
   }
   return {};
+}
+
+/**
+ * A template cell whose root is not a `<list-item>` element builds, flushes,
+ * and returns a valid sign — and then silently never paints (#620 spike).
+ * Name the cause once per template type, right where it materializes.
+ */
+const checkedListItemRoots = new Set<string>();
+function warnIfNotListItemRoot(inst: MTSnapshotInstance): void {
+  if (typeof __GetTag !== 'function') return; // host without introspection
+  // One __GetTag per template TYPE — correct templates must not pay the
+  // introspection per materialization on large lists.
+  if (!inst.__element_root || checkedListItemRoots.has(inst.type)) return;
+  checkedListItemRoots.add(inst.type);
+  const tag = __GetTag(inst.__element_root);
+  if (tag !== 'list-item') {
+    console.log(
+      `[sigx-mt] list cell template "${inst.type}" roots at <${tag}>, not <list-item> — `
+        + 'it will not paint. A snapshot list cell must have <list-item> as its '
+        + 'template root (e.g. renderItem under templateCells, or raw <list> JSX children).',
+    );
+  }
 }
 
 function reuseKeyOf(inst: MTSnapshotInstance): string {
@@ -220,6 +253,7 @@ function componentAtIndex(
       const entry = pool?.pop();
       if (entry) adoptPooled(inst, entry);
       else inst.ensureElements();
+      warnIfNotListItemRoot(inst);
     }
     if (!inst.__element_root) return -1;
     root = inst.__element_root;
@@ -261,6 +295,40 @@ function enqueueComponent(
   // Eager per-element cells keep the historical no-op: each row owns its
   // dedicated subtree, native merely detaches the offscreen view.
   if (!inst || !inst.__elements || !inst.__element_root) return;
+
+  // ZOMBIE release (see listRemoveChild): native has reconciled the removal
+  // and no longer binds this cell — the deferred teardown is safe now.
+  // Slot-free trees are worth recycling (their holes re-patch cleanly); a
+  // slot-bearing tree carries row-specific BG-built children no re-patch
+  // replaces, so it just goes down with the instance.
+  if (state.zombies.delete(childInternalId)) {
+    if (state.appended.delete(childInternalId)) {
+      __RemoveElement(state.listEl, inst.__element_root);
+    }
+    state.signToChild.delete(sign);
+    elements.delete(childInternalId);
+    if (inst.slotElIds.size === 0) {
+      const key = reuseKeyOf(inst);
+      let pool = state.pools.get(key);
+      if (!pool) {
+        pool = [];
+        state.pools.set(key, pool);
+      }
+      pool.push({
+        elements: inst.__elements,
+        root: inst.__element_root,
+        values: inst.__values.slice(),
+        syntheticIds: inst.syntheticIds,
+        boundWvids: inst.boundWvids,
+      });
+      inst.__elements = null;
+      inst.__element_root = null;
+      inst.syntheticIds = new Map();
+      inst.boundWvids = new Map();
+    }
+    destroySnapshotInstance(childInternalId);
+    return;
+  }
 
   // Cells with BOUND SLOTS keep the eager-cell behavior: the tree stays
   // materialized and registered. Their slot content is row-specific BG-built
@@ -319,6 +387,7 @@ export function createListElement(internalId: number): MainThreadElement {
     aliases: new Set(),
     signToChild: new Map(),
     pools: new Map(),
+    zombies: new Set(),
     dirty: false,
   };
   listsByInternalId.set(internalId, state);
@@ -372,6 +441,9 @@ export function listInsertChild(
 ): void {
   const state = listsByInternalId.get(listInternalId);
   if (!state) return;
+  // A re-inserted zombie is live again: it never lost its elements, sign, or
+  // appended status, so dropping the zombie mark fully restores it.
+  state.zombies.delete(childInternalId);
   // Remove ALL prior occurrences (not just the first) so the move logic
   // self-heals even if `order` was ever corrupted by an earlier batch.
   for (
@@ -389,7 +461,24 @@ export function listInsertChild(
   state.dirty = true;
 }
 
-/** Record a `<list-item>` removed from a `<list>` and detach its element. */
+/**
+ * Record a `<list-item>` removed from a `<list>`.
+ *
+ * A cell native currently BINDS (it was pulled via `componentAtIndex` and not
+ * yet enqueued) must be left COMPLETELY intact here — attached, registered,
+ * sign-mapped: native discovers the removal only from the next
+ * `update-list-info` diff, and reconciling it touches the outgoing cell
+ * (RecycleRemovedItemHolders → OnEnqueueElement → SendExposureEvent).
+ * Both destroying the cell AND merely detaching it at REMOVE-op time crash
+ * native during that reconciliation (SIGSEGV typing in a list-filtering
+ * search box; core#275 — detach-early refaults at the same frames with a
+ * null-pointer call). Such cells become ZOMBIES: gone from `order` (so the
+ * diff reports them removed and no pull can serve them) but fully wired
+ * until native releases the holder via `enqueueComponent`, which then
+ * detaches, pools the tree, and destroys the instance. This mirrors the
+ * reference runtime, whose list-holder removeChild never detaches or drops
+ * elements — teardown waits for the recycler.
+ */
 export function listRemoveChild(
   listInternalId: number,
   childInternalId: number,
@@ -398,12 +487,25 @@ export function listRemoveChild(
   if (!state) return;
   const idx = state.order.indexOf(childInternalId);
   if (idx !== -1) state.order.splice(idx, 1);
+  state.dirty = true;
+
+  if (isSnapshotInstance(childInternalId) && state.appended.has(childInternalId)) {
+    // Bound snapshot cell — defer teardown to enqueueComponent. Keep
+    // `appended`, `signToChild`, and the element registry entry alive so
+    // native's reconciliation of the removal never touches a freed cell.
+    state.zombies.add(childInternalId);
+    listItemOwner.delete(childInternalId);
+    itemPlatformInfo.delete(childInternalId);
+    return;
+  }
+
   if (state.appended.delete(childInternalId)) {
     const child = elements.get(childInternalId);
     if (child) __RemoveElement(state.listEl, child);
   }
-  // Snapshot cell teardown (its LIVE elements only — a pooled tree this
-  // instance recycled away is owned by the pool and stays reusable).
+  // Unbound snapshot cell teardown — staged (native never saw it) or
+  // recycled-away (its tree is pool-owned and stays reusable; destroy only
+  // clears registries).
   if (isSnapshotInstance(childInternalId)) {
     destroySnapshotInstance(childInternalId);
     elements.delete(childInternalId);
@@ -413,14 +515,16 @@ export function listRemoveChild(
   }
   listItemOwner.delete(childInternalId);
   itemPlatformInfo.delete(childInternalId);
-  state.dirty = true;
 }
 
 /** Tear down a `<list>` element (detach callbacks, drop all state). */
 export function destroyListElement(internalId: number): void {
   const state = listsByInternalId.get(internalId);
   if (!state) return;
-  __UpdateListCallbacks(state.listEl, null, null);
+  // Inert no-ops, NOT null: native may still invoke the callbacks while the
+  // teardown batch settles, and calling a null function pointer is its own
+  // native crash. Mirrors the reference runtime's snapshotDestroyList.
+  __UpdateListCallbacks(state.listEl, () => -1, () => { /* released */ });
   listByListID.delete(state.listID);
   for (const childId of state.order) {
     listItemOwner.delete(childId);
@@ -430,6 +534,15 @@ export function destroyListElement(internalId: number): void {
       elements.delete(childId);
     }
   }
+  // Zombies left `order` but still await native's release — the whole list
+  // is going away with them, so drop their registries here.
+  for (const childId of state.zombies) {
+    if (isSnapshotInstance(childId)) {
+      destroySnapshotInstance(childId);
+      elements.delete(childId);
+    }
+  }
+  state.zombies.clear();
   for (const pool of state.pools.values()) {
     for (const entry of pool) releasePoolEntry(entry);
   }
@@ -567,4 +680,5 @@ export function resetListState(): void {
   listByListID.clear();
   listItemOwner.clear();
   itemPlatformInfo.clear();
+  checkedListItemRoots.clear();
 }

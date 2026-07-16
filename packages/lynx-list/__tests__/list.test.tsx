@@ -628,3 +628,68 @@ describe('List', () => {
     expect(cells[0].props['item-key']).toBe('910');
   });
 });
+
+describe('templateCells (#645)', () => {
+  const renderCell = (it: Row) => (
+    <list-item item-key={`tpl-${it.id}`} estimated-main-axis-size-px={44}>
+      <text>{it.text}</text>
+    </list-item>
+  );
+
+  it('passes consumer <list-item> rows through unwrapped', () => {
+    const { container } = render(
+      <List items={ITEMS} templateCells keyExtractor={(i) => i.id} renderItem={renderCell} />,
+    );
+    const cells = getAllByType(container, 'list-item');
+    expect(cells).toHaveLength(3);
+    // Consumer attrs survive; List injected nothing.
+    expect(cells.map((c) => c.props['item-key'])).toEqual(['tpl-a', 'tpl-b', 'tpl-c']);
+    expect(cells[0].props['item-type']).toBeUndefined();
+    expect(cells[0].props['estimated-main-axis-size-px']).toBe(44);
+    // No double wrapper: the cell's child is the content, not another list-item.
+    expect(cells[0].children[0].type).toBe('text');
+  });
+
+  it('bypasses windowing entirely (templateCells wins, with a warning)', () => {
+    vi.stubGlobal('__DEV__', true); // the warning is dev-only (app-build define)
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const many: Row[] = Array.from({ length: 150 }, (_, i) => ({ id: `r${i}`, text: `Row ${i}` }));
+    const { container } = render(
+      <List items={many} templateCells windowSize={10} keyExtractor={(i) => i.id} renderItem={renderCell} />,
+    );
+    expect(getAllByType(container, 'list-item')).toHaveLength(150);
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('windowSize is ignored'));
+    warn.mockRestore();
+    vi.unstubAllGlobals();
+  });
+
+  it('keyed reorders reconcile pass-through rows', async () => {
+    const items = signal<Row[]>([...ITEMS]);
+    const Host = component(() => () => (
+      <List items={items} templateCells keyExtractor={(i) => i.id} renderItem={renderCell} />
+    ));
+    const { container } = render(<Host />);
+    await act(() => {
+      items.$set([ITEMS[2], ITEMS[0], ITEMS[1]]);
+    });
+    const cells = getAllByType(container, 'list-item');
+    expect(cells.map((c) => c.props['item-key'])).toEqual(['tpl-c', 'tpl-a', 'tpl-b']);
+  });
+
+  it('footer and loading rows keep the wrapped path', () => {
+    const { container } = render(
+      <List
+        items={ITEMS}
+        templateCells
+        loadingMore
+        keyExtractor={(i) => i.id}
+        renderItem={renderCell}
+      />,
+    );
+    const cells = getAllByType(container, 'list-item');
+    expect(cells).toHaveLength(4);
+    const trailing = cells[cells.length - 1];
+    expect(trailing.props['item-type']).toBe('__footer');
+    expect(trailing.props['full-span']).toBe(true);
+  });
+});

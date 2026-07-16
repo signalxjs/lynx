@@ -326,3 +326,191 @@ describe('slot-bearing cells', () => {
     expect(createdCells).toBe(builtBefore);
   });
 });
+
+describe('bound-cell removal defers teardown until native release (core#275)', () => {
+  // Native learns about removals only from the update-list-info diff, and
+  // reconciling it touches the outgoing cell (RecycleRemovedItemHolders →
+  // SendExposureEvent). Destroying a BOUND cell at REMOVE-op time frees the
+  // element under native's feet — the SIGSEGV typing into a list-filtering
+  // search box (showcase Home) — and merely DETACHING it early refaults at
+  // the same native frames. Bound cells must stay fully wired (attached,
+  // registered, sign-mapped) as zombies until enqueueComponent releases them.
+
+  it('mass removal keeps bound cells fully wired until enqueue, then pools their trees', () => {
+    mountList([['a', 'Alpha'], ['b', 'Beta'], ['c', 'Gamma']]);
+    const s0 = capturedCAI!(listEl, listEl!.__id, 0, 1, false);
+    const s1 = capturedCAI!(listEl, listEl!.__id, 1, 2, false);
+    expect(createdCells).toBe(2);
+
+    // The filter clears every row in one batch; row c (102) was never pulled.
+    applyOps([
+      OP.REMOVE, SLOT_ID, 100,
+      OP.REMOVE, SLOT_ID, 101,
+      OP.REMOVE, SLOT_ID, 102,
+    ]);
+    flushDirtyLists();
+
+    // Staged row: native never saw it — destroyed immediately.
+    expect(isSnapshotInstance(102)).toBe(false);
+    // Bound rows: STILL fully wired — attached to the list element, with
+    // instances and registry entries alive for native's reconciliation.
+    expect(listEl!.children).toHaveLength(2);
+    expect(isSnapshotInstance(100)).toBe(true);
+    expect(isSnapshotInstance(101)).toBe(true);
+    expect(elements.has(100)).toBe(true);
+    expect(elements.has(101)).toBe(true);
+    expect(getSnapshotInstance(100)!.__elements).not.toBeNull();
+    // The diff still reports all three rows gone.
+    expect(lastListInfo().removeAction).toEqual([0, 1, 2]);
+    expect(lastListInfo().insertAction).toEqual([]);
+
+    // Native reconciles and releases the holders — NOW teardown runs.
+    capturedEnqueue!(listEl, listEl!.__id, s0);
+    capturedEnqueue!(listEl, listEl!.__id, s1);
+    expect(isSnapshotInstance(100)).toBe(false);
+    expect(isSnapshotInstance(101)).toBe(false);
+    expect(elements.has(100)).toBe(false);
+    expect(elements.has(101)).toBe(false);
+    expect(listEl!.children).toHaveLength(0);
+
+    // The released trees are recyclable: a new row adopts one instead of
+    // constructing.
+    applyOps([
+      OP.SNAPSHOT_CREATE, 200, ITEM_TPL,
+      OP.SNAPSHOT_SET_VALUES, 200, [{ 'item-key': 'd' }, 'Delta'],
+      OP.INSERT, SLOT_ID, 200, -1,
+    ]);
+    flushDirtyLists();
+    const s2 = capturedCAI!(listEl, listEl!.__id, 0, 3, false);
+    expect(createdCells).toBe(2); // adopted, not constructed
+    expect([s0, s1]).toContain(s2);
+    const inst = getSnapshotInstance(200)!;
+    expect((inst.__elements![1] as unknown as FakeEl).attrs['text']).toBe('Delta');
+  });
+
+  it('a zombie re-inserted before native releases it comes back to life', () => {
+    mountList([['a', 'Alpha'], ['b', 'Beta']]);
+    const s0 = capturedCAI!(listEl, listEl!.__id, 0, 1, false);
+
+    applyOps([OP.REMOVE, SLOT_ID, 100]);
+    flushDirtyLists();
+    expect(isSnapshotInstance(100)).toBe(true); // zombie: bound at removal
+
+    // BG re-inserts the same instance before any enqueue arrives.
+    applyOps([OP.INSERT, SLOT_ID, 100, 101]);
+    flushDirtyLists();
+
+    // Fully live again: the pull re-attaches the SAME tree — same sign,
+    // nothing rebuilt.
+    const sAgain = capturedCAI!(listEl, listEl!.__id, 0, 2, false);
+    expect(sAgain).toBe(s0);
+    expect(createdCells).toBe(1);
+    expect(listEl!.children).toHaveLength(1);
+
+    // A later enqueue is plain recycling, not zombie release: the instance
+    // reverts to staged but survives.
+    capturedEnqueue!(listEl, listEl!.__id, s0);
+    expect(isSnapshotInstance(100)).toBe(true);
+    expect(getSnapshotInstance(100)!.__elements).toBeNull();
+  });
+
+  it('a slot-bearing zombie is destroyed on release, not pooled', () => {
+    mountList([['a', 'Alpha'], ['b', 'Beta']]);
+    const s0 = capturedCAI!(listEl, listEl!.__id, 0, 1, false);
+    const inst = getSnapshotInstance(100)!;
+    inst.slotElIds.add(-99);
+    elements.set(-99, inst.__elements![0] as never);
+
+    applyOps([OP.REMOVE, SLOT_ID, 100]);
+    flushDirtyLists();
+    expect(isSnapshotInstance(100)).toBe(true); // zombie
+    expect(elements.has(-99)).toBe(true); // slot alias still routable
+
+    capturedEnqueue!(listEl, listEl!.__id, s0);
+    expect(isSnapshotInstance(100)).toBe(false);
+    expect(elements.has(-99)).toBe(false); // alias went down with it
+    expect(listEl!.children).toHaveLength(0);
+    // Its slot-bearing tree must NOT be adoptable by a fresh row.
+    applyOps([
+      OP.SNAPSHOT_CREATE, 201, ITEM_TPL,
+      OP.SNAPSHOT_SET_VALUES, 201, [{ 'item-key': 'e' }, 'Echo'],
+      OP.INSERT, SLOT_ID, 201, -1,
+    ]);
+    flushDirtyLists();
+    capturedCAI!(listEl, listEl!.__id, 1, 2, false);
+    expect(createdCells).toBe(2); // constructed fresh
+  });
+
+  it('list teardown with pending zombies cleans them and installs inert callbacks', () => {
+    mountList([['a', 'Alpha'], ['b', 'Beta']]);
+    capturedCAI!(listEl, listEl!.__id, 0, 1, false);
+    applyOps([OP.REMOVE, SLOT_ID, 100]);
+    flushDirtyLists();
+    expect(isSnapshotInstance(100)).toBe(true); // zombie awaiting release
+
+    const updateCallbacks = __UpdateListCallbacks as unknown as ReturnType<typeof vi.fn>;
+    updateCallbacks.mockClear();
+    applyOps([OP.REMOVE, 1, LIST_ID]);
+    expect(isSnapshotInstance(100)).toBe(false);
+    expect(isSnapshotInstance(101)).toBe(false);
+    // Native may still invoke the recycler callbacks while the teardown
+    // settles — they must be inert functions, never null.
+    const [, cai, eq] = updateCallbacks.mock.calls[0] as [unknown, unknown, unknown];
+    expect(typeof cai).toBe('function');
+    expect(typeof eq).toBe('function');
+    expect((cai as () => number)()).toBe(-1);
+    expect((eq as () => void)()).toBeUndefined();
+  });
+});
+
+describe('non-list-item root DEV guard (#645)', () => {
+  const BAD_TPL = '__snapshot_bad_root_1';
+  function registerBadTemplate(): void {
+    snapshotCreatorMap[BAD_TPL] = (id) =>
+      createSnapshot(
+        id,
+        function () {
+          const el = __CreateView(__pageId) as unknown as FakeEl; // wrong root
+          return [el];
+        } as never,
+        [(ctx, index, oldValue) => updateListItemPlatformInfo(ctx, index, oldValue, 0)],
+        null,
+        undefined,
+        undefined,
+        null,
+        true,
+      );
+  }
+
+  it('warns once per template type when a cell root is not <list-item>', () => {
+    vi.stubGlobal('__GetTag', vi.fn((el: FakeEl) => el.tag));
+    const logs: string[] = [];
+    const logSpy = vi.spyOn(console, 'log').mockImplementation((...a: unknown[]) => {
+      logs.push(a.join(' '));
+    });
+    registerBadTemplate();
+    applyOps([
+      OP.SNAPSHOT_CREATE, LIST_ID, LIST_TPL,
+      OP.INSERT, 1, LIST_ID, -1,
+      OP.SNAPSHOT_BIND_SLOT, LIST_ID, 0, SLOT_ID,
+      OP.SNAPSHOT_CREATE, 400, BAD_TPL,
+      OP.SNAPSHOT_SET_VALUES, 400, [{ 'item-key': 'x' }],
+      OP.INSERT, SLOT_ID, 400, -1,
+      OP.SNAPSHOT_CREATE, 401, BAD_TPL,
+      OP.SNAPSHOT_SET_VALUES, 401, [{ 'item-key': 'y' }],
+      OP.INSERT, SLOT_ID, 401, -1,
+      OP.SNAPSHOT_CREATE, 402, ITEM_TPL,
+      OP.SNAPSHOT_SET_VALUES, 402, [{ 'item-key': 'ok' }, 'fine'],
+      OP.INSERT, SLOT_ID, 402, -1,
+    ]);
+    flushDirtyLists();
+    capturedCAI!(listEl, listEl!.__id, 0, 1, false);
+    capturedCAI!(listEl, listEl!.__id, 1, 2, false); // same bad template — no repeat
+    capturedCAI!(listEl, listEl!.__id, 2, 3, false); // list-item root — silent
+    const warns = logs.filter((l) => l.includes('not <list-item>'));
+    expect(warns).toHaveLength(1);
+    expect(warns[0]).toContain(BAD_TPL);
+    logSpy.mockRestore();
+    vi.unstubAllGlobals();
+  });
+});
