@@ -134,12 +134,20 @@ final class PushNotificationDelegate: NSObject, UNUserNotificationCenterDelegate
     ) {
         let content = response.notification.request.content
         let (idFromPayload, data) = PushAppDelegateHook.extractData(from: content.userInfo)
-        // Prefer the payload's data.notification_id — for remote pushes the
-        // request identifier is system-assigned junk, and JS keys tap routing
-        // and cancel(id) on the payload id. Local schedules carry no payload
-        // id, so their request identifier (the UUID `schedule` returned) wins.
+        // For remote pushes, prefer the payload's data.notification_id — the
+        // request identifier is system-assigned, and JS keys tap routing and
+        // cancel(id) on the payload id. Local schedules keep their request
+        // identifier (the UUID `schedule` returned) even if the user's data
+        // dict happens to contain a notification_id key, since that UUID is
+        // the id JS holds for them.
         let requestId = response.notification.request.identifier
-        let notificationId = idFromPayload ?? (requestId.isEmpty ? UUID().uuidString : requestId)
+        let isRemote = response.notification.request.trigger is UNPushNotificationTrigger
+        let notificationId: String
+        if isRemote {
+            notificationId = idFromPayload ?? (requestId.isEmpty ? UUID().uuidString : requestId)
+        } else {
+            notificationId = requestId.isEmpty ? (idFromPayload ?? UUID().uuidString) : requestId
+        }
         let captured = PushEventBus.shared.captureInitialResponseIfColdStart(
             notificationId: notificationId,
             data: data,
