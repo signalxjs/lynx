@@ -99,6 +99,34 @@ await Notifications.cancel('chat-4711');   // dismisses the tray entry for data.
 
 The same `notification_id` also keys tap responses (`addNotificationResponseListener`). Optionally, senders can set the APNs `apns-collapse-id` header to the same id — that makes iOS replace the tray entry in place on each push, matching Android's behavior.
 
+## Conversation stacking (Android)
+
+By default, Android pushes sharing a `notification_id` replace each other in place — only the newest body is visible. For conversation-shaped notifications (a chat thread, an activity feed on one subject), opt into **stacking** with `data.style: "messaging"`: each push under the same `notification_id` *appends* a line to the tray entry (rendered with Android's `MessagingStyle`), keeping the last 7 messages visible.
+
+| `data` key | Effect |
+|---|---|
+| `style: "messaging"` | Opt in to stacking. Anything else (or absent) keeps replace-in-place. |
+| `sender_name` (or `senderName`) | Name shown on the appended line. Falls back to `title`. |
+| `conversation_title` (or `conversationTitle`) | Header above the message lines (e.g. a group-chat name). Carried over from earlier pushes when omitted. |
+| `group` | Bundles entries that share the value under one expandable tray group, with an auto-posted summary row — the pattern for "several conversations active at once". `Notifications.cancel(group)` dismisses the summary. |
+
+```jsonc
+// per-message push (FCM data map)
+{
+  "title": "Ada",                     // collapsed view + sender fallback
+  "body": "See you at 10?",
+  "style": "messaging",
+  "notification_id": "chat-4711",     // one per conversation → messages stack
+  "sender_name": "Ada",
+  "conversation_title": "Standup crew",
+  "group": "chats"                    // optional: bundle all conversations
+}
+```
+
+Tap routing is unchanged: the tap payload is the **latest** push's `data`, and `Notifications.cancel('chat-4711')` clears the whole stacked entry. History lives in the tray itself, so it survives process death and needs no storage; devices below Android 6.0 fall back to replace-in-place.
+
+iOS needs none of this — set the APNs `aps.thread-id` to the conversation id and the OS stacks the group natively.
+
 ## License
 
 MIT

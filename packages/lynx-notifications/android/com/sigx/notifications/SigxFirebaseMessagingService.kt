@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import androidx.core.app.NotificationCompat
+import androidx.core.app.Person
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
 
@@ -26,6 +27,11 @@ import com.google.firebase.messaging.RemoteMessage
  *     their own in-app UI from `addPushListener`.
  */
 class SigxFirebaseMessagingService : FirebaseMessagingService() {
+
+    companion object {
+        /** Messages kept per conversation — the platform renders at most ~7. */
+        const val MAX_MESSAGING_HISTORY = 7
+    }
 
     override fun onNewToken(token: String) {
         super.onNewToken(token)
@@ -90,6 +96,11 @@ class SigxFirebaseMessagingService : FirebaseMessagingService() {
         NotificationAppearance.accentColor(this)?.let { builder.setColor(it) }
 
         val notificationId = (data["notification_id"] ?: data["notificationId"] ?: System.currentTimeMillis().toString())
+
+        if (data["style"] == "messaging") {
+            applyMessagingStyle(manager, builder, notificationId, title, body, data)
+        }
+
         buildTapIntent(data)?.let { tapIntent ->
             // FLAG_UPDATE_CURRENT matters: PendingIntent equality ignores
             // extras, so two notifications sharing a request code would
@@ -103,7 +114,86 @@ class SigxFirebaseMessagingService : FirebaseMessagingService() {
             builder.setContentIntent(pending)
         }
 
+        val group = data["group"]
+        group?.let { builder.setGroup(it) }
+
         manager.notify(notificationId.hashCode(), builder.build())
+
+        group?.let { showGroupSummary(manager, it) }
+    }
+
+    /**
+     * Conversation-style stacking (`data.style == "messaging"`): render with
+     * [NotificationCompat.MessagingStyle] and ACCUMULATE — each push under the
+     * same `data.notification_id` appends a line (sender + message) to the
+     * existing tray entry instead of replacing its body, so earlier messages
+     * stay visible. History is carried across posts by extracting the style
+     * from the currently active notification (the tray is the storage — no
+     * state of our own survives process death anyway) and capped at
+     * [MAX_MESSAGING_HISTORY], the platform's visible maximum.
+     *
+     * Requires `activeNotifications` (API 23); below M the entry silently
+     * stays replace-in-place, today's behavior.
+     */
+    private fun applyMessagingStyle(
+        manager: NotificationManager,
+        builder: NotificationCompat.Builder,
+        notificationId: String,
+        title: String,
+        body: String,
+        data: Map<String, String>,
+    ) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return
+
+        val existingStyle = manager.activeNotifications
+            .firstOrNull { it.id == notificationId.hashCode() }
+            ?.let { NotificationCompat.MessagingStyle.extractMessagingStyleFromNotification(it.notification) }
+
+        val sender = Person.Builder()
+            .setName(data["sender_name"] ?: data["senderName"] ?: title)
+            .build()
+        val messages =
+            (existingStyle?.messages ?: emptyList()) +
+                NotificationCompat.MessagingStyle.Message(body, System.currentTimeMillis(), sender)
+
+        // MessagingStyle requires a "user" Person (the device owner); it only
+        // renders for messages attributed to the user, which we never add.
+        val style = NotificationCompat.MessagingStyle(Person.Builder().setName("You").build())
+        val conversationTitle = data["conversation_title"]
+            ?: data["conversationTitle"]
+            ?: existingStyle?.conversationTitle?.toString()
+        conversationTitle?.let { style.setConversationTitle(it) }
+        for (message in messages.takeLast(MAX_MESSAGING_HISTORY)) style.addMessage(message)
+        builder.setStyle(style)
+    }
+
+    /**
+     * Group-summary entry for `data.group`: bundles the group's conversation
+     * notifications under one expandable tray group (the standard Inbox
+     * pattern). Posted under `group.hashCode()` — the same id space as
+     * `notification_id`, so `Notifications.cancel(group)` dismisses it.
+     * Re-posting on every push is idempotent (same id, same content).
+     *
+     * The summary's tap intent carries no payload and no tap extra — it just
+     * opens the app; per-conversation routing belongs to the child entries.
+     */
+    private fun showGroupSummary(manager: NotificationManager, group: String) {
+        val builder = NotificationCompat.Builder(this, NotificationsModule.CHANNEL_ID)
+            .setSmallIcon(NotificationAppearance.smallIcon(this))
+            .setAutoCancel(true)
+            .setGroup(group)
+            .setGroupSummary(true)
+        NotificationAppearance.accentColor(this)?.let { builder.setColor(it) }
+        buildLaunchIntent()?.let { intent ->
+            val pending = android.app.PendingIntent.getActivity(
+                this,
+                group.hashCode(),
+                intent,
+                android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE,
+            )
+            builder.setContentIntent(pending)
+        }
+        manager.notify(group.hashCode(), builder.build())
     }
 
     /**
@@ -134,6 +224,14 @@ class SigxFirebaseMessagingService : FirebaseMessagingService() {
      * alone is worse: if MainActivity isn't on top, a duplicate is created.
      */
     private fun buildTapIntent(data: Map<String, String>): Intent? {
+        return buildLaunchIntent()?.apply {
+            putExtra(PushActivityHook.EXTRA_NOTIFICATION_TAP, true)
+            for ((k, v) in data) putExtra("${PushActivityHook.SIGX_DATA_PREFIX}$k", v)
+        }
+    }
+
+    /** Bare launcher intent (see [buildTapIntent] for the flag rationale) — no payload extras. */
+    private fun buildLaunchIntent(): Intent? {
         val component = packageManager
             .getLaunchIntentForPackage(packageName)
             ?.component
@@ -143,8 +241,6 @@ class SigxFirebaseMessagingService : FirebaseMessagingService() {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or
                 Intent.FLAG_ACTIVITY_CLEAR_TOP or
                 Intent.FLAG_ACTIVITY_SINGLE_TOP
-            putExtra(PushActivityHook.EXTRA_NOTIFICATION_TAP, true)
-            for ((k, v) in data) putExtra("${PushActivityHook.SIGX_DATA_PREFIX}$k", v)
         }
     }
 
