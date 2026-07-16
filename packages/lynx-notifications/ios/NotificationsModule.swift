@@ -79,7 +79,12 @@ class NotificationsModule: NSObject, LynxModule {
             var identifiers = [notificationId]
             for notification in delivered where notification.request.trigger is UNPushNotificationTrigger {
                 let info = notification.request.content.userInfo
-                let payloadId = (info["notification_id"] as? String) ?? (info["notificationId"] as? String)
+                // String-coerce like extractData — senders may encode the id
+                // as a JSON number, which arrives as NSNumber.
+                var payloadId: String? = nil
+                if let raw = info["notification_id"] ?? info["notificationId"], !(raw is NSNull) {
+                    payloadId = "\(raw)"
+                }
                 if payloadId == notificationId {
                     identifiers.append(notification.request.identifier)
                 }

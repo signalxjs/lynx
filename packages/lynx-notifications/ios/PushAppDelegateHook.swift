@@ -77,7 +77,9 @@ import UserNotifications
             // already by the foreground / response handlers.
             if key == "aps" { continue }
             if key == "notification_id" || key == "notificationId" {
-                if let s = v as? String { notificationId = s }
+                // String-coerce like the data values below — senders may
+                // encode the id as a JSON number, which arrives as NSNumber.
+                if !(v is NSNull) { notificationId = "\(v)" }
                 continue
             }
             data[key] = "\(v)"
