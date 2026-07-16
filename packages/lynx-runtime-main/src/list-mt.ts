@@ -165,7 +165,8 @@ function warnIfNotListItemRoot(inst: MTSnapshotInstance): void {
   if (tag !== 'list-item') {
     console.log(
       `[sigx-mt] list cell template "${inst.type}" roots at <${tag}>, not <list-item> — `
-        + 'it will not paint. renderItem must return a <list-item> element under templateCells.',
+        + 'it will not paint. A snapshot list cell must have <list-item> as its '
+        + 'template root (e.g. renderItem under templateCells, or raw <list> JSX children).',
     );
   }
 }
