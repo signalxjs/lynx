@@ -39,6 +39,7 @@
 // then `tsgo --emitDeclarationOnly` for the .d.ts surface.
 
 import { createRequire } from 'node:module';
+import { fileURLToPath } from 'node:url';
 import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 
@@ -46,7 +47,7 @@ import { dirname, join, relative, resolve, sep } from 'node:path';
 // path — its exports map hides package.json from module resolution) so the
 // dist is stamped by the exact same (pinned) transform version the app
 // loaders run.
-const scriptsDir = dirname(new URL(import.meta.url).pathname);
+const scriptsDir = dirname(fileURLToPath(import.meta.url));
 const pluginRequire = createRequire(
     resolve(scriptsDir, '../packages/lynx-plugin/package.json'),
 );
@@ -245,6 +246,18 @@ for (const abs of walk(srcDir)) {
                 throw new Error(`[snapshot-dist] ${relPosix}: namespace local diverged between targets (${jsNs} vs ${lepusNs})`);
             }
             const assignments = sliceCreatorAssignments(lepus.code, lepusNs);
+            // Completeness invariant: every template the LEPUS output
+            // registers must be sliced. A partial slice would silently ship
+            // a dist whose null-body registrations lack their real-body
+            // overwrites — MT materialization would throw at render time,
+            // far from the cause. Fail the BUILD instead.
+            const lepusIds = new Set(lepus.code.match(/snapshotCreatorMap\[(?:__snapshot_[A-Za-z0-9_]+)\]/g) ?? []);
+            if (assignments.length !== lepusIds.size) {
+                throw new Error(
+                    `[snapshot-dist] ${relPosix}: sliced ${assignments.length} registrations `
+                    + `but the LEPUS output registers ${lepusIds.size} — scanner edge case; refusing to emit`,
+                );
+            }
             // Every assignment's template id must already be declared by the
             // JS module code (same source, same ids) — a miss means the
             // slicing or the id contract broke.
