@@ -203,6 +203,28 @@ describe('staged-aware scroll-to-section (#666)', () => {
         expect(scrollCalls).toEqual([[sectionRowIndex(BIG, 'cat-b'), SCROLL_METHOD]]);
     });
 
+    it('an itemsKey swap cancels a parked scroll; a fresh tap after it works', async () => {
+        scrollCalls.length = 0;
+        const state = signal<{ sections: EmojiSection[]; key: string }>({ sections: BIG, key: 'one' });
+        const handle: EmojiGridScrollHandle = { current: null };
+        const Harness = component(() => () => (
+            <EmojiGrid sections={state.sections} itemsKey={state.key} scrollHandle={handle} />
+        ));
+        const { container } = render(<Harness />);
+        await act(() => {});
+        handle.current!('cat-c');            // parked: beyond the initial slice
+        await act(() => { state.$set({ sections: ALT, key: 'two' }); });
+        await settleStaging();
+        // The old dataset's parked intent must NOT fire against the new one.
+        expect(scrollCalls).toEqual([]);
+        // A fresh tap on the new dataset still scrolls.
+        handle.current!('cat-y');
+        await new Promise((r) => setTimeout(r, 60));
+        await act(() => {});
+        expect(scrollCalls).toEqual([[sectionRowIndex(ALT, 'cat-y'), SCROLL_METHOD]]);
+        void container;
+    });
+
     it('genuine manual scrolling cancels a parked target', async () => {
         scrollCalls.length = 0;
         const { handle, container } = mountGrid(BIG);

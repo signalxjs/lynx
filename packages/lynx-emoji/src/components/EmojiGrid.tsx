@@ -436,6 +436,14 @@ export const EmojiGrid = component<EmojiGridProps>(({ props, emit }) => {
             if (stageKey !== stagedKey) {
                 stagedKey = stageKey;
                 driver.reset();
+                // A parked/queued section scroll belongs to the OLD dataset —
+                // its key may not exist (or mean something else) in the new
+                // one. Cancel the intent along with the staging.
+                pendingScrollKey = null;
+                if (pendingFireTimer !== undefined) {
+                    clearTimeout(pendingFireTimer);
+                    pendingFireTimer = undefined;
+                }
             }
             const stagedCount = Math.min(stagedRows.value, rows.length);
             const items = stagedCount < rows.length ? rows.slice(0, stagedCount) : rows;
