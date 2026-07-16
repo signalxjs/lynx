@@ -68,10 +68,14 @@ export type EmojiGridProps =
      */
     & Define.Prop<'sections', readonly EmojiSection[], false>
     /**
-     * Identity of the `emojis` dataset — change it when the grid is handed a
-     * *different* dataset (a new search query) so the grid re-anchors to the
-     * top instead of keeping the old scroll position. Omit for in-place
-     * updates to the same dataset.
+     * Dataset identity. Flat mode: change it when the grid is handed a
+     * *different* `emojis` dataset (a new search query) so the grid
+     * re-anchors to the top instead of keeping the old scroll position; omit
+     * for in-place updates. Sectioned mode: keys the internal row/offset
+     * cache — `sections` content is treated as FIXED per key (hand the grid
+     * a new key for a different sections dataset). No re-anchor in sectioned
+     * mode: List's re-anchor machinery would claim the native element's
+     * single main-thread ref and starve `mtRef` (scroll-to-section).
      */
     & Define.Prop<'itemsKey', string, false>
     /** Capture the native `<list>` element — for imperative scroll-to-section. */
