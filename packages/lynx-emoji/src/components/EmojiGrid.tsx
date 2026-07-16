@@ -1,5 +1,12 @@
-import { component, signal, type Define } from '@sigx/lynx';
-import { List, type ListRef } from '@sigx/lynx-list';
+import {
+    component,
+    runOnMainThread,
+    signal,
+    useMainThreadRef,
+    type Define,
+    type MainThread,
+} from '@sigx/lynx';
+import { List, SCROLL_METHOD, type ListRef } from '@sigx/lynx-list';
 import type { EmojiDatum, SkinTone } from '../data/schema.js';
 import { glyphForTone } from '../data/glyph.js';
 import type { EmojiRenderCell } from '../types.js';
@@ -54,6 +61,15 @@ export function sectionStartOffsets(
     }
     return offsets;
 }
+
+/**
+ * Ref-like channel for imperative section scrolls — the GRID owns the scroll
+ * because only it knows how much of the dataset is staged (#666): a raw
+ * `scrollToPosition` at an unstaged index is silently DROPPED by native, so
+ * a fast tab tap right after open would die. The grid registers its
+ * staged-aware handler here at setup; owners call `current?.(sectionKey)`.
+ */
+export type EmojiGridScrollHandle = { current: ((sectionKey: string) => void) | null };
 
 /** Rows staged synchronously at mount — ~2.5 viewports at default sizing. */
 const STAGE_INITIAL = 240;
@@ -137,6 +153,14 @@ export type EmojiGridProps =
     & Define.Prop<'itemsKey', string, false>
     /** Capture the native `<list>` element — for imperative scroll-to-section. */
     & Define.Prop<'mtRef', ListRef, false>
+    /**
+     * Sectioned mode: registers the grid's STAGED-AWARE scroll-to-section
+     * handler (see {@link EmojiGridScrollHandle}). Prefer this over raw
+     * `ListMethods.scrollToIndex` — a target beyond the staged rows becomes
+     * a pending scroll that fires the moment staging reaches it (latest
+     * request wins; a manual scroll cancels it).
+     */
+    & Define.Prop<'scrollHandle', EmojiGridScrollHandle, false>
     /**
      * Known height (px) of the grid's box, used to lay the native list out at
      * full size on its very first frame (forwarded to
@@ -298,6 +322,54 @@ export const EmojiGrid = component<EmojiGridProps>(({ props, emit }) => {
     const stagedRows = driver.staged;
     let stagedKey = '';
 
+    // Staged-aware scroll-to-section (#666). The MT invoke is inlined and
+    // `method` passed as an ARG: worklet `_c` capture does not carry
+    // imported function refs, so `ListMethods.*` in here would silently
+    // no-op. The ref the worklet captures is resolved ONCE at setup —
+    // the consumer's `mtRef` when given, else the grid's own.
+    const ownListRef = useMainThreadRef<MainThread.Element | null>(null);
+    const scrollRef = props.mtRef ?? ownListRef;
+    const scrollToRow = runOnMainThread((rowIndex: number, method: string) => {
+        'main thread';
+        const el = scrollRef.current;
+        if (!el || rowIndex < 0) return;
+        const p = el.invoke(method, { position: rowIndex, alignTo: 'top', offset: 0, smooth: false });
+        if (p && typeof p.catch === 'function') p.catch(() => { /* stale el: no-op */ });
+    });
+    let pendingScrollKey: string | null = null;
+    let lastScrollOffset = 0;
+    /**
+     * Staged rows needed for an align-top scroll to `row` to LAND there:
+     * the target itself plus a viewport of content below it — with less,
+     * native clamps to the staged bottom and the header sits mid-screen.
+     * (Capped at the full row count: the tail sections can never have a
+     * whole viewport below them.)
+     */
+    const stagedNeededFor = (row: number, sections: readonly EmojiSection[]): number => {
+        const cols = props.columns ?? 8;
+        const viewportPx = frozenInitialHeight ?? 640;
+        const slack = (Math.ceil(viewportPx / emojiRowPx(props.cellSize)) + 1) * cols;
+        const total = sections.length + sections.reduce((n, sec) => n + sec.emojis.length, 0);
+        return Math.min(total, row + slack);
+    };
+    const requestSectionScroll = (key: string): void => {
+        const sections = props.sections;
+        if (!sections) return;
+        const row = sectionRowIndex(sections, key);
+        if (row < 0) return;
+        if (stagedNeededFor(row, sections) <= stagedRows.value) {
+            pendingScrollKey = null;
+            void scrollToRow(row, SCROLL_METHOD);
+        } else {
+            // Not enough staged content for the jump to land: native would
+            // DROP or clamp the scroll. Park it; the render pass that stages
+            // far enough fires it (latest request wins, manual scrolling
+            // cancels).
+            pendingScrollKey = key;
+        }
+    };
+    if (props.scrollHandle) props.scrollHandle.current = requestSectionScroll;
+
     // `initialHeight` sizes the list's FIRST frame only — but the measuring
     // region keeps reporting slightly different heights as siblings settle
     // (633 -> 607 -> 610 on device), and every change would re-render List
@@ -315,6 +387,13 @@ export const EmojiGrid = component<EmojiGridProps>(({ props, emit }) => {
 
     let lastActive: string | null = null;
     const onScroll = (offset: number): void => {
+        // Genuine user movement while a section scroll is parked = the user
+        // changed their mind; drop the pending target (repeat offsets from
+        // native's throttled stream don't count).
+        if (pendingScrollKey !== null && Math.abs(offset - lastScrollOffset) > 4) {
+            pendingScrollKey = null;
+        }
+        lastScrollOffset = offset;
         const sections = props.sections;
         if (!sections || sections.length === 0) return;
         const { offsets } = composed(sections, props.columns ?? 8);
@@ -349,6 +428,18 @@ export const EmojiGrid = component<EmojiGridProps>(({ props, emit }) => {
             const stagedCount = Math.min(stagedRows.value, rows.length);
             const items = stagedCount < rows.length ? rows.slice(0, stagedCount) : rows;
             if (stagedCount < rows.length) driver.ensure(rows.length);
+            if (pendingScrollKey !== null) {
+                const row = sectionRowIndex(sections, pendingScrollKey);
+                if (row < 0) {
+                    pendingScrollKey = null;
+                } else if (stagedNeededFor(row, sections) <= stagedCount) {
+                    pendingScrollKey = null;
+                    // One macrotask later: the slice's ops batch (and its
+                    // update-list-info) must reach native BEFORE the scroll
+                    // or the index is still out of range and dropped.
+                    setTimeout(() => { void scrollToRow(row, SCROLL_METHOD); }, 32);
+                }
+            }
             return (
                 <List
                     items={items}
@@ -364,7 +455,7 @@ export const EmojiGrid = component<EmojiGridProps>(({ props, emit }) => {
                     listType="flow"
                     numColumns={props.columns ?? 8}
                     sticky
-                    mtRef={props.mtRef}
+                    mtRef={scrollRef}
                     class={props.class}
                     style={props.style}
                     onScroll={onListScroll}

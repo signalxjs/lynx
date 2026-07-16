@@ -1,13 +1,4 @@
-import {
-    component,
-    runOnMainThread,
-    signal,
-    useElementLayout,
-    useMainThreadRef,
-    type Define,
-    type MainThread,
-} from '@sigx/lynx';
-import { SCROLL_METHOD } from '@sigx/lynx-list';
+import { component, signal, useElementLayout, type Define } from '@sigx/lynx';
 import type { EmojiData, EmojiDatum, SkinTone } from '../data/schema.js';
 import { glyphForTone } from '../data/glyph.js';
 import { createEmojiContext, useEmojiContext, type EmojiContextValue } from '../state/context.js';
@@ -21,7 +12,7 @@ import type {
     EmojiTab,
 } from '../types.js';
 import { CategoryTabBar, type CategoryTabEntry } from './CategoryTabBar.js';
-import { EmojiGrid, sectionRowIndex, type EmojiSection } from './EmojiGrid.js';
+import { EmojiGrid, type EmojiGridScrollHandle, type EmojiSection } from './EmojiGrid.js';
 import { SearchInput } from './SearchInput.js';
 import { SkinTonePopover } from './SkinTonePopover.js';
 
@@ -170,19 +161,11 @@ export const EmojiPicker = component<EmojiPickerProps>(({ props, emit }) => {
     const tab = signal('');
     const popover = signal<{ datum: EmojiDatum | null }>({ datum: null });
 
-    // Tab taps SCROLL the one sectioned list — no grid re-mount (#662; the
-    // pre-sectioned picker swapped a per-category grid per tap). The invoke
-    // is inlined and `method` passed as an ARG: worklet `_c` capture does not
-    // carry imported function refs, so calling `ListMethods.*` in here would
-    // silently no-op.
-    const listRef = useMainThreadRef<MainThread.Element | null>(null);
-    const scrollToSection = runOnMainThread((rowIndex: number, method: string) => {
-        'main thread';
-        const el = listRef.current;
-        if (!el || rowIndex < 0) return;
-        const p = el.invoke(method, { position: rowIndex, alignTo: 'top', offset: 0, smooth: false });
-        if (p && typeof p.catch === 'function') p.catch(() => { /* stale el: no-op */ });
-    });
+    // Tab taps SCROLL the one sectioned list — no grid re-mount (#662). The
+    // GRID owns the actual scroll (it alone knows how many rows are staged;
+    // a raw scroll at an unstaged index would be dropped by native, #666) —
+    // it registers its staged-aware handler on this handle at setup.
+    const gridScroll: EmojiGridScrollHandle = { current: null };
 
     // Per-element style objects, cached per key — identity-stable across
     // renders AND unique per element (see the template note above / #603).
@@ -217,8 +200,7 @@ export const EmojiPicker = component<EmojiPickerProps>(({ props, emit }) => {
     function selectTab(key: string): void {
         tab.value = key;
         popover.datum = null;
-        const row = sectionRowIndex(sectionsFor(), key);
-        if (row >= 0) void scrollToSection(row, SCROLL_METHOD);
+        gridScroll.current?.(key);
     }
 
     function pick(datum: EmojiDatum, tone: SkinTone): void {
@@ -302,7 +284,7 @@ export const EmojiPicker = component<EmojiPickerProps>(({ props, emit }) => {
             <EmojiGrid
                 sections={secs}
                 itemsKey={sectionsKey}
-                mtRef={listRef}
+                scrollHandle={gridScroll}
                 initialHeight={regionHeight > 0 ? regionHeight : undefined}
                 tone={tone}
                 columns={props.columns}
