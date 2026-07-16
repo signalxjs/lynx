@@ -72,8 +72,12 @@ export const EmojiCell = component<EmojiCellProps>(({ props, emit }) => {
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    paddingTop: '6px',
-                    paddingBottom: '6px',
+                    // Height is PINNED to the estimate (not padding-derived):
+                    // the native size estimate and the sectioned grid's
+                    // scroll-offset math both assume emojiRowPx exactly —
+                    // measured drift (~45px real vs 50 estimated) made
+                    // tab-follow lag whole sections (#663 device gate).
+                    height: `${estRowPx()}px`,
                 }}
             >
                 {props.render(props.datum, props.glyph)}
@@ -94,8 +98,12 @@ export const EmojiCell = component<EmojiCellProps>(({ props, emit }) => {
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    paddingTop: '6px',
-                    paddingBottom: '6px',
+                    // Height is PINNED to the estimate (not padding-derived):
+                    // the native size estimate and the sectioned grid's
+                    // scroll-offset math both assume emojiRowPx exactly —
+                    // measured drift (~45px real vs 50 estimated) made
+                    // tab-follow lag whole sections (#663 device gate).
+                    height: `${estRowPx()}px`,
                 }}
             >
                 <text style={{ fontSize: props.size ?? 32 }} text={props.glyph} />
