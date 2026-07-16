@@ -38,9 +38,9 @@
         "url": "https://github.com/signalxjs/lynx/issues"
     },
     "dependencies": {
-        "@lynx-js/react": "0.121.0",
+        "@lynx-js/react": "0.123.0",
         "@sigx/lynx-runtime-internal": "workspace:*",
-        "ws": "^8.20.1"
+        "ws": "^8.21.1"
     },
     "peerDependencies": {
         "@rspack/core": ">=1.0.0",

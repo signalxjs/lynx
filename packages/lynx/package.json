@@ -53,8 +53,8 @@
         "@sigx/lynx-http": "workspace:^",
         "@sigx/lynx-runtime": "workspace:^",
         "@sigx/lynx-runtime-internal": "workspace:^",
-        "@sigx/reactivity": "^0.7.0",
-        "@sigx/runtime-core": "^0.7.0"
+        "@sigx/reactivity": "^0.10.0",
+        "@sigx/runtime-core": "^0.10.0"
     },
     "devDependencies": {
         "@typescript/native-preview": "7.0.0-dev.20260521.1",

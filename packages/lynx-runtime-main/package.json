@@ -60,7 +60,7 @@
     "devDependencies": {
         "@lynx-js/types": "^3.9.0",
         "@sigx/lynx-runtime": "workspace:*",
-        "@sigx/runtime-core": "^0.7.0",
+        "@sigx/runtime-core": "^0.10.0",
         "@typescript/native-preview": "7.0.0-dev.20260521.1",
         "typescript": "^6.0.3"
     },
