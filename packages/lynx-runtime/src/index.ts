@@ -7,6 +7,11 @@
 // expose (e.g. queueMicrotask). Imported before everything else so its globals
 // are in place before any other module's side effects. See signalxjs/lynx#296.
 import './install-globals.js';
+// Side-effect: tell core this runtime is a live client, not a server render.
+// Must precede any component setup that calls `useData`/`useAction` — core
+// skips the fetcher entirely when `isLiveClient()` is false, and its fallback
+// (`typeof window`) is false on the BG thread. See ./live-client.ts.
+import './live-client.js';
 import './jsx.js';
 import './types.js';
 import './model-processor.js';
