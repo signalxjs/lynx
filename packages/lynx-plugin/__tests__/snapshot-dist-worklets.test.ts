@@ -17,7 +17,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { afterAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 const SCRIPT = resolve(
   fileURLToPath(new URL('.', import.meta.url)),
@@ -48,22 +48,24 @@ export function Cell(props: { label: string }) {
 }
 `;
 
-const fixture = mkdtempSync(join(tmpdir(), 'sigx-dist-wklt-'));
-afterAll(() => rmSync(fixture, { recursive: true, force: true }));
+// Fixture emission happens in beforeAll — NOT at module scope: Vitest
+// evaluates test modules during discovery, and spawning the build script
+// there would run it even for filtered-out test runs.
+let fixture = '';
+let helper = '';
+let cell = '';
 
-function emitFixture(): { helper: string; cell: string } {
+beforeAll(() => {
+  fixture = mkdtempSync(join(tmpdir(), 'sigx-dist-wklt-'));
   writeFileSync(join(fixture, 'package.json'), JSON.stringify({ name: '@sigx/fixture-dist' }));
   mkdirSync(join(fixture, 'src'), { recursive: true });
   writeFileSync(join(fixture, 'src', 'helper.ts'), HELPER_SRC);
   writeFileSync(join(fixture, 'src', 'Cell.tsx'), CELL_SRC);
   execFileSync(process.execPath, [SCRIPT], { cwd: fixture, stdio: 'pipe' });
-  return {
-    helper: readFileSync(join(fixture, 'dist', 'helper.js'), 'utf8'),
-    cell: readFileSync(join(fixture, 'dist', 'Cell.js'), 'utf8'),
-  };
-}
-
-const { helper, cell } = emitFixture();
+  helper = readFileSync(join(fixture, 'dist', 'helper.js'), 'utf8');
+  cell = readFileSync(join(fixture, 'dist', 'Cell.js'), 'utf8');
+});
+afterAll(() => { if (fixture) rmSync(fixture, { recursive: true, force: true }); });
 
 /** The appended registration block (everything from the #664 banner on). */
 function registrationBlock(dist: string): string {

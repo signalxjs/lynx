@@ -247,18 +247,22 @@ function stripJsComments(code) {
 function sliceWorkletRegistrations(rawCode) {
     const code = stripJsComments(rawCode);
     const out = [];
-    const gate = '__workletRuntimeLoaded && ';
-    const marker = `${gate}registerWorkletInternal(`;
+    const callee = 'registerWorkletInternal(';
     let from = 0;
     while (true) {
-        const idx = code.indexOf(marker, from);
+        const idx = code.indexOf(callee, from);
         if (idx === -1) break;
-        const callOpen = idx + marker.length - 1;
+        from = idx + callee.length;
+        // Only registration STATEMENTS behind the runtime gate count —
+        // whitespace-tolerant so upstream formatting changes can't silently
+        // skip one (the id invariant below would still catch it loudly).
+        if (!/__workletRuntimeLoaded\s*&&\s*$/.test(code.slice(Math.max(0, idx - 64), idx))) continue;
+        const callOpen = idx + callee.length - 1;
         const callClose = scanBalanced(code, callOpen);
         if (callClose === -1) break;
         let end = callClose + 1;
         if (end < code.length && code[end] === ';') end++;
-        out.push(code.slice(idx + gate.length, end));
+        out.push(code.slice(idx, end));
         from = end;
     }
     return out;
