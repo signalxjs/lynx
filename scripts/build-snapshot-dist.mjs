@@ -175,8 +175,68 @@ function detectSnapshotNamespace(code) {
     return m ? m[1] : null;
 }
 
+/**
+ * Strip comments (string/template-aware) before slicing — SWC preserves
+ * JSDoc, and comment text mentioning the marker tokens would desync
+ * indexOf-based slicing. Mirror of the loaders' stripper.
+ */
+function stripJsComments(code) {
+    let out = '';
+    let i = 0;
+    const n = code.length;
+    while (i < n) {
+        const c = code[i];
+        const next = code[i + 1];
+        if (c === '/' && next === '/') {
+            while (i < n && code[i] !== '\n') i++;
+            out += ' ';
+            continue;
+        }
+        if (c === '/' && next === '*') {
+            i += 2;
+            while (i < n && !(code[i] === '*' && code[i + 1] === '/')) {
+                if (code[i] === '\n') out += '\n';
+                i++;
+            }
+            i += 2;
+            out += ' ';
+            continue;
+        }
+        if (c === "'" || c === '"') {
+            out += c;
+            i++;
+            while (i < n && code[i] !== c) {
+                if (code[i] === '\\') { out += code[i]; i++; }
+                if (i < n) { out += code[i]; i++; }
+            }
+            if (i < n) { out += code[i]; i++; }
+            continue;
+        }
+        if (c === '`') {
+            out += c;
+            i++;
+            let depth = 0;
+            while (i < n) {
+                if (code[i] === '\\') { out += code[i] + (code[i + 1] ?? ''); i += 2; continue; }
+                if (code[i] === '$' && code[i + 1] === '{') { depth++; out += '${'; i += 2; continue; }
+                if (code[i] === '{' && depth > 0) { depth++; out += '{'; i++; continue; }
+                if (code[i] === '}' && depth > 0) { depth--; out += '}'; i++; continue; }
+                if (code[i] === '`' && depth === 0) break;
+                out += code[i];
+                i++;
+            }
+            if (i < n) { out += code[i]; i++; }
+            continue;
+        }
+        out += c;
+        i++;
+    }
+    return out;
+}
+
 /** Slice `<ns>.snapshotCreatorMap[…] = …createSnapshot(…);` assignments. */
-function sliceCreatorAssignments(code, ns) {
+function sliceCreatorAssignments(rawCode, ns) {
+    const code = stripJsComments(rawCode);
     const out = [];
     const marker = `${ns}.snapshotCreatorMap[`;
     let from = 0;
@@ -251,7 +311,7 @@ for (const abs of walk(srcDir)) {
             // a dist whose null-body registrations lack their real-body
             // overwrites — MT materialization would throw at render time,
             // far from the cause. Fail the BUILD instead.
-            const lepusIds = new Set(lepus.code.match(/snapshotCreatorMap\[(?:__snapshot_[A-Za-z0-9_]+)\]/g) ?? []);
+            const lepusIds = new Set(stripJsComments(lepus.code).match(/snapshotCreatorMap\[(?:__snapshot_[A-Za-z0-9_]+)\]/g) ?? []);
             if (assignments.length !== lepusIds.size) {
                 throw new Error(
                     `[snapshot-dist] ${relPosix}: sliced ${assignments.length} registrations `

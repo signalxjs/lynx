@@ -47,7 +47,15 @@ beforeEach(() => {
 });
 
 describe('shipped dist templates', () => {
-  it.skipIf(!existsSync(DIST_CELL))('EmojiCell.js registers real-body templates that materialize', async () => {
+  it('EmojiCell.js registers real-body templates that materialize', async () => {
+    // Fail loudly rather than skip: a missing dist means the e2e coverage
+    // silently vanishes. CI (and `pnpm test` per repo convention) builds
+    // before testing.
+    if (!existsSync(DIST_CELL)) {
+      throw new Error(
+        'dist/components/EmojiCell.js missing — run `pnpm build` (or `pnpm --filter @sigx/lynx-emoji build`) before the test suite',
+      );
+    }
     await import(/* @vite-ignore */ DIST_CELL.href);
     const ids = Object.keys(snapshotCreatorMap);
     expect(ids.length).toBeGreaterThan(0);
