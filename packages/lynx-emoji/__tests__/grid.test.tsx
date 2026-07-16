@@ -99,6 +99,11 @@ async function measureRegion(container: unknown): Promise<void> {
         await new Promise((r) => setTimeout(r, 0));
         await act(() => { fire(container as TestNode); });
     }
+    // Never stabilized = a hydration/measure/staging regression. Fail LOUDLY
+    // — a silent return here would let downstream assertions flake instead.
+    throw new Error(
+        `measureRegion: staged row count never stabilized within the retry budget (last saw ${last} list-items)`,
+    );
 }
 
 describe('EmojiGrid (template cells, #649)', () => {

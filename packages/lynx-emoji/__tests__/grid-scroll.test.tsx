@@ -26,10 +26,10 @@ vi.mock('@sigx/lynx', async (importOriginal) => {
     };
 });
 
-import { component } from '@sigx/lynx';
+import { component, signal } from '@sigx/lynx';
 import { SCROLL_METHOD } from '@sigx/lynx-list';
-import { render, getByType, act } from '@sigx/lynx-testing';
-import { EmojiGrid, sectionRowIndex, type EmojiGridScrollHandle, type EmojiSection } from '../src/components/EmojiGrid';
+import { render, getAllByType, getByType, act } from '@sigx/lynx-testing';
+import { createStagingDriver, EmojiGrid, sectionRowIndex, type EmojiGridScrollHandle, type EmojiSection } from '../src/components/EmojiGrid';
 import type { EmojiDatum } from '../src/data/schema';
 
 const makeEmojis = (prefix: string, n: number): EmojiDatum[] =>
@@ -65,6 +65,52 @@ async function settleStaging(): Promise<void> {
         await act(() => {});
     }
 }
+
+const ALT: EmojiSection[] = [
+    { key: 'cat-x', label: 'x', emojis: makeEmojis('X', 300) },
+    { key: 'cat-y', label: 'y', emojis: makeEmojis('Y', 40) },
+];
+
+describe('staging driver reset (#666 review)', () => {
+    it('reset() cancels the in-flight slice — no stale mutation lands', async () => {
+        const d = createStagingDriver(240);
+        d.ensure(1990);                      // slice scheduled for dataset A
+        d.reset();                           // dataset swapped mid-flight
+        await new Promise((r) => setTimeout(r, 15));
+        // Without cancellation the stale slice would have grown this.
+        expect(d.staged.value).toBe(240);
+        // And the new dataset's staging is NOT blocked by a stuck pending flag.
+        d.ensure(500);
+        await new Promise((r) => setTimeout(r, 15));
+        expect(d.staged.value).toBeGreaterThan(240);
+    });
+
+    it('an itemsKey swap mid-staging restarts staging on the new dataset only', async () => {
+        const state = signal<{ sections: EmojiSection[]; key: string }>({ sections: BIG, key: 'one' });
+        const Harness = component(() => () => (
+            <EmojiGrid sections={state.sections} itemsKey={state.key} />
+        ));
+        const { container } = render(<Harness />);
+        await act(() => {});
+        // Mid-staging: some rows staged, dataset not complete.
+        const midCount = getAllByType(container, 'list-item').length;
+        expect(midCount).toBeGreaterThan(0);
+        expect(midCount).toBeLessThan(BIG.length + BIG.reduce((n, s) => n + s.emojis.length, 0));
+        // Swap the dataset while a slice is in flight. (The count right after
+        // the swap races the NEW dataset's first legit slice, so assert on
+        // dataset identity, not an exact number.)
+        await act(() => { state.$set({ sections: ALT, key: 'two' }); });
+        const afterSwap = getAllByType(container, 'list-item');
+        expect(afterSwap.length).toBeGreaterThan(0);
+        for (const cell of afterSwap) {
+            expect(String(cell.props['item-key'])).toMatch(/^(hdr:cat-[xy]|cat-[xy]:)/);
+        }
+        // Staging then completes for exactly the new dataset.
+        await settleStaging();
+        expect(getAllByType(container, 'list-item').length)
+            .toBe(ALT.length + ALT.reduce((n, s) => n + s.emojis.length, 0));
+    });
+});
 
 describe('staged-aware scroll-to-section (#666)', () => {
     it('a staged target scrolls immediately', async () => {

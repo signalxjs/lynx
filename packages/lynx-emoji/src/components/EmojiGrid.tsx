@@ -94,15 +94,14 @@ export function createStagingDriver(initial: number): {
     reset(): void;
 } {
     const staged = signal(initial);
-    let pending = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
     let sliceRows = 96;
     let sliceStartedAt = 0;
     let sliceStartedCount = 0;
     const ensure = (total: number): void => {
-        if (pending || staged.value >= total) return;
-        pending = true;
-        setTimeout(() => {
-            pending = false;
+        if (timer !== undefined || staged.value >= total) return;
+        timer = setTimeout(() => {
+            timer = undefined;
             const now = Date.now();
             // Adapt: wall time of the previous slice (its write + render +
             // reconcile + ops all happen before this macrotask runs) vs the
@@ -122,6 +121,14 @@ export function createStagingDriver(initial: number): {
         staged,
         ensure,
         reset() {
+            // Cancel any in-flight slice FIRST: a stale callback would both
+            // mutate `staged` for the previous dataset and (with only a
+            // pending flag) block the new dataset's first slice from being
+            // scheduled by the same render that reset us.
+            if (timer !== undefined) {
+                clearTimeout(timer);
+                timer = undefined;
+            }
             staged.value = initial;
             sliceStartedAt = 0;
         },
