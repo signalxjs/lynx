@@ -311,11 +311,30 @@ for (const abs of walk(srcDir)) {
             // a dist whose null-body registrations lack their real-body
             // overwrites — MT materialization would throw at render time,
             // far from the cause. Fail the BUILD instead.
-            const lepusIds = new Set(stripJsComments(lepus.code).match(/snapshotCreatorMap\[(?:__snapshot_[A-Za-z0-9_]+)\]/g) ?? []);
+            const strippedLepus = stripJsComments(lepus.code);
+            const lepusIds = new Set(strippedLepus.match(/snapshotCreatorMap\[(?:__snapshot_[A-Za-z0-9_]+)\]/g) ?? []);
             if (assignments.length !== lepusIds.size) {
                 throw new Error(
                     `[snapshot-dist] ${relPosix}: sliced ${assignments.length} registrations `
                     + `but the LEPUS output registers ${lepusIds.size} — scanner edge case; refusing to emit`,
+                );
+            }
+            // `model` two-way binding on an intrinsic element cannot work
+            // inside a template: the element never passes through the
+            // jsx-runtime, so the platform model processor that expands it
+            // to value + bindinput never runs — the directive would ship to
+            // the main thread as a dead `model` attribute (and the input
+            // would never write back, see #650). Detectable right here in
+            // the compiled create/update bodies; fail the BUILD with the
+            // authoring fix instead of shipping a silently broken binding.
+            // First arg may be any simple element expression — an identifier
+            // (`el2`) or a member/index chain (`ctx.__elements[1]`); anything
+            // without commas or parens up to the `"model"` literal counts.
+            if (/__SetAttribute\(\s*[^,()]{1,200}?\s*,\s*["']model["']/.test(strippedLepus)) {
+                throw new Error(
+                    `[snapshot-dist] ${relPosix}: model={...} on an intrinsic element inside a `
+                    + `snapshot template — the model processor cannot run there. Wire it as a `
+                    + `controlled input instead: value={model.value} + bindinput.`,
                 );
             }
             // Every assignment's template id must already be declared by the

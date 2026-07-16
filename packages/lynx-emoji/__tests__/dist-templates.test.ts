@@ -12,6 +12,7 @@ import { existsSync } from 'node:fs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
+  getSnapshotDef,
   isSnapshotType,
   resetSnapshotRegistry,
   setSnapshotPageId,
@@ -19,7 +20,9 @@ import {
 } from '@sigx/lynx-runtime-internal/snapshot';
 import {
   createSnapshotInstance,
+  flushDirtySlots,
   installSnapshotMTHooks,
+  resetSlotStates,
   resetSnapshotInstances,
 } from '@sigx/lynx-runtime-main';
 
@@ -31,6 +34,7 @@ let nextUid = 4000;
 beforeEach(() => {
   resetSnapshotRegistry();
   resetSnapshotInstances();
+  resetSlotStates();
   nextUid = 4000;
   for (const fn of ['__CreateView', '__CreateText', '__CreateElement']) {
     vi.stubGlobal(fn, vi.fn((..._a: unknown[]) => ({ __id: nextUid++, tag: fn }) as FakeEl));
@@ -67,5 +71,48 @@ describe('shipped dist templates', () => {
       expect(() => inst.ensureElements()).not.toThrow();
       expect(inst.__elements!.length).toBeGreaterThan(0);
     }
+  });
+});
+
+describe('EmojiCell template shape (#649)', () => {
+  it('ships a poolable zero-slot list-item cell with tap/longpress event holes', async () => {
+    if (!existsSync(DIST_CELL)) {
+      throw new Error('dist missing — run `pnpm build` first');
+    }
+    // Re-stub creation so elements carry their REAL tag for __GetTag.
+    vi.stubGlobal('__CreateElement', vi.fn((tag: string) => ({ __id: nextUid++, tag }) as FakeEl));
+    const getTag = (el: unknown): string => (el as FakeEl).tag;
+    vi.stubGlobal('__GetTag', vi.fn(getTag));
+    const addEvent = vi.fn();
+    vi.stubGlobal('__AddEvent', addEvent);
+
+    // Cache-busting query: the first test already imported this module, and
+    // the ESM cache would otherwise skip re-running its registrations against
+    // the registry `beforeEach` just reset.
+    await import(/* @vite-ignore */ DIST_CELL.href + '?shape');
+    const ids = Object.keys(snapshotCreatorMap);
+    const defs = ids.map((id) => getSnapshotDef(id)!);
+
+    // Exactly one ZERO-SLOT template — the default glyph cell (poolable);
+    // the render-prop branch is a separate, slot-bearing template.
+    const poolable = defs.filter((d) => !d.slot || d.slot.length === 0);
+    const slotted = defs.filter((d) => d.slot && d.slot.length > 0);
+    expect(poolable).toHaveLength(1);
+    expect(slotted).toHaveLength(1);
+
+    // Both root at <list-item>; the poolable one wires tap + longpress holes.
+    for (const def of defs) {
+      const inst = createSnapshotInstance(nextUid + 500 + defs.indexOf(def), def.uniqID);
+      inst.setValues([
+        { 'item-key': 'k', 'estimated-main-axis-size-px': 50 },
+        'h1', 'h2', 'sig:tap', 'sig:long', 'h5', 'h6', 'h7',
+      ]);
+      inst.ensureElements();
+      expect(getTag(inst.__element_root)).toBe('list-item');
+    }
+    flushDirtySlots();
+    const eventNames = addEvent.mock.calls.map((c) => c[2]);
+    expect(eventNames).toContain('tap');
+    expect(eventNames).toContain('longpress');
   });
 });
