@@ -82,7 +82,19 @@ const toTop = () => { 'main thread'; ListMethods.scrollToTop(ref.current, { smoo
 `ListMethods.scrollToIndex(el, i, { align, offset, smooth })` and
 `scrollToTop(el, { smooth })`. `i` is the **rendered cell index**, not the data
 index — a `header` slot is itself cell 0, so add 1 to a data index when a header
-is present.
+is present. Inside a `runOnMainThread` worklet, inline the `el.invoke(...)`
+call and pass the exported `SCROLL_METHOD` constant as an argument — worklet
+capture doesn't carry imported function refs, so calling `ListMethods.*` there
+would silently no-op.
+
+### Sticky section headers
+
+Pass `sticky` (and optionally `stickyOffset`, px) on the `List` to activate
+sticky positioning for items that declare `sticky-top` / `sticky-bottom`. In
+`templateCells` mode set those (plus `full-span` for grid lists) directly on
+the header's `<list-item>` template — the platform info flows through with the
+template. See `@sigx/lynx-emoji`'s sectioned picker for the full pattern
+(headers + scroll-to-section + a tab bar following the scroll).
 
 ### Pull-to-refresh & load-more
 

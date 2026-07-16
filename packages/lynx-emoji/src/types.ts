@@ -50,6 +50,12 @@ export interface EmojiSlotClasses {
     grid?: string;
     /** One emoji cell. */
     cell?: string;
+    /**
+     * A sticky category header row in the sectioned grid. The headless
+     * fallback has NO background — themes should provide one, or content
+     * scrolls visibly under the pinned header.
+     */
+    sectionHeader?: string;
     /** The empty-state row (no recents / no search hits). */
     empty?: string;
     /** Skin-tone popover backdrop. */

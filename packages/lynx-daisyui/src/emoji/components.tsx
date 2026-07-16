@@ -15,6 +15,8 @@ export const emojiClasses: EmojiSlotClasses = {
     tabBar: 'px-2 pb-1 border-b border-base-300',
     tab: 'rounded-lg',
     tabActive: 'bg-base-300',
+    // Sticky section headers need an opaque background (h-7 = HEADER_PX 28).
+    sectionHeader: 'bg-base-100 h-7 px-3 flex items-center',
     popover: 'bg-base-100 border border-base-300 rounded-xl shadow-lg px-1 py-1',
     popoverCell: 'rounded-lg',
     empty: 'opacity-60',

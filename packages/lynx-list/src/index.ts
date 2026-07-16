@@ -6,7 +6,7 @@
 // feeds and grids.
 
 export { List } from './List.js';
-export { ListMethods } from './methods.js';
+export { ListMethods, SCROLL_METHOD } from './methods.js';
 export type { ScrollToIndexOptions } from './methods.js';
 export type {
   ListProps,

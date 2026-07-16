@@ -15,8 +15,20 @@ Full guides, API reference and live examples → **[https://sigx.dev/lynx/module
   `CategoryTabBar` / `SkinTonePopover` yourself. Theme via the
   `classes` slot map and render props; `@sigx/lynx-daisyui` ships a skin
   (`emojiClasses`, `EmojiPickerSheet`).
+- **One continuous sectioned grid (WhatsApp-style)** — the picker is a single
+  scroll over *every* category with a sticky header per section: a category
+  tab tap **scrolls** to the section (no grid re-mount), and the active tab
+  follows as you scroll. Recents (when any exist at mount) are the first
+  section, snapshotted per mount so a pick doesn't reorder the grid under
+  your thumb; with no recents the tab is hidden too. Theme headers via
+  `classes.sectionHeader` (the headless fallback has no background — themes
+  should give the sticky header one) and label the recents section with
+  `recentsLabel`. Headless `EmojiGrid` users get the same via `sections`
+  (plus `sectionRowIndex`/`sectionStartOffsets` for scroll targets and the
+  `activeSection` event for a following tab bar); search results still use
+  the flat `emojis` mode.
 - **Template grid** — a `List` (`@sigx/lynx-list`) in flow layout running
-  snapshot-template cells: the full category ships as staged row records, the
+  snapshot-template cells: the full dataset ships as staged row records, the
   main thread builds each cell synchronously the moment the native recycler
   pulls it, and offscreen cells recycle through the template pool — no
   windowing, no per-cell background rendering on scroll. Passing `renderCell`

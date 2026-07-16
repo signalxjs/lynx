@@ -60,6 +60,15 @@ export type ListProps<T = unknown> =
   /** Snap items to an edge during paginated scroll (`item-snap`). */
   & Define.Prop<'itemSnap', ListItemSnap, false>
   /**
+   * Enable sticky positioning for items carrying `sticky-top`/`sticky-bottom`
+   * (native `sticky` attr) — section headers in a sectioned list. In
+   * `templateCells` mode set the per-item sticky attrs directly on the
+   * `<list-item>` template.
+   */
+  & Define.Prop<'sticky', boolean, false>
+  /** Pixel offset sticky items pin at (native `sticky-offset`). Default 0. */
+  & Define.Prop<'stickyOffset', number, false>
+  /**
    * Fire `endReached` when this many items remain below the viewport
    * (`lower-threshold-item-count`). Defaults to the native default.
    */

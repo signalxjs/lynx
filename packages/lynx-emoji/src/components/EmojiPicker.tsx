@@ -1,4 +1,13 @@
-import { component, signal, useElementLayout, type Define } from '@sigx/lynx';
+import {
+    component,
+    runOnMainThread,
+    signal,
+    useElementLayout,
+    useMainThreadRef,
+    type Define,
+    type MainThread,
+} from '@sigx/lynx';
+import { SCROLL_METHOD } from '@sigx/lynx-list';
 import type { EmojiData, EmojiDatum, SkinTone } from '../data/schema.js';
 import { glyphForTone } from '../data/glyph.js';
 import { createEmojiContext, useEmojiContext, type EmojiContextValue } from '../state/context.js';
@@ -12,7 +21,7 @@ import type {
     EmojiTab,
 } from '../types.js';
 import { CategoryTabBar, type CategoryTabEntry } from './CategoryTabBar.js';
-import { EmojiGrid } from './EmojiGrid.js';
+import { EmojiGrid, sectionRowIndex, type EmojiSection } from './EmojiGrid.js';
 import { SearchInput } from './SearchInput.js';
 import { SkinTonePopover } from './SkinTonePopover.js';
 
@@ -32,6 +41,8 @@ export type EmojiPickerProps =
     & Define.Prop<'searchPlaceholder', string, false>
     /** Shown when the current slice is empty (no recents yet / no search hits). */
     & Define.Prop<'emptyLabel', string, false>
+    /** Header label of the recents section. Default `'Recently used'`. */
+    & Define.Prop<'recentsLabel', string, false>
     /** Glyph font size in grid cells. Default 32. */
     & Define.Prop<'cellSize', number, false>
     /** Per-slot class overrides — the theming surface. */
@@ -77,10 +88,12 @@ const CATEGORY_GLYPHS: Record<string, string> = {
 };
 
 /**
- * The headless emoji picker — search row, category tab bar, recycled glyph
- * grid, skin-tone long-press popover, persistent recents. Unstyled beyond
- * neutral fallbacks; theme via `classes`/render props (see `EmojiSlotClasses`)
- * or use a themed wrapper like daisyui's `EmojiPickerSheet`.
+ * The headless emoji picker — search row, category tab bar, ONE continuous
+ * sectioned glyph grid (WhatsApp-style: sticky headers, a tab tap scrolls to
+ * its section, the tab highlight follows the scroll), skin-tone long-press
+ * popover, persistent recents. Unstyled beyond neutral fallbacks; theme via
+ * `classes`/render props (see `EmojiSlotClasses`) or use a themed wrapper
+ * like daisyui's `EmojiPickerSheet`.
  *
  * Sizing: the picker is a flex column that fills its container — give it a
  * bounded height (the wrappers in `../wrappers/` do).
@@ -108,19 +121,56 @@ export const EmojiPicker = component<EmojiPickerProps>(({ props, emit }) => {
     }));
 
     const query = signal('');
-    // Split signals: the grid's slice depends on `tab`, the popover overlay
+    // Recents are SNAPSHOTTED at mount (WhatsApp behavior): a pick mid-session
+    // must not reorder the recents section under the user's thumb — the fresh
+    // list shows on the next mount. (`ctx.recents` still updates live for
+    // other surfaces sharing the provider.)
+    const recentsAtMount: EmojiDatum[] = ctx.recents.recents.map((e) => e);
+
+    /**
+     * The sections of the ONE continuous list (#662): recents first (when
+     * enabled and non-empty — an empty recents section would be a dead tab),
+     * then every category. Content is fixed per mount; the grid caches its
+     * row composition against `itemsKey`.
+     */
+    const sectionsFor = (): EmojiSection[] => {
+        const list: EmojiSection[] = [];
+        if ((props.showRecents ?? true) && recentsAtMount.length > 0) {
+            list.push({
+                key: 'recents',
+                label: props.recentsLabel ?? 'Recently used',
+                emojis: recentsAtMount,
+            });
+        }
+        for (const cat of ctx!.data.categories) {
+            list.push({ key: cat.key, label: cat.label, emojis: byCategory.get(cat.key) ?? [] });
+        }
+        return list;
+    };
+
+    // Split signals: the tab highlight depends on `tab`, the popover overlay
     // on `popover.datum` — keeping them apart (and the grid's props
-    // identity-stable, see GRID_STYLE) means toggling the popover leaves the
+    // identity-stable, see GRID_STYLE) means toggling either leaves the
     // mounted grid untouched.
-    const initialTab = ctx.data.categories[0]?.key ?? 'recents';
+    const initialTab = sectionsFor()[0]?.key ?? 'recents';
     const tab = signal(initialTab);
     const popover = signal<{ datum: EmojiDatum | null }>({ datum: null });
-    // Exactly ONE grid is mounted at a time — the active tab's. A hidden
-    // grid's zero-height container dispatches `scrolltolower` to JS forever
-    // (#606), and template cells make swaps cheap anyway: a tab switch stages
-    // row records — cells build on the main thread only as the recycler pulls
-    // them (#649 replaced the windowed grids and the deferred two-phase swap).
-    // Per-element style objects, cached per tab key — identity-stable across
+
+    // Tab taps SCROLL the one sectioned list — no grid re-mount (#662; the
+    // pre-sectioned picker swapped a per-category grid per tap). The invoke
+    // is inlined and `method` passed as an ARG: worklet `_c` capture does not
+    // carry imported function refs, so calling `ListMethods.*` in here would
+    // silently no-op.
+    const listRef = useMainThreadRef<MainThread.Element | null>(null);
+    const scrollToSection = runOnMainThread((rowIndex: number, method: string) => {
+        'main thread';
+        const el = listRef.current;
+        if (!el || rowIndex < 0) return;
+        const p = el.invoke(method, { position: rowIndex, alignTo: 'top', offset: 0, smooth: false });
+        if (p && typeof p.catch === 'function') p.catch(() => { /* stale el: no-op */ });
+    });
+
+    // Per-element style objects, cached per key — identity-stable across
     // renders AND unique per element (see the template note above / #603).
     const gridStyles = new Map<string, Record<string, string | number>>();
     const styleFor = (
@@ -153,6 +203,8 @@ export const EmojiPicker = component<EmojiPickerProps>(({ props, emit }) => {
     function selectTab(key: string): void {
         tab.value = key;
         popover.datum = null;
+        const row = sectionRowIndex(sectionsFor(), key);
+        if (row >= 0) void scrollToSection(row, SCROLL_METHOD);
     }
 
     function pick(datum: EmojiDatum, tone: SkinTone): void {
@@ -171,13 +223,13 @@ export const EmojiPicker = component<EmojiPickerProps>(({ props, emit }) => {
         const q = query.value.trim();
         const tone = ctx.skinTone.state.tone;
 
-        const allTabs = showRecents
+        // The recents TAB tracks the recents SECTION: hidden when there were
+        // no recents at mount (a tab that scrolls nowhere is worse than none).
+        const allTabs = showRecents && recentsAtMount.length > 0
             ? [{ tab: 'recents' as EmojiTab, glyph: RECENTS_GLYPH }, ...tabs]
             : tabs;
         const searchHits = q !== '' ? ctx.index.search(q) : null;
         const regionHeight = regionLayout.value?.height ?? 0;
-        const sliceFor = (key: string): EmojiDatum[] =>
-            key === 'recents' ? ctx.recents.recents.map((e) => e) : byCategory.get(key) ?? [];
 
         const renderEmpty = (label: string): unknown => (
             <view
@@ -210,6 +262,29 @@ export const EmojiPicker = component<EmojiPickerProps>(({ props, emit }) => {
                 style={styleFor(gridStyles, GRID_STYLE_TEMPLATE, styleKey)}
                 onPick={(datum) => pick(datum, ctx.skinTone.state.tone)}
                 onPickTone={(datum) => { popover.datum = datum; }}
+            />
+        );
+
+        // The ONE list (#662): every emoji, recents first, a sticky header
+        // per section. A tab tap scrolls to its header; scrolling reports the
+        // topmost section back so the tab highlight follows.
+        const renderSectioned = (): unknown => (
+            <EmojiGrid
+                sections={sectionsFor()}
+                itemsKey="sections"
+                mtRef={listRef}
+                initialHeight={regionHeight > 0 ? regionHeight : undefined}
+                tone={tone}
+                columns={props.columns}
+                cellSize={props.cellSize}
+                class={classes.grid}
+                cellClass={classes.cell}
+                headerClass={classes.sectionHeader}
+                renderCell={props.renderCell}
+                style={styleFor(gridStyles, GRID_STYLE_TEMPLATE, 'sections')}
+                onPick={(datum) => pick(datum, ctx.skinTone.state.tone)}
+                onPickTone={(datum) => { popover.datum = datum; }}
+                onActiveSection={(key) => { tab.value = key; }}
             />
         );
 
@@ -257,13 +332,7 @@ export const EmojiPicker = component<EmojiPickerProps>(({ props, emit }) => {
                     ? (searchHits.length === 0
                         ? renderEmpty('No emoji found')
                         : renderGrid(searchHits, 'search', 'q:' + q))
-                    : (() => {
-                        const key = tab.value;
-                        const slice = sliceFor(key);
-                        return slice.length === 0
-                            ? renderEmpty(key === 'recents' ? 'No recent emoji yet' : 'No emoji found')
-                            : renderGrid(slice, key, 't:' + key);
-                    })()}
+                    : renderSectioned()}
                 </view>
                 {popover.datum && (
                     <SkinTonePopover

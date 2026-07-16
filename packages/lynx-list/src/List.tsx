@@ -577,6 +577,10 @@ const ListImpl = component<ListProps>(({ props, slots, emit }) => {
         // serialized as a native `null` attribute write (no skip in
         // patchProp), which would clobber the native default.
         {...(props.itemSnap !== undefined ? { 'item-snap': props.itemSnap } : {})}
+        {...(props.sticky ? { sticky: true } : {})}
+        {...(props.stickyOffset !== undefined
+          ? { 'sticky-offset': props.stickyOffset }
+          : {})}
         {...(props.onEndReachedThreshold !== undefined
           ? { 'lower-threshold-item-count': props.onEndReachedThreshold }
           : {})}

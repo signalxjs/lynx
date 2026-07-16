@@ -1,7 +1,9 @@
 import { describe, it, expect, vi } from 'vitest';
 import { component, signal } from '@sigx/lynx';
 import { render, getAllByType, getByType, getByText, queryByText, act } from '@sigx/lynx-testing';
-import { EmojiGrid } from '../src/components/EmojiGrid';
+import { EmojiGrid, sectionRowIndex, sectionStartOffsets } from '../src/components/EmojiGrid';
+import { emojiRowPx } from '../src/components/EmojiCell';
+import { HEADER_PX } from '../src/components/SectionHeader';
 import { EmojiPicker } from '../src/components/EmojiPicker';
 import type { EmojiData, EmojiDatum } from '../src/data/schema';
 
@@ -141,20 +143,27 @@ describe('EmojiPicker (template grid integration)', () => {
         await act(() => { tabNode!._handlers.get('bindtap')!(); });
     }
 
-    it('switches categories via the tab bar, keeping exactly one grid mounted', async () => {
-        // Only the active tab's grid is mounted: a hidden grid has a
-        // zero-height container and dispatches `scrolltolower` to JS forever,
-        // flooding the engine's limiter (#606).
+    it('renders ONE sectioned list — a tab tap scrolls, nothing re-mounts (#662)', async () => {
         const { container } = render(
             <EmojiPicker data={makeData()} showSearch={false} showRecents={false} />,
         );
         await act(() => {});
-        expect(getAllByType(container, 'list-item').length).toBe(CAT_A.length);
+        const rows = getAllByType(container, 'list-item');
+        // Every category in one list, plus one sticky header per section.
+        expect(rows.length).toBe(CAT_A.length + CAT_B.length + 2);
+        const headers = rows.filter((r) => r.props['item-type'] === 'emoji-header');
+        expect(headers.map((h) => h.props['item-key'])).toEqual(['hdr:cat-a', 'hdr:cat-b']);
+        expect(headers[0].props['full-span']).toBe(true);
+        expect(headers[0].props['sticky-top']).toBe(true);
+        // Cell keys are section-prefixed (recents can repeat a category's emoji).
+        const keys = rows.map((c) => c.props['item-key'] as string);
+        expect(keys).toContain('cat-a:A0');
+        expect(keys).toContain('cat-b:B0');
+        // A tab tap scrolls natively — the mounted row set does not change.
         await tapTab(container, 'B0');
-        const keys = getAllByType(container, 'list-item').map((c) => c.props['item-key'] as string);
-        expect(keys.length).toBe(CAT_B.length);   // B only — A is gone, not hidden
-        expect(keys).toContain('B0');
-        expect(keys).not.toContain('A0');
+        const after = getAllByType(container, 'list-item');
+        expect(after.length).toBe(rows.length);
+        expect(after.map((c) => c.props['item-key'] as string)).toContain('cat-a:A0');
     });
 
     it('opening the skin-tone popover does not rebuild the grid cells', async () => {
@@ -170,7 +179,7 @@ describe('EmojiPicker (template grid integration)', () => {
             />,
         );
         await act(() => {});
-        expect(renderCell).toHaveBeenCalledTimes(CAT_A.length);
+        expect(renderCell).toHaveBeenCalledTimes(CAT_A.length + CAT_B.length);
         renderCell.mockClear();
         // Long-press the tonal 'A0' cell → the popover opens…
         const cell = findByHandler(container as never, 'bindlongpress', 'cell:A0');
@@ -189,9 +198,75 @@ describe('EmojiPicker (template grid integration)', () => {
         // Default cells carry the glyph as a `text` ATTRIBUTE (slot-free
         // template), so find the cell by item-key rather than subtree text.
         const cell = getAllByType(container, 'list-item')
-            .find((c) => c.props['item-key'] === 'A1') as unknown as TestNode;
+            .find((c) => c.props['item-key'] === 'cat-a:A1') as unknown as TestNode;
         expect(cell).toBeTruthy();
         await act(() => { cell._handlers.get('bindlongpress')!(); });
         expect(queryByText(container, 'A1~1')).toBeNull();
+    });
+});
+
+describe('sectioned grid (#662)', () => {
+    const SECTIONS = [
+        { key: 'cat-a', label: 'category a', emojis: CAT_A },
+        { key: 'cat-b', label: 'category b', emojis: CAT_B },
+    ];
+
+    it('sectionRowIndex maps a key to its header cell index', () => {
+        expect(sectionRowIndex(SECTIONS, 'cat-a')).toBe(0);
+        expect(sectionRowIndex(SECTIONS, 'cat-b')).toBe(1 + CAT_A.length);
+        expect(sectionRowIndex(SECTIONS, 'nope')).toBe(-1);
+    });
+
+    it('sectionStartOffsets is exact arithmetic over header + row heights', () => {
+        // 8 columns, default 32px glyph -> 50px rows, 28px headers.
+        const offsets = sectionStartOffsets(SECTIONS, 8);
+        expect(offsets[0]).toBe(0);
+        expect(offsets[1]).toBe(HEADER_PX + Math.ceil(CAT_A.length / 8) * emojiRowPx());
+    });
+
+    it('emits activeSection as the list scrolls across a section boundary', async () => {
+        const seen: string[] = [];
+        const Harness = component(() => () => (
+            <EmojiGrid sections={SECTIONS} itemsKey="s" onActiveSection={(k) => seen.push(k)} />
+        ));
+        const { container } = render(<Harness />);
+        await act(() => {});
+        const list = getByType(container, 'list') as unknown as TestNode;
+        const scrollTo = async (scrollTop: number): Promise<void> => {
+            await act(() => { list._handlers.get('bindscroll')!({ detail: { scrollTop } }); });
+        };
+        const catBStart = sectionStartOffsets(SECTIONS, 8)[1]!;
+        await scrollTo(0);
+        // Judged at the sticky header midline: just before the boundary
+        // cat-a is still active, at it cat-b takes over.
+        await scrollTo(catBStart - HEADER_PX);
+        await scrollTo(catBStart);
+        await scrollTo(10);
+        expect(seen).toEqual(['cat-a', 'cat-b', 'cat-a']);
+    });
+
+    it('the picker tab highlight follows the scroll', async () => {
+        const { container } = render(
+            <EmojiPicker data={makeData()} showSearch={false} showRecents={false} />,
+        );
+        await act(() => {});
+        const list = getByType(container, 'list') as unknown as TestNode;
+        const catBStart = sectionStartOffsets(SECTIONS, 8)[1]!;
+        await act(() => { list._handlers.get('bindscroll')!({ detail: { scrollTop: catBStart + 5 } }); });
+        // The active tab carries the extra active class; find the tab bar
+        // node bound to B0 (cat-b's fallback glyph) and check it.
+        const bar = getByType(container, 'scroll-view');
+        const tabB = findByHandler(bar as never, 'bindtap', 'B0');
+        expect(tabB).toBeTruthy();
+    });
+
+    it('recents: no section and no tab when empty at mount', async () => {
+        const { container } = render(
+            <EmojiPicker data={makeData()} showSearch={false} />,
+        );
+        await act(() => {});
+        const keys = getAllByType(container, 'list-item').map((c) => c.props['item-key'] as string);
+        expect(keys).not.toContain('hdr:recents');
+        expect(queryByText(container, '\u{1F558}')).toBeNull();  // no recents tab glyph
     });
 });
