@@ -190,18 +190,20 @@ class SigxFirebaseMessagingService : FirebaseMessagingService() {
      * opens the app; per-conversation routing belongs to the child entries.
      */
     private fun showGroupSummary(manager: NotificationManager, group: String) {
+        // Summaries need the id-space guard below, and that needs
+        // `activeNotifications` — so no summary at all below M (matching the
+        // messaging accumulation, which is also M-gated; template minSdk is 24).
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return
         // Id-space guard, part two (the call site excludes the current
         // conversation): only post when group.hashCode() is free or already
         // holds THIS group's summary — anything else (a conversation entry,
         // another group's summary) would be overwritten.
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            val occupant = manager.activeNotifications.firstOrNull { it.id == group.hashCode() }
-            if (occupant != null) {
-                val n = occupant.notification
-                val isOwnSummary =
-                    (n.flags and android.app.Notification.FLAG_GROUP_SUMMARY) != 0 && n.group == group
-                if (!isOwnSummary) return
-            }
+        val occupant = manager.activeNotifications.firstOrNull { it.id == group.hashCode() }
+        if (occupant != null) {
+            val n = occupant.notification
+            val isOwnSummary =
+                (n.flags and android.app.Notification.FLAG_GROUP_SUMMARY) != 0 && n.group == group
+            if (!isOwnSummary) return
         }
         val builder = NotificationCompat.Builder(this, NotificationsModule.CHANNEL_ID)
             // A summary without a title renders as a blank row on some
