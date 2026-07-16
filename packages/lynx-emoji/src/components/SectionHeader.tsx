@@ -22,6 +22,11 @@ export type SectionHeaderProps =
  * Headless: the fallback is a small dim uppercase-ish label with NO background
  * — content scrolls visibly underneath the pinned header until a themed
  * `classes.sectionHeader` provides one (the daisyui wrapper does).
+ *
+ * The HEIGHT is pinned inline regardless of `class`: `HEADER_PX` is what the
+ * native size estimate AND the sectioned grid's scroll-offset math assume, so
+ * a theme that changed the real height would land every section jump and
+ * tab-follow boundary off target. Theme colors/padding, not height.
  */
 export const SectionHeader = component<SectionHeaderProps>(({ props }) => {
     return () => (
@@ -32,12 +37,14 @@ export const SectionHeader = component<SectionHeaderProps>(({ props }) => {
             sticky-top={true}
             estimated-main-axis-size-px={HEADER_PX}
             class={props.class}
-            style={props.class ? undefined : {
-                display: 'flex',
-                alignItems: 'center',
-                height: `${HEADER_PX}px`,
-                paddingLeft: '12px',
-            }}
+            style={props.class
+                ? { height: `${HEADER_PX}px` }
+                : {
+                    display: 'flex',
+                    alignItems: 'center',
+                    height: `${HEADER_PX}px`,
+                    paddingLeft: '12px',
+                }}
         >
             <text
                 text={props.label}
