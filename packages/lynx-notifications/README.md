@@ -108,7 +108,7 @@ By default, Android pushes sharing a `notification_id` replace each other in pla
 | `style: "messaging"` | Opt in to stacking. Anything else (or absent) keeps replace-in-place. |
 | `sender_name` (or `senderName`) | Name shown on the appended line. Falls back to `title`. |
 | `conversation_title` (or `conversationTitle`) | Header above the message lines (e.g. a group-chat name). Carried over from earlier pushes when omitted. |
-| `group` | Bundles entries that share the value under one expandable tray group, with an auto-posted summary row — the pattern for "several conversations active at once". `Notifications.cancel(group)` dismisses the summary. |
+| `group` | Bundles entries that share the value under one expandable tray group, with an auto-posted summary row — the pattern for "several conversations active at once". `Notifications.cancel(group)` dismisses the summary. Use a value distinct from every `notification_id` (the two share an id space). |
 
 ```jsonc
 // per-message push (FCM data map)

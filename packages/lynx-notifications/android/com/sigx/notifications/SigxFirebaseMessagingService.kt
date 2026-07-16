@@ -119,7 +119,12 @@ class SigxFirebaseMessagingService : FirebaseMessagingService() {
 
         manager.notify(notificationId.hashCode(), builder.build())
 
-        group?.let { showGroupSummary(manager, it) }
+        // Guard the id space: a `group` equal to (or hash-colliding with) the
+        // conversation's notification_id would overwrite the entry we just
+        // posted with the summary. Skip the summary rather than eat the child.
+        group
+            ?.takeIf { it.hashCode() != notificationId.hashCode() }
+            ?.let { showGroupSummary(manager, it) }
     }
 
     /**
