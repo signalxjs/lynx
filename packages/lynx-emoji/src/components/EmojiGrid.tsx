@@ -213,11 +213,10 @@ export const EmojiGrid = component<EmojiGridProps>(({ props, emit }) => {
             return (
                 <List
                     items={rows}
-                    // NO itemsKey here — List's re-anchor machinery claims the
-                    // native element's single main-thread ref when itemsKey is
-                    // set, silently starving `mtRef` (scroll-to-section then
-                    // no-ops on a null ref — #663 device gate). The sectioned
-                    // dataset is static per mount, so nothing needs re-anchor;
+                    // NO itemsKey here — the sectioned dataset is static per
+                    // mount, so List's swap-re-anchor machinery has nothing to
+                    // do (and its anchor worklet shares the single native ref
+                    // with `mtRef` consumers — keep it out of the picture).
                     // `props.itemsKey` still keys the rows cache above.
                     initialMainAxisSize={props.initialHeight}
                     keyExtractor={rowKey}

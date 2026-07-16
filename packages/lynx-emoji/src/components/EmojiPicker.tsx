@@ -267,11 +267,17 @@ export const EmojiPicker = component<EmojiPickerProps>(({ props, emit }) => {
 
         // The ONE list (#662): every emoji, recents first, a sticky header
         // per section. A tab tap scrolls to its header; scrolling reports the
-        // topmost section back so the tab highlight follows.
-        const renderSectioned = (): unknown => (
+        // topmost section back so the tab highlight follows. The grid caches
+        // rows/offsets by itemsKey, so the key must change with everything
+        // the composition depends on (recents presence via the key list,
+        // plus the recents label).
+        const renderSectioned = (): unknown => {
+            const sections = sectionsFor();
+            const sectionsKey = `s:${sections.map((s) => s.key).join(',')}#${props.recentsLabel ?? ''}`;
+            return (
             <EmojiGrid
-                sections={sectionsFor()}
-                itemsKey="sections"
+                sections={sections}
+                itemsKey={sectionsKey}
                 mtRef={listRef}
                 initialHeight={regionHeight > 0 ? regionHeight : undefined}
                 tone={tone}
@@ -286,7 +292,8 @@ export const EmojiPicker = component<EmojiPickerProps>(({ props, emit }) => {
                 onPickTone={(datum) => { popover.datum = datum; }}
                 onActiveSection={(key) => { tab.value = key; }}
             />
-        );
+            );
+        };
 
         return (
             <view

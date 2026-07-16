@@ -262,24 +262,6 @@ const ListImpl = component<ListProps>(({ props, slots, emit }) => {
         + '(template rows are staged records; cells build on demand and recycle)',
     );
   }
-  // The native element takes exactly ONE main-thread ref. Internal features
-  // (chat anchoring, windowing anchor-restore, itemsKey re-anchor) claim it,
-  // silently starving a consumer's `mtRef` — every ListMethods call then
-  // no-ops on `current === null` with no error anywhere (#663 device gate:
-  // scroll-to-section dead because itemsKey was set). Warn loudly.
-  if (
-    typeof __DEV__ !== 'undefined' && __DEV__ && props.mtRef !== undefined
-    && (((props.inverted ?? false) && !(props.horizontal ?? false))
-      || (props.windowSize !== undefined && props.templateCells !== true)
-      || props.itemsKey !== undefined)
-  ) {
-    console.warn(
-      '[sigx-list] mtRef is DISCARDED when inverted (chat) / windowSize / itemsKey is '
-        + 'set — the internal main-thread ref takes the slot and ListMethods on your '
-        + 'ref will silently no-op. Drop the conflicting prop (a static dataset needs '
-        + 'no itemsKey).',
-    );
-  }
 
   // Render only a bounded sliding slice of `items` (opt-in via `windowSize`) so
   // a thousands-long history doesn't materialize thousands of <list-item>s — the
