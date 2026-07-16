@@ -54,7 +54,7 @@ export function sectionHeaderRow(args: { itemKey: string; label: string; class?:
         >
             <text
                 text={args.label}
-                style={{ fontSize: '12px', opacity: 0.55 }}
+                style={{ fontSize: '13px', opacity: 0.55 }}
             />
         </list-item>
     );

@@ -34,7 +34,13 @@ export type EmojiPickerProps =
     & Define.Prop<'emptyLabel', string, false>
     /** Header label of the recents section. Default `'Recently used'`. */
     & Define.Prop<'recentsLabel', string, false>
-    /** Glyph font size in grid cells. Default 32. */
+    /**
+     * Glyph font size in grid cells. Default: ADAPTIVE — derived once from
+     * the measured grid width (`width / columns × 0.78`, clamped 28–44, so
+     * ~40 on a typical phone at 8 columns) at the same pre-mount gate that
+     * freezes the region height; 32 when no width is known. Pass a number
+     * for full control. The tone popover follows the resolved size.
+     */
     & Define.Prop<'cellSize', number, false>
     /** Per-slot class overrides — the theming surface. */
     & Define.Prop<'classes', EmojiSlotClasses, false>
@@ -197,6 +203,23 @@ export const EmojiPicker = component<EmojiPickerProps>(({ props, emit }) => {
         position: 'relative',
     };
 
+    // Default glyph size derives from the SCREEN (WhatsApp model, #669):
+    // cell width = measured region width / columns, glyph ≈ 78% of it. It
+    // resolves exactly once — at the same pre-mount gate that freezes the
+    // region height — because the sectioned grid's scroll-offset math needs
+    // row heights fixed per mount. Pre-measure (tests, SSR) falls back to 32
+    // WITHOUT freezing, so the real measurement still wins.
+    let resolvedCellSize: number | null = null;
+    const cellSizeFor = (regionWidth: number): number => {
+        if (props.cellSize !== undefined) return props.cellSize;
+        if (resolvedCellSize === null) {
+            if (regionWidth <= 0) return 32;
+            resolvedCellSize = Math.min(44, Math.max(28,
+                Math.round((regionWidth / (props.columns ?? 8)) * 0.78)));
+        }
+        return resolvedCellSize;
+    };
+
     function selectTab(key: string): void {
         tab.value = key;
         popover.datum = null;
@@ -226,6 +249,7 @@ export const EmojiPicker = component<EmojiPickerProps>(({ props, emit }) => {
         // pre-ready frame renders the measuring shell only.
         const ready = ctx.ready.value;
         const regionHeight = regionLayout.value?.height ?? 0;
+        const cellSize = cellSizeFor(regionLayout.value?.width ?? 0);
         const sections = ready ? sectionsFor() : null;
 
         // The recents TAB tracks the recents SECTION: hidden when there were
@@ -261,7 +285,7 @@ export const EmojiPicker = component<EmojiPickerProps>(({ props, emit }) => {
                 initialHeight={regionHeight > 0 ? regionHeight : undefined}
                 tone={tone}
                 columns={props.columns}
-                cellSize={props.cellSize}
+                cellSize={cellSize}
                 class={classes.grid}
                 cellClass={classes.cell}
                 renderCell={props.renderCell}
@@ -288,7 +312,7 @@ export const EmojiPicker = component<EmojiPickerProps>(({ props, emit }) => {
                 initialHeight={regionHeight > 0 ? regionHeight : undefined}
                 tone={tone}
                 columns={props.columns}
-                cellSize={props.cellSize}
+                cellSize={cellSize}
                 class={classes.grid}
                 cellClass={classes.cell}
                 headerClass={classes.sectionHeader}
@@ -349,6 +373,7 @@ export const EmojiPicker = component<EmojiPickerProps>(({ props, emit }) => {
                 </view>
                 {popover.datum && (
                     <SkinTonePopover
+                        size={cellSize}
                         datum={popover.datum}
                         toneLabels={ctx.data.skinTones}
                         activeTone={tone}

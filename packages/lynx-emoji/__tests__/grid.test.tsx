@@ -77,11 +77,14 @@ function findByHandler(root: TestNode, handler: string, text: string): TestNode 
  * full ~1,900-row re-render per late arrival). The fake renderer never
  * fires layout events, so drive the region's bindlayoutchange by hand.
  */
-async function measureRegion(container: unknown): Promise<void> {
+async function measureRegion(container: unknown, width = 328): Promise<void> {
     const fire = (n: TestNode): boolean => {
         const h = n._handlers.get('bindlayoutchange');
         if (h) {
-            h({ detail: { width: 400, height: 600, top: 0, left: 0 } });
+            // Width 328 resolves the ADAPTIVE default cell size to exactly 32
+            // (328 / 8 cols * 0.78 = 31.98 -> 32), so every offset/estimate
+            // assertion below keeps meaning what it says (#669).
+            h({ detail: { width, height: 600, top: 0, left: 0 } });
             return true;
         }
         return n.children.some(fire);
@@ -320,5 +323,37 @@ describe('sectioned grid (#662)', () => {
         const keys = getAllByType(container, 'list-item').map((c) => c.props['item-key'] as string);
         expect(keys).not.toContain('hdr:recents');
         expect(queryByText(container, '\u{1F558}')).toBeNull();  // no recents tab glyph
+    });
+});
+
+describe('adaptive cell sizing (#669)', () => {
+    it('derives the default glyph size from the measured width', async () => {
+        const { container } = render(
+            <EmojiPicker data={makeData()} showSearch={false} showRecents={false} />,
+        );
+        // 412 / 8 cols * 0.78 = 40.17 -> 40; rows pin at 40*1.2+12 = 60.
+        await measureRegion(container, 412);
+        const cell = getAllByType(container, 'list-item')
+            .find((c) => c.props['item-type'] === 'emoji')!;
+        expect(cell.props['estimated-main-axis-size-px']).toBe(60);
+    });
+
+    it('clamps the derived size and lets an explicit cellSize win', async () => {
+        const explicit = render(
+            <EmojiPicker data={makeData()} showSearch={false} showRecents={false} cellSize={30} />,
+        );
+        await measureRegion(explicit.container, 412);
+        const cell = getAllByType(explicit.container, 'list-item')
+            .find((c) => c.props['item-type'] === 'emoji')!;
+        expect(cell.props['estimated-main-axis-size-px']).toBe(30 * 1.2 + 12);
+
+        // A very wide region clamps at 44 (rows 44*1.2+12 = 65, rounded math).
+        const wide = render(
+            <EmojiPicker data={makeData()} showSearch={false} showRecents={false} />,
+        );
+        await measureRegion(wide.container, 900);
+        const wideCell = getAllByType(wide.container, 'list-item')
+            .find((c) => c.props['item-type'] === 'emoji')!;
+        expect(wideCell.props['estimated-main-axis-size-px']).toBe(Math.round(44 * 1.2) + 12);
     });
 });
