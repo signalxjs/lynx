@@ -1,4 +1,4 @@
-import { component, onUnmounted, signal, useElementLayout, type Define } from '@sigx/lynx';
+import { component, signal, useElementLayout, type Define } from '@sigx/lynx';
 import type { EmojiData, EmojiDatum, SkinTone } from '../data/schema.js';
 import { glyphForTone } from '../data/glyph.js';
 import { createEmojiContext, useEmojiContext, type EmojiContextValue } from '../state/context.js';
@@ -108,29 +108,18 @@ export const EmojiPicker = component<EmojiPickerProps>(({ props, emit }) => {
     }));
 
     const query = signal('');
-    // Split signals: the grid's slice depends on `gridTab`, the popover
-    // overlay on `popover.datum` — keeping them apart (and the grid's props
+    // Split signals: the grid's slice depends on `tab`, the popover overlay
+    // on `popover.datum` — keeping them apart (and the grid's props
     // identity-stable, see GRID_STYLE) means toggling the popover leaves the
     // mounted grid untouched.
-    //
-    // Tab switches are two-phase: `tab` flips immediately (the tab bar's
-    // highlight is a cheap flush that paints right away), `gridTab` follows
-    // one tick later — otherwise the highlight and the ~120-cell grid swap
-    // share one flush and the selection doesn't show until the grid is
-    // built, which reads as lag on the tap itself.
     const initialTab = ctx.data.categories[0]?.key ?? 'recents';
     const tab = signal(initialTab);
-    const gridTab = signal(initialTab);
     const popover = signal<{ datum: EmojiDatum | null }>({ datum: null });
-    // Exactly ONE grid is mounted at a time — the active tab's.
-    //
-    // Keeping other tabs' grids mounted (hidden behind `use:show`) made
-    // revisits instant, but it is fundamentally incompatible with the native
-    // list: a hidden grid has a zero-height container, so it believes it is
-    // permanently parked at its bottom edge and dispatches `scrolltolower` to
-    // JS forever. Measured on device, 3 tab switches: 599 dispatches with 4
-    // kept-mounted grids vs 8 with only the active one — the former floods the
-    // engine's limiter (error 204) and red-screens the dev overlay. See #606.
+    // Exactly ONE grid is mounted at a time — the active tab's. A hidden
+    // grid's zero-height container dispatches `scrolltolower` to JS forever
+    // (#606), and template cells make swaps cheap anyway: a tab switch stages
+    // row records — cells build on the main thread only as the recycler pulls
+    // them (#649 replaced the windowed grids and the deferred two-phase swap).
     // Per-element style objects, cached per tab key — identity-stable across
     // renders AND unique per element (see the template note above / #603).
     const gridStyles = new Map<string, Record<string, string | number>>();
@@ -147,9 +136,6 @@ export const EmojiPicker = component<EmojiPickerProps>(({ props, emit }) => {
         return style;
     };
 
-    // LRU bump: move to most-recent, evict past the mounted cap. Skipped
-    // when the key is already most-recent (a re-tap of the active tab) so
-    // no-op selections don't churn a state update.
     // The grid region is measured once (all tab grids share its box) and the
     // height is handed to every grid as `initialHeight`, so a freshly mounted
     // grid lays out at full size in its mount frame instead of spending it at
@@ -164,23 +150,9 @@ export const EmojiPicker = component<EmojiPickerProps>(({ props, emit }) => {
         position: 'relative',
     };
 
-    // Pending swap timer, cleared per-tap (last tap wins) and on unmount so no
-    // callback mutates signals after the picker is gone.
-    let swapTimer: ReturnType<typeof setTimeout> | undefined;
-    onUnmounted(() => {
-        if (swapTimer !== undefined) clearTimeout(swapTimer);
-    });
-
     function selectTab(key: string): void {
         tab.value = key;
         popover.datum = null;
-        if (swapTimer !== undefined) clearTimeout(swapTimer);
-        // Defer the grid swap one tick so the tab highlight paints in its own
-        // cheap flush first — building the new window is the expensive half.
-        swapTimer = setTimeout(() => {
-            swapTimer = undefined;
-            gridTab.value = key;
-        }, 0);
     }
 
     function pick(datum: EmojiDatum, tone: SkinTone): void {
@@ -286,7 +258,7 @@ export const EmojiPicker = component<EmojiPickerProps>(({ props, emit }) => {
                         ? renderEmpty('No emoji found')
                         : renderGrid(searchHits, 'search', 'q:' + q))
                     : (() => {
-                        const key = gridTab.value;
+                        const key = tab.value;
                         const slice = sliceFor(key);
                         return slice.length === 0
                             ? renderEmpty(key === 'recents' ? 'No recent emoji yet' : 'No emoji found')

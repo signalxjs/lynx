@@ -5,17 +5,6 @@ import { glyphForTone } from '../data/glyph.js';
 import type { EmojiRenderCell } from '../types.js';
 import { EmojiCell } from './EmojiCell.js';
 
-// Window sizing in ROWS so the mounted-cell budget tracks the column count.
-// Kept DELIBERATELY SMALL: the native list produces invalid layout — blank or
-// displaced content, racy and no JS error — once roughly 130-150+ cells are
-// mounted at once (#603; reproducible with no emoji code at all by raising the
-// List showcase demo's window to ~250). At 8 columns this is 64 cells
-// initially and 96 at full expansion, measured to render reliably where 120/240
-// did not. Do NOT raise these without re-testing on device.
-const ROWS_INITIAL = 8;
-const ROWS_PAGE = 4;
-const ROWS_MAX = 12;
-
 export type EmojiGridProps =
     /** The emoji to show (one category, search hits, recents…). */
     & Define.Prop<'emojis', EmojiDatum[], true>
@@ -47,12 +36,12 @@ export type EmojiGridProps =
     & Define.Event<'pickTone', EmojiDatum>;
 
 /**
- * The headless grid — a windowed `List` (`@sigx/lynx-list`) in flow layout.
- * The native recycler keeps the on-screen view count constant while
- * scrolling, and windowing bounds how many `<list-item>` subtrees are ever
- * *built* — the runtime materializes every rendered cell eagerly (only
- * native views recycle), so without it a switch to a large category would
- * rebuild hundreds of cell subtrees in one pass.
+ * The headless grid — a `List` in flow layout running TEMPLATE cells (#649).
+ * Every row is a staged snapshot-template record: the main thread builds a
+ * cell synchronously the moment the native recycler pulls it and recycles
+ * offscreen cell trees through the template pool, so the full category ships
+ * as data with no windowing and no per-cell background rendering on scroll.
+ * (The pre-template windowed setup — #603-era mounted-cell budgets — is gone.)
  *
  * Layout: `class`/`style` pass through to `List`'s measuring wrapper, so
  * flex sizing works as usual (`style={{ flexGrow: 1 }}` in a column — avoid
@@ -63,7 +52,6 @@ export const EmojiGrid = component<EmojiGridProps>(({ props, emit }) => {
     // re-runs for real changes. `props` is a stable reactive proxy — reading
     // props.* inside these stays live.
     const keyExtractor = (d: EmojiDatum): string => d.e;
-    const itemType = (): string => 'emoji';
     const renderItem = (datum: EmojiDatum): unknown => (
         <EmojiCell
             datum={datum}
@@ -76,29 +64,18 @@ export const EmojiGrid = component<EmojiGridProps>(({ props, emit }) => {
         />
     );
 
-    return () => {
-        const cols = props.columns ?? 8;
-        return (
-            <List
-                items={props.emojis}
-                itemsKey={props.itemsKey}
-                initialMainAxisSize={props.initialHeight}
-                keyExtractor={keyExtractor}
-                itemType={itemType}
-                renderItem={renderItem}
-                listType="flow"
-                numColumns={cols}
-                // Default cell: 6+6px padding + the glyph at ~1.2 line-height.
-                estimatedItemSize={Math.round((props.cellSize ?? 26) * 1.2) + 12}
-                // List resolves the window config once at setup, so a
-                // post-mount `columns` change won't rescale the window —
-                // acceptable, columns are effectively fixed per mount.
-                windowSize={cols * ROWS_INITIAL}
-                pageSize={cols * ROWS_PAGE}
-                maxWindow={cols * ROWS_MAX}
-                class={props.class}
-                style={props.style}
-            />
-        );
-    };
+    return () => (
+        <List
+            items={props.emojis}
+            itemsKey={props.itemsKey}
+            initialMainAxisSize={props.initialHeight}
+            keyExtractor={keyExtractor}
+            templateCells
+            renderItem={renderItem}
+            listType="flow"
+            numColumns={props.columns ?? 8}
+            class={props.class}
+            style={props.style}
+        />
+    );
 });

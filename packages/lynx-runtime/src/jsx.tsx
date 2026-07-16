@@ -189,6 +189,14 @@ export interface ViewAttributes extends LynxCommonAttributes {
 
 export interface TextAttributes extends LynxCommonAttributes {
     children?: any;
+    /**
+     * Text content as an ATTRIBUTE instead of a child. Equivalent on the main
+     * thread (the runtime's own text nodes set content via the `text`
+     * attribute), but under snapshot templates a dynamic child becomes a slot
+     * — making a cell slot-bearing and unpoolable — while this stays a plain
+     * attribute hole. Prefer it for recyclable list-cell templates.
+     */
+    text?: string;
     /** Max number of lines before truncation */
     'number-of-lines'?: number;
     /** Text overflow mode */

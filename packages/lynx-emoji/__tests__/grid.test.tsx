@@ -5,9 +5,10 @@ import { EmojiGrid } from '../src/components/EmojiGrid';
 import { EmojiPicker } from '../src/components/EmojiPicker';
 import type { EmojiData, EmojiDatum } from '../src/data/schema';
 
-// The real <Pressable> is an MT gesture recognizer the BG test harness can't
-// drive (same constraint as lynx-updates-ui's components tests). Swap it for
-// a plain view with tap/long-press handlers so cells and tabs are drivable.
+// The skin-tone popover still renders <Pressable> (an MT gesture recognizer
+// the BG test harness can't drive) — swap it for a plain view so popover
+// cells are tappable. Grid cells no longer use Pressable at all (#649):
+// they are <list-item> templates with native bindtap/bindlongpress.
 vi.mock('@sigx/lynx-gestures', async (importOriginal) => {
     const actual = await importOriginal<typeof import('@sigx/lynx-gestures')>();
     const { component } = await import('@sigx/lynx');
@@ -24,9 +25,6 @@ vi.mock('@sigx/lynx-gestures', async (importOriginal) => {
     return { ...actual, Pressable };
 });
 
-// Must track EmojiGrid's window math: 8 columns × ROWS_INITIAL rows.
-const WINDOW_CELLS = 8 * 8;
-
 const makeEmojis = (prefix: string, n: number, c: number): EmojiDatum[] =>
     Array.from({ length: n }, (_, i) => ({
         e: `${prefix}${i}`,
@@ -37,7 +35,7 @@ const makeEmojis = (prefix: string, n: number, c: number): EmojiDatum[] =>
         ...(i === 0 ? { s: [1, 2, 3, 4, 5].map((t) => `${prefix}0~${t}`) } : {}),
     }));
 
-// Two categories sized like the real extremes: bigger and smaller than the window.
+// Two categories sized like the real extremes (388 mirrors smileys-emotion).
 const CAT_A = makeEmojis('A', 388, 0);
 const CAT_B = makeEmojis('B', 50, 1);
 
@@ -48,16 +46,6 @@ const makeData = (): EmojiData => ({
         { key: 'cat-b', label: 'category b' },
     ],
     emojis: [...CAT_A, ...CAT_B],
-    skinTones: ['light', 'medium-light', 'medium', 'medium-dark', 'dark'],
-});
-
-// Six small categories (10 cells each, prefixes P..U) for the mounted-grid
-// LRU tests — enough tabs to overflow MAX_MOUNTED_GRIDS (4).
-const LRU_PREFIXES = ['P', 'Q', 'R', 'S', 'T', 'U'];
-const makeLruData = (): EmojiData => ({
-    locale: 'en',
-    categories: LRU_PREFIXES.map((p) => ({ key: `cat-${p}`, label: `category ${p}` })),
-    emojis: LRU_PREFIXES.flatMap((p, i) => makeEmojis(p, 10, i)),
     skinTones: ['light', 'medium-light', 'medium', 'medium-dark', 'dark'],
 });
 
@@ -80,23 +68,28 @@ function findByHandler(root: TestNode, handler: string, text: string): TestNode 
     return root._handlers.has(handler) && root.textContent().includes(text) ? root : null;
 }
 
-describe('EmojiGrid (windowed List)', () => {
-    it('mounts only the initial window of a big category, not every cell', () => {
+describe('EmojiGrid (template cells, #649)', () => {
+    it('renders every cell of a big category — no windowing', () => {
         const { container } = render(<EmojiGrid emojis={CAT_A} />);
         const cells = getAllByType(container, 'list-item');
-        expect(cells.length).toBe(WINDOW_CELLS); // 120, not 388
+        expect(cells.length).toBe(CAT_A.length); // all 388 — staged rows are cheap
+        // Platform attrs come from the cell's own JSX now (not List props).
         expect(cells[0].props['item-key']).toBe('A0');
-        expect(cells[0].props['item-type']).toBe('emoji');
         // Default cell estimate: 6+6px padding + 26px glyph at ~1.2 line-height.
         expect(cells[0].props['estimated-main-axis-size-px']).toBe(43);
+        // The glyph is a `text` ATTRIBUTE (keeps the template slot-free).
+        const textEl = cells[0].children.find((c: { type?: string }) => (c as { type: string }).type === 'text') as
+            | { props: Record<string, unknown> }
+            | undefined;
+        expect(textEl?.props['text']).toBe('A0');
     });
 
-    it('scales the window with the column count (rows, not cells)', () => {
+    it('passes columns through as span-count on a flow list', () => {
         const { container } = render(<EmojiGrid emojis={CAT_A} columns={4} />);
         const list = getAllByType(container, 'list')[0];
         expect(list.props['span-count']).toBe(4);
         expect(list.props['list-type']).toBe('flow');
-        expect(getAllByType(container, 'list-item').length).toBe(4 * 8);
+        expect(getAllByType(container, 'list-item').length).toBe(CAT_A.length);
     });
 
     it('itemsKey swap re-anchors the grid to the new dataset', async () => {
@@ -109,24 +102,41 @@ describe('EmojiGrid (windowed List)', () => {
         expect(getAllByType(container, 'list-item')[0].props['item-key']).toBe('A0');
         await act(() => { state.$set({ emojis: CAT_B, key: 't:cat-b' }); });
         const cells = getAllByType(container, 'list-item');
-        expect(cells.length).toBe(CAT_B.length); // 50 — smaller than the window
+        expect(cells.length).toBe(CAT_B.length);
         expect(cells[0].props['item-key']).toBe('B0');
+    });
+
+    it('emits pick on tap and pickTone on long-press of a tonal cell', async () => {
+        const picked: string[] = [];
+        const toned: string[] = [];
+        const Harness = component(() => () => (
+            <EmojiGrid
+                emojis={CAT_B}
+                onPick={(d) => picked.push(d.e)}
+                onPickTone={(d) => toned.push(d.e)}
+            />
+        ));
+        const { container } = render(<Harness />);
+        await act(() => {});
+        const cells = getAllByType(container, 'list-item') as unknown as TestNode[];
+        await act(() => { cells[1]._handlers.get('bindtap')!(); });
+        expect(picked).toEqual(['B1']);
+        // B0 is tonal → pickTone; B1 is not → no event.
+        await act(() => { cells[0]._handlers.get('bindlongpress')!(); });
+        await act(() => { cells[1]._handlers.get('bindlongpress')!(); });
+        expect(toned).toEqual(['B0']);
     });
 });
 
-describe('EmojiPicker (windowed grid integration)', () => {
-    // Tab taps are two-phase (highlight now, grid swap on the next tick), so
-    // drive the deferred phase with a real timer hop inside act. Tabs are
-    // looked up inside the tab bar's scroll-view — grid cells can contain the
-    // same glyph text once a category has mounted.
+describe('EmojiPicker (template grid integration)', () => {
+    // Tab swaps are single-phase now (#649 removed the deferred two-phase
+    // swap — staging template rows is cheap). Tabs live in the tab bar's
+    // scroll-view; grid cells can contain the same glyph text once mounted.
     async function tapTab(container: unknown, glyph: string): Promise<void> {
         const bar = getByType(container as never, 'scroll-view');
         const tabNode = findByHandler(bar as never, 'bindtap', glyph);
         expect(tabNode).toBeTruthy();
-        await act(async () => {
-            tabNode!._handlers.get('bindtap')!();
-            await new Promise((resolve) => setTimeout(resolve, 1));
-        });
+        await act(() => { tabNode!._handlers.get('bindtap')!(); });
     }
 
     it('switches categories via the tab bar, keeping exactly one grid mounted', async () => {
@@ -137,7 +147,7 @@ describe('EmojiPicker (windowed grid integration)', () => {
             <EmojiPicker data={makeData()} showSearch={false} showRecents={false} />,
         );
         await act(() => {});
-        expect(getAllByType(container, 'list-item').length).toBe(WINDOW_CELLS);
+        expect(getAllByType(container, 'list-item').length).toBe(CAT_A.length);
         await tapTab(container, 'B0');
         const keys = getAllByType(container, 'list-item').map((c) => c.props['item-key'] as string);
         expect(keys.length).toBe(CAT_B.length);   // B only — A is gone, not hidden
@@ -145,19 +155,6 @@ describe('EmojiPicker (windowed grid integration)', () => {
         expect(keys).not.toContain('A0');
     });
 
-    it('unmounting cancels the pending tab swap (no late signal writes)', async () => {
-        vi.useFakeTimers();
-        const { unmount } = render(
-            <EmojiPicker data={makeLruData()} showSearch={false} showRecents={false} />,
-        );
-        try {
-            unmount();
-            await vi.advanceTimersByTimeAsync(2000);
-        } finally {
-            vi.useRealTimers();
-        }
-        await act(() => {});
-    });
     it('opening the skin-tone popover does not rebuild the grid cells', async () => {
         // Prefix the cell text so the long-press target can't collide with the
         // tab bar (tab 'cat-a' falls back to the same 'A0' glyph).
@@ -171,7 +168,7 @@ describe('EmojiPicker (windowed grid integration)', () => {
             />,
         );
         await act(() => {});
-        expect(renderCell).toHaveBeenCalledTimes(WINDOW_CELLS);
+        expect(renderCell).toHaveBeenCalledTimes(CAT_A.length);
         renderCell.mockClear();
         // Long-press the tonal 'A0' cell → the popover opens…
         const cell = findByHandler(container as never, 'bindlongpress', 'cell:A0');
@@ -187,8 +184,12 @@ describe('EmojiPicker (windowed grid integration)', () => {
             <EmojiPicker data={makeData()} showSearch={false} showRecents={false} />,
         );
         await act(() => {});
-        const cell = findByHandler(container as never, 'bindlongpress', 'A1');
-        await act(() => { cell!._handlers.get('bindlongpress')!(); });
+        // Default cells carry the glyph as a `text` ATTRIBUTE (slot-free
+        // template), so find the cell by item-key rather than subtree text.
+        const cell = getAllByType(container, 'list-item')
+            .find((c) => c.props['item-key'] === 'A1') as unknown as TestNode;
+        expect(cell).toBeTruthy();
+        await act(() => { cell._handlers.get('bindlongpress')!(); });
         expect(queryByText(container, 'A1~1')).toBeNull();
     });
 });
