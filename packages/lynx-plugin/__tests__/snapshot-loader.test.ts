@@ -292,3 +292,39 @@ export function Weird() {
     expect(out).toContain('/* not a comment */');
   });
 });
+
+describe('#644 precompiled dist registrations', () => {
+  // The shape scripts/build-snapshot-dist.mjs emits: JS-target module code
+  // (null-body registrations + _jsx calls) with real-body LEPUS
+  // registrations appended.
+  const DIST_WITH_TEMPLATES = `import { jsx as _jsx } from "@sigx/lynx/jsx-runtime";
+import * as ReactLynx from "@sigx/lynx/internal";
+const __snapshot_ab1_cd2_1 = "__snapshot_ab1_cd2_1";
+ReactLynx.snapshotCreatorMap[__snapshot_ab1_cd2_1] = (__snapshot_ab1_cd2_1)=>ReactLynx.createSnapshot(__snapshot_ab1_cd2_1, null, null, ReactLynx.__DynamicPartSlotV2_0, undefined, '__sigx__', null, true);
+export function Cell({ glyph }) {
+    return _jsx(__snapshot_ab1_cd2_1, { $0: glyph });
+}
+// #644: real-body template registrations (LEPUS target).
+ReactLynx.snapshotCreatorMap[__snapshot_ab1_cd2_1] = (__snapshot_ab1_cd2_1)=>ReactLynx.createSnapshot(__snapshot_ab1_cd2_1, function() {
+    const pageId = ReactLynx.__pageId;
+    const el = __CreateText(pageId);
+    return [el];
+}, null, ReactLynx.__DynamicPartSlotV2_0, undefined, '__sigx__', null, true);
+`;
+  const DIST_PATH = '/app/node_modules/@sigx/lynx-emoji/dist/components/Cell.js';
+
+  it('passes through both loaders verbatim with snapshots on', () => {
+    expect(bg(DIST_WITH_TEMPLATES, DIST_PATH)).toBe(DIST_WITH_TEMPLATES);
+    expect(mt(DIST_WITH_TEMPLATES, DIST_PATH)).toBe(DIST_WITH_TEMPLATES);
+  });
+
+  it('a user file importing the package keeps the MT graph edge', () => {
+    const user = `import { Cell } from '@sigx/lynx-emoji';
+export function Screen() { return <view><Cell glyph="x" /></view>; }
+`;
+    const out = mt(user, '/app/src/Screen.tsx');
+    // The side-effect import survives, so the MT bundle reaches the dist
+    // and its registrations (incl. the appended real bodies) evaluate.
+    expect(out).toContain("import '@sigx/lynx-emoji'");
+  });
+});
