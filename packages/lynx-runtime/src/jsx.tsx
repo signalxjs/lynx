@@ -295,6 +295,10 @@ export interface ListAttributes extends LynxCommonAttributes {
     'list-type'?: 'single' | 'flow' | 'waterfall';
     /** Snap items to edges */
     'item-snap'?: 'start' | 'center' | 'end' | 'none';
+    /** Enable sticky positioning for items with `sticky-top`/`sticky-bottom` */
+    sticky?: boolean;
+    /** Pixel offset sticky items pin at */
+    'sticky-offset'?: number;
     /** Sticky header offset from top */
     'sticky-top'?: number;
     /** Sticky footer offset from bottom */
@@ -329,10 +333,10 @@ export interface ListItemAttributes extends LynxCommonAttributes {
     'item-key'?: string;
     /** Item type for recycling (items with same item-type share a view pool) */
     'item-type'?: string | number;
-    /** Sticky offset from top */
-    'sticky-top'?: number;
-    /** Sticky offset from bottom */
-    'sticky-bottom'?: number;
+    /** Stick this item to the top while its section scrolls (boolean), or a pin offset in px. The `<list>` must set `sticky` */
+    'sticky-top'?: number | boolean;
+    /** Stick this item to the bottom (boolean), or a pin offset in px. The `<list>` must set `sticky` */
+    'sticky-bottom'?: number | boolean;
     /** Whether this item is full-span in a grid list */
     'full-span'?: boolean;
     /**
