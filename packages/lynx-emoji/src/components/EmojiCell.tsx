@@ -3,10 +3,11 @@ import type { EmojiDatum } from '../data/schema.js';
 import type { EmojiRenderCell } from '../types.js';
 
 /**
- * Row height (px) a cell of `size` occupies: 6+6px padding + the glyph at
- * ~1.2 line-height. This is both the cell's `estimated-main-axis-size-px`
- * and the exact per-row height the sectioned grid's scroll-offset math uses
- * (fixed-height cells make section offsets arithmetic, not measurement).
+ * Row height (px) a cell of `size` occupies: the glyph at ~1.2 line-height
+ * plus 12px of breathing room, PINNED as the cell's explicit height. This is
+ * simultaneously the cell's `estimated-main-axis-size-px` and the exact
+ * per-row height the sectioned grid's scroll-offset math uses — est == actual
+ * by construction (padding-derived heights drifted; #663 device gate).
  */
 export const emojiRowPx = (size?: number): number => Math.round((size ?? 32) * 1.2) + 12;
 
