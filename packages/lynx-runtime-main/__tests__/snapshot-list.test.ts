@@ -326,3 +326,55 @@ describe('slot-bearing cells', () => {
     expect(createdCells).toBe(builtBefore);
   });
 });
+
+describe('non-list-item root DEV guard (#645)', () => {
+  const BAD_TPL = '__snapshot_bad_root_1';
+  function registerBadTemplate(): void {
+    snapshotCreatorMap[BAD_TPL] = (id) =>
+      createSnapshot(
+        id,
+        function () {
+          const el = __CreateView(__pageId) as unknown as FakeEl; // wrong root
+          return [el];
+        } as never,
+        [(ctx, index, oldValue) => updateListItemPlatformInfo(ctx, index, oldValue, 0)],
+        null,
+        undefined,
+        undefined,
+        null,
+        true,
+      );
+  }
+
+  it('warns once per template type when a cell root is not <list-item>', () => {
+    vi.stubGlobal('__GetTag', vi.fn((el: FakeEl) => el.tag));
+    const logs: string[] = [];
+    const logSpy = vi.spyOn(console, 'log').mockImplementation((...a: unknown[]) => {
+      logs.push(a.join(' '));
+    });
+    registerBadTemplate();
+    applyOps([
+      OP.SNAPSHOT_CREATE, LIST_ID, LIST_TPL,
+      OP.INSERT, 1, LIST_ID, -1,
+      OP.SNAPSHOT_BIND_SLOT, LIST_ID, 0, SLOT_ID,
+      OP.SNAPSHOT_CREATE, 400, BAD_TPL,
+      OP.SNAPSHOT_SET_VALUES, 400, [{ 'item-key': 'x' }],
+      OP.INSERT, SLOT_ID, 400, -1,
+      OP.SNAPSHOT_CREATE, 401, BAD_TPL,
+      OP.SNAPSHOT_SET_VALUES, 401, [{ 'item-key': 'y' }],
+      OP.INSERT, SLOT_ID, 401, -1,
+      OP.SNAPSHOT_CREATE, 402, ITEM_TPL,
+      OP.SNAPSHOT_SET_VALUES, 402, [{ 'item-key': 'ok' }, 'fine'],
+      OP.INSERT, SLOT_ID, 402, -1,
+    ]);
+    flushDirtyLists();
+    capturedCAI!(listEl, listEl!.__id, 0, 1, false);
+    capturedCAI!(listEl, listEl!.__id, 1, 2, false); // same bad template — no repeat
+    capturedCAI!(listEl, listEl!.__id, 2, 3, false); // list-item root — silent
+    const warns = logs.filter((l) => l.includes('not <list-item>'));
+    expect(warns).toHaveLength(1);
+    expect(warns[0]).toContain(BAD_TPL);
+    logSpy.mockRestore();
+    vi.unstubAllGlobals();
+  });
+});
