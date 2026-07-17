@@ -4,11 +4,15 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 ## [Unreleased]
 
+### Changed
+
+- `@sigx/lynx-runtime-main` — web gesture `touch-action` is now derived axis-aware from ALL gestures on the element instead of blanket `none`: Pan `axis:'x'` (Swipeable, Range) → `pan-y` so vertical page scrolling keeps working through horizontal swipe surfaces (a browser-claimed vertical swipe `pointercancel`s the press — graceful handoff); Pan `axis:'y'` (sheet drag) → `pan-x`; free Pan/directionless Fling/Pinch/Rotation → `none` as before; horizontal Fling → `pan-y`, vertical → `pan-x`; conflicting wants collapse to `none`; Tap/LongPress-only elements stay untouched. Recomputed on every gesture register/unregister with the original value restored when nothing needs an override (#693).
+
 ### Added
 
 - `@sigx/lynx-runtime-main` — `Gesture.Pinch()` and `Gesture.Rotation()` are recognized on web (two-finger): the first two concurrent pointers pair up — `onStart` when the second lands, `onUpdate` on either's move, one dedicated `onEnd` with final values when either lifts. Payloads follow the legacy `usePinch`/`useRotation` semantics: pinch `params.scale` = currentDistance/baseDistance; rotation `params.rotation` = cumulative signed radians (properly unwrapped across ±π, unlike the hooks) plus `params.velocity` (rad/ms); both carry `focalX/focalY` (page-coordinate midpoint, mirrored into pageX/pageY). Pinch/Rotation elements get `touch-action: none` so the browser doesn't claim two-finger contact for page zoom. Since the native arena handlers are unfinished (#418), this payload is the contract native should converge on. The showcase PinchRotateDemo gains an arena-driven pad next to the legacy-hook pad (#690).
 
-- `@sigx/lynx-runtime-main` — `Gesture.Fling()` is recognized on web: at the primary pointer's release, velocity over a trailing ~100ms sample window is matched against the gesture's `direction` and `minVelocity` (px/ms, default 0.3 ≈ 300 px/s); a match fires `onStart` with `params.velocityX/velocityY` before the universal `onEnd`. Fling elements get the same `touch-action: none` treatment as Pan so the browser doesn't claim the swipe. The `FlingBuilder.minVelocity` JSDoc now documents the px/ms unit (#687).
+- `@sigx/lynx-runtime-main` — `Gesture.Fling()` is recognized on web: at the primary pointer's release, velocity over a trailing ~100ms sample window is matched against the gesture's `direction` and `minVelocity` (px/ms, default 0.3 ≈ 300 px/s); a match fires `onStart` with `params.velocityX/velocityY` before the universal `onEnd`. Fling elements get a `touch-action` override like Pan so the browser doesn't claim the swipe (axis-aware since #693 — see the Changed entry above). The `FlingBuilder.minVelocity` JSDoc now documents the px/ms unit (#687).
 
 ### Fixed
 
