@@ -338,8 +338,15 @@ function scheduleAvFlush(): void {
   g['__sigxMotionFlushScheduled'] = true;
   Promise.resolve().then(() => {
     g['__sigxMotionFlushScheduled'] = false;
-    const fn = g['__FlushElementTree'] as (() => void) | undefined;
-    if (fn) fn();
+    const fn = g['__FlushElementTree'];
+    if (typeof fn !== 'function') return;
+    try {
+      (fn as () => void)();
+    } catch (e) {
+      // Swallow-and-log: a throw here would surface as an unhandled
+      // rejection on MT with no useful stack.
+      console.log('[sigx-mt] av auto-flush threw:', String(e));
+    }
   });
 }
 
