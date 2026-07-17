@@ -103,6 +103,10 @@ Matches [`WebSocket` on MDN](https://developer.mozilla.org/docs/Web/API/WebSocke
 | Class constants | `CONNECTING (0) / OPEN (1) / CLOSING (2) / CLOSED (3)` | On both class and instance. |
 | `isWebSocketAvailable()` | export | Whether the native module is registered (useful in tests / SSR). |
 
+## Web
+
+On web the package IS the platform: the Worker-global WHATWG `WebSocket` is re-exported as-is (the native base64/demux bridge is tree-shaken out of the web bundle entirely), so every browser behavior applies and none of the native caveats below do.
+
 ## Caveats vs the browser
 
 - **No `Blob`** binary type — use `ArrayBuffer`.

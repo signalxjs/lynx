@@ -29,6 +29,10 @@ Storage.clear();   // wipes everything in this app's namespace
 | `clear(): void`                              | Wipes the entire app namespace.                                                                    |
 | `getAllKeys(): Promise<string[]>`            | Returns all currently-set keys.                                                                    |
 | `isAvailable(): boolean`                     | Whether the native module is registered in the current build.                                      |
+## Web
+
+On web (`sigx run:web`, via `@lynx-js/web-core`) the same API is backed by **IndexedDB** — the app's background code runs in a Web Worker, where `localStorage` doesn't exist. A write-through in-memory mirror keeps the sync-void `setItem`/`removeItem`/`clear` shape read-after-write consistent; the IndexedDB writes flush in call order shortly after. Data persists per origin under the `@sigx/lynx-storage` database.
+
 ## Gotchas
 - **String values only.** Serialize objects with `JSON.stringify` / `JSON.parse` yourself. Don't dump raw binary — use `@sigx/lynx-file-system` for that.
 - **Sync writes can race with reads** if you `setItem` then immediately `getItem` the same key from BG. UserDefaults / SharedPreferences both use a write-behind buffer; values are returned correctly within the same process, just be aware of cross-process scenarios (extension apps on iOS, etc.) where eventual consistency applies.
