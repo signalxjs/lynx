@@ -136,16 +136,40 @@ export function safeJoin(root: string, rel: string): string | null {
   return within.startsWith('..') || isAbsolute(within) ? null : abs;
 }
 
-export function hostHtml(projectName: string, bundle: string): string {
+export interface HostHtmlOptions {
+  /** Include the WebSocket live-reload client (dev server). Default true. */
+  reload?: boolean;
+  /** URL prefix for all served assets (subpath hosting). Default '/'. */
+  base?: string;
+  /** Register the COI service worker first (header-less static hosts). */
+  coi?: boolean;
+}
+
+/** Shared host page — `sigx run:web` serves it, `sigx build:web` emits it. */
+export function hostHtml(projectName: string, bundle: string, opts: HostHtmlOptions = {}): string {
+  const base = opts.base ?? '/';
+  const coiTag = opts.coi ? `\n  <script src="${base}coi.js"></script>` : '';
+  const reloadTag =
+    opts.reload === false
+      ? ''
+      : `
+  <script>
+    (function () {
+      try {
+        var ws = new WebSocket((location.protocol === 'https:' ? 'wss' : 'ws') + '://' + location.host + '${RELOAD_PATH}');
+        ws.onmessage = function () { location.reload(); };
+      } catch (e) { /* reload channel unavailable — manual refresh still works */ }
+    })();
+  </script>`;
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>${projectName} — SignalX (web)</title>
-  <link rel="icon" href="data:," />
-  <link rel="stylesheet" href="/engine/static/css/client.css" />
-  <script type="module" src="/engine/static/js/client.js"></script>
+  <link rel="icon" href="data:," />${coiTag}
+  <link rel="stylesheet" href="${base}engine/static/css/client.css" />
+  <script type="module" src="${base}engine/static/js/client.js"></script>
   <style>
     html, body { margin: 0; height: 100%; background: #fff;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
@@ -154,28 +178,34 @@ export function hostHtml(projectName: string, bundle: string): string {
   </style>
 </head>
 <body>
-  <lynx-view style="height:100vh;width:100vw" url="/app/${bundle}" height="100vh" width="100vw"></lynx-view>
+  <lynx-view style="height:100vh;width:100vw" url="${base}app/${bundle}" height="100vh" width="100vw"></lynx-view>
   <script type="module">
     // Host-page bridge (#703): sigx.* RPC handlers (clipboard, share, linking,
     // pickers, vibrate) + appearance / initial-URL publishers.
-    import { installSigxWebHost } from '/host/sigx-host.js';
+    import { installSigxWebHost } from '${base}host/sigx-host.js';
     const sigxView = document.querySelector('lynx-view');
     if (!sigxView) {
-      throw new Error('[sigx run:web] <lynx-view> element not found — host page markup out of sync');
+      throw new Error('[sigx web] <lynx-view> element not found — host page markup out of sync');
     }
     installSigxWebHost(sigxView);
-  </script>
-  <script>
-    (function () {
-      try {
-        var ws = new WebSocket((location.protocol === 'https:' ? 'wss' : 'ws') + '://' + location.host + '${RELOAD_PATH}');
-        ws.onmessage = function () { location.reload(); };
-      } catch (e) { /* reload channel unavailable — manual refresh still works */ }
-    })();
-  </script>
+  </script>${reloadTag}
 </body>
 </html>
 `;
+}
+
+/**
+ * Resolve the served web assets from the CLI's own dependencies: upstream
+ * web-core's prebuilt engine (`…/client_prod/static`) and the self-contained
+ * `@sigx/lynx-web-host` bridge module. Shared by run:web and build:web.
+ */
+export function resolveWebAssets(): { engineStaticDir: string; hostJsPath: string } {
+  const req = createRequire(import.meta.url);
+  const clientJs = req.resolve('@lynx-js/web-core/client.prod.js');
+  return {
+    engineStaticDir: dirname(dirname(clientJs)), // …/client_prod/static/js/client.js → …/static
+    hostJsPath: req.resolve('@sigx/lynx-web-host/host'),
+  };
 }
 
 export async function runWeb(ctx: RunWebCtx): Promise<void> {
@@ -191,10 +221,7 @@ export async function runWeb(ctx: RunWebCtx): Promise<void> {
   let engineStaticDir: string;
   let hostJsPath: string;
   try {
-    const req = createRequire(import.meta.url);
-    const clientJs = req.resolve('@lynx-js/web-core/client.prod.js');
-    engineStaticDir = dirname(dirname(clientJs)); // …/client_prod/static/js/client.js → …/static
-    hostJsPath = req.resolve('@sigx/lynx-web-host/host');
+    ({ engineStaticDir, hostJsPath } = resolveWebAssets());
   } catch {
     logger.error('Could not resolve @lynx-js/web-core / @sigx/lynx-web-host — try reinstalling dependencies.');
     process.exitCode = 1;
