@@ -1,4 +1,13 @@
-import { component, signal } from '@sigx/lynx';
+import {
+    component,
+    signal,
+    useMainThreadRef,
+    useSharedValue,
+    useAnimatedStyle,
+    Gesture,
+    useGestureDetector,
+    type MainThread,
+} from '@sigx/lynx';
 import { Screen } from '@sigx/lynx-navigation';
 import { usePinch, useRotation, type TouchEvent } from '@sigx/lynx-gestures';
 import { Button, Card, Col, Heading, ScrollView, Text } from '@sigx/lynx-daisyui';
@@ -7,14 +16,65 @@ import { DemoSlider } from '../../components/DemoSlider.js';
 const clampScale = (v: number): number => Math.min(3, Math.max(0.5, v));
 
 /**
- * Pinch & rotate — the two-finger JS fallback hooks (`usePinch` /
- * `useRotation`). These parse raw `bindtouch*` events on the background
- * thread (the native `Gesture.Pinch()`/`Rotation()` arena handlers are
- * unfinished in Lynx 3.5 — signalxjs/lynx#418), so the card's transform is
- * signal-driven. Sliders drive the same signals as a fallback for hosts
- * without multi-touch input.
+ * Pinch & rotate — two implementations side by side:
+ *
+ * 1. **Arena** `Gesture.Pinch()`/`Gesture.Rotation()` via `useGestureDetector`
+ *    — recognized by the web gesture recognizer in the browser (`sigx
+ *    run:web`); the native arena handlers are unfinished in Lynx 3.5
+ *    (signalxjs/lynx#418), so on native this pad stays inert for now. The
+ *    transform runs entirely on the main thread via SharedValues.
+ * 2. **Legacy hooks** `usePinch`/`useRotation` parsing raw `bindtouch*` events
+ *    on the background thread — works on native multi-touch hosts.
+ *
+ * Sliders drive the legacy pad's signals as a fallback for hosts without
+ * multi-touch input.
  */
 export const PinchRotateDemo = component(() => {
+    // ── Pad 1: arena Pinch + Rotation (web recognizer) ───────────────────
+    const arenaRef = useMainThreadRef<MainThread.Element | null>(null);
+    const arenaScale = useSharedValue(1);
+    const arenaRot = useSharedValue(0); // degrees
+    useAnimatedStyle(arenaRef, arenaScale, 'scale');
+    useAnimatedStyle(arenaRef, arenaRot, 'rotate');
+    // Gesture callbacks are separate worklets — cross-callback state lives in
+    // a MainThreadRef (same idiom as GestureLab's pan state).
+    const arenaBase = useMainThreadRef<{ scale: number; rot: number }>({ scale: 1, rot: 0 });
+
+    const arenaPinch = Gesture.Pinch()
+        .onBegin(() => {
+            'main thread';
+        })
+        .onStart(() => {
+            'main thread';
+            arenaBase.current.scale = arenaScale.current.value;
+        })
+        .onUpdate((e: any) => {
+            'main thread';
+            const s = (e && e.params && e.params.scale) || 1;
+            arenaScale.current.value = Math.min(3, Math.max(0.5, arenaBase.current.scale * s));
+            const __flush = (globalThis as Record<string, unknown>)['__FlushElementTree'] as (() => void) | undefined;
+            if (__flush) __flush();
+        });
+
+    const arenaRotation = Gesture.Rotation()
+        .onBegin(() => {
+            'main thread';
+        })
+        .onStart(() => {
+            'main thread';
+            arenaBase.current.rot = arenaRot.current.value;
+        })
+        .onUpdate((e: any) => {
+            'main thread';
+            const r = (e && e.params && e.params.rotation) || 0; // radians
+            arenaRot.current.value = arenaBase.current.rot + (r * 180) / Math.PI;
+            const __flush = (globalThis as Record<string, unknown>)['__FlushElementTree'] as (() => void) | undefined;
+            if (__flush) __flush();
+        });
+
+    useGestureDetector(arenaRef, Gesture.Simultaneous(arenaPinch, arenaRotation));
+
+    // ── Pad 2: legacy BG hooks ───────────────────────────────────────────
     const scale = signal(1);
     const angle = signal(0);
     let baseScale = 1;
@@ -66,6 +126,36 @@ export const PinchRotateDemo = component(() => {
                 <Card bordered>
                     <Card.Body>
                         <Col gap={12} align="center">
+                            <Text weight="semibold">Arena — Gesture.Pinch() + Gesture.Rotation()</Text>
+                            <Text class="text-xs opacity-60">
+                                Recognized in the browser (sigx run:web) — use DevTools touch
+                                emulation or a touch screen. Inert on native until #418 lands.
+                            </Text>
+                            <view
+                                style={{ height: '220px', width: '100%', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}
+                            >
+                                <view
+                                    main-thread:ref={arenaRef}
+                                    class="bg-secondary"
+                                    style={{
+                                        width: '140px',
+                                        height: '140px',
+                                        borderRadius: '20px',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                    }}
+                                >
+                                    <text style={{ fontSize: '52px' }}>🧭</text>
+                                </view>
+                            </view>
+                        </Col>
+                    </Card.Body>
+                </Card>
+
+                <Card bordered>
+                    <Card.Body>
+                        <Col gap={12} align="center">
+                            <Text weight="semibold">Legacy — usePinch() + useRotation()</Text>
                             <view
                                 style={{ height: '260px', width: '100%', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}
                                 bindtouchstart={onTouchStart}
