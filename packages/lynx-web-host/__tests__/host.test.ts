@@ -249,8 +249,38 @@ describe('sigx.location.* handlers', () => {
     }
   });
 
-  it('location.requestPermission prompts via a position request', async () => {
+  it('location.requestPermission prompts via a position request (no Permissions API → granted)', async () => {
     vi.stubGlobal('navigator', { geolocation: fakeGeo('fix') });
+    const view = makeView();
+    installSigxWebHost(view);
+    const res = (await view.onNativeModulesCall!(
+      'sigx.location.requestPermission',
+      {},
+      'bridge',
+    )) as { ok: boolean; value: { status: string } };
+    expect(res.value.status).toBe('granted');
+  });
+
+  it('location.requestPermission trusts a decisive Permissions API answer', async () => {
+    vi.stubGlobal('navigator', {
+      geolocation: fakeGeo('fix'),
+      permissions: { query: async () => ({ state: 'granted' }) },
+    });
+    const view = makeView();
+    installSigxWebHost(view);
+    const res = (await view.onNativeModulesCall!(
+      'sigx.location.requestPermission',
+      {},
+      'bridge',
+    )) as { ok: boolean; value: { status: string; canAskAgain: boolean } };
+    expect(res.value).toEqual({ status: 'granted', canAskAgain: true });
+  });
+
+  it('a one-time allow (API still prompt) still reports granted after a successful probe', async () => {
+    vi.stubGlobal('navigator', {
+      geolocation: fakeGeo('fix'),
+      permissions: { query: async () => ({ state: 'prompt' }) },
+    });
     const view = makeView();
     installSigxWebHost(view);
     const res = (await view.onNativeModulesCall!(

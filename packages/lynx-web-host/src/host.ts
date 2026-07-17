@@ -197,7 +197,13 @@ function buildHandlers(): Record<string, Handler> {
       // IS the prompt. Ask (cheaply), then report the resulting status.
       try {
         await getPosition({ enableHighAccuracy: false, timeout: 30_000 });
-        return { status: 'granted', canAskAgain: true };
+        // Trust a decisive Permissions API answer; a one-time allow (or an
+        // absent API) can still read 'prompt'/'undetermined' — the probe just
+        // succeeded, so that means effectively granted.
+        const s = await geoPermissionStatus();
+        return s.status === 'granted' || s.status === 'blocked'
+          ? s
+          : { status: 'granted', canAskAgain: true };
       } catch {
         return geoPermissionStatus();
       }
@@ -235,7 +241,7 @@ function getPosition(opts: PositionOptions): Promise<{
   timestamp: number;
 }> {
   return new Promise((resolve, reject) => {
-    if (!('geolocation' in navigator)) {
+    if (typeof navigator.geolocation?.getCurrentPosition !== 'function') {
       reject(new Error('geolocation is not available in this browser'));
       return;
     }
