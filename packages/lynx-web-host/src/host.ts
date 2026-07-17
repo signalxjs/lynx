@@ -126,7 +126,108 @@ function pickFiles(accept: string | undefined, multiple: boolean): Promise<Picke
   });
 }
 
+interface WebNotification {
+  close(): void;
+}
+
+interface NotificationCtor {
+  new (title: string, options?: { body?: string; tag?: string }): WebNotification;
+  permission: 'granted' | 'denied' | 'default';
+  requestPermission(): Promise<'granted' | 'denied' | 'default'>;
+}
+
+const REPEAT_MS: Record<string, number> = {
+  minute: 60_000,
+  hour: 3_600_000,
+  day: 86_400_000,
+  week: 604_800_000,
+};
+
+/**
+ * Local-notification state + handlers (page-lifetime, best-effort — timers
+ * and repeats don't survive a reload; that limitation is documented in the
+ * lynx-notifications README's Web section).
+ */
+function makeNotificationHandlers() {
+  const scheduled = new Map<
+    string,
+    { timer: ReturnType<typeof setTimeout>; interval?: ReturnType<typeof setInterval>; shown: WebNotification[] }
+  >();
+  let nextId = 1;
+  let badge = 0;
+
+  const ctor = (): NotificationCtor => {
+    const n = (globalThis as { Notification?: NotificationCtor }).Notification;
+    if (!n) throw new Error('the Notification API is not available in this browser');
+    return n;
+  };
+  const mapPermission = (
+    state: 'granted' | 'denied' | 'default',
+  ): { status: string; canAskAgain: boolean } =>
+    state === 'granted'
+      ? { status: 'granted', canAskAgain: true }
+      : state === 'denied'
+        ? { status: 'blocked', canAskAgain: false } // site-settings change required
+        : { status: 'undetermined', canAskAgain: true };
+
+  return {
+    schedule(d: Record<string, unknown>): string {
+      const N = ctor();
+      if (N.permission !== 'granted') {
+        throw new Error('notification permission not granted — call requestPermission() first');
+      }
+      const id = `web-${nextId++}`;
+      const title = String(d['title'] ?? '');
+      const body = String(d['body'] ?? '');
+      const delayMs = (typeof d['delay'] === 'number' ? d['delay'] : 0) * 1000;
+      const repeatMs = REPEAT_MS[String(d['repeat'] ?? '')];
+      const entry: { timer: ReturnType<typeof setTimeout>; interval?: ReturnType<typeof setInterval>; shown: WebNotification[] } = {
+        timer: setTimeout(() => {
+          entry.shown.push(new N(title, { body, tag: id }));
+          if (repeatMs) {
+            entry.interval = setInterval(() => {
+              entry.shown.push(new N(title, { body, tag: id }));
+            }, repeatMs);
+          }
+        }, delayMs),
+        shown: [],
+      };
+      scheduled.set(id, entry);
+      return id;
+    },
+    cancel(id: string): boolean {
+      const entry = scheduled.get(id);
+      if (!entry) return false;
+      clearTimeout(entry.timer);
+      if (entry.interval) clearInterval(entry.interval);
+      for (const n of entry.shown) n.close();
+      scheduled.delete(id);
+      return true;
+    },
+    cancelAll(): boolean {
+      for (const id of [...scheduled.keys()]) this.cancel(id);
+      return true;
+    },
+    async requestPermission(): Promise<{ status: string; canAskAgain: boolean }> {
+      return mapPermission(await ctor().requestPermission());
+    },
+    permissionStatus(): { status: string; canAskAgain: boolean } {
+      return mapPermission(ctor().permission);
+    },
+    setBadge(count: number): void {
+      badge = Number.isFinite(count) && count > 0 ? Math.floor(count) : 0;
+      // Badging API (installed PWAs, Chromium) — best-effort.
+      const nav = navigator as { setAppBadge?: (n: number) => Promise<void>; clearAppBadge?: () => Promise<void> };
+      void (badge > 0 ? nav.setAppBadge?.(badge) : nav.clearAppBadge?.())?.catch(() => {});
+    },
+    getBadge(): number {
+      return badge; // no portable read API — locally tracked, like Android's 0
+    },
+  };
+}
+
 function buildHandlers(): Record<string, Handler> {
+  const notifs = makeNotificationHandlers();
   return {
     'clipboard.setString': async (data) => {
       await navigator.clipboard.writeText(String(asRecord(data)['value'] ?? ''));
@@ -192,6 +293,13 @@ function buildHandlers(): Record<string, Handler> {
       });
     },
     'location.permissionStatus': () => geoPermissionStatus(),
+    'notifications.schedule': (data) => notifs.schedule(asRecord(data)),
+    'notifications.cancel': (data) => notifs.cancel(String(asRecord(data)['id'] ?? '')),
+    'notifications.cancelAll': () => notifs.cancelAll(),
+    'notifications.requestPermission': () => notifs.requestPermission(),
+    'notifications.permissionStatus': () => notifs.permissionStatus(),
+    'notifications.setBadge': (data) => notifs.setBadge(Number(asRecord(data)['count'] ?? 0)),
+    'notifications.getBadge': () => notifs.getBadge(),
     'location.requestPermission': async () => {
       // The browser has no standalone geolocation prompt — a position request
       // IS the prompt. Ask (cheaply), then report the resulting status.

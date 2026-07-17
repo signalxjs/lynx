@@ -6,6 +6,8 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 ### Added
 
+- `@sigx/lynx-notifications` — **local** notifications work on web (#718 Tier 2): `schedule`/`cancel`/`cancelAll` via the `@sigx/lynx-web-host` bridge to the browser Notification API (delay + repeat as page-lifetime timers; cancel closes shown entries), permission methods with browser-denial → `blocked`, badges via the Badging API best-effort with a locally-tracked count. Remote push degrades cleanly: `registerForPushNotifications()` resolves `{ error }`, listeners never fire, `getInitialNotification()` resolves `null` (#723).
+
 - `@sigx/lynx-location` works on web (first Tier-2 shim, #718): `getCurrentPosition` routes through the `@sigx/lynx-web-host` bridge to `navigator.geolocation` (`accuracy: 'high'` → `enableHighAccuracy`, `timeout` passthrough, coords mapped with null-normalized altitude/speed/heading); permission methods map the Permissions API (browser denial → `blocked`/`canAskAgain: false`; `requestPermission` surfaces the prompt via a position request). Requires a secure context (#721).
 
 - Root README documents the web story: the gesture system (all six recognizers + Race/Simultaneous/Exclusive composition, same-element arena semantics), animations, navigation, appearance, deep links and 9+ shimmed native modules in the browser, with `sigx run:web` (zero config) and `sigx build:web` (static export). A hosted public demo was deliberately deferred — a GitHub Pages project site for this repo would shadow the docs site's `sigx.dev/lynx/` path (#716).
