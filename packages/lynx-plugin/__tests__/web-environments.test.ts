@@ -8,7 +8,7 @@
  */
 import { describe, it, expect } from 'vitest';
 
-import { ensureWebEnvironments } from '../src/index';
+import { ensureWebEnvironments } from '../src/web-env';
 
 type Cfg = { environments?: Record<string, unknown>; other?: string };
 
@@ -40,6 +40,11 @@ describe('ensureWebEnvironments', () => {
     const out = ensureWebEnvironments(cfg, merge);
     expect(out.environments!['lynx']).toEqual({ custom: true });
     expect(out.environments!['web']).toEqual({});
+  });
+
+  it('a present-but-falsy key counts as declared and is not overwritten', () => {
+    const cfg: Cfg = { environments: { lynx: {}, web: null } };
+    expect(ensureWebEnvironments(cfg, merge)).toBe(cfg);
   });
 
   it('preserves extra user environments untouched', () => {

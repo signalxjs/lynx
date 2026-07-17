@@ -24,6 +24,7 @@ import type { RsbuildPlugin } from '@rsbuild/core';
 
 import { applyCSS } from './css.js';
 import { applyEntry } from './entry.js';
+import { ensureWebEnvironments } from './web-env.js';
 import { applyIcons } from './icons.js';
 import { LAYERS } from './layers.js';
 import { createLogWebSocketServer, LOG_ENDPOINT_PATH, type LogWebSocketServer } from './log-server.js';
@@ -112,25 +113,6 @@ function readRuntimeVersions(rootPath: string): { android?: string; ios?: string
     // No sidecar (prebuild not run / web-only project) — define null.
   }
   return null;
-}
-
-/**
- * Ensure `environments.lynx` + `environments.web` exist on the rsbuild config,
- * merging only the missing keys — user-declared environments (and their
- * contents) are never touched; a fully-declared config is returned as-is.
- * Exported for tests; called only when a web build is requested
- * (`SIGX_WEB_ENV=1`) and the `web` plugin option isn't `false` (#699).
- */
-export function ensureWebEnvironments<T extends { environments?: Record<string, unknown> }>(
-  config: T,
-  merge: (a: T, b: { environments: Record<string, Record<string, never>> }) => T,
-): T {
-  const envs = config.environments ?? {};
-  const patch: Record<string, Record<string, never>> = {};
-  if (!envs['lynx']) patch['lynx'] = {};
-  if (!envs['web']) patch['web'] = {};
-  if (Object.keys(patch).length === 0) return config;
-  return merge(config, { environments: patch });
 }
 
 /**

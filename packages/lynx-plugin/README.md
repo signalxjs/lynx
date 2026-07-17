@@ -53,9 +53,10 @@ export default defineConfig({
 
 5. **Zero-config web environment (#699).** When a web build is requested
    (`sigx run:web` sets `SIGX_WEB_ENV=1` in the rspeedy child env), the plugin
-   auto-provides `environments: { lynx: {}, web: {} }` if your
-   `lynx.config.ts` declares none — user-declared environments are always
-   preserved, and plain `sigx dev` / `sigx build` (no env var) are unaffected.
+   adds any missing `lynx` / `web` keys to `environments` (creating the block
+   when your `lynx.config.ts` declares none) — present keys and every other
+   user-declared environment are untouched, and plain `sigx dev` /
+   `sigx build` (no env var) are unaffected.
    On the web environment it also injects `__WEB__`/`__NATIVE__` defines,
    `.web.tsx`-style file resolution, and a `.web.js` `extensionAlias` so
    per-package web shims apply through published dists (#697). Opt out with
