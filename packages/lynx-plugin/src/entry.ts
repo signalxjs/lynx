@@ -129,6 +129,21 @@ class SigxMarkMainThreadPlugin {
   }
 }
 
+/**
+ * Prepend the web variant to a `resolve.extensionAlias` list for `key`,
+ * preserving whatever mapping already exists (rsbuild's tsconfig-driven
+ * `.js → ['.js', '.ts', '.tsx']`) and falling back to the identity alias when
+ * none does. Idempotent. Exported for tests.
+ */
+export function prependWebExtensionAlias(
+  cur: string[] | string | undefined,
+  key: string,
+  webExt: string,
+): string[] {
+  const rest = cur == null ? [key] : Array.isArray(cur) ? cur : [cur];
+  return [webExt, ...rest.filter((e) => e !== webExt)];
+}
+
 export interface ApplyEntryOptions {
   enableCSSSelector?: boolean;
   enableCSSInheritance?: boolean;
@@ -427,6 +442,22 @@ export async function applyEntry(
            '.native.tsx', '.native.ts', '.native.jsx', '.native.js'];
       for (let i = platformExts.length - 1; i >= 0; i--) {
         chain.resolve.extensions.prepend(platformExts[i]);
+      }
+
+      // `resolve.extensions` only rewrites *extensionless* specifiers (app
+      // source). Published `@sigx/lynx-*` dists import with explicit
+      // extensions (`export … from './storage.js'`), which only
+      // `resolve.extensionAlias` rewrites — so on the web bundle, prepend
+      // `.web.js` there too, making a package's compiled `storage.web.js`
+      // shim win over its `storage.js`. This is the per-package web-shim
+      // mechanism (signalxjs/lynx#697). Merge ahead of rsbuild's
+      // tsconfig-driven mapping (`.js → ['.js', '.ts', '.tsx']`) — never
+      // clobber it, and fall back to the identity alias when absent.
+      if (isWeb) {
+        for (const [key, webExt] of [['.js', '.web.js'], ['.jsx', '.web.jsx']] as const) {
+          const cur = chain.resolve.extensionAlias.get(key) as string[] | string | undefined;
+          chain.resolve.extensionAlias.set(key, prependWebExtensionAlias(cur, key, webExt));
+        }
       }
     }
 
