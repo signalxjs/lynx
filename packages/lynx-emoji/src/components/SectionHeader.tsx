@@ -10,7 +10,9 @@ export type SectionHeaderProps =
     & Define.Prop<'label', string, true>
     /** Unique `item-key` within the list (the grid passes `hdr:<sectionKey>`). */
     & Define.Prop<'itemKey', string, true>
-    & Define.Prop<'class', string, false>;
+    & Define.Prop<'class', string, false>
+    /** Label font size — the picker passes ~28% of its resolved cell font. Default 13. */
+    & Define.Prop<'labelSize', number, false>;
 
 /**
  * A category header row for the sectioned picker — a full-span, sticky-top
@@ -34,7 +36,7 @@ export type SectionHeaderProps =
  * sectioned mount, #666). The `SectionHeader` component below wraps this
  * for external composition.
  */
-export function sectionHeaderRow(args: { itemKey: string; label: string; class?: string }): JSXElement {
+export function sectionHeaderRow(args: { itemKey: string; label: string; class?: string; labelSize?: number }): JSXElement {
     return (
         <list-item
             item-key={args.itemKey}
@@ -54,12 +56,12 @@ export function sectionHeaderRow(args: { itemKey: string; label: string; class?:
         >
             <text
                 text={args.label}
-                style={{ fontSize: '13px', opacity: 0.55 }}
+                style={{ fontSize: `${args.labelSize ?? 13}px`, opacity: 0.55 }}
             />
         </list-item>
     );
 }
 
 export const SectionHeader = component<SectionHeaderProps>(({ props }) => {
-    return () => sectionHeaderRow({ itemKey: props.itemKey, label: props.label, class: props.class });
+    return () => sectionHeaderRow({ itemKey: props.itemKey, label: props.label, class: props.class, labelSize: props.labelSize });
 });

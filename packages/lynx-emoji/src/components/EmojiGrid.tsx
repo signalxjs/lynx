@@ -188,6 +188,8 @@ export type EmojiGridProps =
     & Define.Prop<'class', string, false>
     & Define.Prop<'cellClass', string, false>
     & Define.Prop<'headerClass', string, false>
+    /** Section header label font size (the picker scales it with the grid). */
+    & Define.Prop<'headerLabelSize', number, false>
     & Define.Prop<'renderCell', EmojiRenderCell, false>
     & Define.Prop<'style', Record<string, string | number>, false>
     & Define.Event<'pick', EmojiDatum>
@@ -241,7 +243,7 @@ export const EmojiGrid = component<EmojiGridProps>(({ props, emit }) => {
     const emitPickTone = (d: EmojiDatum): void => emit('pickTone', d);
     const renderRow = (row: SectionRow): unknown => {
         if (row.header) {
-            return sectionHeaderRow({ itemKey: `hdr:${row.key}`, label: row.label, class: props.headerClass });
+            return sectionHeaderRow({ itemKey: `hdr:${row.key}`, label: row.label, class: props.headerClass, labelSize: props.headerLabelSize });
         }
         if (props.renderCell) {
             return (
@@ -308,7 +310,7 @@ export const EmojiGrid = component<EmojiGridProps>(({ props, emit }) => {
     let vnodeCache: { key: string; map: Map<string, unknown> } | null = null;
     const rowVnode = (row: SectionRow): unknown => {
         if (props.renderCell) return renderRow(row);   // custom cells: uncached
-        const ck = `${props.itemsKey ?? ''}|${props.tone ?? 0}|${props.cellSize ?? ''}|${props.cellClass ?? ''}|${props.headerClass ?? ''}|${props.columns ?? 8}`;
+        const ck = `${props.itemsKey ?? ''}|${props.tone ?? 0}|${props.cellSize ?? ''}|${props.cellClass ?? ''}|${props.headerClass ?? ''}|${props.headerLabelSize ?? ''}|${props.columns ?? 8}`;
         if (!vnodeCache || vnodeCache.key !== ck) vnodeCache = { key: ck, map: new Map() };
         const k = rowKey(row);
         let v = vnodeCache.map.get(k);

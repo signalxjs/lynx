@@ -339,6 +339,7 @@ export const EmojiPicker = component<EmojiPickerProps>(({ props, emit }) => {
                 class={classes.grid}
                 cellClass={classes.cell}
                 headerClass={classes.sectionHeader}
+                headerLabelSize={Math.round(cellSize * 0.28)}
                 renderCell={props.renderCell}
                 style={styleFor(gridStyles, GRID_STYLE_TEMPLATE, 'sections')}
                 onPick={(datum) => pick(datum, ctx.skinTone.state.tone)}
@@ -378,6 +379,7 @@ export const EmojiPicker = component<EmojiPickerProps>(({ props, emit }) => {
                 )}
                 {q === '' && sections !== null && (
                     <CategoryTabBar
+                        size={Math.round(cellSize * 0.62)}
                         tabs={allTabs}
                         active={activeTab}
                         class={classes.tabBar}
