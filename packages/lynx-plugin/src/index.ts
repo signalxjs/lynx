@@ -115,6 +115,25 @@ function readRuntimeVersions(rootPath: string): { android?: string; ios?: string
 }
 
 /**
+ * Ensure `environments.lynx` + `environments.web` exist on the rsbuild config,
+ * merging only the missing keys — user-declared environments (and their
+ * contents) are never touched; a fully-declared config is returned as-is.
+ * Exported for tests; called only when a web build is requested
+ * (`SIGX_WEB_ENV=1`) and the `web` plugin option isn't `false` (#699).
+ */
+export function ensureWebEnvironments<T extends { environments?: Record<string, unknown> }>(
+  config: T,
+  merge: (a: T, b: { environments: Record<string, Record<string, never>> }) => T,
+): T {
+  const envs = config.environments ?? {};
+  const patch: Record<string, Record<string, never>> = {};
+  if (!envs['lynx']) patch['lynx'] = {};
+  if (!envs['web']) patch['web'] = {};
+  if (Object.keys(patch).length === 0) return config;
+  return merge(config, { environments: patch });
+}
+
+/**
  * Options for {@link pluginSigxLynx}.
  * @public
  */
@@ -158,6 +177,17 @@ export interface PluginSigxLynxOptions {
    * @defaultValue true
    */
   snapshots?: boolean;
+
+  /**
+   * Whether the plugin may auto-provide the `web` rsbuild environment when a
+   * web build is requested (`sigx run:web` sets `SIGX_WEB_ENV=1` in the
+   * rspeedy child env). With this on — the default — apps need no
+   * `environments` block in `lynx.config.ts` to run on web; user-declared
+   * environments are always preserved, and plain `sigx dev` / `sigx build`
+   * (no env var) are unaffected. Pass `false` to opt out entirely.
+   * @defaultValue true
+   */
+  web?: boolean;
 }
 
 /**
@@ -174,6 +204,7 @@ export function pluginSigxLynx(
     customCSSInheritanceList: _customCSSInheritanceList,
     debugInfoOutside: _debugInfoOutside = true,
     snapshots: _snapshots = true,
+    web: _web = true,
   } = options;
 
   return {
@@ -182,6 +213,19 @@ export function pluginSigxLynx(
     pre: ['lynx:rsbuild:plugin-api', 'lynx:config', 'lynx:rsbuild:dev'],
 
     async setup(api) {
+      // Zero-config web environment (#699): `sigx run:web` sets SIGX_WEB_ENV=1
+      // in the rspeedy child env; ensure `environments.lynx` + `environments.web`
+      // exist so apps need no `environments` block in lynx.config.ts. Merge
+      // only the missing keys — user-declared environments are untouched.
+      // Env-var gating keeps plain `sigx dev` / `sigx build` / direct
+      // `rspeedy build` unchanged (no surprise double builds). Opt out with
+      // the `web: false` plugin option.
+      if (_web && process.env['SIGX_WEB_ENV'] === '1') {
+        api.modifyRsbuildConfig((config, { mergeRsbuildConfig }) =>
+          ensureWebEnvironments(config, mergeRsbuildConfig),
+        );
+      }
+
       api.modifyRsbuildConfig((config, { mergeRsbuildConfig }) => {
         // Compile all JS files (including node_modules) for ES2019 compat
         // with the Lynx JS engine, unless user explicitly sets source.include.
