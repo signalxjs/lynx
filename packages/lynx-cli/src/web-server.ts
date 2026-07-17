@@ -155,6 +155,12 @@ export function hostHtml(projectName: string, bundle: string): string {
 </head>
 <body>
   <lynx-view style="height:100vh;width:100vw" url="/app/${bundle}" height="100vh" width="100vw"></lynx-view>
+  <script type="module">
+    // Host-page bridge (#703): sigx.* RPC handlers (clipboard, share, linking,
+    // pickers, vibrate) + appearance / initial-URL publishers.
+    import { installSigxWebHost } from '/host/sigx-host.js';
+    installSigxWebHost(document.querySelector('lynx-view'));
+  </script>
   <script>
     (function () {
       try {
@@ -179,11 +185,14 @@ export async function runWeb(ctx: RunWebCtx): Promise<void> {
 
   // Resolve the web-core engine (a CLI dependency) — served read-only from node_modules.
   let engineStaticDir: string;
+  let hostJsPath: string;
   try {
-    const clientJs = createRequire(import.meta.url).resolve('@lynx-js/web-core/client.prod.js');
+    const req = createRequire(import.meta.url);
+    const clientJs = req.resolve('@lynx-js/web-core/client.prod.js');
     engineStaticDir = dirname(dirname(clientJs)); // …/client_prod/static/js/client.js → …/static
+    hostJsPath = req.resolve('@sigx/lynx-web-host/host');
   } catch {
-    logger.error('Could not resolve @lynx-js/web-core — try reinstalling dependencies.');
+    logger.error('Could not resolve @lynx-js/web-core / @sigx/lynx-web-host — try reinstalling dependencies.');
     process.exitCode = 1;
     return;
   }
@@ -264,6 +273,12 @@ export async function runWeb(ctx: RunWebCtx): Promise<void> {
       }
       // The bundle must never be cached (it's rewritten on every rebuild).
       void serveFile(res, abs, rel.endsWith('.web.bundle') ? 'no-cache' : 'public, max-age=600');
+      return;
+    }
+    if (url === '/host/sigx-host.js') {
+      // Self-contained ESM host bridge (#703) — served from the CLI's own
+      // @sigx/lynx-web-host dependency, same pattern as the engine assets.
+      void serveFile(res, hostJsPath, 'no-cache');
       return;
     }
     res.writeHead(404).end('Not found');

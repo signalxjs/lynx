@@ -375,6 +375,9 @@ importers:
       '@sigx/lynx-updates-publisher':
         specifier: workspace:^
         version: link:../lynx-updates-publisher
+      '@sigx/lynx-web-host':
+        specifier: workspace:^
+        version: link:../lynx-web-host
       '@sigx/terminal':
         specifier: ^0.6.1
         version: 0.6.1(@sigx/reactivity@0.10.0)(@sigx/runtime-core@0.10.0)
@@ -1253,6 +1256,15 @@ importers:
       '@sigx/lynx':
         specifier: workspace:^
         version: link:../lynx
+      '@typescript/native-preview':
+        specifier: 7.0.0-dev.20260521.1
+        version: 7.0.0-dev.20260521.1
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+
+  packages/lynx-web-host:
+    devDependencies:
       '@typescript/native-preview':
         specifier: 7.0.0-dev.20260521.1
         version: 7.0.0-dev.20260521.1
