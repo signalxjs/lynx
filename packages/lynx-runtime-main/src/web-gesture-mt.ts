@@ -18,10 +18,16 @@
  * through web-core's own event system, which has no coords for `pointer*`; this
  * supersedes it.)
  *
- * Supported: **Tap**, **LongPress**, **Pan**. Pinch / Rotation / Fling and arena
- * relations (waitFor/simultaneous/continueWith) are not implemented — composed
- * gestures still drive every base's lifecycle (e.g. `Pressable`'s
+ * Supported: **Tap**, **LongPress**, **Pan**, **Fling**. Pinch / Rotation and
+ * arena relations (waitFor/simultaneous/continueWith) are not implemented —
+ * composed gestures still drive every base's lifecycle (e.g. `Pressable`'s
  * `Simultaneous(Tap, LongPress)` resets its visual in `LongPress.onEnd`).
+ *
+ * Fling is discrete: recognized at the primary pointer's `pointerup` from the
+ * velocity over a trailing ~100ms sample window — `onStart` fires on a match
+ * (with `params.velocityX/velocityY` in px/ms), then the universal `onEnd` pass
+ * runs as for every gesture. No `onUpdate`. Velocity unit is **px/ms** (0.3
+ * px/ms = 300 px/s), matching how consumers compute drag velocity manually.
  *
  * Pointer tracking is **per-pointerId** (a `Map`), so a second finger no longer
  * clobbers the active press: the press is driven by the *primary* pointer (the
@@ -39,11 +45,18 @@
 // Gesture type ids — mirror of `GestureType` in
 // `packages/lynx-runtime/src/native/gesture-detector.ts`.
 const PAN = 0;
+const FLING = 1;
 const TAP = 3;
 const LONGPRESS = 4;
 
 const DEFAULT_MAX_DISTANCE = 10; // px — tap/long-press movement tolerance
 const DEFAULT_LONGPRESS_MS = 500;
+/** Fling `minVelocity` default, px/ms (≈ 300 px/s). */
+const DEFAULT_FLING_MIN_VELOCITY = 0.3;
+/** Only samples this recent (ms before the up) feed the fling velocity. */
+const FLING_SAMPLE_WINDOW_MS = 100;
+/** Ring-buffer cap for velocity samples on the primary pointer. */
+const FLING_MAX_SAMPLES = 8;
 
 interface WorkletCtx {
   _wkltId: string;
@@ -83,6 +96,11 @@ interface PointerState {
   /** Last client coords. */
   x: number;
   y: number;
+  /**
+   * Trailing movement samples for fling velocity (primary pointer only, and
+   * only while a Fling gesture is registered). Capped at FLING_MAX_SAMPLES.
+   */
+  samples?: { x: number; y: number; t: number }[];
 }
 
 interface ElementGestures {
@@ -141,7 +159,9 @@ export function registerWebGesture(
   entry.gestures.set(gestureId, { type, callbacks, config: config.config ?? {} });
 
   if (firstForElement) attachListeners(entry);
-  if (type === PAN) setTouchActionNone(entry);
+  // Fling too: without it the browser claims the fast swipe for scrolling.
+  // (Axis-aware touch-action derivation is a follow-up.)
+  if (type === PAN || type === FLING) setTouchActionNone(entry);
 }
 
 /** Remove one gesture; tear down listeners when the element has none left. */
@@ -149,18 +169,18 @@ export function unregisterWebGesture(elementWvid: number, gestureId: number): vo
   const entry = byElement.get(elementWvid);
   if (!entry) return;
   entry.gestures.delete(gestureId);
-  // Restore `touch-action` as soon as no Pan remains — even if other (non-Pan)
+  // Restore `touch-action` as soon as no Pan/Fling remains — even if other
   // gestures stay on the element — so a removed drag doesn't leave the element
   // stuck unscrollable.
-  if (!hasPan(entry)) restoreTouchAction(entry);
+  if (!hasType(entry, PAN) && !hasType(entry, FLING)) restoreTouchAction(entry);
   if (entry.gestures.size > 0) return;
   clearLpTimers(entry);
   detachListeners(entry);
   byElement.delete(elementWvid);
 }
 
-function hasPan(entry: ElementGestures): boolean {
-  for (const g of entry.gestures.values()) if (g.type === PAN) return true;
+function hasType(entry: ElementGestures, type: number): boolean {
+  for (const g of entry.gestures.values()) if (g.type === type) return true;
   return false;
 }
 
@@ -267,6 +287,10 @@ function onDown(entry: ElementGestures, e: PointerLike): void {
   entry.moved = false;
   entry.panStarted = new Set();
   entry.lpFired = new Set();
+  if (hasType(entry, FLING)) {
+    const p = pointers.get(id);
+    if (p) p.samples = [{ x: e.clientX, y: e.clientY, t: p.startT }];
+  }
   const evt = synthEvent('pointerdown', e);
   for (const [gid, g] of entry.gestures) {
     runCb(g, 'onBegin', evt);
@@ -303,6 +327,10 @@ function onMove(entry: ElementGestures, e: PointerLike): void {
   }
   // Tap/LongPress tolerance and Pan are driven by the primary pointer only.
   if (!entry.active || id !== entry.primaryId || !p) return;
+  if (p.samples) {
+    p.samples.push({ x: e.clientX, y: e.clientY, t: nowMs() });
+    if (p.samples.length > FLING_MAX_SAMPLES) p.samples.shift();
+  }
   const dx = e.clientX - p.startX;
   const dy = e.clientY - p.startY;
   const distSq = dx * dx + dy * dy;
@@ -341,9 +369,23 @@ function onUp(entry: ElementGestures, e: PointerLike): void {
   const isTap =
     withinTap && !entry.multiTouch && entry.lpFired!.size === 0 && entry.panStarted!.size === 0;
   const evt = synthEvent('pointerup', e);
+  // Fling pass: velocity over the primary pointer's trailing sample window.
+  // Discrete — onStart on a match, then the universal onEnd below.
+  let flung = false;
+  const v = p ? flingVelocity(p, e, nowMs()) : undefined;
+  if (v) {
+    for (const g of entry.gestures.values()) {
+      if (g.type === FLING && flingMatches(g.config, v.vx, v.vy)) {
+        flung = true;
+        runCb(g, 'onStart', flingEvent(e, v.vx, v.vy));
+      }
+    }
+  }
   // Pass 1: Tap.onStart (emits press) — before onEnd so a LongPress.onEnd
-  // press-fallback sees the emit.
-  if (isTap) {
+  // press-fallback sees the emit. A recognized fling suppresses the tap
+  // explicitly: a very short, very fast flick can clear `minVelocity` while
+  // still inside the tap tolerance, and must not fire both.
+  if (isTap && !flung) {
     for (const g of entry.gestures.values()) if (g.type === TAP) runCb(g, 'onStart', evt);
   }
   // Pass 2: onEnd for every gesture (resets pressed visual, finishes a pan…).
@@ -398,6 +440,67 @@ function runCb(entry: GestureEntry, name: string, event: unknown): void {
   } catch (e) {
     console.log('[sigx-mt] web-gesture callback threw:', name, String(e));
   }
+}
+
+/**
+ * Velocity (px/ms) over the trailing FLING_SAMPLE_WINDOW_MS of the primary
+ * pointer's samples, measured to the pointerup position. Undefined when there
+ * are no samples or no time has elapsed. A pause before release naturally
+ * fails the threshold: the newest sample is old, so velocity ≈ 0.
+ */
+function flingVelocity(
+  p: PointerState,
+  e: PointerLike,
+  t: number,
+): { vx: number; vy: number } | undefined {
+  const samples = p.samples;
+  if (!samples || samples.length === 0) return undefined;
+  const cutoff = t - FLING_SAMPLE_WINDOW_MS;
+  // Earliest sample still inside the window; if all are older (finger paused),
+  // fall back to the newest so the long dt yields a near-zero velocity.
+  let base = samples[samples.length - 1]!;
+  for (const s of samples) {
+    if (s.t >= cutoff) {
+      base = s;
+      break;
+    }
+  }
+  const dt = t - base.t;
+  if (dt <= 0) return undefined;
+  return { vx: (e.clientX - base.x) / dt, vy: (e.clientY - base.y) / dt };
+}
+
+/**
+ * Does the velocity satisfy this Fling's `direction` + `minVelocity` config?
+ * Directional flings require the configured axis to dominate and its component
+ * to clear the threshold; direction-less flings use the overall magnitude.
+ * Units: px/ms.
+ */
+function flingMatches(config: Record<string, unknown>, vx: number, vy: number): boolean {
+  const min =
+    typeof config.minVelocity === 'number' ? config.minVelocity : DEFAULT_FLING_MIN_VELOCITY;
+  const ax = Math.abs(vx);
+  const ay = Math.abs(vy);
+  switch (config.direction as string | undefined) {
+    case 'left':
+      return vx < 0 && ax >= ay && ax >= min;
+    case 'right':
+      return vx > 0 && ax >= ay && ax >= min;
+    case 'up':
+      return vy < 0 && ay >= ax && ay >= min;
+    case 'down':
+      return vy > 0 && ay >= ax && ay >= min;
+    default:
+      return Math.hypot(vx, vy) >= min;
+  }
+}
+
+/** Fling onStart event: the usual coord params plus velocity in px/ms. */
+function flingEvent(e: PointerLike, vx: number, vy: number): unknown {
+  const evt = synthEvent('fling', e) as { type: string; params: Record<string, number> };
+  evt.params.velocityX = vx;
+  evt.params.velocityY = vy;
+  return evt;
 }
 
 /** Largest tap/long-press `maxDistance` across the element's gestures (px). */
