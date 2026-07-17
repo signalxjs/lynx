@@ -103,6 +103,11 @@ export {
   resetAnimatedStyleBindingIds,
 } from './animated/use-animated-style.js';
 export type { AnimatedStyleSpec } from './animated/use-animated-style.js';
+export {
+  useScrollDragHost,
+  useCreateScrollDragHost,
+} from './scroll-drag-host.js';
+export type { ScrollDragHost } from './scroll-drag-host.js';
 
 // @deprecated since Phase 2.8 — use `SharedValue` / `useSharedValue` /
 // `SharedValueState` instead. Kept for one minor cycle.

@@ -45,6 +45,8 @@ const App = component(() => {
 
 The full `animate` / `withSpring` / `withTiming` API, composition patterns (concurrent, sequential, cancellation), the easing set, tick scheduling and current limitations are documented on the docs site.
 
+Cancellation: a new `animate()`/`withSpring`/`withTiming` on the same `SharedValue` auto-cancels the in-flight one and takes over from the live value. To cancel *without* starting a new animation (e.g. a gesture claiming a value mid-settle), call `cancelAnimation(sv)` from a `'main thread'` context — a plain `sv.current.value` write alone does **not** cancel.
+
 ## Attribution
 
 Spring solver and easing functions are ported from [`@lynx-js/motion`](https://github.com/lynx-family/lynx-stack/tree/main/packages/motion) v0.0.3, [`motion-dom`](https://github.com/motiondivision/motion/tree/main/packages/motion-dom) v12.23.12, and [`motion-utils`](https://github.com/motiondivision/motion/tree/main/packages/motion-utils) v12.23.6 — all Apache-2.0. The cubic bezier code is in turn modified from Gaëtan Renaudeau's [`bezier-easing`](https://github.com/gre/bezier-easing) (MIT).

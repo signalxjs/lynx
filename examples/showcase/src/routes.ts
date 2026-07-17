@@ -13,6 +13,7 @@ import { DirectivesDemo } from './screens/DirectivesDemo.js';
 import { Icons } from './screens/Icons.js';
 import { SystemBars } from './screens/SystemBars.js';
 import { SheetDemo } from './screens/SheetDemo.js';
+import { SheetScrollDemo } from './screens/SheetScrollDemo.js';
 import { ListDemo } from './screens/ListDemo.js';
 import { ChatDemo } from './screens/ChatDemo.js';
 // Gestures & Motion
@@ -92,6 +93,9 @@ export const routes = defineRoutes({
     // Bottom sheet: the route IS the sheet — pushing it slides the demo
     // screen up to its 0.4 snap point over the dimmed catalog.
     sheetDemo: { component: SheetDemo, path: '/sheet', presentation: 'sheet' },
+    // Sheet with scrollable content — exercises the full-surface drag's
+    // scroll arbitration (ScrollDragHost adoption).
+    sheetScrollDemo: { component: SheetScrollDemo, path: '/sheet-scroll', presentation: 'sheet' },
 
     // Gestures & Motion
     springLab: { component: SpringLab, path: '/gestures/spring-lab' },

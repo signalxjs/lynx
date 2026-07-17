@@ -1,5 +1,5 @@
 // Animation orchestration ('main thread' worklets that operate on SharedValue)
-export { animate } from './animate.js';
+export { animate, cancelAnimation } from './animate.js';
 export type {
   AnimateOptions,
   AnimateControls,

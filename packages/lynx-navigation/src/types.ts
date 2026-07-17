@@ -216,6 +216,16 @@ export interface ScreenOptions {
     initialSnapIndex?: number;
     /** When false, tapping the dimmed backdrop does not dismiss the sheet. Default true. */
     backdropDismiss?: boolean;
+    /**
+     * Where sheet drags start. `'surface'` (default): anywhere on the sheet
+     * body — inner scroll/taps keep working via drag↔scroll arbitration
+     * (lynx-gestures' `<ScrollView>` coordinates automatically).
+     * `'grabber'`: only the strip region at the sheet's top edge — use for
+     * raw `<scroll-view>`/`<list>` content that can't coordinate.
+     * `'none'`: backdrop/programmatic dismiss only.
+     * Ignored for non-sheet presentations.
+     */
+    dragHandle?: 'surface' | 'grabber' | 'none';
 }
 
 /**

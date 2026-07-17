@@ -5,8 +5,12 @@ import {
     onUnmounted,
     signal,
     untrack,
+    useCreateScrollDragHost,
+    useMainThreadRef,
+    useScrollDragHost,
     useSharedValue,
     type Define,
+    type MainThread,
     type SharedValue,
 } from '@sigx/lynx';
 import { createNavigatorState } from '../navigator/core.js';
@@ -36,7 +40,7 @@ import { SCREEN_HEIGHT } from '../internal/screen-width.js';
 import { EdgeBackHandle } from './EdgeBackHandle.js';
 import { Layer } from './Layer.js';
 import { SheetBackdrop } from './SheetBackdrop.js';
-import { SheetDragHandle } from './SheetDragHandle.js';
+import { SheetDragController } from './SheetDragController.js';
 import { useTabScreenName, useTabs } from './Tabs.js';
 
 type StackProps =
@@ -92,42 +96,119 @@ type SheetSlotProps =
     & Define.Prop<'staticOffsetY', number, false>
     & Define.Prop<'sheetProgress', SharedValue<number> | null, true>
     & Define.Prop<'staticBackdropOpacity', number, true>
-    & Define.Prop<'dismissable', boolean, true>;
+    & Define.Prop<'dismissable', boolean, true>
+    /** Mount the full-surface drag controller (top resting sheet, drag on). */
+    & Define.Prop<'dragEnabled', boolean, true>
+    /** `'surface'` (default) or `'grabber'` — see `ScreenOptions.dragHandle`. */
+    & Define.Prop<'dragMode', 'surface' | 'grabber', true>
+    /** Snap progress values (ascending) for this sheet's config. */
+    & Define.Prop<'snapProgresses', readonly number[], true>
+    & Define.Prop<'maxSnapFraction', number, true>
+    /** Sheet rests below its max detent → inner content scroll stays locked. */
+    & Define.Prop<'restingBelowMax', boolean, true>
+    /** BG callback: gesture settled at a (non-dismiss) snap progress. */
+    & Define.Prop<'onSettle', (progress: number) => void, true>;
 
 /**
- * One Stack slot hosting a sheet entry: its `<SheetBackdrop>` followed by
- * the regular `<Layer>`. Wrapped in a component (fragment at the component
- * root — the same proven shape as daisyui's ThemeProvider) rather than an
- * inline fragment, because the Stack body's 24 unrolled slots are
- * position-stable single children and an inline multi-child fragment in a
- * slot is exactly the array-shape change the reconciler remounts on (see
- * the slot comment in the render below). Document order inside: backdrop
- * below, sheet surface above — Lynx has no z-index.
+ * One Stack slot hosting a sheet entry: its `<SheetBackdrop>`, the regular
+ * `<Layer>`, and the (null-flipping) `<SheetDragController>`. Wrapped in a
+ * component (fragment at the component root — the same proven shape as
+ * daisyui's ThemeProvider) rather than an inline fragment, because the
+ * Stack body's 24 unrolled slots are position-stable single children and
+ * an inline multi-child fragment in a slot is exactly the array-shape
+ * change the reconciler remounts on (see the slot comment in the render
+ * below). Document order inside: backdrop below, sheet surface above —
+ * Lynx has no z-index.
  *
  * Every sheet entry routes through this component — visible OR hidden
  * (retained-covered) — so the slot's component type never flips between
  * `<SheetSlot>` and `<Layer>` mid-life, which would remount the screen
- * subtree. The fragment's child shape is constant too: the backdrop hides
- * via `display: none` rather than unmounting.
+ * subtree. The fragment's child shape is constant too (always 3 children):
+ * the backdrop hides via `display: none`, and the drag controller slot
+ * flips `null ↔ component` (renderless — no view shape change either way).
+ *
+ * Sheet-drag ownership lives here: the slot owns the Layer's host element
+ * ref (so the controller's pan attaches to the sheet surface itself) and
+ * eagerly allocates the `ScrollDragHost` it provides to the screen subtree
+ * — eager because the controller's worklets can only capture SharedValue
+ * identities that exist when the gesture registers; an inner `<ScrollView>`
+ * mounting later ADOPTS these handles (see `scroll-drag-host.ts`).
+ *
+ * The host's `scrollLock` composes two sources into the ONE signal the
+ * adopted ScrollView reads: `restingBelowMax` (derived by Stack from the
+ * settled detent — content never scrolls while the sheet is partially
+ * open) and `gestureLock` (the controller claimed the current drag).
  */
-const SheetSlot = component<SheetSlotProps>(({ props }) => () => (
-    <>
-        <SheetBackdrop
-            sheetProgress={props.sheetProgress}
-            staticOpacity={props.staticBackdropOpacity}
-            dismissable={props.dismissable ?? false}
-            hidden={props.hidden ?? false}
-        />
-        <Layer
-            key={`layer-${props.entry.key}`}
-            entry={props.entry}
-            routes={props.routes}
-            animation={props.animation}
-            hidden={props.hidden}
-            staticOffsetY={props.staticOffsetY}
-        />
-    </>
-));
+const SheetSlot = component<SheetSlotProps>(({ props }) => {
+    const hostRef = useMainThreadRef<MainThread.Element | null>(null);
+    const dragHost = useCreateScrollDragHost();
+    defineProvide(useScrollDragHost, () => dragHost);
+
+    // Stale-settle guard: MT stamps a generation at claim; delayed BG
+    // settle/dismiss timeouts compare against this signal and bail when
+    // superseded by a newer grab.
+    const genSignal = signal(0);
+    const gestureLock = signal(false);
+    const lockRunner = effect(() => {
+        dragHost.scrollLock.value = props.restingBelowMax || gestureLock.value;
+    });
+    // If the controller unmounts mid-gesture (a push covers the sheet, a
+    // transition starts), its onEnd may never fire — drop the gesture lock
+    // whenever drag is disabled so content scroll can't stay frozen.
+    const dragDisabledRunner = effect(() => {
+        if (!props.dragEnabled) {
+            untrack(() => {
+                gestureLock.value = false;
+            });
+        }
+    });
+    onUnmounted(() => {
+        lockRunner.stop();
+        dragDisabledRunner.stop();
+    });
+
+    return () => (
+        <>
+            <SheetBackdrop
+                sheetProgress={props.sheetProgress}
+                staticOpacity={props.staticBackdropOpacity}
+                dismissable={props.dismissable ?? false}
+                hidden={props.hidden ?? false}
+            />
+            <Layer
+                key={`layer-${props.entry.key}`}
+                entry={props.entry}
+                routes={props.routes}
+                animation={props.animation}
+                hidden={props.hidden}
+                staticOffsetY={props.staticOffsetY}
+                hostRef={hostRef}
+            />
+            {props.dragEnabled
+                ? (
+                    <SheetDragController
+                        // Keyed by snap signature + mode: the controller
+                        // snapshots its config at setup (worklet capture),
+                        // so a reactive change must remount it. Entry
+                        // identity is already pinned by the slot's own key.
+                        key={`drag-${props.snapProgresses.join('_')}-${props.dragMode}`}
+                        entryKey={props.entry.key}
+                        snapProgresses={props.snapProgresses}
+                        maxSnapFraction={props.maxSnapFraction}
+                        dragMode={props.dragMode}
+                        hostRef={hostRef}
+                        dragHost={dragHost}
+                        genSignal={genSignal}
+                        onGestureLock={(locked: boolean) => {
+                            gestureLock.value = locked;
+                        }}
+                        onSettle={props.onSettle}
+                    />
+                )
+                : null}
+        </>
+    );
+});
 
 /**
  * Number of `renderLayerNode(layers[n])` slots unrolled in the render
@@ -342,9 +423,11 @@ export const Stack = component<StackProps>(({ props, slots }) => {
     }
 
     // Last gesture-settled snap progress per sheet entry key, written by
-    // `<SheetDragHandle>` on a snap release (one BG hop). Read when a sheet
-    // gets covered (something pushed above it) so its static layer keeps
-    // the user's chosen detent instead of reverting to the initial snap.
+    // `<SheetDragController>` on a snap release (one BG hop). Read when a
+    // sheet gets covered (something pushed above it) so its static layer
+    // keeps the user's chosen detent instead of reverting to the initial
+    // snap — and to derive `restingBelowMax` (content scroll stays locked
+    // while the sheet rests below its max detent).
     const sheetRestBox = signal<Record<string, number>>({});
 
     // Prune settled-snap records when their entries leave the stack —
@@ -369,6 +452,7 @@ export const Stack = component<StackProps>(({ props, slots }) => {
             maxFraction: snaps[snaps.length - 1],
             initialSnapIndex: options?.initialSnapIndex,
             backdropDismiss: options?.backdropDismiss !== false,
+            dragHandle: options?.dragHandle ?? 'surface',
         };
     };
 
@@ -445,6 +529,19 @@ export const Stack = component<StackProps>(({ props, slots }) => {
         const renderLayerNode = (layer: typeof layers[number] | undefined) => {
             if (!layer) return null;
             if (layer.entry.presentation === 'sheet') {
+                const cfg = sheetConfigFor(layer.entry);
+                const entryKey = layer.entry.key;
+                // Full-surface drag controller mounts for the top *resting*
+                // sheet only (never mid-transition), with animations enabled
+                // and a real snap config — the same gate the old grabber
+                // strip used — unless the screen opted out entirely.
+                const dragEnabled =
+                    entryKey === activeSheetEntry?.key
+                    && entryKey === currentTop.key
+                    && !nav.transition
+                    && !!internals.sheetProgress
+                    && cfg.snaps.length > 0
+                    && cfg.dragHandle !== 'none';
                 return (
                     <SheetSlot
                         key={`layer-${layer.entry.key}`}
@@ -464,8 +561,23 @@ export const Stack = component<StackProps>(({ props, slots }) => {
                         dismissable={
                             layer.entry.key === currentTop.key &&
                             !nav.transition &&
-                            sheetConfigFor(layer.entry).backdropDismiss
+                            cfg.backdropDismiss
                         }
+                        dragEnabled={dragEnabled}
+                        dragMode={cfg.dragHandle === 'grabber' ? 'grabber' : 'surface'}
+                        snapProgresses={cfg.snaps.map((f) => snapToProgress(f, cfg.maxFraction))}
+                        maxSnapFraction={cfg.maxFraction}
+                        restingBelowMax={sheetRestProgress(layer.entry) < 1 - 0.001}
+                        onSettle={(p: number) => {
+                            // The settle callback arrives via a delayed BG
+                            // timeout — if the sheet was popped meanwhile,
+                            // writing would re-add a key the prune effect
+                            // already removed (and nothing would prune it
+                            // again until the next stack change).
+                            if (nav.stack.some((e) => e.key === entryKey)) {
+                                sheetRestBox[entryKey] = p;
+                            }
+                        }}
                     />
                 );
             }
@@ -520,47 +632,6 @@ export const Stack = component<StackProps>(({ props, slots }) => {
             ? <EdgeBackHandle key="edge-back" />
             : null;
 
-        // Sheet grabber strip — drag between snap points / drag down to
-        // dismiss. Mounted only for a top *resting* sheet with animations
-        // enabled (the gesture writes the sheet SV directly; nothing to
-        // drive otherwise). Keyed per entry so a different sheet remounts
-        // with its own snap config (the component snapshots props at
-        // setup). Its own translateY binds the same SV + mapper as the
-        // sheet's layer, so the strip tracks the sheet's top edge on MT.
-        const sheetHandle = (
-            activeSheetEntry
-            && activeSheetEntry.key === top.key
-            && !nav.transition
-            && internals.sheetProgress
-            && sheetConfigFor(activeSheetEntry).snaps.length > 0
-        )
-            ? (() => {
-                const { snaps, maxFraction } = sheetConfigFor(activeSheetEntry);
-                const entryKey = activeSheetEntry.key;
-                return (
-                    <SheetDragHandle
-                        // Keyed by entry AND snap signature: the handle
-                        // snapshots its config at setup (worklet capture),
-                        // so a reactive snapPoints change must remount it.
-                        key={`sheet-handle-${entryKey}-${snaps.join('_')}`}
-                        entryKey={entryKey}
-                        snapProgresses={snaps.map((f) => snapToProgress(f, maxFraction))}
-                        maxSnapFraction={maxFraction}
-                        onSettle={(p: number) => {
-                            // The settle callback arrives via a delayed BG
-                            // timeout — if the sheet was popped meanwhile,
-                            // writing would re-add a key the prune effect
-                            // already removed (and nothing would prune it
-                            // again until the next stack change).
-                            if (nav.stack.some((e) => e.key === entryKey)) {
-                                sheetRestBox[entryKey] = p;
-                            }
-                        }}
-                    />
-                );
-            })()
-            : null;
-
         const body = (
             <view
                 style={{
@@ -601,7 +672,6 @@ export const Stack = component<StackProps>(({ props, slots }) => {
                 {renderLayerNode(layers[21])}
                 {renderLayerNode(layers[22])}
                 {renderLayerNode(layers[23])}
-                {sheetHandle}
                 {edgeHandle}
             </view>
         );
