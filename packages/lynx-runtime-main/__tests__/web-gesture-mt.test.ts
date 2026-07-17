@@ -30,7 +30,14 @@ interface FakeEl {
   addEventListener: (t: string, fn: (e: unknown) => void) => void;
   removeEventListener: (t: string) => void;
   setPointerCapture: ReturnType<typeof vi.fn>;
-  fire: (type: string, x: number, y: number, pageX?: number, pageY?: number) => void;
+  fire: (
+    type: string,
+    x: number,
+    y: number,
+    pageX?: number,
+    pageY?: number,
+    pointerId?: number,
+  ) => void;
 }
 
 function makeEl(): FakeEl {
@@ -45,8 +52,8 @@ function makeEl(): FakeEl {
       delete listeners[t];
     },
     setPointerCapture: vi.fn(),
-    fire(type, x, y, pageX, pageY) {
-      listeners[type]?.({ type, clientX: x, clientY: y, pageX, pageY, pointerId: 1 });
+    fire(type, x, y, pageX, pageY, pointerId = 1) {
+      listeners[type]?.({ type, clientX: x, clientY: y, pageX, pageY, pointerId });
     },
   };
 }
@@ -214,6 +221,145 @@ describe('web gesture recognizer (pointer listeners)', () => {
     reg(el, 5, 1, TAP, []);
     unregisterWebGesture(5, 1);
     expect(Object.keys(el.listeners)).toHaveLength(0);
+  });
+});
+
+describe('multi-pointer tracking (per-pointerId)', () => {
+  it('a second pointerdown does not reset the press — pan deltas keep the original start', () => {
+    const el = makeEl();
+    reg(
+      el,
+      5,
+      1,
+      PAN,
+      [
+        { name: 'onBegin', callback: { _wkltId: 'b' } },
+        { name: 'onStart', callback: { _wkltId: 's' } },
+        { name: 'onUpdate', callback: { _wkltId: 'u' } },
+      ],
+      { minDistance: 0 },
+    );
+    el.fire('pointerdown', 0, 0, 0, 0, 1);
+    el.fire('pointermove', 20, 0, 20, 0, 1); // pan started
+    el.fire('pointerdown', 100, 100, 100, 100, 2); // second finger lands
+    el.fire('pointermove', 40, 0, 40, 0, 1); // primary keeps driving
+    const f = fired();
+    expect(f.filter((x) => x === 'b')).toHaveLength(1); // onBegin NOT re-fired
+    expect(f.filter((x) => x === 's')).toHaveLength(1); // pan not restarted
+    expect(f.filter((x) => x === 'u')).toHaveLength(2); // both primary moves
+    expect(runCalls.at(-1)!.event.params.pageX).toBe(40);
+  });
+
+  it('a second pointerdown cancels a pending long-press', () => {
+    const el = makeEl();
+    reg(el, 5, 1, LONGPRESS, [{ name: 'onStart', callback: { _wkltId: 'lp' } }], {
+      minDuration: 500,
+    });
+    el.fire('pointerdown', 50, 50, undefined, undefined, 1);
+    el.fire('pointerdown', 60, 60, undefined, undefined, 2);
+    vi.advanceTimersByTime(500);
+    expect(fired()).not.toContain('lp');
+  });
+
+  it('tap is suppressed after two-finger contact, but onEnd still fires', () => {
+    const el = makeEl();
+    reg(el, 5, 1, TAP, [
+      { name: 'onStart', callback: { _wkltId: 'tap-start' } },
+      { name: 'onEnd', callback: { _wkltId: 'tap-end' } },
+    ]);
+    el.fire('pointerdown', 100, 100, undefined, undefined, 1);
+    el.fire('pointerdown', 110, 100, undefined, undefined, 2);
+    el.fire('pointerup', 110, 100, undefined, undefined, 2);
+    el.fire('pointerup', 101, 100, undefined, undefined, 1); // near-still primary up
+    expect(fired()).not.toContain('tap-start');
+    expect(fired()).toContain('tap-end');
+  });
+
+  it("a secondary pointerup does not end the press; the primary's does", () => {
+    const el = makeEl();
+    reg(el, 5, 1, PAN, [{ name: 'onEnd', callback: { _wkltId: 'e' } }], { minDistance: 0 });
+    el.fire('pointerdown', 0, 0, undefined, undefined, 1);
+    el.fire('pointerdown', 50, 50, undefined, undefined, 2);
+    el.fire('pointerup', 50, 50, undefined, undefined, 2);
+    expect(fired()).not.toContain('e');
+    el.fire('pointerup', 0, 0, undefined, undefined, 1);
+    expect(fired()).toContain('e');
+  });
+
+  it('secondary pointer moves do not drive pan', () => {
+    const el = makeEl();
+    reg(
+      el,
+      5,
+      1,
+      PAN,
+      [
+        { name: 'onStart', callback: { _wkltId: 's' } },
+        { name: 'onUpdate', callback: { _wkltId: 'u' } },
+      ],
+      { minDistance: 0 },
+    );
+    el.fire('pointerdown', 0, 0, undefined, undefined, 1);
+    el.fire('pointerdown', 10, 10, undefined, undefined, 2);
+    el.fire('pointermove', 60, 60, undefined, undefined, 2); // secondary drags
+    expect(fired()).not.toContain('s');
+    expect(fired()).not.toContain('u');
+  });
+
+  it('no new press starts while a stale secondary is still down after the press ended', () => {
+    const el = makeEl();
+    reg(el, 5, 1, TAP, [{ name: 'onBegin', callback: { _wkltId: 'begin' } }]);
+    el.fire('pointerdown', 0, 0, undefined, undefined, 1);
+    el.fire('pointerdown', 10, 10, undefined, undefined, 2);
+    el.fire('pointerup', 0, 0, undefined, undefined, 1); // primary lifts — press over
+    runCalls = [];
+    el.fire('pointerdown', 20, 20, undefined, undefined, 3); // finger 2 still down
+    expect(fired()).not.toContain('begin');
+    el.fire('pointerup', 10, 10, undefined, undefined, 2);
+    el.fire('pointerup', 20, 20, undefined, undefined, 3);
+    el.fire('pointerdown', 30, 30, undefined, undefined, 4); // all lifted — fresh press
+    expect(fired()).toContain('begin');
+  });
+
+  it('duplicate downs with no pointerId (both normalize to 0) do not clobber the press', () => {
+    // Hosts that omit pointerId: a repeated down must not reset the primary's
+    // start coords nor flip the press to multi-touch.
+    const el = makeEl();
+    const fireNoId = (type: string, x: number, y: number) =>
+      el.listeners[type]?.({ type, clientX: x, clientY: y });
+    reg(
+      el,
+      5,
+      1,
+      PAN,
+      [
+        { name: 'onStart', callback: { _wkltId: 's' } },
+        { name: 'onUpdate', callback: { _wkltId: 'u' } },
+      ],
+      { minDistance: 15 },
+    );
+    reg(el, 5, 2, TAP, [{ name: 'onStart', callback: { _wkltId: 'tap' } }]);
+    fireNoId('pointerdown', 0, 0);
+    fireNoId('pointerdown', 100, 100); // duplicate down, id also 0 — ignored
+    fireNoId('pointermove', 20, 0); // 20px from ORIGINAL start > minDistance 15
+    expect(fired()).toContain('s'); // pan measured from (0,0), not (100,100)
+    fireNoId('pointerup', 20, 0);
+
+    // And a plain tap still works (duplicate down didn't set multiTouch).
+    runCalls = [];
+    fireNoId('pointerdown', 0, 0);
+    fireNoId('pointerdown', 2, 0);
+    fireNoId('pointerup', 2, 0);
+    expect(fired()).toContain('tap');
+  });
+
+  it('both pointers get pointer capture', () => {
+    const el = makeEl();
+    reg(el, 5, 1, PAN, []);
+    el.fire('pointerdown', 0, 0, undefined, undefined, 1);
+    el.fire('pointerdown', 10, 10, undefined, undefined, 2);
+    expect(el.setPointerCapture).toHaveBeenCalledWith(1);
+    expect(el.setPointerCapture).toHaveBeenCalledWith(2);
   });
 });
 

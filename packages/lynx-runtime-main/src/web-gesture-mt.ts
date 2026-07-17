@@ -23,6 +23,15 @@
  * gestures still drive every base's lifecycle (e.g. `Pressable`'s
  * `Simultaneous(Tap, LongPress)` resets its visual in `LongPress.onEnd`).
  *
+ * Pointer tracking is **per-pointerId** (a `Map`), so a second finger no longer
+ * clobbers the active press: the press is driven by the *primary* pointer (the
+ * first one down); a secondary contact marks the press multi-touch (which
+ * disqualifies Tap and cancels pending LongPress timers, mirroring the native
+ * recognizers failing on a second touch) and otherwise just tracks alongside —
+ * the foundation for two-finger Pinch/Rotation. A secondary lift never ends the
+ * press; only the primary's `pointerup`/`pointercancel` does. Deferred: pointer
+ * promotion (continuing a pan on the surviving finger when the primary lifts).
+ *
  * Native is unaffected — this module is only reached when `__SetGestureDetector`
  * is absent (the web path in `ops-apply.ts`).
  */
@@ -66,6 +75,16 @@ interface DomEl {
   style?: { touchAction?: string };
 }
 
+/** One currently-down pointer (keyed by pointerId in `ElementGestures.pointers`). */
+interface PointerState {
+  startX: number;
+  startY: number;
+  startT: number;
+  /** Last client coords. */
+  x: number;
+  y: number;
+}
+
 interface ElementGestures {
   el: MainThreadElement;
   gestures: Map<number, GestureEntry>;
@@ -73,9 +92,14 @@ interface ElementGestures {
   /** Saved `touch-action` to restore on teardown (set to 'none' for Pan). */
   prevTouchAction?: string;
   // ── transient per-press state ──
+  /** All currently-down pointers, by (normalized) pointerId. */
+  pointers?: Map<number, PointerState>;
+  /** A press is in progress (the primary pointer is down). */
   active?: boolean;
-  start?: { x: number; y: number; t: number };
-  last?: { x: number; y: number };
+  /** The pointer driving the press — the first one down. */
+  primaryId?: number;
+  /** A second pointer landed during this press — disqualifies Tap & LongPress. */
+  multiTouch?: boolean;
   /** Moved past the tap/long-press tolerance — disqualifies tap & long-press. */
   moved?: boolean;
   /** Gesture ids whose Pan `onStart` has fired this press. */
@@ -188,13 +212,27 @@ function safe(fn: () => void): void {
 
 // ── State machine ──────────────────────────────────────────────────────────
 
+/** Normalize a pointer id (`undefined` on odd hosts / synthetic events → 0). */
+function pid(e: PointerLike): number {
+  return e.pointerId ?? 0;
+}
+
 function onDown(entry: ElementGestures, e: PointerLike): void {
-  entry.active = true;
-  entry.start = { x: e.clientX, y: e.clientY, t: nowMs() };
-  entry.last = { x: e.clientX, y: e.clientY };
-  entry.moved = false;
-  entry.panStarted = new Set();
-  entry.lpFired = new Set();
+  const id = pid(e);
+  const pointers = (entry.pointers ??= new Map());
+  // Never overwrite an already-tracked pointer: on hosts that omit `pointerId`
+  // every down normalizes to 0, and clobbering the entry would reset the
+  // primary's start coords mid-press (the exact bug this rework removes).
+  const known = pointers.has(id);
+  if (!known) {
+    pointers.set(id, {
+      startX: e.clientX,
+      startY: e.clientY,
+      startT: nowMs(),
+      x: e.clientX,
+      y: e.clientY,
+    });
+  }
   // Capture so move/up keep flowing to this element even outside its bounds.
   if (e.pointerId != null) {
     try {
@@ -203,6 +241,32 @@ function onDown(entry: ElementGestures, e: PointerLike): void {
       /* capture unsupported — drag tracking degrades to in-bounds only */
     }
   }
+
+  if (entry.active) {
+    // A repeated down for a pointer we already track isn't a new contact —
+    // ignore it (it must not flip the press to multi-touch).
+    if (known) return;
+    // Secondary contact during an active press: the press becomes multi-touch,
+    // which disqualifies Tap (checked in onUp) and cancels pending LongPress
+    // timers — mirroring the native recognizers failing on a second touch. No
+    // re-fired onBegin; the press's lifecycle stays owned by the primary.
+    entry.multiTouch = true;
+    clearLpTimers(entry);
+    return;
+  }
+  if (pointers.size > 1) {
+    // A stale pointer is still down from an already-ended press (its primary
+    // lifted first). No new press starts until every pointer lifts.
+    return;
+  }
+
+  // Press start (first pointer down).
+  entry.active = true;
+  entry.primaryId = id;
+  entry.multiTouch = false;
+  entry.moved = false;
+  entry.panStarted = new Set();
+  entry.lpFired = new Set();
   const evt = synthEvent('pointerdown', e);
   for (const [gid, g] of entry.gestures) {
     runCb(g, 'onBegin', evt);
@@ -216,20 +280,31 @@ function onDown(entry: ElementGestures, e: PointerLike): void {
   }
 }
 
+function primaryPointer(entry: ElementGestures): PointerState | undefined {
+  return entry.primaryId != null ? entry.pointers?.get(entry.primaryId) : undefined;
+}
+
 function fireLongPress(entry: ElementGestures, gid: number): void {
-  if (!entry.active || entry.moved) return;
+  if (!entry.active || entry.moved || entry.multiTouch) return;
   const g = entry.gestures.get(gid);
   if (!g) return;
+  const p = primaryPointer(entry);
+  if (!p) return;
   entry.lpFired!.add(gid);
-  const l = entry.last!;
-  runCb(g, 'onStart', synthEvent('longpress', { clientX: l.x, clientY: l.y }));
+  runCb(g, 'onStart', synthEvent('longpress', { clientX: p.x, clientY: p.y }));
 }
 
 function onMove(entry: ElementGestures, e: PointerLike): void {
-  if (!entry.active || !entry.start) return;
-  entry.last = { x: e.clientX, y: e.clientY };
-  const dx = e.clientX - entry.start.x;
-  const dy = e.clientY - entry.start.y;
+  const id = pid(e);
+  const p = entry.pointers?.get(id);
+  if (p) {
+    p.x = e.clientX;
+    p.y = e.clientY;
+  }
+  // Tap/LongPress tolerance and Pan are driven by the primary pointer only.
+  if (!entry.active || id !== entry.primaryId || !p) return;
+  const dx = e.clientX - p.startX;
+  const dy = e.clientY - p.startY;
   const distSq = dx * dx + dy * dy;
   const tapMax = tapMaxDistance(entry);
   if (!entry.moved && distSq > tapMax * tapMax) {
@@ -251,15 +326,20 @@ function onMove(entry: ElementGestures, e: PointerLike): void {
 }
 
 function onUp(entry: ElementGestures, e: PointerLike): void {
+  const id = pid(e);
+  const p = entry.pointers?.get(id);
+  entry.pointers?.delete(id);
   if (!entry.active) return;
+  // A secondary lift never ends the press — only the primary's does.
+  if (id !== entry.primaryId) return;
   entry.active = false;
   clearLpTimers(entry);
-  const start = entry.start;
-  const dx = start ? e.clientX - start.x : 0;
-  const dy = start ? e.clientY - start.y : 0;
+  const dx = p ? e.clientX - p.startX : 0;
+  const dy = p ? e.clientY - p.startY : 0;
   const tapMax = tapMaxDistance(entry);
-  const withinTap = !!start && dx * dx + dy * dy <= tapMax * tapMax;
-  const isTap = withinTap && entry.lpFired!.size === 0 && entry.panStarted!.size === 0;
+  const withinTap = !!p && dx * dx + dy * dy <= tapMax * tapMax;
+  const isTap =
+    withinTap && !entry.multiTouch && entry.lpFired!.size === 0 && entry.panStarted!.size === 0;
   const evt = synthEvent('pointerup', e);
   // Pass 1: Tap.onStart (emits press) — before onEnd so a LongPress.onEnd
   // press-fallback sees the emit.
@@ -272,7 +352,11 @@ function onUp(entry: ElementGestures, e: PointerLike): void {
 }
 
 function onCancel(entry: ElementGestures, e: PointerLike): void {
+  const id = pid(e);
+  entry.pointers?.delete(id);
   if (!entry.active) return;
+  // A secondary's cancel doesn't end the press either.
+  if (id !== entry.primaryId) return;
   entry.active = false;
   clearLpTimers(entry);
   const evt = synthEvent('pointercancel', e);
@@ -281,11 +365,13 @@ function onCancel(entry: ElementGestures, e: PointerLike): void {
 }
 
 function resetTransient(entry: ElementGestures): void {
-  entry.start = undefined;
-  entry.last = undefined;
+  entry.primaryId = undefined;
+  entry.multiTouch = false;
   entry.moved = false;
   entry.panStarted = undefined;
   entry.lpFired = undefined;
+  // `pointers` is NOT cleared — it keeps tracking physically-down stale
+  // pointers so no new press starts until they all lift (see onDown).
 }
 
 function clearLpTimers(entry: ElementGestures): void {

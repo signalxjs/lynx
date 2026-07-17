@@ -4,6 +4,10 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 ## [Unreleased]
 
+### Fixed
+
+- `@sigx/lynx-runtime-main` — web gesture recognizer now tracks pointers per `pointerId` instead of one flat press state, so a second finger no longer clobbers an active press: the press stays driven by the primary pointer, a secondary contact disqualifies Tap and cancels pending LongPress timers (matching native recognizers failing on a second touch), and a secondary lift no longer ends the press. Foundation for two-finger Pinch/Rotation on web (#685).
+
 ## [0.15.0] - 2026-07-16
 
 Conversation-grade notifications (stacking + remote dismissal) and the WhatsApp-class emoji picker (sectioned, instant-mount, screen-adaptive).
