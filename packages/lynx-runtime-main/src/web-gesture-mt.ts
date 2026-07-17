@@ -125,7 +125,7 @@ interface ElementGestures {
   el: MainThreadElement;
   gestures: Map<number, GestureEntry>;
   listeners?: { type: string; fn: (e: PointerLike) => void }[];
-  /** Saved `touch-action` to restore on teardown (set to 'none' for Pan). */
+  /** Original `touch-action`, saved before the gesture override; restored on teardown. */
   prevTouchAction?: string;
   // ── transient per-press state ──
   /** All currently-down pointers, by (normalized) pointerId. */
@@ -168,8 +168,9 @@ const POINTER_EVENTS = ['pointerdown', 'pointermove', 'pointerup', 'pointercance
 
 /**
  * Register one gesture on an element (web path). The first gesture on an element
- * attaches the shared pointer listeners; a Pan gesture also sets
- * `touch-action: none` so the browser doesn't claim the drag for scrolling.
+ * attaches the shared pointer listeners; gestures that need to keep the browser
+ * from claiming the interaction set an axis-aware `touch-action` (see
+ * `applyTouchAction`).
  */
 export function registerWebGesture(
   el: MainThreadElement,
@@ -193,14 +194,7 @@ export function registerWebGesture(
   entry.gestures.set(gestureId, { type, callbacks, config: config.config ?? {} });
 
   if (firstForElement) attachListeners(entry);
-  // Fling too (browser claims the fast swipe for scrolling) and Pinch/Rotation
-  // (browser claims two-finger contact for page zoom). Axis-aware touch-action
-  // derivation is a follow-up.
-  if (needsTouchActionNone(type)) setTouchActionNone(entry);
-}
-
-function needsTouchActionNone(type: number): boolean {
-  return type === PAN || type === FLING || type === PINCH || type === ROTATION;
+  applyTouchAction(entry);
 }
 
 /** Remove one gesture; tear down listeners when the element has none left. */
@@ -208,12 +202,9 @@ export function unregisterWebGesture(elementWvid: number, gestureId: number): vo
   const entry = byElement.get(elementWvid);
   if (!entry) return;
   entry.gestures.delete(gestureId);
-  // Restore `touch-action` as soon as no gesture needing it remains — even if
-  // other gestures stay on the element — so a removed drag doesn't leave the
-  // element stuck unscrollable.
-  let needs = false;
-  for (const g of entry.gestures.values()) if (needsTouchActionNone(g.type)) needs = true;
-  if (!needs) restoreTouchAction(entry);
+  // Recompute touch-action from the remaining gestures — a removed drag must
+  // not leave the element stuck unscrollable (restores when none needs it).
+  applyTouchAction(entry);
   if (entry.gestures.size > 0) return;
   clearLpTimers(entry);
   detachListeners(entry);
@@ -256,11 +247,57 @@ function detachListeners(entry: ElementGestures): void {
   restoreTouchAction(entry);
 }
 
-function setTouchActionNone(entry: ElementGestures): void {
+/**
+ * Derive the element's `touch-action` from ALL its registered gestures and
+ * apply it (most restrictive wins; the pre-gesture value is saved and restored
+ * once no gesture needs an override):
+ *
+ * - Pan `axis:'x'` (Swipeable, Range) → `pan-y`: the browser keeps vertical
+ *   scrolling through the element; when it claims a vertical swipe it fires
+ *   `pointercancel`, which the recognizer already maps to onEnd — graceful
+ *   handoff. Pan `axis:'y'` (sheet drag) → `pan-x`. Pan `'xy'`/unset →
+ *   `none` (free drag — Draggable).
+ * - Fling direction left/right → `pan-y`; up/down → `pan-x`; unset → `none`.
+ * - Pinch/Rotation → `none` (else the browser claims two-finger page zoom).
+ * - Tap/LongPress only → leave `touch-action` untouched.
+ *
+ * Conflicting wants (e.g. an x-Pan and a y-Pan on one element) collapse to
+ * `none`.
+ */
+function applyTouchAction(entry: ElementGestures): void {
+  let want: string | undefined;
+  const consider = (ta: string): void => {
+    if (want === undefined) want = ta;
+    else if (want !== ta) want = 'none';
+  };
+  for (const g of entry.gestures.values()) {
+    switch (g.type) {
+      case PAN: {
+        const axis = g.config.axis as string | undefined;
+        consider(axis === 'x' ? 'pan-y' : axis === 'y' ? 'pan-x' : 'none');
+        break;
+      }
+      case FLING: {
+        const d = g.config.direction as string | undefined;
+        consider(
+          d === 'left' || d === 'right' ? 'pan-y' : d === 'up' || d === 'down' ? 'pan-x' : 'none',
+        );
+        break;
+      }
+      case PINCH:
+      case ROTATION:
+        consider('none');
+        break;
+    }
+  }
+  if (want === undefined) {
+    restoreTouchAction(entry);
+    return;
+  }
   const el = entry.el as unknown as DomEl;
-  if (!el.style || entry.prevTouchAction !== undefined) return;
-  entry.prevTouchAction = el.style.touchAction ?? '';
-  el.style.touchAction = 'none';
+  if (!el.style) return;
+  if (entry.prevTouchAction === undefined) entry.prevTouchAction = el.style.touchAction ?? '';
+  el.style.touchAction = want;
 }
 
 function safe(fn: () => void): void {

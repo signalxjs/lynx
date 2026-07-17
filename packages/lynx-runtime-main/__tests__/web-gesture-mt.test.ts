@@ -224,6 +224,72 @@ describe('web gesture recognizer (pointer listeners)', () => {
   });
 });
 
+describe('axis-aware touch-action derivation', () => {
+  const FLING = 1;
+  const PINCH = 6;
+
+  it("Pan axis 'x' yields pan-y (vertical scroll stays with the browser)", () => {
+    const el = makeEl();
+    el.style.touchAction = 'auto';
+    reg(el, 5, 1, PAN, [], { axis: 'x' });
+    expect(el.style.touchAction).toBe('pan-y');
+    unregisterWebGesture(5, 1);
+    expect(el.style.touchAction).toBe('auto');
+  });
+
+  it("Pan axis 'y' yields pan-x", () => {
+    const el = makeEl();
+    reg(el, 5, 1, PAN, [], { axis: 'y' });
+    expect(el.style.touchAction).toBe('pan-x');
+  });
+
+  it("Pan axis 'xy' stays none (free drag)", () => {
+    const el = makeEl();
+    reg(el, 5, 1, PAN, [], { axis: 'xy' });
+    expect(el.style.touchAction).toBe('none');
+  });
+
+  it('horizontal Fling yields pan-y; vertical yields pan-x; directionless none', () => {
+    const el1 = makeEl();
+    reg(el1, 11, 1, FLING, [], { direction: 'left' });
+    expect(el1.style.touchAction).toBe('pan-y');
+    const el2 = makeEl();
+    reg(el2, 12, 1, FLING, [], { direction: 'down' });
+    expect(el2.style.touchAction).toBe('pan-x');
+    const el3 = makeEl();
+    reg(el3, 13, 1, FLING, [], {});
+    expect(el3.style.touchAction).toBe('none');
+  });
+
+  it('conflicting axes on one element collapse to none', () => {
+    const el = makeEl();
+    reg(el, 5, 1, PAN, [], { axis: 'x' }); // pan-y
+    expect(el.style.touchAction).toBe('pan-y');
+    reg(el, 5, 2, PAN, [], { axis: 'y' }); // + pan-x → none
+    expect(el.style.touchAction).toBe('none');
+  });
+
+  it('an axis pan combined with pinch collapses to none, and removal recomputes', () => {
+    const el = makeEl();
+    el.style.touchAction = 'manipulation';
+    reg(el, 5, 1, PAN, [], { axis: 'x' });
+    reg(el, 5, 2, PINCH, []);
+    expect(el.style.touchAction).toBe('none');
+    unregisterWebGesture(5, 2); // pinch gone → back to the pan's pan-y
+    expect(el.style.touchAction).toBe('pan-y');
+    unregisterWebGesture(5, 1); // nothing needs it → original restored
+    expect(el.style.touchAction).toBe('manipulation');
+  });
+
+  it('Tap/LongPress alone leave touch-action untouched', () => {
+    const el = makeEl();
+    el.style.touchAction = 'auto';
+    reg(el, 5, 1, TAP, []);
+    reg(el, 5, 2, LONGPRESS, []);
+    expect(el.style.touchAction).toBe('auto');
+  });
+});
+
 describe('multi-pointer tracking (per-pointerId)', () => {
   it('a second pointerdown does not reset the press — pan deltas keep the original start', () => {
     const el = makeEl();
