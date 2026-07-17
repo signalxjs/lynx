@@ -60,6 +60,40 @@ g['processData'] = function (data: unknown, _processorName?: string): unknown {
 // Lynx calls renderPage on the Main Thread first (before Background JS runs).
 // We create the root page element and store it as id=1 so Background ops that
 // target the root can resolve it correctly.
+// Build-time platform define injected by `@sigx/lynx-plugin` per rspeedy
+// environment. `typeof`-guarded (platform.ts pattern): runtime-main ships
+// prebuilt dist, but DefinePlugin still folds `typeof __WEB__` in bundled
+// node_modules code, so the native branch is dead-code-eliminated.
+declare const __WEB__: boolean | undefined;
+
+function isWebBuild(): boolean {
+  return typeof __WEB__ !== 'undefined'
+    ? __WEB__ === true
+    : (globalThis as { __WEB__?: boolean }).__WEB__ === true;
+}
+
+/**
+ * Native pages lay out their children in a column implicitly; upstream
+ * web-core's page element is `display: block`, so an app root relying on the
+ * flex context (`flex: 1` full-height roots) collapses to 0-height on web
+ * (#709 — probe-verified: 0px under block, full-viewport under flex column).
+ * Give the page the native-equivalent flex context on web only — on native
+ * the engine's implicit layout stays untouched.
+ */
+function applyWebPageLayoutDefaults(page: MainThreadElement): void {
+  if (!isWebBuild()) return;
+  // The page element on web is a plain `div[part="page"]`, and web-core's
+  // `__SetInlineStyles` maps `flex-direction` onto its `--flex-direction`
+  // custom property — which only `x-*` elements consume, so the div's real
+  // flex-direction stays `row` (browser-verified). web-core elements are real
+  // DOM nodes, so write the real properties directly.
+  const dom = page as unknown as {
+    style?: { setProperty?: (k: string, v: string) => void };
+  };
+  dom.style?.setProperty?.('display', 'flex');
+  dom.style?.setProperty?.('flex-direction', 'column');
+}
+
 g['renderPage'] = function (_data: unknown): void {
   resetMainThreadState();
   const page = __CreatePage('0', 0);
@@ -67,6 +101,7 @@ g['renderPage'] = function (_data: unknown): void {
   setPageUniqueId(__GetElementUniqueID(page));
   setSnapshotPageId(__GetElementUniqueID(page));
   elements.set(PAGE_ROOT_ID, page);
+  applyWebPageLayoutDefaults(page);
 
   // Append a placeholder __CreateView under the page root so the host sees a
   // non-empty tree immediately. Without this, the host's "no UI within timeout"
@@ -110,6 +145,7 @@ g['sigxHotReload'] = function (): void {
   setPageUniqueId(__GetElementUniqueID(page));
   setSnapshotPageId(__GetElementUniqueID(page));
   elements.set(PAGE_ROOT_ID, page);
+  applyWebPageLayoutDefaults(page);
 
   const placeholder = __CreateView(__GetElementUniqueID(page));
   __SetCSSId([placeholder], 0);
