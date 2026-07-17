@@ -31,6 +31,11 @@ import {
   resetAnimatedStyleBindings,
 } from './animated-bridge-mt.js';
 import {
+  registerDerivedValue,
+  unregisterDerivedValue,
+  resetDerivedValues,
+} from './derived-values-mt.js';
+import {
   createListElement,
   destroyListElement,
   flushDirtyLists,
@@ -583,6 +588,22 @@ export function applyOps(ops: unknown[]): void {
         break;
       }
 
+      case OP.REGISTER_AV_DERIVED: {
+        // [derivedWvid, reducerName, params, sourceWvids[]]
+        const derivedWvid = ops[i++] as number;
+        const reducerName = ops[i++] as string;
+        const params = ops[i++];
+        const sourceWvids = ops[i++] as number[];
+        registerDerivedValue(derivedWvid, reducerName, params, sourceWvids);
+        break;
+      }
+
+      case OP.UNREGISTER_AV_DERIVED: {
+        const derivedWvid = ops[i++] as number;
+        unregisterDerivedValue(derivedWvid);
+        break;
+      }
+
       case OP.SET_GESTURE_DETECTOR: {
         // Wire format: [op, wvid, gestureId, type, config, relationMap].
         // We reconstruct upstream's BaseGesture shape and delegate to vendored
@@ -751,6 +772,7 @@ export function resetMainThreadState(): void {
   lastTreeByElementWvid.clear();
   resetMtRefBindings();
   resetAnimatedStyleBindings();
+  resetDerivedValues();
   resetListState();
   resetWebGestures();
   resetSnapshotInstances();

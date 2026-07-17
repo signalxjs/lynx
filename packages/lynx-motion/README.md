@@ -45,6 +45,22 @@ const App = component(() => {
 
 The full `animate` / `withSpring` / `withTiming` API, composition patterns (concurrent, sequential, cancellation), the easing set, tick scheduling and current limitations are documented on the docs site.
 
+### Deriving one SharedValue from several
+
+`useDerivedValue(sources, reducer, params?)` folds several source SharedValues into one, on the main thread, recomputed each frame a source changes — bind the result like any SV. Use it to place an element above **whichever of two motions is larger** (two separate `translateY` bindings would *concatenate*, i.e. sum):
+
+```tsx
+import { useDerivedValue, useAnimatedStyle } from '@sigx/lynx';
+
+// A chat composer bar that sits above whichever is taller — keyboard or sheet.
+const lift = useDerivedValue([keyboardLift, sheetHeight], 'max');
+useAnimatedStyle(barRef, lift, 'translateY', { factor: -1 });
+```
+
+Built-in reducers: `max`, `min`, `sum`, `scale` (`sources[0] * factor + offset`). Reducers are selected by **name** (the recompute runs in the MT flush loop, which can't invoke a captured closure) — register custom ones on the main thread with `registerReducer(name, fn)` from `@sigx/lynx-runtime-main`. `useDerivedValueReactive(() => ({ sources, reducer, params }))` re-registers on the same derived SV when a runtime-reactive param changes (e.g. a factor that depends on live layout), so consumers bound to it never rebind.
+
+> Two animated-style bindings on one element that emit the same transform function (e.g. two `translateY`) silently **sum** — dev builds now warn once per element and point you to `useDerivedValue`.
+
 Cancellation: a new `animate()`/`withSpring`/`withTiming` on the same `SharedValue` auto-cancels the in-flight one and takes over from the live value. To cancel *without* starting a new animation (e.g. a gesture claiming a value mid-settle), call `cancelAnimation(sv)` from a `'main thread'` context — a plain `sv.current.value` write alone does **not** cancel.
 
 ## Attribution

@@ -4,4 +4,7 @@ export type {
   RangeParams,
   BuiltinMapperName,
   AnimatedStyleMapper,
+  DerivedReducerParams,
+  DerivedReducerName,
+  DerivedReducer,
 } from './animated-style-types.js';
