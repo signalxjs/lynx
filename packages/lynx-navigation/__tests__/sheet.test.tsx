@@ -15,7 +15,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { component } from '@sigx/lynx';
-import { render, act } from '@sigx/lynx-testing';
+import { render, act, TestNode } from '@sigx/lynx-testing';
 import { NavigationRoot } from '../src/components/NavigationRoot';
 import { Stack } from '../src/components/Stack';
 import { Tabs } from '../src/components/Tabs';
@@ -301,5 +301,74 @@ describe('Sheet presentation — present at detent (#711b)', () => {
         // reports 0 (else a bar bound to it hangs at the last detent height).
         expect(sv.current.value).toBe(0);
         expect(probe.nav!.current.route).toBe('home');
+    });
+});
+
+describe('Sheet presentation — backdrop: false (inline / non-modal)', () => {
+    // The backdrop is the only full-screen element covering the region above
+    // the sheet surface (the sheet's own layer is translated down to its top
+    // edge). Its `#000` absolute fill uniquely identifies it in the tree.
+    const findBackdrop = (node: TestNode): TestNode | null => {
+        if (
+            node.type === 'view'
+            && node._style['position'] === 'absolute'
+            && node._style['backgroundColor'] === '#000'
+        ) return node;
+        for (const child of node.children) {
+            const hit = findBackdrop(child);
+            if (hit) return hit;
+        }
+        return null;
+    };
+
+    function renderWithContainer(): { probe: NavProbe; container: TestNode } {
+        const probe: NavProbe = { nav: null, internals: null };
+        const { container } = render(
+            <NavigationRoot routes={routes} initialRoute="home">
+                <NavCapture probe={probe} />
+                <Stack />
+            </NavigationRoot>,
+        );
+        return { probe, container };
+    }
+
+    it('a default sheet renders the backdrop displayed and tap-catching', () => {
+        const { probe, container } = renderWithContainer();
+        act(() => probe.nav!.push('filterSheet', undefined, { animated: false }));
+        const bd = findBackdrop(container);
+        expect(bd).toBeTruthy();
+        expect(bd!._style['display']).not.toBe('none');   // dims the screen
+        expect(bd!._handlers.has('catchtap')).toBe(true);  // consumes taps
+    });
+
+    it('backdrop:false renders the backdrop inert (display:none → pass-through)', () => {
+        const { probe, container } = renderWithContainer();
+        act(() => probe.nav!.push('panelSheet', undefined, { animated: false }));
+        const bd = findBackdrop(container);
+        expect(bd).toBeTruthy();
+        // display:none: not laid out, catches no taps — the composer bar in
+        // the screen below stays interactive while the sheet is open.
+        expect(bd!._style['display']).toBe('none');
+    });
+
+    it('backdrop:false disarms backdrop-tap-dismiss even if the handler fires', () => {
+        const { probe, container } = renderWithContainer();
+        act(() => probe.nav!.push('panelSheet', undefined, { animated: false }));
+        expect(probe.nav!.current.route).toBe('panelSheet');
+        const bd = findBackdrop(container)!;
+        // Invoking the (inert) catchtap must not pop — the `enabled` gate.
+        act(() => { bd._handlers.get('catchtap')?.({}); });
+        expect(probe.nav!.current.route).toBe('panelSheet');
+    });
+
+    it('present-at-detent (#711b) and useSheetHeight still work with backdrop off', () => {
+        const { probe } = renderWithContainer();
+        const sv = probe.internals!.sheetProgress!;
+        act(() => probe.nav!.push('panelSheet', undefined, { animated: false }));
+        // snapPoints [0.4, 0.9], initialSnapIndex 0 → progress 0.4/0.9.
+        expect(sv.current.value).toBeCloseTo(0.4 / 0.9, 5);
+        expect(probe.nav!.transition).toBeNull();
+        act(() => probe.nav!.pop(1, { animated: false }));
+        expect(sv.current.value).toBe(0);
     });
 });

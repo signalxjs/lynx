@@ -69,6 +69,8 @@ Bottom sheets (`presentation: 'sheet'`) drag from anywhere on their surface by d
 
 `useSheetHeight()` returns a bindable `SharedValue<number>` of the top sheet's live visible height in px (`0` when none, tracking the finger as the sheet drags). Bind it to animate a *sibling* to the sheet — e.g. a chat composer bar that must sit above **whichever is taller**, the keyboard or the sheet: `useDerivedValue([keyboardLift, useSheetHeight()], 'max')` (see `@sigx/lynx-motion`). Returns a constant `0` under `animated={false}`.
 
+`<Screen backdrop={false}>` makes a sheet **non-modal / inline**: no dim, and the region above the sheet surface passes taps straight through to the screen below (the sheet's own layer is translated down to its top edge, so only the backdrop ever covered that region). Use it for a keyboard-accessory panel — an emoji picker sheet under a chat composer whose input must stay tappable while the sheet is open. `backdropDismiss` is then moot (no backdrop to tap); dismiss by dragging down or `nav.pop()`. Default `true` (the modal bottom-sheet look).
+
 `push(name, params, search, { animated: false })` **presents a sheet AT its initial detent instantly** — no slide. Use it to reveal a sheet by some *other* motion: e.g. open an emoji sheet behind the soft keyboard, then blur the input so the keyboard's own dismissal uncovers the sheet (the app animates nothing). `useSheetHeight` reads the detent height from the first frame, so a bar bound to `max(keyboardLift, sheetHeight)` never dips at the swap. A non-animated dismiss (`pop(1, { animated: false })`) returns the height to `0` the same way.
 
 ## License

@@ -82,6 +82,19 @@ export interface NavigatorState {
         get(entryKey: string): ScreenRegistry | undefined;
     };
     /**
+     * Internal: resolved `backdrop` option per sheet entry (`false` = the
+     * inline/non-modal, pass-through sheet). Populated at push time from the
+     * SAME deferred `<Screen>`-registration read the sheet's snap target uses
+     * (`resolveSheetTarget`) — a render-time read of the option can't be
+     * relied on: the sheet's `<Screen>` registers as a descendant of the
+     * very slot that must render the backdrop, one flush too late, and the
+     * registry's version tick does not re-run that slot under the eager test
+     * flush. `<Stack>` reads this reactive record keyed by entry, so the
+     * backdrop is correct from the frame the registration resolves. Absent
+     * key ⇒ default (dimmed) backdrop.
+     */
+    readonly _sheetBackdrops: Signal<Record<string, boolean>>;
+    /**
      * Internal: set `nav.isLocallyFocused` from outside.
      *
      * `<Stack>` calls this when its host entry's locally-focused state
@@ -229,6 +242,11 @@ export function createNavigatorState(opts: CreateNavigatorOptions): NavigatorSta
     // reads a just-mounted sheet screen's options to compute its open
     // animation target.
     const screens = createScreenRegistries();
+
+    // Resolved `backdrop` per sheet entry — written at push (deferred read),
+    // read reactively by `<Stack>`. A deep-reactive record: writing a key
+    // notifies exactly that key's readers.
+    const sheetBackdropsBox = signal<Record<string, boolean>>({});
 
     const stackSignal: Signal<StackEntry[]> = signal<StackEntry[]>([initial]);
     const focusedBox: Signal<{ value: boolean }> = signal<{ value: boolean }>({
@@ -392,7 +410,17 @@ export function createNavigatorState(opts: CreateNavigatorOptions): NavigatorSta
             const screenOpts = untrack(() => ({
                 snapPoints: reg.options.snapPoints,
                 initialSnapIndex: reg.options.initialSnapIndex,
+                backdrop: reg.options.backdrop,
             }));
+            // Resolve the backdrop preference off the SAME registration read
+            // (the render path can't see it in time — see `_sheetBackdrops`).
+            // Prune keys whose entries have left the stack so the record
+            // can't grow across a session.
+            const live = new Set(getStack().map((e) => e.key));
+            sheetBackdropsBox[newEntry.key] = screenOpts.backdrop !== false;
+            for (const k of Object.keys(sheetBackdropsBox)) {
+                if (k !== newEntry.key && !live.has(k)) delete sheetBackdropsBox[k];
+            }
             const snaps = resolveSnapPoints(screenOpts.snapPoints);
             const target = initialSnapProgress(snaps, screenOpts.initialSnapIndex);
             return { target, heightFraction: target * snaps[snaps.length - 1] };
@@ -760,6 +788,7 @@ export function createNavigatorState(opts: CreateNavigatorOptions): NavigatorSta
             commitSheetDismiss,
         },
         _screens: screens,
+        _sheetBackdrops: sheetBackdropsBox,
         _setLocallyFocused: setLocallyFocused,
     };
 }

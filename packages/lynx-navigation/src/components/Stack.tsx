@@ -143,6 +143,14 @@ const SheetSlot = component<SheetSlotProps>(({ props }) => {
     const hostRef = useMainThreadRef<MainThread.Element | null>(null);
     const dragHost = useCreateScrollDragHost();
     defineProvide(useScrollDragHost, () => dragHost);
+    // Read the resolved backdrop from the nav-state record (written at push
+    // from the sheet's `<Screen>`-registration read — see
+    // `NavigatorState._sheetBackdrops`). A render-time read of the option
+    // can't be relied on: the sheet's `<Screen>` registers as a descendant
+    // of this very slot, one flush too late, and the registry's version tick
+    // does not re-run this slot; the record write, by contrast, notifies
+    // this key's readers directly.
+    const slotInternals = useNavInternals();
 
     // Stale-settle guard: MT stamps a generation at claim; delayed BG
     // settle/dismiss timeouts compare against this signal and bail when
@@ -184,6 +192,7 @@ const SheetSlot = component<SheetSlotProps>(({ props }) => {
                 sheetProgress={props.sheetProgress}
                 staticOpacity={props.staticBackdropOpacity}
                 dismissable={props.dismissable ?? false}
+                enabled={slotInternals.sheetBackdrops[props.entry.key] !== false}
                 hidden={props.hidden ?? false}
             />
             <Layer
@@ -397,6 +406,7 @@ export const Stack = component<StackProps>(({ props, slots }) => {
                 // progress and leave the stack in an inconsistent state.
                 animationsEnabled && parentInternals.edgeSwipeEnabled,
             screens: navState._screens,
+            sheetBackdrops: navState._sheetBackdrops,
         };
 
         // Reactive focus chain: this nav is locally focused iff

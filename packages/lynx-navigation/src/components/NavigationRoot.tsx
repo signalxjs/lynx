@@ -103,6 +103,7 @@ export const NavigationRoot = component<NavigationRootProps>(({ props, slots }) 
         commitSheetDismiss: navState._gesture.commitSheetDismiss,
         edgeSwipeEnabled,
         screens: navState._screens,
+        sheetBackdrops: navState._sheetBackdrops,
     }));
 
     // Auto-wire Android hardware/system back unless opted out. Without this,
