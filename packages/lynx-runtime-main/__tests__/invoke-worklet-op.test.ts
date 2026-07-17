@@ -155,3 +155,41 @@ describe('INVOKE_WORKLET op (#688)', () => {
     expect(result).toBe('direct:legacy');
   });
 });
+
+describe('per-batch flush acks (#691 review)', () => {
+  it("an earlier batch's ack cannot resolve a later batch's waitForFlush promise", async () => {
+    // Controllable async bridge: capture each batch's callback.
+    const pendingCallbacks: Array<() => void> = [];
+    vi.stubGlobal('lynx', {
+      getNativeApp: () => ({
+        callLepusMethod: (_m: string, _p: unknown, cb: () => void) => {
+          pendingCallbacks.push(cb);
+        },
+      }),
+    });
+
+    const { pushOp, flushNow, waitForFlush } = await import('@sigx/lynx-runtime');
+
+    pushOp(OP.INIT_MT_REF, 1, { value: 1 });
+    flushNow();
+    const batch1Ack = waitForFlush();
+
+    pushOp(OP.INIT_MT_REF, 2, { value: 2 });
+    flushNow();
+    const batch2Ack = waitForFlush();
+
+    expect(pendingCallbacks).toHaveLength(2);
+
+    // Ack ONLY batch 1. Batch 2's promise must stay pending.
+    let batch2Resolved = false;
+    void batch2Ack.then(() => { batch2Resolved = true; });
+    pendingCallbacks[0]();
+    await batch1Ack;
+    await Promise.resolve();
+    expect(batch2Resolved).toBe(false);
+
+    pendingCallbacks[1]();
+    await batch2Ack;
+    expect(batch2Resolved).toBe(true);
+  });
+});
