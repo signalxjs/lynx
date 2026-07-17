@@ -29,8 +29,14 @@ function idb(): IDBFactory | undefined {
 }
 
 function openDb(): Promise<IDBDatabase> {
+  const factory = idb();
+  if (!factory) {
+    return Promise.reject(
+      new Error('[@sigx/lynx-storage] indexedDB is not available in this environment'),
+    );
+  }
   return new Promise((resolve, reject) => {
-    const req = idb()!.open(DB_NAME, 1);
+    const req = factory.open(DB_NAME, 1);
     req.onupgradeneeded = () => {
       if (!req.result.objectStoreNames.contains(STORE)) req.result.createObjectStore(STORE);
     };
@@ -41,6 +47,12 @@ function openDb(): Promise<IDBDatabase> {
 
 let dbPromise: Promise<IDBDatabase> | null = null;
 
+/**
+ * Run one request in its own transaction, resolving on **transaction
+ * completion** (not request success — an IDB request can succeed before the
+ * transaction commits, and abort/commit failures land after it). This makes
+ * `__webInternal.flush()` mean "durably written".
+ */
 function withStore<T>(
   mode: IDBTransactionMode,
   fn: (store: IDBObjectStore) => IDBRequest<T>,
@@ -51,8 +63,27 @@ function withStore<T>(
       new Promise<T>((resolve, reject) => {
         const tx = db.transaction(STORE, mode);
         const req = fn(tx.objectStore(STORE));
-        req.onsuccess = () => resolve(req.result);
         req.onerror = () => reject(req.error ?? new Error('indexedDB request failed'));
+        tx.oncomplete = () => resolve(req.result);
+        tx.onabort = () => reject(tx.error ?? new Error('indexedDB transaction aborted'));
+        tx.onerror = () => reject(tx.error ?? new Error('indexedDB transaction failed'));
+      }),
+  );
+}
+
+/** Snapshot every row in ONE transaction — keys/values can't misalign. */
+function loadAll(): Promise<{ keys: IDBValidKey[]; values: string[] }> {
+  dbPromise ??= openDb();
+  return dbPromise.then(
+    (db) =>
+      new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE, 'readonly');
+        const store = tx.objectStore(STORE);
+        const kReq = store.getAllKeys();
+        const vReq = store.getAll();
+        tx.oncomplete = () => resolve({ keys: kReq.result, values: vReq.result as string[] });
+        tx.onabort = () => reject(tx.error ?? new Error('indexedDB transaction aborted'));
+        tx.onerror = () => reject(tx.error ?? new Error('indexedDB transaction failed'));
       }),
   );
 }
@@ -70,11 +101,8 @@ function enqueue(fn: (store: IDBObjectStore) => IDBRequest): void {
 function hydrate(): Promise<void> {
   if (hydration) return hydration;
   const gen = generation;
-  hydration = Promise.all([
-    withStore<IDBValidKey[]>('readonly', (s) => s.getAllKeys()),
-    withStore<string[]>('readonly', (s) => s.getAll()),
-  ])
-    .then(([keys, values]) => {
+  hydration = loadAll()
+    .then(({ keys, values }) => {
       if (gen !== generation) return; // a clear() raced the load — discard
       keys.forEach((k, i) => {
         const key = String(k);
