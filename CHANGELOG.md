@@ -4,6 +4,10 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 ## [Unreleased]
 
+### Added
+
+- `@sigx/lynx-runtime-main` — arena relations work on web: `waitFor` and `simultaneous` (what `Gesture.Race`/`Exclusive`/`Simultaneous` compile to) now gate gesture activation in the web recognizer. Per press each gesture is possible → active | failed; only `onStart` is gated (`onBegin`/`onEnd` always fire, so `Pressable`'s LongPress.onEnd visual reset keeps working); activating a gesture fails related non-simultaneous rivals; `Race`'s mutual waitFor resolves as first-ready-wins; a Fling not recognized within ~300ms fails, letting `Exclusive(Fling, Pan)` hand over to the pan mid-drag. Unrelated gestures keep co-firing exactly as before (no relations → no behavior change). `continueWith` has no consumers and is logged-and-ignored (#695).
+
 ### Changed
 
 - `@sigx/lynx-runtime-main` — web gesture `touch-action` is now derived axis-aware from ALL gestures on the element instead of blanket `none`: Pan `axis:'x'` (Swipeable, Range) → `pan-y` so vertical page scrolling keeps working through horizontal swipe surfaces (a browser-claimed vertical swipe `pointercancel`s the press — graceful handoff); Pan `axis:'y'` (sheet drag) → `pan-x`; free Pan/directionless Fling/Pinch/Rotation → `none` as before; horizontal Fling → `pan-y`, vertical → `pan-x`; conflicting wants collapse to `none`; Tap/LongPress-only elements stay untouched. Recomputed on every gesture register/unregister with the original value restored when nothing needs an override (#693).

@@ -612,7 +612,7 @@ export function applyOps(ops: unknown[]): void {
         // events instead of the native arena. (All operands are already
         // consumed above, so `i` stays aligned for the next op.)
         if (typeof __SetGestureDetector !== 'function') {
-          registerWebGesture(el, elementWvid, gestureId, type, config);
+          registerWebGesture(el, elementWvid, gestureId, type, config, relationMap);
           // Track the attachment so REMOVE can tear down the web recognizer,
           // mirroring the native bookkeeping below.
           let webAttached = gesturesByElementWvid.get(elementWvid);
