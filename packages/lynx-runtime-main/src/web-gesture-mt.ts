@@ -370,19 +370,22 @@ function onUp(entry: ElementGestures, e: PointerLike): void {
     withinTap && !entry.multiTouch && entry.lpFired!.size === 0 && entry.panStarted!.size === 0;
   const evt = synthEvent('pointerup', e);
   // Fling pass: velocity over the primary pointer's trailing sample window.
-  // Discrete — onStart on a match, then the universal onEnd below; a fast
-  // flick always exceeded the tap tolerance, so it never doubles as a tap.
+  // Discrete — onStart on a match, then the universal onEnd below.
+  let flung = false;
   const v = p ? flingVelocity(p, e, nowMs()) : undefined;
   if (v) {
     for (const g of entry.gestures.values()) {
       if (g.type === FLING && flingMatches(g.config, v.vx, v.vy)) {
+        flung = true;
         runCb(g, 'onStart', flingEvent(e, v.vx, v.vy));
       }
     }
   }
   // Pass 1: Tap.onStart (emits press) — before onEnd so a LongPress.onEnd
-  // press-fallback sees the emit.
-  if (isTap) {
+  // press-fallback sees the emit. A recognized fling suppresses the tap
+  // explicitly: a very short, very fast flick can clear `minVelocity` while
+  // still inside the tap tolerance, and must not fire both.
+  if (isTap && !flung) {
     for (const g of entry.gestures.values()) if (g.type === TAP) runCb(g, 'onStart', evt);
   }
   // Pass 2: onEnd for every gesture (resets pressed visual, finishes a pan…).

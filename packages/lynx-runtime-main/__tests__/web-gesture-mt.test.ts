@@ -469,6 +469,19 @@ describe('Fling', () => {
     expect(fired()).toContain('fling');
     expect(fired()).not.toContain('tap');
   });
+
+  it('a short fast flick inside the tap tolerance flings and still suppresses tap', () => {
+    // 9px in 20ms = 0.45 px/ms ≥ minVelocity, but within the 10px tap
+    // tolerance — the fling match must explicitly win over the tap.
+    const el = makeEl();
+    reg(el, 5, 1, FLING, flingCbs, {});
+    reg(el, 5, 2, TAP, [{ name: 'onStart', callback: { _wkltId: 'tap' } }]);
+    el.fire('pointerdown', 0, 0);
+    vi.advanceTimersByTime(20);
+    el.fire('pointerup', 9, 0);
+    expect(fired()).toContain('fling');
+    expect(fired()).not.toContain('tap');
+  });
 });
 
 describe('worklet setStyleProperties web fallback (SET_MT_REF)', () => {
