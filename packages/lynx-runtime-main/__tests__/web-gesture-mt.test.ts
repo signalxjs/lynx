@@ -363,6 +363,155 @@ describe('multi-pointer tracking (per-pointerId)', () => {
   });
 });
 
+describe('Pinch + Rotation (two-finger pair)', () => {
+  const ROTATION = 5;
+  const PINCH = 6;
+  const pinchCbs = [
+    { name: 'onBegin', callback: { _wkltId: 'pb' } },
+    { name: 'onStart', callback: { _wkltId: 'ps' } },
+    { name: 'onUpdate', callback: { _wkltId: 'pu' } },
+    { name: 'onEnd', callback: { _wkltId: 'pe' } },
+  ];
+  const rotCbs = [
+    { name: 'onStart', callback: { _wkltId: 'rs' } },
+    { name: 'onUpdate', callback: { _wkltId: 'ru' } },
+    { name: 'onEnd', callback: { _wkltId: 're' } },
+  ];
+  type PairEvt = {
+    type: string;
+    params: {
+      scale?: number;
+      rotation?: number;
+      velocity?: number;
+      focalX: number;
+      focalY: number;
+      pageX: number;
+      x: number;
+    };
+  };
+  const evtOf = (id: string): PairEvt =>
+    runCalls.filter((c) => c.wkltId === id).at(-1)!.event as unknown as PairEvt;
+
+  it('second pointer down forms the pair: onStart with scale 1 at the midpoint focal', () => {
+    const el = makeEl();
+    reg(el, 5, 1, PINCH, pinchCbs);
+    el.fire('pointerdown', 0, 0, undefined, undefined, 1);
+    expect(fired()).toContain('pb'); // onBegin at press start
+    expect(fired()).not.toContain('ps');
+    el.fire('pointerdown', 100, 0, undefined, undefined, 2);
+    expect(fired()).toContain('ps');
+    const e = evtOf('ps');
+    expect(e.type).toBe('pinch');
+    expect(e.params.scale).toBe(1);
+    expect(e.params.focalX).toBe(50);
+    expect(e.params.x).toBe(50); // focal mirrored into generic coords
+  });
+
+  it('spreading the fingers updates scale = currentDistance/baseDistance', () => {
+    const el = makeEl();
+    reg(el, 5, 1, PINCH, pinchCbs);
+    el.fire('pointerdown', 0, 0, undefined, undefined, 1);
+    el.fire('pointerdown', 100, 0, undefined, undefined, 2); // base 100
+    el.fire('pointermove', 200, 0, undefined, undefined, 2); // dist 200
+    const e = evtOf('pu');
+    expect(e.params.scale).toBeCloseTo(2, 5);
+    expect(e.params.focalX).toBe(100); // midpoint of (0,0)-(200,0)
+    el.fire('pointermove', -50, 0, undefined, undefined, 1); // dist 250
+    expect(evtOf('pu').params.scale).toBeCloseTo(2.5, 5); // either finger drives
+  });
+
+  it('rotation accumulates signed radians with velocity in rad/ms', () => {
+    const el = makeEl();
+    reg(el, 5, 1, ROTATION, rotCbs);
+    el.fire('pointerdown', 0, 0, undefined, undefined, 1);
+    el.fire('pointerdown', 100, 0, undefined, undefined, 2); // angle 0
+    expect(evtOf('rs').params.rotation).toBe(0);
+    vi.advanceTimersByTime(100);
+    el.fire('pointermove', 0, 100, undefined, undefined, 2); // angle π/2
+    const e = evtOf('ru');
+    expect(e.params.rotation).toBeCloseTo(Math.PI / 2, 5);
+    expect(e.params.velocity).toBeCloseTo(Math.PI / 2 / 100, 5);
+  });
+
+  it('rotation unwraps across the ±π boundary (no ~2π jump)', () => {
+    const el = makeEl();
+    reg(el, 5, 1, ROTATION, rotCbs);
+    el.fire('pointerdown', 0, 0, undefined, undefined, 1);
+    el.fire('pointerdown', -100, 0, undefined, undefined, 2); // angle exactly π
+    vi.advanceTimersByTime(16);
+    el.fire('pointermove', -100, -10, undefined, undefined, 2); // just past π → ≈ -π+0.0997
+    const r1 = evtOf('ru').params.rotation!;
+    expect(r1).toBeCloseTo(Math.atan2(-10, -100) + 2 * Math.PI - Math.PI, 3); // ≈ +0.0997
+    expect(Math.abs(r1)).toBeLessThan(0.2); // crucially NOT ≈ 2π
+    vi.advanceTimersByTime(16);
+    el.fire('pointermove', -100, -30, undefined, undefined, 2); // keeps accumulating
+    expect(evtOf('ru').params.rotation!).toBeGreaterThan(r1);
+  });
+
+  it('either pair member lifting fires exactly ONE onEnd with final values', () => {
+    const el = makeEl();
+    reg(el, 5, 1, PINCH, pinchCbs);
+    el.fire('pointerdown', 0, 0, undefined, undefined, 1);
+    el.fire('pointerdown', 100, 0, undefined, undefined, 2);
+    el.fire('pointermove', 200, 0, undefined, undefined, 2);
+    el.fire('pointerup', 200, 0, undefined, undefined, 2); // secondary lifts
+    expect(fired().filter((x) => x === 'pe')).toHaveLength(1);
+    expect(evtOf('pe').params.scale).toBeCloseTo(2, 5);
+    el.fire('pointerup', 0, 0, undefined, undefined, 1); // press ends
+    expect(fired().filter((x) => x === 'pe')).toHaveLength(1); // NOT doubled
+  });
+
+  it('when no pair ever formed, the universal end pass still fires onEnd once', () => {
+    const el = makeEl();
+    reg(el, 5, 1, PINCH, pinchCbs);
+    el.fire('pointerdown', 0, 0, undefined, undefined, 1);
+    el.fire('pointerup', 0, 0, undefined, undefined, 1); // single-finger press
+    expect(fired().filter((x) => x === 'pe')).toHaveLength(1);
+  });
+
+  it('a third finger does not re-pair mid-press', () => {
+    const el = makeEl();
+    reg(el, 5, 1, PINCH, pinchCbs);
+    el.fire('pointerdown', 0, 0, undefined, undefined, 1);
+    el.fire('pointerdown', 100, 0, undefined, undefined, 2);
+    el.fire('pointerup', 100, 0, undefined, undefined, 2); // pair ends
+    runCalls = [];
+    el.fire('pointerdown', 50, 50, undefined, undefined, 3); // third finger
+    expect(fired()).not.toContain('ps'); // no new pair this press
+  });
+
+  it('pinch and rotation on the same element both track the same pair', () => {
+    const el = makeEl();
+    reg(el, 5, 1, PINCH, pinchCbs);
+    reg(el, 5, 2, ROTATION, rotCbs);
+    el.fire('pointerdown', 0, 0, undefined, undefined, 1);
+    el.fire('pointerdown', 100, 0, undefined, undefined, 2);
+    el.fire('pointermove', 0, 100, undefined, undefined, 2);
+    expect(evtOf('pu').params.scale).toBeCloseTo(1, 5); // same distance
+    expect(evtOf('ru').params.rotation).toBeCloseTo(Math.PI / 2, 5);
+  });
+
+  it('tap stays suppressed during two-finger contact with pinch registered', () => {
+    const el = makeEl();
+    reg(el, 5, 1, PINCH, pinchCbs);
+    reg(el, 5, 2, TAP, [{ name: 'onStart', callback: { _wkltId: 'tap' } }]);
+    el.fire('pointerdown', 100, 100, undefined, undefined, 1);
+    el.fire('pointerdown', 110, 100, undefined, undefined, 2);
+    el.fire('pointerup', 110, 100, undefined, undefined, 2);
+    el.fire('pointerup', 101, 100, undefined, undefined, 1);
+    expect(fired()).not.toContain('tap');
+  });
+
+  it('pinch/rotation set touch-action:none and restore on removal', () => {
+    const el = makeEl();
+    el.style.touchAction = 'manipulation';
+    reg(el, 5, 1, PINCH, []);
+    expect(el.style.touchAction).toBe('none');
+    unregisterWebGesture(5, 1);
+    expect(el.style.touchAction).toBe('manipulation');
+  });
+});
+
 describe('Fling', () => {
   const FLING = 1;
   const flingCbs = [

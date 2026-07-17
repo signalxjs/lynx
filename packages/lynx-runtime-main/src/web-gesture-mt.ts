@@ -18,10 +18,23 @@
  * through web-core's own event system, which has no coords for `pointer*`; this
  * supersedes it.)
  *
- * Supported: **Tap**, **LongPress**, **Pan**, **Fling**. Pinch / Rotation and
- * arena relations (waitFor/simultaneous/continueWith) are not implemented —
+ * Supported: **Tap**, **LongPress**, **Pan**, **Fling**, **Pinch**, **Rotation**.
+ * Arena relations (waitFor/simultaneous/continueWith) are not implemented —
  * composed gestures still drive every base's lifecycle (e.g. `Pressable`'s
  * `Simultaneous(Tap, LongPress)` resets its visual in `LongPress.onEnd`).
+ *
+ * Pinch/Rotation pair the first two concurrent pointers: `onStart` fires when
+ * the second lands (scale 1 / rotation 0), `onUpdate` on either's move, and a
+ * dedicated `onEnd` with final values when either lifts — the universal
+ * end-of-press onEnd pass then skips them (exactly one onEnd per press; when no
+ * pair ever formed the universal pass covers them as before). Payloads follow
+ * the legacy `usePinch`/`useRotation` hooks: pinch `params.scale` =
+ * currentDistance/baseDistance; rotation `params.rotation` = cumulative signed
+ * **radians** (unwrapped across ±π, unlike the hooks) + `params.velocity` in
+ * rad/ms; both carry `focalX/focalY` (page coords of the midpoint, mirrored
+ * into pageX/pageY, with client coords in x/y). The native arena's
+ * Pinch/Rotation handlers are unfinished (#418) — this payload is the contract
+ * native should converge on. No mid-press re-pairing with a third finger.
  *
  * Fling is discrete: recognized at the primary pointer's `pointerup` from the
  * velocity over a trailing ~100ms sample window — `onStart` fires on a match
@@ -48,6 +61,8 @@ const PAN = 0;
 const FLING = 1;
 const TAP = 3;
 const LONGPRESS = 4;
+const ROTATION = 5;
+const PINCH = 6;
 
 const DEFAULT_MAX_DISTANCE = 10; // px — tap/long-press movement tolerance
 const DEFAULT_LONGPRESS_MS = 500;
@@ -96,6 +111,9 @@ interface PointerState {
   /** Last client coords. */
   x: number;
   y: number;
+  /** Last page coords (fall back to client when the event lacks them). */
+  px: number;
+  py: number;
   /**
    * Trailing movement samples for fling velocity (primary pointer only, and
    * only while a Fling gesture is registered). Capped at FLING_MAX_SAMPLES.
@@ -125,6 +143,19 @@ interface ElementGestures {
   /** Gesture ids whose LongPress fired this press. */
   lpFired?: Set<number>;
   lpTimers?: Map<number, ReturnType<typeof setTimeout>>;
+  /** Two-finger pair driving Pinch/Rotation (formed when the 2nd pointer lands). */
+  pair?: {
+    aId: number;
+    bId: number;
+    baseDistance: number;
+    /** Last raw inter-finger angle — for smallest-signed-delta unwrapping. */
+    prevAngle: number;
+    /** Accumulated signed rotation (radians), unwrapped across ±π. */
+    rotation: number;
+    prevT: number;
+  };
+  /** Pinch/Rotation already got their dedicated onEnd this press. */
+  pairEnded?: boolean;
 }
 
 /** elementWvid → registered gestures + transient state. */
@@ -159,9 +190,14 @@ export function registerWebGesture(
   entry.gestures.set(gestureId, { type, callbacks, config: config.config ?? {} });
 
   if (firstForElement) attachListeners(entry);
-  // Fling too: without it the browser claims the fast swipe for scrolling.
-  // (Axis-aware touch-action derivation is a follow-up.)
-  if (type === PAN || type === FLING) setTouchActionNone(entry);
+  // Fling too (browser claims the fast swipe for scrolling) and Pinch/Rotation
+  // (browser claims two-finger contact for page zoom). Axis-aware touch-action
+  // derivation is a follow-up.
+  if (needsTouchActionNone(type)) setTouchActionNone(entry);
+}
+
+function needsTouchActionNone(type: number): boolean {
+  return type === PAN || type === FLING || type === PINCH || type === ROTATION;
 }
 
 /** Remove one gesture; tear down listeners when the element has none left. */
@@ -169,10 +205,12 @@ export function unregisterWebGesture(elementWvid: number, gestureId: number): vo
   const entry = byElement.get(elementWvid);
   if (!entry) return;
   entry.gestures.delete(gestureId);
-  // Restore `touch-action` as soon as no Pan/Fling remains — even if other
-  // gestures stay on the element — so a removed drag doesn't leave the element
-  // stuck unscrollable.
-  if (!hasType(entry, PAN) && !hasType(entry, FLING)) restoreTouchAction(entry);
+  // Restore `touch-action` as soon as no gesture needing it remains — even if
+  // other gestures stay on the element — so a removed drag doesn't leave the
+  // element stuck unscrollable.
+  let needs = false;
+  for (const g of entry.gestures.values()) if (needsTouchActionNone(g.type)) needs = true;
+  if (!needs) restoreTouchAction(entry);
   if (entry.gestures.size > 0) return;
   clearLpTimers(entry);
   detachListeners(entry);
@@ -251,6 +289,8 @@ function onDown(entry: ElementGestures, e: PointerLike): void {
       startT: nowMs(),
       x: e.clientX,
       y: e.clientY,
+      px: e.pageX ?? e.clientX,
+      py: e.pageY ?? e.clientY,
     });
   }
   // Capture so move/up keep flowing to this element even outside its bounds.
@@ -272,6 +312,9 @@ function onDown(entry: ElementGestures, e: PointerLike): void {
     // re-fired onBegin; the press's lifecycle stays owned by the primary.
     entry.multiTouch = true;
     clearLpTimers(entry);
+    // Exactly two pointers now down and no pair yet this press → pair them for
+    // Pinch/Rotation. A third finger never re-pairs mid-press.
+    if (!entry.pair && !entry.pairEnded && pointers.size === 2) formPair(entry, id);
     return;
   }
   if (pointers.size > 1) {
@@ -308,6 +351,106 @@ function primaryPointer(entry: ElementGestures): PointerState | undefined {
   return entry.primaryId != null ? entry.pointers?.get(entry.primaryId) : undefined;
 }
 
+// ── Two-finger pair (Pinch / Rotation) ─────────────────────────────────────
+
+/** Smallest signed angular difference `to - from`, normalized to (-π, π]. */
+function angleDeltaSigned(from: number, to: number): number {
+  let d = (to - from) % (2 * Math.PI);
+  if (d > Math.PI) d -= 2 * Math.PI;
+  else if (d < -Math.PI) d += 2 * Math.PI;
+  return d;
+}
+
+/** Pair the primary with the just-landed pointer; fire Pinch/Rotation onStart. */
+function formPair(entry: ElementGestures, secondId: number): void {
+  if (!hasType(entry, PINCH) && !hasType(entry, ROTATION)) return;
+  const aId = entry.primaryId!;
+  const a = entry.pointers!.get(aId);
+  const b = entry.pointers!.get(secondId);
+  if (!a || !b) return;
+  entry.pair = {
+    aId,
+    bId: secondId,
+    baseDistance: Math.hypot(b.x - a.x, b.y - a.y),
+    prevAngle: Math.atan2(b.y - a.y, b.x - a.x),
+    rotation: 0,
+    prevT: nowMs(),
+  };
+  for (const g of entry.gestures.values()) {
+    if (g.type === PINCH) runCb(g, 'onStart', pinchEvent(a, b, 1));
+    else if (g.type === ROTATION) runCb(g, 'onStart', rotationEvent(a, b, 0, 0));
+  }
+}
+
+/** Recompute distance/angle after a pair member moved; fire onUpdate. */
+function updatePair(entry: ElementGestures): void {
+  const pair = entry.pair!;
+  const a = entry.pointers!.get(pair.aId);
+  const b = entry.pointers!.get(pair.bId);
+  if (!a || !b) return;
+  const t = nowMs();
+  const dist = Math.hypot(b.x - a.x, b.y - a.y);
+  const angle = Math.atan2(b.y - a.y, b.x - a.x);
+  // Accumulate the smallest signed delta so rotation unwraps across ±π
+  // instead of jumping by ~2π (the legacy hooks cap at ±π; we don't).
+  const delta = angleDeltaSigned(pair.prevAngle, angle);
+  pair.rotation += delta;
+  const velocity = delta / Math.max(t - pair.prevT, 1);
+  pair.prevAngle = angle;
+  pair.prevT = t;
+  const scale = pair.baseDistance > 0 ? dist / pair.baseDistance : 1;
+  for (const g of entry.gestures.values()) {
+    if (g.type === PINCH) runCb(g, 'onUpdate', pinchEvent(a, b, scale));
+    else if (g.type === ROTATION) runCb(g, 'onUpdate', rotationEvent(a, b, pair.rotation, velocity));
+  }
+}
+
+/**
+ * A pair member lifted/cancelled: fire the dedicated Pinch/Rotation onEnd with
+ * final values and mark them done — the universal end-of-press onEnd pass then
+ * skips them so each fires exactly once per press.
+ */
+function endPair(entry: ElementGestures): void {
+  const pair = entry.pair!;
+  const a = entry.pointers!.get(pair.aId);
+  const b = entry.pointers!.get(pair.bId);
+  entry.pair = undefined;
+  entry.pairEnded = true;
+  if (!a || !b) return;
+  const scale = pair.baseDistance > 0 ? Math.hypot(b.x - a.x, b.y - a.y) / pair.baseDistance : 1;
+  for (const g of entry.gestures.values()) {
+    if (g.type === PINCH) runCb(g, 'onEnd', pinchEvent(a, b, scale));
+    else if (g.type === ROTATION) runCb(g, 'onEnd', rotationEvent(a, b, pair.rotation, 0));
+  }
+}
+
+/** Focal-point event params shared by Pinch and Rotation. */
+function pairParams(a: PointerState, b: PointerState): Record<string, number> {
+  const fpx = (a.px + b.px) / 2;
+  const fpy = (a.py + b.py) / 2;
+  return {
+    pageX: fpx,
+    pageY: fpy,
+    x: (a.x + b.x) / 2,
+    y: (a.y + b.y) / 2,
+    focalX: fpx,
+    focalY: fpy,
+  };
+}
+
+function pinchEvent(a: PointerState, b: PointerState, scale: number): unknown {
+  return { type: 'pinch', params: { ...pairParams(a, b), scale } };
+}
+
+function rotationEvent(
+  a: PointerState,
+  b: PointerState,
+  rotation: number,
+  velocity: number,
+): unknown {
+  return { type: 'rotation', params: { ...pairParams(a, b), rotation, velocity } };
+}
+
 function fireLongPress(entry: ElementGestures, gid: number): void {
   if (!entry.active || entry.moved || entry.multiTouch) return;
   const g = entry.gestures.get(gid);
@@ -324,6 +467,12 @@ function onMove(entry: ElementGestures, e: PointerLike): void {
   if (p) {
     p.x = e.clientX;
     p.y = e.clientY;
+    p.px = e.pageX ?? e.clientX;
+    p.py = e.pageY ?? e.clientY;
+  }
+  // Pinch/Rotation are driven by BOTH pair members' moves.
+  if (entry.active && entry.pair && p && (id === entry.pair.aId || id === entry.pair.bId)) {
+    updatePair(entry);
   }
   // Tap/LongPress tolerance and Pan are driven by the primary pointer only.
   if (!entry.active || id !== entry.primaryId || !p) return;
@@ -356,6 +505,11 @@ function onMove(entry: ElementGestures, e: PointerLike): void {
 function onUp(entry: ElementGestures, e: PointerLike): void {
   const id = pid(e);
   const p = entry.pointers?.get(id);
+  // Either pair member lifting ends the Pinch/Rotation (before the pointer is
+  // dropped from the map so final focal/scale still see both positions).
+  if (entry.active && entry.pair && (id === entry.pair.aId || id === entry.pair.bId)) {
+    endPair(entry);
+  }
   entry.pointers?.delete(id);
   if (!entry.active) return;
   // A secondary lift never ends the press — only the primary's does.
@@ -389,12 +543,20 @@ function onUp(entry: ElementGestures, e: PointerLike): void {
     for (const g of entry.gestures.values()) if (g.type === TAP) runCb(g, 'onStart', evt);
   }
   // Pass 2: onEnd for every gesture (resets pressed visual, finishes a pan…).
-  for (const g of entry.gestures.values()) runCb(g, 'onEnd', evt);
+  // Pinch/Rotation are skipped when their dedicated pair-end already fired.
+  for (const g of entry.gestures.values()) {
+    if (entry.pairEnded && (g.type === PINCH || g.type === ROTATION)) continue;
+    runCb(g, 'onEnd', evt);
+  }
   resetTransient(entry);
 }
 
 function onCancel(entry: ElementGestures, e: PointerLike): void {
   const id = pid(e);
+  // A cancelled pair member ends the Pinch/Rotation, like a lift.
+  if (entry.active && entry.pair && (id === entry.pair.aId || id === entry.pair.bId)) {
+    endPair(entry);
+  }
   entry.pointers?.delete(id);
   if (!entry.active) return;
   // A secondary's cancel doesn't end the press either.
@@ -402,7 +564,10 @@ function onCancel(entry: ElementGestures, e: PointerLike): void {
   entry.active = false;
   clearLpTimers(entry);
   const evt = synthEvent('pointercancel', e);
-  for (const g of entry.gestures.values()) runCb(g, 'onEnd', evt);
+  for (const g of entry.gestures.values()) {
+    if (entry.pairEnded && (g.type === PINCH || g.type === ROTATION)) continue;
+    runCb(g, 'onEnd', evt);
+  }
   resetTransient(entry);
 }
 
@@ -412,6 +577,8 @@ function resetTransient(entry: ElementGestures): void {
   entry.moved = false;
   entry.panStarted = undefined;
   entry.lpFired = undefined;
+  entry.pair = undefined;
+  entry.pairEnded = false;
   // `pointers` is NOT cleared — it keeps tracking physically-down stale
   // pointers so no new press starts until they all lift (see onDown).
 }
