@@ -57,10 +57,15 @@ describe('page layout defaults', () => {
     ]);
   });
 
-  it('web: sigxHotReload re-applies the default on the re-created page', () => {
+  it('web: sigxHotReload re-applies both properties, including on a reused page', () => {
     (globalThis as { __WEB__?: boolean }).__WEB__ = true;
-    hotReload();
-    expect(styleWrites.filter((w) => w.tag === 'page' && w.prop === 'display')).toHaveLength(1);
+    renderPage(); // create the page…
+    styleWrites = [];
+    hotReload(); // …then reload reuses the existing page element
+    expect(styleWrites.filter((w) => w.tag === 'page')).toEqual([
+      { tag: 'page', prop: 'display', value: 'flex' },
+      { tag: 'page', prop: 'flex-direction', value: 'column' },
+    ]);
   });
 
   it('native: no style writes on the page', () => {
