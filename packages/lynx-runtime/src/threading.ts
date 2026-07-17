@@ -124,7 +124,9 @@ export function runOnMainThread<TArgs extends unknown[]>(
       // dispatch has been applied on the MT (batch ack) — after the worklet
       // ran. Worklet return values no longer cross threads; no caller
       // consumed them (Promises never serialized anyway — see
-      // lynx-navigation's animateProgress note).
+      // lynx-navigation's animateProgress note). Exception: the same-thread
+      // `sigxRunOnMT` test fallback below still resolves the stub's return
+      // value, so existing test doubles keep observing their canned results.
       const g = globalThis as Record<string, unknown>;
       const hasNativeBridge = typeof lynx !== 'undefined'
         && typeof lynx?.getNativeApp?.()?.callLepusMethod === 'function';
