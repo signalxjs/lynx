@@ -46,6 +46,23 @@ function renderRoot(): NavProbe {
     return probe;
 }
 
+/**
+ * Animated navigator — the sheet SV exists, so the present-at-detent (#711b)
+ * and dismiss-reset paths are exercisable. Under lynx-testing's eager flush
+ * the `<Screen snapPoints>` registration lands synchronously, so a
+ * non-animated sheet push takes the synchronous jump path.
+ */
+function renderRootAnimated(): NavProbe {
+    const probe: NavProbe = { nav: null, internals: null };
+    render(
+        <NavigationRoot routes={routes} initialRoute="home">
+            <NavCapture probe={probe} />
+            <Stack />
+        </NavigationRoot>,
+    );
+    return probe;
+}
+
 describe('Sheet presentation — stack model', () => {
     it('marks the entry with route-level `presentation: "sheet"`', () => {
         const probe = renderRoot();
@@ -237,6 +254,52 @@ describe('Sheet presentation — hardware back', () => {
         act(() => emitter.fire('hardwareBackPress'));
 
         expect(probe.nav!.stack.length).toBe(1);
+        expect(probe.nav!.current.route).toBe('home');
+    });
+});
+
+describe('Sheet presentation — present at detent (#711b)', () => {
+    // FilterSheet: snapPoints [0.4, 0.9], initialSnapIndex 0 →
+    // progress = 0.4 / 0.9 (snapToProgress).
+    const DETENT = 0.4 / 0.9;
+
+    it('a non-animated sheet push jumps the SV to the initial detent (no slide)', () => {
+        const probe = renderRootAnimated();
+        const sv = probe.internals!.sheetProgress!;
+        expect(sv).toBeTruthy();
+
+        act(() => probe.nav!.push('filterSheet', undefined, { animated: false }));
+
+        // Present-at-detent: the SV lands on the resting height synchronously
+        // (registry visible under the eager flush), and no transition runs.
+        expect(sv.current.value).toBeCloseTo(DETENT, 5);
+        expect(probe.nav!.transition).toBeNull();
+        expect(probe.nav!.current.route).toBe('filterSheet');
+    });
+
+    it('an animated sheet push does NOT jump — it runs a transition from 0', () => {
+        const probe = renderRootAnimated();
+        const sv = probe.internals!.sheetProgress!;
+
+        act(() => probe.nav!.push('filterSheet'));
+
+        // Distinguishes the animated branch: a transition is in flight and the
+        // SV is seeded at 0 to slide up (vs the non-animated jump to DETENT).
+        expect(probe.nav!.transition).not.toBeNull();
+        expect(sv.current.value).toBe(0);
+    });
+
+    it('a non-animated dismiss resets the sheet SV to 0', () => {
+        const probe = renderRootAnimated();
+        const sv = probe.internals!.sheetProgress!;
+        act(() => probe.nav!.push('filterSheet', undefined, { animated: false }));
+        expect(sv.current.value).toBeCloseTo(DETENT, 5);
+
+        act(() => probe.nav!.pop(1, { animated: false }));
+
+        // No sheet left on the stack → the SV must be 0 so `useSheetHeight`
+        // reports 0 (else a bar bound to it hangs at the last detent height).
+        expect(sv.current.value).toBe(0);
         expect(probe.nav!.current.route).toBe('home');
     });
 });
