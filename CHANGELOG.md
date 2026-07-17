@@ -4,6 +4,10 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 ## [Unreleased]
 
+### Added
+
+- `@sigx/lynx-runtime-main` — `Gesture.Fling()` is recognized on web: at the primary pointer's release, velocity over a trailing ~100ms sample window is matched against the gesture's `direction` and `minVelocity` (px/ms, default 0.3 ≈ 300 px/s); a match fires `onStart` with `params.velocityX/velocityY` before the universal `onEnd`. Fling elements get the same `touch-action: none` treatment as Pan so the browser doesn't claim the swipe. The `FlingBuilder.minVelocity` JSDoc now documents the px/ms unit (#687).
+
 ### Fixed
 
 - `@sigx/lynx-runtime-main` — web gesture recognizer now tracks pointers per `pointerId` instead of one flat press state, so a second finger no longer clobbers an active press: the press stays driven by the primary pointer, a secondary contact disqualifies Tap and cancels pending LongPress timers (matching native recognizers failing on a second touch), and a secondary lift no longer ends the press. Foundation for two-finger Pinch/Rotation on web (#685).

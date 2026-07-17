@@ -363,6 +363,114 @@ describe('multi-pointer tracking (per-pointerId)', () => {
   });
 });
 
+describe('Fling', () => {
+  const FLING = 1;
+  const flingCbs = [
+    { name: 'onBegin', callback: { _wkltId: 'b' } },
+    { name: 'onStart', callback: { _wkltId: 'fling' } },
+    { name: 'onEnd', callback: { _wkltId: 'e' } },
+  ];
+
+  /** Drive a horizontal drag: down at (0,0), a move every 20ms, up at the end. */
+  function drag(el: FakeEl, stepPx: number, steps: number, stepMs: number): void {
+    el.fire('pointerdown', 0, 0);
+    let x = 0;
+    for (let i = 0; i < steps; i++) {
+      vi.advanceTimersByTime(stepMs);
+      x += stepPx;
+      el.fire('pointermove', x, 0);
+    }
+    el.fire('pointerup', x, 0);
+  }
+
+  it('a fast rightward flick fires onStart with velocity params, then onEnd', () => {
+    const el = makeEl();
+    reg(el, 5, 1, FLING, flingCbs, { direction: 'right' });
+    drag(el, 30, 3, 20); // 90px in 60ms → vx = 1.5 px/ms
+    const f = fired();
+    expect(f).toContain('fling');
+    expect(f[f.length - 1]).toBe('e'); // universal onEnd still last
+    const evt = runCalls.find((c) => c.wkltId === 'fling')!.event as unknown as {
+      type: string;
+      params: { velocityX: number; velocityY: number; pageX: number };
+    };
+    expect(evt.type).toBe('fling');
+    expect(evt.params.velocityX).toBeCloseTo(1.5, 5);
+    expect(evt.params.velocityY).toBe(0);
+  });
+
+  it('a slow drag does not fling (velocity under the default threshold)', () => {
+    const el = makeEl();
+    reg(el, 5, 1, FLING, flingCbs, {});
+    el.fire('pointerdown', 0, 0);
+    vi.advanceTimersByTime(200);
+    el.fire('pointermove', 10, 0);
+    vi.advanceTimersByTime(200);
+    el.fire('pointermove', 20, 0);
+    vi.advanceTimersByTime(50);
+    el.fire('pointerup', 25, 0); // trailing window: 5px / 50ms = 0.1 px/ms << 0.3
+    expect(fired()).not.toContain('fling');
+    expect(fired()).toContain('e'); // onEnd always fires
+  });
+
+  it('pausing before release kills the fling', () => {
+    const el = makeEl();
+    reg(el, 5, 1, FLING, flingCbs, {});
+    el.fire('pointerdown', 0, 0);
+    vi.advanceTimersByTime(20);
+    el.fire('pointermove', 60, 0); // fast start…
+    vi.advanceTimersByTime(400); // …then a long hold
+    el.fire('pointerup', 60, 0);
+    expect(fired()).not.toContain('fling');
+  });
+
+  it('direction mismatch suppresses the fling', () => {
+    const el = makeEl();
+    reg(el, 5, 1, FLING, flingCbs, { direction: 'left' });
+    drag(el, 30, 3, 20); // rightward flick vs direction: 'left'
+    expect(fired()).not.toContain('fling');
+  });
+
+  it('minVelocity is honored (px/ms)', () => {
+    const el = makeEl();
+    reg(el, 5, 1, FLING, flingCbs, { minVelocity: 3 });
+    drag(el, 30, 3, 20); // 1.5 px/ms < 3
+    expect(fired()).not.toContain('fling');
+    runCalls = [];
+    drag(el, 80, 3, 20); // 4 px/ms ≥ 3
+    expect(fired()).toContain('fling');
+  });
+
+  it('a direction-less fling matches any direction by overall magnitude', () => {
+    const el = makeEl();
+    reg(el, 5, 1, FLING, flingCbs, {});
+    el.fire('pointerdown', 0, 0);
+    vi.advanceTimersByTime(20);
+    el.fire('pointermove', -20, -20);
+    vi.advanceTimersByTime(20);
+    el.fire('pointerup', -40, -40); // diagonal up-left, |v| = √2 ≈ 1.41 px/ms
+    expect(fired()).toContain('fling');
+  });
+
+  it('fling sets touch-action:none and restores it on removal', () => {
+    const el = makeEl();
+    el.style.touchAction = 'auto';
+    reg(el, 5, 1, FLING, []);
+    expect(el.style.touchAction).toBe('none');
+    unregisterWebGesture(5, 1);
+    expect(el.style.touchAction).toBe('auto');
+  });
+
+  it('a flick on composed Fling+Tap does not double as a tap', () => {
+    const el = makeEl();
+    reg(el, 5, 1, FLING, flingCbs, {});
+    reg(el, 5, 2, TAP, [{ name: 'onStart', callback: { _wkltId: 'tap' } }]);
+    drag(el, 30, 3, 20);
+    expect(fired()).toContain('fling');
+    expect(fired()).not.toContain('tap');
+  });
+});
+
 describe('worklet setStyleProperties web fallback (SET_MT_REF)', () => {
   it('patches the worklet ref so setStyleProperties falls back to __SetInlineStyles on web', () => {
     resetMainThreadState();
