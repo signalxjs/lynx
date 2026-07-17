@@ -6,6 +6,8 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 ### Added
 
+- `@sigx/lynx-location` works on web (first Tier-2 shim, #718): `getCurrentPosition` routes through the `@sigx/lynx-web-host` bridge to `navigator.geolocation` (`accuracy: 'high'` → `enableHighAccuracy`, `timeout` passthrough, coords mapped with null-normalized altitude/speed/heading); permission methods map the Permissions API (browser denial → `blocked`/`canAskAgain: false`; `requestPermission` surfaces the prompt via a position request). Requires a secure context (#721).
+
 - Root README documents the web story: the gesture system (all six recognizers + Race/Simultaneous/Exclusive composition, same-element arena semantics), animations, navigation, appearance, deep links and 9+ shimmed native modules in the browser, with `sigx run:web` (zero config) and `sigx build:web` (static export). A hosted public demo was deliberately deferred — a GitHub Pages project site for this repo would shadow the docs site's `sigx.dev/lynx/` path (#716).
 
 - `@sigx/lynx-cli` — **`sigx build:web`**: deployable static export of the web app to `dist/web/` (host page, `@lynx-js/web-core` engine, app bundle + async chunks, `@sigx/lynx-web-host` bridge, plus `_headers`/`vercel.json` COOP/COEP samples). Flags: `--out`, `--base` (subpath hosting), `--coi` (vendored cross-origin-isolation service worker for header-less hosts like GitHub Pages — one automatic first-visit reload). The one-shot build waits for the rspeedy child to exit before assembling, so a stale bundle can never be exported mid-clean; `hostHtml` is now shared between `run:web` and the export (reload/base/coi options) (#714).
