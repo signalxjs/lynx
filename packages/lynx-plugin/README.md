@@ -51,7 +51,18 @@ export default defineConfig({
    `output.assetPrefix` to host chunks remotely instead — the generated app
    shells fall back to http(s) for non-local chunk URLs.
 
-5. **Cross-package worklet pickup.** The worklet rules run on every JS/TS file in the BG / MT layers, including `node_modules` and pre-built `dist/`. Any package shipping `'main thread'` directives in its dist (`@sigx/lynx-motion`, `@sigx/lynx-navigation`, `@sigx/lynx-gestures`, future additions) is picked up automatically — no allowlist or opt-in flag. See [CONTRIBUTING.md](https://github.com/signalxjs/lynx/blob/main/CONTRIBUTING.md#lynx-plugin-internals-cross-package-worklet-pickup) for the loader-branching details.
+5. **Zero-config web environment (#699).** When a web build is requested
+   (`sigx run:web` sets `SIGX_WEB_ENV=1` in the rspeedy child env), the plugin
+   adds any missing `lynx` / `web` keys to `environments` (creating the block
+   when your `lynx.config.ts` declares none) — present keys and every other
+   user-declared environment are untouched, and plain `sigx dev` /
+   `sigx build` (no env var) are unaffected.
+   On the web environment it also injects `__WEB__`/`__NATIVE__` defines,
+   `.web.tsx`-style file resolution, and a `.web.js` `extensionAlias` so
+   per-package web shims apply through published dists (#697). Opt out with
+   `pluginSigxLynx({ web: false })`.
+
+6. **Cross-package worklet pickup.** The worklet rules run on every JS/TS file in the BG / MT layers, including `node_modules` and pre-built `dist/`. Any package shipping `'main thread'` directives in its dist (`@sigx/lynx-motion`, `@sigx/lynx-navigation`, `@sigx/lynx-gestures`, future additions) is picked up automatically — no allowlist or opt-in flag. See [CONTRIBUTING.md](https://github.com/signalxjs/lynx/blob/main/CONTRIBUTING.md#lynx-plugin-internals-cross-package-worklet-pickup) for the loader-branching details.
 
 ## Worklet author quick reference
 

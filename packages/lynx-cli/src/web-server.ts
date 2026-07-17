@@ -189,9 +189,17 @@ export async function runWeb(ctx: RunWebCtx): Promise<void> {
   }
 
   // Build (watch or one-shot). stdio inherited so the user sees build output.
+  // SIGX_WEB_ENV=1 lets `pluginSigxLynx` auto-provide `environments.web` (and
+  // `lynx`) when the app's lynx.config.ts declares none (#699) — run:web needs
+  // no config edit. User-declared environments are always preserved.
   const buildArgs = ['rspeedy', 'build', '--environment', 'web', ...(watchMode ? ['--watch'] : [])];
   logger.log(`Building the web bundle${watchMode ? ' (watching for changes)' : ''}…`);
-  const buildChild: ChildProcess = spawn('npx', buildArgs, { cwd, stdio: 'inherit', shell: true });
+  const buildChild: ChildProcess = spawn('npx', buildArgs, {
+    cwd,
+    stdio: 'inherit',
+    shell: true,
+    env: { ...process.env, SIGX_WEB_ENV: '1' },
+  });
   let buildExit: number | null = null;
   buildChild.on('exit', (code) => {
     buildExit = code ?? 0;
@@ -202,7 +210,11 @@ export async function runWeb(ctx: RunWebCtx): Promise<void> {
     bundleName = await waitForBundle(distDir, 180_000, () => buildExit);
   } catch (e) {
     logger.error(`No \`*.web.bundle\` was produced: ${String(e)}`);
-    logger.error("Add `environments: { lynx: {}, web: {} }` to your lynx.config.ts, then retry.");
+    logger.error(
+      'The web environment is normally auto-provided by pluginSigxLynx. If you passed ' +
+        '`web: false` to the plugin (or a custom setup filtered it out), add ' +
+        '`environments: { lynx: {}, web: {} }` to your lynx.config.ts, then retry.',
+    );
     try {
       buildChild.kill();
     } catch {
