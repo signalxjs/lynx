@@ -864,3 +864,35 @@ describe('arena relations (waitFor / simultaneous)', () => {
     expect(fired()).toContain('pan-start'); // unrelated gestures untouched by rule 2
   });
 });
+
+describe('arena relations × Pinch/Rotation', () => {
+  const PINCH = 6;
+  const pinchCbs = [
+    { name: 'onStart', callback: { _wkltId: 'pinch-start' } },
+    { name: 'onEnd', callback: { _wkltId: 'pinch-end' } },
+  ];
+  const tapCbs = [{ name: 'onStart', callback: { _wkltId: 'tap-start' } }];
+  const panCbs = [{ name: 'onStart', callback: { _wkltId: 'pan-start' } }];
+
+  it('a Tap waiting on a Pinch fires once the single-finger press releases', () => {
+    const el = makeEl();
+    reg(el, 5, 1, PINCH, pinchCbs);
+    reg(el, 5, 2, TAP, tapCbs, {}, { waitFor: [1] });
+    el.fire('pointerdown', 0, 0);
+    el.fire('pointerup', 2, 0); // no second finger — pinch fails at release
+    expect(fired()).not.toContain('pinch-start');
+    expect(fired()).toContain('tap-start');
+  });
+
+  it('an activated Pinch fails a related Pan (Exclusive(Pinch, Pan))', () => {
+    const el = makeEl();
+    reg(el, 5, 1, PINCH, pinchCbs);
+    reg(el, 5, 2, PAN, panCbs, { minDistance: 8 }, { waitFor: [1] });
+    el.fire('pointerdown', 0, 0, undefined, undefined, 1);
+    el.fire('pointerdown', 100, 0, undefined, undefined, 2); // pair forms → pinch active
+    expect(fired()).toContain('pinch-start');
+    el.fire('pointermove', 60, 0, undefined, undefined, 1); // primary drags
+    el.fire('pointermove', 90, 0, undefined, undefined, 1);
+    expect(fired()).not.toContain('pan-start'); // pan lost to the pinch
+  });
+});

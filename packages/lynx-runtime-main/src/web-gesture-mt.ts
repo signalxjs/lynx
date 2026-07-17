@@ -180,6 +180,8 @@ interface ElementGestures {
   };
   /** Pinch/Rotation already got their dedicated onEnd this press. */
   pairEnded?: boolean;
+  /** Pinch/Rotation gesture ids whose pair onStart fired (arena-activated). */
+  pairStartFired?: Set<number>;
 }
 
 /** elementWvid → registered gestures + transient state. */
@@ -571,9 +573,15 @@ function formPair(entry: ElementGestures, secondId: number): void {
     prevT: nowMs(),
     velocity: 0,
   };
-  for (const g of entry.gestures.values()) {
+  entry.pairStartFired ??= new Set();
+  // onStart goes through the arena gate like every other gesture; a blocked
+  // pinch/rotation retries on later pair updates (see updatePair).
+  for (const [gid, g] of entry.gestures) {
+    if (g.type !== PINCH && g.type !== ROTATION) continue;
+    if (!tryActivate(entry, gid)) continue;
+    entry.pairStartFired.add(gid);
     if (g.type === PINCH) runCb(g, 'onStart', pinchEvent(a, b, 1));
-    else if (g.type === ROTATION) runCb(g, 'onStart', rotationEvent(a, b, 0, 0));
+    else runCb(g, 'onStart', rotationEvent(a, b, 0, 0));
   }
 }
 
@@ -609,10 +617,19 @@ function updatePair(entry: ElementGestures): void {
   const pair = entry.pair!;
   const s = advancePair(entry);
   if (!s) return;
-  for (const g of entry.gestures.values()) {
+  for (const [gid, g] of entry.gestures) {
+    if (g.type !== PINCH && g.type !== ROTATION) continue;
+    if (!entry.pairStartFired?.has(gid)) {
+      // Blocked at pair formation — retry the arena gate; on success fire the
+      // late onStart with the current values before streaming updates.
+      if (!tryActivate(entry, gid)) continue;
+      (entry.pairStartFired ??= new Set()).add(gid);
+      if (g.type === PINCH) runCb(g, 'onStart', pinchEvent(s.a, s.b, s.scale));
+      else runCb(g, 'onStart', rotationEvent(s.a, s.b, pair.rotation, pair.velocity));
+      continue;
+    }
     if (g.type === PINCH) runCb(g, 'onUpdate', pinchEvent(s.a, s.b, s.scale));
-    else if (g.type === ROTATION)
-      runCb(g, 'onUpdate', rotationEvent(s.a, s.b, pair.rotation, pair.velocity));
+    else runCb(g, 'onUpdate', rotationEvent(s.a, s.b, pair.rotation, pair.velocity));
   }
 }
 
@@ -739,6 +756,12 @@ function onUp(entry: ElementGestures, e: PointerLike): void {
   for (const [gid, g] of entry.gestures) {
     if (g.type === LONGPRESS && !entry.lpFired!.has(gid)) failGesture(entry, gid);
     else if (g.type === PAN && !entry.panStarted!.has(gid)) failGesture(entry, gid);
+    else if (
+      (g.type === PINCH || g.type === ROTATION) &&
+      !entry.pairStartFired?.has(gid)
+    ) {
+      failGesture(entry, gid); // no pair ever started — can't begin after the lift
+    }
   }
   const dx = p ? e.clientX - p.startX : 0;
   const dy = p ? e.clientY - p.startY : 0;
@@ -808,6 +831,7 @@ function resetTransient(entry: ElementGestures): void {
   entry.lpFired = undefined;
   entry.pair = undefined;
   entry.pairEnded = false;
+  entry.pairStartFired = undefined;
   entry.gstate = undefined;
   entry.lpPending = undefined;
   if (entry.lpRetryTimer) {
