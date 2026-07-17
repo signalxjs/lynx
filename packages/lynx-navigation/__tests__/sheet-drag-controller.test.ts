@@ -70,9 +70,10 @@ describe('Stack sheet-drag wiring source shape', () => {
     });
 
     it('composes rest-lock and gesture-lock into the single host scrollLock', () => {
-        expect(src).toContain(
-            'dragHost.scrollLock.value = props.restingBelowMax || gestureLock.value',
-        );
+        expect(src).toContain('dragHost.scrollLock.value = restLock || gestureLock.value');
+        // Rest-lock only when the body can drag the sheet — 'grabber'/'none'
+        // modes must keep content scrollable at every detent.
+        expect(src).toMatch(/props\.restingBelowMax\s*&&\s*props\.dragEnabled\s*&&\s*props\.dragMode === 'surface'/);
     });
 
     it('the old grabber-strip overlay is fully gone', () => {

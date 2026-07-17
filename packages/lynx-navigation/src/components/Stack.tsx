@@ -150,7 +150,18 @@ const SheetSlot = component<SheetSlotProps>(({ props }) => {
     const genSignal = signal(0);
     const gestureLock = signal(false);
     const lockRunner = effect(() => {
-        dragHost.scrollLock.value = props.restingBelowMax || gestureLock.value;
+        // Rest-lock applies only when the BODY can drag the sheet
+        // ('surface' + drag active): below max, a body drag must move the
+        // sheet, so content scroll yields. In 'grabber'/'none' modes the
+        // body never drags — content must stay scrollable at every detent
+        // (there'd be no gesture path to unlock it otherwise). gestureLock
+        // still freezes content during an active sheet-owned drag from the
+        // grabber zone.
+        const restLock =
+            props.restingBelowMax
+            && props.dragEnabled
+            && props.dragMode === 'surface';
+        dragHost.scrollLock.value = restLock || gestureLock.value;
     });
     // If the controller unmounts mid-gesture (a push covers the sheet, a
     // transition starts), its onEnd may never fire — drop the gesture lock
