@@ -65,6 +65,7 @@ describe('public runtime exports', () => {
                 'useScreenChrome',
                 'useScreenOptions',
                 'useSearch',
+                'useSheetHeight',
                 'useTabs',
             ].sort(),
         );
