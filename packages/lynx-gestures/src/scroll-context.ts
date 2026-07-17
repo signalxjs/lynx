@@ -49,6 +49,11 @@ export interface ScrollContext {
    * MT element ref to the underlying `<scroll-view>`. Null until mounted.
    * Descendants call `scrollViewRef.current?.invoke('scrollBy', ...)` from
    * worklets to drive scroll programmatically.
+   *
+   * Note: when the ScrollView is adopted by an ancestor `ScrollDragHost`
+   * (e.g. inside a navigator bottom sheet — see `scroll-drag-host.ts` in
+   * `@sigx/lynx`), this is the HOST-allocated ref identity, shared with the
+   * host's own worklets. Same element either way.
    */
   scrollViewRef: MainThreadRef<MainThread.Element | null>;
   /**

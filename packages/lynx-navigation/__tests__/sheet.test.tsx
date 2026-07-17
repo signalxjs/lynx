@@ -70,6 +70,16 @@ describe('Sheet presentation — stack model', () => {
         // FilterSheet declares <Screen snapPoints={[0.4, 0.9]} initialSnapIndex={0}>.
         expect(reg.options.snapPoints).toEqual([0.4, 0.9]);
         expect(reg.options.initialSnapIndex).toBe(0);
+        // dragHandle not declared → absent from the registry; the Stack's
+        // sheetConfigFor defaults it to 'surface' (full-body drag).
+        expect(reg.options.dragHandle).toBeUndefined();
+    });
+
+    it('registers dragHandle from <Screen> into the entry registry', () => {
+        const probe = renderRoot();
+        act(() => probe.nav!.push('grabberSheet'));
+        const reg = probe.internals!.screens.get(probe.nav!.current.key)!;
+        expect(reg.options.dragHandle).toBe('grabber');
     });
 
     it('nav.pop() dismisses the sheet back to the underlying screen', () => {

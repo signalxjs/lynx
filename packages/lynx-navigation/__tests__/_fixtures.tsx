@@ -51,6 +51,12 @@ export const FilterSheet = component(() => () => (
     </Screen>
 ));
 
+export const GrabberSheet = component(() => () => (
+    <Screen snapPoints={[0.5]} dragHandle="grabber">
+        <view><text>GrabberSheet</text></view>
+    </Screen>
+));
+
 export const routes = defineRoutes({
     home: { component: Home },
     profile: {
@@ -67,6 +73,10 @@ export const routes = defineRoutes({
     },
     filterSheet: {
         component: FilterSheet,
+        presentation: 'sheet',
+    },
+    grabberSheet: {
+        component: GrabberSheet,
         presentation: 'sheet',
     },
 });

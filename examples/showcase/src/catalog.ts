@@ -114,6 +114,13 @@ export const catalog: Area[] = [
                 icon: { set: 'lucide', name: 'panel-bottom' },
                 route: 'sheetDemo',
             },
+            {
+                id: 'bottom-sheet-scroll',
+                title: 'Sheet + scroll arbitration',
+                description: 'full-surface drag over a scrollable list, inputs, swipe rows',
+                icon: { set: 'lucide', name: 'panel-bottom-open' },
+                route: 'sheetScrollDemo',
+            },
         ],
     },
     {

@@ -878,6 +878,9 @@ importers:
       '@sigx/lynx-testing':
         specifier: workspace:^
         version: link:../lynx-testing
+      '@types/node':
+        specifier: ^25.9.1
+        version: 25.9.3
       '@typescript/native-preview':
         specifier: 7.0.0-dev.20260521.1
         version: 7.0.0-dev.20260521.1

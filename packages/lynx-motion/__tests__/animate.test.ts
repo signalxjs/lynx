@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { resetWvidCounter, resetBgAvBridge, resetOpQueue, useSharedValue } from '@sigx/lynx';
-import { animate, _resetInflight } from '../src/animate';
+import { animate, cancelAnimation, _resetInflight } from '../src/animate';
 
 // `animate()` schedules ticks via `requestAnimationFrame` and triggers a
 // microtask-debounced flush via `__FlushElementTree()` after every
@@ -145,6 +145,24 @@ describe('animate — cancellation', () => {
     flushFrames(1, 16);
     ctrl.stop();
     await expect(ctrl.finished).resolves.toBeUndefined();
+  });
+
+  it('cancelAnimation(sv) halts the in-flight animation and keeps the mid-flight value', async () => {
+    const sv = useSharedValue(0);
+    const ctrl = animate(sv, 100, { type: 'tween', duration: 1 });
+    flushFrames(2, 16);
+    const valueAtCancel = sv.current.value;
+
+    cancelAnimation(sv);
+    flushFrames(50, 16);
+
+    expect(sv.current.value).toBe(valueAtCancel);
+    await expect(ctrl.finished).resolves.toBeUndefined();
+  });
+
+  it('cancelAnimation is a no-op when nothing is in flight', () => {
+    const sv = useSharedValue(0);
+    expect(() => cancelAnimation(sv)).not.toThrow();
   });
 });
 

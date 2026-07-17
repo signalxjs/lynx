@@ -72,6 +72,23 @@ export interface AnimateControls {
 // ============================================================================
 
 /**
+ * Cancel the in-flight animation on `sv`, if any. The SharedValue keeps
+ * its current mid-flight value — the caller typically takes over writing
+ * it (e.g. a gesture grabbing a sheet during its settle tween). A plain
+ * SV write does NOT cancel an animation (only a new `animate()` on the
+ * same SV does), so gesture claim paths must call this explicitly.
+ */
+export function cancelAnimation(sv: SharedValue<number>): void {
+  'main thread';
+
+  // Same globalThis stash animate() maintains — module-scope references
+  // don't survive SWC's worklet `_c` capture.
+  const g = globalThis as { __sigxMotionInflight?: Map<number, () => void> };
+  const stop = g.__sigxMotionInflight?.get(sv._wvid);
+  if (stop) stop();
+}
+
+/**
  * Animate a `SharedValue<number>` toward `target`. Returns
  * `{ stop, finished }`. Default is spring; pass `type: 'tween'` or
  * `{ duration }` to use a tween with `easeOut`.

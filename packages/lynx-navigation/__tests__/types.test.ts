@@ -211,7 +211,7 @@ describe('Register augmentation', () => {
         // Direct check against RouteId via re-export:
         type DirectRouteId = import('../src/register.js').RouteId;
         expectTypeOf<DirectRouteId>().toEqualTypeOf<
-            'home' | 'profile' | 'settings' | 'composeMessage' | 'filterSheet'
+            'home' | 'profile' | 'settings' | 'composeMessage' | 'filterSheet' | 'grabberSheet'
         >();
         void ({} as RouteIdT);
     });

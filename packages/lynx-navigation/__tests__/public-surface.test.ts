@@ -140,6 +140,7 @@ describe('ScreenOptions / useScreenOptions', () => {
             | 'snapPoints'
             | 'initialSnapIndex'
             | 'backdropDismiss'
+            | 'dragHandle'
         >();
     });
 

@@ -9,6 +9,7 @@ Full guides, component & hook reference, animation mappers and live examples →
 ## Why it's interesting
 
 - **Built-in gesture components** — `<Pressable>`, `<Draggable>`, `<Swipeable>`, `<ScrollView>`, `<Swiper>` — drop in for instant 60/120 fps interactions, no worklet plumbing in user code.
+- **Sheet coordination** — a vertical `<ScrollView>` inside a `@sigx/lynx-navigation` bottom sheet auto-adopts the sheet's `ScrollDragHost`: sheet drags and content scrolling arbitrate like a native bottom sheet (scroll locked below the max detent; pull-down-from-top collapses the sheet), with no wiring in user code.
 - **Main-Thread Scripting under the hood** — touch handlers, transform updates, and visual feedback run on Lynx's main thread (Lepus), so gestures don't block on your background JS and don't pay a thread crossing per touchmove.
 - **Background-thread composables** — `useTap`, `useLongPress`, `usePan`, `usePinch`, `useSwipe`, `useRotation`, `useFling`, `usePanResponder`, and a `useGesture` composer with simultaneous / exclusive / sequential relations.
 - **Cross-thread observability** — pass a `SharedValue` to a gesture component and read its live position reactively on the background thread via a SignalX `effect`, without injecting BG into the gesture hot path.
