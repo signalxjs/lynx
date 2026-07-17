@@ -65,8 +65,9 @@ function reg(
   type: number,
   callbacks: { name: string; callback: { _wkltId: string } }[],
   config?: Record<string, unknown>,
+  relationMap?: { waitFor?: number[]; simultaneous?: number[]; continueWith?: number[] },
 ): void {
-  registerWebGesture(el as never, wvid, gid, type, { callbacks, config });
+  registerWebGesture(el as never, wvid, gid, type, { callbacks, config }, relationMap);
 }
 
 const fired = (): unknown[] => runCalls.map((c) => c.wkltId);
@@ -755,5 +756,111 @@ describe('worklet setStyleProperties web fallback (SET_MT_REF)', () => {
     expect(setInline).toHaveBeenCalledWith(rawEl, { opacity: 0.5 });
     // The wrapper's debounced flush schedules a `__FlushElementTree()`
     // microtask; the top-level afterEach unstubs globals only after it runs.
+  });
+});
+
+describe('arena relations (waitFor / simultaneous)', () => {
+  const FLING = 1;
+  const panCbs = [
+    { name: 'onStart', callback: { _wkltId: 'pan-start' } },
+    { name: 'onUpdate', callback: { _wkltId: 'pan-update' } },
+    { name: 'onEnd', callback: { _wkltId: 'pan-end' } },
+  ];
+  const lpCbs = [
+    { name: 'onStart', callback: { _wkltId: 'lp-start' } },
+    { name: 'onEnd', callback: { _wkltId: 'lp-end' } },
+  ];
+  const flingCbs = [{ name: 'onStart', callback: { _wkltId: 'fling-start' } }];
+  const tapCbs = [{ name: 'onStart', callback: { _wkltId: 'tap-start' } }];
+
+  it('Race(Pan, LongPress): a fast drag starts the pan; LP.onStart never fires, LP.onEnd does', () => {
+    const el = makeEl();
+    // Gesture.Race = mutual waitFor
+    reg(el, 5, 1, PAN, panCbs, { minDistance: 8 }, { waitFor: [2] });
+    reg(el, 5, 2, LONGPRESS, lpCbs, { minDuration: 350 }, { waitFor: [1] });
+    el.fire('pointerdown', 0, 0);
+    vi.advanceTimersByTime(16);
+    el.fire('pointermove', 50, 0);
+    vi.advanceTimersByTime(500); // LP timer window elapses — must stay dead
+    el.fire('pointerup', 50, 0);
+    expect(fired()).toContain('pan-start');
+    expect(fired()).not.toContain('lp-start');
+    expect(fired()).toContain('lp-end'); // onEnd always fires
+  });
+
+  it('Race(Pan, LongPress): holding still activates LP; a later drag does not start the pan', () => {
+    const el = makeEl();
+    reg(el, 5, 1, PAN, panCbs, { minDistance: 8 }, { waitFor: [2] });
+    reg(el, 5, 2, LONGPRESS, lpCbs, { minDuration: 350 }, { waitFor: [1] });
+    el.fire('pointerdown', 0, 0);
+    vi.advanceTimersByTime(350); // LP wins the race
+    expect(fired()).toContain('lp-start');
+    el.fire('pointermove', 60, 0); // drag afterwards
+    el.fire('pointermove', 90, 0);
+    expect(fired()).not.toContain('pan-start'); // pan lost the race
+    el.fire('pointerup', 90, 0);
+    expect(fired()).toContain('pan-end'); // onEnd still universal
+  });
+
+  it('Simultaneous(Pan, LongPress): hold then drag fires both onStarts', () => {
+    const el = makeEl();
+    reg(el, 5, 1, PAN, panCbs, { minDistance: 8 }, { simultaneous: [2] });
+    reg(el, 5, 2, LONGPRESS, lpCbs, { minDuration: 350 }, { simultaneous: [1] });
+    el.fire('pointerdown', 0, 0);
+    vi.advanceTimersByTime(350);
+    expect(fired()).toContain('lp-start');
+    el.fire('pointermove', 50, 0);
+    expect(fired()).toContain('pan-start');
+  });
+
+  it('Exclusive(Fling, Pan): a fast flick flings; the pan never starts', () => {
+    const el = makeEl();
+    // Gesture.Exclusive: later items waitFor all earlier ones
+    reg(el, 5, 1, FLING, flingCbs, { direction: 'right' });
+    reg(el, 5, 2, PAN, panCbs, { minDistance: 8 }, { waitFor: [1] });
+    el.fire('pointerdown', 0, 0);
+    for (let i = 1; i <= 3; i++) {
+      vi.advanceTimersByTime(20);
+      el.fire('pointermove', i * 30, 0);
+    }
+    el.fire('pointerup', 90, 0); // 1.5 px/ms → fling
+    expect(fired()).toContain('fling-start');
+    expect(fired()).not.toContain('pan-start');
+  });
+
+  it('Exclusive(Fling, Pan): a slow drag hands over to the pan once the fling deadline passes', () => {
+    const el = makeEl();
+    reg(el, 5, 1, FLING, flingCbs, { direction: 'right' });
+    reg(el, 5, 2, PAN, panCbs, { minDistance: 8 }, { waitFor: [1] });
+    el.fire('pointerdown', 0, 0);
+    for (let i = 1; i <= 4; i++) {
+      vi.advanceTimersByTime(150); // crosses FLING_MAX_MS (300) at step 2
+      el.fire('pointermove', i * 20, 0);
+    }
+    expect(fired()).toContain('pan-start'); // started mid-press after handover
+    el.fire('pointerup', 80, 0);
+    expect(fired()).not.toContain('fling-start');
+  });
+
+  it('Exclusive(Fling, Tap): a gentle tap fires once the fling fails at release', () => {
+    const el = makeEl();
+    reg(el, 5, 1, FLING, flingCbs, {});
+    reg(el, 5, 2, TAP, tapCbs, {}, { waitFor: [1] });
+    el.fire('pointerdown', 0, 0);
+    vi.advanceTimersByTime(80);
+    el.fire('pointerup', 2, 0); // no velocity → fling fails at up → tap unblocked
+    expect(fired()).not.toContain('fling-start');
+    expect(fired()).toContain('tap-start');
+  });
+
+  it('no relations → everything still co-fires (compat invariant)', () => {
+    const el = makeEl();
+    reg(el, 5, 1, PAN, panCbs, { minDistance: 0 });
+    reg(el, 5, 2, LONGPRESS, lpCbs, { minDuration: 100 });
+    el.fire('pointerdown', 0, 0);
+    vi.advanceTimersByTime(100); // LP fires (still, within tolerance)
+    el.fire('pointermove', 3, 0); // small move: within tolerance → pan starts too
+    expect(fired()).toContain('lp-start');
+    expect(fired()).toContain('pan-start'); // unrelated gestures untouched by rule 2
   });
 });
