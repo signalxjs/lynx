@@ -31,6 +31,10 @@ interface NetworkState {
     isInternetReachable: boolean | null;   // null = unknown (e.g. captive portal)
 }
 ```
+## Web
+
+On web the state comes from the browser: `isConnected` / `isInternetReachable` from `navigator.onLine`, and `type` from `navigator.connection.type` where the browser exposes it (Chromium; elsewhere it reports `'unknown'`, or `'none'` when offline).
+
 ## Gotchas
 - **`isInternetReachable: null`** means the OS hasn't confirmed actual reachability — common on captive-portal Wi-Fi (you're connected to an AP but can't reach the internet without sign-in). Treat as "probably yes".
 - **No subscription API yet.** If you need to react to connectivity changes live, poll `getState()` from a `setInterval` or wrap a small effect — the native publisher exists but isn't surfaced as JS events in this version.
