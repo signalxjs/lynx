@@ -222,17 +222,19 @@ export function animate(
   };
 
   // ─── Flush trigger (microtask-debounced) ─────────────────────────────
-  // Writing `sv.current.value` is a plain ref mutation — it doesn't
-  // schedule the native flush by itself. Without a flush, the SharedValue
-  // bridge never publishes the new value to BG and `useAnimatedStyle`
-  // bindings never apply.
-  //
   // We coalesce calls via a `globalThis.__sigxMotionFlushScheduled` flag:
   // multiple ticks across multiple concurrent animations within the same
   // microtask boundary all set the flag, the first one schedules the
   // microtask, the rest see the flag and bail. End result: ONE flush per
   // microtask regardless of how many animations are live. Same pattern
   // upstream's `MTElementWrapper.flushElementTree` uses.
+  //
+  // The MT runtime now arms this SAME latch on every bridged SharedValue
+  // write (`animated-bridge-mt.ts: armAvAutoFlush` — the `sv.current.value`
+  // assignment in tick() below already schedules the flush through it), so
+  // this explicit trigger is belt-and-braces: it keeps animations flushing
+  // when lynx-motion is paired with an older runtime-main that doesn't arm
+  // the setter, and costs nothing otherwise (the shared latch dedupes).
   const flushTree = (): void => {
     const g = globalThis as Record<string, unknown>;
     if (g['__sigxMotionFlushScheduled']) return;
