@@ -20,9 +20,15 @@
 
 import { spawn, type ChildProcess } from 'node:child_process';
 import { cpSync, existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
-import { basename, join } from 'node:path';
+import { basename, isAbsolute, join, relative } from 'node:path';
 
-import { findWebBundle, hostHtml, resolveWebAssets } from './web-server.js';
+import { findWebBundle, hostHtml, normalizeBasePath, resolveWebAssets } from './web-server.js';
+
+/** Is `child` inside (or equal to) `parent`? Path-segment aware. */
+function contains(parent: string, child: string): boolean {
+  const rel = relative(parent, child);
+  return !rel.startsWith('..') && !isAbsolute(rel);
+}
 
 interface CliLogger {
   log(message: string): void;
@@ -103,11 +109,21 @@ export async function buildWeb(ctx: BuildWebCtx): Promise<void> {
   const { cwd, logger } = ctx;
   const outArg = typeof ctx.args.out === 'string' && ctx.args.out ? ctx.args.out : join('dist', 'web');
   const outDir = join(cwd, outArg);
-  const rawBase = typeof ctx.args.base === 'string' && ctx.args.base ? ctx.args.base : '/';
-  const base = rawBase.endsWith('/') ? rawBase : `${rawBase}/`;
+  const base = normalizeBasePath(typeof ctx.args.base === 'string' ? ctx.args.base : '/');
   const coi = ctx.args.coi === true;
   const distDir = join(cwd, 'dist');
   const projectName = basename(cwd);
+
+  // The export is deleted and rebuilt — it must never be (or contain) the
+  // build output itself, or `rmSync(outDir)` would take the build (or worse,
+  // the project) with it. `--out dist`, `--out .` etc. are rejected.
+  if (contains(outDir, distDir)) {
+    logger.error(
+      `--out must not equal or contain the build directory (${distDir}); pick a subdirectory like dist/web.`,
+    );
+    process.exitCode = 1;
+    return;
+  }
 
   let assets: { engineStaticDir: string; hostJsPath: string };
   try {
@@ -129,9 +145,10 @@ export async function buildWeb(ctx: BuildWebCtx): Promise<void> {
   // One-shot build: wait for the CHILD to exit, not for a bundle to appear —
   // a stale bundle from a previous build looks "stable" while rspeedy's clean
   // phase is about to wipe dist/ (which would also wipe a too-early export).
-  const buildExit: number = await new Promise((resolve) =>
-    child.on('exit', (code) => resolve(code ?? 0)),
-  );
+  const buildExit: number = await new Promise((resolve) => {
+    child.on('error', () => resolve(-1)); // spawn failure — never hang
+    child.on('exit', (code) => resolve(code ?? -1)); // signal kill = failure
+  });
   if (buildExit !== 0) {
     logger.error(`rspeedy build exited with code ${buildExit}`);
     process.exitCode = 1;
@@ -154,7 +171,9 @@ export async function buildWeb(ctx: BuildWebCtx): Promise<void> {
   for (const entry of readdirSync(distDir)) {
     if (entry.endsWith('.lynx.bundle')) continue;
     const abs = join(distDir, entry);
-    if (abs === outDir) continue;
+    // Skip the export itself AND any dist entry the export lives under —
+    // copying an ancestor of outDir into outDir would recurse.
+    if (contains(abs, outDir)) continue;
     cpSync(abs, join(outDir, 'app', entry), { recursive: true });
   }
   cpSync(assets.engineStaticDir, join(outDir, 'engine', 'static'), { recursive: true });

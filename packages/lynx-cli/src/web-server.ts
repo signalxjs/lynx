@@ -145,9 +145,18 @@ export interface HostHtmlOptions {
   coi?: boolean;
 }
 
+/** Normalize a URL base path to `/segment/…/` form (`''`/`'/'` → `'/'`). */
+export function normalizeBasePath(raw: string | undefined): string {
+  let b = (raw ?? '/').trim();
+  if (b === '' || b === '/') return '/';
+  if (!b.startsWith('/')) b = `/${b}`;
+  if (!b.endsWith('/')) b = `${b}/`;
+  return b;
+}
+
 /** Shared host page — `sigx run:web` serves it, `sigx build:web` emits it. */
 export function hostHtml(projectName: string, bundle: string, opts: HostHtmlOptions = {}): string {
-  const base = opts.base ?? '/';
+  const base = normalizeBasePath(opts.base);
   const coiTag = opts.coi ? `\n  <script src="${base}coi.js"></script>` : '';
   const reloadTag =
     opts.reload === false
@@ -203,7 +212,7 @@ export function resolveWebAssets(): { engineStaticDir: string; hostJsPath: strin
   const req = createRequire(import.meta.url);
   const clientJs = req.resolve('@lynx-js/web-core/client.prod.js');
   return {
-    engineStaticDir: dirname(dirname(clientJs)), // …/client_prod/static/js/client.js → …/static
+    engineStaticDir: dirname(dirname(clientJs)), // …/client_prod/static/js/client.prod.js → …/static
     hostJsPath: req.resolve('@sigx/lynx-web-host/host'),
   };
 }

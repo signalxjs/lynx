@@ -8,8 +8,20 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
-import { hostHtml } from '../src/web-server.js';
+import { hostHtml, normalizeBasePath } from '../src/web-server.js';
 import { expectedExportManifest, verifyExport } from '../src/web-build.js';
+
+describe('normalizeBasePath', () => {
+  it('normalizes to /segment/…/ form', () => {
+    expect(normalizeBasePath(undefined)).toBe('/');
+    expect(normalizeBasePath('')).toBe('/');
+    expect(normalizeBasePath('/')).toBe('/');
+    expect(normalizeBasePath('lynx')).toBe('/lynx/');
+    expect(normalizeBasePath('/lynx')).toBe('/lynx/');
+    expect(normalizeBasePath('lynx/')).toBe('/lynx/');
+    expect(normalizeBasePath('/lynx/')).toBe('/lynx/');
+  });
+});
 
 describe('hostHtml options', () => {
   it('default (dev): reload client on, root base', () => {
@@ -23,7 +35,7 @@ describe('hostHtml options', () => {
   it('static export: no reload client, base-prefixed assets, optional coi', () => {
     const html = hostHtml('demo', 'main.web.bundle', {
       reload: false,
-      base: '/lynx/',
+      base: 'lynx', // un-normalized on purpose — hostHtml normalizes internally
       coi: true,
     });
     expect(html).not.toContain('/__sigx_reload');
