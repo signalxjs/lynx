@@ -23,7 +23,12 @@ export type EmojiPickerProps =
      * surfaces); required without one. Fixed at mount.
      */
     & Define.Prop<'data', EmojiData, false>
-    /** Grid columns. Default 8. */
+    /**
+     * Grid columns. Default: ADAPTIVE — as many ~40px cells as the measured
+     * grid width fits (clamped 7–12; 10 on a typical phone, like WhatsApp).
+     * The resolved value is FROZEN for the mount (the sectioned grid's
+     * scroll-offset math needs fixed rows) — post-mount changes are ignored.
+     */
     & Define.Prop<'columns', number, false>
     /** Show the recents tab. Default true. */
     & Define.Prop<'showRecents', boolean, false>
@@ -35,11 +40,13 @@ export type EmojiPickerProps =
     /** Header label of the recents section. Default `'Recently used'`. */
     & Define.Prop<'recentsLabel', string, false>
     /**
-     * Glyph font size in grid cells. Default: ADAPTIVE — derived once from
-     * the measured grid width (`width / columns × 0.78`, clamped 28–44, so
-     * ~40 on a typical phone at 8 columns) at the same pre-mount gate that
-     * freezes the region height; 32 when no width is known. Pass a number
-     * for full control. The tone popover follows the resolved size.
+     * Glyph font size in grid cells. Default: ADAPTIVE — the glyph fills
+     * the cell so its VISIBLE INK covers ~93% of the cell width (emoji
+     * fonts ink only ~64% of the em — the font size overshoots accordingly;
+     * clamped 24–72), so the grid is dense
+     * in both axes like WhatsApp's; 32 when no width is known. Pass a number
+     * for full control. The tone popover follows the resolved size. Frozen
+     * for the mount, like `columns`.
      */
     & Define.Prop<'cellSize', number, false>
     /** Per-slot class overrides — the theming surface. */
@@ -203,21 +210,37 @@ export const EmojiPicker = component<EmojiPickerProps>(({ props, emit }) => {
         position: 'relative',
     };
 
-    // Default glyph size derives from the SCREEN (WhatsApp model, #669):
-    // cell width = measured region width / columns, glyph ≈ 78% of it. It
-    // resolves exactly once — at the same pre-mount gate that freezes the
-    // region height — because the sectioned grid's scroll-offset math needs
-    // row heights fixed per mount. Pre-measure (tests, SSR) falls back to 32
-    // WITHOUT freezing, so the real measurement still wins.
-    let resolvedCellSize: number | null = null;
-    const cellSizeFor = (regionWidth: number): number => {
-        if (props.cellSize !== undefined) return props.cellSize;
-        if (resolvedCellSize === null) {
-            if (regionWidth <= 0) return 32;
-            resolvedCellSize = Math.min(44, Math.max(28,
-                Math.round((regionWidth / (props.columns ?? 8)) * 0.78)));
+    // Grid geometry derives from the SCREEN (the WhatsApp model, #669/#674):
+    // fit as many ~TARGET_CELL_PX-wide cells as the measured width allows
+    // (that's the column count — 10 on a typical phone, more on tablets),
+    // then size the glyph so its INK fills ~93% of the resulting cell, so the grid is
+    // dense in both axes regardless of device. Resolves exactly once — at
+    // the same pre-mount gate that freezes the region height — because the
+    // sectioned grid's scroll-offset math needs rows fixed per mount.
+    // Pre-measure (tests, SSR) falls back WITHOUT freezing, so the real
+    // measurement still wins. Explicit props override their half each.
+    // Android/iOS emoji fonts INK only ~64% of the declared fontSize — all
+    // spacing math below models the visible ink, not the em box, or the grid
+    // reads airy no matter the numbers (measured against WhatsApp on device).
+    const EMOJI_INK = 0.64;
+    const TARGET_CELL_PX = 40;
+    let resolvedGeometry: { columns: number; cellSize: number } | null = null;
+    const geometryFor = (regionWidth: number): { columns: number; cellSize: number } => {
+        if (resolvedGeometry !== null) return resolvedGeometry;
+        if (regionWidth <= 0) {
+            // Pre-measure fallback — NOT frozen, so the real measurement wins.
+            return { columns: props.columns ?? 8, cellSize: props.cellSize ?? 32 };
         }
-        return resolvedCellSize;
+        // Explicit props are baked in AT RESOLVE TIME and the pair is frozen
+        // for the mount — never mix a later prop with a size derived for a
+        // different column count (glyphs sized for 10 columns in an 8-column
+        // grid would misreport every row height to the offset math).
+        const columns = props.columns
+            ?? Math.min(12, Math.max(7, Math.floor(regionWidth / TARGET_CELL_PX)));
+        const cellSize = props.cellSize
+            ?? Math.min(72, Math.max(24, Math.round(((regionWidth / columns) * 0.93) / EMOJI_INK)));
+        resolvedGeometry = { columns, cellSize };
+        return resolvedGeometry;
     };
 
     function selectTab(key: string): void {
@@ -249,7 +272,7 @@ export const EmojiPicker = component<EmojiPickerProps>(({ props, emit }) => {
         // pre-ready frame renders the measuring shell only.
         const ready = ctx.ready.value;
         const regionHeight = regionLayout.value?.height ?? 0;
-        const cellSize = cellSizeFor(regionLayout.value?.width ?? 0);
+        const { columns, cellSize } = geometryFor(regionLayout.value?.width ?? 0);
         const sections = ready ? sectionsFor() : null;
 
         // The recents TAB tracks the recents SECTION: hidden when there were
@@ -284,7 +307,7 @@ export const EmojiPicker = component<EmojiPickerProps>(({ props, emit }) => {
                 itemsKey={itemsKey}
                 initialHeight={regionHeight > 0 ? regionHeight : undefined}
                 tone={tone}
-                columns={props.columns}
+                columns={columns}
                 cellSize={cellSize}
                 class={classes.grid}
                 cellClass={classes.cell}
@@ -311,11 +334,12 @@ export const EmojiPicker = component<EmojiPickerProps>(({ props, emit }) => {
                 scrollHandle={gridScroll}
                 initialHeight={regionHeight > 0 ? regionHeight : undefined}
                 tone={tone}
-                columns={props.columns}
+                columns={columns}
                 cellSize={cellSize}
                 class={classes.grid}
                 cellClass={classes.cell}
                 headerClass={classes.sectionHeader}
+                headerLabelSize={Math.round(cellSize * 0.28)}
                 renderCell={props.renderCell}
                 style={styleFor(gridStyles, GRID_STYLE_TEMPLATE, 'sections')}
                 onPick={(datum) => pick(datum, ctx.skinTone.state.tone)}
@@ -355,6 +379,7 @@ export const EmojiPicker = component<EmojiPickerProps>(({ props, emit }) => {
                 )}
                 {q === '' && sections !== null && (
                     <CategoryTabBar
+                        size={Math.round(cellSize * 0.62)}
                         tabs={allTabs}
                         active={activeTab}
                         class={classes.tabBar}

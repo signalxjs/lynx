@@ -16,6 +16,8 @@ export type CategoryTabBarProps =
     & Define.Prop<'class', string, false>
     & Define.Prop<'tabClass', string, false>
     & Define.Prop<'tabActiveClass', string, false>
+    /** Tab glyph font size — the picker passes ~62% of its resolved cell font. Default 30. */
+    & Define.Prop<'size', number, false>
     & Define.Prop<'render', EmojiRenderCategoryTab, false>
     & Define.Event<'select', EmojiTab>;
 
@@ -61,7 +63,7 @@ export const CategoryTabBar = component<CategoryTabBarProps>(({ props, emit }) =
                         >
                             {props.render
                                 ? props.render(tab, glyph, active)
-                                : <text style={{ fontSize: 24 }}>{glyph}</text>}
+                                : <text style={{ fontSize: props.size ?? 30 }}>{glyph}</text>}
                         </Pressable>
                     );
                 })}
