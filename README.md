@@ -2,7 +2,8 @@
 
 **The batteries-included way to ship native mobile apps with [SignalX](https://sigx.dev/core/).** Built on [Lynx](https://lynxjs.org/), it covers the whole stack — scaffold, build, run, and ship from one toolchain:
 
-- **One CLI** — `sigx dev` / `sigx build` / `sigx run:ios` / `sigx run:android` / `sigx run:web` / `sigx prebuild` / `sigx doctor`. Scaffold with `npm create @sigx@latest` and be on a device — or in a browser — in minutes.
+- **One CLI** — `sigx dev` / `sigx build` / `sigx run:ios` / `sigx run:android` / `sigx run:web` / `sigx build:web` / `sigx prebuild` / `sigx doctor`. Scaffold with `npm create @sigx@latest` and be on a device — or in a browser — in minutes.
+- **Web included** — the same bundle runs in the browser via [Lynx for Web](https://lynxjs.org/): gestures (full arena), animations, navigation, appearance, deep links and 9+ native modules all work on web. `sigx run:web` serves it locally with zero config; `sigx build:web` emits a deployable static export (try it on the `examples/showcase` app).
 - **Autolinked native modules** — `pnpm add @sigx/lynx-haptics`, run `sigx prebuild`, done: the native code is linked and even the Android manifest permission is added for you. No pod wiring, no config. 40+ modules, from SQLite, biometrics and camera to maps, video and rich text.
 - **Headless-first UI** — behavior and structure ship as headless components on a design-system-neutral foundation ([`lynx-zero`](https://sigx.dev/lynx/modules/zero/overview/)); skin them with the DaisyUI-flavored design system (or the HeroUI-flavored pilot), or bring your own. Plus type-safe navigation, icon sets tree-shaken at build time to the glyphs you actually use, and streaming markdown with a true WYSIWYG editor.
 - **A renderer built for 60fps** — dual-thread architecture: gestures and animations run frame-locked on the UI thread via `SharedValue`, even when JS is busy.
