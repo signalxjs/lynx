@@ -15,6 +15,7 @@ import {
   setPageUniqueId,
 } from './element-registry.js';
 import { resetWorkletEvents, type WorkletPlaceholder } from './worklet-events.js';
+import { invokeMtWorklet } from './mt-invoke.js';
 import {
   setSlotBgSign,
   setSlotWorklet,
@@ -426,6 +427,23 @@ export function applyOps(ops: unknown[]): void {
             `[sigx-mt] SNAPSHOT_BIND_SLOT: no slot ${slotIndex} on instance ${snapshotId}`,
           );
         }
+        break;
+      }
+
+      case OP.INVOKE_WORKLET: {
+        // BG runOnMainThread dispatch riding the ordered ops stream (#688):
+        // applying in-stream guarantees it runs AFTER every registration op
+        // (INIT_MT_REF / SET_MT_REF / REGISTER_AV_BRIDGE) enqueued before it
+        // — the mount-window race where a dispatch outran its SharedValue's
+        // registration (and the late seed clobbered the correction) is
+        // structurally gone. Throws are contained inside invokeMtWorklet so
+        // one bad worklet can't abort the rest of the batch. Results are
+        // not returned (no consumer reads them; the BG promise resolves on
+        // the batch ack).
+        const wkltId = ops[i++] as string;
+        const wkltArgs = ops[i++] as unknown[] | undefined;
+        const wkltCaptured = ops[i++] as Record<string, unknown> | null;
+        invokeMtWorklet(wkltId, wkltArgs ?? [], wkltCaptured ?? undefined);
         break;
       }
 

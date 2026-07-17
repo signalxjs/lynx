@@ -39,6 +39,13 @@
  * SET_MT_REF/gesture ops address template-built trees exactly like op-built
  * ones. There is deliberately no SNAPSHOT_REMOVE — REMOVE tears instances
  * down.
+ *
+ * Cross-thread dispatch (#688 — `runOnMainThread` rides the SAME ordered
+ * stream as registrations, so a dispatch enqueued after a mount's
+ * INIT_MT_REF/SET_MT_REF ops can never apply before them; the op-queue's
+ * microtask flush also makes timer-context dispatches prompt without a
+ * render):
+ *   INVOKE_WORKLET: [26, wkltId, args[], captured|null]
  */
 export const OP = {
   CREATE: 0,
@@ -67,6 +74,7 @@ export const OP = {
   SNAPSHOT_SET_VALUES: 23,
   SNAPSHOT_SET_VALUE: 24,
   SNAPSHOT_BIND_SLOT: 25,
+  INVOKE_WORKLET: 26,
 } as const;
 
 export type OpCode = (typeof OP)[keyof typeof OP];
