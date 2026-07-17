@@ -6,6 +6,8 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 ### Added
 
+- `@sigx/lynx-plugin` — on the web environment, `resolve.extensionAlias` now maps `.js → ['.web.js', …]` (and `.jsx` likewise), merged ahead of rsbuild's tsconfig-driven aliases. This makes per-package `*.web.ts` files work for **published dists** too: a package can ship `storage.ts` (native bridge) + `storage.web.ts` (browser implementation) and the web bundle picks the `.web` variant even through the dist's explicit `./storage.js` imports, while the native bundle tree-shakes it out entirely. Foundation for the native-module web shims (#697).
+
 - `@sigx/lynx-runtime-main` — arena relations work on web: `waitFor` and `simultaneous` (what `Gesture.Race`/`Exclusive`/`Simultaneous` compile to) now gate gesture activation in the web recognizer. Per press each gesture is possible → active | failed; only `onStart` is gated (`onBegin`/`onEnd` always fire, so `Pressable`'s LongPress.onEnd visual reset keeps working); activating a gesture fails related non-simultaneous rivals; `Race`'s mutual waitFor resolves as first-ready-wins; a Fling not recognized within ~300ms fails, letting `Exclusive(Fling, Pan)` hand over to the pan mid-drag. Unrelated gestures keep co-firing exactly as before (no relations → no behavior change). `continueWith` has no consumers and is logged-and-ignored (#695).
 
 ### Changed
