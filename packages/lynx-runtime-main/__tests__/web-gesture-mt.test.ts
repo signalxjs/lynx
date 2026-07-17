@@ -321,6 +321,38 @@ describe('multi-pointer tracking (per-pointerId)', () => {
     expect(fired()).toContain('begin');
   });
 
+  it('duplicate downs with no pointerId (both normalize to 0) do not clobber the press', () => {
+    // Hosts that omit pointerId: a repeated down must not reset the primary's
+    // start coords nor flip the press to multi-touch.
+    const el = makeEl();
+    const fireNoId = (type: string, x: number, y: number) =>
+      el.listeners[type]?.({ type, clientX: x, clientY: y });
+    reg(
+      el,
+      5,
+      1,
+      PAN,
+      [
+        { name: 'onStart', callback: { _wkltId: 's' } },
+        { name: 'onUpdate', callback: { _wkltId: 'u' } },
+      ],
+      { minDistance: 15 },
+    );
+    reg(el, 5, 2, TAP, [{ name: 'onStart', callback: { _wkltId: 'tap' } }]);
+    fireNoId('pointerdown', 0, 0);
+    fireNoId('pointerdown', 100, 100); // duplicate down, id also 0 — ignored
+    fireNoId('pointermove', 20, 0); // 20px from ORIGINAL start > minDistance 15
+    expect(fired()).toContain('s'); // pan measured from (0,0), not (100,100)
+    fireNoId('pointerup', 20, 0);
+
+    // And a plain tap still works (duplicate down didn't set multiTouch).
+    runCalls = [];
+    fireNoId('pointerdown', 0, 0);
+    fireNoId('pointerdown', 2, 0);
+    fireNoId('pointerup', 2, 0);
+    expect(fired()).toContain('tap');
+  });
+
   it('both pointers get pointer capture', () => {
     const el = makeEl();
     reg(el, 5, 1, PAN, []);

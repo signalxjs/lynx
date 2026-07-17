@@ -220,13 +220,19 @@ function pid(e: PointerLike): number {
 function onDown(entry: ElementGestures, e: PointerLike): void {
   const id = pid(e);
   const pointers = (entry.pointers ??= new Map());
-  pointers.set(id, {
-    startX: e.clientX,
-    startY: e.clientY,
-    startT: nowMs(),
-    x: e.clientX,
-    y: e.clientY,
-  });
+  // Never overwrite an already-tracked pointer: on hosts that omit `pointerId`
+  // every down normalizes to 0, and clobbering the entry would reset the
+  // primary's start coords mid-press (the exact bug this rework removes).
+  const known = pointers.has(id);
+  if (!known) {
+    pointers.set(id, {
+      startX: e.clientX,
+      startY: e.clientY,
+      startT: nowMs(),
+      x: e.clientX,
+      y: e.clientY,
+    });
+  }
   // Capture so move/up keep flowing to this element even outside its bounds.
   if (e.pointerId != null) {
     try {
@@ -237,6 +243,9 @@ function onDown(entry: ElementGestures, e: PointerLike): void {
   }
 
   if (entry.active) {
+    // A repeated down for a pointer we already track isn't a new contact —
+    // ignore it (it must not flip the press to multi-touch).
+    if (known) return;
     // Secondary contact during an active press: the press becomes multi-touch,
     // which disqualifies Tap (checked in onUp) and cancels pending LongPress
     // timers — mirroring the native recognizers failing on a second touch. No
