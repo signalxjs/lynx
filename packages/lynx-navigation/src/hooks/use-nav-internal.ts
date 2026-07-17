@@ -112,6 +112,13 @@ export interface NavInternals {
      * plain render-time option read.
      */
     readonly sheetBackdrops: Record<string, boolean>;
+    /**
+     * Resolved `snapPoints` per sheet entry, written at push from the same
+     * registration read as `sheetBackdrops`. `<Stack>` prefers this over the
+     * render-time option so the layer's snap-scaled translateY agrees with
+     * `useSheetHeight` from the first frame. See `NavigatorState._sheetSnaps`.
+     */
+    readonly sheetSnaps: Record<string, readonly number[]>;
 }
 
 export const useNavInternals = defineInjectable<NavInternals>(() => {

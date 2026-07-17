@@ -371,4 +371,21 @@ describe('Sheet presentation — backdrop: false (inline / non-modal)', () => {
         act(() => probe.nav!.pop(1, { animated: false }));
         expect(sv.current.value).toBe(0);
     });
+
+    it('publishes the resolved snapPoints on the reactive push-time channel', () => {
+        // The layer's translateY mapper scales by the largest snap fraction;
+        // a render-time option read gets the [0.5] default before the sheet
+        // registers and doesn't reactively correct, so it must come from this
+        // push-time channel (mirrors sheetBackdrops) or the sheet paints too
+        // short while useSheetHeight uses the real fraction.
+        const { probe } = renderWithContainer();
+        act(() => probe.nav!.push('panelSheet', undefined, { animated: false }));
+        const key = probe.nav!.current.key;
+        expect(probe.internals!.sheetSnaps[key]).toEqual([0.4, 0.9]);
+        // A dead entry's snaps are pruned on the next push (same as the
+        // backdrop channel — the push is where the read runs).
+        act(() => probe.nav!.pop(1, { animated: false }));
+        act(() => probe.nav!.push('panelSheet', undefined, { animated: false }));
+        expect(probe.internals!.sheetSnaps[key]).toBeUndefined();
+    });
 });

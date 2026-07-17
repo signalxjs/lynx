@@ -95,6 +95,18 @@ export interface NavigatorState {
      */
     readonly _sheetBackdrops: Signal<Record<string, boolean>>;
     /**
+     * Internal: resolved `snapPoints` per sheet entry, populated at push time
+     * from the SAME registration read as `_sheetBackdrops` (above) — for the
+     * identical reason. The sheet LAYER's translateY mapper scales by the
+     * largest snap fraction, and a render-time read gets the `[0.5]` default
+     * before the sheet's `<Screen snapPoints>` registers (and doesn't
+     * reactively correct), so the sheet renders at the wrong height while
+     * `useSheetHeight` (reactive) reads the real fraction — the two disagree
+     * and the sheet paints too short. `<Stack>` prefers this reactive record.
+     * Absent key ⇒ fall back to the render-time option / default.
+     */
+    readonly _sheetSnaps: Signal<Record<string, readonly number[]>>;
+    /**
      * Internal: set `nav.isLocallyFocused` from outside.
      *
      * `<Stack>` calls this when its host entry's locally-focused state
@@ -247,6 +259,7 @@ export function createNavigatorState(opts: CreateNavigatorOptions): NavigatorSta
     // read reactively by `<Stack>`. A deep-reactive record: writing a key
     // notifies exactly that key's readers.
     const sheetBackdropsBox = signal<Record<string, boolean>>({});
+    const sheetSnapsBox = signal<Record<string, readonly number[]>>({});
 
     const stackSignal: Signal<StackEntry[]> = signal<StackEntry[]>([initial]);
     const focusedBox: Signal<{ value: boolean }> = signal<{ value: boolean }>({
@@ -417,11 +430,15 @@ export function createNavigatorState(opts: CreateNavigatorOptions): NavigatorSta
             // Prune keys whose entries have left the stack so the record
             // can't grow across a session.
             const live = new Set(getStack().map((e) => e.key));
+            const snaps = resolveSnapPoints(screenOpts.snapPoints);
             sheetBackdropsBox[newEntry.key] = screenOpts.backdrop !== false;
+            sheetSnapsBox[newEntry.key] = snaps;
             for (const k of Object.keys(sheetBackdropsBox)) {
                 if (k !== newEntry.key && !live.has(k)) delete sheetBackdropsBox[k];
             }
-            const snaps = resolveSnapPoints(screenOpts.snapPoints);
+            for (const k of Object.keys(sheetSnapsBox)) {
+                if (k !== newEntry.key && !live.has(k)) delete sheetSnapsBox[k];
+            }
             const target = initialSnapProgress(snaps, screenOpts.initialSnapIndex);
             return { target, heightFraction: target * snaps[snaps.length - 1] };
         };
@@ -789,6 +806,7 @@ export function createNavigatorState(opts: CreateNavigatorOptions): NavigatorSta
         },
         _screens: screens,
         _sheetBackdrops: sheetBackdropsBox,
+        _sheetSnaps: sheetSnapsBox,
         _setLocallyFocused: setLocallyFocused,
     };
 }
