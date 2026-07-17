@@ -18,9 +18,11 @@ beforeEach(() => {
               ? 'web-1'
               : name === 'sigx.notifications.getBadge'
                 ? 3
-                : name.endsWith('Permission') || name.endsWith('permissionStatus')
-                  ? { status: 'granted', canAskAgain: true }
-                  : true,
+                : name === 'sigx.notifications.setBadge'
+                  ? undefined // Promise<void> surface
+                  : name.endsWith('Permission') || name.endsWith('permissionStatus')
+                    ? { status: 'granted', canAskAgain: true }
+                    : true,
         });
       },
     },
@@ -46,7 +48,7 @@ describe('Notifications (web)', () => {
   it('cancel / badges / permissions route through the bridge', async () => {
     await expect(Notifications.cancel('web-1')).resolves.toBe(true);
     await expect(Notifications.cancelAll()).resolves.toBe(true);
-    await expect(Notifications.setBadgeCount(3)).resolves.toBeTruthy();
+    await expect(Notifications.setBadgeCount(3)).resolves.toBeUndefined(); // Promise<void>: resolves, no throw
     await expect(Notifications.getBadgeCount()).resolves.toBe(3);
     await expect(Notifications.requestPermission()).resolves.toMatchObject({ status: 'granted' });
     expect(calls.map((c) => c.name)).toEqual([

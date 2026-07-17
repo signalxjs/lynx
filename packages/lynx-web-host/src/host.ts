@@ -182,16 +182,28 @@ function makeNotificationHandlers() {
       const delayMs = (typeof d['delay'] === 'number' ? d['delay'] : 0) * 1000;
       const repeatMs = REPEAT_MS[String(d['repeat'] ?? '')];
       const entry: { timer: ReturnType<typeof setTimeout>; interval?: ReturnType<typeof setInterval>; shown: WebNotification[] } = {
-        timer: setTimeout(() => {
-          entry.shown.push(new N(title, { body, tag: id }));
-          if (repeatMs) {
-            entry.interval = setInterval(() => {
-              entry.shown.push(new N(title, { body, tag: id }));
-            }, repeatMs);
-          }
-        }, delayMs),
+        timer: 0 as unknown as ReturnType<typeof setTimeout>,
         shown: [],
       };
+      // Timer callbacks run after the RPC handler returned — a constructor
+      // failure there (revoked permission, insecure context) would otherwise
+      // be an unhandled error with a runaway repeat. Contain it and drop the
+      // schedule.
+      const show = (): void => {
+        try {
+          entry.shown.push(new N(title, { body, tag: id }));
+        } catch {
+          clearTimeout(entry.timer);
+          if (entry.interval) clearInterval(entry.interval);
+          scheduled.delete(id);
+        }
+      };
+      entry.timer = setTimeout(() => {
+        show();
+        if (repeatMs && scheduled.has(id)) {
+          entry.interval = setInterval(show, repeatMs);
+        }
+      }, delayMs);
       scheduled.set(id, entry);
       return id;
     },
