@@ -75,7 +75,6 @@ export function flushNow(): void {
 export function resetOpQueue(): void {
   buffer = [];
   scheduled = false;
-  pendingAckResolve = null;
   pendingAckPromise = null;
 }
 
@@ -95,12 +94,16 @@ function doFlush(): void {
 // to coordinate with the next-tick UI state.
 // ---------------------------------------------------------------------------
 
-let pendingAckResolve: (() => void) | null = null;
 let pendingAckPromise: Promise<void> | null = null;
 
 /**
  * Resolves once the most recent ops batch has been applied on the main
  * thread. If no ops are in flight, resolves immediately.
+ *
+ * Acks are tracked PER BATCH (each sendOps call closes over its own
+ * resolver): with several batches in flight, an earlier batch's ack can
+ * never resolve a later batch's promise (#691 review). `pendingAckPromise`
+ * only tracks which promise is the newest for callers arriving here.
  */
 export function waitForFlush(): Promise<void> {
   return pendingAckPromise ?? Promise.resolve();
@@ -114,20 +117,24 @@ function sendOps(ops: unknown[]): void {
   const data = JSON.stringify(ops);
 
   // Create the ack promise BEFORE sending so any waitForFlush() chained
-  // immediately after this call observes the in-flight batch.
-  pendingAckPromise = new Promise<void>((resolve) => {
-    pendingAckResolve = resolve;
+  // immediately after this call observes the in-flight batch. The resolver
+  // is a LOCAL closed over by this batch's callback only — an earlier
+  // batch's ack must never resolve a later batch's promise.
+  let resolveThisBatch!: () => void;
+  const thisBatchAck = new Promise<void>((resolve) => {
+    resolveThisBatch = resolve;
   });
+  pendingAckPromise = thisBatchAck;
+  const settle = (): void => {
+    resolveThisBatch();
+    if (pendingAckPromise === thisBatchAck) pendingAckPromise = null;
+  };
 
   // Primary path: closure-injected `lynx` from RuntimeWrapperWebpackPlugin.
   if (typeof lynx !== 'undefined') {
     const app = lynx?.getNativeApp?.();
     if (app && typeof app.callLepusMethod === 'function') {
-      app.callLepusMethod('sigxPatchUpdate', { data }, () => {
-        pendingAckResolve?.();
-        pendingAckResolve = null;
-        pendingAckPromise = null;
-      });
+      app.callLepusMethod('sigxPatchUpdate', { data }, settle);
       return;
     }
   }
@@ -136,9 +143,7 @@ function sendOps(ops: unknown[]): void {
   const g = globalThis as Record<string, unknown>;
   if (typeof g['sigxPatchUpdate'] === 'function') {
     (g['sigxPatchUpdate'] as Function)({ data });
-    pendingAckResolve?.();
-    pendingAckResolve = null;
-    pendingAckPromise = null;
+    settle();
     return;
   }
 
@@ -147,9 +152,7 @@ function sendOps(ops: unknown[]): void {
   console.log(
     '[sigx-bg] sendOps: no `lynx` global injected — bundle is missing RuntimeWrapperWebpackPlugin',
   );
-  pendingAckResolve?.();
-  pendingAckResolve = null;
-  pendingAckPromise = null;
+  settle();
 }
 
 // ---------------------------------------------------------------------------
