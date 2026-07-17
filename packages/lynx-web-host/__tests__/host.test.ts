@@ -291,3 +291,95 @@ describe('sigx.location.* handlers', () => {
     expect(res.value.status).toBe('granted');
   });
 });
+
+describe('sigx.notifications.* handlers', () => {
+  class FakeNotification {
+    static permission: 'granted' | 'denied' | 'default' = 'granted';
+    static instances: FakeNotification[] = [];
+    static requestPermission = async () => FakeNotification.permission;
+    closed = false;
+    constructor(
+      public title: string,
+      public options?: { body?: string; tag?: string },
+    ) {
+      FakeNotification.instances.push(this);
+    }
+    close() {
+      this.closed = true;
+    }
+  }
+
+  beforeEach(() => {
+    FakeNotification.permission = 'granted';
+    FakeNotification.instances = [];
+    vi.stubGlobal('Notification', FakeNotification);
+    vi.stubGlobal('navigator', {});
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  const call = (view: ReturnType<typeof makeView>, name: string, data: unknown = {}) =>
+    view.onNativeModulesCall!(name, data, 'bridge');
+
+  it('schedule shows after delay, repeats, and cancel closes + stops it', async () => {
+    const view = makeView();
+    installSigxWebHost(view);
+    const res = (await call(view, 'sigx.notifications.schedule', {
+      title: 'T',
+      body: 'B',
+      delay: 2,
+      repeat: 'minute',
+    })) as { ok: boolean; value: string };
+    expect(res.ok).toBe(true);
+    expect(FakeNotification.instances).toHaveLength(0);
+    vi.advanceTimersByTime(2000);
+    expect(FakeNotification.instances).toHaveLength(1);
+    expect(FakeNotification.instances[0]).toMatchObject({ title: 'T', options: { body: 'B' } });
+    vi.advanceTimersByTime(60_000);
+    expect(FakeNotification.instances).toHaveLength(2); // repeated
+    const cancelled = (await call(view, 'sigx.notifications.cancel', { id: res.value })) as {
+      value: boolean;
+    };
+    expect(cancelled.value).toBe(true);
+    vi.advanceTimersByTime(120_000);
+    expect(FakeNotification.instances).toHaveLength(2); // repeat stopped
+    expect(FakeNotification.instances.every((n) => n.closed)).toBe(true);
+  });
+
+  it('schedule without permission fails descriptively', async () => {
+    FakeNotification.permission = 'default';
+    const view = makeView();
+    installSigxWebHost(view);
+    const res = (await call(view, 'sigx.notifications.schedule', { title: 'T', body: 'B' })) as {
+      ok: boolean;
+      error: string;
+    };
+    expect(res.ok).toBe(false);
+    expect(res.error).toContain('permission');
+  });
+
+  it('permission mapping: denied → blocked, default → undetermined', async () => {
+    const view = makeView();
+    installSigxWebHost(view);
+    FakeNotification.permission = 'denied';
+    expect(
+      ((await call(view, 'sigx.notifications.permissionStatus')) as { value: unknown }).value,
+    ).toEqual({ status: 'blocked', canAskAgain: false });
+    FakeNotification.permission = 'default';
+    expect(
+      ((await call(view, 'sigx.notifications.requestPermission')) as { value: unknown }).value,
+    ).toEqual({ status: 'undetermined', canAskAgain: true });
+  });
+
+  it('badge is tracked locally and clamped', async () => {
+    const view = makeView();
+    installSigxWebHost(view);
+    await call(view, 'sigx.notifications.setBadge', { count: 5 });
+    expect(((await call(view, 'sigx.notifications.getBadge')) as { value: number }).value).toBe(5);
+    await call(view, 'sigx.notifications.setBadge', { count: -2 });
+    expect(((await call(view, 'sigx.notifications.getBadge')) as { value: number }).value).toBe(0);
+  });
+});
