@@ -461,6 +461,30 @@ describe('Pinch + Rotation (two-finger pair)', () => {
     expect(fired().filter((x) => x === 'pe')).toHaveLength(1); // NOT doubled
   });
 
+  it('an up at a fresh position (no preceding move) folds into the final onEnd values', () => {
+    const el = makeEl();
+    reg(el, 5, 1, PINCH, pinchCbs);
+    el.fire('pointerdown', 0, 0, undefined, undefined, 1);
+    el.fire('pointerdown', 100, 0, undefined, undefined, 2); // base 100
+    // No pointermove at all — finger 2 lifts at a spread position.
+    el.fire('pointerup', 200, 0, undefined, undefined, 2);
+    expect(evtOf('pe').params.scale).toBeCloseTo(2, 5); // NOT stale 1
+    expect(evtOf('pe').params.focalX).toBe(100);
+  });
+
+  it('rotation onEnd reports the last measured velocity, not 0', () => {
+    const el = makeEl();
+    reg(el, 5, 1, ROTATION, rotCbs);
+    el.fire('pointerdown', 0, 0, undefined, undefined, 1);
+    el.fire('pointerdown', 100, 0, undefined, undefined, 2);
+    vi.advanceTimersByTime(100);
+    el.fire('pointermove', 0, 100, undefined, undefined, 2); // π/2 in 100ms
+    el.fire('pointerup', 0, 100, undefined, undefined, 2); // up at same position
+    const e = evtOf('re');
+    expect(e.params.rotation).toBeCloseTo(Math.PI / 2, 5);
+    expect(e.params.velocity).toBeCloseTo(Math.PI / 2 / 100, 5); // last measured, not 0
+  });
+
   it('when no pair ever formed, the universal end pass still fires onEnd once', () => {
     const el = makeEl();
     reg(el, 5, 1, PINCH, pinchCbs);

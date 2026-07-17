@@ -153,6 +153,9 @@ interface ElementGestures {
     /** Accumulated signed rotation (radians), unwrapped across ±π. */
     rotation: number;
     prevT: number;
+    /** Last measured angular velocity (rad/ms) — reported at pair end when the
+     * final event carries no fresh movement (matches `useRotation`). */
+    velocity: number;
   };
   /** Pinch/Rotation already got their dedicated onEnd this press. */
   pairEnded?: boolean;
@@ -275,6 +278,22 @@ function pid(e: PointerLike): number {
   return e.pointerId ?? 0;
 }
 
+/**
+ * Sync the event's coords into its tracked PointerState (move, up AND cancel —
+ * a lift can land at a position no `pointermove` ever reported, and the final
+ * Pinch/Rotation payload must see it).
+ */
+function syncPointer(entry: ElementGestures, e: PointerLike): PointerState | undefined {
+  const p = entry.pointers?.get(pid(e));
+  if (p) {
+    p.x = e.clientX;
+    p.y = e.clientY;
+    p.px = e.pageX ?? e.clientX;
+    p.py = e.pageY ?? e.clientY;
+  }
+  return p;
+}
+
 function onDown(entry: ElementGestures, e: PointerLike): void {
   const id = pid(e);
   const pointers = (entry.pointers ??= new Map());
@@ -375,6 +394,7 @@ function formPair(entry: ElementGestures, secondId: number): void {
     prevAngle: Math.atan2(b.y - a.y, b.x - a.x),
     rotation: 0,
     prevT: nowMs(),
+    velocity: 0,
   };
   for (const g of entry.gestures.values()) {
     if (g.type === PINCH) runCb(g, 'onStart', pinchEvent(a, b, 1));
@@ -382,45 +402,62 @@ function formPair(entry: ElementGestures, secondId: number): void {
   }
 }
 
-/** Recompute distance/angle after a pair member moved; fire onUpdate. */
-function updatePair(entry: ElementGestures): void {
+/**
+ * Fold the pair's current geometry into its accumulated state: unwrapped
+ * rotation (smallest signed delta across ±π — the legacy hooks cap at ±π; we
+ * don't), angular velocity, and scale. Shared by onUpdate and pair end so the
+ * final event never misses movement that arrived only with the up/cancel.
+ */
+function advancePair(
+  entry: ElementGestures,
+): { a: PointerState; b: PointerState; scale: number } | undefined {
   const pair = entry.pair!;
   const a = entry.pointers!.get(pair.aId);
   const b = entry.pointers!.get(pair.bId);
-  if (!a || !b) return;
+  if (!a || !b) return undefined;
   const t = nowMs();
-  const dist = Math.hypot(b.x - a.x, b.y - a.y);
   const angle = Math.atan2(b.y - a.y, b.x - a.x);
-  // Accumulate the smallest signed delta so rotation unwraps across ±π
-  // instead of jumping by ~2π (the legacy hooks cap at ±π; we don't).
   const delta = angleDeltaSigned(pair.prevAngle, angle);
   pair.rotation += delta;
-  const velocity = delta / Math.max(t - pair.prevT, 1);
+  // Keep the last *measured* velocity when this step carries no fresh movement
+  // (e.g. an up at the last move's position) — matches `useRotation`, whose
+  // 'ended' state retains the last active velocity.
+  if (delta !== 0) pair.velocity = delta / Math.max(t - pair.prevT, 1);
   pair.prevAngle = angle;
   pair.prevT = t;
-  const scale = pair.baseDistance > 0 ? dist / pair.baseDistance : 1;
+  const dist = Math.hypot(b.x - a.x, b.y - a.y);
+  return { a, b, scale: pair.baseDistance > 0 ? dist / pair.baseDistance : 1 };
+}
+
+/** Recompute distance/angle after a pair member moved; fire onUpdate. */
+function updatePair(entry: ElementGestures): void {
+  const pair = entry.pair!;
+  const s = advancePair(entry);
+  if (!s) return;
   for (const g of entry.gestures.values()) {
-    if (g.type === PINCH) runCb(g, 'onUpdate', pinchEvent(a, b, scale));
-    else if (g.type === ROTATION) runCb(g, 'onUpdate', rotationEvent(a, b, pair.rotation, velocity));
+    if (g.type === PINCH) runCb(g, 'onUpdate', pinchEvent(s.a, s.b, s.scale));
+    else if (g.type === ROTATION)
+      runCb(g, 'onUpdate', rotationEvent(s.a, s.b, pair.rotation, pair.velocity));
   }
 }
 
 /**
  * A pair member lifted/cancelled: fire the dedicated Pinch/Rotation onEnd with
- * final values and mark them done — the universal end-of-press onEnd pass then
- * skips them so each fires exactly once per press.
+ * final values (the caller synced the up/cancel coords into PointerState
+ * first, and `advancePair` folds in that last movement) and mark them done —
+ * the universal end-of-press onEnd pass then skips them so each fires exactly
+ * once per press.
  */
 function endPair(entry: ElementGestures): void {
   const pair = entry.pair!;
-  const a = entry.pointers!.get(pair.aId);
-  const b = entry.pointers!.get(pair.bId);
+  const s = advancePair(entry);
   entry.pair = undefined;
   entry.pairEnded = true;
-  if (!a || !b) return;
-  const scale = pair.baseDistance > 0 ? Math.hypot(b.x - a.x, b.y - a.y) / pair.baseDistance : 1;
+  if (!s) return;
   for (const g of entry.gestures.values()) {
-    if (g.type === PINCH) runCb(g, 'onEnd', pinchEvent(a, b, scale));
-    else if (g.type === ROTATION) runCb(g, 'onEnd', rotationEvent(a, b, pair.rotation, 0));
+    if (g.type === PINCH) runCb(g, 'onEnd', pinchEvent(s.a, s.b, s.scale));
+    else if (g.type === ROTATION)
+      runCb(g, 'onEnd', rotationEvent(s.a, s.b, pair.rotation, pair.velocity));
   }
 }
 
@@ -463,13 +500,7 @@ function fireLongPress(entry: ElementGestures, gid: number): void {
 
 function onMove(entry: ElementGestures, e: PointerLike): void {
   const id = pid(e);
-  const p = entry.pointers?.get(id);
-  if (p) {
-    p.x = e.clientX;
-    p.y = e.clientY;
-    p.px = e.pageX ?? e.clientX;
-    p.py = e.pageY ?? e.clientY;
-  }
+  const p = syncPointer(entry, e);
   // Pinch/Rotation are driven by BOTH pair members' moves.
   if (entry.active && entry.pair && p && (id === entry.pair.aId || id === entry.pair.bId)) {
     updatePair(entry);
@@ -504,9 +535,10 @@ function onMove(entry: ElementGestures, e: PointerLike): void {
 
 function onUp(entry: ElementGestures, e: PointerLike): void {
   const id = pid(e);
-  const p = entry.pointers?.get(id);
-  // Either pair member lifting ends the Pinch/Rotation (before the pointer is
-  // dropped from the map so final focal/scale still see both positions).
+  const p = syncPointer(entry, e);
+  // Either pair member lifting ends the Pinch/Rotation (after syncing the up
+  // coords, before the pointer is dropped from the map, so the final
+  // focal/scale/rotation see the true release positions).
   if (entry.active && entry.pair && (id === entry.pair.aId || id === entry.pair.bId)) {
     endPair(entry);
   }
@@ -553,6 +585,7 @@ function onUp(entry: ElementGestures, e: PointerLike): void {
 
 function onCancel(entry: ElementGestures, e: PointerLike): void {
   const id = pid(e);
+  syncPointer(entry, e);
   // A cancelled pair member ends the Pinch/Rotation, like a lift.
   if (entry.active && entry.pair && (id === entry.pair.aId || id === entry.pair.bId)) {
     endPair(entry);
