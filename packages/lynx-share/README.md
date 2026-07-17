@@ -31,6 +31,10 @@ interface ShareOptions {
     url?: string;
 }
 ```
+## Web
+
+On web, `share()` routes through the `@sigx/lynx-web-host` page bridge to `navigator.share`. Browsers require a **user gesture**: call `share()` directly from a tap handler so the activation survives the worker→page hop. Dismissal is silent; unsupported browsers log a warning (`isAvailable()` still reports the bridge, not `navigator.share` support).
+
 ## Gotchas
 - **Sharing files** isn't directly supported — `url` is treated as a string (web URL). For local file sharing, the native side would need to handle file URIs and FileProvider authority, which isn't wired here yet.
 - **No completion callback.** If you need to know whether the user actually shared (vs. cancelled the sheet), you'll need to extend the native module with `UIActivityViewController.completionWithItemsHandler` (iOS) / `ACTION_SEND` result handling (Android, harder — there's no clean signal).

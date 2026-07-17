@@ -1,39 +1,13 @@
 import { callAsync, isModuleAvailable } from '@sigx/lynx-core';
 
+import { readInitialURL, subscribeUrl } from './inbound.js';
+import type { URLListener, URLSubscription } from './inbound.js';
+
 const MODULE = 'Linking';
-const URL_EVENT = 'urlReceived';
-const GLOBAL_PROPS_KEY = 'initialURL';
 
-export interface URLEvent {
-    url: string;
-}
-
-export type URLListener = (event: URLEvent) => void;
-
-export interface URLSubscription {
-    remove(): void;
-}
-
-interface GlobalEventEmitterLike {
-    addListener: (name: string, fn: (...a: unknown[]) => void) => void;
-    removeListener: (name: string, fn: (...a: unknown[]) => void) => void;
-}
-
-interface LynxLike {
-    __globalProps?: { [k: string]: unknown };
-    getJSModule?: (name: string) => GlobalEventEmitterLike | undefined;
-}
-
-// Closure-injected identifier provided by
-// `@lynx-js/runtime-wrapper-webpack-plugin`'s `__init_card_bundle__`
-// wrapper. Same pattern as `@sigx/lynx-safe-area/src/globals.ts` and
-// `@sigx/lynx-runtime/src/bg-bridge.ts`. Access as a bare identifier with
-// `typeof` guard so this module also works in tests / SSR / non-Lynx hosts.
-declare const lynx: unknown | undefined;
-
-function lynxObj(): LynxLike | undefined {
-    return typeof lynx !== 'undefined' ? (lynx as unknown as LynxLike) : undefined;
-}
+// Inbound types live in `inbound.ts` (shared with `linking.web.ts`); re-export
+// so `index.ts` and existing consumers keep their import site.
+export type { URLEvent, URLListener, URLSubscription } from './inbound.js';
 
 /**
  * Deep link & URL handling APIs.
@@ -77,8 +51,7 @@ export const Linking = {
      * "what was the most recent deep link" queries.
      */
     getInitialURL(): string | null {
-        const raw = lynxObj()?.__globalProps?.[GLOBAL_PROPS_KEY];
-        return typeof raw === 'string' && raw.length > 0 ? raw : null;
+        return readInitialURL();
     },
 
     /**
@@ -89,18 +62,7 @@ export const Linking = {
         if (type !== 'url') {
             throw new Error(`[@sigx/lynx-linking] Unknown event type: ${String(type)}`);
         }
-        const emitter = lynxObj()?.getJSModule?.('GlobalEventEmitter');
-        if (!emitter) {
-            return { remove() {} };
-        }
-        const wrapped = (raw: unknown) => {
-            const url = typeof raw === 'string' ? raw : '';
-            if (url) listener({ url });
-        };
-        emitter.addListener(URL_EVENT, wrapped);
-        return {
-            remove: () => emitter.removeListener(URL_EVENT, wrapped),
-        };
+        return subscribeUrl(listener);
     },
 
     /** Whether the bridge module is registered in the current build. */

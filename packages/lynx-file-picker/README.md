@@ -57,6 +57,10 @@ interface FilePickerAsset {
     size: number;       // bytes; 0 when unknowable
 }
 ```
+## Web
+
+On web the picker is the browser file dialog via `@sigx/lynx-web-host`. Assets are `blob:` URLs with the usual `name`/`mimeType`/`size` contract (FormData uploads work); `copyToCache` is a no-op — blob URLs are already session-stable.
+
 ## Gotchas
 - **`copyToCache: false` returns an ephemeral URI on both platforms.** Android: SAF's `content://` read grant is Activity-scoped — once the app is killed, the URI is unreadable. iOS: the picker runs with `asCopy: true`, so you get a temporary `file://` copy in tmp that iOS may purge at any time. The default (`true`) copies the bytes into app storage (`filesDir/picked/` / `Documents/picked/`) and returns a stable `file://` URI that survives restarts.
 - **MIME filters are best-effort on iOS.** MIME strings are mapped to UTTypes (`image/*` → `.image`, etc.); unknown MIME strings are skipped, and if nothing maps the picker falls back to "any file" rather than failing.
