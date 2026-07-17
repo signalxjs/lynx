@@ -41,6 +41,10 @@ const sub = Linking.addEventListener('url', ({ url }) => handle(url));
 `parse` / `createURL` are pure-JS helpers for working with deep-link URLs. To route
 incoming links into a navigator, use [`@sigx/lynx-navigation`](https://sigx.dev/lynx/modules/navigation/overview/)'s `useLinkingNav`, which wires the cold-start + warm-listener dance into the Lynx navigator. The full API, platform gotchas, and Universal/App Links setup are documented on the docs site.
 
+## Web
+
+On web, `openURL`/`canOpenURL` route through the `@sigx/lynx-web-host` page bridge (`window.open` + a browser-openable scheme allowlist: http/https/mailto/tel/sms). Inbound URLs work unchanged — the host publishes `initialURL` and `urlReceived` from the page location, so `getInitialURL()` / `addEventListener('url', …)` behave exactly as on native.
+
 ## License
 
 MIT
