@@ -61,7 +61,7 @@
         "@lynx-js/types": "^3.9.0",
         "@sigx/lynx-runtime": "workspace:*",
         "@sigx/runtime-core": "catalog:",
-        "@typescript/native-preview": "7.0.0-dev.20260521.1",
+        "@typescript/native-preview": "7.0.0-dev.20260707.2",
         "typescript": "^6.0.3"
     },
     "publishConfig": {
