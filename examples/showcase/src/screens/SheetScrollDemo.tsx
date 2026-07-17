@@ -72,7 +72,7 @@ export const SheetScrollDemo = component(() => {
                                             </Row>
                                         )}
                                     >
-                                        <Row class="py-3 border-b border-base-200" align="center">
+                                        <Row class="bg-base-100 py-3 border-b border-base-200" align="center">
                                             <Text class="text-sm">Row {n} — swipe me left</Text>
                                         </Row>
                                     </Swipeable>
