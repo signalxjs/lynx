@@ -101,14 +101,27 @@ function pickFiles(accept: string | undefined, multiple: boolean): Promise<Picke
     input.multiple = multiple;
     input.style.display = 'none';
     document.body.appendChild(input);
+    const page = globalThis as {
+      addEventListener?: (t: string, fn: () => void) => void;
+      removeEventListener?: (t: string, fn: () => void) => void;
+    };
+    let settled = false;
     const done = (files: File[]): void => {
+      if (settled) return; // change / cancel / focus-fallback race — first wins
+      settled = true;
+      page.removeEventListener?.('focus', onFocus);
       input.remove();
       Promise.all(files.map(describeFile)).then(resolve, reject);
     };
+    // Focus-based cancel fallback for browsers that don't dispatch the
+    // (newer) `cancel` event on file inputs: closing the dialog refocuses the
+    // window with no `change`; the grace delay lets a real `change` win.
+    const onFocus = (): void => {
+      setTimeout(() => done([...(input.files ?? [])]), 300);
+    };
     input.addEventListener('change', () => done([...(input.files ?? [])]), { once: true });
-    // 'cancel' fires in modern Chromium/Firefox/Safari; harmless where absent
-    // (the hidden input just leaks until the next pick).
     input.addEventListener('cancel', () => done([]), { once: true });
+    page.addEventListener?.('focus', onFocus);
     input.click();
   });
 }
@@ -193,7 +206,10 @@ export function installSigxWebHost(
   const previous = lynxView.onNativeModulesCall;
 
   lynxView.onNativeModulesCall = (name: string, data: unknown, moduleName: string): unknown => {
-    if (!name.startsWith('sigx.')) return previous?.(name, data, moduleName);
+    // Delegate non-sigx calls with the element as receiver — web-core invokes
+    // the handler as a method on <lynx-view>, so a `this`-using previous
+    // handler must keep its binding.
+    if (!name.startsWith('sigx.')) return previous?.call(lynxView, name, data, moduleName);
     const handler = handlers[name.slice('sigx.'.length)];
     if (!handler) {
       return fail(`[@sigx/lynx-web-host] no handler for "${name}"`);

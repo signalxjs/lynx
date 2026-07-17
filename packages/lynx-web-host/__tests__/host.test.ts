@@ -102,14 +102,19 @@ describe('sigx.* RPC dispatch', () => {
     expect(res.error).toContain('scheme');
   });
 
-  it('non-sigx calls fall through to a pre-existing handler', () => {
+  it('non-sigx calls fall through to a pre-existing handler with `this` = the view', () => {
     const view = makeView();
-    const prev = vi.fn(() => 'prev-result');
-    view.onNativeModulesCall = prev;
+    let seenThis: unknown;
+    view.onNativeModulesCall = function (this: unknown) {
+      seenThis = this;
+      return 'prev-result';
+    };
     installSigxWebHost(view);
     const res = view.onNativeModulesCall!('someOther.thing', { a: 1 }, 'custom');
-    expect(prev).toHaveBeenCalledWith('someOther.thing', { a: 1 }, 'custom');
     expect(res).toBe('prev-result');
+    // web-core invokes the handler as a method on <lynx-view>; delegation
+    // must preserve that receiver.
+    expect(seenThis).toBe(view);
   });
 
   it('linking.canOpenURL allowlists browser-openable schemes', async () => {

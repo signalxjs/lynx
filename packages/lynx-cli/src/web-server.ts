@@ -159,7 +159,11 @@ export function hostHtml(projectName: string, bundle: string): string {
     // Host-page bridge (#703): sigx.* RPC handlers (clipboard, share, linking,
     // pickers, vibrate) + appearance / initial-URL publishers.
     import { installSigxWebHost } from '/host/sigx-host.js';
-    installSigxWebHost(document.querySelector('lynx-view'));
+    const sigxView = document.querySelector('lynx-view');
+    if (!sigxView) {
+      throw new Error('[sigx run:web] <lynx-view> element not found — host page markup out of sync');
+    }
+    installSigxWebHost(sigxView);
   </script>
   <script>
     (function () {
