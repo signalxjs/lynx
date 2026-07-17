@@ -4,12 +4,12 @@ import type { EmojiRenderCell } from '../types.js';
 
 /**
  * Row height (px) a cell of `size` occupies: the glyph at ~1.2 line-height
- * plus 12px of breathing room, PINNED as the cell's explicit height. This is
+ * plus 4px of breathing room (WhatsApp-dense — glyphs nearly fill the cell), PINNED as the cell's explicit height. This is
  * simultaneously the cell's `estimated-main-axis-size-px` and the exact
  * per-row height the sectioned grid's scroll-offset math uses — est == actual
  * by construction (padding-derived heights drifted; #663 device gate).
  */
-export const emojiRowPx = (size?: number): number => Math.round((size ?? 32) * 1.2) + 12;
+export const emojiRowPx = (size?: number): number => Math.round((size ?? 32) * 1.2) + 4;
 
 /** Everything the default (glyph) cell row needs — see {@link emojiCellRow}. */
 export interface EmojiCellRowArgs {

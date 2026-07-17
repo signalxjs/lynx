@@ -116,8 +116,8 @@ describe('EmojiGrid (template cells, #649)', () => {
         expect(cells.length).toBe(CAT_A.length); // all 388 — staged rows are cheap
         // Platform attrs come from the cell's own JSX now (not List props).
         expect(cells[0].props['item-key']).toBe('A0');
-        // Default cell estimate: 6+6px padding + 32px glyph at ~1.2 line-height.
-        expect(cells[0].props['estimated-main-axis-size-px']).toBe(50);
+        // Default cell estimate: 32px glyph at ~1.2 line-height + 4px (dense).
+        expect(cells[0].props['estimated-main-axis-size-px']).toBe(42);
         // Native reuse group — parity with the pre-template itemType wrapper.
         expect(cells[0].props['item-type']).toBe('emoji');
         // The glyph is a `text` ATTRIBUTE (keeps the template slot-free).
@@ -308,7 +308,8 @@ describe('sectioned grid (#662)', () => {
         // cat-a active at the top; crossing cat-b's start flips the highlight.
         expect(activeGlyphs()).toEqual(['A0']);
         const list = getByType(container, 'list') as unknown as TestNode;
-        const catBStart = sectionStartOffsets(SECTIONS, 8)[1]!;
+        // Adaptive geometry at width 328: 8 columns (floor(328/41)), 36px glyphs.
+        const catBStart = sectionStartOffsets(SECTIONS, 8, 36)[1]!;
         await act(() => { list._handlers.get('bindscroll')!({ detail: { scrollTop: catBStart + 5 } }); });
         expect(activeGlyphs()).toEqual(['B0']);
         await act(() => { list._handlers.get('bindscroll')!({ detail: { scrollTop: 0 } }); });
@@ -331,11 +332,14 @@ describe('adaptive cell sizing (#669)', () => {
         const { container } = render(
             <EmojiPicker data={makeData()} showSearch={false} showRecents={false} />,
         );
-        // 412 / 8 cols * 0.78 = 40.17 -> 40; rows pin at 40*1.2+12 = 60.
+        // Width 412: columns = floor(412/41) = 10; glyph = round(41.2*0.88)
+        // = 36; rows pin at round(36*1.2)+4 = 47 (WhatsApp-dense, #674).
         await measureRegion(container, 412);
+        const list = getByType(container, 'list');
+        expect(list.props['span-count']).toBe(10);
         const cell = getAllByType(container, 'list-item')
             .find((c) => c.props['item-type'] === 'emoji')!;
-        expect(cell.props['estimated-main-axis-size-px']).toBe(60);
+        expect(cell.props['estimated-main-axis-size-px']).toBe(47);
     });
 
     it('clamps the derived size and lets an explicit cellSize win', async () => {
@@ -345,15 +349,15 @@ describe('adaptive cell sizing (#669)', () => {
         await measureRegion(explicit.container, 412);
         const cell = getAllByType(explicit.container, 'list-item')
             .find((c) => c.props['item-type'] === 'emoji')!;
-        expect(cell.props['estimated-main-axis-size-px']).toBe(30 * 1.2 + 12);
+        expect(cell.props['estimated-main-axis-size-px']).toBe(30 * 1.2 + 4);
 
-        // A very wide region clamps at 44 (rows 44*1.2+12 = 65, rounded math).
+        // A very wide region clamps at 12 columns and 48px glyphs.
         const wide = render(
             <EmojiPicker data={makeData()} showSearch={false} showRecents={false} />,
         );
         await measureRegion(wide.container, 900);
         const wideCell = getAllByType(wide.container, 'list-item')
             .find((c) => c.props['item-type'] === 'emoji')!;
-        expect(wideCell.props['estimated-main-axis-size-px']).toBe(Math.round(44 * 1.2) + 12);
+        expect(wideCell.props['estimated-main-axis-size-px']).toBe(Math.round(48 * 1.2) + 4);
     });
 });
