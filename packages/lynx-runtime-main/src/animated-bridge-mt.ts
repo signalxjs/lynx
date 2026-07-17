@@ -11,7 +11,7 @@
  * `ops-apply.ts` because the BG→MT op handlers mutate it; this module
  * imports the references and reads them on every flush.
  *
- * Two flush hook points:
+ * Three flush hook points:
  *   1. `ops-apply.ts` calls `flushAvBridgePublishes()` at its tail (covers
  *      every BG-driven ops batch).
  *   2. `installAvBridgeFlushHook()` wraps `globalThis.__FlushElementTree`
@@ -19,6 +19,11 @@
  *      calls `setStyleProperties`) also trigger a publish on the same
  *      tick the native tree flushes. Called once from `entry-main.ts`
  *      after PAPI globals are present.
+ *   3. `armAvAutoFlush()` (below) makes the SharedValue envelope itself
+ *      schedule a flush on every write, so a worklet that ONLY writes
+ *      `sv.current.value` — no style call, no manual flush — still repaints
+ *      the same frame. Installed per-wvid by the `OP.REGISTER_AV_BRIDGE`
+ *      handler.
  *
  * Coalescing: `===` per-wvid diff. Identical writes are filtered. N writes
  * within one flush window collapse to one BG event with N entries.
@@ -304,4 +309,82 @@ export function installAvBridgeFlushHook(): void {
     }
     return (original as (...a: unknown[]) => unknown).apply(this, args);
   };
+}
+
+// ---------------------------------------------------------------------------
+// SharedValue auto-flush
+//
+// Historically, a bare MT write `sv.current.value = x` was a plain property
+// mutation: bindings applied and the BG publish happened only when something
+// ELSE flushed the element tree. Every finger-following gesture component
+// had to remember an inline `__FlushElementTree()` in its onUpdate worklet —
+// and the ones that forgot (navigation's sheet drag / edge-back swipe) only
+// repainted on incidental flushes, lagging the finger. Arming the envelope
+// with a setter removes the failure mode by construction.
+// ---------------------------------------------------------------------------
+
+/**
+ * Microtask-coalesced `__FlushElementTree()` trigger. Deliberately shares
+ * lynx-motion `animate()`'s latch flag (`__sigxMotionFlushScheduled`,
+ * animate.ts): a motion tick writes the SV (setter schedules, sets the
+ * latch) and then calls its own flush trigger (sees the latch, bails) —
+ * ONE flush per microtask window, never two. `__FlushElementTree` is read
+ * at fire time so the microtask gets the AV-bridge-wrapped version that
+ * applies bindings and publishes before the native tree flush.
+ */
+function scheduleAvFlush(): void {
+  const g = globalThis as Record<string, unknown>;
+  if (g['__sigxMotionFlushScheduled']) return;
+  g['__sigxMotionFlushScheduled'] = true;
+  Promise.resolve().then(() => {
+    g['__sigxMotionFlushScheduled'] = false;
+    const fn = g['__FlushElementTree'];
+    if (typeof fn !== 'function') return;
+    try {
+      (fn as () => void)();
+    } catch (e) {
+      // Swallow-and-log: a throw here would surface as an unhandled
+      // rejection on MT with no useful stack.
+      console.log('[sigx-mt] av auto-flush threw:', String(e));
+    }
+  });
+}
+
+/**
+ * Arm auto-flush on a registered SharedValue: convert the MT envelope's
+ * `value` data property into a get/set pair whose setter schedules a
+ * coalesced flush after storing the write.
+ *
+ * The accessor is defined on the EXISTING envelope object (identity
+ * preserved) because worklet captures resolve `{_wvid}` to the same entry
+ * via upstream's `getFromWorkletRefMap` — past and future captures all see
+ * the setter. Safe against upstream: its worklet runtime only creates
+ * ref-map entries if missing (`updateWorkletRefInitValueChanges`) and only
+ * reassigns `.current` for element refs (`main-thread:ref` path), never for
+ * SharedValue envelopes.
+ *
+ * Bails silently — preserving the old boundary-driven behavior — when the
+ * envelope is missing (register raced release), isn't an object, `value`
+ * is already an accessor (double-register), or `defineProperty` refuses.
+ */
+export function armAvAutoFlush(wvid: number): void {
+  const impl = (globalThis as { lynxWorkletImpl?: WorkletImpl }).lynxWorkletImpl;
+  const env = impl?._refImpl?._workletRefMap?.[wvid]?.current;
+  if (!env || typeof env !== 'object') return;
+  const desc = Object.getOwnPropertyDescriptor(env, 'value');
+  if (!desc || desc.get || desc.set) return;
+  let backing = desc.value as unknown;
+  try {
+    Object.defineProperty(env, 'value', {
+      get: () => backing,
+      set: (v: unknown) => {
+        backing = v;
+        scheduleAvFlush();
+      },
+      enumerable: true,
+      configurable: true,
+    });
+  } catch {
+    // Frozen/sealed/exotic envelope — leave the data property in place.
+  }
 }

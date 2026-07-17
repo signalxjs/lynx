@@ -26,8 +26,11 @@ export interface SharedValueState<T> {
  *
  * **MT side** — inside `'main thread'` worklets, mutate via `sv.current.value
  * = newValue`. The MainThreadRef machinery makes the mutation stick across
- * worklet invocations on the same wvid; the bridge picks up the new value on
- * the next `__FlushElementTree` boundary.
+ * worklet invocations on the same wvid. Writes auto-schedule a
+ * (microtask-coalesced) `__FlushElementTree`: the MT runtime arms a setter
+ * on the envelope at `REGISTER_AV_BRIDGE` time (`animated-bridge-mt.ts:
+ * armAvAutoFlush`), so `useAnimatedStyle` bindings apply and the BG publish
+ * lands the same frame — no manual flush needed in gesture worklets.
  *
  * **BG side** — read via `sv.value` to get the latest published snapshot.
  * Sigx tracking applies, so an `effect(() => console.log(sv.value))` re-runs

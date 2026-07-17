@@ -22,6 +22,7 @@ import {
   resetSlotStates,
 } from './event-slots.js';
 import {
+  armAvAutoFlush,
   flushAvBridgePublishes,
   flushAnimatedStyleBindings,
   registerAnimatedStyleBinding,
@@ -534,6 +535,10 @@ export function applyOps(ops: unknown[]): void {
         const initValue = ops[i++];
         bridgedAvWvids.add(wvid);
         bridgedAvLastValues.set(wvid, initValue);
+        // Arm the write→flush setter on the envelope INIT_MT_REF created
+        // earlier in this same batch (useSharedValue pushes INIT then
+        // REGISTER together), so bare worklet writes repaint per frame.
+        armAvAutoFlush(wvid);
         break;
       }
 
