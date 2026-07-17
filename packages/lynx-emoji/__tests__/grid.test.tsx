@@ -116,7 +116,7 @@ describe('EmojiGrid (template cells, #649)', () => {
         expect(cells.length).toBe(CAT_A.length); // all 388 — staged rows are cheap
         // Platform attrs come from the cell's own JSX now (not List props).
         expect(cells[0].props['item-key']).toBe('A0');
-        // Default cell estimate: visible ink (32 * 0.64) + 9px air.
+        // Default cell estimate: round(32 * 0.64) + 9px air = 20 + 9 = 29.
         expect(cells[0].props['estimated-main-axis-size-px']).toBe(29);
         // Native reuse group — parity with the pre-template itemType wrapper.
         expect(cells[0].props['item-type']).toBe('emoji');

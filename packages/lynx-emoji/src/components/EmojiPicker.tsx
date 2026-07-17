@@ -213,7 +213,7 @@ export const EmojiPicker = component<EmojiPickerProps>(({ props, emit }) => {
     // Grid geometry derives from the SCREEN (the WhatsApp model, #669/#674):
     // fit as many ~TARGET_CELL_PX-wide cells as the measured width allows
     // (that's the column count — 10 on a typical phone, more on tablets),
-    // then size the glyph to fill ~88% of the resulting cell, so the grid is
+    // then size the glyph so its INK fills ~93% of the resulting cell, so the grid is
     // dense in both axes regardless of device. Resolves exactly once — at
     // the same pre-mount gate that freezes the region height — because the
     // sectioned grid's scroll-offset math needs rows fixed per mount.
