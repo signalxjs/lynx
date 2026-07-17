@@ -14,8 +14,10 @@
  *      registry.
  *
  * At runtime, runOnMainThread receives the placeholder, returns a callable, and
- * each invocation ships `{ wkltId, args }` over `callLepusMethod('sigxRunOnMT')`
- * to the MT bridge installed in `entry-main.ts`.
+ * each invocation enqueues an `INVOKE_WORKLET` op on the ordered
+ * `sigxPatchUpdate` stream (#688) — applied by ops-apply.ts via the same
+ * hydration path as the legacy `sigxRunOnMT` bridge in `entry-main.ts`
+ * (which remains for same-thread test callers).
  *
  * ## Usage
  *
@@ -36,6 +38,7 @@
 // `lynx` and `lynxCoreInject` are closure-injected — see shims.d.ts
 
 import { MainThreadRef } from './main-thread-ref.js';
+import { OP, pushOp, scheduleFlush, waitForFlush } from './op-queue.js';
 
 // ---------------------------------------------------------------------------
 // Worklet placeholder shape (post-transform)
@@ -106,27 +109,49 @@ export function runOnMainThread<TArgs extends unknown[]>(
 
   return (...args: TArgs): Promise<unknown> => {
     return new Promise<unknown>((resolve) => {
-      if (typeof lynx !== 'undefined') {
-        const app = lynx?.getNativeApp?.();
-        if (app && typeof app.callLepusMethod === 'function') {
-          app.callLepusMethod(
-            'sigxRunOnMT',
-            { wkltId, args, captured },
-            (result: unknown) => resolve(result),
-          );
-          return;
-        }
-      }
-
-      // Same-thread fallback (testing only)
+      // Ride the ordered `sigxPatchUpdate` ops stream (#688). The old
+      // direct `callLepusMethod('sigxRunOnMT')` channel shipped a dispatch
+      // SYNCHRONOUSLY while the ops carrying the same mount window's
+      // SharedValue/ref registrations sat in the op-queue awaiting their
+      // microtask flush — the dispatch outran its own prerequisites, the
+      // worklet body threw against a missing ref (contained, silent), and
+      // the seed then applied over the lost correction. In-stream, a
+      // dispatch applies strictly after every op enqueued before it. The
+      // queue's microtask flush also makes dispatches from idle timer
+      // contexts prompt — no render needed to carry them.
+      //
+      // The promise resolves with `undefined` once the batch carrying the
+      // dispatch has been applied on the MT (batch ack) — after the worklet
+      // ran. Worklet return values no longer cross threads; no caller
+      // consumed them (Promises never serialized anyway — see
+      // lynx-navigation's animateProgress note). Exception: the same-thread
+      // `sigxRunOnMT` test fallback below still resolves the stub's return
+      // value, so existing test doubles keep observing their canned results.
       const g = globalThis as Record<string, unknown>;
-      if (typeof g['sigxRunOnMT'] === 'function') {
+      const hasNativeBridge = typeof lynx !== 'undefined'
+        && typeof lynx?.getNativeApp?.()?.callLepusMethod === 'function';
+
+      // Same-thread direct fallback (test envs that stub `sigxRunOnMT`
+      // without an ops-applying MT): preserve the legacy synchronous call.
+      if (!hasNativeBridge && typeof g['sigxRunOnMT'] === 'function') {
         let result: unknown;
         (g['sigxRunOnMT'] as Function)(
           { wkltId, args, captured },
           (r: unknown) => { result = r; },
         );
         resolve(result);
+        return;
+      }
+
+      if (hasNativeBridge || typeof g['sigxPatchUpdate'] === 'function') {
+        pushOp(OP.INVOKE_WORKLET, wkltId, args, captured ?? null);
+        scheduleFlush();
+        // scheduleFlush queued the flush microtask (or one was already
+        // pending) BEFORE this continuation, so by the time it runs the
+        // batch is in flight and waitForFlush() observes its ack.
+        Promise.resolve().then(() => {
+          void waitForFlush().then(() => resolve(undefined));
+        });
         return;
       }
 
