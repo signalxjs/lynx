@@ -3,13 +3,14 @@ import type { EmojiDatum } from '../data/schema.js';
 import type { EmojiRenderCell } from '../types.js';
 
 /**
- * Row height (px) a cell of `size` occupies: the glyph at ~1.2 line-height
- * plus 4px of breathing room (WhatsApp-dense — glyphs nearly fill the cell), PINNED as the cell's explicit height. This is
+ * Row height (px) a cell of `size` occupies: the glyph's visible INK
+ * (emoji fonts ink ~64% of the em) plus 9px of air — row spacing tracks
+ * what the eye sees, not the font metric (WhatsApp-dense), PINNED as the cell's explicit height. This is
  * simultaneously the cell's `estimated-main-axis-size-px` and the exact
  * per-row height the sectioned grid's scroll-offset math uses — est == actual
  * by construction (padding-derived heights drifted; #663 device gate).
  */
-export const emojiRowPx = (size?: number): number => Math.round((size ?? 32) * 1.2) + 4;
+export const emojiRowPx = (size?: number): number => Math.round((size ?? 32) * 0.64) + 9;
 
 /** Everything the default (glyph) cell row needs — see {@link emojiCellRow}. */
 export interface EmojiCellRowArgs {

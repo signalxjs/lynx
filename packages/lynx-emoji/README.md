@@ -52,11 +52,13 @@ Full guides, API reference and live examples → **[https://sigx.dev/lynx/module
   `initialHeight` to lay the grid out at full size on its first frame;
   `EmojiPicker` does both.
 - **Screen-adaptive, WhatsApp-dense geometry** — the picker fits as many
-  ~41px cells as the measured width allows (that's the default column count:
-  10 on a typical phone, clamped 7–12), then sizes the glyph to fill ~88% of
-  the cell (clamped 24–48), so the grid is packed in both axes on every
-  device; category tabs and the skin-tone popover scale to match. Resolved
-  once at mount; pass `columns` and/or `cellSize` for manual control.
+  ~40px cells as the measured width allows (that's the default column count:
+  10 on a typical phone, clamped 7–12), then sizes the glyph so its VISIBLE
+  INK covers ~93% of the cell: emoji fonts ink only ~64% of their declared
+  size, so the font overshoots the cell (clamped 24–72) and row heights
+  track the ink, not the em box. Device-matched against WhatsApp. Category
+  tabs and the skin-tone popover scale along. Resolved once at mount; pass
+  `columns` and/or `cellSize` for manual control.
 - **Search** — ranked shortcode/name/keyword search (`useEmojiSearch`-free:
   `buildSearchIndex(data).search('fire')`).
 - **Skin tones** — long-press a tonal emoji; the choice is sticky grid-wide

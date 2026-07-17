@@ -24,8 +24,8 @@ export type EmojiPickerProps =
      */
     & Define.Prop<'data', EmojiData, false>
     /**
-     * Grid columns. Default: ADAPTIVE — as many ~41px cells as the measured
-     * grid width fits (clamped 7–12; 10 on a typical phone, WhatsApp-style).
+     * Grid columns. Default: ADAPTIVE — as many ~40px cells as the measured
+     * grid width fits (clamped 7–12; 10 on a typical phone, like WhatsApp).
      * The resolved value is FROZEN for the mount (the sectioned grid's
      * scroll-offset math needs fixed rows) — post-mount changes are ignored.
      */
@@ -41,7 +41,9 @@ export type EmojiPickerProps =
     & Define.Prop<'recentsLabel', string, false>
     /**
      * Glyph font size in grid cells. Default: ADAPTIVE — the glyph fills
-     * ~88% of the resolved cell width (clamped 24–48), so the grid is dense
+     * the cell so its VISIBLE INK covers ~93% of the cell width (emoji
+     * fonts ink only ~64% of the em — the font size overshoots accordingly;
+     * clamped 24–72), so the grid is dense
      * in both axes like WhatsApp's; 32 when no width is known. Pass a number
      * for full control. The tone popover follows the resolved size. Frozen
      * for the mount, like `columns`.
@@ -217,7 +219,11 @@ export const EmojiPicker = component<EmojiPickerProps>(({ props, emit }) => {
     // sectioned grid's scroll-offset math needs rows fixed per mount.
     // Pre-measure (tests, SSR) falls back WITHOUT freezing, so the real
     // measurement still wins. Explicit props override their half each.
-    const TARGET_CELL_PX = 41;
+    // Android/iOS emoji fonts INK only ~64% of the declared fontSize — all
+    // spacing math below models the visible ink, not the em box, or the grid
+    // reads airy no matter the numbers (measured against WhatsApp on device).
+    const EMOJI_INK = 0.64;
+    const TARGET_CELL_PX = 40;
     let resolvedGeometry: { columns: number; cellSize: number } | null = null;
     const geometryFor = (regionWidth: number): { columns: number; cellSize: number } => {
         if (resolvedGeometry !== null) return resolvedGeometry;
@@ -232,7 +238,7 @@ export const EmojiPicker = component<EmojiPickerProps>(({ props, emit }) => {
         const columns = props.columns
             ?? Math.min(12, Math.max(7, Math.floor(regionWidth / TARGET_CELL_PX)));
         const cellSize = props.cellSize
-            ?? Math.min(48, Math.max(24, Math.round((regionWidth / columns) * 0.88)));
+            ?? Math.min(72, Math.max(24, Math.round(((regionWidth / columns) * 0.93) / EMOJI_INK)));
         resolvedGeometry = { columns, cellSize };
         return resolvedGeometry;
     };
