@@ -184,7 +184,84 @@ function buildHandlers(): Record<string, Handler> {
         (pattern as number | number[] | undefined) ?? 10,
       );
     },
+    'location.getCurrent': (data) => {
+      const d = asRecord(data);
+      return getPosition({
+        enableHighAccuracy: d['accuracy'] === 'high',
+        timeout: typeof d['timeout'] === 'number' ? d['timeout'] : undefined,
+      });
+    },
+    'location.permissionStatus': () => geoPermissionStatus(),
+    'location.requestPermission': async () => {
+      // The browser has no standalone geolocation prompt — a position request
+      // IS the prompt. Ask (cheaply), then report the resulting status.
+      try {
+        await getPosition({ enableHighAccuracy: false, timeout: 30_000 });
+        // Trust a decisive Permissions API answer; a one-time allow (or an
+        // absent API) can still read 'prompt'/'undetermined' — the probe just
+        // succeeded, so that means effectively granted.
+        const s = await geoPermissionStatus();
+        return s.status === 'granted' || s.status === 'blocked'
+          ? s
+          : { status: 'granted', canAskAgain: true };
+      } catch {
+        return geoPermissionStatus();
+      }
+    },
   };
+}
+
+interface HostPermissionResponse {
+  status: 'granted' | 'denied' | 'undetermined' | 'blocked';
+  canAskAgain: boolean;
+}
+
+/** Map the Permissions API state onto the package's PermissionResponse shape. */
+async function geoPermissionStatus(): Promise<HostPermissionResponse> {
+  try {
+    const p = await navigator.permissions.query({ name: 'geolocation' });
+    if (p.state === 'granted') return { status: 'granted', canAskAgain: true };
+    // A browser denial sticks until the user flips the site setting — there
+    // is no re-prompt, so it maps to 'blocked' rather than 'denied'.
+    if (p.state === 'denied') return { status: 'blocked', canAskAgain: false };
+    return { status: 'undetermined', canAskAgain: true };
+  } catch {
+    return { status: 'undetermined', canAskAgain: true };
+  }
+}
+
+/** Promisified getCurrentPosition mapped to the lynx-location result shape. */
+function getPosition(opts: PositionOptions): Promise<{
+  latitude: number;
+  longitude: number;
+  altitude: number | null;
+  accuracy: number;
+  speed: number | null;
+  heading: number | null;
+  timestamp: number;
+}> {
+  return new Promise((resolve, reject) => {
+    if (typeof navigator.geolocation?.getCurrentPosition !== 'function') {
+      reject(new Error('geolocation is not available in this browser'));
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const c = pos.coords;
+        resolve({
+          latitude: c.latitude,
+          longitude: c.longitude,
+          altitude: c.altitude ?? null,
+          accuracy: c.accuracy,
+          speed: c.speed ?? null,
+          heading: c.heading ?? null,
+          timestamp: pos.timestamp,
+        });
+      },
+      (err) => reject(new Error(`geolocation failed: ${err.message}`)),
+      opts,
+    );
+  });
 }
 
 function currentColorScheme(): 'dark' | 'light' {

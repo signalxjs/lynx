@@ -39,6 +39,7 @@ seeded up front. Returns an uninstall function (removes the page listeners).
 | `sigx.share.*` | `navigator.share` (capability-probed) |
 | `sigx.picker.pick` | hidden `<input type=file>` → blob URLs + metadata (+ image dimensions); cancel → `[]` |
 | `sigx.haptics.vibrate` | `navigator.vibrate` best-effort, never throws |
+| `sigx.location.*` | `navigator.geolocation` + Permissions API (denial maps to `blocked`; `requestPermission` prompts via a position request) |
 | Appearance publisher | `globalProps.appearance = {colorScheme}` from `prefers-color-scheme`, live `appearanceChanged` events — `@sigx/lynx-appearance` works unchanged, no web shim needed |
 | Inbound-link publisher | `globalProps.initialURL` + `urlReceived` on popstate/hashchange — consumed by `@sigx/lynx-linking` unchanged |
 

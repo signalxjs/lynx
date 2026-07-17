@@ -170,3 +170,124 @@ describe('publishers', () => {
     expect(view.globalProps).toEqual({});
   });
 });
+
+describe('sigx.location.* handlers', () => {
+  const fakeGeo = (behavior: 'fix' | 'deny') => ({
+    getCurrentPosition: (
+      ok: (pos: unknown) => void,
+      err: (e: { message: string }) => void,
+      opts: { enableHighAccuracy?: boolean },
+    ) => {
+      if (behavior === 'fix') {
+        ok({
+          coords: {
+            latitude: 1,
+            longitude: 2,
+            altitude: null,
+            accuracy: opts.enableHighAccuracy ? 3 : 30,
+            speed: null,
+            heading: null,
+          },
+          timestamp: 42,
+        });
+      } else {
+        err({ message: 'User denied Geolocation' });
+      }
+    },
+  });
+
+  it('location.getCurrent maps coords and honors accuracy', async () => {
+    vi.stubGlobal('navigator', { geolocation: fakeGeo('fix') });
+    const view = makeView();
+    installSigxWebHost(view);
+    const res = (await view.onNativeModulesCall!(
+      'sigx.location.getCurrent',
+      { accuracy: 'high' },
+      'bridge',
+    )) as { ok: boolean; value: { latitude: number; accuracy: number; timestamp: number } };
+    expect(res.ok).toBe(true);
+    expect(res.value).toEqual({
+      latitude: 1,
+      longitude: 2,
+      altitude: null,
+      accuracy: 3, // enableHighAccuracy honored by the fake
+      speed: null,
+      heading: null,
+      timestamp: 42,
+    });
+  });
+
+  it('location.getCurrent surfaces denial as {ok:false}', async () => {
+    vi.stubGlobal('navigator', { geolocation: fakeGeo('deny') });
+    const view = makeView();
+    installSigxWebHost(view);
+    const res = (await view.onNativeModulesCall!('sigx.location.getCurrent', {}, 'bridge')) as {
+      ok: boolean;
+      error: string;
+    };
+    expect(res.ok).toBe(false);
+    expect(res.error).toContain('denied');
+  });
+
+  it('location.permissionStatus maps Permissions API states', async () => {
+    for (const [state, status, canAskAgain] of [
+      ['granted', 'granted', true],
+      ['denied', 'blocked', false],
+      ['prompt', 'undetermined', true],
+    ] as const) {
+      vi.stubGlobal('navigator', {
+        permissions: { query: async () => ({ state }) },
+      });
+      const view = makeView();
+      installSigxWebHost(view);
+      const res = (await view.onNativeModulesCall!(
+        'sigx.location.permissionStatus',
+        {},
+        'bridge',
+      )) as { ok: boolean; value: { status: string; canAskAgain: boolean } };
+      expect(res.value).toEqual({ status, canAskAgain });
+    }
+  });
+
+  it('location.requestPermission prompts via a position request (no Permissions API → granted)', async () => {
+    vi.stubGlobal('navigator', { geolocation: fakeGeo('fix') });
+    const view = makeView();
+    installSigxWebHost(view);
+    const res = (await view.onNativeModulesCall!(
+      'sigx.location.requestPermission',
+      {},
+      'bridge',
+    )) as { ok: boolean; value: { status: string } };
+    expect(res.value.status).toBe('granted');
+  });
+
+  it('location.requestPermission trusts a decisive Permissions API answer', async () => {
+    vi.stubGlobal('navigator', {
+      geolocation: fakeGeo('fix'),
+      permissions: { query: async () => ({ state: 'granted' }) },
+    });
+    const view = makeView();
+    installSigxWebHost(view);
+    const res = (await view.onNativeModulesCall!(
+      'sigx.location.requestPermission',
+      {},
+      'bridge',
+    )) as { ok: boolean; value: { status: string; canAskAgain: boolean } };
+    expect(res.value).toEqual({ status: 'granted', canAskAgain: true });
+  });
+
+  it('a one-time allow (API still prompt) still reports granted after a successful probe', async () => {
+    vi.stubGlobal('navigator', {
+      geolocation: fakeGeo('fix'),
+      permissions: { query: async () => ({ state: 'prompt' }) },
+    });
+    const view = makeView();
+    installSigxWebHost(view);
+    const res = (await view.onNativeModulesCall!(
+      'sigx.location.requestPermission',
+      {},
+      'bridge',
+    )) as { ok: boolean; value: { status: string } };
+    expect(res.value.status).toBe('granted');
+  });
+});
