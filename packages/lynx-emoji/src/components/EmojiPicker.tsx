@@ -26,6 +26,8 @@ export type EmojiPickerProps =
     /**
      * Grid columns. Default: ADAPTIVE — as many ~41px cells as the measured
      * grid width fits (clamped 7–12; 10 on a typical phone, WhatsApp-style).
+     * The resolved value is FROZEN for the mount (the sectioned grid's
+     * scroll-offset math needs fixed rows) — post-mount changes are ignored.
      */
     & Define.Prop<'columns', number, false>
     /** Show the recents tab. Default true. */
@@ -41,7 +43,8 @@ export type EmojiPickerProps =
      * Glyph font size in grid cells. Default: ADAPTIVE — the glyph fills
      * ~88% of the resolved cell width (clamped 24–48), so the grid is dense
      * in both axes like WhatsApp's; 32 when no width is known. Pass a number
-     * for full control. The tone popover follows the resolved size.
+     * for full control. The tone popover follows the resolved size. Frozen
+     * for the mount, like `columns`.
      */
     & Define.Prop<'cellSize', number, false>
     /** Per-slot class overrides — the theming surface. */
@@ -217,23 +220,21 @@ export const EmojiPicker = component<EmojiPickerProps>(({ props, emit }) => {
     const TARGET_CELL_PX = 41;
     let resolvedGeometry: { columns: number; cellSize: number } | null = null;
     const geometryFor = (regionWidth: number): { columns: number; cellSize: number } => {
-        if (props.columns !== undefined && props.cellSize !== undefined) {
-            return { columns: props.columns, cellSize: props.cellSize };
+        if (resolvedGeometry !== null) return resolvedGeometry;
+        if (regionWidth <= 0) {
+            // Pre-measure fallback — NOT frozen, so the real measurement wins.
+            return { columns: props.columns ?? 8, cellSize: props.cellSize ?? 32 };
         }
-        if (resolvedGeometry === null) {
-            if (regionWidth <= 0) {
-                return { columns: props.columns ?? 8, cellSize: props.cellSize ?? 32 };
-            }
-            const columns = props.columns
-                ?? Math.min(12, Math.max(7, Math.floor(regionWidth / TARGET_CELL_PX)));
-            const cellSize = props.cellSize
-                ?? Math.min(48, Math.max(24, Math.round((regionWidth / columns) * 0.88)));
-            resolvedGeometry = { columns, cellSize };
-        }
-        return {
-            columns: props.columns ?? resolvedGeometry.columns,
-            cellSize: props.cellSize ?? resolvedGeometry.cellSize,
-        };
+        // Explicit props are baked in AT RESOLVE TIME and the pair is frozen
+        // for the mount — never mix a later prop with a size derived for a
+        // different column count (glyphs sized for 10 columns in an 8-column
+        // grid would misreport every row height to the offset math).
+        const columns = props.columns
+            ?? Math.min(12, Math.max(7, Math.floor(regionWidth / TARGET_CELL_PX)));
+        const cellSize = props.cellSize
+            ?? Math.min(48, Math.max(24, Math.round((regionWidth / columns) * 0.88)));
+        resolvedGeometry = { columns, cellSize };
+        return resolvedGeometry;
     };
 
     function selectTab(key: string): void {
