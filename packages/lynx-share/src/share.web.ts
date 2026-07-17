@@ -1,8 +1,9 @@
 /**
  * Web implementation: routes through the `@sigx/lynx-web-host` page bridge
  * (`sigx.share.share` → `navigator.share`). `share()` keeps the native
- * sync-void shape by firing-and-forgetting the RPC; dismissal/unsupported is
- * logged, not thrown. Caveat (documented in the README): the user-activation
+ * sync-void shape by firing-and-forgetting the RPC; user dismissal
+ * (AbortError) is silent, other failures (e.g. unsupported browser) are
+ * logged — never thrown. Caveat (documented in the README): the user-activation
  * gesture must survive the worker→page RPC hop — call `share()` directly
  * from a tap handler (which is the natural usage anyway).
  * Swapped in by the plugin's `.web.js` extensionAlias (#697).
