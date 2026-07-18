@@ -10,33 +10,3 @@ onlyBuiltDependencies:
 catalog:
   "@sigx/reactivity": ^0.12.0
   "@sigx/runtime-core": ^0.12.0
-
-# @sigx/terminal (and its sub-packages, pulled in transitively via
-# @sigx/lynx-cli) declares its core peers as ">=0.6.0 <0.7.0". This repo runs
-# ahead on sigx core 0.12.0; the combination is verified compatible (build,
-# typecheck and the full test suite pass against 0.12.0), so allow it explicitly
-# rather than emit an unmet-peer warning / fail strict installs. Drop these once
-# a 0.12-compatible @sigx/terminal is published.
-#
-# No 0.12-compatible @sigx/terminal exists yet: latest is 0.7.0, and it moved
-# its core requirements from peerDependencies to REGULAR dependencies pinned
-# ">=0.10.0 <0.11.0". Bumping to it would install a second, 0.10.x physical copy
-# of @sigx/reactivity (breaking single-copy resolution) and still not reach 0.12.
-# Staying on the peer-based 0.6.1 keeps terminal resolving against this repo's
-# single 0.12.x copy, so we keep 0.6.1 and widen the allowed range here instead.
-#
-# Safe because terminal is CLI-only: @sigx/lynx-cli uses it for prompts and QR
-# rendering in the Node CLI process and never imports reactivity/runtime-core
-# itself, so it shares no signal graph with the app runtime. Core 0.10.0 dropped
-# Suspense/ErrorBoundary/useAsync and 0.11/0.12 are additive over that; no
-# package in the terminal family references any removed API.
-peerDependencyRules:
-  allowedVersions:
-    "@sigx/terminal>@sigx/reactivity": ">=0.12.0 <0.13.0"
-    "@sigx/terminal>@sigx/runtime-core": ">=0.12.0 <0.13.0"
-    "@sigx/terminal-ui>@sigx/reactivity": ">=0.12.0 <0.13.0"
-    "@sigx/terminal-ui>@sigx/runtime-core": ">=0.12.0 <0.13.0"
-    "@sigx/terminal-zero>@sigx/reactivity": ">=0.12.0 <0.13.0"
-    "@sigx/terminal-zero>@sigx/runtime-core": ">=0.12.0 <0.13.0"
-    "@sigx/runtime-terminal>@sigx/reactivity": ">=0.12.0 <0.13.0"
-    "@sigx/runtime-terminal>@sigx/runtime-core": ">=0.12.0 <0.13.0"

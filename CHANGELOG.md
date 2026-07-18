@@ -4,6 +4,10 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 ## [Unreleased]
 
+### Changed
+
+- `@sigx/lynx-cli` — adopt the core-0.12 line of the sigx CLI toolchain: `@sigx/cli` `^0.5.0` → `^0.6.0` and `@sigx/terminal` `^0.6.1` → `^0.8.0`. `@sigx/terminal@0.8.0` now declares its `@sigx/reactivity`/`@sigx/runtime-core` deps at `^0.12.0`, so the transitively-pulled terminal family resolves against this repo's single 0.12.0 core copy natively — the CLI-only build stray (an old `@sigx/reactivity@0.4.9` reaching in via `@sigx/cli@0.5.0` → `@sigx/terminal@0.5.0`) is gone from the runtime path. With that, the `peerDependencyRules.allowedVersions` override in `pnpm-workspace.yaml` (widened to `>=0.12.0 <0.13.0` for the `@sigx/terminal*`/`@sigx/runtime-terminal` families in #720 as a workaround for terminal 0.6.1 not declaring a 0.12 core peer) is no longer needed and is removed; strict installs stay clean with no unmet-peer warnings for the terminal family. Dep bump + override cleanup only — no lynx source change (#727).
+
 ## [0.16.0] - 2026-07-18
 
 ### Added
