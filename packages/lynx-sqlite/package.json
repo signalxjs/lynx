@@ -1,6 +1,6 @@
 {
     "name": "@sigx/lynx-sqlite",
-    "version": "0.15.0",
+    "version": "0.16.0",
     "description": "Embedded SQLite database for sigx-lynx — SQL, transactions, migrations and live queries for offline-first apps",
     "type": "module",
     "main": "./dist/index.js",

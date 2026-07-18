@@ -1,6 +1,6 @@
 {
     "name": "@sigx/lynx-background",
-    "version": "0.15.0",
+    "version": "0.16.0",
     "description": "Background tasks (BGTaskScheduler / WorkManager) for periodic sync and fetch in sigx-lynx",
     "type": "module",
     "main": "./dist/index.js",
