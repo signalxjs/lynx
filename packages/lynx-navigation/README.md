@@ -73,6 +73,29 @@ Bottom sheets (`presentation: 'sheet'`) drag from anywhere on their surface by d
 
 `push(name, params, search, { animated: false })` **presents a sheet AT its initial detent instantly** — no slide. Use it to reveal a sheet by some *other* motion: e.g. open an emoji sheet behind the soft keyboard, then blur the input so the keyboard's own dismissal uncovers the sheet (the app animates nothing). `useSheetHeight` reads the detent height from the first frame, so a bar bound to `max(keyboardLift, sheetHeight)` never dips at the swap. A non-animated dismiss (`pop(1, { animated: false })`) returns the height to `0` the same way.
 
+## Inline `<BottomSheet>`
+
+`<BottomSheet>` is a **persistent, inline** bottom panel — a drag-to-resize tray you place at the bottom of your own layout, *not* a route. Unlike `presentation: 'sheet'` (a full-screen modal overlay whose backdrop dims and blocks the screen behind it), a `<BottomSheet>` has no scrim: the content above it stays live and tappable, so it can host a chat composer's input + emoji panel as one unit.
+
+It grows without a layout reflow: the panel is a fixed `maxHeight`-tall container anchored at the bottom, slid down by a `translateY` transform (main-thread-safe every frame, unlike `height`) so only the bottom `reveal` px show. Put the part that should stay pinned to the visible top (a text input) *first* in the content; it rides up as the sheet grows.
+
+```tsx
+<BottomSheet
+  maxHeight={fullPx}
+  detents={[inputPx, compactPx, fullPx]}   // visible heights, ascending; [0] = collapsed floor
+  open={emojiOpen}                          // animate between floor and openDetentIndex
+  liftSV={keyboardLiftSV}                   // ride above the keyboard: reveal = max(reveal, floor + lift)
+  onReveal={(sv) => (revealSV = sv)}        // the live height SV — bind siblings to it
+  onSnap={(i) => { if (i === 0) collapse(); }}
+  slots={{
+    handle: () => <ComposerRow />,          // the drag surface (a pill / the input row)
+    default: () => <EmojiPicker />,          // body — a raw <list> here still scrolls
+  }}
+/>
+```
+
+The pan attaches to the `handle` slot only, so a virtualized `<list>` in the body scrolls normally (surface-drag over list content is the same arbitration gap the route sheet documents). Dragging the handle moves `reveal` 1:1 with the finger (via #681's auto-flush) and snaps to the nearest detent on release. `liftSV` + `onReveal` compose with `@sigx/lynx-motion`'s `useDerivedValue([…], 'max')` so the sheet and a sibling both track *whichever of the keyboard or the sheet is taller*, dip-free.
+
 ## License
 
 MIT

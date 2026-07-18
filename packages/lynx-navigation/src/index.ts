@@ -48,6 +48,8 @@ export { Drawer, useDrawer } from './components/Drawer.js';
 export type { DrawerNav } from './components/Drawer.js';
 export { Link } from './components/Link.js';
 export type { LinkProps } from './components/Link.js';
+export { BottomSheet } from './components/BottomSheet.js';
+export type { BottomSheetProps } from './components/BottomSheet.js';
 export type {
     ComponentLike,
     EmptyParams,
