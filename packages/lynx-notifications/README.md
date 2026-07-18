@@ -127,6 +127,12 @@ Tap routing is unchanged: the tap payload is the **latest** push's `data`, and `
 
 iOS needs none of this — set the APNs `aps.thread-id` to the conversation id and the OS stacks the group natively.
 
+## Web
+
+**Local** notifications work on web through the `@sigx/lynx-web-host` page bridge (the browser Notification API): `schedule`/`cancel`/`cancelAll` and the permission methods behave as on native (browser denial reports `blocked` — the user must change the site setting). Page-lifetime best-effort: scheduled timers and repeats don't survive a reload. Badges use the Badging API where available (installed PWAs, Chromium); `getBadgeCount()` returns a locally-tracked value.
+
+**Remote push is not supported on web** — `registerForPushNotifications()` resolves `{ error }` (no throw), no token/push/tap events fire, and `getInitialNotification()` resolves `null`. Web Push proper (service-worker push) is tracked separately.
+
 ## License
 
 MIT
