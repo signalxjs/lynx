@@ -20,6 +20,9 @@ import type { KeyboardAvoidingViewProps } from './types.js';
  * (`max(0, keyboard - bottom + keyboardVerticalOffset)`) because an
  * ancestor `<SafeAreaView edges={['bottom']}>` typically already pads the
  * home indicator, which the keyboard covers when open.
+ *
+ * `pinned` turns the avoidance off (lift 0) for as long as something else
+ * holds the keyboard's space in flow — see the prop's docs.
  */
 export const KeyboardAvoidingView = component<KeyboardAvoidingViewProps>(({ props, slots }) => {
   const insets = useSafeAreaInsets();
@@ -29,9 +32,17 @@ export const KeyboardAvoidingView = component<KeyboardAvoidingViewProps>(({ prop
 
   return () => {
     const i = insets.value;
-    const lift = i.keyboard > 0
+    // `pinned`: a sibling already occupies the keyboard's space (an emoji
+    // panel mid-swap) — avoiding it too would count those pixels twice.
+    const kbLift = i.keyboard > 0 && props.pinned !== true
       ? Math.max(0, i.keyboard - (discountBottomInset ? i.bottom : 0) + kvo)
       : 0;
+    // `extraLiftSV` (a bottom accessory's live height, e.g. an emoji sheet):
+    // shrink the content by whichever of keyboard/accessory is taller, so a
+    // sheet overlaying the bottom pushes the thread up too (its auto-flushed
+    // BG value is readable here). `pinned` still zeroes both.
+    const extra = props.pinned === true ? 0 : (props.extraLiftSV?.value ?? 0);
+    const lift = Math.max(kbLift, extra);
     // Fill-parent defaults, mirroring SafeAreaView: Lynx resolves the
     // `flex: 1` shorthand with `flexBasis: 'auto'`, which sizes to content
     // and collapses the chain — long-form `flexBasis: 0` is the only
