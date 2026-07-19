@@ -209,10 +209,12 @@ export const BottomSheet = component<BottomSheetProps>(({ props, emit, slots }) 
         .onStart((e: { params?: { pageY?: number } }) => {
             'main thread';
             // `dragEnabled={false}` freezes the gesture (mirrored into
-            // `dragGateSV` from render). Also skip at the floor (collapsed /
-            // keyboard mode) — there's nothing to resize.
+            // `dragGateSV` from render) — that's the single gate. Drag is NOT
+            // disabled at the floor: a collapsed sheet must be draggable OPEN
+            // (the up-clamp in onUpdate keeps it from going below the floor).
+            // A consumer that shouldn't drag at the floor (e.g. a composer at
+            // keyboard height) sets `dragEnabled={false}` there.
             if (dragGateSV.current.value === 0) { drag.current.active = 0; return; }
-            if (reveal.current.value <= minReveal + 2) { drag.current.active = 0; return; }
             const y = e?.params?.pageY ?? 0;
             drag.current.startY = y;
             drag.current.prevY = y;
