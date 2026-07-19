@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { render } from '@sigx/lynx-testing';
+import { act, render } from '@sigx/lynx-testing';
 import { effect } from '@sigx/reactivity';
-import { component } from '@sigx/lynx';
+import { component, useSharedValue } from '@sigx/lynx';
 import { SafeAreaProvider, GLOBAL_PROPS_KEY } from '@sigx/lynx-safe-area';
 
 import { useKeyboard, useKeyboardLift } from '../src/use-keyboard';
@@ -131,6 +131,57 @@ describe('KeyboardAvoidingView', () => {
     expect(host._style.paddingBottom).toBe(`${280 - 34}px`);
   });
 
+  it('pinned stops avoidance while a panel holds the keyboard space (#677)', () => {
+    // The composer's emoji panel occupies the keyboard's height in flow
+    // while the keyboard rises back over it — avoiding the keyboard here
+    // too would count those pixels twice and squeeze the thread.
+    installMockLynx({ bottom: 34, keyboard: 280 });
+    const { container } = render(
+      <SafeAreaProvider>
+        <KeyboardAvoidingView behavior="padding" pinned>
+          <text>content</text>
+        </KeyboardAvoidingView>
+      </SafeAreaProvider>,
+    );
+    const host = container.children[0]!.children[0]!;
+    expect(host._style.paddingBottom).toBe('0px');
+  });
+
+  it('extraLiftSV: content shrinks by max(keyboard, accessory) — accessory taller (#677)', () => {
+    installMockLynx({ bottom: 34, keyboard: 0 });   // keyboard hidden
+    const Probe = component(() => {
+      const sheet = useSharedValue(400);            // an open sheet
+      return () => (
+        <KeyboardAvoidingView behavior="padding" extraLiftSV={sheet}>
+          <text>content</text>
+        </KeyboardAvoidingView>
+      );
+    });
+    const { container } = render(
+      <SafeAreaProvider><Probe /></SafeAreaProvider>,
+    );
+    const host = container.children[0]!.children[0]!;
+    expect(host._style.paddingBottom).toBe('400px');
+  });
+
+  it('pinned also freezes the translate and height behaviors (#677)', () => {
+    installMockLynx({ bottom: 34, keyboard: 280 });
+    const t = render(
+      <SafeAreaProvider>
+        <KeyboardAvoidingView behavior="translate" pinned />
+      </SafeAreaProvider>,
+    );
+    expect(t.container.children[0]!.children[0]!._style.transform).toBe('translateY(-0px)');
+    const h = render(
+      <SafeAreaProvider>
+        <KeyboardAvoidingView behavior="height" pinned />
+      </SafeAreaProvider>,
+    );
+    const hHost = h.container.children[0]!.children[0]!;
+    const spacer = hHost.children[hHost.children.length - 1]!;
+    expect(spacer._style.height).toBe('0px');
+  });
+
   it('behavior="padding" applies no padding while the keyboard is hidden', () => {
     installMockLynx({ bottom: 34, keyboard: 0 });
     const { container } = render(
@@ -217,6 +268,49 @@ describe('KeyboardStickyView', () => {
         <KeyboardStickyView animated={false} offset={8}>
           <text>bar</text>
         </KeyboardStickyView>
+      </SafeAreaProvider>,
+    );
+    const host = container.children[0]!.children[0]!;
+    expect(host._style.transform).toBe('translateY(-0px)');
+  });
+
+  // A bound accessory SV (a sheet height) fixed at `h`, wired into the bar.
+  const Harness = component<{ h: number; pinned?: boolean }>(({ props }) => {
+    const sheet = useSharedValue(props.h);
+    return () => (
+      <KeyboardStickyView animated={false} pinned={props.pinned} extraLiftSV={sheet}>
+        <text>bar</text>
+      </KeyboardStickyView>
+    );
+  });
+
+  it('extraLiftSV: the bar rides max(keyboardLift, extraLift) — accessory taller', () => {
+    installMockLynx({ bottom: 34, keyboard: 280 });   // keyboard lift 246
+    const { container } = render(
+      <SafeAreaProvider>
+        <Harness h={400} />
+      </SafeAreaProvider>,
+    );
+    const host = container.children[0]!.children[0]!;
+    expect(host._style.transform).toBe('translateY(-400px)');
+  });
+
+  it('extraLiftSV: the keyboard wins when it is the taller of the two', () => {
+    installMockLynx({ bottom: 34, keyboard: 280 });   // keyboard lift 246
+    const { container } = render(
+      <SafeAreaProvider>
+        <Harness h={100} />
+      </SafeAreaProvider>,
+    );
+    const host = container.children[0]!.children[0]!;
+    expect(host._style.transform).toBe(`translateY(-${280 - 34}px)`);
+  });
+
+  it('extraLiftSV: pinned still forces translateY(0)', () => {
+    installMockLynx({ bottom: 34, keyboard: 280 });
+    const { container } = render(
+      <SafeAreaProvider>
+        <Harness h={400} pinned />
       </SafeAreaProvider>,
     );
     const host = container.children[0]!.children[0]!;

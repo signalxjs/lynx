@@ -52,6 +52,8 @@ Pins its children to the keyboard's top edge with an MT-animated `translateY` (s
 | `offset` | `number` | `0` | Extra gap (dp) above the keyboard. |
 | `animated` | `boolean` | `true` | `false` = discrete BG re-render (debug fallback). |
 | `discountBottomInset` | `boolean` | `true` | Subtract the bottom safe-area inset from the lift. Keep `true` when an ancestor `<SafeAreaView edges={['bottom']}>` already pads the home indicator. |
+| `pinned` | `boolean` | `false` | Freeze the bar in flow (`translateY` pinned to `0`, instantly). For the WhatsApp keyboard ⇄ emoji-panel swap: pin in the same frame an app panel takes the keyboard's remembered lift as flow height and the bar never moves — the system keyboard's own show/hide animation does all visible motion, covering or revealing the already-painted panel (see `@sigx/lynx-emoji`'s `KeyboardPanelPicker` and the showcase Chat composer). |
+| `extraLiftSV` | `SharedValue<number>` | — | An extra lift the bar must also clear: it rides `max(keyboardLift, extraLiftSV)`. Pass a bottom accessory's live height — e.g. `@sigx/lynx-navigation`'s `useSheetHeight()` for an emoji sheet — so the bar sits above whichever of the keyboard or the accessory is taller, riding the finger frame-for-frame during a drag (folded on the MT via `useDerived(…, 'max')`). Because it's a `max`, the keyboard ⇄ sheet swap is dip-free as long as one shrinks while the other grows. Must be in the same unit as the lift (dp). |
 
 Note: the bar's `transform` is controlled internally (the MT binding writes `translateY` via `setStyleProperties`; the non-animated path writes an inline transform). A `transform` passed through `style` will be overridden — wrap children in their own view if you need an additional transform.
 
@@ -64,6 +66,8 @@ Wraps content and keeps it above the keyboard. Layout-affecting, so it applies i
 | `behavior` | `'padding' \| 'translate' \| 'height'` | `'padding'` | `padding` shrinks the column; `translate` shifts it; `height` appends a spacer. |
 | `keyboardVerticalOffset` | `number` | `0` | Added to the computed lift (RN parity). |
 | `discountBottomInset` | `boolean` | `true` | Same as on `KeyboardStickyView` — set `false` to lift by the full keyboard height when no ancestor pads the bottom inset. |
+| `pinned` | `boolean` | `false` | Freeze avoidance (lift `0`) while a sibling already holds the keyboard's space in flow — pair with `<KeyboardStickyView pinned>`. |
+| `extraLiftSV` | `SharedValue<number>` | — | Also shrink by an accessory's live height: content shrinks by `max(keyboardLift, extraLiftSV)`. Pass e.g. `@sigx/lynx-navigation`'s `useSheetHeight()` so an emoji sheet overlaying the bottom pushes the thread up too, not only the keyboard. Symmetric to `KeyboardStickyView`'s `extraLiftSV`. |
 
 ### Hooks
 
