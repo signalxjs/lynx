@@ -87,8 +87,9 @@ export function useKeyboardLiftSV(
     'main thread';
     if (seconds <= 0) {
       // Idempotent sync: write the value outright — a zero-delta tween would
-      // still schedule rAF ticks for the full duration.
-      lift.value = target;
+      // still schedule rAF ticks for the full duration. MT-side mutation goes
+      // through `.current.value` (`.value` is the read-only BG accessor).
+      lift.current.value = target;
       return;
     }
     void withTiming(lift, target, { duration: seconds });

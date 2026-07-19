@@ -66,11 +66,13 @@ afterEach(() => {
     delete (globalThis as { lynx?: unknown }).lynx;
 });
 
-async function mountWithKeyboard(insets: Record<string, number>): Promise<{ value: number }> {
+type LiftSV = ReturnType<typeof useKeyboardLiftSV>;
+
+async function mountWithKeyboard(insets: Record<string, number>): Promise<LiftSV> {
     installMockLynx(insets);
-    const box: { sv: { value: number } | null } = { sv: null };
+    const box: { sv: LiftSV | null } = { sv: null };
     const Probe = component(() => {
-        box.sv = useKeyboardLiftSV() as unknown as { value: number };
+        box.sv = useKeyboardLiftSV();
         return () => <view />;
     });
     render(
@@ -92,14 +94,17 @@ describe('useKeyboardLiftSV settle (#677)', () => {
         // there would be ZERO dispatches (the stale-seed/missed-event trap).
         const settles = dispatches.filter(([, secs]) => secs === 0);
         expect(settles).toEqual([[280 - 34, 0]]);
-        expect(sv.value).toBe(280 - 34);
+        // The settle mutates the MT envelope (`.current.value`); the mock runs
+        // the worklet locally so it lands synchronously. `.value` is the BG
+        // snapshot, which no publish updates in this bridgeless test.
+        expect(sv.current.value).toBe(280 - 34);
     });
 
     it('mounting with the keyboard closed settles at 0 (untranslated)', async () => {
         const sv = await mountWithKeyboard({ bottom: 34, keyboard: 0 });
         const settles = dispatches.filter(([, secs]) => secs === 0);
         expect(settles).toEqual([[0, 0]]);
-        expect(sv.value).toBe(0);
+        expect(sv.current.value).toBe(0);
     });
 
 });
