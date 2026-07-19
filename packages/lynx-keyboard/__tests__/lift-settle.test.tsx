@@ -1,19 +1,23 @@
 /**
- * useKeyboardLiftSV post-mount CONVERGENCE (#677 first-entry bug):
+ * useKeyboardLiftSV post-mount SETTLE (#677 first-entry bug):
  *
- * Corrective writes dispatched inside the mount window race the SV's own
- * registration ops — the seed can apply AFTER them and clobber the
- * correction (device-proven: identical BG logs on winning and losing runs).
- * The settle therefore VERIFIES through the SV's published snapshot and
- * re-dispatches (bounded) while the value is stuck off-target; a MOVING
- * value means a live tween owns the SV and the loop stands down. The first
- * check always dispatches once — post-registration confirmation even for a
- * correct seed.
+ * The lift seed is read at setup and the inset watcher dedupes against it, so
+ * a keyboard change landing in the gap between those two moments is invisible:
+ * BG believes the lift is current while the MT holds the stale seed (the
+ * composer's bar stranded keyboard-height off the bottom on first entry). The
+ * hook closes it with ONE deferred idempotent sync — a `setTimeout(0)` that
+ * re-reads the lift at fire time and writes it outright at duration 0. Ordering
+ * against the SV's own registration ops is the runtime's job (#691), so a
+ * single unconditional pass suffices; no re-dispatch loop.
+ *
+ * These tests assert that single settle dispatches exactly once (a stale/
+ * unchanged seed would otherwise produce ZERO dispatches) with the correct
+ * target, by recording every (target, seconds) pair pushed through
+ * runOnMainThread.
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, act } from '@sigx/lynx-testing';
-import { component } from '@sigx/lynx';
 import { SafeAreaProvider, GLOBAL_PROPS_KEY } from '@sigx/lynx-safe-area';
 
 // Wrap runOnMainThread so every dispatched (target, seconds) pair is
@@ -27,16 +31,12 @@ vi.mock('@sigx/lynx', async (importOriginal) => {
         runOnMainThread: (fn: (...args: never[]) => unknown) =>
             (...args: never[]) => {
                 dispatches.push(args as unknown as [number, number]);
-                // Simulated MT clobber (#677): drop the write so the SV's
-                // published snapshot stays stuck at the seed.
-                if ((globalThis as { __dropMTWrites?: boolean }).__dropMTWrites) {
-                    return Promise.resolve(undefined);
-                }
                 return Promise.resolve((fn as (...a: never[]) => unknown)(...args));
             },
     };
 });
 
+import { component } from '@sigx/lynx';
 import { useKeyboardLiftSV } from '../src/use-keyboard';
 
 type SafeAreaListener = (raw: unknown) => void;
@@ -56,9 +56,6 @@ function installMockLynx(initial: Record<string, number>): void {
             : undefined,
         getElementById: () => ({ setProperty: () => undefined }),
     };
-}
-function emitSafeArea(raw: Record<string, number>): void {
-    for (const l of [...emitterListeners]) l(raw);
 }
 
 beforeEach(() => {
