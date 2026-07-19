@@ -8,7 +8,7 @@ import {
   type SharedValue,
 } from '@sigx/lynx';
 import { useSafeAreaInsets } from '@sigx/lynx-safe-area';
-import { withTiming } from '@sigx/lynx-motion';
+import { cancelAnimation, withTiming } from '@sigx/lynx-motion';
 import type { KeyboardState } from './types.js';
 
 /**
@@ -87,8 +87,12 @@ export function useKeyboardLiftSV(
     'main thread';
     if (seconds <= 0) {
       // Idempotent sync: write the value outright — a zero-delta tween would
-      // still schedule rAF ticks for the full duration. MT-side mutation goes
-      // through `.current.value` (`.value` is the read-only BG accessor).
+      // still schedule rAF ticks for the full duration. Cancel any in-flight
+      // tween FIRST: a bare SV write doesn't stop one (lynx-motion contract),
+      // so a settle racing a just-dispatched lift tween would otherwise be
+      // overwritten by its remaining ticks. MT-side mutation goes through
+      // `.current.value` (`.value` is the read-only BG accessor).
+      cancelAnimation(lift);
       lift.current.value = target;
       return;
     }
