@@ -158,8 +158,9 @@ interface ElementWithStyleApply {
   setStyleProperties?: (styles: Record<string, string | number>) => void;
 }
 
-/** `translateY(…)` → `translateY`, `scale(…)` → `scale`, … */
-const TRANSFORM_FN_RE = /([a-zA-Z]+)\s*\(/g;
+/** `translateY(…)` → `translateY`, `translate3d(…)` → `translate3d`, … —
+ * function names can contain digits (`translate3d`, `rotate3d`, `matrix3d`). */
+const TRANSFORM_FN_RE = /([a-zA-Z][a-zA-Z0-9]*)\s*\(/g;
 const warnedDupTransform = new Set<number>();
 
 /**

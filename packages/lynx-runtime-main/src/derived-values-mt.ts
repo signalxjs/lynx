@@ -40,7 +40,7 @@ interface WorkletImpl {
 // Reducer registry
 // ---------------------------------------------------------------------------
 
-const reducers: Record<string, DerivedReducer> = {
+const BUILTIN_REDUCERS: Readonly<Record<string, DerivedReducer>> = {
   max: (vs) => {
     let m = -Infinity;
     for (let i = 0; i < vs.length; i++) if (vs[i]! > m) m = vs[i]!;
@@ -62,7 +62,7 @@ const reducers: Record<string, DerivedReducer> = {
   },
 };
 
-const BUILTIN_REDUCERS = new Set(['max', 'min', 'sum', 'scale']);
+const reducers: Record<string, DerivedReducer> = { ...BUILTIN_REDUCERS };
 
 /** Look up a reducer by name; `undefined` → the derived recompute is skipped. */
 export function lookupReducer(name: string): DerivedReducer | undefined {
@@ -74,9 +74,11 @@ export function registerReducer(name: string, reducer: DerivedReducer): void {
   reducers[name] = reducer;
 }
 
-/** Reset hook — drop custom reducers, keep the built-ins (HMR / tests). */
+/** Reset hook — restore exactly the built-ins (drops custom reducers AND
+ * any that overrode a built-in name) for HMR / tests. */
 export function resetReducers(): void {
-  for (const k in reducers) if (!BUILTIN_REDUCERS.has(k)) delete reducers[k];
+  for (const k in reducers) delete reducers[k];
+  for (const k in BUILTIN_REDUCERS) reducers[k] = BUILTIN_REDUCERS[k]!;
 }
 
 // ---------------------------------------------------------------------------
@@ -154,8 +156,12 @@ export function flushDerivedValues(): void {
       const ref = refMap[b.sourceWvids[i]!];
       if (!ref) { missing = true; break; }
       const v = ref.current?.value;
-      values[i] = typeof v === 'number' ? v : Number(v) || 0;
-      if (v !== b.lastSources[i]) changed = true;
+      const nv = typeof v === 'number' ? v : Number(v) || 0;
+      values[i] = nv;
+      // Compare the NORMALIZED value against the stored normalized one
+      // (`lastSources` holds normalized values) — comparing the raw `v`
+      // would recompute whenever a source arrives as a string vs number.
+      if (nv !== b.lastSources[i]) changed = true;
     }
     if (missing || !changed) continue;
 
