@@ -85,6 +85,7 @@ It grows without a layout reflow: the panel is a fixed `maxHeight`-tall containe
   detents={[inputPx, compactPx, fullPx]}   // visible heights, ascending; [0] = collapsed floor
   open={emojiOpen}                          // animate between floor and openDetentIndex
   liftSV={keyboardLiftSV}                   // ride above the keyboard: reveal = max(reveal, floor + lift)
+  openToLift                                // open at the LIVE lifted position, not the detent (see below)
   onReveal={(sv) => (revealSV = sv)}        // the live height SV — bind siblings to it
   onSnap={(i) => { if (i === 0) collapse(); }}
   slots={{
@@ -95,6 +96,8 @@ It grows without a layout reflow: the panel is a fixed `maxHeight`-tall containe
 ```
 
 The pan attaches to the `handle` slot only, so a virtualized `<list>` in the body scrolls normally (surface-drag over list content is the same arbitration gap the route sheet documents). Dragging the handle moves `reveal` 1:1 with the finger (via #681's auto-flush) and snaps to the nearest detent on release. `liftSV` + `onReveal` compose with `@sigx/lynx-motion`'s `useDerivedValue([…], 'max')` so the sheet and a sibling both track *whichever of the keyboard or the sheet is taller*, dip-free.
+
+**`openToLift`** (with `liftSV`): on open, snap to the *current lifted position* — `max(reveal, floor + liftSV)`, captured on the main thread the instant it opens — instead of the `openDetentIndex` detent. Use it for a keyboard⇄panel swap: the live keyboard height is captured while the keyboard is still up, so when its lift then animates to 0 the content (a pinned input) does **not** move. A `detents`/`openDetentIndex` value can't equal the live MT keyboard lift (it's a background-computed number on a different thread), so without this the input jumps by the discrepancy on every swap; the detent stays the no-keyboard fallback. The captured position also becomes the low snap target for drags.
 
 ## License
 

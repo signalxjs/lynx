@@ -9,7 +9,7 @@
  *  - Hands back the combined reveal SharedValue via `onReveal`.
  */
 import { describe, expect, it } from 'vitest';
-import { component, type SharedValue } from '@sigx/lynx';
+import { component, useSharedValue, type SharedValue } from '@sigx/lynx';
 import { render } from '@sigx/lynx-testing';
 import { BottomSheet } from '../src/components/BottomSheet';
 
@@ -60,5 +60,30 @@ describe('<BottomSheet>', () => {
         render(<Host />);
         expect(sv).not.toBeNull();
         expect(typeof (sv as unknown as { value: number }).value).toBe('number');
+    });
+
+    it('accepts openToLift + liftSV and still renders / hands back onReveal', () => {
+        // The capture-on-open + lifted-rest snap logic is main-thread (exercised
+        // on-device); here we assert the prop is accepted and the sheet renders
+        // its slots and combined reveal SV as usual.
+        let sv: SharedValue<number> | null = null;
+        const Host = component(() => {
+            const lift = useSharedValue(0);
+            return () => (
+                <BottomSheet
+                    maxHeight={800}
+                    detents={[64, 400, 800]}
+                    open
+                    openToLift
+                    liftSV={lift}
+                    onReveal={(s) => { sv = s; }}
+                    slots={{ handle: () => <text>H</text>, default: () => <text>B</text> }}
+                />
+            );
+        });
+        const result: any = render(<Host />);
+        const root = result.container ?? result.root ?? result;
+        expect(find(root, (n) => n.textContent?.() === 'H' || n.props?.children === 'H')).toBeTruthy();
+        expect(sv).not.toBeNull();
     });
 });

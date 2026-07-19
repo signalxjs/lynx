@@ -54,10 +54,29 @@ export type BottomSheetProps =
     & Define.Prop<'maxHeight', number, true>
     /** Visible-height detents (px), ascending. `[0]` is the collapsed floor. */
     & Define.Prop<'detents', readonly number[], true>
-    /** Open ⇒ animate to `openDetentIndex`; closed ⇒ animate to `detents[0]`. */
+    /** Open ⇒ move to `openDetentIndex`; closed ⇒ move to `detents[0]`. */
     & Define.Prop<'open', boolean, false>
+    /**
+     * Animate the `open`/close move. Default `false` — JUMP instantly, so
+     * some *other* motion (e.g. a soft keyboard sliding away) reveals the
+     * already-painted sheet and the sheet animates nothing (the WhatsApp
+     * dip-free reveal). User drags always animate their release snap.
+     */
+    & Define.Prop<'animate', boolean, false>
     /** Which detent `open` targets. Default: the last detent's *previous* (index 1 if present, else 0). */
     & Define.Prop<'openDetentIndex', number, false>
+    /**
+     * On open, snap to the CURRENT lifted position (`max(reveal, floor +
+     * liftSV)`) instead of the `openDetentIndex` detent — clamped to at least
+     * that detent and at most the top. Use with `liftSV` so the open rest
+     * position exactly matches where the sheet sat while the keyboard was up:
+     * the live keyboard height is captured on the main thread the instant it
+     * opens, so when the keyboard's lift then animates to 0 the content does
+     * NOT move (a BG-computed detent can't equal the live MT lift, hence the
+     * jump this avoids). The captured value also becomes the low snap target
+     * for drags. Requires `liftSV`; no-op otherwise.
+     */
+    & Define.Prop<'openToLift', boolean, false>
     /** Gate the drag gesture (e.g. false while the keyboard owns the space). Default true. */
     & Define.Prop<'dragEnabled', boolean, false>
     /**
@@ -118,22 +137,48 @@ export const BottomSheet = component<BottomSheetProps>(({ props, emit, slots }) 
     const handleRef = useMainThreadRef<MainThread.Element | null>(null);
     useAnimatedStyle(panelRef, () => ({ sv: translateY, mapperName: 'translateY', params: { factor: 1 } }));
 
-    // Animate to a detent when `open` toggles. `withTiming` is a main-thread
-    // call, so it runs through `runOnMainThread` (BG render can't call it).
+    // Move to a detent when `open` toggles. `animate={false}` (the default)
+    // JUMPS instantly — the sheet is painted at its detent in one frame and
+    // some *other* motion (a soft keyboard sliding away) reveals it; the sheet
+    // animates nothing itself. Only user drags animate (the release snap).
+    // Both `cancelAnimation`/`withTiming` are main-thread calls, so they run
+    // through `runOnMainThread` (BG render can't call them).
+    const openToLift = props.openToLift === true && liftSV != null;
+    // The open REST reveal — either the `openReveal` detent, or (with
+    // `openToLift`) the lifted position captured on the MT the instant the
+    // sheet opens. Held here so the drag-release snap targets the exact same
+    // rest position rather than a BG-computed detent that can't equal it.
+    const openRestRef = useMainThreadRef({ rest: openReveal });
     let lastOpen: boolean | null = null;
-    const animateReveal = runOnMainThread((target: number) => {
+    // Declared BEFORE the worklets that capture them: a `runOnMainThread`
+    // closure captures its referenced lexicals when the expression evaluates,
+    // so a `const` declared *after* the worklet is still in its temporal dead
+    // zone at capture time → "lexical variable is not initialized" on the BG.
+    const detentsArr = [...detents];
+    const minReveal = floor;
+    const maxReveal = detents[detents.length - 1] ?? floor;
+    const setReveal = runOnMainThread((target: number, animate: number, capture: number, openFloor: number) => {
         'main thread';
         cancelAnimation(reveal);
-        withTiming(reveal, target, { duration: SNAP_SEC });
+        let t = target;
+        if (capture === 1) {
+            // Capture the CURRENT lifted position (== the keyboard-mode height,
+            // read live on the MT while the keyboard is still up) so that when
+            // the keyboard's lift then animates to 0 the content does NOT move.
+            // Clamp to at least the fallback detent (no keyboard was up) and at
+            // most the top.
+            let c = combined.current.value;
+            if (c < openFloor) c = openFloor;
+            if (c > maxReveal) c = maxReveal;
+            t = c;
+            openRestRef.current.rest = c;
+        }
+        if (animate === 1) withTiming(reveal, t, { duration: SNAP_SEC });
+        else reveal.current.value = t;
     });
 
     // Per-drag transient (main-thread ref — worklet-visible mutable state).
     const drag = useMainThreadRef({ startY: 0, startReveal: 0, prevY: 0, prevT: 0, vel: 0, active: 0 });
-
-    // Snap targets as a plain array the worklet captures as a literal.
-    const detentsArr = [...detents];
-    const minReveal = floor;
-    const maxReveal = detents[detents.length - 1] ?? floor;
 
     const pan = Gesture.Pan()
         .axis('y')
@@ -181,14 +226,21 @@ export const BottomSheet = component<BottomSheetProps>(({ props, emit, slots }) 
             // Project the finger's velocity ahead, then snap to the nearest
             // detent. Velocity is px/sec, positive = downward = shrink.
             const projected = reveal.current.value - drag.current.vel * PROJECTION_SEC;
+            // With `openToLift` the low "open rest" is the CAPTURED lifted
+            // position (== the keyboard height), not the BG `openReveal`
+            // detent — so a release near the compact rest returns to exactly
+            // where the keyboard sat. Candidates: floor, captured rest, top.
+            const cands = openToLift
+                ? [minReveal, openRestRef.current.rest, maxReveal]
+                : detentsArr;
             let bestI = 0;
             let bestD = -1;
-            for (let i = 0; i < detentsArr.length; i += 1) {
-                const d = projected - detentsArr[i];
+            for (let i = 0; i < cands.length; i += 1) {
+                const d = projected - cands[i];
                 const ad = d < 0 ? -d : d;
                 if (bestD < 0 || ad < bestD) { bestD = ad; bestI = i; }
             }
-            const target = detentsArr[bestI];
+            const target = cands[bestI];
             withTiming(reveal, target, { duration: SNAP_SEC });
             runOnBackground((i: number) => {
                 setTimeout(() => { emit('snap', i); }, SNAP_MS);
@@ -202,7 +254,12 @@ export const BottomSheet = component<BottomSheetProps>(({ props, emit, slots }) 
         const open = props.open ?? false;
         if (open !== lastOpen) {
             lastOpen = open;
-            void animateReveal(open ? openReveal : floor);
+            void setReveal(
+                open ? openReveal : floor,
+                props.animate === true ? 1 : 0,
+                open && openToLift ? 1 : 0,
+                openReveal,
+            );
         }
         return (
             <view
