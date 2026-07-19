@@ -11,10 +11,15 @@ import { SharedValue } from './shared-value.js';
 export type { DerivedReducerName, DerivedReducerParams };
 
 /**
- * A read-only derived `SharedValue`: computed on the MAIN THREAD from one or
- * more source SharedValues via a NAMED reducer, recomputed each flush a
- * source changed. Bind it to a `useAnimatedStyle` like any SV; read `.value`
- * on BG (it publishes like a normal bridged SV).
+ * A derived `SharedValue`: computed on the MAIN THREAD from one or more
+ * source SharedValues via a NAMED reducer, recomputed each flush a source
+ * changed. Bind it to a `useAnimatedStyle` like any SV; read `.value` on BG
+ * (it publishes like a normal bridged SV).
+ *
+ * Treat it as READ-ONLY: it is not frozen (writing `.current.value` on the
+ * MT is possible), but the derive owns the value — any write is overwritten
+ * on the next recompute, so writing it is pointless. Drive it through its
+ * sources, not by writing it.
  *
  * The canonical use is composing two motions so an element can sit above
  * **whichever is taller** — a chat composer bar over `max(keyboardLift,
