@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { act, render } from '@sigx/lynx-testing';
+import { render } from '@sigx/lynx-testing';
 import { effect } from '@sigx/reactivity';
 import { component, useSharedValue } from '@sigx/lynx';
 import { SafeAreaProvider, GLOBAL_PROPS_KEY } from '@sigx/lynx-safe-area';
