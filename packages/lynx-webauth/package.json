@@ -1,6 +1,6 @@
 {
     "name": "@sigx/lynx-webauth",
-    "version": "0.16.0",
+    "version": "0.17.0",
     "description": "System web-auth session (ASWebAuthenticationSession / Chrome Custom Tabs) for sigx-lynx OAuth flows",
     "type": "module",
     "main": "./dist/index.js",
