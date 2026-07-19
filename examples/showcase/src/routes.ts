@@ -32,6 +32,7 @@ import { TextApis } from './screens/TextApis.js';
 // Input & Keyboard
 import { Keyboard } from './screens/Keyboard.js';
 import { EmojiPickerScreen } from './screens/EmojiPicker.js';
+import { EmojiComposerScreen } from './screens/EmojiComposer.js';
 // Native modules
 import { MapsDemo } from './screens/MapsDemo.js';
 import { MediaDemo } from './screens/MediaDemo.js';
@@ -118,6 +119,9 @@ export const routes = defineRoutes({
     // a bar with chrome below it needs `offset` compensation.
     keyboard: { component: Keyboard, path: '/keyboard', presentation: 'modal' },
     emojiPicker: { component: EmojiPickerScreen, path: '/emoji-picker' },
+    // Modal: same sticky-bar caveat as `keyboard` above.
+    emojiComposer: { component: EmojiComposerScreen, path: '/emoji-composer', presentation: 'modal' },
+    // The composer's emoji panel — a real backdrop-less sheet, pushed from
 
     // Native modules
     mapsDemo: { component: MapsDemo, path: '/maps' },
