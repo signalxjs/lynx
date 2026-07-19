@@ -475,29 +475,33 @@ export function createNavigatorState(opts: CreateNavigatorOptions): NavigatorSta
         // jump defers like the animated path and the 0 seed holds the sheet
         // hidden meanwhile rather than flashing a stale height.
         if (!animated) {
-            if (isSheet && sv) {
-                const seedRunner = runOnMainThread(() => {
-                    'main thread';
-                    sv.current.value = 0;
-                });
-                seedRunner();
-                const jumpTo = (target: number): void => {
+            if (isSheet) {
+                // Populate the render-time channels (_sheetBackdrops/_sheetSnaps)
+                // for EVERY sheet push — INCLUDING when there's no progress SV
+                // (`<NavigationRoot animated={false}>`), where the `&& sv` gate
+                // used to skip this entirely and reintroduce the render-time
+                // option-timing bug this channel exists to fix. The SV seed +
+                // jump-to-detent only apply when the SV actually exists.
+                const positionSheet = (target: number): void => {
+                    if (!sv) return;
+                    runOnMainThread(() => { 'main thread'; sv.current.value = 0; })();
                     const runner = runOnMainThread((t: number) => {
                         'main thread';
                         sv.current.value = t;
                     });
                     runner(target);
                 };
-                const readNow = readSheetTarget();
+                const readNow = readSheetTarget();   // populates the records
                 if (readNow !== null) {
-                    jumpTo(readNow.target);
+                    positionSheet(readNow.target);
                 } else {
                     void resolveSheetTarget().then((read) => {
-                        // The entry can have left the stack during the wait
-                        // (e.g. a `reset()`). Don't reposition a dead sheet.
+                        // `resolveSheetTarget` re-populates the records. The entry
+                        // can have left the stack during the wait (e.g. a
+                        // `reset()`); don't reposition a dead sheet.
                         const stackNow = getStack();
                         if (stackNow[stackNow.length - 1]?.key !== newEntry.key) return;
-                        jumpTo(read.target);
+                        positionSheet(read.target);
                     });
                 }
             }

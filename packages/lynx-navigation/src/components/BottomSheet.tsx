@@ -37,10 +37,9 @@ import { cancelAnimation, withTiming } from '@sigx/lynx-motion';
  * collapsed floor (the sheet never goes below it — it's persistent, it does
  * not dismiss). `open` toggles between `detents[0]` (closed) and
  * `openDetentIndex` (default the second detent) with an animation. Dragging
- * the handle region (or, with `dragSurface`, the whole non-scrolling body)
- * moves `reveal` 1:1 with the finger and snaps to the nearest detent on
- * release. `dragEnabled={false}` freezes it (e.g. while a keyboard owns the
- * space and there's nothing to drag).
+ * the handle region moves `reveal` 1:1 with the finger and snaps to the
+ * nearest detent on release. `dragEnabled={false}` freezes it (e.g. while a
+ * keyboard owns the space and there's nothing to drag).
  *
  * ## Lift
  * Pass `liftSV` (e.g. a keyboard lift height) — the sheet's effective reveal
@@ -113,6 +112,10 @@ export const BottomSheet = component<BottomSheetProps>(({ props, emit, slots }) 
     // pan writes it per frame (auto-flushed, #681); `withTiming` animates it
     // for open/close.
     const reveal = useSharedValue(floor);
+    // `dragEnabled` as a SharedValue (1/0) so the pan worklet can actually
+    // gate on it — a BG prop isn't readable on the MT. Written from render
+    // below; the worklet reads `dragGateSV.current.value`.
+    const dragGateSV = useSharedValue(1);
     // Effective reveal also clears an external lift (keyboard): the sheet
     // rides up to sit above whatever occupies the bottom. `scale` folds the
     // lift to `floor + lift`; `max` takes whichever is taller.
@@ -188,10 +191,10 @@ export const BottomSheet = component<BottomSheetProps>(({ props, emit, slots }) 
         })
         .onStart((e: { params?: { pageY?: number } }) => {
             'main thread';
-            // Drag only when the sheet is ABOVE its floor (i.e. open). At the
-            // floor (collapsed / keyboard mode) there's nothing to resize —
-            // and gating on the reveal position needs no BG→SV write (a
-            // SharedValue is read-only on BG), so `dragEnabled` is advisory.
+            // `dragEnabled={false}` freezes the gesture (mirrored into
+            // `dragGateSV` from render). Also skip at the floor (collapsed /
+            // keyboard mode) — there's nothing to resize.
+            if (dragGateSV.current.value === 0) { drag.current.active = 0; return; }
             if (reveal.current.value <= minReveal + 2) { drag.current.active = 0; return; }
             const y = e?.params?.pageY ?? 0;
             drag.current.startY = y;
@@ -250,6 +253,9 @@ export const BottomSheet = component<BottomSheetProps>(({ props, emit, slots }) 
     useGestureDetector(handleRef, pan);
 
     return () => {
+        // Mirror `dragEnabled` (default true) into the worklet-readable SV
+        // (written on BG with `.value`; the pan worklet reads `.current.value`).
+        dragGateSV.value = props.dragEnabled === false ? 0 : 1;
         // React to `open` changes (render closure tracks props.open).
         const open = props.open ?? false;
         if (open !== lastOpen) {
