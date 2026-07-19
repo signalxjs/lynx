@@ -15,7 +15,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { component } from '@sigx/lynx';
-import { render, act } from '@sigx/lynx-testing';
+import { render, act, TestNode } from '@sigx/lynx-testing';
 import { NavigationRoot } from '../src/components/NavigationRoot';
 import { Stack } from '../src/components/Stack';
 import { Tabs } from '../src/components/Tabs';
@@ -39,6 +39,23 @@ function renderRoot(): NavProbe {
     const probe: NavProbe = { nav: null, internals: null };
     render(
         <NavigationRoot routes={routes} initialRoute="home" animated={false}>
+            <NavCapture probe={probe} />
+            <Stack />
+        </NavigationRoot>,
+    );
+    return probe;
+}
+
+/**
+ * Animated navigator — the sheet SV exists, so the present-at-detent (#711b)
+ * and dismiss-reset paths are exercisable. Under lynx-testing's eager flush
+ * the `<Screen snapPoints>` registration lands synchronously, so a
+ * non-animated sheet push takes the synchronous jump path.
+ */
+function renderRootAnimated(): NavProbe {
+    const probe: NavProbe = { nav: null, internals: null };
+    render(
+        <NavigationRoot routes={routes} initialRoute="home">
             <NavCapture probe={probe} />
             <Stack />
         </NavigationRoot>,
@@ -238,5 +255,137 @@ describe('Sheet presentation — hardware back', () => {
 
         expect(probe.nav!.stack.length).toBe(1);
         expect(probe.nav!.current.route).toBe('home');
+    });
+});
+
+describe('Sheet presentation — present at detent (#711b)', () => {
+    // FilterSheet: snapPoints [0.4, 0.9], initialSnapIndex 0 →
+    // progress = 0.4 / 0.9 (snapToProgress).
+    const DETENT = 0.4 / 0.9;
+
+    it('a non-animated sheet push jumps the SV to the initial detent (no slide)', () => {
+        const probe = renderRootAnimated();
+        const sv = probe.internals!.sheetProgress!;
+        expect(sv).toBeTruthy();
+
+        act(() => probe.nav!.push('filterSheet', undefined, { animated: false }));
+
+        // Present-at-detent: the SV lands on the resting height synchronously
+        // (registry visible under the eager flush), and no transition runs.
+        expect(sv.current.value).toBeCloseTo(DETENT, 5);
+        expect(probe.nav!.transition).toBeNull();
+        expect(probe.nav!.current.route).toBe('filterSheet');
+    });
+
+    it('an animated sheet push does NOT jump — it runs a transition from 0', () => {
+        const probe = renderRootAnimated();
+        const sv = probe.internals!.sheetProgress!;
+
+        act(() => probe.nav!.push('filterSheet'));
+
+        // Distinguishes the animated branch: a transition is in flight and the
+        // SV is seeded at 0 to slide up (vs the non-animated jump to DETENT).
+        expect(probe.nav!.transition).not.toBeNull();
+        expect(sv.current.value).toBe(0);
+    });
+
+    it('a non-animated dismiss resets the sheet SV to 0', () => {
+        const probe = renderRootAnimated();
+        const sv = probe.internals!.sheetProgress!;
+        act(() => probe.nav!.push('filterSheet', undefined, { animated: false }));
+        expect(sv.current.value).toBeCloseTo(DETENT, 5);
+
+        act(() => probe.nav!.pop(1, { animated: false }));
+
+        // No sheet left on the stack → the SV must be 0 so `useSheetHeight`
+        // reports 0 (else a bar bound to it hangs at the last detent height).
+        expect(sv.current.value).toBe(0);
+        expect(probe.nav!.current.route).toBe('home');
+    });
+});
+
+describe('Sheet presentation — backdrop: false (inline / non-modal)', () => {
+    // The backdrop is the only full-screen element covering the region above
+    // the sheet surface (the sheet's own layer is translated down to its top
+    // edge). Its `#000` absolute fill uniquely identifies it in the tree.
+    const findBackdrop = (node: TestNode): TestNode | null => {
+        if (
+            node.type === 'view'
+            && node._style['position'] === 'absolute'
+            && node._style['backgroundColor'] === '#000'
+        ) return node;
+        for (const child of node.children) {
+            const hit = findBackdrop(child);
+            if (hit) return hit;
+        }
+        return null;
+    };
+
+    function renderWithContainer(): { probe: NavProbe; container: TestNode } {
+        const probe: NavProbe = { nav: null, internals: null };
+        const { container } = render(
+            <NavigationRoot routes={routes} initialRoute="home">
+                <NavCapture probe={probe} />
+                <Stack />
+            </NavigationRoot>,
+        );
+        return { probe, container };
+    }
+
+    it('a default sheet renders the backdrop displayed and tap-catching', () => {
+        const { probe, container } = renderWithContainer();
+        act(() => probe.nav!.push('filterSheet', undefined, { animated: false }));
+        const bd = findBackdrop(container);
+        expect(bd).toBeTruthy();
+        expect(bd!._style['display']).not.toBe('none');   // dims the screen
+        expect(bd!._handlers.has('catchtap')).toBe(true);  // consumes taps
+    });
+
+    it('backdrop:false renders the backdrop inert (display:none → pass-through)', () => {
+        const { probe, container } = renderWithContainer();
+        act(() => probe.nav!.push('panelSheet', undefined, { animated: false }));
+        const bd = findBackdrop(container);
+        expect(bd).toBeTruthy();
+        // display:none: not laid out, catches no taps — the composer bar in
+        // the screen below stays interactive while the sheet is open.
+        expect(bd!._style['display']).toBe('none');
+    });
+
+    it('backdrop:false disarms backdrop-tap-dismiss even if the handler fires', () => {
+        const { probe, container } = renderWithContainer();
+        act(() => probe.nav!.push('panelSheet', undefined, { animated: false }));
+        expect(probe.nav!.current.route).toBe('panelSheet');
+        const bd = findBackdrop(container)!;
+        // Invoking the (inert) catchtap must not pop — the `enabled` gate.
+        act(() => { bd._handlers.get('catchtap')?.({}); });
+        expect(probe.nav!.current.route).toBe('panelSheet');
+    });
+
+    it('present-at-detent (#711b) and useSheetHeight still work with backdrop off', () => {
+        const { probe } = renderWithContainer();
+        const sv = probe.internals!.sheetProgress!;
+        act(() => probe.nav!.push('panelSheet', undefined, { animated: false }));
+        // snapPoints [0.4, 0.9], initialSnapIndex 0 → progress 0.4/0.9.
+        expect(sv.current.value).toBeCloseTo(0.4 / 0.9, 5);
+        expect(probe.nav!.transition).toBeNull();
+        act(() => probe.nav!.pop(1, { animated: false }));
+        expect(sv.current.value).toBe(0);
+    });
+
+    it('publishes the resolved snapPoints on the reactive push-time channel', () => {
+        // The layer's translateY mapper scales by the largest snap fraction;
+        // a render-time option read gets the [0.5] default before the sheet
+        // registers and doesn't reactively correct, so it must come from this
+        // push-time channel (mirrors sheetBackdrops) or the sheet paints too
+        // short while useSheetHeight uses the real fraction.
+        const { probe } = renderWithContainer();
+        act(() => probe.nav!.push('panelSheet', undefined, { animated: false }));
+        const key = probe.nav!.current.key;
+        expect(probe.internals!.sheetSnaps[key]).toEqual([0.4, 0.9]);
+        // A dead entry's snaps are pruned on the next push (same as the
+        // backdrop channel — the push is where the read runs).
+        act(() => probe.nav!.pop(1, { animated: false }));
+        act(() => probe.nav!.push('panelSheet', undefined, { animated: false }));
+        expect(probe.internals!.sheetSnaps[key]).toBeUndefined();
     });
 });

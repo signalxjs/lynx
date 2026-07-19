@@ -103,6 +103,22 @@ export interface NavInternals {
         unregister(registry: ScreenRegistry): void;
         get(entryKey: string): ScreenRegistry | undefined;
     };
+    /**
+     * Resolved `backdrop` option per sheet entry (`false` = inline /
+     * pass-through). A deep-reactive record written at push from the sheet's
+     * `<Screen>`-registration read; `<Stack>` reads a key to decide whether
+     * to render the dimming, tap-catching backdrop. Absent key ⇒ default
+     * (dimmed). See `NavigatorState._sheetBackdrops` for why this can't be a
+     * plain render-time option read.
+     */
+    readonly sheetBackdrops: Record<string, boolean>;
+    /**
+     * Resolved `snapPoints` per sheet entry, written at push from the same
+     * registration read as `sheetBackdrops`. `<Stack>` prefers this over the
+     * render-time option so the layer's snap-scaled translateY agrees with
+     * `useSheetHeight` from the first frame. See `NavigatorState._sheetSnaps`.
+     */
+    readonly sheetSnaps: Record<string, readonly number[]>;
 }
 
 export const useNavInternals = defineInjectable<NavInternals>(() => {

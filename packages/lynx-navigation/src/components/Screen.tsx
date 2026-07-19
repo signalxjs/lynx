@@ -42,6 +42,7 @@ type ScreenProps =
     & Define.Prop<'snapPoints', readonly number[]>
     & Define.Prop<'initialSnapIndex', number>
     & Define.Prop<'backdropDismiss', boolean>
+    & Define.Prop<'backdrop', boolean>
     & Define.Prop<'dragHandle', 'surface' | 'grabber' | 'none'>
     & Define.Slot<'default'>;
 
@@ -59,6 +60,7 @@ const ScreenRoot = component<ScreenProps>(({ props, slots }) => {
     if (props.snapPoints !== undefined) patch.snapPoints = props.snapPoints;
     if (props.initialSnapIndex !== undefined) patch.initialSnapIndex = props.initialSnapIndex;
     if (props.backdropDismiss !== undefined) patch.backdropDismiss = props.backdropDismiss;
+    if (props.backdrop !== undefined) patch.backdrop = props.backdrop;
     if (props.dragHandle !== undefined) patch.dragHandle = props.dragHandle;
     mergeOptions(registry, patch);
     return () => slots.default?.();
