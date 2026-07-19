@@ -156,9 +156,15 @@ export const EmojiComposerScreen = component(() => {
         // top sits at `screenH - reveal`, so cap reveal at `screenH - safeTop
         // - header`.
         const HEADER_H = 56;
-        const revealCap = Math.max(compact + 40, screenH - (insets.value.top ?? 0) - HEADER_H);
+        // The sheet's top sits at `screenH - reveal`, so keeping the input
+        // below the header/safe area means reveal must not EXCEED this cap.
+        const revealCap = screenH - (insets.value.top ?? 0) - HEADER_H;
+        // Clamp every detent to the cap — even `compact` and the expanded
+        // stage — so on short screens / landscape the top never slides under
+        // the header. `full` still sits above compact whenever there's room.
+        const compactCapped = Math.min(compact, revealCap);
         const full = Math.min(Math.round(screenH * 0.92), revealCap);
-        const detents = [INPUT_H, compact, Math.max(compact + 40, full)];
+        const detents = [INPUT_H, compactCapped, Math.max(compactCapped, full)];
         const mode = reveal.mode();
         const engaged = mode !== 'closed';
         void revealSV;

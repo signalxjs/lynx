@@ -12,9 +12,11 @@ export type KeyboardPanelPickerProps =
     /**
      * Pre-mount the picker before the first open, so opening is an instant
      * style swap instead of a fresh mount. The hidden picker keeps its REAL
-     * panel size and is parked offscreen with a transform — a zero-height or
-     * `display:none` grid would either flood scroll events (#606) or throw
-     * the mount away between toggles. Recommended for chat composers.
+     * panel size — the inner grid is never zero-height (that would flood
+     * scroll events, #606) — while an outer wrapper collapses to `height: 0`
+     * with `overflow: hidden`, so it takes no flow space and is unhittable
+     * until opened (`display:none` would throw the mount away between
+     * toggles). Recommended for chat composers.
      */
     & Define.Prop<'warm', boolean, false>
     /**
@@ -35,15 +37,16 @@ export type KeyboardPanelPickerProps =
  * The chat-composer presentation: a panel that occupies exactly the soft
  * keyboard's space, so toggling emoji ⇄ keyboard doesn't shift the composer
  * (the WhatsApp/Telegram pattern). Place it as the last child of a
- * `<KeyboardStickyView>`, under the input row; the keyboard height comes
- * from `useKeyboard()` (needs a `<SafeAreaProvider>` ancestor) and the
- * largest height seen is remembered so the panel keeps the right size after
- * the keyboard dismisses.
+ * `<KeyboardStickyView>`, under the input row; the panel height comes from
+ * `useKeyboardLift()` (the inset-discounted lift — the exact distance the
+ * sticky bar travels; needs a `<SafeAreaProvider>` ancestor) and the largest
+ * height seen is remembered so the panel keeps the right size after the
+ * keyboard dismisses.
  *
  * Once the picker has mounted (first open, or immediately with `warm`) it
- * STAYS mounted across toggles — closed means parked offscreen at full size,
- * so scroll position, recents and staged rows all survive, and reopening is
- * instant.
+ * STAYS mounted across toggles — closed means collapsed by a 0-height,
+ * overflow-hidden wrapper while the grid keeps its full size, so scroll
+ * position, recents and staged rows all survive, and reopening is instant.
  *
  * ```tsx
  * <KeyboardStickyView>

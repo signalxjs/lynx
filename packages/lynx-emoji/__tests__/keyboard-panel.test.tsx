@@ -1,9 +1,9 @@
 /**
  * KeyboardPanelPicker mount semantics (#677):
  *  - cold (no `warm`, never opened): nothing mounted but a placeholder.
- *  - `warm`: the picker pre-mounts CLOSED, parked offscreen at full panel
- *    size (a real height — zero-height/hidden grids flood scroll events,
- *    #606 — and a transform keeps it invisible and unhittable).
+ *  - `warm`: the picker pre-mounts CLOSED at full panel size (a real height —
+ *    zero-height grids flood scroll events, #606); an outer 0-height,
+ *    overflow-hidden wrapper keeps it invisible, unhittable and out of flow.
  *  - once opened it stays mounted across toggles (scroll/recents survive;
  *    reopening is a style swap).
  */

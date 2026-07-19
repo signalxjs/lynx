@@ -121,7 +121,6 @@ export const routes = defineRoutes({
     emojiPicker: { component: EmojiPickerScreen, path: '/emoji-picker' },
     // Modal: same sticky-bar caveat as `keyboard` above.
     emojiComposer: { component: EmojiComposerScreen, path: '/emoji-composer', presentation: 'modal' },
-    // The composer's emoji panel — a real backdrop-less sheet, pushed from
 
     // Native modules
     mapsDemo: { component: MapsDemo, path: '/maps' },
