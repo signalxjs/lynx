@@ -1,6 +1,6 @@
 {
     "name": "@sigx/lynx-dev-client",
-    "version": "0.16.0",
+    "version": "0.17.0",
     "description": "Dev client for sigx-lynx — resource fetchers, template provider, and devtool integration",
     "type": "module",
     "main": "./dist/index.js",
