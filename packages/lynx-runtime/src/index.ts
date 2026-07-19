@@ -104,6 +104,11 @@ export {
 } from './animated/use-animated-style.js';
 export type { AnimatedStyleSpec } from './animated/use-animated-style.js';
 export {
+  useDerivedValue,
+  useDerivedValueReactive,
+} from './animated/derived-value.js';
+export type { DerivedReducerName, DerivedReducerParams } from './animated/derived-value.js';
+export {
   useScrollDragHost,
   useCreateScrollDragHost,
 } from './scroll-drag-host.js';
