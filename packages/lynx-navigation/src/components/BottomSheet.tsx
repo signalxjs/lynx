@@ -1,6 +1,7 @@
 import {
     component,
     Gesture,
+    onUnmounted,
     runOnBackground,
     runOnMainThread,
     useAnimatedStyle,
@@ -62,7 +63,7 @@ export type BottomSheetProps =
      * dip-free reveal). User drags always animate their release snap.
      */
     & Define.Prop<'animate', boolean, false>
-    /** Which detent `open` targets. Default: the last detent's *previous* (index 1 if present, else 0). */
+    /** Which detent `open` targets. Default: index 1 (the second detent) when there is more than one, else 0. */
     & Define.Prop<'openDetentIndex', number, false>
     /**
      * On open, snap to the CURRENT lifted position (`max(reveal, floor +
@@ -86,7 +87,13 @@ export type BottomSheetProps =
     & Define.Prop<'liftSV', SharedValue<number>, false>
     /** Receives the combined reveal SharedValue once, at setup (bind siblings to it). */
     & Define.Prop<'onReveal', (sv: SharedValue<number>) => void, false>
-    /** Fires on the BG thread when a drag settles at a detent index. */
+    /**
+     * Fires on the BG thread when a drag settles. The payload indexes the
+     * snap CANDIDATES, which are the `detents` normally, but `[floor,
+     * capturedLiftRest, top]` under `openToLift` — so index 0 = floor and the
+     * last index = top in both cases, but the middle differs. Debounced:
+     * only the latest release emits.
+     */
     & Define.Event<'snap', number>
     & Define.Prop<'class', string, false>
     & Define.Prop<'style', Record<string, string | number>, false>
@@ -183,6 +190,16 @@ export const BottomSheet = component<BottomSheetProps>(({ props, emit, slots }) 
     // Per-drag transient (main-thread ref — worklet-visible mutable state).
     const drag = useMainThreadRef({ startY: 0, startReveal: 0, prevY: 0, prevT: 0, vel: 0, active: 0 });
 
+    // Debounced snap emit (BG): a quick re-grab+release must not let an
+    // earlier settle timer still fire a stale index — clear the prior timer
+    // each release, so only the latest settle emits. Cleared on unmount.
+    let snapTimer: ReturnType<typeof setTimeout> | null = null;
+    const scheduleSnap = (i: number): void => {
+        if (snapTimer !== null) clearTimeout(snapTimer);
+        snapTimer = setTimeout(() => { snapTimer = null; emit('snap', i); }, SNAP_MS);
+    };
+    onUnmounted(() => { if (snapTimer !== null) clearTimeout(snapTimer); });
+
     const pan = Gesture.Pan()
         .axis('y')
         .minDistance(MIN_DISTANCE)
@@ -245,9 +262,7 @@ export const BottomSheet = component<BottomSheetProps>(({ props, emit, slots }) 
             }
             const target = cands[bestI];
             withTiming(reveal, target, { duration: SNAP_SEC });
-            runOnBackground((i: number) => {
-                setTimeout(() => { emit('snap', i); }, SNAP_MS);
-            })(bestI);
+            runOnBackground(scheduleSnap)(bestI);
         });
 
     useGestureDetector(handleRef, pan);

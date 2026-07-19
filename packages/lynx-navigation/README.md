@@ -83,7 +83,7 @@ It grows without a layout reflow: the panel is a fixed `maxHeight`-tall containe
 <BottomSheet
   maxHeight={fullPx}
   detents={[inputPx, compactPx, fullPx]}   // visible heights, ascending; [0] = collapsed floor
-  open={emojiOpen}                          // animate between floor and openDetentIndex
+  open={emojiOpen}                          // move floor ⇄ openDetentIndex (JUMPS by default; set `animate` to slide)
   liftSV={keyboardLiftSV}                   // ride above the keyboard: reveal = max(reveal, floor + lift)
   openToLift                                // open at the LIVE lifted position, not the detent (see below)
   onReveal={(sv) => (revealSV = sv)}        // the live height SV — bind siblings to it
