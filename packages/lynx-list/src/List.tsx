@@ -247,6 +247,18 @@ const ListImpl = component<ListProps>(({ props, slots, emit }) => {
   const atBottom = signal(true);
   const unreadCount = signal(0);
 
+  // Safety net for the opacity reveal. The primary path flips `ready` from the
+  // first `layoutcomplete` (which also drives the initial scroll-to-bottom).
+  // Under a mount-time layout race that event can fail to land — e.g. the
+  // wrapper settles collapsed and the inner list never lays out cells — which
+  // would leave the ENTIRE chat stuck at `opacity: 0` forever (the thread is
+  // invisible even though the data is there). Guarantee the reveal within a
+  // bounded window so that can't happen; the `layoutcomplete` path still wins
+  // in the common case (it fires within a frame or two, well under this delay).
+  if (chatEnabled) {
+    setTimeout(() => { if (!ready.value) ready.value = true; }, 400);
+  }
+
   // ── Windowing ──────────────────────────────────────────────────────────────
   // Template-native cells (#645): renderItem returns a consumer-compiled
   // <list-item> template and List passes it through unwrapped. Template rows
