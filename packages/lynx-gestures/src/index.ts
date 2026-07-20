@@ -1,12 +1,27 @@
-// Multi-touch JS-only fallback hooks. Lynx's native gesture arena ships a
-// `Gesture.Pinch()` / `Gesture.Rotation()` builder pair (`GestureType.PINCH`,
-// `GestureType.ROTATION`), but the platform-side handlers are unfinished
-// in Lynx 3.5 — these hooks parse `bindtouch*` events directly until that
-// changes. The other legacy hooks (`useTap`, `useLongPress`, `usePan`,
-// `useFling`, `useSwipe`, `useGesture`, `usePanResponder`) were deleted in
-// Phase 2.12.4 — use `Gesture.*` + `useGestureDetector` instead.
-export { usePinch } from './use-pinch.js';
-export { useRotation } from './use-rotation.js';
+// Native pinch-zoom + rotation. Lynx's gesture arena reserves the
+// `PINCH`/`ROTATION` enum slots but ships no handler for them in any released
+// version (the handler factory is a closed switch compiled into the
+// framework), so `Gesture.Pinch()`/`Gesture.Rotation()` never fire on native.
+// `<PinchRotate>` instead wraps the native `<sigx-pinch>` element, which
+// attaches UIKit's `UIPinch`/`UIRotationGestureRecognizer` (iOS) and
+// `ScaleGestureDetector` + a rotation tracker (Android) to its backing view
+// and applies the transform on the UI thread. Requires `sigx prebuild`.
+//
+// This replaces the former `usePinch`/`useRotation` JS hooks, which parsed
+// `bindtouch*` on the background thread and matched fingers by proximity —
+// unreliable, and never smoother than the native path.
+import './jsx-augment.js';
+export { PinchRotate } from './components/PinchRotate.js';
+export type { PinchRotateProps } from './components/PinchRotate.js';
+export type {
+  SigxPinchAttributes,
+  PinchGestureStartEvent,
+  PinchGestureStartDetail,
+  PinchGestureChangeEvent,
+  PinchGestureChangeDetail,
+  PinchGestureEndEvent,
+  PinchGestureEndDetail,
+} from './jsx-augment.js';
 
 // Cross-thread value primitive — re-exported from @sigx/lynx for back-compat.
 // @deprecated since 0.3.0 — import directly from '@sigx/lynx' instead.
@@ -59,17 +74,3 @@ export type {
 // `<Draggable>` and `<Swipeable>` get for free.
 export { useScrollContext } from './scroll-context.js';
 export type { ScrollContext } from './scroll-context.js';
-
-// Types
-export type {
-  TouchPoint,
-  TouchEvent,
-  GesturePhase,
-  GestureHandlers,
-  PinchState,
-  UsePinchOptions,
-  UsePinchReturn,
-  RotationState,
-  UseRotationOptions,
-  UseRotationReturn,
-} from './types.js';

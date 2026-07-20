@@ -1,4 +1,4 @@
-import { component, useSharedValue, type Define } from '@sigx/lynx';
+import { component, effect, useSharedValue, type Define } from '@sigx/lynx';
 import { Draggable } from '@sigx/lynx-gestures';
 import { Col, Row, Text } from '@sigx/lynx-daisyui';
 
@@ -22,7 +22,13 @@ export type DemoSliderProps =
  * SharedValue — itself a demo of Draggable as a building block (daisyui has
  * no slider component). The thumb position is MT-driven; the value readout
  * reads the SharedValue's reactive BG mirror, so it tracks the finger live
- * through the AV bridge. `change` fires on release.
+ * through the AV bridge.
+ *
+ * `change` fires **continuously** while dragging, not just on release: an
+ * effect on the SharedValue's BG mirror re-emits every frame the thumb moves,
+ * so consumers get instant feedback. The mirror already updates each frame
+ * (it drives the readout), so this reuses that stream — no per-frame
+ * worklet→BG hop of our own.
  */
 export const DemoSlider = component<DemoSliderProps>(({ props, emit }) => {
     const span = props.max - props.min;
@@ -31,6 +37,17 @@ export const DemoSlider = component<DemoSliderProps>(({ props, emit }) => {
 
     const tx = useSharedValue(toX(props.initial));
     const decimals = props.decimals ?? 0;
+
+    // Live-emit the value off the thumb's BG mirror. Skip the initial run —
+    // the parent already seeds itself from `initial`, so only user-driven
+    // movement should fire `change`. emit() never writes back to `tx`, so
+    // there's no feedback loop.
+    let primed = false;
+    effect(() => {
+        const v = toValue(tx.value);
+        if (!primed) { primed = true; return; }
+        emit('change', v);
+    });
 
     return () => (
         <Col gap={4}>
@@ -55,7 +72,6 @@ export const DemoSlider = component<DemoSliderProps>(({ props, emit }) => {
                     minX={0}
                     maxX={RANGE}
                     translateX={tx}
-                    onDragEnd={(e) => emit('change', toValue(e.x))}
                 >
                     <view
                         class="bg-primary"
