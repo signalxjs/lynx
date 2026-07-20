@@ -35,6 +35,7 @@ import {
   resolveElementByWvid,
 } from './ops-apply.js';
 import { lookupMapper } from './animated-style-mappers.js';
+import { flushDerivedValues } from './derived-values-mt.js';
 
 const AV_PUBLISH = 'Lynx.Sigx.AvPublish';
 
@@ -157,6 +158,48 @@ interface ElementWithStyleApply {
   setStyleProperties?: (styles: Record<string, string | number>) => void;
 }
 
+/** `translateY(…)` → `translateY`, `translate3d(…)` → `translate3d`, … —
+ * function names can contain digits (`translate3d`, `rotate3d`, `matrix3d`). */
+const TRANSFORM_FN_RE = /([a-zA-Z][a-zA-Z0-9]*)\s*\(/g;
+const warnedDupTransform = new Set<number>();
+
+/**
+ * Dev-only guard for the concatenation footgun: two bindings on one element
+ * that both emit the SAME transform function (e.g. two `translateY`) SUM,
+ * silently. That is occasionally intended (stacking offsets) but far more
+ * often a mistake — the caller wanted `max`/one-of, which is what
+ * `useDerivedValue` is for (#710). Warn ONCE per element; production
+ * (`NODE_ENV === 'production'`) stays silent and cost-free.
+ */
+function warnOnDuplicateTransformFn(elementWvid: number, existing: string, incoming: string): void {
+  const env = (globalThis as { process?: { env?: Record<string, string | undefined> } })
+    .process?.env?.['NODE_ENV'];
+  if (env === 'production') return;
+  if (warnedDupTransform.has(elementWvid)) return;
+  const have = new Set<string>();
+  let m: RegExpExecArray | null;
+  TRANSFORM_FN_RE.lastIndex = 0;
+  while ((m = TRANSFORM_FN_RE.exec(existing)) !== null) have.add(m[1]!);
+  TRANSFORM_FN_RE.lastIndex = 0;
+  while ((m = TRANSFORM_FN_RE.exec(incoming)) !== null) {
+    if (have.has(m[1]!)) {
+      warnedDupTransform.add(elementWvid);
+      console.warn(
+        `[sigx] Two animated-style bindings on one element both emit ` +
+        `\`${m[1]}(…)\` — they CONCATENATE, so the values SUM. If you meant ` +
+        `"whichever is larger/one-of", combine the SharedValues with ` +
+        `useDerivedValue([...], 'max') and bind the single result instead.`,
+      );
+      return;
+    }
+  }
+}
+
+/** Reset hook (tests) — re-arm the once-per-element dup-transform warning. */
+export function resetDuplicateTransformWarnings(): void {
+  warnedDupTransform.clear();
+}
+
 /**
  * For each element with at least one *dirty* binding (AV value changed since
  * the last apply), re-run **all** of that element's bindings, merge their
@@ -236,6 +279,7 @@ export function flushAnimatedStyleBindings(): void {
     }
     for (const k in out) {
       if (k === 'transform' && typeof acc.transform === 'string') {
+        warnOnDuplicateTransformFn(binding.elementWvid, acc.transform, String(out.transform));
         acc.transform = `${acc.transform} ${String(out.transform)}`;
       } else {
         acc[k] = out[k]!;
@@ -297,6 +341,13 @@ export function installAvBridgeFlushHook(): void {
     this: unknown,
     ...args: unknown[]
   ): unknown {
+    // Derived values recompute FIRST so a style binding (or BG publish) that
+    // reads a derived SV this same flush sees the fresh, folded value (#710).
+    try {
+      flushDerivedValues();
+    } catch (e) {
+      console.log('[sigx-mt] av-derived flush threw:', String(e));
+    }
     try {
       flushAvBridgePublishes();
     } catch (e) {

@@ -1012,5 +1012,17 @@ export default definePlugin({
                 await runWeb(ctx);
             },
         },
+        'build:web': {
+            description: 'Emit a deployable static export of the web app (dist/web)',
+            args: {
+                out: a.string().describe('Output directory (default: dist/web)'),
+                base: a.string().describe('URL base path for subpath hosting (default: /)'),
+                coi: a.boolean().default(false).describe('Vendor a COI service worker for header-less hosts (GitHub Pages)'),
+            },
+            async run(ctx) {
+                const { buildWeb } = await import('./web-build.js');
+                await buildWeb(ctx);
+            },
+        },
     },
 });

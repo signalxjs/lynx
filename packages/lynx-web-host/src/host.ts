@@ -126,7 +126,120 @@ function pickFiles(accept: string | undefined, multiple: boolean): Promise<Picke
   });
 }
 
+interface WebNotification {
+  close(): void;
+}
+
+interface NotificationCtor {
+  new (title: string, options?: { body?: string; tag?: string }): WebNotification;
+  permission: 'granted' | 'denied' | 'default';
+  requestPermission(): Promise<'granted' | 'denied' | 'default'>;
+}
+
+const REPEAT_MS: Record<string, number> = {
+  minute: 60_000,
+  hour: 3_600_000,
+  day: 86_400_000,
+  week: 604_800_000,
+};
+
+/**
+ * Local-notification state + handlers (page-lifetime, best-effort — timers
+ * and repeats don't survive a reload; that limitation is documented in the
+ * lynx-notifications README's Web section).
+ */
+function makeNotificationHandlers() {
+  const scheduled = new Map<
+    string,
+    { timer: ReturnType<typeof setTimeout>; interval?: ReturnType<typeof setInterval>; shown: WebNotification[] }
+  >();
+  let nextId = 1;
+  let badge = 0;
+
+  const ctor = (): NotificationCtor => {
+    const n = (globalThis as { Notification?: NotificationCtor }).Notification;
+    if (!n) throw new Error('the Notification API is not available in this browser');
+    return n;
+  };
+  const mapPermission = (
+    state: 'granted' | 'denied' | 'default',
+  ): { status: string; canAskAgain: boolean } =>
+    state === 'granted'
+      ? { status: 'granted', canAskAgain: true }
+      : state === 'denied'
+        ? { status: 'blocked', canAskAgain: false } // site-settings change required
+        : { status: 'undetermined', canAskAgain: true };
+
+  return {
+    schedule(d: Record<string, unknown>): string {
+      const N = ctor();
+      if (N.permission !== 'granted') {
+        throw new Error('notification permission not granted — call requestPermission() first');
+      }
+      const id = `web-${nextId++}`;
+      const title = String(d['title'] ?? '');
+      const body = String(d['body'] ?? '');
+      const delayMs = (typeof d['delay'] === 'number' ? d['delay'] : 0) * 1000;
+      const repeatMs = REPEAT_MS[String(d['repeat'] ?? '')];
+      const entry: { timer: ReturnType<typeof setTimeout>; interval?: ReturnType<typeof setInterval>; shown: WebNotification[] } = {
+        timer: 0 as unknown as ReturnType<typeof setTimeout>,
+        shown: [],
+      };
+      // Timer callbacks run after the RPC handler returned — a constructor
+      // failure there (revoked permission, insecure context) would otherwise
+      // be an unhandled error with a runaway repeat. Contain it and drop the
+      // schedule.
+      const show = (): void => {
+        try {
+          entry.shown.push(new N(title, { body, tag: id }));
+        } catch {
+          clearTimeout(entry.timer);
+          if (entry.interval) clearInterval(entry.interval);
+          scheduled.delete(id);
+        }
+      };
+      entry.timer = setTimeout(() => {
+        show();
+        if (repeatMs && scheduled.has(id)) {
+          entry.interval = setInterval(show, repeatMs);
+        }
+      }, delayMs);
+      scheduled.set(id, entry);
+      return id;
+    },
+    cancel(id: string): boolean {
+      const entry = scheduled.get(id);
+      if (!entry) return false;
+      clearTimeout(entry.timer);
+      if (entry.interval) clearInterval(entry.interval);
+      for (const n of entry.shown) n.close();
+      scheduled.delete(id);
+      return true;
+    },
+    cancelAll(): boolean {
+      for (const id of [...scheduled.keys()]) this.cancel(id);
+      return true;
+    },
+    async requestPermission(): Promise<{ status: string; canAskAgain: boolean }> {
+      return mapPermission(await ctor().requestPermission());
+    },
+    permissionStatus(): { status: string; canAskAgain: boolean } {
+      return mapPermission(ctor().permission);
+    },
+    setBadge(count: number): void {
+      badge = Number.isFinite(count) && count > 0 ? Math.floor(count) : 0;
+      // Badging API (installed PWAs, Chromium) — best-effort.
+      const nav = navigator as { setAppBadge?: (n: number) => Promise<void>; clearAppBadge?: () => Promise<void> };
+      void (badge > 0 ? nav.setAppBadge?.(badge) : nav.clearAppBadge?.())?.catch(() => {});
+    },
+    getBadge(): number {
+      return badge; // no portable read API — locally tracked, like Android's 0
+    },
+  };
+}
+
 function buildHandlers(): Record<string, Handler> {
+  const notifs = makeNotificationHandlers();
   return {
     'clipboard.setString': async (data) => {
       await navigator.clipboard.writeText(String(asRecord(data)['value'] ?? ''));
@@ -184,7 +297,91 @@ function buildHandlers(): Record<string, Handler> {
         (pattern as number | number[] | undefined) ?? 10,
       );
     },
+    'location.getCurrent': (data) => {
+      const d = asRecord(data);
+      return getPosition({
+        enableHighAccuracy: d['accuracy'] === 'high',
+        timeout: typeof d['timeout'] === 'number' ? d['timeout'] : undefined,
+      });
+    },
+    'location.permissionStatus': () => geoPermissionStatus(),
+    'notifications.schedule': (data) => notifs.schedule(asRecord(data)),
+    'notifications.cancel': (data) => notifs.cancel(String(asRecord(data)['id'] ?? '')),
+    'notifications.cancelAll': () => notifs.cancelAll(),
+    'notifications.requestPermission': () => notifs.requestPermission(),
+    'notifications.permissionStatus': () => notifs.permissionStatus(),
+    'notifications.setBadge': (data) => notifs.setBadge(Number(asRecord(data)['count'] ?? 0)),
+    'notifications.getBadge': () => notifs.getBadge(),
+    'location.requestPermission': async () => {
+      // The browser has no standalone geolocation prompt — a position request
+      // IS the prompt. Ask (cheaply), then report the resulting status.
+      try {
+        await getPosition({ enableHighAccuracy: false, timeout: 30_000 });
+        // Trust a decisive Permissions API answer; a one-time allow (or an
+        // absent API) can still read 'prompt'/'undetermined' — the probe just
+        // succeeded, so that means effectively granted.
+        const s = await geoPermissionStatus();
+        return s.status === 'granted' || s.status === 'blocked'
+          ? s
+          : { status: 'granted', canAskAgain: true };
+      } catch {
+        return geoPermissionStatus();
+      }
+    },
   };
+}
+
+interface HostPermissionResponse {
+  status: 'granted' | 'denied' | 'undetermined' | 'blocked';
+  canAskAgain: boolean;
+}
+
+/** Map the Permissions API state onto the package's PermissionResponse shape. */
+async function geoPermissionStatus(): Promise<HostPermissionResponse> {
+  try {
+    const p = await navigator.permissions.query({ name: 'geolocation' });
+    if (p.state === 'granted') return { status: 'granted', canAskAgain: true };
+    // A browser denial sticks until the user flips the site setting — there
+    // is no re-prompt, so it maps to 'blocked' rather than 'denied'.
+    if (p.state === 'denied') return { status: 'blocked', canAskAgain: false };
+    return { status: 'undetermined', canAskAgain: true };
+  } catch {
+    return { status: 'undetermined', canAskAgain: true };
+  }
+}
+
+/** Promisified getCurrentPosition mapped to the lynx-location result shape. */
+function getPosition(opts: PositionOptions): Promise<{
+  latitude: number;
+  longitude: number;
+  altitude: number | null;
+  accuracy: number;
+  speed: number | null;
+  heading: number | null;
+  timestamp: number;
+}> {
+  return new Promise((resolve, reject) => {
+    if (typeof navigator.geolocation?.getCurrentPosition !== 'function') {
+      reject(new Error('geolocation is not available in this browser'));
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const c = pos.coords;
+        resolve({
+          latitude: c.latitude,
+          longitude: c.longitude,
+          altitude: c.altitude ?? null,
+          accuracy: c.accuracy,
+          speed: c.speed ?? null,
+          heading: c.heading ?? null,
+          timestamp: pos.timestamp,
+        });
+      },
+      (err) => reject(new Error(`geolocation failed: ${err.message}`)),
+      opts,
+    );
+  });
 }
 
 function currentColorScheme(): 'dark' | 'light' {

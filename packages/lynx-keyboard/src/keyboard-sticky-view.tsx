@@ -1,8 +1,10 @@
 import {
   component,
   useAnimatedStyle,
+  useDerivedValue,
   useMainThreadRef,
   type MainThread,
+  type SharedValue,
 } from '@sigx/lynx';
 import { useKeyboardLift, useKeyboardLiftSV } from './use-keyboard.js';
 import type { KeyboardStickyViewProps } from './types.js';
@@ -50,24 +52,41 @@ export const KeyboardStickyView = component<KeyboardStickyViewProps>(({ props, s
   const barRef = useMainThreadRef<MainThread.Element | null>(null);
   const liftSV = useKeyboardLiftSV(discountBottomInset, offset);
   const liftBG = useKeyboardLift(discountBottomInset, offset);
+  // `extraLiftSV` (a bottom accessory's live height, e.g. an emoji sheet):
+  // the bar rides `max(keyboardLift, extraLift)`. Read once at setup — a
+  // component body runs once, so this conditional binds a stable SV for the
+  // mount's life (the demo passes a stable `useSheetHeight()`). The
+  // MT-fold (#710) recomputes the max each flush a source changes, before
+  // the style pass, so the transform is exact frame-for-frame.
+  const extraLiftSV = props.extraLiftSV;
+  const boundSV: SharedValue<number> = extraLiftSV
+    ? useDerivedValue([liftSV, extraLiftSV], 'max')
+    : liftSV;
   useAnimatedStyle(barRef, () =>
-    (props.animated ?? true)
+    (props.animated ?? true) && props.pinned !== true
       // factor -1: the SV stays a positive height; the mapper negates it so
       // the bar moves UP.
-      ? { sv: liftSV, mapperName: 'translateY', params: { factor: -1 } }
+      ? { sv: boundSV, mapperName: 'translateY', params: { factor: -1 } }
       : null);
 
   return () => {
-    const animated = props.animated ?? true;
+    const pinned = props.pinned === true;
+    const animated = (props.animated ?? true) && !pinned;
+    // BG fallback (animated={false} / pinned): mirror the max — the accessory
+    // SV auto-publishes to BG (#710), so its `.value` is readable here.
+    const bgLift = pinned
+      ? 0
+      : Math.max(liftBG.value, extraLiftSV?.value ?? 0);
     return (
       <view
         main-thread:ref={barRef}
         class={props.class}
-        // Debug / fallback path (`animated={false}`): discrete BG re-render,
-        // no tween — the MT binding above is unregistered then.
+        // Non-MT paths: `pinned` writes an explicit 0 (the MT binding above
+        // is unregistered, and its last written transform must not linger);
+        // `animated={false}` is the discrete BG debug fallback.
         style={animated
           ? props.style
-          : { ...props.style, transform: `translateY(-${liftBG.value}px)` }}
+          : { ...props.style, transform: `translateY(-${bgLift}px)` }}
       >
         {slots.default?.()}
       </view>

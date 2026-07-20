@@ -85,3 +85,36 @@ export type AnimatedStyleMapper<P = unknown> = (
   value: unknown,
   params?: P,
 ) => Record<string, string | number>;
+
+/**
+ * Params per built-in derived-value reducer (#710). A reducer combines the
+ * current values of one or more source SharedValues into a single scalar,
+ * recomputed on the MT whenever a source changes. Like mappers, reducers are
+ * selected by NAME (a primitive the worklet/op layer ships trivially) rather
+ * than by capturing a function.
+ */
+export interface DerivedReducerParams {
+  /** max of all source values — e.g. a bar above `max(keyboardLift, sheetHeight)`. */
+  max: undefined;
+  /** min of all source values. */
+  min: undefined;
+  /** sum of all source values. */
+  sum: undefined;
+  /**
+   * `sources[0] * factor + offset` (extra sources ignored) — defaults
+   * `{ factor: 1, offset: 0 }`. Scales one SV, e.g. a 0..1 progress into px.
+   */
+  scale: { factor?: number; offset?: number } | undefined;
+}
+
+export type DerivedReducerName = keyof DerivedReducerParams;
+
+/**
+ * A derived-value reducer: folds the live source values into one scalar. Pure
+ * — no captures, no thread crossing; runs on the MT each flush a source
+ * changed.
+ */
+export type DerivedReducer<P = unknown> = (
+  values: number[],
+  params?: P,
+) => number;

@@ -265,6 +265,13 @@ export const catalog: Area[] = [
                 icon: { set: 'lucide', name: 'smile' },
                 route: 'emojiPicker',
             },
+            {
+                id: 'emoji-composer',
+                title: 'Chat composer',
+                description: 'WhatsApp-style keyboard ⇄ emoji-panel switcher with a warm picker',
+                icon: { set: 'lucide', name: 'message-circle' },
+                route: 'emojiComposer',
+            },
         ],
     },
     {

@@ -217,6 +217,21 @@ export interface ScreenOptions {
     /** When false, tapping the dimmed backdrop does not dismiss the sheet. Default true. */
     backdropDismiss?: boolean;
     /**
+     * Render the dimmed, tap-catching backdrop behind a `presentation:
+     * 'sheet'` entry. Default `true` (the modal bottom-sheet look).
+     *
+     * Set `false` for a **non-modal / inline** sheet — a keyboard-accessory
+     * panel, an emoji picker sheet under a chat composer, etc.: no dim, and
+     * the region above the sheet surface stays fully interactive, so a bar
+     * or content in the screen below can be tapped while the sheet is open
+     * (the sheet surface itself is translated down to its top edge, so only
+     * the backdrop ever covered that region). With `backdrop: false`,
+     * `backdropDismiss` is moot — there is no backdrop to tap; dismiss the
+     * sheet by dragging it down or programmatically. Ignored for non-sheet
+     * presentations.
+     */
+    backdrop?: boolean;
+    /**
      * Where sheet drags start. `'surface'` (default): anywhere on the sheet
      * body — inner scroll/taps keep working via drag↔scroll arbitration
      * (lynx-gestures' `<ScrollView>` coordinates automatically).

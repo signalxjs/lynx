@@ -109,6 +109,7 @@ function makeSynthetic(initialStack: StackEntry[]): SyntheticEnv {
             },
             get: (key) => screensMap.get(key),
         },
+        sheetBackdrops: {}, sheetSnaps: {},
     };
 
     return {

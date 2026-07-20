@@ -46,6 +46,16 @@
  * microtask flush also makes timer-context dispatches prompt without a
  * render):
  *   INVOKE_WORKLET: [26, wkltId, args[], captured|null]
+ *
+ * Derived shared values (#710 — a SharedValue computed on the MT from one or
+ * more source SharedValues via a NAMED reducer, recomputed each flush a
+ * source changed, BEFORE style bindings apply, so a `useAnimatedStyle` bound
+ * to the derived SV sees the fresh value the same frame; the derived SV is
+ * itself an auto-flushing bridge, so its result also publishes to BG):
+ *   REGISTER_AV_DERIVED:   [27, derivedWvid, reducerName, params, sourceWvids[]]
+ *                          re-registering the same derivedWvid replaces its
+ *                          reducer/params/sources (reactive factor rebind)
+ *   UNREGISTER_AV_DERIVED: [28, derivedWvid]
  */
 export const OP = {
   CREATE: 0,
@@ -75,6 +85,8 @@ export const OP = {
   SNAPSHOT_SET_VALUE: 24,
   SNAPSHOT_BIND_SLOT: 25,
   INVOKE_WORKLET: 26,
+  REGISTER_AV_DERIVED: 27,
+  UNREGISTER_AV_DERIVED: 28,
 } as const;
 
 export type OpCode = (typeof OP)[keyof typeof OP];

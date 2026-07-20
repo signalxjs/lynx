@@ -47,6 +47,10 @@ interface LocationResult {
     timestamp: number;      // epoch ms
 }
 ```
+## Web
+
+On web the same API routes through the `@sigx/lynx-web-host` page bridge to `navigator.geolocation` and the Permissions API. Geolocation requires a secure context (localhost/HTTPS). A browser denial reports `status: 'blocked'` with `canAskAgain: false` — the user must change the site setting; there is no re-prompt. `requestPermission()` surfaces the browser prompt by issuing a position request (browsers have no standalone geolocation prompt).
+
 ## Gotchas
 - **Background location isn't supported here.** This module is `WhenInUse`-only; if you need `Always` access (geofencing, background tracking), the native side needs additional setup not in this package.
 - **iOS simulator location** — set a fake location in the simulator's **Features → Location** menu, otherwise `getCurrentPosition()` hangs until timeout.

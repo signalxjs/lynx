@@ -143,6 +143,14 @@ const SheetSlot = component<SheetSlotProps>(({ props }) => {
     const hostRef = useMainThreadRef<MainThread.Element | null>(null);
     const dragHost = useCreateScrollDragHost();
     defineProvide(useScrollDragHost, () => dragHost);
+    // Read the resolved backdrop from the nav-state record (written at push
+    // from the sheet's `<Screen>`-registration read — see
+    // `NavigatorState._sheetBackdrops`). A render-time read of the option
+    // can't be relied on: the sheet's `<Screen>` registers as a descendant
+    // of this very slot, one flush too late, and the registry's version tick
+    // does not re-run this slot; the record write, by contrast, notifies
+    // this key's readers directly.
+    const slotInternals = useNavInternals();
 
     // Stale-settle guard: MT stamps a generation at claim; delayed BG
     // settle/dismiss timeouts compare against this signal and bail when
@@ -184,6 +192,7 @@ const SheetSlot = component<SheetSlotProps>(({ props }) => {
                 sheetProgress={props.sheetProgress}
                 staticOpacity={props.staticBackdropOpacity}
                 dismissable={props.dismissable ?? false}
+                enabled={slotInternals.sheetBackdrops[props.entry.key] !== false}
                 hidden={props.hidden ?? false}
             />
             <Layer
@@ -397,6 +406,8 @@ export const Stack = component<StackProps>(({ props, slots }) => {
                 // progress and leave the stack in an inconsistent state.
                 animationsEnabled && parentInternals.edgeSwipeEnabled,
             screens: navState._screens,
+            sheetBackdrops: navState._sheetBackdrops,
+            sheetSnaps: navState._sheetSnaps,
         };
 
         // Reactive focus chain: this nav is locally focused iff
@@ -457,7 +468,13 @@ export const Stack = component<StackProps>(({ props, slots }) => {
     /** Snap config for a sheet entry from its `<Screen>` registration. */
     const sheetConfigFor = (entry: StackEntry) => {
         const options = internals.screens.get(entry.key)?.options;
-        const snaps = resolveSnapPoints(options?.snapPoints);
+        // Prefer the push-time-resolved snaps (written from the sheet's
+        // `<Screen>`-registration read, reactive): the render-time option
+        // read below is `[0.5]`-default before the sheet registers and does
+        // NOT reactively correct, which would scale the layer's translateY by
+        // the wrong max fraction and paint the sheet too short while
+        // `useSheetHeight` uses the real one. Absent key ⇒ render-time option.
+        const snaps = internals.sheetSnaps[entry.key] ?? resolveSnapPoints(options?.snapPoints);
         return {
             snaps,
             maxFraction: snaps[snaps.length - 1],

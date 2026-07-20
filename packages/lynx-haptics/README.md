@@ -36,6 +36,10 @@ interface HapticsDiagnostics {
 }
 ```
 All methods are sync and return `void` — there's no permission flow because `VIBRATE` is auto-granted (it's a normal-level permission on Android, no flow on iOS).
+## Web
+
+On web the feedback methods route to `navigator.vibrate` (Chromium-only) through the `@sigx/lynx-web-host` bridge — still best-effort and never-throw. `isAvailable()` deliberately stays `false`: web vibration is a degraded approximation, so availability-branching code treats web as "no haptics".
+
 ## Gotchas
 - **Pixel won't buzz.** First, check **Settings → Sound & vibration → Vibration & haptics** — there's a single global toggle that silently disables every API in this module. Then run `Haptics.diagnose()` to see what `hasVibrator` / `hasAmplitudeControl` report.
 - iOS `UIImpactFeedbackGenerator` requires the device be unlocked and the app foregrounded — it no-ops silently otherwise.

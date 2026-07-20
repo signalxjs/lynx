@@ -1,6 +1,6 @@
 {
     "name": "@sigx/lynx-web-host",
-    "version": "0.15.0",
+    "version": "0.17.0",
     "description": "Host-page bridge for SignalX apps on web — clipboard/share/linking/picker handlers + appearance and URL publishers for @lynx-js/web-core",
     "type": "module",
     "main": "./dist/index.js",

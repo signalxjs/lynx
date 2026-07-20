@@ -1,6 +1,13 @@
 # @sigx/lynx-cli
 
-The Lynx plugin for [`@sigx/cli`](https://sigx.dev/cli/) — adds `dev`, `build`, `prebuild`, `doctor`, `run:android`, `run:ios`, and `run:web` commands for SignalX projects targeting [Lynx](https://lynxjs.org/).
+The Lynx plugin for [`@sigx/cli`](https://sigx.dev/cli/) — adds `dev`, `build`, `prebuild`, `doctor`, `run:android`, `run:ios`, `run:web`, and `build:web` commands for SignalX projects targeting [Lynx](https://lynxjs.org/).
+
+## Web
+
+- `sigx run:web` — build and serve the app in the browser (via upstream `@lynx-js/web-core`) with live reload. Zero config: no `environments` block needed in `lynx.config.ts`.
+- `sigx build:web` — emit a deployable static export to `dist/web/`: host page, engine, app bundle + async chunks, and the `@sigx/lynx-web-host` bridge. Flags: `--out <dir>`, `--base <path>` (subpath hosting, e.g. GitHub Pages project sites), `--coi` (vendor a cross-origin-isolation service worker for hosts that can't set headers).
+
+The engine needs cross-origin isolation (`Cross-Origin-Opener-Policy: same-origin` + `Cross-Origin-Embedder-Policy: require-corp`); the export includes `_headers` (Netlify/Cloudflare Pages) and `vercel.json` samples, and `--coi` covers header-less hosts with one automatic first-visit reload.
 
 This package is auto-installed when you scaffold a Lynx project, so you rarely depend on it directly:
 

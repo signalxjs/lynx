@@ -38,6 +38,12 @@ export type { SkinTonePopoverProps } from './components/SkinTonePopover.js';
 // Wrappers
 export { KeyboardPanelPicker } from './wrappers/KeyboardPanelPicker.js';
 export type { KeyboardPanelPickerProps } from './wrappers/KeyboardPanelPicker.js';
+export { useKeyboardPanelReveal } from './wrappers/useKeyboardPanelReveal.js';
+export type {
+    KeyboardPanelReveal,
+    KeyboardPanelRevealOptions,
+    PanelRevealMode,
+} from './wrappers/useKeyboardPanelReveal.js';
 export { SheetPicker } from './wrappers/SheetPicker.js';
 export type { SheetPickerProps } from './wrappers/SheetPicker.js';
 

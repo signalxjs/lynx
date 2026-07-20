@@ -65,8 +65,19 @@ Full guides, API reference and live examples → **[https://sigx.dev/lynx/module
   and persists.
 - **Recents** — LRU, persisted via `@sigx/lynx-storage` (optional peer;
   without it everything works, state just resets per session).
-- **Wrappers** — `KeyboardPanelPicker` (keyboard-height composer panel) and
-  `SheetPicker` (bottom-sheet overlay).
+- **Wrappers** — `KeyboardPanelPicker` (keyboard-height composer panel — the
+  WhatsApp keyboard ⇄ panel switcher; pass `warm` to pre-mount the picker
+  offscreen so the first open is an instant style swap, and once opened it
+  stays mounted across toggles; the painted height is frozen while open and
+  adopts the keyboard's newest height when parked; `expandedHeight` paints
+  the open panel taller for a two-stage picker — WhatsApp's drag-up-for-more
+  — while the compact detent stays exactly the remembered keyboard lift, so
+  the keyboard ⇄ panel swap is still pixel-stable) with
+  `useKeyboardPanelReveal` (the reveal state machine: the app animates
+  nothing — the panel paints pinned in the keyboard's space and the system
+  keyboard's own show/hide does all visible motion, including a
+  tween-settled space handoff on flip-back so the composer bar never moves)
+  and `SheetPicker` (bottom-sheet overlay).
 - **Markdown plugin** — `@sigx/lynx-emoji/markdown` exports
   `createEmojiPlugin()` for `@sigx/lynx-markdown`'s editor (optional peer):
   `:` trigger suggestions (inserts the glyph), `:shortcode:` preview syntax,
