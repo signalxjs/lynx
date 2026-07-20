@@ -9,11 +9,16 @@
         ".": {
             "types": "./dist/index.d.ts",
             "import": "./dist/index.js"
-        }
+        },
+        "./signalx-module.json": "./signalx-module.json",
+        "./package.json": "./package.json"
     },
     "files": [
         "src",
-        "dist"
+        "dist",
+        "ios",
+        "android",
+        "signalx-module.json"
     ],
     "scripts": {
         "build": "node ../../scripts/clean.mjs dist && tsgo",
