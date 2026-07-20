@@ -2,6 +2,7 @@ import {
   component,
   effect,
   signal,
+  onUnmounted,
   useElementLayout,
   useMainThreadRef,
   useSharedValue,
@@ -256,7 +257,8 @@ const ListImpl = component<ListProps>(({ props, slots, emit }) => {
   // bounded window so that can't happen; the `layoutcomplete` path still wins
   // in the common case (it fires within a frame or two, well under this delay).
   if (chatEnabled) {
-    setTimeout(() => { if (!ready.value) ready.value = true; }, 400);
+    const revealFallback = setTimeout(() => { if (!ready.value) ready.value = true; }, 400);
+    onUnmounted(() => clearTimeout(revealFallback));
   }
 
   // ── Windowing ──────────────────────────────────────────────────────────────

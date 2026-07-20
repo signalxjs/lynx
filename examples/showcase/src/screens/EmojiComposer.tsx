@@ -3,6 +3,7 @@ import {
     signal,
     watch,
     onMounted,
+    onUnmounted,
     Platform,
     type SharedValue,
 } from '@sigx/lynx';
@@ -102,15 +103,18 @@ export const EmojiComposerScreen = component(() => {
     // the chat lays out first, then the grid mounts and stays warm so opening
     // emoji (always well after this tick) is a jank-free instant swap.
     const pickerWarm = signal(false);
-    const warmPicker = (): void => { pickerWarm.value = true; };
+    const warmPicker = (): void => { if (!pickerWarm.value) pickerWarm.value = true; };
     // Primary trigger: warm as soon as the keyboard is first raised (the user
     // tapped the input). The chat has long since laid out by then, so mounting
     // the grid here can't disturb its measurement.
     watch(() => kbLiftBG.value, (h) => { if (h > 0) warmPicker(); });
     // Fallback: also warm shortly after mount, so opening emoji straight away
     // (this demo's "Tap 🙂" CTA — no keyboard first) is jank-free too. The delay
-    // lets the chat lay out first.
-    onMounted(() => { setTimeout(warmPicker, 150); });
+    // lets the chat lay out first. Cleared on unmount so it can't fire (and warm
+    // a torn-down signal) after the screen is popped.
+    let warmTimer: ReturnType<typeof setTimeout> | null = null;
+    onMounted(() => { warmTimer = setTimeout(warmPicker, 150); });
+    onUnmounted(() => { if (warmTimer !== null) clearTimeout(warmTimer); });
 
     // Flip to true and rebuild to log the geometry to logcat (lynx_console)
     // for on-device confirmation of the height match.
@@ -234,7 +238,7 @@ export const EmojiComposerScreen = component(() => {
                     // racing up from a 1px placeholder — the mount frame lays out
                     // at full size, so `layoutcomplete` lands and the chat-mode
                     // reveal is deterministic.
-                    initialMainAxisSize={Math.round(screenH - (insets.value.top ?? 0) - 56)}
+                    initialMainAxisSize={Math.round(screenH - (insets.value.top ?? 0) - HEADER_H)}
                     // Long-form fill (NOT a bare `flexGrow: 1`): in Lynx a
                     // `flexGrow`-only box keeps `flexBasis: 'auto'` and sizes to
                     // content, collapsing the thread; `flexBasis: 0` + `minHeight: 0`
