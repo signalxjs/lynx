@@ -2,6 +2,8 @@ import {
     component,
     signal,
     watch,
+    onMounted,
+    onUnmounted,
     Platform,
     type SharedValue,
 } from '@sigx/lynx';
@@ -9,7 +11,7 @@ import { Screen, BottomSheet } from '@sigx/lynx-navigation';
 import { Button, Col, Row, Text, emojiClasses, useMarkdownEditorTheme } from '@sigx/lynx-daisyui';
 import { LucideIcon } from '@sigx/lynx-icons-lucide/components';
 import { Haptics } from '@sigx/lynx-haptics';
-import { KeyboardAvoidingView, useKeyboardLift, useKeyboardLiftSV } from '@sigx/lynx-keyboard';
+import { useKeyboardLift, useKeyboardLiftSV } from '@sigx/lynx-keyboard';
 import { useSafeAreaInsets } from '@sigx/lynx-safe-area';
 import { EmojiPicker, enData, useKeyboardPanelReveal, type EmojiPickEvent } from '@sigx/lynx-emoji';
 import { List } from '@sigx/lynx-list';
@@ -92,6 +94,28 @@ export const EmojiComposerScreen = component(() => {
     watch(() => kbLiftBG.value, (h) => { if (h > rememberedKb) rememberedKb = h; });
     const screenH = Platform.pixelHeight / (Platform.pixelRatio || 1);
 
+    // Warm the emoji grid a beat AFTER the chat has had its first layout, then
+    // keep it mounted for the screen's life. Two constraints pull against each
+    // other: mounting the ~2000-row grid in the SAME frame as the chat List
+    // collapses the List's self-measurement (the thread doesn't fill and the
+    // underneath screen bleeds through); but mounting it cold on first open
+    // makes that first scroll flicker. Warming just after mount satisfies both —
+    // the chat lays out first, then the grid mounts and stays warm so opening
+    // emoji (always well after this tick) is a jank-free instant swap.
+    const pickerWarm = signal(false);
+    const warmPicker = (): void => { if (!pickerWarm.value) pickerWarm.value = true; };
+    // Primary trigger: warm as soon as the keyboard is first raised (the user
+    // tapped the input). The chat has long since laid out by then, so mounting
+    // the grid here can't disturb its measurement.
+    watch(() => kbLiftBG.value, (h) => { if (h > 0) warmPicker(); });
+    // Fallback: also warm shortly after mount, so opening emoji straight away
+    // (this demo's "Tap 🙂" CTA — no keyboard first) is jank-free too. The delay
+    // lets the chat lay out first. Cleared on unmount so it can't fire (and warm
+    // a torn-down signal) after the screen is popped.
+    let warmTimer: ReturnType<typeof setTimeout> | null = null;
+    onMounted(() => { warmTimer = setTimeout(warmPicker, 150); });
+    onUnmounted(() => { if (warmTimer !== null) clearTimeout(warmTimer); });
+
     // Flip to true and rebuild to log the geometry to logcat (lynx_console)
     // for on-device confirmation of the height match.
     const DEBUG_GEOM = false;
@@ -164,7 +188,12 @@ export const EmojiComposerScreen = component(() => {
         // the header. `full` still sits above compact whenever there's room.
         const compactCapped = Math.min(compact, revealCap);
         const full = Math.min(Math.round(screenH * 0.92), revealCap);
-        const detents = [INPUT_H, compactCapped, Math.max(compactCapped, full)];
+        // Collapsed floor = just the input row. The sheet's bottom already sits
+        // at the safe-area line (an ancestor `<SafeAreaView edges={['bottom']}>`
+        // pads the gesture bar), so the row lands clear of it — adding the inset
+        // here again would float the row a full inset too high.
+        const floorH = INPUT_H;
+        const detents = [floorH, compactCapped, Math.max(compactCapped, full)];
         const mode = reveal.mode();
         const engaged = mode !== 'closed';
         void revealSV;
@@ -184,32 +213,51 @@ export const EmojiComposerScreen = component(() => {
 
         return (
             <Col class="flex-fill bg-base-100">
+                {/* Opaque backdrop that fills the whole screen layer. In this
+                    modal chain the flex root doesn't stretch to the layer's top
+                    edge, leaving a strip the underneath screen bleeds through.
+                    An absolutely-positioned child resolves against the layer's
+                    positioned host (not the flex box), so it covers the full
+                    surface; rendered first, it sits behind the thread. */}
+                <view class="bg-base-100" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
                 <Screen title="Chat composer" />
-                {/* Chat above; padded so the newest message clears the input
-                    row. KAV lifts it above the keyboard. The emoji panel
-                    (when open) overlays the bottom of the thread — WhatsApp. */}
-                <KeyboardAvoidingView behavior="padding">
-                    <List
-                        items={messages.value}
-                        keyExtractor={(m) => String(m.id)}
-                        inverted
-                        stickToBottom
-                        style={{ flexGrow: 1, paddingBottom: `${INPUT_H + 8}px` }}
-                        renderItem={(m) => (
-                            <view style={{ paddingLeft: '16px', paddingRight: '16px', paddingTop: '4px', paddingBottom: '4px' }}>
-                                <Col
-                                    class={
-                                        m.author === 'me'
-                                            ? 'self-end bg-primary text-primary-content rounded-xl px-3 py-2 max-w-[80%]'
-                                            : 'self-start bg-base-200 rounded-xl px-3 py-2 max-w-[80%]'
-                                    }
-                                >
-                                    <Text>{m.body}</Text>
-                                </Col>
-                            </view>
-                        )}
-                    />
-                </KeyboardAvoidingView>
+                {/* Chat thread — a DIRECT child of the root column (no
+                    KeyboardAvoidingView wrapper): the extra flex layer collapsed
+                    the list's self-measurement in this modal chain, leaving a gap
+                    the underneath screen bled through. The composer sheet already
+                    rides the keyboard via its `liftSV`, so the thread doesn't need
+                    to avoid the keyboard itself — it stays live behind the sheet
+                    (WhatsApp). `paddingBottom` keeps the newest message clear of
+                    the input row. */}
+                <List
+                    items={messages.value}
+                    keyExtractor={(m) => String(m.id)}
+                    inverted
+                    stickToBottom
+                    // Mount the list at ≈ its real height on frame 1 instead of
+                    // racing up from a 1px placeholder — the mount frame lays out
+                    // at full size, so `layoutcomplete` lands and the chat-mode
+                    // reveal is deterministic.
+                    initialMainAxisSize={Math.round(screenH - (insets.value.top ?? 0) - HEADER_H)}
+                    // Long-form fill (NOT a bare `flexGrow: 1`): in Lynx a
+                    // `flexGrow`-only box keeps `flexBasis: 'auto'` and sizes to
+                    // content, collapsing the thread; `flexBasis: 0` + `minHeight: 0`
+                    // is the Lynx-correct "take the remaining space".
+                    style={{ flexGrow: 1, flexShrink: 1, flexBasis: 0, minHeight: 0, paddingBottom: `${floorH + 8}px` }}
+                    renderItem={(m) => (
+                        <view style={{ paddingLeft: '16px', paddingRight: '16px', paddingTop: '4px', paddingBottom: '4px' }}>
+                            <Col
+                                class={
+                                    m.author === 'me'
+                                        ? 'self-end bg-primary text-primary-content rounded-xl px-3 py-2 max-w-[80%]'
+                                        : 'self-start bg-base-200 rounded-xl px-3 py-2 max-w-[80%]'
+                                }
+                            >
+                                <Text>{m.body}</Text>
+                            </Col>
+                        </view>
+                    )}
+                />
 
                 {/* The composer sheet: [input row + pill] (handle, draggable)
                     over [emoji picker] (body, scrolls). Floor = input only;
@@ -237,7 +285,7 @@ export const EmojiComposerScreen = component(() => {
                             // Input row FIRST, drag pill BELOW it (WhatsApp) — the
                             // input is the fixed top anchor, so entering emoji mode
                             // adds the pill+grid BELOW it and the input never jumps.
-                            <Col>
+                            <view style={{ display: 'flex', flexDirection: 'column' }}>
                                 <view ignore-focus={true}>
                                     <Row gap={8} align="flex-end" class="px-2 py-2" style={{ height: `${INPUT_H}px` }}>
                                         <Button variant="ghost" circle onPress={toggle}>
@@ -280,23 +328,36 @@ export const EmojiComposerScreen = component(() => {
                                         <view class="w-10 h-1 rounded-full bg-base-300" />
                                     </Col>
                                 )}
-                            </Col>
+                            </view>
                         ),
                         default: () => (
-                            // Explicit height (not flexGrow) so the picker's
-                            // grid sees a non-zero region and mounts — a bare
-                            // flexGrow chain through daisy `Col` measured 0.
-                            <view style={{ height: `${detents[2] - INPUT_H - 32}px`, display: 'flex', flexDirection: 'column' }}>
-                                <EmojiPicker
-                                    data={enData}
-                                    showSearch
-                                    onPick={insertPick}
-                                    // Daisy skin — gives the sticky section headers their
-                                    // opaque `bg-base-100`; without it the headless header
-                                    // fallback is transparent and emojis scroll through it.
-                                    classes={emojiClasses}
-                                    style={PICKER_STYLE}
-                                />
+                            // Warm-but-collapsed picker. When the panel isn't open the
+                            // OUTER wrapper collapses to `height: 0; overflow: hidden`
+                            // so nothing shows in the sheet's floor slice (previously
+                            // the picker's search row peeked below the input); when open
+                            // it takes the panel height. The INNER wrapper keeps the full
+                            // height in BOTH states, so the grid never measures a
+                            // zero-height region (that floods DispatchEvent, #606) and
+                            // the picker stays mounted (warm) for a jank-free first open.
+                            <view
+                                style={engaged
+                                    ? { height: `${detents[2] - INPUT_H - 32}px`, display: 'flex', flexDirection: 'column' }
+                                    : { height: '0px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}
+                            >
+                                <view style={{ height: `${detents[2] - INPUT_H - 32}px`, flexShrink: 0, display: 'flex', flexDirection: 'column' }}>
+                                    {pickerWarm.value && (
+                                        <EmojiPicker
+                                            data={enData}
+                                            showSearch
+                                            onPick={insertPick}
+                                            // Daisy skin — gives the sticky section headers their
+                                            // opaque `bg-base-100`; without it the headless header
+                                            // fallback is transparent and emojis scroll through it.
+                                            classes={emojiClasses}
+                                            style={PICKER_STYLE}
+                                        />
+                                    )}
+                                </view>
                             </view>
                         ),
                     }}

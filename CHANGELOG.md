@@ -4,6 +4,10 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 ## [Unreleased]
 
+### Fixed
+
+- `@sigx/lynx-list` — chat mode (`inverted` + `stickToBottom`) can no longer stay stuck at `opacity: 0`: a bounded safety-net reveals the thread even when a mount-time layout race prevents the first `layoutcomplete` from landing (the `layoutcomplete` path still wins in the common case, so there's no flash). Surfaced by the showcase WhatsApp emoji composer demo, whose layout was also fixed — chat fill / no modal bleed-through, input at the correct safe-area position, and the warm emoji picker no longer peeking below the input while collapsed (#741).
+
 ## [0.17.0] - 2026-07-19
 
 ### Changed
