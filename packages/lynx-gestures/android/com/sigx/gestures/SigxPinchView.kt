@@ -61,16 +61,6 @@ class SigxPinchView(context: Context) : AndroidView(context) {
     override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
         if (!gestureEnabled) return super.dispatchTouchEvent(ev)
 
-        // Claim the gesture on the very first touch-down. Without this, Lynx's
-        // event pipeline (and any ancestor <scroll-view>) takes the stream after
-        // ACTION_DOWN and this view never sees the second finger — the diagnostic
-        // showed only pointers=1 DOWNs arriving. `requestDisallowInterceptTouchEvent`
-        // stops ancestors intercepting; returning `true` keeps Android routing the
-        // whole gesture (MOVE / POINTER_DOWN / UP) here.
-        if (ev.actionMasked == MotionEvent.ACTION_DOWN) {
-            parent?.requestDisallowInterceptTouchEvent(true)
-        }
-
         // Feed the detectors finger coordinates mapped OUT of our own transform.
         // Android delivers touches in this view's post-transform local space, so
         // as we scale/rotate the view the finger span/angle the detector measures
@@ -80,16 +70,20 @@ class SigxPinchView(context: Context) : AndroidView(context) {
         val mapped = MotionEvent.obtain(ev)
         mapped.transform(matrix)
         scaleDetector.onTouchEvent(mapped)
+        // Claims disallow-intercept once (and only once) a second finger lands,
+        // and releases it the moment the 2-finger gesture ends (see below).
         trackRotationAndPhases(mapped)
         mapped.recycle()
 
-        // Still let Lynx/children process the ORIGINAL event (so taps etc. inside
-        // the content work), but keep ownership of the stream ourselves.
+        // Let Lynx/children process the ORIGINAL event (taps inside the content).
         super.dispatchTouchEvent(ev)
 
-        if (ev.actionMasked == MotionEvent.ACTION_UP || ev.actionMasked == MotionEvent.ACTION_CANCEL) {
-            parent?.requestDisallowInterceptTouchEvent(false)
-        }
+        // Return true so Android keeps routing the stream here — without it the
+        // view stops receiving events after ACTION_DOWN and never sees the second
+        // finger (the diagnostic showed only pointers=1 DOWNs arriving). This does
+        // NOT block single-finger scrolling: we don't `requestDisallowInterceptTouchEvent`
+        // until a 2-finger gesture actually begins, so an ancestor <scroll-view>
+        // can still intercept a one-finger drag and CANCEL us.
         return true
     }
 
@@ -101,6 +95,9 @@ class SigxPinchView(context: Context) : AndroidView(context) {
                     if (!active) {
                         active = true
                         lastEmitMs = 0L
+                        // Now that a real 2-finger gesture is underway, lock out
+                        // ancestor interception (e.g. a parent <scroll-view>).
+                        parent?.requestDisallowInterceptTouchEvent(true)
                         if (DEBUG) Log.d(TAG, "gesture START")
                         listener?.onGestureStart(focalX(ev), focalY(ev))
                     }
@@ -124,6 +121,10 @@ class SigxPinchView(context: Context) : AndroidView(context) {
                 val remaining = ev.pointerCount - if (ev.actionMasked == MotionEvent.ACTION_POINTER_UP) 1 else 0
                 if (active && remaining < 2) {
                     active = false
+                    // Release the ancestor lock as soon as the 2-finger gesture
+                    // ends — don't wait for the final ACTION_UP with one finger
+                    // still down, which would keep scrolling disabled.
+                    parent?.requestDisallowInterceptTouchEvent(false)
                     if (DEBUG) Log.d(TAG, "gesture END scale=$curScale rotDeg=$curRotationDeg")
                     emitEnd()
                 }

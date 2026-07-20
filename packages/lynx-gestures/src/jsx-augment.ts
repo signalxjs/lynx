@@ -3,7 +3,7 @@
  *
  * Importing this module registers `'sigx-pinch'` as a valid JSX intrinsic with
  * the prop + event surface implemented by `SigxPinchUI` (iOS) and
- * `SigxPinchUI.kt` / `SigxPinchLayout.kt` (Android). Pulled in automatically by
+ * `SigxPinchUI.kt` / `SigxPinchView.kt` (Android). Pulled in automatically by
  * `@sigx/lynx-gestures`'s entry point so consumers don't import it directly.
  *
  * Element availability requires `sigx prebuild` to have run after adding this

@@ -96,7 +96,11 @@ public class SigxPinchUI: LynxUI<UIView> {
     public override func insertChild(_ child: LynxUI<UIView>!, at index: Int) {
         super.insertChild(child, at: index)
         if let childView = child?.view() {
-            contentView.addSubview(childView)
+            // Preserve Lynx's child order in the native subview stack (z-order)
+            // rather than always appending. Clamp — Lynx's index can transiently
+            // exceed the current subview count during reconciliation.
+            let at = max(0, min(index, contentView.subviews.count))
+            contentView.insertSubview(childView, at: at)
         }
     }
 
