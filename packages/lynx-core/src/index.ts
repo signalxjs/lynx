@@ -25,6 +25,12 @@ export type { DeviceInfoResult, IosDeviceInfo, AndroidDeviceInfo } from './devic
 // `--variant`. Lets an app render a "DEV"/"STAGING" badge or branch by env.
 export { variant, isVariant, isBaseBuild } from './variant.js';
 
+// App foreground/background state (#607) — an ambient lifecycle signal backed
+// by the activity/app-lifecycle plumbing core already owns. Imperative only
+// (reactive hook omitted to keep core free of @sigx/reactivity).
+export { currentAppState, addAppStateListener, isAppStateAvailable, APP_STATE_EVENT } from './app-state.js';
+export type { AppStateStatus, AppStateListener } from './app-state.js';
+
 // Logging — leveled + namespaced logger usable by any package (see logger.ts).
 export {
     createLogger,

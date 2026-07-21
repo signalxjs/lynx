@@ -1,13 +1,13 @@
-package com.sigx.appstate
+package com.sigx.core
 
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
 /**
- * Process-wide app-state holder + listener registry. Fed by
- * [AppStateActivityHook] (onResume/onPause), drained by per-LynxView
- * [AppStatePublisher]s that forward transitions to JS, and read synchronously
- * by [AppStateModule.getAppState].
+ * Process-wide app-state holder + listener registry. Fed by [SigxActivityHook]
+ * (onResume/onPause — the same hook core already registers for the activity
+ * holder), drained by per-LynxView [AppStatePublisher]s that forward
+ * transitions to JS, and read synchronously by [DeviceInfoModule.getAppState].
  *
  * Two-state model: `"active"` | `"background"`. Consecutive duplicates are
  * dropped here so publishers never spam JS (e.g. the first onResume of a

@@ -22,10 +22,12 @@ object SigxActivityHook {
     @JvmStatic
     fun onResume(activity: Activity) {
         SigxActivityHolder.setActivity(activity)
+        AppStateBus.emit(AppStateBus.STATE_ACTIVE)
     }
 
     @JvmStatic
     fun onPause(activity: Activity) {
         SigxActivityHolder.clearIf(activity)
+        AppStateBus.emit(AppStateBus.STATE_BACKGROUND)
     }
 }

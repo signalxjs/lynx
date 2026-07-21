@@ -4,8 +4,8 @@ import Lynx
 
 /// Per-LynxView publisher: converts UIApplication foreground/background
 /// notifications into `appStateChanged` global events for the JS side
-/// (`@sigx/lynx-app-state`). Instantiated by the generated
-/// `GeneratedLifecyclePublishers.attachAll(to:)`.
+/// (`currentAppState` / `addAppStateListener` in @sigx/lynx-core).
+/// Instantiated by the generated `GeneratedLifecyclePublishers.attachAll(to:)`.
 ///
 /// Two-state model: only `didEnterBackgroundNotification` counts as
 /// `background` — the transient `willResignActive` phase (control-center

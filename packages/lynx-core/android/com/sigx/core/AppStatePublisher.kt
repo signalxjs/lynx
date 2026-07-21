@@ -1,4 +1,4 @@
-package com.sigx.appstate
+package com.sigx.core
 
 import android.util.Log
 import com.lynx.react.bridge.JavaOnlyArray
@@ -8,8 +8,8 @@ import java.util.UUID
 
 /**
  * Per-LynxView publisher: forwards [AppStateBus] transitions to JS as
- * `appStateChanged` global events (`@sigx/lynx-app-state`). Instantiated by
- * the generated `GeneratedLifecyclePublishers.attachAll(lynxView)`.
+ * `appStateChanged` global events. Instantiated by the generated
+ * `GeneratedLifecyclePublishers.attachAll(lynxView)`.
  */
 class AppStatePublisher(private val lynxView: LynxView) {
 
@@ -37,7 +37,7 @@ class AppStatePublisher(private val lynxView: LynxView) {
     }
 
     private companion object {
-        const val TAG = "AppStatePublisher"
+        const val TAG = "SigxAppState"
         const val EVENT_NAME = "appStateChanged"
     }
 }
