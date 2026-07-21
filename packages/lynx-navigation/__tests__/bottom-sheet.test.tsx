@@ -114,5 +114,14 @@ describe('<BottomSheet>', () => {
         await waitForUpdate();
 
         expect(panelHeight()).toBe('920px');
+
+        // …and shrinks back when the chip is removed. Geometry that SHRANK also
+        // has to pull the held `reveal` / captured lift-rest back into range on
+        // the main thread (not observable from BG here — exercised on-device).
+        geom.max = 800;
+        geom.detents = [64, 400, 800];
+        await waitForUpdate();
+
+        expect(panelHeight()).toBe('800px');
     });
 });

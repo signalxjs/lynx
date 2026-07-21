@@ -198,6 +198,22 @@ export const BottomSheet = component<BottomSheetProps>(({ props, emit, slots }) 
         geomRef.current.min = min;
         geomRef.current.max = max;
         geomRef.current.detents = ds;
+        // Detents that SHRANK can strand state that predates them: a `reveal`
+        // above the new top would keep rendering out of bounds until the next
+        // drag re-clamped it, and a captured `openToLift` rest would stay an
+        // out-of-range snap candidate. Pull both back into the new range.
+        let r = reveal.current.value;
+        if (r < min) r = min;
+        if (r > max) r = max;
+        if (r !== reveal.current.value) {
+            // An in-flight tween is heading somewhere equally out of range.
+            cancelAnimation(reveal);
+            reveal.current.value = r;
+        }
+        let rest = openRestRef.current.rest;
+        if (rest < min) rest = min;
+        if (rest > max) rest = max;
+        openRestRef.current.rest = rest;
     });
     const setReveal = runOnMainThread((target: number, animate: number, capture: number, openFloor: number) => {
         'main thread';
