@@ -1,3 +1,4 @@
+import { signal, type PrimitiveSignal } from '@sigx/reactivity';
 import { callAsync, isModuleAvailable } from './bridge.js';
 
 /**
@@ -19,10 +20,9 @@ export type AppStateListener = (state: AppStateStatus) => void;
 // Foreground/background lives in core (not a feature package) because it's an
 // ambient lifecycle signal, like DeviceInfo/Platform: tiny, universal, and
 // backed by the activity/app-lifecycle plumbing core already owns (Android's
-// SigxActivityHook, iOS's app notifications). The reactive `useAppState()`
-// hook stays out of core on purpose — it would drag @sigx/reactivity onto the
-// dependency-free base package; consumers that want reactivity wrap
-// `addAppStateListener` in their own signal.
+// SigxActivityHook, iOS's app notifications). It exposes both an imperative
+// API and a reactive `useAppState()` signal — @sigx/reactivity is a zero-dep
+// leaf, so depending on it here is cycle-free and cheap.
 
 /** The core native module (`SigxCore`) — same one DeviceInfo hangs off. */
 const MODULE = 'SigxCore';
@@ -51,12 +51,14 @@ let current: AppStateStatus = 'active';
 let emitterWired = false;
 let seeded = false;
 const listeners = new Set<AppStateListener>();
+let stateSignal: PrimitiveSignal<AppStateStatus> | undefined;
 
 const dispatch = (next: AppStateStatus): void => {
     // Dedup consecutive duplicates: multiple LynxViews mean multiple native
     // publishers, and iOS fires didBecomeActive on cold start too.
     if (next === current) return;
     current = next;
+    if (stateSignal) stateSignal.value = next;
     for (const fn of listeners) fn(next);
 };
 
@@ -129,6 +131,16 @@ export function addAppStateListener(cb: AppStateListener): () => void {
     ensureWired();
     listeners.add(cb);
     return () => { listeners.delete(cb); };
+}
+
+/**
+ * Reactive read of the app state. Returns a lazily-created singleton signal —
+ * components reading `.value` re-render on foreground/background transitions.
+ */
+export function useAppState(): PrimitiveSignal<AppStateStatus> {
+    ensureWired();
+    if (!stateSignal) stateSignal = signal<AppStateStatus>(current);
+    return stateSignal;
 }
 
 /** Whether the native app-state channel is available (false off-device). */

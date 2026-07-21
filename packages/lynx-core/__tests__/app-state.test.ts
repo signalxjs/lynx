@@ -169,6 +169,17 @@ describe('app-state', () => {
         expect(api.currentAppState()).toBe('active');
     });
 
+    it('exposes a reactive signal that tracks transitions', async () => {
+        const api = await loadFresh();
+        const sig = api.useAppState();
+        expect(sig.value).toBe('active');
+
+        emit(api.APP_STATE_EVENT, { state: 'background' });
+        expect(sig.value).toBe('background');
+        emit(api.APP_STATE_EVENT, { state: 'active' });
+        expect(sig.value).toBe('active');
+    });
+
     it('is a no-op off-device (no native module, no emitter)', async () => {
         getAppStateImpl = null;         // NativeModules has no SigxCore
         emitterAvailable = false;
