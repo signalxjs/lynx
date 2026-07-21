@@ -10,6 +10,8 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 ### Fixed
 
+- `@sigx/lynx-cli` — `sigx prebuild`'s fast path now hashes the CLI's own `templates/` tree (fingerprint format `v8`). It hashed project inputs plus `cliVersion`, which covers a published CLI but not a workspace one: editing a managed template (`ContentView.swift`, `MainActivity.kt`, `SigxProductionResources.*`, …) left the fingerprint unchanged, so `refresh{Ios,Android}ManagedFiles` never ran and the previous run's stale template was what landed in the built app — silently, with the only workaround being to delete `node_modules/.cache/@sigx/lynx-cli/prebuild-inputs.hash` by hand. Contributor dev-loop only; it's a fixed ~40-file tree, so the hashing cost is noise next to a prebuild (#614).
+
 - `@sigx/lynx-dev-client` — the Android resource fetchers' `request == null` guards are live again. `fetchResource` / `fetchTemplate` / `fetchSSRData` declared their `LynxResourceRequest` parameter non-null, so Kotlin's `checkNotNullParameter` intrinsic threw an NPE at function entry before the guard could return a structured failure — the checks read as handled but were dead code (`Condition is always 'false'` at compile time). The parameter is now nullable, matching the production fetchers in `SigxProductionResources.kt` (#613).
 
 ## [0.18.1] - 2026-07-21
