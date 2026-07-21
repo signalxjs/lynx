@@ -45,23 +45,20 @@ interface LynxLike {
 
 declare const lynx: unknown | undefined;
 
-// The single source of truth. JS boots with the app foregrounded in every
+// The single source of truth. An OBJECT signal (not a primitive one): its
+// `.status` keeps the `AppStateStatus` union type, whereas a PrimitiveSignal
+// widens `.value` to `string`. JS boots with the app foregrounded in every
 // ordinary launch; the async native seed (below) corrects the rare background
 // boot. Everything downstream — `AppState.current`, `AppState.subscribe`, and
 // the reactive `useAppState()` — derives from this one signal, so we lean on
 // the reactivity system's own subscription + Object.is dedup instead of a
 // hand-rolled listener set.
-const state = signal<AppStateStatus>('active');
+const state = signal({ status: 'active' as AppStateStatus });
 let emitterWired = false;
 let seeded = false;
 let stateComputed: Computed<AppStateStatus> | undefined;
 
 const isStatus = (v: unknown): v is AppStateStatus => v === 'active' || v === 'background';
-
-// PrimitiveSignal widens its value type to `string` (sigx lets you reassign any
-// string later); every write here is isStatus-guarded, so reading back as
-// AppStateStatus is sound.
-const read = (): AppStateStatus => state.value as AppStateStatus;
 
 /**
  * Wire the GlobalEventEmitter listener + native seed, lazily. Each latch is
@@ -79,7 +76,7 @@ const ensureWired = (): void => {
             if (emitter) {
                 emitter.addListener(APP_STATE_EVENT, (payload: unknown) => {
                     const next = (payload as { state?: unknown } | undefined)?.state;
-                    if (isStatus(next)) state.value = next;   // signal dedups
+                    if (isStatus(next)) state.status = next;   // signal dedups
                 });
                 emitterWired = true;
                 // Transitions between an earlier successful seed and this
@@ -104,7 +101,7 @@ const ensureWired = (): void => {
             .then((res) => {
                 // The bridge resolves whatever the native callback passes —
                 // an error-shaped or malformed payload is a failure too.
-                if (isStatus(res?.state)) state.value = res.state;
+                if (isStatus(res?.state)) state.status = res.state;
                 else seeded = false;
             })
             .catch(() => { seeded = false; });
@@ -124,7 +121,7 @@ export const AppState = {
      */
     get current(): AppStateStatus {
         ensureWired();
-        return read();
+        return state.status;
     },
 
     /** Whether the native app-state channel is available (false off-device). */
@@ -144,7 +141,7 @@ export const AppState = {
      */
     subscribe(cb: AppStateListener): () => void {
         ensureWired();
-        return watch(read, (next) => cb(next));
+        return watch(() => state.status, (next) => cb(next));
     },
 };
 
@@ -155,6 +152,6 @@ export const AppState = {
  */
 export function useAppState(): Computed<AppStateStatus> {
     ensureWired();
-    if (!stateComputed) stateComputed = computed(read);
+    if (!stateComputed) stateComputed = computed(() => state.status);
     return stateComputed;
 }
