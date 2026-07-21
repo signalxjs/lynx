@@ -23,7 +23,7 @@ pnpm add @sigx/lynx-notifications
 
 Prebuild now wires the rest of the remote-push plumbing too — you only supply the credentials:
 
-- **Android.** The module declares the `com.google.gms.google-services` Gradle plugin, so prebuild applies it automatically (it processes `google-services.json` into the resources that initialize Firebase). Point `android.googleServicesFile` at your Firebase `google-services.json`; prebuild copies it into `android/app/` on every run so it survives `android/` regeneration:
+- **Android.** Point `android.googleServicesFile` at your Firebase `google-services.json`; prebuild copies it into `android/app/` on every run so it survives `android/` regeneration, and applies the `com.google.gms.google-services` Gradle plugin that turns it into the resources initializing Firebase:
 
   ```ts
   // signalx.config.ts
@@ -33,6 +33,8 @@ Prebuild now wires the rest of the remote-push plumbing too — you only supply 
   ```
 
   Keep the file at a gitignored path to stay out of source control.
+
+  **Firebase is optional.** Without `android.googleServicesFile` the Google Services plugin isn't applied at all, so the Android build succeeds on a machine that has never seen a `google-services.json` — local notifications work as normal and only remote push is inert (prebuild says so). Adding the config later applies the plugin on the next prebuild.
 
 - **iOS.** The module declares the `aps-environment` entitlement, so prebuild generates `<App>.entitlements` (Release → `production`) and `<App>.debug.entitlements` (Debug → `development`) and wires `CODE_SIGN_ENTITLEMENTS` per build configuration. You still need an Apple Developer account with the **Push Notifications** capability enabled and a signing identity / provisioning profile that includes it (e.g. via `ios.developmentTeam` + automatic signing, or fastlane match for distribution).
 
