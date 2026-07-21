@@ -1,6 +1,13 @@
 # @sigx/lynx-cli
 
-The Lynx plugin for [`@sigx/cli`](https://sigx.dev/cli/) — adds `dev`, `build`, `prebuild`, `doctor`, `run:android`, `run:ios`, and `run:web` commands for SignalX projects targeting [Lynx](https://lynxjs.org/).
+The Lynx plugin for [`@sigx/cli`](https://sigx.dev/cli/) — adds `dev`, `build`, `prebuild`, `doctor`, `run:android`, `run:ios`, `run:web`, and `build:web` commands for SignalX projects targeting [Lynx](https://lynxjs.org/).
+
+## Web
+
+- `sigx run:web` — build and serve the app in the browser (via upstream `@lynx-js/web-core`) with live reload. Zero config: no `environments` block needed in `lynx.config.ts`.
+- `sigx build:web` — emit a deployable static export to `dist/web/`: host page, engine, app bundle + async chunks, and the `@sigx/lynx-web-host` bridge. Flags: `--out <dir>`, `--base <path>` (subpath hosting, e.g. GitHub Pages project sites), `--coi` (vendor a cross-origin-isolation service worker for hosts that can't set headers).
+
+The engine needs cross-origin isolation (`Cross-Origin-Opener-Policy: same-origin` + `Cross-Origin-Embedder-Policy: require-corp`); the export includes `_headers` (Netlify/Cloudflare Pages) and `vercel.json` samples, and `--coi` covers header-less hosts with one automatic first-visit reload.
 
 This package is auto-installed when you scaffold a Lynx project, so you rarely depend on it directly:
 
@@ -53,6 +60,17 @@ sigx prebuild --android --embed-bundle  # bakes it into android/app/src/main/ass
 `--embed-bundle` requires a prior `sigx build` and errors if `dist/main.lynx.bundle`
 is missing or empty. Plain `sigx prebuild` (without the flag) keeps seeding the
 empty iOS placeholder so dev/sandbox builds fall through to the dev server.
+
+### Dynamic `import()` / async chunks
+
+A dynamic `import()` in app code emits an async chunk
+(`dist/static/js/async/<hash>.js`). Every embed path above also mirrors those
+chunks into the native project — iOS `ios/<App>/LynxAssets/` (a folder
+reference registered by prebuild), Android `android/app/src/main/assets/` —
+and the generated app shells register production resource fetchers that load
+them from there at runtime. Nothing to configure; `sigx build` lists the
+emitted chunks in its summary. One caveat: OTA updates don't carry async
+chunks (see below).
 
 ## Build variants
 
@@ -147,6 +165,14 @@ const { updateId, manifestPath, bundleUrl, sha256 } = await publishUpdate({ cwd:
 
 For CI that only packages a prebuilt artifact, import `@sigx/lynx-updates-publisher`
 directly — it pulls only Node built-ins, not this package's build toolchain.
+
+OTA payloads carry only `main.lynx.bundle` — **not** async chunks from dynamic
+`import()`. Since an updated bundle references chunk hashes the installed app
+doesn't have embedded, `updates:publish` refuses to run while
+`dist/static/js/async/` is non-empty. Convert the dynamic imports to static
+ones, or pass `--allow-async-chunks` if your chunks are hosted remotely via a
+custom `output.assetPrefix` (the production fetchers fall back to http(s) for
+non-local URLs).
 
 ## License
 

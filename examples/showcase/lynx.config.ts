@@ -12,6 +12,11 @@ export default defineConfig({
     // `@lynx-js/web-core`'s `<lynx-view>` loads in the browser. The
     // `pluginSigxLynx` plugin reacts to `environment.name`, so the `web`
     // entry automatically flows through its `isWeb` build branches.
+    //
+    // NOTE: declaring `environments` is OPTIONAL for `sigx run:web` since #699
+    // — the plugin auto-provides `lynx` + `web` when the CLI requests a web
+    // build. The showcase keeps the explicit block so a plain `pnpm build`
+    // (no CLI involved) still produces BOTH bundles.
     environments: {
         lynx: {},
         web: {},

@@ -136,16 +136,49 @@ export function safeJoin(root: string, rel: string): string | null {
   return within.startsWith('..') || isAbsolute(within) ? null : abs;
 }
 
-export function hostHtml(projectName: string, bundle: string): string {
+export interface HostHtmlOptions {
+  /** Include the WebSocket live-reload client (dev server). Default true. */
+  reload?: boolean;
+  /** URL prefix for all served assets (subpath hosting). Default '/'. */
+  base?: string;
+  /** Register the COI service worker first (header-less static hosts). */
+  coi?: boolean;
+}
+
+/** Normalize a URL base path to `/segment/…/` form (`''`/`'/'` → `'/'`). */
+export function normalizeBasePath(raw: string | undefined): string {
+  let b = (raw ?? '/').trim();
+  if (b === '' || b === '/') return '/';
+  if (!b.startsWith('/')) b = `/${b}`;
+  if (!b.endsWith('/')) b = `${b}/`;
+  return b;
+}
+
+/** Shared host page — `sigx run:web` serves it, `sigx build:web` emits it. */
+export function hostHtml(projectName: string, bundle: string, opts: HostHtmlOptions = {}): string {
+  const base = normalizeBasePath(opts.base);
+  const coiTag = opts.coi ? `\n  <script src="${base}coi.js"></script>` : '';
+  const reloadTag =
+    opts.reload === false
+      ? ''
+      : `
+  <script>
+    (function () {
+      try {
+        var ws = new WebSocket((location.protocol === 'https:' ? 'wss' : 'ws') + '://' + location.host + '${RELOAD_PATH}');
+        ws.onmessage = function () { location.reload(); };
+      } catch (e) { /* reload channel unavailable — manual refresh still works */ }
+    })();
+  </script>`;
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>${projectName} — SignalX (web)</title>
-  <link rel="icon" href="data:," />
-  <link rel="stylesheet" href="/engine/static/css/client.css" />
-  <script type="module" src="/engine/static/js/client.js"></script>
+  <link rel="icon" href="data:," />${coiTag}
+  <link rel="stylesheet" href="${base}engine/static/css/client.css" />
+  <script type="module" src="${base}engine/static/js/client.js"></script>
   <style>
     html, body { margin: 0; height: 100%; background: #fff;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
@@ -154,18 +187,34 @@ export function hostHtml(projectName: string, bundle: string): string {
   </style>
 </head>
 <body>
-  <lynx-view style="height:100vh;width:100vw" url="/app/${bundle}" height="100vh" width="100vw"></lynx-view>
-  <script>
-    (function () {
-      try {
-        var ws = new WebSocket((location.protocol === 'https:' ? 'wss' : 'ws') + '://' + location.host + '${RELOAD_PATH}');
-        ws.onmessage = function () { location.reload(); };
-      } catch (e) { /* reload channel unavailable — manual refresh still works */ }
-    })();
-  </script>
+  <lynx-view style="height:100vh;width:100vw" url="${base}app/${bundle}" height="100vh" width="100vw"></lynx-view>
+  <script type="module">
+    // Host-page bridge (#703): sigx.* RPC handlers (clipboard, share, linking,
+    // pickers, vibrate) + appearance / initial-URL publishers.
+    import { installSigxWebHost } from '${base}host/sigx-host.js';
+    const sigxView = document.querySelector('lynx-view');
+    if (!sigxView) {
+      throw new Error('[sigx web] <lynx-view> element not found — host page markup out of sync');
+    }
+    installSigxWebHost(sigxView);
+  </script>${reloadTag}
 </body>
 </html>
 `;
+}
+
+/**
+ * Resolve the served web assets from the CLI's own dependencies: upstream
+ * web-core's prebuilt engine (`…/client_prod/static`) and the self-contained
+ * `@sigx/lynx-web-host` bridge module. Shared by run:web and build:web.
+ */
+export function resolveWebAssets(): { engineStaticDir: string; hostJsPath: string } {
+  const req = createRequire(import.meta.url);
+  const clientJs = req.resolve('@lynx-js/web-core/client.prod.js');
+  return {
+    engineStaticDir: dirname(dirname(clientJs)), // …/client_prod/static/js/client.prod.js → …/static
+    hostJsPath: req.resolve('@sigx/lynx-web-host/host'),
+  };
 }
 
 export async function runWeb(ctx: RunWebCtx): Promise<void> {
@@ -179,19 +228,27 @@ export async function runWeb(ctx: RunWebCtx): Promise<void> {
 
   // Resolve the web-core engine (a CLI dependency) — served read-only from node_modules.
   let engineStaticDir: string;
+  let hostJsPath: string;
   try {
-    const clientJs = createRequire(import.meta.url).resolve('@lynx-js/web-core/client.prod.js');
-    engineStaticDir = dirname(dirname(clientJs)); // …/client_prod/static/js/client.js → …/static
+    ({ engineStaticDir, hostJsPath } = resolveWebAssets());
   } catch {
-    logger.error('Could not resolve @lynx-js/web-core — try reinstalling dependencies.');
+    logger.error('Could not resolve @lynx-js/web-core / @sigx/lynx-web-host — try reinstalling dependencies.');
     process.exitCode = 1;
     return;
   }
 
   // Build (watch or one-shot). stdio inherited so the user sees build output.
+  // SIGX_WEB_ENV=1 lets `pluginSigxLynx` auto-provide `environments.web` (and
+  // `lynx`) when the app's lynx.config.ts declares none (#699) — run:web needs
+  // no config edit. User-declared environments are always preserved.
   const buildArgs = ['rspeedy', 'build', '--environment', 'web', ...(watchMode ? ['--watch'] : [])];
   logger.log(`Building the web bundle${watchMode ? ' (watching for changes)' : ''}…`);
-  const buildChild: ChildProcess = spawn('npx', buildArgs, { cwd, stdio: 'inherit', shell: true });
+  const buildChild: ChildProcess = spawn('npx', buildArgs, {
+    cwd,
+    stdio: 'inherit',
+    shell: true,
+    env: { ...process.env, SIGX_WEB_ENV: '1' },
+  });
   let buildExit: number | null = null;
   buildChild.on('exit', (code) => {
     buildExit = code ?? 0;
@@ -202,7 +259,11 @@ export async function runWeb(ctx: RunWebCtx): Promise<void> {
     bundleName = await waitForBundle(distDir, 180_000, () => buildExit);
   } catch (e) {
     logger.error(`No \`*.web.bundle\` was produced: ${String(e)}`);
-    logger.error("Add `environments: { lynx: {}, web: {} }` to your lynx.config.ts, then retry.");
+    logger.error(
+      'The web environment is normally auto-provided by pluginSigxLynx. If you passed ' +
+        '`web: false` to the plugin (or a custom setup filtered it out), add ' +
+        '`environments: { lynx: {}, web: {} }` to your lynx.config.ts, then retry.',
+    );
     try {
       buildChild.kill();
     } catch {
@@ -252,6 +313,12 @@ export async function runWeb(ctx: RunWebCtx): Promise<void> {
       }
       // The bundle must never be cached (it's rewritten on every rebuild).
       void serveFile(res, abs, rel.endsWith('.web.bundle') ? 'no-cache' : 'public, max-age=600');
+      return;
+    }
+    if (url === '/host/sigx-host.js') {
+      // Self-contained ESM host bridge (#703) — served from the CLI's own
+      // @sigx/lynx-web-host dependency, same pattern as the engine assets.
+      void serveFile(res, hostJsPath, 'no-cache');
       return;
     }
     res.writeHead(404).end('Not found');

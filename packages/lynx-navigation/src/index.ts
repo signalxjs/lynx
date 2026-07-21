@@ -9,6 +9,7 @@ export { defineRoutes } from './define-routes.js';
 export type { Register, RegisteredRoutes, RouteId, RouteParams, RouteSearch } from './register.js';
 export { useNav } from './hooks/use-nav.js';
 export type { Nav, RoutesWithoutParams, RoutesWithParams } from './hooks/use-nav.js';
+export { useSheetHeight } from './hooks/use-sheet-height.js';
 export { useParams } from './hooks/use-params.js';
 export { useSearch } from './hooks/use-search.js';
 export { useHardwareBack } from './hooks/use-hardware-back.js';
@@ -47,6 +48,8 @@ export { Drawer, useDrawer } from './components/Drawer.js';
 export type { DrawerNav } from './components/Drawer.js';
 export { Link } from './components/Link.js';
 export type { LinkProps } from './components/Link.js';
+export { BottomSheet } from './components/BottomSheet.js';
+export type { BottomSheetProps } from './components/BottomSheet.js';
 export type {
     ComponentLike,
     EmptyParams,

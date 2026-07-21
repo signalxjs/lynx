@@ -1,6 +1,6 @@
 {
     "name": "@sigx/lynx-gestures",
-    "version": "0.12.2",
+    "version": "0.17.0",
     "description": "Gesture system for sigx-lynx - declarative composables for tap, pan, pinch, swipe, long press",
     "type": "module",
     "main": "./dist/index.js",
@@ -9,11 +9,16 @@
         ".": {
             "types": "./dist/index.d.ts",
             "import": "./dist/index.js"
-        }
+        },
+        "./signalx-module.json": "./signalx-module.json",
+        "./package.json": "./package.json"
     },
     "files": [
         "src",
-        "dist"
+        "dist",
+        "ios",
+        "android",
+        "signalx-module.json"
     ],
     "scripts": {
         "build": "node ../../scripts/clean.mjs dist && tsgo",

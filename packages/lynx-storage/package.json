@@ -1,6 +1,6 @@
 {
     "name": "@sigx/lynx-storage",
-    "version": "0.12.2",
+    "version": "0.17.0",
     "description": "Persistent key-value storage for sigx-lynx",
     "type": "module",
     "main": "./dist/index.js",
@@ -28,7 +28,8 @@
     },
     "devDependencies": {
         "@typescript/native-preview": "7.0.0-dev.20260521.1",
-        "typescript": "^6.0.3"
+        "typescript": "^6.0.3",
+        "fake-indexeddb": "^6.0.0"
     },
     "author": "Andreas Ekdahl",
     "license": "MIT",

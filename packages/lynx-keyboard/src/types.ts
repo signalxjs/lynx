@@ -1,4 +1,4 @@
-import type { Define } from '@sigx/lynx';
+import type { Define, SharedValue } from '@sigx/lynx';
 
 /**
  * RN-mirroring behavior modes for `<KeyboardAvoidingView>`:
@@ -30,6 +30,25 @@ export type KeyboardAvoidingViewProps =
    * height when no ancestor applies the bottom inset.
    */
   & Define.Prop<'discountBottomInset', boolean, false>
+  /**
+   * Stop avoiding the keyboard — the lift freezes at 0 (no padding /
+   * translate / spacer), instantly. Pass `true` whenever something ELSE
+   * already occupies the keyboard's space in flow, e.g. a composer's emoji
+   * panel while it is painted: the panel and this view would otherwise both
+   * claim the same pixels and squeeze the content between them (a dark band
+   * eating the message list as the keyboard rises back over the panel).
+   * Pair it with `<KeyboardStickyView pinned>` — the same condition drives
+   * both (`useKeyboardPanelReveal`'s `engaged()` in `@sigx/lynx-emoji`).
+   */
+  & Define.Prop<'pinned', boolean, false>
+  /**
+   * An extra bottom lift the content must also clear — it shrinks by
+   * `max(keyboardLift, extraLiftSV)`. Pass a bottom accessory's live height
+   * (e.g. `@sigx/lynx-navigation`'s `useSheetHeight()`) so an emoji sheet
+   * overlaying the bottom pushes the thread up as well, not only the
+   * keyboard. Same unit as the lift (dp); `pinned` still zeroes it.
+   */
+  & Define.Prop<'extraLiftSV', SharedValue<number>, false>
   & Define.Prop<'class', string, false>
   & Define.Prop<'style', Record<string, string | number>, false>
   & Define.Slot<'default'>;
@@ -43,6 +62,16 @@ export type KeyboardStickyViewProps =
    */
   & Define.Prop<'animated', boolean, false>
   /**
+   * Freeze the bar IN FLOW (translateY pinned to 0, instantly — never
+   * animated) while an app panel occupies the keyboard's space: the
+   * WhatsApp keyboard ⇄ emoji-panel swap. Pin in the same frame the panel
+   * gets its height (= the remembered lift) and the bar doesn't move a
+   * pixel; the system keyboard's own show/hide animation does ALL the
+   * visible motion, covering or revealing the already-painted panel.
+   * Live lift tracking resumes when unset.
+   */
+  & Define.Prop<'pinned', boolean, false>
+  /**
    * Subtract the bottom safe-area inset from the lift (default `true`).
    * Keep `true` when an ancestor `<SafeAreaView edges={['bottom']}>` already
    * pads the home-indicator inset — the keyboard covers that region, so the
@@ -50,6 +79,17 @@ export type KeyboardStickyViewProps =
    * applies the bottom inset.
    */
   & Define.Prop<'discountBottomInset', boolean, false>
+  /**
+   * An extra lift the bar must ALSO clear — the bar rides
+   * `max(keyboardLift, extraLiftSV)`. Pass a bottom accessory's live height
+   * SharedValue (e.g. `@sigx/lynx-navigation`'s `useSheetHeight()` for an
+   * emoji sheet) so the bar sits above WHICHEVER of the keyboard or the
+   * accessory is taller — and, because it's a max, the swap between them is
+   * dip-free as long as one shrinks while the other grows. Absent ⇒ the bar
+   * tracks the keyboard alone (unchanged). The height must be in the same
+   * unit as the keyboard lift (dp).
+   */
+  & Define.Prop<'extraLiftSV', SharedValue<number>, false>
   & Define.Prop<'class', string, false>
   & Define.Prop<'style', Record<string, string | number>, false>
   & Define.Slot<'default'>;

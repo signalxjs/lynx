@@ -1,10 +1,12 @@
 /**
  * `<SheetBackdrop>` — built-in dimmed backdrop behind a `presentation:
  * 'sheet'` entry. Unlike `modal` (where the screen owns its backdrop),
- * sheets always render this: the dim is intrinsic to the bottom-sheet
- * pattern, and the navigator owning it avoids every sheet screen
- * re-implementing overlay + tap-to-dismiss (the duplication previously
- * seen in `lynx-emoji`'s SheetPicker).
+ * the navigator owns the sheet's dim so every sheet screen needn't
+ * re-implement overlay + tap-to-dismiss (the duplication previously
+ * seen in `lynx-emoji`'s SheetPicker). It is always PRESENT (constant
+ * child shape for `<SheetSlot>`), but a `backdrop: false` sheet renders
+ * it INERT — `display: none`, no dim, no tap capture — for a non-modal
+ * inline sheet whose screen below stays interactive (`enabled` prop).
  *
  * Rendered by `<Stack>` immediately before the sheet's `<Layer>` in the
  * same slot — Lynx has no z-index, so document order places it above all
@@ -46,6 +48,14 @@ type SheetBackdropProps =
     /** When true, tapping the backdrop pops the sheet. */
     & Define.Prop<'dismissable', boolean, true>
     /**
+     * When false (a `backdrop: false` sheet), render the backdrop inert:
+     * `display: none` so it neither dims nor intercepts taps — the region
+     * above the sheet surface passes touches straight through to the
+     * screen below. Kept in the tree (not conditionally removed) so
+     * `<SheetSlot>`'s fragment keeps its constant 3-child shape.
+     */
+    & Define.Prop<'enabled', boolean, true>
+    /**
      * Mirror of the sheet layer's retained-covered state: render with
      * `display: none` (stays mounted, keeps `<SheetSlot>`'s child shape
      * stable) while the sheet itself is hidden.
@@ -60,7 +70,8 @@ export const SheetBackdrop = component<SheetBackdropProps>(({ props }) => {
     // null without remounting the element.
     useAnimatedStyle(ref, () => {
         const sv = props.sheetProgress;
-        if (!sv) return null;
+        // Disabled backdrop: no dim binding — the element is display:none.
+        if (!props.enabled || !sv) return null;
         const a = backdropAnimation(sv);
         return {
             sv: a.progress,
@@ -79,7 +90,7 @@ export const SheetBackdrop = component<SheetBackdropProps>(({ props }) => {
             // covers the underlying screen, so a tap on the dim must never
             // reach interactive elements behind it, dismissable or not.
             catchtap={() => {
-                if (props.dismissable) nav.pop();
+                if (props.enabled && props.dismissable) nav.pop();
             }}
             style={{
                 position: 'absolute',
@@ -87,7 +98,10 @@ export const SheetBackdrop = component<SheetBackdropProps>(({ props }) => {
                 left: '0',
                 right: '0',
                 bottom: '0',
-                display: props.hidden ? 'none' : 'flex',
+                // `enabled: false` → display:none, matching a `hidden`
+                // (covered) backdrop: not laid out, so it catches no taps —
+                // touches above the sheet reach the screen below.
+                display: (!props.enabled || props.hidden) ? 'none' : 'flex',
                 backgroundColor: '#000',
                 // With an SV the binding drives opacity; statically,
                 // render the resting-progress-proportional dim.

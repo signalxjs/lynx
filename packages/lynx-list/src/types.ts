@@ -60,6 +60,15 @@ export type ListProps<T = unknown> =
   /** Snap items to an edge during paginated scroll (`item-snap`). */
   & Define.Prop<'itemSnap', ListItemSnap, false>
   /**
+   * Enable sticky positioning for items carrying `sticky-top`/`sticky-bottom`
+   * (native `sticky` attr) — section headers in a sectioned list. In
+   * `templateCells` mode set the per-item sticky attrs directly on the
+   * `<list-item>` template.
+   */
+  & Define.Prop<'sticky', boolean, false>
+  /** Pixel offset sticky items pin at (native `sticky-offset`). Default 0. */
+  & Define.Prop<'stickyOffset', number, false>
+  /**
    * Fire `endReached` when this many items remain below the viewport
    * (`lower-threshold-item-count`). Defaults to the native default.
    */
@@ -116,6 +125,28 @@ export type ListProps<T = unknown> =
   /** Items revealed per scroll-edge page when windowing. Default 30. */
   & Define.Prop<'pageSize', number, false>
   /**
+   * **Template-native cells** (#645): `renderItem` returns a `<list-item>`
+   * element written in YOUR package/app source (so it compiles to a snapshot
+   * template — requires a `snapshots` build, the default), and `List` passes
+   * it through **unwrapped**. Rows then exist as cheap staged records: the
+   * main thread builds each cell synchronously when the native recycler asks
+   * for it (a fling can never observe a blank), offscreen cell trees recycle
+   * through template-keyed pools, and **windowing becomes unnecessary** — if
+   * `windowSize` is also set, `templateCells` wins (DEV warning).
+   *
+   * Your `<list-item>` owns `item-key` / `estimated-main-axis-size-px` /
+   * `item-type` etc. as JSX attributes (List's `itemType` / `estimatedItemSize`
+   * props are not applied to pass-through rows). `keyExtractor` still provides
+   * the RECONCILIATION key only (set as the vnode key unless your JSX already
+   * carries an explicit `key`) — it does NOT become the native `item-key`,
+   * which must come from your `<list-item>` JSX.
+   *
+   * Rows that are NOT a single compiled `<list-item>` template will render but
+   * never pool — and a non-`list-item` root silently fails to paint on native
+   * (a main-thread diagnostic — active on hosts exposing __GetTag — names the offending template).
+   */
+  & Define.Prop<'templateCells', boolean, false>
+  /**
    * Hard cap on the rendered window length when windowing — once the window
    * grows past this, the far (off-screen) end is trimmed to stay bounded.
    * Default `max(120, windowSize × 2)`.
@@ -131,6 +162,15 @@ export type ListProps<T = unknown> =
    * append/prepend/edit flows.
    */
   & Define.Prop<'itemsKey', string, false>
+  /**
+   * Concrete main-axis size (px) to pin the native `<list>` to on its very
+   * first frame, before the measuring wrapper's live measure lands. Without
+   * it a freshly mounted list spends its mount frame at a 1px placeholder and
+   * visibly re-lays-out once measured. Pass it when the consumer already
+   * knows the box size (e.g. sibling lists sharing one container). The live
+   * measure still wins as soon as it arrives.
+   */
+  & Define.Prop<'initialMainAxisSize', number, false>
   /** Capture the native `<list>` element for imperative scrolling. */
   & Define.Prop<'mtRef', ListRef, false>
   /** Class applied to the measuring wrapper that sizes the list. */

@@ -15,6 +15,8 @@
 		A100000000000006 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B100000000000006 /* Foundation.framework */; };
 		A100000000000007 /* Pods_{{appName}}.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B100000000000007 /* Pods_{{appName}}.framework */; };
 		A100000000000008 /* main.lynx.bundle in Resources */ = {isa = PBXBuildFile; fileRef = B10000000000000B /* main.lynx.bundle */; };
+		A100000000000009 /* SigxProductionResources.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000C /* SigxProductionResources.swift */; };
+		A10000000000000A /* LynxAssets in Resources */ = {isa = PBXBuildFile; fileRef = B10000000000000D /* LynxAssets */; };
 /* {{EXTRA_BUILD_FILES}} */
 /* End PBXBuildFile section */
 
@@ -31,6 +33,8 @@
 		B100000000000009 /* Pods-{{appName}}.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-{{appName}}.debug.xcconfig"; path = "Target Support Files/Pods-{{appName}}/Pods-{{appName}}.debug.xcconfig"; sourceTree = "<group>"; };
 		B10000000000000A /* Pods-{{appName}}.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-{{appName}}.release.xcconfig"; path = "Target Support Files/Pods-{{appName}}/Pods-{{appName}}.release.xcconfig"; sourceTree = "<group>"; };
 		B10000000000000B /* main.lynx.bundle */ = {isa = PBXFileReference; lastKnownFileType = file; path = main.lynx.bundle; sourceTree = "<group>"; };
+		B10000000000000C /* SigxProductionResources.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SigxProductionResources.swift; sourceTree = "<group>"; };
+		B10000000000000D /* LynxAssets */ = {isa = PBXFileReference; lastKnownFileType = folder; path = LynxAssets; sourceTree = "<group>"; };
 /* {{EXTRA_FILE_REFS}} */
 /* End PBXFileReference section */
 
@@ -54,9 +58,11 @@
 				B100000000000001 /* App.swift */,
 				B100000000000002 /* ContentView.swift */,
 				B100000000000004 /* GeneratedModuleRegistry.swift */,
+				B10000000000000C /* SigxProductionResources.swift */,
 				B100000000000008 /* Info.plist */,
 				B100000000000005 /* Assets.xcassets */,
 				B10000000000000B /* main.lynx.bundle */,
+				B10000000000000D /* LynxAssets */,
 /* {{EXTRA_GROUP_CHILDREN}} */
 			);
 			name = "{{appName}}";
@@ -167,6 +173,7 @@
 			files = (
 				A100000000000005 /* Assets.xcassets in Resources */,
 				A100000000000008 /* main.lynx.bundle in Resources */,
+				A10000000000000A /* LynxAssets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -218,6 +225,7 @@
 				A100000000000002 /* ContentView.swift in Sources */,
 				A100000000000003 /* LynxSetupService.swift in Sources */,
 				A100000000000004 /* GeneratedModuleRegistry.swift in Sources */,
+				A100000000000009 /* SigxProductionResources.swift in Sources */,
 /* {{EXTRA_SOURCE_FILES}} */
 			);
 			runOnlyForDeploymentPostprocessing = 0;

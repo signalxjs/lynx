@@ -45,7 +45,7 @@ export type Presentation = 'card' | 'modal' | 'fullScreen' | 'transparent-modal'
  * `useSearch`, `nav.push`, `<Link>`, etc.
  *
  * `component` accepts an eager component factory or a lazy import — both shapes
- * resolve through sigx's `<Suspense>` boundary at render time.
+ * resolve through sigx's `<Defer>` boundary at render time.
  */
 export interface RouteDefinition<
     Params extends StandardSchemaV1 | undefined = StandardSchemaV1 | undefined,
@@ -57,10 +57,10 @@ export interface RouteDefinition<
      * Fallback shown while a lazy `component` is loading.
      *
      * Set this only on routes whose `component` was created with `lazy(...)`.
-     * The fallback is rendered inside a `<Suspense>` boundary wrapping the
+     * The fallback is rendered inside a `<Defer>` boundary wrapping the
      * screen mount, so the user sees this UI while the screen's chunk is
      * being fetched. When omitted, lazy routes still work — the caller is
-     * responsible for placing its own `<Suspense>` boundary (e.g. above the
+     * responsible for placing its own `<Defer>` boundary (e.g. above the
      * `<NavigationRoot>` or inside the screen component).
      *
      * Accepts a component factory (`MyLoadingScreen`) or a function returning
@@ -216,6 +216,31 @@ export interface ScreenOptions {
     initialSnapIndex?: number;
     /** When false, tapping the dimmed backdrop does not dismiss the sheet. Default true. */
     backdropDismiss?: boolean;
+    /**
+     * Render the dimmed, tap-catching backdrop behind a `presentation:
+     * 'sheet'` entry. Default `true` (the modal bottom-sheet look).
+     *
+     * Set `false` for a **non-modal / inline** sheet — a keyboard-accessory
+     * panel, an emoji picker sheet under a chat composer, etc.: no dim, and
+     * the region above the sheet surface stays fully interactive, so a bar
+     * or content in the screen below can be tapped while the sheet is open
+     * (the sheet surface itself is translated down to its top edge, so only
+     * the backdrop ever covered that region). With `backdrop: false`,
+     * `backdropDismiss` is moot — there is no backdrop to tap; dismiss the
+     * sheet by dragging it down or programmatically. Ignored for non-sheet
+     * presentations.
+     */
+    backdrop?: boolean;
+    /**
+     * Where sheet drags start. `'surface'` (default): anywhere on the sheet
+     * body — inner scroll/taps keep working via drag↔scroll arbitration
+     * (lynx-gestures' `<ScrollView>` coordinates automatically).
+     * `'grabber'`: only the strip region at the sheet's top edge — use for
+     * raw `<scroll-view>`/`<list>` content that can't coordinate.
+     * `'none'`: backdrop/programmatic dismiss only.
+     * Ignored for non-sheet presentations.
+     */
+    dragHandle?: 'surface' | 'grabber' | 'none';
 }
 
 /**

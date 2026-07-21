@@ -59,6 +59,10 @@ interface ImagePickerAsset {
     fileName?: string;
 }
 ```
+## Web
+
+On web the picker is the browser file dialog (`<input type=file>` on the host page via `@sigx/lynx-web-host`). Assets come back as `blob:` URLs — renderable by `<image>` and fetchable for uploads — with decoded `width`/`height` for images. `quality`/`maxItems` are ignored (no transcoding; the dialog has no count limit). Permission methods resolve `granted` — the dialog grants per pick, like the native pickers.
+
 ## Gotchas
 - **Android system picker bypasses permissions.** Android 13+'s photo picker doesn't require runtime permission for the *selected* assets, so `requestPermission()` may be a no-op. Calling it is still safe — it just returns `granted` immediately on those API levels.
 - **iOS limited library access.** On iOS 14+ users can grant access to specific photos rather than the whole library. `getPermissionStatus()` returns `'granted'` in both cases — your code generally doesn't need to differentiate.

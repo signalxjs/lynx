@@ -1,8 +1,11 @@
 import {
   component,
+  onUnmounted,
+  runOnMainThread,
   signal,
   useSharedValue,
   useMainThreadRef,
+  useScrollDragHost,
   defineProvide,
   type SharedValue,
   type Define,
@@ -84,30 +87,78 @@ export const ScrollView = component<ScrollViewProps>(({ props, slots }) => {
   const y: SharedValue<number> = props.offsetY ?? ownY;
   const scrollOrientation = props['scroll-orientation'] ?? 'vertical';
 
+  // Drag↔scroll coordination with an ancestor full-surface drag container
+  // (lynx-navigation's bottom sheet). Vertical ScrollViews only — a
+  // horizontal scroller is orthogonal to a vertical sheet drag. The FIRST
+  // vertical ScrollView mounted inside the host adopts (parent setup runs
+  // before children, so the outermost — the sheet's primary scroller —
+  // wins deterministically); later verticals aren't adopted but still
+  // gate on the host's `scrollLock` below, so they freeze during sheet
+  // drags instead of scrolling underneath.
+  const dragHost = useScrollDragHost();
+  const vertical = scrollOrientation === 'vertical';
+  const hostRelease = dragHost && vertical ? dragHost.adoptVerticalScroll() : null;
+  const adopted = hostRelease !== null ? 1 : 0;
+  // Worklets must capture DEFINED SV identities — fall back to own SVs
+  // when there's no host (the `adopted` gate skips the writes anyway).
+  const hostOffsetY = adopted === 1 && dragHost ? dragHost.scrollOffsetY : ownY;
+  const hostHasScroll = adopted === 1 && dragHost ? dragHost.hasVerticalScroll : ownX;
+  // Adopted: the host's pre-allocated element ref becomes THE ref for this
+  // scroll-view (one identity, shared by the host's worklets and our own
+  // ScrollContext descendants). SVs are MT-write-only — flag adoption via
+  // a one-hop MT write, and zero both handles back out on release so a
+  // stale offset can't outlive this scroller (see scroll-drag-host.ts).
+  const elRef = adopted === 1 && dragHost ? dragHost.scrollRef : scrollViewRef;
+  if (adopted === 1) {
+    runOnMainThread(() => {
+      'main thread';
+      hostHasScroll.current.value = 1;
+    })();
+    onUnmounted(() => {
+      hostRelease?.();
+      runOnMainThread(() => {
+        'main thread';
+        hostHasScroll.current.value = 0;
+        hostOffsetY.current.value = 0;
+      })();
+    });
+  }
+
   defineProvide(useScrollContext, () => ({
     dragging,
-    scrollViewRef,
+    scrollViewRef: elRef,
     offsetX: x,
     offsetY: y,
     scrollOrientation,
   }));
 
   return () => {
-    // Compose user-passed enable-scroll with the descendant-driven flag:
-    // both must be true. User can still force-lock by passing `false`.
+    // Compose user-passed enable-scroll with the descendant-driven flag
+    // and (verticals inside a drag host) the host's scroll lock: all must
+    // allow. User can still force-lock by passing `false`.
     const userEnableScroll = props['enable-scroll'] ?? true;
-    const enableScroll = userEnableScroll && !dragging.value;
+    const hostLocked = dragHost && vertical ? dragHost.scrollLock.value : false;
+    const enableScroll = userEnableScroll && !dragging.value && !hostLocked;
     return (
       <scroll-view
-        main-thread:ref={scrollViewRef}
+        main-thread:ref={elRef}
         scroll-orientation={scrollOrientation}
         enable-scroll={enableScroll}
+        // Adopted scrollers pin bounces off: the host's "content at top"
+        // reads use `offset <= 0`, and iOS rubber-banding would let the
+        // content follow a downward pull for the frames before the lock
+        // lands. Defense-in-depth, not the primary mechanism.
+        bounces={adopted === 1 ? false : undefined}
         class={props.class}
         style={props.style}
         main-thread-bindscroll={(e: any) => {
           'main thread';
           y.current.value = e.detail.scrollTop;
           x.current.value = e.detail.scrollLeft;
+          // Mirror the live offset into the drag host so its pan worklet
+          // can arbitrate ("content at top?") — additive to the normal
+          // offset SVs, no precedence rules.
+          if (adopted === 1) hostOffsetY.current.value = e.detail.scrollTop;
           // Apply useAnimatedStyle bindings on the same frame. Inlined
           // (rather than calling a helper) because plain function imports
           // don't survive worklet `_c` capture across the MT bundle —

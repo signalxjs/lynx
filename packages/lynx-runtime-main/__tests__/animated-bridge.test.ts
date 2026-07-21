@@ -19,6 +19,7 @@ import {
   resetMainThreadState,
 } from '../src/ops-apply';
 import {
+  armAvAutoFlush,
   flushAvBridgePublishes,
   flushAnimatedStyleBindings,
   installAvBridgeFlushHook,
@@ -654,5 +655,132 @@ describe('installAvBridgeFlushHook', () => {
     vi.stubGlobal('__FlushElementTree', undefined);
 
     expect(() => installAvBridgeFlushHook()).not.toThrow();
+  });
+});
+
+describe('SharedValue auto-flush (armAvAutoFlush)', () => {
+  // REGISTER_AV_BRIDGE arms a setter on the SV envelope so a bare worklet
+  // write `sv.current.value = x` schedules a microtask-coalesced flush by
+  // itself — no manual __FlushElementTree in gesture code. These tests
+  // drive the real op order (INIT_MT_REF then REGISTER_AV_BRIDGE, as
+  // useSharedValue pushes them) and observe the write end-to-end through
+  // the wrapped flush: bindings applied + publish dispatched.
+  const INSTALLED = Symbol.for('sigx.avBridgeFlushHookInstalled');
+  let flushSpy: ReturnType<typeof vi.fn>;
+
+  function seedElementRef(wvid: number): { setStyleProperties: ReturnType<typeof vi.fn> } {
+    const impl = (globalThis as Record<string, unknown>)['lynxWorkletImpl'] as
+      { _refImpl: { _workletRefMap: Record<number, FakeRef> } };
+    const setStyleProperties = vi.fn();
+    impl._refImpl._workletRefMap[wvid] = {
+      current: { setStyleProperties } as unknown as { value: unknown },
+      _wvid: wvid,
+    };
+    return { setStyleProperties };
+  }
+
+  function refMap(): Record<number, FakeRef> {
+    return (globalThis as unknown as {
+      lynxWorkletImpl: { _refImpl: { _workletRefMap: Record<number, FakeRef> } };
+    }).lynxWorkletImpl._refImpl._workletRefMap;
+  }
+
+  /** Macrotask hop — drains the setter's pending microtask flush. */
+  function drain(): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, 0));
+  }
+
+  beforeEach(() => {
+    (globalThis as Record<string, unknown>)['__sigxMotionFlushScheduled'] = false;
+    delete (globalThis as Record<symbol, unknown>)[INSTALLED];
+    flushSpy = vi.fn();
+    vi.stubGlobal('__FlushElementTree', flushSpy);
+    installAvBridgeFlushHook();
+  });
+
+  it('a bare write applies bindings and publishes via the scheduled flush (INIT→REGISTER op order)', async () => {
+    applyOps([OP.INIT_MT_REF, 1, { value: 0 }, OP.REGISTER_AV_BRIDGE, 1, 0]);
+    const el = seedElementRef(2);
+    applyOps([OP.REGISTER_AV_STYLE_BINDING, 100, 2, 1, 'translateX', null]);
+    el.setStyleProperties.mockClear();
+    dispatchEvent.mockClear();
+    flushSpy.mockClear();
+
+    // The bare write — what a gesture onUpdate worklet does, with NO
+    // manual flush after it.
+    refMap()[1]!.current.value = 30;
+    expect(flushSpy).not.toHaveBeenCalled(); // microtask still pending
+
+    await drain();
+
+    expect(flushSpy).toHaveBeenCalledTimes(1);
+    expect(el.setStyleProperties).toHaveBeenCalledWith({ transform: 'translateX(30px)' });
+    expect(dispatchEvent).toHaveBeenCalledTimes(1);
+    expect(JSON.parse(dispatchEvent.mock.calls[0]![0].data)).toEqual([[1, 30]]);
+  });
+
+  it('coalesces multiple writes across SVs in one task into a single flush', async () => {
+    applyOps([
+      OP.INIT_MT_REF, 1, { value: 0 }, OP.REGISTER_AV_BRIDGE, 1, 0,
+      OP.INIT_MT_REF, 2, { value: 0 }, OP.REGISTER_AV_BRIDGE, 2, 0,
+    ]);
+    dispatchEvent.mockClear();
+    flushSpy.mockClear();
+
+    refMap()[1]!.current.value = 10;
+    refMap()[1]!.current.value = 11; // second write to the same SV
+    refMap()[2]!.current.value = 20;
+
+    await drain();
+
+    expect(flushSpy).toHaveBeenCalledTimes(1);
+    const tuples = JSON.parse(dispatchEvent.mock.calls[0]![0].data) as Array<[number, unknown]>;
+    expect(tuples.sort((a, b) => a[0] - b[0])).toEqual([[1, 11], [2, 20]]);
+  });
+
+  it('shares the motion latch — no second schedule when animate() already latched the window', async () => {
+    applyOps([OP.INIT_MT_REF, 1, { value: 0 }, OP.REGISTER_AV_BRIDGE, 1, 0]);
+    flushSpy.mockClear();
+
+    // Simulate lynx-motion's flushTree having latched this microtask window.
+    (globalThis as Record<string, unknown>)['__sigxMotionFlushScheduled'] = true;
+    refMap()[1]!.current.value = 5;
+    await drain();
+
+    // The setter deferred to the (simulated) already-scheduled flush.
+    expect(flushSpy).not.toHaveBeenCalled();
+    (globalThis as Record<string, unknown>)['__sigxMotionFlushScheduled'] = false;
+  });
+
+  it('arms an envelope created before registration (upstream-created entry)', async () => {
+    const ref = seedRef(1, 0); // entry exists first, as with upstream hydration
+    applyOps([OP.REGISTER_AV_BRIDGE, 1, 0]);
+    flushSpy.mockClear();
+
+    ref.current.value = 7;
+    await drain();
+
+    expect(ref.current.value).toBe(7); // getter round-trips
+    expect(flushSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('double registration arms once and keeps a working accessor', async () => {
+    applyOps([OP.INIT_MT_REF, 1, { value: 0 }, OP.REGISTER_AV_BRIDGE, 1, 0]);
+    applyOps([OP.REGISTER_AV_BRIDGE, 1, 0]); // re-register (arms are idempotent)
+    flushSpy.mockClear();
+
+    const env = refMap()[1]!.current;
+    env.value = 42;
+    await drain();
+
+    expect(env.value).toBe(42);
+    expect(flushSpy).toHaveBeenCalledTimes(1);
+    const desc = Object.getOwnPropertyDescriptor(env, 'value')!;
+    expect(typeof desc.set).toBe('function'); // still the accessor, not re-wrapped
+  });
+
+  it('registration without an envelope neither throws nor arms', () => {
+    expect(() => applyOps([OP.REGISTER_AV_BRIDGE, 99, 0])).not.toThrow();
+    expect(() => armAvAutoFlush(999)).not.toThrow();
   });
 });

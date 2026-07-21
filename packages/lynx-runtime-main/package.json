@@ -1,6 +1,6 @@
 {
     "name": "@sigx/lynx-runtime-main",
-    "version": "0.12.2",
+    "version": "0.17.0",
     "description": "Main Thread (Lepus) entry and ops applier for SignalX Lynx renderer",
     "type": "module",
     "main": "./dist/index.js",
@@ -59,6 +59,8 @@
     },
     "devDependencies": {
         "@lynx-js/types": "^3.9.0",
+        "@sigx/lynx-runtime": "workspace:*",
+        "@sigx/runtime-core": "catalog:",
         "@typescript/native-preview": "7.0.0-dev.20260521.1",
         "typescript": "^6.0.3"
     },

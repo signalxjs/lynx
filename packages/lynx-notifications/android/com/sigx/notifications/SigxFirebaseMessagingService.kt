@@ -3,8 +3,10 @@ package com.sigx.notifications
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
+import android.content.Intent
 import android.os.Build
 import androidx.core.app.NotificationCompat
+import androidx.core.app.Person
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
 
@@ -26,6 +28,11 @@ import com.google.firebase.messaging.RemoteMessage
  */
 class SigxFirebaseMessagingService : FirebaseMessagingService() {
 
+    companion object {
+        /** Messages kept per conversation — the platform renders at most ~7. */
+        private const val MAX_MESSAGING_HISTORY = 7
+    }
+
     override fun onNewToken(token: String) {
         super.onNewToken(token)
         PushEventBus.publishToken(token, platform = "fcm")
@@ -34,9 +41,21 @@ class SigxFirebaseMessagingService : FirebaseMessagingService() {
     override fun onMessageReceived(message: RemoteMessage) {
         super.onMessageReceived(message)
         val notification = message.notification
-        val title = notification?.title
-        val body = notification?.body
         val data = message.data
+        // Display fields fall back to the `data` map. FCM only calls
+        // onMessageReceived for a backgrounded/terminated app when the message
+        // is DATA-ONLY — a message carrying a `notification` block is rendered
+        // by the OS and never reaches us. So data-only is the one shape that
+        // reliably delivers a payload in the background, and a data-only
+        // message has `message.notification == null`: reading title/body
+        // solely from the notification block meant the only shape that works
+        // for delivery produced no tray entry at all (#619).
+        //
+        // Fields sourced from `data` stay in `data` too — an app that keys off
+        // `data.title` shouldn't find it missing just because we also used it
+        // for the tray entry.
+        val title = notification?.title ?: data["title"]
+        val body = notification?.body ?: data["body"]
         // foreground=true here is "the JS heap is alive". FCM service runs
         // regardless of activity foreground state, but the JS shim and apps
         // typically treat `foreground` as "received while app was in use" —
@@ -76,26 +95,189 @@ class SigxFirebaseMessagingService : FirebaseMessagingService() {
             .setAutoCancel(true)
         NotificationAppearance.accentColor(this)?.let { builder.setColor(it) }
 
-        // Stash data on the launch intent so [PushActivityHook.onNewIntent]
-        // can route the tap to [PushEventBus.publishResponse] / capture as
-        // the cold-start payload.
-        val pm = packageManager
-        val launchIntent = pm.getLaunchIntentForPackage(packageName)?.apply {
-            putExtra(PushActivityHook.EXTRA_NOTIFICATION_TAP, true)
-            for ((k, v) in data) putExtra("sigx_push_data_$k", v)
-        }
         val notificationId = (data["notification_id"] ?: data["notificationId"] ?: System.currentTimeMillis().toString())
-        if (launchIntent != null) {
+
+        if (data["style"] == "messaging") {
+            applyMessagingStyle(manager, builder, notificationId, title, body, data)
+        }
+
+        buildTapIntent(data)?.let { tapIntent ->
+            // FLAG_UPDATE_CURRENT matters: PendingIntent equality ignores
+            // extras, so two notifications sharing a request code would
+            // otherwise replay the FIRST one's payload.
             val pending = android.app.PendingIntent.getActivity(
                 this,
                 notificationId.hashCode(),
-                launchIntent,
+                tapIntent,
                 android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE,
             )
             builder.setContentIntent(pending)
         }
 
+        val group = data["group"]
+        group?.let { builder.setGroup(it) }
+
         manager.notify(notificationId.hashCode(), builder.build())
+
+        // Guard the id space: a `group` equal to (or hash-colliding with) the
+        // conversation's notification_id would overwrite the entry we just
+        // posted with the summary. Skip the summary rather than eat the child.
+        group
+            ?.takeIf { it.hashCode() != notificationId.hashCode() }
+            ?.let { showGroupSummary(manager, it) }
+    }
+
+    /**
+     * Conversation-style stacking (`data.style == "messaging"`): render with
+     * [NotificationCompat.MessagingStyle] and ACCUMULATE — each push under the
+     * same `data.notification_id` appends a line (sender + message) to the
+     * existing tray entry instead of replacing its body, so earlier messages
+     * stay visible. History is carried across posts by extracting the style
+     * from the currently active notification (the tray is the storage — no
+     * state of our own survives process death anyway) and capped at
+     * [MAX_MESSAGING_HISTORY], the platform's visible maximum.
+     *
+     * Requires `activeNotifications` (API 23); below M the entry silently
+     * stays replace-in-place, today's behavior.
+     */
+    private fun applyMessagingStyle(
+        manager: NotificationManager,
+        builder: NotificationCompat.Builder,
+        notificationId: String,
+        title: String,
+        body: String,
+        data: Map<String, String>,
+    ) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return
+
+        val existingStyle = manager.activeNotifications
+            .firstOrNull { it.id == notificationId.hashCode() }
+            ?.let { NotificationCompat.MessagingStyle.extractMessagingStyleFromNotification(it.notification) }
+
+        val sender = Person.Builder()
+            .setName(data["sender_name"] ?: data["senderName"] ?: title)
+            .build()
+        val messages =
+            (existingStyle?.messages ?: emptyList()) +
+                NotificationCompat.MessagingStyle.Message(body, System.currentTimeMillis(), sender)
+
+        // MessagingStyle requires a Person representing the local user, and
+        // its name can surface in the rendered UI on some OS versions. We
+        // never attribute messages to the user, but use the app label rather
+        // than a hard-coded (non-localizable) string for wherever it shows.
+        val style = NotificationCompat.MessagingStyle(Person.Builder().setName(appLabel()).build())
+        val conversationTitle = data["conversation_title"]
+            ?: data["conversationTitle"]
+            ?: existingStyle?.conversationTitle?.toString()
+        conversationTitle?.let {
+            style.setConversationTitle(it)
+            // Since P the platform ignores the title unless the style is
+            // marked a group conversation.
+            style.setGroupConversation(true)
+        }
+        for (message in messages.takeLast(MAX_MESSAGING_HISTORY)) style.addMessage(message)
+        builder.setStyle(style)
+    }
+
+    /**
+     * Group-summary entry for `data.group`: bundles the group's conversation
+     * notifications under one expandable tray group (the standard Inbox
+     * pattern). Posted under `group.hashCode()` — the same id space as
+     * `notification_id`, so `Notifications.cancel(group)` dismisses it.
+     * Re-posting on every push is idempotent (same id, same content).
+     *
+     * The summary's tap intent carries no payload and no tap extra — it just
+     * opens the app; per-conversation routing belongs to the child entries.
+     */
+    private fun showGroupSummary(manager: NotificationManager, group: String) {
+        // Summaries need the id-space guard below, and that needs
+        // `activeNotifications` — so no summary at all below M (matching the
+        // messaging accumulation, which is also M-gated; template minSdk is 24).
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return
+        // Id-space guard, part two (the call site excludes the current
+        // conversation): only post when group.hashCode() is free or already
+        // holds THIS group's summary — anything else (a conversation entry,
+        // another group's summary) would be overwritten.
+        val occupant = manager.activeNotifications.firstOrNull { it.id == group.hashCode() }
+        if (occupant != null) {
+            val n = occupant.notification
+            val isOwnSummary =
+                (n.flags and android.app.Notification.FLAG_GROUP_SUMMARY) != 0 && n.group == group
+            if (!isOwnSummary) return
+        }
+        val builder = NotificationCompat.Builder(this, NotificationsModule.CHANNEL_ID)
+            // A summary without a title renders as a blank row on some
+            // devices; the app label is a neutral, localized header.
+            .setContentTitle(appLabel())
+            .setSmallIcon(NotificationAppearance.smallIcon(this))
+            .setAutoCancel(true)
+            .setGroup(group)
+            .setGroupSummary(true)
+            // The summary is re-posted on every push under the same id; the
+            // children carry the alert, the summary must stay silent.
+            .setGroupAlertBehavior(NotificationCompat.GROUP_ALERT_CHILDREN)
+            .setOnlyAlertOnce(true)
+        NotificationAppearance.accentColor(this)?.let { builder.setColor(it) }
+        buildLaunchIntent()?.let { intent ->
+            val pending = android.app.PendingIntent.getActivity(
+                this,
+                group.hashCode(),
+                intent,
+                android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE,
+            )
+            builder.setContentIntent(pending)
+        }
+        manager.notify(group.hashCode(), builder.build())
+    }
+
+    /**
+     * Tap intent for a notification we posted ourselves. Stashes the payload
+     * so [PushActivityHook] can route the tap to [PushEventBus.publishResponse]
+     * (warm) or capture it as the cold-start payload.
+     *
+     * Deliberately NOT `getLaunchIntentForPackage()`'s intent as-is: that is an
+     * ACTION_MAIN/CATEGORY_LAUNCHER intent, and starting one against an
+     * already-running task is treated as a *launcher relaunch* — the task is
+     * brought to the front and the intent is never delivered, so the extras
+     * evaporate and `onNewIntent` never fires. Warm taps silently lost the
+     * payload. We reuse it only to RESOLVE the launcher component, then build a
+     * plain explicit intent.
+     *
+     * Flags:
+     *  - NEW_TASK: mandatory — the PendingIntent fires from outside an Activity.
+     *  - CLEAR_TOP + SINGLE_TOP: reuse the existing MainActivity and deliver via
+     *    `onNewIntent` rather than stacking a second instance (a second LynxView
+     *    and JS heap). SINGLE_TOP is set explicitly rather than leaning on the
+     *    template's `launchMode="singleTop"`, so an app that changes launchMode
+     *    to `standard` still gets `onNewIntent` instead of a destroy/recreate.
+     *
+     * Trade-off: CLEAR_TOP finishes any activities the host app stacked ABOVE
+     * MainActivity. For a Lynx app the whole UI is one Activity and "take me to
+     * the notification target" is the tap's semantic, so that's the intent — but
+     * an app with extra native activities will see them dismissed. SINGLE_TOP
+     * alone is worse: if MainActivity isn't on top, a duplicate is created.
+     */
+    private fun buildTapIntent(data: Map<String, String>): Intent? {
+        return buildLaunchIntent()?.apply {
+            putExtra(PushActivityHook.EXTRA_NOTIFICATION_TAP, true)
+            for ((k, v) in data) putExtra("${PushActivityHook.SIGX_DATA_PREFIX}$k", v)
+        }
+    }
+
+    private fun appLabel(): String = applicationInfo.loadLabel(packageManager).toString()
+
+    /** Bare launcher intent (see [buildTapIntent] for the flag rationale) — no payload extras. */
+    private fun buildLaunchIntent(): Intent? {
+        val component = packageManager
+            .getLaunchIntentForPackage(packageName)
+            ?.component
+            ?: return null
+        return Intent().apply {
+            setComponent(component)
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or
+                Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                Intent.FLAG_ACTIVITY_SINGLE_TOP
+        }
     }
 
     private fun ensureChannel(manager: NotificationManager) {

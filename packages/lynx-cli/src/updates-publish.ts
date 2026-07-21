@@ -10,9 +10,10 @@
  * structured metadata (`updateId`, `manifestPath`, `bundleUrl`, `sha256`, …).
  */
 
-import { dirname } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { publishUpdate, type PublishUpdateResult } from '@sigx/lynx-updates-publisher';
 import { loadConfig } from './prebuild.js';
+import { collectAsyncAssetsIn } from './util/embed-bundle.js';
 
 export interface UpdatesPublishOptions {
     cwd: string;
@@ -28,11 +29,35 @@ export interface UpdatesPublishOptions {
     runtimeVersion?: string;
     /** Release notes attached as metadata. */
     notes?: string;
+    /**
+     * Publish even when dist/ contains async chunks from dynamic `import()`.
+     * The OTA payload carries only `main.lynx.bundle`, so chunks referenced by
+     * an updated bundle are unreachable on devices unless hosted remotely via
+     * a custom assetPrefix (#599).
+     */
+    allowAsyncChunks?: boolean;
     logger?: { log: (msg: string) => void; error: (msg: string) => void };
 }
 
 export async function runUpdatesPublish(opts: UpdatesPublishOptions): Promise<PublishUpdateResult> {
     const log = opts.logger ?? { log: console.log, error: console.error };
+
+    // Check next to the bundle being published, not a hard-coded `<cwd>/dist`:
+    // with `--bundle` pointed at a CI artifact, the latter would both miss that
+    // bundle's own chunks and trip over unrelated stale ones left in dist/.
+    // Resolution mirrors publishUpdate's.
+    const bundlePath = resolve(opts.cwd, opts.bundle ?? join('dist', 'main.lynx.bundle'));
+    const buildRoot = dirname(bundlePath);
+    const asyncAssets = collectAsyncAssetsIn(buildRoot);
+    if (asyncAssets.length > 0 && !opts.allowAsyncChunks) {
+        throw new Error(
+            `${buildRoot} contains ${asyncAssets.length} async chunk(s) from dynamic import() `
+            + '(static/js/async/), but OTA updates carry only main.lynx.bundle — '
+            + 'devices receiving this update could not load those chunks. Convert the '
+            + 'dynamic imports to static ones, or pass --allow-async-chunks if the chunks '
+            + 'are hosted remotely via a custom output.assetPrefix.',
+        );
+    }
 
     // App identity + channel from signalx.config.ts — defaults are fine when
     // publishing from CI artifacts with no config present.

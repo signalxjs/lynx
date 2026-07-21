@@ -1,6 +1,6 @@
 {
     "name": "@sigx/lynx-haptics",
-    "version": "0.12.2",
+    "version": "0.17.0",
     "description": "Haptic feedback for sigx-lynx",
     "type": "module",
     "main": "./dist/index.js",

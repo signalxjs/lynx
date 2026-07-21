@@ -19,16 +19,44 @@ const FALLBACK_STYLE = {
  * Themes restyle via `class` (the neutral border/padding fallback applies
  * only when no class is given) or replace the whole row with the picker's
  * `renderSearchInput`.
+ *
+ * The binding is wired manually as a controlled input (`value` +
+ * `bindinput`) instead of `model={...}`: this package compiles to snapshot
+ * templates, and inside a template an intrinsic element never passes
+ * through the jsx-runtime, so the platform model processor that would
+ * expand `model` cannot run — the directive would ship to the main thread
+ * as a meaningless `model` attribute and the input would never write back.
+ *
+ * Without a model the field is uncontrolled — a separate template branch
+ * rather than `value={undefined}`, because an undefined hole would still
+ * ship to the native input (as NSNull on iOS) instead of leaving the
+ * attribute unset.
  */
 export const SearchInput = component<SearchInputProps>(({ props }) => {
-    return () => (
-        <input
-            class={props.class}
-            placeholder={props.placeholder ?? 'Search emoji'}
-            type="text"
-            confirm-type="search"
-            model={props.model}
-            style={props.class ? undefined : FALLBACK_STYLE}
-        />
-    );
+    const onInput = (e: { detail?: { value?: unknown } }): void => {
+        const model = props.model;
+        if (model) model.value = String(e?.detail?.value ?? '');
+    };
+
+    return () => props.model
+        ? (
+            <input
+                class={props.class}
+                placeholder={props.placeholder ?? 'Search emoji'}
+                type="text"
+                confirm-type="search"
+                value={props.model.value ?? ''}
+                bindinput={onInput}
+                style={props.class ? undefined : FALLBACK_STYLE}
+            />
+        )
+        : (
+            <input
+                class={props.class}
+                placeholder={props.placeholder ?? 'Search emoji'}
+                type="text"
+                confirm-type="search"
+                style={props.class ? undefined : FALLBACK_STYLE}
+            />
+        );
 });

@@ -18,10 +18,43 @@
  * through web-core's own event system, which has no coords for `pointer*`; this
  * supersedes it.)
  *
- * Supported: **Tap**, **LongPress**, **Pan**. Pinch / Rotation / Fling and arena
- * relations (waitFor/simultaneous/continueWith) are not implemented — composed
- * gestures still drive every base's lifecycle (e.g. `Pressable`'s
- * `Simultaneous(Tap, LongPress)` resets its visual in `LongPress.onEnd`).
+ * Supported: **Tap**, **LongPress**, **Pan**, **Fling**, **Pinch**, **Rotation**,
+ * plus arena relations **waitFor** and **simultaneous** (what `Gesture.Race` /
+ * `Exclusive` / `Simultaneous` compile to) — see the "Arena relations" section
+ * below. `continueWith` has no consumers and is logged-and-ignored. Relations
+ * gate `onStart` only; `onBegin`/`onEnd` always fire for every gesture (e.g.
+ * `Pressable`'s `Simultaneous(Tap, LongPress)` resets its visual in
+ * `LongPress.onEnd`). This is a same-element web approximation of the native
+ * arena — cross-element relations are ignored, and iOS/Android quirks
+ * (e.g. iOS's premature Tap.onEnd) are deliberately not replicated.
+ *
+ * Pinch/Rotation pair the first two concurrent pointers: `onStart` fires when
+ * the second lands (scale 1 / rotation 0), `onUpdate` on either's move, and a
+ * dedicated `onEnd` with final values when either lifts — the universal
+ * end-of-press onEnd pass then skips them (exactly one onEnd per press; when no
+ * pair ever formed the universal pass covers them as before). Payloads follow
+ * the legacy `usePinch`/`useRotation` hooks: pinch `params.scale` =
+ * currentDistance/baseDistance; rotation `params.rotation` = cumulative signed
+ * **radians** (unwrapped across ±π, unlike the hooks) + `params.velocity` in
+ * rad/ms; both carry `focalX/focalY` (page coords of the midpoint, mirrored
+ * into pageX/pageY, with client coords in x/y). The native arena's
+ * Pinch/Rotation handlers are unfinished (#418) — this payload is the contract
+ * native should converge on. No mid-press re-pairing with a third finger.
+ *
+ * Fling is discrete: recognized at the primary pointer's `pointerup` from the
+ * velocity over a trailing ~100ms sample window — `onStart` fires on a match
+ * (with `params.velocityX/velocityY` in px/ms), then the universal `onEnd` pass
+ * runs as for every gesture. No `onUpdate`. Velocity unit is **px/ms** (0.3
+ * px/ms = 300 px/s), matching how consumers compute drag velocity manually.
+ *
+ * Pointer tracking is **per-pointerId** (a `Map`), so a second finger no longer
+ * clobbers the active press: the press is driven by the *primary* pointer (the
+ * first one down); a secondary contact marks the press multi-touch (which
+ * disqualifies Tap and cancels pending LongPress timers, mirroring the native
+ * recognizers failing on a second touch) and otherwise just tracks alongside —
+ * the foundation for two-finger Pinch/Rotation. A secondary lift never ends the
+ * press; only the primary's `pointerup`/`pointercancel` does. Deferred: pointer
+ * promotion (continuing a pan on the surviving finger when the primary lifts).
  *
  * Native is unaffected — this module is only reached when `__SetGestureDetector`
  * is absent (the web path in `ops-apply.ts`).
@@ -30,11 +63,20 @@
 // Gesture type ids — mirror of `GestureType` in
 // `packages/lynx-runtime/src/native/gesture-detector.ts`.
 const PAN = 0;
+const FLING = 1;
 const TAP = 3;
 const LONGPRESS = 4;
+const ROTATION = 5;
+const PINCH = 6;
 
 const DEFAULT_MAX_DISTANCE = 10; // px — tap/long-press movement tolerance
 const DEFAULT_LONGPRESS_MS = 500;
+/** Fling `minVelocity` default, px/ms (≈ 300 px/s). */
+const DEFAULT_FLING_MIN_VELOCITY = 0.3;
+/** Only samples this recent (ms before the up) feed the fling velocity. */
+const FLING_SAMPLE_WINDOW_MS = 100;
+/** Ring-buffer cap for velocity samples on the primary pointer. */
+const FLING_MAX_SAMPLES = 8;
 
 interface WorkletCtx {
   _wkltId: string;
@@ -45,6 +87,16 @@ interface GestureEntry {
   type: number;
   callbacks: Record<string, WorkletCtx>;
   config: Record<string, unknown>;
+  /** Arena relations (gesture ids), from the op's relationMap. */
+  waitFor: number[];
+  simultaneous: number[];
+}
+
+/** Wire shape of the relation lists carried by OP.SET_GESTURE_DETECTOR. */
+export interface WebRelationMap {
+  waitFor?: number[];
+  simultaneous?: number[];
+  continueWith?: number[];
 }
 
 /** Minimal native pointer-event shape we read. */
@@ -66,16 +118,39 @@ interface DomEl {
   style?: { touchAction?: string };
 }
 
+/** One currently-down pointer (keyed by pointerId in `ElementGestures.pointers`). */
+interface PointerState {
+  startX: number;
+  startY: number;
+  startT: number;
+  /** Last client coords. */
+  x: number;
+  y: number;
+  /** Last page coords (fall back to client when the event lacks them). */
+  px: number;
+  py: number;
+  /**
+   * Trailing movement samples for fling velocity (primary pointer only, and
+   * only while a Fling gesture is registered). Capped at FLING_MAX_SAMPLES.
+   */
+  samples?: { x: number; y: number; t: number }[];
+}
+
 interface ElementGestures {
   el: MainThreadElement;
   gestures: Map<number, GestureEntry>;
   listeners?: { type: string; fn: (e: PointerLike) => void }[];
-  /** Saved `touch-action` to restore on teardown (set to 'none' for Pan). */
+  /** Original `touch-action`, saved before the gesture override; restored on teardown. */
   prevTouchAction?: string;
   // ── transient per-press state ──
+  /** All currently-down pointers, by (normalized) pointerId. */
+  pointers?: Map<number, PointerState>;
+  /** A press is in progress (the primary pointer is down). */
   active?: boolean;
-  start?: { x: number; y: number; t: number };
-  last?: { x: number; y: number };
+  /** The pointer driving the press — the first one down. */
+  primaryId?: number;
+  /** A second pointer landed during this press — disqualifies Tap & LongPress. */
+  multiTouch?: boolean;
   /** Moved past the tap/long-press tolerance — disqualifies tap & long-press. */
   moved?: boolean;
   /** Gesture ids whose Pan `onStart` has fired this press. */
@@ -83,6 +158,30 @@ interface ElementGestures {
   /** Gesture ids whose LongPress fired this press. */
   lpFired?: Set<number>;
   lpTimers?: Map<number, ReturnType<typeof setTimeout>>;
+  /** Per-press arena state per gesture id (absent id = 'possible'). */
+  gstate?: Map<number, 'active' | 'failed'>;
+  /** LongPresses whose timer fired while blocked by waitFor — retried on failure transitions. */
+  lpPending?: Set<number>;
+  /** One-shot retry timer for a fling deadline unblocking a pending LongPress. */
+  lpRetryTimer?: ReturnType<typeof setTimeout>;
+  /** Two-finger pair driving Pinch/Rotation (formed when the 2nd pointer lands). */
+  pair?: {
+    aId: number;
+    bId: number;
+    baseDistance: number;
+    /** Last raw inter-finger angle — for smallest-signed-delta unwrapping. */
+    prevAngle: number;
+    /** Accumulated signed rotation (radians), unwrapped across ±π. */
+    rotation: number;
+    prevT: number;
+    /** Last measured angular velocity (rad/ms) — reported at pair end when the
+     * final event carries no fresh movement (matches `useRotation`). */
+    velocity: number;
+  };
+  /** Pinch/Rotation already got their dedicated onEnd this press. */
+  pairEnded?: boolean;
+  /** Pinch/Rotation gesture ids whose pair onStart fired (arena-activated). */
+  pairStartFired?: Set<number>;
 }
 
 /** elementWvid → registered gestures + transient state. */
@@ -92,8 +191,9 @@ const POINTER_EVENTS = ['pointerdown', 'pointermove', 'pointerup', 'pointercance
 
 /**
  * Register one gesture on an element (web path). The first gesture on an element
- * attaches the shared pointer listeners; a Pan gesture also sets
- * `touch-action: none` so the browser doesn't claim the drag for scrolling.
+ * attaches the shared pointer listeners; gestures that need to keep the browser
+ * from claiming the interaction set an axis-aware `touch-action` (see
+ * `applyTouchAction`).
  */
 export function registerWebGesture(
   el: MainThreadElement,
@@ -104,6 +204,7 @@ export function registerWebGesture(
     callbacks: { name: string; callback: Record<string, unknown> }[];
     config?: Record<string, unknown>;
   },
+  relationMap?: WebRelationMap,
 ): void {
   let entry = byElement.get(elementWvid);
   const firstForElement = !entry;
@@ -114,10 +215,20 @@ export function registerWebGesture(
 
   const callbacks: Record<string, WorkletCtx> = {};
   for (const cb of config.callbacks) callbacks[cb.name] = cb.callback as unknown as WorkletCtx;
-  entry.gestures.set(gestureId, { type, callbacks, config: config.config ?? {} });
+  if (relationMap?.continueWith?.length) {
+    // continueWith has zero consumers in the repo; implement when one appears.
+    console.log('[sigx-mt] web-gesture: continueWith relations are not implemented — ignored');
+  }
+  entry.gestures.set(gestureId, {
+    type,
+    callbacks,
+    config: config.config ?? {},
+    waitFor: relationMap?.waitFor ?? [],
+    simultaneous: relationMap?.simultaneous ?? [],
+  });
 
   if (firstForElement) attachListeners(entry);
-  if (type === PAN) setTouchActionNone(entry);
+  applyTouchAction(entry);
 }
 
 /** Remove one gesture; tear down listeners when the element has none left. */
@@ -125,18 +236,17 @@ export function unregisterWebGesture(elementWvid: number, gestureId: number): vo
   const entry = byElement.get(elementWvid);
   if (!entry) return;
   entry.gestures.delete(gestureId);
-  // Restore `touch-action` as soon as no Pan remains — even if other (non-Pan)
-  // gestures stay on the element — so a removed drag doesn't leave the element
-  // stuck unscrollable.
-  if (!hasPan(entry)) restoreTouchAction(entry);
+  // Recompute touch-action from the remaining gestures — a removed drag must
+  // not leave the element stuck unscrollable (restores when none needs it).
+  applyTouchAction(entry);
   if (entry.gestures.size > 0) return;
   clearLpTimers(entry);
   detachListeners(entry);
   byElement.delete(elementWvid);
 }
 
-function hasPan(entry: ElementGestures): boolean {
-  for (const g of entry.gestures.values()) if (g.type === PAN) return true;
+function hasType(entry: ElementGestures, type: number): boolean {
+  for (const g of entry.gestures.values()) if (g.type === type) return true;
   return false;
 }
 
@@ -171,11 +281,57 @@ function detachListeners(entry: ElementGestures): void {
   restoreTouchAction(entry);
 }
 
-function setTouchActionNone(entry: ElementGestures): void {
+/**
+ * Derive the element's `touch-action` from ALL its registered gestures and
+ * apply it (most restrictive wins; the pre-gesture value is saved and restored
+ * once no gesture needs an override):
+ *
+ * - Pan `axis:'x'` (Swipeable, Range) → `pan-y`: the browser keeps vertical
+ *   scrolling through the element; when it claims a vertical swipe it fires
+ *   `pointercancel`, which the recognizer already maps to onEnd — graceful
+ *   handoff. Pan `axis:'y'` (sheet drag) → `pan-x`. Pan `'xy'`/unset →
+ *   `none` (free drag — Draggable).
+ * - Fling direction left/right → `pan-y`; up/down → `pan-x`; unset → `none`.
+ * - Pinch/Rotation → `none` (else the browser claims two-finger page zoom).
+ * - Tap/LongPress only → leave `touch-action` untouched.
+ *
+ * Conflicting wants (e.g. an x-Pan and a y-Pan on one element) collapse to
+ * `none`.
+ */
+function applyTouchAction(entry: ElementGestures): void {
+  let want: string | undefined;
+  const consider = (ta: string): void => {
+    if (want === undefined) want = ta;
+    else if (want !== ta) want = 'none';
+  };
+  for (const g of entry.gestures.values()) {
+    switch (g.type) {
+      case PAN: {
+        const axis = g.config.axis as string | undefined;
+        consider(axis === 'x' ? 'pan-y' : axis === 'y' ? 'pan-x' : 'none');
+        break;
+      }
+      case FLING: {
+        const d = g.config.direction as string | undefined;
+        consider(
+          d === 'left' || d === 'right' ? 'pan-y' : d === 'up' || d === 'down' ? 'pan-x' : 'none',
+        );
+        break;
+      }
+      case PINCH:
+      case ROTATION:
+        consider('none');
+        break;
+    }
+  }
+  if (want === undefined) {
+    restoreTouchAction(entry);
+    return;
+  }
   const el = entry.el as unknown as DomEl;
-  if (!el.style || entry.prevTouchAction !== undefined) return;
-  entry.prevTouchAction = el.style.touchAction ?? '';
-  el.style.touchAction = 'none';
+  if (!el.style) return;
+  if (entry.prevTouchAction === undefined) entry.prevTouchAction = el.style.touchAction ?? '';
+  el.style.touchAction = want;
 }
 
 function safe(fn: () => void): void {
@@ -188,13 +344,45 @@ function safe(fn: () => void): void {
 
 // ── State machine ──────────────────────────────────────────────────────────
 
+/** Normalize a pointer id (`undefined` on odd hosts / synthetic events → 0). */
+function pid(e: PointerLike): number {
+  return e.pointerId ?? 0;
+}
+
+/**
+ * Sync the event's coords into its tracked PointerState (move, up AND cancel —
+ * a lift can land at a position no `pointermove` ever reported, and the final
+ * Pinch/Rotation payload must see it).
+ */
+function syncPointer(entry: ElementGestures, e: PointerLike): PointerState | undefined {
+  const p = entry.pointers?.get(pid(e));
+  if (p) {
+    p.x = e.clientX;
+    p.y = e.clientY;
+    p.px = e.pageX ?? e.clientX;
+    p.py = e.pageY ?? e.clientY;
+  }
+  return p;
+}
+
 function onDown(entry: ElementGestures, e: PointerLike): void {
-  entry.active = true;
-  entry.start = { x: e.clientX, y: e.clientY, t: nowMs() };
-  entry.last = { x: e.clientX, y: e.clientY };
-  entry.moved = false;
-  entry.panStarted = new Set();
-  entry.lpFired = new Set();
+  const id = pid(e);
+  const pointers = (entry.pointers ??= new Map());
+  // Never overwrite an already-tracked pointer: on hosts that omit `pointerId`
+  // every down normalizes to 0, and clobbering the entry would reset the
+  // primary's start coords mid-press (the exact bug this rework removes).
+  const known = pointers.has(id);
+  if (!known) {
+    pointers.set(id, {
+      startX: e.clientX,
+      startY: e.clientY,
+      startT: nowMs(),
+      x: e.clientX,
+      y: e.clientY,
+      px: e.pageX ?? e.clientX,
+      py: e.pageY ?? e.clientY,
+    });
+  }
   // Capture so move/up keep flowing to this element even outside its bounds.
   if (e.pointerId != null) {
     try {
@@ -202,6 +390,40 @@ function onDown(entry: ElementGestures, e: PointerLike): void {
     } catch {
       /* capture unsupported — drag tracking degrades to in-bounds only */
     }
+  }
+
+  if (entry.active) {
+    // A repeated down for a pointer we already track isn't a new contact —
+    // ignore it (it must not flip the press to multi-touch).
+    if (known) return;
+    // Secondary contact during an active press: the press becomes multi-touch,
+    // which disqualifies Tap (checked in onUp) and cancels pending LongPress
+    // timers — mirroring the native recognizers failing on a second touch. No
+    // re-fired onBegin; the press's lifecycle stays owned by the primary.
+    entry.multiTouch = true;
+    clearLpTimers(entry);
+    failTapAndLongPress(entry);
+    // Exactly two pointers now down and no pair yet this press → pair them for
+    // Pinch/Rotation. A third finger never re-pairs mid-press.
+    if (!entry.pair && !entry.pairEnded && pointers.size === 2) formPair(entry, id);
+    return;
+  }
+  if (pointers.size > 1) {
+    // A stale pointer is still down from an already-ended press (its primary
+    // lifted first). No new press starts until every pointer lifts.
+    return;
+  }
+
+  // Press start (first pointer down).
+  entry.active = true;
+  entry.primaryId = id;
+  entry.multiTouch = false;
+  entry.moved = false;
+  entry.panStarted = new Set();
+  entry.lpFired = new Set();
+  if (hasType(entry, FLING)) {
+    const p = pointers.get(id);
+    if (p) p.samples = [{ x: e.clientX, y: e.clientY, t: p.startT }];
   }
   const evt = synthEvent('pointerdown', e);
   for (const [gid, g] of entry.gestures) {
@@ -216,32 +438,296 @@ function onDown(entry: ElementGestures, e: PointerLike): void {
   }
 }
 
+function primaryPointer(entry: ElementGestures): PointerState | undefined {
+  return entry.primaryId != null ? entry.pointers?.get(entry.primaryId) : undefined;
+}
+
+// ── Arena relations (waitFor / simultaneous) ───────────────────────────────
+//
+// Per-press each gesture is 'possible' (default) → 'active' | 'failed'. Only
+// `onStart` is gated — `onBegin`/`onEnd` always fire (Pressable's
+// `LongPress.onEnd` style-reset must keep firing). Empty relations → nothing
+// is ever gated → behavior identical to the pre-relations recognizer.
+
+/** A fling not recognized by now has failed — lets `Exclusive(Fling, Pan)` hand over mid-drag. */
+const FLING_MAX_MS = 300;
+
+function gstateOf(entry: ElementGestures, gid: number): 'possible' | 'active' | 'failed' {
+  return entry.gstate?.get(gid) ?? 'possible';
+}
+
+function failGesture(entry: ElementGestures, gid: number): void {
+  if (gstateOf(entry, gid) !== 'possible') return; // active gestures never fail
+  (entry.gstate ??= new Map()).set(gid, 'failed');
+  retryPendingLp(entry); // a blocker's failure may unblock a pending LongPress
+}
+
+/** moved / second-finger transitions fail every still-possible Tap & LongPress. */
+function failTapAndLongPress(entry: ElementGestures): void {
+  for (const [gid, g] of entry.gestures) {
+    if (g.type === TAP || g.type === LONGPRESS) failGesture(entry, gid);
+  }
+}
+
+/** Can this gesture still win the press? (Fling deadline applied lazily.) */
+function isStillPossible(entry: ElementGestures, gid: number): boolean {
+  const g = entry.gestures.get(gid);
+  if (!g) return false; // cross-element or removed — never blocks a waiter
+  if (gstateOf(entry, gid) !== 'possible') return false;
+  if (g.type === FLING) {
+    const p = primaryPointer(entry);
+    if (p && nowMs() - p.startT > FLING_MAX_MS) {
+      failGesture(entry, gid);
+      return false;
+    }
+  }
+  return true;
+}
+
+/**
+ * Gate an `onStart`. Returns false while blocked (a waited-on gesture can
+ * still win) or permanently failed. On success the gesture becomes active and
+ * every *related* gesture (any waitFor/simultaneous edge, either direction)
+ * not in its simultaneous set fails for the rest of the press. Exclusivity is
+ * scoped to related gestures only — unrelated gestures on the same element
+ * keep the historical co-firing behavior.
+ *
+ * `Gesture.Race` compiles to *mutual* waitFor, which read strictly would
+ * deadlock — mutual edges are ignored, so Race = first-ready-wins.
+ */
+function tryActivate(entry: ElementGestures, gid: number): boolean {
+  const g = entry.gestures.get(gid);
+  if (!g) return false;
+  const state = gstateOf(entry, gid);
+  if (state === 'active') return true;
+  if (state === 'failed') return false;
+  for (const wid of g.waitFor) {
+    const w = entry.gestures.get(wid);
+    if (!w) continue;
+    if (w.waitFor.includes(gid)) continue; // mutual (Race) — first-ready wins
+    if (isStillPossible(entry, wid)) return false; // blocked
+  }
+  (entry.gstate ??= new Map()).set(gid, 'active');
+  for (const [oid, o] of entry.gestures) {
+    if (oid === gid) continue;
+    const related =
+      g.waitFor.includes(oid) ||
+      g.simultaneous.includes(oid) ||
+      o.waitFor.includes(gid) ||
+      o.simultaneous.includes(gid);
+    if (!related || g.simultaneous.includes(oid)) continue;
+    failGesture(entry, oid);
+  }
+  return true;
+}
+
+/** Re-attempt LongPresses whose timer fired while blocked by a waitFor. */
+function retryPendingLp(entry: ElementGestures): void {
+  if (!entry.lpPending?.size) return;
+  for (const gid of [...entry.lpPending]) {
+    entry.lpPending.delete(gid);
+    fireLongPress(entry, gid); // re-validates; re-queues itself if still blocked
+  }
+}
+
+/**
+ * A pending LongPress blocked by a Fling needs a time-based nudge — nothing
+ * else fires during a motionless hold, but the fling deadline passing is
+ * exactly what unblocks it. One-shot timer at the deadline.
+ */
+function armLpRetryAtFlingDeadline(entry: ElementGestures): void {
+  if (entry.lpRetryTimer || !hasType(entry, FLING)) return;
+  const p = primaryPointer(entry);
+  if (!p) return;
+  const remaining = FLING_MAX_MS - (nowMs() - p.startT) + 1;
+  if (remaining <= 0) return;
+  entry.lpRetryTimer = setTimeout(() => {
+    entry.lpRetryTimer = undefined;
+    retryPendingLp(entry);
+  }, remaining);
+}
+
+// ── Two-finger pair (Pinch / Rotation) ─────────────────────────────────────
+
+/** Smallest signed angular difference `to - from`, normalized to (-π, π]. */
+function angleDeltaSigned(from: number, to: number): number {
+  let d = (to - from) % (2 * Math.PI);
+  if (d > Math.PI) d -= 2 * Math.PI;
+  else if (d < -Math.PI) d += 2 * Math.PI;
+  return d;
+}
+
+/** Pair the primary with the just-landed pointer; fire Pinch/Rotation onStart. */
+function formPair(entry: ElementGestures, secondId: number): void {
+  if (!hasType(entry, PINCH) && !hasType(entry, ROTATION)) return;
+  const aId = entry.primaryId!;
+  const a = entry.pointers!.get(aId);
+  const b = entry.pointers!.get(secondId);
+  if (!a || !b) return;
+  entry.pair = {
+    aId,
+    bId: secondId,
+    baseDistance: Math.hypot(b.x - a.x, b.y - a.y),
+    prevAngle: Math.atan2(b.y - a.y, b.x - a.x),
+    rotation: 0,
+    prevT: nowMs(),
+    velocity: 0,
+  };
+  entry.pairStartFired ??= new Set();
+  // onStart goes through the arena gate like every other gesture; a blocked
+  // pinch/rotation retries on later pair updates (see updatePair).
+  for (const [gid, g] of entry.gestures) {
+    if (g.type !== PINCH && g.type !== ROTATION) continue;
+    if (!tryActivate(entry, gid)) continue;
+    entry.pairStartFired.add(gid);
+    if (g.type === PINCH) runCb(g, 'onStart', pinchEvent(a, b, 1));
+    else runCb(g, 'onStart', rotationEvent(a, b, 0, 0));
+  }
+}
+
+/**
+ * Fold the pair's current geometry into its accumulated state: unwrapped
+ * rotation (smallest signed delta across ±π — the legacy hooks cap at ±π; we
+ * don't), angular velocity, and scale. Shared by onUpdate and pair end so the
+ * final event never misses movement that arrived only with the up/cancel.
+ */
+function advancePair(
+  entry: ElementGestures,
+): { a: PointerState; b: PointerState; scale: number } | undefined {
+  const pair = entry.pair!;
+  const a = entry.pointers!.get(pair.aId);
+  const b = entry.pointers!.get(pair.bId);
+  if (!a || !b) return undefined;
+  const t = nowMs();
+  const angle = Math.atan2(b.y - a.y, b.x - a.x);
+  const delta = angleDeltaSigned(pair.prevAngle, angle);
+  pair.rotation += delta;
+  // Keep the last *measured* velocity when this step carries no fresh movement
+  // (e.g. an up at the last move's position) — matches `useRotation`, whose
+  // 'ended' state retains the last active velocity.
+  if (delta !== 0) pair.velocity = delta / Math.max(t - pair.prevT, 1);
+  pair.prevAngle = angle;
+  pair.prevT = t;
+  const dist = Math.hypot(b.x - a.x, b.y - a.y);
+  return { a, b, scale: pair.baseDistance > 0 ? dist / pair.baseDistance : 1 };
+}
+
+/** Recompute distance/angle after a pair member moved; fire onUpdate. */
+function updatePair(entry: ElementGestures): void {
+  const pair = entry.pair!;
+  const s = advancePair(entry);
+  if (!s) return;
+  for (const [gid, g] of entry.gestures) {
+    if (g.type !== PINCH && g.type !== ROTATION) continue;
+    if (!entry.pairStartFired?.has(gid)) {
+      // Blocked at pair formation — retry the arena gate; on success fire the
+      // late onStart with the current values before streaming updates.
+      if (!tryActivate(entry, gid)) continue;
+      (entry.pairStartFired ??= new Set()).add(gid);
+      if (g.type === PINCH) runCb(g, 'onStart', pinchEvent(s.a, s.b, s.scale));
+      else runCb(g, 'onStart', rotationEvent(s.a, s.b, pair.rotation, pair.velocity));
+      continue;
+    }
+    if (g.type === PINCH) runCb(g, 'onUpdate', pinchEvent(s.a, s.b, s.scale));
+    else runCb(g, 'onUpdate', rotationEvent(s.a, s.b, pair.rotation, pair.velocity));
+  }
+}
+
+/**
+ * A pair member lifted/cancelled: fire the dedicated Pinch/Rotation onEnd with
+ * final values (the caller synced the up/cancel coords into PointerState
+ * first, and `advancePair` folds in that last movement) and mark them done —
+ * the universal end-of-press onEnd pass then skips them so each fires exactly
+ * once per press.
+ */
+function endPair(entry: ElementGestures): void {
+  const pair = entry.pair!;
+  const s = advancePair(entry);
+  entry.pair = undefined;
+  entry.pairEnded = true;
+  if (!s) return;
+  for (const g of entry.gestures.values()) {
+    if (g.type === PINCH) runCb(g, 'onEnd', pinchEvent(s.a, s.b, s.scale));
+    else if (g.type === ROTATION)
+      runCb(g, 'onEnd', rotationEvent(s.a, s.b, pair.rotation, pair.velocity));
+  }
+}
+
+/** Focal-point event params shared by Pinch and Rotation. */
+function pairParams(a: PointerState, b: PointerState): Record<string, number> {
+  const fpx = (a.px + b.px) / 2;
+  const fpy = (a.py + b.py) / 2;
+  return {
+    pageX: fpx,
+    pageY: fpy,
+    x: (a.x + b.x) / 2,
+    y: (a.y + b.y) / 2,
+    focalX: fpx,
+    focalY: fpy,
+  };
+}
+
+function pinchEvent(a: PointerState, b: PointerState, scale: number): unknown {
+  return { type: 'pinch', params: { ...pairParams(a, b), scale } };
+}
+
+function rotationEvent(
+  a: PointerState,
+  b: PointerState,
+  rotation: number,
+  velocity: number,
+): unknown {
+  return { type: 'rotation', params: { ...pairParams(a, b), rotation, velocity } };
+}
+
 function fireLongPress(entry: ElementGestures, gid: number): void {
-  if (!entry.active || entry.moved) return;
+  if (!entry.active || entry.moved || entry.multiTouch) return;
   const g = entry.gestures.get(gid);
   if (!g) return;
+  const p = primaryPointer(entry);
+  if (!p) return;
+  if (!tryActivate(entry, gid)) {
+    if (gstateOf(entry, gid) === 'failed') return;
+    // Blocked by a waitFor — retry when a blocker fails (or the fling
+    // deadline passes; time is the only signal during a motionless hold).
+    (entry.lpPending ??= new Set()).add(gid);
+    armLpRetryAtFlingDeadline(entry);
+    return;
+  }
   entry.lpFired!.add(gid);
-  const l = entry.last!;
-  runCb(g, 'onStart', synthEvent('longpress', { clientX: l.x, clientY: l.y }));
+  runCb(g, 'onStart', synthEvent('longpress', { clientX: p.x, clientY: p.y }));
 }
 
 function onMove(entry: ElementGestures, e: PointerLike): void {
-  if (!entry.active || !entry.start) return;
-  entry.last = { x: e.clientX, y: e.clientY };
-  const dx = e.clientX - entry.start.x;
-  const dy = e.clientY - entry.start.y;
+  const id = pid(e);
+  const p = syncPointer(entry, e);
+  // Pinch/Rotation are driven by BOTH pair members' moves.
+  if (entry.active && entry.pair && p && (id === entry.pair.aId || id === entry.pair.bId)) {
+    updatePair(entry);
+  }
+  // Tap/LongPress tolerance and Pan are driven by the primary pointer only.
+  if (!entry.active || id !== entry.primaryId || !p) return;
+  if (p.samples) {
+    p.samples.push({ x: e.clientX, y: e.clientY, t: nowMs() });
+    if (p.samples.length > FLING_MAX_SAMPLES) p.samples.shift();
+  }
+  const dx = e.clientX - p.startX;
+  const dy = e.clientY - p.startY;
   const distSq = dx * dx + dy * dy;
   const tapMax = tapMaxDistance(entry);
   if (!entry.moved && distSq > tapMax * tapMax) {
     entry.moved = true;
     clearLpTimers(entry); // moved too far to still be a long-press
+    failTapAndLongPress(entry);
   }
   const evt = synthEvent('pointermove', e);
   for (const [gid, g] of entry.gestures) {
     if (g.type !== PAN) continue;
     if (!entry.panStarted!.has(gid)) {
       const min = (g.config.minDistance as number) ?? 0;
-      if (distSq > min * min && distSq > 0) {
+      // A blocked pan (waitFor) retries naturally on the next move; once the
+      // blocker fails (e.g. the fling deadline passes), it starts mid-drag.
+      if (distSq > min * min && distSq > 0 && tryActivate(entry, gid)) {
         entry.panStarted!.add(gid);
         runCb(g, 'onStart', evt);
       }
@@ -251,44 +737,116 @@ function onMove(entry: ElementGestures, e: PointerLike): void {
 }
 
 function onUp(entry: ElementGestures, e: PointerLike): void {
+  const id = pid(e);
+  const p = syncPointer(entry, e);
+  // Either pair member lifting ends the Pinch/Rotation (after syncing the up
+  // coords, before the pointer is dropped from the map, so the final
+  // focal/scale/rotation see the true release positions).
+  if (entry.active && entry.pair && (id === entry.pair.aId || id === entry.pair.bId)) {
+    endPair(entry);
+  }
+  entry.pointers?.delete(id);
   if (!entry.active) return;
+  // A secondary lift never ends the press — only the primary's does.
+  if (id !== entry.primaryId) return;
   entry.active = false;
   clearLpTimers(entry);
-  const start = entry.start;
-  const dx = start ? e.clientX - start.x : 0;
-  const dy = start ? e.clientY - start.y : 0;
+  // Press is ending: gestures that can no longer start fail now, so discrete
+  // end-of-press gestures (Fling, Tap) waiting on them via waitFor unblock.
+  for (const [gid, g] of entry.gestures) {
+    if (g.type === LONGPRESS && !entry.lpFired!.has(gid)) failGesture(entry, gid);
+    else if (g.type === PAN && !entry.panStarted!.has(gid)) failGesture(entry, gid);
+    else if (
+      (g.type === PINCH || g.type === ROTATION) &&
+      !entry.pairStartFired?.has(gid)
+    ) {
+      failGesture(entry, gid); // no pair ever started — can't begin after the lift
+    }
+  }
+  const dx = p ? e.clientX - p.startX : 0;
+  const dy = p ? e.clientY - p.startY : 0;
   const tapMax = tapMaxDistance(entry);
-  const withinTap = !!start && dx * dx + dy * dy <= tapMax * tapMax;
-  const isTap = withinTap && entry.lpFired!.size === 0 && entry.panStarted!.size === 0;
+  const withinTap = !!p && dx * dx + dy * dy <= tapMax * tapMax;
+  const isTap =
+    withinTap && !entry.multiTouch && entry.lpFired!.size === 0 && entry.panStarted!.size === 0;
   const evt = synthEvent('pointerup', e);
+  // Fling pass: velocity over the primary pointer's trailing sample window.
+  // Discrete — onStart on a match, then the universal onEnd below. A fling
+  // that doesn't match at up has definitively failed (unblocks tap waiters).
+  let flung = false;
+  const v = p ? flingVelocity(p, e, nowMs()) : undefined;
+  for (const [gid, g] of entry.gestures) {
+    if (g.type !== FLING) continue;
+    if (v && flingMatches(g.config, v.vx, v.vy) && tryActivate(entry, gid)) {
+      flung = true;
+      runCb(g, 'onStart', flingEvent(e, v.vx, v.vy));
+    } else {
+      failGesture(entry, gid);
+    }
+  }
   // Pass 1: Tap.onStart (emits press) — before onEnd so a LongPress.onEnd
-  // press-fallback sees the emit.
-  if (isTap) {
-    for (const g of entry.gestures.values()) if (g.type === TAP) runCb(g, 'onStart', evt);
+  // press-fallback sees the emit. A recognized fling suppresses the tap
+  // explicitly: a very short, very fast flick can clear `minVelocity` while
+  // still inside the tap tolerance, and must not fire both.
+  if (isTap && !flung) {
+    for (const [gid, g] of entry.gestures) {
+      if (g.type === TAP && tryActivate(entry, gid)) runCb(g, 'onStart', evt);
+    }
   }
   // Pass 2: onEnd for every gesture (resets pressed visual, finishes a pan…).
-  for (const g of entry.gestures.values()) runCb(g, 'onEnd', evt);
+  // Pinch/Rotation are skipped when their dedicated pair-end already fired.
+  for (const g of entry.gestures.values()) {
+    if (entry.pairEnded && (g.type === PINCH || g.type === ROTATION)) continue;
+    runCb(g, 'onEnd', evt);
+  }
   resetTransient(entry);
 }
 
 function onCancel(entry: ElementGestures, e: PointerLike): void {
+  const id = pid(e);
+  syncPointer(entry, e);
+  // A cancelled pair member ends the Pinch/Rotation, like a lift.
+  if (entry.active && entry.pair && (id === entry.pair.aId || id === entry.pair.bId)) {
+    endPair(entry);
+  }
+  entry.pointers?.delete(id);
   if (!entry.active) return;
+  // A secondary's cancel doesn't end the press either.
+  if (id !== entry.primaryId) return;
   entry.active = false;
   clearLpTimers(entry);
   const evt = synthEvent('pointercancel', e);
-  for (const g of entry.gestures.values()) runCb(g, 'onEnd', evt);
+  for (const g of entry.gestures.values()) {
+    if (entry.pairEnded && (g.type === PINCH || g.type === ROTATION)) continue;
+    runCb(g, 'onEnd', evt);
+  }
   resetTransient(entry);
 }
 
 function resetTransient(entry: ElementGestures): void {
-  entry.start = undefined;
-  entry.last = undefined;
+  entry.primaryId = undefined;
+  entry.multiTouch = false;
   entry.moved = false;
   entry.panStarted = undefined;
   entry.lpFired = undefined;
+  entry.pair = undefined;
+  entry.pairEnded = false;
+  entry.pairStartFired = undefined;
+  entry.gstate = undefined;
+  entry.lpPending = undefined;
+  if (entry.lpRetryTimer) {
+    clearTimeout(entry.lpRetryTimer);
+    entry.lpRetryTimer = undefined;
+  }
+  // `pointers` is NOT cleared — it keeps tracking physically-down stale
+  // pointers so no new press starts until they all lift (see onDown).
 }
 
 function clearLpTimers(entry: ElementGestures): void {
+  if (entry.lpRetryTimer) {
+    clearTimeout(entry.lpRetryTimer);
+    entry.lpRetryTimer = undefined;
+  }
   if (!entry.lpTimers) return;
   for (const t of entry.lpTimers.values()) clearTimeout(t);
   entry.lpTimers.clear();
@@ -312,6 +870,67 @@ function runCb(entry: GestureEntry, name: string, event: unknown): void {
   } catch (e) {
     console.log('[sigx-mt] web-gesture callback threw:', name, String(e));
   }
+}
+
+/**
+ * Velocity (px/ms) over the trailing FLING_SAMPLE_WINDOW_MS of the primary
+ * pointer's samples, measured to the pointerup position. Undefined when there
+ * are no samples or no time has elapsed. A pause before release naturally
+ * fails the threshold: the newest sample is old, so velocity ≈ 0.
+ */
+function flingVelocity(
+  p: PointerState,
+  e: PointerLike,
+  t: number,
+): { vx: number; vy: number } | undefined {
+  const samples = p.samples;
+  if (!samples || samples.length === 0) return undefined;
+  const cutoff = t - FLING_SAMPLE_WINDOW_MS;
+  // Earliest sample still inside the window; if all are older (finger paused),
+  // fall back to the newest so the long dt yields a near-zero velocity.
+  let base = samples[samples.length - 1]!;
+  for (const s of samples) {
+    if (s.t >= cutoff) {
+      base = s;
+      break;
+    }
+  }
+  const dt = t - base.t;
+  if (dt <= 0) return undefined;
+  return { vx: (e.clientX - base.x) / dt, vy: (e.clientY - base.y) / dt };
+}
+
+/**
+ * Does the velocity satisfy this Fling's `direction` + `minVelocity` config?
+ * Directional flings require the configured axis to dominate and its component
+ * to clear the threshold; direction-less flings use the overall magnitude.
+ * Units: px/ms.
+ */
+function flingMatches(config: Record<string, unknown>, vx: number, vy: number): boolean {
+  const min =
+    typeof config.minVelocity === 'number' ? config.minVelocity : DEFAULT_FLING_MIN_VELOCITY;
+  const ax = Math.abs(vx);
+  const ay = Math.abs(vy);
+  switch (config.direction as string | undefined) {
+    case 'left':
+      return vx < 0 && ax >= ay && ax >= min;
+    case 'right':
+      return vx > 0 && ax >= ay && ax >= min;
+    case 'up':
+      return vy < 0 && ay >= ax && ay >= min;
+    case 'down':
+      return vy > 0 && ay >= ax && ay >= min;
+    default:
+      return Math.hypot(vx, vy) >= min;
+  }
+}
+
+/** Fling onStart event: the usual coord params plus velocity in px/ms. */
+function flingEvent(e: PointerLike, vx: number, vy: number): unknown {
+  const evt = synthEvent('fling', e) as { type: string; params: Record<string, number> };
+  evt.params.velocityX = vx;
+  evt.params.velocityY = vy;
+  return evt;
 }
 
 /** Largest tap/long-press `maxDistance` across the element's gestures (px). */

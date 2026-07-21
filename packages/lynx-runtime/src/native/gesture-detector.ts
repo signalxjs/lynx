@@ -186,6 +186,12 @@ class FlingBuilder extends GestureBuilderBase {
   constructor() {
     super(GestureType.FLING);
   }
+  /**
+   * Minimum release velocity for the fling to be recognized, in **px/ms**
+   * (0.3 px/ms = 300 px/s; the web recognizer defaults to 0.3). For a
+   * directional fling the configured axis's component must clear this; for a
+   * direction-less fling the overall magnitude must.
+   */
   minVelocity(n: number): this {
     return this.setConfigKey('minVelocity', n);
   }

@@ -9,7 +9,7 @@ export interface EmojiPickEvent {
     tone: SkinTone;
 }
 
-/** Replace a grid cell's content (rendered inside the cell's Pressable). */
+/** Replace a grid cell's content (rendered inside the cell's <list-item> — slot content: such cells build synchronously but are excluded from recycling). */
 export type EmojiRenderCell = (datum: EmojiDatum, glyph: string) => JSXElement;
 
 /** The synthetic recents tab uses `'recents'` in place of a category. */
@@ -50,6 +50,12 @@ export interface EmojiSlotClasses {
     grid?: string;
     /** One emoji cell. */
     cell?: string;
+    /**
+     * A sticky category header row in the sectioned grid. The headless
+     * fallback has NO background — themes should provide one, or content
+     * scrolls visibly under the pinned header.
+     */
+    sectionHeader?: string;
     /** The empty-state row (no recents / no search hits). */
     empty?: string;
     /** Skin-tone popover backdrop. */

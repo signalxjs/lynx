@@ -1,6 +1,6 @@
 {
     "name": "@sigx/lynx-emoji",
-    "version": "0.12.2",
+    "version": "0.17.0",
     "description": "Themable emoji picker for sigx-lynx — headless categorized grid with search, skin-tone variants, recents, and an optional MarkdownEditor plugin. Pure JS, emoji data generated from emojibase.",
     "type": "module",
     "main": "./dist/index.js",
@@ -29,7 +29,7 @@
         "LICENSE"
     ],
     "scripts": {
-        "build": "node ../../scripts/clean.mjs dist && tsgo",
+        "build": "node ../../scripts/clean.mjs dist && node ../../scripts/build-snapshot-dist.mjs && tsgo --emitDeclarationOnly",
         "dev": "tsgo --watch",
         "test": "vitest run",
         "gen:data": "node scripts/gen-data.mjs",
@@ -56,6 +56,8 @@
     "devDependencies": {
         "@sigx/lynx": "workspace:^",
         "@sigx/lynx-markdown": "workspace:^",
+        "@sigx/lynx-runtime-internal": "workspace:^",
+        "@sigx/lynx-runtime-main": "workspace:^",
         "@sigx/lynx-storage": "workspace:^",
         "@sigx/lynx-testing": "workspace:^",
         "@types/node": "^25.9.1",

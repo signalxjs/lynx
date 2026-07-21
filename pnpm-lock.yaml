@@ -4,6 +4,15 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+catalogs:
+  default:
+    '@sigx/reactivity':
+      specifier: ^0.12.0
+      version: 0.12.0
+    '@sigx/runtime-core':
+      specifier: ^0.12.0
+      version: 0.12.0
+
 importers:
 
   .:
@@ -171,11 +180,11 @@ importers:
         specifier: workspace:^
         version: link:../../packages/lynx-zero
       '@sigx/reactivity':
-        specifier: ^0.7.0
-        version: 0.7.0
+        specifier: 'catalog:'
+        version: 0.12.0
       '@sigx/runtime-core':
-        specifier: ^0.7.0
-        version: 0.7.0
+        specifier: 'catalog:'
+        version: 0.12.0
       lucide:
         specifier: ^1.16.0
         version: 1.16.0
@@ -243,12 +252,15 @@ importers:
       '@sigx/lynx-runtime':
         specifier: workspace:^
         version: link:../lynx-runtime
+      '@sigx/lynx-runtime-internal':
+        specifier: workspace:^
+        version: link:../lynx-runtime-internal
       '@sigx/reactivity':
-        specifier: ^0.7.0
-        version: 0.7.0
+        specifier: 'catalog:'
+        version: 0.12.0
       '@sigx/runtime-core':
-        specifier: ^0.7.0
-        version: 0.7.0
+        specifier: 'catalog:'
+        version: 0.12.0
     devDependencies:
       '@typescript/native-preview':
         specifier: 7.0.0-dev.20260521.1
@@ -285,8 +297,8 @@ importers:
         specifier: workspace:^
         version: link:../lynx-core
       '@sigx/reactivity':
-        specifier: ^0.7.0
-        version: 0.7.0
+        specifier: 'catalog:'
+        version: 0.12.0
     devDependencies:
       '@sigx/lynx-plugin':
         specifier: workspace:^
@@ -374,17 +386,20 @@ importers:
         specifier: ^0.20.4
         version: 0.20.4(@lynx-js/css-serializer@0.1.6)(tslib@2.8.1)
       '@sigx/cli':
-        specifier: ^0.5.0
-        version: 0.5.0
+        specifier: ^0.6.0
+        version: 0.6.0
       '@sigx/lynx-core':
         specifier: workspace:^
         version: link:../lynx-core
       '@sigx/lynx-updates-publisher':
         specifier: workspace:^
         version: link:../lynx-updates-publisher
+      '@sigx/lynx-web-host':
+        specifier: workspace:^
+        version: link:../lynx-web-host
       '@sigx/terminal':
-        specifier: ^0.6.1
-        version: 0.6.1(@sigx/reactivity@0.7.0)(@sigx/runtime-core@0.7.0)
+        specifier: ^0.8.0
+        version: 0.8.0
       esbuild:
         specifier: ^0.28.0
         version: 0.28.0
@@ -517,6 +532,12 @@ importers:
       '@sigx/lynx-markdown':
         specifier: workspace:^
         version: link:../lynx-markdown
+      '@sigx/lynx-runtime-internal':
+        specifier: workspace:^
+        version: link:../lynx-runtime-internal
+      '@sigx/lynx-runtime-main':
+        specifier: workspace:^
+        version: link:../lynx-runtime-main
       '@sigx/lynx-storage':
         specifier: workspace:^
         version: link:../lynx-storage
@@ -879,6 +900,9 @@ importers:
       '@sigx/lynx-testing':
         specifier: workspace:^
         version: link:../lynx-testing
+      '@types/node':
+        specifier: ^25.9.1
+        version: 25.9.3
       '@typescript/native-preview':
         specifier: 7.0.0-dev.20260521.1
         version: 7.0.0-dev.20260521.1
@@ -956,7 +980,7 @@ importers:
         specifier: '>=0.1.0'
         version: 0.7.1(@lynx-js/template-webpack-plugin@0.11.0(tslib@2.8.1))(webpack@5.106.2(esbuild@0.28.0))
       '@lynx-js/react':
-        specifier: ^0.121.0
+        specifier: 0.121.0
         version: 0.121.0(@lynx-js/types@3.9.0)(@types/react@18.3.28)
       '@lynx-js/rspeedy':
         specifier: '>=0.1.0'
@@ -1026,11 +1050,11 @@ importers:
         specifier: workspace:^
         version: link:../lynx-runtime-internal
       '@sigx/reactivity':
-        specifier: ^0.7.0
-        version: 0.7.0
+        specifier: 'catalog:'
+        version: 0.12.0
       '@sigx/runtime-core':
-        specifier: ^0.7.0
-        version: 0.7.0
+        specifier: 'catalog:'
+        version: 0.12.0
     devDependencies:
       '@typescript/native-preview':
         specifier: 7.0.0-dev.20260521.1
@@ -1060,6 +1084,12 @@ importers:
       '@lynx-js/types':
         specifier: ^3.9.0
         version: 3.9.0
+      '@sigx/lynx-runtime':
+        specifier: workspace:*
+        version: link:../lynx-runtime
+      '@sigx/runtime-core':
+        specifier: 'catalog:'
+        version: 0.12.0
       '@typescript/native-preview':
         specifier: 7.0.0-dev.20260521.1
         version: 7.0.0-dev.20260521.1
@@ -1076,8 +1106,8 @@ importers:
         specifier: workspace:^
         version: link:../lynx-runtime-internal
       '@sigx/reactivity':
-        specifier: ^0.7.0
-        version: 0.7.0
+        specifier: 'catalog:'
+        version: 0.12.0
     devDependencies:
       '@sigx/lynx-plugin':
         specifier: workspace:^
@@ -1152,6 +1182,9 @@ importers:
       '@typescript/native-preview':
         specifier: 7.0.0-dev.20260521.1
         version: 7.0.0-dev.20260521.1
+      fake-indexeddb:
+        specifier: ^6.0.0
+        version: 6.2.5
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -1162,8 +1195,8 @@ importers:
         specifier: workspace:^
         version: link:../lynx
       '@sigx/runtime-core':
-        specifier: ^0.7.0
-        version: 0.7.0
+        specifier: 'catalog:'
+        version: 0.12.0
     devDependencies:
       '@lynx-js/react':
         specifier: ^0.121.0
@@ -1242,6 +1275,15 @@ importers:
       '@sigx/lynx':
         specifier: workspace:^
         version: link:../lynx
+      '@typescript/native-preview':
+        specifier: 7.0.0-dev.20260521.1
+        version: 7.0.0-dev.20260521.1
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+
+  packages/lynx-web-host:
+    devDependencies:
       '@typescript/native-preview':
         specifier: 7.0.0-dev.20260521.1
         version: 7.0.0-dev.20260521.1
@@ -2441,65 +2483,62 @@ packages:
   '@sigx/args@0.6.0':
     resolution: {integrity: sha512-6Nm/q8jHxf5dQUsL4n3zjSpmzHhkQJ4IAoqpZzPsbzp/dove/tHIulbBgjgXoaNWOIOyfg0BArFpJh78Ei6pig==}
 
+  '@sigx/args@0.8.0':
+    resolution: {integrity: sha512-qQMHS9xfa1IYHtU38cvOxeRtrodT5Ddnd3cZakct1JCxvaNLfH8sxUL9t7pmDBGIK5WyEN/4Jjhz4bUhCl0vHQ==}
+
   '@sigx/cli@0.4.2':
     resolution: {integrity: sha512-uJp4pJqKpshK9KcxxI7CUG8gJRaUZHs72mynTOtTw3KjdcshXVbEZtju+qzY8ft1XPi+P8qWXBgZkZKIQ7fpCw==}
     hasBin: true
 
-  '@sigx/cli@0.5.0':
-    resolution: {integrity: sha512-k7/YWbIWMJUZXSCj8pbpIU80kJKlGDIcd2sEJKbRhbH8xVmOHvapMaXwM8sHz91vtVs3l8S8XMCH0793tPnILA==}
+  '@sigx/cli@0.6.0':
+    resolution: {integrity: sha512-K9WRxXM4ClbR6BIt2NRpXRuqf2+6wDwHYKLTJUcgfocfpZidhaRpyKiCL2e0tJV1u2Rk7R1Q2FD7F6p69vpyPg==}
     hasBin: true
+
+  '@sigx/reactivity@0.12.0':
+    resolution: {integrity: sha512-/CHsLMKC60C1/hTC1PWnbol52guU+Kg9IUiaCC+yOLvDM2RBpRKeG9J4lrPYbGD8Fi3oyLtAAmgy8cMCsVUpPQ==}
+    engines: {node: ^20.19.0 || >=22.12.0}
 
   '@sigx/reactivity@0.4.9':
     resolution: {integrity: sha512-YIvfliXJ1UAf2ypC8nIzo/qFwwrUK8BzQnns83onb9b5nfcRADj93iwYDgeqGDrDBMiHZ4QDu5TxXQt2d4zjog==}
     engines: {node: ^20.19.0 || >=22.12.0}
 
-  '@sigx/reactivity@0.7.0':
-    resolution: {integrity: sha512-EnsRi5j49qf8Bp8AB1PUenqwQcU0ekopxAkKLSgJIFnJwWhMczj/WX5m9dxKeXbMtGYoM54poqaXtvey0efGag==}
+  '@sigx/runtime-core@0.12.0':
+    resolution: {integrity: sha512-7Xfg5WB0mFWeZgVyKPOcuzZXeoMtyNfzMgtrKh30DQ3dMSnMTMPG6Di1kq76myvZU22twPmNk04RPM/3GEcmqg==}
     engines: {node: ^20.19.0 || >=22.12.0}
 
   '@sigx/runtime-core@0.4.9':
     resolution: {integrity: sha512-7XoYZrjT4DCSgivgOXEAUj/7V7ebVlI13SlxWUO5ZYM7GZz4Xg1uYDg6ibjSTEFvSQ+5XESWZT4ViV8Uoi4B3g==}
     engines: {node: ^20.19.0 || >=22.12.0}
 
-  '@sigx/runtime-core@0.7.0':
-    resolution: {integrity: sha512-33OzDnmA1xe1xUGIZ4JAYQuPnlvq92CTzNbYu5fBi5pLLtWuAYi+CNeMXr80J6XU98BrMaaAJg3wU3nUWUQbKg==}
-    engines: {node: ^20.19.0 || >=22.12.0}
-
   '@sigx/runtime-terminal@0.5.0':
     resolution: {integrity: sha512-K+pnVFJcT64KfevYzgOpkNCmx+kmKGea7uokEBKl4Y6gDAaRxW+VGRHiC1ewMhtXTZL9pYOuQYxSE3IM/MszGg==}
 
-  '@sigx/runtime-terminal@0.6.1':
-    resolution: {integrity: sha512-HxNBemuTishcMgxS/hLIQT2U+WqY7tmORAII0bp4kOEVKdw0O2cb35UMj6crwyU4G4tFWYgkW8ehjPS4wzx2TA==}
-    peerDependencies:
-      '@sigx/reactivity': '>=0.6.0 <0.7.0'
-      '@sigx/runtime-core': '>=0.6.0 <0.7.0'
+  '@sigx/runtime-terminal@0.8.0':
+    resolution: {integrity: sha512-/kKIXT7pjj4XDWUJ4RVMKsDHJkgV2sbY675sVtxwzF9gKvKzkwMrczZ9+Ar83Bfumf544OTNwl4Qo2vmZs2l9g==}
 
   '@sigx/terminal-ui@0.5.0':
     resolution: {integrity: sha512-Pt/LjJRocerPNuZtO4kP0BzOvh19vmsO7eK0x4pfWyMr1+F1I6FXrjziFKUvHMy9WP4Lv8noH9MmSimd8a/3uA==}
 
-  '@sigx/terminal-ui@0.6.1':
-    resolution: {integrity: sha512-QA72RlK33SY9E7L7GM+RMWHIV+Vg+JWC8pZ/A6V9nQokKrcy6JPKvIfwLv7uW2wNFtRNaZhsDRIf9vxwFRfXDw==}
+  '@sigx/terminal-ui@0.8.0':
+    resolution: {integrity: sha512-An1I5LvEajTOZT7mgqI2OR3NONRrdTpbk+DjIPHgJEbEt1aIFoO1EVr5xp91qOX2r+U8cr/Km1fmKzEXuE0U/A==}
     peerDependencies:
-      '@sigx/reactivity': '>=0.6.0 <0.7.0'
-      '@sigx/runtime-core': '>=0.6.0 <0.7.0'
+      '@sigx/reactivity': ^0.12.0
+      '@sigx/runtime-core': ^0.12.0
 
   '@sigx/terminal-zero@0.5.0':
     resolution: {integrity: sha512-/IJz6CXBSBONe6xxDAIVX3VQgIypF5/EOhoab/G9bL/U+p/P55BH9KaHk6k4fvdig2r/ew5hD8uVX1kRolQ4xg==}
 
-  '@sigx/terminal-zero@0.6.1':
-    resolution: {integrity: sha512-ZNskHjff9u/lIzyh+zQbmoZ0dfRKVCaNfvj9jXYYwVc3G48Kk0q6UdnwYlkOsFLOjxXlgRfVRgM9yLdfDgnzKQ==}
+  '@sigx/terminal-zero@0.8.0':
+    resolution: {integrity: sha512-0/+5Jv4KeXQ6Gi3hOy6d/oMKN5MXe0Mrir8WuJrcEUnC3a1SFdlyycxuUe17pBZ01ehUnbYpyTYAlTaj07cb9w==}
     peerDependencies:
-      '@sigx/reactivity': '>=0.6.0 <0.7.0'
-      '@sigx/runtime-core': '>=0.6.0 <0.7.0'
+      '@sigx/reactivity': ^0.12.0
+      '@sigx/runtime-core': ^0.12.0
 
   '@sigx/terminal@0.5.0':
     resolution: {integrity: sha512-PGXhS/BlZMxsQBk1w2RlsPYBNC38K8/+N6rXSzmEn1RUvcvDWzzAjkLJdcZhTmpyZvVmtw/ggc2xsWPfDNBT+A==}
 
-  '@sigx/terminal@0.6.1':
-    resolution: {integrity: sha512-63I7bllsYfGxsKnymntVVkYD5gvlHObDiuxRWiIWoxA7AI2u5GpD6AoMafRJEZ3N2MLbKmu5efoZiFsbLAShGg==}
-    peerDependencies:
-      '@sigx/reactivity': '>=0.6.0 <0.7.0'
-      '@sigx/runtime-core': '>=0.6.0 <0.7.0'
+  '@sigx/terminal@0.8.0':
+    resolution: {integrity: sha512-zXvhL/s7H+Gy4RgDBqZtLE2SLYjWZKvjovXXkOkCNVbV4x56ls2BNQmc0U4JlE1Pjx5WqALIo803jI6h4R/Lig==}
 
   '@sinclair/typebox@0.27.10':
     resolution: {integrity: sha512-MTBk/3jGLNB2tVxv6uLlFh1iu64iYOQ2PbdOSK3NW8JZsmlaOh2q6sdtKowBhfw8QFLmYNzTW4/oK4uATIi6ZA==}
@@ -3182,6 +3221,10 @@ packages:
   expect-type@1.3.0:
     resolution: {integrity: sha512-knvyeauYhqjOYvQ66MznSMs83wmHrCycNEN6Ao+2AeYEfxUIkuiVxdEa1qlGEPK+We3n0THiDciYSsCcgW/DoA==}
     engines: {node: '>=12.0.0'}
+
+  fake-indexeddb@6.2.5:
+    resolution: {integrity: sha512-CGnyrvbhPlWYMngksqrSSUT1BAVP49dZocrHuK0SvtR0D5TMs5wP0o3j7jexDJW01KSadjBp1M/71o/KR3nD1w==}
+    engines: {node: '>=18'}
 
   fast-deep-equal@3.1.3:
     resolution: {integrity: sha512-f3qQ9oQy9j2AhBe/H9VC91wLmKBCCU/gDOnKNAYG5hswO7BLKj09Hc5HYNz9cGI++xlpDCIgDaitVs03ATR84Q==}
@@ -5474,37 +5517,39 @@ snapshots:
 
   '@sigx/args@0.6.0': {}
 
+  '@sigx/args@0.8.0': {}
+
   '@sigx/cli@0.4.2':
     dependencies:
       '@sigx/args': 0.6.0
       '@sigx/terminal': 0.5.0
 
-  '@sigx/cli@0.5.0':
+  '@sigx/cli@0.6.0':
     dependencies:
-      '@sigx/args': 0.6.0
-      '@sigx/terminal': 0.5.0
+      '@sigx/args': 0.8.0
+      '@sigx/terminal': 0.8.0
+
+  '@sigx/reactivity@0.12.0': {}
 
   '@sigx/reactivity@0.4.9': {}
 
-  '@sigx/reactivity@0.7.0': {}
+  '@sigx/runtime-core@0.12.0':
+    dependencies:
+      '@sigx/reactivity': 0.12.0
 
   '@sigx/runtime-core@0.4.9':
     dependencies:
       '@sigx/reactivity': 0.4.9
-
-  '@sigx/runtime-core@0.7.0':
-    dependencies:
-      '@sigx/reactivity': 0.7.0
 
   '@sigx/runtime-terminal@0.5.0':
     dependencies:
       '@sigx/reactivity': 0.4.9
       '@sigx/runtime-core': 0.4.9
 
-  '@sigx/runtime-terminal@0.6.1(@sigx/reactivity@0.7.0)(@sigx/runtime-core@0.7.0)':
+  '@sigx/runtime-terminal@0.8.0':
     dependencies:
-      '@sigx/reactivity': 0.7.0
-      '@sigx/runtime-core': 0.7.0
+      '@sigx/reactivity': 0.12.0
+      '@sigx/runtime-core': 0.12.0
 
   '@sigx/terminal-ui@0.5.0':
     dependencies:
@@ -5512,11 +5557,11 @@ snapshots:
       '@sigx/runtime-core': 0.4.9
       '@sigx/terminal-zero': 0.5.0
 
-  '@sigx/terminal-ui@0.6.1(@sigx/reactivity@0.7.0)(@sigx/runtime-core@0.7.0)':
+  '@sigx/terminal-ui@0.8.0(@sigx/reactivity@0.12.0)(@sigx/runtime-core@0.12.0)':
     dependencies:
-      '@sigx/reactivity': 0.7.0
-      '@sigx/runtime-core': 0.7.0
-      '@sigx/terminal-zero': 0.6.1(@sigx/reactivity@0.7.0)(@sigx/runtime-core@0.7.0)
+      '@sigx/reactivity': 0.12.0
+      '@sigx/runtime-core': 0.12.0
+      '@sigx/terminal-zero': 0.8.0(@sigx/reactivity@0.12.0)(@sigx/runtime-core@0.12.0)
 
   '@sigx/terminal-zero@0.5.0':
     dependencies:
@@ -5524,11 +5569,11 @@ snapshots:
       '@sigx/runtime-core': 0.4.9
       '@sigx/runtime-terminal': 0.5.0
 
-  '@sigx/terminal-zero@0.6.1(@sigx/reactivity@0.7.0)(@sigx/runtime-core@0.7.0)':
+  '@sigx/terminal-zero@0.8.0(@sigx/reactivity@0.12.0)(@sigx/runtime-core@0.12.0)':
     dependencies:
-      '@sigx/reactivity': 0.7.0
-      '@sigx/runtime-core': 0.7.0
-      '@sigx/runtime-terminal': 0.6.1(@sigx/reactivity@0.7.0)(@sigx/runtime-core@0.7.0)
+      '@sigx/reactivity': 0.12.0
+      '@sigx/runtime-core': 0.12.0
+      '@sigx/runtime-terminal': 0.8.0
 
   '@sigx/terminal@0.5.0':
     dependencies:
@@ -5538,13 +5583,13 @@ snapshots:
       '@sigx/terminal-ui': 0.5.0
       '@sigx/terminal-zero': 0.5.0
 
-  '@sigx/terminal@0.6.1(@sigx/reactivity@0.7.0)(@sigx/runtime-core@0.7.0)':
+  '@sigx/terminal@0.8.0':
     dependencies:
-      '@sigx/reactivity': 0.7.0
-      '@sigx/runtime-core': 0.7.0
-      '@sigx/runtime-terminal': 0.6.1(@sigx/reactivity@0.7.0)(@sigx/runtime-core@0.7.0)
-      '@sigx/terminal-ui': 0.6.1(@sigx/reactivity@0.7.0)(@sigx/runtime-core@0.7.0)
-      '@sigx/terminal-zero': 0.6.1(@sigx/reactivity@0.7.0)(@sigx/runtime-core@0.7.0)
+      '@sigx/reactivity': 0.12.0
+      '@sigx/runtime-core': 0.12.0
+      '@sigx/runtime-terminal': 0.8.0
+      '@sigx/terminal-ui': 0.8.0(@sigx/reactivity@0.12.0)(@sigx/runtime-core@0.12.0)
+      '@sigx/terminal-zero': 0.8.0(@sigx/reactivity@0.12.0)(@sigx/runtime-core@0.12.0)
 
   '@sinclair/typebox@0.27.10': {}
 
@@ -6351,6 +6396,8 @@ snapshots:
   events@3.3.0: {}
 
   expect-type@1.3.0: {}
+
+  fake-indexeddb@6.2.5: {}
 
   fast-deep-equal@3.1.3: {}
 

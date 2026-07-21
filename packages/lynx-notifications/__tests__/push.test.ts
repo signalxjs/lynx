@@ -129,6 +129,38 @@ describe('addPushListener', () => {
             { title: 'Hi', body: 'You', data: { x: '1' }, foreground: true },
         ]);
     });
+
+    it('parses the JSON-string form native actually emits', () => {
+        // Not merely a tolerated alternative: both platforms JSON-encode this
+        // channel, because a structured map loses its sibling scalars crossing
+        // the bridge (#342). `title`/`body`/`foreground` only survive as JSON.
+        const seen: unknown[] = [];
+        addPushListener((e) => seen.push(e));
+        emitter.fire(MSG, JSON.stringify({
+            title: 'Hi', body: 'You', data: { x: '1' }, foreground: false,
+        }));
+        expect(seen).toEqual([
+            { title: 'Hi', body: 'You', data: { x: '1' }, foreground: false },
+        ]);
+    });
+
+    it('delivers a data-only message with no title/body', () => {
+        // Data-only is the shape FCM hands to onMessageReceived in the
+        // background; title/body are absent unless the sender set data.title.
+        const seen: unknown[] = [];
+        addPushListener((e) => seen.push(e));
+        emitter.fire(MSG, JSON.stringify({ data: { route: '/x' }, foreground: false }));
+        expect(seen).toEqual([{ data: { route: '/x' }, foreground: false }]);
+    });
+
+    it('stops delivering after unsubscribe', () => {
+        const seen: unknown[] = [];
+        const unsub = addPushListener((e) => seen.push(e));
+        emitter.fire(MSG, JSON.stringify({ data: {}, foreground: true }));
+        unsub();
+        emitter.fire(MSG, JSON.stringify({ data: { second: '1' }, foreground: true }));
+        expect(seen).toEqual([{ data: {}, foreground: true }]);
+    });
 });
 
 describe('addNotificationResponseListener', () => {
@@ -146,6 +178,55 @@ describe('addNotificationResponseListener', () => {
                 data: { route: '/inbox' },
                 actionIdentifier: 'default',
             },
+        ]);
+    });
+
+    it('parses the JSON-string form native actually emits', () => {
+        const seen: unknown[] = [];
+        addNotificationResponseListener((e) => seen.push(e));
+        emitter.fire(RESP, JSON.stringify({
+            notificationId: 'abc-123',
+            data: { route: '/inbox' },
+            actionIdentifier: 'default',
+        }));
+        expect(seen).toEqual([
+            { notificationId: 'abc-123', data: { route: '/inbox' }, actionIdentifier: 'default' },
+        ]);
+    });
+
+    it('drops a payload whose notificationId did not survive', () => {
+        // The #342 signature: nested `data` arrives, sibling scalars vanish.
+        // A consumer routes on notificationId — hand it nothing rather than a
+        // partial it would deep-link from.
+        const seen: unknown[] = [];
+        addNotificationResponseListener((e) => seen.push(e));
+        emitter.fire(RESP, JSON.stringify({ data: { route: '/inbox' } }));
+        expect(seen).toEqual([]);
+    });
+
+    it('defaults actionIdentifier when absent', () => {
+        const seen: unknown[] = [];
+        addNotificationResponseListener((e) => seen.push(e));
+        emitter.fire(RESP, JSON.stringify({ notificationId: 'n-1', data: {} }));
+        expect(seen).toEqual([{ notificationId: 'n-1', data: {}, actionIdentifier: 'default' }]);
+    });
+
+    it('drops undefined and malformed payloads silently', () => {
+        const seen: unknown[] = [];
+        addNotificationResponseListener((e) => seen.push(e));
+        emitter.fire(RESP, undefined);
+        emitter.fire(RESP, '{not json');
+        expect(seen).toEqual([]);
+    });
+
+    it('stops delivering after unsubscribe', () => {
+        const seen: unknown[] = [];
+        const unsub = addNotificationResponseListener((e) => seen.push(e));
+        emitter.fire(RESP, JSON.stringify({ notificationId: 'first', data: {} }));
+        unsub();
+        emitter.fire(RESP, JSON.stringify({ notificationId: 'second', data: {} }));
+        expect(seen).toEqual([
+            { notificationId: 'first', data: {}, actionIdentifier: 'default' },
         ]);
     });
 });

@@ -58,8 +58,8 @@
         "@sigx/lynx-websocket": "workspace:^",
         "@sigx/lynx-webview": "workspace:^",
         "@sigx/lynx-zero": "workspace:^",
-        "@sigx/reactivity": "^0.7.0",
-        "@sigx/runtime-core": "^0.7.0",
+        "@sigx/reactivity": "catalog:",
+        "@sigx/runtime-core": "catalog:",
         "lucide": "^1.16.0",
         "zod": "^4.4.3"
     },

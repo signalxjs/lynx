@@ -9,9 +9,15 @@
  *   - globalThis.sigxPatchUpdate — receives ops from Background Thread
  */
 
+import * as snapshotContract from '@sigx/lynx-runtime-internal/snapshot';
+import {
+  purgeSnapshotTemplatesByPrefix,
+  setSnapshotPageId,
+} from '@sigx/lynx-runtime-internal/snapshot';
 import { elements, setPageUniqueId } from './element-registry.js';
 import { applyOps, resetMainThreadState, setPlaceholder } from './ops-apply.js';
-import { invokeWorklet } from './worklet-events.js';
+import { installSnapshotMTHooks, retryParkedSnapshots } from './snapshot-mt.js';
+import { invokeMtWorklet } from './mt-invoke.js';
 import { runOnBackground } from './run-on-background-mt.js';
 import { installAvBridgeFlushHook } from './animated-bridge-mt.js';
 
@@ -30,6 +36,20 @@ if (g['SystemInfo'] === undefined) {
 /** PAGE_ROOT_ID must match the value used in the BG-thread renderer */
 const PAGE_ROOT_ID = 1;
 
+// Install the snapshot-template hole updaters into the shared contract
+// module before any user module (whose extracted `snapshotCreatorMap`
+// registrations may evaluate later in the same bundle) can instantiate a
+// template. See snapshot-mt.ts (#626).
+installSnapshotMTHooks();
+
+// The MT loader binds extracted snapshot registrations to this global
+// (`const <ns> = globalThis.__sigxSnapshotInternal`) instead of an import —
+// a global works in the static bundle AND in HMR eval realms (#635; the
+// `registerWorkletInternal` global is the precedent). Installed at module
+// scope: the bootstrap preamble guarantees entry-main evaluates before any
+// user module.
+g['__sigxSnapshotInternal'] = snapshotContract;
+
 // Lynx Lepus runtime requires globalThis.processData to be set.
 // It is called to transform initial data before renderPage runs.
 // For sigx we have no data processors, so just pass data through.
@@ -40,12 +60,48 @@ g['processData'] = function (data: unknown, _processorName?: string): unknown {
 // Lynx calls renderPage on the Main Thread first (before Background JS runs).
 // We create the root page element and store it as id=1 so Background ops that
 // target the root can resolve it correctly.
+// Build-time platform define injected by `@sigx/lynx-plugin` per rspeedy
+// environment. `typeof`-guarded (platform.ts pattern): runtime-main ships
+// prebuilt dist, but DefinePlugin still folds `typeof __WEB__` in bundled
+// node_modules code, so the native branch is dead-code-eliminated.
+declare const __WEB__: boolean | undefined;
+
+function isWebBuild(): boolean {
+  return typeof __WEB__ !== 'undefined'
+    ? __WEB__ === true
+    : (globalThis as { __WEB__?: boolean }).__WEB__ === true;
+}
+
+/**
+ * Native pages lay out their children in a column implicitly; upstream
+ * web-core's page element is `display: block`, so an app root relying on the
+ * flex context (`flex: 1` full-height roots) collapses to 0-height on web
+ * (#709 — probe-verified: 0px under block, full-viewport under flex column).
+ * Give the page the native-equivalent flex context on web only — on native
+ * the engine's implicit layout stays untouched.
+ */
+function applyWebPageLayoutDefaults(page: MainThreadElement): void {
+  if (!isWebBuild()) return;
+  // The page element on web is a plain `div[part="page"]`, and web-core's
+  // `__SetInlineStyles` maps `flex-direction` onto its `--flex-direction`
+  // custom property — which only `x-*` elements consume, so the div's real
+  // flex-direction stays `row` (browser-verified). web-core elements are real
+  // DOM nodes, so write the real properties directly.
+  const dom = page as unknown as {
+    style?: { setProperty?: (k: string, v: string) => void };
+  };
+  dom.style?.setProperty?.('display', 'flex');
+  dom.style?.setProperty?.('flex-direction', 'column');
+}
+
 g['renderPage'] = function (_data: unknown): void {
   resetMainThreadState();
   const page = __CreatePage('0', 0);
   __SetCSSId([page], 0);
   setPageUniqueId(__GetElementUniqueID(page));
+  setSnapshotPageId(__GetElementUniqueID(page));
   elements.set(PAGE_ROOT_ID, page);
+  applyWebPageLayoutDefaults(page);
 
   // Append a placeholder __CreateView under the page root so the host sees a
   // non-empty tree immediately. Without this, the host's "no UI within timeout"
@@ -87,7 +143,9 @@ g['sigxHotReload'] = function (): void {
   const page = existingPage ?? __CreatePage('0', 0);
   __SetCSSId([page], 0);
   setPageUniqueId(__GetElementUniqueID(page));
+  setSnapshotPageId(__GetElementUniqueID(page));
   elements.set(PAGE_ROOT_ID, page);
+  applyWebPageLayoutDefaults(page);
 
   const placeholder = __CreateView(__GetElementUniqueID(page));
   __SetCSSId([placeholder], 0);
@@ -97,20 +155,46 @@ g['sigxHotReload'] = function (): void {
   __FlushElementTree(page);
 };
 
-// Called by the BG Thread via callLepusMethod('sigxApplyMtHotUpdate', { code }).
-// `code` is the concatenated `registerWorkletInternal(...)` calls extracted
-// from the matching `main__main-thread.<hash>.hot-update.js` file. Eval'd in
-// the existing realm so new content-hash worklet IDs land in the live
-// `_workletMap` before the user taps a re-rendered button.
+// Called by the BG Thread via
+// callLepusMethod('sigxApplyMtHotUpdate', { code, snapshotCode }).
+// `code` is the concatenated `registerWorkletInternal(...)` calls and
+// `snapshotCode` the snapshot template registrations (namespace rebound to
+// the fixed parameter `__SigxSnap`), both extracted from the matching
+// `main__main-thread.<hash>.hot-update.js` file. Eval'd in the existing
+// realm so new content-hash ids land in the live registries before the user
+// taps a re-rendered button.
 //
 // See `lynx-runtime/src/mt-hmr-bridge.ts` for the BG-side fetch + forward.
-g['sigxApplyMtHotUpdate'] = function ({ code }: { code: string }): void {
-  if (!code) return;
-  try {
-    new Function(code)();
-  } catch (e) {
-    console.log('[sigx-mt] sigxApplyMtHotUpdate eval failed:', String(e));
+g['sigxApplyMtHotUpdate'] = function (
+  { code, snapshotCode }: { code: string; snapshotCode?: string },
+): void {
+  if (code) {
+    try {
+      new Function(code)();
+    } catch (e) {
+      console.log('[sigx-mt] sigxApplyMtHotUpdate eval failed:', String(e));
+    }
   }
+  if (snapshotCode) {
+    try {
+      // Purge the previous edit's now-unreachable templates first: an edit
+      // rotates every content-hashed id in the file, but the filename-hash
+      // prefix is stable, so incoming ids identify exactly which files'
+      // stale entries to drop.
+      const incomingIds = [...new Set(snapshotCode.match(/__snapshot_[A-Za-z0-9_]+/g) ?? [])];
+      // Eval FIRST, purge on success — purging before a throwing eval would
+      // leave the registry missing both old and new templates for the file.
+      new Function('__SigxSnap', snapshotCode)(
+        (globalThis as Record<string, unknown>)['__sigxSnapshotInternal'],
+      );
+      purgeSnapshotTemplatesByPrefix(incomingIds);
+    } catch (e) {
+      console.log('[sigx-mt] sigxApplyMtHotUpdate snapshot eval failed:', String(e));
+    }
+  }
+  // Op batches can outrun registrations (two unordered dev channels) —
+  // replay any creates that parked on a template this update delivered.
+  retryParkedSnapshots(applyOps);
 };
 
 // Called by the BG Thread via callLepusMethod('sigxPatchUpdate', { data }).
@@ -149,79 +233,15 @@ g['sigxPatchUpdate'] = function ({ data }: { data: string }): void {
 // hand over a hydrated ctx.
 // ---------------------------------------------------------------------------
 
-/**
- * Deep-clone a value into a fresh tree whose every object has
- * `Object.prototype`.
- *
- * Why: PrimJS's `JSON.parse` produces null-prototype objects (a prototype-
- * pollution safety measure that V8 / SpiderMonkey don't apply). Upstream's
- * worklet runtime (`@lynx-js/react@0.121+`'s `workletRuntime.js`) walks
- * the captured `_c`, identifies worklet placeholders by `'_wkltId' in
- * subObj`, and then calls `new WeakRef(subObj)`. PrimJS's `WeakRef` rejects
- * null-prototype objects with `TypeError: WeakRef: target must be an
- * object`, so the worklet body never runs.
- *
- * `Object.setPrototypeOf` is a silent no-op on PrimJS's JSON.parse output
- * (the proto slot is locked even with `isExtensible: true`), so the only
- * way to get an `Object.prototype`-prototyped object is to rebuild it via
- * `{}` literal. A fresh object literal always has `Object.prototype` by
- * spec, so deep-cloning the captured tree produces a fully WeakRef-able
- * shape that's semantically identical for the worklet body.
- *
- * JSON.parse output is acyclic by construction, so no cycle detection
- * needed. Arrays handled separately to keep `Array.isArray` true downstream.
- */
-function rebuildWithObjectPrototype<T>(value: T): T {
-  if (typeof value !== 'object' || value === null) return value;
-  if (Array.isArray(value)) {
-    return value.map(rebuildWithObjectPrototype) as unknown as T;
-  }
-  // Use `Object.defineProperty` (not `out[k] = ...`) so a `__proto__` key in
-  // the captured payload doesn't trigger the prototype setter on `out` and
-  // re-null the prototype we just gave it. Belt-and-braces against accidental
-  // prototype pollution; in practice `_c` is shaped by `sanitizeCaptured` on
-  // BG and shouldn't carry `__proto__`, but the guarantee is cheap.
-  const out: Record<string, unknown> = {};
-  for (const k of Object.keys(value as Record<string, unknown>)) {
-    Object.defineProperty(out, k, {
-      value: rebuildWithObjectPrototype((value as Record<string, unknown>)[k]),
-      enumerable: true,
-      writable: true,
-      configurable: true,
-    });
-  }
-  return out as unknown as T;
-}
-
 g['sigxRunOnMT'] = function (
   { wkltId, args, captured }: { wkltId: string; args: unknown[]; captured?: Record<string, unknown> },
   callback?: (result: unknown) => void,
 ): void {
-  const argsArr = args ?? [];
-  let result: unknown;
-  const runWorkletFn = (globalThis as Record<string, unknown>)['runWorklet'] as
-    | ((placeholder: { _wkltId: string; _c?: Record<string, unknown> }, args: unknown[]) => unknown)
-    | undefined;
-  if (captured && typeof runWorkletFn === 'function') {
-    // PrimJS quirk: `JSON.parse` produces null-prototype objects whose proto
-    // slot is locked (`setPrototypeOf` is a silent no-op). Upstream's worklet
-    // runtime calls `new WeakRef(subObj)` on every nested placeholder, and
-    // PrimJS's `WeakRef` rejects null-prototype objects → animations no-op.
-    //
-    // Rebuild the captured tree from scratch via object literals — every
-    // `{}` has `Object.prototype` by construction. Semantically identical
-    // for the worklet body; only upstream's `WeakRef` / `instanceof` checks
-    // are affected, which now succeed.
-    const fixedCaptured = rebuildWithObjectPrototype(captured);
-    try {
-      result = runWorkletFn({ _wkltId: wkltId, _c: fixedCaptured }, argsArr);
-    } catch (e) {
-      console.log('[sigx-mt] sigxRunOnMT worklet threw:', String(e), 'wkltId=', wkltId);
-      result = undefined;
-    }
-  } else {
-    result = invokeWorklet(wkltId, captured, argsArr);
-  }
+  // Shared invocation body lives in mt-invoke.ts — the INVOKE_WORKLET op
+  // handler (ops-apply.ts, #688) funnels through the same helper so both
+  // channels behave identically (hydration, PrimJS prototype rebuild,
+  // throw containment).
+  const result = invokeMtWorklet(wkltId, args, captured);
   if (typeof callback === 'function') {
     callback(result);
   }

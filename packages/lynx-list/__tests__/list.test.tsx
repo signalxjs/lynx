@@ -109,9 +109,47 @@ describe('List', () => {
     expect('item-snap' in list.props).toBe(false);
     expect('lower-threshold-item-count' in list.props).toBe(false);
     expect('upper-threshold-item-count' in list.props).toBe(false);
-    expect('scroll-event-throttle' in list.props).toBe(false);
     const cell = getAllByType(container, 'list-item')[0];
     expect('estimated-main-axis-size-px' in cell.props).toBe(false);
+  });
+
+  it('throttles scroll events by default, and never binds the top edge needlessly', () => {
+    // `List` always binds `bindscroll` internally, so an unthrottled feed
+    // streams scroll events to JS at frame rate; and the native list re-fires
+    // `scrolltoupper` continuously while parked at the top. Both feed the
+    // engine's dispatch limiter (#606), so a plain feed opts out of the top
+    // edge entirely and gets a coarse scroll interval.
+    const { container } = render(
+      <List items={ITEMS} keyExtractor={(i) => i.id} renderItem={renderRow} />,
+    );
+    const list = getByType(container, 'list');
+    expect(list.props['scroll-event-throttle']).toBe(100);
+    expect(list._handlers.has('bindscrolltoupper')).toBe(false);
+  });
+
+  it('binds the top edge for chat, which needs load-older', () => {
+    const { container } = render(
+      <List items={ITEMS} keyExtractor={(i) => i.id} renderItem={renderRow} inverted />,
+    );
+    expect(getByType(container, 'list')._handlers.has('bindscrolltoupper')).toBe(true);
+  });
+
+  it('acts on each edge once per arrival, not per native re-fire', () => {
+    // Native re-fires the edge events continuously while parked at an edge; a
+    // list whose container size is momentarily invalid reports both at once.
+    // Acting on every dispatch ping-pongs the window and spins re-renders.
+    const onEndReached = vi.fn();
+    const { container } = render(
+      <List items={ITEMS} keyExtractor={(i) => i.id} renderItem={renderRow} onEndReached={onEndReached} />,
+    );
+    const list = getByType(container, 'list');
+    for (let i = 0; i < 20; i++) list._handlers.get('bindscrolltolower')?.({});
+    expect(onEndReached).toHaveBeenCalledTimes(1);
+    // Only genuine movement away from the edge re-arms it.
+    list._handlers.get('bindscroll')?.({ detail: { scrollTop: 500 } });
+    list._handlers.get('bindscroll')?.({ detail: { scrollTop: 100 } });
+    list._handlers.get('bindscrolltolower')?.({});
+    expect(onEndReached).toHaveBeenCalledTimes(2);
   });
 
   it('renders header and footer as full-span cells with reserved keys', () => {
@@ -447,6 +485,15 @@ describe('List', () => {
     expect(cells[59].props['item-key']).toBe('999');
   });
 
+  it('initialMainAxisSize pins the list at full size on the first frame', () => {
+    const { container } = render(
+      <List items={ITEMS} keyExtractor={(i) => i.id} renderItem={renderRow} initialMainAxisSize={420} />,
+    );
+    const list = getByType(container, 'list');
+    // No 1px placeholder frame — the hint applies until the live measure lands.
+    expect(list._style.height).toBe('420px');
+  });
+
   // ── Dataset swaps (`itemsKey`) ───────────────────────────────────────────
 
   const bigB = (n: number): Row[] =>
@@ -579,5 +626,70 @@ describe('List', () => {
     const cells = getAllByType(container, 'list-item');
     expect(cells.length).toBe(90); // 60 + one page of 30 older
     expect(cells[0].props['item-key']).toBe('910');
+  });
+});
+
+describe('templateCells (#645)', () => {
+  const renderCell = (it: Row) => (
+    <list-item item-key={`tpl-${it.id}`} estimated-main-axis-size-px={44}>
+      <text>{it.text}</text>
+    </list-item>
+  );
+
+  it('passes consumer <list-item> rows through unwrapped', () => {
+    const { container } = render(
+      <List items={ITEMS} templateCells keyExtractor={(i) => i.id} renderItem={renderCell} />,
+    );
+    const cells = getAllByType(container, 'list-item');
+    expect(cells).toHaveLength(3);
+    // Consumer attrs survive; List injected nothing.
+    expect(cells.map((c) => c.props['item-key'])).toEqual(['tpl-a', 'tpl-b', 'tpl-c']);
+    expect(cells[0].props['item-type']).toBeUndefined();
+    expect(cells[0].props['estimated-main-axis-size-px']).toBe(44);
+    // No double wrapper: the cell's child is the content, not another list-item.
+    expect(cells[0].children[0].type).toBe('text');
+  });
+
+  it('bypasses windowing entirely (templateCells wins, with a warning)', () => {
+    vi.stubGlobal('__DEV__', true); // the warning is dev-only (app-build define)
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const many: Row[] = Array.from({ length: 150 }, (_, i) => ({ id: `r${i}`, text: `Row ${i}` }));
+    const { container } = render(
+      <List items={many} templateCells windowSize={10} keyExtractor={(i) => i.id} renderItem={renderCell} />,
+    );
+    expect(getAllByType(container, 'list-item')).toHaveLength(150);
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('windowSize is ignored'));
+    warn.mockRestore();
+    vi.unstubAllGlobals();
+  });
+
+  it('keyed reorders reconcile pass-through rows', async () => {
+    const items = signal<Row[]>([...ITEMS]);
+    const Host = component(() => () => (
+      <List items={items} templateCells keyExtractor={(i) => i.id} renderItem={renderCell} />
+    ));
+    const { container } = render(<Host />);
+    await act(() => {
+      items.$set([ITEMS[2], ITEMS[0], ITEMS[1]]);
+    });
+    const cells = getAllByType(container, 'list-item');
+    expect(cells.map((c) => c.props['item-key'])).toEqual(['tpl-c', 'tpl-a', 'tpl-b']);
+  });
+
+  it('footer and loading rows keep the wrapped path', () => {
+    const { container } = render(
+      <List
+        items={ITEMS}
+        templateCells
+        loadingMore
+        keyExtractor={(i) => i.id}
+        renderItem={renderCell}
+      />,
+    );
+    const cells = getAllByType(container, 'list-item');
+    expect(cells).toHaveLength(4);
+    const trailing = cells[cells.length - 1];
+    expect(trailing.props['item-type']).toBe('__footer');
+    expect(trailing.props['full-span']).toBe(true);
   });
 });

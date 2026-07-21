@@ -21,8 +21,11 @@ export type { SkinToneStore } from './state/skinTone.js';
 // Components
 export { EmojiPicker } from './components/EmojiPicker.js';
 export type { EmojiPickerProps } from './components/EmojiPicker.js';
-export { EmojiGrid } from './components/EmojiGrid.js';
-export type { EmojiGridProps } from './components/EmojiGrid.js';
+export { createStagingDriver, EmojiGrid, sectionRowIndex, sectionStartOffsets } from './components/EmojiGrid.js';
+export type { EmojiGridProps, EmojiGridScrollHandle, EmojiSection } from './components/EmojiGrid.js';
+export { SectionHeader, HEADER_PX } from './components/SectionHeader.js';
+export type { SectionHeaderProps } from './components/SectionHeader.js';
+export { emojiRowPx } from './components/EmojiCell.js';
 export { EmojiCell } from './components/EmojiCell.js';
 export type { EmojiCellProps } from './components/EmojiCell.js';
 export { CategoryTabBar } from './components/CategoryTabBar.js';
@@ -35,6 +38,12 @@ export type { SkinTonePopoverProps } from './components/SkinTonePopover.js';
 // Wrappers
 export { KeyboardPanelPicker } from './wrappers/KeyboardPanelPicker.js';
 export type { KeyboardPanelPickerProps } from './wrappers/KeyboardPanelPicker.js';
+export { useKeyboardPanelReveal } from './wrappers/useKeyboardPanelReveal.js';
+export type {
+    KeyboardPanelReveal,
+    KeyboardPanelRevealOptions,
+    PanelRevealMode,
+} from './wrappers/useKeyboardPanelReveal.js';
 export { SheetPicker } from './wrappers/SheetPicker.js';
 export type { SheetPickerProps } from './wrappers/SheetPicker.js';
 

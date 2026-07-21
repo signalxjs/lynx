@@ -1,6 +1,6 @@
 {
     "name": "@sigx/lynx-markdown",
-    "version": "0.12.2",
+    "version": "0.17.0",
     "description": "SignalX-native streaming markdown renderer for Lynx. Parses markdown in JS (zero deps) and renders to native <view>/<text> primitives, with incremental streaming for AI output.",
     "type": "module",
     "main": "./dist/index.js",

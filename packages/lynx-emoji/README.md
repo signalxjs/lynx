@@ -15,24 +15,69 @@ Full guides, API reference and live examples → **[https://sigx.dev/lynx/module
   `CategoryTabBar` / `SkinTonePopover` yourself. Theme via the
   `classes` slot map and render props; `@sigx/lynx-daisyui` ships a skin
   (`emojiClasses`, `EmojiPickerSheet`).
-- **Windowed grid** — a windowed `List` (`@sigx/lynx-list`) in flow layout:
-  the native recycler keeps the on-screen view count constant while
-  scrolling, and windowing bounds how many cells are ever *built* — so
-  opening a big category constructs ~120 cells instead of up to ~388.
-  Category switches are two-phase (the tab highlight paints immediately,
-  the grid follows a tick later) and visited categories stay mounted, so
-  revisiting a tab rebuilds zero cells. Headless `EmojiGrid` users can pass
-  `itemsKey` (a dataset identity string) to re-anchor the grid to the top
-  when handing it a different dataset; `EmojiPicker` handles all of this
-  automatically on tab switches and search-query changes.
+- **One continuous sectioned grid (WhatsApp-style)** — the picker is a single
+  scroll over *every* category with a sticky header per section: a category
+  tab tap **scrolls** to the section (no grid re-mount), and the active tab
+  follows as you scroll. Recents (when any exist at mount) are the first
+  section, snapshotted per mount so a pick doesn't reorder the grid under
+  your thumb; with no recents the tab is hidden too. Theme headers via
+  `classes.sectionHeader` (the headless fallback has no background — themes
+  should give the sticky header one) and label the recents section with
+  `recentsLabel`. Headless `EmojiGrid` users get the same via `sections`
+  (plus `sectionRowIndex`/`sectionStartOffsets` for scroll targets and the
+  `activeSection` event for a following tab bar); search results still use
+  the flat `emojis` mode.
+- **Instant, non-blocking mount** — the sectioned grid renders its rows as
+  plain template vnodes (no per-row component instance), mounts exactly once
+  (gated on the context's `ready` signal — recents/tone stores expose
+  `loaded` — and the measured region), and stages the first viewports
+  synchronously while the rest streams through `createStagingDriver`'s
+  budget-adaptive slices (~a frame of work each, own ops batch per slice), so
+  neither thread is ever blocked past a frame while ~2k rows load. The driver
+  is exported for warm pre-staging (e.g. behind a keyboard panel). Tab taps
+  during the brief staging tail are never dropped: pass `scrollHandle` from
+  `EmojiGrid` (the picker wires it internally) and scrolls to not-yet-staged
+  sections park and fire the moment their rows land — latest tap wins, a
+  manual scroll cancels.
+- **Template grid** — a `List` (`@sigx/lynx-list`) in flow layout running
+  snapshot-template cells: the full dataset ships as staged row records, the
+  main thread builds each cell synchronously the moment the native recycler
+  pulls it, and offscreen cells recycle through the template pool — no
+  windowing, no per-cell background rendering on scroll. Passing `renderCell`
+  swaps in a slot-bearing cell template: still synchronous, but such cells are
+  excluded from recycling (each keeps a dedicated tree), so prefer the default
+  glyph cell for large grids. A hidden list dispatches scroll events forever,
+  so exactly one grid is mounted at a time. Headless `EmojiGrid` users can
+  pass `itemsKey` (dataset identity) to re-anchor to the top on a swap, and
+  `initialHeight` to lay the grid out at full size on its first frame;
+  `EmojiPicker` does both.
+- **Screen-adaptive, WhatsApp-dense geometry** — the picker fits as many
+  ~40px cells as the measured width allows (that's the default column count:
+  10 on a typical phone, clamped 7–12), then sizes the glyph so its VISIBLE
+  INK covers ~93% of the cell: emoji fonts ink only ~64% of their declared
+  size, so the font overshoots the cell (clamped 24–72) and row heights
+  track the ink, not the em box. Device-matched against WhatsApp. Category
+  tabs and the skin-tone popover scale along. Resolved once at mount; pass
+  `columns` and/or `cellSize` for manual control.
 - **Search** — ranked shortcode/name/keyword search (`useEmojiSearch`-free:
   `buildSearchIndex(data).search('fire')`).
 - **Skin tones** — long-press a tonal emoji; the choice is sticky grid-wide
   and persists.
 - **Recents** — LRU, persisted via `@sigx/lynx-storage` (optional peer;
   without it everything works, state just resets per session).
-- **Wrappers** — `KeyboardPanelPicker` (keyboard-height composer panel) and
-  `SheetPicker` (bottom-sheet overlay).
+- **Wrappers** — `KeyboardPanelPicker` (keyboard-height composer panel — the
+  WhatsApp keyboard ⇄ panel switcher; pass `warm` to pre-mount the picker
+  offscreen so the first open is an instant style swap, and once opened it
+  stays mounted across toggles; the painted height is frozen while open and
+  adopts the keyboard's newest height when parked; `expandedHeight` paints
+  the open panel taller for a two-stage picker — WhatsApp's drag-up-for-more
+  — while the compact detent stays exactly the remembered keyboard lift, so
+  the keyboard ⇄ panel swap is still pixel-stable) with
+  `useKeyboardPanelReveal` (the reveal state machine: the app animates
+  nothing — the panel paints pinned in the keyboard's space and the system
+  keyboard's own show/hide does all visible motion, including a
+  tween-settled space handoff on flip-back so the composer bar never moves)
+  and `SheetPicker` (bottom-sheet overlay).
 - **Markdown plugin** — `@sigx/lynx-emoji/markdown` exports
   `createEmojiPlugin()` for `@sigx/lynx-markdown`'s editor (optional peer):
   `:` trigger suggestions (inserts the glyph), `:shortcode:` preview syntax,

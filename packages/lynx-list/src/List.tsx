@@ -2,6 +2,7 @@ import {
   component,
   effect,
   signal,
+  onUnmounted,
   useElementLayout,
   useMainThreadRef,
   useSharedValue,
@@ -23,6 +24,9 @@ import {
   type ListWindow,
 } from './windowing.js';
 
+// App-build define (see lynx-plugin source.define); typeof-guarded at use.
+declare const __DEV__: boolean;
+
 // Reserved item-keys for the optional header/footer/loading cells. Prefixed so
 // they never collide with a consumer's keyExtractor output.
 const HEADER_KEY = '__sigx_list_header__';
@@ -30,6 +34,14 @@ const FOOTER_KEY = '__sigx_list_footer__';
 const LOADING_KEY = '__sigx_list_loading__';
 
 const DEFAULT_PULL_THRESHOLD = 64;
+
+// `List` always binds `bindscroll` internally (load-more re-arm, chat
+// at-bottom tracking), so an unthrottled list streams scroll events to JS at
+// frame rate — which helps trip the engine's dispatch limiter during a fling
+// (error 204, #606). Nothing internal needs per-frame resolution, so default
+// to a coarse interval; consumers can opt into finer ticks via
+// `scrollEventThrottle`.
+const DEFAULT_SCROLL_THROTTLE = 100;
 
 type ScrollDetail = { detail?: { scrollTop?: number; scrollLeft?: number } };
 
@@ -236,14 +248,42 @@ const ListImpl = component<ListProps>(({ props, slots, emit }) => {
   const atBottom = signal(true);
   const unreadCount = signal(0);
 
+  // Safety net for the opacity reveal. The primary path flips `ready` from the
+  // first `layoutcomplete` (which also drives the initial scroll-to-bottom).
+  // Under a mount-time layout race that event can fail to land — e.g. the
+  // wrapper settles collapsed and the inner list never lays out cells — which
+  // would leave the ENTIRE chat stuck at `opacity: 0` forever (the thread is
+  // invisible even though the data is there). Guarantee the reveal within a
+  // bounded window so that can't happen; the `layoutcomplete` path still wins
+  // in the common case (it fires within a frame or two, well under this delay).
+  if (chatEnabled) {
+    const revealFallback = setTimeout(() => { if (!ready.value) ready.value = true; }, 400);
+    onUnmounted(() => clearTimeout(revealFallback));
+  }
+
   // ── Windowing ──────────────────────────────────────────────────────────────
+  // Template-native cells (#645): renderItem returns a consumer-compiled
+  // <list-item> template and List passes it through unwrapped. Template rows
+  // are cheap staged records on the wire (the MT builds cells on demand and
+  // recycles them), so windowing — which exists to bound eager per-element
+  // materialization — is unnecessary and is disabled outright.
+  const templateCells = props.templateCells === true;
+  // __DEV__ is an app-build define (lynx-plugin source.define) substituted at
+  // bundle time even inside this dist; typeof-guarded for non-plugin bundlers.
+  if (typeof __DEV__ !== 'undefined' && __DEV__ && templateCells && props.windowSize !== undefined) {
+    console.warn(
+      '[sigx-list] templateCells makes windowing unnecessary — windowSize is ignored '
+        + '(template rows are staged records; cells build on demand and recycle)',
+    );
+  }
+
   // Render only a bounded sliding slice of `items` (opt-in via `windowSize`) so
   // a thousands-long history doesn't materialize thousands of <list-item>s — the
   // runtime renders every *rendered* cell eagerly (only native views recycle).
   // The math lives in windowing.ts; here we hold the range as signals and move
   // it from the scroll-edge handlers. Registered before the chat effects below
   // so the window is initialised before the first scroll-to-bottom reads it.
-  const windowingEnabled = props.windowSize !== undefined;
+  const windowingEnabled = props.windowSize !== undefined && !templateCells;
   const winCfg = resolveWindowConfig(props.windowSize, props.pageSize, props.maxWindow);
   // Initialise the window SYNCHRONOUSLY at setup. Effects flush on a microtask
   // *after* the first render, so a deferred init would let the first frame
@@ -449,13 +489,33 @@ const ListImpl = component<ListProps>(({ props, slots, emit }) => {
     unreadCount.value = 0;
   };
 
-  // ── Load-more de-dup (BG; persists across renders since setup runs once) ──
+  // ── Edge-event de-dup (BG; persists across renders since setup runs once) ──
+  // Native re-fires `scrolltoupper`/`scrolltolower` CONTINUOUSLY while the list
+  // sits at an edge (~240/s, far above frame rate), and a list whose container
+  // size is momentarily invalid reports BOTH edges at once. Acting on every
+  // dispatch then ping-pongs the window (expandNewer trims the head → the top
+  // edge re-fires → expandOlder trims the tail → repeat), which spins hundreds
+  // of re-renders and floods the engine's dispatch limiter (error 204, #606).
+  // So each edge acts ONCE per arrival and only re-arms when a real scroll
+  // moves away from it — the flags are never reset by the opposite edge, which
+  // is what allowed the loop to sustain itself.
+  let startReachedFired = false;
   let endReachedFired = false;
   let lastTop = 0;
   let prevCount = props.items.length;
 
   return () => {
     const horizontal = props.horizontal ?? false;
+    // The native `<list>` re-fires `scrolltoupper` CONTINUOUSLY while it sits
+    // at its top edge — measured ~1,674 dispatches on one list with no
+    // scrolling at all and only 2 renders (~240/s, far above frame rate).
+    // Every one is a native→JS `__SendPageEvent`, so registering the handler
+    // unconditionally floods the engine's dispatch limiter (error 204,
+    // "called too frequently") within a few list mounts, and hands consumers
+    // hundreds of bogus `startReached` calls. Register it only when it can do
+    // real work: chat mode (load-older is its documented use), a window that
+    // actually has older items to reveal, or a consumer explicitly listening.
+    // See #606.
     const items = props.items;
     const count = items.length;
 
@@ -465,10 +525,15 @@ const ListImpl = component<ListProps>(({ props, slots, emit }) => {
       prevCount = count;
     }
 
-    // Pin the list to the measured main-axis size; 1px placeholder until the
-    // wrapper's first layout pass lands.
+    // Pin the list to the measured main-axis size. Until the wrapper's first
+    // layout pass lands, fall back to the consumer's `initialMainAxisSize`
+    // hint (when they already know the box) so the mount frame lays out at
+    // full size — else a 1px placeholder.
     const measured = horizontal ? layout.value?.width : layout.value?.height;
-    const mainAxisPx = measured && measured > 0 ? `${measured}px` : '1px';
+    const hinted = props.initialMainAxisSize;
+    const mainAxisPx = measured && measured > 0
+      ? `${measured}px`
+      : hinted && hinted > 0 ? `${hinted}px` : '1px';
     const listStyle: Record<string, string | number> = horizontal
       ? { width: mainAxisPx, height: '100%' }
       : { height: mainAxisPx, width: '100%' };
@@ -477,6 +542,10 @@ const ListImpl = component<ListProps>(({ props, slots, emit }) => {
     // scroll to — an empty chat has no first-scroll target, so `ready` would
     // never flip and it would render invisible forever.
     if (chatEnabled && !ready.value && count > 0) listStyle.opacity = 0;
+
+    const wantUpperEdge = chatEnabled
+      || (windowingEnabled && winInit && winStart.value > 0)
+      || (props as { onStartReached?: unknown }).onStartReached !== undefined;
 
     const keyOf = props.keyExtractor;
     const typeOf = props.itemType;
@@ -522,15 +591,17 @@ const ListImpl = component<ListProps>(({ props, slots, emit }) => {
         // serialized as a native `null` attribute write (no skip in
         // patchProp), which would clobber the native default.
         {...(props.itemSnap !== undefined ? { 'item-snap': props.itemSnap } : {})}
+        {...(props.sticky ? { sticky: true } : {})}
+        {...(props.sticky && props.stickyOffset !== undefined
+          ? { 'sticky-offset': props.stickyOffset }
+          : {})}
         {...(props.onEndReachedThreshold !== undefined
           ? { 'lower-threshold-item-count': props.onEndReachedThreshold }
           : {})}
         {...(props.onStartReachedThreshold !== undefined
           ? { 'upper-threshold-item-count': props.onStartReachedThreshold }
           : {})}
-        {...(props.scrollEventThrottle !== undefined
-          ? { 'scroll-event-throttle': props.scrollEventThrottle }
-          : {})}
+        scroll-event-throttle={props.scrollEventThrottle ?? DEFAULT_SCROLL_THROTTLE}
         {...(refreshEnabled ? { 'enable-scroll': !pulling.value } : {})}
         {...(chatEnabled ? { bindlayoutcomplete: onChatLayoutComplete } : {})}
         {...(refreshEnabled
@@ -542,10 +613,9 @@ const ListImpl = component<ListProps>(({ props, slots, emit }) => {
           }
           : {})}
         bindscrolltolower={() => {
-          if (!endReachedFired) {
-            endReachedFired = true;
-            emit('endReached');
-          }
+          if (endReachedFired) return;   // continuous re-fire while at the edge
+          endReachedFired = true;
+          emit('endReached');
           // Chat: reaching the bottom clears the unread affordance.
           if (chatEnabled) {
             atBottom.value = true;
@@ -558,8 +628,9 @@ const ListImpl = component<ListProps>(({ props, slots, emit }) => {
             setWindow(expandNewer({ start: winStart.value, end: winEnd.value }, count, winCfg));
           }
         }}
-        bindscrolltoupper={() => {
-          endReachedFired = false;
+        {...(wantUpperEdge ? { bindscrolltoupper: () => {
+          if (startReachedFired) return;  // continuous re-fire while at the edge
+          startReachedFired = true;
           // Windowing: at the top edge, reveal an older page already in `items`.
           // bindscrolltoupper only fires at the top, so this is the at-top-only
           // prepend path (expanding above a top-pinned viewport is the expected
@@ -573,16 +644,19 @@ const ListImpl = component<ListProps>(({ props, slots, emit }) => {
             void anchorRestoreMT(anchorCell, SCROLL_METHOD);
           }
           emit('startReached');
-        }}
+        } } : {})}
         bindscroll={(e: ScrollDetail) => {
           const d = e?.detail;
           if (!d) return;
           const top = (horizontal ? d.scrollLeft : d.scrollTop) ?? 0;
-          // Scrolled back up away from the end → re-arm onEndReached, and (chat)
-          // mark not-at-bottom so new messages surface the affordance.
+          // Genuine movement away from an edge re-arms that edge (and only
+          // that one). Chat: moving up means new messages surface the unread
+          // affordance instead of auto-scrolling.
           if (top < lastTop - 4) {
             endReachedFired = false;
             if (chatEnabled) atBottom.value = false;
+          } else if (top > lastTop + 4) {
+            startReachedFired = false;
           }
           lastTop = top;
           emit('scroll', { offset: top });
@@ -596,6 +670,21 @@ const ListImpl = component<ListProps>(({ props, slots, emit }) => {
         {visibleItems.map((item, localI) => {
           const i = sliceStart + localI;
           const key = keyOf ? keyOf(item, i) : String(i);
+          // Template-native rows (#645): the consumer's <list-item> template
+          // flows through unwrapped — wrapping would make it slot content
+          // (unpoolable, early-materialized). We own the vnode between
+          // renderItem() and the reconciler, so keying it in place is safe;
+          // an explicit consumer key wins.
+          if (templateCells) {
+            const cell = props.renderItem(item, i) as
+              | { key?: unknown }
+              | null
+              | undefined;
+            if (cell && typeof cell === 'object' && cell.key == null) {
+              cell.key = key;
+            }
+            return cell;
+          }
           return (
             <list-item
               key={key}

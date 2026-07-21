@@ -39,6 +39,7 @@ describe('public runtime exports', () => {
         const valueExportNames = Object.keys(nav).sort();
         expect(valueExportNames).toEqual(
             [
+                'BottomSheet',
                 'Drawer',
                 'Header',
                 'Link',
@@ -65,6 +66,7 @@ describe('public runtime exports', () => {
                 'useScreenChrome',
                 'useScreenOptions',
                 'useSearch',
+                'useSheetHeight',
                 'useTabs',
             ].sort(),
         );
@@ -140,6 +142,8 @@ describe('ScreenOptions / useScreenOptions', () => {
             | 'snapPoints'
             | 'initialSnapIndex'
             | 'backdropDismiss'
+            | 'backdrop'
+            | 'dragHandle'
         >();
     });
 

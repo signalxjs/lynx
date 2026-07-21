@@ -1,4 +1,4 @@
-import { component, signal, type Define } from '@sigx/lynx';
+import { component, signal, useElementLayout, type Define } from '@sigx/lynx';
 import type { EmojiData, EmojiDatum, SkinTone } from '../data/schema.js';
 import { glyphForTone } from '../data/glyph.js';
 import { createEmojiContext, useEmojiContext, type EmojiContextValue } from '../state/context.js';
@@ -12,7 +12,7 @@ import type {
     EmojiTab,
 } from '../types.js';
 import { CategoryTabBar, type CategoryTabEntry } from './CategoryTabBar.js';
-import { EmojiGrid } from './EmojiGrid.js';
+import { EmojiGrid, type EmojiGridScrollHandle, type EmojiSection } from './EmojiGrid.js';
 import { SearchInput } from './SearchInput.js';
 import { SkinTonePopover } from './SkinTonePopover.js';
 
@@ -23,7 +23,12 @@ export type EmojiPickerProps =
      * surfaces); required without one. Fixed at mount.
      */
     & Define.Prop<'data', EmojiData, false>
-    /** Grid columns. Default 8. */
+    /**
+     * Grid columns. Default: ADAPTIVE — as many ~40px cells as the measured
+     * grid width fits (clamped 7–12; 10 on a typical phone, like WhatsApp).
+     * The resolved value is FROZEN for the mount (the sectioned grid's
+     * scroll-offset math needs fixed rows) — post-mount changes are ignored.
+     */
     & Define.Prop<'columns', number, false>
     /** Show the recents tab. Default true. */
     & Define.Prop<'showRecents', boolean, false>
@@ -32,7 +37,17 @@ export type EmojiPickerProps =
     & Define.Prop<'searchPlaceholder', string, false>
     /** Shown when the current slice is empty (no recents yet / no search hits). */
     & Define.Prop<'emptyLabel', string, false>
-    /** Glyph font size in grid cells. Default 26. */
+    /** Header label of the recents section. Default `'Recently used'`. */
+    & Define.Prop<'recentsLabel', string, false>
+    /**
+     * Glyph font size in grid cells. Default: ADAPTIVE — the glyph fills
+     * the cell so its VISIBLE INK covers ~93% of the cell width (emoji
+     * fonts ink only ~64% of the em — the font size overshoots accordingly;
+     * clamped 24–72), so the grid is dense
+     * in both axes like WhatsApp's; 32 when no width is known. Pass a number
+     * for full control. The tone popover follows the resolved size. Frozen
+     * for the mount, like `columns`.
+     */
     & Define.Prop<'cellSize', number, false>
     /** Per-slot class overrides — the theming surface. */
     & Define.Prop<'classes', EmojiSlotClasses, false>
@@ -56,12 +71,6 @@ const RECENTS_GLYPH = '🕘';
 // proxies — signalxjs/lynx#603 — and blanks the whole surface). The
 // per-key caches in setup scope below satisfy both.
 const GRID_STYLE_TEMPLATE: Record<string, string | number> = { flexGrow: 1, flexShrink: 1 };
-const GRID_WRAP_STYLE_TEMPLATE: Record<string, string | number> = {
-    flexGrow: 1,
-    flexShrink: 1,
-    display: 'flex',
-    flexDirection: 'column',
-};
 
 /**
  * Curated tab icons per CLDR group key. The first-emoji-of-group fallback
@@ -83,10 +92,12 @@ const CATEGORY_GLYPHS: Record<string, string> = {
 };
 
 /**
- * The headless emoji picker — search row, category tab bar, recycled glyph
- * grid, skin-tone long-press popover, persistent recents. Unstyled beyond
- * neutral fallbacks; theme via `classes`/render props (see `EmojiSlotClasses`)
- * or use a themed wrapper like daisyui's `EmojiPickerSheet`.
+ * The headless emoji picker — search row, category tab bar, ONE continuous
+ * sectioned glyph grid (WhatsApp-style: sticky headers, a tab tap scrolls to
+ * its section, the tab highlight follows the scroll), skin-tone long-press
+ * popover, persistent recents. Unstyled beyond neutral fallbacks; theme via
+ * `classes`/render props (see `EmojiSlotClasses`) or use a themed wrapper
+ * like daisyui's `EmojiPickerSheet`.
  *
  * Sizing: the picker is a flex column that fills its container — give it a
  * bounded height (the wrappers in `../wrappers/` do).
@@ -114,31 +125,63 @@ export const EmojiPicker = component<EmojiPickerProps>(({ props, emit }) => {
     }));
 
     const query = signal('');
-    // Split signals: the grid's slice depends on `gridTab`, the popover
-    // overlay on `popover.datum` — keeping them apart (and the grid's props
-    // identity-stable, see GRID_STYLE) means toggling the popover leaves the
-    // mounted grid untouched.
-    //
-    // Tab switches are two-phase: `tab` flips immediately (the tab bar's
-    // highlight is a cheap flush that paints right away), `gridTab` follows
-    // one tick later — otherwise the highlight and the ~120-cell grid swap
-    // share one flush and the selection doesn't show until the grid is
-    // built, which reads as lag on the tap itself.
-    const initialTab = ctx.data.categories[0]?.key ?? 'recents';
-    const tab = signal(initialTab);
-    const gridTab = signal(initialTab);
-    const popover = signal<{ datum: EmojiDatum | null }>({ datum: null });
-    // Visited categories keep their grid MOUNTED (hidden via `use:show`, one
-    // SET_STYLE op to toggle): a first visit builds its ~120-cell window once,
-    // every revisit is instant — zero cells rebuilt (the native list resets
-    // its scroll to the top while hidden, which matches what other pickers do
-    // on a category tap). Bounded cost: categories × window (≤ ~120 cells
-    // each), and only for tabs actually opened.
-    const visitedTabs = signal<{ keys: string[] }>({ keys: [initialTab] });
+    // Recents are SNAPSHOTTED once hydration lands (WhatsApp behavior): a
+    // pick mid-session must not reorder the recents section under the
+    // user's thumb — the fresh list shows on the next mount. The snapshot is
+    // LAZY (first post-`ctx.ready` read), because at setup time the
+    // persisted recents may not have hydrated yet.
+    let recentsSnapshot: EmojiDatum[] | null = null;
+    const recentsAtMount = (): EmojiDatum[] => {
+        if (recentsSnapshot === null) recentsSnapshot = ctx!.recents.recents.map((e) => e);
+        return recentsSnapshot;
+    };
 
-    // Per-element style objects, cached per tab key — identity-stable across
+    /**
+     * The sections of the ONE continuous list (#662): recents first (when
+     * enabled and non-empty — an empty recents section would be a dead tab),
+     * then every category. Content is fixed per mount; the grid caches its
+     * row composition against `itemsKey`.
+     */
+    // Memoized per composition key: a fresh array per render would change
+    // the grid's `sections` identity and re-render it for nothing.
+    let sectionsMemo: { key: string; list: EmojiSection[] } | null = null;
+    /** Only call once `ctx.ready` is true (the recents snapshot hydrates then). */
+    const sectionsFor = (): EmojiSection[] => {
+        const withRecents = (props.showRecents ?? true) && recentsAtMount().length > 0;
+        const memoKey = `${withRecents ? 'r' : ''}#${props.recentsLabel ?? ''}`;
+        if (sectionsMemo && sectionsMemo.key === memoKey) return sectionsMemo.list;
+        const list: EmojiSection[] = [];
+        if (withRecents) {
+            list.push({
+                key: 'recents',
+                label: props.recentsLabel ?? 'Recently used',
+                emojis: recentsAtMount(),
+            });
+        }
+        for (const cat of ctx!.data.categories) {
+            list.push({ key: cat.key, label: cat.label, emojis: byCategory.get(cat.key) ?? [] });
+        }
+        sectionsMemo = { key: memoKey, list };
+        return list;
+    };
+
+    // Split signals: the tab highlight depends on `tab`, the popover overlay
+    // on `popover.datum` — keeping them apart (and the grid's props
+    // identity-stable, see GRID_STYLE) means toggling either leaves the
+    // mounted grid untouched.
+    // '' until the first tap/scroll — the render derives the effective
+    // active tab (first section) so nothing here needs the sections early.
+    const tab = signal('');
+    const popover = signal<{ datum: EmojiDatum | null }>({ datum: null });
+
+    // Tab taps SCROLL the one sectioned list — no grid re-mount (#662). The
+    // GRID owns the actual scroll (it alone knows how many rows are staged;
+    // a raw scroll at an unstaged index would be dropped by native, #666) —
+    // it registers its staged-aware handler on this handle at setup.
+    const gridScroll: EmojiGridScrollHandle = { current: null };
+
+    // Per-element style objects, cached per key — identity-stable across
     // renders AND unique per element (see the template note above / #603).
-    const wrapStyles = new Map<string, Record<string, string | number>>();
     const gridStyles = new Map<string, Record<string, string | number>>();
     const styleFor = (
         cache: Map<string, Record<string, string | number>>,
@@ -153,17 +196,57 @@ export const EmojiPicker = component<EmojiPickerProps>(({ props, emit }) => {
         return style;
     };
 
+    // The grid region is measured once (all tab grids share its box) and the
+    // height is handed to every grid as `initialHeight`, so a freshly mounted
+    // grid lays out at full size in its mount frame instead of spending it at
+    // the 1px placeholder and visibly re-laying-out.
+    const { layout: regionLayout, onLayoutChange: onRegionLayoutChange } = useElementLayout();
+    // Per-instance (not module-level): two pickers must not share the object.
+    const regionStyle: Record<string, string | number> = {
+        flexGrow: 1,
+        flexShrink: 1,
+        display: 'flex',
+        flexDirection: 'column',
+        position: 'relative',
+    };
+
+    // Grid geometry derives from the SCREEN (the WhatsApp model, #669/#674):
+    // fit as many ~TARGET_CELL_PX-wide cells as the measured width allows
+    // (that's the column count — 10 on a typical phone, more on tablets),
+    // then size the glyph so its INK fills ~93% of the resulting cell, so the grid is
+    // dense in both axes regardless of device. Resolves exactly once — at
+    // the same pre-mount gate that freezes the region height — because the
+    // sectioned grid's scroll-offset math needs rows fixed per mount.
+    // Pre-measure (tests, SSR) falls back WITHOUT freezing, so the real
+    // measurement still wins. Explicit props override their half each.
+    // Android/iOS emoji fonts INK only ~64% of the declared fontSize — all
+    // spacing math below models the visible ink, not the em box, or the grid
+    // reads airy no matter the numbers (measured against WhatsApp on device).
+    const EMOJI_INK = 0.64;
+    const TARGET_CELL_PX = 40;
+    let resolvedGeometry: { columns: number; cellSize: number } | null = null;
+    const geometryFor = (regionWidth: number): { columns: number; cellSize: number } => {
+        if (resolvedGeometry !== null) return resolvedGeometry;
+        if (regionWidth <= 0) {
+            // Pre-measure fallback — NOT frozen, so the real measurement wins.
+            return { columns: props.columns ?? 8, cellSize: props.cellSize ?? 32 };
+        }
+        // Explicit props are baked in AT RESOLVE TIME and the pair is frozen
+        // for the mount — never mix a later prop with a size derived for a
+        // different column count (glyphs sized for 10 columns in an 8-column
+        // grid would misreport every row height to the offset math).
+        const columns = props.columns
+            ?? Math.min(12, Math.max(7, Math.floor(regionWidth / TARGET_CELL_PX)));
+        const cellSize = props.cellSize
+            ?? Math.min(72, Math.max(24, Math.round(((regionWidth / columns) * 0.93) / EMOJI_INK)));
+        resolvedGeometry = { columns, cellSize };
+        return resolvedGeometry;
+    };
+
     function selectTab(key: string): void {
         tab.value = key;
         popover.datum = null;
-        setTimeout(() => {
-            // Stale-tap guard: rapid taps only swap the grid to the final tab.
-            if (tab.value !== key) return;
-            if (!visitedTabs.keys.includes(key)) {
-                visitedTabs.$set({ keys: [...visitedTabs.keys, key] });
-            }
-            gridTab.value = key;
-        }, 0);
+        gridScroll.current?.(key);
     }
 
     function pick(datum: EmojiDatum, tone: SkinTone): void {
@@ -178,16 +261,28 @@ export const EmojiPicker = component<EmojiPickerProps>(({ props, emit }) => {
 
     return () => {
         const classes = props.classes ?? {};
-        const showRecents = props.showRecents ?? true;
         const q = query.value.trim();
         const tone = ctx.skinTone.state.tone;
 
-        const allTabs = showRecents
+        // The ~1,900-row grid mounts exactly ONCE, with everything it needs
+        // known: persisted tone + recents hydrated (`ctx.ready`) and the
+        // region measured. Mounting earlier meant a full row re-render per
+        // late arrival — three mount-blocking passes of the whole dataset
+        // (#666). Both normally land within milliseconds of setup; the
+        // pre-ready frame renders the measuring shell only.
+        const ready = ctx.ready.value;
+        const regionHeight = regionLayout.value?.height ?? 0;
+        const { columns, cellSize } = geometryFor(regionLayout.value?.width ?? 0);
+        const sections = ready ? sectionsFor() : null;
+
+        // The recents TAB tracks the recents SECTION: hidden when there were
+        // no recents at mount (a tab that scrolls nowhere is worse than none).
+        const allTabs = sections?.[0]?.key === 'recents'
             ? [{ tab: 'recents' as EmojiTab, glyph: RECENTS_GLYPH }, ...tabs]
             : tabs;
+        // Until the first tap/scroll sets `tab`, the first section is active.
+        const activeTab = tab.value !== '' ? tab.value : sections?.[0]?.key ?? '';
         const searchHits = q !== '' ? ctx.index.search(q) : null;
-        const sliceFor = (key: string): EmojiDatum[] =>
-            key === 'recents' ? ctx.recents.recents.map((e) => e) : byCategory.get(key) ?? [];
 
         const renderEmpty = (label: string): unknown => (
             <view
@@ -210,9 +305,10 @@ export const EmojiPicker = component<EmojiPickerProps>(({ props, emit }) => {
             <EmojiGrid
                 emojis={emojis}
                 itemsKey={itemsKey}
+                initialHeight={regionHeight > 0 ? regionHeight : undefined}
                 tone={tone}
-                columns={props.columns}
-                cellSize={props.cellSize}
+                columns={columns}
+                cellSize={cellSize}
                 class={classes.grid}
                 cellClass={classes.cell}
                 renderCell={props.renderCell}
@@ -221,6 +317,37 @@ export const EmojiPicker = component<EmojiPickerProps>(({ props, emit }) => {
                 onPickTone={(datum) => { popover.datum = datum; }}
             />
         );
+
+        // The ONE list (#662): every emoji, recents first, a sticky header
+        // per section. A tab tap scrolls to its header; scrolling reports the
+        // topmost section back so the tab highlight follows. The grid caches
+        // rows/offsets by itemsKey, so the key must change with everything
+        // the composition depends on (recents presence via the key list,
+        // plus the recents label).
+        const renderSectioned = (): unknown => {
+            const secs = sections!;
+            const sectionsKey = `s:${secs.map((x) => x.key).join(',')}#${props.recentsLabel ?? ''}`;
+            return (
+            <EmojiGrid
+                sections={secs}
+                itemsKey={sectionsKey}
+                scrollHandle={gridScroll}
+                initialHeight={regionHeight > 0 ? regionHeight : undefined}
+                tone={tone}
+                columns={columns}
+                cellSize={cellSize}
+                class={classes.grid}
+                cellClass={classes.cell}
+                headerClass={classes.sectionHeader}
+                headerLabelSize={Math.round(cellSize * 0.28)}
+                renderCell={props.renderCell}
+                style={styleFor(gridStyles, GRID_STYLE_TEMPLATE, 'sections')}
+                onPick={(datum) => pick(datum, ctx.skinTone.state.tone)}
+                onPickTone={(datum) => { popover.datum = datum; }}
+                onActiveSection={(key) => { tab.value = key; }}
+            />
+            );
+        };
 
         return (
             <view
@@ -250,10 +377,11 @@ export const EmojiPicker = component<EmojiPickerProps>(({ props, emit }) => {
                             )}
                     </view>
                 )}
-                {q === '' && (
+                {q === '' && sections !== null && (
                     <CategoryTabBar
+                        size={Math.round(cellSize * 0.62)}
                         tabs={allTabs}
-                        active={tab.value}
+                        active={activeTab}
                         class={classes.tabBar}
                         tabClass={classes.tab}
                         tabActiveClass={classes.tabActive}
@@ -261,31 +389,16 @@ export const EmojiPicker = component<EmojiPickerProps>(({ props, emit }) => {
                         onSelect={(t) => selectTab(t === 'recents' ? 'recents' : t.key)}
                     />
                 )}
+                <view style={regionStyle} bindlayoutchange={onRegionLayoutChange}>
                 {searchHits !== null
                     ? (searchHits.length === 0
                         ? renderEmpty('No emoji found')
                         : renderGrid(searchHits, 'search', 'q:' + q))
-                    // One wrapper per tab, ALWAYS — a constant-shape keyed
-                    // array, so mounting one tab's grid never disturbs the
-                    // siblings (a growing array re-anchors the whole set).
-                    // A wrapper stays empty until its tab is first visited.
-                    : allTabs.map((entry) => {
-                        const key = entry.tab === 'recents' ? 'recents' : entry.tab.key;
-                        const slice = visitedTabs.keys.includes(key) ? sliceFor(key) : null;
-                        return (
-                            <view
-                                key={key}
-                                use:show={gridTab.value === key}
-                                style={styleFor(wrapStyles, GRID_WRAP_STYLE_TEMPLATE, key)}
-                            >
-                                {slice !== null && (slice.length === 0
-                                    ? renderEmpty(key === 'recents' ? 'No recent emoji yet' : 'No emoji found')
-                                    : renderGrid(slice, key, 't:' + key))}
-                            </view>
-                        );
-                    })}
+                    : (sections !== null && regionHeight > 0 ? renderSectioned() : null)}
+                </view>
                 {popover.datum && (
                     <SkinTonePopover
+                        size={cellSize}
                         datum={popover.datum}
                         toneLabels={ctx.data.skinTones}
                         activeTone={tone}

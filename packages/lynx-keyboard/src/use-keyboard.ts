@@ -8,7 +8,7 @@ import {
   type SharedValue,
 } from '@sigx/lynx';
 import { useSafeAreaInsets } from '@sigx/lynx-safe-area';
-import { withTiming } from '@sigx/lynx-motion';
+import { cancelAnimation, withTiming } from '@sigx/lynx-motion';
 import type { KeyboardState } from './types.js';
 
 /**
@@ -61,6 +61,7 @@ export function useKeyboardLift(
  * `@sigx/reactivity` and is NOT lifecycle-scoped — same manual-stop pattern
  * as lynx-safe-area's provider).
  */
+
 export function useKeyboardLiftSV(
   discountBottomInset = true,
   offset = 0,
@@ -84,15 +85,26 @@ export function useKeyboardLiftSV(
 
   const animateTo = runOnMainThread((target: number, seconds: number) => {
     'main thread';
+    if (seconds <= 0) {
+      // Idempotent sync: write the value outright — a zero-delta tween would
+      // still schedule rAF ticks for the full duration. Cancel any in-flight
+      // tween FIRST: a bare SV write doesn't stop one (lynx-motion contract),
+      // so a settle racing a just-dispatched lift tween would otherwise be
+      // overwritten by its remaining ticks. MT-side mutation goes through
+      // `.current.value` (`.value` is the read-only BG accessor).
+      cancelAnimation(lift);
+      lift.current.value = target;
+      return;
+    }
     void withTiming(lift, target, { duration: seconds });
   });
 
   // Dedupe by last dispatched target: the inset signal also fires for
-  // changes that don't affect the lift (rotation, status-bar changes, the
-  // mount-time run), and animate() doesn't short-circuit zero-delta tweens
-  // — it would still schedule rAF ticks for the full duration and
+  // changes that don't affect the lift (rotation, status-bar changes), and
+  // animate() doesn't short-circuit zero-delta tweens — it would
   // cancel/restart any in-flight animation. Seeded with the SharedValue's
-  // initial value so the mount-time run dispatches nothing.
+  // initial value so the mount-frame run dispatches nothing (dispatching
+  // during the mount frame can outrun the SV/worklet registration ops).
   let lastTarget = initialLift;
   const watcher = effect(() => {
     const target = computeLift(insets.value);
@@ -101,6 +113,23 @@ export function useKeyboardLiftSV(
     void animateTo(target, duration);
   });
   onUnmounted(() => watcher.stop());
+
+  // Post-mount SETTLE (#677): the seed above is read at setup and the
+  // watcher dedupes against it, so a keyboard change landing in the gap
+  // between those two moments is invisible — BG believes the lift is
+  // current while the MT holds the stale seed (the composer's bar stranded
+  // keyboard-height off the bottom on first entry). One deferred idempotent
+  // sync closes it: re-read the lift AT FIRE TIME and write it outright
+  // (duration 0 → direct write, no motion when already correct). Ordering
+  // against the SV's registration ops is the runtime's job since #691 —
+  // dispatches ride the same ordered ops stream — so a single pass suffices.
+  let settleTimer: ReturnType<typeof setTimeout> | null = setTimeout(() => {
+    settleTimer = null;
+    const target = computeLift(insets.value);
+    lastTarget = target;
+    void animateTo(target, 0);
+  }, 0);
+  onUnmounted(() => { if (settleTimer !== null) clearTimeout(settleTimer); });
 
   return lift;
 }

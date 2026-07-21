@@ -72,6 +72,23 @@ export interface AnimateControls {
 // ============================================================================
 
 /**
+ * Cancel the in-flight animation on `sv`, if any. The SharedValue keeps
+ * its current mid-flight value — the caller typically takes over writing
+ * it (e.g. a gesture grabbing a sheet during its settle tween). A plain
+ * SV write does NOT cancel an animation (only a new `animate()` on the
+ * same SV does), so gesture claim paths must call this explicitly.
+ */
+export function cancelAnimation(sv: SharedValue<number>): void {
+  'main thread';
+
+  // Same globalThis stash animate() maintains — module-scope references
+  // don't survive SWC's worklet `_c` capture.
+  const g = globalThis as { __sigxMotionInflight?: Map<number, () => void> };
+  const stop = g.__sigxMotionInflight?.get(sv._wvid);
+  if (stop) stop();
+}
+
+/**
  * Animate a `SharedValue<number>` toward `target`. Returns
  * `{ stop, finished }`. Default is spring; pass `type: 'tween'` or
  * `{ duration }` to use a tween with `easeOut`.
@@ -222,17 +239,19 @@ export function animate(
   };
 
   // ─── Flush trigger (microtask-debounced) ─────────────────────────────
-  // Writing `sv.current.value` is a plain ref mutation — it doesn't
-  // schedule the native flush by itself. Without a flush, the SharedValue
-  // bridge never publishes the new value to BG and `useAnimatedStyle`
-  // bindings never apply.
-  //
   // We coalesce calls via a `globalThis.__sigxMotionFlushScheduled` flag:
   // multiple ticks across multiple concurrent animations within the same
   // microtask boundary all set the flag, the first one schedules the
   // microtask, the rest see the flag and bail. End result: ONE flush per
   // microtask regardless of how many animations are live. Same pattern
   // upstream's `MTElementWrapper.flushElementTree` uses.
+  //
+  // The MT runtime now arms this SAME latch on every bridged SharedValue
+  // write (`animated-bridge-mt.ts: armAvAutoFlush` — the `sv.current.value`
+  // assignment in tick() below already schedules the flush through it), so
+  // this explicit trigger is belt-and-braces: it keeps animations flushing
+  // when lynx-motion is paired with an older runtime-main that doesn't arm
+  // the setter, and costs nothing otherwise (the shared latch dedupes).
   const flushTree = (): void => {
     const g = globalThis as Record<string, unknown>;
     if (g['__sigxMotionFlushScheduled']) return;

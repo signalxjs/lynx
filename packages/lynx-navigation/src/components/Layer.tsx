@@ -30,8 +30,9 @@ import {
     type ComponentFactory,
     type Define,
     type MainThread,
+    type MainThreadRef,
 } from '@sigx/lynx';
-import { Suspense, isLazyComponent } from '@sigx/lynx';
+import { Defer, isLazyComponent } from '@sigx/lynx';
 import type { LayerAnimation } from '../internal/layer-plan.js';
 import type { RouteMap, StackEntry } from '../types.js';
 import { EntryScope } from './EntryScope.js';
@@ -54,10 +55,18 @@ export type LayerProps =
      * binding (covered sheet, or animations disabled). Plain style — see
      * `Layer.staticOffsetY` in `layer-plan.ts`.
      */
-    & Define.Prop<'staticOffsetY', number, false>;
+    & Define.Prop<'staticOffsetY', number, false>
+    /**
+     * Let the parent own the host element's MT ref (e.g. `<SheetSlot>`
+     * attaches a full-surface gesture detector to the sheet's host view).
+     * Setup-time choice — the ref identity never changes for the layer's
+     * life, so `main-thread:ref` never rebinds.
+     */
+    & Define.Prop<'hostRef', MainThreadRef<MainThread.Element | null>, false>;
 
 export const Layer = component<LayerProps>(({ props }) => {
-    const ref = useMainThreadRef<MainThread.Element | null>(null);
+    const ownRef = useMainThreadRef<MainThread.Element | null>(null);
+    const ref = props.hostRef ?? ownRef;
     // Reactive binding: the Layer's key is stable for the entry's life, so
     // `props.animation` changes (spec ↔ null) at runtime as the layer
     // animates and then settles. The reactive `useAnimatedStyle` re-binds the
@@ -91,9 +100,9 @@ export const Layer = component<LayerProps>(({ props }) => {
         const entryParams = props.entry.params as Record<string, unknown>;
         const body = isLazyComponent(Comp) && route.fallback
             ? (
-                <Suspense fallback={route.fallback as never}>
+                <Defer fallback={route.fallback as never}>
                     <Comp {...entryParams} />
-                </Suspense>
+                </Defer>
             )
             : <Comp {...entryParams} />;
         return (

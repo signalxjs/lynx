@@ -100,6 +100,9 @@
       "@sigx/lynx-storage": [
         "./packages/lynx-storage/src/index.ts"
       ],
+      "@sigx/lynx-web-host": [
+        "./packages/lynx-web-host/src/index.ts"
+      ],
       "@sigx/lynx-websocket": [
         "./packages/lynx-websocket/src/index.ts"
       ],

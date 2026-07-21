@@ -5,6 +5,7 @@ import {
     addTokenErrorListener,
     addPushListener,
     addNotificationResponseListener,
+    parseNotificationResponse,
     type NotificationResponse,
     type PushTokenEvent,
     type PushTokenError,
@@ -73,12 +74,24 @@ export const Notifications = {
         return callAsync<string>(MODULE, 'schedule', content, options);
     },
 
-    cancel(notificationId: string): Promise<void> {
-        return callAsync<void>(MODULE, 'cancel', notificationId);
+    /**
+     * Cancel a pending scheduled notification and dismiss any delivered tray
+     * entry — local (id returned by `schedule`) or **remote push** — matching
+     * the id. Remote pushes match when they were sent with
+     * `data.notification_id === notificationId` (both platforms), e.g. to
+     * clear a conversation's notification when it's read on another device.
+     *
+     * Resolves `false` when the native side could not process the call
+     * (missing id / platform error); note `true` does not imply a matching
+     * tray entry existed.
+     */
+    cancel(notificationId: string): Promise<boolean> {
+        return callAsync<boolean>(MODULE, 'cancel', notificationId);
     },
 
-    cancelAll(): Promise<void> {
-        return callAsync<void>(MODULE, 'cancelAll');
+    /** Cancel all pending notifications and clear every delivered tray entry. */
+    cancelAll(): Promise<boolean> {
+        return callAsync<boolean>(MODULE, 'cancelAll');
     },
 
     /** Request notification permission, showing the OS dialog if needed. */
@@ -143,9 +156,15 @@ export const Notifications = {
     /**
      * If the app was launched by a notification tap, returns the payload.
      * One-shot: subsequent calls return null. Call exactly once during startup.
+     *
+     * Native returns a JSON string (or null) — the payload nests `data`, and a
+     * structured map loses its sibling scalars crossing the bridge (#342). See
+     * `parseNotificationResponse`.
      */
-    getInitialNotification(): Promise<NotificationResponse | null> {
-        return callAsync<NotificationResponse | null>(MODULE, 'getInitialNotification');
+    async getInitialNotification(): Promise<NotificationResponse | null> {
+        return parseNotificationResponse(
+            await callAsync<unknown>(MODULE, 'getInitialNotification'),
+        );
     },
 
     // ── Event subscriptions ─────────────────────────────────────────────────

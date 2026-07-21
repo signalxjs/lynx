@@ -9,7 +9,27 @@ import './entry-main.js';
 
 export { elements, pageUniqueId, setPageUniqueId } from './element-registry.js';
 export { applyOps, resetMainThreadState } from './ops-apply.js';
+export {
+  MTSnapshotInstance,
+  createSnapshotInstance,
+  destroySnapshotInstance,
+  ensureSyntheticId,
+  getSnapshotInstance,
+  installSnapshotMTHooks,
+  isSnapshotInstance,
+  resetSnapshotInstances,
+} from './snapshot-mt.js';
 export { MTElementWrapper } from './mt-element.js';
+export {
+  registerReducer,
+  lookupReducer,
+  resetReducers,
+  registerDerivedValue,
+  unregisterDerivedValue,
+  resetDerivedValues,
+  flushDerivedValues,
+  derivedValueCount,
+} from './derived-values-mt.js';
 export { invokeWorklet, type WorkletPlaceholder } from './worklet-events.js';
 export {
   setSlotWorklet,

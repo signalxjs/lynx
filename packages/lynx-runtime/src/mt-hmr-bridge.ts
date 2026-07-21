@@ -22,6 +22,11 @@
  * `applyEntry` when `enabledHMR` is true.
  */
 
+import {
+  extractRegistrations,
+  extractSnapshotRegistrations,
+} from './hmr-extract.js';
+
 interface RspackEmitter {
   on(event: 'webpackHotUpdate', cb: (currentHash: string) => void): void;
 }
@@ -117,45 +122,11 @@ function fetchAndForward(): void {
       if (typeof factory === 'function') combined += factory.toString() + '\n';
     }
     const code = extractRegistrations(combined);
-    if (!code) return;
+    const snapshotCode = extractSnapshotRegistrations(combined);
+    if (!code && !snapshotCode) return;
     const app = lynx?.getNativeApp?.();
     if (!app || typeof app.callLepusMethod !== 'function') return;
-    app.callLepusMethod('sigxApplyMtHotUpdate', { code }, () => {});
+    app.callLepusMethod('sigxApplyMtHotUpdate', { code, snapshotCode }, () => {});
   });
 }
 
-/**
- * Extract `registerWorkletInternal(...)` calls from a hot-update body.
- *
- * Mirrors `lynx-plugin/src/loaders/worklet-utils.ts:extractRegistrations`
- * (duplicated here to avoid a runtime → build-time dep). Bracket-depth count
- * handles nested braces in the function body.
- */
-function extractRegistrations(source: string): string {
-  const out: string[] = [];
-  const marker = 'registerWorkletInternal(';
-  let from = 0;
-
-  while (true) {
-    const idx = source.indexOf(marker, from);
-    if (idx === -1) break;
-
-    let depth = 0;
-    let i = idx + marker.length - 1; // points at the opening '('
-    for (; i < source.length; i++) {
-      const ch = source[i];
-      if (ch === '(') depth++;
-      else if (ch === ')') {
-        depth--;
-        if (depth === 0) break;
-      }
-    }
-
-    let end = i + 1;
-    if (end < source.length && source[end] === ';') end++;
-    out.push(source.slice(idx, end));
-    from = end;
-  }
-
-  return out.join('\n');
-}

@@ -13,6 +13,7 @@ import { DirectivesDemo } from './screens/DirectivesDemo.js';
 import { Icons } from './screens/Icons.js';
 import { SystemBars } from './screens/SystemBars.js';
 import { SheetDemo } from './screens/SheetDemo.js';
+import { SheetScrollDemo } from './screens/SheetScrollDemo.js';
 import { ListDemo } from './screens/ListDemo.js';
 import { ChatDemo } from './screens/ChatDemo.js';
 // Gestures & Motion
@@ -31,6 +32,7 @@ import { TextApis } from './screens/TextApis.js';
 // Input & Keyboard
 import { Keyboard } from './screens/Keyboard.js';
 import { EmojiPickerScreen } from './screens/EmojiPicker.js';
+import { EmojiComposerScreen } from './screens/EmojiComposer.js';
 // Native modules
 import { MapsDemo } from './screens/MapsDemo.js';
 import { MediaDemo } from './screens/MediaDemo.js';
@@ -47,6 +49,10 @@ import { StorageDemo } from './screens/StorageDemo.js';
 import { SqliteChatDemo } from './screens/SqliteChatDemo.js';
 import { HapticsDemo } from './screens/HapticsDemo.js';
 import { WebRTCDemo } from './screens/WebRTCDemo.js';
+// Framework
+import { DynamicImportDemo } from './screens/DynamicImportDemo.js';
+// #620 phase-5 bench (raw templated list)
+import { SnapshotListBenchScreen } from './screens/SnapshotListBench.js';
 
 export const routes = defineRoutes({
     // Home is the root of the single global stack: search + grouped catalog.
@@ -76,6 +82,7 @@ export const routes = defineRoutes({
 
     // UI & Theming
     listDemo: { component: ListDemo, path: '/list' },
+    snapshotListBench: { component: SnapshotListBenchScreen, path: '/snapshot-list-bench' },
     chatDemo: { component: ChatDemo, path: '/chat' },
     appearance: { component: Appearance, path: '/appearance' },
     theming: { component: Theming, path: '/theming' },
@@ -87,6 +94,9 @@ export const routes = defineRoutes({
     // Bottom sheet: the route IS the sheet — pushing it slides the demo
     // screen up to its 0.4 snap point over the dimmed catalog.
     sheetDemo: { component: SheetDemo, path: '/sheet', presentation: 'sheet' },
+    // Sheet with scrollable content — exercises the full-surface drag's
+    // scroll arbitration (ScrollDragHost adoption).
+    sheetScrollDemo: { component: SheetScrollDemo, path: '/sheet-scroll', presentation: 'sheet' },
 
     // Gestures & Motion
     springLab: { component: SpringLab, path: '/gestures/spring-lab' },
@@ -109,6 +119,8 @@ export const routes = defineRoutes({
     // a bar with chrome below it needs `offset` compensation.
     keyboard: { component: Keyboard, path: '/keyboard', presentation: 'modal' },
     emojiPicker: { component: EmojiPickerScreen, path: '/emoji-picker' },
+    // Modal: same sticky-bar caveat as `keyboard` above.
+    emojiComposer: { component: EmojiComposerScreen, path: '/emoji-composer', presentation: 'modal' },
 
     // Native modules
     mapsDemo: { component: MapsDemo, path: '/maps' },
@@ -126,6 +138,9 @@ export const routes = defineRoutes({
     sqliteChatDemo: { component: SqliteChatDemo, path: '/sqlite-chat' },
     hapticsDemo: { component: HapticsDemo, path: '/haptics' },
     webrtcDemo: { component: WebRTCDemo, path: '/webrtc' },
+
+    // Framework
+    dynamicImportDemo: { component: DynamicImportDemo, path: '/dynamic-import' },
 });
 
 declare module '@sigx/lynx-navigation' {

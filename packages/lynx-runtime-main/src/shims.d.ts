@@ -25,6 +25,11 @@ declare function __CreateText(parentID: number): MainThreadElement
 declare function __CreateImage(parentID: number): MainThreadElement
 declare function __CreateScrollView(parentID: number): MainThreadElement
 declare function __CreateRawText(text: string): MainThreadElement
+// Wrapper elements host multi-child snapshot slots; __ReplaceElement swaps a
+// slot placeholder for real content. Probe-verified on Android + iOS release
+// (#620 spike); web-core may lack them — call sites carry typeof fallbacks.
+declare function __CreateWrapperElement(parentComponentUniqueId: number): MainThreadElement
+declare function __ReplaceElement(newElement: MainThreadElement, oldElement: MainThreadElement): void
 declare function __CreatePage(cssId?: string, scope?: number): MainThreadElement
 
 // Native <list> recycler. `componentAtIndex` is invoked by native to realise

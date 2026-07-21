@@ -1,0 +1,49 @@
+{
+    "name": "@sigx/lynx-web-host",
+    "version": "0.17.0",
+    "description": "Host-page bridge for SignalX apps on web — clipboard/share/linking/picker handlers + appearance and URL publishers for @lynx-js/web-core",
+    "type": "module",
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+        ".": {
+            "import": "./dist/index.js",
+            "types": "./dist/index.d.ts"
+        },
+        "./host": "./dist/host.js"
+    },
+    "files": [
+        "dist"
+    ],
+    "scripts": {
+        "build": "node ../../scripts/clean.mjs dist && tsgo",
+        "dev": "tsgo --watch",
+        "clean": "node ../../scripts/clean.mjs dist .turbo"
+    },
+    "devDependencies": {
+        "@typescript/native-preview": "7.0.0-dev.20260521.1",
+        "typescript": "^6.0.3"
+    },
+    "author": "Andreas Ekdahl",
+    "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/signalxjs/lynx.git",
+        "directory": "packages/lynx-web-host"
+    },
+    "homepage": "https://sigx.dev/lynx/web/overview/",
+    "bugs": {
+        "url": "https://github.com/signalxjs/lynx/issues"
+    },
+    "publishConfig": {
+        "access": "public"
+    },
+    "keywords": [
+        "signalx",
+        "sigx",
+        "lynx",
+        "web",
+        "browser",
+        "web-core"
+    ]
+}

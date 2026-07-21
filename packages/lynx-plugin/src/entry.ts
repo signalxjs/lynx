@@ -129,11 +129,28 @@ class SigxMarkMainThreadPlugin {
   }
 }
 
+/**
+ * Prepend the web variant to a `resolve.extensionAlias` list for `key`,
+ * preserving whatever mapping already exists (rsbuild's tsconfig-driven
+ * `.js → ['.js', '.ts', '.tsx']`) and falling back to the identity alias when
+ * none does. Idempotent. Exported for tests.
+ */
+export function prependWebExtensionAlias(
+  cur: string[] | string | undefined,
+  key: string,
+  webExt: string,
+): string[] {
+  const rest = cur == null ? [key] : Array.isArray(cur) ? cur : [cur];
+  return [webExt, ...rest.filter((e) => e !== webExt)];
+}
+
 export interface ApplyEntryOptions {
   enableCSSSelector?: boolean;
   enableCSSInheritance?: boolean;
   customCSSInheritanceList?: string[];
   debugInfoOutside?: boolean;
+  /** Enable the snapshot-template transform in both worklet loaders (#620). */
+  snapshots?: boolean;
 }
 
 export async function applyEntry(
@@ -173,12 +190,59 @@ export async function applyEntry(
   // Lynx's single-file bundle requirement.
   api.modifyRsbuildConfig((config, { mergeRsbuildConfig }) => {
     const userConfig = api.getRsbuildConfig('original');
+    let merged = config;
     if (!userConfig.performance?.chunkSplit?.strategy) {
-      return mergeRsbuildConfig(config, {
+      merged = mergeRsbuildConfig(merged, {
         performance: { chunkSplit: { strategy: 'all-in-one' } },
       });
     }
-    return config;
+    // Dynamic-import async chunks are still emitted regardless of the
+    // strategy above. Pin the production assetPrefix so their request URLs
+    // are root-relative (`/static/js/async/<hash>.js`) — the native
+    // production fetchers map those 1:1 onto embedded assets (#599). Dev is
+    // untouched: the dev assetPrefix is rewritten to the LAN dev-server URL.
+    // Only pin when genuinely unset — `assetPrefix: ''` is a deliberate
+    // choice (relative URLs) the fetchers' marker fallback still resolves.
+    if (userConfig.output?.assetPrefix == null) {
+      merged = mergeRsbuildConfig(merged, { output: { assetPrefix: '/' } });
+    }
+    return merged;
+  });
+
+  // Surface emitted async chunks after production builds — they only load in
+  // standalone apps when embedded by a release flow, and never over OTA. The
+  // `sigx build` summary prints the same warning; this covers direct
+  // `rspeedy build` invocations (external/CI pipelines). (#599)
+  // This hook is pure diagnostics and runs once the build has already
+  // succeeded, so everything below is wrapped: an fs hiccup or an unexpected
+  // distPath must never be able to turn a green build red.
+  api.onAfterBuild(async () => {
+    try {
+      const { readdirSync } = await import('node:fs');
+      const asyncDir = path.join(api.context.distPath, 'static', 'js', 'async');
+      if (!existsSync(asyncDir)) return;
+      // Hand-rolled walk rather than `readdirSync(..., { recursive: true })` —
+      // that option needs Node >= 18.17/20.1 and this plugin declares no engines
+      // floor, so an older host would throw here and take the build down with it.
+      const countFiles = (dir: string): number => {
+        let n = 0;
+        for (const entry of readdirSync(dir, { withFileTypes: true })) {
+          n += entry.isDirectory() ? countFiles(path.join(dir, entry.name)) : 1;
+        }
+        return n;
+      };
+      const chunkCount = countFiles(asyncDir);
+      if (chunkCount === 0) return;
+      api.logger.info(
+        `[sigx] ${chunkCount} async chunk(s) emitted by dynamic import() under static/js/async/. `
+        + 'Standalone builds load them from embedded assets — embed via `sigx run:* --release` or '
+        + '`sigx prebuild --embed-bundle`. OTA updates (`sigx updates:publish`) do NOT carry them.',
+      );
+    } catch (err) {
+      api.logger.warn(
+        `[sigx] Could not inspect async chunks: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
   });
 
   // Exclude main-thread chunks from chunk splitting so each remains
@@ -378,6 +442,22 @@ export async function applyEntry(
            '.native.tsx', '.native.ts', '.native.jsx', '.native.js'];
       for (let i = platformExts.length - 1; i >= 0; i--) {
         chain.resolve.extensions.prepend(platformExts[i]);
+      }
+
+      // `resolve.extensions` only rewrites *extensionless* specifiers (app
+      // source). Published `@sigx/lynx-*` dists import with explicit
+      // extensions (`export … from './storage.js'`), which only
+      // `resolve.extensionAlias` rewrites — so on the web bundle, prepend
+      // `.web.js` there too, making a package's compiled `storage.web.js`
+      // shim win over its `storage.js`. This is the per-package web-shim
+      // mechanism (signalxjs/lynx#697). Merge ahead of rsbuild's
+      // tsconfig-driven mapping (`.js → ['.js', '.ts', '.tsx']`) — never
+      // clobber it, and fall back to the identity alias when absent.
+      if (isWeb) {
+        for (const [key, webExt] of [['.js', '.web.js'], ['.jsx', '.web.jsx']] as const) {
+          const cur = chain.resolve.extensionAlias.get(key) as string[] | string | undefined;
+          chain.resolve.extensionAlias.set(key, prependWebExtensionAlias(cur, key, webExt));
+        }
       }
     }
 
@@ -694,6 +774,7 @@ export async function applyEntry(
       .enforce('pre')
       .use('sigx-worklet-loader')
         .loader(path.resolve(_dirname, './loaders/worklet-loader'))
+        .options({ snapshots: opts.snapshots === true })
         .end();
 
     chain.module
@@ -703,6 +784,7 @@ export async function applyEntry(
       .enforce('pre')
       .use('sigx-worklet-mt-loader')
         .loader(path.resolve(_dirname, './loaders/worklet-loader-mt'))
+        .options({ snapshots: opts.snapshots === true })
         .end();
 
     // Disable IIFE wrapping – Lynx handles module scoping itself

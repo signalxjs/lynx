@@ -62,13 +62,36 @@ class NotificationsModule: NSObject, LynxModule {
     }
 
     @objc func cancel(_ notificationId: String?, callback: LynxCallbackBlock?) {
-        guard let notificationId = notificationId else {
+        guard let notificationId = notificationId, !notificationId.isEmpty else {
             callback?(false)
             return
         }
-        UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: [notificationId])
-        UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: [notificationId])
-        callback?(true)
+        let center = UNUserNotificationCenter.current()
+        center.removePendingNotificationRequests(withIdentifiers: [notificationId])
+        // Delivered remote pushes carry a system-assigned request identifier;
+        // the JS-visible id lives in the payload (data.notification_id — the
+        // same contract Android keys the tray entry on). Match both so
+        // cancel(id) reaches local schedules (identifier == id) and remote
+        // pushes (payload id == id), including collapse-id senders. Payload
+        // matching is remote-only: a local schedule whose data dict contains
+        // notification_id stays keyed on its schedule UUID, as on Android.
+        center.getDeliveredNotifications { delivered in
+            var identifiers = [notificationId]
+            for notification in delivered where notification.request.trigger is UNPushNotificationTrigger {
+                let info = notification.request.content.userInfo
+                // String-coerce like extractData — senders may encode the id
+                // as a JSON number, which arrives as NSNumber.
+                var payloadId: String? = nil
+                if let raw = info["notification_id"] ?? info["notificationId"], !(raw is NSNull) {
+                    payloadId = "\(raw)"
+                }
+                if payloadId == notificationId {
+                    identifiers.append(notification.request.identifier)
+                }
+            }
+            center.removeDeliveredNotifications(withIdentifiers: identifiers)
+            callback?(true)
+        }
     }
 
     @objc func cancelAll(_ callback: LynxCallbackBlock?) {
@@ -146,13 +169,23 @@ class NotificationsModule: NSObject, LynxModule {
         }
     }
 
-    /// One-shot: return the payload that launched the app from a cold start,
-    /// or nil. Subsequent calls return nil even if the original payload was
+    /// One-shot: return the payload that launched the app from a cold-start
+    /// tap, or nil. Subsequent calls return nil even if the original payload was
     /// non-nil — JS code that wants to react to launch payloads should call
     /// this exactly once during startup.
+    ///
+    /// Returns a **JSON string**, not a dict: the payload nests `data`, and a
+    /// structured map loses its sibling scalars crossing the bridge (#342) —
+    /// which here would strip `notificationId` / `actionIdentifier` and leave
+    /// only `data`, i.e. the very failure this path exists to fix. Whether that
+    /// regression reaches `LynxCallbackBlock` as well as `sendGlobalEvent` is
+    /// unproven (the one nested-callback precedent, `FilePickerModule`, is
+    /// masked by JS-side defaulting), so we sidestep it: a bare `String` is
+    /// already carried by `schedule`. `src/notifications.ts` parses it via
+    /// `parseNotificationResponse`.
     @objc func getInitialNotification(_ callback: LynxCallbackBlock?) {
-        if let payload = PushEventBus.shared.consumeInitialResponse() {
-            callback?(payload)
+        if let json = PushEventBus.shared.consumeInitialResponse() {
+            callback?(json)
         } else {
             callback?(NSNull())
         }

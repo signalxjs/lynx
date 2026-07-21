@@ -15,6 +15,7 @@ import {
   setPageUniqueId,
 } from './element-registry.js';
 import { resetWorkletEvents, type WorkletPlaceholder } from './worklet-events.js';
+import { invokeMtWorklet } from './mt-invoke.js';
 import {
   setSlotBgSign,
   setSlotWorklet,
@@ -22,12 +23,18 @@ import {
   resetSlotStates,
 } from './event-slots.js';
 import {
+  armAvAutoFlush,
   flushAvBridgePublishes,
   flushAnimatedStyleBindings,
   registerAnimatedStyleBinding,
   unregisterAnimatedStyleBinding,
   resetAnimatedStyleBindings,
 } from './animated-bridge-mt.js';
+import {
+  registerDerivedValue,
+  unregisterDerivedValue,
+  resetDerivedValues,
+} from './derived-values-mt.js';
 import {
   createListElement,
   destroyListElement,
@@ -36,6 +43,7 @@ import {
   listInsertChild,
   listRemoveChild,
   noteListItemProp,
+  registerListSlotAlias,
   resetListState,
 } from './list-mt.js';
 import {
@@ -43,7 +51,25 @@ import {
   unregisterWebGesture,
   resetWebGestures,
 } from './web-gesture-mt.js';
-import { MTElementWrapper } from './mt-element.js';
+import {
+  bindMtRef,
+  releaseMtRefBinding,
+  resetMtRefBindings,
+  resolveElementIdByWvid,
+} from './mt-ref-bind.js';
+import {
+  createSnapshotInstance,
+  destroySnapshotInstance,
+  dropParkedSnapshot,
+  getSnapshotInstance,
+  isParkedSnapshot,
+  parkedOwnerOf,
+  isSnapshotInstance,
+  parkSnapshotCreate,
+  queueOpForParked,
+  resetSnapshotInstances,
+} from './snapshot-mt.js';
+import { __DynamicPartListSlotV2, getSnapshotDef } from '@sigx/lynx-runtime-internal/snapshot';
 
 /**
  * Placeholder element inserted by renderPage() to give the host a non-empty
@@ -78,10 +104,10 @@ const gesturesByElementWvid = new Map<number, Set<number>>();
 const lastTreeByElementWvid = new Map<number, unknown>();
 
 /**
- * elementWvid → elementId mapping populated by SET_MT_REF when a
- * `main-thread:ref` binds to an element. Gesture ops carry the elRef's wvid
- * (set at BG-side useGestureDetector time, before the renderer assigns an
- * element id), so resolution is wvid → elementId → raw MainThreadElement.
+ * Gesture ops carry the elRef's wvid (set at BG-side useGestureDetector time,
+ * before the renderer assigns an element id), so resolution is wvid →
+ * elementId → raw MainThreadElement. The wvid → elementId map lives in
+ * mt-ref-bind.ts (shared with the snapshot runtime, #626).
  *
  * We deliberately do NOT use `lynxWorkletImpl._refImpl._workletRefMap[wvid].current`:
  * that map stores the upstream-wrapped `Element` class (with `setStyleProperties`
@@ -90,10 +116,8 @@ const lastTreeByElementWvid = new Map<number, unknown>();
  * Passing the wrapper trips the `FiberSetAttribute param 0 should be RefCounted`
  * native error.
  */
-const elementIdByWvid = new Map<number, number>();
-
 export function resolveElementByWvid(wvid: number): MainThreadElement | undefined {
-  const elementId = elementIdByWvid.get(wvid);
+  const elementId = resolveElementIdByWvid(wvid);
   if (elementId === undefined) return undefined;
   return elements.get(elementId);
 }
@@ -154,11 +178,17 @@ export function applyOps(ops: unknown[]): void {
   // Detect duplicate batch from double BG bundle evaluation.
   // Each __init_card_bundle__ invocation gets a fresh webpack module cache, so
   // ShadowElement.nextId resets to 2, producing the same element IDs.
-  // If the first CREATE op targets an ID that already exists in our elements Map,
-  // this is a duplicate batch — skip it entirely.
+  // If the first CREATE / SNAPSHOT_CREATE op targets an ID that already
+  // exists, this is a duplicate batch — skip it entirely.
   if (len >= 3 && ops[0] === OP.CREATE) {
     const firstId = ops[1] as number;
     if (elements.has(firstId)) {
+      return;
+    }
+  }
+  if (len >= 3 && ops[0] === OP.SNAPSHOT_CREATE) {
+    const firstId = ops[1] as number;
+    if (isSnapshotInstance(firstId)) {
       return;
     }
   }
@@ -210,6 +240,25 @@ export function applyOps(ops: unknown[]): void {
           listInsertChild(parentId, childId, anchorId);
           break;
         }
+        // An INSERT queues with a parked instance when the CHILD is parked,
+        // or when the PARENT is a slot-el id minted by the parked instance's
+        // queued BIND_SLOT (the BG replays slot children with
+        // parentId = slotElId — see nodeOps' bind replay).
+        if (parkedOwnerOf(childId) !== undefined || parkedOwnerOf(parentId) !== undefined) {
+          queueOpForParked(
+            parkedOwnerOf(childId) !== undefined ? childId : parentId,
+            [OP.INSERT, parentId, childId, anchorId],
+          );
+          break;
+        }
+        // A staged snapshot instance materializes on first non-list insert:
+        // build its elements and register the root under the instance id so
+        // this (and any later) INSERT/REMOVE resolves it like any element.
+        if (!elements.has(childId) && isSnapshotInstance(childId)) {
+          const inst = getSnapshotInstance(childId)!;
+          inst.ensureElements();
+          if (inst.__element_root) elements.set(childId, inst.__element_root);
+        }
         const parent = elements.get(parentId);
         const child = elements.get(childId);
         if (parent && child) {
@@ -236,6 +285,19 @@ export function applyOps(ops: unknown[]): void {
         const child = elements.get(childId);
         if (parent && child) {
           __RemoveElement(parent, child);
+        }
+        // Snapshot instance teardown: drop the instance record, its synthetic
+        // ids, slot/ref side state, and the root's registry entry.
+        if (isSnapshotInstance(childId)) {
+          destroySnapshotInstance(childId);
+          elements.delete(childId);
+        }
+        // A parked create whose subtree is removed will never materialize.
+        dropParkedSnapshot(childId);
+        // A REMOVE under a parked slot must queue like its INSERT did, or
+        // the replay would resurrect the removed child.
+        if (parkedOwnerOf(_parentId) !== undefined) {
+          queueOpForParked(_parentId, [OP.REMOVE, _parentId, childId]);
         }
         break;
       }
@@ -286,6 +348,107 @@ export function applyOps(ops: unknown[]): void {
             __InvokeUIMethod(el, method, params, () => { /* fire-and-forget */ });
           } catch { /* swallow — see above */ }
         }
+        break;
+      }
+
+      // -----------------------------------------------------------------
+      // Snapshot-template ops (#620). Instances stay staged records until
+      // an INSERT into a non-list parent (or a future componentAtIndex
+      // pull) materializes them; see snapshot-mt.ts.
+      // -----------------------------------------------------------------
+
+      case OP.SNAPSHOT_CREATE: {
+        const id = ops[i++] as number;
+        const templateId = ops[i++] as string;
+        // Unknown template: PARK instead of dropping — dev HMR delivers
+        // registrations and the op batches that use them over two unordered
+        // channels, so the registration may simply not have arrived yet.
+        // Ops targeting the parked id queue with it; retryParkedSnapshots
+        // replays after each hot update (snapshot-mt.ts).
+        if (!getSnapshotDef(templateId)) {
+          parkSnapshotCreate(id, templateId);
+          console.log(
+            `[sigx-mt] SNAPSHOT_CREATE parked: template "${templateId}" not registered (yet)`,
+          );
+          break;
+        }
+        try {
+          createSnapshotInstance(id, templateId);
+        } catch (e) {
+          // Other failures stay loud per-instance; the stream is
+          // self-delimiting, so skipping cannot desync the interpreter.
+          console.log('[sigx-mt] SNAPSHOT_CREATE failed:', String(e));
+        }
+        break;
+      }
+
+      case OP.SNAPSHOT_SET_VALUES: {
+        const id = ops[i++] as number;
+        const values = ops[i++] as unknown[];
+        if (isParkedSnapshot(id)) {
+          queueOpForParked(id, [OP.SNAPSHOT_SET_VALUES, id, values]);
+          break;
+        }
+        const inst = getSnapshotInstance(id);
+        if (inst && Array.isArray(values)) inst.setValues(values);
+        break;
+      }
+
+      case OP.SNAPSHOT_SET_VALUE: {
+        const id = ops[i++] as number;
+        const holeIndex = ops[i++] as number;
+        const value = ops[i++];
+        if (isParkedSnapshot(id)) {
+          queueOpForParked(id, [OP.SNAPSHOT_SET_VALUE, id, holeIndex, value]);
+          break;
+        }
+        getSnapshotInstance(id)?.setValue(holeIndex, value);
+        break;
+      }
+
+      case OP.SNAPSHOT_BIND_SLOT: {
+        const snapshotId = ops[i++] as number;
+        const slotIndex = ops[i++] as number;
+        const slotElId = ops[i++] as number;
+        if (isParkedSnapshot(snapshotId)) {
+          queueOpForParked(snapshotId, [OP.SNAPSHOT_BIND_SLOT, snapshotId, slotIndex, slotElId]);
+          break;
+        }
+        const inst = getSnapshotInstance(snapshotId);
+        const slotEl = inst?.slotElement(slotIndex);
+        if (inst && slotEl) {
+          elements.set(slotElId, slotEl);
+          inst.slotElIds.add(slotElId); // released on instance teardown
+          // A ListSlotV2 slot's id must route INSERT/REMOVE of item
+          // instances through the recycler bookkeeping, not tree appends.
+          if (
+            inst.def.slot?.[slotIndex]?.[0] === __DynamicPartListSlotV2
+            && isListElement(snapshotId)
+          ) {
+            registerListSlotAlias(snapshotId, slotElId);
+          }
+        } else {
+          console.log(
+            `[sigx-mt] SNAPSHOT_BIND_SLOT: no slot ${slotIndex} on instance ${snapshotId}`,
+          );
+        }
+        break;
+      }
+
+      case OP.INVOKE_WORKLET: {
+        // BG runOnMainThread dispatch riding the ordered ops stream (#688):
+        // applying in-stream guarantees it runs AFTER every registration op
+        // (INIT_MT_REF / SET_MT_REF / REGISTER_AV_BRIDGE) enqueued before it
+        // — the mount-window race where a dispatch outran its SharedValue's
+        // registration (and the late seed clobbered the correction) is
+        // structurally gone. Throws are contained inside invokeMtWorklet so
+        // one bad worklet can't abort the rest of the batch. Results are
+        // not returned (no consumer reads them; the BG promise resolves on
+        // the batch ack).
+        const wkltId = ops[i++] as string;
+        const wkltArgs = ops[i++] as unknown[] | undefined;
+        const wkltCaptured = ops[i++] as Record<string, unknown> | null;
+        invokeMtWorklet(wkltId, wkltArgs ?? [], wkltCaptured ?? undefined);
         break;
       }
 
@@ -354,64 +517,10 @@ export function applyOps(ops: unknown[]): void {
         const id = ops[i++] as number;
         const wvid = ops[i++] as number;
         const el = elements.get(id);
-        if (el) {
-          // Delegate to upstream's worklet-runtime. updateWorkletRef wraps the
-          // element in its own Element class and stores it under _wvid.
-          const impl = (globalThis as Record<string, unknown>)['lynxWorkletImpl'] as
-            { _refImpl: { _workletRefMap: Record<number, { current: unknown; _wvid: number }>; updateWorkletRef: (refImpl: unknown, el: unknown) => void } } | undefined;
-          if (impl?._refImpl) {
-            const refMap = impl._refImpl._workletRefMap;
-            if (!(wvid in refMap)) {
-              refMap[wvid] = { current: null, _wvid: wvid };
-            }
-            impl._refImpl.updateWorkletRef({ _wvid: wvid }, el);
-
-            // Web (`@lynx-js/web-core`): upstream's worklet element wrapper
-            // applies styles via `setProperty`, which web-core's element
-            // doesn't implement — it throws. Worklet callbacks (e.g.
-            // `Pressable`'s press-down visual) call
-            // `ref.current.setStyleProperties(...)` directly, so patch that one
-            // method to fall back to a web-safe `MTElementWrapper` (raw
-            // `__SetInlineStyles` + debounced flush). Native is untouched: the
-            // original path succeeds there, so the fallback never runs.
-            if (typeof __SetGestureDetector !== 'function') {
-              const slot = refMap[wvid] as {
-                current?: {
-                  __sigxWebSafe?: boolean;
-                  setStyleProperties?: (s: Record<string, string | number>) => void;
-                };
-              };
-              const wrapper = slot?.current;
-              if (wrapper && !wrapper.__sigxWebSafe) {
-                const safe = new MTElementWrapper(el);
-                const orig = typeof wrapper.setStyleProperties === 'function'
-                  ? wrapper.setStyleProperties.bind(wrapper)
-                  : null;
-                try {
-                  wrapper.setStyleProperties = (styles) => {
-                    if (orig) {
-                      try {
-                        orig(styles);
-                        return;
-                      } catch {
-                        /* web: wrapper.setProperty missing — fall through */
-                      }
-                    }
-                    safe.setStyleProperties(styles);
-                  };
-                  wrapper.__sigxWebSafe = true;
-                } catch {
-                  /* frozen wrapper — degrade to no press visual */
-                }
-              }
-            }
-          }
-          // Record wvid → raw elementId so SET_GESTURE_DETECTOR can resolve
-          // the unwrapped MainThreadElement for `__SetAttribute` /
-          // `__SetGestureDetector` (which require RefCounted handles, not
-          // upstream's Element wrapper).
-          elementIdByWvid.set(wvid, id);
-        }
+        // Full binding logic (upstream ref map + web style fallback + the
+        // wvid → elementId record) lives in mt-ref-bind.ts, shared with the
+        // snapshot runtime (#626).
+        if (el) bindMtRef(el, id, wvid);
         break;
       }
 
@@ -440,7 +549,7 @@ export function applyOps(ops: unknown[]): void {
         if (impl?._refImpl) {
           delete impl._refImpl._workletRefMap[wvid];
         }
-        elementIdByWvid.delete(wvid);
+        releaseMtRefBinding(wvid);
         break;
       }
 
@@ -449,6 +558,10 @@ export function applyOps(ops: unknown[]): void {
         const initValue = ops[i++];
         bridgedAvWvids.add(wvid);
         bridgedAvLastValues.set(wvid, initValue);
+        // Arm the write→flush setter on the envelope INIT_MT_REF created
+        // earlier in this same batch (useSharedValue pushes INIT then
+        // REGISTER together), so bare worklet writes repaint per frame.
+        armAvAutoFlush(wvid);
         break;
       }
 
@@ -472,6 +585,22 @@ export function applyOps(ops: unknown[]): void {
       case OP.UNREGISTER_AV_STYLE_BINDING: {
         const bindingId = ops[i++] as number;
         unregisterAnimatedStyleBinding(bindingId);
+        break;
+      }
+
+      case OP.REGISTER_AV_DERIVED: {
+        // [derivedWvid, reducerName, params, sourceWvids[]]
+        const derivedWvid = ops[i++] as number;
+        const reducerName = ops[i++] as string;
+        const params = ops[i++];
+        const sourceWvids = ops[i++] as number[];
+        registerDerivedValue(derivedWvid, reducerName, params, sourceWvids);
+        break;
+      }
+
+      case OP.UNREGISTER_AV_DERIVED: {
+        const derivedWvid = ops[i++] as number;
+        unregisterDerivedValue(derivedWvid);
         break;
       }
 
@@ -504,7 +633,7 @@ export function applyOps(ops: unknown[]): void {
         // events instead of the native arena. (All operands are already
         // consumed above, so `i` stays aligned for the next op.)
         if (typeof __SetGestureDetector !== 'function') {
-          registerWebGesture(el, elementWvid, gestureId, type, config);
+          registerWebGesture(el, elementWvid, gestureId, type, config, relationMap);
           // Track the attachment so REMOVE can tear down the web recognizer,
           // mirroring the native bookkeeping below.
           let webAttached = gesturesByElementWvid.get(elementWvid);
@@ -641,10 +770,12 @@ export function resetMainThreadState(): void {
   bridgedAvLastValues.clear();
   gesturesByElementWvid.clear();
   lastTreeByElementWvid.clear();
-  elementIdByWvid.clear();
+  resetMtRefBindings();
   resetAnimatedStyleBindings();
+  resetDerivedValues();
   resetListState();
   resetWebGestures();
+  resetSnapshotInstances();
   // Clear upstream's worklet ref map too on hard reset (HMR / test).
   const impl = (globalThis as Record<string, unknown>)['lynxWorkletImpl'] as
     { _refImpl: { _workletRefMap: Record<number, unknown> } } | undefined;

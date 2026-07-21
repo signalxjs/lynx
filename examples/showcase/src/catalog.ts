@@ -45,6 +45,13 @@ export const catalog: Area[] = [
                 route: 'listDemo',
             },
             {
+                id: 'snapshot-list-bench',
+                title: 'Snapshot list bench',
+                description: 'Raw templated <list> — sync componentAtIndex + recycling (#620), needs snapshots: true',
+                icon: { set: 'lucide', name: 'zap' },
+                route: 'snapshotListBench',
+            },
+            {
                 id: 'chat',
                 title: 'Chat',
                 description: 'Chat mode — bottom-anchored, stick-to-bottom, unread pill, load-older',
@@ -106,6 +113,13 @@ export const catalog: Area[] = [
                 description: 'presentation: "sheet" — snap points, backdrop, drag-to-dismiss',
                 icon: { set: 'lucide', name: 'panel-bottom' },
                 route: 'sheetDemo',
+            },
+            {
+                id: 'bottom-sheet-scroll',
+                title: 'Sheet + scroll arbitration',
+                description: 'full-surface drag over a scrollable list, inputs, swipe rows',
+                icon: { set: 'lucide', name: 'panel-bottom-open' },
+                route: 'sheetScrollDemo',
             },
         ],
     },
@@ -251,6 +265,13 @@ export const catalog: Area[] = [
                 icon: { set: 'lucide', name: 'smile' },
                 route: 'emojiPicker',
             },
+            {
+                id: 'emoji-composer',
+                title: 'Chat composer',
+                description: 'WhatsApp-style keyboard ⇄ emoji-panel switcher with a warm picker',
+                icon: { set: 'lucide', name: 'message-circle' },
+                route: 'emojiComposer',
+            },
         ],
     },
     {
@@ -362,6 +383,20 @@ export const catalog: Area[] = [
                 description: 'Loopback echo call — mic, remote audio, data channel',
                 icon: { set: 'lucide', name: 'phone-call' },
                 route: 'webrtcDemo',
+            },
+        ],
+    },
+    {
+        id: 'framework',
+        title: 'Framework',
+        icon: { set: 'lucide', name: 'package' },
+        examples: [
+            {
+                id: 'dynamic-import',
+                title: 'Dynamic import',
+                description: 'Code-splitting via import() — async chunk loaded on demand, in dev and store builds',
+                icon: { set: 'lucide', name: 'package-open' },
+                route: 'dynamicImportDemo',
             },
         ],
     },

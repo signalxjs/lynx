@@ -1,55 +1,32 @@
 import { component, signal } from '@sigx/lynx';
 import { Screen } from '@sigx/lynx-navigation';
-import { usePinch, useRotation, type TouchEvent } from '@sigx/lynx-gestures';
+import { PinchRotate } from '@sigx/lynx-gestures';
 import { Button, Card, Col, Heading, ScrollView, Text } from '@sigx/lynx-daisyui';
 import { DemoSlider } from '../../components/DemoSlider.js';
 
-const clampScale = (v: number): number => Math.min(3, Math.max(0.5, v));
+const DEG = 180 / Math.PI;
 
 /**
- * Pinch & rotate — the two-finger JS fallback hooks (`usePinch` /
- * `useRotation`). These parse raw `bindtouch*` events on the background
- * thread (the native `Gesture.Pinch()`/`Rotation()` arena handlers are
- * unfinished in Lynx 3.5 — signalxjs/lynx#418), so the card's transform is
- * signal-driven. Sliders drive the same signals as a fallback for hosts
- * without multi-touch input.
+ * Pinch & rotate — one native card.
+ *
+ * `<PinchRotate>` wraps the native `<sigx-pinch>` element, which attaches
+ * UIKit's `UIPinchGestureRecognizer` + `UIRotationGestureRecognizer` (iOS) and
+ * a `ScaleGestureDetector` + rotation tracker (Android) to its backing view.
+ * The transform is applied natively on the UI thread, so it stays smooth under
+ * the finger. Lynx ships no native pinch/rotation gesture of its own
+ * (signalxjs/lynx#418), so this is the real thing rather than `Gesture.*`.
+ *
+ * The card is also *controlled*: `scale`/`rotation` props drive it from the
+ * sliders, for hosts without multi-touch. Gesture and sliders stay in sync —
+ * a pinch fires `change`, which updates the same signals the sliders write.
  */
 export const PinchRotateDemo = component(() => {
     const scale = signal(1);
-    const angle = signal(0);
-    let baseScale = 1;
-    let baseAngle = 0;
-
-    const pinch = usePinch({
-        onPinch: (s) => {
-            if (s.phase === 'active') scale.value = clampScale(baseScale * s.scale);
-            else if (s.phase === 'ended' || s.phase === 'cancelled') baseScale = scale.value;
-        },
-    });
-    const rotation = useRotation({
-        onRotation: (r) => {
-            if (r.phase === 'active') angle.value = baseAngle + (r.rotation * 180) / Math.PI;
-            else if (r.phase === 'ended' || r.phase === 'cancelled') baseAngle = angle.value;
-        },
-    });
-
-    // Both hooks consume the same touch stream — fan each event out.
-    const fan = (key: keyof typeof pinch.handlers) => (e: TouchEvent): void => {
-        pinch.handlers[key]?.(e);
-        rotation.handlers[key]?.(e);
-    };
-    const onTouchStart = fan('bindtouchstart');
-    const onTouchMove = fan('bindtouchmove');
-    const onTouchEnd = fan('bindtouchend');
-    const onTouchCancel = fan('bindtouchcancel');
+    const angleDeg = signal(0);
 
     const reset = (): void => {
-        baseScale = 1;
-        baseAngle = 0;
         scale.value = 1;
-        angle.value = 0;
-        pinch.reset();
-        rotation.reset();
+        angleDeg.value = 0;
     };
 
     return () => (
@@ -58,37 +35,46 @@ export const PinchRotateDemo = component(() => {
             <Col gap={16} padding={16}>
                 <Heading level={2}>Pinch &amp; rotate</Heading>
                 <Text class="opacity-60 text-sm">
-                    Two-finger pinch to zoom, twist to rotate. Needs real multi-touch —
-                    on the iOS simulator hold ⌥ Option and drag; if your host doesn't
-                    deliver multi-touch, the sliders below drive the same transform.
+                    Two-finger pinch to zoom, twist to rotate — a native gesture
+                    (UIKit / Android recognizers), applied on the UI thread. Needs real
+                    multi-touch: on the iOS simulator hold ⌥ Option and drag. No
+                    multi-touch? The sliders drive the same card.
                 </Text>
 
                 <Card bordered>
                     <Card.Body>
                         <Col gap={12} align="center">
+                            <Text weight="semibold">&lt;PinchRotate&gt; — native</Text>
                             <view
-                                style={{ height: '260px', width: '100%', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}
-                                bindtouchstart={onTouchStart}
-                                bindtouchmove={onTouchMove}
-                                bindtouchend={onTouchEnd}
-                                bindtouchcancel={onTouchCancel}
+                                style={{ height: '300px', width: '100%', alignItems: 'center', justifyContent: 'center' }}
                             >
-                                <view
-                                    class="bg-primary"
-                                    style={{
-                                        width: '140px',
-                                        height: '140px',
-                                        borderRadius: '20px',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        transform: `scale(${scale.value}) rotate(${angle.value}deg)`,
+                                <PinchRotate
+                                    minScale={0.5}
+                                    maxScale={4}
+                                    scale={scale.value}
+                                    rotation={angleDeg.value / DEG}
+                                    onChange={(e) => {
+                                        scale.value = e.scale;
+                                        angleDeg.value = e.rotation * DEG;
                                     }}
+                                    style={{ width: '140px', height: '140px', alignItems: 'center', justifyContent: 'center' }}
                                 >
-                                    <text style={{ fontSize: '52px' }}>🖼️</text>
-                                </view>
+                                    <view
+                                        class="bg-primary"
+                                        style={{
+                                            width: '140px',
+                                            height: '140px',
+                                            borderRadius: '20px',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                        }}
+                                    >
+                                        <text style={{ fontSize: '52px' }}>🖼️</text>
+                                    </view>
+                                </PinchRotate>
                             </view>
                             <Text class="text-xs opacity-60">
-                                scale {scale.value.toFixed(2)} · rotation {Math.round(angle.value)}°
+                                scale {scale.value.toFixed(2)} · rotation {Math.round(angleDeg.value)}°
                             </Text>
                         </Col>
                     </Card.Body>
@@ -97,11 +83,11 @@ export const PinchRotateDemo = component(() => {
                 <Card bordered>
                     <Card.Body>
                         <Col gap={12}>
-                            <Text weight="semibold">No multi-touch? Same signals:</Text>
-                            <DemoSlider label="scale" min={0.5} max={3} initial={1} decimals={2}
-                                onChange={(v) => { scale.value = v; baseScale = v; }} />
+                            <Text weight="semibold">No multi-touch? Same card:</Text>
+                            <DemoSlider label="scale" min={0.5} max={4} initial={1} decimals={2}
+                                onChange={(v) => { scale.value = v; }} />
                             <DemoSlider label="rotation" min={-180} max={180} initial={0}
-                                onChange={(v) => { angle.value = v; baseAngle = v; }} />
+                                onChange={(v) => { angleDeg.value = v; }} />
                             <Button variant="outline" size="sm" onPress={reset}>Reset</Button>
                         </Col>
                     </Card.Body>

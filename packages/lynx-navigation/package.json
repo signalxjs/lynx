@@ -1,6 +1,6 @@
 {
     "name": "@sigx/lynx-navigation",
-    "version": "0.12.2",
+    "version": "0.17.0",
     "description": "Type-first native navigator for sigx-lynx — Stack, Tabs, Drawer, modals, lazy routes, deep links",
     "type": "module",
     "main": "./dist/index.js",
@@ -41,6 +41,7 @@
         "@sigx/lynx-linking": "workspace:^",
         "@sigx/lynx-motion": "workspace:^",
         "@sigx/lynx-testing": "workspace:^",
+        "@types/node": "^25.9.1",
         "@typescript/native-preview": "7.0.0-dev.20260521.1",
         "typescript": "^6.0.3",
         "vitest": "^4.1.7"

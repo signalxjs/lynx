@@ -24,6 +24,7 @@ import type { RsbuildPlugin } from '@rsbuild/core';
 
 import { applyCSS } from './css.js';
 import { applyEntry } from './entry.js';
+import { ensureWebEnvironments } from './web-env.js';
 import { applyIcons } from './icons.js';
 import { LAYERS } from './layers.js';
 import { createLogWebSocketServer, LOG_ENDPOINT_PATH, type LogWebSocketServer } from './log-server.js';
@@ -142,6 +143,33 @@ export interface PluginSigxLynxOptions {
    * @defaultValue true
    */
   debugInfoOutside?: boolean;
+
+  /**
+   * Compile static JSX subtrees to main-thread snapshot templates (#620):
+   * cells and other compiled subtrees are constructed BY the main thread
+   * (one snapshot op instead of ~10 element ops + a thread hop), with
+   * hole-granular patches after mount. Requires statically analyzable JSX;
+   * non-static subtrees keep today's per-element path automatically.
+   *
+   * Works in dev too: template registrations ride the MT hot-update bridge,
+   * stale templates are purged by file, and op batches that outrun a
+   * registration park and replay (#637).
+   * Default ON since #642 (the flag remains as a kill switch for one
+   * release — pass `snapshots: false` to keep the per-element path).
+   * @defaultValue true
+   */
+  snapshots?: boolean;
+
+  /**
+   * Whether the plugin may auto-provide the `web` rsbuild environment when a
+   * web build is requested (`sigx run:web` sets `SIGX_WEB_ENV=1` in the
+   * rspeedy child env). With this on — the default — apps need no
+   * `environments` block in `lynx.config.ts` to run on web; user-declared
+   * environments are always preserved, and plain `sigx dev` / `sigx build`
+   * (no env var) are unaffected. Pass `false` to opt out entirely.
+   * @defaultValue true
+   */
+  web?: boolean;
 }
 
 /**
@@ -157,6 +185,8 @@ export function pluginSigxLynx(
     enableCSSInheritance: _enableCSSInheritance = false,
     customCSSInheritanceList: _customCSSInheritanceList,
     debugInfoOutside: _debugInfoOutside = true,
+    snapshots: _snapshots = true,
+    web: _web = true,
   } = options;
 
   return {
@@ -165,6 +195,19 @@ export function pluginSigxLynx(
     pre: ['lynx:rsbuild:plugin-api', 'lynx:config', 'lynx:rsbuild:dev'],
 
     async setup(api) {
+      // Zero-config web environment (#699): `sigx run:web` sets SIGX_WEB_ENV=1
+      // in the rspeedy child env; ensure `environments.lynx` + `environments.web`
+      // exist so apps need no `environments` block in lynx.config.ts. Merge
+      // only the missing keys — user-declared environments are untouched.
+      // Env-var gating keeps plain `sigx dev` / `sigx build` / direct
+      // `rspeedy build` unchanged (no surprise double builds). Opt out with
+      // the `web: false` plugin option.
+      if (_web && process.env['SIGX_WEB_ENV'] === '1') {
+        api.modifyRsbuildConfig((config, { mergeRsbuildConfig }) =>
+          ensureWebEnvironments(config, mergeRsbuildConfig),
+        );
+      }
+
       api.modifyRsbuildConfig((config, { mergeRsbuildConfig }) => {
         // Compile all JS files (including node_modules) for ES2019 compat
         // with the Lynx JS engine, unless user explicitly sets source.include.
@@ -534,6 +577,7 @@ export function pluginSigxLynx(
         debugInfoOutside: _debugInfoOutside,
         enableCSSInheritance: _enableCSSInheritance,
         customCSSInheritanceList: _customCSSInheritanceList,
+        snapshots: _snapshots,
       });
 
       // Wire @sigx/lynx-icons — reads iconSets from signalx.config.ts,

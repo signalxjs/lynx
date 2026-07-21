@@ -1,6 +1,6 @@
 {
     "name": "@sigx/lynx-appearance",
-    "version": "0.12.2",
+    "version": "0.17.0",
     "description": "System appearance (color scheme observation + status/navigation bar tint setters) for sigx-lynx",
     "type": "module",
     "main": "./dist/index.js",
@@ -38,7 +38,7 @@
     "dependencies": {
         "@sigx/lynx": "workspace:^",
         "@sigx/lynx-core": "workspace:^",
-        "@sigx/reactivity": "^0.7.0"
+        "@sigx/reactivity": "catalog:"
     },
     "devDependencies": {
         "@sigx/lynx-plugin": "workspace:^",

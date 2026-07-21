@@ -1,0 +1,18 @@
+{
+    "name": "Gestures",
+    "package": "@sigx/lynx-gestures",
+    "description": "Native pinch-zoom + rotation element (<sigx-pinch>) backed by UIKit / Android platform recognizers",
+    "platforms": ["android", "ios"],
+    "ios": {
+        "sourceDir": "ios",
+        "uiComponents": [
+            { "name": "sigx-pinch", "uiClass": "SigxPinchUI" }
+        ]
+    },
+    "android": {
+        "sourceDir": "android",
+        "behaviors": [
+            { "name": "sigx-pinch", "behaviorClass": "com.sigx.gestures.SigxPinchBehavior" }
+        ]
+    }
+}
