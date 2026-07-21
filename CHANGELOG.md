@@ -4,6 +4,12 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 ## [Unreleased]
 
+## [0.18.0] - 2026-07-21
+
+### Added
+
+- `@sigx/lynx-core` — **app foreground/background state** (#607): `AppState.current` / `AppState.available` / `AppState.subscribe(cb)`, plus a reactive `useAppState()` (`Computed<AppStateStatus>`). For reconnecting a socket the instant the app resumes, refreshing data that went stale while backgrounded, or pausing timers/media. Hosted in core as an ambient lifecycle primitive alongside `Platform`/`DeviceInfo` (not a standalone package): Android reuses core's existing `SigxActivityHook` (`onResume`/`onPause`) to drive an `AppStateBus` — no second activity hook; iOS adds an `AppStatePublisher` (`didBecomeActive`/`didEnterBackground`) and a `getAppState` seed on the `SigxCore` module. Driven by a single signal, so imperative subscribers and reactive consumers share the reactivity system's `watch` + `Object.is` dedup rather than a hand-rolled listener set. Core gains its first dependency, `@sigx/reactivity` (a zero-dependency leaf, so no cycle) (#609).
+
 ### Fixed
 
 - `@sigx/lynx-list` — chat mode (`inverted` + `stickToBottom`) can no longer stay stuck at `opacity: 0`: a bounded safety-net reveals the thread even when a mount-time layout race prevents the first `layoutcomplete` from landing (the `layoutcomplete` path still wins in the common case, so there's no flash). Surfaced by the showcase WhatsApp emoji composer demo, whose layout was also fixed — chat fill / no modal bleed-through, input at the correct safe-area position, and the warm emoji picker no longer peeking below the input while collapsed (#741).
