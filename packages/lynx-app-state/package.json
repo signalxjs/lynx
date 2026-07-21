@@ -1,6 +1,6 @@
 {
     "name": "@sigx/lynx-app-state",
-    "version": "0.12.2",
+    "version": "0.17.0",
     "description": "App foreground/background state for sigx-lynx — current value + change events",
     "type": "module",
     "main": "./dist/index.js",
