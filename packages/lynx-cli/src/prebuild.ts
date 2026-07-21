@@ -674,10 +674,15 @@ export function resolveGoogleServicesFile(cwd: string, config: ResolvedConfig): 
     if (!configured) return null;
 
     const srcPath = isAbsolute(configured) ? configured : join(cwd, configured);
-    if (!existsSync(srcPath)) {
+    // Must be a regular file, not merely present: a directory here would read
+    // as "Firebase configured", apply the Gradle plugin, and then blow up in
+    // `copyGoogleServicesFile` with a bare EISDIR from readFileSync.
+    const stat = statSync(srcPath, { throwIfNoEntry: false });
+    if (!stat?.isFile()) {
         throw new Error(
-            `android.googleServicesFile points at "${configured}" but no file exists at ` +
-            `${srcPath}. Set it to your Firebase google-services.json path (relative to the project root).`,
+            `android.googleServicesFile points at "${configured}" but ` +
+            (stat ? `${srcPath} is not a file` : `no file exists at ${srcPath}`) +
+            `. Set it to your Firebase google-services.json path (relative to the project root).`,
         );
     }
     return srcPath;

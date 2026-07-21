@@ -218,6 +218,19 @@ describe('injectGradlePlugins — declared requirements (#618)', () => {
         ])).toThrow(/unknown requirement/);
     });
 
+    it('rejects a googleServicesFile that exists but is a directory', () => {
+        // Otherwise it reads as "configured", the plugin is applied, and the
+        // copy step fails later with a bare EISDIR.
+        mkdirSync(join(testDir, 'firebase', 'google-services.json'), { recursive: true });
+        const config = resolveConfig({
+            ...TEST_CONFIG,
+            android: { ...TEST_CONFIG.android, googleServicesFile: './firebase/google-services.json' },
+        });
+        scaffoldAndroid(testDir, config);
+        expect(() => injectGradlePlugins(testDir, config, [GOOGLE_SERVICES]))
+            .toThrow(/is not a file/);
+    });
+
     it('surfaces a typo\'d googleServicesFile rather than skipping the plugin', () => {
         const config = resolveConfig({
             ...TEST_CONFIG,
