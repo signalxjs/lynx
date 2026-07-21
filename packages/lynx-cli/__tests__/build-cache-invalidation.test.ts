@@ -6,7 +6,7 @@
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdirSync, rmSync, writeFileSync, existsSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
 
 import { findLockfile } from '../src/util/package-manager.js';
@@ -99,22 +99,30 @@ describe('CLI template contents are prebuild inputs (#614)', () => {
 
     it('fingerprintPrebuildInputs changes when a managed template changes', () => {
         writePkg();
-        const probe = join(getTemplatesDir(), '__fingerprint-probe.tmp');
-        const before = fingerprintPrebuildInputs(dir, { android: true, ios: true });
-        try {
-            writeFileSync(probe, 'v1', 'utf-8');
-            const added = fingerprintPrebuildInputs(dir, { android: true, ios: true });
-            expect(added).not.toBe(before);
+        // A scratch copy, never the shared templates tree: `vitest run` executes
+        // test files in parallel workers, and mutating the real tree would make
+        // every concurrent `fingerprintPrebuildInputs` caller non-deterministic.
+        const templates = join(dir, 'templates');
+        mkdirSync(join(templates, 'ios'), { recursive: true });
+        const managed = join(templates, 'ios', 'ContentView.swift');
+        writeFileSync(managed, '// v1', 'utf-8');
 
-            writeFileSync(probe, 'v2', 'utf-8');
-            const edited = fingerprintPrebuildInputs(dir, { android: true, ios: true });
-            expect(edited).not.toBe(added);
-        } finally {
-            rmSync(probe, { force: true });
-        }
-        // Removing it must restore the original hash — i.e. the templates fold
-        // is content-keyed, not a one-way taint.
-        expect(fingerprintPrebuildInputs(dir, { android: true, ios: true })).toBe(before);
+        const fp = () => fingerprintPrebuildInputs(dir, { android: true, ios: true }, undefined, templates);
+        const before = fp();
+
+        writeFileSync(managed, '// v2 — edited in a workspace checkout', 'utf-8');
+        const edited = fp();
+        expect(edited).not.toBe(before);
+
+        const added = join(templates, 'android', 'MainActivity.kt');
+        mkdirSync(dirname(added), { recursive: true });
+        writeFileSync(added, '// new managed file', 'utf-8');
+        expect(fp()).not.toBe(edited);
+
+        // Reverting restores the original hash — content-keyed, not a one-way taint.
+        rmSync(added, { force: true });
+        writeFileSync(managed, '// v1', 'utf-8');
+        expect(fp()).toBe(before);
     });
 });
 

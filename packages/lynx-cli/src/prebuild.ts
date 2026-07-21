@@ -2471,7 +2471,14 @@ export function cleanPrebuild(
  * fast-path skips and the consumer keeps using a stale generated registry
  * + stale copies of the package's native files.
  */
-export function fingerprintPrebuildInputs(cwd: string, platforms: { android: boolean; ios: boolean }, variant?: string): string {
+export function fingerprintPrebuildInputs(
+    cwd: string,
+    platforms: { android: boolean; ios: boolean },
+    variant?: string,
+    /** Override the templates root. Tests point this at a scratch copy so they
+     *  never mutate the shared `templates/` tree other tests hash. */
+    templatesDir: string = getTemplatesDir(),
+): string {
     const files: string[] = [];
 
     for (const name of ['signalx.config.ts', 'signalx.config.js', 'signalx.config.mjs', 'lynx.config.ts', 'lynx.config.js', 'lynx.config.mjs']) {
@@ -2511,7 +2518,7 @@ export function fingerprintPrebuildInputs(cwd: string, platforms: { android: boo
     // unchanged, the fast path skipped, and the previous run's stale template
     // was what landed in the built app — silently (#614). A fixed ~40-file
     // tree, so the hashing cost is noise next to a prebuild.
-    for (const f of walkFiles(getTemplatesDir())) files.push(f);
+    for (const f of walkFiles(templatesDir)) files.push(f);
 
     // Index covers transitive module dependencies too (e.g. @sigx/lynx-core
     // pulled in by another module) — their copied sources are prebuild
