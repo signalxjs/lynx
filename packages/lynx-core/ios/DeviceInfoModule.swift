@@ -11,6 +11,7 @@ class DeviceInfoModule: NSObject, LynxModule {
         [
             "getDeviceInfo": NSStringFromSelector(#selector(getDeviceInfo(_:))),
             "getConstants": NSStringFromSelector(#selector(getConstants(_:))),
+            "getAppState": NSStringFromSelector(#selector(getAppState(_:))),
         ]
     }
 
@@ -39,6 +40,19 @@ class DeviceInfoModule: NSObject, LynxModule {
             "screenScale": screen.scale,
         ]
         callback?(info)
+    }
+
+    /// Current app foreground/background state — seeds the JS default on the
+    /// rare background boot. Live transitions arrive via `AppStatePublisher`'s
+    /// `appStateChanged` global event.
+    /// JS usage: NativeModules.SigxCore.getAppState(callback)  // { state }
+    @objc func getAppState(_ callback: LynxCallbackBlock?) {
+        DispatchQueue.main.async {
+            let state = UIApplication.shared.applicationState == .background
+                ? "background"
+                : "active"
+            callback?(["state": state])
+        }
     }
 
     @objc func getConstants(_ callback: LynxCallbackBlock?) {

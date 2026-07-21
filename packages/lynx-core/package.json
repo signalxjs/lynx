@@ -29,6 +29,9 @@
         "native",
         "bridge"
     ],
+    "dependencies": {
+        "@sigx/reactivity": "catalog:"
+    },
     "author": "Andreas Ekdahl",
     "license": "MIT",
     "repository": {

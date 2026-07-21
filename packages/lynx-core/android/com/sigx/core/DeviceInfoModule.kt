@@ -45,6 +45,18 @@ class DeviceInfoModule(context: Context) : LynxModule(context) {
         callback?.invoke(map)
     }
 
+    /**
+     * Current app foreground/background state — seeds the JS default on the
+     * rare background boot. Live transitions arrive via [AppStatePublisher]'s
+     * `appStateChanged` global event.
+     * JS usage: NativeModules.SigxCore.getAppState(callback)  // { state }
+     */
+    @LynxMethod
+    fun getAppState(callback: Callback?) {
+        val map = JavaOnlyMap().apply { putString("state", AppStateBus.current) }
+        callback?.invoke(map)
+    }
+
     @LynxMethod
     fun getConstants(callback: Callback?) {
         val map = JavaOnlyMap()
