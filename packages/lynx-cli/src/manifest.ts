@@ -187,12 +187,30 @@ export interface AndroidBehaviorEntry {
     behaviorClass: string;
 }
 
+/**
+ * App config a Gradle plugin depends on. A plugin declaring one is only
+ * applied when that config resolves — otherwise linking the module would
+ * hard-fail the Android build for everyone who hasn't configured it (#618).
+ *
+ * A closed set, not an expression language: each value names one thing
+ * prebuild knows how to resolve. Unknown values are rejected at injection
+ * time rather than silently dropping the plugin.
+ */
+export type AndroidGradlePluginRequirement = 'android.googleServicesFile';
+
 /** A single Gradle plugin contribution applied to `app/build.gradle.kts`. */
 export interface AndroidGradlePluginEntry {
     /** Plugin id, e.g. `"com.google.gms.google-services"`. */
     id: string;
     /** Plugin version, e.g. `"4.4.2"`. */
     version: string;
+    /**
+     * Only apply this plugin when the named app config resolves — e.g.
+     * `"android.googleServicesFile"` for `com.google.gms.google-services`,
+     * which hard-fails the build when `google-services.json` is absent.
+     * Omit for plugins that stand on their own.
+     */
+    requires?: AndroidGradlePluginRequirement;
 }
 
 /** A single `<uses-feature>` contribution. */
