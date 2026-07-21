@@ -4,6 +4,10 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 ## [Unreleased]
 
+### Added
+
+- `@sigx/lynx-datetime-picker` — **`formatDate(date, pattern)`**, a locale-free token formatter for displaying a picked date. The Lynx runtime ships no `Intl`, so every consumer was hand-rolling the same `pad()` + template literal (the showcase demo included); `formatDate(r.value, 'YYYY-MM-DD HH:mm')` replaces it. Tokens `YYYY`/`YY`, `MM`/`M`, `DD`/`D`, `HH`/`H`, `hh`/`h`, `mm`/`m`, `ss`/`s`, `A`/`a` in local time, `[bracketed]` literals pass through unsubstituted, and a missing or Invalid `Date` returns `''` so a cancelled result needs no null check. No month/weekday names — those need locale data the runtime doesn't have (#255).
+
 ### Fixed
 
 - `@sigx/lynx-dev-client` — the Android resource fetchers' `request == null` guards are live again. `fetchResource` / `fetchTemplate` / `fetchSSRData` declared their `LynxResourceRequest` parameter non-null, so Kotlin's `checkNotNullParameter` intrinsic threw an NPE at function entry before the guard could return a structured failure — the checks read as handled but were dead code (`Condition is always 'false'` at compile time). The parameter is now nullable, matching the production fetchers in `SigxProductionResources.kt` (#613).

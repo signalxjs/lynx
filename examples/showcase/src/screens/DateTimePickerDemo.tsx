@@ -2,14 +2,16 @@ import { component, signal } from '@sigx/lynx';
 import { Screen } from '@sigx/lynx-navigation';
 import { Button, Card, Col, Heading, ScrollView, Text } from '@sigx/lynx-daisyui';
 import { Haptics } from '@sigx/lynx-haptics';
-import { DateTimePicker, type DateTimePickerResult } from '@sigx/lynx-datetime-picker';
-
-const pad = (n: number) => String(n).padStart(2, '0');
+import {
+    DateTimePicker,
+    formatDate,
+    type DateTimePickerResult,
+} from '@sigx/lynx-datetime-picker';
 
 const describe = (r: DateTimePickerResult | null): string => {
     if (!r) return '—';
     if (r.cancelled) return 'cancelled';
-    return `${r.year}-${pad(r.month!)}-${pad(r.day!)} ${pad(r.hour!)}:${pad(r.minute!)}`;
+    return formatDate(r.value, 'YYYY-MM-DD HH:mm');
 };
 
 /**
