@@ -6,12 +6,12 @@
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdirSync, rmSync, writeFileSync, existsSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
 
 import { findLockfile } from '../src/util/package-manager.js';
-import { fingerprintAndroidBuild, fingerprintIosBuild } from '../src/util/build-fingerprint.js';
-import { fingerprintPrebuildInputs } from '../src/prebuild.js';
+import { fingerprintAndroidBuild, fingerprintIosBuild, walkFiles } from '../src/util/build-fingerprint.js';
+import { fingerprintPrebuildInputs, getTemplatesDir } from '../src/prebuild.js';
 import { resetBuildCaches } from '../src/util/reset-cache.js';
 
 let dir: string;
@@ -84,6 +84,45 @@ describe('lockfile-keyed fingerprints (#348)', () => {
         expect(fingerprintPrebuildInputs(dir, { android: true, ios: true }))
             .toBe(fingerprintPrebuildInputs(dir, { android: true, ios: true }));
         expect(fingerprintAndroidBuild(dir)).toBe(fingerprintAndroidBuild(dir));
+    });
+});
+
+describe('CLI template contents are prebuild inputs (#614)', () => {
+    it('resolves the real templates directory', () => {
+        // The fold below is only meaningful if this path is right; a wrong one
+        // degrades silently to hashing an empty list.
+        const files = walkFiles(getTemplatesDir());
+        expect(files.length).toBeGreaterThan(0);
+        expect(files.some((f) => f.endsWith('ContentView.swift'))).toBe(true);
+        expect(files.some((f) => f.endsWith('MainActivity.kt'))).toBe(true);
+    });
+
+    it('fingerprintPrebuildInputs changes when a managed template changes', () => {
+        writePkg();
+        // A scratch copy, never the shared templates tree: `vitest run` executes
+        // test files in parallel workers, and mutating the real tree would make
+        // every concurrent `fingerprintPrebuildInputs` caller non-deterministic.
+        const templates = join(dir, 'templates');
+        mkdirSync(join(templates, 'ios'), { recursive: true });
+        const managed = join(templates, 'ios', 'ContentView.swift');
+        writeFileSync(managed, '// v1', 'utf-8');
+
+        const fp = () => fingerprintPrebuildInputs(dir, { android: true, ios: true }, undefined, templates);
+        const before = fp();
+
+        writeFileSync(managed, '// v2 — edited in a workspace checkout', 'utf-8');
+        const edited = fp();
+        expect(edited).not.toBe(before);
+
+        const added = join(templates, 'android', 'MainActivity.kt');
+        mkdirSync(dirname(added), { recursive: true });
+        writeFileSync(added, '// new managed file', 'utf-8');
+        expect(fp()).not.toBe(edited);
+
+        // Reverting restores the original hash — content-keyed, not a one-way taint.
+        rmSync(added, { force: true });
+        writeFileSync(managed, '// v1', 'utf-8');
+        expect(fp()).toBe(before);
     });
 });
 
