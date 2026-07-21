@@ -37,6 +37,17 @@ if (!result.cancelled) {
 
 `DateTimePicker.pick` **always resolves** — dismissal (and any bridge failure) comes back as `{ cancelled: true }`, so you don't need a try/catch.
 
+### Displaying the result
+
+The Lynx JS runtime ships no `Intl` (so no `toLocaleDateString`). `formatDate` covers the common display case without one:
+
+```ts
+import { DateTimePicker, formatDate } from '@sigx/lynx-datetime-picker';
+
+const r = await DateTimePicker.pickDateTime();
+label = formatDate(r.value, 'YYYY-MM-DD HH:mm');   // '2026-06-07 14:30'
+```
+
 ## API
 
 | Method | Returns |
@@ -46,6 +57,26 @@ if (!result.cancelled) {
 | `DateTimePicker.pickTime(opts?)` | `pick` with `mode: 'time'` |
 | `DateTimePicker.pickDateTime(opts?)` | `pick` with `mode: 'datetime'` |
 | `DateTimePicker.isModuleAvailable()` | `boolean` — whether the native module is wired into the current build |
+| `formatDate(date, pattern)` | `string` — token formatting for a picked `Date` (see below) |
+
+### `formatDate(date, pattern)`
+
+Locale-free token formatting in **local time**. A missing or Invalid `Date` returns `''`, so a picker result renders without a null check.
+
+| Token | Meaning | Example |
+|---|---|---|
+| `YYYY` / `YY` | Year, 4- / 2-digit | `2026` / `26` |
+| `MM` / `M` | Month, 1–12, padded / bare | `06` / `6` |
+| `DD` / `D` | Day of month, padded / bare | `07` / `7` |
+| `HH` / `H` | Hour 0–23, padded / bare | `09` / `9` |
+| `hh` / `h` | Hour 1–12, padded / bare | `09` / `9` |
+| `mm` / `m` | Minute, padded / bare | `05` / `5` |
+| `ss` / `s` | Second, padded / bare | `05` / `5` |
+| `A` / `a` | Meridiem | `PM` / `pm` |
+
+Anything else passes through literally; wrap literal text in square brackets to protect it from substitution — `formatDate(d, 'DD [at] HH:mm')` → `07 at 14:30` (unescaped, the `a` in `at` is the meridiem token).
+
+There are deliberately no month or weekday **names**: producing them correctly needs locale data the runtime doesn't have. Ship your own lookup table if you need them.
 
 ### `DateTimePickerOptions`
 
