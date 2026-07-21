@@ -6,6 +6,7 @@ import {
     runOnMainThread,
     useAnimatedStyle,
     useDerivedValue,
+    useDerivedValueReactive,
     useGestureDetector,
     useMainThreadRef,
     useSharedValue,
@@ -109,16 +110,24 @@ const SNAP_MS = Math.round(SNAP_SEC * 1000);
 const PROJECTION_SEC = 0.15;
 
 export const BottomSheet = component<BottomSheetProps>(({ props, emit, slots }) => {
-    const maxHeight = props.maxHeight;
-    const detents = [...props.detents];
-    const floor = detents[0] ?? 0;
-    const openIndex = props.openDetentIndex ?? (detents.length > 1 ? 1 : 0);
-    const openReveal = detents[openIndex] ?? floor;
+    // Geometry is READ LIVE, never snapshotted at setup: a composer accessory
+    // (the headline use case) has a floor that changes at runtime — an
+    // attachment chip row appears, the text input grows from 1 to N lines, a
+    // banner comes and goes. Freezing `detents`/`maxHeight` here would leave
+    // the sheet at its mount-time size while its content grew underneath it,
+    // silently pushing the pinned top content out of the revealed slice.
+    const geometry = (): { floor: number; open: number; top: number; detents: number[] } => {
+        const ds = [...props.detents];
+        const f = ds[0] ?? 0;
+        const i = props.openDetentIndex ?? (ds.length > 1 ? 1 : 0);
+        return { floor: f, open: ds[i] ?? f, top: ds[ds.length - 1] ?? f, detents: ds };
+    };
+    const seed = geometry();
 
     // The drag/animation-owned reveal (px visible above the bottom edge). The
     // pan writes it per frame (auto-flushed, #681); `withTiming` animates it
     // for open/close.
-    const reveal = useSharedValue(floor);
+    const reveal = useSharedValue(seed.floor);
     // `dragEnabled` as a SharedValue (1/0) so the pan worklet can actually
     // gate on it — a BG prop isn't readable on the MT. Written from render
     // below; the worklet reads `dragGateSV.current.value`.
@@ -127,15 +136,26 @@ export const BottomSheet = component<BottomSheetProps>(({ props, emit, slots }) 
     // rides up to sit above whatever occupies the bottom. `scale` folds the
     // lift to `floor + lift`; `max` takes whichever is taller.
     const liftSV = props.liftSV;
+    // Reactive so the offsets track a changing floor / maxHeight. The derived
+    // SV identity is stable across re-registration, so downstream consumers
+    // (`combined`, `translateY`, `onReveal`) stay bound.
     const liftedFloor = liftSV
-        ? useDerivedValue([liftSV], 'scale', { factor: 1, offset: floor })
+        ? useDerivedValueReactive(() => ({
+            sources: [liftSV],
+            reducer: 'scale' as const,
+            params: { factor: 1, offset: geometry().floor },
+        }))
         : null;
     const combined = liftedFloor
         ? useDerivedValue([reveal, liftedFloor], 'max')
         : reveal;
     // translateY = maxHeight - combined  (slide the fixed-height box down so
     // only `combined` px show). A single scale-derived, bound with factor 1.
-    const translateY = useDerivedValue([combined], 'scale', { factor: -1, offset: maxHeight });
+    const translateY = useDerivedValueReactive(() => ({
+        sources: [combined],
+        reducer: 'scale' as const,
+        params: { factor: -1, offset: props.maxHeight },
+    }));
 
     props.onReveal?.(combined);
 
@@ -158,15 +178,27 @@ export const BottomSheet = component<BottomSheetProps>(({ props, emit, slots }) 
     // `openToLift`) the lifted position captured on the MT the instant the
     // sheet opens. Held here so the drag-release snap targets the exact same
     // rest position rather than a BG-computed detent that can't equal it.
-    const openRestRef = useMainThreadRef({ rest: openReveal });
+    const openRestRef = useMainThreadRef({ rest: seed.open });
     let lastOpen: boolean | null = null;
-    // Declared BEFORE the worklets that capture them: a `runOnMainThread`
-    // closure captures its referenced lexicals when the expression evaluates,
-    // so a `const` declared *after* the worklet is still in its temporal dead
-    // zone at capture time → "lexical variable is not initialized" on the BG.
-    const detentsArr = [...detents];
-    const minReveal = floor;
-    const maxReveal = detents[detents.length - 1] ?? floor;
+    /** Last geometry pushed to the worklets — render diffs against it. */
+    let lastGeom = seed;
+    // Worklet-visible geometry. The pan worklets used to capture `minReveal` /
+    // `maxReveal` / `detentsArr` as BG lexicals, which froze them at setup —
+    // a `runOnMainThread` closure captures its referenced lexicals when the
+    // expression evaluates. Holding them in a main-thread ref instead lets the
+    // render push updates (see `syncGeom` below) so the drag clamp and the
+    // release-snap candidates always use the CURRENT detents.
+    const geomRef = useMainThreadRef({
+        min: seed.floor,
+        max: seed.top,
+        detents: seed.detents,
+    });
+    const syncGeom = runOnMainThread((min: number, max: number, ds: number[]) => {
+        'main thread';
+        geomRef.current.min = min;
+        geomRef.current.max = max;
+        geomRef.current.detents = ds;
+    });
     const setReveal = runOnMainThread((target: number, animate: number, capture: number, openFloor: number) => {
         'main thread';
         cancelAnimation(reveal);
@@ -179,7 +211,7 @@ export const BottomSheet = component<BottomSheetProps>(({ props, emit, slots }) 
             // most the top.
             let c = combined.current.value;
             if (c < openFloor) c = openFloor;
-            if (c > maxReveal) c = maxReveal;
+            if (c > geomRef.current.max) c = geomRef.current.max;
             t = c;
             openRestRef.current.rest = c;
         }
@@ -237,8 +269,8 @@ export const BottomSheet = component<BottomSheetProps>(({ props, emit, slots }) 
             // Drag UP (dy < 0) grows the sheet: reveal increases.
             const dy = y - drag.current.startY;
             let next = drag.current.startReveal - dy;
-            if (next < minReveal) next = minReveal;
-            if (next > maxReveal) next = maxReveal;
+            if (next < geomRef.current.min) next = geomRef.current.min;
+            if (next > geomRef.current.max) next = geomRef.current.max;
             reveal.current.value = next;
         })
         .onEnd(() => {
@@ -253,8 +285,8 @@ export const BottomSheet = component<BottomSheetProps>(({ props, emit, slots }) 
             // detent — so a release near the compact rest returns to exactly
             // where the keyboard sat. Candidates: floor, captured rest, top.
             const cands = openToLift
-                ? [minReveal, openRestRef.current.rest, maxReveal]
-                : detentsArr;
+                ? [geomRef.current.min, openRestRef.current.rest, geomRef.current.max]
+                : geomRef.current.detents;
             let bestI = 0;
             let bestD = -1;
             for (let i = 0; i < cands.length; i += 1) {
@@ -273,15 +305,35 @@ export const BottomSheet = component<BottomSheetProps>(({ props, emit, slots }) 
         // Mirror `dragEnabled` (default true) into the worklet-readable SV
         // (written on BG with `.value`; the pan worklet reads `.current.value`).
         dragGateSV.value = props.dragEnabled === false ? 0 : 1;
+        // Push the CURRENT detents to the worklets, so the drag clamp and the
+        // release-snap candidates follow a runtime geometry change.
+        const g = geometry();
+        if (g.floor !== lastGeom.floor || g.top !== lastGeom.top
+            || g.detents.length !== lastGeom.detents.length
+            || g.detents.some((d, i) => d !== lastGeom.detents[i])) {
+            const parked = lastOpen !== true;
+            const floorMoved = g.floor !== lastGeom.floor;
+            lastGeom = g;
+            void syncGeom(g.floor, g.top, g.detents);
+            // A parked sheet must FOLLOW its floor, or it keeps showing the
+            // mount-time slice while its content grows/shrinks underneath —
+            // the bug this reactivity exists to fix. `liftedFloor` already
+            // tracks the new floor, so with a keyboard up `combined` is
+            // correct either way; this covers the keyboard-down case (and a
+            // floor that SHRANK, where the stale, taller `reveal` would win
+            // the `max`). Jump, never animate: the content already changed
+            // size this frame.
+            if (parked && floorMoved) void setReveal(g.floor, 0, 0, g.open);
+        }
         // React to `open` changes (render closure tracks props.open).
         const open = props.open ?? false;
         if (open !== lastOpen) {
             lastOpen = open;
             void setReveal(
-                open ? openReveal : floor,
+                open ? g.open : g.floor,
                 props.animate === true ? 1 : 0,
                 open && openToLift ? 1 : 0,
-                openReveal,
+                g.open,
             );
         }
         return (
@@ -293,7 +345,7 @@ export const BottomSheet = component<BottomSheetProps>(({ props, emit, slots }) 
                     left: 0,
                     right: 0,
                     bottom: 0,
-                    height: `${maxHeight}px`,
+                    height: `${props.maxHeight}px`,
                     display: 'flex',
                     flexDirection: 'column',
                     ...props.style,
