@@ -8,6 +8,10 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 - `@sigx/lynx-datetime-picker` — **`formatDate(date, pattern)`**, a locale-free token formatter for displaying a picked date. The Lynx runtime ships no `Intl`, so every consumer was hand-rolling the same `pad()` + template literal (the showcase demo included); `formatDate(r.value, 'YYYY-MM-DD HH:mm')` replaces it. Tokens `YYYY`/`YY`, `MM`/`M`, `DD`/`D`, `HH`/`H`, `hh`/`h`, `mm`/`m`, `ss`/`s`, `A`/`a` in local time, `[bracketed]` literals pass through unsubstituted, and a missing or Invalid `Date` returns `''` so a cancelled result needs no null check. No month/weekday names — those need locale data the runtime doesn't have (#255).
 
+### Fixed
+
+- `@sigx/lynx-cli` — `sigx prebuild`'s fast path now hashes the CLI's own `templates/` tree (fingerprint format `v8`). It hashed project inputs plus `cliVersion`, which covers a published CLI but not a workspace one: editing a managed template (`ContentView.swift`, `MainActivity.kt`, `SigxProductionResources.*`, …) left the fingerprint unchanged, so `refresh{Ios,Android}ManagedFiles` never ran and the previous run's stale template was what landed in the built app — silently, with the only workaround being to delete `node_modules/.cache/@sigx/lynx-cli/prebuild-inputs.hash` by hand. Contributor dev-loop only; it's a fixed ~40-file tree, so the hashing cost is noise next to a prebuild (#614).
+
 ## [0.18.1] - 2026-07-21
 
 ### Fixed
