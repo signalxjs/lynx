@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeAll } from 'vitest';
 import { component, signal } from '@sigx/lynx';
 import { render, getAllByType, getByType, getByText, queryByText, act } from '@sigx/lynx-testing';
 import { EmojiGrid, sectionRowIndex, sectionStartOffsets } from '../src/components/EmojiGrid';
@@ -71,6 +71,27 @@ function findByHandler(root: TestNode, handler: string, text: string): TestNode 
 }
 
 /**
+ * How long `measureRegion` waits for the grid to hydrate + finish staging,
+ * and how many consecutive equal row counts count as "settled". Every test
+ * here settles in a handful of macrotasks warm; the budget only has to cover
+ * a cold/loaded machine's module transform, and stays under vitest's 5s
+ * default per-test timeout so the helper's own error is what you see.
+ */
+const STABILIZE_BUDGET_MS = 4_000;
+const STABLE_SAMPLES = 2;
+
+/**
+ * Warm the persistence seam's optional peer BEFORE any test renders. The
+ * seam loads it with a guarded dynamic `import()`, and `ctx.ready` — the
+ * grid's mount gate — waits on it; importing it here moves vitest's
+ * transform cost out of the per-test wait window, where a cold cache made
+ * the gate look stuck (#671). Guarded: the peer is genuinely optional.
+ */
+beforeAll(async () => {
+    await import('@sigx/lynx-storage').catch(() => null);
+});
+
+/**
  * The sectioned grid mounts only after (a) `ctx.ready` (persisted
  * recents/tone hydrated — microtasks, flushed by act) and (b) the grid
  * region reporting a measured height (#666: mounting earlier meant a
@@ -91,13 +112,24 @@ async function measureRegion(container: unknown, width = 328): Promise<void> {
     };
     await act(() => { fire(container as TestNode); });
     // `ctx.ready` flips after the persistence seam's guarded dynamic import
-    // settles — a macrotask or two in vitest, not just microtasks. Then the
-    // sectioned grid STAGES rows in zero-delay chunks (#666), so also poll
-    // until the mounted row count stops growing.
+    // settles, then the sectioned grid STAGES rows in zero-delay chunks
+    // (#666) — so poll until the mounted row count holds steady.
+    //
+    // The budget is WALL CLOCK, not a tick count (#671): 40 macrotask turns
+    // sound generous but elapse in milliseconds, and what we're waiting on
+    // (a dynamic `import()` vitest may still be transforming) is I/O-bound.
+    // On a loaded machine the ticks ran out while the count was still 0 and
+    // the helper failed a healthy build. Time-boxing means a slow machine
+    // just waits longer; only a genuinely stuck gate fails.
+    const deadline = Date.now() + STABILIZE_BUDGET_MS;
     let last = -1;
-    for (let i = 0; i < 40; i++) {
+    let stableFor = 0;
+    while (Date.now() < deadline) {
         const count = getAllByType(container as never, 'list-item').length;
-        if (count > 0 && count === last) return;
+        // Require repeats: staging pauses a tick between slices, so a single
+        // equal sample can be a mid-staging plateau rather than the end.
+        stableFor = count > 0 && count === last ? stableFor + 1 : 0;
+        if (stableFor >= STABLE_SAMPLES) return;
         last = count;
         await new Promise((r) => setTimeout(r, 0));
         await act(() => { fire(container as TestNode); });
@@ -105,7 +137,8 @@ async function measureRegion(container: unknown, width = 328): Promise<void> {
     // Never stabilized = a hydration/measure/staging regression. Fail LOUDLY
     // — a silent return here would let downstream assertions flake instead.
     throw new Error(
-        `measureRegion: staged row count never stabilized within the retry budget (last saw ${last} list-items)`,
+        `measureRegion: staged row count never stabilized within ${STABILIZE_BUDGET_MS}ms `
+        + `(last saw ${last} list-items)`,
     );
 }
 
