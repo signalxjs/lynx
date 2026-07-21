@@ -26,6 +26,12 @@ Full command reference, dev-server and caching details, web target setup and nat
 
 Native modules under the `@sigx/lynx-*` namespace ship a `signalx-module.json` manifest. `sigx prebuild` discovers these manifests and automatically wires them into the generated iOS / Android projects — no manual `Podfile` or `settings.gradle` edits needed. A manifest can declare dependencies, permissions, services, Info.plist keys, Android Gradle plugins (`android.gradlePlugins`), and iOS code-signing entitlements (`ios.entitlements`); prebuild aggregates and injects them.
 
+A Gradle plugin that hard-requires app-supplied config can declare it with `requires`, and prebuild applies the plugin only once that config resolves — otherwise merely depending on the module would break every build until it's configured:
+
+```json
+{ "id": "com.google.gms.google-services", "version": "4.4.2", "requires": "android.googleServicesFile" }
+```
+
 Some capabilities need app-supplied credentials that must survive `android/` · `ios/` regeneration. Set these in `signalx.config.ts`: `android.googleServicesFile` (copied to `android/app/google-services.json` for Firebase/FCM) and `ios.entitlements` (merged into the generated `.entitlements`). See the field doc-comments in the config schema for the full set.
 
 To author your own native module, see [Authoring native modules](https://github.com/signalxjs/lynx/blob/main/docs/native-modules.md) (forthcoming).

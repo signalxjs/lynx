@@ -599,7 +599,7 @@ export function injectGradleDependencies(cwd: string, config: ResolvedConfig, de
 export function injectGradlePlugins(
     cwd: string,
     config: ResolvedConfig,
-    plugins: import('./manifest.js').AndroidGradlePluginEntry[],
+    allPlugins: import('./manifest.js').AndroidGradlePluginEntry[],
 ): void {
     const gradleFile = androidBuildGradlePath(cwd, config);
     if (!existsSync(gradleFile)) return;
@@ -607,6 +607,32 @@ export function injectGradlePlugins(
     let content = readFileSync(gradleFile, 'utf-8');
     const marker = '    // {{GRADLE_PLUGINS}}';
     if (!content.includes(marker)) return;
+
+    // Drop plugins whose declared requirement isn't met. Autolinking is
+    // dependency-driven — a module lands in the graph because something
+    // depends on it — so an unconditional plugin that hard-requires app
+    // config makes every build fail until that config exists (#618).
+    const plugins: import('./manifest.js').AndroidGradlePluginEntry[] = [];
+    for (const plugin of allPlugins) {
+        if (plugin.requires === undefined) {
+            plugins.push(plugin);
+            continue;
+        }
+        if (plugin.requires !== 'android.googleServicesFile') {
+            throw new Error(
+                `Gradle plugin "${plugin.id}" declares unknown requirement ` +
+                `"${plugin.requires}". Supported: "android.googleServicesFile".`,
+            );
+        }
+        if (resolveGoogleServicesFile(cwd, config)) {
+            plugins.push(plugin);
+        } else {
+            log(
+                `Android: skipped Gradle plugin ${plugin.id} — ` +
+                `\`android.googleServicesFile\` is not configured.`,
+            );
+        }
+    }
 
     for (const plugin of plugins) {
         if (!/^[a-z][a-z0-9.-]*$/.test(plugin.id)) {
@@ -638,6 +664,35 @@ export function injectGradlePlugins(
 const FCM_MESSAGING_EVENT_ACTION = 'com.google.firebase.MESSAGING_EVENT';
 
 /**
+ * Absolute path of the configured Firebase `google-services.json`, or null
+ * when `android.googleServicesFile` is unset. Throws when it is set but
+ * points at nothing — a typo'd path is a mistake worth failing on, whereas
+ * "not configured" is a supported state (no FCM).
+ *
+ * Shared by `copyGoogleServicesFile` (which copies it) and
+ * `injectGradlePlugins` (which gates `com.google.gms.google-services` on it),
+ * so the two can't disagree about whether Firebase is configured.
+ */
+export function resolveGoogleServicesFile(cwd: string, config: ResolvedConfig): string | null {
+    const configured = config.android.googleServicesFile?.trim();
+    if (!configured) return null;
+
+    const srcPath = isAbsolute(configured) ? configured : join(cwd, configured);
+    // Must be a regular file, not merely present: a directory here would read
+    // as "Firebase configured", apply the Gradle plugin, and then blow up in
+    // `copyGoogleServicesFile` with a bare EISDIR from readFileSync.
+    const stat = statSync(srcPath, { throwIfNoEntry: false });
+    if (!stat?.isFile()) {
+        throw new Error(
+            `android.googleServicesFile points at "${configured}" but ` +
+            (stat ? `${srcPath} is not a file` : `no file exists at ${srcPath}`) +
+            `. Set it to your Firebase google-services.json path (relative to the project root).`,
+        );
+    }
+    return srcPath;
+}
+
+/**
  * Copy the configured Firebase `google-services.json` into
  * `android/app/google-services.json` so it survives `android/` regeneration.
  * The `com.google.gms.google-services` plugin reads it at build time to emit
@@ -657,23 +712,18 @@ export function copyGoogleServicesFile(
     const configured = config.android.googleServicesFile?.trim();
     const fcmLinked = services.some((s) => s.actions?.includes(FCM_MESSAGING_EVENT_ACTION));
 
-    if (!configured) {
+    const srcPath = resolveGoogleServicesFile(cwd, config);
+    if (!srcPath) {
         if (fcmLinked) {
             log(
                 `\x1b[33m!\x1b[0m An FCM messaging service is linked but ` +
                 `\`android.googleServicesFile\` is not set — remote push won't ` +
-                `initialize. Point it at your Firebase google-services.json in signalx.config.ts.`,
+                `initialize (local notifications are unaffected, and the build ` +
+                `proceeds without the Google Services plugin). Point it at your ` +
+                `Firebase google-services.json in signalx.config.ts.`,
             );
         }
         return;
-    }
-
-    const srcPath = isAbsolute(configured) ? configured : join(cwd, configured);
-    if (!existsSync(srcPath)) {
-        throw new Error(
-            `android.googleServicesFile points at "${configured}" but no file exists at ` +
-            `${srcPath}. Set it to your Firebase google-services.json path (relative to the project root).`,
-        );
     }
 
     const destPath = join(androidProjectRoot(cwd, config), 'app', 'google-services.json');
