@@ -4,6 +4,10 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 ## [Unreleased]
 
+### Added
+
+- `@sigx/lynx-datetime-picker` — **`formatDate(date, pattern)`**, a locale-free token formatter for displaying a picked date. The Lynx runtime ships no `Intl`, so every consumer was hand-rolling the same `pad()` + template literal (the showcase demo included); `formatDate(r.value, 'YYYY-MM-DD HH:mm')` replaces it. Tokens `YYYY`/`YY`, `MM`/`M`, `DD`/`D`, `HH`/`H`, `hh`/`h`, `mm`/`m`, `ss`/`s`, `A`/`a` in local time, `[bracketed]` literals pass through unsubstituted, and a missing or Invalid `Date` returns `''` so a cancelled result needs no null check. No month/weekday names — those need locale data the runtime doesn't have (#255).
+
 ### Fixed
 
 - `@sigx/lynx-cli` / `@sigx/lynx-notifications` — linking `@sigx/lynx-notifications` no longer breaks the Android build when Firebase isn't configured. The module contributed the `com.google.gms.google-services` Gradle plugin unconditionally, and that plugin hard-requires `google-services.json` at build time, so a fresh clone (or CI, or any contributor who had never built before) died on `Execution failed for task ':app:processDebugGoogleServices'` — while `copyGoogleServicesFile` merely *warned* that remote push wouldn't initialize. A module's Gradle-plugin entry can now declare `"requires": "android.googleServicesFile"`, and prebuild applies the plugin only when that config resolves to a real file, logging when it's skipped; the notifications manifest opts in. Local notifications need no Firebase at all, and remote push degrades exactly as the warning always claimed. An unknown `requires` value is rejected loudly rather than silently dropping the plugin (#618).
