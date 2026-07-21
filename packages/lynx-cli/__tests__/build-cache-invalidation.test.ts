@@ -10,8 +10,8 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
 import { findLockfile } from '../src/util/package-manager.js';
-import { fingerprintAndroidBuild, fingerprintIosBuild } from '../src/util/build-fingerprint.js';
-import { fingerprintPrebuildInputs } from '../src/prebuild.js';
+import { fingerprintAndroidBuild, fingerprintIosBuild, walkFiles } from '../src/util/build-fingerprint.js';
+import { fingerprintPrebuildInputs, getTemplatesDir } from '../src/prebuild.js';
 import { resetBuildCaches } from '../src/util/reset-cache.js';
 
 let dir: string;
@@ -84,6 +84,37 @@ describe('lockfile-keyed fingerprints (#348)', () => {
         expect(fingerprintPrebuildInputs(dir, { android: true, ios: true }))
             .toBe(fingerprintPrebuildInputs(dir, { android: true, ios: true }));
         expect(fingerprintAndroidBuild(dir)).toBe(fingerprintAndroidBuild(dir));
+    });
+});
+
+describe('CLI template contents are prebuild inputs (#614)', () => {
+    it('resolves the real templates directory', () => {
+        // The fold below is only meaningful if this path is right; a wrong one
+        // degrades silently to hashing an empty list.
+        const files = walkFiles(getTemplatesDir());
+        expect(files.length).toBeGreaterThan(0);
+        expect(files.some((f) => f.endsWith('ContentView.swift'))).toBe(true);
+        expect(files.some((f) => f.endsWith('MainActivity.kt'))).toBe(true);
+    });
+
+    it('fingerprintPrebuildInputs changes when a managed template changes', () => {
+        writePkg();
+        const probe = join(getTemplatesDir(), '__fingerprint-probe.tmp');
+        const before = fingerprintPrebuildInputs(dir, { android: true, ios: true });
+        try {
+            writeFileSync(probe, 'v1', 'utf-8');
+            const added = fingerprintPrebuildInputs(dir, { android: true, ios: true });
+            expect(added).not.toBe(before);
+
+            writeFileSync(probe, 'v2', 'utf-8');
+            const edited = fingerprintPrebuildInputs(dir, { android: true, ios: true });
+            expect(edited).not.toBe(added);
+        } finally {
+            rmSync(probe, { force: true });
+        }
+        // Removing it must restore the original hash — i.e. the templates fold
+        // is content-keyed, not a one-way taint.
+        expect(fingerprintPrebuildInputs(dir, { android: true, ios: true })).toBe(before);
     });
 });
 

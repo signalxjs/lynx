@@ -100,8 +100,12 @@ function normalizeLineEndings(content: string, fileName: string): string {
 
 /**
  * Resolve the templates directory. Works both in source (src/) and dist (dist/).
+ *
+ * Exported so tests can pin that the resolution still lands on the real
+ * templates — `fingerprintPrebuildInputs` folds this tree in, and a wrong
+ * path would silently degrade to hashing nothing (#614).
  */
-function getTemplatesDir(): string {
+export function getTemplatesDir(): string {
     const thisFile = fileURLToPath(import.meta.url);
     const thisDir = dirname(thisFile);
     // In dist: packages/lynx-cli/dist/prebuild.js → go up to packages/lynx-cli/
@@ -2499,6 +2503,16 @@ export function fingerprintPrebuildInputs(cwd: string, platforms: { android: boo
     const googleServicesPath = readCachedFingerprint(cwd, variant ? `prebuild-google-services-path-${variant}` : 'prebuild-google-services-path');
     if (googleServicesPath && existsSync(googleServicesPath)) files.push(googleServicesPath);
 
+    // The CLI's own managed templates (ContentView.swift, MainActivity.kt,
+    // SigxProductionResources.*, …) are copied into the native projects by
+    // refresh{Ios,Android}ManagedFiles on every prebuild, so they are inputs
+    // like any module's sourceDir. `cliVersion` covers a *published* CLI, but
+    // not a workspace one: editing a template in-tree left the fingerprint
+    // unchanged, the fast path skipped, and the previous run's stale template
+    // was what landed in the built app — silently (#614). A fixed ~40-file
+    // tree, so the hashing cost is noise next to a prebuild.
+    for (const f of walkFiles(getTemplatesDir())) files.push(f);
+
     // Index covers transitive module dependencies too (e.g. @sigx/lynx-core
     // pulled in by another module) — their copied sources are prebuild
     // outputs just like direct deps', so they must invalidate the fast path.
@@ -2549,7 +2563,9 @@ export function fingerprintPrebuildInputs(cwd: string, platforms: { android: boo
         //     the fast path even with no project source change (#348).
         // v7: include the Firebase google-services.json contents (via sidecar
         //     path), so swapping FCM credentials invalidates the fast path (#560).
-        fingerprintFormat: 'v7',
+        // v8: include the CLI's own templates/ tree, so editing a managed
+        //     template in a workspace checkout invalidates the fast path (#614).
+        fingerprintFormat: 'v8',
         cliVersion: getCliVersion(),
         platforms: `android=${platforms.android};ios=${platforms.ios}`,
         // Variant identity changes the rendered output (suffixed ids, signing,
