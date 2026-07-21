@@ -4,6 +4,8 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 ## [Unreleased]
 
+## [0.18.1] - 2026-07-21
+
 ### Fixed
 
 - `@sigx/lynx-navigation` — `<BottomSheet>` now tracks `detents` / `maxHeight` **after mount**. They were snapshotted at setup and baked into main-thread state (the `reveal` seed, both derived-value offsets, and the `minReveal`/`maxReveal`/`detents` lexicals captured by the pan worklets), so later updates did nothing — silently. That broke the component's headline use case: a composer accessory's collapsed floor is inherently variable (an attachment chip row appears above the input, the input grows from one line to several, banners come and go), and since the sheet reveals the top `reveal` px of top-aligned content, a floor that couldn't grow pushed the input row and send button out of the revealed slice and behind the keyboard. Geometry is now read live, the two derived offsets use `useDerivedValueReactive` (the derived SV identity is stable, so `onReveal` consumers stay bound), worklet geometry is pushed through a main-thread ref so the drag clamp and release-snap candidates stay current, a parked sheet follows its floor, and geometry that shrinks pulls the held `reveal` and any captured `openToLift` rest back into range (#743).
