@@ -30,9 +30,14 @@ class DevTemplateResourceFetcher(context: Context) : LynxTemplateResourceFetcher
         .build()
 
     override fun fetchTemplate(
-        request: LynxResourceRequest,
+        request: LynxResourceRequest?,
         callback: LynxResourceCallback<TemplateProviderResult>
     ) {
+        // `LynxResourceRequest` is an unannotated Java type, so declare it
+        // nullable and guard: a non-null declaration would make Kotlin's
+        // intrinsic throw an NPE before this body could return a structured
+        // failure (and render the check dead code). Matches the production
+        // fetchers in SigxProductionResources.kt.
         if (request == null) {
             callback.onResponse(failed("request is null"))
             return
@@ -59,14 +64,14 @@ class DevTemplateResourceFetcher(context: Context) : LynxTemplateResourceFetcher
             }
 
             override fun onFailure(call: Call, e: IOException) {
-                Log.e("SigxDevClient", "Template resource fetch failed: ${request.url}", e)
+                Log.e("SigxDevClient", "Template resource fetch failed: $url", e)
                 callback.onResponse(failed(e))
             }
         })
     }
 
     override fun fetchSSRData(
-        request: LynxResourceRequest,
+        request: LynxResourceRequest?,
         callback: LynxResourceCallback<ByteArray>
     ) {
         if (request == null) {
