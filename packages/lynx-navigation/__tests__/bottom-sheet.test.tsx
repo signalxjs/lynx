@@ -9,8 +9,8 @@
  *  - Hands back the combined reveal SharedValue via `onReveal`.
  */
 import { describe, expect, it } from 'vitest';
-import { component, useSharedValue, type SharedValue } from '@sigx/lynx';
-import { render } from '@sigx/lynx-testing';
+import { component, signal, useSharedValue, type SharedValue } from '@sigx/lynx';
+import { render, waitForUpdate } from '@sigx/lynx-testing';
 import { BottomSheet } from '../src/components/BottomSheet';
 
 function find(root: any, pred: (n: any) => boolean): any {
@@ -85,5 +85,43 @@ describe('<BottomSheet>', () => {
         const root = result.container ?? result.root ?? result;
         expect(find(root, (n) => n.textContent?.() === 'H' || n.props?.children === 'H')).toBeTruthy();
         expect(sv).not.toBeNull();
+    });
+
+    // Regression (#743): geometry used to be snapshotted at setup, so a sheet
+    // whose content changed height at runtime — the composer case: an
+    // attachment chip row appears, the input grows to a second line — kept its
+    // mount-time slice and pushed its own pinned top content out of view.
+    it('tracks maxHeight / detents changes after mount', async () => {
+        const geom = signal({ max: 800, detents: [64, 400, 800] as number[] });
+        const Host = component(() => () => (
+            <BottomSheet
+                maxHeight={geom.max}
+                detents={geom.detents}
+                slots={{ handle: () => <text>H</text>, default: () => <text>B</text> }}
+            />
+        ));
+        const result: any = render(<Host />);
+        const root = result.container ?? result.root ?? result;
+        const panelHeight = (): unknown =>
+            find(root, (n) => n.props?.style?.position === 'absolute'
+                && n.props?.style?.bottom === 0)?.props?.style?.height;
+
+        expect(panelHeight()).toBe('800px');
+
+        // The composer floor grew (chip row added) and the top detent with it.
+        geom.max = 920;
+        geom.detents = [128, 460, 920];
+        await waitForUpdate();
+
+        expect(panelHeight()).toBe('920px');
+
+        // …and shrinks back when the chip is removed. Geometry that SHRANK also
+        // has to pull the held `reveal` / captured lift-rest back into range on
+        // the main thread (not observable from BG here — exercised on-device).
+        geom.max = 800;
+        geom.detents = [64, 400, 800];
+        await waitForUpdate();
+
+        expect(panelHeight()).toBe('800px');
     });
 });
