@@ -24,7 +24,16 @@ export type RadioItemProps =
   // Selecting an item writes its `value` into the model; an item is checked
   // when the model equals its `value`. The static `checked` prop is honored
   // when no model is bound (variant/showcase rows).
-  & Define.Model<string>;
+  & Define.Model<string>
+  /**
+   * Fired with this item's `value` when it is selected. A **plain function
+   * prop**, not an `emit` event: a prop named `value` shadows
+   * `@sigx/runtime-core`'s emit handler lookup, so events never fire on this
+   * component (#323). Use it for controlled, non-`model` groups — or
+   * alongside `model`, which is still the canonical state path and is
+   * written first. Never fired while `disabled`.
+   */
+  & Define.Prop<'onSelect', (value: string) => void, false>;
 
 const RadioItem = component<RadioItemProps>(({ props }) => {
   const isChecked = () =>
@@ -48,7 +57,10 @@ const RadioItem = component<RadioItemProps>(({ props }) => {
       longPressDuration={0}
       onPress={() => {
         if (props.disabled || props.value == null) return;
+        // Model first (canonical state), then notify — so an `onSelect`
+        // reading the bound signal sees the new value already committed.
         if (props.model) props.model.value = props.value;
+        props.onSelect?.(props.value);
       }}
     >
       <view class={getClasses()}>
