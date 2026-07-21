@@ -1,4 +1,4 @@
-import { signal, type PrimitiveSignal } from '@sigx/reactivity';
+import { signal, computed, watch, type Computed } from '@sigx/reactivity';
 import { callAsync, isModuleAvailable } from './bridge.js';
 
 /**
@@ -14,7 +14,7 @@ import { callAsync, isModuleAvailable } from './bridge.js';
  */
 export type AppStateStatus = 'active' | 'background';
 
-/** Listener signature for {@link addAppStateListener}. */
+/** Listener signature for {@link AppState.subscribe}. */
 export type AppStateListener = (state: AppStateStatus) => void;
 
 // Foreground/background lives in core (not a feature package) because it's an
@@ -45,24 +45,23 @@ interface LynxLike {
 
 declare const lynx: unknown | undefined;
 
-// JS boots with the app foregrounded in every ordinary launch; the async
-// native seed (below) corrects the rare background boot.
-let current: AppStateStatus = 'active';
+// The single source of truth. JS boots with the app foregrounded in every
+// ordinary launch; the async native seed (below) corrects the rare background
+// boot. Everything downstream — `AppState.current`, `AppState.subscribe`, and
+// the reactive `useAppState()` — derives from this one signal, so we lean on
+// the reactivity system's own subscription + Object.is dedup instead of a
+// hand-rolled listener set.
+const state = signal<AppStateStatus>('active');
 let emitterWired = false;
 let seeded = false;
-const listeners = new Set<AppStateListener>();
-let stateSignal: PrimitiveSignal<AppStateStatus> | undefined;
-
-const dispatch = (next: AppStateStatus): void => {
-    // Dedup consecutive duplicates: multiple LynxViews mean multiple native
-    // publishers, and iOS fires didBecomeActive on cold start too.
-    if (next === current) return;
-    current = next;
-    if (stateSignal) stateSignal.value = next;
-    for (const fn of listeners) fn(next);
-};
+let stateComputed: Computed<AppStateStatus> | undefined;
 
 const isStatus = (v: unknown): v is AppStateStatus => v === 'active' || v === 'background';
+
+// PrimitiveSignal widens its value type to `string` (sigx lets you reassign any
+// string later); every write here is isStatus-guarded, so reading back as
+// AppStateStatus is sound.
+const read = (): AppStateStatus => state.value as AppStateStatus;
 
 /**
  * Wire the GlobalEventEmitter listener + native seed, lazily. Each latch is
@@ -79,8 +78,8 @@ const ensureWired = (): void => {
                 : undefined;
             if (emitter) {
                 emitter.addListener(APP_STATE_EVENT, (payload: unknown) => {
-                    const state = (payload as { state?: unknown } | undefined)?.state;
-                    if (isStatus(state)) dispatch(state);
+                    const next = (payload as { state?: unknown } | undefined)?.state;
+                    if (isStatus(next)) state.value = next;   // signal dedups
                 });
                 emitterWired = true;
                 // Transitions between an earlier successful seed and this
@@ -105,7 +104,7 @@ const ensureWired = (): void => {
             .then((res) => {
                 // The bridge resolves whatever the native callback passes —
                 // an error-shaped or malformed payload is a failure too.
-                if (isStatus(res?.state)) dispatch(res.state);
+                if (isStatus(res?.state)) state.value = res.state;
                 else seeded = false;
             })
             .catch(() => { seeded = false; });
@@ -113,37 +112,49 @@ const ensureWired = (): void => {
 };
 
 /**
- * Current app state, synchronously. `'active'` until the first transition —
- * including off-device (web preview, SSR, tests), where no events ever fire.
+ * App foreground/background state — the imperative/ambient surface, shaped like
+ * core's other ambient services (`Platform`, `DeviceInfo`). For reactive reads
+ * in a component, use {@link useAppState} instead.
  */
-export function currentAppState(): AppStateStatus {
-    ensureWired();
-    return current;
-}
+export const AppState = {
+    /**
+     * Current state, read synchronously (live). `'active'` until the first
+     * transition — including off-device (web preview, SSR, tests), where no
+     * events ever fire.
+     */
+    get current(): AppStateStatus {
+        ensureWired();
+        return read();
+    },
+
+    /** Whether the native app-state channel is available (false off-device). */
+    get available(): boolean {
+        return isModuleAvailable(MODULE);
+    },
+
+    /**
+     * Subscribe to foreground/background transitions. The callback fires on
+     * every change (never for consecutive duplicates — the signal dedups via
+     * Object.is). Returns an unsubscribe function. Off-device this is a safe
+     * no-op — the underlying signal never changes.
+     *
+     * Thin wrapper over the reactivity system's `watch` (synchronous, fires on
+     * change only), so imperative subscribers and reactive consumers share one
+     * subscription mechanism.
+     */
+    subscribe(cb: AppStateListener): () => void {
+        ensureWired();
+        return watch(read, (next) => cb(next));
+    },
+};
 
 /**
- * Subscribe to foreground/background transitions. The callback fires on every
- * change (never for consecutive duplicates). Returns an unsubscribe function.
- *
- * Off-device this is a safe no-op: the callback simply never fires.
+ * Reactive read of the app state — a lazily-created singleton `Computed`.
+ * Components reading `.value` re-render on foreground/background transitions.
+ * Read-only by design; drive changes from the native lifecycle, not JS.
  */
-export function addAppStateListener(cb: AppStateListener): () => void {
+export function useAppState(): Computed<AppStateStatus> {
     ensureWired();
-    listeners.add(cb);
-    return () => { listeners.delete(cb); };
-}
-
-/**
- * Reactive read of the app state. Returns a lazily-created singleton signal —
- * components reading `.value` re-render on foreground/background transitions.
- */
-export function useAppState(): PrimitiveSignal<AppStateStatus> {
-    ensureWired();
-    if (!stateSignal) stateSignal = signal<AppStateStatus>(current);
-    return stateSignal;
-}
-
-/** Whether the native app-state channel is available (false off-device). */
-export function isAppStateAvailable(): boolean {
-    return isModuleAvailable(MODULE);
+    if (!stateComputed) stateComputed = computed(read);
+    return stateComputed;
 }

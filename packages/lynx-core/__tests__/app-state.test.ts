@@ -74,8 +74,8 @@ afterEach(() => {
 describe('app-state', () => {
     it('defaults to active, reports availability, and seeds from SigxCore once', async () => {
         const api = await loadFresh();
-        expect(api.currentAppState()).toBe('active');
-        expect(api.isAppStateAvailable()).toBe(true);
+        expect(api.AppState.current).toBe('active');
+        expect(api.AppState.available).toBe(true);
         await flush();
         expect(getAppStateCalls).toBe(1);
     });
@@ -84,64 +84,64 @@ describe('app-state', () => {
         const api = await loadFresh();
         emitterAvailable = false;
 
-        expect(api.currentAppState()).toBe('active');
+        expect(api.AppState.current).toBe('active');
         emit(api.APP_STATE_EVENT, { state: 'background' });   // no listener yet
-        expect(api.currentAppState()).toBe('active');
+        expect(api.AppState.current).toBe('active');
 
         emitterAvailable = true;
-        api.currentAppState();                                 // wires now
+        api.AppState.current;                                 // wires now
         emit(api.APP_STATE_EVENT, { state: 'background' });
-        expect(api.currentAppState()).toBe('background');
+        expect(api.AppState.current).toBe('background');
     });
 
     it('re-seeds after late emitter wiring so a transition in the gap is not missed', async () => {
         const api = await loadFresh();
         emitterAvailable = false;
-        api.currentAppState();                                 // seed #1 → 'active'
+        api.AppState.current;                                 // seed #1 → 'active'
         await flush();
         expect(getAppStateCalls).toBe(1);
 
         // App backgrounds while the emitter is still down; the event is lost.
         getAppStateImpl = (cb) => cb({ state: 'background' });
         emitterAvailable = true;
-        api.currentAppState();                                 // wires + re-seeds
+        api.AppState.current;                                 // wires + re-seeds
         await flush();
         expect(getAppStateCalls).toBe(2);
-        expect(api.currentAppState()).toBe('background');
+        expect(api.AppState.current).toBe('background');
     });
 
     it('retries the seed after a rejected call', async () => {
         getAppStateImpl = () => { throw new Error('bridge not ready'); };
         const api = await loadFresh();
-        api.currentAppState();                                 // attempt #1 throws
+        api.AppState.current;                                 // attempt #1 throws
         await flush();
         expect(getAppStateCalls).toBe(1);
 
         getAppStateImpl = (cb) => cb({ state: 'background' });
-        api.currentAppState();                                 // retry succeeds
+        api.AppState.current;                                 // retry succeeds
         await flush();
         expect(getAppStateCalls).toBe(2);
-        expect(api.currentAppState()).toBe('background');
+        expect(api.AppState.current).toBe('background');
     });
 
     it('retries the seed after an error-shaped resolved payload', async () => {
         getAppStateImpl = (cb) => cb({ error: 'native module not ready' });
         const api = await loadFresh();
-        api.currentAppState();                                 // attempt #1 → error payload
+        api.AppState.current;                                 // attempt #1 → error payload
         await flush();
         expect(getAppStateCalls).toBe(1);
 
         getAppStateImpl = (cb) => cb({ state: 'background' });
-        api.currentAppState();                                 // retry
+        api.AppState.current;                                 // retry
         await flush();
         expect(getAppStateCalls).toBe(2);
-        expect(api.currentAppState()).toBe('background');
+        expect(api.AppState.current).toBe('background');
     });
 
     it('dispatches transitions and dedups consecutive duplicates', async () => {
         const api = await loadFresh();
         const seen: string[] = [];
-        const off = api.addAppStateListener((s) => seen.push(s));
+        const off = api.AppState.subscribe((s) => seen.push(s));
 
         emit(api.APP_STATE_EVENT, { state: 'active' });        // duplicate of default — dropped
         emit(api.APP_STATE_EVENT, { state: 'background' });
@@ -158,7 +158,7 @@ describe('app-state', () => {
     it('ignores malformed payloads', async () => {
         const api = await loadFresh();
         const seen: string[] = [];
-        api.addAppStateListener((s) => seen.push(s));
+        api.AppState.subscribe((s) => seen.push(s));
 
         emit(api.APP_STATE_EVENT, undefined);
         emit(api.APP_STATE_EVENT, {});
@@ -166,7 +166,7 @@ describe('app-state', () => {
         emit(api.APP_STATE_EVENT, 'background');
 
         expect(seen).toEqual([]);
-        expect(api.currentAppState()).toBe('active');
+        expect(api.AppState.current).toBe('active');
     });
 
     it('exposes a reactive signal that tracks transitions', async () => {
@@ -184,10 +184,10 @@ describe('app-state', () => {
         getAppStateImpl = null;         // NativeModules has no SigxCore
         emitterAvailable = false;
         const api = await loadFresh();
-        expect(api.isAppStateAvailable()).toBe(false);
-        expect(api.currentAppState()).toBe('active');
+        expect(api.AppState.available).toBe(false);
+        expect(api.AppState.current).toBe('active');
         const seen: string[] = [];
-        api.addAppStateListener((s) => seen.push(s));
+        api.AppState.subscribe((s) => seen.push(s));
         emit(api.APP_STATE_EVENT, { state: 'background' });
         expect(seen).toEqual([]);
     });
