@@ -6,6 +6,10 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 ### Added
 
+- `@sigx/lynx-daisyui` — plain-prop change callbacks for the two model-only form controls: `Select` gains `onChange(value)` and `Radio.Item` gains `onSelect(value)`. Both are plain function props rather than `emit` events, which is what makes them work at all — these components take a prop named `value`, and that shadows `@sigx/runtime-core`'s emit handler lookup so events never fire (#323). For controlled, non-`model` usage; `model` remains the canonical path and is written *before* the callback runs, so a callback reading the bound signal sees the committed value and the two compose. `Radio.Item` never fires while `disabled` (#336).
+
+### Added
+
 - `@sigx/lynx-datetime-picker` — **`formatDate(date, pattern)`**, a locale-free token formatter for displaying a picked date. The Lynx runtime ships no `Intl`, so every consumer was hand-rolling the same `pad()` + template literal (the showcase demo included); `formatDate(r.value, 'YYYY-MM-DD HH:mm')` replaces it. Tokens `YYYY`/`YY`, `MM`/`M`, `DD`/`D`, `HH`/`H`, `hh`/`h`, `mm`/`m`, `ss`/`s`, `A`/`a` in local time, `[bracketed]` literals pass through unsubstituted, and a missing or Invalid `Date` returns `''` so a cancelled result needs no null check. No month/weekday names — those need locale data the runtime doesn't have (#255).
 
 ## [0.18.1] - 2026-07-21

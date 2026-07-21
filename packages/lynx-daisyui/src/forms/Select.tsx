@@ -31,7 +31,15 @@ export type SelectProps =
   // Two-way binding (the sigx way): `model={() => state.country}`. Picking an
   // option writes its value into the model. The static `value` prop is honored
   // when no model is bound (controlled/showcase rows).
-  & Define.Model<string>;
+  & Define.Model<string>
+  /**
+   * Fired with the picked option's value. A **plain function prop**, not an
+   * `emit` event: a prop named `value` shadows `@sigx/runtime-core`'s emit
+   * handler lookup, so events never fire on this component (#323). Use it for
+   * controlled, non-`model` usage — or alongside `model`, which is still the
+   * canonical state path and is written first.
+   */
+  & Define.Prop<'onChange', (value: string) => void, false>;
 
 // Only one dropdown is open at a time across the whole tree. Each instance
 // claims a unique id and the shared signal holds whichever is currently open,
@@ -85,7 +93,10 @@ export const Select = component<SelectProps>(({ props }) => {
       pressedOpacity={PRESSED_OPACITY}
       longPressDuration={0}
       onPress={() => {
+        // Model first (canonical state), then notify — so an `onChange`
+        // reading the bound signal sees the new value already committed.
         if (props.model) props.model.value = option.value;
+        props.onChange?.(option.value);
         openSelectId.value = null;
       }}
     >
