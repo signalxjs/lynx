@@ -1,8 +1,10 @@
 import {
     batch,
+    pendingOps,
     runOnMainThread,
     signal,
     untrack,
+    waitForFlush,
     type Signal,
     type SharedValue,
 } from '@sigx/lynx';
@@ -122,6 +124,37 @@ export interface NavigatorState {
  * what `@sigx/lynx-motion`'s `withTiming` expects (per `with-timing.ts`).
  */
 const TRANSITION_DURATION_SEC = 0.28;
+
+/**
+ * Upper bound on the pre-stage settle window (#651). Typical settles are one
+ * or two rounds (~a frame); the cap only bites on screens that never go
+ * quiet (polling loops, streaming data), which get a best-effort pre-stage
+ * instead of a stalled transition.
+ */
+const PRE_STAGE_MAX_MS = 160;
+
+/**
+ * Pre-stage settle window (#651): hold the transition start until the BG→MT
+ * pipeline goes quiet.
+ *
+ * An animated push/pop commits its render first, and the incoming screen
+ * mounts parked off-screen (its transition SV is seeded 0 IN-STREAM ahead of
+ * this wait, so the park applies in the same MT batch as the mount). Each
+ * round awaits the in-flight ops batch's MT ack, then yields a macrotask so
+ * post-mount effects run and emit their follow-up ops (and the MT gets a
+ * beat for native layout + list cell pulls between batches). When no ops are
+ * pending anymore, the screen is fully built — `withTiming` then animates a
+ * finished tree instead of competing with its construction mid-slide.
+ */
+async function settleBeforeTransition(): Promise<void> {
+    const deadline = Date.now() + PRE_STAGE_MAX_MS;
+    do {
+        await waitForFlush();
+        await new Promise<void>((resolve) => {
+            setTimeout(resolve, 0);
+        });
+    } while (pendingOps() && Date.now() < deadline);
+}
 
 /**
  * Kick off a lazy component's chunk fetch when its route is navigated to.
@@ -518,11 +551,19 @@ export function createNavigatorState(opts: CreateNavigatorOptions): NavigatorSta
             if (isOwnTransition(transitionBox.value, txn)) setTransition(null);
         };
 
-        // Seed the sheet SV off-screen immediately: this render binds the
-        // new sheet's layer to the SV, and a previously-open sheet can have
-        // left it non-zero — without the seed, the new sheet flashes at the
-        // stale height until the deferred animation start below resets it.
-        if (isSheet && sv) {
+        // Seed the SV off-screen immediately — IN-STREAM, so the park applies
+        // in the same MT batch as this render's mount ops and binding
+        // registrations. Two reasons:
+        //  - Sheets: a previously-open sheet can have left the SV non-zero;
+        //    without the seed the new sheet flashes at the stale height.
+        //  - Cards/modals (#651): the animation start is now deferred behind
+        //    `settleBeforeTransition()`, and the fresh bindings would snapshot
+        //    the SV at its previous end-state (1) — painting the incoming
+        //    screen fully presented during the settle window. Seeded 0, the
+        //    incoming layer PRE-STAGES parked off-screen: it mounts, lays
+        //    out, and pulls its list cells while the outgoing screen is
+        //    still presented.
+        if (sv) {
             const seedRunner = runOnMainThread(() => {
                 'main thread';
                 sv.current.value = 0;
@@ -537,6 +578,10 @@ export function createNavigatorState(opts: CreateNavigatorOptions): NavigatorSta
         // macrotask wait added a perceptible hesitation between tap and
         // slide), then macrotask, then the default snap config.
         const startSheetPush = async (): Promise<void> => {
+            // Pre-stage first: by the time the settle window closes, the
+            // sheet's `<Screen>` registration has virtually always landed,
+            // so the target read below resolves synchronously.
+            await settleBeforeTransition();
             const read = await resolveSheetTarget();
             // The entry can have left the stack during the deferred wait
             // (e.g. a `reset()` — ordinary pops are blocked while the
@@ -550,10 +595,15 @@ export function createNavigatorState(opts: CreateNavigatorOptions): NavigatorSta
                 sheetDurationSec(read.heightFraction, TRANSITION_DURATION_SEC),
             );
         };
-        (isSheet
-            ? startSheetPush()
-            : animateProgress(sv, 0, 1, TRANSITION_DURATION_SEC)
-        ).then(
+        const startCardPush = async (): Promise<void> => {
+            await settleBeforeTransition();
+            // Same dead-push guard as the sheet path: a `reset()` during the
+            // settle window can have replaced the stack.
+            const stackNow = getStack();
+            if (stackNow[stackNow.length - 1]?.key !== newEntry.key) return;
+            return animateProgress(sv, 0, 1, TRANSITION_DURATION_SEC);
+        };
+        (isSheet ? startSheetPush() : startCardPush()).then(
             clearOwnTransition,
             clearOwnTransition, // best-effort cleanup on animation rejection
         );
@@ -619,6 +669,20 @@ export function createNavigatorState(opts: CreateNavigatorOptions): NavigatorSta
         };
         setTransition(txn);
 
+        // Seed 0 IN-STREAM, in the same flush as this render's binding
+        // registrations: the pop bindings snapshot the SV at its previous
+        // end-state (1), which maps the top card fully slid-out — without
+        // the seed it would vanish for the settle window below. Sheets skip
+        // the seed: the sheet SV holds the resting position the pop
+        // animates from (resetting would snap it off-screen).
+        if (!isSheet && sv) {
+            const seedRunner = runOnMainThread(() => {
+                'main thread';
+                sv.current.value = 0;
+            });
+            seedRunner();
+        }
+
         // Batch so the commit (drop the popped entry) and clearing the
         // transition land in one render — no intermediate frame where the
         // stack has mutated but the transition is still in flight. On
@@ -651,10 +715,17 @@ export function createNavigatorState(opts: CreateNavigatorOptions): NavigatorSta
                 TRANSITION_DURATION_SEC,
             );
         }
-        animateProgress(sv, isSheet ? null : 0, isSheet ? 0 : 1, durationSec).then(
-            commitOwnPop,
-            commitOwnPop,
-        );
+        // Pre-stage the reveal (#651): un-hiding the underneath layer
+        // (display none → flex) relayouts its whole subtree — let that land
+        // while the top card still covers it, then slide over a settled tree.
+        const startPop = async (): Promise<void> => {
+            await settleBeforeTransition();
+            // A reset() during the settle window can have replaced the
+            // stack/transition; don't animate the stale pop over it.
+            if (!isOwnTransition(transitionBox.value, txn)) return;
+            return animateProgress(sv, isSheet ? null : 0, isSheet ? 0 : 1, durationSec);
+        };
+        startPop().then(commitOwnPop, commitOwnPop);
     }
 
     function popTo(name: string): void {
