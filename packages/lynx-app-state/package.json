@@ -37,7 +37,7 @@
     "license": "MIT",
     "dependencies": {
         "@sigx/lynx-core": "workspace:^",
-        "@sigx/reactivity": "^0.7.0"
+        "@sigx/reactivity": "catalog:"
     },
     "devDependencies": {
         "@typescript/native-preview": "7.0.0-dev.20260521.1",
