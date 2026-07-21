@@ -4,6 +4,10 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 ## [Unreleased]
 
+### Fixed
+
+- `@sigx/lynx-dev-client` — the Android resource fetchers' `request == null` guards are live again. `fetchResource` / `fetchTemplate` / `fetchSSRData` declared their `LynxResourceRequest` parameter non-null, so Kotlin's `checkNotNullParameter` intrinsic threw an NPE at function entry before the guard could return a structured failure — the checks read as handled but were dead code (`Condition is always 'false'` at compile time). The parameter is now nullable, matching the production fetchers in `SigxProductionResources.kt` (#613).
+
 ## [0.18.1] - 2026-07-21
 
 ### Fixed
