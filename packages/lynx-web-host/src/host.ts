@@ -38,6 +38,7 @@ export interface LynxViewLike {
   globalProps?: Record<string, unknown>;
   updateGlobalProps?: (data: Record<string, unknown>) => void;
   sendGlobalEvent?: (name: string, params: unknown[]) => void;
+  shadowRoot?: { adoptedStyleSheets: CSSStyleSheet[] } | null;
 }
 
 export interface InstallSigxWebHostOptions {
@@ -45,6 +46,8 @@ export interface InstallSigxWebHostOptions {
   appearance?: boolean;
   /** Skip the inbound-linking (initialURL / urlReceived) publisher. */
   linking?: boolean;
+  /** Skip the `x-text { color: inherit }` native-parity style (see install). */
+  textColorInheritance?: boolean;
 }
 
 type Handler = (data: unknown) => unknown | Promise<unknown>;
@@ -435,6 +438,46 @@ export function installSigxWebHost(
     const onChange = (e: MediaQueryListEvent): void => publish(e.matches ? 'dark' : 'light');
     mql.addEventListener('change', onChange);
     cleanups.push(() => mql.removeEventListener('change', onChange));
+  }
+
+  // ── Text-color inheritance parity ───────────────────────────────────────
+  // Upstream web-core styles top-level text as `x-text { color: initial }`
+  // (black), while the native engine lets text pick up the ancestor chain's
+  // `color` — so themed apps (whose ThemeProvider sets `color` on its host)
+  // render black-on-dark text on web only. Adopt a shadow-scope override so
+  // web matches native. The shadow root attaches when the custom element
+  // upgrades, which may be after install — retry briefly on rAF.
+  // Constructed stylesheets only exist in real browsers — bail quietly in
+  // non-DOM contexts (tests, SSR scans), same spirit as the page-listener
+  // optional chaining below.
+  if (
+    options.textColorInheritance !== false &&
+    typeof CSSStyleSheet !== 'undefined' &&
+    typeof CSSStyleSheet.prototype.replaceSync === 'function'
+  ) {
+    let sheet: CSSStyleSheet | undefined;
+    let cancelled = false;
+    const raf = (globalThis as { requestAnimationFrame?: (cb: () => void) => void })
+      .requestAnimationFrame;
+    const adopt = (tries: number): void => {
+      if (cancelled) return;
+      const root = lynxView.shadowRoot;
+      if (root) {
+        sheet = new CSSStyleSheet();
+        sheet.replaceSync('x-text { color: inherit; }');
+        root.adoptedStyleSheets = [...root.adoptedStyleSheets, sheet];
+        return;
+      }
+      if (tries > 0 && raf) raf(() => adopt(tries - 1));
+    };
+    adopt(120); // ~2s at 60fps — the element upgrades long before this
+    cleanups.push(() => {
+      cancelled = true;
+      const root = lynxView.shadowRoot;
+      if (root && sheet) {
+        root.adoptedStyleSheets = root.adoptedStyleSheets.filter((s) => s !== sheet);
+      }
+    });
   }
 
   // ── Inbound-linking publisher ───────────────────────────────────────────
