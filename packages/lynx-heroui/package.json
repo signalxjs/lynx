@@ -29,9 +29,9 @@
         "dist"
     ],
     "scripts": {
-        "build": "node ../../scripts/clean.mjs dist && tsgo && node ../../scripts/copy-assets.mjs src/styles dist/styles && node scripts/gen-theme-css.mjs",
+        "build": "node ../../scripts/clean.mjs dist && tsgo && node ../../scripts/copy-assets.mjs src/styles dist/styles",
         "dev": "tsgo --watch",
-        "prepublishOnly": "node ../../scripts/clean.mjs dist && tsgo && node ../../scripts/copy-assets.mjs src/styles dist/styles && node scripts/gen-theme-css.mjs",
+        "prepublishOnly": "node ../../scripts/clean.mjs dist && tsgo && node ../../scripts/copy-assets.mjs src/styles dist/styles",
         "clean": "node ../../scripts/clean.mjs dist .turbo"
     },
     "keywords": [

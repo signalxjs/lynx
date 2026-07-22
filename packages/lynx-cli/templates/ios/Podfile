@@ -10,12 +10,14 @@ target '{{appName}}' do
   use_frameworks! :linkage => :static
 
   # Lynx Engine
-  pod 'Lynx', '3.8.0', :subspecs => ['Framework']
-  pod 'PrimJS', '3.8.0', :subspecs => ['quickjs', 'napi']
+  pod 'Lynx', '3.9.0', :subspecs => ['Framework']
+  # No version pin: Lynx's podspec requires an exact PrimJS build (3.9.0 →
+  # PrimJS/quickjs 3.8.0-alpha.6); pinning here would conflict.
+  pod 'PrimJS', :subspecs => ['quickjs', 'napi']
 
   # Lynx Services (Devtool subspec ships in all configs — activation is gated
   # at runtime by SigxDevClient.registerServices() inside #if DEBUG).
-  pod 'LynxService', '3.8.0', :subspecs => [
+  pod 'LynxService', '3.9.0', :subspecs => [
     'Image',
     'Log',
     'Http',
@@ -23,7 +25,7 @@ target '{{appName}}' do
   ]
 
   # Extended elements
-  pod 'XElement', '3.8.0'
+  pod 'XElement', '3.9.0'
 
   # Image loading (required by Lynx image service)
   pod 'SDWebImage', '5.15.5'

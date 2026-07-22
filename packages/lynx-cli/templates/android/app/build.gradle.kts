@@ -120,24 +120,26 @@ dependencies {
     debugImplementation(libs.androidx.ui.tooling)
 
     // Lynx SDK
-    implementation("org.lynxsdk.lynx:lynx:3.8.0")
-    implementation("org.lynxsdk.lynx:lynx-jssdk:3.8.0")
-    implementation("org.lynxsdk.lynx:lynx-trace:3.8.0")
-    implementation("org.lynxsdk.lynx:primjs:3.8.0")
+    implementation("org.lynxsdk.lynx:lynx:3.9.0")
+    implementation("org.lynxsdk.lynx:lynx-jssdk:3.9.0")
+    implementation("org.lynxsdk.lynx:lynx-trace:3.9.0")
+    // primjs rides transitively off the lynx POM — it versions independently
+    // (lynx 3.9.0 wants primjs 3.8.0-alpha.6) and an explicit stable pin here
+    // would out-rank and mismatch the engine's expected build.
 
     // Lynx Services
-    implementation("org.lynxsdk.lynx:lynx-service-image:3.8.0")
-    implementation("org.lynxsdk.lynx:lynx-service-log:3.8.0")
-    implementation("org.lynxsdk.lynx:lynx-service-http:3.8.0")
+    implementation("org.lynxsdk.lynx:lynx-service-image:3.9.0")
+    implementation("org.lynxsdk.lynx:lynx-service-log:3.9.0")
+    implementation("org.lynxsdk.lynx:lynx-service-http:3.9.0")
 
     // Lynx XElement (extended components)
-    implementation("org.lynxsdk.lynx:xelement:3.8.0")
-    implementation("org.lynxsdk.lynx:xelement-input:3.8.0")
+    implementation("org.lynxsdk.lynx:xelement:3.9.0")
+    implementation("org.lynxsdk.lynx:xelement-input:3.9.0")
 
     // Lynx annotation processor — generates the @LynxProp PropsSetter classes
     // for native UI components contributed by @sigx/lynx-* modules. Version
     // must track the Lynx SDK above.
-    kapt("org.lynxsdk.lynx:lynx-processor:3.8.0")
+    kapt("org.lynxsdk.lynx:lynx-processor:3.9.0")
 
     // Image loading (required by Lynx image service)
     implementation("com.facebook.fresco:fresco:2.3.0")

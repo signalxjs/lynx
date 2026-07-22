@@ -60,19 +60,21 @@ describe('theme — headless control + layered overrides (#113)', () => {
     expect(themeController.name).toBe('daisy-light');
   });
 
-  it('applies the active theme as a CSS class + literal surface colors on the host view', () => {
+  it('applies the theme class + inline palette vars + literal surface colors on the host view', () => {
     const { container } = render(
       <ThemeProvider initial="daisy-dark">
         <view />
       </ThemeProvider>,
     );
     const host = container.children[0];
-    // Built-in palettes resolve via their generated CSS class on the first
-    // frame — Lynx doesn't honor inline-declared custom properties (#116).
     expect(host._class.split(' ')).toContain('lynx-zero');
     expect(host._class.split(' ')).toContain('daisy-dark');
-    // base-100 / base-content are painted literally so the surface is themed
-    // before descendants resolve var(--color-*) against the class.
+    // The palette is declared inline as custom properties, resolved by
+    // descendants' var(--color-*) from first paint (#116).
+    expect(host._style['--color-primary']).toBe('#7582ff');
+    expect(host._style['--color-base-100']).toBe('#1d232a');
+    // base-100 / base-content are additionally painted as literal properties
+    // so the provider's own surface never depends on same-element var().
     expect(host._style.backgroundColor).toBe('#1d232a');
     expect(host._style.color).toBe('#a6adbb');
   });
