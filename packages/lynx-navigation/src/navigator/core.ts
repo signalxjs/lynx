@@ -134,6 +134,17 @@ const TRANSITION_DURATION_SEC = 0.28;
 const PRE_STAGE_MAX_MS = 160;
 
 /**
+ * Park progress for a pre-staging card/modal push (#651). Not exactly 0: a
+ * fully off-screen layer's texture is culled and never rasterized, so the
+ * first animation frame would pay the whole screen's raster cost — measured
+ * as one ~36ms frame right at motion onset. Parking with a ~2px sliver
+ * on-screen (0.002 of the travel) forces the raster during the settle
+ * window instead. Sheets keep an exact 0 seed: `useSheetHeight` consumers
+ * read the SV as a real height.
+ */
+const PRE_STAGE_PEEK = 0.002;
+
+/**
  * Pre-stage settle window (#651): hold the transition start until the BG→MT
  * pipeline goes quiet.
  *
@@ -564,11 +575,15 @@ export function createNavigatorState(opts: CreateNavigatorOptions): NavigatorSta
         //    out, and pulls its list cells while the outgoing screen is
         //    still presented.
         if (sv) {
-            const seedRunner = runOnMainThread(() => {
+            const seedRunner = runOnMainThread((park: number) => {
                 'main thread';
-                sv.current.value = 0;
+                sv.current.value = park;
             });
-            seedRunner();
+            // Cards/modals park with a sliver on-screen so the layer's
+            // texture rasterizes during the settle window (PRE_STAGE_PEEK);
+            // sheets park exactly off-screen — their SV doubles as a height
+            // input (useSheetHeight) and must read 0 while closed.
+            seedRunner(isSheet ? 0 : PRE_STAGE_PEEK);
         }
 
         // A sheet opens to its initial snap point, not progress 1. The snap
