@@ -44,7 +44,7 @@ export type EmojiPickerProps =
      * Glyph font size (em) in grid cells. Default: ADAPTIVE — the glyph is
      * sized so its VISIBLE INK covers ~93% of the cell width. The ink is a
      * per-platform font metric (#761: Noto Color Emoji ~64% of the em on
-     * Android, Apple Color Emoji ~93% on iOS), so the same em renders
+     * Android; iOS models Apple's worst-case glyphs at 1.1), so the same em renders
      * different visual densities per platform — row heights adapt with it;
      * 32 when no width is known. Pass a number for full control (never
      * clamped). The tone popover follows the resolved size. Frozen for the
@@ -214,7 +214,8 @@ export const EmojiPicker = component<EmojiPickerProps>(({ props, emit }) => {
 
     // Grid geometry derives from the SCREEN (the WhatsApp model, #669/#674) —
     // the math lives in metrics.ts, parameterized by the PLATFORM ink ratio
-    // (#761: Noto insets ~64% of the em, Apple Color Emoji inks ~93%).
+    // (#761: Noto insets ~64% of the em; iOS models Apple's worst-case
+    // glyphs at 1.1 — the widest ink beyond their em box).
     // Resolves exactly once — at the same pre-mount gate that freezes the
     // region height — because the sectioned grid's scroll-offset math needs
     // rows fixed per mount. Pre-measure (tests, SSR) falls back WITHOUT
