@@ -570,10 +570,11 @@ export function createNavigatorState(opts: CreateNavigatorOptions): NavigatorSta
         //  - Cards/modals (#651): the animation start is now deferred behind
         //    `settleBeforeTransition()`, and the fresh bindings would snapshot
         //    the SV at its previous end-state (1) — painting the incoming
-        //    screen fully presented during the settle window. Seeded 0, the
-        //    incoming layer PRE-STAGES parked off-screen: it mounts, lays
-        //    out, and pulls its list cells while the outgoing screen is
-        //    still presented.
+        //    screen fully presented during the settle window. Seeded to
+        //    PRE_STAGE_PEEK (a ~2px sliver on-screen, so the texture
+        //    rasterizes), the incoming layer PRE-STAGES effectively parked:
+        //    it mounts, lays out, and pulls its list cells while the
+        //    outgoing screen is still presented.
         if (sv) {
             const seedRunner = runOnMainThread((park: number) => {
                 'main thread';
@@ -616,7 +617,10 @@ export function createNavigatorState(opts: CreateNavigatorOptions): NavigatorSta
             // settle window can have replaced the stack.
             const stackNow = getStack();
             if (stackNow[stackNow.length - 1]?.key !== newEntry.key) return;
-            return animateProgress(sv, 0, 1, TRANSITION_DURATION_SEC);
+            // seed null: the SV was parked at PRE_STAGE_PEEK in-stream above;
+            // re-seeding 0 here would snap the layer fully off-screen for a
+            // frame (backwards jump) and un-rasterize the peeked texture.
+            return animateProgress(sv, null, 1, TRANSITION_DURATION_SEC);
         };
         (isSheet ? startSheetPush() : startCardPush()).then(
             clearOwnTransition,
@@ -738,7 +742,10 @@ export function createNavigatorState(opts: CreateNavigatorOptions): NavigatorSta
             // A reset() during the settle window can have replaced the
             // stack/transition; don't animate the stale pop over it.
             if (!isOwnTransition(transitionBox.value, txn)) return;
-            return animateProgress(sv, isSheet ? null : 0, isSheet ? 0 : 1, durationSec);
+            // seed null for cards too: the pop pre-seeded 0 in-stream above,
+            // so the worklet-side reset is redundant (and the in-stream seed
+            // already carries the bindings-before-reset ordering guarantee).
+            return animateProgress(sv, null, isSheet ? 0 : 1, durationSec);
         };
         startPop().then(commitOwnPop, commitOwnPop);
     }

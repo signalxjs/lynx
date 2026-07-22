@@ -45,7 +45,7 @@ export const SnapshotListBenchScreen = component(() => {
                     </Row>
                 </view>
                 <list
-                    style={{ flex: '1', width: '100%' }}
+                    style={{ flex: 1, width: '100%' }}
                     scroll-orientation="vertical"
                     list-type="single"
                     span-count={1}
