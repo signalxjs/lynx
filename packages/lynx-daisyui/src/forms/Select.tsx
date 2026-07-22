@@ -1,10 +1,12 @@
 import {
   component,
   signal,
+  measureViewportRect,
   useMainThreadRef,
   runOnBackground,
   type Define,
   type MainThread,
+  type ViewportRect,
 } from '@sigx/lynx';
 import { Pressable } from '@sigx/lynx-gestures';
 import { PRESSED_SCALE, PRESSED_OPACITY, type ColorVariant } from '@sigx/lynx-zero';
@@ -57,9 +59,11 @@ export const Select = component<SelectProps>(({ props }) => {
   const id = nextSelectId++;
   const isOpen = () => openSelectId.value === id;
 
-  // Measured on every open via `boundingClientRect` (viewport-relative) on the
-  // main thread — `bindlayoutchange` reports offset-parent-relative coords,
-  // which mis-anchors a `position: fixed` menu inside a scroll view.
+  // Measured on every open via `measureViewportRect` (viewport-relative,
+  // transform-aware) on the main thread — `bindlayoutchange` reports
+  // layout-page coords, which know nothing about scroll offsets or a
+  // main-thread transform on an ancestor, and mis-anchor a `position: fixed`
+  // menu inside a scroll view or a lifted sheet.
   const triggerRef = useMainThreadRef<MainThread.Element | null>(null);
   // One object signal (sigx object signals are accessed by property, no
   // `.value`) holding the last-measured trigger frame and screen height.
@@ -114,19 +118,13 @@ export const Select = component<SelectProps>(({ props }) => {
     const info = typeof lynx !== 'undefined' ? lynx?.SystemInfo : undefined;
     const px = info?.pixelHeight;
     const sh = typeof px === 'number' && px > 0 ? Math.round(px / (info?.pixelRatio || 1)) : 800;
-    const apply = (rect: TriggerFrame | null) => {
+    measureViewportRect(el, (rect: ViewportRect | null) => {
       runOnBackground((r: TriggerFrame | null, h: number) => {
         measured.frame = r;
         measured.screenHeight = h;
         openSelectId.value = openSelectId.value === id ? null : id;
       })(rect, sh);
-    };
-    const rectP = el ? (el.invoke('boundingClientRect', {}) as unknown) : null;
-    if (rectP && typeof (rectP as Promise<unknown>).then === 'function') {
-      (rectP as Promise<TriggerFrame>).then(apply).catch(() => apply(null));
-    } else {
-      apply(null);
-    }
+    });
   };
 
   return () => {

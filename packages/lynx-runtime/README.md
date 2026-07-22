@@ -17,8 +17,64 @@ Full guides, API reference and live examples → **[https://sigx.dev/lynx/module
 - **Cross-thread bridges** — `runOnMainThread` (BG→MT one-shot), `runOnBackground` (MT→BG dispatch handle), `transformToWorklet` (handle → JsFn marshal).
 - **AnimatedValue BG sink** — `registerBgSink`, `unregisterBgSink`, `ingestAvPublishes` — receive MT-published `AnimatedValue` writes into a `signal`-backed mirror so `effect(() => av.value)` re-runs reactively. The producer side lives in [`@sigx/lynx-gestures`](https://sigx.dev/lynx/modules/gestures/overview/); the MT side lives in [`@sigx/lynx-runtime-main`](https://sigx.dev/lynx/modules/runtime-main/overview/).
 - **BG globals** — installs web-standard globals the Lynx background thread doesn't expose on its own (engine-version dependent), so web-ported code works unchanged. Currently `queueMicrotask`, polyfilled on `Promise` (some engines, e.g. 3.7 pods, only offer `lynx.queueMicrotask`). Installed first at import, non-clobbering — engines that already expose the global keep theirs.
+- **Measurement** — `useElementLayout` (layout events) and `useViewportRect` / `measureViewportRect` (live viewport geometry). See below.
 - **`use:*` directives** — element-level lifecycle hooks via the `use:<name>` prop, wired into the renderer; ships the built-in **`show`** directive. See below.
 - **JSX types** — `MainThread`, `Define`, `ViewAttributes`, `DirectiveAttribute`, etc.
+
+## Measuring elements
+
+Two hooks, two coordinate spaces — picking the wrong one is a common source of
+mis-placed floating UI:
+
+| | `useElementLayout` | `useViewportRect` |
+|---|---|---|
+| Source | `bindlayoutchange` event | `boundingClientRect` on the main thread |
+| Space | layout **page** coords | live **viewport** coords |
+| Sees transforms / scroll / `fixed` ancestors | ❌ | ✅ |
+| Cost | free (already an event) | async MT round-trip |
+
+Layout events tell you an element's **size** and that **something moved**. They
+cannot tell you where an element ended up: a main-thread transform
+(`useAnimatedStyle` — a bottom sheet riding the keyboard, a screen mid-
+transition), a scroll offset, or a `position: fixed` ancestor all move the
+element after layout has spoken.
+
+So anything that decides where it fits on screen — a dropdown flipping above
+its trigger, a suggestion list clamping against the keyboard — must measure:
+
+```tsx
+const { layout, onLayoutChange } = useElementLayout();
+const { ref, rect, measure } = useViewportRect();
+
+// Measured wins; the layout frame keeps the surface placeable on the first
+// frame (and on hosts where the UI method is unavailable).
+const anchor = () => rect.value ?? layout.value;
+
+// Measure when the surface is about to open and whenever the environment
+// moves it (layout, keyboard, orientation) — not from a render path.
+return () => (
+  <view
+    main-thread:ref={ref}
+    bindlayoutchange={(e) => { onLayoutChange(e); measure(); }}
+  >
+    {open.value && anchor() ? <Menu anchor={anchor()!} /> : null}
+  </view>
+);
+```
+
+Two rules that keep this cheap and correct:
+
+- **Position the surface relative to its container**, and use the measured rect
+  only for the flip/clamp decision. The surface then rides along with any
+  transform between measurements.
+- **Keep the layout frame as the first-paint fallback** (`rect.value ?? layout.value`):
+  the measurement lands a frame or two late, and returns nothing on hosts where
+  the UI method is unavailable.
+
+From a main-thread handler that already holds the element (a tap that opens a
+menu), call `measureViewportRect(el, cb)` directly — same measurement, no
+thread hop, and the result can be applied in the same callback that opens the
+surface.
 
 ## Directives (`use:*`)
 

@@ -88,10 +88,11 @@ describe('Draggable', () => {
     expect(src).toMatch(/EdgeScrollConfig/);
     expect(src).toMatch(/props\.edgeScroll/);
     // Lazy viewport measurement in onStart via the context's scrollViewRef.
-    // Uses boundingClientRect (page-relative geometry, consistent across
-    // iOS + Android) — getComputedStyleProperty was unreliable on Android.
+    // Uses the runtime's measureViewportRect (viewport geometry, transform-
+    // aware, consistent across iOS + Android) — getComputedStyleProperty was
+    // unreliable on Android.
     expect(src).toMatch(/scrollCtx\.scrollViewRef\.current/);
-    expect(src).toMatch(/invoke\('boundingClientRect'/);
+    expect(src).toMatch(/measureViewportRect\(svRef/);
     // The rAF tick exists and drives scroll via the scroll-view's invoke.
     expect(src).toMatch(/invoke\('scrollBy'/);
     expect(src).toMatch(/requestAnimationFrame/);
