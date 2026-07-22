@@ -221,6 +221,24 @@ describe('lynx-runtime nodeOps (shadow-tree + op-queue)', () => {
     expect(styleObj.opacity).toBe(0.5); // dimensionless — kept as number
   });
 
+  // CSS custom properties carry free-form var values — a bare number must not
+  // get a px suffix (`--opacity: 0.5` would otherwise become `0.5px`) (#116).
+  it('passes --* custom properties through without px normalization', () => {
+    const el = nodeOps.createElement('view');
+    drainOps();
+
+    nodeOps.patchProp(el, 'style', null, {
+      '--color-primary': '#123456',
+      '--leading': 1.5,
+      width: 100,
+    });
+    const styleOp = parseOps(drainOps()).find(r => r[0] === OP.SET_STYLE);
+    const styleObj = styleOp![2] as Record<string, unknown>;
+    expect(styleObj['--color-primary']).toBe('#123456');
+    expect(styleObj['--leading']).toBe('1.5'); // stringified, NOT '1.5px'
+    expect(styleObj.width).toBe('100px'); // ordinary props still normalize
+  });
+
   // The flex shorthand must expand to longhands — the native inline-style
   // path doesn't expand CSS shorthands, so a raw `flex` reaches the engine
   // as an unknown property and silently does nothing (#264).

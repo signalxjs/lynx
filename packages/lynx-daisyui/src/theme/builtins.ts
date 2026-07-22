@@ -4,10 +4,9 @@
  * `@sigx/lynx-daisyui` seeds them, so `pickThemeFor()` / `followSystem` work
  * out of the box).
  *
- * Each ships `staticCss: true`: `scripts/gen-theme-css.mjs` generates a
- * `.daisy-<name> { --color-*: … }` CSS class per theme at build time so the
- * first frame paints correctly (the runtime `setProperty` path can't set
- * inheritable custom properties before descendants have painted).
+ * `<ThemeProvider>` declares the active palette as inline CSS custom
+ * properties on its host view — correct on first paint for built-ins and
+ * runtime-registered themes alike (#116) — so no per-theme CSS ships here.
  *
  * Colors are engine-safe strings — hex or `rgb()`. Lynx's CSS engine does not
  * parse `oklch()`, so convert before registering.
@@ -38,14 +37,10 @@ const STATUS_LIGHT = {
   'error': '#ff676a', 'error-content': '#000000',
 } as const;
 
-/**
- * The built-in theme data, exported for `scripts/gen-theme-css.mjs` (which
- * emits the per-theme first-paint CSS classes from it at build time).
- * @internal
- */
+/** The built-in theme data. @internal */
 const RAW_THEMES: readonly ThemeInput[] = [
   {
-    name: 'daisy-light', variant: 'light', pair: 'daisy-dark', staticCss: true, softMix: 0.08,
+    name: 'daisy-light', variant: 'light', pair: 'daisy-dark', softMix: 0.08,
     colors: {
       'primary': '#491dff', 'primary-content': '#d3dbff',
       'secondary': '#ff20cc', 'secondary-content': '#fff8fc',
@@ -57,7 +52,7 @@ const RAW_THEMES: readonly ThemeInput[] = [
     },
   },
   {
-    name: 'daisy-cupcake', variant: 'light', pair: 'daisy-synthwave', staticCss: true, softMix: 0.08,
+    name: 'daisy-cupcake', variant: 'light', pair: 'daisy-synthwave', softMix: 0.08,
     colors: {
       'primary': '#65c3c8', 'primary-content': '#052124',
       'secondary': '#ef9fbc', 'secondary-content': '#2d0a16',
@@ -69,7 +64,7 @@ const RAW_THEMES: readonly ThemeInput[] = [
     },
   },
   {
-    name: 'daisy-emerald', variant: 'light', pair: 'daisy-dracula', staticCss: true, softMix: 0.08,
+    name: 'daisy-emerald', variant: 'light', pair: 'daisy-dracula', softMix: 0.08,
     colors: {
       'primary': '#66cc8a', 'primary-content': '#06200f',
       'secondary': '#377cfb', 'secondary-content': '#02112d',
@@ -84,7 +79,7 @@ const RAW_THEMES: readonly ThemeInput[] = [
     },
   },
   {
-    name: 'daisy-dark', variant: 'dark', pair: 'daisy-light', staticCss: true, softMix: 0.08,
+    name: 'daisy-dark', variant: 'dark', pair: 'daisy-light', softMix: 0.08,
     colors: {
       'primary': '#7582ff', 'primary-content': '#050617',
       'secondary': '#ff71cf', 'secondary-content': '#190211',
@@ -96,7 +91,7 @@ const RAW_THEMES: readonly ThemeInput[] = [
     },
   },
   {
-    name: 'daisy-synthwave', variant: 'dark', pair: 'daisy-cupcake', staticCss: true, softMix: 0.08,
+    name: 'daisy-synthwave', variant: 'dark', pair: 'daisy-cupcake', softMix: 0.08,
     colors: {
       'primary': '#e779c1', 'primary-content': '#2a0a1f',
       'secondary': '#58c7f3', 'secondary-content': '#02141d',
@@ -111,7 +106,7 @@ const RAW_THEMES: readonly ThemeInput[] = [
     },
   },
   {
-    name: 'daisy-dracula', variant: 'dark', pair: 'daisy-emerald', staticCss: true, softMix: 0.08,
+    name: 'daisy-dracula', variant: 'dark', pair: 'daisy-emerald', softMix: 0.08,
     colors: {
       'primary': '#ff79c6', 'primary-content': '#2d0414',
       'secondary': '#bd93f9', 'secondary-content': '#160226',

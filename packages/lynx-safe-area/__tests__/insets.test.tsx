@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { render } from '@sigx/lynx-testing';
+import { render, waitForUpdate } from '@sigx/lynx-testing';
 import { effect } from '@sigx/reactivity';
 
 import { SafeAreaProvider, SAFE_AREA_EVENT } from '../src/provider';
@@ -49,18 +49,10 @@ function makeEmitter(): MockEmitter {
 function installMockLynx(
   initial: Partial<EdgeInsets>,
   emitter: MockEmitter,
-  setProps?: Record<string, string>,
 ): void {
   (globalThis as { lynx?: unknown }).lynx = {
     __globalProps: { [GLOBAL_PROPS_KEY]: initial },
     getJSModule: (name: string) => name === 'GlobalEventEmitter' ? emitter : undefined,
-    // The provider publishes inset CSS variables via getElementById().setProperty()
-    // (inline-declared custom props aren't honored by Lynx); capture them here.
-    getElementById: () => ({
-      setProperty: (p: Record<string, string>) => {
-        if (setProps) Object.assign(setProps, p);
-      },
-    }),
   };
 }
 
@@ -151,15 +143,15 @@ describe('SafeAreaProvider', () => {
     expect(captured.bottom).toBe(34);
   });
 
-  it('publishes inset CSS variables via setProperty on the host view', () => {
-    const setProps: Record<string, string> = {};
-    installMockLynx({ top: 50, right: 0, bottom: 34, left: 0, keyboard: 0 }, makeEmitter(), setProps);
-    render(<SafeAreaProvider />);
-    expect(setProps['--sat']).toBe('50px');
-    expect(setProps['--sab']).toBe('34px');
-    expect(setProps['--sar']).toBe('0px');
-    expect(setProps['--sal']).toBe('0px');
-    expect(setProps['--safe-area-keyboard']).toBe('0px');
+  it('declares inset CSS variables inline on the host view at first render (#116)', () => {
+    installMockLynx({ top: 50, right: 0, bottom: 34, left: 0, keyboard: 0 }, makeEmitter());
+    const { container } = render(<SafeAreaProvider />);
+    const host = container.children[0]!;
+    expect(host._style['--sat']).toBe('50px');
+    expect(host._style['--sab']).toBe('34px');
+    expect(host._style['--sar']).toBe('0px');
+    expect(host._style['--sal']).toBe('0px');
+    expect(host._style['--safe-area-keyboard']).toBe('0px');
   });
 
   it('merges user style over base CSS variables', () => {
@@ -180,55 +172,17 @@ describe('SafeAreaProvider', () => {
     expect(emitter.listeners.get(SAFE_AREA_EVENT)?.size).toBe(1);
   });
 
-  // TODO: pre-existing failure — `captured.keyboard` reads 0 instead of 280.
-  // The BG `extras` signal update doesn't reach this effect synchronously
-  // in the test harness; investigate whether SafeAreaProvider's wiring still
-  // matches the comment below or if a flush is missing here.
-  it.skip('updates extras (keyboard/statusBar) on event', async () => {
+  it('re-declares the inset vars when a safeAreaChanged event updates extras', async () => {
     const emitter = makeEmitter();
-    installMockLynx({ top: 0, keyboard: 0 }, emitter);
-
-    let captured: EdgeInsets = ZERO_INSETS;
-    const Probe = component(() => {
-      const insets = useSafeAreaInsets();
-      effect(() => { captured = insets.value; });
-      return () => <view />;
-    });
-    render(<SafeAreaProvider><Probe /></SafeAreaProvider>);
-
+    installMockLynx({ top: 50, keyboard: 0 }, emitter);
+    const { container } = render(<SafeAreaProvider />);
     emitter.emit(SAFE_AREA_EVENT, { top: 50, bottom: 34, keyboard: 280 });
-    // Keyboard goes through the BG `extras` signal, so the effect fires
-    // synchronously without needing the runOnMainThread round-trip.
-    expect(captured.keyboard).toBe(280);
-  });
-
-  it('mounts without throwing when the host element lacks setProperty (e.g. web)', () => {
-    // `@lynx-js/web-core` resolves an element with no runtime `setProperty`.
-    // The provider must feature-detect and skip the CSS-var publish rather
-    // than throw on the background thread (which aborts the whole card render).
-    const emitter = makeEmitter();
-    (globalThis as { lynx?: unknown }).lynx = {
-      __globalProps: { [GLOBAL_PROPS_KEY]: { top: 50 } },
-      getJSModule: (name: string) =>
-        name === 'GlobalEventEmitter' ? emitter : undefined,
-      getElementById: () => ({}), // no setProperty
-    };
-    expect(() => render(<SafeAreaProvider />)).not.toThrow();
-  });
-
-  it('swallows a throwing setProperty without aborting render', () => {
-    const emitter = makeEmitter();
-    (globalThis as { lynx?: unknown }).lynx = {
-      __globalProps: { [GLOBAL_PROPS_KEY]: { top: 50 } },
-      getJSModule: (name: string) =>
-        name === 'GlobalEventEmitter' ? emitter : undefined,
-      getElementById: () => ({
-        setProperty: () => {
-          throw new Error('setProperty unsupported on this host');
-        },
-      }),
-    };
-    expect(() => render(<SafeAreaProvider />)).not.toThrow();
+    await waitForUpdate();
+    const host = container.children[0]!;
+    // Keyboard flows through the BG `extras` signal → insets computed →
+    // reactive re-render of the host style. (The four edges go through the
+    // MT SharedValue bridge, which this harness doesn't emulate.)
+    expect(host._style['--safe-area-keyboard']).toBe('280px');
   });
 
   it('cleans up the listener on unmount', () => {

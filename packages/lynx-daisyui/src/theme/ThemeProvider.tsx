@@ -10,7 +10,7 @@
  *   • `initial` / `light` / `dark` get `DaisyTheme` autocomplete.
  *
  * Everything else — system-scheme following, nesting, `fontScale`, the
- * runtime `setProperty` variable application — is the engine's; see
+ * inline CSS custom-property application (#116) — is the engine's; see
  * `@sigx/lynx-zero`'s `ThemeProvider`.
  *
  * Usage:
