@@ -142,8 +142,9 @@ export interface PluginSigxLynxOptions {
    * Whether to enable CSS custom properties declared in inline `style`
    * (`style={{ '--x': '…' }}`): descendants resolve `var(--x)` from first
    * paint. Encoded into the template's page config; the native engine
-   * decodes it since Lynx 3.6 (the CLI's host templates pin 3.8.0) and
-   * `@lynx-js/web-core` honors inline custom properties unconditionally.
+   * decodes it since Lynx 3.6 and propagates value changes to descendants
+   * since 3.9 (the CLI's host templates pin 3.9.0). `@lynx-js/web-core`
+   * honors inline custom properties unconditionally.
    * Pass `false` as a kill switch. (#116)
    * @defaultValue true
    */
