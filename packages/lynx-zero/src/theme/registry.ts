@@ -91,15 +91,6 @@ export interface ThemeInput {
   /** Optional base size-unit overrides; unspecified tokens fall back to the base. */
   sizes?: ThemeSizes;
   /**
-   * Whether this theme ships a build-time CSS class named after it (the DS
-   * package generates `.theme-name { --color-*: … }` at build time, e.g. via
-   * daisyui's `gen-theme-css.mjs`). Such themes paint correctly on the very
-   * first frame; themes without it apply via the runtime `setProperty` path
-   * post-mount, with their variant's static theme class as the first-frame
-   * fallback.
-   */
-  staticCss?: boolean;
-  /**
    * How strong the computed `*-soft` tints are: the ratio of the variant
    * color mixed into `base-100` for any soft token the palette doesn't set
    * explicitly. Design-system flavor, carried as theme data — daisy's
@@ -123,7 +114,8 @@ const DEFAULT_SOFT_MIX = 0.16;
  * in the palette). Idempotent; explicitly provided softs are kept verbatim.
  *
  * DS packages run their builtin arrays through this before exporting them so
- * build scripts (gen-theme-css) see the same palette the registry serves.
+ * any consumer of the exported arrays sees the same palette the registry
+ * serves.
  */
 export function completeTheme(input: ThemeInput): Theme {
   const mix = input.softMix ?? DEFAULT_SOFT_MIX;
@@ -138,17 +130,6 @@ export function completeTheme(input: ThemeInput): Theme {
 }
 
 const registry: Theme[] = [];
-
-/**
- * Whether `name` is a registered theme that ships a build-time CSS class —
- * i.e. it paints correctly on the first frame. Themes registered without
- * `staticCss` return `false`; `<ThemeProvider>` falls back to their variant's
- * static class for first paint and swaps in the exact palette via
- * `setProperty`.
- */
-export function hasStaticCss(name: string | undefined): boolean {
-  return findTheme(name)?.staticCss === true;
-}
 
 /**
  * Resolve a `theme.name` to its registered `Theme`. Supports multi-class names

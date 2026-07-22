@@ -1,6 +1,5 @@
 import {
   component,
-  effect,
   defineProvide,
   computed,
   signal,
@@ -36,11 +35,6 @@ interface GlobalEventEmitterLike {
 
 interface LynxLike {
   getJSModule?: (name: string) => GlobalEventEmitterLike | undefined;
-  getElementById?: (
-    id: string,
-    // `setProperty` (runtime CSS-variable application) is optional: not every
-    // host implements it for every element — notably web (`@lynx-js/web-core`).
-  ) => { setProperty?(props: Record<string, string>): void } | null;
 }
 
 // Closure-injected identifier provided by
@@ -48,10 +42,6 @@ interface LynxLike {
 // `lynx-runtime/src/shims.d.ts`. Declared locally so this package doesn't
 // have to depend on lynx-runtime-internal just for the ambient.
 declare const lynx: unknown | undefined;
-
-// Unique host id per provider instance so the runtime `setProperty` call can
-// target this provider's own view.
-let safeAreaIdSeq = 0;
 
 export type SafeAreaProviderProps =
   & Define.Prop<'class', string, false>
@@ -78,11 +68,12 @@ export type SafeAreaProviderProps =
  *    bridge then propagates the new values back to the BG signal mirror,
  *    which re-fires the `computed` and re-renders consumers.
  *
- * 4. **Apply CSS variables** (`--sat`, `--sar`, `--sab`, `--sal`,
- *    `--safe-area-keyboard`) on the root `<view>` so utility-class
+ * 4. **Declare CSS variables** (`--sat`, `--sar`, `--sab`, `--sal`,
+ *    `--safe-area-keyboard`) inline on the root `<view>` so utility-class
  *    consumers can write `class="pt-[var(--sat)]"` and have it work
  *    uniformly across iOS and Android (upstream's
- *    `env(safe-area-inset-*)` is iOS-only).
+ *    `env(safe-area-inset-*)` is iOS-only). Inline custom properties
+ *    register from first paint via `enableCSSInlineVariables` (#116).
  */
 export const SafeAreaProvider = component<SafeAreaProviderProps>(({ props, slots }) => {
   const initial = readGlobalSafeArea();
@@ -137,13 +128,8 @@ export const SafeAreaProvider = component<SafeAreaProviderProps>(({ props, slots
   // via the published CSS variables. Not used internally for any MT writes.
   const elRef = useMainThreadRef<MainThread.Element | null>(null);
 
-  // Host id for the runtime `setProperty` CSS-variable application (below).
-  const hostId = `safe-area-${++safeAreaIdSeq}`;
-
   let listener: ((...a: unknown[]) => void) | undefined;
   let emitter: GlobalEventEmitterLike | undefined;
-  let varsEffect: { stop: () => void } | undefined;
-  let insetsGen = 0;
 
   onMounted(() => {
     // `lynx` is a closure-injected identifier (provided by
@@ -153,49 +139,6 @@ export const SafeAreaProvider = component<SafeAreaProviderProps>(({ props, slots
     const lynxObj: LynxLike | undefined = typeof lynx !== 'undefined'
       ? (lynx as unknown as LynxLike)
       : undefined;
-
-    // Publish insets as real, inheritable CSS custom properties via the runtime
-    // `setProperty` API. Lynx does NOT honor custom properties declared through
-    // the inline `style` attribute, so `class="pt-[var(--sat)]"` consumers rely
-    // on this. On cold start the host view isn't queryable from the background
-    // thread the instant this runs, so retry on a short timer until it resolves
-    // (`insetsGen` drops a superseded retry). Reactive on `insets.value`.
-    const pushInsets = (): void => {
-      const i = insets.value;
-      if (!lynxObj?.getElementById) return;
-      const vars: Record<string, string> = {
-        '--sat': `${i.top}px`,
-        '--sar': `${i.right}px`,
-        '--sab': `${i.bottom}px`,
-        '--sal': `${i.left}px`,
-        '--safe-area-keyboard': `${i.keyboard}px`,
-      };
-      const gen = ++insetsGen;
-      let tries = 0;
-      const attempt = (): void => {
-        if (gen !== insetsGen) return;
-        const el = lynxObj!.getElementById!(hostId);
-        if (el) {
-          // `setProperty` isn't implemented for every element on every host —
-          // notably web (`@lynx-js/web-core`), where the underlying element
-          // lacks it and the call throws on the background thread (aborting the
-          // whole card render). Degrade gracefully: publish the inset vars
-          // where supported, otherwise skip them. (`pt-[var(--sat)]` consumers
-          // simply get no inset on such hosts.)
-          if (typeof el.setProperty === 'function') {
-            try {
-              el.setProperty(vars);
-            } catch {
-              /* host rejected runtime setProperty (e.g. web) */
-            }
-          }
-          return;
-        }
-        if (tries++ < 30) setTimeout(attempt, 16);
-      };
-      attempt();
-    };
-    varsEffect = effect(() => { pushInsets(); });
 
     emitter = lynxObj?.getJSModule?.('GlobalEventEmitter');
     if (!emitter) return;
@@ -213,17 +156,13 @@ export const SafeAreaProvider = component<SafeAreaProviderProps>(({ props, slots
 
   onUnmounted(() => {
     if (emitter && listener) emitter.removeListener(SAFE_AREA_EVENT, listener);
-    varsEffect?.stop();
-    varsEffect = undefined;
-    ++insetsGen; // cancel any pending setProperty retry
   });
 
   return () => (
     <view
-      id={hostId}
       class={props.class}
       main-thread:ref={elRef}
-      style={rootStyle(props.style)}
+      style={rootStyle(props.style, insets.value)}
     >
       {slots.default?.()}
     </view>
@@ -256,6 +195,7 @@ function numOr(v: unknown, fallback: number): number {
 
 function rootStyle(
   user: Record<string, string | number> | undefined,
+  insets: EdgeInsets,
 ): Record<string, string | number> {
   // Defaults make the provider fill the device viewport and act as a
   // flex-column ancestor. Without these, every Lynx app re-rolls inline
@@ -264,14 +204,18 @@ function rootStyle(
   // preset (as of 0.4.0) doesn't ship an `h-screen` rule. Consumers can
   // override any of these via `props.style`.
   //
-  // The safe-area CSS variables (`--sat`/`--sar`/`--sab`/`--sal`/
-  // `--safe-area-keyboard`) are NOT set here: Lynx ignores custom properties
-  // declared via inline `style`. They're published via the runtime
-  // `setProperty` API in the provider's mount effect instead.
+  // The safe-area CSS variables are declared inline: the seed insets come
+  // synchronously from `__globalProps`, so they're correct on first paint,
+  // and re-rendering with new insets re-resolves every descendant `var()`.
   const base: Record<string, string | number> = {
     height: '100vh',
     display: 'flex',
     flexDirection: 'column',
+    '--sat': `${insets.top}px`,
+    '--sar': `${insets.right}px`,
+    '--sab': `${insets.bottom}px`,
+    '--sal': `${insets.left}px`,
+    '--safe-area-keyboard': `${insets.keyboard}px`,
   };
   return user ? { ...base, ...user } : base;
 }

@@ -139,6 +139,17 @@ export interface PluginSigxLynxOptions {
   customCSSInheritanceList?: string[];
 
   /**
+   * Whether to enable CSS custom properties declared in inline `style`
+   * (`style={{ '--x': '…' }}`): descendants resolve `var(--x)` from first
+   * paint. Encoded into the template's page config; the native engine
+   * decodes it since Lynx 3.6 (the CLI's host templates pin 3.8.0) and
+   * `@lynx-js/web-core` honors inline custom properties unconditionally.
+   * Pass `false` as a kill switch. (#116)
+   * @defaultValue true
+   */
+  enableCSSInlineVariables?: boolean;
+
+  /**
    * Whether to place debug info outside the template bundle.
    * @defaultValue true
    */
@@ -184,6 +195,7 @@ export function pluginSigxLynx(
     enableCSSSelector: _enableCSSSelector = true,
     enableCSSInheritance: _enableCSSInheritance = false,
     customCSSInheritanceList: _customCSSInheritanceList,
+    enableCSSInlineVariables: _enableCSSInlineVariables = true,
     debugInfoOutside: _debugInfoOutside = true,
     snapshots: _snapshots = true,
     web: _web = true,
@@ -577,6 +589,7 @@ export function pluginSigxLynx(
         debugInfoOutside: _debugInfoOutside,
         enableCSSInheritance: _enableCSSInheritance,
         customCSSInheritanceList: _customCSSInheritanceList,
+        enableCSSInlineVariables: _enableCSSInlineVariables,
         snapshots: _snapshots,
       });
 

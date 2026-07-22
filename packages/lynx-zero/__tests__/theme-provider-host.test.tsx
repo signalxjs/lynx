@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { render } from '@sigx/lynx-testing';
+import { describe, it, expect, beforeEach } from 'vitest';
+import { act, render } from '@sigx/lynx-testing';
 import { registerTheme, themeController, ThemeProvider } from '../src/index';
 
 const CORE = {
@@ -68,55 +68,71 @@ describe('ThemeProvider host layout (#269)', () => {
   });
 });
 
-describe('ThemeProvider runtime setProperty guard (web compat)', () => {
+describe('ThemeProvider inline theme vars (#116)', () => {
   beforeEach(() => {
-    registerTheme({ name: 'tpg-light', variant: 'light', colors: { ...CORE } });
-    themeController.set('tpg-light');
+    registerTheme({ name: 'tpv-light', variant: 'light', colors: { ...CORE } });
+    registerTheme({
+      name: 'tpv-dark', variant: 'dark', pair: 'tpv-light',
+      colors: { ...CORE, 'primary': '#8899ff', 'base-100': '#111111', 'base-content': '#eeeeee' },
+    });
+    themeController.set('tpv-light');
   });
 
-  afterEach(() => {
-    delete (globalThis as { lynx?: unknown }).lynx;
+  it('declares the full palette inline on the host at first render', () => {
+    const { container } = render(
+      <ThemeProvider initial="tpv-light">
+        <text>x</text>
+      </ThemeProvider>,
+    );
+    const host = container.children[0];
+    expect(host._style['--color-primary']).toBe('#0000ff');
+    expect(host._style['--color-base-100']).toBe('#ffffff');
+    // Computed soft tints are materialized into the palette too.
+    expect(host._style['--color-primary-soft']).toBeDefined();
+    // Default text ramp rides along (fontScale 1 → literal defaults).
+    expect(host._style['--text-base']).toBe('17px');
+    // Host carries the theme name as a class for shape modifiers.
+    expect(host._class).toContain('tpv-light');
   });
 
-  // `@lynx-js/web-core` resolves an element with no runtime `setProperty`. The
-  // provider's theme-var publish runs on the background thread, so an unguarded
-  // call would throw there and abort the whole card render. It must degrade.
-  it('mounts without throwing when the host element lacks setProperty (e.g. web)', () => {
-    let calls = 0;
-    (globalThis as { lynx?: unknown }).lynx = {
-      getElementById: () => {
-        calls++;
-        return {};
-      },
-    };
-    expect(() =>
-      render(
-        <ThemeProvider initial="tpg-light">
-          <text>x</text>
-        </ThemeProvider>,
-      ),
-    ).not.toThrow();
-    // The guarded publish path must actually run (else the test is vacuous).
-    expect(calls).toBeGreaterThan(0);
+  it('a theme switch swaps the inline vars', async () => {
+    const { container } = render(
+      <ThemeProvider initial="tpv-light">
+        <text>x</text>
+      </ThemeProvider>,
+    );
+    await act(() => themeController.set('tpv-dark'));
+    const host = container.children[0];
+    expect(host._style['--color-primary']).toBe('#8899ff');
+    expect(host._style['--color-base-100']).toBe('#111111');
+    expect(host._style.backgroundColor).toBe('#111111');
+    expect(host._class).toContain('tpv-dark');
   });
 
-  it('swallows a throwing setProperty without aborting render', () => {
-    let calls = 0;
-    (globalThis as { lynx?: unknown }).lynx = {
-      getElementById: () => ({
-        setProperty: () => {
-          calls++;
-          throw new Error('setProperty unsupported on this host');
-        },
-      }),
-    };
-    expect(() =>
-      render(
-        <ThemeProvider initial="tpg-light">
-          <text>x</text>
-        </ThemeProvider>,
-      ),
-    ).not.toThrow();
-    expect(calls).toBeGreaterThan(0);
+  it('a runtime-registered theme paints its exact palette on the first frame', () => {
+    registerTheme({
+      name: 'tpv-tenant', variant: 'light',
+      colors: { ...CORE, 'primary': '#123456' },
+    });
+    const { container } = render(
+      <ThemeProvider initial="tpv-tenant">
+        <text>x</text>
+      </ThemeProvider>,
+    );
+    const host = container.children[0];
+    // No built-in-class fallback: the host wears its own name and exact vars.
+    expect(host._class).toContain('tpv-tenant');
+    expect(host._style['--color-primary']).toBe('#123456');
+  });
+
+  it('fontScale scales the --text-* ramp', () => {
+    const { container } = render(
+      <ThemeProvider initial="tpv-light" fontScale={2}>
+        <text>x</text>
+      </ThemeProvider>,
+    );
+    const host = container.children[0];
+    expect(host._style['--text-base']).toBe('34px');
+    expect(host._style['--text-xs']).toBe('24px');
   });
 });

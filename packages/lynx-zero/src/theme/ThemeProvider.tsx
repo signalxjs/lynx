@@ -1,17 +1,19 @@
 /**
  * `<ThemeProvider>` and `useTheme()` — the design-system-neutral theme engine.
  *
- * Themes are CSS classes containing scoped `--color-*` / `--radius-*`
- * variable definitions; descendants of an element with the class inherit
- * those variables (Lynx has `enableCSSInheritance: true` in its
- * layout-pipeline defaults), and design-system components are built to read
- * those vars directly.
+ * Themes are palettes of CSS custom properties (`--color-*` / `--radius-*` /
+ * `--size-*` / `--text-*`) declared **inline** on the provider's host view.
+ * Custom properties inherit to descendants by default in Lynx, and
+ * `@sigx/lynx-plugin` encodes `enableCSSInlineVariables` into the template's
+ * page config so the native engine (Lynx ≥ 3.6) registers inline declarations
+ * from the very first paint (#116) — design-system components read the vars
+ * directly via `var(--color-*)`.
  *
  * Theme *data* comes from the design-system package: it seeds the registry at
- * module load (`registerTheme()` in `./registry.ts`) and ships a generated CSS
- * class per static theme so the first frame paints correctly. Custom themes —
- * including tenant themes fetched at runtime — register the same way so
- * `followSystem` and `toggle()` know what to pick.
+ * module load (`registerTheme()` in `./registry.ts`). Custom themes —
+ * including tenant themes fetched at runtime — register the same way and
+ * paint their exact palette on frame one; `followSystem` and `toggle()` treat
+ * them like any built-in.
  *
  * Usage (here with `@sigx/lynx-daisyui`'s themes):
  *
@@ -53,11 +55,9 @@ import type { ColorToken } from '../contract.js';
 import {
     colorsOf,
     fallbackPalette,
-    hasStaticCss,
     pickThemeFor,
     radiusOf,
     sizesOf,
-    variantOf,
 } from './registry.js';
 import type { ThemeSizes } from './registry.js';
 import {
@@ -83,15 +83,6 @@ declare module '@sigx/lynx-icons' {
         variant?: ColorToken;
     }
 }
-
-// Lynx background-thread runtime global (closure-injected by the runtime; not
-// typed in this package's tsconfig). We use only its CSS-variable setter — the
-// documented way to apply theme variables at runtime.
-declare const lynx: {
-    // `setProperty` (runtime CSS-variable application) is optional: not every
-    // host implements it for every element — notably web (`@lynx-js/web-core`).
-    getElementById(id: string): { setProperty?(props: Record<string, string>): void } | null;
-} | undefined;
 
 // Control dimensions are expressed as multiples of two base units
 // (`--size-field`, `--size-selector`). Lynx's runtime CSS engine is unproven
@@ -143,11 +134,11 @@ function applySizeVars(
 
 /**
  * Emit the text ramp scaled by `fontScale` as `--text-*` literal px. Always
- * emits every step — even at `1` (the literal defaults) — because Lynx's
- * `setProperty` only merges and never clears: skipping at `1` would leave a
- * previously-emitted larger ramp stuck after a reset. A nested provider seeds
- * its scale from the inherited ambient value, so emitting here re-states the
- * same ramp rather than clobbering the root's scaled one.
+ * emits every step — even at `1` (the literal defaults) — so the host view's
+ * inline declarations shadow any larger ramp inherited from an enclosing
+ * provider. A nested provider seeds its scale from the inherited ambient
+ * value, so emitting here re-states the same ramp rather than clobbering the
+ * root's scaled one.
  */
 function applyFontScale(
     style: Record<string, string | number>,
@@ -160,12 +151,11 @@ function applyFontScale(
 
 /**
  * The full custom-property set for a theme — colors, any radius/size overrides,
- * and the `fontScale`-adjusted text ramp. Applied at runtime via the Lynx
- * `setProperty` API (see
- * `<ThemeProvider>`), NOT the inline `style` attribute: Lynx does not honor
- * custom properties declared inline in this toolchain, but `setProperty`
- * registers real, inheritable ones — the documented way to theme via CSS
- * variables (https://lynxjs.org/guide/styling/custom-theming).
+ * and the `fontScale`-adjusted text ramp. Declared inline on the provider's
+ * host view: with `enableCSSInlineVariables` in the template's page config
+ * (encoded by `@sigx/lynx-plugin`, decoded by native Lynx ≥ 3.6), inline
+ * custom properties register and inherit from first paint, and a value change
+ * re-resolves every descendant `var()` (#116).
  */
 function buildThemeVars(name: string, fontScale: number): Record<string, string> {
     const palette = colorsOf(name) ?? fallbackPalette();
@@ -184,9 +174,6 @@ function buildThemeVars(name: string, fontScale: number): Record<string, string>
     applyFontScale(vars, fontScale);
     return vars;
 }
-
-/** Unique host id per provider instance so `getElementById` targets its own subtree. */
-let themeIdSeq = 0;
 
 /**
  * Theme class applied to the provider's host view. Plain string — a design
@@ -306,8 +293,10 @@ export type ThemeProviderProps =
     & Define.Slot<'default'>;
 
 /**
- * Wraps children in a `<view class={theme}>` so the CSS variables defined
- * inside the theme class inherit down to every descendant.
+ * Wraps children in a `<view class={theme}>` whose inline style declares the
+ * theme's full custom-property set, so the variables inherit down to every
+ * descendant from first paint. The theme name rides along as a class for
+ * shape/behavior modifiers (e.g. `daisy-rounded`).
  *
  * Layout: the root provider defaults to flex-fill long-form so the wrapper
  * doesn't collapse between ancestors that flex (e.g. `<SafeAreaProvider>`)
@@ -334,10 +323,6 @@ export const ThemeProvider = component<ThemeProviderProps>(({ props, slots }) =>
     const depth = useThemeDepth();
     const isRoot = depth === 0;
     defineProvide(useThemeDepth, () => depth + 1);
-
-    // Stable id for the host view so the runtime `setProperty` call (below) can
-    // target it. Unique per instance so nested providers theme their own subtree.
-    const hostId = `zero-theme-${++themeIdSeq}`;
 
     // A nested provider with no explicit `fontScale` inherits the enclosing
     // scale (default 1 at the root), so the root's scale flows down through
@@ -409,7 +394,6 @@ export const ThemeProvider = component<ThemeProviderProps>(({ props, slots }) =>
     // Created on mount (the native publisher may populate the scheme between
     // setup and mount) and torn down on unmount.
     let follow: { stop: () => void } | undefined;
-    let applyVars: { stop: () => void } | undefined;
     onMounted(() => {
         follow = effect(() => {
             const following = state.following;
@@ -422,60 +406,22 @@ export const ThemeProvider = component<ThemeProviderProps>(({ props, slots }) =>
                 if (state.name !== next) state.name = next;
             });
         });
-
-        // Static themes are themed by their generated CSS class (applied on
-        // the host below), which resolves on the very first frame. This
-        // `setProperty` path additionally serves runtime-registered themes
-        // (`registerTheme`, no shipped CSS class) — applied once they're
-        // selected post-mount, where it lands reliably. Reading `state.name`
-        // and `state.fontScale` (via buildThemeVars) tracks them, so this
-        // re-runs on every theme change and every `setFontScale`.
-        applyVars = effect(() => {
-            const vars = buildThemeVars(state.name, state.fontScale);
-            if (typeof lynx !== 'undefined') {
-                // `setProperty` isn't implemented for every element on every
-                // host — notably web (`@lynx-js/web-core`), where it throws on
-                // the background thread and aborts the whole card render.
-                // Degrade gracefully: apply runtime-registered theme vars where
-                // supported; static themes still resolve via their generated
-                // CSS class (applied on the host element).
-                const el = lynx.getElementById(hostId);
-                if (el && typeof el.setProperty === 'function') {
-                    try {
-                        el.setProperty(vars);
-                    } catch {
-                        /* host rejected runtime setProperty (e.g. web) */
-                    }
-                }
-            }
-        });
     });
 
     onUnmounted(() => {
         follow?.stop();
         follow = undefined;
-        applyVars?.stop();
-        applyVars = undefined;
     });
 
     return () => {
-        // Theme COLORS and any radius/size overrides are applied as real,
-        // inheritable CSS custom properties via the Lynx `setProperty` runtime
-        // API (see the `applyVars` effect above) — Lynx does NOT honor custom
-        // properties declared through the inline `style` attribute in this
-        // toolchain. The root background/text are painted here from palette
-        // literals (real properties, not custom props) so the surface is themed
-        // on first paint; descendants resolve `var(--color-*)` once setProperty
-        // has run. The `lynx-zero` base class supplies structural token defaults.
+        // The full theme — colors, radius/size overrides, scaled text ramp —
+        // is declared inline as CSS custom properties: correct on first paint
+        // and re-resolved on every descendant when a theme switch or
+        // `setFontScale` re-renders this closure (reading `state.name` /
+        // `state.fontScale` tracks them). Runtime-registered themes paint
+        // their exact palette on frame one like any built-in. The `lynx-zero`
+        // base class supplies structural token defaults.
         const palette = colorsOf(state.name) ?? fallbackPalette();
-
-        // Static themes ship a generated CSS class, so `state.name` alone
-        // paints on the first frame. A runtime-registered theme has no class —
-        // fall back to its variant's static class for the first frame; the
-        // `setProperty` effect above then swaps in its exact palette post-mount.
-        const themeClass = hasStaticCss(state.name)
-            ? state.name
-            : `${pickThemeFor(variantOf(state.name) ?? 'light')} ${state.name}`;
 
         // Root: flex-fill long-form (see the component doc comment). Nested:
         // content-sized — a sub-scope inside scroll content would otherwise
@@ -493,7 +439,11 @@ export const ThemeProvider = component<ThemeProviderProps>(({ props, slots }) =>
                 display: 'flex',
                 flexDirection: 'column',
             };
+        Object.assign(style, buildThemeVars(state.name, state.fontScale));
         if (palette) {
+            // Painted as literal properties (not `var()` self-references) so
+            // the provider's own surface never depends on same-element
+            // custom-property resolution.
             style.backgroundColor = palette['base-100'];
             style.color = palette['base-content'];
         }
@@ -501,8 +451,7 @@ export const ThemeProvider = component<ThemeProviderProps>(({ props, slots }) =>
 
         return (
             <view
-                id={hostId}
-                class={`lynx-zero ${themeClass}${props.class ? ' ' + props.class : ''}`}
+                class={`lynx-zero ${state.name}${props.class ? ' ' + props.class : ''}`}
                 style={style}
             >
                 {slots.default?.()}

@@ -266,6 +266,13 @@ function normalizeStyle(
   const out: Record<string, unknown> = {};
   for (const key of Object.keys(style)) {
     const val = style[key];
+    // CSS custom properties (`--x`) carry free-form var values — the engine
+    // substitutes them textually into `var(--x)` sites, so a bare number must
+    // not get a px suffix (a `--opacity: 0.5` would become `0.5px`).
+    if (key.startsWith('--')) {
+      out[key] = typeof val === 'number' ? String(val) : val;
+      continue;
+    }
     if (key === 'flex') {
       const expanded = expandFlexShorthand(val);
       if (expanded) {

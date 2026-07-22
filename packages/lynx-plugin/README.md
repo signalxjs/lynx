@@ -62,7 +62,17 @@ export default defineConfig({
    per-package web shims apply through published dists (#697). Opt out with
    `pluginSigxLynx({ web: false })`.
 
-6. **Cross-package worklet pickup.** The worklet rules run on every JS/TS file in the BG / MT layers, including `node_modules` and pre-built `dist/`. Any package shipping `'main thread'` directives in its dist (`@sigx/lynx-motion`, `@sigx/lynx-navigation`, `@sigx/lynx-gestures`, future additions) is picked up automatically — no allowlist or opt-in flag. See [CONTRIBUTING.md](https://github.com/signalxjs/lynx/blob/main/CONTRIBUTING.md#lynx-plugin-internals-cross-package-worklet-pickup) for the loader-branching details.
+6. **Inline CSS variables (#116).** The plugin encodes
+   `enableCSSInlineVariables: true` into the template's page config, so the
+   native engine registers CSS custom properties declared in inline `style`
+   (`style={{ '--x': '…' }}`) and descendants resolve `var(--x)` from the
+   very first paint; value changes re-resolve descendants too. Requires a
+   native host on Lynx ≥ 3.9 (the CLI's templates pin 3.9.0; registration
+   without change-propagation shipped in 3.6). `@lynx-js/web-core` honors
+   inline custom properties unconditionally. Kill switch:
+   `pluginSigxLynx({ enableCSSInlineVariables: false })`.
+
+7. **Cross-package worklet pickup.** The worklet rules run on every JS/TS file in the BG / MT layers, including `node_modules` and pre-built `dist/`. Any package shipping `'main thread'` directives in its dist (`@sigx/lynx-motion`, `@sigx/lynx-navigation`, `@sigx/lynx-gestures`, future additions) is picked up automatically — no allowlist or opt-in flag. See [CONTRIBUTING.md](https://github.com/signalxjs/lynx/blob/main/CONTRIBUTING.md#lynx-plugin-internals-cross-package-worklet-pickup) for the loader-branching details.
 
 ## Worklet author quick reference
 

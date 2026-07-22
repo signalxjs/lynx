@@ -9,11 +9,6 @@
 /* Structural design tokens (.lynx-zero, from @sigx/lynx-zero) */
 @import '@sigx/lynx-zero/styles/tokens.css';
 
-/* Per-theme color tokens for the built-in hero themes — generated from the
- * theme data at build time (scripts/gen-theme-css.mjs). Declared as CSS rules
- * so `var(--color-*)` resolves on the first paint. */
-@import './themes/builtins.generated.css';
-
 /* Components */
 @import './components/button.css';
 @import './components/typography.css';
