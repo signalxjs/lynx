@@ -28,8 +28,12 @@ export const SnapshotListBenchScreen = component(() => {
         return (
             <view class="flex-fill bg-base-100" style={{ display: 'flex', flexDirection: 'column' }}>
                 <Screen title="Snapshot list bench" />
-                {/* Fixed-height band: the native list below sizes to a hard
-                    main-axis px value and must not bleed into the controls. */}
+                {/* Fixed-height band above a flex-sized list. The list used to
+                    hard-code height: 1450px — taller than the screen — which
+                    overlapped this band and made the native decoupled list
+                    layout manager thrash with "invalid list container's size"
+                    every pass (#651 follow-up). flex: 1 gives it the real
+                    remaining viewport height. */}
                 <view style={{ height: '64px' }}>
                     <Row gap={8} padding={8}>
                         <Button size="sm" variant="outline" onPress={() => palette.value++}>
@@ -41,7 +45,7 @@ export const SnapshotListBenchScreen = component(() => {
                     </Row>
                 </view>
                 <list
-                    style={{ height: '1450px', width: '100%' }}
+                    style={{ flex: 1, width: '100%' }}
                     scroll-orientation="vertical"
                     list-type="single"
                     span-count={1}

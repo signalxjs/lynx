@@ -109,6 +109,22 @@ export function waitForFlush(): Promise<void> {
   return pendingAckPromise ?? Promise.resolve();
 }
 
+/**
+ * Whether renderer work is still in flight toward the Main Thread: buffered
+ * ops awaiting their microtask flush, a scheduled-but-unsent flush, or a sent
+ * batch whose MT ack hasn't arrived (batches ack in order, so the newest
+ * batch's ack — tracked by `pendingAckPromise` — covers the older ones).
+ * `false` means the MT has applied everything the BG has emitted so far.
+ *
+ * Callers that stage work behind a quiescence point poll this between flush
+ * waits — e.g. lynx-navigation's pre-stage transition window (#651), which
+ * holds a push animation until the incoming screen's mount and post-mount
+ * flushes have all been applied.
+ */
+export function pendingOps(): boolean {
+  return buffer.length > 0 || scheduled || pendingAckPromise !== null;
+}
+
 // ---------------------------------------------------------------------------
 // Transport (BG → MT)
 // ---------------------------------------------------------------------------
