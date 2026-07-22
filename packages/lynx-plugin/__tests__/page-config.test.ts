@@ -69,4 +69,14 @@ describe('SigxPageConfigPlugin (#116)', () => {
     );
     expect(args.encodeData.sourceContent.config.other).toBe(1);
   });
+
+  it('an explicit false overrides a pre-existing true (kill switch)', () => {
+    const args = runPlugin(
+      { enableCSSInlineVariables: false },
+      { enableCSSInlineVariables: true },
+    );
+    expect(args.encodeData.sourceContent.config.enableCSSInlineVariables).toBe(
+      false,
+    );
+  });
 });

@@ -695,18 +695,16 @@ export async function applyEntry(
 
     // ------------------------------------------------------------------
     // SigxPageConfigPlugin – merge page-config keys LynxTemplatePlugin
-    // doesn't emit itself into the encoded template (#116)
+    // doesn't emit itself into the encoded template (#116). Always writes
+    // the resolved boolean (not just true) so `false` is a real kill
+    // switch that overrides any pre-existing value in the config.
     // ------------------------------------------------------------------
-    if (
-      (isLynx || isWeb) &&
-      templateMod &&
-      (opts.enableCSSInlineVariables ?? true)
-    ) {
+    if ((isLynx || isWeb) && templateMod) {
       chain
         .plugin(PLUGIN_PAGE_CONFIG)
         .use(SigxPageConfigPlugin, [
           templateMod.LynxTemplatePlugin,
-          { enableCSSInlineVariables: true },
+          { enableCSSInlineVariables: opts.enableCSSInlineVariables ?? true },
         ])
         .end();
     }
