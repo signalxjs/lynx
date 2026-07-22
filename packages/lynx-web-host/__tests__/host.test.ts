@@ -383,3 +383,52 @@ describe('sigx.notifications.* handlers', () => {
     expect(((await call(view, 'sigx.notifications.getBadge')) as { value: number }).value).toBe(0);
   });
 });
+
+describe('x-text color-inheritance parity style (#116 follow-up)', () => {
+  class FakeSheet {
+    css = '';
+    replaceSync(text: string): void {
+      this.css = text;
+    }
+  }
+
+  it('adopts an x-text{color:inherit} sheet into the shadow root', () => {
+    vi.stubGlobal('CSSStyleSheet', FakeSheet);
+    const view = makeView();
+    const root = { adoptedStyleSheets: [] as unknown as CSSStyleSheet[] };
+    (view as { shadowRoot?: unknown }).shadowRoot = root;
+    installSigxWebHost(view);
+    expect(root.adoptedStyleSheets).toHaveLength(1);
+    expect((root.adoptedStyleSheets[0] as unknown as FakeSheet).css).toBe(
+      'x-text { color: inherit; }',
+    );
+  });
+
+  it('retries via requestAnimationFrame until the shadow root attaches, and removes on uninstall', () => {
+    vi.stubGlobal('CSSStyleSheet', FakeSheet);
+    const rafQueue: Array<() => void> = [];
+    vi.stubGlobal('requestAnimationFrame', (cb: () => void) => {
+      rafQueue.push(cb);
+      return 0;
+    });
+    const view = makeView();
+    const uninstall = installSigxWebHost(view);
+    // No shadow root yet — a retry is queued, nothing adopted.
+    expect(rafQueue).toHaveLength(1);
+    const root = { adoptedStyleSheets: [] as unknown as CSSStyleSheet[] };
+    (view as { shadowRoot?: unknown }).shadowRoot = root;
+    rafQueue.shift()!();
+    expect(root.adoptedStyleSheets).toHaveLength(1);
+    uninstall();
+    expect(root.adoptedStyleSheets).toHaveLength(0);
+  });
+
+  it('is skipped with textColorInheritance: false and in non-DOM contexts', () => {
+    vi.stubGlobal('CSSStyleSheet', FakeSheet);
+    const view = makeView();
+    const root = { adoptedStyleSheets: [] as unknown as CSSStyleSheet[] };
+    (view as { shadowRoot?: unknown }).shadowRoot = root;
+    installSigxWebHost(view, { textColorInheritance: false });
+    expect(root.adoptedStyleSheets).toHaveLength(0);
+  });
+});

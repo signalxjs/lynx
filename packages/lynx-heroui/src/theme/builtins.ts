@@ -13,9 +13,9 @@
  *   foreground      → base-content
  *   accent / info   → no upstream equivalent; hero ships its cyan + blue-400
  *
- * Each ships `staticCss: true`: `scripts/gen-theme-css.mjs` generates a
- * `.hero-<variant> { --color-*: … }` class per theme at build time so the
- * first frame paints correctly.
+ * `<ThemeProvider>` declares the active palette as inline CSS custom
+ * properties on its host view — correct on first paint for built-ins and
+ * runtime-registered themes alike (#116) — so no per-theme CSS ships here.
  *
  * HeroUI's default roundness is larger than daisy's — expressed via the
  * theme-level `radius` overrides (the engine emits them with the palette).
@@ -29,14 +29,10 @@ import { completeTheme, registerTheme, type Theme, type ThemeInput } from '@sigx
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type, @typescript-eslint/ban-types
 export type HeroTheme = 'hero-light' | 'hero-dark' | (string & {});
 
-/**
- * The built-in theme data, exported for `scripts/gen-theme-css.mjs` (which
- * emits the per-theme first-paint CSS classes from it at build time).
- * @internal
- */
+/** The built-in theme data. @internal */
 const RAW_THEMES: readonly ThemeInput[] = [
   {
-    name: 'hero-light', variant: 'light', pair: 'hero-dark', staticCss: true, softMix: 0.2,
+    name: 'hero-light', variant: 'light', pair: 'hero-dark', softMix: 0.2,
     radius: { selector: '12px', field: '12px', box: '14px' },
     colors: {
       'primary': '#006fee', 'primary-content': '#ffffff',
@@ -52,7 +48,7 @@ const RAW_THEMES: readonly ThemeInput[] = [
     },
   },
   {
-    name: 'hero-dark', variant: 'dark', pair: 'hero-light', staticCss: true, softMix: 0.2,
+    name: 'hero-dark', variant: 'dark', pair: 'hero-light', softMix: 0.2,
     radius: { selector: '12px', field: '12px', box: '14px' },
     colors: {
       'primary': '#006fee', 'primary-content': '#ffffff',

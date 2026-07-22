@@ -43,6 +43,7 @@ seeded up front. Returns an uninstall function (removes the page listeners).
 | `sigx.notifications.*` | local notifications via the Notification API (page-lifetime timers/repeats, permission mapping, Badging-API badges) |
 | Appearance publisher | `globalProps.appearance = {colorScheme}` from `prefers-color-scheme`, live `appearanceChanged` events — `@sigx/lynx-appearance` works unchanged, no web shim needed |
 | Inbound-link publisher | `globalProps.initialURL` + `urlReceived` on popstate/hashchange — consumed by `@sigx/lynx-linking` unchanged |
+| Text-color parity style | adopts `x-text { color: inherit }` into the `<lynx-view>` shadow root — upstream web-core defaults top-level text to `color: initial` (black), native inherits the ancestor `color`, so themed dark-mode text painted black on web only. Opt out: `installSigxWebHost(view, { textColorInheritance: false })` |
 
 The worker side calls these through `webHostCall()` from `@sigx/lynx-core`
 (used by the per-package `.web.ts` shims). Protocol:

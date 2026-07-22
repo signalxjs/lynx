@@ -21,6 +21,7 @@ import { LAYERS } from './layers.js';
 const PLUGIN_TEMPLATE = 'lynx:sigx-template';
 const PLUGIN_MARK_MAIN_THREAD = 'lynx:sigx-mark-main-thread';
 const PLUGIN_ENCODE = 'lynx:sigx-encode';
+const PLUGIN_PAGE_CONFIG = 'lynx:sigx-page-config';
 
 const DEFAULT_INTERMEDIATE = '.rspeedy';
 
@@ -130,6 +131,47 @@ class SigxMarkMainThreadPlugin {
 }
 
 /**
+ * SigxPageConfigPlugin merges extra page-config keys into the encoded
+ * template's `sourceContent.config` via LynxTemplatePlugin's `beforeEncode`
+ * hook. LynxTemplatePlugin itself only emits a fixed key set, so keys the
+ * native engine decodes but the template plugin doesn't know about (e.g.
+ * `enableCSSInlineVariables`, decoded since Lynx 3.6) must be injected here.
+ * Exported for tests.
+ */
+export class SigxPageConfigPlugin {
+  constructor(
+    private readonly templatePlugin: {
+      getLynxTemplatePluginHooks(compilation: unknown): {
+        beforeEncode: {
+          tap(
+            name: string,
+            callback: (args: {
+              encodeData: {
+                sourceContent: { config: Record<string, unknown> };
+              };
+            }) => unknown,
+          ): void;
+        };
+      };
+    },
+    private readonly config: Record<string, unknown>,
+  ) {}
+
+  apply(compiler: WebpackCompiler): void {
+    compiler.hooks.thisCompilation.tap(PLUGIN_PAGE_CONFIG, (compilation) => {
+      const hooks = this.templatePlugin.getLynxTemplatePluginHooks(compilation);
+      hooks.beforeEncode.tap(PLUGIN_PAGE_CONFIG, (args) => {
+        args.encodeData.sourceContent.config = {
+          ...args.encodeData.sourceContent.config,
+          ...this.config,
+        };
+        return args;
+      });
+    });
+  }
+}
+
+/**
  * Prepend the web variant to a `resolve.extensionAlias` list for `key`,
  * preserving whatever mapping already exists (rsbuild's tsconfig-driven
  * `.js → ['.js', '.ts', '.tsx']`) and falling back to the identity alias when
@@ -148,6 +190,13 @@ export interface ApplyEntryOptions {
   enableCSSSelector?: boolean;
   enableCSSInheritance?: boolean;
   customCSSInheritanceList?: string[];
+  /**
+   * Encode `enableCSSInlineVariables` into the template's page config so the
+   * native engine (Lynx ≥ 3.6) registers CSS custom properties declared in
+   * inline `style` and resolves `var(--*)` on descendants from first paint
+   * (#116). Defaults to `true`; set `false` as a kill switch.
+   */
+  enableCSSInlineVariables?: boolean;
   debugInfoOutside?: boolean;
   /** Enable the snapshot-template transform in both worklet loaders (#620). */
   snapshots?: boolean;
@@ -642,6 +691,22 @@ export async function applyEntry(
             .end();
         }
       }
+    }
+
+    // ------------------------------------------------------------------
+    // SigxPageConfigPlugin – merge page-config keys LynxTemplatePlugin
+    // doesn't emit itself into the encoded template (#116). Always writes
+    // the resolved boolean (not just true) so `false` is a real kill
+    // switch that overrides any pre-existing value in the config.
+    // ------------------------------------------------------------------
+    if ((isLynx || isWeb) && templateMod) {
+      chain
+        .plugin(PLUGIN_PAGE_CONFIG)
+        .use(SigxPageConfigPlugin, [
+          templateMod.LynxTemplatePlugin,
+          { enableCSSInlineVariables: opts.enableCSSInlineVariables ?? true },
+        ])
+        .end();
     }
 
     // ------------------------------------------------------------------
