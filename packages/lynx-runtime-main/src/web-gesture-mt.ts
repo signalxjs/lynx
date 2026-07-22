@@ -71,6 +71,23 @@ const PINCH = 6;
 
 const DEFAULT_MAX_DISTANCE = 10; // px — tap/long-press movement tolerance
 const DEFAULT_LONGPRESS_MS = 500;
+/**
+ * Largest delay `setTimeout` honours (2^31 − 1 ms ≈ 24.8 days). Browsers
+ * coerce the delay to a signed 32-bit int, so anything above this wraps to a
+ * value ≤ 0 and the timer fires on the NEXT TICK instead of never.
+ *
+ * That bites a real caller: `<Pressable longPressDuration={0}>` means "no
+ * long press", and it expresses that by pushing `minDuration` to
+ * `Number.MAX_SAFE_INTEGER` so the platform timer never elapses (correct on
+ * native, where the timer is native). On web the overflow fired LongPress
+ * immediately on touch-down, which set `lpFired` and thereby disqualified the
+ * tap (`isTap` requires `lpFired.size === 0`) *and* short-circuited
+ * `LongPress.onEnd`'s press fallback — so `press` never emitted at all. Every
+ * daisyui/heroui control built on Pressable (Button, Checkbox, Toggle, Radio,
+ * Select, Tabs, NavHeader's back button…) passes `longPressDuration={0}`, so
+ * on web they were all inert (#759).
+ */
+const MAX_TIMEOUT_MS = 2147483647;
 /** Fling `minVelocity` default, px/ms (≈ 300 px/s). */
 const DEFAULT_FLING_MIN_VELOCITY = 0.3;
 /** Only samples this recent (ms before the up) feed the fling velocity. */
@@ -430,10 +447,16 @@ function onDown(entry: ElementGestures, e: PointerLike): void {
     runCb(g, 'onBegin', evt);
     if (g.type === LONGPRESS) {
       const ms = (g.config.minDuration as number) ?? DEFAULT_LONGPRESS_MS;
-      (entry.lpTimers ??= new Map()).set(
-        gid,
-        setTimeout(() => fireLongPress(entry, gid), ms),
-      );
+      // A duration past what setTimeout can represent means "never fires"
+      // (see MAX_TIMEOUT_MS) — don't arm a timer that would overflow to 0.
+      // A duration past what setTimeout can represent means "never fires"
+      // (see MAX_TIMEOUT_MS) — don't arm a timer that would overflow to 0.
+      if (ms <= MAX_TIMEOUT_MS) {
+        (entry.lpTimers ??= new Map()).set(
+          gid,
+          setTimeout(() => fireLongPress(entry, gid), ms),
+        );
+      }
     }
   }
 }

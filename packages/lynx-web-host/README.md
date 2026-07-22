@@ -44,6 +44,7 @@ seeded up front. Returns an uninstall function (removes the page listeners).
 | Appearance publisher | `globalProps.appearance = {colorScheme}` from `prefers-color-scheme`, live `appearanceChanged` events — `@sigx/lynx-appearance` works unchanged, no web shim needed |
 | Inbound-link publisher | `globalProps.initialURL` + `urlReceived` on popstate/hashchange — consumed by `@sigx/lynx-linking` unchanged |
 | Text-color parity style | adopts `x-text { color: inherit }` into the `<lynx-view>` shadow root — upstream web-core defaults top-level text to `color: initial` (black), native inherits the ancestor `color`, so themed dark-mode text painted black on web only. Opt out: `installSigxWebHost(view, { textColorInheritance: false })` |
+| Viewport `browser-config` | overrides web-core's `SystemInfo.pixelWidth/pixelHeight` with the `<lynx-view>`'s own box (see below). Opt out: `installSigxWebHost(view, { viewport: false })` |
 
 The worker side calls these through `webHostCall()` from `@sigx/lynx-core`
 (used by the per-package `.web.ts` shims). Protocol:
@@ -52,6 +53,41 @@ The worker side calls these through `webHostCall()` from `@sigx/lynx-core`
 
 Publishers can be skipped via options:
 `installSigxWebHost(view, { appearance: false, linking: false })`.
+
+### Viewport dimensions (`viewportBrowserConfig`)
+
+web-core derives `SystemInfo.pixelWidth`/`pixelHeight` from
+`screen.availWidth`/`availHeight` — the **physical display**. Everything
+downstream treats those as the screen the app occupies:
+`@sigx/lynx-navigation` slides cards in from `SCREEN_WIDTH` px away and rests
+sheets at a fraction of `SCREEN_HEIGHT`, `@sigx/lynx-gestures`' `Swiper` falls
+back to it for page width, and `Platform.isPad` derives from it. Inside a
+`<lynx-view>` smaller than the monitor, a sheet can settle below the visible
+area entirely.
+
+`browser-config` overrides those fields, and `installSigxWebHost` sets it from
+the element's box when the host page hasn't. If you write your own host page,
+prefer setting the attribute **inline while the document parses** — that is
+strictly before the engine module upgrades `<lynx-view>` and reads the value,
+whereas a module script races the element's own render kickoff:
+
+```html
+<lynx-view id="app" url="/app/main.web.bundle" style="height:100vh;width:100vw"></lynx-view>
+<script>
+  var v = document.getElementById('app');
+  var r = window.devicePixelRatio || 1;
+  v.setAttribute('browser-config', JSON.stringify({
+    pixelRatio: r,
+    pixelWidth: Math.round(window.innerWidth * r),
+    pixelHeight: Math.round(window.innerHeight * r),
+  }));
+</script>
+```
+
+`viewportBrowserConfig(view)` computes the same object if you'd rather assign
+`view.browserConfig` yourself; it returns `null` when nothing is measurable.
+web-core freezes `SystemInfo` when the view is constructed, so resizes are not
+tracked.
 
 ## Upstream coupling
 

@@ -147,6 +147,57 @@ describe('web gesture recognizer (pointer listeners)', () => {
     expect(fired()).not.toContain('lp');
   });
 
+  // #759 — `<Pressable longPressDuration={0}>` disables long-press by pushing
+  // `minDuration` to Number.MAX_SAFE_INTEGER so the timer never elapses. That
+  // works on native, but `setTimeout` coerces its delay to a signed 32-bit int,
+  // so on web the delay wrapped to <= 0 and LongPress fired on the next tick:
+  // `lpFired` then disqualified the tap AND short-circuited the onEnd press
+  // fallback, so `press` never emitted. Every daisyui/heroui control built on
+  // Pressable was inert on web.
+  describe('LongPress: a never-elapsing minDuration (#759)', () => {
+    it('does not arm a timer whose delay setTimeout cannot represent', () => {
+      const el = makeEl();
+      const spy = vi.spyOn(globalThis, 'setTimeout');
+      reg(el, 5, 1, LONGPRESS, [{ name: 'onStart', callback: { _wkltId: 'lp' } }], {
+        minDuration: Number.MAX_SAFE_INTEGER,
+      });
+      el.fire('pointerdown', 50, 50);
+      const overflowing = spy.mock.calls.filter(
+        ([, delay]) => typeof delay === 'number' && delay > 2147483647,
+      );
+      expect(overflowing).toEqual([]);
+      spy.mockRestore();
+    });
+
+    it('still emits the tap when the browser clamps the delay to 0', () => {
+      const el = makeEl();
+      // Mirror the browser: a delay past the 32-bit ceiling wraps to "now".
+      const realSetTimeout = globalThis.setTimeout;
+      vi.spyOn(globalThis, 'setTimeout').mockImplementation(((
+        fn: () => void,
+        delay?: number,
+        ...rest: unknown[]
+      ) =>
+        (realSetTimeout as never as (f: () => void, d: number, ...r: unknown[]) => number)(
+          fn,
+          typeof delay === 'number' && delay > 2147483647 ? 0 : (delay ?? 0),
+          ...rest,
+        )) as never);
+
+      reg(el, 5, 1, TAP, [{ name: 'onStart', callback: { _wkltId: 'tap' } }]);
+      reg(el, 5, 2, LONGPRESS, [{ name: 'onStart', callback: { _wkltId: 'lp' } }], {
+        minDuration: Number.MAX_SAFE_INTEGER,
+      });
+
+      el.fire('pointerdown', 50, 50);
+      vi.advanceTimersByTime(1); // the clamped timer would fire here
+      el.fire('pointerup', 51, 50);
+
+      expect(fired()).not.toContain('lp');
+      expect(fired()).toContain('tap');
+    });
+  });
+
   it('Pan: onStart once, onUpdate per move (carrying pageX), onEnd on up', () => {
     const el = makeEl();
     reg(

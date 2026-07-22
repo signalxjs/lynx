@@ -9,7 +9,7 @@ import {
     type SharedValue,
 } from '@sigx/lynx';
 import { isLazyComponent } from '@sigx/lynx';
-import { withTiming } from '@sigx/lynx-motion';
+import { cancelAnimation, withTiming } from '@sigx/lynx-motion';
 import type { Nav } from '../hooks/use-nav.js';
 import type { ScreenRegistry } from '../internal/screen-registry.js';
 import {
@@ -160,7 +160,21 @@ const PRE_STAGE_PEEK = 0.002;
 async function settleBeforeTransition(): Promise<void> {
     const deadline = Date.now() + PRE_STAGE_MAX_MS;
     do {
-        await waitForFlush();
+        // Race the ack against the remaining budget. `PRE_STAGE_MAX_MS` used
+        // to bound only the LOOP — `await waitForFlush()` itself is unbounded,
+        // and its promise settles only when the host invokes the
+        // `callLepusMethod` callback for that batch. A single dropped ack left
+        // `pendingOps()` true forever, so this await never resumed: the
+        // transition never started (the incoming screen stayed parked at its
+        // pre-stage transform) AND the transition signal was never cleared, so
+        // `isTransitioning()` blocked every later push and pop for the rest of
+        // the session. Timing out degrades to "no pre-stage", never a wedge.
+        await Promise.race([
+            waitForFlush(),
+            new Promise<void>((resolve) => {
+                setTimeout(resolve, Math.max(0, deadline - Date.now()));
+            }),
+        ]);
         await new Promise<void>((resolve) => {
             setTimeout(resolve, 0);
         });
@@ -385,6 +399,24 @@ export function createNavigatorState(opts: CreateNavigatorOptions): NavigatorSta
         await new Promise<void>((resolve) => {
             setTimeout(resolve, Math.round(durationSec * 1000));
         });
+        // Land the end state explicitly (#758). The wait above is wall-clock
+        // on BG, not the tween's real completion — a tween that was starved
+        // (heavy MT), late, or never ticked is still mid-flight here. The
+        // caller's completion callback then clears the transition, which flips
+        // `props.animation` to null and UNREGISTERS the layer's MT binding
+        // (Layer.tsx) — after which nothing would ever write the resting
+        // value, so the element keeps whatever transform the animation last
+        // applied. Permanently: #758's modal resting 44–77pt low, and a
+        // popped-to screen stranded off-screen left (its revealed layer never
+        // reaching translateX(0), which reads as "back does nothing").
+        // Cancel + assign is idempotent — a tween that DID finish is already
+        // at `target`, so this writes the same value it already holds.
+        const lander = runOnMainThread((t: number) => {
+            'main thread';
+            cancelAnimation(sv);
+            sv.current.value = t;
+        });
+        lander(target);
     }
 
     const push: Nav['push'] = ((name: string, ...args: unknown[]) => {
