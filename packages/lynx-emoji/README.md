@@ -57,10 +57,11 @@ Full guides, API reference and live examples → **[https://sigx.dev/lynx/module
   INK covers ~93% of the cell. The ink is a **per-platform font metric**
   (#761): Noto Color Emoji (Android) inks only ~64% of its declared size —
   the font overshoots the cell and Noto's inset absorbs it (device-matched
-  against WhatsApp) — while Apple Color Emoji (iOS) inks ~93% of the em, so
-  there the em fits the cell (and is hard-capped at the cell width so a wrong
-  ratio can only read airy, never overlap); web/unknown hosts use the iOS
-  bucket. Row heights track the ink, not the em box, on every platform —
+  against WhatsApp) — while Apple Color Emoji's widest glyphs (🫡, flags)
+  ink ~10% *beyond* the em, so on iOS the em sits at ~85% of the cell to
+  keep edge columns clear of the container clip (and is hard-capped at the
+  cell width so a wrong ratio can only read airy, never overlap);
+  web/unknown hosts use the iOS bucket. Row heights track the ink, not the em box, on every platform —
   `emojiRowPx` is platform-aware. Category tabs and the skin-tone popover
   scale along. Resolved once at mount; pass `columns` and/or `cellSize` for
   manual control (an explicit `cellSize` is an em size — never clamped, and

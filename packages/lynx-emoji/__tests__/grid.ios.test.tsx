@@ -72,36 +72,38 @@ async function measureRegion(container: unknown, width = 402): Promise<void> {
 
 describe('adaptive sizing on the iOS ink path (#761)', () => {
     it('resolves the iOS ink ratio through the Platform seam', () => {
-        expect(emojiInkRatio()).toBe(0.93);
+        expect(emojiInkRatio()).toBe(1.1);
     });
 
-    it('402pt: 10 columns, 40px em, 46px rows — est == actual == offsets', async () => {
+    it('402pt: 10 columns, 34px em, 46px rows — est == actual == offsets', async () => {
         const { container } = render(
             <EmojiPicker data={makeData()} showSearch={false} showRecents={false} />,
         );
         await measureRegion(container);
 
-        // Geometry: floor(402/40) = 10 columns; the em fits the 40.2px cell
-        // (was 58 pre-fix — the overlapping-glyph repro).
+        // Geometry: floor(402/40) = 10 columns; the em sits at ~85% of the
+        // 40.2px cell — round(40.2 * 0.93 / 1.1) = 34 (was 58 pre-fix, the
+        // overlapping-glyph repro; larger ems left the widest glyphs cut at
+        // the edge-column clip line).
         const list = getByType(container, 'list');
         expect(list.props['span-count']).toBe(10);
 
         const cell = getAllByType(container, 'list-item')
             .find((c) => c.props['item-type'] === 'emoji')!;
-        expect(cell.props['estimated-main-axis-size-px']).toBe(46); // round(40*0.93)+9
+        expect(cell.props['estimated-main-axis-size-px']).toBe(46); // round(34*1.1) + 9
         const textEl = cell.children.find((c: { type?: string }) => (c as { type: string }).type === 'text') as
             | { props: Record<string, unknown> }
             | undefined;
-        expect(textEl?.props['style']).toMatchObject({ fontSize: 40 });
+        expect(textEl?.props['style']).toMatchObject({ fontSize: 34 });
 
         // The scroll-offset math saw the SAME platform ink as the pinned row
         // heights — the est == actual contract (#663) on the iOS path.
-        expect(emojiRowPx(40)).toBe(46);
+        expect(emojiRowPx(34)).toBe(46);
         const sections = [
             { key: 'cat-a', label: 'category a', emojis: CAT_A },
             { key: 'cat-b', label: 'category b', emojis: CAT_B },
         ];
-        const offsets = sectionStartOffsets(sections, 10, 40);
+        const offsets = sectionStartOffsets(sections, 10, 34);
         expect(offsets[1]).toBe(HEADER_PX + Math.ceil(CAT_A.length / 10) * 46);
     });
 });

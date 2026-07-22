@@ -6,15 +6,20 @@ import { Platform, type PlatformOS } from '@sigx/lynx';
  * All grid spacing models the visible ink, not the em box — but the ink is a
  * FONT metric, not a constant (#761): Noto Color Emoji (Android) insets its
  * glyphs to ~64% of the em (device-matched against WhatsApp, #674), while
- * Apple Color Emoji inks ~93% of it. This is a raster property — layout APIs
- * report near-identical font metrics for both, so it cannot be probed at
+ * Apple Color Emoji's WIDEST glyphs (🫡, kiss-with-heart, flags) ink ~10%
+ * BEYOND the em box. The table models the worst-case glyph, not the average
+ * face: interior columns can bleed overshoot into a neighbor's margin
+ * invisibly, but the edge columns sit against the scroll container's clip
+ * line, where any overshoot is visibly cut (0.93 and even 1.0 still clipped
+ * on the iOS 26 sim). Ink is a raster property — layout APIs report
+ * near-identical font metrics for both fonts, so it cannot be probed at
  * runtime; per-platform calibration IS the measurement.
  *
  * Unknown platforms (web hosts vary their emoji font) get the HIGH bucket:
  * overestimating ink degrades to airy spacing, underestimating to overlap.
  */
 export const emojiInkFor = (os: PlatformOS): number =>
-    os === 'android' ? 0.64 : 0.93;
+    os === 'android' ? 0.64 : 1.1;
 
 /**
  * Ink ratio for the running platform. Read lazily (never at module load) so
