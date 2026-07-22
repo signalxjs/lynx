@@ -9,7 +9,7 @@ import {
     type SharedValue,
 } from '@sigx/lynx';
 import { isLazyComponent } from '@sigx/lynx';
-import { withTiming } from '@sigx/lynx-motion';
+import { cancelAnimation, withTiming } from '@sigx/lynx-motion';
 import type { Nav } from '../hooks/use-nav.js';
 import type { ScreenRegistry } from '../internal/screen-registry.js';
 import {
@@ -366,6 +366,7 @@ export function createNavigatorState(opts: CreateNavigatorOptions): NavigatorSta
         seed: number | null,
         target: number,
         durationSec: number,
+        stillCurrent?: () => boolean,
     ): Promise<void> {
         if (!sv) return;
         const runner = runOnMainThread((s: number | null, t: number, d: number) => {
@@ -385,6 +386,31 @@ export function createNavigatorState(opts: CreateNavigatorOptions): NavigatorSta
         await new Promise<void>((resolve) => {
             setTimeout(resolve, Math.round(durationSec * 1000));
         });
+        // Land the end state (#758). The wait above is BG wall-clock, but the
+        // tween is frame-driven on the MT: a main thread busy building the
+        // incoming screen (long lists, native layout) can still be mid-slide
+        // when this resolves. The caller then settles the layer, which
+        // UNREGISTERS its animated style binding (`Layer.tsx` — required, the
+        // progress SV is shared with the next transition) — and whatever
+        // transform the tween last applied STAYS on the element, because the
+        // BG-side style diff never knew about it. The screen rests tens of px
+        // off, permanently, with the previous one showing through the gap.
+        //
+        // So don't let the resting position depend on the tween finishing in
+        // time: cancel it and write the target outright. A no-op when the
+        // animation already landed (same value, no style op).
+        if (stillCurrent && !stillCurrent()) return;
+        const lander = runOnMainThread((t: number) => {
+            'main thread';
+            // Cancel FIRST: a bare SV write doesn't stop an in-flight tween
+            // (lynx-motion contract), so its remaining ticks would overwrite
+            // the landing.
+            cancelAnimation(sv);
+            sv.current.value = t;
+        });
+        // Awaited so the write is applied on the MT before the caller clears
+        // the transition and the unbind ops go out.
+        await lander(target);
     }
 
     const push: Nav['push'] = ((name: string, ...args: unknown[]) => {
@@ -609,6 +635,11 @@ export function createNavigatorState(opts: CreateNavigatorOptions): NavigatorSta
                 0,
                 read.target,
                 sheetDurationSec(read.heightFraction, TRANSITION_DURATION_SEC),
+                // A reset() can land DURING the slide and start a successor
+                // transition on the same shared SV — landing this one then
+                // would stomp it. Same identity check the completion callback
+                // uses, re-evaluated after the wait.
+                () => isOwnTransition(transitionBox.value, txn),
             );
         };
         const startCardPush = async (): Promise<void> => {
@@ -620,7 +651,13 @@ export function createNavigatorState(opts: CreateNavigatorOptions): NavigatorSta
             // seed null: the SV was parked at PRE_STAGE_PEEK in-stream above;
             // re-seeding 0 here would snap the layer fully off-screen for a
             // frame (backwards jump) and un-rasterize the peeked texture.
-            return animateProgress(sv, null, 1, TRANSITION_DURATION_SEC);
+            return animateProgress(
+                sv,
+                null,
+                1,
+                TRANSITION_DURATION_SEC,
+                () => isOwnTransition(transitionBox.value, txn),
+            );
         };
         (isSheet ? startSheetPush() : startCardPush()).then(
             clearOwnTransition,
@@ -745,7 +782,13 @@ export function createNavigatorState(opts: CreateNavigatorOptions): NavigatorSta
             // seed null for cards too: the pop pre-seeded 0 in-stream above,
             // so the worklet-side reset is redundant (and the in-stream seed
             // already carries the bindings-before-reset ordering guarantee).
-            return animateProgress(sv, null, isSheet ? 0 : 1, durationSec);
+            return animateProgress(
+                sv,
+                null,
+                isSheet ? 0 : 1,
+                durationSec,
+                () => isOwnTransition(transitionBox.value, txn),
+            );
         };
         startPop().then(commitOwnPop, commitOwnPop);
     }
