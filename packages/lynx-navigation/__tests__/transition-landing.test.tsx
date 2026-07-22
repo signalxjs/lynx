@@ -18,23 +18,26 @@
  * incoming screen's construction. Without the landing write these tests strand
  * the value at the pre-stage seed, which is the bug.
  */
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const motion = vi.hoisted(() => ({ timings: [] as number[], cancels: 0 }));
 
-// Stub ONLY the tween — everything else in lynx-motion stays real, so the
-// sheet/drag machinery this module graph pulls in still behaves.
+// Stub ONLY the tween: it records the intent and moves nothing, so the value
+// "never lands" on its own. `cancelAnimation` keeps its real behavior and is
+// merely counted — the landing path depends on it actually cancelling.
+// Everything else in lynx-motion stays real (this module graph pulls in the
+// sheet/drag machinery too).
 vi.mock('@sigx/lynx-motion', async (importOriginal) => {
     const actual = await importOriginal<typeof import('@sigx/lynx-motion')>();
     return {
         ...actual,
         withTiming: (_sv: unknown, target: number) => {
-            // Record the intent, move nothing: the animation "never lands".
             motion.timings.push(target);
             return Promise.resolve();
         },
-        cancelAnimation: () => {
+        cancelAnimation: (...args: Parameters<typeof actual.cancelAnimation>) => {
             motion.cancels += 1;
+            return actual.cancelAnimation(...args);
         },
     };
 });
@@ -88,8 +91,14 @@ function settleTransition(ms = 600): Promise<void> {
 }
 
 describe('transition landing (#758)', () => {
+    // Per-test isolation: the recorder is module-hoisted, so without this the
+    // assertions would depend on execution order.
+    beforeEach(() => {
+        motion.timings.length = 0;
+        motion.cancels = 0;
+    });
+
     it('a modal push lands progress on 1 even when the tween never advances', async () => {
-        const cancelsBefore = motion.cancels;
         const probe = renderRootAnimated();
         const sv = probe.internals!.progress!;
         expect(sv).toBeTruthy();
@@ -107,7 +116,7 @@ describe('transition landing (#758)', () => {
         // what puts the screen at rest — and it cancels first, so a late tick
         // can't drag it back off.
         expect(motion.timings).toContain(1);
-        expect(motion.cancels).toBeGreaterThan(cancelsBefore);
+        expect(motion.cancels).toBeGreaterThan(0);
         expect(mtValue(sv)).toBe(1);
     });
 
