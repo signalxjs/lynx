@@ -147,14 +147,14 @@ describe('web gesture recognizer (pointer listeners)', () => {
     expect(fired()).not.toContain('lp');
   });
 
-  // #759 — `<Pressable longPressDuration={0}>` disables long-press by pushing
+  // #763 — `<Pressable longPressDuration={0}>` disables long-press by pushing
   // `minDuration` to Number.MAX_SAFE_INTEGER so the timer never elapses. That
   // works on native, but `setTimeout` coerces its delay to a signed 32-bit int,
   // so on web the delay wrapped to <= 0 and LongPress fired on the next tick:
   // `lpFired` then disqualified the tap AND short-circuited the onEnd press
   // fallback, so `press` never emitted. Every daisyui/heroui control built on
   // Pressable was inert on web.
-  describe('LongPress: a never-elapsing minDuration (#759)', () => {
+  describe('LongPress: a never-elapsing minDuration (#763)', () => {
     it('does not arm a timer whose delay setTimeout cannot represent', () => {
       const el = makeEl();
       const spy = vi.spyOn(globalThis, 'setTimeout');

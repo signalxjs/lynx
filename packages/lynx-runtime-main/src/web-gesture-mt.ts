@@ -85,7 +85,7 @@ const DEFAULT_LONGPRESS_MS = 500;
  * `LongPress.onEnd`'s press fallback — so `press` never emitted at all. Every
  * daisyui/heroui control built on Pressable (Button, Checkbox, Toggle, Radio,
  * Select, Tabs, NavHeader's back button…) passes `longPressDuration={0}`, so
- * on web they were all inert (#759).
+ * on web they were all inert (#763).
  */
 const MAX_TIMEOUT_MS = 2147483647;
 /** Fling `minVelocity` default, px/ms (≈ 300 px/s). */
@@ -447,8 +447,6 @@ function onDown(entry: ElementGestures, e: PointerLike): void {
     runCb(g, 'onBegin', evt);
     if (g.type === LONGPRESS) {
       const ms = (g.config.minDuration as number) ?? DEFAULT_LONGPRESS_MS;
-      // A duration past what setTimeout can represent means "never fires"
-      // (see MAX_TIMEOUT_MS) — don't arm a timer that would overflow to 0.
       // A duration past what setTimeout can represent means "never fires"
       // (see MAX_TIMEOUT_MS) — don't arm a timer that would overflow to 0.
       if (ms <= MAX_TIMEOUT_MS) {
