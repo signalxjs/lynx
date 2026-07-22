@@ -1,16 +1,11 @@
 import { component, type Define, type JSXElement } from '@sigx/lynx';
 import type { EmojiDatum } from '../data/schema.js';
 import type { EmojiRenderCell } from '../types.js';
+import { emojiRowPx } from '../metrics.js';
 
-/**
- * Row height (px) a cell of `size` occupies: the glyph's visible INK
- * (emoji fonts ink ~64% of the em) plus 9px of air — row spacing tracks
- * what the eye sees, not the font metric (WhatsApp-dense), PINNED as the cell's explicit height. This is
- * simultaneously the cell's `estimated-main-axis-size-px` and the exact
- * per-row height the sectioned grid's scroll-offset math uses — est == actual
- * by construction (padding-derived heights drifted; #663 device gate).
- */
-export const emojiRowPx = (size?: number): number => Math.round((size ?? 32) * 0.64) + 9;
+// Row-height math lives in metrics.ts — the ink ratio is per-platform (#761)
+// and MUST be the same one the picker's geometry resolved.
+export { emojiRowPx };
 
 /** Everything the default (glyph) cell row needs — see {@link emojiCellRow}. */
 export interface EmojiCellRowArgs {

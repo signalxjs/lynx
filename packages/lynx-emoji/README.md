@@ -54,11 +54,18 @@ Full guides, API reference and live examples → **[https://sigx.dev/lynx/module
 - **Screen-adaptive, WhatsApp-dense geometry** — the picker fits as many
   ~40px cells as the measured width allows (that's the default column count:
   10 on a typical phone, clamped 7–12), then sizes the glyph so its VISIBLE
-  INK covers ~93% of the cell: emoji fonts ink only ~64% of their declared
-  size, so the font overshoots the cell (clamped 24–72) and row heights
-  track the ink, not the em box. Device-matched against WhatsApp. Category
-  tabs and the skin-tone popover scale along. Resolved once at mount; pass
-  `columns` and/or `cellSize` for manual control.
+  INK covers ~93% of the cell. The ink is a **per-platform font metric**
+  (#761): Noto Color Emoji (Android) inks only ~64% of its declared size —
+  the font overshoots the cell and Noto's inset absorbs it (device-matched
+  against WhatsApp) — while Apple Color Emoji's widest glyphs (🫡, flags)
+  ink ~10% *beyond* the em, so on iOS the em sits at ~85% of the cell to
+  keep edge columns clear of the container clip (and is hard-capped at the
+  cell width so a wrong ratio can only read airy, never overlap);
+  web/unknown hosts use the iOS bucket. Row heights track the ink, not the em box, on every platform —
+  `emojiRowPx` is platform-aware. Category tabs and the skin-tone popover
+  scale along. Resolved once at mount; pass `columns` and/or `cellSize` for
+  manual control (an explicit `cellSize` is an em size — never clamped, and
+  its visual density differs per platform while the row height adapts).
 - **Search** — ranked shortcode/name/keyword search (`useEmojiSearch`-free:
   `buildSearchIndex(data).search('fire')`).
 - **Skin tones** — long-press a tonal emoji; the choice is sticky grid-wide

@@ -3,6 +3,7 @@ import { component, signal } from '@sigx/lynx';
 import { render, getAllByType, getByType, getByText, queryByText, act } from '@sigx/lynx-testing';
 import { EmojiGrid, sectionRowIndex, sectionStartOffsets } from '../src/components/EmojiGrid';
 import { emojiRowPx } from '../src/components/EmojiCell';
+import { emojiInkRatio } from '../src/metrics';
 import { HEADER_PX } from '../src/components/SectionHeader';
 import { EmojiPicker } from '../src/components/EmojiPicker';
 import type { EmojiData, EmojiDatum } from '../src/data/schema';
@@ -102,9 +103,10 @@ async function measureRegion(container: unknown, width = 328): Promise<void> {
     const fire = (n: TestNode): boolean => {
         const h = n._handlers.get('bindlayoutchange');
         if (h) {
-            // Width 328 resolves the ADAPTIVE default cell size to exactly 32
-            // (328 / 8 cols * 0.78 = 31.98 -> 32), so every offset/estimate
-            // assertion below keeps meaning what it says (#669).
+            // Width 328 resolves the ADAPTIVE geometry to 8 columns and a
+            // 60px em (Android ink 0.64 — see the harness guard test), so
+            // every offset/estimate assertion below keeps meaning what it
+            // says (#669).
             h({ detail: { width, height: 600, top: 0, left: 0 } });
             return true;
         }
@@ -142,6 +144,15 @@ async function measureRegion(container: unknown, width = 328): Promise<void> {
     );
 }
 
+// Every literal below (29px estimates, 60px adaptive font, 47px rows, …) is
+// the ANDROID calibration of the per-platform ink table (#761): jsdom has no
+// SystemInfo and no android/ios UA marker, so `Platform.OS` falls back to
+// 'android' (0.64 ink). If the harness environment ever stops resolving to
+// android, fail here — loudly — instead of letting every number below drift.
+it('the jsdom harness resolves the Android ink ratio', () => {
+    expect(emojiInkRatio()).toBe(0.64);
+});
+
 describe('EmojiGrid (template cells, #649)', () => {
     it('renders every cell of a big category — no windowing', () => {
         const { container } = render(<EmojiGrid emojis={CAT_A} />);
@@ -149,7 +160,7 @@ describe('EmojiGrid (template cells, #649)', () => {
         expect(cells.length).toBe(CAT_A.length); // all 388 — staged rows are cheap
         // Platform attrs come from the cell's own JSX now (not List props).
         expect(cells[0].props['item-key']).toBe('A0');
-        // Default cell estimate: round(32 * 0.64) + 9px air = 20 + 9 = 29.
+        // Default cell estimate: round(32 * 0.64 Android ink) + 9px air = 29.
         expect(cells[0].props['estimated-main-axis-size-px']).toBe(29);
         // Native reuse group — parity with the pre-template itemType wrapper.
         expect(cells[0].props['item-type']).toBe('emoji');
@@ -290,7 +301,7 @@ describe('sectioned grid (#662)', () => {
     });
 
     it('sectionStartOffsets is exact arithmetic over header + row heights', () => {
-        // 8 columns, default 32px glyph -> 50px rows, 28px headers.
+        // 8 columns, default 32px glyph -> 29px rows (Android ink 0.64).
         const offsets = sectionStartOffsets(SECTIONS, 8);
         expect(offsets[0]).toBe(0);
         expect(offsets[1]).toBe(HEADER_PX + Math.ceil(CAT_A.length / 8) * emojiRowPx());
@@ -342,7 +353,7 @@ describe('sectioned grid (#662)', () => {
         expect(activeGlyphs()).toEqual(['A0']);
         const list = getByType(container, 'list') as unknown as TestNode;
         // Adaptive geometry at width 328: 8 columns (floor(328/40)), and
-        // fontSize round((328/8) * 0.93 / 0.64) = 60 (ink-model, #674).
+        // fontSize round((328/8) * 0.93 / 0.64) = 60 (Android ink, #674/#761).
         const catBStart = sectionStartOffsets(SECTIONS, 8, 60)[1]!;
         await act(() => { list._handlers.get('bindscroll')!({ detail: { scrollTop: catBStart + 5 } }); });
         expect(activeGlyphs()).toEqual(['B0']);
@@ -368,7 +379,8 @@ describe('adaptive cell sizing (#669)', () => {
         );
         // Width 412: columns = floor(412/40) = 10; fontSize =
         // round((41.2 * 0.93) / 0.64) = 60; rows pin at round(60*0.64)+9 = 47
-        // (ink-model, #674 — the em overshoots so visible ink fills the cell).
+        // (Android ink 0.64, #674/#761 — the em overshoots the cell so the
+        // visible ink fills it; Noto's inset absorbs the overshoot).
         await measureRegion(container, 412);
         const list = getByType(container, 'list');
         expect(list.props['span-count']).toBe(10);

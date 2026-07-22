@@ -11,6 +11,7 @@ import type {
     EmojiSlotClasses,
     EmojiTab,
 } from '../types.js';
+import { emojiInkRatio, resolveEmojiGeometry } from '../metrics.js';
 import { CategoryTabBar, type CategoryTabEntry } from './CategoryTabBar.js';
 import { EmojiGrid, type EmojiGridScrollHandle, type EmojiSection } from './EmojiGrid.js';
 import { SearchInput } from './SearchInput.js';
@@ -40,13 +41,14 @@ export type EmojiPickerProps =
     /** Header label of the recents section. Default `'Recently used'`. */
     & Define.Prop<'recentsLabel', string, false>
     /**
-     * Glyph font size in grid cells. Default: ADAPTIVE — the glyph fills
-     * the cell so its VISIBLE INK covers ~93% of the cell width (emoji
-     * fonts ink only ~64% of the em — the font size overshoots accordingly;
-     * clamped 24–72), so the grid is dense
-     * in both axes like WhatsApp's; 32 when no width is known. Pass a number
-     * for full control. The tone popover follows the resolved size. Frozen
-     * for the mount, like `columns`.
+     * Glyph font size (em) in grid cells. Default: ADAPTIVE — the glyph is
+     * sized so its VISIBLE INK covers ~93% of the cell width. The ink is a
+     * per-platform font metric (#761: Noto Color Emoji ~64% of the em on
+     * Android; iOS models Apple's worst-case glyphs at 1.1), so the same em renders
+     * different visual densities per platform — row heights adapt with it;
+     * 32 when no width is known. Pass a number for full control (never
+     * clamped). The tone popover follows the resolved size. Frozen for the
+     * mount, like `columns`.
      */
     & Define.Prop<'cellSize', number, false>
     /** Per-slot class overrides — the theming surface. */
@@ -210,20 +212,19 @@ export const EmojiPicker = component<EmojiPickerProps>(({ props, emit }) => {
         position: 'relative',
     };
 
-    // Grid geometry derives from the SCREEN (the WhatsApp model, #669/#674):
-    // fit as many ~TARGET_CELL_PX-wide cells as the measured width allows
-    // (that's the column count — 10 on a typical phone, more on tablets),
-    // then size the glyph so its INK fills ~93% of the resulting cell, so the grid is
-    // dense in both axes regardless of device. Resolves exactly once — at
-    // the same pre-mount gate that freezes the region height — because the
-    // sectioned grid's scroll-offset math needs rows fixed per mount.
-    // Pre-measure (tests, SSR) falls back WITHOUT freezing, so the real
-    // measurement still wins. Explicit props override their half each.
-    // Android/iOS emoji fonts INK only ~64% of the declared fontSize — all
-    // spacing math below models the visible ink, not the em box, or the grid
-    // reads airy no matter the numbers (measured against WhatsApp on device).
-    const EMOJI_INK = 0.64;
-    const TARGET_CELL_PX = 40;
+    // Grid geometry derives from the SCREEN (the WhatsApp model, #669/#674) —
+    // the math lives in metrics.ts, parameterized by the PLATFORM ink ratio
+    // (#761: Noto insets ~64% of the em; iOS models Apple's worst-case
+    // glyphs at 1.1 — the widest ink beyond their em box).
+    // Resolves exactly once — at the same pre-mount gate that freezes the
+    // region height — because the sectioned grid's scroll-offset math needs
+    // rows fixed per mount. Pre-measure (tests, SSR) falls back WITHOUT
+    // freezing, so the real measurement still wins. Explicit props are baked
+    // in AT RESOLVE TIME and the pair is frozen for the mount — never mix a
+    // later prop with a size derived for a different column count (glyphs
+    // sized for 10 columns in an 8-column grid would misreport every row
+    // height to the offset math).
+    const ink = emojiInkRatio();
     let resolvedGeometry: { columns: number; cellSize: number } | null = null;
     const geometryFor = (regionWidth: number): { columns: number; cellSize: number } => {
         if (resolvedGeometry !== null) return resolvedGeometry;
@@ -231,15 +232,10 @@ export const EmojiPicker = component<EmojiPickerProps>(({ props, emit }) => {
             // Pre-measure fallback — NOT frozen, so the real measurement wins.
             return { columns: props.columns ?? 8, cellSize: props.cellSize ?? 32 };
         }
-        // Explicit props are baked in AT RESOLVE TIME and the pair is frozen
-        // for the mount — never mix a later prop with a size derived for a
-        // different column count (glyphs sized for 10 columns in an 8-column
-        // grid would misreport every row height to the offset math).
-        const columns = props.columns
-            ?? Math.min(12, Math.max(7, Math.floor(regionWidth / TARGET_CELL_PX)));
-        const cellSize = props.cellSize
-            ?? Math.min(72, Math.max(24, Math.round(((regionWidth / columns) * 0.93) / EMOJI_INK)));
-        resolvedGeometry = { columns, cellSize };
+        resolvedGeometry = resolveEmojiGeometry(regionWidth, ink, {
+            columns: props.columns,
+            cellSize: props.cellSize,
+        });
         return resolvedGeometry;
     };
 
@@ -339,7 +335,11 @@ export const EmojiPicker = component<EmojiPickerProps>(({ props, emit }) => {
                 class={classes.grid}
                 cellClass={classes.cell}
                 headerClass={classes.sectionHeader}
-                headerLabelSize={Math.round(cellSize * 0.28)}
+                // Plain text, not emoji — scale by the glyph's VISUAL size
+                // (em × ink), anchored to the historical Android output
+                // (0.28 of the em at 0.64 ink), or the label diverges on
+                // platforms whose emoji em is smaller for the same ink.
+                headerLabelSize={Math.round(cellSize * ink * (0.28 / 0.64))}
                 renderCell={props.renderCell}
                 style={styleFor(gridStyles, GRID_STYLE_TEMPLATE, 'sections')}
                 onPick={(datum) => pick(datum, ctx.skinTone.state.tone)}
