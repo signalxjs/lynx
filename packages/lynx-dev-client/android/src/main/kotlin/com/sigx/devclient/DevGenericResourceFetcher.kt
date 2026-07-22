@@ -26,21 +26,27 @@ class DevGenericResourceFetcher : LynxGenericResourceFetcher() {
         .build()
 
     override fun fetchResource(
-        request: LynxResourceRequest,
+        request: LynxResourceRequest?,
         callback: LynxResourceCallback<ByteArray>
     ) {
+        // `LynxResourceRequest` is an unannotated Java type, so declare it
+        // nullable and guard: a non-null declaration would make Kotlin's
+        // intrinsic throw an NPE before this body could return a structured
+        // failure (and render the check dead code). Matches the production
+        // fetchers in SigxProductionResources.kt.
         if (request == null) {
             callback.onResponse(failed("request is null"))
             return
         }
 
-        val httpRequest = Request.Builder().url(request.url).build()
+        val url = request.url
+        val httpRequest = Request.Builder().url(url).build()
         httpClient.newCall(httpRequest).enqueue(object : Callback {
             override fun onResponse(call: Call, response: Response) {
                 response.use {
                     if (it.isSuccessful && it.body != null) {
                         callback.onResponse(LynxResourceResponse.onSuccess(it.body!!.bytes()))
-                    } else if (it.code == 404 && request.url.contains(".css.hot-update.json")) {
+                    } else if (it.code == 404 && url.contains(".css.hot-update.json")) {
                         // Missing CSS hot-update = no CSS change for this chunk.
                         // The css-extract HMR runtime iterates every chunk's
                         // `.css.hot-update.json` and only acts `if (ret.content)`,

@@ -40,7 +40,12 @@ import { daisyuiPreset } from '@sigx/lynx-daisyui/preset';
 
 ## What's interesting
 
-- **Two-way binding** form controls via the sigx [`model`](https://sigx.dev/core/docs/two-way-binding) getter syntax — no `onChange` plumbing.
+- **Two-way binding** form controls via the sigx [`model`](https://sigx.dev/core/docs/two-way-binding) getter syntax — no `onChange` plumbing. `Select` and `Radio.Item` additionally accept a plain callback (`onChange` / `onSelect`) for controlled, non-`model` usage; `model` stays the canonical state path and is written before the callback runs, so both can be used together:
+
+  ```tsx
+  <Select options={fruits} model={() => state.fruit} onChange={(v) => track('fruit', v)} />
+  <Radio.Item value="pro" label="Pro" onSelect={(v) => setPlan(v)} />
+  ```
 - **Theme switching** with `<ThemeProvider>` / `useTheme()`, a headless `themeController` singleton, per-screen themes, and scoped sub-overrides. Content themes nest freely; OS chrome (status/nav bars) follows the global theme.
 - **Navigation chrome** that pairs with [`@sigx/lynx-navigation`](https://sigx.dev/lynx/modules/navigation/overview/) — `<NavTabBar />`, `<NavHeader />`, `<SwiperIndicator>` — all built on the navigation package's public hooks.
 - **Markdown integration** bridges into [`@sigx/lynx-markdown`](https://sigx.dev/lynx/modules/markdown/overview/) for themed rendering, editing and toolbar.

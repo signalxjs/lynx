@@ -100,8 +100,12 @@ function normalizeLineEndings(content: string, fileName: string): string {
 
 /**
  * Resolve the templates directory. Works both in source (src/) and dist (dist/).
+ *
+ * Exported so tests can pin that the resolution still lands on the real
+ * templates — `fingerprintPrebuildInputs` folds this tree in, and a wrong
+ * path would silently degrade to hashing nothing (#614).
  */
-function getTemplatesDir(): string {
+export function getTemplatesDir(): string {
     const thisFile = fileURLToPath(import.meta.url);
     const thisDir = dirname(thisFile);
     // In dist: packages/lynx-cli/dist/prebuild.js → go up to packages/lynx-cli/
@@ -595,7 +599,7 @@ export function injectGradleDependencies(cwd: string, config: ResolvedConfig, de
 export function injectGradlePlugins(
     cwd: string,
     config: ResolvedConfig,
-    plugins: import('./manifest.js').AndroidGradlePluginEntry[],
+    allPlugins: import('./manifest.js').AndroidGradlePluginEntry[],
 ): void {
     const gradleFile = androidBuildGradlePath(cwd, config);
     if (!existsSync(gradleFile)) return;
@@ -603,6 +607,32 @@ export function injectGradlePlugins(
     let content = readFileSync(gradleFile, 'utf-8');
     const marker = '    // {{GRADLE_PLUGINS}}';
     if (!content.includes(marker)) return;
+
+    // Drop plugins whose declared requirement isn't met. Autolinking is
+    // dependency-driven — a module lands in the graph because something
+    // depends on it — so an unconditional plugin that hard-requires app
+    // config makes every build fail until that config exists (#618).
+    const plugins: import('./manifest.js').AndroidGradlePluginEntry[] = [];
+    for (const plugin of allPlugins) {
+        if (plugin.requires === undefined) {
+            plugins.push(plugin);
+            continue;
+        }
+        if (plugin.requires !== 'android.googleServicesFile') {
+            throw new Error(
+                `Gradle plugin "${plugin.id}" declares unknown requirement ` +
+                `"${plugin.requires}". Supported: "android.googleServicesFile".`,
+            );
+        }
+        if (resolveGoogleServicesFile(cwd, config)) {
+            plugins.push(plugin);
+        } else {
+            log(
+                `Android: skipped Gradle plugin ${plugin.id} — ` +
+                `\`android.googleServicesFile\` is not configured.`,
+            );
+        }
+    }
 
     for (const plugin of plugins) {
         if (!/^[a-z][a-z0-9.-]*$/.test(plugin.id)) {
@@ -634,6 +664,35 @@ export function injectGradlePlugins(
 const FCM_MESSAGING_EVENT_ACTION = 'com.google.firebase.MESSAGING_EVENT';
 
 /**
+ * Absolute path of the configured Firebase `google-services.json`, or null
+ * when `android.googleServicesFile` is unset. Throws when it is set but
+ * points at nothing — a typo'd path is a mistake worth failing on, whereas
+ * "not configured" is a supported state (no FCM).
+ *
+ * Shared by `copyGoogleServicesFile` (which copies it) and
+ * `injectGradlePlugins` (which gates `com.google.gms.google-services` on it),
+ * so the two can't disagree about whether Firebase is configured.
+ */
+export function resolveGoogleServicesFile(cwd: string, config: ResolvedConfig): string | null {
+    const configured = config.android.googleServicesFile?.trim();
+    if (!configured) return null;
+
+    const srcPath = isAbsolute(configured) ? configured : join(cwd, configured);
+    // Must be a regular file, not merely present: a directory here would read
+    // as "Firebase configured", apply the Gradle plugin, and then blow up in
+    // `copyGoogleServicesFile` with a bare EISDIR from readFileSync.
+    const stat = statSync(srcPath, { throwIfNoEntry: false });
+    if (!stat?.isFile()) {
+        throw new Error(
+            `android.googleServicesFile points at "${configured}" but ` +
+            (stat ? `${srcPath} is not a file` : `no file exists at ${srcPath}`) +
+            `. Set it to your Firebase google-services.json path (relative to the project root).`,
+        );
+    }
+    return srcPath;
+}
+
+/**
  * Copy the configured Firebase `google-services.json` into
  * `android/app/google-services.json` so it survives `android/` regeneration.
  * The `com.google.gms.google-services` plugin reads it at build time to emit
@@ -653,23 +712,18 @@ export function copyGoogleServicesFile(
     const configured = config.android.googleServicesFile?.trim();
     const fcmLinked = services.some((s) => s.actions?.includes(FCM_MESSAGING_EVENT_ACTION));
 
-    if (!configured) {
+    const srcPath = resolveGoogleServicesFile(cwd, config);
+    if (!srcPath) {
         if (fcmLinked) {
             log(
                 `\x1b[33m!\x1b[0m An FCM messaging service is linked but ` +
                 `\`android.googleServicesFile\` is not set — remote push won't ` +
-                `initialize. Point it at your Firebase google-services.json in signalx.config.ts.`,
+                `initialize (local notifications are unaffected, and the build ` +
+                `proceeds without the Google Services plugin). Point it at your ` +
+                `Firebase google-services.json in signalx.config.ts.`,
             );
         }
         return;
-    }
-
-    const srcPath = isAbsolute(configured) ? configured : join(cwd, configured);
-    if (!existsSync(srcPath)) {
-        throw new Error(
-            `android.googleServicesFile points at "${configured}" but no file exists at ` +
-            `${srcPath}. Set it to your Firebase google-services.json path (relative to the project root).`,
-        );
     }
 
     const destPath = join(androidProjectRoot(cwd, config), 'app', 'google-services.json');
@@ -2467,7 +2521,14 @@ export function cleanPrebuild(
  * fast-path skips and the consumer keeps using a stale generated registry
  * + stale copies of the package's native files.
  */
-export function fingerprintPrebuildInputs(cwd: string, platforms: { android: boolean; ios: boolean }, variant?: string): string {
+export function fingerprintPrebuildInputs(
+    cwd: string,
+    platforms: { android: boolean; ios: boolean },
+    variant?: string,
+    /** Override the templates root. Tests point this at a scratch copy so they
+     *  never mutate the shared `templates/` tree other tests hash. */
+    templatesDir: string = getTemplatesDir(),
+): string {
     const files: string[] = [];
 
     for (const name of ['signalx.config.ts', 'signalx.config.js', 'signalx.config.mjs', 'lynx.config.ts', 'lynx.config.js', 'lynx.config.mjs']) {
@@ -2498,6 +2559,16 @@ export function fingerprintPrebuildInputs(cwd: string, platforms: { android: boo
     // successful run wrote (the fast path runs before config is loaded).
     const googleServicesPath = readCachedFingerprint(cwd, variant ? `prebuild-google-services-path-${variant}` : 'prebuild-google-services-path');
     if (googleServicesPath && existsSync(googleServicesPath)) files.push(googleServicesPath);
+
+    // The CLI's own managed templates (ContentView.swift, MainActivity.kt,
+    // SigxProductionResources.*, …) are copied into the native projects by
+    // refresh{Ios,Android}ManagedFiles on every prebuild, so they are inputs
+    // like any module's sourceDir. `cliVersion` covers a *published* CLI, but
+    // not a workspace one: editing a template in-tree left the fingerprint
+    // unchanged, the fast path skipped, and the previous run's stale template
+    // was what landed in the built app — silently (#614). A fixed ~40-file
+    // tree, so the hashing cost is noise next to a prebuild.
+    for (const f of walkFiles(templatesDir)) files.push(f);
 
     // Index covers transitive module dependencies too (e.g. @sigx/lynx-core
     // pulled in by another module) — their copied sources are prebuild
@@ -2549,7 +2620,9 @@ export function fingerprintPrebuildInputs(cwd: string, platforms: { android: boo
         //     the fast path even with no project source change (#348).
         // v7: include the Firebase google-services.json contents (via sidecar
         //     path), so swapping FCM credentials invalidates the fast path (#560).
-        fingerprintFormat: 'v7',
+        // v8: include the CLI's own templates/ tree, so editing a managed
+        //     template in a workspace checkout invalidates the fast path (#614).
+        fingerprintFormat: 'v8',
         cliVersion: getCliVersion(),
         platforms: `android=${platforms.android};ios=${platforms.ios}`,
         // Variant identity changes the rendered output (suffixed ids, signing,
