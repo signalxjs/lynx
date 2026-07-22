@@ -43,13 +43,21 @@ So anything that decides where it fits on screen — a dropdown flipping above
 its trigger, a suggestion list clamping against the keyboard — must measure:
 
 ```tsx
+const { layout, onLayoutChange } = useElementLayout();
 const { ref, rect, measure } = useViewportRect();
+
+// Measured wins; the layout frame keeps the surface placeable on the first
+// frame (and on hosts where the UI method is unavailable).
+const anchor = () => rect.value ?? layout.value;
 
 // Measure when the surface is about to open and whenever the environment
 // moves it (layout, keyboard, orientation) — not from a render path.
 return () => (
-  <view main-thread:ref={ref} bindlayoutchange={() => measure()}>
-    {open.value && rect.value ? <Menu anchor={rect.value} /> : null}
+  <view
+    main-thread:ref={ref}
+    bindlayoutchange={(e) => { onLayoutChange(e); measure(); }}
+  >
+    {open.value && anchor() ? <Menu anchor={anchor()!} /> : null}
   </view>
 );
 ```

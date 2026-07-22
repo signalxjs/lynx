@@ -48,6 +48,27 @@ describe('measureViewportRect', () => {
         expect(rect).toMatchObject({ right: 100, bottom: 40 });
     });
 
+    it('derives width/height from edges when the engine reports only those', () => {
+        let rect: ViewportRect | null = null;
+        const el = fakeElement(() => ({ left: 20, top: 100, right: 340, bottom: 148 }));
+        measureViewportRect(el, (r) => { rect = r; });
+        expect(rect).toEqual({ left: 20, top: 100, width: 320, height: 48, right: 340, bottom: 148 });
+    });
+
+    it('derives the origin from the far edges and the size', () => {
+        let rect: ViewportRect | null = null;
+        const el = fakeElement(() => ({ right: 340, bottom: 148, width: 320, height: 48 }));
+        measureViewportRect(el, (r) => { rect = r; });
+        expect(rect).toEqual({ left: 20, top: 100, width: 320, height: 48, right: 340, bottom: 148 });
+    });
+
+    it('ignores non-finite numbers rather than propagating NaN', () => {
+        let rect: ViewportRect | null = null;
+        const el = fakeElement(() => ({ left: Number.NaN, top: 10, width: 100, height: 20 }));
+        measureViewportRect(el, (r) => { rect = r; });
+        expect(rect).toEqual({ left: 0, top: 10, width: 100, height: 20, right: 100, bottom: 30 });
+    });
+
     it('accepts a synchronous (non-promise) result', () => {
         let rect: ViewportRect | null = null;
         const el = fakeElement(() => ({ left: 1, top: 2, width: 3, height: 4 }));

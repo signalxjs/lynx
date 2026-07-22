@@ -95,20 +95,36 @@ export function measureViewportRect(
         apply(null);
         return;
     }
+    // Engines don't all report the same subset: some send edges only, some
+    // send origin + size. Fill each missing field from whichever pair is
+    // present rather than defaulting it to 0 — a zeroed width/height silently
+    // collapses the placement math of whatever consumes the rect.
     const normalize = (value: unknown): ViewportRect | null => {
         if (!value || typeof value !== 'object') return null;
         const r = value as RectPayload;
-        const left = r.left ?? 0;
-        const top = r.top ?? 0;
-        const width = r.width ?? 0;
-        const height = r.height ?? 0;
+        const num = (v: number | undefined): number | undefined =>
+            typeof v === 'number' && isFinite(v) ? v : undefined;
+        let left = num(r.left);
+        let top = num(r.top);
+        let right = num(r.right);
+        let bottom = num(r.bottom);
+        let width = num(r.width);
+        let height = num(r.height);
+        if (width === undefined && right !== undefined && left !== undefined) width = right - left;
+        if (height === undefined && bottom !== undefined && top !== undefined) height = bottom - top;
+        if (left === undefined && right !== undefined && width !== undefined) left = right - width;
+        if (top === undefined && bottom !== undefined && height !== undefined) top = bottom - height;
+        if (left === undefined) left = 0;
+        if (top === undefined) top = 0;
+        if (width === undefined) width = 0;
+        if (height === undefined) height = 0;
         return {
             left,
             top,
             width,
             height,
-            right: r.right ?? left + width,
-            bottom: r.bottom ?? top + height,
+            right: right === undefined ? left + width : right,
+            bottom: bottom === undefined ? top + height : bottom,
         };
     };
     let result: unknown;
