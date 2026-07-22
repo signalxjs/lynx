@@ -15,6 +15,7 @@ import { useKeyboardLift, useKeyboardLiftSV } from '@sigx/lynx-keyboard';
 import { useSafeAreaInsets } from '@sigx/lynx-safe-area';
 import { EmojiPicker, enData, useKeyboardPanelReveal, type EmojiPickEvent } from '@sigx/lynx-emoji';
 import { List } from '@sigx/lynx-list';
+import { createMentionPlugin, type MentionCandidate } from '@sigx/lynx-markdown';
 import { MarkdownEditor, type MarkdownEditorController } from '@sigx/lynx-markdown/editor';
 
 interface Msg {
@@ -49,6 +50,24 @@ const INPUT_H = 64;
 const PICKER_STYLE = { flexGrow: 1 } as const;
 /** Fallback emoji-panel height before a keyboard has ever opened (dp). */
 const DEFAULT_KB = 320;
+
+const MENTIONS: MentionCandidate[] = [
+    { id: 'u1', label: 'Andy', kind: 'user' },
+    { id: 'u2', label: 'Bea', kind: 'user' },
+    { id: 'u3', label: 'Carol', kind: 'user' },
+    { id: 'u4', label: 'Dimitri', kind: 'user' },
+];
+
+/**
+ * Mentions inside the sheet — the case that proves the suggestion popup
+ * places against the composer's LIVE position (#755). The sheet rides the
+ * keyboard on a main-thread transform, so a placement derived from layout
+ * coordinates would flip the list below the caret and hide it behind the
+ * keyboard.
+ */
+const mentionPlugin = createMentionPlugin({
+    search: (q) => MENTIONS.filter((u) => u.label.toLowerCase().startsWith(q.toLowerCase())),
+});
 
 /**
  * Chat composer (WhatsApp-style) — the input + emoji picker are ONE persistent
@@ -310,6 +329,8 @@ export const EmojiComposerScreen = component(() => {
                                                 // over the emojis (BUG 1). Re-enabled in `closing`
                                                 // (the tap-to-return path focuses it on purpose).
                                                 disabled={mode === 'open'}
+                                                plugins={[mentionPlugin]}
+                                                suggestionPopup={editorTheme.suggestionPopup}
                                                 textColor={editorTheme.textColor}
                                                 accentColor={editorTheme.accentColor}
                                                 placeholderColor={editorTheme.placeholderColor}

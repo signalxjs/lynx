@@ -1,5 +1,6 @@
 import {
   component,
+  measureViewportRect,
   useMainThreadRef,
   useSharedValue,
   useAnimatedStyle,
@@ -9,6 +10,7 @@ import {
   type SharedValue,
   type Define,
   type MainThread,
+  type ViewportRect,
 } from '@sigx/lynx';
 import { useScrollContext } from '../scroll-context.js';
 
@@ -215,37 +217,30 @@ export const Draggable = component<DraggableProps>(({ props, slots, emit }) => {
       drag.current.lastPageX = pageX;
       drag.current.lastPageY = pageY;
       drag.current.edgeScrollActive = false;
-      // Lazy viewport measurement for edge-scroll. Reads computed size of
-      // the parent <scroll-view> via the ref the context publishes; assumes
-      // page-rooted (top-left at page origin) which holds for the showcase
-      // and the standard "list takes the whole screen" pattern. Refine via
-      // a `boundingClientRect` invoke (returns Promise — needs async-stash)
-      // if a nested-scroll-view consumer hits it.
+      // Lazy viewport measurement for edge-scroll. Measures the parent
+      // <scroll-view> via the ref the context publishes.
       if (edgeScrollEnabled && scrollCtx) {
         const svRef = scrollCtx.scrollViewRef.current;
         if (svRef) {
-          // Use `boundingClientRect` over `getComputedStyleProperty`: it
-          // returns page-relative geometry that's consistent across iOS +
-          // Android. `getComputedStyleProperty('height')` sometimes returns
-          // unresolved `100vh`-style strings or content heights on Android,
-          // which made the bottom-edge zone unreachable on Pixel.
+          // `measureViewportRect` over `getComputedStyleProperty`: it returns
+          // viewport geometry that's consistent across iOS + Android and
+          // accounts for transforms. `getComputedStyleProperty('height')`
+          // sometimes returns unresolved `100vh`-style strings or content
+          // heights on Android, which made the bottom-edge zone unreachable
+          // on Pixel.
           //
-          // The invoke is async (Promise-based) — the rect lands a tick or
-          // two after this call, so the first few onUpdate frames may see
+          // The measurement is async — the rect lands a tick or two after
+          // this call, so the first few onUpdate frames may see
           // scrollView{Width,Height}=0 and skip the rAF schedule. By the
           // time the user has dragged anywhere meaningful, the rect is
           // populated and edge-scroll engages.
-          const rectP = svRef.invoke('boundingClientRect', {});
-          if (rectP && typeof rectP.then === 'function') {
-            rectP.then((rect: unknown) => {
-              if (!rect || typeof rect !== 'object') return;
-              const r = rect as { left?: number; top?: number; width?: number; height?: number };
-              drag.current.scrollViewLeft = r.left || 0;
-              drag.current.scrollViewTop = r.top || 0;
-              drag.current.scrollViewWidth = r.width || 0;
-              drag.current.scrollViewHeight = r.height || 0;
-            }).catch(() => {});
-          }
+          measureViewportRect(svRef, (rect: ViewportRect | null) => {
+            if (!rect) return;
+            drag.current.scrollViewLeft = rect.left;
+            drag.current.scrollViewTop = rect.top;
+            drag.current.scrollViewWidth = rect.width;
+            drag.current.scrollViewHeight = rect.height;
+          });
         }
         // Seed last-known scroll offsets so the first tick's "actual delta"
         // baselines correctly. After the first frame, the rAF tick keeps

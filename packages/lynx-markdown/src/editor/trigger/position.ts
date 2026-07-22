@@ -3,15 +3,24 @@
  *
  * Inputs are deliberately primitive so this is unit-testable without a
  * renderer: the element-local caret rect (from `bindselection`), the
- * positioning container's page-absolute frame (from `bindlayoutchange`),
- * the screen height and the keyboard height (`@sigx/lynx-keyboard`).
+ * positioning container's **viewport** frame (`useViewportRect`), the screen
+ * height and the keyboard height (`@sigx/lynx-keyboard`).
+ *
+ * The container frame must be viewport-relative and transform-aware — a
+ * layout-page frame (`bindlayoutchange`) does not move with a main-thread
+ * transform, so inside a sheet riding the keyboard lift the math would place
+ * against the composer's *unlifted* position and flip the popup down behind
+ * the keyboard (#755).
  *
  * Placement: **above the caret by default** — the editor usually sits in a
  * bottom-docked composer, so above is where the room is — flipping below
  * when there isn't enough space above. Either way the popup is clamped so it
  * never extends under the keyboard, and the list scrolls internally when the
- * clamp bites.
+ * clamp bites. A host that knows better can pin the side outright
+ * (`prefer: 'above' | 'below'`).
  */
+
+import { Platform } from '@sigx/lynx';
 
 export interface CaretRect {
     x: number;
@@ -37,7 +46,7 @@ const MIN_USEFUL_HEIGHT = 44;
 
 export function placeSuggestionPopup(opts: {
     caretRect: CaretRect;
-    /** Page-absolute top of the positioning container (0 until measured). */
+    /** Viewport-relative top of the positioning container (0 until measured). */
     containerTop: number;
     containerWidth: number;
     containerHeight: number;
@@ -45,6 +54,12 @@ export function placeSuggestionPopup(opts: {
     keyboardHeight: number;
     popupWidth: number;
     maxPopupHeight: number;
+    /**
+     * Pin the side instead of measuring room for it. `'auto'` (default) picks
+     * from the available space; an explicit side still gets the keyboard
+     * clamp, so the list scrolls rather than overflowing.
+     */
+    prefer?: 'auto' | 'above' | 'below';
 }): PopupPlacement {
     const caretTopAbs = opts.containerTop + opts.caretRect.y;
     const caretBottomAbs = caretTopAbs + opts.caretRect.height;
@@ -54,8 +69,10 @@ export function placeSuggestionPopup(opts: {
     const spaceBelow = keyboardTop - caretBottomAbs - GAP;
 
     const fitsAbove = spaceAbove >= Math.min(opts.maxPopupHeight, MIN_USEFUL_HEIGHT);
-    const placement: PopupPlacement['placement'] =
-        fitsAbove || spaceAbove >= spaceBelow ? 'above' : 'below';
+    const prefer = opts.prefer ?? 'auto';
+    const placement: PopupPlacement['placement'] = prefer !== 'auto'
+        ? prefer
+        : fitsAbove || spaceAbove >= spaceBelow ? 'above' : 'below';
 
     const left = Math.max(0, Math.min(opts.caretRect.x, opts.containerWidth - opts.popupWidth));
 
@@ -77,30 +94,14 @@ export function placeSuggestionPopup(opts: {
     };
 }
 
-declare const lynx:
-    | {
-        SystemInfo?: {
-            pixelHeight?: number;
-            pixelRatio?: number;
-        };
-    }
-    | undefined;
-
 /**
- * Logical screen height in dp from `lynx.SystemInfo` (same pattern as
- * `@sigx/lynx-navigation`'s screen-width module). Falls back to a typical
- * phone height in tests / non-Lynx hosts.
+ * Logical screen height in dp, from the framework's `Platform` snapshot of
+ * `SystemInfo` (the same source `@sigx/lynx-navigation` reads for its screen
+ * metrics). Falls back to a typical phone height in tests / non-Lynx hosts,
+ * where `Platform.pixelHeight` is 0.
  */
 export function screenHeightDp(fallback = 800): number {
-    try {
-        const info = typeof lynx !== 'undefined' ? lynx?.SystemInfo : undefined;
-        const px = info?.pixelHeight;
-        const pr = info?.pixelRatio || 1;
-        if (typeof px === 'number' && px > 0) {
-            return Math.round(px / pr);
-        }
-    } catch {
-        // Lynx globals not present (test env / SSR) — use fallback.
-    }
+    const px = Platform.pixelHeight;
+    if (px > 0) return Math.round(px / (Platform.pixelRatio || 1));
     return fallback;
 }
