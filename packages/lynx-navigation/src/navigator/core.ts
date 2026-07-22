@@ -160,7 +160,21 @@ const PRE_STAGE_PEEK = 0.002;
 async function settleBeforeTransition(): Promise<void> {
     const deadline = Date.now() + PRE_STAGE_MAX_MS;
     do {
-        await waitForFlush();
+        // Race the ack against the remaining budget. `PRE_STAGE_MAX_MS` used
+        // to bound only the LOOP — `await waitForFlush()` itself is unbounded,
+        // and its promise settles only when the host invokes the
+        // `callLepusMethod` callback for that batch. A single dropped ack left
+        // `pendingOps()` true forever, so this await never resumed: the
+        // transition never started (the incoming screen stayed parked at its
+        // pre-stage transform) AND the transition signal was never cleared, so
+        // `isTransitioning()` blocked every later push and pop for the rest of
+        // the session. Timing out degrades to "no pre-stage", never a wedge.
+        await Promise.race([
+            waitForFlush(),
+            new Promise<void>((resolve) => {
+                setTimeout(resolve, Math.max(0, deadline - Date.now()));
+            }),
+        ]);
         await new Promise<void>((resolve) => {
             setTimeout(resolve, 0);
         });

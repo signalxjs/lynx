@@ -39,6 +39,17 @@ export interface LynxViewLike {
   updateGlobalProps?: (data: Record<string, unknown>) => void;
   sendGlobalEvent?: (name: string, params: unknown[]) => void;
   shadowRoot?: { adoptedStyleSheets: CSSStyleSheet[] } | null;
+  /** web-core's SystemInfo override (`browser-config` attribute / property). */
+  browserConfig?: SigxBrowserConfig;
+  getBoundingClientRect?: () => { width: number; height: number };
+  hasAttribute?: (name: string) => boolean;
+}
+
+/** web-core's `BrowserConfig` — the fields that override its `SystemInfo`. */
+export interface SigxBrowserConfig {
+  pixelRatio: number;
+  pixelWidth: number;
+  pixelHeight: number;
 }
 
 export interface InstallSigxWebHostOptions {
@@ -48,6 +59,55 @@ export interface InstallSigxWebHostOptions {
   linking?: boolean;
   /** Skip the `x-text { color: inherit }` native-parity style (see install). */
   textColorInheritance?: boolean;
+  /** Skip the viewport `browser-config` override (see `viewportBrowserConfig`). */
+  viewport?: boolean;
+}
+
+/**
+ * SystemInfo override describing the **`<lynx-view>` viewport**, in the shape
+ * web-core's `browser-config` expects.
+ *
+ * Upstream fills `SystemInfo.pixelWidth/pixelHeight` from
+ * `window.screen.availWidth/availHeight × devicePixelRatio` — the physical
+ * *display*, not the element the app is rendered into. Everything that treats
+ * SystemInfo as "the screen the app occupies" is then wrong by the ratio
+ * between the two: `@sigx/lynx-navigation` slides cards in from
+ * `SCREEN_WIDTH` px away and rests sheets at a fraction of `SCREEN_HEIGHT`
+ * (a sheet could settle entirely below the visible area — #759),
+ * `@sigx/lynx-gestures`' Swiper falls back to it for page width, and
+ * `Platform.isPad` reads it. On native those values already *are* the app's
+ * window, so overriding them on web restores parity rather than inventing a
+ * new concept.
+ *
+ * `createSystemInfo` spreads `browserConfig` **after** its own values, so this
+ * wins. It is read once when the `LynxViewInstance` is constructed, so it must
+ * be set before the view starts loading its template — `sigx run:web`'s
+ * generated host page sets the attribute inline during parsing, and
+ * `installSigxWebHost` fills it in for embedders that haven't. Resizes are not
+ * tracked (SystemInfo is frozen at construction).
+ */
+export function viewportBrowserConfig(view?: LynxViewLike): SigxBrowserConfig | null {
+  // Read through globalThis, not bare identifiers: this module is also
+  // imported in non-DOM contexts (tests, SSR scans) where they don't exist.
+  const page = globalThis as {
+    devicePixelRatio?: number;
+    innerWidth?: number;
+    innerHeight?: number;
+  };
+  const dpr = typeof page.devicePixelRatio === 'number' && page.devicePixelRatio > 0
+    ? page.devicePixelRatio
+    : 1;
+  // A zero-sized box means "not laid out yet" — fall back to the page
+  // viewport, which is what a default full-bleed `<lynx-view>` fills anyway.
+  const box = view?.getBoundingClientRect?.();
+  const width = box && box.width > 0 ? box.width : page.innerWidth;
+  const height = box && box.height > 0 ? box.height : page.innerHeight;
+  if (!width || !height) return null; // nothing measurable — leave SystemInfo alone
+  return {
+    pixelRatio: dpr,
+    pixelWidth: Math.round(width * dpr),
+    pixelHeight: Math.round(height * dpr),
+  };
 }
 
 type Handler = (data: unknown) => unknown | Promise<unknown>;
@@ -423,6 +483,19 @@ export function installSigxWebHost(
   };
 
   const cleanups: Array<() => void> = [];
+
+  // ── Viewport SystemInfo override ────────────────────────────────────────
+  // Only when the host page hasn't already supplied one: the generated page
+  // sets `browser-config` inline while parsing (before the engine module
+  // upgrades the element), which is strictly earlier than this call.
+  if (
+    options.viewport !== false &&
+    !lynxView.browserConfig &&
+    !lynxView.hasAttribute?.('browser-config')
+  ) {
+    const config = viewportBrowserConfig(lynxView);
+    if (config) lynxView.browserConfig = config;
+  }
 
   // ── Appearance publisher ────────────────────────────────────────────────
   if (options.appearance !== false) {

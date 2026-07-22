@@ -188,6 +188,27 @@ export function hostHtml(projectName: string, bundle: string, opts: HostHtmlOpti
 </head>
 <body>
   <lynx-view style="height:100vh;width:100vw" url="${base}app/${bundle}" height="100vh" width="100vw"></lynx-view>
+  <script>
+    // Viewport SystemInfo override (#759). web-core derives
+    // SystemInfo.pixelWidth/pixelHeight from screen.availWidth/availHeight —
+    // the physical display — but everything downstream (navigation slide and
+    // sheet geometry, Swiper page width, Platform.isPad) means "the app's
+    // window". The browser-config attribute overrides it. This is a CLASSIC
+    // inline script on purpose: it runs during parsing, before the deferred
+    // engine module upgrades lynx-view and reads the value, whereas the
+    // module script below races the element's own render kickoff.
+    (function () {
+      try {
+        var v = document.querySelector('lynx-view');
+        var r = window.devicePixelRatio || 1;
+        v.setAttribute('browser-config', JSON.stringify({
+          pixelRatio: r,
+          pixelWidth: Math.round(window.innerWidth * r),
+          pixelHeight: Math.round(window.innerHeight * r),
+        }));
+      } catch (e) { /* fall back to web-core's screen-derived SystemInfo */ }
+    })();
+  </script>
   <script type="module">
     // Host-page bridge (#703): sigx.* RPC handlers (clipboard, share, linking,
     // pickers, vibrate) + appearance / initial-URL publishers.
