@@ -4,7 +4,7 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
-import { installSigxWebHost, type LynxViewLike } from '../src/host';
+import { installSigxWebHost, viewportBrowserConfig, type LynxViewLike } from '../src/host';
 
 interface FakeMql {
   matches: boolean;
@@ -430,5 +430,77 @@ describe('x-text color-inheritance parity style (#116 follow-up)', () => {
     (view as { shadowRoot?: unknown }).shadowRoot = root;
     installSigxWebHost(view, { textColorInheritance: false });
     expect(root.adoptedStyleSheets).toHaveLength(0);
+  });
+});
+
+describe('viewport browser-config override (#759)', () => {
+  // web-core derives SystemInfo.pixelWidth/pixelHeight from the physical
+  // display (`screen.availWidth/availHeight`), not the <lynx-view> the app
+  // renders into. Navigation's slide/sheet geometry reads those as "the
+  // screen the app occupies" — a sheet computed against a 1008px screen
+  // inside an 813px view rests below the visible area.
+  beforeEach(() => {
+    vi.stubGlobal('devicePixelRatio', 2);
+    vi.stubGlobal('innerWidth', 390);
+    vi.stubGlobal('innerHeight', 844);
+  });
+
+  it('describes the element box in device pixels', () => {
+    expect(
+      viewportBrowserConfig({
+        getBoundingClientRect: () => ({ width: 500, height: 813 }),
+      } as LynxViewLike),
+    ).toEqual({ pixelRatio: 2, pixelWidth: 1000, pixelHeight: 1626 });
+  });
+
+  it('returns null when nothing is measurable (non-DOM contexts)', () => {
+    vi.stubGlobal('innerWidth', undefined);
+    vi.stubGlobal('innerHeight', undefined);
+    expect(viewportBrowserConfig({} as LynxViewLike)).toBeNull();
+  });
+
+  it('falls back to the page viewport when the element has no box yet', () => {
+    expect(viewportBrowserConfig({} as LynxViewLike)).toEqual({
+      pixelRatio: 2,
+      pixelWidth: 780,
+      pixelHeight: 1688,
+    });
+    // A zero-sized box (not laid out yet) is not a usable measurement.
+    expect(
+      viewportBrowserConfig({
+        getBoundingClientRect: () => ({ width: 0, height: 0 }),
+      } as LynxViewLike),
+    ).toEqual({ pixelRatio: 2, pixelWidth: 780, pixelHeight: 1688 });
+  });
+
+  it('installSigxWebHost sets it on a view that has none', () => {
+    const view = makeView();
+    (view as LynxViewLike).getBoundingClientRect = () => ({ width: 500, height: 813 });
+    installSigxWebHost(view);
+    expect(view.browserConfig).toEqual({
+      pixelRatio: 2,
+      pixelWidth: 1000,
+      pixelHeight: 1626,
+    });
+  });
+
+  it('never overrides a config the host page already supplied', () => {
+    // The generated host page sets `browser-config` inline while parsing —
+    // strictly earlier, and authoritative.
+    const view = makeView();
+    (view as LynxViewLike).hasAttribute = (n: string) => n === 'browser-config';
+    installSigxWebHost(view);
+    expect(view.browserConfig).toBeUndefined();
+
+    const preset = makeView();
+    preset.browserConfig = { pixelRatio: 3, pixelWidth: 9, pixelHeight: 9 };
+    installSigxWebHost(preset);
+    expect(preset.browserConfig).toEqual({ pixelRatio: 3, pixelWidth: 9, pixelHeight: 9 });
+  });
+
+  it('is skipped with viewport: false', () => {
+    const view = makeView();
+    installSigxWebHost(view, { viewport: false });
+    expect(view.browserConfig).toBeUndefined();
   });
 });

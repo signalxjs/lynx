@@ -82,4 +82,25 @@ describe('hostHtml', () => {
     expect(html).toContain('/__sigx_reload');
     expect(html).toContain('Demo');
   });
+
+  it('sets browser-config from a CLASSIC script before the engine module (#759)', () => {
+    const html = hostHtml('Demo', 'main.web.bundle');
+    // Without the override, web-core fills SystemInfo from the physical
+    // display and navigation lays transitions/sheets out against the wrong
+    // dimensions. It has to be a classic script — a module script is deferred
+    // past the element upgrade that reads the value.
+    expect(html).toContain("v.setAttribute('browser-config'");
+    expect(html).toContain('window.innerWidth');
+    expect(html).toContain('window.innerHeight');
+
+    const configAt = html.indexOf("setAttribute('browser-config'");
+    const engineModuleAt = html.indexOf('/engine/static/js/client.js');
+    const hostModuleAt = html.indexOf('installSigxWebHost');
+    expect(configAt).toBeGreaterThan(engineModuleAt); // in <body>, after <head>
+    expect(configAt).toBeLessThan(hostModuleAt); // …but before the module script
+    // The snippet must not be inside a `type="module"` tag.
+    expect(html.slice(0, configAt).lastIndexOf('<script>')).toBeGreaterThan(
+      html.slice(0, configAt).lastIndexOf('<script type="module">'),
+    );
+  });
 });
