@@ -85,6 +85,9 @@ export type {
   UseElementLayoutResult,
 } from './use-element-layout.js';
 
+export { measureViewportRect, useViewportRect } from './use-viewport-rect.js';
+export type { ViewportRect, UseViewportRectResult } from './use-viewport-rect.js';
+
 export {
   registerBgSink,
   unregisterBgSink,

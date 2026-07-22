@@ -9,15 +9,21 @@
  * extends under the keyboard — see `position.ts` for the math. The keyboard
  * inset comes from `@sigx/lynx-keyboard`'s `useKeyboard()`, which requires a
  * `<SafeAreaProvider>` ancestor; without one it reads 0 and the keyboard
- * clamp is effectively disabled. The page-absolute frame of the relative
+ * clamp is effectively disabled. The **viewport** frame of the relative
  * container it's positioned in arrives via `containerFrame` (the editor
- * measures it with `bindlayoutchange`).
+ * measures it with `useViewportRect`).
+ *
+ * Because that frame is only valid until the container moves, the popup owns
+ * the re-measure trigger for the one thing it can see and the editor can't:
+ * the keyboard. It calls `onMeasureRequest` on mount, on every keyboard-height
+ * change, and once more after the lift animation settles (#755 — a composer
+ * inside a sheet riding `liftSV` is still translating when the height lands).
  *
  * Ships with `ignore-focus` on the root: tapping a suggestion must never
  * blur the editor (same iOS `endEditing:` rule the toolbar handles).
  */
 
-import { component, type Define, type ElementLayout, type JSXElement } from '@sigx/lynx';
+import { component, onUnmounted, watch, type Define, type ElementLayout, type JSXElement } from '@sigx/lynx';
 import { useKeyboard } from '@sigx/lynx-keyboard';
 import type { TriggerItem } from '../plugin.js';
 import { placeSuggestionPopup, screenHeightDp, type CaretRect } from './position.js';
@@ -39,6 +45,13 @@ export interface SuggestionPopupStyle {
     width?: number;
     /** Max popup height in dp before it scrolls. Default 220. */
     maxHeight?: number;
+    /**
+     * Pin which side of the caret the popup opens on. Default `'auto'` picks
+     * the side with room, which depends on a live measurement of the editor's
+     * position; a host that already knows its layout (a composer pinned to the
+     * bottom of the screen is always `'above'`) can skip that dependency.
+     */
+    placement?: 'auto' | 'above' | 'below';
     /** Surface (background) color. Default neutral light gray. */
     surfaceColor?: string;
     /** Border color. Default neutral translucent gray. */
@@ -52,14 +65,22 @@ export interface SuggestionPopupStyle {
 export type SuggestionPopupProps =
     & Define.Prop<'items', TriggerItem[], false>
     & Define.Prop<'caretRect', CaretRect | null, false>
-    /** Page-absolute frame of the relative container (from `bindlayoutchange`). */
+    /** Viewport frame of the relative container (from `useViewportRect`). */
     & Define.Prop<'containerFrame', ElementLayout | null, false>
+    /**
+     * Ask the owner to re-measure `containerFrame`. Called on mount and
+     * whenever the keyboard changes — the popup is the only side that sees
+     * the keyboard, and a keyboard change is exactly when a composer moves.
+     */
+    & Define.Prop<'onMeasureRequest', () => void, false>
     & Define.Prop<'renderItem', SuggestionRenderItem, false>
     & Define.Prop<'onSelect', (item: TriggerItem) => void, false>
     /** Highlighted row index (e.g. hardware-keyboard navigation); `-1`/omitted = none. */
     & Define.Prop<'activeIndex', number, false>
     & Define.Prop<'maxHeight', number, false>
     & Define.Prop<'width', number, false>
+    /** Pin the side of the caret; `'auto'` (default) measures for room. */
+    & Define.Prop<'placement', 'auto' | 'above' | 'below', false>
     & Define.Prop<'class', string, false>
     /**
      * Popup surface (background) color. Defaults to a neutral light gray so the
@@ -141,8 +162,38 @@ export function derivePopupStyleFromText(textColor?: string): SuggestionPopupSty
     };
 }
 
+/**
+ * How long after a keyboard-height change the container can still be moving.
+ * `useKeyboardLiftSV` tweens the lift over 0.25s by default, and the height
+ * signal lands at the START of that tween — a rect measured then is the
+ * pre-lift one. Re-measure once the tween can no longer be in flight.
+ */
+const LIFT_SETTLE_MS = 320;
+
 export const SuggestionPopup = component<SuggestionPopupProps>(({ props }) => {
     const keyboard = useKeyboard();
+
+    // Keep `containerFrame` honest: it is only valid until the container
+    // moves, and the keyboard is the move the editor can't observe (it does
+    // not instantiate the keyboard hook — see MarkdownEditor's KeyboardSpacer
+    // note). `immediate` covers the mount case: the popup only mounts when a
+    // session has results, which is exactly when placement matters.
+    let settleTimer: ReturnType<typeof setTimeout> | null = null;
+    watch(
+        () => keyboard.value.height,
+        () => {
+            props.onMeasureRequest?.();
+            if (settleTimer !== null) clearTimeout(settleTimer);
+            settleTimer = setTimeout(() => {
+                settleTimer = null;
+                props.onMeasureRequest?.();
+            }, LIFT_SETTLE_MS);
+        },
+        { immediate: true },
+    );
+    onUnmounted(() => {
+        if (settleTimer !== null) clearTimeout(settleTimer);
+    });
 
     const defaultRenderItem: SuggestionRenderItem = (item, active) => (
         <view
@@ -181,6 +232,7 @@ export const SuggestionPopup = component<SuggestionPopupProps>(({ props }) => {
             keyboardHeight: keyboard.value.height,
             popupWidth: width,
             maxPopupHeight: props.maxHeight ?? DEFAULT_MAX_HEIGHT,
+            prefer: props.placement,
         });
 
         return (

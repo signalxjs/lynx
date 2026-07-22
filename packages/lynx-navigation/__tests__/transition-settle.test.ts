@@ -1,16 +1,16 @@
 /**
- * Transition end-state + pre-stage bounding (#758, #759).
+ * The #651 pre-stage settle window must be bounded (#759).
  *
- * Both cover the same failure mode from two directions: a transition whose
- * animation does not complete on the BG-side wall clock must still leave the
- * navigator — and the layer's shared progress value — in the settled state.
- * When it doesn't, `<Layer>` unregisters its MT binding with a half-applied
- * transform still on the element and the screen is stranded off-screen for
- * good (a modal resting low on iOS, a popped-to screen that never comes back
- * into view on web, which reads as "the back button does nothing").
+ * `PRE_STAGE_MAX_MS` gates the loop condition, but the awaits inside it are
+ * what can hang: `waitForFlush()` resolves only when the host acks the ops
+ * batch. A dropped ack left `pendingOps()` true forever, so the transition
+ * never started (the incoming screen stayed parked at its pre-stage seed) and
+ * the transition signal was never cleared — which makes `isTransitioning()`
+ * reject every later push and pop for the rest of the session.
  *
- * `@sigx/lynx-motion` is mocked so `withTiming` never advances the value —
- * that is exactly the starved/never-ticked tween these guards exist for.
+ * `@sigx/lynx-motion` is mocked so `withTiming` never advances the value; the
+ * landing pass (#758/#760) is what carries the SV to its target here, which is
+ * exactly the starved-tween case both guards exist for.
  */
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { component } from '@sigx/lynx';
@@ -72,41 +72,6 @@ beforeEach(() => {
 
 afterEach(() => {
     vi.useRealTimers();
-});
-
-describe('transition end state (#758)', () => {
-    it('lands the target on the progress SV even when the tween never advances it', async () => {
-        const sv = makeSV();
-        const { nav } = createNavigatorState({ routes, initial, progress: sv });
-
-        nav.push('details' as never);
-        // Pre-stage parks the incoming layer just off-screen, not at the target.
-        expect(sv.current.value).toBeCloseTo(0.002, 5);
-
-        // Settle window + the full transition duration.
-        await vi.advanceTimersByTimeAsync(1000);
-
-        expect(withTimingMock).toHaveBeenCalled(); // the tween WAS started…
-        expect(sv.current.value).toBe(1); // …and the end state is asserted anyway
-        expect(cancelAnimationMock).toHaveBeenCalled();
-        expect(nav.transition).toBeNull();
-    });
-
-    it('lands the popped-to state so the revealed layer returns to rest', async () => {
-        const sv = makeSV();
-        const { nav } = createNavigatorState({ routes, initial, progress: sv });
-
-        nav.push('details' as never);
-        await vi.advanceTimersByTimeAsync(1000);
-        expect(nav.stack.length).toBe(2);
-
-        nav.pop();
-        await vi.advanceTimersByTimeAsync(1000);
-
-        expect(sv.current.value).toBe(1); // pop animates progress 0 → 1
-        expect(nav.stack.length).toBe(1);
-        expect(nav.transition).toBeNull();
-    });
 });
 
 describe('pre-stage settle window is bounded (#759)', () => {

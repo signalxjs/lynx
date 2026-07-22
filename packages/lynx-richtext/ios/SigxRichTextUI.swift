@@ -654,9 +654,22 @@ public class SigxRichTextUI: LynxUI<RichTextView> {
             headingLevel = block["level"] as? Int
         }
 
-        var caret = CGRect.zero
+        // The caret rect is reported in the element's VISIBLE coordinate space
+        // — what a JS consumer anchoring a popup to it can add to the element's
+        // own frame. `caretRect(for:)` is in content space (a UITextView is a
+        // scroll view, so its bounds origin IS the content offset), so subtract
+        // the offset; Android does the same with `scrollY` in
+        // `SigxRichTextUI.kt`. Without this the anchor drifts by the scroll
+        // offset once the field scrolls internally (auto-grow past maxLines).
+        var caretX: CGFloat = 0
+        var caretY: CGFloat = 0
+        var caretHeight: CGFloat = 0
         if let position = view.selectedTextRange?.end {
-            caret = view.caretRect(for: position)
+            let caret = view.caretRect(for: position)
+            let offset = view.contentOffset
+            if caret.origin.x.isFinite { caretX = caret.origin.x - offset.x }
+            if caret.origin.y.isFinite { caretY = caret.origin.y - offset.y }
+            if caret.height.isFinite { caretHeight = caret.height }
         }
 
         var params: [String: Any] = [
@@ -664,9 +677,9 @@ public class SigxRichTextUI: LynxUI<RichTextView> {
             "end": range.location + range.length,
             "activeFormats": formats.joined(separator: ","),
             "activeBlock": activeBlock,
-            "caretX": caret.origin.x.isFinite ? caret.origin.x : 0,
-            "caretY": caret.origin.y.isFinite ? caret.origin.y : 0,
-            "caretHeight": caret.height.isFinite ? caret.height : 0,
+            "caretX": caretX,
+            "caretY": caretY,
+            "caretHeight": caretHeight,
         ]
         if let headingLevel { params["headingLevel"] = headingLevel }
         fireEvent("selection", params: params)

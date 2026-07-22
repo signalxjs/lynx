@@ -22,7 +22,15 @@
  * parent.
  */
 
-import { component, signal, useElementLayout, watch, type Define } from '@sigx/lynx';
+import {
+    component,
+    signal,
+    useElementLayout,
+    useViewportRect,
+    watch,
+    type Define,
+    type ElementLayout,
+} from '@sigx/lynx';
 import { useKeyboard } from '@sigx/lynx-keyboard';
 import {
     RichTextInput,
@@ -256,17 +264,32 @@ export const MarkdownEditor = component<MarkdownEditorProps>(({ props }) => {
         .map((p) => ({ plugin: p.name, spec: p.trigger! }));
     // Boxed like selBox: signal values must be objects.
     const sessionBox = signal<{ current: TriggerSession | null }>({ current: null });
+    // Frame of the input's relative wrapper — the popup needs it to relate
+    // the element-local caret rect to the keyboard. TWO sources, on purpose:
+    //
+    //  • `useViewportRect` is the authoritative one — live, viewport-relative,
+    //    transform-aware. A composer inside a sheet translated on the main
+    //    thread (`liftSV`) is ONLY correctly located here (#755).
+    //  • `useElementLayout` is the first-paint fallback (the measurement is
+    //    async, so the rect lands a frame or two later) and the "something
+    //    moved, re-measure" signal.
+    const { layout: inputFrame, onLayoutChange: onInputLayout } = useElementLayout();
+    const { ref: containerRef, rect: containerRect, measure: measureContainer } = useViewportRect();
+    /** Best-known container frame: measured wins, layout is the fallback. */
+    const containerFrame = (): ElementLayout | null => containerRect.value ?? inputFrame.value;
     const triggerManager = triggers.length
         ? createTriggerSessionManager({
             triggers,
             onUpdate: (s) => {
+                // Measure BEFORE the popup can mount: sessions open with
+                // `loading: true` and no items, so an async `onQuery` usually
+                // gives the rect time to land and the popup paints in the
+                // right place on its first frame.
+                if (s && s.anchor !== sessionBox.current?.anchor) measureContainer();
                 sessionBox.current = s;
             },
         })
         : null;
-    // Page-absolute frame of the input's relative wrapper — the popup needs
-    // it to relate the element-local caret rect to the keyboard.
-    const { layout: inputFrame, onLayoutChange: onInputLayout } = useElementLayout();
 
     const applyExternal = (md: string): void => {
         if (md === lastEmittedMd) return; // our own echo
@@ -414,15 +437,17 @@ export const MarkdownEditor = component<MarkdownEditorProps>(({ props }) => {
         const activeTrigger = session
             ? plugins.find((p) => p.name === session.plugin)?.trigger
             : undefined;
-        // Gate on the wrapper frame being measured — before the first
-        // bindlayoutchange the placement math would clamp against a 0-height
-        // container and misposition the popup.
-        const popupNode = session && activeTrigger && session.items.length > 0 && inputFrame.value
+        // Gate on the wrapper frame existing — before the first measurement
+        // the placement math would clamp against a 0-height container and
+        // misposition the popup.
+        const frame = containerFrame();
+        const popupNode = session && activeTrigger && session.items.length > 0 && frame
             ? (
                 <SuggestionPopup
                     items={session.items}
                     caretRect={selBox.current?.caretRect ?? null}
-                    containerFrame={inputFrame.value}
+                    containerFrame={frame}
+                    onMeasureRequest={measureContainer}
                     renderItem={activeTrigger.renderItem}
                     onSelect={handleTriggerSelect}
                     // Auto-tint from the editor's text color so a themed body
@@ -528,14 +553,22 @@ export const MarkdownEditor = component<MarkdownEditorProps>(({ props }) => {
                 {toolbarPlacement === 'top' ? toolbarNode : null}
                 {triggers.length
                     ? (
-                        // Relative layer the popup positions in; measured so the
-                        // popup can clamp against the keyboard in page coords.
+                        // Relative layer the popup positions in; measured (in
+                        // VIEWPORT coords, so a main-thread transform on an
+                        // ancestor counts) so the popup can clamp against the
+                        // keyboard.
                         // overflow visible: the above-the-caret popup extends past
                         // this layer's top — it must stay hit-testable there, or
                         // taps fall through to non-ignore-focus chrome and blur
                         // the editor instead of selecting.
                         <view
-                            bindlayoutchange={onInputLayout}
+                            main-thread:ref={containerRef}
+                            bindlayoutchange={(e) => {
+                                onInputLayout(e);
+                                // Layout moved/resized the wrapper — the
+                                // measured viewport rect is now stale.
+                                measureContainer();
+                            }}
                             style={{
                                 position: 'relative',
                                 overflow: 'visible',

@@ -4,6 +4,7 @@ import { encodeDoc, RichTextMethods, type RichDoc } from '@sigx/lynx-richtext';
 import { MarkdownEditor, type MarkdownEditorController } from '../src/editor/MarkdownEditor';
 import { createTriggerSessionManager, type TriggerSession } from '../src/editor/trigger/session';
 import { placeSuggestionPopup } from '../src/editor/trigger/position';
+import { SuggestionPopup } from '../src/editor/trigger/SuggestionPopup';
 import type { MarkdownEditorPlugin, TriggerItem } from '../src/editor/plugin';
 
 // ---------------------------------------------------------------------------
@@ -302,6 +303,108 @@ describe('placeSuggestionPopup', () => {
         const pos = placeSuggestionPopup({ ...base, caretRect: { x: 310, y: 100, height: 18 } });
         expect(pos.left).toBe(320 - 240);
     });
+
+    // #755: a composer inside a <BottomSheet>. The sheet's panel is laid out
+    // as a `maxHeight`-tall box pinned to the page bottom and then slid DOWN
+    // by a main-thread translateY, so for a tall panel the layout-page frame
+    // puts the composer near the page top (containerTop 10) — no room
+    // "above", lots "below" → the popup flips down, and once the transform is
+    // applied that lands it behind the keyboard. The measured VIEWPORT frame
+    // has the composer where it actually is: docked above a 300dp keyboard.
+    it('stays above the caret when the container is measured in viewport coords', () => {
+        const composer = {
+            ...base,
+            containerHeight: 60,
+            caretRect: { x: 12, y: 20, height: 18 },
+            keyboardHeight: 300,
+        };
+        // Measured (viewport): composer sits just above the keyboard top (500).
+        expect(placeSuggestionPopup({ ...composer, containerTop: 430 }).placement).toBe('above');
+        // Layout-page frame (the bug): the untransformed box is near the top.
+        expect(placeSuggestionPopup({ ...composer, containerTop: 10 }).placement).toBe('below');
+    });
+
+    it('honors an explicit placement instead of measuring for room', () => {
+        // No room above at all (container at the very top), yet a host that
+        // knows its layout can still pin the side.
+        const cramped = { ...base, containerTop: 0, caretRect: { x: 30, y: 4, height: 18 } };
+        expect(placeSuggestionPopup(cramped).placement).toBe('below');
+        expect(placeSuggestionPopup({ ...cramped, prefer: 'above' }).placement).toBe('above');
+        expect(placeSuggestionPopup({ ...base, prefer: 'below' }).placement).toBe('below');
+        // 'auto' is the documented default and must match omitting it.
+        expect(placeSuggestionPopup({ ...base, prefer: 'auto' })).toEqual(placeSuggestionPopup(base));
+    });
+
+    it('still clamps against the keyboard when the side is pinned', () => {
+        const pos = placeSuggestionPopup({
+            ...base,
+            containerTop: 0,
+            caretRect: { x: 30, y: 20, height: 18 },
+            keyboardHeight: 770, // keyboard top at 30 — almost nothing below
+            prefer: 'below',
+        });
+        expect(pos.placement).toBe('below');
+        // Caret bottom (38) is already past the keyboard top (30) — nothing
+        // fits, so the list collapses rather than painting under the keyboard.
+        expect(pos.maxHeight).toBe(0);
+    });
+});
+
+// ---------------------------------------------------------------------------
+// Popup ↔ owner measurement contract
+// ---------------------------------------------------------------------------
+
+describe('SuggestionPopup measurement requests', () => {
+    const frame = { width: 320, height: 48, top: 400, left: 0, right: 320, bottom: 448 };
+    const caretRect = { x: 12, y: 6, height: 18 };
+    const items: TriggerItem[] = [{ id: 'u1', label: 'Andy' }];
+
+    it('asks the owner to re-measure on mount and again after the lift settles', async () => {
+        vi.useFakeTimers();
+        try {
+            const onMeasureRequest = vi.fn();
+            render(
+                <SuggestionPopup
+                    items={items}
+                    caretRect={caretRect}
+                    containerFrame={frame}
+                    onMeasureRequest={onMeasureRequest}
+                />,
+            );
+            // Mount: the popup only exists when a session has results, which
+            // is exactly when the frame has to be current.
+            expect(onMeasureRequest).toHaveBeenCalledTimes(1);
+            // …and once more once the keyboard-lift tween can no longer be
+            // mid-flight (the height signal lands at its START).
+            vi.advanceTimersByTime(400);
+            expect(onMeasureRequest).toHaveBeenCalledTimes(2);
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
+    it('renders without an owner-supplied measure callback', () => {
+        const { container } = render(
+            <SuggestionPopup items={items} caretRect={caretRect} containerFrame={frame} />,
+        );
+        expect(container.findAllByType('view').some((v) => v.props['ignore-focus'] === true)).toBe(true);
+    });
+
+    it('honors an explicit placement prop', () => {
+        const { container } = render(
+            <SuggestionPopup
+                items={items}
+                caretRect={caretRect}
+                // Container at the top of the screen: 'auto' would open below.
+                containerFrame={{ ...frame, top: 0, bottom: 48 }}
+                placement="above"
+            />,
+        );
+        const popup = container.findAllByType('view').find((v) => v.props['ignore-focus'] === true)!;
+        const style = popup.props.style as { top?: number; bottom?: number };
+        expect(style.bottom).toBeDefined();
+        expect(style.top).toBeUndefined();
+    });
 });
 
 // ---------------------------------------------------------------------------
@@ -487,6 +590,32 @@ describe('MarkdownEditor trigger sessions', () => {
         el._handlers.get('bindblur')!({ type: 'blur' });
         await waitForUpdate();
         expect(container.findAllByType('view').some((v) => v.props['ignore-focus'] === true)).toBe(false);
+    });
+
+    it('binds a main-thread ref on the positioning wrapper for measurement', () => {
+        // #755: the popup is placed against the wrapper's VIEWPORT rect, which
+        // only `useViewportRect` (main-thread `boundingClientRect`) can supply
+        // — a layout-page frame misses any transform on an ancestor.
+        const { plugin } = mentionTriggerPlugin();
+        const { container } = render(<MarkdownEditor value="" plugins={[plugin]} />);
+        const wrapper = container.findAllByType('view').find((v) => v._handlers.has('bindlayoutchange'))!;
+        expect(wrapper.props['main-thread:ref']).toBeDefined();
+    });
+
+    it('still places the popup from the layout frame before a measurement lands', async () => {
+        // The measurement is async (and never resolves without a main thread),
+        // so the layout frame has to stay a usable fallback — otherwise the
+        // popup would never paint on hosts where the invoke is unavailable.
+        const { plugin } = mentionTriggerPlugin();
+        const { container } = render(<MarkdownEditor value="" plugins={[plugin]} />);
+        const el = container.findByType('sigx-richtext')!;
+        fireWrapperLayout(container);
+
+        fireChange(el, doc('hi @an'));
+        fireSelection(el, 6);
+        await waitForUpdate();
+
+        expect(container.findAllByType('view').some((v) => v.props['ignore-focus'] === true)).toBe(true);
     });
 
     it('exposes replaceRange on the controller', () => {
