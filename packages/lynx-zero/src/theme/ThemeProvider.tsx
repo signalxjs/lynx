@@ -153,9 +153,11 @@ function applyFontScale(
  * The full custom-property set for a theme — colors, any radius/size overrides,
  * and the `fontScale`-adjusted text ramp. Declared inline on the provider's
  * host view: with `enableCSSInlineVariables` in the template's page config
- * (encoded by `@sigx/lynx-plugin`, decoded by native Lynx ≥ 3.6), inline
- * custom properties register and inherit from first paint, and a value change
- * re-resolves every descendant `var()` (#116).
+ * (encoded by `@sigx/lynx-plugin`), inline custom properties register and
+ * inherit from first paint on native Lynx ≥ 3.6, and a value change
+ * re-resolves every descendant `var()` on native Lynx ≥ 3.9 — the CLI's host
+ * templates pin 3.9.0; older hosts paint frame one but won't follow theme
+ * switches (#116).
  */
 function buildThemeVars(name: string, fontScale: number): Record<string, string> {
     const palette = colorsOf(name) ?? fallbackPalette();
