@@ -8,14 +8,14 @@ import {
     type SharedValue,
 } from '@sigx/lynx';
 import { Screen, BottomSheet } from '@sigx/lynx-navigation';
-import { Button, Col, Row, Text, emojiClasses, useMarkdownEditorTheme } from '@sigx/lynx-daisyui';
+import { Button, Col, Row, Text, emojiClasses, markdownComponents, useMarkdownEditorTheme } from '@sigx/lynx-daisyui';
 import { LucideIcon } from '@sigx/lynx-icons-lucide/components';
 import { Haptics } from '@sigx/lynx-haptics';
 import { useKeyboardLift, useKeyboardLiftSV } from '@sigx/lynx-keyboard';
 import { useSafeAreaInsets } from '@sigx/lynx-safe-area';
 import { EmojiPicker, enData, useKeyboardPanelReveal, type EmojiPickEvent } from '@sigx/lynx-emoji';
 import { List } from '@sigx/lynx-list';
-import { createMentionPlugin, type MentionCandidate } from '@sigx/lynx-markdown';
+import { createMentionPlugin, MarkdownView, mentionSyntax, type MentionCandidate } from '@sigx/lynx-markdown';
 import { MarkdownEditor, type MarkdownEditorController } from '@sigx/lynx-markdown/editor';
 
 interface Msg {
@@ -68,6 +68,18 @@ const MENTIONS: MentionCandidate[] = [
 const mentionPlugin = createMentionPlugin({
     search: (q) => MENTIONS.filter((u) => u.label.toLowerCase().startsWith(q.toLowerCase())),
 });
+
+// A sent message carries `@[label](id)` — render it as a chip rather than raw
+// source, the same mapping the Markdown composer uses for its bubbles.
+const bubbleComponents = {
+    ...markdownComponents,
+    extension: {
+        ...markdownComponents.extension,
+        mention: ({ attrs }: { attrs: Record<string, string> }) => (
+            <text class="bg-base-100 text-primary rounded px-1 font-semibold">@{attrs.label}</text>
+        ),
+    },
+};
 
 /**
  * Chat composer (WhatsApp-style) — the input + emoji picker are ONE persistent
@@ -272,7 +284,9 @@ export const EmojiComposerScreen = component(() => {
                                         : 'self-start bg-base-200 rounded-xl px-3 py-2 max-w-[80%]'
                                 }
                             >
-                                <Text>{m.body}</Text>
+                                {m.body.includes('@[')
+                                    ? <MarkdownView value={m.body} extensions={[mentionSyntax]} components={bubbleComponents} />
+                                    : <Text>{m.body}</Text>}
                             </Col>
                         </view>
                     )}
