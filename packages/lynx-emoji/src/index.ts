@@ -26,6 +26,7 @@ export type { EmojiGridProps, EmojiGridScrollHandle, EmojiSection } from './comp
 export { SectionHeader, HEADER_PX } from './components/SectionHeader.js';
 export type { SectionHeaderProps } from './components/SectionHeader.js';
 export { emojiRowPx } from './components/EmojiCell.js';
+export { emojiInkFor, emojiInkRatio, emojiRowPxFor, resolveEmojiGeometry } from './metrics.js';
 export { EmojiCell } from './components/EmojiCell.js';
 export type { EmojiCellProps } from './components/EmojiCell.js';
 export { CategoryTabBar } from './components/CategoryTabBar.js';
