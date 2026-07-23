@@ -47,7 +47,13 @@
  * computed here.
  */
 import type { SharedValue } from '@sigx/lynx';
+import { SHEET_BACKDROP_MAX_OPACITY } from '@sigx/lynx-sheet';
 import { SCREEN_HEIGHT, SCREEN_WIDTH } from './screen-width.js';
+
+// Re-exported so `<Stack>`/tests keep one import site for the sheet dim
+// constants alongside the mappers below (the value now lives in the shared
+// sheet package).
+export { SHEET_BACKDROP_MAX_OPACITY };
 import type {
     Presentation,
     StackEntry,
@@ -105,14 +111,15 @@ export interface Layer {
  */
 export interface SheetLayerContext {
     /**
-     * Dedicated sheet SharedValue — separate from the shared transition
-     * `progress`, which is reset to 0 at the start of every transition
-     * (see `core.ts`) and therefore can't hold a resting sheet's position.
-     * `null` when animations are disabled.
+     * Dedicated sheet SharedValue (reveal px: 0 = off-screen, N = visible
+     * px) — separate from the shared transition `progress`, which is reset
+     * to 0 at the start of every transition (see `core.ts`) and therefore
+     * can't hold a resting sheet's position. `null` when animations are
+     * disabled.
      */
-    sheetProgress: SharedValue<number> | null;
-    /** Largest snap fraction of the top sheet — fixes the translateY range. */
-    maxSnapFraction: number;
+    sheetReveal: SharedValue<number> | null;
+    /** Largest detent (px) of the top sheet — fixes the translateY range. */
+    maxDetentPx: number;
     /** Resting translateY (px) for a sheet that can't bind (non-top / no SV). */
     staticOffsetY: (entry: StackEntry) => number;
 }
@@ -166,42 +173,43 @@ function overlayTopAnimation(
 
 /**
  * Sheet transform — one fixed mapper for every phase (push, pop, rest,
- * drag). `sheetProgress` has "open fraction" semantics: 0 = off-screen
- * (`translateY = SCREEN_HEIGHT`), 1 = fully open at the largest snap
- * (`translateY = (1 - maxSnapFraction) * SCREEN_HEIGHT`). Because the SV
- * value alone encodes position, `withTiming` between any two progress
- * values (push-in, snap, dismiss) animates correctly without per-kind
- * input/output ranges — unlike card/overlay transitions, the kind is
- * irrelevant here.
+ * drag). `sheetReveal` has reveal-px semantics: 0 = off-screen
+ * (`translateY = SCREEN_HEIGHT`), `maxDetentPx` = fully open at the
+ * largest detent (`translateY = SCREEN_HEIGHT - maxDetentPx`). Because
+ * the SV value alone encodes position, `withTiming` between any two
+ * reveal values (push-in, snap, dismiss) animates correctly without
+ * per-kind input/output ranges — unlike card/overlay transitions, the
+ * kind is irrelevant here.
  */
 export function sheetAnimation(
-    sheetProgress: SharedValue<number>,
-    maxSnapFraction: number,
+    sheetReveal: SharedValue<number>,
+    maxDetentPx: number,
 ): LayerAnimation {
     return {
         mapperName: 'translateY',
-        inputRange: [0, 1],
-        outputRange: [SCREEN_HEIGHT, (1 - maxSnapFraction) * SCREEN_HEIGHT],
-        progress: sheetProgress,
+        inputRange: [0, maxDetentPx],
+        outputRange: [SCREEN_HEIGHT, SCREEN_HEIGHT - maxDetentPx],
+        progress: sheetReveal,
     };
 }
 
-/** Peak backdrop dim behind a fully-open sheet. */
-export const SHEET_BACKDROP_MAX_OPACITY = 0.4;
-
 /**
- * Backdrop opacity for `<SheetBackdrop>` — tracks the same sheet SV, so a
- * partially-open snap point dims proportionally and a drag-to-dismiss
- * fades the dim out in lockstep with the sheet sliding down.
+ * Backdrop opacity behind a sheet — tracks the same sheet SV over the
+ * same `[0, maxDetentPx]` reveal range, so a partially-open detent dims
+ * proportionally and a drag-to-dismiss fades the dim out in lockstep with
+ * the sheet sliding down. (The runtime binding lives in
+ * `@sigx/lynx-sheet`'s `<Backdrop>`, which `<SheetBackdrop>` feeds the
+ * identical range; this stays the plan-level statement of that contract.)
  */
 export function backdropAnimation(
-    sheetProgress: SharedValue<number>,
+    sheetReveal: SharedValue<number>,
+    maxDetentPx: number,
 ): LayerAnimation {
     return {
         mapperName: 'opacity',
-        inputRange: [0, 1],
+        inputRange: [0, maxDetentPx],
         outputRange: [0, SHEET_BACKDROP_MAX_OPACITY],
-        progress: sheetProgress,
+        progress: sheetReveal,
     };
 }
 
@@ -210,7 +218,7 @@ export function backdropAnimation(
  * plain static layers. The TOP sheet keeps a live `sheetAnimation` binding
  * even at rest — safe because the binding is on the dedicated sheet SV,
  * not the shared transition `progress` (which resets on every transition)
- * — so the drag worklet can move the sheet between snap points without a
+ * — so the drag worklet can move the sheet between detents without a
  * rebind. A covered sheet (or one with animations disabled) instead gets
  * a static translateY.
  */
@@ -222,10 +230,10 @@ function restingLayer(
     if (entry.presentation !== 'sheet' || !sheetCtx) {
         return { entry, animation: null, hidden: false };
     }
-    if (isTop && sheetCtx.sheetProgress) {
+    if (isTop && sheetCtx.sheetReveal) {
         return {
             entry,
-            animation: sheetAnimation(sheetCtx.sheetProgress, sheetCtx.maxSnapFraction),
+            animation: sheetAnimation(sheetCtx.sheetReveal, sheetCtx.maxDetentPx),
             hidden: false,
         };
     }
@@ -326,8 +334,8 @@ export function computeLayers(
             {
                 entry: transition.topEntry,
                 animation: topIsSheet
-                    ? (sheetCtx?.sheetProgress
-                        ? sheetAnimation(sheetCtx.sheetProgress, sheetCtx.maxSnapFraction)
+                    ? (sheetCtx?.sheetReveal
+                        ? sheetAnimation(sheetCtx.sheetReveal, sheetCtx.maxDetentPx)
                         : null)
                     : (progress ? overlayTopAnimation(transition.kind, progress) : null),
                 hidden: false,

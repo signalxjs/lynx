@@ -10,13 +10,14 @@ import {
 } from '@sigx/lynx';
 import { isLazyComponent } from '@sigx/lynx';
 import { cancelAnimation, withTiming } from '@sigx/lynx-motion';
+import { revealDurationSec } from '@sigx/lynx-sheet';
 import type { Nav } from '../hooks/use-nav.js';
 import type { ScreenRegistry } from '../internal/screen-registry.js';
 import {
-    initialSnapProgress,
-    resolveSnapPoints,
-    sheetDurationSec,
-} from '../internal/sheet-math.js';
+    initialDetentPx,
+    resolveRouteDetents,
+} from '../internal/sheet-detents.js';
+import { SCREEN_HEIGHT } from '../internal/screen-width.js';
 import type {
     PopOptions,
     Presentation,
@@ -97,17 +98,18 @@ export interface NavigatorState {
      */
     readonly _sheetBackdrops: Signal<Record<string, boolean>>;
     /**
-     * Internal: resolved `snapPoints` per sheet entry, populated at push time
-     * from the SAME registration read as `_sheetBackdrops` (above) — for the
-     * identical reason. The sheet LAYER's translateY mapper scales by the
-     * largest snap fraction, and a render-time read gets the `[0.5]` default
-     * before the sheet's `<Screen snapPoints>` registers (and doesn't
-     * reactively correct), so the sheet renders at the wrong height while
-     * `useSheetHeight` (reactive) reads the real fraction — the two disagree
-     * and the sheet paints too short. `<Stack>` prefers this reactive record.
-     * Absent key ⇒ fall back to the render-time option / default.
+     * Internal: resolved detents (ascending px) per sheet entry, populated
+     * at push time from the SAME registration read as `_sheetBackdrops`
+     * (above) — for the identical reason. The sheet LAYER's translateY
+     * mapper scales by the largest detent px, and a render-time read gets
+     * the half-screen default before the sheet's `<Screen detents>`
+     * registers (and doesn't reactively correct), so the sheet renders at
+     * the wrong height while `useSheetHeight` (reactive) reads the real
+     * height — the two disagree and the sheet paints too short. `<Stack>`
+     * prefers this reactive record. Absent key ⇒ fall back to the
+     * render-time option / default.
      */
-    readonly _sheetSnaps: Signal<Record<string, readonly number[]>>;
+    readonly _sheetDetents: Signal<Record<string, readonly number[]>>;
     /**
      * Internal: set `nav.isLocallyFocused` from outside.
      *
@@ -272,14 +274,15 @@ export interface CreateNavigatorOptions {
      */
     progress?: SharedValue<number>;
     /**
-     * Dedicated SharedValue for `presentation: 'sheet'` entries. Separate
-     * from `progress` because that SV is reset to 0 inside the MT worklet at
+     * Dedicated SharedValue for `presentation: 'sheet'` entries, carrying
+     * reveal-px semantics (visible height: 0 = off-screen). Separate from
+     * `progress` because that SV is reset to 0 inside the MT worklet at
      * the start of every transition — a resting sheet must hold its position
      * across unrelated navigations, so its binding lives on an SV only sheet
      * code writes. Only meaningful on the root navigator (sheets escalate);
      * undefined disables sheet animation (tests / nested navs).
      */
-    sheetProgress?: SharedValue<number>;
+    sheetReveal?: SharedValue<number>;
     /**
      * Parent navigator. Set when this navigator is nested under another
      * (e.g. a per-tab `<Stack initialRoute>` under root). Drives the
@@ -306,7 +309,7 @@ export interface CreateNavigatorOptions {
  * can subscribe to it.
  */
 export function createNavigatorState(opts: CreateNavigatorOptions): NavigatorState {
-    const { routes, initial, progress, sheetProgress, parent = null } = opts;
+    const { routes, initial, progress, sheetReveal, parent = null } = opts;
 
     // Hoisted (rather than created inline in the return) because `push`
     // reads a just-mounted sheet screen's options to compute its open
@@ -317,7 +320,7 @@ export function createNavigatorState(opts: CreateNavigatorOptions): NavigatorSta
     // read reactively by `<Stack>`. A deep-reactive record: writing a key
     // notifies exactly that key's readers.
     const sheetBackdropsBox = signal<Record<string, boolean>>({});
-    const sheetSnapsBox = signal<Record<string, readonly number[]>>({});
+    const sheetDetentsBox = signal<Record<string, readonly number[]>>({});
 
     const stackSignal: Signal<StackEntry[]> = signal<StackEntry[]>([initial]);
     const focusedBox: Signal<{ value: boolean }> = signal<{ value: boolean }>({
@@ -460,10 +463,10 @@ export function createNavigatorState(opts: CreateNavigatorOptions): NavigatorSta
         const cur = getStack();
         const prevTop = cur[cur.length - 1];
 
-        // Sheets animate on the dedicated sheet SV (see `sheetProgress` in
+        // Sheets animate on the dedicated sheet SV (see `sheetReveal` in
         // CreateNavigatorOptions); everything else on the shared `progress`.
         const isSheet = newEntry.presentation === 'sheet';
-        const sv = isSheet ? sheetProgress : progress;
+        const sv = isSheet ? sheetReveal : progress;
         const animated = options?.animated !== false && !!sv;
 
         // Commit the stack append and the transition in a single batch so the
@@ -488,25 +491,26 @@ export function createNavigatorState(opts: CreateNavigatorOptions): NavigatorSta
         // Sheet-target readers, shared by the non-animated "present at
         // detent" path directly below and the animated push further down.
         // `readSheetTarget` is the synchronous attempt (null until the
-        // `<Screen snapPoints>` registration lands — see the readiness note);
+        // `<Screen detents>` registration lands — see the readiness note);
         // `resolveSheetTarget` polls microtask→macrotask→default so a caller
         // that can't see the config synchronously still lands on the right
         // detent. On the real runtime the registration is deferred (it is
         // eager only under lynx-testing's flush, which is why only on-device
-        // testing catches a wrong first-frame height).
-        const readSheetTarget = (): { target: number; heightFraction: number } | null => {
+        // testing catches a wrong first-frame height). `restPx` is the
+        // resting reveal in px — the sheet SV's unit.
+        const readSheetTarget = (): { restPx: number } | null => {
             // Readiness signal is the REGISTRY's presence (EntryScope
             // registers it at mount, in the same flush that runs the
-            // screen's `<Screen>` children) — not the snapPoints option:
-            // a sheet relying on the default snap config never declares
+            // screen's `<Screen>` children) — not the detents option:
+            // a sheet relying on the default detent config never declares
             // one and must still resolve without the macrotask fallback.
             // (Lazy route bodies that register options later keep the
             // documented default-config caveat.)
             const reg = screens.get(newEntry.key);
             if (!reg) return null;
             const screenOpts = untrack(() => ({
-                snapPoints: reg.options.snapPoints,
-                initialSnapIndex: reg.options.initialSnapIndex,
+                detents: reg.options.detents,
+                initialDetentIndex: reg.options.initialDetentIndex,
                 backdrop: reg.options.backdrop,
             }));
             // Resolve the backdrop preference off the SAME registration read
@@ -514,19 +518,18 @@ export function createNavigatorState(opts: CreateNavigatorOptions): NavigatorSta
             // Prune keys whose entries have left the stack so the record
             // can't grow across a session.
             const live = new Set(getStack().map((e) => e.key));
-            const snaps = resolveSnapPoints(screenOpts.snapPoints);
+            const detentsPx = resolveRouteDetents(screenOpts.detents);
             sheetBackdropsBox[newEntry.key] = screenOpts.backdrop !== false;
-            sheetSnapsBox[newEntry.key] = snaps;
+            sheetDetentsBox[newEntry.key] = detentsPx;
             for (const k of Object.keys(sheetBackdropsBox)) {
                 if (k !== newEntry.key && !live.has(k)) delete sheetBackdropsBox[k];
             }
-            for (const k of Object.keys(sheetSnapsBox)) {
-                if (k !== newEntry.key && !live.has(k)) delete sheetSnapsBox[k];
+            for (const k of Object.keys(sheetDetentsBox)) {
+                if (k !== newEntry.key && !live.has(k)) delete sheetDetentsBox[k];
             }
-            const target = initialSnapProgress(snaps, screenOpts.initialSnapIndex);
-            return { target, heightFraction: target * snaps[snaps.length - 1] };
+            return { restPx: initialDetentPx(detentsPx, screenOpts.initialDetentIndex) };
         };
-        const resolveSheetTarget = async (): Promise<{ target: number; heightFraction: number }> => {
+        const resolveSheetTarget = async (): Promise<{ restPx: number }> => {
             let read = readSheetTarget();
             if (read === null) {
                 await Promise.resolve(); // microtask — usual flush boundary
@@ -537,10 +540,9 @@ export function createNavigatorState(opts: CreateNavigatorOptions): NavigatorSta
                 read = readSheetTarget();
             }
             if (read === null) {
-                // Still unmounted (lazy route) — default snap config.
-                const snaps = resolveSnapPoints(undefined);
-                const target = initialSnapProgress(snaps, undefined);
-                read = { target, heightFraction: target * snaps[snaps.length - 1] };
+                // Still unmounted (lazy route) — default detent config.
+                const detentsPx = resolveRouteDetents(undefined);
+                read = { restPx: initialDetentPx(detentsPx, undefined) };
             }
             return read;
         };
@@ -560,7 +562,7 @@ export function createNavigatorState(opts: CreateNavigatorOptions): NavigatorSta
         // hidden meanwhile rather than flashing a stale height.
         if (!animated) {
             if (isSheet) {
-                // Populate the render-time channels (_sheetBackdrops/_sheetSnaps)
+                // Populate the render-time channels (_sheetBackdrops/_sheetDetents)
                 // for EVERY sheet push — INCLUDING when there's no progress SV
                 // (`<NavigationRoot animated={false}>`), where the `&& sv` gate
                 // used to skip this entirely and reintroduce the render-time
@@ -577,7 +579,7 @@ export function createNavigatorState(opts: CreateNavigatorOptions): NavigatorSta
                 };
                 const readNow = readSheetTarget();   // populates the records
                 if (readNow !== null) {
-                    positionSheet(readNow.target);
+                    positionSheet(readNow.restPx);
                 } else {
                     void resolveSheetTarget().then((read) => {
                         // `resolveSheetTarget` re-populates the records. The entry
@@ -585,7 +587,7 @@ export function createNavigatorState(opts: CreateNavigatorOptions): NavigatorSta
                         // `reset()`); don't reposition a dead sheet.
                         const stackNow = getStack();
                         if (stackNow[stackNow.length - 1]?.key !== newEntry.key) return;
-                        positionSheet(read.target);
+                        positionSheet(read.restPx);
                     });
                 }
             }
@@ -627,12 +629,12 @@ export function createNavigatorState(opts: CreateNavigatorOptions): NavigatorSta
             seedRunner(isSheet ? 0 : PRE_STAGE_PEEK);
         }
 
-        // A sheet opens to its initial snap point, not progress 1. The snap
-        // config comes from the `<Screen snapPoints>` registration; on the
-        // real runtime it lands deferred, so `resolveSheetTarget` polls
-        // microtask-first (the flush usually lands within a microtask; a
-        // macrotask wait added a perceptible hesitation between tap and
-        // slide), then macrotask, then the default snap config.
+        // A sheet opens to its initial detent (reveal px), not full-screen.
+        // The detent config comes from the `<Screen detents>` registration;
+        // on the real runtime it lands deferred, so `resolveSheetTarget`
+        // polls microtask-first (the flush usually lands within a microtask;
+        // a macrotask wait added a perceptible hesitation between tap and
+        // slide), then macrotask, then the default detent config.
         const startSheetPush = async (): Promise<void> => {
             // Pre-stage first: by the time the settle window closes, the
             // sheet's `<Screen>` registration has virtually always landed,
@@ -647,8 +649,10 @@ export function createNavigatorState(opts: CreateNavigatorOptions): NavigatorSta
             return animateProgress(
                 sv,
                 0,
-                read.target,
-                sheetDurationSec(read.heightFraction, TRANSITION_DURATION_SEC),
+                read.restPx,
+                // Velocity-matched to the card/modal slide: the fraction of
+                // the screen the sheet travels (0 → restPx).
+                revealDurationSec(read.restPx / SCREEN_HEIGHT, TRANSITION_DURATION_SEC),
                 // A reset() can land DURING the slide and start a successor
                 // transition on the same shared SV — landing this one then
                 // would stomp it. Same identity check the completion callback
@@ -702,10 +706,10 @@ export function createNavigatorState(opts: CreateNavigatorOptions): NavigatorSta
         if (target === cur.length) return;
 
         // A sheet pop animates the dedicated sheet SV from its resting
-        // position back to 0 (off-screen); cards/modals animate the shared
+        // reveal back to 0 (off-screen); cards/modals animate the shared
         // `progress` 0 → 1 with kind-specific transforms.
         const isSheet = cur[cur.length - 1].presentation === 'sheet';
-        const sv = isSheet ? sheetProgress : progress;
+        const sv = isSheet ? sheetReveal : progress;
         const animated =
             options?.animated !== false && !!sv && count === 1 && cur.length >= 2;
         if (!animated) {
@@ -770,18 +774,13 @@ export function createNavigatorState(opts: CreateNavigatorOptions): NavigatorSta
         };
         // Sheet pop duration is velocity-matched like the push, derived
         // from the sheet's LIVE position: `sv.value` is the BG-readable
-        // latest published snapshot (see SharedValue), so a sheet the user
-        // dragged to another detent pops at the right speed too.
+        // latest published snapshot (see SharedValue) in reveal px, so a
+        // sheet the user dragged to another detent pops at the right speed
+        // too — no detent-config read needed, the SV already carries px.
         let durationSec = TRANSITION_DURATION_SEC;
         if (isSheet && sv) {
-            // The whole options read sits inside untrack — `options` is a
-            // per-key reactive proxy, so reading `.snapPoints` outside the
-            // block would subscribe whatever reactive scope pop() runs in.
-            const snaps = untrack(() =>
-                resolveSnapPoints(screens.get(popping.key)?.options.snapPoints),
-            );
-            durationSec = sheetDurationSec(
-                sv.value * snaps[snaps.length - 1],
+            durationSec = revealDurationSec(
+                sv.value / SCREEN_HEIGHT,
                 TRANSITION_DURATION_SEC,
             );
         }
@@ -960,7 +959,7 @@ export function createNavigatorState(opts: CreateNavigatorOptions): NavigatorSta
         },
         _screens: screens,
         _sheetBackdrops: sheetBackdropsBox,
-        _sheetSnaps: sheetSnapsBox,
+        _sheetDetents: sheetDetentsBox,
         _setLocallyFocused: setLocallyFocused,
     };
 }

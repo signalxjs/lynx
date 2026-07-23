@@ -18,7 +18,7 @@ import { Button, Col, Heading, Input, Row, Text } from '@sigx/lynx-daisyui';
  *
  * The gestures `<ScrollView>` coordinates automatically (ScrollDragHost
  * adoption); raw `<scroll-view>`/`<list>` content should use
- * `<Screen dragHandle="grabber">` instead.
+ * `<Screen dragMode="grabber">` instead.
  */
 export const SheetScrollDemo = component(() => {
     const nav = useNav();
@@ -28,7 +28,7 @@ export const SheetScrollDemo = component(() => {
     const rows = Array.from({ length: 40 }, (_, i) => i + 1);
 
     return () => (
-        <Screen snapPoints={[0.5, 0.9]} initialSnapIndex={0}>
+        <Screen detents={[{ fraction: 0.5 }, { fraction: 0.9 }]} initialDetentIndex={0}>
             <Col flex={1} class="bg-base-100 rounded-t-2xl">
                 {/* Grabber affordance — the whole surface drags now; the pill
                     just marks the chrome zone that ALWAYS drags the sheet. */}

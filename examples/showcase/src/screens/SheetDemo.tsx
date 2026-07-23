@@ -5,7 +5,7 @@ import { Button, Col, Heading, Text } from '@sigx/lynx-daisyui';
 /**
  * Sheet presentation demo — this screen IS the sheet: the catalog row
  * pushes the `sheetDemo` route, whose `presentation: 'sheet'` slides this
- * up to the 0.4 snap point with the navigator's built-in dimmed backdrop.
+ * up to the 0.4 detent with the navigator's built-in dimmed backdrop.
  *
  * The grabber pill at the top is a visual affordance sitting inside the
  * navigator's ~28px drag strip — the strip itself is invisible and owned
@@ -21,7 +21,7 @@ export const SheetDemo = component(() => {
     const nav = useNav();
 
     return () => (
-        <Screen snapPoints={[0.4, 0.9]} initialSnapIndex={0}>
+        <Screen detents={[{ fraction: 0.4 }, { fraction: 0.9 }]} initialDetentIndex={0}>
             {/* flex={1} (Col's typed prop — Col has no `style` prop, inline
                 styles are silently dropped) fills the layer host so the
                 surface stays opaque to the screen's bottom edge at every
@@ -39,7 +39,7 @@ export const SheetDemo = component(() => {
                     <Col gap={4}>
                         <Heading level={3}>Bottom sheet</Heading>
                         <Text class="opacity-60 text-sm">
-                            {'presentation: "sheet" — snapPoints [0.4, 0.9], opens at 0.4'}
+                            {'presentation: "sheet" — detents [0.4, 0.9], opens at 0.4'}
                         </Text>
                     </Col>
 

@@ -139,11 +139,11 @@ describe('ScreenOptions / useScreenOptions', () => {
             | 'title'
             | 'headerShown'
             | 'gestureEnabled'
-            | 'snapPoints'
-            | 'initialSnapIndex'
+            | 'detents'
+            | 'initialDetentIndex'
             | 'backdropDismiss'
             | 'backdrop'
-            | 'dragHandle'
+            | 'dragMode'
         >();
     });
 

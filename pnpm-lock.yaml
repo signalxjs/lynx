@@ -888,6 +888,9 @@ importers:
       '@sigx/lynx-motion':
         specifier: workspace:^
         version: link:../lynx-motion
+      '@sigx/lynx-sheet':
+        specifier: workspace:^
+        version: link:../lynx-sheet
       '@sigx/lynx-testing':
         specifier: workspace:^
         version: link:../lynx-testing

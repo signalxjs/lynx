@@ -1,13 +1,13 @@
 /**
  * `presentation: 'sheet'` tests.
  *
- * A sheet is a stack entry like a modal — partial-height, snap points,
+ * A sheet is a stack entry like a modal — partial-height, detents,
  * built-in backdrop, drag-to-dismiss (the gesture itself is MT-only; its
- * decision logic is covered in `sheet-math.test.ts`, the layer/animation
- * plan in `layer-plan.test.ts`). What we lock in here is the BG-side stack
- * model:
+ * decision logic lives in `@sigx/lynx-sheet`'s math/drag tests, the
+ * layer/animation plan in `layer-plan.test.ts`). What we lock in here is
+ * the BG-side stack model:
  *  - Route-level and per-call `presentation: 'sheet'` land on the entry.
- *  - `<Screen snapPoints initialSnapIndex backdropDismiss>` registers.
+ *  - `<Screen detents initialDetentIndex backdropDismiss>` registers.
  *  - `nav.pop()` / `dismiss()` / hardware back pop a sheet.
  *  - Sheet pushes escalate from nested stacks to root (like modals).
  *  - `commitSheetDismiss` (the drag-dismiss commit) pops exactly the top
@@ -16,6 +16,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { component } from '@sigx/lynx';
 import { render, act, TestNode } from '@sigx/lynx-testing';
+import { SCREEN_HEIGHT } from '../src/internal/screen-width';
 import { NavigationRoot } from '../src/components/NavigationRoot';
 import { Stack } from '../src/components/Stack';
 import { Tabs } from '../src/components/Tabs';
@@ -49,7 +50,7 @@ function renderRoot(): NavProbe {
 /**
  * Animated navigator — the sheet SV exists, so the present-at-detent (#711b)
  * and dismiss-reset paths are exercisable. Under lynx-testing's eager flush
- * the `<Screen snapPoints>` registration lands synchronously, so a
+ * the `<Screen detents>` registration lands synchronously, so a
  * non-animated sheet push takes the synchronous jump path.
  */
 function renderRootAnimated(): NavProbe {
@@ -79,24 +80,25 @@ describe('Sheet presentation — stack model', () => {
         expect(probe.nav!.current.presentation).toBe('sheet');
     });
 
-    it('registers snap config from <Screen> into the entry registry', () => {
+    it('registers detent config from <Screen> into the entry registry', () => {
         const probe = renderRoot();
         act(() => probe.nav!.push('filterSheet'));
         const reg = probe.internals!.screens.get(probe.nav!.current.key)!;
         expect(reg).toBeTruthy();
-        // FilterSheet declares <Screen snapPoints={[0.4, 0.9]} initialSnapIndex={0}>.
-        expect(reg.options.snapPoints).toEqual([0.4, 0.9]);
-        expect(reg.options.initialSnapIndex).toBe(0);
-        // dragHandle not declared → absent from the registry; the Stack's
+        // FilterSheet declares
+        // <Screen detents={[{fraction:0.4},{fraction:0.9}]} initialDetentIndex={0}>.
+        expect(reg.options.detents).toEqual([{ fraction: 0.4 }, { fraction: 0.9 }]);
+        expect(reg.options.initialDetentIndex).toBe(0);
+        // dragMode not declared → absent from the registry; the Stack's
         // sheetConfigFor defaults it to 'surface' (full-body drag).
-        expect(reg.options.dragHandle).toBeUndefined();
+        expect(reg.options.dragMode).toBeUndefined();
     });
 
-    it('registers dragHandle from <Screen> into the entry registry', () => {
+    it('registers dragMode from <Screen> into the entry registry', () => {
         const probe = renderRoot();
         act(() => probe.nav!.push('grabberSheet'));
         const reg = probe.internals!.screens.get(probe.nav!.current.key)!;
-        expect(reg.options.dragHandle).toBe('grabber');
+        expect(reg.options.dragMode).toBe('grabber');
     });
 
     it('nav.pop() dismisses the sheet back to the underlying screen', () => {
@@ -259,41 +261,42 @@ describe('Sheet presentation — hardware back', () => {
 });
 
 describe('Sheet presentation — present at detent (#711b)', () => {
-    // FilterSheet: snapPoints [0.4, 0.9], initialSnapIndex 0 →
-    // progress = 0.4 / 0.9 (snapToProgress).
-    const DETENT = 0.4 / 0.9;
+    // FilterSheet: detents [{fraction:0.4},{fraction:0.9}], initialDetentIndex
+    // 0 → the sheet rests at 0.4 × SCREEN_HEIGHT visible px (reveal units).
+    const DETENT_PX = Math.round(0.4 * SCREEN_HEIGHT);
 
     it('a non-animated sheet push jumps the SV to the initial detent (no slide)', () => {
         const probe = renderRootAnimated();
-        const sv = probe.internals!.sheetProgress!;
+        const sv = probe.internals!.sheetReveal!;
         expect(sv).toBeTruthy();
 
         act(() => probe.nav!.push('filterSheet', undefined, { animated: false }));
 
         // Present-at-detent: the SV lands on the resting height synchronously
         // (registry visible under the eager flush), and no transition runs.
-        expect(sv.current.value).toBeCloseTo(DETENT, 5);
+        expect(sv.current.value).toBe(DETENT_PX);
         expect(probe.nav!.transition).toBeNull();
         expect(probe.nav!.current.route).toBe('filterSheet');
     });
 
     it('an animated sheet push does NOT jump — it runs a transition from 0', () => {
         const probe = renderRootAnimated();
-        const sv = probe.internals!.sheetProgress!;
+        const sv = probe.internals!.sheetReveal!;
 
         act(() => probe.nav!.push('filterSheet'));
 
         // Distinguishes the animated branch: a transition is in flight and the
-        // SV is seeded at 0 to slide up (vs the non-animated jump to DETENT).
+        // SV is seeded at 0 to slide up (vs the non-animated jump to the
+        // detent px).
         expect(probe.nav!.transition).not.toBeNull();
         expect(sv.current.value).toBe(0);
     });
 
     it('a non-animated dismiss resets the sheet SV to 0', () => {
         const probe = renderRootAnimated();
-        const sv = probe.internals!.sheetProgress!;
+        const sv = probe.internals!.sheetReveal!;
         act(() => probe.nav!.push('filterSheet', undefined, { animated: false }));
-        expect(sv.current.value).toBeCloseTo(DETENT, 5);
+        expect(sv.current.value).toBe(DETENT_PX);
 
         act(() => probe.nav!.pop(1, { animated: false }));
 
@@ -363,29 +366,33 @@ describe('Sheet presentation — backdrop: false (inline / non-modal)', () => {
 
     it('present-at-detent (#711b) and useSheetHeight still work with backdrop off', () => {
         const { probe } = renderWithContainer();
-        const sv = probe.internals!.sheetProgress!;
+        const sv = probe.internals!.sheetReveal!;
         act(() => probe.nav!.push('panelSheet', undefined, { animated: false }));
-        // snapPoints [0.4, 0.9], initialSnapIndex 0 → progress 0.4/0.9.
-        expect(sv.current.value).toBeCloseTo(0.4 / 0.9, 5);
+        // detents [{fraction:0.4},{fraction:0.9}], initialDetentIndex 0 →
+        // rest reveal = 0.4 × SCREEN_HEIGHT px.
+        expect(sv.current.value).toBe(Math.round(0.4 * SCREEN_HEIGHT));
         expect(probe.nav!.transition).toBeNull();
         act(() => probe.nav!.pop(1, { animated: false }));
         expect(sv.current.value).toBe(0);
     });
 
-    it('publishes the resolved snapPoints on the reactive push-time channel', () => {
-        // The layer's translateY mapper scales by the largest snap fraction;
-        // a render-time option read gets the [0.5] default before the sheet
-        // registers and doesn't reactively correct, so it must come from this
-        // push-time channel (mirrors sheetBackdrops) or the sheet paints too
-        // short while useSheetHeight uses the real fraction.
+    it('publishes the resolved detents (px) on the reactive push-time channel', () => {
+        // The layer's translateY mapper scales by the largest detent px;
+        // a render-time option read gets the half-screen default before the
+        // sheet registers and doesn't reactively correct, so it must come
+        // from this push-time channel (mirrors sheetBackdrops) or the sheet
+        // paints too short while useSheetHeight uses the real height.
         const { probe } = renderWithContainer();
         act(() => probe.nav!.push('panelSheet', undefined, { animated: false }));
         const key = probe.nav!.current.key;
-        expect(probe.internals!.sheetSnaps[key]).toEqual([0.4, 0.9]);
-        // A dead entry's snaps are pruned on the next push (same as the
+        expect(probe.internals!.sheetDetents[key]).toEqual([
+            Math.round(0.4 * SCREEN_HEIGHT),
+            Math.round(0.9 * SCREEN_HEIGHT),
+        ]);
+        // A dead entry's detents are pruned on the next push (same as the
         // backdrop channel — the push is where the read runs).
         act(() => probe.nav!.pop(1, { animated: false }));
         act(() => probe.nav!.push('panelSheet', undefined, { animated: false }));
-        expect(probe.internals!.sheetSnaps[key]).toBeUndefined();
+        expect(probe.internals!.sheetDetents[key]).toBeUndefined();
     });
 });

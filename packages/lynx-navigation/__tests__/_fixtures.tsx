@@ -46,19 +46,19 @@ export const ComposeMessage = component(() => () => (
 ));
 
 export const FilterSheet = component(() => () => (
-    <Screen snapPoints={[0.4, 0.9]} initialSnapIndex={0}>
+    <Screen detents={[{ fraction: 0.4 }, { fraction: 0.9 }]} initialDetentIndex={0}>
         <view><text>FilterSheet</text></view>
     </Screen>
 ));
 
 export const GrabberSheet = component(() => () => (
-    <Screen snapPoints={[0.5]} dragHandle="grabber">
+    <Screen detents={[{ fraction: 0.5 }]} dragMode="grabber">
         <view><text>GrabberSheet</text></view>
     </Screen>
 ));
 
 export const PanelSheet = component(() => () => (
-    <Screen snapPoints={[0.4, 0.9]} initialSnapIndex={0} backdrop={false}>
+    <Screen detents={[{ fraction: 0.4 }, { fraction: 0.9 }]} initialDetentIndex={0} backdrop={false}>
         <view><text>PanelSheet</text></view>
     </Screen>
 ));

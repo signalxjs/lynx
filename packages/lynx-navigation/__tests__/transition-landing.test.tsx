@@ -153,7 +153,7 @@ describe('transition landing (#758)', () => {
 
     it('a sheet push lands on its snap target, not part-way', async () => {
         const probe = renderRootAnimated();
-        const sheetSv = probe.internals!.sheetProgress!;
+        const sheetSv = probe.internals!.sheetReveal!;
         expect(sheetSv).toBeTruthy();
 
         await act(() => {
