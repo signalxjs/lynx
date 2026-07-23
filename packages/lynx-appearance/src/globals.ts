@@ -63,6 +63,10 @@ export function readGlobalColorScheme(): ColorScheme | null {
  * unless the app's `fontScale.min/max` config clamped it).
  *
  * Safe on both BG and MT threads — `__globalProps` is mirrored across both.
+ * Not reactive: a read taken during the render triggered by
+ * `onFontScaleChanged` can see the previous `os` (the globalProps mirror
+ * updates independently of the event). Prefer `useFontScale()` for the live
+ * effective value; treat `os` as informational.
  */
 export function readGlobalFontScale(): { scale: number; os: number } | null {
   const lynxObj: LynxGlobalLike | undefined = typeof lynx !== 'undefined'
