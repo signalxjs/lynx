@@ -8,7 +8,13 @@ import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { findWebBundle, contentType, safeJoin, hostHtml } from '../src/web-server';
+import {
+  findWebBundle,
+  contentType,
+  safeJoin,
+  hostHtml,
+  resolveWebElements,
+} from '../src/web-server';
 
 function withTempDir(files: string[], fn: (dir: string) => void): void {
   const dir = mkdtempSync(join(tmpdir(), 'sigx-web-'));
@@ -102,5 +108,37 @@ describe('hostHtml', () => {
     expect(html.slice(0, configAt).lastIndexOf('<script>')).toBeGreaterThan(
       html.slice(0, configAt).lastIndexOf('<script type="module">'),
     );
+  });
+
+  it('injects a self-registering module script per web element, honoring base (#771)', () => {
+    const html = hostHtml('Demo', 'main.web.bundle', {
+      webElements: ['sigx-richtext'],
+      base: '/app-base/',
+    });
+    expect(html).toContain(
+      '<script type="module" src="/app-base/elements/sigx-richtext.js"></script>',
+    );
+  });
+
+  it('omits the elements script when the app uses no web elements', () => {
+    expect(hostHtml('Demo', 'main.web.bundle')).not.toContain('/elements/');
+    expect(hostHtml('Demo', 'main.web.bundle', { webElements: [] })).not.toContain('/elements/');
+  });
+});
+
+describe('resolveWebElements', () => {
+  it('returns nothing for an app that does not depend on a web-element package', () => {
+    withTempDir([], (dir) => {
+      expect(resolveWebElements(dir)).toEqual([]);
+    });
+  });
+
+  it('resolves <sigx-richtext> from an app that depends on @sigx/lynx-richtext', () => {
+    // The showcase depends on richtext (via markdown); resolve from its cwd.
+    const showcase = join(__dirname, '..', '..', '..', 'examples', 'showcase');
+    const found = resolveWebElements(showcase);
+    expect(found.map((e) => e.name)).toContain('sigx-richtext');
+    const richtext = found.find((e) => e.name === 'sigx-richtext');
+    expect(richtext?.path).toMatch(/lynx-richtext[/\\]dist[/\\]web[/\\]element\.js$/);
   });
 });

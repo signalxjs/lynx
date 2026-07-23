@@ -97,3 +97,28 @@ mention chips, task checkboxes.
 Native code is autolinked by `sigx prebuild` (`signalx-module.json` →
 `ios.uiComponents` / `android.behaviors`); run a native rebuild after adding
 the package.
+
+## Web
+
+`<sigx-richtext>` also has a **web implementation** — a real `contenteditable`
+custom element mirroring the native contract (the same `RichDoc` model, span
+formatting, block types, selection + caret-rect events, height reporting, and
+version/echo rules), so `RichTextInput` / `MarkdownEditor` work on
+`sigx run:web` and `sigx build:web`. `@sigx/lynx-cli` serves it to the host
+page automatically when your app depends on this package — no wiring needed.
+
+The web element is shipped separately from the native/BG entry as
+`@sigx/lynx-richtext/web-element`: a self-contained, self-registering ESM module
+loaded in the host page's document (where `@lynx-js/web-core` creates the
+element). It is import-free so it can be served as a plain module without a
+bundler.
+
+Web differences from native:
+
+- A collapsed `toggleFormat` is a **no-op** (native flips *typing attributes* so
+  the next character inherits the format). Select text first, then toggle —
+  the common toolbar flow.
+- The soft-keyboard `confirm-type` is advisory on web (there is no on-screen
+  return key to relabel).
+- `SystemInfo`-derived layout comes from the `<lynx-view>`, not the display
+  (see `@sigx/lynx-web-host`).
