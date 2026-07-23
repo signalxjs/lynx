@@ -1,12 +1,19 @@
 import { component, signal } from '@sigx/lynx';
 import { ScrollView } from '@sigx/lynx-gestures';
+import { List } from '@sigx/lynx-list';
 import { Screen } from '@sigx/lynx-navigation';
 import { useSafeAreaInsets } from '@sigx/lynx-safe-area';
 import { BottomSheet } from '@sigx/lynx-sheet';
-import { Button, Col, Heading, Text } from '@sigx/lynx-daisyui';
+import { Button, Col, Heading, Row, Text } from '@sigx/lynx-daisyui';
 
 /** Navigator header height (dp) — matches the showcase's Screen chrome. */
 const HEADER_H = 56;
+
+/** Shared sheet-body rows — rendered by both body variants. */
+const SHEET_ROWS = Array.from({ length: 40 }, (_, i) => ({
+    id: String(i),
+    text: `Row ${i + 1} — scrolls at the top detent, drags the sheet below it`,
+}));
 
 /**
  * Standalone `<BottomSheet>` demo — the modal tray WITHOUT a route: this
@@ -26,7 +33,11 @@ const HEADER_H = 56;
  * this is what makes the dim cover the whole screen.
  */
 export const InlineSheetDemo = component(() => {
-    const state = signal({ open: false, lastEvent: '(none yet)' });
+    const state = signal<{ open: boolean; lastEvent: string; body: 'scroll' | 'list' }>({
+        open: false,
+        lastEvent: '(none yet)',
+        body: 'scroll',
+    });
     const insets = useSafeAreaInsets();
 
     return () => (
@@ -53,6 +64,24 @@ export const InlineSheetDemo = component(() => {
                     <Text class="text-sm">• At the top detent the list scrolls; at its top edge, dragging down hands back to the sheet</Text>
                     <Text class="text-sm">• Fling down or tap the dim to dismiss</Text>
                 </Col>
+                {/* Body toggle: the same sheet over a gestures <ScrollView>
+                    or an adopted @sigx/lynx-list <List> (#790). */}
+                <Row gap={8}>
+                    <Button
+                        size="sm"
+                        color={state.body === 'scroll' ? 'primary' : undefined}
+                        onPress={() => { state.body = 'scroll'; }}
+                    >
+                        ScrollView body
+                    </Button>
+                    <Button
+                        size="sm"
+                        color={state.body === 'list' ? 'primary' : undefined}
+                        onPress={() => { state.body = 'list'; }}
+                    >
+                        List body
+                    </Button>
+                </Row>
                 <Button color="primary" onPress={() => { state.open = true; }}>
                     Open sheet
                 </Button>
@@ -86,17 +115,34 @@ export const InlineSheetDemo = component(() => {
                             <view class="w-10 h-1 rounded-full bg-base-300" />
                         </Col>
                     ),
-                    default: () => (
-                        <ScrollView class="flex-fill">
-                            <Col gap={8} padding={{ x: 16, bottom: 24 }}>
-                                {Array.from({ length: 40 }, (_, i) => (
-                                    <Text key={i} class="text-sm py-1">
-                                        {`Row ${i + 1} — scrolls at the top detent, drags the sheet below it`}
-                                    </Text>
-                                ))}
-                            </Col>
-                        </ScrollView>
-                    ),
+                    default: () => state.body === 'list'
+                        ? (
+                            // Adopted List body (#790): the vertical <List>
+                            // claims the sheet's ScrollDragHost slot, so the
+                            // surface drag arbitrates against the recycler
+                            // exactly like the ScrollView variant.
+                            <List
+                                items={SHEET_ROWS}
+                                keyExtractor={(r) => r.id}
+                                renderItem={(r) => (
+                                    <view class="px-4">
+                                        <Text class="text-sm py-1">{r.text}</Text>
+                                    </view>
+                                )}
+                                style={{ flexGrow: 1 }}
+                            />
+                        )
+                        : (
+                            <ScrollView class="flex-fill">
+                                <Col gap={8} padding={{ x: 16, bottom: 24 }}>
+                                    {SHEET_ROWS.map((r) => (
+                                        <Text key={r.id} class="text-sm py-1">
+                                            {r.text}
+                                        </Text>
+                                    ))}
+                                </Col>
+                            </ScrollView>
+                        ),
                 }}
             />
         </view>
