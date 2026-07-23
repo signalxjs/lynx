@@ -1,3 +1,4 @@
+import { TouchGuard } from '@sigx/lynx-gestures';
 import { component, compound, type Define } from '@sigx/lynx';
 
 export type ModalProps =
@@ -16,17 +17,22 @@ const _Modal = component<ModalProps>(({ props, slots }) => {
       return <view style={{ position: 'absolute', width: '0px', height: '0px', opacity: 0 }} />;
     }
     return (
-      <view
+      <TouchGuard
         class="hero-modal-overlay"
-        bindtap={() => { props.onClose?.(); }}
+        // Native touch consumption (#787).
+        onTap={() => { props.onClose?.(); }}
       >
         <view
           class={`hero-modal-box${props.class ? ' ' + props.class : ''}`}
-          bindtap={(e: any) => { e?.stopPropagation?.(); }}
+          // catchtap (Lynx catchEvent) actually stops the bubble — there is
+          // no working e.stopPropagation() in this runtime (#260), so the
+          // old bindtap guard was a silent no-op and any tap inside the box
+          // bubbled to the overlay's close handler.
+          catchtap={() => {}}
         >
           {slots.default?.()}
         </view>
-      </view>
+      </TouchGuard>
     );
   };
 });

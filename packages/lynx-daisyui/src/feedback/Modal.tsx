@@ -1,3 +1,4 @@
+import { TouchGuard } from '@sigx/lynx-gestures';
 import { component, compound, type Define } from '@sigx/lynx';
 
 export type ModalProps =
@@ -17,9 +18,11 @@ const _Modal = component<ModalProps>(({ props, slots }) => {
     }
 
     return (
-      <view
+      <TouchGuard
         class="modal-overlay"
-        bindtap={() => { props.onClose?.(); }}
+        // The guard's native view consumes the platform touch (#787): an
+        // EditText behind the overlay can no longer grab focus through it.
+        onTap={() => { props.onClose?.(); }}
       >
         {/* catchtap (Lynx catchEvent) — there is no e.stopPropagation() in
             this runtime, so the old bindtap guard was a silent no-op and any
@@ -33,7 +36,7 @@ const _Modal = component<ModalProps>(({ props, slots }) => {
         >
           {slots.default?.()}
         </view>
-      </view>
+      </TouchGuard>
     );
   };
 });

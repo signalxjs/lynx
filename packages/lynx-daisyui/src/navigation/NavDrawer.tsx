@@ -31,6 +31,7 @@
  * `display: none` overlay only); this component is the
  * batteries-included variant for daisyui consumers.
  */
+import { TOUCH_GUARD_TAG } from '@sigx/lynx-gestures';
 import {
     component,
     effect,
@@ -84,6 +85,11 @@ const EXIT_DURATION_SEC = 0.22;
 const EXIT_DURATION_MS = Math.round(EXIT_DURATION_SEC * 1000);
 
 const BACKDROP_OPACITY = 0.3;
+
+// Raw guard tag as a dynamic intrinsic (same pattern as lynx-sheet's
+// Backdrop guardTag) - the backdrop needs main-thread:ref + accessibility
+// attrs the <TouchGuard> wrapper doesn't forward.
+const GuardRoot = TOUCH_GUARD_TAG as any;
 
 export const NavDrawer = component<NavDrawerProps>(({ props, slots }) => {
     return () => (
@@ -293,9 +299,12 @@ const DrawerChrome = component<DrawerChromeProps>(({ props }) => {
             >
                 {props.backdrop
                     ? (
-                        <view
+                        <GuardRoot
                             main-thread:ref={backdropRef}
-                            bindtap={() => props.onBackdropPress()}
+                            // Native touch consumption (#787): inputs behind
+                            // the backdrop can't grab focus through it.
+                            guard-enabled={true}
+                            catchtap={() => props.onBackdropPress()}
                             class="bg-base-content"
                             style={{
                                 position: 'absolute',
