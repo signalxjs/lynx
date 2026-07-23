@@ -53,7 +53,16 @@ export type BackdropProps =
      * interactive elements behind it); the caller decides whether that
      * means dismiss.
      */
-    & Define.Prop<'onPress', () => void, false>;
+    & Define.Prop<'onPress', () => void, false>
+    /**
+     * Intrinsic tag to render the dim as, instead of `'view'` — pass
+     * `TOUCH_GUARD_TAG` from `@sigx/lynx-gestures` (`'sigx-touch-guard'`)
+     * so the dim's native view CONSUMES the platform touch stream and an
+     * Android EditText underneath can't grab focus (#787). Arrives as a
+     * plain string so this package stays pure JS (no lynx-gestures
+     * dependency); the tag requires `sigx prebuild`.
+     */
+    & Define.Prop<'guardTag', string, false>;
 
 export const Backdrop = component<BackdropProps>(({ props }) => {
     const ref = useMainThreadRef<MainThread.Element | null>(null);
@@ -73,8 +82,13 @@ export const Backdrop = component<BackdropProps>(({ props }) => {
         };
     });
 
+    // The dim's intrinsic tag. Default '<view>'; with `guardTag` set it
+    // renders as that tag instead (an intrinsic-string swap — same attrs,
+    // same one root element), typically 'sigx-touch-guard'.
+    const Root = (props.guardTag ?? 'view') as any;
+
     return () => (
-        <view
+        <Root
             main-thread:ref={ref}
             // `catch*` (vs `bind*`) consumes the event — see `onPress` doc.
             catchtap={() => {
@@ -86,15 +100,22 @@ export const Backdrop = component<BackdropProps>(({ props }) => {
             // blurring a focused input (endEditing fires on every
             // non-ignoring touch-down there).
             //
-            // KNOWN LIMITATION (Android): Lynx-level handlers beneath the
-            // dim are correctly blocked (catchtap consumes), but a NATIVE
-            // input view (EditText) under the tap point still receives the
-            // platform touch and grabs focus/keyboard — the fall-through
-            // is in the runtime's native dispatch, not this element, and
-            // affects every overlay idiom (Modal, drawers) identically.
-            // Tracked in #787; the fix belongs in the runtime.
+            // Android platform-touch fall-through (#787): Lynx-level
+            // handlers beneath the dim are blocked (catchtap consumes),
+            // but as a plain <view> a NATIVE input (EditText) under the
+            // tap point still receives the raw platform touch and grabs
+            // focus/keyboard — the fall-through is in Android's native
+            // dispatch, below anything the Lynx event system can veto.
+            // THE FIX is `guardTag`: pass TOUCH_GUARD_TAG from
+            // @sigx/lynx-gestures so the dim renders as the native
+            // <sigx-touch-guard> element, whose Android view consumes the
+            // platform touch stream. Only guard-enabled is added below;
+            // every other attr stays identical.
             flatten={false}
             ignore-focus={true}
+            {...(props.guardTag
+                ? { 'guard-enabled': props.enabled && props.hidden !== true }
+                : {})}
             style={{
                 position: 'absolute',
                 top: '0',

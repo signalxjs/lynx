@@ -1,5 +1,5 @@
 import { component, signal } from '@sigx/lynx';
-import { ScrollView } from '@sigx/lynx-gestures';
+import { ScrollView, TOUCH_GUARD_TAG } from '@sigx/lynx-gestures';
 import { Screen } from '@sigx/lynx-navigation';
 import { useSafeAreaInsets } from '@sigx/lynx-safe-area';
 import { BottomSheet } from '@sigx/lynx-sheet';
@@ -64,7 +64,10 @@ export const InlineSheetDemo = component(() => {
                 open={state.open}
                 animate
                 dismissible
-                backdrop
+                // guardTag: render the dim as the native <sigx-touch-guard>
+                // element so the raw Android platform touch can't fall
+                // through the dim to a native input underneath (#787).
+                backdrop={{ guardTag: TOUCH_GUARD_TAG }}
                 dragMode="surface"
                 // Reserve the real status bar + header — a hardcoded value
                 // slid the fully-open sheet (and its grabber) under the
