@@ -7,7 +7,8 @@ import {
     Platform,
     type SharedValue,
 } from '@sigx/lynx';
-import { Screen, BottomSheet } from '@sigx/lynx-navigation';
+import { Screen } from '@sigx/lynx-navigation';
+import { BottomSheet } from '@sigx/lynx-sheet';
 import { Button, Col, Row, Text, emojiClasses, markdownComponents, useMarkdownEditorTheme } from '@sigx/lynx-daisyui';
 import { LucideIcon } from '@sigx/lynx-icons-lucide/components';
 import { Haptics } from '@sigx/lynx-haptics';
@@ -111,18 +112,14 @@ export const EmojiComposerScreen = component(() => {
     const append = (m: Msg): void => { messages.value = [...messages.value, m]; };
 
     // Keyboard lift as a SharedValue — the sheet rides above it (animated on
-    // the MT).
+    // the MT). The keyboard-height MEMORY (the compact detent == the real
+    // keyboard, inset add-back included) is the sheet's own job now: the
+    // `{ keyboard: true }` detent tracks the BG-reactive lift inside
+    // `@sigx/lynx-sheet` — the `rememberedKb` bookkeeping this screen used
+    // to hand-roll (and its BG-vs-SV footgun) is gone.
     const kbLiftSV = useKeyboardLiftSV();
-    // Remember the tallest keyboard so the compact (emoji) detent == the
-    // keyboard-mode lift, or the input hops between modes. Track it from the
-    // BG-reactive `useKeyboardLift()` computed — NOT `kbLiftSV.value`: that SV
-    // is written on the MT (the animated tween), and its BG-side value stays
-    // at the seed, so `rememberedKb` never left 0 and the panel fell back to
-    // DEFAULT_KB (≠ the real keyboard) → the input jumped. Same discount as
-    // the SV so both detents use identical numbers.
+    // Still observed here, but only as the picker-warm trigger below.
     const kbLiftBG = useKeyboardLift();
-    let rememberedKb = 0;
-    watch(() => kbLiftBG.value, (h) => { if (h > rememberedKb) rememberedKb = h; });
     const screenH = Platform.pixelHeight / (Platform.pixelRatio || 1);
 
     // Warm the emoji grid a beat AFTER the chat has had its first layout, then
@@ -195,36 +192,30 @@ export const EmojiComposerScreen = component(() => {
     };
 
     return () => {
-        // The emoji panel must fill the SAME rectangle the soft keyboard did.
-        // `rememberedKb` (the keyboard LIFT) is inset-DISCOUNTED — an ancestor
-        // SafeAreaView already pads the home-indicator strip that the keyboard
-        // covers when open. The inline sheet reaches the true screen bottom, so
-        // the panel must add that bottom inset back or it lands `bottomInset`
-        // px short and the input hops on every swap. Device-general: both
-        // terms are runtime values (any keyboard, any inset, iOS/Android).
-        const kb = rememberedKb > 0
-            ? rememberedKb + (insets.value.bottom ?? 0)
-            : DEFAULT_KB;
-        const compact = INPUT_H + kb;                      // input + keyboard-height panel
-        // Max reveal never lifts the sheet's top above the header/safe area —
-        // the input must stay on-screen at full extension (BUG 3). The sheet's
-        // top sits at `screenH - reveal`, so cap reveal at `screenH - safeTop
-        // - header`.
+        // Geometry is the sheet's job now. Declared, not computed:
+        //  • floor    = the input row (px);
+        //  • compact  = `{ keyboard: true }` — the sheet remembers the real
+        //    keyboard height (BG-reactive) and adds the bottom inset back
+        //    itself, so the emoji panel fills the exact keyboard rectangle
+        //    (the math this screen used to hand-roll, footguns included);
+        //  • full     = 92% of the screen.
+        // `topOffset` caps every detent so the input never slides under the
+        // header/safe area on short screens / landscape (BUG 3 — now a prop).
         const HEADER_H = 56;
-        // The sheet's top sits at `screenH - reveal`, so keeping the input
-        // below the header/safe area means reveal must not EXCEED this cap.
-        const revealCap = screenH - (insets.value.top ?? 0) - HEADER_H;
-        // Clamp every detent to the cap — even `compact` and the expanded
-        // stage — so on short screens / landscape the top never slides under
-        // the header. `full` still sits above compact whenever there's room.
-        const compactCapped = Math.min(compact, revealCap);
-        const full = Math.min(Math.round(screenH * 0.92), revealCap);
-        // Collapsed floor = just the input row. The sheet's bottom already sits
-        // at the safe-area line (an ancestor `<SafeAreaView edges={['bottom']}>`
-        // pads the gesture bar), so the row lands clear of it — adding the inset
-        // here again would float the row a full inset too high.
+        const topOffset = (insets.value.top ?? 0) + HEADER_H;
+        const detents = [
+            INPUT_H,
+            { keyboard: true, fallbackPx: DEFAULT_KB } as const,
+            { fraction: 0.92 } as const,
+        ];
+        // Resolved full height, mirrored ONLY for the picker's fixed inner
+        // height (the #606 zero-measure guard needs a px value): round the
+        // fraction, clamp to the topOffset cap — same as resolveDetents.
+        const fullH = Math.min(
+            Math.round(screenH * 0.92),
+            Math.max(1, Math.round(screenH - topOffset)),
+        );
         const floorH = INPUT_H;
-        const detents = [floorH, compactCapped, Math.max(compactCapped, full)];
         const mode = reveal.mode();
         const engaged = mode !== 'closed';
         void revealSV;
@@ -233,11 +224,10 @@ export const EmojiComposerScreen = component(() => {
             // eslint-disable-next-line no-console
             console.log('[composer-geom]', JSON.stringify({
                 mode,
-                rememberedKb,
                 kbLiftBG: kbLiftBG.value,
-                usedKb: kb,
-                compact,
                 inputH: INPUT_H,
+                topOffset,
+                fullH,
                 bottomInset: insets.value.bottom,
             }));
         }
@@ -296,8 +286,8 @@ export const EmojiComposerScreen = component(() => {
                     over [emoji picker] (body, scrolls). Floor = input only;
                     open = compact (keyboard height); drag up = full. */}
                 <BottomSheet
-                    maxHeight={detents[2]}
                     detents={detents}
+                    topOffset={topOffset}
                     open={engaged}
                     openDetentIndex={1}
                     // On open, capture the LIVE lifted position (== the exact
@@ -376,10 +366,10 @@ export const EmojiComposerScreen = component(() => {
                             // the picker stays mounted (warm) for a jank-free first open.
                             <view
                                 style={engaged
-                                    ? { height: `${detents[2] - INPUT_H - 32}px`, display: 'flex', flexDirection: 'column' }
+                                    ? { height: `${fullH - INPUT_H - 32}px`, display: 'flex', flexDirection: 'column' }
                                     : { height: '0px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}
                             >
-                                <view style={{ height: `${detents[2] - INPUT_H - 32}px`, flexShrink: 0, display: 'flex', flexDirection: 'column' }}>
+                                <view style={{ height: `${fullH - INPUT_H - 32}px`, flexShrink: 0, display: 'flex', flexDirection: 'column' }}>
                                     {pickerWarm.value && (
                                         <EmojiPicker
                                             data={enData}

@@ -39,7 +39,6 @@ describe('public runtime exports', () => {
         const valueExportNames = Object.keys(nav).sort();
         expect(valueExportNames).toEqual(
             [
-                'BottomSheet',
                 'Drawer',
                 'Header',
                 'Link',
