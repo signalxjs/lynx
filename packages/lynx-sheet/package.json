@@ -23,10 +23,12 @@
         "clean": "node ../../scripts/clean.mjs dist .turbo"
     },
     "peerDependencies": {
-        "@sigx/lynx": "workspace:^"
+        "@sigx/lynx": "workspace:^",
+        "@sigx/lynx-motion": "workspace:^"
     },
     "devDependencies": {
         "@sigx/lynx": "workspace:^",
+        "@sigx/lynx-motion": "workspace:^",
         "@sigx/lynx-testing": "workspace:^",
         "@typescript/native-preview": "7.0.0-dev.20260521.1",
         "typescript": "^6.0.3",
