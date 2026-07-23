@@ -1,4 +1,4 @@
-import { component, type Define, type JSXElement } from '@sigx/lynx';
+import { component, useFontScale, type Define, type JSXElement } from '@sigx/lynx';
 import type { EmojiDatum } from '../data/schema.js';
 import type { EmojiRenderCell } from '../types.js';
 import { emojiRowPx } from '../metrics.js';
@@ -16,6 +16,13 @@ export interface EmojiCellRowArgs {
     itemKey: string;
     /** Glyph font size. Default 32. */
     size?: number;
+    /**
+     * Effective OS font scale (`useFontScale().value`) — the picker is PINNED
+     * like a keyboard panel (#776): the glyph's fontSize is counter-divided by
+     * this so the engine's font-relevant multiply lands it back on `size`,
+     * keeping the est==actual row-geometry contract intact. Default 1.
+     */
+    fontScale?: number;
     class?: string;
     onPick: (datum: EmojiDatum) => void;
     onPickTone: (datum: EmojiDatum) => void;
@@ -56,7 +63,7 @@ export function emojiCellRow(args: EmojiCellRowArgs): JSXElement {
                 height: `${rowPx}px`,
             }}
         >
-            <text style={{ fontSize: args.size ?? 32 }} text={args.glyph} />
+            <text style={{ fontSize: (args.size ?? 32) / (args.fontScale ?? 1) }} text={args.glyph} />
         </list-item>
     );
 }
@@ -93,6 +100,7 @@ export type EmojiCellProps =
  * branch, whose content is a slot (non-poolable, dedicated tree per cell).
  */
 export const EmojiCell = component<EmojiCellProps>(({ props, emit }) => {
+    const fontScale = useFontScale();
     const onTap = (): void => emit('pick', props.datum);
     const onLongPress = (): void => {
         if (props.datum.s) emit('pickTone', props.datum);
@@ -132,6 +140,7 @@ export const EmojiCell = component<EmojiCellProps>(({ props, emit }) => {
             glyph: props.glyph,
             itemKey: props.itemKey ?? props.datum.e,
             size: props.size,
+            fontScale: fontScale.value,
             class: props.class,
             onPick: (d) => emit('pick', d),
             onPickTone: (d) => emit('pickTone', d),

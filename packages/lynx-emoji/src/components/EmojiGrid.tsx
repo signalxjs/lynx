@@ -2,6 +2,7 @@ import {
     component,
     runOnMainThread,
     signal,
+    useFontScale,
     useMainThreadRef,
     type Define,
     type MainThread,
@@ -241,9 +242,12 @@ export const EmojiGrid = component<EmojiGridProps>(({ props, emit }) => {
     // component (its slot-bearing branch needs one).
     const emitPick = (d: EmojiDatum): void => emit('pick', d);
     const emitPickTone = (d: EmojiDatum): void => emit('pickTone', d);
+    // Picker rows are PINNED against the OS font scale (#776) — glyph/label
+    // fontSize is counter-divided so the est==actual row geometry holds.
+    const fontScale = useFontScale();
     const renderRow = (row: SectionRow): unknown => {
         if (row.header) {
-            return sectionHeaderRow({ itemKey: `hdr:${row.key}`, label: row.label, class: props.headerClass, labelSize: props.headerLabelSize });
+            return sectionHeaderRow({ itemKey: `hdr:${row.key}`, label: row.label, class: props.headerClass, labelSize: props.headerLabelSize, fontScale: fontScale.value });
         }
         if (props.renderCell) {
             return (
@@ -264,6 +268,7 @@ export const EmojiGrid = component<EmojiGridProps>(({ props, emit }) => {
             glyph: glyphForTone(row.datum, props.tone ?? 0),
             itemKey: rowKey(row),
             size: props.cellSize,
+            fontScale: fontScale.value,
             class: props.cellClass,
             onPick: emitPick,
             onPickTone: emitPickTone,
@@ -310,7 +315,9 @@ export const EmojiGrid = component<EmojiGridProps>(({ props, emit }) => {
     let vnodeCache: { key: string; map: Map<string, unknown> } | null = null;
     const rowVnode = (row: SectionRow): unknown => {
         if (props.renderCell) return renderRow(row);   // custom cells: uncached
-        const ck = `${props.itemsKey ?? ''}|${props.tone ?? 0}|${props.cellSize ?? ''}|${props.cellClass ?? ''}|${props.headerClass ?? ''}|${props.headerLabelSize ?? ''}|${props.columns ?? 8}`;
+        // fontScale in the key: a live OS text-size change must rebuild the
+        // cached vnodes so their counter-divided fontSize re-pins (#776).
+        const ck = `${props.itemsKey ?? ''}|${props.tone ?? 0}|${props.cellSize ?? ''}|${props.cellClass ?? ''}|${props.headerClass ?? ''}|${props.headerLabelSize ?? ''}|${props.columns ?? 8}|${fontScale.value}`;
         if (!vnodeCache || vnodeCache.key !== ck) vnodeCache = { key: ck, map: new Map() };
         const k = rowKey(row);
         let v = vnodeCache.map.get(k);

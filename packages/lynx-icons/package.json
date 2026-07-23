@@ -1,7 +1,7 @@
 {
     "name": "@sigx/lynx-icons",
     "version": "0.18.1",
-    "description": "Icon component and registry for sigx-lynx — works with adapter packages like @sigx/lynx-icons-fa-free and @sigx/lynx-icons-lucide.",
+    "description": "Icon component and registry for sigx-lynx \u2014 works with adapter packages like @sigx/lynx-icons-fa-free and @sigx/lynx-icons-lucide.",
     "type": "module",
     "main": "./dist/index.js",
     "types": "./dist/index.d.ts",
@@ -49,6 +49,7 @@
     },
     "devDependencies": {
         "@sigx/lynx": "workspace:^",
+        "@sigx/lynx-testing": "workspace:^",
         "@typescript/native-preview": "7.0.0-dev.20260521.1",
         "typescript": "^6.0.3"
     },
