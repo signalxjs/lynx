@@ -42,6 +42,7 @@ class FontScalePublisher(private val lynxView: LynxView) {
     }
 
     private var lastEffective: Float = 0f
+    private var lastOs: Float = 0f
     private var callbacks: ComponentCallbacks? = null
 
     fun attach() {
@@ -83,20 +84,24 @@ class FontScalePublisher(private val lynxView: LynxView) {
 
     private fun publish(config: Configuration) {
         val effective = SigxFontScale.effective(config)
-        if (effective == lastEffective) return
+        val os = config.fontScale
+        // Dedupe on BOTH values: with a clamp active, `os` can move while
+        // `effective` stays pinned — globalProps must still refresh.
+        if (effective == lastEffective && os == lastOs) return
         lastEffective = effective
+        lastOs = os
 
         try {
-            // `os` is only re-read alongside an effective change; JS-side live
-            // updates ride the engine's own onFontScaleChanged event.
             // Round for JS: a bare Float→Double widen leaks binary noise
             // (1.15f → 1.14999997…); 3 decimals matches the iOS publisher.
+            // JS-side live updates ride the engine's onFontScaleChanged event
+            // (updateFontScale is an engine-side no-op when unchanged).
             lynxView.updateGlobalProps(
                 TemplateData.fromMap(
                     mapOf(
                         "fontScale" to mapOf(
                             "scale" to roundTo3(effective),
-                            "os" to roundTo3(config.fontScale),
+                            "os" to roundTo3(os),
                         ),
                     ),
                 ),

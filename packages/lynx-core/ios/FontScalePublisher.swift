@@ -24,6 +24,7 @@ import Lynx
 final class FontScalePublisher {
     private weak var lynxView: LynxView?
     private var lastEffective: CGFloat = 0
+    private var lastOs: CGFloat = 0
 
     init(lynxView: LynxView) {
         self.lynxView = lynxView
@@ -62,15 +63,18 @@ final class FontScalePublisher {
     private func publish() {
         guard let view = lynxView else { return }
         let effective = SigxFontScale.effectiveScale()
-        if effective == lastEffective { return }
+        let os = SigxFontScale.osScale()
+        // Dedupe on BOTH values: with a clamp active, `os` can move while
+        // `effective` stays pinned — globalProps must still refresh.
+        if effective == lastEffective && os == lastOs { return }
         lastEffective = effective
+        lastOs = os
 
-        // `os` is only re-read alongside an effective change, so a clamped
-        // app sees the raw value move with the paint it accompanies; JS-side
-        // live updates ride the engine's own onFontScaleChanged event.
         view.updateGlobalProps(with: [
-            "fontScale": ["scale": effective, "os": SigxFontScale.osScale()],
+            "fontScale": ["scale": effective, "os": os],
         ])
+        // Engine-side no-op when unchanged; JS-side live updates ride the
+        // engine's own onFontScaleChanged event.
         view.updateFontScale(effective)
     }
 }
