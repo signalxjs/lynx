@@ -57,6 +57,22 @@ export const EmojiPickerSheet = component<EmojiPickerSheetProps>(({ props, emit 
             class="bg-base-100 rounded-t-2xl border-t border-base-300"
             onDismiss={() => props.onClose?.()}
             slots={{
+                // Visible grabber affordance sitting inside the grabber
+                // chrome zone — it also pushes the picker's search row
+                // below the drag strip so the two never compete.
+                handle: () => (
+                    <view
+                        style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            paddingTop: '8px',
+                            paddingBottom: '6px',
+                        }}
+                    >
+                        <view class="w-10 h-1 rounded-full bg-base-300" />
+                    </view>
+                ),
                 default: () => (
                     // Mounted only while open — matches the previous
                     // overlay's cold-mount behavior so screens that never
