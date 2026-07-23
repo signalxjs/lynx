@@ -88,3 +88,84 @@ describe('<Backdrop>', () => {
         expect(typeof dim.props.catchtap).toBe('function');
     });
 });
+
+describe('<Backdrop> guardTag (#787)', () => {
+    it('without guardTag the root stays a plain <view> with no guard-enabled', () => {
+        const Host = component(() => {
+            const sv = useSharedValue(64);
+            return () => (
+                <Backdrop revealSV={sv} inputRange={[64, 720]} enabled />
+            );
+        });
+        const result: any = render(<Host />);
+        const root = result.container ?? result.root ?? result;
+        const dim = find(root, isBackdrop);
+        expect(dim.type).toBe('view');
+        expect(dim.props['guard-enabled']).toBeUndefined();
+    });
+
+    it('with guardTag the root renders as that tag, keeping catchtap + geometry', () => {
+        const Host = component(() => {
+            const sv = useSharedValue(64);
+            return () => (
+                <Backdrop
+                    revealSV={sv}
+                    inputRange={[64, 720]}
+                    enabled
+                    guardTag="sigx-touch-guard"
+                    onPress={() => {}}
+                />
+            );
+        });
+        const result: any = render(<Host />);
+        const root = result.container ?? result.root ?? result;
+        const dim = find(root, isBackdrop);
+        expect(dim.type).toBe('sigx-touch-guard');
+        // The ONE root element keeps the full overlay attr set.
+        expect(typeof dim.props.catchtap).toBe('function');
+        expect(dim.props.style.position).toBe('absolute');
+        expect(dim.props['ignore-focus']).toBe(true);
+        expect(dim.props.flatten).toBe(false);
+        // Enabled + not hidden → the native view consumes platform touches.
+        expect(dim.props['guard-enabled']).toBe(true);
+    });
+
+    it('guard-enabled goes false while hidden (inert dim must not eat touches)', () => {
+        const Host = component(() => {
+            const sv = useSharedValue(64);
+            return () => (
+                <Backdrop
+                    revealSV={sv}
+                    inputRange={[64, 720]}
+                    enabled
+                    hidden
+                    guardTag="sigx-touch-guard"
+                />
+            );
+        });
+        const result: any = render(<Host />);
+        const root = result.container ?? result.root ?? result;
+        const dim = find(root, isBackdrop);
+        expect(dim.type).toBe('sigx-touch-guard');
+        expect(dim.props['guard-enabled']).toBe(false);
+        expect(dim.props.style.display).toBe('none');
+    });
+
+    it('guard-enabled goes false while disabled', () => {
+        const Host = component(() => {
+            const sv = useSharedValue(64);
+            return () => (
+                <Backdrop
+                    revealSV={sv}
+                    inputRange={[64, 720]}
+                    enabled={false}
+                    guardTag="sigx-touch-guard"
+                />
+            );
+        });
+        const result: any = render(<Host />);
+        const root = result.container ?? result.root ?? result;
+        const dim = find(root, isBackdrop);
+        expect(dim.props['guard-enabled']).toBe(false);
+    });
+});

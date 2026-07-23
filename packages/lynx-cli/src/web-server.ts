@@ -264,14 +264,16 @@ export interface WebElementAsset {
  * tag when imported. Gating on resolution keeps apps that don't use a package
  * from loading its element.
  *
- * Currently a fixed list of one (`@sigx/lynx-richtext`'s `<sigx-richtext>`,
- * #771). The scalable next step is a `web` section in `signalx-module.json` so
- * this becomes manifest-driven, parallel to the native autolinker.
+ * Currently a fixed list (`@sigx/lynx-richtext`'s `<sigx-richtext>` #771,
+ * `@sigx/lynx-gestures`' `<sigx-touch-guard>` #787). The scalable next step is
+ * a `web` section in `signalx-module.json` so this becomes manifest-driven,
+ * parallel to the native autolinker.
  */
 export function resolveWebElements(cwd: string): WebElementAsset[] {
   const appRequire = createRequire(join(cwd, 'noop.js'));
   const known: { name: string; specifier: string }[] = [
     { name: 'sigx-richtext', specifier: '@sigx/lynx-richtext/web-element' },
+    { name: 'sigx-touch-guard', specifier: '@sigx/lynx-gestures/web-element' },
   ];
   const out: WebElementAsset[] = [];
   for (const { name, specifier } of known) {

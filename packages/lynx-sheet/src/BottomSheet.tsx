@@ -79,6 +79,14 @@ export interface BackdropOptions {
     maxOpacity?: number;
     /** Tap on the dim dismisses (dismissible sheets only). Default true. */
     pressToDismiss?: boolean;
+    /**
+     * Intrinsic tag to render the dim as, instead of `'view'` — pass
+     * `TOUCH_GUARD_TAG` from `@sigx/lynx-gestures` (`'sigx-touch-guard'`)
+     * so the dim's native view consumes the platform touch stream and an
+     * Android EditText underneath can't grab focus (#787). A plain string
+     * so lynx-sheet stays pure JS; the tag requires `sigx prebuild`.
+     */
+    guardTag?: string;
 }
 
 export type BottomSheetDragMode = 'surface' | 'handle' | 'grabber' | 'none';
@@ -395,6 +403,7 @@ export const BottomSheet = component<BottomSheetProps>(({ props, emit, slots }) 
                     maxOpacity={typeof bd === 'object' && bd !== null ? bd.maxOpacity : undefined}
                     enabled={backdropActive}
                     onPress={onBackdropPress}
+                    guardTag={typeof bd === 'object' && bd !== null ? bd.guardTag : undefined}
                 />
                 <view
                     main-thread:ref={panelRef}

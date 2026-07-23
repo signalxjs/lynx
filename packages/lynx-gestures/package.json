@@ -10,6 +10,11 @@
             "types": "./dist/index.d.ts",
             "import": "./dist/index.js"
         },
+        "./web-element": {
+            "types": "./dist/web/element.d.ts",
+            "import": "./dist/web/element.js",
+            "default": "./dist/web/element.js"
+        },
         "./signalx-module.json": "./signalx-module.json",
         "./package.json": "./package.json"
     },

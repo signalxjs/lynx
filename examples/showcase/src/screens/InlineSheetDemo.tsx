@@ -1,10 +1,10 @@
 import { component, signal } from '@sigx/lynx';
-import { ScrollView } from '@sigx/lynx-gestures';
+import { ScrollView, TOUCH_GUARD_TAG } from '@sigx/lynx-gestures';
 import { List } from '@sigx/lynx-list';
 import { Screen } from '@sigx/lynx-navigation';
 import { useSafeAreaInsets } from '@sigx/lynx-safe-area';
 import { BottomSheet } from '@sigx/lynx-sheet';
-import { Button, Col, Heading, Row, Text } from '@sigx/lynx-daisyui';
+import { Button, Col, Heading, Input, Row, Text } from '@sigx/lynx-daisyui';
 
 /** Navigator header height (dp) — matches the showcase's Screen chrome. */
 const HEADER_H = 56;
@@ -64,6 +64,10 @@ export const InlineSheetDemo = component(() => {
                     <Text class="text-sm">• At the top detent the list scrolls; at its top edge, dragging down hands back to the sheet</Text>
                     <Text class="text-sm">• Fling down or tap the dim to dismiss</Text>
                 </Col>
+                {/* Focusable input UNDER the dim — the #787 regression probe:
+                    with the guardTag'd backdrop, tapping the dim right over
+                    this field must dismiss WITHOUT focusing it (no keyboard). */}
+                <Input placeholder="Tap the dim over me — I must not focus (#787)" />
                 {/* Body toggle: the same sheet over a gestures <ScrollView>
                     or an adopted @sigx/lynx-list <List> (#790). */}
                 <Row gap={8}>
@@ -93,7 +97,10 @@ export const InlineSheetDemo = component(() => {
                 open={state.open}
                 animate
                 dismissible
-                backdrop
+                // guardTag: render the dim as the native <sigx-touch-guard>
+                // element so the raw Android platform touch can't fall
+                // through the dim to a native input underneath (#787).
+                backdrop={{ guardTag: TOUCH_GUARD_TAG }}
                 dragMode="surface"
                 // Reserve the real status bar + header — a hardcoded value
                 // slid the fully-open sheet (and its grabber) under the

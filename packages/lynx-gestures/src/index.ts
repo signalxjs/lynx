@@ -13,6 +13,17 @@
 import './jsx-augment.js';
 export { PinchRotate } from './components/PinchRotate.js';
 export type { PinchRotateProps } from './components/PinchRotate.js';
+
+// Native platform-touch guard (#787): an overlay container whose Android
+// backing view consumes the raw touch stream so a native input (EditText)
+// under an overlay dim can't grab focus. `TOUCH_GUARD_TAG` is the raw
+// intrinsic tag for components that render their own overlay root (e.g.
+// @sigx/lynx-sheet's backdrop `guardTag` option). Requires `sigx prebuild`.
+export const TOUCH_GUARD_TAG = 'sigx-touch-guard';
+export { TouchGuard } from './components/TouchGuard.js';
+export type { TouchGuardProps } from './components/TouchGuard.js';
+export type { SigxTouchGuardAttributes } from './jsx-augment.js';
+
 export type {
   SigxPinchAttributes,
   PinchGestureStartEvent,

@@ -12,6 +12,7 @@ Full guides, component & hook reference, animation mappers and live examples →
 - **Sheet coordination** — a vertical `<ScrollView>` inside a `@sigx/lynx-navigation` bottom sheet auto-adopts the sheet's `ScrollDragHost`: sheet drags and content scrolling arbitrate like a native bottom sheet (scroll locked below the max detent; pull-down-from-top collapses the sheet), with no wiring in user code.
 - **Main-Thread Scripting under the hood** — touch handlers, transform updates, and visual feedback run on Lynx's main thread (Lepus), so gestures don't block on your background JS and don't pay a thread crossing per touchmove.
 - **Native pinch & rotation** — `<PinchRotate>` wraps a native `<sigx-pinch>` element that attaches the platform's own recognizers (UIKit `UIPinchGestureRecognizer` / `UIRotationGestureRecognizer`, Android `ScaleGestureDetector` + a rotation tracker) to its backing view and applies the transform on the UI thread. Lynx's gesture arena reserves the pinch/rotation enum slots but ships **no handler** for them in any released version, so `Gesture.Pinch()`/`Gesture.Rotation()` never fire on native — this is the real thing. Requires `sigx prebuild` (it's a native element).
+- **Native touch guard** — `<TouchGuard>` (and the raw `<sigx-touch-guard>` tag) consumes the platform touch stream, fixing the Android overlay fall-through where a native input (EditText) under a `catchtap` dim still grabs focus + keyboard.
 - **Cross-thread observability** — pass a `SharedValue` to a gesture component and read its live position reactively on the background thread via a SignalX `effect`, without injecting BG into the gesture hot path.
 
 ## Install
@@ -71,6 +72,27 @@ const Photo = component(() => {
 ```
 
 > `<PinchRotate>` is a **native element** — run `sigx prebuild` after adding this package so the autolinker registers `<sigx-pinch>`. `rotation` is in radians. (Lynx's gesture arena ships no pinch/rotation handler, which is why this can't be a `Gesture.*` builder — see [signalxjs/lynx#418](https://github.com/signalxjs/lynx/issues/418).)
+
+### Native touch guard
+
+**What it fixes:** on Android, a Lynx `catchtap` overlay blocks Lynx-level handlers beneath it, but the *raw platform touch* still falls through to native views — an `EditText` under an overlay dim receives the touch and grabs focus + keyboard. `flatten={false}`, `catchtouchstart`, `block-native-event` and `ignore-focus` are all insufficient (the fall-through is in Android's native dispatch, below anything the Lynx event system can veto — [signalxjs/lynx#787](https://github.com/signalxjs/lynx/issues/787)).
+
+`<TouchGuard>` renders the native `<sigx-touch-guard>` element, whose Android view claims the touch target so the stream never reaches native views underneath, while `catchtap` on the guard itself (and Lynx handlers on its children) keep working. iOS and web overlays don't leak platform touches, so the element is an inert container there — the same JSX works on all platforms.
+
+```tsx
+import { TouchGuard } from '@sigx/lynx-gestures';
+
+<TouchGuard
+  style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
+  onTap={() => dismiss()}
+>
+  {/* optional overlay content */}
+</TouchGuard>
+```
+
+**When to use it:** any full-surface overlay that must not let touches reach native inputs beneath it — dims, modal scrims, drawers. Components that render their own overlay root can use the raw tag: `TOUCH_GUARD_TAG` (`'sigx-touch-guard'`, with a `guard-enabled` boolean attr) — `@sigx/lynx-sheet`'s backdrop adopts it via its `guardTag` option.
+
+> `<TouchGuard>` is a **native element** — run `sigx prebuild` after adding this package so the autolinker registers `<sigx-touch-guard>`.
 
 The cross-thread primitives — `useSharedValue`, `SharedValue`, `useAnimatedStyle` — live in [`@sigx/lynx`](https://sigx.dev/lynx/) since 0.3.0; import them from `@sigx/lynx` directly. For the full architecture write-up, the component prop tables, animation mappers, range mapping, custom mappers and performance notes, see the docs site.
 

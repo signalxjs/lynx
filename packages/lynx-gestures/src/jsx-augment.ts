@@ -83,10 +83,36 @@ export interface SigxPinchAttributes extends LynxCommonAttributes {
     children?: unknown;
 }
 
+/**
+ * Attributes for `<sigx-touch-guard>` — an overlay container whose Android
+ * backing view CONSUMES the platform touch stream (#787).
+ *
+ * A Lynx `catchtap` overlay blocks Lynx-level handlers beneath it, but on
+ * Android the raw platform touch still falls through to native views — an
+ * EditText under the dim grabs focus + keyboard. This element's native view
+ * claims the touch target at ACTION_DOWN so the stream never reaches native
+ * siblings underneath, while `catchtap` on the element itself (and its Lynx
+ * children) keeps firing. iOS and web don't leak platform touches; the tag
+ * exists there for symmetry (guard-enabled is an accepted no-op).
+ *
+ * All the usual overlay attrs (`catchtap`, `ignore-focus`, `flatten`,
+ * `class`, `style`, `main-thread:ref`) come from [LynxCommonAttributes].
+ */
+export interface SigxTouchGuardAttributes extends LynxCommonAttributes {
+    /**
+     * Consume the platform touch stream (default `true`). When `false` the
+     * element dispatches like a plain `<view>`.
+     */
+    'guard-enabled'?: boolean;
+    /** Slotted overlay content. */
+    children?: unknown;
+}
+
 declare global {
     namespace JSX {
         interface IntrinsicElements {
             'sigx-pinch': SigxPinchAttributes;
+            'sigx-touch-guard': SigxTouchGuardAttributes;
         }
     }
 }

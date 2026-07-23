@@ -173,6 +173,26 @@ describe('<BottomSheet>', () => {
         expect(flat.findIndex(isBackdrop)).toBeLessThan(flat.findIndex(isPanel));
     });
 
+    it('backdrop={{ guardTag }} renders the dim as the guard tag (#787)', () => {
+        const Host = component(() => () => (
+            <BottomSheet
+                detents={[64, 400]}
+                open
+                backdrop={{ guardTag: 'sigx-touch-guard' }}
+                dismissible
+                slots={{ handle: () => <text>H</text>, default: () => <text>B</text> }}
+            />
+        ));
+        const result: any = render(<Host />);
+        const root = result.container ?? result.root ?? result;
+        const dim = find(root, isBackdrop);
+        expect(dim).toBeTruthy();
+        expect(dim.type).toBe('sigx-touch-guard');
+        // Active dim → the native view consumes platform touches.
+        expect(dim.props['guard-enabled']).toBe(true);
+        expect(typeof dim.props.catchtap).toBe('function');
+    });
+
     it('accepts every dragMode without rendering differences', () => {
         for (const dragMode of ['handle', 'surface', 'grabber', 'none'] as const) {
             const Host = component(() => () => (
