@@ -8,5 +8,5 @@ onlyBuiltDependencies:
 # The sigx core versions this repo builds against. Every workspace package
 # declares these as "catalog:" — bump here, once.
 catalog:
-  "@sigx/reactivity": ^0.12.0
-  "@sigx/runtime-core": ^0.12.0
+  "@sigx/reactivity": ^0.13.0
+  "@sigx/runtime-core": ^0.13.0
