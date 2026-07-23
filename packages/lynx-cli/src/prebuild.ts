@@ -1235,9 +1235,19 @@ function iosTemplateVars(config: ResolvedConfig): Record<string, string> {
         versionName: config.version,
         buildNumber: config.ios.buildNumber,
         fontScaleFollow: String(config.fontScale.follow),
-        fontScaleMin: config.fontScale.min.toFixed(2),
-        fontScaleMax: config.fontScale.max.toFixed(2),
+        fontScaleMin: formatScaleLiteral(config.fontScale.min),
+        fontScaleMax: formatScaleLiteral(config.fontScale.max),
     };
+}
+
+/**
+ * Format a font-scale bound as a decimal literal for Swift/Kotlin stamping.
+ * Preserves the config's full precision (`1.234` stays `1.234` — `toFixed(2)`
+ * would silently truncate); integers gain a `.0` so the literal is always a
+ * floating-point one.
+ */
+function formatScaleLiteral(value: number): string {
+    return Number.isInteger(value) ? value.toFixed(1) : String(value);
 }
 
 /**
@@ -1285,8 +1295,8 @@ function androidTemplateVars(config: ResolvedConfig): Record<string, string> {
         versionName: config.version,
         versionCode: String(config.android.versionCode),
         fontScaleFollow: String(config.fontScale.follow),
-        fontScaleMin: `${config.fontScale.min.toFixed(2)}f`,
-        fontScaleMax: `${config.fontScale.max.toFixed(2)}f`,
+        fontScaleMin: `${formatScaleLiteral(config.fontScale.min)}f`,
+        fontScaleMax: `${formatScaleLiteral(config.fontScale.max)}f`,
     };
 }
 

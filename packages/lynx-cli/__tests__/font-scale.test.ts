@@ -76,10 +76,12 @@ describe('manifest publisherClass — string | string[]', () => {
         expect(validateManifest({ ...base, android: { publisherClass: '' } })).not.toEqual([]);
     });
 
-    it('publisherClasses normalizes string / array / undefined', () => {
+    it('publisherClasses normalizes string / array / undefined and de-dupes', () => {
         expect(publisherClasses(undefined)).toEqual([]);
         expect(publisherClasses('A')).toEqual(['A']);
         expect(publisherClasses(['A', 'B'])).toEqual(['A', 'B']);
+        // A repeated class would double-attach and double-subscribe.
+        expect(publisherClasses(['A', 'B', 'A'])).toEqual(['A', 'B']);
     });
 });
 
@@ -146,8 +148,8 @@ describe('scaffold — font-scale stamping', () => {
         );
         expect(mainActivity).toContain('SigxFontScalePolicy(');
         expect(mainActivity).toContain('follow = true');
-        expect(mainActivity).toContain('min = 0.50f');
-        expect(mainActivity).toContain('max = 1.50f');
+        expect(mainActivity).toContain('min = 0.5f');
+        expect(mainActivity).toContain('max = 1.5f');
         expect(mainActivity).not.toContain('{{fontScale');
         // Both builder sites (production factory + dev-client lambda) seed.
         expect(mainActivity.match(/setFontScale\(/g)?.length).toBe(2);
@@ -168,8 +170,9 @@ describe('scaffold — font-scale stamping', () => {
         );
         expect(setup).toContain('SigxFontScalePolicy(');
         expect(setup).toContain('follow: false');
-        expect(setup).toContain('min: 0.50');
-        expect(setup).toContain('max: 2.00');
+        expect(setup).toContain('min: 0.5');
+        // Integer bounds gain a .0 so the stamped literal stays floating-point.
+        expect(setup).toContain('max: 2.0');
         expect(setup).not.toContain('{{fontScale');
 
         const contentView = readFileSync(
@@ -178,5 +181,16 @@ describe('scaffold — font-scale stamping', () => {
         );
         expect(contentView).toContain('builder.fontScale = SigxFontScale.effectiveScale()');
         expect(contentView).not.toContain('builder.fontScale = 1.0');
+    });
+
+    it('stamps high-precision bounds without truncation', () => {
+        scaffoldAndroid(testDir, resolveConfig({ ...TEST_CONFIG, fontScale: { min: 0.875, max: 3.175 } }));
+
+        const mainActivity = readFileSync(
+            join(testDir, 'android', 'app', 'src', 'main', 'kotlin', 'com', 'test', 'myapp', 'MainActivity.kt'),
+            'utf-8',
+        );
+        expect(mainActivity).toContain('min = 0.875f');
+        expect(mainActivity).toContain('max = 3.175f');
     });
 });

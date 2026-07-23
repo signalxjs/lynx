@@ -379,11 +379,12 @@ export interface IosAppDelegateHookManifest {
 
 /**
  * Normalize a manifest `publisherClass` value (string, array, or absent)
- * to a list of class names.
+ * to a list of class names. De-duped: a repeated class would generate
+ * duplicate imports/attach calls and double-subscribe its observers.
  */
 export function publisherClasses(value: string | string[] | undefined): string[] {
     if (value === undefined) return [];
-    return Array.isArray(value) ? value : [value];
+    return [...new Set(Array.isArray(value) ? value : [value])];
 }
 
 /**
