@@ -30,11 +30,11 @@
     },
     "dependencies": {
         "@lynx-js/web-core": "^0.20.4",
-        "@sigx/cli": "^0.6.0",
+        "@sigx/cli": "^0.7.0",
         "@sigx/lynx-core": "workspace:^",
         "@sigx/lynx-updates-publisher": "workspace:^",
         "@sigx/lynx-web-host": "workspace:^",
-        "@sigx/terminal": "^0.8.0",
+        "@sigx/terminal": "^0.9.0",
         "esbuild": "^0.28.0",
         "sharp": "^0.34.0",
         "ws": "^8.20.1"
