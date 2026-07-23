@@ -12,6 +12,7 @@ import { Foundation } from './screens/Foundation.js';
 import { DirectivesDemo } from './screens/DirectivesDemo.js';
 import { Icons } from './screens/Icons.js';
 import { SystemBars } from './screens/SystemBars.js';
+import { InlineSheetDemo } from './screens/InlineSheetDemo.js';
 import { SheetDemo } from './screens/SheetDemo.js';
 import { SheetScrollDemo } from './screens/SheetScrollDemo.js';
 import { ListDemo } from './screens/ListDemo.js';
@@ -91,6 +92,9 @@ export const routes = defineRoutes({
     directives: { component: DirectivesDemo, path: '/directives' },
     icons: { component: Icons, path: '/icons' },
     systemBars: { component: SystemBars, path: '/system-bars' },
+    // Standalone @sigx/lynx-sheet BottomSheet on a plain card screen —
+    // no route needed for the sheet itself.
+    inlineSheetDemo: { component: InlineSheetDemo, path: '/inline-sheet' },
     // Bottom sheet: the route IS the sheet — pushing it slides the demo
     // screen up to its 0.4 snap point over the dimmed catalog.
     sheetDemo: { component: SheetDemo, path: '/sheet', presentation: 'sheet' },

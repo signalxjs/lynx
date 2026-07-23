@@ -2,7 +2,33 @@
 
 The unified bottom sheet for [SignalX for Lynx](https://github.com/signalxjs/lynx) — one detent model, one drag/snap engine, usable with or without routes.
 
-> **Status: landing in stages** (tracking issue [signalxjs/lynx#774](https://github.com/signalxjs/lynx/issues/774)). This package currently ships the pure foundations — the detent model and the worklet-safe drag/snap math. The sheet engine and the standalone `<BottomSheet>` component land next, and `@sigx/lynx-navigation`'s `presentation: 'sheet'` rebuilds on the same engine.
+> **Status: landing in stages** (tracking issue [signalxjs/lynx#774](https://github.com/signalxjs/lynx/issues/774)). The detent model, the shared engine/pan, and the standalone `<BottomSheet>` component ship today; `@sigx/lynx-navigation`'s `presentation: 'sheet'` rebuilds on the same engine next.
+
+## `<BottomSheet>`
+
+A bottom-anchored panel that snaps between detents, follows the finger, rides above the keyboard, and (optionally) dims what's behind it and drag-dismisses — **no route required**, place it in your own layout:
+
+```tsx
+import { BottomSheet } from '@sigx/lynx-sheet';
+
+<BottomSheet
+    detents={[120, { fraction: 0.45 }, { fraction: 0.9 }]}
+    open={open}
+    animate                 // default false: JUMP, so external motion (keyboard) does the reveal
+    dismissible             // drag/fling below half the floor → parks at 0 + `dismiss` event
+    backdrop                // dim tracks the reveal; tap dismisses; inert while parked
+    dragMode="surface"      // whole panel drags, arbitrating with an inner gestures <ScrollView>
+    topOffset={insets.top + HEADER_H}
+    onSnap={(i) => {}}
+    onDismiss={() => { open = false; }}   // the sheet only PARKS; the consumer closes it
+    slots={{ handle: () => <Grabber />, default: () => <Body /> }}
+/>
+```
+
+- **Persistent mode** (default): the floor detent is a hard floor — a composer accessory. `open` toggles floor ↔ `openDetentIndex`; pass `liftSV` (`useKeyboardLiftSV()`) so the sheet rides above the keyboard, and `openToLift` to open at the exact live keyboard height (captured on the main thread — the WhatsApp dip-free swap).
+- **Dismissible mode**: add `dismissible` (+ `backdrop`) for the modal tray; closing (`open: false`) parks it hidden at reveal 0.
+- **Drag modes** (mount-constant): `'handle'` (pan on the `handle` slot only — default, safe with raw `<list>` bodies), `'surface'` (full-surface drag with the 8-step scroll arbitration; this component provides the `ScrollDragHost` an inner `@sigx/lynx` `<ScrollView>` adopts), `'grabber'`, `'none'`.
+- **Stacking**: Lynx has no z-index/portal — render the sheet as the LAST child of a full-surface positioned container so the backdrop dims the whole screen.
 
 ## Detent model
 

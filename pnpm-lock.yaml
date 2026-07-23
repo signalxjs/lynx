@@ -158,6 +158,9 @@ importers:
       '@sigx/lynx-share':
         specifier: workspace:^
         version: link:../../packages/lynx-share
+      '@sigx/lynx-sheet':
+        specifier: workspace:^
+        version: link:../../packages/lynx-sheet
       '@sigx/lynx-sqlite':
         specifier: workspace:^
         version: link:../../packages/lynx-sqlite
@@ -1147,9 +1150,15 @@ importers:
       '@sigx/lynx':
         specifier: workspace:^
         version: link:../lynx
+      '@sigx/lynx-keyboard':
+        specifier: workspace:^
+        version: link:../lynx-keyboard
       '@sigx/lynx-motion':
         specifier: workspace:^
         version: link:../lynx-motion
+      '@sigx/lynx-safe-area':
+        specifier: workspace:^
+        version: link:../lynx-safe-area
       '@sigx/lynx-testing':
         specifier: workspace:^
         version: link:../lynx-testing

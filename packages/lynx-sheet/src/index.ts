@@ -14,6 +14,12 @@ export {
     type DetentSpec,
 } from './detents.js';
 export {
+    BottomSheet,
+    type BackdropOptions,
+    type BottomSheetDragMode,
+    type BottomSheetProps,
+} from './BottomSheet.js';
+export {
     Backdrop,
     SHEET_BACKDROP_MAX_OPACITY,
     type BackdropProps,

@@ -43,6 +43,7 @@
         "@sigx/lynx-markdown": "workspace:^",
         "@sigx/lynx-motion": "workspace:^",
         "@sigx/lynx-navigation": "workspace:^",
+        "@sigx/lynx-sheet": "workspace:^",
         "@sigx/lynx-network": "workspace:^",
         "@sigx/lynx-notifications": "workspace:^",
         "@sigx/lynx-richtext": "workspace:^",

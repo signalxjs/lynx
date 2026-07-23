@@ -108,6 +108,13 @@ export const catalog: Area[] = [
                 route: 'systemBars',
             },
             {
+                id: 'inline-sheet',
+                title: 'Inline sheet (no route)',
+                description: '@sigx/lynx-sheet standalone BottomSheet — dismissible, backdrop, surface drag',
+                icon: { set: 'lucide', name: 'gallery-vertical-end' },
+                route: 'inlineSheetDemo',
+            },
+            {
                 id: 'bottom-sheet',
                 title: 'Bottom sheet',
                 description: 'presentation: "sheet" — snap points, backdrop, drag-to-dismiss',
