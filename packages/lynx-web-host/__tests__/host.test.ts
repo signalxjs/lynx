@@ -412,7 +412,9 @@ describe('x-text color-inheritance parity style (#116 follow-up)', () => {
       return 0;
     });
     const view = makeView();
-    const uninstall = installSigxWebHost(view);
+    // Isolate the color-inheritance behavior — `ignoreFocus` also rAF-retries
+    // for the shadow root, so it would queue a second frame (#764).
+    const uninstall = installSigxWebHost(view, { ignoreFocus: false });
     // No shadow root yet — a retry is queued, nothing adopted.
     expect(rafQueue).toHaveLength(1);
     const root = { adoptedStyleSheets: [] as unknown as CSSStyleSheet[] };
@@ -430,6 +432,89 @@ describe('x-text color-inheritance parity style (#116 follow-up)', () => {
     (view as { shadowRoot?: unknown }).shadowRoot = root;
     installSigxWebHost(view, { textColorInheritance: false });
     expect(root.adoptedStyleSheets).toHaveLength(0);
+  });
+});
+
+describe('ignore-focus parity (#764)', () => {
+  interface FakeRoot {
+    adoptedStyleSheets: CSSStyleSheet[];
+    listeners: Array<{ type: string; fn: (e: Event) => void; capture: boolean }>;
+    addEventListener: (t: string, fn: (e: Event) => void, capture?: boolean) => void;
+    removeEventListener: (t: string, fn: (e: Event) => void, capture?: boolean) => void;
+    fireMouseDown: (target: { closest: (sel: string) => unknown }) => Event;
+  }
+
+  function makeRoot(): FakeRoot {
+    const listeners: FakeRoot['listeners'] = [];
+    return {
+      adoptedStyleSheets: [],
+      listeners,
+      addEventListener: (type, fn, capture = false) => listeners.push({ type, fn, capture }),
+      removeEventListener: (type, fn) => {
+        const i = listeners.findIndex((l) => l.type === type && l.fn === fn);
+        if (i >= 0) listeners.splice(i, 1);
+      },
+      fireMouseDown(target) {
+        let defaultPrevented = false;
+        const e = { type: 'mousedown', target, preventDefault: () => { defaultPrevented = true; } } as unknown as Event;
+        for (const l of listeners) if (l.type === 'mousedown') l.fn(e);
+        (e as { defaultPrevented?: boolean }).defaultPrevented = defaultPrevented;
+        return e;
+      },
+    };
+  }
+
+  // A non-focusable element inside an [ignore-focus] container (e.g. a
+  // suggestion-popup row) → focus should be preserved.
+  const inPopup = {
+    isContentEditable: false,
+    closest: (sel: string) => (sel === '[ignore-focus]' ? {} : null),
+  };
+  // Elsewhere entirely.
+  const elsewhere = { isContentEditable: false, closest: () => null };
+  // The editable field, which lives inside the composer's ignore-focus row —
+  // it must still be allowed to focus.
+  const editorInsideIgnoreFocus = {
+    isContentEditable: true,
+    closest: (sel: string) => (sel === '[ignore-focus]' ? {} : null),
+  };
+
+  it('preventDefaults a mousedown on a non-focusable [ignore-focus] target, and not elsewhere', () => {
+    const view = makeView();
+    const root = makeRoot();
+    (view as { shadowRoot?: unknown }).shadowRoot = root;
+    installSigxWebHost(view);
+    expect(root.listeners.some((l) => l.type === 'mousedown' && l.capture)).toBe(true);
+
+    expect((root.fireMouseDown(inPopup) as { defaultPrevented?: boolean }).defaultPrevented).toBe(true);
+    expect((root.fireMouseDown(elsewhere) as { defaultPrevented?: boolean }).defaultPrevented).toBe(false);
+  });
+
+  it('does NOT cancel focus for an editable target inside an ignore-focus row (#764)', () => {
+    const view = makeView();
+    const root = makeRoot();
+    (view as { shadowRoot?: unknown }).shadowRoot = root;
+    installSigxWebHost(view);
+    expect(
+      (root.fireMouseDown(editorInsideIgnoreFocus) as { defaultPrevented?: boolean }).defaultPrevented,
+    ).toBe(false);
+  });
+
+  it('removes the listener on uninstall', () => {
+    const view = makeView();
+    const root = makeRoot();
+    (view as { shadowRoot?: unknown }).shadowRoot = root;
+    const uninstall = installSigxWebHost(view);
+    uninstall();
+    expect((root.fireMouseDown(inPopup) as { defaultPrevented?: boolean }).defaultPrevented).toBe(false);
+  });
+
+  it('is skipped with ignoreFocus: false', () => {
+    const view = makeView();
+    const root = makeRoot();
+    (view as { shadowRoot?: unknown }).shadowRoot = root;
+    installSigxWebHost(view, { ignoreFocus: false });
+    expect(root.listeners.some((l) => l.type === 'mousedown')).toBe(false);
   });
 });
 

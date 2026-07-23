@@ -11,9 +11,12 @@
  * Event source: **native pointer listeners attached directly on the element**.
  * web-core's elements are real DOM nodes (`document.createElement('x-view')`),
  * so `el.addEventListener('pointerdown'|'pointermove'|'pointerup'|
- * 'pointercancel', …)` gives real `clientX/Y` coordinates, and
- * `setPointerCapture` keeps move/up flowing to the element even when the pointer
- * leaves its bounds (needed for drag). Pointer (not touch/mouse) events ⇒ mouse,
+ * 'pointercancel', …)` gives real `clientX/Y` coordinates. `setPointerCapture`
+ * keeps move/up flowing to the element even when the pointer leaves its bounds
+ * (needed for drag) — but it is taken LAZILY, only once a drag/pinch actually
+ * commits (`capturePointer` at Pan onStart / pair formation), never on
+ * `pointerdown`; capturing on down would steal a descendant's terminal events
+ * (see #764 / `onDown`). Pointer (not touch/mouse) events ⇒ mouse,
  * touch and pen all work with no double-fire. (The earlier Tap-only slice routed
  * through web-core's own event system, which has no coords for `pointer*`; this
  * supersedes it.)
@@ -367,6 +370,23 @@ function pid(e: PointerLike): number {
 }
 
 /**
+ * Capture a pointer to this element so its `pointermove`/`pointerup` keep
+ * flowing here even when the finger leaves the element's bounds. Called only
+ * once a drag/pinch has actually committed (Pan `onStart`, pair formation) —
+ * NOT on `pointerdown` — so a not-yet-moved press leaves the descendant that's
+ * actually under the pointer to resolve its own tap (#764). No-op when the host
+ * omits `pointerId` (capture needs it; drag then degrades to in-bounds only).
+ */
+function capturePointer(entry: ElementGestures, pointerId: number | null | undefined): void {
+  if (pointerId == null) return;
+  try {
+    (entry.el as unknown as DomEl).setPointerCapture?.(pointerId);
+  } catch {
+    /* capture unsupported — drag tracking degrades to in-bounds only */
+  }
+}
+
+/**
  * Sync the event's coords into its tracked PointerState (move, up AND cancel —
  * a lift can land at a position no `pointermove` ever reported, and the final
  * Pinch/Rotation payload must see it).
@@ -400,14 +420,16 @@ function onDown(entry: ElementGestures, e: PointerLike): void {
       py: e.pageY ?? e.clientY,
     });
   }
-  // Capture so move/up keep flowing to this element even outside its bounds.
-  if (e.pointerId != null) {
-    try {
-      (entry.el as unknown as DomEl).setPointerCapture?.(e.pointerId);
-    } catch {
-      /* capture unsupported — drag tracking degrades to in-bounds only */
-    }
-  }
+  // Pointer capture is deferred until a drag/pinch actually begins (see
+  // `capturePointer` at Pan onStart / pair formation). Capturing here — on
+  // every `pointerdown` — retargets the whole `pointermove`/`pointerup`/`click`
+  // sequence to THIS element, and since `pointerdown` bubbles child → ancestor
+  // the ancestor captured LAST and stole the descendant's terminal events: a
+  // button/popup inside a sheet's full-surface drag never saw its own
+  // `pointerup`, so its tap never resolved and its pressed visual stranded
+  // (#764). A tap needs no capture (it resolves on the in-bounds `pointerup`);
+  // only an ongoing drag does, and by then the gesture has committed — matching
+  // the native arena, where an ancestor pan only wins once it crosses threshold.
 
   if (entry.active) {
     // A repeated down for a pointer we already track isn't a new contact —
@@ -594,6 +616,11 @@ function formPair(entry: ElementGestures, secondId: number): void {
     prevT: nowMs(),
     velocity: 0,
   };
+  // A two-finger pair is a committed multi-touch gesture (never a tap), so
+  // capture both members for out-of-bounds tracking. `formPair` only runs with
+  // two distinct real pointerIds, so these are safe to capture.
+  capturePointer(entry, aId);
+  capturePointer(entry, secondId);
   entry.pairStartFired ??= new Set();
   // onStart goes through the arena gate like every other gesture; a blocked
   // pinch/rotation retries on later pair updates (see updatePair).
@@ -750,6 +777,9 @@ function onMove(entry: ElementGestures, e: PointerLike): void {
       // blocker fails (e.g. the fling deadline passes), it starts mid-drag.
       if (distSq > min * min && distSq > 0 && tryActivate(entry, gid)) {
         entry.panStarted!.add(gid);
+        // The drag has committed — now capture the primary pointer so the rest
+        // of the drag tracks even outside the element (idempotent per pointer).
+        capturePointer(entry, e.pointerId);
         runCb(g, 'onStart', evt);
       }
     }

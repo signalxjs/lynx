@@ -1,4 +1,4 @@
-import { component, type Define } from '@sigx/lynx';
+import { component, useFontScale, type Define } from '@sigx/lynx';
 import { codepoints } from '@sigx/lynx-icons/__codepoints';
 import { svgs } from '@sigx/lynx-icons/__svgs';
 import '@sigx/lynx-icons/__font-face.css';
@@ -14,6 +14,15 @@ export type IconProps =
     & Define.Prop<'size', number, false>
     & Define.Prop<'color', string, false>
     & Define.Prop<'class', string, false>
+    /**
+     * Follow the OS text-size setting (#776). Default `false`: the icon holds
+     * its designed `size` in dp regardless of the system font scale — the
+     * layout-stable choice for chrome (tab bars, headers, list accessories).
+     * Set `true` for icons sitting inline with scaling text: glyph AND box
+     * grow together by the effective scale, live, on every backend (svg and
+     * font mode behave identically).
+     */
+    & Define.Prop<'scaleWithText', boolean, false>
     /**
      * Augmentation point — theme packages declaration-merge into
      * `IconPropsExtensions` to add their own typed props (e.g. daisy
@@ -81,11 +90,23 @@ export const Icon = component<IconProps>(({ props }) => {
     // theme-augmented props (e.g. `props.variant` for daisy) and any
     // reactive theme state (e.g. `theme.name`) on each call.
     const resolveColor = useIconColorResolver();
+    const fontScale = useFontScale();
     return () => {
         const size = props.size ?? 16;
         const set = props.set;
         const name = props.name;
-        const sizeStyle = { width: size, height: size } as const;
+        // Effective OS font scale (1 when unwired — web preview, tests). The
+        // engine multiplies font-relevant lengths (fontSize/lineHeight) by
+        // this; layout lengths (width/height) it never touches. Two coherent
+        // behaviors fall out (#776):
+        //  - pinned (default): box stays `size`; the glyph's fontSize is
+        //    counter-divided so the engine's multiply lands it back on `size`.
+        //  - scaleWithText: box grows to `size * s`; the glyph's fontSize is
+        //    passed as `size` and the engine scales it to match.
+        const s = fontScale.value;
+        const scaled = props.scaleWithText === true;
+        const box = scaled ? size * s : size;
+        const sizeStyle = { width: box, height: box } as const;
         // Resolution order: explicit `props.color` wins → then the
         // theme resolver's return (driven by augmented props like
         // `variant`) → finally `currentColor`. Substituted directly
@@ -115,12 +136,13 @@ export const Icon = component<IconProps>(({ props }) => {
         }
 
         if (glyph?.codepoint !== undefined) {
+            const glyphSize = scaled ? size : size / s;
             const textStyle: Record<string, string | number> = {
                 fontFamily: set,
-                fontSize: size,
-                lineHeight: `${size}px`,
-                width: size,
-                height: size,
+                fontSize: glyphSize,
+                lineHeight: `${glyphSize}px`,
+                width: box,
+                height: box,
                 color,
             };
             return (
