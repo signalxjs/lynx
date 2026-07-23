@@ -171,7 +171,16 @@ export type ListProps<T = unknown> =
    * measure still wins as soon as it arrives.
    */
   & Define.Prop<'initialMainAxisSize', number, false>
-  /** Capture the native `<list>` element for imperative scrolling. */
+  /**
+   * Capture the native `<list>` element for imperative scrolling.
+   *
+   * Inside a full-surface-drag bottom sheet (`dragMode="surface"`), a
+   * vertical List adopts the sheet's `ScrollDragHost`: the host's
+   * pre-allocated ref is bound as the `main-thread:ref` and the consumer's
+   * `mtRef` is only MIRRORED to the same element from an MT hop. Mirrored
+   * refs support `invoke(...)` methods (`scrollToPosition`, …) but NOT
+   * gesture / animated-style attachment, which require the bound ref.
+   */
   & Define.Prop<'mtRef', ListRef, false>
   /** Class applied to the measuring wrapper that sizes the list. */
   & Define.Prop<'class', string, false>
