@@ -166,6 +166,26 @@ describe('SigxRichTextElement', () => {
     expect(seen).toEqual(['focus', 'blur']);
   });
 
+  it('keeps firing selection events after a disconnect + reconnect', () => {
+    // The document-level `selectionchange` listener must be re-attached on
+    // reconnect — conditional rendering / navigation moves the element.
+    const el = mount({ value: encode({ text: 'abc', spans: [], blocks: [], v: 1 }) });
+    const parent = el.parentElement!;
+    parent.removeChild(el); // disconnectedCallback removes the listener
+    parent.appendChild(el); // connectedCallback must re-add it
+
+    const sels: unknown[] = [];
+    el.addEventListener('selection', (e) => sels.push((e as CustomEvent).detail));
+    const edit = el.querySelector('[part="edit"]') as HTMLElement;
+    const range = document.createRange();
+    range.selectNodeContents(edit);
+    const sel = document.getSelection()!;
+    sel.removeAllRanges();
+    sel.addRange(range);
+    document.dispatchEvent(new Event('selectionchange'));
+    expect(sels.length).toBeGreaterThan(0);
+  });
+
   it('reads user edits back into the model on input', () => {
     const el = mount();
     const edit = el.querySelector('[part="edit"]') as HTMLElement;

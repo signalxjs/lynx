@@ -782,7 +782,7 @@ export class SigxRichTextElement extends HTMLElementBase {
   private model: RichDoc = emptyDoc();
   private localVersion = 0;
   private composing = false;
-  private mounted = false;
+  private built = false;
   private lastHeight = -1;
   private readonly onSelectionChange = (): void => this.emitSelection();
 
@@ -800,8 +800,20 @@ export class SigxRichTextElement extends HTMLElementBase {
   }
 
   connectedCallback(): void {
-    if (this.mounted) return;
-    this.mounted = true;
+    if (!this.built) this.buildOnce();
+    // `selectionchange` is a DOCUMENT-level listener, so it must be (re)attached
+    // on every (re)connect — `disconnectedCallback` removes it, and the element
+    // can be moved/re-inserted by conditional rendering or navigation. The
+    // per-element listeners live on `editRoot` (a child that travels with the
+    // element), so they don't need re-adding. `addEventListener` dedupes by the
+    // same stable handler, so a double connect is harmless.
+    this.ownerDocument.addEventListener('selectionchange', this.onSelectionChange);
+    this.reportHeight();
+  }
+
+  /** One-time DOM construction + initial-value seed (idempotent via `built`). */
+  private buildOnce(): void {
+    this.built = true;
     const d = this.ownerDocument;
 
     this.style.display = this.style.display || 'block';
@@ -830,18 +842,18 @@ export class SigxRichTextElement extends HTMLElementBase {
     this.render();
     this.updatePlaceholder();
 
+    // These live on `editRoot` (a child), so they persist across
+    // disconnect/reconnect — attached once with the element's construction.
     this.editRoot.addEventListener('input', this.handleInput);
     this.editRoot.addEventListener('compositionstart', this.handleCompositionStart);
     this.editRoot.addEventListener('compositionend', this.handleCompositionEnd);
     this.editRoot.addEventListener('focus', this.handleFocus);
     this.editRoot.addEventListener('blur', this.handleBlur);
     this.editRoot.addEventListener('paste', this.handlePaste);
-    d.addEventListener('selectionchange', this.onSelectionChange);
 
     if (this.getAttribute('auto-focus') === '' || this.getAttribute('auto-focus') === 'true') {
       this.focusEditor();
     }
-    this.reportHeight();
   }
 
   disconnectedCallback(): void {
@@ -849,7 +861,7 @@ export class SigxRichTextElement extends HTMLElementBase {
   }
 
   attributeChangedCallback(name: string): void {
-    if (!this.mounted) return;
+    if (!this.built) return;
     if (name === 'placeholder') {
       this.placeholderEl.textContent = this.getAttribute('placeholder') ?? '';
       this.updatePlaceholder();
