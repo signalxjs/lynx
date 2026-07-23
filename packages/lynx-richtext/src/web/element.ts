@@ -22,7 +22,7 @@
  * ## Contract (must match `src/model/types.ts`, `src/methods.ts`, and native)
  *
  * - Attributes: `value` (JSON `RichDoc`, initial-only), `placeholder`,
- *   `editable`, `min-height`, `max-height`, `font-size`, `text-color`,
+ *   `editable`, `min-height`, `max-height`, `editor-font-size`, `text-color`,
  *   `accent-color`, `placeholder-color`, `confirm-type`, `auto-focus`.
  * - Events (`CustomEvent`, bubbles/composed): `change` `{doc,isComposing}`,
  *   `selection` `{start,end,activeFormats,activeBlock,headingLevel?,caretX,caretY,caretHeight}`,
@@ -792,7 +792,7 @@ export class SigxRichTextElement extends HTMLElementBase {
       'editable',
       'min-height',
       'max-height',
-      'font-size',
+      'editor-font-size',
       'text-color',
       'accent-color',
       'placeholder-color',
@@ -883,7 +883,7 @@ export class SigxRichTextElement extends HTMLElementBase {
   }
 
   private applyStyleAttrs(): void {
-    const fontSize = this.getAttribute('font-size');
+    const fontSize = this.getAttribute('editor-font-size');
     if (fontSize) this.editRoot.style.fontSize = `${fontSize}px`;
     const color = this.getAttribute('text-color');
     if (color) this.editRoot.style.color = color;
