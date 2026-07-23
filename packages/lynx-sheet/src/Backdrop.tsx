@@ -82,12 +82,13 @@ export const Backdrop = component<BackdropProps>(({ props }) => {
         };
     });
 
-    // The dim's intrinsic tag. Default '<view>'; with `guardTag` set it
-    // renders as that tag instead (an intrinsic-string swap — same attrs,
-    // same one root element), typically 'sigx-touch-guard'.
-    const Root = (props.guardTag ?? 'view') as any;
-
-    return () => (
+    return () => {
+        // The dim's intrinsic tag. Default '<view>'; with `guardTag` set it
+        // renders as that tag instead (an intrinsic-string swap — same
+        // attrs, same one root element), typically 'sigx-touch-guard'.
+        // Resolved per render so a post-mount guardTag change re-tags.
+        const Root = (props.guardTag ?? 'view') as any;
+        return (
         <Root
             main-thread:ref={ref}
             // `catch*` (vs `bind*`) consumes the event — see `onPress` doc.
@@ -129,5 +130,6 @@ export const Backdrop = component<BackdropProps>(({ props }) => {
                 opacity: props.revealSV ? 0 : (props.staticOpacity ?? 0),
             }}
         />
-    );
+        );
+    };
 });
