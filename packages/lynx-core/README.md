@@ -151,6 +151,8 @@ Besides the JS bridge, the package ships a small shared native runtime that the 
 - **Android — `com.sigx.core.SigxActivityHolder`**: weak reference to the current foreground Activity, fed by the auto-linked `SigxActivityHook` lifecycle hook. Modules that present platform UI (`BiometricPrompt`, `DatePickerDialog`, permission dialogs, …) read `current()` or `currentFragmentActivity()` at call time instead of each shipping their own holder.
 - **iOS — `SigxPresentation.topPresenter()`**: top-most `UIViewController` on the active scene's key window (multi-scene safe, walks the presented-modal chain). Used by the picker modules to present sheets.
 
+- **`FontScalePublisher`** (both platforms): follows the OS text-size setting (iOS Dynamic Type via `UIFontMetrics`, Android `Configuration.fontScale`), clamped by the app's `fontScale` policy from `signalx.config.ts`. Seeds `lynx.__globalProps.fontScale = { scale, os }` before first paint and pushes runtime changes into the engine via `LynxView.updateFontScale()` — the engine relayouts text in place and emits `onFontScaleChanged` to JS. Read it reactively with `useFontScale()` from `@sigx/lynx-appearance`.
+
 The package also registers core's own native module, **`SigxCore`**, which backs `DeviceInfo` (`getDeviceInfo` / `getConstants`).
 
 Module authors: don't add a per-package Activity holder or top-presenter helper — use these.

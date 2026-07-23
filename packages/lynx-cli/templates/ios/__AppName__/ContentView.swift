@@ -256,7 +256,9 @@ struct LynxContainerView: UIViewRepresentable {
         let lynxView = LynxView { builder in
             builder.config = LynxSetupService.shared.config
             builder.screenSize = screenSize
-            builder.fontScale = 1.0
+            // OS text-size (Dynamic Type) seed; runtime changes are pushed by
+            // FontScalePublisher via updateFontScale (#766).
+            builder.fontScale = SigxFontScale.effectiveScale()
 
             #if DEBUG
             if isDevMode {

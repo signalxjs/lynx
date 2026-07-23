@@ -5,7 +5,7 @@
     "platforms": ["android", "ios"],
     "android": {
         "moduleClass": "com.sigx.core.DeviceInfoModule",
-        "publisherClass": "com.sigx.core.AppStatePublisher",
+        "publisherClass": ["com.sigx.core.AppStatePublisher", "com.sigx.core.FontScalePublisher"],
         "activityHook": {
             "class": "com.sigx.core.SigxActivityHook",
             "methods": ["onCreate", "onResume", "onPause"]
@@ -14,7 +14,7 @@
     },
     "ios": {
         "moduleClass": "DeviceInfoModule",
-        "publisherClass": "AppStatePublisher",
+        "publisherClass": ["AppStatePublisher", "FontScalePublisher"],
         "methods": ["getDeviceInfo", "getConstants", "getAppState"],
         "sourceDir": "ios"
     }

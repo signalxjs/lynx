@@ -29,8 +29,15 @@ export interface ThemeState {
     /**
      * Global text-scale multiplier applied on top of the theme's `--text-*`
      * ramp. Orthogonal to `name`: a theme switch / `toggle()` leaves it
-     * untouched, so a user/accessibility scale persists across appearance
-     * changes. `1` = the default ramp.
+     * untouched, so a user-chosen scale persists across appearance changes.
+     * `1` = the default ramp.
+     *
+     * This is an IN-APP preference (e.g. a "text size" setting inside the
+     * app). The OS text-size setting is separate: the native host feeds it
+     * into the engine (`LynxViewBuilder.fontScale` / `updateFontScale`, see
+     * #766), which scales every `font-size` — including this ramp's literal
+     * px — so the two compose multiplicatively. Do NOT seed this from
+     * `useFontScale()`; that would apply the OS scale twice.
      */
     fontScale: number;
 }

@@ -1,6 +1,7 @@
 import type { PlistValue } from '../config/schema.js';
 import type { ResolvedConfig } from '../config/parser.js';
 import type { IosAppDelegateHookMethod, IosUiComponentEntry, ModuleManifest } from '../manifest.js';
+import { publisherClasses } from '../manifest.js';
 
 /**
  * iOS auto-linker.
@@ -171,18 +172,21 @@ export function linkIos(
         // separately on `linkedLifecyclePublishers`. Pods + usage
         // descriptions are emitted once per manifest regardless.
 
-        // Lifecycle publisher — instantiated after each LynxView is built.
-        if (ios.publisherClass && ios.sourceDir) {
+        // Lifecycle publishers — instantiated after each LynxView is built.
+        const iosPublishers = publisherClasses(ios.publisherClass);
+        if (iosPublishers.length > 0 && ios.sourceDir) {
             linkedLifecyclePublishers.push(manifest.name);
-            lifecyclePublishers.push({
-                publisherClass: ios.publisherClass,
-                sourceDir: ios.sourceDir,
-                packageName: manifest.package,
-                moduleName: manifest.name,
-            });
-            lifecycleAttachments.push(
-                `        ${ios.publisherClass}(lynxView: lynxView)`
-            );
+            for (const publisherClass of iosPublishers) {
+                lifecyclePublishers.push({
+                    publisherClass,
+                    sourceDir: ios.sourceDir,
+                    packageName: manifest.package,
+                    moduleName: manifest.name,
+                });
+                lifecycleAttachments.push(
+                    `        ${publisherClass}(lynxView: lynxView)`
+                );
+            }
         }
 
         // Dev-client init facade — debug-only by definition, so its name is

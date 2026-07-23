@@ -23,6 +23,33 @@ export type Platform = 'android' | 'ios';
  */
 export type Orientation = 'portrait' | 'landscape' | 'all' | 'default';
 
+/**
+ * OS font-scale (iOS Dynamic Type / Android font size) handling.
+ *
+ * By default the app follows the system text-size setting: the native host
+ * seeds `LynxViewBuilder.fontScale` from the OS value and pushes runtime
+ * changes via `LynxView.updateFontScale()`. The engine scales font-size and
+ * line-height only — layout lengths are untouched.
+ */
+export interface FontScaleConfig {
+    /**
+     * Follow the OS text-size setting. Default: true.
+     * `false` pins the scale to 1.0 (text ignores the system setting).
+     */
+    follow?: boolean;
+    /**
+     * Lower clamp on the applied scale. Default: 0.5 (effectively
+     * unclamped — OS minimums are ~0.8).
+     */
+    min?: number;
+    /**
+     * Upper clamp on the applied scale. Default: 2.0 — the ceiling of
+     * Android's system slider. iOS accessibility sizes reach ~3.1×; raise
+     * this once your layouts tolerate it (text-heavy apps should).
+     */
+    max?: number;
+}
+
 /** Icon-set rendering backend. */
 export type IconMode = 'svg' | 'font';
 
@@ -456,6 +483,8 @@ export interface LynxConfig {
     scheme?: string;
     /** Activity orientation. Default: 'portrait'. */
     orientation?: Orientation;
+    /** OS font-scale handling. See {@link FontScaleConfig}. */
+    fontScale?: FontScaleConfig;
     /**
      * Per-module overrides. Installed `@sigx/lynx-*` packages auto-link via
      * their `signalx-module.json` manifest, so this array is usually unnecessary;

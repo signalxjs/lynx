@@ -6,6 +6,7 @@ import type {
     ModuleConfig,
     Platform,
     Orientation,
+    FontScaleConfig,
     SplashConfig,
     SplashResizeMode,
     AdaptiveIconConfig,
@@ -44,6 +45,12 @@ const ANDROID_DEFAULTS = {
 const IOS_DEFAULTS = {
     deploymentTarget: '15.0',
     buildNumber: '1',
+};
+
+const FONT_SCALE_DEFAULTS: Required<FontScaleConfig> = {
+    follow: true,
+    min: 0.5,
+    max: 2.0,
 };
 
 const SPLASH_BG_DEFAULT = '#FFFFFF';
@@ -103,6 +110,7 @@ export interface ResolvedConfig {
     excludeModules: string[];
     iconSets: ResolvedIconSet[];
     platforms: Platform[];
+    fontScale: Required<FontScaleConfig>;
     android: Required<Pick<NonNullable<LynxConfig['android']>, 'minSdk' | 'targetSdk' | 'compileSdk' | 'versionCode'>> &
         Omit<NonNullable<LynxConfig['android']>, 'minSdk' | 'targetSdk' | 'compileSdk' | 'versionCode'>;
     ios: Required<Pick<NonNullable<LynxConfig['ios']>, 'deploymentTarget' | 'buildNumber'>> &
@@ -177,6 +185,7 @@ export function resolveConfig(raw: LynxConfig, variantName?: string): ResolvedCo
         modules: (raw.modules ?? []).map((m) => resolveModule(m, platforms)),
         excludeModules: raw.excludeModules ?? [],
         iconSets: resolveIconSets(raw.iconSets),
+        fontScale: resolveFontScale(raw.fontScale),
         android: {
             ...ANDROID_DEFAULTS,
             ...raw.android,
@@ -207,6 +216,22 @@ function resolveModule(entry: string | ModuleConfig, defaultPlatforms: Platform[
         config: entry.config ?? {},
         disabled: entry.disabled ?? false,
     };
+}
+
+function resolveFontScale(raw: FontScaleConfig | undefined): Required<FontScaleConfig> {
+    const resolved = { ...FONT_SCALE_DEFAULTS, ...raw };
+    for (const key of ['min', 'max'] as const) {
+        if (typeof resolved[key] !== 'number' || !Number.isFinite(resolved[key]) || resolved[key] <= 0) {
+            throw new Error(`fontScale.${key} must be a positive finite number, got ${JSON.stringify(resolved[key])}`);
+        }
+    }
+    if (resolved.min > resolved.max) {
+        throw new Error(`fontScale.min (${resolved.min}) must be <= fontScale.max (${resolved.max})`);
+    }
+    if (typeof resolved.follow !== 'boolean') {
+        throw new Error(`fontScale.follow must be a boolean, got ${JSON.stringify(resolved.follow)}`);
+    }
+    return resolved;
 }
 
 function resolveIconSets(raw: IconSetConfig[] | undefined): ResolvedIconSet[] {
