@@ -6,12 +6,6 @@ import type { ColorScheme } from './types.js';
 export interface AppearanceContextValue {
   /** BG-side reactive color scheme. Re-renders consumers on system flip. */
   readonly colorScheme: PrimitiveSignal<ColorScheme>;
-  /**
-   * BG-side reactive effective font scale (policy-clamped OS text-size
-   * multiplier the engine applies). Re-renders consumers when the user
-   * changes the system text size.
-   */
-  readonly fontScale: PrimitiveSignal<number>;
 }
 
 /**

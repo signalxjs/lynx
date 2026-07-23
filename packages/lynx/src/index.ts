@@ -62,6 +62,11 @@ export type { Logger, LogLevelName, LogRecord, LogTransport } from '@sigx/lynx-c
 export { Platform, DeviceInfo } from '@sigx/lynx-core';
 export type { PlatformOS, PlatformSelectSpec, DeviceInfoResult } from '@sigx/lynx-core';
 
+// OS font scale (#766/#770) — ambient device state like Platform/DeviceInfo.
+// The engine scales ordinary text automatically; these reads are for adapting
+// AROUND larger text (layout swaps, custom-drawn text, icon sizing).
+export { useFontScale, useFontScaleMT, readGlobalFontScale } from '@sigx/lynx-core';
+
 // Active build variant (#530) — `variant`/`isVariant()`/`isBaseBuild()` report
 // which `--variant` build this is (or '' for base), for env badges / branching.
 export { variant, isVariant, isBaseBuild } from '@sigx/lynx-core';

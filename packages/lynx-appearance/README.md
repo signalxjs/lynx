@@ -93,9 +93,11 @@ value as `os`.
 | `AppearanceProvider` | Mount once near the root. Provides the live color-scheme signal to descendants. |
 | `useSystemColorScheme()` | BG-side reactive read. Returns a signal of `'light' \| 'dark'`. Re-runs effects when the user flips dark mode in system settings. |
 | `useSystemColorSchemeMT()` | MT-side sync read. Returns `'light' \| 'dark'` from `lynx.__globalProps`. For use inside `'main thread'` worklet bodies. |
-| `useFontScale()` | BG-side reactive read of the effective OS font scale (a `number`, `1` = default). Re-renders when the user changes the system text size. |
+| `useFontScale()` | BG-side reactive read of the effective OS font scale (a `Computed<number>`, `1` = default). Re-renders when the user changes the system text size. Works without any provider. |
 | `useFontScaleMT()` | MT-side sync read of the effective font scale. For use inside `'main thread'` worklet bodies. |
 | `readGlobalFontScale()` | Sync read of `{ scale, os }` from `lynx.__globalProps.fontScale` (`scale` = clamped effective value, `os` = raw OS value), or `null` when unwired. |
+
+The font-scale reads are hosted in `@sigx/lynx-core` (which owns the native publisher) and re-exported here and from the `@sigx/lynx` umbrella — import from whichever you already depend on.
 | `setStatusBarStyle(style)` | Set status-bar *content* tint. `'light'` = light icons (legible on dark bg). |
 | `setStatusBarBackgroundColor(color)` | **Android only** — status-bar background color (`null` clears). iOS resolves `{ ok: false, reason: 'unsupported' }`. |
 | `setNavigationBarStyle({ style, color? })` | **Android only** — navigation-bar tint + optional background. iOS resolves `{ ok: false, reason: 'unsupported' }`. |

@@ -36,6 +36,8 @@ export default function ArticleScreen() {
 
 `createMarkdownStream()` bridges a token loop to `<MarkdownView>` for AI output, coalescing bursts of tokens into a bounded number of re-renders. `MarkdownEditor` adds true-WYSIWYG editing on the native [`@sigx/lynx-richtext`](https://sigx.dev/lynx/modules/richtext/overview/) element, and components are overridable per node type (a ready-made daisyUI mapping ships in [`@sigx/lynx-daisyui`](https://sigx.dev/lynx/modules/daisyui/overview/)). The supported syntax, full prop tables, streaming API, theming and editor/toolbar contracts are documented on the docs site.
 
+`MarkdownEditor` follows the OS text-size setting: `fontSize` (default 16) is the size at the default system setting, multiplied by the effective font scale — and the auto-grow window (`minLines`/`maxLines`) scales with it, live. Raw `RichTextInput` does not auto-scale; multiply its `fontSize` by `useFontScale()` (from `@sigx/lynx`) if you use it directly.
+
 ## License
 
 MIT

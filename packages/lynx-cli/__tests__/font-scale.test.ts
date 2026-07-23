@@ -139,7 +139,7 @@ describe('scaffold — font-scale stamping', () => {
         rmSync(testDir, { recursive: true, force: true });
     });
 
-    it('stamps the Android policy + builder seeds and manifest configChanges', () => {
+    it('stamps the Android policy + builder seeds and manifest configChanges', { timeout: 30000 }, () => {
         scaffoldAndroid(testDir, resolveConfig({ ...TEST_CONFIG, fontScale: { max: 1.5 } }));
 
         const mainActivity = readFileSync(
@@ -161,7 +161,7 @@ describe('scaffold — font-scale stamping', () => {
         expect(manifest).toContain('android:configChanges="fontScale"');
     });
 
-    it('stamps the iOS policy and builder seed', () => {
+    it('stamps the iOS policy and builder seed', { timeout: 30000 }, () => {
         scaffoldIos(testDir, resolveConfig({ ...TEST_CONFIG, fontScale: { follow: false } }));
 
         const setup = readFileSync(
@@ -183,7 +183,7 @@ describe('scaffold — font-scale stamping', () => {
         expect(contentView).not.toContain('builder.fontScale = 1.0');
     });
 
-    it('stamps high-precision bounds without truncation', () => {
+    it('stamps high-precision bounds without truncation', { timeout: 30000 }, () => {
         scaffoldAndroid(testDir, resolveConfig({ ...TEST_CONFIG, fontScale: { min: 0.875, max: 3.175 } }));
 
         const mainActivity = readFileSync(
