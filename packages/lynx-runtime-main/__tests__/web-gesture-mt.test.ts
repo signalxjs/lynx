@@ -471,11 +471,27 @@ describe('multi-pointer tracking (per-pointerId)', () => {
     expect(fired()).toContain('tap');
   });
 
-  it('both pointers get pointer capture', () => {
+  it('does NOT capture the pointer on pointerdown, only once the pan starts (#764)', () => {
+    // Capturing on down retargets pointerup/click to this element and steals a
+    // descendant's tap (button/popup inside a sheet's drag). Capture must wait
+    // until the drag actually commits.
     const el = makeEl();
-    reg(el, 5, 1, PAN, []);
+    reg(el, 5, 1, PAN, [{ name: 'onStart', callback: { _wkltId: 'pan' } }]);
     el.fire('pointerdown', 0, 0, undefined, undefined, 1);
-    el.fire('pointerdown', 10, 10, undefined, undefined, 2);
+    expect(el.setPointerCapture).not.toHaveBeenCalled();
+    // A move past the pan threshold starts the pan → now it captures.
+    el.fire('pointermove', 40, 0, undefined, undefined, 1);
+    expect(fired()).toContain('pan');
+    expect(el.setPointerCapture).toHaveBeenCalledWith(1);
+  });
+
+  it('captures both pair members once a two-finger pinch pair forms', () => {
+    const PINCH = 6;
+    const el = makeEl();
+    reg(el, 5, 1, PINCH, [{ name: 'onStart', callback: { _wkltId: 'p' } }]);
+    el.fire('pointerdown', 0, 0, undefined, undefined, 1);
+    expect(el.setPointerCapture).not.toHaveBeenCalled();
+    el.fire('pointerdown', 10, 10, undefined, undefined, 2); // pair forms
     expect(el.setPointerCapture).toHaveBeenCalledWith(1);
     expect(el.setPointerCapture).toHaveBeenCalledWith(2);
   });

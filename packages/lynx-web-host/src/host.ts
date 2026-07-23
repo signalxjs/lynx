@@ -38,7 +38,9 @@ export interface LynxViewLike {
   globalProps?: Record<string, unknown>;
   updateGlobalProps?: (data: Record<string, unknown>) => void;
   sendGlobalEvent?: (name: string, params: unknown[]) => void;
-  shadowRoot?: { adoptedStyleSheets: CSSStyleSheet[] } | null;
+  shadowRoot?:
+    | ({ adoptedStyleSheets: CSSStyleSheet[] } & Partial<EventTarget>)
+    | null;
   /** web-core's SystemInfo override (`browser-config` attribute / property). */
   browserConfig?: SigxBrowserConfig;
   getBoundingClientRect?: () => { width: number; height: number };
@@ -61,6 +63,8 @@ export interface InstallSigxWebHostOptions {
   textColorInheritance?: boolean;
   /** Skip the viewport `browser-config` override (see `viewportBrowserConfig`). */
   viewport?: boolean;
+  /** Skip honoring `ignore-focus` on web (keeps a mousedown from blurring the editor). */
+  ignoreFocus?: boolean;
 }
 
 /**
@@ -550,6 +554,62 @@ export function installSigxWebHost(
       if (root && sheet) {
         root.adoptedStyleSheets = root.adoptedStyleSheets.filter((s) => s !== sheet);
       }
+    });
+  }
+
+  // ── `ignore-focus` parity ───────────────────────────────────────────────
+  // Native honors an element's `ignore-focus` attribute — tapping it (a
+  // toolbar, a suggestion popup) does NOT move focus, so a text field stays
+  // focused and its trigger/suggestion session survives the tap. web-core
+  // doesn't translate the attribute, so on web a `mousedown` on such an element
+  // blurs the `contenteditable` editor and closes the session before the tap's
+  // `click` can act (the composer's mention popup: verified — the popup
+  // unmounts on blur before `onSelect` fires). A capture-phase `mousedown`
+  // `preventDefault` on any `[ignore-focus]` target keeps the focus where it
+  // is; `click`/`bindtap` still fire, so the tap works.
+  //
+  // `mousedown` specifically: it's the focus-moving default for pointer input
+  // and canceling it is the well-worn editor-toolbar trick (it does NOT
+  // suppress `click`, unlike canceling `pointerdown`/`touchstart`, which would
+  // kill the tap on touch). Touch focus management is a follow-up. The shadow
+  // root attaches when the element upgrades — retry on rAF like the style
+  // adoption above.
+  if (options.ignoreFocus !== false) {
+    let cancelled = false;
+    const raf = (globalThis as { requestAnimationFrame?: (cb: () => void) => void })
+      .requestAnimationFrame;
+    const onMouseDown = (e: Event): void => {
+      const target = e.target as
+        | { closest?: (sel: string) => unknown; isContentEditable?: boolean }
+        | null;
+      if (!target?.closest?.('[ignore-focus]')) return;
+      // Preserve focus by canceling the mousedown — UNLESS the target itself
+      // legitimately wants focus. `ignore-focus` marks a container ("tapping me
+      // doesn't move focus"), but a focusable descendant still may: the
+      // composer wraps its input ROW in `ignore-focus`, and the editable field
+      // lives inside it. Canceling there would stop the editor from focusing
+      // (no caret, no typing). So skip a contenteditable / input / focusable.
+      if (
+        target.isContentEditable ||
+        target.closest('input, textarea, select, [contenteditable], [tabindex]')
+      ) {
+        return;
+      }
+      e.preventDefault();
+    };
+    const attach = (tries: number): void => {
+      if (cancelled) return;
+      const root = lynxView.shadowRoot as (Partial<EventTarget> & object) | null | undefined;
+      if (root?.addEventListener) {
+        root.addEventListener('mousedown', onMouseDown, true);
+        cleanups.push(() => root.removeEventListener?.('mousedown', onMouseDown, true));
+        return;
+      }
+      if (tries > 0 && raf) raf(() => attach(tries - 1));
+    };
+    attach(120);
+    cleanups.push(() => {
+      cancelled = true;
     });
   }
 
