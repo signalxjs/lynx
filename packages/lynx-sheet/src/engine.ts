@@ -114,6 +114,13 @@ export interface SheetWorkletGeometry {
      * post-mount dragEnabled changes silently never arrived).
      */
     gate: number;
+    /**
+     * Page-coord Y of the sheet's bottom edge (`sheetTop = bottomEdge -
+     * combined` in the surface-drag arbitration). The screen height for a
+     * screen-anchored sheet; `screenH - bottomOffset` when an ancestor
+     * pads the bottom safe area. Same syncGeom-only rule as `gate`.
+     */
+    bottomEdge: number;
 }
 
 /** Per-gesture transient state (main-thread ref). */
@@ -150,7 +157,7 @@ export interface SheetEngine {
      * after diffing — including on a bare `gate`/`dismissible` flip).
      * Clamps stranded MT state when detents shrank.
      */
-    syncGeom: (min: number, max: number, ds: number[], dismissible: number, gate: number) => unknown;
+    syncGeom: (min: number, max: number, ds: number[], dismissible: number, gate: number, bottomEdge: number) => unknown;
     /**
      * Move to a target reveal. `capture === 1` (the `openToLift` path)
      * snaps to the CURRENT lifted position read live on the MT instead —
@@ -197,15 +204,17 @@ export function useSheetEngine(cfg: SheetEngineConfig): SheetEngine {
         detents: seed.detents,
         dismissible: 0,
         gate: 1,
+        bottomEdge: 0,
     });
 
-    const syncGeom = runOnMainThread((min: number, max: number, ds: number[], dismissible: number, gate: number) => {
+    const syncGeom = runOnMainThread((min: number, max: number, ds: number[], dismissible: number, gate: number, bottomEdge: number) => {
         'main thread';
         geomRef.current.min = min;
         geomRef.current.max = max;
         geomRef.current.detents = ds;
         geomRef.current.dismissible = dismissible;
         geomRef.current.gate = gate;
+        geomRef.current.bottomEdge = bottomEdge;
         // Detents that SHRANK can strand state that predates them: a
         // `reveal` above the new top would keep rendering out of bounds
         // until the next drag re-clamped it, and a captured `openToLift`

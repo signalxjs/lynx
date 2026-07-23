@@ -1,8 +1,12 @@
 import { component, signal } from '@sigx/lynx';
 import { ScrollView } from '@sigx/lynx-gestures';
 import { Screen } from '@sigx/lynx-navigation';
+import { useSafeAreaInsets } from '@sigx/lynx-safe-area';
 import { BottomSheet } from '@sigx/lynx-sheet';
 import { Button, Col, Heading, Text } from '@sigx/lynx-daisyui';
+
+/** Navigator header height (dp) — matches the showcase's Screen chrome. */
+const HEADER_H = 56;
 
 /**
  * Standalone `<BottomSheet>` demo — the modal tray WITHOUT a route: this
@@ -23,6 +27,7 @@ import { Button, Col, Heading, Text } from '@sigx/lynx-daisyui';
  */
 export const InlineSheetDemo = component(() => {
     const state = signal({ open: false, lastEvent: '(none yet)' });
+    const insets = useSafeAreaInsets();
 
     return () => (
         <view
@@ -61,7 +66,10 @@ export const InlineSheetDemo = component(() => {
                 dismissible
                 backdrop
                 dragMode="surface"
-                topOffset={96}
+                // Reserve the real status bar + header — a hardcoded value
+                // slid the fully-open sheet (and its grabber) under the
+                // header on tall-inset devices.
+                topOffset={(insets.value.top ?? 0) + HEADER_H}
                 onSnap={(i: number) => { state.lastEvent = `snap → candidate ${i}`; }}
                 onDismiss={() => { state.lastEvent = 'dismiss'; state.open = false; }}
                 onBackdropTap={() => { state.lastEvent = 'backdropTap'; }}

@@ -210,10 +210,13 @@ export const EmojiComposerScreen = component(() => {
         ];
         // Resolved full height, mirrored ONLY for the picker's fixed inner
         // height (the #606 zero-measure guard needs a px value): round the
-        // fraction, clamp to the topOffset cap — same as resolveDetents.
+        // fraction, clamp to the topOffset+bottomOffset cap — same as
+        // resolveDetents (the sheet's bottom sits `insets.bottom` above the
+        // true screen bottom, see the bottomOffset prop below).
+        const bottomOffset = insets.value.bottom ?? 0;
         const fullH = Math.min(
             Math.round(screenH * 0.92),
-            Math.max(1, Math.round(screenH - topOffset)),
+            Math.max(1, Math.round(screenH - topOffset - bottomOffset)),
         );
         // Clamped: on a tiny screen (or Platform.pixelHeight 0 in non-Lynx
         // envs) `fullH - INPUT_H - 32` could go non-positive — never emit a
@@ -292,6 +295,11 @@ export const EmojiComposerScreen = component(() => {
                 <BottomSheet
                     detents={detents}
                     topOffset={topOffset}
+                    // The ancestor SafeAreaView pads the gesture bar, so the
+                    // sheet's bottom edge sits `insets.bottom` above the true
+                    // screen bottom — the cap must anchor there or the fully
+                    // open sheet slides under the header by that amount.
+                    bottomOffset={bottomOffset}
                     open={engaged}
                     openDetentIndex={1}
                     // On open, capture the LIVE lifted position (== the exact

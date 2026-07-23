@@ -65,7 +65,7 @@ describe('createSheetPan source shape', () => {
 
     it('surface mode fails fast at setup when its required SVs are missing', () => {
         const setup = src.slice(0, src.indexOf('.onBegin('));
-        expect(setup).toMatch(/surface === 1 && \(!scrollOffsetY \|\| !hasVerticalScroll \|\| !bottomEdgeSV\)/);
+        expect(setup).toMatch(/surface === 1 && \(!scrollOffsetY \|\| !hasVerticalScroll\)/);
         expect(setup).toContain('throw new Error');
     });
 
@@ -80,6 +80,7 @@ describe('createSheetPan source shape', () => {
         // no-op (#758), so the gate must be read from the synced ref, and
         // no SV may be render-written anywhere in the sheet component.
         expect(handlers).toContain('geomRef.current.gate');
+        expect(handlers).toContain('geomRef.current.bottomEdge');
     });
 });
 

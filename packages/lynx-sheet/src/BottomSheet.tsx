@@ -62,7 +62,6 @@ import {
     useGestureDetector,
     useMainThreadRef,
     useScrollDragHost,
-    useSharedValue,
     type Define,
     type MainThread,
     type SharedValue,
@@ -132,6 +131,15 @@ export type BottomSheetProps =
      * never slide under). Caps every resolved detent.
      */
     & Define.Prop<'topOffset', number, false>
+    /**
+     * Px the sheet's BOTTOM edge sits above the true screen bottom — e.g.
+     * `insets.bottom` when an ancestor `<SafeAreaView edges={['bottom']}>`
+     * pads the gesture bar. The sheet's top is `bottomEdge - reveal`, so
+     * without this the `topOffset` cap is measured from the wrong anchor
+     * and the fully-open sheet slides under the header by exactly this
+     * amount. Also anchors the surface-drag grabber-zone geometry.
+     */
+    & Define.Prop<'bottomOffset', number, false>
     /** Receives the combined reveal SharedValue once, at setup (bind siblings to it). */
     & Define.Prop<'onReveal', (sv: SharedValue<number>) => void, false>
     /**
@@ -176,6 +184,7 @@ export const BottomSheet = component<BottomSheetProps>(({ props, emit, slots }) 
         const ds = resolveDetents(props.detents, {
             screenH,
             topOffset: props.topOffset ?? 0,
+            bottomOffset: props.bottomOffset ?? 0,
             bottomInset: insets.value.bottom ?? 0,
             keyboardPx: rememberedKb,
         });
@@ -201,9 +210,6 @@ export const BottomSheet = component<BottomSheetProps>(({ props, emit, slots }) 
     // mounting later ADOPTS these handles.
     const dragHost = surfaceLike ? useCreateScrollDragHost() : null;
     if (dragHost) defineProvide(useScrollDragHost, () => dragHost);
-    // Inline sheets are bottom-anchored: the sheet's bottom edge is the
-    // screen bottom, so `sheetTop = screenH - combined` in page coords.
-    const bottomEdgeSV = surfaceLike ? useSharedValue(screenH) : null;
 
     const panelRef = useMainThreadRef<MainThread.Element | null>(null);
     const handleRef = useMainThreadRef<MainThread.Element | null>(null);
@@ -249,7 +255,6 @@ export const BottomSheet = component<BottomSheetProps>(({ props, emit, slots }) 
             grabberPx: GRABBER_HEIGHT,
             scrollOffsetY: dragHost?.scrollOffsetY,
             hasVerticalScroll: dragHost?.hasVerticalScroll,
-            bottomEdgeSV: bottomEdgeSV ?? undefined,
             onClaim,
             onRelease,
         });
@@ -303,6 +308,7 @@ export const BottomSheet = component<BottomSheetProps>(({ props, emit, slots }) 
     let lastGeom = seed;
     let lastDismissible = -1;
     let lastGate = -1;
+    let lastBottomEdge = -1;
     return () => {
         const g = geometry();
         const dismissible = props.dismissible === true ? 1 : 0;
@@ -311,6 +317,9 @@ export const BottomSheet = component<BottomSheetProps>(({ props, emit, slots }) 
         // (#758 — the old inline sheet's render write silently never
         // arrived, freezing dragEnabled at its mount value).
         const gate = props.dragEnabled === false || dragMode === 'none' ? 0 : 1;
+        // The sheet's bottom edge in page coords — anchors the surface-drag
+        // grabber-zone math on the MT (via syncGeom, same rule as `gate`).
+        const bottomEdge = screenH - (props.bottomOffset ?? 0);
 
         // Push the CURRENT geometry to the worklets, so the drag clamp and
         // release-snap candidates follow a runtime geometry change.
@@ -319,6 +328,7 @@ export const BottomSheet = component<BottomSheetProps>(({ props, emit, slots }) 
         if (
             dismissible !== lastDismissible
             || gate !== lastGate
+            || bottomEdge !== lastBottomEdge
             || g.floor !== lastGeom.floor || g.top !== lastGeom.top
             || g.detents.length !== lastGeom.detents.length
             || g.detents.some((d, i) => d !== lastGeom.detents[i])
@@ -328,7 +338,8 @@ export const BottomSheet = component<BottomSheetProps>(({ props, emit, slots }) 
             lastGeom = g;
             lastDismissible = dismissible;
             lastGate = gate;
-            void engine.syncGeom(g.floor, g.top, g.detents, dismissible, gate);
+            lastBottomEdge = bottomEdge;
+            void engine.syncGeom(g.floor, g.top, g.detents, dismissible, gate, bottomEdge);
             // A parked sheet must FOLLOW its floor, or it keeps showing the
             // mount-time slice while its content grows/shrinks underneath.
             // Jump, never animate: the content already changed size this

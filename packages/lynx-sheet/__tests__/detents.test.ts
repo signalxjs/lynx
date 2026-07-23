@@ -55,6 +55,16 @@ describe('resolveDetents — topOffset cap', () => {
         expect(resolveDetents([680, { fraction: 0.92 }], { screenH: 800, topOffset: 120 }))
             .toEqual([680]);
     });
+
+    it('subtracts bottomOffset — a safe-area-padded sheet caps lower', () => {
+        // The "handle disappears behind the header" bug: the sheet's bottom
+        // sits `bottomOffset` above the true screen bottom, so a cap
+        // measured from the full screen height let the sheet's top slide
+        // under the header by exactly that amount.
+        expect(
+            resolveDetents([{ fraction: 0.92 }], { screenH: 800, topOffset: 100, bottomOffset: 24 }),
+        ).toEqual([676]);
+    });
 });
 
 describe('resolveDetents — keyboard specs', () => {

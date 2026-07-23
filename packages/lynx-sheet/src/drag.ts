@@ -65,12 +65,6 @@ export interface SheetPanConfig {
     /** Adopted-scrollable presence flag (`ScrollDragHost.hasVerticalScroll`). */
     hasVerticalScroll?: SharedValue<number>;
     /**
-     * Page-coord Y of the sheet's bottom edge — `sheetTop = bottomEdge -
-     * combined` for the grabber-zone test. A screen-anchored sheet seeds
-     * this with the screen height. Required in surface mode.
-     */
-    bottomEdgeSV?: SharedValue<number>;
-    /**
      * BG hop at claim, carrying the claim generation — the route adapter
      * stamps its gen signal + takes the gesture scroll-lock here. Omit
      * for sheets with no claim-time BG work (the inline handle pan).
@@ -109,17 +103,17 @@ export function createSheetPan(
     const grabberOnly = cfg.grabberOnly === true ? 1 : 0;
     const scrollOffsetY = cfg.scrollOffsetY ?? null;
     const hasVerticalScroll = cfg.hasVerticalScroll ?? null;
-    const bottomEdgeSV = cfg.bottomEdgeSV ?? null;
     const onClaim = cfg.onClaim ?? null;
     const hasClaim = onClaim ? 1 : 0;
     const onRelease = cfg.onRelease;
 
     // Fail fast at setup: without these, surface arbitration would run on
     // silent 0-fallbacks and make wrong ownership decisions on-device.
-    if (surface === 1 && (!scrollOffsetY || !hasVerticalScroll || !bottomEdgeSV)) {
+    // (The sheet's bottom edge arrives via syncGeom — see geomRef.)
+    if (surface === 1 && (!scrollOffsetY || !hasVerticalScroll)) {
         throw new Error(
-            '[lynx-sheet] createSheetPan: surface mode requires scrollOffsetY, '
-            + 'hasVerticalScroll and bottomEdgeSV (see ScrollDragHost)',
+            '[lynx-sheet] createSheetPan: surface mode requires scrollOffsetY '
+            + 'and hasVerticalScroll (see ScrollDragHost)',
         );
     }
 
@@ -189,7 +183,7 @@ export function createSheetPan(
                     startPageY: drag.current.startY,
                     combinedPx: combined.current.value,
                     maxPx: geomRef.current.max,
-                    bottomEdgePageY: bottomEdgeSV ? bottomEdgeSV.current.value : 0,
+                    bottomEdgePageY: geomRef.current.bottomEdge,
                     grabberPx,
                     grabberOnly,
                     hasScroll: hasVerticalScroll ? hasVerticalScroll.current.value : 0,
