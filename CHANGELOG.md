@@ -2,7 +2,13 @@
 
 All notable changes to this repository are documented here. All `@sigx/lynx-*` packages share a single lockstep version — one entry per release covers every package.
 
-## [Unreleased]
+## [0.19.0] - 2026-07-23
+
+### Changed (breaking)
+
+- **`@sigx/lynx-sheet` — NEW package: the unified bottom sheet** (#774). One engine (`useSheetEngine` + `createSheetPan` + `Backdrop`) now powers every sheet in the framework, and a standalone **`<BottomSheet>`** ships for route-free use — the one-off tray and the WhatsApp-style composer no longer need a navigator. Geometry is declared as **`DetentSpec`s** (`px | { px } | { fraction } | { keyboard: true, fallbackPx? }`) resolved live against screen height, safe-area insets, the remembered keyboard height (the component owns the BG-reactive tracking and bottom-inset add-back apps used to hand-roll), and `topOffset`/`bottomOffset` caps so a fully-open sheet never slides under a header — `bottomOffset` matters whenever an ancestor pads the bottom safe area, since the cap anchors at the sheet's real bottom edge. Modes: persistent floor (composer) or `dismissible` (release projecting below half the floor parks at 0 + emits `dismiss`); optional `backdrop` (dim tracks the drag, inert while parked, `[0, top]` fade for dismissible sheets); `dragMode: 'handle' | 'surface' | 'grabber' | 'none'` with the full 8-step drag↔scroll arbitration in `'surface'` (this component provides the `ScrollDragHost` an inner gestures `<ScrollView>` adopts). Worklet-visible render state (drag gate, dismissible flag, bottom edge) travels a `syncGeom` push — fixing the #758 class where render-side `SharedValue` writes were silent no-ops and `dragEnabled` changes never reached the gesture.
+- `@sigx/lynx-navigation` — **`presentation: 'sheet'` rebuilt on the `@sigx/lynx-sheet` engine** (#784): the navigator's sheet SV now carries **reveal px** (was progress 0..1), `SheetDragController` and `internal/sheet-math.ts` are deleted in favor of a ~40-line `SheetDragAdapter`, and `useSheetHeight()` returns the reveal SV directly. **Renamed screen options** (compile-error migration): `snapPoints` (fractions) → `detents` (`DetentSpec[]`, default `[{ fraction: 0.5 }]`), `initialSnapIndex` → `initialDetentIndex`, `dragHandle` → `dragMode`. The **inline `BottomSheet` export is removed** — import it from `@sigx/lynx-sheet` (richer API, same tuned behaviors; the release snap now uses the unified 0.2s projection). Release tween on drag settles is 0.2s (was 0.18s route / 0.15s inline).
+- `@sigx/lynx-emoji` — **`SheetPicker` removed** (#788): its role is exactly `<BottomSheet dismissible backdrop>` + `<EmojiPicker>`. `@sigx/lynx-daisyui`'s `EmojiPickerSheet` keeps its one-liner API unchanged, rebuilt on the unified sheet (drag-to-dismiss on a visible grabber pill, live dim, cold-mounted grid preserved); daisyui gains `@sigx/lynx-sheet` as an optional peer.
 
 ### Changed
 
