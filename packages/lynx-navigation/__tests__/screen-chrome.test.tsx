@@ -94,7 +94,7 @@ function makeSynthetic(initialStack: StackEntry[]): SyntheticEnv {
 
     const internals: NavInternals = {
         progress: null,
-        sheetProgress: null,
+        sheetReveal: null,
         beginBackGesture: () => {},
         commitBackGesture: () => {},
         cancelBackGesture: () => {},
@@ -109,7 +109,7 @@ function makeSynthetic(initialStack: StackEntry[]): SyntheticEnv {
             },
             get: (key) => screensMap.get(key),
         },
-        sheetBackdrops: {}, sheetSnaps: {},
+        sheetBackdrops: {}, sheetDetents: {},
     };
 
     return {

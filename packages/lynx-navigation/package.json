@@ -28,7 +28,8 @@
         "@sigx/lynx": "workspace:^",
         "@sigx/lynx-icons": "workspace:^",
         "@sigx/lynx-linking": "workspace:^",
-        "@sigx/lynx-motion": "workspace:^"
+        "@sigx/lynx-motion": "workspace:^",
+        "@sigx/lynx-sheet": "workspace:^"
     },
     "peerDependenciesMeta": {
         "@sigx/lynx-linking": {
@@ -40,6 +41,7 @@
         "@sigx/lynx-icons": "workspace:^",
         "@sigx/lynx-linking": "workspace:^",
         "@sigx/lynx-motion": "workspace:^",
+        "@sigx/lynx-sheet": "workspace:^",
         "@sigx/lynx-testing": "workspace:^",
         "@types/node": "^25.9.1",
         "@typescript/native-preview": "7.0.0-dev.20260521.1",

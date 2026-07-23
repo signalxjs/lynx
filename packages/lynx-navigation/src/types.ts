@@ -6,6 +6,8 @@
  * `nav.push('profile', { id: 42 })` is a TS error if `id` is typed as string.
  */
 
+import type { DetentSpec } from '@sigx/lynx-sheet';
+
 /**
  * Minimal Standard Schema spec subset — see https://standardschema.dev.
  * Inlined so we don't depend on `@standard-schema/spec` for the type spike.
@@ -32,8 +34,8 @@ export type EmptyParams = Record<string, never>;
  * How a route entry is presented on the stack.
  * `card` is the default push; `modal`/`fullScreen` slide up; `transparent-modal`
  * preserves the underlying screen visible (e.g. for popovers); `sheet` is a
- * partial-height bottom sheet with snap points, a built-in dimmed backdrop,
- * and drag-to-dismiss (configured via `ScreenOptions.snapPoints`).
+ * partial-height bottom sheet with detents, a built-in dimmed backdrop,
+ * and drag-to-dismiss (configured via `ScreenOptions.detents`).
  */
 export type Presentation = 'card' | 'modal' | 'fullScreen' | 'transparent-modal' | 'sheet';
 
@@ -206,14 +208,16 @@ export interface ScreenOptions {
     /** When false, the iOS edge-swipe-back gesture is disabled for this screen. Default true. */
     gestureEnabled?: boolean;
     /**
-     * Snap points for a `presentation: 'sheet'` entry, as fractions of screen
-     * height (0–1), ascending. The largest value is the fully-open height;
-     * dragging below the smallest past the dismiss threshold pops the sheet.
-     * Ignored for non-sheet presentations. Default `[0.5]`.
+     * Resting heights for a `presentation: 'sheet'` entry, as
+     * `@sigx/lynx-sheet` `DetentSpec`s (px, `{ px }`, or `{ fraction }` of
+     * screen height) — resolved to ascending px. The largest resolved
+     * detent is the fully-open height; dragging below the smallest past
+     * the dismiss threshold pops the sheet. Ignored for non-sheet
+     * presentations. Default `[{ fraction: 0.5 }]`.
      */
-    snapPoints?: readonly number[];
-    /** Index into `snapPoints` the sheet opens at. Default: last (most open). */
-    initialSnapIndex?: number;
+    detents?: readonly DetentSpec[];
+    /** Index into `detents` the sheet opens at. Default: last (most open). */
+    initialDetentIndex?: number;
     /** When false, tapping the dimmed backdrop does not dismiss the sheet. Default true. */
     backdropDismiss?: boolean;
     /**
@@ -240,7 +244,7 @@ export interface ScreenOptions {
      * `'none'`: backdrop/programmatic dismiss only.
      * Ignored for non-sheet presentations.
      */
-    dragHandle?: 'surface' | 'grabber' | 'none';
+    dragMode?: 'surface' | 'grabber' | 'none';
 }
 
 /**

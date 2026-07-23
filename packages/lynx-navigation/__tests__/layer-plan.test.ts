@@ -38,14 +38,16 @@ function fakeProgress(): SharedValue<number> {
 }
 
 /**
- * Sheet context with snaps [0.4, 0.9]: max fraction 0.9 → fully-open rest
- * offset 0.1 * SCREEN_HEIGHT; covered sheets rest at the same offset via
- * the static lookup.
+ * Sheet context with detents [0.4, 0.9] of the screen: max detent
+ * 0.9 * SCREEN_HEIGHT px → fully-open rest offset 0.1 * SCREEN_HEIGHT;
+ * covered sheets rest at the same offset via the static lookup.
  */
-function sheetCtx(sheetProgress: SharedValue<number> | null): SheetLayerContext {
+const MAX_DETENT_PX = 0.9 * SCREEN_HEIGHT;
+
+function sheetCtx(sheetReveal: SharedValue<number> | null): SheetLayerContext {
     return {
-        sheetProgress,
-        maxSnapFraction: 0.9,
+        sheetReveal,
+        maxDetentPx: MAX_DETENT_PX,
         staticOffsetY: () => 0.1 * SCREEN_HEIGHT,
     };
 }
@@ -363,13 +365,14 @@ describe('computeLayers — sheet presentation', () => {
         expect(layers.map((l) => l.entry.key)).toEqual(['a', 's']);
         expect(layers.map((l) => l.hidden)).toEqual([false, false]);
         // Base card: plain static. Sheet: live binding even at rest, so the
-        // drag worklet can move it between snap points without a rebind.
+        // drag worklet can move it between detents without a rebind.
         expect(layers[0].animation).toBeNull();
         const anim = layers[1].animation;
         expect(anim?.mapperName).toBe('translateY');
         expect(anim?.progress).toBe(sv);
-        // Partial height: progress 1 rests at (1 - 0.9) * SCREEN_HEIGHT,
-        // not 0 like modal/fullScreen.
+        // Reveal-px mapping: reveal 0 = off-screen, reveal maxDetentPx rests
+        // at (SCREEN_HEIGHT - maxDetentPx), not 0 like modal/fullScreen.
+        expect(anim?.inputRange).toEqual([0, MAX_DETENT_PX]);
         expect(anim?.outputRange[0]).toBe(SCREEN_HEIGHT);
         expect(anim?.outputRange[1]).toBeCloseTo(0.1 * SCREEN_HEIGHT);
     });
@@ -406,11 +409,12 @@ describe('computeLayers — sheet presentation', () => {
         expect(layers[0].animation).toBeNull(); // base static, like modal
         const anim = layers[1].animation;
         expect(anim?.progress).toBe(sv); // dedicated SV, not the shared progress
+        expect(anim?.inputRange).toEqual([0, MAX_DETENT_PX]);
         expect(anim?.outputRange[0]).toBe(SCREEN_HEIGHT);
         expect(anim?.outputRange[1]).toBeCloseTo(0.1 * SCREEN_HEIGHT);
     });
 
-    it('uses the identical mapper for a sheet pop (progress encodes position)', () => {
+    it('uses the identical mapper for a sheet pop (the reveal encodes position)', () => {
         const a = entry('a', 'home');
         const s = entry('s', 'sheet-route', 'sheet');
         const progress = fakeProgress();
@@ -450,12 +454,12 @@ describe('computeLayers — sheet presentation', () => {
         expect(topLayer?.animation?.mapperName).toBe('translateX');
     });
 
-    it('backdropAnimation maps the sheet SV onto opacity', () => {
+    it('backdropAnimation maps reveal px onto opacity', () => {
         const sv = fakeProgress();
-        const anim = backdropAnimation(sv);
+        const anim = backdropAnimation(sv, MAX_DETENT_PX);
         expect(anim.mapperName).toBe('opacity');
         expect(anim.progress).toBe(sv);
-        expect(anim.inputRange).toEqual([0, 1]);
+        expect(anim.inputRange).toEqual([0, MAX_DETENT_PX]);
         expect(anim.outputRange).toEqual([0, SHEET_BACKDROP_MAX_OPACITY]);
     });
 });

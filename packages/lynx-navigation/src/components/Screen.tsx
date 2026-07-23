@@ -31,6 +31,7 @@
  * declarative and grep-friendly.
  */
 import { component, onUnmounted, type Define } from '@sigx/lynx';
+import type { DetentSpec } from '@sigx/lynx-sheet';
 import { useScreenRegistry } from '../hooks/use-nav-internal.js';
 import { mergeOptions, setSlot } from '../internal/screen-registry.js';
 import type { ScreenOptions } from '../types.js';
@@ -39,11 +40,11 @@ type ScreenProps =
     & Define.Prop<'title', string | (() => string)>
     & Define.Prop<'headerShown', boolean>
     & Define.Prop<'gestureEnabled', boolean>
-    & Define.Prop<'snapPoints', readonly number[]>
-    & Define.Prop<'initialSnapIndex', number>
+    & Define.Prop<'detents', readonly DetentSpec[]>
+    & Define.Prop<'initialDetentIndex', number>
     & Define.Prop<'backdropDismiss', boolean>
     & Define.Prop<'backdrop', boolean>
-    & Define.Prop<'dragHandle', 'surface' | 'grabber' | 'none'>
+    & Define.Prop<'dragMode', 'surface' | 'grabber' | 'none'>
     & Define.Slot<'default'>;
 
 const ScreenRoot = component<ScreenProps>(({ props, slots }) => {
@@ -57,11 +58,11 @@ const ScreenRoot = component<ScreenProps>(({ props, slots }) => {
     if (props.title !== undefined) patch.title = props.title;
     if (props.headerShown !== undefined) patch.headerShown = props.headerShown;
     if (props.gestureEnabled !== undefined) patch.gestureEnabled = props.gestureEnabled;
-    if (props.snapPoints !== undefined) patch.snapPoints = props.snapPoints;
-    if (props.initialSnapIndex !== undefined) patch.initialSnapIndex = props.initialSnapIndex;
+    if (props.detents !== undefined) patch.detents = props.detents;
+    if (props.initialDetentIndex !== undefined) patch.initialDetentIndex = props.initialDetentIndex;
     if (props.backdropDismiss !== undefined) patch.backdropDismiss = props.backdropDismiss;
     if (props.backdrop !== undefined) patch.backdrop = props.backdrop;
-    if (props.dragHandle !== undefined) patch.dragHandle = props.dragHandle;
+    if (props.dragMode !== undefined) patch.dragMode = props.dragMode;
     mergeOptions(registry, patch);
     return () => slots.default?.();
 });

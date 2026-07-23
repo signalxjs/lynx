@@ -1,12 +1,15 @@
 /**
  * `<SheetBackdrop>` — built-in dimmed backdrop behind a `presentation:
- * 'sheet'` entry. Unlike `modal` (where the screen owns its backdrop),
- * the navigator owns the sheet's dim so every sheet screen needn't
- * re-implement overlay + tap-to-dismiss (the duplication previously
- * seen in `lynx-emoji`'s SheetPicker). It is always PRESENT (constant
- * child shape for `<SheetSlot>`), but a `backdrop: false` sheet renders
- * it INERT — `display: none`, no dim, no tap capture — for a non-modal
- * inline sheet whose screen below stays interactive (`enabled` prop).
+ * 'sheet'` entry: a thin navigator wrapper over `@sigx/lynx-sheet`'s
+ * generic `<Backdrop>` (which owns the element, the reveal-bound opacity
+ * binding, and the tap-consuming `catchtap`). This wrapper adds only the
+ * navigator wiring: `nav.pop()` on a dismissable tap, and the resting-dim
+ * `staticOpacity` for covered sheets / animations-disabled navigators.
+ *
+ * It is always PRESENT (constant child shape for `<SheetSlot>`), but a
+ * `backdrop: false` sheet renders it INERT — `display: none`, no dim, no
+ * tap capture — for a non-modal inline sheet whose screen below stays
+ * interactive (`enabled` prop).
  *
  * Rendered by `<Stack>` immediately before the sheet's `<Layer>` in the
  * same slot — Lynx has no z-index, so document order places it above all
@@ -14,35 +17,29 @@
  * the sheet's host view is translated down to the sheet's top edge: taps
  * on the dimmed region above land here.
  *
- * Opacity binds the dedicated sheet SharedValue, so the dim tracks the
- * sheet position exactly — proportional at partial snap points, fading in
- * lockstep during drag-to-dismiss. Without an SV (covered sheet, or
- * animations disabled) it renders `staticOpacity` — the resting-progress
- * proportional dim — statically.
+ * Opacity binds the dedicated sheet reveal SV over `[0, maxDetentPx]` px →
+ * `[0, max]`, so the dim tracks the sheet position exactly — proportional
+ * at partial detents, fading in lockstep during drag-to-dismiss (the same
+ * contract `backdropAnimation` in layer-plan.ts states).
  */
-import {
-    component,
-    useAnimatedStyle,
-    useMainThreadRef,
-    type Define,
-    type MainThread,
-    type SharedValue,
-} from '@sigx/lynx';
+import { component, type Define, type SharedValue } from '@sigx/lynx';
+import { Backdrop } from '@sigx/lynx-sheet';
 import { useNav } from '../hooks/use-nav.js';
-import { backdropAnimation } from '../internal/layer-plan.js';
 
 type SheetBackdropProps =
     /**
-     * Sheet progress SV — only the *active* sheet (top/transitioning)
+     * Sheet reveal SV (px) — only the *active* sheet (top/transitioning)
      * binds it; null for covered-but-visible sheets and when animations
      * are disabled, in which case `staticOpacity` renders instead.
      */
-    & Define.Prop<'sheetProgress', SharedValue<number> | null, true>
+    & Define.Prop<'sheetReveal', SharedValue<number> | null, true>
+    /** Largest detent (px) — the reveal at which the dim reaches its max. */
+    & Define.Prop<'maxDetentPx', number, true>
     /**
-     * Dim to render when no SV is bound: the sheet's resting progress
-     * mapped onto the backdrop range, so a sheet sitting under a modal
-     * (or with animations disabled) keeps its proportional dim instead
-     * of snapping to full.
+     * Dim to render when no SV is bound: the sheet's resting reveal mapped
+     * onto the backdrop range, so a sheet sitting under a modal (or with
+     * animations disabled) keeps its proportional dim instead of snapping
+     * to full.
      */
     & Define.Prop<'staticOpacity', number, true>
     /** When true, tapping the backdrop pops the sheet. */
@@ -64,48 +61,18 @@ type SheetBackdropProps =
 
 export const SheetBackdrop = component<SheetBackdropProps>(({ props }) => {
     const nav = useNav();
-    const ref = useMainThreadRef<MainThread.Element | null>(null);
-
-    // Same reactive binding shape as `<Layer>`: flips between a spec and
-    // null without remounting the element.
-    useAnimatedStyle(ref, () => {
-        const sv = props.sheetProgress;
-        // Disabled backdrop: no dim binding — the element is display:none.
-        if (!props.enabled || !sv) return null;
-        const a = backdropAnimation(sv);
-        return {
-            sv: a.progress,
-            mapperName: a.mapperName,
-            params: {
-                inputRange: [a.inputRange[0], a.inputRange[1]],
-                outputRange: [a.outputRange[0], a.outputRange[1]],
-            },
-        };
-    });
 
     return () => (
-        <view
-            main-thread:ref={ref}
-            // `catch*` (vs `bind*`) consumes the event — the backdrop
-            // covers the underlying screen, so a tap on the dim must never
-            // reach interactive elements behind it, dismissable or not.
-            catchtap={() => {
-                if (props.enabled && props.dismissable) nav.pop();
-            }}
-            style={{
-                position: 'absolute',
-                top: '0',
-                left: '0',
-                right: '0',
-                bottom: '0',
-                // `enabled: false` → display:none, matching a `hidden`
-                // (covered) backdrop: not laid out, so it catches no taps —
-                // touches above the sheet reach the screen below.
-                display: (!props.enabled || props.hidden) ? 'none' : 'flex',
-                backgroundColor: '#000',
-                // With an SV the binding drives opacity; statically,
-                // render the resting-progress-proportional dim.
-                opacity: props.sheetProgress ? 0 : props.staticOpacity,
+        <Backdrop
+            revealSV={props.sheetReveal}
+            inputRange={[0, props.maxDetentPx]}
+            staticOpacity={props.staticOpacity}
+            enabled={props.enabled}
+            hidden={props.hidden}
+            // `<Backdrop>` only fires this while enabled (its `catchtap`
+            // gate), so `backdrop: false` sheets stay un-dismissable here.
+            onPress={() => {
+                if (props.dismissable) nav.pop();
             }}
         />
     );

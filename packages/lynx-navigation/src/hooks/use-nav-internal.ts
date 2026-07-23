@@ -59,13 +59,13 @@ export interface NavInternals {
     /** MT-driven transition progress; null when animations are disabled. */
     readonly progress: SharedValue<number> | null;
     /**
-     * Dedicated `presentation: 'sheet'` progress SV ("open fraction":
-     * 0 = off-screen, 1 = largest snap). Separate from `progress`, which
+     * Dedicated `presentation: 'sheet'` reveal SV (visible height in px:
+     * 0 = off-screen, N = N px showing). Separate from `progress`, which
      * resets at every transition start and so can't hold a resting sheet's
      * position. Created by the root `<NavigationRoot>` only — sheets always
      * escalate to the root stack; null when animations are disabled.
      */
-    readonly sheetProgress: SharedValue<number> | null;
+    readonly sheetReveal: SharedValue<number> | null;
     /**
      * Set transition state for a gesture-driven pop. Does not start any
      * automatic animation — the gesture worklet writes `progress` directly
@@ -113,12 +113,13 @@ export interface NavInternals {
      */
     readonly sheetBackdrops: Record<string, boolean>;
     /**
-     * Resolved `snapPoints` per sheet entry, written at push from the same
-     * registration read as `sheetBackdrops`. `<Stack>` prefers this over the
-     * render-time option so the layer's snap-scaled translateY agrees with
-     * `useSheetHeight` from the first frame. See `NavigatorState._sheetSnaps`.
+     * Resolved detents (ascending px) per sheet entry, written at push from
+     * the same registration read as `sheetBackdrops`. `<Stack>` prefers this
+     * over the render-time option so the layer's detent-scaled translateY
+     * agrees with `useSheetHeight` from the first frame. See
+     * `NavigatorState._sheetDetents`.
      */
-    readonly sheetSnaps: Record<string, readonly number[]>;
+    readonly sheetDetents: Record<string, readonly number[]>;
 }
 
 export const useNavInternals = defineInjectable<NavInternals>(() => {
