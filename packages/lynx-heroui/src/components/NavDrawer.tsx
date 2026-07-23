@@ -17,6 +17,7 @@
  * </NavigationRoot>
  * ```
  */
+import { TOUCH_GUARD_TAG } from '@sigx/lynx-gestures';
 import {
     component,
     effect,
@@ -65,6 +66,11 @@ const EXIT_DURATION_SEC = 0.22;
 const EXIT_DURATION_MS = Math.ceil(EXIT_DURATION_SEC * 1000);
 
 const BACKDROP_OPACITY = 0.3;
+
+// Raw guard tag as a dynamic intrinsic (same pattern as lynx-sheet's
+// Backdrop guardTag) - the backdrop needs main-thread:ref + accessibility
+// attrs the <TouchGuard> wrapper doesn't forward.
+const GuardRoot = TOUCH_GUARD_TAG as any;
 
 export const NavDrawer = component<NavDrawerProps>(({ props, slots }) => {
     return () => (
@@ -228,9 +234,12 @@ const DrawerChrome = component<DrawerChromeProps>(({ props }) => {
             <view style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}>
                 {props.backdrop
                     ? (
-                        <view
+                        <GuardRoot
                             main-thread:ref={backdropRef}
-                            bindtap={() => props.onBackdropPress()}
+                            // Native touch consumption (#787): inputs behind
+                            // the backdrop can't grab focus through it.
+                            guard-enabled={true}
+                            catchtap={() => props.onBackdropPress()}
                             class="bg-base-content"
                             style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, opacity: 0 }}
                             accessibility-element={true}

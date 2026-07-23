@@ -73,7 +73,9 @@ describe('Modal', () => {
   // There is no e.stopPropagation() in this runtime, so a bindtap guard on
   // the box is a silent no-op and every inner tap would bubble to the
   // overlay's close handler.
-  it('overlay closes via bindtap; the box consumes taps via catchtap', () => {
+  it('overlay is a touch guard closing via catchtap; the box consumes taps', () => {
+    // #787: the overlay root is the native <sigx-touch-guard> (platform
+    // touch consumption), whose catchtap drives onClose.
     const { container } = render(
       <Modal open={true} onClose={() => {}}>
         <Modal.Body>
@@ -83,7 +85,8 @@ describe('Modal', () => {
     );
     const overlay = container.children[0];
     const modalBox = overlay.children[0];
-    expect(overlay._handlers.has('bindtap')).toBe(true);
+    expect(overlay.type).toBe('sigx-touch-guard');
+    expect(overlay._handlers.has('catchtap')).toBe(true);
     expect(modalBox._handlers.has('catchtap')).toBe(true);
     expect(modalBox._handlers.has('bindtap')).toBe(false);
   });

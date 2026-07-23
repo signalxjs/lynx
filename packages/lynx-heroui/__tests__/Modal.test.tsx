@@ -27,7 +27,9 @@ describe('hero Modal', () => {
       <Modal open onClose={onClose}><text>content</text></Modal>,
     );
     const overlay = container.children[0];
-    overlay._handlers.get('bindtap')?.({});
+    // #787: the overlay is a native touch guard; its catchtap closes.
+    expect(overlay.type).toBe('sigx-touch-guard');
+    overlay._handlers.get('catchtap')?.({});
     expect(onClose).toHaveBeenCalledOnce();
   });
 });
