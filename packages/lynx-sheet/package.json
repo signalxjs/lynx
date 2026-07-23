@@ -1,6 +1,6 @@
 {
     "name": "@sigx/lynx-sheet",
-    "version": "0.20.0",
+    "version": "0.21.0",
     "description": "Unified bottom sheet for sigx-lynx — detent model, drag/snap math, keyboard-aware sheets (engine + standalone component)",
     "type": "module",
     "main": "./dist/index.js",
