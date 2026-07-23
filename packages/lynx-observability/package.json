@@ -1,6 +1,6 @@
 {
     "name": "@sigx/lynx-observability",
-    "version": "0.18.1",
+    "version": "0.19.0",
     "description": "Opt-in production error capture + provider-agnostic log/error sinks for sigx-lynx",
     "type": "module",
     "main": "./dist/index.js",
