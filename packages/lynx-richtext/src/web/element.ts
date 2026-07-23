@@ -183,6 +183,17 @@ export function segmentLines(doc: RichDoc): Line[] {
 // model → DOM
 // ---------------------------------------------------------------------------
 
+/**
+ * Vertical text inset (px, top and bottom). The native element pads its text
+ * 8/8 internally, and `MarkdownEditor` computes `min-height`/`max-height` as
+ * `lines × lineHeight + 2 × EDIT_PADDING_Y` on that assumption
+ * (`ELEMENT_PADDING = 16` there). The web editor must apply the same padding
+ * (with `box-sizing: border-box` so the passed heights stay the field's TOTAL
+ * height), or a single line hugs the top and the whole inset budget pools
+ * below it.
+ */
+const EDIT_PADDING_Y = 8;
+
 const BLOCK_ATTR = 'data-block';
 const LEVEL_ATTR = 'data-level';
 const CHECKED_ATTR = 'data-checked';
@@ -821,13 +832,21 @@ export class SigxRichTextElement extends HTMLElementBase {
 
     this.editRoot = d.createElement('div');
     this.editRoot.setAttribute('part', 'edit');
+    // `box-sizing: border-box` so the `min-height`/`max-height` the consumer
+    // passes are the field's TOTAL height (they already budget for the padding
+    // below); `padding: EDIT_PADDING_Y 0` insets the text like native.
+    // `line-height: 1.5` matches the consumer's line budget (MarkdownEditor's
+    // `lineHeight = round(fontSize × 1.5)`), so each line box exactly fills its
+    // share of `min-height` and a single line sits evenly between the paddings
+    // instead of leaving the unused line slack pooled at the bottom.
     this.editRoot.style.cssText =
-      'outline:none;white-space:pre-wrap;word-break:break-word;min-height:1em;';
+      `outline:none;white-space:pre-wrap;word-break:break-word;box-sizing:border-box;padding:${EDIT_PADDING_Y}px 0;line-height:1.5;min-height:1em;`;
     this.editRoot.setAttribute('contenteditable', this.getAttribute('editable') === 'false' ? 'false' : 'true');
 
     this.placeholderEl = d.createElement('div');
+    // Aligned to the text's first line (same top inset as the editor's padding).
     this.placeholderEl.style.cssText =
-      'position:absolute;top:0;left:0;pointer-events:none;opacity:0.5;white-space:pre-wrap;';
+      `position:absolute;top:${EDIT_PADDING_Y}px;left:0;pointer-events:none;opacity:0.5;white-space:pre-wrap;`;
     this.placeholderEl.textContent = this.getAttribute('placeholder') ?? '';
 
     this.appendChild(this.placeholderEl);
