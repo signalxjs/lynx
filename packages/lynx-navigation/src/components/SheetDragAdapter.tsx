@@ -29,7 +29,6 @@
 import {
     component,
     useGestureDetector,
-    useSharedValue,
     type Define,
     type MainThread,
     type MainThreadRef,
@@ -99,13 +98,10 @@ export const SheetDragAdapter = component<SheetDragAdapterProps>(({ props }) => 
     // Push geometry + flags to the worklets. Route sheets are always
     // dismissible (dismissible=1); the drag gate is open (gate=1) because
     // mounting IS the gate here — `<SheetSlot>` unmounts the adapter when
-    // drag turns off. Must travel via syncGeom: a render/BG-side SV write
-    // is a read-only no-op and would never arrive on the MT (#758).
-    void engine.syncGeom(floorPx, topPx, detentsPx, 1, 1);
-
-    // Route sheets are screen-anchored: the sheet's bottom edge is the
-    // screen bottom, so the pan's grabber-zone test uses SCREEN_HEIGHT.
-    const bottomEdgeSV = useSharedValue(SCREEN_HEIGHT);
+    // drag turns off. Route sheets are screen-anchored, so the bottom edge
+    // is SCREEN_HEIGHT. Must travel via syncGeom: a render/BG-side SV
+    // write is a read-only no-op and would never arrive on the MT (#758).
+    void engine.syncGeom(floorPx, topPx, detentsPx, 1, 1, SCREEN_HEIGHT);
 
     const pan = createSheetPan(engine, {
         surface: true,
@@ -114,7 +110,6 @@ export const SheetDragAdapter = component<SheetDragAdapterProps>(({ props }) => 
         minDistance: 8,
         scrollOffsetY: props.dragHost.scrollOffsetY,
         hasVerticalScroll: props.dragHost.hasVerticalScroll,
-        bottomEdgeSV,
         onClaim: (gen: number) => {
             genSignal.value = gen; // invalidates stale settle timeouts
             onGestureLock(true);

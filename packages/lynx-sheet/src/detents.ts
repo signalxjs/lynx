@@ -39,9 +39,19 @@ export interface DetentEnv {
     /**
      * Px reserved above the fully-open sheet (e.g. top safe-area inset +
      * a header the sheet must never slide under). Every resolved detent is
-     * clamped to `screenH - topOffset`.
+     * clamped to `screenH - topOffset - bottomOffset`.
      */
     topOffset?: number;
+    /**
+     * Px the sheet's BOTTOM edge sits above the true screen bottom — e.g.
+     * an ancestor `<SafeAreaView edges={['bottom']}>` pads the gesture
+     * bar, so the sheet's container ends `insets.bottom` short of the
+     * screen. The reveal cap must subtract it too: the sheet's top is
+     * `bottomEdge - reveal`, so a cap measured from the full screen
+     * height would let the top slide under the header by exactly this
+     * amount (the "handle disappears behind the header" bug).
+     */
+    bottomOffset?: number;
     /** Bottom safe-area inset — added back onto keyboard detents. */
     bottomInset?: number;
     /**
@@ -62,7 +72,8 @@ export const DEFAULT_DETENT_FRACTION = 0.5;
  *
  * Invalid specs are dropped, not reinterpreted (a fraction outside
  * `(0, 1]` or a non-positive px is a config error). Every resolved value
- * is rounded and clamped to `[1, screenH - topOffset]` — clamping can
+ * is rounded and clamped to `[1, screenH - topOffset - bottomOffset]` —
+ * clamping can
  * collapse two declared detents into one, which dedup then removes.
  * When nothing valid remains, falls back to `[fraction: 0.5]`.
  */
@@ -71,7 +82,8 @@ export function resolveDetents(
     env: DetentEnv,
 ): number[] {
     const topOffset = env.topOffset ?? 0;
-    const cap = Math.max(1, Math.round(env.screenH - topOffset));
+    const bottomOffset = env.bottomOffset ?? 0;
+    const cap = Math.max(1, Math.round(env.screenH - topOffset - bottomOffset));
 
     // Pass 1 — keyboard-independent specs. Their minimum is the floor the
     // keyboard detent rides on (a keyboard detent as the only/lowest spec

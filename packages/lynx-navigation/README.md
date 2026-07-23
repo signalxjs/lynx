@@ -75,36 +75,13 @@ Animated transitions **pre-stage** the work they'd otherwise compete with: a pus
 
 `push(name, params, search, { animated: false })` **presents a sheet AT its initial detent instantly** — no slide. Use it to reveal a sheet by some *other* motion: e.g. open an emoji sheet behind the soft keyboard, then blur the input so the keyboard's own dismissal uncovers the sheet (the app animates nothing). `useSheetHeight` reads the detent height from the first frame, so a bar bound to `max(keyboardLift, sheetHeight)` never dips at the swap. A non-animated dismiss (`pop(1, { animated: false })`) returns the height to `0` the same way.
 
-## Inline `<BottomSheet>`
+## Inline `<BottomSheet>` — moved to `@sigx/lynx-sheet`
 
-> **Superseded by [`@sigx/lynx-sheet`](../lynx-sheet)'s standalone `<BottomSheet>`** — the unified sheet package whose engine also powers `presentation: 'sheet'` above. New code should import `BottomSheet` from `@sigx/lynx-sheet`; this inline component is slated for removal in an upcoming release.
-
-`<BottomSheet>` is a **persistent, inline** bottom panel — a drag-to-resize tray you place at the bottom of your own layout, *not* a route. Unlike `presentation: 'sheet'` (a full-screen modal overlay whose backdrop dims and blocks the screen behind it), a `<BottomSheet>` has no scrim: the content above it stays live and tappable, so it can host a chat composer's input + emoji panel as one unit.
-
-It grows without a layout reflow: the panel is a fixed `maxHeight`-tall container anchored at the bottom, slid down by a `translateY` transform (main-thread-safe every frame, unlike `height`) so only the bottom `reveal` px show. Put the part that should stay pinned to the visible top (a text input) *first* in the content; it rides up as the sheet grows.
+The inline (route-free) `<BottomSheet>` now lives in [`@sigx/lynx-sheet`](../lynx-sheet) — the unified sheet package whose engine also powers `presentation: 'sheet'` above. It supersedes the component this package used to export, adding `DetentSpec` geometry (`{ keyboard: true }`, `{ fraction }`, `topOffset` caps), `dismissible`, `backdrop`, and full-surface drag with scroll arbitration. Import it from there:
 
 ```tsx
-<BottomSheet
-  maxHeight={fullPx}
-  detents={[inputPx, compactPx, fullPx]}   // visible heights, ascending; [0] = collapsed floor
-  open={emojiOpen}                          // move floor ⇄ openDetentIndex (JUMPS by default; set `animate` to slide)
-  liftSV={keyboardLiftSV}                   // ride above the keyboard: reveal = max(reveal, floor + lift)
-  openToLift                                // open at the LIVE lifted position, not the detent (see below)
-  onReveal={(sv) => (revealSV = sv)}        // the live height SV — bind siblings to it
-  onSnap={(i) => { if (i === 0) collapse(); }}
-  slots={{
-    handle: () => <ComposerRow />,          // the drag surface (a pill / the input row)
-    default: () => <EmojiPicker />,          // body — a raw <list> here still scrolls
-  }}
-/>
+import { BottomSheet } from '@sigx/lynx-sheet';
 ```
-
-The pan attaches to the `handle` slot only, so a virtualized `<list>` in the body scrolls normally (surface-drag over list content is the same arbitration gap the route sheet documents). Dragging the handle moves `reveal` 1:1 with the finger (via #681's auto-flush) and snaps to the nearest detent on release. `liftSV` + `onReveal` compose with `@sigx/lynx-motion`'s `useDerivedValue([…], 'max')` so the sheet and a sibling both track *whichever of the keyboard or the sheet is taller*, dip-free.
-
-**`detents` and `maxHeight` are live** — pass computed values and the sheet follows them, including while it is open. A composer's collapsed floor is rarely constant: an attachment chip row appears above the input, the input grows from one to several lines, a banner comes and goes. Measure that block (e.g. `useElementLayout()`) and feed it as `detents[0]`; the panel resizes, the drag clamp and release-snap candidates follow, a parked sheet re-seats on its new floor, and geometry that shrinks pulls the held reveal back into range. Since the sheet reveals the *top* `reveal` px of top-aligned content, a floor that didn't track its content would push whatever you pinned first — the input row — out of view.
-
-**`openToLift`** (with `liftSV`): on open, snap to the *current lifted position* — `max(reveal, floor + liftSV)`, captured on the main thread the instant it opens — instead of the `openDetentIndex` detent. Use it for a keyboard⇄panel swap: the live keyboard height is captured while the keyboard is still up, so when its lift then animates to 0 the content (a pinned input) does **not** move. A `detents`/`openDetentIndex` value can't equal the live MT keyboard lift (it's a background-computed number on a different thread), so without this the input jumps by the discrepancy on every swap; the detent stays the no-keyboard fallback. The captured position also becomes the low snap target for drags.
-
 ## License
 
 MIT
