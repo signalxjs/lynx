@@ -216,7 +216,7 @@ public class SigxRichTextUI: LynxUI<RichTextView> {
     @objc(__lynx_prop_config__max_height)
     public class func __lynxPropConfigMaxHeight() -> [String] { ["max-height", "setMaxHeight", "NSNumber *"] }
     @objc(__lynx_prop_config__font_size)
-    public class func __lynxPropConfigFontSize() -> [String] { ["editor-font-size", "setFontSize", "NSNumber *"] }
+    public class func __lynxPropConfigEditorFontSize() -> [String] { ["editor-font-size", "setFontSize", "NSNumber *"] }
     @objc(__lynx_prop_config__text_color)
     public class func __lynxPropConfigTextColor() -> [String] { ["text-color", "setTextColor", "NSString *"] }
     @objc(__lynx_prop_config__accent_color)
