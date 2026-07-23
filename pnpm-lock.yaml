@@ -463,6 +463,9 @@ importers:
       '@sigx/lynx-navigation':
         specifier: workspace:^
         version: link:../lynx-navigation
+      '@sigx/lynx-sheet':
+        specifier: workspace:^
+        version: link:../lynx-sheet
       '@typescript/native-preview':
         specifier: 7.0.0-dev.20260521.1
         version: 7.0.0-dev.20260521.1

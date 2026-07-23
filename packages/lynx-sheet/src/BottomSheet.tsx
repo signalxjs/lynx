@@ -377,7 +377,13 @@ export const BottomSheet = component<BottomSheetProps>(({ props, emit, slots }) 
             <>
                 <Backdrop
                     revealSV={engine.combined}
-                    inputRange={[g.floor, g.top]}
+                    // Persistent sheets show no dim while parked at their
+                    // floor, so the fade spans floor→top. A dismissible
+                    // sheet hides at reveal 0 and its floor is a REAL
+                    // detent (possibly the only one — [floor, top] would
+                    // degenerate for a single-detent tray), so the dim
+                    // tracks the whole 0→top travel like the route sheet.
+                    inputRange={dismissible === 1 ? [0, g.top] : [g.floor, g.top]}
                     maxOpacity={typeof bd === 'object' && bd !== null ? bd.maxOpacity : undefined}
                     enabled={backdropActive}
                     onPress={onBackdropPress}

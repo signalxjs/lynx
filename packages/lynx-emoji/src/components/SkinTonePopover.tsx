@@ -53,7 +53,7 @@ export const SkinTonePopover = component<SkinTonePopoverProps>(({ props, emit })
             }}
         >
             {/* catchtap, not a bindtap stopPropagation no-op — the runtime
-                has no e.stopPropagation(); see SheetPicker (#254). */}
+                has no e.stopPropagation() (#254). */}
             <view
                 catchtap={() => {}}
                 class={props.class}

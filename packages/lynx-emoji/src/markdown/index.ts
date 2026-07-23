@@ -17,7 +17,7 @@
  *    shortcodes; glyph mode output is plain text and needs neither.)
  *  - **toolbar** (optional): pass `onPickerRequest` to add a 😊 button that
  *    asks the app to open a picker surface (`KeyboardPanelPicker` /
- *    `SheetPicker`) — the editor doesn't own that UI.
+ *    a sheet picker) — the editor doesn't own that UI.
  */
 
 import type { JSXElement } from '@sigx/lynx';

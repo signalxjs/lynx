@@ -83,8 +83,10 @@ Full guides, API reference and live examples → **[https://sigx.dev/lynx/module
   `useKeyboardPanelReveal` (the reveal state machine: the app animates
   nothing — the panel paints pinned in the keyboard's space and the system
   keyboard's own show/hide does all visible motion, including a
-  tween-settled space handoff on flip-back so the composer bar never moves)
-  and `SheetPicker` (bottom-sheet overlay).
+  tween-settled space handoff on flip-back so the composer bar never moves).
+  For a one-off bottom-sheet overlay, compose `EmojiPicker` inside
+  `@sigx/lynx-sheet`'s `<BottomSheet dismissible backdrop>` (or use
+  `@sigx/lynx-daisyui`'s `EmojiPickerSheet` one-liner).
 - **Markdown plugin** — `@sigx/lynx-emoji/markdown` exports
   `createEmojiPlugin()` for `@sigx/lynx-markdown`'s editor (optional peer):
   `:` trigger suggestions (inserts the glyph), `:shortcode:` preview syntax,

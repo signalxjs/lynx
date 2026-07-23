@@ -80,6 +80,21 @@ export const Backdrop = component<BackdropProps>(({ props }) => {
             catchtap={() => {
                 if (props.enabled) props.onPress?.();
             }}
+            // Real native view (not flattened into the parent's render
+            // node) — an interactive overlay should exist in the platform
+            // hierarchy, and on iOS ignore-focus keeps the touch-down from
+            // blurring a focused input (endEditing fires on every
+            // non-ignoring touch-down there).
+            //
+            // KNOWN LIMITATION (Android): Lynx-level handlers beneath the
+            // dim are correctly blocked (catchtap consumes), but a NATIVE
+            // input view (EditText) under the tap point still receives the
+            // platform touch and grabs focus/keyboard — the fall-through
+            // is in the runtime's native dispatch, not this element, and
+            // affects every overlay idiom (Modal, drawers) identically.
+            // Tracked in #787; the fix belongs in the runtime.
+            flatten={false}
+            ignore-focus={true}
             style={{
                 position: 'absolute',
                 top: '0',

@@ -26,7 +26,7 @@ const _Modal = component<ModalProps>(({ props, slots }) => {
             tap inside the box bubbled to the overlay's close handler (#260).
             Inner bindtap handlers (buttons, rows) still fire first; the box
             only stops the bubble from continuing to the overlay. Same fix as
-            lynx-emoji's SheetPicker (#254/#258). */}
+            the emoji sheet picker (#254/#258). */}
         <view
           class={`modal-box${props.class ? ' ' + props.class : ''}`}
           catchtap={() => {}}
