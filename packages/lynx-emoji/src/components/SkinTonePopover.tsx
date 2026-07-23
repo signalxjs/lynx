@@ -1,4 +1,4 @@
-import { component, type Define } from '@sigx/lynx';
+import { component, useFontScale, type Define } from '@sigx/lynx';
 import { Pressable } from '@sigx/lynx-gestures';
 import type { EmojiDatum, SkinTone } from '../data/schema.js';
 import { glyphForTone } from '../data/glyph.js';
@@ -34,6 +34,8 @@ const TONES: SkinTone[] = [0, 1, 2, 3, 4, 5];
  * picker), so it needs no page-level portal or caret math.
  */
 export const SkinTonePopover = component<SkinTonePopoverProps>(({ props, emit }) => {
+    // Pinned like the grid — the popover's fixed geometry assumes `size` (#776).
+    const fontScale = useFontScale();
     return () => (
         <view
             class={props.backdropClass}
@@ -88,7 +90,7 @@ export const SkinTonePopover = component<SkinTonePopoverProps>(({ props, emit })
                             accessibility-status={active ? 'selected' : undefined}
                             onPress={() => emit('select', tone)}
                         >
-                            <text style={{ fontSize: props.size ?? 32 }}>{glyphForTone(props.datum, tone)}</text>
+                            <text style={{ fontSize: (props.size ?? 32) / fontScale.value }}>{glyphForTone(props.datum, tone)}</text>
                         </Pressable>
                     );
                 })}
