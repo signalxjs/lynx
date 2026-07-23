@@ -84,6 +84,15 @@ describe('createSheetPan source shape', () => {
     });
 });
 
+describe('BottomSheet grabberPx threading (#711)', () => {
+    const COMP_SRC = resolve(HERE, '../src/BottomSheet.tsx');
+    const comp = readFileSync(COMP_SRC, 'utf8');
+
+    it('threads the grabberPx prop into the pan config with the default fallback', () => {
+        expect(comp).toContain('grabberPx: props.grabberPx ?? GRABBER_HEIGHT');
+    });
+});
+
 describe('useSheetEngine source shape', () => {
     const src = readFileSync(ENGINE_SRC, 'utf8');
 

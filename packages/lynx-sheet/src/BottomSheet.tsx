@@ -153,6 +153,14 @@ export type BottomSheetProps =
     & Define.Event<'dismiss', void>
     /** Any tap on the enabled backdrop (fires whether or not it dismisses). */
     & Define.Event<'backdropTap', void>
+    /**
+     * Height (px) of the always-drags chrome strip at the sheet's top edge
+     * — the zone that claims the drag in `dragMode 'surface'` and the ONLY
+     * zone that drags in `'grabber'` (#711: WhatsApp-style sheets drag by
+     * a whole ~64px input row, not just a pill). Meaningless for
+     * `'handle'`/`'none'`. MOUNT-CONSTANT (worklet capture). Default 28.
+     */
+    & Define.Prop<'grabberPx', number, false>
     & Define.Prop<'class', string, false>
     & Define.Prop<'style', Record<string, string | number>, false>
     /** Sheet body — laid out top-aligned in the fixed-height box. */
@@ -252,7 +260,7 @@ export const BottomSheet = component<BottomSheetProps>(({ props, emit, slots }) 
         const pan = createSheetPan(engine, {
             surface: surfaceLike,
             grabberOnly: dragMode === 'grabber',
-            grabberPx: GRABBER_HEIGHT,
+            grabberPx: props.grabberPx ?? GRABBER_HEIGHT,
             scrollOffsetY: dragHost?.scrollOffsetY,
             hasVerticalScroll: dragHost?.hasVerticalScroll,
             onClaim,

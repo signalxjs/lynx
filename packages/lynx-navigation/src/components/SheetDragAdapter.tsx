@@ -54,6 +54,8 @@ type SheetDragAdapterProps =
     & Define.Prop<'restPx', number, true>
     /** `'surface'`: body drags; `'grabber'`: only the top strip zone claims. */
     & Define.Prop<'dragMode', 'surface' | 'grabber', true>
+    /** Grabber-strip height (px); default GRABBER_HEIGHT. Remount-keyed. */
+    & Define.Prop<'grabberPx', number | undefined, true>
     /** The sheet Layer's host element ref — the pan attaches here. */
     & Define.Prop<'hostRef', MainThreadRef<MainThread.Element | null>, true>
     /** Scroll-coordination host the `<SheetSlot>` allocated + provided. */
@@ -106,7 +108,7 @@ export const SheetDragAdapter = component<SheetDragAdapterProps>(({ props }) => 
     const pan = createSheetPan(engine, {
         surface: true,
         grabberOnly: props.dragMode === 'grabber',
-        grabberPx: GRABBER_HEIGHT,
+        grabberPx: props.grabberPx ?? GRABBER_HEIGHT,
         minDistance: 8,
         scrollOffsetY: props.dragHost.scrollOffsetY,
         hasVerticalScroll: props.dragHost.hasVerticalScroll,

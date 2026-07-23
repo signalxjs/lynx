@@ -143,6 +143,7 @@ describe('ScreenOptions / useScreenOptions', () => {
             | 'backdropDismiss'
             | 'backdrop'
             | 'dragMode'
+            | 'grabberPx'
         >();
     });
 

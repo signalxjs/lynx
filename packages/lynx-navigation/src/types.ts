@@ -248,6 +248,13 @@ export interface ScreenOptions {
      * Ignored for non-sheet presentations.
      */
     dragMode?: 'surface' | 'grabber' | 'none';
+    /**
+     * Height (px) of the always-drags chrome strip at the sheet's top edge
+     * — the claim zone in `'surface'` mode and the only draggable zone in
+     * `'grabber'` (#711: drag a whole input row, not just a pill).
+     * Ignored for non-sheet presentations. Default 28.
+     */
+    grabberPx?: number;
 }
 
 /**
