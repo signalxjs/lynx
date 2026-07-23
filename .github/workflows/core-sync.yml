@@ -32,7 +32,14 @@ jobs:
   align:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      # Pinned to v5 ON PURPOSE — do NOT "align" this with ci.yml's v6.
+      # actions/checkout@v6 moved credential storage to git's `includeIf`, which
+      # peter-evans/create-pull-request (below) does not detect, so it configures a
+      # SECOND auth header and every git remote call dies with
+      #   remote: Duplicate header: "Authorization"  ->  HTTP 400
+      # before the action ever looks at the diff. peter-evans/create-pull-request#4272
+      # is still open against checkout v6 as of 2026-07; v5 is the confirmed-good pin.
+      - uses: actions/checkout@v5
       - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v6
         with:
