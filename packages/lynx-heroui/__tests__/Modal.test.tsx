@@ -31,5 +31,11 @@ describe('hero Modal', () => {
     expect(overlay.type).toBe('sigx-touch-guard');
     overlay._handlers.get('catchtap')?.({});
     expect(onClose).toHaveBeenCalledOnce();
+    // The box must CONSUME taps (catchtap) — a bindtap+stopPropagation
+    // guard is a silent no-op in this runtime and would bubble box taps
+    // into the overlay's close handler.
+    const box = overlay.children[0];
+    expect(box._handlers.has('catchtap')).toBe(true);
+    expect(box._handlers.has('bindtap')).toBe(false);
   });
 });

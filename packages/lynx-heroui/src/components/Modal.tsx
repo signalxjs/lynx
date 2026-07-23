@@ -24,7 +24,11 @@ const _Modal = component<ModalProps>(({ props, slots }) => {
       >
         <view
           class={`hero-modal-box${props.class ? ' ' + props.class : ''}`}
-          bindtap={(e: any) => { e?.stopPropagation?.(); }}
+          // catchtap (Lynx catchEvent) actually stops the bubble — there is
+          // no working e.stopPropagation() in this runtime (#260), so the
+          // old bindtap guard was a silent no-op and any tap inside the box
+          // bubbled to the overlay's close handler.
+          catchtap={() => {}}
         >
           {slots.default?.()}
         </view>
