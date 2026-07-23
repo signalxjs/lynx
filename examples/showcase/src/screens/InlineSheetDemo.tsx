@@ -70,6 +70,12 @@ export const InlineSheetDemo = component(() => {
                 // slid the fully-open sheet (and its grabber) under the
                 // header on tall-inset devices.
                 topOffset={(insets.value.top ?? 0) + HEADER_H}
+                // The showcase App wraps every screen in a
+                // SafeAreaView edges={['top','bottom']}, so this screen's
+                // container bottom sits `insets.bottom` above the true
+                // screen bottom — without this the cap is anchored wrong
+                // and a fling still parks the grabber under the header.
+                bottomOffset={insets.value.bottom ?? 0}
                 onSnap={(i: number) => { state.lastEvent = `snap → candidate ${i}`; }}
                 onDismiss={() => { state.lastEvent = 'dismiss'; state.open = false; }}
                 onBackdropTap={() => { state.lastEvent = 'backdropTap'; }}
