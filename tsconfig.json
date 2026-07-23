@@ -94,6 +94,9 @@
       "@sigx/lynx-share": [
         "./packages/lynx-share/src/index.ts"
       ],
+      "@sigx/lynx-sheet": [
+        "./packages/lynx-sheet/src/index.ts"
+      ],
       "@sigx/lynx-sqlite": [
         "./packages/lynx-sqlite/src/index.ts"
       ],

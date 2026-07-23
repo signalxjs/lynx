@@ -1,0 +1,58 @@
+{
+    "name": "@sigx/lynx-sheet",
+    "version": "0.18.1",
+    "description": "Unified bottom sheet for sigx-lynx — detent model, drag/snap math, keyboard-aware sheets (engine + standalone component)",
+    "type": "module",
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.ts",
+            "import": "./dist/index.js"
+        }
+    },
+    "files": [
+        "src",
+        "dist"
+    ],
+    "scripts": {
+        "build": "node ../../scripts/clean.mjs dist && tsgo",
+        "dev": "tsgo --watch",
+        "test": "vitest run",
+        "prepublishOnly": "node ../../scripts/clean.mjs dist && tsgo",
+        "clean": "node ../../scripts/clean.mjs dist .turbo"
+    },
+    "peerDependencies": {
+        "@sigx/lynx": "workspace:^"
+    },
+    "devDependencies": {
+        "@sigx/lynx": "workspace:^",
+        "@sigx/lynx-testing": "workspace:^",
+        "@typescript/native-preview": "7.0.0-dev.20260521.1",
+        "typescript": "^6.0.3",
+        "vitest": "^4.1.7"
+    },
+    "keywords": [
+        "sigx",
+        "lynx",
+        "bottom-sheet",
+        "sheet",
+        "detents",
+        "drag",
+        "keyboard"
+    ],
+    "author": "Andreas Ekdahl",
+    "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/signalxjs/lynx.git",
+        "directory": "packages/lynx-sheet"
+    },
+    "homepage": "https://sigx.dev/lynx/modules/sheet/overview/",
+    "bugs": {
+        "url": "https://github.com/signalxjs/lynx/issues"
+    },
+    "publishConfig": {
+        "access": "public"
+    }
+}
