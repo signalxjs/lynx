@@ -14,7 +14,7 @@ import {
     variantOf,
     type DaisyTheme,
 } from '@sigx/lynx-daisyui';
-import { useSystemColorScheme } from '@sigx/lynx-appearance';
+import { readGlobalFontScale, useFontScale, useSystemColorScheme } from '@sigx/lynx-appearance';
 import { Haptics } from '@sigx/lynx-haptics';
 
 /**
@@ -25,10 +25,14 @@ import { Haptics } from '@sigx/lynx-haptics';
  *  • `theme.toggle()` flips between the active variant's light/dark pair.
  *  • `theme.followSystem()` resumes OS color-scheme auto-detection
  *    (surfaced live via `useSystemColorScheme`).
+ *  • OS font scale (#766) — live readout of `useFontScale()` plus the raw
+ *    vs clamped values, over a sample text ramp. Change the system text
+ *    size while this screen is open to watch it relayout in place.
  */
 export const Appearance = component(() => {
     const theme = useTheme();
     const systemScheme = useSystemColorScheme();
+    const fontScale = useFontScale();
 
     const pickTheme = (name: DaisyTheme) => {
         Haptics.selection();
@@ -88,6 +92,32 @@ export const Appearance = component(() => {
                                     Follow system
                                 </Button>
                             </Row>
+                        </Col>
+                    </Card.Body>
+                </Card>
+
+                <Card bordered>
+                    <Card.Body>
+                        <Col gap={8}>
+                            <Text weight="semibold">OS font scale</Text>
+                            <Text class="opacity-60 text-sm">
+                                The engine scales font-size/line-height from the
+                                system text-size setting; layout lengths are
+                                untouched. Change it in system settings while
+                                this screen is open — text relayouts in place.
+                            </Text>
+                            <Text>
+                                {/* `os` differs from the effective value only
+                                    when the app's fontScale.min/max clamps. */}
+                                effective ×{fontScale.value} · OS ×
+                                {readGlobalFontScale()?.os ?? 1}
+                            </Text>
+                            <Col gap={2}>
+                                <Text class="text-xs">Sample xs (12px base)</Text>
+                                <Text class="text-sm">Sample sm (14px base)</Text>
+                                <Text>Sample base (17px base)</Text>
+                                <Text class="text-xl">Sample xl (24px base)</Text>
+                            </Col>
                         </Col>
                     </Card.Body>
                 </Card>

@@ -177,4 +177,17 @@ describe('useFontScale under AppearanceProvider', () => {
     await waitForUpdate();
     expect(read()).toBe(1.4);
   });
+
+  it('rounds Float-widening noise to 3 decimals', async () => {
+    const emitter = makeEmitter();
+    installMockLynx({ scale: 1, os: 1 }, emitter);
+
+    const read = mountProbe();
+    await waitForUpdate();
+
+    // Android's Configuration.fontScale is a Float; 1.15f widens to this.
+    emitter.emit(FONT_SCALE_EVENT, { scale: 1.1499999761581421 });
+    await waitForUpdate();
+    expect(read()).toBe(1.15);
+  });
 });

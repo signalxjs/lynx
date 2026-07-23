@@ -89,12 +89,14 @@ class FontScalePublisher(private val lynxView: LynxView) {
         try {
             // `os` is only re-read alongside an effective change; JS-side live
             // updates ride the engine's own onFontScaleChanged event.
+            // Round for JS: a bare Float→Double widen leaks binary noise
+            // (1.15f → 1.14999997…); 3 decimals matches the iOS publisher.
             lynxView.updateGlobalProps(
                 TemplateData.fromMap(
                     mapOf(
                         "fontScale" to mapOf(
-                            "scale" to effective.toDouble(),
-                            "os" to config.fontScale.toDouble(),
+                            "scale" to roundTo3(effective),
+                            "os" to roundTo3(config.fontScale),
                         ),
                     ),
                 ),
@@ -107,4 +109,7 @@ class FontScalePublisher(private val lynxView: LynxView) {
             Log.w(TAG, "publish failed: ${e.message}")
         }
     }
+
+    private fun roundTo3(value: Float): Double =
+        Math.round(value.toDouble() * 1000.0) / 1000.0
 }

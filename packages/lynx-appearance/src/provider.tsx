@@ -107,8 +107,14 @@ function normaliseScheme(raw: unknown): ColorScheme | null {
   return v === 'dark' ? 'dark' : v === 'light' ? 'light' : null;
 }
 
-/** Engine payload is `{ scale }`; accept a bare number defensively. */
+/**
+ * Engine payload is `{ scale }`; accept a bare number defensively. Rounded
+ * to 3 decimals — Android's Float-backed scale widens with binary noise
+ * (1.15f arrives as 1.14999997…), and the publishers publish 3-decimal
+ * values, so this keeps the event path consistent with `__globalProps`.
+ */
 function normaliseFontScale(raw: unknown): number | null {
   const v = typeof raw === 'number' ? raw : (raw as Record<string, unknown> | null)?.['scale'];
-  return typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : null;
+  if (typeof v !== 'number' || !Number.isFinite(v) || v <= 0) return null;
+  return Math.round(v * 1000) / 1000;
 }
