@@ -1,0 +1,75 @@
+# .github/workflows/core-sync.yml
+# Opens (or updates) a "chore: align with core X.Y" PR whenever sigx core ships a
+# new version. Triggered by a repository_dispatch (`core-released`) fanned out from
+# core's release.yml (its `notify-consumers` job, gated on an ECOSYSTEM_DISPATCH_TOKEN
+# secret), a weekly safety-net schedule, or manually. Part of the sigx standard —
+# keep in sync with signalxjs/repo-template. Needs the repo's `catalog:` block set
+# up and `scripts/sync-core.mjs` present (see README → "Staying aligned with core").
+name: Sync with core
+
+on:
+  repository_dispatch:
+    types: [core-released]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Core version to align to (e.g. 0.13.0). Blank = latest on npm."
+        required: false
+        default: ""
+  schedule:
+    - cron: "0 6 * * 1" # Mondays 06:00 UTC — catches anything the dispatch missed
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  align:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      # Target version: dispatch payload > manual input > latest on npm.
+      - name: Resolve target core version
+        id: target
+        run: |
+          V="${{ github.event.client_payload.version }}"
+          [ -z "$V" ] && V="${{ github.event.inputs.version }}"
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+
+      - name: Align catalog to core
+        run: node scripts/sync-core.mjs ${{ steps.target.outputs.version }}
+
+      # Prove it still builds/tests green before proposing the bump. If this
+      # fails, the core release introduced a breaking change this repo must
+      # migrate by hand — the job fails loudly instead of opening a red PR.
+      - run: pnpm install --no-frozen-lockfile
+      - run: pnpm build
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm verify:catalog
+
+      - name: Open / update alignment PR
+        uses: peter-evans/create-pull-request@v6
+        with:
+          branch: chore/align-with-core
+          commit-message: "chore: align with core"
+          title: "chore: align with core"
+          body: |
+            Automated by `core-sync.yml`. Bumps the `catalog:` core pins in
+            `pnpm-workspace.yaml` and refreshes the lockfile.
+
+            Build, typecheck, test and `verify:catalog` passed on this branch —
+            if a future core release breaks this repo, this workflow fails
+            instead of opening the PR, so a red PR here should never happen.
+
+            Review, then merge + cut a release per RELEASING.md.
+          reviewers: copilot
+          add-paths: |
+            pnpm-workspace.yaml
+            pnpm-lock.yaml

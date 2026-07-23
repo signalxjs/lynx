@@ -48,6 +48,11 @@ jobs:
       - name: Build
         run: pnpm build
 
+      # Every core dep must flow through a single-minor catalog (one hoisted
+      # copy of @sigx/reactivity). Cheap static check; fails fast before build/test.
+      - name: Verify catalog
+        run: pnpm verify:catalog
+
       - name: Typecheck
         run: pnpm typecheck
 

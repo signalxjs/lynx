@@ -9,6 +9,8 @@
         "packages/*"
     ],
     "scripts": {
+        "sync:core": "node scripts/sync-core.mjs",
+        "verify:catalog": "node scripts/check-catalog.mjs",
         "build": "pnpm -r run build",
         "test": "vitest run",
         "test:watch": "vitest",
