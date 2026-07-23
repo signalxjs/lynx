@@ -8,6 +8,9 @@
  * gating, throttle, and release on unmount.
  */
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'fs';
+import { fileURLToPath } from 'url';
+import { dirname, resolve } from 'path';
 import {
   component,
   signal,
@@ -47,6 +50,18 @@ function makeHarness(renderBody: () => unknown, opts?: { preClaim?: boolean }) {
   });
   return { Harness, captured };
 }
+
+describe('adoption is presence-aware (#790 review)', () => {
+    it('re-syncs the host flags on empty ⇄ populated flips, not mount-once', () => {
+        const src = readFileSync(
+            resolve(dirname(fileURLToPath(import.meta.url)), '../src/List.tsx'),
+            'utf8',
+        );
+        expect(src).toContain('const listPresent = ');
+        expect(src).toMatch(/watch\(listPresent, \(present\) => syncAdoption\(present\)\)/);
+        expect(src).toMatch(/onMounted\(\(\) => syncAdoption\(listPresent\(\)\)\)/);
+    });
+});
 
 describe('List ↔ ScrollDragHost adoption (#790)', () => {
   it('a vertical List claims the slot and binds the host-allocated ref', () => {

@@ -2,6 +2,7 @@ import {
   component,
   effect,
   signal,
+  watch,
   onMounted,
   onUnmounted,
   useElementLayout,
@@ -279,17 +280,33 @@ const ListImpl = component<ListProps>(({ props, slots, emit }) => {
     // list (see scroll-drag-host.ts). The hop also mirrors the host-bound
     // element into the consumer's mtRef so its `invoke('scrollToPosition')`
     // keeps working while adopted (mirrored, NOT bound — see ListProps.mtRef).
-    // Invoked from onMounted, not setup: the mount hook runs after the first
-    // inline render has enqueued this <list>'s SET_MT_REF, and INVOKE_WORKLET
-    // rides the same ordered ops stream — so `listRef.current` (the host's
-    // scrollRef) is already the native <list> when the hop applies on MT.
-    onMounted(() => {
-      void runOnMainThread(() => {
+    // Invoked from onMounted/watch, not setup: both run after the render
+    // that (re)creates the <list> has enqueued its SET_MT_REF, and
+    // INVOKE_WORKLET rides the same ordered ops stream — so
+    // `listRef.current` (the host's scrollRef) is already the native
+    // <list> when the hop applies on MT.
+    //
+    // Presence-AWARE, not mount-once: with `items.length === 0` and an
+    // `empty` slot the <list> is not rendered at all — a mount-only hop
+    // would mirror null permanently and report a scrollable that isn't
+    // there (a surface-drag sheet would then mis-arbitrate against a
+    // phantom list). The hop re-syncs whenever empty ⇄ populated flips.
+    const syncAdoption = (present: boolean): void => {
+      void runOnMainThread((p: number) => {
         'main thread';
-        hostHasScroll.current.value = 1;
-        mirrorRef.current = listRef.current;
-      })();
-    });
+        hostHasScroll.current.value = p;
+        if (p === 1) {
+          mirrorRef.current = listRef.current;
+        } else {
+          hostOffsetY.current.value = 0;
+          mirrorRef.current = null;
+        }
+      })(present ? 1 : 0);
+    };
+    const listPresent = (): boolean =>
+      !((props.items?.length ?? 0) === 0 && !!slots.empty);
+    onMounted(() => syncAdoption(listPresent()));
+    watch(listPresent, (present) => syncAdoption(present));
     onUnmounted(() => {
       hostRelease?.();
       void runOnMainThread(() => {
