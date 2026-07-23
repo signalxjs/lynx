@@ -3,8 +3,13 @@
 # new version. Triggered by a repository_dispatch (`core-released`) fanned out from
 # core's release.yml (its `notify-consumers` job, gated on an ECOSYSTEM_DISPATCH_TOKEN
 # secret), a weekly safety-net schedule, or manually. Part of the sigx standard —
-# keep in sync with signalxjs/repo-template. Needs the repo's `catalog:` block set
-# up and `scripts/sync-core.mjs` present (see README → "Staying aligned with core").
+# keep in sync with signalxjs/repo-template. Needs the repo's `catalog:` block set up
+# and `scripts/sync-core.mjs` present; see repo-template's docs/adopting.md
+# ("Wire up core catalog alignment") for the one-time setup.
+#
+# TODO(sigx-standard): `node-version` below must match the version this repo's
+# ci.yml uses. The align job runs the repo's real build/typecheck/test, so a
+# mismatch means it validates against a runtime CI never uses.
 name: Sync with core
 
 on:
@@ -27,23 +32,44 @@ jobs:
   align:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v6
         with:
           node-version: 22
           cache: pnpm
 
       # Target version: dispatch payload > manual input > latest on npm.
+      #
+      # The npm lookup is resolved HERE rather than left to sync-core's internal
+      # fallback, because the cron and payload-less dispatch paths would otherwise
+      # leave every downstream step (and the PR title) with no version to name —
+      # an alignment PR that cannot say which minor it aligns to is a worse
+      # artifact than the bump it carries.
       - name: Resolve target core version
         id: target
         run: |
           V="${{ github.event.client_payload.version }}"
           [ -z "$V" ] && V="${{ github.event.inputs.version }}"
-          echo "version=$V" >> "$GITHUB_OUTPUT"
+          if [ -z "$V" ]; then
+            V=$(npm view @sigx/reactivity version)
+            echo "No version supplied (cron or bare dispatch) — latest on npm is $V"
+          fi
+          MINOR=$(printf '%s' "$V" | sed -E 's/^v?([0-9]+)\.([0-9]+).*/\1.\2/')
+          # Validate the RESULT, never "did sed change the string" — an input that
+          # is already a bare minor ("0.13", which the manual-dispatch path accepts)
+          # comes back unchanged and would fail an equality check despite being
+          # perfectly valid.
+          if ! printf '%s' "$MINOR" | grep -qE '^[0-9]+\.[0-9]+$'; then
+            echo "::error::could not parse a minor from core version '$V'"
+            exit 1
+          fi
+          echo "version=$V"   >> "$GITHUB_OUTPUT"
+          echo "minor=$MINOR" >> "$GITHUB_OUTPUT"
+          echo "Aligning to core $MINOR (from $V)"
 
       - name: Align catalog to core
-        run: node scripts/sync-core.mjs ${{ steps.target.outputs.version }}
+        run: node scripts/sync-core.mjs "${{ steps.target.outputs.minor }}"
 
       # Prove it still builds/tests green before proposing the bump. If this
       # fails, the core release introduced a breaking change this repo must
@@ -58,18 +84,28 @@ jobs:
         uses: peter-evans/create-pull-request@v6
         with:
           branch: chore/align-with-core
-          commit-message: "chore: align with core"
-          title: "chore: align with core"
+          commit-message: "chore: align with core ${{ steps.target.outputs.minor }}"
+          title: "chore: align with core ${{ steps.target.outputs.minor }}"
           body: |
-            Automated by `core-sync.yml`. Bumps the `catalog:` core pins in
-            `pnpm-workspace.yaml` and refreshes the lockfile.
+            Automated by `core-sync.yml`. Aligns the `catalog:` core pins in
+            `pnpm-workspace.yaml` to core **${{ steps.target.outputs.minor }}**
+            (released as `${{ steps.target.outputs.version }}`) and refreshes the
+            lockfile.
 
             Build, typecheck, test and `verify:catalog` passed on this branch —
             if a future core release breaks this repo, this workflow fails
             instead of opening the PR, so a red PR here should never happen.
 
+            Sibling pins (`@sigx/router`, `@sigx/cli`, …) are deliberately NOT
+            touched: they release on their own tier. See core's
+            `docs/ecosystem-release.md` for the order.
+
             Review, then merge + cut a release per RELEASING.md.
-          reviewers: copilot
+          # The requested-reviewers API takes the `[bot]`-suffixed slug; a bare
+          # `copilot` does not resolve to the review bot and the request is
+          # silently dropped. (The review AUTHOR login comes back without the
+          # suffix, which is what makes the bare form look plausible.)
+          reviewers: copilot-pull-request-reviewer[bot]
           add-paths: |
             pnpm-workspace.yaml
             pnpm-lock.yaml

@@ -89,7 +89,7 @@ export function workspaceManifests(repoRoot) {
  * leaves the repo on the old core with no signal at all.
  *
  * @param {string} repoRoot
- * @returns {{ pkg: string, field: string, dep: string, spec: string }[]}
+ * @returns {{ file: string, pkg: string, field: string, dep: string, spec: string }[]}
  */
 export function findInlineCoreDeps(repoRoot) {
     const found = [];

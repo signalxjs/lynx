@@ -33,7 +33,11 @@ const entryRe = /^\s+(["']?)([@a-zA-Z0-9._/-]+)\1\s*:\s*(?:"([^"]*)"|'([^']*)'|(
 let inCatalog = false;
 for (const line of ws.split('\n')) {
     if (/^(catalog|catalogs)\s*:/.test(line)) { inCatalog = true; continue; }
-    if (inCatalog && line.trim() !== '' && /^\S/.test(line)) inCatalog = false;
+    // A column-0 COMMENT does not end the block — it is valid YAML anywhere inside
+    // a mapping, and treating it as the end skipped every entry after it, so a wide
+    // range sitting below a comment passed this guard silently. Same fix as
+    // sync-core.mjs's walk; the two must agree or they disagree about what is aligned.
+    if (inCatalog && line.trim() !== '' && !/^\s*#/.test(line) && /^\S/.test(line)) inCatalog = false;
     if (!inCatalog) continue;
     const m = entryRe.exec(line);
     if (!m) continue;

@@ -40,6 +40,11 @@ jobs:
       - name: Lint
         run: pnpm lint
 
+      # Every core dep must flow through a single-minor catalog (one hoisted
+      # copy of @sigx/reactivity). Cheap static check; fails fast before build/test.
+      - name: Verify catalog
+        run: pnpm verify:catalog
+
       # Build before typecheck — workspace packages publish types via dist/
       # and cross-package type resolution at the root tsconfig follows the
       # types field. Without dist/ present, subpath imports (e.g.
@@ -47,11 +52,6 @@ jobs:
       # `<reference types="@sigx/lynx-runtime" />` fail to resolve.
       - name: Build
         run: pnpm build
-
-      # Every core dep must flow through a single-minor catalog (one hoisted
-      # copy of @sigx/reactivity). Cheap static check; fails fast before build/test.
-      - name: Verify catalog
-        run: pnpm verify:catalog
 
       - name: Typecheck
         run: pnpm typecheck

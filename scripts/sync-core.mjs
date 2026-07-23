@@ -43,7 +43,19 @@ const versionArg = args.find((a) => !a.startsWith('-'));
 function resolveRange() {
     let v = versionArg;
     if (!v) {
-        v = execSync('npm view @sigx/reactivity version', { encoding: 'utf8' }).trim();
+        // Offline, a registry outage or an auth problem would otherwise surface as a
+        // raw execSync stack trace — noise in a CI log, and it buries the one useful
+        // instruction (pass the version explicitly).
+        try {
+            v = execSync('npm view @sigx/reactivity version', { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
+        } catch (err) {
+            console.error(
+                'sync-core: could not read the latest core version from npm ' +
+                    `(${String(err.message).split('\n')[0]}).\n` +
+                    'Pass the target explicitly instead: node scripts/sync-core.mjs X.Y',
+            );
+            process.exit(2);
+        }
     }
     const m = /^v?(\d+)\.(\d+)/.exec(v);
     if (!m) {
@@ -102,8 +114,14 @@ const out = lines.map((line) => {
     }
     if (inCatalog) {
         const indent = line.search(/\S/);
-        // A non-blank line at or below the block header's indent ends the block.
-        if (line.trim() !== '' && indent <= catalogIndent && !entry.test(line)) {
+        // A non-blank, non-COMMENT line at or below the block header's indent ends
+        // the block. Comments are excluded deliberately: a `# …` at column 0 is
+        // valid YAML anywhere inside a mapping, and treating it as the end silently
+        // dropped every entry after it — the catalogs in this org are commented, so
+        // sync:core would rewrite the first few pins, report success, and leave the
+        // rest on the old minor. A partially-aligned catalog is the two-copies
+        // hazard the single-minor rule exists to prevent.
+        if (line.trim() !== '' && !/^\s*#/.test(line) && indent <= catalogIndent && !entry.test(line)) {
             inCatalog = false;
         }
     }
