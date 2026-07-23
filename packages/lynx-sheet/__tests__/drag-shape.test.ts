@@ -63,6 +63,12 @@ describe('createSheetPan source shape', () => {
         expect(onEnd).toContain('geomRef.current.detents');
     });
 
+    it('surface mode fails fast at setup when its required SVs are missing', () => {
+        const setup = src.slice(0, src.indexOf('.onBegin('));
+        expect(setup).toMatch(/surface === 1 && \(!scrollOffsetY \|\| !hasVerticalScroll \|\| !bottomEdgeSV\)/);
+        expect(setup).toContain('throw new Error');
+    });
+
     it('worklets read geometry from geomRef only — no BG lexical geometry captures (#743)', () => {
         // The drag clamp and candidates must go through the main-thread ref
         // the render syncs, never through captured numbers.

@@ -115,6 +115,15 @@ export function createSheetPan(
     const hasClaim = onClaim ? 1 : 0;
     const onRelease = cfg.onRelease;
 
+    // Fail fast at setup: without these, surface arbitration would run on
+    // silent 0-fallbacks and make wrong ownership decisions on-device.
+    if (surface === 1 && (!scrollOffsetY || !hasVerticalScroll || !bottomEdgeSV)) {
+        throw new Error(
+            '[lynx-sheet] createSheetPan: surface mode requires scrollOffsetY, '
+            + 'hasVerticalScroll and bottomEdgeSV (see ScrollDragHost)',
+        );
+    }
+
     return Gesture.Pan()
         .axis('y')
         .minDistance(cfg.minDistance ?? MIN_DISTANCE)
