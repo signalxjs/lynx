@@ -2,6 +2,12 @@
 
 All notable changes to this repository are documented here. All `@sigx/lynx-*` packages share a single lockstep version — one entry per release covers every package.
 
+## [0.20.0] - 2026-07-23
+
+### Changed
+
+- **Aligned to sigx core 0.13** (#794). The pnpm catalog pins for `@sigx/reactivity` and `@sigx/runtime-core` move from `^0.12.0` to `^0.13.0`, so every `@sigx/lynx-*` package now resolves the core 0.13 line. No source or public API change — this is the ecosystem's single-minor-core alignment (one physical copy of `@sigx/reactivity` across the graph). Sibling pins are unchanged: `@sigx/cli` `^0.6.0` and `@sigx/terminal` `^0.8.0`.
+
 ## [0.19.0] - 2026-07-23
 
 ### Changed (breaking)

@@ -1,6 +1,6 @@
 {
     "name": "@sigx/lynx-cli",
-    "version": "0.19.0",
+    "version": "0.20.0",
     "description": "Lynx CLI plugin for sigx — config, prebuild, auto-linking",
     "type": "module",
     "main": "./dist/index.js",
