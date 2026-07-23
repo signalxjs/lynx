@@ -215,6 +215,10 @@ export const EmojiComposerScreen = component(() => {
             Math.round(screenH * 0.92),
             Math.max(1, Math.round(screenH - topOffset)),
         );
+        // Clamped: on a tiny screen (or Platform.pixelHeight 0 in non-Lynx
+        // envs) `fullH - INPUT_H - 32` could go non-positive — never emit a
+        // zero/negative height for the picker (see the #606 guard below).
+        const pickerH = Math.max(1, fullH - INPUT_H - 32);
         const floorH = INPUT_H;
         const mode = reveal.mode();
         const engaged = mode !== 'closed';
@@ -366,10 +370,10 @@ export const EmojiComposerScreen = component(() => {
                             // the picker stays mounted (warm) for a jank-free first open.
                             <view
                                 style={engaged
-                                    ? { height: `${fullH - INPUT_H - 32}px`, display: 'flex', flexDirection: 'column' }
+                                    ? { height: `${pickerH}px`, display: 'flex', flexDirection: 'column' }
                                     : { height: '0px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}
                             >
-                                <view style={{ height: `${fullH - INPUT_H - 32}px`, flexShrink: 0, display: 'flex', flexDirection: 'column' }}>
+                                <view style={{ height: `${pickerH}px`, flexShrink: 0, display: 'flex', flexDirection: 'column' }}>
                                     {pickerWarm.value && (
                                         <EmojiPicker
                                             data={enData}
