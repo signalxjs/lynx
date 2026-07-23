@@ -14,6 +14,28 @@ export {
     type DetentSpec,
 } from './detents.js';
 export {
+    Backdrop,
+    SHEET_BACKDROP_MAX_OPACITY,
+    type BackdropProps,
+} from './Backdrop.js';
+export {
+    createSheetPan,
+    MIN_DISTANCE,
+    RELEASE_DISMISS,
+    RELEASE_SNAP,
+    type SheetPanConfig,
+} from './drag.js';
+export {
+    SNAP_MS,
+    SNAP_SEC,
+    useSheetEngine,
+    type SheetDragTransient,
+    type SheetEngine,
+    type SheetEngineConfig,
+    type SheetGeometry,
+    type SheetWorkletGeometry,
+} from './engine.js';
+export {
     decideDragOwner,
     GRABBER_HEIGHT,
     MAX_EPS_PX,
