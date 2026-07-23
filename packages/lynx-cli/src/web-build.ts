@@ -22,7 +22,13 @@ import { spawn, type ChildProcess } from 'node:child_process';
 import { cpSync, existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { basename, isAbsolute, join, relative } from 'node:path';
 
-import { findWebBundle, hostHtml, normalizeBasePath, resolveWebAssets } from './web-server.js';
+import {
+  findWebBundle,
+  hostHtml,
+  normalizeBasePath,
+  resolveWebAssets,
+  resolveWebElements,
+} from './web-server.js';
 
 /** Is `child` inside (or equal to) `parent`? Path-segment aware. */
 function contains(parent: string, child: string): boolean {
@@ -178,9 +184,21 @@ export async function buildWeb(ctx: BuildWebCtx): Promise<void> {
   }
   cpSync(assets.engineStaticDir, join(outDir, 'engine', 'static'), { recursive: true });
   cpSync(assets.hostJsPath, join(outDir, 'host', 'sigx-host.js'));
+
+  // Sigx web custom elements the app uses (e.g. <sigx-richtext>, #771) — copied
+  // in and registered by the host page. Empty when the app uses none.
+  const webElements = resolveWebElements(cwd);
+  if (webElements.length > 0) mkdirSync(join(outDir, 'elements'), { recursive: true });
+  for (const el of webElements) cpSync(el.path, join(outDir, 'elements', `${el.name}.js`));
+
   writeFileSync(
     join(outDir, 'index.html'),
-    hostHtml(projectName, bundleName, { reload: false, base, coi }),
+    hostHtml(projectName, bundleName, {
+      reload: false,
+      base,
+      coi,
+      webElements: webElements.map((e) => e.name),
+    }),
   );
   writeFileSync(join(outDir, '_headers'), HEADERS_SAMPLE);
   writeFileSync(join(outDir, 'vercel.json'), VERCEL_SAMPLE);

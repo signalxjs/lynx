@@ -11,6 +11,11 @@
             "import": "./dist/index.js",
             "default": "./dist/index.js"
         },
+        "./web-element": {
+            "types": "./dist/web/element.d.ts",
+            "import": "./dist/web/element.js",
+            "default": "./dist/web/element.js"
+        },
         "./signalx-module.json": "./signalx-module.json",
         "./package.json": "./package.json"
     },
@@ -35,6 +40,7 @@
         "@sigx/lynx": "workspace:^",
         "@sigx/lynx-testing": "workspace:^",
         "@typescript/native-preview": "7.0.0-dev.20260521.1",
+        "happy-dom": "^20.11.1",
         "typescript": "^6.0.3"
     },
     "author": "Andreas Ekdahl",

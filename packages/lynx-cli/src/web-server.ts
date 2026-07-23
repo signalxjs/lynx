@@ -143,6 +143,13 @@ export interface HostHtmlOptions {
   base?: string;
   /** Register the COI service worker first (header-less static hosts). */
   coi?: boolean;
+  /**
+   * Names of sigx web custom elements to register in the host page — each is
+   * served at `/elements/<name>.js` and imported as a self-registering module
+   * (see `resolveWebElements`). Custom-element upgrade is retroactive, so
+   * placement doesn't race the engine. Currently only `sigx-richtext` (#771).
+   */
+  webElements?: string[];
 }
 
 /** Normalize a URL base path to `/segment/…/` form (`''`/`'/'` → `'/'`). */
@@ -158,6 +165,10 @@ export function normalizeBasePath(raw: string | undefined): string {
 export function hostHtml(projectName: string, bundle: string, opts: HostHtmlOptions = {}): string {
   const base = normalizeBasePath(opts.base);
   const coiTag = opts.coi ? `\n  <script src="${base}coi.js"></script>` : '';
+  // Self-registering sigx web custom elements (e.g. <sigx-richtext>, #771).
+  const elementTags = (opts.webElements ?? [])
+    .map((name) => `\n  <script type="module" src="${base}elements/${name}.js"></script>`)
+    .join('');
   const reloadTag =
     opts.reload === false
       ? ''
@@ -178,7 +189,7 @@ export function hostHtml(projectName: string, bundle: string, opts: HostHtmlOpti
   <title>${projectName} — SignalX (web)</title>
   <link rel="icon" href="data:," />${coiTag}
   <link rel="stylesheet" href="${base}engine/static/css/client.css" />
-  <script type="module" src="${base}engine/static/js/client.js"></script>
+  <script type="module" src="${base}engine/static/js/client.js"></script>${elementTags}
   <style>
     html, body { margin: 0; height: 100%; background: #fff;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
@@ -238,6 +249,41 @@ export function resolveWebAssets(): { engineStaticDir: string; hostJsPath: strin
   };
 }
 
+/** A sigx web custom element to register in the host page. */
+export interface WebElementAsset {
+  /** Tag/route name, e.g. `sigx-richtext` (served at `/elements/<name>.js`). */
+  name: string;
+  /** Absolute path to the self-registering, import-free ESM module. */
+  path: string;
+}
+
+/**
+ * Discover sigx native-UI elements that ship a web implementation, resolved
+ * from the **app's** dependency tree (not the CLI's — these are the app's
+ * packages). Each is a self-contained module that `customElements.define`s its
+ * tag when imported. Gating on resolution keeps apps that don't use a package
+ * from loading its element.
+ *
+ * Currently a fixed list of one (`@sigx/lynx-richtext`'s `<sigx-richtext>`,
+ * #771). The scalable next step is a `web` section in `signalx-module.json` so
+ * this becomes manifest-driven, parallel to the native autolinker.
+ */
+export function resolveWebElements(cwd: string): WebElementAsset[] {
+  const appRequire = createRequire(join(cwd, 'noop.js'));
+  const known: { name: string; specifier: string }[] = [
+    { name: 'sigx-richtext', specifier: '@sigx/lynx-richtext/web-element' },
+  ];
+  const out: WebElementAsset[] = [];
+  for (const { name, specifier } of known) {
+    try {
+      out.push({ name, path: appRequire.resolve(specifier) });
+    } catch {
+      // App doesn't depend on this package — nothing to register.
+    }
+  }
+  return out;
+}
+
 export async function runWeb(ctx: RunWebCtx): Promise<void> {
   const { cwd, logger } = ctx;
   const watchMode = ctx.args.watch !== false;
@@ -246,6 +292,12 @@ export async function runWeb(ctx: RunWebCtx): Promise<void> {
   const desiredPort = Number(ctx.args.port) || DEFAULT_PORT;
   const distDir = join(cwd, 'dist');
   const projectName = basename(cwd);
+
+  // Sigx web custom elements the app pulls in (e.g. <sigx-richtext>) — served
+  // at /elements/<name>.js and registered by the host page. Resolved from the
+  // app's deps; empty when the app uses none.
+  const webElements = resolveWebElements(cwd);
+  const webElementByName = new Map(webElements.map((e) => [e.name, e.path]));
 
   // Resolve the web-core engine (a CLI dependency) — served read-only from node_modules.
   let engineStaticDir: string;
@@ -313,7 +365,19 @@ export async function runWeb(ctx: RunWebCtx): Promise<void> {
 
     if (url === '/' || url === '/index.html') {
       res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache' });
-      res.end(hostHtml(projectName, bundleName));
+      res.end(hostHtml(projectName, bundleName, { webElements: webElements.map((e) => e.name) }));
+      return;
+    }
+    if (url.startsWith('/elements/') && url.endsWith('.js')) {
+      const name = url.slice('/elements/'.length, -'.js'.length);
+      const path = webElementByName.get(name);
+      if (!path) {
+        res.writeHead(404).end('Not found');
+        return;
+      }
+      // Self-registering ESM element module (#771) — served from the app's own
+      // package, same no-cache treatment as the host bridge.
+      void serveFile(res, path, 'no-cache');
       return;
     }
     if (url.startsWith('/engine/static/')) {
