@@ -9,7 +9,6 @@ import org.json.JSONObject
 
 /** Theme knobs shared by the spans (colors resolved on the UI side). */
 data class RichTextTheme(
-    var fontSizePx: Float = 0f, // 0 → leave EditText default
     var textColor: Int = Color.BLACK,
     var accentColor: Int = Color.parseColor("#3478F6"),
     var codeBackground: Int = Color.parseColor("#1F7F7F7F"), // ~12% gray

@@ -165,10 +165,17 @@ class SigxRichTextUI(context: LynxContext) : LynxUI<RichEditText>(context) {
         reportHeightIfChanged()
     }
 
-    @LynxProp(name = "font-size")
+    /**
+     * Deliberately NOT named `font-size`: CSS-named props ride Lynx 3.9's
+     * style pipeline, which delivers PHYSICAL px on the mount pass but the
+     * raw number on updates (probed on device, #770) — text rendered ~2.25×
+     * too large at mount and ~density× too small after any prop update. A
+     * non-CSS attribute name bypasses that pipeline entirely: the raw dp
+     * number arrives verbatim on both paths.
+     */
+    @LynxProp(name = "editor-font-size")
     fun setEditorFontSize(value: Float) {
         if (value <= 0f) return
-        theme.fontSizePx = value
         mView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, value)
     }
 

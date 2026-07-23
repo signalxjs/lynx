@@ -300,4 +300,23 @@ describe('MarkdownEditor', () => {
         await waitForUpdate();
         expect(b.container.findAllByType('text').some((t) => t.textContent() === 'B')).toBe(false);
     });
+
+    // LAST in the file on purpose: seeding the core font-scale signal is a
+    // module-level latch — once 1.5 lands, earlier tests' unscaled size
+    // assertions (40/112) would see scaled values.
+    it('scales fontSize and the derived auto-grow window by the OS font scale (#770)', async () => {
+        (globalThis as { lynx?: unknown }).lynx = {
+            __globalProps: { fontScale: { scale: 1.5, os: 1.5 } },
+        };
+        try {
+            const { container } = render(<MarkdownEditor value="" />);
+            const el = container.findByType('sigx-richtext')!;
+            // 16 * 1.5 = 24; lineHeight 36; min 1*36+16; max 4*36+16.
+            expect(el.props['editor-font-size']).toBe(24);
+            expect(el.props['min-height']).toBe(52);
+            expect(el.props['max-height']).toBe(160);
+        } finally {
+            delete (globalThis as { lynx?: unknown }).lynx;
+        }
+    });
 });

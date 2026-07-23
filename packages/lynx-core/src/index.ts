@@ -32,6 +32,15 @@ export { variant, isVariant, isBaseBuild } from './variant.js';
 export { AppState, useAppState, APP_STATE_EVENT } from './app-state.js';
 export type { AppStateStatus, AppStateListener } from './app-state.js';
 
+export {
+    useFontScale,
+    useFontScaleMT,
+    readGlobalFontScale,
+    FONT_SCALE_EVENT,
+    FONT_SCALE_GLOBAL_KEY,
+} from './font-scale.js';
+export type { RawFontScaleProps } from './font-scale.js';
+
 // Logging — leveled + namespaced logger usable by any package (see logger.ts).
 export {
     createLogger,

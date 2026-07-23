@@ -29,7 +29,7 @@ export interface SigxRichTextAttributes extends LynxCommonAttributes {
     /** Auto-grow ceiling, px — content beyond this scrolls internally. */
     'max-height'?: number;
     /** Base font size, px (headings scale from this). */
-    'font-size'?: number;
+    'editor-font-size'?: number;
     /** Base text color (hex). */
     'text-color'?: string;
     /** Caret tint + link color (hex). */
