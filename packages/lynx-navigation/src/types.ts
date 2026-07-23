@@ -209,8 +209,11 @@ export interface ScreenOptions {
     gestureEnabled?: boolean;
     /**
      * Resting heights for a `presentation: 'sheet'` entry, as
-     * `@sigx/lynx-sheet` `DetentSpec`s (px, `{ px }`, or `{ fraction }` of
-     * screen height) — resolved to ascending px. The largest resolved
+     * `@sigx/lynx-sheet` `DetentSpec`s — resolved to ascending px. Use px,
+     * `{ px }`, or `{ fraction }` of screen height; `{ keyboard }` specs
+     * are accepted but route sheets provide no keyboard environment, so
+     * they resolve via their `fallbackPx` (keyboard-aware detents are a
+     * `@sigx/lynx-sheet` `<BottomSheet>` feature). The largest resolved
      * detent is the fully-open height; dragging below the smallest past
      * the dismiss threshold pops the sheet. Ignored for non-sheet
      * presentations. Default `[{ fraction: 0.5 }]`.
