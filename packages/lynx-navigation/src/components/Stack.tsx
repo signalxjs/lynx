@@ -35,6 +35,7 @@ import {
     resolveRouteDetents,
 } from '../internal/sheet-detents.js';
 import { SCREEN_HEIGHT } from '../internal/screen-width.js';
+import { GRABBER_HEIGHT } from '@sigx/lynx-sheet';
 import { EdgeBackHandle } from './EdgeBackHandle.js';
 import { Layer } from './Layer.js';
 import { SheetBackdrop } from './SheetBackdrop.js';
@@ -216,7 +217,7 @@ const SheetSlot = component<SheetSlotProps>(({ props }) => {
                         // snapshots its config at setup (worklet capture),
                         // so a reactive change must remount it. Entry
                         // identity is already pinned by the slot's own key.
-                        key={`drag-${props.detentsPx.join('_')}-${props.dragMode}-${props.grabberPx ?? 'd'}`}
+                        key={`drag-${props.detentsPx.join('_')}-${props.dragMode}-${props.grabberPx ?? GRABBER_HEIGHT}`}
                         entryKey={props.entry.key}
                         detentsPx={props.detentsPx}
                         restPx={props.restPx}
