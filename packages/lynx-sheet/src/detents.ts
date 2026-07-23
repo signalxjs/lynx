@@ -80,6 +80,8 @@ export function resolveDetents(
     for (const spec of specs ?? []) {
         if (typeof spec === 'number') {
             if (spec > 0) fixed.push(spec);
+        } else if (spec == null || typeof spec !== 'object') {
+            // Untyped JS callers can hand us anything — drop, don't throw.
         } else if ('px' in spec) {
             if (spec.px > 0) fixed.push(spec.px);
         } else if ('fraction' in spec) {
@@ -93,7 +95,7 @@ export function resolveDetents(
     // Pass 2 — keyboard specs ride on the floor.
     const resolved = [...fixed];
     for (const spec of specs ?? []) {
-        if (typeof spec === 'object' && 'keyboard' in spec) {
+        if (spec != null && typeof spec === 'object' && 'keyboard' in spec) {
             const kb =
                 (env.keyboardPx ?? 0) > 0
                     ? (env.keyboardPx ?? 0) + (env.bottomInset ?? 0)

@@ -30,6 +30,13 @@ describe('resolveDetents — px and fraction specs', () => {
             .toEqual([400]);
     });
 
+    it('drops non-object garbage from untyped JS callers instead of throwing', () => {
+        const garbage = [null, undefined, 'nope', 400] as unknown as Parameters<
+            typeof resolveDetents
+        >[0];
+        expect(resolveDetents(garbage, ENV)).toEqual([400]);
+    });
+
     it('falls back to half the screen when nothing valid remains', () => {
         expect(resolveDetents([], ENV)).toEqual([400]);
         expect(resolveDetents(undefined, ENV)).toEqual([400]);
