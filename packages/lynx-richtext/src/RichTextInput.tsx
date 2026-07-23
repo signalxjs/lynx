@@ -76,7 +76,7 @@ export const RichTextInput = component<RichTextInputProps>(({ props }) => {
             editable={props.editable}
             min-height={props.minHeight}
             max-height={props.maxHeight}
-            font-size={props.fontSize}
+            editor-font-size={props.fontSize}
             text-color={props.textColor}
             accent-color={props.accentColor}
             placeholder-color={props.placeholderColor}

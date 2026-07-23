@@ -7,7 +7,7 @@ import Lynx
 /// Registered via the autolinker (`signalx-module.json` → `ios.uiComponents`).
 ///
 /// Prop surface (v1): `value` (initial-only JSON RichDoc), `placeholder`,
-/// `editable`, `min-height`, `max-height`, `font-size`, `text-color`,
+/// `editable`, `min-height`, `max-height`, `editor-font-size`, `text-color`,
 /// `accent-color`, `placeholder-color`, `confirm-type`, `auto-focus`.
 ///
 /// Events: `bindchange` (full RichDoc readback + isComposing),
@@ -87,7 +87,9 @@ public class SigxRichTextUI: LynxUI<RichTextView> {
             ["editable", "setEditable:requestReset:"],
             ["min-height", "setMinHeight:requestReset:"],
             ["max-height", "setMaxHeight:requestReset:"],
-            ["font-size", "setFontSize:requestReset:"],
+            // Non-CSS name on purpose — CSS-named props ride the 3.9 style
+            // pipeline, whose mount/update unit handling disagrees (#770).
+            ["editor-font-size", "setFontSize:requestReset:"],
             ["text-color", "setTextColor:requestReset:"],
             ["accent-color", "setAccentColor:requestReset:"],
             ["placeholder-color", "setPlaceholderColor:requestReset:"],
@@ -214,7 +216,7 @@ public class SigxRichTextUI: LynxUI<RichTextView> {
     @objc(__lynx_prop_config__max_height)
     public class func __lynxPropConfigMaxHeight() -> [String] { ["max-height", "setMaxHeight", "NSNumber *"] }
     @objc(__lynx_prop_config__font_size)
-    public class func __lynxPropConfigFontSize() -> [String] { ["font-size", "setFontSize", "NSNumber *"] }
+    public class func __lynxPropConfigFontSize() -> [String] { ["editor-font-size", "setFontSize", "NSNumber *"] }
     @objc(__lynx_prop_config__text_color)
     public class func __lynxPropConfigTextColor() -> [String] { ["text-color", "setTextColor", "NSString *"] }
     @objc(__lynx_prop_config__accent_color)

@@ -26,6 +26,7 @@ import {
     component,
     signal,
     useElementLayout,
+    useFontScale,
     useViewportRect,
     watch,
     type Define,
@@ -183,6 +184,7 @@ const KeyboardSpacer = component(() => {
 
 export const MarkdownEditor = component<MarkdownEditorProps>(({ props }) => {
     let el: RichTextHandle = null;
+    const fontScale = useFontScale();
 
     // --- plugins (captured at mount; pass a stable array) ---
     const plugins = props.plugins ?? [];
@@ -397,7 +399,15 @@ export const MarkdownEditor = component<MarkdownEditorProps>(({ props }) => {
     };
 
     return () => {
-        const fontSize = props.fontSize ?? DEFAULT_FONT_SIZE;
+        // The engine's OS font scale (#766) never reaches <sigx-richtext> —
+        // the native element sets its own text size — so apply it here, at
+        // the point fontSize is resolved: lineHeight and the min/max box
+        // heights derive from it below, keeping auto-grow coherent with the
+        // scaled text. Reactive: a system text-size change re-renders and
+        // reflows the editor in place.
+        const fontSize = Math.round(
+            (props.fontSize ?? DEFAULT_FONT_SIZE) * fontScale.value,
+        );
         const lineHeight = Math.round(fontSize * 1.5);
         const mode = props.mode ?? 'auto';
         const minLines = Math.max(1, props.minLines ?? 1);

@@ -30,7 +30,7 @@ describe('RichTextInput', () => {
         expect(el!.props['placeholder']).toBe('Say something');
         expect(el!.props['min-height']).toBe(40);
         expect(el!.props['max-height']).toBe(160);
-        expect(el!.props['font-size']).toBe(16);
+        expect(el!.props['editor-font-size']).toBe(16);
         expect(el!.props['confirm-type']).toBe('send');
     });
 
