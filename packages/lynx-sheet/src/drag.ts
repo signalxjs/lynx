@@ -99,7 +99,6 @@ export function createSheetPan(
     // directly (property reads off an object don't worklet-capture).
     const reveal = engine.reveal;
     const combined = engine.combined;
-    const dragGateSV = engine.dragGateSV;
     const geomRef = engine.geomRef;
     const openRestRef = engine.openRestRef;
     const drag = engine.drag;
@@ -132,11 +131,12 @@ export function createSheetPan(
         })
         .onStart((e: { params?: { pageY?: number; pageX?: number } }) => {
             'main thread';
-            // `dragEnabled={false}` freezes the gesture (mirrored into
-            // `dragGateSV` from render) — the single gate. Drag is NOT
-            // disabled at the floor: a collapsed sheet must be draggable
-            // OPEN (the clamp in onUpdate keeps it from going below).
-            if (dragGateSV.current.value === 0) {
+            // `dragEnabled={false}` freezes the gesture — the single gate,
+            // pushed through syncGeom (a render-side SV `.value` write is a
+            // BG no-op and would never arrive, #758). Drag is NOT disabled
+            // at the floor: a collapsed sheet must be draggable OPEN (the
+            // clamp in onUpdate keeps it from going below).
+            if (geomRef.current.gate === 0) {
                 drag.current.active = 0;
                 return;
             }

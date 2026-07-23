@@ -29,6 +29,7 @@ import { BottomSheet } from '@sigx/lynx-sheet';
 - **Dismissible mode**: add `dismissible` (+ `backdrop`) for the modal tray; closing (`open: false`) parks it hidden at reveal 0.
 - **Drag modes** (mount-constant): `'handle'` (pan on the `handle` slot only — default, safe with raw `<list>` bodies), `'surface'` (full-surface drag with the 8-step scroll arbitration; this component provides the `ScrollDragHost` an inner `@sigx/lynx` `<ScrollView>` adopts), `'grabber'`, `'none'`.
 - **Stacking**: Lynx has no z-index/portal — render the sheet as the LAST child of a full-surface positioned container so the backdrop dims the whole screen.
+- **Safe area**: detent resolution reads `useSafeAreaInsets()`/`useKeyboardLift()` — mount a `@sigx/lynx-safe-area` `<SafeAreaProvider>` above the sheet, or `{ keyboard: true }` detents and inset corrections degrade to zero insets (with a dev warning).
 
 ## Detent model
 

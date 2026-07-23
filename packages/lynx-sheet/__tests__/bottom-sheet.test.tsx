@@ -5,10 +5,21 @@
  * Ports lynx-navigation's bottom-sheet.test.tsx scenarios onto the new
  * DetentSpec API and covers the new backdrop/dismissible/dragMode surface.
  */
-import { describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { component, signal, useSharedValue, type SharedValue } from '@sigx/lynx';
 import { render, waitForUpdate } from '@sigx/lynx-testing';
 import { BottomSheet } from '../src/BottomSheet';
+
+// These hosts mount no <SafeAreaProvider> on purpose (the hooks fall back
+// to zero insets, which is exactly what the assertions want) — silence the
+// provider dev warning so the suite output stays clean.
+let warnSpy: ReturnType<typeof vi.spyOn>;
+beforeAll(() => {
+    warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+});
+afterAll(() => {
+    warnSpy.mockRestore();
+});
 
 function find(root: any, pred: (n: any) => boolean): any {
     const stack = [root];

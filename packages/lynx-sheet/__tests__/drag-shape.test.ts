@@ -76,6 +76,10 @@ describe('createSheetPan source shape', () => {
         expect(handlers).toContain('geomRef.current.min');
         expect(handlers).toContain('geomRef.current.max');
         expect(handlers).toContain('geomRef.current.dismissible');
+        // The drag gate too: a render-side `sv.value =` write is a BG
+        // no-op (#758), so the gate must be read from the synced ref, and
+        // no SV may be render-written anywhere in the sheet component.
+        expect(handlers).toContain('geomRef.current.gate');
     });
 });
 

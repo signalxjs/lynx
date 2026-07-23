@@ -106,6 +106,14 @@ export interface SheetWorkletGeometry {
     detents: number[];
     /** `1` = releases below the dismiss line settle at reveal 0. */
     dismissible: number;
+    /**
+     * `1` = the pan may claim; `0` = drag frozen (`dragEnabled: false`).
+     * Lives HERE (not in a render-written SharedValue) because a BG-side
+     * `sv.value =` write is a read-only no-op — the only way a render-time
+     * flag reaches a worklet is this syncGeom push (the bug noted in #758:
+     * post-mount dragEnabled changes silently never arrived).
+     */
+    gate: number;
 }
 
 /** Per-gesture transient state (main-thread ref). */
@@ -131,8 +139,6 @@ export interface SheetEngine {
     combined: SharedValue<number>;
     /** `panelHeight - combined` — bind the panel's translateY to this. */
     translateY: SharedValue<number>;
-    /** Drag gate as an SV (`1`/`0`) — a BG prop isn't readable on the MT. */
-    dragGateSV: SharedValue<number>;
     geomRef: MainThreadRef<SheetWorkletGeometry>;
     /** The open REST reveal — the captured lift position under `openToLift`. */
     openRestRef: MainThreadRef<{ rest: number }>;
@@ -140,10 +146,11 @@ export interface SheetEngine {
     /** Mount-constant: `openToLift && liftSV` was configured. */
     openToLift: boolean;
     /**
-     * Push current geometry to the worklets (render calls this after
-     * diffing). Clamps stranded MT state when detents shrank.
+     * Push current geometry + flags to the worklets (render calls this
+     * after diffing — including on a bare `gate`/`dismissible` flip).
+     * Clamps stranded MT state when detents shrank.
      */
-    syncGeom: (min: number, max: number, ds: number[], dismissible: number) => unknown;
+    syncGeom: (min: number, max: number, ds: number[], dismissible: number, gate: number) => unknown;
     /**
      * Move to a target reveal. `capture === 1` (the `openToLift` path)
      * snaps to the CURRENT lifted position read live on the MT instead —
@@ -159,7 +166,6 @@ export function useSheetEngine(cfg: SheetEngineConfig): SheetEngine {
 
     // The drag/animation-owned reveal (px visible above the bottom edge).
     const reveal = cfg.reveal ?? useSharedValue(seed.floor);
-    const dragGateSV = useSharedValue(1);
 
     const liftSV = cfg.liftSV ?? null;
     // Reactive so the offsets track a changing floor. The derived SV
@@ -190,14 +196,16 @@ export function useSheetEngine(cfg: SheetEngineConfig): SheetEngine {
         max: seed.top,
         detents: seed.detents,
         dismissible: 0,
+        gate: 1,
     });
 
-    const syncGeom = runOnMainThread((min: number, max: number, ds: number[], dismissible: number) => {
+    const syncGeom = runOnMainThread((min: number, max: number, ds: number[], dismissible: number, gate: number) => {
         'main thread';
         geomRef.current.min = min;
         geomRef.current.max = max;
         geomRef.current.detents = ds;
         geomRef.current.dismissible = dismissible;
+        geomRef.current.gate = gate;
         // Detents that SHRANK can strand state that predates them: a
         // `reveal` above the new top would keep rendering out of bounds
         // until the next drag re-clamped it, and a captured `openToLift`
@@ -274,7 +282,6 @@ export function useSheetEngine(cfg: SheetEngineConfig): SheetEngine {
         reveal,
         combined,
         translateY,
-        dragGateSV,
         geomRef,
         openRestRef,
         drag,

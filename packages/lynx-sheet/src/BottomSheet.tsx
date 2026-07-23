@@ -302,16 +302,23 @@ export const BottomSheet = component<BottomSheetProps>(({ props, emit, slots }) 
     let lastOpen: boolean | null = null;
     let lastGeom = seed;
     let lastDismissible = -1;
+    let lastGate = -1;
     return () => {
-        engine.dragGateSV.value =
-            props.dragEnabled === false || dragMode === 'none' ? 0 : 1;
         const g = geometry();
         const dismissible = props.dismissible === true ? 1 : 0;
+        // A BG-side `sv.value =` write is a read-only no-op, so the drag
+        // gate travels the syncGeom push like all worklet-visible flags
+        // (#758 — the old inline sheet's render write silently never
+        // arrived, freezing dragEnabled at its mount value).
+        const gate = props.dragEnabled === false || dragMode === 'none' ? 0 : 1;
 
         // Push the CURRENT geometry to the worklets, so the drag clamp and
         // release-snap candidates follow a runtime geometry change.
+        // lastDismissible/lastGate start at -1 so the first render always
+        // pushes (the mount-time gate must land even before any change).
         if (
             dismissible !== lastDismissible
+            || gate !== lastGate
             || g.floor !== lastGeom.floor || g.top !== lastGeom.top
             || g.detents.length !== lastGeom.detents.length
             || g.detents.some((d, i) => d !== lastGeom.detents[i])
@@ -320,7 +327,8 @@ export const BottomSheet = component<BottomSheetProps>(({ props, emit, slots }) 
             const floorMoved = g.floor !== lastGeom.floor;
             lastGeom = g;
             lastDismissible = dismissible;
-            void engine.syncGeom(g.floor, g.top, g.detents, dismissible);
+            lastGate = gate;
+            void engine.syncGeom(g.floor, g.top, g.detents, dismissible, gate);
             // A parked sheet must FOLLOW its floor, or it keeps showing the
             // mount-time slice while its content grows/shrinks underneath.
             // Jump, never animate: the content already changed size this
