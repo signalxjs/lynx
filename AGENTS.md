@@ -123,7 +123,7 @@ pnpm verify:pack   # publish dry-run
 - **Framework / build**: `@sigx/lynx` (umbrella), `@sigx/lynx-plugin`, `@sigx/lynx-cli` (SWC/Rspack transforms, `sigx dev` / `sigx run:android` / `sigx run:ios` / `sigx run:web`), `@sigx/lynx-updates-publisher` (dependency-light programmatic OTA publish for CI), `@sigx/lynx-web-host` (host-page bridge for web builds — sigx.* RPC handlers + appearance/URL publishers).
 - **Runtime**: `@sigx/lynx-runtime`, `@sigx/lynx-runtime-main`, `@sigx/lynx-runtime-internal` — the dual-thread renderer.
 - **Native modules (30+)**: `@sigx/lynx-<capability>` packages (camera, storage, sqlite, location, biometric, webauth (OAuth via ASWebAuthenticationSession / Custom Tabs), notifications, websocket, webview, updates (OTA, + `lynx-updates-ui` prompts), …).
-- **UI / motion / gestures**: daisyui, icons (+ adapters), gestures, motion, navigation.
+- **UI / motion / gestures**: daisyui, icons (+ adapters), gestures, motion, navigation, sheet (unified bottom sheet).
 - **Dev / testing**: dev-client, testing.
 
 **Lockstep versioning**: every publishable package shares one version. Never
