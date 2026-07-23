@@ -45,8 +45,6 @@ export type {
     KeyboardPanelRevealOptions,
     PanelRevealMode,
 } from './wrappers/useKeyboardPanelReveal.js';
-export { SheetPicker } from './wrappers/SheetPicker.js';
-export type { SheetPickerProps } from './wrappers/SheetPicker.js';
 
 // Shared types (incl. the EmojiPropsExtensions theme augmentation point)
 export type {
