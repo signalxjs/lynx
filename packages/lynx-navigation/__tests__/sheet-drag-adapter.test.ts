@@ -46,6 +46,13 @@ describe('SheetDragAdapter source shape', () => {
         expect(src).toMatch(/syncGeom\(floorPx, topPx, detentsPx, 1, 1, SCREEN_HEIGHT\)/);
     });
 
+    it('threads grabberPx (#711) into the pan and the Stack remount key', () => {
+        expect(src).toContain('grabberPx: props.grabberPx ?? GRABBER_HEIGHT');
+        const stack = readFileSync(resolve(HERE, '../src/components/Stack.tsx'), 'utf8');
+        expect(stack).toMatch(/key=\{`drag-\$\{props\.detentsPx\.join\('_'\)\}-\$\{props\.dragMode\}-\$\{props\.grabberPx \?\? 'd'\}`\}/);
+        expect(stack).toContain('grabberPx: options?.grabberPx');
+    });
+
     it('gen-guards the delayed settle/dismiss commit against a newer grab', () => {
         const release = src.slice(src.indexOf('onRelease'));
         expect(release).toMatch(/setTimeout\(/);
@@ -71,8 +78,8 @@ describe('Stack sheet-drag wiring source shape', () => {
         expect(src).toMatch(/hostRef=\{hostRef\}/);
     });
 
-    it('remount-keys the adapter by detent signature + drag mode (static worklet captures)', () => {
-        expect(src).toContain('key={`drag-${props.detentsPx.join(\'_\')}-${props.dragMode}`}');
+    it('remount-keys the adapter by detent signature + drag mode + grabber (static worklet captures)', () => {
+        expect(src).toContain("key={`drag-${props.detentsPx.join('_')}-${props.dragMode}-${props.grabberPx ?? 'd'}`}");
     });
 
     it('composes rest-lock and gesture-lock into the single host scrollLock', () => {

@@ -100,6 +100,8 @@ type SheetSlotProps =
     & Define.Prop<'dragEnabled', boolean, true>
     /** `'surface'` (default) or `'grabber'` — see `ScreenOptions.dragMode`. */
     & Define.Prop<'dragMode', 'surface' | 'grabber', true>
+    /** Grabber-strip height (px) — see `ScreenOptions.grabberPx`. */
+    & Define.Prop<'grabberPx', number | undefined, true>
     /** Resolved detents (px, ascending) for this sheet's config. */
     & Define.Prop<'detentsPx', readonly number[], true>
     /** Largest detent (px) — the backdrop's full-dim reveal. */
@@ -214,11 +216,12 @@ const SheetSlot = component<SheetSlotProps>(({ props }) => {
                         // snapshots its config at setup (worklet capture),
                         // so a reactive change must remount it. Entry
                         // identity is already pinned by the slot's own key.
-                        key={`drag-${props.detentsPx.join('_')}-${props.dragMode}`}
+                        key={`drag-${props.detentsPx.join('_')}-${props.dragMode}-${props.grabberPx ?? 'd'}`}
                         entryKey={props.entry.key}
                         detentsPx={props.detentsPx}
                         restPx={props.restPx}
                         dragMode={props.dragMode}
+                        grabberPx={props.grabberPx}
                         hostRef={hostRef}
                         dragHost={dragHost}
                         genSignal={genSignal}
@@ -485,6 +488,7 @@ export const Stack = component<StackProps>(({ props, slots }) => {
             initialDetentIndex: options?.initialDetentIndex,
             backdropDismiss: options?.backdropDismiss !== false,
             dragMode: options?.dragMode ?? 'surface',
+            grabberPx: options?.grabberPx,
         };
     };
 
@@ -596,6 +600,7 @@ export const Stack = component<StackProps>(({ props, slots }) => {
                         }
                         dragEnabled={dragEnabled}
                         dragMode={cfg.dragMode === 'grabber' ? 'grabber' : 'surface'}
+                        grabberPx={cfg.grabberPx}
                         detentsPx={cfg.detentsPx}
                         maxDetentPx={cfg.maxDetentPx}
                         restPx={sheetRestPx(layer.entry)}
