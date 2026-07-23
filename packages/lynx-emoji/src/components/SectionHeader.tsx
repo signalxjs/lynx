@@ -1,4 +1,4 @@
-import { component, type Define, type JSXElement } from '@sigx/lynx';
+import { component, useFontScale, type Define, type JSXElement } from '@sigx/lynx';
 
 /**
  * Header row height (px) — the fixed value the sectioned grid's scroll-offset
@@ -36,7 +36,7 @@ export type SectionHeaderProps =
  * sectioned mount, #666). The `SectionHeader` component below wraps this
  * for external composition.
  */
-export function sectionHeaderRow(args: { itemKey: string; label: string; class?: string; labelSize?: number }): JSXElement {
+export function sectionHeaderRow(args: { itemKey: string; label: string; class?: string; labelSize?: number; fontScale?: number }): JSXElement {
     return (
         <list-item
             item-key={args.itemKey}
@@ -56,12 +56,16 @@ export function sectionHeaderRow(args: { itemKey: string; label: string; class?:
         >
             <text
                 text={args.label}
-                style={{ fontSize: `${args.labelSize ?? 13}px`, opacity: 0.55 }}
+                // Counter-divided by the OS font scale — the header height is
+                // pinned (HEADER_PX drives scroll-offset math), so the label
+                // must hold its designed size too (#776).
+                style={{ fontSize: `${(args.labelSize ?? 13) / (args.fontScale ?? 1)}px`, opacity: 0.55 }}
             />
         </list-item>
     );
 }
 
 export const SectionHeader = component<SectionHeaderProps>(({ props }) => {
-    return () => sectionHeaderRow({ itemKey: props.itemKey, label: props.label, class: props.class, labelSize: props.labelSize });
+    const fontScale = useFontScale();
+    return () => sectionHeaderRow({ itemKey: props.itemKey, label: props.label, class: props.class, labelSize: props.labelSize, fontScale: fontScale.value });
 });

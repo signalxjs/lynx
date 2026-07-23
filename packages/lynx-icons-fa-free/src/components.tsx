@@ -31,6 +31,8 @@ type FaIconProps =
     & Define.Prop<'size', number, false>
     & Define.Prop<'color', string, false>
     & Define.Prop<'class', string, false>
+    /** Follow the OS text-size setting — see `IconProps.scaleWithText`. */
+    & Define.Prop<'scaleWithText', boolean, false>
     /**
      * Inherit any theme-augmented props (e.g. daisy's `variant?: DaisyColor`).
      * The augmentation happens in core `@sigx/lynx-icons`'s
