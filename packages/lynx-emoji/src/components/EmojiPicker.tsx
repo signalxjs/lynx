@@ -1,4 +1,4 @@
-import { component, signal, useElementLayout, type Define } from '@sigx/lynx';
+import { component, signal, useElementLayout, useFontScale, type Define } from '@sigx/lynx';
 import type { EmojiData, EmojiDatum, SkinTone } from '../data/schema.js';
 import { glyphForTone } from '../data/glyph.js';
 import { createEmojiContext, useEmojiContext, type EmojiContextValue } from '../state/context.js';
@@ -105,6 +105,8 @@ const CATEGORY_GLYPHS: Record<string, string> = {
  * bounded height (the wrappers in `../wrappers/` do).
  */
 export const EmojiPicker = component<EmojiPickerProps>(({ props, emit }) => {
+    // Pinned picker chrome (#776) — see EmojiGrid.
+    const fontScale = useFontScale();
     const injected = useEmojiContext();
     const local = !injected && props.data ? createEmojiContext(props.data) : null;
     const ctx: EmojiContextValue | null = injected ?? local;
@@ -291,7 +293,7 @@ export const EmojiPicker = component<EmojiPickerProps>(({ props, emit }) => {
                     justifyContent: 'center',
                 }}
             >
-                <text style={{ fontSize: 14, ...(classes.empty ? {} : { opacity: 0.55 }) }}>
+                <text style={{ fontSize: 14 / fontScale.value, ...(classes.empty ? {} : { opacity: 0.55 }) }}>
                     {props.emptyLabel ?? label}
                 </text>
             </view>

@@ -1,4 +1,4 @@
-import { component, type Define } from '@sigx/lynx';
+import { component, useFontScale, type Define } from '@sigx/lynx';
 import { Pressable } from '@sigx/lynx-gestures';
 import type { EmojiCategory } from '../data/schema.js';
 import type { EmojiRenderCategoryTab, EmojiTab } from '../types.js';
@@ -37,6 +37,8 @@ function tabLabel(tab: EmojiTab): string {
  * filters; there is no scroll-position sync to keep headless and cheap).
  */
 export const CategoryTabBar = component<CategoryTabBarProps>(({ props, emit }) => {
+    // Pinned — the tab bar's fixed height assumes `size` glyphs (#776).
+    const fontScale = useFontScale();
     return () => (
         <scroll-view scroll-orientation="horizontal" class={props.class}>
             <view style={{ display: 'flex', flexDirection: 'row' }}>
@@ -63,7 +65,7 @@ export const CategoryTabBar = component<CategoryTabBarProps>(({ props, emit }) =
                         >
                             {props.render
                                 ? props.render(tab, glyph, active)
-                                : <text style={{ fontSize: props.size ?? 30 }}>{glyph}</text>}
+                                : <text style={{ fontSize: (props.size ?? 30) / fontScale.value }}>{glyph}</text>}
                         </Pressable>
                     );
                 })}

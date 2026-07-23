@@ -34,7 +34,17 @@ import { Icon } from '@sigx/lynx-icons';
 <Icon set="fa" name="user" />
 <Icon set="fa" name="house" size={20} color="#0D9488" />
 <Icon set="lucide" name="search" size={16} />
+<Icon set="lucide" name="quote" size={16} scaleWithText={true} />
 ```
+
+### OS font scale
+
+Icons hold their designed `size` (dp) regardless of the system text-size
+setting — the layout-stable default for chrome like tab bars and headers
+(font-mode glyphs are counter-scaled internally so the engine's text scaling
+can't grow them out of their box). For icons sitting inline with scaling
+text, pass **`scaleWithText`**: glyph and box grow together by the effective
+scale (`useFontScale()`), live, identically on the svg and font backends.
 
 Forcing dynamic names into the bundle (`include: [...]` / `include: ['*']`), one-off `defineIconSet` icons, writing your own adapter, and the x86_64-emulator blank-icon caveat are all documented on the docs site.
 

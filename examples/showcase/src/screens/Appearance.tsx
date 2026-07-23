@@ -16,6 +16,7 @@ import {
 } from '@sigx/lynx-daisyui';
 import { readGlobalFontScale, useFontScale, useSystemColorScheme } from '@sigx/lynx-appearance';
 import { Haptics } from '@sigx/lynx-haptics';
+import { LucideIcon } from '@sigx/lynx-icons-lucide/components';
 
 /**
  * Appearance — global theme switching via daisyui's theme controller.
@@ -117,6 +118,14 @@ export const Appearance = component(() => {
                                 <Text class="text-sm">Sample sm (14px base)</Text>
                                 <Text>Sample base (17px base)</Text>
                                 <Text class="text-xl">Sample xl (24px base)</Text>
+                                {/* Icons hold their size by default; scaleWithText
+                                    opts one into growing with the text (#776). */}
+                                <Row gap={12} align="center">
+                                    <LucideIcon name="anchor" size={22} variant="primary" />
+                                    <Text class="text-sm opacity-60">fixed (default)</Text>
+                                    <LucideIcon name="anchor" size={22} variant="primary" scaleWithText={true} />
+                                    <Text class="text-sm opacity-60">scaleWithText</Text>
+                                </Row>
                             </Col>
                         </Col>
                     </Card.Body>

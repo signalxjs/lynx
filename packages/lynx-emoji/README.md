@@ -129,6 +129,14 @@ import { EmojiPickerSheet, emojiClasses } from '@sigx/lynx-daisyui';
 <EmojiPickerSheet open={open.value} data={enData} onPick={…} onClose={…} />
 ```
 
+### OS font scale
+
+The picker is **pinned** like a keyboard panel: grid glyphs, section labels,
+tab glyphs and the tone popover hold their designed sizes regardless of the
+system text-size setting (each fontSize is counter-divided by the effective
+scale, so the fixed row geometry / scroll-offset math stays exact). Emoji
+inside your message text are ordinary text and scale with it.
+
 ## Locale data
 
 `@sigx/lynx-emoji/data/en` ships generated from `emojibase-data` (a
