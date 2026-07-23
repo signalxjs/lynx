@@ -1,5 +1,6 @@
 import type { ResolvedConfig, ResolvedModule } from '../config/parser.js';
 import type { AndroidActivityHookMethod, AndroidBehaviorEntry, AndroidFeatureEntry, AndroidGradlePluginEntry, AndroidServiceEntry, ModuleManifest } from '../manifest.js';
+import { publisherClasses } from '../manifest.js';
 
 /** A `<meta-data>` entry with its value already resolved against config. */
 export interface ResolvedAndroidMetaData {
@@ -231,21 +232,24 @@ export function linkAndroid(
         // iOS autolinker for the rationale; permissions + deps are emitted
         // once per manifest regardless.
 
-        // Lifecycle publisher — instantiated after each LynxView is built.
-        if (android.publisherClass && android.sourceDir) {
+        // Lifecycle publishers — instantiated after each LynxView is built.
+        const androidPublishers = publisherClasses(android.publisherClass);
+        if (androidPublishers.length > 0 && android.sourceDir) {
             linkedLifecyclePublishers.push(manifest.name);
-            lifecyclePublishers.push({
-                publisherClass: android.publisherClass,
-                sourceDir: android.sourceDir,
-                packageName: manifest.package,
-                moduleName: manifest.name,
-            });
-            // Use the simple class name in the attach call; emit an explicit
-            // import for the FQN so the generated file stays in our chosen
-            // namespace regardless of where the publisher lives.
-            const simpleName = android.publisherClass.split('.').pop()!;
-            lifecycleImports.push(`import ${android.publisherClass}`);
-            lifecycleAttachments.push(`        ${simpleName}(lynxView).also { it.attach() }`);
+            for (const publisherClass of androidPublishers) {
+                lifecyclePublishers.push({
+                    publisherClass,
+                    sourceDir: android.sourceDir,
+                    packageName: manifest.package,
+                    moduleName: manifest.name,
+                });
+                // Use the simple class name in the attach call; emit an explicit
+                // import for the FQN so the generated file stays in our chosen
+                // namespace regardless of where the publisher lives.
+                const simpleName = publisherClass.split('.').pop()!;
+                lifecycleImports.push(`import ${publisherClass}`);
+                lifecycleAttachments.push(`        ${simpleName}(lynxView).also { it.attach() }`);
+            }
         }
 
         // Dev-client init facade — debug-only.

@@ -1234,6 +1234,9 @@ function iosTemplateVars(config: ResolvedConfig): Record<string, string> {
         deploymentTarget: config.ios.deploymentTarget,
         versionName: config.version,
         buildNumber: config.ios.buildNumber,
+        fontScaleFollow: String(config.fontScale.follow),
+        fontScaleMin: config.fontScale.min.toFixed(2),
+        fontScaleMax: config.fontScale.max.toFixed(2),
     };
 }
 
@@ -1281,6 +1284,9 @@ function androidTemplateVars(config: ResolvedConfig): Record<string, string> {
         compileSdk: String(config.android.compileSdk),
         versionName: config.version,
         versionCode: String(config.android.versionCode),
+        fontScaleFollow: String(config.fontScale.follow),
+        fontScaleMin: `${config.fontScale.min.toFixed(2)}f`,
+        fontScaleMax: `${config.fontScale.max.toFixed(2)}f`,
     };
 }
 

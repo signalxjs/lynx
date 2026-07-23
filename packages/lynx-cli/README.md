@@ -36,6 +36,32 @@ Some capabilities need app-supplied credentials that must survive `android/` · 
 
 To author your own native module, see [Authoring native modules](https://github.com/signalxjs/lynx/blob/main/docs/native-modules.md) (forthcoming).
 
+## OS font scale
+
+Generated hosts follow the system text-size setting (iOS Dynamic Type /
+Android font size) by default: the LynxView is seeded with the OS scale at
+construction and runtime changes are pushed in place via
+`LynxView.updateFontScale()` — no Activity recreation, no bundle reload. The
+engine scales `font-size` / `line-height` only; layout lengths are untouched.
+
+Tune it in `signalx.config.ts`:
+
+```ts
+fontScale: {
+    follow: true, // false pins 1.0 (ignore the OS setting)
+    min: 0.5,
+    max: 2.0,     // default clamp — the ceiling of Android's settings slider.
+                  // iOS accessibility sizes reach ~3.1×; raise this once your
+                  // layouts tolerate it (text-heavy apps should).
+}
+```
+
+The effective (clamped) value is visible to JS as
+`lynx.__globalProps.fontScale` and reactively via `useFontScale()` from
+`@sigx/lynx-appearance`. Existing projects pick the wiring up on the next
+`sigx prebuild` (ContentView / MainActivity / AndroidManifest are managed
+files).
+
 ## Standalone use
 
 You normally don't depend on this package directly — `npm create @sigx@latest` adds it as a dev dependency for Lynx templates. If you're integrating into an existing project:

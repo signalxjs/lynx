@@ -13,6 +13,14 @@ class LynxSetupService {
     func initialize(provider: LynxTemplateProvider? = nil) {
         guard !isInitialized else { return }
 
+        // OS font-scale policy from signalx.config.ts (`fontScale: {…}`) —
+        // consumed by the LynxView builder seed and FontScalePublisher (#766).
+        SigxFontScale.policy = SigxFontScalePolicy(
+            follow: {{fontScaleFollow}},
+            min: {{fontScaleMin}},
+            max: {{fontScaleMax}}
+        )
+
         config = LynxConfig(provider: provider)
 
         let env = LynxEnv.sharedInstance()

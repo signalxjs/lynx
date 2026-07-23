@@ -29,13 +29,14 @@ export interface AndroidManifest {
     /** Fully-qualified Kotlin/Java class name of the LynxModule implementation. */
     moduleClass?: string;
     /**
-     * Fully-qualified class name of a lifecycle publisher (used when
-     * `kind === 'lifecycle'`). The class is expected to expose a public
-     * single-arg constructor `(lynxView: LynxView)` and an `attach()` method;
-     * the generated `GeneratedLifecyclePublishers.attachAll(lynxView)` calls
-     * `<class>(lynxView).attach()` for each registered publisher.
+     * Fully-qualified class name(s) of lifecycle publishers. Each class is
+     * expected to expose a public single-arg constructor `(lynxView: LynxView)`
+     * and an `attach()` method; the generated
+     * `GeneratedLifecyclePublishers.attachAll(lynxView)` calls
+     * `<class>(lynxView).attach()` for each registered publisher. A package
+     * shipping several publishers lists them as an array.
      */
-    publisherClass?: string;
+    publisherClass?: string | string[];
     /**
      * Activity-lifecycle hook — a Kotlin `object` (singleton) declaring zero
      * or more of the supported lifecycle methods. The autolinker generates
@@ -259,14 +260,14 @@ export interface IosManifest {
     /** Swift/ObjC class name of the native module. */
     moduleClass?: string;
     /**
-     * Swift/ObjC class name of a lifecycle publisher (used when
-     * `kind === 'lifecycle'`). The class is expected to expose an
-     * `init(lynxView: LynxView)`. The generated
-     * `GeneratedLifecyclePublishers.attachAll(to:)` instantiates one per
-     * LynxView; the host retains the returned array on a coordinator so the
-     * publishers' observer subscriptions outlive the call.
+     * Swift/ObjC class name(s) of lifecycle publishers. Each class is
+     * expected to expose an `init(lynxView: LynxView)`. The generated
+     * `GeneratedLifecyclePublishers.attachAll(to:)` instantiates one of each
+     * per LynxView; the host retains the returned array on a coordinator so
+     * the publishers' observer subscriptions outlive the call. A package
+     * shipping several publishers lists them as an array.
      */
-    publisherClass?: string;
+    publisherClass?: string | string[];
     /**
      * AppDelegate-lifecycle hook — Swift class (or `enum` with static
      * methods) declaring zero or more of the supported AppDelegate methods.
@@ -377,6 +378,15 @@ export interface IosAppDelegateHookManifest {
 }
 
 /**
+ * Normalize a manifest `publisherClass` value (string, array, or absent)
+ * to a list of class names.
+ */
+export function publisherClasses(value: string | string[] | undefined): string[] {
+    if (value === undefined) return [];
+    return Array.isArray(value) ? value : [value];
+}
+
+/**
  * Validate a module manifest object. Returns errors if invalid.
  */
 export function validateManifest(manifest: unknown): string[] {
@@ -416,6 +426,14 @@ export function validateManifest(manifest: unknown): string[] {
         const block = m[platform];
         if (!block || typeof block !== 'object') {
             errors.push(`"${platform}" config is required when platforms includes "${platform}"`);
+            continue;
+        }
+        const publisher = (block as Record<string, unknown>).publisherClass;
+        if (publisher !== undefined) {
+            const list = Array.isArray(publisher) ? publisher : [publisher];
+            if (list.length === 0 || list.some((c) => typeof c !== 'string' || c.length === 0)) {
+                errors.push(`"${platform}.publisherClass" must be a non-empty string or array of non-empty strings`);
+            }
         }
     }
 

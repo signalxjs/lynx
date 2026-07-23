@@ -47,6 +47,14 @@ class MainActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         setTheme(R.style.Theme_SigxApp)
         super.onCreate(savedInstanceState)
+        // OS font-scale policy from signalx.config.ts (`fontScale: {…}`) —
+        // consumed by the LynxViewBuilder seeds below and FontScalePublisher
+        // (#766). Set before any LynxView exists.
+        com.sigx.core.SigxFontScale.policy = com.sigx.core.SigxFontScalePolicy(
+            follow = {{fontScaleFollow}},
+            min = {{fontScaleMin}},
+            max = {{fontScaleMax}},
+        )
         GeneratedActivityHooks.onCreate(this, savedInstanceState)
 
         // Treat an empty string the same as missing — the CLI's no-JS-dev
@@ -104,6 +112,11 @@ class MainActivity : FragmentActivity() {
                                 },
                                 onLynxViewBuilder = { builder ->
                                     GeneratedBehaviors.attachAll(builder)
+                                    // OS text-size seed; runtime changes are
+                                    // pushed by FontScalePublisher (#766).
+                                    builder.setFontScale(
+                                        com.sigx.core.SigxFontScale.effectiveScale(this),
+                                    )
                                 },
                                 onLynxViewCreated = { lynxView ->
                                     GeneratedLifecyclePublishers.attachAll(lynxView)
@@ -205,6 +218,9 @@ fun ProductionLynxScreen(bundleName: String, bundleFilePath: String? = null) {
                     viewBuilder.addBehaviors(com.lynx.tasm.behavior.BuiltInBehavior().create())
                     viewBuilder.addBehaviors(XElementBehaviors().create())
                     GeneratedBehaviors.attachAll(viewBuilder)
+                    // OS text-size seed; runtime changes are pushed by
+                    // FontScalePublisher (#766).
+                    viewBuilder.setFontScale(com.sigx.core.SigxFontScale.effectiveScale(ctx))
 
                     // Serve dynamic-import chunks from embedded assets (#599).
                     // Mirrors the dev-mode fetchers, which read from the dev
