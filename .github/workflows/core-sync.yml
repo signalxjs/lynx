@@ -32,7 +32,17 @@ jobs:
   align:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      # Pinned to v5 ON PURPOSE — do NOT "align" this with whatever checkout version
+      # the repo's other workflows use. This is the only workflow here that runs
+      # peter-evans/create-pull-request, and v5 is the last version compatible with it.
+      # checkout v6 moved credential storage to git's `includeIf`, which
+      # create-pull-request (below) does not detect, so it configures a SECOND auth
+      # header and every git remote call dies with
+      #   remote: Duplicate header: "Authorization"  ->  HTTP 400
+      # before the action ever looks at the diff. peter-evans/create-pull-request#4272
+      # is open against checkout v6+ and reports it unfixed in create-pull-request v7
+      # and v8 as of 2026-07, so bumping the PR action is not the way out.
+      - uses: actions/checkout@v5
       - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v6
         with:
