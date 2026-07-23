@@ -87,6 +87,23 @@ call and pass the exported `SCROLL_METHOD` constant as an argument — worklet
 capture doesn't carry imported function refs, so calling `ListMethods.*` there
 would silently no-op.
 
+### Inside a bottom sheet (`dragMode="surface"`)
+
+A vertical `<List>` adopts an ancestor `ScrollDragHost` (provided by
+`@sigx/lynx-sheet` / `@sigx/lynx-navigation` sheets with `dragMode="surface"`)
+automatically — no props needed. The first vertical scrollable inside the
+sheet wins the slot: the sheet's pan worklet arbitrates against the list's
+live scroll offset (drag down from the top hands the touch back to the
+sheet), and the list's scroll is locked while the sheet owns a drag. A
+non-adopted vertical List inside a sheet still freezes during sheet drags.
+
+While adopted, a consumer `mtRef` is **mirrored** to the same element rather
+than bound: `invoke(...)`-based methods (`ListMethods.*`, `scrollToPosition`)
+keep working, but gesture / animated-style attachment to that ref does not.
+The scroll-event throttle also tightens to 16 ms (from the default 100) so
+the arbitration mirror tracks the finger; an explicit `scrollEventThrottle`
+still wins.
+
 ### Sticky section headers
 
 Pass `sticky` (and optionally `stickyOffset`, px) on the `List` to activate
@@ -212,7 +229,7 @@ Zero-cost when omitted; omit it for append/prepend/edit flows.
 | `maxWindow` | `number` | Cap on rendered window length; the far end trims past it. Default `max(120, windowSize×2)`. |
 | `itemsKey` | `string` | Dataset identity — when it changes, the window re-anchors and scroll resets (see "Swapping datasets"). |
 | `initialMainAxisSize` | `number` | Known main-axis px to pin the list to on its first frame (skips the 1px placeholder); the live measure refines it. |
-| `mtRef` | `ListRef` | Capture the native element for `ListMethods`. |
+| `mtRef` | `ListRef` | Capture the native element for `ListMethods`. Inside a surface-drag sheet it is mirrored, not bound — `invoke` methods work, gesture/animated-style attachment doesn't. |
 | `class` / `style` | — | Applied to the measuring wrapper. |
 
 **Events:** `onEndReached`, `onStartReached`, `onScroll({ offset })`, `onRefresh`.

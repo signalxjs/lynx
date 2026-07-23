@@ -2,6 +2,8 @@ import {
   component,
   effect,
   signal,
+  watch,
+  onMounted,
   onUnmounted,
   useElementLayout,
   useMainThreadRef,
@@ -9,6 +11,7 @@ import {
   useAnimatedStyle,
   runOnBackground,
   runOnMainThread,
+  useScrollDragHost,
   Gesture,
   useGestureDetector,
   type MainThread,
@@ -42,6 +45,15 @@ const DEFAULT_PULL_THRESHOLD = 64;
 // to a coarse interval; consumers can opt into finer ticks via
 // `scrollEventThrottle`.
 const DEFAULT_SCROLL_THROTTLE = 100;
+
+// Scroll throttle while adopted by a ScrollDragHost (a bottom sheet's
+// `dragMode="surface"`). The host's pan worklet arbitrates gesture ownership
+// off the live `scrollOffsetY` mirror, so the mirror must track the finger —
+// at 100ms a fast drag reads a stale "not at top" and the hand-back to the
+// sheet misses. 16ms (~frame rate) is the responsive end; if it ever trips
+// the engine's dispatch limiter (#606) the fallback ladder is 16 → 33 → 100.
+// A consumer-passed `scrollEventThrottle` still wins.
+const ADOPTED_SCROLL_THROTTLE = 16;
 
 type ScrollDetail = { detail?: { scrollTop?: number; scrollLeft?: number } };
 
@@ -237,10 +249,74 @@ const ListImpl = component<ListProps>(({ props, slots, emit }) => {
   const chatEnabled = (props.inverted ?? false) && !(props.horizontal ?? false);
   const stickToBottom = props.stickToBottom ?? true;
 
+  // ── Drag↔scroll host adoption (bottom-sheet `dragMode="surface"`) ────────
+  // Same protocol as lynx-gestures' <ScrollView> (the reference adopter, see
+  // scroll-drag-host.ts for the why). Vertical lists only — a horizontal list
+  // is orthogonal to a vertical sheet drag. The FIRST vertical scrollable
+  // mounted inside the host wins the slot; a later vertical List isn't
+  // adopted but still gates `enable-scroll` on the host's `scrollLock`, so
+  // it freezes during sheet drags instead of scrolling underneath.
+  const dragHost = useScrollDragHost();
+  const verticalList = !(props.horizontal ?? false);
+  const hostRelease = dragHost && verticalList ? dragHost.adoptVerticalScroll() : null;
+  const adopted = hostRelease !== null ? 1 : 0;
+  // Worklets must capture DEFINED SV identities — fall back to a dummy SV
+  // when there's no host (the `adopted` gate skips the writes anyway).
+  const svFallback = useSharedValue(0);
+  const hostOffsetY = adopted === 1 && dragHost ? dragHost.scrollOffsetY : svFallback;
+  const hostHasScroll = adopted === 1 && dragHost ? dragHost.hasVerticalScroll : svFallback;
+
   // Our own ref to the <list> for the auto-scroll worklets; reuses the
   // consumer's `mtRef` when they passed one (same element, one binding).
+  // Adopted: the host's pre-allocated element ref becomes THE ref for this
+  // <list> (one identity, shared by the host's worklets and our own scroll
+  // worklets); the consumer's mtRef stays useful via the MT mirror below.
   const ownListRef = useMainThreadRef<MainThread.Element | null>(null);
-  const listRef = props.mtRef ?? ownListRef;
+  const listRef = adopted === 1 && dragHost ? dragHost.scrollRef : (props.mtRef ?? ownListRef);
+  const mirrorRef = props.mtRef ?? ownListRef;
+  if (adopted === 1) {
+    // SVs are MT-write-only — flag adoption via a one-hop MT write, and zero
+    // both handles back out on release so a stale offset can't outlive this
+    // list (see scroll-drag-host.ts). The hop also mirrors the host-bound
+    // element into the consumer's mtRef so its `invoke('scrollToPosition')`
+    // keeps working while adopted (mirrored, NOT bound — see ListProps.mtRef).
+    // Invoked from onMounted/watch, not setup: both run after the render
+    // that (re)creates the <list> has enqueued its SET_MT_REF, and
+    // INVOKE_WORKLET rides the same ordered ops stream — so
+    // `listRef.current` (the host's scrollRef) is already the native
+    // <list> when the hop applies on MT.
+    //
+    // Presence-AWARE, not mount-once: with `items.length === 0` and an
+    // `empty` slot the <list> is not rendered at all — a mount-only hop
+    // would mirror null permanently and report a scrollable that isn't
+    // there (a surface-drag sheet would then mis-arbitrate against a
+    // phantom list). The hop re-syncs whenever empty ⇄ populated flips.
+    const syncAdoption = (present: boolean): void => {
+      void runOnMainThread((p: number) => {
+        'main thread';
+        hostHasScroll.current.value = p;
+        if (p === 1) {
+          mirrorRef.current = listRef.current;
+        } else {
+          hostOffsetY.current.value = 0;
+          mirrorRef.current = null;
+        }
+      })(present ? 1 : 0);
+    };
+    const listPresent = (): boolean =>
+      !((props.items?.length ?? 0) === 0 && !!slots.empty);
+    onMounted(() => syncAdoption(listPresent()));
+    watch(listPresent, (present) => syncAdoption(present));
+    onUnmounted(() => {
+      hostRelease?.();
+      void runOnMainThread(() => {
+        'main thread';
+        hostHasScroll.current.value = 0;
+        hostOffsetY.current.value = 0;
+        mirrorRef.current = null;
+      })();
+    });
+  }
 
   // BG state: `ready` gates the opacity reveal until the first scroll-to-bottom
   // lands; `atBottom`/`unreadCount` drive stick-to-bottom + the affordance.
@@ -506,6 +582,11 @@ const ListImpl = component<ListProps>(({ props, slots, emit }) => {
 
   return () => {
     const horizontal = props.horizontal ?? false;
+    // Vertical lists inside a drag host (adopted or not) compose the host's
+    // scroll lock into `enable-scroll`: all must allow. `pulling` is only
+    // ever true under refreshEnabled, so the combined expression stays
+    // correct for every opt-in combination.
+    const hostLocked = dragHost && verticalList ? dragHost.scrollLock.value : false;
     // The native `<list>` re-fires `scrolltoupper` CONTINUOUSLY while it sits
     // at its top edge — measured ~1,674 dispatches on one list with no
     // scrolling at all and only 2 renders (~240/s, far above frame rate).
@@ -584,7 +665,7 @@ const ListImpl = component<ListProps>(({ props, slots, emit }) => {
         scroll-orientation={horizontal ? 'horizontal' : 'vertical'}
         list-type={props.listType ?? 'single'}
         span-count={props.numColumns ?? 1}
-        main-thread:ref={chatEnabled || windowingEnabled || props.itemsKey !== undefined
+        main-thread:ref={adopted === 1 || chatEnabled || windowingEnabled || props.itemsKey !== undefined
           ? listRef
           : props.mtRef}
         // Spread optional attrs only when set — an `undefined` prop is
@@ -601,14 +682,28 @@ const ListImpl = component<ListProps>(({ props, slots, emit }) => {
         {...(props.onStartReachedThreshold !== undefined
           ? { 'upper-threshold-item-count': props.onStartReachedThreshold }
           : {})}
-        scroll-event-throttle={props.scrollEventThrottle ?? DEFAULT_SCROLL_THROTTLE}
-        {...(refreshEnabled ? { 'enable-scroll': !pulling.value } : {})}
+        scroll-event-throttle={props.scrollEventThrottle
+          ?? (adopted === 1 ? ADOPTED_SCROLL_THROTTLE : DEFAULT_SCROLL_THROTTLE)}
+        {...(refreshEnabled || (dragHost && verticalList)
+          ? { 'enable-scroll': !pulling.value && !hostLocked }
+          : {})}
+        // Adopted scrollers pin bounces off: the host's "content at top"
+        // reads use `offset <= 0`, and iOS rubber-banding would let the
+        // content follow a downward pull for the frames before the lock
+        // lands. Defense-in-depth, not the primary mechanism (device-verify
+        // pending).
+        {...(adopted === 1 ? { bounces: false } : {})}
         {...(chatEnabled ? { bindlayoutcomplete: onChatLayoutComplete } : {})}
-        {...(refreshEnabled
+        {...(refreshEnabled || adopted === 1
           ? {
             'main-thread-bindscroll': (e: ScrollDetail) => {
               'main thread';
-              atTopRef.current = ((e && e.detail && e.detail.scrollTop) || 0) <= 0;
+              const top = (e && e.detail && e.detail.scrollTop) || 0;
+              atTopRef.current = top <= 0;
+              // Mirror the live offset into the drag host so its pan worklet
+              // can arbitrate ("content at top?") — additive to the pull-to-
+              // refresh at-top mirror, no precedence rules.
+              if (adopted === 1) hostOffsetY.current.value = top;
             },
           }
           : {})}
