@@ -2,6 +2,12 @@
 
 All notable changes to this repository are documented here. All `@sigx/lynx-*` packages share a single lockstep version — one entry per release covers every package.
 
+## [0.21.0] - 2026-07-23
+
+### Fixed
+
+- **Corrective release for the out-of-tier-order 0.20.0** (#800, #801). `@sigx/lynx-cli` pinned the **core-0.12-era** sibling releases (`@sigx/cli` `^0.6.0`, `@sigx/terminal` `^0.8.0`) while the catalog was already on `@sigx/reactivity` / `@sigx/runtime-core` `^0.13.0` — so `@sigx/lynx-cli@0.20.0` dragged a second physical copy of core into the build toolchain. 0.20.0 was cut before the core-0.13-aligned `@sigx/cli 0.7.0` and `@sigx/terminal 0.9.0` existed. The pins now move to `@sigx/cli` `^0.7.0` and `@sigx/terminal` `^0.9.0`, so the CLI resolves the same single core 0.13 line as the rest of the graph. No source or public API change. npm versions are immutable, so this ships as a follow-up minor; as part of this release the `@sigx/lynx-*@0.20.0` line will be deprecated on npm, superseded by 0.21.0.
+
 ## [0.20.0] - 2026-07-23
 
 ### Changed

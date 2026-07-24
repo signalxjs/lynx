@@ -1,6 +1,6 @@
 {
     "name": "@sigx/lynx-updates-publisher",
-    "version": "0.20.0",
+    "version": "0.21.0",
     "description": "Programmatic OTA publish for @sigx/lynx-updates — package a built .lynx.bundle into the static-manifest layout from CI, no shelling out",
     "type": "module",
     "main": "./dist/index.js",

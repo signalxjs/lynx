@@ -1,6 +1,6 @@
 {
     "name": "@sigx/lynx-icons-fa-free",
-    "version": "0.20.0",
+    "version": "0.21.0",
     "description": "Font Awesome Free adapter for @sigx/lynx-icons. Provides solid/regular/brands styles via the official @fortawesome/* packages.",
     "type": "module",
     "main": "./dist/index.js",
