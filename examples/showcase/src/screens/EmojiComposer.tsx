@@ -220,10 +220,18 @@ export const EmojiComposerScreen = component(() => {
     // would change the picker's props and re-render the whole grid on every
     // mode toggle. The theme getters are read at CALL time, so it still
     // follows a light/dark switch.
-    const renderCategoryTab = (tab: EmojiTab, _glyph: string, active: boolean): JSXElement => (
+    const renderCategoryTab = (
+        tab: EmojiTab,
+        _glyph: string,
+        active: boolean,
+        size: number,
+    ): JSXElement => (
         <LucideIcon
+            // The picker's own resolved tab size — tracks the adaptive grid
+            // AND the OS text-size setting, so the icons never sit at a fixed
+            // px next to emoji that grew.
             name={EMOJI_CATEGORY_ICONS[tab === 'recents' ? 'recents' : tab.key] ?? 'circle'}
-            size={22}
+            size={size}
             color={active ? editorTheme.accentColor : editorTheme.placeholderColor}
         />
     );
@@ -516,7 +524,9 @@ export const EmojiComposerScreen = component(() => {
                                             the props, not inline. */}
                                         <Row align="center" height={CHROME_H} class="px-2">
                                             <Button variant="ghost" circle onPress={openSearch}>
-                                                <LucideIcon name="search" size={20} color={editorTheme.placeholderColor} />
+                                                {/* `scaleWithText` — chrome next to
+                                                    scaled labels must scale too. */}
+                                                <LucideIcon name="search" size={20} scaleWithText color={editorTheme.placeholderColor} />
                                             </Button>
                                         </Row>
                                     </>

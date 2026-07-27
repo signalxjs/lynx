@@ -64,3 +64,48 @@ describe('resolveEmojiGeometry', () => {
         }
     });
 });
+
+describe('resolveEmojiGeometry — OS text-size setting (#811)', () => {
+    // The picker used to hold one designed size at every text size ("pinned
+    // like a keyboard panel"), which read as a stubbornly tiny grid next to
+    // labels that had grown. It now follows the setting: bigger text →
+    // FEWER, BIGGER columns.
+    it('raising the font scale trades columns for cell size', () => {
+        const at = (s: number) => resolveEmojiGeometry(448, 0.64, undefined, s);
+        const base = at(1);
+        const big = at(1.15);
+        const bigger = at(1.3);
+
+        expect(big.columns).toBeLessThan(base.columns);
+        expect(bigger.columns).toBeLessThan(big.columns);
+        expect(big.cellSize).toBeGreaterThan(base.cellSize);
+        expect(bigger.cellSize).toBeGreaterThan(big.cellSize);
+    });
+
+    it('defaults to scale 1 — the pre-existing geometry is unchanged', () => {
+        expect(resolveEmojiGeometry(412, 0.64)).toEqual(resolveEmojiGeometry(412, 0.64, undefined, 1));
+    });
+
+    it('scales the ink clamps too, so growth does not saturate at the cap', () => {
+        // With the clamps fixed, a large text size would hit maxEm and stop
+        // growing — the setting would appear to do nothing past a point.
+        const a = resolveEmojiGeometry(448, 0.64, undefined, 1.3);
+        const b = resolveEmojiGeometry(448, 0.64, undefined, 1.8);
+        expect(b.cellSize).toBeGreaterThan(a.cellSize);
+    });
+
+    it('explicit overrides still win and are never scaled', () => {
+        const g = resolveEmojiGeometry(448, 0.64, { columns: 8, cellSize: 40 }, 1.5);
+        expect(g).toEqual({ columns: 8, cellSize: 40 });
+    });
+
+    it('treats a zero/negative scale as 1 rather than dividing by it', () => {
+        const one = resolveEmojiGeometry(448, 0.64, undefined, 1);
+        expect(resolveEmojiGeometry(448, 0.64, undefined, 0)).toEqual(one);
+        expect(resolveEmojiGeometry(448, 0.64, undefined, -2)).toEqual(one);
+    });
+
+    it('never resolves fewer than the 7-column floor, however large the text', () => {
+        expect(resolveEmojiGeometry(448, 0.64, undefined, 5).columns).toBe(7);
+    });
+});

@@ -191,11 +191,17 @@ const ctx = useEmojiContext();
 
 ### OS font scale
 
-The picker is **pinned** like a keyboard panel: grid glyphs, section labels,
-tab glyphs and the tone popover hold their designed sizes regardless of the
-system text-size setting (each fontSize is counter-divided by the effective
-scale, so the fixed row geometry / scroll-offset math stays exact). Emoji
-inside your message text are ordinary text and scale with it.
+The picker **follows** the system text-size setting: a larger setting trades
+columns for cell size, so the emoji grow with everything else (on a 448dp
+phone, 11 columns at scale 1.0 → 9 at 1.15 → 8 at 1.3). The scale is folded
+into `resolveEmojiGeometry` and frozen at mount alongside `columns` /
+`cellSize`, so the fixed row geometry and the sectioned grid's scroll-offset
+math stay exact — the glyph `fontSize` is still counter-divided by the live
+scale, which is what makes the painted size equal the resolved `cellSize`.
+
+Custom tabs get that size as `renderCategoryTab`'s 4th argument, already
+multiplied by the platform ink ratio — use it rather than a fixed px, or an
+icon tab sits stubbornly small next to emoji that grew.
 
 ## Locale data
 

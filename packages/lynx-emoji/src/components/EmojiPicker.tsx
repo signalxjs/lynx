@@ -35,8 +35,10 @@ export type EmojiPickerProps =
     /**
      * Grid columns. Default: ADAPTIVE — as many ~40px cells as the measured
      * grid width fits (clamped 7–12; 10 on a typical phone, like WhatsApp).
-     * The resolved value is FROZEN for the mount (the sectioned grid's
-     * scroll-offset math needs fixed rows) — post-mount changes are ignored.
+     * The target cell scales with the OS text-size setting, so a larger text
+     * size yields FEWER, BIGGER columns (#811). The resolved value is FROZEN
+     * for the mount (the sectioned grid's scroll-offset math needs fixed
+     * rows) — post-mount changes are ignored.
      */
     & Define.Prop<'columns', number, false>
     /** Show the recents tab. Default true. */
@@ -54,9 +56,9 @@ export type EmojiPickerProps =
      * per-platform font metric (#761: Noto Color Emoji ~64% of the em on
      * Android; iOS models Apple's worst-case glyphs at 1.1), so the same em renders
      * different visual densities per platform — row heights adapt with it;
-     * 32 when no width is known. Pass a number for full control (never
-     * clamped). The tone popover follows the resolved size. Frozen for the
-     * mount, like `columns`.
+     * 32 when no width is known. Scales with the OS text-size setting, like
+     * `columns`. Pass a number for full control (never clamped). The tone
+     * popover follows the resolved size. Frozen for the mount.
      */
     & Define.Prop<'cellSize', number, false>
     /** Per-slot class overrides — the theming surface. */
@@ -144,10 +146,10 @@ const CATEGORY_GLYPHS: Record<string, string> = {
  * ```tsx
  * <EmojiPicker
  *     tabPlacement="bottom"
- *     renderCategoryTab={(tab, glyph, active) => (
+ *     renderCategoryTab={(tab, glyph, active, size) => (
  *         <LucideIcon
  *             name={EMOJI_CATEGORY_ICONS[tab === 'recents' ? 'recents' : tab.key] ?? 'circle'}
- *             size={22}
+ *             size={size}
  *             color={active ? accent : muted}
  *         />
  *     )}
@@ -325,10 +327,17 @@ export const EmojiPicker = component<EmojiPickerProps>(({ props, emit }) => {
             // Pre-measure fallback — NOT frozen, so the real measurement wins.
             return { columns: props.columns ?? 8, cellSize: props.cellSize ?? 32 };
         }
-        resolvedGeometry = resolveEmojiGeometry(regionWidth, ink, {
-            columns: props.columns,
-            cellSize: props.cellSize,
-        });
+        // The OS text-size setting scales the grid (#811): bigger text →
+        // bigger emoji in fewer columns.
+        resolvedGeometry = resolveEmojiGeometry(
+            regionWidth,
+            ink,
+            { columns: props.columns, cellSize: props.cellSize },
+            // Frozen with the rest of the geometry: a live text-size change
+            // mid-session won't re-flow the mounted grid (neither does a width
+            // change), but every fresh mount picks the current setting up.
+            fontScale.value,
+        );
         return resolvedGeometry;
     };
 

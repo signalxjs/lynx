@@ -15,8 +15,20 @@ export type EmojiRenderCell = (datum: EmojiDatum, glyph: string) => JSXElement;
 /** The synthetic recents tab uses `'recents'` in place of a category. */
 export type EmojiTab = EmojiCategory | 'recents';
 
-/** Replace a category tab's content (rendered inside the tab's Pressable). */
-export type EmojiRenderCategoryTab = (tab: EmojiTab, glyph: string, active: boolean) => JSXElement;
+/**
+ * Replace a category tab's content (rendered inside the tab's Pressable).
+ * `size` is the tab glyph's VISUAL size in px (the em already multiplied by
+ * the platform ink ratio), so content that fills its box — an icon — matches
+ * the glyph tabs it replaces instead of coming out ~1.6x larger. It tracks
+ * the picker's adaptive geometry AND the OS text-size setting, so an icon tab
+ * that uses it scales with the grid rather than sitting at a fixed px.
+ */
+export type EmojiRenderCategoryTab = (
+    tab: EmojiTab,
+    glyph: string,
+    active: boolean,
+    size: number,
+) => JSXElement;
 
 /** What a custom search field needs to drive the picker. */
 export interface EmojiSearchApi {

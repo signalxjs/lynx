@@ -18,6 +18,9 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 ### Changed
 
+- **`@sigx/lynx-emoji` — the picker now follows the OS text-size setting** (#811). It was *pinned* against it (#776, "like a keyboard panel"): every glyph's `fontSize` was counter-divided by the scale so cells held one designed size forever. On a phone at 1.15 that read as a stubbornly tiny grid next to labels that had grown — measured on a Pixel 9 Pro XL, 11 columns at 92 px against WhatsApp's 9 at 101 px. `resolveEmojiGeometry` takes a `fontScale` (default 1, so nothing changes for callers that don't pass one) and scales the target cell and both ink clamps, trading columns for size: 9 columns at 112 px at that same 1.15. The counter-divide stays — it is what makes the PAINTED size equal the resolved `cellSize`, which the row/scroll-offset math assumes; the scale now lands in the resolved value instead of being cancelled out. Frozen at mount like `columns`/`cellSize`.
+- **`EmojiRenderCategoryTab` gains a 4th `size` argument** — the tab glyph's VISUAL size (the em already multiplied by the platform ink ratio). Icon tabs that fill their box need it: sized off the raw em they come out ~1.6× larger than the glyph tabs they replace on Android, where emoji ink only 64% of it.
+
 - **Showcase "Chat composer" now matches the WhatsApp reference** (#811): the emoji panel fills exactly the keyboard rectangle (device-measured: input-row top 1255 px with the keyboard up vs 1254 px with the panel open, was 1255 vs 1182), monochrome icon tabs pinned to the bottom edge through a drag to the full detent, and search behind a 🔍 button that collapses the panel to a one-row result strip above the keyboard instead of putting a focusable field *under* one.
 
 ## [0.21.0] - 2026-07-23
