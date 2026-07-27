@@ -1,8 +1,8 @@
-import { component, useFontScale, type Define, type JSXElement } from '@sigx/lynx';
+import { component, Platform, useFontScale, type Define, type JSXElement } from '@sigx/lynx';
 import type { EmojiDatum, SkinTone } from '../data/schema.js';
 import { glyphForTone } from '../data/glyph.js';
 import { useEmojiContext } from '../state/context.js';
-import { emojiRowPx } from '../metrics.js';
+import { emojiInkRatio, emojiRowPx, resolveEmojiGeometry } from '../metrics.js';
 import type { EmojiPickEvent, EmojiRenderCell } from '../types.js';
 
 export type EmojiStripProps =
@@ -19,7 +19,12 @@ export type EmojiStripProps =
      * tone when an `<EmojiProvider>` is in scope, else 0 (base).
      */
     & Define.Prop<'tone', SkinTone, false>
-    /** Glyph font size. Default 32. */
+    /**
+     * Glyph font size (em). Default: the SAME adaptive size `<EmojiPicker>`
+     * resolves for the screen — including the OS text-size setting — so a
+     * strip and a grid on one surface read as one control. Pass a number to
+     * override.
+     */
     & Define.Prop<'cellSize', number, false>
     /** Shown instead of the row when `emojis` is empty. */
     & Define.Prop<'emptyLabel', string, false>
@@ -57,8 +62,15 @@ export const EmojiStrip = component<EmojiStripProps>(({ props, emit }) => {
         emit('pick', { datum, glyph: glyphForTone(datum, tone), tone });
     };
 
+    // Screen-derived, like the picker's (#669): one row of cells should match
+    // the grid it sits next to, at whatever the OS text size is.
+    const screenW = Platform.pixelWidth > 0
+        ? Platform.pixelWidth / (Platform.pixelRatio || 1)
+        : 400;
+
     return () => {
-        const size = props.cellSize ?? 32;
+        const size = props.cellSize
+            ?? resolveEmojiGeometry(screenW, emojiInkRatio(), undefined, fontScale.value).cellSize;
         const rowPx = emojiRowPx(size);
         const tone = toneOf();
         const shown = props.emojis.slice(0, props.limit ?? 48);

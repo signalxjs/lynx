@@ -6,6 +6,7 @@ import {
     onUnmounted,
     Platform,
     defineProvide,
+    useFontScale,
     useMainThreadRef,
     type JSXElement,
     type MainThread,
@@ -28,10 +29,13 @@ import { useKeyboardLift, useKeyboardLiftSV } from '@sigx/lynx-keyboard';
 import { useSafeAreaInsets } from '@sigx/lynx-safe-area';
 import {
     createEmojiContext,
+    emojiInkRatio,
+    emojiRowPx,
     EmojiPicker,
     EmojiStrip,
     EMOJI_CATEGORY_ICONS,
     enData,
+    resolveEmojiGeometry,
     useEmojiContext,
     useKeyboardPanelReveal,
     type EmojiPickEvent,
@@ -74,16 +78,8 @@ const PILL_H = 16;
 const CHROME_H = 44;
 /** Everything the sheet's `handle` slot occupies while the panel is open. */
 const HANDLE_H = INPUT_H + PILL_H + CHROME_H;
-/** The search field row, and the one-row result strip above it. */
+/** The search field row. */
 const SEARCH_ROW_H = 48;
-const STRIP_H = 52;
-/**
- * The sheet's floor while searching: input + strip + field. The sheet parks
- * at its floor and rides the keyboard on `liftSV`, so growing the floor is
- * all it takes to put exactly this much above the keyboard — the sheet
- * re-seats a parked floor by itself (#743).
- */
-const SEARCH_FLOOR_H = INPUT_H + STRIP_H + SEARCH_ROW_H;
 /**
  * Identity-stable style for the picker — a fresh `{flexGrow:1}` object each
  * render would change `props.style` and re-run EmojiPicker's render (re-mapping
@@ -171,6 +167,7 @@ export const EmojiComposerScreen = component(() => {
     // Still observed here, but only as the picker-warm trigger below.
     const kbLiftBG = useKeyboardLift();
     const screenH = Platform.pixelHeight / (Platform.pixelRatio || 1);
+    const screenW = Platform.pixelWidth / (Platform.pixelRatio || 1);
 
     // Warm the emoji grid a beat AFTER the chat has had its first layout, then
     // keep it mounted for the screen's life. Two constraints pull against each
@@ -253,6 +250,7 @@ export const EmojiComposerScreen = component(() => {
     // no second state machine, and the dip-free settle timing comes along.
     const searching = signal(false);
     const query = signal('');
+    const fontScale = useFontScale();
     let focusTarget: 'editor' | 'search' = 'editor';
     // NOTE: the search field is not focused programmatically — the user taps
     // it, as they would any search box. There is currently no way to focus an
@@ -280,11 +278,29 @@ export const EmojiComposerScreen = component(() => {
         if (reveal.mode() === 'open') { focusTarget = 'editor'; reveal.close(); }
     };
 
-    /** 🔍 — collapse the grid to a one-row strip and raise the keyboard. */
+    /**
+     * 🔍 — swap the panel's chrome row for a search field, WITHOUT moving the
+     * sheet. App code can't focus an intrinsic `<input>` on Lynx (a
+     * main-thread `invoke('focus')` throws, the BG UI-method op is swallowed,
+     * and `focus`/`auto-focus` attributes never reach the renderer inside a
+     * snapshot template), so the keyboard cannot be raised here. Collapsing
+     * to WhatsApp's strip anyway would leave a stranded bar floating over
+     * empty space until the user tapped the field. Instead the emoji panel
+     * stays exactly as it is — only the chrome row changes — and the collapse
+     * happens when the field reports focus.
+     */
     const openSearch = (): void => {
         Haptics.selection();
         focusTarget = 'search';
         searching.value = true;
+    };
+    /**
+     * The field took focus, so a keyboard is on its way — hand the space
+     * over: the sheet stops being `open` and parks at its floor, riding the
+     * keyboard. WHICH floor is decided by the keyboard's actual presence
+     * (see `searchLayout`), not by this event.
+     */
+    const onSearchFocus = (): void => {
         if (reveal.mode() === 'open') reveal.close();
     };
     /** ← — back to the full emoji panel. */
@@ -321,12 +337,31 @@ export const EmojiComposerScreen = component(() => {
         const HEADER_H = 56;
         const topOffset = (insets.value.top ?? 0) + HEADER_H;
         const isSearching = searching.value;
-        // Searching grows the FLOOR to [input + strip + field] and stops
-        // there: the sheet parks at its floor and its `liftSV` puts that
-        // block right on top of the keyboard, which is exactly WhatsApp's
-        // search layout. No extra detents — `open` stays false throughout.
-        const floorH = isSearching ? SEARCH_FLOOR_H : INPUT_H;
-        const detents = isSearching
+        // The strip's cells match the grid's — same screen-adaptive, OS
+        // text-size-aware resolution the picker runs — so the sheet's floor
+        // arithmetic has to ask for the same number rather than guess one.
+        const stripCell = resolveEmojiGeometry(
+            screenW, emojiInkRatio(), undefined, fontScale.value,
+        ).cellSize;
+        const stripH = emojiRowPx(stripCell);
+        // Searching has TWO stages, because the field's focus is observed,
+        // not commanded:
+        //  • field not yet focused → the sheet does not move at all. Only the
+        //    chrome row changes, so there is never a stranded bar hanging in
+        //    space waiting for a keyboard that no API can summon.
+        //  • field focused → WhatsApp's layout: the floor shrinks to
+        //    [input + strip + field] and `liftSV` puts exactly that on top of
+        //    the keyboard. The sheet re-seats a parked floor by itself
+        //    (#743), so the stage change needs no extra machinery.
+        // Keyed off the KEYBOARD, not the field's focus: on Android the back
+        // key hides the IME without blurring the field, so `bindblur` never
+        // fires and a focus-driven layout would strand the strip over empty
+        // space. The keyboard's presence is also literally what the layout
+        // depends on — the strip only fits because the keyboard is holding
+        // the rest of the panel's space.
+        const searchLayout = isSearching && kbLiftBG.value > 0;
+        const floorH = searchLayout ? INPUT_H + stripH + SEARCH_ROW_H : INPUT_H;
+        const detents = searchLayout
             ? [floorH]
             : [
                 floorH,
@@ -362,13 +397,18 @@ export const EmojiComposerScreen = component(() => {
         // Search hits, or the recents as the zero-query state (WhatsApp).
         // `emoji.ready` gates the recents read the same way the picker does.
         const q = query.value.trim();
-        const stripEmojis = !isSearching
+        const stripEmojis = !searchLayout
             ? []
             : q !== ''
                 ? emoji.index.search(q)
                 : (emoji.ready.value ? emoji.recents.recents : []);
         const mode = reveal.mode();
-        const engaged = mode !== 'closed';
+        // The panel is up whenever the reveal machine says so, OR while
+        // searching without focus — stage 1 keeps the full emoji panel on
+        // screen, including after the user dismisses the keyboard from the
+        // strip layout. Without this the sheet would fall back to its 64px
+        // floor with a search field still in the handle, clipped.
+        const engaged = mode !== 'closed' || (isSearching && !searchLayout);
         void revealSV;
 
         if (DEBUG_GEOM) {
@@ -522,27 +562,32 @@ export const EmojiComposerScreen = component(() => {
                                             `Row` takes TYPED props — lynx-zero drops a
                                             `style` object, so height/justify come through
                                             the props, not inline. */}
-                                        <Row align="center" height={CHROME_H} class="px-2">
-                                            <Button variant="ghost" circle onPress={openSearch}>
-                                                {/* `scaleWithText` — chrome next to
-                                                    scaled labels must scale too. */}
-                                                <LucideIcon name="search" size={20} scaleWithText color={editorTheme.placeholderColor} />
-                                            </Button>
-                                        </Row>
+                                        {!isSearching && (
+                                            <Row align="center" height={CHROME_H} class="px-2">
+                                                <Button variant="ghost" circle onPress={openSearch}>
+                                                    {/* `scaleWithText` — chrome next to
+                                                        scaled labels must scale too. */}
+                                                    <LucideIcon name="search" size={20} scaleWithText color={editorTheme.placeholderColor} />
+                                                </Button>
+                                            </Row>
+                                        )}
                                     </>
                                 )}
                                 {isSearching && (
                                     <>
-                                        {/* Results first, field below — the field sits on
-                                            the keyboard and the strip reads above it. */}
-                                        <view style={{ height: `${STRIP_H}px`, display: 'flex', justifyContent: 'center' }}>
+                                        {/* The strip belongs to the FOCUSED stage only:
+                                            before that the emoji grid is still on screen
+                                            below, and a second row of results above it
+                                            would just be the same emoji twice. Results
+                                            sit above the field, which rides the keyboard
+                                            — WhatsApp's order. */}
+                                        {searchLayout && (
                                             <EmojiStrip
                                                 emojis={stripEmojis}
-                                                cellSize={28}
                                                 emptyLabel={query.value.trim() === '' ? 'Search for an emoji' : 'No emoji found'}
                                                 onPick={insertPick}
                                             />
-                                        </view>
+                                        )}
                                         <Row gap={4} align="center" height={SEARCH_ROW_H} class="px-2">
                                             <Button variant="ghost" circle onPress={exitSearch}>
                                                 <LucideIcon name="arrow-left" size={20} color={editorTheme.placeholderColor} />
@@ -556,6 +601,7 @@ export const EmojiComposerScreen = component(() => {
                                                 bindinput={(e: { detail?: { value?: unknown } }) => {
                                                     query.value = String(e?.detail?.value ?? '');
                                                 }}
+                                                bindfocus={onSearchFocus}
                                                 // Native text widgets can't read CSS custom
                                                 // properties (#225) — resolved hex, inline,
                                                 // exactly like daisy's own `<Input>`.
