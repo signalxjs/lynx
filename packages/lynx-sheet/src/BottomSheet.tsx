@@ -246,8 +246,15 @@ export const BottomSheet = component<BottomSheetProps>(({ props, emit, slots }) 
     // Live geometry — re-resolved on every render/accessor evaluation,
     // never snapshotted at setup (#743): floors change at runtime.
     const geometry = (): SheetGeometry => {
+        // LATEST non-zero, not a running max: the keyboard is not one height
+        // (suggestion strip, numeric vs alpha layout, a different IME), and a
+        // panel that must occupy its space has to match the one about to
+        // appear. A max latched onto the tallest ever seen and opened the
+        // panel too tall from then on (#811). Safe because `useKeyboardLift`
+        // is BG-reactive and STEPS to its final value — the animation is in
+        // the lift SharedValue, not here.
         const kb = kbLiftBG.value;
-        if (kb > rememberedKb) rememberedKb = kb;
+        if (kb > 0) rememberedKb = kb;
         const ds = resolveDetents(props.detents, {
             screenH,
             topOffset: props.topOffset ?? 0,

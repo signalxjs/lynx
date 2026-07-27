@@ -61,14 +61,25 @@ describe('rememberedKeyboardLift', () => {
         insets.keyboard = 368;
         readLift();
         insets.keyboard = 0;
-        expect(readLift()).toBe(0);
-        expect(rememberedKeyboardLift()).toBe(344);
+        expect(readLift()).toBe(0);      // the hook reports no lift…
+        expect(rememberedKeyboardLift()).toBe(344);   // …the memory holds
     });
 
-    it('keeps the running MAX across keyboards of different heights', () => {
+    it('keeps the LATEST height, never a running max', () => {
+        // The keyboard is not one height — the suggestion strip comes and
+        // goes, numeric and alpha layouts differ. A panel sized to occupy its
+        // space must match the keyboard about to appear, and the best
+        // predictor is the last one that did. A max latched onto the tallest
+        // ever seen and opened the panel too tall from then on.
         insets.keyboard = 368;
         readLift();
-        insets.keyboard = 300;           // e.g. a numeric IME
+        expect(rememberedKeyboardLift()).toBe(344);
+
+        insets.keyboard = 300;           // e.g. a numeric layout, no strip
+        readLift();
+        expect(rememberedKeyboardLift()).toBe(276);
+
+        insets.keyboard = 368;           // …and back
         readLift();
         expect(rememberedKeyboardLift()).toBe(344);
     });

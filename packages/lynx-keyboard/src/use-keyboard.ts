@@ -13,8 +13,8 @@ import { loadString, saveString } from './persistence.js';
 import type { KeyboardState } from './types.js';
 
 /**
- * Tallest keyboard lift observed so far this session (px, inset-discounted),
- * 0 until a keyboard has ever been shown.
+ * The most recently observed keyboard lift (px, inset-discounted), 0 until
+ * a keyboard has ever been shown.
  *
  * Module-level ON PURPOSE: "how tall is this device's keyboard" is a fact
  * about the app's environment, not about whichever component happened to be
@@ -46,22 +46,28 @@ void loadString(STORAGE_KEY).then((raw) => {
   if (Number.isFinite(px) && px > 0 && px < 2000) observedLift = px;
 });
 
-/** @internal Record an observed lift; keeps the running max. */
+/**
+ * @internal Record an observed lift. Keeps the LATEST, never a running max.
+ *
+ * A device's keyboard is not one height: the suggestion strip comes and
+ * goes, numeric and alpha layouts differ, IMEs differ. A panel sized to
+ * occupy the keyboard's space has to match the keyboard that is about to
+ * appear — the best predictor of which is the one that appeared last, not
+ * the tallest ever seen. Taking a max made one tall observation stick
+ * permanently and opened the panel 36 px too tall forever after (#811).
+ *
+ * Safe because this is fed from the BG-reactive inset, which STEPS to its
+ * final value — the animation lives in the lift SharedValue, so there are
+ * no intermediate heights to latch onto here.
+ */
 function recordLift(px: number): void {
-  // A real observation supersedes a restored guess outright — the device's
-  // keyboard may genuinely be shorter than last run (different IME, split
-  // screen), and keeping the stale max would strand a panel too tall.
-  if (!observedThisRun) {
-    observedThisRun = true;
-    observedLift = px;
-  } else if (px > observedLift) {
-    observedLift = px;
-  }
-  saveString(STORAGE_KEY, String(Math.round(observedLift)));
+  observedThisRun = true;
+  observedLift = px;
+  saveString(STORAGE_KEY, String(Math.round(px)));
 }
 
 /**
- * The tallest keyboard lift seen this session (px), or 0 if the keyboard has
+ * The most recently observed keyboard lift (px), or 0 if the keyboard has
  * never been shown. Seed a keyboard-sized panel from this instead of a flat
  * fallback — see {@link useKeyboardLift}.
  */

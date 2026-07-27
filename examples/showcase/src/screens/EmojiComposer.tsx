@@ -303,13 +303,26 @@ export const EmojiComposerScreen = component(() => {
     const onSearchFocus = (): void => {
         if (reveal.mode() === 'open') reveal.close();
     };
-    /** ← — back to the full emoji panel. */
+    /**
+     * ← — back to the full emoji panel.
+     *
+     * The open is DEFERRED by a tick on purpose. `openToLift` captures the
+     * live `floor + lift` as the panel's rest, and while searching the floor
+     * is the short search floor — capturing there opened the panel at
+     * `searchFloor + keyboardLift` (511 dp instead of 408, device-measured).
+     * Dropping `searching` first lets the sheet re-resolve its floor back to
+     * the input row, so the capture reads the same `INPUT_H + lift` the
+     * keyboard swap does.
+     */
+    let exitTimer: ReturnType<typeof setTimeout> | null = null;
+    onUnmounted(() => { if (exitTimer !== null) clearTimeout(exitTimer); });
     const exitSearch = (): void => {
         Haptics.selection();
         query.value = '';
         searching.value = false;
         focusTarget = 'editor';
-        reveal.open();
+        if (exitTimer !== null) clearTimeout(exitTimer);
+        exitTimer = setTimeout(() => { exitTimer = null; reveal.open(); }, 0);
     };
 
     const send = (): void => {
