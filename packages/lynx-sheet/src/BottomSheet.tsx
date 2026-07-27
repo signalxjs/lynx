@@ -76,7 +76,7 @@ import {
     type MainThreadRef,
     type SharedValue,
 } from '@sigx/lynx';
-import { useKeyboardLift } from '@sigx/lynx-keyboard';
+import { rememberedKeyboardLift, useKeyboardLift } from '@sigx/lynx-keyboard';
 import { useSafeAreaInsets } from '@sigx/lynx-safe-area';
 import { Backdrop } from './Backdrop.js';
 import { resolveDetents, type DetentSpec } from './detents.js';
@@ -233,7 +233,14 @@ export const BottomSheet = component<BottomSheetProps>(({ props, emit, slots }) 
     // Remembered keyboard height for `{keyboard}` detents — tracked from
     // the BG-REACTIVE computed, never from a lift SV's `.value` (that SV
     // is MT-written; its BG side stays at its seed forever).
-    let rememberedKb = 0;
+    //
+    // Seeded from the SESSION's observation, not 0: a keyboard-sized panel
+    // opening on a screen where nothing has been typed yet would otherwise
+    // fall back to `fallbackPx` and then visibly correct itself the moment
+    // the real keyboard returned (#811 — the composer's input row jumped
+    // 53 px on that first swap). Any keyboard shown anywhere in the app
+    // has already taught us the height.
+    let rememberedKb = rememberedKeyboardLift();
     const screenH = screenHeightDp();
 
     // Live geometry — re-resolved on every render/accessor evaluation,

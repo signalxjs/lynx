@@ -762,6 +762,9 @@ importers:
       '@sigx/lynx-runtime-main':
         specifier: workspace:^
         version: link:../lynx-runtime-main
+      '@sigx/lynx-storage':
+        specifier: workspace:^
+        version: link:../lynx-storage
       '@sigx/lynx-testing':
         specifier: workspace:^
         version: link:../lynx-testing

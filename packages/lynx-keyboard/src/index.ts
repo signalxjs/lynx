@@ -15,7 +15,13 @@ export {
   KeyboardStickyView as KeyboardAccessoryView,
   KeyboardStickyView as KeyboardToolbar,
 } from './keyboard-sticky-view.js';
-export { useKeyboard, useKeyboardLift, useKeyboardLiftSV } from './use-keyboard.js';
+export {
+  rememberedKeyboardLift,
+  resetRememberedKeyboardLift,
+  useKeyboard,
+  useKeyboardLift,
+  useKeyboardLiftSV,
+} from './use-keyboard.js';
 export type {
   KeyboardAvoidingBehavior,
   KeyboardAvoidingViewProps,
