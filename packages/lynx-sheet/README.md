@@ -56,6 +56,30 @@ const detents = resolveDetents(
 
 `{ keyboard: true }` owns the math apps used to hand-roll: the remembered keyboard height needs the bottom safe-area inset added back (keyboard *lift* values are inset-discounted while the sheet reaches the true screen bottom), and it must come from a BG-reactive keyboard source — never from reading a main-thread-written SharedValue on the background thread, which stays at its seed value.
 
+The inset is added back **only by however much of it the sheet still has to cover** — `max(0, bottomInset - bottomOffset)`. A sheet reaching the true screen bottom (`bottomOffset: 0`) covers all of it; one whose ancestor already pads the gesture bar (`bottomOffset: insets.bottom`) covers none, and adding it back there would open the sheet a gesture bar *taller* than the keyboard it replaces — visible as the composer's input row jumping on every keyboard↔panel swap, because that inflated detent is also `openToLift`'s floor and clamps away the live main-thread capture (#811).
+
+## Pinning content to the visible bottom edge
+
+The panel is laid out as tall as the top detent and slid down, so **its own bottom edge is off-screen at every rest below the top detent** — `position: absolute; bottom: 0` pins to a place nobody can see. Pass `pinnedBottomRef` and the sheet binds that element to the inverse of the slide, so it sits last in flow yet paints flush with the bottom of the revealed slice, on the main thread, every frame of a drag or keyboard lift:
+
+```tsx
+const tabsRef = useMainThreadRef<MainThread.Element | null>(null);
+
+<BottomSheet pinnedBottomRef={tabsRef} …>
+    {/* body stays FULL panel height so a drag never opens a gap under it */}
+    <EmojiPicker tabPlacement="bottom" tabBarRef={tabsRef} … />
+</BottomSheet>
+```
+
+Keeping the body at full panel height is what avoids a gap mid-drag — but it also means the body extends below the fold, so scrollable content needs to know how much is hidden. `onRest` reports the sheet's **settled visible height** in px (mount, `open` toggle, drag settle, dismiss) for exactly that:
+
+```tsx
+<BottomSheet onRest={(px) => { restH.value = px; }} … />
+// … then e.g. <EmojiPicker gridBottomInset={panelH - restH.value} />
+```
+
+`onSnap` says *which* detent; `onRest` says *how tall*.
+
 ## Release math and drag arbitration
 
 Worklet-safe pure functions in reveal-px space (`reveal` = visible sheet height, `0` = hidden):

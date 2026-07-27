@@ -2,6 +2,24 @@
 
 All notable changes to this repository are documented here. All `@sigx/lynx-*` packages share a single lockstep version — one entry per release covers every package.
 
+## [Unreleased]
+
+### Fixed
+
+- **`@sigx/lynx-sheet` — a `{ keyboard: true }` detent no longer double-counts the bottom inset** (#811). `resolveDetents` added the bottom safe-area inset back onto keyboard detents unconditionally, but that add-back is only correct for a sheet whose bottom edge reaches the true screen bottom. A sheet that also passes `bottomOffset` (an ancestor `SafeAreaView` already pads the gesture bar — the showcase composer's case) counted it twice and opened a gesture bar **taller than the keyboard it replaces**: 73 px on a Pixel 9 Pro XL, visible as the composer's input row jumping on every keyboard↔emoji swap. Worse, that inflated detent is also `setReveal`'s `openFloor`, which clamped away the live main-thread capture — so `openToLift`, whose whole purpose is a pixel-stable swap, was a no-op. It now adds back only the part the sheet still has to cover: `max(0, bottomInset - bottomOffset)`. Sheets that don't pass `bottomOffset` are unchanged.
+- **`@sigx/lynx-icons-lucide` — icons containing `<line>`, `<polyline>` or `<polygon>` render again**. Lynx's `<svg content=…>` silently drops those primitives, so `hash` painted nothing at all and `smile` lost its eyes; 98 of lucide's 1,956 icons contain at least one. All three convert losslessly to `<path>`, which does paint.
+
+### Added
+
+- **`@sigx/lynx-sheet` — `pinnedBottomRef` and the `rest` event** (#811). The panel is laid out as tall as the top detent and slid down, so its own bottom edge is off-screen at every rest below the top detent — `position: absolute; bottom: 0` pins to a place nobody can see. `pinnedBottomRef` binds an element to the inverse of that slide, so it sits last in flow yet paints flush with the visible bottom edge, on the main thread, every frame of a drag or keyboard lift (WhatsApp's emoji category row). Keeping the body at full panel height is what stops a drag opening a gap under it — which in turn means the body extends below the fold, so `onRest` now reports the sheet's **settled visible height** in px (mount, `open` toggle, drag settle, dismiss) for content that has to size or bound itself to the slice actually on screen. `onSnap` says *which* detent; `onRest` says *how tall*.
+- **`@sigx/lynx-emoji` — WhatsApp picker chrome** (#811): `tabPlacement: 'top' | 'bottom'` (default `'top'`) makes the category row the picker's last row; `tabBarRef` hands its wrapper to a sheet's `pinnedBottomRef`; `gridBottomInset` adds a trailing scroll spacer so a grid whose box hangs below the fold can still scroll its last rows into view (before this, the compact emoji panel stranded the tail of the dataset — the flags section stopped ~8 rows early and the last emoji was unreachable). `EMOJI_CATEGORY_ICONS` maps CLDR group keys to monochrome icon names as **plain data**, so the package keeps glyphs as its headless default and takes no icon dependency — render them through the existing `renderCategoryTab` prop, and force-include the names in `signalx.config.ts` (a map lookup is a dynamic icon name the build-time scanner can't see).
+- **`@sigx/lynx-emoji` — `<EmojiStrip>`**: a one-row horizontal strip of emoji cells for search hits or recents — the shape WhatsApp shows above the keyboard while you search, and what a reaction bar wants. Plain elements rather than a virtualized `<list>`, so it re-renders per keystroke without the grid's staging machinery; picks push to the shared recents like the picker's.
+- **`@sigx/lynx-daisyui` — `emojiClassesBottomTabs`**: the emoji skin for `tabPlacement="bottom"` (divider on the bar's top edge, opaque background — a pinned bar paints over the grid rows it overlaps).
+
+### Changed
+
+- **Showcase "Chat composer" now matches the WhatsApp reference** (#811): the emoji panel fills exactly the keyboard rectangle (device-measured: input-row top 1255 px with the keyboard up vs 1254 px with the panel open, was 1255 vs 1182), monochrome icon tabs pinned to the bottom edge through a drag to the full detent, and search behind a 🔍 button that collapses the panel to a one-row result strip above the keyboard instead of putting a focusable field *under* one.
+
 ## [0.21.0] - 2026-07-23
 
 ### Fixed

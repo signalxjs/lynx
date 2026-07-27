@@ -31,6 +31,8 @@ export { EmojiCell } from './components/EmojiCell.js';
 export type { EmojiCellProps } from './components/EmojiCell.js';
 export { CategoryTabBar } from './components/CategoryTabBar.js';
 export type { CategoryTabBarProps, CategoryTabEntry } from './components/CategoryTabBar.js';
+export { EmojiStrip } from './components/EmojiStrip.js';
+export type { EmojiStripProps } from './components/EmojiStrip.js';
 export { SearchInput } from './components/SearchInput.js';
 export type { SearchInputProps } from './components/SearchInput.js';
 export { SkinTonePopover } from './components/SkinTonePopover.js';

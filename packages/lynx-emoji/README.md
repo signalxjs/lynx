@@ -131,6 +131,64 @@ import { EmojiPickerSheet, emojiClasses } from '@sigx/lynx-daisyui';
 <EmojiPickerSheet open={open.value} data={enData} onPick={…} onClose={…} />
 ```
 
+### WhatsApp layout: icon tabs at the bottom
+
+`tabPlacement="bottom"` makes the category row the picker's LAST row. Inside
+a sheet, hand its wrapper to the sheet so it stays glued to the visible
+bottom edge through a drag — a sheet panel is laid out at its top detent and
+slid down, so its own bottom is off-screen at smaller detents:
+
+```tsx
+import { EmojiPicker, EMOJI_CATEGORY_ICONS } from '@sigx/lynx-emoji';
+import { BottomSheet } from '@sigx/lynx-sheet';
+import { emojiClassesBottomTabs } from '@sigx/lynx-daisyui';
+
+const tabsRef = useMainThreadRef<MainThread.Element | null>(null);
+
+<BottomSheet pinnedBottomRef={tabsRef} … onRest={(px) => { restH.value = px; }}>
+    <EmojiPicker
+        tabPlacement="bottom"
+        tabBarRef={tabsRef}
+        classes={emojiClassesBottomTabs}
+        // The box is taller than the visible slice, so tell the grid how
+        // much hangs below the fold or its last rows can't be scrolled to.
+        gridBottomInset={panelH - restH.value}
+        renderCategoryTab={(tab, glyph, active) => (
+            <LucideIcon
+                name={EMOJI_CATEGORY_ICONS[tab === 'recents' ? 'recents' : tab.key] ?? 'circle'}
+                size={22}
+                color={active ? accent : muted}
+            />
+        )}
+    />
+</BottomSheet>
+```
+
+`EMOJI_CATEGORY_ICONS` is plain data (CLDR group key → icon name) — the
+package ships no icons and takes no icon dependency. Because the lookup is a
+*dynamic* icon name, force-include the names in `signalx.config.ts` or the
+tabs render empty:
+
+```ts
+iconSets: [{ id: 'lucide', source: '@sigx/lynx-icons-lucide', include: [
+    'clock', 'smile', 'hand', 'leaf', 'coffee',
+    'car', 'volleyball', 'lightbulb', 'hash', 'flag',
+] }]
+```
+
+### `<EmojiStrip>` — one-row results
+
+A horizontal strip of cells for search hits or recents — the shape WhatsApp
+shows above the keyboard while you search, and what a reaction bar wants.
+Plain elements, not a virtualized `<list>`, so it can re-render per keystroke:
+
+```tsx
+import { EmojiStrip, useEmojiContext } from '@sigx/lynx-emoji';
+
+const ctx = useEmojiContext();
+<EmojiStrip emojis={ctx.index.search(q)} onPick={({ glyph }) => insert(glyph)} />
+```
+
 ### OS font scale
 
 The picker is **pinned** like a keyboard panel: grid glyphs, section labels,
