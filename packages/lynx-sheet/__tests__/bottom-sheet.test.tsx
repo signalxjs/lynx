@@ -142,6 +142,38 @@ describe('<BottomSheet>', () => {
         expect(seen.at(-1)).toBe(64);
     });
 
+    it('a dismissible sheet mounting CLOSED reports 0, not its floor', () => {
+        // Seeding the floor made the mount emission report a height the sheet
+        // never had, corrected to 0 only on the first render — a consumer
+        // sizing content off `onRest` would briefly compute from a phantom.
+        const seen: number[] = [];
+        const Host = component(() => () => (
+            <BottomSheet
+                detents={[64, 400]}
+                dismissible
+                open={false}
+                onRest={(px) => { seen.push(px); }}
+                slots={{ handle: () => <text>H</text>, default: () => <text>B</text> }}
+            />
+        ));
+        render(<Host />);
+        expect(seen).toEqual([0]);
+    });
+
+    it('an OPEN-on-mount sheet reports its open detent, not its floor', () => {
+        const seen: number[] = [];
+        const Host = component(() => () => (
+            <BottomSheet
+                detents={[64, 400, 800]}
+                open
+                onRest={(px) => { seen.push(px); }}
+                slots={{ handle: () => <text>H</text>, default: () => <text>B</text> }}
+            />
+        ));
+        render(<Host />);
+        expect(seen).toEqual([400]);
+    });
+
     it('a dismissible sheet rests at 0 when closed, not at its floor', async () => {
         const open = signal({ value: true });
         const seen: number[] = [];

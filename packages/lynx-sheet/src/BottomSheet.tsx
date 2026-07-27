@@ -307,8 +307,18 @@ export const BottomSheet = component<BottomSheetProps>(({ props, emit, slots }) 
     // that keeps a quick re-grab from firing a stale snap/dismiss.
     let claimGen = 0;
     const gestureLock = signal(false);
-    /** Settled rest reveal (px; BG approximation — `open` detent under openToLift). */
-    const restPx = signal(seed.floor);
+    /**
+     * Settled rest reveal (px; BG approximation — `open` detent under
+     * openToLift). Seeded from the INITIAL open/dismissible state, not
+     * blindly from the floor: a dismissible sheet mounting closed rests at
+     * 0, and seeding the floor made the mount emission report a height the
+     * sheet never had, before the first render corrected it to 0.
+     */
+    const restPx = signal(
+        props.open === true
+            ? seed.open
+            : props.dismissible === true ? 0 : seed.floor,
+    );
     // Report the settled height out of an effect, never from the writes
     // themselves: two of them happen during render, and emitting there
     // would run consumer code (which typically writes a signal its own

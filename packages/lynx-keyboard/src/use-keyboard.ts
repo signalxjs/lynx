@@ -88,7 +88,12 @@ export function rememberedKeyboardLift(): number {
 /** @internal Test seam — forget the session's observation. */
 export function resetRememberedKeyboardLift(): void {
   observedLift = 0;
-  observedThisRun = false;
+  // Marked as observed, NOT cleared: the restore promise started at module
+  // load may still be in flight, and its callback bails on this flag.
+  // Without it a reset could be silently undone by a late restore landing
+  // afterwards — non-deterministic, and exactly the kind of leak a test
+  // seam must not have.
+  observedThisRun = true;
   persisted = null;
 }
 
