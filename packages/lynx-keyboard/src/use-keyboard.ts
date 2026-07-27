@@ -45,7 +45,12 @@ const STORAGE_KEY = 'sigx.keyboard.lift';
 void loadString(STORAGE_KEY).then((raw) => {
   if (observedThisRun || raw == null) return;
   const px = Number(raw);
-  if (Number.isFinite(px) && px > 0 && px < 2000) observedLift = px;
+  if (Number.isFinite(px) && px > 0 && px < 2000) {
+    observedLift = px;
+    // Seed the write-dedupe too: without it the first real observation
+    // writes back on every launch even when the height hasn't changed.
+    persisted = String(Math.round(px));
+  }
 });
 
 /**

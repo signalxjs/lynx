@@ -80,16 +80,18 @@ function asPathData(tag: string, attrs: LucideAttrs): string | null {
     return null;
 }
 
+/** Attrs consumed by `asPathData` — dropped from the emitted `<path>`. */
+const GEOMETRY_ATTRS = new Set(['x1', 'y1', 'x2', 'y2', 'points']);
+
 function renderElement(el: LucideElement): string {
     const [tag, attrs] = el;
     const pathData = asPathData(tag, attrs);
     if (pathData !== null) {
         // Carry over any attrs that aren't the geometry we just consumed —
         // stroke overrides and the like still apply to the path.
-        const GEOMETRY = new Set(['x1', 'y1', 'x2', 'y2', 'points']);
         const extra: string[] = [`d="${escapeAttr(pathData)}"`];
         for (const [k, v] of Object.entries(attrs)) {
-            if (!GEOMETRY.has(k)) extra.push(`${k}="${escapeAttr(v)}"`);
+            if (!GEOMETRY_ATTRS.has(k)) extra.push(`${k}="${escapeAttr(v)}"`);
         }
         return `<path ${extra.join(' ')}/>`;
     }
