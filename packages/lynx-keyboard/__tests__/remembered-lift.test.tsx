@@ -45,6 +45,7 @@ describe('rememberedKeyboardLift', () => {
     beforeEach(() => {
         resetRememberedKeyboardLift();
         insets.keyboard = 0;
+        saved.length = 0;
     });
 
     it('is 0 until a keyboard has ever been seen', () => {
@@ -90,6 +91,22 @@ describe('rememberedKeyboardLift', () => {
         insets.keyboard = 368;
         readLift();
         expect(saved.at(-1)).toEqual(['sigx.keyboard.lift', '344']);
+    });
+
+    it('does not re-write storage for an unchanged height', () => {
+        // The record runs from a computed that every mounted lift hook
+        // re-evaluates, so an unguarded write turns one keyboard show into a
+        // burst of identical setItem calls.
+        insets.keyboard = 368;
+        readLift();
+        readLift();
+        readLift();
+        expect(saved).toHaveLength(1);
+
+        insets.keyboard = 300;           // a genuinely different height
+        readLift();
+        expect(saved).toHaveLength(2);
+        expect(saved.at(-1)).toEqual(['sigx.keyboard.lift', '276']);
     });
 
     it('resetRememberedKeyboardLift() clears the session value', () => {

@@ -32,6 +32,8 @@ import type { KeyboardState } from './types.js';
 let observedLift = 0;
 /** Whether `observedLift` came from a REAL keyboard this run (vs. restored). */
 let observedThisRun = false;
+/** Last value written to storage — dedupes redundant writes. */
+let persisted: string | null = null;
 
 const STORAGE_KEY = 'sigx.keyboard.lift';
 
@@ -63,7 +65,15 @@ void loadString(STORAGE_KEY).then((raw) => {
 function recordLift(px: number): void {
   observedThisRun = true;
   observedLift = px;
-  saveString(STORAGE_KEY, String(Math.round(px)));
+  // Persist only when the stored value would actually change. This runs
+  // from a computed that any number of mounted hooks re-evaluate, so an
+  // unguarded write turned every keyboard show/hide into a burst of
+  // identical `Storage.setItem` calls.
+  const next = String(Math.round(px));
+  if (next !== persisted) {
+    persisted = next;
+    saveString(STORAGE_KEY, next);
+  }
 }
 
 /**
@@ -79,6 +89,7 @@ export function rememberedKeyboardLift(): number {
 export function resetRememberedKeyboardLift(): void {
   observedLift = 0;
   observedThisRun = false;
+  persisted = null;
 }
 
 /**

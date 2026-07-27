@@ -265,7 +265,9 @@ export const EmojiComposerScreen = component(() => {
     const reveal = useKeyboardPanelReveal({
         blur: () => ctrlBox.current?.blur(),
         focus: () => {
-            // Nothing to do for the search field — it auto-focuses on mount.
+            // Nothing to do for the search field: it cannot be focused from
+            // app code at all (see `openSearch`), which is exactly why search
+            // waits for the user's tap and reacts to the keyboard arriving.
             if (focusTarget !== 'search') ctrlBox.current?.focus();
         },
     });

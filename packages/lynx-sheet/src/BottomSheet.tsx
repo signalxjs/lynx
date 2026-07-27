@@ -233,14 +233,7 @@ export const BottomSheet = component<BottomSheetProps>(({ props, emit, slots }) 
     // Remembered keyboard height for `{keyboard}` detents — tracked from
     // the BG-REACTIVE computed, never from a lift SV's `.value` (that SV
     // is MT-written; its BG side stays at its seed forever).
-    //
-    // Seeded from the SESSION's observation, not 0: a keyboard-sized panel
-    // opening on a screen where nothing has been typed yet would otherwise
-    // fall back to `fallbackPx` and then visibly correct itself the moment
-    // the real keyboard returned (#811 — the composer's input row jumped
-    // 53 px on that first swap). Any keyboard shown anywhere in the app
-    // has already taught us the height.
-    let rememberedKb = rememberedKeyboardLift();
+    let rememberedKb = 0;
     const screenH = screenHeightDp();
 
     // Live geometry — re-resolved on every render/accessor evaluation,
@@ -255,12 +248,20 @@ export const BottomSheet = component<BottomSheetProps>(({ props, emit, slots }) 
         // the lift SharedValue, not here.
         const kb = kbLiftBG.value;
         if (kb > 0) rememberedKb = kb;
+        // Falling back to the APP-WIDE memory — re-read here, not seeded once
+        // at mount — is what makes a keyboard-sized panel right on its first
+        // open. It has to be live: the persisted height is restored
+        // asynchronously, so a sheet that mounted before that resolved would
+        // otherwise hold 0 for its whole life and open at `fallbackPx`
+        // anyway, defeating the persistence entirely. A keyboard shown
+        // anywhere in the app also lands here.
+        const keyboardPx = rememberedKb > 0 ? rememberedKb : rememberedKeyboardLift();
         const ds = resolveDetents(props.detents, {
             screenH,
             topOffset: props.topOffset ?? 0,
             bottomOffset: props.bottomOffset ?? 0,
             bottomInset: insets.value.bottom ?? 0,
-            keyboardPx: rememberedKb,
+            keyboardPx,
         });
         const f = ds[0] ?? 0;
         const i = props.openDetentIndex ?? (ds.length > 1 ? 1 : 0);
