@@ -17,8 +17,10 @@ vi.mock('@sigx/lynx-safe-area', () => ({
 }));
 
 // Persistence is an OPTIONAL peer — the memory must work per-run without it,
-// and these tests pin the in-memory half of the contract. `saveString` is a
-// fire-and-forget no-op here; `loadString` never resolves a value.
+// and these tests pin exactly that half of the contract: `loadString` never
+// resolves a value, so nothing here exercises the restore path. That half
+// lives in `remembered-lift-restore.test.tsx`, which needs the opposite mock
+// before module load and therefore its own file.
 const saved: Array<[string, string]> = [];
 vi.mock('../src/persistence.js', () => ({
     loadString: () => Promise.resolve(null),
@@ -90,14 +92,12 @@ describe('rememberedKeyboardLift', () => {
         expect(saved.at(-1)).toEqual(['sigx.keyboard.lift', '344']);
     });
 
-    it('a REAL observation supersedes a restored guess, even if shorter', () => {
-        // Last run's keyboard may be taller than this run's (different IME,
-        // split screen) — keeping the stale max would strand a panel too
-        // tall, so the first real reading replaces it outright.
-        resetRememberedKeyboardLift();
-        insets.keyboard = 300;
+    it('resetRememberedKeyboardLift() clears the session value', () => {
+        insets.keyboard = 368;
         readLift();
-        expect(rememberedKeyboardLift()).toBe(276);
+        expect(rememberedKeyboardLift()).toBe(344);
+        resetRememberedKeyboardLift();
+        expect(rememberedKeyboardLift()).toBe(0);
     });
 
     it('only records the DEFAULT lift shape, so the number means one thing', () => {

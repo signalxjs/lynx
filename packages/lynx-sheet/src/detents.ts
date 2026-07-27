@@ -20,9 +20,12 @@
  *   `floor + keyboardPx + max(0, bottomInset - bottomOffset)` from the
  *   environment, falling back to `floor + fallbackPx` while no keyboard
  *   height has been observed yet. The env's `keyboardPx` must come from a
- *   BG-reactive keyboard source (e.g. the max observed `useKeyboardLift()`
- *   value) — never from reading a MT-written SharedValue's BG side, which
- *   stays at its seed.
+ *   BG-reactive keyboard source (e.g. `rememberedKeyboardLift()`, or the
+ *   LAST observed `useKeyboardLift()` value) — never from reading a
+ *   MT-written SharedValue's BG side, which stays at its seed, and never a
+ *   running MAX: the keyboard is not one height (suggestion strip, numeric
+ *   vs alpha layout, a different IME), so a max latches onto the tallest
+ *   ever seen and opens the sheet too tall from then on (#811).
  *
  *   The bottom inset is added back because keyboard *lift* values are
  *   inset-discounted — but only by however much of it the sheet still has

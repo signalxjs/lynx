@@ -153,10 +153,12 @@ const tabsRef = useMainThreadRef<MainThread.Element | null>(null);
         // The box is taller than the visible slice, so tell the grid how
         // much hangs below the fold or its last rows can't be scrolled to.
         gridBottomInset={panelH - restH.value}
-        renderCategoryTab={(tab, glyph, active) => (
+        renderCategoryTab={(tab, glyph, active, size) => (
             <LucideIcon
                 name={EMOJI_CATEGORY_ICONS[tab === 'recents' ? 'recents' : tab.key] ?? 'circle'}
-                size={22}
+                // `size` is already ink-ratio adjusted — a fixed px here
+                // would drift out of proportion under the OS text size.
+                size={size}
                 color={active ? accent : muted}
             />
         )}

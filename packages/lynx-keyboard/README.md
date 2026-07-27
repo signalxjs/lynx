@@ -74,7 +74,7 @@ Wraps content and keeps it above the keyboard. Layout-affecting, so it applies i
 - `useKeyboard(): Computed<{ height, visible }>` — BG-reactive keyboard state.
 - `useKeyboardLift(discountBottomInset?, offset?): Computed<number>` — the raw lift value.
 - `useKeyboardLiftSV(discountBottomInset?, offset?, duration?): SharedValue<number>` — smoothly animated MT SharedValue tracking the lift; bind with `useAnimatedStyle(ref, sv, 'translateY', { factor: -1 })`.
-- `rememberedKeyboardLift(): number` — the tallest lift seen so far (px), or `0` if the keyboard has never been shown. See below.
+- `rememberedKeyboardLift(): number` — the LAST observed lift (px), or `0` if the keyboard has never been shown. See below.
 
 ### Remembered keyboard height
 
