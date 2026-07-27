@@ -5,16 +5,34 @@ import {
     onMounted,
     onUnmounted,
     Platform,
+    useMainThreadRef,
+    type JSXElement,
+    type MainThread,
     type SharedValue,
 } from '@sigx/lynx';
 import { Screen } from '@sigx/lynx-navigation';
 import { BottomSheet } from '@sigx/lynx-sheet';
-import { Button, Col, Row, Text, emojiClasses, markdownComponents, useMarkdownEditorTheme } from '@sigx/lynx-daisyui';
+import {
+    Button,
+    Col,
+    Row,
+    Text,
+    emojiClassesBottomTabs,
+    markdownComponents,
+    useMarkdownEditorTheme,
+} from '@sigx/lynx-daisyui';
 import { LucideIcon } from '@sigx/lynx-icons-lucide/components';
 import { Haptics } from '@sigx/lynx-haptics';
 import { useKeyboardLift, useKeyboardLiftSV } from '@sigx/lynx-keyboard';
 import { useSafeAreaInsets } from '@sigx/lynx-safe-area';
-import { EmojiPicker, enData, useKeyboardPanelReveal, type EmojiPickEvent } from '@sigx/lynx-emoji';
+import {
+    EmojiPicker,
+    EMOJI_CATEGORY_ICONS,
+    enData,
+    useKeyboardPanelReveal,
+    type EmojiPickEvent,
+    type EmojiTab,
+} from '@sigx/lynx-emoji';
 import { List } from '@sigx/lynx-list';
 import { createMentionPlugin, MarkdownView, mentionSyntax, type MentionCandidate } from '@sigx/lynx-markdown';
 import { MarkdownEditor, type MarkdownEditorController } from '@sigx/lynx-markdown/editor';
@@ -42,6 +60,14 @@ const SEED: Msg[] = [
 
 /** Input-row height (px) — the sheet's collapsed floor; the input is pinned here. */
 const INPUT_H = 64;
+/**
+ * The drag-pill row under the input (`pt-1` + `h-1` + `pb-2`). Declared, not
+ * guessed: the pill and the picker box together have to fill the panel
+ * exactly, or the bottom-pinned tab bar lands off the visible edge.
+ */
+const PILL_H = 16;
+/** Everything the sheet's `handle` slot occupies while the panel is open. */
+const HANDLE_H = INPUT_H + PILL_H;
 /**
  * Identity-stable style for the picker — a fresh `{flexGrow:1}` object each
  * render would change `props.style` and re-run EmojiPicker's render (re-mapping
@@ -150,11 +176,33 @@ export const EmojiComposerScreen = component(() => {
 
     // The sheet's live reveal height (captured for potential sibling binding).
     let revealSV: SharedValue<number> | null = null;
+    // The category tab row, pinned to the sheet's VISIBLE bottom edge. The
+    // panel is laid out at its top detent and slid down, so the picker's
+    // own bottom is off-screen at the compact detent — the sheet binds this
+    // element to the inverse of that slide (main thread, every frame), which
+    // is what keeps the tabs glued to the bottom through a drag.
+    const tabsRef = useMainThreadRef<MainThread.Element | null>(null);
+    // The sheet's SETTLED visible height (px), reported by `onRest`. Only
+    // used for how far the grid may scroll — never for layout — so its
+    // ~200 ms post-drag lag is invisible.
+    const restH = signal(INPUT_H);
 
     const insertPick = (e: EmojiPickEvent): void => {
         ctrlBox.current?.insertText(e.glyph);
         draftEmpty.value = false;
     };
+
+    // Setup scope, NOT a fresh arrow per render: a new function identity
+    // would change the picker's props and re-render the whole grid on every
+    // mode toggle. The theme getters are read at CALL time, so it still
+    // follows a light/dark switch.
+    const renderCategoryTab = (tab: EmojiTab, _glyph: string, active: boolean): JSXElement => (
+        <LucideIcon
+            name={EMOJI_CATEGORY_ICONS[tab === 'recents' ? 'recents' : tab.key] ?? 'circle'}
+            size={22}
+            color={active ? editorTheme.accentColor : editorTheme.placeholderColor}
+        />
+    );
 
     // The tested reveal state machine (blur/focus + settle timing) — the same
     // dip-free WhatsApp swap, now driving the inline sheet's `open`:
@@ -218,10 +266,22 @@ export const EmojiComposerScreen = component(() => {
             Math.round(screenH * 0.92),
             Math.max(1, Math.round(screenH - topOffset - bottomOffset)),
         );
+        // The picker box fills the panel BELOW the handle — the panel's full
+        // height, NOT the currently visible slice. Sizing it to the visible
+        // slice instead would open a growing empty band under the grid for
+        // the whole of an upward drag (the box only re-sizes once the drag
+        // settles); at full height the grid always covers the visible area
+        // and simply extends below the fold. What the fold costs — an
+        // unreachable tail — is bought back with `gridBottomInset`.
         // Clamped: on a tiny screen (or Platform.pixelHeight 0 in non-Lynx
-        // envs) `fullH - INPUT_H - 32` could go non-positive — never emit a
-        // zero/negative height for the picker (see the #606 guard below).
-        const pickerH = Math.max(1, fullH - INPUT_H - 32);
+        // envs) this could go non-positive — never emit a zero/negative
+        // height for the picker (see the #606 guard below).
+        const pickerH = Math.max(1, fullH - HANDLE_H);
+        // How much of the box is hidden below the visible edge. Without it
+        // the native list scrolls to ITS OWN bottom and parks the last rows
+        // off-screen — at the compact detent that stranded the tail of the
+        // dataset (the flags section stopped ~8 rows early, #811).
+        const gridBottomInset = Math.max(0, fullH - restH.value);
         const floorH = INPUT_H;
         const mode = reveal.mode();
         const engaged = mode !== 'closed';
@@ -312,7 +372,9 @@ export const EmojiComposerScreen = component(() => {
                     openToLift
                     dragEnabled={mode === 'open'}
                     liftSV={kbLiftSV}
+                    pinnedBottomRef={tabsRef}
                     onReveal={(sv) => { revealSV = sv; }}
+                    onRest={(px) => { restH.value = px; }}
                     onSnap={(i) => { if (i === 0 && reveal.mode() === 'open') backToKeyboard(); }}
                     class="bg-base-100 border-t border-base-300"
                     slots={{
@@ -361,7 +423,7 @@ export const EmojiComposerScreen = component(() => {
                                     </Row>
                                 </view>
                                 {engaged && (
-                                    <Col align="center" class="pt-1 pb-2">
+                                    <Col align="center" class="pt-1 pb-2" style={{ height: `${PILL_H}px` }}>
                                         <view class="w-10 h-1 rounded-full bg-base-300" />
                                     </Col>
                                 )}
@@ -387,10 +449,23 @@ export const EmojiComposerScreen = component(() => {
                                             data={enData}
                                             showSearch
                                             onPick={insertPick}
+                                            // WhatsApp's arrangement: the category row is the
+                                            // picker's LAST row, and the sheet pins it to the
+                                            // visible bottom edge via `tabsRef`.
+                                            tabPlacement="bottom"
+                                            tabBarRef={tabsRef}
+                                            gridBottomInset={gridBottomInset}
+                                            // Monochrome line icons instead of glyphs — the
+                                            // name map is data from lynx-emoji, the art comes
+                                            // from the app's own icon set.
+                                            renderCategoryTab={renderCategoryTab}
                                             // Daisy skin — gives the sticky section headers their
                                             // opaque `bg-base-100`; without it the headless header
                                             // fallback is transparent and emojis scroll through it.
-                                            classes={emojiClasses}
+                                            // The bottom-tabs variant moves the divider to the
+                                            // bar's top edge and makes it opaque (it paints over
+                                            // the grid rows it overlaps).
+                                            classes={emojiClassesBottomTabs}
                                             style={PICKER_STYLE}
                                         />
                                     )}

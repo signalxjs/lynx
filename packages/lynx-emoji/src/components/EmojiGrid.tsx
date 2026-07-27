@@ -5,6 +5,7 @@ import {
     useFontScale,
     useMainThreadRef,
     type Define,
+    type JSXElement,
     type MainThread,
 } from '@sigx/lynx';
 import { List, SCROLL_METHOD, type ListRef } from '@sigx/lynx-list';
@@ -180,6 +181,21 @@ export type EmojiGridProps =
      * frame at a 1px placeholder and visibly re-lays-out once measured.
      */
     & Define.Prop<'initialHeight', number, false>
+    /**
+     * Extra SCROLLABLE space (px) below the last row — a trailing spacer
+     * cell, not padding on the box.
+     *
+     * For a grid whose box is deliberately taller than the region the user
+     * can actually see (a bottom sheet lays its panel out at the top detent
+     * and slides it down, so the body's lower part is off-screen), the
+     * native list happily scrolls to its own viewport bottom and parks the
+     * last rows below the fold, unreachable. Set this to the hidden
+     * overhang and the last row lands on the visible edge instead.
+     *
+     * Being a frame or two stale is harmless — it only changes how far the
+     * list CAN scroll — so drive it from a settled height, never per frame.
+     */
+    & Define.Prop<'bottomInset', number, false>
     /** Sticky skin tone applied to every tonal cell. Default 0 (base). */
     & Define.Prop<'tone', SkinTone, false>
     /** Grid columns. Default 8. */
@@ -220,6 +236,24 @@ export const EmojiGrid = component<EmojiGridProps>(({ props, emit }) => {
     // re-runs for real changes. `props` is a stable reactive proxy — reading
     // props.* inside these stays live.
     const keyExtractor = (d: EmojiDatum): string => d.e;
+
+    // Trailing-spacer slots, cached per height: a fresh `slots` object (or
+    // spacer vnode) each render would change List's props identity and
+    // re-run its row map for nothing. `undefined` below the first pixel so
+    // an unset/zero inset costs no cell at all.
+    type SpacerSlots = { footer: () => JSXElement };
+    const spacerSlots = new Map<number, SpacerSlots>();
+    const bottomSlots = (): SpacerSlots | undefined => {
+        const px = Math.round(props.bottomInset ?? 0);
+        if (px < 1) return undefined;
+        let slot = spacerSlots.get(px);
+        if (!slot) {
+            const vnode = <view style={{ height: `${px}px` }} /> as JSXElement;
+            slot = { footer: () => vnode };
+            spacerSlots.set(px, slot);
+        }
+        return slot;
+    };
     const renderItem = (datum: EmojiDatum): unknown => (
         <EmojiCell
             datum={datum}
@@ -502,6 +536,7 @@ export const EmojiGrid = component<EmojiGridProps>(({ props, emit }) => {
                     mtRef={scrollRef}
                     class={props.class}
                     style={props.style}
+                    slots={bottomSlots()}
                     onScroll={onListScroll}
                 />
             );
@@ -518,6 +553,7 @@ export const EmojiGrid = component<EmojiGridProps>(({ props, emit }) => {
                 numColumns={props.columns ?? 8}
                 class={props.class}
                 style={props.style}
+                slots={bottomSlots()}
             />
         );
     };

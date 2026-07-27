@@ -16,6 +16,15 @@
  * rides up as the sheet grows — put the part that should stay pinned to
  * the visible top (e.g. a text input) FIRST.
  *
+ * ## Pinning to the visible BOTTOM edge
+ * Because the panel is slid down, its own bottom edge is off-screen at
+ * every rest below the top detent — `position: absolute; bottom: 0` pins
+ * to a place nobody can see. Pass `pinnedBottomRef` instead: the sheet
+ * binds that element to the inverse of the slide, so it sits last in flow
+ * yet paints flush with the bottom of the revealed slice, every frame.
+ * Keep the body above it at full panel height, so a drag never opens a
+ * gap between the content and the pinned row.
+ *
  * ## Detents
  * `detents` are `DetentSpec`s (px, `{fraction}`, `{keyboard}`) resolved
  * live against screen height, safe-area insets, the remembered keyboard
@@ -64,6 +73,7 @@ import {
     useScrollDragHost,
     type Define,
     type MainThread,
+    type MainThreadRef,
     type SharedValue,
 } from '@sigx/lynx';
 import { useKeyboardLift } from '@sigx/lynx-keyboard';
@@ -151,12 +161,46 @@ export type BottomSheetProps =
     /** Receives the combined reveal SharedValue once, at setup (bind siblings to it). */
     & Define.Prop<'onReveal', (sv: SharedValue<number>) => void, false>
     /**
+     * Element to pin to the sheet's VISIBLE bottom edge — a WhatsApp-style
+     * emoji category bar, a sticky action row.
+     *
+     * The panel is laid out as tall as the top detent and slid DOWN by
+     * `panelHeight - combined`, so its own bottom edge is off-screen at
+     * every rest below the top detent: `position: absolute; bottom: 0`
+     * pins to a place nobody can see. The sheet instead binds this element
+     * to that same slide with `factor: -1`, cancelling it out — the
+     * element keeps its normal place in flow (put it last) and PAINTS
+     * flush with the bottom of the revealed slice, on the main thread,
+     * every frame of a drag or keyboard lift.
+     *
+     * MOUNT-CONSTANT (the binding registers at setup). The element must
+     * keep an identity-stable inline style — a re-emitted `SET_STYLE`
+     * clobbers the main-thread transform until the next reveal change —
+     * and must not carry another `translateY` binding of its own
+     * (transform outputs concatenate).
+     */
+    & Define.Prop<'pinnedBottomRef', MainThreadRef<MainThread.Element | null>, false>
+    /**
      * Fires on the BG thread when a drag settles. The payload indexes the
      * snap CANDIDATES — the resolved detents normally, `[floor, rest, top]`
      * under `openToLift` — so index 0 = floor and the last index = top in
      * both cases. Only the latest release emits (superseded settles bail).
      */
     & Define.Event<'snap', number>
+    /**
+     * The sheet's settled reveal in px — its VISIBLE height — emitted on
+     * the BG thread whenever it changes (mount, `open` toggle, drag
+     * settle, dismiss). `onSnap` says *which* detent; this says *how
+     * tall*, so content can size itself to the slice the sheet actually
+     * shows without re-deriving detent math (the composer's emoji panel
+     * sizes its grid from this — a body sized from the top detent instead
+     * hangs its tail below the screen edge, #811).
+     *
+     * Under `openToLift` the open value is the BG approximation of the
+     * captured lift (the `openDetentIndex` detent); the two agree once a
+     * keyboard height has been observed.
+     */
+    & Define.Event<'rest', number>
     /** The sheet settled dismissed (drag or backdrop tap). Consumer closes it. */
     & Define.Event<'dismiss', void>
     /** Any tap on the enabled backdrop (fires whether or not it dismisses). */
@@ -234,6 +278,13 @@ export const BottomSheet = component<BottomSheetProps>(({ props, emit, slots }) 
         mapperName: 'translateY' as const,
         params: { factor: 1 },
     }));
+    // Bottom-pinned chrome rides the INVERSE of the panel's slide, so it
+    // paints on the visible bottom edge at every reveal. Static form: the
+    // ref is mount-constant, and the binding must exist before the element
+    // attaches (same rule as `panelRef` above).
+    if (props.pinnedBottomRef) {
+        useAnimatedStyle(props.pinnedBottomRef, engine.translateY, 'translateY', { factor: -1 });
+    }
 
     // ---- BG settle state ------------------------------------------------
     // Claim generation: every grab (and backdrop dismiss) stamps it; a
@@ -243,6 +294,11 @@ export const BottomSheet = component<BottomSheetProps>(({ props, emit, slots }) 
     const gestureLock = signal(false);
     /** Settled rest reveal (px; BG approximation — `open` detent under openToLift). */
     const restPx = signal(seed.floor);
+    // Report the settled height out of an effect, never from the writes
+    // themselves: two of them happen during render, and emitting there
+    // would run consumer code (which typically writes a signal its own
+    // slot reads) in the middle of this component's render pass.
+    effect(() => { emit('rest', restPx.value); });
 
     const onClaim = (g: number): void => {
         claimGen = g;
