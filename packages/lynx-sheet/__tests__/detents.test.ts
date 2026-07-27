@@ -80,6 +80,43 @@ describe('resolveDetents — keyboard specs', () => {
         ).toEqual([64, 64 + 300 + 24]);
     });
 
+    it('does not add back an inset that bottomOffset already covers (#811)', () => {
+        // A sheet whose ancestor pads the gesture bar ends `bottomOffset`
+        // short of the screen, so it never has to cover that inset. Adding
+        // it back anyway opened the composer's emoji panel a gesture bar
+        // taller than the keyboard — and, since this detent is also
+        // `setReveal`'s `openFloor`, clamped away the live openToLift
+        // capture, jumping the input row on every swap.
+        expect(
+            resolveDetents([64, { keyboard: true }], {
+                screenH: 800,
+                bottomOffset: 24,
+                bottomInset: 24,
+                keyboardPx: 300,
+            }),
+        ).toEqual([64, 64 + 300]);
+    });
+
+    it('adds back only the uncovered remainder of the inset', () => {
+        expect(
+            resolveDetents([64, { keyboard: true }], {
+                screenH: 800,
+                bottomOffset: 10,
+                bottomInset: 24,
+                keyboardPx: 300,
+            }),
+        ).toEqual([64, 64 + 300 + 14]);
+        // A bottomOffset past the inset never subtracts below zero.
+        expect(
+            resolveDetents([64, { keyboard: true }], {
+                screenH: 800,
+                bottomOffset: 40,
+                bottomInset: 24,
+                keyboardPx: 300,
+            }),
+        ).toEqual([64, 64 + 300]);
+    });
+
     it('falls back while no keyboard has been observed yet', () => {
         expect(
             resolveDetents([64, { keyboard: true, fallbackPx: 336 }], {

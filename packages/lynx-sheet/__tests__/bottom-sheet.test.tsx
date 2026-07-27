@@ -6,7 +6,14 @@
  * DetentSpec API and covers the new backdrop/dismissible/dragMode surface.
  */
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
-import { component, signal, useSharedValue, type SharedValue } from '@sigx/lynx';
+import {
+    component,
+    signal,
+    useMainThreadRef,
+    useSharedValue,
+    type MainThread,
+    type SharedValue,
+} from '@sigx/lynx';
 import { render, waitForUpdate } from '@sigx/lynx-testing';
 import { BottomSheet } from '../src/BottomSheet';
 
@@ -107,6 +114,102 @@ describe('<BottomSheet>', () => {
         const root = result.container ?? result.root ?? result;
         expect(find(root, (n) => n.textContent?.() === 'H' || n.props?.children === 'H')).toBeTruthy();
         expect(sv).not.toBeNull();
+    });
+
+    // #811: content that has to fit the VISIBLE slice (an emoji grid in a
+    // composer) needs the settled height, not the detent index.
+    it('reports the settled visible height via onRest', async () => {
+        const open = signal({ value: false });
+        const seen: number[] = [];
+        const Host = component(() => () => (
+            <BottomSheet
+                detents={[64, 400, 800]}
+                open={open.value}
+                onRest={(px) => { seen.push(px); }}
+                slots={{ handle: () => <text>H</text>, default: () => <text>B</text> }}
+            />
+        ));
+        render(<Host />);
+        // Mount reports the floor, so a consumer never has to seed it.
+        expect(seen).toEqual([64]);
+
+        open.value = true;
+        await waitForUpdate();
+        expect(seen.at(-1)).toBe(400);
+
+        open.value = false;
+        await waitForUpdate();
+        expect(seen.at(-1)).toBe(64);
+    });
+
+    it('a dismissible sheet mounting CLOSED reports 0, not its floor', () => {
+        // Seeding the floor made the mount emission report a height the sheet
+        // never had, corrected to 0 only on the first render — a consumer
+        // sizing content off `onRest` would briefly compute from a phantom.
+        const seen: number[] = [];
+        const Host = component(() => () => (
+            <BottomSheet
+                detents={[64, 400]}
+                dismissible
+                open={false}
+                onRest={(px) => { seen.push(px); }}
+                slots={{ handle: () => <text>H</text>, default: () => <text>B</text> }}
+            />
+        ));
+        render(<Host />);
+        expect(seen).toEqual([0]);
+    });
+
+    it('an OPEN-on-mount sheet reports its open detent, not its floor', () => {
+        const seen: number[] = [];
+        const Host = component(() => () => (
+            <BottomSheet
+                detents={[64, 400, 800]}
+                open
+                onRest={(px) => { seen.push(px); }}
+                slots={{ handle: () => <text>H</text>, default: () => <text>B</text> }}
+            />
+        ));
+        render(<Host />);
+        expect(seen).toEqual([400]);
+    });
+
+    it('a dismissible sheet rests at 0 when closed, not at its floor', async () => {
+        const open = signal({ value: true });
+        const seen: number[] = [];
+        const Host = component(() => () => (
+            <BottomSheet
+                detents={[64, 400]}
+                dismissible
+                open={open.value}
+                onRest={(px) => { seen.push(px); }}
+                slots={{ handle: () => <text>H</text>, default: () => <text>B</text> }}
+            />
+        ));
+        render(<Host />);
+        open.value = false;
+        await waitForUpdate();
+        expect(seen.at(-1)).toBe(0);
+    });
+
+    it('accepts pinnedBottomRef and still renders both slots', () => {
+        // The binding itself is a main-thread transform (exercised on
+        // device); what BG can assert is that opting in changes nothing
+        // about the rendered shape.
+        const Host = component(() => {
+            const pinned = useMainThreadRef<MainThread.Element | null>(null);
+            return () => (
+                <BottomSheet
+                    detents={[64, 400, 800]}
+                    pinnedBottomRef={pinned}
+                    slots={{ handle: () => <text>H</text>, default: () => <text>B</text> }}
+                />
+            );
+        });
+        const result: any = render(<Host />);
+        const root = result.container ?? result.root ?? result;
+        expect(find(root, isPanel).props.style.height).toBe('800px');
+        expect(find(root, (n) => n.textContent?.() === 'B' || n.props?.children === 'B')).toBeTruthy();
     });
 
     // Regression (#743): geometry is re-resolved live — a sheet whose

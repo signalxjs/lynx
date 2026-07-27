@@ -17,14 +17,26 @@
  * - `{ fraction }` — share of screen height, `(0, 1]`.
  * - `{ keyboard }` — the height at which the sheet's floor content sits
  *   exactly on top of the soft keyboard: resolved as
- *   `floor + keyboardPx + bottomInset` from the environment, falling back
- *   to `floor + fallbackPx` while no keyboard height has been observed
- *   yet. The env's `keyboardPx` must come from a BG-reactive keyboard
- *   source (e.g. the max observed `useKeyboardLift()` value) — never from
- *   reading a MT-written SharedValue's BG side, which stays at its seed.
- *   The bottom inset is added back here because keyboard *lift* values are
- *   inset-discounted while the sheet itself reaches the true screen
- *   bottom.
+ *   `floor + keyboardPx + max(0, bottomInset - bottomOffset)` from the
+ *   environment, falling back to `floor + fallbackPx` while no keyboard
+ *   height has been observed yet. The env's `keyboardPx` must come from a
+ *   BG-reactive keyboard source (e.g. `rememberedKeyboardLift()`, or the
+ *   LAST observed `useKeyboardLift()` value) — never from reading a
+ *   MT-written SharedValue's BG side, which stays at its seed, and never a
+ *   running MAX: the keyboard is not one height (suggestion strip, numeric
+ *   vs alpha layout, a different IME), so a max latches onto the tallest
+ *   ever seen and opens the sheet too tall from then on (#811).
+ *
+ *   The bottom inset is added back because keyboard *lift* values are
+ *   inset-discounted — but only by however much of it the sheet still has
+ *   to cover. A sheet whose bottom edge reaches the true screen bottom
+ *   (`bottomOffset: 0`) covers the whole inset; one whose ancestor already
+ *   pads the gesture bar (`bottomOffset: insets.bottom`) covers none of
+ *   it, and adding the inset back there would open the sheet a gesture bar
+ *   TALLER than the keyboard it is supposed to replace (#811 — the
+ *   composer's emoji panel jumped the input row up by exactly that much,
+ *   because the inflated detent also became `setReveal`'s `openFloor` and
+ *   clamped away the live `openToLift` capture).
  */
 export type DetentSpec =
     | number
@@ -52,7 +64,10 @@ export interface DetentEnv {
      * amount (the "handle disappears behind the header" bug).
      */
     bottomOffset?: number;
-    /** Bottom safe-area inset — added back onto keyboard detents. */
+    /**
+     * Bottom safe-area inset — added back onto keyboard detents, less
+     * whatever `bottomOffset` already accounts for (see `DetentSpec`).
+     */
     bottomInset?: number;
     /**
      * Remembered keyboard lift in px (inset-discounted, as reported by
@@ -104,13 +119,17 @@ export function resolveDetents(
     }
     const floorBase = fixed.length > 0 ? Math.min(...fixed) : 0;
 
-    // Pass 2 — keyboard specs ride on the floor.
+    // Pass 2 — keyboard specs ride on the floor. The inset add-back covers
+    // only the part of the bottom inset the sheet still reaches (see
+    // `DetentSpec`): a sheet already padded by `bottomOffset` must not add
+    // that padding a second time.
+    const insetToCover = Math.max(0, (env.bottomInset ?? 0) - bottomOffset);
     const resolved = [...fixed];
     for (const spec of specs ?? []) {
         if (spec != null && typeof spec === 'object' && 'keyboard' in spec) {
             const kb =
                 (env.keyboardPx ?? 0) > 0
-                    ? (env.keyboardPx ?? 0) + (env.bottomInset ?? 0)
+                    ? (env.keyboardPx ?? 0) + insetToCover
                     : (spec.fallbackPx ?? DEFAULT_KEYBOARD_FALLBACK_PX);
             resolved.push(floorBase + kb);
         }

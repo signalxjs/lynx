@@ -51,8 +51,50 @@ function escapeAttr(value: string | number): string {
     return String(value).replace(/&/g, '&amp;').replace(/"/g, '&quot;');
 }
 
+/**
+ * Rewrite the SVG primitives Lynx's `<svg content=…>` renderer drops.
+ *
+ * `<line>`, `<polyline>` and `<polygon>` silently don't paint on Lynx —
+ * `hash` (four lines, nothing else) came out completely blank and `smile`
+ * lost its eyes. 98 of lucide's 1,956 icons contain at least one. All three
+ * are trivially expressible as `<path>`, which does paint, so they are
+ * converted here rather than shipped broken.
+ *
+ * Returns `null` when the element isn't one of those (or lacks the
+ * coordinates to convert), leaving it untouched.
+ */
+function asPathData(tag: string, attrs: LucideAttrs): string | null {
+    if (tag === 'line') {
+        const { x1, y1, x2, y2 } = attrs;
+        if (x1 === undefined || y1 === undefined || x2 === undefined || y2 === undefined) return null;
+        return `M${x1} ${y1}L${x2} ${y2}`;
+    }
+    if (tag === 'polyline' || tag === 'polygon') {
+        // `points` is whitespace/comma separated: "11 3 11 11 14 8".
+        const nums = String(attrs.points ?? '').trim().split(/[\s,]+/).filter((s) => s !== '');
+        if (nums.length < 4 || nums.length % 2 !== 0) return null;
+        let d = `M${nums[0]} ${nums[1]}`;
+        for (let i = 2; i < nums.length; i += 2) d += `L${nums[i]} ${nums[i + 1]}`;
+        return tag === 'polygon' ? `${d}Z` : d;
+    }
+    return null;
+}
+
+/** Attrs consumed by `asPathData` — dropped from the emitted `<path>`. */
+const GEOMETRY_ATTRS = new Set(['x1', 'y1', 'x2', 'y2', 'points']);
+
 function renderElement(el: LucideElement): string {
     const [tag, attrs] = el;
+    const pathData = asPathData(tag, attrs);
+    if (pathData !== null) {
+        // Carry over any attrs that aren't the geometry we just consumed —
+        // stroke overrides and the like still apply to the path.
+        const extra: string[] = [`d="${escapeAttr(pathData)}"`];
+        for (const [k, v] of Object.entries(attrs)) {
+            if (!GEOMETRY_ATTRS.has(k)) extra.push(`${k}="${escapeAttr(v)}"`);
+        }
+        return `<path ${extra.join(' ')}/>`;
+    }
     const parts: string[] = [];
     for (const [k, v] of Object.entries(attrs)) {
         parts.push(`${k}="${escapeAttr(v)}"`);

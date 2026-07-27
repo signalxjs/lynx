@@ -131,13 +131,79 @@ import { EmojiPickerSheet, emojiClasses } from '@sigx/lynx-daisyui';
 <EmojiPickerSheet open={open.value} data={enData} onPick={…} onClose={…} />
 ```
 
+### WhatsApp layout: icon tabs at the bottom
+
+`tabPlacement="bottom"` makes the category row the picker's LAST row. Inside
+a sheet, hand its wrapper to the sheet so it stays glued to the visible
+bottom edge through a drag — a sheet panel is laid out at its top detent and
+slid down, so its own bottom is off-screen at smaller detents:
+
+```tsx
+import { EmojiPicker, EMOJI_CATEGORY_ICONS } from '@sigx/lynx-emoji';
+import { BottomSheet } from '@sigx/lynx-sheet';
+import { emojiClassesBottomTabs } from '@sigx/lynx-daisyui';
+
+const tabsRef = useMainThreadRef<MainThread.Element | null>(null);
+
+<BottomSheet pinnedBottomRef={tabsRef} … onRest={(px) => { restH.value = px; }}>
+    <EmojiPicker
+        tabPlacement="bottom"
+        tabBarRef={tabsRef}
+        classes={emojiClassesBottomTabs}
+        // The box is taller than the visible slice, so tell the grid how
+        // much hangs below the fold or its last rows can't be scrolled to.
+        gridBottomInset={panelH - restH.value}
+        renderCategoryTab={(tab, glyph, active, size) => (
+            <LucideIcon
+                name={EMOJI_CATEGORY_ICONS[tab === 'recents' ? 'recents' : tab.key] ?? 'circle'}
+                // `size` is already ink-ratio adjusted — a fixed px here
+                // would drift out of proportion under the OS text size.
+                size={size}
+                color={active ? accent : muted}
+            />
+        )}
+    />
+</BottomSheet>
+```
+
+`EMOJI_CATEGORY_ICONS` is plain data (CLDR group key → icon name) — the
+package ships no icons and takes no icon dependency. Because the lookup is a
+*dynamic* icon name, force-include the names in `signalx.config.ts` or the
+tabs render empty:
+
+```ts
+iconSets: [{ id: 'lucide', source: '@sigx/lynx-icons-lucide', include: [
+    'clock', 'smile', 'hand', 'leaf', 'coffee',
+    'car', 'volleyball', 'lightbulb', 'hash', 'flag',
+] }]
+```
+
+### `<EmojiStrip>` — one-row results
+
+A horizontal strip of cells for search hits or recents — the shape WhatsApp
+shows above the keyboard while you search, and what a reaction bar wants.
+Plain elements, not a virtualized `<list>`, so it can re-render per keystroke:
+
+```tsx
+import { EmojiStrip, useEmojiContext } from '@sigx/lynx-emoji';
+
+const ctx = useEmojiContext();
+<EmojiStrip emojis={ctx.index.search(q)} onPick={({ glyph }) => insert(glyph)} />
+```
+
 ### OS font scale
 
-The picker is **pinned** like a keyboard panel: grid glyphs, section labels,
-tab glyphs and the tone popover hold their designed sizes regardless of the
-system text-size setting (each fontSize is counter-divided by the effective
-scale, so the fixed row geometry / scroll-offset math stays exact). Emoji
-inside your message text are ordinary text and scale with it.
+The picker **follows** the system text-size setting: a larger setting trades
+columns for cell size, so the emoji grow with everything else (on a 448dp
+phone, 11 columns at scale 1.0 → 9 at 1.15 → 8 at 1.3). The scale is folded
+into `resolveEmojiGeometry` and frozen at mount alongside `columns` /
+`cellSize`, so the fixed row geometry and the sectioned grid's scroll-offset
+math stay exact — the glyph `fontSize` is still counter-divided by the live
+scale, which is what makes the painted size equal the resolved `cellSize`.
+
+Custom tabs get that size as `renderCategoryTab`'s 4th argument, already
+multiplied by the platform ink ratio — use it rather than a fixed px, or an
+icon tab sits stubbornly small next to emoji that grew.
 
 ## Locale data
 

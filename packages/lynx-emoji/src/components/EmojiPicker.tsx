@@ -1,4 +1,12 @@
-import { component, signal, useElementLayout, useFontScale, type Define } from '@sigx/lynx';
+import {
+    component,
+    signal,
+    useElementLayout,
+    useFontScale,
+    type Define,
+    type MainThread,
+    type MainThreadRef,
+} from '@sigx/lynx';
 import type { EmojiData, EmojiDatum, SkinTone } from '../data/schema.js';
 import { glyphForTone } from '../data/glyph.js';
 import { createEmojiContext, useEmojiContext, type EmojiContextValue } from '../state/context.js';
@@ -27,8 +35,10 @@ export type EmojiPickerProps =
     /**
      * Grid columns. Default: ADAPTIVE — as many ~40px cells as the measured
      * grid width fits (clamped 7–12; 10 on a typical phone, like WhatsApp).
-     * The resolved value is FROZEN for the mount (the sectioned grid's
-     * scroll-offset math needs fixed rows) — post-mount changes are ignored.
+     * The target cell scales with the OS text-size setting, so a larger text
+     * size yields FEWER, BIGGER columns (#811). The resolved value is FROZEN
+     * for the mount (the sectioned grid's scroll-offset math needs fixed
+     * rows) — post-mount changes are ignored.
      */
     & Define.Prop<'columns', number, false>
     /** Show the recents tab. Default true. */
@@ -46,9 +56,9 @@ export type EmojiPickerProps =
      * per-platform font metric (#761: Noto Color Emoji ~64% of the em on
      * Android; iOS models Apple's worst-case glyphs at 1.1), so the same em renders
      * different visual densities per platform — row heights adapt with it;
-     * 32 when no width is known. Pass a number for full control (never
-     * clamped). The tone popover follows the resolved size. Frozen for the
-     * mount, like `columns`.
+     * 32 when no width is known. Scales with the OS text-size setting, like
+     * `columns`. Pass a number for full control (never clamped). The tone
+     * popover follows the resolved size. Frozen for the mount.
      */
     & Define.Prop<'cellSize', number, false>
     /** Per-slot class overrides — the theming surface. */
@@ -58,6 +68,27 @@ export type EmojiPickerProps =
     & Define.Prop<'renderCell', EmojiRenderCell, false>
     & Define.Prop<'renderCategoryTab', EmojiRenderCategoryTab, false>
     & Define.Prop<'renderSearchInput', EmojiRenderSearchInput, false>
+    /**
+     * Where the category tab bar sits relative to the grid: `'top'`
+     * (default) or `'bottom'` — the WhatsApp arrangement, where the tab row
+     * is the picker's last row. Flow order only; the grid region measures
+     * the same either way.
+     */
+    & Define.Prop<'tabPlacement', 'top' | 'bottom', false>
+    /**
+     * Captures the tab bar's wrapper element. Hand it to a sheet's
+     * `pinnedBottomRef` (`@sigx/lynx-sheet`) to keep a `'bottom'` tab bar
+     * glued to the visible bottom edge while the sheet is dragged.
+     */
+    & Define.Prop<'tabBarRef', MainThreadRef<MainThread.Element | null>, false>
+    /**
+     * Extra scrollable space (px) below the grid's last row — forwarded to
+     * `EmojiGrid.bottomInset`. Set it to however much of the picker's box
+     * is hidden below the fold (a sheet body is laid out at the top detent
+     * and slid down), or the tail of the dataset can never be scrolled
+     * into view.
+     */
+    & Define.Prop<'gridBottomInset', number, false>
     & EmojiPropsExtensions
     & Define.Event<'pick', EmojiPickEvent>;
 
@@ -73,6 +104,18 @@ const RECENTS_GLYPH = '🕘';
 // proxies — signalxjs/lynx#603 — and blanks the whole surface). The
 // per-key caches in setup scope below satisfy both.
 const GRID_STYLE_TEMPLATE: Record<string, string | number> = { flexGrow: 1, flexShrink: 1 };
+/**
+ * The tab bar's wrapper. `flexShrink: 0` so a bottom bar keeps its height
+ * against a grid that wants to grow; the wrapper exists so `tabBarRef` has
+ * a plain element to bind a main-thread transform to (see `tabBarRef`) —
+ * one whose inline style never changes identity, or the re-emitted
+ * `SET_STYLE` would clobber that transform.
+ */
+const TABBAR_WRAP_TEMPLATE: Record<string, string | number> = {
+    flexShrink: 0,
+    display: 'flex',
+    flexDirection: 'column',
+};
 
 /**
  * Curated tab icons per CLDR group key. The first-emoji-of-group fallback
@@ -91,6 +134,55 @@ const CATEGORY_GLYPHS: Record<string, string> = {
     'objects': '💡',
     'symbols': '🔣',
     'flags': '🚩',
+};
+
+/**
+ * The same tabs as monochrome ICON names, for pickers that want WhatsApp's
+ * line-icon tab row instead of glyphs. Names follow lucide's kebab-case
+ * (`@sigx/lynx-icons-lucide`), but this is plain data — the package ships
+ * no icons and takes no icon dependency; render them yourself through
+ * `renderCategoryTab`:
+ *
+ * ```tsx
+ * <EmojiPicker
+ *     tabPlacement="bottom"
+ *     renderCategoryTab={(tab, glyph, active, size) => (
+ *         <LucideIcon
+ *             name={EMOJI_CATEGORY_ICONS[tab === 'recents' ? 'recents' : tab.key] ?? 'circle'}
+ *             size={size}
+ *             color={active ? accent : muted}
+ *         />
+ *     )}
+ * />
+ * ```
+ *
+ * Keys are CLDR group keys plus the synthetic `'recents'`. A future CLDR
+ * group not listed here has no icon — fall back to the glyph the render
+ * prop is handed as its second argument.
+ *
+ * ⚠️ Looking a name up in this map is a DYNAMIC icon name. `@sigx/lynx-plugin`
+ * bundles only the glyphs it can see as string literals in the app's own
+ * sources, so these names must be force-included or the tabs render empty:
+ *
+ * ```ts
+ * // signalx.config.ts
+ * iconSets: [{ id: 'lucide', source: '@sigx/lynx-icons-lucide', include: [
+ *     'clock', 'smile', 'hand', 'leaf', 'coffee',
+ *     'car', 'volleyball', 'lightbulb', 'hash', 'flag',
+ * ] }]
+ * ```
+ */
+export const EMOJI_CATEGORY_ICONS: Record<string, string> = {
+    'recents': 'clock',
+    'smileys-emotion': 'smile',
+    'people-body': 'hand',
+    'animals-nature': 'leaf',
+    'food-drink': 'coffee',
+    'travel-places': 'car',
+    'activities': 'volleyball',
+    'objects': 'lightbulb',
+    'symbols': 'hash',
+    'flags': 'flag',
 };
 
 /**
@@ -187,6 +279,7 @@ export const EmojiPicker = component<EmojiPickerProps>(({ props, emit }) => {
     // Per-element style objects, cached per key — identity-stable across
     // renders AND unique per element (see the template note above / #603).
     const gridStyles = new Map<string, Record<string, string | number>>();
+    const chromeStyles = new Map<string, Record<string, string | number>>();
     const styleFor = (
         cache: Map<string, Record<string, string | number>>,
         template: Record<string, string | number>,
@@ -234,10 +327,17 @@ export const EmojiPicker = component<EmojiPickerProps>(({ props, emit }) => {
             // Pre-measure fallback — NOT frozen, so the real measurement wins.
             return { columns: props.columns ?? 8, cellSize: props.cellSize ?? 32 };
         }
-        resolvedGeometry = resolveEmojiGeometry(regionWidth, ink, {
-            columns: props.columns,
-            cellSize: props.cellSize,
-        });
+        // The OS text-size setting scales the grid (#811): bigger text →
+        // bigger emoji in fewer columns.
+        resolvedGeometry = resolveEmojiGeometry(
+            regionWidth,
+            ink,
+            { columns: props.columns, cellSize: props.cellSize },
+            // Frozen with the rest of the geometry: a live text-size change
+            // mid-session won't re-flow the mounted grid (neither does a width
+            // change), but every fresh mount picks the current setting up.
+            fontScale.value,
+        );
         return resolvedGeometry;
     };
 
@@ -304,6 +404,7 @@ export const EmojiPicker = component<EmojiPickerProps>(({ props, emit }) => {
                 emojis={emojis}
                 itemsKey={itemsKey}
                 initialHeight={regionHeight > 0 ? regionHeight : undefined}
+                bottomInset={props.gridBottomInset}
                 tone={tone}
                 columns={columns}
                 cellSize={cellSize}
@@ -331,6 +432,7 @@ export const EmojiPicker = component<EmojiPickerProps>(({ props, emit }) => {
                 itemsKey={sectionsKey}
                 scrollHandle={gridScroll}
                 initialHeight={regionHeight > 0 ? regionHeight : undefined}
+                bottomInset={props.gridBottomInset}
                 tone={tone}
                 columns={columns}
                 cellSize={cellSize}
@@ -350,6 +452,32 @@ export const EmojiPicker = component<EmojiPickerProps>(({ props, emit }) => {
             />
             );
         };
+
+        // The tab bar, rendered once and placed by `tabPlacement`. Always
+        // inside a wrapper: `tabBarRef` needs a plain element to bind a
+        // main-thread transform to, and the wrapper's style comes from the
+        // per-key cache so its identity never changes (a re-emitted
+        // SET_STYLE would drop that transform).
+        const tabPlacement = props.tabPlacement ?? 'top';
+        const tabBar = q === '' && sections !== null
+            ? (
+                <view
+                    main-thread:ref={props.tabBarRef}
+                    style={styleFor(chromeStyles, TABBAR_WRAP_TEMPLATE, 'tabbar')}
+                >
+                    <CategoryTabBar
+                        size={Math.round(cellSize * 0.62)}
+                        tabs={allTabs}
+                        active={activeTab}
+                        class={classes.tabBar}
+                        tabClass={classes.tab}
+                        tabActiveClass={classes.tabActive}
+                        render={props.renderCategoryTab}
+                        onSelect={(t) => selectTab(t === 'recents' ? 'recents' : t.key)}
+                    />
+                </view>
+            )
+            : null;
 
         return (
             <view
@@ -379,18 +507,7 @@ export const EmojiPicker = component<EmojiPickerProps>(({ props, emit }) => {
                             )}
                     </view>
                 )}
-                {q === '' && sections !== null && (
-                    <CategoryTabBar
-                        size={Math.round(cellSize * 0.62)}
-                        tabs={allTabs}
-                        active={activeTab}
-                        class={classes.tabBar}
-                        tabClass={classes.tab}
-                        tabActiveClass={classes.tabActive}
-                        render={props.renderCategoryTab}
-                        onSelect={(t) => selectTab(t === 'recents' ? 'recents' : t.key)}
-                    />
-                )}
+                {tabPlacement === 'top' && tabBar}
                 <view style={regionStyle} bindlayoutchange={onRegionLayoutChange}>
                 {searchHits !== null
                     ? (searchHits.length === 0
@@ -398,6 +515,7 @@ export const EmojiPicker = component<EmojiPickerProps>(({ props, emit }) => {
                         : renderGrid(searchHits, 'search', 'q:' + q))
                     : (sections !== null && regionHeight > 0 ? renderSectioned() : null)}
                 </view>
+                {tabPlacement === 'bottom' && tabBar}
                 {popover.datum && (
                     <SkinTonePopover
                         size={cellSize}

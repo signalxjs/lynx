@@ -22,3 +22,17 @@ export const emojiClasses: EmojiSlotClasses = {
     popoverCell: 'rounded-lg',
     empty: 'opacity-60',
 };
+
+/**
+ * The same skin for `tabPlacement="bottom"` (the WhatsApp arrangement).
+ * A bottom tab row needs the divider on its TOP edge, and — because a
+ * bottom bar pinned to a sheet's visible edge paints OVER the grid rows it
+ * overlaps — an opaque background of its own.
+ *
+ * A module-level constant, not a spread at the call site: `classes` must
+ * keep a stable identity or every picker render re-runs the grid.
+ */
+export const emojiClassesBottomTabs: EmojiSlotClasses = {
+    ...emojiClasses,
+    tabBar: 'bg-base-100 px-2 py-1 border-t border-base-300',
+};

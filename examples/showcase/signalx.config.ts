@@ -64,8 +64,20 @@ export default defineLynxConfig({
         // call sites — the catalog (src/catalog.ts) keeps its icons as
         // `{ set: 'lucide', name: '…' }` literals for exactly this reason.
         // `include` is the escape hatch for genuinely dynamic names: Home's
-        // theme toggle picks sun/moon from a ternary the scanner can't see.
-        { id: 'lucide', source: '@sigx/lynx-icons-lucide', include: ['sun', 'moon'] },
+        // theme toggle picks sun/moon from a ternary the scanner can't see,
+        // and the Chat composer's emoji tab bar looks its icons up in
+        // lynx-emoji's `EMOJI_CATEGORY_ICONS` map — a name the scanner can't
+        // see either (it lives in another package, behind an index).
+        {
+            id: 'lucide',
+            source: '@sigx/lynx-icons-lucide',
+            include: [
+                'sun', 'moon',
+                // EMOJI_CATEGORY_ICONS — keep in sync with @sigx/lynx-emoji.
+                'clock', 'smile', 'hand', 'leaf', 'coffee',
+                'car', 'volleyball', 'lightbulb', 'hash', 'flag',
+            ],
+        },
     ],
 
     android: {

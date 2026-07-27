@@ -1,7 +1,7 @@
 {
     "name": "@sigx/lynx-keyboard",
     "version": "0.21.0",
-    "description": "Soft-keyboard handling for sigx-lynx — KeyboardStickyView, KeyboardAvoidingView and keyboard hooks",
+    "description": "Soft-keyboard handling for sigx-lynx \u2014 KeyboardStickyView, KeyboardAvoidingView and keyboard hooks",
     "type": "module",
     "main": "./dist/index.js",
     "types": "./dist/index.d.ts",
@@ -41,7 +41,8 @@
         "@sigx/lynx-runtime-main": "workspace:^",
         "@sigx/lynx-testing": "workspace:^",
         "@typescript/native-preview": "7.0.0-dev.20260521.1",
-        "typescript": "^6.0.3"
+        "typescript": "^6.0.3",
+        "@sigx/lynx-storage": "workspace:^"
     },
     "repository": {
         "type": "git",
@@ -54,5 +55,13 @@
     },
     "publishConfig": {
         "access": "public"
+    },
+    "peerDependencies": {
+        "@sigx/lynx-storage": "workspace:^"
+    },
+    "peerDependenciesMeta": {
+        "@sigx/lynx-storage": {
+            "optional": true
+        }
     }
 }

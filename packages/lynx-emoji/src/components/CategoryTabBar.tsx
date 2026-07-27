@@ -1,6 +1,7 @@
 import { component, useFontScale, type Define } from '@sigx/lynx';
 import { Pressable } from '@sigx/lynx-gestures';
 import type { EmojiCategory } from '../data/schema.js';
+import { emojiInkRatio } from '../metrics.js';
 import type { EmojiRenderCategoryTab, EmojiTab } from '../types.js';
 
 /** A tab plus its representative glyph (🕐 for recents, first emoji otherwise). */
@@ -39,7 +40,14 @@ function tabLabel(tab: EmojiTab): string {
 export const CategoryTabBar = component<CategoryTabBarProps>(({ props, emit }) => {
     // Pinned — the tab bar's fixed height assumes `size` glyphs (#776).
     const fontScale = useFontScale();
-    return () => (
+    // `size` is an emoji EM, and emoji ink only part of it (64% on Android).
+    // A render prop drawing something that fills its box — an icon — must be
+    // handed the VISUAL size instead, or it comes out ~1.6x larger than the
+    // glyph tabs it replaces.
+    const ink = emojiInkRatio();
+    return () => {
+    const visualSize = Math.round((props.size ?? 30) * ink);
+    return (
         <scroll-view scroll-orientation="horizontal" class={props.class}>
             <view style={{ display: 'flex', flexDirection: 'row' }}>
                 {props.tabs.map(({ tab, glyph }) => {
@@ -64,7 +72,7 @@ export const CategoryTabBar = component<CategoryTabBarProps>(({ props, emit }) =
                             onPress={() => emit('select', tab)}
                         >
                             {props.render
-                                ? props.render(tab, glyph, active)
+                                ? props.render(tab, glyph, active, visualSize)
                                 : <text style={{ fontSize: (props.size ?? 30) / fontScale.value }}>{glyph}</text>}
                         </Pressable>
                     );
@@ -72,6 +80,7 @@ export const CategoryTabBar = component<CategoryTabBarProps>(({ props, emit }) =
             </view>
         </scroll-view>
     );
+    };
 });
 
 export type { EmojiCategory };

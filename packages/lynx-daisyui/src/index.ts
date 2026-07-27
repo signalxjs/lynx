@@ -150,6 +150,6 @@ export { EditorToolbar, daisyToolbarItem } from './markdown/toolbar.js';
 export type { EditorToolbarProps } from './markdown/toolbar.js';
 
 // Emoji — daisyUI skin + themed sheet for `@sigx/lynx-emoji` (optional peer).
-export { emojiClasses } from './emoji/components.js';
+export { emojiClasses, emojiClassesBottomTabs } from './emoji/components.js';
 export { EmojiPickerSheet } from './emoji/EmojiPickerSheet.js';
 export type { EmojiPickerSheetProps } from './emoji/EmojiPickerSheet.js';

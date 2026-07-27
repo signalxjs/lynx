@@ -9,7 +9,98 @@ import {
 } from '@sigx/lynx';
 import { useSafeAreaInsets } from '@sigx/lynx-safe-area';
 import { cancelAnimation, withTiming } from '@sigx/lynx-motion';
+import { loadString, saveString } from './persistence.js';
 import type { KeyboardState } from './types.js';
+
+/**
+ * The most recently observed keyboard lift (px, inset-discounted), 0 until
+ * a keyboard has ever been shown.
+ *
+ * Module-level ON PURPOSE: "how tall is this device's keyboard" is a fact
+ * about the app's environment, not about whichever component happened to be
+ * mounted when it last appeared. A panel that must occupy exactly the
+ * keyboard's space — a WhatsApp-style emoji sheet — otherwise has to guess a
+ * fallback the first time it opens on a screen where nothing has been typed
+ * yet, and then visibly corrects itself when the real keyboard returns (#811:
+ * the composer's input row jumped 53 px on that first swap).
+ *
+ * Only the DEFAULT lift shape (bottom inset discounted, no offset) is
+ * recorded, so the number means one thing. It also PERSISTS across app runs
+ * (via the optional `@sigx/lynx-storage` peer — without it the memory is
+ * simply per-run), so a fresh launch is right from the first panel.
+ */
+let observedLift = 0;
+/** Whether `observedLift` came from a REAL keyboard this run (vs. restored). */
+let observedThisRun = false;
+/** Last value written to storage — dedupes redundant writes. */
+let persisted: string | null = null;
+
+const STORAGE_KEY = 'sigx.keyboard.lift';
+
+// Restore last run's height so the FIRST keyboard-sized panel of a fresh app
+// run is already right — otherwise it guesses a fallback and then visibly
+// corrects itself the moment the real keyboard arrives. Best-effort and
+// racy by nature (the panel may open before this resolves); a real
+// observation always wins over the restored value.
+void loadString(STORAGE_KEY).then((raw) => {
+  if (observedThisRun || raw == null) return;
+  const px = Number(raw);
+  if (Number.isFinite(px) && px > 0 && px < 2000) {
+    observedLift = px;
+    // Seed the write-dedupe too: without it the first real observation
+    // writes back on every launch even when the height hasn't changed.
+    persisted = String(Math.round(px));
+  }
+});
+
+/**
+ * @internal Record an observed lift. Keeps the LATEST, never a running max.
+ *
+ * A device's keyboard is not one height: the suggestion strip comes and
+ * goes, numeric and alpha layouts differ, IMEs differ. A panel sized to
+ * occupy the keyboard's space has to match the keyboard that is about to
+ * appear — the best predictor of which is the one that appeared last, not
+ * the tallest ever seen. Taking a max made one tall observation stick
+ * permanently and opened the panel 36 px too tall forever after (#811).
+ *
+ * Safe because this is fed from the BG-reactive inset, which STEPS to its
+ * final value — the animation lives in the lift SharedValue, so there are
+ * no intermediate heights to latch onto here.
+ */
+function recordLift(px: number): void {
+  observedThisRun = true;
+  observedLift = px;
+  // Persist only when the stored value would actually change. This runs
+  // from a computed that any number of mounted hooks re-evaluate, so an
+  // unguarded write turned every keyboard show/hide into a burst of
+  // identical `Storage.setItem` calls.
+  const next = String(Math.round(px));
+  if (next !== persisted) {
+    persisted = next;
+    saveString(STORAGE_KEY, next);
+  }
+}
+
+/**
+ * The most recently observed keyboard lift (px), or 0 if the keyboard has
+ * never been shown. Seed a keyboard-sized panel from this instead of a flat
+ * fallback — see {@link useKeyboardLift}.
+ */
+export function rememberedKeyboardLift(): number {
+  return observedLift;
+}
+
+/** @internal Test seam — forget the session's observation. */
+export function resetRememberedKeyboardLift(): void {
+  observedLift = 0;
+  // Marked as observed, NOT cleared: the restore promise started at module
+  // load may still be in flight, and its callback bails on this flag.
+  // Without it a reset could be silently undone by a late restore landing
+  // afterwards — non-deterministic, and exactly the kind of leak a test
+  // seam must not have.
+  observedThisRun = true;
+  persisted = null;
+}
 
 /**
  * BG-reactive soft-keyboard state. The height comes from the safe-area
@@ -43,7 +134,9 @@ export function useKeyboardLift(
   return computed(() => {
     const i = insets.value;
     if (i.keyboard <= 0) return 0;
-    return Math.max(0, i.keyboard - (discountBottomInset ? i.bottom : 0) + offset);
+    const lift = Math.max(0, i.keyboard - (discountBottomInset ? i.bottom : 0) + offset);
+    if (discountBottomInset && offset === 0) recordLift(lift);
+    return lift;
   });
 }
 
@@ -70,10 +163,12 @@ export function useKeyboardLiftSV(
 ): SharedValue<number> {
   const insets = useSafeAreaInsets();
 
-  const computeLift = (i: { keyboard: number; bottom: number }): number =>
-    i.keyboard > 0
-      ? Math.max(0, i.keyboard - (discountBottomInset ? i.bottom : 0) + offset)
-      : 0;
+  const computeLift = (i: { keyboard: number; bottom: number }): number => {
+    if (i.keyboard <= 0) return 0;
+    const lift = Math.max(0, i.keyboard - (discountBottomInset ? i.bottom : 0) + offset);
+    if (discountBottomInset && offset === 0) recordLift(lift);
+    return lift;
+  };
 
   // Seed from the CURRENT insets — a screen that mounts while the keyboard
   // is already open (modal presented over a focused composer, back-nav to a

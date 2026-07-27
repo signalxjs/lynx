@@ -74,6 +74,17 @@ Wraps content and keeps it above the keyboard. Layout-affecting, so it applies i
 - `useKeyboard(): Computed<{ height, visible }>` — BG-reactive keyboard state.
 - `useKeyboardLift(discountBottomInset?, offset?): Computed<number>` — the raw lift value.
 - `useKeyboardLiftSV(discountBottomInset?, offset?, duration?): SharedValue<number>` — smoothly animated MT SharedValue tracking the lift; bind with `useAnimatedStyle(ref, sv, 'translateY', { factor: -1 })`.
+- `rememberedKeyboardLift(): number` — the LAST observed lift (px), or `0` if the keyboard has never been shown. See below.
+
+### Remembered keyboard height
+
+A panel that must occupy exactly the keyboard's space — a WhatsApp-style emoji sheet — has to know how tall the keyboard is *before* showing it. "How tall is this device's keyboard" is a fact about the app's environment, not about whichever component was mounted when it last appeared, so the observation is **module-level and persisted**:
+
+- any mounted `useKeyboardLift()` / `useKeyboardLiftSV()` with the default shape (bottom inset discounted, no offset) records what it sees;
+- the value survives the keyboard closing, screens unmounting, and **app restarts** (via the optional `@sigx/lynx-storage` peer — without it the memory is simply per-run);
+- a real observation always supersedes a restored one, even if shorter (a different IME or split screen genuinely changes the height), so a stale value can never strand a panel too tall.
+
+`@sigx/lynx-sheet` seeds its `{ keyboard: true }` detent from this. Without it, the first keyboard-sized panel opened on a screen where nothing has been typed yet falls back to `fallbackPx` and then visibly corrects itself the moment the real keyboard returns — 53 px of input-row jump on a Pixel 9 Pro XL (#811).
 
 ## How it works
 

@@ -46,6 +46,12 @@ export const emojiRowPxFor = (ink: number, size?: number): number =>
 export const emojiRowPx = (size?: number): number =>
     emojiRowPxFor(emojiInkRatio(), size);
 
+/** Target cell width (dp) at font scale 1 — the column count divides by this. */
+const BASE_CELL_DP = 40;
+/** Visual-ink bounds (dp) on the glyph em, at font scale 1. */
+const MIN_INK_DP = 15.36;
+const MAX_INK_DP = 46.08;
+
 /**
  * Screen-adaptive grid geometry (the WhatsApp model, #669/#674): fit as many
  * ~40px cells as `regionWidth` allows (that's the column count, clamped 7–12),
@@ -58,18 +64,36 @@ export const emojiRowPx = (size?: number): number =>
  * to airy spacing, never overlap (#761). Android is exempt BY DESIGN: its
  * dense look requires the em to overshoot the cell (Noto's inset absorbs it).
  *
+ * `fontScale` (the OS text-size setting) scales the target cell and both ink
+ * clamps, so raising the system text size gives BIGGER emoji in FEWER columns
+ * — the picker follows the setting instead of holding one designed size
+ * (#811; it used to be pinned like a keyboard panel, which read as a
+ * stubbornly tiny grid next to text that had grown). Everything downstream —
+ * row heights, header labels, the tone popover — derives from the returned
+ * `cellSize`, so the est == actual scroll-offset contract is untouched: the
+ * scale lands in the resolved value, not in a later multiply.
+ *
+ * Callers still counter-divide the rendered `fontSize` by the live scale
+ * (`fontSize: cellSize / fontScale`), because the engine multiplies
+ * font-relevant props by it — that round-trip is what makes the PAINTED size
+ * exactly `cellSize`, which is what the row math assumed.
+ *
  * Explicit overrides win their half each and are never clamped.
  */
 export function resolveEmojiGeometry(
     regionWidth: number,
     ink: number,
     overrides?: { columns?: number; cellSize?: number },
+    fontScale = 1,
 ): { columns: number; cellSize: number } {
+    // Guard against a zero/garbage scale from a host that reports one — a
+    // division by it downstream would blow the whole grid up.
+    const s = fontScale > 0 ? fontScale : 1;
     const columns = overrides?.columns
-        ?? Math.min(12, Math.max(7, Math.floor(regionWidth / 40)));
+        ?? Math.min(12, Math.max(7, Math.floor(regionWidth / (BASE_CELL_DP * s))));
     const cellW = regionWidth / columns;
-    const minEm = Math.round(15.36 / ink);
-    const maxEm = Math.round(46.08 / ink);
+    const minEm = Math.round((MIN_INK_DP * s) / ink);
+    const maxEm = Math.round((MAX_INK_DP * s) / ink);
     const fitEm = ink >= 0.85 ? Math.floor(cellW) : Infinity;
     const cellSize = overrides?.cellSize
         ?? Math.min(maxEm, fitEm, Math.max(minEm, Math.round((cellW * 0.93) / ink)));
