@@ -174,6 +174,58 @@ describe('<BottomSheet>', () => {
         expect(seen).toEqual([400]);
     });
 
+    // #815: a sheet hosting more than one panel swaps target detent without
+    // ever closing — the open move must follow `openDetentIndex`, not just
+    // the open/closed transition.
+    it('re-targets an already-open sheet when its open detent changes', async () => {
+        const idx = signal({ value: 1 });
+        const seen: number[] = [];
+        const Host = component(() => () => (
+            <BottomSheet
+                detents={[64, 400, 800]}
+                open
+                openDetentIndex={idx.value}
+                onRest={(px) => { seen.push(px); }}
+                slots={{ handle: () => <text>H</text>, default: () => <text>B</text> }}
+            />
+        ));
+        render(<Host />);
+        expect(seen.at(-1)).toBe(400);
+
+        idx.value = 2;
+        await waitForUpdate();
+        expect(seen.at(-1)).toBe(800);
+
+        // …and back down again.
+        idx.value = 1;
+        await waitForUpdate();
+        expect(seen.at(-1)).toBe(400);
+    });
+
+    it('leaves a CLOSED sheet alone when its open detent changes', async () => {
+        const idx = signal({ value: 1 });
+        const seen: number[] = [];
+        const Host = component(() => () => (
+            <BottomSheet
+                detents={[64, 400, 800]}
+                open={false}
+                openDetentIndex={idx.value}
+                onRest={(px) => { seen.push(px); }}
+                slots={{ handle: () => <text>H</text>, default: () => <text>B</text> }}
+            />
+        ));
+        render(<Host />);
+        expect(seen).toEqual([64]);
+
+        idx.value = 2;
+        await waitForUpdate();
+        // Still parked at the floor — the target only applies on open.
+        // Asserted as "never left the floor" rather than an emission count:
+        // `onRest` re-emits an unchanged height on an unrelated re-render
+        // (consumers assign it to a signal, so a repeat is a no-op).
+        expect(seen.every((px) => px === 64)).toBe(true);
+    });
+
     it('a dismissible sheet rests at 0 when closed, not at its floor', async () => {
         const open = signal({ value: true });
         const seen: number[] = [];
