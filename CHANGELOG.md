@@ -4,6 +4,8 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 ## [Unreleased]
 
+## [0.22.0] - 2026-07-28
+
 ### Fixed
 
 - **`@sigx/lynx-sheet` — a `{ keyboard: true }` detent no longer double-counts the bottom inset** (#811). `resolveDetents` added the bottom safe-area inset back onto keyboard detents unconditionally, but that add-back is only correct for a sheet whose bottom edge reaches the true screen bottom. A sheet that also passes `bottomOffset` (an ancestor `SafeAreaView` already pads the gesture bar — the showcase composer's case) counted it twice and opened a gesture bar **taller than the keyboard it replaces**: 73 px on a Pixel 9 Pro XL, visible as the composer's input row jumping on every keyboard↔emoji swap. Worse, that inflated detent is also `setReveal`'s `openFloor`, which clamped away the live main-thread capture — so `openToLift`, whose whole purpose is a pixel-stable swap, was a no-op. It now adds back only the part the sheet still has to cover: `max(0, bottomInset - bottomOffset)`. Sheets that don't pass `bottomOffset` are unchanged.

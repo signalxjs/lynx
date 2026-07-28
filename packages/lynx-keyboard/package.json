@@ -1,7 +1,7 @@
 {
     "name": "@sigx/lynx-keyboard",
-    "version": "0.21.0",
-    "description": "Soft-keyboard handling for sigx-lynx \u2014 KeyboardStickyView, KeyboardAvoidingView and keyboard hooks",
+    "version": "0.22.0",
+    "description": "Soft-keyboard handling for sigx-lynx — KeyboardStickyView, KeyboardAvoidingView and keyboard hooks",
     "type": "module",
     "main": "./dist/index.js",
     "types": "./dist/index.d.ts",
