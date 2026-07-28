@@ -402,6 +402,8 @@ export const BottomSheet = component<BottomSheetProps>(({ props, emit, slots }) 
 
     // ---- render ---------------------------------------------------------
     let lastOpen: boolean | null = null;
+    /** The reveal the last `open` move aimed at — see the re-target branch. */
+    let lastOpenTarget = seed.open;
     let lastGeom = seed;
     let lastDismissible = -1;
     let lastGate = -1;
@@ -460,6 +462,34 @@ export const BottomSheet = component<BottomSheetProps>(({ props, emit, slots }) 
                 g.open,
             );
             restPx.value = open ? g.open : closeTarget;
+            lastOpenTarget = g.open;
+        } else if (
+            // The open TARGET moved while the sheet is already OPEN — a
+            // sheet hosting more than one panel swapping to a taller detent
+            // without ever closing (`openDetentIndex` changed, or `detents`
+            // re-resolved that index elsewhere). Without this the sheet
+            // keeps the height it opened to and the new panel renders into
+            // the old slice; closing and reopening a tick later to force it
+            // throws the reveal away and flashes.
+            open
+            && g.open !== lastOpenTarget
+            // Never fight a drag in flight — its release settle owns the
+            // rest, and this write would be clobbered by it anyway.
+            && !gestureLock.value
+            // …nor a sheet the user has already dragged somewhere
+            // deliberate: it is no longer sitting where `open` put it, so
+            // yanking it to a target it never showed is worse than staying.
+            && Math.abs(restPx.value - lastOpenTarget) < 0.5
+        ) {
+            // ANIMATE, unlike every other programmatic move here: `animate`
+            // defaults to false so that some OTHER motion (a keyboard
+            // sliding away) reveals an already-painted sheet. A mid-open
+            // detent change has no such external motion, so an instant jump
+            // reads as a glitch. Capture stays off — the new target is an
+            // explicit detent, not a live lift position.
+            void engine.setReveal(g.open, 1, 0, g.open);
+            restPx.value = g.open;
+            lastOpenTarget = g.open;
         }
 
         const bd = props.backdrop;
