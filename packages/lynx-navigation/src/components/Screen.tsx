@@ -91,20 +91,27 @@ const HeaderRight = makeSlotFiller('headerRight');
  * `<Screen.TabBarItem>` — scoped slot. The default slot is a function that
  * receives `{ active }`; whatever it returns is the tab-bar item content.
  *
- * Sigx's `Define.Slot<'default', { active: boolean }>` would express this
- * directly on the component, but since `<Screen.TabBarItem>`'s parent
- * (the user's tree, not the navigator) doesn't actually pass `active`, we
- * accept a plain default slot whose body is itself a function. The
- * navigator's TabBar invokes that function with the active flag.
+ * This is now declared as a genuine scoped slot. It used to be a plain
+ * `Define.Slot<'default'>` whose body happened to be a function, because the
+ * renderer did not invoke function children and the navigator had to call that
+ * function itself. Core 0.14 invokes a function child as a scoped slot (core
+ * #476), so the honest declaration and the runtime finally agree — and the
+ * `active` flag is type-checked at the call site instead of being cast.
  */
-type TabBarItemProps = Define.Slot<'default'>;
+type TabBarItemProps = Define.Slot<'default', { active: boolean }>;
 
 const TabBarItem = component<TabBarItemProps>(({ slots }) => {
     const registry = useScreenRegistry();
     setSlot(registry, 'tabBarItem', (ctx) => {
-        const out = slots.default?.();
-        // Children may be a render function `({active}) => JSX` or plain
-        // JSX (in which case `active` is ignored). Normalise to a value.
+        // `ctx` goes INTO the slot call: core 0.14 invokes a function child as
+        // a scoped slot (core #476), so the function runs here rather than
+        // being handed back. Calling `slots.default?.()` with no argument would
+        // invoke `({ active }) => …` with `undefined` and throw on the
+        // destructure, before the normalise below ever ran.
+        const out = slots.default?.(ctx);
+        // The normalise stays: a nested function (or a single-element array
+        // holding one) still has to be applied to `ctx` by hand, and plain JSX
+        // children pass straight through with `active` ignored.
         if (typeof out === 'function') return (out as (c: typeof ctx) => unknown)(ctx);
         if (Array.isArray(out)) {
             const first = out[0];
