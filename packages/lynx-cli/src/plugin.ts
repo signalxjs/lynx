@@ -397,8 +397,25 @@ export default definePlugin({
                 // user opted out or there is no TTY — runShell's non-TTY
                 // fallback is plain streaming, but skipping it entirely keeps
                 // --no-ui byte-identical to the legacy output.
-                const useUi = !ctx.args['no-ui']
+                //
+                // Also skipped on a host too old to pass a ShellPane to
+                // ShellTab.render. Our `"requires": ">=0.9.0"` manifest field
+                // only *warns* — @sigx/cli's discovery loads the plugin
+                // regardless — so without this check an older binary reaches
+                // the dashboard and throws on `pane.width`. Falling back to
+                // the plain banner keeps `sigx dev` working there.
+                const { supportsShellPane, MIN_SHELL_PANE_CLI } = await import('./dev-ui/host.js');
+                const hostSupportsUi = supportsShellPane(ctx.cliVersion);
+                const wantsUi = !ctx.args['no-ui']
                     && !!process.stdout.isTTY && !!process.stdin.isTTY;
+                if (wantsUi && !hostSupportsUi) {
+                    ctx.logger.warn(
+                        `The sigx dev dashboard needs @sigx/cli >=${MIN_SHELL_PANE_CLI} `
+                        + `(this is ${ctx.cliVersion ?? 'an unknown version'}) — `
+                        + 'falling back to plain output. Update with: pnpm up @sigx/cli --latest',
+                    );
+                }
+                const useUi = wantsUi && hostSupportsUi;
                 let devShell: import('./dev-shell.js').DevShellController | undefined;
                 let logger = ctx.logger;
                 if (useUi) {

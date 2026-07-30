@@ -37,7 +37,8 @@ import {
 import type { SelectedTarget } from './target-picker.js';
 import type { DevActions } from './dev-server.js';
 import {
-    dataTableRows, dataTableWidth, logViewHeight, placeQR, QR_SCAN_LABEL,
+    dataTableRows, dataTableWidth, logViewHeight, placeQR, fitQRToPane, minQRRows,
+    QR_SCAN_LABEL,
 } from './dev-ui/layout.js';
 
 export interface DevShellState {
@@ -159,10 +160,25 @@ export async function createDevShell(opts: {
         // registering it as a tab would put it back in the tab strip, which
         // is exactly the duplication this replaced.
         if (view.qrZoom) {
+            // The zoom exists because the QR did not fit beside the table, so
+            // it cannot assume the whole pane is enough either — on an 80x24
+            // terminal nothing fits, and drawing it regardless would push the
+            // shell's status line off the bottom. Two lines are charged for
+            // the label and the hint below it.
+            const qr = fitQRToPane(state.primaryUrl, { width: pane.width, height: pane.height - 2 });
             return (
                 <Col>
                     <Text color="dim">{QR_SCAN_LABEL}</Text>
-                    <QRCode text={state.primaryUrl} />
+                    {qr
+                        ? <QRCode text={state.primaryUrl} quiet={qr.quiet} />
+                        : (
+                            <Col>
+                                <Text color="warn">Terminal too small for a scannable code.</Text>
+                                <Text color="dim">
+                                    {`Needs ${minQRRows(state.primaryUrl)} rows of app area — open the URL below by hand, or resize.`}
+                                </Text>
+                            </Col>
+                        )}
                     <Text color="info" underline>{state.primaryUrl}</Text>
                     <Text color="faint">esc  back</Text>
                 </Col>
@@ -202,7 +218,9 @@ export async function createDevShell(opts: {
                 <Row gap={4}>
                     <Col>
                         <Text color="dim">{QR_SCAN_LABEL}</Text>
-                        <QRCode text={state.primaryUrl} />
+                        {/* `quiet` must match what placeQR measured, or the
+                            component renders the default and undoes the fit. */}
+                        <QRCode text={state.primaryUrl} quiet={placed.qr.quiet} />
                     </Col>
                     <Col>
                         <Text color="fg" bold>Targets</Text>

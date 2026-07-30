@@ -4,9 +4,9 @@ The Lynx plugin for [`@sigx/cli`](https://sigx.dev/cli/) — adds `dev`, `build`
 
 ## The `sigx dev` dashboard
 
-`sigx dev` mounts a full-screen dashboard (requires `@sigx/cli` >= 0.9 — the plugin
-manifest declares that floor, so an older binary is refused with a message rather
-than crashing). Two tabs:
+`sigx dev` mounts a full-screen dashboard. It needs **`@sigx/cli` >= 0.9**; on an
+older binary it prints a warning and falls back to the plain streaming output
+instead (`pnpm up @sigx/cli --latest` to get it back). Two tabs:
 
 - **Devices** — the bundle URLs, the pairing QR, and a table of the targets you picked.
 - **Logs** — a scrolling view over the dev server's streamed output.

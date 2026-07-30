@@ -15,6 +15,8 @@ import {
     LOGVIEW_CHROME_ROWS,
     measureQR,
     placeQR,
+    fitQRToPane,
+    minQRRows,
     MIN_TABLE_COLS,
 } from '../src/dev-ui/layout';
 
@@ -120,5 +122,60 @@ describe('placeQR', () => {
     it('hides it rather than squeezing the table below a usable width', () => {
         // Tall enough for the QR, but too narrow to keep a table beside it.
         expect(placeQR(BUNDLE_URL, { width: 50, height: 30 })).toEqual({ mode: 'hidden' });
+    });
+
+    it('reports the quiet zone it measured at', () => {
+        const placed = placeQR(BUNDLE_URL, PANE_120x40);
+        if (placed.mode !== 'beside') throw new Error('expected beside');
+        // Must be passed to <QRCode>; rendering the default would undo the fit.
+        expect(placed.qr).toHaveProperty('quiet');
+        expect(measureQR(BUNDLE_URL, placed.qr.quiet).rows).toBe(placed.qr.rows);
+    });
+});
+
+describe('fitQRToPane — the `z` zoom', () => {
+    it('refuses a pane too short for even the tightest code', () => {
+        // The zoom is offered exactly when placeQR said no, so it must not
+        // assume the full pane is enough. On an 80x24 terminal nothing fits,
+        // and drawing anyway pushes the shell's status line off the bottom —
+        // the pane is a budget, not a reservation.
+        expect(placeQR(BUNDLE_URL, PANE_80x24).mode).toBe('hidden');
+        expect(fitQRToPane(BUNDLE_URL, { width: 75, height: 12 })).toBeNull();
+    });
+
+    it('fits when the whole pane is enough, even though it could not sit beside a table', () => {
+        // Tall enough, but too narrow for QR + gap + table: placeQR hides it,
+        // the zoom shows it. This is the case the zoom exists for.
+        expect(placeQR(BUNDLE_URL, { width: 50, height: 30 }).mode).toBe('hidden');
+        const zoomed = fitQRToPane(BUNDLE_URL, { width: 50, height: 30 });
+        expect(zoomed).not.toBeNull();
+        expect(zoomed!.rows).toBeLessThanOrEqual(30);
+        expect(zoomed!.cols).toBeLessThanOrEqual(50);
+    });
+
+    it('tightens the quiet zone before giving up', () => {
+        // 21 rows at the default, 18 at quiet: 1 — a 19-row pane only works
+        // if the tighter zone is tried.
+        expect(measureQR(BUNDLE_URL).rows).toBe(21);
+        const fitted = fitQRToPane(BUNDLE_URL, { width: 60, height: 19 });
+        expect(fitted).not.toBeNull();
+        expect(fitted!.quiet).toBe(1);
+    });
+
+    it('never returns a code wider or taller than the pane', () => {
+        for (const h of [10, 14, 18, 19, 21, 40]) {
+            const fitted = fitQRToPane(BUNDLE_URL, { width: 60, height: h });
+            if (fitted) {
+                expect(fitted.rows).toBeLessThanOrEqual(h);
+                expect(fitted.cols).toBeLessThanOrEqual(60);
+            }
+        }
+    });
+});
+
+describe('minQRRows', () => {
+    it('reports what to tell a user whose window is too small', () => {
+        expect(minQRRows(BUNDLE_URL)).toBe(18);
+        expect(minQRRows(BUNDLE_URL)).toBe(measureQR(BUNDLE_URL, 1).rows);
     });
 });
