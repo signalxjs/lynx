@@ -203,6 +203,24 @@ describe('filtering', () => {
         expect(s.visible().map((r) => r.message)).toEqual(['third', 'fourth']);
     });
 
+    it('does not confuse two filters that would collide under a joined key', () => {
+        // A namespace arrives from the wire as `[…]` and may contain the
+        // separator; `text` is free-form. `{ns:'x', text:'y|z'}` and
+        // `{ns:'x|y', text:'z'}` join to the same string, so the memo key has
+        // to be structural. No push between the two reads — that is the point.
+        const s = createDeviceLogStore();
+        s.push(entry({ args: ['[x]', 'alpha'] }));
+        s.push(entry({ args: ['[x|y]', 'beta'] }));
+
+        s.filter.namespace = 'x';
+        s.filter.text = 'y|z';
+        expect(s.visible()).toHaveLength(0);
+
+        s.filter.namespace = 'x|y';
+        s.filter.text = '';
+        expect(s.visible().map((r) => r.message)).toEqual(['beta']);
+    });
+
     it('re-evaluates after clear()', () => {
         const s = createDeviceLogStore({ limit: 2 });
         s.push(entry());

@@ -189,7 +189,14 @@ export function createDeviceLogStore(opts: { limit?: number } = {}): DeviceLogSt
             // is constant while the contents turn over completely — keying on
             // it froze the view exactly when logs were busiest, which is the
             // case this store exists for.
-            const key = `${version}|${f.minLevel}|${f.platform}|${f.namespace}|${f.text}`;
+            // JSON, not string concatenation. Two of these fields are
+            // free-form — a namespace comes from `[…]` on the wire and may
+            // contain a separator, and `text` is whatever a caller sets — so
+            // joining on a delimiter lets distinct filters collide:
+            // `{ns: 'x', text: 'y|z'}` and `{ns: 'x|y', text: 'z'}` produce the
+            // same key. Unreachable today (nothing sets `text`), and exactly
+            // the trap that springs on whoever adds a search box.
+            const key = `${version}|${JSON.stringify([f.minLevel, f.platform, f.namespace, f.text])}`;
             if (cache && cache.key === key) return cache.rows;
             const rows = state.records.filter((r) => matches(r, f));
             cache = { key, rows };
