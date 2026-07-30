@@ -4,6 +4,10 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 ## [Unreleased]
 
+### Fixed
+
+- **The showcase example ran the wrong `sigx`** (#823). `examples/showcase` devDepended on `@sigx/cli ^0.4.2` while `@sigx/lynx-cli` — a *plugin* to that CLI, with no `bin` of its own — had moved to `^0.8.0`, so the showcase's `sigx dev` / `sigx build` / `sigx prebuild` ran a four-minor-old host loading a plugin built against the current one. It also dragged `@sigx/reactivity` and `@sigx/runtime-core` **0.4.9** into the workspace (via that CLI's `@sigx/runtime-terminal@0.5.0`), sitting alongside the catalog's 0.14.0 — the two-copies hazard the catalog exists to prevent, ten minors apart. Nothing published was affected: the example is private and dev-only. `verify:catalog` now also reads `pnpm-lock.yaml` and fails when a core package RESOLVES outside the catalog, or at two versions at once — checks 1 and 2 only police what the repo *declares*, and no manifest here mentioned the old line at all.
+
 ## [0.23.0] - 2026-07-30
 
 ### Changed
