@@ -10,7 +10,7 @@ instead (`pnpm up @sigx/cli --latest` to get it back). Three tabs:
 
 - **Devices** — the bundle URLs, the pairing QR, and a table of the targets you picked.
 - **Build** — a scrolling view over the dev server's and native toolchain's output.
-- **Logs** — your app's `console.*` output as a sortable, filterable table.
+- **Logs** — your app's `console.*` output as a scrollable, filterable table.
 
 Keys: `r` reload · `d` devices · `a` android · `i` ios · `l` cycle log level ·
 `q` quit · `1`–`3` switch tabs · `/` commands · `z` show the pairing QR full

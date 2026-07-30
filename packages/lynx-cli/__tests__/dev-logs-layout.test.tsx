@@ -63,7 +63,7 @@ function renderLogs(pane: { width: number; height: number }, rows: readonly Devi
         <Col>
             <Row gap={2}>
                 <Text color="dim">{`${rows.length}/${rows.length}`}</Text>
-                <Text color="faint">l level · /grep · /ns · /platform</Text>
+                <Text color="faint">l level · /ns · /platform · enter expand</Text>
             </Row>
             <DataTable
                 columns={COLUMNS}

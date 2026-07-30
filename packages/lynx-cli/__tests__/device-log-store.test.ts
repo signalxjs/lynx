@@ -186,6 +186,31 @@ describe('filtering', () => {
         expect(s.visible()).toBe(s.visible());
     });
 
+    it('re-evaluates once the ring is saturated and length stops changing', () => {
+        // The memo cannot key on record COUNT alone: at the limit every push
+        // evicts one and appends one, so the length is constant while the
+        // contents turn over completely. Keying on it would freeze the view
+        // exactly when logs are busiest — the case the store exists for.
+        const s = createDeviceLogStore({ limit: 2 });
+        s.push(entry({ args: ['first'] }));
+        s.push(entry({ args: ['second'] }));
+        expect(s.visible().map((r) => r.message)).toEqual(['first', 'second']);
+
+        s.push(entry({ args: ['third'] }));
+        expect(s.visible().map((r) => r.message)).toEqual(['second', 'third']);
+
+        s.push(entry({ args: ['fourth'] }));
+        expect(s.visible().map((r) => r.message)).toEqual(['third', 'fourth']);
+    });
+
+    it('re-evaluates after clear()', () => {
+        const s = createDeviceLogStore({ limit: 2 });
+        s.push(entry());
+        expect(s.visible()).toHaveLength(1);
+        s.clear();
+        expect(s.visible()).toHaveLength(0);
+    });
+
     it('lists only the platforms and namespaces actually seen', () => {
         const s = seeded();
         expect(s.platforms()).toEqual(['android', 'ios']);

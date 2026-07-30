@@ -18,7 +18,7 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
   Two deliberate routing decisions. Device logs no longer go into the text store at all, so device chatter cannot drown the build log — that separation is half the point of the split. The exception is `error`, which is *also* written to the permanent transcript: in fullscreen that flushes to real scrollback on exit, so a crash trail survives the alt screen and stays greppable. Doing that for every level would dump the whole session into the terminal on quit. `--no-ui`, non-TTY, and `--no-device-logs` are all unchanged.
 
-  Retention is 2 000 records, not the text store's 10 000: each record holds the full message plus derived fields and the filter is a scan, so this is the interactive working set — the full history is still scrollable in **Build**.
+  Retention is 2 000 records, not the text store's 10 000: each record holds the full message plus derived fields and the filter is a scan, so this is the interactive working set — the full history is still scrollable in **Build**. The filtered view is memoised against a monotonic buffer version rather than the record count, because at the retention limit every push evicts one and appends one — the count is constant while the contents turn over completely, which would have frozen the view exactly when logs were busiest.
 
 ### Changed
 

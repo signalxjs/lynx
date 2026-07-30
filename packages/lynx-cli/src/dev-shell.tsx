@@ -22,8 +22,11 @@
  *   - `f`, `j`, `k` belong to LogView/DataTable. Never add them here.
  *   - `DataTable`'s own `r` (reverse sort) is unreachable, because `r` is
  *     reload — which is the right trade, `r` being the dev-loop key everyone
- *     already knows. No table in this dashboard sets `sortable`; sorting is
- *     driven by ←/→ and owned by the tab instead.
+ *     already knows. So no table here sets `sortable`, and none of them sort:
+ *     both are chronological, which is the order you want for a log and the
+ *     natural one for a device list. If a table ever does need sorting, it has
+ *     to own the state itself and drive it from a key that is not a shell
+ *     shortcut — `sortable` alone would give a half-working control.
  *   - Tab-scoped keys (`z` here) are gated on `handle.activeTab` rather than
  *     registered per tab, so they cannot leak into a tab that has no meaning
  *     for them.
@@ -396,7 +399,7 @@ export async function createDevShell(opts: {
                     <Text color="dim">{`${rows.length}/${deviceLogs.total()}`}</Text>
                     {deviceLogs.isFiltered()
                         ? <Text color="warn">{filterSummary()}</Text>
-                        : <Text color="faint">l level · /grep · /ns · /platform</Text>}
+                        : <Text color="faint">l level · /ns · /platform · enter expand</Text>}
                 </Row>
                 <DataTable
                     columns={LOG_COLUMNS}

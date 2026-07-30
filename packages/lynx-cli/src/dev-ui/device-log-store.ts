@@ -135,6 +135,8 @@ export function createDeviceLogStore(opts: { limit?: number } = {}): DeviceLogSt
     });
 
     let seq = 0;
+    /** Bumped on every mutation of the buffer — the memo's invalidation half. */
+    let version = 0;
     let cache: { key: string; rows: DeviceLogRecord[] } | null = null;
 
     const matches = (r: DeviceLogRecord, f: DeviceLogFilter): boolean => {
@@ -164,10 +166,12 @@ export function createDeviceLogStore(opts: { limit?: number } = {}): DeviceLogSt
             if (state.records.length > limit) {
                 state.records.splice(0, state.records.length - limit);
             }
+            version++;
         },
 
         clear() {
             state.records.splice(0, state.records.length);
+            version++;
         },
 
         records() {
@@ -176,12 +180,16 @@ export function createDeviceLogStore(opts: { limit?: number } = {}): DeviceLogSt
 
         visible() {
             const f = state.filter;
-            // Keyed on the filter's *values*, not a revision counter, so a
-            // caller can mutate `store.filter` like the plain object it is and
-            // the memo cannot go stale. The record count covers pushes: the
-            // buffer only grows or evicts from the front, and a record is
-            // never edited in place.
-            const key = `${state.records.length}|${f.minLevel}|${f.platform}|${f.namespace}|${f.text}`;
+            // Keyed on the filter's *values*, so a caller can mutate
+            // `store.filter` like the plain object it is without having to
+            // remember to invalidate anything.
+            //
+            // The buffer half is a monotonic counter, NOT the record count.
+            // At the limit every push evicts one and appends one, so the count
+            // is constant while the contents turn over completely — keying on
+            // it froze the view exactly when logs were busiest, which is the
+            // case this store exists for.
+            const key = `${version}|${f.minLevel}|${f.platform}|${f.namespace}|${f.text}`;
             if (cache && cache.key === key) return cache.rows;
             const rows = state.records.filter((r) => matches(r, f));
             cache = { key, rows };
