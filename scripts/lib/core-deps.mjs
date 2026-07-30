@@ -209,8 +209,8 @@ export function lockCoreResolutions(lockYaml) {
  *
  * Two ways to end up with more than one copy of the reactivity graph, both
  * reported here:
- *   - a resolved version outside every catalog core range (an old line dragged
- *     in transitively), and
+ *   - a resolved version outside the catalog range that applies to it (an old
+ *     line dragged in transitively), and
  *   - one core package resolved at two versions at once, even if both satisfy
  *     the range — satisfying it is not the same as being deduped to one copy.
  *
@@ -220,10 +220,19 @@ export function lockCoreResolutions(lockYaml) {
 export function findCoreResolutionProblems(lockYaml, catalogRanges) {
     // Deduped: a lockstep core has every catalog entry on the same range, and
     // reporting "(^0.14.0, ^0.14.0, ^0.14.0)" reads like three different rules.
-    const ranges = [...new Set(Object.values(catalogRanges))];
+    const union = [...new Set(Object.values(catalogRanges))];
     const problems = [];
-    if (ranges.length === 0) return problems;
+    if (union.length === 0) return problems;
     for (const [name, versions] of Object.entries(lockCoreResolutions(lockYaml))) {
+        // A package with its own catalog entry is held to THAT entry, never to
+        // the union. Checking against the union would let a half-finished bump
+        // through: with `@sigx/reactivity` on ^0.14.0 and `@sigx/runtime-core`
+        // still on ^0.13.0, a reactivity 0.13.x copy satisfies runtime-core's
+        // range and passes — the exact mid-rollout state this guard is for, and
+        // one that check 2 cannot see either (it validates each entry's SHAPE,
+        // not that the entries agree with each other). The union is only the
+        // fallback for lockstep core packages with no entry of their own.
+        const ranges = catalogRanges[name] ? [catalogRanges[name]] : union;
         const sorted = [...versions].sort();
         const stray = sorted.filter((v) => !ranges.some((r) => satisfiesCaret(v, r)));
         if (stray.length > 0) {

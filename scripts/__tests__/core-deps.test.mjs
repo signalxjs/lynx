@@ -138,6 +138,19 @@ describe('findCoreResolutionProblems', () => {
         expect(problems[0]).toContain('2 versions');
     });
 
+    it('holds a package to its OWN catalog entry, not to a sibling range', () => {
+        // Half-finished bump: reactivity moved, runtime-core did not. A
+        // reactivity 0.13.x copy satisfies runtime-core's entry, so checking
+        // against the union of ranges would call this fine — and this is
+        // precisely the mid-rollout state the guard exists to catch. Check 2
+        // does not see it either: both entries are well-formed single-minor
+        // carets, they just disagree.
+        const midBump = { '@sigx/reactivity': '^0.14.0', '@sigx/runtime-core': '^0.13.0' };
+        const problems = findCoreResolutionProblems(lockWith(['@sigx/reactivity@0.13.4']), midBump);
+        expect(problems).toHaveLength(1);
+        expect(problems[0]).toMatch(/^@sigx\/reactivity resolves to "0\.13\.4", outside the catalog \(\^0\.14\.0\)/);
+    });
+
     it('checks core packages with no catalog entry of their own against the core line', () => {
         // `@sigx/serialize` ships from the same lockstep release as the two
         // catalog entries, so an 0.4 copy of it is the same hazard.
