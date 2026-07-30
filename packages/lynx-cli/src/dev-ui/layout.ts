@@ -155,6 +155,57 @@ export type QRPlacement =
     | { mode: 'hidden' };
 
 /**
+ * Rows the Devices tab spends around the QR, charged before asking whether the
+ * code itself fits. Getting these wrong is an off-by-one that only appears at
+ * boundary heights — the frame looks right at 24 and 40 rows and drops the
+ * shell's footer at 30.
+ */
+/** `beside`: the "Scan with…" label above the code. */
+export const QR_BESIDE_CHROME_ROWS = 1;
+/** `zoom`: the label above, plus the URL and the `esc back` hint below. */
+export const QR_ZOOM_CHROME_ROWS = 3;
+
+/** Everything the Devices tab needs to lay itself out in `pane`. */
+export interface DevicesPlan {
+    /** Rows left under the URL list and its trailing blank line. */
+    below: { width: number; height: number };
+    placement: QRPlacement;
+    /** `height` for the target `DataTable`. */
+    tableRows: number;
+    /** `width` to hand the target `DataTable` — already gutter-corrected. */
+    tableWidth: number;
+}
+
+/**
+ * Plan the Devices tab in one place.
+ *
+ * This exists because the arithmetic was previously duplicated between the tab
+ * and its test, which is exactly how the label row came to be charged in
+ * neither: the test agreed with the bug. One function, both callers.
+ */
+export function planDevices(url: string, pane: { width: number; height: number }, urlRows: number): DevicesPlan {
+    const below = {
+        width: pane.width,
+        height: Math.max(1, pane.height - urlRows - 1 /* blank line under the URLs */),
+    };
+    const placement = placeQR(url, {
+        width: below.width,
+        height: below.height - QR_BESIDE_CHROME_ROWS,
+    });
+    // One row for the "Targets" heading above the table in both arrangements.
+    const HEADING_ROWS = 1;
+    const availableRows = placement.mode === 'beside'
+        ? Math.min(below.height, placement.qr.rows + QR_BESIDE_CHROME_ROWS)
+        : below.height;
+    return {
+        below,
+        placement,
+        tableRows: dataTableRows(availableRows - HEADING_ROWS, { variant: 'plain', footer: false }),
+        tableWidth: dataTableWidth(placement.mode === 'beside' ? placement.tableWidth : below.width),
+    };
+}
+
+/**
  * Whether a full-pane QR fits, and at which quiet zone — for the `z` zoom.
  *
  * The zoom is offered precisely when {@link placeQR} said no, so it cannot

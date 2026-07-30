@@ -37,8 +37,8 @@ import {
 import type { SelectedTarget } from './target-picker.js';
 import type { DevActions } from './dev-server.js';
 import {
-    dataTableRows, dataTableWidth, logViewHeight, placeQR, fitQRToPane, minQRRows,
-    QR_SCAN_LABEL,
+    logViewHeight, planDevices, fitQRToPane, minQRRows,
+    QR_SCAN_LABEL, QR_ZOOM_CHROME_ROWS,
 } from './dev-ui/layout.js';
 
 export interface DevShellState {
@@ -135,6 +135,8 @@ export async function createDevShell(opts: {
         </box>
     ));
 
+    /** `width`/`rows` come from `planDevices` already corrected for the
+     *  cursor gutter — do not re-apply `dataTableWidth` here. */
     const targetTable = (width: number, rows: number) => (
         state.targets.length === 0
             ? <Text color="dim">(none — waiting for a manual client)</Text>
@@ -143,7 +145,7 @@ export async function createDevShell(opts: {
                     columns={TARGET_COLUMNS}
                     rows={state.targets}
                     identity={targetLabel}
-                    width={dataTableWidth(width)}
+                    width={width}
                     height={rows}
                     variant="plain"
                     showFooter={false}
@@ -163,9 +165,11 @@ export async function createDevShell(opts: {
             // The zoom exists because the QR did not fit beside the table, so
             // it cannot assume the whole pane is enough either — on an 80x24
             // terminal nothing fits, and drawing it regardless would push the
-            // shell's status line off the bottom. Two lines are charged for
-            // the label and the hint below it.
-            const qr = fitQRToPane(state.primaryUrl, { width: pane.width, height: pane.height - 2 });
+            // shell's status line off the bottom.
+            const qr = fitQRToPane(state.primaryUrl, {
+                width: pane.width,
+                height: pane.height - QR_ZOOM_CHROME_ROWS,
+            });
             return (
                 <Col>
                     <Text color="dim">{QR_SCAN_LABEL}</Text>
@@ -186,12 +190,12 @@ export async function createDevShell(opts: {
         }
 
         const urls = urlList();
-        // The URL block and the blank line under it come out of the pane
-        // before anything is offered to the QR or the table.
-        const below = { width: pane.width, height: Math.max(1, pane.height - urls.length - 1) };
-        const placed = placeQR(state.primaryUrl, below);
-        // One row for the "Targets" heading above the table.
-        const tableRows = (h: number) => dataTableRows(h - 1, { variant: 'plain', footer: false });
+        // Every row of this tab is budgeted in one place — `planDevices` — and
+        // its test drives the same function. The arithmetic used to live here
+        // and be restated in the test, which is how the QR's label row came to
+        // be charged in neither: the test agreed with the bug.
+        const plan = planDevices(state.primaryUrl, pane, urls.length);
+        const { placement: placed } = plan;
 
         if (placed.mode === 'hidden') {
             // A real bundle URL encodes to 21 rows and a pane on an 80x24
@@ -206,7 +210,7 @@ export async function createDevShell(opts: {
                         <Text color="fg" bold>Targets</Text>
                         <Text color="faint">z  show QR</Text>
                     </Row>
-                    {targetTable(below.width, tableRows(below.height))}
+                    {targetTable(plan.tableWidth, plan.tableRows)}
                 </Col>
             );
         }
@@ -224,7 +228,7 @@ export async function createDevShell(opts: {
                     </Col>
                     <Col>
                         <Text color="fg" bold>Targets</Text>
-                        {targetTable(placed.tableWidth, tableRows(Math.min(below.height, placed.qr.rows)))}
+                        {targetTable(plan.tableWidth, plan.tableRows)}
                     </Col>
                 </Row>
             </Col>

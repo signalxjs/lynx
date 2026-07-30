@@ -18,7 +18,7 @@ import {
     defineApp, terminalMount, setOutputTarget, Text, Col, Row, QRCode, DataTable, Spacer,
     type TableColumn,
 } from '@sigx/terminal';
-import { dataTableRows, dataTableWidth, placeQR } from '../src/dev-ui/layout';
+import { planDevices } from '../src/dev-ui/layout';
 
 const BUNDLE_URL = 'http://192.168.1.10:8788/main.lynx.bundle?v=1753872000000-12345';
 
@@ -50,16 +50,19 @@ function renderPane(pane: { width: number; height: number }): string[] {
         isTTY: false,
     });
 
-    const placed = placeQR(BUNDLE_URL, pane);
-    const tableRows = (h: number) => dataTableRows(h - 1, { variant: 'plain', footer: false });
+    // One URL line, matching the single `Local:` row below. Drives the SAME
+    // planner the tab does — the arithmetic used to be restated here, which is
+    // how a missing row went unnoticed in both.
+    const plan = planDevices(BUNDLE_URL, pane, 1);
+    const placed = plan.placement;
 
-    const table = (width: number, rows: number) => (
+    const table = () => (
         <DataTable
             columns={COLUMNS}
             rows={TARGETS}
             identity={(r: Target) => r.name}
-            width={dataTableWidth(width)}
-            height={rows}
+            width={plan.tableWidth}
+            height={plan.tableRows}
             variant="plain"
             showFooter={false}
         />
@@ -73,11 +76,11 @@ function renderPane(pane: { width: number; height: number }): string[] {
                 <Row gap={4}>
                     <Col>
                         <Text color="dim">Scan with sigx-lynx-go:</Text>
-                        <QRCode text={BUNDLE_URL} />
+                        <QRCode text={BUNDLE_URL} quiet={placed.qr.quiet} />
                     </Col>
                     <Col>
                         <Text color="fg" bold>Targets</Text>
-                        {table(placed.tableWidth, tableRows(Math.min(pane.height - 2, placed.qr.rows)))}
+                        {table()}
                     </Col>
                 </Row>
             ) : (
@@ -86,7 +89,7 @@ function renderPane(pane: { width: number; height: number }): string[] {
                         <Text color="fg" bold>Targets</Text>
                         <Text color="faint">z  show QR</Text>
                     </Row>
-                    {table(pane.width, tableRows(pane.height - 2))}
+                    {table()}
                 </Col>
             )}
         </Col>
@@ -100,7 +103,7 @@ function renderPane(pane: { width: number; height: number }): string[] {
 describe('Devices tab composition', () => {
     it('fits the width of a wide pane, QR beside the table', () => {
         const pane = { width: 115, height: 30 };
-        expect(placeQR(BUNDLE_URL, pane).mode).toBe('beside');
+        expect(planDevices(BUNDLE_URL, pane, 1).placement.mode).toBe('beside');
 
         const lines = renderPane(pane);
         const widest = Math.max(...lines.map(cells));
@@ -109,7 +112,7 @@ describe('Devices tab composition', () => {
 
     it('fits the width of an 80-column pane, where the QR cannot be shown', () => {
         const pane = { width: 75, height: 14 };
-        expect(placeQR(BUNDLE_URL, pane).mode).toBe('hidden');
+        expect(planDevices(BUNDLE_URL, pane, 1).placement.mode).toBe('hidden');
 
         const lines = renderPane(pane);
         const widest = Math.max(...lines.map(cells));
@@ -124,6 +127,23 @@ describe('Devices tab composition', () => {
         expect(text).toContain('Pixel 8');
         expect(text).toContain('iPhone 15 Pro');
         expect(text).not.toContain('Pixel…');
+    });
+
+    it('never emits more rows than the pane, at every height around the QR boundary', () => {
+        // The regression this exists for: the QR column is the code *plus* its
+        // label, and the earlier code compared only `qr.rows` to the budget.
+        // That fits at 14 and 30 rows and overflows by one at 20 and 23 — so a
+        // couple of sampled sizes miss it entirely and the shell's status line
+        // silently drops off the bottom. Sweep the boundary instead.
+        for (let height = 12; height <= 34; height++) {
+            const lines = renderPane({ width: 115, height });
+            // The renderer emits a trailing newline; the frame is the content.
+            const emitted = lines.filter((l, i) => l !== '' || i < lines.length - 1).length;
+            expect(
+                emitted,
+                `pane height ${height} emitted ${emitted} rows`,
+            ).toBeLessThanOrEqual(height);
+        }
     });
 
     it('offers the QR zoom hint exactly when the QR is hidden', () => {
