@@ -7,7 +7,7 @@
 
 import { a, definePlugin } from '@sigx/cli/plugin';
 import { existsSync, statSync, readdirSync } from 'node:fs';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 import { androidDirName, iosDirName } from './config/paths.js';
 import { resolveVariantName } from './util/variant.js';
 
@@ -397,20 +397,41 @@ export default definePlugin({
                 // user opted out or there is no TTY — runShell's non-TTY
                 // fallback is plain streaming, but skipping it entirely keeps
                 // --no-ui byte-identical to the legacy output.
-                const useUi = !ctx.args['no-ui']
+                //
+                // Also skipped on a host too old to pass a ShellPane to
+                // ShellTab.render. Our `"requires": ">=0.9.0"` manifest field
+                // only *warns* — @sigx/cli's discovery loads the plugin
+                // regardless — so without this check an older binary reaches
+                // the dashboard and throws on `pane.width`. Falling back to
+                // the plain banner keeps `sigx dev` working there.
+                const { supportsShellPane, MIN_SHELL_PANE_CLI } = await import('./dev-ui/host.js');
+                const hostSupportsUi = supportsShellPane(ctx.cliVersion);
+                const wantsUi = !ctx.args['no-ui']
                     && !!process.stdout.isTTY && !!process.stdin.isTTY;
+                if (wantsUi && !hostSupportsUi) {
+                    ctx.logger.warn(
+                        `The sigx dev dashboard needs @sigx/cli >=${MIN_SHELL_PANE_CLI} `
+                        + `(this is ${ctx.cliVersion ?? 'an unknown version'}) — `
+                        + 'falling back to plain output. Update with: pnpm up @sigx/cli --latest',
+                    );
+                }
+                const useUi = wantsUi && hostSupportsUi;
                 let devShell: import('./dev-shell.js').DevShellController | undefined;
                 let logger = ctx.logger;
                 if (useUi) {
                     const { createDevShell } = await import('./dev-shell.js');
                     const { createShellLogger } = await import('@sigx/cli/shell');
                     const { readFileSync } = await import('node:fs');
-                    let projectName = 'sigx-lynx';
+                    let projectName = basename(ctx.cwd);
                     try {
                         projectName = JSON.parse(readFileSync(join(ctx.cwd, 'package.json'), 'utf-8')).name || projectName;
                     } catch { /* default */ }
                     devShell = await createDevShell({
                         projectName,
+                        // The binary the user actually invoked — shown dim
+                        // beside the title. `ctx.cliVersion` needs no fs read
+                        // and matches what `sigx --version` prints.
+                        version: ctx.cliVersion,
                         targets: live,
                         plugins: ctx.plugins,
                         hasAndroidApp: !!launchAppId,
@@ -668,10 +689,8 @@ export default definePlugin({
                 }
                 const { runPrebuild, loadConfig } = await import('./prebuild.js');
                 const { resolveConfig } = await import('./config/index.js');
-                const { spawn, execSync } = await import('node:child_process');
-                const { getAllLanIPs } = await import('./network.js');
-                const { getDeviceStatus, launchApp, resolveAdb } = await import('./device-detect.js');
-                const { generateQR } = await import('@sigx/terminal');
+                const { spawn } = await import('node:child_process');
+                const { resolveAdb } = await import('./device-detect.js');
                 const { resolveVerbose } = await import('./build-output.js');
 
                 const variant = resolveVariantName(ctx.args);
