@@ -6,14 +6,38 @@ The Lynx plugin for [`@sigx/cli`](https://sigx.dev/cli/) — adds `dev`, `build`
 
 `sigx dev` mounts a full-screen dashboard. It needs **`@sigx/cli` >= 0.9**; on an
 older binary it prints a warning and falls back to the plain streaming output
-instead (`pnpm up @sigx/cli --latest` to get it back). Two tabs:
+instead (`pnpm up @sigx/cli --latest` to get it back). Three tabs:
 
 - **Devices** — the bundle URLs, the pairing QR, and a table of the targets you picked.
-- **Logs** — a scrolling view over the dev server's streamed output.
+- **Build** — a scrolling view over the dev server's and native toolchain's output.
+- **Logs** — your app's `console.*` output as a sortable, filterable table.
 
-Keys: `r` reload · `d` devices · `a` android · `i` ios · `q` quit · `1`–`2` switch
-tabs · `/` commands · `z` show the pairing QR full screen (Esc to go back) · `Tab`
-move focus · `↑`/`↓`/PgUp/PgDn scroll the focused table or log.
+Keys: `r` reload · `d` devices · `a` android · `i` ios · `l` cycle log level ·
+`q` quit · `1`–`3` switch tabs · `/` commands · `z` show the pairing QR full
+screen (Esc to go back) · `Tab` move focus · `↑`/`↓`/PgUp/PgDn scroll the focused
+table or log · `Enter` expand the selected log entry (Esc to close).
+
+### Device logs
+
+Records keep their structure — level, platform, device, timestamp — instead of
+being flattened to a line of text, so the Logs tab can filter them. If you use
+`createLogger('http')` from `@sigx/lynx-core`, the namespace becomes its own
+column and its own filter, matching the namespaces `signalx.config.ts` can
+silence.
+
+A message longer than one line shows a `⏎n` marker; `Enter` expands the full
+record, stack traces included.
+
+Filters are slash commands: `/level:warn` (and `:error`, `:info`, …, `:all`),
+`/platform` and `/ns` cycle through the values actually seen, `/filters` clears
+them all, and `/clear` discards the collected logs. The `l` key cycles the level
+floor. While a filter is active the status bar shows how many records are being
+withheld, so a filtered view is never mistaken for a quiet app.
+
+Errors are additionally written to the permanent transcript, so a crash trail
+survives the dashboard exiting and stays greppable in your scrollback. Everything
+else lives only in the table. `--no-device-logs` suppresses the lot, and
+`--no-ui` / non-TTY runs stream the old formatted lines exactly as before.
 
 The QR appears **once**, on the Devices tab. It sits beside the target table when
 the terminal is big enough and is otherwise hidden behind `z` — a typical bundle

@@ -31,15 +31,19 @@
 import { runShell, type ShellConfig } from '@sigx/cli/shell';
 import type { ShellHandle, ShellPane, SigxPlugin, StatusItem } from '@sigx/cli/plugin';
 import {
-    signal, Text, Col, Row, QRCode, LogView, DataTable, Spacer,
-    onKey, isEsc, type TableColumn,
+    signal, Text, Col, Row, QRCode, LogView, DataTable, DetailList, Divider, Spacer,
+    onKey, isEsc, fitLines, type TableColumn,
 } from '@sigx/terminal';
 import type { SelectedTarget } from './target-picker.js';
 import type { DevActions } from './dev-server.js';
 import {
-    logViewHeight, planDevices, fitQRToPane, minQRRows,
-    QR_SCAN_LABEL, QR_ZOOM_CHROME_ROWS,
+    logViewHeight, planDevices, fitQRToPane, minQRRows, dataTableRows, dataTableWidth,
+    QR_SCAN_LABEL, QR_ZOOM_CHROME_ROWS, MIN_SPLIT_ROWS,
 } from './dev-ui/layout.js';
+import {
+    createDeviceLogStore, LEVELS, LEVEL_LABEL, LEVEL_TONE,
+    type DeviceLogRecord, type DeviceLogStore, type Level,
+} from './dev-ui/device-log-store.js';
 
 export interface DevShellState {
     ready: boolean;
@@ -55,6 +59,8 @@ export interface DevShellState {
 export interface DevShellController {
     handle: ShellHandle;
     state: DevShellState;
+    /** Structured device logs — the Logs tab's table. Fed by startDevServer. */
+    deviceLogs: DeviceLogStore;
     /** Called by startDevServer once the rspeedy child exists. */
     bind: (b: { actions: DevActions; shutdown: (code?: number) => void; childClosed: Promise<void> }) => void;
 }
@@ -112,6 +118,53 @@ const TARGET_COLUMNS: TableColumn<SelectedTarget>[] = [
     { key: 'form', header: 'Kind', value: targetForm, width: 9 },
 ];
 
+function pad2(n: number): string { return n < 10 ? `0${n}` : String(n); }
+
+function hhmmss(ts: number): string {
+    const d = new Date(ts);
+    return `${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}`;
+}
+
+const LOG_COLUMNS: TableColumn<DeviceLogRecord>[] = [
+    { key: 'time', header: 'time', width: 8, value: (r) => hhmmss(r.ts) },
+    {
+        key: 'lvl',
+        header: 'lvl',
+        width: 3,
+        value: (r) => LEVEL_LABEL[r.level],
+        // Per-cell colour wins over the row tone, so an error row reads red
+        // with a redder level cell rather than the two fighting.
+        color: (r) => LEVEL_TONE[r.level],
+    },
+    { key: 'device', header: 'device', width: 12, min: 6, value: (r) => `${r.platform} #${r.client}` },
+    { key: 'ns', header: 'ns', width: 10, min: 4, value: (r) => r.namespace ?? '—' },
+    {
+        key: 'msg',
+        header: 'message',
+        // The only flex column: a narrow terminal should eat into the message,
+        // not the timestamp. `layoutTable` marks the truncation with `…`.
+        flex: true,
+        min: 20,
+        // `⏎n` says there is more than one line, so a stack trace never looks
+        // like a one-line message that happens to be cut off.
+        value: (r) => (r.lineCount > 1 ? `${r.head}  ⏎${r.lineCount}` : r.head),
+    },
+];
+
+const LOG_ROW_TONE = (r: DeviceLogRecord): string | undefined => (
+    r.level === 'error' ? 'danger'
+        : r.level === 'warn' ? 'warn'
+            : r.level === 'debug' || r.level === 'trace' ? 'dim'
+                : undefined
+);
+
+/** `null` → lowest level → … → `error` → back to `null`. */
+function cycleLevel(current: Level | null): Level | null {
+    if (current === null) return LEVELS[0]!;
+    const next = LEVELS.indexOf(current) + 1;
+    return next >= LEVELS.length ? null : LEVELS[next]!;
+}
+
 export async function createDevShell(opts: {
     projectName: string;
     version?: string;
@@ -130,8 +183,21 @@ export async function createDevShell(opts: {
         targets: opts.targets,
     });
 
-    /** Devices-tab mode: the QR takes the whole pane instead of sitting beside the table. */
-    const view = signal({ qrZoom: false });
+    /**
+     * Tab-local modes. Both are signals rather than `pushView` calls: the shell
+     * resolves a pushed id against its registered tab list, so a view that is
+     * not also a tab renders nothing (see the note in the Devices tab).
+     */
+    const view = signal({
+        /** Devices: the QR takes the whole pane instead of sitting beside the table. */
+        qrZoom: false,
+        /** Logs: the selected record is expanded below (or over) the table. */
+        logDetail: false,
+    });
+
+    const deviceLogs = createDeviceLogStore();
+    /** The row the table cursor is on — tracked continuously via `select`. */
+    const selected = signal({ record: null as DeviceLogRecord | null });
 
     let bound: { actions: DevActions; shutdown: (code?: number) => void; childClosed: Promise<void> } | null = null;
     let handle: ShellHandle | null = null;
@@ -254,6 +320,104 @@ export async function createDevShell(opts: {
         );
     };
 
+    const announceFilter = (shell: ShellHandle) => {
+        const summary = filterSummary();
+        const shown = deviceLogs.visible().length;
+        shell.say(summary
+            ? `logs: ${summary} — ${shown}/${deviceLogs.total()} shown`
+            : `logs: no filter — ${deviceLogs.total()} shown`);
+        shell.switchTab('logs');
+    };
+
+    const cycleLevelFilter = (shell: ShellHandle) => {
+        deviceLogs.filter.minLevel = cycleLevel(deviceLogs.filter.minLevel);
+        announceFilter(shell);
+    };
+
+    /** One command per level — see the note at the registration site. */
+    const LOG_LEVEL_COMMANDS = [
+        {
+            name: '/level:all',
+            description: 'show device logs at every level',
+            run: (shell: ShellHandle) => { deviceLogs.filter.minLevel = null; announceFilter(shell); },
+        },
+        ...LEVELS.map((level) => ({
+            name: `/level:${level}`,
+            description: `show device logs at ${level} and above`,
+            run: (shell: ShellHandle) => { deviceLogs.filter.minLevel = level; announceFilter(shell); },
+        })),
+    ];
+
+    const filterSummary = (): string => {
+        const f = deviceLogs.filter;
+        const parts: string[] = [];
+        if (f.minLevel) parts.push(`≥${LEVEL_LABEL[f.minLevel].toLowerCase()}`);
+        if (f.platform) parts.push(f.platform);
+        if (f.namespace !== null) parts.push(f.namespace === '' ? 'no-ns' : f.namespace);
+        if (f.text) parts.push(`/${f.text}/`);
+        return parts.join(' · ');
+    };
+
+    const renderLogDetail = (r: DeviceLogRecord, pane: ShellPane) => {
+        const META_ROWS = 4;
+        const body = fitLines(r.message.split('\n'), {
+            width: pane.width,
+            height: Math.max(1, pane.height - META_ROWS - 2 /* divider + hint */),
+        });
+        return (
+            <Col>
+                <Divider width={pane.width} label="entry" />
+                <DetailList rows={[
+                    { label: 'time', value: new Date(r.ts).toISOString() },
+                    { label: 'device', value: `${r.platform} #${r.client}` },
+                    { label: 'level', value: r.level },
+                    { label: 'namespace', value: r.namespace ?? '—' },
+                ]} />
+                {body.map((line) => <box><Text color="fg">{line}</Text></box>)}
+                <Text color="faint">esc  close</Text>
+            </Col>
+        );
+    };
+
+    const renderLogs = (pane: ShellPane) => {
+        const rows = deviceLogs.visible();
+        const detail = view.logDetail ? selected.record : null;
+
+        // Below MIN_SPLIT_ROWS a split leaves the table too short to be worth
+        // having, so the detail takes the pane instead of sharing it.
+        if (detail && pane.height < MIN_SPLIT_ROWS) return renderLogDetail(detail, pane);
+
+        const detailRows = detail ? Math.min(10, Math.floor(pane.height / 2)) : 0;
+        const tableHeight = Math.max(1, pane.height - detailRows - 1 /* filter line */);
+
+        return (
+            <Col>
+                <Row gap={2}>
+                    <Text color="dim">{`${rows.length}/${deviceLogs.total()}`}</Text>
+                    {deviceLogs.isFiltered()
+                        ? <Text color="warn">{filterSummary()}</Text>
+                        : <Text color="faint">l level · /grep · /ns · /platform</Text>}
+                </Row>
+                <DataTable
+                    columns={LOG_COLUMNS}
+                    rows={rows as DeviceLogRecord[]}
+                    identity={(r: DeviceLogRecord) => String(r.seq)}
+                    tone={LOG_ROW_TONE}
+                    width={dataTableWidth(pane.width)}
+                    height={dataTableRows(tableHeight, { variant: 'plain', footer: false })}
+                    variant="plain"
+                    showFooter={false}
+                    emptyText={deviceLogs.total() === 0
+                        ? 'no device logs yet — start the app on a device'
+                        : 'nothing matches this filter'}
+                    onSelect={(r: DeviceLogRecord) => { selected.record = r; }}
+                    onSubmit={(r: DeviceLogRecord) => { selected.record = r; view.logDetail = true; }}
+                />
+                {detail ? renderLogDetail(detail, { width: pane.width, height: detailRows }) : null}
+            </Col>
+        );
+    };
+
     const config: ShellConfig = {
         mode: 'fullscreen',
         title: `⚡ sigx dev · ${opts.projectName}`,
@@ -266,10 +430,12 @@ export async function createDevShell(opts: {
                 render: (pane) => <Col>{renderDevices(pane)}</Col>,
             },
             {
-                id: 'logs',
-                label: 'Logs',
-                // The pane is the terminal minus the shell's own chrome —
-                // previously guessed here as `getTerminalSize().rows - 13`.
+                id: 'build',
+                label: 'Build',
+                // rspeedy / gradle / xcodebuild output is genuinely
+                // unstructured, so it stays a text view. The pane is the
+                // terminal minus the shell's own chrome — previously guessed
+                // here as `getTerminalSize().rows - 13`.
                 render: (pane) => (handle
                     ? (
                         <LogView
@@ -279,6 +445,11 @@ export async function createDevShell(opts: {
                         />
                     )
                     : <Text color="dim">…</Text>),
+            },
+            {
+                id: 'logs',
+                label: 'Logs',
+                render: (pane) => renderLogs(pane),
             },
         ],
         shortcuts: [
@@ -291,6 +462,7 @@ export async function createDevShell(opts: {
             ...(opts.hasIosApp
                 ? [{ key: 'i', label: 'ios', run: () => act((a) => a.buildLaunchIos()) }]
                 : []),
+            { key: 'l', label: 'level', run: (shell) => cycleLevelFilter(shell) },
             { key: 'q', label: 'quit', run: (shell) => shell.exit(0) },
         ],
         commands: [
@@ -307,6 +479,65 @@ export async function createDevShell(opts: {
             ...(opts.hasIosApp
                 ? [{ name: '/ios', description: 'build + launch the iOS app', run: () => act((a) => a.buildLaunchIos()) }]
                 : []),
+            // Log filters.
+            //
+            // `runShell` dispatches on the FIRST token only and drops the rest
+            // (`runCommand(trimmed.split(/\s/)[0])`), so a slash command cannot
+            // take an argument. `/level warn` would silently run `/level` with
+            // no idea what was asked for. Hence one command per level: the
+            // palette filters by prefix, so typing `/level` lists them all with
+            // descriptions — which is more discoverable than an argument would
+            // have been anyway. The values that are only known at runtime
+            // (platform, namespace) cycle instead, since they cannot be
+            // registered ahead of time.
+            ...LOG_LEVEL_COMMANDS,
+            {
+                name: '/platform',
+                description: 'cycle the device-log platform filter',
+                run: (shell) => {
+                    const seen = deviceLogs.platforms();
+                    const cur = deviceLogs.filter.platform;
+                    const idx = cur === null ? 0 : seen.indexOf(cur) + 1;
+                    deviceLogs.filter.platform = idx >= seen.length ? null : seen[idx]!;
+                    announceFilter(shell);
+                },
+            },
+            {
+                name: '/ns',
+                description: 'cycle the device-log namespace filter',
+                run: (shell) => {
+                    // `''` is a real value — "logs with no namespace" — so the
+                    // cycle is [all, …seen, none].
+                    const seen = [...deviceLogs.namespaces(), ''];
+                    const cur = deviceLogs.filter.namespace;
+                    const idx = cur === null ? 0 : seen.indexOf(cur) + 1;
+                    deviceLogs.filter.namespace = idx >= seen.length ? null : seen[idx]!;
+                    announceFilter(shell);
+                },
+            },
+            {
+                name: '/filters',
+                description: 'clear every device-log filter',
+                run: (shell) => {
+                    const f = deviceLogs.filter;
+                    f.minLevel = null;
+                    f.platform = null;
+                    f.namespace = null;
+                    f.text = '';
+                    announceFilter(shell);
+                },
+            },
+            {
+                name: '/clear',
+                description: 'discard the collected device logs',
+                run: (shell) => {
+                    const n = deviceLogs.total();
+                    deviceLogs.clear();
+                    selected.record = null;
+                    view.logDetail = false;
+                    shell.say(`cleared ${n} device log${n === 1 ? '' : 's'}`);
+                },
+            },
         ],
         status: (): StatusItem[] => {
             const items: StatusItem[] = state.ready
@@ -316,6 +547,21 @@ export async function createDevShell(opts: {
                 ]
                 : [{ label: 'status', value: 'starting…', tone: 'warn' }];
             if (state.building) items.push({ label: 'build', value: state.building, tone: 'warn' });
+
+            // On the Logs tab, say how much is being withheld. A filtered view
+            // that looks quiet is otherwise indistinguishable from a quiet app,
+            // which is the worst way to lose an hour.
+            if (handle?.activeTab === 'logs') {
+                const hidden = deviceLogs.hidden();
+                items.push({
+                    label: 'logs',
+                    value: `${deviceLogs.visible().length}/${deviceLogs.total()}`,
+                    tone: 'dim',
+                });
+                if (hidden > 0) {
+                    items.push({ label: 'hidden', value: String(hidden), tone: 'warn' });
+                }
+            }
             return items;
         },
         onExit: async () => {
@@ -332,14 +578,28 @@ export async function createDevShell(opts: {
     // reliable source: the shell's 1-9 keys move tabs without telling us, so
     // a copy tracked here would desynchronise silently.
     const offKeys = onKey((key) => {
-        if (handle?.activeTab !== 'devices' || !state.ready) return;
-        if (key === 'z') {
-            view.qrZoom = !view.qrZoom;
-            return true;
+        const tab = handle?.activeTab;
+
+        if (tab === 'devices' && state.ready) {
+            if (key === 'z') {
+                view.qrZoom = !view.qrZoom;
+                return true;
+            }
+            if (isEsc(key) && view.qrZoom) {
+                view.qrZoom = false;
+                return true;
+            }
+            return;
         }
-        if (isEsc(key) && view.qrZoom) {
-            view.qrZoom = false;
-            return true;
+
+        if (tab === 'logs') {
+            // Only consume Esc when the detail is actually open — the shell's
+            // own Esc handler (view layer) closes the palette and pops views,
+            // and swallowing it unconditionally here would break both.
+            if (isEsc(key) && view.logDetail) {
+                view.logDetail = false;
+                return true;
+            }
         }
     }, { layer: 'overlay' });
     handle.onExit(() => { offKeys(); });
@@ -347,6 +607,7 @@ export async function createDevShell(opts: {
     return {
         handle,
         state,
+        deviceLogs,
         bind: (b) => { bound = b; },
     };
 }
