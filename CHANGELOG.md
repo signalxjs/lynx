@@ -4,6 +4,22 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 ## [Unreleased]
 
+### Added
+
+- **Device logs keep their structure, and the dashboard can filter them** (#828). Every device log already reached the CLI as a record — level, platform, client id, timestamp — and `formatDeviceLogLine` flattened it to an ANSI string one line later (`dev-server.ts`). Nothing downstream could filter by anything, and no amount of work on the dashboard could recover it, because the structure was gone before the dashboard saw it.
+
+  A new structured store keeps the records, and the old `Logs` tab splits in two: **Build** keeps the text `LogView` over the dev server's and native toolchain's output, which is genuinely unstructured and right to leave as text, and **Logs** becomes a `DataTable` of your app's `console.*` — time, level, device, namespace, message — with per-level colouring and a cursor.
+
+  One dimension came free. `@sigx/lynx-core`'s default transport emits `[${namespace}]` as the first console argument, so a `createLogger('http')` record is machine-identifiable: namespace is a column and a filter, matching the namespaces `signalx.config.ts` can already silence. Only an *exact* `[…]` first argument counts — `console.log('[warn] hand-rolled')` is one argument, not a namespaced record, and inventing a namespace nobody declared would be worse than showing none.
+
+  Filters are slash commands, and their shape is dictated by the host: `runShell` dispatches on the first token and discards the rest, so a slash command cannot take an argument. Hence one command per level (`/level:warn`, `/level:error`, …, `/level:all`) — the palette filters by prefix, so typing `/level` lists them all with descriptions, which is more discoverable than an argument would have been. Values only known at runtime cycle instead: `/platform` and `/ns` step through what has actually been seen, `/filters` clears everything, `/clear` discards the collected logs, and the `l` key cycles the level floor. **A free-text search is not expressible under this contract** and is left out rather than faked.
+
+  While a filter is active the status bar carries the withheld count, because a filtered view that looks quiet is otherwise indistinguishable from a quiet app. A multi-line message shows a `⏎n` marker and expands with `Enter` into a detail pane (Esc closes) — below 20 rows the detail takes the pane rather than sharing it, since a split leaves the table too short to be worth having.
+
+  Two deliberate routing decisions. Device logs no longer go into the text store at all, so device chatter cannot drown the build log — that separation is half the point of the split. The exception is `error`, which is *also* written to the permanent transcript: in fullscreen that flushes to real scrollback on exit, so a crash trail survives the alt screen and stays greppable. Doing that for every level would dump the whole session into the terminal on quit. `--no-ui`, non-TTY, and `--no-device-logs` are all unchanged.
+
+  Retention is 2 000 records, not the text store's 10 000: each record holds the full message plus derived fields and the filter is a scan, so this is the interactive working set — the full history is still scrollable in **Build**. The filtered view is memoised against a monotonic buffer version rather than the record count, because at the retention limit every push evicts one and appends one — the count is constant while the contents turn over completely, which would have frozen the view exactly when logs were busiest.
+
 ### Changed
 
 - **The `sigx dev` dashboard is laid out from the pane the shell gives it, and shows the QR once** (#824). `@sigx/lynx-cli` moves to `@sigx/cli ^0.9.0` and `@sigx/terminal ^0.11.0`, and its plugin manifest declares `"requires": ">=0.9.0"` (was `>=0.4.0`).

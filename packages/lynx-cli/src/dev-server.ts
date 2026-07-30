@@ -1116,7 +1116,22 @@ export async function startDevServer(opts: DevServerOptions): Promise<void> {
             if (rawLine.startsWith(LOG_SENTINEL)) {
                 const entry = parseDeviceLogLine(rawLine);
                 if (entry && !opts.disableDeviceLogs) {
-                    streamLine(formatDeviceLogLine(entry));
+                    const logs = opts.shell?.deviceLogs;
+                    if (logs) {
+                        // Dashboard: keep the record. Device chatter stays out
+                        // of the text store so it cannot drown the build log,
+                        // which is the other half of why this tab was split.
+                        logs.push(entry);
+                        // Errors are the exception, and `say` is why: in
+                        // fullscreen it streams into the log store *and*
+                        // queues a printStatic that flushes to real scrollback
+                        // on exit. So a crash trail survives the alt screen and
+                        // stays greppable. Doing that for every level would
+                        // dump the whole session into the terminal on quit.
+                        if (entry.level === 'error') ui?.say(formatDeviceLogLine(entry));
+                    } else {
+                        streamLine(formatDeviceLogLine(entry));
+                    }
                 }
                 continue;
             }
