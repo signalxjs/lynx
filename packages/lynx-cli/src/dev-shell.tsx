@@ -68,6 +68,25 @@ function targetLabel(t: SelectedTarget): string {
     }
 }
 
+/**
+ * Stable, unique key for a target row.
+ *
+ * Not {@link targetLabel}: labels collide in ordinary setups — two Pixel 8s on
+ * the same desk both report `model: 'Pixel 8'`, and a simulator and a physical
+ * device can share a name. `DataTable` uses `identity` to break sort ties and
+ * to keep the cursor on the same row across re-renders, so a collision makes
+ * the selection jump between devices. The underlying ids are unique already;
+ * the `kind` prefix keeps two namespaces from ever meeting.
+ */
+export function targetIdentity(t: SelectedTarget): string {
+    switch (t.kind) {
+        case 'android-device': return `android-device:${t.deviceId}`;
+        case 'android-avd': return `android-avd:${t.avdName}`;
+        case 'ios-simulator': return `ios-simulator:${t.udid}`;
+        case 'ios-device': return `ios-device:${t.udid}`;
+    }
+}
+
 function targetPlatform(t: SelectedTarget): string {
     return t.kind.startsWith('android') ? 'android' : 'ios';
 }
@@ -144,7 +163,7 @@ export async function createDevShell(opts: {
                 <DataTable
                     columns={TARGET_COLUMNS}
                     rows={state.targets}
-                    identity={targetLabel}
+                    identity={targetIdentity}
                     width={width}
                     height={rows}
                     variant="plain"
