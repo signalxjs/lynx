@@ -6,9 +6,16 @@
  * "Launch Android emulator…" expanders. User toggles with space, confirms
  * with enter, cancels with q / Esc / Ctrl+C.
  *
- * Raw-TTY implementation — no dependency on prompts libraries. The codebase
- * already drives raw stdin from {@link ./dev-server.ts}, so we match that
- * pattern.
+ * Built on `multiselect` from the `@sigx/terminal` prompt kit — the same
+ * widget the rest of the sigx CLI prompts with, so cancellation (`isCancel`),
+ * grouping and the non-TTY fallback all behave the way a user expects from
+ * `sigx create`. (This was a hand-rolled raw-stdin picker once; the comment
+ * outlived the code.)
+ *
+ * One wrinkle worth knowing: option labels are assembled with ANSI already in
+ * them, and the prompt kit paints its own selection state, so labels are run
+ * through {@link stripAnsiCodes} before being handed over — otherwise a
+ * pre-coloured label fights the widget's highlight.
  */
 
 import { execSync, spawn } from 'node:child_process';

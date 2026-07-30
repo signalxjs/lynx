@@ -4,6 +4,22 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 ## [Unreleased]
 
+### Changed
+
+- **The `sigx dev` dashboard is laid out from the pane the shell gives it, and shows the QR once** (#824). `@sigx/lynx-cli` moves to `@sigx/cli ^0.9.0` and `@sigx/terminal ^0.11.0`, and its plugin manifest declares `"requires": ">=0.9.0"` (was `>=0.4.0`).
+
+  The version floor is load-bearing twice over. `@sigx/cli` 0.9.0 pins `@sigx/terminal ^0.11.0` while this package pinned `^0.10.0` — disjoint single-minor ranges, so pnpm resolved **two physical copies** of `@sigx/terminal`, and with them two `@sigx/reactivity` and two `@sigx/runtime-terminal` singletons. A renderer singleton is exactly the wrong thing to have two of: `printStatic` from one copy knows nothing about the live region the other mounted. And `ShellTab.render(pane)` is a *host* capability — the installed `sigx` binary is what calls it, so on a 0.8.x host `render()` receives no argument and every `pane.height` is a `TypeError` at first paint. `requires` is a real gate in `@sigx/cli`'s plugin discovery, so declaring it is what makes pane-based layout safe, rather than defensive fallbacks that would reinstate the guesswork.
+
+  With the pane available, `Math.max(8, getTerminalSize().rows - 13)` is gone — a literal that re-counted the shell's own chrome by hand and was wrong the moment the shell changed shape, silently. All arithmetic now lives in `src/dev-ui/layout.ts` and is derived through `boxChrome`, which mirrors the renderer's `drawBox`, so a change to the box primitive moves these numbers instead of invalidating them. One asymmetry is worth knowing, because it is invisible until it shears the screen: `LogView` takes its *outer* width and subtracts its own box internally, while `DataTable` charges the cursor gutter and its box against the terminal only when deriving its **default** width — an explicit `width` goes straight to `layoutTable` and the gutter is still prefixed to every row. Handing `DataTable` the raw pane therefore overflows by exactly one column. `dataTableWidth()` exists to stop that being rediscovered.
+
+  **The Connect tab is deleted.** It rendered an identical `<QRCode>` for the same URL as the Devices tab — same size, no difference. Devices owns the QR now. That forced an honest look at a problem the second tab had been hiding: a real bundle URL is 63 characters, which encodes to QR version 4 — **21 rows by 41 columns** at the default quiet zone, 18×35 at the tightest. A tab pane on an 80×24 terminal is about 14 rows, so the QR does not fit there at any setting. Rather than draw it clipped — which leaves it unscannable while looking fine — the layout is *measured*: side by side with the target table when it fits, otherwise the table takes the full width and `z` (or `/connect`) swaps the pane for a full-size QR, Esc back. Not `pushView`: `runShell` resolves a pushed id against the registered tab list and renders nothing for an id that is not a tab, while every registered tab appears in the tab strip — so a "pushed" QR would either be blank or put the second tab straight back.
+
+  The target list is now a `DataTable` rather than lines of text, and the shell title bar finally shows a version (`createDevShell` accepted the prop; nothing passed it).
+
+  Key arbitration is now documented at the top of `dev-shell.tsx`, because it is the likely future regression: `runShell` registers shortcuts on the `overlay` layer and components register on `control`, so **a shell shortcut always wins**. Adding a single letter there makes it permanently unreachable inside any focused component, silently. `DataTable`'s own `r` (reverse sort) is already unreachable — `r` is reload, which is the right trade — so no table here sets `sortable`, and `f`/`j`/`k` are reserved for the components. Tab-scoped keys are gated on `ShellHandle.activeTab` (new in 0.9.0) rather than tracked locally, since the shell's `1`–`9` move tabs without telling the plugin.
+
+  `sigx dev --no-ui` and non-TTY output are unchanged; the plain banner and the dashboard now share one `QR_SCAN_LABEL` so the two surfaces cannot drift.
+
 ## [0.23.0] - 2026-07-30
 
 ### Changed

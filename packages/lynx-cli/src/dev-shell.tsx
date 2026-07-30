@@ -2,19 +2,43 @@
 /**
  * The `sigx dev` dashboard — a ShellConfig for @sigx/cli/shell's runShell.
  *
- * Tabs: Devices (QR + URLs + selected targets), Logs (LogView over the
- * shell's streaming store), Connect (large QR). Shortcuts r/d/a/i mirror the
- * legacy raw-stdin keys; /reload etc. mirror them as slash commands.
+ * Tabs: Devices (QR + URLs + the target table) and Logs (LogView over the
+ * shell's streaming store). Shortcuts r/d/a/i mirror the legacy raw-stdin
+ * keys; /reload etc. mirror them as slash commands.
  *
  * The dev server starts AFTER the shell mounts, so server-dependent pieces
  * late-bind: `state` (signal-backed) is filled in when rspeedy reports ready,
  * and `actions`/`shutdown` are bound by startDevServer once the child exists.
+ *
+ * ── Reserved keys — read before adding a shortcut ────────────────────────
+ * Key dispatch runs `overlay` → `control` → `view` → `global`, and the first
+ * handler returning `true` consumes. `runShell` registers every entry of
+ * `shortcuts` below on the `overlay` layer, while `DataTable` and `LogView`
+ * register on `control` (onKey's default). So a shell shortcut ALWAYS wins:
+ * a single letter added here becomes permanently unreachable inside any
+ * focused component, silently.
+ *
+ * Consequences, deliberate:
+ *   - `f`, `j`, `k` belong to LogView/DataTable. Never add them here.
+ *   - `DataTable`'s own `r` (reverse sort) is unreachable, because `r` is
+ *     reload — which is the right trade, `r` being the dev-loop key everyone
+ *     already knows. No table in this dashboard sets `sortable`; sorting is
+ *     driven by ←/→ and owned by the tab instead.
+ *   - Tab-scoped keys (`z` here) are gated on `handle.activeTab` rather than
+ *     registered per tab, so they cannot leak into a tab that has no meaning
+ *     for them.
  */
 import { runShell, type ShellConfig } from '@sigx/cli/shell';
-import type { ShellHandle, SigxPlugin, StatusItem } from '@sigx/cli/plugin';
-import { signal, Text, Col, Row, QRCode, LogView, Spacer, getTerminalSize } from '@sigx/terminal';
+import type { ShellHandle, ShellPane, SigxPlugin, StatusItem } from '@sigx/cli/plugin';
+import {
+    signal, Text, Col, Row, QRCode, LogView, DataTable, Spacer,
+    onKey, isEsc, type TableColumn,
+} from '@sigx/terminal';
 import type { SelectedTarget } from './target-picker.js';
 import type { DevActions } from './dev-server.js';
+import {
+    dataTableRows, dataTableWidth, logViewHeight, placeQR, QR_SCAN_LABEL,
+} from './dev-ui/layout.js';
 
 export interface DevShellState {
     ready: boolean;
@@ -36,12 +60,37 @@ export interface DevShellController {
 
 function targetLabel(t: SelectedTarget): string {
     switch (t.kind) {
-        case 'android-device': return `📱 ${t.model || t.deviceId}`;
-        case 'android-avd': return `📱 ${t.avdName} (avd)`;
-        case 'ios-simulator': return `📱 ${t.name}`;
-        case 'ios-device': return `📲 ${t.name}`;
+        case 'android-device': return t.model || t.deviceId;
+        case 'android-avd': return t.avdName;
+        case 'ios-simulator': return t.name;
+        case 'ios-device': return t.name;
     }
 }
+
+function targetPlatform(t: SelectedTarget): string {
+    return t.kind.startsWith('android') ? 'android' : 'ios';
+}
+
+function targetForm(t: SelectedTarget): string {
+    switch (t.kind) {
+        case 'android-device': return 'device';
+        case 'android-avd': return 'emulator';
+        case 'ios-simulator': return 'simulator';
+        case 'ios-device': return 'device';
+    }
+}
+
+const TARGET_COLUMNS: TableColumn<SelectedTarget>[] = [
+    // Identity first, and deliberately NOT `flex`. `layoutTable` already
+    // shrinks from the right, so the device name — the cell you identify a
+    // row by — is the last thing to be truncated. `flex` is the opposite
+    // knob: it absorbs *surplus* width, which on a wide pane stretches this
+    // column by ~50 blank columns and shoves the rest to the far edge. Let
+    // the table hug its content instead.
+    { key: 'name', header: 'Target', value: targetLabel, min: 10 },
+    { key: 'platform', header: 'Platform', value: targetPlatform, width: 8 },
+    { key: 'form', header: 'Kind', value: targetForm, width: 9 },
+];
 
 export async function createDevShell(opts: {
     projectName: string;
@@ -61,6 +110,9 @@ export async function createDevShell(opts: {
         targets: opts.targets,
     });
 
+    /** Devices-tab mode: the QR takes the whole pane instead of sitting beside the table. */
+    const view = signal({ qrZoom: false });
+
     let bound: { actions: DevActions; shutdown: (code?: number) => void; childClosed: Promise<void> } | null = null;
     let handle: ShellHandle | null = null;
 
@@ -75,6 +127,92 @@ export async function createDevShell(opts: {
         void bound.childClosed.then(() => { clearTimeout(timer); resolve(); });
     });
 
+    const urlList = () => state.urls.map((u) => (
+        <box>
+            <Text color="dim">{`${u.label}:  `}</Text>
+            <Text color="info" underline>{u.url}</Text>
+        </box>
+    ));
+
+    const targetTable = (width: number, rows: number) => (
+        state.targets.length === 0
+            ? <Text color="dim">(none — waiting for a manual client)</Text>
+            : (
+                <DataTable
+                    columns={TARGET_COLUMNS}
+                    rows={state.targets}
+                    identity={targetLabel}
+                    width={dataTableWidth(width)}
+                    height={rows}
+                    variant="plain"
+                    showFooter={false}
+                />
+            )
+    );
+
+    const renderDevices = (pane: ShellPane) => {
+        if (!state.ready) return <Text color="dim">starting dev server…</Text>;
+
+        // Full-pane QR, on request. Kept as a tab-local mode rather than a
+        // pushed view: runShell resolves a pushed id against the registered
+        // tab list, so a view that is not also a tab renders nothing — and
+        // registering it as a tab would put it back in the tab strip, which
+        // is exactly the duplication this replaced.
+        if (view.qrZoom) {
+            return (
+                <Col>
+                    <Text color="dim">{QR_SCAN_LABEL}</Text>
+                    <QRCode text={state.primaryUrl} />
+                    <Text color="info" underline>{state.primaryUrl}</Text>
+                    <Text color="faint">esc  back</Text>
+                </Col>
+            );
+        }
+
+        const urls = urlList();
+        // The URL block and the blank line under it come out of the pane
+        // before anything is offered to the QR or the table.
+        const below = { width: pane.width, height: Math.max(1, pane.height - urls.length - 1) };
+        const placed = placeQR(state.primaryUrl, below);
+        // One row for the "Targets" heading above the table.
+        const tableRows = (h: number) => dataTableRows(h - 1, { variant: 'plain', footer: false });
+
+        if (placed.mode === 'hidden') {
+            // A real bundle URL encodes to 21 rows and a pane on an 80x24
+            // terminal is about 14, so this is the common case, not the edge.
+            // Drawing the QR clipped would leave it unscannable while looking
+            // fine, so offer the zoom and give the table the whole width.
+            return (
+                <Col>
+                    {urls}
+                    <Spacer size={1} />
+                    <Row gap={2}>
+                        <Text color="fg" bold>Targets</Text>
+                        <Text color="faint">z  show QR</Text>
+                    </Row>
+                    {targetTable(below.width, tableRows(below.height))}
+                </Col>
+            );
+        }
+
+        return (
+            <Col>
+                {urls}
+                <Spacer size={1} />
+                <Row gap={4}>
+                    <Col>
+                        <Text color="dim">{QR_SCAN_LABEL}</Text>
+                        <QRCode text={state.primaryUrl} />
+                    </Col>
+                    <Col>
+                        <Text color="fg" bold>Targets</Text>
+                        {targetTable(placed.tableWidth, tableRows(Math.min(below.height, placed.qr.rows)))}
+                    </Col>
+                </Row>
+            </Col>
+        );
+    };
+
     const config: ShellConfig = {
         mode: 'fullscreen',
         title: `⚡ sigx dev · ${opts.projectName}`,
@@ -84,63 +222,26 @@ export async function createDevShell(opts: {
             {
                 id: 'devices',
                 label: 'Devices',
-                render: () => (
-                    <Col>
-                        {state.ready ? (
-                            <Col>
-                                {state.urls.map((u) => (
-                                    <box>
-                                        <Text color="dim">{`${u.label}:  `}</Text>
-                                        <Text color="info" underline>{u.url}</Text>
-                                    </box>
-                                ))}
-                                <Spacer size={1} />
-                                <Row gap={4}>
-                                    <Col>
-                                        <Text color="dim">Scan with sigx-lynx-go:</Text>
-                                        <QRCode text={state.primaryUrl} />
-                                    </Col>
-                                    <Col>
-                                        <Text color="fg" bold>Targets</Text>
-                                        {state.targets.length === 0
-                                            ? <Text color="dim">(none — waiting for a manual client)</Text>
-                                            : state.targets.map((t) => (
-                                                <box><Text color="fg">{targetLabel(t)}</Text></box>
-                                            ))}
-                                    </Col>
-                                </Row>
-                            </Col>
-                        ) : (
-                            <Text color="dim">starting dev server…</Text>
-                        )}
-                    </Col>
-                ),
+                render: (pane) => <Col>{renderDevices(pane)}</Col>,
             },
             {
                 id: 'logs',
                 label: 'Logs',
-                // Full-height: terminal rows minus the shell chrome
-                // (title bar 3 + tabs 3 + spacer 1 + status/hints 2) and the
-                // LogView's own border/footer.
-                render: () => (handle
-                    ? <LogView store={handle.store as never} height={Math.max(8, getTerminalSize().rows - 13)} />
-                    : <Text color="dim">…</Text>),
-            },
-            {
-                id: 'connect',
-                label: 'Connect',
-                render: () => (state.ready
+                // The pane is the terminal minus the shell's own chrome —
+                // previously guessed here as `getTerminalSize().rows - 13`.
+                render: (pane) => (handle
                     ? (
-                        <Col>
-                            <Text color="dim">Scan with sigx-lynx-go:</Text>
-                            <QRCode text={state.primaryUrl} />
-                            <Text color="info" underline>{state.primaryUrl}</Text>
-                        </Col>
+                        <LogView
+                            store={handle.store as never}
+                            width={pane.width}
+                            height={logViewHeight(pane.height)}
+                        />
                     )
-                    : <Text color="dim">starting dev server…</Text>),
+                    : <Text color="dim">…</Text>),
             },
         ],
         shortcuts: [
+            // See the reserved-keys note at the top of this file before adding.
             { key: 'r', label: 'reload', run: () => act((a) => a.reload()) },
             { key: 'd', label: 'devices', run: () => act((a) => a.showDevices()) },
             ...(opts.hasAndroidApp
@@ -154,6 +255,11 @@ export async function createDevShell(opts: {
         commands: [
             { name: '/reload', description: 'reload JS on connected devices', run: () => act((a) => a.reload()) },
             { name: '/devices', description: 'scan and launch on devices', run: () => act((a) => a.showDevices()) },
+            {
+                name: '/connect',
+                description: 'show the pairing QR full screen',
+                run: (shell) => { view.qrZoom = true; shell.switchTab('devices'); },
+            },
             ...(opts.hasAndroidApp
                 ? [{ name: '/android', description: 'install + launch the Android app', run: () => act((a) => a.installAndroid()) }]
                 : []),
@@ -178,6 +284,25 @@ export async function createDevShell(opts: {
     };
 
     handle = await runShell(config);
+
+    // Tab-scoped keys. Registered on `overlay` so they beat a focused
+    // DataTable/LogView, but AFTER runShell's own handler so the shell's
+    // shortcuts still win — and gated on `activeTab`, which is the only
+    // reliable source: the shell's 1-9 keys move tabs without telling us, so
+    // a copy tracked here would desynchronise silently.
+    const offKeys = onKey((key) => {
+        if (handle?.activeTab !== 'devices' || !state.ready) return;
+        if (key === 'z') {
+            view.qrZoom = !view.qrZoom;
+            return true;
+        }
+        if (isEsc(key) && view.qrZoom) {
+            view.qrZoom = false;
+            return true;
+        }
+    }, { layer: 'overlay' });
+    handle.onExit(() => { offKeys(); });
+
     return {
         handle,
         state,

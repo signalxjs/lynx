@@ -2,6 +2,27 @@
 
 The Lynx plugin for [`@sigx/cli`](https://sigx.dev/cli/) — adds `dev`, `build`, `prebuild`, `doctor`, `run:android`, `run:ios`, `run:web`, and `build:web` commands for SignalX projects targeting [Lynx](https://lynxjs.org/).
 
+## The `sigx dev` dashboard
+
+`sigx dev` mounts a full-screen dashboard (requires `@sigx/cli` >= 0.9 — the plugin
+manifest declares that floor, so an older binary is refused with a message rather
+than crashing). Two tabs:
+
+- **Devices** — the bundle URLs, the pairing QR, and a table of the targets you picked.
+- **Logs** — a scrolling view over the dev server's streamed output.
+
+Keys: `r` reload · `d` devices · `a` android · `i` ios · `q` quit · `1`–`2` switch
+tabs · `/` commands · `z` show the pairing QR full screen (Esc to go back) · `Tab`
+move focus · `↑`/`↓`/PgUp/PgDn scroll the focused table or log.
+
+The QR appears **once**, on the Devices tab. It sits beside the target table when
+the terminal is big enough and is otherwise hidden behind `z` — a typical bundle
+URL encodes to a code 21 rows tall, which does not fit the tab area of an 80×24
+terminal, and a clipped QR is unscannable while still looking fine.
+
+`sigx dev --no-ui`, a non-TTY stdout, and `run:android` / `run:ios` use the plain
+streaming banner instead, unchanged.
+
 ## Web
 
 - `sigx run:web` — build and serve the app in the browser (via upstream `@lynx-js/web-core`) with live reload. Zero config: no `environments` block needed in `lynx.config.ts`.

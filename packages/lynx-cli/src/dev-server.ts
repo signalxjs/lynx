@@ -22,6 +22,7 @@ import type { SelectedTarget } from './target-picker.js';
 import { parseDeviceLogLine, formatDeviceLogLine, LOG_SENTINEL } from './device-log.js';
 import { isPortFree, isPortPairFree, readDevLock, writeDevLock, clearDevLock, isPidAlive, waitForPortFree, type DevLock } from './dev-lock.js';
 import type { DevShellController } from './dev-shell.js';
+import { QR_SCAN_LABEL } from './dev-ui/layout.js';
 
 export interface DevServerOptions {
     cwd: string;
@@ -194,7 +195,9 @@ function printBanner(opts: {
     // QR code for the primary bundle URL
     if (lanIPs.length > 0) {
         const primaryBundleUrl = bundleUrlFor(lanIPs[0].address, port, buildId);
-        lines.push('  \x1b[2mScan with sigx-lynx-go:\x1b[0m');
+        // Same label as the dashboard's Devices tab — shared so the two
+        // surfaces (this plain banner, and the mounted shell) cannot drift.
+        lines.push(`  \x1b[2m${QR_SCAN_LABEL}\x1b[0m`);
         const qr = generateQR(primaryBundleUrl);
         for (const qrLine of qr.split('\n')) {
             lines.push(`    ${qrLine}`);
