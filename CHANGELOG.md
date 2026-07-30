@@ -4,6 +4,16 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 ## [Unreleased]
 
+## [0.23.0] - 2026-07-30
+
+### Changed
+
+- **The whole `@sigx/lynx-*` line now builds against sigx core 0.14** (#819, #820). `@sigx/reactivity` and `@sigx/runtime-core` move from `^0.13.0` to `^0.14.0` across the catalog, and `@sigx/lynx-cli`'s sibling pins follow to the core-0.14-aligned releases — `@sigx/cli` `^0.7.0` → `^0.8.0`, `@sigx/terminal` `^0.9.0` → `^0.10.0`, so the CLI resolves the same single core line as the rest of the graph. This is the release that puts that alignment on npm: `@sigx/lynx-*@0.22.0` shipped before it and still declares `@sigx/reactivity: ^0.13.0`, so an app on 0.22 that also depends on core 0.14 directly resolves two physical copies of the reactivity graph.
+
+### Fixed
+
+- **`@sigx/lynx-navigation` — `<Screen.TabBarItem>`'s render-prop child works on core 0.14** (#820). Core 0.14 invokes a function passed as children as a scoped slot (signalxjs/core#476). `TabBarItem` predates that feature and implemented the render-prop pattern by hand — it called `slots.default?.()` expecting the function back and applied it to `{ active }` itself — so on 0.14 the renderer invoked that function first, with `undefined`, and `({ active }) => …` threw on the destructure before the normalise logic ran. The slot is now declared as what it has always been (`Define.Slot<'default', { active: boolean }>`) and invoked with the context, so the declaration and the runtime agree and `active` is type-checked at the call site instead of cast. The manual normalise is kept: a nested function, or a single-element array holding one, still has to be applied by hand, and plain JSX children pass through with `active` ignored.
+
 ## [0.22.0] - 2026-07-28
 
 ### Fixed
