@@ -728,7 +728,7 @@ export function launchAppOnDevice(udid: string, bundleId: string, devUrl?: strin
 /**
  * Get full device status: Android devices, iOS simulators, installation status.
  */
-export function getDeviceStatus(appId?: string, iosBundleId?: string): DeviceStatus {
+export function getDeviceStatus(appId?: string, iosBundleId?: string, includeOffline = false): DeviceStatus {
     // Android
     const adbAvailable = isAdbAvailable();
     let devices: AndroidDevice[] = [];
@@ -736,7 +736,7 @@ export function getDeviceStatus(appId?: string, iosBundleId?: string): DeviceSta
     const appInstalled = new Map<string, boolean>();
 
     if (adbAvailable) {
-        devices = listAndroidDevices(true);
+        devices = listAndroidDevices(includeOffline);
         for (const device of devices) {
             // Don't probe an unusable device. `adb shell pm` against an
             // offline/unauthorised handset cannot succeed, and each probe
@@ -807,6 +807,7 @@ interface StatusCache {
     ts: number;
     appId?: string;
     bundleId?: string;
+    includeOffline: boolean;
 }
 let _statusCache: StatusCache | null = null;
 const STATUS_CACHE_MS = 3000;
@@ -820,18 +821,26 @@ const STATUS_CACHE_MS = 3000;
  * {@link invalidateDeviceStatusCache} after an install/launch that changes
  * observable state.
  */
-export function getDeviceStatusCached(appId?: string, iosBundleId?: string): DeviceStatus {
+export function getDeviceStatusCached(
+    appId?: string,
+    iosBundleId?: string,
+    includeOffline = false,
+): DeviceStatus {
     const now = Date.now();
     if (
         _statusCache &&
         _statusCache.appId === appId &&
         _statusCache.bundleId === iosBundleId &&
+        // Part of the key, not just an input: a cached offline-inclusive
+        // snapshot handed to a caller that asked for launchable devices only
+        // would put unusable devices into the launch loops.
+        _statusCache.includeOffline === includeOffline &&
         now - _statusCache.ts < STATUS_CACHE_MS
     ) {
         return _statusCache.status;
     }
-    const status = getDeviceStatus(appId, iosBundleId);
-    _statusCache = { status, ts: now, appId, bundleId: iosBundleId };
+    const status = getDeviceStatus(appId, iosBundleId, includeOffline);
+    _statusCache = { status, ts: now, appId, bundleId: iosBundleId, includeOffline };
     return status;
 }
 

@@ -248,7 +248,11 @@ export async function createDevShell(opts: {
                 const i = devices.rows.findIndex((x) => x.id === r.id);
                 if (i >= 0) devices.cursor = i;
             }}
-            onSubmit={() => launchSelected()}
+            // Launch the row the table submitted, not whatever `cursor` last
+            // saw. They are normally the same, but `onSelect` does not re-fire
+            // on a rescan-driven re-render — and "Enter installed on the wrong
+            // phone" is not a bug anyone should have to reproduce twice.
+            onSubmit={(r: DeviceRow) => launchSelected(r)}
         />
     );
 
@@ -384,9 +388,15 @@ export async function createDevShell(opts: {
     };
 
     /** Enter on a row: install if needed, then launch — on that device only. */
-    const launchSelected = () => {
-        const row = devices.rows[devices.cursor];
+    const launchSelected = (submitted?: DeviceRow) => {
+        // Prefer the submitted row; fall back to the cursor for callers that
+        // have no row in hand.
+        const row = submitted
+            ? devices.rows.find((r) => r.id === submitted.id) ?? submitted
+            : devices.rows[devices.cursor];
         if (!row) return;
+        const idx = devices.rows.findIndex((r) => r.id === row.id);
+        if (idx >= 0) devices.cursor = idx;
         if (!bound) { devices.notice = 'dev server is still starting…'; return; }
         if (row.offline) { devices.notice = `${row.label} is offline or unauthorised`; return; }
         if (row.pending) { devices.notice = `${row.label} has not appeared yet`; return; }

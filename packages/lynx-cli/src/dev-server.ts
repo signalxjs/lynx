@@ -492,7 +492,10 @@ function createDevActions(opts: DevControlOpts): DevActions {
         },
         rescanDevices() {
             invalidateDeviceStatusCache();
-            return getDeviceStatusCached(opts.appId, opts.bundleId);
+            // The one caller that wants unusable devices: the table shows them
+            // greyed out. Every other consumer iterates `status.devices` to
+            // launch on things, so they keep the launchable-only default.
+            return getDeviceStatusCached(opts.appId, opts.bundleId, true);
         },
 
         async launchOnDevice(row, hooks) {
