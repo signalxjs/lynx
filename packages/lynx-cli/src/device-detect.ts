@@ -304,12 +304,16 @@ export function listAndroidDevices(includeOffline = false): AndroidDevice[] {
                 model,
             };
         })
-        // Offline/unauthorised devices are dropped by default: every existing
-        // caller iterates this list to *launch* on things, and an unauthorised
-        // handset would just fail. `includeOffline` is for the dashboard's
-        // device table, which wants to show it greyed out — a phone that
-        // silently vanishes because its USB-debugging prompt is unanswered
-        // sends you to entirely the wrong end of the problem.
+        // Offline/unauthorised devices are dropped by default. Callers either
+        // launch on this list (the dev-server actions) or offer it as a choice
+        // (the target picker), and an unusable device is wrong in both — you
+        // cannot launch on it and you should not be able to select it.
+        // `doctor` reads the default list too, for reporting.
+        //
+        // `includeOffline` is for the dashboard's device table, which shows it
+        // greyed out and refuses to act on it: a phone that silently vanishes
+        // because its USB-debugging prompt is unanswered sends you to entirely
+        // the wrong end of the problem.
         .filter((d) => includeOffline || d.type !== 'offline');
 }
 

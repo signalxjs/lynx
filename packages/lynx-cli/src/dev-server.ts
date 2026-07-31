@@ -483,7 +483,11 @@ function createDevActions(opts: DevControlOpts): DevActions {
                     // WS reload reached nobody, and nothing has the app
                     // installed either. `r` genuinely did nothing, and it
                     // has to say so — it used to say so invisibly.
-                    const msg = 'nothing to reload — no device is connected with the app installed';
+                    // "the app" is not the whole story: the relaunch loop
+                    // accepts sigx-lynx-go too, so a sandbox user told that no
+                    // device has "the app" would go looking for the wrong
+                    // thing.
+                    const msg = 'nothing to reload — no connected device has the app or sigx-lynx-go installed';
                     opts.logger.log(msg);
                     return msg;
                 }
