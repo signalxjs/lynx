@@ -258,9 +258,6 @@ export function isAdbAvailable(): boolean {
 }
 
 /**
- * List connected Android devices via ADB.
- */
-/**
  * Classify one `adb devices -l` row.
  *
  * `adb` reports more unusable states than `offline`. The common one by far is
@@ -278,6 +275,12 @@ export function classifyAndroidDevice(id: string, state: string | undefined): An
     return state === 'device' ? 'device' : 'offline';
 }
 
+/**
+ * List connected Android devices via ADB.
+ *
+ * Unusable devices are omitted unless `includeOffline` — see the filter at the
+ * end of this function for why.
+ */
 export function listAndroidDevices(includeOffline = false): AndroidDevice[] {
     const res = execDevice(`"${adbCmd()}" devices -l`, 'adb');
     if (!res.ok) return [];
@@ -742,8 +745,9 @@ export function getDeviceStatus(appId?: string, iosBundleId?: string, includeOff
             // offline/unauthorised handset cannot succeed, and each probe
             // carries the full DEVICE_CMD_TIMEOUT_MS — so a single phone with
             // an unanswered debugging prompt would add tens of seconds to
-            // every rescan. Both flags default false, which is what the
-            // dashboard wants for a row it will not let you launch on anyway.
+            // every rescan. Record both flags as false instead: the dashboard
+            // will not let you launch on this row anyway, and an absent entry
+            // would be indistinguishable from "not yet probed".
             if (device.type === 'offline') {
                 lynxGoInstalled.set(device.id, false);
                 if (appId) appInstalled.set(device.id, false);

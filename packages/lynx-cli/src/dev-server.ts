@@ -407,84 +407,90 @@ function createDevActions(opts: DevControlOpts): DevActions {
 
     return {
         async reload(): Promise<string> {
-            const bundleUrl = currentBundleUrl();
-                // Two-stage reload: first ask the plugin's WS server to push a
-                // `{ type: 'reload' }` message to every connected device — the
-                // dev-client reloads the LynxView in-place without a full
-                // native relaunch. If no device is currently streaming logs
-                // (bundle crashed, app not running, etc.), we fall through to
-                // the legacy native-relaunch path below so `r` always does
-                // *something* visible.
-                try {
-                    const reloaded = await requestJsReload(opts.wsPort);
-                    if (reloaded > 0) {
-                        const msg = `JS reload sent to ${reloaded} device${reloaded === 1 ? '' : 's'}`;
-                        opts.logger.log(`\x1b[32m✓\x1b[0m ${msg}`);
-                        return msg;
+            // Two-stage reload: first ask the plugin's WS server to push a
+            // `{ type: 'reload' }` message to every connected device — the
+            // dev-client reloads the LynxView in-place without a full native
+            // relaunch. If no device is currently streaming logs (bundle
+            // crashed, app not running, etc.), we fall through to the legacy
+            // native-relaunch path below so `r` always does *something*
+            // visible.
+            //
+            // Everything is inside the try, `currentBundleUrl()` included: the
+            // contract above says this never rejects and both callers depend
+            // on it — the dashboard uses `.then()` with no `.catch`, and the
+            // raw-stdin path drops the promise entirely, so a throw would
+            // surface as an unhandled rejection instead of a message.
+            try {
+                const bundleUrl = currentBundleUrl();
+                const reloaded = await requestJsReload(opts.wsPort);
+                if (reloaded > 0) {
+                    const msg = `JS reload sent to ${reloaded} device${reloaded === 1 ? '' : 's'}`;
+                    opts.logger.log(`\x1b[32m✓\x1b[0m ${msg}`);
+                    return msg;
+                }
+
+                opts.logger.log(`Relaunching with ${bundleUrl}...`);
+                const status = getDeviceStatusCached(opts.appId, opts.bundleId);
+                let relaunched = 0;
+
+                // Android — per-device URL routes via `adb reverse`.
+                // Force-stop first so the next `am start` enters `onCreate`
+                // with a fresh intent extra; otherwise `singleTop`
+                // activities receive `onNewIntent` and silently keep the
+                // stale dev URL.
+                for (const device of status.devices) {
+                    const url = androidUrlFor(device.id);
+                    if (opts.appId && status.appInstalled?.get(device.id)) {
+                        forceStopApp(device.id, opts.appId);
+                        launchApp(device.id, opts.appId, url);
+                        relaunched++;
+                    } else if (status.lynxGoInstalled.get(device.id)) {
+                        forceStopApp(device.id, LYNX_GO_PACKAGE);
+                        launchLynxGo(device.id, url);
+                        relaunched++;
                     }
+                }
 
-                    opts.logger.log(`Relaunching with ${bundleUrl}...`);
-                    const status = getDeviceStatusCached(opts.appId, opts.bundleId);
-                    let relaunched = 0;
-
-                    // Android — per-device URL routes via `adb reverse`.
-                    // Force-stop first so the next `am start` enters `onCreate`
-                    // with a fresh intent extra; otherwise `singleTop`
-                    // activities receive `onNewIntent` and silently keep the
-                    // stale dev URL.
-                    for (const device of status.devices) {
-                        const url = androidUrlFor(device.id);
-                        if (opts.appId && status.appInstalled?.get(device.id)) {
-                            forceStopApp(device.id, opts.appId);
-                            launchApp(device.id, opts.appId, url);
-                            relaunched++;
-                        } else if (status.lynxGoInstalled.get(device.id)) {
-                            forceStopApp(device.id, LYNX_GO_PACKAGE);
-                            launchLynxGo(device.id, url);
+                // iOS simulators — terminate any running instance first so launch args refresh.
+                if (opts.bundleId) {
+                    for (const sim of status.iosSimulators) {
+                        if (status.iosAppInstalled?.get(sim.udid)) {
+                            try {
+                                execSync(
+                                    `xcrun simctl terminate "${sim.udid}" "${opts.bundleId}"`,
+                                    { stdio: 'pipe' },
+                                );
+                            } catch {
+                                // App may not be running
+                            }
+                            launchIosApp(sim.udid, opts.bundleId, bundleUrl);
                             relaunched++;
                         }
                     }
 
-                    // iOS simulators — terminate any running instance first so launch args refresh.
-                    if (opts.bundleId) {
-                        for (const sim of status.iosSimulators) {
-                            if (status.iosAppInstalled?.get(sim.udid)) {
-                                try {
-                                    execSync(
-                                        `xcrun simctl terminate "${sim.udid}" "${opts.bundleId}"`,
-                                        { stdio: 'pipe' },
-                                    );
-                                } catch {
-                                    // App may not be running
-                                }
-                                launchIosApp(sim.udid, opts.bundleId, bundleUrl);
+                    // iOS physical devices — devicectl handles termination via --terminate-existing.
+                    for (const dev of status.iosDevices) {
+                        if (status.iosDeviceAppInstalled?.get(dev.udid)) {
+                            if (launchAppOnDevice(dev.udid, opts.bundleId, bundleUrl)) {
                                 relaunched++;
                             }
                         }
-
-                        // iOS physical devices — devicectl handles termination via --terminate-existing.
-                        for (const dev of status.iosDevices) {
-                            if (status.iosDeviceAppInstalled?.get(dev.udid)) {
-                                if (launchAppOnDevice(dev.udid, opts.bundleId, bundleUrl)) {
-                                    relaunched++;
-                                }
-                            }
-                        }
                     }
+                }
 
-                    if (relaunched === 0) {
-                        // The quiet failure: nothing was streaming logs, so the
-                        // WS reload reached nobody, and nothing has the app
-                        // installed either. `r` genuinely did nothing, and it
-                        // has to say so — it used to say so invisibly.
-                        const msg = 'nothing to reload — no device is connected with the app installed';
-                        opts.logger.log(msg);
-                        return msg;
-                    }
-                    const msg = `relaunched on ${relaunched} device${relaunched === 1 ? '' : 's'}`;
+                if (relaunched === 0) {
+                    // The quiet failure: nothing was streaming logs, so the
+                    // WS reload reached nobody, and nothing has the app
+                    // installed either. `r` genuinely did nothing, and it
+                    // has to say so — it used to say so invisibly.
+                    const msg = 'nothing to reload — no device is connected with the app installed';
                     opts.logger.log(msg);
                     return msg;
-                } catch (err) {
+                }
+                const msg = `relaunched on ${relaunched} device${relaunched === 1 ? '' : 's'}`;
+                opts.logger.log(msg);
+                return msg;
+            } catch (err) {
                     const msg = `reload failed: ${err instanceof Error ? err.message : String(err)}`;
                     opts.logger.error(msg);
                     return msg;

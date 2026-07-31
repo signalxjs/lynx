@@ -705,6 +705,18 @@ export async function createDevShell(opts: {
         handle,
         state,
         deviceLogs,
-        bind: (b) => { bound = b; },
+        bind: (b) => {
+            bound = b;
+            // Populate the table as soon as there is something to ask.
+            // Without this the tab shows only the picked targets until the
+            // user presses `d` — so "lists every detected device" was true
+            // of the code and false of the first screen, which is the one
+            // that matters.
+            //
+            // Deferred a tick: `rescanDevices` shells out to adb/simctl
+            // synchronously, and blocking here would stall the frame that is
+            // about to paint.
+            setTimeout(() => { rescan(); }, 0);
+        },
     };
 }
