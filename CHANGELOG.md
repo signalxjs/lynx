@@ -4,6 +4,24 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 ## [Unreleased]
 
+### Changed
+
+- **The dev dashboard's Devices tab is now the control surface, and its actions are visible** (#833). Reported from real use: `d` "not working", `r` "not working", and `a`/`i` "just open anything, you don't select a device". All three were accurate, and the first two shared a cause.
+
+  **Feedback went where nobody was looking.** `showDevices`, `installAndroid`, `buildLaunchIos` and `reload` all reported through `logger.log` / `printLines`, which in dashboard mode are `createShellLogger` and `shell.say()` — and in fullscreen `say` writes into the log store (the **Build** tab) plus a `printStatic` that only reaches the terminal on exit. Pressing any of those keys on the **Devices** tab therefore painted nothing at all. `d`'s device listing was being produced correctly the whole time; it was one tab over. Actions now report on the tab where the key was pressed.
+
+  **Nothing was selectable.** `showDevices()` looped every Android device *and* every iOS simulator/device and launched on all of them — it was not "show devices", it was "launch on everything". `installAndroid()` built, then launched on every device. `buildLaunchIos()` auto-picked a simulator. None consulted the table cursor that has existed since #824.
+
+  So the table now lists **every detected device** rather than the targets picked at startup, with what each has installed, and `Enter` installs-if-needed and launches on **that** device. `a` and `i` are gone: they were the workaround for not being able to choose, and one key on a row that already knows its platform replaces both. `d` rescans and no longer launches anything.
+
+  **A long install is followable from the row it belongs to**: the device's own Status cell shows a spinner and the current phase (`building` / `installing` / `launching`), and the latest build line sits under the table. Full output still goes to **Build**. The ticker only runs while a row is busy — an idle dashboard left open all afternoon should not repaint at 80ms.
+
+  `reload()` now returns a summary instead of only logging one, so `r` says what it did — including the case it used to hide: with no device streaming logs and nothing installed, the WS reload reaches nobody and the native relaunch has nothing to relaunch, so `r` genuinely does nothing and now says so.
+
+  Physical iOS devices are launched, not built — signing belongs to `sigx run:ios --device`, and the tab says that rather than starting a build that would fail on provisioning halfway through.
+
+  The legacy raw-stdin `r`/`d`/`a`/`i` keys on the `--no-ui` path are untouched.
+
 ### Added
 
 - **Device logs keep their structure, and the dashboard can filter them** (#828). Every device log already reached the CLI as a record — level, platform, client id, timestamp — and `formatDeviceLogLine` flattened it to an ANSI string one line later (`dev-server.ts`). Nothing downstream could filter by anything, and no amount of work on the dashboard could recover it, because the structure was gone before the dashboard saw it.

@@ -53,7 +53,9 @@ function renderPane(pane: { width: number; height: number }): string[] {
     // One URL line, matching the single `Local:` row below. Drives the SAME
     // planner the tab does — the arithmetic used to be restated here, which is
     // how a missing row went unnoticed in both.
-    const plan = planDevices(BUNDLE_URL, pane, 1);
+    // 2 footer rows: the activity notice plus a build tail, the worst case.
+    const FOOTER_ROWS = 2;
+    const plan = planDevices(BUNDLE_URL, pane, 1, FOOTER_ROWS);
     const placed = plan.placement;
 
     const table = () => (
@@ -92,6 +94,8 @@ function renderPane(pane: { width: number; height: number }): string[] {
                     {table()}
                 </Col>
             )}
+            <box><Text color="dim">Pixel 8: gradle installDebug</Text></box>
+            <box><Text color="faint">▸ Compiling MainActivity.kt</Text></box>
         </Col>
     );
 
