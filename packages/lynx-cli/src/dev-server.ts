@@ -533,9 +533,17 @@ function createDevActions(opts: DevControlOpts): DevActions {
                     hooks.onPhase('launching');
                     const url = androidUrlFor(row.handle);
                     if (hasCustomApp) {
-                        launchApp(row.handle, opts.appId!, url);
+                        // Every launch helper reports success as a boolean.
+                        // Ignoring it made the row say "launched" whenever adb
+                        // or devicectl had in fact refused — the one outcome
+                        // this tab exists to make visible.
+                        if (!launchApp(row.handle, opts.appId!, url)) {
+                            throw new Error(`could not launch ${opts.appId} — see the Build tab for adb output`);
+                        }
                     } else if (row.hasSandbox) {
-                        launchLynxGo(row.handle, url);
+                        if (!launchLynxGo(row.handle, url)) {
+                            throw new Error('could not launch sigx-lynx-go — see the Build tab for adb output');
+                        }
                     } else {
                         throw new Error(
                             'no app configured and sigx-lynx-go is not installed here — '
@@ -556,7 +564,9 @@ function createDevActions(opts: DevControlOpts): DevActions {
                     const sim = sims.find((s) => s.udid === row.handle);
                     if (sim && sim.state !== 'Booted') {
                         hooks.onPhase('launching', `booting ${sim.name}`);
-                        bootSimulator(sim.udid);
+                        if (!bootSimulator(sim.udid)) {
+                            throw new Error(`could not boot ${sim.name}`);
+                        }
                     }
                     try { execSync('open -a Simulator', { stdio: 'pipe' }); } catch { /* ignore */ }
 
@@ -574,7 +584,9 @@ function createDevActions(opts: DevControlOpts): DevActions {
                     try {
                         execSync(`xcrun simctl terminate "${row.handle}" "${opts.bundleId}"`, { stdio: 'pipe' });
                     } catch { /* not running */ }
-                    launchIosApp(row.handle, opts.bundleId, bundleUrl);
+                    if (!launchIosApp(row.handle, opts.bundleId, bundleUrl)) {
+                        throw new Error('simctl launch failed');
+                    }
                     hooks.onDone(true);
                     return;
                 }
@@ -586,7 +598,9 @@ function createDevActions(opts: DevControlOpts): DevActions {
                     throw new Error('app not installed — run `sigx run:ios --device` once to sign and install it');
                 }
                 hooks.onPhase('launching');
-                launchAppOnDevice(row.handle, opts.bundleId, bundleUrl);
+                if (!launchAppOnDevice(row.handle, opts.bundleId, bundleUrl)) {
+                    throw new Error('devicectl launch failed — check the device is unlocked and trusted');
+                }
                 hooks.onDone(true);
             } catch (err) {
                 hooks.onDone(false, err instanceof Error ? err.message : String(err));
