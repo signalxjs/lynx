@@ -2,9 +2,13 @@
 /**
  * The `sigx dev` dashboard — a ShellConfig for @sigx/cli/shell's runShell.
  *
- * Tabs: Devices (QR + URLs + the target table) and Logs (LogView over the
- * shell's streaming store). Shortcuts r/d/a/i mirror the legacy raw-stdin
- * keys; /reload etc. mirror them as slash commands.
+ * Tabs: Devices (URLs, the pairing QR, and every detected device — Enter
+ * installs-if-needed and launches on the selected one), Build (LogView over
+ * the shell's streaming store) and Logs (the structured device-log table).
+ *
+ * Shortcuts are r/d/l/q. There is deliberately no `a`/`i`: those built and
+ * launched on every device they could find, which is what the Devices table
+ * replaced.
  *
  * The dev server starts AFTER the shell mounts, so server-dependent pieces
  * late-bind: `state` (signal-backed) is filled in when rspeedy reports ready,
@@ -234,7 +238,7 @@ export async function createDevShell(opts: {
 
     /** `width`/`rows` come from `planDevices` already corrected for the
      *  cursor gutter — do not re-apply `dataTableWidth` here. */
-    const targetTable = (width: number, rows: number) => (
+    const deviceTable = (width: number, rows: number) => (
         <DataTable
             columns={DEVICE_COLUMNS}
             rows={devices.rows}
@@ -316,7 +320,7 @@ export async function createDevShell(opts: {
                         <Text color="fg" bold>Devices</Text>
                         <Text color="faint">enter launch · d rescan · z show QR</Text>
                     </Row>
-                    {targetTable(plan.tableWidth, plan.tableRows)}
+                    {deviceTable(plan.tableWidth, plan.tableRows)}
                     {activityLine()}
                 </Col>
             );
@@ -335,7 +339,7 @@ export async function createDevShell(opts: {
                     </Col>
                     <Col>
                         <Text color="fg" bold>Devices</Text>
-                        {targetTable(plan.tableWidth, plan.tableRows)}
+                        {deviceTable(plan.tableWidth, plan.tableRows)}
                         {activityLine()}
                     </Col>
                 </Row>
