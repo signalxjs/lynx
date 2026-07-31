@@ -2,9 +2,13 @@
 /**
  * The `sigx dev` dashboard — a ShellConfig for @sigx/cli/shell's runShell.
  *
- * Tabs: Devices (QR + URLs + the target table) and Logs (LogView over the
- * shell's streaming store). Shortcuts r/d/a/i mirror the legacy raw-stdin
- * keys; /reload etc. mirror them as slash commands.
+ * Tabs: Devices (URLs, the pairing QR, and every detected device — Enter
+ * installs-if-needed and launches on the selected one), Build (LogView over
+ * the shell's streaming store) and Logs (the structured device-log table).
+ *
+ * Shortcuts are r/d/l/q. There is deliberately no `a`/`i`: those built and
+ * launched on every device they could find, which is what the Devices table
+ * replaced.
  *
  * The dev server starts AFTER the shell mounts, so server-dependent pieces
  * late-bind: `state` (signal-backed) is filled in when rspeedy reports ready,
@@ -35,8 +39,12 @@ import { runShell, type ShellConfig } from '@sigx/cli/shell';
 import type { ShellHandle, ShellPane, SigxPlugin, StatusItem } from '@sigx/cli/plugin';
 import {
     signal, Text, Col, Row, QRCode, LogView, DataTable, DetailList, Divider, Spacer,
-    onKey, isEsc, fitLines, type TableColumn,
+    onKey, isEsc, fitLines, getTick, subscribeTicker, SPINNERS, type TableColumn,
 } from '@sigx/terminal';
+import {
+    buildDeviceRows, statusText, statusTone, isActionable, isBusy,
+    type DeviceRow,
+} from './dev-ui/device-rows.js';
 import type { SelectedTarget } from './target-picker.js';
 import type { DevActions } from './dev-server.js';
 import {
@@ -68,57 +76,32 @@ export interface DevShellController {
     bind: (b: { actions: DevActions; shutdown: (code?: number) => void; childClosed: Promise<void> }) => void;
 }
 
-function targetLabel(t: SelectedTarget): string {
-    switch (t.kind) {
-        case 'android-device': return t.model || t.deviceId;
-        case 'android-avd': return t.avdName;
-        case 'ios-simulator': return t.name;
-        case 'ios-device': return t.name;
-    }
+/** One frame of the spinner, driven by the shared ticker. */
+function spinnerFrame(): string {
+    const frames = SPINNERS.dots;
+    return frames[getTick() % frames.length] ?? '';
 }
 
-/**
- * Stable, unique key for a target row.
- *
- * Not {@link targetLabel}: labels collide in ordinary setups — two Pixel 8s on
- * the same desk both report `model: 'Pixel 8'`, and a simulator and a physical
- * device can share a name. `DataTable` uses `identity` to break sort ties and
- * to keep the cursor on the same row across re-renders, so a collision makes
- * the selection jump between devices. The underlying ids are unique already;
- * the `kind` prefix keeps two namespaces from ever meeting.
- */
-export function targetIdentity(t: SelectedTarget): string {
-    switch (t.kind) {
-        case 'android-device': return `android-device:${t.deviceId}`;
-        case 'android-avd': return `android-avd:${t.avdName}`;
-        case 'ios-simulator': return `ios-simulator:${t.udid}`;
-        case 'ios-device': return `ios-device:${t.udid}`;
-    }
-}
-
-function targetPlatform(t: SelectedTarget): string {
-    return t.kind.startsWith('android') ? 'android' : 'ios';
-}
-
-function targetForm(t: SelectedTarget): string {
-    switch (t.kind) {
-        case 'android-device': return 'device';
-        case 'android-avd': return 'emulator';
-        case 'ios-simulator': return 'simulator';
-        case 'ios-device': return 'device';
-    }
-}
-
-const TARGET_COLUMNS: TableColumn<SelectedTarget>[] = [
+const DEVICE_COLUMNS: TableColumn<DeviceRow>[] = [
     // Identity first, and deliberately NOT `flex`. `layoutTable` already
     // shrinks from the right, so the device name — the cell you identify a
     // row by — is the last thing to be truncated. `flex` is the opposite
     // knob: it absorbs *surplus* width, which on a wide pane stretches this
-    // column by ~50 blank columns and shoves the rest to the far edge. Let
-    // the table hug its content instead.
-    { key: 'name', header: 'Target', value: targetLabel, min: 10 },
-    { key: 'platform', header: 'Platform', value: targetPlatform, width: 8 },
-    { key: 'form', header: 'Kind', value: targetForm, width: 9 },
+    // column by ~50 blank columns and shoves the rest to the far edge.
+    { key: 'name', header: 'Device', value: (r) => r.label, min: 10 },
+    { key: 'platform', header: 'Platform', value: (r) => r.platform, width: 8 },
+    { key: 'form', header: 'Kind', value: (r) => r.form, width: 9 },
+    {
+        key: 'status',
+        header: 'Status',
+        width: 22,
+        min: 10,
+        // Reading the tick here is what animates the spinner: the cell is
+        // recomputed on every frame while a device is busy, and the ticker is
+        // only running while something is.
+        value: (r) => statusText(r, spinnerFrame()),
+        color: statusTone,
+    },
 ];
 
 function pad2(n: number): string { return n < 10 ? `0${n}` : String(n); }
@@ -198,17 +181,47 @@ export async function createDevShell(opts: {
         logDetail: false,
     });
 
+    /**
+     * The Devices table. Seeded from the picked targets so the tab is
+     * populated before the first scan lands, then replaced by real detection.
+     */
+    const devices = signal({
+        rows: buildDeviceRows({
+            devices: [], lynxGoInstalled: new Map(), adbAvailable: true,
+            iosSimulators: [], xcrunAvailable: true, iosDevices: [], devicectlAvailable: true,
+        }, opts.targets),
+        /** Cursor position, so a rescan or a repaint does not move it. */
+        cursor: 0,
+        /** Last build line, shown under the table while something is running. */
+        tail: '',
+        /** Last action outcome — the feedback that used to vanish into the log store. */
+        notice: '',
+    });
+
+    /**
+     * The ticker only runs while a row is busy. It repaints at 80ms, which is
+     * the right cost for a live spinner and the wrong one for an idle
+     * dashboard sitting open all afternoon.
+     */
+    let tickerOff: (() => void) | null = null;
+    const syncTicker = () => {
+        const busy = devices.rows.some(isBusy);
+        if (busy && !tickerOff) tickerOff = subscribeTicker();
+        else if (!busy && tickerOff) { tickerOff(); tickerOff = null; }
+    };
+
+    const setActivity = (id: string, activity: DeviceRow['activity']) => {
+        const row = devices.rows.find((r) => r.id === id);
+        if (row) row.activity = activity;
+        syncTicker();
+    };
+
     const deviceLogs = createDeviceLogStore();
     /** The row the table cursor is on — tracked continuously via `select`. */
     const selected = signal({ record: null as DeviceLogRecord | null });
 
     let bound: { actions: DevActions; shutdown: (code?: number) => void; childClosed: Promise<void> } | null = null;
     let handle: ShellHandle | null = null;
-
-    const act = (run: (a: DevActions) => void) => {
-        if (bound) run(bound.actions);
-        else handle?.say('dev server is still starting…');
-    };
 
     const waitForTeardown = () => new Promise<void>((resolve) => {
         if (!bound) return resolve();
@@ -225,20 +238,26 @@ export async function createDevShell(opts: {
 
     /** `width`/`rows` come from `planDevices` already corrected for the
      *  cursor gutter — do not re-apply `dataTableWidth` here. */
-    const targetTable = (width: number, rows: number) => (
-        state.targets.length === 0
-            ? <Text color="dim">(none — waiting for a manual client)</Text>
-            : (
-                <DataTable
-                    columns={TARGET_COLUMNS}
-                    rows={state.targets}
-                    identity={targetIdentity}
-                    width={width}
-                    height={rows}
-                    variant="plain"
-                    showFooter={false}
-                />
-            )
+    const deviceTable = (width: number, rows: number) => (
+        <DataTable
+            columns={DEVICE_COLUMNS}
+            rows={devices.rows}
+            identity={(r: DeviceRow) => r.id}
+            width={width}
+            height={rows}
+            variant="plain"
+            showFooter={false}
+            emptyText="no devices — connect one, boot an emulator, then press d"
+            onSelect={(r: DeviceRow) => {
+                const i = devices.rows.findIndex((x) => x.id === r.id);
+                if (i >= 0) devices.cursor = i;
+            }}
+            // Launch the row the table submitted, not whatever `cursor` last
+            // saw. They are normally the same, but `onSelect` does not re-fire
+            // on a rescan-driven re-render — and "Enter installed on the wrong
+            // phone" is not a bug anyone should have to reproduce twice.
+            onSubmit={(r: DeviceRow) => launchSelected(r)}
+        />
     );
 
     const renderDevices = (pane: ShellPane) => {
@@ -282,7 +301,10 @@ export async function createDevShell(opts: {
         // its test drives the same function. The arithmetic used to live here
         // and be restated in the test, which is how the QR's label row came to
         // be charged in neither: the test agreed with the bug.
-        const plan = planDevices(state.primaryUrl, pane, urls.length);
+        // The activity block below the table is 0, 1 or 2 rows; charge it
+        // before the table is sized, not after.
+        const footerRows = devices.tail ? 2 : devices.notice ? 1 : 0;
+        const plan = planDevices(state.primaryUrl, pane, urls.length, footerRows);
         const { placement: placed } = plan;
 
         if (placed.mode === 'hidden') {
@@ -295,10 +317,11 @@ export async function createDevShell(opts: {
                     {urls}
                     <Spacer size={1} />
                     <Row gap={2}>
-                        <Text color="fg" bold>Targets</Text>
-                        <Text color="faint">z  show QR</Text>
+                        <Text color="fg" bold>Devices</Text>
+                        <Text color="faint">enter launch · d rescan · z show QR</Text>
                     </Row>
-                    {targetTable(plan.tableWidth, plan.tableRows)}
+                    {deviceTable(plan.tableWidth, plan.tableRows)}
+                    {activityLine()}
                 </Col>
             );
         }
@@ -315,12 +338,95 @@ export async function createDevShell(opts: {
                         <QRCode text={state.primaryUrl} quiet={placed.qr.quiet} />
                     </Col>
                     <Col>
-                        <Text color="fg" bold>Targets</Text>
-                        {targetTable(plan.tableWidth, plan.tableRows)}
+                        <Text color="fg" bold>Devices</Text>
+                        {deviceTable(plan.tableWidth, plan.tableRows)}
+                        {activityLine()}
                     </Col>
                 </Row>
             </Col>
         );
+    };
+
+    /**
+     * The line under the device table.
+     *
+     * This exists because every action used to report through `logger.log` →
+     * `shell.say()`, which in fullscreen writes to the log store — the Build
+     * tab — and queues a `printStatic` that only reaches the terminal on exit.
+     * From the Devices tab, `r`/`d`/`a`/`i` therefore painted nothing at all
+     * and read as broken. Feedback belongs where the action was taken.
+     */
+    const activityLine = () => {
+        // `Text` is inline — two of them in a row compose onto ONE line. The
+        // box wrappers are what make these separate rows.
+        if (devices.tail) {
+            return (
+                <Col>
+                    <box><Text color="dim">{devices.notice}</Text></box>
+                    <box><Text color="faint">{devices.tail}</Text></box>
+                </Col>
+            );
+        }
+        return devices.notice
+            ? <box><Text color="dim">{devices.notice}</Text></box>
+            : null;
+    };
+
+    /** Reload, and say what happened where the key was pressed. */
+    const doReload = () => {
+        if (!bound) { devices.notice = 'dev server is still starting…'; return; }
+        devices.notice = 'reloading…';
+        void bound.actions.reload().then((summary) => { devices.notice = summary; });
+    };
+
+    /** Rescan and rebuild the table, preserving activity and the cursor. */
+    const rescan = () => {
+        if (!bound) { devices.notice = 'dev server is still starting…'; return; }
+        const status = bound.actions.rescanDevices();
+        devices.rows = buildDeviceRows(status, opts.targets, devices.rows);
+        devices.cursor = Math.min(devices.cursor, Math.max(0, devices.rows.length - 1));
+        devices.notice = devices.rows.length === 0
+            ? 'no devices found — connect one, or boot an emulator/simulator'
+            : `${devices.rows.length} device${devices.rows.length === 1 ? '' : 's'}`;
+        syncTicker();
+    };
+
+    /** Enter on a row: install if needed, then launch — on that device only. */
+    const launchSelected = (submitted?: DeviceRow) => {
+        // Prefer the submitted row; fall back to the cursor for callers that
+        // have no row in hand.
+        const row = submitted
+            ? devices.rows.find((r) => r.id === submitted.id) ?? submitted
+            : devices.rows[devices.cursor];
+        if (!row) return;
+        const idx = devices.rows.findIndex((r) => r.id === row.id);
+        if (idx >= 0) devices.cursor = idx;
+        if (!bound) { devices.notice = 'dev server is still starting…'; return; }
+        if (row.offline) { devices.notice = `${row.label} is offline or unauthorised`; return; }
+        if (row.pending) { devices.notice = `${row.label} has not appeared yet`; return; }
+        if (!isActionable(row)) { devices.notice = `${row.label} is already busy`; return; }
+
+        devices.notice = `${row.label}: starting…`;
+        devices.tail = '';
+        void bound.actions.launchOnDevice(row, {
+            onPhase: (phase, label) => {
+                setActivity(row.id, { phase, label });
+                devices.notice = `${row.label}: ${label ?? phase}`;
+            },
+            onLine: (line) => { devices.tail = line; },
+            onDone: (ok, error) => {
+                setActivity(row.id, ok ? { phase: 'idle' } : { phase: 'failed', error });
+                devices.notice = ok
+                    ? `${row.label}: launched`
+                    : `${row.label}: ${error ?? 'failed'}`;
+                devices.tail = '';
+                // Installing changes what the row can do next, so re-read it.
+                if (ok && bound) {
+                    devices.rows = buildDeviceRows(bound.actions.rescanDevices(), opts.targets, devices.rows);
+                }
+                syncTicker();
+            },
+        });
     };
 
     const announceFilter = (shell: ShellHandle) => {
@@ -457,31 +563,23 @@ export async function createDevShell(opts: {
         ],
         shortcuts: [
             // See the reserved-keys note at the top of this file before adding.
-            { key: 'r', label: 'reload', run: () => act((a) => a.reload()) },
-            { key: 'd', label: 'devices', run: () => act((a) => a.showDevices()) },
-            ...(opts.hasAndroidApp
-                ? [{ key: 'a', label: 'android', run: () => act((a) => a.installAndroid()) }]
-                : []),
-            ...(opts.hasIosApp
-                ? [{ key: 'i', label: 'ios', run: () => act((a) => a.buildLaunchIos()) }]
-                : []),
+            { key: 'r', label: 'reload', run: () => doReload() },
+            // `d` rescans and shows the tab. It deliberately no longer
+            // launches anything: it used to fan out to every device it could
+            // find, which is what made a/i redundant and un-targeted. Build,
+            // install and launch are now one Enter on the selected row.
+            { key: 'd', label: 'devices', run: (shell) => { rescan(); shell.switchTab('devices'); } },
             { key: 'l', label: 'level', run: (shell) => cycleLevelFilter(shell) },
             { key: 'q', label: 'quit', run: (shell) => shell.exit(0) },
         ],
         commands: [
-            { name: '/reload', description: 'reload JS on connected devices', run: () => act((a) => a.reload()) },
-            { name: '/devices', description: 'scan and launch on devices', run: () => act((a) => a.showDevices()) },
+            { name: '/reload', description: 'reload JS on connected devices', run: () => doReload() },
+            { name: '/devices', description: 'rescan for connected devices', run: (shell) => { rescan(); shell.switchTab('devices'); } },
             {
                 name: '/connect',
                 description: 'show the pairing QR full screen',
                 run: (shell) => { view.qrZoom = true; shell.switchTab('devices'); },
             },
-            ...(opts.hasAndroidApp
-                ? [{ name: '/android', description: 'install + launch the Android app', run: () => act((a) => a.installAndroid()) }]
-                : []),
-            ...(opts.hasIosApp
-                ? [{ name: '/ios', description: 'build + launch the iOS app', run: () => act((a) => a.buildLaunchIos()) }]
-                : []),
             // Log filters.
             //
             // `runShell` dispatches on the FIRST token only and drops the rest
@@ -611,6 +709,18 @@ export async function createDevShell(opts: {
         handle,
         state,
         deviceLogs,
-        bind: (b) => { bound = b; },
+        bind: (b) => {
+            bound = b;
+            // Populate the table as soon as there is something to ask.
+            // Without this the tab shows only the picked targets until the
+            // user presses `d` — so "lists every detected device" was true
+            // of the code and false of the first screen, which is the one
+            // that matters.
+            //
+            // Deferred a tick: `rescanDevices` shells out to adb/simctl
+            // synchronously, and blocking here would stall the frame that is
+            // about to paint.
+            setTimeout(() => { rescan(); }, 0);
+        },
     };
 }

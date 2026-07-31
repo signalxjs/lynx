@@ -8,14 +8,34 @@ The Lynx plugin for [`@sigx/cli`](https://sigx.dev/cli/) — adds `dev`, `build`
 older binary it prints a warning and falls back to the plain streaming output
 instead (`pnpm up @sigx/cli --latest` to get it back). Three tabs:
 
-- **Devices** — the bundle URLs, the pairing QR, and a table of the targets you picked.
+- **Devices** — the bundle URLs, the pairing QR, and every device the machine can see. Move with `↑`/`↓`, press `Enter` to install-if-needed and launch on *that* device, `d` to rescan.
 - **Build** — a scrolling view over the dev server's and native toolchain's output.
 - **Logs** — your app's `console.*` output as a scrollable, filterable table.
 
-Keys: `r` reload · `d` devices · `a` android · `i` ios · `l` cycle log level ·
-`q` quit · `1`–`3` switch tabs · `/` commands · `z` show the pairing QR full
-screen (Esc to go back) · `Tab` move focus · `↑`/`↓`/PgUp/PgDn scroll the focused
-table or log · `Enter` expand the selected log entry (Esc to close).
+Keys: `r` reload · `d` rescan devices · `l` cycle log level · `q` quit ·
+`1`–`3` switch tabs · `/` commands · `z` show the pairing QR full screen (Esc to
+go back) · `Tab` move focus · `↑`/`↓`/PgUp/PgDn scroll the focused table or log ·
+`Enter` launch on the selected device, or expand the selected log entry.
+
+### Launching on a device
+
+The Devices tab is the control surface. It lists everything detected — Android
+devices and emulators, iOS simulators and physical devices — with what each one
+has installed. Select a row and press `Enter`: if the app is missing it builds
+and installs first, then launches with the current dev URL.
+
+While that runs, the device's own row shows a spinner and the current phase
+(`building`, `installing`, `launching`) and the latest build line appears under
+the table, so a long gradle or xcodebuild run is followable without leaving the
+tab. The full output is in the **Build** tab as usual.
+
+There is no longer an `a` or `i` shortcut. They built and launched on *every*
+device they could find with no way to choose; `Enter` on a row replaces both.
+`d` now only rescans — it used to launch on everything too.
+
+Physical iOS devices are launched, not built: signing belongs to
+`sigx run:ios --device`, and the tab says so rather than starting a build that
+would fail on provisioning.
 
 ### Device logs
 

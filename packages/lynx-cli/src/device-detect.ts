@@ -258,9 +258,30 @@ export function isAdbAvailable(): boolean {
 }
 
 /**
- * List connected Android devices via ADB.
+ * Classify one `adb devices -l` row.
+ *
+ * `adb` reports more unusable states than `offline`. The common one by far is
+ * `unauthorized` — the handset whose "Allow USB debugging?" prompt has not been
+ * answered — and classifying that as a normal device made it look launchable
+ * while every adb command against it failed. Anything that is not literally
+ * `device` is unusable, so it is offline.
+ *
+ * The emulator check comes first on purpose: a booting emulator also reports a
+ * non-`device` state, and the AVD launch flow deliberately waits it out rather
+ * than writing it off.
  */
-export function listAndroidDevices(): AndroidDevice[] {
+export function classifyAndroidDevice(id: string, state: string | undefined): AndroidDevice['type'] {
+    if (id.includes('emulator') || id.startsWith('localhost')) return 'emulator';
+    return state === 'device' ? 'device' : 'offline';
+}
+
+/**
+ * List connected Android devices via ADB.
+ *
+ * Unusable devices are omitted unless `includeOffline` — see the filter at the
+ * end of this function for why.
+ */
+export function listAndroidDevices(includeOffline = false): AndroidDevice[] {
     const res = execDevice(`"${adbCmd()}" devices -l`, 'adb');
     if (!res.ok) return [];
     const lines = res.stdout.split('\n').slice(1); // Skip header
@@ -279,15 +300,21 @@ export function listAndroidDevices(): AndroidDevice[] {
 
             return {
                 id,
-                type: id.includes('emulator') || id.startsWith('localhost')
-                    ? 'emulator' as const
-                    : state === 'offline'
-                        ? 'offline' as const
-                        : 'device' as const,
+                type: classifyAndroidDevice(id, state),
                 model,
             };
         })
-        .filter((d) => d.type !== 'offline');
+        // Offline/unauthorised devices are dropped by default. Callers either
+        // launch on this list (the dev-server actions) or offer it as a choice
+        // (the target picker), and an unusable device is wrong in both — you
+        // cannot launch on it and you should not be able to select it.
+        // `doctor` reads the default list too, for reporting.
+        //
+        // `includeOffline` is for the dashboard's device table, which shows it
+        // greyed out and refuses to act on it: a phone that silently vanishes
+        // because its USB-debugging prompt is unanswered sends you to entirely
+        // the wrong end of the problem.
+        .filter((d) => includeOffline || d.type !== 'offline');
 }
 
 /**
@@ -708,7 +735,7 @@ export function launchAppOnDevice(udid: string, bundleId: string, devUrl?: strin
 /**
  * Get full device status: Android devices, iOS simulators, installation status.
  */
-export function getDeviceStatus(appId?: string, iosBundleId?: string): DeviceStatus {
+export function getDeviceStatus(appId?: string, iosBundleId?: string, includeOffline = false): DeviceStatus {
     // Android
     const adbAvailable = isAdbAvailable();
     let devices: AndroidDevice[] = [];
@@ -716,8 +743,20 @@ export function getDeviceStatus(appId?: string, iosBundleId?: string): DeviceSta
     const appInstalled = new Map<string, boolean>();
 
     if (adbAvailable) {
-        devices = listAndroidDevices();
+        devices = listAndroidDevices(includeOffline);
         for (const device of devices) {
+            // Don't probe an unusable device. `adb shell pm` against an
+            // offline/unauthorised handset cannot succeed, and each probe
+            // carries the full DEVICE_CMD_TIMEOUT_MS — so a single phone with
+            // an unanswered debugging prompt would add tens of seconds to
+            // every rescan. Record both flags as false instead: the dashboard
+            // will not let you launch on this row anyway, and an absent entry
+            // would be indistinguishable from "not yet probed".
+            if (device.type === 'offline') {
+                lynxGoInstalled.set(device.id, false);
+                if (appId) appInstalled.set(device.id, false);
+                continue;
+            }
             lynxGoInstalled.set(device.id, isLynxGoInstalled(device.id));
             if (appId) {
                 appInstalled.set(device.id, isAppInstalled(device.id, appId));
@@ -776,6 +815,7 @@ interface StatusCache {
     ts: number;
     appId?: string;
     bundleId?: string;
+    includeOffline: boolean;
 }
 let _statusCache: StatusCache | null = null;
 const STATUS_CACHE_MS = 3000;
@@ -789,18 +829,26 @@ const STATUS_CACHE_MS = 3000;
  * {@link invalidateDeviceStatusCache} after an install/launch that changes
  * observable state.
  */
-export function getDeviceStatusCached(appId?: string, iosBundleId?: string): DeviceStatus {
+export function getDeviceStatusCached(
+    appId?: string,
+    iosBundleId?: string,
+    includeOffline = false,
+): DeviceStatus {
     const now = Date.now();
     if (
         _statusCache &&
         _statusCache.appId === appId &&
         _statusCache.bundleId === iosBundleId &&
+        // Part of the key, not just an input: a cached offline-inclusive
+        // snapshot handed to a caller that asked for launchable devices only
+        // would put unusable devices into the launch loops.
+        _statusCache.includeOffline === includeOffline &&
         now - _statusCache.ts < STATUS_CACHE_MS
     ) {
         return _statusCache.status;
     }
-    const status = getDeviceStatus(appId, iosBundleId);
-    _statusCache = { status, ts: now, appId, bundleId: iosBundleId };
+    const status = getDeviceStatus(appId, iosBundleId, includeOffline);
+    _statusCache = { status, ts: now, appId, bundleId: iosBundleId, includeOffline };
     return status;
 }
 

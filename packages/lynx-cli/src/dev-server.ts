@@ -23,6 +23,7 @@ import { parseDeviceLogLine, formatDeviceLogLine, LOG_SENTINEL } from './device-
 import { isPortFree, isPortPairFree, readDevLock, writeDevLock, clearDevLock, isPidAlive, waitForPortFree, type DevLock } from './dev-lock.js';
 import type { DevShellController } from './dev-shell.js';
 import { QR_SCAN_LABEL } from './dev-ui/layout.js';
+import type { DeviceRow, ActivityPhase } from './dev-ui/device-rows.js';
 
 export interface DevServerOptions {
     cwd: string;
@@ -305,10 +306,89 @@ interface DevControlOpts {
 /** The dev-server actions behind r/d/a/i — shared by the legacy raw-stdin
  *  shortcuts and the @sigx/cli/shell dashboard. */
 export interface DevActions {
-    reload(): void;
+    /**
+     * Reload connected devices. Resolves with a human summary of what
+     * actually happened — the dashboard shows it on the tab, because logger
+     * output goes to the Build tab where nobody pressing `r` is looking.
+     * Never rejects.
+     */
+    reload(): Promise<string>;
     showDevices(): void;
     installAndroid(): void;
     buildLaunchIos(): void;
+    /** Fresh detection snapshot for the dashboard's Devices table. */
+    rescanDevices(): DeviceStatus;
+    /**
+     * Install if needed, then launch — on one device, chosen by the user.
+     *
+     * The legacy `showDevices`/`installAndroid`/`buildLaunchIos` above fan out
+     * to every device they can find; this is the targeted replacement the
+     * dashboard drives from its table cursor. Progress is reported through
+     * `hooks` rather than the logger, because logger output lands in the Build
+     * tab and the whole point is to follow the work on the device's own row.
+     */
+    launchOnDevice(row: DeviceRow, hooks: LaunchHooks): Promise<void>;
+}
+
+export interface LaunchHooks {
+    onPhase: (phase: ActivityPhase, label?: string) => void;
+    /** One line of build output, for the tail under the table. */
+    onLine: (line: string) => void;
+    onDone: (ok: boolean, error?: string) => void;
+}
+
+/**
+ * The app's scheme/workspace name, from config where possible.
+ *
+ * Falls back to whatever `.xcworkspace` is sitting in the iOS dir — a project
+ * whose config cannot be read is still usually buildable, and guessing here is
+ * better than refusing to launch.
+ */
+async function resolveIosAppName(cwd: string, iosDir: string, variant?: string): Promise<string> {
+    try {
+        const { loadConfig } = await import('./prebuild.js');
+        const { resolveConfig } = await import('./config/index.js');
+        return resolveConfig(await loadConfig(cwd), variant).name;
+    } catch {
+        const { readdirSync } = await import('node:fs');
+        const workspaces = readdirSync(iosDir).filter((f) => f.endsWith('.xcworkspace'));
+        return workspaces.length > 0 ? workspaces[0]!.replace('.xcworkspace', '') : 'app';
+    }
+}
+
+/** `xcodebuild` for one simulator. Throws on failure; streams through `sink`. */
+async function buildIosForSimulator(
+    opts: DevControlOpts,
+    simulatorUdid: string,
+    sink: (line: string) => void,
+): Promise<void> {
+    const iosDirRel = iosDirName(opts.variant);
+    const appName = await resolveIosAppName(opts.cwd, join(opts.cwd, iosDirRel), opts.variant);
+    await runWithBuildFilter(
+        'xcodebuild',
+        [
+            '-workspace', join(iosDirRel, `${appName}.xcworkspace`),
+            '-scheme', appName,
+            '-destination', `id=${simulatorUdid}`,
+            '-configuration', 'Debug',
+            // Project-local products dir — see #178.
+            '-derivedDataPath', iosDerivedDataPath(opts.cwd, opts.variant),
+            'build',
+        ],
+        { cwd: opts.cwd },
+        { kind: 'xcodebuild', verbose: opts.verbose ?? false, logger: opts.logger, sink },
+    );
+}
+
+/** Install the freshly built `.app` on a simulator. Throws with a reason. */
+async function installIosBuild(opts: DevControlOpts, simulatorUdid: string): Promise<void> {
+    const iosDirRel = iosDirName(opts.variant);
+    const appName = await resolveIosAppName(opts.cwd, join(opts.cwd, iosDirRel), opts.variant);
+    const appPath = findBuiltApp(opts.cwd, appName, 'simulator', 'Debug', opts.variant);
+    if (!appPath) throw new Error(`could not find ${appName}.app under ${iosDirRel}/build`);
+    if (!installAppOnSimulator(simulatorUdid, appPath)) {
+        throw new Error('simctl install failed');
+    }
 }
 
 function createDevActions(opts: DevControlOpts): DevActions {
@@ -326,78 +406,211 @@ function createDevActions(opts: DevControlOpts): DevActions {
     };
 
     return {
-        reload() {
-            const bundleUrl = currentBundleUrl();
-                // Two-stage reload: first ask the plugin's WS server to push a
-                // `{ type: 'reload' }` message to every connected device — the
-                // dev-client reloads the LynxView in-place without a full
-                // native relaunch. If no device is currently streaming logs
-                // (bundle crashed, app not running, etc.), we fall through to
-                // the legacy native-relaunch path below so `r` always does
-                // *something* visible.
-                void (async () => {
-                    const reloaded = await requestJsReload(opts.wsPort);
-                    if (reloaded > 0) {
-                        opts.logger.log(
-                            `\x1b[32m✓\x1b[0m JS reload sent to ${reloaded} device${reloaded === 1 ? '' : 's'}`,
-                        );
-                        return;
+        async reload(): Promise<string> {
+            // Two-stage reload: first ask the plugin's WS server to push a
+            // `{ type: 'reload' }` message to every connected device — the
+            // dev-client reloads the LynxView in-place without a full native
+            // relaunch. If no device is currently streaming logs (bundle
+            // crashed, app not running, etc.), we fall through to the legacy
+            // native-relaunch path below so `r` always does *something*
+            // visible.
+            //
+            // Everything is inside the try, `currentBundleUrl()` included: the
+            // contract above says this never rejects and both callers depend
+            // on it — the dashboard uses `.then()` with no `.catch`, and the
+            // raw-stdin path drops the promise entirely, so a throw would
+            // surface as an unhandled rejection instead of a message.
+            try {
+                const bundleUrl = currentBundleUrl();
+                const reloaded = await requestJsReload(opts.wsPort);
+                if (reloaded > 0) {
+                    const msg = `JS reload sent to ${reloaded} device${reloaded === 1 ? '' : 's'}`;
+                    opts.logger.log(`\x1b[32m✓\x1b[0m ${msg}`);
+                    return msg;
+                }
+
+                opts.logger.log(`Relaunching with ${bundleUrl}...`);
+                const status = getDeviceStatusCached(opts.appId, opts.bundleId);
+                let relaunched = 0;
+
+                // Android — per-device URL routes via `adb reverse`.
+                // Force-stop first so the next `am start` enters `onCreate`
+                // with a fresh intent extra; otherwise `singleTop`
+                // activities receive `onNewIntent` and silently keep the
+                // stale dev URL.
+                for (const device of status.devices) {
+                    const url = androidUrlFor(device.id);
+                    if (opts.appId && status.appInstalled?.get(device.id)) {
+                        forceStopApp(device.id, opts.appId);
+                        launchApp(device.id, opts.appId, url);
+                        relaunched++;
+                    } else if (status.lynxGoInstalled.get(device.id)) {
+                        forceStopApp(device.id, LYNX_GO_PACKAGE);
+                        launchLynxGo(device.id, url);
+                        relaunched++;
                     }
+                }
 
-                    opts.logger.log(`Relaunching with ${bundleUrl}...`);
-                    const status = getDeviceStatusCached(opts.appId, opts.bundleId);
-                    let relaunched = 0;
-
-                    // Android — per-device URL routes via `adb reverse`.
-                    // Force-stop first so the next `am start` enters `onCreate`
-                    // with a fresh intent extra; otherwise `singleTop`
-                    // activities receive `onNewIntent` and silently keep the
-                    // stale dev URL.
-                    for (const device of status.devices) {
-                        const url = androidUrlFor(device.id);
-                        if (opts.appId && status.appInstalled?.get(device.id)) {
-                            forceStopApp(device.id, opts.appId);
-                            launchApp(device.id, opts.appId, url);
-                            relaunched++;
-                        } else if (status.lynxGoInstalled.get(device.id)) {
-                            forceStopApp(device.id, LYNX_GO_PACKAGE);
-                            launchLynxGo(device.id, url);
+                // iOS simulators — terminate any running instance first so launch args refresh.
+                if (opts.bundleId) {
+                    for (const sim of status.iosSimulators) {
+                        if (status.iosAppInstalled?.get(sim.udid)) {
+                            try {
+                                execSync(
+                                    `xcrun simctl terminate "${sim.udid}" "${opts.bundleId}"`,
+                                    { stdio: 'pipe' },
+                                );
+                            } catch {
+                                // App may not be running
+                            }
+                            launchIosApp(sim.udid, opts.bundleId, bundleUrl);
                             relaunched++;
                         }
                     }
 
-                    // iOS simulators — terminate any running instance first so launch args refresh.
-                    if (opts.bundleId) {
-                        for (const sim of status.iosSimulators) {
-                            if (status.iosAppInstalled?.get(sim.udid)) {
-                                try {
-                                    execSync(
-                                        `xcrun simctl terminate "${sim.udid}" "${opts.bundleId}"`,
-                                        { stdio: 'pipe' },
-                                    );
-                                } catch {
-                                    // App may not be running
-                                }
-                                launchIosApp(sim.udid, opts.bundleId, bundleUrl);
+                    // iOS physical devices — devicectl handles termination via --terminate-existing.
+                    for (const dev of status.iosDevices) {
+                        if (status.iosDeviceAppInstalled?.get(dev.udid)) {
+                            if (launchAppOnDevice(dev.udid, opts.bundleId, bundleUrl)) {
                                 relaunched++;
                             }
                         }
+                    }
+                }
 
-                        // iOS physical devices — devicectl handles termination via --terminate-existing.
-                        for (const dev of status.iosDevices) {
-                            if (status.iosDeviceAppInstalled?.get(dev.udid)) {
-                                if (launchAppOnDevice(dev.udid, opts.bundleId, bundleUrl)) {
-                                    relaunched++;
-                                }
-                            }
+                if (relaunched === 0) {
+                    // The quiet failure: nothing was streaming logs, so the
+                    // WS reload reached nobody, and nothing has the app
+                    // installed either. `r` genuinely did nothing, and it
+                    // has to say so — it used to say so invisibly.
+                    // "the app" is not the whole story: the relaunch loop
+                    // accepts sigx-lynx-go too, so a sandbox user told that no
+                    // device has "the app" would go looking for the wrong
+                    // thing.
+                    const msg = 'nothing to reload — no connected device has the app or sigx-lynx-go installed';
+                    opts.logger.log(msg);
+                    return msg;
+                }
+                const msg = `relaunched on ${relaunched} device${relaunched === 1 ? '' : 's'}`;
+                opts.logger.log(msg);
+                return msg;
+            } catch (err) {
+                    const msg = `reload failed: ${err instanceof Error ? err.message : String(err)}`;
+                    opts.logger.error(msg);
+                    return msg;
+                }
+        },
+        rescanDevices() {
+            invalidateDeviceStatusCache();
+            // The one caller that wants unusable devices: the table shows them
+            // greyed out. Every other consumer iterates `status.devices` to
+            // launch on things, so they keep the launchable-only default.
+            return getDeviceStatusCached(opts.appId, opts.bundleId, true);
+        },
+
+        async launchOnDevice(row, hooks) {
+            const bundleUrl = currentBundleUrl();
+            // Build output goes to the Build tab as before *and* to the row, so
+            // a long gradle/xcodebuild run is followable without leaving the
+            // Devices tab. The full log is still there if you want it.
+            const sink = (line: string) => {
+                opts.buildSink?.(line.endsWith('\n') ? line : `${line}\n`);
+                hooks.onLine(line);
+            };
+
+            try {
+                if (row.platform === 'android') {
+                    const hasCustomApp = !!opts.appId;
+                    if (hasCustomApp && !row.hasApp) {
+                        hooks.onPhase('building', 'gradle installDebug');
+                        const androidDir = join(opts.cwd, androidDirName(opts.variant));
+                        const gradleCmd = process.platform === 'win32' ? 'gradlew.bat' : 'gradlew';
+                        await runWithBuildFilter(
+                            join(androidDir, gradleCmd),
+                            ['installDebug'],
+                            { cwd: androidDir, shell: process.platform === 'win32' },
+                            { kind: 'gradle', verbose: opts.verbose ?? false, logger: opts.logger, sink },
+                        );
+                        invalidateDeviceStatusCache();
+                    }
+
+                    hooks.onPhase('launching');
+                    const url = androidUrlFor(row.handle);
+                    if (hasCustomApp) {
+                        // Every launch helper reports success as a boolean.
+                        // Ignoring it made the row say "launched" whenever adb
+                        // or devicectl had in fact refused — the one outcome
+                        // this tab exists to make visible.
+                        if (!launchApp(row.handle, opts.appId!, url)) {
+                            throw new Error(`could not launch ${opts.appId} — see the Build tab for adb output`);
+                        }
+                    } else if (row.hasSandbox) {
+                        if (!launchLynxGo(row.handle, url)) {
+                            throw new Error('could not launch sigx-lynx-go — see the Build tab for adb output');
+                        }
+                    } else {
+                        throw new Error(
+                            'no app configured and sigx-lynx-go is not installed here — '
+                            + 'run `sigx run:android` once, or install the sandbox app',
+                        );
+                    }
+                    hooks.onDone(true);
+                    return;
+                }
+
+                // iOS
+                if (process.platform !== 'darwin' || !opts.bundleId) {
+                    throw new Error('iOS needs macOS and a configured bundle id');
+                }
+
+                if (row.form === 'simulator') {
+                    const sims = getDeviceStatusCached(opts.appId, opts.bundleId).iosSimulators;
+                    const sim = sims.find((s) => s.udid === row.handle);
+                    if (sim && sim.state !== 'Booted') {
+                        hooks.onPhase('launching', `booting ${sim.name}`);
+                        if (!bootSimulator(sim.udid)) {
+                            throw new Error(`could not boot ${sim.name}`);
                         }
                     }
+                    try { execSync('open -a Simulator', { stdio: 'pipe' }); } catch { /* ignore */ }
 
-                    if (relaunched === 0) {
-                        opts.logger.log('No installed devices/simulators found. Press "i" to build & install iOS or "a" for Android.');
+                    if (!row.hasApp) {
+                        hooks.onPhase('building', 'xcodebuild');
+                        await buildIosForSimulator(opts, row.handle, sink);
+                        hooks.onPhase('installing');
+                        await installIosBuild(opts, row.handle);
+                        invalidateDeviceStatusCache();
                     }
-                })();
+
+                    hooks.onPhase('launching');
+                    // Terminate first: a running app would otherwise keep its
+                    // old bundle URL and the relaunch would look like a no-op.
+                    try {
+                        execSync(`xcrun simctl terminate "${row.handle}" "${opts.bundleId}"`, { stdio: 'pipe' });
+                    } catch { /* not running */ }
+                    if (!launchIosApp(row.handle, opts.bundleId, bundleUrl)) {
+                        throw new Error('simctl launch failed');
+                    }
+                    hooks.onDone(true);
+                    return;
+                }
+
+                // Physical iOS device. Installing needs code signing, which is
+                // a `run:ios` concern — say so rather than starting a build
+                // that will fail on provisioning halfway through.
+                if (!row.hasApp) {
+                    throw new Error('app not installed — run `sigx run:ios --device` once to sign and install it');
+                }
+                hooks.onPhase('launching');
+                if (!launchAppOnDevice(row.handle, opts.bundleId, bundleUrl)) {
+                    throw new Error('devicectl launch failed — check the device is unlocked and trusted');
+                }
+                hooks.onDone(true);
+            } catch (err) {
+                hooks.onDone(false, err instanceof Error ? err.message : String(err));
+            }
         },
+
         showDevices() {
             const bundleUrl = currentBundleUrl();
                 opts.logger.log('Scanning devices...');

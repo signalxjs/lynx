@@ -183,16 +183,37 @@ export interface DevicesPlan {
  * and its test, which is exactly how the label row came to be charged in
  * neither: the test agreed with the bug. One function, both callers.
  */
-export function planDevices(url: string, pane: { width: number; height: number }, urlRows: number): DevicesPlan {
+export function planDevices(
+    url: string,
+    pane: { width: number; height: number },
+    urlRows: number,
+    /**
+     * Rows the caller spends *below* the table — the activity notice and the
+     * build tail. Charged here rather than by the caller, because the last two
+     * times a row was spent outside this function it overflowed the pane at
+     * boundary heights and pushed the shell's status line off the screen.
+     */
+    footerRows = 0,
+): DevicesPlan {
     const below = {
         width: pane.width,
-        height: Math.max(1, pane.height - urlRows - 1 /* blank line under the URLs */),
+        height: Math.max(
+            1,
+            pane.height
+            - urlRows
+            - 1 /* blank line under the URLs */
+            - footerRows,
+        ),
     };
+    // The footer is charged into `below` above, so the QR placement sees the
+    // real budget. Charging it only against the table would let the QR column
+    // — which is taller than the table and therefore sets the row height —
+    // push the whole thing past the pane.
     const placement = placeQR(url, {
         width: below.width,
         height: below.height - QR_BESIDE_CHROME_ROWS,
     });
-    // One row for the "Targets" heading above the table in both arrangements.
+    // One row for the "Devices" heading above the table in both arrangements.
     const HEADING_ROWS = 1;
     const availableRows = placement.mode === 'beside'
         ? Math.min(below.height, placement.qr.rows + QR_BESIDE_CHROME_ROWS)
