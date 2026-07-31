@@ -260,6 +260,24 @@ export function isAdbAvailable(): boolean {
 /**
  * List connected Android devices via ADB.
  */
+/**
+ * Classify one `adb devices -l` row.
+ *
+ * `adb` reports more unusable states than `offline`. The common one by far is
+ * `unauthorized` — the handset whose "Allow USB debugging?" prompt has not been
+ * answered — and classifying that as a normal device made it look launchable
+ * while every adb command against it failed. Anything that is not literally
+ * `device` is unusable, so it is offline.
+ *
+ * The emulator check comes first on purpose: a booting emulator also reports a
+ * non-`device` state, and the AVD launch flow deliberately waits it out rather
+ * than writing it off.
+ */
+export function classifyAndroidDevice(id: string, state: string | undefined): AndroidDevice['type'] {
+    if (id.includes('emulator') || id.startsWith('localhost')) return 'emulator';
+    return state === 'device' ? 'device' : 'offline';
+}
+
 export function listAndroidDevices(includeOffline = false): AndroidDevice[] {
     const res = execDevice(`"${adbCmd()}" devices -l`, 'adb');
     if (!res.ok) return [];
@@ -279,11 +297,7 @@ export function listAndroidDevices(includeOffline = false): AndroidDevice[] {
 
             return {
                 id,
-                type: id.includes('emulator') || id.startsWith('localhost')
-                    ? 'emulator' as const
-                    : state === 'offline'
-                        ? 'offline' as const
-                        : 'device' as const,
+                type: classifyAndroidDevice(id, state),
                 model,
             };
         })
@@ -724,6 +738,17 @@ export function getDeviceStatus(appId?: string, iosBundleId?: string): DeviceSta
     if (adbAvailable) {
         devices = listAndroidDevices(true);
         for (const device of devices) {
+            // Don't probe an unusable device. `adb shell pm` against an
+            // offline/unauthorised handset cannot succeed, and each probe
+            // carries the full DEVICE_CMD_TIMEOUT_MS — so a single phone with
+            // an unanswered debugging prompt would add tens of seconds to
+            // every rescan. Both flags default false, which is what the
+            // dashboard wants for a row it will not let you launch on anyway.
+            if (device.type === 'offline') {
+                lynxGoInstalled.set(device.id, false);
+                if (appId) appInstalled.set(device.id, false);
+                continue;
+            }
             lynxGoInstalled.set(device.id, isLynxGoInstalled(device.id));
             if (appId) {
                 appInstalled.set(device.id, isAppInstalled(device.id, appId));
