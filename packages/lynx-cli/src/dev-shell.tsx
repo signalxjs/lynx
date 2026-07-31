@@ -38,7 +38,7 @@ import {
     onKey, isEsc, fitLines, getTick, subscribeTicker, SPINNERS, type TableColumn,
 } from '@sigx/terminal';
 import {
-    buildDeviceRows, statusText, statusTone, isActionable,
+    buildDeviceRows, statusText, statusTone, isActionable, isBusy,
     type DeviceRow,
 } from './dev-ui/device-rows.js';
 import type { SelectedTarget } from './target-picker.js';
@@ -201,7 +201,7 @@ export async function createDevShell(opts: {
      */
     let tickerOff: (() => void) | null = null;
     const syncTicker = () => {
-        const busy = devices.rows.some((r) => r.activity.phase !== 'idle');
+        const busy = devices.rows.some(isBusy);
         if (busy && !tickerOff) tickerOff = subscribeTicker();
         else if (!busy && tickerOff) { tickerOff(); tickerOff = null; }
     };

@@ -8,7 +8,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import {
-    buildDeviceRows, statusText, statusTone, isActionable, targetRowId,
+    buildDeviceRows, statusText, statusTone, isActionable, isBusy, targetRowId,
     type DeviceRow,
 } from '../src/dev-ui/device-rows';
 import type { DeviceStatus } from '../src/device-detect';
@@ -83,6 +83,19 @@ describe('buildDeviceRows', () => {
         expect(rows[0]!.pending).toBe(false);
     });
 
+    it('does not let a same-named detected device suppress a pending one', () => {
+        // Label matching is an AVD-only fallback. Applied to every kind, one
+        // simulator called "iPhone 15" would hide a genuinely pending physical
+        // device of the same name — and you would never learn it was missing.
+        const targets: SelectedTarget[] = [{ kind: 'ios-device', udid: 'D9', name: 'iPhone 15' }];
+        const rows = buildDeviceRows(
+            status({ iosSimulators: [{ udid: 'S1', name: 'iPhone 15', state: 'Booted', runtime: 'iOS 18' }] }),
+            targets,
+        );
+        expect(rows).toHaveLength(2);
+        expect(rows.filter((r) => r.pending)).toHaveLength(1);
+    });
+
     it('reconciles a booted AVD by label, since adb reports a serial not the AVD name', () => {
         // `pnpm wt`-style gotcha: the AVD is picked as `Pixel_7_API_34` and
         // shows up as `emulator-5554`. Matching on id alone would list it twice.
@@ -155,8 +168,25 @@ describe('statusText / statusTone', () => {
         expect(statusTone({ ...base, pending: true })).toBe('warn');
     });
 
-    it('is not actionable while already busy', () => {
+    it('is not actionable while work is in flight', () => {
         expect(isActionable(base)).toBe(true);
         expect(isActionable({ ...base, activity: { phase: 'building' } })).toBe(false);
+        expect(isActionable({ ...base, activity: { phase: 'installing' } })).toBe(false);
+    });
+
+    it('stays actionable after a failure, so Enter can retry', () => {
+        // A launch that failed is exactly the one you want to try again once
+        // you have plugged the cable back in. Blocking it stranded the row
+        // until the whole dev server was restarted.
+        expect(isActionable({ ...base, activity: { phase: 'failed', error: 'boom' } })).toBe(true);
+    });
+
+    it('counts only in-flight work as busy, so the ticker stops after a failure', () => {
+        // `failed` is a resting state. Treating it as busy left the 80ms
+        // repaint loop running for the rest of the session.
+        expect(isBusy({ ...base, activity: { phase: 'building' } })).toBe(true);
+        expect(isBusy({ ...base, activity: { phase: 'launching' } })).toBe(true);
+        expect(isBusy(base)).toBe(false);
+        expect(isBusy({ ...base, activity: { phase: 'failed' } })).toBe(false);
     });
 });

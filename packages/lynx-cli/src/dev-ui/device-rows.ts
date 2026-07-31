@@ -159,7 +159,12 @@ export function buildDeviceRows(
     for (const t of targets) {
         const id = targetRowId(t);
         const label = targetLabel(t);
-        if (seenIds.has(id) || seenLabels.has(label.toLowerCase())) continue;
+        if (seenIds.has(id)) continue;
+        // Label matching is an AVD-only fallback: a booted AVD reports an
+        // `emulator-NNNN` serial, so its id can never match. Applying it to
+        // every kind would let one iPhone called "iPhone 15" suppress a
+        // different, genuinely pending device of the same name.
+        if (t.kind === 'android-avd' && seenLabels.has(label.toLowerCase())) continue;
         rows.push({
             id,
             platform: t.kind.startsWith('android') ? 'android' : 'ios',
@@ -211,7 +216,22 @@ export function statusTone(row: DeviceRow): string | undefined {
     return 'dim';
 }
 
-/** A row is actionable when pressing Enter on it could do anything useful. */
+/**
+ * A row is actionable when pressing Enter on it could do anything useful.
+ *
+ * `failed` counts: a launch that failed is precisely the one you want to try
+ * again, usually after plugging something in or fixing the build. Only work
+ * actually in flight blocks a second Enter.
+ */
 export function isActionable(row: DeviceRow): boolean {
-    return !row.offline && !row.pending && row.activity.phase === 'idle';
+    if (row.offline || row.pending) return false;
+    return row.activity.phase === 'idle' || row.activity.phase === 'failed';
+}
+
+/** Whether the row has work in flight — the ticker's only reason to run. */
+export function isBusy(row: DeviceRow): boolean {
+    const p = row.activity.phase;
+    // `failed` is a resting state, not work: treating it as busy left the
+    // 80ms ticker running forever after a failed launch.
+    return p !== 'idle' && p !== 'failed';
 }

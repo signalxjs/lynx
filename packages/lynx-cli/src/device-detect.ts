@@ -260,7 +260,7 @@ export function isAdbAvailable(): boolean {
 /**
  * List connected Android devices via ADB.
  */
-export function listAndroidDevices(): AndroidDevice[] {
+export function listAndroidDevices(includeOffline = false): AndroidDevice[] {
     const res = execDevice(`"${adbCmd()}" devices -l`, 'adb');
     if (!res.ok) return [];
     const lines = res.stdout.split('\n').slice(1); // Skip header
@@ -287,7 +287,13 @@ export function listAndroidDevices(): AndroidDevice[] {
                 model,
             };
         })
-        .filter((d) => d.type !== 'offline');
+        // Offline/unauthorised devices are dropped by default: every existing
+        // caller iterates this list to *launch* on things, and an unauthorised
+        // handset would just fail. `includeOffline` is for the dashboard's
+        // device table, which wants to show it greyed out — a phone that
+        // silently vanishes because its USB-debugging prompt is unanswered
+        // sends you to entirely the wrong end of the problem.
+        .filter((d) => includeOffline || d.type !== 'offline');
 }
 
 /**
@@ -716,7 +722,7 @@ export function getDeviceStatus(appId?: string, iosBundleId?: string): DeviceSta
     const appInstalled = new Map<string, boolean>();
 
     if (adbAvailable) {
-        devices = listAndroidDevices();
+        devices = listAndroidDevices(true);
         for (const device of devices) {
             lynxGoInstalled.set(device.id, isLynxGoInstalled(device.id));
             if (appId) {
