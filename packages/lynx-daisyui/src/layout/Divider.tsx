@@ -43,7 +43,14 @@ export const Divider = component<DividerProps>(({ props, slots }) => {
   return () => {
     // A declared slot accessor is optional in the slot type; an absent
     // `default` slot is equivalent to no label content (empty children).
-    const label = slots.default?.() ?? [];
+    // Core 0.15 widened the slot-call return type to any renderable (a single
+    // node/scalar as well as an array) — normalize to an array, dropping
+    // non-rendering values (null/undefined/booleans from `{cond && …}` fills)
+    // so they don't count as label content.
+    const content = slots.default?.() ?? [];
+    const label = (Array.isArray(content) ? content : [content]).filter(
+      (c) => c != null && typeof c !== 'boolean',
+    );
     if (label.length === 0) {
       return <view class={getClasses()} style={getStyle()} />;
     }

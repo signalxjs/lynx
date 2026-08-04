@@ -6,6 +6,8 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 ### Changed
 
+- **Aligned to sigx core 0.15** (#835). The workspace catalog now pins `@sigx/reactivity` / `@sigx/runtime-core` at `^0.15.0`, and the sibling pins moved with their tiers: `@sigx/cli` `^0.9.0` → `^0.10.0`, `@sigx/terminal` `^0.11.0` → `^0.12.0`. Core 0.15 widened the slot-call return type from an array to any renderable (a single node/scalar as well as an array), so the two `Divider` components (`@sigx/lynx-daisyui`, `@sigx/lynx-heroui`) now normalize their label slot's result to an array before counting it — behavior for existing array-returning fills is unchanged, and a single-node fill now counts as content instead of failing the typecheck.
+
 - **The dev dashboard's Devices tab is now the control surface, and its actions are visible** (#833). Reported from real use: `d` "not working", `r` "not working", and `a`/`i` "just open anything, you don't select a device". All three were accurate, and the first two shared a cause.
 
   **Feedback went where nobody was looking.** `showDevices`, `installAndroid`, `buildLaunchIos` and `reload` all reported through `logger.log` / `printLines`, which in dashboard mode are `createShellLogger` and `shell.say()` — and in fullscreen `say` writes into the log store (the **Build** tab) plus a `printStatic` that only reaches the terminal on exit. Pressing any of those keys on the **Devices** tab therefore painted nothing at all. `d`'s device listing was being produced correctly the whole time; it was one tab over. Actions now report on the tab where the key was pressed.
