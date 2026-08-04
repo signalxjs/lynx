@@ -4,9 +4,11 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 ## [Unreleased]
 
+## [0.24.0] - 2026-08-05
+
 ### Changed
 
-- **Aligned to sigx core 0.15** (#835). The workspace catalog now pins `@sigx/reactivity` / `@sigx/runtime-core` at `^0.15.0`, and the sibling pins moved with their tiers: `@sigx/cli` `^0.9.0` → `^0.10.0`, `@sigx/terminal` `^0.11.0` → `^0.12.0`. Core 0.15 widened the slot-call return type from an array to any renderable (a single node/scalar as well as an array), so the two `Divider` components (`@sigx/lynx-daisyui`, `@sigx/lynx-heroui`) now normalize their label slot's result to an array before counting it — behavior for existing array-returning fills is unchanged, and a single-node fill now counts as content instead of failing the typecheck.
+- **Aligned to sigx core 0.15** (#835). The workspace catalog now pins `@sigx/reactivity` / `@sigx/runtime-core` at `^0.15.0`, and the sibling pins moved with their tiers: `@sigx/cli` `^0.9.0` → `^0.10.0`, `@sigx/terminal` `^0.11.0` → `^0.12.0`. Core 0.15 widened the slot-call return type from an array to any renderable (a single node/scalar as well as an array), so the two `Divider` components (`@sigx/lynx-daisyui`, `@sigx/lynx-heroui`) now normalize their label slot's result to an array and drop non-rendering values (`null`/`undefined`/booleans) before counting it. **This changes behavior for one existing fill shape**: a slot fill whose array contains only non-rendering values — literally `false` or `null`, e.g. `<Divider>{cond && <text>…</text>}</Divider>` with `cond` false — used to count as label content and force the labeled layout, and now renders the plain divider. A single-node fill (newly expressible under core 0.15) counts as content.
 
 - **The dev dashboard's Devices tab is now the control surface, and its actions are visible** (#833). Reported from real use: `d` "not working", `r` "not working", and `a`/`i` "just open anything, you don't select a device". All three were accurate, and the first two shared a cause.
 
@@ -23,24 +25,6 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
   Physical iOS devices are launched, not built — signing belongs to `sigx run:ios --device`, and the tab says that rather than starting a build that would fail on provisioning halfway through.
 
   The legacy raw-stdin `r`/`d`/`a`/`i` keys on the `--no-ui` path are untouched.
-
-### Added
-
-- **Device logs keep their structure, and the dashboard can filter them** (#828). Every device log already reached the CLI as a record — level, platform, client id, timestamp — and `formatDeviceLogLine` flattened it to an ANSI string one line later (`dev-server.ts`). Nothing downstream could filter by anything, and no amount of work on the dashboard could recover it, because the structure was gone before the dashboard saw it.
-
-  A new structured store keeps the records, and the old `Logs` tab splits in two: **Build** keeps the text `LogView` over the dev server's and native toolchain's output, which is genuinely unstructured and right to leave as text, and **Logs** becomes a `DataTable` of your app's `console.*` — time, level, device, namespace, message — with per-level colouring and a cursor.
-
-  One dimension came free. `@sigx/lynx-core`'s default transport emits `[${namespace}]` as the first console argument, so a `createLogger('http')` record is machine-identifiable: namespace is a column and a filter, matching the namespaces `signalx.config.ts` can already silence. Only an *exact* `[…]` first argument counts — `console.log('[warn] hand-rolled')` is one argument, not a namespaced record, and inventing a namespace nobody declared would be worse than showing none.
-
-  Filters are slash commands, and their shape is dictated by the host: `runShell` dispatches on the first token and discards the rest, so a slash command cannot take an argument. Hence one command per level (`/level:warn`, `/level:error`, …, `/level:all`) — the palette filters by prefix, so typing `/level` lists them all with descriptions, which is more discoverable than an argument would have been. Values only known at runtime cycle instead: `/platform` and `/ns` step through what has actually been seen, `/filters` clears everything, `/clear` discards the collected logs, and the `l` key cycles the level floor. **A free-text search is not expressible under this contract** and is left out rather than faked.
-
-  While a filter is active the status bar carries the withheld count, because a filtered view that looks quiet is otherwise indistinguishable from a quiet app. A multi-line message shows a `⏎n` marker and expands with `Enter` into a detail pane (Esc closes) — below 20 rows the detail takes the pane rather than sharing it, since a split leaves the table too short to be worth having.
-
-  Two deliberate routing decisions. Device logs no longer go into the text store at all, so device chatter cannot drown the build log — that separation is half the point of the split. The exception is `error`, which is *also* written to the permanent transcript: in fullscreen that flushes to real scrollback on exit, so a crash trail survives the alt screen and stays greppable. Doing that for every level would dump the whole session into the terminal on quit. `--no-ui`, non-TTY, and `--no-device-logs` are all unchanged.
-
-  Retention is 2 000 records, not the text store's 10 000: each record holds the full message plus derived fields and the filter is a scan, so this is the interactive working set — the full history is still scrollable in **Build**. The filtered view is memoised against a monotonic buffer version rather than the record count, because at the retention limit every push evicts one and appends one — the count is constant while the contents turn over completely, which would have frozen the view exactly when logs were busiest.
-
-### Changed
 
 - **The `sigx dev` dashboard is laid out from the pane the shell gives it, and shows the QR once** (#824). `@sigx/lynx-cli` moves to `@sigx/cli ^0.9.0` and `@sigx/terminal ^0.11.0`, and its plugin manifest declares `"requires": ">=0.9.0"` (was `>=0.4.0`).
 
@@ -61,6 +45,22 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
   `sigx dev --no-ui` and non-TTY output are unchanged; the plain banner and the dashboard now share one `QR_SCAN_LABEL` so the two surfaces cannot drift.
 
   `examples/showcase` follows to `@sigx/cli ^0.9.0`. #823 had just moved it to `^0.8.0` to stop it running a stale host; raising the plugin's floor in the same release would have put it straight back into the fallback path — the showcase's `sigx dev` would have printed the plain banner and no dashboard, which is exactly the drift that issue set out to fix.
+
+### Added
+
+- **Device logs keep their structure, and the dashboard can filter them** (#828). Every device log already reached the CLI as a record — level, platform, client id, timestamp — and `formatDeviceLogLine` flattened it to an ANSI string one line later (`dev-server.ts`). Nothing downstream could filter by anything, and no amount of work on the dashboard could recover it, because the structure was gone before the dashboard saw it.
+
+  A new structured store keeps the records, and the old `Logs` tab splits in two: **Build** keeps the text `LogView` over the dev server's and native toolchain's output, which is genuinely unstructured and right to leave as text, and **Logs** becomes a `DataTable` of your app's `console.*` — time, level, device, namespace, message — with per-level colouring and a cursor.
+
+  One dimension came free. `@sigx/lynx-core`'s default transport emits `[${namespace}]` as the first console argument, so a `createLogger('http')` record is machine-identifiable: namespace is a column and a filter, matching the namespaces `signalx.config.ts` can already silence. Only an *exact* `[…]` first argument counts — `console.log('[warn] hand-rolled')` is one argument, not a namespaced record, and inventing a namespace nobody declared would be worse than showing none.
+
+  Filters are slash commands, and their shape is dictated by the host: `runShell` dispatches on the first token and discards the rest, so a slash command cannot take an argument. Hence one command per level (`/level:warn`, `/level:error`, …, `/level:all`) — the palette filters by prefix, so typing `/level` lists them all with descriptions, which is more discoverable than an argument would have been. Values only known at runtime cycle instead: `/platform` and `/ns` step through what has actually been seen, `/filters` clears everything, `/clear` discards the collected logs, and the `l` key cycles the level floor. **A free-text search is not expressible under this contract** and is left out rather than faked.
+
+  While a filter is active the status bar carries the withheld count, because a filtered view that looks quiet is otherwise indistinguishable from a quiet app. A multi-line message shows a `⏎n` marker and expands with `Enter` into a detail pane (Esc closes) — below 20 rows the detail takes the pane rather than sharing it, since a split leaves the table too short to be worth having.
+
+  Two deliberate routing decisions. Device logs no longer go into the text store at all, so device chatter cannot drown the build log — that separation is half the point of the split. The exception is `error`, which is *also* written to the permanent transcript: in fullscreen that flushes to real scrollback on exit, so a crash trail survives the alt screen and stays greppable. Doing that for every level would dump the whole session into the terminal on quit. `--no-ui`, non-TTY, and `--no-device-logs` are all unchanged.
+
+  Retention is 2 000 records, not the text store's 10 000: each record holds the full message plus derived fields and the filter is a scan, so this is the interactive working set — the full history is still scrollable in **Build**. The filtered view is memoised against a monotonic buffer version rather than the record count, because at the retention limit every push evicts one and appends one — the count is constant while the contents turn over completely, which would have frozen the view exactly when logs were busiest.
 
 ### Fixed
 
