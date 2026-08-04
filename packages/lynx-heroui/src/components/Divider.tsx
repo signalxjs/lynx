@@ -23,9 +23,13 @@ export const Divider = component<DividerProps>(({ props, slots }) => {
   return () => {
     const lineClass = props.vertical ? 'hero-divider-vertical' : 'hero-divider';
     // Core 0.15 widened the slot-call return type to any renderable (a single
-    // node/scalar as well as an array) — normalize to an array before counting.
+    // node/scalar as well as an array) — normalize to an array, dropping
+    // non-rendering values (null/undefined/booleans from `{cond && …}` fills)
+    // so they don't count as label content.
     const content = slots.default?.() ?? [];
-    const label = Array.isArray(content) ? content : [content];
+    const label = (Array.isArray(content) ? content : [content]).filter(
+      (c) => c != null && typeof c !== 'boolean',
+    );
 
     if (label.length === 0) {
       return <view class={`${lineClass}${props.class ? ' ' + props.class : ''}`} style={getMarginStyle()} />;
