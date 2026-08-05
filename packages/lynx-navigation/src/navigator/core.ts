@@ -1003,6 +1003,14 @@ export function createNavigatorState(opts: CreateNavigatorOptions): NavigatorSta
         if (state.stack.length === 0) {
             throw new Error('[lynx-navigation] reset() called with empty stack.');
         }
+        // Discard any intent queued against the OUTGOING stack. `reset` is a
+        // wholesale state replacement — a deep link, a session restore — and
+        // its `setTransition(null)` would otherwise drain the queue onto the
+        // stack it just installed. `topIsAlready` can't catch that: the
+        // replayed screen usually isn't on the new stack at all, so the guard
+        // says "not satisfied" and the restore lands somewhere the caller
+        // never asked for.
+        queuedIntent = null;
         batch(() => {
             setStack([...state.stack]);
             setTransition(null);

@@ -182,6 +182,23 @@ describe('navigation queued during a transition (#849)', () => {
         expect(routeNames(probe)).toEqual(['home', 'profile']);
     });
 
+    it('discards a queued intent when reset() replaces the stack', async () => {
+        const probe = mount();
+
+        act(() => { probe.nav!.push('settings'); });
+        // Queued against the outgoing stack…
+        act(() => { probe.nav!.push('profile', { id: '7' }, { tab: 'posts' }); });
+        // …then the whole stack is replaced wholesale (deep link, restore).
+        // `reset` clears the transition too, so without an explicit discard
+        // the queued push would drain straight onto the restored stack.
+        act(() => {
+            probe.nav!.reset({ stack: [probe.nav!.stack[0]] });
+        });
+
+        await settled();
+        expect(routeNames(probe)).toEqual(['home']);
+    });
+
     it('replays a same-route push that differs by params', async () => {
         const probe = mount();
         act(() => { probe.nav!.push('profile', { id: '1' }, { tab: 'posts' }); });
