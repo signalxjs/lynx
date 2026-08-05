@@ -9,7 +9,7 @@
  *  - Cleanup also runs on unmount.
  *  - Calling `useIsFocused()` outside a `<Stack>`-rendered screen throws.
  */
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { component } from '@sigx/lynx';
 import { render, act } from '@sigx/lynx-testing';
 import { useNav } from '../src/hooks/use-nav';
@@ -165,6 +165,9 @@ describe('useFocusEffect', () => {
 // ---------------------------------------------------------------------------
 
 describe('useDidAppear', () => {
+    beforeEach(() => { vi.useFakeTimers(); });
+    afterEach(() => { vi.useRealTimers(); });
+
     const Probe = (events: string[], tag: string) =>
         component(() => {
             useDidAppear(() => {
@@ -216,8 +219,10 @@ describe('useDidAppear', () => {
         expect(probe.nav!.transition).not.toBeNull();
         expect(events).not.toContain('settings:appear');
 
-        // …and fires once the transition clears.
-        await new Promise((resolve) => { setTimeout(resolve, 800); });
+        // …and fires once the transition clears. Driven on fake timers so the
+        // awaited microtasks (settle window, landing ack) interleave with the
+        // timer steps instead of being slept through.
+        await vi.advanceTimersByTimeAsync(800);
         expect(probe.nav!.transition).toBeNull();
         expect(events.filter((e) => e === 'settings:appear').length).toBe(1);
     });

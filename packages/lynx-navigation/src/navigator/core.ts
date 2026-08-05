@@ -438,7 +438,7 @@ export function createNavigatorState(opts: CreateNavigatorOptions): NavigatorSta
     }
 
     /**
-     * Counter behind the uncomparable-bag sentinel in `norm()`. Bumped per
+     * Counter behind the `incomparable:*` sentinel in `norm()`. Bumped per
      * call, so two bags that both failed to canonicalize are never equal to
      * each other either.
      */
