@@ -169,6 +169,8 @@ pass a `scrollHandle` and call `scrollToEnd`:
 ```tsx
 import type { ListScrollHandle } from '@sigx/lynx-list';
 
+// Create the handle ONCE in setup (identity-stable — the List populates it
+// during its own setup, so a handle recreated per render stays null).
 const listScroll: ListScrollHandle = { scrollToEnd: null };
 
 const onSend = async (text: string) => {
@@ -265,7 +267,8 @@ Zero-cost when omitted; omit it for append/prepend/edit flows.
 | `itemsKey` | `string` | Dataset identity — when it changes, the window re-anchors and scroll resets (see "Swapping datasets"). |
 | `initialMainAxisSize` | `number` | Known main-axis px to pin the list to on its first frame (skips the 1px placeholder); the live measure refines it. |
 | `mtRef` | `ListRef` | Capture the native element for `ListMethods`. Inside a surface-drag sheet it is mirrored, not bound — `invoke` methods work, gesture/animated-style attachment doesn't. |
-| `scrollHandle` | `ListScrollHandle` | Imperative handle populated at setup: `scrollToEnd({ smooth? })` scrolls to the last rendered cell (slots + windowing accounted for). |
+| `scrollHandle` | `ListScrollHandle` | Imperative handle populated at setup (create it once — identity-stable): `scrollToEnd({ smooth? })` scrolls to the last rendered cell (slots + windowing accounted for). |
+| `newMessagesOffset` | `number` | Px from the bottom edge for the chat `newMessages` affordance. Default 12 — raise it to clear a floating composer overlay. |
 | `class` / `style` | — | Applied to the measuring wrapper. |
 
 **Events:** `onEndReached`, `onStartReached`, `onScroll({ offset })`, `onRefresh`.

@@ -12,7 +12,9 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 ### Added
 
-- **`@sigx/lynx-list`: `scrollHandle` prop with `scrollToEnd({ smooth? })`** (#841). A programmatic "jump to the newest" that accounts for the header/footer/loading cells and the rendered window — index math consumers cannot do themselves once windowing is on. In chat mode it also marks the viewport at-bottom and clears the unread affordance, so a target cell that hasn't reached native yet is caught by the next relayout's re-pin. Follows the `EmojiGridScrollHandle` populate-at-setup pattern; exported as `ListScrollHandle`.
+- **`@sigx/lynx-list`: `scrollHandle` prop with `scrollToEnd({ smooth? })`** (#841). A programmatic "jump to the newest" that accounts for the header/footer/loading cells and the rendered window — index math consumers cannot do themselves once windowing is on. In chat mode it also marks the viewport at-bottom and clears the unread affordance, so a target cell that hasn't reached native yet is caught by the next relayout's re-pin. Follows the `EmojiGridScrollHandle` populate-at-setup pattern (the handle must be identity-stable); exported as `ListScrollHandle`.
+
+- **`@sigx/lynx-list`: `newMessagesOffset` prop** — the chat `newMessages` affordance floats a fixed 12 px above the wrapper's bottom edge, which hides it behind the floating composer overlay most chat UIs put there (found on-device: the pill was present but invisible). The new prop raises the affordance to clear such overlays; default stays 12.
 
 ## [0.24.0] - 2026-08-05
 

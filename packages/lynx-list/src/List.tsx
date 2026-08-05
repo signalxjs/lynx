@@ -874,7 +874,7 @@ const ListImpl = component<ListProps>(({ props, slots, emit }) => {
               bindtap={onUnreadTap}
               style={{
                 position: 'absolute',
-                bottom: '12px',
+                bottom: `${props.newMessagesOffset ?? 12}px`,
                 left: 0,
                 right: 0,
                 display: 'flex',

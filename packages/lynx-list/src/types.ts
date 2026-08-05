@@ -22,6 +22,11 @@ export type ListRef = MainThreadRef<MainThread.Element | null>;
  * the `scrollHandle` prop, and call `handle.scrollToEnd?.({ smooth })` from any
  * background handler. `null` until the List's setup has run, and again after
  * unmount.
+ *
+ * The handle object must be **identity-stable across renders** — create it
+ * once in your component's setup (never inline in JSX) — because the List
+ * assigns `scrollToEnd` only during its own setup; a handle recreated per
+ * render would stay `null` forever.
  */
 export type ListScrollHandle = {
   /**
@@ -204,11 +209,19 @@ export type ListProps<T = unknown> =
   & Define.Prop<'mtRef', ListRef, false>
   /**
    * Imperative scroll handle (see {@link ListScrollHandle}) — populated at
-   * setup, nulled on unmount. Prefer this over `ListMethods` + `mtRef` for
+   * setup, nulled on unmount. Must be an identity-stable object created in
+   * your setup, not inline JSX. Prefer this over `ListMethods` + `mtRef` for
    * scroll-to-end: the target cell index depends on the header/footer slots
    * and the rendered window, which are internal state only the List can see.
    */
   & Define.Prop<'scrollHandle', ListScrollHandle, false>
+  /**
+   * Distance (px) from the wrapper's bottom edge at which the chat-mode
+   * `newMessages` affordance floats. Default 12. Raise it when an overlay
+   * (typically a floating composer) covers the list's bottom — the affordance
+   * must clear it to be seen.
+   */
+  & Define.Prop<'newMessagesOffset', number, false>
   /** Class applied to the measuring wrapper that sizes the list. */
   & Define.Prop<'class', string, false>
   /** Style applied to the measuring wrapper (use this for flex sizing). */

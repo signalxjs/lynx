@@ -699,6 +699,32 @@ describe('List', () => {
     expect(queryByText(container, '1 new ↓')).toBeNull();
   });
 
+  it('newMessagesOffset raises the unread affordance above a composer overlay', async () => {
+    const rows = signal<{ value: Row[] }>({ value: ITEMS });
+    const Harness = component(() => () => (
+      <List
+        items={rows.value}
+        keyExtractor={(i) => i.id}
+        renderItem={renderRow}
+        inverted
+        newMessagesOffset={76}
+      />
+    ));
+    const { container } = render(<Harness />);
+    await act(() => fireLayout(container));
+    const list = getByType(container, 'list');
+    await act(() => {
+      list._handlers.get('bindscroll')!({ detail: { scrollTop: 400 } });
+      list._handlers.get('bindscroll')!({ detail: { scrollTop: 80 } });
+    });
+    await act(() => { rows.value = [...rows.value, { id: 'd', text: 'Delta' }]; });
+    expect(getByText(container, '1 new ↓')).toBeTruthy();
+    const pillWrap = (container.findAllByType('view') as unknown as
+      { _style?: Record<string, unknown>; _handlers: Map<string, unknown> }[])
+      .find((v) => v._style?.position === 'absolute' && v._handlers.has('bindtap'))!;
+    expect(pillWrap._style!.bottom).toBe('76px');
+  });
+
   it('windowed chat: paging older items into `items` translates the window — the rendered slice stays put (#840)', async () => {
     const rows = signal<{ value: Row[] }>({ value: big(100) });
     const Harness = component(() => () => (
