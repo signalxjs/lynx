@@ -18,6 +18,7 @@ import {
     resolveRouteDetents,
 } from '../internal/sheet-detents.js';
 import { SCREEN_HEIGHT } from '../internal/screen-width.js';
+import { isOverlayPresentation } from '../internal/layer-plan.js';
 import type {
     PopOptions,
     Presentation,
@@ -342,15 +343,73 @@ export function createNavigatorState(opts: CreateNavigatorOptions): NavigatorSta
     }
     function setTransition(next: TransitionState | null): void {
         transitionBox.value = next;
+        if (next === null) drainQueuedIntent();
     }
 
     /**
-     * Whether a transition is currently in flight. Used to no-op concurrent
-     * navigation calls — keeps the state machine simple. A queued/aborted
-     * model is a v0.3 polish item.
+     * Whether a transition is currently in flight. Concurrent navigation is
+     * not run against it — see `queueIntent` for what happens instead.
      */
     function isTransitioning(): boolean {
         return transitionBox.value !== null;
+    }
+
+    /**
+     * How long a queued intent stays replayable. Comfortably longer than a
+     * transition (settle + 280 ms slide + landing ack), so a real press is
+     * never lost; short enough that a press abandoned during a long stall
+     * doesn't resurrect a navigation the user stopped expecting.
+     */
+    const QUEUED_INTENT_MAX_AGE_MS = 1000;
+
+    interface QueuedIntent {
+        run: () => void;
+        at: number;
+        /** True when the intent's outcome already holds — don't replay it. */
+        satisfied: () => boolean;
+    }
+    let queuedIntent: QueuedIntent | null = null;
+
+    /**
+     * Remember a navigation requested mid-transition, to replay when that
+     * transition clears.
+     *
+     * Dropping it outright (the previous behavior) reads as a dead tap,
+     * because a transition outlives its own slide: `animateProgress` awaits a
+     * main-thread landing ack after the duration elapses, so a press arriving
+     * once the animation LOOKS finished still hits the guard. Measured on
+     * device (#849): tapping a row 500 ms after popping the Chat composer did
+     * nothing, while the same tap a moment later worked — and `Home.tsx`
+     * fires a selection haptic before calling `push`, so the dead tap even
+     * buzzed.
+     *
+     * Only the most recent intent is kept, and only discrete user-initiated
+     * navigation is queued. Gesture starts (`beginBackGesture`,
+     * `commitSheetDismiss`) are still dropped: replaying the beginning of a
+     * gesture that is long over is meaningless. `popTo` / `popToRoot` /
+     * `dismiss` are likewise still dropped — they're programmatic jumps
+     * where a late replay is more surprising than a no-op.
+     */
+    function queueIntent(run: () => void, satisfied: () => boolean): void {
+        queuedIntent = { run, at: Date.now(), satisfied };
+    }
+
+    function drainQueuedIntent(): void {
+        const q = queuedIntent;
+        if (!q) return;
+        queuedIntent = null;
+        // Off the current task: `setTransition(null)` runs inside the pop's
+        // commit `batch()`, and starting the next navigation mid-batch would
+        // interleave two stack mutations into one render.
+        void Promise.resolve().then(() => {
+            // Something else already claimed the navigator, the press is
+            // stale, or its outcome already holds (a double tap queues the
+            // same push twice — the replay must not stack a duplicate).
+            if (isTransitioning()) return;
+            if (Date.now() - q.at > QUEUED_INTENT_MAX_AGE_MS) return;
+            if (q.satisfied()) return;
+            q.run();
+        });
     }
 
     /**
@@ -457,7 +516,18 @@ export function createNavigatorState(opts: CreateNavigatorOptions): NavigatorSta
             return;
         }
 
-        if (isTransitioning()) return;
+        if (isTransitioning()) {
+            queueIntent(
+                () => { (push as (n: string, ...a: unknown[]) => void)(name, ...args); },
+                // Already on top of this route — a second queued tap on the
+                // same row must not stack a duplicate screen.
+                () => {
+                    const s = getStack();
+                    return s[s.length - 1]?.route === name;
+                },
+            );
+            return;
+        }
         preloadRouteComponent(routes[name].component);
         const newEntry = makeEntry(name, params, search, options, routes);
         const cur = getStack();
@@ -684,7 +754,16 @@ export function createNavigatorState(opts: CreateNavigatorOptions): NavigatorSta
     }) as Nav['push'];
 
     const replace: Nav['replace'] = ((name: string, ...args: unknown[]) => {
-        if (isTransitioning()) return;
+        if (isTransitioning()) {
+            queueIntent(
+                () => { (replace as (n: string, ...a: unknown[]) => void)(name, ...args); },
+                () => {
+                    const s = getStack();
+                    return s[s.length - 1]?.route === name;
+                },
+            );
+            return;
+        }
         const { params, search, options } = unpackArgs(name, args, routes);
         if (!routes[name]) {
             throw new Error(
@@ -700,7 +779,19 @@ export function createNavigatorState(opts: CreateNavigatorOptions): NavigatorSta
     }) as Nav['replace'];
 
     function pop(count: number = 1, options?: PopOptions): void {
-        if (isTransitioning()) return;
+        if (isTransitioning()) {
+            // Keyed on the entry this press meant to dismiss: if that screen
+            // is already gone by the time the transition clears (the in-flight
+            // transition was itself its pop), the press has been served — so a
+            // second impatient back tap can't pop an extra screen behind it.
+            const stackNow = getStack();
+            const targetKey = stackNow[stackNow.length - 1]?.key;
+            queueIntent(
+                () => { pop(count, options); },
+                () => !getStack().some((e) => e.key === targetKey),
+            );
+            return;
+        }
         const cur = getStack();
         const target = Math.max(1, cur.length - Math.max(1, count));
         if (target === cur.length) return;
@@ -787,8 +878,20 @@ export function createNavigatorState(opts: CreateNavigatorOptions): NavigatorSta
         // Pre-stage the reveal (#651): un-hiding the underneath layer
         // (display none → flex) relayouts its whole subtree — let that land
         // while the top card still covers it, then slide over a settled tree.
+        //
+        // Only a CARD pop un-hides anything. An overlay pop (modal / sheet)
+        // reveals a layer that was never hidden — `computeLayers` keeps the
+        // whole static run below an overlay at `hidden: false`, laid out and
+        // composited the entire time the overlay is up. There is nothing to
+        // stage, so the settle is pure dead time before the slide, and on a
+        // heavy screen `pendingOps()` never goes quiet so it costs the full
+        // `PRE_STAGE_MAX_MS`. Measured on device (#849): popping the Chat
+        // composer repainted the header instantly and then sat still, with
+        // only 2-3 frames in the 400 ms after the press, versus 35-37 for a
+        // light screen.
+        const needsPreStage = !isOverlayPresentation(popping.presentation);
         const startPop = async (): Promise<void> => {
-            await settleBeforeTransition();
+            if (needsPreStage) await settleBeforeTransition();
             // A reset() during the settle window can have replaced the
             // stack/transition; don't animate the stale pop over it.
             if (!isOwnTransition(transitionBox.value, txn)) return;

@@ -14,6 +14,10 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 ### Fixed
 
+- **`@sigx/lynx-navigation`: a modal/sheet pop now slides immediately** (#849). Every pop awaited `settleBeforeTransition()`, which exists to let the *un-hidden* underneath layer relayout before the slide starts. Only a card pop un-hides anything — `computeLayers` keeps the whole static run below an overlay at `hidden: false` the entire time it is up — so for a modal or sheet that wait staged nothing and simply delayed the motion. On a heavy screen `pendingOps()` never goes quiet, so it cost the full `PRE_STAGE_MAX_MS`: the header repainted instantly and the screen then sat still. Measured on device, popping the showcase's Chat composer produced 2-3 frames in the 400 ms after the press; it now produces 35-36, matching a light screen.
+
+- **`@sigx/lynx-navigation`: navigation requested mid-transition is replayed instead of dropped** (#849). `push` / `replace` / `pop` used to `return` outright while a transition was in flight. A transition outlives its own slide — `animateProgress` awaits a main-thread landing ack after the duration elapses — so a press arriving once the animation *looked* finished still vanished, and (since consumers commonly fire a selection haptic first) the dead tap even buzzed. The most recent intent is now remembered and replayed when the transition clears, guarded so it can't over-navigate: a repeated tap on the same row won't stack a duplicate screen, a second back press won't pop an extra one, and an intent older than 1 s is discarded. Gesture starts (`beginBackGesture`, `commitSheetDismiss`) and programmatic jumps (`popTo`, `popToRoot`, `dismiss`) are still dropped, where a late replay would be more surprising than a no-op.
+
 - **`@sigx/lynx-emoji`: category slices are bucketed in one pass** (#849). Building the picker ran one `filter` per category over the whole ~1,900-entry dataset — nine full walks. Now a single pass buckets every entry into its category.
 
 ## [0.25.0] - 2026-08-05
