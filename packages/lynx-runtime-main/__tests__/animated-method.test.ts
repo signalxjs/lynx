@@ -171,6 +171,17 @@ describe('animated method bindings (#844)', () => {
     }).not.toThrow();
   });
 
+  it("a '__proto__' valueKey lands as an own property, not on the prototype", () => {
+    seedEnvelope(1, 42);
+    seedElementRef(2);
+    applyOps([OP.REGISTER_AV_METHOD_BINDING, 100, 2, 1, 'setThing', '__proto__', null]);
+    expect(invokeUIMethod).toHaveBeenCalledTimes(1);
+    const params = invokeUIMethod.mock.calls[0]![2] as Record<string, unknown>;
+    expect(Object.getOwnPropertyDescriptor(params, '__proto__')?.value).toBe(42);
+    expect(Object.getPrototypeOf(params)).toBe(Object.prototype); // not polluted
+    expect(({} as Record<string, unknown>)['setThing']).toBeUndefined();
+  });
+
   it('resetMainThreadState clears method bindings', () => {
     applyOps([OP.REGISTER_AV_METHOD_BINDING, 100, 2, 1, 'setBottomInset', 'inset', null]);
     expect(animatedMethodBindingCount()).toBe(1);

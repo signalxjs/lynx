@@ -425,7 +425,15 @@ export function flushAnimatedMethodBindings(): void {
     if (!el) continue; // stay dirty — apply on a later flush once mounted
 
     const params: Record<string, unknown> = { ...(binding.params as Record<string, unknown> | null) };
-    params[binding.valueKey] = v;
+    // defineProperty, not assignment — `valueKey` is caller-controlled and a
+    // key like `__proto__` would otherwise hit the prototype setter (same
+    // guard as mt-invoke.ts uses when copying arbitrary keys).
+    Object.defineProperty(params, binding.valueKey, {
+      value: v,
+      enumerable: true,
+      writable: true,
+      configurable: true,
+    });
     try {
       __InvokeUIMethod(el as MainThreadElement, binding.methodName, params, () => {
         /* fire-and-forget */
