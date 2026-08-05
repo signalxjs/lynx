@@ -26,9 +26,13 @@ import {
   armAvAutoFlush,
   flushAvBridgePublishes,
   flushAnimatedStyleBindings,
+  flushAnimatedMethodBindings,
   registerAnimatedStyleBinding,
   unregisterAnimatedStyleBinding,
   resetAnimatedStyleBindings,
+  registerAnimatedMethodBinding,
+  unregisterAnimatedMethodBinding,
+  resetAnimatedMethodBindings,
 } from './animated-bridge-mt.js';
 import {
   registerDerivedValue,
@@ -608,6 +612,24 @@ export function applyOps(ops: unknown[]): void {
         break;
       }
 
+      case OP.REGISTER_AV_METHOD_BINDING: {
+        // [bindingId, elementWvid, avWvid, methodName, valueKey, params]
+        const bindingId = ops[i++] as number;
+        const elementWvid = ops[i++] as number;
+        const avWvid = ops[i++] as number;
+        const methodName = ops[i++] as string;
+        const valueKey = ops[i++] as string;
+        const params = ops[i++];
+        registerAnimatedMethodBinding(bindingId, elementWvid, avWvid, methodName, valueKey, params);
+        break;
+      }
+
+      case OP.UNREGISTER_AV_METHOD_BINDING: {
+        const bindingId = ops[i++] as number;
+        unregisterAnimatedMethodBinding(bindingId);
+        break;
+      }
+
       case OP.SET_GESTURE_DETECTOR: {
         // Wire format: [op, wvid, gestureId, type, config, relationMap].
         // We reconstruct upstream's BaseGesture shape and delegate to vendored
@@ -753,6 +775,11 @@ export function applyOps(ops: unknown[]): void {
   // stays consistent with the styles we're about to commit.
   flushAnimatedStyleBindings();
 
+  // Apply any useAnimatedMethod bindings whose source SharedValue changed
+  // during this batch — a fresh REGISTER_AV_METHOD_BINDING in this batch
+  // invokes here with the SV's current value (first-apply).
+  flushAnimatedMethodBindings();
+
   // Emit update-list-info diffs for any `<list>` whose children changed this
   // batch, so native knows its cell count/keys before it lays out.
   flushDirtyLists();
@@ -776,6 +803,7 @@ export function resetMainThreadState(): void {
   lastTreeByElementWvid.clear();
   resetMtRefBindings();
   resetAnimatedStyleBindings();
+  resetAnimatedMethodBindings();
   resetDerivedValues();
   resetListState();
   resetWebGestures();

@@ -107,6 +107,11 @@ export {
 } from './animated/use-animated-style.js';
 export type { AnimatedStyleSpec } from './animated/use-animated-style.js';
 export {
+  useAnimatedMethod,
+  resetAnimatedMethodBindingIds,
+} from './animated/use-animated-method.js';
+export type { AnimatedMethodSpec } from './animated/use-animated-method.js';
+export {
   useDerivedValue,
   useDerivedValueReactive,
 } from './animated/derived-value.js';
