@@ -353,6 +353,18 @@ const ListImpl = component<ListProps>(({ props, slots, emit }) => {
     );
   }
 
+  // Item-key helpers, shared by chat append detection and windowing prepend
+  // detection. Both need a real `keyExtractor` — with the default index key,
+  // items can't be told apart across shifts.
+  const keyAt = (arr: readonly unknown[], i: number): string => {
+    const k = props.keyExtractor as ((it: unknown, idx: number) => string) | undefined;
+    return k ? k(arr[i], i) : String(i);
+  };
+  const lastKeyOf = (arr: readonly unknown[]): string | undefined =>
+    arr.length === 0 ? undefined : keyAt(arr, arr.length - 1);
+  const firstKeyOf = (arr: readonly unknown[]): string | undefined =>
+    arr.length === 0 ? undefined : keyAt(arr, 0);
+
   // Render only a bounded sliding slice of `items` (opt-in via `windowSize`) so
   // a thousands-long history doesn't materialize thousands of <list-item>s — the
   // runtime renders every *rendered* cell eagerly (only native views recycle).
@@ -373,6 +385,7 @@ const ListImpl = component<ListProps>(({ props, slots, emit }) => {
   const winEnd = signal(win0.end);
   let winInit = windowingEnabled && props.items.length > 0;
   let winPrevLen = props.items.length;
+  let winPrevFirstKey = windowingEnabled ? firstKeyOf(props.items) : undefined;
 
   const setWindow = (w: ListWindow): void => {
     if (w.start !== winStart.value) winStart.value = w.start;
@@ -388,8 +401,13 @@ const ListImpl = component<ListProps>(({ props, slots, emit }) => {
     'main thread';
     const el = listRef.current;
     if (!el || cellIndex <= 0) return;
-    const p = el.invoke(method, { position: cellIndex, alignTo: 'top', offset: 0, smooth: false });
-    if (p && typeof p.catch === 'function') p.catch(() => {});
+    // try/catch as well as .catch(): during layout transitions (keyboard
+    // resize, teardown) the native list can be in a state where invoke throws
+    // SYNCHRONOUSLY — an uncaught worklet throw is a fatal red-box on device.
+    try {
+      const p = el.invoke(method, { position: cellIndex, alignTo: 'top', offset: 0, smooth: false });
+      if (p && typeof p.catch === 'function') p.catch(() => {});
+    } catch { /* best-effort scroll — never fatal */ }
   });
 
   // Scroll the <list> back to its first cell on MT (dataset swap). Position 0
@@ -399,8 +417,10 @@ const ListImpl = component<ListProps>(({ props, slots, emit }) => {
     'main thread';
     const el = listRef.current;
     if (!el) return;
-    const p = el.invoke(method, { position: 0, alignTo: 'top', offset: 0, smooth: false });
-    if (p && typeof p.catch === 'function') p.catch(() => {});
+    try {
+      const p = el.invoke(method, { position: 0, alignTo: 'top', offset: 0, smooth: false });
+      if (p && typeof p.catch === 'function') p.catch(() => {});
+    } catch { /* best-effort scroll — never fatal (see anchorRestoreMT) */ }
   });
 
   // Dataset swap (`itemsKey` changed): treat `items` as a brand-new list —
@@ -425,6 +445,7 @@ const ListImpl = component<ListProps>(({ props, slots, emit }) => {
       ));
       winInit = len > 0;  // empty swap → re-init via the count effect when items arrive
       winPrevLen = len;
+      winPrevFirstKey = firstKeyOf(props.items);
     }
     endReachedFired = false;
     if (chatEnabled) {
@@ -453,10 +474,24 @@ const ListImpl = component<ListProps>(({ props, slots, emit }) => {
         setWindow(initialWindow(len, winCfg, chatEnabled));
         winInit = true;
         winPrevLen = len;
+        winPrevFirstKey = firstKeyOf(props.items);
       }
       return;
     }
     if (len !== winPrevLen) {
+      // Head-prepend detection (symmetric to chat's last-key append
+      // detection): if the first item changed, find the OLD first item again —
+      // its new index IS the prepended count, and the window must translate by
+      // it to keep referencing the same items (else the rendered slice shifts
+      // and the viewport jumps). Needs a real `keyExtractor`.
+      const firstKey = firstKeyOf(props.items);
+      let prepended = 0;
+      if (len > winPrevLen && winPrevFirstKey !== undefined && firstKey !== winPrevFirstKey) {
+        const maxShift = len - winPrevLen;
+        for (let i = 1; i <= maxShift; i++) {
+          if (keyAt(props.items, i) === winPrevFirstKey) { prepended = i; break; }
+        }
+      }
       setWindow(windowAfterItemsChange(
         { start: winStart.value, end: winEnd.value },
         {
@@ -466,10 +501,12 @@ const ListImpl = component<ListProps>(({ props, slots, emit }) => {
           chat: chatEnabled,
           // Short-circuit: non-chat lists never read (so never track) atBottom.
           anchoredAtEnd: chatEnabled && stickToBottom && atBottom.value,
+          prepended,
         },
         winCfg,
       ));
       winPrevLen = len;
+      winPrevFirstKey = firstKey;
     }
   });
 
@@ -490,8 +527,10 @@ const ListImpl = component<ListProps>(({ props, slots, emit }) => {
     'main thread';
     const el = listRef.current;
     if (!el || lastIndex < 0) return;
-    const p = el.invoke(method, { position: lastIndex, alignTo: 'bottom', offset: 0, smooth });
-    if (p && typeof p.catch === 'function') p.catch(() => {});
+    try {
+      const p = el.invoke(method, { position: lastIndex, alignTo: 'bottom', offset: 0, smooth });
+      if (p && typeof p.catch === 'function') p.catch(() => {});
+    } catch { /* best-effort scroll — never fatal (see anchorRestoreMT) */ }
   });
 
   // Scroll-to-bottom is driven by the native list's `layoutcomplete` event, NOT
@@ -506,13 +545,26 @@ const ListImpl = component<ListProps>(({ props, slots, emit }) => {
   let wantBottomSmooth = false;   // first jump is instant; later follows animate
   let firstScrollDone = false;
   const onChatLayoutComplete = (): void => {
-    if (!wantBottom) return;
-    wantBottom = false;
-    void scrollToBottomMT(totalCells() - 1, wantBottomSmooth, SCROLL_METHOD);
-    wantBottomSmooth = true;
-    if (!firstScrollDone) {
-      firstScrollDone = true;
-      ready.value = true;          // reveal now that the first jump has landed
+    if (wantBottom) {
+      wantBottom = false;
+      void scrollToBottomMT(totalCells() - 1, wantBottomSmooth, SCROLL_METHOD);
+      wantBottomSmooth = true;
+      if (!firstScrollDone) {
+        firstScrollDone = true;
+        ready.value = true;        // reveal now that the first jump has landed
+      }
+      return;
+    }
+    // Re-pin (#839): while the viewport sits at the bottom, ANY relayout —
+    // late cell self-measure growth (markdown/images settling), a streaming
+    // last cell growing without a count change — leaves the previous pin's
+    // pixel offset stale, stranding the view above the newest item. "At the
+    // bottom" is a contract: stay pinned across relayouts. Instant, not
+    // smooth — this corrects a stale offset, it isn't a follow animation.
+    // A user scroll isn't fought for more than one throttle tick: bindscroll
+    // flips `atBottom` false on the first real upward movement.
+    if (firstScrollDone && stickToBottom && atBottom.value) {
+      void scrollToBottomMT(totalCells() - 1, false, SCROLL_METHOD);
     }
   };
 
@@ -523,12 +575,7 @@ const ListImpl = component<ListProps>(({ props, slots, emit }) => {
   // loading older messages would wrongly show "N new" and yank the view. We
   // detect it by whether the LAST item changed (needs a real `keyExtractor`;
   // with the default index key, prepends shift indices and read as appends).
-  const keyAt = (arr: readonly unknown[], i: number): string => {
-    const k = props.keyExtractor as ((it: unknown, idx: number) => string) | undefined;
-    return k ? k(arr[i], i) : String(i);
-  };
-  const lastKeyOf = (arr: readonly unknown[]): string | undefined =>
-    arr.length === 0 ? undefined : keyAt(arr, arr.length - 1);
+  // `keyAt`/`lastKeyOf` are declared with the windowing helpers above.
   let chatPrevCount = props.items.length;
   let chatPrevLastKey = chatEnabled ? lastKeyOf(props.items) : undefined;
   effect(() => {
@@ -564,6 +611,27 @@ const ListImpl = component<ListProps>(({ props, slots, emit }) => {
     atBottom.value = true;
     unreadCount.value = 0;
   };
+
+  // ── Imperative scroll handle (#841) ───────────────────────────────────────
+  // Populated at setup, nulled on unmount (the EmojiGridScrollHandle pattern).
+  // Lives on the component rather than ListMethods because the target cell
+  // index is internal state: the header slot, the trailing cell and the
+  // rendered window all shift it.
+  if (props.scrollHandle) {
+    const handle = props.scrollHandle;
+    handle.scrollToEnd = (opts?: { smooth?: boolean }): void => {
+      if (chatEnabled) {
+        // Mark at-bottom FIRST: if the target cell hasn't reached native yet
+        // (jump-on-send races the appended cell), the invoke silently misses —
+        // but the next layoutcomplete's re-pin completes the jump because the
+        // viewport is already flagged at-bottom.
+        atBottom.value = true;
+        unreadCount.value = 0;
+      }
+      void scrollToBottomMT(totalCells() - 1, opts?.smooth ?? true, SCROLL_METHOD);
+    };
+    onUnmounted(() => { handle.scrollToEnd = null; });
+  }
 
   // ── Edge-event de-dup (BG; persists across renders since setup runs once) ──
   // Native re-fires `scrolltoupper`/`scrolltolower` CONTINUOUSLY while the list
@@ -815,7 +883,7 @@ const ListImpl = component<ListProps>(({ props, slots, emit }) => {
               bindtap={onUnreadTap}
               style={{
                 position: 'absolute',
-                bottom: '12px',
+                bottom: `${props.newMessagesOffset ?? 12}px`,
                 left: 0,
                 right: 0,
                 display: 'flex',

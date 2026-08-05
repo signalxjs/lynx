@@ -11,6 +11,7 @@ export type { ScrollToIndexOptions } from './methods.js';
 export type {
   ListProps,
   ListRef,
+  ListScrollHandle,
   ListType,
   ListItemSnap,
   ScrollAlign,

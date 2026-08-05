@@ -108,12 +108,22 @@ export interface ItemsChange {
   chat: boolean;
   /** Chat is sticking to the bottom (stickToBottom on and viewport at bottom). */
   anchoredAtEnd: boolean;
+  /**
+   * Items inserted at the HEAD since the window was last moved (older history
+   * paged in). Every existing item's index shifted by this much, so the window
+   * must translate with them — a numerically-unchanged `{start, end}` would
+   * silently reference different items and visibly shift the rendered slice.
+   * 0 / omitted when nothing was prepended.
+   */
+  prepended?: number;
 }
 
 /**
- * Window transition for an items/itemsKey change (swap > append > clamp): a
- * swap re-anchors to the initial window; a chat append while anchored at the
- * bottom slides to the newest; anything else just clamps into range.
+ * Window transition for an items/itemsKey change (swap > translate > append >
+ * clamp): a swap re-anchors to the initial window; a head-prepend translates
+ * the window by the prepended count so it keeps referencing the same items; a
+ * chat append while anchored at the bottom slides to the newest; anything else
+ * just clamps into range.
  */
 export function windowAfterItemsChange(
   cur: ListWindow,
@@ -122,6 +132,10 @@ export function windowAfterItemsChange(
 ): ListWindow {
   if (c.swapped) return initialWindow(c.len, cfg, c.chat);
   if (c.len === c.prevLen) return cur;
-  if (c.len > c.prevLen && c.chat && c.anchoredAtEnd) return slideToEnd(cur, c.len, cfg);
-  return clampWindow(cur, c.len);
+  const pre = c.prepended && c.prepended > 0 ? c.prepended : 0;
+  const base = pre > 0 ? { start: cur.start + pre, end: cur.end + pre } : cur;
+  // Appended = growth beyond the prepend (a simultaneous prepend + append
+  // still slides to the newest while anchored there).
+  if (c.len - c.prevLen - pre > 0 && c.chat && c.anchoredAtEnd) return slideToEnd(base, c.len, cfg);
+  return clampWindow(base, c.len);
 }
