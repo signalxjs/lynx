@@ -2,7 +2,13 @@
     "name": "List",
     "package": "@sigx/lynx-list",
     "description": "Native <list> subclass (tag `sigx-list`): MT-drivable bottom content inset (setBottomInset) with chat-pin compensation",
-    "platforms": ["android"],
+    "platforms": ["android", "ios"],
+    "ios": {
+        "sourceDir": "ios",
+        "uiComponents": [
+            { "name": "sigx-list", "uiClass": "SigxListUI" }
+        ]
+    },
     "android": {
         "sourceDir": "android",
         "dependencies": ["androidx.recyclerview:recyclerview:1.3.2"],
