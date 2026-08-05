@@ -4,6 +4,10 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 ## [Unreleased]
 
+### Added
+
+- **`@sigx/lynx-runtime`: `useAnimatedMethod` — SharedValue-driven native UI methods** (#844, groundwork). The imperative sibling of `useAnimatedStyle`: bind a `MainThreadRef`'s element to a `SharedValue` and the MT runtime invokes a named UI method (`{...params, [valueKey]: value}`) on every flush boundary where the value changed — same dirty-diffing and derived-value ordering as style bindings, no thread crossing per frame. For natively-backed per-frame state a style write can't express without a layout pass; first consumer is `<list>`'s upcoming `setBottomInset` (frame-synced bottom inset under keyboards and dragged sheets). Static and reactive (`() => spec | null`) call shapes; new wire ops `REGISTER_AV_METHOD_BINDING` / `UNREGISTER_AV_METHOD_BINDING`.
+
 ## [0.25.0] - 2026-08-05
 
 ### Fixed

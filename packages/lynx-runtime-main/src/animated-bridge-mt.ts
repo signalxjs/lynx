@@ -322,6 +322,130 @@ export function flushAnimatedStyleBindings(): void {
   }
 }
 
+// ---------------------------------------------------------------------------
+// useAnimatedMethod bindings (#844)
+//
+// Each registered binding maps a SharedValue -> a native UI-method invoke on
+// a bound element: on every flush where the SV's value changed, invoke
+// `methodName` with `{...params, [valueKey]: value}`. The imperative sibling
+// of the style bindings above, for natively-backed per-frame state a style
+// write can't express without a layout pass (e.g. <list> setBottomInset).
+// ---------------------------------------------------------------------------
+
+interface AnimatedMethodBinding {
+  elementWvid: number;
+  avWvid: number;
+  methodName: string;
+  valueKey: string;
+  params: unknown;
+  lastValue: unknown;
+}
+
+const animatedMethodBindings = new Map<number, AnimatedMethodBinding>();
+
+/**
+ * Register a method binding (called from the OP.REGISTER_AV_METHOD_BINDING
+ * handler in `ops-apply.ts`). `lastValue` starts at a sentinel so the first
+ * flush always invokes, even when the AV never gets written past its initial.
+ */
+export function registerAnimatedMethodBinding(
+  bindingId: number,
+  elementWvid: number,
+  avWvid: number,
+  methodName: string,
+  valueKey: string,
+  params: unknown,
+): void {
+  const sentinel = {} as unknown;
+  animatedMethodBindings.set(bindingId, {
+    elementWvid,
+    avWvid,
+    methodName,
+    valueKey,
+    params,
+    lastValue: sentinel,
+  });
+}
+
+export function unregisterAnimatedMethodBinding(bindingId: number): void {
+  animatedMethodBindings.delete(bindingId);
+}
+
+export function resetAnimatedMethodBindings(): void {
+  animatedMethodBindings.clear();
+}
+
+export function animatedMethodBindingCount(): number {
+  return animatedMethodBindings.size;
+}
+
+interface ElementWithRaw {
+  _el?: unknown;
+}
+
+/**
+ * For each binding whose AV value changed since the last apply, invoke the
+ * bound element's UI method with the fresh value. Called from the wrapped
+ * `__FlushElementTree` AFTER `flushAnimatedStyleBindings()` (and therefore
+ * after derived values folded — a binding to a derived SV sees the fresh
+ * fold the same frame).
+ *
+ * Two deliberate deviations from the style-binding flush:
+ *
+ *  - **Keep-dirty on unresolved element**: `lastValue` is NOT updated when
+ *    the element ref hasn't resolved (not yet mounted) or the invoke threw —
+ *    a producer like the keyboard lift can settle once and never write
+ *    again, and a dropped apply would strand the native state forever.
+ *    Style bindings tolerate the drop because the next SV write re-applies.
+ *
+ *  - **Raw PAPI invoke**: `__InvokeUIMethod` on the unwrapped element, not
+ *    `MTElementWrapper.invoke` — the wrapper schedules its own extra flush
+ *    and we are already inside one (see Draggable's edge-scroll: "invoke()
+ *    already flushes — don't double-flush"). Fire-and-forget callback;
+ *    hosts that don't know the method degrade to a no-op.
+ */
+export function flushAnimatedMethodBindings(): void {
+  if (animatedMethodBindings.size === 0) return;
+  if (typeof __InvokeUIMethod !== 'function') return;
+
+  const impl = (globalThis as { lynxWorkletImpl?: WorkletImpl }).lynxWorkletImpl;
+  const refMap = impl?._refImpl?._workletRefMap;
+  if (!refMap) return;
+
+  for (const binding of animatedMethodBindings.values()) {
+    const avRef = refMap[binding.avWvid];
+    if (!avRef) continue;
+    const v = avRef.current?.value;
+    if (v === binding.lastValue) continue;
+
+    // Resolve the element: prefer the worklet-ref wrapper's raw element
+    // (`main-thread:ref` path), fall back to the shared element registry.
+    const wrapped = refMap[binding.elementWvid]?.current as ElementWithRaw | null | undefined;
+    const el = wrapped?._el ?? resolveElementByWvid(binding.elementWvid);
+    if (!el) continue; // stay dirty — apply on a later flush once mounted
+
+    const params: Record<string, unknown> = { ...(binding.params as Record<string, unknown> | null) };
+    // defineProperty, not assignment — `valueKey` is caller-controlled and a
+    // key like `__proto__` would otherwise hit the prototype setter (same
+    // guard as mt-invoke.ts uses when copying arbitrary keys).
+    Object.defineProperty(params, binding.valueKey, {
+      value: v,
+      enumerable: true,
+      writable: true,
+      configurable: true,
+    });
+    try {
+      __InvokeUIMethod(el as MainThreadElement, binding.methodName, params, () => {
+        /* fire-and-forget */
+      });
+      binding.lastValue = v;
+    } catch {
+      // Sync throw (teardown / layout transition) — stay dirty and retry on
+      // the next flush rather than stranding the native state.
+    }
+  }
+}
+
 const INSTALLED = Symbol.for('sigx.avBridgeFlushHookInstalled');
 
 /**
@@ -357,6 +481,11 @@ export function installAvBridgeFlushHook(): void {
       flushAnimatedStyleBindings();
     } catch (e) {
       console.log('[sigx-mt] av-style bindings flush threw:', String(e));
+    }
+    try {
+      flushAnimatedMethodBindings();
+    } catch (e) {
+      console.log('[sigx-mt] av-method bindings flush threw:', String(e));
     }
     return (original as (...a: unknown[]) => unknown).apply(this, args);
   };

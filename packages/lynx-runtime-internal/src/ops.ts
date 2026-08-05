@@ -56,6 +56,16 @@
  *                          re-registering the same derivedWvid replaces its
  *                          reducer/params/sources (reactive factor rebind)
  *   UNREGISTER_AV_DERIVED: [28, derivedWvid]
+ *
+ * Animated method bindings (#844 — a SharedValue drives a NATIVE UI method
+ * per frame: on every flush where the SV's value changed, the MT runtime
+ * invokes `methodName` on the bound element with `{...params, [valueKey]:
+ * value}`. Same dirty-diff + flush ordering as style bindings — runs AFTER
+ * derived values fold, so a binding to a derived SV sees the fresh value the
+ * same frame. Used for natively-implemented per-frame state that styles
+ * can't express without a layout pass, e.g. `<list>`'s `setBottomInset`):
+ *   REGISTER_AV_METHOD_BINDING:   [29, bindingId, elementWvid, avWvid, methodName, valueKey, params]
+ *   UNREGISTER_AV_METHOD_BINDING: [30, bindingId]
  */
 export const OP = {
   CREATE: 0,
@@ -87,6 +97,8 @@ export const OP = {
   INVOKE_WORKLET: 26,
   REGISTER_AV_DERIVED: 27,
   UNREGISTER_AV_DERIVED: 28,
+  REGISTER_AV_METHOD_BINDING: 29,
+  UNREGISTER_AV_METHOD_BINDING: 30,
 } as const;
 
 export type OpCode = (typeof OP)[keyof typeof OP];
