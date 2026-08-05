@@ -457,7 +457,7 @@ export function createNavigatorState(opts: CreateNavigatorOptions): NavigatorSta
      */
     function incomparable(): string {
         incomparableSeq += 1;
-        return ` incomparable:${incomparableSeq}`;
+        return `incomparable:${incomparableSeq}`;
     }
 
     /**

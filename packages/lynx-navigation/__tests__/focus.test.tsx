@@ -219,10 +219,11 @@ describe('useDidAppear', () => {
         expect(probe.nav!.transition).not.toBeNull();
         expect(events).not.toContain('settings:appear');
 
-        // …and fires once the transition clears. Driven on fake timers so the
-        // awaited microtasks (settle window, landing ack) interleave with the
-        // timer steps instead of being slept through.
-        await vi.advanceTimersByTimeAsync(800);
+        // …and fires once the transition clears. Fake timers run to
+        // exhaustion rather than advancing a guessed duration, so this doesn't
+        // have to track the settle window or slide duration; the async form
+        // interleaves the awaited microtasks with the timer steps.
+        await vi.runAllTimersAsync();
         expect(probe.nav!.transition).toBeNull();
         expect(events.filter((e) => e === 'settings:appear').length).toBe(1);
     });

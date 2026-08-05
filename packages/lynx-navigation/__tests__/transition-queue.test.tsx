@@ -29,16 +29,14 @@ const NavCapture = component<{ probe: NavProbe } & {}>(({ props }) => {
     return () => null;
 });
 
-/** Longer than settle + slide + landing ack, so the transition has cleared. */
-const AFTER_TRANSITION_MS = 900;
 /**
- * Drive the transition to completion on fake timers. `advanceTimersByTimeAsync`
- * interleaves the awaited microtasks (the settle window, the landing ack and
- * the replay hop) with the timer steps, which real waits would only cover by
- * sleeping for them.
+ * Drive the transition to completion on fake timers. Runs pending timers to
+ * exhaustion rather than advancing a guessed duration, so the tests don't have
+ * to track the settle window or slide duration. The async form interleaves the
+ * awaited microtasks (settle, landing ack, replay hop) with the timer steps.
  */
 const settled = async (): Promise<void> => {
-    await vi.advanceTimersByTimeAsync(AFTER_TRANSITION_MS);
+    await vi.runAllTimersAsync();
 };
 
 function mount(): NavProbe {
@@ -122,9 +120,10 @@ describe('navigation queued during a transition (#849)', () => {
         act(() => { probe.nav!.push('settings'); });
         act(() => { probe.nav!.push('profile', { id: '7' }, { tab: 'posts' }); });
 
-        // Age the queued intent past QUEUED_INTENT_MAX_AGE_MS before the
-        // transition clears. Only `Date.now` is stubbed — the transition's own
-        // timers stay on real time, so it still completes normally.
+        // Age the queued intent past QUEUED_INTENT_MAX_AGE_MS. The suite runs
+        // on fake timers, and simply advancing the clock would also complete
+        // the transition — so the skew is applied to `Date.now` alone, leaving
+        // the timer queue to drain normally in `settled()` below.
         const realNow = Date.now;
         const spy = vi.spyOn(Date, 'now').mockImplementation(() => realNow.call(Date) + 5000);
         try {
