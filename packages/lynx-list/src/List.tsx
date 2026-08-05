@@ -345,13 +345,14 @@ const ListImpl = component<ListProps>(({ props, slots, emit }) => {
     });
     effect(() => {
       const bi = props.bottomInset;
-      if (typeof bi === 'number') void writeInsetMT(bi);
+      // `undefined` after opting in maps to 0 (not "unbind"): unregistering
+      // would strand the last native inset — nothing would drive it back.
+      if (typeof bi !== 'object') void writeInsetMT(typeof bi === 'number' ? bi : 0);
     });
     useAnimatedMethod(listRef, () => {
       const bi = props.bottomInset;
-      if (bi === undefined) return null;
       return {
-        sv: typeof bi === 'number' ? internalInsetSV : bi,
+        sv: typeof bi === 'object' && bi !== null ? bi : internalInsetSV,
         methodName: 'setBottomInset',
         valueKey: 'inset',
         params: { pin: chatEnabled && stickToBottom },

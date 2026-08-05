@@ -42,7 +42,7 @@ class SigxListUI : UIList {
         // Verification breadcrumb for the custom-list-name opt-in: if this
         // never logs while a `bottomInset` list is on screen, the platform
         // tag didn't resolve to `sigx-list` (see #844).
-        Log.d(TAG, "SigxListUI created for tag sigx-list")
+        if (DEBUG) Log.d(TAG, "SigxListUI created for tag sigx-list")
     }
 
     /** Extra bottom inset currently applied, in device px (rounded). */
@@ -107,5 +107,8 @@ class SigxListUI : UIList {
 
     companion object {
         private const val TAG = "SigxListUI"
+
+        /** Flip to true to log instance creation (tag-resolution verification). */
+        private const val DEBUG = false
     }
 }
