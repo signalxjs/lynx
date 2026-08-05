@@ -4,6 +4,8 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 ## [Unreleased]
 
+## [0.26.0] - 2026-08-05
+
 ### Added
 
 - **`@sigx/lynx-list`: `bottomInset` — frame-synced bottom content inset (Android + iOS)** (#844). New prop `bottomInset?: number | SharedValue<number>`: the native recycler keeps that much of its bottom viewport clear, applied directly (no CSS write, no layout pass) so a main-thread SharedValue — `useKeyboardLiftSV()`, a `BottomSheet`'s `onReveal` — can drive it per frame. The package gains its first native side under the opt-in platform tag `sigx-list` (via `custom-list-name`, set only when the prop is present): Android `SigxListUI extends UIList` (RecyclerView padding delta + pinned `scrollBy` compensation, re-stacked across CSS relayouts); iOS `SigxListUI: LynxUICollection` (`contentInset.bottom` delta with delta-measured pinned compensation, re-stacked in `updateFrame`, plus an `alignTo:"bottom"` bias in `scrollToPosition` — the engine scroller targets the viewport bottom ignoring extra inset, which would land every chat re-pin under the keyboard). In chat mode the newest item stays anchored above the inset via same-frame native compensation, and chat release detection becomes inset-aware (tracked on the main thread as `scrollTop + inset`) so compensation scrolls can't falsely release the pin or fire spurious `endReached`. Run `sigx prebuild` after upgrading; hosts without the native module (web) ignore the inset.
