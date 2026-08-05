@@ -1,4 +1,5 @@
 import Foundation
+import ObjectiveC.runtime
 import UIKit
 import Lynx
 
