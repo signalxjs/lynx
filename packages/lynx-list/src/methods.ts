@@ -34,12 +34,18 @@ function invokeScroll(
   index: number,
   opts: ScrollToIndexOptions,
 ): void {
-  fireAndForget(el?.invoke(SCROLL_METHOD, {
-    position: index,
-    alignTo: opts.align ?? 'top',
-    offset: opts.offset ?? 0,
-    smooth: opts.smooth ?? false,
-  }));
+  // try/catch as well as fireAndForget: during layout transitions (keyboard
+  // resize, teardown) the native list can be in a state where invoke throws
+  // SYNCHRONOUSLY — an uncaught throw inside a main-thread handler is a fatal
+  // red-box on device.
+  try {
+    fireAndForget(el?.invoke(SCROLL_METHOD, {
+      position: index,
+      alignTo: opts.align ?? 'top',
+      offset: opts.offset ?? 0,
+      smooth: opts.smooth ?? false,
+    }));
+  } catch { /* best-effort scroll — never fatal */ }
 }
 
 /**

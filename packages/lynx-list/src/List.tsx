@@ -401,8 +401,13 @@ const ListImpl = component<ListProps>(({ props, slots, emit }) => {
     'main thread';
     const el = listRef.current;
     if (!el || cellIndex <= 0) return;
-    const p = el.invoke(method, { position: cellIndex, alignTo: 'top', offset: 0, smooth: false });
-    if (p && typeof p.catch === 'function') p.catch(() => {});
+    // try/catch as well as .catch(): during layout transitions (keyboard
+    // resize, teardown) the native list can be in a state where invoke throws
+    // SYNCHRONOUSLY — an uncaught worklet throw is a fatal red-box on device.
+    try {
+      const p = el.invoke(method, { position: cellIndex, alignTo: 'top', offset: 0, smooth: false });
+      if (p && typeof p.catch === 'function') p.catch(() => {});
+    } catch { /* best-effort scroll — never fatal */ }
   });
 
   // Scroll the <list> back to its first cell on MT (dataset swap). Position 0
@@ -412,8 +417,10 @@ const ListImpl = component<ListProps>(({ props, slots, emit }) => {
     'main thread';
     const el = listRef.current;
     if (!el) return;
-    const p = el.invoke(method, { position: 0, alignTo: 'top', offset: 0, smooth: false });
-    if (p && typeof p.catch === 'function') p.catch(() => {});
+    try {
+      const p = el.invoke(method, { position: 0, alignTo: 'top', offset: 0, smooth: false });
+      if (p && typeof p.catch === 'function') p.catch(() => {});
+    } catch { /* best-effort scroll — never fatal (see anchorRestoreMT) */ }
   });
 
   // Dataset swap (`itemsKey` changed): treat `items` as a brand-new list —
@@ -520,8 +527,10 @@ const ListImpl = component<ListProps>(({ props, slots, emit }) => {
     'main thread';
     const el = listRef.current;
     if (!el || lastIndex < 0) return;
-    const p = el.invoke(method, { position: lastIndex, alignTo: 'bottom', offset: 0, smooth });
-    if (p && typeof p.catch === 'function') p.catch(() => {});
+    try {
+      const p = el.invoke(method, { position: lastIndex, alignTo: 'bottom', offset: 0, smooth });
+      if (p && typeof p.catch === 'function') p.catch(() => {});
+    } catch { /* best-effort scroll — never fatal (see anchorRestoreMT) */ }
   });
 
   // Scroll-to-bottom is driven by the native list's `layoutcomplete` event, NOT
