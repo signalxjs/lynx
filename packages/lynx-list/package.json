@@ -17,6 +17,7 @@
     "files": [
         "dist",
         "android",
+        "ios",
         "signalx-module.json",
         "README.md",
         "LICENSE"
