@@ -9,11 +9,11 @@
  *  - Cleanup also runs on unmount.
  *  - Calling `useIsFocused()` outside a `<Stack>`-rendered screen throws.
  */
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { component } from '@sigx/lynx';
 import { render, act } from '@sigx/lynx-testing';
 import { useNav } from '../src/hooks/use-nav';
-import { useIsFocused, useFocusEffect } from '../src/hooks/use-focus';
+import { useIsFocused, useFocusEffect, useDidAppear } from '../src/hooks/use-focus';
 import { NavigationRoot } from '../src/components/NavigationRoot';
 import { Stack } from '../src/components/Stack';
 import { routes } from './_fixtures';
@@ -157,6 +157,75 @@ describe('useFocusEffect', () => {
         expect(events.filter((e) => e === 'home:focus').length).toBe(2);
         expect(events.filter((e) => e === 'settings:focus').length).toBe(1);
         expect(events.filter((e) => e === 'settings:blur').length).toBe(1);
+    });
+});
+
+// ---------------------------------------------------------------------------
+// useDidAppear
+// ---------------------------------------------------------------------------
+
+describe('useDidAppear', () => {
+    beforeEach(() => { vi.useFakeTimers(); });
+    afterEach(() => { vi.useRealTimers(); });
+
+    const Probe = (events: string[], tag: string) =>
+        component(() => {
+            useDidAppear(() => {
+                events.push(`${tag}:appear`);
+                return () => events.push(`${tag}:disappear`);
+            });
+            return () => <view><text>{tag}</text></view>;
+        });
+
+    it('runs cb at mount when the screen is already at rest', () => {
+        const events: string[] = [];
+        const localRoutes = { ...routes, home: { component: Probe(events, 'home') } } as typeof routes;
+
+        render(
+            <NavigationRoot routes={localRoutes} initialRoute="home" animated={false}>
+                <Stack />
+            </NavigationRoot>,
+        );
+
+        // No transition is in flight for the initial route, so it has
+        // "appeared" as soon as it mounts.
+        expect(events).toEqual(['home:appear']);
+    });
+
+    it('defers cb until an animated push has settled', async () => {
+        const events: string[] = [];
+        const localRoutes = {
+            ...routes,
+            home: { component: Probe(events, 'home') },
+            settings: { component: Probe(events, 'settings') },
+        } as typeof routes;
+
+        const probe: NavProbe = { nav: null };
+        render(
+            <NavigationRoot routes={localRoutes} initialRoute="home">
+                <NavCapture probe={probe} />
+                <Stack />
+            </NavigationRoot>,
+        );
+        expect(events).toEqual(['home:appear']);
+
+        // Animated push: the stack commits immediately (so the screen is
+        // already FOCUSED), but the slide is still running. This is exactly
+        // the window `useFocusEffect` would have fired in — `useDidAppear`
+        // must stay quiet so heavy mount work can't starve the tween.
+        act(() => {
+            probe.nav!.push('settings');
+        });
+        expect(probe.nav!.transition).not.toBeNull();
+        expect(events).not.toContain('settings:appear');
+
+        // …and fires once the transition clears. Fake timers run to
+        // exhaustion rather than advancing a guessed duration, so this doesn't
+        // have to track the settle window or slide duration; the async form
+        // interleaves the awaited microtasks with the timer steps.
+        await vi.runAllTimersAsync();
+        expect(probe.nav!.transition).toBeNull();
+        expect(events.filter((e) => e === 'settings:appear').length).toBe(1);
     });
 });
 

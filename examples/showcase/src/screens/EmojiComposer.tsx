@@ -2,7 +2,6 @@ import {
     component,
     signal,
     watch,
-    onMounted,
     onUnmounted,
     Platform,
     defineProvide,
@@ -12,7 +11,7 @@ import {
     type MainThread,
     type SharedValue,
 } from '@sigx/lynx';
-import { Screen } from '@sigx/lynx-navigation';
+import { Screen, useDidAppear } from '@sigx/lynx-navigation';
 import { BottomSheet } from '@sigx/lynx-sheet';
 import {
     Button,
@@ -65,6 +64,27 @@ const SEED: Msg[] = [
     { id: 1, author: 'me', body: 'Tap 🙂 — the input + emoji are ONE draggable sheet…' },
     { id: 2, author: 'friend', body: '…drag the input up to grow it, the chat stays live behind. Try it!' },
 ];
+
+/**
+ * ONE emoji context for the whole app, built lazily on first use.
+ *
+ * `createEmojiContext` deep-clones the 1900-entry dataset and builds a search
+ * index over it — ~272 KB of JSON round-trip plus a full lowercase/tokenize
+ * pass. Doing that in component setup means paying it on *every* push, which
+ * measurably wrecks the entrance transition (signalxjs/lynx#849). Everything
+ * in the context is app-global by nature — the dataset is immutable, and
+ * recents / skin tone are persisted user preferences — so one instance shared
+ * across mounts is both cheaper and more correct: a pick made here is already
+ * in recents the next time any picker surface opens.
+ *
+ * Lazy rather than eager so an app that never opens a picker never pays for
+ * one. `<EmojiProvider>` is the equivalent for apps that would rather scope it
+ * to a subtree.
+ */
+let sharedEmoji: ReturnType<typeof createEmojiContext> | null = null;
+const getSharedEmoji = (): ReturnType<typeof createEmojiContext> => (
+    sharedEmoji ??= createEmojiContext(enData)
+);
 
 /** Input-row height (px) — the sheet's collapsed floor; the input is pinned here. */
 const INPUT_H = 64;
@@ -149,12 +169,12 @@ export const EmojiComposerScreen = component(() => {
 
     const append = (m: Msg): void => { messages.value = [...messages.value, m]; };
 
-    // ONE emoji context for the screen — what `<EmojiProvider>` installs,
-    // built here so this component can BOTH provide it (the picker below
-    // adopts it instead of building a private one) and consume it: the
-    // search strip needs `index.search` and `recents`, and sharing the
-    // context is what keeps a pick from the strip in the picker's recents.
-    const emoji = createEmojiContext(enData);
+    // The shared emoji context (see `getSharedEmoji` above). This component
+    // BOTH provides it — the picker below adopts it instead of building a
+    // private one — and consumes it: the search strip needs `index.search`
+    // and `recents`, and sharing the context is what keeps a pick from the
+    // strip in the picker's recents.
+    const emoji = getSharedEmoji();
     defineProvide(useEmojiContext, () => emoji);
 
     // Keyboard lift as a SharedValue — the sheet rides above it (animated on
@@ -183,13 +203,14 @@ export const EmojiComposerScreen = component(() => {
     // tapped the input). The chat has long since laid out by then, so mounting
     // the grid here can't disturb its measurement.
     watch(() => kbLiftBG.value, (h) => { if (h > 0) warmPicker(); });
-    // Fallback: also warm shortly after mount, so opening emoji straight away
-    // (this demo's "Tap 🙂" CTA — no keyboard first) is jank-free too. The delay
-    // lets the chat lay out first. Cleared on unmount so it can't fire (and warm
-    // a torn-down signal) after the screen is popped.
-    let warmTimer: ReturnType<typeof setTimeout> | null = null;
-    onMounted(() => { warmTimer = setTimeout(warmPicker, 150); });
-    onUnmounted(() => { if (warmTimer !== null) clearTimeout(warmTimer); });
+    // Fallback: also warm once the screen has finished appearing, so opening
+    // emoji straight away (this demo's "Tap 🙂" CTA — no keyboard first) is
+    // jank-free too. This used to be `setTimeout(warmPicker, 150)`, which
+    // landed the ~1900-row grid's op batch squarely inside the 280 ms slide —
+    // the MT applies that batch in one uninterruptible pass, so the tween lost
+    // ~30 frames (signalxjs/lynx#849). `useDidAppear` waits for the transition
+    // to settle, which also satisfies the "chat lays out first" constraint.
+    useDidAppear(warmPicker);
 
     // Flip to true and rebuild to log the geometry to logcat (lynx_console)
     // for on-device confirmation of the height match.
@@ -331,6 +352,14 @@ export const EmojiComposerScreen = component(() => {
         exitTimer = setTimeout(() => { exitTimer = null; reveal.open(); }, 0);
     };
 
+    // Canned auto-replies land 700 ms after a send. Tracked (and a Set, since
+    // sending twice inside that window leaves two in flight) so popping the
+    // screen mid-flight can't append to a torn-down signal.
+    const replyTimers = new Set<ReturnType<typeof setTimeout>>();
+    onUnmounted(() => {
+        replyTimers.forEach(clearTimeout);
+        replyTimers.clear();
+    });
     const send = (): void => {
         const body = (ctrlBox.current?.getMarkdown() ?? '').trim();
         if (!body) return;
@@ -338,9 +367,11 @@ export const EmojiComposerScreen = component(() => {
         ctrlBox.current?.clear();
         draftEmpty.value = true;
         append({ id: nextId++, author: 'me', body });
-        setTimeout(() => {
+        const t = setTimeout(() => {
+            replyTimers.delete(t);
             append({ id: nextId++, author: 'friend', body: REPLIES[replyIndex++ % REPLIES.length] });
         }, 700);
+        replyTimers.add(t);
     };
 
     return () => {

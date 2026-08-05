@@ -210,10 +210,13 @@ export const EmojiPicker = component<EmojiPickerProps>(({ props, emit }) => {
     }
 
     // One slice per category, computed once — category switches are lookups.
+    // Bucketed in a single pass: one `filter` per category walked the whole
+    // ~1900-entry dataset once for each of the 9 categories.
     const byCategory = new Map<string, EmojiDatum[]>();
-    ctx.data.categories.forEach((cat, i) => {
-        byCategory.set(cat.key, ctx.data.emojis.filter((e) => e.c === i));
-    });
+    ctx.data.categories.forEach((cat) => { byCategory.set(cat.key, []); });
+    for (const e of ctx.data.emojis) {
+        byCategory.get(ctx.data.categories[e.c]?.key ?? '')?.push(e);
+    }
 
     const tabs: CategoryTabEntry[] = ctx.data.categories.map((cat) => ({
         tab: cat,
