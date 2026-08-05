@@ -80,6 +80,20 @@ Keeping the body at full panel height is what avoids a gap mid-drag — but it a
 
 `onSnap` says *which* detent; `onRest` says *how tall*.
 
+For the **live** height — tracking the finger frame-for-frame, not just settles —
+`onReveal` hands out a `SharedValue<number>` of the effective visible height
+(`max(dragged reveal, floor + keyboard lift)`), once at setup. Its flagship
+consumer is a chat thread behind the sheet: bind it straight into
+`@sigx/lynx-list`'s `bottomInset` and the newest messages ride the sheet
+frame-synced through keyboard rises and detent drags (#844):
+
+```tsx
+const occluderSV = signal<{ sv: SharedValue<number> | null }>({ sv: null });
+
+<List inverted bottomInset={occluderSV.sv ?? floorH} … />
+<BottomSheet onReveal={(sv) => { occluderSV.sv = sv; }} … />
+```
+
 ## Release math and drag arbitration
 
 Worklet-safe pure functions in reveal-px space (`reveal` = visible sheet height, `0` = hidden):
