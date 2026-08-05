@@ -5,6 +5,7 @@
     "platforms": ["android"],
     "android": {
         "sourceDir": "android",
+        "dependencies": ["androidx.recyclerview:recyclerview:1.3.2"],
         "behaviors": [
             { "name": "sigx-list", "behaviorClass": "com.sigx.list.SigxListBehavior" }
         ]
