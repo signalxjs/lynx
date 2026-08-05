@@ -420,11 +420,16 @@ export function createNavigatorState(opts: CreateNavigatorOptions): NavigatorSta
     function norm(v: unknown): string {
         if (v === undefined || v === null) return '';
         try {
-            if (typeof v !== 'object') return JSON.stringify(v) ?? '';
+            if (typeof v !== 'object') {
+                // Functions and symbols stringify to undefined WITHOUT
+                // throwing. Collapsing that to '' would read as "no params"
+                // and could suppress a legitimate replay.
+                return JSON.stringify(v) ?? incomparable();
+            }
             const o = v as Record<string, unknown>;
             const keys = Object.keys(o).sort();
             if (keys.length === 0) return '';
-            return JSON.stringify(keys.map((k) => [k, o[k]]));
+            return JSON.stringify(keys.map((k) => [k, o[k]])) ?? incomparable();
         } catch {
             // Params are user data: a BigInt or a circular reference makes
             // `JSON.stringify` throw, and this runs inside the replay
@@ -432,9 +437,19 @@ export function createNavigatorState(opts: CreateNavigatorOptions): NavigatorSta
             // strand the navigation. A bag we can't canonicalize is treated as
             // "not equal to anything", so the intent replays — navigating one
             // time too many is far better than silently swallowing the press.
-            incomparableSeq += 1;
-            return ` incomparable:${incomparableSeq}`;
+            return incomparable();
         }
+    }
+
+    /**
+     * A value that equals no other `norm()` result, not even another
+     * incomparable one — hence the per-call counter. Used wherever a bag
+     * cannot be canonicalized, so the intent replays: navigating one time too
+     * many beats silently swallowing the press.
+     */
+    function incomparable(): string {
+        incomparableSeq += 1;
+        return ` incomparable:${incomparableSeq}`;
     }
 
     /**

@@ -154,6 +154,22 @@ describe('navigation queued during a transition (#849)', () => {
         expect(routeNames(probe)).toEqual(['home', 'settings', 'profile']);
     });
 
+    it('still replays when params stringify to undefined', async () => {
+        const probe = mount();
+
+        // A function stringifies to `undefined` WITHOUT throwing, so it never
+        // reaches the catch path. Treating that as "no params" would make this
+        // look identical to the plain `push('settings')` already on top, and
+        // the replay would be dropped.
+        act(() => { probe.nav!.push('settings'); });
+        act(() => {
+            (probe.nav!.push as (n: string, ...a: unknown[]) => void)('settings', () => {});
+        });
+
+        await settled();
+        expect(routeNames(probe)).toEqual(['home', 'settings', 'settings']);
+    });
+
     it('replays a same-route push that differs by params', async () => {
         const probe = mount();
         act(() => { probe.nav!.push('profile', { id: '1' }, { tab: 'posts' }); });
