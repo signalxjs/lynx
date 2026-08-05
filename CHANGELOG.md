@@ -4,6 +4,16 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 ## [Unreleased]
 
+### Fixed
+
+- **`@sigx/lynx-list` chat mode: the bottom pin now survives relayouts** (#839). The scroll-to-bottom used to be one-shot per trigger (first paint, append), so any cell growth *after* the pin landed — late self-measure of long text, images decoding, a streaming last message growing without a count change — left the viewport stranded above the newest item, and consumers had to follow streaming growth by hand. While the viewport is at the bottom (and `stickToBottom` is on), every `layoutcomplete` now re-pins instantly; scrolling up still releases the pin on the first real movement.
+
+- **`@sigx/lynx-list` windowing: a head-prepend now translates the window instead of shifting its contents** (#840). Paging older history into the front of `items` left `{start, end}` numerically unchanged but referencing different items, so the rendered slice visibly jumped on every load-older while scrolled up. The List now detects the prepend by finding the old first item's key again and translates the window by the prepended count — the same cells keep rendering the same items. Requires a real `keyExtractor`.
+
+### Added
+
+- **`@sigx/lynx-list`: `scrollHandle` prop with `scrollToEnd({ smooth? })`** (#841). A programmatic "jump to the newest" that accounts for the header/footer/loading cells and the rendered window — index math consumers cannot do themselves once windowing is on. In chat mode it also marks the viewport at-bottom and clears the unread affordance, so a target cell that hasn't reached native yet is caught by the next relayout's re-pin. Follows the `EmojiGridScrollHandle` populate-at-setup pattern; exported as `ListScrollHandle`.
+
 ## [0.24.0] - 2026-08-05
 
 ### Changed

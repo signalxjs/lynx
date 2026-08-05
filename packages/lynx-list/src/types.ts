@@ -17,6 +17,26 @@ export type ScrollAlign = 'top' | 'bottom' | 'middle';
 export type ListRef = MainThreadRef<MainThread.Element | null>;
 
 /**
+ * Imperative scroll handle populated by {@link List} at setup (the
+ * `EmojiGridScrollHandle` pattern): create `{ scrollToEnd: null }`, pass it via
+ * the `scrollHandle` prop, and call `handle.scrollToEnd?.({ smooth })` from any
+ * background handler. `null` until the List's setup has run, and again after
+ * unmount.
+ */
+export type ListScrollHandle = {
+  /**
+   * Scroll to the last rendered cell, however the cell layout is composed —
+   * header/footer/loading cells and the rendered window (when `windowSize` is
+   * set) are accounted for internally, which raw `ListMethods.scrollToIndex`
+   * math cannot do. In chat mode (`inverted`) it also marks the viewport
+   * at-bottom and clears the unread affordance, so if the newest cell hasn't
+   * reached native yet (jump-on-send) the chat re-pin completes the jump on
+   * the next `layoutcomplete`. Smooth by default.
+   */
+  scrollToEnd: ((opts?: { smooth?: boolean }) => void) | null;
+};
+
+/**
  * Props for {@link List} — a data-driven wrapper over the native `<list>`
  * recycler. Generic over the item type `T`.
  */
@@ -182,6 +202,13 @@ export type ListProps<T = unknown> =
    * gesture / animated-style attachment, which require the bound ref.
    */
   & Define.Prop<'mtRef', ListRef, false>
+  /**
+   * Imperative scroll handle (see {@link ListScrollHandle}) — populated at
+   * setup, nulled on unmount. Prefer this over `ListMethods` + `mtRef` for
+   * scroll-to-end: the target cell index depends on the header/footer slots
+   * and the rendered window, which are internal state only the List can see.
+   */
+  & Define.Prop<'scrollHandle', ListScrollHandle, false>
   /** Class applied to the measuring wrapper that sizes the list. */
   & Define.Prop<'class', string, false>
   /** Style applied to the measuring wrapper (use this for flex sizing). */

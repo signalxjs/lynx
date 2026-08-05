@@ -141,6 +141,12 @@ you're there — or raise the `newMessages` affordance when you've scrolled up
 (tap it to jump back down). `stickToBottom` (default `true`) opts out of the
 auto-scroll. Provide a real `keyExtractor` so the recycler tracks messages.
 
+While the viewport is at the bottom, the pin is a contract: any relayout —
+late self-measure growth (markdown settling, images decoding), a **streaming
+last message** growing without a count change, a footer slot changing height —
+re-pins to the newest instantly. No consumer-side follow-scroll needed.
+Scrolling up releases the pin on the first real movement.
+
 Don't pass `estimatedItemSize` for chat — bubbles are variable-height, and a
 fixed estimate briefly clips taller messages as they scroll in (see the prop
 note below). Let the cells self-measure.
@@ -155,6 +161,29 @@ note below). Let the cells self-measure.
   slots={{ newMessages: ({ count }) => <Pill>{count} new ↓</Pill> }}
 />
 ```
+
+For a programmatic "jump to the newest" (e.g. the user sends a message while
+scrolled up — appends deliberately raise the affordance instead of yanking),
+pass a `scrollHandle` and call `scrollToEnd`:
+
+```tsx
+import type { ListScrollHandle } from '@sigx/lynx-list';
+
+const listScroll: ListScrollHandle = { scrollToEnd: null };
+
+const onSend = async (text: string) => {
+  await send(text);
+  listScroll.scrollToEnd?.({ smooth: true });
+};
+
+<List scrollHandle={listScroll} items={messages.value} inverted … />;
+```
+
+Prefer `scrollHandle` over `ListMethods` + `mtRef` for scroll-to-end: the
+target cell index depends on the header/footer slots and the rendered window,
+which are internal state only the List can see. It also marks the viewport
+at-bottom, so a cell that hasn't reached native yet is still caught by the
+next relayout's re-pin.
 
 ### Windowing (long histories)
 
@@ -180,6 +209,12 @@ off-screen far end to stay within `maxWindow`.
 Scrolling to the top reveals an older page (at-top, so no visible jump); a
 zero-jump anchored expansion mid-list is device-pending. Omit `windowSize` to
 render every item.
+
+Paging older history **into `items`** (a head-prepend, the natural
+`onStartReached` shape) translates the window by the prepended count, so the
+rendered slice keeps referencing the same items and the viewport stays put —
+this also relies on a real `keyExtractor` (index keys can't be told apart
+across a shift).
 
 ### Swapping datasets (`itemsKey`)
 
@@ -230,6 +265,7 @@ Zero-cost when omitted; omit it for append/prepend/edit flows.
 | `itemsKey` | `string` | Dataset identity — when it changes, the window re-anchors and scroll resets (see "Swapping datasets"). |
 | `initialMainAxisSize` | `number` | Known main-axis px to pin the list to on its first frame (skips the 1px placeholder); the live measure refines it. |
 | `mtRef` | `ListRef` | Capture the native element for `ListMethods`. Inside a surface-drag sheet it is mirrored, not bound — `invoke` methods work, gesture/animated-style attachment doesn't. |
+| `scrollHandle` | `ListScrollHandle` | Imperative handle populated at setup: `scrollToEnd({ smooth? })` scrolls to the last rendered cell (slots + windowing accounted for). |
 | `class` / `style` | — | Applied to the measuring wrapper. |
 
 **Events:** `onEndReached`, `onStartReached`, `onScroll({ offset })`, `onRefresh`.

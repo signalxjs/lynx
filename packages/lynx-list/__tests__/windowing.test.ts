@@ -131,4 +131,30 @@ describe('windowAfterItemsChange', () => {
       cfg,
     )).toEqual({ start: 500, end: 500 });
   });
+
+  it('head-prepend translates the window by the prepended count (#840)', () => {
+    // 25 older items paged in at the head: every index shifted by 25, so the
+    // window follows — the rendered slice keeps referencing the same items.
+    expect(windowAfterItemsChange(
+      { start: 0, end: 60 },
+      { len: 125, prevLen: 100, swapped: false, chat: true, anchoredAtEnd: false, prepended: 25 },
+      cfg,
+    )).toEqual({ start: 25, end: 85 });
+    // Not chat-specific: a feed window deep in the list translates the same way.
+    expect(windowAfterItemsChange(
+      mid,
+      { len: 1010, prevLen: 1000, swapped: false, chat: false, anchoredAtEnd: false, prepended: 10 },
+      cfg,
+    )).toEqual({ start: 110, end: 170 });
+  });
+
+  it('simultaneous prepend + append while anchored still slides to the newest', () => {
+    // 10 prepended + 2 appended while anchored at the end: translate, then
+    // slide to the new end.
+    expect(windowAfterItemsChange(
+      { start: 40, end: 100 },
+      { len: 112, prevLen: 100, swapped: false, chat: true, anchoredAtEnd: true, prepended: 10 },
+      cfg,
+    )).toEqual({ start: 50, end: 112 });
+  });
 });

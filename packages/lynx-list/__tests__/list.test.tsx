@@ -608,6 +608,123 @@ describe('List', () => {
     expect(queryByText(container, '1 new ↓')).toBeNull();
   });
 
+  it('chat mode: re-pins to the bottom on layoutcomplete while at the bottom (#839)', async () => {
+    const fake = { current: { invoke: vi.fn() } };
+    const { container } = render(
+      <List
+        items={ITEMS}
+        keyExtractor={(i) => i.id}
+        renderItem={renderRow}
+        inverted
+        mtRef={fake as never}
+      />,
+    );
+    const list = getByType(container, 'list');
+    // First layoutcomplete → the initial pin (instant).
+    await act(() => { list._handlers.get('bindlayoutcomplete')!({}); });
+    expect(fake.current.invoke).toHaveBeenCalledWith(
+      'scrollToPosition',
+      { position: 2, alignTo: 'bottom', offset: 0, smooth: false },
+    );
+    fake.current.invoke.mockClear();
+    // A relayout while still at the bottom (late cell self-measure growth,
+    // a streaming last cell) → re-pin, instant.
+    await act(() => { list._handlers.get('bindlayoutcomplete')!({}); });
+    expect(fake.current.invoke).toHaveBeenCalledWith(
+      'scrollToPosition',
+      { position: 2, alignTo: 'bottom', offset: 0, smooth: false },
+    );
+    fake.current.invoke.mockClear();
+    // Scrolled up → relayouts must NOT yank back to the bottom.
+    await act(() => {
+      list._handlers.get('bindscroll')!({ detail: { scrollTop: 400 } });
+      list._handlers.get('bindscroll')!({ detail: { scrollTop: 80 } });
+    });
+    await act(() => { list._handlers.get('bindlayoutcomplete')!({}); });
+    expect(fake.current.invoke).not.toHaveBeenCalled();
+  });
+
+  it('chat mode: stickToBottom={false} pins first paint but never re-pins', async () => {
+    const fake = { current: { invoke: vi.fn() } };
+    const { container } = render(
+      <List
+        items={ITEMS}
+        keyExtractor={(i) => i.id}
+        renderItem={renderRow}
+        inverted
+        stickToBottom={false}
+        mtRef={fake as never}
+      />,
+    );
+    const list = getByType(container, 'list');
+    await act(() => { list._handlers.get('bindlayoutcomplete')!({}); });
+    expect(fake.current.invoke).toHaveBeenCalledTimes(1);
+    fake.current.invoke.mockClear();
+    await act(() => { list._handlers.get('bindlayoutcomplete')!({}); });
+    expect(fake.current.invoke).not.toHaveBeenCalled();
+  });
+
+  it('scrollHandle.scrollToEnd targets the last cell and clears unread (#841)', async () => {
+    const fake = { current: { invoke: vi.fn() } };
+    const handle = { scrollToEnd: null as ((o?: { smooth?: boolean }) => void) | null };
+    const rows = signal<{ value: Row[] }>({ value: ITEMS });
+    const Harness = component(() => () => (
+      <List
+        items={rows.value}
+        keyExtractor={(i) => i.id}
+        renderItem={renderRow}
+        inverted
+        mtRef={fake as never}
+        scrollHandle={handle}
+      />
+    ));
+    const { container } = render(<Harness />);
+    await act(() => fireLayout(container));
+    expect(handle.scrollToEnd).toBeTypeOf('function');
+    const list = getByType(container, 'list');
+    // Scroll up, let a message arrive → unread affordance shows.
+    await act(() => {
+      list._handlers.get('bindscroll')!({ detail: { scrollTop: 400 } });
+      list._handlers.get('bindscroll')!({ detail: { scrollTop: 80 } });
+    });
+    await act(() => { rows.value = [...rows.value, { id: 'd', text: 'Delta' }]; });
+    expect(getByText(container, '1 new ↓')).toBeTruthy();
+    fake.current.invoke.mockClear();
+    // scrollToEnd: 4 items, no header → last cell index 3; smooth by default.
+    await act(() => { handle.scrollToEnd!(); });
+    expect(fake.current.invoke).toHaveBeenCalledWith(
+      'scrollToPosition',
+      { position: 3, alignTo: 'bottom', offset: 0, smooth: true },
+    );
+    expect(queryByText(container, '1 new ↓')).toBeNull();
+  });
+
+  it('windowed chat: paging older items into `items` translates the window — the rendered slice stays put (#840)', async () => {
+    const rows = signal<{ value: Row[] }>({ value: big(100) });
+    const Harness = component(() => () => (
+      <List
+        items={rows.value}
+        keyExtractor={(i) => i.id}
+        renderItem={renderRow}
+        inverted
+        windowSize={60}
+      />
+    ));
+    const { container } = render(<Harness />);
+    await act(() => {});
+    let cells = getAllByType(container, 'list-item');
+    expect(cells[0].props['item-key']).toBe('40');
+    // 30 older items land at the head (history paged in from onStartReached).
+    const older: Row[] = Array.from({ length: 30 }, (_, i) => ({ id: `old${i}`, text: `old${i}` }));
+    await act(() => { rows.value = [...older, ...rows.value]; });
+    cells = getAllByType(container, 'list-item');
+    // Without translation the slice would shift to keys '10'..'69' — a visible
+    // jump. Translated, it still renders exactly the same items.
+    expect(cells.length).toBe(60);
+    expect(cells[0].props['item-key']).toBe('40');
+    expect(cells[59].props['item-key']).toBe('99');
+  });
+
   it('scrolltoupper reveals an older page in a chat window', async () => {
     const { container } = render(
       <List
