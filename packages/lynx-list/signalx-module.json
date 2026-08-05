@@ -1,0 +1,12 @@
+{
+    "name": "List",
+    "package": "@sigx/lynx-list",
+    "description": "Native <list> subclass (tag `sigx-list`): MT-drivable bottom content inset (setBottomInset) with chat-pin compensation",
+    "platforms": ["android"],
+    "android": {
+        "sourceDir": "android",
+        "behaviors": [
+            { "name": "sigx-list", "behaviorClass": "com.sigx.list.SigxListBehavior" }
+        ]
+    }
+}

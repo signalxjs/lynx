@@ -311,6 +311,15 @@ export interface ListAttributes extends LynxCommonAttributes {
     'scroll-event-throttle'?: number;
     /** Toggle native scroll responsiveness (e.g. lock while pulling-to-refresh) */
     'enable-scroll'?: boolean;
+    /**
+     * Resolve the platform node to a CUSTOM registered component instead of
+     * the built-in list (`ListElement::ResolvePlatformNodeTag` uses the value
+     * verbatim as the platform tag). Used by `@sigx/lynx-list` to opt into
+     * its native subclass (`sigx-list`) when `bottomInset` is set. Must be
+     * present from the element's first render — the platform node resolves
+     * its tag at creation.
+     */
+    'custom-list-name'?: string;
 
     bindscroll?: LynxEventHandler;
     bindscrolltoupper?: LynxEventHandler;

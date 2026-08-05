@@ -9,6 +9,7 @@ import {
   useMainThreadRef,
   useSharedValue,
   useAnimatedStyle,
+  useAnimatedMethod,
   runOnBackground,
   runOnMainThread,
   useScrollDragHost,
@@ -323,6 +324,40 @@ const ListImpl = component<ListProps>(({ props, slots, emit }) => {
   const ready = signal(!chatEnabled);
   const atBottom = signal(true);
   const unreadCount = signal(0);
+
+  // ── Frame-synced bottom inset (#844) ─────────────────────────────────────
+  // `bottomInset` drives the native `setBottomInset` UI method per frame via
+  // an animated method binding — a recycler viewport adjustment, no layout
+  // pass, native chat-pin compensation. The PRESENCE of the prop is
+  // mount-constant (it opts the element into the `sigx-list` platform tag,
+  // resolved once at creation); its value/kind (number ⇄ SharedValue) may
+  // change freely — pass a numeric fallback until a producer's SV arrives.
+  const insetOptIn = props.bottomInset !== undefined;
+  const insetChat = insetOptIn && chatEnabled;
+  // Always allocated: the MT scroll worklet must capture a DEFINED SV
+  // identity even when the consumer passes an SV of their own (same rule as
+  // `svFallback` above). Mirrors the numeric-prop form.
+  const internalInsetSV = useSharedValue(0);
+  if (insetOptIn) {
+    const writeInsetMT = runOnMainThread((v: number) => {
+      'main thread';
+      internalInsetSV.current.value = v;
+    });
+    effect(() => {
+      const bi = props.bottomInset;
+      if (typeof bi === 'number') void writeInsetMT(bi);
+    });
+    useAnimatedMethod(listRef, () => {
+      const bi = props.bottomInset;
+      if (bi === undefined) return null;
+      return {
+        sv: typeof bi === 'number' ? internalInsetSV : bi,
+        methodName: 'setBottomInset',
+        valueKey: 'inset',
+        params: { pin: chatEnabled && stickToBottom },
+      };
+    });
+  }
 
   // Safety net for the opacity reveal. The primary path flips `ready` from the
   // first `layoutcomplete` (which also drives the initial scroll-to-bottom).
@@ -648,6 +683,20 @@ const ListImpl = component<ListProps>(({ props, slots, emit }) => {
   let lastTop = 0;
   let prevCount = props.items.length;
 
+  // Inset-aware pin release (#844). Native shrink-compensation scrolls the
+  // content down, which the BG heuristic below (`top < lastTop - 4`) would
+  // misread as a user scroll-up — falsely releasing the pin and re-arming
+  // `endReached` into a spurious emission. With an inset active, release
+  // detection moves to the MT scroll worklet where the scroll event and the
+  // inset SV are synchronous (race-free): track the INSET-ADJUSTED offset
+  // `eff = scrollTop + inset` — compensation changes both by the same amount,
+  // so `eff` only drops on genuine user movement away from the bottom.
+  const lastEffRef = useMainThreadRef<number>(0);
+  const releasePinBG = (): void => {
+    atBottom.value = false;
+    endReachedFired = false;
+  };
+
   return () => {
     const horizontal = props.horizontal ?? false;
     // Vertical lists inside a drag host (adopted or not) compose the host's
@@ -655,6 +704,15 @@ const ListImpl = component<ListProps>(({ props, slots, emit }) => {
     // ever true under refreshEnabled, so the combined expression stays
     // correct for every opt-in combination.
     const hostLocked = dragHost && verticalList ? dragHost.scrollLock.value : false;
+    // Worklet captures for the inset-aware release path: a number gate (a
+    // boolean would serialize fine, but the numeric-gate idiom matches
+    // `adopted`) and the ACTIVE inset SV — the consumer's own SV when they
+    // passed one, else the internal mirror of the numeric prop.
+    const insetChatMT = insetChat ? 1 : 0;
+    const biNow = props.bottomInset;
+    const activeInsetSV = typeof biNow === 'number' || biNow === undefined
+      ? internalInsetSV
+      : biNow;
     // The native `<list>` re-fires `scrolltoupper` CONTINUOUSLY while it sits
     // at its top edge — measured ~1,674 dispatches on one list with no
     // scrolling at all and only 2 renders (~240/s, far above frame rate).
@@ -733,9 +791,15 @@ const ListImpl = component<ListProps>(({ props, slots, emit }) => {
         scroll-orientation={horizontal ? 'horizontal' : 'vertical'}
         list-type={props.listType ?? 'single'}
         span-count={props.numColumns ?? 1}
-        main-thread:ref={adopted === 1 || chatEnabled || windowingEnabled || props.itemsKey !== undefined
+        main-thread:ref={adopted === 1 || chatEnabled || windowingEnabled || insetOptIn
+          || props.itemsKey !== undefined
           ? listRef
           : props.mtRef}
+        {...(insetOptIn
+          // Opt into the native sigx-list subclass (setBottomInset) — the
+          // platform node resolves its tag at creation, hence mount-constant.
+          ? { 'custom-list-name': 'sigx-list' }
+          : {})}
         // Spread optional attrs only when set — an `undefined` prop is
         // serialized as a native `null` attribute write (no skip in
         // patchProp), which would clobber the native default.
@@ -762,7 +826,7 @@ const ListImpl = component<ListProps>(({ props, slots, emit }) => {
         // pending).
         {...(adopted === 1 ? { bounces: false } : {})}
         {...(chatEnabled ? { bindlayoutcomplete: onChatLayoutComplete } : {})}
-        {...(refreshEnabled || adopted === 1
+        {...(refreshEnabled || adopted === 1 || insetChat
           ? {
             'main-thread-bindscroll': (e: ScrollDetail) => {
               'main thread';
@@ -772,6 +836,14 @@ const ListImpl = component<ListProps>(({ props, slots, emit }) => {
               // can arbitrate ("content at top?") — additive to the pull-to-
               // refresh at-top mirror, no precedence rules.
               if (adopted === 1) hostOffsetY.current.value = top;
+              // Inset-aware pin release (see setup): the inset-adjusted
+              // offset is immune to native compensation scrolls, so a drop
+              // means the USER moved away from the bottom.
+              if (insetChatMT === 1) {
+                const eff = top + activeInsetSV.current.value;
+                if (eff < lastEffRef.current - 4) runOnBackground(releasePinBG)();
+                lastEffRef.current = eff;
+              }
             },
           }
           : {})}
@@ -816,8 +888,14 @@ const ListImpl = component<ListProps>(({ props, slots, emit }) => {
           // that one). Chat: moving up means new messages surface the unread
           // affordance instead of auto-scrolling.
           if (top < lastTop - 4) {
-            endReachedFired = false;
-            if (chatEnabled) atBottom.value = false;
+            // With an inset active in chat, downward movement can be native
+            // shrink-compensation — the MT worklet owns release + endReached
+            // re-arm there (inset-adjusted, race-free). Without one, the raw
+            // heuristic stands.
+            if (!insetChat) {
+              endReachedFired = false;
+              if (chatEnabled) atBottom.value = false;
+            }
           } else if (top > lastTop + 4) {
             startReachedFired = false;
           }
