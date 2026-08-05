@@ -195,8 +195,12 @@ export const EmojiComposerScreen = component(() => {
     // for on-device confirmation of the height match.
     const DEBUG_GEOM = false;
 
-    // The sheet's live reveal height (captured for potential sibling binding).
-    let revealSV: SharedValue<number> | null = null;
+    // The sheet's live reveal height — max(dragged reveal, floor + keyboard
+    // lift), i.e. exactly the occluder height over the thread. Bound into the
+    // List's `bottomInset` so the newest messages track the sheet frame-synced
+    // (keyboard rise AND drags, #844). A signal because the sheet hands the SV
+    // out on first render — the numeric fallback covers the frames before.
+    const occluderSV = signal<{ sv: SharedValue<number> | null }>({ sv: null });
     // The category tab row, pinned to the sheet's VISIBLE bottom edge. The
     // panel is laid out at its top detent and slid down, so the picker's
     // own bottom is off-screen at the compact detent — the sheet binds this
@@ -424,7 +428,6 @@ export const EmojiComposerScreen = component(() => {
         // strip layout. Without this the sheet would fall back to its 64px
         // floor with a search field still in the handle, clipped.
         const engaged = mode !== 'closed' || (isSearching && !searchLayout);
-        void revealSV;
 
         if (DEBUG_GEOM) {
             // eslint-disable-next-line no-console
@@ -454,13 +457,18 @@ export const EmojiComposerScreen = component(() => {
                     the underneath screen bled through. The composer sheet already
                     rides the keyboard via its `liftSV`, so the thread doesn't need
                     to avoid the keyboard itself — it stays live behind the sheet
-                    (WhatsApp). `paddingBottom` keeps the newest message clear of
-                    the input row. */}
+                    (WhatsApp). `bottomInset` keeps the newest message clear of the
+                    occluder — frame-synced with the sheet's reveal SV. */}
                 <List
                     items={messages.value}
                     keyExtractor={(m) => String(m.id)}
                     inverted
                     stickToBottom
+                    // Frame-synced occlusion clearance (#844): the sheet's
+                    // reveal SV drives the native bottom inset per frame —
+                    // keyboard rise and detent drags slide the conversation
+                    // WITH the sheet. Numeric floor until the SV arrives.
+                    bottomInset={occluderSV.sv ?? floorH + 8}
                     // Mount the list at ≈ its real height on frame 1 instead of
                     // racing up from a 1px placeholder — the mount frame lays out
                     // at full size, so `layoutcomplete` lands and the chat-mode
@@ -470,7 +478,7 @@ export const EmojiComposerScreen = component(() => {
                     // `flexGrow`-only box keeps `flexBasis: 'auto'` and sizes to
                     // content, collapsing the thread; `flexBasis: 0` + `minHeight: 0`
                     // is the Lynx-correct "take the remaining space".
-                    style={{ flexGrow: 1, flexShrink: 1, flexBasis: 0, minHeight: 0, paddingBottom: `${floorH + 8}px` }}
+                    style={{ flexGrow: 1, flexShrink: 1, flexBasis: 0, minHeight: 0 }}
                     renderItem={(m) => (
                         <view style={{ paddingLeft: '16px', paddingRight: '16px', paddingTop: '4px', paddingBottom: '4px' }}>
                             <Col
@@ -512,7 +520,7 @@ export const EmojiComposerScreen = component(() => {
                     dragEnabled={mode === 'open'}
                     liftSV={kbLiftSV}
                     pinnedBottomRef={tabsRef}
-                    onReveal={(sv) => { revealSV = sv; }}
+                    onReveal={(sv) => { occluderSV.sv = sv; }}
                     onRest={(px) => { restH.value = px; }}
                     onSnap={(i) => { if (i === 0 && reveal.mode() === 'open') backToKeyboard(); }}
                     class="bg-base-100 border-t border-base-300"
