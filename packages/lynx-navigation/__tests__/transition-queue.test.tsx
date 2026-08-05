@@ -170,6 +170,19 @@ describe('navigation queued during a transition (#849)', () => {
         expect(routeNames(probe)).toEqual(['home', 'settings', 'settings']);
     });
 
+    it('does not stack a duplicate when params are identical', async () => {
+        const probe = mount();
+
+        // Both sides of the comparison must canonicalize the same way even
+        // though the stored entry is read back through the stack signal's
+        // proxy while the queued intent holds the raw object.
+        act(() => { probe.nav!.push('profile', { id: '7' }, { tab: 'posts' }); });
+        act(() => { probe.nav!.push('profile', { id: '7' }, { tab: 'posts' }); });
+
+        await settled();
+        expect(routeNames(probe)).toEqual(['home', 'profile']);
+    });
+
     it('replays a same-route push that differs by params', async () => {
         const probe = mount();
         act(() => { probe.nav!.push('profile', { id: '1' }, { tab: 'posts' }); });

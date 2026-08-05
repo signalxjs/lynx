@@ -426,6 +426,14 @@ export function createNavigatorState(opts: CreateNavigatorOptions): NavigatorSta
                 // and could suppress a legitimate replay.
                 return JSON.stringify(v) ?? incomparable();
             }
+            const proto = Object.getPrototypeOf(v) as unknown;
+            if (proto !== Object.prototype && proto !== null) {
+                // Arrays, Dates, class instances: canonicalize the value
+                // itself. Enumerating keys would flatten every one of them to
+                // the same empty result, making two different Dates look
+                // equal - and equal to "no params" besides.
+                return JSON.stringify(v) ?? incomparable();
+            }
             const o = v as Record<string, unknown>;
             const keys = Object.keys(o).sort();
             if (keys.length === 0) return '';
