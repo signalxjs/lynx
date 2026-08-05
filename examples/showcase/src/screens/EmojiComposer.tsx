@@ -457,8 +457,8 @@ export const EmojiComposerScreen = component(() => {
                     the underneath screen bled through. The composer sheet already
                     rides the keyboard via its `liftSV`, so the thread doesn't need
                     to avoid the keyboard itself — it stays live behind the sheet
-                    (WhatsApp). `paddingBottom` keeps the newest message clear of
-                    the input row. */}
+                    (WhatsApp). `bottomInset` keeps the newest message clear of the
+                    occluder — frame-synced with the sheet's reveal SV. */}
                 <List
                     items={messages.value}
                     keyExtractor={(m) => String(m.id)}

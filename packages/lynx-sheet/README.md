@@ -82,7 +82,8 @@ Keeping the body at full panel height is what avoids a gap mid-drag — but it a
 
 For the **live** height — tracking the finger frame-for-frame, not just settles —
 `onReveal` hands out a `SharedValue<number>` of the effective visible height
-(`max(dragged reveal, floor + keyboard lift)`), once at setup. Its flagship
+(`max(dragged reveal, floor + keyboard lift)`). It may be called on re-renders;
+the SharedValue's identity is stable, so capturing it is idempotent. Its flagship
 consumer is a chat thread behind the sheet: bind it straight into
 `@sigx/lynx-list`'s `bottomInset` and the newest messages ride the sheet
 frame-synced through keyboard rises and detent drags (#844):
