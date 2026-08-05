@@ -66,20 +66,59 @@ export function useIsFocused(): Computed<boolean> {
  * ```
  */
 export function useFocusEffect(cb: () => void | (() => void)): void {
+    gatedSession(useIsFocused(), cb);
+}
+
+/**
+ * Run `cb` once this screen has *finished* appearing — focused AND with no
+ * transition in flight — and run the returned cleanup when either stops
+ * holding, or on unmount.
+ *
+ * Use this instead of `useFocusEffect` for work heavy enough to disturb the
+ * entrance animation. `useIsFocused` is `nav.current.key === myKey`, and a
+ * push commits the stack *immediately* (the slide is still running), so
+ * `useFocusEffect` fires while the transition is mid-flight. Mount work
+ * scheduled there competes with the tween: component setup runs on the BG
+ * thread, but the resulting op batch is applied on the MAIN thread in one
+ * uninterruptible pass, which is the same thread driving the animation.
+ *
+ * Lifecycle:
+ *  - cb runs at mount only if the screen is already focused and at rest
+ *    (e.g. the initial route, or a non-animated navigation).
+ *  - After an animated push, cb runs when the slide completes.
+ *  - Losing focus, or a new transition starting, runs cleanup; settling back
+ *    into focus-at-rest runs `cb` again.
+ *
+ * @example
+ * ```tsx
+ * // Mount an expensive panel only after the screen has landed.
+ * useDidAppear(() => { ready.value = true; });
+ * ```
+ */
+export function useDidAppear(cb: () => void | (() => void)): void {
+    const nav = useNav();
     const isFocused = useIsFocused();
+    gatedSession(computed(() => isFocused.value && nav.transition === null), cb);
+}
+
+/**
+ * Shared lifecycle for the focus-gated hooks above: tear down the previous
+ * session before opening a new one, and always clean up on unmount.
+ */
+function gatedSession(gate: Computed<boolean>, cb: () => void | (() => void)): void {
     let cleanup: (() => void) | void;
     const runner = effect(() => {
-        const focused = isFocused.value;
-        // Always tear down any previous focus session before starting a new
-        // one (or before going dormant on blur). Wrap `cb` in `untrack` so
-        // signals read inside the user-provided callback can't retrigger the
-        // outer effect and stack subscriptions.
+        const open = gate.value;
+        // Always tear down any previous session before starting a new one (or
+        // before going dormant). Wrap `cb` in `untrack` so signals read inside
+        // the user-provided callback can't retrigger the outer effect and
+        // stack subscriptions.
         if (typeof cleanup === 'function') {
             const fn = cleanup;
             cleanup = undefined;
             fn();
         }
-        if (focused) {
+        if (open) {
             cleanup = untrack(() => cb());
         }
     });

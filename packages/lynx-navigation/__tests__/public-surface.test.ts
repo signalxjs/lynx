@@ -54,6 +54,7 @@ describe('public runtime exports', () => {
                 'defineRoutes',
                 'hrefFor',
                 'parseHref',
+                'useDidAppear',
                 'useDrawer',
                 'useFocusEffect',
                 'useHardwareBack',
