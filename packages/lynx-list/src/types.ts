@@ -1,4 +1,4 @@
-import type { Define, MainThread, MainThreadRef } from '@sigx/lynx';
+import type { Define, MainThread, MainThreadRef, SharedValue } from '@sigx/lynx';
 
 /** Native `<list>` layout mode. */
 export type ListType = 'single' | 'flow' | 'waterfall';
@@ -138,6 +138,29 @@ export type ListProps<T = unknown> =
    * auto-scroll (new items always go to the unread affordance when off-screen).
    */
   & Define.Prop<'stickToBottom', boolean, false>
+  /**
+   * Bottom content inset in CSS px — the native list keeps this much of its
+   * bottom viewport clear (an occluder height: keyboard, composer, bottom
+   * sheet), applied as a recycler viewport inset with **no layout pass**.
+   *
+   * Pass a `SharedValue<number>` to drive it **per frame from the main
+   * thread** (`useKeyboardLiftSV()`, a `BottomSheet`'s `onReveal` SV, or a
+   * `useDerivedValue([...], 'max')` of both): the list's visible bottom then
+   * tracks the occluder frame-synced. A plain `number` applies a settled
+   * inset through the same native path.
+   *
+   * In chat mode (`inverted` + `stickToBottom`) the newest item stays
+   * anchored above the inset — compensation happens natively in the same
+   * frame, and scrolling up releases the pin exactly as without an inset
+   * (compensation movement can't falsely release it). If the user has
+   * scrolled up, an inset change never moves the content they're reading.
+   *
+   * Requires the native `sigx-list` component (autolinked from this package;
+   * re-run `sigx prebuild` after adding it). Hosts without it — including
+   * web — ignore the inset; keep a wrapper `paddingBottom` fallback there.
+   * Vertical lists only.
+   */
+  & Define.Prop<'bottomInset', number | SharedValue<number>, false>
   /**
    * **Enables windowing.** Render only a bounded sliding slice of `items`
    * instead of all of them — essential for very long histories, since the

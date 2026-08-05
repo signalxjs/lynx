@@ -11,10 +11,13 @@
             "import": "./dist/index.js",
             "default": "./dist/index.js"
         },
+        "./signalx-module.json": "./signalx-module.json",
         "./package.json": "./package.json"
     },
     "files": [
         "dist",
+        "android",
+        "signalx-module.json",
         "README.md",
         "LICENSE"
     ],

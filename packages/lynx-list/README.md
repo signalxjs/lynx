@@ -187,6 +187,45 @@ which are internal state only the List can see. It also marks the viewport
 at-bottom, so a cell that hasn't reached native yet is still caught by the
 next relayout's re-pin.
 
+### Frame-synced bottom inset (`bottomInset`)
+
+A chat list usually sits behind an occluder that moves on the **main
+thread** — the keyboard rising, a composer sheet dragged between detents. A
+wrapper `paddingBottom` only takes settled values (BG relayout), so mid-motion
+the occluder covers the newest rows and the content pops clear on rest.
+
+`bottomInset` fixes this natively: the platform recycler keeps that much of
+its bottom viewport clear (a pure viewport inset — **no layout pass**), and a
+`SharedValue` drives it **per frame**:
+
+```tsx
+import { useKeyboardLiftSV } from '@sigx/lynx-keyboard';
+
+// Keyboard-only chat: the list bottom tracks the keyboard rise.
+const kbLift = useKeyboardLiftSV(false);
+<List items={messages.value} inverted bottomInset={kbLift} … />;
+
+// With a composer BottomSheet: its onReveal SV is the occluder height
+// (max of the sheet's dragged reveal and floor + keyboard lift) — one SV,
+// nothing to compose. Numeric fallback until the sheet hands it out.
+const occluder = signal<SharedValue<number> | null>(null);
+<BottomSheet onReveal={(sv) => { occluder.value = sv; }} … />
+<List items={messages.value} inverted bottomInset={occluder.value ?? floorH} … />;
+```
+
+While pinned at the bottom, the newest item stays anchored **above** the inset
+— compensation happens natively in the same frame, and release detection is
+inset-aware, so the compensation scroll can never falsely release the pin. If
+the user has scrolled up, an inset change never moves what they're reading.
+
+Notes:
+- The **presence** of the prop is mount-constant (it opts the element into the
+  native `sigx-list` component at creation); the value/kind (`number` ⇄
+  `SharedValue`) may change freely — pass a numeric fallback first render.
+- Requires a `sigx prebuild` after upgrading (the native module autolinks).
+  Hosts without it — including **web** — ignore the inset; keep a wrapper
+  `paddingBottom` fallback there. Vertical lists only.
+
 ### Windowing (long histories)
 
 For thousands of items, pass `windowSize` to render only a bounded sliding
