@@ -4,11 +4,15 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 ## [Unreleased]
 
+## [0.25.0] - 2026-08-05
+
 ### Fixed
 
 - **`@sigx/lynx-list` chat mode: the bottom pin now survives relayouts** (#839). The scroll-to-bottom used to be one-shot per trigger (first paint, append), so any cell growth *after* the pin landed — late self-measure of long text, images decoding, a streaming last message growing without a count change — left the viewport stranded above the newest item, and consumers had to follow streaming growth by hand. While the viewport is at the bottom (and `stickToBottom` is on), every `layoutcomplete` now re-pins instantly; scrolling up still releases the pin on the first real movement.
 
 - **`@sigx/lynx-list` windowing: a head-prepend now translates the window instead of shifting its contents** (#840). Paging older history into the front of `items` left `{start, end}` numerically unchanged but referencing different items, so the rendered slice visibly jumped on every load-older while scrolled up. The List now detects the prepend by finding the old first item's key again and translates the window by the prepended count — the same cells keep rendering the same items. Requires a real `keyExtractor`.
+
+- **`@sigx/lynx-list`: scroll invokes can no longer red-box the app**. During layout transitions (keyboard resize, teardown) the native list can be in a state where `invoke('scrollToPosition')` throws *synchronously*; with the chat re-pin firing per `layoutcomplete` this surfaced on-device as a fatal main-thread exception. Every scroll invoke (the List's worklets and `ListMethods`) is now wrapped best-effort.
 
 ### Added
 
