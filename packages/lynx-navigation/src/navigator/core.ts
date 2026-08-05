@@ -419,12 +419,30 @@ export function createNavigatorState(opts: CreateNavigatorOptions): NavigatorSta
      */
     function norm(v: unknown): string {
         if (v === undefined || v === null) return '';
-        if (typeof v !== 'object') return JSON.stringify(v) ?? '';
-        const o = v as Record<string, unknown>;
-        const keys = Object.keys(o).sort();
-        if (keys.length === 0) return '';
-        return JSON.stringify(keys.map((k) => [k, o[k]]));
+        try {
+            if (typeof v !== 'object') return JSON.stringify(v) ?? '';
+            const o = v as Record<string, unknown>;
+            const keys = Object.keys(o).sort();
+            if (keys.length === 0) return '';
+            return JSON.stringify(keys.map((k) => [k, o[k]]));
+        } catch {
+            // Params are user data: a BigInt or a circular reference makes
+            // `JSON.stringify` throw, and this runs inside the replay
+            // microtask where that would become an unhandled rejection and
+            // strand the navigation. A bag we can't canonicalize is treated as
+            // "not equal to anything", so the intent replays — navigating one
+            // time too many is far better than silently swallowing the press.
+            incomparableSeq += 1;
+            return ` incomparable:${incomparableSeq}`;
+        }
     }
+
+    /**
+     * Counter behind the uncomparable-bag sentinel in `norm()`. Bumped per
+     * call, so two bags that both failed to canonicalize are never equal to
+     * each other either.
+     */
+    let incomparableSeq = 0;
 
     function drainQueuedIntent(): void {
         const q = queuedIntent;

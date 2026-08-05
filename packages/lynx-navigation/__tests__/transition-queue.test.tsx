@@ -11,7 +11,7 @@
  * These tests pin the replay, and pin that it can't over-navigate: a second
  * impatient tap must not stack a duplicate screen or pop an extra one.
  */
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { component } from '@sigx/lynx';
 import { render, act } from '@sigx/lynx-testing';
 import { NavigationRoot } from '../src/components/NavigationRoot';
@@ -31,8 +31,15 @@ const NavCapture = component<{ probe: NavProbe } & {}>(({ props }) => {
 
 /** Longer than settle + slide + landing ack, so the transition has cleared. */
 const AFTER_TRANSITION_MS = 900;
-const settled = (): Promise<void> =>
-    new Promise((resolve) => { setTimeout(resolve, AFTER_TRANSITION_MS); });
+/**
+ * Drive the transition to completion on fake timers. `advanceTimersByTimeAsync`
+ * interleaves the awaited microtasks (the settle window, the landing ack and
+ * the replay hop) with the timer steps, which real waits would only cover by
+ * sleeping for them.
+ */
+const settled = async (): Promise<void> => {
+    await vi.advanceTimersByTimeAsync(AFTER_TRANSITION_MS);
+};
 
 function mount(): NavProbe {
     const probe: NavProbe = { nav: null };
@@ -49,6 +56,9 @@ const routeNames = (probe: NavProbe): string[] =>
     probe.nav!.stack.map((e) => e.route);
 
 describe('navigation queued during a transition (#849)', () => {
+    beforeEach(() => { vi.useFakeTimers(); });
+    afterEach(() => { vi.useRealTimers(); });
+
     it('replays a push requested mid-transition instead of dropping it', async () => {
         const probe = mount();
 
@@ -124,6 +134,24 @@ describe('navigation queued during a transition (#849)', () => {
         }
 
         expect(routeNames(probe)).toEqual(['home', 'settings']);
+    });
+
+    it('still replays when params cannot be canonicalized', async () => {
+        const probe = mount();
+
+        // A circular bag makes the JSON canonicalization throw. That runs
+        // inside the replay microtask, so an unguarded throw would strand the
+        // navigation entirely rather than merely misjudge a duplicate.
+        const circular: Record<string, unknown> = { id: '7' };
+        circular.self = circular;
+
+        act(() => { probe.nav!.push('settings'); });
+        act(() => {
+            (probe.nav!.push as (n: string, ...a: unknown[]) => void)('profile', circular, { tab: 'posts' });
+        });
+
+        await settled();
+        expect(routeNames(probe)).toEqual(['home', 'settings', 'profile']);
     });
 
     it('replays a same-route push that differs by params', async () => {
