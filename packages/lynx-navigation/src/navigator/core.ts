@@ -394,6 +394,38 @@ export function createNavigatorState(opts: CreateNavigatorOptions): NavigatorSta
         queuedIntent = { run, at: Date.now(), satisfied };
     }
 
+    /**
+     * Whether the top entry already IS this navigation's target — params and
+     * search included, not just the route name. Route alone is too coarse:
+     * quickly picking two different rows that both push `profile` would see
+     * the first one land and drop the second as a "duplicate".
+     *
+     * Compared structurally, not by identity: entries are read back through
+     * the stack signal's proxy, so a stored object is never `===` the raw one
+     * that was passed in.
+     */
+    function topIsAlready(name: string, params: unknown, search: unknown): boolean {
+        const s = getStack();
+        const top = s[s.length - 1];
+        if (!top || top.route !== name) return false;
+        return norm(top.params) === norm(params) && norm(top.search) === norm(search);
+    }
+
+    /**
+     * Canonical form for a params/search bag, for the comparison above.
+     * Absent, null and `{}` all mean "no params" — a param-free route is
+     * called as `push('settings')` but stores `{}` — and keys are sorted so
+     * two equal bags built in different orders still match.
+     */
+    function norm(v: unknown): string {
+        if (v === undefined || v === null) return '';
+        if (typeof v !== 'object') return JSON.stringify(v) ?? '';
+        const o = v as Record<string, unknown>;
+        const keys = Object.keys(o).sort();
+        if (keys.length === 0) return '';
+        return JSON.stringify(keys.map((k) => [k, o[k]]));
+    }
+
     function drainQueuedIntent(): void {
         const q = queuedIntent;
         if (!q) return;
@@ -519,12 +551,9 @@ export function createNavigatorState(opts: CreateNavigatorOptions): NavigatorSta
         if (isTransitioning()) {
             queueIntent(
                 () => { (push as (n: string, ...a: unknown[]) => void)(name, ...args); },
-                // Already on top of this route — a second queued tap on the
-                // same row must not stack a duplicate screen.
-                () => {
-                    const s = getStack();
-                    return s[s.length - 1]?.route === name;
-                },
+                // This exact screen is already on top — a second queued tap on
+                // the same row must not stack a duplicate.
+                () => topIsAlready(name, params, search),
             );
             return;
         }
@@ -754,21 +783,22 @@ export function createNavigatorState(opts: CreateNavigatorOptions): NavigatorSta
     }) as Nav['push'];
 
     const replace: Nav['replace'] = ((name: string, ...args: unknown[]) => {
-        if (isTransitioning()) {
-            queueIntent(
-                () => { (replace as (n: string, ...a: unknown[]) => void)(name, ...args); },
-                () => {
-                    const s = getStack();
-                    return s[s.length - 1]?.route === name;
-                },
-            );
-            return;
-        }
-        const { params, search, options } = unpackArgs(name, args, routes);
+        // Validate and unpack BEFORE the transition gate, so a bad route
+        // throws synchronously whether or not a transition happens to be in
+        // flight. Deferring it would surface the error inside the replay's
+        // microtask instead — an unhandled rejection at a random later moment.
         if (!routes[name]) {
             throw new Error(
                 `[lynx-navigation] replace('${name}'): route is not registered.`,
             );
+        }
+        const { params, search, options } = unpackArgs(name, args, routes);
+        if (isTransitioning()) {
+            queueIntent(
+                () => { (replace as (n: string, ...a: unknown[]) => void)(name, ...args); },
+                () => topIsAlready(name, params, search),
+            );
+            return;
         }
         preloadRouteComponent(routes[name].component);
         const entry = makeEntry(name, params, search, options, routes);

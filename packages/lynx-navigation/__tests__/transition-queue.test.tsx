@@ -11,7 +11,7 @@
  * These tests pin the replay, and pin that it can't over-navigate: a second
  * impatient tap must not stack a duplicate screen or pop an extra one.
  */
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { component } from '@sigx/lynx';
 import { render, act } from '@sigx/lynx-testing';
 import { NavigationRoot } from '../src/components/NavigationRoot';
@@ -91,18 +91,53 @@ describe('navigation queued during a transition (#849)', () => {
         expect(routeNames(probe)).toEqual(['home', 'settings']);
     });
 
-    it('drops a queued intent once it has gone stale', async () => {
+    it('replays a queued intent exactly once', async () => {
         const probe = mount();
 
         act(() => { probe.nav!.push('settings'); });
         act(() => { probe.nav!.push('profile', { id: '7' }, { tab: 'posts' }); });
         await settled();
-        // Replayed exactly once — draining clears the slot, so the intent
-        // cannot fire again on the next transition that completes.
+        // Draining clears the slot, so the intent cannot fire a second time on
+        // the next transition that completes.
         expect(routeNames(probe)).toEqual(['home', 'settings', 'profile']);
 
         act(() => { probe.nav!.pop(); });
         await settled();
         expect(routeNames(probe)).toEqual(['home', 'settings']);
+    });
+
+    it('drops a queued intent that has aged past the replay window', async () => {
+        const probe = mount();
+
+        act(() => { probe.nav!.push('settings'); });
+        act(() => { probe.nav!.push('profile', { id: '7' }, { tab: 'posts' }); });
+
+        // Age the queued intent past QUEUED_INTENT_MAX_AGE_MS before the
+        // transition clears. Only `Date.now` is stubbed — the transition's own
+        // timers stay on real time, so it still completes normally.
+        const realNow = Date.now;
+        const spy = vi.spyOn(Date, 'now').mockImplementation(() => realNow.call(Date) + 5000);
+        try {
+            await settled();
+        } finally {
+            spy.mockRestore();
+        }
+
+        expect(routeNames(probe)).toEqual(['home', 'settings']);
+    });
+
+    it('replays a same-route push that differs by params', async () => {
+        const probe = mount();
+        act(() => { probe.nav!.push('profile', { id: '1' }, { tab: 'posts' }); });
+        await settled();
+
+        // Two rows that both push `profile`, tapped in quick succession: the
+        // second must NOT be mistaken for a duplicate of the first.
+        act(() => { probe.nav!.push('profile', { id: '1' }, { tab: 'posts' }); });
+        act(() => { probe.nav!.push('profile', { id: '2' }, { tab: 'posts' }); });
+        await settled();
+
+        const ids = probe.nav!.stack.map((e) => (e.params as { id?: string } | undefined)?.id);
+        expect(ids).toEqual([undefined, '1', '1', '2']);
     });
 });
