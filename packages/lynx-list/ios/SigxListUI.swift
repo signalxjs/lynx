@@ -53,10 +53,11 @@ public class SigxListUI: LynxUICollection {
         let target = max(0, CGFloat((params?["inset"] as? NSNumber)?.doubleValue ?? 0))
         let pin = (params?["pin"] as? NSNumber)?.boolValue ?? false
         let delta = target - extraBottomInset
-        guard delta != 0, let cv = self.view() else {
+        guard delta != 0 else {
             callback(SigxListUI.kUIMethodSuccess, nil)
             return
         }
+        let cv = self.view()
         // Pinned = at (or within 1pt of) max scroll BEFORE the change. Only a
         // pinned viewport is compensated: growing/shrinking the inset never
         // moves anchored content, so a reader scrolled up sees nothing shift.
@@ -107,7 +108,7 @@ public class SigxListUI: LynxUICollection {
         super.updateFrame(frame, withPadding: padding, border: border, margin: margin,
                           withLayoutAnimation: with)
         if extraBottomInset != 0 {
-            self.view()?.contentInset.bottom += extraBottomInset
+            self.view().contentInset.bottom += extraBottomInset
         }
     }
 
