@@ -17,6 +17,12 @@ import {
 import { resetWorkletEvents, type WorkletPlaceholder } from './worklet-events.js';
 import { invokeMtWorklet } from './mt-invoke.js';
 import {
+  registerFrameCallback,
+  setFrameCallbackActive,
+  unregisterFrameCallback,
+  resetFrameCallbacks,
+} from './frame-callbacks-mt.js';
+import {
   setSlotBgSign,
   setSlotWorklet,
   flushDirtySlots,
@@ -456,6 +462,30 @@ export function applyOps(ops: unknown[]): void {
         break;
       }
 
+      case OP.REGISTER_FRAME_CALLBACK: {
+        // Unlike INVOKE_WORKLET above, the ctx is kept: the driver hands the
+        // SAME object to `runWorklet` every frame so upstream's hydration
+        // cache hits and a frame costs one bound call (see
+        // frame-callbacks-mt.ts).
+        const fcId = ops[i++] as number;
+        const fcCtx = ops[i++] as unknown;
+        const fcActive = ops[i++] as number;
+        registerFrameCallback(fcId, fcCtx, fcActive === 1);
+        break;
+      }
+
+      case OP.SET_FRAME_CALLBACK_ACTIVE: {
+        const fcId = ops[i++] as number;
+        const fcActive = ops[i++] as number;
+        setFrameCallbackActive(fcId, fcActive === 1);
+        break;
+      }
+
+      case OP.UNREGISTER_FRAME_CALLBACK: {
+        unregisterFrameCallback(ops[i++] as number);
+        break;
+      }
+
       case OP.SET_EVENT: {
         const id = ops[i++] as number;
         const eventType = ops[i++] as string;
@@ -805,6 +835,7 @@ export function resetMainThreadState(): void {
   resetAnimatedStyleBindings();
   resetAnimatedMethodBindings();
   resetDerivedValues();
+  resetFrameCallbacks();
   resetListState();
   resetWebGestures();
   resetSnapshotInstances();
