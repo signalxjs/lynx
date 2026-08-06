@@ -1,6 +1,7 @@
-import { callSync, callAsync, isModuleAvailable } from '@sigx/lynx-core';
+import { callAsync, isModuleAvailable, unwrapNativeVoid } from '@sigx/lynx-core';
 
 const MODULE = 'Clipboard';
+const PKG = 'lynx-clipboard';
 
 /**
  * System clipboard APIs.
@@ -13,7 +14,7 @@ const MODULE = 'Clipboard';
  * ```ts
  * import { Clipboard } from '@sigx/lynx-clipboard';
  *
- * Clipboard.setString('Hello, world!');
+ * await Clipboard.setString('Hello, world!');
  * const text = await Clipboard.getString();
  * ```
  */
@@ -21,11 +22,17 @@ export const Clipboard = {
     /**
      * Write text to the system clipboard.
      *
-     * Synchronous and `void` — a failed write is not reported. See the design
-     * question on signalxjs/lynx#872.
+     * Rejects if the write fails. Android's `setPrimaryClip` genuinely can —
+     * a clip over the binder transaction limit throws — and until #872 that
+     * failure was invisible, because this was synchronous and returned
+     * nothing. Pass `''` to clear the clipboard.
      */
-    setString(text: string): void {
-        callSync(MODULE, 'setString', text);
+    async setString(text: string): Promise<void> {
+        unwrapNativeVoid(
+            PKG,
+            'setString',
+            await callAsync<{ error?: string } | undefined>(MODULE, 'setString', text),
+        );
     },
 
     /**

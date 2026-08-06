@@ -4,6 +4,12 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 ## [Unreleased]
 
+### Changed
+
+- **BREAKING — `@sigx/lynx-clipboard`: `setString` is now `Promise<void>` and rejects on failure** (#872). It was synchronous and returned `void`, so a failed write was **silently invisible**. That wasn't theoretical: Android's `setPrimaryClip` genuinely throws for a clip over the binder transaction limit, and the native method returned nothing, so JS could never learn about it. Both native sides gained a callback; the JS unwraps it through core's `unwrapNativeVoid`, rejecting with a `SigxError` (`code: 'native_error'`). Existing `Clipboard.setString(x)` calls keep compiling, since the promise is simply unawaited — but they do **not** keep behaving the same: an ignored rejection is an unhandled rejection, which surfaces as an `unhandledrejection` event on web and which this engine has treated as fatal (see #863). So the sweep isn't optional tidying — an unawaited call that previously failed silently can now take the app down. On web the same call now rejects when the browser denies clipboard-write permission, instead of logging and swallowing it.
+
+  Two clipboard gaps are also settled as **won't-do**, with the reasons now in the README: **URL clipboard** (iOS has a dedicated `UIPasteboard.url` slot, Android has no equivalent, so one call would mean different things per platform) and a **change listener** (iOS has no clipboard-change notification at all, and polling fires the "Pasted from …" toast repeatedly). Image support is deferred to #934.
+
 ### Added
 
 - **`@sigx/lynx-testing`: `waitFor`, `findBy*` queries, `within`, and failure output that prints the tree** (#908). The package had no way to wait for a *condition* — `waitForUpdate()` advances exactly one microtask plus one macrotask — so any test whose state needed more turns had to guess how many, and the guess is load- and engine-dependent. That is the root cause of both flaky tests in `@sigx/lynx-emoji` (`picker-layout` pumped five turns, `grid-scroll` slept 60ms), and 12+ test files across the repo hand-roll a timing wait today. `waitFor(condition)` polls instead, treats a throwing condition as "not yet", and on timeout rethrows the condition's own error rather than a bare timeout — so a failure still says what was missing. `findByType`/`findByText`/`findByProp` pair it with the matching query, `within(node)` scopes a query to a subtree, and a failing `getBy*` now prints the tree it searched instead of only naming what it wanted.

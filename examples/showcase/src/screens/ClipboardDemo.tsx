@@ -35,10 +35,10 @@ export const ClipboardDemo = component(() => {
         }
     };
 
-    const onCopy = run(() => {
-        Clipboard.setString(draft.value);
-        // setString is sync void — there is nothing to await and no way to
-        // learn whether it worked. Read back so the demo shows something real.
+    const onCopy = run(async () => {
+        // Awaited: since #872 a failed write rejects, so the error banner
+        // below shows a real failure instead of the demo silently lying.
+        await Clipboard.setString(draft.value);
         pasted.value = null;
     });
 
@@ -50,9 +50,9 @@ export const ClipboardDemo = component(() => {
         hasText.value = await Clipboard.hasString();
     });
 
-    const onClear = run(() => {
+    const onClear = run(async () => {
         // Writing '' is how you clear it; both native sides coalesce null to ''.
-        Clipboard.setString('');
+        await Clipboard.setString('');
         pasted.value = null;
         hasText.value = null;
     });
@@ -81,9 +81,10 @@ export const ClipboardDemo = component(() => {
                         <Col gap={8}>
                             <Text weight="semibold">Copy</Text>
                             <Text class="opacity-60 text-sm">
-                                `setString` is synchronous and returns nothing, so a
-                                failed write is invisible — paste back to confirm it
-                                landed. Available: {String(available)}.
+                                `setString` resolves when the write lands and rejects
+                                if it doesn't — on Android a clip over the binder
+                                transaction limit really does fail. Available:{' '}
+                                {String(available)}.
                             </Text>
                             <Input
                                 placeholder="Text to copy"
