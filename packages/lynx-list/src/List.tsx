@@ -64,6 +64,11 @@ const ADOPTED_SCROLL_THROTTLE = 16;
 // dispatch limiter. Motion is carried by a transform in the meantime.
 const INSET_SETTLE_MS = 120;
 
+// Hard cap on how long the spacer may lag the live inset. A pure debounce
+// never fires while a drag keeps producing values, so the height would never
+// catch up during a long gesture (#930).
+const INSET_SETTLE_MAX_MS = 400;
+
 type ScrollDetail = { detail?: { scrollTop?: number; scrollLeft?: number } };
 
 /**
@@ -115,6 +120,7 @@ type ScrollDetail = { detail?: { scrollTop?: number; scrollLeft?: number } };
  */
 const ListImpl = component<ListProps>(({ props, slots, emit }) => {
   const { layout, onLayoutChange } = useElementLayout();
+
 
   // ── Pull-to-refresh wiring (captured once at setup, like <Draggable>) ──
   // Opting in is signalled by passing the controlled `refreshing` prop; when
@@ -618,16 +624,33 @@ const ListImpl = component<ListProps>(({ props, slots, emit }) => {
       void writeNegSettledMT(-v);
     };
     let settleTimer: ReturnType<typeof setTimeout> | null = null;
+    let deferredSince = 0;
     effect(() => {
       const bi = props.bottomInset;
       const raw = typeof bi === 'object' && bi !== null ? bi.value : bi;
       const v = typeof raw === 'number' && raw > 0 ? Math.round(raw) : 0;
-      if (v === insetSettled.value) return;
+      if (v === insetSettled.value) { deferredSince = 0; return; }
       // First value commits immediately — that one is the mount-time inset,
       // and first paint clearing the occluder is the whole point.
       if (insetSettled.value === 0) { commit(v); return; }
+      const now = Date.now();
+      if (deferredSince === 0) deferredSince = now;
+      // Pure debounce would re-arm forever under a CONTINUOUS drag and never
+      // commit — measured: 100 value changes a second, zero commits. Cap the
+      // deferral so the height still catches up periodically; the transform
+      // covers the interval either way.
+      if (now - deferredSince >= INSET_SETTLE_MAX_MS) {
+        if (settleTimer !== null) { clearTimeout(settleTimer); settleTimer = null; }
+        deferredSince = 0;
+        commit(v);
+        return;
+      }
       if (settleTimer !== null) clearTimeout(settleTimer);
-      settleTimer = setTimeout(() => { settleTimer = null; commit(v); }, INSET_SETTLE_MS);
+      settleTimer = setTimeout(() => {
+        settleTimer = null;
+        deferredSince = 0;
+        commit(v);
+      }, INSET_SETTLE_MS);
     });
     onUnmounted(() => { if (settleTimer !== null) clearTimeout(settleTimer); });
 
@@ -641,7 +664,10 @@ const ListImpl = component<ListProps>(({ props, slots, emit }) => {
         sources: [typeof bi === 'object' && bi !== null ? bi : internalInsetSV, negSettledSV],
         reducer: 'sum' as const,
       };
-    });
+      // MT-only: this delta changes every frame by construction, and nothing
+      // on BG reads it. Publishing it would add ~100 MT->BG dispatches a
+      // second and, on its own, trip the engine's limiter mid-drag (#930).
+    }, { bridge: false });
     useAnimatedStyle(listRef, insetDeltaSV, 'translateY', { factor: -1 });
   }
   const insetSpacerHeight = (): number => insetSettled.value;
