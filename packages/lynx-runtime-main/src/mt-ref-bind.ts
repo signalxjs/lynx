@@ -9,6 +9,7 @@
  */
 
 import { MTElementWrapper } from './mt-element.js';
+import { patchUpstreamInvoke } from './upstream-invoke-patch.js';
 
 /** elementWvid → elementId, populated on every bind. */
 const elementIdByWvid = new Map<number, number>();
@@ -43,6 +44,12 @@ export function bindMtRef(
       refMap[wvid] = { current: null, _wvid: wvid };
     }
     impl._refImpl.updateWorkletRef({ _wvid: wvid }, el);
+
+    // Upstream's Element class is reachable only through an instance it just
+    // built, so the one-shot `invoke` deferral patch is applied off the first
+    // bound ref. See `upstream-invoke-patch.ts` — without it a benign native
+    // "no" (duplicate scroll, stale element) is a fatal MT exception (#863).
+    patchUpstreamInvoke(refMap[wvid]?.current);
 
     // Web (`@lynx-js/web-core`): upstream's worklet element wrapper
     // applies styles via `setProperty`, which web-core's element

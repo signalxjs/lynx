@@ -180,18 +180,55 @@ export class MTElementWrapper {
    *
    * Resolves with the method's `data` payload on success (`code === 0`);
    * rejects with an Error containing the JSON-stringified response otherwise.
+   *
+   * **The returned promise never rejects synchronously** — that is load-bearing,
+   * not an implementation detail (#863). `__InvokeUIMethod` calls its callback
+   * SYNCHRONOUSLY when native answers inline, and native answers inline for the
+   * everyday "no" cases: a duplicate scroll while one is animating
+   * (`{code: 1, data: "dumplicated, scrollToPositionSmoothly is working"}`), a
+   * stale element, an out-of-range index. Rejecting from inside the Promise
+   * executor settles the promise BEFORE the constructor returns, and PrimJS
+   * reports unhandled rejections at rejection time — so a caller's
+   * `invoke(...).catch(...)` on the very next statement is already too late and
+   * the engine escalates a benign native "no" to a fatal main-thread exception
+   * (red box in dev, error-reporter spam in release). No caller-side guard can
+   * fix that; the deferral has to live here.
+   *
+   * So: settle an internal envelope that can only ever RESOLVE, and derive the
+   * caller-facing promise with `.then()`. The rejection then lands in a
+   * microtask — after `invoke()` has returned and callers have attached their
+   * handlers. A caller that attaches nothing still gets a genuine unhandled
+   * rejection, which is correct.
    */
   invoke(methodName: string, params?: Record<string, unknown>): Promise<unknown> {
-    return new Promise((resolve, reject) => {
+    type Settled = { ok: true; value: unknown } | { ok: false; err: Error };
+    return new Promise<Settled>((settle) => {
       if (typeof __InvokeUIMethod !== 'function') {
-        reject(new Error('UI method invoke: __InvokeUIMethod not available'));
+        settle({ ok: false, err: new Error('UI method invoke: __InvokeUIMethod not available') });
         return;
       }
-      __InvokeUIMethod(this._el, methodName, params ?? {}, (res) => {
-        if (res.code === 0) resolve(res.data);
-        else reject(new Error('UI method invoke: ' + JSON.stringify(res)));
-      });
-      this.flushElementTree();
+      // `__InvokeUIMethod` can also THROW synchronously — during layout
+      // transitions (keyboard resize, teardown) the native element can be in a
+      // state where the call fails outright, which is why call sites wrap it in
+      // try/catch as well as `.catch()` (see `List.tsx`). A throw inside a
+      // Promise executor rejects that promise synchronously, which is the exact
+      // fatal this method exists to avoid — so the envelope has to absorb it too.
+      try {
+        __InvokeUIMethod(this._el, methodName, params ?? {}, (res) => {
+          settle(res.code === 0
+            ? { ok: true, value: res.data }
+            : { ok: false, err: new Error('UI method invoke: ' + JSON.stringify(res)) });
+        });
+        // A throw from the flush after native already answered can't un-settle
+        // the envelope — first settle wins, so a successful invoke stays
+        // successful.
+        this.flushElementTree();
+      } catch (e) {
+        settle({ ok: false, err: e instanceof Error ? e : new Error('UI method invoke: ' + String(e)) });
+      }
+    }).then((r) => {
+      if (!r.ok) throw r.err;
+      return r.value;
     });
   }
 
