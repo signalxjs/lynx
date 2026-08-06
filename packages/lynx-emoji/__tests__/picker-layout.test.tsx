@@ -57,13 +57,25 @@ const isTabBarWrap = (n: Node): boolean =>
 async function mountPicker(props: Record<string, unknown>): Promise<Node> {
     const Host = component(() => () => <EmojiPicker data={DATA} showSearch={false} {...props} />);
     const result: any = render(<Host />);
-    // The picker renders a measuring shell until persisted recents + tone
-    // have hydrated (`ctx.ready`), and that runs through a dynamic import
-    // of the optional storage peer — several turns, not one microtask.
-    for (let i = 0; i < 5; i++) {
+    const root = () => (result.container ?? result.root ?? result) as Node;
+
+    // The picker renders a measuring shell until persisted recents + tone have
+    // hydrated (`ctx.ready`), and that runs through a dynamic import of the
+    // optional storage peer. How many turns that takes is not fixed — it
+    // depends on module-cache state, so it varies with which tests ran first.
+    //
+    // This used to pump a fixed 5 turns, which was right often enough to look
+    // stable and wrong often enough to fail ~4 runs in 5 in isolation, with
+    // `findIndex` returning -1 and the ordering assertion never running.
+    // Waiting for the chrome to actually exist is what makes it deterministic.
+    for (let i = 0; i < 50; i++) {
+        const { region, tabBar } = placementIndices(root());
+        if (region >= 0 && tabBar >= 0) return root();
         await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
     }
-    return (result.container ?? result.root ?? result) as Node;
+    // Fall through so the assertions report what was actually rendered rather
+    // than a bare timeout.
+    return root();
 }
 
 function placementIndices(root: Node): { region: number; tabBar: number } {
