@@ -182,6 +182,13 @@ export function createSimState(maxN: number, pairCap = maxN * 24): SimState {
         els: null,
         svs: null,
 
-        packed: [],
+        // Three numbers per disc (id, x, y), sized for the worst case. The
+        // settle happens INSIDE the frame, so it must not grow an array
+        // element by element the way an empty one would. `stepWorld` then
+        // truncates to the live count — a shrink, and only on the first
+        // settle, since the length is stable while the disc count is (the
+        // truncation is worth it: the buffer crosses the bridge as JSON, and
+        // shipping 1200 numbers to describe 12 discs is not).
+        packed: zeros(maxN * 3),
     };
 }

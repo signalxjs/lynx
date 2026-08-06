@@ -55,7 +55,16 @@ export interface SimLoopOptions {
 
 export function useSimLoop(options: SimLoopOptions): SimLoop {
     const state = useMainThreadRef<SimState>(createSimState(MAX_DISCS));
-    const { pool, onSettle } = options;
+    const { pool } = options;
+
+    // Park the loop the moment the board settles, then hand the result on.
+    // Without this the frame callback keeps ticking forever over an idle
+    // board — cheap per frame, but sixty times a second for the life of the
+    // app.
+    const onSettle = (seq: number, packed: number[], bigHit: number): void => {
+        loop.stop();
+        options.onSettle(seq, packed, bigHit);
+    };
 
     // Hand the pool to the simulation on the main thread. It has to happen
     // there and after mount: each ref's `.current` is the init snapshot on the
@@ -68,6 +77,16 @@ export function useSimLoop(options: SimLoopOptions): SimLoop {
         void bindElements().catch(() => {});
     });
 
+    // Not `autostart`: an idle board should cost nothing. The loop is started
+    // on the main thread by `fire`/`kick` (so a launch begins simulating in
+    // the frame the finger lifts) and stopped from `onSettle` on the
+    // background thread.
+    //
+    // Stopping from BG rather than inside the frame worklet is deliberate.
+    // `stopFrameCallback(loop)` in the body would need `loop` captured into
+    // its own `_c`, and the capture is built while `loop` is still in its
+    // temporal dead zone — it would arrive as `undefined`. Stopping from the
+    // settle handler costs one round trip ONCE per shot, not per frame.
     const loop = useFrameCallback((frame) => {
         'main thread';
         const st = state.current;
@@ -92,7 +111,7 @@ export function useSimLoop(options: SimLoopOptions): SimLoop {
                 runOnBackground(onSettle)(st.seq, st.packed, st.bigHit);
             }
         }
-    }, { autostart: true });
+    });
 
     const seedWorld = runOnMainThread(
         (packed: number[], width: number, height: number, seq: number) => {
