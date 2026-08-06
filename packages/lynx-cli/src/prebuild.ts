@@ -1298,18 +1298,15 @@ function iosTemplateVars(config: ResolvedConfig): Record<string, string> {
         fontScaleMax: formatScaleLiteral(config.fontScale.max),
         orientationDefaultMask: iosOrientationMaskLiteral(
             config.ios.orientation ?? config.orientation,
+            // Same defaults `applyIosPlistMeta` applies.
+            config.ios.supportsTablet ?? true,
+            config.ios.requiresFullScreen ?? false,
         ),
     };
 }
 
-/**
- * The `UIInterfaceOrientationMask` literal the host AppDelegate returns by
- * default (#856). Implementing `supportedInterfaceOrientationsFor` overrides
- * Info.plist entirely, so this MUST mirror what `applyIosPlistMeta` writes
- * into `UISupportedInterfaceOrientations` — otherwise the runtime ceiling and
- * the declared set would disagree.
- */
-function iosOrientationMaskLiteral(orientation: Orientation): string {
+/** The phone `UIInterfaceOrientationMask` for a configured orientation. */
+function iosPhoneMaskLiteral(orientation: Orientation): string {
     switch (orientation) {
         case 'portrait':
             return '.portrait';
@@ -1321,6 +1318,29 @@ function iosOrientationMaskLiteral(orientation: Orientation): string {
         default:
             return '.allButUpsideDown';
     }
+}
+
+/**
+ * The `UIInterfaceOrientationMask` expression the host AppDelegate returns by
+ * default (#856). Implementing `supportedInterfaceOrientationsFor` overrides
+ * Info.plist **entirely**, so this MUST mirror what `applyIosPlistMeta` writes
+ * — including its iPad rule, or a tablet build would be clamped to the phone
+ * mask at runtime no matter what the plist declares.
+ *
+ * That rule: a multitasking-capable iPad app must support all four
+ * orientations (App Store validation), and only `requiresFullScreen` — which
+ * opts out of multitasking — lets the iPad follow the phone lock. When the app
+ * doesn't support tablets at all there's no `~ipad` plist key either, so the
+ * phone mask applies everywhere and no branch is emitted.
+ */
+function iosOrientationMaskLiteral(
+    orientation: Orientation,
+    supportsTablet: boolean,
+    requiresFullScreen: boolean,
+): string {
+    const phone = iosPhoneMaskLiteral(orientation);
+    if (!supportsTablet || requiresFullScreen) return phone;
+    return `(UIDevice.current.userInterfaceIdiom == .pad ? .all : ${phone})`;
 }
 
 /**

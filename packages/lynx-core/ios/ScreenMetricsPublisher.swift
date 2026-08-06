@@ -24,12 +24,23 @@ import Lynx
 /// `LynxView.h`) — it only re-bases `rpx` — so the viewport update has to
 /// follow it.
 ///
-/// Size signal is the LynxView's own `bounds`, observed with KVO: it covers
-/// rotation, iPad Split View and Stage Manager alike, whereas
-/// `UIScreen.main.bounds` misses split-view and `UIDevice.orientation` reports
-/// device (not interface) orientation, including face-up/face-down.
-/// Notifications are observed too, since a rotation that keeps the view square
-/// still changes `orientation`.
+/// The size is always read from the LynxView's own `bounds` —
+/// `UIScreen.main.bounds` misses Split View, and `UIDevice.orientation` reports
+/// the *device* (with face-up/face-down states that aren't interface
+/// orientations at all). What varies is the TRIGGER, and no single one is
+/// sufficient:
+///
+/// - device-orientation / key-window / foreground notifications cover a
+///   physical rotation, but fire before the layout settles;
+/// - `SigxOrientation.didApplyNotification` covers a runtime
+///   `Orientation.lock()`, which rotates the interface with no device movement
+///   and so posts none of the above;
+/// - KVO on `bounds` catches resizes with no notification at all (Split View,
+///   Stage Manager) — but UIKit does not guarantee KVO for view geometry, so it
+///   is a supplement, never the only path.
+///
+/// Every trigger therefore funnels into `republishSoon()`, which samples across
+/// the transition instead of once.
 ///
 /// Lifecycle: one instance per LynxView, retained by the host (the generated
 /// `GeneratedLifecyclePublishers.attachAll(to:)` list).
@@ -71,6 +82,14 @@ final class ScreenMetricsPublisher: NSObject {
             name: UIApplication.didBecomeActiveNotification,
             object: nil
         )
+        // A runtime `Orientation.lock()` rotates the interface without any
+        // device movement, so none of the notifications above fire.
+        center.addObserver(
+            self,
+            selector: #selector(handleNotification),
+            name: SigxOrientation.didApplyNotification,
+            object: nil
+        )
 
         lynxView.addObserver(self, forKeyPath: "bounds", options: [.new], context: nil)
         observingBounds = true
@@ -101,10 +120,25 @@ final class ScreenMetricsPublisher: NSObject {
     }
 
     @objc private func handleNotification() {
-        // Rotation notifications fire before the layout settles — re-read on
-        // the next runloop tick so the bounds we publish are the new ones.
-        DispatchQueue.main.async { [weak self] in
-            self?.publish()
+        republishSoon()
+    }
+
+    /// Republish across the whole transition rather than once.
+    ///
+    /// Two reasons this can't be a single `async` hop. Rotation notifications
+    /// fire BEFORE the layout settles, so an immediate read returns the old
+    /// bounds. And KVO on `UIView.bounds` is not contractual — UIKit doesn't
+    /// promise it for view geometry, and it demonstrably does NOT fire for an
+    /// interface-only rotation driven by `requestGeometryUpdate` (the runtime
+    /// `Orientation.lock()` path), which would otherwise leave the JS metrics
+    /// stale until the user physically rotated. Sampling across the animation
+    /// covers both; `publish()` dedupes, so the extra passes are free.
+    private func republishSoon() {
+        let delays: [TimeInterval] = [0, 0.05, 0.35, 0.7]
+        for delay in delays {
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+                self?.publish()
+            }
         }
     }
 

@@ -23,6 +23,15 @@ import UIKit
 /// `AppearanceModule.preferredStatusBarStyle` already established.
 @objc public final class SigxOrientation: NSObject {
 
+    /// Posted after a runtime lock/unlock has been handed to UIKit.
+    ///
+    /// `ScreenMetricsPublisher` listens for it: an interface-only rotation
+    /// (no device movement) posts no `UIDevice.orientationDidChangeNotification`
+    /// and does not reliably fire KVO on the LynxView's bounds, so without this
+    /// the JS screen metrics would stay stale after `Orientation.lock()`.
+    @objc public static let didApplyNotification =
+        Notification.Name("SigxOrientationDidApply")
+
     /// Runtime override; `nil` means "use the configured default".
     private static var lockedMask: UIInterfaceOrientationMask?
 
@@ -109,22 +118,44 @@ import UIKit
     /// the `UIDevice.setValue(forKey: "orientation")` trick is private API.
     private static func apply(_ mask: UIInterfaceOrientationMask) {
         DispatchQueue.main.async {
-            guard let scene = UIApplication.shared.connectedScenes
-                .compactMap({ $0 as? UIWindowScene })
-                .first(where: { $0.activationState == .foregroundActive })
+            // Prefer the foreground-active scene, but DON'T require it: a lock
+            // requested while a system alert is up leaves the scene merely
+            // `foregroundInactive`, and bailing there made the whole call a
+            // silent no-op (device-caught). Any window scene is a better
+            // target than none.
+            let scenes = UIApplication.shared.connectedScenes
+                .compactMap { $0 as? UIWindowScene }
+            guard let scene = scenes.first(where: { $0.activationState == .foregroundActive })
+                ?? scenes.first(where: { $0.activationState == .foregroundInactive })
+                ?? scenes.first
             else { return }
 
             if #available(iOS 16.0, *) {
+                // UIKit intersects the scene mask with the TOP-MOST view
+                // controller's `supportedInterfaceOrientations`, so the root
+                // alone isn't enough — walk the presented chain too.
                 for window in scene.windows {
-                    window.rootViewController?.setNeedsUpdateOfSupportedInterfaceOrientations()
+                    var vc = window.rootViewController
+                    while let current = vc {
+                        current.setNeedsUpdateOfSupportedInterfaceOrientations()
+                        vc = current.presentedViewController
+                    }
                 }
-                scene.requestGeometryUpdate(.iOS(interfaceOrientations: mask)) { _ in
-                    // Errors here mean the system declined the rotation (e.g.
-                    // the mask conflicts with the scene's own constraints).
-                    // The mask is still updated, so the next physical rotation
-                    // lands correctly — nothing actionable to report.
-                }
+                // The trailing closure is an ERROR handler, not a completion —
+                // UIKit calls it only when the request is declined (a presented
+                // controller pinning its own orientation, an alert mid-flight).
+                // The stored mask still stands either way, so the next rotation
+                // lands correctly; there is nothing actionable to report.
+                scene.requestGeometryUpdate(.iOS(interfaceOrientations: mask)) { _ in }
             }
+
+            // Posted unconditionally, and NOT from the error handler above:
+            // on the success path that closure never runs, which silently left
+            // the JS screen metrics stale after every successful lock
+            // (device-caught). The rotation is animated, so the publisher
+            // samples across it rather than reading once.
+            NotificationCenter.default.post(
+                name: SigxOrientation.didApplyNotification, object: nil)
         }
     }
 }

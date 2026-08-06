@@ -157,16 +157,48 @@ describe('scaffoldIos — AppDelegate orientation mask', () => {
 
     // Implementing `supportedInterfaceOrientationsFor` OVERRIDES Info.plist,
     // so the stamped default has to mirror what applyIosPlistMeta writes —
-    // otherwise the runtime ceiling and the declared set disagree.
+    // otherwise the runtime ceiling and the declared set disagree. Tablets are
+    // supported by default, so the phone mask rides an idiom branch.
     it.each([
         ['portrait', '.portrait'],
         ['landscape', '.landscape'],
         ['all', '.all'],
         ['default', '.allButUpsideDown'],
-    ] as const)('stamps orientation %s as %s', (orientation, mask) => {
+    ] as const)('stamps orientation %s as the phone arm of the idiom branch', (orientation, mask) => {
         const app = appSwiftAfter({ ...BASE_CONFIG, orientation });
-        expect(app).toContain(`SigxOrientation.supportedMask(default: ${mask})`);
+        expect(app).toContain(
+            `SigxOrientation.supportedMask(default: (UIDevice.current.userInterfaceIdiom == .pad ? .all : ${mask}))`,
+        );
         expect(app).not.toContain('{{orientationDefaultMask}}');
+    });
+
+    // A multitasking-capable iPad app must support all four orientations (App
+    // Store validation) — applyIosPlistMeta writes that into the `~ipad` key,
+    // and the AppDelegate mask has to agree or the runtime clamps the iPad to
+    // the phone lock regardless.
+    it('gives the iPad all four orientations under a phone portrait lock', () => {
+        const app = appSwiftAfter({ ...BASE_CONFIG, orientation: 'portrait' });
+        expect(app).toContain('UIDevice.current.userInterfaceIdiom == .pad ? .all : .portrait');
+    });
+
+    it('lets requiresFullScreen collapse the iPad onto the phone mask', () => {
+        const app = appSwiftAfter({
+            ...BASE_CONFIG,
+            orientation: 'portrait',
+            ios: { ...BASE_CONFIG.ios, requiresFullScreen: true },
+        });
+        expect(app).toContain('SigxOrientation.supportedMask(default: .portrait)');
+        expect(app).not.toContain('userInterfaceIdiom');
+    });
+
+    it('emits no idiom branch when the app does not support tablets', () => {
+        const app = appSwiftAfter({
+            ...BASE_CONFIG,
+            orientation: 'landscape',
+            ios: { ...BASE_CONFIG.ios, supportsTablet: false },
+        });
+        expect(app).toContain('SigxOrientation.supportedMask(default: .landscape)');
+        expect(app).not.toContain('userInterfaceIdiom');
     });
 
     it('honors the iOS-only orientation override', () => {
@@ -175,7 +207,7 @@ describe('scaffoldIos — AppDelegate orientation mask', () => {
             orientation: 'portrait',
             ios: { ...BASE_CONFIG.ios, orientation: 'all' },
         });
-        expect(app).toContain('SigxOrientation.supportedMask(default: .all)');
+        expect(app).toContain('userInterfaceIdiom == .pad ? .all : .all');
     });
 });
 

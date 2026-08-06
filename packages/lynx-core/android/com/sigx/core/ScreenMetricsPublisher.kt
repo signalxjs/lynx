@@ -58,18 +58,24 @@ class ScreenMetricsPublisher(private val lynxView: LynxView) {
     private var lastHeight = 0
     private var lastOrientation = ""
     private var callbacks: ComponentCallbacks? = null
+    // Held so `detach` can unregister it. An inline lambda would be
+    // unremovable, leaving a View → listener → publisher → View chain that
+    // outlives the LynxView.
+    private var layoutListener: View.OnLayoutChangeListener? = null
 
     fun attach() {
         // Seed synchronously from the display so __globalProps is populated
         // before MT first paint — at this point the LynxView has no layout yet.
         publish(displaySizeDp(), orientationName())
 
-        lynxView.addOnLayoutChangeListener { _, left, top, right, bottom, _, _, _, _ ->
+        val layout = View.OnLayoutChangeListener { _, left, top, right, bottom, _, _, _, _ ->
             val d = density()
             val w = ((right - left) / d).roundToInt()
             val h = ((bottom - top) / d).roundToInt()
             if (w > 0 && h > 0) publish(w to h, orientationName())
         }
+        lynxView.addOnLayoutChangeListener(layout)
+        layoutListener = layout
 
         val appCtx = lynxView.context.applicationContext
         val cb = object : ComponentCallbacks2 {
@@ -100,6 +106,10 @@ class ScreenMetricsPublisher(private val lynxView: LynxView) {
     }
 
     private fun detach(appCtx: Context) {
+        layoutListener?.let {
+            lynxView.removeOnLayoutChangeListener(it)
+            layoutListener = null
+        }
         callbacks?.let {
             try {
                 appCtx.unregisterComponentCallbacks(it)
