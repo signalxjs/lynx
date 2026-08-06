@@ -27,7 +27,7 @@ beforeEach(() => {
 
 describe('SecureStorage.set', () => {
     it('forwards key, value, and opts to the native bridge', async () => {
-        await SecureStorage.set('token', 'abc', { requireBiometric: true });
+        await SecureStorage.setItem('token', 'abc', { requireBiometric: true });
         expect(bridge.callAsync).toHaveBeenCalledWith(
             'SecureStorage',
             'set',
@@ -38,7 +38,7 @@ describe('SecureStorage.set', () => {
     });
 
     it('defaults opts to an empty object', async () => {
-        await SecureStorage.set('token', 'abc');
+        await SecureStorage.setItem('token', 'abc');
         expect(bridge.callAsync).toHaveBeenCalledWith(
             'SecureStorage',
             'set',
@@ -50,11 +50,11 @@ describe('SecureStorage.set', () => {
 
     it('throws when native returns { error }', async () => {
         bridge.callAsync.mockResolvedValueOnce({ error: 'keychain locked' });
-        await expect(SecureStorage.set('token', 'abc')).rejects.toThrow(/keychain locked/);
+        await expect(SecureStorage.setItem('token', 'abc')).rejects.toThrow(/keychain locked/);
     });
 
     it('throws on empty key', async () => {
-        await expect(SecureStorage.set('', 'abc')).rejects.toThrow(/non-empty string/);
+        await expect(SecureStorage.setItem('', 'abc')).rejects.toThrow(/non-empty string/);
         expect(bridge.callAsync).not.toHaveBeenCalled();
     });
 });
@@ -62,7 +62,7 @@ describe('SecureStorage.set', () => {
 describe('SecureStorage.get', () => {
     it('forwards key + opts and returns the value', async () => {
         bridge.callAsync.mockResolvedValueOnce({ value: 'abc' });
-        const value = await SecureStorage.get('token', {
+        const value = await SecureStorage.getItem('token', {
             biometricPrompt: { reason: 'Unlock', title: 'Acme' },
         });
         expect(value).toBe('abc');
@@ -76,23 +76,23 @@ describe('SecureStorage.get', () => {
 
     it('returns null when native returns no value', async () => {
         bridge.callAsync.mockResolvedValueOnce({ value: null });
-        expect(await SecureStorage.get('missing')).toBeNull();
+        expect(await SecureStorage.getItem('missing')).toBeNull();
     });
 
     it('returns null when native omits value entirely', async () => {
         bridge.callAsync.mockResolvedValueOnce({});
-        expect(await SecureStorage.get('missing')).toBeNull();
+        expect(await SecureStorage.getItem('missing')).toBeNull();
     });
 
     it('throws on native error (e.g. biometric cancel)', async () => {
         bridge.callAsync.mockResolvedValueOnce({ error: 'userCancel' });
-        await expect(SecureStorage.get('token')).rejects.toThrow(/userCancel/);
+        await expect(SecureStorage.getItem('token')).rejects.toThrow(/userCancel/);
     });
 });
 
 describe('SecureStorage.delete', () => {
     it('forwards the key', async () => {
-        await SecureStorage.delete('token');
+        await SecureStorage.removeItem('token');
         expect(bridge.callAsync).toHaveBeenCalledWith('SecureStorage', 'delete', 'token');
     });
 });

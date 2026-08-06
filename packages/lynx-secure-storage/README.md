@@ -25,12 +25,12 @@ pnpm add @sigx/lynx-secure-storage
 import { SecureStorage } from '@sigx/lynx-secure-storage';
 
 // Plain encrypted set/get — no biometric prompt.
-await SecureStorage.set('refresh_token', refreshToken);
-const value = await SecureStorage.get('refresh_token');
+await SecureStorage.setItem('refresh_token', refreshToken);
+const value = await SecureStorage.getItem('refresh_token');
 
 // Biometric-gated key — reading it triggers Face ID / BiometricPrompt.
-await SecureStorage.set('access_token', accessToken, { requireBiometric: true });
-const token = await SecureStorage.get('access_token', {
+await SecureStorage.setItem('access_token', accessToken, { requireBiometric: true });
+const token = await SecureStorage.getItem('access_token', {
     biometricPrompt: { reason: 'Unlock your account', title: 'Acme Bank' },
 });
 ```
