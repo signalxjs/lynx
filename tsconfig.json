@@ -144,6 +144,66 @@
       ],
       "@sigx/lynx-updates-publisher": [
         "./packages/lynx-updates-publisher/src/index.ts"
+      ],
+      "@sigx/lynx-appearance": [
+        "./packages/lynx-appearance/src/index.ts"
+      ],
+      "@sigx/lynx-audio": [
+        "./packages/lynx-audio/src/index.ts"
+      ],
+      "@sigx/lynx-background": [
+        "./packages/lynx-background/src/index.ts"
+      ],
+      "@sigx/lynx-biometric": [
+        "./packages/lynx-biometric/src/index.ts"
+      ],
+      "@sigx/lynx-datetime-picker": [
+        "./packages/lynx-datetime-picker/src/index.ts"
+      ],
+      "@sigx/lynx-emoji": [
+        "./packages/lynx-emoji/src/index.ts"
+      ],
+      "@sigx/lynx-file-picker": [
+        "./packages/lynx-file-picker/src/index.ts"
+      ],
+      "@sigx/lynx-gestures": [
+        "./packages/lynx-gestures/src/index.ts"
+      ],
+      "@sigx/lynx-http": [
+        "./packages/lynx-http/src/index.ts"
+      ],
+      "@sigx/lynx-keyboard": [
+        "./packages/lynx-keyboard/src/index.ts"
+      ],
+      "@sigx/lynx-maps": [
+        "./packages/lynx-maps/src/index.ts"
+      ],
+      "@sigx/lynx-markdown": [
+        "./packages/lynx-markdown/src/index.ts"
+      ],
+      "@sigx/lynx-motion": [
+        "./packages/lynx-motion/src/index.ts"
+      ],
+      "@sigx/lynx-observability": [
+        "./packages/lynx-observability/src/index.ts"
+      ],
+      "@sigx/lynx-richtext": [
+        "./packages/lynx-richtext/src/index.ts"
+      ],
+      "@sigx/lynx-secure-storage": [
+        "./packages/lynx-secure-storage/src/index.ts"
+      ],
+      "@sigx/lynx-updates": [
+        "./packages/lynx-updates/src/index.ts"
+      ],
+      "@sigx/lynx-updates-ui": [
+        "./packages/lynx-updates-ui/src/index.ts"
+      ],
+      "@sigx/lynx-video": [
+        "./packages/lynx-video/src/index.ts"
+      ],
+      "@sigx/lynx-webview": [
+        "./packages/lynx-webview/src/index.ts"
       ]
     }
   },

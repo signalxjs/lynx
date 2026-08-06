@@ -11,6 +11,35 @@ the plurality already does. Where packages disagree, the disagreement is named w
 so the fix is unambiguous. Citations are accurate as of the commit that introduced this file;
 if one has rotted, fix the citation in the same PR as the code.
 
+## How this is enforced
+
+Two CI gates cover the mechanically-checkable parts:
+
+| Command | Covers |
+|---|---|
+| `pnpm check:conventions` | C2 (bare and async `isAvailable`), C6 (`PermissionResponse` re-export), C10 (thrown-message prefix), C11 (`## Web` section) |
+| `pnpm check:manifests` | C12 (method names agree across JS ↔ manifest ↔ Swift ↔ Kotlin) |
+
+Both are **ratchets, not walls.** This contract was written *from* the packages, so on day one most
+rules already had violations — 149 `throw`s exist and 7 carry the required prefix. A gate failing
+on all of them could never merge, and a gate that only warned would be ignored. So the existing
+violations are recorded in `scripts/api-conventions-baseline.json` and
+`scripts/module-manifests-baseline.json`, each owned by a module review issue, and CI fails on:
+
+- a **new** violation, or a counted one that grew, and
+- a baseline entry that is **no longer needed** — which is what forces each audit to shrink the
+  file rather than leave it to rot.
+
+After fixing violations, re-record and commit the smaller file:
+
+```sh
+node scripts/check-api-conventions.mjs --update-baseline
+node scripts/check-module-manifests.mjs --update-baseline
+```
+
+Everything the gates can't judge — anything needing types, a device, or a human — lives in the
+rubric in Part 2 and belongs to the package's review issue.
+
 ---
 
 ## Part 1 — The API contract (C1–C12)
