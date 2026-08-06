@@ -21,11 +21,23 @@ export function applyWorld(
     width: number,
     height: number,
     seq: number,
+    turn: number,
+    homeY0: number,
+    homeY1: number,
 ): void {
     'main thread';
     st.w = width;
     st.h = height;
     st.seq = seq;
+    // Turn and the current player's home band come from the background
+    // thread rather than being recomputed here: the band table in
+    // `game/board.ts` is the rules' single source of truth, and a second copy
+    // of those fractions inside a worklet is how the two drift apart.
+    st.turn = turn;
+    st.homeY0 = homeY0;
+    st.homeY1 = homeY1;
+    st.dragActive = 0;
+    st.dragSlot = -1;
 
     let n = 0;
     let maxR = 1;

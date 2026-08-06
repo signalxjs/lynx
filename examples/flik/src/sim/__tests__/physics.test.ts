@@ -517,7 +517,7 @@ describe('world', () => {
             7, 0, 22, 100, 900, 1, 3,
             8, 1, 14, 200, 100, 0, 0,
             9, 1, 14, 300, 120, 1, 2,
-        ], W, H, 5);
+        ], W, H, 5, 0, 0.87 * H, H);
 
         expect(st.n).toBe(2);
         expect(st.id[0]).toBe(7);
@@ -526,7 +526,7 @@ describe('world', () => {
     });
 
     it('hands over a board at rest, so the first tick does not report a settle', () => {
-        applyWorld(st, [0, 0, 14, 100, 900, 1, 3], W, H, 1);
+        applyWorld(st, [0, 0, 14, 100, 900, 1, 3], W, H, 1, 0, 0.87 * H, H);
         expect(st.phase).toBe(0);
         st.phase = SIM_RUNNING;
         // Awake is 0 already; one step must find it settled rather than
@@ -535,13 +535,13 @@ describe('world', () => {
     });
 
     it('derives inverse mass so a big disc is exactly mass 1', () => {
-        applyWorld(st, [0, 0, 22, 100, 900, 1, 3, 1, 0, 14, 200, 900, 1, 3], W, H, 1);
+        applyWorld(st, [0, 0, 22, 100, 900, 1, 3, 1, 0, 14, 200, 900, 1, 3], W, H, 1, 0, 0.87 * H, H);
         expect(st.im[0]).toBeCloseTo(1, 6);
         expect(1 / st.im[1]!).toBeCloseTo((14 * 14) / (22 * 22), 6);
     });
 
     it('sizes the grid to the largest disc so the neighbour walk stays complete', () => {
-        applyWorld(st, [0, 0, 22, 100, 900, 1, 3], W, H, 1);
+        applyWorld(st, [0, 0, 22, 100, 900, 1, 3], W, H, 1, 0, 0.87 * H, H);
         expect(st.cell).toBe(44);
         expect(st.head.length).toBeGreaterThanOrEqual(st.cols * st.rows);
     });
@@ -549,18 +549,18 @@ describe('world', () => {
     it('forces the first write past the dirty cull', () => {
         // Slot n may have held a different disc last turn, so its last-written
         // position is meaningless.
-        applyWorld(st, [0, 0, 14, 100, 900, 1, 3], W, H, 1);
+        applyWorld(st, [0, 0, 14, 100, 900, 1, 3], W, H, 1, 0, 0.87 * H, H);
         expect(st.lx[0]).toBeLessThan(-9999);
     });
 
     it('finds a disc by id, and reports -1 for one that is gone', () => {
-        applyWorld(st, [7, 0, 14, 100, 900, 1, 3], W, H, 1);
+        applyWorld(st, [7, 0, 14, 100, 900, 1, 3], W, H, 1, 0, 0.87 * H, H);
         expect(slotOf(st, 7)).toBe(0);
         expect(slotOf(st, 8)).toBe(-1);
     });
 
     it('launches by id and starts the simulation', () => {
-        applyWorld(st, [7, 0, 14, 100, 900, 1, 3], W, H, 1);
+        applyWorld(st, [7, 0, 14, 100, 900, 1, 3], W, H, 1, 0, 0.87 * H, H);
         launch(st, 7, 100, -400, 9);
 
         expect(st.phase).toBe(SIM_RUNNING);
@@ -570,19 +570,19 @@ describe('world', () => {
     });
 
     it('caps launch speed so nothing tunnels', () => {
-        applyWorld(st, [7, 0, 14, 100, 900, 1, 3], W, H, 1);
+        applyWorld(st, [7, 0, 14, 100, 900, 1, 3], W, H, 1, 0, 0.87 * H, H);
         launch(st, 7, 0, -99999, 1);
         expect(speedOf(0)).toBeCloseTo(MAX_LAUNCH_SPEED, 6);
     });
 
     it('preserves launch direction while capping', () => {
-        applyWorld(st, [7, 0, 14, 100, 900, 1, 3], W, H, 1);
+        applyWorld(st, [7, 0, 14, 100, 900, 1, 3], W, H, 1, 0, 0.87 * H, H);
         launch(st, 7, 3000, -4000, 1);
         expect(st.vx[0]! / st.vy[0]!).toBeCloseTo(3000 / -4000, 6);
     });
 
     it('ignores a launch for an unknown disc', () => {
-        applyWorld(st, [7, 0, 14, 100, 900, 1, 3], W, H, 1);
+        applyWorld(st, [7, 0, 14, 100, 900, 1, 3], W, H, 1, 0, 0.87 * H, H);
         launch(st, 99, 0, -400, 1);
         expect(st.phase).toBe(0);
     });
@@ -597,7 +597,7 @@ describe('world', () => {
                 0, 0, 14, 100, 900, 1, 3,
                 1, 0, 14, 200, 900, 1, 3,
                 2, 0, 14, 300, 900, 1, 3,
-            ], W, H, 1);
+            ], W, H, 1, 0, 0.87 * H, H);
             kickAll(s, 800);
             return [s.vx[0]!, s.vy[0]!, s.vx[1]!, s.vy[1]!, s.vx[2]!, s.vy[2]!];
         };

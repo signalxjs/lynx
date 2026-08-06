@@ -32,6 +32,39 @@ export interface SimState {
     // ---- board geometry (authored by BG, read by the integrator) ----
     w: number;
     h: number;
+    /**
+     * The board's top-left in PAGE coordinates. Gesture events report page
+     * coords and the simulation works in board coords, so this is the only
+     * thing that reconciles them.
+     */
+    originX: number;
+    originY: number;
+
+    // ---- whose turn, and what they may launch ----
+    turn: number;
+    /**
+     * The current player's home band in board px. Sent from the background
+     * thread rather than recomputed here: the band table in `game/board.ts` is
+     * the single source of truth for the rules, and a second copy of those
+     * fractions inside a worklet is exactly how the two drift apart.
+     */
+    homeY0: number;
+    homeY1: number;
+
+    // ---- dragging a disc before the flick, all main-thread ----
+    dragActive: number;
+    /** Simulation slot under the finger, or -1. */
+    dragSlot: number;
+    /** Offset from the finger to the disc centre, so it doesn't jump on grab. */
+    dragOffX: number;
+    dragOffY: number;
+    /** Previous finger sample, for the release velocity. */
+    dragPrevX: number;
+    dragPrevY: number;
+    dragPrevT: number;
+    /** Latest finger velocity in board px/s — this IS the shot. */
+    dragVX: number;
+    dragVY: number;
 
     // ---- discs, structure-of-arrays ----
     n: number;
@@ -135,6 +168,22 @@ export function createSimState(maxN: number, pairCap = maxN * 24): SimState {
     return {
         w: 0,
         h: 0,
+        originX: 0,
+        originY: 0,
+
+        turn: 0,
+        homeY0: 0,
+        homeY1: 0,
+
+        dragActive: 0,
+        dragSlot: -1,
+        dragOffX: 0,
+        dragOffY: 0,
+        dragPrevX: 0,
+        dragPrevY: 0,
+        dragPrevT: 0,
+        dragVX: 0,
+        dragVY: 0,
 
         n: 0,
         maxN,

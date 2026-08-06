@@ -8,7 +8,13 @@
  * makes the later per-frame `setStyleProperty` the only thing changing.
  */
 
-import { component, type Define } from '@sigx/lynx';
+import {
+    component,
+    type Define,
+    type LayoutChangeEvent,
+    type MainThread,
+    type MainThreadRef,
+} from '@sigx/lynx';
 
 import { BANDS, bandRect } from '../game/board.js';
 import type { Disc, Zone } from '../game/types.js';
@@ -20,7 +26,11 @@ export type BoardProps =
     & Define.Prop<'discs', Disc[], true>
     & Define.Prop<'width', number, true>
     & Define.Prop<'height', number, true>
-    & Define.Prop<'pool', DiscPool, true>;
+    & Define.Prop<'pool', DiscPool, true>
+    /** Bound so the aim gesture can attach to the board itself. */
+    & Define.Prop<'elRef', MainThreadRef<MainThread.Element | null>, true>
+    /** The board's own layout — its page offset maps touches into board space. */
+    & Define.Prop<'onLayout', (e: LayoutChangeEvent) => void, true>;
 
 /** Which player, if any, a band belongs to — drives the band tint. */
 function tintOf(zone: Zone): string {
@@ -34,6 +44,8 @@ const Board = component<BoardProps>(({ props }) => () => {
 
     return (
         <view
+            main-thread:ref={props.elRef}
+            bindlayoutchange={props.onLayout}
             style={{
                 position: 'relative',
                 width: `${width}px`,

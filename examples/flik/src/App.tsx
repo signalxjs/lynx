@@ -1,33 +1,33 @@
 /**
- * App shell. No navigation — FLIK is one screen, so the router would be pure
+ * App shell. No navigation — FLIK is one screen, so a router would be pure
  * overhead in a build that exists to measure overhead.
  *
  * The board is sized from a measured layout rather than viewport units: the
- * zone bands are fractions of the board's height, and every rule in `game/`
+ * zone bands are fractions of the board's height and every rule in `game/`
  * takes that height as an argument, so there is exactly one number the whole
  * game depends on and it has to be the real one.
- *
- * There is no aim gesture yet — that is the next PR. "Kick" flings every disc,
- * which is enough to see the simulation working and to exercise the settle
- * path end to end.
  */
 
 import {
     component,
     signal,
     useElementLayout,
+    useMainThreadRef,
     type LayoutChangeEvent,
+    type MainThread,
 } from '@sigx/lynx';
 import { SafeAreaProvider, SafeAreaView } from '@sigx/lynx-safe-area';
 
+import { bandRect, homeZoneOf } from './game/board.js';
 import { packWorld, unpackSettle } from './game/pack.js';
-import { rescaleBoard, settleShot } from './game/rules.js';
+import { beginShot, loadableDiscs, placeDisc, rescaleBoard, settleShot } from './game/rules.js';
 import { newGame } from './game/setup.js';
 import type { GameState } from './game/types.js';
+import { useFlickGesture } from './input/useFlickGesture.js';
 import Board from './render/Board.js';
 import Hud from './render/Hud.js';
 import { useDiscPool } from './render/disc-pool.js';
-import { useSimLoop } from './useSimLoop.js';
+import { useSimLoop, type SeedWorld } from './useSimLoop.js';
 import { COLORS } from './theme.js';
 
 /** Board aspect (width : height). Portrait corridor, as the bands assume. */
@@ -35,22 +35,42 @@ const ASPECT = 0.62;
 
 const App = component(() => {
     const { layout, onLayoutChange } = useElementLayout();
+    const { layout: boardLayout, onLayoutChange: onBoardLayout } = useElementLayout();
     // Wrapped in an object because `signal` takes one: the game state is
     // legitimately absent until the arena reports its size.
     const game = signal({ state: null as GameState | null });
     const board = signal({ width: 0, height: 0 });
     const pool = useDiscPool();
+    const boardRef = useMainThreadRef<MainThread.Element | null>(null);
+
+    /** Everything the simulation needs to own the next turn. */
+    const worldFor = (state: GameState, width: number, height: number): SeedWorld => {
+        const home = bandRect(homeZoneOf(state.turn), width, height);
+        return {
+            packed: packWorld(state.discs),
+            width,
+            height,
+            seq: state.seq,
+            turn: state.turn,
+            homeY0: home.y,
+            homeY1: home.y + home.height,
+        };
+    };
 
     const sim = useSimLoop({
         pool,
         onSettle: (seq, packed) => {
             const current = game.state;
             if (!current) return;
-            // Drop a settle from a superseded shot — a re-kick can land while
-            // one is still in flight.
+            // Drop a settle from a superseded shot — a resize or a second
+            // launch can land while one is still in flight.
             if (seq !== current.seq) return;
             const { state } = settleShot(current, unpackSettle(packed), board.height);
             game.state = state;
+            // Hand the next turn over: the simulation needs the new ownership
+            // and the new player's home band before the next aim can pick a
+            // disc.
+            sim.seed(worldFor(state, board.width, board.height));
         },
     });
 
@@ -69,12 +89,10 @@ const App = component(() => {
     // re-entrant: the write invalidates the very render that made it.
     //
     // Re-measuring matters as much as measuring. The first layout event
-    // arrives BEFORE the KICK button below has been laid out, so the arena is
+    // arrives BEFORE the rest of the screen has been laid out, so the arena is
     // briefly taller than it ends up; seeding once against that height leaves
     // every disc positioned for a board that no longer exists, and the ones
-    // near the far edge fall outside it and get clipped. Rescaling on every
-    // size change is also what will keep the board honest through a keyboard
-    // or inset change.
+    // near the far edge fall outside it and get clipped.
     const handleLayout = (e: LayoutChangeEvent): void => {
         onLayoutChange(e);
         const dims = size();
@@ -86,7 +104,7 @@ const App = component(() => {
             board.width = dims.width;
             board.height = dims.height;
             game.state = fresh;
-            sim.seed(packWorld(fresh.discs), dims.width, dims.height, fresh.seq);
+            sim.seed(worldFor(fresh, dims.width, dims.height));
             return;
         }
 
@@ -103,20 +121,37 @@ const App = component(() => {
         board.width = dims.width;
         board.height = dims.height;
         game.state = rescaled;
-        sim.seed(packWorld(rescaled.discs), dims.width, dims.height, rescaled.seq);
+        sim.seed(worldFor(rescaled, dims.width, dims.height));
     };
 
-    const kick = (): void => {
-        const current = game.state;
-        if (!current) return;
-        // Bump the sequence first, and re-seed from the board the ruleset
-        // currently believes in — so the settle this produces is recognised
-        // as belonging to this kick and starts from the right positions.
-        const seq = current.seq + 1;
-        game.state = { ...current, seq };
-        sim.seed(packWorld(current.discs), board.width, board.height, seq);
-        sim.kick(900);
+    // The board's own layout gives its page offset, which is the only thing
+    // that turns a gesture's page coordinates into board coordinates.
+    const handleBoardLayout = (e: LayoutChangeEvent): void => {
+        onBoardLayout(e);
+        const l = boardLayout.value;
+        if (l) sim.setOrigin(l.left, l.top);
     };
+
+    useFlickGesture({
+        boardRef,
+        state: sim.state,
+        loop: sim.loop,
+        onShot: (discId, seq) => {
+            const current = game.state;
+            if (!current) return;
+            // The simulation is already running. This only records WHICH disc
+            // was launched, which is what lets `settleShot` tell a reload from
+            // a disc that sat the shot out.
+            game.state = { ...beginShot(current, discId), seq };
+        },
+        onPlace: (discId, x, y) => {
+            const current = game.state;
+            if (!current) return;
+            // Repositioning does not use the turn, but the background copy has
+            // to follow — otherwise the next seed would drag the disc back.
+            game.state = placeDisc(current, discId, x, y);
+        },
+    });
 
     return () => {
         // Until the arena reports its size there is no honest board size to
@@ -124,6 +159,9 @@ const App = component(() => {
         // layout event brings the board in.
         const dims = size();
         const state = game.state;
+        const canShoot = state && dims
+            ? loadableDiscs(state, state.turn, dims.height).length > 0
+            : false;
 
         return (
             <SafeAreaProvider>
@@ -143,33 +181,37 @@ const App = component(() => {
                             paddingRight: '12px',
                         }}
                     >
-                        {state && dims ? (
-                            <Board
-                                discs={state.discs}
-                                width={dims.width}
-                                height={dims.height}
-                                pool={pool}
-                            />
-                        ) : null}
+                        {/*
+                          * Mounted unconditionally, at zero size until the
+                          * arena is measured. `useGestureDetector` binds once
+                          * in `onMounted` and the main thread DROPS the
+                          * registration if the element ref isn't resolvable
+                          * yet — silently, with no retry. Rendering the board
+                          * only once dims existed put it after App's mount, so
+                          * the aim gesture was never attached at all.
+                          */}
+                        <Board
+                            discs={state && dims ? state.discs : []}
+                            width={dims ? dims.width : 0}
+                            height={dims ? dims.height : 0}
+                            pool={pool}
+                            elRef={boardRef}
+                            onLayout={handleBoardLayout}
+                        />
                     </view>
                     <view
-                        bindtap={kick}
                         style={{
-                            marginTop: '10px',
-                            marginBottom: '12px',
-                            marginLeft: '28px',
-                            marginRight: '28px',
-                            paddingTop: '12px',
-                            paddingBottom: '12px',
-                            borderRadius: '10px',
-                            backgroundColor: COLORS.line,
+                            marginTop: '8px',
+                            marginBottom: '14px',
                             alignItems: 'center',
                         }}
                     >
-                        <text
-                            style={{ color: COLORS.text, fontSize: '14px', letterSpacing: '2px' }}
-                        >
-                            KICK
+                        <text style={{ color: COLORS.textDim, fontSize: '12px' }}>
+                            {state?.phase === 'over'
+                                ? 'Game over'
+                                : canShoot
+                                    ? 'Slide one of your discs, then flick it'
+                                    : 'Waiting…'}
                         </text>
                     </view>
                 </SafeAreaView>

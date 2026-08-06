@@ -73,6 +73,29 @@ export function winnerOf(state: GameState, boardHeight: number): Owner | null {
 }
 
 /**
+ * Move a disc without shooting it.
+ *
+ * Repositioning inside your own end is part of taking a turn, not a turn in
+ * itself — you slide the disc to line up the shot and only the flick commits
+ * you. The background copy still has to follow, though, or the next handoff to
+ * the simulation would drag the disc back to where it started.
+ *
+ * `seq` is deliberately NOT bumped: nothing was launched, so there is no shot
+ * in flight for a settle to be stale against.
+ */
+export function placeDisc(
+    state: GameState,
+    discId: number,
+    x: number,
+    y: number,
+): GameState {
+    return {
+        ...state,
+        discs: state.discs.map((d) => (d.id === discId ? { ...d, x, y } : d)),
+    };
+}
+
+/**
  * Carry the board to a new size.
  *
  * Disc positions are absolute board pixels, so a resize has to move them or

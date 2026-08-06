@@ -2,9 +2,11 @@
 
 A two-player flick-the-puck game, and a performance probe for sigx-lynx.
 
-The game half is our take on Sennep's OLO: you drag back from a disc in your
-home zone, release, and try to leave it resting in your target zone at the far
-end of the board — knocking your opponent's discs out of theirs on the way.
+The game half is our take on Sennep's OLO: you put a finger on one of your
+discs, slide it anywhere inside your own end of the board, and flick it. How
+hard you flick is how hard it goes — there is no aim line and no power meter,
+just your hand. The goal is to leave discs resting in your target zone at the
+far end, knocking your opponent's out of theirs on the way.
 
 The probe half is why it lives in this repo. Nothing else here drives a
 sustained 60 Hz main-thread workload, so nothing else exercises the per-frame
@@ -62,9 +64,16 @@ genuine reload that its start and end positions are identical about; the second
 catches a bystander knocked into a home. That is why `GameState` tracks
 `launched`.
 
-Six discs each — two big (r=22, mass 1.0) and four small (r=14, mass ~0.405),
-so a big disc shoves a small one meaningfully. Your score is your alive discs
-at rest in your own target zone. The match ends when no disc sits in any home
+Six discs each — two big (r=22, mass 1.0) and four small (r=14, mass ~0.405).
+Size is felt at both ends of a shot: a big disc leaves your finger slower for
+the same flick, because it is the same effort against more mass, and it hits
+harder when it arrives, because collision impulses are mass-weighted. Net
+momentum still favours it by about half again, so the big ones are the wrecking
+balls and the small ones are the ones you can actually place.
+
+Sliding a disc around your own end costs nothing — only the flick commits you,
+and a slow release just leaves the disc where you put it. Your score is your
+alive discs at rest in your own target zone. The match ends when no disc sits in any home
 zone, because at that point nobody can shoot; highest score wins, equal is a
 draw.
 
@@ -86,6 +95,8 @@ src/
     tick.mt.ts      fixed-timestep substeps + the quiescence check
     world.mt.ts     seed / launch / kick
     write.mt.ts     push positions onto elements
+    drag.mt.ts      grab / slide / flick — the whole input model
+  input/    the gesture that drives drag.mt.ts
   useSimLoop.ts  the frame loop — the ONLY cross-thread traffic during a shot
   render/   the board, the disc layer, the HUD
   theme.ts  palette as hex values (see below)
@@ -138,10 +149,9 @@ term, so pucks stop crisply instead of crawling asymptotically toward zero.
 ## Status
 
 - [x] **1** — scaffold, ruleset with tests, static board
-- [x] **2** — main-thread simulation + the raw render path ("Kick" flings
-  everything; the aim gesture arrives next)
-- [ ] **3** — aim gesture and launch
-- [ ] **4** — settle contract wired to the ruleset; playable
+- [x] **2** — main-thread simulation + the raw render path
+- [x] **3** — the flick gesture: grab, slide inside your own end, throw
+- [x] **4** — settle contract wired to the ruleset; **playable**
 - [ ] **5** — perf HUD
 - [ ] **6** — render-mode A/B/C toggle
 - [ ] **7** — stress mode and the measurement writeup

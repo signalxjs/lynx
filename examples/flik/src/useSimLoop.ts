@@ -18,15 +18,15 @@ import {
     onMounted,
     runOnBackground,
     runOnMainThread,
-    startFrameCallback,
     useFrameCallback,
     useMainThreadRef,
+    type FrameCallback,
     type MainThreadRef,
 } from '@sigx/lynx';
 
 import { stepWorld } from './sim/tick.mt.js';
 import { writeDiscs } from './sim/write.mt.js';
-import { applyWorld, kickAll, launch } from './sim/world.mt.js';
+import { applyWorld, kickAll } from './sim/world.mt.js';
 import { createSimState, type SimState } from './sim/state.js';
 import { POOL_SIZE, type DiscPool } from './render/disc-pool.js';
 
@@ -37,13 +37,30 @@ export interface SimLoop {
     /** The world. Capture it in a worklet; never read `.current` on BG. */
     state: MainThreadRef<SimState>;
     /** Hand the simulation a fresh board (packed by `packWorld`). */
-    seed: (packed: number[], width: number, height: number, seq: number) => void;
-    /** Fire a disc and start the loop. */
-    fire: (discId: number, vx: number, vy: number, seq: number) => void;
-    /** Fling everything — the stress agitator. */
-    kick: (speed: number) => void;
+    seed: (world: SeedWorld) => void;
+    /** Where the board sits on the page, so gestures can map into board space. */
+    setOrigin: (x: number, y: number) => void;
+    /**
+     * The frame-callback handle. Pass it to a gesture worklet and call
+     * `startFrameCallback(loop)` there — it captures as `{_fcid}`, which is
+     * the only shape that survives the bridge. A background-thread closure
+     * would arrive as `undefined` and throw on call.
+     */
+    loop: FrameCallback;
     /** Push a knob (`renderMode`, `writeAll`, …) into the world. */
     setKnob: (name: string, value: number) => void;
+}
+
+/** Everything the simulation needs to take over a turn. */
+export interface SeedWorld {
+    packed: number[];
+    width: number;
+    height: number;
+    seq: number;
+    turn: number;
+    /** The current player's home band in board px — what the flick may grab. */
+    homeY0: number;
+    homeY1: number;
 }
 
 export interface SimLoopOptions {
@@ -77,10 +94,10 @@ export function useSimLoop(options: SimLoopOptions): SimLoop {
         void bindElements().catch(() => {});
     });
 
-    // Not `autostart`: an idle board should cost nothing. The loop is started
-    // on the main thread by `fire`/`kick` (so a launch begins simulating in
-    // the frame the finger lifts) and stopped from `onSettle` on the
-    // background thread.
+    // Not `autostart`: an idle board should cost nothing. The loop is armed
+    // from the flick gesture's `onEnd` — on the main thread, so the simulation
+    // begins in the frame the finger lifts — and stopped from `onSettle` on
+    // the background thread.
     //
     // Stopping from BG rather than inside the frame worklet is deliberate.
     // `stopFrameCallback(loop)` in the body would need `loop` captured into
@@ -114,23 +131,25 @@ export function useSimLoop(options: SimLoopOptions): SimLoop {
     });
 
     const seedWorld = runOnMainThread(
-        (packed: number[], width: number, height: number, seq: number) => {
+        (
+            packed: number[],
+            width: number,
+            height: number,
+            seq: number,
+            turn: number,
+            homeY0: number,
+            homeY1: number,
+        ) => {
             'main thread';
-            applyWorld(state.current, packed, width, height, seq);
+            applyWorld(state.current, packed, width, height, seq, turn, homeY0, homeY1);
             writeDiscs(state.current);
         },
     );
 
-    const fireDisc = runOnMainThread((discId: number, vx: number, vy: number, seq: number) => {
+    const setOriginMT = runOnMainThread((x: number, y: number) => {
         'main thread';
-        launch(state.current, discId, vx, vy, seq);
-        startFrameCallback(loop);
-    });
-
-    const kickAllDiscs = runOnMainThread((speed: number) => {
-        'main thread';
-        kickAll(state.current, speed);
-        startFrameCallback(loop);
+        state.current.originX = x;
+        state.current.originY = y;
     });
 
     const writeKnob = runOnMainThread((name: string, value: number) => {
@@ -142,14 +161,13 @@ export function useSimLoop(options: SimLoopOptions): SimLoop {
     // plain node) — swallow so callers never have to guard.
     return {
         state,
-        seed: (packed, width, height, seq) => {
-            void seedWorld(packed, width, height, seq).catch(() => {});
+        loop,
+        seed: (w) => {
+            void seedWorld(w.packed, w.width, w.height, w.seq, w.turn, w.homeY0, w.homeY1)
+                .catch(() => {});
         },
-        fire: (discId, vx, vy, seq) => {
-            void fireDisc(discId, vx, vy, seq).catch(() => {});
-        },
-        kick: (speed) => {
-            void kickAllDiscs(speed).catch(() => {});
+        setOrigin: (x, y) => {
+            void setOriginMT(x, y).catch(() => {});
         },
         setKnob: (name, value) => {
             void writeKnob(name, value).catch(() => {});
