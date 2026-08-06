@@ -20,7 +20,7 @@ const isPopulated = await Clipboard.hasString();
 ## API
 | Method                                | Notes                                                                                              |
 | ------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| `setString(text: string): Promise<void>` | Write text. **Rejects** if the write fails. Pass `''` to clear.                                  |
+| `setString(text: string): Promise<void>` | Write text. **Rejects** if the write fails — `await` it. Pass `''` to clear.                      |
 | `getString(): Promise<string>`        | Async — both platforms can prompt the user (iOS 14+ shows a "Pasted from …" toast).                |
 | `hasString(): Promise<boolean>`       | Whether the clipboard currently contains a string.                                                 |
 | `isAvailable(): boolean`              | Whether the native module is registered in the current build. Always synchronous.                  |
@@ -32,6 +32,10 @@ if (Clipboard.isAvailable()) {
     await Clipboard.setString('Hello, world!');
 }
 ```
+
+> **Upgrading:** `setString` used to be synchronous and return `void`. Existing calls still
+> compile, but an unawaited rejection becomes an unhandled rejection rather than the silent
+> no-op it used to be — so `await` it (or `.catch()` it) rather than leaving it bare.
 
 ## Web
 

@@ -61,7 +61,10 @@ describe('Clipboard.setString', () => {
                     error: 'clip too large',
                 }),
         });
-        await expect(Clipboard.setString('x'.repeat(9e6))).rejects.toThrow(
+        // The payload size is irrelevant — the native failure is faked, so a
+        // 9MB string would only slow the suite down to make a point the mock
+        // already makes.
+        await expect(Clipboard.setString('anything')).rejects.toThrow(
             '[@sigx/lynx-clipboard] setString failed: clip too large',
         );
     });
