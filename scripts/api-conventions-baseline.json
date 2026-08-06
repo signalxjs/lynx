@@ -181,12 +181,6 @@
             "detail": "export { … isAvailable … }"
         }
     ],
-    "lynx-testing": [
-        {
-            "rule": "C10/unprefixed-throws",
-            "count": 6
-        }
-    ],
     "lynx-updates": [
         {
             "rule": "C11/readme-missing-web-section",

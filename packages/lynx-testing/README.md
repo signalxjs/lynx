@@ -38,6 +38,64 @@ it('updates on tap', async () => {
 
 `render()` mounts the **BG side** of a component and covers JSX shape + signal-driven re-renders. For end-to-end main-thread coverage, the `@sigx/lynx-testing/mt` subpath boots the worklet runtime, runs the real `'main thread'` transform, and hands back the registered worklets to drive. The full query/`fireEvent`/`act` API, vitest config, and the MT harness are documented on the docs site.
 
+## API
+
+### Rendering
+
+| | |
+|---|---|
+| `render(vnode)` | Mount into an in-memory `TestNode` tree. Returns `{ container, unmount }` |
+| `TestNode` | The node type — `type`, `props`, `children`, `text` |
+
+### Waiting
+
+| | |
+|---|---|
+| `await act(fn)` | Run `fn`, then advance **one** turn |
+| `await waitForUpdate()` | Advance one turn |
+| `await waitFor(condition, opts?)` | Poll until `condition` is truthy; returns its value |
+
+**Pick `waitFor` whenever the number of turns isn't knowable** — a dynamic import, chained
+effects, a deferred callback. `act`/`waitForUpdate` advance a *fixed* amount, so waiting on
+those with a loop or a `setTimeout` is a guess that holds until the machine is busy. Two tests
+in `@sigx/lynx-emoji` were written that way and both failed on CI.
+
+```ts
+// ✗ guesses — fails once mounting takes a sixth turn
+for (let i = 0; i < 5; i++) await act(() => {});
+expect(getByType(container, 'tabbar')).toBeTruthy();
+
+// ✓ waits for the thing you actually care about
+await findByType(container, 'tabbar');
+```
+
+`waitFor` options: `timeout` (default 1000ms), `interval` (default 0), `description` (named in
+the timeout message). A condition that throws counts as "not yet", and on timeout the
+condition's own error is rethrown — so you get "no element found with text …" plus the tree,
+not a bare timeout.
+
+### Queries
+
+Three flavours per matcher, following `@testing-library`:
+
+| | `Type` | `Text` | `Prop` |
+|---|---|---|---|
+| **throws if missing** | `getByType` | `getByText` | `getByProp` |
+| **null if missing** | `queryByType` | `queryByText` | `queryByProp` |
+| **waits for it** | `findByType` | `findByText` | `findByProp` |
+
+Plus `getAllByType(container, type)`, `within(node)` to scope queries to a subtree, and
+`formatTree(node)` to print a tree. A failing `getBy*`/`findBy*` prints the tree it searched.
+
+### Events
+
+`fireEvent(node, name, detail?)` and `touch(node, points)`.
+
+### Main thread
+
+`@sigx/lynx-testing/mt` compiles and runs worklets; add `@sigx/lynx-testing/mt/setup` to your
+vitest `setupFiles`.
+
 ## Directives
 
 The test renderer runs the same `use:*` directive lifecycle as the real runtime,

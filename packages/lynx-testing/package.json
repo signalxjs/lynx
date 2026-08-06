@@ -3,6 +3,9 @@
     "version": "0.26.0",
     "description": "Testing utilities for SignalX Lynx components - render, fireEvent, queries",
     "type": "module",
+    "sideEffects": [
+        "./dist/mt/setup.js"
+    ],
     "main": "./dist/index.js",
     "types": "./dist/index.d.ts",
     "exports": {
@@ -25,7 +28,8 @@
     "scripts": {
         "build": "node ../../scripts/clean.mjs dist && tsgo",
         "dev": "tsgo --watch",
-        "clean": "node ../../scripts/clean.mjs dist .turbo"
+        "clean": "node ../../scripts/clean.mjs dist .turbo",
+        "test": "vitest run"
     },
     "keywords": [
         "sigx",

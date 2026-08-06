@@ -155,7 +155,7 @@ export function getWorkletMap(): Record<string, Function> {
     const impl = (globalThis as { lynxWorkletImpl?: WorkletImpl }).lynxWorkletImpl;
     if (!impl) {
         throw new Error(
-            '[lynx-testing/mt] lynxWorkletImpl is not initialized — add ' +
+            '[@sigx/lynx-testing] mt: lynxWorkletImpl is not initialized — add ' +
             '`@sigx/lynx-testing/mt/setup` to your vitest config\'s ' +
             '`setupFiles` array.'
         );
@@ -219,7 +219,7 @@ export function compileMTWorklets(opts: {
 
     if (result.errors && result.errors.length > 0) {
         throw new Error(
-            '[lynx-testing/mt] LEPUS transform errors for ' + filename + ':\n' +
+            '[@sigx/lynx-testing] mt: LEPUS transform errors for ' + filename + ':\n' +
             result.errors.map((e) => '  - ' + (e.text ?? '<unknown>')).join('\n')
         );
     }
@@ -248,7 +248,7 @@ export function compileMTWorklets(opts: {
         const fn = map[id];
         if (!fn) {
             throw new Error(
-                '[lynx-testing/mt] worklet `' + id + '` was registered by the ' +
+                '[@sigx/lynx-testing] mt: worklet `' + id + '` was registered by the ' +
                 'compile but is missing from lynxWorkletImpl._workletMap. The ' +
                 'upstream worklet runtime may not have evaluated correctly.'
             );

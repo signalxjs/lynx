@@ -4,6 +4,10 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 ## [Unreleased]
 
+### Added
+
+- **`@sigx/lynx-testing`: `waitFor`, `findBy*` queries, `within`, and failure output that prints the tree** (#908). The package had no way to wait for a *condition* — `waitForUpdate()` advances exactly one microtask plus one macrotask — so any test whose state needed more turns had to guess how many, and the guess is load- and engine-dependent. That is the root cause of both flaky tests in `@sigx/lynx-emoji` (`picker-layout` pumped five turns, `grid-scroll` slept 60ms), and 12+ test files across the repo hand-roll a timing wait today. `waitFor(condition)` polls instead, treats a throwing condition as "not yet", and on timeout rethrows the condition's own error rather than a bare timeout — so a failure still says what was missing. `findByType`/`findByText`/`findByProp` pair it with the matching query, `within(node)` scopes a query to a subtree, and a failing `getBy*` now prints the tree it searched instead of only naming what it wanted.
+
 ### Fixed
 
 - **`@sigx/lynx-audio`: `onMeter`'s unsubscribe no longer starves other listeners** (#867). The disposer wasn't idempotent, so calling one listener's disposer twice — an ordinary double effect-cleanup — drove the shared reference count to zero and told the native side to stop metering **while another listener was still subscribed**. It went silent, with no error. Each disposer now releases at most once, per `CONVENTIONS.md` C7.
