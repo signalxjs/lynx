@@ -28,6 +28,7 @@ import {
     runPostPrebuildHook,
     writeIosDebugInfoPlist,
     applyIosDevClientBuildSettings,
+    writeAndroidProguardRules,
 } from '../src/prebuild.js';
 import { linkAndroid } from '../src/autolink/android.js';
 import { linkIos } from '../src/autolink/ios.js';
@@ -1165,6 +1166,124 @@ describe('linkAndroid — debugOnly permission split', () => {
         const result = linkAndroid(config, [devClientManifest]);
 
         expect(result.devClient?.releaseStubsDir).toBe('android/src/releaseStubs/kotlin');
+    });
+});
+
+// Modules whose native dependency ships no consumer proguard rules must be
+// able to contribute R8 keep rules themselves. The motivating case is
+// @sigx/lynx-webrtc: libwebrtc resolves org.webrtc.WebRtcClassLoader from
+// native by name, that class has no Java callers, so R8 deletes it and the
+// library aborts inside JNI_OnLoad — release builds only (#854).
+describe('linkAndroid — module-contributed proguard rules (#854)', () => {
+    const webrtcManifest: ModuleManifest = {
+        name: 'WebRTC',
+        package: '@sigx/lynx-webrtc',
+        description: 'WebRTC',
+        platforms: ['android'],
+        android: {
+            moduleClass: 'com.sigx.webrtc.WebRTCModule',
+            dependencies: ['io.github.webrtc-sdk:android:125.6422.07'],
+            proguardRules: ['-keep class org.webrtc.** { *; }', '-dontwarn org.webrtc.**'],
+        },
+    };
+
+    it('collects rules from module manifests', () => {
+        const result = linkAndroid(resolveConfig(TEST_CONFIG), [webrtcManifest]);
+
+        expect(result.proguardRules).toEqual([
+            '-keep class org.webrtc.** { *; }',
+            '-dontwarn org.webrtc.**',
+        ]);
+    });
+
+    it('is empty when no module contributes rules', () => {
+        const plain: ModuleManifest = {
+            name: 'Storage',
+            package: '@sigx/lynx-storage',
+            description: 'Storage',
+            platforms: ['android'],
+            android: { moduleClass: 'com.sigx.storage.StorageModule' },
+        };
+        expect(linkAndroid(resolveConfig(TEST_CONFIG), [plain]).proguardRules).toEqual([]);
+    });
+
+    it('de-dupes an identical rule declared by two modules', () => {
+        const other: ModuleManifest = {
+            ...webrtcManifest,
+            name: 'Other',
+            package: '@sigx/lynx-other',
+            android: {
+                moduleClass: 'com.sigx.other.OtherModule',
+                // Same rule, padded — the trim must make the de-dupe hit.
+                proguardRules: ['  -dontwarn org.webrtc.**  ', '-keep class com.other.** { *; }'],
+            },
+        };
+        const result = linkAndroid(resolveConfig(TEST_CONFIG), [webrtcManifest, other]);
+
+        expect(result.proguardRules).toEqual([
+            '-keep class org.webrtc.** { *; }',
+            '-dontwarn org.webrtc.**',
+            '-keep class com.other.** { *; }',
+        ]);
+    });
+
+    it('collects from debugOnly modules too — only release builds run R8', () => {
+        const debugModule: ModuleManifest = {
+            name: 'DevClient',
+            package: '@sigx/lynx-dev-client',
+            description: 'Dev client',
+            type: 'dev-client',
+            platforms: ['android'],
+            android: {
+                initClass: 'com.sigx.devclient.SigxDevClient',
+                debugOnly: true,
+                proguardRules: ['-keep class com.dev.** { *; }'],
+            },
+        };
+        const result = linkAndroid(resolveConfig(TEST_CONFIG), [debugModule]);
+
+        expect(result.proguardRules).toEqual(['-keep class com.dev.** { *; }']);
+    });
+});
+
+describe('writeAndroidProguardRules (#854)', () => {
+    const proguardPath = (cwd: string) =>
+        join(cwd, 'android', 'app', 'proguard-rules-generated.pro');
+
+    it('writes the contributed rules', () => {
+        const config = resolveConfig(TEST_CONFIG);
+        writeAndroidProguardRules(testDir, config, ['-keep class org.webrtc.** { *; }']);
+
+        const written = readFileSync(proguardPath(testDir), 'utf-8');
+        expect(written).toContain('-keep class org.webrtc.** { *; }');
+        expect(written).toContain('DO NOT EDIT');
+    });
+
+    it('writes the file even with no rules — build.gradle.kts always lists it', () => {
+        const config = resolveConfig(TEST_CONFIG);
+        writeAndroidProguardRules(testDir, config, []);
+
+        expect(existsSync(proguardPath(testDir))).toBe(true);
+    });
+
+    it('leaves the hand-owned proguard-rules.pro untouched', () => {
+        const config = resolveConfig(TEST_CONFIG);
+        scaffoldAndroid(testDir, config);
+        const handOwned = join(testDir, 'android', 'app', 'proguard-rules.pro');
+        writeFileSync(handOwned, '-keep class com.myapp.Mine { *; }\n');
+
+        writeAndroidProguardRules(testDir, config, ['-keep class org.webrtc.** { *; }']);
+
+        expect(readFileSync(handOwned, 'utf-8')).toBe('-keep class com.myapp.Mine { *; }\n');
+    });
+
+    it('is referenced by the scaffolded build.gradle.kts release block', () => {
+        const config = resolveConfig(TEST_CONFIG);
+        scaffoldAndroid(testDir, config);
+
+        const gradle = readFileSync(join(testDir, 'android', 'app', 'build.gradle.kts'), 'utf-8');
+        expect(gradle).toContain('"proguard-rules-generated.pro"');
+        expect(gradle).toContain('isMinifyEnabled = true');
     });
 });
 

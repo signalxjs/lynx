@@ -62,9 +62,15 @@ android {
     buildTypes {
         release {
             isMinifyEnabled = true
+            // proguard-rules-generated.pro carries keep rules contributed by
+            // linked native modules (see `android.proguardRules` in
+            // signalx-module.json) — needed for dependencies whose AAR ships no
+            // consumer rules. It is rewritten by every prebuild; app-owned
+            // rules go in proguard-rules.pro, which prebuild never touches.
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro"
+                "proguard-rules.pro",
+                "proguard-rules-generated.pro"
             )
             signingConfig = if (uploadKeystore != null)
                 signingConfigs.getByName("release")
