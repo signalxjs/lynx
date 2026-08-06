@@ -90,6 +90,22 @@ interface RecordingHandle {
 }
 ```
 
+## Web
+
+**Native only.** There is no `.web.ts` implementation: `sigx run:web` has no
+`AVAudioEngine`/`MediaRecorder` bridge behind this API, so `Audio.isAvailable()`
+returns `false` on web and every other method throws. Feature-detect before
+calling, or gate the whole feature:
+
+```ts
+if (Audio.isAvailable()) {
+    const player = await Audio.play(uri);
+}
+```
+
+Recording in a browser would mean routing `MediaRecorder` through the
+`@sigx/lynx-web-host` bridge — tracked on [#867](https://github.com/signalxjs/lynx/issues/867), not shipped.
+
 ## Gotchas
 
 - **iOS AudioSession** is managed internally — the module flips to `.playback` while a player is alive, `.playAndRecord` while recording, and deactivates when nothing is active. Apps that need custom mixing categories should pause this module's sessions or wait for an explicit `setCategory` API.

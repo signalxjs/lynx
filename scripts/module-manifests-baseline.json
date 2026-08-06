@@ -20,10 +20,6 @@
     "lynx-updates": [
         {
             "rule": "C12/declared-not-called",
-            "detail": "getCurrentUpdate — declared in ios.methods, never called from JS"
-        },
-        {
-            "rule": "C12/declared-not-called",
             "detail": "getState — declared in ios.methods, never called from JS"
         }
     ]

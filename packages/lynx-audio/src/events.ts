@@ -1,53 +1,20 @@
 /**
- * Bridge for native → JS audio events (`onEnd`, `onMeter`).
+ * Native → JS audio event channels (`onEnd`, `onMeter`).
  *
- * Native side posts to `GlobalEventEmitter` on per-id channels like
- * `__sigxAudioEnd:<id>` and `__sigxAudioMeter:<id>`. This module is the
- * thin JS adapter — same shape as `@sigx/lynx-notifications/src/push.ts`.
+ * The native side posts to `GlobalEventEmitter` on per-id channels. The
+ * subscription itself is core's `subscribeNative`: this package used to carry
+ * its own copy of that shim — one of sixteen in the repo — each independently
+ * re-deriving the emitter lookup, the string-or-object payload parse, the
+ * listener-throws guard and the off-device fallback. See CONVENTIONS.md C7.
+ *
+ * Adopting it also makes the returned disposer idempotent, which is what fixes
+ * the metering reference-count bug in `handles.ts`.
  */
+import { subscribeNative } from '@sigx/lynx-core';
 
-interface GlobalEventEmitterLike {
-    addListener: (name: string, fn: (...a: unknown[]) => void) => void;
-    removeListener: (name: string, fn: (...a: unknown[]) => void) => void;
-}
-
-interface LynxLike {
-    getJSModule?: (name: string) => GlobalEventEmitterLike | undefined;
-}
-
-declare const lynx: unknown | undefined;
-
-function emitter(): GlobalEventEmitterLike | undefined {
-    if (typeof lynx === 'undefined') return undefined;
-    const obj = lynx as unknown as LynxLike;
-    return obj.getJSModule?.('GlobalEventEmitter');
-}
-
-function safeParse(s: string): unknown {
-    try { return JSON.parse(s); } catch { return undefined; }
-}
-
+/** Subscribe to a per-id audio channel. Returns an idempotent unsubscribe. */
 export function subscribe<T>(channel: string, cb: (event: T) => void): () => void {
-    const e = emitter();
-    if (!e) return () => {};
-    const wrapped = (raw: unknown) => {
-        // `raw === undefined` here would mean the native side delivered an
-        // empty payload or a string we couldn't JSON.parse — neither is a
-        // real event. Drop it instead of forwarding `undefined` to the
-        // listener: handlers like `onEnd` would otherwise fire spuriously,
-        // and typed `onMeter` callbacks would see a value that violates the
-        // declared signature. Mirrors the notifications shim
-        // (`packages/lynx-notifications/src/push.ts:64-72`).
-        const event = (typeof raw === 'string' ? safeParse(raw) : raw) as T | undefined;
-        if (event === undefined) return;
-        try {
-            cb(event);
-        } catch (err) {
-            console.warn(`[lynx-audio] listener for ${channel} threw:`, err);
-        }
-    };
-    e.addListener(channel, wrapped);
-    return () => e.removeListener(channel, wrapped);
+    return subscribeNative<T>(channel, cb, { namespace: 'lynx-audio' });
 }
 
 export const PLAYER_END_CHANNEL = (id: number) => `__sigxAudioEnd:${id}`;

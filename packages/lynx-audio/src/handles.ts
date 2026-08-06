@@ -1,7 +1,8 @@
-import { callAsync } from '@sigx/lynx-core';
+import { callAsync, SigxError, unwrapNative, unwrapNativeVoid } from '@sigx/lynx-core';
 import { PLAYER_END_CHANNEL, RECORDER_METER_CHANNEL, subscribe } from './events.js';
 
 const MODULE = 'Audio';
+const PKG = 'lynx-audio';
 
 export interface PlayerStatus {
     /** Current playback position in milliseconds. */
@@ -54,23 +55,54 @@ export interface RecordingHandle {
     onMeter(cb: (m: MeterSample) => void): () => void;
 }
 
-function unwrapVoid(result: { error?: string } | undefined): void {
-    if (result && typeof result === 'object' && 'error' in result && result.error) {
-        throw new Error(`[lynx-audio] ${result.error}`);
-    }
-}
+/**
+ * Unwrap a void native reply for `action`.
+ *
+ * The method name stays a literal at every `callAsync` site rather than being
+ * threaded through a helper: `scripts/check-module-manifests.mjs` cross-checks
+ * JS call sites against the manifest, Swift and Kotlin, and it can only see
+ * literals. A tidier `voidCall(action, …)` wrapper hid all nine names and made
+ * the gate report them as declared-but-uncalled — the drift it exists to catch.
+ */
+const voidReply = (action: string) => (r: { error?: string } | undefined) =>
+    unwrapNativeVoid(PKG, action, r);
 
 export function makeAudioHandle(id: number): AudioHandle {
     return {
         get id() { return id; },
-        pause: () => callAsync<{ error?: string }>(MODULE, 'pausePlayer', id).then(unwrapVoid),
-        resume: () => callAsync<{ error?: string }>(MODULE, 'resumePlayer', id).then(unwrapVoid),
-        stop: () => callAsync<{ error?: string }>(MODULE, 'stopPlayer', id).then(unwrapVoid),
+        pause: () =>
+            callAsync<{ error?: string }>(MODULE, 'pausePlayer', id).then(voidReply('pausePlayer')),
+        resume: () =>
+            callAsync<{ error?: string }>(MODULE, 'resumePlayer', id).then(voidReply('resumePlayer')),
+        stop: () =>
+            callAsync<{ error?: string }>(MODULE, 'stopPlayer', id).then(voidReply('stopPlayer')),
         seek: (seconds: number) =>
-            callAsync<{ error?: string }>(MODULE, 'seekPlayer', id, seconds).then(unwrapVoid),
+            callAsync<{ error?: string }>(MODULE, 'seekPlayer', id, seconds).then(
+                voidReply('seekPlayer'),
+            ),
         setVolume: (volume: number) =>
-            callAsync<{ error?: string }>(MODULE, 'setPlayerVolume', id, volume).then(unwrapVoid),
-        getStatus: () => callAsync<PlayerStatus>(MODULE, 'getPlayerStatus', id),
+            callAsync<{ error?: string }>(MODULE, 'setPlayerVolume', id, volume).then(
+                voidReply('setPlayerVolume'),
+            ),
+        getStatus: async () => {
+            const r = unwrapNative(
+                PKG,
+                'getPlayerStatus',
+                await callAsync<Partial<PlayerStatus> & { error?: string }>(
+                    MODULE,
+                    'getPlayerStatus',
+                    id,
+                ),
+            );
+            // Normalize rather than assert: `callAsync<PlayerStatus>` only
+            // declared the shape, so a malformed payload used to reach callers
+            // as a PlayerStatus with `undefined` numbers in it.
+            return {
+                positionMs: typeof r?.positionMs === 'number' ? r.positionMs : 0,
+                durationMs: typeof r?.durationMs === 'number' ? r.durationMs : 0,
+                playing: r?.playing === true,
+            };
+        },
         onEnd: (cb: () => void) => subscribe<unknown>(PLAYER_END_CHANNEL(id), () => cb()),
     };
 }
@@ -79,18 +111,41 @@ export function makeRecordingHandle(id: number): RecordingHandle {
     let meterListeners = 0;
     return {
         get id() { return id; },
-        pause: () => callAsync<{ error?: string }>(MODULE, 'pauseRecording', id).then(unwrapVoid),
-        resume: () => callAsync<{ error?: string }>(MODULE, 'resumeRecording', id).then(unwrapVoid),
+        pause: () =>
+            callAsync<{ error?: string }>(MODULE, 'pauseRecording', id).then(
+                voidReply('pauseRecording'),
+            ),
+        resume: () =>
+            callAsync<{ error?: string }>(MODULE, 'resumeRecording', id).then(
+                voidReply('resumeRecording'),
+            ),
         stop: async () => {
-            const r = await callAsync<RecordingResult & { error?: string }>(
-                MODULE,
+            const r = unwrapNative(
+                PKG,
                 'stopRecording',
-                id,
+                await callAsync<Partial<RecordingResult> & { error?: string }>(
+                    MODULE,
+                    'stopRecording',
+                    id,
+                ),
             );
-            if (r && (r as { error?: string }).error) {
-                throw new Error(`[lynx-audio] ${(r as { error: string }).error}`);
+            if (typeof r?.uri !== 'string') {
+                // Previously this read `r.uri` straight off a payload only
+                // checked for `.error`, so a malformed or absent result
+                // surfaced as a TypeError on `undefined` instead of saying
+                // what went wrong.
+                throw new SigxError(
+                    PKG,
+                    'malformed_result',
+                    `[@sigx/${PKG}] stopRecording returned no file URI`,
+                    { cause: r },
+                );
             }
-            return { uri: r.uri, durationMs: r.durationMs, sizeBytes: r.sizeBytes };
+            return {
+                uri: r.uri,
+                durationMs: typeof r.durationMs === 'number' ? r.durationMs : 0,
+                sizeBytes: typeof r.sizeBytes === 'number' ? r.sizeBytes : 0,
+            };
         },
         onMeter: (cb: (m: MeterSample) => void) => {
             const unsub = subscribe<MeterSample>(RECORDER_METER_CHANNEL(id), (e) => {
@@ -100,8 +155,16 @@ export function makeRecordingHandle(id: number): RecordingHandle {
             if (meterListeners === 1) {
                 void callAsync(MODULE, 'setMeterSubscribed', id, true);
             }
+            // Each disposer decrements at most once (C7). Without this guard,
+            // calling one listener's disposer twice — an ordinary double
+            // effect-cleanup — drove the shared count to zero and switched
+            // native metering off while other listeners were still subscribed,
+            // silently starving them of samples.
+            let released = false;
             return () => {
-                meterListeners = Math.max(0, meterListeners - 1);
+                if (released) return;
+                released = true;
+                meterListeners -= 1;
                 if (meterListeners === 0) {
                     void callAsync(MODULE, 'setMeterSubscribed', id, false);
                 }
