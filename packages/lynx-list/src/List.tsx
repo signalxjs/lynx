@@ -15,6 +15,7 @@ import {
   useScrollDragHost,
   Gesture,
   useGestureDetector,
+  Platform,
   type MainThread,
 } from '@sigx/lynx';
 import type { ListProps } from './types.js';
@@ -796,9 +797,21 @@ const ListImpl = component<ListProps>(({ props, slots, emit }) => {
           || props.itemsKey !== undefined
           ? listRef
           : props.mtRef}
-        {...(insetOptIn
-          // Opt into the native sigx-list subclass (setBottomInset) — the
-          // platform node resolves its tag at creation, hence mount-constant.
+        {...(insetOptIn && Platform.OS === 'ios'
+          // iOS: opt into the `sigx-list` subclass that adds setBottomInset.
+          // `LynxUICollection` is what `<list>` already resolves to there, so
+          // naming a custom tag adds the inset without changing which list
+          // implementation backs the element. The platform node resolves its
+          // tag at creation, hence the prop's presence is mount-constant.
+          //
+          // Android deliberately does NOT set this (#930). There the resolved
+          // tag name also selects the *C++* list implementation — only
+          // `list-container` reaches the modern one — so a custom tag would
+          // silently downgrade the element to the legacy RecyclerView list,
+          // whose instant bottom-aligned scroll lands short. Android gets
+          // `setBottomInset` by registering `SigxListUI` as the app's
+          // `list-container` instead (see `SigxListBehavior.kt`), which needs
+          // no attribute at all.
           ? { 'custom-list-name': 'sigx-list' }
           : {})}
         // Spread optional attrs only when set — an `undefined` prop is
