@@ -32,11 +32,20 @@ function seedEnvelope(wvid: number, value: unknown): { current: { value: unknown
   return ref;
 }
 
-/** Seed an element ref the way `main-thread:ref` binding does: the wrapper
- * carries the raw element under `_el`, which the method flush unwraps. */
+/** Seed an element ref the way the WEB / worklet-refs path does: our own
+ * `MTElementWrapper`, which carries the raw element under `_el`. */
 function seedElementRef(wvid: number): { rawEl: { id: number } } {
   const rawEl = { id: wvid };
   refMap()[wvid] = { current: { _el: rawEl } };
+  return { rawEl };
+}
+
+/** Seed an element ref the way NATIVE does: `bindMtRef` hands the element to
+ * upstream's `updateWorkletRef`, which wraps it in `@lynx-js/react`'s own
+ * `Element` — whose handle is `element`, not `_el` (#930). */
+function seedUpstreamElementRef(wvid: number): { rawEl: { id: number } } {
+  const rawEl = { id: wvid };
+  refMap()[wvid] = { current: { element: rawEl } };
   return { rawEl };
 }
 
@@ -72,6 +81,22 @@ describe('animated method bindings (#844)', () => {
       OP.REGISTER_AV_METHOD_BINDING, 100, 2, 1, 'setBottomInset', 'inset', { pin: true },
     ]);
     // applyOps' tail already ran flushAnimatedMethodBindings (first-apply).
+    expect(invokeUIMethod).toHaveBeenCalledTimes(1);
+    expect(invokeUIMethod).toHaveBeenCalledWith(
+      rawEl, 'setBottomInset', { pin: true, inset: 12 }, expect.any(Function),
+    );
+  });
+
+  it("resolves upstream's Element wrapper, whose handle is `element` (#930)", () => {
+    // The native path binds `main-thread:ref` to @lynx-js/react's own Element,
+    // not our MTElementWrapper. Reading only `_el` missed EVERY native binding,
+    // so `setBottomInset` was never invoked on device while the same code
+    // worked on web — see upstream-invoke-patch.ts for the sibling trap.
+    seedEnvelope(1, 12);
+    const { rawEl } = seedUpstreamElementRef(2);
+    applyOps([
+      OP.REGISTER_AV_METHOD_BINDING, 100, 2, 1, 'setBottomInset', 'inset', { pin: true },
+    ]);
     expect(invokeUIMethod).toHaveBeenCalledTimes(1);
     expect(invokeUIMethod).toHaveBeenCalledWith(
       rawEl, 'setBottomInset', { pin: true, inset: 12 }, expect.any(Function),

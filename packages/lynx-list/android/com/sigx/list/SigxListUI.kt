@@ -125,6 +125,7 @@ class SigxListUI : UIListContainer {
     @LynxUIMethod
     fun setBottomInset(params: ReadableMap?, callback: Callback?) {
         val v = container
+        if (DEBUG) Log.d(TAG, "setBottomInset ENTER params=$params container=${v != null}")
         if (v == null) {
             callback?.invoke(LynxUIMethodConstants.UNKNOWN)
             return

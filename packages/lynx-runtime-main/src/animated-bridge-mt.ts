@@ -379,8 +379,23 @@ export function animatedMethodBindingCount(): number {
   return animatedMethodBindings.size;
 }
 
+/**
+ * The two wrapper shapes a `main-thread:ref` can hold, both of which carry the
+ * raw platform element we need for `__InvokeUIMethod`.
+ *
+ * On **web / worklet-refs** it is our own `MTElementWrapper`, which stores it
+ * as `_el`. On **native** `bindMtRef` hands the element to upstream's
+ * `updateWorkletRef`, which wraps it in `@lynx-js/react`'s own `Element` —
+ * whose handle is called `element` (see `upstream-invoke-patch.ts`, which
+ * patches that class for the same reason). Reading only `_el` therefore missed
+ * every native binding and the method was never invoked (#930) — the same
+ * our-wrapper-vs-upstream-Element trap as #863.
+ */
 interface ElementWithRaw {
+  /** Our `MTElementWrapper` (web / worklet-refs path). */
   _el?: unknown;
+  /** Upstream `@lynx-js/react` `Element` (native `main-thread:ref` path). */
+  element?: unknown;
 }
 
 /**
@@ -421,7 +436,7 @@ export function flushAnimatedMethodBindings(): void {
     // Resolve the element: prefer the worklet-ref wrapper's raw element
     // (`main-thread:ref` path), fall back to the shared element registry.
     const wrapped = refMap[binding.elementWvid]?.current as ElementWithRaw | null | undefined;
-    const el = wrapped?._el ?? resolveElementByWvid(binding.elementWvid);
+    const el = wrapped?._el ?? wrapped?.element ?? resolveElementByWvid(binding.elementWvid);
     if (!el) continue; // stay dirty — apply on a later flush once mounted
 
     const params: Record<string, unknown> = { ...(binding.params as Record<string, unknown> | null) };
