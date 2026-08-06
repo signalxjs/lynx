@@ -1,0 +1,117 @@
+name: Feature request
+description: Propose a new capability, or a gap versus a platform/ecosystem peer.
+title: "[feat] "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        New or changed public API must fit the module contract in
+        [`CONVENTIONS.md`](../../CONVENTIONS.md) (C1–C12) — naming, async and error
+        shape, permissions, events. Worth a skim before proposing an API.
+
+  - type: dropdown
+    id: packages
+    attributes:
+      label: Which package(s) would this affect?
+      multiple: true
+      options:
+        - "@sigx/lynx"
+        - "@sigx/lynx-appearance"
+        - "@sigx/lynx-audio"
+        - "@sigx/lynx-background"
+        - "@sigx/lynx-biometric"
+        - "@sigx/lynx-camera"
+        - "@sigx/lynx-cli"
+        - "@sigx/lynx-clipboard"
+        - "@sigx/lynx-core"
+        - "@sigx/lynx-daisyui"
+        - "@sigx/lynx-datetime-picker"
+        - "@sigx/lynx-dev-client"
+        - "@sigx/lynx-emoji"
+        - "@sigx/lynx-file-picker"
+        - "@sigx/lynx-file-system"
+        - "@sigx/lynx-gestures"
+        - "@sigx/lynx-haptics"
+        - "@sigx/lynx-heroui"
+        - "@sigx/lynx-http"
+        - "@sigx/lynx-icons"
+        - "@sigx/lynx-icons-fa-free"
+        - "@sigx/lynx-icons-lucide"
+        - "@sigx/lynx-image-picker"
+        - "@sigx/lynx-keyboard"
+        - "@sigx/lynx-linking"
+        - "@sigx/lynx-list"
+        - "@sigx/lynx-location"
+        - "@sigx/lynx-maps"
+        - "@sigx/lynx-markdown"
+        - "@sigx/lynx-motion"
+        - "@sigx/lynx-navigation"
+        - "@sigx/lynx-network"
+        - "@sigx/lynx-notifications"
+        - "@sigx/lynx-observability"
+        - "@sigx/lynx-permissions"
+        - "@sigx/lynx-plugin"
+        - "@sigx/lynx-richtext"
+        - "@sigx/lynx-runtime"
+        - "@sigx/lynx-runtime-internal"
+        - "@sigx/lynx-runtime-main"
+        - "@sigx/lynx-safe-area"
+        - "@sigx/lynx-secure-storage"
+        - "@sigx/lynx-share"
+        - "@sigx/lynx-sheet"
+        - "@sigx/lynx-sqlite"
+        - "@sigx/lynx-storage"
+        - "@sigx/lynx-testing"
+        - "@sigx/lynx-updates"
+        - "@sigx/lynx-updates-publisher"
+        - "@sigx/lynx-updates-ui"
+        - "@sigx/lynx-video"
+        - "@sigx/lynx-web-host"
+        - "@sigx/lynx-webauth"
+        - "@sigx/lynx-webrtc"
+        - "@sigx/lynx-websocket"
+        - "@sigx/lynx-webview"
+        - "@sigx/lynx-zero"
+        - New package
+        - Not sure / multiple
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What can't you do today, and what are you doing instead?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed API
+      description: Sketch the call site. Follow the C1–C12 conventions where they apply.
+      render: ts
+    validations:
+      required: false
+
+  - type: input
+    id: prior-art
+    attributes:
+      label: Prior art
+      description: The equivalent in expo-*, React Native, or a web standard — with a link.
+      placeholder: "expo-location's watchPositionAsync"
+    validations:
+      required: false
+
+  - type: dropdown
+    id: platforms
+    attributes:
+      label: Platform(s) this needs to work on
+      multiple: true
+      options:
+        - iOS
+        - Android
+        - Web
+    validations:
+      required: true

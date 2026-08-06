@@ -1,0 +1,128 @@
+name: Bug report
+description: Something in SignalX for Lynx doesn't work as documented.
+title: "[bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for filing. Please include enough detail that someone can reproduce
+        this without asking you follow-up questions.
+
+  - type: dropdown
+    id: packages
+    attributes:
+      label: Affected package(s)
+      multiple: true
+      options:
+        - "@sigx/lynx"
+        - "@sigx/lynx-appearance"
+        - "@sigx/lynx-audio"
+        - "@sigx/lynx-background"
+        - "@sigx/lynx-biometric"
+        - "@sigx/lynx-camera"
+        - "@sigx/lynx-cli"
+        - "@sigx/lynx-clipboard"
+        - "@sigx/lynx-core"
+        - "@sigx/lynx-daisyui"
+        - "@sigx/lynx-datetime-picker"
+        - "@sigx/lynx-dev-client"
+        - "@sigx/lynx-emoji"
+        - "@sigx/lynx-file-picker"
+        - "@sigx/lynx-file-system"
+        - "@sigx/lynx-gestures"
+        - "@sigx/lynx-haptics"
+        - "@sigx/lynx-heroui"
+        - "@sigx/lynx-http"
+        - "@sigx/lynx-icons"
+        - "@sigx/lynx-icons-fa-free"
+        - "@sigx/lynx-icons-lucide"
+        - "@sigx/lynx-image-picker"
+        - "@sigx/lynx-keyboard"
+        - "@sigx/lynx-linking"
+        - "@sigx/lynx-list"
+        - "@sigx/lynx-location"
+        - "@sigx/lynx-maps"
+        - "@sigx/lynx-markdown"
+        - "@sigx/lynx-motion"
+        - "@sigx/lynx-navigation"
+        - "@sigx/lynx-network"
+        - "@sigx/lynx-notifications"
+        - "@sigx/lynx-observability"
+        - "@sigx/lynx-permissions"
+        - "@sigx/lynx-plugin"
+        - "@sigx/lynx-richtext"
+        - "@sigx/lynx-runtime"
+        - "@sigx/lynx-runtime-internal"
+        - "@sigx/lynx-runtime-main"
+        - "@sigx/lynx-safe-area"
+        - "@sigx/lynx-secure-storage"
+        - "@sigx/lynx-share"
+        - "@sigx/lynx-sheet"
+        - "@sigx/lynx-sqlite"
+        - "@sigx/lynx-storage"
+        - "@sigx/lynx-testing"
+        - "@sigx/lynx-updates"
+        - "@sigx/lynx-updates-publisher"
+        - "@sigx/lynx-updates-ui"
+        - "@sigx/lynx-video"
+        - "@sigx/lynx-web-host"
+        - "@sigx/lynx-webauth"
+        - "@sigx/lynx-webrtc"
+        - "@sigx/lynx-websocket"
+        - "@sigx/lynx-webview"
+        - "@sigx/lynx-zero"
+        - Not sure / multiple
+    validations:
+      required: true
+
+  - type: dropdown
+    id: platforms
+    attributes:
+      label: Platform(s)
+      multiple: true
+      options:
+        - iOS (device)
+        - iOS (simulator)
+        - Android (device)
+        - Android (emulator)
+        - Web
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: The `@sigx/lynx-*` version you're on (they're lockstep, so one number).
+      placeholder: "0.26.0"
+    validations:
+      required: true
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you expected, and what you got instead.
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Reproduction
+      description: |
+        Minimal steps or a code snippet. If it reproduces in `examples/showcase`,
+        say which screen — that's the fastest possible repro for us.
+      render: tsx
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / stack trace
+      description: Output from `sigx dev`, Xcode, or `adb logcat`. Paste as text, not a screenshot.
+      render: shell
+    validations:
+      required: false

@@ -23,10 +23,16 @@ see "Adopting this setup in another sigx repo" at the bottom.
 SignalX for Lynx is a pnpm monorepo (ESM, `"type": "module"`) bringing sigx to
 the Lynx mobile runtime — dual-thread rendering (background JS thread + main UI
 thread), a CLI/build plugin, gestures, motion, navigation, UI components and
-30+ native modules. 40+ workspace packages under `packages/`, published to npm
+30+ native modules. 57 workspace packages under `packages/`, published to npm
 under the `@sigx` scope as `@sigx/lynx-*`, all **lockstep-versioned** (every
 publishable package shares one version). Tech stack: TypeScript (strict),
 tsgo, Vitest, oxlint.
+
+**This file is the workflow guide. [`CONVENTIONS.md`](./CONVENTIONS.md) is the
+product contract** — the API conventions every `@sigx/lynx-*` package follows,
+the rubric module reviews are graded against, and the protocol for driving a
+review issue to completion. Read it before adding or changing a module's
+public API.
 
 ## Development workflow (issue → PR → Copilot review → merge)
 
@@ -159,9 +165,10 @@ surfaces, two rules:
 
 | When you… | Update… |
 |---|---|
-| add / rename / remove a package | `AGENTS.md` "Packages" and the README package table — plus, **whichever of these the repo has**: `CONTRIBUTING.md` layout, the issue-template package dropdowns, `.size-limit.json`, and the `tsconfig` / `vitest` path aliases |
+| add / rename / remove a package | `AGENTS.md` "Packages", the package dropdowns in `.github/ISSUE_TEMPLATE/`, and the root `tsconfig.json` path aliases — plus `CONTRIBUTING.md` layout and `.size-limit.json` if the repo has them. (The root `README.md` no longer carries package tables; they live on the docs site — see #363.) |
 | change a build / test / lint script | `AGENTS.md` "Build, Test, Lint", `CONTRIBUTING.md` "Common tasks", `package.json` |
-| change or add public API / behavior | the package's own `README.md` and `CHANGELOG.md` under `[Unreleased]` |
+| change or add public API / behavior | the package's own `README.md`, and the **root** `CHANGELOG.md` under `[Unreleased]` — packages are lockstep-versioned and share one changelog; there are no per-package `CHANGELOG.md` files |
+| change a module's API shape | `CONVENTIONS.md` if the change touches a convention (C1–C12) — see "Module conventions" below |
 | change the workflow / process itself | `AGENTS.md` here — and, since it is the shared standard, upstream the same change to [`signalxjs/repo-template`](https://github.com/signalxjs/repo-template) |
 
 **The docs *site* is separate — don't edit it from here.** User-facing changes
@@ -197,13 +204,18 @@ the queue, in two moments:
 - **Plan first for non-trivial work.** Both Claude Code and Copilot CLI have a built-in plan mode; use it and let the CLI manage the plan file.
 - **Verify before declaring done.** Run typecheck/tests for code changes; show evidence the change works.
 - **Minimal, surgical edits.** Don't refactor unrelated code. Don't add backward-compat shims for things that never shipped.
+- **Follow the module conventions.** `CONVENTIONS.md` is the product contract for
+  every `@sigx/lynx-*` package: how exports are named, how async results and
+  errors are shaped, how permissions, events and subscriptions work, and the
+  README template. Read it before adding or changing a module's public API. It
+  also carries the module-review rubric and the protocol for driving a review
+  issue to completion.
 - **READMEs stay in sync — same PR, not later.** Any user-facing change to a
   package (new API, changed behavior, renamed export, new install step) must be
-  reflected in that package's `README.md` in the same PR. A **new package**
-  must also be added to the package tables in the **root `README.md`** — the
-  showcase of what the framework offers — in the PR that introduces it (pick
-  the right section: Framework / Runtime / Native modules / Dev tooling /
-  UI & routing / Gestures & motion).
+  reflected in that package's `README.md` in the same PR, following the
+  `CONVENTIONS.md` C11 template. A **new package** is listed on the docs site
+  (via a docs-repo issue, see "Documentation") and added to the "Packages"
+  section here — the root `README.md` no longer carries package tables.
 - **Cross-platform paths**: Contributors and CI run on Windows, macOS and Linux — use the path separator and shell syntax of the environment you're in, and prefer Node scripts over shell one-liners for anything committed to the repo.
 - **Git hygiene**: Stage specific files (`git add <path>`), never `git add -A` / `git add .`. Run `pnpm typecheck` before any commit touching `.ts`. Do **not** add co-author trailers to commits (e.g. `Co-Authored-By: Claude …` / `Co-authored-by: Copilot …`).
 
