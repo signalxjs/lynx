@@ -25,9 +25,21 @@ const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 // --- args -------------------------------------------------------------------
 
 const argv = process.argv.slice(2);
+/**
+ * Read a value-bearing flag, refusing a missing or flag-shaped value.
+ *
+ * This script creates GitHub issues, so a silently-undefined `--only` would
+ * widen the run from two packages to all 53 — fail fast instead.
+ */
 const flag = (name) => {
     const i = argv.indexOf(`--${name}`);
-    return i === -1 ? undefined : argv[i + 1];
+    if (i === -1) return undefined;
+    const value = argv[i + 1];
+    if (value === undefined || value.startsWith('--')) {
+        console.error(`--${name} needs a value.`);
+        process.exit(2);
+    }
+    return value;
 };
 const has = (name) => argv.includes(`--${name}`);
 

@@ -64,6 +64,14 @@ describe('metadata', () => {
         }
     });
 
+    it('never both folds a package and gives it metadata', () => {
+        // buildUnits treats a directory as classified if it is in either map,
+        // so an overlap would silently carry contradictory config: metadata
+        // for a package that never becomes a unit.
+        const overlap = Object.keys(FOLD).filter((name) => name in META);
+        expect(overlap).toEqual([]);
+    });
+
     it('has no META entry for a package that no longer exists', () => {
         const known = new Set(packageDirs);
         for (const name of Object.keys(META)) {
