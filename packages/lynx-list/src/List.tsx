@@ -10,6 +10,7 @@ import {
   useSharedValue,
   useAnimatedStyle,
   useAnimatedMethod,
+  useDerivedValueReactive,
   runOnBackground,
   runOnMainThread,
   useScrollDragHost,
@@ -57,6 +58,11 @@ const DEFAULT_SCROLL_THROTTLE = 100;
 // the engine's dispatch limiter (#606) the fallback ladder is 16 → 33 → 100.
 // A consumer-passed `scrollEventThrottle` still wins.
 const ADOPTED_SCROLL_THROTTLE = 16;
+
+// How long the bottom inset must hold still before the spacer cell commits to
+// it (#930). A height change is layout; per-frame layout floods the engine's
+// dispatch limiter. Motion is carried by a transform in the meantime.
+const INSET_SETTLE_MS = 120;
 
 type ScrollDetail = { detail?: { scrollTop?: number; scrollLeft?: number } };
 
@@ -581,30 +587,64 @@ const ListImpl = component<ListProps>(({ props, slots, emit }) => {
   const insetSpacerEnabled = insetOptIn && Platform.OS !== 'ios';
 
   /**
-   * Height comes from the live inset. `bottomInset` may be a `SharedValue`,
-   * which lives on the main thread, but the AV bridge publishes every
-   * registered SV to a BG mirror, so `sv.value` is readable and reactive here.
+   * Space vs. motion are split, because on this list they cannot come from the
+   * same mechanism (#930).
+   *
+   * **Space** is the spacer's height, and it commits only when the inset
+   * SETTLES. A height is layout: every change relayouts the list, which fires
+   * `layoutcomplete` to BG, which runs the chat re-pin, which scrolls, which
+   * relayouts again. Driven per frame that loop outruns the engine's dispatch
+   * limiter and the app red-boxes with error 204 ("DispatchEvent called too
+   * frequently", the #606 limiter). Once per gesture it is free.
+   *
+   * **Motion** is a main-thread `translateY` of `-(live - settled)` on the
+   * list. A transform is not layout: no relayout, no `layoutcomplete`, no page
+   * events at all — so the thread tracks the occluder frame-by-frame without
+   * touching the limiter. At rest the two agree and the transform is exactly 0.
+   *
+   * They stay consistent because the settled height and the main thread's copy
+   * of it are written in the SAME tick, so the render and the SV write ride one
+   * op batch and land on one frame — the transform releases as the spacer grows.
    */
-  const insetSpacerRef = useMainThreadRef<MainThread.Element | null>(null);
+  const negSettledSV = useSharedValue(0);
+  const insetSettled = signal(0);
   if (insetSpacerEnabled) {
-    // Height is written on the MAIN THREAD, never from a render. Reading the
-    // inset in `render()` would re-run the whole List — every windowed cell —
-    // on every bridge publish, i.e. ~60x/s through a drag; that JS cost, not
-    // the native relayout, is what made the thread stutter. As an animated
-    // style the height rides the same per-frame path as any other MT-driven
-    // value: no BG work, no re-render, no thread hop.
-    //
-    // Reactive because the SV identity is not mount-constant: a consumer may
-    // pass a number for the first frames and hand over a producer's SV later
-    // (the composer's `occluderSV.sv ?? floorH`), which rebinds here.
-    useAnimatedStyle(insetSpacerRef, () => {
+    const writeNegSettledMT = runOnMainThread((v: number) => {
+      'main thread';
+      negSettledSV.current.value = v;
+    });
+    const commit = (v: number): void => {
+      insetSettled.value = v;
+      void writeNegSettledMT(-v);
+    };
+    let settleTimer: ReturnType<typeof setTimeout> | null = null;
+    effect(() => {
+      const bi = props.bottomInset;
+      const raw = typeof bi === 'object' && bi !== null ? bi.value : bi;
+      const v = typeof raw === 'number' && raw > 0 ? Math.round(raw) : 0;
+      if (v === insetSettled.value) return;
+      // First value commits immediately — that one is the mount-time inset,
+      // and first paint clearing the occluder is the whole point.
+      if (insetSettled.value === 0) { commit(v); return; }
+      if (settleTimer !== null) clearTimeout(settleTimer);
+      settleTimer = setTimeout(() => { settleTimer = null; commit(v); }, INSET_SETTLE_MS);
+    });
+    onUnmounted(() => { if (settleTimer !== null) clearTimeout(settleTimer); });
+
+    // Reactive sources: the live SV identity is not mount-constant — a consumer
+    // may pass a number for the first frames and hand over a producer's SV
+    // later (the composer's `occluderSV.sv ?? floorH`). The derived SV's own
+    // identity is stable, so the style binding below never rebinds.
+    const insetDeltaSV = useDerivedValueReactive(() => {
       const bi = props.bottomInset;
       return {
-        sv: typeof bi === 'object' && bi !== null ? bi : internalInsetSV,
-        mapperName: 'height' as const,
+        sources: [typeof bi === 'object' && bi !== null ? bi : internalInsetSV, negSettledSV],
+        reducer: 'sum' as const,
       };
     });
+    useAnimatedStyle(listRef, insetDeltaSV, 'translateY', { factor: -1 });
   }
+  const insetSpacerHeight = (): number => insetSettled.value;
 
   // Total rendered cells = header + rendered items + trailing(footer/loading)
   // + the inset spacer. The last cell index is the scroll-to-bottom target.
@@ -848,7 +888,7 @@ const ListImpl = component<ListProps>(({ props, slots, emit }) => {
     // message sitting exactly `inset` above it.
     const insetSpacer = insetSpacerEnabled ? (
       <list-item item-key={INSET_KEY} item-type="__inset" full-span key={INSET_KEY}>
-        <view main-thread:ref={insetSpacerRef} style={{ height: '0px' }} />
+        <view style={{ height: `${insetSpacerHeight()}px` }} />
       </list-item>
     ) : null;
 
