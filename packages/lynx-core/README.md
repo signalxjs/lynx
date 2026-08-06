@@ -166,6 +166,71 @@ dp→physical-px multiplier — physical pixels ≈ `Math.round(screenWidth * sc
 > `deviceId` is a per-vendor stable UUID on iOS (`identifierForVendor`) but
 > `Build.ID` — a build identifier, not a stable device id — on Android.
 
+## Screen metrics & orientation
+
+`Platform.pixelWidth` / `pixelHeight` describe the **device** and are read once
+at module load. For anything that feeds layout, use `useScreen()` — it follows
+rotation, split-screen and foldable unfold, fed by core's native
+`ScreenMetricsPublisher`.
+
+```tsx
+import { useScreen, useOrientation, useScreenMT } from '@sigx/lynx';
+
+const screen = useScreen();          // Computed<ScreenMetrics>, BG-reactive
+// screen.value → { width, height, scale, orientation, isLandscape }
+//   width/height are logical (dp on Android, pt on iOS)
+//   orientation is 'portrait' | 'portrait-upside-down'
+//                | 'landscape-left' | 'landscape-right'
+
+const orientation = useOrientation(); // Computed<'portrait' | 'landscape'>
+
+const onTap = () => {
+    'main thread';
+    const { height } = useScreenMT();  // sync read, worklet-safe
+};
+```
+
+`readGlobalScreen()` is the raw synchronous read (`ScreenMetrics | null`). It
+works on **both** threads — `lynx.SystemInfo` is empty on the background thread,
+`__globalProps` is not — which makes it the BG-safe screen-size accessor.
+
+### Runtime orientation lock
+
+```ts
+import { Orientation, useOrientationLock } from '@sigx/lynx';
+
+await Orientation.lock('landscape');   // 'portrait' | 'landscape' | 'landscape-left' | …
+await Orientation.unlock();            // back to the configured set
+
+useOrientationLock('landscape');       // locks on mount, restores on unmount
+```
+
+`'default'` means "no runtime lock" — `lock('default')` is an alias for
+`unlock()` on every platform. `useOrientationLock` keeps a **stack** of holders,
+because `@sigx/lynx-navigation` leaves a covered screen mounted under a card,
+modal or sheet: popping the covering screen restores the covered one's lock
+rather than falling through to the build-time default, and the runtime lock is
+only released once the last holder unmounts.
+
+**The build-time config is the ceiling.** `signalx.config.ts`'s `orientation`
+(default `'portrait'`) is written into `android:screenOrientation` and iOS's
+`UISupportedInterfaceOrientations`; the OS won't rotate outside it. Requesting
+an orientation the app didn't declare **rejects** with a message naming the
+config change — set `orientation: 'default'` or `'all'` and re-run
+`sigx prebuild`. The rejection is a `SigxError` with `code: 'native_error'`, so
+branch on the code rather than the message.
+
+On iOS 15 a lock takes effect at the next physical rotation rather than snapping
+immediately: forcing rotation needs `requestGeometryUpdate` (iOS 16+). Raise
+`ios.deploymentTarget` to `'16.0'` for the immediate flip.
+
+**Web.** `useScreen()` / `useOrientation()` / `readGlobalScreen()` work — the
+`@sigx/lynx-web-host` page bridge publishes the same channels from `resize` and
+`screen.orientation`. `Orientation.lock()` is *degraded*: the Screen Orientation
+API only permits locking while the document is fullscreen and several browsers
+(all of iOS, desktop Safari) don't implement it at all, so `lock()` rejects with
+an explanatory message there. Feature-detect with `Orientation.isAvailable()`.
+
 ## Permissions helpers
 
 For modules that need runtime permissions (camera, location, notifications, …) the package re-exports the shared `PermissionStatus` / `PermissionResponse` types used by `@sigx/lynx-permissions`.
@@ -181,7 +246,11 @@ Besides the JS bridge, the package ships a small shared native runtime that the 
 
   The JS reads live here too (re-exported by `@sigx/lynx` and `@sigx/lynx-appearance`): **`useFontScale()`** — reactive `Computed<number>` of the effective scale (`1` = default; no provider needed); **`useFontScaleMT()`** — sync read for `'main thread'` worklet bodies; **`readGlobalFontScale()`** — sync `{ scale, os }` or `null` when unwired. The engine scales ordinary text automatically — use these to adapt *around* larger text (layout swaps, custom-drawn text like `@sigx/lynx-markdown`'s editor, icon sizing).
 
-The package also registers core's own native module, **`SigxCore`**, which backs `DeviceInfo` (`getDeviceInfo` / `getConstants`).
+- **`ScreenMetricsPublisher`** (both platforms): publishes the live viewport size + interface orientation to `lynx.__globalProps.screen` and the `screenChanged` global event — what `useScreen()` reads. It also keeps the engine in sync: `LynxView.updateScreenMetrics()` re-bases `rpx`, and on iOS it re-pins `preferredLayoutWidth/Height` and calls `updateViewport(…needLayout:)`, without which the exact-mode layout box would stay at its launch size forever. The managed Android manifest declares `configChanges="…|orientation|screenSize|…"` so a rotation is handled in place instead of recreating the Activity and reloading the bundle.
+
+- **`SigxOrientation`** (both platforms): the runtime lock behind `Orientation.lock()`. Android sets `Activity.requestedOrientation` and restores the manifest-declared value on unlock; iOS holds the mask the host AppDelegate's `supportedInterfaceOrientationsFor` returns (its default is stamped from `signalx.config.ts` by `sigx prebuild`, because implementing that delegate method overrides `Info.plist`).
+
+The package also registers core's own native module, **`SigxCore`**, which backs `DeviceInfo` (`getDeviceInfo` / `getConstants`) and the orientation lock (`lockOrientation` / `unlockOrientation`).
 
 Module authors: don't add a per-package Activity holder or top-presenter helper — use these.
 

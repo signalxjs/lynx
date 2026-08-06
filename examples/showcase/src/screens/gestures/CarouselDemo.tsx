@@ -5,6 +5,7 @@ import {
     useMainThreadRef,
     useSharedValue,
     useAnimatedStyle,
+    useScreen,
     type Define,
     type MainThread,
     type SharedValue,
@@ -18,21 +19,21 @@ import {
 import { Haptics } from '@sigx/lynx-haptics';
 import { Card, Col, Heading, ScrollView, Text } from '@sigx/lynx-daisyui';
 
-declare const lynx:
-    | { SystemInfo?: { pixelWidth?: number; pixelRatio?: number } }
-    | undefined;
-
-const PAGE_W = (() => {
-    try {
-        const info = typeof lynx !== 'undefined' ? lynx?.SystemInfo : undefined;
-        const px = info?.pixelWidth;
-        const pr = info?.pixelRatio || 1;
-        // Screen padding is 16 per side.
-        if (typeof px === 'number' && px > 0) return Math.round(px / pr) - 32;
-    } catch { /* fall through */ }
-    return 360;
-})();
 const PAGE_H = 300;
+
+/**
+ * Page width for this mount. Read from the live screen (`useScreen()`) rather
+ * than a module-load `SystemInfo` snapshot, so opening the carousel in
+ * landscape gets landscape-width pages.
+ *
+ * Resolved once per mount, not per frame: the width defines the swiper's page
+ * pitch and every range-mapper input window, all handed to the main thread at
+ * setup. Re-entering the screen after a rotation re-sizes it.
+ */
+function pageWidth(screenW: number): number {
+    // Screen padding is 16 per side.
+    return Math.max(screenW - 32, 240);
+}
 
 interface Slide {
     title: string;
@@ -57,6 +58,7 @@ const SLIDES: Slide[] = [
  * hand-rolled dot row built from the `useSwiperDot*` hooks.
  */
 export const CarouselDemo = component(() => {
+    const PAGE_W = pageWidth(useScreen().value.width);
     const offset = useSharedValue(0);
     const index = signal(0);
 
@@ -160,6 +162,7 @@ type CustomDotsProps =
 
 /** Dot row built straight on the headless hooks — scale pulse + crossfade. */
 const CustomDots = component<CustomDotsProps>(({ props }) => {
+    const PAGE_W = pageWidth(useScreen().value.width);
     const dots = Array.from({ length: props.count }, (_, i) => ({
         scaleRef: useSwiperDotScale({ offset: props.offset, pageWidth: PAGE_W, index: i, active: 1.5 }),
         fadeRef: useSwiperDotProgress({ offset: props.offset, pageWidth: PAGE_W, index: i, outputRange: [0.3, 1, 0.3] }),

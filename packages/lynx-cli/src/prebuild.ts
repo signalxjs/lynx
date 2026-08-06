@@ -36,7 +36,7 @@ import { validateManifest } from './manifest.js';
 import { generateIosIcon, generateAndroidIcons, generateAndroidAdaptiveIcon, generateAndroidNotificationIcon } from './assets/icons.js';
 import { generateIosSplash, generateAndroidSplash } from './assets/splash.js';
 import { applyIosPlistMeta, applyAndroidManifestMeta, applyAndroidGradleMeta } from './assets/manifest.js';
-import type { LynxConfig, PlistValue } from './config/index.js';
+import type { LynxConfig, Orientation, PlistValue } from './config/index.js';
 import type { ResolvedConfig } from './config/parser.js';
 import type { ModuleManifest } from './manifest.js';
 import type { AndroidLinkResult, DevClientInfo } from './autolink/android.js';
@@ -1296,7 +1296,51 @@ function iosTemplateVars(config: ResolvedConfig): Record<string, string> {
         fontScaleFollow: String(config.fontScale.follow),
         fontScaleMin: formatScaleLiteral(config.fontScale.min),
         fontScaleMax: formatScaleLiteral(config.fontScale.max),
+        orientationDefaultMask: iosOrientationMaskLiteral(
+            config.ios.orientation ?? config.orientation,
+            // Same defaults `applyIosPlistMeta` applies.
+            config.ios.supportsTablet ?? true,
+            config.ios.requiresFullScreen ?? false,
+        ),
     };
+}
+
+/** The phone `UIInterfaceOrientationMask` for a configured orientation. */
+function iosPhoneMaskLiteral(orientation: Orientation): string {
+    switch (orientation) {
+        case 'portrait':
+            return '.portrait';
+        case 'landscape':
+            return '.landscape';
+        case 'all':
+            return '.all';
+        case 'default':
+        default:
+            return '.allButUpsideDown';
+    }
+}
+
+/**
+ * The `UIInterfaceOrientationMask` expression the host AppDelegate returns by
+ * default (#856). Implementing `supportedInterfaceOrientationsFor` overrides
+ * Info.plist **entirely**, so this MUST mirror what `applyIosPlistMeta` writes
+ * — including its iPad rule, or a tablet build would be clamped to the phone
+ * mask at runtime no matter what the plist declares.
+ *
+ * That rule: a multitasking-capable iPad app must support all four
+ * orientations (App Store validation), and only `requiresFullScreen` — which
+ * opts out of multitasking — lets the iPad follow the phone lock. When the app
+ * doesn't support tablets at all there's no `~ipad` plist key either, so the
+ * phone mask applies everywhere and no branch is emitted.
+ */
+function iosOrientationMaskLiteral(
+    orientation: Orientation,
+    supportsTablet: boolean,
+    requiresFullScreen: boolean,
+): string {
+    const phone = iosPhoneMaskLiteral(orientation);
+    if (!supportsTablet || requiresFullScreen) return phone;
+    return `(UIDevice.current.userInterfaceIdiom == .pad ? .all : ${phone})`;
 }
 
 /**

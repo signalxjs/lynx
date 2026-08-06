@@ -9,20 +9,26 @@
  * engine's geometry.
  */
 import { resolveDetents, type DetentEnv, type DetentSpec } from '@sigx/lynx-sheet';
-import { SCREEN_HEIGHT } from './screen-width.js';
+import { screenHeight } from './screen-width.js';
 
 /**
  * Environment route detents resolve against. Route sheets are full-screen
  * overlays anchored to the physical screen bottom and declare no keyboard
  * detents today — the env is spelled out (rather than defaulted away) so
  * the insets/keyboard hooks have an obvious place to land later.
+ *
+ * Built per call, not held as a module constant: `screenHeight()` follows
+ * rotation, and a snapshot taken at import time would pin every route sheet
+ * to the launch orientation (#856).
  */
-export const ROUTE_DETENT_ENV: DetentEnv = {
-    screenH: SCREEN_HEIGHT,
-    topOffset: 0,
-    bottomInset: 0,
-    keyboardPx: 0,
-};
+export function routeDetentEnv(): DetentEnv {
+    return {
+        screenH: screenHeight(),
+        topOffset: 0,
+        bottomInset: 0,
+        keyboardPx: 0,
+    };
+}
 
 /**
  * Resolve a screen's declared detents to ascending px heights (default:
@@ -31,7 +37,7 @@ export const ROUTE_DETENT_ENV: DetentEnv = {
 export function resolveRouteDetents(
     specs: readonly DetentSpec[] | undefined,
 ): number[] {
-    return resolveDetents(specs, ROUTE_DETENT_ENV);
+    return resolveDetents(specs, routeDetentEnv());
 }
 
 /** Resolve the initial rest reveal (px) from config (default: most open). */

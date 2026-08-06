@@ -75,6 +75,8 @@ Animated transitions **pre-stage** the work they'd otherwise compete with: a pus
 
 `push(name, params, search, { animated: false })` **presents a sheet AT its initial detent instantly** — no slide. Use it to reveal a sheet by some *other* motion: e.g. open an emoji sheet behind the soft keyboard, then blur the input so the keyboard's own dismissal uncovers the sheet (the app animates nothing). `useSheetHeight` reads the detent height from the first frame, so a bar bound to `max(keyboardLift, sheetHeight)` never dips at the swap. A non-animated dismiss (`pop(1, { animated: false })`) returns the height to `0` the same way.
 
+Transition geometry follows **device rotation** ([#856](https://github.com/signalxjs/lynx/issues/856)): the card/modal slide distances, the route-sheet detents and the edge-back commit threshold all read the live screen size (`useScreen()` / `useScreenMT()` from `@sigx/lynx`) at plan-build time, rather than a value snapshotted when the bundle loaded. A push while the device is in landscape slides the full landscape width.
+
 ## Inline `<BottomSheet>` — moved to `@sigx/lynx-sheet`
 
 The inline (route-free) `<BottomSheet>` now lives in [`@sigx/lynx-sheet`](../lynx-sheet) — the unified sheet package whose engine also powers `presentation: 'sheet'` above. It supersedes the component this package used to export, adding `DetentSpec` geometry (`{ keyboard: true }`, `{ fraction }`, `topOffset` caps), `dismissible`, `backdrop`, and full-surface drag with scroll arbitration. Import it from there:

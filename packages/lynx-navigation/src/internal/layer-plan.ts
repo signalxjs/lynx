@@ -48,7 +48,7 @@
  */
 import type { SharedValue } from '@sigx/lynx';
 import { SHEET_BACKDROP_MAX_OPACITY } from '@sigx/lynx-sheet';
-import { SCREEN_HEIGHT, SCREEN_WIDTH } from './screen-width.js';
+import { screenHeight, screenWidth } from './screen-width.js';
 
 // Re-exported so `<Stack>`/tests keep one import site for the sheet dim
 // constants alongside the mappers below (the value now lives in the shared
@@ -144,15 +144,15 @@ function cardAnimation(
 ): LayerAnimation {
     if (kind === 'push') {
         if (role === 'top') {
-            return { mapperName: 'translateX', inputRange: [0, 1], outputRange: [SCREEN_WIDTH, 0], progress };
+            return { mapperName: 'translateX', inputRange: [0, 1], outputRange: [screenWidth(), 0], progress };
         }
-        return { mapperName: 'translateX', inputRange: [0, 1], outputRange: [0, -PARALLAX_FACTOR * SCREEN_WIDTH], progress };
+        return { mapperName: 'translateX', inputRange: [0, 1], outputRange: [0, -PARALLAX_FACTOR * screenWidth()], progress };
     }
     // pop
     if (role === 'top') {
-        return { mapperName: 'translateX', inputRange: [0, 1], outputRange: [0, SCREEN_WIDTH], progress };
+        return { mapperName: 'translateX', inputRange: [0, 1], outputRange: [0, screenWidth()], progress };
     }
-    return { mapperName: 'translateX', inputRange: [0, 1], outputRange: [-PARALLAX_FACTOR * SCREEN_WIDTH, 0], progress };
+    return { mapperName: 'translateX', inputRange: [0, 1], outputRange: [-PARALLAX_FACTOR * screenWidth(), 0], progress };
 }
 
 /**
@@ -166,16 +166,16 @@ function overlayTopAnimation(
     progress: SharedValue<number>,
 ): LayerAnimation {
     if (kind === 'push') {
-        return { mapperName: 'translateY', inputRange: [0, 1], outputRange: [SCREEN_HEIGHT, 0], progress };
+        return { mapperName: 'translateY', inputRange: [0, 1], outputRange: [screenHeight(), 0], progress };
     }
-    return { mapperName: 'translateY', inputRange: [0, 1], outputRange: [0, SCREEN_HEIGHT], progress };
+    return { mapperName: 'translateY', inputRange: [0, 1], outputRange: [0, screenHeight()], progress };
 }
 
 /**
  * Sheet transform — one fixed mapper for every phase (push, pop, rest,
  * drag). `sheetReveal` has reveal-px semantics: 0 = off-screen
- * (`translateY = SCREEN_HEIGHT`), `maxDetentPx` = fully open at the
- * largest detent (`translateY = SCREEN_HEIGHT - maxDetentPx`). Because
+ * (`translateY = screenHeight()`), `maxDetentPx` = fully open at the
+ * largest detent (`translateY = screenHeight() - maxDetentPx`). Because
  * the SV value alone encodes position, `withTiming` between any two
  * reveal values (push-in, snap, dismiss) animates correctly without
  * per-kind input/output ranges — unlike card/overlay transitions, the
@@ -188,7 +188,7 @@ export function sheetAnimation(
     return {
         mapperName: 'translateY',
         inputRange: [0, maxDetentPx],
-        outputRange: [SCREEN_HEIGHT, SCREEN_HEIGHT - maxDetentPx],
+        outputRange: [screenHeight(), screenHeight() - maxDetentPx],
         progress: sheetReveal,
     };
 }

@@ -48,6 +48,30 @@ export {
 } from './font-scale.js';
 export type { RawFontScaleProps } from './font-scale.js';
 
+// Live screen metrics + orientation (#856). Unlike `Platform.pixelWidth`
+// (a load-time device snapshot), these follow rotation, split-screen and
+// foldable unfold — and `readGlobalScreen()` is the BG-safe screen-size
+// accessor `lynx.SystemInfo` can't be (#333).
+export {
+    useScreen,
+    useScreenMT,
+    useOrientation,
+    readGlobalScreen,
+    SCREEN_EVENT,
+    SCREEN_GLOBAL_KEY,
+} from './screen.js';
+export type {
+    ScreenMetrics,
+    ScreenOrientation,
+    CoarseOrientation,
+    RawScreenProps,
+} from './screen.js';
+
+// Runtime orientation lock (#856) — the imperative half; `signalx.config.ts`'s
+// `orientation` is still the ceiling.
+export { Orientation } from './orientation.js';
+export type { OrientationLock } from './orientation.js';
+
 // Logging — leveled + namespaced logger usable by any package (see logger.ts).
 export {
     createLogger,

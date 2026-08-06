@@ -16,8 +16,12 @@ import {
     SHEET_BACKDROP_MAX_OPACITY,
     type SheetLayerContext,
 } from '../src/internal/layer-plan';
-import { SCREEN_HEIGHT } from '../src/internal/screen-width';
+import { screenHeight } from '../src/internal/screen-width';
 import type { Presentation, StackEntry, TransitionState } from '../src/types';
+
+// Screen dimensions are live now (#856); resolve once here so every expectation
+// in this file measures against the same value the code under test read.
+const SCREEN_HEIGHT = screenHeight();
 
 function entry(key: string, route: string, presentation: Presentation = 'card'): StackEntry {
     return {

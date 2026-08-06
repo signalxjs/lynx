@@ -4,6 +4,7 @@ import {
   measureViewportRect,
   useMainThreadRef,
   runOnBackground,
+  useScreenMT,
   type Define,
   type MainThread,
   type ViewportRect,
@@ -48,12 +49,6 @@ export type SelectProps =
 // so opening one select collapses any other (no stacked/sticky menus).
 let nextSelectId = 0;
 const openSelectId = signal<number | null>(null);
-
-// `lynx.SystemInfo` is populated on the main thread (it's empty on the BG
-// thread), so the screen height is read inside the main-thread tap handler.
-declare const lynx:
-  | { SystemInfo?: { pixelHeight?: number; pixelRatio?: number } }
-  | undefined;
 
 export const Select = component<SelectProps>(({ props }) => {
   const id = nextSelectId++;
@@ -109,15 +104,16 @@ export const Select = component<SelectProps>(({ props }) => {
   );
 
   // Main-thread tap: measure the trigger's viewport rect + read the screen
-  // height (both only reliable here), then hop to BG to stash them and toggle
-  // open. Measuring and toggling in the same BG callback means the placement
-  // is always ready on the first open — no null-frame flash.
+  // height (the rect is only measurable here), then hop to BG to stash them
+  // and toggle open. Measuring and toggling in the same BG callback means the
+  // placement is always ready on the first open — no null-frame flash.
   const onTriggerTap = () => {
     'main thread';
     const el = triggerRef.current;
-    const info = typeof lynx !== 'undefined' ? lynx?.SystemInfo : undefined;
-    const px = info?.pixelHeight;
-    const sh = typeof px === 'number' && px > 0 ? Math.round(px / (info?.pixelRatio || 1)) : 800;
+    // `useScreenMT()` reads `__globalProps.screen` synchronously, so the
+    // dropdown is placed against the CURRENT viewport — a menu opened after
+    // a rotation no longer measures against the launch orientation (#856).
+    const sh = useScreenMT().height;
     measureViewportRect(el, (rect: ViewportRect | null) => {
       runOnBackground((r: TriggerFrame | null, h: number) => {
         measured.frame = r;

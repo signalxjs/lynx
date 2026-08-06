@@ -127,6 +127,42 @@ The effective (clamped) value is visible to JS as
 `sigx prebuild` (ContentView / MainActivity / AndroidManifest are managed
 files).
 
+## Orientation
+
+`orientation` in `signalx.config.ts` declares which orientations the app
+supports. It is written into `android:screenOrientation` and iOS's
+`UISupportedInterfaceOrientations`, and it is the **ceiling** for the runtime
+lock (`Orientation.lock()` from `@sigx/lynx`) — the OS won't rotate outside it.
+
+```ts
+// 'portrait' (default) | 'landscape' | 'all' | 'default'
+orientation: 'default',   // portrait + both landscapes
+// Per-platform overrides:
+android: { orientation: 'all' },
+ios: { orientation: 'default' },
+```
+
+- `'portrait'` / `'landscape'` — lock to that axis. A runtime
+  `lock('landscape')` on a `'portrait'` build **rejects** with a message
+  pointing here rather than silently doing nothing.
+- `'all'` — every orientation, including upside-down portrait.
+- `'default'` — portrait + both landscapes (Android `unspecified`).
+
+Anything other than a hard lock means the app rotates, so the generated hosts
+handle it **in place** — no Activity recreation, no bundle reload, app state
+preserved. The Android manifest declares
+`configChanges="fontScale|orientation|screenSize|smallestScreenSize|screenLayout|keyboardHidden"`,
+and core's `ScreenMetricsPublisher` re-bases the engine's screen metrics (and,
+on iOS, the layout viewport) on every size change. Read the live values from JS
+with `useScreen()` / `useOrientation()`.
+
+> iPad note: multitasking-capable iPad apps must support all four orientations
+> (App Store validation), so the `~ipad` plist key lists all four regardless of
+> the configured lock unless `ios.requiresFullScreen` opts out of multitasking.
+
+Existing projects pick the wiring up on the next `sigx prebuild`
+(AndroidManifest / App.swift / ContentView are managed files).
+
 ## Standalone use
 
 You normally don't depend on this package directly — `npm create @sigx@latest` adds it as a dev dependency for Lynx templates. If you're integrating into an existing project:

@@ -17,7 +17,7 @@ import {
     initialDetentPx,
     resolveRouteDetents,
 } from '../internal/sheet-detents.js';
-import { SCREEN_HEIGHT } from '../internal/screen-width.js';
+import { screenHeight } from '../internal/screen-width.js';
 import { isOverlayPresentation } from '../internal/layer-plan.js';
 import type {
     PopOptions,
@@ -792,7 +792,7 @@ export function createNavigatorState(opts: CreateNavigatorOptions): NavigatorSta
                 read.restPx,
                 // Velocity-matched to the card/modal slide: the fraction of
                 // the screen the sheet travels (0 → restPx).
-                revealDurationSec(read.restPx / SCREEN_HEIGHT, TRANSITION_DURATION_SEC),
+                revealDurationSec(read.restPx / screenHeight(), TRANSITION_DURATION_SEC),
                 // A reset() can land DURING the slide and start a successor
                 // transition on the same shared SV — landing this one then
                 // would stomp it. Same identity check the completion callback
@@ -942,7 +942,7 @@ export function createNavigatorState(opts: CreateNavigatorOptions): NavigatorSta
         let durationSec = TRANSITION_DURATION_SEC;
         if (isSheet && sv) {
             durationSec = revealDurationSec(
-                sv.value / SCREEN_HEIGHT,
+                sv.value / screenHeight(),
                 TRANSITION_DURATION_SEC,
             );
         }

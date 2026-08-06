@@ -63,6 +63,8 @@ export interface InstallSigxWebHostOptions {
   textColorInheritance?: boolean;
   /** Skip the viewport `browser-config` override (see `viewportBrowserConfig`). */
   viewport?: boolean;
+  /** Skip the live screen-metrics globalProps/event publisher (`useScreen()`). */
+  screen?: boolean;
   /** Skip honoring `ignore-focus` on web (keeps a mousedown from blurring the editor). */
   ignoreFocus?: boolean;
 }
@@ -515,6 +517,53 @@ export function installSigxWebHost(
     const onChange = (e: MediaQueryListEvent): void => publish(e.matches ? 'dark' : 'light');
     mql.addEventListener('change', onChange);
     cleanups.push(() => mql.removeEventListener('change', onChange));
+  }
+
+  // ── Screen-metrics publisher ────────────────────────────────────────────
+  // Web parity for the native `ScreenMetricsPublisher` (#856): feeds the same
+  // `__globalProps.screen` + `screenChanged` channels `useScreen()` reads, so
+  // a layout that reflows on a phone rotation also reflows when the browser
+  // window is resized. Unlike `browser-config` above (frozen at construction),
+  // this one is live.
+  if (options.screen !== false) {
+    const metrics = (): { width: number; height: number; scale: number; orientation: string } | null => {
+      const config = viewportBrowserConfig(lynxView);
+      if (!config) return null;
+      const width = Math.round(config.pixelWidth / config.pixelRatio);
+      const height = Math.round(config.pixelHeight / config.pixelRatio);
+      // `screen.orientation.type` is 'portrait-primary' | 'landscape-secondary'
+      // | … — map onto the JS union, falling back to the aspect ratio (Safari
+      // didn't ship the API until 16.4, and it's absent in headless contexts).
+      const type = (globalThis as { screen?: { orientation?: { type?: string } } })
+        .screen?.orientation?.type;
+      const orientation =
+        type === 'portrait-primary' ? 'portrait'
+          : type === 'portrait-secondary' ? 'portrait-upside-down'
+            : type === 'landscape-primary' ? 'landscape-left'
+              : type === 'landscape-secondary' ? 'landscape-right'
+                : width > height ? 'landscape-left' : 'portrait';
+      return { width, height, scale: config.pixelRatio, orientation };
+    };
+
+    const seed = metrics();
+    if (seed) {
+      lynxView.globalProps = { ...lynxView.globalProps, screen: seed };
+    }
+    const publish = (): void => {
+      const next = metrics();
+      if (!next) return;
+      lynxView.updateGlobalProps?.({ screen: next });
+      lynxView.sendGlobalEvent?.('screenChanged', [next]);
+    };
+    globalThis.addEventListener?.('resize', publish);
+    cleanups.push(() => globalThis.removeEventListener?.('resize', publish));
+    const orientationTarget = (globalThis as {
+      screen?: { orientation?: Partial<EventTarget> };
+    }).screen?.orientation;
+    if (orientationTarget?.addEventListener) {
+      orientationTarget.addEventListener('change', publish);
+      cleanups.push(() => orientationTarget.removeEventListener?.('change', publish));
+    }
   }
 
   // ── Text-color inheritance parity ───────────────────────────────────────

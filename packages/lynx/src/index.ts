@@ -67,6 +67,25 @@ export type { PlatformOS, PlatformSelectSpec, DeviceInfoResult } from '@sigx/lyn
 // AROUND larger text (layout swaps, custom-drawn text, icon sizing).
 export { useFontScale, useFontScaleMT, readGlobalFontScale } from '@sigx/lynx-core';
 
+// Live screen metrics + orientation (#856). `useScreen()` is the reactive
+// viewport size — it follows rotation, split-screen and foldable unfold, where
+// `Platform.pixelWidth` is a load-time device snapshot. `useScreenMT()` is the
+// main-thread read for worklet bodies. `Orientation` is the runtime lock.
+export {
+    useScreen,
+    useScreenMT,
+    useOrientation,
+    readGlobalScreen,
+    Orientation,
+} from '@sigx/lynx-core';
+export type {
+    ScreenMetrics,
+    ScreenOrientation,
+    CoarseOrientation,
+    OrientationLock,
+} from '@sigx/lynx-core';
+export { useOrientationLock } from './orientation-lock.js';
+
 // Active build variant (#530) — `variant`/`isVariant()`/`isBaseBuild()` report
 // which `--variant` build this is (or '' for base), for env badges / branching.
 export { variant, isVariant, isBaseBuild } from '@sigx/lynx-core';

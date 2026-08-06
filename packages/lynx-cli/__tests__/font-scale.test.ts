@@ -158,7 +158,10 @@ describe('scaffold — font-scale stamping', () => {
             join(testDir, 'android', 'app', 'src', 'main', 'AndroidManifest.xml'),
             'utf-8',
         );
-        expect(manifest).toContain('android:configChanges="fontScale"');
+        // `fontScale` is one flag among several (rotation added the rest in
+        // #856) — assert membership, not the whole string.
+        expect(manifest.match(/android:configChanges="([^"]+)"/)![1].split('|'))
+            .toContain('fontScale');
     });
 
     it('stamps the iOS policy and builder seed', { timeout: 30000 }, () => {

@@ -146,6 +146,72 @@ describe('applyIosDeviceFamily', () => {
 });
 
 // ────────────────────────────────────────────────────────────────
+// iOS runtime-lock ceiling (#856)
+// ────────────────────────────────────────────────────────────────
+
+describe('scaffoldIos — AppDelegate orientation mask', () => {
+    function appSwiftAfter(raw: LynxConfig): string {
+        scaffoldIos(testDir, resolveConfig(raw));
+        return readFileSync(join(testDir, 'ios', 'TestApp', 'App.swift'), 'utf-8');
+    }
+
+    // Implementing `supportedInterfaceOrientationsFor` OVERRIDES Info.plist,
+    // so the stamped default has to mirror what applyIosPlistMeta writes —
+    // otherwise the runtime ceiling and the declared set disagree. Tablets are
+    // supported by default, so the phone mask rides an idiom branch.
+    it.each([
+        ['portrait', '.portrait'],
+        ['landscape', '.landscape'],
+        ['all', '.all'],
+        ['default', '.allButUpsideDown'],
+    ] as const)('stamps orientation %s as the phone arm of the idiom branch', (orientation, mask) => {
+        const app = appSwiftAfter({ ...BASE_CONFIG, orientation });
+        expect(app).toContain(
+            `SigxOrientation.supportedMask(default: (UIDevice.current.userInterfaceIdiom == .pad ? .all : ${mask}))`,
+        );
+        expect(app).not.toContain('{{orientationDefaultMask}}');
+    });
+
+    // A multitasking-capable iPad app must support all four orientations (App
+    // Store validation) — applyIosPlistMeta writes that into the `~ipad` key,
+    // and the AppDelegate mask has to agree or the runtime clamps the iPad to
+    // the phone lock regardless.
+    it('gives the iPad all four orientations under a phone portrait lock', () => {
+        const app = appSwiftAfter({ ...BASE_CONFIG, orientation: 'portrait' });
+        expect(app).toContain('UIDevice.current.userInterfaceIdiom == .pad ? .all : .portrait');
+    });
+
+    it('lets requiresFullScreen collapse the iPad onto the phone mask', () => {
+        const app = appSwiftAfter({
+            ...BASE_CONFIG,
+            orientation: 'portrait',
+            ios: { ...BASE_CONFIG.ios, requiresFullScreen: true },
+        });
+        expect(app).toContain('SigxOrientation.supportedMask(default: .portrait)');
+        expect(app).not.toContain('userInterfaceIdiom');
+    });
+
+    it('emits no idiom branch when the app does not support tablets', () => {
+        const app = appSwiftAfter({
+            ...BASE_CONFIG,
+            orientation: 'landscape',
+            ios: { ...BASE_CONFIG.ios, supportsTablet: false },
+        });
+        expect(app).toContain('SigxOrientation.supportedMask(default: .landscape)');
+        expect(app).not.toContain('userInterfaceIdiom');
+    });
+
+    it('honors the iOS-only orientation override', () => {
+        const app = appSwiftAfter({
+            ...BASE_CONFIG,
+            orientation: 'portrait',
+            ios: { ...BASE_CONFIG.ios, orientation: 'all' },
+        });
+        expect(app).toContain('userInterfaceIdiom == .pad ? .all : .all');
+    });
+});
+
+// ────────────────────────────────────────────────────────────────
 // Android orientation
 // ────────────────────────────────────────────────────────────────
 
@@ -166,6 +232,23 @@ describe('applyAndroidManifestMeta — orientation', () => {
     it("renders 'default' as unspecified (regression)", () => {
         expect(manifestAfter({ ...BASE_CONFIG, orientation: 'default' }))
             .toContain('android:screenOrientation="unspecified"');
+    });
+
+    it('handles rotation in place instead of recreating the Activity (#856)', () => {
+        const manifest = manifestAfter({ ...BASE_CONFIG, orientation: 'default' });
+        const configChanges = manifest.match(/android:configChanges="([^"]+)"/)![1].split('|');
+        // Without orientation|screenSize a rotation recreates the Activity and
+        // reloads the bundle, losing all app state.
+        expect(configChanges).toContain('orientation');
+        expect(configChanges).toContain('screenSize');
+        // Foldables / multi-window resize.
+        expect(configChanges).toContain('smallestScreenSize');
+        expect(configChanges).toContain('screenLayout');
+        // #766 must survive.
+        expect(configChanges).toContain('fontScale');
+        // Dark mode deliberately still recreates — @sigx/lynx-appearance is
+        // built around that.
+        expect(configChanges).not.toContain('uiMode');
     });
 });
 

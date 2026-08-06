@@ -108,6 +108,13 @@ export const catalog: Area[] = [
                 route: 'systemBars',
             },
             {
+                id: 'orientation',
+                title: 'Orientation',
+                description: 'Live screen metrics, in-place rotation, runtime lock/unlock',
+                icon: { set: 'lucide', name: 'rotate-cw' },
+                route: 'orientation',
+            },
+            {
                 id: 'inline-sheet',
                 title: 'Inline sheet (no route)',
                 description: '@sigx/lynx-sheet standalone BottomSheet — dismissible, backdrop, surface drag',
