@@ -1,8 +1,9 @@
-import { callAsync, SigxError, unwrapNative, unwrapNativeVoid } from '@sigx/lynx-core';
+import { callAsync, createLogger, SigxError, unwrapNative, unwrapNativeVoid } from '@sigx/lynx-core';
 import { PLAYER_END_CHANNEL, RECORDER_METER_CHANNEL, subscribe } from './events.js';
 
 const MODULE = 'Audio';
 const PKG = 'lynx-audio';
+const log = createLogger(PKG);
 
 export interface PlayerStatus {
     /** Current playback position in milliseconds. */
@@ -66,6 +67,21 @@ export interface RecordingHandle {
  */
 const voidReply = (action: string) => (r: { error?: string } | undefined) =>
     unwrapNativeVoid(PKG, action, r);
+
+/**
+ * Toggle native metering. Genuinely fire-and-forget — it's driven by listener
+ * bookkeeping, not by a caller who could act on the result — but the rejection
+ * still has to be swallowed explicitly.
+ *
+ * `callAsync` rejects when the module isn't linked, and an unhandled rejection
+ * on this engine is a fatal main-thread exception, not a warning (see #863).
+ * Metering is a nicety; failing to toggle it must never take the app down.
+ */
+function setMeterSubscribed(id: number, subscribed: boolean): void {
+    callAsync(MODULE, 'setMeterSubscribed', id, subscribed).catch((err: unknown) => {
+        log.warn(`setMeterSubscribed(${id}, ${subscribed}) failed`, err);
+    });
+}
 
 export function makeAudioHandle(id: number): AudioHandle {
     return {
@@ -153,7 +169,7 @@ export function makeRecordingHandle(id: number): RecordingHandle {
             });
             meterListeners += 1;
             if (meterListeners === 1) {
-                void callAsync(MODULE, 'setMeterSubscribed', id, true);
+                setMeterSubscribed(id, true);
             }
             // Each disposer decrements at most once (C7). Without this guard,
             // calling one listener's disposer twice — an ordinary double
@@ -166,7 +182,7 @@ export function makeRecordingHandle(id: number): RecordingHandle {
                 released = true;
                 meterListeners -= 1;
                 if (meterListeners === 0) {
-                    void callAsync(MODULE, 'setMeterSubscribed', id, false);
+                    setMeterSubscribed(id, false);
                 }
                 unsub();
             };

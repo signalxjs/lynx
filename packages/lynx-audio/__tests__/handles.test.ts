@@ -208,6 +208,36 @@ describe('RecordingHandle.onMeter', () => {
         expect(cb).toHaveBeenCalledTimes(1);
     });
 
+    it('handles the metering toggle rejection instead of leaving it unhandled', async () => {
+        // setMeterSubscribed is fire-and-forget, but callAsync rejects when the
+        // module isn't linked — and on this engine an unhandled rejection is a
+        // fatal main-thread exception rather than a warning (#863). Metering is
+        // a nicety; failing to toggle it must not take the app down.
+        //
+        // Asserted through the logger rather than process.on('unhandledRejection'):
+        // that listener is global, so in a parallel run another file's rejection
+        // decides whether this passes. Observing the catch directly is both
+        // deterministic and the stronger claim — it proves the failure is
+        // reported (C10), not merely swallowed.
+        const { addTransport, clearTransports, setLogLevel } = await import('@sigx/lynx-core');
+        const records: string[] = [];
+        clearTransports();
+        setLogLevel('trace');
+        addTransport((r) => records.push(`${r.namespace}:${r.msg}`));
+
+        vi.stubGlobal('NativeModules', {}); // module gone — callAsync will reject
+        const off = makeRecordingHandle(9).onMeter(vi.fn());
+        off();
+        await new Promise((r) => setTimeout(r, 0));
+
+        clearTransports();
+
+        expect(records).toEqual([
+            'lynx-audio:setMeterSubscribed(9, true) failed',
+            'lynx-audio:setMeterSubscribed(9, false) failed',
+        ]);
+    });
+
     it('parses a sample delivered as a JSON string', () => {
         // The native bridge sends either shape; core's subscribeNative handles
         // it, which is half the reason this package stopped hand-rolling one.
