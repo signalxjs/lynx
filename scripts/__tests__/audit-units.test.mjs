@@ -3,7 +3,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
-import { buildUnits, FOLD, groupUnits, GROUPS, META, renderBody, renderTitle } from '../lib/audit-units.mjs';
+import { buildUnits, EXCLUDED, FOLD, groupUnits, GROUPS, META, renderBody, renderTitle } from '../lib/audit-units.mjs';
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const packagesDir = join(repoRoot, 'packages');
@@ -19,12 +19,44 @@ describe('coverage of the real package tree', () => {
         expect(unknown).toEqual([]);
     });
 
-    it('covers every package exactly once, as a unit or folded into one', () => {
+    it('covers every package exactly once — as a unit, a fold, or a stated exclusion', () => {
         const { units } = buildUnits(packageDirs);
-        const covered = units.flatMap((u) => [u.pkg, ...u.absorbs.map((a) => a.replace('@sigx/', ''))]);
+        const covered = [
+            ...units.flatMap((u) => [u.pkg, ...u.absorbs.map((a) => a.replace('@sigx/', ''))]),
+            ...Object.keys(EXCLUDED),
+        ];
         expect([...covered].sort()).toEqual([...packageDirs].sort());
         // Exactly once — a package appearing in two units would double-book an agent.
         expect(new Set(covered).size).toBe(covered.length);
+    });
+
+    it('does not treat a prototype-named directory as classified', () => {
+        // `in` walks the prototype chain, so a package called `toString` or
+        // `constructor` used to test as already-classified and slip past the
+        // unknown guard — the one check between a new package and being
+        // silently skipped by the whole campaign.
+        const { unknown } = buildUnits(['toString', 'constructor', 'valueOf']);
+        expect(unknown.sort()).toEqual(['constructor', 'toString', 'valueOf']);
+    });
+
+    it('gives every exclusion a reason', () => {
+        // "Not audited" has to be a decision someone wrote down, not a gap.
+        for (const [name, why] of Object.entries(EXCLUDED)) {
+            expect(why, `${name} is excluded with no reason`).toBeTruthy();
+        }
+    });
+
+    it('never both excludes a package and gives it metadata', () => {
+        const has = (map, key) => Object.prototype.hasOwnProperty.call(map, key);
+        expect(Object.keys(EXCLUDED).filter((n) => has(META, n))).toEqual([]);
+        expect(Object.keys(EXCLUDED).filter((n) => has(FOLD, n))).toEqual([]);
+    });
+
+    it('builds no unit for an excluded package', () => {
+        const { units } = buildUnits(packageDirs);
+        for (const name of Object.keys(EXCLUDED)) {
+            expect(units.some((u) => u.pkg === name), `${name} should not be a unit`).toBe(false);
+        }
     });
 
     it('folds only into packages that are themselves audit units', () => {
@@ -36,9 +68,11 @@ describe('coverage of the real package tree', () => {
         }
     });
 
-    it('yields one unit per package minus the folds', () => {
+    it('yields one unit per package minus the folds and exclusions', () => {
         const { units } = buildUnits(packageDirs);
-        expect(units).toHaveLength(packageDirs.length - Object.keys(FOLD).length);
+        expect(units).toHaveLength(
+            packageDirs.length - Object.keys(FOLD).length - Object.keys(EXCLUDED).length,
+        );
     });
 });
 
@@ -68,17 +102,16 @@ describe('metadata', () => {
         // buildUnits treats a directory as classified if it is in either map,
         // so an overlap would silently carry contradictory config: metadata
         // for a package that never becomes a unit.
-        const overlap = Object.keys(FOLD).filter((name) => name in META);
+        const overlap = Object.keys(FOLD).filter((name) => Object.prototype.hasOwnProperty.call(META, name));
         expect(overlap).toEqual([]);
     });
 
-    it('has no META entry for a package that no longer exists', () => {
+    it('has no entry for a package that no longer exists', () => {
         const known = new Set(packageDirs);
-        for (const name of Object.keys(META)) {
-            expect(known.has(name), `META has "${name}", which is not a package directory`).toBe(true);
-        }
-        for (const name of Object.keys(FOLD)) {
-            expect(known.has(name), `FOLD has "${name}", which is not a package directory`).toBe(true);
+        for (const [label, map] of [['META', META], ['FOLD', FOLD], ['EXCLUDED', EXCLUDED]]) {
+            for (const name of Object.keys(map)) {
+                expect(known.has(name), `${label} has "${name}", which is not a package directory`).toBe(true);
+            }
         }
     });
 
@@ -131,7 +164,7 @@ describe('renderBody', () => {
     it('carries the D4 peer where one is named', () => {
         expect(renderBody(unit('lynx-storage'), 857)).toContain('async-storage');
         // No peer named → no dangling "compare against ``" line.
-        expect(renderBody(unit('lynx-zero'), 857)).not.toContain('D4 peer to compare against');
+        expect(renderBody(unit('lynx-motion'), 857)).not.toContain('D4 peer to compare against');
     });
 
     it('includes the pre-audit seeds so an agent starts from evidence', () => {

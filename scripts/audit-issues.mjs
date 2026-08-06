@@ -18,7 +18,7 @@ import { execFileSync } from 'node:child_process';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { buildUnits, groupUnits, renderBody, renderTitle } from './lib/audit-units.mjs';
+import { buildUnits, EXCLUDED, FOLD, groupUnits, renderBody, renderTitle } from './lib/audit-units.mjs';
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -93,10 +93,15 @@ if (dryRun) {
     for (const g of groupUnits(selected)) {
         console.log(`${g.title}: ${g.units.length}`);
     }
+    const folded = Object.keys(FOLD).length;
+    const excluded = Object.keys(EXCLUDED).length;
     console.log(
         `${selected.length} audit unit(s) from ${packageDirs.length} package directories ` +
-            `(${packageDirs.length - units.length} folded into a sibling).`,
+            `(${folded} folded into a sibling, ${excluded} excluded).`,
     );
+    // Name them: an excluded package is a decision, and a silent count is how
+    // a decision turns back into an unexplained gap.
+    for (const [name, why] of Object.entries(EXCLUDED)) console.log(`  excluded: ${name} — ${why}`);
     process.exit(0);
 }
 
