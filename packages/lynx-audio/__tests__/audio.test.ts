@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { Audio } from '../src/audio';
+import { INTERRUPTION_CHANNEL } from '../src/events';
 
 let calls: Array<{ method: string; args: unknown[] }>;
 let results: Record<string, unknown>;
@@ -146,5 +147,83 @@ describe('when the native module is not linked (C3)', () => {
 
     it('startRecording rejects', async () => {
         await expect(Audio.startRecording()).rejects.toThrow(/Module "Audio" is not available/);
+    });
+});
+
+describe('Audio.subscribeInterruptions', () => {
+    /** Fake GlobalEventEmitter so subscribeNative has something to attach to. */
+    function installEmitter() {
+        const listeners = new Map<string, Set<(...a: unknown[]) => void>>();
+        const emitter = {
+            count: (c: string) => listeners.get(c)?.size ?? 0,
+            emit: (c: string, p: unknown) => [...(listeners.get(c) ?? [])].forEach((f) => f(p)),
+            addListener(name: string, fn: (...a: unknown[]) => void) {
+                if (!listeners.has(name)) listeners.set(name, new Set());
+                listeners.get(name)!.add(fn);
+            },
+            removeListener(name: string, fn: (...a: unknown[]) => void) {
+                listeners.get(name)?.delete(fn);
+            },
+        };
+        vi.stubGlobal('lynx', {
+            getJSModule: (n: string) => (n === 'GlobalEventEmitter' ? emitter : undefined),
+        });
+        return emitter;
+    }
+
+    it('delivers began and ended', () => {
+        const emitter = installEmitter();
+        const cb = vi.fn();
+        Audio.subscribeInterruptions(cb);
+
+        emitter.emit(INTERRUPTION_CHANNEL, { type: 'began', shouldResume: false });
+        emitter.emit(INTERRUPTION_CHANNEL, { type: 'ended', shouldResume: true });
+
+        expect(cb).toHaveBeenNthCalledWith(1, { type: 'began', shouldResume: false });
+        expect(cb).toHaveBeenNthCalledWith(2, { type: 'ended', shouldResume: true });
+    });
+
+    it('subscribes to the session-wide channel, not a per-id one', () => {
+        // A recorder torn down *by* the interruption would miss a per-id event.
+        const emitter = installEmitter();
+        Audio.subscribeInterruptions(vi.fn());
+        expect(emitter.count(INTERRUPTION_CHANNEL)).toBe(1);
+    });
+
+    it('drops a malformed payload rather than handing it to the listener', () => {
+        const emitter = installEmitter();
+        const cb = vi.fn();
+        Audio.subscribeInterruptions(cb);
+
+        emitter.emit(INTERRUPTION_CHANNEL, { type: 'sideways' });
+        emitter.emit(INTERRUPTION_CHANNEL, {});
+        expect(cb).not.toHaveBeenCalled();
+    });
+
+    it('parses a payload delivered as a JSON string', () => {
+        const emitter = installEmitter();
+        const cb = vi.fn();
+        Audio.subscribeInterruptions(cb);
+
+        emitter.emit(INTERRUPTION_CHANNEL, JSON.stringify({ type: 'began', shouldResume: false }));
+        expect(cb).toHaveBeenCalledWith({ type: 'began', shouldResume: false });
+    });
+
+    it('unsubscribes, and is a no-op on a second call (C7)', () => {
+        const emitter = installEmitter();
+        const cb = vi.fn();
+        const off = Audio.subscribeInterruptions(cb);
+
+        off();
+        expect(() => off()).not.toThrow();
+        expect(emitter.count(INTERRUPTION_CHANNEL)).toBe(0);
+
+        emitter.emit(INTERRUPTION_CHANNEL, { type: 'began', shouldResume: false });
+        expect(cb).not.toHaveBeenCalled();
+    });
+
+    it('is a safe no-op off-device', () => {
+        vi.unstubAllGlobals();
+        expect(() => Audio.subscribeInterruptions(vi.fn())()).not.toThrow();
     });
 });

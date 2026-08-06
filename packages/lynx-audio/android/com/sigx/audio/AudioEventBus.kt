@@ -41,6 +41,18 @@ internal object AudioEventBus {
         emit("__sigxAudioMeter:$id", payload)
     }
 
+    /**
+     * Session interruption — a call, an alarm, or another app taking focus.
+     * One process-wide channel rather than per-id: the interruption is a fact
+     * about the session, not about any one player or recorder.
+     */
+    fun publishInterruption(type: String, shouldResume: Boolean) {
+        val payload = JavaOnlyMap()
+        payload.putString("type", type)
+        payload.putBoolean("shouldResume", shouldResume)
+        emit("__sigxAudioInterruption", payload)
+    }
+
     private fun emit(channel: String, payload: JavaOnlyMap) {
         for ((_, fn) in listeners) fn(channel, payload)
     }

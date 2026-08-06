@@ -18,4 +18,6 @@ export function subscribe<T>(channel: string, cb: (event: T) => void): () => voi
 }
 
 export const PLAYER_END_CHANNEL = (id: number) => `__sigxAudioEnd:${id}`;
+/** Session-wide, not per-id — an interruption affects the whole session. */
+export const INTERRUPTION_CHANNEL = '__sigxAudioInterruption';
 export const RECORDER_METER_CHANNEL = (id: number) => `__sigxAudioMeter:${id}`;

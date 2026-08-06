@@ -4,6 +4,10 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 ## [Unreleased]
 
+### Added
+
+- **`@sigx/lynx-audio`: `Audio.subscribeInterruptions(cb)`** (#867). What happened to playback or recording during a phone call, an alarm, or another app taking the session was previously **undefined to the app** — and on Android nothing requested audio focus at all, so playback simply talked over calls and a recording could be silently ruined. Both platforms now report interruptions on one session-wide channel: iOS observes `AVAudioSession.interruptionNotification`, Android holds reference-counted audio focus for the lifetime of any player or recorder and maps focus loss/gain onto the same event. `{ type: 'began' | 'ended', shouldResume: boolean }`; returns an unsubscribe function per C7. A permanent loss reports `began` with no matching `ended`, which is accurate — the session isn't coming back on its own.
+
 ### Changed
 
 - **BREAKING — `@sigx/lynx-clipboard`: `setString` is now `Promise<void>` and rejects on failure** (#872). It was synchronous and returned `void`, so a failed write was **silently invisible**. That wasn't theoretical: Android's `setPrimaryClip` genuinely throws for a clip over the binder transaction limit, and the native method returned nothing, so JS could never learn about it. Both native sides gained a callback; the JS unwraps it through core's `unwrapNativeVoid`, rejecting with a `SigxError` (`code: 'native_error'`). Existing `Clipboard.setString(x)` calls keep compiling, since the promise is simply unawaited — but they do **not** keep behaving the same: an ignored rejection is an unhandled rejection, which surfaces as an `unhandledrejection` event on web and which this engine has treated as fatal (see #863). So the sweep isn't optional tidying — an unawaited call that previously failed silently can now take the app down. On web the same call now rejects when the browser denies clipboard-write permission, instead of logging and swallowing it.

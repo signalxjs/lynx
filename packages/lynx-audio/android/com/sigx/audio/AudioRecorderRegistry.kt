@@ -98,6 +98,9 @@ internal object AudioRecorderRegistry {
         }
 
         val id = nextId.getAndIncrement()
+        // Hold focus for the recording's lifetime, so a call interrupts it
+        // and the app is told rather than getting a silently ruined file.
+        AudioFocusCoordinator.retain(context)
         entry = Entry(
             recorder = recorder,
             outputPath = path,
@@ -151,6 +154,7 @@ internal object AudioRecorderRegistry {
         try { e.recorder.stop() } catch (_: Exception) {}
         try { e.recorder.release() } catch (_: Throwable) {}
         entry = null
+        AudioFocusCoordinator.release()
 
         val file = File(e.outputPath)
         val sizeBytes = if (file.exists()) file.length() else 0L
