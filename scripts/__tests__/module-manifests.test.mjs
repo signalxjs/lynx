@@ -31,6 +31,27 @@ describe('jsCalledMethods', () => {
         expect([...jsCalledMethods(src)]).toEqual(['impact']);
     });
 
+    it('sees through a nested generic', () => {
+        // `<[^>]*>` stopped at the first `>`, so every call with a nested or
+        // intersected type argument read as uncalled and produced a false
+        // "declared but never called" drift.
+        const src = [
+            `await callAsync<Partial<PlayerStatus> & { error?: string }>(MODULE, 'getPlayerStatus', id)`,
+            `callAsync<RecordingResult & { error?: string }>(MODULE, 'stopRecording', id)`,
+            `callAsync<Array<Map<string, number>>>(MODULE, 'deeplyNested')`,
+        ].join('\n');
+        expect([...jsCalledMethods(src)].sort()).toEqual([
+            'deeplyNested',
+            'getPlayerStatus',
+            'stopRecording',
+        ]);
+    });
+
+    it('does not run past a call boundary when there is no generic', () => {
+        // The `[^(]*` relaxation must not let one call swallow the next.
+        expect([...jsCalledMethods(`foo(a); callAsync(MODULE, 'impact');`)]).toEqual(['impact']);
+    });
+
     it('cannot resolve a dynamic name, and does not guess one', () => {
         expect([...jsCalledMethods('callAsync(MODULE, methodName);')]).toEqual([]);
     });

@@ -61,7 +61,12 @@ export function jsCalledMethods(source) {
     const names = new Set();
     // callAsync<T>(MODULE, 'method', …) — the module arg may be an identifier
     // or a literal; only the method name has to be literal.
-    const re = /\bcall(?:Async|Sync)\s*(?:<[^>]*>)?\s*\(\s*[^,()]+,\s*(['"`])([A-Za-z_$][\w$]*)\1/g;
+    //
+    // The generic is matched as "anything up to the opening paren" rather than
+    // `<[^>]*>`, which stopped at the first `>` and so missed every nested
+    // generic — `callAsync<Partial<PlayerStatus> & { error?: string }>(…)`
+    // read as uncalled, a false "declared but never called" drift.
+    const re = /\bcall(?:Async|Sync)\s*(?:<[^(]*>)?\s*\(\s*[^,()]+,\s*(['"`])([A-Za-z_$][\w$]*)\1/g;
     for (const m of stripComments(source).matchAll(re)) names.add(m[2]);
     return names;
 }

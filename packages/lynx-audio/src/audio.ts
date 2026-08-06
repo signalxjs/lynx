@@ -1,4 +1,4 @@
-import { callAsync, isModuleAvailable } from '@sigx/lynx-core';
+import { callAsync, isModuleAvailable, SigxError } from '@sigx/lynx-core';
 import type { PermissionResponse } from '@sigx/lynx-core';
 import {
     type AudioHandle,
@@ -8,6 +8,7 @@ import {
 } from './handles.js';
 
 const MODULE = 'Audio';
+const PKG = 'lynx-audio';
 
 export interface PlayOptions {
     /** Initial volume 0..1. Default: 1. */
@@ -70,7 +71,8 @@ export const Audio = {
     async play(source: string, options: PlayOptions = {}): Promise<AudioHandle> {
         const r = await callAsync<PlayResult>(MODULE, 'play', source, options);
         if (r?.error || typeof r?.id !== 'number') {
-            throw new Error(`[lynx-audio] play failed: ${r?.error ?? 'no id returned'}`);
+            throw new SigxError(PKG, 'play_failed',
+                `[@sigx/${PKG}] play failed: ${r?.error ?? 'no id returned'}`, { cause: r });
         }
         return makeAudioHandle(r.id);
     },
@@ -82,7 +84,8 @@ export const Audio = {
     async preload(source: string): Promise<{ durationMs: number }> {
         const r = await callAsync<PreloadResult>(MODULE, 'preload', source);
         if (r?.error || typeof r?.durationMs !== 'number') {
-            throw new Error(`[lynx-audio] preload failed: ${r?.error ?? 'unknown'}`);
+            throw new SigxError(PKG, 'preload_failed',
+                `[@sigx/${PKG}] preload failed: ${r?.error ?? 'unknown'}`, { cause: r });
         }
         return { durationMs: r.durationMs };
     },
@@ -94,7 +97,8 @@ export const Audio = {
     async startRecording(options: RecordOptions = {}): Promise<RecordingHandle> {
         const r = await callAsync<RecordStartResult>(MODULE, 'startRecording', options);
         if (r?.error || typeof r?.id !== 'number') {
-            throw new Error(`[lynx-audio] startRecording failed: ${r?.error ?? 'no id returned'}`);
+            throw new SigxError(PKG, 'record_start_failed',
+                `[@sigx/${PKG}] startRecording failed: ${r?.error ?? 'no id returned'}`, { cause: r });
         }
         return makeRecordingHandle(r.id);
     },

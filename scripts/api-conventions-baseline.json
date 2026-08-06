@@ -15,16 +15,6 @@
             "detail": "export { … isAvailable … }"
         }
     ],
-    "lynx-audio": [
-        {
-            "rule": "C10/unprefixed-throws",
-            "count": 5
-        },
-        {
-            "rule": "C11/readme-missing-web-section",
-            "detail": "no `## Web` section"
-        }
-    ],
     "lynx-background": [
         {
             "rule": "C11/readme-missing-web-section",
