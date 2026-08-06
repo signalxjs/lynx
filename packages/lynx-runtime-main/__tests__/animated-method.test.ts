@@ -135,6 +135,62 @@ describe('animated method bindings (#844)', () => {
     );
   });
 
+  it('stays dirty when NATIVE REJECTS the invoke, and retries (#930)', () => {
+    // A rejection is not a throw. The common case is NO_UI_FOR_NODE (6): the
+    // element's ref resolves but the platform UI behind it is still being
+    // created. Counting that as delivered stranded the native state forever
+    // whenever the producer then settled — e.g. a numeric `bottomInset`.
+    seedEnvelope(1, 64);
+    seedElementRef(2);
+    invokeUIMethod.mockImplementationOnce((_el, _m, _p, cb: (r: unknown) => void) => {
+      cb({ code: 6, data: 'no ui for node' });
+    });
+    applyOps([OP.REGISTER_AV_METHOD_BINDING, 100, 2, 1, 'setBottomInset', 'inset', null]);
+    expect(invokeUIMethod).toHaveBeenCalledTimes(1);
+
+    // The SV never changes again — only the retry can save it.
+    flushAnimatedMethodBindings();
+    expect(invokeUIMethod).toHaveBeenCalledTimes(2);
+    expect(invokeUIMethod).toHaveBeenLastCalledWith(
+      expect.anything(), 'setBottomInset', { inset: 64 }, expect.any(Function),
+    );
+
+    // Second attempt succeeded (default mock reports nothing) — settle.
+    flushAnimatedMethodBindings();
+    expect(invokeUIMethod).toHaveBeenCalledTimes(2);
+  });
+
+  it('a success code settles the binding', () => {
+    seedEnvelope(1, 64);
+    seedElementRef(2);
+    invokeUIMethod.mockImplementation((_el, _m, _p, cb: (r: unknown) => void) => {
+      cb({ code: 0, data: null });
+    });
+    applyOps([OP.REGISTER_AV_METHOD_BINDING, 100, 2, 1, 'setBottomInset', 'inset', null]);
+    expect(invokeUIMethod).toHaveBeenCalledTimes(1);
+    flushAnimatedMethodBindings();
+    flushAnimatedMethodBindings();
+    expect(invokeUIMethod).toHaveBeenCalledTimes(1);
+  });
+
+  it('a late rejection does not clobber a newer value already applied', () => {
+    const sv = seedEnvelope(1, 10);
+    seedElementRef(2);
+    let late: ((r: unknown) => void) | null = null;
+    invokeUIMethod.mockImplementationOnce((_el, _m, _p, cb: (r: unknown) => void) => {
+      late = cb; // native answers asynchronously
+    });
+    applyOps([OP.REGISTER_AV_METHOD_BINDING, 100, 2, 1, 'setBottomInset', 'inset', null]);
+
+    sv.current.value = 20;
+    flushAnimatedMethodBindings();
+    expect(invokeUIMethod).toHaveBeenCalledTimes(2); // 20 applied
+
+    late!({ code: 6 }); // the STALE attempt (10) fails after the fact
+    flushAnimatedMethodBindings();
+    expect(invokeUIMethod).toHaveBeenCalledTimes(2); // 20 stands, no redundant retry
+  });
+
   it('stays dirty when the invoke throws synchronously, and retries', () => {
     seedEnvelope(1, 10);
     seedElementRef(2);

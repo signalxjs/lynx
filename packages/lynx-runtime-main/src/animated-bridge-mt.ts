@@ -450,10 +450,29 @@ export function flushAnimatedMethodBindings(): void {
       configurable: true,
     });
     try {
-      __InvokeUIMethod(el as MainThreadElement, binding.methodName, params, () => {
-        /* fire-and-forget */
+      // Optimistic: mark applied, then UNDO if native reports a failure. A
+      // native REJECTION is not the same as a throw and must also keep the
+      // binding dirty — the common case is `NO_UI_FOR_NODE` (6): the element
+      // node exists and its ref resolves, but the platform UI behind it is
+      // still being created (Android creates list UIs asynchronously). Those
+      // early flushes used to be counted as delivered, so a producer that then
+      // settled and never wrote again — a numeric `bottomInset`, a keyboard
+      // lift that reaches its rest value — stranded the native state forever
+      // (#930). Restoring the sentinel makes the next flush retry.
+      // The callback may run EITHER synchronously (native answers inline —
+      // the ordering trap behind #863) or later. Handle both: the flag covers
+      // the sync case, where assigning `lastValue` below would otherwise
+      // overwrite the undo; the `lastValue` check covers the async case.
+      const attempted = v;
+      let failedInline = false;
+      __InvokeUIMethod(el as MainThreadElement, binding.methodName, params, (res: unknown) => {
+        const code = (res as { code?: number } | null | undefined)?.code;
+        if (code === undefined || code === 0) return;
+        failedInline = true;
+        // Only un-apply OUR attempt: a newer value may already have landed.
+        if (binding.lastValue === attempted) binding.lastValue = {} as unknown;
       });
-      binding.lastValue = v;
+      if (!failedInline) binding.lastValue = v;
     } catch {
       // Sync throw (teardown / layout transition) — stay dirty and retry on
       // the next flush rather than stranding the native state.
