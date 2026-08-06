@@ -26,6 +26,32 @@ import {
 - **`isModuleAvailable(name)`** — feature-detect a module without throwing.
 - **`guardModule(name)`** — throw a descriptive error if the module isn't linked (use at module-package entry points).
 
+### The module contract
+
+Three helpers every `@sigx/lynx-*` package is expected to use rather than reimplement. They are the executable half of [`CONVENTIONS.md`](../../CONVENTIONS.md) C4, C7 and C10.
+
+```ts
+import { subscribeNative, unwrapNative, SigxError } from '@sigx/lynx-core';
+```
+
+- **`subscribeNative(channel, cb, options?)`** — subscribe to a native event channel; returns an unsubscribe function (never a `{ remove() }` object), and calling it twice is a no-op. Handles the four things every hand-rolled copy had to get right independently: fetching the emitter through `lynx.getJSModule`, payloads that arrive as a JSON *string* rather than an object, a listener that throws (contained and reported through the logger, not `console`), and off-device — where it is a silent no-op, so a package can subscribe unconditionally without branching on availability. Pass `options.validate` to drop payloads that don't match the expected shape, and `options.namespace` to tag the diagnostic with your package.
+
+  ```ts
+  const off = subscribeNative<PushEvent>('__sigxPush', onPush, {
+      validate: (raw): raw is PushEvent => typeof (raw as PushEvent)?.id === 'string',
+      namespace: 'lynx-notifications',
+  });
+  ```
+
+- **`unwrapNative(pkg, action, raw)`** — `callAsync` only rejects when the *synchronous* call throws; native failures come back on the resolved callback as `{ error }`. This unwraps them once, throwing `[@sigx/lynx-<pkg>] <action> failed: <cause>`. `unwrapNativeVoid` is the same for methods with no success payload.
+
+  ```ts
+  const raw = await callAsync<{ uri?: string; error?: string }>('Camera', 'takePicture', opts);
+  const { uri } = unwrapNative('lynx-camera', 'takePicture', raw);
+  ```
+
+- **`SigxError`** — base error carrying a stable `code` and the raising `package`, for anything a caller might branch on. Narrow with `isSigxError(e)`; branch on `e.code`, never on the message.
+
 ## Logging
 
 A tiny leveled + namespaced logger lives here so any package can log without taking a new dependency.

@@ -1,0 +1,25 @@
+{
+    "lynx-appearance": [
+        {
+            "rule": "C12/declared-not-called"
+        }
+    ],
+    "lynx-core": [
+        {
+            "rule": "C12/declared-not-called"
+        }
+    ],
+    "lynx-haptics": [
+        {
+            "rule": "C12/called-not-declared"
+        }
+    ],
+    "lynx-updates": [
+        {
+            "rule": "C12/declared-not-called"
+        },
+        {
+            "rule": "C12/declared-not-called"
+        }
+    ]
+}

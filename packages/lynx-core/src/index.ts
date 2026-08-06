@@ -8,6 +8,13 @@
  */
 
 export { getModule, callSync, callAsync, isModuleAvailable, guardModule } from './bridge.js';
+
+// The shared module contract (CONVENTIONS.md C4, C7, C10) — one native event
+// subscription, one `{ error }` unwrap, one typed error base, so the 50+
+// module packages stop each growing their own.
+export { subscribeNative } from './events.js';
+export type { SubscribeNativeOptions } from './events.js';
+export { SigxError, isSigxError, unwrapNative, unwrapNativeVoid } from './errors.js';
 export { webHostCall, isWebHostAvailable } from './web-host.js';
 export { base64ToArrayBuffer, arrayBufferToBase64 } from './base64.js';
 export type { PermissionStatus, PermissionResponse } from './permissions.js';
