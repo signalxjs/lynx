@@ -10,7 +10,6 @@ import {
   useSharedValue,
   useAnimatedStyle,
   useAnimatedMethod,
-  useDerivedValueReactive,
   runOnBackground,
   runOnMainThread,
   useScrollDragHost,
@@ -63,11 +62,6 @@ const ADOPTED_SCROLL_THROTTLE = 16;
 // it (#930). A height change is layout; per-frame layout floods the engine's
 // dispatch limiter. Motion is carried by a transform in the meantime.
 const INSET_SETTLE_MS = 120;
-
-// Hard cap on how long the spacer may lag the live inset. A pure debounce
-// never fires while a drag keeps producing values, so the height would never
-// catch up during a long gesture (#930).
-const INSET_SETTLE_MAX_MS = 400;
 
 type ScrollDetail = { detail?: { scrollTop?: number; scrollLeft?: number } };
 
@@ -593,83 +587,43 @@ const ListImpl = component<ListProps>(({ props, slots, emit }) => {
   const insetSpacerEnabled = insetOptIn && Platform.OS !== 'ios';
 
   /**
-   * Space vs. motion are split, because on this list they cannot come from the
-   * same mechanism (#930).
+   * The height commits when the inset SETTLES, not per frame.
    *
-   * **Space** is the spacer's height, and it commits only when the inset
-   * SETTLES. A height is layout: every change relayouts the list, which fires
+   * A height is layout: every change relayouts the list, which fires
    * `layoutcomplete` to BG, which runs the chat re-pin, which scrolls, which
    * relayouts again. Driven per frame that loop outruns the engine's dispatch
    * limiter and the app red-boxes with error 204 ("DispatchEvent called too
    * frequently", the #606 limiter). Once per gesture it is free.
    *
-   * **Motion** is a main-thread `translateY` of `-(live - settled)` on the
-   * list. A transform is not layout: no relayout, no `layoutcomplete`, no page
-   * events at all — so the thread tracks the occluder frame-by-frame without
-   * touching the limiter. At rest the two agree and the transform is exactly 0.
-   *
-   * They stay consistent because the settled height and the main thread's copy
-   * of it are written in the SAME tick, so the render and the SV write ride one
-   * op batch and land on one frame — the transform releases as the spacer grows.
+   * The consequence is that on Android the thread steps to its new position
+   * when a drag stops rather than tracking it frame-by-frame, which iOS does
+   * get (a real `contentInset` moves the viewport with no layout at all).
+   * Two per-frame alternatives were tried on device and both failed:
+   *   - writing the height on the MT every frame is smooth, but the relayout
+   *     it causes fires `layoutcomplete` per frame and floods the limiter;
+   *   - translating the list with `translateY` produces no events, but moves
+   *     the element out of its own bounds — the list renders black for the
+   *     duration of the drag.
+   * Closing the gap properly needs a real content inset from the engine; see
+   * the follow-up on #930.
    */
-  const negSettledSV = useSharedValue(0);
   const insetSettled = signal(0);
   if (insetSpacerEnabled) {
-    const writeNegSettledMT = runOnMainThread((v: number) => {
-      'main thread';
-      negSettledSV.current.value = v;
-    });
-    const commit = (v: number): void => {
-      insetSettled.value = v;
-      void writeNegSettledMT(-v);
-    };
     let settleTimer: ReturnType<typeof setTimeout> | null = null;
-    let deferredSince = 0;
     effect(() => {
       const bi = props.bottomInset;
       const raw = typeof bi === 'object' && bi !== null ? bi.value : bi;
       const v = typeof raw === 'number' && raw > 0 ? Math.round(raw) : 0;
-      if (v === insetSettled.value) { deferredSince = 0; return; }
+      if (v === insetSettled.value) return;
       // First value commits immediately — that one is the mount-time inset,
       // and first paint clearing the occluder is the whole point.
-      if (insetSettled.value === 0) { commit(v); return; }
-      const now = Date.now();
-      if (deferredSince === 0) deferredSince = now;
-      // Pure debounce would re-arm forever under a CONTINUOUS drag and never
-      // commit — measured: 100 value changes a second, zero commits. Cap the
-      // deferral so the height still catches up periodically; the transform
-      // covers the interval either way.
-      if (now - deferredSince >= INSET_SETTLE_MAX_MS) {
-        if (settleTimer !== null) { clearTimeout(settleTimer); settleTimer = null; }
-        deferredSince = 0;
-        commit(v);
-        return;
-      }
+      if (insetSettled.value === 0) { commitInset(v); return; }
       if (settleTimer !== null) clearTimeout(settleTimer);
-      settleTimer = setTimeout(() => {
-        settleTimer = null;
-        deferredSince = 0;
-        commit(v);
-      }, INSET_SETTLE_MS);
+      settleTimer = setTimeout(() => { settleTimer = null; commitInset(v); }, INSET_SETTLE_MS);
     });
     onUnmounted(() => { if (settleTimer !== null) clearTimeout(settleTimer); });
-
-    // Reactive sources: the live SV identity is not mount-constant — a consumer
-    // may pass a number for the first frames and hand over a producer's SV
-    // later (the composer's `occluderSV.sv ?? floorH`). The derived SV's own
-    // identity is stable, so the style binding below never rebinds.
-    const insetDeltaSV = useDerivedValueReactive(() => {
-      const bi = props.bottomInset;
-      return {
-        sources: [typeof bi === 'object' && bi !== null ? bi : internalInsetSV, negSettledSV],
-        reducer: 'sum' as const,
-      };
-      // MT-only: this delta changes every frame by construction, and nothing
-      // on BG reads it. Publishing it would add ~100 MT->BG dispatches a
-      // second and, on its own, trip the engine's limiter mid-drag (#930).
-    }, { bridge: false });
-    useAnimatedStyle(listRef, insetDeltaSV, 'translateY', { factor: -1 });
   }
+  function commitInset(v: number): void { insetSettled.value = v; }
   const insetSpacerHeight = (): number => insetSettled.value;
 
   // Total rendered cells = header + rendered items + trailing(footer/loading)
