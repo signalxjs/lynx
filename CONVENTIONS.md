@@ -489,22 +489,35 @@ change → `pnpm typecheck` + `pnpm test` → `gh pr create --reviewer @copilot`
   writing a local one. If the helper is missing, that is a `@sigx/lynx-core` issue, not a
   workaround.
 
-### 3. Ask design questions; never guess
+### 3. Decide what you can; escalate what you can't
 
-Append the question to `## Design questions (blocked)` in the issue body, add the
-`needs-decision` label, and comment so it notifies. Then **continue with the unblocked items** —
-a blocked question stalls one checkbox, not the issue.
+Default to **deciding**. Take the option you'd recommend, and write down in the issue what you
+chose and why — the reasoning is the deliverable, not the choice alone. Escalate only when the
+change is **breaking or user-visible**.
 
-Always ask, never decide alone:
+**Ask** — append the question to `## Design questions (blocked)` in the issue body, add the
+`needs-decision` label, comment so it notifies, then **carry on with the unblocked items**:
 
-- a change to the shape of a public API
+- a change to a public signature or return type
 - a breaking rename
 - visual or UX behaviour
 - adding a native dependency
 - dropping a documented capability
+- behaviour that would differ per platform
 
-Decide yourself, and say so in the issue: internal refactors, test additions, README fixes,
-performance work with no API change, and anything C1–C12 already answers.
+**Decide** — everything else: internal refactors, test additions, README fixes, performance work
+with no API change, whether to defer a missing feature, and anything C1–C12 already answers.
+
+One subtlety worth stating, because it's where the rule gets misread: "would differ per platform"
+is an *ask* trigger for **shipping** such a thing. Deciding **not** to ship something *because* it
+would differ per platform is an ordinary won't-do — decide it, record the reasoning, move on.
+Otherwise every won't-do gets escalated and the rule buys nothing.
+
+**Calibration.** Of the first six questions raised across two package reviews, exactly **two**
+reached a human under this rule — `Clipboard.setString` changing signature, and `Audio`
+gaining an interruption API. The other four (defer image support, won't-do URL support, won't-do a
+change listener, defer progress events) were the agent's to make. If you're escalating much more
+than a third of what you hit, the line has drifted.
 
 ### 4. Prove the tests you write for bugs
 
