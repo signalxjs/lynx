@@ -106,6 +106,34 @@ if (Audio.isAvailable()) {
 Recording in a browser would mean routing `MediaRecorder` through the
 `@sigx/lynx-web-host` bridge — tracked on [#867](https://github.com/signalxjs/lynx/issues/867), not shipped.
 
+## Interruptions
+
+A phone call, an alarm, or another app taking the audio session will stop playback and recording.
+Subscribe to find out — otherwise a recording can be silently ruined:
+
+```ts
+const off = Audio.subscribeInterruptions(async (e) => {
+    if (e.type === 'began') {
+        const { uri } = await rec.stop();   // salvage what was captured
+    } else if (e.shouldResume) {
+        player.resume();
+    }
+});
+```
+
+Session-wide rather than per handle: a recorder torn down *by* the interruption would otherwise
+miss its own notification. Returns an unsubscribe function; calling it twice is a no-op.
+
+`shouldResume` is only meaningful on `'ended'`, and it's **advice, not permission** — the app
+decides. A permanent loss reports `'began'` with **no matching `'ended'`**, which is accurate: the
+session isn't coming back on its own, so don't block waiting for one.
+
+| Cause | iOS | Android |
+|---|---|---|
+| Phone call | `AVAudioSession` interruption | `AUDIOFOCUS_LOSS_TRANSIENT` |
+| Another app takes audio | interruption | `AUDIOFOCUS_LOSS` |
+| Ducking request | — | reported as `began`; the app chooses whether to duck or pause |
+
 ## Gotchas
 
 - **iOS AudioSession** is managed internally — the module flips to `.playback` while a player is alive, `.playAndRecord` while recording, and deactivates when nothing is active. Apps that need custom mixing categories should pause this module's sessions or wait for an explicit `setCategory` API.

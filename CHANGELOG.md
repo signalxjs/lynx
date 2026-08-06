@@ -4,6 +4,10 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 ## [Unreleased]
 
+### Added
+
+- **`@sigx/lynx-audio`: `Audio.subscribeInterruptions(cb)`** (#867). What happened to playback or recording during a phone call, an alarm, or another app taking the session was previously **undefined to the app** — and on Android nothing requested audio focus at all, so playback simply talked over calls and a recording could be silently ruined. Both platforms now report interruptions on one session-wide channel: iOS observes `AVAudioSession.interruptionNotification`, Android holds reference-counted audio focus for the lifetime of any player or recorder and maps focus loss/gain onto the same event. `{ type: 'began' | 'ended', shouldResume: boolean }`; returns an unsubscribe function per C7. A permanent loss reports `began` with no matching `ended`, which is accurate — the session isn't coming back on its own.
+
 ### Changed
 
 - **BREAKING — `@sigx/lynx-secure-storage`: `set`/`get`/`delete` are now `setItem`/`getItem`/`removeItem`** (#903, #907). The two storage packages contradicted each other about the same operation: `@sigx/lynx-storage` used `setItem`/`getItem`/`removeItem`, this one used `set`/`get`/`delete`, and callers swap between them by durability. `setItem` wins because it matches `localStorage`, `@react-native-async-storage/async-storage` **and** `expo-secure-store` — arriving from web or React Native, it's the name you already know. No aliases: keeping both spellings alive is the thing being fixed. `clear`, `hasKey` and `isAvailable` are unchanged. Native wire names stay `set`/`get`/`delete` — they aren't public API, and renaming them would churn Swift, Kotlin and the manifest for no caller benefit.

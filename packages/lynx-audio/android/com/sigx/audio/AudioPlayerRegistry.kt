@@ -54,6 +54,9 @@ internal object AudioPlayerRegistry {
 
         val id = nextId.getAndIncrement()
         players[id] = mp
+        // Focus is held for as long as a player exists, so an incoming call
+        // interrupts us (and we report it) instead of talking over it.
+        AudioFocusCoordinator.retain(context)
 
         mp.setOnCompletionListener {
             // Looping players don't fire onCompletion; reaching here means
@@ -150,6 +153,7 @@ internal object AudioPlayerRegistry {
     private fun release(id: Long) {
         val mp = players.remove(id) ?: return
         try { mp.release() } catch (_: Throwable) {}
+        AudioFocusCoordinator.release()
     }
 
     private fun resolveUri(source: String): Uri {
