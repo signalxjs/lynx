@@ -12,6 +12,8 @@ class DeviceInfoModule: NSObject, LynxModule {
             "getDeviceInfo": NSStringFromSelector(#selector(getDeviceInfo(_:))),
             "getConstants": NSStringFromSelector(#selector(getConstants(_:))),
             "getAppState": NSStringFromSelector(#selector(getAppState(_:))),
+            "lockOrientation": NSStringFromSelector(#selector(lockOrientation(_:callback:))),
+            "unlockOrientation": NSStringFromSelector(#selector(unlockOrientation(_:))),
         ]
     }
 
@@ -53,6 +55,28 @@ class DeviceInfoModule: NSObject, LynxModule {
                 : "active"
             callback?(["state": state])
         }
+    }
+
+    /// Runtime orientation lock (#856). The configured `orientation` (stamped
+    /// into the AppDelegate's `supportedInterfaceOrientationsFor`) is the
+    /// ceiling — see `SigxOrientation`.
+    /// JS usage: NativeModules.SigxCore.lockOrientation({ orientation }, cb)
+    @objc func lockOrientation(_ params: [String: Any]?, callback: LynxCallbackBlock?) {
+        guard let value = params?["orientation"] as? String, !value.isEmpty else {
+            callback?(["error": "Missing `orientation`."])
+            return
+        }
+        callback?(result(SigxOrientation.lock(value)))
+    }
+
+    /// Release the runtime lock, restoring the configured set.
+    @objc func unlockOrientation(_ callback: LynxCallbackBlock?) {
+        callback?(result(SigxOrientation.unlock()))
+    }
+
+    /// Empty map on success; `{ error }` on failure (CONVENTIONS.md C4).
+    private func result(_ error: String?) -> [String: Any] {
+        error.map { ["error": $0] } ?? [:]
     }
 
     @objc func getConstants(_ callback: LynxCallbackBlock?) {

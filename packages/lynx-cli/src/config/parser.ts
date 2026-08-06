@@ -111,6 +111,12 @@ export interface ResolvedConfig {
     iconSets: ResolvedIconSet[];
     platforms: Platform[];
     fontScale: Required<FontScaleConfig>;
+    /**
+     * Base orientation with the default applied. Per-platform overrides remain
+     * on `ios.orientation` / `android.orientation`; consumers should read those
+     * first and fall back to this.
+     */
+    orientation: Orientation;
     android: Required<Pick<NonNullable<LynxConfig['android']>, 'minSdk' | 'targetSdk' | 'compileSdk' | 'versionCode'>> &
         Omit<NonNullable<LynxConfig['android']>, 'minSdk' | 'targetSdk' | 'compileSdk' | 'versionCode'>;
     ios: Required<Pick<NonNullable<LynxConfig['ios']>, 'deploymentTarget' | 'buildNumber'>> &
@@ -186,6 +192,11 @@ export function resolveConfig(raw: LynxConfig, variantName?: string): ResolvedCo
         excludeModules: raw.excludeModules ?? [],
         iconSets: resolveIconSets(raw.iconSets),
         fontScale: resolveFontScale(raw.fontScale),
+        // Base orientation with the default applied. Per-platform overrides
+        // still live on `ios.orientation` / `android.orientation`; this is the
+        // fallback for both, and what the iOS host template's default
+        // interface-orientation mask is stamped from (#856).
+        orientation: raw.orientation ?? DEFAULTS.orientation!,
         android: {
             ...ANDROID_DEFAULTS,
             ...raw.android,

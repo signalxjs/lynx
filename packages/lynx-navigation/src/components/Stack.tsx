@@ -34,7 +34,7 @@ import {
     initialDetentPx,
     resolveRouteDetents,
 } from '../internal/sheet-detents.js';
-import { SCREEN_HEIGHT } from '../internal/screen-width.js';
+import { screenHeight } from '../internal/screen-width.js';
 import { GRABBER_HEIGHT } from '@sigx/lynx-sheet';
 import { EdgeBackHandle } from './EdgeBackHandle.js';
 import { Layer } from './Layer.js';
@@ -501,7 +501,7 @@ export const Stack = component<StackProps>(({ props, slots }) => {
 
     /** Resting translateY for a sheet that can't hold an animation binding. */
     const sheetStaticOffsetY = (entry: StackEntry): number =>
-        SCREEN_HEIGHT - sheetRestPx(entry);
+        screenHeight() - sheetRestPx(entry);
 
     // Per-stack chrome (slots.default) renders *inside* this Stack's
     // nav scope so a `<Header />` placed there resolves `useNav()` to
@@ -543,7 +543,7 @@ export const Stack = component<StackProps>(({ props, slots }) => {
                 sheetReveal: internals.sheetReveal,
                 maxDetentPx: activeSheetEntry
                     ? sheetConfigFor(activeSheetEntry).maxDetentPx
-                    : SCREEN_HEIGHT,
+                    : screenHeight(),
                 staticOffsetY: sheetStaticOffsetY,
             }
             : undefined;

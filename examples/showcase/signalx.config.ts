@@ -17,8 +17,12 @@ export default defineLynxConfig({
     // Comment out if you don't need deep links.
     scheme: 'showcase',
 
-    // 'portrait' | 'landscape' | 'default'
-    orientation: 'portrait',
+    // 'portrait' | 'landscape' | 'all' | 'default'
+    // 'default' = portrait + both landscapes. The showcase rotates so the
+    // Orientation demo (and every other screen) can be exercised in landscape;
+    // it's also the ceiling `Orientation.lock()` works within — a
+    // portrait-locked build makes `lock('landscape')` reject by design.
+    orientation: 'default',
 
     // Logging — all optional, shown for reference (defaults apply as-is). The
     // leveled/namespaced logger (`import { createLogger } from '@sigx/lynx'`)

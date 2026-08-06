@@ -63,9 +63,9 @@ import {
     component,
     defineProvide,
     effect,
-    Platform,
     signal,
     untrack,
+    useScreen,
     useAnimatedStyle,
     useCreateScrollDragHost,
     useGestureDetector,
@@ -220,13 +220,6 @@ export type BottomSheetProps =
     /** Drag-handle region (a pill, a whole input row); rendered above `default`. */
     & Define.Slot<'handle'>;
 
-/** Logical screen height (dp) — Platform reads `lynx.SystemInfo` at load. */
-function screenHeightDp(): number {
-    const px = Platform.pixelHeight;
-    if (px > 0) return Math.round(px / (Platform.pixelRatio || 1));
-    return 800; // test env / SSR / non-Lynx host
-}
-
 export const BottomSheet = component<BottomSheetProps>(({ props, emit, slots }) => {
     const insets = useSafeAreaInsets();
     const kbLiftBG = useKeyboardLift();
@@ -234,7 +227,11 @@ export const BottomSheet = component<BottomSheetProps>(({ props, emit, slots }) 
     // the BG-REACTIVE computed, never from a lift SV's `.value` (that SV
     // is MT-written; its BG side stays at its seed forever).
     let rememberedKb = 0;
-    const screenH = screenHeightDp();
+    // Reactive, not snapshotted: fraction detents and the bottom-edge anchor
+    // have to re-resolve when the device rotates or the window is resized
+    // (#791). `geometry()` below is already re-evaluated per render, so the
+    // read just has to happen inside it.
+    const screen = useScreen();
 
     // Live geometry — re-resolved on every render/accessor evaluation,
     // never snapshotted at setup (#743): floors change at runtime.
@@ -257,7 +254,7 @@ export const BottomSheet = component<BottomSheetProps>(({ props, emit, slots }) 
         // anywhere in the app also lands here.
         const keyboardPx = rememberedKb > 0 ? rememberedKb : rememberedKeyboardLift();
         const ds = resolveDetents(props.detents, {
-            screenH,
+            screenH: screen.value.height,
             topOffset: props.topOffset ?? 0,
             bottomOffset: props.bottomOffset ?? 0,
             bottomInset: insets.value.bottom ?? 0,
@@ -418,7 +415,7 @@ export const BottomSheet = component<BottomSheetProps>(({ props, emit, slots }) 
         const gate = props.dragEnabled === false || dragMode === 'none' ? 0 : 1;
         // The sheet's bottom edge in page coords — anchors the surface-drag
         // grabber-zone math on the MT (via syncGeom, same rule as `gate`).
-        const bottomEdge = screenH - (props.bottomOffset ?? 0);
+        const bottomEdge = screen.value.height - (props.bottomOffset ?? 0);
 
         // Push the CURRENT geometry to the worklets, so the drag clamp and
         // release-snap candidates follow a runtime geometry change.

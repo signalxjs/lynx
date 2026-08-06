@@ -20,6 +20,9 @@ import './themes.js';
 // StatusBarSync mirrors the active theme's variant out to the device's
 // status- and navigation-bar tint so the system icons stay legible.
 //
+// SafeAreaView takes all four edges because the app rotates (#856): in
+// landscape the notch and home indicator move to the left/right edges.
+//
 // The single root Stack mounts one persistent `<NavHeader />` above the
 // screen-transition wrapper — iOS-style. The bar stays in place during
 // push/pop slides while its *contents* (title, back button, right items)
@@ -32,7 +35,7 @@ const App = component(() => () => (
         <SafeAreaProvider>
             <ThemeProvider>
                 <StatusBarSync />
-                <SafeAreaView edges={['top', 'bottom']} class="bg-base-100">
+                <SafeAreaView edges={['top', 'bottom', 'left', 'right']} class="bg-base-100">
                     <NavigationRoot routes={routes} initialRoute="root">
                         <Stack>
                             <NavHeader backIcon={{ set: 'lucide', name: 'chevron-left' }} />

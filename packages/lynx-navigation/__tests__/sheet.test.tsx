@@ -16,7 +16,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { component } from '@sigx/lynx';
 import { render, act, TestNode } from '@sigx/lynx-testing';
-import { SCREEN_HEIGHT } from '../src/internal/screen-width';
+import { screenHeight } from '../src/internal/screen-width';
 import { NavigationRoot } from '../src/components/NavigationRoot';
 import { Stack } from '../src/components/Stack';
 import { Tabs } from '../src/components/Tabs';
@@ -24,6 +24,10 @@ import { useNav } from '../src/hooks/use-nav';
 import { useNavInternals, type NavInternals } from '../src/hooks/use-nav-internal';
 import type { Nav } from '../src/hooks/use-nav';
 import { routes } from './_fixtures';
+
+// Screen dimensions are live now (#856); resolve once here so every expectation
+// in this file measures against the same value the code under test read.
+const SCREEN_HEIGHT = screenHeight();
 
 interface NavProbe {
     nav: Nav | null;

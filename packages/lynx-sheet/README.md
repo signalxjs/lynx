@@ -31,6 +31,7 @@ import { BottomSheet } from '@sigx/lynx-sheet';
 - **Drag modes** (mount-constant): `'handle'` (pan on the `handle` slot only — default, safe with raw `<list>` bodies), `'surface'` (full-surface drag with the 8-step scroll arbitration; this component provides the `ScrollDragHost` an inner `@sigx/lynx` `<ScrollView>` adopts), `'grabber'`, `'none'`. The always-drags chrome strip height is `grabberPx` (default 28) — size it to a whole input row for WhatsApp-style sheets.
 - **Stacking**: Lynx has no z-index/portal — render the sheet as the LAST child of a full-surface positioned container so the backdrop dims the whole screen.
 - **Safe area**: detent resolution reads `useSafeAreaInsets()`/`useKeyboardLift()` — mount a `@sigx/lynx-safe-area` `<SafeAreaProvider>` above the sheet, or `{ keyboard: true }` detents and inset corrections degrade to zero insets (with a dev warning).
+- **Rotation**: geometry follows it. `screenH` comes from `useScreen()` ([#856](https://github.com/signalxjs/lynx/issues/856)), so fraction detents and the bottom-edge anchor re-resolve on a rotation or window resize instead of staying pinned to the launch orientation ([#791](https://github.com/signalxjs/lynx/issues/791)).
 
 ## Detent model
 
@@ -46,7 +47,7 @@ const detents = resolveDetents(
         { fraction: 0.92 },                    // share of screen height
     ],
     {
-        screenH: 800,
+        screenH: 800,   // `<BottomSheet>` passes the LIVE height (useScreen())
         topOffset: 80,       // top inset + header the sheet must never slide under
         bottomInset: 24,     // added back onto keyboard detents (lift values are inset-discounted)
         keyboardPx: 300,     // max observed BG-reactive keyboard lift, 0 if never seen

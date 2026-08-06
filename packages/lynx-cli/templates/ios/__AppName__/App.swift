@@ -64,6 +64,19 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         return true
     }
 
+    // Orientation ceiling for the whole app (#856). Implementing this method
+    // OVERRIDES Info.plist, so the default mask is stamped from
+    // `signalx.config.ts`'s `orientation` — it mirrors what prebuild writes
+    // into UISupportedInterfaceOrientations. `SigxOrientation` layers the
+    // runtime lock (`Orientation.lock()` / `useOrientationLock()`) on top,
+    // always within this ceiling.
+    func application(
+        _ application: UIApplication,
+        supportedInterfaceOrientationsFor window: UIWindow?
+    ) -> UIInterfaceOrientationMask {
+        return SigxOrientation.supportedMask(default: {{orientationDefaultMask}})
+    }
+
     // Warm-start custom-scheme deep links (myapp://...).
     func application(
         _ app: UIApplication,

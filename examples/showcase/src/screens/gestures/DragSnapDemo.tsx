@@ -5,6 +5,7 @@ import {
     useMainThreadRef,
     useSharedValue,
     useAnimatedStyle,
+    useScreen,
     type MainThread,
 } from '@sigx/lynx';
 import { Screen } from '@sigx/lynx-navigation';
@@ -12,28 +13,23 @@ import { Draggable, ScrollView } from '@sigx/lynx-gestures';
 import { withSpring } from '@sigx/lynx-motion';
 import { Card, Col, Heading, Text } from '@sigx/lynx-daisyui';
 
-// Fixed arena geometry — shared by the Draggable bounds, the snap targets
-// and the range-mapper input ranges, so nothing needs runtime measurement.
-declare const lynx:
-    | { SystemInfo?: { pixelWidth?: number; pixelRatio?: number } }
-    | undefined;
-
-const SCREEN_W = (() => {
-    try {
-        const info = typeof lynx !== 'undefined' ? lynx?.SystemInfo : undefined;
-        const px = info?.pixelWidth;
-        const pr = info?.pixelRatio || 1;
-        if (typeof px === 'number' && px > 0) return Math.round(px / pr);
-    } catch { /* fall through */ }
-    return 400;
-})();
-
 const CARD = 72;
-// Screen padding 16 + Card.Body padding ≈ 16 each side.
-const ARENA_W = Math.max(SCREEN_W - 96, 220);
 const ARENA_H = 280;
-const MAX_X = ARENA_W - CARD;
 const MAX_Y = ARENA_H - CARD;
+
+/**
+ * Arena width for this mount. Sized from the live screen (`useScreen()`)
+ * rather than a module-load `SystemInfo` snapshot, so opening the screen in
+ * landscape gets a landscape-width arena.
+ *
+ * Still resolved once per mount, not per frame: the width feeds the Draggable
+ * bounds and the range-mapper input ranges, which are handed to the main
+ * thread at setup. Re-entering the screen after a rotation re-sizes it.
+ */
+function arenaWidth(screenW: number): number {
+    // Screen padding 16 + Card.Body padding ≈ 16 each side.
+    return Math.max(screenW - 96, 220);
+}
 
 /**
  * Drag, fling & snap — `<Draggable>` with external SharedValues + bounds.
@@ -42,6 +38,8 @@ const MAX_Y = ARENA_H - CARD;
  * into `withSpring`, so a flung card carries its momentum into the snap.
  */
 export const DragSnapDemo = component(() => {
+    const ARENA_W = arenaWidth(useScreen().value.width);
+    const MAX_X = ARENA_W - CARD;
     const tx = useSharedValue(0);
     const ty = useSharedValue(0);
 

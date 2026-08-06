@@ -18,14 +18,24 @@
         android:hardwareAccelerated="true"
         android:networkSecurityConfig="@xml/network_security_config">
 
-        <!-- configChanges="fontScale": a system text-size change is handled
-             in-place by FontScalePublisher (LynxView.updateFontScale) instead
-             of recreating the Activity and reloading the bundle (#766). -->
+        <!-- configChanges: every listed change is handled IN PLACE instead of
+             recreating the Activity and reloading the bundle (which would lose
+             all app state).
+               fontScale         — FontScalePublisher, LynxView.updateFontScale (#766)
+               orientation|screenSize
+                                 — the rotation pair on modern Android;
+                                   ScreenMetricsPublisher re-bases the viewport (#856)
+               smallestScreenSize|screenLayout
+                                 — foldable unfold and multi-window resize
+               keyboardHidden    — docking a hardware keyboard
+             `uiMode` is deliberately NOT listed: dark-mode switching still goes
+             through Activity recreation, which @sigx/lynx-appearance is built
+             around. -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
             android:launchMode="singleTop"
-            android:configChanges="fontScale"
+            android:configChanges="fontScale|orientation|screenSize|smallestScreenSize|screenLayout|keyboardHidden"
             android:windowSoftInputMode="adjustResize"
             android:screenOrientation="{{orientation}}"
             android:theme="@style/Theme.SigxApp.Splash">

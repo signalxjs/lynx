@@ -36,14 +36,14 @@ describe('SheetDragAdapter source shape', () => {
     it('pushes geometry + gate through syncGeom (a BG SV write never arrives, #758)', () => {
         // dismissible=1 (route sheets drag-dismiss), gate=1 (mount implies
         // drag enabled — the slot unmounts the adapter otherwise).
-        expect(src).toMatch(/syncGeom\(floorPx, topPx, detentsPx, 1, 1, SCREEN_HEIGHT\)/);
+        expect(src).toMatch(/syncGeom\(floorPx, topPx, detentsPx, 1, 1, screenHeight\(\)\)/);
     });
 
     it('arbitrates on the drag host handles (adopted scroll offset + presence)', () => {
         expect(src).toMatch(/scrollOffsetY: props\.dragHost\.scrollOffsetY/);
         expect(src).toMatch(/hasVerticalScroll: props\.dragHost\.hasVerticalScroll/);
         // Screen-anchored bottom edge travels via syncGeom (6th arg).
-        expect(src).toMatch(/syncGeom\(floorPx, topPx, detentsPx, 1, 1, SCREEN_HEIGHT\)/);
+        expect(src).toMatch(/syncGeom\(floorPx, topPx, detentsPx, 1, 1, screenHeight\(\)\)/);
     });
 
     it('threads grabberPx (#711) into the pan and the Stack remount key', () => {

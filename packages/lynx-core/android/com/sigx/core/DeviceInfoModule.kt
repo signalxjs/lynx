@@ -8,6 +8,7 @@ import com.lynx.jsbridge.LynxMethod
 import com.lynx.jsbridge.LynxModule
 import com.lynx.react.bridge.Callback
 import com.lynx.react.bridge.JavaOnlyMap
+import com.lynx.react.bridge.ReadableMap
 import kotlin.math.roundToInt
 
 /**
@@ -56,6 +57,32 @@ class DeviceInfoModule(context: Context) : LynxModule(context) {
         val map = JavaOnlyMap().apply { putString("state", AppStateBus.current) }
         callback?.invoke(map)
     }
+
+    /**
+     * Runtime orientation lock (#856). The manifest `screenOrientation`
+     * (from `signalx.config.ts`) is the ceiling — see [SigxOrientation].
+     * JS usage: NativeModules.SigxCore.lockOrientation({ orientation }, cb)
+     */
+    @LynxMethod
+    fun lockOrientation(params: ReadableMap?, callback: Callback?) {
+        val value = params?.getString("orientation")
+        val error = if (value.isNullOrEmpty()) {
+            "Missing `orientation`."
+        } else {
+            SigxOrientation.lock(value)
+        }
+        callback?.invoke(resultMap(error))
+    }
+
+    /** Release the runtime lock, restoring the manifest-declared orientation. */
+    @LynxMethod
+    fun unlockOrientation(callback: Callback?) {
+        callback?.invoke(resultMap(SigxOrientation.unlock()))
+    }
+
+    /** Empty map on success; `{ error }` on failure (CONVENTIONS.md C4). */
+    private fun resultMap(error: String?): JavaOnlyMap =
+        JavaOnlyMap().apply { error?.let { putString("error", it) } }
 
     @LynxMethod
     fun getConstants(callback: Callback?) {

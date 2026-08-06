@@ -36,7 +36,7 @@ import { validateManifest } from './manifest.js';
 import { generateIosIcon, generateAndroidIcons, generateAndroidAdaptiveIcon, generateAndroidNotificationIcon } from './assets/icons.js';
 import { generateIosSplash, generateAndroidSplash } from './assets/splash.js';
 import { applyIosPlistMeta, applyAndroidManifestMeta, applyAndroidGradleMeta } from './assets/manifest.js';
-import type { LynxConfig, PlistValue } from './config/index.js';
+import type { LynxConfig, Orientation, PlistValue } from './config/index.js';
 import type { ResolvedConfig } from './config/parser.js';
 import type { ModuleManifest } from './manifest.js';
 import type { AndroidLinkResult, DevClientInfo } from './autolink/android.js';
@@ -1296,7 +1296,31 @@ function iosTemplateVars(config: ResolvedConfig): Record<string, string> {
         fontScaleFollow: String(config.fontScale.follow),
         fontScaleMin: formatScaleLiteral(config.fontScale.min),
         fontScaleMax: formatScaleLiteral(config.fontScale.max),
+        orientationDefaultMask: iosOrientationMaskLiteral(
+            config.ios.orientation ?? config.orientation,
+        ),
     };
+}
+
+/**
+ * The `UIInterfaceOrientationMask` literal the host AppDelegate returns by
+ * default (#856). Implementing `supportedInterfaceOrientationsFor` overrides
+ * Info.plist entirely, so this MUST mirror what `applyIosPlistMeta` writes
+ * into `UISupportedInterfaceOrientations` — otherwise the runtime ceiling and
+ * the declared set would disagree.
+ */
+function iosOrientationMaskLiteral(orientation: Orientation): string {
+    switch (orientation) {
+        case 'portrait':
+            return '.portrait';
+        case 'landscape':
+            return '.landscape';
+        case 'all':
+            return '.all';
+        case 'default':
+        default:
+            return '.allButUpsideDown';
+    }
 }
 
 /**

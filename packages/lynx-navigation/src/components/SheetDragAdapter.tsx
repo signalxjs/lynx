@@ -43,7 +43,7 @@ import {
     useSheetEngine,
 } from '@sigx/lynx-sheet';
 import { useNavInternals } from '../hooks/use-nav-internal.js';
-import { SCREEN_HEIGHT } from '../internal/screen-width.js';
+import { screenHeight } from '../internal/screen-width.js';
 
 type SheetDragAdapterProps =
     /** Entry key of the sheet this adapter drives — pins the dismiss commit. */
@@ -101,9 +101,9 @@ export const SheetDragAdapter = component<SheetDragAdapterProps>(({ props }) => 
     // dismissible (dismissible=1); the drag gate is open (gate=1) because
     // mounting IS the gate here — `<SheetSlot>` unmounts the adapter when
     // drag turns off. Route sheets are screen-anchored, so the bottom edge
-    // is SCREEN_HEIGHT. Must travel via syncGeom: a render/BG-side SV
+    // is screenHeight(). Must travel via syncGeom: a render/BG-side SV
     // write is a read-only no-op and would never arrive on the MT (#758).
-    void engine.syncGeom(floorPx, topPx, detentsPx, 1, 1, SCREEN_HEIGHT);
+    void engine.syncGeom(floorPx, topPx, detentsPx, 1, 1, screenHeight());
 
     const pan = createSheetPan(engine, {
         surface: true,

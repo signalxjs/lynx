@@ -8,7 +8,7 @@ import {
 } from '@sigx/lynx';
 import { withTiming } from '@sigx/lynx-motion';
 import { useNavInternals } from '../hooks/use-nav-internal.js';
-import { SCREEN_WIDTH } from '../internal/screen-width.js';
+import { screenWidthMT } from '../internal/screen-width.js';
 
 /**
  * Edge-pan recognizer for iOS-style swipe-back. Mounts as an absolutely-
@@ -108,7 +108,7 @@ export const EdgeBackHandle = component(() => {
             const p = e && e.params;
             const pageX = (p && p.pageX) || 0;
             const dx = pageX - state.startPageX;
-            const prog = Math.max(0, Math.min(1, dx / SCREEN_WIDTH));
+            const prog = Math.max(0, Math.min(1, dx / screenWidthMT()));
             progress.current.value = prog;
 
             const now = Date.now();
@@ -126,7 +126,7 @@ export const EdgeBackHandle = component(() => {
             const p = e && e.params;
             const pageX = (p && p.pageX) || 0;
             const dx = pageX - state.startPageX;
-            const fraction = dx / SCREEN_WIDTH;
+            const fraction = dx / screenWidthMT();
             const commit =
                 fraction > COMMIT_TRANSLATION ||
                 state.velocity > COMMIT_VELOCITY;

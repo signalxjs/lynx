@@ -146,6 +146,40 @@ describe('applyIosDeviceFamily', () => {
 });
 
 // ────────────────────────────────────────────────────────────────
+// iOS runtime-lock ceiling (#856)
+// ────────────────────────────────────────────────────────────────
+
+describe('scaffoldIos — AppDelegate orientation mask', () => {
+    function appSwiftAfter(raw: LynxConfig): string {
+        scaffoldIos(testDir, resolveConfig(raw));
+        return readFileSync(join(testDir, 'ios', 'TestApp', 'App.swift'), 'utf-8');
+    }
+
+    // Implementing `supportedInterfaceOrientationsFor` OVERRIDES Info.plist,
+    // so the stamped default has to mirror what applyIosPlistMeta writes —
+    // otherwise the runtime ceiling and the declared set disagree.
+    it.each([
+        ['portrait', '.portrait'],
+        ['landscape', '.landscape'],
+        ['all', '.all'],
+        ['default', '.allButUpsideDown'],
+    ] as const)('stamps orientation %s as %s', (orientation, mask) => {
+        const app = appSwiftAfter({ ...BASE_CONFIG, orientation });
+        expect(app).toContain(`SigxOrientation.supportedMask(default: ${mask})`);
+        expect(app).not.toContain('{{orientationDefaultMask}}');
+    });
+
+    it('honors the iOS-only orientation override', () => {
+        const app = appSwiftAfter({
+            ...BASE_CONFIG,
+            orientation: 'portrait',
+            ios: { ...BASE_CONFIG.ios, orientation: 'all' },
+        });
+        expect(app).toContain('SigxOrientation.supportedMask(default: .all)');
+    });
+});
+
+// ────────────────────────────────────────────────────────────────
 // Android orientation
 // ────────────────────────────────────────────────────────────────
 
@@ -166,6 +200,23 @@ describe('applyAndroidManifestMeta — orientation', () => {
     it("renders 'default' as unspecified (regression)", () => {
         expect(manifestAfter({ ...BASE_CONFIG, orientation: 'default' }))
             .toContain('android:screenOrientation="unspecified"');
+    });
+
+    it('handles rotation in place instead of recreating the Activity (#856)', () => {
+        const manifest = manifestAfter({ ...BASE_CONFIG, orientation: 'default' });
+        const configChanges = manifest.match(/android:configChanges="([^"]+)"/)![1].split('|');
+        // Without orientation|screenSize a rotation recreates the Activity and
+        // reloads the bundle, losing all app state.
+        expect(configChanges).toContain('orientation');
+        expect(configChanges).toContain('screenSize');
+        // Foldables / multi-window resize.
+        expect(configChanges).toContain('smallestScreenSize');
+        expect(configChanges).toContain('screenLayout');
+        // #766 must survive.
+        expect(configChanges).toContain('fontScale');
+        // Dark mode deliberately still recreates — @sigx/lynx-appearance is
+        // built around that.
+        expect(configChanges).not.toContain('uiMode');
     });
 });
 

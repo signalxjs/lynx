@@ -3,7 +3,7 @@ import {
     signal,
     watch,
     onUnmounted,
-    Platform,
+    useScreen,
     defineProvide,
     useFontScale,
     useMainThreadRef,
@@ -186,8 +186,10 @@ export const EmojiComposerScreen = component(() => {
     const kbLiftSV = useKeyboardLiftSV();
     // Still observed here, but only as the picker-warm trigger below.
     const kbLiftBG = useKeyboardLift();
-    const screenH = Platform.pixelHeight / (Platform.pixelRatio || 1);
-    const screenW = Platform.pixelWidth / (Platform.pixelRatio || 1);
+    // Live, not a load-time snapshot: every detent and the picker's fixed
+    // inner height are derived from these, so they have to follow a rotation
+    // (#856). Read inside the render function below.
+    const screen = useScreen();
 
     // Warm the emoji grid a beat AFTER the chat has had its first layout, then
     // keep it mounted for the screen's life. Two constraints pull against each
@@ -375,6 +377,8 @@ export const EmojiComposerScreen = component(() => {
     };
 
     return () => {
+        const screenH = screen.value.height;
+        const screenW = screen.value.width;
         // Geometry is the sheet's job now. Declared, not computed:
         //  • floor    = the input row (px);
         //  • compact  = `{ keyboard: true }` — the sheet remembers the real
@@ -435,7 +439,7 @@ export const EmojiComposerScreen = component(() => {
         // settles); at full height the grid always covers the visible area
         // and simply extends below the fold. What the fold costs — an
         // unreachable tail — is bought back with `gridBottomInset`.
-        // Clamped: on a tiny screen (or Platform.pixelHeight 0 in non-Lynx
+        // Clamped: on a tiny screen (or a 0-height screen in non-Lynx
         // envs) this could go non-positive — never emit a zero/negative
         // height for the picker (see the #606 guard below).
         const pickerH = Math.max(1, fullH - HANDLE_H);
