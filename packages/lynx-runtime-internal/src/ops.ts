@@ -66,6 +66,26 @@
  * can't express without a layout pass, e.g. `<list>`'s `setBottomInset`):
  *   REGISTER_AV_METHOD_BINDING:   [29, bindingId, elementWvid, avWvid, methodName, valueKey, params]
  *   UNREGISTER_AV_METHOD_BINDING: [30, bindingId]
+ *
+ * Per-frame main-thread callbacks (#933 — ONE shared rAF chain on the MT
+ * invokes every ACTIVE registered worklet once per frame with a
+ * `{timestamp, timeSinceFirstFrame, timeSincePreviousFrame, frameNumber}`
+ * argument, then flushes once. The ctx ships ONCE and is hydrated ONCE:
+ * upstream's `runWorklet` caches hydration in a WeakMap keyed on ctx object
+ * IDENTITY, so reusing INVOKE_WORKLET per frame would re-walk `_c`, re-bind,
+ * and re-`addRef` every `runOnBackground` handle sixty times a second —
+ * an unbounded refcount climb in upstream's `_jsFunctionLifecycleManager`.
+ *
+ * Activation is a SEPARATE op rather than a re-REGISTER, for two reasons: a
+ * re-register would mint a fresh ctx object and invalidate that hydration
+ * cache on every start(), and — the load-bearing one — activation must be
+ * reachable from the MAIN thread, so a gesture's onEnd can start a physics
+ * sim in the frame the finger lifts instead of a BG round trip later. The
+ * `startFrameCallback` / `stopFrameCallback` worklets in @sigx/lynx-runtime
+ * flip it through `globalThis.__sigxFrameCallbacks.setActive`:
+ *   REGISTER_FRAME_CALLBACK:   [31, fcId, workletCtx, active]   active 0|1
+ *   SET_FRAME_CALLBACK_ACTIVE: [32, fcId, active]
+ *   UNREGISTER_FRAME_CALLBACK: [33, fcId]
  */
 export const OP = {
   CREATE: 0,
@@ -99,6 +119,9 @@ export const OP = {
   UNREGISTER_AV_DERIVED: 28,
   REGISTER_AV_METHOD_BINDING: 29,
   UNREGISTER_AV_METHOD_BINDING: 30,
+  REGISTER_FRAME_CALLBACK: 31,
+  SET_FRAME_CALLBACK_ACTIVE: 32,
+  UNREGISTER_FRAME_CALLBACK: 33,
 } as const;
 
 export type OpCode = (typeof OP)[keyof typeof OP];

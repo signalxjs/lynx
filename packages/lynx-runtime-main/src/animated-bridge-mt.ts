@@ -511,8 +511,13 @@ export function installAvBridgeFlushHook(): void {
  * ONE flush per microtask window, never two. `__FlushElementTree` is read
  * at fire time so the microtask gets the AV-bridge-wrapped version that
  * applies bindings and publishes before the native tree flush.
+ *
+ * Exported for the frame-callback driver (frame-callbacks-mt.ts), which ends
+ * each frame with it: sharing this function rather than cloning the latch is
+ * what keeps a frame that both wrote SharedValues and mutated elements to a
+ * single `__FlushElementTree()`.
  */
-function scheduleAvFlush(): void {
+export function scheduleAvFlush(): void {
   const g = globalThis as Record<string, unknown>;
   if (g['__sigxMotionFlushScheduled']) return;
   g['__sigxMotionFlushScheduled'] = true;

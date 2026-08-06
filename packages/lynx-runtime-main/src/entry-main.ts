@@ -267,3 +267,7 @@ installAvBridgeFlushHook();
 // MT-side dispatcher as a global so those calls reach the BG event bus.
 // ---------------------------------------------------------------------------
 g['runOnBackground'] = runOnBackground;
+
+// The frame-callback driver (#933) installs its own
+// `globalThis.__sigxFrameCallbacks` at module scope — see
+// frame-callbacks-mt.ts for why it lives there rather than here.

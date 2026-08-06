@@ -18,6 +18,7 @@ Full guides, API reference and live examples → **[https://sigx.dev/lynx/module
 - **AnimatedValue BG sink** — `registerBgSink`, `unregisterBgSink`, `ingestAvPublishes` — receive MT-published `AnimatedValue` writes into a `signal`-backed mirror so `effect(() => av.value)` re-runs reactively. The producer side lives in [`@sigx/lynx-gestures`](https://sigx.dev/lynx/modules/gestures/overview/); the MT side lives in [`@sigx/lynx-runtime-main`](https://sigx.dev/lynx/modules/runtime-main/overview/).
 - **Animated bindings** — `useAnimatedStyle` (SharedValue → style via a named mapper) and `useAnimatedMethod` (SharedValue → native **UI method** invoke, e.g. `<list>`'s `setBottomInset`). Both apply on the main thread at every flush boundary where the SharedValue changed — no thread crossing per frame — and both offer a static and a reactive (`() => spec | null`) call shape. Method bindings differ in one guarantee: they stay *dirty* while their element is unmounted/unresolved (or the invoke throws) and apply on a later flush, so a producer that settles once (a keyboard lift) can't strand the native state.
 - **BG globals** — installs web-standard globals the Lynx background thread doesn't expose on its own (engine-version dependent), so web-ported code works unchanged. Currently `queueMicrotask`, polyfilled on `Promise` (some engines, e.g. 3.7 pods, only offer `lynx.queueMicrotask`). Installed first at import, non-clobbering — engines that already expose the global keep theirs.
+- **Per-frame callbacks** — `useFrameCallback(worklet, { autostart })` runs a `'main thread'` worklet once per frame with `{ timestamp, timeSinceFirstFrame, timeSincePreviousFrame, frameNumber }`. The MT drives **one** `requestAnimationFrame` chain for every registered callback, and the worklet ctx crosses the bridge once and is hydrated once, so a frame costs one function call — no thread crossing, no re-serialization. `fc.start()` / `fc.stop()` drive it from BG; `startFrameCallback(fc)` / `stopFrameCallback(fc)` are themselves main-thread worklets, so a gesture's `onEnd` can start a physics simulation in the same frame the finger lifts, and the simulation can stop itself once it settles.
 - **Measurement** — `useElementLayout` (layout events) and `useViewportRect` / `measureViewportRect` (live viewport geometry). See below.
 - **`use:*` directives** — element-level lifecycle hooks via the `use:<name>` prop, wired into the renderer; ships the built-in **`show`** directive. See below.
 - **JSX types** — `MainThread`, `Define`, `ViewAttributes`, `DirectiveAttribute`, etc.
@@ -129,6 +130,18 @@ A typical batch:
 ```
 
 Serialized to JSON, shipped via `lynx.getNativeApp().callLepusMethod('sigxPatchUpdate', { data })`, applied by the MT runtime in `@sigx/lynx-runtime-main`.
+
+Ops that carry a worklet — `SET_WORKLET_EVENT`, `SET_GESTURE_DETECTOR`, `REGISTER_FRAME_CALLBACK` — ship the **full** transform-emitted ctx (`_wkltId`, `_c`, `_jsFn`, `_execId`, `_workletType`), with any `MainThreadRef` inside `_c` sanitized to `{ _wvid, _initValue }`. Dropping a field breaks hydration on the MT (`Cannot destructure property '_jsFn1'`).
+
+Frame callbacks separate registration from activation:
+
+```ts
+[OP.REGISTER_FRAME_CALLBACK, 1, { _wkltId: 'w1', _c: { pos: { _wvid: 3 } }, _execId: 1 }, 0,
+ OP.SET_FRAME_CALLBACK_ACTIVE, 1, 1,
+ OP.UNREGISTER_FRAME_CALLBACK, 1]
+```
+
+The split exists for two reasons. Activation must be reachable from the **main thread**, so a gesture worklet can flip it through `globalThis.__sigxFrameCallbacks.setActive` with no BG round trip. And re-registering to activate would mint a fresh ctx object, which invalidates the MT-side hydration cache — upstream's `runWorklet` memoizes its `_c` walk keyed on ctx identity, so the driver keeps the object and a frame costs a bound call rather than a full re-walk plus a `runOnBackground` re-`addRef`.
 
 ## Background event bridge
 
