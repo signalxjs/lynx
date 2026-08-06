@@ -30,6 +30,15 @@ describe('coverage of the real package tree', () => {
         expect(new Set(covered).size).toBe(covered.length);
     });
 
+    it('does not treat a prototype-named directory as classified', () => {
+        // `in` walks the prototype chain, so a package called `toString` or
+        // `constructor` used to test as already-classified and slip past the
+        // unknown guard — the one check between a new package and being
+        // silently skipped by the whole campaign.
+        const { unknown } = buildUnits(['toString', 'constructor', 'valueOf']);
+        expect(unknown.sort()).toEqual(['constructor', 'toString', 'valueOf']);
+    });
+
     it('gives every exclusion a reason', () => {
         // "Not audited" has to be a decision someone wrote down, not a gap.
         for (const [name, why] of Object.entries(EXCLUDED)) {
@@ -38,8 +47,9 @@ describe('coverage of the real package tree', () => {
     });
 
     it('never both excludes a package and gives it metadata', () => {
-        expect(Object.keys(EXCLUDED).filter((n) => n in META)).toEqual([]);
-        expect(Object.keys(EXCLUDED).filter((n) => n in FOLD)).toEqual([]);
+        const has = (map, key) => Object.prototype.hasOwnProperty.call(map, key);
+        expect(Object.keys(EXCLUDED).filter((n) => has(META, n))).toEqual([]);
+        expect(Object.keys(EXCLUDED).filter((n) => has(FOLD, n))).toEqual([]);
     });
 
     it('builds no unit for an excluded package', () => {
@@ -92,7 +102,7 @@ describe('metadata', () => {
         // buildUnits treats a directory as classified if it is in either map,
         // so an overlap would silently carry contradictory config: metadata
         // for a package that never becomes a unit.
-        const overlap = Object.keys(FOLD).filter((name) => name in META);
+        const overlap = Object.keys(FOLD).filter((name) => Object.prototype.hasOwnProperty.call(META, name));
         expect(overlap).toEqual([]);
     });
 

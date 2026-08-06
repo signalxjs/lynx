@@ -441,6 +441,16 @@ export const META = {
 };
 
 /**
+ * Own-property membership.
+ *
+ * `in` also walks the prototype chain, so a package directory named
+ * `toString` or `constructor` would test as classified and slip past the
+ * `unknown` guard — the one check standing between a new package and being
+ * silently skipped by the whole campaign.
+ */
+const has = (map, key) => Object.prototype.hasOwnProperty.call(map, key);
+
+/**
  * Build the audit-unit list from the package directories on disk.
  *
  * Deriving from the filesystem rather than a hardcoded list is what makes the
@@ -456,10 +466,10 @@ export const META = {
  */
 export function buildUnits(packageDirs) {
     const dirs = [...packageDirs].sort();
-    const unknown = dirs.filter((d) => !(d in META) && !(d in FOLD) && !(d in EXCLUDED));
+    const unknown = dirs.filter((d) => !has(META, d) && !has(FOLD, d) && !has(EXCLUDED, d));
 
     const units = dirs
-        .filter((d) => !(d in FOLD) && !(d in EXCLUDED) && d in META)
+        .filter((d) => !has(FOLD, d) && !has(EXCLUDED, d) && has(META, d))
         .map((d) => ({
             name: `@sigx/${d}`,
             pkg: d,
