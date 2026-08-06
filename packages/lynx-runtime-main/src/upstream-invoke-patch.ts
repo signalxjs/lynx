@@ -89,12 +89,25 @@ export function patchUpstreamInvoke(instance: unknown): void {
         resolve({ ok: false, err: new Error('UI method invoke: __InvokeUIMethod not available') });
         return;
       }
-      __InvokeUIMethod(this.element, methodName, params ?? {}, (res) => {
-        resolve(res.code === 0
-          ? { ok: true, value: res.data }
-          : { ok: false, err: new Error('UI method invoke: ' + JSON.stringify(res)) });
-      });
-      this.flushElementTree?.();
+      // `__InvokeUIMethod` can also THROW synchronously — during layout
+      // transitions (keyboard resize, teardown) the native element can be in a
+      // state where the call fails outright, which is why call sites wrap it in
+      // try/catch as well as `.catch()` (see `List.tsx`). A throw inside a
+      // Promise executor rejects that promise synchronously, which is the exact
+      // fatal this patch exists to avoid — so the envelope has to absorb it too.
+      try {
+        __InvokeUIMethod(this.element, methodName, params ?? {}, (res) => {
+          resolve(res.code === 0
+            ? { ok: true, value: res.data }
+            : { ok: false, err: new Error('UI method invoke: ' + JSON.stringify(res)) });
+        });
+        // A throw from the flush after native already answered can't un-settle
+        // the envelope — first settle wins, so a successful invoke stays
+        // successful.
+        this.flushElementTree?.();
+      } catch (e) {
+        resolve({ ok: false, err: e instanceof Error ? e : new Error('UI method invoke: ' + String(e)) });
+      }
     }).then((r) => {
       if (!r.ok) throw r.err;
       return r.value;

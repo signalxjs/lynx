@@ -269,4 +269,41 @@ describe('MTElementWrapper.invoke', () => {
       await expect(w.invoke('ok')).resolves.toBe('fine');
     });
   });
+
+  // `__InvokeUIMethod` throws outright during layout transitions and teardown
+  // (see the try/catch at `List.tsx:440`). These tests pin the caller-facing
+  // contract for that case.
+  //
+  // They do NOT isolate the executor's try/catch, and can't: its only job is to
+  // stop the internal envelope from entering a rejected state, which is
+  // invisible from V8 (the `.then()` hop defers the caller-facing rejection
+  // either way, and a promise settles once so a post-answer flush throw is
+  // ignored regardless). It matters solely because PrimJS reports unhandled
+  // rejections at rejection time and would fire on that envelope. Enforced by
+  // construction in the source, not by these assertions.
+  describe('when __InvokeUIMethod throws synchronously (#863)', () => {
+    beforeEach(() => {
+      vi.stubGlobal('__InvokeUIMethod', vi.fn(() => {
+        throw new Error('node 42 does not have a LynxUI');
+      }));
+    });
+
+    it('does not return an already-rejected promise', async () => {
+      const w = new MTElementWrapper(fakeEl);
+      const order: string[] = [];
+
+      const p = w.invoke('scrollToPosition');
+      p.catch(() => { order.push('invoke-rejected'); });
+      void Promise.resolve().then(() => { order.push('marker'); });
+
+      await new Promise((r) => setTimeout(r, 0));
+
+      expect(order).toEqual(['marker', 'invoke-rejected']);
+    });
+
+    it('rejects with the thrown error', async () => {
+      const w = new MTElementWrapper(fakeEl);
+      await expect(w.invoke('scrollToPosition')).rejects.toThrow(/does not have a LynxUI/);
+    });
+  });
 });

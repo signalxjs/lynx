@@ -134,6 +134,45 @@ describe('patchUpstreamInvoke', () => {
     expect(await rejectionOrder(el)).toEqual(['marker', 'invoke-rejected']);
   });
 
+  // `__InvokeUIMethod` really does throw during layout transitions and teardown
+  // (see the try/catch at `List.tsx:440`). These tests pin the caller-facing
+  // contract for that case.
+  //
+  // They do NOT isolate the executor's try/catch, and can't: its only job is to
+  // stop the internal envelope from entering a rejected state, which is
+  // invisible from V8 (the `.then()` hop defers the caller-facing rejection
+  // either way, and a promise settles once so a post-answer flush throw is
+  // ignored regardless). It matters solely because PrimJS reports unhandled
+  // rejections at rejection time and would fire on that envelope. Enforced by
+  // construction in the source, not by these assertions.
+  describe('when __InvokeUIMethod throws synchronously', () => {
+    beforeEach(() => {
+      vi.stubGlobal('__InvokeUIMethod', vi.fn(() => {
+        throw new Error('node 42 does not have a LynxUI');
+      }));
+    });
+
+    it('still defers the rejection', async () => {
+      const el = new UpstreamElementStub({ id: 1 });
+      patchUpstreamInvoke(el);
+      expect(await rejectionOrder(el)).toEqual(['marker', 'invoke-rejected']);
+    });
+
+    it('rejects with the thrown error', async () => {
+      const el = new UpstreamElementStub({ id: 1 });
+      patchUpstreamInvoke(el);
+      await expect(el.invoke('scrollToPosition')).rejects.toThrow(/does not have a LynxUI/);
+    });
+  });
+
+  it('keeps a successful result when only the flush throws', async () => {
+    // Native already answered; a failing flush must not turn success into failure.
+    const el = new UpstreamElementStub({ id: 1 });
+    el.flushElementTree = () => { throw new Error('flush failed'); };
+    patchUpstreamInvoke(el);
+    await expect(el.invoke('ok')).resolves.toBe('fine');
+  });
+
   it('ignores null / non-objects', () => {
     expect(() => { patchUpstreamInvoke(null); }).not.toThrow();
     expect(() => { patchUpstreamInvoke(undefined); }).not.toThrow();
