@@ -61,6 +61,10 @@ export type OrientationLock =
 export const Orientation = {
     /** Request an orientation lock. Rejects if `to` isn't in the app's declared set. */
     async lock(to: OrientationLock): Promise<void> {
+        // `'default'` MEANS "no runtime lock", so it routes to unlock rather
+        // than the native lock path — which knows nothing about it and would
+        // reject a documented value as an unknown orientation.
+        if (to === 'default') return Orientation.unlock();
         // Method names stay literal at the call site: `callAsync` has no error
         // channel (failures ride the resolved `{ error }` envelope — C4), and
         // the manifest checker matches these against `ios.methods` (C12).

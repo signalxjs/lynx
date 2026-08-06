@@ -29,6 +29,18 @@ describe('Orientation.lock', () => {
         );
     });
 
+    it("routes 'default' to unlock — native knows nothing about that value", async () => {
+        // It is documented as an alias for `unlock()`, and both native sides
+        // treat it as an unknown orientation, so forwarding it would reject a
+        // documented value.
+        callAsync.mockResolvedValue({});
+        await Orientation.lock('default');
+        expect(callAsync).toHaveBeenCalledWith('SigxCore', 'unlockOrientation');
+        expect(callAsync).not.toHaveBeenCalledWith(
+            'SigxCore', 'lockOrientation', expect.anything(),
+        );
+    });
+
     it('rejects with a scoped message when the build forbids it', async () => {
         callAsync.mockResolvedValue({
             error: "The app is built with a fixed orientation, so lock('landscape') can't take effect.",

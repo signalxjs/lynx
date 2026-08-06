@@ -205,6 +205,13 @@ await Orientation.unlock();            // back to the configured set
 useOrientationLock('landscape');       // locks on mount, restores on unmount
 ```
 
+`'default'` means "no runtime lock" — `lock('default')` is an alias for
+`unlock()` on every platform. `useOrientationLock` keeps a **stack** of holders,
+because `@sigx/lynx-navigation` leaves a covered screen mounted under a card,
+modal or sheet: popping the covering screen restores the covered one's lock
+rather than falling through to the build-time default, and the runtime lock is
+only released once the last holder unmounts.
+
 **The build-time config is the ceiling.** `signalx.config.ts`'s `orientation`
 (default `'portrait'`) is written into `android:screenOrientation` and iOS's
 `UISupportedInterfaceOrientations`; the OS won't rotate outside it. Requesting

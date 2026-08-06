@@ -31,6 +31,8 @@ const WEB_LOCK: Record<OrientationLock, string> = {
     'landscape-left': 'landscape-primary',
     'landscape-right': 'landscape-secondary',
     'all': 'any',
+    // Never reached — `lock('default')` short-circuits to `unlock()` above.
+    // Present so the record stays exhaustive over `OrientationLock`.
     'default': 'natural',
 };
 
@@ -43,6 +45,10 @@ const unsupported = (action: string): Error => new Error(
 // Type-pinned against the native module so the two surfaces can't drift.
 export const Orientation: typeof import('./orientation.js').Orientation = {
     async lock(to: OrientationLock): Promise<void> {
+        // Same aliasing as native: `'default'` releases the lock. Doing it
+        // before the availability check matters — "go back to the default" must
+        // not fail on a browser that can't lock in the first place.
+        if (to === 'default') return Orientation.unlock();
         const api = screenOrientation();
         if (!api?.lock) throw unsupported(`lock('${to}')`);
         // Browsers reject with a bare NotSupportedError/SecurityError when the
