@@ -62,9 +62,18 @@ internal object AudioFocusCoordinator {
             if (count == 0) {
                 val am = context.applicationContext
                     .getSystemService(Context.AUDIO_SERVICE) as? AudioManager ?: return
+                // Only commit the count if focus was actually granted. A
+                // refusal — another app holding exclusive focus, say — is
+                // transient, and recording count = 1 anyway would make every
+                // later retain early-return, so the process would never ask
+                // again and would emit no interruption events for the rest of
+                // its life. Same failure mode as a null AudioManager.
+                if (!requestFocus(am)) {
+                    request = null
+                    return
+                }
                 manager = am
                 count = 1
-                requestFocus(am)
                 return
             }
             count += 1
@@ -82,7 +91,8 @@ internal object AudioFocusCoordinator {
         }
     }
 
-    private fun requestFocus(am: AudioManager) {
+    /** @return true when focus was granted. */
+    private fun requestFocus(am: AudioManager): Boolean {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val attrs = AudioAttributes.Builder()
                 .setUsage(AudioAttributes.USAGE_MEDIA)
@@ -93,15 +103,14 @@ internal object AudioFocusCoordinator {
                 .setOnAudioFocusChangeListener(listener)
                 .build()
             request = req
-            am.requestAudioFocus(req)
-        } else {
-            @Suppress("DEPRECATION")
-            am.requestAudioFocus(
-                listener,
-                AudioManager.STREAM_MUSIC,
-                AudioManager.AUDIOFOCUS_GAIN,
-            )
+            return am.requestAudioFocus(req) == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
         }
+        @Suppress("DEPRECATION")
+        return am.requestAudioFocus(
+            listener,
+            AudioManager.STREAM_MUSIC,
+            AudioManager.AUDIOFOCUS_GAIN,
+        ) == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
     }
 
     private fun abandonFocus(am: AudioManager) {
