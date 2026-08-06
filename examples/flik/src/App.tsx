@@ -8,7 +8,12 @@
  * game depends on and it has to be the real one.
  */
 
-import { component, signal, useElementLayout } from '@sigx/lynx';
+import {
+    component,
+    signal,
+    useElementLayout,
+    type LayoutChangeEvent,
+} from '@sigx/lynx';
 import { SafeAreaProvider, SafeAreaView } from '@sigx/lynx-safe-area';
 
 import { newGame } from './game/setup.js';
@@ -36,12 +41,21 @@ const App = component(() => {
         return { width: height * ASPECT, height };
     };
 
-    return () => {
+    // Deal the opening board from the first real measurement — in the layout
+    // handler, not in render. Writing reactive state during render is
+    // re-entrant: the write invalidates the very render that made it.
+    const handleLayout = (e: LayoutChangeEvent): void => {
+        onLayoutChange(e);
+        if (game.state) return;
         const dims = size();
-        // The first frame has no measurement yet, so there is no honest board
-        // size to lay out against — render the empty arena and let the layout
-        // event bring the board in.
-        if (dims && !game.state) game.state = newGame(dims.width, dims.height);
+        if (dims) game.state = newGame(dims.width, dims.height);
+    };
+
+    return () => {
+        // Until the arena reports its size there is no honest board size to
+        // lay out against, so the first frame renders an empty arena and the
+        // layout event brings the board in.
+        const dims = size();
         const state = game.state;
 
         return (
@@ -52,7 +66,7 @@ const App = component(() => {
                 >
                     {state && dims ? <Hud state={state} boardHeight={dims.height} /> : null}
                     <view
-                        bindlayoutchange={onLayoutChange}
+                        bindlayoutchange={handleLayout}
                         style={{
                             flex: '1',
                             display: 'flex',

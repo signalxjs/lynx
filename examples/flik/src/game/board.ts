@@ -33,8 +33,20 @@
 import type { Owner, Zone } from './types.js';
 import { PLAYER_A, PLAYER_B } from './types.js';
 
-/** Band boundaries as fractions of board height, `[startY, endY)`. */
-export const BANDS: ReadonlyArray<{ zone: Zone; from: number; to: number }> = [
+/** A single band's extent, as fractions of board height. */
+export interface Band {
+    readonly zone: Zone;
+    readonly from: number;
+    readonly to: number;
+}
+
+/**
+ * Band boundaries as fractions of board height, `[startY, endY)`.
+ *
+ * Deeply readonly, not just a readonly array: this table IS the ruleset, so
+ * `BANDS[0].from = …` needs to be a type error too, not only `BANDS[0] = …`.
+ */
+export const BANDS: readonly Band[] = [
     { zone: 'homeB', from: 0.0, to: 0.13 },
     { zone: 'targetA', from: 0.13, to: 0.3 },
     { zone: 'field', from: 0.3, to: 0.7 },
