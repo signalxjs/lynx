@@ -41,6 +41,7 @@ import { FilePickerDemo } from './screens/FilePickerDemo.js';
 import { HttpDemo } from './screens/HttpDemo.js';
 import { LocationDemo } from './screens/LocationDemo.js';
 import { ShareDemo } from './screens/ShareDemo.js';
+import { ClipboardDemo } from './screens/ClipboardDemo.js';
 import { DateTimePickerDemo } from './screens/DateTimePickerDemo.js';
 import { WebViewDemo } from './screens/WebViewDemo.js';
 import { AuthDemo } from './screens/AuthDemo.js';
@@ -133,6 +134,7 @@ export const routes = defineRoutes({
     httpDemo: { component: HttpDemo, path: '/http' },
     locationDemo: { component: LocationDemo, path: '/location' },
     shareDemo: { component: ShareDemo, path: '/share' },
+    clipboardDemo: { component: ClipboardDemo, path: '/clipboard' },
     datetimePickerDemo: { component: DateTimePickerDemo, path: '/datetime-picker' },
     webviewDemo: { component: WebViewDemo, path: '/webview' },
     authDemo: { component: AuthDemo, path: '/auth' },

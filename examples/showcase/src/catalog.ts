@@ -322,6 +322,13 @@ export const catalog: Area[] = [
                 route: 'locationDemo',
             },
             {
+                id: 'clipboard',
+                title: 'Clipboard',
+                description: 'Copy and paste text — plus the empty-clipboard and unlinked-module failure paths',
+                icon: { set: 'lucide', name: 'clipboard' },
+                route: 'clipboardDemo',
+            },
+            {
                 id: 'share',
                 title: 'Share',
                 description: 'Native share sheet for text and URLs',
