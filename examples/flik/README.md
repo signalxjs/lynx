@@ -78,7 +78,16 @@ src/
     rules.ts   settleShot, scoring, turn order, game over
     setup.ts   opening line-up, and the stress layout
     pack.ts    flat-number codec for the two cross-thread handoffs
-  render/   the board, the discs, the HUD
+  sim/      main-thread worklets. Pure — no bridge calls live here.
+    state.ts        the world: structure-of-arrays, preallocated
+    integrate.mt.ts friction, position, wall reflection, sleep
+    broadphase.mt.ts candidate pairs (all-pairs or uniform grid)
+    collide.mt.ts   elastic resolution with unequal masses
+    tick.mt.ts      fixed-timestep substeps + the quiescence check
+    world.mt.ts     seed / launch / kick
+    write.mt.ts     push positions onto elements
+  useSimLoop.ts  the frame loop — the ONLY cross-thread traffic during a shot
+  render/   the board, the disc layer, the HUD
   theme.ts  palette as hex values (see below)
 ```
 
@@ -86,15 +95,51 @@ Colours are plain hex, not CSS custom properties: theme `var(--color-*)` used
 from an *inline* style paints transparent on Lynx, and the board is almost
 entirely inline geometry.
 
-Discs are positioned with `transform: translate(...)` rather than `left`/`top`,
-even while nothing moves — that is the exact property the simulation rewrites
-each frame, so the static board is already laid out the way the moving one will
-be.
+Discs are positioned with `transform: translate(...)` rather than `left`/`top`
+— that is the exact property the simulation rewrites each frame.
+
+## How the simulation is arranged
+
+**Ownership is exclusive and phase-switched.** The background thread owns the
+board between shots; the main thread owns it during one. There is no merging
+step because there is never anything to merge.
+
+```
+BG --runOnMainThread(seed)-------------> MT   turn setup
+MT --(gesture -> launch, entirely MT)--> MT   no round trip
+MT --[simulating: ZERO background traffic]
+MT --runOnBackground(onSettle)---------> BG   ONCE, at quiescence
+BG --[rules: steal / reload / burn / turn]
+```
+
+A ~1.5s shot is roughly 90 frames and sends the background thread **one**
+message. That is the baseline the render-path comparison is measured against.
+
+**The physics is split across files, one worklet per phase.** That works
+because a captured `'main thread'` worklet resolves to a real callable on the
+other side, unlike a captured plain function — which is also why the tuning
+constants are *inlined* into the worklet bodies rather than imported.
+`tuning.ts` documents them and a test asserts the two haven't drifted.
+
+The payoff is that `'main thread'` is just a string expression statement in
+node, so vitest drives the **real** physics functions rather than a copy. There
+is no second implementation to keep in sync.
+
+**Fixed timestep** (1/120 s, accumulator, backlog dropped rather than carried).
+Chosen for collision stability with unequal masses, for determinism — a
+scripted sequence of frame deltas makes the whole simulation a regression test
+— and because it decouples simulation rate from render rate, which is the
+point of a stress harness. Substeps scale with the fastest disc on the board so
+nothing tunnels at the launch cap.
+
+**Friction is Coulomb-primary** (constant deceleration) with a small viscous
+term, so pucks stop crisply instead of crawling asymptotically toward zero.
 
 ## Status
 
 - [x] **1** — scaffold, ruleset with tests, static board
-- [ ] **2** — main-thread simulation + the raw render path
+- [x] **2** — main-thread simulation + the raw render path ("Kick" flings
+  everything; the aim gesture arrives next)
 - [ ] **3** — aim gesture and launch
 - [ ] **4** — settle contract wired to the ruleset; playable
 - [ ] **5** — perf HUD

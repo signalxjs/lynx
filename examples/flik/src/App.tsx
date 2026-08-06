@@ -6,6 +6,10 @@
  * zone bands are fractions of the board's height, and every rule in `game/`
  * takes that height as an argument, so there is exactly one number the whole
  * game depends on and it has to be the real one.
+ *
+ * There is no aim gesture yet — that is the next PR. "Kick" flings every disc,
+ * which is enough to see the simulation working and to exercise the settle
+ * path end to end.
  */
 
 import {
@@ -16,10 +20,14 @@ import {
 } from '@sigx/lynx';
 import { SafeAreaProvider, SafeAreaView } from '@sigx/lynx-safe-area';
 
+import { packWorld, unpackSettle } from './game/pack.js';
+import { settleShot } from './game/rules.js';
 import { newGame } from './game/setup.js';
 import type { GameState } from './game/types.js';
 import Board from './render/Board.js';
 import Hud from './render/Hud.js';
+import { useDiscPool } from './render/disc-pool.js';
+import { useSimLoop } from './useSimLoop.js';
 import { COLORS } from './theme.js';
 
 /** Board aspect (width : height). Portrait corridor, as the bands assume. */
@@ -30,6 +38,21 @@ const App = component(() => {
     // Wrapped in an object because `signal` takes one: the game state is
     // legitimately absent until the arena reports its size.
     const game = signal({ state: null as GameState | null });
+    const board = signal({ width: 0, height: 0 });
+    const pool = useDiscPool();
+
+    const sim = useSimLoop({
+        pool,
+        onSettle: (seq, packed) => {
+            const current = game.state;
+            if (!current) return;
+            // Drop a settle from a superseded shot — a re-kick can land while
+            // one is still in flight.
+            if (seq !== current.seq) return;
+            const { state } = settleShot(current, unpackSettle(packed), board.height);
+            game.state = state;
+        },
+    });
 
     // Board size, derived from the measured arena. Fitting to whichever of
     // width or height binds keeps the whole board on screen on both a tall
@@ -48,7 +71,24 @@ const App = component(() => {
         onLayoutChange(e);
         if (game.state) return;
         const dims = size();
-        if (dims) game.state = newGame(dims.width, dims.height);
+        if (!dims) return;
+        const fresh = newGame(dims.width, dims.height);
+        board.width = dims.width;
+        board.height = dims.height;
+        game.state = fresh;
+        sim.seed(packWorld(fresh.discs), dims.width, dims.height, fresh.seq);
+    };
+
+    const kick = (): void => {
+        const current = game.state;
+        if (!current) return;
+        // Bump the sequence first, and re-seed from the board the ruleset
+        // currently believes in — so the settle this produces is recognised
+        // as belonging to this kick and starts from the right positions.
+        const seq = current.seq + 1;
+        game.state = { ...current, seq };
+        sim.seed(packWorld(current.discs), board.width, board.height, seq);
+        sim.kick(900);
     };
 
     return () => {
@@ -74,12 +114,36 @@ const App = component(() => {
                             justifyContent: 'center',
                             paddingLeft: '12px',
                             paddingRight: '12px',
-                            paddingBottom: '12px',
                         }}
                     >
-                        {state && dims
-                            ? <Board discs={state.discs} width={dims.width} height={dims.height} />
-                            : null}
+                        {state && dims ? (
+                            <Board
+                                discs={state.discs}
+                                width={dims.width}
+                                height={dims.height}
+                                pool={pool}
+                            />
+                        ) : null}
+                    </view>
+                    <view
+                        bindtap={kick}
+                        style={{
+                            marginTop: '10px',
+                            marginBottom: '12px',
+                            marginLeft: '28px',
+                            marginRight: '28px',
+                            paddingTop: '12px',
+                            paddingBottom: '12px',
+                            borderRadius: '10px',
+                            backgroundColor: COLORS.line,
+                            alignItems: 'center',
+                        }}
+                    >
+                        <text
+                            style={{ color: COLORS.text, fontSize: '14px', letterSpacing: '2px' }}
+                        >
+                            KICK
+                        </text>
                     </view>
                 </SafeAreaView>
             </SafeAreaProvider>

@@ -4,6 +4,10 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 ## [Unreleased]
 
+### Added
+
+- **`examples/flik`: a main-thread physics simulation** (#937). The FLIK example gained the simulation half of its reason to exist: a fixed-timestep integrator, uniform-grid broadphase and elastic collision resolution, all running as `'main thread'` worklets driven by `useFrameCallback` (#933). It is the repo's first sustained 60 Hz main-thread workload, and the baseline the render-path comparison will be measured against — a ~1.5 second shot is roughly 90 frames and sends the background thread exactly **one** message, at quiescence. The physics is split one worklet per phase rather than inlined into a single body, which works because a captured `'main thread'` worklet resolves to a real callable on the other side (a captured plain function does not — hence the tuning constants being inlined, with a test pinning them against `tuning.ts`). Because `'main thread'` is just a string expression statement under node, the 91 tests drive the **real** worklets rather than a copy.
+
 ### Changed
 
 - **BREAKING — `@sigx/lynx-secure-storage`: `set`/`get`/`delete` are now `setItem`/`getItem`/`removeItem`** (#903, #907). The two storage packages contradicted each other about the same operation: `@sigx/lynx-storage` used `setItem`/`getItem`/`removeItem`, this one used `set`/`get`/`delete`, and callers swap between them by durability. `setItem` wins because it matches `localStorage`, `@react-native-async-storage/async-storage` **and** `expo-secure-store` — arriving from web or React Native, it's the name you already know. No aliases: keeping both spellings alive is the thing being fixed. `clear`, `hasKey` and `isAvailable` are unchanged. Native wire names stay `set`/`get`/`delete` — they aren't public API, and renaming them would churn Swift, Kotlin and the manifest for no caller benefit.
