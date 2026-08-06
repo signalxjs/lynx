@@ -24,7 +24,7 @@ vi.mock('@sigx/lynx', async (importOriginal) => {
 });
 
 import { useAnimatedMethod, useSharedValue } from '@sigx/lynx';
-import { render, getByType } from '@sigx/lynx-testing';
+import { render, getByType, getAllByType } from '@sigx/lynx-testing';
 import { List } from '../src/List';
 import type { AnimatedMethodSpec } from '@sigx/lynx';
 
@@ -134,6 +134,43 @@ describe('List bottomInset (#844)', () => {
     expect(spec).not.toBeNull();
     expect(spec!.sv).toBeTypeOf('object'); // internal useSharedValue(0) mirror
     expect(spec!.methodName).toBe('setBottomInset');
+  });
+
+  it('renders a trailing inset spacer cell off iOS, and none on iOS (#930)', () => {
+    // The spacer is what actually clears the occluder on Android: the engine's
+    // C++ scroller clamps against its own content size, so the inset has to BE
+    // content. It must be the LAST cell — the bottom-aligned pin targets the
+    // final cell, so the spacer parks against the viewport bottom and the
+    // newest message lands exactly `inset` above it.
+    platform.OS = 'android';
+    const { container } = render(
+      <List items={ITEMS} keyExtractor={(i) => i.id} renderItem={renderRow} bottomInset={64} />,
+    );
+    const cells = getAllByType(container, 'list-item');
+    const last = cells[cells.length - 1]!;
+    expect(last.props['item-key']).toBe('__sigx_list_inset__');
+
+    // iOS has a real viewport inset (contentInset) — a spacer there would
+    // count the clearance twice.
+    platform.OS = 'ios';
+    const { container: ios } = render(
+      <List items={ITEMS} keyExtractor={(i) => i.id} renderItem={renderRow} bottomInset={64} />,
+    );
+    expect(
+      getAllByType(ios, 'list-item').some((c) => c.props['item-key'] === '__sigx_list_inset__'),
+    ).toBe(false);
+    platform.OS = 'android';
+  });
+
+  it('renders no spacer when the prop is absent', () => {
+    const { container } = render(
+      <List items={ITEMS} keyExtractor={(i) => i.id} renderItem={renderRow} />,
+    );
+    expect(
+      getAllByType(container, 'list-item').some(
+        (c) => c.props['item-key'] === '__sigx_list_inset__',
+      ),
+    ).toBe(false);
   });
 
   it('registers no method binding without the prop', () => {

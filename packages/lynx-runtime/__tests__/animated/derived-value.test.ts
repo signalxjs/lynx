@@ -36,6 +36,40 @@ describe('useDerivedValue', () => {
     ]);
   });
 
+  it('bridge:false skips the BG publish but keeps the MT value (#930)', () => {
+    // A derived value consumed only by MT bindings (a gesture delta) changes
+    // every frame by construction. Publishing it costs ~60-100 MT->BG
+    // dispatches a second for a reader that does not exist, which on its own
+    // trips the engine's limiter ("DispatchEvent called too frequently").
+    const a = useSharedValue(0);
+    const b = useSharedValue(0);
+    resetOpQueue();
+
+    const d = useDerivedValue([a, b], 'sum', undefined, { bridge: false });
+
+    const ops = takeOps();
+    expect(ops).toEqual([
+      OP.INIT_MT_REF, d._wvid, d._initValue,
+      OP.REGISTER_AV_DERIVED, d._wvid, 'sum', null, [a._wvid, b._wvid],
+    ]);
+    expect(ops).not.toContain(OP.REGISTER_AV_BRIDGE);
+  });
+
+  it('the reactive form also honours bridge:false (#930)', () => {
+    const a = useSharedValue(0);
+    resetOpQueue();
+
+    const d = useDerivedValueReactive(
+      () => ({ sources: [a], reducer: 'sum' as const }),
+      { bridge: false },
+    );
+
+    const ops = takeOps();
+    expect(ops).toContain(OP.INIT_MT_REF);
+    expect(ops).not.toContain(OP.REGISTER_AV_BRIDGE);
+    expect(d._wvid).toBeTypeOf('number');
+  });
+
   it('passes reducer params through', () => {
     const p = useSharedValue(0);
     resetOpQueue();
