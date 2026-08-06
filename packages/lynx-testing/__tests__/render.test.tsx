@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { render, fireEvent, waitForUpdate, touch } from '../src/index';
 import { component, signal, jsx } from '@sigx/lynx';
 

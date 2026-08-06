@@ -105,29 +105,6 @@ export function queryByProp(container: TestNode, key: string, value: unknown): T
   return findPropIn(container, key, value);
 }
 
-/**
- * Scope queries to a subtree.
- *
- * ```ts
- * const row = getByProp(container, 'id', 'row-3');
- * expect(within(row).queryByText('Delete')).toBeTruthy();
- * ```
- *
- * Without it, a query for a common node type finds the first one anywhere in
- * the tree, which is rarely the one the assertion meant.
- */
-export function within(node: TestNode) {
-  return {
-    getByType: (type: string) => getByType(node, type),
-    getAllByType: (type: string) => getAllByType(node, type),
-    getByText: (text: string) => getByText(node, text),
-    getByProp: (key: string, value: unknown) => getByProp(node, key, value),
-    queryByType: (type: string) => queryByType(node, type),
-    queryByText: (text: string) => queryByText(node, text),
-    queryByProp: (key: string, value: unknown) => queryByProp(node, key, value),
-  };
-}
-
 // ---------------------------------------------------------------------------
 // Async queries — `waitFor` plus the matching `getBy*`.
 //
@@ -161,4 +138,34 @@ export function findByProp(
     description: `${key}="${String(value)}"`,
     ...options,
   });
+}
+
+/**
+ * Scope queries to a subtree.
+ *
+ * ```ts
+ * const row = getByProp(container, 'id', 'row-3');
+ * expect(within(row).queryByText('Delete')).toBeTruthy();
+ * ```
+ *
+ * Without it, a query for a common node type finds the first one anywhere in
+ * the tree, which is rarely the one the assertion meant.
+ */
+export function within(node: TestNode) {
+  return {
+    getByType: (type: string) => getByType(node, type),
+    getAllByType: (type: string) => getAllByType(node, type),
+    getByText: (text: string) => getByText(node, text),
+    getByProp: (key: string, value: unknown) => getByProp(node, key, value),
+    queryByType: (type: string) => queryByType(node, type),
+    queryByText: (text: string) => queryByText(node, text),
+    queryByProp: (key: string, value: unknown) => queryByProp(node, key, value),
+    // find* included, or scoping would silently drop the async flavour and
+    // push callers back to re-threading `node` into the top-level helpers —
+    // which is the same "wait by hand" trap the find* queries exist to close.
+    findByType: (type: string, options?: WaitForOptions) => findByType(node, type, options),
+    findByText: (text: string, options?: WaitForOptions) => findByText(node, text, options),
+    findByProp: (key: string, value: unknown, options?: WaitForOptions) =>
+      findByProp(node, key, value, options),
+  };
 }

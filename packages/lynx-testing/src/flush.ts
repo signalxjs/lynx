@@ -89,6 +89,19 @@ export async function waitFor<T>(
   options: WaitForOptions = {},
 ): Promise<T> {
   const { timeout = 1000, interval = 0, description } = options;
+
+  // A non-finite timeout makes `Date.now() >= deadline` false forever, so the
+  // loop never gives up — the test hangs until the runner kills it, with no
+  // clue why. Cheap to reject, and NaN is easy to arrive at from arithmetic on
+  // an undefined config value.
+  for (const [name, value] of [['timeout', timeout], ['interval', interval]] as const) {
+    if (!Number.isFinite(value) || value < 0) {
+      throw new Error(
+        `[@sigx/lynx-testing] waitFor: \`${name}\` must be a finite, non-negative number, got ${String(value)}.`,
+      );
+    }
+  }
+
   const deadline = Date.now() + timeout;
   let lastError: unknown;
   let attempts = 0;

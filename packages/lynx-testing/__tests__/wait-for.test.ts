@@ -4,7 +4,7 @@
  * hand-roll: an unknown number of turns, a condition that throws until ready,
  * and a failure that still says what was missing.
  */
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 import { waitFor } from '../src/flush';
 import { TestNode } from '../src/test-node';
@@ -74,6 +74,22 @@ describe('waitFor', () => {
         // A condition that is already true must not fail just because the
         // deadline has passed by the time we look.
         await expect(waitFor(() => 'immediate', { timeout: 0 })).resolves.toBe('immediate');
+    });
+
+    it('rejects a non-finite or negative timeout rather than hanging', async () => {
+        // `Date.now() >= NaN` is false forever, so the loop would never give
+        // up — the test hangs until the runner kills it, with no clue why.
+        for (const bad of [NaN, Infinity, -1]) {
+            await expect(waitFor(() => false, { timeout: bad })).rejects.toThrow(
+                /`timeout` must be a finite, non-negative number/,
+            );
+        }
+    });
+
+    it('rejects a bad interval the same way', async () => {
+        await expect(waitFor(() => false, { timeout: 10, interval: NaN })).rejects.toThrow(
+            /`interval` must be a finite, non-negative number/,
+        );
     });
 
     it('honours an explicit interval between attempts', async () => {
@@ -147,5 +163,48 @@ describe('the flake this replaces', () => {
         // The new shape — wait for the condition.
         const found = await waitFor(() => root.children[0]);
         expect(found?.type).toBe('tabbar');
+    });
+});
+
+describe('within() scoping', () => {
+    it('offers all three flavours, so scoping never drops the async one', async () => {
+        const { within } = await import('../src/queries');
+        const scoped = within(new TestNode('view'));
+        for (const matcher of ['Type', 'Text', 'Prop']) {
+            expect(scoped, `getBy${matcher}`).toHaveProperty(`getBy${matcher}`);
+            expect(scoped, `queryBy${matcher}`).toHaveProperty(`queryBy${matcher}`);
+            expect(scoped, `findBy${matcher}`).toHaveProperty(`findBy${matcher}`);
+        }
+    });
+
+    it('confines the search to the subtree', async () => {
+        const { within, getByText } = await import('../src/queries');
+        const root = new TestNode('view');
+        const a = new TestNode('view');
+        const b = new TestNode('view');
+        for (const [node, text] of [[a, 'in-a'], [b, 'in-b']] as const) {
+            const t = new TestNode('text');
+            t.text = text;
+            node.children.push(t);
+        }
+        root.children.push(a, b);
+
+        expect(within(a).getByText('in-a').text).toBe('in-a');
+        expect(within(a).queryByText('in-b')).toBeNull();
+        expect(getByText(root, 'in-b').text).toBe('in-b'); // unscoped still finds it
+    });
+
+    it('waits within the subtree', async () => {
+        const { within } = await import('../src/queries');
+        const root = new TestNode('view');
+        const target = new TestNode('view');
+        root.children.push(target);
+        setTimeout(() => {
+            const t = new TestNode('text');
+            t.text = 'late';
+            target.children.push(t);
+        }, 5);
+
+        await expect(within(target).findByText('late')).resolves.toMatchObject({ text: 'late' });
     });
 });
