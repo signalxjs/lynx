@@ -581,7 +581,7 @@ export function renderBody(unit, epic) {
         '- [ ] Every finding above is ticked, or deferred to a linked follow-up issue',
         '- [ ] Public-surface freeze test exists and passes (D7.1)',
         '- [ ] README follows the C11 template; the `## Web` section is accurate',
-        '- [ ] `pnpm check:conventions` and `pnpm check:manifests` clean for this package _(both land in #860; skip until then)_',
+        '- [ ] `pnpm check:conventions` and `pnpm check:manifests` clean for this package — fixing a baselined violation means shrinking the baseline (`--update-baseline`) in the same PR',
         unit.demo === 'exempt'
             ? '- [ ] Showcase exemption recorded with its reason'
             : '- [ ] Showcase screen exists and covers the failure paths',
