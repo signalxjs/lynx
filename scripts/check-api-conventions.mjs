@@ -94,5 +94,6 @@ if (added.length + stale.length + unknown.length > 0) process.exit(1);
 const remaining = Object.values(baseline).reduce((n, v) => n + v.length, 0);
 console.log(
     `API conventions OK — no new violations. ${remaining} known violation(s) remain in the baseline, ` +
-        'each owned by a module review issue (epic #857).',
+        'most owned by a module review issue (epic #857); the rest belong to packages '
+        + 'excluded from the review — see EXCLUDED in scripts/lib/audit-units.mjs.',
 );

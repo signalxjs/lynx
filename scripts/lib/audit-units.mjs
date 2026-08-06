@@ -26,6 +26,26 @@ export const FOLD = {
     'lynx-updates-publisher': 'lynx-updates',
 };
 
+/**
+ * Packages deliberately outside the module review, and why.
+ *
+ * Explicit rather than simply absent: `buildUnits` treats an unclassified
+ * package directory as a hard error on purpose — a package nobody has looked
+ * at is the exact thing this epic exists to prevent — so "not audited" has to
+ * be a decision someone wrote down, not a gap.
+ *
+ * An excluded package still has to satisfy the CI gates; it just has no audit
+ * issue owning its remaining baseline entries.
+ */
+export const EXCLUDED = {
+    'lynx-zero':
+        'Design-system layering work in flight (signalxjs/lynx#927). zero is the neutral foundation the two design systems build on, so auditing it separately would move the contract underneath them.',
+    'lynx-daisyui':
+        'Design-system layering work in flight (signalxjs/lynx#927) — audited together with lynx-zero and lynx-heroui or not at all.',
+    'lynx-heroui':
+        'Design-system layering work in flight (signalxjs/lynx#927) — audited together with lynx-zero and lynx-daisyui or not at all.',
+};
+
 /** Display groups, in the order they appear in the epic body. */
 export const GROUPS = {
     foundation: 'Foundation & runtime',
@@ -349,17 +369,6 @@ export const META = {
     },
 
     // --- UI & interaction -----------------------------------------------------
-    'lynx-zero': {
-        group: 'ui',
-        demo: 'yes',
-        seeds: ['README is 29 lines for 2,367 lines of foundation code — the largest docs deficit in the repo (C11, D7.4).'],
-    },
-    'lynx-daisyui': { group: 'ui', demo: 'yes', seeds: ['39 components, 31 showcase reference pages — check the showcase covers the components that exist (D7.6).'] },
-    'lynx-heroui': {
-        group: 'ui',
-        demo: 'yes',
-        seeds: ['Explicitly shipped as a "pilot". **This issue decides**: supported design system, or documented-as-experimental? The answer changes what the rubric demands of it.'],
-    },
     'lynx-icons': {
         group: 'ui',
         demo: 'yes',
@@ -441,16 +450,16 @@ export const META = {
  * @param {string[]} packageDirs directory names under `packages/`
  * @returns {{units: Array<{name: string, pkg: string, absorbs: string[], group: string,
  *           peer?: string, demo: string, why?: string, seeds: string[]}>, unknown: string[]}}
- *          `unknown` lists directories with no META entry — a new package nobody
- *          has classified yet. The CLI treats that as an error rather than
- *          quietly skipping it.
+ *          `unknown` lists directories in none of META, FOLD or EXCLUDED — a
+ *          new package nobody has classified yet. The CLI treats that as an
+ *          error rather than quietly skipping it.
  */
 export function buildUnits(packageDirs) {
     const dirs = [...packageDirs].sort();
-    const unknown = dirs.filter((d) => !(d in META) && !(d in FOLD));
+    const unknown = dirs.filter((d) => !(d in META) && !(d in FOLD) && !(d in EXCLUDED));
 
     const units = dirs
-        .filter((d) => !(d in FOLD) && d in META)
+        .filter((d) => !(d in FOLD) && !(d in EXCLUDED) && d in META)
         .map((d) => ({
             name: `@sigx/${d}`,
             pkg: d,

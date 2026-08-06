@@ -40,6 +40,12 @@ node scripts/check-module-manifests.mjs --update-baseline
 Everything the gates can't judge — anything needing types, a device, or a human — lives in the
 rubric in Part 2 and belongs to the package's review issue.
 
+**Three packages sit outside the review** — `@sigx/lynx-zero`, `@sigx/lynx-daisyui` and
+`@sigx/lynx-heroui` — because the design-system layering has separate work in flight
+(signalxjs/lynx#927). They are still bound by C1–C12 and still gated by CI; they simply have no
+audit issue owning their baseline entries. The exclusion and its reason live in `EXCLUDED` in
+`scripts/lib/audit-units.mjs`, so the generator can't quietly recreate them.
+
 ---
 
 ## Part 1 — The API contract (C1–C12)
