@@ -9,7 +9,7 @@ class ClipboardModule: NSObject, LynxModule {
 
     @objc static var methodLookup: [String: String] {
         [
-            "setString": NSStringFromSelector(#selector(setString(_:))),
+            "setString": NSStringFromSelector(#selector(setString(_:callback:))),
             "getString": NSStringFromSelector(#selector(getString(_:))),
             "hasString": NSStringFromSelector(#selector(hasString(_:))),
         ]
@@ -18,8 +18,16 @@ class ClipboardModule: NSObject, LynxModule {
     required override init() { super.init() }
     required init(param: Any) { super.init() }
 
-    @objc func setString(_ text: String?) {
+    /// Writes to the pasteboard and reports the outcome.
+    ///
+    /// The callback exists for symmetry with Android, where `setPrimaryClip`
+    /// genuinely can throw (a clip over the binder transaction limit). Nothing
+    /// here can fail, so this always reports success — but a caller awaiting
+    /// `setString` must get an answer on both platforms, or the promise hangs
+    /// on iOS.
+    @objc func setString(_ text: String?, callback: LynxCallbackBlock?) {
         UIPasteboard.general.string = text ?? ""
+        callback?([:])
     }
 
     @objc func getString(_ callback: LynxCallbackBlock?) {

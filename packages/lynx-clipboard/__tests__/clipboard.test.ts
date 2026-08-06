@@ -22,7 +22,9 @@ beforeEach(() => {
     calls = [];
     installNativeModules({
         setString: (...args: never[]) => {
-            calls.push({ method: 'setString', args });
+            const cb = args[args.length - 1] as unknown as (r: unknown) => void;
+            calls.push({ method: 'setString', args: args.slice(0, -1) });
+            cb({});
         },
         getString: (...args: never[]) => {
             calls.push({ method: 'getString', args });
@@ -38,16 +40,41 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals());
 
 describe('Clipboard.setString', () => {
-    it('writes synchronously and returns nothing', () => {
-        expect(Clipboard.setString('copy me')).toBeUndefined();
+    it('resolves once the native side confirms the write', async () => {
+        await expect(Clipboard.setString('copy me')).resolves.toBeUndefined();
         expect(calls).toEqual([{ method: 'setString', args: ['copy me'] }]);
     });
 
-    it('passes an empty string through rather than dropping the call', () => {
+    it('passes an empty string through rather than dropping the call', async () => {
         // Clearing the clipboard is a real use; both native sides coalesce
         // null to "", so the empty write must actually reach them.
-        Clipboard.setString('');
+        await Clipboard.setString('');
         expect(calls).toEqual([{ method: 'setString', args: [''] }]);
+    });
+
+    it('rejects when the native write fails', async () => {
+        // The whole point of #872: Android's setPrimaryClip can throw — a clip
+        // over the binder transaction limit — and that used to be invisible.
+        installNativeModules({
+            setString: (...args: never[]) =>
+                (args[args.length - 1] as unknown as (r: unknown) => void)({
+                    error: 'clip too large',
+                }),
+        });
+        await expect(Clipboard.setString('x'.repeat(9e6))).rejects.toThrow(
+            '[@sigx/lynx-clipboard] setString failed: clip too large',
+        );
+    });
+
+    it('rejects with a branchable code, not just a message', async () => {
+        installNativeModules({
+            setString: (...args: never[]) =>
+                (args[args.length - 1] as unknown as (r: unknown) => void)({ error: 'nope' }),
+        });
+        await expect(Clipboard.setString('x')).rejects.toMatchObject({
+            code: 'native_error',
+            package: 'lynx-clipboard',
+        });
     });
 });
 
@@ -105,8 +132,10 @@ describe('when the native module is not linked', () => {
     // the descriptive one from core's `getModule`. The README documents it.
     beforeEach(() => installNativeModules());
 
-    it('setString throws with an actionable message', () => {
-        expect(() => Clipboard.setString('x')).toThrow(/Module "Clipboard" is not available/);
+    it('setString rejects with an actionable message', async () => {
+        await expect(Clipboard.setString('x')).rejects.toThrow(
+            /Module "Clipboard" is not available/,
+        );
     });
 
     it('getString rejects rather than hanging', async () => {

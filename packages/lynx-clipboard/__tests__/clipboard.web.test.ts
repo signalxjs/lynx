@@ -26,9 +26,19 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals());
 
 describe('Clipboard (web)', () => {
-  it('setString fire-and-forgets the RPC with the native sync-void shape', () => {
-    expect(Clipboard.setString('copy me')).toBeUndefined();
+  it('setString resolves once the host confirms the write', async () => {
+    await expect(Clipboard.setString('copy me')).resolves.toBeUndefined();
     expect(calls).toEqual([{ name: 'sigx.clipboard.setString', data: { value: 'copy me' } }]);
+  });
+
+  it('setString rejects when the host refuses — a denied permission is real', async () => {
+    vi.stubGlobal('NativeModules', {
+      bridge: {
+        call: (_n: string, _d: unknown, cb: (r: unknown) => void) =>
+          cb({ ok: false, error: 'NotAllowedError: write permission denied' }),
+      },
+    });
+    await expect(Clipboard.setString('x')).rejects.toThrow(/permission denied/);
   });
 
   it('getString / hasString resolve host values', async () => {
