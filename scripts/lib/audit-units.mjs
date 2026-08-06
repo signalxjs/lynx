@@ -533,7 +533,7 @@ export function renderBody(unit, epic) {
         '1. **Audit.** Grade D1–D7. Every item is PASS / FAIL / N-A plus one line of evidence (`file:line`). Post the filled table as a comment.',
         '2. **Write the findings into this issue.** Edit the body, turning every FAIL into a checkbox under `## Findings` — one per concrete defect, not one per dimension.',
         '3. **Work the checklist top-down.** One PR per logical group, following `AGENTS.md`: worktree → `pnpm typecheck` + `pnpm test` → PR with `@copilot` as reviewer → squash merge. **PR bodies say `Part of #<this issue>`, never `Closes`** — this issue stays open as a live status board. Tick the box and comment the PR link as each one merges.',
-        '4. **Ask, don\'t guess.** Hit a design decision — public API shape, a breaking rename, visual/UX behaviour, a new native dependency? Append it to `## Design questions (blocked)`, add the `needs-decision` label, comment so it notifies, then **carry on with the unblocked items**.',
+        '4. **Decide what you can; escalate what you can\'t.** Default to deciding — take the option you\'d recommend and record in the issue what you chose and why. Escalate only when the change is **breaking or user-visible**: a public signature or return type, a breaking rename, UX behaviour, a native dependency, dropping a documented capability, or behaviour that would differ per platform. To escalate, append the question to `## Design questions (blocked)`, add the `needs-decision` label, comment so it notifies, then **carry on with the unblocked items**. (Deciding *not* to ship something *because* it would differ per platform is an ordinary won\'t-do — decide it.)',
         '',
         `\`codecov/patch\` is 80% — every fix carries a test.`,
         '',

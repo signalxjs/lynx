@@ -514,8 +514,8 @@ would differ per platform is an ordinary won't-do — decide it, record the reas
 Otherwise every won't-do gets escalated and the rule buys nothing.
 
 **Calibration.** Of the first six questions raised across two package reviews, exactly **two**
-reached a human under this rule — `Clipboard.setString` changing signature, and `Audio`
-gaining an interruption API. The other four (defer image support, won't-do URL support, won't-do a
+reached a human under this rule — `Clipboard.setString` changing signature, and
+`Audio.subscribeInterruptions` being added. The other four (defer image support, won't-do URL support, won't-do a
 change listener, defer progress events) were the agent's to make. If you're escalating much more
 than a third of what you hit, the line has drifted.
 
