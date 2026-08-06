@@ -37,6 +37,7 @@ declare const __DEV__: boolean;
 const HEADER_KEY = '__sigx_list_header__';
 const FOOTER_KEY = '__sigx_list_footer__';
 const LOADING_KEY = '__sigx_list_loading__';
+const INSET_KEY = '__sigx_list_inset__';
 
 const DEFAULT_PULL_THRESHOLD = 64;
 
@@ -56,6 +57,11 @@ const DEFAULT_SCROLL_THROTTLE = 100;
 // the engine's dispatch limiter (#606) the fallback ladder is 16 → 33 → 100.
 // A consumer-passed `scrollEventThrottle` still wins.
 const ADOPTED_SCROLL_THROTTLE = 16;
+
+// How long the bottom inset must hold still before the spacer cell commits to
+// it (#930). Long enough to collapse a sheet drag or keyboard rise into one
+// relayout, short enough that a settle is not perceptibly late.
+const INSET_SETTLE_MS = 120;
 
 type ScrollDetail = { detail?: { scrollTop?: number; scrollLeft?: number } };
 
@@ -552,10 +558,69 @@ const ListImpl = component<ListProps>(({ props, slots, emit }) => {
   const renderedItemCount = (): number =>
     windowingEnabled && winInit ? Math.max(0, winEnd.value - winStart.value) : props.items.length;
 
-  // Total rendered cells = header + rendered items + trailing(footer/loading).
-  // The last cell index is the scroll-to-bottom target.
+  /**
+   * Bottom inset as a trailing spacer cell (#930).
+   *
+   * A platform-side inset cannot lift the newest cell above an occluder on
+   * Android's modern list: the engine's C++ scroller clamps `scrollToPosition`
+   * against its own content size, so a scroll that would park the last cell
+   * *above* the viewport bottom is clamped away (device-proven — a positive
+   * `offset` bias moves content down, the negative one does nothing). The
+   * engine only makes room for content it knows about, so the inset has to BE
+   * content.
+   *
+   * The spacer is the last cell, so the existing bottom-aligned pin parks the
+   * SPACER against the viewport bottom and the newest message lands exactly
+   * `inset` above it — no offset bias, no compensation scroll.
+   *
+   * `bottomInset` may be a `SharedValue`, which lives on the main thread — but
+   * the AV bridge publishes every registered SV back to a BG mirror, so
+   * `sv.value` is readable and reactive here. The spacer therefore tracks a
+   * dragged sheet or a rising keyboard, a bridge hop behind rather than
+   * frame-synced.
+   *
+   * iOS keeps the native `contentInset` (`SigxListUI.swift`) — a real viewport
+   * inset there, frame-synced and with no layout pass — so it must NOT also
+   * get a spacer or the clearance would be counted twice.
+   */
+  const insetSpacerEnabled = insetOptIn && Platform.OS !== 'ios';
+
+  /**
+   * The spacer tracks the SETTLED inset, not the live one.
+   *
+   * A spacer is content, so every height change is a list relayout. The BG
+   * mirror of a `SharedValue` publishes on every flush, so binding the spacer
+   * straight to it relayouts the whole list ~60×/s through a sheet drag or a
+   * keyboard rise — visibly janky. Committing only once the value has held
+   * still collapses a gesture into a single relayout.
+   *
+   * The first non-zero value commits immediately: that one is the mount-time
+   * inset, and the whole point is that first paint clears the occluder.
+   */
+  const insetSettled = signal(0);
+  if (insetSpacerEnabled) {
+    let settleTimer: ReturnType<typeof setTimeout> | null = null;
+    effect(() => {
+      const bi = props.bottomInset;
+      const raw = typeof bi === 'object' && bi !== null ? bi.value : bi;
+      const v = typeof raw === 'number' && raw > 0 ? Math.round(raw) : 0;
+      if (v === insetSettled.value) return;
+      if (insetSettled.value === 0) { insetSettled.value = v; return; }
+      if (settleTimer !== null) clearTimeout(settleTimer);
+      settleTimer = setTimeout(() => {
+        settleTimer = null;
+        insetSettled.value = v;
+      }, INSET_SETTLE_MS);
+    });
+    onUnmounted(() => { if (settleTimer !== null) clearTimeout(settleTimer); });
+  }
+  const insetSpacerHeight = (): number => insetSettled.value;
+
+  // Total rendered cells = header + rendered items + trailing(footer/loading)
+  // + the inset spacer. The last cell index is the scroll-to-bottom target.
   const totalCells = (): number =>
-    (slots.header ? 1 : 0) + renderedItemCount() + (props.loadingMore || slots.footer ? 1 : 0);
+    (slots.header ? 1 : 0) + renderedItemCount() + (props.loadingMore || slots.footer ? 1 : 0)
+    + (insetSpacerEnabled && insetSpacerHeight() > 0 ? 1 : 0);
 
   // Scroll the <list> to its last cell on MT. method/lastIndex/smooth are passed
   // as args — worklet `_c` capture doesn't carry imported function refs, and the
@@ -787,6 +852,17 @@ const ListImpl = component<ListProps>(({ props, slots, emit }) => {
       </list-item>
     ) : null;
 
+    // Bottom inset as a trailing SPACER CELL (#930) — see `insetSpacerCells`.
+    // Rendered last so a bottom-aligned pin, which targets the final cell,
+    // parks the spacer against the viewport bottom and leaves the newest
+    // message sitting exactly `inset` above it.
+    const insetSpacerPx = insetSpacerEnabled ? insetSpacerHeight() : 0;
+    const insetSpacer = insetSpacerPx > 0 ? (
+      <list-item item-key={INSET_KEY} item-type="__inset" full-span key={INSET_KEY}>
+        <view style={{ height: `${insetSpacerPx}px` }} />
+      </list-item>
+    ) : null;
+
     const listEl = (
       <list
         style={listStyle}
@@ -954,6 +1030,7 @@ const ListImpl = component<ListProps>(({ props, slots, emit }) => {
           );
         })}
         {trailing}
+        {insetSpacer}
       </list>
     );
 
