@@ -58,11 +58,6 @@ const DEFAULT_SCROLL_THROTTLE = 100;
 // A consumer-passed `scrollEventThrottle` still wins.
 const ADOPTED_SCROLL_THROTTLE = 16;
 
-// How long the bottom inset must hold still before the spacer cell commits to
-// it (#930). Long enough to collapse a sheet drag or keyboard rise into one
-// relayout, short enough that a settle is not perceptibly late.
-const INSET_SETTLE_MS = 120;
-
 type ScrollDetail = { detail?: { scrollTop?: number; scrollLeft?: number } };
 
 /**
@@ -586,41 +581,36 @@ const ListImpl = component<ListProps>(({ props, slots, emit }) => {
   const insetSpacerEnabled = insetOptIn && Platform.OS !== 'ios';
 
   /**
-   * The spacer tracks the SETTLED inset, not the live one.
-   *
-   * A spacer is content, so every height change is a list relayout. The BG
-   * mirror of a `SharedValue` publishes on every flush, so binding the spacer
-   * straight to it relayouts the whole list ~60×/s through a sheet drag or a
-   * keyboard rise — visibly janky. Committing only once the value has held
-   * still collapses a gesture into a single relayout.
-   *
-   * The first non-zero value commits immediately: that one is the mount-time
-   * inset, and the whole point is that first paint clears the occluder.
+   * Height comes from the live inset. `bottomInset` may be a `SharedValue`,
+   * which lives on the main thread, but the AV bridge publishes every
+   * registered SV to a BG mirror, so `sv.value` is readable and reactive here.
    */
-  const insetSettled = signal(0);
+  const insetSpacerRef = useMainThreadRef<MainThread.Element | null>(null);
   if (insetSpacerEnabled) {
-    let settleTimer: ReturnType<typeof setTimeout> | null = null;
-    effect(() => {
+    // Height is written on the MAIN THREAD, never from a render. Reading the
+    // inset in `render()` would re-run the whole List — every windowed cell —
+    // on every bridge publish, i.e. ~60x/s through a drag; that JS cost, not
+    // the native relayout, is what made the thread stutter. As an animated
+    // style the height rides the same per-frame path as any other MT-driven
+    // value: no BG work, no re-render, no thread hop.
+    //
+    // Reactive because the SV identity is not mount-constant: a consumer may
+    // pass a number for the first frames and hand over a producer's SV later
+    // (the composer's `occluderSV.sv ?? floorH`), which rebinds here.
+    useAnimatedStyle(insetSpacerRef, () => {
       const bi = props.bottomInset;
-      const raw = typeof bi === 'object' && bi !== null ? bi.value : bi;
-      const v = typeof raw === 'number' && raw > 0 ? Math.round(raw) : 0;
-      if (v === insetSettled.value) return;
-      if (insetSettled.value === 0) { insetSettled.value = v; return; }
-      if (settleTimer !== null) clearTimeout(settleTimer);
-      settleTimer = setTimeout(() => {
-        settleTimer = null;
-        insetSettled.value = v;
-      }, INSET_SETTLE_MS);
+      return {
+        sv: typeof bi === 'object' && bi !== null ? bi : internalInsetSV,
+        mapperName: 'height' as const,
+      };
     });
-    onUnmounted(() => { if (settleTimer !== null) clearTimeout(settleTimer); });
   }
-  const insetSpacerHeight = (): number => insetSettled.value;
 
   // Total rendered cells = header + rendered items + trailing(footer/loading)
   // + the inset spacer. The last cell index is the scroll-to-bottom target.
   const totalCells = (): number =>
     (slots.header ? 1 : 0) + renderedItemCount() + (props.loadingMore || slots.footer ? 1 : 0)
-    + (insetSpacerEnabled && insetSpacerHeight() > 0 ? 1 : 0);
+    + (insetSpacerEnabled ? 1 : 0);
 
   // Scroll the <list> to its last cell on MT. method/lastIndex/smooth are passed
   // as args — worklet `_c` capture doesn't carry imported function refs, and the
@@ -856,10 +846,9 @@ const ListImpl = component<ListProps>(({ props, slots, emit }) => {
     // Rendered last so a bottom-aligned pin, which targets the final cell,
     // parks the spacer against the viewport bottom and leaves the newest
     // message sitting exactly `inset` above it.
-    const insetSpacerPx = insetSpacerEnabled ? insetSpacerHeight() : 0;
-    const insetSpacer = insetSpacerPx > 0 ? (
+    const insetSpacer = insetSpacerEnabled ? (
       <list-item item-key={INSET_KEY} item-type="__inset" full-span key={INSET_KEY}>
-        <view style={{ height: `${insetSpacerPx}px` }} />
+        <view main-thread:ref={insetSpacerRef} style={{ height: '0px' }} />
       </list-item>
     ) : null;
 
