@@ -21,7 +21,7 @@ import {
 import { SafeAreaProvider, SafeAreaView } from '@sigx/lynx-safe-area';
 
 import { packWorld, unpackSettle } from './game/pack.js';
-import { settleShot } from './game/rules.js';
+import { rescaleBoard, settleShot } from './game/rules.js';
 import { newGame } from './game/setup.js';
 import type { GameState } from './game/types.js';
 import Board from './render/Board.js';
@@ -67,16 +67,43 @@ const App = component(() => {
     // Deal the opening board from the first real measurement — in the layout
     // handler, not in render. Writing reactive state during render is
     // re-entrant: the write invalidates the very render that made it.
+    //
+    // Re-measuring matters as much as measuring. The first layout event
+    // arrives BEFORE the KICK button below has been laid out, so the arena is
+    // briefly taller than it ends up; seeding once against that height leaves
+    // every disc positioned for a board that no longer exists, and the ones
+    // near the far edge fall outside it and get clipped. Rescaling on every
+    // size change is also what will keep the board honest through a keyboard
+    // or inset change.
     const handleLayout = (e: LayoutChangeEvent): void => {
         onLayoutChange(e);
-        if (game.state) return;
         const dims = size();
         if (!dims) return;
-        const fresh = newGame(dims.width, dims.height);
+
+        const current = game.state;
+        if (!current) {
+            const fresh = newGame(dims.width, dims.height);
+            board.width = dims.width;
+            board.height = dims.height;
+            game.state = fresh;
+            sim.seed(packWorld(fresh.discs), dims.width, dims.height, fresh.seq);
+            return;
+        }
+
+        // Sub-pixel churn isn't worth a re-seed.
+        const dw = dims.width - board.width;
+        const dh = dims.height - board.height;
+        if (dw * dw + dh * dh < 1) return;
+
+        const rescaled = rescaleBoard(
+            current,
+            board.width > 0 ? dims.width / board.width : 1,
+            board.height > 0 ? dims.height / board.height : 1,
+        );
         board.width = dims.width;
         board.height = dims.height;
-        game.state = fresh;
-        sim.seed(packWorld(fresh.discs), dims.width, dims.height, fresh.seq);
+        game.state = rescaled;
+        sim.seed(packWorld(rescaled.discs), dims.width, dims.height, rescaled.seq);
     };
 
     const kick = (): void => {
