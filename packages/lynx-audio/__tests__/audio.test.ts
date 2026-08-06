@@ -195,8 +195,12 @@ describe('Audio.subscribeInterruptions', () => {
         const cb = vi.fn();
         Audio.subscribeInterruptions(cb);
 
-        emitter.emit(INTERRUPTION_CHANNEL, { type: 'sideways' });
+        emitter.emit(INTERRUPTION_CHANNEL, { type: 'sideways', shouldResume: false });
         emitter.emit(INTERRUPTION_CHANNEL, {});
+        // Missing or non-boolean shouldResume is malformed too — a listener
+        // typed AudioInterruption would otherwise read `undefined` from it.
+        emitter.emit(INTERRUPTION_CHANNEL, { type: 'ended' });
+        emitter.emit(INTERRUPTION_CHANNEL, { type: 'ended', shouldResume: 'yes' });
         expect(cb).not.toHaveBeenCalled();
     });
 

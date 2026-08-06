@@ -50,7 +50,10 @@ export type AudioInterruptionListener = (event: AudioInterruption) => void;
 
 function isInterruption(raw: unknown): raw is AudioInterruption {
     const e = raw as AudioInterruption | undefined;
-    return e?.type === 'began' || e?.type === 'ended';
+    // `shouldResume` is checked too: a listener typed `(e: AudioInterruption)`
+    // must be able to read `e.shouldResume` as a boolean, and a payload with
+    // only `type` would hand it `undefined`.
+    return (e?.type === 'began' || e?.type === 'ended') && typeof e.shouldResume === 'boolean';
 }
 
 interface PlayResult {

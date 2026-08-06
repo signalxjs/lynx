@@ -55,18 +55,26 @@ internal object AudioFocusCoordinator {
 
     fun retain(context: Context) {
         synchronized(lock) {
+            // Resolve the manager BEFORE touching the count. Incrementing
+            // first and bailing on a null service left count > 1 with no
+            // manager, so every later retain hit the `count > 1` early return
+            // and focus was never requested again for the process lifetime.
+            if (count == 0) {
+                val am = context.applicationContext
+                    .getSystemService(Context.AUDIO_SERVICE) as? AudioManager ?: return
+                manager = am
+                count = 1
+                requestFocus(am)
+                return
+            }
             count += 1
-            if (count > 1) return
-            val am = context.applicationContext
-                .getSystemService(Context.AUDIO_SERVICE) as? AudioManager ?: return
-            manager = am
-            requestFocus(am)
         }
     }
 
     fun release() {
         synchronized(lock) {
-            count = maxOf(0, count - 1)
+            if (count == 0) return
+            count -= 1
             if (count > 0) return
             val am = manager ?: return
             abandonFocus(am)
