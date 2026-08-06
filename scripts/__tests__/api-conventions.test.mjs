@@ -117,8 +117,20 @@ describe('checkPackage', () => {
 describe('diffAgainstBaseline', () => {
     it('passes when findings match the baseline exactly', () => {
         const found = { a: [{ rule: 'C2/bare-is-available', detail: 'x' }] };
-        const baseline = { a: [{ rule: 'C2/bare-is-available' }] };
+        const baseline = { a: [{ rule: 'C2/bare-is-available', detail: 'x' }] };
         expect(diffAgainstBaseline(found, baseline)).toEqual({ added: [], stale: [], unknown: [] });
+    });
+
+    it('does not match a hand-written baseline entry that omits the detail', () => {
+        // Identity for uncounted rules is rule + detail, so a detail-less entry
+        // matches nothing. Failing loudly beats silently excusing every
+        // violation of that rule — regenerate with --update-baseline instead.
+        const { added, stale } = diffAgainstBaseline(
+            { a: [{ rule: 'C2/bare-is-available', detail: 'x' }] },
+            { a: [{ rule: 'C2/bare-is-available' }] },
+        );
+        expect(added).toHaveLength(1);
+        expect(stale).toHaveLength(1);
     });
 
     it('fails on a violation the baseline does not cover', () => {
@@ -134,6 +146,52 @@ describe('diffAgainstBaseline', () => {
         expect(
             diffAgainstBaseline({ a: [{ rule: 'C10/unprefixed-throws', detail: '5', count: 5 }] }, baseline).added,
         ).toHaveLength(0);
+    });
+
+    it('does not let one entry excuse a second violation of the same rule', () => {
+        // lynx-updates really has two C12/declared-not-called methods. Keying
+        // the baseline on `rule` alone would let a third slip through silently,
+        // which is the exact hole the ratchet exists to close.
+        const baseline = {
+            a: [
+                { rule: 'C12/declared-not-called', detail: 'getState — declared, never called' },
+                { rule: 'C12/declared-not-called', detail: 'getCurrentUpdate — declared, never called' },
+            ],
+        };
+        const found = {
+            a: [
+                { rule: 'C12/declared-not-called', detail: 'getState — declared, never called' },
+                { rule: 'C12/declared-not-called', detail: 'getCurrentUpdate — declared, never called' },
+                { rule: 'C12/declared-not-called', detail: 'newDrift — declared, never called' },
+            ],
+        };
+        const { added, stale } = diffAgainstBaseline(found, baseline);
+        expect(added).toHaveLength(1);
+        expect(added[0].detail).toContain('newDrift');
+        expect(stale).toEqual([]);
+    });
+
+    it('flags the exact one of several same-rule entries that was fixed', () => {
+        const baseline = {
+            a: [
+                { rule: 'C12/declared-not-called', detail: 'getState — declared, never called' },
+                { rule: 'C12/declared-not-called', detail: 'getCurrentUpdate — declared, never called' },
+            ],
+        };
+        const found = { a: [{ rule: 'C12/declared-not-called', detail: 'getState — declared, never called' }] };
+        const { stale, added } = diffAgainstBaseline(found, baseline);
+        expect(added).toEqual([]);
+        expect(stale).toHaveLength(1);
+        expect(stale[0].detail).toContain('getCurrentUpdate');
+    });
+
+    it('treats a changed detail as a new violation, not the baselined one', () => {
+        const { added, stale } = diffAgainstBaseline(
+            { a: [{ rule: 'C2/bare-is-available', detail: 'export function isAvailable' }] },
+            { a: [{ rule: 'C2/bare-is-available', detail: 'export { … isAvailable … }' }] },
+        );
+        expect(added).toHaveLength(1);
+        expect(stale).toHaveLength(1);
     });
 
     it('fails on a stale entry, so a fix forces the baseline to shrink', () => {
@@ -157,7 +215,7 @@ describe('diffAgainstBaseline', () => {
 });
 
 describe('toBaseline', () => {
-    it('keeps counts, drops details, and omits clean packages', () => {
+    it('keeps counts and details, and omits clean packages', () => {
         expect(
             toBaseline({
                 b: [{ rule: 'C10/unprefixed-throws', detail: '3', count: 3 }],
@@ -165,7 +223,9 @@ describe('toBaseline', () => {
                 clean: [],
             }),
         ).toEqual({
-            a: [{ rule: 'C2/bare-is-available' }],
+            // Uncounted rules keep their detail — it is their identity, and it
+            // makes the file say *which* thing drifted.
+            a: [{ rule: 'C2/bare-is-available', detail: 'export { … }' }],
             b: [{ rule: 'C10/unprefixed-throws', count: 3 }],
         });
     });

@@ -1,15 +1,18 @@
 {
     "lynx": [
         {
-            "rule": "C11/readme-missing-web-section"
+            "rule": "C11/readme-missing-web-section",
+            "detail": "no `## Web` section"
         }
     ],
     "lynx-appearance": [
         {
-            "rule": "C11/readme-missing-web-section"
+            "rule": "C11/readme-missing-web-section",
+            "detail": "no `## Web` section"
         },
         {
-            "rule": "C2/bare-is-available"
+            "rule": "C2/bare-is-available",
+            "detail": "export { … isAvailable … }"
         }
     ],
     "lynx-audio": [
@@ -18,25 +21,30 @@
             "count": 5
         },
         {
-            "rule": "C11/readme-missing-web-section"
+            "rule": "C11/readme-missing-web-section",
+            "detail": "no `## Web` section"
         }
     ],
     "lynx-background": [
         {
-            "rule": "C11/readme-missing-web-section"
+            "rule": "C11/readme-missing-web-section",
+            "detail": "no `## Web` section"
         }
     ],
     "lynx-biometric": [
         {
-            "rule": "C11/readme-missing-web-section"
+            "rule": "C11/readme-missing-web-section",
+            "detail": "no `## Web` section"
         },
         {
-            "rule": "C2/async-is-available"
+            "rule": "C2/async-is-available",
+            "detail": "isAvailable(): Promise<"
         }
     ],
     "lynx-camera": [
         {
-            "rule": "C11/readme-missing-web-section"
+            "rule": "C11/readme-missing-web-section",
+            "detail": "no `## Web` section"
         }
     ],
     "lynx-cli": [
@@ -47,17 +55,20 @@
     ],
     "lynx-core": [
         {
-            "rule": "C11/readme-missing-web-section"
+            "rule": "C11/readme-missing-web-section",
+            "detail": "no `## Web` section"
         }
     ],
     "lynx-datetime-picker": [
         {
-            "rule": "C11/readme-missing-web-section"
+            "rule": "C11/readme-missing-web-section",
+            "detail": "no `## Web` section"
         }
     ],
     "lynx-dev-client": [
         {
-            "rule": "C11/readme-missing-web-section"
+            "rule": "C11/readme-missing-web-section",
+            "detail": "no `## Web` section"
         }
     ],
     "lynx-emoji": [
@@ -68,12 +79,14 @@
     ],
     "lynx-file-system": [
         {
-            "rule": "C11/readme-missing-web-section"
+            "rule": "C11/readme-missing-web-section",
+            "detail": "no `## Web` section"
         }
     ],
     "lynx-gestures": [
         {
-            "rule": "C11/readme-missing-web-section"
+            "rule": "C11/readme-missing-web-section",
+            "detail": "no `## Web` section"
         }
     ],
     "lynx-http": [
@@ -82,12 +95,14 @@
             "count": 8
         },
         {
-            "rule": "C11/readme-missing-web-section"
+            "rule": "C11/readme-missing-web-section",
+            "detail": "no `## Web` section"
         }
     ],
     "lynx-icons": [
         {
-            "rule": "C11/readme-missing-web-section"
+            "rule": "C11/readme-missing-web-section",
+            "detail": "no `## Web` section"
         }
     ],
     "lynx-linking": [
@@ -98,12 +113,14 @@
     ],
     "lynx-list": [
         {
-            "rule": "C11/readme-missing-web-section"
+            "rule": "C11/readme-missing-web-section",
+            "detail": "no `## Web` section"
         }
     ],
     "lynx-maps": [
         {
-            "rule": "C11/readme-missing-web-section"
+            "rule": "C11/readme-missing-web-section",
+            "detail": "no `## Web` section"
         }
     ],
     "lynx-navigation": [
@@ -114,7 +131,8 @@
     ],
     "lynx-permissions": [
         {
-            "rule": "C11/readme-missing-web-section"
+            "rule": "C11/readme-missing-web-section",
+            "detail": "no `## Web` section"
         }
     ],
     "lynx-plugin": [
@@ -143,12 +161,14 @@
     ],
     "lynx-safe-area": [
         {
-            "rule": "C11/readme-missing-web-section"
+            "rule": "C11/readme-missing-web-section",
+            "detail": "no `## Web` section"
         }
     ],
     "lynx-secure-storage": [
         {
-            "rule": "C11/readme-missing-web-section"
+            "rule": "C11/readme-missing-web-section",
+            "detail": "no `## Web` section"
         }
     ],
     "lynx-sheet": [
@@ -163,10 +183,12 @@
             "count": 3
         },
         {
-            "rule": "C11/readme-missing-web-section"
+            "rule": "C11/readme-missing-web-section",
+            "detail": "no `## Web` section"
         },
         {
-            "rule": "C2/bare-is-available"
+            "rule": "C2/bare-is-available",
+            "detail": "export { … isAvailable … }"
         }
     ],
     "lynx-testing": [
@@ -177,7 +199,8 @@
     ],
     "lynx-updates": [
         {
-            "rule": "C11/readme-missing-web-section"
+            "rule": "C11/readme-missing-web-section",
+            "detail": "no `## Web` section"
         }
     ],
     "lynx-updates-publisher": [
@@ -188,7 +211,8 @@
     ],
     "lynx-video": [
         {
-            "rule": "C11/readme-missing-web-section"
+            "rule": "C11/readme-missing-web-section",
+            "detail": "no `## Web` section"
         }
     ],
     "lynx-web-host": [
@@ -203,7 +227,8 @@
             "count": 1
         },
         {
-            "rule": "C11/readme-missing-web-section"
+            "rule": "C11/readme-missing-web-section",
+            "detail": "no `## Web` section"
         }
     ],
     "lynx-webrtc": [
@@ -212,10 +237,12 @@
             "count": 7
         },
         {
-            "rule": "C11/readme-missing-web-section"
+            "rule": "C11/readme-missing-web-section",
+            "detail": "no `## Web` section"
         },
         {
-            "rule": "C6/permission-response-not-reexported"
+            "rule": "C6/permission-response-not-reexported",
+            "detail": "implements requestPermission/getPermissionStatus but the barrel does not re-export PermissionResponse"
         }
     ],
     "lynx-websocket": [
@@ -226,7 +253,8 @@
     ],
     "lynx-webview": [
         {
-            "rule": "C11/readme-missing-web-section"
+            "rule": "C11/readme-missing-web-section",
+            "detail": "no `## Web` section"
         }
     ],
     "lynx-zero": [
