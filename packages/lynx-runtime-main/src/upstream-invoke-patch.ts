@@ -43,8 +43,16 @@
  * upstream defers the rejection itself.
  */
 
-/** Patch applied (or definitively skipped) — never attempt twice. */
-let settled = false;
+/**
+ * Patch applied — never patch twice (the second call would capture the first
+ * replacement as its "original").
+ *
+ * Deliberately NOT set by the early returns: a ref of an unexpected shape means
+ * "not upstream's Element", not "give up". Later binds may still hand us the
+ * real thing, and refusing to look again would silently leave `invoke`
+ * unpatched for the rest of the session.
+ */
+let patched = false;
 
 interface UpstreamElement {
   element: MainThreadElement;
@@ -59,7 +67,7 @@ interface UpstreamElement {
  * @param instance - an upstream worklet `Element` (a bound `mtRef.current`).
  */
 export function patchUpstreamInvoke(instance: unknown): void {
-  if (settled) return;
+  if (patched) return;
   if (!instance || typeof instance !== 'object') return;
 
   const proto = Object.getPrototypeOf(instance) as UpstreamElement | null;
@@ -68,7 +76,7 @@ export function patchUpstreamInvoke(instance: unknown): void {
   if (!proto || typeof proto.invoke !== 'function') return;
   if (!('element' in (instance as Record<string, unknown>))) return;
 
-  settled = true;
+  patched = true;
 
   proto.invoke = function (
     this: UpstreamElement,
@@ -96,5 +104,5 @@ export function patchUpstreamInvoke(instance: unknown): void {
 
 /** Test seam — reset the once-only latch. */
 export function __resetUpstreamInvokePatchForTest(): void {
-  settled = false;
+  patched = false;
 }
