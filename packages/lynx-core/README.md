@@ -210,7 +210,8 @@ useOrientationLock('landscape');       // locks on mount, restores on unmount
 `UISupportedInterfaceOrientations`; the OS won't rotate outside it. Requesting
 an orientation the app didn't declare **rejects** with a message naming the
 config change — set `orientation: 'default'` or `'all'` and re-run
-`sigx prebuild`.
+`sigx prebuild`. The rejection is a `SigxError` with `code: 'native_error'`, so
+branch on the code rather than the message.
 
 On iOS 15 a lock takes effect at the next physical rotation rather than snapping
 immediately: forcing rotation needs `requestGeometryUpdate` (iOS 16+). Raise

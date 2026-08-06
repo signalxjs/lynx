@@ -1,4 +1,5 @@
 import { callAsync, isModuleAvailable } from './bridge.js';
+import { unwrapNativeVoid } from './errors.js';
 
 /**
  * Runtime orientation control (#856) — the imperative half of the rotation
@@ -31,18 +32,6 @@ export type OrientationLock =
     | 'default';
 
 /**
- * `callAsync` has no error channel — it rejects only when the *synchronous*
- * bridge call throws — so native-side failures arrive on the resolved callback
- * as `{ error }` (CONVENTIONS.md C4). Rethrow with the full scope prefix (C10).
- */
-async function request(action: string, method: string, args: unknown[]): Promise<void> {
-    const res = await callAsync<{ error?: string } | undefined>(MODULE, method, ...args);
-    if (res?.error) {
-        throw new Error(`[@sigx/lynx-core] ${action} failed: ${res.error}`);
-    }
-}
-
-/**
  * Runtime orientation lock.
  *
  * **The build-time config is the ceiling.** `signalx.config.ts`'s `orientation`
@@ -71,13 +60,18 @@ async function request(action: string, method: string, args: unknown[]): Promise
  */
 export const Orientation = {
     /** Request an orientation lock. Rejects if `to` isn't in the app's declared set. */
-    lock(to: OrientationLock): Promise<void> {
-        return request(`lock('${to}')`, 'lockOrientation', [{ orientation: to }]);
+    async lock(to: OrientationLock): Promise<void> {
+        // Method names stay literal at the call site: `callAsync` has no error
+        // channel (failures ride the resolved `{ error }` envelope — C4), and
+        // the manifest checker matches these against `ios.methods` (C12).
+        const raw = await callAsync<unknown>(MODULE, 'lockOrientation', { orientation: to });
+        unwrapNativeVoid('lynx-core', `lock('${to}')`, raw);
     },
 
     /** Release the runtime lock, restoring the build-time configured set. */
-    unlock(): Promise<void> {
-        return request('unlock', 'unlockOrientation', []);
+    async unlock(): Promise<void> {
+        const raw = await callAsync<unknown>(MODULE, 'unlockOrientation');
+        unwrapNativeVoid('lynx-core', 'unlock', raw);
     },
 
     /** Feature-detect the native module without throwing. */

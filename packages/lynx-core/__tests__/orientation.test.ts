@@ -12,6 +12,7 @@ const isModuleAvailable = vi.fn(() => true);
 vi.mock('../src/bridge.js', () => ({ callAsync, isModuleAvailable }));
 
 const { Orientation } = await import('../src/orientation.js');
+const { isSigxError } = await import('../src/errors.js');
 
 beforeEach(() => {
     callAsync.mockReset();
@@ -34,6 +35,14 @@ describe('Orientation.lock', () => {
         });
         await expect(Orientation.lock('landscape')).rejects.toThrow(
             /^\[@sigx\/lynx-core\] lock\('landscape'\) failed: The app is built with a fixed orientation/,
+        );
+    });
+
+    it('rejects with a typed SigxError callers can branch on', async () => {
+        callAsync.mockResolvedValue({ error: 'No foreground Activity' });
+        // The message is for humans; `code` is the branchable contract (C10).
+        await expect(Orientation.lock('portrait')).rejects.toSatisfy(
+            (e: unknown) => isSigxError(e) && e.code === 'native_error' && e.package === 'lynx-core',
         );
     });
 
