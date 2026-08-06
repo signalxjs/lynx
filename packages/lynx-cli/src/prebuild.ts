@@ -480,6 +480,38 @@ export function writeAndroidBehaviors(cwd: string, config: ResolvedConfig, behav
 }
 
 /**
+ * Files that must exist for the prebuild fast path to trust its cached
+ * fingerprint. If any is missing, prebuild re-runs rather than letting a
+ * wayward `rm` surface as a confusing gradle/xcodebuild failure later.
+ *
+ * Deliberately appName-independent so the check can run BEFORE the
+ * esbuild-driven config load — that's the whole point of the fast path.
+ * Variant-scoped via the dir name, so a variant never reads the base build's
+ * outputs.
+ */
+export function iosPrebuildSentinels(cwd: string, variant?: string): string[] {
+    return [
+        join(cwd, iosDirName(variant), 'Podfile'),
+        // OTA runtime-version sidecar — `sigx updates:publish` needs it.
+        runtimeVersionsSidecarPath(cwd),
+    ];
+}
+
+/** Android counterpart of {@link iosPrebuildSentinels}. */
+export function androidPrebuildSentinels(cwd: string, variant?: string): string[] {
+    const appDir = join(cwd, androidDirName(variant), 'app');
+    return [
+        join(appDir, 'build.gradle.kts'),
+        join(appDir, 'src', 'main', 'AndroidManifest.xml'),
+        // Module-contributed R8 rules. `build.gradle.kts` lists this file
+        // unconditionally in `proguardFiles(...)`, so a release build fails
+        // outright if it's missing.
+        join(appDir, 'proguard-rules-generated.pro'),
+        runtimeVersionsSidecarPath(cwd),
+    ];
+}
+
+/**
  * Write the module-contributed R8 keep rules to
  * `app/proguard-rules-generated.pro`.
  *
@@ -2717,16 +2749,8 @@ export async function runPrebuild(opts: PrebuildOptions = {}): Promise<void> {
         // very cost we're trying to avoid. They ARE variant-scoped (the dir
         // name depends only on the variant string) so a variant's fast path
         // never reads the base build's outputs.
-        const iosSentinels = [
-            join(cwd, iosDirName_, 'Podfile'),
-            // OTA runtime-version sidecar — `sigx updates:publish` needs it.
-            runtimeVersionsSidecarPath(cwd),
-        ];
-        const androidSentinels = [
-            join(cwd, androidDirName_, 'app', 'build.gradle.kts'),
-            join(cwd, androidDirName_, 'app', 'src', 'main', 'AndroidManifest.xml'),
-            runtimeVersionsSidecarPath(cwd),
-        ];
+        const iosSentinels = iosPrebuildSentinels(cwd, variant);
+        const androidSentinels = androidPrebuildSentinels(cwd, variant);
         const outputsIntact =
             (!buildIos || iosSentinels.every((p) => existsSync(p))) &&
             (!buildAndroid || androidSentinels.every((p) => existsSync(p)));

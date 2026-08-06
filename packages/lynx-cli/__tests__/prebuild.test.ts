@@ -29,6 +29,7 @@ import {
     writeIosDebugInfoPlist,
     applyIosDevClientBuildSettings,
     writeAndroidProguardRules,
+    androidPrebuildSentinels,
 } from '../src/prebuild.js';
 import { linkAndroid } from '../src/autolink/android.js';
 import { linkIos } from '../src/autolink/ios.js';
@@ -1284,6 +1285,16 @@ describe('writeAndroidProguardRules (#854)', () => {
         const gradle = readFileSync(join(testDir, 'android', 'app', 'build.gradle.kts'), 'utf-8');
         expect(gradle).toContain('"proguard-rules-generated.pro"');
         expect(gradle).toContain('isMinifyEnabled = true');
+    });
+
+    // Gradle references the file unconditionally, so a deleted one must force
+    // a prebuild rather than let the fast path skip on an unchanged
+    // fingerprint and fail the release build later.
+    it('is a fast-path sentinel, in the variant dir when one is active', () => {
+        expect(androidPrebuildSentinels('/app')).toContain(
+            join('/app', 'android', 'app', 'proguard-rules-generated.pro'));
+        expect(androidPrebuildSentinels('/app', 'dev')).toContain(
+            join('/app', 'android-dev', 'app', 'proguard-rules-generated.pro'));
     });
 });
 
