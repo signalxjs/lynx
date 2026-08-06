@@ -35,7 +35,7 @@ const token = await SecureStorage.getItem('access_token', {
 });
 ```
 
-The full API (`hasKey`, `delete`, `clear`, `isAvailable`), the threat model, recipes for access/refresh-token flows, key-invalidation handling and the Android Auto Backup exclusion setup are on the docs site.
+The full API (`hasKey`, `removeItem`, `clear`, `isAvailable`), the threat model, recipes for access/refresh-token flows, key-invalidation handling and the Android Auto Backup exclusion setup are on the docs site.
 
 ## License
 

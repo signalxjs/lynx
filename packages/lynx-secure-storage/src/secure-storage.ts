@@ -11,13 +11,13 @@ const MODULE = 'SecureStorage';
 export interface SecureStorageSetOptions {
     /**
      * When true, the OS will require biometric authentication on every
-     * subsequent `get` of this key.
+     * subsequent `getItem` of this key.
      *
      * - iOS: stored with `kSecAccessControlBiometryCurrentSet`. The OS shows
      *   the Face ID / Touch ID prompt automatically inside the Keychain
      *   query — no extra JS call is needed.
      * - Android: the key is generated with
-     *   `setUserAuthenticationRequired(true)`. `get` must drive a
+     *   `setUserAuthenticationRequired(true)`. `getItem` must drive a
      *   `BiometricPrompt` to authorise the `Cipher`, which is why
      *   [SecureStorageGetOptions] exposes `biometricPrompt`.
      */
@@ -82,8 +82,8 @@ function unwrap(result: NativeResult | null | undefined, action: string): void {
 export const SecureStorage = {
     /**
      * Store an encrypted string. Overwrites any existing value for `key`.
-     * Setting `requireBiometric: true` makes future `get` calls prompt for
-     * biometrics; the `set` call itself never prompts.
+     * Setting `requireBiometric: true` makes future `getItem` calls prompt
+     * for biometrics; the `setItem` call itself never prompts.
      */
     async setItem(
         key: string,

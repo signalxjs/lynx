@@ -25,7 +25,7 @@ beforeEach(() => {
     bridge.isModuleAvailable.mockReturnValue(true);
 });
 
-describe('SecureStorage.set', () => {
+describe('SecureStorage.setItem', () => {
     it('forwards key, value, and opts to the native bridge', async () => {
         await SecureStorage.setItem('token', 'abc', { requireBiometric: true });
         expect(bridge.callAsync).toHaveBeenCalledWith(
@@ -59,7 +59,7 @@ describe('SecureStorage.set', () => {
     });
 });
 
-describe('SecureStorage.get', () => {
+describe('SecureStorage.getItem', () => {
     it('forwards key + opts and returns the value', async () => {
         bridge.callAsync.mockResolvedValueOnce({ value: 'abc' });
         const value = await SecureStorage.getItem('token', {
@@ -90,7 +90,7 @@ describe('SecureStorage.get', () => {
     });
 });
 
-describe('SecureStorage.delete', () => {
+describe('SecureStorage.removeItem', () => {
     it('forwards the key', async () => {
         await SecureStorage.removeItem('token');
         expect(bridge.callAsync).toHaveBeenCalledWith('SecureStorage', 'delete', 'token');
