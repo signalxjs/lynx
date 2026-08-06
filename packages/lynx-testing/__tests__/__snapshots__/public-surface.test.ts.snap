@@ -1,0 +1,21 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`public runtime exports — "./mt" entries > pins the main-thread surface 1`] = `
+[
+  "compileMTWorklets",
+  "extractRegistrations",
+  "fabricatePanEvent",
+  "fabricateTapEvent",
+  "getJsContext",
+  "getWorkletMap",
+  "makeRef",
+  "resetJsContextSpy",
+]
+`;
+
+exports[`public runtime exports — "./mt" entries > pins the setup entry 1`] = `
+[
+  "_getJsContext",
+  "_resetJsContextSpy",
+]
+`;
