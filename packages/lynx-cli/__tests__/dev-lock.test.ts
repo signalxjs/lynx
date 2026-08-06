@@ -154,12 +154,35 @@ describe('isPortFree / waitForPortFree', () => {
 
     it('isPortPairFree is false when the WS half (port+1) is taken', async () => {
         // Hold a port, then probe the one BELOW it so its `+1` collides.
-        const { port, close } = await listen();
+        //
+        // Binding an ephemeral port says nothing about whether `port - 1` is
+        // free — the OS picks one, not a pair. This used to assume the
+        // neighbour was free, which is true on a quiet machine and false often
+        // enough on a busy CI runner that the *precondition* failed before the
+        // assertion under test ever ran. Retry until we actually hold a port
+        // whose lower neighbour is free, so the setup is established rather
+        // than hoped for.
+        let held: { port: number; close: () => Promise<void> } | null = null;
+        const discarded: Array<() => Promise<void>> = [];
         try {
-            expect(await isPortFree(port - 1)).toBe(true);   // HTTP half free
+            for (let attempt = 0; attempt < 20 && held === null; attempt++) {
+                const candidate = await listen();
+                if (await isPortFree(candidate.port - 1)) {
+                    held = candidate;
+                } else {
+                    // Keep it bound while we retry, so the next ephemeral port
+                    // differs; release them all at the end.
+                    discarded.push(candidate.close);
+                }
+            }
+            expect(held, 'no ephemeral port with a free lower neighbour in 20 tries').not.toBeNull();
+
+            const port = held!.port;
+            expect(await isPortFree(port - 1)).toBe(true);      // HTTP half free
             expect(await isPortPairFree(port - 1)).toBe(false); // but +1 is held
         } finally {
-            await close();
+            await held?.close();
+            for (const close of discarded) await close();
         }
     });
 });
