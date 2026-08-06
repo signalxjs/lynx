@@ -11,6 +11,8 @@
     "scripts": {
         "sync:core": "node scripts/sync-core.mjs",
         "verify:catalog": "node scripts/check-catalog.mjs",
+        "check:conventions": "node scripts/check-api-conventions.mjs",
+        "check:manifests": "node scripts/check-module-manifests.mjs",
         "build": "pnpm -r run build",
         "test": "vitest run",
         "test:watch": "vitest",

@@ -45,6 +45,17 @@ jobs:
       - name: Verify catalog
         run: pnpm verify:catalog
 
+      # Module API contract (CONVENTIONS.md C1-C12) and native method-name
+      # agreement across JS / manifest / Swift / Kotlin. Both are ratchets
+      # against a baseline of pre-existing violations owned by epic #857:
+      # new drift fails, and a baseline entry that is no longer needed fails
+      # too, so the baselines shrink as module audits land.
+      - name: Module conventions
+        run: pnpm check:conventions
+
+      - name: Module manifests
+        run: pnpm check:manifests
+
       # Build before typecheck — workspace packages publish types via dist/
       # and cross-package type resolution at the root tsconfig follows the
       # types field. Without dist/ present, subpath imports (e.g.

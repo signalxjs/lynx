@@ -1,0 +1,30 @@
+{
+    "lynx-appearance": [
+        {
+            "rule": "C12/declared-not-called",
+            "detail": "getColorScheme — declared in ios.methods, never called from JS"
+        }
+    ],
+    "lynx-core": [
+        {
+            "rule": "C12/declared-not-called",
+            "detail": "getConstants — declared in ios.methods, never called from JS"
+        }
+    ],
+    "lynx-haptics": [
+        {
+            "rule": "C12/called-not-declared",
+            "detail": "diagnose — called from JS, absent from signalx-module.json ios.methods"
+        }
+    ],
+    "lynx-updates": [
+        {
+            "rule": "C12/declared-not-called",
+            "detail": "getCurrentUpdate — declared in ios.methods, never called from JS"
+        },
+        {
+            "rule": "C12/declared-not-called",
+            "detail": "getState — declared in ios.methods, never called from JS"
+        }
+    ]
+}
