@@ -317,7 +317,19 @@ It has therefore drifted, silently:
 
 **The rule:** every method name passed to `callSync`/`callAsync` appears in the manifest **and**
 in the Swift `methodLookup` **and** in the Kotlin module — enforced by
-`scripts/check-module-manifests.mjs` (Phase 0b). If we decide not to enforce it, the field gets
+`scripts/check-module-manifests.mjs`.
+
+**Keep the name a string literal at the call site.** The checker reads call sites textually, so
+threading the method through a helper —
+
+```ts
+const voidCall = (action: string, ...args: unknown[]) => callAsync(MODULE, action, ...args);
+voidCall('pausePlayer', id);   // ✗ the gate now sees zero calls
+```
+
+— hides every name from it and reports the whole module as declared-but-never-called. This is not
+hypothetical: it happened while refactoring `@sigx/lynx-audio`, and the gate caught it. A tidier
+wrapper costs more than it saves; repeat the literal. If we decide not to enforce it, the field gets
 deleted rather than left as documentation nothing validates.
 
 ---
@@ -379,14 +391,16 @@ Reference violation for 2.6: `packages/lynx-sheet/src/index.ts` exports `MIN_DIS
 | 3.4 | Module-level singletons survive HMR / double module evaluation, guarded by a `globalThis` flag (the pattern in `packages/lynx-core/src/index.ts`) | `[A]` |
 | 3.5 | Components unregister main-thread listeners and native observers on unmount | `[A*]` |
 | 3.6 | No unbounded growth — listener bags, task stores and id counters are bounded or documented | `[A]` |
+| 3.7 | Every fire-and-forget bridge call has an explicit `.catch()` reporting through `createLogger`. `void callAsync(…)` still rejects when the module isn't linked, and an unhandled rejection here is a **fatal main-thread exception, not a warning** (#863) — the `void` makes it look deliberate | `[A]` |
 
 ### D4 — Missing common features vs. the ecosystem peer
 
 | # | Item | Tag |
 |---|---|---|
 | 4.1 | Comparison table against the named peer filled in; every gap triaged **ship / defer / won't** with a one-line reason | `[A]` |
-| 4.2 | Every "won't" is documented in the README Gotchas, not only in the issue | `[A]` |
-| 4.3 | Every "defer" has a linked follow-up issue | `[A]` |
+| 4.2 | Before triaging a gap as **ship**, the native method it needs actually exists in Swift **and** Kotlin — or the native work is scoped into the estimate. A gap that looks like a one-line JS addition routinely needs work on two platforms | `[A]` |
+| 4.3 | Every "won't" is documented in the README Gotchas, not only in the issue | `[A]` |
+| 4.4 | Every "defer" has a linked follow-up issue | `[A]` |
 
 Peers: `storage`→`@react-native-async-storage/async-storage` · `network`→`netinfo` /
 `navigator.onLine` · `location`→`expo-location` · `clipboard`→`expo-clipboard` ·
@@ -427,6 +441,7 @@ Peers: `storage`→`@react-native-async-storage/async-storage` · `network`→`n
 | # | Item | Tag |
 |---|---|---|
 | 7.1 | A public-surface freeze test exists, modeled on `packages/lynx-navigation/__tests__/public-surface.test.ts` — runtime export-name snapshot plus `expectTypeOf` pins on the load-bearing shapes | `[A*]` |
+| 7.1b | For a package shipping a `.web.ts`, that test also asserts **both implementations expose the same surface**. The plugin swaps them by `extensionAlias`, so a method added to one and not the other is a runtime failure on whichever target missed it — invisible to a typecheck, since only one is ever checked against the consumer | `[A*]` |
 | 7.2 | The package has a `test` script and its tests run under root `pnpm test` | `[A]` |
 | 7.3 | Patch coverage ≥ 80% (`codecov.yml`) for everything the audit touches | `[A]` |
 | 7.4 | README matches the C11 template | `[A]` |
@@ -485,10 +500,28 @@ Always ask, never decide alone:
 Decide yourself, and say so in the issue: internal refactors, test additions, README fixes,
 performance work with no API change, and anything C1–C12 already answers.
 
-### 4. Done
+### 4. Prove the tests you write for bugs
+
+A regression test is evidence only if you have **seen it fail**. Revert the fix, watch the test go
+red, restore it. Both pilot reviews did this and one of the tests turned out not to be testing what
+it looked like it was testing.
+
+Two things that quietly make a test worthless:
+
+- **Global state.** Don't assert on `process.on('unhandledRejection')` or anything else shared
+  across files — in a parallel run another file decides whether you pass. Assert on something the
+  test owns, like a logger transport you installed.
+- **Testing the mock.** If the fake is doing the thing you're asserting, the test passes with the
+  fix reverted. That's what step one catches.
+
+### 5. Done
 
 Every checkbox ticked, or explicitly deferred to a linked follow-up issue. The exit-criteria block
 at the bottom of the issue is the definition of done. Then close, referencing the final PR.
+
+**Correct your own audit when it turns out to be wrong.** A finding graded "trivial" that isn't is
+worth an explicit note on the issue — the grade is the thing the next person trusts. Both pilots
+have a worked example of the audit format: #872 (clean API, no proof) and #867 (a real bug).
 
 ---
 
