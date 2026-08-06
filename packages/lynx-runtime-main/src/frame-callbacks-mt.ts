@@ -212,12 +212,22 @@ function tick(): void {
   chained = false;
   if (activeCount === 0) return;
 
-  const now = Date.now();
-  let ran = false;
-
   const runWorklet = (globalThis as Record<string, unknown>)['runWorklet'] as
     | ((ctx: WorkletCtx, args: unknown[]) => unknown)
     | undefined;
+  if (typeof runWorklet !== 'function') {
+    // Upstream's worklet runtime hasn't installed its invoker yet (or this
+    // host has none). Keep the chain alive so a callback registered during
+    // bootstrap still starts, but advance NOTHING — counting a frame we
+    // couldn't invoke would rob the first real invocation of its documented
+    // `frameNumber: 1` / `timeSincePreviousFrame: 0`, and would flush a tree
+    // nothing touched.
+    schedule();
+    return;
+  }
+
+  const now = Date.now();
+  let ran = false;
 
   // Map iteration tolerates deletion mid-loop; an entry activated by an
   // earlier callback in this same frame is visited this frame, which is what
@@ -231,7 +241,6 @@ function tick(): void {
     entry.lastAt = now;
     entry.frameNumber++;
 
-    if (typeof runWorklet !== 'function') continue;
     try {
       runWorklet(entry.ctx, [{
         timestamp: now,

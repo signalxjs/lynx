@@ -341,6 +341,45 @@ describe('robustness', () => {
     log.mockRestore();
   });
 
+  it('does not burn a frame while the worklet invoker is unavailable', () => {
+    // Bootstrap can register a callback before upstream installs
+    // `runWorklet`. Those frames must not advance the counters, or the first
+    // real invocation would arrive with frameNumber > 1 and a non-zero dt —
+    // both of which the API documents as impossible.
+    vi.stubGlobal('runWorklet', undefined);
+    applyOps([OP.REGISTER_FRAME_CALLBACK, 1, ctx(), 1]);
+
+    drainFrame();
+    vi.advanceTimersByTime(16);
+    drainFrame();
+    // Still chaining, so it picks up once the invoker appears.
+    expect(rafQueue).toHaveLength(1);
+
+    vi.stubGlobal('runWorklet', runWorklet);
+    vi.advanceTimersByTime(16);
+    drainFrame();
+
+    expect(runWorklet).toHaveBeenCalledTimes(1);
+    expect(frameOf(1)).toMatchObject({
+      frameNumber: 1,
+      timeSincePreviousFrame: 0,
+      timeSinceFirstFrame: 32,
+    });
+  });
+
+  it('does not flush a tree nothing touched while the invoker is unavailable', async () => {
+    vi.stubGlobal('runWorklet', undefined);
+    applyOps([OP.REGISTER_FRAME_CALLBACK, 1, ctx(), 1]);
+    const flush = globalThis.__FlushElementTree as unknown as ReturnType<typeof vi.fn>;
+    flush.mockClear();
+
+    drainFrame();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(flush).not.toHaveBeenCalled();
+  });
+
   it('falls back to a timer when requestAnimationFrame is absent', () => {
     vi.stubGlobal('requestAnimationFrame', undefined);
 
