@@ -63,7 +63,7 @@ export const AuthDemo = component(() => {
         await new Promise((r) => setTimeout(r, 500));
         const token = `demo.${user}.${Math.random().toString(36).slice(2, 10)}`;
         try {
-            await SecureStorage.set(TOKEN_KEY, token, { requireBiometric: true });
+            await SecureStorage.setItem(TOKEN_KEY, token, { requireBiometric: true });
             Haptics.notification('success');
             password.value = '';
             state.value = 'locked';
@@ -96,7 +96,7 @@ export const AuthDemo = component(() => {
             return;
         }
         try {
-            const token = await SecureStorage.get(TOKEN_KEY, {
+            const token = await SecureStorage.getItem(TOKEN_KEY, {
                 biometricPrompt: {
                     reason: BIOMETRIC_REASON,
                     title: BIOMETRIC_TITLE,
@@ -128,7 +128,7 @@ export const AuthDemo = component(() => {
     const onSignOut = async () => {
         Haptics.selection();
         try {
-            await SecureStorage.delete(TOKEN_KEY);
+            await SecureStorage.removeItem(TOKEN_KEY);
         } catch {
             // Ignore — we're moving back to signed-out either way.
         }
