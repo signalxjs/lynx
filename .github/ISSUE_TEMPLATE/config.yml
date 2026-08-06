@@ -1,0 +1,11 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Documentation
+    url: https://sigx.dev/lynx
+    about: Guides and API reference for every @sigx/lynx-* package.
+  - name: Getting help
+    url: https://github.com/signalxjs/lynx/blob/main/.github/SUPPORT.md
+    about: Where to ask usage questions and what to try first.
+  - name: Security
+    url: https://github.com/signalxjs/lynx/security/policy
+    about: Report a vulnerability privately — please don't open a public issue.
