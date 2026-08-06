@@ -7,8 +7,9 @@ body:
     attributes:
       value: |
         New or changed public API must fit the module contract in
-        [`CONVENTIONS.md`](../../CONVENTIONS.md) (C1–C12) — naming, async and error
-        shape, permissions, events. Worth a skim before proposing an API.
+        [`CONVENTIONS.md`](https://github.com/signalxjs/lynx/blob/main/CONVENTIONS.md)
+        (C1–C12) — naming, async and error shape, permissions, events. Worth a
+        skim before proposing an API.
 
   - type: dropdown
     id: packages
