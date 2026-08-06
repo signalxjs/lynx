@@ -65,6 +65,14 @@ export interface AndroidLinkResult {
     debugGradleDependencies: string[];
     /** Gradle plugins to apply in the app `plugins {}` block (de-duped by id). */
     gradlePlugins: AndroidGradlePluginEntry[];
+    /**
+     * R8 keep rules contributed by modules whose native dependency ships no
+     * consumer rules of its own, written to `app/proguard-rules-generated.pro`
+     * (de-duped, order preserved). Collected from `debugOnly` modules too:
+     * unlike permissions there is no debug/release split to make, since only
+     * release builds run R8 and a rule for an absent class is inert.
+     */
+    proguardRules: string[];
     /** AndroidManifest permissions to add (release + debug builds). */
     permissions: string[];
     /**
@@ -167,6 +175,9 @@ export function linkAndroid(
     const debugGradleDependencies: string[] = [];
     const permissions: string[] = [...(config.android.permissions ?? [])];
     const debugPermissions: string[] = [];
+    // Not seeded from app config: an app that needs its own keep rules edits
+    // `app/proguard-rules.pro`, which is scaffold-once and stays hand-owned.
+    const proguardRules: string[] = [];
     // App-level features are seeded first so they win the de-dupe over any
     // module-contributed entry of the same name. The seed itself is de-duped
     // too (first wins) in case the app config repeats a name.
@@ -323,6 +334,9 @@ export function linkAndroid(
             // so release APKs don't declare permissions only dev code uses.
             (android.debugOnly ? debugPermissions : permissions).push(...android.permissions);
         }
+        if (android.proguardRules) {
+            proguardRules.push(...android.proguardRules);
+        }
         if (android.features) {
             for (const feat of android.features) {
                 if (seenFeatureNames.has(feat.name)) continue;
@@ -404,6 +418,7 @@ export function linkAndroid(
         gradleDependencies: [...new Set(gradleDependencies)],
         debugGradleDependencies: [...new Set(debugGradleDependencies)],
         gradlePlugins,
+        proguardRules: [...new Set(proguardRules.map((r) => r.trim()).filter(Boolean))],
         permissions: [...new Set(permissions)],
         // A permission already granted to all builds doesn't need a debug copy.
         debugPermissions: [...new Set(debugPermissions)].filter((p) => !permissions.includes(p)),

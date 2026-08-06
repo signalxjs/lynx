@@ -100,6 +100,17 @@ export function androidBuildGradlePath(cwd: string, config: ResolvedConfig): str
     return join(androidAppDir(cwd, config), 'build.gradle.kts');
 }
 
+/**
+ * `app/proguard-rules-generated.pro` — module-contributed R8 keep rules.
+ *
+ * Separate from the hand-owned `app/proguard-rules.pro`, which is
+ * scaffold-once: appending there would either be skipped on existing projects
+ * or clobber the app's own rules. Both are listed in `proguardFiles(...)`.
+ */
+export function androidGeneratedProguardPath(cwd: string, config: ResolvedConfig): string {
+    return join(androidAppDir(cwd, config), 'proguard-rules-generated.pro');
+}
+
 /** `app/src/main/res` — the Android resource dir (icons, splash, values). */
 export function androidResDir(cwd: string, config: ResolvedConfig): string {
     return join(androidAppDir(cwd, config), 'src', 'main', 'res');

@@ -137,5 +137,13 @@ isWebRTCAvailable();                          // false on web / when not linked
   players during an active call; both packages manage the audio session.
 - **iOS simulator:** WebRTC's audio unit is unreliable there — SDP and data
   channels work, but verify audio on a physical device.
+- **Android R8:** the manifest contributes `-keep class org.webrtc.** { *; }`
+  via `android.proguardRules`, which `sigx prebuild` writes into
+  `app/proguard-rules-generated.pro`. It is not optional: the
+  `io.github.webrtc-sdk` AAR ships no consumer proguard rules, and libwebrtc
+  resolves its Java surface from native by exact name — including
+  `org.webrtc.WebRtcClassLoader`, which has no Java callers at all. Without the
+  rule R8 deletes it and the library aborts the process inside `JNI_OnLoad` on
+  the first `getUserMedia`. Release builds only; debug is unminified.
 
 License: MIT

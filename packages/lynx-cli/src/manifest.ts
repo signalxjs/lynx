@@ -96,6 +96,24 @@ export interface AndroidManifest {
      * or version-catalog entry is required.
      */
     gradlePlugins?: AndroidGradlePluginEntry[];
+    /**
+     * R8/proguard keep rules this module's native dependency needs, emitted
+     * into the generated `app/proguard-rules-generated.pro`.
+     *
+     * Only required when the dependency does NOT ship consumer rules of its
+     * own — a well-behaved AAR carries a `proguard.txt` that Gradle applies
+     * automatically, and those modules need nothing here. The canonical case
+     * is `@sigx/lynx-webrtc`: `io.github.webrtc-sdk`'s AAR has no
+     * `proguard.txt`, and libwebrtc resolves its Java surface from native by
+     * exact name (`org.webrtc.WebRtcClassLoader` and every `@CalledByNative`
+     * member), so R8 renaming is as fatal as R8 deleting — the library aborts
+     * inside `JNI_OnLoad` on the first call. Release builds only; debug is
+     * unminified, which is why this class of bug hides in dev.
+     *
+     * Each entry is one line of proguard syntax. De-duped across modules
+     * (first wins), so listing the same rule in several modules is safe.
+     */
+    proguardRules?: string[];
     /** AndroidManifest.xml permissions required. */
     permissions?: string[];
     /**

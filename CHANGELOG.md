@@ -4,6 +4,14 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 ## [Unreleased]
 
+### Fixed
+
+- **`@sigx/lynx-webrtc`: Android release builds no longer abort on the first `getUserMedia`** (#854). R8 deleted `org.webrtc.WebRtcClassLoader` — a class libwebrtc's `JNI_OnLoad` looks up by name and that has no Java callers at all — so loading the native library killed the process (`SIGABRT`) the moment a call started. Debug builds are unminified, which is why this only ever showed up in store builds: a release APK carried 100 `org/webrtc` class names where the debug one had 438. The `io.github.webrtc-sdk` AAR ships no consumer proguard rules, so nothing supplied the keep. The module now declares its own.
+
+### Added
+
+- **`@sigx/lynx-cli`: native modules can contribute R8 keep rules** (#854). New `android.proguardRules?: string[]` field in `signalx-module.json`, aggregated across linked modules (de-duped) and written to a generated `app/proguard-rules-generated.pro` that the scaffold's `build.gradle.kts` lists in `proguardFiles(...)`. Previously a module whose native dependency shipped no `proguard.txt` had no way to say so, and the app's own `proguard-rules.pro` is scaffold-once — so the rules could not be added on the module's behalf either. That file stays hand-owned; prebuild only ever writes the generated sibling. Run `sigx prebuild` after upgrading.
+
 ## [0.26.0] - 2026-08-05
 
 ### Added

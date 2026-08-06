@@ -38,6 +38,10 @@
         "publisherClass": "com.sigx.webrtc.WebRTCPublisher",
         "sourceDir": "android",
         "dependencies": ["io.github.webrtc-sdk:android:125.6422.07"],
+        "proguardRules": [
+            "-keep class org.webrtc.** { *; }",
+            "-dontwarn org.webrtc.**"
+        ],
         "permissions": [
             "android.permission.RECORD_AUDIO",
             "android.permission.MODIFY_AUDIO_SETTINGS"
