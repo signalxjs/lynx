@@ -58,10 +58,15 @@ const DEFAULT_SCROLL_THROTTLE = 100;
 // A consumer-passed `scrollEventThrottle` still wins.
 const ADOPTED_SCROLL_THROTTLE = 16;
 
-// How long the bottom inset must hold still before the spacer cell commits to
-// it (#930). A height change is layout; per-frame layout floods the engine's
-// dispatch limiter. Motion is carried by a transform in the meantime.
+// Debounce before the inset spacer commits its final, exact height (#930).
 const INSET_SETTLE_MS = 120;
+
+// How far the inset may GROW before the spacer commits mid-gesture. Each
+// commit is one relayout plus one chat re-pin, so this trades event volume for
+// how closely the thread tracks a rising occluder: per-frame floods the
+// engine's dispatch limiter, once-per-gesture visibly jumps. ~24px is about 20
+// commits across a full-height sheet drag.
+const INSET_STEP_PX = 24;
 
 type ScrollDetail = { detail?: { scrollTop?: number; scrollLeft?: number } };
 
@@ -614,10 +619,25 @@ const ListImpl = component<ListProps>(({ props, slots, emit }) => {
       const bi = props.bottomInset;
       const raw = typeof bi === 'object' && bi !== null ? bi.value : bi;
       const v = typeof raw === 'number' && raw > 0 ? Math.round(raw) : 0;
-      if (v === insetSettled.value) return;
+      const settled = insetSettled.value;
+      if (v === settled) return;
       // First value commits immediately — that one is the mount-time inset,
       // and first paint clearing the occluder is the whole point.
-      if (insetSettled.value === 0) { commitInset(v); return; }
+      if (settled === 0) { commitInset(v); return; }
+      // GROWTH is quantized, SHRINK is only debounced — the two directions are
+      // not symmetric. Content does not move between commits, so a shrinking
+      // occluder can never hide anything (it retreats off content that is
+      // already clear, which is why dragging down looks smooth for free). A
+      // growing one covers the newest message until the next commit, so it has
+      // to be chased. Chasing every frame relayouts ~60x/s and floods the
+      // dispatch limiter (#606/#930); chasing every INSET_STEP_PX bounds that
+      // to ~20 commits across a full-height drag while still reading as
+      // continuous. The trailing debounce always lands the exact final value.
+      if (v - settled >= INSET_STEP_PX) {
+        if (settleTimer !== null) { clearTimeout(settleTimer); settleTimer = null; }
+        commitInset(v);
+        return;
+      }
       if (settleTimer !== null) clearTimeout(settleTimer);
       settleTimer = setTimeout(() => { settleTimer = null; commitInset(v); }, INSET_SETTLE_MS);
     });
