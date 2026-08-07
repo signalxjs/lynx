@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
 
 import { BUCKET_EDGES, decodeStats, percentileMs, summarize, verdict } from '../stats';
+import { PUBLISH_MS, shouldPublish } from '../frame-stats.mt';
+import { createSimState } from '../../sim/state';
 
 /** Build a drain buffer the way `drainStats` lays one out. */
 function raw(o: Partial<{
@@ -128,13 +130,23 @@ describe('summarize', () => {
 });
 
 describe('publish cadence', () => {
-    it('matches the literal inlined in the worklet', async () => {
-        // `shouldPublish` cannot reference `PUBLISH_MS` at runtime — a worklet
-        // body can't reach a module-scope binding — so the two are kept honest
-        // here instead of by the compiler.
-        const src = await import('node:fs/promises')
-            .then((fs) => fs.readFile(new URL('../frame-stats.mt.ts', import.meta.url), 'utf8'));
-        const { PUBLISH_MS } = await import('../frame-stats.mt');
-        expect(src).toContain(`st.statPubT < ${PUBLISH_MS}`);
+    // `shouldPublish` inlines its threshold rather than referencing
+    // `PUBLISH_MS`, because a worklet body cannot reach a module-scope binding
+    // at runtime. Nothing makes the two agree, so assert it behaviourally.
+    it('holds off until PUBLISH_MS has elapsed, then fires', () => {
+        const st = createSimState(4);
+        st.statPubT = 1000;
+
+        expect(shouldPublish(st, 1000 + PUBLISH_MS - 1)).toBe(0);
+        expect(shouldPublish(st, 1000 + PUBLISH_MS)).toBe(1);
+    });
+
+    it('restarts the window from the publish it just allowed', () => {
+        const st = createSimState(4);
+        st.statPubT = 0;
+
+        expect(shouldPublish(st, PUBLISH_MS)).toBe(1);
+        expect(shouldPublish(st, PUBLISH_MS + 1)).toBe(0);
+        expect(shouldPublish(st, PUBLISH_MS * 2)).toBe(1);
     });
 });
