@@ -56,12 +56,12 @@ export function embedBundle(opts: EmbedBundleOptions): boolean {
         size = statSync(distBundle).size;
     } catch {
         throw new Error(
-            'Built bundle not found at dist/main.lynx.bundle — run `sigx build` first.',
+            '[@sigx/lynx-cli] Built bundle not found at dist/main.lynx.bundle — run `sigx build` first.',
         );
     }
     if (size === 0) {
         throw new Error(
-            'Built bundle dist/main.lynx.bundle is empty — run `sigx build` first.',
+            '[@sigx/lynx-cli] Built bundle dist/main.lynx.bundle is empty — run `sigx build` first.',
         );
     }
 
@@ -75,6 +75,61 @@ export function embedBundle(opts: EmbedBundleOptions): boolean {
 
     embedAsyncAssets(opts);
     return changed;
+}
+
+/**
+ * Fail *before* packaging when the native project's bundle slot doesn't match
+ * `dist/main.lynx.bundle`.
+ *
+ * This is a post-condition on the release pipeline as a whole, not on
+ * {@link embedBundle} — the failure it exists to catch (#960) was the embed
+ * step never running at all, so a check inside the copy would have been
+ * looking in the wrong place. Every path that packages a release archive
+ * calls this immediately before handing off to Gradle/Xcode.
+ *
+ * It earns its keep because this failure is otherwise invisible: the native
+ * build tools see genuinely unchanged inputs and correctly report up-to-date,
+ * the app launches fine, and it simply runs older code. Minification defeats
+ * grepping the APK for a new symbol, so comparing bytes here is the only
+ * cheap confirmation.
+ */
+export function assertEmbeddedBundleCurrent(
+    cwd: string,
+    config: ResolvedConfig,
+    platform: 'ios' | 'android',
+): void {
+    const distBundle = join(cwd, 'dist', 'main.lynx.bundle');
+    const dest = embeddedBundleDest(cwd, config, platform);
+    const rel = relative(cwd, dest) || dest;
+
+    let src: Buffer;
+    try {
+        src = readFileSync(distBundle);
+    } catch {
+        throw new Error(
+            '[@sigx/lynx-cli] Built bundle not found at dist/main.lynx.bundle — run `sigx build` first.',
+        );
+    }
+
+    let embedded: Buffer;
+    try {
+        embedded = readFileSync(dest);
+    } catch {
+        throw new Error(
+            `[@sigx/lynx-cli] Release build would ship no JS bundle: ${rel} is missing.\n`
+            + 'The app would launch to "No bundle found". Run `sigx prebuild --embed-bundle` '
+            + '(or re-run with --clean) before packaging.',
+        );
+    }
+
+    if (!embedded.equals(src)) {
+        throw new Error(
+            `[@sigx/lynx-cli] Release build would ship a stale JS bundle: ${rel} does not match `
+            + `dist/main.lynx.bundle (${embedded.length} vs ${src.length} bytes).\n`
+            + 'The app would launch and run older code with no visible error. Run '
+            + '`sigx prebuild --embed-bundle` (or re-run with --clean) before packaging.',
+        );
+    }
 }
 
 /**
@@ -162,7 +217,7 @@ export function embedAsyncAssets(opts: EmbedBundleOptions): number {
         if (existsSync(pbxprojPath)
             && !isResourceFolderRegistered(readFileSync(pbxprojPath, 'utf-8'), 'LynxAssets')) {
             throw new Error(
-                'The build emitted async chunks (dynamic import()), but the Xcode project '
+                '[@sigx/lynx-cli] The build emitted async chunks (dynamic import()), but the Xcode project '
                 + 'does not carry a complete LynxAssets folder reference in its Copy Bundle '
                 + 'Resources phase — run `sigx prebuild` first to register it.',
             );

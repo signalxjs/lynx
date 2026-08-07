@@ -194,6 +194,17 @@ sigx prebuild --android --embed-bundle  # bakes it into android/app/src/main/ass
 is missing or empty. Plain `sigx prebuild` (without the flag) keeps seeding the
 empty iOS placeholder so dev/sandbox builds fall through to the dev server.
 
+**Re-run `--embed-bundle` after every `sigx build`.** Prebuild skips its pipeline
+when its inputs are unchanged, but embedding is exempt from that skip (#960) —
+the JS bundle changes on every source edit and is deliberately not part of the
+input fingerprint. External pipelines should always run the pair together, in
+this order; embedding a bundle you did not just build is the failure mode this
+is guarding, and it is invisible: the native build tools see unchanged inputs,
+report up-to-date, and the app launches and runs the *older* code with no error.
+`run:* --release` verifies the embedded bytes against `dist/` before packaging;
+if you drive Gradle or Xcode yourself, compare hashes rather than trusting a
+green build — minification defeats grepping the archive for a new symbol.
+
 ### Dynamic `import()` / async chunks
 
 A dynamic `import()` in app code emits an async chunk

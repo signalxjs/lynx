@@ -12,7 +12,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
-    embedBundle, embeddedBundleDest,
+    embedBundle, embeddedBundleDest, assertEmbeddedBundleCurrent,
     collectAsyncAssets, embedAsyncAssets, asyncAssetsRoot,
 } from '../src/util/embed-bundle.js';
 import { resolveConfig } from '../src/config/parser.js';
@@ -93,6 +93,49 @@ describe('embedBundle', () => {
         const cwd = makeProject('');
         expect(() => embedBundle({ cwd, config, platform: 'android', log: () => {} }))
             .toThrow(/empty/);
+    });
+});
+
+/**
+ * The packaging post-condition (#960). It guards the failure `embedBundle`'s own
+ * tests can't see — the embed step not running at all — so it deliberately makes
+ * no assumption that `embedBundle` was ever called.
+ */
+describe('assertEmbeddedBundleCurrent', () => {
+    it('passes once the bundle has been embedded', () => {
+        const cwd = makeProject('REAL_BUNDLE_BYTES');
+        embedBundle({ cwd, config, platform: 'android', log: () => {} });
+        expect(() => assertEmbeddedBundleCurrent(cwd, config, 'android')).not.toThrow();
+    });
+
+    it('throws when the native project has no bundle at all', () => {
+        // The reported symptom: app launches to "No bundle found".
+        const cwd = makeProject('REAL_BUNDLE_BYTES');
+        expect(() => assertEmbeddedBundleCurrent(cwd, config, 'android'))
+            .toThrow(/would ship no JS bundle/);
+    });
+
+    it('throws when the embedded bundle is stale', () => {
+        // The nastier symptom: app runs older code, no crash, no error.
+        const cwd = makeProject('OLD_BUNDLE');
+        embedBundle({ cwd, config, platform: 'android', log: () => {} });
+        writeFileSync(join(cwd, 'dist', 'main.lynx.bundle'), 'NEW_BUNDLE_BYTES');
+        expect(() => assertEmbeddedBundleCurrent(cwd, config, 'android'))
+            .toThrow(/would ship a stale JS bundle/);
+    });
+
+    it('rejects the 0-byte placeholder prebuild seeds on iOS', () => {
+        const cwd = makeProject('REAL_BUNDLE_BYTES');
+        const dest = embeddedBundleDest(cwd, config, 'ios');
+        mkdirSync(join(dest, '..'), { recursive: true });
+        writeFileSync(dest, '');
+        expect(() => assertEmbeddedBundleCurrent(cwd, config, 'ios'))
+            .toThrow(/stale/);
+    });
+
+    it('throws when there is no built bundle to compare against', () => {
+        const cwd = makeProject();
+        expect(() => assertEmbeddedBundleCurrent(cwd, config, 'ios')).toThrow(/sigx build/);
     });
 });
 
