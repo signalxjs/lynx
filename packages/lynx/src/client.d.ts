@@ -31,6 +31,14 @@ declare const __NATIVE__: boolean;
 declare const __MAIN_THREAD__: boolean;
 declare const __BACKGROUND__: boolean;
 
+// Build tier, folded to a literal by `@sigx/lynx-plugin`. Use this — NOT the
+// bare `__DEV__` — to branch on development vs release: `__DEV__` expands to a
+// `process.env` expression that throws in the Lynx background runtime, whereas
+// this is resolved at build time and tree-shakes. Typical use is refusing to
+// present a measurement taken from a development build, where main-thread
+// costs are inflated by orders of magnitude.
+declare const __DEV_BUILD__: boolean;
+
 // The webpack/rspeedy HMR `module.hot` global. We type only the surface lynx
 // apps actually use (`accept` / `dispose`) to keep the ambient minimal and
 // avoid pulling in `@types/webpack-env` or `@types/node`.

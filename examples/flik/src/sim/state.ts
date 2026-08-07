@@ -130,6 +130,29 @@ export interface SimState {
     /** 1 = re-kick at quiescence instead of settling — a sustained worst case. */
     stressLoop: number;
 
+    // ---- frame instrumentation (perf/frame-stats.mt.ts) ----
+    /** `Date.now()` at the previous tick's start, for the frame interval. */
+    statPrevT0: number;
+    statFrames: number;
+    statSum: number;
+    statMax: number;
+    statDropped: number;
+    statCostSum: number;
+    statCostMax: number;
+    /** Frame-interval histogram; edges in `BUCKET_EDGES`. */
+    statBuckets: number[];
+    /** Peak element writes and contacts seen in any frame of the window. */
+    statWritesMax: number;
+    statContactsMax: number;
+    /** `Date.now()` of the last publish to the background thread. */
+    statPubT: number;
+    /** Preallocated drain buffer — the drain happens inside the frame. */
+    statOut: number[];
+    /** Sparkline bar elements, written one per frame. */
+    sparkEls: unknown[] | null;
+    /** 1 while the HUD is on, so its cost can be measured by switching it off. */
+    hud: number;
+
     // ---- counters, drained by the perf HUD ----
     /** Largest normal impulse this shot, so BG can pick a haptic strength. */
     bigHit: number;
@@ -222,6 +245,21 @@ export function createSimState(maxN: number, pairCap = maxN * 24): SimState {
         writeAll: 0,
         subpixel: 1,
         stressLoop: 0,
+
+        statPrevT0: 0,
+        statFrames: 0,
+        statSum: 0,
+        statMax: 0,
+        statDropped: 0,
+        statCostSum: 0,
+        statCostMax: 0,
+        statBuckets: zeros(8),
+        statWritesMax: 0,
+        statContactsMax: 0,
+        statPubT: 0,
+        statOut: zeros(16),
+        sparkEls: null,
+        hud: 1,
 
         bigHit: 0,
         tests: 0,

@@ -152,13 +152,51 @@ term, so pucks stop crisply instead of crawling asymptotically toward zero.
 - [x] **2** — main-thread simulation + the raw render path
 - [x] **3** — the flick gesture: grab, slide inside your own end, throw
 - [x] **4** — settle contract wired to the ruleset; **playable**
-- [ ] **5** — perf HUD
+- [x] **5** — perf HUD
 - [ ] **6** — render-mode A/B/C toggle
 - [ ] **7** — stress mode and the measurement writeup
 
+## The HUD
+
+Two readouts, fed by deliberately different channels so the HUD's own cost is
+measurable by switching one off:
+
+- **Sparkline** — one bar per frame, written straight onto the element from the
+  frame worklet. One style write per frame regardless of disc count, and no
+  background traffic at all. This is the readout to trust while measuring.
+- **Numbers** — counters drained to the background thread twice a second. Richer,
+  but it crosses the bridge, so it is the half that could distort what it reports.
+
+It reports **two** times, not one, because they answer different questions:
+*frame interval* (rAF to rAF) is what the player feels, *tick cost* is what we
+spend. Their divergence is the diagnosis — a 4ms tick inside a 33ms frame means
+the time is going somewhere we don't control; 28ms inside 33ms means it is our
+JavaScript. The HUD says which.
+
+Percentiles come from an 8-bucket histogram, interpolated within the containing
+bucket, because the only clock available on the main thread is `Date.now()` at
+1ms granularity (there is no `performance.now()` there). A three-decimal p95 off
+a 1ms clock would be fiction, so it isn't offered.
+
+### First numbers
+
+Release build, Pixel 9 Pro XL (120Hz), 12 discs, one disc in flight:
+
+```
+120fps  p50 6.0  p95 11.4  ·  tick 0.3/1.0ms
+```
+
+The simulation costs **0.3ms mean / 1.0ms peak** against an 8.3ms budget — about
+4% of the frame at the real game's disc count, with the raw render path. That is
+the baseline the A/B comparison (PR 6) and the stress curve (PR 7) get measured
+against.
+
+Note the frame callback runs at the display's refresh rate, so a 120Hz panel
+gets 120 ticks a second, not 60.
+
 ## On measuring this
 
-The results table lands in PR 7. It will state the device, the OS version, and
+The full results table lands in PR 7. It will state the device, the OS version, and
 the build type, because **numbers from a dev build are fiction here** — and
 specifically so, not just as folklore. Upstream's `Element.setStyleProperty`
 calls `mainThreadFlushLoopMark` under `__DEV__`, and past 256 entries that does

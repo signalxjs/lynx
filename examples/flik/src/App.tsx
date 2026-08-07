@@ -27,8 +27,23 @@ import { useFlickGesture } from './input/useFlickGesture.js';
 import Board from './render/Board.js';
 import Hud from './render/Hud.js';
 import { useDiscPool } from './render/disc-pool.js';
+import PerfHud from './perf/PerfHud.js';
+import { decodeStats, type FrameStats } from './perf/stats.js';
 import { useSimLoop, type SeedWorld } from './useSimLoop.js';
 import { COLORS } from './theme.js';
+
+/** Publish cadence of the stats drain, ms — mirrors `frame-stats.mt.ts`. */
+const STATS_WINDOW_MS = 500;
+
+/**
+ * Dev builds inflate main-thread costs by orders of magnitude — upstream's
+ * `setStyleProperty` does an O(256) array copy per call under `__DEV__` — so
+ * the HUD says so rather than letting a screenshot be quoted as a result.
+ *
+ * `__DEV_BUILD__`, not `__DEV__`: the latter expands to a `process.env`
+ * expression that throws on the background thread.
+ */
+const IS_DEV = __DEV_BUILD__;
 
 /** Board aspect (width : height). Portrait corridor, as the bands assume. */
 const ASPECT = 0.62;
@@ -42,6 +57,9 @@ const App = component(() => {
     // Wrapped in an object because `signal` takes one: the game state is
     // legitimately absent until the arena reports its size.
     const game = signal({ state: null as GameState | null });
+    const stats = signal({
+        value: decodeStats([], STATS_WINDOW_MS) as FrameStats,
+    });
     const board = signal({ width: 0, height: 0 });
     const pool = useDiscPool();
     const boardRef = useMainThreadRef<MainThread.Element | null>(null);
@@ -63,6 +81,9 @@ const App = component(() => {
     const sim = useSimLoop({
         pool,
         boardRef,
+        onStats: (rawStats) => {
+            stats.value = decodeStats(rawStats, STATS_WINDOW_MS);
+        },
         onSettle: (seq, packed) => {
             const current = game.state;
             if (!current) return;
@@ -179,6 +200,12 @@ const App = component(() => {
                     style={{ backgroundColor: COLORS.backdrop }}
                 >
                     {state && dims ? <Hud state={state} boardHeight={dims.height} /> : null}
+                    <PerfHud
+                        stats={stats.value}
+                        bars={sim.sparkBars}
+                        isDev={IS_DEV}
+                        discCount={state ? state.discs.filter((d) => d.alive).length : 0}
+                    />
                     <view
                         bindlayoutchange={handleLayout}
                         style={{
