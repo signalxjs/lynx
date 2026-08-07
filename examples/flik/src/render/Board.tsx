@@ -8,16 +8,29 @@
  * makes the later per-frame `setStyleProperty` the only thing changing.
  */
 
-import { component, type Define } from '@sigx/lynx';
+import {
+    component,
+    type Define,
+    type LayoutChangeEvent,
+    type MainThread,
+    type MainThreadRef,
+} from '@sigx/lynx';
 
 import { BANDS, bandRect } from '../game/board.js';
 import type { Disc, Zone } from '../game/types.js';
-import { COLORS, colorOf, dimColorOf } from '../theme.js';
+import { COLORS, dimColorOf } from '../theme.js';
+import DiscLayerRaw from './DiscLayerRaw.js';
+import type { DiscPool } from './disc-pool.js';
 
 export type BoardProps =
     & Define.Prop<'discs', Disc[], true>
     & Define.Prop<'width', number, true>
-    & Define.Prop<'height', number, true>;
+    & Define.Prop<'height', number, true>
+    & Define.Prop<'pool', DiscPool, true>
+    /** Bound so the aim gesture can attach to the board itself. */
+    & Define.Prop<'elRef', MainThreadRef<MainThread.Element | null>, true>
+    /** The board's own layout — its page offset maps touches into board space. */
+    & Define.Prop<'onLayout', (e: LayoutChangeEvent) => void, true>;
 
 /** Which player, if any, a band belongs to — drives the band tint. */
 function tintOf(zone: Zone): string {
@@ -27,10 +40,12 @@ function tintOf(zone: Zone): string {
 }
 
 const Board = component<BoardProps>(({ props }) => () => {
-    const { width, height, discs } = props;
+    const { width, height, discs, pool } = props;
 
     return (
         <view
+            main-thread:ref={props.elRef}
+            bindlayoutchange={props.onLayout}
             style={{
                 position: 'relative',
                 width: `${width}px`,
@@ -62,28 +77,7 @@ const Board = component<BoardProps>(({ props }) => () => {
                 );
             })}
 
-            {discs
-                .filter((d: Disc) => d.alive)
-                .map((disc: Disc) => (
-                    <view
-                        key={disc.id}
-                        class="flik-disc"
-                        style={{
-                            position: 'absolute',
-                            left: '0px',
-                            top: '0px',
-                            width: `${disc.r * 2}px`,
-                            height: `${disc.r * 2}px`,
-                            borderRadius: `${disc.r}px`,
-                            backgroundColor: colorOf(disc.owner),
-                            // Top-left positioning via transform, not left/top:
-                            // this is the exact property the simulation will
-                            // rewrite every frame, so the static board should
-                            // already be laid out the way the moving one is.
-                            transform: `translate(${disc.x - disc.r}px, ${disc.y - disc.r}px)`,
-                        }}
-                    />
-                ))}
+            <DiscLayerRaw discs={discs.filter((d: Disc) => d.alive)} pool={pool} />
         </view>
     );
 });

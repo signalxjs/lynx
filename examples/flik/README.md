@@ -2,9 +2,11 @@
 
 A two-player flick-the-puck game, and a performance probe for sigx-lynx.
 
-The game half is our take on Sennep's OLO: you drag back from a disc in your
-home zone, release, and try to leave it resting in your target zone at the far
-end of the board — knocking your opponent's discs out of theirs on the way.
+The game half is our take on Sennep's OLO: you put a finger on one of your
+discs, slide it anywhere inside your own end of the board, and flick it. How
+hard you flick is how hard it goes — there is no aim line and no power meter,
+just your hand. The goal is to leave discs resting in your target zone at the
+far end, knocking your opponent's out of theirs on the way.
 
 The probe half is why it lives in this repo. Nothing else here drives a
 sustained 60 Hz main-thread workload, so nothing else exercises the per-frame
@@ -62,9 +64,16 @@ genuine reload that its start and end positions are identical about; the second
 catches a bystander knocked into a home. That is why `GameState` tracks
 `launched`.
 
-Six discs each — two big (r=22, mass 1.0) and four small (r=14, mass ~0.405),
-so a big disc shoves a small one meaningfully. Your score is your alive discs
-at rest in your own target zone. The match ends when no disc sits in any home
+Six discs each — two big (r=22, mass 1.0) and four small (r=14, mass ~0.405).
+Size is felt at both ends of a shot: a big disc leaves your finger slower for
+the same flick, because it is the same effort against more mass, and it hits
+harder when it arrives, because collision impulses are mass-weighted. Net
+momentum still favours it by about half again, so the big ones are the wrecking
+balls and the small ones are the ones you can actually place.
+
+Sliding a disc around your own end costs nothing — only the flick commits you,
+and a slow release just leaves the disc where you put it. Your score is your
+alive discs at rest in your own target zone. The match ends when no disc sits in any home
 zone, because at that point nobody can shoot; highest score wins, equal is a
 draw.
 
@@ -78,7 +87,18 @@ src/
     rules.ts   settleShot, scoring, turn order, game over
     setup.ts   opening line-up, and the stress layout
     pack.ts    flat-number codec for the two cross-thread handoffs
-  render/   the board, the discs, the HUD
+  sim/      main-thread worklets. Pure — no bridge calls live here.
+    state.ts        the world: structure-of-arrays, preallocated
+    integrate.mt.ts friction, position, wall reflection, sleep
+    broadphase.mt.ts candidate pairs (all-pairs or uniform grid)
+    collide.mt.ts   elastic resolution with unequal masses
+    tick.mt.ts      fixed-timestep substeps + the quiescence check
+    world.mt.ts     seed / launch / kick
+    write.mt.ts     push positions onto elements
+    drag.mt.ts      grab / slide / flick — the whole input model
+  input/    the gesture that drives drag.mt.ts
+  useSimLoop.ts  the frame loop — the ONLY cross-thread traffic during a shot
+  render/   the board, the disc layer, the HUD
   theme.ts  palette as hex values (see below)
 ```
 
@@ -86,17 +106,52 @@ Colours are plain hex, not CSS custom properties: theme `var(--color-*)` used
 from an *inline* style paints transparent on Lynx, and the board is almost
 entirely inline geometry.
 
-Discs are positioned with `transform: translate(...)` rather than `left`/`top`,
-even while nothing moves — that is the exact property the simulation rewrites
-each frame, so the static board is already laid out the way the moving one will
-be.
+Discs are positioned with `transform: translate(...)` rather than `left`/`top`
+— that is the exact property the simulation rewrites each frame.
+
+## How the simulation is arranged
+
+**Ownership is exclusive and phase-switched.** The background thread owns the
+board between shots; the main thread owns it during one. There is no merging
+step because there is never anything to merge.
+
+```
+BG --runOnMainThread(seed)-------------> MT   turn setup
+MT --(gesture -> launch, entirely MT)--> MT   no round trip
+MT --[simulating: ZERO background traffic]
+MT --runOnBackground(onSettle)---------> BG   ONCE, at quiescence
+BG --[rules: steal / reload / burn / turn]
+```
+
+A ~1.5s shot is roughly 90 frames and sends the background thread **one**
+message. That is the baseline the render-path comparison is measured against.
+
+**The physics is split across files, one worklet per phase.** That works
+because a captured `'main thread'` worklet resolves to a real callable on the
+other side, unlike a captured plain function — which is also why the tuning
+constants are *inlined* into the worklet bodies rather than imported.
+`tuning.ts` documents them and a test asserts the two haven't drifted.
+
+The payoff is that `'main thread'` is just a string expression statement in
+node, so vitest drives the **real** physics functions rather than a copy. There
+is no second implementation to keep in sync.
+
+**Fixed timestep** (1/120 s, accumulator, backlog dropped rather than carried).
+Chosen for collision stability with unequal masses, for determinism — a
+scripted sequence of frame deltas makes the whole simulation a regression test
+— and because it decouples simulation rate from render rate, which is the
+point of a stress harness. Substeps scale with the fastest disc on the board so
+nothing tunnels at the launch cap.
+
+**Friction is Coulomb-primary** (constant deceleration) with a small viscous
+term, so pucks stop crisply instead of crawling asymptotically toward zero.
 
 ## Status
 
 - [x] **1** — scaffold, ruleset with tests, static board
-- [ ] **2** — main-thread simulation + the raw render path
-- [ ] **3** — aim gesture and launch
-- [ ] **4** — settle contract wired to the ruleset; playable
+- [x] **2** — main-thread simulation + the raw render path
+- [x] **3** — the flick gesture: grab, slide inside your own end, throw
+- [x] **4** — settle contract wired to the ruleset; **playable**
 - [ ] **5** — perf HUD
 - [ ] **6** — render-mode A/B/C toggle
 - [ ] **7** — stress mode and the measurement writeup

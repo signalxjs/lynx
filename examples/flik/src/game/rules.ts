@@ -73,6 +73,55 @@ export function winnerOf(state: GameState, boardHeight: number): Owner | null {
 }
 
 /**
+ * Move a disc without shooting it.
+ *
+ * Repositioning inside your own end is part of taking a turn, not a turn in
+ * itself — you slide the disc to line up the shot and only the flick commits
+ * you. The background copy still has to follow, though, or the next handoff to
+ * the simulation would drag the disc back to where it started.
+ *
+ * `seq` is deliberately NOT bumped: nothing was launched, so there is no shot
+ * in flight for a settle to be stale against.
+ */
+export function placeDisc(
+    state: GameState,
+    discId: number,
+    x: number,
+    y: number,
+): GameState {
+    return {
+        ...state,
+        discs: state.discs.map((d) => (d.id === discId ? { ...d, x, y } : d)),
+    };
+}
+
+/**
+ * Carry the board to a new size.
+ *
+ * Disc positions are absolute board pixels, so a resize has to move them or
+ * they end up describing a board that no longer exists — discs near the far
+ * edge fall outside it and are clipped away. Scaling both axes keeps every
+ * disc in the same ZONE, which is what the rules are actually expressed in:
+ * the bands are fractions of height.
+ *
+ * This is not a rare path. The first layout event arrives before the rest of
+ * the screen has been laid out, so the arena is briefly taller than it settles
+ * at — the board is measured twice before anyone touches it.
+ */
+export function rescaleBoard(
+    state: GameState,
+    scaleX: number,
+    scaleY: number,
+): GameState {
+    if (scaleX === 1 && scaleY === 1) return state;
+    return {
+        ...state,
+        seq: state.seq + 1,
+        discs: state.discs.map((d) => ({ ...d, x: d.x * scaleX, y: d.y * scaleY })),
+    };
+}
+
+/**
  * Mark `discId` as launched — bumps `seq` so a stale settle can be rejected,
  * and records the disc so `settleShot` can tell a reload from a disc that
  * simply sat out the shot.
