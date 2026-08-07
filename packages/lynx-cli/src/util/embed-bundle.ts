@@ -111,6 +111,16 @@ export function assertEmbeddedBundleCurrent(
         );
     }
 
+    // A 0-byte build output is rejected outright rather than compared: the iOS
+    // placeholder prebuild seeds is itself 0 bytes, so an empty `dist/` would
+    // otherwise compare *equal* to it and wave through a release archive with
+    // no runnable bundle — precisely what this guard exists to prevent.
+    if (src.length === 0) {
+        throw new Error(
+            '[@sigx/lynx-cli] Built bundle dist/main.lynx.bundle is empty — run `sigx build` first.',
+        );
+    }
+
     let embedded: Buffer;
     try {
         embedded = readFileSync(dest);

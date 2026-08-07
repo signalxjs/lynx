@@ -135,6 +135,23 @@ describe('runPrebuild fast path + embedBundle', () => {
         expect(existsSync(embeddedBundleDest(cwd, config, 'android'))).toBe(false);
     });
 
+    it('does not embed into a platform the config has dropped', async () => {
+        // Sentinels linger after `platforms` shrinks, so the fast path can still
+        // fire for a platform prebuild itself would no longer generate. Gate on
+        // config.platforms exactly as the full pipeline does.
+        const cwd = makePrimedProject('BUNDLE_V1');
+        writeFileSync(
+            join(cwd, 'signalx.config.mjs'),
+            `export default ${JSON.stringify({ ...TEST_CONFIG, platforms: ['android'] }, null, 2)};\n`,
+        );
+        primeFingerprint(cwd, { android: true, ios: true });
+
+        await runPrebuild({ cwd, android: true, ios: true, embedBundle: true });
+
+        expect(readFileSync(embeddedBundleDest(cwd, config, 'android'), 'utf8')).toBe('BUNDLE_V1');
+        expect(existsSync(embeddedBundleDest(cwd, config, 'ios'))).toBe(false);
+    });
+
     it('reports the missing build output rather than skipping silently', async () => {
         const cwd = makePrimedProject('BUNDLE_V1');
         rmSync(join(cwd, 'dist', 'main.lynx.bundle'));

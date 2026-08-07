@@ -2814,9 +2814,18 @@ export async function runPrebuild(opts: PrebuildOptions = {}): Promise<void> {
             // genuinely unchanged, so they correctly report up-to-date and
             // the app just runs older code that still works. See #960.
             if (opts.embedBundle) {
+                // Gate on `config.platforms` exactly as the slow path does
+                // (see the `buildAndroid && …includes('android')` blocks
+                // below) — otherwise a project that has dropped a platform
+                // would get a bundle embedded into a tree prebuild itself no
+                // longer generates, since its sentinels linger on disk.
                 const cfg = resolveConfig(await loadConfig(cwd), variant);
-                if (buildAndroid) embedBundle({ cwd, config: cfg, platform: 'android', log });
-                if (buildIos) embedBundle({ cwd, config: cfg, platform: 'ios', log });
+                if (buildAndroid && cfg.platforms.includes('android')) {
+                    embedBundle({ cwd, config: cfg, platform: 'android', log });
+                }
+                if (buildIos && cfg.platforms.includes('ios')) {
+                    embedBundle({ cwd, config: cfg, platform: 'ios', log });
+                }
             }
             return;
         }

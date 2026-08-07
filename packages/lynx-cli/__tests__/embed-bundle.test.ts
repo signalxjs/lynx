@@ -137,6 +137,16 @@ describe('assertEmbeddedBundleCurrent', () => {
         const cwd = makeProject();
         expect(() => assertEmbeddedBundleCurrent(cwd, config, 'ios')).toThrow(/sigx build/);
     });
+
+    it('rejects a 0-byte build output instead of matching it to the placeholder', () => {
+        // Both sides empty compare *equal*, so without an explicit check this
+        // would wave through an archive with no runnable bundle.
+        const cwd = makeProject('');
+        const dest = embeddedBundleDest(cwd, config, 'ios');
+        mkdirSync(join(dest, '..'), { recursive: true });
+        writeFileSync(dest, '');
+        expect(() => assertEmbeddedBundleCurrent(cwd, config, 'ios')).toThrow(/empty/);
+    });
 });
 
 function addAsyncChunk(cwd: string, rel: string, contents: string): void {
