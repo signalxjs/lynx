@@ -16,6 +16,7 @@ import { OP } from '@sigx/lynx-runtime-internal';
 import { applyOps, resetMainThreadState } from '../src/ops-apply';
 import { elements } from '../src/element-registry';
 import { parkedGestureCount } from '../src/gesture-park';
+import { bindMtRef } from '../src/mt-ref-bind';
 
 /** Gesture ids installed via `__SetGestureDetector`, in call order. */
 let installed: number[];
@@ -178,6 +179,33 @@ describe('lifecycle', () => {
     expect(parkedGestureCount()).toBe(1);
 
     resetMainThreadState();
+    expect(parkedGestureCount()).toBe(0);
+  });
+});
+
+describe('snapshot-bound refs — the path a real app actually uses', () => {
+  // Elements inside a compiled snapshot template bind their refs through the
+  // snapshot runtime, which calls `bindMtRef` DIRECTLY and never emits a
+  // SET_MT_REF op. Draining from the op handler therefore missed most refs in
+  // a real app: the first version of this fix passed every op-driven test
+  // above and still did nothing on device.
+  it('drains when the ref binds without a SET_MT_REF op', () => {
+    vi.stubGlobal('lynxWorkletImpl', {
+      _refImpl: {
+        _workletRefMap: {} as Record<number, unknown>,
+        updateWorkletRef: () => {},
+      },
+    });
+
+    applyOps(setGesture(5, 1));
+    expect(parkedGestureCount()).toBe(1);
+    expect(installed).toHaveLength(0);
+
+    const el = { __brand: 'snapshot-el' };
+    elements.set(100, el as never);
+    bindMtRef(el as never, 100, 5);
+
+    expect(installed).toEqual([1]);
     expect(parkedGestureCount()).toBe(0);
   });
 });

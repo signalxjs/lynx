@@ -20,7 +20,7 @@ import {
   dropParkedGesture,
   parkGesture,
   resetParkedGestures,
-  takeParkedGestures,
+  setGestureApplier,
   type GestureWireConfig,
   type GestureWireRelations,
 } from './gesture-park.js';
@@ -566,16 +566,10 @@ export function applyOps(ops: unknown[]): void {
         // Full binding logic (upstream ref map + web style fallback + the
         // wvid → elementId record) lives in mt-ref-bind.ts, shared with the
         // snapshot runtime (#626).
-        if (el) {
-          bindMtRef(el, id, wvid);
-          // Anything that asked for this element before it existed applies
-          // now, in arrival order — a composed gesture's relations reference
-          // each other by id, so replaying out of order builds a different
-          // arena (#958).
-          for (const g of takeParkedGestures(wvid)) {
-            applyGestureDetector(g.elementWvid, g.gestureId, g.type, g.config, g.relationMap);
-          }
-        }
+        // `bindMtRef` drains any gesture registrations parked on this wvid
+        // (#958) — it is the shared chokepoint, so snapshot-bound refs get the
+        // same treatment.
+        if (el) bindMtRef(el, id, wvid);
         break;
       }
 
@@ -854,6 +848,10 @@ function applyGestureDetector(
   attached.add(gestureId);
   return true;
 }
+
+// Hand the installer to the park module, which is drained from `bindMtRef`.
+setGestureApplier((g) =>
+  applyGestureDetector(g.elementWvid, g.gestureId, g.type, g.config, g.relationMap));
 
 export function resetMainThreadState(): void {
   elements.clear();

@@ -66,14 +66,38 @@ export function parkGesture(entry: ParkedGesture): void {
 }
 
 /**
- * Take everything waiting on `elementWvid`. Returns them in arrival order and
- * forgets them; the caller applies them.
+ * How a parked registration is installed once its element exists. Supplied by
+ * `ops-apply`, which owns the registration logic.
+ *
+ * Injected rather than imported because the drain has to live in
+ * `bindMtRef` — the one place BOTH binding paths go through — and importing
+ * `ops-apply` from there would be a cycle.
  */
-export function takeParkedGestures(elementWvid: number): ParkedGesture[] {
+type ApplyFn = (entry: ParkedGesture) => boolean;
+let applyImpl: ApplyFn | null = null;
+
+/** Wire up the installer. Called once at module init by `ops-apply`. */
+export function setGestureApplier(fn: ApplyFn): void {
+  applyImpl = fn;
+}
+
+/**
+ * Apply everything waiting on `elementWvid`, in arrival order, and forget it.
+ *
+ * Called from `bindMtRef`, NOT from the `SET_MT_REF` op handler. That
+ * distinction is the whole point: elements inside a compiled snapshot template
+ * bind their refs through the snapshot runtime, which calls `bindMtRef`
+ * directly and never emits a `SET_MT_REF` op. Draining from the op handler
+ * therefore missed every ref in a snapshot subtree — which, since the compiler
+ * is on by default, is most of them.
+ */
+export function drainParkedGestures(elementWvid: number): void {
   const list = parked.get(elementWvid);
-  if (!list) return [];
+  if (!list) return;
   parked.delete(elementWvid);
-  return list;
+  const apply = applyImpl;
+  if (!apply) return;
+  for (const entry of list) apply(entry);
 }
 
 /**
