@@ -30,6 +30,13 @@ export {
   flushDerivedValues,
   derivedValueCount,
 } from './derived-values-mt.js';
+export {
+  registerFrameCallback,
+  setFrameCallbackActive,
+  unregisterFrameCallback,
+  resetFrameCallbacks,
+  frameCallbackCount,
+} from './frame-callbacks-mt.js';
 export { invokeWorklet, type WorkletPlaceholder } from './worklet-events.js';
 export {
   setSlotWorklet,

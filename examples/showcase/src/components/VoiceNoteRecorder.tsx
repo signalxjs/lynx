@@ -1,4 +1,4 @@
-import { component, signal, type Define } from '@sigx/lynx';
+import { component, onUnmounted, signal, type Define } from '@sigx/lynx';
 import { Audio, type AudioHandle, type RecordingHandle } from '@sigx/lynx-audio';
 import { Button, Col, Row, Text } from '@sigx/lynx-daisyui';
 import { Haptics } from '@sigx/lynx-haptics';
@@ -22,6 +22,35 @@ export const VoiceNoteRecorder = component<VoiceNoteRecorderProps>(({ props }) =
     const playing = signal<{ value: AudioHandle | null }>({ value: null });
     let elapsedTimer: number | null = null;
     let meterUnsub: (() => void) | null = null;
+    /** Last interruption, shown so the demo covers a real failure path (D7.7). */
+    const interrupted = signal<string | null>(null);
+
+    // Session-wide and subscribed for the component's life: an incoming call
+    // is the case this exists for, and it arrives while a recording is live —
+    // exactly when the app can still salvage the file.
+    const offInterruptions = Audio.subscribeInterruptions(async (e) => {
+        if (e.type !== 'began') {
+            interrupted.value = e.shouldResume
+                ? 'Interruption ended — safe to resume.'
+                : 'Interruption ended.';
+            return;
+        }
+        interrupted.value = 'Interrupted — the partial recording was saved.';
+        const live = recording.value;
+        if (!live) return;
+        try {
+            // Salvage rather than lose it. Without this the file is whatever
+            // the OS left behind, and the user is told nothing.
+            const { uri } = await live.stop();
+            recording.value = null;
+            stopTimer();
+            meterUnsub?.();
+            meterUnsub = null;
+            props.onRecorded?.(uri);
+        } catch {
+            recording.value = null;
+        }
+    });
 
     const startTimer = () => {
         const start = Date.now();
@@ -100,11 +129,18 @@ export const VoiceNoteRecorder = component<VoiceNoteRecorderProps>(({ props }) =
         props.onCleared?.();
     };
 
+    onUnmounted(() => offInterruptions());
+
     return () => {
         const isRecording = recording.value !== null;
         const hasClip = !!props.uri;
         const meterPct = Math.min(100, Math.round(meter.value * 100));
         const seconds = (elapsedMs.value / 1000).toFixed(1);
+        // Shown in every state: an interruption ends the recording, so the
+        // message has to survive the state change that caused it.
+        const note = interrupted.value ? (
+            <Text class="text-sm opacity-70">{interrupted.value}</Text>
+        ) : null;
 
         if (isRecording) {
             return (
@@ -132,27 +168,34 @@ export const VoiceNoteRecorder = component<VoiceNoteRecorderProps>(({ props }) =
                         />
                     </view>
                     <Button color="error" onPress={stop}>Stop recording</Button>
+                    {note}
                 </Col>
             );
         }
 
         if (hasClip) {
             return (
-                <Row align="center" gap={8}>
-                    <Button size="sm" color="primary" variant="outline" onPress={togglePlayback}>
-                        {playing.value ? 'Stop' : 'Play voice note'}
-                    </Button>
-                    <Button size="sm" variant="ghost" onPress={clear}>
-                        Remove
-                    </Button>
-                </Row>
+                <Col gap={4}>
+                    <Row align="center" gap={8}>
+                        <Button size="sm" color="primary" variant="outline" onPress={togglePlayback}>
+                            {playing.value ? 'Stop' : 'Play voice note'}
+                        </Button>
+                        <Button size="sm" variant="ghost" onPress={clear}>
+                            Remove
+                        </Button>
+                    </Row>
+                    {note}
+                </Col>
             );
         }
 
         return (
-            <Button color="secondary" variant="outline" onPress={record}>
-                Record voice note
-            </Button>
+            <Col gap={4}>
+                <Button color="secondary" variant="outline" onPress={record}>
+                    Record voice note
+                </Button>
+                {note}
+            </Col>
         );
     };
 });

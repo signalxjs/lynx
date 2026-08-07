@@ -31,6 +31,7 @@ describe('public runtime exports', () => {
             'preload',
             'requestPermission',
             'startRecording',
+            'subscribeInterruptions',
         ]);
     });
 
@@ -65,6 +66,16 @@ describe('public types', () => {
     it('pins the permission pair to core\'s PermissionResponse (C6)', () => {
         expectTypeOf(Audio.requestPermission).returns.toEqualTypeOf<Promise<audio.PermissionResponse>>();
         expectTypeOf(Audio.getPermissionStatus).returns.toEqualTypeOf<Promise<audio.PermissionResponse>>();
+    });
+
+    it('pins the interruption subscription to C7 and its event shape', () => {
+        expectTypeOf(Audio.subscribeInterruptions).toEqualTypeOf<
+            (cb: (event: audio.AudioInterruption) => void) => () => void
+        >();
+        expectTypeOf<audio.AudioInterruption>().toEqualTypeOf<{
+            type: 'began' | 'ended';
+            shouldResume: boolean;
+        }>();
     });
 
     it('keeps subscriptions returning an unsubscribe function (C7)', () => {

@@ -89,6 +89,18 @@ export { measureViewportRect, useViewportRect } from './use-viewport-rect.js';
 export type { ViewportRect, UseViewportRectResult } from './use-viewport-rect.js';
 
 export {
+  useFrameCallback,
+  startFrameCallback,
+  stopFrameCallback,
+  resetFrameCallbackIds,
+} from './use-frame-callback.js';
+export type {
+  FrameInfo,
+  FrameCallback,
+  FrameCallbackOptions,
+} from './use-frame-callback.js';
+
+export {
   registerBgSink,
   unregisterBgSink,
   ingestAvPublishes,

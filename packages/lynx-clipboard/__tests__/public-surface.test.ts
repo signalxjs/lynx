@@ -36,7 +36,7 @@ describe('public runtime exports', () => {
 
 describe('public types', () => {
     it('pins the method signatures', () => {
-        expectTypeOf(Clipboard.setString).toEqualTypeOf<(text: string) => void>();
+        expectTypeOf(Clipboard.setString).toEqualTypeOf<(text: string) => Promise<void>>();
         expectTypeOf(Clipboard.getString).toEqualTypeOf<() => Promise<string>>();
         expectTypeOf(Clipboard.hasString).toEqualTypeOf<() => Promise<boolean>>();
     });

@@ -6,6 +6,7 @@ import {
     makeAudioHandle,
     makeRecordingHandle,
 } from './handles.js';
+import { INTERRUPTION_CHANNEL, subscribe } from './events.js';
 
 const MODULE = 'Audio';
 const PKG = 'lynx-audio';
@@ -28,6 +29,31 @@ export interface RecordOptions {
     sampleRate?: number;
     /** Channel count. Default: 1 (mono). */
     channels?: 1 | 2;
+}
+
+/**
+ * A session interruption — a call, an alarm, or another app taking the audio
+ * session.
+ */
+export interface AudioInterruption {
+    /** `'began'` when audio was taken away, `'ended'` when it came back. */
+    type: 'began' | 'ended';
+    /**
+     * Whether the system considers it appropriate to start again. Only
+     * meaningful on `'ended'`, and it is advice rather than permission — the
+     * app still decides.
+     */
+    shouldResume: boolean;
+}
+
+export type AudioInterruptionListener = (event: AudioInterruption) => void;
+
+function isInterruption(raw: unknown): raw is AudioInterruption {
+    const e = raw as AudioInterruption | undefined;
+    // `shouldResume` is checked too: a listener typed `(e: AudioInterruption)`
+    // must be able to read `e.shouldResume` as a boolean, and a payload with
+    // only `type` would hand it `undefined`.
+    return (e?.type === 'began' || e?.type === 'ended') && typeof e.shouldResume === 'boolean';
 }
 
 interface PlayResult {
@@ -111,6 +137,40 @@ export const Audio = {
     /** Check current microphone permission status without prompting. */
     getPermissionStatus(): Promise<PermissionResponse> {
         return callAsync<PermissionResponse>(MODULE, 'getPermissionStatus');
+    },
+
+    /**
+     * Subscribe to audio-session interruptions — a phone call, an alarm, or
+     * another app taking the session. Returns an unsubscribe function (C7);
+     * calling it twice is a no-op.
+     *
+     * Session-wide rather than per handle: the interruption is a fact about
+     * the session, and a recorder torn down *by* the interruption would
+     * otherwise miss its own notification.
+     *
+     * A permanent loss reports `'began'` with no matching `'ended'` — accurate,
+     * because the session isn't coming back on its own. Don't block on
+     * `'ended'` arriving.
+     *
+     * Off-device this is a safe no-op, so it can be called unconditionally.
+     *
+     * @example
+     * ```ts
+     * const off = Audio.subscribeInterruptions(async (e) => {
+     *     if (e.type === 'began') {
+     *         const { uri } = await rec.stop();   // salvage what was recorded
+     *     } else if (e.shouldResume) {
+     *         player.resume();
+     *     }
+     * });
+     * ```
+     */
+    subscribeInterruptions(cb: AudioInterruptionListener): () => void {
+        return subscribe<AudioInterruption>(INTERRUPTION_CHANNEL, (e) => {
+            // Guarded: a malformed payload would otherwise reach a listener
+            // typed `(e: AudioInterruption) => void` as something else.
+            if (isInterruption(e)) cb(e);
+        });
     },
 
     isAvailable(): boolean {

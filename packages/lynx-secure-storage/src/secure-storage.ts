@@ -2,16 +2,22 @@ import { callAsync, isModuleAvailable } from '@sigx/lynx-core';
 
 const MODULE = 'SecureStorage';
 
+// The JS surface is setItem/getItem/removeItem (matching @sigx/lynx-storage,
+// localStorage and expo-secure-store); the native wire names stay set/get/
+// delete. That asymmetry is deliberate — the wire name isn't public API, and
+// renaming it would churn Swift, Kotlin and the manifest for no caller benefit.
+// Don't "fix" it.
+
 export interface SecureStorageSetOptions {
     /**
      * When true, the OS will require biometric authentication on every
-     * subsequent `get` of this key.
+     * subsequent `getItem` of this key.
      *
      * - iOS: stored with `kSecAccessControlBiometryCurrentSet`. The OS shows
      *   the Face ID / Touch ID prompt automatically inside the Keychain
      *   query — no extra JS call is needed.
      * - Android: the key is generated with
-     *   `setUserAuthenticationRequired(true)`. `get` must drive a
+     *   `setUserAuthenticationRequired(true)`. `getItem` must drive a
      *   `BiometricPrompt` to authorise the `Cipher`, which is why
      *   [SecureStorageGetOptions] exposes `biometricPrompt`.
      */
@@ -66,9 +72,9 @@ function unwrap(result: NativeResult | null | undefined, action: string): void {
  * ```ts
  * import { SecureStorage } from '@sigx/lynx-secure-storage';
  *
- * await SecureStorage.set('access_token', token, { requireBiometric: true });
+ * await SecureStorage.setItem('access_token', token, { requireBiometric: true });
  *
- * const value = await SecureStorage.get('access_token', {
+ * const value = await SecureStorage.getItem('access_token', {
  *     biometricPrompt: { reason: 'Unlock your account', title: 'Acme Bank' },
  * });
  * ```
@@ -76,10 +82,10 @@ function unwrap(result: NativeResult | null | undefined, action: string): void {
 export const SecureStorage = {
     /**
      * Store an encrypted string. Overwrites any existing value for `key`.
-     * Setting `requireBiometric: true` makes future `get` calls prompt for
-     * biometrics; the `set` call itself never prompts.
+     * Setting `requireBiometric: true` makes future `getItem` calls prompt
+     * for biometrics; the `setItem` call itself never prompts.
      */
-    async set(
+    async setItem(
         key: string,
         value: string,
         opts: SecureStorageSetOptions = {},
@@ -91,7 +97,7 @@ export const SecureStorage = {
             throw new Error('[@sigx/lynx-secure-storage] value must be a string');
         }
         const result = await callAsync<NativeResult>(MODULE, 'set', key, value, opts);
-        unwrap(result, `set(${key})`);
+        unwrap(result, `setItem(${key})`);
     },
 
     /**
@@ -108,26 +114,26 @@ export const SecureStorage = {
      * - **Android**: `reason` becomes the `BiometricPrompt` subtitle and
      *   `title` (or "Authenticate") becomes the prompt title.
      */
-    async get(key: string, opts: SecureStorageGetOptions = {}): Promise<string | null> {
+    async getItem(key: string, opts: SecureStorageGetOptions = {}): Promise<string | null> {
         if (typeof key !== 'string' || key.length === 0) {
             throw new Error('[@sigx/lynx-secure-storage] key must be a non-empty string');
         }
         const result = await callAsync<NativeResult>(MODULE, 'get', key, opts);
         if (result?.error) {
             throw new Error(
-                `[@sigx/lynx-secure-storage] get(${key}) failed: ${result.error}`,
+                `[@sigx/lynx-secure-storage] getItem(${key}) failed: ${result.error}`,
             );
         }
         return result?.value ?? null;
     },
 
-    /** Delete a single key. No-op if the key doesn't exist. */
-    async delete(key: string): Promise<void> {
+    /** Remove a single key. No-op if the key doesn't exist. */
+    async removeItem(key: string): Promise<void> {
         if (typeof key !== 'string' || key.length === 0) {
             throw new Error('[@sigx/lynx-secure-storage] key must be a non-empty string');
         }
         const result = await callAsync<NativeResult>(MODULE, 'delete', key);
-        unwrap(result, `delete(${key})`);
+        unwrap(result, `removeItem(${key})`);
     },
 
     /**
