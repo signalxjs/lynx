@@ -379,8 +379,23 @@ export function animatedMethodBindingCount(): number {
   return animatedMethodBindings.size;
 }
 
+/**
+ * The two wrapper shapes a `main-thread:ref` can hold, both of which carry the
+ * raw platform element we need for `__InvokeUIMethod`.
+ *
+ * On **web / worklet-refs** it is our own `MTElementWrapper`, which stores it
+ * as `_el`. On **native** `bindMtRef` hands the element to upstream's
+ * `updateWorkletRef`, which wraps it in `@lynx-js/react`'s own `Element` —
+ * whose handle is called `element` (see `upstream-invoke-patch.ts`, which
+ * patches that class for the same reason). Reading only `_el` therefore missed
+ * every native binding and the method was never invoked (#930) — the same
+ * our-wrapper-vs-upstream-Element trap as #863.
+ */
 interface ElementWithRaw {
+  /** Our `MTElementWrapper` (web / worklet-refs path). */
   _el?: unknown;
+  /** Upstream `@lynx-js/react` `Element` (native `main-thread:ref` path). */
+  element?: unknown;
 }
 
 /**
@@ -421,7 +436,7 @@ export function flushAnimatedMethodBindings(): void {
     // Resolve the element: prefer the worklet-ref wrapper's raw element
     // (`main-thread:ref` path), fall back to the shared element registry.
     const wrapped = refMap[binding.elementWvid]?.current as ElementWithRaw | null | undefined;
-    const el = wrapped?._el ?? resolveElementByWvid(binding.elementWvid);
+    const el = wrapped?._el ?? wrapped?.element ?? resolveElementByWvid(binding.elementWvid);
     if (!el) continue; // stay dirty — apply on a later flush once mounted
 
     const params: Record<string, unknown> = { ...(binding.params as Record<string, unknown> | null) };
@@ -435,10 +450,29 @@ export function flushAnimatedMethodBindings(): void {
       configurable: true,
     });
     try {
-      __InvokeUIMethod(el as MainThreadElement, binding.methodName, params, () => {
-        /* fire-and-forget */
+      // Optimistic: mark applied, then UNDO if native reports a failure. A
+      // native REJECTION is not the same as a throw and must also keep the
+      // binding dirty — the common case is `NO_UI_FOR_NODE` (6): the element
+      // node exists and its ref resolves, but the platform UI behind it is
+      // still being created (Android creates list UIs asynchronously). Those
+      // early flushes used to be counted as delivered, so a producer that then
+      // settled and never wrote again — a numeric `bottomInset`, a keyboard
+      // lift that reaches its rest value — stranded the native state forever
+      // (#930). Restoring the sentinel makes the next flush retry.
+      // The callback may run EITHER synchronously (native answers inline —
+      // the ordering trap behind #863) or later. Handle both: the flag covers
+      // the sync case, where assigning `lastValue` below would otherwise
+      // overwrite the undo; the `lastValue` check covers the async case.
+      const attempted = v;
+      let failedInline = false;
+      __InvokeUIMethod(el as MainThreadElement, binding.methodName, params, (res: unknown) => {
+        const code = (res as { code?: number } | null | undefined)?.code;
+        if (code === undefined || code === 0) return;
+        failedInline = true;
+        // Only un-apply OUR attempt: a newer value may already have landed.
+        if (binding.lastValue === attempted) binding.lastValue = {} as unknown;
       });
-      binding.lastValue = v;
+      if (!failedInline) binding.lastValue = v;
     } catch {
       // Sync throw (teardown / layout transition) — stay dirty and retry on
       // the next flush rather than stranding the native state.

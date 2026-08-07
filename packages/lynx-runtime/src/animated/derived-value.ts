@@ -45,19 +45,50 @@ export type { DerivedReducerName, DerivedReducerParams };
  * const px = useDerivedValue([progress], 'scale', { factor: travelPx });
  * ```
  */
+/**
+ * Options common to both forms.
+ */
+export interface DerivedValueOptions {
+  /**
+   * Publish the folded value back to the background thread (default `true`),
+   * so `derived.value` is readable and reactive in BG code.
+   *
+   * Set `false` for a derived value consumed ONLY by main-thread bindings —
+   * `useAnimatedStyle`, `useAnimatedMethod`. The BG mirror is not free: every
+   * change dispatches an MT→BG event, and a value that changes per frame by
+   * construction (a gesture delta, a scroll offset) therefore emits ~60-100
+   * dispatches a second for a reader that does not exist. That is enough on
+   * its own to trip the engine's dispatch limiter — `ContextProxy::
+   * DispatchEvent called too frequently`, error 204 — which surfaces as a red
+   * box mid-gesture (#930).
+   *
+   * With `bridge: false` the SV still exists on the main thread and still
+   * folds every frame; only the BG publish is skipped. The BG-side signal is
+   * still allocated, so reading `.value` there stays safe — it simply never
+   * advances past the initial value.
+   */
+  bridge?: boolean;
+}
+
 export function useDerivedValue<R extends DerivedReducerName>(
   sources: ReadonlyArray<SharedValue<number>>,
   reducer: R,
   params?: DerivedReducerParams[R],
+  opts?: DerivedValueOptions,
 ): SharedValue<number> {
+  const bridge = opts?.bridge !== false;
   const derived = new SharedValue<number>(0);
+  // The BG sink is bound EITHER WAY: `SharedValue.value` reads through it, so
+  // skipping it would make a BG read throw rather than return the initial
+  // value. `bridge:false` suppresses the PUBLISH (REGISTER_AV_BRIDGE), not the
+  // reader.
   derived._bind(registerBgSink(derived._wvid, 0));
 
   // The derived SV is itself an auto-flush bridge: INIT creates the MT
   // envelope, REGISTER_AV_BRIDGE arms its write→flush + BG publish. The MT
   // flush writes this envelope; nothing on BG writes it.
   pushOp(OP.INIT_MT_REF, derived._wvid, derived._initValue);
-  pushOp(OP.REGISTER_AV_BRIDGE, derived._wvid, 0);
+  if (bridge) pushOp(OP.REGISTER_AV_BRIDGE, derived._wvid, 0);
   pushOp(
     OP.REGISTER_AV_DERIVED,
     derived._wvid,
@@ -69,7 +100,7 @@ export function useDerivedValue<R extends DerivedReducerName>(
 
   onUnmounted(() => {
     pushOp(OP.UNREGISTER_AV_DERIVED, derived._wvid);
-    pushOp(OP.UNREGISTER_AV_BRIDGE, derived._wvid);
+    if (bridge) pushOp(OP.UNREGISTER_AV_BRIDGE, derived._wvid);
     pushOp(OP.RELEASE_MT_REF, derived._wvid);
     scheduleFlush();
     unregisterBgSink(derived._wvid);
@@ -94,12 +125,18 @@ export function useDerivedValueReactive<R extends DerivedReducerName>(
     reducer: R;
     params?: DerivedReducerParams[R];
   } | null,
+  opts?: DerivedValueOptions,
 ): SharedValue<number> {
+  const bridge = opts?.bridge !== false;
   const derived = new SharedValue<number>(0);
+  // The BG sink is bound EITHER WAY: `SharedValue.value` reads through it, so
+  // skipping it would make a BG read throw rather than return the initial
+  // value. `bridge:false` suppresses the PUBLISH (REGISTER_AV_BRIDGE), not the
+  // reader.
   derived._bind(registerBgSink(derived._wvid, 0));
 
   pushOp(OP.INIT_MT_REF, derived._wvid, derived._initValue);
-  pushOp(OP.REGISTER_AV_BRIDGE, derived._wvid, 0);
+  if (bridge) pushOp(OP.REGISTER_AV_BRIDGE, derived._wvid, 0);
   scheduleFlush();
 
   let sig: string | null = null;
@@ -127,7 +164,7 @@ export function useDerivedValueReactive<R extends DerivedReducerName>(
   onUnmounted(() => {
     runner.stop();
     pushOp(OP.UNREGISTER_AV_DERIVED, derived._wvid);
-    pushOp(OP.UNREGISTER_AV_BRIDGE, derived._wvid);
+    if (bridge) pushOp(OP.UNREGISTER_AV_BRIDGE, derived._wvid);
     pushOp(OP.RELEASE_MT_REF, derived._wvid);
     scheduleFlush();
     unregisterBgSink(derived._wvid);

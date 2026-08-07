@@ -32,11 +32,20 @@ function seedEnvelope(wvid: number, value: unknown): { current: { value: unknown
   return ref;
 }
 
-/** Seed an element ref the way `main-thread:ref` binding does: the wrapper
- * carries the raw element under `_el`, which the method flush unwraps. */
+/** Seed an element ref the way the WEB / worklet-refs path does: our own
+ * `MTElementWrapper`, which carries the raw element under `_el`. */
 function seedElementRef(wvid: number): { rawEl: { id: number } } {
   const rawEl = { id: wvid };
   refMap()[wvid] = { current: { _el: rawEl } };
+  return { rawEl };
+}
+
+/** Seed an element ref the way NATIVE does: `bindMtRef` hands the element to
+ * upstream's `updateWorkletRef`, which wraps it in `@lynx-js/react`'s own
+ * `Element` — whose handle is `element`, not `_el` (#930). */
+function seedUpstreamElementRef(wvid: number): { rawEl: { id: number } } {
+  const rawEl = { id: wvid };
+  refMap()[wvid] = { current: { element: rawEl } };
   return { rawEl };
 }
 
@@ -78,6 +87,22 @@ describe('animated method bindings (#844)', () => {
     );
   });
 
+  it("resolves upstream's Element wrapper, whose handle is `element` (#930)", () => {
+    // The native path binds `main-thread:ref` to @lynx-js/react's own Element,
+    // not our MTElementWrapper. Reading only `_el` missed EVERY native binding,
+    // so `setBottomInset` was never invoked on device while the same code
+    // worked on web — see upstream-invoke-patch.ts for the sibling trap.
+    seedEnvelope(1, 12);
+    const { rawEl } = seedUpstreamElementRef(2);
+    applyOps([
+      OP.REGISTER_AV_METHOD_BINDING, 100, 2, 1, 'setBottomInset', 'inset', { pin: true },
+    ]);
+    expect(invokeUIMethod).toHaveBeenCalledTimes(1);
+    expect(invokeUIMethod).toHaveBeenCalledWith(
+      rawEl, 'setBottomInset', { pin: true, inset: 12 }, expect.any(Function),
+    );
+  });
+
   it('does not re-invoke while the value is unchanged; re-invokes on change', () => {
     const sv = seedEnvelope(1, 0);
     seedElementRef(2);
@@ -108,6 +133,62 @@ describe('animated method bindings (#844)', () => {
     expect(invokeUIMethod).toHaveBeenCalledWith(
       rawEl, 'setBottomInset', { inset: 99 }, expect.any(Function),
     );
+  });
+
+  it('stays dirty when NATIVE REJECTS the invoke, and retries (#930)', () => {
+    // A rejection is not a throw. The common case is NO_UI_FOR_NODE (6): the
+    // element's ref resolves but the platform UI behind it is still being
+    // created. Counting that as delivered stranded the native state forever
+    // whenever the producer then settled — e.g. a numeric `bottomInset`.
+    seedEnvelope(1, 64);
+    seedElementRef(2);
+    invokeUIMethod.mockImplementationOnce((_el, _m, _p, cb: (r: unknown) => void) => {
+      cb({ code: 6, data: 'no ui for node' });
+    });
+    applyOps([OP.REGISTER_AV_METHOD_BINDING, 100, 2, 1, 'setBottomInset', 'inset', null]);
+    expect(invokeUIMethod).toHaveBeenCalledTimes(1);
+
+    // The SV never changes again — only the retry can save it.
+    flushAnimatedMethodBindings();
+    expect(invokeUIMethod).toHaveBeenCalledTimes(2);
+    expect(invokeUIMethod).toHaveBeenLastCalledWith(
+      expect.anything(), 'setBottomInset', { inset: 64 }, expect.any(Function),
+    );
+
+    // Second attempt succeeded (default mock reports nothing) — settle.
+    flushAnimatedMethodBindings();
+    expect(invokeUIMethod).toHaveBeenCalledTimes(2);
+  });
+
+  it('a success code settles the binding', () => {
+    seedEnvelope(1, 64);
+    seedElementRef(2);
+    invokeUIMethod.mockImplementation((_el, _m, _p, cb: (r: unknown) => void) => {
+      cb({ code: 0, data: null });
+    });
+    applyOps([OP.REGISTER_AV_METHOD_BINDING, 100, 2, 1, 'setBottomInset', 'inset', null]);
+    expect(invokeUIMethod).toHaveBeenCalledTimes(1);
+    flushAnimatedMethodBindings();
+    flushAnimatedMethodBindings();
+    expect(invokeUIMethod).toHaveBeenCalledTimes(1);
+  });
+
+  it('a late rejection does not clobber a newer value already applied', () => {
+    const sv = seedEnvelope(1, 10);
+    seedElementRef(2);
+    let late: ((r: unknown) => void) | null = null;
+    invokeUIMethod.mockImplementationOnce((_el, _m, _p, cb: (r: unknown) => void) => {
+      late = cb; // native answers asynchronously
+    });
+    applyOps([OP.REGISTER_AV_METHOD_BINDING, 100, 2, 1, 'setBottomInset', 'inset', null]);
+
+    sv.current.value = 20;
+    flushAnimatedMethodBindings();
+    expect(invokeUIMethod).toHaveBeenCalledTimes(2); // 20 applied
+
+    late!({ code: 6 }); // the STALE attempt (10) fails after the fact
+    flushAnimatedMethodBindings();
+    expect(invokeUIMethod).toHaveBeenCalledTimes(2); // 20 stands, no redundant retry
   });
 
   it('stays dirty when the invoke throws synchronously, and retries', () => {

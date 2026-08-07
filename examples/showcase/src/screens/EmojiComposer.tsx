@@ -59,10 +59,44 @@ const REPLIES = [
     '👍👍',
 ];
 
+/**
+ * Backlog lines, deliberately mixed short/long so the thread exercises
+ * variable-height self-measure (bubbles carry no `estimatedItemSize`).
+ */
+const BACKLOG_LINES = [
+    'Morning! Did the chat pin ever get sorted?',
+    'It did — first paint lands on the newest message now.',
+    'Here is a deliberately long one, because a chat thread is mostly walls of text: bubbles have no fixed height, so the list has to self-measure every one of them, and the scroll-to-bottom has to stay exact even when the last cell turns out to be five lines tall rather than one.',
+    'Short.',
+    'The composer rides the keyboard, the thread stays live behind it 🤌',
+    'And the newest bubble tracks the sheet frame-by-frame while you drag.',
+    '👍',
+    'Another multi-line one so consecutive tall bubbles get exercised back to back, which is what tends to expose an off-by-an-inset landing at the bottom of the list.',
+    'Scroll up and the pin releases — you keep your place.',
+    'Then the unread pill brings you back down.',
+];
+
+/**
+ * A backlog LONGER THAN THE SCREEN, ahead of the instructional messages
+ * (#930). With a three-message seed the thread never exceeds the viewport, so
+ * the native list has nothing to scroll and a broken bottom pin looks perfect
+ * — which is exactly how the Android first-paint miss survived five rounds of
+ * device verification. Every line is numbered so a screenshot says precisely
+ * where the viewport landed, and the CTA messages below stay NEWEST: if the
+ * pin is right you are reading "Try it!", if it is wrong you are reading a
+ * numbered backlog line.
+ */
+const BACKLOG: Msg[] = Array.from({ length: 50 }, (_, i) => ({
+    id: i,
+    author: i % 2 === 0 ? 'friend' as const : 'me' as const,
+    body: `${BACKLOG_LINES[i % BACKLOG_LINES.length]} (#${i + 1})`,
+}));
+
 const SEED: Msg[] = [
-    { id: 0, author: 'friend', body: 'This is the WhatsApp composer pattern 👇' },
-    { id: 1, author: 'me', body: 'Tap 🙂 — the input + emoji are ONE draggable sheet…' },
-    { id: 2, author: 'friend', body: '…drag the input up to grow it, the chat stays live behind. Try it!' },
+    ...BACKLOG,
+    { id: BACKLOG.length, author: 'friend', body: 'This is the WhatsApp composer pattern 👇' },
+    { id: BACKLOG.length + 1, author: 'me', body: 'Tap 🙂 — the input + emoji are ONE draggable sheet…' },
+    { id: BACKLOG.length + 2, author: 'friend', body: '…drag the input up to grow it, the chat stays live behind. Try it!' },
 ];
 
 /**
