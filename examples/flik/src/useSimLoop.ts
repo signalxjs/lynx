@@ -15,13 +15,16 @@
  */
 
 import {
+    measureViewportRect,
     onMounted,
     runOnBackground,
     runOnMainThread,
     useFrameCallback,
     useMainThreadRef,
     type FrameCallback,
+    type MainThread,
     type MainThreadRef,
+    type ViewportRect,
 } from '@sigx/lynx';
 
 import { stepWorld } from './sim/tick.mt.js';
@@ -38,8 +41,11 @@ export interface SimLoop {
     state: MainThreadRef<SimState>;
     /** Hand the simulation a fresh board (packed by `packWorld`). */
     seed: (world: SeedWorld) => void;
-    /** Where the board sits on the page, so gestures can map into board space. */
-    setOrigin: (x: number, y: number) => void;
+    /**
+     * Re-measure where the board sits on screen, so touches can be mapped into
+     * board space. Call after anything that could have moved it.
+     */
+    measureBoard: () => void;
     /**
      * The frame-callback handle. Pass it to a gesture worklet and call
      * `startFrameCallback(loop)` there — it captures as `{_fcid}`, which is
@@ -66,13 +72,15 @@ export interface SeedWorld {
 export interface SimLoopOptions {
     /** Element refs, index-aligned with the simulation's slots. */
     pool: DiscPool;
+    /** The board element, measured to map page coordinates into board space. */
+    boardRef: MainThreadRef<MainThread.Element | null>;
     /** Called once per shot, on the background thread, with `[id, x, y, …]`. */
     onSettle: (seq: number, packed: number[], bigHit: number) => void;
 }
 
 export function useSimLoop(options: SimLoopOptions): SimLoop {
     const state = useMainThreadRef<SimState>(createSimState(MAX_DISCS));
-    const { pool } = options;
+    const { pool, boardRef } = options;
 
     // Park the loop the moment the board settles, then hand the result on.
     // Without this the frame callback keeps ticking forever over an idle
@@ -92,6 +100,7 @@ export function useSimLoop(options: SimLoopOptions): SimLoop {
     });
     onMounted(() => {
         void bindElements().catch(() => {});
+        void measureBoardMT().catch(() => {});
     });
 
     // Not `autostart`: an idle board should cost nothing. The loop is armed
@@ -146,10 +155,20 @@ export function useSimLoop(options: SimLoopOptions): SimLoop {
         },
     );
 
-    const setOriginMT = runOnMainThread((x: number, y: number) => {
+    // The board's on-screen origin, measured on the main thread.
+    //
+    // NOT from `bindlayoutchange`: its `left`/`top` are not the page-space
+    // numbers a touch's `pageX`/`pageY` are in — on a Pixel the board reported
+    // `left: 224` while visibly starting at ~12. `boundingClientRect` is the
+    // live, post-transform screen geometry, which is the same space the
+    // gesture reports in, and it is what `measureViewportRect` exists for.
+    const measureBoardMT = runOnMainThread(() => {
         'main thread';
-        state.current.originX = x;
-        state.current.originY = y;
+        measureViewportRect(boardRef.current, (rect: ViewportRect | null) => {
+            if (!rect) return;
+            state.current.originX = rect.left;
+            state.current.originY = rect.top;
+        });
     });
 
     const writeKnob = runOnMainThread((name: string, value: number) => {
@@ -166,8 +185,8 @@ export function useSimLoop(options: SimLoopOptions): SimLoop {
             void seedWorld(w.packed, w.width, w.height, w.seq, w.turn, w.homeY0, w.homeY1)
                 .catch(() => {});
         },
-        setOrigin: (x, y) => {
-            void setOriginMT(x, y).catch(() => {});
+        measureBoard: () => {
+            void measureBoardMT().catch(() => {});
         },
         setKnob: (name, value) => {
             void writeKnob(name, value).catch(() => {});

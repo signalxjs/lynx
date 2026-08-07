@@ -32,6 +32,9 @@ import { COLORS } from './theme.js';
 
 /** Board aspect (width : height). Portrait corridor, as the bands assume. */
 const ASPECT = 0.62;
+/** Arena padding either side. Subtracted, or the board is styled wider than
+ *  it renders and the simulation's walls sit outside the visible felt. */
+const ARENA_PAD = 12;
 
 const App = component(() => {
     const { layout, onLayoutChange } = useElementLayout();
@@ -59,6 +62,7 @@ const App = component(() => {
 
     const sim = useSimLoop({
         pool,
+        boardRef,
         onSettle: (seq, packed) => {
             const current = game.state;
             if (!current) return;
@@ -80,7 +84,11 @@ const App = component(() => {
     const size = (): { width: number; height: number } | null => {
         const l = layout.value;
         if (!l || l.width <= 0 || l.height <= 0) return null;
-        const height = Math.min(l.height, l.width / ASPECT);
+        // The layout is the arena's BORDER box; the board lives inside the
+        // padding. Sizing to the border box made the board 24px wider than it
+        // rendered, so the simulation's side walls sat off the felt.
+        const usableW = Math.max(1, l.width - ARENA_PAD * 2);
+        const height = Math.min(l.height, usableW / ASPECT);
         return { width: height * ASPECT, height };
     };
 
@@ -122,14 +130,15 @@ const App = component(() => {
         board.height = dims.height;
         game.state = rescaled;
         sim.seed(worldFor(rescaled, dims.width, dims.height));
+        sim.measureBoard();
     };
 
-    // The board's own layout gives its page offset, which is the only thing
-    // that turns a gesture's page coordinates into board coordinates.
+    // Anything that could have moved the board invalidates its measured
+    // origin, so re-measure rather than trusting the layout event's own
+    // coordinates (they are not in the gesture's page space).
     const handleBoardLayout = (e: LayoutChangeEvent): void => {
         onBoardLayout(e);
-        const l = boardLayout.value;
-        if (l) sim.setOrigin(l.left, l.top);
+        sim.measureBoard();
     };
 
     useFlickGesture({
