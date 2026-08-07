@@ -171,8 +171,22 @@ export function useSimLoop(options: SimLoopOptions): SimLoop {
             homeY1: number,
         ) => {
             'main thread';
-            applyWorld(state.current, packed, width, height, seq, turn, homeY0, homeY1);
-            writeDiscs(state.current);
+            const st = state.current;
+            applyWorld(st, packed, width, height, seq, turn, homeY0, homeY1);
+            writeDiscs(st);
+            // Re-measure here rather than only from mount and layout events.
+            // Both of those are single shots that can land before the element
+            // is measurable, and a missed measurement is unrecoverable: the
+            // origin stays 0, every touch maps outside the board, and
+            // `pickDisc` returns -1 silently — indistinguishable from touching
+            // empty felt. Seeding happens on the opening deal AND on every
+            // turn, so tying the measurement to it means a miss self-corrects
+            // instead of wedging the game.
+            measureViewportRect(boardRef.current, (rect: ViewportRect | null) => {
+                if (!rect) return;
+                st.originX = rect.left;
+                st.originY = rect.top;
+            });
         },
     );
 

@@ -8,8 +8,14 @@
 
 import { useMainThreadRef, type MainThread, type MainThreadRef } from '@sigx/lynx';
 
-/** One second of frames at 60Hz. */
-export const SPARK_BARS = 60;
+/**
+ * Bars in the sparkline. Sized to fit the header's centre column rather than
+ * to a round number of seconds — at 120Hz this is under half a second of
+ * history, which is enough to see a hitch land and is all the width there is.
+ * The worklet indexes by `frames % bars.length`, so this is the only place the
+ * count is stated.
+ */
+export const SPARK_BARS = 44;
 
 export type SparkBars = Array<MainThreadRef<MainThread.Element | null>>;
 

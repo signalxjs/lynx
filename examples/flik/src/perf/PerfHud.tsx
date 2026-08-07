@@ -33,34 +33,27 @@ const VERDICT_TEXT: Record<string, string> = {
     native: 'time is going outside our tick',
 };
 
+/**
+ * Compact enough to live in the header's centre column, between the two
+ * scores, where the wordmark used to be — the row exists either way, so the
+ * instrumentation costs the board no height at all.
+ */
 const PerfHud = component<PerfHudProps>(({ props }) => () => {
     const s = props.stats;
     const v = verdict(s);
 
     return (
-        <view
-            style={{
-                marginLeft: '12px',
-                marginRight: '12px',
-                marginTop: '6px',
-                paddingTop: '6px',
-                paddingBottom: '6px',
-                paddingLeft: '8px',
-                paddingRight: '8px',
-                borderRadius: '8px',
-                backgroundColor: COLORS.felt,
-            }}
-        >
+        <view style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
             {props.isDev ? (
                 <text
                     style={{
                         color: '#FFD166',
-                        fontSize: '10px',
+                        fontSize: '9px',
                         letterSpacing: '1px',
-                        marginBottom: '4px',
+                        marginBottom: '2px',
                     }}
                 >
-                    DEV BUILD — THESE NUMBERS ARE FICTION
+                    DEV BUILD — NOT REAL NUMBERS
                 </text>
             ) : null}
 
@@ -74,7 +67,7 @@ const PerfHud = component<PerfHudProps>(({ props }) => () => {
                     display: 'flex',
                     flexDirection: 'row',
                     alignItems: 'flex-end',
-                    height: '36px',
+                    height: '26px',
                 }}
             >
                 {props.bars.map((ref: MainThreadRef<MainThread.Element | null>, i: number) => (
@@ -82,7 +75,7 @@ const PerfHud = component<PerfHudProps>(({ props }) => () => {
                         key={i}
                         main-thread:ref={ref}
                         style={{
-                            width: '3px',
+                            width: '2px',
                             marginRight: '1px',
                             height: '1px',
                             borderRadius: '1px',
@@ -93,12 +86,12 @@ const PerfHud = component<PerfHudProps>(({ props }) => () => {
                 ))}
             </view>
 
-            <text style={{ color: COLORS.text, fontSize: '11px', marginTop: '4px' }}>
+            <text style={{ color: COLORS.text, fontSize: '10px', marginTop: '3px' }}>
                 {summarize(s)}
             </text>
-            <text style={{ color: COLORS.textDim, fontSize: '10px' }}>
-                {`${props.discCount} discs · peak ${s.writes} writes/${s.contacts} contacts`
-                    + ` · ${s.dropped} dropped — ${VERDICT_TEXT[v] ?? v}`}
+            <text style={{ color: COLORS.textDim, fontSize: '9px' }}>
+                {`${props.discCount} discs · ${s.writes}w/${s.contacts}c`
+                    + ` · ${s.dropped} drop — ${VERDICT_TEXT[v] ?? v}`}
             </text>
         </view>
     );

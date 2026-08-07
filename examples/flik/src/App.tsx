@@ -27,7 +27,6 @@ import { useFlickGesture } from './input/useFlickGesture.js';
 import Board from './render/Board.js';
 import Hud from './render/Hud.js';
 import { useDiscPool } from './render/disc-pool.js';
-import PerfHud from './perf/PerfHud.js';
 import { decodeStats, type FrameStats } from './perf/stats.js';
 import { useSimLoop, type SeedWorld } from './useSimLoop.js';
 import { COLORS } from './theme.js';
@@ -45,11 +44,20 @@ const STATS_WINDOW_MS = 500;
  */
 const IS_DEV = __DEV_BUILD__;
 
-/** Board aspect (width : height). Portrait corridor, as the bands assume. */
+/**
+ * Board shape, as a range rather than a fixed ratio.
+ *
+ * A single fixed aspect wastes whatever the binding dimension doesn't use — on
+ * a tall phone the board was width-bound at 0.62 and simply left a band of
+ * empty backdrop above and below. Filling the height down to `MIN_ASPECT`
+ * spends that space on the field instead, and the floor stops the board
+ * becoming a chute on an unusually tall screen. The bands are fractions of
+ * height, so the rules follow the shape automatically.
+ */
 const ASPECT = 0.62;
-/** Arena padding either side. Subtracted, or the board is styled wider than
- *  it renders and the simulation's walls sit outside the visible felt. */
-const ARENA_PAD = 12;
+const MIN_ASPECT = 0.5;
+/** Arena padding either side — the board is styled to the CONTENT box. */
+const ARENA_PAD = 6;
 
 const App = component(() => {
     const { layout, onLayoutChange } = useElementLayout();
@@ -109,8 +117,9 @@ const App = component(() => {
         // padding. Sizing to the border box made the board 24px wider than it
         // rendered, so the simulation's side walls sat off the felt.
         const usableW = Math.max(1, l.width - ARENA_PAD * 2);
-        const height = Math.min(l.height, usableW / ASPECT);
-        return { width: height * ASPECT, height };
+        const height = Math.min(l.height, usableW / MIN_ASPECT);
+        const width = Math.min(usableW, height * ASPECT);
+        return { width, height };
     };
 
     // Deal the opening board from the first real measurement — in the layout
@@ -199,13 +208,15 @@ const App = component(() => {
                     edges={['top', 'bottom', 'left', 'right']}
                     style={{ backgroundColor: COLORS.backdrop }}
                 >
-                    {state && dims ? <Hud state={state} boardHeight={dims.height} /> : null}
-                    <PerfHud
-                        stats={stats.value}
-                        bars={sim.sparkBars}
-                        isDev={IS_DEV}
-                        discCount={state ? state.discs.filter((d) => d.alive).length : 0}
-                    />
+                    {state && dims ? (
+                        <Hud
+                            state={state}
+                            boardHeight={dims.height}
+                            stats={stats.value}
+                            bars={sim.sparkBars}
+                            isDev={IS_DEV}
+                        />
+                    ) : null}
                     <view
                         bindlayoutchange={handleLayout}
                         style={{
@@ -213,8 +224,8 @@ const App = component(() => {
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
-                            paddingLeft: '12px',
-                            paddingRight: '12px',
+                            paddingLeft: `${ARENA_PAD}px`,
+                            paddingRight: `${ARENA_PAD}px`,
                         }}
                     >
                         {/*
