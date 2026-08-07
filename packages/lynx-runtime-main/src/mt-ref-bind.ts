@@ -10,6 +10,7 @@
 
 import { MTElementWrapper } from './mt-element.js';
 import { patchUpstreamInvoke } from './upstream-invoke-patch.js';
+import { drainParkedGestures } from './gesture-park.js';
 
 /** elementWvid → elementId, populated on every bind. */
 const elementIdByWvid = new Map<number, number>();
@@ -96,6 +97,14 @@ export function bindMtRef(
   // `__SetGestureDetector` (which require RefCounted handles, not
   // upstream's Element wrapper).
   elementIdByWvid.set(wvid, elementId);
+
+  // A gesture registration that arrived before this element existed has been
+  // waiting for exactly this moment (#958). Drained HERE rather than in the
+  // `SET_MT_REF` op handler because elements inside a compiled snapshot
+  // template bind through the snapshot runtime, which calls this function
+  // directly and never emits that op — so an op-handler drain misses most
+  // refs in a real app.
+  drainParkedGestures(wvid);
 }
 
 /**
