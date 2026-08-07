@@ -231,8 +231,7 @@ you happened to read it.
 | 200 | SV | 114 | 6.7 | 11.8 | 1.4 / 5.0 ms | 200 | 132 |
 | 200 | UNB | 118 | 6.9 | 12.1 | 1.1 / 6.0 ms | 198 | 83 |
 | 400 | RAW | 62 | 14.8 | 19.4 | 6.8 / 10.0 ms | 400 | 706 |
-| 400 | SV | — | — | — | — | **0** | 554 |
-| 400 | UNB | — | — | — | — | **0** | 554 |
+| 400 | SV | 76 | 6.9 | 32.4 | 1.7 / 11.0 ms | 398 | 684 |
 
 ### The render path barely matters; the disc count does
 
@@ -248,20 +247,24 @@ contacts are: 12 discs → 0.2ms, 200 discs → 1.5ms, 400 discs → 6.8ms. At 4
 board is jammed solid (706 contacts against 124 at 200), so most of that is
 collision resolution, not rendering.
 
-### Both binding paths freeze at 400 discs
+### Reading `0 writes` correctly
 
-The two `useAnimatedStyle` paths report **zero element writes** at 400 while the
-simulation keeps running (554 contacts). The discs are visibly frozen; the tick
-drops to 0.3ms because `writeDiscs` is bailing out before it writes anything.
-The raw path handles the same board at 400 discs fine.
+At 400 the board jams solid and the simulation reaches quiescence. The
+dirty-write cull then does its job and skips every disc, so the HUD reports
+`0w` — and a settled board that isn't being redrawn looks exactly like a broken
+one.
 
-Both binding paths fail identically, and 200 works, so it is neither the bridge
-(UNB never publishes) nor array capture as such — the element-ref pool is also
-400 refs, captured the same way, and drives the raw path at 400 without trouble.
-The difference is that each binding layer allocates its values and registers its
-bindings *per layer mount*, so 400 discs means 400 `useSharedValue` plus 400
-`useAnimatedStyle` registrations in a single setup pass. Filed for
-investigation; root cause not yet isolated.
+This caught me out: I compared the raw path sampled just after a kick (still
+churning) against the binding paths sampled after they had settled, and read the
+difference as a path difference rather than a timing one. It isn't. With the
+cull defeated, or immediately after a re-kick, all three write ~400 elements a
+frame at 400 discs.
+
+The lesson is about the instrument, not the runtime: **`0w` has two meanings** —
+"nothing moved" and "nothing could be written" — and only the `all` toggle tells
+them apart. Use it before concluding anything from a zero. The 400-disc row
+above is measured with the cull defeated for exactly this reason; the 12 and 200
+rows are unaffected because at those counts the board never stops moving.
 
 ## On measuring this
 
