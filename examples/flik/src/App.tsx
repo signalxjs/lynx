@@ -184,11 +184,14 @@ const App = component(() => {
     /**
      * Replace the board with `n` discs and set them all moving.
      *
-     * Deliberately not a game: the ruleset is bypassed, ownership is arbitrary
-     * and nothing scores. It exists to put a known number of simultaneously
-     * moving bodies through the render path, which the real game — twelve
-     * discs, one of them moving — never comes close to doing. `12` restores
-     * the actual opening board.
+     * Deliberately not a game: the layout is synthetic and ownership is
+     * arbitrary, so any score it produces is meaningless. It exists to put a
+     * known number of simultaneously moving bodies through the render path,
+     * which the real game — twelve discs, one of them moving — never comes
+     * close to doing. `12` restores the actual opening board.
+     *
+     * The ruleset still runs on settle; it is only sidestepped in practice
+     * when `stressLoop` is on, since the board then never settles.
      */
     const setStressCount = (n: number): void => {
         const w = board.width;

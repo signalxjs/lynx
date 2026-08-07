@@ -237,8 +237,8 @@ you happened to read it.
 
 Up to 200 simultaneously moving discs the three paths are **indistinguishable** —
 the spread between them is smaller than a 1ms clock can resolve, and it stays
-that way when every disc is writing every frame. Two hundred SharedValue
-publishes a frame, at 114fps, is not a cost this instrument can see. That was
+that way when every disc is writing every frame. Publishing 200 SharedValue
+tuples per frame, at 114fps, is not a cost this instrument can see. That was
 not the expected answer: the bridge publish was the suspected bottleneck going
 in, and on this device at this scale it simply isn't one.
 

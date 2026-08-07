@@ -6,9 +6,9 @@
  * slow. Each toggle removes one candidate:
  *
  *  - **N** — the scaling curve itself.
- *  - **grid** — swaps the uniform-grid broadphase for all-pairs, which is
- *    O(n²). If the curve barely moves, the physics isn't what you're measuring
- *    and the render path is.
+ *  - **grid** — picks the broadphase. Lit means the uniform grid; unlit
+ *    means all-pairs, which is O(n²). If turning it off barely moves the
+ *    curve, the physics isn't what you're measuring and the render path is.
  *  - **all** — defeats the dirty-write cull so every disc is written every
  *    frame. The gap between this and normal is how much the cull is saving.
  *  - **loop** — re-kicks at quiescence instead of settling, so the board stays
