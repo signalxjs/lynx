@@ -5,12 +5,13 @@ import {
     isGameOver,
     loadableDiscs,
     opponentOf,
+    rescaleBoard,
     scoreOf,
     settleShot,
     winnerOf,
 } from '../rules';
 import { newGame, START_EMBERS } from '../setup';
-import { BANDS } from '../board';
+import { BANDS, zoneOf } from '../board';
 import type { Disc, GameState, Owner, Zone } from '../types';
 import { PLAYER_A, PLAYER_B } from '../types';
 
@@ -292,6 +293,59 @@ describe('game over', () => {
             { owner: PLAYER_B, zone: 'targetB' },
         ]);
         expect(winnerOf(g, H)).toBeNull();
+    });
+});
+
+describe('rescaleBoard', () => {
+    it('keeps every disc in the same zone across a resize', () => {
+        // The property that matters: the bands are fractions of height, so a
+        // resize must not move a disc between zones.
+        const g = boardOf([
+            { owner: PLAYER_A, zone: 'homeA' },
+            { owner: PLAYER_A, zone: 'targetA' },
+            { owner: PLAYER_B, zone: 'homeB' },
+            { owner: PLAYER_B, zone: 'field' },
+        ]);
+        const before = g.discs.map((d) => zoneOf(d.y, H));
+
+        const shrunk = rescaleBoard(g, 0.7, 0.7);
+        const after = shrunk.discs.map((d) => zoneOf(d.y, H * 0.7));
+
+        expect(after).toEqual(before);
+    });
+
+    it('scales both axes and bumps seq so a stale settle is rejected', () => {
+        const g = boardOf([{ owner: PLAYER_A, zone: 'field' }]);
+        const x0 = g.discs[0]!.x;
+        const y0 = g.discs[0]!.y;
+
+        const out = rescaleBoard(g, 2, 3);
+
+        expect(out.discs[0]!.x).toBeCloseTo(x0 * 2, 6);
+        expect(out.discs[0]!.y).toBeCloseTo(y0 * 3, 6);
+        expect(out.seq).toBe(g.seq + 1);
+    });
+
+    it('is a no-op at scale 1, so an idle layout event costs nothing', () => {
+        const g = boardOf([{ owner: PLAYER_A, zone: 'homeA' }]);
+        expect(rescaleBoard(g, 1, 1)).toBe(g);
+    });
+
+    it('does not mutate the state it was given', () => {
+        const g = boardOf([{ owner: PLAYER_A, zone: 'homeA' }]);
+        const snapshot = JSON.parse(JSON.stringify(g)) as GameState;
+        rescaleBoard(g, 0.5, 0.5);
+        expect(g).toEqual(snapshot);
+    });
+
+    it('preserves ownership, embers and liveness', () => {
+        const g = boardOf([
+            { owner: PLAYER_B, zone: 'field', embers: 2 },
+            { owner: PLAYER_A, zone: 'field', alive: false },
+        ]);
+        const out = rescaleBoard(g, 1.5, 0.8);
+        expect(out.discs.map((d) => [d.owner, d.embers, d.alive]))
+            .toEqual(g.discs.map((d) => [d.owner, d.embers, d.alive]));
     });
 });
 

@@ -732,6 +732,17 @@ export default definePlugin({
                         process.exit(1);
                     }
 
+                    // Post-condition: never hand a release APK to Gradle without
+                    // confirming the bundle it will package is the one we just
+                    // built (#960) — a mismatch here is silent on device.
+                    try {
+                        const { assertEmbeddedBundleCurrent } = await import('./util/embed-bundle.js');
+                        assertEmbeddedBundleCurrent(ctx.cwd, config, 'android');
+                    } catch (err) {
+                        ctx.logger.error(err instanceof Error ? err.message : String(err));
+                        process.exit(1);
+                    }
+
                     // Gradle build + install (with signature-mismatch detection + friendly hint)
                     ctx.logger.log('Building Android (release)...');
                     try {
@@ -973,6 +984,17 @@ export default definePlugin({
                     ctx.logger.log('Running prebuild for iOS...');
                     try {
                         await runPrebuild({ android: false, ios: true, embedBundle: true, cwd: ctx.cwd, variant });
+                    } catch (err) {
+                        ctx.logger.error(err instanceof Error ? err.message : String(err));
+                        process.exit(1);
+                    }
+
+                    // Post-condition: never archive without confirming the
+                    // bundle Xcode will copy is the one we just built (#960) —
+                    // a mismatch here is silent on device.
+                    try {
+                        const { assertEmbeddedBundleCurrent } = await import('./util/embed-bundle.js');
+                        assertEmbeddedBundleCurrent(ctx.cwd, config, 'ios');
                     } catch (err) {
                         ctx.logger.error(err instanceof Error ? err.message : String(err));
                         process.exit(1);

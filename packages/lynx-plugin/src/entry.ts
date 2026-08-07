@@ -478,6 +478,13 @@ export async function applyEntry(
         .use(DefinePlugin, [{
           __WEB__: JSON.stringify(isWeb),
           __NATIVE__: JSON.stringify(!isWeb),
+          // Build tier, as a plain boolean literal. Deliberately NOT an alias
+          // of `__DEV__`: that define expands to a `process.env` expression
+          // which THROWS in the Lynx background runtime, so app code can't
+          // safely branch on it (see the note beside it in index.ts). This one
+          // is resolved here in Node and folded, so `if (__DEV_BUILD__)` both
+          // works at runtime and tree-shakes out of a release bundle.
+          __DEV_BUILD__: JSON.stringify(process.env['NODE_ENV'] !== 'production'),
         }]);
 
       // Platform file-extension resolution: `Foo.web.tsx` wins on the web

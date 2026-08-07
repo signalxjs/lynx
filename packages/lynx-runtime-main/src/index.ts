@@ -37,6 +37,10 @@ export {
   resetFrameCallbacks,
   frameCallbackCount,
 } from './frame-callbacks-mt.js';
+export {
+  parkedGestureCount,
+  resetParkedGestures,
+} from './gesture-park.js';
 export { invokeWorklet, type WorkletPlaceholder } from './worklet-events.js';
 export {
   setSlotWorklet,

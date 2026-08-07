@@ -40,7 +40,7 @@
     "lynx-cli": [
         {
             "rule": "C10/unprefixed-throws",
-            "count": 59
+            "count": 56
         }
     ],
     "lynx-core": [
