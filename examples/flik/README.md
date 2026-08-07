@@ -153,7 +153,7 @@ term, so pucks stop crisply instead of crawling asymptotically toward zero.
 - [x] **3** — the flick gesture: grab, slide inside your own end, throw
 - [x] **4** — settle contract wired to the ruleset; **playable**
 - [x] **5** — perf HUD
-- [ ] **6** — render-mode A/B/C toggle
+- [x] **6** — render-mode A/B/C toggle
 - [ ] **7** — stress mode and the measurement writeup
 
 ## The HUD
@@ -193,6 +193,44 @@ against.
 
 Note the frame callback runs at the display's refresh rate, so a 120Hz panel
 gets 120 ticks a second, not 60.
+
+## The three render paths
+
+`SV` / `RAW` / `UNB` under the board pick how disc positions reach the screen.
+Switching **remounts** the disc layer, so the previous path's style bindings are
+genuinely unregistered — leaving them mounted would have every flush walk
+bindings that aren't driving anything, polluting the number the switch exists to
+produce.
+
+| | how a position reaches the element | background traffic |
+|---|---|---|
+| **SV** | `SharedValue` + `useAnimatedStyle('translate')` | one publish per disc per frame |
+| **RAW** | the simulation writes `transform` on the element | none |
+| **UNB** | the same binding over an *unbridged* `MainThreadRef` | none |
+
+`UNB` exists to split path SV's cost in two. `flushAnimatedStyleBindings`
+resolves a binding's value as `refMap[wvid].current?.value` and never consults
+`bridgedAvWvids` — that set is read only by `flushAvBridgePublishes`. So a plain
+`MainThreadRef` holding `{ value }` has exactly the shape a binding needs while
+never having been registered with the bridge: the mapper runs, nothing
+publishes. If UNB sits with RAW, the publish is the price; if it sits with SV,
+the mapper is.
+
+### At the real game's scale, they are indistinguishable
+
+Release build, Pixel 9 Pro XL (120Hz), 12 discs, one in flight:
+
+| mode | fps | p50 | p95 | tick mean/max |
+|---|---|---|---|---|
+| RAW | 122 | 6.0 | 11.4 | 0.2 / 1.0 ms |
+| SV | 122 | 5.8 | 11.4 | 0.2 / 1.0 ms |
+| UNB | 120 | 6.0 | 11.4 | 0.1 / 1.0 ms |
+
+That is the honest result and it is worth stating plainly: **twelve discs is not
+enough load to separate them.** Twelve bridge tuples a frame is nothing, and the
+spread here is smaller than the 1ms clock can resolve. The toggle is the
+instrument; the stress harness in PR 7 is what will put enough load through it
+for the comparison to mean anything.
 
 ## On measuring this
 
