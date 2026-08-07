@@ -154,7 +154,7 @@ term, so pucks stop crisply instead of crawling asymptotically toward zero.
 - [x] **4** — settle contract wired to the ruleset; **playable**
 - [x] **5** — perf HUD
 - [x] **6** — render-mode A/B/C toggle
-- [ ] **7** — stress mode and the measurement writeup
+- [x] **7** — stress mode and the measurement writeup
 
 ## The HUD
 
@@ -216,21 +216,55 @@ never having been registered with the bridge: the mapper runs, nothing
 publishes. If UNB sits with RAW, the publish is the price; if it sits with SV,
 the mapper is.
 
-### At the real game's scale, they are indistinguishable
+## Results
 
-Release build, Pixel 9 Pro XL (120Hz), 12 discs, one in flight:
+Release build, Pixel 9 Pro XL (120Hz panel), `loop` on so the board stays
+permanently agitated — a decaying transient gives a number that depends on when
+you happened to read it.
 
-| mode | fps | p50 | p95 | tick mean/max |
-|---|---|---|---|---|
-| RAW | 122 | 6.0 | 11.4 | 0.2 / 1.0 ms |
-| SV | 122 | 5.8 | 11.4 | 0.2 / 1.0 ms |
-| UNB | 120 | 6.0 | 11.4 | 0.1 / 1.0 ms |
+| N | mode | fps | p50 | p95 | tick mean/max | writes | contacts |
+|---|---|---|---|---|---|---|---|
+| 12 | RAW | 122 | 6.0 | 11.4 | 0.2 / 1.0 ms | 1 | 0 |
+| 12 | SV | 122 | 5.8 | 11.4 | 0.2 / 1.0 ms | 1 | 0 |
+| 12 | UNB | 120 | 6.0 | 11.4 | 0.1 / 1.0 ms | 1 | 0 |
+| 200 | RAW | 114 | 6.5 | 11.8 | 1.5 / 5.0 ms | 200 | 124 |
+| 200 | SV | 114 | 6.7 | 11.8 | 1.4 / 5.0 ms | 200 | 132 |
+| 200 | UNB | 118 | 6.9 | 12.1 | 1.1 / 6.0 ms | 198 | 83 |
+| 400 | RAW | 62 | 14.8 | 19.4 | 6.8 / 10.0 ms | 400 | 706 |
+| 400 | SV | 76 | 6.9 | 32.4 | 1.7 / 11.0 ms | 398 | 684 |
 
-That is the honest result and it is worth stating plainly: **twelve discs is not
-enough load to separate them.** Twelve bridge tuples a frame is nothing, and the
-spread here is smaller than the 1ms clock can resolve. The toggle is the
-instrument; the stress harness in PR 7 is what will put enough load through it
-for the comparison to mean anything.
+### The render path barely matters; the disc count does
+
+Up to 200 simultaneously moving discs the three paths are **indistinguishable** —
+the spread between them is smaller than a 1ms clock can resolve, and it stays
+that way when every disc is writing every frame. Publishing 200 SharedValue
+tuples per frame, at 114fps, is not a cost this instrument can see. That was
+not the expected answer: the bridge publish was the suspected bottleneck going
+in, and on this device at this scale it simply isn't one.
+
+What does cost is the simulation itself, and it is superlinear because the
+contacts are: 12 discs → 0.2ms, 200 discs → 1.5ms, 400 discs → 6.8ms. At 400 the
+board is jammed solid (706 contacts against 124 at 200), so most of that is
+collision resolution, not rendering.
+
+### Reading `0 writes` correctly
+
+At 400 the board jams solid and the simulation reaches quiescence. The
+dirty-write cull then does its job and skips every disc, so the HUD reports
+`0w` — and a settled board that isn't being redrawn looks exactly like a broken
+one.
+
+This caught me out: I compared the raw path sampled just after a kick (still
+churning) against the binding paths sampled after they had settled, and read the
+difference as a path difference rather than a timing one. It isn't. With the
+cull defeated, or immediately after a re-kick, all three write ~400 elements a
+frame at 400 discs.
+
+The lesson is about the instrument, not the runtime: **`0w` has two meanings** —
+"nothing moved" and "nothing could be written" — and only the `all` toggle tells
+them apart. Use it before concluding anything from a zero. The 400-disc row
+above is measured with the cull defeated for exactly this reason; the 12 and 200
+rows are unaffected because at those counts the board never stops moving.
 
 ## On measuring this
 

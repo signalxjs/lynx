@@ -21,13 +21,14 @@ import { SafeAreaProvider, SafeAreaView } from '@sigx/lynx-safe-area';
 import { bandRect, homeZoneOf } from './game/board.js';
 import { packWorld, unpackSettle } from './game/pack.js';
 import { beginShot, loadableDiscs, placeDisc, rescaleBoard, settleShot } from './game/rules.js';
-import { newGame } from './game/setup.js';
+import { newGame, stressLayout } from './game/setup.js';
 import type { GameState } from './game/types.js';
 import { useFlickGesture } from './input/useFlickGesture.js';
 import Board from './render/Board.js';
 import Hud from './render/Hud.js';
 import { useDiscPool } from './render/disc-pool.js';
 import RenderModeSwitch from './perf/RenderModeSwitch.js';
+import StressPanel from './perf/StressPanel.js';
 import { decodeStats, type FrameStats } from './perf/stats.js';
 import { RENDER_RAW } from './sim/state.js';
 import { useSimLoop, type SeedWorld } from './useSimLoop.js';
@@ -75,6 +76,9 @@ const App = component(() => {
     // measurement question.
     const render = signal({ mode: RENDER_RAW });
     const board = signal({ width: 0, height: 0 });
+    // Stress knobs. `count` of 12 means the real game; anything else replaces
+    // the board with a synthetic layout and is no longer a game at all.
+    const stress = signal({ count: 12, broadphase: 1, writeAll: 0, stressLoop: 0 });
     const pool = useDiscPool();
     const boardRef = useMainThreadRef<MainThread.Element | null>(null);
 
@@ -175,6 +179,37 @@ const App = component(() => {
     const handleBoardLayout = (e: LayoutChangeEvent): void => {
         onBoardLayout(e);
         sim.measureBoard();
+    };
+
+    /**
+     * Replace the board with `n` discs and set them all moving.
+     *
+     * Deliberately not a game: the layout is synthetic and ownership is
+     * arbitrary, so any score it produces is meaningless. It exists to put a
+     * known number of simultaneously moving bodies through the render path,
+     * which the real game — twelve discs, one of them moving — never comes
+     * close to doing. `12` restores the actual opening board.
+     *
+     * The ruleset still runs on settle; it is only sidestepped in practice
+     * when `stressLoop` is on, since the board then never settles.
+     */
+    const setStressCount = (n: number): void => {
+        const w = board.width;
+        const h = board.height;
+        if (w <= 0 || h <= 0) return;
+        stress.count = n;
+
+        const discs = n === 12 ? newGame(w, h).discs : stressLayout(n, w, h);
+        const next: GameState = {
+            discs,
+            turn: 0,
+            phase: 'aiming',
+            seq: (game.state?.seq ?? 0) + 1,
+            launched: null,
+        };
+        game.state = next;
+        sim.seed(worldFor(next, w, h));
+        if (n !== 12) sim.kick(900);
     };
 
     useFlickGesture({
@@ -279,6 +314,17 @@ const App = component(() => {
                             onPick={(m) => {
                                 render.mode = m;
                                 sim.setKnob('renderMode', m);
+                            }}
+                        />
+                        <StressPanel
+                            count={stress.count}
+                            broadphase={stress.broadphase}
+                            writeAll={stress.writeAll}
+                            stressLoop={stress.stressLoop}
+                            onCount={setStressCount}
+                            onToggle={(knob, value) => {
+                                (stress as unknown as Record<string, number>)[knob] = value;
+                                sim.setKnob(knob, value);
                             }}
                         />
                     </view>
