@@ -27,7 +27,9 @@ import { useFlickGesture } from './input/useFlickGesture.js';
 import Board from './render/Board.js';
 import Hud from './render/Hud.js';
 import { useDiscPool } from './render/disc-pool.js';
+import RenderModeSwitch from './perf/RenderModeSwitch.js';
 import { decodeStats, type FrameStats } from './perf/stats.js';
+import { RENDER_RAW, RENDER_SHARED_VALUE, RENDER_UNBRIDGED } from './sim/state.js';
 import { useSimLoop, type SeedWorld } from './useSimLoop.js';
 import { COLORS } from './theme.js';
 
@@ -68,6 +70,10 @@ const App = component(() => {
     const stats = signal({
         value: decodeStats([], STATS_WINDOW_MS) as FrameStats,
     });
+    // 0 = SharedValue, 1 = raw, 2 = unbridged. Raw is the default because it
+    // is the cheapest, so the game plays at its best until someone asks a
+    // measurement question.
+    const render = signal({ mode: RENDER_RAW });
     const board = signal({ width: 0, height: 0 });
     const pool = useDiscPool();
     const boardRef = useMainThreadRef<MainThread.Element | null>(null);
@@ -242,14 +248,18 @@ const App = component(() => {
                             width={dims ? dims.width : 0}
                             height={dims ? dims.height : 0}
                             pool={pool}
+                            state={sim.state}
+                            renderMode={render.mode}
                             elRef={boardRef}
                             onLayout={handleBoardLayout}
                         />
                     </view>
                     <view
                         style={{
-                            marginTop: '8px',
-                            marginBottom: '14px',
+                            marginTop: '6px',
+                            marginBottom: '10px',
+                            display: 'flex',
+                            flexDirection: 'column',
                             alignItems: 'center',
                         }}
                     >
@@ -260,6 +270,13 @@ const App = component(() => {
                                     ? 'Slide one of your discs, then flick it'
                                     : 'Waiting…'}
                         </text>
+                        <RenderModeSwitch
+                            mode={render.mode}
+                            onPick={(m) => {
+                                render.mode = m;
+                                sim.setKnob('renderMode', m);
+                            }}
+                        />
                     </view>
                 </SafeAreaView>
             </SafeAreaProvider>

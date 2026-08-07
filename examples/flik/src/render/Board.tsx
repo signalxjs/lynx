@@ -18,7 +18,10 @@ import {
 
 import { BANDS, bandRect } from '../game/board.js';
 import type { Disc, Zone } from '../game/types.js';
+import type { SimState } from '../sim/state.js';
 import { COLORS, dimColorOf } from '../theme.js';
+import DiscLayerA from './DiscLayerA.js';
+import DiscLayerC from './DiscLayerC.js';
 import DiscLayerRaw from './DiscLayerRaw.js';
 import type { DiscPool } from './disc-pool.js';
 
@@ -27,6 +30,9 @@ export type BoardProps =
     & Define.Prop<'width', number, true>
     & Define.Prop<'height', number, true>
     & Define.Prop<'pool', DiscPool, true>
+    & Define.Prop<'state', MainThreadRef<SimState>, true>
+    /** 0 = SharedValue, 1 = raw, 2 = unbridged. See `sim/state.ts`. */
+    & Define.Prop<'renderMode', number, true>
     /** Bound so the aim gesture can attach to the board itself. */
     & Define.Prop<'elRef', MainThreadRef<MainThread.Element | null>, true>
     /** The board's own layout — its page offset maps touches into board space. */
@@ -40,7 +46,8 @@ function tintOf(zone: Zone): string {
 }
 
 const Board = component<BoardProps>(({ props }) => () => {
-    const { width, height, discs, pool } = props;
+    const { width, height, discs, pool, renderMode } = props;
+    const alive = discs.filter((d: Disc) => d.alive);
 
     return (
         <view
@@ -77,7 +84,37 @@ const Board = component<BoardProps>(({ props }) => () => {
                 );
             })}
 
-            <DiscLayerRaw discs={discs.filter((d: Disc) => d.alive)} pool={pool} />
+            {/*
+              * Switched by REMOUNT, not by a branch inside one layer. If all
+              * three layers stayed mounted, the idle paths' style bindings
+              * would still be walked by every flush — polluting exactly the
+              * number this comparison exists to produce. Unmounting sends the
+              * UNREGISTER ops, so the losing path's cost genuinely goes to
+              * zero. The key includes the disc count because each layer
+              * allocates one binding per disc at setup.
+              */}
+            {renderMode === 1 ? (
+                <DiscLayerRaw
+                    key={`raw-${alive.length}`}
+                    discs={alive}
+                    pool={pool}
+                    state={props.state}
+                />
+            ) : renderMode === 2 ? (
+                <DiscLayerC
+                    key={`unbridged-${alive.length}`}
+                    discs={alive}
+                    pool={pool}
+                    state={props.state}
+                />
+            ) : (
+                <DiscLayerA
+                    key={`sharedvalue-${alive.length}`}
+                    discs={alive}
+                    pool={pool}
+                    state={props.state}
+                />
+            )}
         </view>
     );
 });

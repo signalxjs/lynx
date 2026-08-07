@@ -8,17 +8,39 @@
  * which is what the measurement needs it to be.
  */
 
-import { component, type Define } from '@sigx/lynx';
+import {
+    component,
+    onMounted,
+    runOnMainThread,
+    type Define,
+    type MainThreadRef,
+} from '@sigx/lynx';
 
 import type { Disc } from '../game/types.js';
+import type { SimState } from '../sim/state.js';
 import { colorOf } from '../theme.js';
 import type { DiscPool } from './disc-pool.js';
 
 export type DiscLayerProps =
     & Define.Prop<'discs', Disc[], true>
-    & Define.Prop<'pool', DiscPool, true>;
+    & Define.Prop<'pool', DiscPool, true>
+    /** The world, so a layer can hand its value envelopes to the simulation. */
+    & Define.Prop<'state', MainThreadRef<SimState>, true>;
 
-const DiscLayerRaw = component<DiscLayerProps>(({ props }) => () => (
+const DiscLayerRaw = component<DiscLayerProps>(({ props }) => {
+    // Clear whatever the previous layer left behind. `writeDiscs` picks its
+    // branch from `renderMode`, but a stale `svs` array from a swapped-out
+    // layer would keep its (now unbound) envelopes alive for no reason.
+    const state = props.state;
+    const bind = runOnMainThread(() => {
+        'main thread';
+        state.current.svs = null;
+    });
+    onMounted(() => {
+        void bind().catch(() => {});
+    });
+
+    return () => (
     <>
         {props.discs.map((disc: Disc, slot: number) => (
             <view
@@ -36,8 +58,9 @@ const DiscLayerRaw = component<DiscLayerProps>(({ props }) => () => (
                     transform: `translate(${disc.x - disc.r}px, ${disc.y - disc.r}px)`,
                 }}
             />
-        ))}
-    </>
-));
+            ))}
+        </>
+    );
+});
 
 export default DiscLayerRaw;
