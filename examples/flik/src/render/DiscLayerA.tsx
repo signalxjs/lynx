@@ -24,7 +24,6 @@ import {
     runOnMainThread,
     useAnimatedStyle,
     useSharedValue,
-    type Define,
     type SharedValue,
 } from '@sigx/lynx';
 

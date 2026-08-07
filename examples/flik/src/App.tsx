@@ -29,7 +29,7 @@ import Hud from './render/Hud.js';
 import { useDiscPool } from './render/disc-pool.js';
 import RenderModeSwitch from './perf/RenderModeSwitch.js';
 import { decodeStats, type FrameStats } from './perf/stats.js';
-import { RENDER_RAW, RENDER_SHARED_VALUE, RENDER_UNBRIDGED } from './sim/state.js';
+import { RENDER_RAW } from './sim/state.js';
 import { useSimLoop, type SeedWorld } from './useSimLoop.js';
 import { COLORS } from './theme.js';
 
