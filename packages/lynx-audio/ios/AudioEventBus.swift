@@ -39,6 +39,16 @@ final class AudioEventBus {
         ])
     }
 
+    /// Session interruption — a call, an alarm, or another app taking the
+    /// session. One process-wide channel rather than per-id: the interruption
+    /// is a fact about the session, not about any one player or recorder.
+    func publishInterruption(type: String, shouldResume: Bool) {
+        emit(channel: "__sigxAudioInterruption", payload: [
+            "type": type,
+            "shouldResume": shouldResume,
+        ])
+    }
+
     private func emit(channel: String, payload: Payload) {
         let snapshot = queue.sync { listeners }
         for (_, fn) in snapshot { fn(channel, payload) }
