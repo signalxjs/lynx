@@ -154,7 +154,7 @@ term, so pucks stop crisply instead of crawling asymptotically toward zero.
 - [x] **4** — settle contract wired to the ruleset; **playable**
 - [x] **5** — perf HUD
 - [x] **6** — render-mode A/B/C toggle
-- [ ] **7** — stress mode and the measurement writeup
+- [x] **7** — stress mode and the measurement writeup
 
 ## The HUD
 
@@ -216,21 +216,52 @@ never having been registered with the bridge: the mapper runs, nothing
 publishes. If UNB sits with RAW, the publish is the price; if it sits with SV,
 the mapper is.
 
-### At the real game's scale, they are indistinguishable
+## Results
 
-Release build, Pixel 9 Pro XL (120Hz), 12 discs, one in flight:
+Release build, Pixel 9 Pro XL (120Hz panel), `loop` on so the board stays
+permanently agitated — a decaying transient gives a number that depends on when
+you happened to read it.
 
-| mode | fps | p50 | p95 | tick mean/max |
-|---|---|---|---|---|
-| RAW | 122 | 6.0 | 11.4 | 0.2 / 1.0 ms |
-| SV | 122 | 5.8 | 11.4 | 0.2 / 1.0 ms |
-| UNB | 120 | 6.0 | 11.4 | 0.1 / 1.0 ms |
+| N | mode | fps | p50 | p95 | tick mean/max | writes | contacts |
+|---|---|---|---|---|---|---|---|
+| 12 | RAW | 122 | 6.0 | 11.4 | 0.2 / 1.0 ms | 1 | 0 |
+| 12 | SV | 122 | 5.8 | 11.4 | 0.2 / 1.0 ms | 1 | 0 |
+| 12 | UNB | 120 | 6.0 | 11.4 | 0.1 / 1.0 ms | 1 | 0 |
+| 200 | RAW | 114 | 6.5 | 11.8 | 1.5 / 5.0 ms | 200 | 124 |
+| 200 | SV | 114 | 6.7 | 11.8 | 1.4 / 5.0 ms | 200 | 132 |
+| 200 | UNB | 118 | 6.9 | 12.1 | 1.1 / 6.0 ms | 198 | 83 |
+| 400 | RAW | 62 | 14.8 | 19.4 | 6.8 / 10.0 ms | 400 | 706 |
+| 400 | SV | — | — | — | — | **0** | 554 |
+| 400 | UNB | — | — | — | — | **0** | 554 |
 
-That is the honest result and it is worth stating plainly: **twelve discs is not
-enough load to separate them.** Twelve bridge tuples a frame is nothing, and the
-spread here is smaller than the 1ms clock can resolve. The toggle is the
-instrument; the stress harness in PR 7 is what will put enough load through it
-for the comparison to mean anything.
+### The render path barely matters; the disc count does
+
+Up to 200 simultaneously moving discs the three paths are **indistinguishable** —
+the spread between them is smaller than a 1ms clock can resolve, and it stays
+that way when every disc is writing every frame. Two hundred SharedValue
+publishes a frame, at 114fps, is not a cost this instrument can see. That was
+not the expected answer: the bridge publish was the suspected bottleneck going
+in, and on this device at this scale it simply isn't one.
+
+What does cost is the simulation itself, and it is superlinear because the
+contacts are: 12 discs → 0.2ms, 200 discs → 1.5ms, 400 discs → 6.8ms. At 400 the
+board is jammed solid (706 contacts against 124 at 200), so most of that is
+collision resolution, not rendering.
+
+### Both binding paths freeze at 400 discs
+
+The two `useAnimatedStyle` paths report **zero element writes** at 400 while the
+simulation keeps running (554 contacts). The discs are visibly frozen; the tick
+drops to 0.3ms because `writeDiscs` is bailing out before it writes anything.
+The raw path handles the same board at 400 discs fine.
+
+Both binding paths fail identically, and 200 works, so it is neither the bridge
+(UNB never publishes) nor array capture as such — the element-ref pool is also
+400 refs, captured the same way, and drives the raw path at 400 without trouble.
+The difference is that each binding layer allocates its values and registers its
+bindings *per layer mount*, so 400 discs means 400 `useSharedValue` plus 400
+`useAnimatedStyle` registrations in a single setup pass. Filed for
+investigation; root cause not yet isolated.
 
 ## On measuring this
 

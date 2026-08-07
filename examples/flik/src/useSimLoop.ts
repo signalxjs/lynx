@@ -19,6 +19,7 @@ import {
     onMounted,
     runOnBackground,
     runOnMainThread,
+    startFrameCallback,
     useFrameCallback,
     useMainThreadRef,
     type FrameCallback,
@@ -59,6 +60,8 @@ export interface SimLoop {
     loop: FrameCallback;
     /** Push a knob (`renderMode`, `writeAll`, …) into the world. */
     setKnob: (name: string, value: number) => void;
+    /** Fling everything at once and start the loop — the stress agitator. */
+    kick: (speed: number) => void;
 }
 
 /** Everything the simulation needs to take over a turn. */
@@ -206,6 +209,12 @@ export function useSimLoop(options: SimLoopOptions): SimLoop {
         });
     });
 
+    const kickAllDiscs = runOnMainThread((speed: number) => {
+        'main thread';
+        kickAll(state.current, speed);
+        startFrameCallback(loop);
+    });
+
     const writeKnob = runOnMainThread((name: string, value: number) => {
         'main thread';
         (state.current as unknown as Record<string, number>)[name] = value;
@@ -226,6 +235,9 @@ export function useSimLoop(options: SimLoopOptions): SimLoop {
         },
         setKnob: (name, value) => {
             void writeKnob(name, value).catch(() => {});
+        },
+        kick: (speed) => {
+            void kickAllDiscs(speed).catch(() => {});
         },
     };
 }
