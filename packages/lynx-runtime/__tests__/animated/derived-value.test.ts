@@ -53,6 +53,9 @@ describe('useDerivedValue', () => {
       OP.REGISTER_AV_DERIVED, d._wvid, 'sum', null, [a._wvid, b._wvid],
     ]);
     expect(ops).not.toContain(OP.REGISTER_AV_BRIDGE);
+    // The BG sink is still bound, so a BG read stays safe and sits at the
+    // initial value — skipping it would make `.value` throw.
+    expect(d.value).toBe(0);
   });
 
   it('the reactive form also honours bridge:false (#930)', () => {
@@ -68,6 +71,7 @@ describe('useDerivedValue', () => {
     expect(ops).toContain(OP.INIT_MT_REF);
     expect(ops).not.toContain(OP.REGISTER_AV_BRIDGE);
     expect(d._wvid).toBeTypeOf('number');
+    expect(d.value).toBe(0);
   });
 
   it('passes reducer params through', () => {

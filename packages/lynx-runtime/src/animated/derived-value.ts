@@ -63,8 +63,9 @@ export interface DerivedValueOptions {
    * box mid-gesture (#930).
    *
    * With `bridge: false` the SV still exists on the main thread and still
-   * folds every frame; only the BG publish is skipped. Reading `.value` on the
-   * background thread then always returns the initial value.
+   * folds every frame; only the BG publish is skipped. The BG-side signal is
+   * still allocated, so reading `.value` there stays safe — it simply never
+   * advances past the initial value.
    */
   bridge?: boolean;
 }
@@ -77,7 +78,11 @@ export function useDerivedValue<R extends DerivedReducerName>(
 ): SharedValue<number> {
   const bridge = opts?.bridge !== false;
   const derived = new SharedValue<number>(0);
-  if (bridge) derived._bind(registerBgSink(derived._wvid, 0));
+  // The BG sink is bound EITHER WAY: `SharedValue.value` reads through it, so
+  // skipping it would make a BG read throw rather than return the initial
+  // value. `bridge:false` suppresses the PUBLISH (REGISTER_AV_BRIDGE), not the
+  // reader.
+  derived._bind(registerBgSink(derived._wvid, 0));
 
   // The derived SV is itself an auto-flush bridge: INIT creates the MT
   // envelope, REGISTER_AV_BRIDGE arms its write→flush + BG publish. The MT
@@ -98,7 +103,7 @@ export function useDerivedValue<R extends DerivedReducerName>(
     if (bridge) pushOp(OP.UNREGISTER_AV_BRIDGE, derived._wvid);
     pushOp(OP.RELEASE_MT_REF, derived._wvid);
     scheduleFlush();
-    if (bridge) unregisterBgSink(derived._wvid);
+    unregisterBgSink(derived._wvid);
   });
 
   return derived;
@@ -124,7 +129,11 @@ export function useDerivedValueReactive<R extends DerivedReducerName>(
 ): SharedValue<number> {
   const bridge = opts?.bridge !== false;
   const derived = new SharedValue<number>(0);
-  if (bridge) derived._bind(registerBgSink(derived._wvid, 0));
+  // The BG sink is bound EITHER WAY: `SharedValue.value` reads through it, so
+  // skipping it would make a BG read throw rather than return the initial
+  // value. `bridge:false` suppresses the PUBLISH (REGISTER_AV_BRIDGE), not the
+  // reader.
+  derived._bind(registerBgSink(derived._wvid, 0));
 
   pushOp(OP.INIT_MT_REF, derived._wvid, derived._initValue);
   if (bridge) pushOp(OP.REGISTER_AV_BRIDGE, derived._wvid, 0);
@@ -158,7 +167,7 @@ export function useDerivedValueReactive<R extends DerivedReducerName>(
     if (bridge) pushOp(OP.UNREGISTER_AV_BRIDGE, derived._wvid);
     pushOp(OP.RELEASE_MT_REF, derived._wvid);
     scheduleFlush();
-    if (bridge) unregisterBgSink(derived._wvid);
+    unregisterBgSink(derived._wvid);
   });
 
   return derived;
