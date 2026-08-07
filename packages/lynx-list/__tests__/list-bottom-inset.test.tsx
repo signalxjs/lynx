@@ -13,18 +13,13 @@
 
 import { describe, it, expect, vi } from 'vitest';
 
-// Mutable so a test can render "as iOS" — `custom-list-name` is iOS-only now
-// (#930); on Android the tag name selects the C++ list implementation, so
-// naming one would downgrade the element to the legacy list.
-const platform = vi.hoisted(() => ({ OS: 'android' as string }));
-
 vi.mock('@sigx/lynx', async (importOriginal) => {
   const mod = await importOriginal<typeof import('@sigx/lynx')>();
-  return { ...mod, useAnimatedMethod: vi.fn(mod.useAnimatedMethod), Platform: platform };
+  return { ...mod, useAnimatedMethod: vi.fn(mod.useAnimatedMethod) };
 });
 
 import { useAnimatedMethod, useSharedValue } from '@sigx/lynx';
-import { render, getByType, getAllByType } from '@sigx/lynx-testing';
+import { render, getByType } from '@sigx/lynx-testing';
 import { List } from '../src/List';
 import type { AnimatedMethodSpec } from '@sigx/lynx';
 
@@ -45,38 +40,16 @@ function lastAccessor(): () => AnimatedMethodSpec | null {
 }
 
 describe('List bottomInset (#844)', () => {
-  it('renders custom-list-name="sigx-list" on iOS iff the prop is set', () => {
-    platform.OS = 'ios';
-    try {
-      const { container } = render(
-        <List items={ITEMS} keyExtractor={(i) => i.id} renderItem={renderRow} bottomInset={64} />,
-      );
-      expect(getByType(container, 'list').props['custom-list-name']).toBe('sigx-list');
+  it('renders custom-list-name="sigx-list" iff the prop is set', () => {
+    const { container } = render(
+      <List items={ITEMS} keyExtractor={(i) => i.id} renderItem={renderRow} bottomInset={64} />,
+    );
+    expect(getByType(container, 'list').props['custom-list-name']).toBe('sigx-list');
 
-      const { container: plain } = render(
-        <List items={ITEMS} keyExtractor={(i) => i.id} renderItem={renderRow} />,
-      );
-      expect(getByType(plain, 'list').props['custom-list-name']).toBeUndefined();
-    } finally {
-      platform.OS = 'android';
-    }
-  });
-
-  it('never names a custom list tag off iOS (#930)', () => {
-    // On Android the resolved tag name also selects the C++ list
-    // implementation — only `list-container` reaches the modern one, so a
-    // custom name silently downgrades the element to the legacy RecyclerView
-    // list (whose instant bottom-aligned scroll lands short). Android gets
-    // `setBottomInset` by registering `SigxListUI` as the app's
-    // `list-container` instead; web has no native side at all.
-    for (const os of ['android', 'web']) {
-      platform.OS = os;
-      const { container } = render(
-        <List items={ITEMS} keyExtractor={(i) => i.id} renderItem={renderRow} bottomInset={64} />,
-      );
-      expect(getByType(container, 'list').props['custom-list-name']).toBeUndefined();
-    }
-    platform.OS = 'android';
+    const { container: plain } = render(
+      <List items={ITEMS} keyExtractor={(i) => i.id} renderItem={renderRow} />,
+    );
+    expect(getByType(plain, 'list').props['custom-list-name']).toBeUndefined();
   });
 
   it('binds main-thread:ref for a plain feed once an inset is set', () => {
@@ -134,43 +107,6 @@ describe('List bottomInset (#844)', () => {
     expect(spec).not.toBeNull();
     expect(spec!.sv).toBeTypeOf('object'); // internal useSharedValue(0) mirror
     expect(spec!.methodName).toBe('setBottomInset');
-  });
-
-  it('renders a trailing inset spacer cell off iOS, and none on iOS (#930)', () => {
-    // The spacer is what actually clears the occluder on Android: the engine's
-    // C++ scroller clamps against its own content size, so the inset has to BE
-    // content. It must be the LAST cell — the bottom-aligned pin targets the
-    // final cell, so the spacer parks against the viewport bottom and the
-    // newest message lands exactly `inset` above it.
-    platform.OS = 'android';
-    const { container } = render(
-      <List items={ITEMS} keyExtractor={(i) => i.id} renderItem={renderRow} bottomInset={64} />,
-    );
-    const cells = getAllByType(container, 'list-item');
-    const last = cells[cells.length - 1]!;
-    expect(last.props['item-key']).toBe('__sigx_list_inset__');
-
-    // iOS has a real viewport inset (contentInset) — a spacer there would
-    // count the clearance twice.
-    platform.OS = 'ios';
-    const { container: ios } = render(
-      <List items={ITEMS} keyExtractor={(i) => i.id} renderItem={renderRow} bottomInset={64} />,
-    );
-    expect(
-      getAllByType(ios, 'list-item').some((c) => c.props['item-key'] === '__sigx_list_inset__'),
-    ).toBe(false);
-    platform.OS = 'android';
-  });
-
-  it('renders no spacer when the prop is absent', () => {
-    const { container } = render(
-      <List items={ITEMS} keyExtractor={(i) => i.id} renderItem={renderRow} />,
-    );
-    expect(
-      getAllByType(container, 'list-item').some(
-        (c) => c.props['item-key'] === '__sigx_list_inset__',
-      ),
-    ).toBe(false);
   });
 
   it('registers no method binding without the prop', () => {

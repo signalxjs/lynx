@@ -218,30 +218,13 @@ While pinned at the bottom, the newest item stays anchored **above** the inset
 inset-aware, so the compensation scroll can never falsely release the pin. If
 the user has scrolled up, an inset change never moves what they're reading.
 
-### How the clearance is made, per platform
-
-The two platforms reach the same result by different means, because their list
-engines differ (#930):
-
-- **iOS** — a real viewport inset (`contentInset.bottom` on the engine's
-  `LynxUICollection`, via the `sigx-list` subclass). No layout pass, frame-
-  synced by construction.
-- **Android** — a trailing **spacer cell** plus a main-thread transform. The
-  engine's C++ scroller clamps `scrollToPosition` against its own content size,
-  so a platform-side inset cannot lift the newest cell above the occluder: the
-  clearance has to *be* content. The spacer supplies it and, being the last
-  cell, makes the ordinary bottom-aligned pin land the newest message exactly
-  `inset` above the viewport bottom. Because a height change is layout, the
-  spacer commits only when the value settles (capped at 400 ms), and the motion
-  in between is carried by a `translateY` on the main thread — no relayout, no
-  events, so it still tracks a drag frame-by-frame.
-
 Notes:
-- The **presence** of the prop is mount-constant; the value/kind (`number` ⇄
+- The **presence** of the prop is mount-constant (it opts the element into the
+  native `sigx-list` component at creation); the value/kind (`number` ⇄
   `SharedValue`) may change freely — pass a numeric fallback first render.
-- Requires a `sigx prebuild` after upgrading (iOS autolinks a native
-  component). **Web** has no native side and uses the same spacer as Android.
-  Vertical lists only.
+- Requires a `sigx prebuild` after upgrading (the native module autolinks).
+  Hosts without it — including **web** — ignore the inset; keep a wrapper
+  `paddingBottom` fallback there. Vertical lists only.
 
 ### Windowing (long histories)
 
@@ -315,7 +298,6 @@ Zero-cost when omitted; omit it for append/prepend/edit flows.
 | `refreshing` | `boolean` | Controlled pull-to-refresh state; passing it opts in (vertical only). |
 | `pullThreshold` | `number` | Pull distance (px) that triggers a refresh. Default 64. |
 | `inverted` | `boolean` | Chat mode: bottom-anchored + stick-to-bottom (vertical only). |
-| `bottomInset` | `number \| SharedValue<number>` | Keep this much of the bottom viewport clear of an occluder (keyboard, composer sheet) — see [Frame-synced bottom inset](#frame-synced-bottom-inset-bottominset). Vertical only. |
 | `stickToBottom` | `boolean` | In chat mode, auto-scroll on new items when at the bottom. Default `true`. |
 | `templateCells` | `boolean` | **Template-native rows** — `renderItem` returns a `<list-item>` written in your own source and List passes it through unwrapped. See below. |
 | `windowSize` | `number` | Enables windowing: render only this many cells of a long `items`. Ignored under `templateCells`. |
