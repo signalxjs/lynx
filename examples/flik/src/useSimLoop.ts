@@ -31,12 +31,16 @@ import { stepWorld } from './sim/tick.mt.js';
 import { writeDiscs } from './sim/write.mt.js';
 import { applyWorld, kickAll } from './sim/world.mt.js';
 import { createSimState, type SimState } from './sim/state.js';
+import { drainStats, drawSpark, recordFrame, shouldPublish } from './perf/frame-stats.mt.js';
+import { useSparkBars, type SparkBars } from './perf/spark-bars.js';
 import { POOL_SIZE, type DiscPool } from './render/disc-pool.js';
 
 /** Upper bound on discs, so every array is allocated once and never grows. */
 export const MAX_DISCS = POOL_SIZE;
 
 export interface SimLoop {
+    /** The sparkline's bar elements, written one per frame. */
+    sparkBars: SparkBars;
     /** The world. Capture it in a worklet; never read `.current` on BG. */
     state: MainThreadRef<SimState>;
     /** Hand the simulation a fresh board (packed by `packWorld`). */
@@ -72,6 +76,8 @@ export interface SeedWorld {
 export interface SimLoopOptions {
     /** Element refs, index-aligned with the simulation's slots. */
     pool: DiscPool;
+    /** Frame counters, drained to the background thread ~twice a second. */
+    onStats: (raw: number[]) => void;
     /** The board element, measured to map page coordinates into board space. */
     boardRef: MainThreadRef<MainThread.Element | null>;
     /** Called once per shot, on the background thread, with `[id, x, y, …]`. */
@@ -80,7 +86,8 @@ export interface SimLoopOptions {
 
 export function useSimLoop(options: SimLoopOptions): SimLoop {
     const state = useMainThreadRef<SimState>(createSimState(MAX_DISCS));
-    const { pool, boardRef } = options;
+    const { pool, boardRef, onStats } = options;
+    const sparkBars = useSparkBars();
 
     // Park the loop the moment the board settles, then hand the result on.
     // Without this the frame callback keeps ticking forever over an idle
@@ -97,6 +104,7 @@ export function useSimLoop(options: SimLoopOptions): SimLoop {
     const bindElements = runOnMainThread(() => {
         'main thread';
         state.current.els = pool as unknown[];
+        state.current.sparkEls = sparkBars as unknown[];
     });
     onMounted(() => {
         void bindElements().catch(() => {});
@@ -118,6 +126,11 @@ export function useSimLoop(options: SimLoopOptions): SimLoop {
         const st = state.current;
         if (!st || !st.els) return;
 
+        // Bracket the tick body: `t1 - t0` is what WE cost, and the gap
+        // between successive `t0`s is what the player feels. Reporting only
+        // one of the two would answer neither question.
+        const t0 = Date.now();
+
         // Clamp the delta: a resumed app or a paused debugger hands back a
         // gap of seconds, and integrating that in one go teleports every disc
         // through the walls.
@@ -126,6 +139,14 @@ export function useSimLoop(options: SimLoopOptions): SimLoop {
 
         const settled = stepWorld(st, dt);
         writeDiscs(st);
+
+        if (st.hud === 1) {
+            recordFrame(st, t0, Date.now());
+            drawSpark(st, frame.timeSincePreviousFrame);
+            if (shouldPublish(st, t0) === 1) {
+                runOnBackground(onStats)(drainStats(st));
+            }
+        }
 
         if (settled === 1) {
             if (st.stressLoop === 1) {
@@ -150,8 +171,22 @@ export function useSimLoop(options: SimLoopOptions): SimLoop {
             homeY1: number,
         ) => {
             'main thread';
-            applyWorld(state.current, packed, width, height, seq, turn, homeY0, homeY1);
-            writeDiscs(state.current);
+            const st = state.current;
+            applyWorld(st, packed, width, height, seq, turn, homeY0, homeY1);
+            writeDiscs(st);
+            // Re-measure here rather than only from mount and layout events.
+            // Both of those are single shots that can land before the element
+            // is measurable, and a missed measurement is unrecoverable: the
+            // origin stays 0, every touch maps outside the board, and
+            // `pickDisc` returns -1 silently — indistinguishable from touching
+            // empty felt. Seeding happens on the opening deal AND on every
+            // turn, so tying the measurement to it means a miss self-corrects
+            // instead of wedging the game.
+            measureViewportRect(boardRef.current, (rect: ViewportRect | null) => {
+                if (!rect) return;
+                st.originX = rect.left;
+                st.originY = rect.top;
+            });
         },
     );
 
@@ -181,6 +216,7 @@ export function useSimLoop(options: SimLoopOptions): SimLoop {
     return {
         state,
         loop,
+        sparkBars,
         seed: (w) => {
             void seedWorld(w.packed, w.width, w.height, w.seq, w.turn, w.homeY0, w.homeY1)
                 .catch(() => {});
