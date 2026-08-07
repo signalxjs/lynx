@@ -267,24 +267,28 @@ const App = component(() => {
                         }}
                     >
                         {/*
-                          * Mounted unconditionally, at zero size until the
-                          * arena is measured. `useGestureDetector` binds once
-                          * in `onMounted` and the main thread DROPS the
-                          * registration if the element ref isn't resolvable
-                          * yet — silently, with no retry. Rendering the board
-                          * only once dims existed put it after App's mount, so
-                          * the aim gesture was never attached at all.
+                          * Rendered only once the arena has been measured, so
+                          * the board element mounts a frame or two AFTER App —
+                          * and therefore after `useGestureDetector` has already
+                          * pushed its registration. That ordering used to kill
+                          * the aim gesture outright (#958): the main thread
+                          * dropped a registration whose element wasn't bound
+                          * yet, silently and permanently. The runtime parks and
+                          * replays it now, so the natural way to write this
+                          * works.
                           */}
-                        <Board
-                            discs={state && dims ? state.discs : []}
-                            width={dims ? dims.width : 0}
-                            height={dims ? dims.height : 0}
-                            pool={pool}
-                            state={sim.state}
-                            renderMode={render.mode}
-                            elRef={boardRef}
-                            onLayout={handleBoardLayout}
-                        />
+                        {state && dims ? (
+                            <Board
+                                discs={state.discs}
+                                width={dims.width}
+                                height={dims.height}
+                                pool={pool}
+                                state={sim.state}
+                                renderMode={render.mode}
+                                elRef={boardRef}
+                                onLayout={handleBoardLayout}
+                            />
+                        ) : null}
                     </view>
                     <view
                         style={{
