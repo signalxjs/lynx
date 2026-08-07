@@ -2800,6 +2800,33 @@ export async function runPrebuild(opts: PrebuildOptions = {}): Promise<void> {
             (!buildAndroid || androidSentinels.every((p) => existsSync(p)));
         if (cached === fingerprint && outputsIntact) {
             log('Prebuild inputs unchanged — skipping');
+            // …but embedding is NOT a generation step, so it does not get to
+            // skip with the rest of the pipeline. The fingerprint covers
+            // prebuild's *inputs* — config, manifests, templates — and
+            // deliberately not the JS bundle, which changes on every source
+            // edit. So on a JS-only change the fast path fires while
+            // `dist/main.lynx.bundle` is newer than the copy in the native
+            // project, and the release build ships the previous bundle (or,
+            // on a checkout where the fast path fired before anything was
+            // ever embedded, none at all).
+            //
+            // Nothing downstream can catch that: Gradle/Xcode inputs are
+            // genuinely unchanged, so they correctly report up-to-date and
+            // the app just runs older code that still works. See #960.
+            if (opts.embedBundle) {
+                // Gate on `config.platforms` exactly as the slow path does
+                // (see the `buildAndroid && …includes('android')` blocks
+                // below) — otherwise a project that has dropped a platform
+                // would get a bundle embedded into a tree prebuild itself no
+                // longer generates, since its sentinels linger on disk.
+                const cfg = resolveConfig(await loadConfig(cwd), variant);
+                if (buildAndroid && cfg.platforms.includes('android')) {
+                    embedBundle({ cwd, config: cfg, platform: 'android', log });
+                }
+                if (buildIos && cfg.platforms.includes('ios')) {
+                    embedBundle({ cwd, config: cfg, platform: 'ios', log });
+                }
+            }
             return;
         }
     }
