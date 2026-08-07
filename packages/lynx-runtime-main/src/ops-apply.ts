@@ -757,7 +757,6 @@ export function applyOps(ops: unknown[]): void {
   __FlushElementTree();
 }
 
-/** Reset module state — for testing and hot reload. */
 /**
  * Install one gesture on the element bound to `elementWvid`.
  *
@@ -853,6 +852,7 @@ function applyGestureDetector(
 setGestureApplier((g) =>
   applyGestureDetector(g.elementWvid, g.gestureId, g.type, g.config, g.relationMap));
 
+/** Reset module state — for testing and hot reload. */
 export function resetMainThreadState(): void {
   elements.clear();
   setPageUniqueId(1);
