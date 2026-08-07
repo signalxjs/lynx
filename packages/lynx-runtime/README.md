@@ -129,6 +129,8 @@ A typical batch:
  OP.SET_MT_REF, 1, 7]
 ```
 
+`SET_GESTURE_DETECTOR` tolerates arriving before its element is bound: the main thread parks the registration and applies it when `SET_MT_REF` binds that wvid (#958). So a component may register a detector for an element that mounts later than it does.
+
 Serialized to JSON, shipped via `lynx.getNativeApp().callLepusMethod('sigxPatchUpdate', { data })`, applied by the MT runtime in `@sigx/lynx-runtime-main`.
 
 Ops that carry a worklet — `SET_WORKLET_EVENT`, `SET_GESTURE_DETECTOR`, `REGISTER_FRAME_CALLBACK` — ship the **full** transform-emitted ctx (`_wkltId`, `_c`, `_jsFn`, `_execId`, `_workletType`), with any `MainThreadRef` inside `_c` sanitized to `{ _wvid, _initValue }`. Dropping a field breaks hydration on the MT (`Cannot destructure property '_jsFn1'`).

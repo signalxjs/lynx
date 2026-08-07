@@ -17,6 +17,14 @@ import {
 import { resetWorkletEvents, type WorkletPlaceholder } from './worklet-events.js';
 import { invokeMtWorklet } from './mt-invoke.js';
 import {
+  dropParkedGesture,
+  parkGesture,
+  resetParkedGestures,
+  takeParkedGestures,
+  type GestureWireConfig,
+  type GestureWireRelations,
+} from './gesture-park.js';
+import {
   registerFrameCallback,
   setFrameCallbackActive,
   unregisterFrameCallback,
@@ -558,7 +566,16 @@ export function applyOps(ops: unknown[]): void {
         // Full binding logic (upstream ref map + web style fallback + the
         // wvid → elementId record) lives in mt-ref-bind.ts, shared with the
         // snapshot runtime (#626).
-        if (el) bindMtRef(el, id, wvid);
+        if (el) {
+          bindMtRef(el, id, wvid);
+          // Anything that asked for this element before it existed applies
+          // now, in arrival order — a composed gesture's relations reference
+          // each other by id, so replaying out of order builds a different
+          // arena (#958).
+          for (const g of takeParkedGestures(wvid)) {
+            applyGestureDetector(g.elementWvid, g.gestureId, g.type, g.config, g.relationMap);
+          }
+        }
         break;
       }
 
@@ -662,102 +679,30 @@ export function applyOps(ops: unknown[]): void {
 
       case OP.SET_GESTURE_DETECTOR: {
         // Wire format: [op, wvid, gestureId, type, config, relationMap].
-        // We reconstruct upstream's BaseGesture shape and delegate to vendored
-        // `processGesture` so the platform-call sequence is byte-for-byte
-        // identical to `@lynx-js/react`'s snapshot pipeline. Per-base wire
-        // means we register one base per op; processGesture handles the
-        // single-base fast path. Composed gestures arrive as multiple ops,
-        // each carrying its relationMap.
         const elementWvid = ops[i++] as number;
         const gestureId = ops[i++] as number;
         const type = ops[i++] as number;
-        const config = ops[i++] as {
-          callbacks: { name: string; callback: Record<string, unknown> }[];
-          config?: Record<string, unknown>;
-        };
-        const relationMap = ops[i++] as {
-          waitFor: number[];
-          simultaneous: number[];
-          continueWith: number[];
-        };
-        const el = resolveElementByWvid(elementWvid);
-        if (!el) break;
+        const config = ops[i++] as GestureWireConfig;
+        const relationMap = ops[i++] as GestureWireRelations;
 
-        // The gesture-arena PAPI isn't implemented on every host — notably web
-        // (`@lynx-js/web-core`, where `__SetGestureDetector` is undefined).
-        // There, recognize the gesture on the MT side from web-core's pointer
-        // events instead of the native arena. (All operands are already
-        // consumed above, so `i` stays aligned for the next op.)
-        if (typeof __SetGestureDetector !== 'function') {
-          registerWebGesture(el, elementWvid, gestureId, type, config, relationMap);
-          // Track the attachment so REMOVE can tear down the web recognizer,
-          // mirroring the native bookkeeping below.
-          let webAttached = gesturesByElementWvid.get(elementWvid);
-          if (!webAttached) {
-            webAttached = new Set();
-            gesturesByElementWvid.set(elementWvid, webAttached);
-          }
-          webAttached.add(gestureId);
-          break;
+        // A detector can be registered by a component that mounts BEFORE the
+        // element it binds to — a screen that measures itself before rendering
+        // its content does exactly that. Park rather than drop: SET_MT_REF
+        // drains it the moment the element binds. Dropping it was silent and
+        // permanent (#958).
+        if (!applyGestureDetector(elementWvid, gestureId, type, config, relationMap)) {
+          parkGesture({ elementWvid, gestureId, type, config, relationMap });
         }
-
-        // Reconstruct callbacks Record from the wire's array shape.
-        const callbacksRecord: Record<string, Record<string, unknown>> = {};
-        for (const cb of config.callbacks) {
-          callbacksRecord[cb.name] = cb.callback;
-        }
-
-        // Build a fake BaseGesture: relation arrays are id-stubs `[{id}]`
-        // because vendored `getGestureInfo` reads `.id` off each entry to
-        // produce the relationMap. The platform never sees these objects.
-        const stub = (ids: number[]) => ids.map((id) => ({ id }));
-        const fakeBaseGesture = {
-          __isSerialized: true as const,
-          type,
-          id: gestureId,
-          callbacks: callbacksRecord,
-          waitFor: stub(relationMap.waitFor),
-          simultaneousWith: stub(relationMap.simultaneous),
-          continueWith: stub(relationMap.continueWith),
-          ...(config.config ? { config: config.config } : {}),
-        };
-
-        // Phase 2.12.1 bug fix: pass `undefined` as oldGesture, NOT the last
-        // tree we saw on this element.
-        //
-        // Our wire format is one SET_GESTURE_DETECTOR op per BaseGesture.
-        // When `<Pressable>` registers `Simultaneous(Tap, LongPress)`, two
-        // ops arrive in sequence on the same element. If we pass the previous
-        // tree to `processGesture`, its diff path treats the second op as
-        // "Tap → LongPress" and emits a `__RemoveGestureDetector` for Tap
-        // before installing LongPress. Result: only the last gesture stays
-        // registered; all earlier gestures are silently uninstalled.
-        //
-        // The right model for our wire is additive: each op installs ONE
-        // gesture without disturbing siblings. Removal is explicit via the
-        // REMOVE_GESTURE_DETECTOR op (emitted from `useGestureDetector`'s
-        // unmount cleanup), which calls `__RemoveGestureDetector` directly.
-        // Note: this means we don't get diff-based callback updates if the
-        // BG side re-emits a gesture with the same id — but our wire never
-        // does that today; on prop changes BG emits REMOVE then SET.
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        processGesture(el, fakeBaseGesture as any, undefined, false);
-        lastTreeByElementWvid.set(elementWvid, fakeBaseGesture);
-
-        // Track for REMOVE op cleanup and to drive `has-react-gesture` toggle
-        // when the last gesture goes (vendored function clears it on remove).
-        let attached = gesturesByElementWvid.get(elementWvid);
-        if (!attached) {
-          attached = new Set();
-          gesturesByElementWvid.set(elementWvid, attached);
-        }
-        attached.add(gestureId);
         break;
       }
 
       case OP.REMOVE_GESTURE_DETECTOR: {
         const elementWvid = ops[i++] as number;
         const gestureId = ops[i++] as number;
+        // A detector whose owner unmounts while its SET is still parked emits
+        // its REMOVE first. Forget the parked entry, or it would install a
+        // gesture for a dead component the moment the element bound.
+        if (dropParkedGesture(elementWvid, gestureId)) break;
         const el = resolveElementByWvid(elementWvid);
         // Web path: tear down the MT recognizer + its touch listeners.
         if (el && typeof __SetGestureDetector !== 'function') {
@@ -819,6 +764,97 @@ export function applyOps(ops: unknown[]): void {
 }
 
 /** Reset module state — for testing and hot reload. */
+/**
+ * Install one gesture on the element bound to `elementWvid`.
+ *
+ * Returns `false` when that element isn't bound yet, so the caller can park
+ * the registration and replay it on bind (#958). Every other outcome is a
+ * success from this function's point of view — the platform call is
+ * fire-and-forget.
+ *
+ * Shared by the `SET_GESTURE_DETECTOR` op and the parked-gesture drain, so a
+ * replayed registration takes byte-for-byte the same path as a prompt one.
+ */
+function applyGestureDetector(
+  elementWvid: number,
+  gestureId: number,
+  type: number,
+  config: GestureWireConfig,
+  relationMap: GestureWireRelations,
+): boolean {
+  const el = resolveElementByWvid(elementWvid);
+  if (!el) return false;
+
+  // The gesture-arena PAPI isn't implemented on every host — notably web
+  // (`@lynx-js/web-core`, where `__SetGestureDetector` is undefined). There,
+  // recognize the gesture on the MT side from web-core's pointer events
+  // instead of the native arena.
+  if (typeof __SetGestureDetector !== 'function') {
+    registerWebGesture(el, elementWvid, gestureId, type, config, relationMap);
+    // Track the attachment so REMOVE can tear down the web recognizer,
+    // mirroring the native bookkeeping below.
+    let webAttached = gesturesByElementWvid.get(elementWvid);
+    if (!webAttached) {
+      webAttached = new Set();
+      gesturesByElementWvid.set(elementWvid, webAttached);
+    }
+    webAttached.add(gestureId);
+    return true;
+  }
+
+  // Reconstruct callbacks Record from the wire's array shape.
+  const callbacksRecord: Record<string, Record<string, unknown>> = {};
+  for (const cb of config.callbacks) {
+    callbacksRecord[cb.name] = cb.callback;
+  }
+
+  // Build a fake BaseGesture: relation arrays are id-stubs `[{id}]` because
+  // vendored `getGestureInfo` reads `.id` off each entry to produce the
+  // relationMap. The platform never sees these objects.
+  const stub = (ids: number[]): { id: number }[] => ids.map((id) => ({ id }));
+  const fakeBaseGesture = {
+    __isSerialized: true as const,
+    type,
+    id: gestureId,
+    callbacks: callbacksRecord,
+    waitFor: stub(relationMap.waitFor),
+    simultaneousWith: stub(relationMap.simultaneous),
+    continueWith: stub(relationMap.continueWith),
+    ...(config.config ? { config: config.config } : {}),
+  };
+
+  // Pass `undefined` as oldGesture, NOT the last tree we saw on this element.
+  //
+  // Our wire format is one SET_GESTURE_DETECTOR op per BaseGesture. When
+  // `<Pressable>` registers `Simultaneous(Tap, LongPress)`, two ops arrive in
+  // sequence on the same element. If we pass the previous tree to
+  // `processGesture`, its diff path treats the second op as "Tap → LongPress"
+  // and emits a `__RemoveGestureDetector` for Tap before installing
+  // LongPress. Result: only the last gesture stays registered; all earlier
+  // gestures are silently uninstalled.
+  //
+  // The right model for our wire is additive: each op installs ONE gesture
+  // without disturbing siblings. Removal is explicit via the
+  // REMOVE_GESTURE_DETECTOR op (emitted from `useGestureDetector`'s unmount
+  // cleanup), which calls `__RemoveGestureDetector` directly. Note: this means
+  // we don't get diff-based callback updates if the BG side re-emits a gesture
+  // with the same id — but our wire never does that today; on prop changes BG
+  // emits REMOVE then SET.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  processGesture(el, fakeBaseGesture as any, undefined, false);
+  lastTreeByElementWvid.set(elementWvid, fakeBaseGesture);
+
+  // Track for REMOVE op cleanup and to drive `has-react-gesture` toggle when
+  // the last gesture goes (vendored function clears it on remove).
+  let attached = gesturesByElementWvid.get(elementWvid);
+  if (!attached) {
+    attached = new Set();
+    gesturesByElementWvid.set(elementWvid, attached);
+  }
+  attached.add(gestureId);
+  return true;
+}
+
 export function resetMainThreadState(): void {
   elements.clear();
   setPageUniqueId(1);
@@ -836,6 +872,7 @@ export function resetMainThreadState(): void {
   resetAnimatedMethodBindings();
   resetDerivedValues();
   resetFrameCallbacks();
+  resetParkedGestures();
   resetListState();
   resetWebGestures();
   resetSnapshotInstances();
