@@ -126,3 +126,15 @@ describe('summarize', () => {
         expect(out).toMatch(/tick/);
     });
 });
+
+describe('publish cadence', () => {
+    it('matches the literal inlined in the worklet', async () => {
+        // `shouldPublish` cannot reference `PUBLISH_MS` at runtime — a worklet
+        // body can't reach a module-scope binding — so the two are kept honest
+        // here instead of by the compiler.
+        const src = await import('node:fs/promises')
+            .then((fs) => fs.readFile(new URL('../frame-stats.mt.ts', import.meta.url), 'utf8'));
+        const { PUBLISH_MS } = await import('../frame-stats.mt');
+        expect(src).toContain(`st.statPubT < ${PUBLISH_MS}`);
+    });
+});

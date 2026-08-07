@@ -76,7 +76,17 @@ export function recordFrame(st: SimState, t0: number, t1: number): void {
     st.statBuckets[b] = st.statBuckets[b]! + 1;
 }
 
-/** 1 when it is time to publish to the background thread. */
+/**
+ * 1 when it is time to publish to the background thread.
+ *
+ * The cadence is written as a literal rather than referencing `PUBLISH_MS`,
+ * even though that constant lives in this very file. A worklet body cannot
+ * reach a module-scope binding at runtime: SWC captures free identifiers into
+ * `_c` and JSON-serializes it, so the constant would arrive as `undefined` and
+ * the comparison would be against NaN. Same constraint that keeps the physics
+ * tuning inlined; `PUBLISH_MS` exists to document the value and is asserted
+ * against this literal by the tests.
+ */
 export function shouldPublish(st: SimState, now: number): number {
     'main thread';
     if (now - st.statPubT < 500) return 0; // PUBLISH_MS
@@ -120,10 +130,15 @@ export function drainStats(st: SimState): number[] {
 /**
  * Draw the frame-interval sparkline by writing ONE bar per frame.
  *
- * This is the readout to trust while measuring: it costs a single style write
- * regardless of how many discs are on the board, and it never touches the
- * background thread, so it cannot distort the number it is displaying. The
- * numeric panel goes the other way — richer, but over the bridge at 2Hz.
+ * Exactly one `setStyleProperty` per frame, and only `height`. An earlier
+ * version also wrote `opacity` to flag a dropped frame, which quietly doubled
+ * the cost of the one thing in the app that must not perturb what it measures.
+ * The height already says it: a 50ms frame draws six times the bar of an 8ms
+ * one, which is not subtle.
+ *
+ * This is the readout to trust while measuring: its cost is constant in the
+ * number of discs and it never touches the background thread. The numeric
+ * panel goes the other way — richer, but over the bridge at 2Hz.
  */
 export function drawSpark(st: SimState, dt: number): void {
     'main thread';
@@ -145,5 +160,4 @@ export function drawSpark(st: SimState, dt: number): void {
     if (h > 50) h = 50;
     if (h < 1) h = 1;
     el.setStyleProperty('height', (h * 0.7).toFixed(1) + 'px');
-    el.setStyleProperty('opacity', dt > 20 ? '1' : '0.45');
 }

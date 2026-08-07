@@ -80,7 +80,7 @@ const PerfHud = component<PerfHudProps>(({ props }) => () => {
                             height: '1px',
                             borderRadius: '1px',
                             backgroundColor: COLORS.b,
-                            opacity: '0.45',
+                            opacity: '0.6',
                         }}
                     />
                 ))}
