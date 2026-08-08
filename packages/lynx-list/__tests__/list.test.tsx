@@ -81,7 +81,59 @@ describe('List', () => {
     const list = getByType(container, 'list');
     expect(list.props['span-count']).toBe(2);
     expect(list.props['list-type']).toBe('waterfall');
-    expect(list.props['item-snap']).toBe('center');
+    // Native reads `item-snap` as a dictionary on both platforms — the
+    // shorthand alignment is expanded to a factor, never passed as a string.
+    expect(list.props['item-snap']).toEqual({ factor: 0.5, offset: 0 });
+  });
+
+  it.each([
+    ['start', 0],
+    ['center', 0.5],
+    ['end', 1],
+  ] as const)('expands the %s alignment shorthand to factor %s', (align, factor) => {
+    const { container } = render(
+      <List items={ITEMS} keyExtractor={(i) => i.id} renderItem={renderRow} itemSnap={align} />,
+    );
+    expect(getByType(container, 'list').props['item-snap']).toEqual({ factor, offset: 0 });
+  });
+
+  it('passes through the full item-snap options, including maxSnapCount', () => {
+    const { container } = render(
+      <List
+        items={ITEMS}
+        keyExtractor={(i) => i.id}
+        renderItem={renderRow}
+        itemSnap={{ factor: 0.25, offset: 12, maxSnapCount: 3 }}
+      />,
+    );
+    expect(getByType(container, 'list').props['item-snap'])
+      .toEqual({ factor: 0.25, offset: 12, maxSnapCount: 3 });
+  });
+
+  it.each([
+    [{ factor: 1.5 }, { factor: 0, offset: 0 }],
+    [{ factor: -1 }, { factor: 0, offset: 0 }],
+    [{ factor: Number.NaN }, { factor: 0, offset: 0 }],
+    [{ maxSnapCount: 0 }, { factor: 0, offset: 0, maxSnapCount: 1 }],
+    [{ maxSnapCount: -3 }, { factor: 0, offset: 0, maxSnapCount: 1 }],
+    [{ maxSnapCount: Number.POSITIVE_INFINITY }, { factor: 0, offset: 0, maxSnapCount: 1 }],
+  ])('corrects out-of-contract itemSnap %o the way native would', (input, expected) => {
+    // Native clamps a bad factor to 0 and a maxSnapCount < 1 to 1, each behind
+    // a warning nobody reads. Correcting here means the attribute we emit is
+    // always one native accepts.
+    const { container } = render(
+      <List items={ITEMS} keyExtractor={(i) => i.id} renderItem={renderRow} itemSnap={input} />,
+    );
+    expect(getByType(container, 'list').props['item-snap']).toEqual(expected);
+  });
+
+  it('omits maxSnapCount when unset, so pre-4.0 hosts see the attribute they expect', () => {
+    const { container } = render(
+      <List items={ITEMS} keyExtractor={(i) => i.id} renderItem={renderRow} itemSnap={{ offset: 4 }} />,
+    );
+    const snap = getByType(container, 'list').props['item-snap'] as Record<string, number>;
+    expect(snap).toEqual({ factor: 0, offset: 4 });
+    expect('maxSnapCount' in snap).toBe(false);
   });
 
   it('maps estimatedItemSize and itemType onto each cell', () => {

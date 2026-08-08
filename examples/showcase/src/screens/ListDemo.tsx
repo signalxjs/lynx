@@ -20,6 +20,12 @@ const TOPICS = [
     'Tree-shaken icons',
 ];
 
+// A short horizontal source for the paginated-snap strip below the header.
+// `itemSnap` is the only way to exercise the native `item-snap` attribute, and
+// until #950 it was emitted as a bare string that neither platform's setter
+// could read — so this demo is what makes the fix visible (#950).
+const SNAP_PAGES = ['One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight'];
+
 // A 10,000-item virtual source. `items` grows as you page in (load-on-demand,
 // up to TOTAL), but only a bounded window of it is ever mounted as <list-item>
 // cells (virtualization, capped at MAXWINDOW) — so the native / shadow-tree
@@ -93,6 +99,10 @@ export const ListDemo = component(() => {
         }, 800);
     };
 
+    // 1 = one page per fling (the pre-4.0 behaviour and still the default);
+    // 3 = a fast fling may cross up to three pages (Lynx 4.0+).
+    const maxSnap = signal(1);
+
     return () => {
         const loaded = rows.value.length;
         return (
@@ -116,6 +126,36 @@ export const ListDemo = component(() => {
                         {columns.value === 1 ? '2 columns' : '1 column'}
                     </Button>
                 </Row>
+                <Row gap={8} padding={12} class="items-center">
+                    <Text size="sm" class="opacity-60 flex-1">
+                        Snap strip · centre-aligned, maxSnapCount {maxSnap.value}
+                    </Text>
+                    <Button
+                        size="sm"
+                        variant="outline"
+                        onPress={() => { maxSnap.value = maxSnap.value === 1 ? 3 : 1; }}
+                    >
+                        {maxSnap.value === 1 ? 'maxSnapCount 3' : 'maxSnapCount 1'}
+                    </Button>
+                </Row>
+                <view style={{ height: '96px' }}>
+                    <List
+                        items={SNAP_PAGES}
+                        itemsKey={`snap-${maxSnap.value}`}
+                        keyExtractor={(p) => p}
+                        horizontal
+                        itemSnap={{ factor: 0.5, maxSnapCount: maxSnap.value }}
+                        renderItem={(p) => (
+                            <view style={{ width: '240px', padding: '8px' }}>
+                                <Card bordered>
+                                    <Card.Body>
+                                        <Heading level={5}>{p}</Heading>
+                                    </Card.Body>
+                                </Card>
+                            </view>
+                        )}
+                    />
+                </view>
                 <view
                     class="flex-1"
                     style={{ display: 'flex', flexDirection: 'column', minHeight: '320px' }}

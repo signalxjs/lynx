@@ -197,6 +197,13 @@ export interface ApplyEntryOptions {
    * (#116). Defaults to `true`; set `false` as a kill switch.
    */
   enableCSSInlineVariables?: boolean;
+  /**
+   * Encode `enableNewSticky` into the template's page config (Lynx 4.0+).
+   * Defaults to `false`, matching upstream's own default — encoded rather
+   * than omitted so an engine-side default flip can't silently change sticky
+   * header layout under us.
+   */
+  enableNewSticky?: boolean;
   debugInfoOutside?: boolean;
   /** Enable the snapshot-template transform in both worklet loaders (#620). */
   snapshots?: boolean;
@@ -711,7 +718,10 @@ export async function applyEntry(
         .plugin(PLUGIN_PAGE_CONFIG)
         .use(SigxPageConfigPlugin, [
           templateMod.LynxTemplatePlugin,
-          { enableCSSInlineVariables: opts.enableCSSInlineVariables ?? true },
+          {
+            enableCSSInlineVariables: opts.enableCSSInlineVariables ?? true,
+            enableNewSticky: opts.enableNewSticky ?? false,
+          },
         ])
         .end();
     }

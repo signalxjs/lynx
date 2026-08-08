@@ -113,6 +113,36 @@ the header's `<list-item>` template — the platform info flows through with the
 template. See `@sigx/lynx-emoji`'s sectioned picker for the full pattern
 (headers + scroll-to-section + a tab bar following the scroll).
 
+### Paginated snapping
+
+Pass `itemSnap` to make scrolling settle on item boundaries. The shorthand
+picks an alignment; the object form is the native contract in full:
+
+```tsx
+<List items={pages} renderItem={renderPage} horizontal itemSnap="center" />
+
+<List
+  items={pages}
+  renderItem={renderPage}
+  horizontal
+  itemSnap={{ factor: 0.5, offset: 0, maxSnapCount: 3 }}
+/>
+```
+
+| Field | Meaning |
+| --- | --- |
+| `factor` | Where the item settles as a fraction of the viewport — `0` start, `0.5` centre, `1` end. Default `0`. |
+| `offset` | Pixel offset from the alignment line. Default `0`. |
+| `maxSnapCount` | How many items one fling may cross. `1` (the default) is the original one-item-per-fling behaviour; higher lets a fast fling page further. **Lynx 4.0+**; older hosts ignore it. |
+
+Omit `itemSnap` entirely to disable snapping — there is no `'none'` value,
+because native treats an absent or empty `item-snap` as "no paging".
+
+Out-of-contract values are corrected the way native itself would (`factor`
+outside `[0,1]` → `0`, `maxSnapCount` below `1` → `1`), with a dev-build
+warning naming the offending value — so the attribute we emit is always one
+native accepts, and the correction is visible rather than silent.
+
 ### Pull-to-refresh & load-more
 
 Opt into pull-to-refresh by passing the controlled `refreshing` prop (vertical
@@ -291,7 +321,7 @@ Zero-cost when omitted; omit it for append/prepend/edit flows.
 | `horizontal` | `boolean` | Horizontal scrolling. |
 | `numColumns` | `number` | Grid columns (`span-count`). |
 | `listType` | `'single' \| 'flow' \| 'waterfall'` | Layout mode. |
-| `itemSnap` | `'start' \| 'center' \| 'end' \| 'none'` | Paginated snap. |
+| `itemSnap` | `'start' \| 'center' \| 'end' \| ListItemSnapOptions` | Paginated snap. Omit to disable. |
 | `onEndReachedThreshold` | `number` | Items-from-end to fire `onEndReached`. |
 | `onStartReachedThreshold` | `number` | Items-from-start to fire `onStartReached`. |
 | `loadingMore` | `boolean` | Show a trailing loading cell (infinite scroll). |

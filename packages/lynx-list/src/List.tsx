@@ -17,7 +17,7 @@ import {
   useGestureDetector,
   type MainThread,
 } from '@sigx/lynx';
-import type { ListProps } from './types.js';
+import type { ListItemSnap, ListProps } from './types.js';
 import { SCROLL_METHOD } from './methods.js';
 import {
   resolveWindowConfig,
@@ -57,6 +57,58 @@ const DEFAULT_SCROLL_THROTTLE = 100;
 const ADOPTED_SCROLL_THROTTLE = 16;
 
 type ScrollDetail = { detail?: { scrollTop?: number; scrollLeft?: number } };
+
+const SNAP_ALIGN_FACTOR = { start: 0, center: 0.5, end: 1 } as const;
+
+/**
+ * Normalize `itemSnap` to the dictionary both platforms actually read —
+ * `{ factor, offset, maxSnapCount }`. Android's setter is
+ * `setPagingAlignment(ReadableMap)` and iOS's is
+ * `LYNX_PROP_SETTER("item-snap", …, NSDictionary *)`, so a bare string never
+ * reached either one.
+ *
+ * `maxSnapCount` is only emitted when set: hosts older than Lynx 4.0 ignore
+ * the key, but leaving it out keeps the attribute byte-identical to what a
+ * 3.x host expects rather than relying on that.
+ */
+function normalizeItemSnap(snap: ListItemSnap): Record<string, number> {
+  const opts = typeof snap === 'string' ? { factor: SNAP_ALIGN_FACTOR[snap] } : snap;
+
+  // Emit only values native considers valid, correcting the same way native
+  // would — it clamps an out-of-range factor to 0 and a maxSnapCount < 1 to 1,
+  // each behind a `LynxError` warning the caller is unlikely to ever read in
+  // logcat. Correcting here keeps the documented contract true at our boundary
+  // and keeps that native warning from firing; the dev warning below is what
+  // makes the correction visible instead of silent.
+  let factor = opts.factor ?? 0;
+  let maxSnapCount = opts.maxSnapCount;
+  const invalidFactor = !Number.isFinite(factor) || factor < 0 || factor > 1;
+  const invalidCount = maxSnapCount !== undefined
+    && (!Number.isFinite(maxSnapCount) || maxSnapCount < 1);
+  if (invalidFactor) factor = 0;
+  if (invalidCount) maxSnapCount = 1;
+
+  // __DEV__ is an app-build define (lynx-plugin source.define) substituted at
+  // bundle time even inside this dist; typeof-guarded for non-plugin bundlers.
+  if (typeof __DEV__ !== 'undefined' && __DEV__ && (invalidFactor || invalidCount)) {
+    if (invalidFactor) {
+      console.warn(
+        `[sigx-list] itemSnap.factor must be a finite number in [0,1] — got `
+          + `${String(opts.factor)}; using 0 (start), which is what native does`,
+      );
+    }
+    if (invalidCount) {
+      console.warn(
+        `[sigx-list] itemSnap.maxSnapCount must be a finite number >= 1 — got `
+          + `${String(opts.maxSnapCount)}; using 1 (one item per fling)`,
+      );
+    }
+  }
+
+  const out: Record<string, number> = { factor, offset: opts.offset ?? 0 };
+  if (maxSnapCount !== undefined) out.maxSnapCount = maxSnapCount;
+  return out;
+}
 
 /**
  * `<List>` — a data-driven, virtualized list built on Lynx's native `<list>`
@@ -804,7 +856,9 @@ const ListImpl = component<ListProps>(({ props, slots, emit }) => {
         // Spread optional attrs only when set — an `undefined` prop is
         // serialized as a native `null` attribute write (no skip in
         // patchProp), which would clobber the native default.
-        {...(props.itemSnap !== undefined ? { 'item-snap': props.itemSnap } : {})}
+        {...(props.itemSnap !== undefined
+          ? { 'item-snap': normalizeItemSnap(props.itemSnap) }
+          : {})}
         {...(props.sticky ? { sticky: true } : {})}
         {...(props.sticky && props.stickyOffset !== undefined
           ? { 'sticky-offset': props.stickyOffset }
@@ -1023,7 +1077,21 @@ const ListImpl = component<ListProps>(({ props, slots, emit }) => {
     return (
       <view
         class={props.class}
-        style={props.style}
+        // Clip the parked pull-to-refresh indicator (#754). It lives inside
+        // the content wrapper at `top: -pullThreshold`, i.e. outside that
+        // wrapper's bounds, and Lynx views default to visible overflow — so
+        // at rest it paints over whatever sibling occupies the strip above
+        // the list (document order is paint order).
+        //
+        // It has to be THIS wrapper, not the content wrapper: the indicator
+        // is a child of the content wrapper and translates down with it, so
+        // it stays at `-pullThreshold` in that wrapper's own coordinates and
+        // clipping there would hide it during the pull too. Clipped here, the
+        // pull translates it down INTO the measured box and it reveals
+        // exactly as before.
+        //
+        // Spread `props.style` after, so a caller can still opt out.
+        style={refreshEnabled ? { overflow: 'hidden', ...props.style } : props.style}
         bindlayoutchange={onLayoutChange}
       >
         {body}

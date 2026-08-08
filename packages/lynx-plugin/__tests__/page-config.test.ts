@@ -80,3 +80,29 @@ describe('SigxPageConfigPlugin (#116)', () => {
     );
   });
 });
+
+describe('enableNewSticky (#950)', () => {
+  it('carries the resolved boolean, so an engine default flip cannot change sticky layout', () => {
+    // Upstream ships enableNewSticky OFF by default. We encode `false`
+    // explicitly rather than omitting the key, so a future engine that flips
+    // its own default does not silently relayout our sticky headers.
+    const args = runPlugin(
+      { enableCSSInlineVariables: true, enableNewSticky: false },
+      {},
+    );
+    expect(args.encodeData.sourceContent.config).toEqual({
+      enableCSSInlineVariables: true,
+      enableNewSticky: false,
+    });
+  });
+
+  it('opts in when set', () => {
+    const args = runPlugin({ enableNewSticky: true }, {});
+    expect(args.encodeData.sourceContent.config.enableNewSticky).toBe(true);
+  });
+
+  it('overrides a pre-existing value in the config', () => {
+    const args = runPlugin({ enableNewSticky: false }, { enableNewSticky: true });
+    expect(args.encodeData.sourceContent.config.enableNewSticky).toBe(false);
+  });
+});
