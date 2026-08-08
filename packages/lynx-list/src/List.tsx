@@ -18,7 +18,7 @@ import {
   type MainThread,
 } from '@sigx/lynx';
 import type { ListItemSnap, ListProps } from './types.js';
-import { SCROLL_METHOD } from './methods.js';
+import { SCROLL_BY_METHOD, SCROLL_METHOD } from './methods.js';
 import {
   resolveWindowConfig,
   initialWindow,
@@ -30,6 +30,9 @@ import {
 
 // App-build define (see lynx-plugin source.define); typeof-guarded at use.
 declare const __DEV__: boolean;
+// The Lynx background-thread global. Resolves through the runtime's lexical
+// scope, not globalThis — same shape `@sigx/lynx-core`'s Platform reads.
+declare const lynx: { SystemInfo?: { platform?: string } } | undefined;
 
 // Reserved item-keys for the optional header/footer/loading cells. Prefixed so
 // they never collide with a consumer's keyExtractor output.
@@ -621,6 +624,42 @@ const ListImpl = component<ListProps>(({ props, slots, emit }) => {
     } catch { /* best-effort scroll — never fatal (see anchorRestoreMT) */ }
   });
 
+  /**
+   * Phase two of the instant chat pin (#930), Android only.
+   *
+   * Android's instant `scrollToPosition(alignTo: 'bottom')` is padding- and
+   * cell-height-blind: `UIList.scrollToPosition` computes
+   * `offsetPx += rv.getHeight() - dipToPx(params.itemHeight ?? 0)` and we never
+   * pass `itemHeight`, so it anchors the target cell's TOP at
+   * `paddingTop + rvHeight` — the cell lands entirely below the visible edge,
+   * and `LinearLayoutManager.fixLayoutEndGap` only corrects a gap, never an
+   * overshoot. Any `bottomInset` widens the miss, because we apply it as
+   * RecyclerView bottom padding the scroll math doesn't account for.
+   *
+   * `scrollBy` has none of that: it goes through `RecyclerView.scrollBy`, which
+   * clamps at `getEndAfterPadding()`. So over-scrolling by a whole viewport
+   * lands exactly at the end regardless of cell height or padding. The smooth
+   * path (`SmoothScroller.onTargetFound`) already uses the real decorated
+   * height and is padding-aware, so it needs none of this — nor does iOS,
+   * whose scroller uses the real cell height and already biases `alignTo:
+   * 'bottom'` by `-extraBottomInset`.
+   *
+   * Android-only; the caller gates. Deliberately NOT gated in here: an
+   * in-worklet platform check reads `SystemInfo`, which `entry-main.ts`
+   * installs as `{}` when the host hasn't populated `lynx.SystemInfo` — so a
+   * miss degrades to a silent no-op with no signal anywhere. Deciding on the
+   * background thread keeps it one branch, testable, and visible.
+   */
+  const nudgeToBottomMT = runOnMainThread((viewportDp: number, method: string) => {
+    'main thread';
+    const el = listRef.current;
+    if (!el || !(viewportDp > 0)) return;
+    try {
+      const p = el.invoke(method, { offset: viewportDp });
+      if (p && typeof p.catch === 'function') p.catch(() => {});
+    } catch { /* best-effort scroll — never fatal (see anchorRestoreMT) */ }
+  });
+
   // Scroll-to-bottom is driven by the native list's `layoutcomplete` event, NOT
   // the moment items change. When a message is appended, the new <list-item> and
   // its `update-list-info` reach native asynchronously — calling scrollToPosition
@@ -629,13 +668,57 @@ const ListImpl = component<ListProps>(({ props, slots, emit }) => {
   // laid out the current cells, so the target index is one it actually has. We
   // set `wantBottom` (on first paint and on stick-to-bottom appends) and consume
   // it in the handler; `firstScrollDone` gates the one-time opacity reveal.
+  /**
+   * Only Android's INSTANT list scroller needs the two-phase pin (#930). Read
+   * on the background thread, per instance, so tests can vary it and so the
+   * decision is one visible branch rather than a silent no-op inside a
+   * worklet. `SystemInfo` is `globalThis.SystemInfo` on the main thread and
+   * `lynx.SystemInfo` on this one; check both, and treat "don't know" as
+   * not-Android so an unrecognised host keeps the plain single-phase pin it
+   * has always had.
+   */
+  const isAndroidChatHost = ((): boolean => {
+    try {
+      const g = globalThis as { SystemInfo?: { platform?: string } };
+      const p = g.SystemInfo?.platform
+        ?? (typeof lynx !== 'undefined' ? lynx?.SystemInfo?.platform : undefined);
+      return typeof p === 'string' && p.toLowerCase() === 'android';
+    } catch {
+      return false;
+    }
+  })();
+
   let wantBottom = chatEnabled;   // chat starts wanting to be pinned to the bottom
   let wantBottomSmooth = false;   // first jump is instant; later follows animate
   let firstScrollDone = false;
+  // Phase two of an instant pin is owed (#930). Armed by every INSTANT
+  // scroll-to-bottom and consumed on the NEXT `layoutcomplete` — never in the
+  // same pass: `UIList.scrollBy` runs `runOnUiThreadImmediately`, so issuing it
+  // now would execute BEFORE the layout `scrollToPositionWithOffset` just
+  // requested and correct against the pre-scroll geometry.
+  let owesBottomNudge = false;
+  // Chat mode is vertical-only (`chatEnabled` excludes `horizontal`), so the
+  // main axis is always the measured height.
+  const viewportDp = (): number => layout.value?.height ?? props.initialMainAxisSize ?? 0;
+  const pinToBottom = (smooth: boolean): void => {
+    void scrollToBottomMT(totalCells() - 1, smooth, SCROLL_METHOD);
+    // The smooth scroller is already exact — only the instant path is blind.
+    if (!smooth && isAndroidChatHost) owesBottomNudge = true;
+  };
   const onChatLayoutComplete = (): void => {
+    // Phase two of the previous instant pin. It has to be the ONLY thing this
+    // pass does: the re-pin below would re-issue the very
+    // `scrollToPosition` this is correcting and clobber it in the same pass —
+    // which is exactly what the first cut of #930 did, leaving the pin
+    // unchanged on device while looking right in a unit test.
+    if (owesBottomNudge) {
+      owesBottomNudge = false;
+      void nudgeToBottomMT(viewportDp(), SCROLL_BY_METHOD);
+      return;
+    }
     if (wantBottom) {
       wantBottom = false;
-      void scrollToBottomMT(totalCells() - 1, wantBottomSmooth, SCROLL_METHOD);
+      pinToBottom(wantBottomSmooth);
       wantBottomSmooth = true;
       if (!firstScrollDone) {
         firstScrollDone = true;
@@ -652,7 +735,12 @@ const ListImpl = component<ListProps>(({ props, slots, emit }) => {
     // A user scroll isn't fought for more than one throttle tick: bindscroll
     // flips `atBottom` false on the first real upward movement.
     if (firstScrollDone && stickToBottom && atBottom.value) {
-      void scrollToBottomMT(totalCells() - 1, false, SCROLL_METHOD);
+      // Already at the bottom — this only corrects a stale offset, so the
+      // clamped relative scroll does it in ONE call on Android: over-scroll a
+      // viewport, `RecyclerView.scrollBy` stops at `getEndAfterPadding()`.
+      // Cheaper than a pin + nudge pair, and it cannot overshoot.
+      if (isAndroidChatHost) void nudgeToBottomMT(viewportDp(), SCROLL_BY_METHOD);
+      else pinToBottom(false);
     }
   };
 

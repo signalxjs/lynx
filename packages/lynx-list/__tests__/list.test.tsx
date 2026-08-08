@@ -660,6 +660,137 @@ describe('List', () => {
     expect(queryByText(container, '1 new ↓')).toBeNull();
   });
 
+  // The phase-two nudge is gated on the platform inside the worklet, where
+  // `globalThis.SystemInfo` lives — so these declare it explicitly.
+  const withPlatform = (platform: string | undefined, run: () => Promise<void>) => async () => {
+    const g = globalThis as { SystemInfo?: { platform?: string } };
+    const prev = g.SystemInfo;
+    if (platform === undefined) delete g.SystemInfo;
+    else g.SystemInfo = { platform };
+    try { await run(); } finally {
+      if (prev === undefined) delete g.SystemInfo;
+      else g.SystemInfo = prev;
+    }
+  };
+
+  it(
+    'chat mode: settles each instant pin with a clamped scrollBy on the NEXT layoutcomplete (#930)',
+    withPlatform('Android', async () => {
+      // Android's instant scrollToPosition(alignTo:'bottom') is padding- and
+      // cell-height-blind, so every instant pin owes a phase two. It must land
+      // on the FOLLOWING layoutcomplete — UIList.scrollBy runs immediately, so
+      // issuing it in the same pass would correct against pre-scroll geometry.
+      const fake = { current: { invoke: vi.fn() } };
+      const { container } = render(
+        <List
+          items={ITEMS}
+          keyExtractor={(i) => i.id}
+          renderItem={renderRow}
+          inverted
+          initialMainAxisSize={640}
+          mtRef={fake as never}
+        />,
+      );
+      const list = getByType(container, 'list');
+
+      await act(() => { list._handlers.get('bindlayoutcomplete')!({}); });
+      expect(fake.current.invoke).toHaveBeenCalledWith(
+        'scrollToPosition',
+        { position: 2, alignTo: 'bottom', offset: 0, smooth: false },
+      );
+      expect(fake.current.invoke).not.toHaveBeenCalledWith('scrollBy', expect.anything());
+      fake.current.invoke.mockClear();
+
+      // Over-scroll by a whole viewport; the platform clamps it at the end.
+      await act(() => { list._handlers.get('bindlayoutcomplete')!({}); });
+      expect(fake.current.invoke).toHaveBeenCalledWith('scrollBy', { offset: 640 });
+    }),
+  );
+
+  it(
+    'chat mode: the nudge is armed once per instant pin, not per relayout (#930)',
+    withPlatform('Android', async () => {
+      const fake = { current: { invoke: vi.fn() } };
+      const { container } = render(
+        <List
+          items={ITEMS}
+          keyExtractor={(i) => i.id}
+          renderItem={renderRow}
+          inverted
+          stickToBottom={false}
+          initialMainAxisSize={640}
+          mtRef={fake as never}
+        />,
+      );
+      const list = getByType(container, 'list');
+      await act(() => { list._handlers.get('bindlayoutcomplete')!({}); });
+      fake.current.invoke.mockClear();
+      await act(() => { list._handlers.get('bindlayoutcomplete')!({}); });
+      expect(fake.current.invoke).toHaveBeenCalledWith('scrollBy', { offset: 640 });
+      fake.current.invoke.mockClear();
+      // Only once: with stickToBottom off nothing arms another, so relayouts
+      // stay quiet rather than nudging the viewport forever.
+      await act(() => { list._handlers.get('bindlayoutcomplete')!({}); });
+      expect(fake.current.invoke).not.toHaveBeenCalled();
+    }),
+  );
+
+  it(
+    'chat mode: the Android re-pin uses the clamped scroll directly, not a pin+nudge pair (#930)',
+    withPlatform('Android', async () => {
+      const fake = { current: { invoke: vi.fn() } };
+      const { container } = render(
+        <List
+          items={ITEMS}
+          keyExtractor={(i) => i.id}
+          renderItem={renderRow}
+          inverted
+          initialMainAxisSize={640}
+          mtRef={fake as never}
+        />,
+      );
+      const list = getByType(container, 'list');
+      await act(() => { list._handlers.get('bindlayoutcomplete')!({}); });  // pin
+      await act(() => { list._handlers.get('bindlayoutcomplete')!({}); });  // its nudge
+      fake.current.invoke.mockClear();
+
+      // Still at the bottom: every later relayout corrects the stale offset
+      // with ONE clamped scrollBy. Re-issuing `scrollToPosition` here is what
+      // the first cut did, and it clobbered the correction in the same pass.
+      await act(() => { list._handlers.get('bindlayoutcomplete')!({}); });
+      expect(fake.current.invoke).toHaveBeenCalledWith('scrollBy', { offset: 640 });
+      expect(fake.current.invoke).not.toHaveBeenCalledWith(
+        'scrollToPosition',
+        expect.anything(),
+      );
+    }),
+  );
+
+  it(
+    'chat mode: iOS and unknown hosts owe no nudge — only Android\u2019s instant scroller is blind (#930)',
+    async () => {
+      for (const platform of ['iOS', undefined]) {
+        const fake = { current: { invoke: vi.fn() } };
+        await withPlatform(platform, async () => {
+          const { container } = render(
+            <List
+              items={ITEMS}
+              keyExtractor={(i) => i.id}
+              renderItem={renderRow}
+              inverted
+              initialMainAxisSize={640}
+              mtRef={fake as never}
+            />,
+          );
+          const list = getByType(container, 'list');
+          await act(() => { list._handlers.get('bindlayoutcomplete')!({}); });
+          await act(() => { list._handlers.get('bindlayoutcomplete')!({}); });
+        })();
+        expect(fake.current.invoke).not.toHaveBeenCalledWith('scrollBy', expect.anything());
+      }
+    },
+  );
+
   it('chat mode: re-pins to the bottom on layoutcomplete while at the bottom (#839)', async () => {
     const fake = { current: { invoke: vi.fn() } };
     const { container } = render(

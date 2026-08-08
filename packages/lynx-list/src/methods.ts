@@ -29,6 +29,19 @@ function fireAndForget(p: Promise<unknown> | undefined): void {
 // truth (and the one device-verification point).
 export const SCROLL_METHOD = 'scrollToPosition';
 
+/**
+ * The native `<list>` relative-scroll UI method — `scrollBy({ offset })`,
+ * offset in dp. Centralized alongside {@link SCROLL_METHOD} for the same
+ * reason: one device-verification point.
+ *
+ * Unlike `scrollToPosition`, this path is **clamped by the platform**:
+ * Android's `UIList.scrollBy` goes through `RecyclerView.scrollBy`, which
+ * stops at `getEndAfterPadding()`. That makes it padding-aware and
+ * cell-height-agnostic, which is exactly what the instant
+ * `scrollToPosition(alignTo: 'bottom')` path is not (#930).
+ */
+export const SCROLL_BY_METHOD = 'scrollBy';
+
 function invokeScroll(
   el: MainThread.Element | null,
   index: number,
