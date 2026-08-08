@@ -5,6 +5,13 @@ packages:
 onlyBuiltDependencies:
   - esbuild
 
+# @lynx-js/react declares an optional `@lynx-js/types: "*"` peer, which pnpm
+# auto-resolves to the newest published (4.1.0) regardless of what the catalog
+# says — leaving two type lines in the graph. Force the transitive one onto the
+# same 4.0.x line the catalog and the CLI templates use.
+overrides:
+  "@lynx-js/types": ~4.0.0
+
 # The sigx core versions this repo builds against. Every workspace package
 # declares these as "catalog:" — bump here, once.
 #
