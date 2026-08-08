@@ -79,7 +79,7 @@
         "@rsbuild/core": "^1.7.5",
         "@sigx/lynx-cli": "workspace:*",
         "@sigx/lynx-icons": "workspace:*",
-        "@types/node": "^25.9.1",
+        "@types/node": "^26.1.1",
         "@types/ws": "^8.5.13",
         "@typescript/native-preview": "7.0.0-dev.20260521.1",
         "typescript": "^6.0.3"
