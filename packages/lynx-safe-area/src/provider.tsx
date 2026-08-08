@@ -208,7 +208,7 @@ function rootStyle(
   // synchronously from `__globalProps`, so they're correct on first paint
   // (native Lynx ≥ 3.6), and re-rendering with new insets re-resolves every
   // descendant `var()` on native Lynx ≥ 3.9 (the CLI's host templates pin
-  // 3.9.0; older hosts keep the first-paint values).
+  // 4.0.1; older hosts keep the first-paint values).
   const base: Record<string, string | number> = {
     height: '100vh',
     display: 'flex',

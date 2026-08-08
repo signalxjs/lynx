@@ -143,7 +143,7 @@ export interface PluginSigxLynxOptions {
    * (`style={{ '--x': '…' }}`): descendants resolve `var(--x)` from first
    * paint. Encoded into the template's page config; the native engine
    * decodes it since Lynx 3.6 and propagates value changes to descendants
-   * since 3.9 (the CLI's host templates pin 3.9.0). `@lynx-js/web-core`
+   * since 3.9 (the CLI's host templates pin 4.0.1). `@lynx-js/web-core`
    * honors inline custom properties unconditionally.
    * Pass `false` as a kill switch. (#116)
    * @defaultValue true

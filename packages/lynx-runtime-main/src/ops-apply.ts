@@ -522,8 +522,8 @@ export function applyOps(ops: unknown[]): void {
         const el = elements.get(id);
         // `--*` keys ride the object form: with `enableCSSInlineVariables`
         // the engine registers them as inline CSS variables and (since Lynx
-        // 3.9 — the CLI's native pin) propagates value changes to descendant
-        // `var()` uses (#116).
+        // 3.9; the CLI's native pin is 4.0.1) propagates value changes to
+        // descendant `var()` uses (#116).
         if (el) __SetInlineStyles(el, value);
         break;
       }

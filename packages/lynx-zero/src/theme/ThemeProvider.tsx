@@ -156,7 +156,7 @@ function applyFontScale(
  * (encoded by `@sigx/lynx-plugin`), inline custom properties register and
  * inherit from first paint on native Lynx ≥ 3.6, and a value change
  * re-resolves every descendant `var()` on native Lynx ≥ 3.9 — the CLI's host
- * templates pin 3.9.0; older hosts paint frame one but won't follow theme
+ * templates pin 4.0.1; older hosts paint frame one but won't follow theme
  * switches (#116).
  */
 function buildThemeVars(name: string, fontScale: number): Record<string, string> {
