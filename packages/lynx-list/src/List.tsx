@@ -33,6 +33,10 @@ declare const __DEV__: boolean;
 // The Lynx background-thread global. Resolves through the runtime's lexical
 // scope, not globalThis — same shape `@sigx/lynx-core`'s Platform reads.
 declare const lynx: { SystemInfo?: { platform?: string } } | undefined;
+// Build-time define from @sigx/lynx-plugin, and the iOS-only closure arg —
+// the same two signals `@sigx/lynx-core`'s Platform falls back to.
+declare const __WEB__: boolean | undefined;
+declare const webkit: unknown;
 
 // Reserved item-keys for the optional header/footer/loading cells. Prefixed so
 // they never collide with a consumer's keyExtractor output.
@@ -669,24 +673,44 @@ const ListImpl = component<ListProps>(({ props, slots, emit }) => {
   // set `wantBottom` (on first paint and on stick-to-bottom appends) and consume
   // it in the handler; `firstScrollDone` gates the one-time opacity reveal.
   /**
-   * Only Android's INSTANT list scroller needs the two-phase pin (#930). Read
-   * on the background thread, per instance, so tests can vary it and so the
-   * decision is one visible branch rather than a silent no-op inside a
-   * worklet. `SystemInfo` is `globalThis.SystemInfo` on the main thread and
-   * `lynx.SystemInfo` on this one; check both, and treat "don't know" as
-   * not-Android so an unrecognised host keeps the plain single-phase pin it
-   * has always had.
+   * Only Android's INSTANT list scroller needs the two-phase pin (#930).
+   *
+   * Decided on the background thread rather than inside the worklet:
+   * `entry-main.ts` installs `SystemInfo` as `{}` when the host hasn't
+   * populated `lynx.SystemInfo`, so an in-worklet check degrades to a silent
+   * no-op with no signal anywhere.
+   *
+   * Resolved LAZILY and memoised, not at setup: `SystemInfo` can be briefly
+   * absent on the Android background runtime, and reading it too early would
+   * pin the wrong answer for the component's whole life. By the first
+   * `layoutcomplete` — the only caller — it is populated.
+   *
+   * The fallback order mirrors `@sigx/lynx-core`'s `Platform` (inlined rather
+   * than depended on, for one boolean): explicit `platform` wins; else web is
+   * excluded at build time; else the iOS-only `webkit` closure-arg marks iOS;
+   * else assume Android. Assuming Android is the safe default *here* — the
+   * one host that reaches this line without any signal is the Android BG
+   * runtime mid-init, and guessing wrong costs only the pin correction we are
+   * already missing, whereas guessing Android on iOS would add a scroll to a
+   * platform that is already exact.
    */
-  const isAndroidChatHost = ((): boolean => {
+  let androidChatHost: boolean | undefined;
+  const isAndroidChatHost = (): boolean => {
+    if (androidChatHost !== undefined) return androidChatHost;
+    let result = true;
     try {
       const g = globalThis as { SystemInfo?: { platform?: string } };
       const p = g.SystemInfo?.platform
         ?? (typeof lynx !== 'undefined' ? lynx?.SystemInfo?.platform : undefined);
-      return typeof p === 'string' && p.toLowerCase() === 'android';
+      if (typeof p === 'string' && p !== '') result = p.toLowerCase() === 'android';
+      else if (typeof __WEB__ !== 'undefined' && __WEB__) result = false;
+      else if (typeof webkit !== 'undefined') result = false;   // iOS-only global
     } catch {
-      return false;
+      result = true;
     }
-  })();
+    androidChatHost = result;
+    return result;
+  };
 
   let wantBottom = chatEnabled;   // chat starts wanting to be pinned to the bottom
   let wantBottomSmooth = false;   // first jump is instant; later follows animate
@@ -703,7 +727,7 @@ const ListImpl = component<ListProps>(({ props, slots, emit }) => {
   const pinToBottom = (smooth: boolean): void => {
     void scrollToBottomMT(totalCells() - 1, smooth, SCROLL_METHOD);
     // The smooth scroller is already exact — only the instant path is blind.
-    if (!smooth && isAndroidChatHost) owesBottomNudge = true;
+    if (!smooth && isAndroidChatHost()) owesBottomNudge = true;
   };
   const onChatLayoutComplete = (): void => {
     // Phase two of the previous instant pin. It has to be the ONLY thing this
@@ -739,7 +763,7 @@ const ListImpl = component<ListProps>(({ props, slots, emit }) => {
       // clamped relative scroll does it in ONE call on Android: over-scroll a
       // viewport, `RecyclerView.scrollBy` stops at `getEndAfterPadding()`.
       // Cheaper than a pin + nudge pair, and it cannot overshoot.
-      if (isAndroidChatHost) void nudgeToBottomMT(viewportDp(), SCROLL_BY_METHOD);
+      if (isAndroidChatHost()) void nudgeToBottomMT(viewportDp(), SCROLL_BY_METHOD);
       else pinToBottom(false);
     }
   };

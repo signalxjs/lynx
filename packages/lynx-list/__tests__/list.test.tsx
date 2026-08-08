@@ -767,31 +767,56 @@ describe('List', () => {
   );
 
   it(
-    'chat mode: iOS and unknown hosts owe no nudge — only Android\u2019s instant scroller is blind (#930)',
-    async () => {
-      for (const platform of ['iOS', undefined]) {
-        const fake = { current: { invoke: vi.fn() } };
-        await withPlatform(platform, async () => {
-          const { container } = render(
-            <List
-              items={ITEMS}
-              keyExtractor={(i) => i.id}
-              renderItem={renderRow}
-              inverted
-              initialMainAxisSize={640}
-              mtRef={fake as never}
-            />,
-          );
-          const list = getByType(container, 'list');
-          await act(() => { list._handlers.get('bindlayoutcomplete')!({}); });
-          await act(() => { list._handlers.get('bindlayoutcomplete')!({}); });
-        })();
-        expect(fake.current.invoke).not.toHaveBeenCalledWith('scrollBy', expect.anything());
-      }
-    },
+    'chat mode: iOS owes no nudge \u2014 only Android\u2019s instant scroller is blind (#930)',
+    withPlatform('iOS', async () => {
+      const fake = { current: { invoke: vi.fn() } };
+      const { container } = render(
+        <List
+          items={ITEMS}
+          keyExtractor={(i) => i.id}
+          renderItem={renderRow}
+          inverted
+          initialMainAxisSize={640}
+          mtRef={fake as never}
+        />,
+      );
+      const list = getByType(container, 'list');
+      await act(() => { list._handlers.get('bindlayoutcomplete')!({}); });
+      await act(() => { list._handlers.get('bindlayoutcomplete')!({}); });
+      expect(fake.current.invoke).not.toHaveBeenCalledWith('scrollBy', expect.anything());
+    }),
   );
 
-  it('chat mode: re-pins to the bottom on layoutcomplete while at the bottom (#839)', async () => {
+  it(
+    'chat mode: an absent SystemInfo is treated as Android, not as "skip the fix" (#930)',
+    withPlatform(undefined, async () => {
+      // SystemInfo can be briefly absent on the Android background runtime.
+      // Defaulting to not-Android there would silently leave the original
+      // mis-pin unfixed, and the only native host reaching this with no signal
+      // at all is Android mid-init \u2014 iOS still exposes `webkit`.
+      const fake = { current: { invoke: vi.fn() } };
+      const { container } = render(
+        <List
+          items={ITEMS}
+          keyExtractor={(i) => i.id}
+          renderItem={renderRow}
+          inverted
+          initialMainAxisSize={640}
+          mtRef={fake as never}
+        />,
+      );
+      const list = getByType(container, 'list');
+      await act(() => { list._handlers.get('bindlayoutcomplete')!({}); });
+      await act(() => { list._handlers.get('bindlayoutcomplete')!({}); });
+      expect(fake.current.invoke).toHaveBeenCalledWith('scrollBy', { offset: 640 });
+    }),
+  );
+
+  // iOS pins with `scrollToPosition` on every relayout; Android's clamped
+  // re-pin is covered above (#930).
+  it(
+    'chat mode: re-pins to the bottom on layoutcomplete while at the bottom (#839)',
+    withPlatform('iOS', async () => {
     const fake = { current: { invoke: vi.fn() } };
     const { container } = render(
       <List
@@ -825,7 +850,7 @@ describe('List', () => {
     });
     await act(() => { list._handlers.get('bindlayoutcomplete')!({}); });
     expect(fake.current.invoke).not.toHaveBeenCalled();
-  });
+  }));
 
   it('chat mode: stickToBottom={false} pins first paint but never re-pins', async () => {
     const fake = { current: { invoke: vi.fn() } };
