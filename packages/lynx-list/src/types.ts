@@ -19,8 +19,8 @@ export type ListItemSnapAlign = 'start' | 'center' | 'end';
 export interface ListItemSnapOptions {
   /**
    * Where the item settles, as a fraction of the viewport: `0` start,
-   * `0.5` centre, `1` end. Out of `[0,1]` is clamped to `0` by native, with
-   * a warning. Default `0`.
+   * `0.5` centre, `1` end. Outside `[0,1]` (or non-finite) is corrected to
+   * `0` — what native does — with a dev-build warning. Default `0`.
    */
   factor?: number;
   /** Pixel offset from the alignment line. Default `0`. */
@@ -28,7 +28,8 @@ export interface ListItemSnapOptions {
   /**
    * How many items a single fling may cross (Lynx 4.0+). `1` — the default —
    * keeps the original one-item-per-fling behaviour; higher values let a fast
-   * fling page further, bounded by this count. Must be ≥ 1.
+   * fling page further, bounded by this count. Below `1` (or non-finite) is
+   * corrected to `1` — what native does — with a dev-build warning.
    */
   maxSnapCount?: number;
 }

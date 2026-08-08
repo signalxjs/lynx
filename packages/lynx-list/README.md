@@ -131,12 +131,17 @@ picks an alignment; the object form is the native contract in full:
 
 | Field | Meaning |
 | --- | --- |
-| `factor` | Where the item settles as a fraction of the viewport — `0` start, `0.5` centre, `1` end. Outside `[0,1]` native clamps to `0` and warns. Default `0`. |
+| `factor` | Where the item settles as a fraction of the viewport — `0` start, `0.5` centre, `1` end. Default `0`. |
 | `offset` | Pixel offset from the alignment line. Default `0`. |
 | `maxSnapCount` | How many items one fling may cross. `1` (the default) is the original one-item-per-fling behaviour; higher lets a fast fling page further. **Lynx 4.0+**; older hosts ignore it. |
 
 Omit `itemSnap` entirely to disable snapping — there is no `'none'` value,
 because native treats an absent or empty `item-snap` as "no paging".
+
+Out-of-contract values are corrected the way native itself would (`factor`
+outside `[0,1]` → `0`, `maxSnapCount` below `1` → `1`), with a dev-build
+warning naming the offending value — so the attribute we emit is always one
+native accepts, and the correction is visible rather than silent.
 
 ### Pull-to-refresh & load-more
 

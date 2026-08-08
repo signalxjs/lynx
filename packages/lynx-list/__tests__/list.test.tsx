@@ -110,6 +110,23 @@ describe('List', () => {
       .toEqual({ factor: 0.25, offset: 12, maxSnapCount: 3 });
   });
 
+  it.each([
+    [{ factor: 1.5 }, { factor: 0, offset: 0 }],
+    [{ factor: -1 }, { factor: 0, offset: 0 }],
+    [{ factor: Number.NaN }, { factor: 0, offset: 0 }],
+    [{ maxSnapCount: 0 }, { factor: 0, offset: 0, maxSnapCount: 1 }],
+    [{ maxSnapCount: -3 }, { factor: 0, offset: 0, maxSnapCount: 1 }],
+    [{ maxSnapCount: Number.POSITIVE_INFINITY }, { factor: 0, offset: 0, maxSnapCount: 1 }],
+  ])('corrects out-of-contract itemSnap %o the way native would', (input, expected) => {
+    // Native clamps a bad factor to 0 and a maxSnapCount < 1 to 1, each behind
+    // a warning nobody reads. Correcting here means the attribute we emit is
+    // always one native accepts.
+    const { container } = render(
+      <List items={ITEMS} keyExtractor={(i) => i.id} renderItem={renderRow} itemSnap={input} />,
+    );
+    expect(getByType(container, 'list').props['item-snap']).toEqual(expected);
+  });
+
   it('omits maxSnapCount when unset, so pre-4.0 hosts see the attribute they expect', () => {
     const { container } = render(
       <List items={ITEMS} keyExtractor={(i) => i.id} renderItem={renderRow} itemSnap={{ offset: 4 }} />,

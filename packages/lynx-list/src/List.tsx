@@ -73,11 +73,40 @@ const SNAP_ALIGN_FACTOR = { start: 0, center: 0.5, end: 1 } as const;
  */
 function normalizeItemSnap(snap: ListItemSnap): Record<string, number> {
   const opts = typeof snap === 'string' ? { factor: SNAP_ALIGN_FACTOR[snap] } : snap;
-  const out: Record<string, number> = {
-    factor: opts.factor ?? 0,
-    offset: opts.offset ?? 0,
-  };
-  if (opts.maxSnapCount !== undefined) out.maxSnapCount = opts.maxSnapCount;
+
+  // Emit only values native considers valid, correcting the same way native
+  // would — it clamps an out-of-range factor to 0 and a maxSnapCount < 1 to 1,
+  // each behind a `LynxError` warning the caller is unlikely to ever read in
+  // logcat. Correcting here keeps the documented contract true at our boundary
+  // and keeps that native warning from firing; the dev warning below is what
+  // makes the correction visible instead of silent.
+  let factor = opts.factor ?? 0;
+  let maxSnapCount = opts.maxSnapCount;
+  const invalidFactor = !Number.isFinite(factor) || factor < 0 || factor > 1;
+  const invalidCount = maxSnapCount !== undefined
+    && (!Number.isFinite(maxSnapCount) || maxSnapCount < 1);
+  if (invalidFactor) factor = 0;
+  if (invalidCount) maxSnapCount = 1;
+
+  // __DEV__ is an app-build define (lynx-plugin source.define) substituted at
+  // bundle time even inside this dist; typeof-guarded for non-plugin bundlers.
+  if (typeof __DEV__ !== 'undefined' && __DEV__ && (invalidFactor || invalidCount)) {
+    if (invalidFactor) {
+      console.warn(
+        `[sigx-list] itemSnap.factor must be a finite number in [0,1] — got `
+          + `${String(opts.factor)}; using 0 (start), which is what native does`,
+      );
+    }
+    if (invalidCount) {
+      console.warn(
+        `[sigx-list] itemSnap.maxSnapCount must be a finite number >= 1 — got `
+          + `${String(opts.maxSnapCount)}; using 1 (one item per fling)`,
+      );
+    }
+  }
+
+  const out: Record<string, number> = { factor, offset: opts.offset ?? 0 };
+  if (maxSnapCount !== undefined) out.maxSnapCount = maxSnapCount;
   return out;
 }
 
