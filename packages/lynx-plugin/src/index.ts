@@ -151,6 +151,24 @@ export interface PluginSigxLynxOptions {
   enableCSSInlineVariables?: boolean;
 
   /**
+   * Opt into the engine's new sticky layout implementation for `<list>`
+   * section headers (Lynx 4.0+). Encoded into the template's page config.
+   *
+   * Upstream ships this **off** by default ("kept the sticky behavior
+   * disabled by default so platform behavior changes can land in later
+   * commits"), and we encode the resolved boolean rather than leaving the key
+   * absent — so a future engine that flips the default cannot change how our
+   * sticky headers lay out without us choosing it.
+   *
+   * Flip to `true` to adopt the new implementation. It changes where and when
+   * a header pins, so verify anything doing pixel math against sticky
+   * positions — the sectioned emoji picker's tab-sync heuristic in particular.
+   * Hosts older than 4.0 ignore the key.
+   * @defaultValue false
+   */
+  enableNewSticky?: boolean;
+
+  /**
    * Whether to place debug info outside the template bundle.
    * @defaultValue true
    */
@@ -197,6 +215,7 @@ export function pluginSigxLynx(
     enableCSSInheritance: _enableCSSInheritance = false,
     customCSSInheritanceList: _customCSSInheritanceList,
     enableCSSInlineVariables: _enableCSSInlineVariables = true,
+    enableNewSticky: _enableNewSticky = false,
     debugInfoOutside: _debugInfoOutside = true,
     snapshots: _snapshots = true,
     web: _web = true,
@@ -591,6 +610,7 @@ export function pluginSigxLynx(
         enableCSSInheritance: _enableCSSInheritance,
         customCSSInheritanceList: _customCSSInheritanceList,
         enableCSSInlineVariables: _enableCSSInlineVariables,
+        enableNewSticky: _enableNewSticky,
         snapshots: _snapshots,
       });
 

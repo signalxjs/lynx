@@ -72,7 +72,16 @@ export default defineConfig({
    inline custom properties unconditionally. Kill switch:
    `pluginSigxLynx({ enableCSSInlineVariables: false })`.
 
-7. **Cross-package worklet pickup.** The worklet rules run on every JS/TS file in the BG / MT layers, including `node_modules` and pre-built `dist/`. Any package shipping `'main thread'` directives in its dist (`@sigx/lynx-motion`, `@sigx/lynx-navigation`, `@sigx/lynx-gestures`, future additions) is picked up automatically — no allowlist or opt-in flag. See [CONTRIBUTING.md](https://github.com/signalxjs/lynx/blob/main/CONTRIBUTING.md#lynx-plugin-internals-cross-package-worklet-pickup) for the loader-branching details.
+7. **Sticky list layout (#950).** The plugin encodes `enableNewSticky` into
+   the template's page config. Upstream ships Lynx 4.0's new sticky layout
+   **off** by default; we encode the resolved boolean rather than omitting the
+   key, so an engine that later flips its own default cannot relayout sticky
+   `<list>` headers without us choosing it. Opt in with
+   `pluginSigxLynx({ enableNewSticky: true })` — it changes where and when a
+   header pins, so re-check anything doing pixel math against sticky positions.
+   Hosts older than 4.0 ignore the key.
+
+8. **Cross-package worklet pickup.** The worklet rules run on every JS/TS file in the BG / MT layers, including `node_modules` and pre-built `dist/`. Any package shipping `'main thread'` directives in its dist (`@sigx/lynx-motion`, `@sigx/lynx-navigation`, `@sigx/lynx-gestures`, future additions) is picked up automatically — no allowlist or opt-in flag. See [CONTRIBUTING.md](https://github.com/signalxjs/lynx/blob/main/CONTRIBUTING.md#lynx-plugin-internals-cross-package-worklet-pickup) for the loader-branching details.
 
 ## Worklet author quick reference
 

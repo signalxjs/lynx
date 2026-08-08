@@ -293,8 +293,12 @@ export interface ListAttributes extends LynxCommonAttributes {
     'span-count'?: number;
     /** List type */
     'list-type'?: 'single' | 'flow' | 'waterfall';
-    /** Snap items to edges */
-    'item-snap'?: 'start' | 'center' | 'end' | 'none';
+    /**
+     * Paginated-scroll snapping. Both platforms read this as a dictionary
+     * (`setPagingAlignment(ReadableMap)` / `NSDictionary *`), never a string.
+     * `maxSnapCount` (items one fling may cross, default 1) is Lynx 4.0+.
+     */
+    'item-snap'?: { factor?: number; offset?: number; maxSnapCount?: number };
     /** Enable sticky positioning for items with `sticky-top`/`sticky-bottom` */
     sticky?: boolean;
     /** Pixel offset sticky items pin at */

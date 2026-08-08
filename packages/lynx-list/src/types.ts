@@ -3,8 +3,38 @@ import type { Define, MainThread, MainThreadRef, SharedValue } from '@sigx/lynx'
 /** Native `<list>` layout mode. */
 export type ListType = 'single' | 'flow' | 'waterfall';
 
+/** Shorthand alignment for {@link ListItemSnapOptions.factor}. */
+export type ListItemSnapAlign = 'start' | 'center' | 'end';
+
+/**
+ * Paginated-scroll snapping, mirroring the native `item-snap` contract.
+ *
+ * Both platforms read this as a dictionary (`setPagingAlignment(ReadableMap)`
+ * on Android, `LYNX_PROP_SETTER("item-snap", …, NSDictionary *)` on iOS) — an
+ * earlier string-only shape here never reached either setter.
+ *
+ * Omit the prop entirely to disable snapping; native treats an empty/absent
+ * value as "no paging".
+ */
+export interface ListItemSnapOptions {
+  /**
+   * Where the item settles, as a fraction of the viewport: `0` start,
+   * `0.5` centre, `1` end. Out of `[0,1]` is clamped to `0` by native, with
+   * a warning. Default `0`.
+   */
+  factor?: number;
+  /** Pixel offset from the alignment line. Default `0`. */
+  offset?: number;
+  /**
+   * How many items a single fling may cross (Lynx 4.0+). `1` — the default —
+   * keeps the original one-item-per-fling behaviour; higher values let a fast
+   * fling page further, bounded by this count. Must be ≥ 1.
+   */
+  maxSnapCount?: number;
+}
+
 /** Where items snap when paginated scrolling settles. */
-export type ListItemSnap = 'start' | 'center' | 'end' | 'none';
+export type ListItemSnap = ListItemSnapAlign | ListItemSnapOptions;
 
 /** Alignment target for an imperative scroll-to-index. */
 export type ScrollAlign = 'top' | 'bottom' | 'middle';
@@ -82,7 +112,12 @@ export type ListProps<T = unknown> =
   & Define.Prop<'numColumns', number, false>
   /** Layout mode: `single` (default), `flow` (grid), `waterfall`. */
   & Define.Prop<'listType', ListType, false>
-  /** Snap items to an edge during paginated scroll (`item-snap`). */
+  /**
+   * Snap items during paginated scroll (native `item-snap`). Either a
+   * shorthand alignment (`'start' | 'center' | 'end'`) or the full
+   * {@link ListItemSnapOptions} — `{ factor, offset, maxSnapCount }`. Omit to
+   * disable snapping.
+   */
   & Define.Prop<'itemSnap', ListItemSnap, false>
   /**
    * Enable sticky positioning for items carrying `sticky-top`/`sticky-bottom`
