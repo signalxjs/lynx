@@ -67,7 +67,7 @@ export default defineConfig({
    native engine registers CSS custom properties declared in inline `style`
    (`style={{ '--x': '…' }}`) and descendants resolve `var(--x)` from the
    very first paint; value changes re-resolve descendants too. Requires a
-   native host on Lynx ≥ 3.9 (the CLI's templates pin 3.9.0; registration
+   native host on Lynx ≥ 3.9 (the CLI's templates pin 4.0.1; registration
    without change-propagation shipped in 3.6). `@lynx-js/web-core` honors
    inline custom properties unconditionally. Kill switch:
    `pluginSigxLynx({ enableCSSInlineVariables: false })`.

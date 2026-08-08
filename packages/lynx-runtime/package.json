@@ -50,7 +50,7 @@
         "@sigx/runtime-core": "catalog:"
     },
     "peerDependencies": {
-        "@lynx-js/types": "*"
+        "@lynx-js/types": ">=3.0.0"
     },
     "peerDependenciesMeta": {
         "@lynx-js/types": {
@@ -58,6 +58,7 @@
         }
     },
     "devDependencies": {
+        "@lynx-js/types": "catalog:",
         "@typescript/native-preview": "7.0.0-dev.20260521.1",
         "typescript": "^6.0.3",
         "vitest": "^4.1.7"

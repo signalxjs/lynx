@@ -58,7 +58,7 @@
         }
     },
     "devDependencies": {
-        "@lynx-js/types": "^3.9.0",
+        "@lynx-js/types": "catalog:",
         "@sigx/lynx-runtime": "workspace:*",
         "@sigx/runtime-core": "catalog:",
         "@typescript/native-preview": "7.0.0-dev.20260521.1",

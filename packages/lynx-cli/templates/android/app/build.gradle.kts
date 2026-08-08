@@ -126,26 +126,28 @@ dependencies {
     debugImplementation(libs.androidx.ui.tooling)
 
     // Lynx SDK
-    implementation("org.lynxsdk.lynx:lynx:3.9.0")
-    implementation("org.lynxsdk.lynx:lynx-jssdk:3.9.0")
-    implementation("org.lynxsdk.lynx:lynx-trace:3.9.0")
-    // primjs rides transitively off the lynx POM — it versions independently
-    // (lynx 3.9.0 wants primjs 3.8.0-alpha.6) and an explicit stable pin here
-    // would out-rank and mismatch the engine's expected build.
+    implementation("org.lynxsdk.lynx:lynx:4.0.1")
+    implementation("org.lynxsdk.lynx:lynx-jssdk:4.0.1")
+    implementation("org.lynxsdk.lynx:lynx-trace:4.0.1")
+    // primjs versions independently of the engine — lynx 4.0.1's POM resolves
+    // primjs 4.0.0 (the newest stable; 4.0.1 is alpha-only). Pinned explicitly
+    // so the pairing is visible and the build is reproducible; re-derive it
+    // from the lynx POM whenever the coordinate above moves.
+    implementation("org.lynxsdk.lynx:primjs:4.0.0")
 
     // Lynx Services
-    implementation("org.lynxsdk.lynx:lynx-service-image:3.9.0")
-    implementation("org.lynxsdk.lynx:lynx-service-log:3.9.0")
-    implementation("org.lynxsdk.lynx:lynx-service-http:3.9.0")
+    implementation("org.lynxsdk.lynx:lynx-service-image:4.0.1")
+    implementation("org.lynxsdk.lynx:lynx-service-log:4.0.1")
+    implementation("org.lynxsdk.lynx:lynx-service-http:4.0.1")
 
     // Lynx XElement (extended components)
-    implementation("org.lynxsdk.lynx:xelement:3.9.0")
-    implementation("org.lynxsdk.lynx:xelement-input:3.9.0")
+    implementation("org.lynxsdk.lynx:xelement:4.0.1")
+    implementation("org.lynxsdk.lynx:xelement-input:4.0.1")
 
     // Lynx annotation processor — generates the @LynxProp PropsSetter classes
     // for native UI components contributed by @sigx/lynx-* modules. Version
     // must track the Lynx SDK above.
-    kapt("org.lynxsdk.lynx:lynx-processor:3.9.0")
+    kapt("org.lynxsdk.lynx:lynx-processor:4.0.1")
 
     // Image loading (required by Lynx image service)
     implementation("com.facebook.fresco:fresco:2.3.0")

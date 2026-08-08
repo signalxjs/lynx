@@ -29,7 +29,7 @@
         "clean": "node ../../scripts/clean.mjs dist .turbo"
     },
     "dependencies": {
-        "@lynx-js/web-core": "^0.20.4",
+        "@lynx-js/web-core": "catalog:",
         "@sigx/cli": "^0.10.0",
         "@sigx/lynx-core": "workspace:^",
         "@sigx/lynx-updates-publisher": "workspace:^",

@@ -7,6 +7,28 @@ onlyBuiltDependencies:
 
 # The sigx core versions this repo builds against. Every workspace package
 # declares these as "catalog:" — bump here, once.
+#
+# The @lynx-js/* block below is the same idea for the Lynx JS toolchain: these
+# were previously spread across nine manifests at four different range styles,
+# which resolved eight of them to two versions at once. `^` where a minor is an
+# API change we want to adopt deliberately; `>=` for build-toolchain packages
+# that are also permissive peer floors on `@sigx/lynx-plugin`.
+#
+# NOTE: `scripts/check-catalog.mjs` only guards the `@sigx` core names, so
+# these entries are not CI-enforced — keep them honest by hand.
 catalog:
   "@sigx/reactivity": ^0.15.0
   "@sigx/runtime-core": ^0.15.0
+  # Tilde, not caret: @lynx-js/types tracks the engine line, and 4.1.0 already
+  # describes an engine (4.1) that only exists as a nightly. Keep the types on
+  # the 4.0.x line the CLI templates actually pin.
+  "@lynx-js/types": ~4.0.0
+  "@lynx-js/react": ^0.121.0
+  "@lynx-js/rspeedy": ">=0.14.4"
+  "@lynx-js/template-webpack-plugin": ">=0.11.1"
+  "@lynx-js/css-extract-webpack-plugin": ">=0.7.1"
+  "@lynx-js/runtime-wrapper-webpack-plugin": ">=0.1.3"
+  "@lynx-js/webpack-dev-transport": ">=0.2.0"
+  "@lynx-js/tailwind-preset": ^0.4.0
+  "@lynx-js/web-core": ^0.20.4
+  "@lynx-js/web-elements": ">=0.12.2"

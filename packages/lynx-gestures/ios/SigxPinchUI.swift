@@ -7,7 +7,7 @@ import Lynx
 ///
 /// **Why a native element rather than `Gesture.Pinch()`?** Lynx's gesture
 /// arena reserves `PINCH`/`ROTATION` enum slots but ships no handler for them
-/// in any released version (3.5→3.9) — the handler factory is a closed switch
+/// in any released version (3.5→4.0.1) — the handler factory is a closed switch
 /// compiled into the framework, so the builders never fire on native. Instead
 /// we attach UIKit's first-class `UIPinchGestureRecognizer` /
 /// `UIRotationGestureRecognizer` to this element's backing view (a public,
