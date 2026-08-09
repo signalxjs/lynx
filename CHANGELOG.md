@@ -4,6 +4,10 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 ## [Unreleased]
 
+### Fixed
+
+- **iOS: the appearance scheme now reaches the background thread's cold-start snapshot** (#990). The publisher seeded only on the next runloop tick — after `loadTemplate` — so the BG thread's `lynx.__globalProps` (a load-time snapshot that post-load `updateGlobalProps` never refreshes) stayed empty for the whole session: `readGlobalColorScheme()` returned null and follow-system themes mounted light on dark devices, visibly leaving natively-painted widgets (e.g. the daisy Input, #993) in light colors. The publisher now seeds synchronously at attach, falling back from the view's (possibly `unspecified`) trait collection to the screen's and then the process-wide current traits, with the runloop-tick pass kept as the authoritative correction. Device-verified: a dark cold start now reports `colorScheme: dark` from the BG read at first render and mounts the dark theme. The post-load BG staleness itself remains tracked in #990.
+
 ### Added
 
 - **CSS `@media` / `@supports` / `prefers-color-scheme` now reach the device — theming can start moving out of JS signals** (#951). Three pieces, verified on both platforms with a release-build probe screen:
