@@ -9,7 +9,6 @@
  * {@link Memory.isAvailable} lets a caller skip the call entirely.
  */
 import { SigxError } from '@sigx/lynx-core';
-import { normalizeSnapshot } from './memory.js';
 import type { MemoryQueryOptions, MemoryUsageSnapshot } from './memory.js';
 
 export type {
@@ -18,11 +17,16 @@ export type {
     MemoryQueryOptions,
     MemoryUsageSnapshot,
 } from './memory.js';
-export { normalizeSnapshot };
 
+// Every reference to `./memory.js` in this file is type-only, and must stay
+// that way. On web the plugin prepends `.web.js` to `resolve.extensionAlias`
+// (`packages/lynx-plugin/src/entry.ts`), so a *runtime* `from './memory.js'`
+// here resolves to this very file — the shim would import itself and break
+// evaluation before `Memory.query()` is ever called. Type positions are erased
+// before bundling, so the annotation below is safe; a value import is not.
+//
 // Typed against the native module so a method added to one and not the other is
-// a typecheck failure — the plugin swaps these by extension alias, so the
-// mismatch would otherwise only surface at runtime, on web.
+// a typecheck failure, which is otherwise invisible until it runs on web.
 export const Memory: typeof import('./memory.js').Memory = {
     query(_options: MemoryQueryOptions = {}): Promise<MemoryUsageSnapshot> {
         return Promise.reject(new SigxError(
