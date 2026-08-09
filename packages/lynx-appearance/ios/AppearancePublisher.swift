@@ -103,8 +103,12 @@ final class AppearancePublisher {
     @objc func publish() -> Bool {
         guard let view = lynxView else { return false }
         let style = view.traitCollection.userInterfaceStyle
-        let scheme = style == .dark ? "dark" : "light"
-        return republish(scheme: scheme)
+        // Never publish an indeterminate read: pre-window, the view's traits
+        // can still be .unspecified, and collapsing that to "light" here
+        // would overwrite a correct synchronous seed (#995 review). A real
+        // value follows from the trait observer / app-foreground pass.
+        guard style != .unspecified else { return false }
+        return republish(scheme: style == .dark ? "dark" : "light")
     }
 
     @discardableResult
