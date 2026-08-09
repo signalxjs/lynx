@@ -2,6 +2,7 @@ import './css-engine-probe.css';
 import './css-engine-probe-font-data.css';
 import { component, signal, useScreen } from '@sigx/lynx';
 import { Screen } from '@sigx/lynx-navigation';
+import { readGlobalColorScheme } from '@sigx/lynx-appearance';
 
 /**
  * #951 — CSS engine probe for the Lynx 4.0 at-rules.
@@ -21,20 +22,16 @@ import { Screen } from '@sigx/lynx-navigation';
 const FONT_PROBE_TEXT = '\uf004 \uf005 \uf118';
 
 function readEngineFacts(): { colorScheme: string; pixels: string } {
-    // Raw reads on purpose: no AppearanceProvider in the probe entry.
-    const g = (
-        (globalThis as Record<string, unknown>)['lynx'] as
-            | { __globalProps?: Record<string, unknown> }
-            | undefined
-    )?.__globalProps;
-    const appearance = g?.['appearance'] as
-        | { colorScheme?: string }
-        | undefined;
+    // readGlobalColorScheme is a plain helper (no provider needed, so
+    // probe-main stays provider-free) that reads through the module-scoped
+    // `lynx` global. A raw `globalThis.lynx.__globalProps` read here showed
+    // a misleading "(unset)" in release builds — that global is not the
+    // object the runtime hands BG modules (#990).
     const si = (globalThis as Record<string, unknown>)['SystemInfo'] as
         | { pixelWidth?: number; pixelHeight?: number; pixelRatio?: number }
         | undefined;
     return {
-        colorScheme: appearance?.colorScheme ?? '(unset)',
+        colorScheme: readGlobalColorScheme() ?? '(unset)',
         pixels: si
             ? `${si.pixelWidth ?? '?'}×${si.pixelHeight ?? '?'} @${si.pixelRatio ?? '?'}x`
             : '(no SystemInfo)',
