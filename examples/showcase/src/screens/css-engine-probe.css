@@ -90,6 +90,9 @@
 .p951-var-inline-child {
   background-color: var(--p951-inline, #ff00aa);
 }
+.p951-var-inline2-child {
+  background-color: var(--p951-inline2, #ff00aa);
+}
 
 /* ---- item 3: width / orientation --------------------------------------
  * The 600px pair also answers the unit-space question: a ~400dp-wide

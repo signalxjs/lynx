@@ -97,6 +97,23 @@ export const CSSEngineProbeBody = component(() => {
                     label="A · var() from inline declaration (enableCSSInlineVariables)"
                 />
             </view>
+            <view
+                style={
+                    {
+                        // Depends on a signal so it compiles to a per-render
+                        // SET_STYLE op (ThemeProvider's path) instead of a
+                        // static snapshot-template style — A vs A2 separates
+                        // the two inline-declaration transports.
+                        '--p951-inline2':
+                            tick.n >= 0 ? '#16a34a' : '#ff00aa',
+                    } as never
+                }
+            >
+                <Swatch
+                    cls="p951-var-inline2-child"
+                    label="A2 · var() from DYNAMIC inline declaration (SET_STYLE op)"
+                />
+            </view>
 
             <text class="p951-section">3 · width / orientation</text>
             <Swatch cls="p951-wide-600" label="green when width ≥ 600px" />
