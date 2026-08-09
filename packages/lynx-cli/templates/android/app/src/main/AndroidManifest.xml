@@ -28,14 +28,17 @@
                smallestScreenSize|screenLayout
                                  — foldable unfold and multi-window resize
                keyboardHidden    — docking a hardware keyboard
-             `uiMode` is deliberately NOT listed: dark-mode switching still goes
-             through Activity recreation, which @sigx/lynx-appearance is built
-             around. -->
+               uiMode            — dark-mode flips switch IN PLACE (#986):
+                                   AppearancePublisher's application-level
+                                   ComponentCallbacks2 republishes the scheme
+                                   (engine updateColorScheme + appearanceChanged
+                                   event) without recreating the Activity or
+                                   reloading the bundle -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
             android:launchMode="singleTop"
-            android:configChanges="fontScale|orientation|screenSize|smallestScreenSize|screenLayout|keyboardHidden"
+            android:configChanges="fontScale|orientation|screenSize|smallestScreenSize|screenLayout|keyboardHidden|uiMode"
             android:windowSoftInputMode="adjustResize"
             android:screenOrientation="{{orientation}}"
             android:theme="@style/Theme.SigxApp.Splash">

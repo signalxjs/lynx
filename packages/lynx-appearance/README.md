@@ -80,9 +80,11 @@ no JS round trip. The engine does **not** track the OS scheme by itself
 (on by default; see the plugin README) and evaluating them needs a Lynx ≥ 4.0
 host. On iOS, real-time foreground flips are observed via
 `registerForTraitChanges` (iOS 17+); older iOS picks the change up on the
-next app-foreground. On Android an OS flip recreates the Activity (unless
-the host opts `uiMode` into `android:configChanges`), and the fresh LynxView
-is seeded correctly.
+next app-foreground. On Android the CLI template lists `uiMode` in
+`android:configChanges` (#986), so an OS flip switches in place — the
+publisher's application-level configuration callback republishes both
+channels without recreating the Activity; hosts that omit `uiMode` get a
+recreation whose fresh LynxView is seeded correctly.
 
 ### OS font scale
 
