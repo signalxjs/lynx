@@ -169,6 +169,25 @@ export interface PluginSigxLynxOptions {
   enableNewSticky?: boolean;
 
   /**
+   * Register the Fiber Element API through Lynx 4.0's new raw binding path
+   * instead of the long-standing `RenderBindingFunction` one. Encoded into
+   * the template's page config.
+   *
+   * Defaults to `false`, which is both upstream's default and the path every
+   * `<sigx-*>` custom element is verified on — they are all created through
+   * the generic `__CreateElement`, so this switch moves the entire custom
+   * element surface at once.
+   *
+   * Encoded rather than omitted for a stronger reason than the other flags:
+   * upstream marks this one `readSettings: true`, so a **host setting** can
+   * flip it underneath a bundle that never asked for it. Writing the resolved
+   * boolean into the page config — which takes precedence, settings being the
+   * fallback — keeps the choice with the app rather than the host.
+   * @defaultValue false
+   */
+  enableElementApiNewRegistration?: boolean;
+
+  /**
    * Whether to place debug info outside the template bundle.
    * @defaultValue true
    */
@@ -216,6 +235,7 @@ export function pluginSigxLynx(
     customCSSInheritanceList: _customCSSInheritanceList,
     enableCSSInlineVariables: _enableCSSInlineVariables = true,
     enableNewSticky: _enableNewSticky = false,
+    enableElementApiNewRegistration: _enableElementApiNewRegistration = false,
     debugInfoOutside: _debugInfoOutside = true,
     snapshots: _snapshots = true,
     web: _web = true,
@@ -611,6 +631,7 @@ export function pluginSigxLynx(
         customCSSInheritanceList: _customCSSInheritanceList,
         enableCSSInlineVariables: _enableCSSInlineVariables,
         enableNewSticky: _enableNewSticky,
+        enableElementApiNewRegistration: _enableElementApiNewRegistration,
         snapshots: _snapshots,
       });
 

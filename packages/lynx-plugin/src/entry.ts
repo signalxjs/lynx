@@ -204,6 +204,14 @@ export interface ApplyEntryOptions {
    * header layout under us.
    */
   enableNewSticky?: boolean;
+  /**
+   * Encode `enableElementApiNewRegistration` into the template's page config
+   * (Lynx 4.0+). Defaults to `false` — the path every `<sigx-*>` element is
+   * verified on. Unlike the other flags this one is `readSettings: true`
+   * upstream, so a host setting can flip it; encoding it keeps that decision
+   * ours.
+   */
+  enableElementApiNewRegistration?: boolean;
   debugInfoOutside?: boolean;
   /** Enable the snapshot-template transform in both worklet loaders (#620). */
   snapshots?: boolean;
@@ -721,6 +729,8 @@ export async function applyEntry(
           {
             enableCSSInlineVariables: opts.enableCSSInlineVariables ?? true,
             enableNewSticky: opts.enableNewSticky ?? false,
+            enableElementApiNewRegistration:
+              opts.enableElementApiNewRegistration ?? false,
           },
         ])
         .end();
