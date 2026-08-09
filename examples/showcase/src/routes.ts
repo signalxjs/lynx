@@ -44,6 +44,7 @@ import { LocationDemo } from './screens/LocationDemo.js';
 import { ShareDemo } from './screens/ShareDemo.js';
 import { ClipboardDemo } from './screens/ClipboardDemo.js';
 import { DateTimePickerDemo } from './screens/DateTimePickerDemo.js';
+import { ObservabilityDemo } from './screens/ObservabilityDemo.js';
 import { WebViewDemo } from './screens/WebViewDemo.js';
 import { AuthDemo } from './screens/AuthDemo.js';
 import { NotificationsDemo } from './screens/NotificationsDemo.js';
@@ -138,6 +139,7 @@ export const routes = defineRoutes({
     shareDemo: { component: ShareDemo, path: '/share' },
     clipboardDemo: { component: ClipboardDemo, path: '/clipboard' },
     datetimePickerDemo: { component: DateTimePickerDemo, path: '/datetime-picker' },
+    observabilityDemo: { component: ObservabilityDemo, path: '/observability' },
     webviewDemo: { component: WebViewDemo, path: '/webview' },
     authDemo: { component: AuthDemo, path: '/auth' },
     notifications: { component: NotificationsDemo, path: '/notifications' },

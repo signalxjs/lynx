@@ -14,14 +14,22 @@
             "import": "./dist/install.js",
             "types": "./dist/install.d.ts"
         },
-        "./package.json": "./package.json"
+        "./package.json": "./package.json",
+        "./signalx-module.json": "./signalx-module.json"
     },
+    "sideEffects": [
+        "./dist/install.js"
+    ],
     "files": [
-        "dist"
+        "dist",
+        "ios",
+        "android",
+        "signalx-module.json"
     ],
     "scripts": {
         "build": "node ../../scripts/clean.mjs dist && tsgo",
         "dev": "tsgo --watch",
+        "test": "vitest run",
         "clean": "node ../../scripts/clean.mjs dist .turbo"
     },
     "keywords": [

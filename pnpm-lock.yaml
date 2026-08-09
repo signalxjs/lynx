@@ -249,6 +249,9 @@ importers:
       '@sigx/lynx-notifications':
         specifier: workspace:^
         version: link:../../packages/lynx-notifications
+      '@sigx/lynx-observability':
+        specifier: workspace:^
+        version: link:../../packages/lynx-observability
       '@sigx/lynx-richtext':
         specifier: workspace:^
         version: link:../../packages/lynx-richtext

@@ -405,6 +405,13 @@ export const catalog: Area[] = [
                 icon: { set: 'lucide', name: 'phone-call' },
                 route: 'webrtcDemo',
             },
+            {
+                id: 'observability',
+                title: 'Memory',
+                description: 'Engine memory usage per LynxView — totals, element bytes, partial reads',
+                icon: { set: 'lucide', name: 'activity' },
+                route: 'observabilityDemo',
+            },
         ],
     },
     {

@@ -46,6 +46,7 @@
         "@sigx/lynx-sheet": "workspace:^",
         "@sigx/lynx-network": "workspace:^",
         "@sigx/lynx-notifications": "workspace:^",
+        "@sigx/lynx-observability": "workspace:^",
         "@sigx/lynx-richtext": "workspace:^",
         "@sigx/lynx-runtime": "workspace:^",
         "@sigx/lynx-runtime-main": "workspace:^",

@@ -1,0 +1,16 @@
+{
+    "name": "Observability",
+    "package": "@sigx/lynx-observability",
+    "description": "Lynx engine memory-usage query for production telemetry",
+    "platforms": ["android", "ios"],
+    "ios": {
+        "moduleClass": "ObservabilityModule",
+        "sourceDir": "ios",
+        "methods": ["queryMemoryUsage"]
+    },
+    "android": {
+        "moduleClass": "com.sigx.observability.ObservabilityModule",
+        "sourceDir": "android",
+        "permissions": []
+    }
+}
