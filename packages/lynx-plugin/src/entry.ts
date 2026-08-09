@@ -22,6 +22,7 @@ const PLUGIN_TEMPLATE = 'lynx:sigx-template';
 const PLUGIN_MARK_MAIN_THREAD = 'lynx:sigx-mark-main-thread';
 const PLUGIN_ENCODE = 'lynx:sigx-encode';
 const PLUGIN_PAGE_CONFIG = 'lynx:sigx-page-config';
+const PLUGIN_WEB_ENCODE_GUARD = 'lynx:sigx-web-encode-guard';
 
 const DEFAULT_INTERMEDIATE = '.rspeedy';
 
@@ -172,6 +173,58 @@ export class SigxPageConfigPlugin {
 }
 
 /**
+ * SigxWebEncodeGuardPlugin works around a template-webpack-plugin >= 0.14
+ * crash on the web target: the async-template pass encodes every dynamic
+ * chunk group, and a group whose JS was deduplicated into the main chunk
+ * arrives at `WebEncodePlugin` with an empty `manifest` (and no lepus root),
+ * which then throws destructuring `last(Object.entries(manifest))`. Taps the
+ * same `beforeEncode` waterfall at the default stage (0, ahead of
+ * `WebEncodePlugin`'s stage 100) and stubs an empty background entry for
+ * those lazy-bundle templates so the build survives; the emitted bundle is
+ * inert because nothing ever fetches the deduplicated group. Exported for
+ * tests.
+ */
+export class SigxWebEncodeGuardPlugin {
+  constructor(
+    private readonly templatePlugin: {
+      getLynxTemplatePluginHooks(compilation: unknown): {
+        beforeEncode: {
+          tap(
+            name: string,
+            callback: (args: {
+              encodeData: {
+                sourceContent: { appType?: string };
+                manifest: Record<string, string>;
+              };
+            }) => unknown,
+          ): void;
+        };
+      };
+    },
+  ) {}
+
+  apply(compiler: WebpackCompiler): void {
+    compiler.hooks.thisCompilation.tap(
+      PLUGIN_WEB_ENCODE_GUARD,
+      (compilation) => {
+        const hooks =
+          this.templatePlugin.getLynxTemplatePluginHooks(compilation);
+        hooks.beforeEncode.tap(PLUGIN_WEB_ENCODE_GUARD, (args) => {
+          const { encodeData } = args;
+          if (
+            encodeData.sourceContent.appType === 'DynamicComponent' &&
+            Object.keys(encodeData.manifest).length === 0
+          ) {
+            encodeData.manifest['/app-service.js'] = 'module.exports = {};';
+          }
+          return args;
+        });
+      },
+    );
+  }
+}
+
+/**
  * Prepend the web variant to a `resolve.extensionAlias` list for `key`,
  * preserving whatever mapping already exists (rsbuild's tsconfig-driven
  * `.js → ['.js', '.ts', '.tsx']`) and falling back to the identity alias when
@@ -212,6 +265,16 @@ export interface ApplyEntryOptions {
    * ours.
    */
   enableElementApiNewRegistration?: boolean;
+  /**
+   * Encode `enableCSSRule` into the template's page config so the tasm
+   * encoder routes stylesheets through its CSSRuleParser — the only path
+   * that carries `@media` / `@supports` (ConditionRule) and `@layer` rules
+   * into the binary; the legacy token path silently drops them (#951).
+   * Defaults to `true`; set `false` as a kill switch. No effect below
+   * @lynx-js/tasm 0.0.41 (template-webpack-plugin 0.14). When enabled the
+   * encoder also forces `enableCSSSelector` and `enableCSSInvalidation` on.
+   */
+  enableCSSRule?: boolean;
   debugInfoOutside?: boolean;
   /** Enable the snapshot-template transform in both worklet loaders (#620). */
   snapshots?: boolean;
@@ -731,6 +794,13 @@ export async function applyEntry(
             enableNewSticky: opts.enableNewSticky ?? false,
             enableElementApiNewRegistration:
               opts.enableElementApiNewRegistration ?? false,
+            // Routes CSS encoding through the tasm CSSRuleParser, which is
+            // what carries @media/@supports (ConditionRule) and @layer into
+            // the binary — the legacy token path silently drops them (#951).
+            // Needs @lynx-js/tasm >= 0.0.41 (template-webpack-plugin >= 0.14)
+            // to have any effect. When true, the encoder also forces
+            // enableCSSSelector + enableCSSInvalidation on.
+            enableCSSRule: opts.enableCSSRule ?? true,
           },
         ])
         .end();
@@ -810,6 +880,10 @@ export async function applyEntry(
       chain
         .plugin(PLUGIN_ENCODE)
         .use(WebEncodePlugin, [{}])
+        .end();
+      chain
+        .plugin(PLUGIN_WEB_ENCODE_GUARD)
+        .use(SigxWebEncodeGuardPlugin, [templateMod.LynxTemplatePlugin])
         .end();
     }
 
