@@ -37,6 +37,25 @@ describe('install (auto-wire entry)', () => {
         });
     });
 
+    it('forwards the memory reporting block', () => {
+        install({ memory: { intervalMs: 30_000, maxInstances: 2 } });
+        expect(initMock).toHaveBeenCalledWith(
+            expect.objectContaining({ memory: { intervalMs: 30_000, maxInstances: 2 } }),
+        );
+    });
+
+    it('wires memory reporting even with no sink configured', () => {
+        // `logging.production: { memory: {...} }` alone still satisfies the
+        // plugin's truthiness check, so the install entry runs and reporting
+        // starts with records going to the console rather than a remote sink.
+        // That combination is easy to break and easy to miss.
+        install({ memory: {} });
+        expect(initMock).toHaveBeenCalledTimes(1);
+        const forwarded = initMock.mock.calls[0]?.[0] as { memory?: unknown; sink?: unknown };
+        expect(forwarded).toMatchObject({ memory: {} });
+        expect(forwarded.sink).toBeUndefined();
+    });
+
     it('never throws even if initObservability throws', () => {
         initMock.mockImplementationOnce(() => { throw new Error('boom'); });
         expect(() => install({ captureErrors: true })).not.toThrow();

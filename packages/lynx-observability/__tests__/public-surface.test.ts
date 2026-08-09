@@ -26,7 +26,7 @@ describe('public runtime exports', () => {
     });
 
     it('exposes exactly the documented Memory methods', () => {
-        expect(Object.keys(Memory).sort()).toEqual(['isAvailable', 'query']);
+        expect(Object.keys(Memory).sort()).toEqual(['isAvailable', 'query', 'startReporting']);
     });
 });
 

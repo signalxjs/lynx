@@ -71,6 +71,14 @@ for (const i of m.instances) {
 
 `elementBytes` against `elementNodeCount` is the pairing worth watching — it's what turns "the screen went blank" into "we're mounting 12,000 nodes".
 
+Or let it sample itself:
+
+```ts
+const stop = Memory.startReporting({ intervalMs: 60_000 });
+```
+
+Each reading is logged under the `memory` namespace, so it shows up in the `sigx dev` terminal in development and reaches your sink in production with no extra wiring. Same thing declaratively, via `logging.production.memory` in `signalx.config.ts`.
+
 ## API
 
 ### `Memory`
@@ -78,7 +86,18 @@ for (const i of m.instances) {
 | Member | Type | Notes |
 |---|---|---|
 | `Memory.query(options?)` | `Promise<MemoryUsageSnapshot>` | One process-global reading. Throws if the native module isn't linked, or on an engine failure. |
+| `Memory.startReporting(options?)` | `() => void` | Sample on a timer and log each reading under the `memory` namespace. Returns an unsubscribe. **No-ops instead of throwing** when unavailable — see Gotchas. |
 | `Memory.isAvailable()` | `boolean` | Is the native module linked in this build? |
+
+`MemoryReportingOptions` extends `MemoryQueryOptions` with:
+
+| Field | Type | Default | Notes |
+|---|---|---|---|
+| `intervalMs` | `number` | `60000` | Gap between the **end** of one reading and the start of the next, so a slow query can't stack collections. |
+| `level` | `Exclude<LogLevelName, 'silent'>` | `'info'` | Level each reading is logged at. `'silent'` is a threshold, not a level — omit the block to turn reporting off. |
+| `immediate` | `boolean` | `true` | Take a reading straight away rather than waiting one interval. |
+| `maxInstances` | `number` | `5` | Per-instance rows carried in the record; `0` omits them. Caps record size on an app with many LynxViews. |
+| `onReading` | `(s: MemoryUsageSnapshot) => void` | — | Extra per-reading hook. Throwing won't stop the loop. |
 
 `MemoryQueryOptions`:
 
@@ -149,6 +168,7 @@ The same shape works for Datadog, a custom backend, and so on.
 |---|---|
 | `initObservability`, `installErrorCapture`, `createHttpSink`, `toError` | **Supported.** Error capture uses the `globalThis` handlers; the sink POSTs through `@sigx/lynx-http`. |
 | `Memory.query()` | **Unsupported** — rejects with a `SigxError` (`code: 'unsupported'`). |
+| `Memory.startReporting()` | **No-op**, returning a no-op disposer. |
 | `Memory.isAvailable()` | Returns `false`. |
 
 There is no Lynx engine in a web build, so there is no element tree, no UI owner and no main/background runtime split to attribute memory to. Chromium's non-standard `performance.memory` reports the JS heap and nothing else; mapping it into `totalBytes` would put a number in your dashboard that looks comparable to the native one and isn't. Guard the call with `Memory.isAvailable()` if your code runs on both.
@@ -173,6 +193,9 @@ There is no Lynx engine in a web build, so there is no element tree, no UI owner
 
   So compare a platform against itself over time, not against the other one. `totalBytes`, `elementBytes` and `elementNodeCount` — the three that matter most for diagnosing a runaway element tree — are solid on both.
 - **`viewDetail` is not surfaced.** The engine reports per-view-class memory records per instance; we don't currently expose them, because the record shape isn't pinned across platforms and the aggregate plus `elementNodeCount` is what the diagnosis actually needs.
+- **In a release build the global log level defaults to `warn`, so default `info` readings are dropped — and then not even collected.** This catches people out, because it looks like the feature is off. `startReporting` skips the query entirely when nothing would be emitted at its level, rather than running a process-global collection every minute to throw the result away. So if you want memory in production, either raise `logging.level` to `'info'` or set the reading's own `level: 'warn'`. (The same threshold already governs whether `createHttpSink`'s default `minLevel: 'info'` ever sees anything.) An `onReading` hook bypasses the gate — it's its own reason to sample.
+- **`Memory.startReporting()` no-ops instead of throwing** when the native module isn't linked (it logs one `debug` line). It's ambient telemetry, often started before your app code runs, so a throw would take down an app whose only mistake was forgetting to re-run `sigx prebuild`. `Memory.query()` keeps the default throw — there you asked for a number and need to know you didn't get one.
+- **Lynx's background-thread `PerformanceObserver` delivers nothing in a sigx-lynx app.** `lynx.performance.createObserver` exists and `observe()` succeeds, but no entry ever arrives — nor does the older `addTimingListener`. Device-verified on a release build; see #982. So there is no first-paint/FCP reporting here yet, and if you reach for the raw API yourself, expect silence rather than assuming you've held it wrong.
 - **The passive `memory` performance entry never reaches JS.** Lynx does emit one, and `MemoryUsageEntry` is declared in `@lynx-js/types`, so `lynx.performance.createObserver` + `observe(['memory'])` type-checks — but the engine sends it to *platform* observers only (`kEventTypePlatform`), so you get silence on device. That is exactly why this package needs native code. Same for `jsBlocking`.
 - **`lynx.onError` is background-thread only** upstream; main-thread error capture may need a separate path in the future.
 - For readable stack traces in release builds, upload your source maps to your provider (out of scope here).

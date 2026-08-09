@@ -15,10 +15,12 @@
  *
  * Requires Lynx >= 4.0.1.
  */
-import { callAsync, isModuleAvailable, unwrapNative } from '@sigx/lynx-core';
+import { callAsync, createLogger, isModuleAvailable, unwrapNative } from '@sigx/lynx-core';
+import type { LogLevelName } from '@sigx/lynx-core';
 
 const MODULE = 'Observability';
 const PKG = 'lynx-observability';
+const log = createLogger('memory');
 
 /**
  * Whether every registered instance reported before the collection timeout.
@@ -110,6 +112,27 @@ export interface MemoryQueryOptions {
     timeoutMs?: number;
 }
 
+export interface MemoryReportingOptions extends MemoryQueryOptions {
+    /**
+     * Gap between the **end** of one reading and the start of the next, in ms.
+     * Default 60000.
+     */
+    intervalMs?: number;
+    /** Level the reading is logged at. Default `'info'`. */
+    level?: Exclude<LogLevelName, 'silent'>;
+    /** Take a reading straight away rather than waiting one interval. Default `true`. */
+    immediate?: boolean;
+    /**
+     * How many per-instance rows ride along in the record. Default 5; `0` omits
+     * them. The engine sorts by size, so the top N are the interesting ones —
+     * and a record that grows with the app's LynxView count would eventually
+     * dominate whatever your sink charges by.
+     */
+    maxInstances?: number;
+    /** Extra callback per reading (analytics, a HUD, …). Throwing won't stop the loop. */
+    onReading?: (snapshot: MemoryUsageSnapshot) => void;
+}
+
 /** Finite numbers only — a fetcher completing mid-teardown can emit garbage. */
 const num = (v: unknown, fallback = 0): number =>
     typeof v === 'number' && Number.isFinite(v) ? v : fallback;
@@ -117,6 +140,15 @@ const num = (v: unknown, fallback = 0): number =>
 const str = (v: unknown): string => (typeof v === 'string' ? v : '');
 
 const STATUSES: readonly string[] = ['completed', 'timeout', 'unknown'];
+
+/**
+ * A whole number for a knob that came in as untyped config. Anything unusable —
+ * `NaN`, `Infinity`, a negative, a string — falls back rather than propagating
+ * into a `setTimeout` delay or a `slice()` bound, where a `-1` quietly means
+ * "drop the last one" instead of "none".
+ */
+const posInt = (v: unknown, fallback: number, min = 1): number =>
+    typeof v === 'number' && Number.isFinite(v) && v >= min ? Math.floor(v) : fallback;
 
 /**
  * Bridge payloads have arrived as JSON *strings* before (#342), so parse that
@@ -215,6 +247,98 @@ export const Memory = {
         // reads them textually (C12), and a helper would hide them from it.
         const raw = await callAsync<unknown>(MODULE, 'queryMemoryUsage', params);
         return normalizeSnapshot(unwrapNative(PKG, 'queryMemoryUsage', raw));
+    },
+
+    /**
+     * Sample memory on a timer, logging each reading under the `memory`
+     * namespace so it reaches every registered transport — the `sigx dev`
+     * terminal in development, and whatever {@link createHttpSink} points at in
+     * production. Returns an unsubscribe (C7); calling it twice is a no-op.
+     *
+     * **Documented C3 opt-out:** when the native module isn't linked this logs
+     * one `debug` line and returns a no-op disposer rather than throwing.
+     * Reporting is ambient telemetry started from `install.ts` before app code
+     * runs, so a throw would take down an app whose only mistake was forgetting
+     * to re-run `sigx prebuild`. {@link Memory.query} keeps the default throw,
+     * because there the caller asked for a number and needs to know they didn't
+     * get one. Also in the README's Gotchas.
+     *
+     * @example
+     * ```ts
+     * const stop = Memory.startReporting({ intervalMs: 30_000 });
+     * ```
+     */
+    startReporting(options: MemoryReportingOptions = {}): () => void {
+        if (!isModuleAvailable(MODULE)) {
+            log.debug('native module not linked — memory reporting disabled');
+            return () => { /* nothing was started */ };
+        }
+
+        // These arrive from `signalx.config.ts` via a build-time define as well
+        // as from a typed call site, so the types are a suggestion here, not a
+        // guarantee. `'silent'` in particular has no method on the logger and
+        // would throw on the first reading.
+        const intervalMs = posInt(options.intervalMs, 60_000);
+        // Widened before the check: the declared type already excludes
+        // `'silent'`, so TS would call the comparison dead — but injected config
+        // isn't type-checked at runtime, and `log.silent` doesn't exist.
+        const declared = options.level as LogLevelName | undefined;
+        const level: Exclude<LogLevelName, 'silent'> = declared && declared !== 'silent'
+            ? declared
+            : 'info';
+        const maxInstances = posInt(options.maxInstances, 5, 0);
+
+        let stopped = false;
+        let timer: ReturnType<typeof setTimeout> | undefined;
+
+        const tick = async (): Promise<void> => {
+            try {
+                // Checked per tick, not once: `setLogLevel` can move at runtime.
+                // Release builds default the threshold to `warn`, so the default
+                // `info` reading would be dropped — and a process-global
+                // collection every minute to produce nothing is worse than not
+                // reporting. An `onReading` hook is its own reason to sample.
+                if (!log.enabled(level) && !options.onReading) return;
+                const snapshot = await Memory.query(options);
+                // The disposer may have run while the query was in flight; a
+                // reading logged after `stop()` would outlive the caller's
+                // intent, which is the whole point of the disposer.
+                if (stopped) return;
+                const mb = (bytes: number): string => (bytes / 1_048_576).toFixed(1);
+                log[level](
+                    `${mb(snapshot.totalBytes)} MB across `
+                    + `${snapshot.completedInstanceCount}/${snapshot.expectedInstanceCount} instance(s)`,
+                    { ...snapshot, instances: snapshot.instances.slice(0, maxInstances) },
+                );
+                try {
+                    options.onReading?.(snapshot);
+                } catch {
+                    // A caller's hook is not allowed to end the loop.
+                }
+            } catch (error) {
+                // Every tick catches: an unhandled rejection on the background
+                // runtime is a fatal main-thread exception under PrimJS (#863),
+                // not a warning in a console someone might read.
+                log.warn('memory reading failed', error);
+            } finally {
+                // Rescheduled from completion, not on a fixed interval: a query
+                // can take the full engine timeout, and `setInterval` would
+                // stack overlapping process-global collections.
+                if (!stopped) timer = setTimeout(() => void tick(), intervalMs);
+            }
+        };
+
+        if (options.immediate === false) timer = setTimeout(() => void tick(), intervalMs);
+        else void tick();
+
+        return () => {
+            if (stopped) return;
+            stopped = true;
+            if (timer !== undefined) {
+                clearTimeout(timer);
+                timer = undefined;
+            }
+        };
     },
 
     /** Is the native module linked in this build? (C2) */

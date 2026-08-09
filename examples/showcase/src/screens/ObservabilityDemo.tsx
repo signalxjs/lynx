@@ -1,4 +1,4 @@
-import { component, signal } from '@sigx/lynx';
+import { component, onUnmounted, signal } from '@sigx/lynx';
 import { Screen } from '@sigx/lynx-navigation';
 import { Alert, Button, Card, Col, Heading, Row, ScrollView, Text } from '@sigx/lynx-daisyui';
 import { Memory, type MemoryUsageSnapshot } from '@sigx/lynx-observability';
@@ -23,8 +23,37 @@ export const ObservabilityDemo = component(() => {
     const snapshot = signal<{ value: MemoryUsageSnapshot | null }>({ value: null });
     const error = signal<string | null>(null);
     const busy = signal(false);
+    const readings = signal(0);
+    // The disposer is an identity the render must not read; this flag is the
+    // state it should, so the button label re-renders.
+    const reportingOn = signal(false);
 
     const available = Memory.isAvailable();
+
+    let stopReporting: (() => void) | undefined;
+
+    const toggleReporting = () => {
+        Haptics.selection();
+        if (stopReporting) {
+            stopReporting();
+            stopReporting = undefined;
+            reportingOn.value = false;
+            return;
+        }
+        readings.value = 0;
+        reportingOn.value = true;
+        // 5s rather than the 60s default so the demo shows something before you
+        // lose interest. Each reading also goes to the logger, so they stream
+        // into the `sigx dev` terminal under `memory`.
+        stopReporting = Memory.startReporting({
+            intervalMs: 5000,
+            onReading: () => { readings.value += 1; },
+        });
+    };
+
+    // Leaving the screen with a timer still armed is the leak this package
+    // exists to notice.
+    onUnmounted(() => stopReporting?.());
 
     const query = (timeoutMs?: number) => async () => {
         Haptics.selection();
@@ -89,6 +118,36 @@ export const ObservabilityDemo = component(() => {
                                     "Force a timeout" passes `timeoutMs: 1`. It should
                                     resolve, not reject — with `collectionStatus: 'timeout'`
                                     and a partial instance count.
+                                </Text>
+                            </Col>
+                        </Card.Body>
+                    </Card>
+
+                    <Card bordered>
+                        <Card.Body>
+                            <Col gap={8}>
+                                <Text weight="semibold">Sample on a timer</Text>
+                                <Text class="opacity-60 text-sm">
+                                    `Memory.startReporting()` logs each reading under the
+                                    `memory` namespace, so they also stream into the `sigx
+                                    dev` terminal and any configured sink.
+                                </Text>
+                                <Row gap={8}>
+                                    {/* Disabled when unavailable: startReporting is a
+                                        documented no-op there, so an enabled button
+                                        would flip to "Stop reporting" over a counter
+                                        that never moves — which reads as broken rather
+                                        than as unsupported. */}
+                                    <Button
+                                        variant="outline"
+                                        disabled={!available}
+                                        onPress={toggleReporting}
+                                    >
+                                        {reportingOn.value ? 'Stop reporting' : 'Report every 5s'}
+                                    </Button>
+                                </Row>
+                                <Text class="font-mono text-sm opacity-70">
+                                    {`readings ${readings.value}`}
                                 </Text>
                             </Col>
                         </Card.Body>

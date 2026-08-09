@@ -597,6 +597,28 @@ export interface LoggingConfig {
         };
         /** Capture uncaught errors / unhandled rejections. Default `true`. */
         captureErrors?: boolean;
+        /**
+         * Periodic Lynx engine memory readings, logged under the `memory`
+         * namespace. Presence enables it, so `{}` means "on, with the
+         * defaults". Requires the native module — re-run `sigx prebuild` after
+         * installing `@sigx/lynx-observability`.
+         */
+        memory?: {
+            /** Gap between the end of one reading and the start of the next. Default 60000. */
+            intervalMs?: number;
+            /** Engine collection timeout. Omit for the engine default (2000). */
+            timeoutMs?: number;
+            /**
+             * Level each reading is logged at. Default `'info'`.
+             *
+             * `'silent'` is excluded deliberately: it isn't a level records can
+             * be emitted at, only a threshold. To turn reporting off, omit this
+             * whole `memory` block.
+             */
+            level?: Exclude<LogLevelName, 'silent'>;
+            /** Per-instance rows carried in the record. Default 5; `0` omits them. */
+            maxInstances?: number;
+        };
     };
 }
 
