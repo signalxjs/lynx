@@ -6,6 +6,7 @@ import android.util.Log
 import android.view.ViewGroup
 import androidx.activity.compose.setContent
 import androidx.fragment.app.FragmentActivity
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -97,7 +98,19 @@ class MainActivity : FragmentActivity() {
         }
 
         setContent {
-            MaterialTheme {
+            // Follow the system scheme so the Surface behind the LynxView
+            // doesn't flash white in dark mode during load; recomposes on
+            // uiMode config changes now that they are handled in place (#986).
+            val isDark = isSystemInDarkTheme()
+            MaterialTheme(
+                // remember keyed on the flag — darkColorScheme()/
+                // lightColorScheme() allocate on every call, which would
+                // otherwise hand MaterialTheme a new object each
+                // recomposition.
+                colorScheme = remember(isDark) {
+                    if (isDark) darkColorScheme() else lightColorScheme()
+                },
+            ) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background

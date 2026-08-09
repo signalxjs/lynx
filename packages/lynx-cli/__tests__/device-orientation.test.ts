@@ -246,9 +246,10 @@ describe('applyAndroidManifestMeta — orientation', () => {
         expect(configChanges).toContain('screenLayout');
         // #766 must survive.
         expect(configChanges).toContain('fontScale');
-        // Dark mode deliberately still recreates — @sigx/lynx-appearance is
-        // built around that.
-        expect(configChanges).not.toContain('uiMode');
+        // Dark-mode flips switch in place since #986 —
+        // AppearancePublisher republishes both channels on the
+        // application-level configuration callback.
+        expect(configChanges).toContain('uiMode');
     });
 });
 

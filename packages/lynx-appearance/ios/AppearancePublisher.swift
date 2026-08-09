@@ -57,12 +57,35 @@ final class AppearancePublisher {
             }
         }
 
-        // Seed on the next runloop tick — the LynxView's window may not be
-        // attached yet at construction time, so reading `traitCollection`
-        // immediately can yield the unspecified style.
+        // Seed SYNCHRONOUSLY so the initial globalProps write lands before
+        // `loadTemplate` — that load-time snapshot is the only globalProps
+        // the background thread ever sees (#990), and a deferred-only seed
+        // left `readGlobalColorScheme()` null on BG for the whole session,
+        // making follow-system themes mount light on dark devices (#993).
+        // The view isn't in a window yet, so its own traitCollection can be
+        // unspecified — fall back to the screen's, then the process-wide
+        // current traits, which are determinate once the app is running.
+        publishSeed()
+
+        // Correcting pass on the next runloop tick, once the window is
+        // attached and the view's own trait collection is authoritative.
         DispatchQueue.main.async { [weak self] in
             self?.publish()
         }
+    }
+
+    /// Initial publish with trait fallbacks for the pre-window phase.
+    private func publishSeed() {
+        guard let view = lynxView else { return }
+        var style = view.traitCollection.userInterfaceStyle
+        if style == .unspecified {
+            style = UIScreen.main.traitCollection.userInterfaceStyle
+        }
+        if style == .unspecified {
+            style = UITraitCollection.current.userInterfaceStyle
+        }
+        guard style != .unspecified else { return }
+        republish(scheme: style == .dark ? "dark" : "light")
     }
 
     deinit {
@@ -80,8 +103,12 @@ final class AppearancePublisher {
     @objc func publish() -> Bool {
         guard let view = lynxView else { return false }
         let style = view.traitCollection.userInterfaceStyle
-        let scheme = style == .dark ? "dark" : "light"
-        return republish(scheme: scheme)
+        // Never publish an indeterminate read: pre-window, the view's traits
+        // can still be .unspecified, and collapsing that to "light" here
+        // would overwrite a correct synchronous seed (#995 review). A real
+        // value follows from the trait observer / app-foreground pass.
+        guard style != .unspecified else { return false }
+        return republish(scheme: style == .dark ? "dark" : "light")
     }
 
     @discardableResult

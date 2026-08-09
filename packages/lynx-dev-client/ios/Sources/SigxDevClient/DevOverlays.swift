@@ -14,33 +14,24 @@ import Lynx
 // `#if DEBUG` and dev mode.
 // ───────────────────────────────────────────────────────────────────────────
 
-/// One labeled perf metric (milliseconds) shown in the HUD.
-public struct DevPerfMetric: Identifiable {
-    public let id: String
-    public let label: String
-    public let value: Double
-    public init(label: String, value: Double) {
-        self.id = label
-        self.label = label
-        self.value = value
-    }
-}
-
 /// Bridges `LynxView` lifecycle callbacks to closures the SwiftUI host can use
 /// to drive the dev overlays. Register with `lynxView.addLifecycleClient(_:)`
 /// and keep a strong reference for the LynxView's lifetime (the SwiftUI
 /// coordinator owns it).
 ///
-/// Lynx fires these on the main thread, but we hop to main defensively before
-/// touching `@Published` state.
-public final class DevLifecycleClient: NSObject, LynxViewLifecycle {
+/// Conforms to `LynxViewLifecycleV2`, which composes the old
+/// `LynxViewBaseLifecycle` callbacks with `LynxPerformanceObserverProtocol` —
+/// so one registration serves loading, errors *and* the typed 4.0 performance
+/// entries. The loading/error halves still arrive on the main thread;
+/// `onPerformanceEvent` does not (see below).
+public final class DevLifecycleClient: NSObject, LynxViewLifecycle, LynxViewLifecycleV2 {
     private let onLoadingChange: (Bool) -> Void
     private let onError: (String) -> Void
     private let onPerf: ([DevPerfMetric]) -> Void
 
-    /// Accumulated metrics by label, so first-load + update perf and the
-    /// timing dictionary merge into one HUD view.
-    private var metrics: [String: Double] = [:]
+    /// Folds engine entries into the shared HUD vocabulary. Only ever touched
+    /// on the main queue, which is what keeps it lock-free.
+    private let store = PerfMetricStore()
 
     /// Last URL the LynxView finished loading — used to derive the dev-server
     /// endpoint when mirroring errors to the `sigx dev` terminal.
@@ -63,7 +54,13 @@ public final class DevLifecycleClient: NSObject, LynxViewLifecycle {
 
     // ── Loading lifecycle ──────────────────────────────────────────────────
     public func lynxViewDidStartLoading(_ view: LynxView!) {
-        onMain { self.onLoadingChange(true) }
+        onMain {
+            // Drop the previous page's numbers. FCP is emitted once per load,
+            // so a stale one would sit in the HUD looking current forever.
+            self.store.clear()
+            self.emit()
+            self.onLoadingChange(true)
+        }
     }
     public func lynxView(_ view: LynxView!, didLoadFinishedWithUrl url: String!) {
         lastLoadedUrl = url
@@ -170,57 +167,34 @@ public final class DevLifecycleClient: NSObject, LynxViewLifecycle {
         return head + "\n" + detailMarker + "\n" + details.joined(separator: "\n")
     }
 
-    // ── Perf ───────────────────────────────────────────────────────────────
-    public func lynxView(_ view: LynxView!, didReceiveFirstLoadPerf perf: LynxPerformance!) {
-        onMain { self.ingest(perf) }
-    }
-    public func lynxView(_ view: LynxView!, didReceiveUpdatePerf perf: LynxPerformance!) {
-        onMain { self.ingest(perf) }
+    // ── Perf (LynxPerformanceObserverProtocol) ─────────────────────────────
+    //
+    // Replaces two older sources: `didReceiveFirstLoadPerf` / `didReceiveUpdatePerf`
+    // (of which only `actualFMPDuration` was ever read) and the untyped
+    // `onSetup` / `onUpdate:timing:` dictionaries, which were scraped with a
+    // "keep any number between 0 and 60s and hope it's a duration" heuristic
+    // and labelled with whatever string keys the engine happened to emit. That
+    // is why the two platforms' HUDs never agreed.
+    public func onPerformanceEvent(_ entry: LynxPerformanceEntry) {
+        // Fires on the REPORTER thread — the protocol header says so
+        // explicitly, and warns against UI work here. Hop before touching the
+        // store or the published state.
+        onMain {
+            self.store.ingest(entry)
+            self.emit()
+        }
     }
 
-    // Always called on the main queue (via onMain at the call sites), so all
-    // `metrics` mutation stays serialized there.
-    private func ingest(_ perf: LynxPerformance?) {
-        guard let perf = perf else { return }
-        if perf.hasActualFMP, perf.actualFMPDuration > 0 {
-            metrics["FMP"] = perf.actualFMPDuration
-        }
+    /// Memory has no push channel — the HUD polls `LynxMemoryUsageQuery` and
+    /// feeds the result back through here. Already on the main queue.
+    public func applyMemory(totalBytes: Double, elementNodeCount: Double) {
+        store.setMemory(totalBytes: totalBytes, elementNodeCount: elementNodeCount)
         emit()
     }
 
-    // ── Timing dictionary (LynxTimingListener) ─────────────────────────────
-    // The setup/update info dicts carry keyed timing values. We keep only
-    // plausible DURATIONS (0 < v < 60s) and skip epoch-style timestamps so the
-    // HUD shows meaningful millisecond figures rather than huge clock values.
-    public func lynxView(_ lynxView: LynxView!, onSetup info: [AnyHashable: Any]!) {
-        onMain { self.mergeTiming(info) }
-    }
-    public func lynxView(_ lynxView: LynxView!, onUpdate info: [AnyHashable: Any]!, timing updateTiming: [AnyHashable: Any]!) {
-        onMain {
-            self.mergeTiming(info)
-            self.mergeTiming(updateTiming)
-        }
-    }
-
-    private func mergeTiming(_ dict: [AnyHashable: Any]?) {
-        guard let dict = dict else { return }
-        var changed = false
-        for (key, value) in dict {
-            guard let label = key as? String, let num = value as? NSNumber else { continue }
-            let ms = num.doubleValue
-            if ms > 0, ms < 60_000 {
-                metrics[label] = ms
-                changed = true
-            }
-        }
-        if changed { emit() }
-    }
-
+    /// Called on the main queue only.
     private func emit() {
-        let snapshot = metrics
-            .map { DevPerfMetric(label: $0.key, value: $0.value) }
-            .sorted { $0.label < $1.label }
-        onMain { self.onPerf(snapshot) }
+        onPerf(store.snapshot())
     }
 }
 
@@ -423,20 +397,51 @@ public struct DevErrorOverlay: View {
     }
 }
 
-/// Translucent corner HUD showing Lynx perf metrics. Mirrors Android's
-/// `PerfHud` (color-coded green/amber/red by milliseconds).
+/// Translucent corner HUD showing Lynx engine metrics. Renders the same
+/// vocabulary, in the same order, as Android's `PerfHud` — see
+/// `PerfMetrics.swift`.
+///
+/// The timing half is pushed by `DevLifecycleClient`. Memory is polled, because
+/// the engine offers no push channel for it (`LynxMemoryUsageQuery` is a
+/// one-shot query), and only while the overlay is visible, so a hidden HUD
+/// costs nothing.
 public struct DevPerfHud: View {
     let visible: Bool
     let metrics: [DevPerfMetric]
-    public init(visible: Bool, metrics: [DevPerfMetric]) {
+    /// Invoked on the main queue with each memory reading. Optional so the HUD
+    /// still renders in previews and hosts that don't wire the collector.
+    let onMemory: ((Double, Double) -> Void)?
+
+    private static let pollInterval: TimeInterval = 5
+
+    public init(
+        visible: Bool,
+        metrics: [DevPerfMetric],
+        onMemory: ((Double, Double) -> Void)? = nil
+    ) {
         self.visible = visible
         self.metrics = metrics
+        self.onMemory = onMemory
     }
 
-    private func color(for ms: Double) -> Color {
-        if ms < 100 { return Color(red: 0.13, green: 0.77, blue: 0.37) }
-        if ms < 300 { return Color(red: 0.92, green: 0.70, blue: 0.03) }
+    /// The green/amber/red scale is a statement about *durations*. Applying it
+    /// to megabytes or a node count would imply a budget the HUD has no
+    /// business asserting, so those render neutral.
+    private func color(for metric: DevPerfMetric) -> Color {
+        guard metric.unit == .milliseconds else {
+            return Color(red: 0.89, green: 0.91, blue: 0.94)
+        }
+        if metric.value < 100 { return Color(red: 0.13, green: 0.77, blue: 0.37) }
+        if metric.value < 300 { return Color(red: 0.92, green: 0.70, blue: 0.03) }
         return Color(red: 0.94, green: 0.27, blue: 0.27)
+    }
+
+    private func format(_ metric: DevPerfMetric) -> String {
+        switch metric.unit {
+        case .milliseconds: return String(format: "%.1fms", metric.value)
+        case .megabytes: return String(format: "%.1fMB", metric.value)
+        case .count: return String(Int(metric.value))
+        }
     }
 
     public var body: some View {
@@ -456,9 +461,9 @@ public struct DevPerfHud: View {
                                 .font(.system(size: 10, design: .monospaced))
                                 .foregroundColor(Color(red: 0.58, green: 0.64, blue: 0.72))
                             Spacer(minLength: 12)
-                            Text(String(format: "%.1fms", m.value))
+                            Text(format(m))
                                 .font(.system(size: 10, design: .monospaced))
-                                .foregroundColor(color(for: m.value))
+                                .foregroundColor(color(for: m))
                         }
                     }
                 }
@@ -467,6 +472,34 @@ public struct DevPerfHud: View {
             .background(Color(white: 0.12).opacity(0.8))
             .cornerRadius(8)
             .padding(8)
+            .task(id: visible) {
+                guard onMemory != nil else { return }
+                // Cancelled automatically when the HUD is hidden or torn down,
+                // so nothing polls behind a closed overlay.
+                while !Task.isCancelled {
+                    DevMemoryProbe.query { total, nodes in
+                        onMemory?(total, nodes)
+                    }
+                    try? await Task.sleep(nanoseconds: UInt64(Self.pollInterval * 1_000_000_000))
+                }
+            }
+        }
+    }
+}
+
+/// One-shot engine memory reading for the HUD.
+///
+/// Deliberately not routed through `@sigx/lynx-observability` — the dev client
+/// must work in any app, including one that never installs that package, so it
+/// talks to the engine API directly.
+enum DevMemoryProbe {
+    /// Calls back on the **main queue** with `(totalBytes, elementNodeCount)`.
+    static func query(_ completion: @escaping (Double, Double) -> Void) {
+        LynxMemoryUsageQuery.sharedInstance().queryLynxGlobalMemoryUsageAsync { result in
+            // Fires on the report thread; the HUD is SwiftUI state.
+            let total = Double(result.totalBytes)
+            let nodes = Double(result.elementNodeCount)
+            DispatchQueue.main.async { completion(total, nodes) }
         }
     }
 }
