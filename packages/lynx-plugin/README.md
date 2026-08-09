@@ -77,13 +77,14 @@ export default defineConfig({
    rest in. Every flag here follows one rule: **encode the resolved boolean,
    never omit the key.** An absent key means "whatever the engine or host
    decides today", which is how a behaviour change arrives without anyone
-   choosing it. Hosts older than the flag's `since` ignore it.
+   choosing it. A host older than the engine version listed below simply
+   ignores the key, so encoding one is always safe.
 
-   | Flag | Default | Opt in with |
-   |---|---|---|
-   | `enableCSSInlineVariables` (#116) | `true` | on by default; `false` is the kill switch |
-   | `enableNewSticky` (#950) | `false` | `pluginSigxLynx({ enableNewSticky: true })` |
-   | `enableElementApiNewRegistration` (#957) | `false` | `pluginSigxLynx({ enableElementApiNewRegistration: true })` |
+   | Flag | Needs | Default | Opt in with |
+   |---|---|---|---|
+   | `enableCSSInlineVariables` (#116) | Lynx ≥ 3.6, and ≥ 3.9 to re-resolve on change | `true` | on by default; `false` is the kill switch |
+   | `enableNewSticky` (#950) | Lynx ≥ 4.0 | `false` | `pluginSigxLynx({ enableNewSticky: true })` |
+   | `enableElementApiNewRegistration` (#957) | Lynx ≥ 4.0 | `false` | `pluginSigxLynx({ enableElementApiNewRegistration: true })` |
 
    `enableNewSticky` opts into Lynx 4.0's new sticky layout for `<list>`
    headers; it changes where and when a header pins, so re-check anything
