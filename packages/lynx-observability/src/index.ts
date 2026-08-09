@@ -23,5 +23,6 @@ export type {
     MemoryCollectionStatus,
     MemoryInstanceUsage,
     MemoryQueryOptions,
+    MemoryReportingOptions,
     MemoryUsageSnapshot,
 } from './memory.js';

@@ -8,11 +8,14 @@
  */
 import { initObservability } from './init.js';
 import type { HttpSinkOptions } from './http-sink.js';
+import type { MemoryReportingOptions } from './memory.js';
 
 /** Config injected into {@link install} (the `logging.production` shape). */
 export interface InjectedObservabilityConfig {
     sink?: HttpSinkOptions;
     captureErrors?: boolean;
+    /** Periodic engine memory readings. Presence enables it. */
+    memory?: MemoryReportingOptions;
 }
 
 /**
@@ -22,7 +25,13 @@ export interface InjectedObservabilityConfig {
  */
 export function install(cfg: InjectedObservabilityConfig | null | undefined): void {
     try {
-        if (cfg) initObservability({ sink: cfg.sink, captureErrors: cfg.captureErrors });
+        if (cfg) {
+            initObservability({
+                sink: cfg.sink,
+                captureErrors: cfg.captureErrors,
+                memory: cfg.memory,
+            });
+        }
     } catch {
         /* never let observability wiring crash the host app */
     }

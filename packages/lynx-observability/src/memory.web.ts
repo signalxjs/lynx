@@ -8,15 +8,22 @@
  * comparable to the native one and isn't. Rejecting is the honest answer, and
  * {@link Memory.isAvailable} lets a caller skip the call entirely.
  */
-import { SigxError } from '@sigx/lynx-core';
-import type { MemoryQueryOptions, MemoryUsageSnapshot } from './memory.js';
+import { createLogger, SigxError } from '@sigx/lynx-core';
+import type {
+    MemoryQueryOptions,
+    MemoryReportingOptions,
+    MemoryUsageSnapshot,
+} from './memory.js';
 
 export type {
     MemoryCollectionStatus,
     MemoryInstanceUsage,
     MemoryQueryOptions,
+    MemoryReportingOptions,
     MemoryUsageSnapshot,
 } from './memory.js';
+
+const log = createLogger('memory');
 
 // Every reference to `./memory.js` in this file is type-only, and must stay
 // that way. On web the plugin prepends `.web.js` to `resolve.extensionAlias`
@@ -35,6 +42,11 @@ export const Memory: typeof import('./memory.js').Memory = {
             '[@sigx/lynx-observability] queryMemoryUsage failed: not supported on web '
             + '(there is no Lynx engine to attribute memory to)',
         ));
+    },
+
+    startReporting(_options: MemoryReportingOptions = {}): () => void {
+        log.debug('memory reporting is not supported on web — no-op');
+        return () => { /* nothing was started */ };
     },
 
     isAvailable(): boolean {
