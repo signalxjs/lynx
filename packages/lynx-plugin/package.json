@@ -1,90 +1,93 @@
 {
-    "name": "@sigx/lynx-plugin",
-    "version": "0.26.0",
-    "description": "Rspack/Rspeedy plugin for SignalX Lynx dual-thread rendering",
-    "type": "module",
-    "main": "./dist/index.js",
-    "types": "./dist/index.d.ts",
-    "exports": {
-        ".": {
-            "import": "./dist/index.js",
-            "types": "./dist/index.d.ts"
-        }
-    },
-    "files": [
-        "dist"
-    ],
-    "scripts": {
-        "build": "node ../../scripts/clean.mjs dist && tsgo",
-        "dev": "tsgo --watch",
-        "clean": "node ../../scripts/clean.mjs dist .turbo"
-    },
-    "keywords": [
-        "sigx",
-        "lynx",
-        "rspack",
-        "rspeedy",
-        "plugin"
-    ],
-    "author": "Andreas Ekdahl",
-    "license": "MIT",
-    "repository": {
-        "type": "git",
-        "url": "git+https://github.com/signalxjs/lynx.git",
-        "directory": "packages/lynx-plugin"
-    },
-    "homepage": "https://sigx.dev/lynx/modules/plugin/overview/",
-    "bugs": {
-        "url": "https://github.com/signalxjs/lynx/issues"
-    },
-    "dependencies": {
-        "@lynx-js/react": "catalog:",
-        "@sigx/lynx-runtime-internal": "workspace:*",
-        "ws": "^8.20.1"
-    },
-    "peerDependencies": {
-        "@rspack/core": ">=1.0.0",
-        "@lynx-js/rspeedy": "catalog:",
-        "@lynx-js/css-extract-webpack-plugin": "catalog:",
-        "@lynx-js/template-webpack-plugin": "catalog:",
-        "@lynx-js/runtime-wrapper-webpack-plugin": "catalog:",
-        "@lynx-js/webpack-dev-transport": "catalog:",
-        "@sigx/lynx-cli": "workspace:^",
-        "@sigx/lynx-icons": "workspace:^"
-    },
-    "peerDependenciesMeta": {
-        "@rspack/core": {
-            "optional": true
-        },
-        "@lynx-js/rspeedy": {
-            "optional": true
-        },
-        "@lynx-js/css-extract-webpack-plugin": {
-            "optional": true
-        },
-        "@lynx-js/template-webpack-plugin": {
-            "optional": true
-        },
-        "@lynx-js/runtime-wrapper-webpack-plugin": {
-            "optional": true
-        },
-        "@lynx-js/webpack-dev-transport": {
-            "optional": true
-        },
-        "@sigx/lynx-icons": {
-            "optional": true
-        }
-    },
-    "devDependencies": {
-        "@rsbuild/core": "^1.7.5",
-        "@sigx/lynx-cli": "workspace:*",
-        "@sigx/lynx-icons": "workspace:*",
-        "@types/node": "^25.9.1",
-        "@types/ws": "^8.5.13",
-        "@typescript/native-preview": "7.0.0-dev.20260521.1",
-        "typescript": "^6.0.3"
-    },
-    "publishConfig": {
-        "access": "public"
+  "name": "@sigx/lynx-plugin",
+  "version": "0.26.0",
+  "description": "Rspack/Rspeedy plugin for SignalX Lynx dual-thread rendering",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
     }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "node ../../scripts/clean.mjs dist && tsgo",
+    "dev": "tsgo --watch",
+    "clean": "node ../../scripts/clean.mjs dist .turbo"
+  },
+  "keywords": [
+    "sigx",
+    "lynx",
+    "rspack",
+    "rspeedy",
+    "plugin"
+  ],
+  "author": "Andreas Ekdahl",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/signalxjs/lynx.git",
+    "directory": "packages/lynx-plugin"
+  },
+  "homepage": "https://sigx.dev/lynx/modules/plugin/overview/",
+  "bugs": {
+    "url": "https://github.com/signalxjs/lynx/issues"
+  },
+  "dependencies": {
+    "@lynx-js/react": "catalog:",
+    "@sigx/lynx-runtime-internal": "workspace:*",
+    "ws": "^8.20.1"
+  },
+  "peerDependencies": {
+    "@rspack/core": ">=1.0.0",
+    "@lynx-js/rspeedy": "catalog:",
+    "@lynx-js/css-extract-webpack-plugin": "catalog:",
+    "@lynx-js/template-webpack-plugin": "catalog:",
+    "@lynx-js/runtime-wrapper-webpack-plugin": "catalog:",
+    "@lynx-js/webpack-dev-transport": "catalog:",
+    "@sigx/lynx-cli": "workspace:^",
+    "@sigx/lynx-icons": "workspace:^"
+  },
+  "peerDependenciesMeta": {
+    "@rspack/core": {
+      "optional": true
+    },
+    "@lynx-js/rspeedy": {
+      "optional": true
+    },
+    "@lynx-js/css-extract-webpack-plugin": {
+      "optional": true
+    },
+    "@lynx-js/template-webpack-plugin": {
+      "optional": true
+    },
+    "@lynx-js/runtime-wrapper-webpack-plugin": {
+      "optional": true
+    },
+    "@lynx-js/webpack-dev-transport": {
+      "optional": true
+    },
+    "@sigx/lynx-icons": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@rsbuild/core": "^1.7.5",
+    "@sigx/lynx-cli": "workspace:*",
+    "@sigx/lynx-icons": "workspace:*",
+    "@types/node": "^25.9.1",
+    "@types/ws": "^8.5.13",
+    "@typescript/native-preview": "7.0.0-dev.20260521.1",
+    "typescript": "^6.0.3"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
 }
