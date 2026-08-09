@@ -66,6 +66,10 @@ fun DevLynxScreen(
     val devSettings = remember { DevSettings(context) }
 
     var lynxViewRef by remember { mutableStateOf<LynxView?>(null) }
+    // Registered on the LynxView at build time, not when the HUD is toggled on:
+    // FCP and FMP fire once during startup, so a collector that waited for the
+    // overlay would miss the two numbers people open it for.
+    val perfCollector = remember { PerfCollector() }
     var perfHudEnabled by remember { mutableStateOf(devSettings.perfHudEnabled) }
     var logBoxEnabled by remember { mutableStateOf(devSettings.logBoxEnabled) }
     var inspectorEnabled by remember { mutableStateOf(false) }
@@ -95,6 +99,9 @@ fun DevLynxScreen(
         lynxViewRef?.let { view ->
             loading = true
             errors.clear(); errorIndex = 0
+            // Reload loads into the EXISTING view, so the AndroidView factory
+            // doesn't re-run and wouldn't clear the previous page's metrics.
+            perfCollector.reset()
             try {
                 view.reloadAndInit()
                 view.renderTemplateUrl(currentUrl, TemplateData.empty())
@@ -174,6 +181,15 @@ fun DevLynxScreen(
                         }
                     })
 
+                    // Perf entries (the typed 4.0 observer) — registered
+                    // BEFORE renderTemplateUrl so the loadBundle entry that
+                    // carries FCP isn't missed. Reset here covers a genuine
+                    // view recreation; `performReload` resets separately,
+                    // because that path reuses this view and never re-enters
+                    // the factory.
+                    perfCollector.reset()
+                    lynxView.addLynxViewClientV2(perfCollector)
+
                     lynxView.renderTemplateUrl(currentUrl, TemplateData.empty())
                     lynxViewRef = lynxView
                     loading = false
@@ -195,7 +211,7 @@ fun DevLynxScreen(
         // Performance HUD overlay
         PerfHud(
             visible = perfHudEnabled,
-            lynxView = lynxViewRef,
+            collector = perfCollector,
             modifier = Modifier.align(Alignment.TopEnd)
         )
 

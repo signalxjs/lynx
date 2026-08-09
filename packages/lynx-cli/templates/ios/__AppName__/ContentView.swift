@@ -23,8 +23,15 @@ final class DevLynxController: ObservableObject {
     // DEBUG-gated or the Release archive fails to compile.
     #if DEBUG
     @Published var perfMetrics: [DevPerfMetric] = []
+    /// The lifecycle client also owns the perf store, so the HUD's memory poll
+    /// has to reach it. Weak: the Coordinator holds the strong reference for
+    /// the LynxView's lifetime.
+    weak var devLifecycleClient: DevLifecycleClient?
     #endif
-    @Published var perfHudEnabled: Bool = false
+    // Persisted, matching Android's `DevSettings.perfHudEnabled` — the HUD is
+    // something you leave on across launches while chasing a number, and iOS
+    // used to forget it on every restart.
+    @Published var perfHudEnabled: Bool = UserDefaults.standard.bool(forKey: "sigx.dev.perfHudEnabled")
     @Published var logBoxEnabled: Bool = true
     @Published var inspectorEnabled: Bool = false
 
@@ -65,7 +72,10 @@ final class DevLynxController: ObservableObject {
 
     // Dev-menu toggles — mirror Android's. Perf HUD is pure UI; logbox and
     // inspector flip native Lynx devtool flags (best-effort, degrade safely).
-    func togglePerfHud() { perfHudEnabled.toggle() }
+    func togglePerfHud() {
+        perfHudEnabled.toggle()
+        UserDefaults.standard.set(perfHudEnabled, forKey: "sigx.dev.perfHudEnabled")
+    }
     func toggleLogBox() {
         logBoxEnabled.toggle()
         #if DEBUG
@@ -157,7 +167,17 @@ struct ContentView: View {
                     DevLoadingOverlay(visible: true)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
-                DevPerfHud(visible: devController.perfHudEnabled, metrics: devController.perfMetrics)
+                DevPerfHud(
+                    visible: devController.perfHudEnabled,
+                    metrics: devController.perfMetrics,
+                    // Memory has no push channel, so the HUD polls and feeds
+                    // the reading back through the same client that collects
+                    // the pushed timings.
+                    onMemory: { [weak devController] total, nodes in
+                        devController?.devLifecycleClient?
+                            .applyMemory(totalBytes: total, elementNodeCount: nodes)
+                    }
+                )
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
                 DevErrorOverlay(
                     error: devController.error,
@@ -306,6 +326,7 @@ struct LynxContainerView: UIViewRepresentable {
         )
         lynxView.addLifecycleClient(client)
         context.coordinator.devLifecycleClient = client
+        devController.devLifecycleClient = client
         #endif
 
         if let devUrl = devUrl {
