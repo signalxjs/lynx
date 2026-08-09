@@ -19,11 +19,41 @@ describe('Input/Textarea — native-widget theme colors (#225)', () => {
 
   it('Input carries the active theme base-content as a literal inline color', () => {
     const { container } = render(<Input placeholder="x" />);
-    const el = container.children[0];
+    // #993: children[0] is the box wrapper <view>; the native input inside
+    // carries the text colors.
+    const el = container.children[0].children[0];
     expect(el._style.color).toBe(expected('daisy-light'));
     // placeholder = base-content at 45% alpha
     expect(el._style['-x-placeholder-color'])
       .toBe(withAlpha(expected('daisy-light'), 0.45));
+  });
+
+  it('a post-mount theme switch recolors the wrapper without remounting the field (#993)', () => {
+    const { container } = render(<Input variant="bordered" />);
+    const box = container.children[0];
+    const field = box.children[0];
+    themeController.set('daisy-dark');
+    // Same elements — updated in place, never recreated (a remount would
+    // clear the native field's text through the model binding).
+    expect(container.children[0]).toBe(box);
+    expect(container.children[0].children[0]).toBe(field);
+    // The box repaints with the new palette — the #993 contract: these
+    // colors must live on the wrapper view because iOS ignores post-mount
+    // style updates on the input element itself.
+    expect(box._style.backgroundColor).toBe(token('daisy-dark', 'base-100'));
+    expect(box._style.borderColor).toBe(token('daisy-dark', 'base-300'));
+  });
+
+  it('Input paints the box on the wrapper and keeps the native field transparent (#993)', () => {
+    const { container } = render(<Input variant="bordered" />);
+    const box = container.children[0];
+    const field = box.children[0];
+    // iOS ignores post-mount inline style updates on the input element, so
+    // the theme-reactive background/border must live on the wrapper view.
+    expect(box._style.backgroundColor).toBe(token('daisy-light', 'base-100'));
+    expect(box._style.borderColor).toBe(token('daisy-light', 'base-300'));
+    expect(field._style.backgroundColor).toBe('transparent');
+    expect(field._style.borderWidth).toBe('0px');
   });
 
   it('Textarea carries the colors alongside its height style', () => {
@@ -37,7 +67,7 @@ describe('Input/Textarea — native-widget theme colors (#225)', () => {
   it('a different active theme resolves different literals', () => {
     themeController.set('daisy-dark');
     const { container } = render(<Input />);
-    expect(container.children[0]._style.color).toBe(expected('daisy-dark'));
+    expect(container.children[0].children[0]._style.color).toBe(expected('daisy-dark'));
   });
 
   it('Input fills its background with the active theme base-100 literal', () => {
