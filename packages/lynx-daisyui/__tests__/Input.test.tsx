@@ -28,6 +28,22 @@ describe('Input/Textarea — native-widget theme colors (#225)', () => {
       .toBe(withAlpha(expected('daisy-light'), 0.45));
   });
 
+  it('a post-mount theme switch recolors the wrapper without remounting the field (#993)', () => {
+    const { container } = render(<Input variant="bordered" />);
+    const box = container.children[0];
+    const field = box.children[0];
+    themeController.set('daisy-dark');
+    // Same elements — updated in place, never recreated (a remount would
+    // clear the native field's text through the model binding).
+    expect(container.children[0]).toBe(box);
+    expect(container.children[0].children[0]).toBe(field);
+    // The box repaints with the new palette — the #993 contract: these
+    // colors must live on the wrapper view because iOS ignores post-mount
+    // style updates on the input element itself.
+    expect(box._style.backgroundColor).toBe(token('daisy-dark', 'base-100'));
+    expect(box._style.borderColor).toBe(token('daisy-dark', 'base-300'));
+  });
+
   it('Input paints the box on the wrapper and keeps the native field transparent (#993)', () => {
     const { container } = render(<Input variant="bordered" />);
     const box = container.children[0];

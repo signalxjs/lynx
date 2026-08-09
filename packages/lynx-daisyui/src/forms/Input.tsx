@@ -83,9 +83,11 @@ export const Input = component<InputProps>(({ props }) => {
   );
 });
 
-// Text metrics per size, mirrored from lynx-zero's tokens.css ramp
-// (--font-* and --padding-btn-*) — native inputs can't read the vars, so
-// the literals live here; keep in sync with tokens.css.
+// Text metrics per size, mirrored from this package's input.css rules
+// (.input font-size/padding + the .input-{xs,sm,lg} overrides; note
+// .input-lg deliberately uses a literal 20px, not --padding-btn-lg's
+// 24px) — native inputs can't read the vars, so the literals live here;
+// keep in sync with input.css.
 const FIELD_METRICS: Record<InputSize, { fontSize: string; pad: string }> = {
   xs: { fontSize: '12px', pad: '8px' },
   sm: { fontSize: '14px', pad: '12px' },
