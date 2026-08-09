@@ -188,6 +188,24 @@ export interface PluginSigxLynxOptions {
   enableElementApiNewRegistration?: boolean;
 
   /**
+   * Route stylesheet encoding through the tasm CSSRuleParser, the only
+   * encoder path that carries `@media` / `@supports` (ConditionRule) and
+   * `@layer` rules into the `.lynx` binary — the legacy token path silently
+   * drops them (#951). Encoded into the template's page config, where it is
+   * read both at encode time and by the engine's runtime config decoder.
+   *
+   * Requires `@lynx-js/tasm` >= 0.0.41 (`@lynx-js/template-webpack-plugin`
+   * >= 0.14) to have any effect; older encoders ignore the key and keep
+   * dropping at-rules. When enabled, the encoder also forces
+   * `enableCSSSelector` and `enableCSSInvalidation` on. Evaluating the
+   * at-rules on device needs a Lynx 4.0+ host.
+   *
+   * Set `false` as a kill switch to restore the pre-4.0 encoding exactly.
+   * @defaultValue true
+   */
+  enableCSSRule?: boolean;
+
+  /**
    * Whether to place debug info outside the template bundle.
    * @defaultValue true
    */
@@ -236,6 +254,7 @@ export function pluginSigxLynx(
     enableCSSInlineVariables: _enableCSSInlineVariables = true,
     enableNewSticky: _enableNewSticky = false,
     enableElementApiNewRegistration: _enableElementApiNewRegistration = false,
+    enableCSSRule: _enableCSSRule = true,
     debugInfoOutside: _debugInfoOutside = true,
     snapshots: _snapshots = true,
     web: _web = true,
@@ -621,17 +640,22 @@ export function pluginSigxLynx(
       // strips lightningcss, and configures ignore-css-loader for main-thread layer.
       applyCSS(api, {
         enableCSSSelector: _enableCSSSelector,
-        enableCSSInvalidation: _enableCSSInheritance,
+        // Invalidation tracks the selector engine, mirroring the template
+        // encoder's own wiring in entry.ts — it previously tracked
+        // enableCSSInheritance by mistake (#984 review).
+        enableCSSInvalidation: _enableCSSSelector,
       });
 
       // Wire dual-thread entry splitting (worklets skipped in v1)
       await applyEntry(api, {
         debugInfoOutside: _debugInfoOutside,
+        enableCSSSelector: _enableCSSSelector,
         enableCSSInheritance: _enableCSSInheritance,
         customCSSInheritanceList: _customCSSInheritanceList,
         enableCSSInlineVariables: _enableCSSInlineVariables,
         enableNewSticky: _enableNewSticky,
         enableElementApiNewRegistration: _enableElementApiNewRegistration,
+        enableCSSRule: _enableCSSRule,
         snapshots: _snapshots,
       });
 

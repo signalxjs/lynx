@@ -32,12 +32,17 @@ catalog:
   "@lynx-js/types": ~4.0.0
   "@lynx-js/react": ^0.121.0
   "@lynx-js/rspeedy": ">=0.14.4"
-  # Exact 0.11.0, deliberately: 0.11.1 pins @lynx-js/tasm 0.0.39, whose WASM
-  # needs a V8 newer than Node 20 ("Unknown heap type -14" on the web build)
-  # even though the package declares engines.node ^18.14||>=19.4. Our CI tests
-  # Node 20, so this is the newest we can carry. Revisit with the lynx-stack
-  # bump (#957), which is where dropping Node 20 gets decided.
-  "@lynx-js/template-webpack-plugin": 0.11.0
+  # Exact 0.15.0, deliberately decoupled from the full lynx-stack bump (#975):
+  # this is the encoder that turns CSS into the .lynx template, and 0.15.0's
+  # @lynx-js/tasm 0.0.49 is the first line we can carry that encodes @media /
+  # @supports rules (support starts at tasm 0.0.41; 0.11.x–0.13.x pin 0.0.39,
+  # which silently drops them — #951). The Node 20 constraint that held this
+  # at 0.11.0 (0.11.1+'s tasm WASM needs a newer V8) is executed away in the
+  # same change: #957 agreed to drop Node 20, and ci.yml now tests 22/24.
+  # tpwp has no peer deps and
+  # keeps the hook API entry.ts uses, so it bumps independently of rspeedy;
+  # rspeedy 0.16/rsbuild 2 stays with #975.
+  "@lynx-js/template-webpack-plugin": 0.15.0
   "@lynx-js/css-extract-webpack-plugin": ">=0.7.1"
   "@lynx-js/runtime-wrapper-webpack-plugin": ">=0.1.3"
   "@lynx-js/webpack-dev-transport": ">=0.2.0"

@@ -130,3 +130,18 @@ describe('enableElementApiNewRegistration (#957)', () => {
     expect(args.encodeData.sourceContent.config.enableElementApiNewRegistration).toBe(false);
   });
 });
+
+describe('enableCSSRule (#951)', () => {
+  it('encodes the resolved boolean so at-rule encoding is always explicit', () => {
+    const args = runPlugin({ enableCSSRule: true }, {});
+    expect(args.encodeData.sourceContent.config.enableCSSRule).toBe(true);
+  });
+
+  it('an explicit false restores the legacy token path (kill switch)', () => {
+    const args = runPlugin(
+      { enableCSSRule: false },
+      { enableCSSRule: true },
+    );
+    expect(args.encodeData.sourceContent.config.enableCSSRule).toBe(false);
+  });
+});

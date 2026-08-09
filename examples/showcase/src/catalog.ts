@@ -115,6 +115,13 @@ export const catalog: Area[] = [
                 route: 'orientation',
             },
             {
+                id: 'css-engine-probe',
+                title: 'CSS engine probe',
+                description: '#951 — @media / prefers-color-scheme / @supports / @font-face verdict swatches (green = works)',
+                icon: { set: 'lucide', name: 'flask-conical' },
+                route: 'cssEngineProbe',
+            },
+            {
                 id: 'inline-sheet',
                 title: 'Inline sheet (no route)',
                 description: '@sigx/lynx-sheet standalone BottomSheet — dismissible, backdrop, surface drag',

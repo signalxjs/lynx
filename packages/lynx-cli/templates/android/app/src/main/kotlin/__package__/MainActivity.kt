@@ -13,6 +13,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.AndroidView
 import com.lynx.tasm.LynxBooleanOption
+import com.lynx.tasm.LynxColorScheme
 import com.lynx.tasm.LynxView
 import com.lynx.tasm.LynxViewBuilder
 import com.lynx.tasm.TemplateData
@@ -117,6 +118,11 @@ class MainActivity : FragmentActivity() {
                                     builder.setFontScale(
                                         com.sigx.core.SigxFontScale.effectiveScale(this),
                                     )
+                                    // Engine color-scheme seed so
+                                    // @media (prefers-color-scheme) resolves on
+                                    // the FIRST frame; live flips are pushed by
+                                    // AppearancePublisher (#951).
+                                    builder.setColorScheme(engineColorScheme(this))
                                 },
                                 onLynxViewCreated = { lynxView ->
                                     GeneratedLifecyclePublishers.attachAll(lynxView)
@@ -200,6 +206,22 @@ class MainActivity : FragmentActivity() {
     }
 }
 
+/**
+ * The engine color scheme matching the host configuration's night mode —
+ * the LynxViewBuilder seed that makes `@media (prefers-color-scheme)`
+ * resolve correctly on the first frame (#951). Mirrors the night-mask
+ * mapping in AppearancePublisher, which owns live flips after creation.
+ */
+private fun engineColorScheme(context: android.content.Context): LynxColorScheme {
+    val night = context.resources.configuration.uiMode and
+        android.content.res.Configuration.UI_MODE_NIGHT_MASK
+    return if (night == android.content.res.Configuration.UI_MODE_NIGHT_YES) {
+        LynxColorScheme.DARK
+    } else {
+        LynxColorScheme.LIGHT
+    }
+}
+
 @Composable
 fun ProductionLynxScreen(bundleName: String, bundleFilePath: String? = null) {
     var loading by remember { mutableStateOf(true) }
@@ -221,6 +243,10 @@ fun ProductionLynxScreen(bundleName: String, bundleFilePath: String? = null) {
                     // OS text-size seed; runtime changes are pushed by
                     // FontScalePublisher (#766).
                     viewBuilder.setFontScale(com.sigx.core.SigxFontScale.effectiveScale(ctx))
+                    // Engine color-scheme seed so @media (prefers-color-scheme)
+                    // resolves on the FIRST frame; live flips are pushed by
+                    // AppearancePublisher (#951).
+                    viewBuilder.setColorScheme(engineColorScheme(ctx))
 
                     // Serve dynamic-import chunks from embedded assets (#599).
                     // Mirrors the dev-mode fetchers, which read from the dev

@@ -8,6 +8,7 @@ import android.util.Log
 import android.view.View
 import com.lynx.react.bridge.JavaOnlyArray
 import com.lynx.react.bridge.JavaOnlyMap
+import com.lynx.tasm.LynxColorScheme
 import com.lynx.tasm.LynxView
 import com.lynx.tasm.TemplateData
 
@@ -96,6 +97,19 @@ class AppearancePublisher(private val lynxView: LynxView) {
         val map: Map<String, Any> = mapOf("colorScheme" to scheme)
 
         try {
+            // Channel 0: the engine's own color scheme — drives
+            // `@media (prefers-color-scheme)` natively, no JS round trip
+            // (Lynx 4.0+, #951). The initial value is seeded at LynxView
+            // construction via LynxViewBuilder.setColorScheme; this keeps
+            // live flips in sync.
+            lynxView.updateColorScheme(
+                if (night == Configuration.UI_MODE_NIGHT_YES) {
+                    LynxColorScheme.DARK
+                } else {
+                    LynxColorScheme.LIGHT
+                },
+            )
+
             // Channel 1: __globalProps — sync MT read at first paint.
             lynxView.updateGlobalProps(TemplateData.fromMap(mapOf("appearance" to map)))
 

@@ -17,7 +17,10 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest]
-        node-version: ['20', '22']
+        # Node 20 dropped (#957, agreed; executed here with #951): the
+        # @lynx-js/tasm WASM encoder that template-webpack-plugin >= 0.11.1
+        # ships needs a newer V8 ("Unknown heap type -14" on the web build).
+        node-version: ['22', '24']
         include:
           - os: windows-latest
             node-version: '22'

@@ -58,6 +58,32 @@ import { useSystemColorSchemeMT } from '@sigx/lynx-appearance';
 const isDark = useSystemColorSchemeMT() === 'dark';
 ```
 
+### Native CSS color scheme — `@media (prefers-color-scheme)` (Lynx ≥ 4.0)
+
+Besides the two JS channels above, the publisher drives the **engine's own
+color scheme** ("channel 0"): it calls `LynxView.updateColorScheme(...)` on
+every flip, and the CLI templates seed the initial value at LynxView
+construction (`builder.colorScheme` on iOS, `LynxViewBuilder.setColorScheme`
+on Android). With that, stylesheet rules like
+
+```css
+.card { background-color: #ffffff; }
+@media (prefers-color-scheme: dark) {
+  .card { background-color: #1d232a; }
+}
+```
+
+resolve natively — correct on the first frame, re-resolved on scheme change,
+no JS round trip. The engine does **not** track the OS scheme by itself
+(default is light, always); this wiring is what makes it follow. Encoding
+`@media` rules into the bundle needs `@sigx/lynx-plugin`'s `enableCSSRule`
+(on by default; see the plugin README) and evaluating them needs a Lynx ≥ 4.0
+host. On iOS, real-time foreground flips are observed via
+`registerForTraitChanges` (iOS 17+); older iOS picks the change up on the
+next app-foreground. On Android an OS flip recreates the Activity (unless
+the host opts `uiMode` into `android:configChanges`), and the fresh LynxView
+is seeded correctly.
+
 ### OS font scale
 
 The native hosts follow the system text-size setting (iOS Dynamic Type /

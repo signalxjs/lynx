@@ -85,6 +85,7 @@ export default defineConfig({
    | `enableCSSInlineVariables` (#116) | Lynx ≥ 3.6, and ≥ 3.9 to re-resolve on change | `true` | on by default; `false` is the kill switch |
    | `enableNewSticky` (#950) | Lynx ≥ 4.0 | `false` | `pluginSigxLynx({ enableNewSticky: true })` |
    | `enableElementApiNewRegistration` (#957) | Lynx ≥ 4.0 | `false` | `pluginSigxLynx({ enableElementApiNewRegistration: true })` |
+   | `enableCSSRule` (#951) | tasm ≥ 0.0.41 to encode; Lynx ≥ 4.0 to evaluate | `true` | on by default; `false` is the kill switch |
 
    `enableNewSticky` opts into Lynx 4.0's new sticky layout for `<list>`
    headers; it changes where and when a header pins, so re-check anything
@@ -97,6 +98,19 @@ export default defineConfig({
    a **host setting** can otherwise flip it under a bundle that never asked.
    The page config takes precedence, so encoding it keeps the choice with
    the app.
+
+   `enableCSSRule` routes stylesheet encoding through the tasm
+   `CSSRuleParser` — the only encoder path that carries `@media`,
+   `@supports` (ConditionRule) and `@layer` rules into the `.lynx` binary;
+   the legacy token path silently drops them. This flag is read at **encode
+   time** (unlike the others, which only the runtime decodes), so it needs
+   `@lynx-js/template-webpack-plugin` ≥ 0.14 (`@lynx-js/tasm` ≥ 0.0.41) to
+   have any effect; when enabled the encoder also forces `enableCSSSelector`
+   and `enableCSSInvalidation` on. On device, `prefers-color-scheme`
+   resolution additionally needs the host to drive the engine's color scheme
+   — `@sigx/lynx-appearance`'s publisher does (#951). The web target does
+   not carry media/supports rules regardless (upstream `WebEncodePlugin`
+   drops them).
 
    **Evaluated and deliberately not plumbed:** `enableNativeInteraction`
    (changes platform-view interaction defaults — belongs with the gesture work,
