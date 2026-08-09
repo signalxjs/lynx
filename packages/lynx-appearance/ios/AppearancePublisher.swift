@@ -78,8 +78,9 @@ final class AppearancePublisher {
         // `@media (prefers-color-scheme)` natively, no JS round trip
         // (Lynx 4.0+, #951). The initial value is seeded at LynxView
         // construction via `builder.colorScheme`; this keeps live flips
-        // in sync.
-        view.updateColorScheme(scheme == "dark" ? .dark : .light)
+        // in sync. (`update(_:)` is Swift's import of the ObjC
+        // `updateColorScheme:` selector.)
+        view.update(scheme == "dark" ? LynxColorScheme.dark : .light)
 
         // Channel 1: __globalProps — sync MT read at first paint.
         view.updateGlobalProps(with: ["appearance": map])
