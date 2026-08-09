@@ -99,6 +99,9 @@ fun DevLynxScreen(
         lynxViewRef?.let { view ->
             loading = true
             errors.clear(); errorIndex = 0
+            // Reload loads into the EXISTING view, so the AndroidView factory
+            // doesn't re-run and wouldn't clear the previous page's metrics.
+            perfCollector.reset()
             try {
                 view.reloadAndInit()
                 view.renderTemplateUrl(currentUrl, TemplateData.empty())
@@ -180,9 +183,10 @@ fun DevLynxScreen(
 
                     // Perf entries (the typed 4.0 observer) — registered
                     // BEFORE renderTemplateUrl so the loadBundle entry that
-                    // carries FCP isn't missed. The factory re-runs when the
-                    // view is rebuilt for a reload or a new URL, so drop the
-                    // previous page's numbers first.
+                    // carries FCP isn't missed. Reset here covers a genuine
+                    // view recreation; `performReload` resets separately,
+                    // because that path reuses this view and never re-enters
+                    // the factory.
                     perfCollector.reset()
                     lynxView.addLynxViewClientV2(perfCollector)
 

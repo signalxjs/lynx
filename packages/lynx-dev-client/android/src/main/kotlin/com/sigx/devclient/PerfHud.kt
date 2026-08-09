@@ -55,20 +55,58 @@ class PerfCollector : LynxViewClientV2() {
     /**
      * Drop everything collected for the previous page.
      *
-     * Called from the `AndroidView` factory, which re-runs when the LynxView is
-     * rebuilt for a new URL or a reload. Without this the HUD would keep
-     * showing the last page's FCP — a number that is only ever emitted once, so
-     * it would look current forever.
+     * Called from two places, because there are two ways a new page starts:
+     * the `AndroidView` factory (first composition, or a genuine view
+     * recreation) and `performReload`, which loads into the **existing**
+     * LynxView and so never re-runs the factory. Missing the second one would
+     * leave the previous page's FCP on screen — a number emitted once per load,
+     * so it would sit there looking current forever. iOS gets this from
+     * `lynxViewDidStartLoading`, which fires on both paths.
      */
     fun reset() {
         store.clear()
         metrics = emptyList()
     }
 
-    /** Called from the HUD's poll; already on the UI thread. */
-    fun applyMemory(totalBytes: Double, elementNodeCount: Double) {
-        store.setMemory(totalBytes, elementNodeCount)
-        metrics = store.snapshot()
+    /**
+     * One memory reading, folded in on the UI thread.
+     *
+     * Returns false once the engine has told us the API isn't there, so the
+     * HUD's poll can stop asking. An engine older than 4.0.1 raises
+     * `NoClassDefFoundError`, and retrying that every 5 s for as long as the
+     * overlay is open buys nothing but logcat noise.
+     */
+    fun pollMemory(): Boolean {
+        if (memoryUnavailable) return false
+        try {
+            LynxMemoryUsageQuery.inst().queryLynxGlobalMemoryUsageAsync(
+                object : LynxGlobalMemoryUsageCallback() {
+                    override fun onResult(result: LynxGlobalMemoryUsageResult) {
+                        // Reporter thread — same hop as onPerformanceEvent, and
+                        // reusing the one Handler rather than allocating per poll.
+                        main.post {
+                            store.setMemory(
+                                result.totalBytes.toDouble(),
+                                result.elementNodeCount.toDouble(),
+                            )
+                            metrics = store.snapshot()
+                        }
+                    }
+                }
+            )
+        } catch (e: Throwable) {
+            // Throwable, not Exception: the missing-class case is an Error.
+            memoryUnavailable = true
+            Log.w(TAG, "memory query unavailable, not polling again: ${e.message}")
+            return false
+        }
+        return true
+    }
+
+    private var memoryUnavailable = false
+
+    private companion object {
+        const val TAG = "SigxPerfHud"
     }
 }
 
@@ -88,8 +126,10 @@ fun PerfHud(
     if (!visible || collector == null) return
 
     LaunchedEffect(collector) {
-        while (true) {
-            queryMemory(collector)
+        // Stops as soon as the engine says the memory API isn't available,
+        // rather than retrying — and cancelled outright when the overlay is
+        // hidden, so nothing polls behind a closed HUD.
+        while (collector.pollMemory()) {
             delay(MEMORY_POLL_MS)
         }
     }
@@ -125,31 +165,6 @@ fun PerfHud(
 }
 
 private const val MEMORY_POLL_MS = 5000L
-private const val TAG = "SigxPerfHud"
-
-private fun queryMemory(collector: PerfCollector) {
-    val main = Handler(Looper.getMainLooper())
-    try {
-        LynxMemoryUsageQuery.inst().queryLynxGlobalMemoryUsageAsync(
-            object : LynxGlobalMemoryUsageCallback() {
-                override fun onResult(result: LynxGlobalMemoryUsageResult) {
-                    // Also the reporter thread — see PerfCollector.
-                    main.post {
-                        collector.applyMemory(
-                            result.totalBytes.toDouble(),
-                            result.elementNodeCount.toDouble(),
-                        )
-                    }
-                }
-            }
-        )
-    } catch (e: Throwable) {
-        // Throwable, not Exception: an engine older than 4.0.1 raises
-        // NoClassDefFoundError. The HUD drops the memory lines and keeps the
-        // timings rather than taking the overlay down.
-        Log.w(TAG, "memory query unavailable: ${e.message}")
-    }
-}
 
 @Composable
 private fun PerfLine(metric: PerfMetric) {
