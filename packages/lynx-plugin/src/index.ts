@@ -640,12 +640,16 @@ export function pluginSigxLynx(
       // strips lightningcss, and configures ignore-css-loader for main-thread layer.
       applyCSS(api, {
         enableCSSSelector: _enableCSSSelector,
-        enableCSSInvalidation: _enableCSSInheritance,
+        // Invalidation tracks the selector engine, mirroring the template
+        // encoder's own wiring in entry.ts — it previously tracked
+        // enableCSSInheritance by mistake (#984 review).
+        enableCSSInvalidation: _enableCSSSelector,
       });
 
       // Wire dual-thread entry splitting (worklets skipped in v1)
       await applyEntry(api, {
         debugInfoOutside: _debugInfoOutside,
+        enableCSSSelector: _enableCSSSelector,
         enableCSSInheritance: _enableCSSInheritance,
         customCSSInheritanceList: _customCSSInheritanceList,
         enableCSSInlineVariables: _enableCSSInlineVariables,

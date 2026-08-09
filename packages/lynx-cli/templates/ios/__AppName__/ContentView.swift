@@ -261,10 +261,12 @@ struct LynxContainerView: UIViewRepresentable {
             builder.fontScale = SigxFontScale.effectiveScale()
             // Engine color-scheme seed so @media (prefers-color-scheme)
             // resolves correctly on the FIRST frame; live flips are pushed by
-            // AppearancePublisher via updateColorScheme (#951).
+            // AppearancePublisher via updateColorScheme (#951). Read from the
+            // SwiftUI environment — UITraitCollection.current can be
+            // `unspecified` during view construction, which would mis-seed
+            // .light on a dark device.
             builder.colorScheme =
-                UITraitCollection.current.userInterfaceStyle == .dark
-                    ? .dark : .light
+                context.environment.colorScheme == .dark ? .dark : .light
 
             #if DEBUG
             if isDevMode {
