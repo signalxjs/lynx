@@ -106,3 +106,27 @@ describe('enableNewSticky (#950)', () => {
     expect(args.encodeData.sourceContent.config.enableNewSticky).toBe(false);
   });
 });
+
+describe('enableElementApiNewRegistration (#957)', () => {
+  it('pins the registration path our <sigx-*> elements are verified on', () => {
+    // Upstream defaults this off, but marks it `readSettings: true` — a host
+    // setting can flip it. Every custom element goes through the generic
+    // `__CreateElement`, so this switch moves the whole surface at once;
+    // encoding the resolved boolean keeps the choice with the app.
+    const args = runPlugin({ enableElementApiNewRegistration: false }, {});
+    expect(args.encodeData.sourceContent.config.enableElementApiNewRegistration).toBe(false);
+  });
+
+  it('opts in when asked', () => {
+    const args = runPlugin({ enableElementApiNewRegistration: true }, {});
+    expect(args.encodeData.sourceContent.config.enableElementApiNewRegistration).toBe(true);
+  });
+
+  it('beats a value already in the config, so the host cannot win by writing one first', () => {
+    const args = runPlugin(
+      { enableElementApiNewRegistration: false },
+      { enableElementApiNewRegistration: true },
+    );
+    expect(args.encodeData.sourceContent.config.enableElementApiNewRegistration).toBe(false);
+  });
+});

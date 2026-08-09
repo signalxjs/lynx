@@ -72,14 +72,38 @@ export default defineConfig({
    inline custom properties unconditionally. Kill switch:
    `pluginSigxLynx({ enableCSSInlineVariables: false })`.
 
-7. **Sticky list layout (#950).** The plugin encodes `enableNewSticky` into
-   the template's page config. Upstream ships Lynx 4.0's new sticky layout
-   **off** by default; we encode the resolved boolean rather than omitting the
-   key, so an engine that later flips its own default cannot relayout sticky
-   `<list>` headers without us choosing it. Opt in with
-   `pluginSigxLynx({ enableNewSticky: true })` — it changes where and when a
-   header pins, so re-check anything doing pixel math against sticky positions.
-   Hosts older than 4.0 ignore the key.
+7. **Page-config flags.** `LynxTemplatePlugin` emits a fixed key set, but the
+   native engine decodes more than that, so `SigxPageConfigPlugin` merges the
+   rest in. Every flag here follows one rule: **encode the resolved boolean,
+   never omit the key.** An absent key means "whatever the engine or host
+   decides today", which is how a behaviour change arrives without anyone
+   choosing it. Hosts older than the flag's `since` ignore it.
+
+   | Flag | Default | Opt in with |
+   |---|---|---|
+   | `enableCSSInlineVariables` (#116) | `true` | on by default; `false` is the kill switch |
+   | `enableNewSticky` (#950) | `false` | `pluginSigxLynx({ enableNewSticky: true })` |
+   | `enableElementApiNewRegistration` (#957) | `false` | `pluginSigxLynx({ enableElementApiNewRegistration: true })` |
+
+   `enableNewSticky` opts into Lynx 4.0's new sticky layout for `<list>`
+   headers; it changes where and when a header pins, so re-check anything
+   doing pixel math against sticky positions.
+
+   `enableElementApiNewRegistration` selects Lynx 4.0's new raw binding path
+   for the Fiber Element API. It is pinned off because every `<sigx-*>` custom
+   element is created through the generic `__CreateElement` and so moves as one
+   surface — and because upstream marks this flag `readSettings: true`, meaning
+   a **host setting** can otherwise flip it under a bundle that never asked.
+   The page config takes precedence, so encoding it keeps the choice with
+   the app.
+
+   **Evaluated and deliberately not plumbed:** `enableNativeInteraction`
+   (changes platform-view interaction defaults — belongs with the gesture work,
+   not here), `syncXElementRegistry` (no evidence it helps; the default is what
+   our custom elements are verified against), `enableNativeList` (device-tested
+   in #950 and it does not do what it looks like it does — `custom-list-name`
+   still selects the platform node), and `enableSingleSession` (a devtool
+   setting, not a page config — `@sigx/lynx-dev-client`'s concern).
 
 8. **Cross-package worklet pickup.** The worklet rules run on every JS/TS file in the BG / MT layers, including `node_modules` and pre-built `dist/`. Any package shipping `'main thread'` directives in its dist (`@sigx/lynx-motion`, `@sigx/lynx-navigation`, `@sigx/lynx-gestures`, future additions) is picked up automatically — no allowlist or opt-in flag. See [CONTRIBUTING.md](https://github.com/signalxjs/lynx/blob/main/CONTRIBUTING.md#lynx-plugin-internals-cross-package-worklet-pickup) for the loader-branching details.
 
