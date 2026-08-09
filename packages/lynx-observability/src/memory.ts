@@ -142,6 +142,15 @@ const str = (v: unknown): string => (typeof v === 'string' ? v : '');
 const STATUSES: readonly string[] = ['completed', 'timeout', 'unknown'];
 
 /**
+ * A whole number for a knob that came in as untyped config. Anything unusable —
+ * `NaN`, `Infinity`, a negative, a string — falls back rather than propagating
+ * into a `setTimeout` delay or a `slice()` bound, where a `-1` quietly means
+ * "drop the last one" instead of "none".
+ */
+const posInt = (v: unknown, fallback: number, min = 1): number =>
+    typeof v === 'number' && Number.isFinite(v) && v >= min ? Math.floor(v) : fallback;
+
+/**
  * Bridge payloads have arrived as JSON *strings* before (#342), so parse that
  * case rather than handing the caller a snapshot full of zeroes.
  */
@@ -265,15 +274,31 @@ export const Memory = {
             return () => { /* nothing was started */ };
         }
 
-        const intervalMs = options.intervalMs ?? 60_000;
-        const level = options.level ?? 'info';
-        const maxInstances = options.maxInstances ?? 5;
+        // These arrive from `signalx.config.ts` via a build-time define as well
+        // as from a typed call site, so the types are a suggestion here, not a
+        // guarantee. `'silent'` in particular has no method on the logger and
+        // would throw on the first reading.
+        const intervalMs = posInt(options.intervalMs, 60_000);
+        // Widened before the check: the declared type already excludes
+        // `'silent'`, so TS would call the comparison dead — but injected config
+        // isn't type-checked at runtime, and `log.silent` doesn't exist.
+        const declared = options.level as LogLevelName | undefined;
+        const level: Exclude<LogLevelName, 'silent'> = declared && declared !== 'silent'
+            ? declared
+            : 'info';
+        const maxInstances = posInt(options.maxInstances, 5, 0);
 
         let stopped = false;
         let timer: ReturnType<typeof setTimeout> | undefined;
 
         const tick = async (): Promise<void> => {
             try {
+                // Checked per tick, not once: `setLogLevel` can move at runtime.
+                // Release builds default the threshold to `warn`, so the default
+                // `info` reading would be dropped — and a process-global
+                // collection every minute to produce nothing is worse than not
+                // reporting. An `onReading` hook is its own reason to sample.
+                if (!log.enabled(level) && !options.onReading) return;
                 const snapshot = await Memory.query(options);
                 // The disposer may have run while the query was in flight; a
                 // reading logged after `stop()` would outlive the caller's

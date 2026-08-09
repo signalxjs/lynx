@@ -94,7 +94,7 @@ Each reading is logged under the `memory` namespace, so it shows up in the `sigx
 | Field | Type | Default | Notes |
 |---|---|---|---|
 | `intervalMs` | `number` | `60000` | Gap between the **end** of one reading and the start of the next, so a slow query can't stack collections. |
-| `level` | `LogLevelName` | `'info'` | Level each reading is logged at. |
+| `level` | `Exclude<LogLevelName, 'silent'>` | `'info'` | Level each reading is logged at. `'silent'` is a threshold, not a level — omit the block to turn reporting off. |
 | `immediate` | `boolean` | `true` | Take a reading straight away rather than waiting one interval. |
 | `maxInstances` | `number` | `5` | Per-instance rows carried in the record; `0` omits them. Caps record size on an app with many LynxViews. |
 | `onReading` | `(s: MemoryUsageSnapshot) => void` | — | Extra per-reading hook. Throwing won't stop the loop. |

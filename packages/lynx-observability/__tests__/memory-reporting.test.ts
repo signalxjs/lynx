@@ -7,7 +7,7 @@
  * unrelated flake somewhere else in the suite.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { addTransport, clearTransports, type LogRecord } from '@sigx/lynx-core';
+import { addTransport, clearTransports, setLogLevel, type LogRecord } from '@sigx/lynx-core';
 
 import { Memory } from '../src/memory';
 
@@ -16,6 +16,13 @@ let records: LogRecord[];
 let queue: unknown[];
 let calls: number;
 
+/**
+ * Milliseconds the fake native module takes to answer. `0` resolves on the next
+ * microtask; anything larger holds the callback on a timer, which is how the
+ * slow-query case is exercised.
+ */
+let queryDelayMs = 0;
+
 function installNativeModules(linked = true) {
     vi.stubGlobal('NativeModules', linked
         ? {
@@ -23,7 +30,9 @@ function installNativeModules(linked = true) {
                 queryMemoryUsage: (...args: never[]) => {
                     const cb = args[args.length - 1] as unknown as (r: unknown) => void;
                     calls += 1;
-                    cb(queue.length > 1 ? queue.shift() : queue[0]);
+                    const result = queue.length > 1 ? queue.shift() : queue[0];
+                    if (queryDelayMs > 0) setTimeout(() => cb(result), queryDelayMs);
+                    else cb(result);
                 },
             },
         }
@@ -47,7 +56,9 @@ beforeEach(() => {
     records = [];
     queue = [SNAPSHOT];
     calls = 0;
+    queryDelayMs = 0;
     clearTransports();
+    setLogLevel('trace');
     addTransport((r) => records.push(r));
     installNativeModules();
 });
@@ -86,10 +97,7 @@ describe('the loop', () => {
         stop();
     });
 
-    it('reschedules from completion, so slow queries cannot overlap', async () => {
-        // The query resolves on the next microtask; if the loop used
-        // setInterval, a query slower than the interval would stack up
-        // process-global collections. One in flight at a time, always.
+    it('reschedules on a steady cadence when queries are fast', async () => {
         const stop = Memory.startReporting({ intervalMs: 1000 });
         await vi.advanceTimersByTimeAsync(0);
         expect(calls).toBe(1);
@@ -97,6 +105,29 @@ describe('the loop', () => {
         expect(calls).toBe(2);
         await vi.advanceTimersByTimeAsync(1000);
         expect(calls).toBe(3);
+        stop();
+    });
+
+    it('never overlaps a query slower than the interval', async () => {
+        // The actual no-overlap property, which a fast stub cannot show: hold
+        // the native callback for 2.5x the interval. Under `setInterval` this
+        // would have started two more process-global collections before the
+        // first one answered. Rescheduling from completion means the second
+        // query cannot begin until the first has.
+        queryDelayMs = 2500;
+        const stop = Memory.startReporting({ intervalMs: 1000 });
+        await vi.advanceTimersByTimeAsync(0);
+        expect(calls).toBe(1);
+
+        // Two intervals elapse while the first query is still outstanding.
+        await vi.advanceTimersByTimeAsync(2000);
+        expect(calls).toBe(1);
+
+        // It answers at 2500ms; the next is scheduled one interval after that.
+        await vi.advanceTimersByTimeAsync(500);
+        expect(calls).toBe(1);
+        await vi.advanceTimersByTimeAsync(1000);
+        expect(calls).toBe(2);
         stop();
     });
 
@@ -122,6 +153,77 @@ describe('the loop', () => {
         await vi.advanceTimersByTimeAsync(0);
         expect(seen).toHaveLength(1);
         expect((seen[0] as { totalBytes: number }).totalBytes).toBe(10_485_760);
+        stop();
+    });
+});
+
+describe('untrusted option values', () => {
+    // These arrive from `signalx.config.ts` through a build-time define as well
+    // as from a typed call site, so the types are a suggestion, not a guarantee.
+
+    it("falls back to 'info' when handed 'silent'", async () => {
+        // The logger has no `silent()` — it's a threshold, not a level — so
+        // taking it literally would throw on the very first reading.
+        const stop = Memory.startReporting({ level: 'silent' as never });
+        await vi.advanceTimersByTimeAsync(0);
+        expect(memoryRecords()[0]?.level.name).toBe('info');
+        stop();
+    });
+
+    it('falls back on a nonsense interval instead of scheduling with NaN', async () => {
+        const stop = Memory.startReporting({ intervalMs: Number.NaN as never });
+        await vi.advanceTimersByTimeAsync(0);
+        expect(calls).toBe(1);
+        // Fell back to the 60s default, so nothing fires at 5s.
+        await vi.advanceTimersByTimeAsync(5000);
+        expect(calls).toBe(1);
+        await vi.advanceTimersByTimeAsync(60_000);
+        expect(calls).toBe(2);
+        stop();
+    });
+
+    it('treats a negative maxInstances as the default, not as slice(0, -1)', async () => {
+        // `slice(0, -1)` silently means "all but the last", which would be a
+        // strange thing to send to a sink.
+        const stop = Memory.startReporting({ maxInstances: -1 as never });
+        await vi.advanceTimersByTimeAsync(0);
+        const fields = memoryRecords()[0]?.fields[0] as { instances: unknown[] };
+        expect(fields.instances).toHaveLength(3);
+        stop();
+    });
+});
+
+describe('level gating', () => {
+    it('skips the query when nothing would be emitted at that level', async () => {
+        // Release builds threshold at `warn`, so a default `info` reading is
+        // dropped — and a process-global collection every minute to produce
+        // nothing is worse than not reporting at all.
+        setLogLevel('error');
+        const stop = Memory.startReporting({ level: 'info', intervalMs: 1000 });
+        await vi.advanceTimersByTimeAsync(3000);
+        expect(calls).toBe(0);
+        stop();
+    });
+
+    it('still samples when an onReading hook is attached', async () => {
+        // The hook is its own reason to collect, regardless of the log level.
+        setLogLevel('error');
+        const seen: unknown[] = [];
+        const stop = Memory.startReporting({ level: 'info', onReading: (s) => seen.push(s) });
+        await vi.advanceTimersByTimeAsync(0);
+        expect(calls).toBe(1);
+        expect(seen).toHaveLength(1);
+        stop();
+    });
+
+    it('picks the level up again when the threshold moves at runtime', async () => {
+        setLogLevel('error');
+        const stop = Memory.startReporting({ level: 'info', intervalMs: 1000 });
+        await vi.advanceTimersByTimeAsync(1000);
+        expect(calls).toBe(0);
+        setLogLevel('debug');
+        await vi.advanceTimersByTimeAsync(1000);
+        expect(calls).toBe(1);
         stop();
     });
 });

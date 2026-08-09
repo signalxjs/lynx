@@ -133,7 +133,16 @@ export const ObservabilityDemo = component(() => {
                                     dev` terminal and any configured sink.
                                 </Text>
                                 <Row gap={8}>
-                                    <Button variant="outline" onPress={toggleReporting}>
+                                    {/* Disabled when unavailable: startReporting is a
+                                        documented no-op there, so an enabled button
+                                        would flip to "Stop reporting" over a counter
+                                        that never moves — which reads as broken rather
+                                        than as unsupported. */}
+                                    <Button
+                                        variant="outline"
+                                        disabled={!available}
+                                        onPress={toggleReporting}
+                                    >
                                         {reportingOn.value ? 'Stop reporting' : 'Report every 5s'}
                                     </Button>
                                 </Row>

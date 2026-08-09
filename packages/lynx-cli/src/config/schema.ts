@@ -608,8 +608,14 @@ export interface LoggingConfig {
             intervalMs?: number;
             /** Engine collection timeout. Omit for the engine default (2000). */
             timeoutMs?: number;
-            /** Level each reading is logged at. Default `'info'`. */
-            level?: LogLevelName;
+            /**
+             * Level each reading is logged at. Default `'info'`.
+             *
+             * `'silent'` is excluded deliberately: it isn't a level records can
+             * be emitted at, only a threshold. To turn reporting off, omit this
+             * whole `memory` block.
+             */
+            level?: Exclude<LogLevelName, 'silent'>;
             /** Per-instance rows carried in the record. Default 5; `0` omits them. */
             maxInstances?: number;
         };

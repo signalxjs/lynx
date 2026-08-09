@@ -51,8 +51,9 @@ describe('install (auto-wire entry)', () => {
         // That combination is easy to break and easy to miss.
         install({ memory: {} });
         expect(initMock).toHaveBeenCalledTimes(1);
-        expect(initMock.mock.calls[0]?.[0]).toMatchObject({ memory: {} });
-        expect((initMock.mock.calls[0]?.[0] as { sink?: unknown }).sink).toBeUndefined();
+        const forwarded = initMock.mock.calls[0]?.[0] as { memory?: unknown; sink?: unknown };
+        expect(forwarded).toMatchObject({ memory: {} });
+        expect(forwarded.sink).toBeUndefined();
     });
 
     it('never throws even if initObservability throws', () => {
