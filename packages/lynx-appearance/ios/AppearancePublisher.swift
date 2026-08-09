@@ -74,6 +74,13 @@ final class AppearancePublisher {
 
         let map: [String: Any] = ["colorScheme": scheme]
 
+        // Channel 0: the engine's own color scheme — drives
+        // `@media (prefers-color-scheme)` natively, no JS round trip
+        // (Lynx 4.0+, #951). The initial value is seeded at LynxView
+        // construction via `builder.colorScheme`; this keeps live flips
+        // in sync.
+        view.updateColorScheme(scheme == "dark" ? .dark : .light)
+
         // Channel 1: __globalProps — sync MT read at first paint.
         view.updateGlobalProps(with: ["appearance": map])
 
