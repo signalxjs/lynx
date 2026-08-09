@@ -4,6 +4,10 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 ## [Unreleased]
 
+### Fixed
+
+- **`@sigx/lynx-daisyui`: Input no longer stays painted in the previous palette after a live theme switch on iOS** (#993). iOS's input element ignores post-mount inline style updates, so the field kept its mount-time colors — most visibly a solid white box on a dark screen after toggling the theme (or, before #990's seed fix, on any dark cold start). The themed box (background + border) now lives on a wrapper `<view>`, which repaints reliably on both platforms; the native field inside is transparent and carries only text metrics and colors. Device-verified: iOS recolors on a live toggle, Android keeps its correct behavior including typed-text survival across #986's in-place dark flips, and focus/typing/layout are unchanged.
+
 ### Added
 
 - **CSS `@media` / `@supports` / `prefers-color-scheme` now reach the device — theming can start moving out of JS signals** (#951). Three pieces, verified on both platforms with a release-build probe screen:
