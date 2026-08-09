@@ -13,6 +13,7 @@ import { DirectivesDemo } from './screens/DirectivesDemo.js';
 import { Icons } from './screens/Icons.js';
 import { SystemBars } from './screens/SystemBars.js';
 import { OrientationDemo } from './screens/OrientationDemo.js';
+import { CSSEngineProbe } from './screens/CSSEngineProbe.js';
 import { InlineSheetDemo } from './screens/InlineSheetDemo.js';
 import { SheetDemo } from './screens/SheetDemo.js';
 import { SheetScrollDemo } from './screens/SheetScrollDemo.js';
@@ -96,6 +97,7 @@ export const routes = defineRoutes({
     icons: { component: Icons, path: '/icons' },
     systemBars: { component: SystemBars, path: '/system-bars' },
     orientation: { component: OrientationDemo, path: '/orientation' },
+    cssEngineProbe: { component: CSSEngineProbe, path: '/css-engine-probe' },
     // Standalone @sigx/lynx-sheet BottomSheet on a plain card screen —
     // no route needed for the sheet itself.
     inlineSheetDemo: { component: InlineSheetDemo, path: '/inline-sheet' },

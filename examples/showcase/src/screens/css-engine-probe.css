@@ -1,0 +1,196 @@
+/* #951 — CSS engine probe (Lynx 4.0 at-rules).
+ *
+ * Reading the screen: every swatch is a labeled bar. GREEN = the feature
+ * under test resolved the rule; HOT PINK (#ff00aa) = it did not (or, for
+ * the "false positive" @supports probes, that a gate matched when it must
+ * not). A screenshot of this screen is a per-feature verdict.
+ *
+ * Class names are p951-* and unscoped-unique so no theme/tailwind CSS can
+ * interfere. Needs `enableCSSRule: true` (default) in @sigx/lynx-plugin and
+ * @lynx-js/template-webpack-plugin >= 0.14 to survive encoding (#951).
+ */
+
+.p951-swatch {
+  height: 44px;
+  border-radius: 8px;
+  margin-bottom: 6px;
+  padding-left: 10px;
+  padding-right: 10px;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+}
+
+.p951-swatch-label {
+  font-size: 13px;
+  color: #ffffff;
+}
+
+.p951-section {
+  font-size: 15px;
+  font-weight: bold;
+  margin-top: 18px;
+  margin-bottom: 8px;
+}
+
+.p951-note {
+  font-size: 12px;
+  margin-bottom: 6px;
+}
+
+/* ---- item 1: prefers-color-scheme -------------------------------------
+ * Exactly one of the pair must be green; which one names the scheme the
+ * ENGINE believes. Both pink = media queries not resolving at all. */
+.p951-dark-green {
+  background-color: #ff00aa;
+}
+.p951-light-green {
+  background-color: #ff00aa;
+}
+@media (prefers-color-scheme: dark) {
+  .p951-dark-green {
+    background-color: #16a34a;
+  }
+}
+@media (prefers-color-scheme: light) {
+  .p951-light-green {
+    background-color: #16a34a;
+  }
+}
+
+/* ---- item 2: custom properties from the stylesheet --------------------
+ * B: --p951-bg declared on a parent in this stylesheet, consumed by a
+ *    child var() — pink fallback shows if declaration or inheritance
+ *    fails.
+ * C: same, but the declaration lives inside a prefers-color-scheme block
+ *    (the #116 endgame: theme palette per scheme in pure CSS). Distinct
+ *    greens name the branch that won. */
+.p951-var-parent {
+  --p951-bg: #16a34a;
+}
+.p951-var-child {
+  background-color: var(--p951-bg, #ff00aa);
+}
+@media (prefers-color-scheme: light) {
+  .p951-var-scheme-parent {
+    --p951-scheme-bg: #16a34a; /* green = light branch */
+  }
+}
+@media (prefers-color-scheme: dark) {
+  .p951-var-scheme-parent {
+    --p951-scheme-bg: #059669; /* teal-green = dark branch */
+  }
+}
+.p951-var-scheme-child {
+  background-color: var(--p951-scheme-bg, #ff00aa);
+}
+/* A: inline-declared custom property (the enableCSSInlineVariables path
+ * ThemeProvider rides today) — parent gets style="--p951-inline: #16a34a"
+ * from JSX; only the consumer lives here. */
+.p951-var-inline-child {
+  background-color: var(--p951-inline, #ff00aa);
+}
+
+/* ---- item 3: width / orientation --------------------------------------
+ * The 600px pair also answers the unit-space question: a ~400dp-wide
+ * phone is >= 600 only in PHYSICAL pixels (1080+), so wide-600 green on a
+ * phone means physical px, pink means logical (dp/CSS px). 2000 must stay
+ * pink everywhere (sanity). */
+.p951-wide-600 {
+  background-color: #ff00aa;
+}
+.p951-wide-2000 {
+  background-color: #16a34a;
+}
+.p951-narrow-600 {
+  background-color: #ff00aa;
+}
+.p951-landscape {
+  background-color: #ff00aa;
+}
+.p951-portrait {
+  background-color: #ff00aa;
+}
+@media (min-width: 600px) {
+  .p951-wide-600 {
+    background-color: #16a34a;
+  }
+}
+@media (min-width: 2000px) {
+  .p951-wide-2000 {
+    background-color: #ff00aa; /* pink here = 2000px matched: broken */
+  }
+}
+@media (max-width: 599px) {
+  .p951-narrow-600 {
+    background-color: #16a34a;
+  }
+}
+@media (orientation: landscape) {
+  .p951-landscape {
+    background-color: #16a34a;
+  }
+}
+@media (orientation: portrait) {
+  .p951-portrait {
+    background-color: #16a34a;
+  }
+}
+
+/* ---- item 4: @font-face ------------------------------------------------
+ * Probe951U loads via a bundler-emitted url() asset; Probe951D via a
+ * data: URI (css-engine-probe-font-data.css). The probe text is three
+ * Font Awesome codepoints — glyphs render only if the face loaded;
+ * tofu/blank = not loaded. The same string in the default font is the
+ * negative control. */
+@font-face {
+  font-family: 'Probe951U';
+  src: url('../fonts/probe951.ttf');
+}
+.p951-font-url {
+  font-family: 'Probe951U';
+  font-size: 28px;
+}
+.p951-font-data {
+  font-family: 'Probe951D';
+  font-size: 28px;
+}
+.p951-font-control {
+  font-size: 28px;
+}
+
+/* ---- item 5: @supports -------------------------------------------------
+ * pos: must match (green inside). neg/oklch: must NOT match — the rule
+ * inside paints pink, so pink = false positive. not: must match. */
+.p951-sup-pos {
+  background-color: #ff00aa;
+}
+.p951-sup-neg {
+  background-color: #16a34a;
+}
+.p951-sup-not {
+  background-color: #ff00aa;
+}
+.p951-sup-oklch {
+  background-color: #16a34a;
+}
+@supports (background-color: #ffffff) {
+  .p951-sup-pos {
+    background-color: #16a34a;
+  }
+}
+@supports (foo: bar) {
+  .p951-sup-neg {
+    background-color: #ff00aa;
+  }
+}
+@supports not (foo: bar) {
+  .p951-sup-not {
+    background-color: #16a34a;
+  }
+}
+@supports (color: oklch(0.5 0.1 200)) {
+  .p951-sup-oklch {
+    background-color: #ff00aa;
+  }
+}
