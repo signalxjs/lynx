@@ -39,6 +39,24 @@ final class AppearancePublisher {
             object: nil
         )
 
+        // Real-time flips while the app is foregrounded: observe the
+        // LynxView's own trait changes (iOS 17+). Before this, a foreground
+        // Settings/Control-Center appearance flip reached neither JS nor the
+        // engine until the next app-foreground (#951). The registration is
+        // tied to the view's lifetime — no unregister needed.
+        if #available(iOS 17.0, *) {
+            // The publisher is constructed on the main thread (attachAll runs
+            // from the view factory); assumeIsolated satisfies the MainActor
+            // isolation of registerForTraitChanges without hopping queues.
+            MainActor.assumeIsolated {
+                lynxView.registerForTraitChanges([
+                    UITraitUserInterfaceStyle.self
+                ]) { [weak self] (_: UIView, _: UITraitCollection) in
+                    self?.publish()
+                }
+            }
+        }
+
         // Seed on the next runloop tick — the LynxView's window may not be
         // attached yet at construction time, so reading `traitCollection`
         // immediately can yield the unspecified style.
