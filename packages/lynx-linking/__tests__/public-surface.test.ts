@@ -79,19 +79,19 @@ describe('public types', () => {
         expectTypeOf(Linking.getInitialURL).toEqualTypeOf<() => string | null>();
     });
 
-    it('keeps subscriptions removable (C7)', () => {
-        // Frozen as-is, not endorsed: C7 asks for a bare `() => void`
-        // unsubscribe; both of these return an RN-style `{ remove() }`
-        // object. Changing that is a deliberate surface change — update
-        // these lines with it.
+    it('hands subscriptions back as a bare unsubscribe function (C7)', () => {
+        // Both used to return an RN-style `{ remove() }` object, which is why
+        // `lynx-navigation` had to know which shape each call site produced.
+        // C7 is a plain `() => void`, idempotent — see
+        // `__tests__/subscriptions.test.ts` for the behavior behind the type.
         expectTypeOf(Linking.addEventListener).toEqualTypeOf<
             (type: 'url', listener: URLListener) => URLSubscription
         >();
-        expectTypeOf<URLSubscription['remove']>().toEqualTypeOf<() => void>();
+        expectTypeOf<URLSubscription>().toEqualTypeOf<() => void>();
         expectTypeOf(BackHandler.addEventListener).toEqualTypeOf<
             (listener: () => boolean | void) => BackHandlerSubscription
         >();
-        expectTypeOf<BackHandlerSubscription['remove']>().toEqualTypeOf<() => void>();
+        expectTypeOf<BackHandlerSubscription>().toEqualTypeOf<() => void>();
     });
 
     it('pins the URL-parsing helpers', () => {

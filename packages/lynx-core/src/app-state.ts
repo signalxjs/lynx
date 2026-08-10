@@ -1,5 +1,6 @@
 import { signal, computed, watch, type Computed } from '@sigx/reactivity';
 import { callAsync, isModuleAvailable } from './bridge.js';
+import { isNativeEventsAvailable, subscribeNative } from './events.js';
 
 /**
  * App activity state, two-state model:
@@ -34,16 +35,10 @@ const MODULE = 'SigxCore';
  */
 export const APP_STATE_EVENT = 'appStateChanged';
 
-interface GlobalEventEmitterLike {
-    addListener: (name: string, fn: (...a: unknown[]) => void) => void;
-    removeListener: (name: string, fn: (...a: unknown[]) => void) => void;
+/** Payload of the `appStateChanged` global event. */
+interface AppStateEvent {
+    state: AppStateStatus;
 }
-
-interface LynxLike {
-    getJSModule?: (name: string) => GlobalEventEmitterLike | undefined;
-}
-
-declare const lynx: unknown | undefined;
 
 // The single source of truth. An OBJECT signal (not a primitive one): its
 // `.status` keeps the `AppStateStatus` union type, whereas a PrimitiveSignal
@@ -60,35 +55,41 @@ let stateComputed: Computed<AppStateStatus> | undefined;
 
 const isStatus = (v: unknown): v is AppStateStatus => v === 'active' || v === 'background';
 
+const isAppStateEvent = (raw: unknown): raw is AppStateEvent =>
+    !!raw && typeof raw === 'object' && isStatus((raw as { state?: unknown }).state);
+
 /**
- * Wire the GlobalEventEmitter listener + native seed, lazily. Each latch is
+ * Wire the native event subscription + native seed, lazily. Each latch is
  * only set on SUCCESS (same pattern as lynx-http's `ensureSubscribed`): if
  * the first API call races runtime init and the emitter isn't reachable yet,
  * a later call retries instead of leaving the module permanently unwired.
  * Off-device (web preview, SSR, tests) neither ever succeeds — a silent no-op.
+ *
+ * The availability probe is what gates the latch: `subscribeNative` hands back
+ * an indistinguishable no-op disposer off-device, so the disposer can't tell
+ * us whether the listener actually attached.
+ *
+ * The subscription is process-lifetime by design — this is an ambient
+ * singleton, like `Platform`, with no teardown in its public surface — so the
+ * disposer is deliberately dropped. C7 idempotence still matters for
+ * `AppState.subscribe`, the disposer consumers do hold.
  */
 const ensureWired = (): void => {
-    if (!emitterWired) {
-        try {
-            const emitter = typeof lynx !== 'undefined'
-                ? (lynx as LynxLike).getJSModule?.('GlobalEventEmitter')
-                : undefined;
-            if (emitter) {
-                emitter.addListener(APP_STATE_EVENT, (payload: unknown) => {
-                    const next = (payload as { state?: unknown } | undefined)?.state;
-                    if (isStatus(next)) state.status = next;   // signal dedups
-                });
-                emitterWired = true;
-                // Transitions between an earlier successful seed and this
-                // (possibly late) wiring were never delivered — force a
-                // one-time re-seed to sync to the native state. On the normal
-                // path (wiring succeeds on the first call) the seed hasn't run
-                // yet, so this is a no-op.
-                seeded = false;
-            }
-        } catch {
-            // getJSModule threw — retry on the next API call.
-        }
+    if (!emitterWired && isNativeEventsAvailable()) {
+        subscribeNative<AppStateEvent>(
+            APP_STATE_EVENT,
+            // A subscriber that throws is contained by `subscribeNative`
+            // rather than escaping into the native dispatch, where it would
+            // abort delivery to every other listener on this channel.
+            (e) => { state.status = e.state; },   // signal dedups
+            { validate: isAppStateEvent, namespace: 'lynx-core' },
+        );
+        emitterWired = true;
+        // Transitions between an earlier successful seed and this (possibly
+        // late) wiring were never delivered — force a one-time re-seed to sync
+        // to the native state. On the normal path (wiring succeeds on the
+        // first call) the seed hasn't run yet, so this is a no-op.
+        seeded = false;
     }
 
     // Authoritative seed for the rare background boot (e.g. launched by the

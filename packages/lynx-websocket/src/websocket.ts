@@ -18,7 +18,15 @@
  * carrying `{ id, type, ... }`; the JS shim demultiplexes by id and fires
  * the matching instance's listeners.
  */
-import { callAsync, createLogger, guardModule, isModuleAvailable, SigxError } from '@sigx/lynx-core';
+import {
+    callAsync,
+    createLogger,
+    guardModule,
+    isModuleAvailable,
+    isNativeEventsAvailable,
+    SigxError,
+    subscribeNative,
+} from '@sigx/lynx-core';
 
 const MODULE = 'WebSocket';
 const PKG = 'lynx-websocket';
@@ -52,22 +60,6 @@ class WebSocketError extends SigxError {
         super(PKG, code, `[@sigx/${PKG}] ${action} failed: ${detail}`);
         this.name = code;
     }
-}
-
-/** Bridge to lynx's `GlobalEventEmitter` for native → JS events. */
-interface GlobalEventEmitterLike {
-    addListener: (name: string, fn: (...a: unknown[]) => void) => void;
-    removeListener: (name: string, fn: (...a: unknown[]) => void) => void;
-}
-
-interface LynxLike {
-    getJSModule?: (name: string) => GlobalEventEmitterLike | undefined;
-}
-
-declare const lynx: unknown | undefined;
-
-function lynxObj(): LynxLike | undefined {
-    return typeof lynx !== 'undefined' ? (lynx as unknown as LynxLike) : undefined;
 }
 
 /** Wire payload pushed by the native side. */
@@ -184,34 +176,52 @@ function arrayBufferToBase64(buf: ArrayBuffer): string {
 
 const sockets = new Map<number, WebSocket>();
 let nextId = 1;
-let subscribed = false;
-let cachedEmitter: GlobalEventEmitterLike | null = null;
+/** Disposer for the shared demux subscription; non-null iff it is attached. */
+let unsubscribe: (() => void) | null = null;
 
-function ensureSubscribed(): void {
-    if (subscribed) return;
-    const emitter = lynxObj()?.getJSModule?.('GlobalEventEmitter');
-    if (!emitter) return; // web/SSR/test — events simply won't arrive
-    cachedEmitter = emitter;
-    emitter.addListener(EVENT_NAME, (raw: unknown) => {
-        // Lynx ships event params as a single JSON-shaped object or as the
-        // first arg of the listener. Tolerate both shapes.
-        const evt: NativeEvent | undefined =
-            typeof raw === 'string' ? safeParse(raw) : (raw as NativeEvent | undefined);
-        if (!evt || typeof evt.id !== 'number') return;
-        const ws = sockets.get(evt.id);
-        if (!ws) return;
-        // Internal dispatch lives on the instance so it can mutate state.
-        (ws as unknown as { _dispatch(e: NativeEvent): void })._dispatch(evt);
-    });
-    subscribed = true;
+/**
+ * Payload guard for the demux channel.
+ *
+ * `id` is how a frame finds its socket and `type` is the switch `_dispatch`
+ * runs on, so a payload missing either cannot be acted on — dropping it here
+ * means `_dispatch` can trust its argument. (Native wire shapes have drifted
+ * before, #342.)
+ */
+function isNativeEvent(raw: unknown): raw is NativeEvent {
+    if (typeof raw !== 'object' || raw === null) return false;
+    const e = raw as Partial<NativeEvent>;
+    return typeof e.id === 'number' && typeof e.type === 'string';
 }
 
-function safeParse(s: string): NativeEvent | undefined {
-    try {
-        return JSON.parse(s);
-    } catch {
-        return undefined;
-    }
+/**
+ * Attach the single demux listener, on the first socket constructed.
+ *
+ * Core's `subscribeNative` (C7) owns the parts this file used to re-derive:
+ * the `lynx.getJSModule('GlobalEventEmitter')` lookup, the JSON-*string*
+ * payload form, off-device absence, and — the one that bites a demux —
+ * isolating a callback that throws. `_dispatch` can throw on hostile input:
+ * a corrupt base64 body makes `atob` raise `InvalidCharacterError`, and with
+ * the old raw `addListener` that escaped into the emitter's dispatch loop.
+ *
+ * Latching on the *disposer* rather than a bare flag is deliberate: attaching
+ * twice would double-dispatch every frame. `isNativeEventsAvailable()` is what
+ * keeps the retry honest — off-device the disposer `subscribeNative` returns is
+ * a no-op indistinguishable from a real one, so latching on it would strand
+ * every later socket if the very first one raced runtime init.
+ */
+function ensureSubscribed(): void {
+    if (unsubscribe) return;
+    if (!isNativeEventsAvailable()) return; // web/SSR/test — retry on the next socket
+    unsubscribe = subscribeNative<NativeEvent>(
+        EVENT_NAME,
+        evt => {
+            const ws = sockets.get(evt.id);
+            if (!ws) return;
+            // Internal dispatch lives on the instance so it can mutate state.
+            (ws as unknown as { _dispatch(e: NativeEvent): void })._dispatch(evt);
+        },
+        { validate: isNativeEvent, namespace: PKG },
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -530,10 +540,13 @@ export const __internal = {
     reset() {
         sockets.clear();
         nextId = 1;
-        subscribed = false;
-        cachedEmitter = null;
+        // Actually detach. Clearing the flag without disposing used to leave a
+        // live listener on the emitter for every reset, so the next socket
+        // attached a second one and every frame dispatched twice.
+        unsubscribe?.();
+        unsubscribe = null;
     },
-    get cachedEmitter(): GlobalEventEmitterLike | null {
-        return cachedEmitter;
+    get subscribed(): boolean {
+        return unsubscribe !== null;
     },
 };

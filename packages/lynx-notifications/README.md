@@ -129,6 +129,24 @@ Tap routing is unchanged: the tap payload is the **latest** push's `data`, and `
 
 iOS needs none of this — set the APNs `aps.thread-id` to the conversation id and the OS stacks the group natively.
 
+## Events
+
+The four subscriptions — `addTokenListener`, `addTokenErrorListener`, `addPushListener`,
+`addNotificationResponseListener` — are exported both standalone and as `Notifications.*`
+members, and each returns a plain **unsubscribe function** (never a `{ remove() }` object).
+Calling it twice is a no-op, so it drops straight into an effect cleanup:
+
+```ts
+useEffect(() => Notifications.addPushListener(handlePush), []);
+```
+
+They share one native event path (`subscribeNative` from `@sigx/lynx-core`): payloads arrive
+JSON-encoded and are parsed for you, a listener that throws is logged rather than allowed to
+take the emitter down, and off-device (web, tests) subscribing is a safe no-op. Payloads that
+lost a required field crossing the bridge are **dropped rather than delivered as a partial** —
+a token event needs `token` + `platform`, a message needs `data` + `foreground`, and a tap
+response needs `notificationId` (`actionIdentifier` defaults to `'default'`).
+
 ## Web
 
 **Local** notifications work on web through the `@sigx/lynx-web-host` page bridge (the browser Notification API): `schedule`/`cancel`/`cancelAll` and the permission methods behave as on native (browser denial reports `blocked` — the user must change the site setting). Page-lifetime best-effort: scheduled timers and repeats don't survive a reload. Badges use the Badging API where available (installed PWAs, Chromium); `getBadgeCount()` returns a locally-tracked value.

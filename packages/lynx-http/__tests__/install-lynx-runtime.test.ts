@@ -10,7 +10,8 @@
  */
 import { afterAll, describe, expect, it, vi } from 'vitest';
 
-vi.mock('@sigx/lynx-core', () => ({
+vi.mock('@sigx/lynx-core', async () => ({
+    ...(await vi.importActual<Record<string, unknown>>('@sigx/lynx-core')),
     callAsync: vi.fn(async () => undefined),
     guardModule: vi.fn(),
     isModuleAvailable: vi.fn(() => false), // Http NOT enumerable at import time

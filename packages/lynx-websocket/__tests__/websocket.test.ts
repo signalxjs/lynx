@@ -32,11 +32,29 @@ class MockSigxError extends Error {
     }
 }
 
-vi.mock('@sigx/lynx-core', () => ({
+const subscribeNativeCalls: unknown[][] = [];
+
+vi.mock('@sigx/lynx-core', async () => {
+const realEvents = await import('../../lynx-core/src/events.js');
+return {
     callAsync: (...args: unknown[]) => bridge.callAsync(...(args as [])),
     guardModule: (...args: unknown[]) => bridge.guardModule(...(args as [])),
     isModuleAvailable: (...args: unknown[]) => bridge.isModuleAvailable(...(args as [])),
     SigxError: MockSigxError,
+    // Only the native bridge is faked. `subscribeNative` /
+    // `isNativeEventsAvailable` are the REAL C7 implementations (imported from
+    // source to skip the barrel), so the payload guard, the listener-isolation
+    // and the disposer semantics under test are the shipped ones.
+    // Wrapped, not replaced: the real implementation still runs, but the
+    // wrapper records the options. That is the only way to pin the `validate`
+    // guard — every malformed payload is absorbed downstream anyway (a
+    // `sockets.get` miss, an unmatched `switch`), so deleting the guard leaves
+    // the behavioural test below green.
+    subscribeNative: (...a: unknown[]) => {
+        subscribeNativeCalls.push(a);
+        return (realEvents.subscribeNative as unknown as (...x: unknown[]) => () => void)(...a);
+    },
+    isNativeEventsAvailable: realEvents.isNativeEventsAvailable,
     createLogger: () => ({
         trace: vi.fn(),
         debug: vi.fn(),
@@ -45,23 +63,38 @@ vi.mock('@sigx/lynx-core', () => ({
         error: vi.fn(),
         enabled: () => true,
     }),
-}));
+};
+});
 
 // Pretend lynx + GlobalEventEmitter exist so the shim attaches its
 // shared listener. The emitter is captured here so tests can fire
 // synthetic native events.
+//
+// `addCalls` / `removeCalls` count what actually reached the emitter: a Set
+// swallows a duplicate `removeListener`, so counting is the only way to see
+// whether a disposer is genuinely idempotent rather than merely harmless
+// against this fake.
 type Listener = (...a: unknown[]) => void;
 const emitter = {
     listeners: new Map<string, Set<Listener>>(),
+    addCalls: 0,
+    removeCalls: 0,
     addListener(name: string, fn: Listener) {
+        this.addCalls++;
         if (!this.listeners.has(name)) this.listeners.set(name, new Set());
         this.listeners.get(name)!.add(fn);
     },
     removeListener(name: string, fn: Listener) {
+        this.removeCalls++;
         this.listeners.get(name)?.delete(fn);
     },
     fire(name: string, ...args: unknown[]) {
+        // Deliberately unguarded, exactly like the native emitter's dispatch
+        // loop: a listener that throws here stops every listener after it.
         for (const fn of this.listeners.get(name) ?? []) fn(...args);
+    },
+    count(name: string) {
+        return this.listeners.get(name)?.size ?? 0;
     },
 };
 
@@ -72,6 +105,7 @@ const emitter = {
 
 // Dynamic import so the mocks above are applied first.
 const { WebSocket, __internal } = await import('../src/websocket.js');
+const { subscribeNative } = await import('../../lynx-core/src/events.js');
 
 const EVENT = '__sigxWebSocketEvent';
 
@@ -80,6 +114,8 @@ beforeEach(() => {
     bridge.guardModule.mockClear();
     bridge.isModuleAvailable.mockClear();
     logWarn.mockClear();
+    emitter.addCalls = 0;
+    emitter.removeCalls = 0;
 });
 
 afterEach(() => {
@@ -87,8 +123,12 @@ afterEach(() => {
     // (We intentionally don't reset `nextId` — monotonicity is part of the
     // contract; the demux still works because each test creates fresh
     // instances and the emitter listener targets ids by value.)
-    emitter.listeners.clear();
+    //
+    // `reset()` is the *only* teardown: it has to detach the shared listener
+    // by itself. Clearing `emitter.listeners` here as well would hide a leaked
+    // registration behind the fixture — which is how the leak below survived.
     __internal.reset();
+    expect(emitter.count(EVENT)).toBe(0);
 });
 
 function open(ws: InstanceType<typeof WebSocket>, opts: { protocol?: string; extensions?: string } = {}) {
@@ -470,6 +510,154 @@ describe('WebSocket — errors (C10)', () => {
         await Promise.resolve();
         await Promise.resolve();
         expect(logWarn).toHaveBeenCalledWith(`create(${id}) failed`, expect.any(Error));
+    });
+});
+
+describe('native subscription (C7)', () => {
+    it('attaches exactly one shared listener however many sockets are created', () => {
+        new WebSocket('wss://example.com/a');
+        new WebSocket('wss://example.com/b');
+        new WebSocket('wss://example.com/c');
+        expect(emitter.addCalls).toBe(1);
+        expect(emitter.count(EVENT)).toBe(1);
+    });
+
+    it('detaches on teardown instead of leaving the listener behind', () => {
+        new WebSocket('wss://example.com');
+        expect(emitter.count(EVENT)).toBe(1);
+
+        __internal.reset();
+
+        // The bug this replaces: teardown dropped a `subscribed` flag without
+        // ever calling `removeListener`, so the listener stayed live and the
+        // next socket attached a *second* one — every frame dispatched twice.
+        expect(emitter.removeCalls).toBe(1);
+        expect(emitter.count(EVENT)).toBe(0);
+
+        const ws = new WebSocket('wss://example.com');
+        const onmessage = vi.fn();
+        ws.onmessage = onmessage;
+        open(ws);
+        deliverMessage(ws, 'once');
+        expect(emitter.count(EVENT)).toBe(1);
+        expect(onmessage).toHaveBeenCalledTimes(1);
+    });
+
+    it('disposes idempotently — a second teardown leaves other subscribers alone', () => {
+        new WebSocket('wss://example.com');
+        // A second subscriber on the same channel, standing in for another
+        // package (or another copy of this one) sharing the emitter.
+        const other = vi.fn();
+        const disposeOther = subscribeNative(EVENT, other);
+        expect(emitter.count(EVENT)).toBe(2);
+
+        // The shape of the confirmed lynx-audio bug: an ordinary double
+        // effect-cleanup. A disposer that isn't idempotent tears down state a
+        // still-live subscriber depends on.
+        __internal.reset();
+        __internal.reset();
+
+        // Exactly one removal reached the emitter — the second teardown was a
+        // no-op, not a second `removeListener`.
+        expect(emitter.removeCalls).toBe(1);
+        expect(emitter.count(EVENT)).toBe(1);
+
+        emitter.fire(EVENT, { id: 1, type: 'message', data: 'still delivered' });
+        expect(other).toHaveBeenCalledTimes(1);
+
+        disposeOther();
+        disposeOther(); // also a no-op — C7 applies to core's disposer too
+        expect(emitter.removeCalls).toBe(2);
+    });
+
+    it('keeps a throwing dispatch out of the emitter, so other listeners still run', () => {
+        // A corrupt binary body makes `atob` raise InvalidCharacterError from
+        // inside `_dispatch`. With the old raw `addListener` that escaped into
+        // the emitter's dispatch loop and took every listener after it down.
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+        const ws = new WebSocket('wss://example.com');
+        const onmessage = vi.fn();
+        ws.onmessage = onmessage;
+        open(ws);
+
+        const other = vi.fn();
+        const disposeOther = subscribeNative(EVENT, other); // registered after ours
+
+        expect(() => deliverBinary(ws, '!!not base64!!')).not.toThrow();
+        expect(onmessage).not.toHaveBeenCalled();
+        // The listener registered behind the throwing one still received it.
+        expect(other).toHaveBeenCalledTimes(1);
+
+        // And the channel still works afterwards.
+        deliverMessage(ws, 'recovered');
+        expect(onmessage).toHaveBeenCalledTimes(1);
+
+        disposeOther();
+        warn.mockRestore();
+    });
+
+    it('accepts the JSON-string payload form native can send', () => {
+        const ws = new WebSocket('wss://example.com');
+        const onmessage = vi.fn();
+        ws.onmessage = onmessage;
+        const id = (ws as unknown as { _id: number })._id;
+        emitter.fire(EVENT, JSON.stringify({ id, type: 'open' }));
+        expect(ws.readyState).toBe(WebSocket.OPEN);
+        emitter.fire(EVENT, JSON.stringify({ id, type: 'message', data: 'from-json' }));
+        expect(onmessage.mock.calls[0]![0]!.data).toBe('from-json');
+    });
+
+    it('wires the payload guard into the subscription', () => {
+        // The behavioural test below cannot fail: `sockets.get` misses and the
+        // `switch` has no matching case, so a malformed event is a no-op with
+        // or without the guard. Pin the wiring instead.
+        expect(subscribeNativeCalls.length).toBeGreaterThan(0);
+        expect(subscribeNativeCalls[0]![2]).toMatchObject({ validate: expect.any(Function) });
+        const validate = (subscribeNativeCalls[0]![2] as { validate: (r: unknown) => boolean }).validate;
+        expect(validate({ id: 1, type: 'open' })).toBe(true);
+        expect(validate({ id: '1', type: 'open' })).toBe(false);
+        expect(validate({ id: 1 })).toBe(false);
+        expect(validate(null)).toBe(false);
+    });
+
+    it('keeps dispatch total when a malformed payload arrives', () => {
+        const ws = new WebSocket('wss://example.com');
+        const onmessage = vi.fn();
+        ws.onmessage = onmessage;
+        open(ws);
+        const id = (ws as unknown as { _id: number })._id;
+
+        // No id, non-numeric id, no type, unparseable string, primitive, null.
+        expect(() => {
+            emitter.fire(EVENT, { type: 'message', data: 'no id' });
+            emitter.fire(EVENT, { id: String(id), type: 'message', data: 'string id' });
+            emitter.fire(EVENT, { id, data: 'no type' });
+            emitter.fire(EVENT, '{not json');
+            emitter.fire(EVENT, 42);
+            emitter.fire(EVENT, null);
+        }).not.toThrow();
+        expect(onmessage).not.toHaveBeenCalled();
+    });
+
+    it('does not latch when the emitter is absent, so a later socket still subscribes', () => {
+        const lynxGlobal = globalThis as unknown as { lynx: unknown };
+        const real = lynxGlobal.lynx;
+        lynxGlobal.lynx = { getJSModule: () => undefined };
+        try {
+            new WebSocket('wss://example.com'); // off-device: nothing to attach to
+            expect(emitter.addCalls).toBe(0);
+        } finally {
+            lynxGlobal.lynx = real;
+        }
+
+        // Emitter showed up late (it is injected by the runtime and the first
+        // socket can race init) — the next one must still attach.
+        const ws = new WebSocket('wss://example.com');
+        expect(emitter.count(EVENT)).toBe(1);
+        const onopen = vi.fn();
+        ws.onopen = onopen;
+        open(ws);
+        expect(onopen).toHaveBeenCalledTimes(1);
     });
 });
 

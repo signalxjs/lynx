@@ -43,6 +43,15 @@ import { subscribeNative, unwrapNative, SigxError } from '@sigx/lynx-core';
   });
   ```
 
+- **`isNativeEventsAvailable()`** — whether the runtime's `GlobalEventEmitter` is reachable right now. Most packages don't need it: `subscribeNative` is a safe no-op off-device, so just subscribe. It's for the *lazy-latch* pattern — a module that wires on its first API call and must retry until the emitter appears, because that call can race runtime init. The disposer can't answer that question (the off-device no-op is indistinguishable from a real one), and re-deriving `lynx.getJSModule` to answer it is what this contract exists to prevent.
+
+  ```ts
+  if (!wired && isNativeEventsAvailable()) {
+      subscribeNative(CHANNEL, onEvent, { namespace: 'lynx-http' });
+      wired = true;   // latch only on success, so a racing first call retries
+  }
+  ```
+
 - **`unwrapNative(pkg, action, raw)`** — `callAsync` only rejects when the *synchronous* call throws; native failures come back on the resolved callback as `{ error }`. This unwraps them once, throwing `[@sigx/lynx-<pkg>] <action> failed: <cause>`. `unwrapNativeVoid` is the same for methods with no success payload.
 
   ```ts

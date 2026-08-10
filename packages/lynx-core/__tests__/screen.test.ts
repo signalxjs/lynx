@@ -7,6 +7,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
 interface MockEmitter {
+    listeners: Map<string, Set<(...a: unknown[]) => void>>;
     addListener: (name: string, fn: (...a: unknown[]) => void) => void;
     removeListener: (name: string, fn: (...a: unknown[]) => void) => void;
     emit: (name: string, payload: unknown) => void;
@@ -15,6 +16,7 @@ interface MockEmitter {
 function makeEmitter(): MockEmitter {
     const listeners = new Map<string, Set<(...a: unknown[]) => void>>();
     return {
+        listeners,
         addListener(name, fn) {
             let set = listeners.get(name);
             if (!set) { set = new Set(); listeners.set(name, set); }
@@ -23,6 +25,8 @@ function makeEmitter(): MockEmitter {
         removeListener(name, fn) {
             listeners.get(name)?.delete(fn);
         },
+        // Deliberately does NOT catch — native dispatch walks one listener
+        // list per channel, so an escaping exception starves the rest.
         emit(name, payload) {
             for (const fn of listeners.get(name) ?? []) fn(payload);
         },
@@ -187,6 +191,52 @@ describe('useScreen', () => {
         expect(screen.value.width).toBe(800);
         emitter.emit(api.SCREEN_EVENT, PORTRAIT);
         expect(screen.value.width).toBe(400);
+    });
+});
+
+describe('screen — C7 native subscription', () => {
+    it('accepts a payload delivered as a JSON string', async () => {
+        const emitter = makeEmitter();
+        installMockLynx(PORTRAIT, emitter);
+        const api = await freshApi();
+        const screen = api.useScreen();
+
+        emitter.emit(api.SCREEN_EVENT, JSON.stringify(LANDSCAPE));
+
+        expect(screen.value.width).toBe(800);
+        expect(screen.value.isLandscape).toBe(true);
+    });
+
+    it('contains a throwing reactive consumer instead of letting it escape into native dispatch', async () => {
+        const emitter = makeEmitter();
+        installMockLynx(PORTRAIT, emitter);
+        const api = await freshApi();
+        const screen = api.useScreen();
+
+        // Imported AFTER freshApi()'s resetModules so this is the same
+        // reactivity instance the fresh screen module tracks against.
+        const { effect } = await import('@sigx/reactivity');
+        effect(() => {
+            if (screen.value.isLandscape) throw new Error('render bug');
+        });
+
+        // Another package's listener on the publisher's channel, after ours.
+        const sibling: unknown[] = [];
+        emitter.addListener(api.SCREEN_EVENT, (p) => { sibling.push(p); });
+
+        expect(() => emitter.emit(api.SCREEN_EVENT, LANDSCAPE)).not.toThrow();
+        expect(sibling).toEqual([LANDSCAPE]);
+    });
+
+    it('registers exactly one native listener however often the hooks are called', async () => {
+        const emitter = makeEmitter();
+        installMockLynx(PORTRAIT, emitter);
+        const api = await freshApi();
+        api.useScreen();
+        api.useOrientation();
+        api.useScreen();
+
+        expect(emitter.listeners.get(api.SCREEN_EVENT)?.size).toBe(1);
     });
 });
 

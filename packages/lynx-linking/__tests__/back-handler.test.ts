@@ -30,7 +30,7 @@ afterEach(() => {
 describe('BackHandler.addEventListener', () => {
     it('reports a throwing listener through the core logger, not console (C10)', () => {
         const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-        const sub = BackHandler.addEventListener(() => {
+        const off = BackHandler.addEventListener(() => {
             throw new Error('boom');
         });
 
@@ -38,12 +38,14 @@ describe('BackHandler.addEventListener', () => {
         expect(records).toHaveLength(1);
         expect(records[0]!.namespace).toBe('lynx-linking');
         expect(records[0]!.level.name).toBe('warn');
-        expect(records[0]!.msg).toBe('back-press listener threw');
+        // Message now names the channel — the containment lives in the
+        // package's one subscription helper rather than in each call site.
+        expect(records[0]!.msg).toBe('listener for hardwareBackPress threw');
         expect(records[0]!.fields[0]).toBeInstanceOf(Error);
         expect(consoleWarn).not.toHaveBeenCalled();
 
         consoleWarn.mockRestore();
-        sub.remove();
+        off();
         expect(listeners.size).toBe(0);
     });
 

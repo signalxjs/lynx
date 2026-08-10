@@ -6,6 +6,24 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 ### Fixed
 
+- **`@sigx/lynx-core`: a subscriber that throws no longer escapes into native event dispatch** (#857). Three channels — `appStateChanged`, `screenChanged`, `onFontScaleChanged` — wrote a signal directly from the emitter listener, and sigx flushes `watch`/`effect` callbacks synchronously inside that write. So an ordinary consumer bug (a throwing foreground handler, a throwing render effect reading `useScreen()`) propagated out of the listener and into the engine's own dispatch, aborting delivery of that event for **every other listener on the channel**, silently. All three now go through `subscribeNative`, which contains a throwing listener and reports it. The same three sites also silently dropped any payload that arrived as a JSON **string** rather than an object — the bridge shape that varies by path (#342) — so a rotation, a Dynamic Type change or a foreground transition delivered that way was simply never seen.
+
+- **`@sigx/lynx-webrtc`: a peer created before the runtime was ready no longer deafens the module for the process** (#857). `ensureSubscribed` latched on having *called* `subscribeNative` once, but off-device — and before the Lynx runtime injects its `GlobalEventEmitter` — that call is a silent no-op returning a disposer indistinguishable from a real one. The latch is now keyed on `isNativeEventsAvailable()`, so a later peer retries.
+
+- **`@sigx/lynx-core`: `subscribeNative` survives a host whose `addListener` throws.** Several packages wire their subscription lazily on first API read, so a throwing emitter surfaced as `AppState.current` or `useScreen()` throwing — permanently, because the latch never set. It now degrades to the off-device no-op.
+
+### Changed
+
+- **One native-event subscription for the whole repo** (#857, convention **C7**, rubric **D2.8**/**D3.1**/**D3.2**). Ten packages each carried a hand-rolled `GlobalEventEmitterLike` + `safeParse` + string-or-object payload branch, re-deriving the same four edge cases; all of them now call `subscribeNative()` from `@sigx/lynx-core`, and the only copy left in the repo is core's own implementation. Every subscription therefore gets an idempotent `() => void` disposer, listener-throw containment, defensive payload parsing and a safe off-device no-op — the four things each copy had to get right independently.
+
+  **Breaking, and the point of C7:** `@sigx/lynx-linking`'s `BackHandlerSubscription` and `URLSubscription` were the repo's only `{ remove() }` disposers and are now plain `() => void`. That is what let `@sigx/lynx-navigation` stop special-casing which shape it was handed per call site.
+
+  Two additions to core came out of doing the migration rather than from planning it. `subscribeNative` gained a **`raw`** option, because `urlReceived` delivers the URL as a bare string (the default treats every string as JSON, so `JSON.parse('myapp://…')` threw and swallowed every warm-start deep link) and `hardwareBackPress` carries no payload at all (the default drops `undefined` before the callback, killing the Android back button). And **`isNativeEventsAvailable()`** is now exported, because a lazy latch cannot be keyed on `subscribeNative`'s return value — off-device it hands back a no-op disposer that looks exactly like a real one.
+
+  Its `namespace` option now also builds the logger rather than only decorating the message text, so a package's subscription diagnostics land on that package's namespace and are filterable there — which is what the option always claimed to do.
+
+### Fixed
+
 - **`@sigx/lynx-navigation`: pressing back at the root of the stack no longer raises an unhandled rejection** (#857). `useHardwareBack` called `void BackHandler.exitApp()`, and that promise rejects whenever the bridge call throws synchronously — which is *always* off Android, where the module either rejects by design or isn't linked at all. On the main thread an unhandled rejection is a fatal exception rather than a warning (#863), and the `void` made it look deliberate. It now consumes the rejection and reports it through `createLogger`. The regression test drives a back press with no native module and asserts the log record; it fails without the fix.
 
 ### Changed

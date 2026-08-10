@@ -3,7 +3,19 @@
  * native channels: `__sigxPushToken`, `__sigxPushTokenError`,
  * `__sigxPushMessage`, `__sigxNotificationResponse`. The native side carries
  * the same channel names — JS shims here just adapt the listener-bag API.
+ *
+ * The subscription itself is core's `subscribeNative` (CONVENTIONS.md C7).
+ * This file used to carry its own copy of that shim — one of sixteen in the
+ * repo — each re-deriving the emitter lookup, the string-or-object payload
+ * parse, the listener-throws guard and the off-device fallback. Adopting it
+ * also makes every disposer here **idempotent**: the old one called
+ * `removeListener` again on each extra call, which an effect cleanup firing
+ * twice does routinely.
  */
+import { subscribeNative } from '@sigx/lynx-core';
+
+/** Logger namespace for the "listener threw" diagnostic (C10). */
+const NAMESPACE = 'lynx-notifications';
 
 const TOKEN_CHANNEL = '__sigxPushToken';
 const TOKEN_ERROR_CHANNEL = '__sigxPushTokenError';
@@ -47,45 +59,38 @@ export interface NotificationResponse {
     actionIdentifier: string;
 }
 
-interface GlobalEventEmitterLike {
-    addListener: (name: string, fn: (...a: unknown[]) => void) => void;
-    removeListener: (name: string, fn: (...a: unknown[]) => void) => void;
+/**
+ * Plain-object check shared by the payload guards below.
+ *
+ * Arrays are objects in JS — reject them, or a `['a','b']` payload would read
+ * as an object with numeric keys.
+ */
+function isRecord(v: unknown): v is Record<string, unknown> {
+    return v !== null && typeof v === 'object' && !Array.isArray(v);
 }
 
-interface LynxLike {
-    getJSModule?: (name: string) => GlobalEventEmitterLike | undefined;
+/**
+ * Guards for the three pass-through channels. Each asserts exactly the
+ * *required* fields of its interface, so a listener typed `(e: T) => void` can
+ * trust its argument — a payload that lost `token` or `data` crossing the
+ * bridge (#342) is dropped rather than delivered as a partial `T`. Optional
+ * `title` / `body` are not checked: a data-only FCM message legitimately has
+ * neither.
+ */
+function isPushTokenEvent(raw: unknown): raw is PushTokenEvent {
+    return (
+        isRecord(raw) &&
+        typeof raw['token'] === 'string' &&
+        (raw['platform'] === 'apns' || raw['platform'] === 'fcm')
+    );
 }
 
-declare const lynx: unknown | undefined;
-
-function emitter(): GlobalEventEmitterLike | undefined {
-    if (typeof lynx === 'undefined') return undefined;
-    const obj = lynx as unknown as LynxLike;
-    return obj.getJSModule?.('GlobalEventEmitter');
+function isPushTokenError(raw: unknown): raw is PushTokenError {
+    return isRecord(raw) && typeof raw['error'] === 'string';
 }
 
-function subscribe<T>(
-    channel: string,
-    cb: (event: T) => void,
-): () => void {
-    const e = emitter();
-    if (!e) {
-        // Web / SSR / test fallback: no native bridge, just return a no-op
-        // unsubscribe. The shim is a one-way data path — there's nothing
-        // useful to emulate.
-        return () => {};
-    }
-    const wrapped = (raw: unknown) => {
-        const event = (typeof raw === 'string' ? safeParse(raw) : raw) as T | undefined;
-        if (event === undefined) return;
-        try {
-            cb(event);
-        } catch (err) {
-            console.warn(`[notifications] listener for ${channel} threw:`, err);
-        }
-    };
-    e.addListener(channel, wrapped);
-    return () => e.removeListener(channel, wrapped);
+function isRemoteMessage(raw: unknown): raw is RemoteMessage {
+    return isRecord(raw) && isRecord(raw['data']) && typeof raw['foreground'] === 'boolean';
 }
 
 function safeParse(s: string): unknown {
@@ -138,24 +143,46 @@ function stringRecord(raw: unknown): Record<string, string> {
     return out;
 }
 
+/** Subscribe to push-token events. Returns an idempotent unsubscribe (C7). */
 export function addTokenListener(cb: (event: PushTokenEvent) => void): () => void {
-    return subscribe<PushTokenEvent>(TOKEN_CHANNEL, cb);
+    return subscribeNative<PushTokenEvent>(TOKEN_CHANNEL, cb, {
+        validate: isPushTokenEvent,
+        namespace: NAMESPACE,
+    });
 }
 
+/** Subscribe to push-registration failures. Returns an idempotent unsubscribe (C7). */
 export function addTokenErrorListener(cb: (event: PushTokenError) => void): () => void {
-    return subscribe<PushTokenError>(TOKEN_ERROR_CHANNEL, cb);
+    return subscribeNative<PushTokenError>(TOKEN_ERROR_CHANNEL, cb, {
+        validate: isPushTokenError,
+        namespace: NAMESPACE,
+    });
 }
 
+/** Subscribe to incoming remote messages. Returns an idempotent unsubscribe (C7). */
 export function addPushListener(cb: (event: RemoteMessage) => void): () => void {
-    return subscribe<RemoteMessage>(MESSAGE_CHANNEL, cb);
+    return subscribeNative<RemoteMessage>(MESSAGE_CHANNEL, cb, {
+        validate: isRemoteMessage,
+        namespace: NAMESPACE,
+    });
 }
 
+/** Subscribe to notification taps. Returns an idempotent unsubscribe (C7). */
 export function addNotificationResponseListener(cb: (event: NotificationResponse) => void): () => void {
     // Normalize rather than pass the raw event through: `notificationId` and
     // `actionIdentifier` are the fields consumers route on, and a payload that
     // lost them shouldn't reach a listener as a partial (#342 / #619).
-    return subscribe<unknown>(RESPONSE_CHANNEL, (raw) => {
-        const event = parseNotificationResponse(raw);
-        if (event) cb(event);
-    });
+    //
+    // This one *normalizes* (defaults `actionIdentifier`, filters non-string
+    // `data` values), which a `validate` type guard can't do — it may only
+    // accept or reject. So the check stays in the callback and
+    // `parseNotificationResponse` doubles as the guard: `null` means drop.
+    return subscribeNative<unknown>(
+        RESPONSE_CHANNEL,
+        (raw) => {
+            const event = parseNotificationResponse(raw);
+            if (event) cb(event);
+        },
+        { namespace: NAMESPACE },
+    );
 }

@@ -18,8 +18,17 @@ type Globals = Record<string, unknown>;
 type Listener = (...a: unknown[]) => void;
 const emitterListeners = new Map<string, Set<Listener>>();
 let emitterAvailable = true;
+// Deliberately does NOT catch: native dispatch walks one listener list per
+// channel, so an exception escaping one listener aborts delivery to the rest.
 const emit = (name: string, payload: unknown) => {
     for (const fn of emitterListeners.get(name) ?? []) fn(payload);
+};
+
+/** Register a listener on the channel directly, as another package would. */
+const addSiblingListener = (name: string, fn: Listener) => {
+    let set = emitterListeners.get(name);
+    if (!set) { set = new Set(); emitterListeners.set(name, set); }
+    set.add(fn);
 };
 
 // The native getAppState callback impl, swappable per test.
@@ -180,6 +189,20 @@ describe('app-state', () => {
         expect(sig.value).toBe('active');
     });
 
+    it('accepts a payload delivered as a JSON string', async () => {
+        // The bridge sends either shape depending on the path (#342). The
+        // hand-rolled listener read `.state` off the raw payload, so a string
+        // payload was silently dropped and the app never saw the transition.
+        const api = await loadFresh();
+        const seen: string[] = [];
+        api.AppState.subscribe((s) => seen.push(s));
+
+        emit(api.APP_STATE_EVENT, JSON.stringify({ state: 'background' }));
+
+        expect(seen).toEqual(['background']);
+        expect(api.AppState.current).toBe('background');
+    });
+
     it('is a no-op off-device (no native module, no emitter)', async () => {
         getAppStateImpl = null;         // NativeModules has no SigxCore
         emitterAvailable = false;
@@ -190,5 +213,59 @@ describe('app-state', () => {
         api.AppState.subscribe((s) => seen.push(s));
         emit(api.APP_STATE_EVENT, { state: 'background' });
         expect(seen).toEqual([]);
+    });
+});
+
+/**
+ * The C7 contract (`subscribeNative`), exercised through app-state because it
+ * is the only module here that hands a disposer to consumers.
+ */
+describe('app-state — C7 native subscription', () => {
+    it('contains a throwing subscriber instead of letting it escape into native dispatch', async () => {
+        // The bug this sweep exists to catch. `AppState.subscribe` callbacks
+        // run synchronously inside the signal write the emitter listener
+        // performs, so before the migration a consumer that threw propagated
+        // straight out of the listener into native dispatch — killing delivery
+        // for every other package listening on `appStateChanged` (core's own
+        // DeviceInfo does), with no error anyone could act on.
+        getAppStateImpl = null;                    // isolate from the seed path
+        const api = await loadFresh();
+        api.AppState.subscribe(() => { throw new Error('consumer bug'); });
+
+        // Another package's listener, registered after ours.
+        const sibling: unknown[] = [];
+        addSiblingListener(api.APP_STATE_EVENT, (p) => { sibling.push(p); });
+
+        expect(() => emit(api.APP_STATE_EVENT, { state: 'background' })).not.toThrow();
+        expect(sibling).toEqual([{ state: 'background' }]);
+    });
+
+    it('disposes idempotently — double-dispose leaves other subscribers live', async () => {
+        // An effect cleanup can fire twice (unmount plus an explicit
+        // teardown); C7 requires the second call to be a no-op rather than
+        // reaching into shared state a sibling still depends on.
+        const api = await loadFresh();
+        const first: string[] = [];
+        const second: string[] = [];
+        const offFirst = api.AppState.subscribe((s) => first.push(s));
+        api.AppState.subscribe((s) => second.push(s));
+
+        offFirst();
+        expect(() => offFirst()).not.toThrow();
+
+        emit(api.APP_STATE_EVENT, { state: 'background' });
+
+        expect(first).toEqual([]);
+        expect(second).toEqual(['background']);
+    });
+
+    it('registers exactly one native listener however often the API is called', async () => {
+        const api = await loadFresh();
+        api.AppState.current;
+        api.AppState.subscribe(() => {});
+        api.useAppState();
+        api.AppState.current;
+
+        expect(emitterListeners.get(api.APP_STATE_EVENT)?.size).toBe(1);
     });
 });

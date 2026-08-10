@@ -1,4 +1,5 @@
 import { computed, signal, type Computed } from '@sigx/reactivity';
+import { isNativeEventsAvailable, subscribeNative } from './events.js';
 
 /**
  * OS font scale — the effective text-size multiplier the engine applies to
@@ -39,17 +40,26 @@ export interface RawFontScaleProps {
     os?: number;
 }
 
-interface GlobalEventEmitterLike {
-    addListener: (name: string, fn: (...a: unknown[]) => void) => void;
-    removeListener: (name: string, fn: (...a: unknown[]) => void) => void;
-}
-
 interface LynxLike {
-    getJSModule?: (name: string) => GlobalEventEmitterLike | undefined;
     __globalProps?: { [k: string]: unknown };
 }
 
 declare const lynx: unknown | undefined;
+
+/**
+ * Payload of the engine's `onFontScaleChanged` event. The engine has emitted
+ * both shapes across versions — a bare number and a `{ scale }` map — so both
+ * are accepted.
+ */
+type FontScaleEvent = number | { scale: number };
+
+/** Positive, finite numbers only — a scale of 0 or NaN would blank all text. */
+const isPositive = (v: unknown): v is number =>
+    typeof v === 'number' && Number.isFinite(v) && v > 0;
+
+const isFontScaleEvent = (raw: unknown): raw is FontScaleEvent =>
+    isPositive(raw)
+    || (!!raw && typeof raw === 'object' && isPositive((raw as { scale?: unknown }).scale));
 
 /**
  * Round to 3 decimals — Android's Float-backed scale widens with binary
@@ -95,11 +105,15 @@ let seeded = false;
 let scaleComputed: Computed<number> | undefined;
 
 /**
- * Wire the GlobalEventEmitter listener + globalProps seed, lazily. The latch
- * is only set on SUCCESS (same pattern as core's app-state): if the first
- * call races runtime init and the emitter isn't reachable yet, a later call
+ * Wire the native event subscription + globalProps seed, lazily. The latch is
+ * only set on SUCCESS (same pattern as core's app-state): if the first call
+ * races runtime init and the emitter isn't reachable yet, a later call
  * retries. Off-device (web preview, SSR, tests) neither ever succeeds — the
  * signal stays at `1`, the correct degradation.
+ *
+ * Process-lifetime singleton subscription: no teardown exists in the public
+ * surface (`useFontScale()` hands back a `Computed`), so the disposer is
+ * deliberately dropped.
  */
 const ensureWired = (): void => {
     if (!seeded) {
@@ -109,25 +123,13 @@ const ensureWired = (): void => {
             state.scale = round3(initial.scale);
         }
     }
-    if (!emitterWired) {
-        try {
-            const emitter = typeof lynx !== 'undefined'
-                ? (lynx as LynxLike).getJSModule?.('GlobalEventEmitter')
-                : undefined;
-            if (emitter) {
-                emitter.addListener(FONT_SCALE_EVENT, (payload: unknown) => {
-                    const v = typeof payload === 'number'
-                        ? payload
-                        : (payload as { scale?: unknown } | undefined)?.scale;
-                    if (typeof v === 'number' && Number.isFinite(v) && v > 0) {
-                        state.scale = round3(v);   // signal dedups
-                    }
-                });
-                emitterWired = true;
-            }
-        } catch {
-            // getJSModule threw — retry on the next call.
-        }
+    if (!emitterWired && isNativeEventsAvailable()) {
+        subscribeNative<FontScaleEvent>(
+            FONT_SCALE_EVENT,
+            (e) => { state.scale = round3(typeof e === 'number' ? e : e.scale); }, // dedups
+            { validate: isFontScaleEvent, namespace: 'lynx-core' },
+        );
+        emitterWired = true;
     }
 };
 

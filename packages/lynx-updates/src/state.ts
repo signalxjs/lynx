@@ -5,7 +5,10 @@
  */
 
 import { signal } from '@sigx/lynx';
+import { createLogger } from '@sigx/lynx-core';
 import type { CurrentUpdateInfo, UpdatesEvent, UpdatesState } from './types.js';
+
+const log = createLogger('updates');
 
 const INITIAL_RUNNING: CurrentUpdateInfo = {
     updateId: null,
@@ -33,20 +36,38 @@ function initialState(): UpdatesState {
 export const store = signal<UpdatesState>(initialState());
 
 type Listener = (event: UpdatesEvent) => void;
-const listeners = new Set<Listener>();
+
+/**
+ * Registrations are boxed so subscription identity is per *call*, not per
+ * function. Keyed on the callback itself (a `Set<Listener>`), two subscribers
+ * sharing one handler — a module-level `logUpdate` used by two components, say
+ * — collapse into a single entry, and the first cleanup then silently
+ * unsubscribes the second. The same shape also let a stale disposer remove a
+ * later re-subscription of the same function.
+ *
+ * Boxing makes each disposer target exactly its own registration, which is
+ * what C7's "calling it twice is a no-op" actually requires.
+ */
+interface Registration {
+    fn: Listener;
+}
+const listeners = new Set<Registration>();
 
 export function addListener(fn: Listener): () => void {
-    listeners.add(fn);
-    return () => listeners.delete(fn);
+    const entry: Registration = { fn };
+    listeners.add(entry);
+    return () => {
+        listeners.delete(entry);
+    };
 }
 
 /** Emit an event to subscribers (never throws). @internal */
 export function emit(event: UpdatesEvent): void {
-    for (const fn of [...listeners]) {
+    for (const entry of [...listeners]) {
         try {
-            fn(event);
+            entry.fn(event);
         } catch (err) {
-            console.warn('[updates] event listener threw:', err);
+            log.warn('event listener threw:', err);
         }
     }
 }

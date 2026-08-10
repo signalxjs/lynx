@@ -14,8 +14,6 @@
  */
 import { createLogger } from './logger.js';
 
-const log = createLogger('core:events');
-
 /** The subset of Lynx's GlobalEventEmitter this module needs. */
 interface GlobalEventEmitterLike {
     addListener: (name: string, fn: (...a: unknown[]) => void) => void;
@@ -54,6 +52,25 @@ function safeParse(s: string): unknown {
     }
 }
 
+/**
+ * Whether the runtime's `GlobalEventEmitter` is reachable right now.
+ *
+ * Most packages never need this: {@link subscribeNative} is a silent no-op
+ * off-device, so a subscribe-once-and-forget module can just subscribe. It
+ * exists for the *lazy-latch* pattern — modules that wire on the first API
+ * call and must retry until the emitter appears, because that first call can
+ * race runtime init (core's app-state / font-scale / screen, lynx-http's
+ * `ensureSubscribed`). Those need to know whether the subscription actually
+ * attached, and answering that from the disposer is impossible: the no-op
+ * disposer returned off-device is indistinguishable from a real one.
+ *
+ * Without this they would each re-derive the `lynx.getJSModule` lookup this
+ * module exists to own — which is exactly how sixteen copies happened.
+ */
+export function isNativeEventsAvailable(): boolean {
+    return emitter() !== undefined;
+}
+
 export interface SubscribeNativeOptions<T> {
     /**
      * Payload guard. Events failing it are dropped rather than delivered as a
@@ -69,6 +86,22 @@ export interface SubscribeNativeOptions<T> {
      * routes through the same logger the rest of the package uses (C10).
      */
     namespace?: string;
+    /**
+     * Deliver the payload exactly as native sent it: no JSON parse, and no
+     * drop when it is `undefined`.
+     *
+     * The default suits the common case — a JSON object that may arrive as a
+     * string — but two real channels are neither. `@sigx/lynx-linking`'s
+     * `urlReceived` sends the URL as a **bare string** (`sendGlobalEvent
+     * ("urlReceived", [url])`), which the default treats as JSON and drops
+     * when `JSON.parse` throws, silently swallowing every warm-start deep
+     * link; and `hardwareBackPress` carries **no payload at all**, which the
+     * default drops before reaching the callback, killing the Android back
+     * button. Both were found migrating that package onto this helper.
+     *
+     * `validate` still runs when supplied, so a raw channel can be typed too.
+     */
+    raw?: boolean;
 }
 
 /**
@@ -90,22 +123,38 @@ export function subscribeNative<T = unknown>(
     const e = emitter();
     if (!e) return () => {};
 
-    const { validate, namespace = channel } = options;
+    const { validate, namespace = channel, raw: rawMode = false } = options;
+
+    // The logger is built from the caller's namespace, not this module's, so a
+    // package's subscription diagnostics land on the same namespace as the rest
+    // of its logging (C10) — which is what `namespace` has always promised.
+    // `createLogger` just builds an object, so one per subscription is free.
+    const log = createLogger(namespace);
 
     const wrapped = (raw: unknown) => {
-        const parsed = typeof raw === 'string' ? safeParse(raw) : raw;
-        if (parsed === undefined) return;
+        const parsed = rawMode ? raw : typeof raw === 'string' ? safeParse(raw) : raw;
+        if (!rawMode && parsed === undefined) return;
         if (validate && !validate(parsed)) return;
         try {
             cb(parsed as T);
         } catch (err) {
             // One listener's bug must not unsubscribe the others or propagate
             // into the native dispatch.
-            log.warn(`[${namespace}] listener for ${channel} threw`, err);
+            log.warn(`listener for ${channel} threw`, err);
         }
     };
 
-    e.addListener(channel, wrapped);
+    try {
+        e.addListener(channel, wrapped);
+    } catch (err) {
+        // A host with a partial or hostile emitter must not take the caller
+        // down. Several packages wire their subscription lazily behind a latch
+        // on first API read, so a throw here surfaced as `AppState.current` or
+        // `useScreen()` throwing — and permanently, since the latch never set.
+        // Returning a no-op disposer degrades to the off-device behaviour above.
+        log.warn(`addListener for ${channel} threw`, err);
+        return () => {};
+    }
 
     // Idempotent per C7: an effect cleanup can fire twice (unmount plus an
     // explicit teardown), and `removeListener` on an already-removed handler
@@ -117,7 +166,7 @@ export function subscribeNative<T = unknown>(
         try {
             e.removeListener(channel, wrapped);
         } catch (err) {
-            log.warn(`[${namespace}] removeListener for ${channel} threw`, err);
+            log.warn(`removeListener for ${channel} threw`, err);
         }
     };
 }

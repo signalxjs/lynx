@@ -115,9 +115,19 @@ export const Background = {
     setHandler(taskName: string, handler: BackgroundHandler): () => void {
         ensureDispatcher();
         handlers.set(taskName, handler);
+        let spent = false;
         return () => {
-            // Only clear if it's still THIS handler — prevents an unsubscribe
-            // from clobbering a later setHandler call for the same task.
+            // Idempotent per C7. The identity check below is NOT sufficient on
+            // its own: a handler reference is usually stable across a remount
+            // (module-level function, or `useCallback` with no deps), so
+            // mount → unsub → remount(same fn) → duplicate cleanup would find
+            // its own function in the map and delete the *second* mount's live
+            // registration. Every later OS fire then completes success=false
+            // with nothing logged anywhere.
+            if (spent) return;
+            spent = true;
+            // Still identity-checked, for the case where a *different* handler
+            // was registered for this task in the meantime.
             if (handlers.get(taskName) === handler) {
                 handlers.delete(taskName);
             }

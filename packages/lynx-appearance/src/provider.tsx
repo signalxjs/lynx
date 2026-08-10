@@ -6,6 +6,7 @@ import {
   onUnmounted,
   type Define,
 } from '@sigx/lynx';
+import { subscribeNative } from '@sigx/lynx-core';
 import { useAppearanceContext, type AppearanceContextValue } from './injectable.js';
 import { readGlobalColorScheme } from './globals.js';
 import type { ColorScheme } from './types.js';
@@ -21,16 +22,41 @@ import type { ColorScheme } from './types.js';
  */
 export const APPEARANCE_EVENT = 'appearanceChanged';
 
-interface GlobalEventEmitterLike {
-  addListener: (name: string, fn: (...a: unknown[]) => void) => void;
-  removeListener: (name: string, fn: (...a: unknown[]) => void) => void;
+/** Payload shape of {@link APPEARANCE_EVENT}, as both native publishers send it. */
+interface AppearanceEvent {
+  colorScheme: ColorScheme;
 }
 
-interface LynxLike {
-  getJSModule?: (name: string) => GlobalEventEmitterLike | undefined;
+/**
+ * Payload guard for {@link APPEARANCE_EVENT}.
+ *
+ * iOS reports `unspecified` and Android `UI_MODE_NIGHT_UNDEFINED`; both are
+ * meant to collapse to `'light'` at the publisher boundary, so anything that
+ * still isn't `'light' | 'dark'` here means the payload drifted — drop it
+ * rather than push a bogus scheme into every themed component.
+ */
+function isAppearanceEvent(raw: unknown): raw is AppearanceEvent {
+  if (!raw || typeof raw !== 'object') return false;
+  const v = (raw as Record<string, unknown>)['colorScheme'];
+  return v === 'light' || v === 'dark';
 }
 
-declare const lynx: unknown | undefined;
+/**
+ * Subscribe to system color-scheme flips.
+ *
+ * `@internal` — the supported way to observe the scheme is
+ * `<AppearanceProvider>` + `useSystemColorScheme()`; this is the provider's own
+ * subscription, factored out so the C7 disposer contract is directly testable.
+ *
+ * @returns unsubscribe — a plain function per C7, idempotent, safe off-device.
+ */
+export function subscribeAppearance(cb: (scheme: ColorScheme) => void): () => void {
+  return subscribeNative<AppearanceEvent>(
+    APPEARANCE_EVENT,
+    (event) => cb(event.colorScheme),
+    { validate: isAppearanceEvent, namespace: 'lynx-appearance' },
+  );
+}
 
 export type AppearanceProviderProps =
   & Define.Prop<'class', string, false>
@@ -55,24 +81,17 @@ export const AppearanceProvider = component<AppearanceProviderProps>(({ props, s
   const ctx: AppearanceContextValue = { colorScheme };
   defineProvide(useAppearanceContext, () => ctx);
 
-  let listener: ((...a: unknown[]) => void) | undefined;
-  let emitter: GlobalEventEmitterLike | undefined;
+  let dispose: (() => void) | undefined;
 
   onMounted(() => {
-    const lynxObj: LynxLike | undefined = typeof lynx !== 'undefined'
-      ? (lynx as unknown as LynxLike)
-      : undefined;
-    emitter = lynxObj?.getJSModule?.('GlobalEventEmitter');
-    if (!emitter) return;
-    listener = (raw: unknown) => {
-      const next = normaliseScheme(raw);
-      if (next && next !== colorScheme.value) colorScheme.value = next;
-    };
-    emitter.addListener(APPEARANCE_EVENT, listener);
+    dispose = subscribeAppearance((next) => {
+      if (next !== colorScheme.value) colorScheme.value = next;
+    });
   });
 
   onUnmounted(() => {
-    if (emitter && listener) emitter.removeListener(APPEARANCE_EVENT, listener);
+    dispose?.();
+    dispose = undefined;
   });
 
   return () => (
@@ -81,9 +100,3 @@ export const AppearanceProvider = component<AppearanceProviderProps>(({ props, s
     </view>
   );
 });
-
-function normaliseScheme(raw: unknown): ColorScheme | null {
-  if (!raw || typeof raw !== 'object') return null;
-  const v = (raw as Record<string, unknown>)['colorScheme'];
-  return v === 'dark' ? 'dark' : v === 'light' ? 'light' : null;
-}

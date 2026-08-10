@@ -169,8 +169,12 @@ describe('subscribeNative', () => {
         clearTransports();
 
         expect(records).toHaveLength(1);
-        expect(records[0]!.namespace).toBe('core:events');
-        expect(records[0]!.msg).toContain('lynx-background');
+        // The record lands on the CALLER's namespace, not core's — that is what
+        // the `namespace` option promises ("routes through the same logger the
+        // rest of the package uses"), and it used to only decorate the message
+        // while the record stayed on `core:events`, so a package filtering its
+        // own logs never saw its own subscription diagnostics.
+        expect(records[0]!.namespace).toBe('lynx-background');
         expect(records[0]!.msg).toContain(CHANNEL);
     });
 
@@ -212,6 +216,29 @@ describe('subscribeNative', () => {
         const subscribeNative = await loadSubscribeNative();
 
         expect(() => subscribeNative(CHANNEL, vi.fn())()).not.toThrow();
+    });
+
+    it('reports emitter availability for the lazy-latch pattern', async () => {
+        // Modules that wire on their first API call latch only on success, so
+        // they need this: the off-device disposer is a no-op indistinguishable
+        // from a real one, and re-deriving `getJSModule` to find out is the
+        // duplication this module exists to end.
+        vi.resetModules();
+        const { isNativeEventsAvailable } = await import('../src/events.js');
+        expect(isNativeEventsAvailable()).toBe(true);
+
+        installLynx(undefined);
+        expect(isNativeEventsAvailable()).toBe(false);
+
+        installLynx(emitter, { throwOnGet: true });
+        expect(isNativeEventsAvailable()).toBe(false);
+
+        delete (globalThis as Record<string, unknown>)['lynx'];
+        expect(isNativeEventsAvailable()).toBe(false);
+
+        // Resolved per call, so a module that retries after runtime init wins.
+        installLynx(emitter);
+        expect(isNativeEventsAvailable()).toBe(true);
     });
 
     it('survives a host whose removeListener throws', async () => {

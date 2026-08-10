@@ -35,14 +35,19 @@ const initial = Linking.getInitialURL();
 if (initial) handle(initial);
 
 // Warm deep links delivered while the app is running.
-const sub = Linking.addEventListener('url', ({ url }) => handle(url));
+const off = Linking.addEventListener('url', ({ url }) => handle(url));
+off(); // unsubscribe — calling it twice is a no-op
 ```
 
 `addEventListener` only knows the `'url'` event; anything else throws a `SigxError`
 (`code: 'unsupported_event'`) from `@sigx/lynx-core`, on native and web alike. A
-`BackHandler` listener that throws is isolated so siblings still run, and the failure
-is reported through the `lynx-linking` logger namespace — so it shows up in the
-`sigx dev` terminal instead of vanishing.
+`Linking` or `BackHandler` listener that throws is isolated so siblings still get the
+event, and the failure is reported through the `lynx-linking` logger namespace — so it
+shows up in the `sigx dev` terminal instead of vanishing.
+
+**Breaking since 0.27.0:** `Linking.addEventListener` and `BackHandler.addEventListener`
+return the unsubscribe function itself (`() => void`, idempotent — convention C7) instead
+of an RN-style `{ remove() }` object. Replace `sub.remove()` with `off()`.
 
 `parse` / `createURL` are pure-JS helpers for working with deep-link URLs. To route
 incoming links into a navigator, use [`@sigx/lynx-navigation`](https://sigx.dev/lynx/modules/navigation/overview/)'s `useLinkingNav`, which wires the cold-start + warm-listener dance into the Lynx navigator. The full API, platform gotchas, and Universal/App Links setup are documented on the docs site.

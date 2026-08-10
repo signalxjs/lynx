@@ -12,10 +12,14 @@ const bridge = {
     isModuleAvailable: vi.fn(() => true),
 };
 
-vi.mock('@sigx/lynx-core', () => ({
+vi.mock('@sigx/lynx-core', async () => ({
     callAsync: (...args: unknown[]) => bridge.callAsync(...(args as [])),
     guardModule: (...args: unknown[]) => bridge.guardModule(...(args as [])),
     isModuleAvailable: (...args: unknown[]) => bridge.isModuleAvailable(...(args as [])),
+    // Only the native bridge is faked. `subscribeNative` is the REAL C7
+    // implementation (imported from source to skip the barrel), so the
+    // payload guard and disposer semantics under test are the shipped ones.
+    subscribeNative: (await import('../../lynx-core/src/events.js')).subscribeNative,
 }));
 
 type Listener = (...a: unknown[]) => void;
@@ -199,6 +203,46 @@ describe('Background.setHandler dispatch', () => {
 
         expect(first).not.toHaveBeenCalled();
         expect(second).toHaveBeenCalledTimes(1);
+    });
+
+    it('a spent unsubscribe does not clear a re-registration of the SAME handler', async () => {
+        // The identity guard alone is not enough. A handler reference is
+        // usually stable across a remount (module-level function, or a
+        // `useCallback` with no deps), so after
+        //   mount → unsub → remount(same fn) → stale/duplicate cleanup
+        // the guard sees its own function in the map and deletes a live
+        // registration belonging to the *second* mount. Every subsequent OS
+        // fire then completes success=false with no error anywhere.
+        const handler = vi.fn(async () => {});
+
+        const unsubFirst = Background.setHandler('refresh-feed', handler);
+        unsubFirst(); // unmount
+        Background.setHandler('refresh-feed', handler); // remount, same reference
+        unsubFirst(); // duplicate cleanup — must be a no-op
+
+        emitter.fire(FIRE, { taskName: 'refresh-feed', runId: 'r7' });
+        await flush();
+        await flush();
+
+        expect(handler).toHaveBeenCalledTimes(1);
+        expect(bridge.callAsync).toHaveBeenCalledWith(
+            'Background', 'completeTask', 'r7', true,
+        );
+    });
+
+    it('unsubscribe is idempotent — calling it twice in a row is a no-op', async () => {
+        const handler = vi.fn(async () => {});
+        const unsub = Background.setHandler('refresh-feed', handler);
+        expect(() => {
+            unsub();
+            unsub();
+        }).not.toThrow();
+
+        emitter.fire(FIRE, { taskName: 'refresh-feed', runId: 'r8' });
+        await flush();
+        await flush();
+
+        expect(handler).not.toHaveBeenCalled();
     });
 });
 
