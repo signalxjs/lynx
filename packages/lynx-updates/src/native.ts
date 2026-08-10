@@ -8,10 +8,17 @@
  * mutations reject with `native-unavailable`.
  */
 
-import { callAsync, callSync, isModuleAvailable, Platform } from '@sigx/lynx-core';
-import { UpdatesError, type CurrentUpdateInfo, type DownloadSpec } from './types.js';
+import { callAsync, callSync, createLogger, isModuleAvailable, Platform } from '@sigx/lynx-core';
+import {
+    UpdatesError,
+    type CurrentUpdateInfo,
+    type DownloadSpec,
+    type UpdateRollbackReason,
+} from './types.js';
 
 const MODULE = 'Updates';
+
+const log = createLogger('updates');
 
 // Baked by @sigx/lynx-plugin; absent in non-plugin builds (tests).
 declare const __SIGX_RUNTIME_VERSIONS__:
@@ -119,6 +126,33 @@ export async function getCurrentUpdate(): Promise<CurrentUpdateInfo> {
                 ? raw.rolledBackUpdateId
                 : null,
     };
+}
+
+/**
+ * Why the last rollback happened, read from the persisted native update-store
+ * state (`getState`). `getCurrentUpdate` reports *that* a rollback happened;
+ * only this call knows whether it was a crash loop or a corrupt bundle, and
+ * the store file is the only place that distinction survives the relaunch.
+ *
+ * Called on the rollback path only — a healthy launch keeps its single
+ * `getCurrentUpdate` round-trip. Diagnostic, so it never throws: an
+ * unreadable state degrades to `'unknown'` rather than derailing bootstrap.
+ *
+ * Note the name collision: native `getState` is the on-disk apply/rollback
+ * bookkeeping, and is unrelated to the public `Updates.getState()`, which
+ * snapshots the JS state machine in `state.ts`.
+ */
+export async function readRollbackReason(): Promise<UpdateRollbackReason> {
+    if (!nativeAvailable()) return 'unknown';
+    try {
+        const raw = await callAsync<{ lastRollbackReason?: unknown } | null>(MODULE, 'getState');
+        if (!raw || typeof raw !== 'object') return 'unknown';
+        const reason = raw.lastRollbackReason;
+        return reason === 'crash' || reason === 'corrupt' ? reason : 'unknown';
+    } catch (err) {
+        log.warn('getState failed:', err);
+        return 'unknown';
+    }
 }
 
 /**

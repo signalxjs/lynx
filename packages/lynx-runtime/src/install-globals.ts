@@ -25,10 +25,13 @@
  * rather than being swallowed into an unhandled promise rejection — this is the
  * WHATWG-recommended `queueMicrotask` polyfill.
  *
- * Matches the standard's runtime semantics: a non-callable argument throws
+ * Matches the standard's runtime *semantics*: a non-callable argument throws
  * `TypeError` synchronously, and the callback is invoked inside the `.then` (its
  * return value ignored) so a returned rejected promise isn't mistaken for a
- * thrown error — only a synchronous throw is reported.
+ * thrown error — only a synchronous throw is reported. The message text is
+ * ours, not Chrome's: no spec fixes it (Firefox's differs), and on a thread
+ * where the global may be the engine's *or* this polyfill, the `[@sigx/…]`
+ * prefix is the only thing that says which one rejected the argument (C10).
  *
  * Idempotent and non-clobbering: an existing global (a newer engine, a host
  * that already provides it, or a test stub) is left untouched.
@@ -40,7 +43,7 @@ export function installGlobals(): void {
     g['queueMicrotask'] = (cb: () => void) => {
       if (typeof cb !== 'function') {
         throw new TypeError(
-          "Failed to execute 'queueMicrotask': parameter 1 is not of type 'Function'.",
+          "[@sigx/lynx-runtime] queueMicrotask failed: parameter 1 is not of type 'Function'.",
         );
       }
       void Promise.resolve()

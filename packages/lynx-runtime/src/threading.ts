@@ -97,7 +97,11 @@ export function runOnMainThread<TArgs extends unknown[]>(
   }
 
   if (!isWorkletPlaceholder(worklet)) {
-    throw new Error('runOnMainThread: argument is not a worklet placeholder. Did the build transform run?');
+    throw new Error(
+      '[@sigx/lynx-runtime] runOnMainThread failed: the argument is not a main-thread worklet. '
+      + "Add the 'main thread' directive as the first statement of the callback, and check "
+      + "that @sigx/lynx-plugin's worklet transform is applied to this file.",
+    );
   }
 
   const wkltId = worklet._wkltId;

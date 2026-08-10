@@ -206,9 +206,14 @@ function readManifest(path: string): ManifestDocument {
  * files) so CI can assert on `updateId` / `manifestPath` / `bundleUrl` /
  * `sha256` directly.
  *
- * @throws if the bundle is missing/empty, or no runtime-version fingerprint can
- * be resolved (no `--runtime-version`, no explicit `runtimeVersions`, and no
- * `.sigx/runtime-versions.json` sidecar).
+ * @throws if the bundle is missing/empty, the channel name is not a safe path
+ * segment, or no runtime-version fingerprint can be resolved (no
+ * `--runtime-version`, no explicit `runtimeVersions`, and no
+ * `.sigx/runtime-versions.json` sidecar). Every message opens with
+ * `[@sigx/lynx-updates-publisher] publish failed: ` (CONVENTIONS.md C10) — a
+ * plain `Error`, not a `SigxError`, because typing the error would mean
+ * depending on `@sigx/lynx-core` and dragging the Lynx runtime bridge into a
+ * Node release job.
  */
 export async function publishUpdate(opts: PublishUpdateOptions): Promise<PublishUpdateResult> {
     const { cwd } = opts;
@@ -217,13 +222,16 @@ export async function publishUpdate(opts: PublishUpdateOptions): Promise<Publish
     const bundlePath = resolve(cwd, opts.bundle ?? join('dist', 'main.lynx.bundle'));
     if (!existsSync(bundlePath)) {
         throw new Error(
-            `Bundle not found: ${bundlePath}\n` +
+            `[@sigx/lynx-updates-publisher] publish failed: bundle not found: ${bundlePath}\n` +
             `Run \`sigx build\` first (or pass a bundle path).`,
         );
     }
     const bundleBytes = readFileSync(bundlePath);
     if (bundleBytes.length === 0) {
-        throw new Error(`Bundle is empty: ${bundlePath} — run \`sigx build\` first.`);
+        throw new Error(
+            `[@sigx/lynx-updates-publisher] publish failed: bundle is empty: ${bundlePath} ` +
+            '— run `sigx build` first.',
+        );
     }
     const sha256 = createHash('sha256').update(bundleBytes).digest('hex');
     const updateId = sha256.slice(0, 16);
@@ -232,7 +240,8 @@ export async function publishUpdate(opts: PublishUpdateOptions): Promise<Publish
     const runtimeVersions = resolveRuntimeVersions(opts);
     if (runtimeVersions.length === 0) {
         throw new Error(
-            'No runtime-version fingerprint found (.sigx/runtime-versions.json).\n' +
+            '[@sigx/lynx-updates-publisher] publish failed: no runtime-version fingerprint found ' +
+            '(.sigx/runtime-versions.json).\n' +
             'Run `sigx prebuild` first, or pass runtimeVersion / runtimeVersions when managing compatibility manually.',
         );
     }
@@ -248,7 +257,8 @@ export async function publishUpdate(opts: PublishUpdateOptions): Promise<Publish
     // a name (e.g. "2.0") but the bare `.`/`..` segments are not.
     if (!/^[A-Za-z0-9._-]+$/.test(channel) || channel === '.' || channel === '..') {
         throw new Error(
-            `Invalid channel "${channel}": use only letters, digits, '.', '_' or '-' ` +
+            `[@sigx/lynx-updates-publisher] publish failed: invalid channel "${channel}": ` +
+            `use only letters, digits, '.', '_' or '-' ` +
             `(not '.'/'..'); it is used as a directory and URL segment.`,
         );
     }

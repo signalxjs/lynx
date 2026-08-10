@@ -98,6 +98,26 @@ Relies on web-core's `NativeModules.bridge` worker module and the
 calls fall through to it). Tested against the `@lynx-js/web-core` version
 range pinned by `@sigx/lynx-cli`.
 
+## Errors
+
+A handler failure is replied as `{ok: false, error}` and re-thrown in the
+worker by `@sigx/lynx-core`'s `webHostCall`, so the message is the only thing
+the app developer sees. Each one names its scope and the RPC method it came
+from:
+
+```
+[@sigx/lynx-web-host] linking.openURL failed: URL scheme "file:" cannot be opened in a browser
+```
+
+**No `SigxError`, no `createLogger`** — a documented `CONVENTIONS.md` C10
+exemption. `src/host.ts` is deliberately import-free so the compiled
+`dist/host.js` loads in a host page with no bundler (`sigx run:web` serves it
+verbatim as `/host/sigx-host.js`); a bare `@sigx/lynx-core` specifier in that
+file would fail to resolve in the browser. The prefix is therefore written out
+literally at each `throw`, and the package emits no `console.*` diagnostics.
+Callers that need to branch on a failure should branch on the handler they
+called, not on the message text.
+
 ## License
 
 MIT

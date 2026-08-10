@@ -45,6 +45,16 @@ The version is exported as `DEV_CLIENT_VERSION` so `@sigx/lynx-cli` can warn if 
 
 Not used on web — and nothing is missing there. The overlays, dev menu, devtool wiring and QR scanner are iOS/Android sources that `sigx prebuild` copies into the native project, and `@sigx/lynx-plugin` prepends the console streamer to the background entry only for native dev builds (the prepend is gated on `isDev && !isWeb`), so a `sigx run:web` bundle contains none of this package. The browser supplies the equivalents directly: DevTools for the console, errors, network and element inspection, and `sigx run:web` runs its own watch loop — `rspeedy build --watch` rebuilds and a WebSocket tells the page to `location.reload()` (full reload, not hot-swap).
 
+## Gotchas
+
+- **This package doesn't use `createLogger`, and that's deliberate.** Every other `@sigx/lynx-*` package routes diagnostics through `createLogger` (CONVENTIONS.md C10), whose default transport writes to `console.*` — which is exactly what this package patches. The dev client sits *below* the logger: it's where log records end up, not a consumer of them. So its own transport diagnostics (`[sigx-dev-client] log stream WS closed, reconnecting: …`) go to the **captured console originals**, printing on-device only. Routing them through the patched console would queue every "the socket is down" warning for delivery over the socket that is down. There's a regression test (`does not stream its own transport-failure warning back to the server`) that fails if anyone changes this.
+
+  The one place the patched console is used on purpose is uncaught-error visibility: `installDevErrorLogging` `console.error`s the app's own errors *so that* they get streamed to the terminal.
+
+  Practical consequence: when the log stream is broken, nothing from any package reaches the `sigx dev` terminal, and the reason is only visible in the platform log (`adb logcat` / Xcode console).
+
+- **No `@sigx/lynx-core` dependency.** `install.ts` is prepended to the very front of the background-thread entry, ahead of the app's own imports, so the dev client keeps a single runtime dependency (`@sigx/lynx-websocket`, for the transport). Its native module is therefore called directly — `NativeModules.DevClient.getPlatform / reload / setConnectionState`, all three implemented on both platforms — rather than through core's `callAsync`. `signalx-module.json` omits `ios.methods` for that reason: the C12 manifest gate resolves method names from `callAsync` / `callSync` call sites, so declaring names it cannot see would report all three as declared-but-never-called.
+
 ## License
 
 MIT

@@ -21,7 +21,6 @@
         "publisherClass": ["AppStatePublisher", "FontScalePublisher", "ScreenMetricsPublisher"],
         "methods": [
             "getDeviceInfo",
-            "getConstants",
             "getAppState",
             "lockOrientation",
             "unlockOrientation"

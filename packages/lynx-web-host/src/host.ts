@@ -28,6 +28,15 @@
  * (`sigx run:web` serves it as `/host/sigx-host.js`). Coupled to web-core's
  * `bridge` module + `onNativeModulesCall` contract — see the README for the
  * pinned version range.
+ *
+ * That import ban is also a documented CONVENTIONS.md C10 exemption: this
+ * module cannot import `SigxError` or `createLogger` from `@sigx/lynx-core`,
+ * because a bare specifier in the shipped file would fail to resolve in the
+ * host page. Thrown messages therefore carry the `[@sigx/lynx-web-host]
+ * <action> failed: <cause>` prefix spelled out literally at each `throw` —
+ * repeated rather than factored into a helper, so `check-api-conventions.mjs`,
+ * which reads throw sites textually, can still see it. There are no
+ * `console.*` diagnostics here to route through a logger.
  */
 
 type HostResponse = { ok: true; value?: unknown } | { ok: false; error: string };
@@ -225,9 +234,16 @@ function makeNotificationHandlers() {
   let nextId = 1;
   let badge = 0;
 
-  const ctor = (): NotificationCtor => {
+  // `action` is the RPC method the failure should be attributed to — the
+  // message crosses the bridge verbatim into the worker (`webHostCall`
+  // rejects with it), so naming the call is what makes it debuggable there.
+  const ctor = (action: string): NotificationCtor => {
     const n = (globalThis as { Notification?: NotificationCtor }).Notification;
-    if (!n) throw new Error('the Notification API is not available in this browser');
+    if (!n) {
+      throw new Error(
+        `[@sigx/lynx-web-host] ${action} failed: the Notification API is not available in this browser`,
+      );
+    }
     return n;
   };
   const mapPermission = (
@@ -241,9 +257,12 @@ function makeNotificationHandlers() {
 
   return {
     schedule(d: Record<string, unknown>): string {
-      const N = ctor();
+      const N = ctor('notifications.schedule');
       if (N.permission !== 'granted') {
-        throw new Error('notification permission not granted — call requestPermission() first');
+        throw new Error(
+          '[@sigx/lynx-web-host] notifications.schedule failed: notification permission not granted' +
+            ' — call requestPermission() first',
+        );
       }
       const id = `web-${nextId++}`;
       const title = String(d['title'] ?? '');
@@ -290,10 +309,10 @@ function makeNotificationHandlers() {
       return true;
     },
     async requestPermission(): Promise<{ status: string; canAskAgain: boolean }> {
-      return mapPermission(await ctor().requestPermission());
+      return mapPermission(await ctor('notifications.requestPermission').requestPermission());
     },
     permissionStatus(): { status: string; canAskAgain: boolean } {
-      return mapPermission(ctor().permission);
+      return mapPermission(ctor('notifications.permissionStatus').permission);
     },
     setBadge(count: number): void {
       badge = Number.isFinite(count) && count > 0 ? Math.floor(count) : 0;
@@ -331,7 +350,9 @@ function buildHandlers(): Record<string, Handler> {
       const url = String(asRecord(data)['url'] ?? '');
       const scheme = new URL(url, location.href).protocol;
       if (!OPENABLE_SCHEMES.includes(scheme)) {
-        throw new Error(`URL scheme "${scheme}" cannot be opened in a browser`);
+        throw new Error(
+          `[@sigx/lynx-web-host] linking.openURL failed: URL scheme "${scheme}" cannot be opened in a browser`,
+        );
       }
       window.open(url, '_blank', 'noopener');
     },
@@ -347,7 +368,9 @@ function buildHandlers(): Record<string, Handler> {
     'share.share': async (data) => {
       const d = asRecord(data);
       if (typeof navigator.share !== 'function') {
-        throw new Error('navigator.share is not supported in this browser');
+        throw new Error(
+          '[@sigx/lynx-web-host] share.share failed: navigator.share is not supported in this browser',
+        );
       }
       await navigator.share({
         title: d['title'] as string | undefined,
@@ -368,10 +391,13 @@ function buildHandlers(): Record<string, Handler> {
     },
     'location.getCurrent': (data) => {
       const d = asRecord(data);
-      return getPosition({
-        enableHighAccuracy: d['accuracy'] === 'high',
-        timeout: typeof d['timeout'] === 'number' ? d['timeout'] : undefined,
-      });
+      return getPosition(
+        {
+          enableHighAccuracy: d['accuracy'] === 'high',
+          timeout: typeof d['timeout'] === 'number' ? d['timeout'] : undefined,
+        },
+        'location.getCurrent',
+      );
     },
     'location.permissionStatus': () => geoPermissionStatus(),
     'notifications.schedule': (data) => notifs.schedule(asRecord(data)),
@@ -385,7 +411,7 @@ function buildHandlers(): Record<string, Handler> {
       // The browser has no standalone geolocation prompt — a position request
       // IS the prompt. Ask (cheaply), then report the resulting status.
       try {
-        await getPosition({ enableHighAccuracy: false, timeout: 30_000 });
+        await getPosition({ enableHighAccuracy: false, timeout: 30_000 }, 'location.requestPermission');
         // Trust a decisive Permissions API answer; a one-time allow (or an
         // absent API) can still read 'prompt'/'undetermined' — the probe just
         // succeeded, so that means effectively granted.
@@ -419,8 +445,14 @@ async function geoPermissionStatus(): Promise<HostPermissionResponse> {
   }
 }
 
-/** Promisified getCurrentPosition mapped to the lynx-location result shape. */
-function getPosition(opts: PositionOptions): Promise<{
+/**
+ * Promisified getCurrentPosition mapped to the lynx-location result shape.
+ *
+ * `action` names the RPC method the rejection is attributed to: the probe in
+ * `location.requestPermission` swallows its rejection, but `location.getCurrent`
+ * hands it straight back over the bridge.
+ */
+function getPosition(opts: PositionOptions, action: string): Promise<{
   latitude: number;
   longitude: number;
   altitude: number | null;
@@ -431,7 +463,11 @@ function getPosition(opts: PositionOptions): Promise<{
 }> {
   return new Promise((resolve, reject) => {
     if (typeof navigator.geolocation?.getCurrentPosition !== 'function') {
-      reject(new Error('geolocation is not available in this browser'));
+      reject(
+        new Error(
+          `[@sigx/lynx-web-host] ${action} failed: geolocation is not available in this browser`,
+        ),
+      );
       return;
     }
     navigator.geolocation.getCurrentPosition(
@@ -447,7 +483,7 @@ function getPosition(opts: PositionOptions): Promise<{
           timestamp: pos.timestamp,
         });
       },
-      (err) => reject(new Error(`geolocation failed: ${err.message}`)),
+      (err) => reject(new Error(`[@sigx/lynx-web-host] ${action} failed: ${err.message}`)),
       opts,
     );
   });

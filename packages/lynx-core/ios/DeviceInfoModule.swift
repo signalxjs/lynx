@@ -10,7 +10,6 @@ class DeviceInfoModule: NSObject, LynxModule {
     @objc static var methodLookup: [String: String] {
         [
             "getDeviceInfo": NSStringFromSelector(#selector(getDeviceInfo(_:))),
-            "getConstants": NSStringFromSelector(#selector(getConstants(_:))),
             "getAppState": NSStringFromSelector(#selector(getAppState(_:))),
             "lockOrientation": NSStringFromSelector(#selector(lockOrientation(_:callback:))),
             "unlockOrientation": NSStringFromSelector(#selector(unlockOrientation(_:))),
@@ -77,15 +76,6 @@ class DeviceInfoModule: NSObject, LynxModule {
     /// Empty map on success; `{ error }` on failure (CONVENTIONS.md C4).
     private func result(_ error: String?) -> [String: Any] {
         error.map { ["error": $0] } ?? [:]
-    }
-
-    @objc func getConstants(_ callback: LynxCallbackBlock?) {
-        let constants: [String: Any] = [
-            "platform": "ios",
-            "runtime": "sigx-lynx-go",
-            "lynxSdkVersion": "3.6.0",
-        ]
-        callback?(constants)
     }
 
     private func modelIdentifier() -> String {

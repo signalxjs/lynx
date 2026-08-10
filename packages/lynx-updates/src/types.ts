@@ -121,11 +121,27 @@ export interface CurrentUpdateInfo {
     isEmbedded: boolean;
     /** True on the first launch running a freshly applied update. */
     isFirstLaunchAfterUpdate: boolean;
-    /** True when native rolled back because the previous launch never reached markReady. */
+    /**
+     * True when native rolled back because the previous launch never reached
+     * markReady. *Why* it rolled back rides on the `rolledBack` event
+     * ({@link UpdateRollbackReason}) — it comes from a different native call,
+     * so it is not folded into this payload.
+     */
     didRollBack: boolean;
     /** Id of the update that was rolled back at this startup (null when none). */
     rolledBackUpdateId: string | null;
 }
+
+/**
+ * Why the native side rolled an update back, as recorded in the update store:
+ *
+ * - `'crash'`   — the update never reached `markReady()` within
+ *                 `rollback.maxFailedLaunches` launches (crash loop).
+ * - `'corrupt'` — its bundle file was missing or unreadable at launch.
+ * - `'unknown'` — native reported a reason this version doesn't recognise, or
+ *                 the reason couldn't be read.
+ */
+export type UpdateRollbackReason = 'crash' | 'corrupt' | 'unknown';
 
 export interface UpdatesState {
     status: UpdateStatus;
@@ -149,7 +165,12 @@ export type UpdatesEvent =
     | { type: 'downloadProgress'; progress: DownloadProgress }
     | { type: 'updateReady'; manifest: UpdateManifest }
     | { type: 'applying' }
-    | { type: 'rolledBack'; fromUpdateId: string }
+    /**
+     * Native reverted a pending update at this startup. `reason` distinguishes
+     * a crash loop from a corrupt bundle — the two are very different bugs,
+     * and this is the only place either is observable from JS.
+     */
+    | { type: 'rolledBack'; fromUpdateId: string; reason: UpdateRollbackReason }
     | { type: 'error'; error: UpdatesError };
 
 // ── Configuration ──────────────────────────────────────────────────────────

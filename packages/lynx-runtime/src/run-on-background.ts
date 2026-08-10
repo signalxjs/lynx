@@ -248,9 +248,9 @@ export function runOnBackground<R, Fn extends (...args: never[]) => R>(
     }
   }
   throw new Error(
-    'runOnBackground() can only be used inside \'main thread\' functions. '
-      + 'The SWC worklet transform should replace this call at build time — '
-      + 'verify @sigx/lynx-plugin\'s worklet-loader is wired into your bundler.',
+    '[@sigx/lynx-runtime] runOnBackground failed: it can only be called inside a '
+      + '\'main thread\' function. The SWC worklet transform should replace this call at '
+      + 'build time — verify @sigx/lynx-plugin\'s worklet-loader is wired into your bundler.',
   );
 }
 

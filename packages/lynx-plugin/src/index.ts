@@ -414,11 +414,11 @@ export function pluginSigxLynx(
           try {
             logServer = await createLogWebSocketServer({ port: wsPort, buildId });
             api.logger.info(
-              `[sigx-lynx] device log ws → ws://${lanIP}:${logServer.port}${LOG_ENDPOINT_PATH}`,
+              `[@sigx/lynx-plugin] device log ws → ws://${lanIP}:${logServer.port}${LOG_ENDPOINT_PATH}`,
             );
           } catch (err) {
             api.logger.warn(
-              `[sigx-lynx] device log ws failed to start on port ${wsPort}: ${(err as Error).message}`,
+              `[@sigx/lynx-plugin] device log ws failed to start on port ${wsPort}: ${(err as Error).message}`,
             );
           }
         });

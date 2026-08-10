@@ -99,7 +99,11 @@ describe('sigx.* RPC dispatch', () => {
       'bridge',
     )) as { ok: boolean; error: string };
     expect(res.ok).toBe(false);
-    expect(res.error).toContain('scheme');
+    // C10 — the message crosses the bridge verbatim into the worker, so it
+    // carries the package scope and the failing RPC method.
+    expect(res.error).toBe(
+      '[@sigx/lynx-web-host] linking.openURL failed: URL scheme "file:" cannot be opened in a browser',
+    );
   });
 
   it('non-sigx calls fall through to a pre-existing handler with `this` = the view', () => {
@@ -226,7 +230,23 @@ describe('sigx.location.* handlers', () => {
       error: string;
     };
     expect(res.ok).toBe(false);
-    expect(res.error).toContain('denied');
+    expect(res.error).toBe(
+      '[@sigx/lynx-web-host] location.getCurrent failed: User denied Geolocation',
+    );
+  });
+
+  it('location.getCurrent reports a missing geolocation API under its own scope', async () => {
+    vi.stubGlobal('navigator', {});
+    const view = makeView();
+    installSigxWebHost(view);
+    const res = (await view.onNativeModulesCall!('sigx.location.getCurrent', {}, 'bridge')) as {
+      ok: boolean;
+      error: string;
+    };
+    expect(res.ok).toBe(false);
+    expect(res.error).toBe(
+      '[@sigx/lynx-web-host] location.getCurrent failed: geolocation is not available in this browser',
+    );
   });
 
   it('location.permissionStatus maps Permissions API states', async () => {
@@ -358,7 +378,27 @@ describe('sigx.notifications.* handlers', () => {
       error: string;
     };
     expect(res.ok).toBe(false);
-    expect(res.error).toContain('permission');
+    expect(res.error).toBe(
+      '[@sigx/lynx-web-host] notifications.schedule failed: notification permission not granted' +
+        ' — call requestPermission() first',
+    );
+  });
+
+  it('a missing Notification API is attributed to the calling RPC method', async () => {
+    vi.stubGlobal('Notification', undefined);
+    const view = makeView();
+    installSigxWebHost(view);
+    for (const [name, action] of [
+      ['sigx.notifications.schedule', 'notifications.schedule'],
+      ['sigx.notifications.permissionStatus', 'notifications.permissionStatus'],
+      ['sigx.notifications.requestPermission', 'notifications.requestPermission'],
+    ] as const) {
+      const res = (await call(view, name)) as { ok: boolean; error: string };
+      expect(res.ok).toBe(false);
+      expect(res.error).toBe(
+        `[@sigx/lynx-web-host] ${action} failed: the Notification API is not available in this browser`,
+      );
+    }
   });
 
   it('permission mapping: denied → blocked, default → undetermined', async () => {

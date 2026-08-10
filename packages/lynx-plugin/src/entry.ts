@@ -468,11 +468,11 @@ export async function applyEntry(
   }
   if (devClientInstallPath) {
     api.logger.info(
-      `[sigx-lynx] device console log streaming → enabled`,
+      `[@sigx/lynx-plugin] device console log streaming → enabled`,
     );
   } else {
     api.logger.warn(
-      `[sigx-lynx] device console log streaming → disabled (install @sigx/lynx-dev-client as a devDependency of this app). rootPath=${api.context.rootPath}, cwd=${process.cwd()}`,
+      `[@sigx/lynx-plugin] device console log streaming → disabled (install @sigx/lynx-dev-client as a devDependency of this app). rootPath=${api.context.rootPath}, cwd=${process.cwd()}`,
     );
   }
 
@@ -514,9 +514,9 @@ export async function applyEntry(
       } catch { observabilityInstallPath = undefined; }
     }
     if (observabilityInstallPath) {
-      api.logger.info('[sigx-lynx] production observability → enabled');
+      api.logger.info('[@sigx/lynx-plugin] production observability → enabled');
     } else {
-      api.logger.warn('[sigx-lynx] logging.production is set but @sigx/lynx-observability is not installed — add it as a dependency.');
+      api.logger.warn('[@sigx/lynx-plugin] logging.production is set but @sigx/lynx-observability is not installed — add it as a dependency.');
     }
   }
 
@@ -897,7 +897,8 @@ export async function applyEntry(
       // `.use(undefined, …)` throw an opaque "is not a constructor" later.
       if (!WebEncodePlugin) {
         throw new Error(
-          '[sigx-lynx] The `web` environment requires `WebEncodePlugin` from ' +
+          '[@sigx/lynx-plugin] web environment setup failed: the `web` ' +
+            'environment requires `WebEncodePlugin` from ' +
             '@lynx-js/template-webpack-plugin, but the installed version does ' +
             'not export it. Upgrade @lynx-js/template-webpack-plugin (>=0.11) ' +
             'or remove the `web` environment from your config.',

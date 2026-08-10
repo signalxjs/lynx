@@ -84,8 +84,26 @@ first screen rendered). If the app crashes before `markReady()` on
 side deletes the update and reverts to the previous bundle. Detect it:
 
 ```ts
-const { didRollBack } = await Updates.getCurrentlyRunning();
+const { didRollBack, rolledBackUpdateId } = await Updates.getCurrentlyRunning();
 ```
+
+*Why* it rolled back rides on the `rolledBack` event, which fires once during
+`configure()`'s deferred bootstrap — subscribe before then to catch it:
+
+```ts
+Updates.addListener((e) => {
+    if (e.type === 'rolledBack') {
+        // reason: 'crash'   — never reached markReady() within maxFailedLaunches
+        //         'corrupt' — the staged bundle was missing/unreadable at launch
+        //         'unknown' — native reported something else, or the read failed
+        reportToCrashTracker(`OTA ${e.fromUpdateId} rolled back: ${e.reason}`);
+    }
+});
+```
+
+The reason lives in the native update store rather than in the
+currently-running payload, so it is read with a second bridge call taken only
+when a rollback actually happened — a healthy launch pays nothing.
 
 ## API
 

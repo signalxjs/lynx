@@ -6,7 +6,7 @@
     "ios": {
         "moduleClass": "HapticsModule",
         "sourceDir": "ios",
-        "methods": ["impact", "notification", "selection"]
+        "methods": ["impact", "notification", "selection", "diagnose"]
     },
     "android": {
         "moduleClass": "com.sigx.haptics.HapticsModule",

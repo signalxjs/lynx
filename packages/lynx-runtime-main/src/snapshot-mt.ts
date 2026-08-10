@@ -66,7 +66,10 @@ export class MTSnapshotInstance implements SnapshotInstanceLike {
   constructor(id: number, type: string) {
     const def = getSnapshotDef(type);
     if (!def) {
-      throw new Error(`[sigx-snapshot] unknown template "${type}" (instance ${id})`);
+      throw new Error(
+        `[@sigx/lynx-runtime-main] snapshot create failed: `
+          + `unknown template "${type}" (instance ${id})`,
+      );
     }
     this.__id = id;
     this.type = type;
@@ -81,7 +84,8 @@ export class MTSnapshotInstance implements SnapshotInstanceLike {
     const create = this.def.create;
     if (!create) {
       throw new Error(
-        `[sigx-snapshot] template "${this.type}" has no create() — `
+        `[@sigx/lynx-runtime-main] snapshot materialization failed: `
+          + `template "${this.type}" has no create() — `
           + 'background-target registration evaluated on the main thread?',
       );
     }
@@ -207,7 +211,8 @@ export function ensureSyntheticId(inst: MTSnapshotInstance, elementIndex: number
   const el = inst.__elements?.[elementIndex];
   if (!el) {
     throw new Error(
-      `[sigx-snapshot] template "${inst.type}" has no element at index ${elementIndex}`,
+      `[@sigx/lynx-runtime-main] snapshot element lookup failed: `
+        + `template "${inst.type}" has no element at index ${elementIndex}`,
     );
   }
   const synId = nextSyntheticId--;

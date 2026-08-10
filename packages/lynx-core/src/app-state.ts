@@ -1,6 +1,12 @@
 import { signal, computed, watch, type Computed } from '@sigx/reactivity';
 import { callAsync, isModuleAvailable } from './bridge.js';
 import { isNativeEventsAvailable, subscribeNative } from './events.js';
+import { createLogger } from './logger.js';
+
+// Safe at module scope even though the barrel installs the console transport
+// after this module evaluates: `createLogger` only builds an object, and the
+// transport list is read at emit time.
+const log = createLogger('lynx-core');
 
 /**
  * App activity state, two-state model:
@@ -109,9 +115,18 @@ const ensureWired = (): void => {
                 // The bridge resolves whatever the native callback passes —
                 // an error-shaped or malformed payload is a failure too.
                 if (isStatus(res?.state)) state.status = res.state;
-                else seeded = false;
+                else {
+                    seeded = false;
+                    // `warn`, not `debug`: release builds log at warn, and a
+                    // seed that keeps failing leaves `AppState.current` on its
+                    // fallback for the whole session — silent at debug.
+                    log.warn(`${MODULE}.getAppState returned no usable state; will retry`, res);
+                }
             })
-            .catch(() => { seeded = false; });
+            .catch((err: unknown) => {
+                seeded = false;
+                log.warn(`${MODULE}.getAppState failed; will retry`, err);
+            });
     }
 };
 

@@ -62,6 +62,13 @@ export function installDevErrorLogging(): void {
             // "hot-update" can't suppress a real error.
             const headline = (text.split('\n', 1)[0] ?? '').toLowerCase();
             if (headline.includes('hot-update') || headline.includes('failed to load css update file')) return;
+            // The patched console on purpose — this is the transport that
+            // carries the *app's* uncaught error to the `sigx dev` terminal,
+            // not a diagnostic about this package, so C10's `createLogger`
+            // rule doesn't apply (and core's logger would reach the same
+            // `console.error` one indirection later). The `[lynx:<source>]`
+            // tag names where the error came from, which is the useful thing
+            // to read in the terminal.
             (globalThis as { console?: { error?: (...a: unknown[]) => void } }).console?.error?.(
                 `[lynx:${source}] ${text}`,
             );

@@ -20,6 +20,7 @@ export {
     type UpdateMode,
     type UpdatePlatform,
     type UpdateProvider,
+    type UpdateRollbackReason,
     type UpdatesConfig,
     type UpdatesEvent,
     type UpdatesState,

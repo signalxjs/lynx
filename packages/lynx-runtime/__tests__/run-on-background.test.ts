@@ -198,5 +198,9 @@ describe('user-facing runOnBackground stub', () => {
   it('throws when called on BG (build transform did not run)', async () => {
     const { runOnBackground } = await import('../src/run-on-background.js');
     expect(() => runOnBackground(() => undefined)).toThrow(/'main thread'/);
+    // C10: package-scoped prefix, so the on-device log names the module.
+    expect(() => runOnBackground(() => undefined)).toThrow(
+      /^\[@sigx\/lynx-runtime\] runOnBackground failed:/,
+    );
   });
 });

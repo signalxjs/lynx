@@ -45,6 +45,9 @@ describe('installGlobals: queueMicrotask', () => {
     expect(() => qmt(undefined)).toThrow(TypeError);
     expect(() => qmt(123)).toThrow(TypeError);
     expect(() => qmt({})).toThrow(TypeError);
+    // C10: the message is package-scoped, which is how a developer tells this
+    // polyfill's rejection apart from the engine's own `queueMicrotask`.
+    expect(() => qmt(undefined)).toThrow(/^\[@sigx\/lynx-runtime\] queueMicrotask failed:/);
   });
 
   it("ignores the callback's return value — a returned rejected promise is not reported", async () => {

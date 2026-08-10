@@ -17,52 +17,10 @@
             "count": 56
         }
     ],
-    "lynx-plugin": [
-        {
-            "rule": "C10/unprefixed-throws",
-            "count": 1
-        }
-    ],
-    "lynx-runtime": [
-        {
-            "rule": "C10/unprefixed-throws",
-            "count": 3
-        }
-    ],
-    "lynx-runtime-internal": [
-        {
-            "rule": "C10/unprefixed-throws",
-            "count": 1
-        }
-    ],
-    "lynx-runtime-main": [
-        {
-            "rule": "C10/unprefixed-throws",
-            "count": 3
-        }
-    ],
     "lynx-sqlite": [
         {
             "rule": "C2/bare-is-available",
             "detail": "export { … isAvailable … }"
-        }
-    ],
-    "lynx-updates-publisher": [
-        {
-            "rule": "C10/unprefixed-throws",
-            "count": 4
-        }
-    ],
-    "lynx-web-host": [
-        {
-            "rule": "C10/unprefixed-throws",
-            "count": 4
-        }
-    ],
-    "lynx-webrtc": [
-        {
-            "rule": "C6/permission-response-not-reexported",
-            "detail": "implements requestPermission/getPermissionStatus but the barrel does not re-export PermissionResponse"
         }
     ],
     "lynx-zero": [

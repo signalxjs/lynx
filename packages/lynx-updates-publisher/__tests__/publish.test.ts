@@ -194,4 +194,24 @@ describe('publishUpdate', () => {
         const emptyBundle = makeProject({ bundle: '', sidecar: { android: 'fp1-a' } });
         await expect(publishUpdate({ cwd: emptyBundle })).rejects.toThrow(/empty/i);
     });
+
+    // CONVENTIONS.md C10: every thrown message opens with the package scope, so
+    // a failure in a CI log names the package that raised it. Pinned here because
+    // the conventions gate only counts throws — it can't see the wording.
+    it('prefixes every thrown message with `[@sigx/lynx-updates-publisher] publish failed:`', async () => {
+        const prefix = /^\[@sigx\/lynx-updates-publisher\] publish failed: /;
+        const cases: Array<Parameters<typeof publishUpdate>[0]> = [
+            // Bundle missing.
+            { cwd: makeProject({ sidecar: { android: 'fp1-a' } }) },
+            // Bundle empty.
+            { cwd: makeProject({ bundle: '', sidecar: { android: 'fp1-a' } }) },
+            // No runtime-version fingerprint.
+            { cwd: makeProject({ bundle: 'bundle' }) },
+            // Invalid channel.
+            { cwd: makeProject({ bundle: 'bundle', sidecar: { android: 'fp1-a' } }), channel: '../etc' },
+        ];
+        for (const opts of cases) {
+            await expect(publishUpdate(opts)).rejects.toThrow(prefix);
+        }
+    });
 });

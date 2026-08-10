@@ -402,6 +402,61 @@ describe('installConsoleStreamer', () => {
         expect(body.entries[0].args).toEqual(['boom']);
     });
 
+    // The load-bearing C10 exemption: this package's own diagnostics must go
+    // to the CAPTURED console originals, never to the patched methods (and so
+    // never through `createLogger`, whose default transport writes to
+    // `console.*`). Routing them through the patched console would enqueue
+    // every "the socket is down" warning for delivery over the socket that is
+    // down — the streamer logging about its own inability to ship logs.
+    it('does not stream its own transport-failure warning back to the server', () => {
+        const { console: c, logs } = createConsole();
+        globalThis.console = c;
+        const sched = createScheduler();
+        const ws = createFakeWSFactory();
+
+        // Fail the first `new WebSocket(...)`, succeed afterwards. The failure
+        // path runs outside any patched-console call, so a patched `warn`
+        // there really would be enqueued (the re-entrancy guard only covers
+        // failures raised *inside* a console call).
+        let failNext = true;
+        const flakyCtor = function FlakyWebSocket(this: unknown, url: string) {
+            if (failNext) {
+                failNext = false;
+                throw new Error('ctor blew up');
+            }
+            return new ws.ctor(url);
+        } as unknown as WebSocketCtor;
+
+        installConsoleStreamer('ws://x/__sigx/logs', {
+            webSocketImpl: flakyCtor,
+            setTimeoutImpl: sched.setTimeout,
+            clearTimeoutImpl: sched.clearTimeout,
+            backoffInitialMs: 1,
+            platform: 'ios',
+        });
+
+        // The construct failure was reported on the captured original…
+        expect(logs.some((l) => l.level === 'warn' && String(l.args[0]).includes('WS construct failed'))).toBe(
+            true,
+        );
+        expect(ws.instances).toHaveLength(0);
+
+        // …and reconnecting delivers only what the app logged. If that warning
+        // had gone through the patched console it would be sitting in the
+        // queue right here and ride out on the new socket.
+        sched.runAll();
+        expect(ws.instances).toHaveLength(1);
+        ws.last()._open();
+        // eslint-disable-next-line no-console
+        console.log('app line');
+        sched.runAll();
+
+        const delivered = ws.instances
+            .flatMap((i) => i.sent)
+            .flatMap((s) => (JSON.parse(s) as { entries: LogEntry[] }).entries);
+        expect(delivered.map((e) => e.args.join(' '))).toEqual(['app line']);
+    });
+
     it('caps the queue at maxQueueSize while disconnected', () => {
         const { console: c } = createConsole();
         globalThis.console = c;

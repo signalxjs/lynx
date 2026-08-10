@@ -130,6 +130,7 @@ The font-scale reads are hosted in `@sigx/lynx-core` (which owns the native publ
 | `setStatusBarBackgroundColor(color)` | **Android only** — status-bar background color (`null` clears). iOS resolves `{ ok: false, reason: 'unsupported' }`. |
 | `setNavigationBarStyle({ style, color? })` | **Android only** — navigation-bar tint + optional background. iOS resolves `{ ok: false, reason: 'unsupported' }`. |
 | `setSystemBarsStyle({ statusBar?, statusBarBackground?, navigationBar? })` | Convenience — apply all three in one deterministic call. Returns first non-`unsupported` failure, or `{ ok: true }`. |
+| `getColorScheme()` | Async, authoritative read straight from the native module — `Promise<ColorScheme \| null>`. For the two cases `readGlobalColorScheme()` can't serve: nothing has published `globalProps` yet, or the BG snapshot is stale after an in-place OS flip. `null` = module not linked. |
 | `isAvailable()` | Whether the native Appearance module is registered in the current build. |
 | `APPEARANCE_EVENT` | The event name (`'appearanceChanged'`) fired by the native publishers. Exported so iOS / Android / JS agree on a single string. |
 | `FONT_SCALE_EVENT` | The event name (`'onFontScaleChanged'`) the **Lynx engine itself** fires after `updateFontScale` — the live-update channel `useFontScale()` subscribes to. Engine-owned name, exported for tests/direct listeners. |
@@ -152,7 +153,7 @@ All setters return `Promise<SetterResult>` and **never reject** — unwired plat
 Reading the color scheme works with no shim at all; the setters don't work.
 
 - **Color scheme — supported.** The `@sigx/lynx-web-host` page bridge publishes `globalProps.appearance` from `matchMedia('(prefers-color-scheme: dark)')` and re-sends `appearanceChanged` on every flip — the exact channels this package reads — so `<AppearanceProvider>`, `useSystemColorScheme()`, `useSystemColorSchemeMT()` and `readGlobalColorScheme()` behave as they do on device. The **native `@media (prefers-color-scheme)` path described above does not apply on web**: `@sigx/lynx-plugin` folds `__SIGX_CSS_RULE__` to `false` for the web target because the upstream web encoder drops stylesheet at-rules — branch in JS on the hook instead.
-- **System bars — unsupported.** The `Appearance` native module has no handler in the page bridge, so `isAvailable()` is `false` and `setStatusBarStyle` / `setStatusBarBackgroundColor` / `setNavigationBarStyle` / `setSystemBarsStyle` all resolve `{ ok: false, reason: 'unsupported' }` (still never rejecting). A browser has no status or navigation bar; the nearest analog is a `<meta name="theme-color">` on the host page, which nothing wires today.
+- **System bars — unsupported.** The `Appearance` native module has no handler in the page bridge, so `isAvailable()` is `false`, `getColorScheme()` resolves `null`, and `setStatusBarStyle` / `setStatusBarBackgroundColor` / `setNavigationBarStyle` / `setSystemBarsStyle` all resolve `{ ok: false, reason: 'unsupported' }` (still never rejecting). A browser has no status or navigation bar; the nearest analog is a `<meta name="theme-color">` on the host page, which nothing wires today.
 - **Font scale — unsupported.** No web publisher writes `lynx.__globalProps.fontScale`, so `readGlobalFontScale()` returns `null` and `useFontScale()` / `useFontScaleMT()` stay at `1`.
 
 ## Gotchas
@@ -160,7 +161,13 @@ Reading the color scheme works with no shim at all; the setters don't work.
 - **iOS status-bar style needs host VC forwarding.** `setStatusBarStyle(...)` resolves successfully but won't visibly change anything unless the host view controller forwards `preferredStatusBarStyle` to `AppearanceModule.preferredStatusBarStyle`. The lynx-cli iOS template does this automatically; if you're integrating into an existing UIViewController, copy the forwarding pattern.
 - **Android 15+ (API 35) edge-to-edge.** `setStatusBarBackgroundColor` is a no-op at the system level on API 35+ because edge-to-edge is enforced. Render your own background view inside the safe-area top padding instead — pairs naturally with [`@sigx/lynx-safe-area`](https://sigx.dev/lynx/modules/safe-area/overview/).
 - **`'light'` vs `'dark'` is the *content* tint, not the background.** `style: 'light'` means "light-colored icons" (so a dark background behind them is legible). Easy to flip the wrong way the first time.
-- **Cold-start value.** `readGlobalColorScheme()` reads the value the native publisher wrote before first paint. If it returns `null` (e.g. running on a host that didn't link the publisher), the hook seeds `'light'` as a safe default.
+- **`getColorScheme()` returns `null` instead of throwing when the module isn't linked.** A
+  deliberate C3 opt-out, matching `readGlobalColorScheme()`: both answer "which scheme?" and
+  both say `null` for "unknown — use your default theme", so a themed root renders the same
+  off-device as on. A *native* failure still throws
+  `[@sigx/lynx-appearance] getColorScheme failed: …`. Almost no app should call it — the
+  provider already does, once, and only when nothing published a scheme.
+- **Cold-start value.** `readGlobalColorScheme()` reads the value the native publisher wrote before first paint. If it returns `null` (e.g. running on a host that didn't link the publisher), the hook seeds `'light'` as a safe default — and `<AppearanceProvider>` then asks the native module directly via `getColorScheme()`, correcting the seed on the next tick when the module is linked.
 - **Don't feed the OS font scale into a theme's `fontScale` multiplier.** The engine already scales every `font-size`, including `@sigx/lynx-zero`'s `--text-*` ramp — piping `useFontScale()` into the ThemeProvider's `fontScale` would apply it twice. The theme multiplier is for *in-app* text-size preferences; the two compose multiplicatively by design.
 - **Without `@sigx/lynx-appearance`** the native scaling still works (it's wired in `@sigx/lynx-core` + the host templates); apps can read `lynx.__globalProps.fontScale` and listen to `onFontScaleChanged` directly.
 

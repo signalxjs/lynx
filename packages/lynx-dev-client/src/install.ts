@@ -53,6 +53,11 @@ try {
         installDevErrorLogging();
         // First post-install log — this goes through the patched console,
         // so it exercises the full WS → server → sentinel → CLI pipeline.
+        // Deliberately not `createLogger` (CONVENTIONS.md C10): the patched
+        // console IS the thing under test here, a logger call would only
+        // reach it via core's console transport anyway, and the level
+        // threshold / `logging.namespaces.disabled` could silence the one
+        // line that proves the pipeline works.
         try {
             (globalThis as { console?: { log?: (...a: unknown[]) => void } }).console?.log?.(
                 `[sigx-dev-client] ws streamer ready: ${url}`,
