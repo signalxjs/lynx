@@ -3,6 +3,7 @@
     "version": "0.27.0",
     "description": "Design-system-neutral UI foundation for sigx-lynx — the shared props/token contract and style utilities that design-system packages (daisyui, heroui, …) build on",
     "type": "module",
+    "sideEffects": false,
     "main": "./dist/index.js",
     "types": "./dist/index.d.ts",
     "exports": {

@@ -3,6 +3,9 @@
     "version": "0.27.0",
     "description": "HeroUI-flavored design system for sigx-lynx, built on the @sigx/lynx-zero foundation — pilot scope while the shared contract is validated",
     "type": "module",
+    "sideEffects": [
+        "./dist/theme/builtins.js"
+    ],
     "main": "./dist/index.js",
     "types": "./dist/index.d.ts",
     "exports": {

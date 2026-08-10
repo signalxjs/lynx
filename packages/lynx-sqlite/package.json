@@ -3,6 +3,7 @@
     "version": "0.27.0",
     "description": "Embedded SQLite database for sigx-lynx — SQL, transactions, migrations and live queries for offline-first apps",
     "type": "module",
+    "sideEffects": false,
     "main": "./dist/index.js",
     "types": "./dist/index.d.ts",
     "exports": {

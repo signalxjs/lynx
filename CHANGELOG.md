@@ -4,6 +4,12 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 ## [Unreleased]
 
+### Changed
+
+- **Every package now declares `sideEffects`, so bundlers can drop what an app doesn't import** (#857). 52 of the 57 packages left the field unset, which a bundler reads as "assume every module does something at import" — importing one symbol from a barrel dragged in the whole package, and rubric item D2.4 failed repo-wide. Each package was classified by reading every module in its `src/` for real module-scope work, then re-checked by a second pass whose default was to refute: 40 are `sideEffects: false`, and 12 name the exact entries that do work at import rather than falling back to `true`.
+
+  The twelve are real effects, not caution: `@sigx/lynx` and `@sigx/lynx-http` install the `fetch`/`Headers`/`FormData`/`Response` globals; `@sigx/lynx-core` registers its console log transport behind a `globalThis` HMR flag; `@sigx/lynx-websocket` assigns `globalThis.WebSocket`; `@sigx/lynx-gestures` and `@sigx/lynx-richtext` call `customElements.define()` for their web elements; `@sigx/lynx-daisyui` and `@sigx/lynx-heroui` push their built-in palettes into `@sigx/lynx-zero`'s theme registry; `@sigx/lynx-icons` pulls in the generated `@font-face` stylesheet; `@sigx/lynx-keyboard` restores last run's lift height from storage; `@sigx/lynx-dev-client` installs the console streamer and error logging; and `@sigx/lynx-runtime` lists the eight modules that mount globals, directives and bridges.
+
 ## [0.27.0] - 2026-08-10
 
 ### Changed
