@@ -3,6 +3,9 @@
     "version": "0.27.0",
     "description": "WHATWG fetch for sigx-lynx — HTTP transport with FormData multipart upload and streaming response bodies",
     "type": "module",
+    "sideEffects": [
+        "./dist/index.js"
+    ],
     "main": "./dist/index.js",
     "types": "./dist/index.d.ts",
     "exports": {

@@ -3,6 +3,7 @@
     "version": "0.27.0",
     "description": "Native WebView component for sigx-lynx (WKWebView on iOS, android.webkit.WebView on Android).",
     "type": "module",
+    "sideEffects": false,
     "main": "./dist/index.js",
     "types": "./dist/index.d.ts",
     "exports": {

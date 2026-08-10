@@ -3,6 +3,7 @@
     "version": "0.27.0",
     "description": "Encrypted at-rest key-value storage for sigx-lynx (iOS Keychain, Android Keystore + EncryptedSharedPreferences)",
     "type": "module",
+    "sideEffects": false,
     "main": "./dist/index.js",
     "types": "./dist/index.d.ts",
     "exports": {
