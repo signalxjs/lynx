@@ -4,6 +4,18 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 ## [Unreleased]
 
+### Fixed
+
+- **`@sigx/lynx-navigation`: pressing back at the root of the stack no longer raises an unhandled rejection** (#857). `useHardwareBack` called `void BackHandler.exitApp()`, and that promise rejects whenever the bridge call throws synchronously — which is *always* off Android, where the module either rejects by design or isn't linked at all. On the main thread an unhandled rejection is a fatal exception rather than a warning (#863), and the `void` made it look deliberate. It now consumes the rejection and reports it through `createLogger`. The regression test drives a back press with no native module and asserts the log record; it fails without the fix.
+
+### Changed
+
+- **Errors and logging now follow C10 across nine packages** (#857, rubric **D6.4**/**D6.5**). Thrown messages carry the scoped `[@sigx/lynx-<pkg>] <action> failed: <cause>` prefix, and anything a caller might branch on extends `SigxError` from `@sigx/lynx-core` with a stable `code`. 50 unprefixed throws went to zero in `lynx-navigation` (24), `lynx-http` (8), `lynx-webrtc` (7), `lynx-websocket` (4), `lynx-sqlite` (3), and one each in `lynx-sheet`, `lynx-emoji`, `lynx-webauth` and `lynx-linking`. Bare `console.*` diagnostics moved onto `createLogger` namespaces, so module failures reach the `sigx dev` terminal the way the root README has always claimed. The conventions baseline drops from 21 entries to **12**.
+
+  **Messages changed, so anything matching on the old text breaks** — `useTabs() called outside of a <Tabs> component.` is now `[@sigx/lynx-navigation] useTabs() failed: called outside of a <Tabs> component.`. Branch on `code`, never on the message; that is what `code` is for. `instanceof Error` is unaffected.
+
+  Where a native error class is load-bearing it is kept rather than replaced: `lynx-websocket` still throws real `TypeError`/`SyntaxError` where the WHATWG spec does, and its `DOMException`-shaped failures wear the standard name on both `name` and `code`; `lynx-navigation`'s `compilePath` keeps `TypeError` so `instanceof TypeError` still narrows. `@sigx/lynx-navigation`, `@sigx/lynx-sheet` and `@sigx/lynx-emoji` gain a runtime dependency on `@sigx/lynx-core` for `SigxError`.
+
 ### Changed
 
 - **Every package now declares `sideEffects`, so bundlers can drop what an app doesn't import** (#857). 52 of the 57 packages left the field unset, which a bundler reads as "assume every module does something at import" — importing one symbol from a barrel dragged in the whole package, and rubric item D2.4 failed repo-wide. Each package was classified by reading every module in its `src/` for real module-scope work, then re-checked by a second pass whose default was to refute: 40 are `sideEffects: false`, and 12 name the exact entries that do work at import rather than falling back to `true`.
