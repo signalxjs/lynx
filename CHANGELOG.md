@@ -4,6 +4,16 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 ## [Unreleased]
 
+### Changed
+
+- **Built-in theme palettes now resolve from generated CSS instead of inline custom properties** (#985). `<ThemeProvider>` used to declare the whole active theme — ~30 `--color-*` plus the text ramp and both surface paints — as inline style on its host view, rebuilt every render. The design-system packages now generate their built-ins into real stylesheet rules from the same registry data at build time (`scripts/gen-theme-css.mjs`), and the provider just puts the theme name on the host. Two rules per theme: a pinned `.daisy-dark { … }`, and a `@media (prefers-color-scheme: dark)` twin selected by an extra class while the app follows the OS. The media rule is compound (`.lynx-zero.scheme-dark-daisy-dark`) so it scores (0,2,0) against the pinned rule's (0,1,0) and wins without depending on source order — which is the point: **the painted theme is now the engine's own answer about the color scheme, not the background thread's.** A stale or missing `__globalProps` snapshot (#990) can no longer paint a light app on a dark device.
+
+  **Runtime-registered themes are unchanged and stay that way.** A tenant palette fetched from a backend has no rule to resolve against — Lynx has no runtime stylesheet-injection API (#116) — so it keeps declaring its exact palette inline, first-frame-correct, switches re-resolving. `extendTheme()` deliberately does **not** propagate the new `staticCss` flag: a derived theme is a new name with no generated rule behind it, and inheriting the flag would leave an app with no palette at all.
+
+  The choice is gated on a new `__SIGX_CSS_RULE__` build define rather than on assumption, because the media layer silently vanishes two ways — the `enableCSSRule` kill switch, and the web target, whose encoder drops at-rules upstream. Web therefore keeps the JS appearance path exactly as before, and any build without the define falls back to the inline transport. `enableCSSInlineVariables` stays load-bearing for that path.
+
+  Also in this change: the `--text-*` ramp is emitted only when `fontScale !== 1`, since `.lynx-zero` already declares exactly those literals and a class declaration on the element beats any ramp inherited from an enclosing scaled provider.
+
 ### Fixed
 
 - **`@sigx/lynx-daisyui`: Input no longer stays painted in the previous palette after a live theme switch on iOS** (#993). iOS's input element ignores post-mount inline style updates, so the field kept its mount-time colors — most visibly a solid white box on a dark screen after toggling the theme (or, before #990's seed fix, on any dark cold start). The themed box (background + border) now lives on a wrapper `<view>`, which repaints reliably on both platforms; the native field inside is transparent and carries only text metrics and colors. Device-verified: iOS recolors on a live toggle, Android keeps its correct behavior including typed-text survival across #986's in-place dark flips, and focus/typing/layout are unchanged.
