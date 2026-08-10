@@ -1,12 +1,17 @@
-/* @sigx/lynx-daisyui — base tokens + component styles.
+/* @sigx/lynx-daisyui — base tokens, theme palettes + component styles.
  *
- * Theme COLORS live in the theme registry (@sigx/lynx-zero, seeded by src/theme/builtins.ts) and are
- * applied as inline CSS custom properties by <ThemeProvider>; only the
- * theme-agnostic structural tokens ship as CSS from @sigx/lynx-zero, under the `.lynx-zero` base
- * class. */
+ * The built-in theme palettes are generated from the registry data in
+ * src/theme/builtins.ts at build time (scripts/gen-theme-css.mjs) — a pinned
+ * `.daisy-<name>` rule plus an `@media (prefers-color-scheme: …)` twin, so the
+ * CSS engine resolves the palette and a follow-system app paints the right
+ * scheme without JS (#985). Themes registered at RUNTIME have no rule here;
+ * <ThemeProvider> declares those inline instead. Theme-agnostic structural
+ * tokens ship from @sigx/lynx-zero under the `.lynx-zero` base class. */
 
 /* Structural design tokens (.lynx-zero, from @sigx/lynx-zero) + composable shape modifiers */
 @import '@sigx/lynx-zero/styles/tokens.css';
+/* Built-in theme palettes — build artifact, generated into dist/ (not in src/) */
+@import './themes/builtins.generated.css';
 @import './themes/shapes.css';
 
 /* Base reset */

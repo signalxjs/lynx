@@ -6,7 +6,7 @@
  */
 import { describe, it, expect } from 'vitest';
 
-import { SigxPageConfigPlugin } from '../src/entry';
+import { cssRulesReachBinary, SigxPageConfigPlugin } from '../src/entry';
 
 type BeforeEncodeArgs = {
   encodeData: { sourceContent: { config: Record<string, unknown> } };
@@ -143,5 +143,27 @@ describe('enableCSSRule (#951)', () => {
       { enableCSSRule: true },
     );
     expect(args.encodeData.sourceContent.config.enableCSSRule).toBe(false);
+  });
+});
+
+/**
+ * #985 — the same `enableCSSRule` answer, folded into the bundle as a define so
+ * library code can branch on it. `@sigx/lynx-zero`'s `<ThemeProvider>` reads it
+ * to decide whether a built-in theme's palette can come from the generated
+ * stylesheet or has to be declared inline; getting this wrong in the "yes"
+ * direction leaves an app with no colors.
+ */
+describe('__SIGX_CSS_RULE__ define (#985)', () => {
+  it('is true for a native build with the flag left alone', () => {
+    expect(cssRulesReachBinary({}, false)).toBe(true);
+  });
+
+  it('follows the enableCSSRule kill switch', () => {
+    expect(cssRulesReachBinary({ enableCSSRule: false }, false)).toBe(false);
+  });
+
+  it('is false on web whatever the flag says — upstream drops the rules there', () => {
+    expect(cssRulesReachBinary({}, true)).toBe(false);
+    expect(cssRulesReachBinary({ enableCSSRule: true }, true)).toBe(false);
   });
 });

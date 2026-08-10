@@ -112,6 +112,15 @@ export default defineConfig({
    not carry media/supports rules regardless (upstream `WebEncodePlugin`
    drops them).
 
+   Because that last sentence has two ways of coming true — the kill switch
+   and the web target — the resolved answer is also folded into the bundle as
+   the `__SIGX_CSS_RULE__` define, alongside `__WEB__`/`__NATIVE__`. Library
+   and app code branches on it when a missing at-rule would leave something
+   *unstyled* rather than merely unrefined: `@sigx/lynx-zero`'s
+   `<ThemeProvider>` reads it to choose between letting the CSS engine resolve
+   a built-in theme's palette and declaring that palette inline (#985). The
+   define reflects the encoder only — it can't know the host's engine version.
+
    **Evaluated and deliberately not plumbed:** `enableNativeInteraction`
    (changes platform-view interaction defaults — belongs with the gesture work,
    not here), `syncXElementRegistry` (no evidence it helps; the default is what

@@ -13,9 +13,11 @@
  *   foreground      → base-content
  *   accent / info   → no upstream equivalent; hero ships its cyan + blue-400
  *
- * `<ThemeProvider>` declares the active palette as inline CSS custom
- * properties on its host view — correct on first paint for built-ins and
- * runtime-registered themes alike (#116) — so no per-theme CSS ships here.
+ * Both are marked `staticCss`: `scripts/gen-theme-css.mjs` turns this same data
+ * into `.hero-<name>` stylesheet rules (plus their
+ * `@media (prefers-color-scheme: …)` twins) at build time, so the CSS engine
+ * resolves a built-in palette and `<ThemeProvider>` declares nothing inline for
+ * it (#985). Runtime-registered themes keep the inline path (#116).
  *
  * HeroUI's default roundness is larger than daisy's — expressed via the
  * theme-level `radius` overrides (the engine emits them with the palette).
@@ -32,7 +34,7 @@ export type HeroTheme = 'hero-light' | 'hero-dark' | (string & {});
 /** The built-in theme data. @internal */
 const RAW_THEMES: readonly ThemeInput[] = [
   {
-    name: 'hero-light', variant: 'light', pair: 'hero-dark', softMix: 0.2,
+    name: 'hero-light', variant: 'light', pair: 'hero-dark', softMix: 0.2, staticCss: true,
     radius: { selector: '12px', field: '12px', box: '14px' },
     colors: {
       'primary': '#006fee', 'primary-content': '#ffffff',
@@ -48,7 +50,7 @@ const RAW_THEMES: readonly ThemeInput[] = [
     },
   },
   {
-    name: 'hero-dark', variant: 'dark', pair: 'hero-light', softMix: 0.2,
+    name: 'hero-dark', variant: 'dark', pair: 'hero-light', softMix: 0.2, staticCss: true,
     radius: { selector: '12px', field: '12px', box: '14px' },
     colors: {
       'primary': '#006fee', 'primary-content': '#ffffff',

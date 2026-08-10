@@ -280,6 +280,22 @@ export interface ApplyEntryOptions {
   snapshots?: boolean;
 }
 
+/**
+ * Whether stylesheet at-rules (`@media`, `@supports`) survive into this
+ * environment's binary — folded into the bundle as `__SIGX_CSS_RULE__`.
+ *
+ * Two independent ways to answer no, which is exactly why library code can't
+ * infer it: the `enableCSSRule` kill switch, and the web target, whose encoder
+ * drops the rules upstream no matter what the page config says. Exported for
+ * tests.
+ */
+export function cssRulesReachBinary(
+  opts: ApplyEntryOptions,
+  isWeb: boolean,
+): boolean {
+  return !isWeb && (opts.enableCSSRule ?? true);
+}
+
 export async function applyEntry(
   api: RsbuildPluginAPI,
   opts: ApplyEntryOptions = {},
@@ -563,6 +579,16 @@ export async function applyEntry(
           // is resolved here in Node and folded, so `if (__DEV_BUILD__)` both
           // works at runtime and tree-shakes out of a release bundle.
           __DEV_BUILD__: JSON.stringify(process.env['NODE_ENV'] !== 'production'),
+          // Whether stylesheet at-rules (`@media`, `@supports`) actually reach
+          // this bundle's binary — the encoder path below is gated on
+          // `enableCSSRule`, and the web target drops them regardless
+          // (upstream `WebEncodePlugin`). Library code that would otherwise
+          // have to *assume* an at-rule resolved can branch on this instead:
+          // `@sigx/lynx-zero`'s `<ThemeProvider>` uses it to decide between the
+          // CSS-resolved theme palette and the inline-custom-property fallback
+          // (#985). Nothing here validates the engine version — a pre-4.0 host
+          // still can't evaluate the rules it decodes.
+          __SIGX_CSS_RULE__: JSON.stringify(cssRulesReachBinary(opts, isWeb)),
         }]);
 
       // Platform file-extension resolution: `Foo.web.tsx` wins on the web
