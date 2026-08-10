@@ -3,6 +3,10 @@
     "version": "0.27.0",
     "description": "Icon component and registry for sigx-lynx — works with adapter packages like @sigx/lynx-icons-fa-free and @sigx/lynx-icons-lucide.",
     "type": "module",
+    "sideEffects": [
+        "./dist/Icon.js",
+        "./dist/stubs/font-face.css"
+    ],
     "main": "./dist/index.js",
     "types": "./dist/index.d.ts",
     "exports": {
