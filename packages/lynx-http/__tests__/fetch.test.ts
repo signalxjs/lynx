@@ -158,6 +158,32 @@ describe('fetch — request spec', () => {
         expect(bridge.callAsync.mock.calls.filter((c) => c[1] === 'request')).toHaveLength(0);
     });
 
+    it('scopes a bridge rejection instead of forwarding it raw (C10)', async () => {
+        // The realistic arrival here is core's own error when the native module
+        // isn't linked: a bare `Error`, already descriptive, but under another
+        // package's scope. `fetch` documents that every rejection is a
+        // `TypeError` reading `[@sigx/lynx-http] fetch failed: …`, so it has to
+        // be re-wrapped — while keeping core's text, which names what's missing.
+        const bridgeError = new Error('[@sigx/lynx-core] Module "Http" is not available.');
+        bridge.callAsync.mockRejectedValueOnce(bridgeError);
+
+        const err = await fetch('https://x.test').catch((e: unknown) => e);
+
+        expect(err).toBeInstanceOf(TypeError);
+        expect((err as TypeError).message).toBe(
+            '[@sigx/lynx-http] fetch failed: [@sigx/lynx-core] Module "Http" is not available.',
+        );
+        // The original survives on `cause`, so a caller can still inspect it.
+        expect((err as TypeError & { cause?: unknown }).cause).toBe(bridgeError);
+    });
+
+    it('scopes a non-Error bridge rejection too', async () => {
+        bridge.callAsync.mockRejectedValueOnce('boom');
+        const err = await fetch('https://x.test').catch((e: unknown) => e);
+        expect(err).toBeInstanceOf(TypeError);
+        expect((err as TypeError).message).toBe('[@sigx/lynx-http] fetch failed: boom');
+    });
+
     it('rejects non-http(s) schemes up front (native would hang or throw)', async () => {
         await expect(fetch('ftp://files.example.com/a')).rejects.toThrow(/unsupported URL scheme/);
         await expect(fetch('ws://sock.example.com')).rejects.toThrow(/unsupported URL scheme/);

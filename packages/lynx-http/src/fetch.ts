@@ -283,7 +283,18 @@ export function fetch(input: string | { url: string }, init: RequestInitLike = {
             }
         }).catch((e) => {
             requests.delete(id);
-            const err = e instanceof Error ? e : new TypeError(`[@sigx/lynx-http] fetch failed: ${String(e)}`);
+            // Always a scoped `TypeError`, whatever the bridge threw. The most
+            // common arrival here is core's `[@sigx/lynx-core] Module "Http" is
+            // not available` — descriptive, but a bare `Error` under another
+            // package's scope, so forwarding it as-is broke `fetch`'s documented
+            // contract that every rejection is a `TypeError` reading
+            // `[@sigx/lynx-http] fetch failed: …`. The original text is kept in
+            // the message and the original error on `cause` (assigned rather
+            // than passed to the constructor: this package targets ES2020,
+            // which predates `Error.cause`).
+            const detail = e instanceof Error ? e.message : String(e);
+            const err = new TypeError(`[@sigx/lynx-http] fetch failed: ${detail}`);
+            (err as TypeError & { cause?: unknown }).cause = e;
             httplog.fail(id, err.message);
             if (!pending.responded) reject(err);
             else stream.fail(err);
