@@ -10,6 +10,8 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
   The twelve are real effects, not caution: `@sigx/lynx` and `@sigx/lynx-http` install the `fetch`/`Headers`/`FormData`/`Response` globals; `@sigx/lynx-core` registers its console log transport behind a `globalThis` HMR flag; `@sigx/lynx-websocket` assigns `globalThis.WebSocket`; `@sigx/lynx-gestures` and `@sigx/lynx-richtext` call `customElements.define()` for their web elements; `@sigx/lynx-daisyui` and `@sigx/lynx-heroui` push their built-in palettes into `@sigx/lynx-zero`'s theme registry; `@sigx/lynx-icons` pulls in the generated `@font-face` stylesheet; `@sigx/lynx-keyboard` restores last run's lift height from storage; `@sigx/lynx-dev-client` installs the console streamer and error logging; and `@sigx/lynx-runtime` lists the eight modules that mount globals, directives and bridges.
 
+  Four packages publish CSS through their `exports` map, and a stylesheet is imported purely for its side effect — so `@sigx/lynx-zero` (`styles/tokens.css`, `@import`ed by both design systems), `@sigx/lynx-heroui` and `@sigx/lynx-daisyui` (`styles/index.css`) and `@sigx/lynx-icons` (the generated `__font-face.css`) list their CSS entries too. A bundler that believed `sideEffects: false` here would drop the tokens and the icon `@font-face` at runtime.
+
 ## [0.27.0] - 2026-08-10
 
 ### Changed
