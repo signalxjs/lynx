@@ -59,9 +59,19 @@ function ClipScreen() {
 | `onTimeUpdate`| `(e) => void`                         | ~4×/sec. `detail: { positionMs }`                      |
 | `onStateChange`| `(e) => void`                        | `detail: { state, positionMs }` — `state` is `'playing' \| 'paused' \| 'buffering' \| 'ended'`. Catches system/OS-driven pauses the `playing` prop can't. |
 
+## Web
+
+**Not supported on web** (`sigx run:web`). `<video-player>` is a native UI element — the autolinker binds the tag to `VideoPlayerUI` (iOS) / `VideoPlayerBehavior` (Android) from this package's `signalx-module.json`, and there is no web counterpart. The CLI registers web implementations only for the tags in `resolveWebElements` (`<sigx-richtext>`, `<sigx-touch-guard>`), so on a web build the tag resolves to nothing that draws: no frames, and the `bind*` events never fire.
+
+Until a web element lands, branch on `Platform.OS === 'web'` (from `@sigx/lynx-core`) and render your own player there. A web implementation would wrap an HTML `<video>` in a self-registering custom element, following the pattern in `packages/lynx-richtext/src/web/element.ts`.
+
 ## Gotchas
 
 - **Imperative methods** (`seek(s)`, `getStatus()`) are tracked as a v2 follow-up — they need Lynx's `UIMethodInvoker` surface, which isn't wired through sigx-lynx yet (same blocker that `WebView.goBack` and `Map.animateToRegion` are waiting on). For now, drive the player declaratively via `playing` / `src` props.
 - **App Transport Security (iOS)** — playing an `http://` (non-HTTPS) URL requires an `NSAppTransportSecurity` exception in your app's `Info.plist`. The package itself does not relax ATS.
 - **Android media3 versions** — pinned to `1.4.1`. If your app already depends on a different `media3` version, align it via Gradle resolution to avoid duplicate-class errors.
 - **AudioSession (iOS)** — when playing audio-bearing video, this component sets `AVAudioSession` to `.playback`. Apps that also use `@sigx/lynx-audio` get a separate session ref-count.
+
+## License
+
+MIT

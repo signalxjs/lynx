@@ -37,6 +37,12 @@ const token = await SecureStorage.getItem('access_token', {
 
 The full API (`hasKey`, `removeItem`, `clear`, `isAvailable`), the threat model, recipes for access/refresh-token flows, key-invalidation handling and the Android Auto Backup exclusion setup are on the docs site.
 
+## Web
+
+**Not supported on web** (`sigx run:web`). There's no `.web.ts` implementation and `@sigx/lynx-web-host` exposes no secure-storage handler, so the `SecureStorage` native module is never registered: `isAvailable()` returns `false` and every call rejects with the `Module "SecureStorage" is not available` error.
+
+Browsers have no OS-backed secret store equivalent to the Keychain / Keystore. The closest primitive a future shim could build on is a non-extractable WebCrypto `CryptoKey` held in IndexedDB — that keeps the raw key material out of reach of page script, but it is not hardware-backed and there is no biometric gate, so `requireBiometric` would have no analogue. For non-secret values, [`@sigx/lynx-storage`](https://sigx.dev/lynx/modules/storage/overview/) does ship a web implementation (IndexedDB) — but it is plaintext, so don't move credentials there.
+
 ## License
 
 MIT

@@ -103,6 +103,15 @@ The cross-thread primitives — `useSharedValue`, `SharedValue`, `useAnimatedSty
 - [`@sigx/lynx-plugin`](https://sigx.dev/lynx/modules/plugin/overview/) — the rspack/rspeedy plugin that runs the worklet transform at build time.
 - [`@sigx/lynx-motion`](https://sigx.dev/lynx/modules/motion/overview/) — spring/tween animation drivers built on the same `SharedValue` bridge.
 
+## Web
+
+Web (`sigx run:web`) is supported for everything except `<PinchRotate>`. Upstream `@lynx-js/web-core` ships **no gesture arena** (`__SetGestureDetector` is undefined), so `@sigx/lynx-runtime-main` recognizes Tap, LongPress, Pan, Fling, Pinch and Rotation itself on the main thread from the element's own pointer events — invoking the same `'main thread'` callbacks (and honoring the same `waitFor` / `simultaneous` relations) the native arena would. `<Pressable>`, `<Draggable>`, `<Swipeable>`, `<ScrollView>` and `<Swiper>` all run on that recognizer, and `<TouchGuard>` ships a real web implementation of `<sigx-touch-guard>` (`@sigx/lynx-gestures/web-element`, auto-registered into the host page by `sigx run:web` / `build:web`) that is a plain block container — DOM overlays don't leak touches, so there's nothing to consume.
+
+Two things don't cross over:
+
+- **`<PinchRotate>`** — `<sigx-pinch>` has no web custom element, so no recognizer attaches and the controlled `scale` / `rotation` props do nothing there. On web, build it from `Gesture.Pinch()` / `Gesture.Rotation()` + `useGestureDetector` and apply the transform yourself — those *do* fire through the web recognizer above (they're the pair that's inert on **native**, [signalxjs/lynx#418](https://github.com/signalxjs/lynx/issues/418)).
+- **`<Draggable edgeScroll>`** — the drag-to-reorder auto-scroll asks the parent scroll-view for `scrollBy({ offset })`. web-core implements exactly one UI method of its own (`boundingClientRect`) and forwards every other name to a DOM method of the same name; the web `scroll-view` element defines `scrollTo` but not `scrollBy`, so the call lands on `Element.scrollBy({ offset })`, which ignores the key and scrolls nothing (it resolves successfully, so nothing surfaces). Dragging itself, the drag↔scroll arbitration (`enable-scroll="false"` is honored by web-elements' CSS) and `<Swiper>`'s programmatic `scrollTo({ index })` are unaffected.
+
 ## License
 
 MIT

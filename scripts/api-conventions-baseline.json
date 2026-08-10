@@ -1,40 +1,14 @@
 {
-    "lynx": [
-        {
-            "rule": "C11/readme-missing-web-section",
-            "detail": "no `## Web` section"
-        }
-    ],
     "lynx-appearance": [
-        {
-            "rule": "C11/readme-missing-web-section",
-            "detail": "no `## Web` section"
-        },
         {
             "rule": "C2/bare-is-available",
             "detail": "export { … isAvailable … }"
         }
     ],
-    "lynx-background": [
-        {
-            "rule": "C11/readme-missing-web-section",
-            "detail": "no `## Web` section"
-        }
-    ],
     "lynx-biometric": [
-        {
-            "rule": "C11/readme-missing-web-section",
-            "detail": "no `## Web` section"
-        },
         {
             "rule": "C2/async-is-available",
             "detail": "isAvailable(): Promise<"
-        }
-    ],
-    "lynx-camera": [
-        {
-            "rule": "C11/readme-missing-web-section",
-            "detail": "no `## Web` section"
         }
     ],
     "lynx-cli": [
@@ -43,56 +17,16 @@
             "count": 56
         }
     ],
-    "lynx-core": [
-        {
-            "rule": "C11/readme-missing-web-section",
-            "detail": "no `## Web` section"
-        }
-    ],
-    "lynx-datetime-picker": [
-        {
-            "rule": "C11/readme-missing-web-section",
-            "detail": "no `## Web` section"
-        }
-    ],
-    "lynx-dev-client": [
-        {
-            "rule": "C11/readme-missing-web-section",
-            "detail": "no `## Web` section"
-        }
-    ],
     "lynx-emoji": [
         {
             "rule": "C10/unprefixed-throws",
             "count": 1
         }
     ],
-    "lynx-file-system": [
-        {
-            "rule": "C11/readme-missing-web-section",
-            "detail": "no `## Web` section"
-        }
-    ],
-    "lynx-gestures": [
-        {
-            "rule": "C11/readme-missing-web-section",
-            "detail": "no `## Web` section"
-        }
-    ],
     "lynx-http": [
         {
             "rule": "C10/unprefixed-throws",
             "count": 8
-        },
-        {
-            "rule": "C11/readme-missing-web-section",
-            "detail": "no `## Web` section"
-        }
-    ],
-    "lynx-icons": [
-        {
-            "rule": "C11/readme-missing-web-section",
-            "detail": "no `## Web` section"
         }
     ],
     "lynx-linking": [
@@ -101,28 +35,10 @@
             "count": 1
         }
     ],
-    "lynx-list": [
-        {
-            "rule": "C11/readme-missing-web-section",
-            "detail": "no `## Web` section"
-        }
-    ],
-    "lynx-maps": [
-        {
-            "rule": "C11/readme-missing-web-section",
-            "detail": "no `## Web` section"
-        }
-    ],
     "lynx-navigation": [
         {
             "rule": "C10/unprefixed-throws",
             "count": 24
-        }
-    ],
-    "lynx-permissions": [
-        {
-            "rule": "C11/readme-missing-web-section",
-            "detail": "no `## Web` section"
         }
     ],
     "lynx-plugin": [
@@ -149,18 +65,6 @@
             "count": 3
         }
     ],
-    "lynx-safe-area": [
-        {
-            "rule": "C11/readme-missing-web-section",
-            "detail": "no `## Web` section"
-        }
-    ],
-    "lynx-secure-storage": [
-        {
-            "rule": "C11/readme-missing-web-section",
-            "detail": "no `## Web` section"
-        }
-    ],
     "lynx-sheet": [
         {
             "rule": "C10/unprefixed-throws",
@@ -173,30 +77,14 @@
             "count": 3
         },
         {
-            "rule": "C11/readme-missing-web-section",
-            "detail": "no `## Web` section"
-        },
-        {
             "rule": "C2/bare-is-available",
             "detail": "export { … isAvailable … }"
-        }
-    ],
-    "lynx-updates": [
-        {
-            "rule": "C11/readme-missing-web-section",
-            "detail": "no `## Web` section"
         }
     ],
     "lynx-updates-publisher": [
         {
             "rule": "C10/unprefixed-throws",
             "count": 4
-        }
-    ],
-    "lynx-video": [
-        {
-            "rule": "C11/readme-missing-web-section",
-            "detail": "no `## Web` section"
         }
     ],
     "lynx-web-host": [
@@ -209,20 +97,12 @@
         {
             "rule": "C10/unprefixed-throws",
             "count": 1
-        },
-        {
-            "rule": "C11/readme-missing-web-section",
-            "detail": "no `## Web` section"
         }
     ],
     "lynx-webrtc": [
         {
             "rule": "C10/unprefixed-throws",
             "count": 7
-        },
-        {
-            "rule": "C11/readme-missing-web-section",
-            "detail": "no `## Web` section"
         },
         {
             "rule": "C6/permission-response-not-reexported",
@@ -233,12 +113,6 @@
         {
             "rule": "C10/unprefixed-throws",
             "count": 4
-        }
-    ],
-    "lynx-webview": [
-        {
-            "rule": "C11/readme-missing-web-section",
-            "detail": "no `## Web` section"
         }
     ],
     "lynx-zero": [

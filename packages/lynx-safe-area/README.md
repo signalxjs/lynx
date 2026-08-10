@@ -35,6 +35,12 @@ defineApp(() => () => (
 
 `<SafeAreaView>` reactively applies the current insets as padding (or margin) to the configured edges, seeded synchronously on first paint so there's no flash of unsafe content. Hooks (`useSafeAreaInsets`, `useSafeAreaSharedValues`, `useSafeAreaFrame`, …), the CSS variables (`--sat`/`--sar`/`--sab`/`--sal`), and the full architecture are documented on the docs site.
 
+## Web
+
+**Runs on web (`sigx run:web`), but every inset is zero.** The JS side is pure JS and nothing here throws: `<SafeAreaProvider>` and `<SafeAreaView>` render, the hooks return live signals, and the CSS variables are declared as usual. The values, however, come from the native `SafeAreaPublisher` writing `lynx.__globalProps.safeArea`, and `@sigx/lynx-web-host` publishes no such key — so `readGlobalSafeArea()` falls back to `ZERO_INSETS` and stays there (no `safeAreaChanged` event ever arrives).
+
+That's the right answer for an ordinary browser viewport, but not for an installed PWA on a notched phone. A web shim would publish the browser's `env(safe-area-inset-*)` values (plus `visualViewport` for the keyboard) into the same globalProps key; that isn't wired today.
+
 ## License
 
 MIT

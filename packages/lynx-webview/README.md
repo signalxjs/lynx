@@ -36,6 +36,12 @@ import { WebView } from '@sigx/lynx-webview';
 
 The native side injects `window.sigx.postMessage(payload)` for page→app messaging, and exposes imperative methods (`goBack`, `reload`, `injectJavaScript`, …) via a `MainThreadRef` or Lynx's `SelectorQuery`. Security defaults (http(s)-only `src`, sandboxed inline HTML, per-instance cookie stores), the full prop table and platform gotchas are documented on the docs site.
 
+## Web
+
+**Not supported on web.** `<sigx-webview>` is a native UI element that `sigx prebuild` registers on iOS and Android only; the web build has its own registry of sigx custom elements (`resolveWebElements` in `@sigx/lynx-cli`'s `web-server.ts`), and it carries exactly two — `<sigx-richtext>` and `<sigx-touch-guard>`. Nothing registers `<sigx-webview>` there, so on a `sigx run:web` build the tag has no implementation behind it and the component renders nothing.
+
+A web implementation is possible — an `<iframe>`-backed custom element following `@sigx/lynx-richtext`'s `src/web/element.ts` pattern, added to that registry — but it doesn't exist today. Until it does, keep web builds off this component (e.g. a `.web.tsx` sibling that links out via `@sigx/lynx-linking`'s `Linking.openURL`, which the page bridge maps to `window.open`).
+
 ## License
 
 MIT

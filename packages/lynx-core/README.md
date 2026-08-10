@@ -257,3 +257,16 @@ Module authors: don't add a per-package Activity holder or top-presenter helper 
 ## Linking
 
 Native modules are wired by `@sigx/lynx-cli`'s autolinker. Install the package (`pnpm add @sigx/lynx-foo`), run `sigx prebuild`, and the generated registry takes care of the rest — the `signalx-module.json` manifest each module ships is what makes auto-discovery work.
+
+## Web
+
+Mixed by surface, since core is half host-agnostic JS and half native bridge:
+
+- **Unchanged on web.** `Platform` / `select()` (`Platform.OS === 'web'`), the logger and its transports, `SigxError` / `unwrapNative`, `base64ToArrayBuffer` / `arrayBufferToBase64`, and `subscribeNative` — upstream web-core does inject a `GlobalEventEmitter` into the worker, so native-event subscriptions genuinely deliver on web (that is how the appearance and screen channels below arrive). Its silent-no-op path is for hosts where no emitter is reachable at all (SSR, tests), which is why packages can subscribe unconditionally.
+- **Served by the page bridge.** `useScreen()` / `useOrientation()` / `readGlobalScreen()` work — `@sigx/lynx-web-host` publishes the same `__globalProps.screen` + `screenChanged` channels from `resize` and `screen.orientation`. `webHostCall()` / `isWebHostAvailable()` are the worker→page RPC used by the `.web.ts` shims that need an API only the page has: clipboard, linking, share, file picker, image picker, haptics, location, notifications. Shims for APIs the worker already owns don't go through it — storage uses IndexedDB, network reads `navigator.onLine`, websocket uses the worker's own `WebSocket`, and observability's memory read is local.
+- **Degraded.** `Orientation.lock()` resolves to `orientation.web.ts`, backed by the Screen Orientation API: locking only works on a fullscreen document and several browsers (all of iOS, desktop Safari) don't implement it at all, so it rejects with an explanatory message there. Feature-detect with `Orientation.isAvailable()`.
+- **Unsupported.** The `SigxCore` native module isn't registered on web, so `DeviceInfo` and `AppState` have no source — `DeviceInfo.isAvailable()` / `AppState.available` are `false`, `AppState.current` stays `'active'` and its subscriptions never fire (the Page Visibility API is what a future shim would use). Nothing publishes `__globalProps.fontScale` either, so `readGlobalFontScale()` returns `null` and `useFontScale()` stays at `1`.
+
+## License
+
+MIT

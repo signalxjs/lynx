@@ -138,6 +138,10 @@ host Activity is paused with the map still mounted, tile prefetching
 keeps running until the LynxUI itself detaches. A proper `activityHook`
 plumbing is tracked as a follow-up.
 
+## Web
+
+Not supported. `<Map>` / `<MapMarker>` render the `<sigx-map>` / `<sigx-map-marker>` elements, which prebuild binds to `MKMapView` and Google Maps in the generated native registries; a web build registers only the sigx elements that ship a web implementation (`<sigx-richtext>`, `<sigx-touch-guard>`), and `@sigx/lynx-web-host` has no maps handler either — so in the browser these tags have nothing behind them. No browser API is missing: a web version would be a `<sigx-map>` custom element wrapping a JS map SDK (Google Maps JS API, MapLibre GL), and nobody has written one. Until then, branch on `__WEB__` / `Platform.OS` and render a fallback on web — e.g. a static map image plus an "open in Maps" link through [`@sigx/lynx-linking`](https://sigx.dev/lynx/modules/linking/overview/), whose `openURL` does work on web via the page bridge.
+
 ## License
 
 MIT
