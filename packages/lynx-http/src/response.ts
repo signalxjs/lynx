@@ -69,7 +69,7 @@ export class BodyStream {
         releaseLock(): void;
     } {
         if (this.lockedFlag) {
-            throw new TypeError('BodyStream: already locked to a reader');
+            throw new TypeError('[@sigx/lynx-http] BodyStream.getReader failed: already locked to a reader');
         }
         this.lockedFlag = true;
         this.disturbedFlag = true;
@@ -152,7 +152,7 @@ export class Response {
 
     private async drain(): Promise<Uint8Array[]> {
         if (this.bodyUsed) {
-            throw new TypeError('Response: body already consumed');
+            throw new TypeError('[@sigx/lynx-http] reading the response body failed: already consumed');
         }
         this.bodyUsed_ = true;
         const reader = this.body.getReader();

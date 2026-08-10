@@ -36,6 +36,7 @@
         "clean": "node ../../scripts/clean.mjs dist .turbo"
     },
     "dependencies": {
+        "@sigx/lynx-core": "workspace:^",
         "@sigx/lynx-gestures": "workspace:^",
         "@sigx/lynx-keyboard": "workspace:^",
         "@sigx/lynx-list": "workspace:^"

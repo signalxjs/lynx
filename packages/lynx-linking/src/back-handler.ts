@@ -1,7 +1,9 @@
-import { callAsync } from '@sigx/lynx-core';
+import { callAsync, createLogger } from '@sigx/lynx-core';
 
 const MODULE = 'Linking';
+const PKG = 'lynx-linking';
 const BACK_EVENT = 'hardwareBackPress';
+const log = createLogger(PKG);
 
 export interface BackHandlerSubscription {
     remove(): void;
@@ -70,9 +72,10 @@ export const BackHandler = {
                 listener();
             } catch (e) {
                 // Don't let a JS handler crash propagate back through the
-                // emitter and break sibling subscribers.
-                // eslint-disable-next-line no-console
-                console.warn('[BackHandler] listener threw:', e);
+                // emitter and break sibling subscribers. Swallowing it silently
+                // would hide a broken back button, so it goes to the leveled
+                // logger, which streams to the `sigx dev` terminal (C10).
+                log.warn('back-press listener threw', e);
             }
         };
         emitter.addListener(BACK_EVENT, wrapped);

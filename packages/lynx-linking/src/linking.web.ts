@@ -5,12 +5,14 @@
  * linking publisher feeds the exact channels the native `LinkingPublisher`
  * does. Swapped in by the plugin's `.web.js` extensionAlias (#697).
  */
-import { webHostCall, isWebHostAvailable } from '@sigx/lynx-core';
+import { webHostCall, isWebHostAvailable, SigxError } from '@sigx/lynx-core';
 
 import { readInitialURL, subscribeUrl } from './inbound.js';
 import type { URLListener, URLSubscription } from './inbound.js';
 
 export type { URLEvent, URLListener, URLSubscription } from './inbound.js';
+
+const PKG = 'lynx-linking';
 
 export const Linking: typeof import('./linking.js').Linking = {
   openURL(url: string): Promise<void> {
@@ -27,7 +29,13 @@ export const Linking: typeof import('./linking.js').Linking = {
 
   addEventListener(type: 'url', listener: URLListener): URLSubscription {
     if (type !== 'url') {
-      throw new Error(`[@sigx/lynx-linking] Unknown event type: ${String(type)}`);
+      // Same error, same code as the native path — a consumer branching on
+      // `code` shouldn't have to know which build it's running in.
+      throw new SigxError(
+        PKG,
+        'unsupported_event',
+        `[@sigx/${PKG}] addEventListener failed: unknown event type "${String(type)}"`,
+      );
     }
     return subscribeUrl(listener);
   },

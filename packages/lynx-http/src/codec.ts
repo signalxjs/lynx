@@ -18,7 +18,9 @@ export class SigxTextDecoder {
     constructor(label?: string) {
         const l = (label ?? 'utf-8').toLowerCase();
         if (l !== 'utf-8' && l !== 'utf8' && l !== 'unicode-1-1-utf-8') {
-            throw new RangeError(`TextDecoder: only utf-8 is supported, got "${label}"`);
+            throw new RangeError(
+                `[@sigx/lynx-http] TextDecoder failed: only utf-8 is supported, got "${label}"`,
+            );
         }
     }
 

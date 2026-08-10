@@ -93,6 +93,12 @@ describe('parse', () => {
     it('throws on non-string input', () => {
         expect(() => parse(undefined as unknown as string)).toThrow(TypeError);
     });
+
+    it('prefixes the thrown message with the package scope (C10)', () => {
+        expect(() => parse(42 as unknown as string)).toThrow(
+            '[@sigx/lynx-linking] parse failed: expected a string URL, got number',
+        );
+    });
 });
 
 describe('createURL', () => {

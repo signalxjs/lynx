@@ -12,6 +12,7 @@
  * the native side — globally unique with zero coordination, so the demux
  * stays a single map.
  */
+import { WebRTCError, log } from './errors.js';
 
 const MODULE = 'WebRTC';
 const EVENT_NAME = '__sigxWebRTCEvent';
@@ -123,20 +124,28 @@ function safeParse(s: string): NativeEvent | undefined {
 }
 
 /**
- * Unwrap a native callback result: `{ error, errorName? }` rejects with an
- * Error whose `name` mirrors the DOMException name browsers throw (e.g.
- * `NotAllowedError` for a denied microphone prompt).
+ * Unwrap a native callback result for `action`: `{ error, errorName? }` throws
+ * a {@link WebRTCError} whose `name`/`code` mirror the DOMException name
+ * browsers throw (e.g. `NotAllowedError` for a denied microphone prompt).
+ * Native omits `errorName` for failures with no W3C equivalent — the spec's
+ * generic for those is `OperationError`.
  */
-export function unwrap<T>(result: unknown): T {
+export function unwrap<T>(action: string, result: unknown): T {
     const err = (result as { error?: unknown } | null)?.error;
     if (typeof err === 'string') {
-        const e = new Error(err);
         const name = (result as { errorName?: unknown }).errorName;
-        if (typeof name === 'string' && name.length > 0) e.name = name;
-        throw e;
+        const code = typeof name === 'string' && name.length > 0 ? name : 'OperationError';
+        throw new WebRTCError(code, action, err, { cause: result });
     }
     return result as T;
 }
+
+/** `unwrap` bound to `action`, for the `.then(…)` of a fire-and-forget call. */
+export const unwrapFor =
+    (action: string) =>
+    (result: unknown): void => {
+        unwrap(action, result);
+    };
 
 /** Minimal event shape fired at handlers — enough for portable WebRTC code. */
 export interface RTCEventLike {
@@ -179,7 +188,7 @@ export class RTCEventTargetBase {
             try {
                 (handler as (e: RTCEventLike) => void).call(this, event);
             } catch (e) {
-                console.warn(`[WebRTC] on${type} handler threw:`, e);
+                log.warn(`on${type} handler threw`, e);
             }
         }
         const set = this._listeners[type];
@@ -189,7 +198,7 @@ export class RTCEventTargetBase {
                     if (typeof listener === 'function') listener.call(this, event);
                     else listener.handleEvent(event);
                 } catch (e) {
-                    console.warn(`[WebRTC] '${type}' listener threw:`, e);
+                    log.warn(`'${type}' listener threw`, e);
                 }
             }
         }

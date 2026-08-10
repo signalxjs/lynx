@@ -6,6 +6,9 @@
  */
 
 export { defineRoutes } from './define-routes.js';
+// Errors are `SigxError`s from `@sigx/lynx-core`; this is the vocabulary of
+// `err.code` (C10). Type-only — the thrower itself stays internal.
+export type { NavigationErrorCode } from './errors.js';
 export type { Register, RegisteredRoutes, RouteId, RouteParams, RouteSearch } from './register.js';
 export { useNav } from './hooks/use-nav.js';
 export type { Nav, RoutesWithoutParams, RoutesWithParams } from './hooks/use-nav.js';

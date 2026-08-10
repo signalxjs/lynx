@@ -1,4 +1,5 @@
 import { effect, onMounted, onUnmounted } from '@sigx/lynx';
+import { log } from '../errors.js';
 import { useNav } from './use-nav.js';
 import { useNavRoutes } from './use-nav-internal.js';
 import type { StackEntry } from '../types.js';
@@ -198,14 +199,16 @@ export function useNavSerializer(options: UseNavSerializerOptions): void {
             try {
                 const r = options.storage.save(snapshot);
                 if (r && typeof (r as Promise<void>).catch === 'function') {
-                    (r as Promise<void>).catch(() => {
-                        // Save errors are intentionally swallowed — see the
-                        // hook doc-comment. Hosts that need visibility can
-                        // wrap their adapter.
+                    (r as Promise<void>).catch((err: unknown) => {
+                        // Still swallowed as far as the navigator is
+                        // concerned — see the hook doc-comment — but a lost
+                        // write is a diagnostic, so it goes to the logger
+                        // instead of nowhere (C10).
+                        log.warn('snapshot save failed', err);
                     });
                 }
-            } catch {
-                // Same rationale.
+            } catch (err) {
+                log.warn('snapshot save failed', err);
             }
         }, debounceMs);
     }

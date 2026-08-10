@@ -65,6 +65,29 @@ micTrack.stop();
 Audio only (`{ audio: true }`). Rejects with `NotAllowedError` when the
 microphone permission is denied and `NotSupportedError` for video constraints.
 
+### Errors
+
+Failures throw a `SigxError` (from `@sigx/lynx-core`) whose `name` is the
+DOMException name a browser would use — `InvalidStateError`,
+`InvalidAccessError`, `NotAllowedError`, `NotSupportedError`, or
+`OperationError` for a native failure with no W3C equivalent. The same string
+is the machine-readable `code`, so both of these work:
+
+```ts
+import { isSigxError } from '@sigx/lynx-core';
+
+try {
+    await peer.setRemoteDescription(answer);
+} catch (e) {
+    if ((e as Error).name === 'InvalidStateError') { /* ported browser code */ }
+    if (isSigxError(e) && e.code === 'InvalidStateError') { /* sigx code */ }
+}
+```
+
+Messages are scoped — `[@sigx/lynx-webrtc] <action> failed: <cause>` — and
+carry the native cause; branch on `name`/`code`, never on the message. Bad
+arguments still throw a plain `TypeError`, as the W3C algorithms specify.
+
 ### `RTCPeerConnection`
 
 | Member | Notes |

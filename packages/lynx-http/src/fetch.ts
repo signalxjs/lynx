@@ -8,6 +8,13 @@
  * id. The fetch promise resolves on the `response` event — before the body
  * has finished arriving — so streaming consumers can start reading
  * `res.body` immediately.
+ *
+ * Failures reject with a `TypeError` carrying the `[@sigx/lynx-http]` message
+ * prefix (C10) — not a `SigxError`. This package mirrors a web standard and
+ * installs itself on `globalThis`, so portable code branches on the spec's
+ * types (`e instanceof TypeError` for a network failure, `e.name ===
+ * 'AbortError'` for an abort); `SigxError` extends `Error` and would break
+ * both.
  */
 import { callAsync, guardModule, isModuleAvailable, base64ToArrayBuffer, arrayBufferToBase64 } from '@sigx/lynx-core';
 import { Headers, type HeadersInitLike } from './headers.js';
@@ -129,7 +136,7 @@ function dispatch(id: number, pending: PendingRequest, evt: NativeHttpEvent): vo
             break;
         }
         case 'error': {
-            const err = new TypeError(`fetch failed: ${evt.message ?? 'network error'}`);
+            const err = new TypeError(`[@sigx/lynx-http] fetch failed: ${evt.message ?? 'network error'}`);
             httplog.fail(id, evt.message ?? 'network error');
             if (!pending.responded) pending.reject(err);
             else pending.stream.fail(err);
@@ -173,13 +180,15 @@ function normalizeBody(body: BodyInitLike, headers: Headers): NativeBody {
         copy.set(new Uint8Array(body.buffer, body.byteOffset, body.byteLength));
         return { type: 'base64', data: arrayBufferToBase64(copy.buffer) };
     }
-    throw new TypeError('fetch: unsupported body type — use string, ArrayBuffer, typed array, or FormData');
+    throw new TypeError(
+        '[@sigx/lynx-http] fetch failed: unsupported body type — use string, ArrayBuffer, typed array, or FormData',
+    );
 }
 
 export function fetch(input: string | { url: string }, init: RequestInitLike = {}): Promise<Response> {
     const url = typeof input === 'string' ? input : input?.url;
     if (typeof url !== 'string' || url.length === 0) {
-        return Promise.reject(new TypeError('fetch: invalid URL'));
+        return Promise.reject(new TypeError('[@sigx/lynx-http] fetch failed: invalid URL'));
     }
     // The native transports only speak HTTP(S) — fail fast on anything
     // else (OkHttp throws on unknown schemes; URLSession may never emit a
@@ -187,7 +196,9 @@ export function fetch(input: string | { url: string }, init: RequestInitLike = {
     const colon = url.indexOf(':');
     const scheme = colon > 0 ? url.slice(0, colon).toLowerCase() : '';
     if (scheme !== 'http' && scheme !== 'https') {
-        return Promise.reject(new TypeError(`fetch: unsupported URL scheme "${scheme || url}"`));
+        return Promise.reject(
+            new TypeError(`[@sigx/lynx-http] fetch failed: unsupported URL scheme "${scheme || url}"`),
+        );
     }
 
     if (init.signal?.aborted) {
@@ -212,7 +223,9 @@ export function fetch(input: string | { url: string }, init: RequestInitLike = {
     if ((method === 'GET' || method === 'HEAD') && body.type !== 'none') {
         // Spec behavior — and the platforms disagree otherwise (OkHttp
         // throws on GET-with-body, URLSession may send it). Fail fast.
-        return Promise.reject(new TypeError(`fetch: ${method} request cannot have a body`));
+        return Promise.reject(
+            new TypeError(`[@sigx/lynx-http] fetch failed: ${method} request cannot have a body`),
+        );
     }
     const spec: NativeRequestSpec = {
         url,
@@ -244,7 +257,7 @@ export function fetch(input: string | { url: string }, init: RequestInitLike = {
         stream.onCancel = () => {
             requests.delete(id);
             httplog.abort(id, 'reader.cancel');
-            void callAsync<void>(MODULE, 'abort', id).catch(() => { /* already gone */ });
+            void callAsync<void>(MODULE, 'abort', id).catch((e) => httplog.abortFailed(id, e));
         };
 
         init.signal?.addEventListener?.('abort', () => {
@@ -254,7 +267,7 @@ export function fetch(input: string | { url: string }, init: RequestInitLike = {
             const err = abortError(init.signal?.reason);
             if (!pending.responded) reject(err);
             stream.fail(err);
-            void callAsync<void>(MODULE, 'abort', id).catch(() => { /* already gone */ });
+            void callAsync<void>(MODULE, 'abort', id).catch((e) => httplog.abortFailed(id, e));
         }, { once: true });
 
         // Fire-and-forget — the response/error arrives through the event
@@ -264,13 +277,13 @@ export function fetch(input: string | { url: string }, init: RequestInitLike = {
             if (error) {
                 requests.delete(id);
                 httplog.fail(id, error);
-                const err = new TypeError(`fetch failed: ${error}`);
+                const err = new TypeError(`[@sigx/lynx-http] fetch failed: ${error}`);
                 if (!pending.responded) reject(err);
                 else stream.fail(err);
             }
         }).catch((e) => {
             requests.delete(id);
-            const err = e instanceof Error ? e : new TypeError(String(e));
+            const err = e instanceof Error ? e : new TypeError(`[@sigx/lynx-http] fetch failed: ${String(e)}`);
             httplog.fail(id, err.message);
             if (!pending.responded) reject(err);
             else stream.fail(err);

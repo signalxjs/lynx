@@ -13,8 +13,9 @@ import {
     RTCEventTargetBase,
     registerDispatcher,
     unregisterDispatcher,
-    unwrap,
+    unwrapFor,
 } from './events.js';
+import { WebRTCError } from './errors.js';
 import type { RTCDataChannelInit, RTCDataChannelState } from './types.js';
 
 export class RTCDataChannel extends RTCEventTargetBase {
@@ -67,11 +68,11 @@ export class RTCDataChannel extends RTCEventTargetBase {
 
     send(data: string | ArrayBuffer | ArrayBufferView): void {
         if (this._readyState === 'connecting') {
-            throw new Error('InvalidStateError: RTCDataChannel is still connecting.');
+            throw new WebRTCError('InvalidStateError', 'send', 'the channel is still connecting.');
         }
         if (this._readyState !== 'open') {
             // Browsers throw here too; mirror them rather than dropping silently.
-            throw new Error(`InvalidStateError: RTCDataChannel is ${this._readyState}.`);
+            throw new WebRTCError('InvalidStateError', 'send', `the channel is ${this._readyState}.`);
         }
 
         let isBinary = false;
@@ -82,7 +83,9 @@ export class RTCDataChannel extends RTCEventTargetBase {
             isBinary = true;
             payload = arrayBufferToBase64(data);
         } else {
-            throw new TypeError('RTCDataChannel.send: unsupported data type');
+            // Stays a TypeError — that is what the W3C algorithm throws for a
+            // bad argument, and ported code catches on the type.
+            throw new TypeError('[@sigx/lynx-webrtc] send failed: unsupported data type');
         }
 
         this.bufferedAmount += isBinary ? base64ByteLength(payload) : utf8ByteLength(payload);
@@ -90,7 +93,7 @@ export class RTCDataChannel extends RTCEventTargetBase {
         // unwrap surfaces the `{ error }` callback convention as a rejection
         // so resolved native failures dispatch an error event too.
         callAsync(MODULE, 'dcSend', this._handle, payload, isBinary)
-            .then(unwrap)
+            .then(unwrapFor('dcSend'))
             .catch(err => {
                 this._dispatch({
                     id: this._handle,
@@ -104,7 +107,7 @@ export class RTCDataChannel extends RTCEventTargetBase {
         if (this._readyState === 'closing' || this._readyState === 'closed') return;
         this._readyState = 'closing';
         callAsync(MODULE, 'dcClose', this._handle)
-            .then(unwrap)
+            .then(unwrapFor('dcClose'))
             .catch(() => {
                 // Close failed natively — settle locally so we don't hang in 'closing'.
                 this._dispatch({ id: this._handle, type: 'dcclose' });

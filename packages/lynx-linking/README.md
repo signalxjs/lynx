@@ -38,6 +38,12 @@ if (initial) handle(initial);
 const sub = Linking.addEventListener('url', ({ url }) => handle(url));
 ```
 
+`addEventListener` only knows the `'url'` event; anything else throws a `SigxError`
+(`code: 'unsupported_event'`) from `@sigx/lynx-core`, on native and web alike. A
+`BackHandler` listener that throws is isolated so siblings still run, and the failure
+is reported through the `lynx-linking` logger namespace — so it shows up in the
+`sigx dev` terminal instead of vanishing.
+
 `parse` / `createURL` are pure-JS helpers for working with deep-link URLs. To route
 incoming links into a navigator, use [`@sigx/lynx-navigation`](https://sigx.dev/lynx/modules/navigation/overview/)'s `useLinkingNav`, which wires the cold-start + warm-listener dance into the Lynx navigator. The full API, platform gotchas, and Universal/App Links setup are documented on the docs site.
 

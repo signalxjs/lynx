@@ -24,6 +24,9 @@
         "prepublishOnly": "node ../../scripts/clean.mjs dist && tsgo",
         "clean": "node ../../scripts/clean.mjs dist .turbo"
     },
+    "dependencies": {
+        "@sigx/lynx-core": "workspace:^"
+    },
     "peerDependencies": {
         "@sigx/lynx": "workspace:^",
         "@sigx/lynx-icons": "workspace:^",

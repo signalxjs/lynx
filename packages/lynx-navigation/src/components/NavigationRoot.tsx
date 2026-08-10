@@ -1,4 +1,5 @@
 import { component, defineProvide, onMounted, onUnmounted, useSharedValue, type Define } from '@sigx/lynx';
+import { fail } from '../errors.js';
 import { createNavigatorState } from '../navigator/core.js';
 import { useNav } from '../hooks/use-nav.js';
 import { wireHardwareBack } from '../hooks/use-hardware-back.js';
@@ -54,8 +55,10 @@ export const NavigationRoot = component<NavigationRootProps>(({ props, slots }) 
     const routes = props.routes;
     const initialName: string = props.initialRoute ?? Object.keys(routes)[0];
     if (!routes[initialName]) {
-        throw new Error(
-            `[lynx-navigation] <NavigationRoot> initialRoute='${initialName}' is not in the routes registry.`,
+        fail(
+            'route_not_registered',
+            '<NavigationRoot>',
+            `initialRoute='${initialName}' is not in the routes registry.`,
         );
     }
     // Publish the active route registry to the URL bridge so module-level

@@ -14,6 +14,7 @@
 
 import type { CompiledPath } from './compile.js';
 import { compilePath } from './compile.js';
+import { fail } from '../errors.js';
 import type { RouteMap } from '../types.js';
 
 interface RegistryState {
@@ -45,8 +46,10 @@ export function _clearRouteRegistry(): void {
 /** Get the active registry or throw a friendly error if none is set. */
 export function getRouteRegistry(): RegistryState {
     if (!current) {
-        throw new Error(
-            '[lynx-navigation] No route registry set — render a <NavigationRoot> first, or call _setRouteRegistry() for tests.',
+        fail(
+            'no_route_registry',
+            'getRouteRegistry',
+            'no route registry set — render a <NavigationRoot> first, or call _setRouteRegistry() for tests.',
         );
     }
     return current;

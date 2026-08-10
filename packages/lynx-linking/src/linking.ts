@@ -1,9 +1,10 @@
-import { callAsync, isModuleAvailable } from '@sigx/lynx-core';
+import { callAsync, isModuleAvailable, SigxError } from '@sigx/lynx-core';
 
 import { readInitialURL, subscribeUrl } from './inbound.js';
 import type { URLListener, URLSubscription } from './inbound.js';
 
 const MODULE = 'Linking';
+const PKG = 'lynx-linking';
 
 // Inbound types live in `inbound.ts` (shared with `linking.web.ts`); re-export
 // so `index.ts` and existing consumers keep their import site.
@@ -60,7 +61,11 @@ export const Linking = {
      */
     addEventListener(type: 'url', listener: URLListener): URLSubscription {
         if (type !== 'url') {
-            throw new Error(`[@sigx/lynx-linking] Unknown event type: ${String(type)}`);
+            throw new SigxError(
+                PKG,
+                'unsupported_event',
+                `[@sigx/${PKG}] addEventListener failed: unknown event type "${String(type)}"`,
+            );
         }
         return subscribeUrl(listener);
     },

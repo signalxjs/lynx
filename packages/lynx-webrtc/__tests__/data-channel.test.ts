@@ -133,11 +133,32 @@ describe('RTCDataChannel — send', () => {
     it('throws while connecting and after close', () => {
         const peer = new RTCPeerConnection();
         const dc = peer.createDataChannel('events');
-        expect(() => dc.send('early')).toThrow(/InvalidStateError/);
+        // The DOMException name is the discriminant ported code branches on;
+        // it doubles as the C10 `code`, and the message carries the prefix.
+        expect(() => dc.send('early')).toThrow(
+            expect.objectContaining({ name: 'InvalidStateError', code: 'InvalidStateError' }),
+        );
+        expect(() => dc.send('early')).toThrow(
+            '[@sigx/lynx-webrtc] send failed: the channel is still connecting.',
+        );
 
         fire(handleOf(dc), { type: 'dcopen', sctpId: 1 });
         fire(handleOf(dc), { type: 'dcclose' });
-        expect(() => dc.send('late')).toThrow(/InvalidStateError/);
+        expect(() => dc.send('late')).toThrow(
+            expect.objectContaining({ name: 'InvalidStateError' }),
+        );
+        expect(() => dc.send('late')).toThrow(
+            '[@sigx/lynx-webrtc] send failed: the channel is closed.',
+        );
+    });
+
+    it('rejects an unsupported payload with a prefixed TypeError', () => {
+        const { dc } = openChannel();
+        // Stays a TypeError (W3C), but the message carries the scope (C10).
+        expect(() => dc.send(42 as unknown as string)).toThrow(TypeError);
+        expect(() => dc.send(42 as unknown as string)).toThrow(
+            '[@sigx/lynx-webrtc] send failed: unsupported data type',
+        );
     });
 
     it('sends strings as text', () => {
@@ -171,7 +192,10 @@ describe('RTCDataChannel — send', () => {
         await Promise.resolve();
         await Promise.resolve();
         expect(onerror).toHaveBeenCalledTimes(1);
-        expect(onerror.mock.calls[0]![0]!.message).toBe('sctp send failed');
+        // The native cause reaches the error event inside the scoped message.
+        expect(onerror.mock.calls[0]![0]!.message).toBe(
+            '[@sigx/lynx-webrtc] dcSend failed: sctp send failed',
+        );
     });
 
     it('tracks bufferedAmount as a write-through counter', () => {

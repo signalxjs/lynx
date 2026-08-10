@@ -77,6 +77,27 @@ Animated transitions **pre-stage** the work they'd otherwise compete with: a pus
 
 Transition geometry follows **device rotation** ([#856](https://github.com/signalxjs/lynx/issues/856)): the card/modal slide distances, the route-sheet detents and the edge-back commit threshold all read the live screen size (`useScreen()` / `useScreenMT()` from `@sigx/lynx`) at plan-build time, rather than a value snapshotted when the bundle loaded. A push while the device is in landscape slides the full landscape width.
 
+## Errors
+
+Everything this package throws is a `SigxError` from `@sigx/lynx-core`, with the message `[@sigx/lynx-navigation] <action> failed: <detail>` and a stable `code` — branch on the code, never on the message:
+
+```ts
+import { isSigxError } from '@sigx/lynx-core';
+import { hrefFor, type NavigationErrorCode } from '@sigx/lynx-navigation';
+
+try {
+    const href = hrefFor('profile', { id: incomingId });
+} catch (e) {
+    if (isSigxError(e) && e.code === ('route_not_registered' satisfies NavigationErrorCode)) {
+        // deep link naming a screen this build doesn't have → fall back home
+    }
+}
+```
+
+Codes: `no_navigator` (a navigator hook used outside the component that provides it), `no_route_registry`, `route_not_registered`, `invalid_params`, `invalid_search`, `invalid_path`, `invalid_stack`, `unsupported_schema`. The single exception is `compilePath()` given a non-string template, which stays a `TypeError`.
+
+Diagnostics that don't throw — a `useNavSerializer` write that failed, a rejected `exitApp()` — go to the `lynx-navigation` logger namespace and stream to the `sigx dev` terminal.
+
 ## Inline `<BottomSheet>` — moved to `@sigx/lynx-sheet`
 
 The inline (route-free) `<BottomSheet>` now lives in [`@sigx/lynx-sheet`](../lynx-sheet) — the unified sheet package whose engine also powers `presentation: 'sheet'` above. It supersedes the component this package used to export, adding `DetentSpec` geometry (`{ keyboard: true }`, `{ fraction }`, `topOffset` caps), `dismissible`, `backdrop`, and full-surface drag with scroll arbitration. Import it from there:

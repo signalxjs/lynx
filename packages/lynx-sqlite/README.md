@@ -85,6 +85,39 @@ return () => (
 | `db.close()` | Release the native handle. |
 | `useLiveQuery(db, sql, params?, opts?)` | Reactive query → `Computed<{ rows, loading, error }>`. Accepts the `openDatabase` promise directly. |
 
+### Errors
+
+Everything this package throws is a `SigxError` from `@sigx/lynx-core`, with a
+message of the form `[@sigx/lynx-sqlite] <action> failed: <cause>`. Branch on
+`code`, never on the message:
+
+| `code` | Raised when |
+|---|---|
+| `native_error` | The native side reported a failure — a SQL error, a locked file, no disk space. The raw native payload is on `cause`. |
+| `invalid_database_name` | `openDatabase` / `deleteDatabase` got something other than a plain file name. |
+| `database_open` | `deleteDatabase` while the database is still open. |
+| `database_closed` | A call on a database that has been `close()`d. |
+| `invalid_sql` | Empty or non-string SQL. |
+| `invalid_param` | A param that can't be bound — an object, an `ArrayBuffer`, `NaN`/`Infinity`. |
+| `malformed_result` | Native resolved without the handle `openDatabase` needs. |
+| `invalid_migration` | Migration versions are not strictly increasing positive integers. |
+| `migration_failed` | A migration's statements failed; it was rolled back. The underlying error is on `cause`. |
+
+```ts
+import { isSigxError } from '@sigx/lynx-core';
+
+try {
+    await db.execute('INSERT INTO messages (body) VALUES (?)', [body]);
+} catch (e) {
+    if (isSigxError(e) && e.code === 'database_closed') reopen();
+}
+```
+
+Failures that can't be thrown at a caller — a listener passed to `onChange`
+throwing, or a rollback failing while a transaction error is already on its way
+out — are logged on the `lynx-sqlite` logger instead, so they reach the
+`sigx dev` terminal rather than vanishing.
+
 ## Notes & caveats
 
 - **Everything is async.** Statements run on a per-database native thread —

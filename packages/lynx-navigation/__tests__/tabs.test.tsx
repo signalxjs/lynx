@@ -146,6 +146,6 @@ describe('<Tabs>', () => {
                     <TabsCapture probe={probe} />
                 </NavigationRoot>,
             ),
-        ).toThrow(/useTabs\(\) called outside/);
+        ).toThrow(/\[@sigx\/lynx-navigation\] useTabs\(\) failed: called outside/);
     });
 });

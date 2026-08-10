@@ -97,3 +97,15 @@ export function abort(id: number, reason: string): void {
     if (!log.enabled('debug')) return;
     log.debug(`⊘ ${t.method} ${safeUrl(t.url)}  (${ms(Date.now() - t.start)} · ${size(t.bytes)}) — aborted (${reason})`);
 }
+
+/**
+ * The `Http.abort` bridge call itself rejected. Usually benign — a race with a
+ * request native already finished — so it logs at `debug` rather than `warn`.
+ * But it does get logged: the empty `.catch()` this replaced hid genuine bridge
+ * faults, and dropping the `.catch()` altogether would be fatal on the main
+ * thread (#863).
+ */
+export function abortFailed(id: number, error: unknown): void {
+    if (!log.enabled('debug')) return;
+    log.debug(`⊘ abort #${id} failed (request may already be gone)`, error);
+}

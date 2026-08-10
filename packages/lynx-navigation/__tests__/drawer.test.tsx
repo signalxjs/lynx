@@ -110,6 +110,6 @@ describe('<Drawer>', () => {
             <NavigationRoot routes={routes} initialRoute="home" animated={false}>
                 <Bad />
             </NavigationRoot>,
-        )).toThrowError(/useDrawer\(\) called outside/);
+        )).toThrowError(/\[@sigx\/lynx-navigation\] useDrawer\(\) failed: called outside/);
     });
 });

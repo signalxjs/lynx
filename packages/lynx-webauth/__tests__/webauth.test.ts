@@ -10,9 +10,19 @@ const bridge = {
     isModuleAvailable: vi.fn(() => true),
 };
 
+const logWarn = vi.fn();
+
 vi.mock('@sigx/lynx-core', () => ({
     callAsync: (...args: unknown[]) => bridge.callAsync(...(args as [])),
     isModuleAvailable: (...args: unknown[]) => bridge.isModuleAvailable(...(args as [])),
+    createLogger: () => ({
+        trace: vi.fn(),
+        debug: vi.fn(),
+        info: vi.fn(),
+        warn: logWarn,
+        error: vi.fn(),
+        enabled: () => true,
+    }),
 }));
 
 const { openAuthSession, isWebAuthAvailable } = await import('../src/webauth.js');
@@ -22,6 +32,7 @@ beforeEach(() => {
     bridge.callAsync.mockImplementation(async () => undefined);
     bridge.isModuleAvailable.mockReset();
     bridge.isModuleAvailable.mockReturnValue(true);
+    logWarn.mockReset();
 });
 
 function lastOpenCall(): unknown[] {
@@ -148,6 +159,39 @@ describe('openAuthSession — AbortSignal', () => {
         const cancelCall = bridge.callAsync.mock.calls.find((c) => c[1] === 'cancelAuthSession');
         const sessionId = (openCall[2] as { sessionId: string }).sessionId;
         expect(cancelCall?.[2]).toEqual({ sessionId });
+    });
+
+    it('logs — and does not rethrow — a failing cancelAuthSession', async () => {
+        let resolveOpen: ((v: unknown) => void) | undefined;
+        bridge.callAsync.mockImplementation((...args: unknown[]) => {
+            const method = args[1];
+            if (method === 'openAuthSession') {
+                return new Promise((res) => {
+                    resolveOpen = res;
+                });
+            }
+            if (method === 'cancelAuthSession') {
+                // The nudge fails, but the user still dismisses the sheet.
+                resolveOpen?.({ canceled: true });
+                return Promise.reject(new Error('bridge died'));
+            }
+            return Promise.resolve(undefined);
+        });
+
+        const controller = new AbortController();
+        const promise = openAuthSession('https://idp.test/authorize', 'myapp', {
+            signal: controller.signal,
+        });
+        controller.abort();
+
+        // An unhandled rejection here is a fatal main-thread exception (#863),
+        // so the failure must land on the logger instead.
+        await expect(promise).resolves.toEqual({ canceled: true });
+        await Promise.resolve();
+        expect(logWarn).toHaveBeenCalledWith(
+            expect.stringMatching(/^cancelAuthSession failed for session /),
+            expect.any(Error),
+        );
     });
 });
 

@@ -14,10 +14,37 @@ const bridge = {
     isModuleAvailable: vi.fn(() => true),
 };
 
+const logWarn = vi.fn();
+
+/**
+ * Shape-compatible stand-in for core's `SigxError` — the mock replaces the
+ * whole barrel, so the shim's `throw new SigxError(...)` needs a class here
+ * for tests to assert `.code` on.
+ */
+class MockSigxError extends Error {
+    readonly code: string;
+    readonly package: string;
+    constructor(pkg: string, code: string, message: string) {
+        super(message);
+        this.name = 'SigxError';
+        this.code = code;
+        this.package = pkg;
+    }
+}
+
 vi.mock('@sigx/lynx-core', () => ({
     callAsync: (...args: unknown[]) => bridge.callAsync(...(args as [])),
     guardModule: (...args: unknown[]) => bridge.guardModule(...(args as [])),
     isModuleAvailable: (...args: unknown[]) => bridge.isModuleAvailable(...(args as [])),
+    SigxError: MockSigxError,
+    createLogger: () => ({
+        trace: vi.fn(),
+        debug: vi.fn(),
+        info: vi.fn(),
+        warn: logWarn,
+        error: vi.fn(),
+        enabled: () => true,
+    }),
 }));
 
 // Pretend lynx + GlobalEventEmitter exist so the shim attaches its
@@ -52,6 +79,7 @@ beforeEach(() => {
     bridge.callAsync.mockClear();
     bridge.guardModule.mockClear();
     bridge.isModuleAvailable.mockClear();
+    logWarn.mockClear();
 });
 
 afterEach(() => {
@@ -342,9 +370,9 @@ describe('WebSocket — EventTarget', () => {
         expect(b).toHaveBeenCalledTimes(2);
     });
 
-    it('isolates handler exceptions', () => {
+    it('isolates handler exceptions and reports them through the core logger', () => {
         const ws = new WebSocket('wss://example.com');
-        const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+        const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => {});
         ws.onmessage = () => {
             throw new Error('boom');
         };
@@ -353,7 +381,95 @@ describe('WebSocket — EventTarget', () => {
         open(ws);
         deliverMessage(ws, 'hi');
         expect(second).toHaveBeenCalledTimes(1);
-        warn.mockRestore();
+        // C10: diagnostics reach the leveled logger (and so the `sigx dev`
+        // terminal), never `console.warn` directly.
+        expect(logWarn).toHaveBeenCalledWith('onmessage handler threw', expect.any(Error));
+        expect(consoleWarn).not.toHaveBeenCalled();
+        consoleWarn.mockRestore();
+    });
+
+    it('reports a throwing addEventListener subscriber through the logger', () => {
+        const ws = new WebSocket('wss://example.com');
+        ws.addEventListener('message', () => {
+            throw new Error('boom');
+        });
+        open(ws);
+        deliverMessage(ws, 'hi');
+        expect(logWarn).toHaveBeenCalledWith("'message' listener threw", expect.any(Error));
+    });
+});
+
+describe('WebSocket — errors (C10)', () => {
+    it('prefixes every constructor rejection with the package scope', () => {
+        expect(() => new WebSocket('')).toThrow(
+            '[@sigx/lynx-websocket] new WebSocket() failed: invalid URL',
+        );
+        expect(() => new WebSocket('example.com')).toThrow(
+            '[@sigx/lynx-websocket] new WebSocket() failed: invalid URL "example.com"',
+        );
+        expect(() => new WebSocket('ftp://example.com')).toThrow(
+            '[@sigx/lynx-websocket] new WebSocket() failed: unsupported URL scheme "ftp"',
+        );
+    });
+
+    it('throws a coded InvalidStateError when send() is called in CONNECTING', () => {
+        const ws = new WebSocket('wss://example.com');
+        try {
+            ws.send('nope');
+            expect.unreachable('send() should throw in CONNECTING');
+        } catch (e) {
+            const err = e as MockSigxError;
+            // The DOMException name is the discriminant browser code uses, so
+            // it lands on both `name` (WHATWG) and `code` (C10).
+            expect(err.name).toBe('InvalidStateError');
+            expect(err.code).toBe('InvalidStateError');
+            expect(err.package).toBe('lynx-websocket');
+            expect(err.message).toBe(
+                '[@sigx/lynx-websocket] send failed: the socket is still in the CONNECTING state.',
+            );
+        }
+    });
+
+    it('throws a coded InvalidAccessError for an out-of-range close code', () => {
+        const ws = new WebSocket('wss://example.com');
+        open(ws);
+        try {
+            ws.close(999);
+            expect.unreachable('close(999) should throw');
+        } catch (e) {
+            const err = e as MockSigxError;
+            expect(err.name).toBe('InvalidAccessError');
+            expect(err.code).toBe('InvalidAccessError');
+            expect(err.message).toBe(
+                '[@sigx/lynx-websocket] close failed: close code 999 must be 1000 or in the 3000-4999 range.',
+            );
+        }
+    });
+
+    it('keeps the standard error classes portable code catches', () => {
+        const ws = new WebSocket('wss://example.com');
+        open(ws);
+        // TypeError for a bad argument type, SyntaxError for a malformed one —
+        // what a browser throws, so `instanceof` checks in portable code hold.
+        expect(() => ws.send(42 as unknown as string)).toThrow(TypeError);
+        expect(() => ws.send(42 as unknown as string)).toThrow(
+            '[@sigx/lynx-websocket] send failed: unsupported data type',
+        );
+        expect(() => ws.close(1000, 'x'.repeat(124))).toThrow(SyntaxError);
+        expect(() => ws.close(1000, 'x'.repeat(124))).toThrow(
+            '[@sigx/lynx-websocket] close failed: close reason must be ≤123 UTF-8 bytes.',
+        );
+    });
+
+    it('logs a bridge failure in addition to firing the error event', async () => {
+        bridge.callAsync.mockImplementationOnce(async () => {
+            throw new Error('bridge down');
+        });
+        const ws = new WebSocket('wss://example.com');
+        const id = (ws as unknown as { _id: number })._id;
+        await Promise.resolve();
+        await Promise.resolve();
+        expect(logWarn).toHaveBeenCalledWith(`create(${id}) failed`, expect.any(Error));
     });
 });
 

@@ -34,6 +34,10 @@ describe('SigxTextDecoder — whole-input decode', () => {
 
     it('rejects non-utf8 labels', () => {
         expect(() => new SigxTextDecoder('utf-16')).toThrow(RangeError);
+        // C10: the message names the package so the failure is attributable.
+        expect(() => new SigxTextDecoder('utf-16')).toThrow(
+            '[@sigx/lynx-http] TextDecoder failed: only utf-8 is supported, got "utf-16"',
+        );
     });
 });
 

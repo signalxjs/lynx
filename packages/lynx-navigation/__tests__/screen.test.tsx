@@ -411,6 +411,6 @@ describe('<Screen> out-of-scope usage', () => {
                     <Bad />
                 </NavigationRoot>,
             ),
-        ).toThrowError(/No screen registry in scope/);
+        ).toThrowError(/\[@sigx\/lynx-navigation\] useScreenRegistry\(\) failed: no screen registry in scope/);
     });
 });

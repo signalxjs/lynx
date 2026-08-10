@@ -1,4 +1,5 @@
-import { callAsync, isModuleAvailable } from '@sigx/lynx-core';
+import { callAsync, createLogger, isModuleAvailable, unwrapNative, unwrapNativeVoid } from '@sigx/lynx-core';
+import { PKG, fail } from './errors.js';
 import { runMigrations } from './migrations.js';
 import { writtenTables } from './table-names.js';
 import type {
@@ -12,25 +13,17 @@ import type {
 } from './types.js';
 
 const MODULE = 'Sqlite';
-const TAG = '[@sigx/lynx-sqlite]';
-
-function fail(message: string): never {
-    throw new Error(`${TAG} ${message}`);
-}
-
-/** Native callbacks resolve with the value on success, `{ error }` on failure. */
-function unwrap<T>(result: unknown): T {
-    const err = (result as { error?: unknown } | null)?.error;
-    if (typeof err === 'string') fail(err);
-    return result as T;
-}
+const log = createLogger(PKG);
 
 /**
  * Coerce JS params to what the native side binds: string | number | null.
  * Booleans become 1/0, `undefined` becomes NULL; everything else (objects,
  * ArrayBuffers, Dates, …) is rejected before touching the bridge.
  */
-function normalizeParams(params: readonly SQLValue[] | undefined): (string | number | null)[] {
+function normalizeParams(
+    action: string,
+    params: readonly SQLValue[] | undefined,
+): (string | number | null)[] {
     if (!params || params.length === 0) return [];
     return params.map((p, i) => {
         if (p === null || p === undefined) return null;
@@ -38,12 +31,16 @@ function normalizeParams(params: readonly SQLValue[] | undefined): (string | num
             case 'string':
                 return p;
             case 'number':
-                if (!Number.isFinite(p)) fail(`parameter ${i + 1} is not a finite number`);
+                if (!Number.isFinite(p)) {
+                    fail('invalid_param', action, `parameter ${i + 1} is not a finite number`);
+                }
                 return p;
             case 'boolean':
                 return p ? 1 : 0;
             default:
                 return fail(
+                    'invalid_param',
+                    action,
                     `parameter ${i + 1} has unsupported type "${typeof p}" — bind ` +
                     `string | number | boolean | null. BLOBs are not supported in v1: ` +
                     `store a file path (see @sigx/lynx-file-system) or base64 TEXT instead.`,
@@ -65,14 +62,18 @@ interface Subscription {
  * app's database directory). Natively re-validated too, since modules are
  * callable without this wrapper.
  */
-function validateName(name: string): void {
+function validateName(action: string, name: string): void {
     if (
         typeof name !== 'string' ||
         !/^[A-Za-z0-9._-]+$/.test(name) ||
         name === '.' ||
         name === '..'
     ) {
-        fail('database name must be a plain file name (letters, digits, ".", "_", "-")');
+        fail(
+            'invalid_database_name',
+            action,
+            'database name must be a plain file name (letters, digits, ".", "_", "-")',
+        );
     }
 }
 
@@ -111,14 +112,18 @@ export class SQLiteDatabase {
         return run;
     }
 
-    #assertOpen(): void {
-        if (this.#closed) fail(`database "${this.name}" is closed`);
+    #assertOpen(action: string): void {
+        if (this.#closed) fail('database_closed', action, `database "${this.name}" is closed`);
     }
 
     async #rawExecute<R>(sql: string, params?: readonly SQLValue[]): Promise<QueryResult<R>> {
-        if (typeof sql !== 'string' || sql.trim() === '') fail('sql must be a non-empty string');
-        const result = unwrap<{ rows?: R[]; rowsAffected?: number; insertId?: number }>(
-            await callAsync(MODULE, 'execute', this.#handle, sql, normalizeParams(params)),
+        if (typeof sql !== 'string' || sql.trim() === '') {
+            fail('invalid_sql', 'execute', 'sql must be a non-empty string');
+        }
+        const result = unwrapNative<{ rows?: R[]; rowsAffected?: number; insertId?: number }>(
+            PKG,
+            'execute',
+            await callAsync(MODULE, 'execute', this.#handle, sql, normalizeParams('execute', params)),
         );
         return {
             rows: result.rows ?? [],
@@ -129,7 +134,7 @@ export class SQLiteDatabase {
 
     /** Run one statement. SELECTs return rows; writes return rowsAffected/insertId. */
     async execute<R = SQLiteRow>(sql: string, params?: readonly SQLValue[]): Promise<QueryResult<R>> {
-        this.#assertOpen();
+        this.#assertOpen('execute');
         return this.#enqueue(async () => {
             const result = await this.#rawExecute<R>(sql, params);
             const written = writtenTables(sql);
@@ -140,19 +145,23 @@ export class SQLiteDatabase {
 
     /** All statements in one native call and ONE transaction — all-or-nothing. */
     async executeBatch(statements: readonly SQLStatement[]): Promise<{ rowsAffected: number }> {
-        this.#assertOpen();
+        this.#assertOpen('executeBatch');
         if (statements.length === 0) return { rowsAffected: 0 };
         const written = new Set<string>();
         let wildcard = false;
         const payload = statements.map(([sql, params]) => {
-            if (typeof sql !== 'string' || sql.trim() === '') fail('sql must be a non-empty string');
+            if (typeof sql !== 'string' || sql.trim() === '') {
+                fail('invalid_sql', 'executeBatch', 'sql must be a non-empty string');
+            }
             const w = writtenTables(sql);
             if (w === '*') wildcard = true;
             else if (w) for (const t of w) written.add(t);
-            return { sql, params: normalizeParams(params) };
+            return { sql, params: normalizeParams('executeBatch', params) };
         });
         return this.#enqueue(async () => {
-            const result = unwrap<{ rowsAffected?: number }>(
+            const result = unwrapNative<{ rowsAffected?: number }>(
+                PKG,
+                'executeBatch',
                 await callAsync(MODULE, 'executeBatch', this.#handle, payload),
             );
             if (wildcard) this.#notify('*');
@@ -174,9 +183,13 @@ export class SQLiteDatabase {
      * screen, so this can't fail fast — it's a contract.)
      */
     async transaction<T>(fn: (tx: SQLiteTransaction) => Promise<T>): Promise<T> {
-        this.#assertOpen();
+        this.#assertOpen('transaction');
         return this.#enqueue(async () => {
-            unwrap(await callAsync(MODULE, 'beginTransaction', this.#handle));
+            unwrapNativeVoid(
+                PKG,
+                'beginTransaction',
+                await callAsync(MODULE, 'beginTransaction', this.#handle),
+            );
             const touched = new Set<string>();
             let wildcard = false;
             const tx: SQLiteTransaction = {
@@ -190,15 +203,18 @@ export class SQLiteDatabase {
             };
             try {
                 const value = await fn(tx);
-                unwrap(await callAsync(MODULE, 'commit', this.#handle));
+                unwrapNativeVoid(PKG, 'commit', await callAsync(MODULE, 'commit', this.#handle));
                 if (wildcard) this.#notify('*');
                 else if (touched.size > 0) this.#notify(touched);
                 return value;
             } catch (e) {
                 try {
-                    unwrap(await callAsync(MODULE, 'rollback', this.#handle));
-                } catch {
-                    // surface the original error, not the rollback failure
+                    unwrapNativeVoid(PKG, 'rollback', await callAsync(MODULE, 'rollback', this.#handle));
+                } catch (rollbackError) {
+                    // surface the original error, not the rollback failure —
+                    // but a failed rollback leaves the connection inside a
+                    // transaction, so it can't be swallowed silently either.
+                    log.error('rollback failed after a transaction error', rollbackError);
                 }
                 throw e;
             }
@@ -238,18 +254,18 @@ export class SQLiteDatabase {
             } catch (e) {
                 // A throwing listener must not reject the write that
                 // triggered it (the writer did nothing wrong).
-                console.error(`${TAG} onChange listener threw:`, e);
+                log.error('onChange listener threw', e);
             }
         }
     }
 
     /** Close the handle. Subsequent calls on this instance reject. */
     async close(): Promise<void> {
-        this.#assertOpen();
+        this.#assertOpen('close');
         this.#closed = true; // calls made from here on fail fast
         registry.delete(this.name);
         return this.#enqueue(async () => {
-            unwrap(await callAsync(MODULE, 'close', this.#handle));
+            unwrapNativeVoid(PKG, 'close', await callAsync(MODULE, 'close', this.#handle));
             this.#subs.clear();
         });
     }
@@ -261,15 +277,23 @@ export class SQLiteDatabase {
  * change bus — so live queries see writes from every screen.
  */
 export async function openDatabase(name: string, options: OpenOptions = {}): Promise<SQLiteDatabase> {
-    validateName(name);
+    validateName('openDatabase', name);
     const existing = registry.get(name);
     if (existing) return existing;
     const pending = opening.get(name);
     if (pending) return pending;
     const open = (async () => {
         try {
-            const result = unwrap<{ handle?: number }>(await callAsync(MODULE, 'open', name, options));
-            if (typeof result.handle !== 'number') fail('native open returned no handle');
+            const result = unwrapNative<{ handle?: number }>(
+                PKG,
+                'openDatabase',
+                await callAsync(MODULE, 'open', name, options),
+            );
+            if (typeof result.handle !== 'number') {
+                fail('malformed_result', 'openDatabase', 'native open returned no handle', {
+                    cause: result,
+                });
+            }
             const db = new SQLiteDatabase(name, result.handle);
             registry.set(name, db);
             return db;
@@ -286,11 +310,11 @@ export async function openDatabase(name: string, options: OpenOptions = {}): Pro
  * must not be open — `close()` it first.
  */
 export async function deleteDatabase(name: string): Promise<void> {
-    validateName(name);
+    validateName('deleteDatabase', name);
     if (registry.has(name) || opening.has(name)) {
-        fail(`database "${name}" is open — close() it before deleting`);
+        fail('database_open', 'deleteDatabase', `database "${name}" is open — close() it before deleting`);
     }
-    unwrap(await callAsync(MODULE, 'deleteDatabase', name));
+    unwrapNativeVoid(PKG, 'deleteDatabase', await callAsync(MODULE, 'deleteDatabase', name));
 }
 
 /** Whether the native Sqlite module is registered in this runtime. */

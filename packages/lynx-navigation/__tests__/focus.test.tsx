@@ -246,6 +246,6 @@ describe('focus hooks outside <Stack>', () => {
                     <Bad />
                 </NavigationRoot>,
             ),
-        ).toThrowError(/No screen entry in scope/);
+        ).toThrowError(/\[@sigx\/lynx-navigation\] useCurrentEntry\(\) failed: no screen entry in scope/);
     });
 });

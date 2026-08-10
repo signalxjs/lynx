@@ -56,7 +56,8 @@ const bridge = {
     isModuleAvailable: () => true,
 };
 
-vi.mock('@sigx/lynx-core', () => ({
+vi.mock('@sigx/lynx-core', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('@sigx/lynx-core')>()),
     callAsync: (...args: unknown[]) =>
         bridge.callAsync(...(args as [string, string, ...unknown[]])),
     isModuleAvailable: () => true,

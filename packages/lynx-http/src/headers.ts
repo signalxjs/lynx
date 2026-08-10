@@ -12,7 +12,7 @@ export type HeadersInitLike =
 function normalizeName(name: string): string {
     const n = String(name).toLowerCase();
     if (n.length === 0 || /[^!#$%&'*+\-.^_`|~0-9a-z]/.test(n)) {
-        throw new TypeError(`Headers: invalid header name "${name}"`);
+        throw new TypeError(`[@sigx/lynx-http] Headers failed: invalid header name "${name}"`);
     }
     return n;
 }
@@ -23,7 +23,9 @@ function normalizeValue(value: string): string {
     // Embedded CR/LF/NUL is a header-injection vector (and crashes OkHttp's
     // header validation) — reject like platform Headers do.
     if (/[\r\n\0]/.test(v)) {
-        throw new TypeError('Headers: header value contains forbidden control characters');
+        throw new TypeError(
+            '[@sigx/lynx-http] Headers failed: header value contains forbidden control characters',
+        );
     }
     return v;
 }
@@ -40,7 +42,9 @@ export class Headers {
         if (typeof (init as Iterable<readonly [string, string]>)[Symbol.iterator] === 'function') {
             for (const pair of init as Iterable<readonly [string, string]>) {
                 if (!pair || (pair as readonly string[]).length !== 2) {
-                    throw new TypeError('Headers: init pairs must be [name, value]');
+                    throw new TypeError(
+                        '[@sigx/lynx-http] Headers failed: init pairs must be [name, value]',
+                    );
                 }
                 this.append(pair[0], pair[1]);
             }

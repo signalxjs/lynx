@@ -18,10 +18,41 @@
  * carrying `{ id, type, ... }`; the JS shim demultiplexes by id and fires
  * the matching instance's listeners.
  */
-import { callAsync, guardModule, isModuleAvailable } from '@sigx/lynx-core';
+import { callAsync, createLogger, guardModule, isModuleAvailable, SigxError } from '@sigx/lynx-core';
 
 const MODULE = 'WebSocket';
+const PKG = 'lynx-websocket';
 const EVENT_NAME = '__sigxWebSocketEvent';
+
+/** Module diagnostics — reaches the `sigx dev` terminal via the console transport. */
+const log = createLogger(PKG);
+
+/**
+ * A WebSocket failure: a `SigxError` wearing the DOMException name browsers
+ * throw (convention C10).
+ *
+ * The package exists so browser code ports unchanged, and browser code
+ * branches on `err.name === 'InvalidStateError'` — the only discriminant
+ * WHATWG exposes. So the standard name *is* the machine-readable code; it
+ * lands on both `name` and `SigxError.code` rather than inventing a second
+ * sigx-only vocabulary. Same shape as `WebRTCError` in the sibling
+ * standards-mirror package.
+ *
+ * Only for the cases the spec raises as a DOMException. Where the spec throws
+ * a real ECMAScript error — `TypeError` for a bad argument type, `SyntaxError`
+ * for a malformed URL — the native class already carries the right `name`, so
+ * it stays, and only the message prefix is added.
+ *
+ * @param code DOMException-style name, e.g. `'InvalidStateError'`.
+ * @param action what was attempted, for the message — usually the method name.
+ * @param detail why it failed, lower-cased and ending in a period.
+ */
+class WebSocketError extends SigxError {
+    constructor(code: string, action: string, detail: string) {
+        super(PKG, code, `[@sigx/${PKG}] ${action} failed: ${detail}`);
+        this.name = code;
+    }
+}
 
 /** Bridge to lynx's `GlobalEventEmitter` for native → JS events. */
 interface GlobalEventEmitterLike {
@@ -226,18 +257,21 @@ export class WebSocket {
     }
 
     constructor(url: string, protocols?: string | string[]) {
+        // These keep their native error class — see `WebSocketError` above.
         if (typeof url !== 'string' || url.length === 0) {
-            throw new TypeError(`WebSocket: invalid URL`);
+            throw new TypeError(`[@sigx/${PKG}] new WebSocket() failed: invalid URL`);
         }
         // Match browsers: only ws:/wss: are valid. We accept http:/https: too
         // and let the native side reject — some debug proxies normalise.
         const colon = url.indexOf(':');
         if (colon <= 0) {
-            throw new SyntaxError(`WebSocket: invalid URL "${url}"`);
+            throw new SyntaxError(`[@sigx/${PKG}] new WebSocket() failed: invalid URL "${url}"`);
         }
         const scheme = url.slice(0, colon).toLowerCase();
         if (scheme !== 'ws' && scheme !== 'wss' && scheme !== 'http' && scheme !== 'https') {
-            throw new SyntaxError(`WebSocket: unsupported URL scheme "${scheme}"`);
+            throw new SyntaxError(
+                `[@sigx/${PKG}] new WebSocket() failed: unsupported URL scheme "${scheme}"`,
+            );
         }
 
         guardModule(MODULE);
@@ -257,6 +291,9 @@ export class WebSocket {
         // channel, not the callback. We still surface synchronous bridge
         // failures (e.g. module not registered) as an async error event.
         callAsync<void>(MODULE, 'create', this._id, url, protoList).catch(err => {
+            // The error event only reaches an app that installed `onerror`;
+            // log too so a bridge failure is visible in `sigx dev` regardless.
+            log.warn(`create(${this._id}) failed`, err);
             this._dispatch({
                 id: this._id,
                 type: 'error',
@@ -274,8 +311,11 @@ export class WebSocket {
 
     send(data: string | ArrayBuffer | ArrayBufferView): void {
         if (this._readyState === CONNECTING) {
-            // Browsers throw InvalidStateError here.
-            throw new Error("InvalidStateError: WebSocket is still in CONNECTING state.");
+            throw new WebSocketError(
+                'InvalidStateError',
+                'send',
+                'the socket is still in the CONNECTING state.',
+            );
         }
         if (this._readyState !== OPEN) {
             // Browsers silently drop on CLOSING/CLOSED but warn in devtools.
@@ -297,7 +337,7 @@ export class WebSocket {
             const slice = view.buffer.slice(view.byteOffset, view.byteOffset + view.byteLength) as ArrayBuffer;
             payload = arrayBufferToBase64(slice);
         } else {
-            throw new TypeError('WebSocket.send: unsupported data type');
+            throw new TypeError(`[@sigx/${PKG}] send failed: unsupported data type`);
         }
 
         // bufferedAmount is approximated as the byte length the JS side has
@@ -306,6 +346,7 @@ export class WebSocket {
         this.bufferedAmount += isBinary ? base64ByteLength(payload) : utf8ByteLength(payload);
 
         callAsync<void>(MODULE, 'send', this._id, payload, isBinary).catch(err => {
+            log.warn(`send(${this._id}) failed`, err);
             this._dispatch({
                 id: this._id,
                 type: 'error',
@@ -320,13 +361,17 @@ export class WebSocket {
         // WHATWG: code must be 1000 or 3000–4999. Validate to mirror browsers.
         if (code !== undefined) {
             if (code !== 1000 && (code < 3000 || code > 4999)) {
-                throw new Error(
-                    `InvalidAccessError: close code ${code} must be 1000 or in the 3000-4999 range.`,
+                throw new WebSocketError(
+                    'InvalidAccessError',
+                    'close',
+                    `close code ${code} must be 1000 or in the 3000-4999 range.`,
                 );
             }
         }
         if (reason !== undefined && utf8ByteLength(reason) > 123) {
-            throw new SyntaxError('SyntaxError: close reason must be ≤123 UTF-8 bytes.');
+            throw new SyntaxError(
+                `[@sigx/${PKG}] close failed: close reason must be ≤123 UTF-8 bytes.`,
+            );
         }
 
         this._readyState = CLOSING;
@@ -334,6 +379,7 @@ export class WebSocket {
             // Bridge call itself failed (e.g. module missing). Synthesize an
             // abnormal close so the instance doesn't get stuck in CLOSING and
             // we still clean up sockets state.
+            log.warn(`close(${this._id}) failed`, err);
             this._dispatch({
                 id: this._id,
                 type: 'error',
@@ -429,7 +475,7 @@ export class WebSocket {
             try {
                 (handler as (e: WebSocketEventLike) => void).call(this, event);
             } catch (e) {
-                console.warn(`[WebSocket] on${type} handler threw:`, e);
+                log.warn(`on${type} handler threw`, e);
             }
         }
         const set = this._listeners[type];
@@ -439,7 +485,7 @@ export class WebSocket {
                     if (typeof listener === 'function') listener.call(this, event);
                     else listener.handleEvent(event);
                 } catch (e) {
-                    console.warn(`[WebSocket] '${type}' listener threw:`, e);
+                    log.warn(`'${type}' listener threw`, e);
                 }
             }
         }

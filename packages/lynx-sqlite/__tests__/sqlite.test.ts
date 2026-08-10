@@ -22,7 +22,10 @@ const bridge = {
     isModuleAvailable: vi.fn(() => true),
 };
 
-vi.mock('@sigx/lynx-core', () => ({
+// Only the bridge is faked — SigxError, unwrapNative and the logger are the
+// real ones, so the assertions below check the errors callers actually get.
+vi.mock('@sigx/lynx-core', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('@sigx/lynx-core')>()),
     callAsync: (...args: unknown[]) =>
         bridge.callAsync(...(args as [string, string, ...unknown[]])),
     isModuleAvailable: (...args: unknown[]) =>
@@ -99,7 +102,7 @@ describe('execute', () => {
         const db = await openDatabase(uniqueName());
         responders.set('execute', () => ({ error: 'no such table: nope' }));
         await expect(db.execute('SELECT * FROM nope')).rejects.toThrow(
-            /\[@sigx\/lynx-sqlite\] no such table: nope/,
+            /^\[@sigx\/lynx-sqlite\] execute failed: no such table: nope$/,
         );
     });
 
@@ -255,6 +258,93 @@ describe('close / deleteDatabase', () => {
         await db.close();
         await deleteDatabase(name);
         expect(calls.at(-1)).toEqual({ method: 'deleteDatabase', args: [name] });
+    });
+});
+
+describe('errors (C10)', () => {
+    /** Resolve with whatever `p` rejected with. */
+    const rejection = (p: Promise<unknown>) => p.then(() => null, (e: unknown) => e);
+
+    it('tags every failure with a branchable code and the scoped message', async () => {
+        const { isSigxError } = await import('@sigx/lynx-core');
+        const name = uniqueName();
+        const db = await openDatabase(name);
+
+        const cases: Array<[string, Promise<unknown>]> = [
+            ['invalid_database_name', openDatabase('../escape.db')],
+            ['invalid_sql', db.execute('   ')],
+            ['invalid_sql', db.executeBatch([['   ']])],
+            ['invalid_param', db.execute('INSERT INTO t VALUES (?)', [Number.NaN])],
+            ['database_open', deleteDatabase(name)],
+        ];
+        for (const [code, promise] of cases) {
+            const error = await rejection(promise);
+            if (!isSigxError(error)) throw new Error(`expected a SigxError for ${code}`);
+            expect(error.code).toBe(code);
+            expect(error.package).toBe('lynx-sqlite');
+            expect(error.message).toMatch(/^\[@sigx\/lynx-sqlite\] \w+ failed: /);
+        }
+
+        await db.close();
+        const closed = await rejection(db.execute('SELECT 1'));
+        if (!isSigxError(closed)) throw new Error('expected a SigxError');
+        expect(closed.code).toBe('database_closed');
+    });
+
+    it('keeps the native payload as `cause`', async () => {
+        const { isSigxError } = await import('@sigx/lynx-core');
+        const db = await openDatabase(uniqueName());
+        responders.set('execute', () => ({ error: 'no such table: nope' }));
+        const error = await rejection(db.execute('SELECT * FROM nope'));
+        if (!isSigxError(error)) throw new Error('expected a SigxError');
+        expect(error.code).toBe('native_error');
+        expect(error.cause).toEqual({ error: 'no such table: nope' });
+    });
+
+    it('reports a handle-less open as malformed_result, not a TypeError later on', async () => {
+        const { isSigxError } = await import('@sigx/lynx-core');
+        responders.set('open', () => ({}));
+        const error = await rejection(openDatabase(uniqueName()));
+        if (!isSigxError(error)) throw new Error('expected a SigxError');
+        expect(error.code).toBe('malformed_result');
+    });
+
+    it('logs a failed rollback while still surfacing the original error', async () => {
+        const { addTransport, clearTransports, setLogLevel } = await import('@sigx/lynx-core');
+        const records: string[] = [];
+        clearTransports();
+        setLogLevel('trace');
+        addTransport((r) => records.push(`${r.namespace}:${r.msg}`));
+
+        const db = await openDatabase(uniqueName());
+        responders.set('rollback', () => ({ error: 'connection lost' }));
+        await expect(
+            db.transaction(async () => {
+                throw new Error('boom');
+            }),
+        ).rejects.toThrow('boom'); // the rollback failure must not mask it
+
+        clearTransports();
+        expect(records).toEqual(['lynx-sqlite:rollback failed after a transaction error']);
+    });
+
+    it('routes a throwing onChange listener to the logger, not console', async () => {
+        // The diagnostic used to go to `console.error`, which never reaches
+        // the leveled pipeline the `sigx dev` terminal streams (C10).
+        const { addTransport, clearTransports, setLogLevel } = await import('@sigx/lynx-core');
+        const records: string[] = [];
+        clearTransports();
+        setLogLevel('trace');
+        addTransport((r) => records.push(`${r.namespace}:${r.msg}`));
+
+        const db = await openDatabase(uniqueName());
+        db.onChange(['messages'], () => {
+            throw new Error('listener bug');
+        });
+        await db.execute('DELETE FROM messages');
+
+        clearTransports();
+        expect(records).toEqual(['lynx-sqlite:onChange listener threw']);
     });
 });
 

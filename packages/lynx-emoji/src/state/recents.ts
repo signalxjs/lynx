@@ -1,7 +1,10 @@
 import { signal, type Signal } from '@sigx/lynx';
+import { createLogger } from '@sigx/lynx-core';
 import type { EmojiData, EmojiDatum } from '../data/schema.js';
 import { loadString, saveString } from './persistence.js';
 
+const PKG = 'lynx-emoji';
+const log = createLogger(PKG);
 const KEY_RECENTS = '@sigx/lynx-emoji:recents';
 const DEFAULT_CAP = 32;
 const SAVE_DEBOUNCE_MS = 250;
@@ -38,8 +41,9 @@ export function createRecentsStore(data: EmojiData, cap = DEFAULT_CAP): RecentsS
                 .filter((e): e is EmojiDatum => e !== undefined)
                 .slice(0, cap);
             if (items.length && !touched) recents.$set(items);
-        } catch {
+        } catch (e) {
             // corrupt payload — start fresh
+            log.warn('stored recents are unreadable — starting fresh', e);
         }
     }).catch(() => { /* hydrate failure = empty */ });
 
