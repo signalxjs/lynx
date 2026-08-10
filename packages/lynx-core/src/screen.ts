@@ -199,10 +199,13 @@ const apply = (next: ScreenMetrics): void => {
 
 /**
  * Wire the native event subscription + `__globalProps` seed, lazily. The latch
- * is only set on SUCCESS (same pattern as core's app-state and font-scale): if
- * the first call races runtime init and the emitter isn't reachable yet, a
- * later call retries. Off-device neither ever succeeds — the signal keeps its
- * resolved fallback, the correct degradation.
+ * is gated on the emitter being REACHABLE (same pattern as core's app-state
+ * and font-scale): if the first call races runtime init and there is no
+ * emitter yet, a later call retries. Off-device the probe never passes — the
+ * signal keeps its resolved fallback, the correct degradation.
+ *
+ * Reachable is deliberately weaker than attached — see `app-state.ts` for why
+ * nothing `subscribeNative` returns can confirm the listener landed.
  *
  * Process-lifetime singleton subscription: no teardown exists in the public
  * surface (`useScreen()` hands back a `Computed`), so the disposer is

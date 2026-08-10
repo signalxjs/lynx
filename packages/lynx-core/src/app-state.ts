@@ -60,14 +60,20 @@ const isAppStateEvent = (raw: unknown): raw is AppStateEvent =>
 
 /**
  * Wire the native event subscription + native seed, lazily. Each latch is
- * only set on SUCCESS (same pattern as lynx-http's `ensureSubscribed`): if
- * the first API call races runtime init and the emitter isn't reachable yet,
- * a later call retries instead of leaving the module permanently unwired.
- * Off-device (web preview, SSR, tests) neither ever succeeds — a silent no-op.
+ * gated on the emitter being REACHABLE (same pattern as lynx-http's
+ * `ensureSubscribed`): if the first API call races runtime init and there is
+ * no emitter yet, a later call retries instead of leaving the module
+ * permanently unwired. Off-device (web preview, SSR, tests) the probe never
+ * passes — a silent no-op.
  *
- * The availability probe is what gates the latch: `subscribeNative` hands back
- * an indistinguishable no-op disposer off-device, so the disposer can't tell
- * us whether the listener actually attached.
+ * "Reachable" is as strong a guarantee as is available here, and deliberately
+ * weaker than "attached": `subscribeNative` hands back an indistinguishable
+ * no-op disposer both off-device and when a half-initialised host's
+ * `addListener` throws, so nothing it returns can confirm the listener really
+ * landed. A host that accepts the emitter lookup and then throws on
+ * `addListener` therefore latches un-listened rather than retrying — it is
+ * logged, and treating a broken emitter as permanently broken beats retrying
+ * it on every read.
  *
  * The subscription is process-lifetime by design — this is an ambient
  * singleton, like `Platform`, with no teardown in its public surface — so the

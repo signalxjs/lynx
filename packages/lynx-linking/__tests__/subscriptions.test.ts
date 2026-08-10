@@ -78,8 +78,9 @@ describe('Linking.addEventListener("url")', () => {
 
     it('delivers the URL the publisher sent as a bare string', () => {
         // `sendGlobalEvent('urlReceived', [url])` reaches JS as the string
-        // itself — not as JSON, which is why this channel cannot go through
-        // core's subscribeNative today (see src/native-event.ts).
+        // itself — not as JSON. Core's default would treat it as JSON and drop
+        // it when `JSON.parse` throws, which is why this channel subscribes
+        // with `{ raw: true }` (see src/native-event.ts).
         const seen: string[] = [];
         Linking.addEventListener('url', ({ url }) => seen.push(url));
 
@@ -174,9 +175,9 @@ describe('BackHandler.addEventListener', () => {
 
     it('fires on a press that carries no payload at all', () => {
         // Native sends `sendGlobalEvent(BACK_EVENT, JavaOnlyArray())`, so the
-        // handler is called with zero arguments. Core's subscribeNative drops
-        // an undefined payload before the callback, which is why this channel
-        // stays on the local shim (see src/native-event.ts).
+        // handler is called with zero arguments. Core's default drops an
+        // undefined payload before the callback, which is why this channel
+        // subscribes with `{ raw: true }` (see src/native-event.ts).
         const handled = vi.fn(() => true);
         BackHandler.addEventListener(handled);
 

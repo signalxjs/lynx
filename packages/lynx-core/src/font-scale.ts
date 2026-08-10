@@ -106,10 +106,13 @@ let scaleComputed: Computed<number> | undefined;
 
 /**
  * Wire the native event subscription + globalProps seed, lazily. The latch is
- * only set on SUCCESS (same pattern as core's app-state): if the first call
- * races runtime init and the emitter isn't reachable yet, a later call
- * retries. Off-device (web preview, SSR, tests) neither ever succeeds — the
+ * gated on the emitter being REACHABLE (same pattern as core's app-state): if
+ * the first call races runtime init and there is no emitter yet, a later call
+ * retries. Off-device (web preview, SSR, tests) the probe never passes — the
  * signal stays at `1`, the correct degradation.
+ *
+ * Reachable is deliberately weaker than attached — see `app-state.ts` for why
+ * nothing `subscribeNative` returns can confirm the listener landed.
  *
  * Process-lifetime singleton subscription: no teardown exists in the public
  * surface (`useFontScale()` hands back a `Computed`), so the disposer is
