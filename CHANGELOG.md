@@ -4,6 +4,8 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 ## [Unreleased]
 
+## [0.27.0] - 2026-08-10
+
 ### Changed
 
 - **Built-in theme palettes now resolve from generated CSS instead of inline custom properties** (#985). `<ThemeProvider>` used to declare the whole active theme — ~30 `--color-*` plus the text ramp and both surface paints — as inline style on its host view, rebuilt every render. The design-system packages now generate their built-ins into real stylesheet rules from the same registry data at build time (`scripts/gen-theme-css.mjs`), and the provider just puts the theme name on the host. Two rules per theme: a pinned `.daisy-dark { … }`, and a `@media (prefers-color-scheme: dark)` twin selected by an extra class while the app follows the OS. The media rule is compound (`.lynx-zero.scheme-dark-daisy-dark`) so it scores (0,2,0) against the pinned rule's (0,1,0) and wins without depending on source order — which is the point: **the painted theme is now the engine's own answer about the color scheme, not the background thread's.** A stale or missing `__globalProps` snapshot (#990) can no longer paint a light app on a dark device.
