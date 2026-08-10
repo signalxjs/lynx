@@ -39,6 +39,16 @@ declare const __BACKGROUND__: boolean;
 // costs are inflated by orders of magnitude.
 declare const __DEV_BUILD__: boolean;
 
+// Whether stylesheet at-rules (`@media`, `@supports`) reach this bundle's
+// binary, folded to a literal by `@sigx/lynx-plugin`. False on the web target
+// (upstream's web encoder drops them) and whenever the `enableCSSRule` plugin
+// option is turned off. Branch on it when a rule's *absence* would leave
+// something unstyled rather than merely unrefined — e.g. a palette that only
+// exists inside `@media (prefers-color-scheme: …)` needs a JS fallback here.
+// It says nothing about the host engine: a pre-4.0 host decodes the rules and
+// still can't evaluate them.
+declare const __SIGX_CSS_RULE__: boolean;
+
 // The webpack/rspeedy HMR `module.hot` global. We type only the surface lynx
 // apps actually use (`accept` / `dispose`) to keep the ambient minimal and
 // avoid pulling in `@types/webpack-env` or `@types/node`.

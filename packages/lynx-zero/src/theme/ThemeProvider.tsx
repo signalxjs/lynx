@@ -2,18 +2,27 @@
  * `<ThemeProvider>` and `useTheme()` — the design-system-neutral theme engine.
  *
  * Themes are palettes of CSS custom properties (`--color-*` / `--radius-*` /
- * `--size-*` / `--text-*`) declared **inline** on the provider's host view.
- * Custom properties inherit to descendants by default in Lynx, and
- * `@sigx/lynx-plugin` encodes `enableCSSInlineVariables` into the template's
- * page config so the native engine (Lynx ≥ 3.6) registers inline declarations
- * from the very first paint (#116) — design-system components read the vars
- * directly via `var(--color-*)`.
+ * `--size-*` / `--text-*`) that inherit to descendants, so design-system
+ * components read them directly via `var(--color-*)`. They reach the host view
+ * two ways, and which one a theme takes is the whole design here:
  *
- * Theme *data* comes from the design-system package: it seeds the registry at
- * module load (`registerTheme()` in `./registry.ts`). Custom themes —
- * including tenant themes fetched at runtime — register the same way and
- * paint their exact palette on frame one; `followSystem` and `toggle()` treat
- * them like any built-in.
+ * - **From a stylesheet**, for a theme the design system generated CSS for
+ *   (`staticCss`). The host wears the theme name as a class and the engine
+ *   resolves `.daisy-dark { … }` — plus, while following the OS, the
+ *   `@media (prefers-color-scheme: …)` twin, which means the painted scheme is
+ *   the engine's own answer rather than this thread's (#985). Nothing about
+ *   the palette rides in a style op.
+ * - **Inline**, for everything else: a tenant palette fetched at runtime, an
+ *   `extendTheme()` derivative, the web target, or a build with the
+ *   `enableCSSRule` kill switch off. `@sigx/lynx-plugin` encodes
+ *   `enableCSSInlineVariables` so the native engine (Lynx ≥ 3.6) registers
+ *   inline declarations from the very first paint (#116), and these themes
+ *   paint their exact palette on frame one like any built-in.
+ *
+ * Theme *data* comes from the design-system package either way: it seeds the
+ * registry at module load (`registerTheme()` in `./registry.ts`), and the
+ * generated CSS is emitted from that same data at build time. `followSystem`
+ * and `toggle()` treat every registered theme alike.
  *
  * Usage (here with `@sigx/lynx-daisyui`'s themes):
  *
@@ -55,11 +64,14 @@ import type { ColorToken } from '../contract.js';
 import {
     colorsOf,
     fallbackPalette,
+    hasStaticCss,
     pickThemeFor,
     radiusOf,
     sizesOf,
+    variantOf,
 } from './registry.js';
-import type { ThemeSizes } from './registry.js';
+import type { ThemeVariant } from './registry.js';
+import { themeCustomProperties, textRampVars } from './theme-tokens.js';
 import {
     globalThemeState,
     makeThemeController,
@@ -84,96 +96,69 @@ declare module '@sigx/lynx-icons' {
     }
 }
 
-// Control dimensions are expressed as multiples of two base units
-// (`--size-field`, `--size-selector`). Lynx's runtime CSS engine is unproven
-// for `calc(var() * n)`, so when a theme overrides a base unit we do the
-// multiplication here and emit literal px. Bases must be px (engine-safe, like
-// colors); a non-px base sets only the base var and leaves the `.lynx-zero`
-// defaults in place. Multiples mirror the defaults in `styles/tokens.css`.
-const FIELD_STEPS: Record<string, number> = { xs: 6, sm: 8, md: 12, lg: 16 };
-const SELECTOR_STEPS: Record<string, number> = {
-    'checkbox-xs': 4, 'checkbox-sm': 5, 'checkbox-md': 6, 'checkbox-lg': 8,
-    'toggle-width-xs': 8, 'toggle-width-sm': 10, 'toggle-width-md': 12, 'toggle-width-lg': 14,
-    'toggle-height-xs': 6, 'toggle-height-sm': 6, 'toggle-height-md': 7, 'toggle-height-lg': 8,
-    'toggle-thumb-xs': 4, 'toggle-thumb-sm': 4, 'toggle-thumb-md': 5, 'toggle-thumb-lg': 6,
-    'badge-xs': 4, 'badge-sm': 5, 'badge-md': 6, 'badge-lg': 8,
-};
+/**
+ * Whether stylesheet at-rules reach this bundle's binary — folded to a literal
+ * by `@sigx/lynx-plugin` (false on web, and whenever the `enableCSSRule` kill
+ * switch is off). It decides whether a `staticCss` theme's generated
+ * `@media (prefers-color-scheme: …)` rules exist to resolve against; when they
+ * don't, every theme takes the inline path below.
+ *
+ * Read through `typeof` with a `globalThis` fallback (the `platform.ts`
+ * pattern) so a non-plugin embed or a Vitest run — where the define is absent —
+ * lands on the inline path rather than a `ReferenceError`.
+ */
+declare const __SIGX_CSS_RULE__: boolean | undefined;
 
-// Default text ramp (px) — MUST mirror `--text-*` in `styles/tokens.css`
-// (iOS-aligned, 17px base). The global `fontScale` multiplies these and emits
-// literal px (no `calc(var() * n)` — unproven in Lynx).
-const FONT_DEFAULTS: Record<string, number> = {
-    'xs': 12, 'sm': 14, 'base': 17, 'lg': 20, 'xl': 24, '2xl': 28, '3xl': 34,
-};
-
-const pxValue = (v: string): number | undefined => {
-    const m = /^\s*(\d+(?:\.\d+)?)px\s*$/.exec(v);
-    return m ? Number(m[1]) : undefined;
-};
-
-/** Emit a theme's `sizes` overrides as literal-px CSS custom properties. */
-function applySizeVars(
-    style: Record<string, string | number>,
-    sizes: ThemeSizes,
-): void {
-    if (sizes.field) {
-        style['--size-field'] = sizes.field;
-        const base = pxValue(sizes.field);
-        if (base !== undefined) {
-            for (const k in FIELD_STEPS) style[`--size-${k}`] = `${base * FIELD_STEPS[k]}px`;
-        }
-    }
-    if (sizes.selector) {
-        style['--size-selector'] = sizes.selector;
-        const base = pxValue(sizes.selector);
-        if (base !== undefined) {
-            for (const k in SELECTOR_STEPS) style[`--${k}`] = `${base * SELECTOR_STEPS[k]}px`;
-        }
-    }
-}
+const cssRulesEncode = (): boolean =>
+    typeof __SIGX_CSS_RULE__ !== 'undefined'
+        ? __SIGX_CSS_RULE__
+        : (globalThis as { __SIGX_CSS_RULE__?: boolean }).__SIGX_CSS_RULE__ === true;
 
 /**
- * Emit the text ramp scaled by `fontScale` as `--text-*` literal px. Always
- * emits every step — even at `1` (the literal defaults) — so the host view's
- * inline declarations shadow any larger ramp inherited from an enclosing
- * provider. A nested provider seeds its scale from the inherited ambient
- * value, so emitting here re-states the same ramp rather than clobbering the
- * root's scaled one.
+ * Whether the CSS engine can select `name` for `scheme` on its own — i.e. the
+ * design system generated a `.lynx-zero.scheme-<scheme>-<name>` rule inside a
+ * `@media (prefers-color-scheme: …)` block for it.
+ *
+ * Requires a single-token name (a multi-class composition like
+ * `'daisy-light daisy-rounded'` can't be spliced into a class name), a shipped
+ * stylesheet, and a variant that matches the scheme the rule answers for — an
+ * app is free to pass `dark="some-light-theme"`, and there is no rule for that.
  */
-function applyFontScale(
-    style: Record<string, string | number>,
+const engineSelectable = (name: ThemeName, scheme: ThemeVariant): boolean =>
+    !/\s/.test(name) && hasStaticCss(name) && variantOf(name) === scheme;
+
+/**
+ * The theme's custom properties for the *inline* path — colors, any
+ * radius/size overrides, and the `fontScale`-adjusted text ramp.
+ *
+ * This is what a theme with no generated stylesheet rule gets: with
+ * `enableCSSInlineVariables` in the template's page config (encoded by
+ * `@sigx/lynx-plugin`), inline custom properties register and inherit from
+ * first paint on native Lynx ≥ 3.6, and a value change re-resolves every
+ * descendant `var()` on native Lynx ≥ 3.9 — the CLI's host templates pin
+ * 4.0.1; older hosts paint frame one but won't follow theme switches (#116).
+ *
+ * A `staticCss` theme skips the palette half of this entirely (the CSS engine
+ * resolves it from `.theme-name`); the text ramp is never in CSS because
+ * `fontScale` is runtime state.
+ */
+function buildThemeVars(
+    name: string,
     fontScale: number,
-): void {
-    for (const k in FONT_DEFAULTS) {
-        style[`--text-${k}`] = `${Math.round(FONT_DEFAULTS[k] * fontScale)}px`;
-    }
-}
-
-/**
- * The full custom-property set for a theme — colors, any radius/size overrides,
- * and the `fontScale`-adjusted text ramp. Declared inline on the provider's
- * host view: with `enableCSSInlineVariables` in the template's page config
- * (encoded by `@sigx/lynx-plugin`), inline custom properties register and
- * inherit from first paint on native Lynx ≥ 3.6, and a value change
- * re-resolves every descendant `var()` on native Lynx ≥ 3.9 — the CLI's host
- * templates pin 4.0.1; older hosts paint frame one but won't follow theme
- * switches (#116).
- */
-function buildThemeVars(name: string, fontScale: number): Record<string, string> {
-    const palette = colorsOf(name) ?? fallbackPalette();
-    const radius = radiusOf(name);
-    const sizes = sizesOf(name);
-    const vars: Record<string, string> = {};
-    if (palette) {
-        for (const key in palette) vars[`--color-${key}`] = palette[key as ColorToken];
-    }
-    if (radius) {
-        if (radius.selector) vars['--radius-selector'] = radius.selector;
-        if (radius.field) vars['--radius-field'] = radius.field;
-        if (radius.box) vars['--radius-box'] = radius.box;
-    }
-    if (sizes) applySizeVars(vars, sizes);
-    applyFontScale(vars, fontScale);
+    withPalette: boolean,
+): Record<string, string> {
+    const vars: Record<string, string> = withPalette
+        ? themeCustomProperties({
+            colors: colorsOf(name) ?? fallbackPalette(),
+            radius: radiusOf(name),
+            sizes: sizesOf(name),
+        })
+        : {};
+    // At scale 1 the `.lynx-zero` class already declares exactly this ramp, and
+    // a class declaration on the element beats anything inherited from an
+    // enclosing scaled provider — so emitting it would only restate the
+    // defaults.
+    if (fontScale !== 1) Object.assign(vars, textRampVars(fontScale));
     return vars;
 }
 
@@ -295,10 +280,14 @@ export type ThemeProviderProps =
     & Define.Slot<'default'>;
 
 /**
- * Wraps children in a `<view class={theme}>` whose inline style declares the
- * theme's full custom-property set, so the variables inherit down to every
- * descendant from first paint. The theme name rides along as a class for
- * shape/behavior modifiers (e.g. `daisy-rounded`).
+ * Wraps children in a `<view class={theme}>` that carries the theme's full
+ * custom-property set — from the generated stylesheet rule when the theme
+ * ships one, inline otherwise — so the variables inherit down to every
+ * descendant from first paint. The theme name is on the host either way, both
+ * as the palette selector and for shape/behavior modifiers (e.g.
+ * `daisy-rounded`); while following the OS with a CSS-backed pair, two
+ * `scheme-light-…` / `scheme-dark-…` classes ride along so the engine picks
+ * between them.
  *
  * Layout: the root provider defaults to flex-fill long-form so the wrapper
  * doesn't collapse between ancestors that flex (e.g. `<SafeAreaProvider>`)
@@ -317,6 +306,15 @@ export const ThemeProvider = component<ThemeProviderProps>(({ props, slots }) =>
     // The underlying signal widens to PrimitiveSignal<string> via Widen<T>;
     // cast at read sites to keep the narrow union throughout the component.
     const readScheme = (): ColorScheme => systemScheme.value as ColorScheme;
+
+    // The light/dark pair this scope follows: the `light`/`dark` props when
+    // given, else the first registered theme of each variant. Read through
+    // functions (not captured once) so the props stay reactive and a theme
+    // registered after setup is still picked up.
+    const lightTheme = (): ThemeName => props.light ?? pickThemeFor('light');
+    const darkTheme = (): ThemeName => props.dark ?? pickThemeFor('dark');
+    const themeForScheme = (scheme: ColorScheme): ThemeName =>
+        scheme === 'dark' ? darkTheme() : lightTheme();
 
     // Root vs. nested. The outermost provider (depth 0) binds the global
     // singleton — so headless `themeController` mutations render here and the OS
@@ -338,9 +336,7 @@ export const ThemeProvider = component<ThemeProviderProps>(({ props, slots }) =>
             props.initial
                 ? { name: props.initial, following: false, fontScale: seedScale }
                 : {
-                    name: readScheme() === 'dark'
-                        ? (props.dark ?? pickThemeFor('dark'))
-                        : (props.light ?? pickThemeFor('light')),
+                    name: themeForScheme(readScheme()),
                     following: true,
                     fontScale: seedScale,
                 },
@@ -356,9 +352,7 @@ export const ThemeProvider = component<ThemeProviderProps>(({ props, slots }) =>
             state.name = props.initial;
             state.following = false;
         } else if (state.following) {
-            state.name = readScheme() === 'dark'
-                ? (props.dark ?? pickThemeFor('dark'))
-                : (props.light ?? pickThemeFor('light'));
+            state.name = themeForScheme(readScheme());
         }
         // Explicit author intent wins; otherwise keep whatever scale a headless
         // caller may have set before this mounted (default 1).
@@ -401,9 +395,7 @@ export const ThemeProvider = component<ThemeProviderProps>(({ props, slots }) =>
             const following = state.following;
             const scheme = readScheme();
             if (!following) return;
-            const next = scheme === 'dark'
-                ? (props.dark ?? pickThemeFor('dark'))
-                : (props.light ?? pickThemeFor('light'));
+            const next = themeForScheme(scheme);
             untrack(() => {
                 if (state.name !== next) state.name = next;
             });
@@ -416,14 +408,26 @@ export const ThemeProvider = component<ThemeProviderProps>(({ props, slots }) =>
     });
 
     return () => {
-        // The full theme — colors, radius/size overrides, scaled text ramp —
-        // is declared inline as CSS custom properties: correct on first paint
-        // and re-resolved on every descendant when a theme switch or
-        // `setFontScale` re-renders this closure (reading `state.name` /
-        // `state.fontScale` tracks them). Runtime-registered themes paint
-        // their exact palette on frame one like any built-in. The `lynx-zero`
-        // base class supplies structural token defaults.
-        const palette = colorsOf(state.name) ?? fallbackPalette();
+        // Does this theme's palette ship as a stylesheet rule the engine can
+        // resolve? If so the host wears the theme name and the CSS does the
+        // rest — no palette in the style op at all. Otherwise (any
+        // runtime-registered theme, web, `enableCSSRule: false`) the full
+        // palette is declared inline: correct on first paint and re-resolved
+        // on every descendant when a theme switch re-renders this closure.
+        const cssPalette = cssRulesEncode() && hasStaticCss(state.name);
+
+        // While following the OS, hand the scheme decision to the engine as
+        // well: both candidate themes carry a `@media (prefers-color-scheme)`
+        // rule, so adding both classes lets exactly one win — natively, and
+        // even if this thread's idea of the scheme is stale (#990). The rules
+        // are compound (`.lynx-zero.scheme-…`), so they outrank the pinned
+        // `.<name>` rule that the theme-name class also matches.
+        const light = lightTheme();
+        const dark = darkTheme();
+        const engineFollows = cssPalette
+            && state.following
+            && engineSelectable(light, 'light')
+            && engineSelectable(dark, 'dark');
 
         // Root: flex-fill long-form (see the component doc comment). Nested:
         // content-sized — a sub-scope inside scroll content would otherwise
@@ -441,19 +445,25 @@ export const ThemeProvider = component<ThemeProviderProps>(({ props, slots }) =>
                 display: 'flex',
                 flexDirection: 'column',
             };
-        Object.assign(style, buildThemeVars(state.name, state.fontScale));
-        if (palette) {
+        Object.assign(style, buildThemeVars(state.name, state.fontScale, !cssPalette));
+        const palette = colorsOf(state.name) ?? fallbackPalette();
+        if (palette && !cssPalette) {
             // Painted as literal properties (not `var()` self-references) so
             // the provider's own surface never depends on same-element
-            // custom-property resolution.
+            // custom-property resolution. The generated rules carry the same
+            // two declarations, which is why the CSS path skips them here.
             style.backgroundColor = palette['base-100'];
             style.color = palette['base-content'];
         }
         if (props.style) Object.assign(style, props.style);
 
+        const schemeClasses = engineFollows
+            ? ` scheme-light-${light} scheme-dark-${dark}`
+            : '';
+
         return (
             <view
-                class={`lynx-zero ${state.name}${props.class ? ' ' + props.class : ''}`}
+                class={`lynx-zero ${state.name}${schemeClasses}${props.class ? ' ' + props.class : ''}`}
                 style={style}
             >
                 {slots.default?.()}

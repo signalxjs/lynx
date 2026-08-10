@@ -1,8 +1,8 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, afterEach, beforeEach } from 'vitest';
 import { component } from '@sigx/lynx';
 import { render } from '@sigx/lynx-testing';
 import { ThemeProvider, useTheme } from '../src/theme/ThemeProvider';
-import { themeController } from '@sigx/lynx-zero';
+import { extendTheme, registerTheme, themeController } from '@sigx/lynx-zero';
 
 // `useTheme().name` rendered as text, so we can assert which controller a given
 // point in the tree resolves to.
@@ -60,7 +60,10 @@ describe('theme — headless control + layered overrides (#113)', () => {
     expect(themeController.name).toBe('daisy-light');
   });
 
-  it('applies the theme class + inline palette vars + literal surface colors on the host view', () => {
+  it('falls back to inline palette vars + literal surface colors where CSS rules cannot reach', () => {
+    // No `__SIGX_CSS_RULE__` define under Vitest — the same state as a web
+    // build or `enableCSSRule: false`. The palette then rides inline and
+    // descendants resolve var(--color-*) from first paint (#116).
     const { container } = render(
       <ThemeProvider initial="daisy-dark">
         <view />
@@ -69,14 +72,70 @@ describe('theme — headless control + layered overrides (#113)', () => {
     const host = container.children[0];
     expect(host._class.split(' ')).toContain('lynx-zero');
     expect(host._class.split(' ')).toContain('daisy-dark');
-    // The palette is declared inline as custom properties, resolved by
-    // descendants' var(--color-*) from first paint (#116).
     expect(host._style['--color-primary']).toBe('#7582ff');
     expect(host._style['--color-base-100']).toBe('#1d232a');
     // base-100 / base-content are additionally painted as literal properties
     // so the provider's own surface never depends on same-element var().
     expect(host._style.backgroundColor).toBe('#1d232a');
     expect(host._style.color).toBe('#a6adbb');
+  });
+});
+
+describe('theme — built-ins resolve from generated CSS (#985)', () => {
+  const withCss = globalThis as { __SIGX_CSS_RULE__?: boolean };
+
+  beforeEach(() => {
+    // What a real native build looks like: `@sigx/lynx-plugin` folds this to
+    // true, and `scripts/gen-theme-css.mjs` has emitted `.daisy-*` rules.
+    withCss.__SIGX_CSS_RULE__ = true;
+    themeController.set('daisy-light');
+  });
+
+  afterEach(() => {
+    delete withCss.__SIGX_CSS_RULE__;
+  });
+
+  it('sends the theme name and nothing else — the palette is the stylesheet\'s job', () => {
+    const { container } = render(
+      <ThemeProvider initial="daisy-dark">
+        <view />
+      </ThemeProvider>,
+    );
+    const host = container.children[0];
+    expect(host._class.split(' ')).toContain('daisy-dark');
+    expect(host._style['--color-primary']).toBeUndefined();
+    expect(host._style.backgroundColor).toBeUndefined();
+  });
+
+  it('follows the OS through the engine when no theme is pinned', () => {
+    themeController.followSystem();
+    const { container } = render(
+      <ThemeProvider>
+        <view />
+      </ThemeProvider>,
+    );
+    const classes = container.children[0]._class.split(' ');
+    // daisy-light / daisy-dark are first of their variants, so they are the
+    // follow-system defaults — and both ship a prefers-color-scheme rule.
+    expect(classes).toContain('scheme-light-daisy-light');
+    expect(classes).toContain('scheme-dark-daisy-dark');
+  });
+
+  it('keeps a runtime tenant theme on the inline path', () => {
+    // The multi-tenant case: a palette fetched from a backend and derived from
+    // a built-in. No `.acme-dark` rule exists, so its colors must ride inline.
+    registerTheme(extendTheme('daisy-dark', {
+      name: 'acme-dark',
+      colors: { 'primary': '#fb7185', 'base-100': '#1a0d13' },
+    }));
+    const { container } = render(
+      <ThemeProvider initial="acme-dark">
+        <view />
+      </ThemeProvider>,
+    );
+    const host = container.children[0];
+    expect(host._style['--color-primary']).toBe('#fb7185');
+    expect(host._style.backgroundColor).toBe('#1a0d13');
   });
 });
 
