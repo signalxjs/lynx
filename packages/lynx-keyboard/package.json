@@ -3,6 +3,9 @@
     "version": "0.27.0",
     "description": "Soft-keyboard handling for sigx-lynx — KeyboardStickyView, KeyboardAvoidingView and keyboard hooks",
     "type": "module",
+    "sideEffects": [
+        "./dist/use-keyboard.js"
+    ],
     "main": "./dist/index.js",
     "types": "./dist/index.d.ts",
     "exports": {

@@ -3,6 +3,16 @@
     "version": "0.27.0",
     "description": "Lynx renderer for SignalX (background thread)",
     "type": "module",
+    "sideEffects": [
+        "./dist/index.js",
+        "./dist/install-globals.js",
+        "./dist/live-client.js",
+        "./dist/model-processor.js",
+        "./dist/directives/register.js",
+        "./dist/bg-bridge.js",
+        "./dist/render.js",
+        "./dist/mt-hmr-bridge.js"
+    ],
     "main": "./dist/index.js",
     "types": "./dist/index.d.ts",
     "exports": {
