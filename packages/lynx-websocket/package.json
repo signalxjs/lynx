@@ -3,6 +3,9 @@
     "version": "0.27.0",
     "description": "Browser-standard WebSocket client for sigx-lynx",
     "type": "module",
+    "sideEffects": [
+        "./dist/index.js"
+    ],
     "main": "./dist/index.js",
     "types": "./dist/index.d.ts",
     "exports": {

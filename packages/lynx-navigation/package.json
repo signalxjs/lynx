@@ -3,6 +3,7 @@
     "version": "0.27.0",
     "description": "Type-first native navigator for sigx-lynx — Stack, Tabs, Drawer, modals, lazy routes, deep links",
     "type": "module",
+    "sideEffects": false,
     "main": "./dist/index.js",
     "types": "./dist/index.d.ts",
     "exports": {

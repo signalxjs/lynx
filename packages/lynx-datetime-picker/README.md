@@ -107,6 +107,16 @@ There are deliberately no month or weekday **names**: producing them correctly n
 
 **Android `'datetime'`** is a two-step flow (date dialog, then time dialog); cancelling either step cancels the whole pick. iOS shows a single combined wheel picker.
 
+## Web
+
+**Partially supported on web** (`sigx run:web`). `formatDate` is pure JS and works everywhere. The picker itself does not: there is no `sigx.datetimepicker.*` handler in the `@sigx/lynx-web-host` page bridge and no `.web.ts` implementation, so the native module is never registered — `isModuleAvailable()` returns `false` and `pick` / `pickDate` / `pickTime` / `pickDateTime` take their guard branch and resolve `{ cancelled: true }` immediately, without ever showing UI.
+
+Render your own date entry on web (branch on `Platform.OS === 'web'` from `@sigx/lynx-core`); a future shim would route through the page bridge to the browser's `<input type="date">` / `type="time"` / `type="datetime-local"` control.
+
 ## Reference
 
 The showcase app's "Date & time picker" screen (`examples/showcase/src/screens/DateTimePickerDemo.tsx`) demonstrates all three modes plus min/max clamping.
+
+## License
+
+MIT

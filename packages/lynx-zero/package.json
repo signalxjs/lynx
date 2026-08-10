@@ -3,6 +3,9 @@
     "version": "0.27.0",
     "description": "Design-system-neutral UI foundation for sigx-lynx — the shared props/token contract and style utilities that design-system packages (daisyui, heroui, …) build on",
     "type": "module",
+    "sideEffects": [
+        "./dist/styles/*.css"
+    ],
     "main": "./dist/index.js",
     "types": "./dist/index.d.ts",
     "exports": {
@@ -33,7 +36,8 @@
         "build": "node ../../scripts/clean.mjs dist && tsgo && node ../../scripts/copy-assets.mjs src/styles dist/styles",
         "dev": "tsgo --watch",
         "prepublishOnly": "node ../../scripts/clean.mjs dist && tsgo && node ../../scripts/copy-assets.mjs src/styles dist/styles",
-        "clean": "node ../../scripts/clean.mjs dist .turbo"
+        "clean": "node ../../scripts/clean.mjs dist .turbo",
+        "test": "vitest run"
     },
     "keywords": [
         "sigx",

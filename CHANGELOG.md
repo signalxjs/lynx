@@ -4,6 +4,28 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 ## [Unreleased]
 
+### Changed
+
+- **Every package now declares `sideEffects`, so bundlers can drop what an app doesn't import** (#857). 52 of the 57 packages left the field unset, which a bundler reads as "assume every module does something at import" — importing one symbol from a barrel dragged in the whole package, and rubric item D2.4 failed repo-wide. Each package was classified by reading every module in its `src/` for real module-scope work, then re-checked by a second pass whose default was to refute: 40 are `sideEffects: false`, and 12 name the exact entries that do work at import rather than falling back to `true`.
+
+  The twelve are real effects, not caution: `@sigx/lynx` and `@sigx/lynx-http` install the `fetch`/`Headers`/`FormData`/`Response` globals; `@sigx/lynx-core` registers its console log transport behind a `globalThis` HMR flag; `@sigx/lynx-websocket` assigns `globalThis.WebSocket`; `@sigx/lynx-gestures` and `@sigx/lynx-richtext` call `customElements.define()` for their web elements; `@sigx/lynx-daisyui` and `@sigx/lynx-heroui` push their built-in palettes into `@sigx/lynx-zero`'s theme registry; `@sigx/lynx-icons` pulls in the generated `@font-face` stylesheet; `@sigx/lynx-keyboard` restores last run's lift height from storage; `@sigx/lynx-dev-client` installs the console streamer and error logging; and `@sigx/lynx-runtime` lists the eight modules that mount globals, directives and bridges.
+
+  Four packages publish CSS through their `exports` map, and a stylesheet is imported purely for its side effect — so `@sigx/lynx-zero` (`styles/tokens.css`, `@import`ed by both design systems), `@sigx/lynx-heroui` and `@sigx/lynx-daisyui` (`styles/index.css`) and `@sigx/lynx-icons` (the generated `__font-face.css`) list their CSS entries too. A bundler that believed `sideEffects: false` here would drop the tokens and the icon `@font-face` at runtime.
+
+### Documentation
+
+- **Every native-module README now has an accurate `## Web` section** (#857, convention **C11**, rubric **D7.5**). 23 packages were missing one — the whole `C11/readme-missing-web-section` rule class — despite `sigx run:web` being a headline feature, so the CI baseline shrinks from 44 entries to 21 and that rule is now clear repo-wide. Each section states supported / degraded / unsupported, the mechanism, and what to use instead, grounded in the actual handler list in `packages/lynx-web-host/src/host.ts` and the `.web.ts` swap in `packages/lynx-plugin/src/entry.ts` rather than in what sounds plausible.
+
+  The useful ones are the degradations nobody had written down: `@sigx/lynx-appearance` reads the color scheme on web with no shim at all (the page bridge publishes `globalProps.appearance` from `matchMedia`) while its system-bar setters resolve `{ ok: false, reason: 'unsupported' }`; `@sigx/lynx-datetime-picker` resolves `{ cancelled: true }` **without ever showing UI**, which is indistinguishable from the user cancelling; `@sigx/lynx-camera` points at `@sigx/lynx-image-picker`, whose web path reaches the camera through the browser's own file chooser; and `scaleWithText` on `@sigx/lynx-icons` is inert on web because no web publisher writes `lynx.__globalProps.fontScale`.
+
+### Added
+
+- **Public-surface freeze tests for 54 of the 57 packages** (#857). Rubric item **D7.1** asks each package to lock its exported API so an accidental rename or removal breaks CI instead of reaching consumers — 6 packages had one. 48 more now do (`@sigx/lynx-zero`, `@sigx/lynx-daisyui` and `@sigx/lynx-heroui` are deliberately left out while the design-system layering in #927 is in flight — freezing a surface that is still moving would only churn), modelled on `packages/lynx-navigation/__tests__/public-surface.test.ts` and the compact `packages/lynx-clipboard` variant: a runtime `Object.keys(mod).sort()` snapshot, a second snapshot of the namespace object for C1 packages, and `expectTypeOf` pins on the shapes `CONVENTIONS.md` constrains — `isAvailable` staying synchronous (C2), subscriptions returning `() => void` (C7), permission methods returning `PermissionResponse` (C6), the `SV`/`MT` hook suffixes (C8), `cancelled` unions (C5). The 13 packages shipping a `.web.ts` also assert that both implementations expose the same surface (**D7.1b**) — the plugin swaps them by `extensionAlias`, so a method added to one and not the other is a runtime failure on whichever target missed it, invisible to a typecheck. +237 tests.
+
+  The tests freeze today's surface; they do not fix it. Where a package already violates a convention — `lynx-http`'s `isHttpAvailable` instead of `isAvailable`, `lynx-notifications` exporting its four push subscriptions both bare and on the namespace, `lynx-sheet` and `@sigx/lynx` publishing internals — the current shape is pinned as-is and recorded on the owning module-review issue.
+
+- **`test` script on the 34 packages that lacked one** (**D7.2**), matching the 23 that already had `"test": "vitest run"`. Every package now has at least one test to run.
+
 ## [0.27.0] - 2026-08-10
 
 ### Changed

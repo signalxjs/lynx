@@ -3,6 +3,10 @@
     "version": "0.27.0",
     "description": "DaisyUI integration for sigx-lynx",
     "type": "module",
+    "sideEffects": [
+        "./dist/theme/builtins.js",
+        "./dist/styles/*.css"
+    ],
     "main": "./dist/index.js",
     "exports": {
         ".": {
@@ -39,7 +43,8 @@
     "scripts": {
         "build": "node ../../scripts/clean.mjs dist && tsgo && node ../../scripts/copy-assets.mjs src/styles dist/styles && node ../../scripts/gen-theme-css.mjs dist/theme/builtins.js DAISY_BUILTIN_THEMES dist/styles/themes/builtins.generated.css",
         "dev": "tsgo --watch",
-        "clean": "node ../../scripts/clean.mjs dist .turbo"
+        "clean": "node ../../scripts/clean.mjs dist .turbo",
+        "test": "vitest run"
     },
     "dependencies": {
         "@sigx/lynx": "workspace:^",

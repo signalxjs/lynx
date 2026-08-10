@@ -3,6 +3,7 @@
     "version": "0.27.0",
     "description": "Themable emoji picker for sigx-lynx — headless categorized grid with search, skin-tone variants, recents, and an optional MarkdownEditor plugin. Pure JS, emoji data generated from emojibase.",
     "type": "module",
+    "sideEffects": false,
     "main": "./dist/index.js",
     "types": "./dist/index.d.ts",
     "exports": {

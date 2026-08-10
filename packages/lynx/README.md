@@ -60,6 +60,12 @@ The template wires the build plugin, the CLI, and a starter app for you.
 
 This package is the framework entry point. For the full list of native modules, UI packages, gestures, animation, navigation, icons, and dev tooling — see the [module catalog on sigx.dev](https://sigx.dev/lynx/).
 
+## Web
+
+Supported as a build target — with one hole: the networking surface this package re-exports does not work in a browser. The framework itself contributes no native code (its `signalx-module.json` only marks the package for the autolink walk), so `sigx run:web` / `sigx build:web` build the same app for upstream `@lynx-js/web-core`: background code in a Web Worker, main-thread code in a hidden iframe, behind a host page wired to the `@sigx/lynx-web-host` bridge. There `Platform.OS` is `'web'`, the build-time `__WEB__` / `__NATIVE__` defines fold per environment, and a `Foo.web.tsx` sibling wins over `Foo.tsx`. That same file-extension swap is how each native module ships web support, so check the **Web** section of a module's own README before assuming it works in the browser — a module with no web shim and no handler in the page bridge isn't registered at all there.
+
+**`fetch` is the exception — it does not work on web.** The `fetch` / `Headers` / `FormData` / `Response` re-exported here come from `@sigx/lynx-http`, which ships no web shim: on web the native `Http` module isn't registered, so its `fetch()` rejects with the "module not available" error. And importing `@sigx/lynx` runs that package's side-effect install, which *replaces* `globalThis.fetch` / `Headers` / `FormData` / `Response` whenever `NativeModules` or `lynx` is present — web-core's worker injects both — so a bare `fetch(...)` in the worker resolves to the native-backed one too, not the browser's. (`@sigx/lynx-plugin`'s bare-`fetch` ProvidePlugin rewrite is deliberately Lynx-only for the mirror-image reason: on the Lynx bundle a bare `fetch` binds to the engine's factory parameter.) On web, route requests through a `.web.ts` sibling or a `__WEB__` branch and don't rely on `fetch` from `@sigx/lynx` or on a bare `fetch(...)` — see the `@sigx/lynx-http` README's **Web** section.
+
 ## License
 
 MIT — © Andreas Ekdahl

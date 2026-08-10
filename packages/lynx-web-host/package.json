@@ -3,6 +3,7 @@
     "version": "0.27.0",
     "description": "Host-page bridge for SignalX apps on web — clipboard/share/linking/picker handlers + appearance and URL publishers for @lynx-js/web-core",
     "type": "module",
+    "sideEffects": false,
     "main": "./dist/index.js",
     "types": "./dist/index.d.ts",
     "exports": {
@@ -18,7 +19,8 @@
     "scripts": {
         "build": "node ../../scripts/clean.mjs dist && tsgo",
         "dev": "tsgo --watch",
-        "clean": "node ../../scripts/clean.mjs dist .turbo"
+        "clean": "node ../../scripts/clean.mjs dist .turbo",
+        "test": "vitest run"
     },
     "devDependencies": {
         "@typescript/native-preview": "7.0.0-dev.20260521.1",

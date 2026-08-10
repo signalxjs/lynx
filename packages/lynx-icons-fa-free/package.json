@@ -3,6 +3,7 @@
     "version": "0.27.0",
     "description": "Font Awesome Free adapter for @sigx/lynx-icons. Provides solid/regular/brands styles via the official @fortawesome/* packages.",
     "type": "module",
+    "sideEffects": false,
     "main": "./dist/index.js",
     "types": "./dist/index.d.ts",
     "exports": {
@@ -26,7 +27,8 @@
     "scripts": {
         "build": "node ../../scripts/clean.mjs dist && tsgo",
         "dev": "tsgo --watch",
-        "clean": "node ../../scripts/clean.mjs dist .turbo"
+        "clean": "node ../../scripts/clean.mjs dist .turbo",
+        "test": "vitest run"
     },
     "peerDependencies": {
         "@fortawesome/fontawesome-free": "^6.0.0",

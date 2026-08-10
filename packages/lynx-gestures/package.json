@@ -3,6 +3,9 @@
     "version": "0.27.0",
     "description": "Gesture system for sigx-lynx - declarative composables for tap, pan, pinch, swipe, long press",
     "type": "module",
+    "sideEffects": [
+        "./dist/web/element.js"
+    ],
     "main": "./dist/index.js",
     "types": "./dist/index.d.ts",
     "exports": {
@@ -29,7 +32,8 @@
         "build": "node ../../scripts/clean.mjs dist && tsgo",
         "dev": "tsgo --watch",
         "prepublishOnly": "node ../../scripts/clean.mjs dist && tsgo",
-        "clean": "node ../../scripts/clean.mjs dist .turbo"
+        "clean": "node ../../scripts/clean.mjs dist .turbo",
+        "test": "vitest run"
     },
     "keywords": [
         "sigx",

@@ -3,6 +3,9 @@
     "version": "0.27.0",
     "description": "sigx-lynx framework",
     "type": "module",
+    "sideEffects": [
+        "./dist/index.js"
+    ],
     "main": "./dist/index.js",
     "exports": {
         ".": {
@@ -46,7 +49,8 @@
     "scripts": {
         "build": "node ../../scripts/clean.mjs dist && tsgo && node ../../scripts/copy-assets.mjs src/client.d.ts dist/client.d.ts",
         "dev": "tsgo --watch",
-        "clean": "node ../../scripts/clean.mjs dist .turbo"
+        "clean": "node ../../scripts/clean.mjs dist .turbo",
+        "test": "vitest run"
     },
     "dependencies": {
         "@sigx/lynx-core": "workspace:^",

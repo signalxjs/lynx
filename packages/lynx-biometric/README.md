@@ -42,6 +42,12 @@ if (result.success) {
 
 The full `BiometricType` / `BiometricErrorCode` reference, platform notes, troubleshooting and the threat model are documented on the docs site.
 
+## Web
+
+**Not supported on web** (`sigx run:web`). There is no `sigx.biometric.*` handler in the `@sigx/lynx-web-host` page bridge and no `.web.ts` implementation, so the module is never registered in a web build. The API degrades quietly rather than throwing: `isAvailable()` resolves `{ available: false, type: 'none' }` and `authenticate()` resolves `{ success: false, errorCode: 'biometryNotAvailable' }` — so the "fall back to a password" branch you already write for unenrolled devices is what runs in a browser.
+
+A future web shim would go through WebAuthn (`navigator.credentials` with a platform authenticator), which is a different credential model from `LAContext` / `BiometricPrompt` — don't assume today's call sites port across unchanged.
+
 ## License
 
 MIT
