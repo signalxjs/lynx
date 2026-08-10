@@ -21,8 +21,8 @@ describe('Linking.addEventListener', () => {
         );
     });
 
-    it('returns a no-op subscription when no GlobalEventEmitter exists', () => {
-        const sub = Linking.addEventListener('url', () => {});
-        expect(() => sub.remove()).not.toThrow();
+    it('returns a no-op unsubscribe when no GlobalEventEmitter exists', () => {
+        const off = Linking.addEventListener('url', () => {});
+        expect(() => off()).not.toThrow();
     });
 });

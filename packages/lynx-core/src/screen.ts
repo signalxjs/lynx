@@ -1,5 +1,6 @@
 import { computed, signal, type Computed } from '@sigx/reactivity';
 import { Platform } from './platform.js';
+import { isNativeEventsAvailable, subscribeNative } from './events.js';
 
 /**
  * Live screen metrics — the logical size and orientation of the surface the
@@ -72,13 +73,7 @@ export interface RawScreenProps {
     orientation?: string;
 }
 
-interface GlobalEventEmitterLike {
-    addListener: (name: string, fn: (...a: unknown[]) => void) => void;
-    removeListener: (name: string, fn: (...a: unknown[]) => void) => void;
-}
-
 interface LynxLike {
-    getJSModule?: (name: string) => GlobalEventEmitterLike | undefined;
     __globalProps?: { [k: string]: unknown };
 }
 
@@ -105,6 +100,17 @@ const isLandscapeOrientation = (o: ScreenOrientation): boolean =>
 /** Positive, finite numbers only — a publisher mid-teardown can emit garbage. */
 const num = (v: unknown): number | undefined =>
     typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : undefined;
+
+/**
+ * Payload guard for the `screenChanged` channel. Deliberately the same
+ * admission test {@link parseScreen} applies (usable width + height), so a
+ * garbage publish during teardown is dropped at the subscription boundary
+ * rather than reaching the signal.
+ */
+const isRawScreen = (raw: unknown): raw is RawScreenProps =>
+    !!raw && typeof raw === 'object'
+    && num((raw as RawScreenProps).width) !== undefined
+    && num((raw as RawScreenProps).height) !== undefined;
 
 /**
  * Validate one publisher payload (both channels carry the same map). Returns
@@ -192,11 +198,18 @@ const apply = (next: ScreenMetrics): void => {
 };
 
 /**
- * Wire the GlobalEventEmitter listener + `__globalProps` seed, lazily. The
- * latch is only set on SUCCESS (same pattern as core's app-state and
- * font-scale): if the first call races runtime init and the emitter isn't
- * reachable yet, a later call retries. Off-device neither ever succeeds — the
+ * Wire the native event subscription + `__globalProps` seed, lazily. The latch
+ * is gated on the emitter being REACHABLE (same pattern as core's app-state
+ * and font-scale): if the first call races runtime init and there is no
+ * emitter yet, a later call retries. Off-device the probe never passes — the
  * signal keeps its resolved fallback, the correct degradation.
+ *
+ * Reachable is deliberately weaker than attached — see `app-state.ts` for why
+ * nothing `subscribeNative` returns can confirm the listener landed.
+ *
+ * Process-lifetime singleton subscription: no teardown exists in the public
+ * surface (`useScreen()` hands back a `Computed`), so the disposer is
+ * deliberately dropped.
  */
 const ensureWired = (): void => {
     if (!seeded) {
@@ -206,23 +219,20 @@ const ensureWired = (): void => {
             apply(initial);
         }
     }
-    if (!emitterWired) {
-        try {
-            const emitter = typeof lynx !== 'undefined'
-                ? (lynx as LynxLike).getJSModule?.('GlobalEventEmitter')
-                : undefined;
-            if (emitter) {
-                emitter.addListener(SCREEN_EVENT, (payload: unknown) => {
-                    const next = parseScreen(payload, state.scale);
-                    if (!next) return;
-                    seeded = true;
-                    apply(next);
-                });
-                emitterWired = true;
-            }
-        } catch {
-            // getJSModule threw — retry on the next call.
-        }
+    if (!emitterWired && isNativeEventsAvailable()) {
+        subscribeNative<RawScreenProps>(
+            SCREEN_EVENT,
+            (raw) => {
+                // `state.scale` (not 1) is the fallback: a publisher that omits
+                // `scale` must not reset the density to 1.
+                const next = parseScreen(raw, state.scale);
+                if (!next) return;
+                seeded = true;
+                apply(next);
+            },
+            { validate: isRawScreen, namespace: 'lynx-core' },
+        );
+        emitterWired = true;
     }
 };
 

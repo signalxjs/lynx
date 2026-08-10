@@ -423,6 +423,26 @@ describe('RTCPeerConnection — close', () => {
         expect(() => peer.close()).not.toThrow(); // idempotent
     });
 
+    it('stays closed when a pending createPeer rejects afterwards', async () => {
+        // close() is a teardown. A createPeer rejection landing after it used
+        // to flip connectionState back to 'failed' and re-fire the handler, so
+        // an app that retries on 'failed' redialled a call the user hung up.
+        bridge.callAsync.mockImplementationOnce(async () => {
+            throw new Error('bridge down');
+        });
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+        const peer = new RTCPeerConnection();
+        const onchange = vi.fn();
+        peer.onconnectionstatechange = onchange;
+
+        peer.close();
+        await flush();
+
+        expect(peer.connectionState).toBe('closed');
+        expect(onchange).not.toHaveBeenCalled();
+        warn.mockRestore();
+    });
+
     it('ignores native events after close', () => {
         const peer = new RTCPeerConnection();
         const id = idOf(peer);
@@ -465,5 +485,20 @@ describe('RTCPeerConnection — remote data channels', () => {
         fire((dc as unknown as { _handle: number })._handle, { type: 'dcclose' });
         fire(-9, { type: 'dcclose' });
         expect(registry.size).toBe(0);
+    });
+
+    it('lets go of a closed channel completely, in both directions', () => {
+        // The bookkeeping listener closes over the peer, so a channel the app
+        // still holds after close (`ondatachannel` hands them out) kept the
+        // whole connection — remote tracks and streams included — reachable.
+        const peer = new RTCPeerConnection();
+        const dc = peer.createDataChannel('short-lived');
+        const listeners = (dc as unknown as { _listeners: Record<string, Set<unknown>> })._listeners;
+
+        fire((dc as unknown as { _handle: number })._handle, { type: 'dcopen', sctpId: 1 });
+        fire((dc as unknown as { _handle: number })._handle, { type: 'dcclose' });
+
+        expect((peer as unknown as { _dataChannels: Set<unknown> })._dataChannels.size).toBe(0);
+        expect(listeners['close']?.size ?? 0).toBe(0);
     });
 });

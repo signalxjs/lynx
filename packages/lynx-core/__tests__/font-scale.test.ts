@@ -25,6 +25,8 @@ function makeEmitter(): MockEmitter {
         removeListener(name, fn) {
             listeners.get(name)?.delete(fn);
         },
+        // Deliberately does NOT catch — native dispatch walks one listener
+        // list per channel, so an escaping exception starves the rest.
         emit(name, payload) {
             const set = listeners.get(name);
             if (!set) return;
@@ -161,5 +163,50 @@ describe('useFontScale', () => {
         expect(scale.value).toBe(1.3);
         emitter.emit(api.FONT_SCALE_EVENT, { scale: 1.5 });
         expect(scale.value).toBe(1.5);
+    });
+
+    it('accepts a payload delivered as a JSON string', async () => {
+        const emitter = makeEmitter();
+        installMockLynx({ scale: 1, os: 1 }, emitter);
+        const api = await freshApi();
+        const scale = api.useFontScale();
+
+        emitter.emit(api.FONT_SCALE_EVENT, JSON.stringify({ scale: 1.4 }));
+        expect(scale.value).toBe(1.4);
+
+        emitter.emit(api.FONT_SCALE_EVENT, '1.6');
+        expect(scale.value).toBe(1.6);
+    });
+
+    it('contains a throwing reactive consumer instead of letting it escape into native dispatch', async () => {
+        const emitter = makeEmitter();
+        installMockLynx({ scale: 1, os: 1 }, emitter);
+        const api = await freshApi();
+        const scale = api.useFontScale();
+
+        // Imported AFTER freshApi()'s resetModules so this is the same
+        // reactivity instance the fresh font-scale module tracks against.
+        const { effect } = await import('@sigx/reactivity');
+        effect(() => {
+            if (scale.value !== 1) throw new Error('render bug');
+        });
+
+        // Another package's listener on the engine's channel, after ours.
+        const sibling: unknown[] = [];
+        emitter.addListener(api.FONT_SCALE_EVENT, (p) => { sibling.push(p); });
+
+        expect(() => emitter.emit(api.FONT_SCALE_EVENT, { scale: 1.5 })).not.toThrow();
+        expect(sibling).toEqual([{ scale: 1.5 }]);
+    });
+
+    it('registers exactly one native listener however often the hook is called', async () => {
+        const emitter = makeEmitter();
+        installMockLynx({ scale: 1.2, os: 1.2 }, emitter);
+        const api = await freshApi();
+        api.useFontScale();
+        api.useFontScale();
+        api.useFontScale();
+
+        expect(emitter.listeners.get(api.FONT_SCALE_EVENT)?.size).toBe(1);
     });
 });

@@ -11,7 +11,25 @@ const bridge = {
     isModuleAvailable: vi.fn(() => true),
 };
 
-vi.mock('@sigx/lynx-core', () => ({
+// Only the bridge is faked. `subscribeNative` / `isNativeEventsAvailable` come
+// from the REAL core (spread from importActual): the subscription contract —
+// idempotent disposer, string-or-object payload, listener-throws isolation — is
+// exactly what this suite has to exercise, and a hand-written stand-in would
+// only test itself.
+// `subscribeNative` is wrapped, not replaced: it still runs for real, but the
+// wrapper records the options it was handed. That is the only way to pin the
+// `validate` guard — dispatch below is total for a malformed event, so deleting
+// the guard changes no observable behaviour.
+const subscribeNativeCalls: unknown[][] = [];
+
+vi.mock('@sigx/lynx-core', async () => {
+    const actual = await vi.importActual<Record<string, unknown>>('@sigx/lynx-core');
+    return {
+    ...actual,
+    subscribeNative: (...args: unknown[]) => {
+        subscribeNativeCalls.push(args);
+        return (actual.subscribeNative as (...a: unknown[]) => () => void)(...args);
+    },
     callAsync: (...args: unknown[]) => bridge.callAsync(...(args as [])),
     guardModule: (...args: unknown[]) => bridge.guardModule(...(args as [])),
     isModuleAvailable: (...args: unknown[]) => bridge.isModuleAvailable(...(args as [])),
@@ -26,7 +44,8 @@ vi.mock('@sigx/lynx-core', () => ({
         trace() {}, debug() {}, info() {}, warn() {}, error() {},
         enabled: () => false,
     }),
-}));
+    };
+});
 
 type Listener = (...a: unknown[]) => void;
 const emitter = {
@@ -38,6 +57,15 @@ const emitter = {
     removeListener(name: string, fn: Listener) {
         this.listeners.get(name)?.delete(fn);
     },
+    /** How many handlers are registered — proves subscribe/unsubscribe counts. */
+    count(name: string) {
+        return this.listeners.get(name)?.size ?? 0;
+    },
+    /**
+     * Dispatches like the native emitter does: one synchronous loop, no
+     * per-listener try/catch. A handler that throws therefore starves every
+     * handler after it — which is why C7's wrapper catches.
+     */
     fire(name: string, ...args: unknown[]) {
         for (const fn of this.listeners.get(name) ?? []) fn(...args);
     },
@@ -392,5 +420,156 @@ describe('fetch — abort', () => {
         const reader = res.body.getReader();
         await reader.cancel();
         expect(bridge.callAsync).toHaveBeenCalledWith('Http', 'abort', id);
+    });
+});
+
+/**
+ * The native → JS subscription itself (convention C7). This package used to
+ * carry its own `GlobalEventEmitterLike` shim — one of sixteen copies — and
+ * inherited every gap in it. These lock the contract it now gets from core's
+ * `subscribeNative`.
+ */
+describe('fetch — native event subscription (C7)', () => {
+    /** A second handler on the same channel, standing in for another package's. */
+    function bystander(): { seen: unknown[]; off: () => void } {
+        const seen: unknown[] = [];
+        const fn = (...a: unknown[]) => { seen.push(a[0]); };
+        emitter.addListener(EVENT, fn);
+        return { seen, off: () => emitter.removeListener(EVENT, fn) };
+    }
+
+    const okResponse = (id: number) =>
+        ({ id, type: 'response', status: 200, statusText: 'OK', headers: {} });
+
+    it('attaches exactly one listener however many requests are in flight', () => {
+        expect(emitter.count(EVENT)).toBe(0); // beforeEach detached it
+        void fetch('https://x.test/a');
+        void fetch('https://x.test/b');
+        void fetch('https://x.test/c');
+        expect(emitter.count(EVENT)).toBe(1);
+    });
+
+    it('disposing twice leaves other listeners on the channel subscribed', async () => {
+        // The lynx-audio regression in this package's terms: an idempotent
+        // disposer is the difference between a second teardown being a no-op
+        // and it tearing down something still in use.
+        void fetch('https://x.test/a'); // orphaned below by the manual dispose
+        const id = lastRequestId();
+        const other = bystander();
+        expect(emitter.count(EVENT)).toBe(2);
+
+        const off = __internal.disposer()!;
+        off();
+        off(); // an effect cleanup firing twice is ordinary
+
+        expect(emitter.count(EVENT)).toBe(1);
+        fire(okResponse(id));
+        expect(other.seen).toHaveLength(1);
+        other.off();
+
+        // …and the module re-attaches for the next request rather than going
+        // permanently deaf.
+        __internal.reset();
+        const p2 = fetch('https://x.test/b');
+        expect(emitter.count(EVENT)).toBe(1);
+        fire(okResponse(lastRequestId()));
+        await expect(p2).resolves.toMatchObject({ status: 200 });
+    });
+
+    it('a consumer callback that throws does not take the emitter down with it', async () => {
+        // `onUploadProgress` is user code invoked synchronously from the native
+        // dispatch. Before C7 an exception in it propagated straight out of the
+        // emitter's dispatch loop: every listener registered after this
+        // package's — including other packages' — was skipped for that event,
+        // and on device the throw surfaces on the BG thread.
+        //
+        // Asserted through a capturing transport rather than a spy on the
+        // logger: it proves the failure is *reported* (C10), not swallowed.
+        const core = await import('@sigx/lynx-core');
+        const records: string[] = [];
+        core.clearTransports();
+        core.setLogLevel('trace');
+        core.addTransport((r) => records.push(`${r.namespace}|${r.msg}`));
+
+        const p = fetch('https://x.test/upload', {
+            method: 'POST',
+            body: 'payload',
+            onUploadProgress: () => { throw new Error('consumer blew up'); },
+        });
+        const id = lastRequestId();
+        const other = bystander();
+
+        expect(() => fire({ id, type: 'progress', loaded: 1, total: 2 })).not.toThrow();
+        expect(other.seen).toHaveLength(1);
+        // The record lands on this package's namespace — `subscribeNative`'s
+        // `namespace` option builds the logger, so the diagnostic is filterable
+        // as `lynx-http` rather than only readable as text.
+        expect(records).toContain('lynx-http|listener for __sigxHttpEvent threw');
+
+        // The request survives the bad callback and still completes.
+        fire(okResponse(id));
+        await expect(p).resolves.toMatchObject({ status: 200 });
+
+        other.off();
+        core.clearTransports();
+        core.setLogLevel('warn');
+    });
+
+    it('wires the payload guard into the subscription, and the guard is right', async () => {
+        // Two separate claims, because a black-box test can prove neither:
+        // dispatch is total for a malformed event (`requests.get` simply
+        // misses), so removing `validate` leaves every behavioural test green.
+        const { isHttpEvent } = __internal;
+        expect(isHttpEvent({ id: 1, type: 'done' })).toBe(true);
+        expect(isHttpEvent({ id: '1', type: 'done' })).toBe(false);
+        expect(isHttpEvent({ type: 'done' })).toBe(false);
+        expect(isHttpEvent(null)).toBe(false);
+        expect(isHttpEvent(42)).toBe(false);
+        expect(isHttpEvent([])).toBe(false);
+
+        // ...and that it is actually handed to `subscribeNative`.
+        subscribeNativeCalls.length = 0;
+        __internal.reset();
+        void fetch('https://x.test/guard').catch(() => {});
+        expect(subscribeNativeCalls).toHaveLength(1);
+        expect(subscribeNativeCalls[0]![2]).toMatchObject({ validate: isHttpEvent });
+    });
+
+    it('keeps dispatch total when a malformed payload arrives', async () => {
+        const p = fetch('https://x.test/a');
+        const id = lastRequestId();
+
+        // No numeric id → belongs to no request; unparseable string, null and
+        // primitives → not an event at all. None may throw out of the dispatch.
+        expect(() => {
+            fire({ type: 'done' });
+            emitter.fire(EVENT, '{not json');
+            emitter.fire(EVENT, null);
+            emitter.fire(EVENT, 42);
+            emitter.fire(EVENT, { id: '7', type: 'done' });
+        }).not.toThrow();
+
+        // The live request is untouched by any of it.
+        fire(okResponse(id));
+        await expect(p).resolves.toMatchObject({ status: 200 });
+    });
+
+    it('retries the subscription when the runtime emitter appears later', async () => {
+        // The first fetch can beat the Lynx runtime's GlobalEventEmitter
+        // injection; latching "subscribed" then would leave the app permanently
+        // deaf to every response event.
+        vi.stubGlobal('lynx', {}); // runtime present, emitter not yet
+        void fetch('https://x.test/early');
+        expect(emitter.count(EVENT)).toBe(0);
+
+        vi.stubGlobal('lynx', {
+            getJSModule: (name: string) => (name === 'GlobalEventEmitter' ? emitter : undefined),
+        });
+        const p = fetch('https://x.test/late');
+        expect(emitter.count(EVENT)).toBe(1);
+        fire(okResponse(lastRequestId()));
+        await expect(p).resolves.toMatchObject({ status: 200 });
+
+        vi.unstubAllGlobals();
     });
 });

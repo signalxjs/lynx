@@ -103,7 +103,7 @@ arguments still throw a plain `TypeError`, as the W3C algorithms specify.
 | `addTrack(track, ...streams)` → `RTCRtpSender` | minimal sender (`{ track }`) |
 | `removeTrack(sender)` | |
 | `createDataChannel(label, init?)` | synchronous, like W3C |
-| `close()` | also ends remote tracks and closes child channels |
+| `close()` | also ends remote tracks and closes child channels; final — no further state events fire, including from calls still in flight |
 | `connectionState` / `iceConnectionState` / `iceGatheringState` / `signalingState` | sync getters |
 | `localDescription` / `remoteDescription` | `localDescription` is refreshed on every `icegatheringstatechange`, so it carries the full SDP once gathering completes |
 | `onconnectionstatechange` / `oniceconnectionstatechange` / `onicegatheringstatechange` / `onsignalingstatechange` | |

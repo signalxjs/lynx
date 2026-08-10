@@ -39,6 +39,7 @@
     "license": "MIT",
     "dependencies": {
         "@sigx/lynx": "workspace:^",
+        "@sigx/lynx-core": "workspace:^",
         "@sigx/lynx-runtime-internal": "workspace:^",
         "@sigx/reactivity": "catalog:"
     },

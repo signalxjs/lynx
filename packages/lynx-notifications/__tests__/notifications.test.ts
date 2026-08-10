@@ -15,7 +15,10 @@ const bridge = {
     isModuleAvailable: vi.fn(() => true),
 };
 
-vi.mock('@sigx/lynx-core', () => ({
+// Only the bridge calls are faked — `push.ts` subscribes through core's real
+// `subscribeNative` (C7), so the module has to keep its other exports.
+vi.mock('@sigx/lynx-core', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('@sigx/lynx-core')>()),
     callAsync: (...args: unknown[]) => bridge.callAsync(...(args as [])),
     guardModule: (...args: unknown[]) => bridge.guardModule(...(args as [])),
     isModuleAvailable: (...args: unknown[]) => bridge.isModuleAvailable(...(args as [])),

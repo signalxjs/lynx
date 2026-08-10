@@ -42,10 +42,10 @@ describe('Linking (web)', () => {
       }),
     });
     const seen: string[] = [];
-    const sub = Linking.addEventListener('url', ({ url }) => seen.push(url));
+    const off = Linking.addEventListener('url', ({ url }) => seen.push(url));
     listeners.get('urlReceived')!('https://app.example/next');
     expect(seen).toEqual(['https://app.example/next']);
-    sub.remove();
+    off();
     expect(listeners.size).toBe(0);
   });
 

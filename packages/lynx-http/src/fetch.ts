@@ -16,7 +16,15 @@
  * 'AbortError'` for an abort); `SigxError` extends `Error` and would break
  * both.
  */
-import { callAsync, guardModule, isModuleAvailable, base64ToArrayBuffer, arrayBufferToBase64 } from '@sigx/lynx-core';
+import {
+    callAsync,
+    guardModule,
+    isModuleAvailable,
+    isNativeEventsAvailable,
+    subscribeNative,
+    base64ToArrayBuffer,
+    arrayBufferToBase64,
+} from '@sigx/lynx-core';
 import { Headers, type HeadersInitLike } from './headers.js';
 import { FormData, formDataToNativeBody } from './form-data.js';
 import { BodyStream, Response } from './response.js';
@@ -25,22 +33,6 @@ import * as httplog from './httplog.js';
 
 const MODULE = 'Http';
 const EVENT_NAME = '__sigxHttpEvent';
-
-/** Bridge to lynx's `GlobalEventEmitter` for native → JS events. */
-interface GlobalEventEmitterLike {
-    addListener: (name: string, fn: (...a: unknown[]) => void) => void;
-    removeListener: (name: string, fn: (...a: unknown[]) => void) => void;
-}
-
-interface LynxLike {
-    getJSModule?: (name: string) => GlobalEventEmitterLike | undefined;
-}
-
-declare const lynx: unknown | undefined;
-
-function lynxObj(): LynxLike | undefined {
-    return typeof lynx !== 'undefined' ? (lynx as unknown as LynxLike) : undefined;
-}
 
 /** Duck-typed `AbortSignal` — works with any spec-shaped implementation. */
 export interface AbortSignalLike {
@@ -75,32 +67,44 @@ interface PendingRequest {
 
 const requests = new Map<number, PendingRequest>();
 let nextId = 1;
-let subscribed = false;
+/** The live subscription's disposer — also the "already subscribed" latch. */
+let unsubscribe: (() => void) | undefined;
 
-function ensureSubscribed(): void {
-    if (subscribed) return;
-    const emitter = lynxObj()?.getJSModule?.('GlobalEventEmitter');
-    if (!emitter) return; // web/SSR/test — events simply won't arrive
-    emitter.addListener(EVENT_NAME, (raw: unknown) => {
-        // Native delivers each event as a JSON string (see `types.ts` — a
-        // structured map loses fields on Lynx 0.5.0's bridge, #342). Older
-        // native sent the map directly, so tolerate both shapes.
-        const evt: NativeHttpEvent | undefined =
-            typeof raw === 'string' ? safeParse(raw) : (raw as NativeHttpEvent | undefined);
-        if (!evt || typeof evt.id !== 'number') return;
-        const pending = requests.get(evt.id);
-        if (!pending) return;
-        dispatch(evt.id, pending, evt);
-    });
-    subscribed = true;
+/**
+ * Payload guard for `__sigxHttpEvent`.
+ *
+ * Native delivers each event as a JSON string (see `types.ts` — a structured
+ * map loses sibling scalars on Lynx 0.5.0's bridge, #342); older native sent
+ * the map directly. Core's `subscribeNative` already normalises both shapes,
+ * so all that is left here is the demux key: an event without a numeric `id`
+ * belongs to no request and must be dropped rather than dispatched.
+ */
+function isHttpEvent(raw: unknown): raw is NativeHttpEvent {
+    return typeof raw === 'object' && raw !== null
+        && typeof (raw as NativeHttpEvent).id === 'number';
 }
 
-function safeParse(s: string): NativeHttpEvent | undefined {
-    try {
-        return JSON.parse(s);
-    } catch {
-        return undefined;
-    }
+/**
+ * Attach the single demultiplexing listener, once.
+ *
+ * Lazy latch (C7): the first `fetch` can run before the Lynx runtime has
+ * injected its `GlobalEventEmitter`, and off-device (web/SSR/test) there is
+ * never one. `subscribeNative` is a silent no-op in that case and returns a
+ * no-op disposer indistinguishable from a real one — so the latch is keyed on
+ * `isNativeEventsAvailable()` instead, leaving a later request free to retry.
+ */
+function ensureSubscribed(): void {
+    if (unsubscribe) return;
+    if (!isNativeEventsAvailable()) return; // web/SSR/test — events simply won't arrive
+    unsubscribe = subscribeNative<NativeHttpEvent>(
+        EVENT_NAME,
+        (evt) => {
+            const pending = requests.get(evt.id);
+            if (!pending) return;
+            dispatch(evt.id, pending, evt);
+        },
+        { validate: isHttpEvent, namespace: 'lynx-http' },
+    );
 }
 
 function dispatch(id: number, pending: PendingRequest, evt: NativeHttpEvent): void {
@@ -306,9 +310,34 @@ export function isHttpAvailable(): boolean {
     return isModuleAvailable(MODULE);
 }
 
-/** Test-only hook: drop all pending requests between cases. */
+/**
+ * Test-only hook: drop all pending requests and detach the native listener, so
+ * each case starts from a clean module state. Calling it repeatedly is safe —
+ * the disposer is idempotent (C7).
+ */
 export const __internal = {
+    /**
+     * The payload guard handed to `subscribeNative`.
+     *
+     * Exposed because the guard is *defence in depth*: dispatch below is
+     * already total for a malformed event (`requests.get` misses, the switch
+     * has no matching case), so no black-box test can tell whether the guard
+     * is wired — deleting it leaves the behavioural tests green. Pinning it
+     * directly is the only way this stays honest.
+     */
+    isHttpEvent,
     reset(): void {
         requests.clear();
+        unsubscribe?.();
+        unsubscribe = undefined;
+    },
+    /**
+     * The live subscription's disposer (`undefined` before the first request,
+     * and off-device). Exposed so tests can call it twice and prove double
+     * disposal is a no-op — the bug shape that silently killed a still-wanted
+     * subscription in `@sigx/lynx-audio`.
+     */
+    disposer(): (() => void) | undefined {
+        return unsubscribe;
     },
 };

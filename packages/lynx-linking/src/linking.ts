@@ -30,8 +30,8 @@ export type { URLEvent, URLListener, URLSubscription } from './inbound.js';
  * const initial = Linking.getInitialURL();   // sync read from __globalProps
  * if (initial) handle(initial);
  *
- * const sub = Linking.addEventListener('url', ({ url }) => handle(url));
- * // later: sub.remove();
+ * const off = Linking.addEventListener('url', ({ url }) => handle(url));
+ * // later: off();
  * ```
  */
 export const Linking = {
@@ -58,6 +58,8 @@ export const Linking = {
     /**
      * Subscribe to incoming URL events. Wraps Lynx's `GlobalEventEmitter`,
      * which is fed by the native `LinkingPublisher` via `sendGlobalEvent`.
+     *
+     * @returns unsubscribe; calling it twice is a no-op (C7).
      */
     addEventListener(type: 'url', listener: URLListener): URLSubscription {
         if (type !== 'url') {

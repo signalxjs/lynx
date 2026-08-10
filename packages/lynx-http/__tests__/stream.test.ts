@@ -12,7 +12,10 @@ const bridge = {
     isModuleAvailable: vi.fn(() => true),
 };
 
-vi.mock('@sigx/lynx-core', () => ({
+// Real `subscribeNative` / `isNativeEventsAvailable` (C7); only the bridge and
+// the logger are faked.
+vi.mock('@sigx/lynx-core', async () => ({
+    ...(await vi.importActual<Record<string, unknown>>('@sigx/lynx-core')),
     callAsync: (...args: unknown[]) => bridge.callAsync(...(args as [])),
     guardModule: (...args: unknown[]) => bridge.guardModule(...(args as [])),
     isModuleAvailable: (...args: unknown[]) => bridge.isModuleAvailable(...(args as [])),

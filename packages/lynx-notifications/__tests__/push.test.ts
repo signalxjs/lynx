@@ -1,31 +1,27 @@
 /**
- * Unit tests for the push listener shim. Mocks `@sigx/lynx-core` and stubs
+ * Unit tests for the push listener subscriptions. Stubs
  * `lynx.getJSModule('GlobalEventEmitter')` so we drive native event delivery
- * in-process. Real APNs/FCM round-trip is exercised on-device.
+ * in-process through the real `subscribeNative` from `@sigx/lynx-core` — the
+ * shim under test is core's now (C7), and mocking it away would test nothing.
+ * Real APNs/FCM round-trip is exercised on-device.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-
-const bridge = {
-    callAsync: vi.fn(async (..._args: unknown[]) => undefined),
-    guardModule: vi.fn(),
-    isModuleAvailable: vi.fn(() => true),
-};
-
-vi.mock('@sigx/lynx-core', () => ({
-    callAsync: (...args: unknown[]) => bridge.callAsync(...(args as [])),
-    guardModule: (...args: unknown[]) => bridge.guardModule(...(args as [])),
-    isModuleAvailable: (...args: unknown[]) => bridge.isModuleAvailable(...(args as [])),
-}));
 
 type Listener = (...a: unknown[]) => void;
 const emitter = {
     listeners: new Map<string, Set<Listener>>(),
+    /** Every `removeListener(channel, …)` call that reached the emitter. */
+    removeCalls: [] as string[],
     addListener(name: string, fn: Listener) {
         if (!this.listeners.has(name)) this.listeners.set(name, new Set());
         this.listeners.get(name)!.add(fn);
     },
     removeListener(name: string, fn: Listener) {
+        this.removeCalls.push(name);
         this.listeners.get(name)?.delete(fn);
+    },
+    count(name: string) {
+        return this.listeners.get(name)?.size ?? 0;
     },
     fire(name: string, ...args: unknown[]) {
         for (const fn of this.listeners.get(name) ?? []) fn(...args);
@@ -49,12 +45,114 @@ const TOKEN_ERR = '__sigxPushTokenError';
 const MSG = '__sigxPushMessage';
 const RESP = '__sigxNotificationResponse';
 
+const lynxGlobal = globalThis as unknown as { lynx: unknown };
+const NATIVE_LYNX = lynxGlobal.lynx;
+
 beforeEach(() => {
-    bridge.callAsync.mockClear();
+    emitter.removeCalls.length = 0;
 });
 
 afterEach(() => {
     emitter.listeners.clear();
+    lynxGlobal.lynx = NATIVE_LYNX;
+});
+
+/** Every public subscription, with a payload its channel actually carries. */
+const SUBSCRIPTIONS: Array<{
+    label: string;
+    channel: string;
+    add: (cb: (event: unknown) => void) => () => void;
+    payload: Record<string, unknown>;
+}> = [
+    {
+        label: 'addTokenListener',
+        channel: TOKEN,
+        add: addTokenListener,
+        payload: { token: 'abc', platform: 'apns' },
+    },
+    {
+        label: 'addTokenErrorListener',
+        channel: TOKEN_ERR,
+        add: addTokenErrorListener,
+        payload: { error: 'no aps-environment' },
+    },
+    {
+        label: 'addPushListener',
+        channel: MSG,
+        add: addPushListener,
+        payload: { data: { x: '1' }, foreground: true },
+    },
+    {
+        label: 'addNotificationResponseListener',
+        channel: RESP,
+        add: addNotificationResponseListener,
+        payload: { notificationId: 'n-1', data: {}, actionIdentifier: 'default' },
+    },
+];
+
+describe('disposers are idempotent (C7)', () => {
+    it.each(SUBSCRIPTIONS)(
+        '$label: a second call is a no-op and other listeners keep receiving',
+        ({ channel, add, payload }) => {
+            // An effect cleanup firing twice (unmount plus an explicit
+            // teardown) is ordinary. The pre-migration disposer was a bare
+            // `() => e.removeListener(channel, wrapped)`, so every extra call
+            // hit the emitter again — the same shape as the metering
+            // reference-count bug that switched native metering off under a
+            // still-subscribed listener in @sigx/lynx-audio.
+            const seen: unknown[] = [];
+            const offA = add(() => {});
+            add((e) => seen.push(e));
+            expect(emitter.count(channel)).toBe(2);
+
+            offA();
+            offA();
+            offA();
+
+            // The property under test is what *this code* does, not what the
+            // fake tolerates: exactly one removeListener reaches the emitter.
+            expect(emitter.removeCalls).toEqual([channel]);
+            expect(emitter.count(channel)).toBe(1);
+
+            emitter.fire(channel, payload);
+            expect(seen).toHaveLength(1);
+        },
+    );
+
+    it('does not throw out of an effect cleanup on a host that rejects unknown removals', () => {
+        // Nothing guarantees `removeListener` is harmless for a handler the
+        // host no longer knows about; this models a host that says so. The old
+        // disposer had no guard at all, so the second call threw straight into
+        // the caller's cleanup — where it strands every teardown queued behind
+        // it.
+        const listeners = new Map<string, Set<Listener>>();
+        const strict = {
+            addListener(name: string, fn: Listener) {
+                if (!listeners.has(name)) listeners.set(name, new Set());
+                listeners.get(name)!.add(fn);
+            },
+            removeListener(name: string, fn: Listener) {
+                if (!listeners.get(name)?.delete(fn)) {
+                    throw new Error(`no such listener on ${name}`);
+                }
+            },
+        };
+        lynxGlobal.lynx = {
+            getJSModule: (n: string) => (n === 'GlobalEventEmitter' ? strict : undefined),
+        };
+
+        const seen: unknown[] = [];
+        const off = addTokenListener(() => {});
+        addTokenListener((e) => seen.push(e));
+
+        expect(() => {
+            off();
+            off();
+        }).not.toThrow();
+
+        for (const fn of listeners.get(TOKEN) ?? []) fn({ token: 'abc', platform: 'apns' });
+        expect(seen).toEqual([{ token: 'abc', platform: 'apns' }]);
+    });
 });
 
 describe('addTokenListener', () => {
@@ -94,6 +192,18 @@ describe('addTokenListener', () => {
         expect(seen).toEqual([]);
     });
 
+    it('drops a payload whose token did not survive the bridge', () => {
+        // The #342 signature. A listener typed `(e: PushTokenEvent) => void`
+        // would otherwise POST `undefined` to the app's backend as a device
+        // token — worse than never firing.
+        const seen: unknown[] = [];
+        addTokenListener((e) => seen.push(e));
+        emitter.fire(TOKEN, JSON.stringify({ platform: 'apns' }));
+        emitter.fire(TOKEN, JSON.stringify({ token: 'abc' }));
+        emitter.fire(TOKEN, JSON.stringify([{ token: 'abc', platform: 'apns' }]));
+        expect(seen).toEqual([]);
+    });
+
     it('swallows listener errors so one bad handler does not break others', () => {
         const seen: unknown[] = [];
         const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
@@ -115,6 +225,14 @@ describe('addTokenErrorListener', () => {
         emitter.fire(TOKEN_ERR, { error: 'no aps-environment' });
         expect(tokens).toEqual([]);
         expect(errors).toEqual([{ error: 'no aps-environment' }]);
+    });
+
+    it('drops a payload with no error string', () => {
+        const seen: unknown[] = [];
+        addTokenErrorListener((e) => seen.push(e));
+        emitter.fire(TOKEN_ERR, JSON.stringify({ code: 3 }));
+        emitter.fire(TOKEN_ERR, 'plain string, not JSON');
+        expect(seen).toEqual([]);
     });
 });
 
@@ -151,6 +269,18 @@ describe('addPushListener', () => {
         addPushListener((e) => seen.push(e));
         emitter.fire(MSG, JSON.stringify({ data: { route: '/x' }, foreground: false }));
         expect(seen).toEqual([{ data: { route: '/x' }, foreground: false }]);
+    });
+
+    it('drops a message that lost its data map or foreground flag', () => {
+        // Both fields are required on `RemoteMessage` and both platforms
+        // always send them; a payload missing one is the #342 shape, and
+        // `msg.foreground` reading `undefined` silently routes a foreground
+        // push down the background path.
+        const seen: unknown[] = [];
+        addPushListener((e) => seen.push(e));
+        emitter.fire(MSG, JSON.stringify({ title: 'Hi', foreground: true }));
+        emitter.fire(MSG, JSON.stringify({ data: { x: '1' } }));
+        expect(seen).toEqual([]);
     });
 
     it('stops delivering after unsubscribe', () => {

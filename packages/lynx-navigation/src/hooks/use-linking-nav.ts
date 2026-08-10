@@ -100,8 +100,8 @@ export function useLinkingNav(opts: UseLinkingNavOptions = {}): void {
         if (initial) {
             dispatch(initial, opts.replaceInitial === false ? 'push' : 'replace');
         }
-        const sub = Linking.addEventListener('url', (e) => dispatch(e.url, 'push'));
-        return () => sub.remove();
+        // C7: a plain `() => void`, directly usable as the effect cleanup.
+        return Linking.addEventListener('url', (e) => dispatch(e.url, 'push'));
     });
 }
 

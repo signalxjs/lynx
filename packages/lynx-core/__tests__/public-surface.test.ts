@@ -43,6 +43,7 @@ describe('public runtime exports', () => {
                 'isModuleAvailable',
                 // shared module contract (C4, C7, C10)
                 'SigxError',
+                'isNativeEventsAvailable',
                 'isSigxError',
                 'subscribeNative',
                 'unwrapNative',

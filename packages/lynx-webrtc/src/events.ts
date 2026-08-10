@@ -2,9 +2,16 @@
  * Shared event plumbing for the WebRTC module.
  *
  * Native pushes a single `__sigxWebRTCEvent` global event carrying
- * `{ id, type, ... }`; one listener registered on lynx's
- * `GlobalEventEmitter` demultiplexes by numeric id to the entity
+ * `{ id, type, ... }`; one listener, registered through core's
+ * `subscribeNative` (C7), demultiplexes by numeric id to the entity
  * (peer connection, data channel, or track) that owns it.
+ *
+ * The subscription used to be a local `GlobalEventEmitter` shim. It isn't
+ * because the shim missed the case that matters for a demux: a dispatcher that
+ * throws — a corrupt base64 body, a payload field of the wrong type — escaped
+ * into the emitter's dispatch loop and took every *other* listener on the
+ * channel with it. `subscribeNative` isolates the callback and drops malformed
+ * payloads via {@link isNativeEvent}.
  *
  * Id scheme: JS-created entities (peers, local tracks, local data
  * channels) draw positive ids from `allocId()`. Native-created entities
@@ -12,28 +19,13 @@
  * the native side — globally unique with zero coordination, so the demux
  * stays a single map.
  */
+import { isNativeEventsAvailable, subscribeNative } from '@sigx/lynx-core';
 import { WebRTCError, log } from './errors.js';
 
 const MODULE = 'WebRTC';
 const EVENT_NAME = '__sigxWebRTCEvent';
 
 export { MODULE, EVENT_NAME };
-
-/** Bridge to lynx's `GlobalEventEmitter` for native → JS events. */
-interface GlobalEventEmitterLike {
-    addListener: (name: string, fn: (...a: unknown[]) => void) => void;
-    removeListener: (name: string, fn: (...a: unknown[]) => void) => void;
-}
-
-interface LynxLike {
-    getJSModule?: (name: string) => GlobalEventEmitterLike | undefined;
-}
-
-declare const lynx: unknown | undefined;
-
-function lynxObj(): LynxLike | undefined {
-    return typeof lynx !== 'undefined' ? (lynx as unknown as LynxLike) : undefined;
-}
 
 /** Wire payload pushed by the native side. */
 export interface NativeEvent {
@@ -85,8 +77,7 @@ type Dispatcher = (evt: NativeEvent) => void;
 
 const dispatchers = new Map<number, Dispatcher>();
 let nextId = 1;
-let subscribed = false;
-let cachedEmitter: GlobalEventEmitterLike | null = null;
+let unsubscribe: (() => void) | null = null;
 
 /** Allocate a JS-side (positive) entity id. */
 export function allocId(): number {
@@ -101,26 +92,55 @@ export function unregisterDispatcher(id: number): void {
     dispatchers.delete(id);
 }
 
-export function ensureSubscribed(): void {
-    if (subscribed) return;
-    const emitter = lynxObj()?.getJSModule?.('GlobalEventEmitter');
-    if (!emitter) return; // web/SSR/test — events simply won't arrive
-    cachedEmitter = emitter;
-    emitter.addListener(EVENT_NAME, (raw: unknown) => {
-        const evt: NativeEvent | undefined =
-            typeof raw === 'string' ? safeParse(raw) : (raw as NativeEvent | undefined);
-        if (!evt || typeof evt.id !== 'number') return;
-        dispatchers.get(evt.id)?.(evt);
-    });
-    subscribed = true;
+/**
+ * Payload guard for the demux channel.
+ *
+ * `id` is how an event finds its entity and `type` is the switch every
+ * dispatcher runs on, so a payload missing either can't be acted on — dropping
+ * it here keeps the guard in one place instead of re-checking in three
+ * `_dispatch` implementations. (Native has drifted before; a dispatcher typed
+ * `(evt: NativeEvent)` should be able to trust its argument.)
+ */
+function isNativeEvent(raw: unknown): raw is NativeEvent {
+    if (typeof raw !== 'object' || raw === null) return false;
+    const e = raw as Partial<NativeEvent>;
+    return typeof e.id === 'number' && typeof e.type === 'string';
 }
 
-function safeParse(s: string): NativeEvent | undefined {
-    try {
-        return JSON.parse(s);
-    } catch {
-        return undefined;
-    }
+/**
+ * @internal The package's single native subscription (C7) — core's
+ * `subscribeNative` handles the emitter lookup, the JSON-string payload form,
+ * off-device absence, and isolating a listener that throws.
+ *
+ * @returns unsubscribe; calling it more than once is a no-op.
+ */
+export function subscribeToNativeEvents(cb: (evt: NativeEvent) => void): () => void {
+    return subscribeNative<NativeEvent>(EVENT_NAME, cb, {
+        validate: isNativeEvent,
+        namespace: 'lynx-webrtc',
+    });
+}
+
+/**
+ * Attach the demux listener once, on the first peer/track created.
+ *
+ * One listener serves the whole module for the lifetime of the JS context —
+ * entities come and go from `dispatchers`, the subscription does not.
+ *
+ * The latch is keyed on `isNativeEventsAvailable()`, not on having called
+ * `subscribeNative` once. A peer can be constructed before the Lynx runtime
+ * has injected its `GlobalEventEmitter`, and `subscribeNative` is a silent
+ * no-op then, returning a disposer indistinguishable from a real one — so
+ * latching on the call itself would deafen the whole module for the rest of
+ * the process. Off-device (web preview, SSR, tests) the probe stays false and
+ * nothing is wired, which is the same outcome by the intended route.
+ */
+export function ensureSubscribed(): void {
+    if (unsubscribe) return;
+    if (!isNativeEventsAvailable()) return;
+    unsubscribe = subscribeToNativeEvents(evt => {
+        dispatchers.get(evt.id)?.(evt);
+    });
 }
 
 /**
@@ -214,11 +234,13 @@ export const __internal = {
     reset() {
         dispatchers.clear();
         nextId = 1;
-        subscribed = false;
-        cachedEmitter = null;
+        // Actually detach: dropping the flag without unsubscribing used to
+        // leave a dead listener on the emitter for every reset.
+        unsubscribe?.();
+        unsubscribe = null;
     },
-    get cachedEmitter(): GlobalEventEmitterLike | null {
-        return cachedEmitter;
+    get subscribed(): boolean {
+        return unsubscribe !== null;
     },
     get dispatcherCount(): number {
         return dispatchers.size;

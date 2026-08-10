@@ -14,34 +14,11 @@ import {
 } from '@sigx/lynx';
 import { useSafeAreaContext } from './injectable.js';
 import { readGlobalSafeArea } from './globals.js';
+import { normaliseInsets, subscribeSafeArea } from './events.js';
 import type { EdgeInsets, SafeAreaContextValue } from './types.js';
 
-/**
- * The native publisher (iOS `SafeAreaPublisher.swift`, Android
- * `SafeAreaPublisher.kt`) emits this event via `GlobalEventEmitter` every
- * time it republishes insets. Payload mirrors the same `RawSafeAreaProps`
- * shape stored under `lynx.__globalProps[GLOBAL_PROPS_KEY]`.
- *
- * We use a custom event rather than upstream's `onGlobalPropsChanged` so
- * the contract stays in our hands (upstream's event-name conventions have
- * churned across Lynx releases).
- */
-export const SAFE_AREA_EVENT = 'safeAreaChanged';
-
-interface GlobalEventEmitterLike {
-  addListener: (name: string, fn: (...a: unknown[]) => void) => void;
-  removeListener: (name: string, fn: (...a: unknown[]) => void) => void;
-}
-
-interface LynxLike {
-  getJSModule?: (name: string) => GlobalEventEmitterLike | undefined;
-}
-
-// Closure-injected identifier provided by
-// `@lynx-js/runtime-wrapper-webpack-plugin`. Same pattern as
-// `lynx-runtime/src/shims.d.ts`. Declared locally so this package doesn't
-// have to depend on lynx-runtime-internal just for the ambient.
-declare const lynx: unknown | undefined;
+// The channel name is public API and has always been importable from here.
+export { SAFE_AREA_EVENT } from './events.js';
 
 export type SafeAreaProviderProps =
   & Define.Prop<'class', string, false>
@@ -61,7 +38,7 @@ export type SafeAreaProviderProps =
  *    - a derived BG `computed<EdgeInsets>` for re-render-driven consumers
  *      (`useSafeAreaInsets()`).
  *
- * 3. **Subscribe to live updates** via `GlobalEventEmitter`. The native
+ * 3. **Subscribe to live updates** via core's `subscribeNative` (C7). The native
  *    publisher emits `'safeAreaChanged'` after each `updateGlobalProps`,
  *    carrying the new inset map. We dispatch a `runOnMainThread` worklet
  *    that writes the per-edge SVs on MT — the SharedValue diff/publish
@@ -128,34 +105,31 @@ export const SafeAreaProvider = component<SafeAreaProviderProps>(({ props, slots
   // via the published CSS variables. Not used internally for any MT writes.
   const elRef = useMainThreadRef<MainThread.Element | null>(null);
 
-  let listener: ((...a: unknown[]) => void) | undefined;
-  let emitter: GlobalEventEmitterLike | undefined;
+  // Idempotent unsubscribe (C7), or `undefined` before mount. `subscribeNative`
+  // owns the emitter lookup, the JSON-string payload parse, and the
+  // listener-throws guard — all three used to be missing or hand-rolled here.
+  let dispose: (() => void) | undefined;
 
   onMounted(() => {
-    // `lynx` is a closure-injected identifier (provided by
-    // `@lynx-js/runtime-wrapper-webpack-plugin`'s `__init_card_bundle__`
-    // wrapper), NOT a property of `globalThis`. Access as a bare identifier
-    // with `typeof` guard — same pattern as `lynx-runtime/src/bg-bridge.ts`.
-    const lynxObj: LynxLike | undefined = typeof lynx !== 'undefined'
-      ? (lynx as unknown as LynxLike)
-      : undefined;
-
-    emitter = lynxObj?.getJSModule?.('GlobalEventEmitter');
-    if (!emitter) return;
-    listener = (raw: unknown) => {
+    dispose = subscribeSafeArea((raw) => {
       const next = normaliseInsets(raw, insets.value);
+      // `$set` runs every BG consumer of `insets` SYNCHRONOUSLY. A throwing
+      // consumer effect used to unwind straight out of this listener into the
+      // native GlobalEventEmitter dispatch loop, silently killing
+      // `safeAreaChanged` delivery for every other listener on the channel.
+      // `subscribeSafeArea` contains it and logs under our namespace (C10).
       extras.$set({
         keyboard: next.keyboard,
         statusBar: next.statusBar,
         navigationBar: next.navigationBar,
       });
       void writeOnMT(next.top, next.right, next.bottom, next.left);
-    };
-    emitter.addListener(SAFE_AREA_EVENT, listener);
+    });
   });
 
   onUnmounted(() => {
-    if (emitter && listener) emitter.removeListener(SAFE_AREA_EVENT, listener);
+    dispose?.();
+    dispose = undefined;
   });
 
   return () => (
@@ -173,24 +147,6 @@ interface Extras {
   keyboard: number;
   statusBar: number;
   navigationBar: number;
-}
-
-function normaliseInsets(raw: unknown, fallback: EdgeInsets): EdgeInsets {
-  if (!raw || typeof raw !== 'object') return fallback;
-  const o = raw as Record<string, unknown>;
-  return {
-    top: numOr(o['top'], fallback.top),
-    right: numOr(o['right'], fallback.right),
-    bottom: numOr(o['bottom'], fallback.bottom),
-    left: numOr(o['left'], fallback.left),
-    keyboard: numOr(o['keyboard'], fallback.keyboard),
-    statusBar: numOr(o['statusBar'], fallback.statusBar),
-    navigationBar: numOr(o['navigationBar'], fallback.navigationBar),
-  };
-}
-
-function numOr(v: unknown, fallback: number): number {
-  return typeof v === 'number' && Number.isFinite(v) ? v : fallback;
 }
 
 function rootStyle(

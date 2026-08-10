@@ -1,28 +1,17 @@
-import { callAsync, createLogger } from '@sigx/lynx-core';
+import { callAsync } from '@sigx/lynx-core';
+
+import { subscribeRawNative } from './native-event.js';
 
 const MODULE = 'Linking';
-const PKG = 'lynx-linking';
 const BACK_EVENT = 'hardwareBackPress';
-const log = createLogger(PKG);
 
-export interface BackHandlerSubscription {
-    remove(): void;
-}
-
-interface GlobalEventEmitterLike {
-    addListener: (name: string, fn: (...a: unknown[]) => void) => void;
-    removeListener: (name: string, fn: (...a: unknown[]) => void) => void;
-}
-
-interface LynxLike {
-    getJSModule?: (name: string) => GlobalEventEmitterLike | undefined;
-}
-
-declare const lynx: unknown | undefined;
-
-function lynxObj(): LynxLike | undefined {
-    return typeof lynx !== 'undefined' ? (lynx as unknown as LynxLike) : undefined;
-}
+/**
+ * Unsubscribe function returned by `BackHandler.addEventListener` (C7).
+ *
+ * Calling it unsubscribes; calling it twice is a no-op. Was an RN-style
+ * `{ remove(): void }` object through 0.27.0 — see the README.
+ */
+export type BackHandlerSubscription = () => void;
 
 /**
  * Hardware back button + app-level back UX.
@@ -41,7 +30,7 @@ function lynxObj(): LynxLike | undefined {
  * ```ts
  * import { BackHandler } from '@sigx/lynx-linking';
  *
- * const sub = BackHandler.addEventListener(() => {
+ * const off = BackHandler.addEventListener(() => {
  *     if (router.canGoBack) { router.pop(); return true; }
  *     return false; // not handled — let exitApp escalation happen
  * });
@@ -50,7 +39,7 @@ function lynxObj(): LynxLike | undefined {
  * BackHandler.exitApp();
  *
  * // Cleanup on unmount:
- * sub.remove();
+ * off();
  * ```
  */
 export const BackHandler = {
@@ -59,29 +48,16 @@ export const BackHandler = {
      * indicate the press was handled (so subsequent listeners can skip it).
      * Currently the return value is informational only — native always treats
      * the press as consumed when at least one subscriber is registered.
+     *
+     * @returns unsubscribe; calling it twice is a no-op (C7).
      */
     addEventListener(listener: () => boolean | void): BackHandlerSubscription {
-        const emitter = lynxObj()?.getJSModule?.('GlobalEventEmitter');
-        if (!emitter) {
-            // No emitter available (web/SSR/test) — return a no-op subscription
-            // so callers don't need to branch.
-            return { remove() {} };
-        }
-        const wrapped = () => {
-            try {
-                listener();
-            } catch (e) {
-                // Don't let a JS handler crash propagate back through the
-                // emitter and break sibling subscribers. Swallowing it silently
-                // would hide a broken back button, so it goes to the leveled
-                // logger, which streams to the `sigx dev` terminal (C10).
-                log.warn('back-press listener threw', e);
-            }
-        };
-        emitter.addListener(BACK_EVENT, wrapped);
-        return {
-            remove: () => emitter.removeListener(BACK_EVENT, wrapped),
-        };
+        // The press carries no payload — `subscribeRawNative` hands the
+        // listener whatever native sent (nothing) and contains a throw so a
+        // broken handler can't cost sibling subscribers their event.
+        return subscribeRawNative(BACK_EVENT, () => {
+            listener();
+        });
     },
 
     /**

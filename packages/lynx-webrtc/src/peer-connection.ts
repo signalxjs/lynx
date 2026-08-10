@@ -101,11 +101,15 @@ export class RTCPeerConnection extends RTCEventTargetBase {
             .then(unwrapFor('createPeer'))
             .catch(err => {
                 log.warn('createPeer failed', err);
-                this._dispatch({ id: this._id, type: 'connectionstatechange', state: 'failed' });
+                // A peer the app already closed stays closed: `close()` is a
+                // teardown, and re-firing connectionstatechange 'failed' on it
+                // restarts the reconnect logic of an app that has hung up.
+                if (this._signalingState === 'closed') return;
                 // The peer never existed natively — release the dispatcher slot
                 // and gate further calls, so an abandoned instance can't leak.
                 this._signalingState = 'closed';
                 unregisterDispatcher(this._id);
+                this._dispatch({ id: this._id, type: 'connectionstatechange', state: 'failed' });
             });
     }
 
@@ -281,7 +285,15 @@ export class RTCPeerConnection extends RTCEventTargetBase {
     /** Track a child channel, dropping it from the registry once it closes. */
     private _trackChannel(dc: RTCDataChannel): void {
         this._dataChannels.add(dc);
-        dc.addEventListener('close', () => this._dataChannels.delete(dc));
+        const onClose = () => {
+            this._dataChannels.delete(dc);
+            // The listener goes with the channel. It closes over this peer, so
+            // a closed channel the app still holds (`peer.ondatachannel` hands
+            // one out) would otherwise pin the connection and every remote
+            // track it owns for the lifetime of that reference.
+            dc.removeEventListener('close', onClose);
+        };
+        dc.addEventListener('close', onClose);
     }
 
     /** @internal — called by the shared global-event subscriber. */

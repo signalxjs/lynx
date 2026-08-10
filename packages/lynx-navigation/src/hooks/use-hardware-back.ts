@@ -55,7 +55,7 @@ export function wireHardwareBack(nav: Nav): () => void {
     if (wiredRoots.has(root)) return () => {};
     wiredRoots.add(root);
 
-    const sub = BackHandler.addEventListener(() => {
+    const dispose = BackHandler.addEventListener(() => {
         // Walk down to the deepest focused nav. Per-tab `<Stack>`s register
         // themselves via `parent._children.add(nav)`; only one child per
         // level is `isLocallyFocused` at a time, so the traversal is
@@ -99,7 +99,10 @@ export function wireHardwareBack(nav: Nav): () => void {
 
     return () => {
         wiredRoots.delete(root);
-        sub.remove();
+        // C7: a plain `() => void`. This used to be `sub.remove()` — linking was
+        // the one package handing back `{ remove() }`, which is why this file
+        // had to know which shape it was getting.
+        dispose();
     };
 }
 
