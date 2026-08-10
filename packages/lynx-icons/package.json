@@ -42,7 +42,8 @@
     "scripts": {
         "build": "node ../../scripts/clean.mjs dist && tsgo && node ../../scripts/copy-assets.mjs src/stubs dist/stubs",
         "dev": "tsgo --watch",
-        "clean": "node ../../scripts/clean.mjs dist .turbo"
+        "clean": "node ../../scripts/clean.mjs dist .turbo",
+        "test": "vitest run"
     },
     "peerDependencies": {
         "@sigx/lynx": "workspace:^"

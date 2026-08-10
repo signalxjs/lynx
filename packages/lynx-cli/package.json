@@ -26,7 +26,8 @@
     "scripts": {
         "build": "node ../../scripts/clean.mjs dist && tsgo",
         "dev": "tsgo --watch",
-        "clean": "node ../../scripts/clean.mjs dist .turbo"
+        "clean": "node ../../scripts/clean.mjs dist .turbo",
+        "test": "vitest run"
     },
     "dependencies": {
         "@lynx-js/web-core": "catalog:",
