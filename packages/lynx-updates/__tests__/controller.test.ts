@@ -4,6 +4,7 @@
  * module — the same seams the device uses.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import * as core from '@sigx/lynx-core';
 import { Updates } from '../src/updates';
 import { __resetForTests as resetController } from '../src/controller';
 import { readRollbackReason } from '../src/native';
@@ -431,6 +432,23 @@ describe('rollback surfacing', () => {
         });
         expect(rolledBack?.fromUpdateId).toBe('failed99');
         expect(rolledBack?.reason).toBe('unknown');
+    });
+
+    it('logs the { error } envelope instead of degrading silently (C4)', async () => {
+        // The shape this repo's bridge actually uses for a native failure: the
+        // callback RESOLVES with `{ error }` rather than rejecting. Without
+        // normalising it, the catch never runs — the read degrades to
+        // 'unknown' with nothing logged, which is indistinguishable from a
+        // healthy launch that simply never rolled back.
+        const records: string[] = [];
+        core.setLogLevel('trace');
+        core.addTransport((r) => records.push(`${r.namespace}|${r.msg}`));
+
+        stubNative({ getState: (cb: (r: unknown) => void) => cb({ error: 'disk unreadable' }) });
+        await expect(readRollbackReason()).resolves.toBe('unknown');
+
+        expect(records.some((r) => r.startsWith('updates|getState failed:'))).toBe(true);
+        core.clearTransports();
     });
 
     it('reports unknown when the native module is absent entirely', async () => {

@@ -146,6 +146,11 @@ export async function readRollbackReason(): Promise<UpdateRollbackReason> {
     if (!nativeAvailable()) return 'unknown';
     try {
         const raw = await callAsync<{ lastRollbackReason?: unknown } | null>(MODULE, 'getState');
+        // C4: a native failure arrives on the RESOLVED callback as
+        // `{ error }`, not as a rejection — so without this the catch below
+        // never runs and the failure degrades to 'unknown' silently. Rethrown
+        // here purely so the one handler logs both shapes.
+        throwIfNativeError(raw, 'native-error');
         if (!raw || typeof raw !== 'object') return 'unknown';
         const reason = raw.lastRollbackReason;
         return reason === 'crash' || reason === 'corrupt' ? reason : 'unknown';
