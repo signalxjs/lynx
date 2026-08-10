@@ -18,6 +18,14 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
   The useful ones are the degradations nobody had written down: `@sigx/lynx-appearance` reads the color scheme on web with no shim at all (the page bridge publishes `globalProps.appearance` from `matchMedia`) while its system-bar setters resolve `{ ok: false, reason: 'unsupported' }`; `@sigx/lynx-datetime-picker` resolves `{ cancelled: true }` **without ever showing UI**, which is indistinguishable from the user cancelling; `@sigx/lynx-camera` points at `@sigx/lynx-image-picker`, whose web path reaches the camera through the browser's own file chooser; and `scaleWithText` on `@sigx/lynx-icons` is inert on web because no web publisher writes `lynx.__globalProps.fontScale`.
 
+### Added
+
+- **Public-surface freeze tests for 54 of the 57 packages** (#857). Rubric item **D7.1** asks each package to lock its exported API so an accidental rename or removal breaks CI instead of reaching consumers — 6 packages had one. 48 more now do (`@sigx/lynx-zero`, `@sigx/lynx-daisyui` and `@sigx/lynx-heroui` are deliberately left out while the design-system layering in #927 is in flight — freezing a surface that is still moving would only churn), modelled on `packages/lynx-navigation/__tests__/public-surface.test.ts` and the compact `packages/lynx-clipboard` variant: a runtime `Object.keys(mod).sort()` snapshot, a second snapshot of the namespace object for C1 packages, and `expectTypeOf` pins on the shapes `CONVENTIONS.md` constrains — `isAvailable` staying synchronous (C2), subscriptions returning `() => void` (C7), permission methods returning `PermissionResponse` (C6), the `SV`/`MT` hook suffixes (C8), `cancelled` unions (C5). The 13 packages shipping a `.web.ts` also assert that both implementations expose the same surface (**D7.1b**) — the plugin swaps them by `extensionAlias`, so a method added to one and not the other is a runtime failure on whichever target missed it, invisible to a typecheck. +237 tests.
+
+  The tests freeze today's surface; they do not fix it. Where a package already violates a convention — `lynx-http`'s `isHttpAvailable` instead of `isAvailable`, `lynx-notifications` exporting its four push subscriptions both bare and on the namespace, `lynx-sheet` and `@sigx/lynx` publishing internals — the current shape is pinned as-is and recorded on the owning module-review issue.
+
+- **`test` script on the 34 packages that lacked one** (**D7.2**), matching the 23 that already had `"test": "vitest run"`. Every package now has at least one test to run.
+
 ## [0.27.0] - 2026-08-10
 
 ### Changed
