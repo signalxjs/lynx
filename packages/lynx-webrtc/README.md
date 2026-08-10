@@ -8,6 +8,10 @@ builds). Code written against browser WebRTC ports nearly unchanged.
 > Not available on the web runtime (the background thread has no
 > `RTCPeerConnection`) — gate with `isWebRTCAvailable()`.
 
+## 📚 Documentation
+
+Full guides, API reference and live examples → **[https://sigx.dev/lynx/modules/webrtc/overview/](https://sigx.dev/lynx/modules/webrtc/overview/)**
+
 ## Install
 
 ```sh
@@ -118,6 +122,17 @@ isWebRTCAvailable();                          // false on web / when not linked
   `RTCIceCandidate` constructors (init dictionaries are accepted everywhere).
 - `addTrack` returns a minimal sender — no `replaceTrack` / `getParameters`.
 - No `getStats()`, transceivers, video tracks, or renderer views in v1.
+
+## Web
+
+**Not supported on web.** This package ships no `.web.ts` shim and
+`@sigx/lynx-web-host` has no `sigx.webrtc.*` handler, so the `WebRTC` module is
+not registered in a `sigx run:web` build: `isWebRTCAvailable()` returns `false`,
+and `mediaDevices.getUserMedia()` / `new RTCPeerConnection()` throw the
+"module not available" error — gate on `isWebRTCAvailable()` before touching
+either. The browser's own `RTCPeerConnection` is a page API while the app's
+background code runs in a Web Worker, so a web implementation would have to
+drive it over the `@sigx/lynx-web-host` bridge; nothing does that today.
 
 ## Platform notes
 
