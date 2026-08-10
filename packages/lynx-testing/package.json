@@ -1,6 +1,6 @@
 {
     "name": "@sigx/lynx-testing",
-    "version": "0.26.0",
+    "version": "0.27.0",
     "description": "Testing utilities for SignalX Lynx components - render, fireEvent, queries",
     "type": "module",
     "sideEffects": [
