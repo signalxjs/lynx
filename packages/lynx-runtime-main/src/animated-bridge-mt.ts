@@ -185,7 +185,7 @@ function warnOnDuplicateTransformFn(elementWvid: number, existing: string, incom
     if (have.has(m[1]!)) {
       warnedDupTransform.add(elementWvid);
       console.warn(
-        `[sigx] Two animated-style bindings on one element both emit ` +
+        `[sigx-mt] Two animated-style bindings on one element both emit ` +
         `\`${m[1]}(…)\` — they CONCATENATE, so the values SUM. If you meant ` +
         `"whichever is larger/one-of", combine the SharedValues with ` +
         `useDerivedValue([...], 'max') and bind the single result instead.`,

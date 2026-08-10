@@ -49,6 +49,7 @@ describe('public runtime exports', () => {
                 'setStatusBarBackgroundColor',
                 'setNavigationBarStyle',
                 'setSystemBarsStyle',
+                'getColorScheme',
                 'isAvailable',
             ].sort(),
         );
@@ -58,9 +59,10 @@ describe('public runtime exports', () => {
 describe('public types', () => {
     it('keeps isAvailable synchronous and boolean (C2)', () => {
         // The convention most worth freezing: `Biometric.isAvailable()`
-        // drifted into returning a Promise, which makes `if (isAvailable())`
-        // silently always true. This package is a bare root export rather
-        // than a namespace method, but the signature contract is the same.
+        // drifted into returning a Promise, which makes
+        // `if (isAvailable())` silently always true. The name is
+        // capability-qualified because this package exports free functions and
+        // a bare `isAvailable` collides across barrels.
         expectTypeOf(appearance.isAvailable).toEqualTypeOf<() => boolean>();
         expectTypeOf(appearance.isAvailable()).not.toEqualTypeOf<Promise<boolean>>();
     });
@@ -97,6 +99,15 @@ describe('public types', () => {
         // 'dark'` narrowing (an exhaustive switch won't be checked). Tightening
         // it is a deliberate surface change — update this line with it.
         expectTypeOf(appearance.useSystemColorScheme().value).toEqualTypeOf<string>();
+    });
+
+    it('pins the native color-scheme read as nullable and async (C12)', () => {
+        // The counterpart to the sync reader: `getColorScheme()` is the one
+        // JS call site for the manifest's `getColorScheme` method, and its
+        // `null` is "module not linked", not "light".
+        expectTypeOf(appearance.getColorScheme).toEqualTypeOf<
+            () => Promise<ColorScheme | null>
+        >();
     });
 
     it('pins the global-props reader as nullable (unknown ≠ light)', () => {

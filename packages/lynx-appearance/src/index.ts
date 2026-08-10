@@ -28,6 +28,7 @@ export {
   setStatusBarBackgroundColor,
   setNavigationBarStyle,
   setSystemBarsStyle,
+  getColorScheme,
   isAvailable,
 } from './setters.js';
 

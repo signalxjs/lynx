@@ -259,7 +259,7 @@ Besides the JS bridge, the package ships a small shared native runtime that the 
 
 - **`SigxOrientation`** (both platforms): the runtime lock behind `Orientation.lock()`. Android sets `Activity.requestedOrientation` and restores the manifest-declared value on unlock; iOS holds the mask the host AppDelegate's `supportedInterfaceOrientationsFor` returns (its default is stamped from `signalx.config.ts` by `sigx prebuild`, because implementing that delegate method overrides `Info.plist`).
 
-The package also registers core's own native module, **`SigxCore`**, which backs `DeviceInfo` (`getDeviceInfo` / `getConstants`) and the orientation lock (`lockOrientation` / `unlockOrientation`).
+The package also registers core's own native module, **`SigxCore`**, which backs `DeviceInfo` (`getDeviceInfo`), `AppState` (`getAppState`) and the orientation lock (`lockOrientation` / `unlockOrientation`). Those four are the whole surface — every method the module implements is called from JS and declared in `signalx-module.json` (CONVENTIONS.md C12).
 
 Module authors: don't add a per-package Activity holder or top-presenter helper — use these.
 

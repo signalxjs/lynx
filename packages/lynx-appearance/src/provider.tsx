@@ -9,6 +9,8 @@ import {
 import { subscribeNative } from '@sigx/lynx-core';
 import { useAppearanceContext, type AppearanceContextValue } from './injectable.js';
 import { readGlobalColorScheme } from './globals.js';
+import { getColorScheme } from './setters.js';
+import { log } from './log.js';
 import type { ColorScheme } from './types.js';
 
 /**
@@ -71,25 +73,48 @@ export type AppearanceProviderProps =
  *
  * On platforms where the publisher isn't wired (web preview, tests),
  * `readGlobalColorScheme()` returns `null` and we seed `'light'` as a safe
- * default. Consumers can detect the unwired case via the live-update
- * subscription never firing.
+ * default — then, if the *module* is linked, ask it for the real value rather
+ * than sitting on the seed until the user flips the system setting.
  */
 export const AppearanceProvider = component<AppearanceProviderProps>(({ props, slots }) => {
-  const initial: ColorScheme = readGlobalColorScheme() ?? 'light';
-  const colorScheme = signal<ColorScheme>(initial);
+  const initial: ColorScheme | null = readGlobalColorScheme();
+  const colorScheme = signal<ColorScheme>(initial ?? 'light');
 
   const ctx: AppearanceContextValue = { colorScheme };
   defineProvide(useAppearanceContext, () => ctx);
 
   let dispose: (() => void) | undefined;
+  /** False once unmounted — a late native reply must not touch the signal. */
+  let live = true;
+  /** True once the event stream has spoken; it outranks the cold-start probe. */
+  let published = false;
 
   onMounted(() => {
     dispose = subscribeAppearance((next) => {
+      published = true;
       if (next !== colorScheme.value) colorScheme.value = next;
     });
+
+    // Cold-start recovery. `initial === null` means nothing wrote
+    // `lynx.__globalProps.appearance` — the publisher isn't wired, or hasn't
+    // run yet. `getColorScheme()` resolves `null` when the native module is
+    // absent too (web preview, tests), so this costs one bridge call only on
+    // a host that can actually answer, and nothing at all in the normal path.
+    if (initial === null) {
+      void getColorScheme().then(
+        (scheme) => {
+          if (!live || published || scheme === null) return;
+          if (scheme !== colorScheme.value) colorScheme.value = scheme;
+        },
+        (err: unknown) => {
+          log.warn('cold-start getColorScheme failed; keeping the light seed', err);
+        },
+      );
+    }
   });
 
   onUnmounted(() => {
+    live = false;
     dispose?.();
     dispose = undefined;
   });

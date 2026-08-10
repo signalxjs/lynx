@@ -26,6 +26,7 @@ import {
     nativeDownload,
     nativeMarkReady,
     nativeSetRollbackOptions,
+    readRollbackReason,
 } from './native.js';
 import { StaticManifestProvider } from './provider/static-manifest.js';
 import { emit, store } from './state.js';
@@ -141,7 +142,11 @@ async function bootstrap(): Promise<void> {
         const running = await getCurrentUpdate();
         store.currentlyRunning = running;
         if (running.didRollBack) {
-            emit({ type: 'rolledBack', fromUpdateId: running.rolledBackUpdateId ?? 'unknown' });
+            // Second round-trip, taken only here: the reason lives in the
+            // native update store, not in the currently-running payload.
+            const reason = await readRollbackReason();
+            log.warn(`rolled back update ${running.rolledBackUpdateId ?? 'unknown'} (${reason})`);
+            emit({ type: 'rolledBack', fromUpdateId: running.rolledBackUpdateId ?? 'unknown', reason });
         }
     } catch (err) {
         log.warn('getCurrentUpdate failed:', err);

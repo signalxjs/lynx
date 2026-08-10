@@ -31,6 +31,20 @@ Three modules must evaluate in this order on the MT thread:
 
 `@sigx/lynx-plugin` prepends side-effect imports for these three at the top of every file in the MT bundle, so the order is enforced regardless of which user file the Lynx runtime evaluates first.
 
+## Gotchas
+
+### Diagnostics use `console.*`, not `createLogger` — deliberately
+
+`CONVENTIONS.md` C10 routes package diagnostics through `createLogger('<pkg>')`. This package is the one that opts out, and the reasons are structural rather than stylistic. `__tests__/worklet-logger-capture.test.ts` holds the evidence so the exemption can't rot.
+
+1. **A logger cannot reach a `'main thread'` worklet body.** `createLogger` returns an object of closures over `@sigx/lynx-core`'s module state. The SWC worklet transform does not leave a module-scope reference in place — it rewrites `log.warn(x)` into a `_c` capture (`_c: { log: { warn: log.warn } }`) and the registered body reads `this._c`. `_c` crosses BG → MT as JSON (`@sigx/lynx-runtime`'s `op-queue.ts:133`), and `JSON.stringify` drops function-valued properties, so the capture arrives as `{}`. The first log line in the worklet throws `TypeError: log.warn is not a function` and the rest of the handler never runs — a diagnostic that silently kills the scroll or gesture it was meant to explain.
+
+2. **On the MT there is nothing behind the logger.** The transports that make `createLogger` worth more than `console.*` — `@sigx/lynx-dev-client/install` (the `sigx dev` console streamer) and `@sigx/lynx-observability/install` — are prepended to the **background** layer only (`@sigx/lynx-plugin`'s `entry.ts:747` and `:759`). The main-thread layer's entry list is the user's imports plus the CSS HMR runtime; nothing patches the Lepus console. `log.warn(...)` and `console.warn(...)` land in exactly the same place.
+
+3. **The import isn't free.** `@sigx/lynx-core` publishes no logger subpath — only the barrel — so importing it would pull `@sigx/reactivity` and the whole native bridge into a bundle whose stated job is PAPI bootstrap only.
+
+Every diagnostic here is therefore a bare `console.*` tagged `[sigx-mt]`. To read them, use the platform log (`adb logcat`, Xcode console) — they are not in the `sigx dev` terminal.
+
 ## License
 
 MIT

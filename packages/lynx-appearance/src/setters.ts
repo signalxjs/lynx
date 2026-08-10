@@ -1,5 +1,16 @@
-import { callAsync, isModuleAvailable } from '@sigx/lynx-core';
-import type { SetterResult, SystemBarStyle, SystemBarsStyleInput } from './types.js';
+/**
+ * The `Appearance` native module's JS surface: the system-bar setters plus the
+ * authoritative color-scheme read.
+ *
+ * Every method name is repeated as a string literal at its `callAsync` site on
+ * purpose — `scripts/check-module-manifests.mjs` cross-checks call sites
+ * against `signalx-module.json`, the Swift `methodLookup` and the Kotlin
+ * `@LynxMethod`s textually (C12), and a tidier `call(action, …)` helper would
+ * hide every name from it.
+ */
+import { callAsync, isModuleAvailable, unwrapNative } from '@sigx/lynx-core';
+import { PKG } from './log.js';
+import type { ColorScheme, SetterResult, SystemBarStyle, SystemBarsStyleInput } from './types.js';
 
 const MODULE = 'Appearance';
 
@@ -81,7 +92,47 @@ export async function setSystemBarsStyle(opts: SystemBarsStyleInput): Promise<Se
   return firstFailure ?? { ok: true };
 }
 
-/** Quick check whether the native Appearance module is registered. */
+/**
+ * Whether the native Appearance module is registered in the current build.
+ *
+ * NOTE: this is a **bare** `isAvailable` at package root, which C2 forbids —
+ * it collides with `@sigx/lynx-sqlite`'s under a barrel import. Renaming it to
+ * `isAppearanceAvailable` is a breaking public change and is escalated to the
+ * package's module-review issue (#866) rather than decided in a sweep; the
+ * violation stays recorded in `scripts/api-conventions-baseline.json`.
+ */
 export function isAvailable(): boolean {
   return isModuleAvailable(MODULE);
+}
+
+/**
+ * Ask the native module for the color scheme the OS reports *right now*.
+ *
+ * Prefer {@link readGlobalColorScheme} (synchronous, MT-safe) or
+ * `useSystemColorScheme()` (reactive) — the publisher writes
+ * `lynx.__globalProps.appearance` before MT first paint and pushes every flip
+ * as an `appearanceChanged` event, so the sync read is correct in normal use.
+ * This one exists for the two cases the globalProps snapshot can't serve:
+ *
+ * - the module is linked but nothing has published yet (a host that builds its
+ *   own LynxView without `AppearancePublisher`), so the sync read is `null`;
+ * - the BG thread's `__globalProps` is a load-time snapshot that does not
+ *   follow an in-place OS flip (#990), so code outside the event stream that
+ *   needs today's truth has to ask native.
+ *
+ * Resolves `null` — rather than throwing (C3 opt-out, documented here and in
+ * the README's Gotchas) — when the module isn't registered, matching
+ * `readGlobalColorScheme()`'s "unknown, use your default theme" contract and
+ * keeping the whole package non-throwing off-device. A genuine native failure
+ * still throws `[@sigx/lynx-appearance] getColorScheme failed: …` (C4/C10).
+ */
+export async function getColorScheme(): Promise<ColorScheme | null> {
+  if (!isAvailable()) return null;
+  const raw = await callAsync<{ colorScheme?: string; error?: string } | undefined>(
+    MODULE,
+    'getColorScheme',
+  );
+  const value = unwrapNative(PKG, 'getColorScheme', raw);
+  const scheme = value?.colorScheme;
+  return scheme === 'dark' ? 'dark' : scheme === 'light' ? 'light' : null;
 }

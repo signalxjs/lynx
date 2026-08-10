@@ -132,6 +132,15 @@ describe('public types', () => {
         >();
     });
 
+    it('pins the rollback reason carried by the rolledBack event', () => {
+        // The only JS-visible answer to "why did native revert my update" —
+        // it comes from the native update store (`getState`), and a consumer
+        // reporting crash loops to its error tracker branches on it.
+        expectTypeOf<Extract<UpdatesEvent, { type: 'rolledBack' }>['reason']>()
+            .toEqualTypeOf<updates.UpdateRollbackReason>();
+        expectTypeOf<updates.UpdateRollbackReason>().toEqualTypeOf<'crash' | 'corrupt' | 'unknown'>();
+    });
+
     it('pins the UpdateProvider contract implemented outside this repo', () => {
         // Third-party backends (auth, signed manifests, Expo protocol) live in
         // their own packages, so a change here breaks code CI never sees.

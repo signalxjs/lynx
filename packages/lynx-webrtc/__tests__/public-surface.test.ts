@@ -9,7 +9,8 @@
  * Two layers:
  *  - Runtime: the set of *value* exports is exactly what we expect. The many
  *    type-only exports (`RTCConfiguration`, `RTCSessionDescriptionInit`, the
- *    state unions, …) are erased at runtime and are pinned below instead.
+ *    state unions, the re-exported `PermissionResponse`, …) are erased at
+ *    runtime and are pinned below instead.
  *  - Types: the load-bearing signatures. This package is deliberately shaped
  *    like the browser API, so the W3C names double as the contract — code
  *    ported from the web breaks the moment one of them drifts. On top of that
@@ -21,7 +22,7 @@
  * (D7.1b) to assert.
  */
 import { describe, expect, expectTypeOf, it } from 'vitest';
-import type { PermissionResponse } from '@sigx/lynx-core';
+import type { PermissionResponse as CorePermissionResponse } from '@sigx/lynx-core';
 
 import * as webrtc from '../src/index';
 import {
@@ -36,6 +37,7 @@ import {
 import type {
     AudioOutputRoute,
     MediaStreamConstraints,
+    PermissionResponse,
     RTCDataChannelInit,
     RTCIceCandidateInit,
     RTCOfferOptions,
@@ -90,8 +92,21 @@ describe('public types', () => {
         expectTypeOf(isWebRTCAvailable).toEqualTypeOf<() => boolean>();
     });
 
+    it('re-exports PermissionResponse from the barrel, unaliased (C6)', () => {
+        // The barrel must be self-sufficient: typing permission state must not
+        // force a second import from `@sigx/lynx-core`. Both halves matter —
+        // that the name is exported at all, and that it is still *core's*
+        // type rather than a structural copy that can drift (the mistake
+        // `@sigx/lynx-web-host` made with `HostPermissionResponse`).
+        expectTypeOf<PermissionResponse>().toEqualTypeOf<CorePermissionResponse>();
+        expectTypeOf<PermissionResponse>().toEqualTypeOf<{
+            status: 'granted' | 'denied' | 'undetermined' | 'blocked';
+            canAskAgain: boolean;
+        }>();
+    });
+
     it('pins the permission methods to the shared envelope (C6)', () => {
-        // Consumers branch on `.granted` / `.canAskAgain` to decide whether a
+        // Consumers branch on `.status` / `.canAskAgain` to decide whether a
         // pre-prompt explainer is worth showing; a bespoke return shape here
         // would break every caller that treats permissions uniformly.
         expectTypeOf(WebRTC.requestPermission).toEqualTypeOf<() => Promise<PermissionResponse>>();

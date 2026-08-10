@@ -84,15 +84,6 @@ class DeviceInfoModule(context: Context) : LynxModule(context) {
     private fun resultMap(error: String?): JavaOnlyMap =
         JavaOnlyMap().apply { error?.let { putString("error", it) } }
 
-    @LynxMethod
-    fun getConstants(callback: Callback?) {
-        val map = JavaOnlyMap()
-        map.putString("platform", "android")
-        map.putString("runtime", "sigx-lynx-go")
-        map.putString("lynxSdkVersion", "3.6.0")
-        callback?.invoke(map)
-    }
-
     private fun getAppVersion(): String {
         return try {
             mContext.packageManager

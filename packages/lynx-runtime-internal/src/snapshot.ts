@@ -350,7 +350,7 @@ export function snapshotCreateList(
 ): SnapshotElement {
   if (!hooks) {
     throw new Error(
-      '[sigx-snapshot] snapshotCreateList called before MT hooks were installed',
+      '[@sigx/lynx-runtime-internal] snapshotCreateList failed: MT hooks are not installed',
     );
   }
   return hooks.createList(pageId, ctx, expIndex);

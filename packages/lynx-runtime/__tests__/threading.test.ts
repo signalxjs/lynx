@@ -86,4 +86,14 @@ describe('runOnMainThread bridge payload', () => {
     // Did NOT route through the bridge.
     expect(received).toHaveLength(0);
   });
+
+  it('throws a package-scoped error for a non-placeholder, non-function argument', () => {
+    // Neither a raw function (local-execution fallback above) nor a worklet
+    // placeholder — the transform emitted something we cannot ship to the MT.
+    // C10: the message names the package and the action, so a stack-less
+    // on-device log still says which module rejected the argument.
+    expect(() => runOnMainThread({ notAWorklet: true } as never)).toThrow(
+      /^\[@sigx\/lynx-runtime\] runOnMainThread failed:/,
+    );
+  });
 });

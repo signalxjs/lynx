@@ -29,6 +29,15 @@ export { RTCDataChannel } from './data-channel.js';
 export { MediaStream, MediaStreamTrack, mediaDevices } from './media.js';
 export type { MediaStreamConstraints, MediaTrackConstraintSet } from './media.js';
 export { WebRTC, isWebRTCAvailable } from './audio-output.js';
+/**
+ * C6 — the permission envelope `WebRTC.requestPermission()` /
+ * `WebRTC.getPermissionStatus()` resolve. Re-exported so a consumer can type
+ * their own permission state from this barrel alone, without a second import
+ * from `@sigx/lynx-core`. Only `PermissionResponse` is re-exported, matching
+ * Camera / Audio / Location / Notifications / ImagePicker; the status union is
+ * reachable as `PermissionResponse['status']`.
+ */
+export type { PermissionResponse } from '@sigx/lynx-core';
 export type {
     AudioOutputRoute,
     MediaStreamTrackState,

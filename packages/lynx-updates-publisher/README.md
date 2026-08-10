@@ -59,6 +59,16 @@ resolve, `publishUpdate` throws with an actionable message.
 `appVersion`, `sizeBytes`, `mandatory`, `createdAt`, and the `runtimeVersions`
 written this publish.
 
+### Errors
+
+Failures throw a plain `Error` whose message carries the package scope:
+`[@sigx/lynx-updates-publisher] publish failed: <cause>` (bundle missing, bundle
+empty, no runtime-version fingerprint, invalid channel name). Unlike the runtime
+`@sigx/lynx-*` modules these are **not** `SigxError`s with a `code`: importing
+`@sigx/lynx-core` would pull the Lynx runtime bridge into a Node release job,
+and staying on Node built-ins only is this package's whole reason to exist.
+Match on the message, or on the CLI exit code.
+
 ## Relationship to the CLI
 
 `sigx updates:publish` resolves `appVersion` / default channel from

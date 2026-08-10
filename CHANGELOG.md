@@ -4,6 +4,20 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 ## [Unreleased]
 
+### Added
+
+- **`@sigx/lynx-appearance`: `getColorScheme()`** (#857) — an async, authoritative read of the OS colour scheme from the native module, resolving `null` when the module isn't linked. It answers something `readGlobalColorScheme()` structurally cannot: the BG thread's `__globalProps` is a load-time snapshot that doesn't follow an in-place OS flip (#990). `<AppearanceProvider>` now uses it to self-heal — when the sync read is `null` at mount it probes native once and adopts the answer, instead of sitting on its `'light'` seed for the session. Zero bridge calls on the normal path: the probe is skipped entirely when `globalProps` already answered or the module is unlinked, a reply landing after unmount is dropped, and a live `appearanceChanged` event outranks a slower reply.
+
+  The method existed and worked on both platforms — both native docblocks already advertised it as JS-facing — but nothing in JS had ever called it, which is what the C12 gate was reporting.
+
+### Changed
+
+- **Both conformance baselines are now nearly empty** (#857). `scripts/api-conventions-baseline.json` drops from **44 entries to 5**, and `scripts/module-manifests-baseline.json` from **4 to 0** — C12 is fully clean, every `signalx-module.json` now agrees with the JS call sites, the Swift `methodLookup` and the Kotlin module. Remaining C10 throw prefixes were cleared in the runtime, plugin, web-host and publisher packages; `@sigx/lynx-webrtc` now re-exports `PermissionResponse` from its barrel (C6) so consumers can type a permission result without importing core.
+
+  The five entries left are each owned by a decision rather than by neglect: three `C2` `isAvailable` violations (`lynx-appearance`, `lynx-biometric`, `lynx-sqlite`) are breaking public renames reserved for their module-review issues, `lynx-cli`'s 56 throws await a decision on whether a terminal error should carry a package prefix at all (#871), and `lynx-zero` is outside the review (#927).
+
+- **`@sigx/lynx-core`: a failing `getAppState` seed is now logged at `warn`, not `debug`.** Release builds log at `warn`, so a seed that kept failing left `AppState.current` on its fallback for the whole session with nothing visible in production.
+
 ### Fixed
 
 - **`@sigx/lynx-core`: a subscriber that throws no longer escapes into native event dispatch** (#857). Three channels — `appStateChanged`, `screenChanged`, `onFontScaleChanged` — wrote a signal directly from the emitter listener, and sigx flushes `watch`/`effect` callbacks synchronously inside that write. So an ordinary consumer bug (a throwing foreground handler, a throwing render effect reading `useScreen()`) propagated out of the listener and into the engine's own dispatch, aborting delivery of that event for **every other listener on the channel**, silently. All three now go through `subscribeNative`, which contains a throwing listener and reports it. The same three sites also silently dropped any payload that arrived as a JSON **string** rather than an object — the bridge shape that varies by path (#342) — so a rotation, a Dynamic Type change or a foreground transition delivered that way was simply never seen.

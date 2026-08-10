@@ -24,6 +24,18 @@
  * - WebSocket / network failures NEVER call the patched `console.*` — they
  *   route through the captured originals so a broken streamer can't generate
  *   an infinite stream of its own error logs.
+ *
+ *   This is also why this package's diagnostics do NOT go through
+ *   `createLogger` (CONVENTIONS.md C10): core's default transport writes to
+ *   `console.*` — i.e. straight back into the methods this module patches, so
+ *   a "the socket is down" warning would be enqueued, fail to send, and warn
+ *   again. The dev client sits *below* the logger in the stack: it is where
+ *   log records end up, not a consumer of them. `@sigx/lynx-core` is also not
+ *   a dependency here, deliberately — `install.ts` is prepended to the very
+ *   front of the BG entry, ahead of the app's own imports.
+ *
+ *   Locked by the "does not stream its own transport-failure warning back to
+ *   the server" test in `__tests__/streamer.test.ts`.
  * - Production safety: this module lives in `@sigx/lynx-dev-client`, which is
  *   a `devDependency`, and the lynx plugin only injects the install entry in
  *   dev mode. Release builds carry zero overhead.
@@ -396,7 +408,9 @@ export function installConsoleStreamer(url: string, opts: InstallOptions = {}): 
     };
     // Originals for the *primary* console — used by streamer-internal
     // diagnostics (reconnect warnings, etc.) so messages always go to the
-    // host console. Each patched target also gets its own capture below so
+    // host console. This is the C10 exemption in force: `originals.warn`, not
+    // a logger and not `console.warn` — see the design note at the top.
+    // Each patched target also gets its own capture below so
     // the patched method forwards to that target's own implementation
     // (avoids "illegal invocation" when extraTargets has methods that need
     // their own `this`).

@@ -4,8 +4,10 @@
  * module — the same seams the device uses.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import * as core from '@sigx/lynx-core';
 import { Updates } from '../src/updates';
 import { __resetForTests as resetController } from '../src/controller';
+import { readRollbackReason } from '../src/native';
 import { __resetForTests as resetState } from '../src/state';
 import type { UpdateCheckResult, UpdateManifest, UpdateProvider } from '../src/types';
 
@@ -37,6 +39,7 @@ interface NativeStub {
     getInstalledRuntimeVersion: () => string;
     getPlatform: () => string;
     getCurrentUpdate: (cb: (r: unknown) => void) => void;
+    getState: (cb: (r: unknown) => void) => void;
     downloadUpdate: ReturnType<typeof vi.fn>;
     applyOnNextLaunch: ReturnType<typeof vi.fn>;
     applyNow: ReturnType<typeof vi.fn>;
@@ -55,6 +58,7 @@ function stubNative(overrides: Partial<NativeStub> = {}): NativeStub {
             isFirstLaunchAfterUpdate: false,
             didRollBack: false,
         }),
+        getState: (cb) => cb({ runningUpdateId: '' }),
         downloadUpdate: vi.fn((_params: unknown, cb: (r: unknown) => void) => cb({ ok: true })),
         applyOnNextLaunch: vi.fn((_id: unknown, cb: (r: unknown) => void) => cb({ ok: true })),
         applyNow: vi.fn((_id: unknown, cb: (r: unknown) => void) => cb({ ok: true })),
@@ -349,23 +353,119 @@ describe('error handling', () => {
 });
 
 describe('rollback surfacing', () => {
-    it('emits rolledBack with the failed update id reported by native', async () => {
-        stubNative({
-            getCurrentUpdate: (cb) => cb({
-                isEmbedded: true,
-                runtimeVersion: RUNTIME,
-                isFirstLaunchAfterUpdate: false,
-                didRollBack: true,
-                rolledBackUpdateId: 'failed99',
-            }),
-        });
-        const events: Array<{ type: string; fromUpdateId?: string }> = [];
+    const ROLLED_BACK: NativeStub['getCurrentUpdate'] = (cb) => cb({
+        isEmbedded: true,
+        runtimeVersion: RUNTIME,
+        isFirstLaunchAfterUpdate: false,
+        didRollBack: true,
+        rolledBackUpdateId: 'failed99',
+    });
+
+    interface RolledBackEvent { type: string; fromUpdateId?: string; reason?: string }
+
+    /** Configure + settle, returning the emitted `rolledBack` event (if any). */
+    async function bootAndCollect(
+        overrides: Partial<NativeStub> = {},
+    ): Promise<{ native: NativeStub; rolledBack: RolledBackEvent | undefined }> {
+        const native = stubNative({ getCurrentUpdate: ROLLED_BACK, ...overrides });
+        const events: RolledBackEvent[] = [];
         Updates.configure({ provider: new ScriptedProvider(), mode: 'manual' });
         Updates.addListener((e) => events.push(e as never));
         await settle();
-        const rolledBack = events.find((e) => e.type === 'rolledBack');
+        return { native, rolledBack: events.find((e) => e.type === 'rolledBack') };
+    }
+
+    it('emits rolledBack with the failed update id reported by native', async () => {
+        const { rolledBack } = await bootAndCollect();
         expect(rolledBack?.fromUpdateId).toBe('failed99');
         expect(Updates.getState().currentlyRunning.didRollBack).toBe(true);
         expect(Updates.getState().currentlyRunning.rolledBackUpdateId).toBe('failed99');
+    });
+
+    it('carries the native rollback reason — crash vs corrupt are different bugs', async () => {
+        const { rolledBack } = await bootAndCollect({
+            getState: (cb) => cb({ runningUpdateId: '', lastRollbackReason: 'crash' }),
+        });
+        expect(rolledBack?.reason).toBe('crash');
+    });
+
+    it('carries a corrupt-bundle rollback reason', async () => {
+        const { rolledBack } = await bootAndCollect({
+            getState: (cb) => cb({ runningUpdateId: '', lastRollbackReason: 'corrupt' }),
+        });
+        expect(rolledBack?.reason).toBe('corrupt');
+    });
+
+    it('collapses an unrecognised or missing native reason to unknown', async () => {
+        const { rolledBack } = await bootAndCollect({
+            getState: (cb) => cb({ runningUpdateId: '', lastRollbackReason: 'wat' }),
+        });
+        expect(rolledBack?.reason).toBe('unknown');
+
+        resetController();
+        resetState();
+        const absent = await bootAndCollect({ getState: (cb) => cb({ runningUpdateId: '' }) });
+        expect(absent.rolledBack?.reason).toBe('unknown');
+    });
+
+    it('still emits rolledBack when native returns an error map or no state', async () => {
+        // The reason is a diagnostic; a store that can't be read must not
+        // swallow the rollback notification itself.
+        const errored = await bootAndCollect({
+            getState: (cb) => cb({ error: 'state file unreadable' }),
+        });
+        expect(errored.rolledBack?.fromUpdateId).toBe('failed99');
+        expect(errored.rolledBack?.reason).toBe('unknown');
+
+        resetController();
+        resetState();
+        const empty = await bootAndCollect({ getState: (cb) => cb(null) });
+        expect(empty.rolledBack?.reason).toBe('unknown');
+    });
+
+    it('still emits rolledBack when the getState call itself throws', async () => {
+        // What an older binary looks like: the JS package knows `getState`,
+        // the linked native module doesn't have it, so the bridge lookup
+        // throws rather than calling back.
+        const { rolledBack } = await bootAndCollect({
+            getState: () => { throw new TypeError('getState is not a function'); },
+        });
+        expect(rolledBack?.fromUpdateId).toBe('failed99');
+        expect(rolledBack?.reason).toBe('unknown');
+    });
+
+    it('logs the { error } envelope instead of degrading silently (C4)', async () => {
+        // The shape this repo's bridge actually uses for a native failure: the
+        // callback RESOLVES with `{ error }` rather than rejecting. Without
+        // normalising it, the catch never runs — the read degrades to
+        // 'unknown' with nothing logged, which is indistinguishable from a
+        // healthy launch that simply never rolled back.
+        const records: string[] = [];
+        core.setLogLevel('trace');
+        core.addTransport((r) => records.push(`${r.namespace}|${r.msg}`));
+
+        stubNative({ getState: (cb: (r: unknown) => void) => cb({ error: 'disk unreadable' }) });
+        await expect(readRollbackReason()).resolves.toBe('unknown');
+
+        expect(records.some((r) => r.startsWith('updates|getState failed:'))).toBe(true);
+        core.clearTransports();
+    });
+
+    it('reports unknown when the native module is absent entirely', async () => {
+        // Direct call: the controller only reaches this on a rollback, which
+        // implies native — but the wrapper degrades like every other read in
+        // `native.ts` rather than throwing into bootstrap.
+        vi.stubGlobal('NativeModules', undefined);
+        await expect(readRollbackReason()).resolves.toBe('unknown');
+    });
+
+    it('does not read the rollback state on a healthy launch', async () => {
+        // One bridge round-trip on the common path — the second is paid only
+        // when something actually rolled back.
+        const getState = vi.fn((cb: (r: unknown) => void) => cb({ runningUpdateId: '' }));
+        stubNative({ getState });
+        Updates.configure({ provider: new ScriptedProvider(), mode: 'manual' });
+        await settle();
+        expect(getState).not.toHaveBeenCalled();
     });
 });

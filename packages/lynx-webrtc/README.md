@@ -128,12 +128,18 @@ stream's `id` is what appears as the msid in SDP.
 
 ```ts
 import { WebRTC, isWebRTCAvailable } from '@sigx/lynx-webrtc';
+import type { PermissionResponse } from '@sigx/lynx-webrtc';
 
 await WebRTC.setAudioOutput('earpiece');     // default route is 'speaker'
 const { status } = await WebRTC.requestPermission();   // pre-prompt explainer flows
 await WebRTC.getPermissionStatus();
 isWebRTCAvailable();                          // false on web / when not linked
 ```
+
+Both permission methods resolve the shared
+`PermissionResponse` — `{ status: 'granted' | 'denied' | 'undetermined' |
+'blocked', canAskAgain: boolean }` — re-exported from this barrel so your own
+permission state types without a second import from `@sigx/lynx-core`.
 
 ## Deviations from W3C
 
