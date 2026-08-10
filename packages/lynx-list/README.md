@@ -10,6 +10,10 @@ smooth for long feeds and grids. Pure JS — no native module to link.
 pnpm add @sigx/lynx-list
 ```
 
+## 📚 Documentation
+
+Full guides, API reference and live examples → **[https://sigx.dev/lynx/modules/list/overview/](https://sigx.dev/lynx/modules/list/overview/)**
+
 ## Usage
 
 ```tsx
@@ -388,6 +392,31 @@ two row kinds coexist in one list.
 
 - ~~Lazy runtime virtualization so off-screen cells aren't eagerly built~~ —
   shipped as `templateCells` (#645, on the #620 snapshot-template runtime).
+
+## Web
+
+`<List>` renders on web (`sigx run:web`): `@lynx-js/web-core` creates `<list>` as
+upstream's `x-list` (and leaves `<list-item>` as its own element), so scrolling,
+the layout attributes (`span-count`, `list-type`, `sticky-offset`), the
+edge-threshold events and the `layoutcomplete` that drives chat mode all exist
+there. What doesn't cross over:
+
+- **No recycling, and no scroll-driven cell pull.** Both cell modes go through
+  the same `componentAtIndex` / `enqueueComponent` callbacks, but on web the
+  engine drives them from the `update-list-info` attribute, not from scrolling:
+  web-core intercepts that `__SetAttribute` and, in a microtask, calls
+  `componentAtIndex` once per inserted row and `enqueueComponent` once per
+  removed one, splicing the returned element into the DOM. Every row is
+  materialized up front and stays a live DOM node, so `templateCells`'
+  recycling buys nothing there — `windowSize` is what bounds a long dataset on
+  web.
+- **`itemSnap` doesn't snap.** The web `x-list` reads `item-snap` only to emit a
+  `snap` event at scroll end (which `<List>` doesn't consume); it never aligns
+  the scroll. Likewise `align` in `ListMethods.scrollToIndex`: web's
+  `scrollToPosition` honours `position`, `offset` and `smooth` and ignores
+  `alignTo`.
+- **`bottomInset` is native-only.** It needs the autolinked `sigx-list`
+  component, which has no web element — use a wrapper `paddingBottom` there.
 
 ## License
 

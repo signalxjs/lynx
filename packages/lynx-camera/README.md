@@ -88,9 +88,17 @@ interface CameraCancelled {
     uri?: undefined;      // present so callers can narrow on `result.uri`
 }
 ```
+## Web
+**Not supported on web** (`sigx run:web`). `@sigx/lynx-web-host` exposes no `sigx.camera.*` handler and this package ships no `.web.ts`, so the `Camera` module isn't registered in a web build: `isAvailable()` returns `false`, and the capture and permission methods all reject with core's `Module "Camera" is not available` error.
+
+Use [`@sigx/lynx-image-picker`](https://sigx.dev/lynx/modules/image-picker/overview/) instead — its web implementation routes through the page bridge to a hidden `<input type="file">` and hands back `blob:` URLs for photos and videos the user selects (the browser's own chooser is where a mobile user reaches their camera). Live in-app capture would need a future shim over `navigator.mediaDevices.getUserMedia`; nothing wires that today.
 ## Gotchas
 - **Permission is auto-requested** — `takePicture` / `recordVideo` request the camera permission for you before opening the camera (iOS via `AVCaptureDevice`; Android via the runtime `CAMERA` prompt, plus microphone for `recordVideo` when the app declares `RECORD_AUDIO`). Calling `requestPermission()` first is optional — useful only to gate UI on the status ahead of time. On Android it's also *required* internally: the manifest declares `CAMERA`, and the OS refuses `ACTION_IMAGE_CAPTURE` / `ACTION_VIDEO_CAPTURE` unless it's been granted.
 - **Android FileProvider** — the auto-injected `<provider>` in the app template's `AndroidManifest.xml` exposes the cache directory under `${applicationId}.fileprovider`. If you customize the manifest, keep that authority intact or the camera intent won't have a valid write target.
 - **iOS simulator camera** — the simulator has no real camera, so `takePicture` / `recordVideo` report "Camera not available". Test capture on a physical device.
 - **Options are honored on iOS only** — Android delegates to the system camera intent, which ignores `CameraOptions` / `CameraVideoOptions` entirely (the user can still switch cameras in its UI; just don't rely on `facing` to pick one programmatically on Android). On iOS, `facing`, `quality`, and `maxDurationMs` (video) are applied; `maxWidth` / `maxHeight` are reserved and **not yet applied on either platform**.
 - **A single in-camera photo/video toggle** (one screen, switch mode in-camera) is iOS-only at the system level; Android has separate photo/video intents. Present your own chooser (Take Photo / Record Video) for a consistent cross-platform flow — see `examples/showcase`'s `MediaCaptureCard`. An iOS-native `capture({ mediaType: 'mixed' })` toggle may be added later.
+
+## License
+
+MIT

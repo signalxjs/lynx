@@ -147,6 +147,14 @@ interface SetterResult {
 
 All setters return `Promise<SetterResult>` and **never reject** — unwired platforms, web preview, SSR, and test runs all resolve to `{ ok: false, reason: 'unsupported' }`. You can therefore `void setSystemBarsStyle(...)` without risking unhandled rejections.
 
+## Web
+
+Reading the color scheme works with no shim at all; the setters don't work.
+
+- **Color scheme — supported.** The `@sigx/lynx-web-host` page bridge publishes `globalProps.appearance` from `matchMedia('(prefers-color-scheme: dark)')` and re-sends `appearanceChanged` on every flip — the exact channels this package reads — so `<AppearanceProvider>`, `useSystemColorScheme()`, `useSystemColorSchemeMT()` and `readGlobalColorScheme()` behave as they do on device. The **native `@media (prefers-color-scheme)` path described above does not apply on web**: `@sigx/lynx-plugin` folds `__SIGX_CSS_RULE__` to `false` for the web target because the upstream web encoder drops stylesheet at-rules — branch in JS on the hook instead.
+- **System bars — unsupported.** The `Appearance` native module has no handler in the page bridge, so `isAvailable()` is `false` and `setStatusBarStyle` / `setStatusBarBackgroundColor` / `setNavigationBarStyle` / `setSystemBarsStyle` all resolve `{ ok: false, reason: 'unsupported' }` (still never rejecting). A browser has no status or navigation bar; the nearest analog is a `<meta name="theme-color">` on the host page, which nothing wires today.
+- **Font scale — unsupported.** No web publisher writes `lynx.__globalProps.fontScale`, so `readGlobalFontScale()` returns `null` and `useFontScale()` / `useFontScaleMT()` stay at `1`.
+
 ## Gotchas
 
 - **iOS status-bar style needs host VC forwarding.** `setStatusBarStyle(...)` resolves successfully but won't visibly change anything unless the host view controller forwards `preferredStatusBarStyle` to `AppearanceModule.preferredStatusBarStyle`. The lynx-cli iOS template does this automatically; if you're integrating into an existing UIViewController, copy the forwarding pattern.

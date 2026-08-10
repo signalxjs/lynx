@@ -7,7 +7,9 @@ layer for offline-first apps: chat history, message queues, local caches.
 Backed by the platform's SQLite (Android `android.database.sqlite`, iOS
 system `libsqlite3`) — no bundled C library, nothing added to your binary.
 
-Full docs: <https://sigx.dev/lynx/modules/sqlite/overview/>
+## 📚 Documentation
+
+Full guides, API reference and live examples → **[https://sigx.dev/lynx/modules/sqlite/overview/](https://sigx.dev/lynx/modules/sqlite/overview/)**
 
 ## Install
 
@@ -85,6 +87,18 @@ return () => (
 | `db.close()` | Release the native handle. |
 | `useLiveQuery(db, sql, params?, opts?)` | Reactive query → `Computed<{ rows, loading, error }>`. Accepts the `openDatabase` promise directly. |
 
+## Web
+
+**Not supported on web (`sigx run:web`) today.** There is no `.web.ts`
+implementation and `@sigx/lynx-web-host` exposes no sqlite handler, so the
+native module is never registered: `isAvailable()` returns `false` and
+`openDatabase()` rejects with the `Module "Sqlite" is not available` error.
+
+The native handle is confined to `src/sqlite.ts`, so the planned sqlite-wasm
++ OPFS backend can be swapped in behind the same public API. Until it lands,
+persist web builds with [`@sigx/lynx-storage`](https://sigx.dev/lynx/modules/storage/overview/),
+which ships an IndexedDB web implementation.
+
 ## Notes & caveats
 
 - **Everything is async.** Statements run on a per-database native thread —
@@ -111,3 +125,7 @@ return () => (
   — use `AS` aliases.
 - Encryption at rest (SQLCipher), FTS5 full-text search guidance and a web
   backend (sqlite-wasm + OPFS) are planned follow-ups.
+
+## License
+
+MIT

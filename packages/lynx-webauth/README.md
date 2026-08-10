@@ -104,6 +104,21 @@ if (result.url) {
 }
 ```
 
+## Web
+
+**Not supported on web.** This package ships no `.web.ts` shim and
+`@sigx/lynx-web-host` has no `sigx.webauth.*` handler, so the `WebAuth` module
+is simply not registered in a `sigx run:web` build: `isWebAuthAvailable()`
+returns `false` and `openAuthSession()` resolves
+`{ error: 'WebAuth module not available in this build' }` — still never a
+rejection, so an availability check is all the branching you need. Drive the
+flow with the browser instead (a redirect or popup to the provider);
+`@sigx/lynx-linking` *does* work on web — its `openURL` routes to the page
+bridge's `window.open`, and `getInitialURL()` / the `url` event are fed by the
+host's inbound-URL publisher. The `@sigx/lynx-webauth/oauth` helpers are pure
+JS with no native dependency, so `generatePKCE`, `generateState` and
+`parseCallback` are reusable in that flow unchanged.
+
 ## License
 
 MIT

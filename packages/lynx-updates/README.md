@@ -4,6 +4,10 @@ Over-the-air (OTA) bundle updates for sigx-lynx. Ship JS-only releases to
 installed apps without a store round-trip — with pluggable backends, every
 update mode from fully-automatic to fully-manual, and crash-driven rollback.
 
+## 📚 Documentation
+
+Full guides, API reference and live examples → **[https://sigx.dev/lynx/modules/updates/overview/](https://sigx.dev/lynx/modules/updates/overview/)**
+
 ```bash
 pnpm add @sigx/lynx-updates
 sigx prebuild   # links the native module + bakes the runtime fingerprint
@@ -192,6 +196,31 @@ One URL serves every channel/runtime version: old binaries keep matching
 their entries while new binaries pick up new ones. `bundleUrl` may be
 relative (resolved against the manifest URL).
 
+## Web
+
+**Not applicable on web** — a browser has no installed binary to patch, so you
+ship new JS by redeploying the site. The `Updates` module isn't registered in a
+`sigx run:web` build (no `.web.ts` shim, no `sigx.updates.*` handler in
+`@sigx/lynx-web-host`), so `Updates.isAvailable()` is `false` and the JS layer
+degrades instead of crashing — but "degrades" is not "no-ops":
+
+- `configure()` still records the resolved config; it then logs one warning and
+  returns early, skipping the native event subscription and the automatic
+  launch/foreground pipeline, so nothing ever installs itself.
+- `Updates.getCurrentlyRunning()` resolves the inert embedded snapshot
+  (`updateId: null`, `isEmbedded: true`, `runtimeVersion: 'unknown'`).
+- `checkForUpdate()` isn't gated on the native module and still calls your
+  provider — but the built-in `{ url }` provider reads `globalThis.fetch`,
+  which on a web build `@sigx/lynx-http`'s import-time install has already
+  replaced with the native-backed `fetch`, so the check fails there too unless
+  you inject your own `fetchImpl`.
+- The install path is where `native-unavailable` actually appears: `download()`
+  rejects `runtime-mismatch` first when the manifest doesn't target this
+  build's baked runtime version, and `native-unavailable` when it does.
+  `apply()` never gets that far — with no successful download the status is
+  never `ready`, so it rejects `apply-failed` ("No downloaded update to
+  apply").
+
 ## Notes
 
 - **Dev builds**: when running from a dev server URL, OTA is inert (the dev
@@ -201,3 +230,7 @@ relative (resolved against the manifest URL).
   modules.
 - Prebuilt UI (update prompt, blocking gate, progress, restart banner):
   [`@sigx/lynx-updates-ui`](../lynx-updates-ui/README.md).
+
+## License
+
+MIT

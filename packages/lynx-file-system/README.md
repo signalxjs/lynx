@@ -42,6 +42,16 @@ interface FileInfo {
     modifiedAt: number;     // epoch milliseconds
 }
 ```
+## Web
+**Not supported on web** (`sigx run:web`). There is no `sigx.filesystem.*` handler in the `@sigx/lynx-web-host` page bridge and no `.web.ts` implementation, so the module isn't registered: `isAvailable()` returns `false`, the sync directory getters throw, and every read/write rejects — all with core's `Module "FileSystem" is not available` error. A browser has no app sandbox with document/cache directories to hand out — the closest equivalent, the Origin Private File System (`navigator.storage.getDirectory()`), is what a future shim would be built on.
+
+On web, reach for the capability you actually need instead:
+- **Persisted app data** — [`@sigx/lynx-storage`](https://sigx.dev/lynx/modules/storage/overview/), whose web implementation is IndexedDB-backed and works unchanged.
+- **User-chosen files** — [`@sigx/lynx-file-picker`](https://sigx.dev/lynx/modules/file-picker/overview/) / [`@sigx/lynx-image-picker`](https://sigx.dev/lynx/modules/image-picker/overview/), which hand back `blob:` URLs you can `fetch()` rather than paths you read.
 ## Gotchas
 - **Text-only writes.** `writeFile` is UTF-8 text. Reads can be binary via `readFileBase64` / `readFileAsArrayBuffer`, but the whole file is materialized in memory (base64 is ~33% larger crossing the bridge) — fine for small/medium files, wrong for uploads or large media; keep using `Camera` / `ImagePicker` / `FilePicker` URIs directly where possible.
 - **Path conventions.** Always prefix paths with `getDocumentDirectory()` or `getCacheDirectory()`. Raw `/data.json` won't resolve consistently across platforms.
+
+## License
+
+MIT

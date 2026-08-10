@@ -55,3 +55,13 @@ iOS has no equivalent because the OS-level pickers (`UIImagePickerController`, `
 ## Reference
 
 [`packages/lynx-cli/templates/android/app/src/main/kotlin/__package__/MainActivity.kt`](https://github.com/signalxjs/lynx/blob/main/packages/lynx-cli/templates/android/app/src/main/kotlin/__package__/MainActivity.kt) is the canonical example of how an `Activity` integrates with this module via reflection.
+
+## Web
+
+**Nothing in this package runs on web (`sigx run:web`)** — it ships Android Kotlin only (`src/index.ts` is a bare `export {}`), so a web build has nothing to link, nothing to call, and nothing that can break.
+
+Web builds don't need it either: browsers prompt for their own permissions, and the permission calls the consumer modules make are handled page-side by [`@sigx/lynx-web-host`](https://sigx.dev/lynx/web/overview/) — `location.requestPermission` / `location.permissionStatus` go through `navigator.geolocation` + `navigator.permissions`, `notifications.requestPermission` through `Notification.requestPermission()`, and the file/image pickers through a `<input type="file">` dialog that needs no permission at all. `@sigx/lynx-audio` and `@sigx/lynx-camera` have no web handler today, so those modules are unavailable on web regardless of this package.
+
+## License
+
+MIT

@@ -40,3 +40,11 @@ The QR scanner requires camera access. The package's `signalx-module.json` decla
 ## Versioning
 
 The version is exported as `DEV_CLIENT_VERSION` so `@sigx/lynx-cli` can warn if the dev client drifts from the CLI version it was bundled with.
+
+## Web
+
+Not used on web — and nothing is missing there. The overlays, dev menu, devtool wiring and QR scanner are iOS/Android sources that `sigx prebuild` copies into the native project, and `@sigx/lynx-plugin` prepends the console streamer to the background entry only for native dev builds (the prepend is gated on `isDev && !isWeb`), so a `sigx run:web` bundle contains none of this package. The browser supplies the equivalents directly: DevTools for the console, errors, network and element inspection, and `sigx run:web` runs its own watch loop — `rspeedy build --watch` rebuilds and a WebSocket tells the page to `location.reload()` (full reload, not hot-swap).
+
+## License
+
+MIT

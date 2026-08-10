@@ -48,6 +48,14 @@ scale (`useFontScale()`), live, identically on the svg and font backends.
 
 Forcing dynamic names into the bundle (`include: [...]` / `include: ['*']`), one-off `defineIconSet` icons, writing your own adapter, and the x86_64-emulator blank-icon caveat are all documented on the docs site.
 
+## Web
+
+Supported on web (`sigx run:web`) with no extra setup. `<Icon>` renders through Lynx's `<svg content={…}>`, which `@lynx-js/web-core` maps to upstream's `x-svg` element — that turns the inline SVG into a blob URL on an `<img>`, so glyphs paint exactly as bundled. The `signalx-module.json` here only pulls the native XElement/SVG dependency on iOS and Android; a web build has nothing to link and needs no `sigx prebuild`.
+
+As on native, the SVG is parsed in isolation from the host document, so give the icon a concrete `color` (or a theme `variant`, which `<ThemeProvider>` resolves to the palette hex before it reaches `fill=`) rather than relying on `currentColor` or a `var(--token)` inside the markup.
+
+One prop is inert there: **`scaleWithText`**. No web publisher writes `lynx.__globalProps.fontScale`, so `useFontScale()` stays at `1` and the icon keeps its designed `size` whether or not you opt in — the same gap `@sigx/lynx-core` and `@sigx/lynx-appearance` document. Sizing, color/variant and the missing-glyph placeholder are unaffected.
+
 ## License
 
 MIT

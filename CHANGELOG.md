@@ -4,6 +4,12 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 ## [Unreleased]
 
+### Documentation
+
+- **Every native-module README now has an accurate `## Web` section** (#857, convention **C11**, rubric **D7.5**). 23 packages were missing one — the whole `C11/readme-missing-web-section` rule class — despite `sigx run:web` being a headline feature, so the CI baseline shrinks from 44 entries to 21 and that rule is now clear repo-wide. Each section states supported / degraded / unsupported, the mechanism, and what to use instead, grounded in the actual handler list in `packages/lynx-web-host/src/host.ts` and the `.web.ts` swap in `packages/lynx-plugin/src/entry.ts` rather than in what sounds plausible.
+
+  The useful ones are the degradations nobody had written down: `@sigx/lynx-appearance` reads the color scheme on web with no shim at all (the page bridge publishes `globalProps.appearance` from `matchMedia`) while its system-bar setters resolve `{ ok: false, reason: 'unsupported' }`; `@sigx/lynx-datetime-picker` resolves `{ cancelled: true }` **without ever showing UI**, which is indistinguishable from the user cancelling; `@sigx/lynx-camera` points at `@sigx/lynx-image-picker`, whose web path reaches the camera through the browser's own file chooser; and `scaleWithText` on `@sigx/lynx-icons` is inert on web because no web publisher writes `lynx.__globalProps.fontScale`.
+
 ## [0.27.0] - 2026-08-10
 
 ### Changed
