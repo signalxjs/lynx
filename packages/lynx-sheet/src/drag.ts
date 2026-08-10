@@ -31,6 +31,7 @@
  * release (`onRelease`). Worklet locals cross to BG as ARGUMENTS.
  */
 import { Gesture, runOnBackground, type SharedValue } from '@sigx/lynx';
+import { SigxError } from '@sigx/lynx-core';
 import { cancelAnimation, withTiming } from '@sigx/lynx-motion';
 import type { SheetEngine } from './engine.js';
 import { SNAP_SEC } from './engine.js';
@@ -111,9 +112,11 @@ export function createSheetPan(
     // silent 0-fallbacks and make wrong ownership decisions on-device.
     // (The sheet's bottom edge arrives via syncGeom — see geomRef.)
     if (surface === 1 && (!scrollOffsetY || !hasVerticalScroll)) {
-        throw new Error(
-            '[lynx-sheet] createSheetPan: surface mode requires scrollOffsetY '
-            + 'and hasVerticalScroll (see ScrollDragHost)',
+        throw new SigxError(
+            'lynx-sheet',
+            'missing_scroll_host',
+            '[@sigx/lynx-sheet] createSheetPan failed: surface mode requires '
+            + 'scrollOffsetY and hasVerticalScroll (see ScrollDragHost)',
         );
     }
 

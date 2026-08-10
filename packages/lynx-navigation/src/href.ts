@@ -1,5 +1,6 @@
 import type { RouteId, RouteParams, RouteSearch } from './register.js';
 import type { RoutesWithoutParams, RoutesWithParams } from './hooks/use-nav.js';
+import { fail } from './errors.js';
 import { buildUrl } from './url/build.js';
 import { parseHrefImpl } from './url/parse.js';
 import { getRouteRegistry } from './url/registry.js';
@@ -55,9 +56,7 @@ export function hrefFor(name: string, ...args: unknown[]): Href {
     const registry = getRouteRegistry();
     const def = registry.routes[name];
     if (!def) {
-        throw new Error(
-            `[lynx-navigation] hrefFor('${name}'): route is not in the active registry.`,
-        );
+        fail('route_not_registered', `hrefFor('${name}')`, 'route is not in the active registry.');
     }
 
     // Disambiguate the overloads: routes with a params schema get
@@ -77,14 +76,20 @@ export function hrefFor(name: string, ...args: unknown[]): Href {
 
     const paramsOutcome = validateSync(def.params, rawParams ?? {});
     if (!paramsOutcome.ok) {
-        throw new Error(
-            `[lynx-navigation] hrefFor('${name}'): params validation failed — ${paramsOutcome.issues.join('; ')}`,
+        fail(
+            'invalid_params',
+            `hrefFor('${name}')`,
+            `params validation — ${paramsOutcome.issues.join('; ')}`,
+            { cause: paramsOutcome.issues },
         );
     }
     const searchOutcome = validateSync(def.search, rawSearch ?? {});
     if (!searchOutcome.ok) {
-        throw new Error(
-            `[lynx-navigation] hrefFor('${name}'): search validation failed — ${searchOutcome.issues.join('; ')}`,
+        fail(
+            'invalid_search',
+            `hrefFor('${name}')`,
+            `search validation — ${searchOutcome.issues.join('; ')}`,
+            { cause: searchOutcome.issues },
         );
     }
 

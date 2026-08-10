@@ -24,6 +24,8 @@ describe('Headers — init forms', () => {
 
     it('rejects malformed pairs', () => {
         expect(() => new Headers([['only-name']] as unknown as Iterable<[string, string]>)).toThrow(TypeError);
+        expect(() => new Headers([['only-name']] as unknown as Iterable<[string, string]>))
+            .toThrow('[@sigx/lynx-http] Headers failed: init pairs must be [name, value]');
     });
 });
 
@@ -56,12 +58,17 @@ describe('Headers — semantics', () => {
         const h = new Headers();
         expect(() => h.set('bad name', 'x')).toThrow(TypeError);
         expect(() => h.set('', 'x')).toThrow(TypeError);
+        // C10: prefixed message, with the offending name echoed back.
+        expect(() => h.set('bad name', 'x'))
+            .toThrow('[@sigx/lynx-http] Headers failed: invalid header name "bad name"');
     });
 
     it('rejects embedded CR/LF/NUL in values (header injection)', () => {
         const h = new Headers();
         expect(() => h.set('x-a', 'evil\r\nX-Inject: 1')).toThrow(TypeError);
         expect(() => h.append('x-b', 'nul\0byte')).toThrow(TypeError);
+        expect(() => h.set('x-a', 'evil\r\nX-Inject: 1'))
+            .toThrow('[@sigx/lynx-http] Headers failed: header value contains forbidden control characters');
         // Leading/trailing CR/LF is whitespace and trims fine.
         h.set('x-c', '\r\nok\r\n');
         expect(h.get('x-c')).toBe('ok');

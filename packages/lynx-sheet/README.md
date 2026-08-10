@@ -55,6 +55,8 @@ const detents = resolveDetents(
 ); // → ascending px, deduped, capped at screenH - topOffset
 ```
 
+Invalid specs (a fraction outside `(0, 1]`, a non-positive px) are dropped rather than reinterpreted, and a sheet left with nothing valid falls back to half the screen — `resolveDetents` warns once through the `lynx-sheet` logger namespace when that happens, so the fallback isn't silent.
+
 `{ keyboard: true }` owns the math apps used to hand-roll: the remembered keyboard height needs the bottom safe-area inset added back (keyboard *lift* values are inset-discounted while the sheet reaches the true screen bottom), and it must come from a BG-reactive keyboard source — never from reading a main-thread-written SharedValue on the background thread, which stays at its seed value.
 
 The inset is added back **only by however much of it the sheet still has to cover** — `max(0, bottomInset - bottomOffset)`. A sheet reaching the true screen bottom (`bottomOffset: 0`) covers all of it; one whose ancestor already pads the gesture bar (`bottomOffset: insets.bottom`) covers none, and adding it back there would open the sheet a gesture bar *taller* than the keyboard it replaces — visible as the composer's input row jumping on every keyboard↔panel swap, because that inflated detent is also `openToLift`'s floor and clamps away the live main-thread capture (#811).

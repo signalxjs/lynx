@@ -6,6 +6,7 @@
  * sync, which covers the common case. Async validators throw a clear error.
  */
 
+import { fail } from '../errors.js';
 import type { StandardSchemaV1 } from '../types.js';
 
 /**
@@ -45,8 +46,10 @@ export function validateSync(
     if (!validate) return { ok: true, value: input };
     const result = validate(input);
     if (isPromiseLike(result)) {
-        throw new Error(
-            '[lynx-navigation] Async schema validation is not supported on the URL bridge — use a sync validator (Zod/Valibot/ArkType are all sync).',
+        fail(
+            'unsupported_schema',
+            'validateSync',
+            'async schema validation is not supported on the URL bridge — use a sync validator (Zod/Valibot/ArkType are all sync).',
         );
     }
     if (result.issues !== undefined && result.issues.length > 0) {

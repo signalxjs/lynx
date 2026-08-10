@@ -1,4 +1,5 @@
 import { defineInjectable } from '@sigx/lynx';
+import { fail } from '../errors.js';
 import type { RegisteredRoutes, RouteId, RouteParams, RouteSearch } from '../register.js';
 import type {
     PopOptions,
@@ -149,7 +150,5 @@ export interface Nav {
  * Mirrors `@sigx/router`'s `useRouter` pattern (`packages/router/src/router.ts:30`).
  */
 export const useNav = defineInjectable<Nav>(() => {
-    throw new Error(
-        '[lynx-navigation] useNav() called but no <NavigationRoot> is mounted in the component tree.',
-    );
+    fail('no_navigator', 'useNav()', 'no <NavigationRoot> is mounted in the component tree.');
 });

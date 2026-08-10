@@ -11,6 +11,7 @@ import {
 import { isLazyComponent } from '@sigx/lynx';
 import { cancelAnimation, withTiming } from '@sigx/lynx-motion';
 import { revealDurationSec } from '@sigx/lynx-sheet';
+import { fail } from '../errors.js';
 import type { Nav } from '../hooks/use-nav.js';
 import type { ScreenRegistry } from '../internal/screen-registry.js';
 import {
@@ -564,9 +565,10 @@ export function createNavigatorState(opts: CreateNavigatorOptions): NavigatorSta
 
     const push: Nav['push'] = ((name: string, ...args: unknown[]) => {
         if (!routes[name]) {
-            throw new Error(
-                `[lynx-navigation] push('${name}'): route is not registered. ` +
-                    `Known routes: ${Object.keys(routes).join(', ') || '(none)'}`,
+            fail(
+                'route_not_registered',
+                `push('${name}')`,
+                `route is not registered. Known routes: ${Object.keys(routes).join(', ') || '(none)'}`,
             );
         }
         const { params, search, options } = unpackArgs(name, args, routes);
@@ -829,9 +831,7 @@ export function createNavigatorState(opts: CreateNavigatorOptions): NavigatorSta
         // flight. Deferring it would surface the error inside the replay's
         // microtask instead — an unhandled rejection at a random later moment.
         if (!routes[name]) {
-            throw new Error(
-                `[lynx-navigation] replace('${name}'): route is not registered.`,
-            );
+            fail('route_not_registered', `replace('${name}')`, 'route is not registered.');
         }
         const { params, search, options } = unpackArgs(name, args, routes);
         if (isTransitioning()) {
@@ -1001,7 +1001,7 @@ export function createNavigatorState(opts: CreateNavigatorOptions): NavigatorSta
 
     function reset(state: { stack: ReadonlyArray<StackEntry> }): void {
         if (state.stack.length === 0) {
-            throw new Error('[lynx-navigation] reset() called with empty stack.');
+            fail('invalid_stack', 'reset()', 'called with an empty stack.');
         }
         // Discard any intent queued against the OUTGOING stack. `reset` is a
         // wholesale state replacement — a deep link, a session restore — and

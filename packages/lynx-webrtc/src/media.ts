@@ -18,7 +18,9 @@ import {
     registerDispatcher,
     unregisterDispatcher,
     unwrap,
+    unwrapFor,
 } from './events.js';
+import { WebRTCError, log } from './errors.js';
 import type { MediaStreamTrackState } from './types.js';
 
 export interface MediaTrackConstraintSet {
@@ -86,11 +88,11 @@ export class MediaStreamTrack extends RTCEventTargetBase {
         const prev = this._enabled;
         this._enabled = v;
         callAsync(MODULE, 'setTrackEnabled', this._handle, v)
-            .then(unwrap)
+            .then(unwrapFor('setTrackEnabled'))
             .catch(err => {
                 // Keep the JS flag in sync with native (unless it changed again).
                 if (this._enabled === v) this._enabled = prev;
-                console.warn('[WebRTC] setTrackEnabled failed:', err);
+                log.warn('setTrackEnabled failed', err);
             });
     }
 
@@ -100,9 +102,9 @@ export class MediaStreamTrack extends RTCEventTargetBase {
         this._readyState = 'ended';
         unregisterDispatcher(this._handle);
         callAsync(MODULE, 'stopTrack', this._handle)
-            .then(unwrap)
+            .then(unwrapFor('stopTrack'))
             .catch(err => {
-                console.warn('[WebRTC] stopTrack failed:', err);
+                log.warn('stopTrack failed', err);
             });
     }
 
@@ -190,16 +192,23 @@ export const mediaDevices = {
         guardModule(MODULE);
         ensureSubscribed();
         if (!constraints || (!constraints.audio && !constraints.video)) {
-            throw new TypeError('getUserMedia: at least one of audio or video must be requested');
+            // Stays a TypeError — that is what the W3C algorithm rejects with
+            // for missing constraints, and ported code catches on the type.
+            throw new TypeError(
+                '[@sigx/lynx-webrtc] getUserMedia failed: at least one of audio or video must be requested',
+            );
         }
         if (constraints.video) {
-            const e = new Error('getUserMedia: video capture is not supported yet');
-            e.name = 'NotSupportedError';
-            throw e;
+            throw new WebRTCError(
+                'NotSupportedError',
+                'getUserMedia',
+                'video capture is not supported yet.',
+            );
         }
 
         const trackId = allocId();
         const result = unwrap<{ label?: string } | undefined>(
+            'getUserMedia',
             await callAsync(MODULE, 'getUserMedia', trackId, {
                 audio: true,
             }),

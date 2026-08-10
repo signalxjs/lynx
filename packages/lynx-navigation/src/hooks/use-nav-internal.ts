@@ -1,4 +1,5 @@
 import { defineInjectable, type SharedValue } from '@sigx/lynx';
+import { fail } from '../errors.js';
 import type { ScreenRegistry } from '../internal/screen-registry.js';
 import type { RouteMap, StackEntry } from '../types.js';
 
@@ -14,8 +15,10 @@ import type { RouteMap, StackEntry } from '../types.js';
  * navigator surfaces a clear error rather than silently returning `false`.
  */
 export const useCurrentEntry = defineInjectable<StackEntry>(() => {
-    throw new Error(
-        '[lynx-navigation] No screen entry in scope. `useIsFocused` / `useFocusEffect` must be called from a component rendered as a route by <Stack>.',
+    fail(
+        'no_navigator',
+        'useCurrentEntry()',
+        'no screen entry in scope — `useIsFocused` / `useFocusEffect` must be called from a component rendered as a route by <Stack>.',
     );
 });
 
@@ -41,9 +44,7 @@ export const useCurrentEntryOptional = defineInjectable<StackEntry | null>(
  * the registry is implicit from `<NavigationRoot routes={...}>`.
  */
 export const useNavRoutes = defineInjectable<RouteMap>(() => {
-    throw new Error(
-        '[lynx-navigation] No <NavigationRoot> found in the component tree.',
-    );
+    fail('no_navigator', 'useNavRoutes()', 'no <NavigationRoot> found in the component tree.');
 });
 
 /**
@@ -123,9 +124,7 @@ export interface NavInternals {
 }
 
 export const useNavInternals = defineInjectable<NavInternals>(() => {
-    throw new Error(
-        '[lynx-navigation] No <NavigationRoot> found in the component tree.',
-    );
+    fail('no_navigator', 'useNavInternals()', 'no <NavigationRoot> found in the component tree.');
 });
 
 /**
@@ -141,7 +140,9 @@ export const useNavInternals = defineInjectable<NavInternals>(() => {
  * root surfaces a clear error rather than silently no-op'ing.
  */
 export const useScreenRegistry = defineInjectable<ScreenRegistry>(() => {
-    throw new Error(
-        '[lynx-navigation] No screen registry in scope. `<Screen>` (and `<Screen.Header>`, etc.) must be used inside a route component rendered by `<Stack>`.',
+    fail(
+        'no_navigator',
+        'useScreenRegistry()',
+        'no screen registry in scope — `<Screen>` (and `<Screen.Header>`, etc.) must be used inside a route component rendered by `<Stack>`.',
     );
 });

@@ -16,6 +16,8 @@
  *   - Typed/constrained params `:id<number>` or `:id(\\d+)`
  */
 
+import { fail } from '../errors.js';
+
 /** Result of compiling a path template — used by parse + format. */
 export interface CompiledPath {
     readonly source: string;
@@ -37,10 +39,15 @@ const PARAM_RE = /:([A-Za-z_][A-Za-z0-9_]*)/g;
  */
 export function compilePath(template: string): CompiledPath {
     if (typeof template !== 'string') {
-        throw new TypeError(`compilePath: expected string, got ${typeof template}`);
+        // Stays a TypeError: `compilePath` is a public export and a wrong-typed
+        // argument is exactly what `instanceof TypeError` is for. Only the C10
+        // prefix is added — swapping the class would break that branch.
+        throw new TypeError(
+            `[@sigx/lynx-navigation] compilePath failed: expected a string template, got ${typeof template}`,
+        );
     }
     if (template.length === 0) {
-        throw new Error('compilePath: path template must not be empty');
+        fail('invalid_path', 'compilePath', 'path template must not be empty');
     }
     // Normalize: ensure leading `/`. Trailing slashes are tolerated on match,
     // but the canonical formatted output preserves the template's trailing
@@ -57,9 +64,7 @@ export function compilePath(template: string): CompiledPath {
     for (let m = PARAM_RE.exec(normalized); m !== null; m = PARAM_RE.exec(normalized)) {
         const name = m[1];
         if (paramNames.includes(name)) {
-            throw new Error(
-                `compilePath: duplicate param name ':${name}' in '${template}'`,
-            );
+            fail('invalid_path', 'compilePath', `duplicate param name ':${name}' in '${template}'`);
         }
         paramNames.push(name);
         pattern += escapeRegex(normalized.slice(lastIndex, m.index));
@@ -89,8 +94,10 @@ export function compilePath(template: string): CompiledPath {
                 const name = m[1];
                 const value = params[name];
                 if (value === undefined || value === null) {
-                    throw new Error(
-                        `compilePath.format: missing required param ':${name}' for '${template}'`,
+                    fail(
+                        'invalid_path',
+                        'compilePath.format',
+                        `missing required param ':${name}' for '${template}'`,
                     );
                 }
                 out += normalized.slice(i, m.index);

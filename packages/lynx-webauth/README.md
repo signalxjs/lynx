@@ -104,6 +104,10 @@ if (result.url) {
 }
 ```
 
+`generatePKCE` / `generateState` need a CSPRNG. Where `crypto.getRandomValues`
+is missing they throw a `SigxError` with `code: 'no_random_source'` rather than
+falling back to a weak source — pass `{ randomBytes }` to supply your own.
+
 ## Web
 
 **Not supported on web.** This package ships no `.web.ts` shim and

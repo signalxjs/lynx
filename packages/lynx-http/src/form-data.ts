@@ -46,8 +46,8 @@ interface Entry {
 function assertValidValue(method: string, value: unknown): void {
     if (typeof value !== 'string' && !isFileHandle(value)) {
         throw new TypeError(
-            `FormData.${method}: value must be a string or a file handle with a \`uri\` ` +
-            '(e.g. a FilePicker/ImagePicker asset or { uri, name, type })',
+            `[@sigx/lynx-http] FormData.${method} failed: value must be a string or a file handle ` +
+            'with a `uri` (e.g. a FilePicker/ImagePicker asset or { uri, name, type })',
         );
     }
 }

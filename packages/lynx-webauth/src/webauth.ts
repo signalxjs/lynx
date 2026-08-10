@@ -1,6 +1,8 @@
-import { callAsync, isModuleAvailable } from '@sigx/lynx-core';
+import { callAsync, createLogger, isModuleAvailable } from '@sigx/lynx-core';
 
 const MODULE = 'WebAuth';
+const PKG = 'lynx-webauth';
+const log = createLogger(PKG);
 
 /**
  * Monotonic session id. A plain module-scope counter (no `Math.random` /
@@ -137,7 +139,14 @@ export function openAuthSession(
     let onAbort: (() => void) | undefined;
     if (signal) {
         onAbort = () => {
-            void callAsync(MODULE, 'cancelAuthSession', { sessionId }).catch(() => {});
+            // Fire-and-forget: the outcome still arrives on the openAuthSession
+            // callback, so a failed cancel must not reject here — an unhandled
+            // rejection is a fatal exception on the main thread. It is logged
+            // rather than swallowed, because a cancel that didn't land leaves
+            // the browser sheet up.
+            void callAsync(MODULE, 'cancelAuthSession', { sessionId }).catch((err: unknown) => {
+                log.warn(`cancelAuthSession failed for session ${sessionId}`, err);
+            });
         };
         signal.addEventListener('abort', onAbort, { once: true });
         // Close the gap between the early aborted-check and listener

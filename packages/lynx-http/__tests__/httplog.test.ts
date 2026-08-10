@@ -83,6 +83,13 @@ describe('http request logging', () => {
         expect(abort.msg).toMatch(/aborted \(signal\)$/);
     });
 
+    it('logs a failed abort bridge call at debug, with the error attached', () => {
+        httplog.abortFailed(7, new Error('bridge gone'));
+        const rec = records.find((r) => r.msg.includes('abort #7'))!;
+        expect(rec.level.name).toBe('debug');
+        expect(rec.fields[0]).toMatchObject({ message: 'bridge gone' });
+    });
+
     it('each terminal event logs once and clears state (no double log)', () => {
         httplog.start(4, 'GET', 'https://api.test/x');
         httplog.response(4, 200);

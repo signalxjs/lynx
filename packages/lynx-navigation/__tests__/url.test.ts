@@ -213,7 +213,9 @@ describe('validateSync', () => {
                 validate: () => Promise.resolve({ value: {} }),
             },
         } as unknown as StandardSchemaV1;
-        expect(() => validateSync(s, {})).toThrow(/Async schema validation/);
+        expect(() => validateSync(s, {})).toThrow(
+            /\[@sigx\/lynx-navigation\] validateSync failed: async schema validation is not supported/,
+        );
     });
 });
 
@@ -261,7 +263,9 @@ describe('hrefFor', () => {
 
     it('throws when no registry is set', () => {
         _clearRouteRegistry();
-        expect(() => hrefFor('home')).toThrow(/No route registry set/);
+        expect(() => hrefFor('home')).toThrow(
+            /\[@sigx\/lynx-navigation\] getRouteRegistry failed: no route registry set/,
+        );
     });
 });
 

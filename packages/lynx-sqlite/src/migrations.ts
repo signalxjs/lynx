@@ -1,7 +1,6 @@
+import { PKG, fail } from './errors.js';
 import type { Migration, SQLiteTransaction } from './types.js';
 import type { SQLiteDatabase } from './sqlite.js';
-
-const TAG = '[@sigx/lynx-sqlite]';
 
 /**
  * Apply pending migrations, tracked via `PRAGMA user_version`.
@@ -18,8 +17,10 @@ export async function runMigrations(
     let previous = 0;
     for (const m of migrations) {
         if (!Number.isInteger(m.version) || m.version <= previous) {
-            throw new Error(
-                `${TAG} migration versions must be strictly increasing positive ` +
+            fail(
+                'invalid_migration',
+                'migrate',
+                `migration versions must be strictly increasing positive ` +
                 `integers — got ${m.version} after ${previous}`,
             );
         }
@@ -44,7 +45,16 @@ export async function runMigrations(
             });
         } catch (e) {
             const reason = e instanceof Error ? e.message : String(e);
-            throw new Error(`${TAG} migration to version ${m.version} failed: ${reason}`);
+            const prefix = `[@sigx/${PKG}] `;
+            // A failure from `tx.execute` is already prefixed — one prefix per
+            // message. The original error rides along as `cause`, because the
+            // message alone drops its `code`, which is what callers branch on.
+            fail(
+                'migration_failed',
+                `migrate to version ${m.version}`,
+                reason.startsWith(prefix) ? reason.slice(prefix.length) : reason,
+                { cause: e },
+            );
         }
         current = m.version;
     }

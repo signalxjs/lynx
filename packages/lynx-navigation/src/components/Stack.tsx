@@ -13,6 +13,7 @@ import {
     type MainThread,
     type SharedValue,
 } from '@sigx/lynx';
+import { fail } from '../errors.js';
 import { createNavigatorState } from '../navigator/core.js';
 import { useNav, type Nav } from '../hooks/use-nav.js';
 import {
@@ -329,10 +330,10 @@ export const Stack = component<StackProps>(({ props, slots }) => {
 
     if (isNested) {
         if (!routes[initialName]) {
-            throw new Error(
-                `[lynx-navigation] <Stack initialRoute='${initialName}'>: ` +
-                    `route is not registered. Known routes: ` +
-                    `${Object.keys(routes).join(', ') || '(none)'}`,
+            fail(
+                'route_not_registered',
+                `<Stack initialRoute='${initialName}'>`,
+                `route is not registered. Known routes: ${Object.keys(routes).join(', ') || '(none)'}`,
             );
         }
 

@@ -4,7 +4,8 @@
  * bottom-inset add-back, header caps, ascending guarantees), locked down
  * as the package's contract.
  */
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import type { LogRecord } from '@sigx/lynx-core';
 import {
     DEFAULT_KEYBOARD_FALLBACK_PX,
     resolveDetents,
@@ -143,5 +144,38 @@ describe('resolveDetents — keyboard specs', () => {
                 bottomInset: 0,
             }),
         ).toEqual([64, 300]);
+    });
+});
+
+describe('resolveDetents — dropped-spec diagnostic (C10)', () => {
+    it('warns through the logger, once, when every declared spec was dropped', async () => {
+        // A fresh module graph: the warning is one-shot per context (see
+        // `warnedAllSpecsDropped`), so it has to be observed from a module
+        // instance no earlier test has already tripped.
+        vi.resetModules();
+        const core = await import('@sigx/lynx-core');
+        const { resolveDetents: resolve } = await import('../src/detents');
+        const records: LogRecord[] = [];
+        core.clearTransports();
+        core.addTransport((r) => { records.push(r); });
+
+        // Declaring nothing is the documented default, not a config error.
+        resolve(undefined, ENV);
+        resolve([], ENV);
+        expect(records).toHaveLength(0);
+
+        // Every spec rejected, though, means the caller declared detents and
+        // silently got the half-screen default instead.
+        resolve([{ fraction: 1.5 }, { px: 0 }], ENV);
+        expect(records).toHaveLength(1);
+        expect(records[0]!.namespace).toBe('lynx-sheet');
+        expect(records[0]!.level.name).toBe('warn');
+        expect(records[0]!.msg).toContain('every declared detent was invalid');
+
+        // Resolution runs per render — it must not warn per render.
+        resolve([{ fraction: 1.5 }], ENV);
+        expect(records).toHaveLength(1);
+
+        core.clearTransports();
     });
 });

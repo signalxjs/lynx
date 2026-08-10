@@ -15,7 +15,7 @@ export const WebRTC = {
      */
     async setAudioOutput(route: AudioOutputRoute): Promise<void> {
         guardModule(MODULE);
-        unwrap(await callAsync(MODULE, 'setAudioOutput', route));
+        unwrap('setAudioOutput', await callAsync(MODULE, 'setAudioOutput', route));
     },
 
     /** Request microphone permission, showing the OS dialog if needed. */

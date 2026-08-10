@@ -103,6 +103,40 @@ Matches [`WebSocket` on MDN](https://developer.mozilla.org/docs/Web/API/WebSocke
 | Class constants | `CONNECTING (0) / OPEN (1) / CLOSING (2) / CLOSED (3)` | On both class and instance. |
 | `isWebSocketAvailable()` | export | Whether the native module is registered (useful in tests / SSR). |
 
+### Errors
+
+> Native only. On web this package re-exports the platform `WebSocket` (see **Web** below), so the browser's own `DOMException`s apply and nothing here is raised.
+
+Branch on `err.name` exactly as you would in a browser — the standard name is
+always there, whether the spec raises a real ECMAScript error or a
+`DOMException`. There is no `DOMException` in the Lynx JS runtime, so those
+cases throw a `SigxError` from `@sigx/lynx-core` carrying the standard name on
+both `name` and `code`.
+
+| `err.name` | Class | Raised by |
+|---|---|---|
+| `TypeError` | `TypeError` | `new WebSocket(url)` with a non-string / empty `url`; `send()` with an unsupported data type |
+| `SyntaxError` | `SyntaxError` | `new WebSocket(url)` with a malformed URL or an unsupported scheme; `close(code, reason)` with a reason over 123 UTF-8 bytes |
+| `InvalidStateError` | `SigxError` (`code` matches) | `send()` while still `CONNECTING` |
+| `InvalidAccessError` | `SigxError` (`code` matches) | `close(code)` outside `1000` / `3000–4999` |
+
+```ts
+try {
+    ws.send('hello');
+} catch (e) {
+    if ((e as Error).name === 'InvalidStateError') {
+        // queue it until onopen fires
+    }
+}
+```
+
+Every thrown message is prefixed `[@sigx/lynx-websocket] …`. Failures that
+happen after the call returns — the native `create` / `send` / `close` bridge
+call rejecting — arrive as `error` (and, where the socket can't continue, a
+`1006` `close`) events, and are also logged on the `lynx-websocket` logger
+namespace, so they show up in the `sigx dev` terminal even with no `onerror`
+handler installed.
+
 ## Web
 
 On web the package IS the platform: the Worker-global WHATWG `WebSocket` is re-exported as-is (the native base64/demux bridge is tree-shaken out of the web bundle entirely), so every browser behavior applies and none of the native caveats below do.

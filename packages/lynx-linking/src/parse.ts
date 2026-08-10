@@ -23,7 +23,15 @@ const SCHEME_RE = /^([a-zA-Z][a-zA-Z0-9+.\-]*):/;
  */
 export function parse(url: string): ParsedURL {
     if (typeof url !== 'string') {
-        throw new TypeError('parse() expects a string URL');
+        // Argument validation keeps `TypeError` and stays a plain throw: this
+        // module is deliberately import-free (see the doc comment) and pulling
+        // in `SigxError` would drag the whole core barrel — which installs the
+        // console transport at import time — into a helper that's meant to run
+        // anywhere. C10 asks for the message prefix; the class is what callers
+        // already branch on.
+        throw new TypeError(
+            `[@sigx/lynx-linking] parse failed: expected a string URL, got ${typeof url}`,
+        );
     }
 
     let rest = url;

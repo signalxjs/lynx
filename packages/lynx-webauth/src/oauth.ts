@@ -15,9 +15,12 @@
  * ```
  */
 
+import { SigxError } from '@sigx/lynx-core';
 import { parse } from '@sigx/lynx-linking';
 
 import { sha256 } from './sha256.js';
+
+const PKG = 'lynx-webauth';
 
 export interface RandomOptions {
     /**
@@ -55,7 +58,7 @@ export interface PkceChallenge {
  * ```
  */
 export async function generatePKCE(options: RandomOptions = {}): Promise<PkceChallenge> {
-    const verifier = base64url(randomBytes(32, options));
+    const verifier = base64url(randomBytes(32, 'generatePKCE', options));
     const challenge = base64url(sha256(utf8Bytes(verifier)));
     return { verifier, challenge, method: 'S256' };
 }
@@ -66,7 +69,7 @@ export async function generatePKCE(options: RandomOptions = {}): Promise<PkceCha
  * callback returns, to defend against CSRF / mix-up attacks.
  */
 export function generateState(options: RandomOptions = {}): string {
-    return base64url(randomBytes(16, options));
+    return base64url(randomBytes(16, 'generateState', options));
 }
 
 export interface CallbackParams {
@@ -131,14 +134,17 @@ function base64url(bytes: Uint8Array): string {
     return out;
 }
 
-function randomBytes(length: number, options: RandomOptions): Uint8Array {
+/** @param action the public helper that asked, so the message names it (C10). */
+function randomBytes(length: number, action: string, options: RandomOptions): Uint8Array {
     if (options.randomBytes) return options.randomBytes(length);
     const c = (globalThis as { crypto?: Crypto }).crypto;
     if (c && typeof c.getRandomValues === 'function') {
         return c.getRandomValues(new Uint8Array(length));
     }
-    throw new Error(
-        '@sigx/lynx-webauth/oauth: no secure random source (crypto.getRandomValues) is ' +
+    throw new SigxError(
+        PKG,
+        'no_random_source',
+        `[@sigx/${PKG}] ${action} failed: no secure random source (crypto.getRandomValues) is ` +
             'available in this runtime. Pass options.randomBytes with a CSPRNG.',
     );
 }

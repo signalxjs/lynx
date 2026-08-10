@@ -36,6 +36,11 @@ describe('FormData — entry API', () => {
         // set() validates the same way as append().
         expect(() => f.set('n', 42 as unknown as string)).toThrow(TypeError);
         expect(() => f.set('n', { notAUri: true } as unknown as string)).toThrow(TypeError);
+        // C10: the message names the package and the method that was called.
+        expect(() => f.append('n', 42 as unknown as string))
+            .toThrow(/^\[@sigx\/lynx-http\] FormData\.append failed: value must be a string/);
+        expect(() => f.set('n', 42 as unknown as string))
+            .toThrow(/^\[@sigx\/lynx-http\] FormData\.set failed: /);
     });
 
     it('isFileHandle detects picker assets and RN-style objects', () => {

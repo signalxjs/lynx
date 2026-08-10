@@ -151,7 +151,37 @@ describe('fetch — request spec', () => {
     it('rejects invalid URLs and unsupported bodies without hitting the bridge', async () => {
         await expect(fetch('')).rejects.toThrow(TypeError);
         await expect(fetch('https://x.test', { body: 42 as unknown as string })).rejects.toThrow(/unsupported body/);
+        // C10: rejections stay TypeErrors (spec) but carry the package prefix.
+        await expect(fetch('')).rejects.toThrow('[@sigx/lynx-http] fetch failed: invalid URL');
+        await expect(fetch('https://x.test', { body: 42 as unknown as string }))
+            .rejects.toThrow(/^\[@sigx\/lynx-http\] fetch failed: unsupported body type/);
         expect(bridge.callAsync.mock.calls.filter((c) => c[1] === 'request')).toHaveLength(0);
+    });
+
+    it('scopes a bridge rejection instead of forwarding it raw (C10)', async () => {
+        // The realistic arrival here is core's own error when the native module
+        // isn't linked: a bare `Error`, already descriptive, but under another
+        // package's scope. `fetch` documents that every rejection is a
+        // `TypeError` reading `[@sigx/lynx-http] fetch failed: …`, so it has to
+        // be re-wrapped — while keeping core's text, which names what's missing.
+        const bridgeError = new Error('[@sigx/lynx-core] Module "Http" is not available.');
+        bridge.callAsync.mockRejectedValueOnce(bridgeError);
+
+        const err = await fetch('https://x.test').catch((e: unknown) => e);
+
+        expect(err).toBeInstanceOf(TypeError);
+        expect((err as TypeError).message).toBe(
+            '[@sigx/lynx-http] fetch failed: [@sigx/lynx-core] Module "Http" is not available.',
+        );
+        // The original survives on `cause`, so a caller can still inspect it.
+        expect((err as TypeError & { cause?: unknown }).cause).toBe(bridgeError);
+    });
+
+    it('scopes a non-Error bridge rejection too', async () => {
+        bridge.callAsync.mockRejectedValueOnce('boom');
+        const err = await fetch('https://x.test').catch((e: unknown) => e);
+        expect(err).toBeInstanceOf(TypeError);
+        expect((err as TypeError).message).toBe('[@sigx/lynx-http] fetch failed: boom');
     });
 
     it('rejects non-http(s) schemes up front (native would hang or throw)', async () => {
@@ -226,7 +256,7 @@ describe('fetch — response lifecycle', () => {
     it('rejects the fetch promise on an error before the response', async () => {
         const p = fetch('https://x.test/down');
         fire({ id: lastRequestId(), type: 'error', message: 'connection refused' });
-        await expect(p).rejects.toThrow(/connection refused/);
+        await expect(p).rejects.toThrow('[@sigx/lynx-http] fetch failed: connection refused');
     });
 
     it('fails the body stream on an error after the response', async () => {
@@ -241,7 +271,18 @@ describe('fetch — response lifecycle', () => {
 
     it('rejects when the request ack carries an error', async () => {
         bridge.callAsync.mockImplementationOnce(async () => ({ error: 'invalid request spec' }));
-        await expect(fetch('https://x.test')).rejects.toThrow(/invalid request spec/);
+        await expect(fetch('https://x.test'))
+            .rejects.toThrow('[@sigx/lynx-http] fetch failed: invalid request spec');
+    });
+
+    it('a second getReader() on the same body throws a prefixed TypeError', async () => {
+        const p = fetch('https://x.test');
+        const id = lastRequestId();
+        fire({ id, type: 'response', status: 200, statusText: 'OK', headers: {} });
+        const res = await p;
+        res.body.getReader();
+        expect(() => res.body.getReader())
+            .toThrow('[@sigx/lynx-http] BodyStream.getReader failed: already locked to a reader');
     });
 
     it('bodyUsed reflects reader-based consumption too (WHATWG disturbed)', async () => {
@@ -313,6 +354,20 @@ describe('fetch — abort', () => {
         const { signal, abort } = makeSignal();
         const p = fetch('https://x.test/slow', { signal });
         const id = lastRequestId();
+        abort();
+        await expect(p).rejects.toMatchObject({ name: 'AbortError' });
+        expect(bridge.callAsync).toHaveBeenCalledWith('Http', 'abort', id);
+    });
+
+    it('a rejecting Http.abort is caught, not left unhandled', async () => {
+        const { signal, abort } = makeSignal();
+        const p = fetch('https://x.test/slow', { signal });
+        const id = lastRequestId();
+        // Next bridge call is the `abort` — make it fail (module gone, or the
+        // request already finished natively). The caller must still see the
+        // AbortError, and the rejection must not escape: an unhandled one is
+        // fatal on the main thread (#863).
+        bridge.callAsync.mockImplementationOnce(async () => { throw new Error('bridge gone'); });
         abort();
         await expect(p).rejects.toMatchObject({ name: 'AbortError' });
         expect(bridge.callAsync).toHaveBeenCalledWith('Http', 'abort', id);

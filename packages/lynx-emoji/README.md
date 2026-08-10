@@ -113,6 +113,9 @@ import { EmojiProvider, enData } from '@sigx/lynx-emoji';
 </EmojiProvider>
 ```
 
+Mounting a picker with neither throws a `SigxError`
+(`code: 'missing_dataset'`) from `@sigx/lynx-core`.
+
 Editor integration:
 
 ```tsx

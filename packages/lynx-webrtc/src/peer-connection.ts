@@ -20,7 +20,9 @@ import {
     registerDispatcher,
     unregisterDispatcher,
     unwrap,
+    unwrapFor,
 } from './events.js';
+import { WebRTCError, log } from './errors.js';
 import { RTCDataChannel } from './data-channel.js';
 import { MediaStream, MediaStreamTrack } from './media.js';
 import type {
@@ -96,9 +98,9 @@ export class RTCPeerConnection extends RTCEventTargetBase {
         ensureSubscribed();
 
         callAsync(MODULE, 'createPeer', this._id, normalizeConfiguration(configuration))
-            .then(unwrap)
+            .then(unwrapFor('createPeer'))
             .catch(err => {
-                console.warn('[WebRTC] createPeer failed:', err);
+                log.warn('createPeer failed', err);
                 this._dispatch({ id: this._id, type: 'connectionstatechange', state: 'failed' });
                 // The peer never existed natively — release the dispatcher slot
                 // and gate further calls, so an abandoned instance can't leak.
@@ -134,6 +136,7 @@ export class RTCPeerConnection extends RTCEventTargetBase {
     async createOffer(options?: RTCOfferOptions): Promise<RTCSessionDescriptionInit> {
         this._guardOpen('createOffer');
         return unwrap<RTCSessionDescriptionInit>(
+            'createOffer',
             await callAsync(MODULE, 'createOffer', this._id, options ?? {}),
         );
     }
@@ -141,6 +144,7 @@ export class RTCPeerConnection extends RTCEventTargetBase {
     async createAnswer(): Promise<RTCSessionDescriptionInit> {
         this._guardOpen('createAnswer');
         return unwrap<RTCSessionDescriptionInit>(
+            'createAnswer',
             await callAsync(MODULE, 'createAnswer', this._id, {}),
         );
     }
@@ -149,6 +153,7 @@ export class RTCPeerConnection extends RTCEventTargetBase {
     async setLocalDescription(description?: RTCSessionDescriptionInit): Promise<void> {
         this._guardOpen('setLocalDescription');
         const result = unwrap<{ type?: string; sdp?: string }>(
+            'setLocalDescription',
             await callAsync(MODULE, 'setLocalDescription', this._id, description ?? null),
         );
         // Native echoes the applied description (covers the implicit form).
@@ -161,7 +166,10 @@ export class RTCPeerConnection extends RTCEventTargetBase {
 
     async setRemoteDescription(description: RTCSessionDescriptionInit): Promise<void> {
         this._guardOpen('setRemoteDescription');
-        unwrap(await callAsync(MODULE, 'setRemoteDescription', this._id, description));
+        unwrap(
+            'setRemoteDescription',
+            await callAsync(MODULE, 'setRemoteDescription', this._id, description),
+        );
         this._remoteDescription = makeDescription(description.type, description.sdp ?? '');
     }
 
@@ -174,19 +182,23 @@ export class RTCPeerConnection extends RTCEventTargetBase {
     async addIceCandidate(candidate?: RTCIceCandidateInit | null): Promise<void> {
         this._guardOpen('addIceCandidate');
         const payload = candidate && candidate.candidate ? candidate : null;
-        unwrap(await callAsync(MODULE, 'addIceCandidate', this._id, payload));
+        unwrap('addIceCandidate', await callAsync(MODULE, 'addIceCandidate', this._id, payload));
     }
 
     addTrack(track: MediaStreamTrack, ...streams: MediaStream[]): RTCRtpSender {
         this._guardOpen('addTrack');
         for (const s of this._senders) {
             if (s.track === track && !s._removed) {
-                throw new Error('InvalidAccessError: track has already been added to this connection.');
+                throw new WebRTCError(
+                    'InvalidAccessError',
+                    'addTrack',
+                    'the track has already been added to this connection.',
+                );
             }
         }
         const streamIds = streams.map(s => s.id);
         const idPromise = callAsync(MODULE, 'addTrack', this._id, track._handle, streamIds)
-            .then(r => unwrap<{ senderId: number }>(r).senderId);
+            .then(r => unwrap<{ senderId: number }>('addTrack', r).senderId);
         const sender = new RtpSender(track, idPromise);
         this._senders.add(sender);
         idPromise.catch(err => {
@@ -194,7 +206,7 @@ export class RTCPeerConnection extends RTCEventTargetBase {
             // retry after a transient native failure.
             sender._removed = true;
             this._senders.delete(sender);
-            console.warn('[WebRTC] addTrack failed:', err);
+            log.warn('addTrack failed', err);
         });
         return sender;
     }
@@ -204,14 +216,18 @@ export class RTCPeerConnection extends RTCEventTargetBase {
         const impl = sender as RtpSender;
         if (!this._senders.has(impl)) {
             // W3C: the sender must have been created by this connection.
-            throw new Error('InvalidAccessError: sender was not created by this RTCPeerConnection.');
+            throw new WebRTCError(
+                'InvalidAccessError',
+                'removeTrack',
+                'the sender was not created by this RTCPeerConnection.',
+            );
         }
         if (impl._removed) return; // repeat removal is a no-op, per W3C
         impl._removed = true;
         impl._idPromise
             .then(senderId => callAsync(MODULE, 'removeTrack', this._id, senderId))
-            .then(unwrap)
-            .catch(err => console.warn('[WebRTC] removeTrack failed:', err));
+            .then(unwrapFor('removeTrack'))
+            .catch(err => log.warn('removeTrack failed', err));
     }
 
     /** Synchronous, like W3C — the channel starts `'connecting'` and fires `open`. */
@@ -221,7 +237,7 @@ export class RTCPeerConnection extends RTCEventTargetBase {
         const dc = new RTCDataChannel(dcId, label, init ?? {}, { state: 'connecting' });
         this._trackChannel(dc);
         callAsync(MODULE, 'createDataChannel', this._id, dcId, label, init ?? {})
-            .then(unwrap)
+            .then(unwrapFor('createDataChannel'))
             .catch(err => {
                 dc.dispatchEvent({
                     type: 'error',
@@ -248,9 +264,9 @@ export class RTCPeerConnection extends RTCEventTargetBase {
         this._remoteStreams.clear();
         this._senders.clear();
         callAsync(MODULE, 'closePeer', this._id)
-            .then(unwrap)
+            .then(unwrapFor('closePeer'))
             .catch(err => {
-                console.warn('[WebRTC] closePeer failed:', err);
+                log.warn('closePeer failed', err);
             });
     }
 
@@ -258,7 +274,7 @@ export class RTCPeerConnection extends RTCEventTargetBase {
 
     private _guardOpen(method: string): void {
         if (this._signalingState === 'closed') {
-            throw new Error(`InvalidStateError: ${method} called on a closed RTCPeerConnection.`);
+            throw new WebRTCError('InvalidStateError', method, 'the RTCPeerConnection is closed.');
         }
     }
 

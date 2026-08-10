@@ -3,7 +3,9 @@
  * bridge), so they verify the frozen-standard behavior directly against
  * published test vectors.
  */
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
+import { isSigxError } from '@sigx/lynx-core';
 
 import { generatePKCE, generateState, parseCallback, sha256 } from '../src/oauth.js';
 
@@ -79,6 +81,35 @@ describe('generateState', () => {
 
     it('defaults to a 22-char base64url string (16 bytes)', () => {
         expect(generateState()).toMatch(/^[A-Za-z0-9_-]{22}$/);
+    });
+});
+
+describe('no CSPRNG in the runtime', () => {
+    afterEach(() => {
+        vi.unstubAllGlobals();
+    });
+
+    it('throws a coded, scope-prefixed SigxError naming the helper', () => {
+        vi.stubGlobal('crypto', undefined);
+        try {
+            generateState();
+            expect.unreachable('generateState should have thrown');
+        } catch (e) {
+            expect(isSigxError(e)).toBe(true);
+            const err = e as { code: string; package: string; message: string };
+            expect(err.code).toBe('no_random_source');
+            expect(err.package).toBe('lynx-webauth');
+            expect(err.message).toMatch(
+                /^\[@sigx\/lynx-webauth] generateState failed: no secure random source/,
+            );
+        }
+    });
+
+    it('names generatePKCE when that is the caller', async () => {
+        vi.stubGlobal('crypto', undefined);
+        await expect(generatePKCE()).rejects.toThrow(
+            /^\[@sigx\/lynx-webauth] generatePKCE failed:/,
+        );
     });
 });
 

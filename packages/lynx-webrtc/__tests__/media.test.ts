@@ -68,18 +68,26 @@ describe('mediaDevices.getUserMedia', () => {
         }));
         await expect(mediaDevices.getUserMedia({ audio: true })).rejects.toMatchObject({
             name: 'NotAllowedError',
+            code: 'NotAllowedError',
+            message:
+                '[@sigx/lynx-webrtc] getUserMedia failed: Microphone permission not granted',
         });
     });
 
     it('rejects video constraints with NotSupportedError (v1 is audio-only)', async () => {
         await expect(mediaDevices.getUserMedia({ audio: true, video: true })).rejects.toMatchObject({
             name: 'NotSupportedError',
+            code: 'NotSupportedError',
+            message: '[@sigx/lynx-webrtc] getUserMedia failed: video capture is not supported yet.',
         });
         expect(callOf('getUserMedia')).toBeUndefined();
     });
 
     it('rejects empty constraints with TypeError', async () => {
         await expect(mediaDevices.getUserMedia({})).rejects.toThrow(TypeError);
+        await expect(mediaDevices.getUserMedia({})).rejects.toThrow(
+            '[@sigx/lynx-webrtc] getUserMedia failed: at least one of audio or video must be requested',
+        );
     });
 });
 
@@ -106,6 +114,16 @@ describe('MediaStreamTrack', () => {
         await Promise.resolve();
         await Promise.resolve();
         expect(track.enabled).toBe(true); // reverted to stay in sync with native
+        // Diagnostics go through createLogger, so they carry its namespace tag
+        // and reach the `sigx dev` stream — not a bare console.warn (C10).
+        expect(warn).toHaveBeenCalledWith(
+            '[lynx-webrtc]',
+            'setTrackEnabled failed',
+            expect.objectContaining({
+                code: 'OperationError',
+                message: '[@sigx/lynx-webrtc] setTrackEnabled failed: no track',
+            }),
+        );
         warn.mockRestore();
     });
 

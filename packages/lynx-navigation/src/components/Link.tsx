@@ -1,4 +1,5 @@
 import { component, type Define } from '@sigx/lynx';
+import { fail } from '../errors.js';
 import { useNav } from '../hooks/use-nav.js';
 import { useNavRoutes } from '../hooks/use-nav-internal.js';
 import type { RouteId, RouteParams, RouteSearch } from '../register.js';
@@ -65,9 +66,7 @@ const LinkImpl = component<LinkPropsLoose>(({ props, slots }) => {
             // happen at runtime — but if it does (e.g. a stale Link survived a
             // route removal), surface a clear error rather than crashing on
             // the navigator's lookup.
-            throw new Error(
-                `[lynx-navigation] <Link to='${route}'>: route is not registered.`,
-            );
+            fail('route_not_registered', `<Link to='${route}'>`, 'route is not registered.');
         }
         const hasParams = !!routeDef.params;
         const action = props.replace ? nav.replace : nav.push;

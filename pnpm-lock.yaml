@@ -619,6 +619,9 @@ importers:
 
   packages/lynx-emoji:
     dependencies:
+      '@sigx/lynx-core':
+        specifier: workspace:^
+        version: link:../lynx-core
       '@sigx/lynx-gestures':
         specifier: workspace:^
         version: link:../lynx-gestures
@@ -993,6 +996,10 @@ importers:
         version: 6.0.3
 
   packages/lynx-navigation:
+    dependencies:
+      '@sigx/lynx-core':
+        specifier: workspace:^
+        version: link:../lynx-core
     devDependencies:
       '@sigx/lynx':
         specifier: workspace:^
@@ -1270,6 +1277,10 @@ importers:
         version: 6.0.3
 
   packages/lynx-sheet:
+    dependencies:
+      '@sigx/lynx-core':
+        specifier: workspace:^
+        version: link:../lynx-core
     devDependencies:
       '@sigx/lynx':
         specifier: workspace:^

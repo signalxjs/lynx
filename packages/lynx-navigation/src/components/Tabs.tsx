@@ -44,6 +44,7 @@ import {
     type Signal,
 } from '@sigx/lynx';
 import type { IconSpec } from '@sigx/lynx-icons';
+import { fail } from '../errors.js';
 
 /** Metadata about a registered `<Tabs.Screen>`. */
 export interface TabInfo {
@@ -79,9 +80,7 @@ export interface TabsNav {
  * Access the enclosing Tabs navigator. Throws when called outside `<Tabs>`.
  */
 export const useTabs = defineInjectable<TabsNav>(() => {
-    throw new Error(
-        '[lynx-navigation] useTabs() called outside of a <Tabs> component.',
-    );
+    fail('no_navigator', 'useTabs()', 'called outside of a <Tabs> component.');
 });
 
 /**
@@ -99,9 +98,7 @@ interface TabsRegistrar {
 }
 
 const useTabsRegistrar = defineInjectable<TabsRegistrar>(() => {
-    throw new Error(
-        '[lynx-navigation] <Tabs.Screen> rendered outside a <Tabs> component.',
-    );
+    fail('no_navigator', '<Tabs.Screen>', 'rendered outside a <Tabs> component.');
 });
 
 /**
@@ -112,9 +109,7 @@ const useTabsRegistrar = defineInjectable<TabsRegistrar>(() => {
  * the gate degrades to "always active" via the caller's try/catch.
  */
 export const useTabScreenName = defineInjectable<string>(() => {
-    throw new Error(
-        '[lynx-navigation] useTabScreenName() called outside a <Tabs.Screen> body.',
-    );
+    fail('no_navigator', 'useTabScreenName()', 'called outside a <Tabs.Screen> body.');
 });
 
 type TabsProps =

@@ -7,6 +7,7 @@ import {
     type MainThread,
     type MainThreadRef,
 } from '@sigx/lynx';
+import { SigxError } from '@sigx/lynx-core';
 import type { EmojiData, EmojiDatum, SkinTone } from '../data/schema.js';
 import { glyphForTone } from '../data/glyph.js';
 import { createEmojiContext, useEmojiContext, type EmojiContextValue } from '../state/context.js';
@@ -92,6 +93,7 @@ export type EmojiPickerProps =
     & EmojiPropsExtensions
     & Define.Event<'pick', EmojiPickEvent>;
 
+const PKG = 'lynx-emoji';
 const RECENTS_GLYPH = '🕘';
 
 // Style TEMPLATES — spread into per-element objects, never passed directly.
@@ -203,8 +205,10 @@ export const EmojiPicker = component<EmojiPickerProps>(({ props, emit }) => {
     const local = !injected && props.data ? createEmojiContext(props.data) : null;
     const ctx: EmojiContextValue | null = injected ?? local;
     if (!ctx) {
-        throw new Error(
-            '[lynx-emoji] EmojiPicker needs a dataset: pass the `data` prop '
+        throw new SigxError(
+            PKG,
+            'missing_dataset',
+            `[@sigx/${PKG}] EmojiPicker mount failed: no dataset — pass the \`data\` prop `
             + "(e.g. `import data from '@sigx/lynx-emoji/data/en'`) or mount an <EmojiProvider> above it.",
         );
     }

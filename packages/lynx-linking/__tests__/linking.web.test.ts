@@ -1,4 +1,5 @@
 /** Web linking shim — outbound via the host bridge, inbound via inbound.ts. */
+import { isSigxError } from '@sigx/lynx-core';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 import { Linking } from '../src/linking.web';
@@ -46,5 +47,20 @@ describe('Linking (web)', () => {
     expect(seen).toEqual(['https://app.example/next']);
     sub.remove();
     expect(listeners.size).toBe(0);
+  });
+
+  it('rejects an unknown event type with the same coded error as native', () => {
+    const subscribe = Linking.addEventListener as unknown as (t: string, l: () => void) => void;
+    let caught: unknown;
+    try {
+      subscribe('deeplink', () => {});
+    } catch (e) {
+      caught = e;
+    }
+    expect(isSigxError(caught)).toBe(true);
+    expect(isSigxError(caught) && caught.code).toBe('unsupported_event');
+    expect((caught as Error).message).toBe(
+      '[@sigx/lynx-linking] addEventListener failed: unknown event type "deeplink"',
+    );
   });
 });

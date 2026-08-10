@@ -137,7 +137,25 @@ describe('RTCPeerConnection — SDP negotiation', () => {
     it('createOffer rejects on a native { error } result', async () => {
         const peer = new RTCPeerConnection();
         bridge.callAsync.mockImplementationOnce(async () => ({ error: 'no factory' }));
-        await expect(peer.createOffer()).rejects.toThrow('no factory');
+        // No `errorName` from native — the spec's generic for a failed
+        // operation, with the cause inside the scoped message (C10).
+        await expect(peer.createOffer()).rejects.toMatchObject({
+            name: 'OperationError',
+            code: 'OperationError',
+            message: '[@sigx/lynx-webrtc] createOffer failed: no factory',
+        });
+    });
+
+    it('createOffer carries the DOMException name native reports', async () => {
+        const peer = new RTCPeerConnection();
+        bridge.callAsync.mockImplementationOnce(async () => ({
+            error: 'peer is gone',
+            errorName: 'InvalidStateError',
+        }));
+        await expect(peer.createOffer()).rejects.toMatchObject({
+            name: 'InvalidStateError',
+            code: 'InvalidStateError',
+        });
     });
 
     it('setLocalDescription caches the applied description', async () => {
@@ -323,7 +341,9 @@ describe('RTCPeerConnection — outbound tracks', () => {
         const peer = new RTCPeerConnection();
         const track = makeLocalTrack();
         peer.addTrack(track);
-        expect(() => peer.addTrack(track)).toThrow(/InvalidAccessError/);
+        expect(() => peer.addTrack(track)).toThrow(
+            expect.objectContaining({ name: 'InvalidAccessError', code: 'InvalidAccessError' }),
+        );
     });
 
     it('removeTrack resolves the native senderId before calling native', async () => {
@@ -343,7 +363,9 @@ describe('RTCPeerConnection — outbound tracks', () => {
         const peer = new RTCPeerConnection();
         const other = new RTCPeerConnection();
         const sender = other.addTrack(makeLocalTrack());
-        expect(() => peer.removeTrack(sender)).toThrow(/InvalidAccessError/);
+        expect(() => peer.removeTrack(sender)).toThrow(
+            expect.objectContaining({ name: 'InvalidAccessError' }),
+        );
 
         other.removeTrack(sender);
         await flush();
@@ -390,8 +412,14 @@ describe('RTCPeerConnection — close', () => {
         expect(dc.readyState).toBe('closed');
         expect(onclose).toHaveBeenCalledTimes(1);
 
-        await expect(peer.createOffer()).rejects.toThrow(/InvalidStateError/);
-        expect(() => peer.createDataChannel('x')).toThrow(/InvalidStateError/);
+        await expect(peer.createOffer()).rejects.toMatchObject({
+            name: 'InvalidStateError',
+            code: 'InvalidStateError',
+            message: '[@sigx/lynx-webrtc] createOffer failed: the RTCPeerConnection is closed.',
+        });
+        expect(() => peer.createDataChannel('x')).toThrow(
+            expect.objectContaining({ name: 'InvalidStateError' }),
+        );
         expect(() => peer.close()).not.toThrow(); // idempotent
     });
 

@@ -1,5 +1,6 @@
 import { onMounted, onUnmounted } from '@sigx/lynx';
 import { BackHandler } from '@sigx/lynx-linking';
+import { log } from '../errors.js';
 import { useNav, type Nav } from './use-nav.js';
 
 /**
@@ -84,11 +85,15 @@ export function wireHardwareBack(nav: Nav): () => void {
             }
             cur = cur.parent;
         }
-        // At the root with nothing to pop — leave the app. Promise is
-        // fire-and-forget; we don't await because we want the back press to
-        // feel instant (Android starts the move-to-back transition
-        // immediately).
-        void BackHandler.exitApp();
+        // At the root with nothing to pop — leave the app. Not awaited: we
+        // want the back press to feel instant (Android starts the
+        // move-to-back transition immediately). But the rejection has to be
+        // consumed — `exitApp()` rejects by design on iOS and whenever the
+        // native module isn't linked, and an unhandled rejection is a fatal
+        // exception rather than a warning (#863).
+        BackHandler.exitApp().catch((err: unknown) => {
+            log.warn('exitApp failed', err);
+        });
         return true;
     });
 

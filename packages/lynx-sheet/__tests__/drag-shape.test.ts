@@ -7,6 +7,7 @@
  * decide-owner.test.ts; the release math in math.test.ts.
  */
 import { describe, expect, it } from 'vitest';
+import { isSigxError, type SigxError } from '@sigx/lynx-core';
 import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, resolve } from 'path';
@@ -66,7 +67,7 @@ describe('createSheetPan source shape', () => {
     it('surface mode fails fast at setup when its required SVs are missing', () => {
         const setup = src.slice(0, src.indexOf('.onBegin('));
         expect(setup).toMatch(/surface === 1 && \(!scrollOffsetY \|\| !hasVerticalScroll\)/);
-        expect(setup).toContain('throw new Error');
+        expect(setup).toContain('throw new SigxError');
     });
 
     it('worklets read geometry from geomRef only — no BG lexical geometry captures (#743)', () => {
@@ -117,5 +118,26 @@ describe('useSheetEngine source shape', () => {
     it('the snap emit is debounced — only the latest release settles', () => {
         expect(src).toContain('clearTimeout(snapTimer)');
         expect(src).toMatch(/onUnmounted\(/);
+    });
+});
+
+describe('createSheetPan misconfiguration error (C10)', () => {
+    it('rejects surface mode without the scroll host, as a coded SigxError', async () => {
+        const { createSheetPan } = await import('../src/drag');
+        // The guard runs before any Gesture is built, so a bare stub engine
+        // is enough to reach it.
+        const engine = {} as unknown as Parameters<typeof createSheetPan>[0];
+        let caught: unknown;
+        try {
+            createSheetPan(engine, { surface: true, onRelease: () => {} });
+        } catch (e) {
+            caught = e;
+        }
+        expect(isSigxError(caught)).toBe(true);
+        const err = caught as SigxError;
+        expect(err.code).toBe('missing_scroll_host');
+        expect(err.package).toBe('lynx-sheet');
+        expect(err.message).toContain('[@sigx/lynx-sheet] createSheetPan failed:');
+        expect(err).toBeInstanceOf(Error);
     });
 });

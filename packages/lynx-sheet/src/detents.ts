@@ -8,6 +8,9 @@
  * values; the resolved array is what crosses to the main thread (via the
  * engine's geometry sync), never the specs themselves.
  */
+import { createLogger } from '@sigx/lynx-core';
+
+const log = createLogger('lynx-sheet');
 
 /**
  * One declared resting height. Ascending after resolution; the first
@@ -82,6 +85,9 @@ export const DEFAULT_KEYBOARD_FALLBACK_PX = 320;
 /** Default detent when a sheet declares nothing valid: half the screen. */
 export const DEFAULT_DETENT_FRACTION = 0.5;
 
+/** One warning per context is enough — see the fallback branch below. */
+let warnedAllSpecsDropped = false;
+
 /**
  * Resolve declared detents to ascending, deduplicated px heights.
  *
@@ -141,5 +147,16 @@ export function resolveDetents(
         .filter((v, i, arr) => i === 0 || v !== arr[i - 1]);
 
     if (cleaned.length > 0) return cleaned;
+    // Declaring detents and getting the default half-screen sheet back is the
+    // one drop that is always a bug — every spec was rejected. Resolution runs
+    // per render, so say it once (the specs are static in practice).
+    if ((specs?.length ?? 0) > 0 && !warnedAllSpecsDropped) {
+        warnedAllSpecsDropped = true;
+        log.warn(
+            'resolveDetents: every declared detent was invalid — falling back to '
+            + `${DEFAULT_DETENT_FRACTION} of the screen`,
+            specs,
+        );
+    }
     return [Math.min(cap, Math.max(1, Math.round(DEFAULT_DETENT_FRACTION * env.screenH)))];
 }

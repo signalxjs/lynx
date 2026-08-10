@@ -32,7 +32,8 @@ const bridge = {
     isModuleAvailable: vi.fn(() => true),
 };
 
-vi.mock('@sigx/lynx-core', () => ({
+vi.mock('@sigx/lynx-core', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('@sigx/lynx-core')>()),
     callAsync: (...args: unknown[]) =>
         bridge.callAsync(...(args as [string, string, ...unknown[]])),
     isModuleAvailable: () => true,
@@ -124,9 +125,50 @@ describe('migrate', () => {
                 { version: 2, up: ['FAIL'] },
                 { version: 3, up: ['never reached'] },
             ]),
-        ).rejects.toThrow(/migration to version 2 failed.*simulated failure/);
+        ).rejects.toThrow(
+            /^\[@sigx\/lynx-sqlite\] migrate to version 2 failed: execute failed: simulated failure$/,
+        );
         expect(calls.map((c) => c.method)).toContain('rollback');
         expect(executedSql()).not.toContain('never reached');
         expect(userVersion).toBe(1); // v1 committed, v2 rolled back
+    });
+
+    it('reports the failure as a SigxError carrying the native error as cause', async () => {
+        const { isSigxError } = await import('@sigx/lynx-core');
+        const db = await openDatabase(uniqueName());
+        const error = await db
+            .migrate([{ version: 1, up: ['FAIL'] }])
+            .then(() => null, (e: unknown) => e);
+        if (!isSigxError(error)) throw new Error('expected a SigxError');
+        expect(error.code).toBe('migration_failed');
+        expect(error.package).toBe('lynx-sqlite');
+        // The statement failure survives as `cause`, so its own code is
+        // still reachable — the message would have flattened it away.
+        expect(isSigxError(error.cause) && error.cause.code).toBe('native_error');
+    });
+
+    it('does not double-prefix a failure thrown by a function migration', async () => {
+        const db = await openDatabase(uniqueName());
+        await expect(
+            db.migrate([
+                {
+                    version: 1,
+                    up: async () => {
+                        throw new Error('bad data');
+                    },
+                },
+            ]),
+        ).rejects.toThrow(/^\[@sigx\/lynx-sqlite\] migrate to version 1 failed: bad data$/);
+    });
+
+    it('rejects a non-increasing version with the invalid_migration code', async () => {
+        const { isSigxError } = await import('@sigx/lynx-core');
+        const db = await openDatabase(uniqueName());
+        const error = await db
+            .migrate([{ version: 0, up: [] }])
+            .then(() => null, (e: unknown) => e);
+        if (!isSigxError(error)) throw new Error('expected a SigxError');
+        expect(error.code).toBe('invalid_migration');
+        expect(error.message).toMatch(/^\[@sigx\/lynx-sqlite\] migrate failed: /);
     });
 });

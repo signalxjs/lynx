@@ -37,6 +37,7 @@ import {
     type Define,
     type Signal,
 } from '@sigx/lynx';
+import { fail } from '../errors.js';
 
 /** Reactive controller returned by `useDrawer()`. */
 export interface DrawerNav {
@@ -55,9 +56,7 @@ export interface DrawerNav {
  * `<Drawer>`.
  */
 export const useDrawer = defineInjectable<DrawerNav>(() => {
-    throw new Error(
-        '[lynx-navigation] useDrawer() called outside of a <Drawer> component.',
-    );
+    fail('no_navigator', 'useDrawer()', 'called outside of a <Drawer> component.');
 });
 
 type DrawerProps =
