@@ -116,6 +116,25 @@ function isDismissal(raw: unknown): boolean {
     return typeof error === 'string' && isCancelSentinel(error);
 }
 
+/**
+ * Pass a recognizable payload through; turn anything else into an `{ error }`
+ * envelope so `unwrapNative` rejects it.
+ *
+ * `unwrapNative` only knows about `{ error }` — a string, an array or `null`
+ * would sail past it and `normalizeResult` would report it as a successful
+ * pick of zero files, which is a lie the caller can't detect. The bridge's
+ * payload shape genuinely varies by path (#342), so this is a live case, not
+ * a hypothetical. Same guard as `@sigx/lynx-camera`'s `settleCapture`.
+ */
+function asDocumentedPayload(raw: unknown): unknown {
+    const r = raw as Record<string, unknown> | null | undefined;
+    const recognized =
+        r != null &&
+        typeof r === 'object' &&
+        ('assets' in r || 'cancelled' in r || 'canceled' in r || r['error'] != null);
+    return recognized ? raw : { error: `unexpected native payload: ${JSON.stringify(raw)}` };
+}
+
 /** Translate JS options into the shape the native modules consume. */
 function toNativeOptions(options: FilePickerOptions): Record<string, unknown> {
     return {
@@ -167,7 +186,7 @@ export const FilePicker = {
     async pick(options: FilePickerOptions = {}): Promise<FilePickerResult> {
         const raw = await callAsync<unknown>(MODULE, 'pick', toNativeOptions(options));
         if (isDismissal(raw)) return { cancelled: true, assets: [] };
-        return normalizeResult(unwrapNative(PKG, 'pick', raw));
+        return normalizeResult(unwrapNative(PKG, 'pick', asDocumentedPayload(raw)));
     },
 
     isAvailable(): boolean {

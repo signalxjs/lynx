@@ -109,6 +109,21 @@ describe('ImagePicker.pickImage', () => {
         );
     });
 
+    it.each([
+        ['a bare string', 'file:///picked.jpg'],
+        ['an array', [{ uri: 'file:///picked.jpg' }]],
+        ['null', null],
+        ['an object of none of the documented keys', { ok: true }],
+    ])('throws on %s, rather than reporting a pick of zero assets', async (_case, payload) => {
+        // Without a shape guard each of these normalizes to
+        // `{ cancelled: false, assets: [] }` — a successful pick that returned
+        // nothing, indistinguishable from a genuinely empty one.
+        installNativeModules({ pickImage: payload });
+        await expect(ImagePicker.pickImage()).rejects.toThrow(
+            /pickImage failed: unexpected native payload/,
+        );
+    });
+
     it('throws a SigxError carrying code and the raw payload as cause', async () => {
         const payload = { cancelled: true, assets: [], error: 'launcher.launch failed' };
         installNativeModules({ pickImage: payload });

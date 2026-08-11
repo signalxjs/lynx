@@ -108,7 +108,20 @@ function normalizeAssets(action: string, result: unknown): ImagePickerResult {
     if (typeof error === 'string' && isCancelSentinel(error)) {
         return { cancelled: true, assets: [] };
     }
-    const raw = (unwrapNative(PKG, action, result) ?? {}) as Record<string, unknown>;
+    // `unwrapNative` only recognizes `{ error }`, so a string / array / null —
+    // shapes the bridge really does produce on some paths (#342) — would sail
+    // past it and be reported as a successful pick of zero assets, which the
+    // caller cannot tell from a genuinely empty one. Synthesize an envelope so
+    // it fails loudly instead. Same guard as `@sigx/lynx-camera`.
+    const recognized =
+        result != null &&
+        typeof result === 'object' &&
+        ('assets' in result || 'cancelled' in result || 'canceled' in result || error != null);
+    const raw = (unwrapNative(
+        PKG,
+        action,
+        recognized ? result : { error: `unexpected native payload: ${JSON.stringify(result)}` },
+    ) ?? {}) as Record<string, unknown>;
     const cancelled = Boolean(raw['cancelled'] ?? raw['canceled'] ?? false);
     const assetsIn = Array.isArray(raw['assets']) ? raw['assets'] as ImagePickerAsset[] : [];
     return {

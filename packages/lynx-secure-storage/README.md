@@ -49,7 +49,7 @@ Browsers have no OS-backed secret store equivalent to the Keychain / Keystore. T
 
   | `code` | When | Message |
   | --- | --- | --- |
-  | `'invalid_argument'` | An empty/non-string key, or a non-string value | `[@sigx/lynx-secure-storage] <method>(<key>) failed: <what was wrong>` |
+  | `'invalid_argument'` | An empty/non-string key, or a non-string value | `[@sigx/lynx-secure-storage] <method> failed: key must be a non-empty string` — the key is left out of the prefix here, because it is the thing that was wrong. A bad *value* still names the key: `setItem(<key>) failed: value must be a string` |
   | `'module_unavailable'` | The native module isn't linked into the build — raised by core's `getModule`, so `.package` is `lynx-core` | `[@sigx/lynx-core] Module "SecureStorage" is not available. …` |
   | `'native_error'` | The platform reported a failure | `[@sigx/lynx-secure-storage] <method>(<key>) failed: <native message>`, raw native payload on `cause` |
 

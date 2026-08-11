@@ -175,6 +175,24 @@ describe('FilePicker.pick — native failures (C4/C10)', () => {
             '[@sigx/lynx-file-picker] pick failed: read failed',
         );
     });
+
+    it.each([
+        ['a bare string', 'file:///picked.txt'],
+        ['an array', [{ uri: 'file:///picked.txt' }]],
+        ['null', null],
+        ['a number', 7],
+        ['an object of none of the documented keys', { ok: true }],
+    ])('throws on %s, rather than reporting a pick of zero files', async (_case, payload) => {
+        // `unwrapNative` only recognizes `{ error }`, so without a shape guard
+        // each of these normalizes to `{ cancelled: false, assets: [] }` — a
+        // successful pick that returned nothing, which a caller cannot tell
+        // from a genuinely empty one. The bridge's payload shape varies by
+        // path (#342), so this is a live case.
+        bridge.callAsync.mockResolvedValueOnce(payload);
+        await expect(FilePicker.pick()).rejects.toThrow(
+            /pick failed: unexpected native payload/,
+        );
+    });
 });
 
 describe('FilePicker.pick — a dismissal is not a failure (C5)', () => {
