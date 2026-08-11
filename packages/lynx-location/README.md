@@ -58,3 +58,7 @@ On web the same API routes through the `@sigx/lynx-web-host` page bridge to `nav
 - **Background location isn't supported here.** This module is `WhenInUse`-only; if you need `Always` access (geofencing, background tracking), the native side needs additional setup not in this package.
 - **iOS simulator location** — set a fake location in the simulator's **Features → Location** menu, otherwise `getCurrentPosition()` hangs until timeout.
 - **Accuracy is a hint.** `'high'` requests `kCLLocationAccuracyBest` / `Priority.HIGH_ACCURACY`. Actual returned `accuracy` (meters) reflects what the device managed.
+
+## License
+
+MIT

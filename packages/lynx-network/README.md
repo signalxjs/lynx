@@ -58,3 +58,7 @@ On web the state comes from the browser: `isConnected` / `isInternetReachable` f
 - **A native failure throws, it does not resolve.** The native `{ error }` envelope used to be handed back as a `NetworkState` with every field `undefined`, so `if (state.isConnected)` quietly took the offline branch and no `catch` ever ran. Callers written against that degraded shape now need a `catch`.
 - **`isInternetReachable: null`** means the OS hasn't confirmed actual reachability — common on captive-portal Wi-Fi (you're connected to an AP but can't reach the internet without sign-in). Treat as "probably yes".
 - **No subscription API yet, and no native publisher behind one either.** To react to connectivity changes live, poll `getState()` from a `setInterval` or a small effect. There is nothing to subscribe to today: Android registers no `NetworkCallback` at all, and iOS's `NWPathMonitor` only caches the latest path for the next `getState()` — neither ever calls `sendGlobalEvent`. A `Network.subscribe()` + `useNetwork()` pair, backed by a real publisher on both platforms, is tracked on [#894](https://github.com/signalxjs/lynx/issues/894).
+
+## License
+
+MIT

@@ -4,6 +4,10 @@ The unified bottom sheet for [SignalX for Lynx](https://github.com/signalxjs/lyn
 
 > **Status: landing in stages** (tracking issue [signalxjs/lynx#774](https://github.com/signalxjs/lynx/issues/774)). The detent model, the shared engine/pan, and the standalone `<BottomSheet>` component ship today; `@sigx/lynx-navigation`'s `presentation: 'sheet'` rebuilds on the same engine next.
 
+## 📚 Documentation
+
+Full guides, API reference and live examples → **[https://sigx.dev/lynx/modules/sheet/overview/](https://sigx.dev/lynx/modules/sheet/overview/)**
+
 ## `<BottomSheet>`
 
 A bottom-anchored panel that snaps between detents, follows the finger, rides above the keyboard, and (optionally) dims what's behind it and drag-dismisses — **no route required**, place it in your own layout:

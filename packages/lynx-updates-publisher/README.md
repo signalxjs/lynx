@@ -9,6 +9,10 @@ This is the core of the `sigx updates:publish` CLI command, factored out so CI
 pipelines can publish without shelling out. It depends only on Node built-ins,
 so a release job can import it without pulling the CLI's build toolchain.
 
+## 📚 Documentation
+
+Full guides, API reference and live examples → **[https://sigx.dev/lynx/modules/updates-publisher/overview/](https://sigx.dev/lynx/modules/updates-publisher/overview/)**
+
 ## Install
 
 ```sh
@@ -75,3 +79,7 @@ Match on the message, or on the CLI exit code.
 `signalx.config.ts` (the heavy config loader stays in the CLI), then calls
 `publishUpdate` and prints a human summary. Importing this package directly
 skips that — pass `appVersion` / `channel` yourself (or accept the defaults).
+
+## License
+
+MIT

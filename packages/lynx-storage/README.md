@@ -37,3 +37,7 @@ On web (`sigx run:web`, via `@lynx-js/web-core`) the same API is backed by **Ind
 - **String values only.** Serialize objects with `JSON.stringify` / `JSON.parse` yourself. Don't dump raw binary — use `@sigx/lynx-file-system` for that.
 - **Sync writes can race with reads** if you `setItem` then immediately `getItem` the same key from BG. UserDefaults / SharedPreferences both use a write-behind buffer; values are returned correctly within the same process, just be aware of cross-process scenarios (extension apps on iOS, etc.) where eventual consistency applies.
 - **Persistence semantics.** Both stores survive app updates, are excluded from app-data exports on Android, and follow iCloud-backup rules on iOS (UserDefaults is included by default).
+
+## License
+
+MIT

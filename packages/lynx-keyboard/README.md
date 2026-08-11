@@ -96,3 +96,7 @@ A panel that must occupy exactly the keyboard's space — a WhatsApp-style emoji
 ## Demo
 
 See the **Keyboard lab** screen in [`examples/showcase`](../../examples/showcase) (Settings tab → Keyboard lab).
+
+## License
+
+MIT

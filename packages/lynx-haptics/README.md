@@ -43,3 +43,7 @@ On web the feedback methods route to `navigator.vibrate` (Chromium-only) through
 ## Gotchas
 - **Pixel won't buzz.** First, check **Settings → Sound & vibration → Vibration & haptics** — there's a single global toggle that silently disables every API in this module. Then run `Haptics.diagnose()` to see what `hasVibrator` / `hasAmplitudeControl` report.
 - iOS `UIImpactFeedbackGenerator` requires the device be unlocked and the app foregrounded — it no-ops silently otherwise.
+
+## License
+
+MIT

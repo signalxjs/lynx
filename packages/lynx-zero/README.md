@@ -37,3 +37,7 @@ What lives here (growing per the phases in
 
 What deliberately does **not** live here: visual components, component CSS,
 class-name recipes, theme palettes — those are per-design-system.
+
+## License
+
+MIT

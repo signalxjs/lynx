@@ -190,4 +190,6 @@ drive it over the `@sigx/lynx-web-host` bridge; nothing does that today.
   rule R8 deletes it and the library aborts the process inside `JNI_OnLoad` on
   the first `getUserMedia`. Release builds only; debug is unminified.
 
-License: MIT
+## License
+
+MIT
