@@ -15,7 +15,12 @@ import {
   setSnapshotPageId,
 } from '@sigx/lynx-runtime-internal/snapshot';
 import { elements, setPageUniqueId } from './element-registry.js';
-import { applyOps, resetMainThreadState, setPlaceholder } from './ops-apply.js';
+import {
+  applyOps,
+  applyOpsWithFlushOptions,
+  resetMainThreadState,
+  setPlaceholder,
+} from './ops-apply.js';
 import { installSnapshotMTHooks, retryParkedSnapshots } from './snapshot-mt.js';
 import { invokeMtWorklet } from './mt-invoke.js';
 import { runOnBackground } from './run-on-background-mt.js';
@@ -35,6 +40,12 @@ if (g['SystemInfo'] === undefined) {
 
 /** PAGE_ROOT_ID must match the value used in the BG-thread renderer */
 const PAGE_ROOT_ID = 1;
+
+// The native load pipeline is passed to renderPage before the Background
+// Thread has produced the app's real element ops. Keep it until the first
+// sigxPatchUpdate so the load pipeline measures the actual app tree rather
+// than ending at the temporary placeholder created below.
+let pendingInitialPipelineOptions: FlushElementTreeOptions['pipelineOptions'];
 
 // Install the snapshot-template hole updaters into the shared contract
 // module before any user module (whose extracted `snapshotCreatorMap`
@@ -94,7 +105,11 @@ function applyWebPageLayoutDefaults(page: MainThreadElement): void {
   dom.style?.setProperty?.('flex-direction', 'column');
 }
 
-g['renderPage'] = function (_data: unknown): void {
+g['renderPage'] = function (
+  _data: unknown,
+  options?: FlushElementTreeOptions,
+): void {
+  pendingInitialPipelineOptions = options?.pipelineOptions;
   resetMainThreadState();
   const page = __CreatePage('0', 0);
   __SetCSSId([page], 0);
@@ -207,7 +222,9 @@ g['sigxPatchUpdate'] = function ({ data }: { data: string }): void {
     return;
   }
   try {
-    applyOps(ops);
+    const pipelineOptions = pendingInitialPipelineOptions;
+    pendingInitialPipelineOptions = undefined;
+    applyOpsWithFlushOptions(ops, pipelineOptions ? { pipelineOptions } : undefined);
   } catch (e) {
     console.log('[sigx-mt] applyOps threw:', String(e));
   }

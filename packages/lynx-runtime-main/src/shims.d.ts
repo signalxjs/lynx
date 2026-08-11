@@ -91,6 +91,11 @@ declare function __GetElementUniqueID(element: MainThreadElement): number
 // native <list> (operationID/elementID/listID) — see list-mt.ts.
 interface FlushElementTreeOptions {
   triggerLayout?: boolean
+  pipelineOptions?: {
+    pipelineID: string
+    pipelineOrigin: string
+    needTimestamps: boolean
+  }
   operationID?: number
   elementID?: number
   listID?: number

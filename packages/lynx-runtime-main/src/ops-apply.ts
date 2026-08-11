@@ -186,6 +186,15 @@ function createTypedElement(
 }
 
 export function applyOps(ops: unknown[]): void {
+  applyOpsWithFlushOptions(ops);
+}
+
+// Internal entry-main variant. Keep the public applyOps contract single-argument:
+// it is the stable BG -> MT wire surface consumed by external runtime code.
+export function applyOpsWithFlushOptions(
+  ops: unknown[],
+  flushOptions?: FlushElementTreeOptions,
+): void {
   const len = ops.length;
   if (len === 0) return;
 
@@ -754,7 +763,11 @@ export function applyOps(ops: unknown[]): void {
   flushDirtyLists();
 
   // Flush all pending PAPI changes to the native layer in one shot.
-  __FlushElementTree();
+  if (flushOptions) {
+    __FlushElementTree(undefined, flushOptions);
+  } else {
+    __FlushElementTree();
+  }
 }
 
 /**
