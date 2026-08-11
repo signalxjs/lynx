@@ -78,10 +78,25 @@ describe('ImagePicker.pickImage', () => {
         await expect(ImagePicker.pickImage()).resolves.toEqual({ cancelled: true, assets: [] });
     });
 
+    it.each([
+        ['cancelled by new pickImage', 'a pick superseded by a newer one'],
+        ['cancelled by new pickImages', 'a multi-pick superseded by a newer one'],
+        ['activity destroyed', 'the host Activity going away underneath it'],
+    ])('resolves cancelled for MediaCapture\'s %s sentinel', async (error) => {
+        // Android tags these non-failure terminations with an `error` string
+        // (`android/…/MediaCapture.kt` pickImage / pickImages / onDestroy)
+        // while iOS resolves a plain `{ cancelled: true }`. Unwrapping first
+        // would throw on Android for an outcome iOS calls a dismiss — the
+        // exact per-platform divergence C5 exists to prevent.
+        installNativeModules({ pickImage: { cancelled: true, assets: [], error } });
+        await expect(ImagePicker.pickImage()).resolves.toEqual({ cancelled: true, assets: [] });
+    });
+
     it('throws when the launcher is not registered', async () => {
         // MediaCapture's unregistered-launcher payload, verbatim: it sets
         // `cancelled: true` alongside `error`, which is exactly why reading
-        // `cancelled` alone lost the failure.
+        // `cancelled` alone lost the failure — and why the sentinel check
+        // above must not swallow it. The picker never opened.
         installNativeModules({
             pickImage: {
                 cancelled: true,
