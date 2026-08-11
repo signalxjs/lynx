@@ -132,7 +132,7 @@ The native handle is confined to `src/sqlite.ts`, so the planned sqlite-wasm
 persist web builds with [`@sigx/lynx-storage`](https://sigx.dev/lynx/modules/storage/overview/),
 which ships an IndexedDB web implementation.
 
-## Notes & caveats
+## Gotchas
 
 - **Everything is async.** Statements run on a per-database native thread —
   the JS thread is never blocked, so bulk inserts won't jank the UI.

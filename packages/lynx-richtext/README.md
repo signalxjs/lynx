@@ -122,3 +122,7 @@ Web differences from native:
   return key to relabel).
 - `SystemInfo`-derived layout comes from the `<lynx-view>`, not the display
   (see `@sigx/lynx-web-host`).
+
+## License
+
+MIT

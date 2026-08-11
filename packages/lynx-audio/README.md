@@ -139,3 +139,7 @@ session isn't coming back on its own, so don't block waiting for one.
 - **iOS AudioSession** is managed internally — the module flips to `.playback` while a player is alive, `.playAndRecord` while recording, and deactivates when nothing is active. Apps that need custom mixing categories should pause this module's sessions or wait for an explicit `setCategory` API.
 - **`stop()` resolves with metadata** (`uri`, `durationMs`, `sizeBytes`) — don't discard the return value if you need the file.
 - **iOS simulator microphone** is the host Mac's mic; ensure mic permissions are granted to Simulator in System Settings.
+
+## License
+
+MIT

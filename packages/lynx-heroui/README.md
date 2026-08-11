@@ -54,3 +54,7 @@ Plus the engine + neutral primitives re-exported from `@sigx/lynx-zero`
 (`ThemeProvider`, `useTheme`, `Row`/`Col`/`Center`/`Spacer`/`ScrollView`,
 `SwiperIndicator`, …)
 so a hero app keeps a single import source.
+
+## License
+
+MIT

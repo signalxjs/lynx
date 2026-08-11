@@ -70,3 +70,7 @@ The adapter is normally consumed by `@sigx/lynx-plugin`'s icons slice — these 
 ## Reference app
 
 [`examples/showcase/src/screens/Settings.tsx`](https://github.com/signalxjs/lynx/blob/main/examples/showcase/src/screens/Settings.tsx) renders `<Icon set="lucide" name="search" />` and `<Icon set="lucide" name="bell" />` alongside FA glyphs in a card.
+
+## License
+
+MIT

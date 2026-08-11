@@ -141,7 +141,7 @@ handler installed.
 
 On web the package IS the platform: the Worker-global WHATWG `WebSocket` is re-exported as-is (the native base64/demux bridge is tree-shaken out of the web bundle entirely), so every browser behavior applies and none of the native caveats below do.
 
-## Caveats vs the browser
+## Gotchas
 
 - **No `Blob`** binary type — use `ArrayBuffer`.
 - **`bufferedAmount`** is a JS-side approximation (bytes handed off to
@@ -181,3 +181,7 @@ const ws = new WebSocket('wss://ws.postman-echo.com/raw');
 ws.onopen = () => ws.send('ping');
 ws.onmessage = (e) => console.log(e.data); // → 'ping'
 ```
+
+## License
+
+MIT

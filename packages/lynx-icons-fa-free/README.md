@@ -102,3 +102,7 @@ The adapter is normally consumed by `@sigx/lynx-plugin`'s icons slice — these 
 ## Reference app
 
 [`examples/showcase/src/screens/Settings.tsx`](https://github.com/signalxjs/lynx/blob/main/examples/showcase/src/screens/Settings.tsx) renders `<FaSolidIcon name="user" />`, `house`, `gear`, and `<FaBrandIcon name="github" />` in a card; the build-time scanner picks up the underlying `<Icon set="…" name="…">` calls and writes their codepoints into `node_modules/.cache/sigx-lynx-icons/codepoints.mjs`.
+
+## License
+
+MIT

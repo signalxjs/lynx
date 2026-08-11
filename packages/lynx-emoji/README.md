@@ -216,3 +216,7 @@ devDependency — raw datasets never ship). To add a locale, append it to
 add the subpath to `exports`, and commit the generated file. `enData` is
 re-exported from the root for zero-config use and tree-shakes away when you
 import a specific locale instead.
+
+## License
+
+MIT

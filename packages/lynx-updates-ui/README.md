@@ -97,3 +97,7 @@ await dismiss(manifest.id);     // suppress future prompts for it
 ```
 
 Storage-backed (`@sigx/lynx-storage`, linked automatically at prebuild); on web preview and in tests it degrades to an in-process Set.
+
+## License
+
+MIT
