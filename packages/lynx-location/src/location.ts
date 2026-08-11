@@ -62,6 +62,17 @@ export const Location = {
      *
      * A *denied* permission is not a failure — it resolves with
      * `status: 'denied'` / `'blocked'`. Only a native error rejects.
+     *
+     * **iOS does not honour the declared `PermissionStatus` union yet.** On
+     * the one run where the prompt actually appears — the first — it resolves
+     * `{ status: 'requesting' }` and never delivers the real answer, because
+     * the module implements no `locationManagerDidChangeAuthorization`
+     * (`ios/LocationModule.swift:48-56`); it can also report `'restricted'`
+     * or `'unknown'` (`:92,96`). So `status === 'granted'` is always false on
+     * first run, and a `switch` over `PermissionStatus` can fall through. Poll
+     * `getPermissionStatus()` after prompting until it leaves `'requesting'`,
+     * or treat any unrecognized status as "not granted", until #889 lands the
+     * delegate callback and the status mapping.
      */
     async requestPermission(): Promise<PermissionResponse> {
         return unwrapNative(
