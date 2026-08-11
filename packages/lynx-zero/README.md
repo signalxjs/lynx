@@ -30,6 +30,8 @@ What lives here (growing per the phases in
   `scripts/gen-theme-css.mjs`); `extendTheme()` never carries it over.
 - **Style utilities** — `resolveBoxStyle`, `resolveSpacing`,
   `resolveColorToken`.
+- **Responsive prop values** — `Responsive<T>` / `resolveResponsive` (see
+  below).
 - **Press-feedback defaults** — `PRESSED_SCALE`, `PRESSED_OPACITY`.
 - *(Later phases)* layout primitives (`Row`, `Col`, `Center`, `Spacer`,
   `ScrollView`) and the theme engine (`ThemeProvider`, `themeController`,
@@ -37,6 +39,49 @@ What lives here (growing per the phases in
 
 What deliberately does **not** live here: visual components, component CSS,
 class-name recipes, theme palettes — those are per-design-system.
+
+## Responsive props
+
+Every style prop on `Row`, `Col`, `Center`, `Spacer` and `ScrollView` accepts
+either a plain value or a per-breakpoint object:
+
+```tsx
+<Col
+    direction={{ initial: 'column', expanded: 'row' }}
+    gap={{ initial: 8, large: 16 }}
+    padding={{ initial: 16, expanded: 32 }}
+/>
+```
+
+Keys are core's `WidthClass` tokens, with `initial` naming the `compact` base:
+`initial` · `medium` (600dp) · `expanded` (840dp) · `large` (1200dp) ·
+`xlarge` (1600dp). Resolution is **mobile-first** — a key applies at its
+breakpoint *and every wider one*. A value that defines nothing at or below the
+active class resolves to `undefined`, i.e. it behaves exactly like an omitted
+prop rather than forcing a zero.
+
+`direction` exists so the stack-on-phone / side-by-side-on-tablet flip restyles
+in place. Writing it as `{wide ? <Row/> : <Col/>}` changes the component type
+and **remounts the whole subtree** on every rotation, losing child state.
+
+This is plain JS resolution off core's `useWidthClass()` — no Tailwind, no class
+names, no CSS pipeline, so it behaves identically under every design system and
+under none. It also *has* to be JS: these primitives emit inline styles, and a
+stylesheet `@media` rule can never override an inline style.
+
+For your own components, compose the resolver with the singleton class:
+
+```tsx
+const cls = useWidthClass();                                    // setup
+return () => <Grid columns={resolveResponsive(cols, cls.value) ?? 1} />;
+```
+
+There is deliberately no `useResponsive()` hook: it would build a `computed()`
+per call site, and `computed()` has no disposer while a signal's subscriber set
+holds strong references — so every mount would leak one.
+
+Height is not a key. Branch on it explicitly with core's `useHeightAtLeast()`;
+see the note there on why a phone in landscape needs it.
 
 ## License
 

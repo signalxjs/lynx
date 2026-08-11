@@ -1,17 +1,20 @@
-import { component, type Define } from '@sigx/lynx';
+import { component, useWidthClass, type Define } from '@sigx/lynx';
 import type { BackgroundValue } from '../contract.js';
+import type { Responsive } from '../shared/responsive.js';
 import { resolveBoxStyle } from '../shared/styles.js';
 
 export type CenterProps =
-  & Define.Prop<'width', number | string, false>
-  & Define.Prop<'height', number | string, false>
-  & Define.Prop<'flex', number, false>
-  & Define.Prop<'background', BackgroundValue, false>
-  & Define.Prop<'borderRadius', number, false>
+  & Define.Prop<'width', Responsive<number | string>, false>
+  & Define.Prop<'height', Responsive<number | string>, false>
+  & Define.Prop<'flex', Responsive<number>, false>
+  & Define.Prop<'background', Responsive<BackgroundValue>, false>
+  & Define.Prop<'borderRadius', Responsive<number>, false>
   & Define.Prop<'class', string, false>
   & Define.Slot<'default'>;
 
 export const Center = component<CenterProps>(({ props, slots }) => {
+  const widthClass = useWidthClass();
+
   const getStyle = (): Record<string, string | number> => {
     const style: Record<string, string | number> = {
       display: 'flex',
@@ -25,7 +28,7 @@ export const Center = component<CenterProps>(({ props, slots }) => {
       flex: props.flex,
       background: props.background,
       borderRadius: props.borderRadius,
-    });
+    }, widthClass.value);
     for (const key in box) {
       style[key] = box[key] as string | number;
     }

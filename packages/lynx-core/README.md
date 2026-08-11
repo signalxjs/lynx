@@ -210,6 +210,60 @@ const onTap = () => {
 works on **both** threads — `lynx.SystemInfo` is empty on the background thread,
 `__globalProps` is not — which makes it the BG-safe screen-size accessor.
 
+### Window size classes
+
+For **layout decisions**, prefer these over `useScreen()`. They derive from the
+same publisher, but they are bucketed or boolean — and a `computed()` only
+notifies when its value actually changes — so a threshold read fires exactly
+once as the threshold is crossed, where `useScreen()` fires on every pixel of an
+iPad Split View drag.
+
+```tsx
+import {
+    Breakpoint, useWidthAtLeast, useWidthClass, useHeightClass, useWidthClassMT,
+} from '@sigx/lynx';
+
+const isExpanded = useWidthAtLeast(Breakpoint.WIDTH_EXPANDED);  // Computed<boolean>
+return () => (isExpanded.value ? <Sidebar /> : <BottomBar />);
+
+const w = useWidthClass();   // Computed<'compact'|'medium'|'expanded'|'large'|'xlarge'>
+const h = useHeightClass();  // Computed<'compact'|'medium'|'expanded'>
+```
+
+| Constant | dp | Constant | dp |
+|---|---|---|---|
+| `WIDTH_MEDIUM` | 600 | `WIDTH_LARGE` | 1200 |
+| `WIDTH_EXPANDED` | 840 | `WIDTH_XLARGE` | 1600 |
+| `HEIGHT_MEDIUM` | 480 | `HEIGHT_EXPANDED` | 900 |
+
+Material's thresholds — the one widely-used set expressed in
+density-independent units rather than desktop CSS pixels, which is the right
+currency here since Lynx lengths are already dp/pt. An iPad Air 13 is
+`expanded` in portrait (1024) and `large` in landscape (1366); an iPhone 15 Pro
+is `compact` (393).
+
+**Branch on height too.** An iPhone 15 Pro in *landscape* is 852×393 — its
+width reads `expanded`, the same bucket as an iPad in portrait, while its height
+is `compact`. A width-only rule is how a vertical nav rail ends up on a 393dp-tall
+screen.
+
+**Predicates take any dp**, not just a `Breakpoint` — `useWidthAtLeast(720)`
+compares the real width, it is not snapped to a bucket. They are monotone
+"at least" reads on purpose: adding a bucket later can never silently change
+what an existing call site means. Pass a *constant*, though — results are
+memoized per threshold, so a value derived per render would grow the cache.
+
+`useWidthClassMT()` / `useHeightClassMT()` are the worklet-safe reads. There is
+no `useWidthAtLeastMT(dp)` — a worklet already has the number, so write
+`useScreenMT().width >= Breakpoint.WIDTH_EXPANDED`.
+
+`widthClassOf(dp)` / `heightClassOf(dp)` are the pure bucket functions behind
+all of it, for callers that already hold a measurement.
+
+`Platform.isPad` is **not** a layout signal: it is a load-time property of the
+*device*, so it stays `true` for an iPad in a narrow Split View pane and `false`
+for every Android tablet. Use it for device-scoped decisions only.
+
 ### Runtime orientation lock
 
 ```ts
@@ -279,7 +333,7 @@ Native modules are wired by `@sigx/lynx-cli`'s autolinker. Install the package (
 Mixed by surface, since core is half host-agnostic JS and half native bridge:
 
 - **Unchanged on web.** `Platform` / `select()` (`Platform.OS === 'web'`), the logger and its transports, `SigxError` / `unwrapNative`, `base64ToArrayBuffer` / `arrayBufferToBase64`, and `subscribeNative` — upstream web-core does inject a `GlobalEventEmitter` into the worker, so native-event subscriptions genuinely deliver on web (that is how the appearance and screen channels below arrive). Its silent-no-op path is for hosts where no emitter is reachable at all (SSR, tests), which is why packages can subscribe unconditionally.
-- **Served by the page bridge.** `useScreen()` / `useOrientation()` / `readGlobalScreen()` work — `@sigx/lynx-web-host` publishes the same `__globalProps.screen` + `screenChanged` channels from `resize` and `screen.orientation`. `webHostCall()` / `isWebHostAvailable()` are the worker→page RPC used by the `.web.ts` shims that need an API only the page has: clipboard, linking, share, file picker, image picker, haptics, location, notifications. Shims for APIs the worker already owns don't go through it — storage uses IndexedDB, network reads `navigator.onLine`, websocket uses the worker's own `WebSocket`, and observability's memory read is local.
+- **Served by the page bridge.** `useScreen()` / `useOrientation()` / `readGlobalScreen()` work — `@sigx/lynx-web-host` publishes the same `__globalProps.screen` + `screenChanged` channels from `resize` and `screen.orientation`. The size-class reads (`useWidthClass()`, `useWidthAtLeast()`, …) are pure derivations of that signal, so they work on web too. `webHostCall()` / `isWebHostAvailable()` are the worker→page RPC used by the `.web.ts` shims that need an API only the page has: clipboard, linking, share, file picker, image picker, haptics, location, notifications. Shims for APIs the worker already owns don't go through it — storage uses IndexedDB, network reads `navigator.onLine`, websocket uses the worker's own `WebSocket`, and observability's memory read is local.
 - **Degraded.** `Orientation.lock()` resolves to `orientation.web.ts`, backed by the Screen Orientation API: locking only works on a fullscreen document and several browsers (all of iOS, desktop Safari) don't implement it at all, so it rejects with an explanatory message there. Feature-detect with `Orientation.isAvailable()`.
 - **Unsupported.** The `SigxCore` native module isn't registered on web, so `DeviceInfo` and `AppState` have no source — `DeviceInfo.isAvailable()` / `AppState.available` are `false`, `AppState.current` stays `'active'` and its subscriptions never fire (the Page Visibility API is what a future shim would use). Nothing publishes `__globalProps.fontScale` either, so `readGlobalFontScale()` returns `null` and `useFontScale()` stays at `1`.
 

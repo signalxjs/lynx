@@ -86,6 +86,22 @@ export type {
 } from '@sigx/lynx-core';
 export { useOrientationLock } from './orientation-lock.js';
 
+// Window size classes (#1013) — the layout-decision reads derived from
+// `useScreen()`. Unlike `useScreen()` these only fire when a threshold is
+// crossed, so branching on them doesn't re-render through a resize drag.
+export {
+    Breakpoint,
+    widthClassOf,
+    heightClassOf,
+    useWidthClass,
+    useHeightClass,
+    useWidthAtLeast,
+    useHeightAtLeast,
+    useWidthClassMT,
+    useHeightClassMT,
+} from '@sigx/lynx-core';
+export type { WidthClass, HeightClass } from '@sigx/lynx-core';
+
 // Active build variant (#530) — `variant`/`isVariant()`/`isBaseBuild()` report
 // which `--variant` build this is (or '' for base), for env badges / branching.
 export { variant, isVariant, isBaseBuild } from '@sigx/lynx-core';

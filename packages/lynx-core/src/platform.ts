@@ -142,7 +142,16 @@ export const Platform = {
     OS,
     /** OS version string, e.g. `'17.4'` / `'14'`. Empty when unknown. */
     Version: info?.osVersion ?? '',
-    /** Best-effort iPad detection (iOS + logical min edge ≥ 600dp). */
+    /**
+     * Best-effort iPad detection (iOS + logical min edge ≥ 600dp).
+     *
+     * **Device identity, not a layout signal.** It is a load-time snapshot of
+     * the *device*, so it stays `true` for an iPad running in a narrow Split
+     * View pane and stays `false` for an Android tablet or an unfolded
+     * foldable. Branch layout on `useWidthAtLeast()` / `useWidthClass()`
+     * instead — those follow the window the app actually occupies. Reserve
+     * this for genuinely device-scoped decisions (store copy, analytics).
+     */
     isPad: OS === 'ios' && minLogicalEdge >= 600,
     /** Device pixel ratio (physical px per dp). `1` when unknown. */
     pixelRatio: info?.pixelRatio ?? 1,

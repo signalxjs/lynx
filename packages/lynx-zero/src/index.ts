@@ -27,6 +27,14 @@ export { resolveColorToken, COLOR_VARIANT_LIST } from './contract.js';
 export type { SpacingValue, BoxProps } from './shared/styles.js';
 export { resolveSpacing, resolveBoxStyle } from './shared/styles.js';
 
+// Per-breakpoint prop values (#1013). Every layout primitive's style props
+// accept `{ initial, medium, expanded, large, xlarge }` alongside a plain
+// value; `resolveResponsive` is the resolver, for components doing their own.
+// Pair it with core's `useWidthClass()` — see the note in `responsive.ts` on
+// why there is no `useResponsive()` hook.
+export { resolveResponsive } from './shared/responsive.js';
+export type { Responsive, ResponsiveObject } from './shared/responsive.js';
+
 // Press-feedback defaults for interactive components.
 export { PRESSED_SCALE, PRESSED_OPACITY } from './shared/press.js';
 
@@ -81,7 +89,7 @@ export type { StatusBarSyncProps } from './theme/StatusBarSync.js';
 // Layout primitives — design-system-neutral structure (flex containers,
 // spacing, scrolling); no design-system class names involved.
 export { Row } from './layout/Row.js';
-export type { RowProps } from './layout/Row.js';
+export type { RowProps, FlexDirection } from './layout/Row.js';
 export { Col } from './layout/Col.js';
 export type { ColProps } from './layout/Col.js';
 export { Center } from './layout/Center.js';
