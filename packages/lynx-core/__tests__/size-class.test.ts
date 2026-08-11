@@ -224,6 +224,45 @@ describe('useWidthAtLeast / useHeightAtLeast', () => {
     });
 });
 
+describe('lazy wiring', () => {
+    it('still subscribes when the first call races runtime init', async () => {
+        // No emitter at first read — exactly the cold-start race `ensureWired()`
+        // exists to survive. The hooks must keep calling `useScreen()` on every
+        // invocation rather than only on a memo miss, or the retry is latched
+        // away and the app sits on the seed for the whole session.
+        installMockLynx(at(400, 800));            // no emitter yet
+        const api = await freshApi();
+        expect(api.useWidthClass().value).toBe('compact');
+
+        // Runtime comes up and injects the emitter.
+        const emitter = makeEmitter();
+        installMockLynx(at(400, 800), emitter);
+
+        // A later call has to retry the subscription...
+        const w = api.useWidthClass();
+        expect(emitter.listeners.get('screenChanged')?.size).toBe(1);
+
+        // ...and the signal must now follow the publisher.
+        emitter.emit('screenChanged', at(1024, 1366));
+        expect(w.value).toBe('expanded');
+    });
+
+    it('retries from the predicate hooks too', async () => {
+        installMockLynx(at(400, 800));
+        const api = await freshApi();
+        const first = api.useWidthAtLeast(840);
+        expect(first.value).toBe(false);
+
+        const emitter = makeEmitter();
+        installMockLynx(at(400, 800), emitter);
+        const again = api.useWidthAtLeast(840);
+        expect(emitter.listeners.get('screenChanged')?.size).toBe(1);
+
+        emitter.emit('screenChanged', at(1024, 1366));
+        expect(again.value).toBe(true);
+    });
+});
+
 describe('useWidthClassMT / useHeightClassMT', () => {
     it('reads __globalProps synchronously with no subscription', async () => {
         installMockLynx(at(1366, 1024));   // no emitter — MT path must not need one

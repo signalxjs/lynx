@@ -106,8 +106,14 @@ let heightClassComputed: Computed<HeightClass> | undefined;
  * ```
  */
 export function useWidthClass(): Computed<WidthClass> {
+    // Call `useScreen()` on EVERY call, not just the memo miss: it is what runs
+    // `ensureWired()`, whose retry-on-a-later-call is the only thing that
+    // recovers a first read which raced runtime init (there was no emitter to
+    // subscribe to yet). Hoisting it inside the guard would latch that retry
+    // away, and an app that only ever calls these hooks — never `useScreen()`
+    // directly — would sit on the cold-start seed for the whole session.
+    const screen = useScreen();
     if (!widthClassComputed) {
-        const screen = useScreen();
         widthClassComputed = computed(() => widthClassOf(screen.value.width));
     }
     return widthClassComputed;
@@ -115,8 +121,8 @@ export function useWidthClass(): Computed<WidthClass> {
 
 /** BG-side reactive height bucket. See {@link HeightClass}. */
 export function useHeightClass(): Computed<HeightClass> {
+    const screen = useScreen();
     if (!heightClassComputed) {
-        const screen = useScreen();
         heightClassComputed = computed(() => heightClassOf(screen.value.height));
     }
     return heightClassComputed;
@@ -136,9 +142,10 @@ export function useHeightClass(): Computed<HeightClass> {
  * ```
  */
 export function useWidthAtLeast(dp: number): Computed<boolean> {
+    // Unconditional, for the `ensureWired()` retry — see `useWidthClass()`.
+    const screen = useScreen();
     let c = widthAtLeastCache.get(dp);
     if (!c) {
-        const screen = useScreen();
         c = computed(() => screen.value.width >= dp);
         widthAtLeastCache.set(dp, c);
     }
@@ -153,9 +160,10 @@ export function useWidthAtLeast(dp: number): Computed<boolean> {
  * short, and deserves the compact treatment.
  */
 export function useHeightAtLeast(dp: number): Computed<boolean> {
+    // Unconditional, for the `ensureWired()` retry — see `useWidthClass()`.
+    const screen = useScreen();
     let c = heightAtLeastCache.get(dp);
     if (!c) {
-        const screen = useScreen();
         c = computed(() => screen.value.height >= dp);
         heightAtLeastCache.set(dp, c);
     }
