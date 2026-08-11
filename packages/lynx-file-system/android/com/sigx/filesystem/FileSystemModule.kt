@@ -118,7 +118,7 @@ class FileSystemModule(context: Context) : LynxModule(context) {
             // directory, or a read-only path. Only the latter is an error.
             if (!file.delete() && file.exists()) {
                 val error = JavaOnlyMap()
-                error.putString("error", "Failed to delete: $path")
+                error.putString("error", "Failed to delete: $p")
                 callback?.invoke(error)
                 return
             }

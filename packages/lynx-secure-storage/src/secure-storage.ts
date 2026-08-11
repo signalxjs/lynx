@@ -110,6 +110,12 @@ function unwrapAck(action: string, raw: NativeResult | null | undefined): void {
  * descriptive `getModule` error), and `'native_error'` for a failure reported
  * by the platform — the natives resolve their callback with `{ error }` rather
  * than rejecting, so each call unwraps that envelope.
+ *
+ * `hasKey` is the one exception on the argument guard: it is a predicate, so
+ * an unusable key resolves `false` rather than throwing `'invalid_argument'` —
+ * the same answer native gives for a key that was never stored. It still
+ * throws for the other two codes.
+ *
  * There is no `cancelled` result here: dismissing the biometric prompt is one
  * of those native failures (`error: 'userCancel'` on both platforms —
  * `ios/SecureStorageModule.swift:136`, `android/…/SecureStorageModule.kt:270`)

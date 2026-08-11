@@ -83,6 +83,15 @@ class FileSystemModule: NSObject, LynxModule {
             callback?(["error": "Path is required"])
             return
         }
+        // Rejected here as well as on Android, so the contract doesn't fork by
+        // platform. iOS has no ContentResolver, so a `content://` string is
+        // simply a bogus relative path — it would resolve under Documents,
+        // miss, and report the "already gone" no-op: a cross-platform app
+        // would see an error on one platform and silence on the other.
+        if path.hasPrefix("content://") {
+            callback?(["error": "Cannot delete a content:// URI — the app doesn't own that file: \(path)"])
+            return
+        }
         let resolvedPath = resolveFile(path)
         // Deleting something that isn't there is the documented no-op, and what
         // Android's `File.delete()` does — the JS side now throws on `{ error }`,
