@@ -10,13 +10,18 @@ const bridge = {
     isModuleAvailable: vi.fn(() => true),
 };
 
-vi.mock('@sigx/lynx-core', () => ({
+// Only the bridge is faked: `unwrapNative` and `SigxError` come from the real
+// core, so the C4 assertions below exercise the shipped unwrap rather than a
+// stand-in that could pass with the fix reverted.
+vi.mock('@sigx/lynx-core', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('@sigx/lynx-core')>()),
     callAsync: (...args: unknown[]) => bridge.callAsync(...(args as [])),
     isModuleAvailable: (...args: unknown[]) =>
         bridge.isModuleAvailable(...(args as [])),
 }));
 
 const { Camera } = await import('../src/camera.js');
+const { SigxError } = await import('@sigx/lynx-core');
 
 beforeEach(() => {
     bridge.callAsync.mockClear();
@@ -67,9 +72,58 @@ describe('Camera.takePicture', () => {
         expect(result).toEqual({ cancelled: true });
     });
 
-    it('throws on a native failure error', async () => {
-        bridge.callAsync.mockResolvedValueOnce({ error: 'Camera not available on this device' });
-        await expect(Camera.takePicture()).rejects.toThrow('Camera not available on this device');
+    it('throws a SigxError on a native failure error (C4/C10)', async () => {
+        const raw = { error: 'Camera not available on this device' };
+        bridge.callAsync.mockResolvedValueOnce(raw);
+        // Native failures arrive on the *resolved* callback, so without the
+        // unwrap the caller reads `undefined` off a "successful" result.
+        const err = await Camera.takePicture().then(
+            (r) => { throw new Error(`expected a throw, resolved ${JSON.stringify(r)}`); },
+            (e: unknown) => e,
+        );
+        expect(err).toBeInstanceOf(SigxError);
+        const sigx = err as InstanceType<typeof SigxError>;
+        expect(sigx.code).toBe('native_error');
+        expect(sigx.package).toBe('lynx-camera');
+        expect(sigx.message).toBe(
+            '[@sigx/lynx-camera] takePicture failed: Camera not available on this device',
+        );
+        expect(sigx.cause).toBe(raw);
+    });
+
+    it('throws on a non-string error payload instead of reporting a cancel', async () => {
+        // The bespoke unwrap only recognized `typeof error === 'string'`, so a
+        // structured error resolved as `{ cancelled: true }`.
+        bridge.callAsync.mockResolvedValueOnce({ error: { code: 7, message: 'busy' } });
+        await expect(Camera.takePicture()).rejects.toThrow(
+            '[@sigx/lynx-camera] takePicture failed: {"code":7,"message":"busy"}',
+        );
+    });
+
+    it('throws when a failure arrives alongside Android\'s cancelled flag', async () => {
+        // MediaCapture sets `cancelled: true` on genuine failures too, so the
+        // flag can never be the cancel signal — only the sentinel strings are.
+        bridge.callAsync.mockResolvedValueOnce({
+            error: "FileProvider authority 'com.acme.fileprovider' not configured: missing <provider>",
+            cancelled: true,
+        });
+        await expect(Camera.takePicture()).rejects.toThrow(
+            "[@sigx/lynx-camera] takePicture failed: FileProvider authority 'com.acme.fileprovider' not configured: missing <provider>",
+        );
+    });
+
+    it('throws on a payload that is not the documented object', async () => {
+        // The bridge shape varies by path (#342); a JSON string used to settle
+        // as a cancel, hiding the capture entirely.
+        bridge.callAsync.mockResolvedValueOnce('{"uri":"/tmp/a.jpg"}');
+        await expect(Camera.takePicture()).rejects.toThrow(
+            '[@sigx/lynx-camera] takePicture failed: unexpected native payload: "{\\"uri\\":\\"/tmp/a.jpg\\"}"',
+        );
+    });
+
+    it('throws when the callback resolves nothing at all', async () => {
+        bridge.callAsync.mockResolvedValueOnce(undefined);
+        await expect(Camera.takePicture()).rejects.toBeInstanceOf(SigxError);
     });
 });
 
@@ -126,9 +180,26 @@ describe('Camera.recordVideo — result normalization', () => {
         expect(result).toEqual({ cancelled: true });
     });
 
-    it('throws on a native failure error', async () => {
+    it('throws a SigxError naming recordVideo on a native failure error (C4/C10)', async () => {
         bridge.callAsync.mockResolvedValueOnce({ error: 'Camera permission denied' });
-        await expect(Camera.recordVideo()).rejects.toThrow('Camera permission denied');
+        const err = await Camera.recordVideo().then(
+            (r) => { throw new Error(`expected a throw, resolved ${JSON.stringify(r)}`); },
+            (e: unknown) => e,
+        );
+        expect(err).toBeInstanceOf(SigxError);
+        expect((err as InstanceType<typeof SigxError>).code).toBe('native_error');
+        // The action, not the module name — a caller reading the log has to be
+        // able to tell a failed capture from a failed recording.
+        expect((err as Error).message).toBe(
+            '[@sigx/lynx-camera] recordVideo failed: Camera permission denied',
+        );
+    });
+
+    it('throws on a payload that is not the documented object', async () => {
+        bridge.callAsync.mockResolvedValueOnce(['content://media/external/video/1']);
+        await expect(Camera.recordVideo()).rejects.toThrow(
+            '[@sigx/lynx-camera] recordVideo failed: unexpected native payload:',
+        );
     });
 });
 

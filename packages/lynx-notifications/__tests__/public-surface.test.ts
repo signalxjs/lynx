@@ -110,12 +110,23 @@ describe('public types', () => {
         >();
     });
 
+    it('keeps failures out of the schedule and badge results (C4)', () => {
+        // Both reject on the native `{ error }` envelope, so neither return
+        // type may grow a failure field again: `schedule` handing back an
+        // `{ error }` object typed `string` is exactly the bug #895 found, and
+        // a `Promise<void>` is only honest here because the error throws.
+        expectTypeOf(Notifications.schedule).returns.toEqualTypeOf<Promise<string>>();
+        expectTypeOf(Notifications.setBadgeCount).returns.toEqualTypeOf<Promise<void>>();
+    });
+
     it('pins the nullable cold-start read and the error-carrying results', () => {
         // `null` means "the app wasn't launched by a tap"; collapsing it would
-        // make every cold start look like a deep link. The push results carry
-        // failures as fields rather than rejections (web has no remote push at
-        // all), so callers degrade without try/catch — losing `error?` would
-        // turn a documented no-op into an unhandled rejection.
+        // make every cold start look like a deep link. The push results keep
+        // carrying failures as fields — a documented C3 opt-out, because the
+        // same failure is published on `addTokenErrorListener`, the only
+        // channel that can report it at all on iOS (web has no remote push
+        // whatsoever). Losing `error?` would turn a documented no-op into an
+        // unhandled rejection.
         expectTypeOf(Notifications.getInitialNotification).toEqualTypeOf<
             () => Promise<NotificationResponse | null>
         >();

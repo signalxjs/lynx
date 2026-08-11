@@ -1,4 +1,4 @@
-import { callAsync, isModuleAvailable } from '@sigx/lynx-core';
+import { callAsync, isModuleAvailable, unwrapNative, unwrapNativeVoid } from '@sigx/lynx-core';
 import type { PermissionResponse } from '@sigx/lynx-core';
 import {
     addTokenListener,
@@ -13,6 +13,8 @@ import {
 } from './push.js';
 
 const MODULE = 'Notifications';
+/** Package short name for `unwrapNative`'s C10 message prefix. */
+const PKG = 'lynx-notifications';
 
 export interface NotificationContent {
     title: string;
@@ -70,8 +72,20 @@ export interface UnregisterPushResult {
  * ```
  */
 export const Notifications = {
-    schedule(content: NotificationContent, options: ScheduleOptions = {}): Promise<string> {
-        return callAsync<string>(MODULE, 'schedule', content, options);
+    /**
+     * Post a local notification and resolve its id.
+     *
+     * **Throws** if the OS refuses it (C4) — `UNUserNotificationCenter.add`
+     * reports one on iOS, an exception in the builder on Android. Both used to
+     * arrive as an `{ error }` object typed `string`, so the caller believed a
+     * notification had been posted and held an id that cancels nothing.
+     */
+    async schedule(content: NotificationContent, options: ScheduleOptions = {}): Promise<string> {
+        return unwrapNative(
+            PKG,
+            'schedule',
+            await callAsync<string>(MODULE, 'schedule', content, options),
+        );
     },
 
     /**
@@ -84,17 +98,40 @@ export const Notifications = {
      * Resolves `false` when the native side could not process the call
      * (missing id / platform error); note `true` does not imply a matching
      * tray entry existed.
+     *
+     * **C3/C4 opt-out — a failure comes back as `false`, not a throw.**
+     * Dismissal is advisory and idempotent: it's fired from cleanup paths
+     * ("the conversation was read elsewhere") where a throw would abort
+     * unrelated work, and since `true` never proved an entry existed, `false`
+     * carries no more actionable detail than "nothing was dismissed". Neither
+     * native ever sends an `{ error }` envelope here — both catch and answer
+     * `false` — so there is nothing for `unwrapNative` to unwrap. Documented
+     * in the README's Gotchas.
      */
     cancel(notificationId: string): Promise<boolean> {
         return callAsync<boolean>(MODULE, 'cancel', notificationId);
     },
 
-    /** Cancel all pending notifications and clear every delivered tray entry. */
+    /**
+     * Cancel all pending notifications and clear every delivered tray entry.
+     *
+     * Same C3/C4 opt-out as `cancel` — a failure resolves `false` rather than
+     * throwing; see there and the README's Gotchas.
+     */
     cancelAll(): Promise<boolean> {
         return callAsync<boolean>(MODULE, 'cancelAll');
     },
 
-    /** Request notification permission, showing the OS dialog if needed. */
+    /**
+     * Request notification permission, showing the OS dialog if needed.
+     *
+     * Not unwrapped: iOS folds an authorization *error* into the envelope as
+     * `{ status: 'denied', error }`, so a status is always returned. Whether
+     * that should stay a status or become a throw is the repo-wide C6
+     * denied-vs-blocked mapping question tracked on #895 — settling it here
+     * alone would make notifications the one module whose permission call can
+     * reject.
+     */
     requestPermission(): Promise<PermissionResponse> {
         return callAsync<PermissionResponse>(MODULE, 'requestPermission');
     },
@@ -115,6 +152,15 @@ export const Notifications = {
      * Android: resolves directly with the FCM token. Also publishes the token
      * via the listener channel so JS code that wires both paths sees one
      * canonical event.
+     *
+     * **C3/C4 opt-out — a registration failure resolves with `{ error }`
+     * rather than throwing.** Registration is event-channel-owned: iOS can
+     * only ever report a failure asynchronously through
+     * `addTokenErrorListener`, and Android publishes to that same channel
+     * *before* it answers this promise. So the failure already reaches the one
+     * handler both platforms share, and the `error` field is a mirror of it,
+     * not the sole signal — throwing here would force every caller to handle
+     * the same failure twice. Documented in the README's Gotchas.
      */
     registerForPushNotifications(): Promise<RegisterPushResult> {
         return callAsync<RegisterPushResult>(MODULE, 'registerForPushNotifications');
@@ -129,6 +175,11 @@ export const Notifications = {
      * `{ ok: false, error }` if the network call fails so the JS caller
      * doesn't believe it's unregistered while the server keeps pushing.
      * Failures also publish on the `addTokenErrorListener` channel.
+     *
+     * **C3/C4 opt-out — same reasoning as `registerForPushNotifications`:**
+     * the failure is published on the shared token-error channel first, and
+     * `ok: false` is the flag callers branch on. Documented in the README's
+     * Gotchas.
      */
     unregisterForPushNotifications(): Promise<UnregisterPushResult> {
         return callAsync<UnregisterPushResult>(MODULE, 'unregisterForPushNotifications');
@@ -143,9 +194,17 @@ export const Notifications = {
      * vendor-specific — Samsung's `ShortcutBadger`, etc.) and this call
      * does NOT clear pending notifications — callers wanting that should
      * use `cancelAll()` directly.
+     *
+     * **Throws** when iOS 16+'s `setBadgeCount` reports an error (C4) — a
+     * `Promise<void>` discarded that envelope entirely, so a badge that never
+     * changed looked exactly like one that did.
      */
-    setBadgeCount(count: number): Promise<void> {
-        return callAsync<void>(MODULE, 'setBadgeCount', count);
+    async setBadgeCount(count: number): Promise<void> {
+        unwrapNativeVoid(
+            PKG,
+            'setBadgeCount',
+            await callAsync<{ error?: string } | boolean>(MODULE, 'setBadgeCount', count),
+        );
     },
 
     /** iOS: current badge number. Android: always 0 (no portable read API). */

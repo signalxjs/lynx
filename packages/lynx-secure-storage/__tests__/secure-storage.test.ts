@@ -1,127 +1,283 @@
 /**
- * Unit tests for the JS-side SecureStorage API. Mocks `@sigx/lynx-core`
- * so we never hit a real Keychain/Keystore. Real round-trip is exercised
- * on-device via examples/showcase.
+ * Unit tests for the JS-side SecureStorage API. Real round-trip against a real
+ * Keychain/Keystore is exercised on-device via examples/showcase.
+ *
+ * These drive the real `@sigx/lynx-core` bridge against a faked
+ * `NativeModules` global rather than mocking the module out, matching the
+ * sibling C4 conversions (lynx-clipboard, lynx-file-system). That matters
+ * here: the thing under test *is* the unwrap of the `{ error }` envelope, and
+ * a mocked-out core would only prove the mock throws. Both natives resolve
+ * their callback with `{ error }` on failure — they never reject — so a
+ * missing unwrap turns a failed read into a plausible-looking `null`.
  */
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const bridge = {
-    callAsync: vi.fn(async (..._args: unknown[]) => ({ ok: true }) as unknown),
-    isModuleAvailable: vi.fn(() => true),
-};
+import { SecureStorage } from '../src/secure-storage.js';
 
-vi.mock('@sigx/lynx-core', () => ({
-    callAsync: (...args: unknown[]) => bridge.callAsync(...(args as [])),
-    isModuleAvailable: (...args: unknown[]) =>
-        bridge.isModuleAvailable(...(args as [])),
-}));
+type NativeImpl = Record<string, (...a: never[]) => unknown>;
 
-const { SecureStorage } = await import('../src/secure-storage.js');
+/** Records what crossed the bridge, so call shape is asserted, not assumed. */
+let calls: Array<{ method: string; args: unknown[] }>;
+
+/** Install a fake `SecureStorage` native module. `undefined` unlinks it. */
+function installNativeModules(impl?: NativeImpl) {
+    vi.stubGlobal('NativeModules', impl ? { SecureStorage: impl } : {});
+}
+
+/**
+ * A native method that records its arguments and resolves `result` — the
+ * shape both platforms use: last argument is the callback, and a failure is a
+ * resolved `{ error }`, never a throw.
+ */
+function resolving(method: string, result: unknown): (...a: never[]) => void {
+    return (...args: never[]) => {
+        const cb = args[args.length - 1] as unknown as (r: unknown) => void;
+        calls.push({ method, args: args.slice(0, -1) });
+        cb(result);
+    };
+}
+
+/** Install one method's reply, leaving the others on their success default. */
+function nativeReplying(method: string, result: unknown) {
+    installNativeModules({
+        set: resolving('set', { ok: true }),
+        get: resolving('get', { value: 'stored' }),
+        delete: resolving('delete', { ok: true }),
+        clear: resolving('clear', { ok: true }),
+        hasKey: resolving('hasKey', { exists: true }),
+        [method]: resolving(method, result),
+    });
+}
 
 beforeEach(() => {
-    bridge.callAsync.mockReset();
-    bridge.callAsync.mockResolvedValue({ ok: true });
-    bridge.isModuleAvailable.mockReset();
-    bridge.isModuleAvailable.mockReturnValue(true);
+    calls = [];
+    nativeReplying('set', { ok: true });
 });
+
+afterEach(() => vi.unstubAllGlobals());
 
 describe('SecureStorage.setItem', () => {
     it('forwards key, value, and opts to the native bridge', async () => {
         await SecureStorage.setItem('token', 'abc', { requireBiometric: true });
-        expect(bridge.callAsync).toHaveBeenCalledWith(
-            'SecureStorage',
-            'set',
-            'token',
-            'abc',
-            { requireBiometric: true },
-        );
+        expect(calls).toEqual([
+            { method: 'set', args: ['token', 'abc', { requireBiometric: true }] },
+        ]);
     });
 
     it('defaults opts to an empty object', async () => {
         await SecureStorage.setItem('token', 'abc');
-        expect(bridge.callAsync).toHaveBeenCalledWith(
-            'SecureStorage',
-            'set',
-            'token',
-            'abc',
-            {},
-        );
+        expect(calls).toEqual([{ method: 'set', args: ['token', 'abc', {}] }]);
     });
 
-    it('throws when native returns { error }', async () => {
-        bridge.callAsync.mockResolvedValueOnce({ error: 'keychain locked' });
-        await expect(SecureStorage.setItem('token', 'abc')).rejects.toThrow(/keychain locked/);
+    it('throws a SigxError when native returns { error }', async () => {
+        nativeReplying('set', { error: 'keychain locked' });
+        await expect(SecureStorage.setItem('token', 'abc')).rejects.toMatchObject({
+            name: 'SigxError',
+            code: 'native_error',
+            package: 'lynx-secure-storage',
+            message: '[@sigx/lynx-secure-storage] setItem(token) failed: keychain locked',
+        });
+    });
+
+    it('throws when native acknowledges nothing', async () => {
+        // A write that reports neither `ok` nor `error` never happened; saying
+        // "stored" here is how a credential silently goes missing.
+        nativeReplying('set', {});
+        await expect(SecureStorage.setItem('token', 'abc')).rejects.toThrow(
+            /setItem\(token\) failed: native did not acknowledge the write/,
+        );
     });
 
     it('throws on empty key', async () => {
         await expect(SecureStorage.setItem('', 'abc')).rejects.toThrow(/non-empty string/);
-        expect(bridge.callAsync).not.toHaveBeenCalled();
+        expect(calls).toEqual([]);
+    });
+
+    it('throws on a non-string value', async () => {
+        await expect(
+            SecureStorage.setItem('token', 42 as unknown as string),
+        ).rejects.toThrow(/value must be a string/);
+        expect(calls).toEqual([]);
+    });
+
+    it('gives an argument rejection a code, like every other failure here', async () => {
+        // The README tells callers to branch on `code`; that is only true if
+        // the guards carry one too, so these are SigxErrors, not bare Errors.
+        await expect(SecureStorage.setItem('', 'abc')).rejects.toMatchObject({
+            name: 'SigxError',
+            code: 'invalid_argument',
+            package: 'lynx-secure-storage',
+            message: '[@sigx/lynx-secure-storage] setItem failed: key must be a non-empty string',
+        });
+        await expect(
+            SecureStorage.setItem('token', 42 as unknown as string),
+        ).rejects.toMatchObject({ code: 'invalid_argument' });
+        await expect(SecureStorage.getItem('')).rejects.toMatchObject({
+            code: 'invalid_argument',
+        });
+        await expect(SecureStorage.removeItem('')).rejects.toMatchObject({
+            code: 'invalid_argument',
+        });
     });
 });
 
 describe('SecureStorage.getItem', () => {
     it('forwards key + opts and returns the value', async () => {
-        bridge.callAsync.mockResolvedValueOnce({ value: 'abc' });
+        nativeReplying('get', { value: 'abc' });
         const value = await SecureStorage.getItem('token', {
             biometricPrompt: { reason: 'Unlock', title: 'Acme' },
         });
         expect(value).toBe('abc');
-        expect(bridge.callAsync).toHaveBeenCalledWith(
-            'SecureStorage',
-            'get',
-            'token',
-            { biometricPrompt: { reason: 'Unlock', title: 'Acme' } },
-        );
+        expect(calls).toEqual([
+            {
+                method: 'get',
+                args: ['token', { biometricPrompt: { reason: 'Unlock', title: 'Acme' } }],
+            },
+        ]);
     });
 
     it('returns null when native returns no value', async () => {
-        bridge.callAsync.mockResolvedValueOnce({ value: null });
+        nativeReplying('get', { value: null });
         expect(await SecureStorage.getItem('missing')).toBeNull();
     });
 
     it('returns null when native omits value entirely', async () => {
-        bridge.callAsync.mockResolvedValueOnce({});
+        nativeReplying('get', {});
         expect(await SecureStorage.getItem('missing')).toBeNull();
     });
 
-    it('throws on native error (e.g. biometric cancel)', async () => {
-        bridge.callAsync.mockResolvedValueOnce({ error: 'userCancel' });
-        await expect(SecureStorage.getItem('token')).rejects.toThrow(/userCancel/);
+    it('throws a SigxError carrying the native payload as cause', async () => {
+        const payload = { error: 'Keystore key missing or invalidated: bad key' };
+        nativeReplying('get', payload);
+        const err = await SecureStorage.getItem('token').catch((e: unknown) => e);
+        expect(err).toMatchObject({
+            name: 'SigxError',
+            code: 'native_error',
+            cause: payload,
+        });
+        expect((err as Error).message).toBe(
+            '[@sigx/lynx-secure-storage] getItem(token) failed: Keystore key missing or invalidated: bad key',
+        );
+    });
+
+    it('throws on empty key', async () => {
+        // Rejects rather than resolving `null`: an empty key is a caller bug,
+        // not a key that happens to be unset.
+        await expect(SecureStorage.getItem('')).rejects.toThrow(/non-empty string/);
+        expect(calls).toEqual([]);
+    });
+
+    it('throws — never resolves null — when the user dismisses the prompt', async () => {
+        // C5 in reverse: this package has no `cancelled` result to preserve.
+        // Both natives report a dismiss as `{ error: 'userCancel' }`
+        // (swift:136 errSecUserCanceled, kt:270 ERROR_NEGATIVE_BUTTON), so a
+        // dismiss is a failure here and always was. The value of the test is
+        // that it can't degrade into `null`, which callers read as "signed
+        // out" and act on.
+        nativeReplying('get', { error: 'userCancel' });
+        await expect(SecureStorage.getItem('token')).rejects.toThrow(
+            /getItem\(token\) failed: userCancel/,
+        );
     });
 });
 
 describe('SecureStorage.removeItem', () => {
     it('forwards the key', async () => {
+        nativeReplying('delete', { ok: true });
         await SecureStorage.removeItem('token');
-        expect(bridge.callAsync).toHaveBeenCalledWith('SecureStorage', 'delete', 'token');
+        expect(calls).toEqual([{ method: 'delete', args: ['token'] }]);
+    });
+
+    it('throws when native returns { error }', async () => {
+        nativeReplying('delete', { error: 'SecItemDelete failed: -34018' });
+        await expect(SecureStorage.removeItem('token')).rejects.toMatchObject({
+            code: 'native_error',
+            message:
+                '[@sigx/lynx-secure-storage] removeItem(token) failed: SecItemDelete failed: -34018',
+        });
+    });
+
+    it('throws on empty key', async () => {
+        await expect(SecureStorage.removeItem('')).rejects.toThrow(/non-empty string/);
+        expect(calls).toEqual([]);
     });
 });
 
 describe('SecureStorage.clear', () => {
     it('calls native with no arguments', async () => {
+        nativeReplying('clear', { ok: true });
         await SecureStorage.clear();
-        expect(bridge.callAsync).toHaveBeenCalledWith('SecureStorage', 'clear');
+        expect(calls).toEqual([{ method: 'clear', args: [] }]);
+    });
+
+    it('throws when native returns { error }', async () => {
+        nativeReplying('clear', { error: 'clear failed: IOException' });
+        await expect(SecureStorage.clear()).rejects.toMatchObject({
+            code: 'native_error',
+            message: '[@sigx/lynx-secure-storage] clear failed: clear failed: IOException',
+        });
     });
 });
 
 describe('SecureStorage.hasKey', () => {
     it('returns the exists flag from native', async () => {
-        bridge.callAsync.mockResolvedValueOnce({ exists: true });
+        nativeReplying('hasKey', { exists: true });
         expect(await SecureStorage.hasKey('token')).toBe(true);
-        bridge.callAsync.mockResolvedValueOnce({ exists: false });
+        nativeReplying('hasKey', { exists: false });
         expect(await SecureStorage.hasKey('token')).toBe(false);
     });
 
     it('returns false (without calling native) on empty key', async () => {
         expect(await SecureStorage.hasKey('')).toBe(false);
-        expect(bridge.callAsync).not.toHaveBeenCalled();
+        expect(calls).toEqual([]);
+    });
+
+    it('throws when native returns { error }', async () => {
+        nativeReplying('hasKey', { error: 'prefs unreadable' });
+        await expect(SecureStorage.hasKey('token')).rejects.toMatchObject({
+            code: 'native_error',
+            message: '[@sigx/lynx-secure-storage] hasKey(token) failed: prefs unreadable',
+        });
     });
 });
 
 describe('SecureStorage.isAvailable', () => {
-    it('delegates to lynx-core', () => {
-        bridge.isModuleAvailable.mockReturnValueOnce(false);
+    it('reflects whether the native module is linked', () => {
+        expect(SecureStorage.isAvailable()).toBe(true);
+        installNativeModules(undefined);
         expect(SecureStorage.isAvailable()).toBe(false);
-        expect(bridge.isModuleAvailable).toHaveBeenCalledWith('SecureStorage');
+    });
+});
+
+describe('without the native module', () => {
+    beforeEach(() => installNativeModules(undefined));
+
+    // The README promises every call rejects with core's descriptive error;
+    // this is the only failure that arrives as a rejection rather than an
+    // `{ error }` envelope, so it must not be confused with one.
+    it('rejects every call with core’s descriptive error', async () => {
+        await expect(SecureStorage.setItem('k', 'v')).rejects.toThrow(
+            /Module "SecureStorage" is not available/,
+        );
+        await expect(SecureStorage.getItem('k')).rejects.toThrow(
+            /Module "SecureStorage" is not available/,
+        );
+        await expect(SecureStorage.removeItem('k')).rejects.toThrow(
+            /Module "SecureStorage" is not available/,
+        );
+        await expect(SecureStorage.clear()).rejects.toThrow(
+            /Module "SecureStorage" is not available/,
+        );
+        await expect(SecureStorage.hasKey('k')).rejects.toThrow(
+            /Module "SecureStorage" is not available/,
+        );
+    });
+
+    it('codes that rejection module_unavailable, so it is branchable', async () => {
+        await expect(SecureStorage.getItem('k')).rejects.toMatchObject({
+            name: 'SigxError',
+            code: 'module_unavailable',
+            package: 'lynx-core',
+        });
     });
 });

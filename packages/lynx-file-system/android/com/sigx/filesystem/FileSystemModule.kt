@@ -97,9 +97,32 @@ class FileSystemModule(context: Context) : LynxModule(context) {
     @LynxMethod
     fun deleteFile(path: String?, callback: Callback?) {
         try {
-            val file = resolveFile(path ?: "")
-            val deleted = file.delete()
-            callback?.invoke(deleted)
+            val p = path ?: ""
+            // `content://` is a ContentResolver grant, not a path: `File()`
+            // would build a nonexistent relative file under filesDir, whose
+            // delete "succeeds" while the picked document is untouched. The
+            // app doesn't own that file — say so instead of reporting a
+            // deletion that never happened.
+            if (p.startsWith("content://")) {
+                val error = JavaOnlyMap()
+                error.putString(
+                    "error",
+                    "Cannot delete a content:// URI — the app doesn't own that file: $p",
+                )
+                callback?.invoke(error)
+                return
+            }
+            val file = resolveFile(p)
+            // `delete()` returns false both for "already gone" — the documented
+            // no-op, matching iOS — and for a real failure: a non-empty
+            // directory, or a read-only path. Only the latter is an error.
+            if (!file.delete() && file.exists()) {
+                val error = JavaOnlyMap()
+                error.putString("error", "Failed to delete: $p")
+                callback?.invoke(error)
+                return
+            }
+            callback?.invoke(true)
         } catch (e: Exception) {
             val error = JavaOnlyMap()
             error.putString("error", e.message ?: "Unknown error")

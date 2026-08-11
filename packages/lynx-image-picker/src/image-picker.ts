@@ -1,7 +1,8 @@
-import { callAsync, isModuleAvailable } from '@sigx/lynx-core';
+import { callAsync, isModuleAvailable, unwrapNative } from '@sigx/lynx-core';
 import type { PermissionResponse } from '@sigx/lynx-core';
 
 const MODULE = 'ImagePicker';
+const PKG = 'lynx-image-picker';
 
 export interface ImagePickerOptions {
     /** 'photo', 'video', or 'mixed' */
@@ -63,9 +64,38 @@ function normalizeUri(uri: string): string {
 }
 
 /**
+ * Native `error` strings that mean "this pick ended without a result", not
+ * "the pick broke": the pick was superseded by a newer one, or the host
+ * Activity went away underneath it.
+ *
+ * Android's `MediaCapture` tags both with an `error` string alongside
+ * `cancelled: true` (`cancelled by new pickImage` / `pickImages`,
+ * `activity destroyed` — `android/…/MediaCapture.kt`), while iOS resolves a
+ * plain `{ cancelled: true }`. Recognizing them here is what keeps the two
+ * platforms on the same contract; the same sentinel set as `@sigx/lynx-camera`
+ * and `@sigx/lynx-file-picker`, which share MediaCapture.
+ *
+ * A launcher that was never registered is deliberately *not* in the set: it
+ * also arrives with `cancelled: true`, but the pick never opened, so it is a
+ * failure and must throw.
+ */
+function isCancelSentinel(error: string): boolean {
+    return error.startsWith('cancelled') || error === 'activity destroyed';
+}
+
+/**
  * Normalize a raw native result into the JS-side `ImagePickerResult` shape.
  *
- * Defends against two cross-platform asymmetries:
+ * A dismissal is matched first, before the unwrap: cancellation is not an
+ * error channel (C5), and that includes a pick superseded by a newer one or
+ * cut short by Activity teardown, which Android reports on the `error` field.
+ *
+ * Everything else that carries an `error` throws (C4): an unregistered
+ * `MediaCapture` launcher, a `launcher.launch` throw, or iOS having no view
+ * controller to present from. Without `unwrapNative` those arrived as an
+ * ordinary user-cancel and the app silently did nothing.
+ *
+ * Then defends against two cross-platform asymmetries:
  *  - **Cancelled spelling.** iOS returns `cancelled` (two l's); the older
  *    Android module path historically returned `canceled` (one l). Accept
  *    both and emit the JS-canonical `cancelled`.
@@ -73,8 +103,25 @@ function normalizeUri(uri: string): string {
  *    the user cancels. Default to an empty array so callers can always
  *    `.map(...)` without a null-check.
  */
-function normalizeAssets(result: unknown): ImagePickerResult {
-    const raw = (result ?? {}) as Record<string, unknown>;
+function normalizeAssets(action: string, result: unknown): ImagePickerResult {
+    const error = (result as { error?: unknown } | null | undefined)?.error;
+    if (typeof error === 'string' && isCancelSentinel(error)) {
+        return { cancelled: true, assets: [] };
+    }
+    // `unwrapNative` only recognizes `{ error }`, so a string / array / null —
+    // shapes the bridge really does produce on some paths (#342) — would sail
+    // past it and be reported as a successful pick of zero assets, which the
+    // caller cannot tell from a genuinely empty one. Synthesize an envelope so
+    // it fails loudly instead. Same guard as `@sigx/lynx-camera`.
+    const recognized =
+        result != null &&
+        typeof result === 'object' &&
+        ('assets' in result || 'cancelled' in result || 'canceled' in result || error != null);
+    const raw = (unwrapNative(
+        PKG,
+        action,
+        recognized ? result : { error: `unexpected native payload: ${JSON.stringify(result)}` },
+    ) ?? {}) as Record<string, unknown>;
     const cancelled = Boolean(raw['cancelled'] ?? raw['canceled'] ?? false);
     const assetsIn = Array.isArray(raw['assets']) ? raw['assets'] as ImagePickerAsset[] : [];
     return {
@@ -105,24 +152,47 @@ function toNativeOptions(options: ImagePickerOptions): Record<string, unknown> {
 }
 
 export const ImagePicker = {
+    /**
+     * Open the photo picker.
+     *
+     * The user dismissing the picker resolves `{ cancelled: true, assets: [] }`;
+     * a native failure (picker couldn't launch or present) throws a `SigxError`
+     * with `code: 'native_error'`.
+     */
     async pickImage(options: ImagePickerOptions = {}): Promise<ImagePickerResult> {
         const r = await callAsync<unknown>(MODULE, 'pickImage', toNativeOptions(options));
-        return normalizeAssets(r);
+        return normalizeAssets('pickImage', r);
     },
 
+    /**
+     * Open the video picker. Same cancel/throw split as {@link ImagePicker.pickImage}.
+     */
     async pickVideo(options: ImagePickerOptions = {}): Promise<ImagePickerResult> {
         const r = await callAsync<unknown>(MODULE, 'pickVideo', { ...toNativeOptions(options), mediaType: 'video' });
-        return normalizeAssets(r);
+        return normalizeAssets('pickVideo', r);
     },
 
-    /** Request photo library permission, showing the OS dialog if needed. */
-    requestPermission(): Promise<PermissionResponse> {
-        return callAsync<PermissionResponse>(MODULE, 'requestPermission');
+    /**
+     * Request photo library permission, showing the OS dialog if needed.
+     *
+     * A *denied* permission is not a failure — it resolves with
+     * `status: 'denied'` / `'blocked'`. Only a native error throws.
+     */
+    async requestPermission(): Promise<PermissionResponse> {
+        return unwrapNative(
+            PKG,
+            'requestPermission',
+            await callAsync<PermissionResponse>(MODULE, 'requestPermission'),
+        );
     },
 
     /** Check current photo library permission status without prompting. */
-    getPermissionStatus(): Promise<PermissionResponse> {
-        return callAsync<PermissionResponse>(MODULE, 'getPermissionStatus');
+    async getPermissionStatus(): Promise<PermissionResponse> {
+        return unwrapNative(
+            PKG,
+            'getPermissionStatus',
+            await callAsync<PermissionResponse>(MODULE, 'getPermissionStatus'),
+        );
     },
 
     isAvailable(): boolean {

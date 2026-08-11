@@ -20,7 +20,13 @@ vi.mock('@sigx/lynx-core', async () => ({
     // implementation (imported from source to skip the barrel), so the
     // payload guard and disposer semantics under test are the shipped ones.
     subscribeNative: (await import('../../lynx-core/src/events.js')).subscribeNative,
+    // Likewise real: a faked `unwrapNative` would make the C4 tests below
+    // assert on the fake's behaviour rather than on this package's unwrapping.
+    unwrapNative: (await import('../../lynx-core/src/errors.js')).unwrapNative,
+    unwrapNativeVoid: (await import('../../lynx-core/src/errors.js')).unwrapNativeVoid,
 }));
+
+const { isSigxError } = await import('../../lynx-core/src/errors.js');
 
 type Listener = (...a: unknown[]) => void;
 const emitter = {
@@ -103,6 +109,63 @@ describe('Background.getRegistered', () => {
     });
 });
 
+// C4: `callAsync` rejects only when the *synchronous* hop into the bridge
+// throws. Every native-side failure here arrives on the resolved callback as
+// `{ error }` — an iOS submit refused for a missing
+// `BGTaskSchedulerPermittedIdentifiers` entry, an Android WorkManager
+// exception — and used to resolve as a successful `Promise<void>`, so the
+// most common setup mistake in this package looked like a clean registration
+// and the task simply never fired.
+describe('native { error } envelopes reject (C4)', () => {
+    it('register rejects with the C10 message and native_error code', async () => {
+        bridge.callAsync.mockResolvedValueOnce({
+            error: 'BGTaskScheduler.submit failed: identifier not permitted',
+        });
+
+        const err = await Background.register('refresh-feed').then(
+            () => undefined,
+            (e: unknown) => e,
+        );
+
+        expect(isSigxError(err)).toBe(true);
+        expect(err).toMatchObject({ code: 'native_error', package: 'lynx-background' });
+        expect((err as Error).message).toBe(
+            '[@sigx/lynx-background] register failed: BGTaskScheduler.submit failed: identifier not permitted',
+        );
+    });
+
+    it('unregister rejects on { error }', async () => {
+        bridge.callAsync.mockResolvedValueOnce({ error: 'WorkManager not initialized' });
+
+        await expect(Background.unregister('refresh-feed')).rejects.toThrow(
+            '[@sigx/lynx-background] unregister failed: WorkManager not initialized',
+        );
+    });
+
+    it('getRegistered rejects on { error } instead of handing back a non-iterable', async () => {
+        bridge.callAsync.mockResolvedValueOnce({ error: 'prefs unreadable' });
+
+        await expect(Background.getRegistered()).rejects.toThrow(
+            '[@sigx/lynx-background] getRegistered failed: prefs unreadable',
+        );
+    });
+});
+
+// The other half of C4/C5: only `{ error }` is a failure. The ack shapes both
+// platforms send on the ordinary paths must keep resolving — a task that was
+// never registered is a successful unregister, not an error.
+describe('native ack envelopes still resolve', () => {
+    it('register resolves on { ok: true }', async () => {
+        bridge.callAsync.mockResolvedValueOnce({ ok: true });
+        await expect(Background.register('refresh-feed')).resolves.toBeUndefined();
+    });
+
+    it('unregister resolves on { ok: false } — nothing was registered', async () => {
+        bridge.callAsync.mockResolvedValueOnce({ ok: false });
+        await expect(Background.unregister('never-registered')).resolves.toBeUndefined();
+    });
+});
+
 describe('Background.isAvailable', () => {
     it('delegates to lynx-core', () => {
         bridge.isModuleAvailable.mockReturnValueOnce(false);
@@ -142,6 +205,31 @@ describe('Background.setHandler dispatch', () => {
 
         expect(bridge.callAsync).toHaveBeenCalledWith(
             'Background', 'completeTask', 'r2', false,
+        );
+        warn.mockRestore();
+    });
+
+    it('logs — rather than silently dropping — a completeTask that fails native-side', async () => {
+        bridge.callAsync.mockImplementation(async (...args: unknown[]) =>
+            args[1] === 'completeTask' ? { error: 'no in-flight run' } : undefined,
+        );
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+        const handler = vi.fn(async () => {});
+        Background.setHandler('refresh-feed', handler);
+
+        emitter.fire(FIRE, { taskName: 'refresh-feed', runId: 'r9' });
+        await flush();
+        await flush();
+
+        // The wake itself still succeeded — the failure is reported, not
+        // rethrown at the OS-driven dispatcher, which has nobody to reject to.
+        expect(handler).toHaveBeenCalledTimes(1);
+        expect(warn).toHaveBeenCalledWith(
+            '[background] completeTask(r9) failed:',
+            expect.objectContaining({
+                code: 'native_error',
+                message: '[@sigx/lynx-background] completeTask failed: no in-flight run',
+            }),
         );
         warn.mockRestore();
     });

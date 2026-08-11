@@ -25,11 +25,14 @@ if (status === 'granted') {
     console.log(loc.latitude, loc.longitude, loc.accuracy);
 }
 ```
+**Failures reject.** When the platform can't answer — permission not granted, no fix available, a native exception — the call rejects. On iOS and Android that's a `SigxError` (`code: 'native_error'`, message `[@sigx/lynx-location] <method> failed: <native message>`); on web the host bridge rejects with the browser's geolocation error. A *denied permission* is not a failure: `requestPermission()` / `getPermissionStatus()` resolve normally with `status: 'denied'` or `'blocked'`, which is what you branch on. If the native module isn't linked at all, every method throws the descriptive error from core naming the missing module — feature-detect with `isAvailable()` rather than catching.
+
+⚠️ **iOS doesn't honour that status union yet.** On the first run — the only run where the prompt appears — `requestPermission()` resolves `{ status: 'requesting' }`, which is not a `PermissionStatus`, and the real answer never arrives: the module implements no `locationManagerDidChangeAuthorization`. iOS can also report `'restricted'` and `'unknown'`. So `status === 'granted'` is always false on first run, and an exhaustive `switch` can fall through. Until [#889](https://github.com/signalxjs/lynx/issues/889) lands the delegate callback and the status mapping, poll `getPermissionStatus()` after prompting until it leaves `'requesting'`, and treat any unrecognized status as "not granted".
 ## API
 | Method                                                       | Notes                                                                                              |
 | ------------------------------------------------------------ | -------------------------------------------------------------------------------------------------- |
-| `getCurrentPosition(options?: LocationOptions): Promise<LocationResult>` | One-shot fix. Throws on timeout or denied.                                                |
-| `requestPermission(): Promise<PermissionResponse>`           | Shows the OS permission dialog if needed.                                                          |
+| `getCurrentPosition(options?: LocationOptions): Promise<LocationResult>` | One-shot fix. Rejects when the platform reports a failure.                                |
+| `requestPermission(): Promise<PermissionResponse>`           | Shows the OS permission dialog if needed. A denial resolves, it doesn't reject.                    |
 | `getPermissionStatus(): Promise<PermissionResponse>`         | Read-only check — no prompt.                                                                       |
 | `isAvailable(): boolean`                                     | Whether the native module is registered in the current build.                                      |
 ```ts

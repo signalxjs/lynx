@@ -85,6 +85,12 @@ class ImagePickerModule(context: Context) : LynxModule(context) {
      * downstream decoders that key on the extension keep working. The
      * emitted shape uses the JS-canonical `cancelled` spelling (two l's)
      * and always includes an `assets` array (possibly empty on cancel).
+     *
+     * MediaCapture's `error` key is forwarded verbatim: it marks a launch
+     * failure (launcher not registered, `launcher.launch` threw, pick
+     * pre-empted by a newer one), which the JS side unwraps into a thrown
+     * SigxError. Rebuilding the map without it turned those failures into an
+     * ordinary user-cancel.
      */
     private fun persistAssets(result: JavaOnlyMap): JavaOnlyMap {
         // Accept both spellings from the launcher layer just in case; emit
@@ -97,6 +103,9 @@ class ImagePickerModule(context: Context) : LynxModule(context) {
 
         val out = JavaOnlyMap()
         out.putBoolean("cancelled", cancelled)
+        if (result.hasKey("error")) {
+            result.getString("error")?.let { out.putString("error", it) }
+        }
 
         val newAssets = JavaOnlyArray()
         if (!cancelled) {

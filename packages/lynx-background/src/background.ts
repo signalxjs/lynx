@@ -1,7 +1,16 @@
-import { callAsync, isModuleAvailable } from '@sigx/lynx-core';
+import { callAsync, isModuleAvailable, unwrapNative, unwrapNativeVoid } from '@sigx/lynx-core';
 import { addBackgroundFireListener, type BackgroundFireEvent } from './events.js';
 
 const MODULE = 'Background';
+const PKG = 'lynx-background';
+
+/**
+ * What every method on this module resolves. Both platforms answer with an
+ * ack map — `{ ok: true }` on success, `{ error: string }` on failure — and
+ * `getRegistered` answers with a bare array. `callAsync` resolves either, so
+ * the payload has to be unwrapped (C4) before it is trusted.
+ */
+type NativeAck = { error?: string } | undefined;
 
 export type BackgroundTaskType = 'fetch' | 'processing';
 
@@ -62,7 +71,15 @@ async function dispatch(event: BackgroundFireEvent): Promise<void> {
 
 async function safeComplete(runId: string, success: boolean): Promise<void> {
     try {
-        await callAsync<void>(MODULE, 'completeTask', runId, success);
+        // Unwrapped (C4) so a native-reported failure reaches the log below
+        // instead of being dropped as a resolved `{ error }`. Not an escape
+        // from C4: nothing is handed back to a caller — `dispatch` is driven
+        // by the OS, so there is nobody to reject to.
+        unwrapNativeVoid(
+            PKG,
+            'completeTask',
+            await callAsync<NativeAck>(MODULE, 'completeTask', runId, success),
+        );
     } catch (err) {
         // Best-effort — the native side may already have timed out and
         // completed the task. Logging is enough.
@@ -94,15 +111,33 @@ export const Background = {
      * Schedule a background task. Idempotent — calling twice with the same
      * `taskName` updates the existing request rather than creating a
      * duplicate. Safe to call on every cold start.
+     *
+     * **Rejects** with a `SigxError` (`code: 'native_error'`) when the OS
+     * refuses the request — most often an iOS identifier missing from
+     * `BGTaskSchedulerPermittedIdentifiers`, which is the single most common
+     * setup mistake with this package. Until #868 that resolved successfully
+     * and the task simply never fired.
      */
-    register(taskName: string, options: RegisterOptions = {}): Promise<void> {
+    async register(taskName: string, options: RegisterOptions = {}): Promise<void> {
         ensureDispatcher();
-        return callAsync<void>(MODULE, 'register', taskName, options);
+        unwrapNativeVoid(
+            PKG,
+            'register',
+            await callAsync<NativeAck>(MODULE, 'register', taskName, options),
+        );
     },
 
-    /** Cancel a previously-registered task. No-op if not registered. */
-    unregister(taskName: string): Promise<void> {
-        return callAsync<void>(MODULE, 'unregister', taskName);
+    /**
+     * Cancel a previously-registered task. No-op if not registered — that is
+     * a success, not an error. Rejects with a `SigxError` if the platform
+     * scheduler itself fails the cancellation.
+     */
+    async unregister(taskName: string): Promise<void> {
+        unwrapNativeVoid(
+            PKG,
+            'unregister',
+            await callAsync<NativeAck>(MODULE, 'unregister', taskName),
+        );
     },
 
     /**
@@ -145,9 +180,17 @@ export const Background = {
      *     if (!known.has(name)) await Background.unregister(name);
      * }
      * ```
+     *
+     * Rejects with a `SigxError` if the native side reports a failure rather
+     * than a list — without the unwrap that payload reached the `for…of`
+     * above as a non-iterable object with no hint of what went wrong.
      */
-    getRegistered(): Promise<string[]> {
-        return callAsync<string[]>(MODULE, 'getRegistered');
+    async getRegistered(): Promise<string[]> {
+        return unwrapNative(
+            PKG,
+            'getRegistered',
+            await callAsync<string[]>(MODULE, 'getRegistered'),
+        );
     },
 
     /** Whether the native module is wired in the current build. */

@@ -54,6 +54,9 @@ describe('public types', () => {
         // null-check — the native layer normalizes the `canceled`/`cancelled`
         // spelling split and defaults `assets` to `[]` precisely so this
         // shape holds. Making `assets` optional would break that silently.
+        // `cancelled` stays the *user's* answer only — a native failure
+        // rejects instead (C4/C5); `image-picker.test.ts` pins that split,
+        // which no type can express.
         expectTypeOf<ImagePickerResult>().toEqualTypeOf<{
             cancelled: boolean;
             assets: ImagePickerAsset[];

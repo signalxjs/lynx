@@ -66,6 +66,10 @@ describe('public types', () => {
     });
 
     it('pins the outbound bridge signatures', () => {
+        // `openURL` / `exitApp` stay `Promise<void>`, but the promise now
+        // carries the native failure as a rejection rather than resolving it
+        // away (C4) — the behavior behind that is in
+        // `__tests__/native-bridge.test.ts`.
         expectTypeOf(Linking.openURL).toEqualTypeOf<(url: string) => Promise<void>>();
         expectTypeOf(Linking.canOpenURL).toEqualTypeOf<(url: string) => Promise<boolean>>();
         expectTypeOf(BackHandler.exitApp).toEqualTypeOf<() => Promise<void>>();

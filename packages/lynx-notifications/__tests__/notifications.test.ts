@@ -1,13 +1,19 @@
 /**
- * Unit tests for `getInitialNotification`'s wire contract.
+ * Unit tests for the native call contract: `getInitialNotification`'s wire
+ * shape, and which methods reject on the `{ error }` envelope (C4).
  *
  * Native returns the cold-start tap as a JSON **string** — the payload nests
  * `data`, and a structured map loses its sibling scalars crossing the bridge
  * (#342), so `notificationId` / `actionIdentifier` would arrive `undefined`.
  * That decision moves the parsing into JS, which is the part vitest can pin
  * down; the native halves are exercised on-device.
+ *
+ * Only `callAsync` is faked below — `unwrapNative` is core's real one, so
+ * these assert the shim's behaviour rather than the mock's.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+import { isSigxError } from '@sigx/lynx-core';
 
 const bridge = {
     callAsync: vi.fn(async (..._args: unknown[]) => undefined as unknown),
@@ -148,5 +154,108 @@ describe('getInitialNotification', () => {
         }));
         const res = await Notifications.getInitialNotification();
         expect(JSON.parse(res!.data['route']!)).toEqual({ id: 42 });
+    });
+});
+
+describe('native { error } envelopes (C4)', () => {
+    beforeEach(() => {
+        bridge.callAsync.mockClear();
+    });
+
+    describe('schedule', () => {
+        it('resolves the notification id when native succeeds', async () => {
+            bridge.callAsync.mockResolvedValueOnce('n-42');
+            await expect(
+                Notifications.schedule({ title: 'Hi', body: 'There' }, { delay: 5 }),
+            ).resolves.toBe('n-42');
+            // Pins the JS call against the native `methodLookup` / @LynxMethod
+            // name and argument order.
+            expect(bridge.callAsync).toHaveBeenCalledWith(
+                'Notifications',
+                'schedule',
+                { title: 'Hi', body: 'There' },
+                { delay: 5 },
+            );
+        });
+
+        it('rejects when the OS refused the notification', async () => {
+            // `UNUserNotificationCenter.add`'s error (iOS) and the builder
+            // exception (Android) both arrive on the *resolved* callback, so
+            // this used to fulfil with an object typed `string` — the caller
+            // held an id that cancels nothing and never knew.
+            bridge.callAsync.mockResolvedValueOnce({
+                error: 'Notifications are not allowed for this application',
+            });
+            await expect(
+                Notifications.schedule({ title: 'Hi', body: 'There' }),
+            ).rejects.toThrow(
+                '[@sigx/lynx-notifications] schedule failed: Notifications are not allowed for this application',
+            );
+        });
+
+        it('rejects with a branchable SigxError (C10)', async () => {
+            bridge.callAsync.mockResolvedValueOnce({ error: 'boom' });
+            const err = await Notifications.schedule({ title: 'a', body: 'b' }).catch(
+                (e: unknown) => e,
+            );
+            expect(isSigxError(err)).toBe(true);
+            expect(err).toMatchObject({ code: 'native_error', package: 'lynx-notifications' });
+        });
+    });
+
+    describe('setBadgeCount', () => {
+        it('resolves when native succeeds', async () => {
+            // Both natives answer `true`; the surface stays `Promise<void>`.
+            bridge.callAsync.mockResolvedValueOnce(true);
+            await expect(Notifications.setBadgeCount(3)).resolves.toBeUndefined();
+            expect(bridge.callAsync).toHaveBeenCalledWith('Notifications', 'setBadgeCount', 3);
+        });
+
+        it('rejects when iOS reports a badge error', async () => {
+            // iOS 16+'s setBadgeCount completion carries an error; the old
+            // `Promise<void>` discarded it, so a badge that never changed was
+            // indistinguishable from one that did.
+            bridge.callAsync.mockResolvedValueOnce({ error: 'Notification settings unavailable' });
+            await expect(Notifications.setBadgeCount(3)).rejects.toThrow(
+                '[@sigx/lynx-notifications] setBadgeCount failed: Notification settings unavailable',
+            );
+        });
+    });
+
+    describe('documented C3 opt-outs still return their failure as a value', () => {
+        // These are not oversights — each is documented in the method's JSDoc
+        // and the README's Gotchas. Pinned here so a later sweep can't turn
+        // them into throws without deleting a test that says why.
+
+        it('cancel / cancelAll resolve false rather than throwing', async () => {
+            bridge.callAsync.mockResolvedValueOnce(false);
+            await expect(Notifications.cancel('missing')).resolves.toBe(false);
+            bridge.callAsync.mockResolvedValueOnce(false);
+            await expect(Notifications.cancelAll()).resolves.toBe(false);
+        });
+
+        it('push registration resolves its error field rather than throwing', async () => {
+            // The same failure is published on `addTokenErrorListener` first —
+            // on iOS that channel is the only place it can ever surface.
+            bridge.callAsync.mockResolvedValueOnce({ error: 'FCM token unavailable' });
+            await expect(Notifications.registerForPushNotifications()).resolves.toEqual({
+                error: 'FCM token unavailable',
+            });
+            bridge.callAsync.mockResolvedValueOnce({ ok: false, error: 'network' });
+            await expect(Notifications.unregisterForPushNotifications()).resolves.toEqual({
+                ok: false,
+                error: 'network',
+            });
+        });
+
+        it('a denied permission stays a status, not a rejection', async () => {
+            // iOS folds an authorization error into `{ status: 'denied', error }`;
+            // the C6 mapping question is tracked on #895, so this must not
+            // start rejecting as a side effect of the C4 sweep.
+            bridge.callAsync.mockResolvedValueOnce({ status: 'denied', error: 'no entitlement' });
+            await expect(Notifications.requestPermission()).resolves.toMatchObject({
+                status: 'denied',
+            });
+        });
     });
 });

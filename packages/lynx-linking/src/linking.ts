@@ -1,4 +1,4 @@
-import { callAsync, isModuleAvailable, SigxError } from '@sigx/lynx-core';
+import { callAsync, isModuleAvailable, SigxError, unwrapNativeVoid } from '@sigx/lynx-core';
 
 import { readInitialURL, subscribeUrl } from './inbound.js';
 import type { URLListener, URLSubscription } from './inbound.js';
@@ -35,12 +35,31 @@ export type { URLEvent, URLListener, URLSubscription } from './inbound.js';
  * ```
  */
 export const Linking = {
-    /** Open a URL using the system handler (browser, mail client, dialer). */
-    openURL(url: string): Promise<void> {
-        return callAsync<void>(MODULE, 'openURL', url);
+    /**
+     * Open a URL using the system handler (browser, mail client, dialer).
+     *
+     * Rejects with a `SigxError` (`code: 'native_error'`) when the OS refused
+     * to open it — no installed app handles the scheme, or the URL is
+     * malformed. Native reports that on the *resolved* callback as
+     * `{ error }`, so without the unwrap `await openURL(x)` succeeded whether
+     * or not anything happened, and the try-the-deep-link/fall-back-to-https
+     * pattern was dead code (C4).
+     */
+    async openURL(url: string): Promise<void> {
+        unwrapNativeVoid(
+            PKG,
+            'openURL',
+            await callAsync<{ error?: string } | null>(MODULE, 'openURL', url),
+        );
     },
 
-    /** Whether the runtime can open a URL with the given scheme. */
+    /**
+     * Whether the runtime can open a URL with the given scheme.
+     *
+     * `false` is an answer, not a failure — both platforms resolve a plain
+     * boolean and never the `{ error }` envelope (they fall back to `false`
+     * for a malformed URL), so there is nothing to unwrap here.
+     */
     canOpenURL(url: string): Promise<boolean> {
         return callAsync<boolean>(MODULE, 'canOpenURL', url);
     },
