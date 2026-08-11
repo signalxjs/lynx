@@ -74,7 +74,7 @@ Wraps content and keeps it above the keyboard. Layout-affecting, so it applies i
 - `useKeyboard(): Computed<{ height, visible }>` — BG-reactive keyboard state.
 - `useKeyboardLift(discountBottomInset?, offset?): Computed<number>` — the raw lift value.
 - `useKeyboardLiftSV(discountBottomInset?, offset?, duration?): SharedValue<number>` — smoothly animated MT SharedValue tracking the lift; bind with `useAnimatedStyle(ref, sv, 'translateY', { factor: -1 })`. `duration` is in **seconds** (the `@sigx/lynx-motion` convention), default `0.25`.
-- `rememberedKeyboardLift(): number` — the LAST observed lift (dp), or `0` if the keyboard has never been shown. See below.
+- `rememberedKeyboardLift(): number` — the LAST observed lift, or `0` if the keyboard has never been shown. See below. Like every length in this package it is in Lynx logical pixels — the unit `@sigx/lynx-safe-area` reports insets in, which the docs there call dp/pt.
 - `resetRememberedKeyboardLift(): void` — clears that memory, including the persisted copy. A **test seam**, not app API: calling it from a screen throws away the app-wide measurement every keyboard-sized panel seeds itself from.
 
 ### Remembered keyboard height
@@ -111,7 +111,7 @@ That is the right answer for a desktop browser, where the keyboard is hardware. 
 
 ## Demo
 
-See the **Keyboard lab** screen in [`examples/showcase`](../../examples/showcase) (Settings tab → Keyboard lab).
+See the **Keyboard** screen in [`examples/showcase`](../../examples/showcase) — *Input & Keyboard* → *Keyboard* (route `/keyboard`).
 
 ## License
 

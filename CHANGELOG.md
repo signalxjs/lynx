@@ -91,7 +91,7 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 ### Documentation
 
-- **Every README ends with `## License`, and `## Gotchas` is called `## Gotchas`** (#857, convention **C11**, rubric **D7.4**). The template's closing section was missing from 19 packages, and two had invented their own name for the platform-quirks section — `## Notes & caveats` (`@sigx/lynx-sqlite`) and `## Caveats vs the browser` (`@sigx/lynx-websocket`) — which breaks the docs site's section-based navigation and any grep across package READMEs. `@sigx/lynx-webrtc` carried the licence as a bare `License: MIT` line. `## 📚 Documentation` was missing from `@sigx/lynx-sheet` and `@sigx/lynx-updates-publisher`, both of which have a live docs page; `@sigx/lynx-web-host` keeps that gap deliberately, since sigx.dev has no page for it.
+- **Every README ends with `## License`, and `## Gotchas` is called `## Gotchas`** (#857, convention **C11**, rubric **D7.4**). The template's closing section was missing from 19 packages, and two had invented their own name for the platform-quirks section — `## Notes & caveats` (`@sigx/lynx-sqlite`) and `## Caveats vs the browser` (`@sigx/lynx-websocket`) — which breaks the docs site's section-based navigation and any grep across package READMEs. `@sigx/lynx-webrtc` carried the license as a bare `License: MIT` line. `## 📚 Documentation` was missing from `@sigx/lynx-sheet` and `@sigx/lynx-updates-publisher`, both of which have a live docs page; `@sigx/lynx-web-host` keeps that gap deliberately, since sigx.dev has no page for it.
 
 - **Three READMEs stopped contradicting their own packages** (#857, rubric **D7.4**).
 
