@@ -1,6 +1,15 @@
-import { callSync, callAsync, isModuleAvailable, base64ToArrayBuffer } from '@sigx/lynx-core';
+import {
+    callSync,
+    callAsync,
+    isModuleAvailable,
+    base64ToArrayBuffer,
+    unwrapNative,
+    unwrapNativeVoid,
+    SigxError,
+} from '@sigx/lynx-core';
 
 const MODULE = 'FileSystem';
+const PKG = 'lynx-file-system';
 
 export interface FileInfo {
     uri: string;
@@ -13,6 +22,11 @@ export interface FileInfo {
 /**
  * File system APIs.
  *
+ * Every method **throws** on failure (C3/C4): a missing native module raises
+ * core's descriptive `getModule` error, and a native-side failure raises a
+ * `SigxError` with `code: 'native_error'` — the natives resolve their callback
+ * with `{ error }` rather than rejecting, so each call unwraps that envelope.
+ *
  * @example
  * ```ts
  * import { FileSystem } from '@sigx/lynx-file-system';
@@ -22,8 +36,11 @@ export interface FileInfo {
  * ```
  */
 export const FileSystem = {
-    readFile(path: string): Promise<string> {
-        return callAsync<string>(MODULE, 'readFile', path);
+    /** Read a file as UTF-8 text. Rejects if the file doesn't exist. */
+    async readFile(path: string): Promise<string> {
+        // `callAsync<string>` only *declares* the success shape — the failure
+        // envelope arrives on the same resolved callback.
+        return unwrapNative(PKG, 'readFile', await callAsync<string>(MODULE, 'readFile', path));
     },
 
     /**
@@ -37,10 +54,20 @@ export const FileSystem = {
      * FormData streams files natively from their URI instead.
      */
     async readFileBase64(path: string): Promise<string> {
-        const r = await callAsync<unknown>(MODULE, 'readFileBase64', path);
-        if (typeof r === 'string') return r;
-        const err = (r as { error?: string } | null)?.error ?? 'readFileBase64 failed';
-        throw new Error(`[@sigx/lynx-file-system] ${err}`);
+        const raw = unwrapNative(
+            PKG,
+            'readFileBase64',
+            await callAsync<unknown>(MODULE, 'readFileBase64', path),
+        );
+        if (typeof raw === 'string') return raw;
+        // Not an `{ error }` envelope and not base64 either — don't hand a
+        // non-string back to callers typed as one.
+        throw new SigxError(
+            PKG,
+            'native_error',
+            `[@sigx/${PKG}] readFileBase64 failed: unexpected payload of type ${typeof raw}`,
+            { cause: raw },
+        );
     },
 
     /** `readFileBase64` decoded to an `ArrayBuffer`. */
@@ -50,16 +77,33 @@ export const FileSystem = {
         return base64ToArrayBuffer(await FileSystem.readFileBase64(path));
     },
 
-    writeFile(path: string, content: string): Promise<void> {
-        return callAsync<void>(MODULE, 'writeFile', path, content);
+    /**
+     * Write UTF-8 text, creating parent directories as needed. Rejects if the
+     * write fails — an unwritable path, or a full volume.
+     */
+    async writeFile(path: string, content: string): Promise<void> {
+        unwrapNativeVoid(
+            PKG,
+            'writeFile',
+            await callAsync<unknown>(MODULE, 'writeFile', path, content),
+        );
     },
 
-    deleteFile(path: string): Promise<void> {
-        return callAsync<void>(MODULE, 'deleteFile', path);
+    /**
+     * Delete a file. Deleting something that isn't there is a no-op on both
+     * platforms; a real failure — a read-only or picker-supplied path, or a
+     * non-empty directory on Android — rejects.
+     */
+    async deleteFile(path: string): Promise<void> {
+        unwrapNativeVoid(PKG, 'deleteFile', await callAsync<unknown>(MODULE, 'deleteFile', path));
     },
 
-    getInfo(path: string): Promise<FileInfo> {
-        return callAsync<FileInfo>(MODULE, 'getInfo', path);
+    /**
+     * Stat a path. A missing file resolves a `FileInfo` with `exists: false`;
+     * only a failing native stat rejects.
+     */
+    async getInfo(path: string): Promise<FileInfo> {
+        return unwrapNative(PKG, 'getInfo', await callAsync<FileInfo>(MODULE, 'getInfo', path));
     },
 
     /** Get the app's document directory path. */

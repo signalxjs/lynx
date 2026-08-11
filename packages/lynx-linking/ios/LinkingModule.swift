@@ -51,9 +51,10 @@ class LinkingModule: NSObject, LynxModule {
     }
 
     /// iOS no-op — Apple's HIG forbids programmatic app termination, and
-    /// `exit(0)` is rejected by App Review. We surface this as a callback
-    /// resolution rather than an error so JS code that calls `exitApp()`
-    /// uniformly across platforms doesn't have to branch.
+    /// `exit(0)` is rejected by App Review. Reported on the callback as the
+    /// standard `{ error }` envelope, which JS turns into a rejected
+    /// `BackHandler.exitApp()` (convention C4); it used to be swallowed there,
+    /// so the call looked like it had backed the app out.
     @objc func exitApp(_ callback: LynxCallbackBlock?) {
         callback?(["error": "exitApp is not supported on iOS"])
     }

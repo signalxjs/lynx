@@ -19,10 +19,15 @@ import { describe, expect, expectTypeOf, it, vi } from 'vitest';
 
 // The barrel reaches the native bridge at import time via `background.ts`;
 // stubbing it keeps this test about the surface, not about bridge behaviour.
-vi.mock('@sigx/lynx-core', () => ({
+vi.mock('@sigx/lynx-core', async () => ({
     callAsync: vi.fn(async () => undefined as unknown),
     guardModule: vi.fn(),
     isModuleAvailable: vi.fn(() => true),
+    // Real, not stubbed — `background.ts` imports these at module scope, and a
+    // stub that returned `undefined` would quietly change what the pinned
+    // signatures below actually do.
+    unwrapNative: (await import('../../lynx-core/src/errors.js')).unwrapNative,
+    unwrapNativeVoid: (await import('../../lynx-core/src/errors.js')).unwrapNativeVoid,
 }));
 
 import * as background from '../src/index';

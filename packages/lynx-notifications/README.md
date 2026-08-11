@@ -153,6 +153,14 @@ response needs `notificationId` (`actionIdentifier` defaults to `'default'`).
 
 **Remote push is not supported on web** — `registerForPushNotifications()` resolves `{ error }` (no throw), no token/push/tap events fire, and `getInitialNotification()` resolves `null`. Web Push proper (service-worker push) is tracked separately.
 
+## Gotchas
+
+- **`schedule()` and `setBadgeCount()` reject on a native failure.** A notification the OS refused, or an iOS 16+ badge write that errored, used to resolve as if it had worked (`schedule` handed back an `{ error }` object typed `string`; `setBadgeCount` discarded the error outright). Both now throw a `SigxError` with `code: 'native_error'` — `await` them inside a `try`/`catch` if you show the user anything on success.
+- **`cancel()` / `cancelAll()` report failure as `false`, not a throw.** Dismissal is advisory and idempotent — it's typically fired from a cleanup path ("the conversation was read on another device"), where throwing would abort unrelated work. `true` never meant a matching tray entry existed either, so `false` says no more than "nothing was dismissed".
+- **Push registration reports failure through the listener channel, not a rejection.** `registerForPushNotifications()` / `unregisterForPushNotifications()` resolve with `{ error }` (and `ok: false`) instead of throwing, because the failure is *also* published to `addTokenErrorListener` — on iOS that channel is the only place a registration failure can ever surface, since the promise resolves as soon as the APNs request is dispatched. Wire that listener and treat the resolved `error` field as a convenience mirror of it.
+- **Android badge counts are a no-op**, and `getBadgeCount()` is iOS-only (Android always resolves `0`) — stock Android has no portable badging API. `setBadgeCount(0)` deliberately does not clear notifications; use `cancelAll()`.
+- **No headless background message handler.** Data-only FCM messages reach `addPushListener` only while the JS runtime is alive; a terminated app renders the tray entry natively and delivers the payload on tap.
+
 ## License
 
 MIT

@@ -21,7 +21,7 @@ if (state.isConnected && state.type === 'wifi') {
 ## API
 | Method                                | Notes                                                                                              |
 | ------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| `getState(): Promise<NetworkState>`   | Single async snapshot — no subscription stream yet.                                                |
+| `getState(): Promise<NetworkState>`   | Single async snapshot — no subscription stream yet. **Rejects** if the native side fails.           |
 | `isAvailable(): boolean`              | Whether the native module is registered in the current build.                                      |
 ```ts
 type ConnectionType = 'wifi' | 'cellular' | 'ethernet' | 'bluetooth' | 'none' | 'unknown';
@@ -31,10 +31,30 @@ interface NetworkState {
     isInternetReachable: boolean | null;   // null = unknown (e.g. captive portal)
 }
 ```
+
+### Errors
+
+`getState()` throws a `SigxError` from `@sigx/lynx-core` when the native side reports a failure — `code: 'native_error'`, message `[@sigx/lynx-network] getState failed: <cause>`, raw native payload on `cause`. Branch on `code`, never on the message. It also throws when the native module isn't linked into the build; feature-detect with `isAvailable()` rather than catching that.
+
+A failure is never reported as "offline", so an `isConnected: false` result can be trusted by an offline banner.
+
+```ts
+import { isSigxError } from '@sigx/lynx-core';
+
+try {
+    const state = await Network.getState();
+} catch (e) {
+    if (isSigxError(e) && e.code === 'native_error') {
+        // couldn't read connectivity — not the same as being offline
+    }
+}
+```
+
 ## Web
 
-On web the state comes from the browser: `isConnected` / `isInternetReachable` from `navigator.onLine`, and `type` from `navigator.connection.type` where the browser exposes it (Chromium; elsewhere it reports `'unknown'`, or `'none'` when offline).
+On web the state comes from the browser: `isConnected` / `isInternetReachable` from `navigator.onLine`, and `type` from `navigator.connection.type` where the browser exposes it (Chromium; elsewhere it reports `'unknown'`, or `'none'` when offline). The browser path has no failure envelope, so it never throws.
 
 ## Gotchas
+- **A native failure throws, it does not resolve.** The native `{ error }` envelope used to be handed back as a `NetworkState` with every field `undefined`, so `if (state.isConnected)` quietly took the offline branch and no `catch` ever ran. Callers written against that degraded shape now need a `catch`.
 - **`isInternetReachable: null`** means the OS hasn't confirmed actual reachability — common on captive-portal Wi-Fi (you're connected to an AP but can't reach the internet without sign-in). Treat as "probably yes".
 - **No subscription API yet.** If you need to react to connectivity changes live, poll `getState()` from a `setInterval` or wrap a small effect — the native publisher exists but isn't surfaced as JS events in this version.

@@ -98,8 +98,16 @@ class FileSystemModule(context: Context) : LynxModule(context) {
     fun deleteFile(path: String?, callback: Callback?) {
         try {
             val file = resolveFile(path ?: "")
-            val deleted = file.delete()
-            callback?.invoke(deleted)
+            // `delete()` returns false both for "already gone" — the documented
+            // no-op, matching iOS — and for a real failure: a non-empty
+            // directory, or a read-only path. Only the latter is an error.
+            if (!file.delete() && file.exists()) {
+                val error = JavaOnlyMap()
+                error.putString("error", "Failed to delete: $path")
+                callback?.invoke(error)
+                return
+            }
+            callback?.invoke(true)
         } catch (e: Exception) {
             val error = JavaOnlyMap()
             error.putString("error", e.message ?: "Unknown error")

@@ -39,6 +39,27 @@ const off = Linking.addEventListener('url', ({ url }) => handle(url));
 off(); // unsubscribe — calling it twice is a no-op
 ```
 
+**Breaking:** `Linking.openURL` and `BackHandler.exitApp` now **reject** when native
+refused, instead of resolving as if they had worked. Both cases arrive from native on
+the *resolved* callback as an `{ error }` envelope, so until now `await
+Linking.openURL('whatsapp://send')` succeeded even when no app handled the scheme —
+which made the usual "try the deep link, fall back to https" pattern dead code. The
+rejection is a `SigxError` with `code: 'native_error'` (convention C4):
+
+```ts
+try {
+    await Linking.openURL('whatsapp://send?text=hi');
+} catch {
+    await Linking.openURL('https://wa.me/?text=hi'); // no WhatsApp installed
+}
+```
+
+`BackHandler.exitApp()` rejects the same way — always on iOS, which forbids
+programmatic termination, and on Android when no hosting Activity was found. Anything
+calling either of them fire-and-forget has to consume the rejection now
+(`.catch(…)`): on Lynx an unhandled rejection is a fatal exception, not a warning.
+`canOpenURL` is unaffected — a `false` there is an answer, not a failure.
+
 `addEventListener` only knows the `'url'` event; anything else throws a `SigxError`
 (`code: 'unsupported_event'`) from `@sigx/lynx-core`, on native and web alike. A
 `Linking` or `BackHandler` listener that throws is isolated so siblings still get the
@@ -54,7 +75,7 @@ incoming links into a navigator, use [`@sigx/lynx-navigation`](https://sigx.dev/
 
 ## Web
 
-On web, `openURL`/`canOpenURL` route through the `@sigx/lynx-web-host` page bridge (`window.open` + a browser-openable scheme allowlist: http/https/mailto/tel/sms). Inbound URLs work unchanged — the host publishes `initialURL` and `urlReceived` from the page location, so `getInitialURL()` / `addEventListener('url', …)` behave exactly as on native.
+On web, `openURL`/`canOpenURL` route through the `@sigx/lynx-web-host` page bridge (`window.open` + a browser-openable scheme allowlist: http/https/mailto/tel/sms). A blocked scheme has always rejected there; native now matches, so the failure path is the same on all three targets. Inbound URLs work unchanged — the host publishes `initialURL` and `urlReceived` from the page location, so `getInitialURL()` / `addEventListener('url', …)` behave exactly as on native.
 
 ## License
 

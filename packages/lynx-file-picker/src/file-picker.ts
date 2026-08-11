@@ -1,6 +1,8 @@
-import { callAsync, isModuleAvailable } from '@sigx/lynx-core';
+import { callAsync, isModuleAvailable, unwrapNative } from '@sigx/lynx-core';
 
 const MODULE = 'FilePicker';
+/** Package short name (no scope), as `unwrapNative`/`SigxError` want it. */
+const PKG = 'lynx-file-picker';
 
 export interface FilePickerOptions {
     /** Allow selecting more than one file. Default false. */
@@ -91,6 +93,29 @@ function normalizeResult(result: unknown): FilePickerResult {
     return { cancelled, assets };
 }
 
+/**
+ * Native `error` strings that mean "this pick ended without a result", not
+ * "the pick broke" — the pick was superseded by a newer one, or the host
+ * Activity went away underneath it.
+ *
+ * The platforms disagree on how they signal these, which is exactly why the
+ * check lives here: iOS pre-empts an in-flight pick with a plain
+ * `{ cancelled: true, assets: [] }` (`ios/FilePickerModule.swift`), while
+ * Android tags the same event `"cancelled by new pickFile"` / `"…pickFiles"`
+ * and Activity teardown `"activity destroyed"` (`MediaCapture.kt`). Without
+ * this, an ordinary superseded pick would throw on Android and resolve on
+ * iOS. Same sentinel set as `@sigx/lynx-camera`, which shares MediaCapture.
+ */
+function isCancelSentinel(error: string): boolean {
+    return error.startsWith('cancelled') || error === 'activity destroyed';
+}
+
+/** True when native reported a dismissal rather than a failure (C5). */
+function isDismissal(raw: unknown): boolean {
+    const error = (raw as { error?: unknown } | null | undefined)?.error;
+    return typeof error === 'string' && isCancelSentinel(error);
+}
+
 /** Translate JS options into the shape the native modules consume. */
 function toNativeOptions(options: FilePickerOptions): Record<string, unknown> {
     return {
@@ -124,9 +149,25 @@ function toNativeOptions(options: FilePickerOptions): Record<string, unknown> {
  * ```
  */
 export const FilePicker = {
+    /**
+     * Open the system document picker.
+     *
+     * A user dismissing the picker resolves `{ cancelled: true, assets: [] }` —
+     * cancellation is not an error channel (C5), and neither is a pick
+     * superseded by a newer one or cut short by Activity teardown.
+     *
+     * @throws a `SigxError` (`code: 'native_error'`) when the picker itself
+     * failed to open — the Android launcher isn't registered
+     * (`@sigx/lynx-permissions` missing from the build), the intent can't be
+     * launched, or iOS has no view controller to present from. These arrive on
+     * the *resolved* bridge callback as `{ error }` (C4), so before this they
+     * were indistinguishable from a cancel: the picker never opened and
+     * `pick()` reported a dismiss.
+     */
     async pick(options: FilePickerOptions = {}): Promise<FilePickerResult> {
-        const r = await callAsync<unknown>(MODULE, 'pick', toNativeOptions(options));
-        return normalizeResult(r);
+        const raw = await callAsync<unknown>(MODULE, 'pick', toNativeOptions(options));
+        if (isDismissal(raw)) return { cancelled: true, assets: [] };
+        return normalizeResult(unwrapNative(PKG, 'pick', raw));
     },
 
     isAvailable(): boolean {

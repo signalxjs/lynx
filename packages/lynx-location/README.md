@@ -25,11 +25,12 @@ if (status === 'granted') {
     console.log(loc.latitude, loc.longitude, loc.accuracy);
 }
 ```
+**Failures reject.** When the platform can't answer — permission not granted, no fix available, a native exception — the call rejects. On iOS and Android that's a `SigxError` (`code: 'native_error'`, message `[@sigx/lynx-location] <method> failed: <native message>`); on web the host bridge rejects with the browser's geolocation error. A *denied permission* is not a failure: `requestPermission()` / `getPermissionStatus()` resolve normally with `status: 'denied'` or `'blocked'`, which is what you branch on. If the native module isn't linked at all, every method throws the descriptive error from core naming the missing module — feature-detect with `isAvailable()` rather than catching.
 ## API
 | Method                                                       | Notes                                                                                              |
 | ------------------------------------------------------------ | -------------------------------------------------------------------------------------------------- |
-| `getCurrentPosition(options?: LocationOptions): Promise<LocationResult>` | One-shot fix. Throws on timeout or denied.                                                |
-| `requestPermission(): Promise<PermissionResponse>`           | Shows the OS permission dialog if needed.                                                          |
+| `getCurrentPosition(options?: LocationOptions): Promise<LocationResult>` | One-shot fix. Rejects when the platform reports a failure.                                |
+| `requestPermission(): Promise<PermissionResponse>`           | Shows the OS permission dialog if needed. A denial resolves, it doesn't reject.                    |
 | `getPermissionStatus(): Promise<PermissionResponse>`         | Read-only check — no prompt.                                                                       |
 | `isAvailable(): boolean`                                     | Whether the native module is registered in the current build.                                      |
 ```ts

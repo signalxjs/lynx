@@ -1,7 +1,8 @@
-import { callAsync, isModuleAvailable } from '@sigx/lynx-core';
+import { callAsync, isModuleAvailable, unwrapNative } from '@sigx/lynx-core';
 import type { PermissionResponse } from '@sigx/lynx-core';
 
 const MODULE = 'ImagePicker';
+const PKG = 'lynx-image-picker';
 
 export interface ImagePickerOptions {
     /** 'photo', 'video', or 'mixed' */
@@ -65,7 +66,14 @@ function normalizeUri(uri: string): string {
 /**
  * Normalize a raw native result into the JS-side `ImagePickerResult` shape.
  *
- * Defends against two cross-platform asymmetries:
+ * Throws first (C4): the native side reports a launch failure as
+ * `{ error, cancelled: true }` — an unregistered `MediaCapture` launcher, a
+ * `launcher.launch` throw, a pick pre-empted by a second one, or iOS having
+ * no view controller to present from. Without `unwrapNative` those arrive as
+ * an ordinary user-cancel and the app silently does nothing (C5: `cancelled`
+ * is the user's answer, never an error channel).
+ *
+ * Then defends against two cross-platform asymmetries:
  *  - **Cancelled spelling.** iOS returns `cancelled` (two l's); the older
  *    Android module path historically returned `canceled` (one l). Accept
  *    both and emit the JS-canonical `cancelled`.
@@ -73,8 +81,8 @@ function normalizeUri(uri: string): string {
  *    the user cancels. Default to an empty array so callers can always
  *    `.map(...)` without a null-check.
  */
-function normalizeAssets(result: unknown): ImagePickerResult {
-    const raw = (result ?? {}) as Record<string, unknown>;
+function normalizeAssets(action: string, result: unknown): ImagePickerResult {
+    const raw = (unwrapNative(PKG, action, result) ?? {}) as Record<string, unknown>;
     const cancelled = Boolean(raw['cancelled'] ?? raw['canceled'] ?? false);
     const assetsIn = Array.isArray(raw['assets']) ? raw['assets'] as ImagePickerAsset[] : [];
     return {
@@ -105,24 +113,47 @@ function toNativeOptions(options: ImagePickerOptions): Record<string, unknown> {
 }
 
 export const ImagePicker = {
+    /**
+     * Open the photo picker.
+     *
+     * The user dismissing the picker resolves `{ cancelled: true, assets: [] }`;
+     * a native failure (picker couldn't launch or present) throws a `SigxError`
+     * with `code: 'native_error'`.
+     */
     async pickImage(options: ImagePickerOptions = {}): Promise<ImagePickerResult> {
         const r = await callAsync<unknown>(MODULE, 'pickImage', toNativeOptions(options));
-        return normalizeAssets(r);
+        return normalizeAssets('pickImage', r);
     },
 
+    /**
+     * Open the video picker. Same cancel/throw split as {@link ImagePicker.pickImage}.
+     */
     async pickVideo(options: ImagePickerOptions = {}): Promise<ImagePickerResult> {
         const r = await callAsync<unknown>(MODULE, 'pickVideo', { ...toNativeOptions(options), mediaType: 'video' });
-        return normalizeAssets(r);
+        return normalizeAssets('pickVideo', r);
     },
 
-    /** Request photo library permission, showing the OS dialog if needed. */
-    requestPermission(): Promise<PermissionResponse> {
-        return callAsync<PermissionResponse>(MODULE, 'requestPermission');
+    /**
+     * Request photo library permission, showing the OS dialog if needed.
+     *
+     * A *denied* permission is not a failure — it resolves with
+     * `status: 'denied'` / `'blocked'`. Only a native error throws.
+     */
+    async requestPermission(): Promise<PermissionResponse> {
+        return unwrapNative(
+            PKG,
+            'requestPermission',
+            await callAsync<PermissionResponse>(MODULE, 'requestPermission'),
+        );
     },
 
     /** Check current photo library permission status without prompting. */
-    getPermissionStatus(): Promise<PermissionResponse> {
-        return callAsync<PermissionResponse>(MODULE, 'getPermissionStatus');
+    async getPermissionStatus(): Promise<PermissionResponse> {
+        return unwrapNative(
+            PKG,
+            'getPermissionStatus',
+            await callAsync<PermissionResponse>(MODULE, 'getPermissionStatus'),
+        );
     },
 
     isAvailable(): boolean {

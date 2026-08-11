@@ -52,6 +52,10 @@ describe('public types', () => {
         expectTypeOf(FileSystem.writeFile).toEqualTypeOf<
             (path: string, content: string) => Promise<void>
         >();
+        // `Promise<void>` on both mutators is the C4 contract in the type
+        // system: failures leave through a rejection, so there is no result
+        // object for a caller to inspect (or forget to inspect).
+        expectTypeOf(FileSystem.deleteFile).toEqualTypeOf<(path: string) => Promise<void>>();
         expectTypeOf(FileSystem.getInfo).toEqualTypeOf<(path: string) => Promise<FileInfo>>();
     });
 

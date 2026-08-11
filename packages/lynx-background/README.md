@@ -41,6 +41,25 @@ await Background.register('refresh-feed', {
 
 The full API, the platform frequency/time-budget caveats, the persistence model and platform gotchas are documented on the docs site.
 
+## Errors
+
+`register()`, `unregister()` and `getRegistered()` **reject** when the OS refuses the request — they no longer resolve on a native failure. The rejection is a `SigxError` with `code: 'native_error'` and a message of the form `[@sigx/lynx-background] register failed: …`:
+
+```ts
+import { isSigxError } from '@sigx/lynx-core';
+
+try {
+    await Background.register('refresh-feed', { minimumInterval: 15 * 60 });
+} catch (err) {
+    // On iOS the usual cause is an identifier missing from
+    // BGTaskSchedulerPermittedIdentifiers — the task would otherwise be
+    // scheduled-looking and permanently silent.
+    if (isSigxError(err)) console.error(err.code, err.message);
+}
+```
+
+`setHandler()` is unaffected: a handler that throws is caught, logged, and the wake is completed as `success=false` so the OS reschedules.
+
 ## Web
 
 **Not supported on web** (`sigx run:web`). There's no `.web.ts` implementation and `@sigx/lynx-web-host` exposes no background handler, so the native module is never registered: `isAvailable()` returns `false` and `register()` / `unregister()` / `getRegistered()` reject with the `Module "Background" is not available` error. `setHandler()` itself is harmless — the fire channel falls back to a no-op subscription when there's no native emitter — but nothing will ever call the handler.

@@ -26,9 +26,11 @@ class ImagePickerModule: NSObject, LynxModule, PHPickerViewControllerDelegate {
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
             // Fail fast when nothing can present (multi-scene edge cases) —
-            // never leave the JS Promise hanging on an invisible picker.
+            // never leave the JS Promise hanging on an invisible picker. This
+            // is a failure, not a user-cancel: the `error` key makes JS throw
+            // instead of reporting a dismiss the user never made.
             guard let presenter = SigxPresentation.topPresenter() else {
-                callback?(["cancelled": true, "assets": []])
+                callback?(["cancelled": true, "assets": [], "error": "no view controller available to present the picker"])
                 return
             }
             self.pendingCallback = callback
@@ -49,7 +51,7 @@ class ImagePickerModule: NSObject, LynxModule, PHPickerViewControllerDelegate {
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
             guard let presenter = SigxPresentation.topPresenter() else {
-                callback?(["cancelled": true, "assets": []])
+                callback?(["cancelled": true, "assets": [], "error": "no view controller available to present the picker"])
                 return
             }
             self.pendingCallback = callback

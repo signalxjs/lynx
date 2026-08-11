@@ -84,11 +84,29 @@ class FileSystemModule: NSObject, LynxModule {
             return
         }
         let resolvedPath = resolveFile(path)
+        // Deleting something that isn't there is the documented no-op, and what
+        // Android's `File.delete()` does — the JS side now throws on `{ error }`,
+        // so `removeItem`'s "no such file" must not reach it.
+        //
+        // Decided by ATTEMPTING the delete and reading the failure, not by an
+        // existence pre-check: `fileExists(atPath:)` **traverses symlinks**, so
+        // a dangling link reads as absent and would be skipped — left on disk,
+        // where the unguarded `removeItem` used to remove the link itself. The
+        // same blindness hides a permission-denied path as a silent success.
         do {
             try fileManager.removeItem(atPath: resolvedPath)
             callback?(true)
-        } catch {
-            callback?(["error": error.localizedDescription])
+        } catch let error as NSError {
+            // ENOENT, however it is reported: nothing to delete is not a
+            // failure, and this also covers losing the race with another
+            // deleter. Anything else is real and must reach the caller.
+            let isMissing = (error.domain == NSCocoaErrorDomain && error.code == NSFileNoSuchFileError)
+                || (error.domain == NSPOSIXErrorDomain && error.code == Int(ENOENT))
+            if isMissing {
+                callback?(true)
+            } else {
+                callback?(["error": error.localizedDescription])
+            }
         }
     }
 
