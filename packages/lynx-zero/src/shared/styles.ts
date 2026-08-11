@@ -4,7 +4,9 @@
  * (`resolveColorToken`), so `<Col background="base-100">` works identically
  * under every design system's active theme.
  */
+import type { WidthClass } from '@sigx/lynx';
 import { resolveColorToken, type BackgroundValue } from '../contract.js';
+import { resolveResponsive, type Responsive } from './responsive.js';
 
 export type SpacingValue = number | {
   x?: number;
@@ -15,14 +17,18 @@ export type SpacingValue = number | {
   left?: number;
 };
 
+/**
+ * Every field accepts either a plain value or a per-breakpoint object (#1013);
+ * `resolveBoxStyle` collapses them against the caller's active width class.
+ */
 export interface BoxProps {
-  width?: number | string;
-  height?: number | string;
-  flex?: number;
-  background?: BackgroundValue;
-  borderRadius?: number;
-  padding?: SpacingValue;
-  margin?: SpacingValue;
+  width?: Responsive<number | string>;
+  height?: Responsive<number | string>;
+  flex?: Responsive<number>;
+  background?: Responsive<BackgroundValue>;
+  borderRadius?: Responsive<number>;
+  padding?: Responsive<SpacingValue>;
+  margin?: Responsive<SpacingValue>;
 }
 
 export function resolveSpacing(
@@ -57,7 +63,27 @@ export function resolveSpacing(
   return style;
 }
 
-export function resolveBoxStyle(props: BoxProps): Record<string, unknown> {
+/**
+ * Collapse box-model props to a flat inline style.
+ *
+ * `cls` is the active width class (from `useWidthClass()`); it is what any
+ * per-breakpoint prop object resolves against. It defaults to `'compact'` so
+ * existing non-responsive callers — and off-device tests — behave exactly as
+ * before: with plain values the class is never consulted.
+ */
+export function resolveBoxStyle(
+  rawProps: BoxProps,
+  cls: WidthClass = 'compact',
+): Record<string, unknown> {
+  const props = {
+    width: resolveResponsive(rawProps.width, cls),
+    height: resolveResponsive(rawProps.height, cls),
+    flex: resolveResponsive(rawProps.flex, cls),
+    background: resolveResponsive(rawProps.background, cls),
+    borderRadius: resolveResponsive(rawProps.borderRadius, cls),
+    padding: resolveResponsive(rawProps.padding, cls),
+    margin: resolveResponsive(rawProps.margin, cls),
+  };
   const style: Record<string, unknown> = {};
 
   if (props.width !== undefined) style.width = props.width;

@@ -28,7 +28,13 @@ import {
     useScreen,
     useScreenMT,
 } from '../src/index';
-import type { CoarseOrientation, PermissionResponse, ScreenMetrics } from '../src/index';
+import type {
+    CoarseOrientation,
+    HeightClass,
+    PermissionResponse,
+    ScreenMetrics,
+    WidthClass,
+} from '../src/index';
 import type { Computed } from '@sigx/reactivity';
 
 describe('public runtime exports', () => {
@@ -80,6 +86,16 @@ describe('public runtime exports', () => {
                 'useOrientation',
                 'useScreen',
                 'useScreenMT',
+                // window size classes (#1013)
+                'Breakpoint',
+                'heightClassOf',
+                'useHeightAtLeast',
+                'useHeightClass',
+                'useHeightClassMT',
+                'useWidthAtLeast',
+                'useWidthClass',
+                'useWidthClassMT',
+                'widthClassOf',
                 // logging
                 'addTransport',
                 'clearTransports',
@@ -149,6 +165,22 @@ describe('public types', () => {
         expectTypeOf(useScreenMT).returns.toEqualTypeOf<ScreenMetrics>();
         expectTypeOf(core.useOrientation).returns.toEqualTypeOf<Computed<CoarseOrientation>>();
         expectTypeOf(core.useFontScaleMT).returns.toEqualTypeOf<number>();
+        // Size classes (#1013) hold the same line on both halves.
+        expectTypeOf(core.useWidthClass).returns.toEqualTypeOf<Computed<WidthClass>>();
+        expectTypeOf(core.useHeightClass).returns.toEqualTypeOf<Computed<HeightClass>>();
+        expectTypeOf(core.useWidthAtLeast).returns.toEqualTypeOf<Computed<boolean>>();
+        expectTypeOf(core.useHeightAtLeast).returns.toEqualTypeOf<Computed<boolean>>();
+        expectTypeOf(core.useWidthClassMT).returns.toEqualTypeOf<WidthClass>();
+        expectTypeOf(core.useHeightClassMT).returns.toEqualTypeOf<HeightClass>();
+    });
+
+    it('keeps the size-class predicates monotone-friendly (#1013)', () => {
+        // The whole point of `useWidthAtLeast(dp)` over enum equality is that
+        // it takes an arbitrary threshold, so adding a bucket can never change
+        // what an existing call site means. Pinning the parameter as a plain
+        // `number` is what guarantees that stays true.
+        expectTypeOf(core.useWidthAtLeast).parameters.toEqualTypeOf<[number]>();
+        expectTypeOf(core.useHeightAtLeast).parameters.toEqualTypeOf<[number]>();
     });
 });
 

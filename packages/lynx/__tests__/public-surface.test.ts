@@ -38,6 +38,7 @@ describe('public runtime exports', () => {
     it('matches the locked surface', () => {
         expect(Object.keys(mod).sort()).toEqual([
             'AnimatedValue',
+            'Breakpoint',
             'Comment',
             'ComputedSymbol',
             'Defer',
@@ -101,6 +102,7 @@ describe('public runtime exports', () => {
             'getHandler',
             'getLogLevel',
             'guid',
+            'heightClassOf',
             'ingestAvPublishes',
             'isBaseBuild',
             'isComponent',
@@ -195,6 +197,9 @@ describe('public runtime exports', () => {
             'useFontScaleMT',
             'useFrameCallback',
             'useGestureDetector',
+            'useHeightAtLeast',
+            'useHeightClass',
+            'useHeightClassMT',
             'useMainThreadRef',
             'useOrientation',
             'useOrientationLock',
@@ -204,9 +209,13 @@ describe('public runtime exports', () => {
             'useSharedValue',
             'useStream',
             'useViewportRect',
+            'useWidthAtLeast',
+            'useWidthClass',
+            'useWidthClassMT',
             'variant',
             'waitForFlush',
             'watch',
+            'widthClassOf',
             'wireEqual',
         ]);
     });

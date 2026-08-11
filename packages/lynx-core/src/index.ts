@@ -67,6 +67,23 @@ export type {
     RawScreenProps,
 } from './screen.js';
 
+// Window size classes (#1013) — the bucketed/boolean reads layout branches on,
+// derived from `useScreen()` so they share its publisher and subscription.
+// Prefer these over `useScreen()` for layout: they only fire when a threshold
+// is actually crossed, so a Stage Manager drag doesn't re-render every pixel.
+export {
+    Breakpoint,
+    widthClassOf,
+    heightClassOf,
+    useWidthClass,
+    useHeightClass,
+    useWidthAtLeast,
+    useHeightAtLeast,
+    useWidthClassMT,
+    useHeightClassMT,
+} from './size-class.js';
+export type { WidthClass, HeightClass } from './size-class.js';
+
 // Runtime orientation lock (#856) — the imperative half; `signalx.config.ts`'s
 // `orientation` is still the ceiling.
 export { Orientation } from './orientation.js';

@@ -1,4 +1,13 @@
-import { component, Orientation, signal, useScreen } from '@sigx/lynx';
+import {
+    Breakpoint,
+    component,
+    Orientation,
+    signal,
+    useHeightClass,
+    useScreen,
+    useWidthAtLeast,
+    useWidthClass,
+} from '@sigx/lynx';
 import { Screen } from '@sigx/lynx-navigation';
 import { Button, Card, Col, Heading, Row, ScrollView, Text } from '@sigx/lynx-daisyui';
 import { useSafeAreaInsets } from '@sigx/lynx-safe-area';
@@ -25,6 +34,12 @@ import { Haptics } from '@sigx/lynx-haptics';
  */
 export const OrientationDemo = component(() => {
     const screen = useScreen();
+    // Size classes (#1013) — bucketed reads off the same publisher. Unlike
+    // `screen` above, these only re-fire when a threshold is actually crossed,
+    // so dragging an iPad Split View divider doesn't re-render per pixel.
+    const widthClass = useWidthClass();
+    const heightClass = useHeightClass();
+    const isExpanded = useWidthAtLeast(Breakpoint.WIDTH_EXPANDED);
     const insets = useSafeAreaInsets();
     const taps = signal({ count: 0 });
     // Surfaces the rejection path — a portrait-only build reports it here
@@ -79,6 +94,69 @@ export const OrientationDemo = component(() => {
                                     {Math.round(insets.value.bottom)} /{' '}
                                     {Math.round(insets.value.left)}
                                 </Text>
+                            </Col>
+                        </Card.Body>
+                    </Card>
+
+                    <Card bordered>
+                        <Card.Body>
+                            <Col gap={8}>
+                                <Text weight="semibold">Window size classes</Text>
+                                <Text class="opacity-60 text-sm">
+                                    The layout-decision read. Buckets are Material's
+                                    dp thresholds — width 600/840/1200/1600, height
+                                    480/900 — so an iPad Air 13 is `expanded` in
+                                    portrait and `large` in landscape.
+                                </Text>
+                                <Text class="font-mono text-sm">
+                                    width: {widthClass.value} · height: {heightClass.value}
+                                </Text>
+                                <Text class="font-mono text-sm opacity-60">
+                                    ≥840dp wide: {isExpanded.value ? 'yes' : 'no'}
+                                </Text>
+                                <Text class="opacity-60 text-sm">
+                                    Note a phone in landscape reads a `compact` height
+                                    while its width can reach `expanded` — branching on
+                                    width alone is what puts a vertical rail on a
+                                    393dp-tall screen.
+                                </Text>
+                            </Col>
+                        </Card.Body>
+                    </Card>
+
+                    <Card bordered>
+                        <Card.Body>
+                            {/* Per-breakpoint prop objects. The Col below both
+                                flips its main axis and grows its padding/gap at
+                                840dp — restyled in place, never remounted, which
+                                is why `direction` is a prop rather than swapping
+                                <Col> for <Row>. */}
+                            <Col
+                                gap={{ initial: 8, expanded: 16 }}
+                                padding={{ initial: 0, expanded: 8 }}
+                            >
+                                <Text weight="semibold">Responsive props</Text>
+                                <Text class="opacity-60 text-sm">
+                                    {'<Col direction={{ initial: \'column\', expanded: \'row\' }}>'}
+                                    {' '}— the tiles below sit stacked under 840dp and
+                                    side by side at or above it.
+                                </Text>
+                                <Col
+                                    direction={{ initial: 'column', expanded: 'row' }}
+                                    gap={{ initial: 8, expanded: 12 }}
+                                >
+                                    {['One', 'Two', 'Three'].map((label) => (
+                                        <Col
+                                            key={label}
+                                            flex={1}
+                                            background="base-200"
+                                            borderRadius={8}
+                                            padding={{ initial: 12, expanded: 20 }}
+                                        >
+                                            <Text class="font-mono text-sm">{label}</Text>
+                                        </Col>
+                                    ))}
+                                </Col>
                             </Col>
                         </Card.Body>
                     </Card>
