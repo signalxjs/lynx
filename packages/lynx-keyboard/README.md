@@ -8,7 +8,7 @@ Keyboard height reaches JS through the safe-area bridge ([`@sigx/lynx-safe-area`
 
 Full guides, API reference and live examples → **[https://sigx.dev/lynx/modules/keyboard/overview/](https://sigx.dev/lynx/modules/keyboard/overview/)**
 
-## Installation
+## Install
 
 ```bash
 pnpm add @sigx/lynx-keyboard
@@ -16,7 +16,7 @@ pnpm add @sigx/lynx-keyboard
 
 Requires `<SafeAreaProvider>` (from `@sigx/lynx-safe-area`) at the app root — the same provider every safe-area hook already needs.
 
-## Quick start
+## Usage
 
 The proven chat-screen shape: the content area shrinks (`KeyboardAvoidingView`), the composer bar rides the keyboard (`KeyboardStickyView`). The bar's translate and the area's padding are both `max(0, keyboard - bottomInset)`, so the list bottom always ends exactly where the bar lands.
 
@@ -73,8 +73,9 @@ Wraps content and keeps it above the keyboard. Layout-affecting, so it applies i
 
 - `useKeyboard(): Computed<{ height, visible }>` — BG-reactive keyboard state.
 - `useKeyboardLift(discountBottomInset?, offset?): Computed<number>` — the raw lift value.
-- `useKeyboardLiftSV(discountBottomInset?, offset?, duration?): SharedValue<number>` — smoothly animated MT SharedValue tracking the lift; bind with `useAnimatedStyle(ref, sv, 'translateY', { factor: -1 })`.
-- `rememberedKeyboardLift(): number` — the LAST observed lift (px), or `0` if the keyboard has never been shown. See below.
+- `useKeyboardLiftSV(discountBottomInset?, offset?, duration?): SharedValue<number>` — smoothly animated MT SharedValue tracking the lift; bind with `useAnimatedStyle(ref, sv, 'translateY', { factor: -1 })`. `duration` is in **seconds** (the `@sigx/lynx-motion` convention), default `0.25`.
+- `rememberedKeyboardLift(): number` — the LAST observed lift (dp), or `0` if the keyboard has never been shown. See below.
+- `resetRememberedKeyboardLift(): void` — clears that memory, including the persisted copy. A **test seam**, not app API: calling it from a screen throws away the app-wide measurement every keyboard-sized panel seeds itself from.
 
 ### Remembered keyboard height
 
@@ -85,6 +86,21 @@ A panel that must occupy exactly the keyboard's space — a WhatsApp-style emoji
 - a real observation always supersedes a restored one, even if shorter (a different IME or split screen genuinely changes the height), so a stale value can never strand a panel too tall.
 
 `@sigx/lynx-sheet` seeds its `{ keyboard: true }` detent from this. Without it, the first keyboard-sized panel opened on a screen where nothing has been typed yet falls back to `fallbackPx` and then visibly corrects itself the moment the real keyboard returns — 53 px of input-row jump on a Pixel 9 Pro XL (#811).
+
+## Web
+
+**Renders on web (`sigx run:web`), but nothing ever lifts.** Everything here is pure JS and nothing throws — `<KeyboardAvoidingView>` and `<KeyboardStickyView>` mount, the hooks return live signals, `rememberedKeyboardLift()` answers `0`. The height they all read is `@sigx/lynx-safe-area`'s `keyboard` inset, and on web that package has no publisher behind it, so the inset stays `0` for the session.
+
+That is the right answer for a desktop browser, where the keyboard is hardware. It is the wrong one for a mobile browser or an installed PWA, whose on-screen keyboard resizes the visual viewport — a web shim would publish `visualViewport` height changes into the same safe-area globalProps key, and every primitive here would start working unchanged. Not wired today, so don't ship a web build that depends on the lift.
+
+## Gotchas
+
+- **One primitive per subtree.** A bar inside both a `behavior="padding"` `<KeyboardAvoidingView>` *and* a `<KeyboardStickyView>` lifts twice. Pick the one that matches the shape.
+- **The sticky lift is invisible to layout measurement.** `translateY` is written on the main thread via `setStyleProperties`, so anything measuring the bar's position from the background thread — a popup anchored to a caret, an absolute overlay — reads its *un-lifted* box. Anchor to the same `useKeyboardLiftSV()` instead of measuring.
+- **`transform` on `<KeyboardStickyView>` is overridden.** The component owns that property. Wrap the children in a view of your own if you need another transform.
+- **`discountBottomInset` defaults to `true`.** The keyboard covers the home-indicator region, so a bar already padded by `<SafeAreaView edges={['bottom']}>` must only rise by the difference. Set it `false` when nothing above you pads the bottom inset, or the bar sits too low by exactly that inset.
+- **`duration` is seconds.** `useKeyboardLiftSV(…, duration)` follows the `@sigx/lynx-motion` convention, not milliseconds — `0.25`, not `250`.
+- **Won't do, and why:** no prev/next/done accessory toolbar (RN's `InputAccessoryView` role is covered by `<KeyboardStickyView>` — build the row you want inside it); no interactive/drag-to-dismiss keyboard (Lynx exposes no interactive dismiss gesture); no separate keyboard window; and a single `offset` rather than the peer's closed/opened pair, because the closed position is the natural flex position here.
 
 ## How it works
 
