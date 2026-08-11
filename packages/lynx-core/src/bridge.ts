@@ -5,6 +5,8 @@
  * Each registered native module (e.g. Haptics) appears as a property.
  */
 
+import { SigxError } from './errors.js';
+
 declare const NativeModules: Record<string, Record<string, (...args: any[]) => any>>;
 
 /** Known module → package mapping for actionable error messages. */
@@ -37,11 +39,19 @@ const MODULE_PACKAGES: Record<string, string> = {
 
 /**
  * Get a native module by name. Throws with actionable error if unavailable.
+ *
+ * The throw is a `SigxError` with `code: 'module_unavailable'` (C10) — the
+ * message is unchanged and still the actionable one, but "the module isn't
+ * linked" is the other half of what every package's callers branch on, next to
+ * `'native_error'` from `unwrapNative`. Without a code it was a bare `Error`,
+ * so a caller could only match on the message.
  */
 export function getModule(name: string): Record<string, (...args: any[]) => any> {
     if (typeof NativeModules === 'undefined' || !NativeModules[name]) {
         const pkg = MODULE_PACKAGES[name] ?? `@sigx/lynx-${name.toLowerCase()}`;
-        throw new Error(
+        throw new SigxError(
+            'lynx-core',
+            'module_unavailable',
             `[@sigx/lynx-core] Module "${name}" is not available.\n` +
             `\n` +
             `This usually means one of:\n` +

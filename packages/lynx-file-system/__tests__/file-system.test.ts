@@ -160,6 +160,22 @@ describe('FileSystem.deleteFile', () => {
             '[@sigx/lynx-file-system] deleteFile failed: Failed to delete: /docs/sub',
         );
     });
+
+    it('rejects a content:// URI instead of reporting a delete that never happened', async () => {
+        // Android only, and the reason this is a native-side guard: a
+        // `content://` string built into a `File` lands on a nonexistent
+        // relative path under filesDir, whose delete "succeeds" while the
+        // picked document is untouched
+        // (`android/…/FileSystemModule.kt` deleteFile).
+        installNativeModules({
+            deleteFile: resolving('deleteFile', {
+                error: "Cannot delete a content:// URI — the app doesn't own that file: content://media/1",
+            }),
+        });
+        await expect(FileSystem.deleteFile('content://media/1')).rejects.toThrow(
+            /Cannot delete a content:\/\/ URI/,
+        );
+    });
 });
 
 describe('FileSystem.getInfo', () => {
@@ -190,6 +206,35 @@ describe('FileSystem.getInfo', () => {
         await expect(FileSystem.getInfo('/root/secret')).rejects.toThrow(
             '[@sigx/lynx-file-system] getInfo failed: EACCES',
         );
+    });
+
+    it('gets every declared field back, in the declared units', async () => {
+        // `FileInfo` has no optional members, so a payload missing one reaches
+        // a caller as `undefined` on a field typed `number`. iOS omitted all
+        // three extras for a missing file and reported `modifiedAt` in
+        // *seconds* where Android sends milliseconds; both natives now fill
+        // the full record in epoch ms
+        // (`ios/FileSystemModule.swift` getInfo, `android/…` getInfo).
+        installNativeModules({
+            getInfo: resolving('getInfo', {
+                uri: '/docs/data.json',
+                size: 12,
+                exists: true,
+                isDirectory: false,
+                modifiedAt: 1_700_000_000_000,
+            }),
+        });
+        const info = await FileSystem.getInfo('data.json');
+        expect(info).toEqual({
+            uri: '/docs/data.json',
+            size: 12,
+            exists: true,
+            isDirectory: false,
+            modifiedAt: 1_700_000_000_000,
+        });
+        // Milliseconds, not seconds — a same-file comparison across platforms
+        // is only meaningful if both scale the same way.
+        expect(new Date(info.modifiedAt).getUTCFullYear()).toBe(2023);
     });
 });
 

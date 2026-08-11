@@ -4,6 +4,39 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 ## [Unreleased]
 
+### Changed
+
+- **A native failure is now a rejection in ten more packages** (#857, convention **C4**, rubric **D1.2**/**D6.2**). `callAsync` only rejects when the *synchronous* bridge call throws; every native module reports its own failures by **resolving** `{ error: string }` on the callback. Ten packages passed that payload straight to the caller, typed as the success shape — so `try`/`catch` never fired and the failure arrived as plausible-looking data. All ten now unwrap through `unwrapNative` / `unwrapNativeVoid` from `@sigx/lynx-core`, throwing a `SigxError` with `code: 'native_error'` and the C10 message `[@sigx/lynx-<pkg>] <action> failed: <cause>`, with the raw native payload on `cause`.
+
+  **This is breaking on purpose: code that used to silently continue now throws.** What each package was doing before:
+
+  | Package | A failure used to look like |
+  | --- | --- |
+  | `lynx-background` | `register()` resolving as if scheduled — an iOS identifier missing from `BGTaskSchedulerPermittedIdentifiers` (the most common setup mistake here) succeeded, and the task simply never fired. `getRegistered()` handed a non-iterable `{ error }` to a `for…of`. |
+  | `lynx-camera` | Kept its own `settleCapture`; a permission-denied or FileProvider-misconfigured capture now throws instead of rethrowing an unprefixed raw string, and a payload matching none of the three documented outcomes fails loudly instead of reporting a cancel. |
+  | `lynx-file-picker` | A picker that couldn't open at all — Android launcher unregistered, iOS with no view controller — reported a user dismiss. |
+  | `lynx-file-system` | A failed `readFile` resolved the envelope typed as `string`; a failed `writeFile` looked like a success. |
+  | `lynx-image-picker` | Same as file-picker: a launch failure arrived as `{ cancelled: true }` and the app silently did nothing. |
+  | `lynx-linking` | `openURL()` resolved whether or not anything opened, making try-the-deep-link/fall-back-to-https dead code; `BackHandler.exitApp()` resolved as if the app had backed out. |
+  | `lynx-location` | Permission-denied and no-fix arrived as a `LocationResult` full of `undefined` — the showcase crashed in render on `fix.lat.toFixed(5)` because its `catch` never ran. |
+  | `lynx-network` | A failure arrived as `isConnected: undefined`, so the offline branch of `if (state.isConnected)` ran with nothing caught. |
+  | `lynx-notifications` | `schedule()` handed back an `{ error }` object typed `string`, so the caller held an id that cancels nothing; `setBadgeCount()` discarded the error outright. |
+  | `lynx-secure-storage` | Its hand-rolled unwrap threw plain `Error`s with no `code` and no `cause`. |
+
+  **A cancel is still not an error** (C5). A user dismissing a camera, file picker or image picker resolves `{ cancelled: true }` as before — as does a pick superseded by a newer one or cut short by Activity teardown, which Android tags with sentinel `error` strings and iOS doesn't. Those sentinels are matched *before* the unwrap.
+
+  Three deliberate **C3/C4 opt-outs** are now documented in JSDoc and README rather than left implicit: `Notifications.cancel` / `cancelAll` (advisory, idempotent, fired from cleanup paths — a failure stays `false`), `Notifications.registerForPushNotifications` / `unregisterForPushNotifications` (the failure is already published on the shared token-error channel, so throwing would make callers handle it twice), and `Notifications.requestPermission` (iOS folds an authorization error into `{ status: 'denied', error }`; whether that becomes a throw is the repo-wide C6 question on #895).
+
+- **`@sigx/lynx-core`: "the native module isn't linked" now carries a `code`** (#857, #873). `getModule` — and therefore `callSync`, `callAsync` and `guardModule` — throws a `SigxError` with `code: 'module_unavailable'` and `package: 'lynx-core'` instead of a bare `Error`. The message is unchanged and still names the package to install. Between this and `unwrapNative`'s `'native_error'`, every module package's two failure modes are branchable without writing an error of its own; the READMEs telling callers to "branch on `code`, not the message" are now true for both. Prefer `isAvailable()` over catching `'module_unavailable'` — a build without the module never recovers at runtime. Core's README also stops claiming `getModule` returns `undefined` when the module is missing; it always threw.
+
+### Fixed
+
+- **`@sigx/lynx-file-system`: `getInfo` disagreed with itself across platforms** (#857, #879). iOS populated `size` / `isDirectory` / `modifiedAt` only inside an `if exists` branch, so a missing file resolved a `FileInfo` whose non-optional fields were `undefined`; Android always sent all five. iOS also reported `modifiedAt` in **seconds** (`timeIntervalSince1970`) where Android sends milliseconds and the README documents milliseconds — every timestamp rendered as January 1970 on one platform only. Both natives now fill the whole record in epoch ms, zeroed when the file doesn't exist. And a path that exists but can't be stat'd (a protected-data file on a locked device, permission denied) used to fall through as `size: 0` — a real failure disguised as an empty file; it now rejects.
+
+- **`@sigx/lynx-file-system`: deleting a `content://` URI no longer reports a success that deleted nothing** (#857, #879). A picker's `content://` URI is a ContentResolver grant, not a path: `File()` built a nonexistent relative path under `filesDir` whose delete "succeeded" while the picked document sat untouched. Android now rejects it, naming the reason. A `file://` URI is unaffected — pickers handing one back have already copied the bytes into the app sandbox.
+
+- **`@sigx/lynx-secure-storage`: argument rejections carry a `code` too** (#857, #903). An empty key or a non-string value threw a plain `Error`, so the README's "branch on `code`" was false for the two failures a caller is most likely to hit first. They are now `SigxError`s with `code: 'invalid_argument'`.
+
 ### Added
 
 - **`@sigx/lynx-appearance`: `getColorScheme()`** (#857) — an async, authoritative read of the OS colour scheme from the native module, resolving `null` when the module isn't linked. It answers something `readGlobalColorScheme()` structurally cannot: the BG thread's `__globalProps` is a load-time snapshot that doesn't follow an in-place OS flip (#990). `<AppearanceProvider>` now uses it to self-heal — when the sync read is `null` at mount it probes native once and adopts the answer, instead of sitting on its `'light'` seed for the session. Zero bridge calls on the normal path: the probe is skipped entirely when `globalProps` already answered or the module is unlinked, a reply landing after unmount is dropped, and a live `appearanceChanged` event outranks a slower reply.

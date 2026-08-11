@@ -16,16 +16,22 @@ export interface FileInfo {
     size: number;
     exists: boolean;
     isDirectory: boolean;
+    /**
+     * Last-modified time in epoch **milliseconds**, `0` when the file doesn't
+     * exist. (iOS's `timeIntervalSince1970` is seconds; the native side scales
+     * it so both platforms report the same number for the same file.)
+     */
     modifiedAt: number;
 }
 
 /**
  * File system APIs.
  *
- * Every method **throws** on failure (C3/C4): a missing native module raises
- * core's descriptive `getModule` error, and a native-side failure raises a
- * `SigxError` with `code: 'native_error'` — the natives resolve their callback
- * with `{ error }` rather than rejecting, so each call unwraps that envelope.
+ * Every method **throws** on failure (C3/C4), always as a `SigxError` with a
+ * `code` to branch on: `'module_unavailable'` when the native module isn't
+ * linked (core's descriptive `getModule` error), `'native_error'` for a
+ * failure reported by the platform — the natives resolve their callback with
+ * `{ error }` rather than rejecting, so each call unwraps that envelope.
  *
  * @example
  * ```ts
@@ -90,17 +96,25 @@ export const FileSystem = {
     },
 
     /**
-     * Delete a file. Deleting something that isn't there is a no-op on both
-     * platforms; a real failure — a read-only or picker-supplied path, or a
-     * non-empty directory on Android — rejects.
+     * Delete a file the app owns. Deleting something that isn't there is a
+     * no-op on both platforms; a real failure — a read-only path, or a
+     * non-empty directory on Android (iOS removes those recursively) —
+     * rejects.
+     *
+     * A picker's `content://` URI is **not** a path the app owns, so deleting
+     * one rejects on Android rather than reporting a success that deleted
+     * nothing. A `file://` URI is fine: pickers that hand one back have copied
+     * the bytes into the app sandbox already.
      */
     async deleteFile(path: string): Promise<void> {
         unwrapNativeVoid(PKG, 'deleteFile', await callAsync<unknown>(MODULE, 'deleteFile', path));
     },
 
     /**
-     * Stat a path. A missing file resolves a `FileInfo` with `exists: false`;
-     * only a failing native stat rejects.
+     * Stat a path. A missing file resolves a `FileInfo` with `exists: false`
+     * and zeroed fields; a failing native stat — a protected-data file on a
+     * locked iOS device, a permission-denied path — rejects rather than
+     * resolving a `FileInfo` that would read as an empty file.
      */
     async getInfo(path: string): Promise<FileInfo> {
         return unwrapNative(PKG, 'getInfo', await callAsync<FileInfo>(MODULE, 'getInfo', path));

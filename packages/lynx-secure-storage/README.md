@@ -45,7 +45,15 @@ Browsers have no OS-backed secret store equivalent to the Keychain / Keystore. T
 
 ## Gotchas
 
-- **Failures reject; they are never returned as data.** Every async method throws a `SigxError` with `code: 'native_error'` and the message `[@sigx/lynx-secure-storage] <method>(<key>) failed: <native message>`, carrying the raw native payload as `cause` — branch on `code`, not the message. The natives resolve their callback with `{ error }` rather than rejecting, so unwrapping that envelope is what stands between a failed read and a plausible-looking `null`. Previously these were plain `Error`s with a hand-rolled prefix: no `code` to branch on and no `cause`, so the native payload was lost at the throw.
+- **Failures reject; they are never returned as data.** Every async method throws a `SigxError` — always with a `code`, so you branch on that rather than the message:
+
+  | `code` | When | Message |
+  | --- | --- | --- |
+  | `'invalid_argument'` | An empty/non-string key, or a non-string value | `[@sigx/lynx-secure-storage] <method>(<key>) failed: <what was wrong>` |
+  | `'module_unavailable'` | The native module isn't linked into the build — raised by core's `getModule`, so `.package` is `lynx-core` | `[@sigx/lynx-core] Module "SecureStorage" is not available. …` |
+  | `'native_error'` | The platform reported a failure | `[@sigx/lynx-secure-storage] <method>(<key>) failed: <native message>`, raw native payload on `cause` |
+
+  The natives resolve their callback with `{ error }` rather than rejecting, so unwrapping that envelope is what stands between a failed read and a plausible-looking `null`. Previously these were plain `Error`s with a hand-rolled prefix: no `code` to branch on and no `cause`, so the native payload was lost at the throw. Prefer `isAvailable()` over catching `'module_unavailable'` — a build without the module never recovers at runtime.
 - **A dismissed biometric prompt is a rejection, not `null`.** There is no `{ cancelled: true }` result here: both platforms report a dismiss as `{ error: 'userCancel' }` (iOS `errSecUserCanceled`, Android `ERROR_NEGATIVE_BUTTON`), so it throws `… failed: userCancel` like any other native failure. `null` means one thing only — the key was never stored. Match on the message to treat a dismiss as ordinary; a stable `code` for it is tracked in [#903](https://github.com/signalxjs/lynx/issues/903).
 - **A write that native doesn't acknowledge throws.** `setItem` / `removeItem` / `clear` require `{ ok: true }` back; a payload carrying neither `ok` nor `error` is treated as a write that never happened rather than reported as stored, because a credential that silently isn't there is the worst way this package can be wrong.
 

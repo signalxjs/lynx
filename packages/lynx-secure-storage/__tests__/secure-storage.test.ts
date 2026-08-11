@@ -99,6 +99,26 @@ describe('SecureStorage.setItem', () => {
         ).rejects.toThrow(/value must be a string/);
         expect(calls).toEqual([]);
     });
+
+    it('gives an argument rejection a code, like every other failure here', async () => {
+        // The README tells callers to branch on `code`; that is only true if
+        // the guards carry one too, so these are SigxErrors, not bare Errors.
+        await expect(SecureStorage.setItem('', 'abc')).rejects.toMatchObject({
+            name: 'SigxError',
+            code: 'invalid_argument',
+            package: 'lynx-secure-storage',
+            message: '[@sigx/lynx-secure-storage] setItem failed: key must be a non-empty string',
+        });
+        await expect(
+            SecureStorage.setItem('token', 42 as unknown as string),
+        ).rejects.toMatchObject({ code: 'invalid_argument' });
+        await expect(SecureStorage.getItem('')).rejects.toMatchObject({
+            code: 'invalid_argument',
+        });
+        await expect(SecureStorage.removeItem('')).rejects.toMatchObject({
+            code: 'invalid_argument',
+        });
+    });
 });
 
 describe('SecureStorage.getItem', () => {
@@ -251,5 +271,13 @@ describe('without the native module', () => {
         await expect(SecureStorage.hasKey('k')).rejects.toThrow(
             /Module "SecureStorage" is not available/,
         );
+    });
+
+    it('codes that rejection module_unavailable, so it is branchable', async () => {
+        await expect(SecureStorage.getItem('k')).rejects.toMatchObject({
+            name: 'SigxError',
+            code: 'module_unavailable',
+            package: 'lynx-core',
+        });
     });
 });

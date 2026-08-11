@@ -117,11 +117,36 @@ class FileSystemModule: NSObject, LynxModule {
         }
         let resolvedPath = resolveFile(path)
         let exists = fileManager.fileExists(atPath: resolvedPath)
-        var result: [String: Any] = ["uri": resolvedPath, "exists": exists]
-        if exists, let attrs = try? fileManager.attributesOfItem(atPath: resolvedPath) {
-            result["size"] = (attrs[.size] as? UInt64) ?? 0
-            result["isDirectory"] = (attrs[.type] as? FileAttributeType) == .typeDirectory
-            result["modifiedAt"] = (attrs[.modificationDate] as? Date)?.timeIntervalSince1970 ?? 0
+        // Every key of `FileInfo` is non-optional in TS, so a missing file
+        // still gets the zero values Android sends — a partial dictionary
+        // would reach callers as `undefined` on a field typed `number`.
+        var result: [String: Any] = [
+            "uri": resolvedPath,
+            "exists": exists,
+            "size": 0,
+            "isDirectory": false,
+            "modifiedAt": 0,
+        ]
+        if exists {
+            do {
+                let attrs = try fileManager.attributesOfItem(atPath: resolvedPath)
+                result["size"] = (attrs[.size] as? UInt64) ?? 0
+                result["isDirectory"] = (attrs[.type] as? FileAttributeType) == .typeDirectory
+                // Epoch **milliseconds**, matching Android's `lastModified()`
+                // and what the README declares. `timeIntervalSince1970` is
+                // seconds, so a raw hand-off made the same file look 1970-ish
+                // on iOS and current on Android.
+                if let modified = attrs[.modificationDate] as? Date {
+                    result["modifiedAt"] = (modified.timeIntervalSince1970 * 1000).rounded()
+                }
+            } catch {
+                // A file that exists but can't be stat'd (a protected-data
+                // class file while the device is locked, a permission-denied
+                // path) used to fall through as a `FileInfo` reporting
+                // `size: 0` — a real failure disguised as an empty file.
+                callback?(["error": error.localizedDescription])
+                return
+            }
         }
         callback?(result)
     }

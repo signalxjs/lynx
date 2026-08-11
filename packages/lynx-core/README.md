@@ -20,7 +20,7 @@ import {
 } from '@sigx/lynx-core';
 ```
 
-- **`getModule(name)`** — return the `NativeModules[name]` proxy that the Lynx runtime injects, or `undefined` if the module isn't linked.
+- **`getModule(name)`** — return the `NativeModules[name]` proxy that the Lynx runtime injects. It **throws** if the module isn't linked (a `SigxError` with `code: 'module_unavailable'`, naming the package to install); it never returns `undefined`. Use `isModuleAvailable(name)` to feature-detect without throwing.
 - **`callSync(name, method, ...args)`** — invoke a bridge method that returns synchronously.
 - **`callAsync(name, method, ...args)`** — invoke a bridge method that returns a `Promise`.
 - **`isModuleAvailable(name)`** — feature-detect a module without throwing.
@@ -60,6 +60,13 @@ import { subscribeNative, unwrapNative, SigxError } from '@sigx/lynx-core';
   ```
 
 - **`SigxError`** — base error carrying a stable `code` and the raising `package`, for anything a caller might branch on. Narrow with `isSigxError(e)`; branch on `e.code`, never on the message.
+
+  Core itself raises two codes, and between them they cover the failures every module package inherits without writing any error of its own:
+
+  | `code` | Raised by | Means |
+  | --- | --- | --- |
+  | `'module_unavailable'` | `getModule` / `callSync` / `callAsync` / `guardModule` | The native module isn't in this build. Not recoverable at runtime — feature-detect with `isAvailable()` instead of catching. |
+  | `'native_error'` | `unwrapNative` / `unwrapNativeVoid` | The platform reported a failure; the raw native payload is on `cause`. |
 
 ## Logging
 

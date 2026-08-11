@@ -56,6 +56,17 @@ interface NativeResult {
 }
 
 /**
+ * Reject bad arguments before they reach the bridge.
+ *
+ * A `SigxError` like every other failure here, with its own `code` — the
+ * README tells callers to branch on `code` rather than the message, which is
+ * only true if the argument guards carry one too (C10).
+ */
+function invalidArgument(action: string, detail: string): SigxError {
+    return new SigxError(PKG, 'invalid_argument', `[@sigx/${PKG}] ${action} failed: ${detail}`);
+}
+
+/**
  * Settle a write (`set` / `delete` / `clear`): the `{ error }` envelope throws
  * via core's `unwrapNative` (C4), and a payload that carries no `ok: true`
  * throws too.
@@ -93,10 +104,12 @@ function unwrapAck(action: string, raw: NativeResult | null | undefined): void {
  * flag here gates the *individual key* via the OS Keychain / Keystore;
  * use lynx-biometric for the broader "unlock the app" flow.
  *
- * Every method **throws** on failure (C3/C4): a missing native module raises
- * core's descriptive `getModule` error, and a native-side failure raises a
- * `SigxError` with `code: 'native_error'` — the natives resolve their callback
- * with `{ error }` rather than rejecting, so each call unwraps that envelope.
+ * Every method **throws** on failure (C3/C4), always as a `SigxError` with a
+ * `code` to branch on: `'invalid_argument'` for a bad key or value,
+ * `'module_unavailable'` when the native module isn't linked (core's
+ * descriptive `getModule` error), and `'native_error'` for a failure reported
+ * by the platform — the natives resolve their callback with `{ error }` rather
+ * than rejecting, so each call unwraps that envelope.
  * There is no `cancelled` result here: dismissing the biometric prompt is one
  * of those native failures (`error: 'userCancel'` on both platforms —
  * `ios/SecureStorageModule.swift:136`, `android/…/SecureStorageModule.kt:270`)
@@ -130,10 +143,10 @@ export const SecureStorage = {
         opts: SecureStorageSetOptions = {},
     ): Promise<void> {
         if (typeof key !== 'string' || key.length === 0) {
-            throw new Error('[@sigx/lynx-secure-storage] key must be a non-empty string');
+            throw invalidArgument('setItem', 'key must be a non-empty string');
         }
         if (typeof value !== 'string') {
-            throw new Error('[@sigx/lynx-secure-storage] value must be a string');
+            throw invalidArgument(`setItem(${key})`, 'value must be a string');
         }
         unwrapAck(
             `setItem(${key})`,
@@ -160,7 +173,7 @@ export const SecureStorage = {
      */
     async getItem(key: string, opts: SecureStorageGetOptions = {}): Promise<string | null> {
         if (typeof key !== 'string' || key.length === 0) {
-            throw new Error('[@sigx/lynx-secure-storage] key must be a non-empty string');
+            throw invalidArgument('getItem', 'key must be a non-empty string');
         }
         const result = unwrapNative(
             PKG,
@@ -173,7 +186,7 @@ export const SecureStorage = {
     /** Remove a single key. No-op if the key doesn't exist. */
     async removeItem(key: string): Promise<void> {
         if (typeof key !== 'string' || key.length === 0) {
-            throw new Error('[@sigx/lynx-secure-storage] key must be a non-empty string');
+            throw invalidArgument('removeItem', 'key must be a non-empty string');
         }
         unwrapAck(
             `removeItem(${key})`,

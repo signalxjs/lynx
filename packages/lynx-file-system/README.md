@@ -30,8 +30,8 @@ if (info.exists) {
 | `readFile(path: string): Promise<string>`               | UTF-8 text. Rejects if the file doesn't exist.                                                     |
 | `readFileBase64(path: string): Promise<string>`         | Raw bytes, base64-encoded. Also accepts `file://` and (Android) `content://` URIs — anything a picker hands back. |
 | `readFileAsArrayBuffer(path: string): Promise<ArrayBuffer>` | `readFileBase64` decoded to an `ArrayBuffer`.                                                  |
-| `deleteFile(path: string): Promise<void>`               | No-op if the file doesn't exist. Rejects on a real failure — a read-only path, or a non-empty directory on Android (iOS removes those recursively). |
-| `getInfo(path: string): Promise<FileInfo>`              | Always returns a `FileInfo` — check `exists` for presence. Rejects only if the stat itself fails.   |
+| `deleteFile(path: string): Promise<void>`               | No-op if the file doesn't exist. Rejects on a real failure — a read-only path, a non-empty directory on Android (iOS removes those recursively), or a `content://` URI, which the app doesn't own. |
+| `getInfo(path: string): Promise<FileInfo>`              | Always returns a `FileInfo` — check `exists` for presence; a missing file zeroes the other fields. Rejects only if the stat itself fails.   |
 | `isAvailable(): boolean`                                | Whether the native module is registered in the current build.                                      |
 ```ts
 interface FileInfo {
@@ -39,7 +39,7 @@ interface FileInfo {
     size: number;
     exists: boolean;
     isDirectory: boolean;
-    modifiedAt: number;     // epoch milliseconds
+    modifiedAt: number;     // epoch milliseconds, 0 when the file doesn't exist
 }
 ```
 ## Web
@@ -49,7 +49,7 @@ On web, reach for the capability you actually need instead:
 - **Persisted app data** — [`@sigx/lynx-storage`](https://sigx.dev/lynx/modules/storage/overview/), whose web implementation is IndexedDB-backed and works unchanged.
 - **User-chosen files** — [`@sigx/lynx-file-picker`](https://sigx.dev/lynx/modules/file-picker/overview/) / [`@sigx/lynx-image-picker`](https://sigx.dev/lynx/modules/image-picker/overview/), which hand back `blob:` URLs you can `fetch()` rather than paths you read.
 ## Gotchas
-- **Failures reject; they are never returned as data.** Every async method throws a `SigxError` with `code: 'native_error'` and the message `[@sigx/lynx-file-system] <method> failed: <native message>` — branch on `code`, not the message. The natives resolve their callback with `{ error }` instead of rejecting, and that envelope used to reach callers as the success value — a failed `readFile` handed back an object typed as `string`, a failed `writeFile` looked like a success, and no `try`/`catch` ever fired.
+- **Failures reject; they are never returned as data.** A platform failure throws a `SigxError` with `code: 'native_error'` and the message `[@sigx/lynx-file-system] <method> failed: <native message>`; a build without the native module throws core's `SigxError` with `code: 'module_unavailable'` (feature-detect that with `isAvailable()` rather than catching it). Branch on `code`, not the message. The natives resolve their callback with `{ error }` instead of rejecting, and that envelope used to reach callers as the success value — a failed `readFile` handed back an object typed as `string`, a failed `writeFile` looked like a success, and no `try`/`catch` ever fired.
 - **Text-only writes.** `writeFile` is UTF-8 text. Reads can be binary via `readFileBase64` / `readFileAsArrayBuffer`, but the whole file is materialized in memory (base64 is ~33% larger crossing the bridge) — fine for small/medium files, wrong for uploads or large media; keep using `Camera` / `ImagePicker` / `FilePicker` URIs directly where possible.
 - **Path conventions.** Always prefix paths with `getDocumentDirectory()` or `getCacheDirectory()`. Raw `/data.json` won't resolve consistently across platforms.
 
