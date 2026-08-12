@@ -576,12 +576,20 @@ export function createNavigatorState(opts: CreateNavigatorOptions): NavigatorSta
         // and there is no error anywhere (#1021). Landing the end state is
         // best-effort by nature; a resting transform that is a few pixels off
         // is a far better failure than an app that cannot navigate.
-        await Promise.race([
-            lander(target),
-            new Promise<void>((resolve) => {
-                setTimeout(resolve, LANDING_ACK_TIMEOUT_MS);
-            }),
-        ]);
+        // A rejection that arrives BEFORE the timeout still propagates, so a
+        // real MT failure surfaces (the caller's rejection handler clears the
+        // transition). One that arrives after is deliberately ignored: the
+        // transition is already cleared by then and there is nothing left to
+        // act on. The timer is cleared either way — a bare `Promise.race`
+        // leaves it armed for the full timeout on every navigation.
+        const landing = lander(target);
+        await new Promise<void>((resolve, reject) => {
+            const timer = setTimeout(resolve, LANDING_ACK_TIMEOUT_MS);
+            landing.then(
+                () => { clearTimeout(timer); resolve(); },
+                (e: unknown) => { clearTimeout(timer); reject(e); },
+            );
+        });
     }
 
     const push: Nav['push'] = ((name: string, ...args: unknown[]) => {
