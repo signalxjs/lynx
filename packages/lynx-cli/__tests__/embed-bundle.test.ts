@@ -202,6 +202,21 @@ describe('collectAsyncAssets', () => {
         ]);
         expect(assets[0]?.size).toBe('chunk-a'.length);
     });
+
+    it('ignores dist/lazy-bundle/ — sigx does not load Lynx lazy bundles', () => {
+        // `@lynx-js/template-webpack-plugin` >= 0.14 also emits an encoded
+        // template per dynamic import under `lazy-bundle/`. Those are inert
+        // here: `@sigx/lynx-plugin` empties `__webpack_require__.lynx_aci`, so
+        // every chunk loads as plain JS via `lynx.requireModuleAsync` instead of
+        // `lynx.loadLazyBundle` — which is not an engine API and is undefined in
+        // a sigx bundle (#1015). Embedding them would ship dead bytes.
+        const cwd = makeProject('BUNDLE');
+        addAsyncChunk(cwd, 'lazy-bundle/payload.abc123.bundle', 'template');
+        addAsyncChunk(cwd, 'static/js/async/a.456.js', 'chunk-a');
+        expect(collectAsyncAssets(cwd).map((a) => a.rel)).toEqual([
+            'static/js/async/a.456.js',
+        ]);
+    });
 });
 
 describe('embedAsyncAssets', () => {

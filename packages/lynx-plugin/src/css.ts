@@ -14,10 +14,7 @@ import { fileURLToPath } from 'node:url';
 
 import type { CSSLoaderOptions, RsbuildPluginAPI } from '@rsbuild/core';
 
-import type {
-  CssExtractRspackPluginOptions,
-  CssExtractWebpackPluginOptions,
-} from '@lynx-js/css-extract-webpack-plugin';
+import type { CssExtractRspackPluginOptions } from '@lynx-js/css-extract-webpack-plugin';
 
 import { LAYERS } from './layers.js';
 
@@ -46,12 +43,14 @@ export function applyCSS(
   //    one, configure loaders per layer, and remove lightningcss.
   api.modifyBundlerChain(
     async function handler(chain, { CHAIN_ID }) {
-      const { CssExtractRspackPlugin, CssExtractWebpackPlugin } = await import(
+      // Rspack only: `@lynx-js/css-extract-webpack-plugin` 0.8.0 dropped
+      // webpack support and deleted `CssExtractWebpackPlugin` outright, the
+      // same release boundary `@lynx-js/template-webpack-plugin` crossed at
+      // 0.12.0. rspeedy drives rspack, so the old `bundlerType` branch could
+      // only ever have picked the rspack plugin anyway.
+      const { CssExtractRspackPlugin: CssExtractPlugin } = await import(
         '@lynx-js/css-extract-webpack-plugin'
       );
-      const CssExtractPlugin = api.context.bundlerType === 'rspack'
-        ? CssExtractRspackPlugin
-        : CssExtractWebpackPlugin;
 
       const cssRules = [
         CHAIN_ID.RULE.CSS,
@@ -147,18 +146,12 @@ export function applyCSS(
               enableCSSSelector,
               enableCSSInvalidation,
               cssPlugins: [],
-            } as
-              | CssExtractWebpackPluginOptions
-              | CssExtractRspackPluginOptions,
+            } as CssExtractRspackPluginOptions,
           ];
         })
         .init((_: any, args: unknown[]) => {
           return new CssExtractPlugin(
-            ...(args as [
-              options:
-                & CssExtractWebpackPluginOptions
-                & CssExtractRspackPluginOptions,
-            ]),
+            ...(args as [options: CssExtractRspackPluginOptions]),
           );
         })
         .end()
