@@ -22,9 +22,6 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 - **`examples/showcase`: the Auth demo stops teaching a double prompt.** Its unlock called `Biometric.authenticate()` and then `SecureStorage.getItem()`, prompting twice for the same thing — its own comment conceded "a real app would skip the first step". Unlock is now the single-prompt flow, with a separate **Authenticate only** button for the one shape that should call `Biometric.authenticate()` directly: an identity check with no stored key behind it.
 
-
-### Changed
-
 - **A native failure is now a rejection in ten more packages** (#857, convention **C4**, rubric **D1.2**/**D6.2**). `callAsync` only rejects when the *synchronous* bridge call throws; every native module reports its own failures by **resolving** `{ error: string }` on the callback. Ten packages passed that payload straight to the caller, typed as the success shape — so `try`/`catch` never fired and the failure arrived as plausible-looking data. All ten now unwrap through `unwrapNative` / `unwrapNativeVoid` from `@sigx/lynx-core`, throwing a `SigxError` with `code: 'native_error'` and the C10 message `[@sigx/lynx-<pkg>] <action> failed: <cause>`, with the raw native payload on `cause`.
 
   **This is breaking on purpose: code that used to silently continue now throws.** What each package was doing before:

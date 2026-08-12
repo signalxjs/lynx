@@ -443,6 +443,15 @@ class SecureStorageModule(context: Context) : LynxModule(context) {
             return KeyPair(existingPublic, existingPrivate)
         }
 
+        // The alias may still be occupied by something we can't use: an AES key
+        // left by the pre-#1027 implementation, which generated it before the
+        // encrypt that always failed, or half an entry from an interrupted
+        // generation. Clear it first so a device carrying that residue heals on
+        // the next write instead of failing forever on a key nobody can read.
+        if (runCatching { keystore.containsAlias(alias) }.getOrDefault(false)) {
+            runCatching { keystore.deleteEntry(alias) }
+        }
+
         val keyGen = KeyPairGenerator.getInstance(
             KeyProperties.KEY_ALGORITHM_RSA, ANDROID_KEYSTORE,
         )
