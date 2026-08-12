@@ -1,5 +1,5 @@
 import { component, type Define } from '@sigx/lynx';
-import type { ColorVariant } from '@sigx/lynx-zero';
+import type { ColorVariant } from '@sigx/lynx-zero-legacy';
 
 /** Alerts carry the status colors (upstream HeroUI flat surface). */
 export type AlertColor = Extract<ColorVariant, 'info' | 'success' | 'warning' | 'error'>;

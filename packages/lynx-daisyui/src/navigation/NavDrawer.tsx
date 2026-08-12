@@ -49,7 +49,7 @@ import {
 } from '@sigx/lynx';
 import { withTiming } from '@sigx/lynx-motion';
 import { Drawer, useDrawer } from '@sigx/lynx-navigation';
-import { resolveColorToken, type BackgroundValue } from '@sigx/lynx-zero';
+import { resolveColorToken, type BackgroundValue } from '@sigx/lynx-zero-legacy';
 
 export type NavDrawerSide = 'left' | 'right';
 

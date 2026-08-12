@@ -52,7 +52,7 @@
         "@sigx/lynx-gestures": "workspace:^",
         "@sigx/lynx-icons": "workspace:^",
         "@sigx/lynx-motion": "workspace:^",
-        "@sigx/lynx-zero": "workspace:^"
+        "@sigx/lynx-zero-legacy": "workspace:^"
     },
     "peerDependencies": {
         "@sigx/lynx-emoji": "workspace:^",

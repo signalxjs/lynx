@@ -1,7 +1,7 @@
 /**
  * The two built-in hero themes — HeroUI's default light/dark palettes mapped
  * onto the shared `ColorToken` contract and registered into
- * `@sigx/lynx-zero`'s theme registry at module load.
+ * `@sigx/lynx-zero-legacy`'s theme registry at module load.
  *
  * Token mapping from upstream HeroUI semantics (the pilot's validation of the
  * contract — see signalxjs/lynx#219):
@@ -22,7 +22,7 @@
  * HeroUI's default roundness is larger than daisy's — expressed via the
  * theme-level `radius` overrides (the engine emits them with the palette).
  */
-import { completeTheme, registerTheme, type Theme, type ThemeInput } from '@sigx/lynx-zero/registry';
+import { completeTheme, registerTheme, type Theme, type ThemeInput } from '@sigx/lynx-zero-legacy/registry';
 
 /**
  * Theme class applied to the provider's host view. The two built-ins get

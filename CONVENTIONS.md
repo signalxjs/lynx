@@ -40,7 +40,7 @@ node scripts/check-module-manifests.mjs --update-baseline
 Everything the gates can't judge — anything needing types, a device, or a human — lives in the
 rubric in Part 2 and belongs to the package's review issue.
 
-**Three packages sit outside the review** — `@sigx/lynx-zero`, `@sigx/lynx-daisyui` and
+**Three packages sit outside the review** — `@sigx/lynx-zero-legacy`, `@sigx/lynx-daisyui` and
 `@sigx/lynx-heroui` — because the design-system layering has separate work in flight
 (signalxjs/lynx#927). They are still bound by C1–C12 and still gated by CI; they simply have no
 audit issue owning their baseline entries. The exclusion and its reason live in `EXCLUDED` in
@@ -304,7 +304,7 @@ Current state: two competing templates, neither fully applied. Missing `## 📚 
 `lynx-web-host`, `lynx-webrtc`. Missing `## License`: every "Module"-template package. Missing
 `## Web`: camera, audio, video, file-system, datetime-picker, sqlite, biometric, webauth, webrtc,
 updates — despite nine packages shipping `.web.ts` implementations and `sigx build:web` being a
-headline feature. `lynx-zero`'s README is 29 lines for 2,367 lines of foundation code.
+headline feature. `lynx-zero-legacy`'s README is 29 lines for 2,367 lines of foundation code.
 
 ### C12 — `signalx-module.json` must be true
 

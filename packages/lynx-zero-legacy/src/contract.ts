@@ -1,7 +1,7 @@
 /**
  * The shared design-system contract.
  *
- * `@sigx/lynx-zero` is the design-system-neutral foundation that DS packages
+ * `@sigx/lynx-zero-legacy` is the design-system-neutral foundation that DS packages
  * (`@sigx/lynx-daisyui`, `@sigx/lynx-heroui`, …) build on. This module is the
  * *vocabulary* they agree on — size scales, semantic colors, theme token
  * names, and common prop shapes — so that switching an app from one design

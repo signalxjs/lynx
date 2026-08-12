@@ -1,6 +1,6 @@
 import { component, signal, type Define } from '@sigx/lynx';
 import { Pressable } from '@sigx/lynx-gestures';
-import { PRESSED_SCALE, PRESSED_OPACITY, type ColorVariant, type SizeScale, type WithAccessibility } from '@sigx/lynx-zero';
+import { PRESSED_SCALE, PRESSED_OPACITY, type ColorVariant, type SizeScale, type WithAccessibility } from '@sigx/lynx-zero-legacy';
 
 export type SelectSize = Extract<SizeScale, 'sm' | 'md' | 'lg'>;
 /** Upstream HeroUI select variants — flat (filled surface) is the default. */

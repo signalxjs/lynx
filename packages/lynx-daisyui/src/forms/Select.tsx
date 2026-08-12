@@ -10,7 +10,7 @@ import {
   type ViewportRect,
 } from '@sigx/lynx';
 import { Pressable } from '@sigx/lynx-gestures';
-import { PRESSED_SCALE, PRESSED_OPACITY, type ColorVariant } from '@sigx/lynx-zero';
+import { PRESSED_SCALE, PRESSED_OPACITY, type ColorVariant } from '@sigx/lynx-zero-legacy';
 import { placeSelectDropdown, type TriggerFrame } from './select-position.js';
 
 export type SelectSize = 'xs' | 'sm' | 'md' | 'lg';

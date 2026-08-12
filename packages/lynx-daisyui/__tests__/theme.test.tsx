@@ -2,7 +2,7 @@ import { describe, it, expect, afterEach, beforeEach } from 'vitest';
 import { component } from '@sigx/lynx';
 import { render } from '@sigx/lynx-testing';
 import { ThemeProvider, useTheme } from '../src/theme/ThemeProvider';
-import { extendTheme, registerTheme, themeController } from '@sigx/lynx-zero';
+import { extendTheme, registerTheme, themeController } from '@sigx/lynx-zero-legacy';
 
 // `useTheme().name` rendered as text, so we can assert which controller a given
 // point in the tree resolves to.

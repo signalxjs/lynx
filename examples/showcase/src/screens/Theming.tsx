@@ -9,7 +9,7 @@ import {
     Text,
     ThemeProvider,
 } from '@sigx/lynx-daisyui';
-import { useScreenTheme } from '@sigx/lynx-zero/screen-theme';
+import { useScreenTheme } from '@sigx/lynx-zero-legacy/screen-theme';
 
 /**
  * Theming — shows the two theming layers side by side:

@@ -1,4 +1,4 @@
-// @sigx/lynx-zero — design-system-neutral UI foundation.
+// @sigx/lynx-zero-legacy — design-system-neutral UI foundation (legacy: see signalxjs/lynx#1029).
 //
 // Holds what every design-system package (@sigx/lynx-daisyui,
 // @sigx/lynx-heroui, …) shares: the props/token contract, the theme engine,
@@ -84,7 +84,7 @@ export type { StatusBarSyncProps } from './theme/StatusBarSync.js';
 // Per-screen theming (`useScreenTheme`) is deliberately NOT re-exported here:
 // it statically imports the optional `@sigx/lynx-navigation` peer, and a
 // barrel re-export would force that resolution onto every consumer. Import it
-// from the subpath instead: `@sigx/lynx-zero/screen-theme`.
+// from the subpath instead: `@sigx/lynx-zero-legacy/screen-theme`.
 
 // Layout primitives — design-system-neutral structure (flex containers,
 // spacing, scrolling); no design-system class names involved.

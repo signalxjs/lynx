@@ -1,6 +1,6 @@
 import { component, type Define } from '@sigx/lynx';
 import { Pressable } from '@sigx/lynx-gestures';
-import { PRESSED_SCALE, PRESSED_OPACITY, type ColorVariant, type SizeScale, type WithAccessibility } from '@sigx/lynx-zero';
+import { PRESSED_SCALE, PRESSED_OPACITY, type ColorVariant, type SizeScale, type WithAccessibility } from '@sigx/lynx-zero-legacy';
 
 // The shared contract's color/variant split (signalxjs/lynx#219): `color` is
 // the semantic color, `variant` is hero's fill style (upstream HeroUI's
