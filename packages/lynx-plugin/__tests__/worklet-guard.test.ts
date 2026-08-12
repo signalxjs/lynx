@@ -39,6 +39,16 @@ describe('SigxWorkletGuardPlugin — id extraction', () => {
     ]);
   });
 
+
+  it('ignores a doc comment that spells out the placeholder shape', () => {
+    // Development builds keep comments, and `threading.ts` documents the
+    // mechanism with a literal `{ _wkltId: '...' }`. Reading that as a real
+    // worklet failed the build on prose (#975 verification).
+    const bg = `/* it becomes { _wkltId: '...' } at this call site */`;
+    expect(SigxWorkletGuardPlugin.backgroundIds(bg).size).toBe(0);
+    expect(SigxWorkletGuardPlugin.missingIds(bg, '')).toEqual([]);
+  });
+
   it('tolerates single quotes and minified spacing', () => {
     // Production output is minified; the check must not depend on the
     // pretty-printed shape it was written against.

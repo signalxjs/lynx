@@ -186,10 +186,19 @@ class SigxMarkMainThreadPlugin {
 export class SigxWorkletGuardPlugin {
   constructor(private readonly mainThreadFilenames: string[]) {}
 
-  /** Worklet ids the BG bundle expects the MT layer to have registered. */
+  /**
+   * Worklet ids the BG bundle expects the MT layer to have registered.
+   *
+   * Ids are shaped `<hash>:<hash>:<n>` by the transform, and the colon is
+   * load-bearing here: this scans raw bundle text, and a development build
+   * keeps comments — `threading.ts`'s docblock explains the mechanism with a
+   * literal `{ _wkltId: '...' }`, which a looser pattern reads as a worklet
+   * that was never registered and fails the build on prose.
+   */
   static backgroundIds(source: string): Set<string> {
     return new Set(
-      [...source.matchAll(/_wkltId:\s*["']([^"']+)["']/g)].map((m) => m[1]!),
+      [...source.matchAll(/_wkltId:\s*["']([^"':]+:[^"']+)["']/g)]
+        .map((m) => m[1]!),
     );
   }
 
@@ -558,18 +567,18 @@ export async function applyEntry(
     // multiApps[appId]._nativeApp fallback, but proper hosts need the wrapper.
   }
 
-  // Default to all-in-one chunk splitting to avoid async chunks that break
-  // Lynx's single-file bundle requirement.
+  // Lynx needs one bundle, not a split graph. Rspeedy now defaults
+  // `splitChunks` to `false`, which is exactly what the old
+  // `performance.chunkSplit: 'all-in-one'` meant — so there is nothing left
+  // to force. Setting it anyway is worse than redundant: rsbuild warns that
+  // `performance.chunkSplit` is deprecated and **will not work** when
+  // `splitChunks` is also set, so the option we were relying on was being
+  // silently ignored while still looking deliberate in the config.
   api.modifyRsbuildConfig((config, { mergeRsbuildConfig }) => {
     const userConfig = api.getRsbuildConfig('original');
     let merged = config;
-    if (!userConfig.performance?.chunkSplit?.strategy) {
-      merged = mergeRsbuildConfig(merged, {
-        performance: { chunkSplit: { strategy: 'all-in-one' } },
-      });
-    }
-    // Dynamic-import async chunks are still emitted regardless of the
-    // strategy above. Pin the production assetPrefix so their request URLs
+    // Dynamic-import async chunks are still emitted regardless. Pin the
+    // production assetPrefix so their request URLs
     // are root-relative (`/static/js/async/<hash>.js`) — the native
     // production fetchers map those 1:1 onto embedded assets (#599). Dev is
     // untouched: the dev assetPrefix is rewritten to the LAN dev-server URL.
@@ -749,7 +758,7 @@ export async function applyEntry(
     }
   }
 
-  api.modifyBundlerChain((chain, { environment, isProd }) => {
+  api.modifyBundlerChain((chain, { environment, isProd, rspack }) => {
     const isRspeedy = api.context.callerName === 'rspeedy';
     if (!isRspeedy) return;
 
@@ -772,11 +781,14 @@ export async function applyEntry(
     // intentionally NOT provided — the lynx-http install only shims it when
     // absent, so we keep any host-provided one. (signalxjs/lynx#373, #378.)
     if (isLynx) {
-      // Lazy `require` so `@rspack/core` stays an OPTIONAL peer — importing it
-      // at the top would make it a hard runtime requirement even for consumers
-      // that never build (type-only, web-only). Here we're in a real rspeedy
-      // Lynx build, so rspack is present.
-      const { ProvidePlugin } = createRequire(import.meta.url)('@rspack/core') as typeof import('@rspack/core');
+      // Taken from the `rspack` rsbuild hands us rather than resolved with
+      // `createRequire`. It keeps `@rspack/core` an optional peer (no
+      // top-level import) exactly as before, and additionally guarantees the
+      // plugin comes from the SAME rspack copy that drives this compiler:
+      // resolving it ourselves picked up 2.0.2 from the optional peer while
+      // rsbuild ran 2.1.9, so instances crossed copies and only worked by
+      // duck-typing.
+      const { ProvidePlugin } = rspack;
       chain
         .plugin('sigx-lynx-http-globals')
         .use(ProvidePlugin, [{
@@ -792,10 +804,10 @@ export async function applyEntry(
     // dead platform's branch tree-shaken (the runtime `Platform.OS` is a
     // convenience that does NOT tree-shake — a property read can't fold). The
     // `@sigx/lynx-core` Platform module reads `__WEB__` to drop native
-    // detection from the web bundle. Lazy `require` for the same reason as the
-    // HTTP globals above — keep `@rspack/core` an optional peer.
+    // detection from the web bundle. From rsbuild's `rspack`, same reason as
+    // the HTTP globals above.
     {
-      const { DefinePlugin } = createRequire(import.meta.url)('@rspack/core') as typeof import('@rspack/core');
+      const { DefinePlugin } = rspack;
       chain
         .plugin('sigx-platform-define')
         .use(DefinePlugin, [{
