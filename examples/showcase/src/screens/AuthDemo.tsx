@@ -76,25 +76,18 @@ export const AuthDemo = component(() => {
         }
     };
 
+    /**
+     * The recommended unlock: **one** prompt.
+     *
+     * Reading a key stored with `requireBiometric: true` authenticates by
+     * itself — the OS gates the decryption, so an explicit
+     * `Biometric.authenticate()` beforehand only asks the user twice for the
+     * same thing. Use `Biometric.authenticate()` on its own when there is no
+     * gated key to read (see the button below it).
+     */
     const onUnlock = async () => {
         Haptics.selection();
         status.value = 'Authenticating…';
-        // Two-step unlock — explicit Biometric.authenticate first, then the
-        // OS prompts a second time when we actually decrypt the Keychain
-        // item. A real app would skip the first step and rely solely on
-        // the storage-level prompt; we do both here to demonstrate each
-        // package independently.
-        const auth = await Biometric.authenticate({
-            reason: BIOMETRIC_REASON,
-            title: BIOMETRIC_TITLE,
-            fallbackTitle: 'Use Passcode',
-            allowDeviceCredential: true,
-        });
-        if (!auth.success) {
-            Haptics.notification('warning');
-            status.value = `Auth failed: ${auth.errorCode ?? 'unknown'} — ${auth.error ?? ''}`;
-            return;
-        }
         try {
             const token = await SecureStorage.getItem(TOKEN_KEY, {
                 biometricPrompt: {
@@ -116,6 +109,29 @@ export const AuthDemo = component(() => {
             Haptics.notification('warning');
             status.value = `Decrypt failed: ${(err as Error).message}`;
         }
+    };
+
+    /**
+     * `@sigx/lynx-biometric` on its own — an identity check with no stored
+     * key behind it ("confirm it's you before showing balances"). This is
+     * the only shape that should call `authenticate()` directly.
+     */
+    const onAuthenticateOnly = async () => {
+        Haptics.selection();
+        status.value = 'Authenticating…';
+        const auth = await Biometric.authenticate({
+            reason: BIOMETRIC_REASON,
+            title: BIOMETRIC_TITLE,
+            fallbackTitle: 'Use Passcode',
+            allowDeviceCredential: true,
+        });
+        if (!auth.success) {
+            Haptics.notification('warning');
+            status.value = `Auth failed: ${auth.errorCode ?? 'unknown'} — ${auth.error ?? ''}`;
+            return;
+        }
+        Haptics.notification('success');
+        status.value = 'Authenticated. No key was read — this was the identity check alone.';
     };
 
     const onLock = () => {
@@ -184,7 +200,9 @@ export const AuthDemo = component(() => {
                                 <Text weight="semibold">Locked</Text>
                                 <Text class="opacity-60 text-sm">
                                     A token is in secure storage. Unlock with
-                                    biometrics to reveal it.
+                                    biometrics to reveal it — reading a gated
+                                    key authenticates by itself, so this is
+                                    one prompt, not two.
                                 </Text>
                                 <Row gap={8}>
                                     <Button color="primary" onPress={onUnlock}>
@@ -194,6 +212,13 @@ export const AuthDemo = component(() => {
                                         Sign out
                                     </Button>
                                 </Row>
+                                <Text class="opacity-60 text-sm">
+                                    Or exercise `@sigx/lynx-biometric` alone —
+                                    an identity check with no key behind it:
+                                </Text>
+                                <Button variant="outline" onPress={onAuthenticateOnly}>
+                                    Authenticate only
+                                </Button>
                             </Col>
                         </Card.Body>
                     </Card>

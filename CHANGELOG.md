@@ -4,6 +4,25 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 ## [Unreleased]
 
+### Fixed
+
+- **`@sigx/lynx-secure-storage`: `requireBiometric` never worked on Android** (#1027, device-found on a Pixel 9 Pro XL). `setItem(key, value, { requireBiometric: true })` failed every time, on every device, with `set failed: IllegalBlockSizeException` — the headline feature of the package, dead on one platform since it shipped, while iOS was fine.
+
+  The write encrypted with the very key it was gating: a Keystore AES key created with `setUserAuthenticationRequired(true)`. An auth-bound *symmetric* key demands a fresh authentication for **every** operation, encryption included, and nothing drives a prompt on the write path, so Keystore refused it (`KEY_USER_NOT_AUTHENTICATED`) and `doFinal` reported the refusal as a block-size error.
+
+  Android now stores an **envelope**: a per-key Keystore **RSA** pair whose auth requirement binds the private half, a one-shot in-memory AES-256-GCM key encrypting the value, and that AES key wrapped with the public half. Wrapping is a public-key operation, so **writing never prompts** — the contract `README.md` and the `setItem` JSDoc always promised and iOS's `SecItemAdd` always delivered. Reading authorises the RSA-decrypt `Cipher` through `BiometricPrompt.CryptoObject`, unwraps, and decrypts: one prompt, where it belongs.
+
+  **Any biometric value must be written again.** The blob format goes to `v3` and a stale blob is discarded along with its Keystore alias, so `getItem` reports the key as absent rather than failing — but nothing needs migrating in practice, since no device can hold a readable older blob: `v1` could never be written and `v2` (an interim envelope) could never be read.
+
+- **`@sigx/lynx-secure-storage`, `@sigx/lynx-biometric`: the biometric prompt is raised on the main thread, posted rather than inline** (#1027). Both packages built `BiometricPrompt` and called `authenticate()` on whatever thread the `@LynxMethod` ran on — the JS thread — though it is a `DialogFragment` whose constructor touches the FragmentManager and the activity's `LifecycleRegistry`, and whose `authenticate` commits a transaction. Every other dialog in the repo already hopped (`lynx-datetime-picker`, `lynx-file-picker`).
+
+  It is **posted** to the main looper rather than run through `Activity.runOnUiThread`, because that helper executes inline when the caller is already on the main thread — and one caller always is: a prompt raised from another prompt's callback, which is what authenticating and then reading a gated key does. Inline meant committing inside FragmentManager's own execution and throwing `IllegalStateException: FragmentManager is already executing transactions`. Device-caught, both of them.
+
+### Changed
+
+- **`examples/showcase`: the Auth demo stops teaching a double prompt.** Its unlock called `Biometric.authenticate()` and then `SecureStorage.getItem()`, prompting twice for the same thing — its own comment conceded "a real app would skip the first step". Unlock is now the single-prompt flow, with a separate **Authenticate only** button for the one shape that should call `Biometric.authenticate()` directly: an identity check with no stored key behind it.
+
+
 ### Changed
 
 - **A native failure is now a rejection in ten more packages** (#857, convention **C4**, rubric **D1.2**/**D6.2**). `callAsync` only rejects when the *synchronous* bridge call throws; every native module reports its own failures by **resolving** `{ error: string }` on the callback. Ten packages passed that payload straight to the caller, typed as the success shape — so `try`/`catch` never fired and the failure arrived as plausible-looking data. All ten now unwrap through `unwrapNative` / `unwrapNativeVoid` from `@sigx/lynx-core`, throwing a `SigxError` with `code: 'native_error'` and the C10 message `[@sigx/lynx-<pkg>] <action> failed: <cause>`, with the raw native payload on `cause`.
