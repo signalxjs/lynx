@@ -42,10 +42,12 @@ interface Harness {
 
 // Rest parameter, not a default: `run(undefined)` must be able to mean "the
 // original chunkFilename really is undefined", which a default value swallows.
-function run(...init: [] | [unknown]): Harness {
+function run(...init: [] | [unknown] | [unknown, unknown]): Harness {
   const initialChunkFilename = init.length > 0
     ? init[0]
     : 'static/js/async/[name].js';
+  // What replaces chunkFilename between `environment` and `afterEnvironment`.
+  const between = init.length > 1 ? init[1] : undefined;
   let beforeEncodeCb: ((args: GuardArgs) => unknown) | undefined;
   const templatePlugin = {
     getLynxTemplatePluginHooks: () => ({
@@ -122,10 +124,11 @@ function run(...init: [] | [unknown]): Harness {
 
   new SigxAsyncChunkPlugin(templatePlugin).apply(compiler as never);
 
-  // The template plugin replaces chunkFilename between the two hooks.
+  // Between the two hooks, something replaces chunkFilename. By default that
+  // is the template plugin's lazy-bundle rewrite (always a function).
   environmentCb!();
-  compiler.options.output.chunkFilename = (() =>
-    'lazy-bundle/x.js') as never;
+  compiler.options.output.chunkFilename = (between ?? (() =>
+    'lazy-bundle/x.js')) as never;
   afterEnvironmentCb!();
 
   thisCompilationCb!(compilation);
@@ -188,6 +191,17 @@ describe('SigxAsyncChunkPlugin — lynx_aci reset (#1015)', () => {
     // it would leave the template plugin's lazy-bundle rewrite in place here.
     const h = run(undefined) as Harness & { chunkFilename: unknown };
     expect(h.chunkFilename).toBeUndefined();
+  });
+
+  it('leaves a plain template another plugin deliberately set', () => {
+    // The lazy-bundle rewrite is always a function. A string means someone else
+    // set chunkFilename on purpose after us and there is no rewrite left to
+    // undo — stamping our captured value over it would discard their choice.
+    const h = run(
+      'static/js/async/[name].js',
+      'custom/[name].js',
+    ) as Harness & { chunkFilename: unknown };
+    expect(h.chunkFilename).toBe('custom/[name].js');
   });
 });
 

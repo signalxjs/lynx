@@ -266,6 +266,12 @@ export class SigxAsyncChunkPlugin {
     // original of `undefined` is meaningful (it means "let rspack apply its own
     // default"), and skipping the restore for it would leave the lazy-bundle
     // rewrite in place — the exact breakage this is here to undo.
+    //
+    // Only undo an actual rewrite, though. The template plugin installs a
+    // *function*; rspack's resolved default is a string template. So if the
+    // current value is no longer a function, something else deliberately set a
+    // plain template after us — there is no rewrite left to undo, and stamping
+    // our captured value over it would silently discard their choice.
     let originalChunkFilename: unknown;
     let capturedChunkFilename = false;
     compiler.hooks.environment.tap(PLUGIN_ASYNC_CHUNK, () => {
@@ -273,9 +279,9 @@ export class SigxAsyncChunkPlugin {
       capturedChunkFilename = true;
     });
     compiler.hooks.afterEnvironment.tap(PLUGIN_ASYNC_CHUNK, () => {
-      if (capturedChunkFilename) {
-        compiler.options.output.chunkFilename = originalChunkFilename;
-      }
+      if (!capturedChunkFilename) return;
+      if (typeof compiler.options.output.chunkFilename !== 'function') return;
+      compiler.options.output.chunkFilename = originalChunkFilename;
     });
 
     class SigxResetLynxAsyncChunkIds extends RuntimeModule {
