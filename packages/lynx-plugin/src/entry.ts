@@ -245,10 +245,14 @@ export class SigxWorkletGuardPlugin {
               `[sigx] ${missing.length} worklet(s) were compiled into the `
               + `background bundle but never registered on the main thread, so `
               + `they would silently never run: ${shown}${more}.\n`
-              + `This usually means a package containing '\''main thread'\'' `
-              + `worklets is being tree-shaken out of the main-thread layer — `
-              + `check for a "sideEffects" declaration that excludes its `
-              + `worklet modules. See #1021.`,
+              + `Two things commonly cause this. Most often a package `
+              + `containing 'main thread' worklets is tree-shaken out of the `
+              + `main-thread layer — look for a "sideEffects" declaration `
+              + `that excludes its worklet modules. It can also mean the `
+              + `worklet is only reachable through a dynamic import(): the `
+              + `main-thread layer resolves imports statically, so a module `
+              + `no static import reaches never enters the MT bundle. See `
+              + `#1021.`,
             ),
           );
         },
