@@ -23,6 +23,7 @@ const PLUGIN_MARK_MAIN_THREAD = 'lynx:sigx-mark-main-thread';
 const PLUGIN_ENCODE = 'lynx:sigx-encode';
 const PLUGIN_PAGE_CONFIG = 'lynx:sigx-page-config';
 const PLUGIN_ASYNC_CHUNK = 'lynx:sigx-async-chunk';
+const PLUGIN_WORKLET_GUARD = 'lynx:sigx-worklet-guard';
 
 /**
  * `RuntimeGlobals.lynxAsyncChunkIds` from `@lynx-js/webpack-runtime-globals`.
@@ -69,6 +70,8 @@ interface WebpackCompilation {
     };
   };
   addRuntimeModule(chunk: WebpackChunk, module: unknown): void;
+  errors: Error[];
+  getAssets(): { name: string; source: { source(): string | Buffer } }[];
   getAsset(
     filename: string,
   ): { source: unknown; info: Record<string, unknown> } | undefined;
@@ -84,7 +87,9 @@ interface WebpackCompiler {
   webpack: {
     Compilation: {
       PROCESS_ASSETS_STAGE_ADDITIONAL: number;
+      PROCESS_ASSETS_STAGE_REPORT: number;
     };
+    WebpackError: new (message: string) => Error;
     RuntimeGlobals: { startup: string; require: string };
     sources: { RawSource: new (source: string) => unknown };
     RuntimeModule: {
@@ -151,6 +156,108 @@ class SigxMarkMainThreadPlugin {
         );
       },
     );
+  }
+}
+
+/**
+ * SigxWorkletGuardPlugin fails the build when a worklet exists on the
+ * background layer but was never registered on the main thread.
+ *
+ * The two layers carry the same worklet as two halves that must agree: the BG
+ * bundle keeps a `{_wkltId: "<id>"}` placeholder, and the MT bundle must carry
+ * a matching `registerWorkletInternal("main-thread", "<id>", …)`. `runWorklet`
+ * later looks the body up by that id. Nothing else in the toolchain compares
+ * the two sets, and a mismatch is invisible: the build succeeds, the app
+ * starts, and the worklet simply never fires — no gesture response, no
+ * animation, no error.
+ *
+ * That is not hypothetical. Declaring `sideEffects: false` on packages that
+ * contain worklets deleted 72 of 101 registrations while `typecheck`, `test`,
+ * `lint` and `verify:pack` all stayed green (#1021, #1002). On the MT layer a
+ * worklet module is imported for its registration side effect alone, so a
+ * bundler that believes the package is side-effect-free is correct to drop it
+ * — which is why this has to be checked against the emitted output rather than
+ * prevented by a lint rule.
+ *
+ * Runs at `PROCESS_ASSETS_STAGE_REPORT`, one stage before `LynxEncodePlugin`
+ * deletes the intermediate assets it folds into the template. Exported for
+ * tests.
+ */
+export class SigxWorkletGuardPlugin {
+  constructor(private readonly mainThreadFilenames: string[]) {}
+
+  /** Worklet ids the BG bundle expects the MT layer to have registered. */
+  static backgroundIds(source: string): Set<string> {
+    return new Set(
+      [...source.matchAll(/_wkltId:\s*["']([^"']+)["']/g)].map((m) => m[1]!),
+    );
+  }
+
+  /** Worklet ids the MT bundle actually registers. */
+  static mainThreadIds(source: string): Set<string> {
+    return new Set(
+      [
+        ...source.matchAll(
+          /registerWorkletInternal\(\s*["'][^"']*["']\s*,\s*["']([^"']+)["']/g,
+        ),
+      ].map((m) => m[1]!),
+    );
+  }
+
+  /** The check itself, split out so it is testable without a compiler. */
+  static missingIds(bgSource: string, mtSource: string): string[] {
+    const mt = SigxWorkletGuardPlugin.mainThreadIds(mtSource);
+    return [...SigxWorkletGuardPlugin.backgroundIds(bgSource)]
+      .filter((id) => !mt.has(id))
+      .sort();
+  }
+
+  apply(compiler: WebpackCompiler): void {
+    const mtNames = new Set(this.mainThreadFilenames);
+    compiler.hooks.thisCompilation.tap(PLUGIN_WORKLET_GUARD, (compilation) => {
+      compilation.hooks.processAssets.tap(
+        {
+          name: PLUGIN_WORKLET_GUARD,
+          stage: compiler.webpack.Compilation.PROCESS_ASSETS_STAGE_REPORT,
+        },
+        () => {
+          let bg = '';
+          let mt = '';
+          for (const { name, source } of compilation.getAssets()) {
+            if (!name.endsWith('.js')) continue;
+            const text = String(source.source());
+            if (mtNames.has(name)) mt += text;
+            else bg += text;
+          }
+          // No MT output to compare against (e.g. a target that emits none):
+          // stay silent rather than fail a build this cannot speak to.
+          if (mt === '') return;
+
+          const missing = SigxWorkletGuardPlugin.missingIds(bg, mt);
+          if (missing.length === 0) return;
+
+          const shown = missing.slice(0, 5).join(', ');
+          const more = missing.length > 5
+            ? ` (+${missing.length - 5} more)`
+            : '';
+          compilation.errors.push(
+            new compiler.webpack.WebpackError(
+              `[sigx] ${missing.length} worklet(s) were compiled into the `
+              + `background bundle but never registered on the main thread, so `
+              + `they would silently never run: ${shown}${more}.\n`
+              + `Two things commonly cause this. Most often a package `
+              + `containing 'main thread' worklets is tree-shaken out of the `
+              + `main-thread layer — look for a "sideEffects" declaration `
+              + `that excludes its worklet modules. It can also mean the `
+              + `worklet is only reachable through a dynamic import(): the `
+              + `main-thread layer resolves imports statically, so a module `
+              + `no static import reaches never enters the MT bundle. See `
+              + `#1021.`,
+            ),
+          );
+        },
+      );
+    });
   }
 }
 
@@ -975,6 +1082,12 @@ export async function applyEntry(
         .plugin(PLUGIN_MARK_MAIN_THREAD)
         .use(SigxMarkMainThreadPlugin, [mainThreadFilenames])
         .end();
+
+      // Fail the build if any worklet reached BG without an MT registration.
+      chain
+        .plugin(PLUGIN_WORKLET_GUARD)
+        .use(SigxWorkletGuardPlugin, [mainThreadFilenames])
+        .end();
     }
 
     // ------------------------------------------------------------------
@@ -1110,6 +1223,29 @@ export async function applyEntry(
         .loader(path.resolve(_dirname, './loaders/worklet-loader-mt'))
         .options({ snapshots: opts.snapshots === true })
         .end();
+
+    // Every main-thread module has side effects, whatever its package says.
+    //
+    // A worklet reaches the MT layer as a bare `registerWorkletInternal(...)`
+    // call at module scope — the BG layer keeps only a `{_wkltId}` placeholder,
+    // so on this layer nothing *imports* a binding from the module the worklet
+    // came from. That is indistinguishable, to the bundler, from dead code: a
+    // package marked `sideEffects: false` gets its MT modules shaken out, the
+    // registration never runs, and `runWorklet` later finds nothing under that
+    // id. The failure is completely silent — worklets simply never fire, so
+    // gestures don't respond, animations don't animate, and a navigation card
+    // stays parked wherever its first mapper flush put it (#1021).
+    //
+    // Fixing the manifests instead would mean auditing every package that ever
+    // gains a worklet, forever, and would still not cover an app's own
+    // dependencies. `sideEffects` is a claim about *ES module semantics*, and
+    // it is true for these packages on the background layer — it is only the
+    // MT transform that turns them into registration modules. So the override
+    // belongs here, scoped to the layer whose whole purpose is side effects.
+    chain.module
+      .rule('sigx-mt-side-effects')
+      .issuerLayer(LAYERS.MAIN_THREAD)
+      .set('sideEffects', true);
 
     // Disable IIFE wrapping – Lynx handles module scoping itself
     chain.output.set('iife', false);

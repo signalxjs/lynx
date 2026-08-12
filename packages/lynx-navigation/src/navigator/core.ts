@@ -149,6 +149,13 @@ const PRE_STAGE_MAX_MS = 160;
 const PRE_STAGE_PEEK = 0.002;
 
 /**
+ * How long to wait for the main thread to acknowledge the landing write before
+ * clearing the transition anyway. The ack normally arrives within a frame; this
+ * only exists so a dropped one cannot wedge navigation permanently (#1021).
+ */
+const LANDING_ACK_TIMEOUT_MS = 500;
+
+/**
  * Pre-stage settle window (#651): hold the transition start until the BG→MT
  * pipeline goes quiet.
  *
@@ -560,7 +567,29 @@ export function createNavigatorState(opts: CreateNavigatorOptions): NavigatorSta
         });
         // Awaited so the write is applied on the MT before the caller clears
         // the transition and the unbind ops go out.
-        await lander(target);
+        //
+        // Bounded, because this await gates `clearOwnTransition` and a set
+        // transition blocks every push and pop. `runOnMainThread` resolves on
+        // a main-thread batch ack (`waitForFlush`), so a dropped or delayed
+        // ack would otherwise hang here forever and wedge navigation for the
+        // rest of the session — taps still fire their haptics, nothing moves,
+        // and there is no error anywhere (#1021). Landing the end state is
+        // best-effort by nature; a resting transform that is a few pixels off
+        // is a far better failure than an app that cannot navigate.
+        // A rejection that arrives BEFORE the timeout still propagates, so a
+        // real MT failure surfaces (the caller's rejection handler clears the
+        // transition). One that arrives after is deliberately ignored: the
+        // transition is already cleared by then and there is nothing left to
+        // act on. The timer is cleared either way — a bare `Promise.race`
+        // leaves it armed for the full timeout on every navigation.
+        const landing = lander(target);
+        await new Promise<void>((resolve, reject) => {
+            const timer = setTimeout(resolve, LANDING_ACK_TIMEOUT_MS);
+            landing.then(
+                () => { clearTimeout(timer); resolve(); },
+                (e: unknown) => { clearTimeout(timer); reject(e); },
+            );
+        });
     }
 
     const push: Nav['push'] = ((name: string, ...args: unknown[]) => {
