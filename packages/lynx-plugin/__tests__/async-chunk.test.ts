@@ -40,7 +40,12 @@ interface Harness {
   addCount: number;
 }
 
-function run(): Harness {
+// Rest parameter, not a default: `run(undefined)` must be able to mean "the
+// original chunkFilename really is undefined", which a default value swallows.
+function run(...init: [] | [unknown]): Harness {
+  const initialChunkFilename = init.length > 0
+    ? init[0]
+    : 'static/js/async/[name].js';
   let beforeEncodeCb: ((args: GuardArgs) => unknown) | undefined;
   const templatePlugin = {
     getLynxTemplatePluginHooks: () => ({
@@ -95,7 +100,7 @@ function run(): Harness {
 
   const compiler = {
     webpack: { RuntimeModule: FakeRuntimeModule },
-    options: { output: { chunkFilename: 'static/js/async/[name].js' } },
+    options: { output: { chunkFilename: initialChunkFilename } },
     hooks: {
       thisCompilation: {
         tap: (_n: string, cb: (c: unknown) => void) => {
@@ -175,6 +180,14 @@ describe('SigxAsyncChunkPlugin — lynx_aci reset (#1015)', () => {
     // lands in dist/static/js/async/ for embedAsyncAssets to pick up.
     const h = run() as Harness & { chunkFilename: unknown };
     expect(h.chunkFilename).toBe('static/js/async/[name].js');
+  });
+
+  it('restores an original of undefined rather than keeping the rewrite', () => {
+    // `undefined` is a meaningful original — it means "let rspack apply its own
+    // default". Gating the restore on the *value* instead of on having captured
+    // it would leave the template plugin's lazy-bundle rewrite in place here.
+    const h = run(undefined) as Harness & { chunkFilename: unknown };
+    expect(h.chunkFilename).toBeUndefined();
   });
 });
 

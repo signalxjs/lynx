@@ -262,12 +262,18 @@ export class SigxAsyncChunkPlugin {
     // plugin's own `environment` tap (this plugin is registered first), so it
     // observes the real default; `afterEnvironment` then puts that value back,
     // after every `environment` tap has run.
+    // Gate the restore on "did we capture", not on the captured value: an
+    // original of `undefined` is meaningful (it means "let rspack apply its own
+    // default"), and skipping the restore for it would leave the lazy-bundle
+    // rewrite in place — the exact breakage this is here to undo.
     let originalChunkFilename: unknown;
+    let capturedChunkFilename = false;
     compiler.hooks.environment.tap(PLUGIN_ASYNC_CHUNK, () => {
       originalChunkFilename = compiler.options.output.chunkFilename;
+      capturedChunkFilename = true;
     });
     compiler.hooks.afterEnvironment.tap(PLUGIN_ASYNC_CHUNK, () => {
-      if (originalChunkFilename !== undefined) {
+      if (capturedChunkFilename) {
         compiler.options.output.chunkFilename = originalChunkFilename;
       }
     });
