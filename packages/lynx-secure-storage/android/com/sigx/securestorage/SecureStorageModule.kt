@@ -281,14 +281,29 @@ class SecureStorageModule(context: Context) : LynxModule(context) {
             if (blob != null) removeBiometricValue(key)
             callback?.invoke(JavaOnlyMap().apply { putNull("value") }); return
         }
-        // `wrappedAesKey : iv : ciphertext` — see writeBiometricValue.
+        // `wrappedAesKey : iv : ciphertext` — see writeBiometricValue. A blob
+        // that doesn't parse (wrong field count, or base64 that
+        // `Base64.decode` rejects with IllegalArgumentException — a truncated
+        // write, a corrupted prefs file) is unreadable no matter how often it
+        // is retried, so discard it and its key: the caller is told, and the
+        // next `setItem` starts from a clean alias rather than inheriting the
+        // wreck. Reported as an error rather than as `null`, because a value
+        // *was* stored and is now gone — that is not the same as never having
+        // stored one.
         val parts = blob.removePrefix(BLOB_VERSION).split(":")
-        if (parts.size != 3) {
-            callback?.invoke(errorPayload("corrupt biometric blob for key=$key")); return
+        val decoded = if (parts.size == 3) {
+            runCatching { parts.map { Base64.decode(it, Base64.NO_WRAP) } }.getOrNull()
+        } else {
+            null
         }
-        val wrappedKey = Base64.decode(parts[0], Base64.NO_WRAP)
-        val iv = Base64.decode(parts[1], Base64.NO_WRAP)
-        val ciphertext = Base64.decode(parts[2], Base64.NO_WRAP)
+        if (decoded == null) {
+            removeBiometricValue(key)
+            callback?.invoke(
+                errorPayload("corrupt biometric blob for key=$key — discarded, store it again"),
+            )
+            return
+        }
+        val (wrappedKey, iv, ciphertext) = decoded
 
         val privateKey = try {
             loadBiometricPrivateKey(key)
