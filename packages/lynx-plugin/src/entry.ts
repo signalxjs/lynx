@@ -22,7 +22,14 @@ const PLUGIN_TEMPLATE = 'lynx:sigx-template';
 const PLUGIN_MARK_MAIN_THREAD = 'lynx:sigx-mark-main-thread';
 const PLUGIN_ENCODE = 'lynx:sigx-encode';
 const PLUGIN_PAGE_CONFIG = 'lynx:sigx-page-config';
-const PLUGIN_WEB_ENCODE_GUARD = 'lynx:sigx-web-encode-guard';
+const PLUGIN_ASYNC_CHUNK = 'lynx:sigx-async-chunk';
+
+/**
+ * `RuntimeGlobals.lynxAsyncChunkIds` from `@lynx-js/webpack-runtime-globals`.
+ * Inlined rather than imported: that package is not a declared dependency here,
+ * and the value has been stable across its releases (0.0.6, 0.0.7).
+ */
+const LYNX_ASYNC_CHUNK_IDS = '__webpack_require__.lynx_aci';
 
 const DEFAULT_INTERMEDIATE = '.rspeedy';
 
@@ -52,7 +59,16 @@ interface WebpackCompilation {
         callback: (chunk: WebpackChunk, set: Set<string>) => void,
       ): void;
     };
+    runtimeRequirementInTree: {
+      for(runtimeGlobal: string): {
+        tap(
+          name: string,
+          callback: (chunk: WebpackChunk, set: Set<string>) => void,
+        ): void;
+      };
+    };
   };
+  addRuntimeModule(chunk: WebpackChunk, module: unknown): void;
   getAsset(
     filename: string,
   ): { source: unknown; info: Record<string, unknown> } | undefined;
@@ -71,7 +87,12 @@ interface WebpackCompiler {
     };
     RuntimeGlobals: { startup: string; require: string };
     sources: { RawSource: new (source: string) => unknown };
+    RuntimeModule: {
+      new (name: string, stage?: number): { generate(): string };
+      STAGE_TRIGGER: number;
+    };
   };
+  options: { output: { chunkFilename?: unknown } };
   hooks: {
     thisCompilation: {
       tap(
@@ -79,6 +100,8 @@ interface WebpackCompiler {
         callback: (compilation: WebpackCompilation) => void,
       ): void;
     };
+    environment: { tap(name: string, callback: () => void): void };
+    afterEnvironment: { tap(name: string, callback: () => void): void };
   };
 }
 
@@ -173,18 +196,39 @@ export class SigxPageConfigPlugin {
 }
 
 /**
- * SigxWebEncodeGuardPlugin works around a template-webpack-plugin >= 0.14
- * crash on the web target: the async-template pass encodes every dynamic
- * chunk group, and a group whose JS was deduplicated into the main chunk
- * arrives at `WebEncodePlugin` with an empty `manifest` (and no lepus root),
- * which then throws destructuring `last(Object.entries(manifest))`. Taps the
- * same `beforeEncode` waterfall at the default stage (0, ahead of
- * `WebEncodePlugin`'s stage 100) and stubs an empty background entry for
- * those lazy-bundle templates so the build survives; the emitted bundle is
- * inert because nothing ever fetches the deduplicated group. Exported for
- * tests.
+ * SigxAsyncChunkPlugin keeps dynamic `import()` on the resource-fetcher path
+ * sigx actually implements (#599/#612), by resetting
+ * `__webpack_require__.lynx_aci` to an empty map.
+ *
+ * `@lynx-js/chunk-loading-webpack-plugin`'s runtime branches on that map: a
+ * chunk id present in it loads via `lynx.loadLazyBundle(...)`, everything else
+ * via `lynx.requireModuleAsync(publicPath + getChunkScriptFilename(id))`.
+ *
+ * `lynx.loadLazyBundle` is not an engine API — it appears in no version of
+ * `@lynx-js/types`. `@lynx-js/react` installs it on the `lynx` object as a
+ * module side effect, and sigx's background bundle contains no `@lynx-js/react`
+ * modules at all (the worklet loaders pass `dynamicImport: false` precisely so
+ * the transform never injects that import). So the lazy-bundle branch can never
+ * resolve here, and because the loader runs during bundle evaluation it took
+ * the whole app down at `loadCard` rather than failing one deferred chunk
+ * (#1015).
+ *
+ * Up to `@lynx-js/template-webpack-plugin` 0.13 this was latent: only chunk
+ * groups with an explicit `webpackChunkName` entered `lynx_aci`, and sigx
+ * produces none. 0.14 began synthesising a lazy-bundle name for *unnamed*
+ * groups too, so every dynamic import moved onto the broken branch at once.
+ *
+ * Resetting the map is deliberately independent of that plugin's internals —
+ * no tap-ordering race with its own `runtimeRequirementInTree` tap, and no
+ * reliance on its `asyncChunkName` hook, which only ever sees named groups and
+ * so cannot cover the unnamed ones that are the actual problem. The reset
+ * module is registered at `STAGE_TRIGGER`, which sorts after the `STAGE_ATTACH`
+ * module that populates the map, so the empty assignment lands last.
+ *
+ * Teaching sigx's runtime to load real lazy bundles is tracked separately; see
+ * the follow-up issue linked from #1015. Exported for tests.
  */
-export class SigxWebEncodeGuardPlugin {
+export class SigxAsyncChunkPlugin {
   constructor(
     private readonly templatePlugin: {
       getLynxTemplatePluginHooks(compilation: unknown): {
@@ -204,23 +248,89 @@ export class SigxWebEncodeGuardPlugin {
   ) {}
 
   apply(compiler: WebpackCompiler): void {
-    compiler.hooks.thisCompilation.tap(
-      PLUGIN_WEB_ENCODE_GUARD,
-      (compilation) => {
-        const hooks =
-          this.templatePlugin.getLynxTemplatePluginHooks(compilation);
-        hooks.beforeEncode.tap(PLUGIN_WEB_ENCODE_GUARD, (args) => {
-          const { encodeData } = args;
-          if (
-            encodeData.sourceContent.appType === 'DynamicComponent' &&
-            Object.keys(encodeData.manifest).length === 0
-          ) {
-            encodeData.manifest['/app-service.js'] = 'module.exports = {};';
-          }
-          return args;
+    const { RuntimeModule } = compiler.webpack;
+
+    // `@lynx-js/template-webpack-plugin` >= 0.14 also repoints
+    // `output.chunkFilename` at `<intermediate>/lazy-bundle/<name>.js`, so the
+    // plain JS chunk `requireModuleAsync` fetches stops being emitted at all —
+    // leaving `dist/static/js/async/` empty and nothing for `embedAsyncAssets`
+    // to carry into the app. Resetting the id map alone would therefore trade a
+    // startup crash for a dynamic import that 404s at runtime.
+    //
+    // Both taps live here because the ordering is the whole trick: `environment`
+    // fires after rspack has resolved its defaults and before the template
+    // plugin's own `environment` tap (this plugin is registered first), so it
+    // observes the real default; `afterEnvironment` then puts that value back,
+    // after every `environment` tap has run.
+    let originalChunkFilename: unknown;
+    compiler.hooks.environment.tap(PLUGIN_ASYNC_CHUNK, () => {
+      originalChunkFilename = compiler.options.output.chunkFilename;
+    });
+    compiler.hooks.afterEnvironment.tap(PLUGIN_ASYNC_CHUNK, () => {
+      if (originalChunkFilename !== undefined) {
+        compiler.options.output.chunkFilename = originalChunkFilename;
+      }
+    });
+
+    class SigxResetLynxAsyncChunkIds extends RuntimeModule {
+      constructor() {
+        super('sigx reset lynx async chunks', RuntimeModule.STAGE_TRIGGER);
+      }
+
+      override generate(): string {
+        return (
+          `// sigx (#1015): route every async chunk through\n`
+          + `// lynx.requireModuleAsync — lynx.loadLazyBundle does not exist here.\n`
+          + `${LYNX_ASYNC_CHUNK_IDS} = {};`
+        );
+      }
+    }
+
+    compiler.hooks.thisCompilation.tap(PLUGIN_ASYNC_CHUNK, (compilation) => {
+      // Adding a runtime module re-enters requirement processing; without this
+      // guard the tap would recurse on its own chunk.
+      const seen = new WeakSet<WebpackChunk>();
+      compilation.hooks.runtimeRequirementInTree
+        .for(LYNX_ASYNC_CHUNK_IDS)
+        .tap(PLUGIN_ASYNC_CHUNK, (chunk) => {
+          if (seen.has(chunk)) return;
+          seen.add(chunk);
+          compilation.addRuntimeModule(
+            chunk,
+            new SigxResetLynxAsyncChunkIds(),
+          );
         });
-      },
-    );
+
+      // Neutralise the lazy-bundle templates themselves. `LynxEncodePlugin`
+      // treats every chunk in a `DynamicComponent` manifest as inlinable
+      // unconditionally — it folds them into the template and then *deletes*
+      // the standalone assets, which is why `dist/static/js/async/` came out
+      // empty no matter what `chunkFilename` said. Swapping the manifest for an
+      // inert stub before that runs (stage 0, ahead of the encoder's 256) keeps
+      // the real chunk files on disk for `requireModuleAsync` to fetch and for
+      // `embedAsyncAssets` to carry into the app.
+      //
+      // The emitted `lazy-bundle/*.bundle` templates are then dead weight —
+      // nothing resolves them, because `lynx_aci` is empty. They are left in
+      // place rather than deleted so the output stays recognisable to anyone
+      // comparing against an upstream build.
+      //
+      // This also subsumes the older web-only guard (#951): `WebEncodePlugin`
+      // crashed destructuring `last(Object.entries(manifest))` when a chunk
+      // group's JS had been deduplicated into the main chunk and its manifest
+      // arrived empty. A stub is never empty.
+      const hooks = this.templatePlugin.getLynxTemplatePluginHooks(compilation);
+      hooks.beforeEncode.tap(PLUGIN_ASYNC_CHUNK, (args) => {
+        const { encodeData } = args;
+        if (encodeData.sourceContent.appType === 'DynamicComponent') {
+          for (const name of Object.keys(encodeData.manifest)) {
+            delete encodeData.manifest[name];
+          }
+          encodeData.manifest['/app-service.js'] = 'module.exports = {};';
+        }
+        return args;
+      });
+    });
   }
 }
 
@@ -764,6 +874,19 @@ export async function applyEntry(
       bgEntry.end();
 
       // ----------------------------------------------------------------
+      // SigxAsyncChunkPlugin – keep dynamic import() on the requireModuleAsync
+      // path (#1015). Registered BEFORE LynxTemplatePlugin on purpose: it
+      // captures `output.chunkFilename` in an `environment` tap, which has to
+      // run before the template plugin's own tap replaces it.
+      // ----------------------------------------------------------------
+      if ((isLynx || isWeb) && templateMod) {
+        chain
+          .plugin(PLUGIN_ASYNC_CHUNK)
+          .use(SigxAsyncChunkPlugin, [templateMod.LynxTemplatePlugin])
+          .end();
+      }
+
+      // ----------------------------------------------------------------
       // LynxTemplatePlugin – packages both bundles into .lynx template
       // ----------------------------------------------------------------
       if ((isLynx || isWeb) && templateMod) {
@@ -907,10 +1030,6 @@ export async function applyEntry(
       chain
         .plugin(PLUGIN_ENCODE)
         .use(WebEncodePlugin, [{}])
-        .end();
-      chain
-        .plugin(PLUGIN_WEB_ENCODE_GUARD)
-        .use(SigxWebEncodeGuardPlugin, [templateMod.LynxTemplatePlugin])
         .end();
     }
 

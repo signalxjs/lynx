@@ -95,19 +95,10 @@ declare module '@lynx-js/css-extract-webpack-plugin' {
     cssPlugins?: any[];
     [key: string]: any;
   }
-  export interface CssExtractWebpackPluginOptions {
-    enableRemoveCSSScope?: boolean;
-    enableCSSSelector?: boolean;
-    enableCSSInvalidation?: boolean;
-    cssPlugins?: any[];
-    [key: string]: any;
-  }
+  // No `CssExtractWebpackPlugin`: 0.8.0 dropped webpack support and deleted it.
+  // Declaring it here would re-hide that from the typechecker.
   export class CssExtractRspackPlugin {
     constructor(options?: CssExtractRspackPluginOptions);
-    static loader: string;
-  }
-  export class CssExtractWebpackPlugin {
-    constructor(options?: CssExtractWebpackPluginOptions);
     static loader: string;
   }
 }
