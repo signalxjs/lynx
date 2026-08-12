@@ -1,6 +1,6 @@
 import { component, compound, type Define } from '@sigx/lynx';
 import { Pressable } from '@sigx/lynx-gestures';
-import { PRESSED_SCALE, PRESSED_OPACITY, type ColorVariant } from '@sigx/lynx-zero';
+import { PRESSED_SCALE, PRESSED_OPACITY, type ColorVariant } from '@sigx/lynx-zero-legacy';
 
 export type RadioColor = Exclude<ColorVariant, 'neutral'>;
 export type RadioSize = 'xs' | 'sm' | 'md' | 'lg';

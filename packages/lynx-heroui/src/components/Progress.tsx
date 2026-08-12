@@ -1,5 +1,5 @@
 import { component, type Define } from '@sigx/lynx';
-import type { ColorVariant } from '@sigx/lynx-zero';
+import type { ColorVariant } from '@sigx/lynx-zero-legacy';
 
 export type ProgressColor = Exclude<ColorVariant, 'neutral'>;
 

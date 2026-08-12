@@ -1,5 +1,5 @@
 import { component, type Define } from '@sigx/lynx';
-import type { ColorVariant } from '@sigx/lynx-zero';
+import type { ColorVariant } from '@sigx/lynx-zero-legacy';
 
 export type TextSize = 'xs' | 'sm' | 'base' | 'lg' | 'xl' | '2xl' | '3xl';
 export type TextWeight = 'light' | 'normal' | 'medium' | 'semibold' | 'bold';

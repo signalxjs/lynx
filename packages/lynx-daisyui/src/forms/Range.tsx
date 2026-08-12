@@ -8,7 +8,7 @@ import {
   type Define,
   type MainThread,
 } from '@sigx/lynx';
-import { type ColorVariant } from '@sigx/lynx-zero';
+import { type ColorVariant } from '@sigx/lynx-zero-legacy';
 
 export type RangeColor = Exclude<ColorVariant, 'neutral'>;
 export type RangeSize = 'xs' | 'sm' | 'md' | 'lg';

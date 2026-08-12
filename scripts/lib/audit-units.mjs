@@ -38,12 +38,12 @@ export const FOLD = {
  * issue owning its remaining baseline entries.
  */
 export const EXCLUDED = {
-    'lynx-zero':
+    'lynx-zero-legacy':
         'Design-system layering work in flight (signalxjs/lynx#927). zero is the neutral foundation the two design systems build on, so auditing it separately would move the contract underneath them.',
     'lynx-daisyui':
-        'Design-system layering work in flight (signalxjs/lynx#927) — audited together with lynx-zero and lynx-heroui or not at all.',
+        'Design-system layering work in flight (signalxjs/lynx#927) — audited together with lynx-zero-legacy and lynx-heroui or not at all.',
     'lynx-heroui':
-        'Design-system layering work in flight (signalxjs/lynx#927) — audited together with lynx-zero and lynx-daisyui or not at all.',
+        'Design-system layering work in flight (signalxjs/lynx#927) — audited together with lynx-zero-legacy and lynx-daisyui or not at all.',
 };
 
 /** Display groups, in the order they appear in the epic body. */

@@ -51,11 +51,11 @@ if (!Array.isArray(themes)) {
 
 // The token derivation is shared with `<ThemeProvider>`'s inline path so the
 // two can't drift — see the module doc there. Reached by monorepo-relative
-// path because it is internal to `@sigx/lynx-zero`: there is no subpath export
+// path because it is internal to `@sigx/lynx-zero-legacy`: there is no subpath export
 // for it, and there shouldn't be one until something outside this repo needs
 // to generate theme CSS.
 const tokensUrl = new URL(
-    '../packages/lynx-zero/dist/theme/theme-tokens.js',
+    '../packages/lynx-zero-legacy/dist/theme/theme-tokens.js',
     import.meta.url,
 ).href;
 let themeCustomProperties;
@@ -63,8 +63,8 @@ try {
     ({ themeCustomProperties } = await import(tokensUrl));
 } catch (err) {
     console.error(
-        'gen-theme-css: @sigx/lynx-zero has not been built — run `pnpm build`'
-        + ' (or `pnpm --filter @sigx/lynx-zero build`) first.\n'
+        'gen-theme-css: @sigx/lynx-zero-legacy has not been built — run `pnpm build`'
+        + ' (or `pnpm --filter @sigx/lynx-zero-legacy build`) first.\n'
         + `  tried: ${tokensUrl}\n  cause: ${err.message}`,
     );
     process.exit(1);
@@ -101,7 +101,7 @@ const css = '/* AUTO-GENERATED from the theme registry — do not edit.\n'
     + ' *\n'
     + ' * Pinned rule + @media(prefers-color-scheme) twin per built-in theme.\n'
     + ' * The media rules need `enableCSSRule` (on by default) to encode and a\n'
-    + ' * Lynx 4.0+ host to evaluate; @sigx/lynx-zero\'s <ThemeProvider> falls\n'
+    + ' * Lynx 4.0+ host to evaluate; @sigx/lynx-zero-legacy\'s <ThemeProvider> falls\n'
     + ' * back to inline custom properties wherever they can\'t. */\n\n'
     + blocks.join('\n\n') + '\n';
 

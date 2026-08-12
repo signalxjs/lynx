@@ -291,9 +291,9 @@ importers:
       '@sigx/lynx-webview':
         specifier: workspace:^
         version: link:../../packages/lynx-webview
-      '@sigx/lynx-zero':
+      '@sigx/lynx-zero-legacy':
         specifier: workspace:^
-        version: link:../../packages/lynx-zero
+        version: link:../../packages/lynx-zero-legacy
       '@sigx/reactivity':
         specifier: 'catalog:'
         version: 0.15.1
@@ -562,9 +562,9 @@ importers:
       '@sigx/lynx-motion':
         specifier: workspace:^
         version: link:../lynx-motion
-      '@sigx/lynx-zero':
+      '@sigx/lynx-zero-legacy':
         specifier: workspace:^
-        version: link:../lynx-zero
+        version: link:../lynx-zero-legacy
     devDependencies:
       '@sigx/lynx-emoji':
         specifier: workspace:^
@@ -744,9 +744,9 @@ importers:
       '@sigx/lynx-motion':
         specifier: workspace:^
         version: link:../lynx-motion
-      '@sigx/lynx-zero':
+      '@sigx/lynx-zero-legacy':
         specifier: workspace:^
-        version: link:../lynx-zero
+        version: link:../lynx-zero-legacy
     devDependencies:
       '@sigx/lynx-navigation':
         specifier: workspace:^
@@ -1516,7 +1516,7 @@ importers:
         specifier: ^4.1.7
         version: 4.1.7(@types/node@25.9.3)(@vitest/coverage-v8@4.1.7)(happy-dom@20.11.1)(vite@8.0.14(@types/node@25.9.3)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0))
 
-  packages/lynx-zero:
+  packages/lynx-zero-legacy:
     dependencies:
       '@sigx/lynx':
         specifier: workspace:^

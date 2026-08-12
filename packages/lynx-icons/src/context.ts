@@ -6,7 +6,7 @@ import type { IconColorResolver } from './types.js';
  *
  * Lives in this **CSS-free** module — no `Icon`, no `__font-face.css` /
  * `__svgs` / `__codepoints` side-effect imports — so the theme engine
- * (`@sigx/lynx-zero`'s `<ThemeProvider>`) can provide the resolver via
+ * (`@sigx/lynx-zero-legacy`'s `<ThemeProvider>`) can provide the resolver via
  * `defineProvide(useIconColorResolver, …)` without eagerly pulling the icon
  * assets into its barrel. Reach it from the `@sigx/lynx-icons/context` subpath.
  *

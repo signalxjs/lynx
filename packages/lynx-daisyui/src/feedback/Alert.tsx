@@ -1,5 +1,5 @@
 import { component, type Define } from '@sigx/lynx';
-import type { ColorVariant } from '@sigx/lynx-zero';
+import type { ColorVariant } from '@sigx/lynx-zero-legacy';
 
 // Semantic `color` per the shared contract (signalxjs/lynx#219); alerts only
 // support the status colors.

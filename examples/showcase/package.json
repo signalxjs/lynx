@@ -59,7 +59,7 @@
         "@sigx/lynx-webrtc": "workspace:^",
         "@sigx/lynx-websocket": "workspace:^",
         "@sigx/lynx-webview": "workspace:^",
-        "@sigx/lynx-zero": "workspace:^",
+        "@sigx/lynx-zero-legacy": "workspace:^",
         "@sigx/reactivity": "catalog:",
         "@sigx/runtime-core": "catalog:",
         "lucide": "^1.16.0",

@@ -1,5 +1,5 @@
 {
-    "name": "@sigx/lynx-zero",
+    "name": "@sigx/lynx-zero-legacy",
     "version": "0.27.0",
     "description": "Design-system-neutral UI foundation for sigx-lynx — the shared props/token contract and style utilities that design-system packages (daisyui, heroui, …) build on",
     "type": "module",

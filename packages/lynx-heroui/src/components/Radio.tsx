@@ -6,7 +6,7 @@ import {
   type ColorVariant,
   type SizeScale,
   type WithAccessibility,
-} from '@sigx/lynx-zero';
+} from '@sigx/lynx-zero-legacy';
 
 export type RadioColor = Exclude<ColorVariant, 'neutral'>;
 export type RadioSize = Extract<SizeScale, 'sm' | 'md' | 'lg'>;

@@ -1,5 +1,5 @@
 import { component, type Define } from '@sigx/lynx';
-import type { ColorVariant } from '@sigx/lynx-zero';
+import type { ColorVariant } from '@sigx/lynx-zero-legacy';
 
 // The contract's `color` + DS-specific `variant` split (signalxjs/lynx#219):
 // semantic color and fill style compose — `color="primary" variant="outline"`

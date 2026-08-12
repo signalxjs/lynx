@@ -1,10 +1,10 @@
 import type { Config } from 'tailwindcss';
-import { zeroPreset } from '@sigx/lynx-zero/preset';
+import { zeroPreset } from '@sigx/lynx-zero-legacy/preset';
 
 /**
  * HeroUI Lynx Tailwind Preset.
  *
- * The substance lives in the design-system-neutral `@sigx/lynx-zero/preset`
+ * The substance lives in the design-system-neutral `@sigx/lynx-zero-legacy/preset`
  * (semantic color tokens incl. `*-soft` → `var(--color-*)`, the `--text-*`
  * font-size ramp, and the Lynx-correct `flex-fill` utility); this preset is
  * hero's composition of it, and the place hero-specific Tailwind extensions

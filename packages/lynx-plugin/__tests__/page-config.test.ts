@@ -148,7 +148,7 @@ describe('enableCSSRule (#951)', () => {
 
 /**
  * #985 — the same `enableCSSRule` answer, folded into the bundle as a define so
- * library code can branch on it. `@sigx/lynx-zero`'s `<ThemeProvider>` reads it
+ * library code can branch on it. `@sigx/lynx-zero-legacy`'s `<ThemeProvider>` reads it
  * to decide whether a built-in theme's palette can come from the generated
  * stylesheet or has to be declared inline; getting this wrong in the "yes"
  * direction leaves an app with no colors.

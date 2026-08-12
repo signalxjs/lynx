@@ -168,7 +168,7 @@ Reading the color scheme works with no shim at all; the setters don't work.
   `[@sigx/lynx-appearance] getColorScheme failed: …`. Almost no app should call it — the
   provider already does, once, and only when nothing published a scheme.
 - **Cold-start value.** `readGlobalColorScheme()` reads the value the native publisher wrote before first paint. If it returns `null` (e.g. running on a host that didn't link the publisher), the hook seeds `'light'` as a safe default — and `<AppearanceProvider>` then asks the native module directly via `getColorScheme()`, correcting the seed on the next tick when the module is linked.
-- **Don't feed the OS font scale into a theme's `fontScale` multiplier.** The engine already scales every `font-size`, including `@sigx/lynx-zero`'s `--text-*` ramp — piping `useFontScale()` into the ThemeProvider's `fontScale` would apply it twice. The theme multiplier is for *in-app* text-size preferences; the two compose multiplicatively by design.
+- **Don't feed the OS font scale into a theme's `fontScale` multiplier.** The engine already scales every `font-size`, including `@sigx/lynx-zero-legacy`'s `--text-*` ramp — piping `useFontScale()` into the ThemeProvider's `fontScale` would apply it twice. The theme multiplier is for *in-app* text-size preferences; the two compose multiplicatively by design.
 - **Without `@sigx/lynx-appearance`** the native scaling still works (it's wired in `@sigx/lynx-core` + the host templates); apps can read `lynx.__globalProps.fontScale` and listen to `onFontScaleChanged` directly.
 
 ## License

@@ -4,7 +4,7 @@ import type { HeroComponentDemo } from '../registry.js';
 
 /**
  * SwiperIndicator — the design-system-neutral page indicator (it lives in
- * @sigx/lynx-zero and both DSs re-export it). Colors come from the active
+ * @sigx/lynx-zero-legacy and both DSs re-export it). Colors come from the active
  * theme's tokens, so it renders in the hero palette inside a hero scope.
  * Five variants (dots / bar / pill / numbered / scale-pulse) and a size ramp;
  * with only `index` wired it derives the offset and glides on each change.

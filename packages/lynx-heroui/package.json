@@ -1,7 +1,7 @@
 {
     "name": "@sigx/lynx-heroui",
     "version": "0.27.0",
-    "description": "HeroUI-flavored design system for sigx-lynx, built on the @sigx/lynx-zero foundation — pilot scope while the shared contract is validated",
+    "description": "HeroUI-flavored design system for sigx-lynx, built on the @sigx/lynx-zero-legacy foundation — pilot scope while the shared contract is validated",
     "type": "module",
     "sideEffects": [
         "./dist/theme/builtins.js",
@@ -53,7 +53,7 @@
         "@sigx/lynx-gestures": "workspace:^",
         "@sigx/lynx-icons": "workspace:^",
         "@sigx/lynx-motion": "workspace:^",
-        "@sigx/lynx-zero": "workspace:^"
+        "@sigx/lynx-zero-legacy": "workspace:^"
     },
     "peerDependencies": {
         "@sigx/lynx-navigation": "workspace:^",

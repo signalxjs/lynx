@@ -1,6 +1,6 @@
 /* Hero typography utilities — hero-prefixed type ramp + weights + semantic
  * text colors. The ramp reads the shared `--text-*` tokens from
- * @sigx/lynx-zero, so `fontScale` and theme overrides apply identically to
+ * @sigx/lynx-zero-legacy, so `fontScale` and theme overrides apply identically to
  * both design systems. Hand-written (not Tailwind-generated) so the
  * dynamically composed classes survive purge — same rationale as daisy's
  * typography.css. */
