@@ -51,5 +51,10 @@ export const SNAPSHOT_INJECT: InjectVisitorConfig = {
  * fine. Used as a cheap pre-filter so known-bad files skip the snapshot pass
  * without paying a panic+retry; the try/catch retry in the loaders remains
  * the safety net for anything this regex misses.
+ *
+ * Re-checked against `@lynx-js/react` 0.123.3 (#975): still panics, on both
+ * the JS and LEPUS targets, while plain JSX transforms cleanly. This guard
+ * does not come off with a version bump alone — verify by running the
+ * transform on `<view use:show={true}>` before removing it.
  */
 export const SNAPSHOT_UNSUPPORTED_RE = /\buse:[A-Za-z_$][\w$]*\s*=/;

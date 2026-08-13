@@ -20,6 +20,13 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 ### Changed
 
+- **`@lynx-js/react` 0.121 → 0.123.3** (#975). This package's WASM transform *is* sigx's snapshot template system (#620), so the bump was checked against emitted output rather than taken on trust.
+
+  **Codegen is unchanged for this repo.** The one difference upstream introduced is a 5th argument on LEPUS `updateSpread` — the new `experimental_transformBuiltinAttributeNames` flag, default off. Snapshot uniqIDs are identical, so there is no cross-thread desync, and sigx's 4-arity `updateSpread` ignores the extra argument. Both worklet loaders continue to resolve a single copy of the transform, which is the invariant that matters: a split copy would desync template ids between the two threads.
+
+  **Both existing workarounds re-verified and kept, with the check recorded next to each.** `use:*` attributes still panic the transform (`RuntimeError: unreachable`) on both the JS and LEPUS targets at 0.123.3, while plain JSX transforms cleanly — so `SNAPSHOT_UNSUPPORTED_RE` does not come off with a version bump. And `processGesture` is still absent from every entry in the package's `exports` map (upstream merely relocated it to `runtime/lib/snapshot/gesture/`), so `@sigx/lynx-runtime-main` keeps its vendored port. Both comments now name the version they were checked against and the check to repeat.
+
+
 - **Toolchain: rspeedy 0.16 / rsbuild 2 / rspack 2** (#975). `@lynx-js/rspeedy` `>=0.14.4` → `>=0.16.3`, which brings `@rsbuild/core` 1.7 → 2.1 and `@rspack/core` 1.7 → 2.1, plus `@lynx-js/runtime-wrapper-webpack-plugin` `>=0.2.3` and `@lynx-js/webpack-dev-transport` `>=0.3.0`.
 
   **`@sigx/lynx-plugin` stopped shipping its own `@rsbuild/core` types.** `rsbuild.d.ts` declared the module with hand-written minimal types, and because that file sits inside the root tsconfig's `include`, the declaration shadowed the real package **across the whole repo** — `CHAIN_ID` and the bundler chain were `any`, so none of the plugin's most intricate code was ever type-checked. It is a devDependency; the real types now apply, and the migration below was driven by the resulting compiler errors rather than by guesswork.
