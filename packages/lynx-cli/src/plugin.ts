@@ -103,8 +103,14 @@ export default definePlugin({
                 let launchBundleId: string | undefined;
                 let appName: string | undefined;
                 if (hasAndroid || hasIos) {
+                    // Outside the try: this reads no config, and it throws on a
+                    // malformed value on purpose. Inside, the catch below —
+                    // which exists for a missing config — would swallow that
+                    // and quietly launch the wrong bundle id instead.
+                    const { iosBundleIdOverride } = await import('./prebuild.js');
+                    const iosOverride = hasIos ? iosBundleIdOverride() : undefined;
                     try {
-                        const { loadConfig, iosBundleIdOverride } = await import('./prebuild.js');
+                        const { loadConfig } = await import('./prebuild.js');
                         const { resolveConfig } = await import('./config/index.js');
                         const rawConfig = await loadConfig(ctx.cwd);
                         const config = resolveConfig(rawConfig, variant);
@@ -112,11 +118,12 @@ export default definePlugin({
                         const fallback = `com.sigx.${config.name.toLowerCase().replace(/[^a-z0-9]/g, '')}`;
                         if (hasAndroid) launchAppId = config.android.applicationId ?? fallback;
                         if (hasIos) {
-                            launchBundleId = iosBundleIdOverride()
-                                ?? config.ios.bundleIdentifier ?? fallback;
+                            launchBundleId = iosOverride ?? config.ios.bundleIdentifier ?? fallback;
                         }
                     } catch {
-                        // Config not available — skip custom app detection
+                        // Config not available — skip custom app detection, but
+                        // an explicit override still wins over guessing.
+                        launchBundleId = iosOverride ?? launchBundleId;
                     }
                 }
 
