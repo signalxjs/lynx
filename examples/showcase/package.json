@@ -62,7 +62,7 @@
         "@sigx/lynx-zero-legacy": "workspace:^",
         "@sigx/reactivity": "catalog:",
         "@sigx/runtime-core": "catalog:",
-        "lucide": "^1.16.0",
+        "lucide": "^1.31.0",
         "zod": "^4.4.3"
     },
     "devDependencies": {

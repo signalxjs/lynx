@@ -10,7 +10,7 @@ onlyBuiltDependencies:
 # says — leaving two type lines in the graph. Force the transitive one onto the
 # same 4.0.x line the catalog and the CLI templates use.
 overrides:
-  "@lynx-js/types": ~4.0.0
+  "@lynx-js/types": ~4.1.0
 
 # The sigx core versions this repo builds against. Every workspace package
 # declares these as "catalog:" — bump here, once.
@@ -35,7 +35,7 @@ catalog:
   # Tilde, not caret: @lynx-js/types tracks the engine line, and 4.1.0 already
   # describes an engine (4.1) that only exists as a nightly. Keep the types on
   # the 4.0.x line the CLI templates actually pin.
-  "@lynx-js/types": ~4.0.0
+  "@lynx-js/types": ~4.1.0
   "@lynx-js/react": ^0.123.0
   "@lynx-js/rspeedy": ">=0.16.3"
   # Exact 0.15.0, deliberately decoupled from the full lynx-stack bump (#975):
@@ -59,6 +59,6 @@ catalog:
   "@lynx-js/css-extract-webpack-plugin": ">=0.10.1"
   "@lynx-js/runtime-wrapper-webpack-plugin": ">=0.2.3"
   "@lynx-js/webpack-dev-transport": ">=0.3.0"
-  "@lynx-js/tailwind-preset": ^0.4.0
-  "@lynx-js/web-core": ^0.20.4
+  "@lynx-js/tailwind-preset": ^0.5.1
+  "@lynx-js/web-core": ^0.24.0
   "@lynx-js/web-elements": ">=0.12.2"
