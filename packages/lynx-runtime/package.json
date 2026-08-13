@@ -27,6 +27,10 @@
         "./mt-hmr-bridge": {
             "import": "./dist/mt-hmr-bridge.js",
             "types": "./dist/mt-hmr-bridge.d.ts"
+        },
+        "./platform": {
+            "import": "./dist/platform.js",
+            "types": "./dist/platform.d.ts"
         }
     },
     "files": [
