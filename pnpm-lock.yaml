@@ -19,16 +19,16 @@ catalogs:
       specifier: '>=0.2.3'
       version: 0.2.3
     '@lynx-js/tailwind-preset':
-      specifier: ^0.4.0
-      version: 0.4.0
+      specifier: ^0.5.0
+      version: 0.5.1
     '@lynx-js/template-webpack-plugin':
       specifier: 0.15.0
       version: 0.15.0
     '@lynx-js/web-core':
-      specifier: ^0.20.4
-      version: 0.20.4
+      specifier: ^0.24.0
+      version: 0.24.0
     '@lynx-js/web-elements':
-      specifier: '>=0.12.2'
+      specifier: '>=0.12.7'
       version: 0.12.7
     '@lynx-js/webpack-dev-transport':
       specifier: '>=0.3.0'
@@ -110,13 +110,13 @@ importers:
         version: 0.2.3
       '@lynx-js/tailwind-preset':
         specifier: 'catalog:'
-        version: 0.4.0(tailwindcss@3.4.19)
+        version: 0.5.1(tailwindcss@3.4.19)
       '@lynx-js/template-webpack-plugin':
         specifier: 'catalog:'
         version: 0.15.0(tslib@2.8.1)
       '@lynx-js/web-core':
         specifier: 'catalog:'
-        version: 0.20.4(@lynx-js/css-serializer@0.1.7)(tslib@2.8.1)
+        version: 0.24.0(@lynx-js/css-serializer@0.1.7)(tslib@2.8.1)
       '@lynx-js/web-elements':
         specifier: 'catalog:'
         version: 0.12.7(tslib@2.8.1)
@@ -321,13 +321,13 @@ importers:
         version: 0.2.3
       '@lynx-js/tailwind-preset':
         specifier: 'catalog:'
-        version: 0.4.0(tailwindcss@3.4.19)
+        version: 0.5.1(tailwindcss@3.4.19)
       '@lynx-js/template-webpack-plugin':
         specifier: 'catalog:'
         version: 0.15.0(tslib@2.8.1)
       '@lynx-js/web-core':
         specifier: 'catalog:'
-        version: 0.20.4(@lynx-js/css-serializer@0.1.6)(tslib@2.8.1)
+        version: 0.24.0(@lynx-js/css-serializer@0.1.7)(tslib@2.8.1)
       '@lynx-js/web-elements':
         specifier: 'catalog:'
         version: 0.12.7(tslib@2.8.1)
@@ -483,7 +483,7 @@ importers:
     dependencies:
       '@lynx-js/web-core':
         specifier: 'catalog:'
-        version: 0.20.4(@lynx-js/css-serializer@0.1.6)(tslib@2.8.1)
+        version: 0.24.0(@lynx-js/css-serializer@0.1.7)(tslib@2.8.1)
       '@sigx/cli':
         specifier: ^0.10.0
         version: 0.10.0
@@ -2001,9 +2001,6 @@ packages:
     peerDependencies:
       '@lynx-js/template-webpack-plugin': ^0.14.0 || ^0.15.0
 
-  '@lynx-js/css-serializer@0.1.6':
-    resolution: {integrity: sha512-AgYrhsNljp+xBqO2UUGFTfHR+zPBiH9XE8eD13PDkcTDXWA9uKE/cZ6glZUE3Ze0lUDEtp0cSPCOVlHTMEyKIg==}
-
   '@lynx-js/css-serializer@0.1.7':
     resolution: {integrity: sha512-k8J/zZdYvsxqSZxT25dWBT4leOvYSpAanC5NmpYmf0EkSDWbQohensPSMOnEvEmP9R97gDO7K+eA6vgv8IYWGg==}
 
@@ -2048,8 +2045,8 @@ packages:
     resolution: {integrity: sha512-xqBQ+g8fJn1kPJN+7tgzypPj+FK9+8ifDVhXu9i0S6630XebdZ7ZKPehlGMNdfZPnS96Wo0EBCoEaAwJ6c9UpA==}
     engines: {node: '>=18'}
 
-  '@lynx-js/tailwind-preset@0.4.0':
-    resolution: {integrity: sha512-ILFRM37SiwkEK/mKs0s2kdHInRpu0mkeEsbdx7PHnSXzLPEs/uu4zJRkbByMYXtf+Pf3PxuoPMKROcFhVkSQWQ==}
+  '@lynx-js/tailwind-preset@0.5.1':
+    resolution: {integrity: sha512-I44EGXw2Xygo/RxpBw0UA+806wvegYakMIhCxxLi0ji8yd/MWTKs2n7QoydQADqdBu3AfttgxDG/2/e6cs5gag==}
     peerDependencies:
       tailwindcss: ^3.4.0
 
@@ -2063,20 +2060,6 @@ packages:
 
   '@lynx-js/types@4.0.0':
     resolution: {integrity: sha512-FBtBV8wt+9/CAUbTdZwvbhGjJEnyzKLWVpq5gaTHTbhDztbhdP0avZ0nHD6I5HSgAhzYNB9oDrqMt/r6YqBkng==}
-
-  '@lynx-js/web-core@0.20.4':
-    resolution: {integrity: sha512-n0lLAjUeK1ndJE7xzCzkccYQE42C1qDMOvRSxqSZ5JdcBaY4pG0ZWswXC6jiL0gaksiY5Y31wZOIWHMlRRotPw==}
-    peerDependencies:
-      '@lynx-js/css-serializer': 0.1.6
-      '@lynx-js/lynx-core': 0.1.3
-      tslib: ^2.5.0
-    peerDependenciesMeta:
-      '@lynx-js/css-serializer':
-        optional: true
-      '@lynx-js/lynx-core':
-        optional: true
-      tslib:
-        optional: true
 
   '@lynx-js/web-core@0.24.0':
     resolution: {integrity: sha512-QIMfwVIHkRTDmd+X0KCWSQ+q0Dy7j87WdB911Wz9lxfp5juOa8ejJCrRYmsAncl1jTVy9gBH3mCblv6Z9IxCCQ==}
@@ -2092,11 +2075,6 @@ packages:
       tslib:
         optional: true
 
-  '@lynx-js/web-elements@0.12.2':
-    resolution: {integrity: sha512-k6eblA01RUIt09/GRXpRx1eL4n4Ztzs4v81RAE8Pkix8MyRArwjHb5qbV9O64VWuSk/R6h6ZJjen0cfzrBZdzw==}
-    peerDependencies:
-      tslib: ^2.5.0
-
   '@lynx-js/web-elements@0.12.7':
     resolution: {integrity: sha512-ht7vxYVtLGP6YpSd/g5YYNszxUU6i6Lcdpr/OILTmUBkA2mSbZx3D+6fUHXzrVkee4bNvDOFMV3hQm6L6/F+OQ==}
     peerDependencies:
@@ -2104,9 +2082,6 @@ packages:
 
   '@lynx-js/web-rsbuild-server-middleware@0.24.0':
     resolution: {integrity: sha512-q0oAkeVwL48c3XpG/jjr+KbY0D9fWh1eaPr9C4o+9N9DmTqleI/4JaRKstpZhlgEKpqdBs9rCx+SanjaVA04vQ==}
-
-  '@lynx-js/web-worker-rpc@0.20.4':
-    resolution: {integrity: sha512-i4RV8f397nl02zB1wjFfEJDo/bM0c+dvzd9nIPY9gksf2lX8aSOpkXn6Kyou+05qdJAXm2EZIl8SKYiTMi/P6w==}
 
   '@lynx-js/web-worker-rpc@0.24.0':
     resolution: {integrity: sha512-VUIERJNvpJOLk6JVeiNSQMgLPhCuD8V8Zz0jvTEP6rznWPeioCTtSD7cak1xMZASUv3n6eIzb9FsO4Ml8W/0nw==}
@@ -4894,11 +4869,6 @@ snapshots:
     dependencies:
       '@lynx-js/template-webpack-plugin': 0.15.0(tslib@2.8.1)
 
-  '@lynx-js/css-serializer@0.1.6':
-    dependencies:
-      css-tree: 3.2.1
-    optional: true
-
   '@lynx-js/css-serializer@0.1.7':
     dependencies:
       css-tree: 3.2.1
@@ -4986,7 +4956,7 @@ snapshots:
     dependencies:
       '@lynx-js/webpack-runtime-globals': 0.0.7
 
-  '@lynx-js/tailwind-preset@0.4.0(tailwindcss@3.4.19)':
+  '@lynx-js/tailwind-preset@0.5.1(tailwindcss@3.4.19)':
     dependencies:
       tailwindcss: 3.4.19
 
@@ -5011,24 +4981,6 @@ snapshots:
     dependencies:
       csstype: 3.1.3
 
-  '@lynx-js/web-core@0.20.4(@lynx-js/css-serializer@0.1.6)(tslib@2.8.1)':
-    dependencies:
-      '@lynx-js/web-elements': 0.12.2(tslib@2.8.1)
-      '@lynx-js/web-worker-rpc': 0.20.4
-      wasm-feature-detect: 1.8.0
-    optionalDependencies:
-      '@lynx-js/css-serializer': 0.1.6
-      tslib: 2.8.1
-
-  '@lynx-js/web-core@0.20.4(@lynx-js/css-serializer@0.1.7)(tslib@2.8.1)':
-    dependencies:
-      '@lynx-js/web-elements': 0.12.2(tslib@2.8.1)
-      '@lynx-js/web-worker-rpc': 0.20.4
-      wasm-feature-detect: 1.8.0
-    optionalDependencies:
-      '@lynx-js/css-serializer': 0.1.7
-      tslib: 2.8.1
-
   '@lynx-js/web-core@0.24.0(@lynx-js/css-serializer@0.1.7)(tslib@2.8.1)':
     dependencies:
       '@lynx-js/web-elements': 0.12.7(tslib@2.8.1)
@@ -5038,12 +4990,6 @@ snapshots:
       '@lynx-js/css-serializer': 0.1.7
       tslib: 2.8.1
 
-  '@lynx-js/web-elements@0.12.2(tslib@2.8.1)':
-    dependencies:
-      dompurify: 3.4.13
-      markdown-it: 14.3.0
-      tslib: 2.8.1
-
   '@lynx-js/web-elements@0.12.7(tslib@2.8.1)':
     dependencies:
       dompurify: 3.4.13
@@ -5051,8 +4997,6 @@ snapshots:
       tslib: 2.8.1
 
   '@lynx-js/web-rsbuild-server-middleware@0.24.0': {}
-
-  '@lynx-js/web-worker-rpc@0.20.4': {}
 
   '@lynx-js/web-worker-rpc@0.24.0': {}
 
