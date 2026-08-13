@@ -30,7 +30,7 @@ catalog:
   # describes an engine (4.1) that only exists as a nightly. Keep the types on
   # the 4.0.x line the CLI templates actually pin.
   "@lynx-js/types": ~4.0.0
-  "@lynx-js/react": ^0.121.0
+  "@lynx-js/react": ^0.123.0
   "@lynx-js/rspeedy": ">=0.16.3"
   # Exact 0.15.0, deliberately decoupled from the full lynx-stack bump (#975):
   # this is the encoder that turns CSS into the .lynx template, and 0.15.0's

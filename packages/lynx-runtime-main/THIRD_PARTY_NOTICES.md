@@ -7,7 +7,7 @@ Each item below lists the upstream source and its license.
 
 Files derived from [`@lynx-js/react`](https://github.com/lynx-family/lynx-stack):
 
-- `src/upstream/processGesture.ts` — verbatim TS port of `runtime/lib/gesture/processGesture.js` (`@lynx-js/react@0.119.0`).
+- `src/upstream/processGesture.ts` — verbatim TS port of `runtime/lib/gesture/processGesture.js` (`@lynx-js/react@0.119.0`; upstream relocated it to `runtime/lib/snapshot/gesture/processGesture.js` by 0.123.3, still unexported).
 - `src/upstream/observers.ts` — verbatim TS port of `runtime/lib/worklet-runtime/bindings/observers.js` (`@lynx-js/react@0.120.0`).
 
 These files retain their original copyright (`Copyright 2024-2025 The Lynx Authors`) and are used here under the terms of the Apache License, Version 2.0. Modifications by SignalX contributors are limited to adding TypeScript types; no behavior was changed.
