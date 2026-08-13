@@ -42,6 +42,9 @@ catalogs:
     '@sigx/zero':
       specifier: 0.2.0-beta.1
       version: 0.2.0-beta.1
+    '@sigx/zero-daisyui':
+      specifier: 0.2.0-beta.1
+      version: 0.2.0-beta.1
 
 overrides:
   '@lynx-js/types': ~4.0.0
@@ -587,6 +590,28 @@ importers:
       tailwindcss:
         specifier: ^4.0.0
         version: 4.3.0
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+
+  packages/lynx-daisyui-zero:
+    dependencies:
+      '@sigx/lynx-zero':
+        specifier: workspace:^
+        version: link:../lynx-zero
+    devDependencies:
+      '@sigx/zero':
+        specifier: 'catalog:'
+        version: 0.2.0-beta.1(@sigx/reactivity@0.15.4)(@sigx/runtime-core@0.15.4)(@sigx/runtime-dom@0.15.3)(sigx@0.15.3)
+      '@sigx/zero-daisyui':
+        specifier: 'catalog:'
+        version: 0.2.0-beta.1(@sigx/zero@0.2.0-beta.1(@sigx/reactivity@0.15.4)(@sigx/runtime-core@0.15.4)(@sigx/runtime-dom@0.15.3)(sigx@0.15.3))
+      '@typescript/native-preview':
+        specifier: 7.0.0-dev.20260521.1
+        version: 7.0.0-dev.20260521.1
+      culori:
+        specifier: ^4.0.1
+        version: 4.0.2
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -2601,6 +2626,11 @@ packages:
   '@sigx/terminal@0.12.0':
     resolution: {integrity: sha512-F/Ls5MHPzP9+hgUDIeRPgL5bihJ3FP3t9uTSAGJn+4SUwgQ3oFwIdarfdN4lXWA1fBdpruS6cUUbnJV5bMAvHA==}
 
+  '@sigx/zero-daisyui@0.2.0-beta.1':
+    resolution: {integrity: sha512-IJ7XAw/f03KEGicGxf0IVEMTZ+2/EbB8y5t6RnklHs8ZudcY4mWQnyf71QrqZ4T0dOSH3dJNk6hVR4THRu+Pvg==}
+    peerDependencies:
+      '@sigx/zero': ^0.2.0-beta.1
+
   '@sigx/zero@0.2.0-beta.1':
     resolution: {integrity: sha512-Eaf4d1ZyPv+qUjZRi/g/VhO5oozEJ+/MHkuvLA7TeGldHJYUVijO/WgEfs+TszzwiJghpWs740mLe9GbttyqOQ==}
     peerDependencies:
@@ -3108,6 +3138,10 @@ packages:
 
   csstype@3.2.3:
     resolution: {integrity: sha512-z1HGKcYy2xA8AGQfwrn0PAy+PB7X/GSj3UVJW9qKyn43xWa+gl5nXmU4qqLMRzWVLFC8KusUX8T/0kCiOYpAIQ==}
+
+  culori@4.0.2:
+    resolution: {integrity: sha512-1+BhOB8ahCn4O0cep0Sh2l9KCOfOdY+BXJnKMHFFzDEouSr/el18QwXEMRlOj9UY5nCeA8UN3a/82rUWRBeyBw==}
+    engines: {node: ^12.20.0 || ^14.13.1 || >=16.0.0}
 
   data-view-buffer@1.0.2:
     resolution: {integrity: sha512-EmKO5V3OLXh1rtK2wgXRansaK1/mtVdTUEiEI0W8RkvgT05kfxaH29PliLnpLP73yYO6142Q72QNa8Wx/A5CqQ==}
@@ -5574,6 +5608,10 @@ snapshots:
       '@sigx/terminal-ui': 0.12.0(@sigx/reactivity@0.15.4)(@sigx/runtime-core@0.15.4)
       '@sigx/terminal-zero': 0.12.0(@sigx/reactivity@0.15.4)(@sigx/runtime-core@0.15.4)
 
+  '@sigx/zero-daisyui@0.2.0-beta.1(@sigx/zero@0.2.0-beta.1(@sigx/reactivity@0.15.4)(@sigx/runtime-core@0.15.4)(@sigx/runtime-dom@0.15.3)(sigx@0.15.3))':
+    dependencies:
+      '@sigx/zero': 0.2.0-beta.1(@sigx/reactivity@0.15.4)(@sigx/runtime-core@0.15.4)(@sigx/runtime-dom@0.15.3)(sigx@0.15.3)
+
   '@sigx/zero@0.2.0-beta.1(@sigx/reactivity@0.15.4)(@sigx/runtime-core@0.15.4)(@sigx/runtime-dom@0.15.3)(sigx@0.15.3)':
     dependencies:
       '@sigx/reactivity': 0.15.4
@@ -6133,6 +6171,8 @@ snapshots:
   csstype@3.1.3: {}
 
   csstype@3.2.3: {}
+
+  culori@4.0.2: {}
 
   data-view-buffer@1.0.2:
     dependencies:

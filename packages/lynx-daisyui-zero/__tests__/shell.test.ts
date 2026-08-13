@@ -1,0 +1,82 @@
+/**
+ * The build shell's contract (#1056): the generator bakes registry-ready
+ * theme data from the skin's lynx manifest (and REFUSES a grammar-envelope
+ * mismatch — CSS emitted for another grammar would silently select
+ * nothing), importing the package seeds zero's registry, and the shipped
+ * CSS artifacts are the skin's compiled lynx target.
+ *
+ * The generated module and dist CSS exist after `pnpm build` — these tests
+ * read the same manifest the build reads and regenerate in-memory, so they
+ * hold without a prior build where they can, and skip artifact checks
+ * gracefully never: CI builds before testing, and so does the dev loop.
+ */
+import { createRequire } from 'node:module';
+import { existsSync, readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { describe, expect, it } from 'vitest';
+import { CLASS_GRAMMAR_VERSION } from '@sigx/zero/contract/core';
+import { bakeSwatch, generateThemeData } from '../generate.mjs';
+
+const require = createRequire(import.meta.url);
+const manifestPath = require.resolve('@sigx/zero-daisyui/lynx/manifest.json');
+const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+const HEX = /^#[0-9a-f]{6}$/;
+
+describe('generateThemeData', () => {
+    it('bakes every swatch color to hex — lynx views cannot paint oklch', () => {
+        const baked = bakeSwatch({ primary: 'oklch(45% 0.24 277.023)', plain: '#ff0000' }, 'probe');
+        expect(baked['primary']).toMatch(HEX);
+        expect(baked['plain']).toBe('#ff0000');
+        expect(() => bakeSwatch({ broken: 'not-a-color' }, 'probe'))
+            .toThrow(/theme "probe" swatch role "broken"/);
+    });
+
+    it('accepts the real manifest and emits one entry per theme', () => {
+        const source = generateThemeData(manifest, CLASS_GRAMMAR_VERSION);
+        for (const theme of manifest.themes) expect(source).toContain(`"name": "${theme.name}"`);
+        // Every baked color in the output is hex — no oklch survives.
+        expect(source).not.toContain('oklch');
+    });
+
+    it('refuses a class-grammar envelope mismatch', () => {
+        expect(() => generateThemeData(manifest, CLASS_GRAMMAR_VERSION + 1))
+            .toThrow(/class grammar/);
+        expect(() => generateThemeData({ ...manifest, target: 'web' }, CLASS_GRAMMAR_VERSION))
+            .toThrow(/lynx-target manifest/);
+    });
+});
+
+describe('registry seeding (import side effect)', () => {
+    it('importing the package registers every daisy theme with its pairing', async () => {
+        const { listThemes, getTheme, pairOf } = await import('@sigx/lynx-zero');
+        const { DAISY_THEMES } = await import('../src/index.js');
+        const registered = new Set(listThemes().map((t) => t.name));
+        for (const theme of DAISY_THEMES) {
+            expect(registered.has(theme.name)).toBe(true);
+        }
+        expect(getTheme('light')?.colorScheme).toBe('light');
+        expect(pairOf('light')).toBe('dark');
+        // Swatches landed baked — a picker can paint them directly.
+        for (const value of Object.values(getTheme('light')?.swatch ?? {})) {
+            expect(value).toMatch(HEX);
+        }
+    });
+});
+
+describe('shipped artifacts', () => {
+    const dist = join(dirname(new URL(import.meta.url).pathname), '..', 'dist');
+
+    it('ships the skin compiled lynx CSS under dist/css', () => {
+        for (const file of ['css/index.css', 'css/tokens.css']) {
+            expect(existsSync(join(dist, file)), `${file} missing — run pnpm build`).toBe(true);
+        }
+        const tokens = readFileSync(join(dist, 'css', 'tokens.css'), 'utf8');
+        // The envelope in one grep each: themes are class blocks on the host
+        // class, and nothing web-only leaked through the capability gate.
+        expect(tokens).toContain('.zx-root');
+        expect(tokens).toContain('.zx-theme-dark');
+        expect(tokens).not.toMatch(/oklch\(|color-mix\(|light-dark\(/);
+        const index = readFileSync(join(dist, 'css', 'index.css'), 'utf8');
+        expect(index).not.toContain('@layer');
+    });
+});
