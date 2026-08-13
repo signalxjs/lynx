@@ -56,6 +56,41 @@ function iosFingerprintKey(target: IosBuildTarget, configuration: string, varian
 }
 
 /**
+ * The xcodebuild argument list for an app build.
+ *
+ * Shared because `run:ios` and `sigx dev` each drive their own xcodebuild and
+ * had drifted: only one of them carried the derived-data path comment, and a
+ * fix to either could miss the other. Pure, so the flags are testable without
+ * spawning anything.
+ */
+export function iosBuildArgs(opts: {
+    workspace: string;
+    scheme: string;
+    destinationId: string;
+    configuration: string;
+    derivedDataPath: string;
+    /** Physical devices are signed; simulators are not. */
+    isDevice: boolean;
+}): string[] {
+    return [
+        '-workspace', opts.workspace,
+        '-scheme', opts.scheme,
+        '-destination', `id=${opts.destinationId}`,
+        '-configuration', opts.configuration,
+        // Project-local products dir — two checkouts sharing a scheme name
+        // must never resolve each other's .app (#178).
+        '-derivedDataPath', opts.derivedDataPath,
+        // Automatic signing refuses to create or refresh a provisioning
+        // profile without this, so a first build to a new device fails with
+        // "No profiles for '<bundle id>' were found" even with the team set
+        // correctly (#1032). Device only: a simulator build isn't signed, and
+        // passing it there invites pointless round-trips to Apple.
+        ...(opts.isDevice ? ['-allowProvisioningUpdates'] : []),
+        'build',
+    ];
+}
+
+/**
  * Watch xcodebuild's output for the two device failures worth naming.
  *
  * The build runner rejects with a bare "exited with code N", so the reason has
@@ -144,16 +179,14 @@ export async function ensureIosBuilt(opts: EnsureIosBuiltOptions): Promise<void>
     try {
         await runWithBuildFilter(
             'xcodebuild',
-            [
-                '-workspace', workspace,
-                '-scheme', appName,
-                '-destination', `id=${target.udid}`,
-                '-configuration', configuration,
-                // Project-local products dir — two checkouts sharing a scheme
-                // name must never resolve each other's .app (#178).
-                '-derivedDataPath', iosDerivedDataPath(cwd, variant),
-                'build',
-            ],
+            iosBuildArgs({
+                workspace,
+                scheme: appName,
+                destinationId: target.udid,
+                configuration,
+                derivedDataPath: iosDerivedDataPath(cwd, variant),
+                isDevice: target.kind === 'device',
+            }),
             { cwd },
             { kind: 'xcodebuild', verbose, logger, onChunk: trouble.onChunk },
         );

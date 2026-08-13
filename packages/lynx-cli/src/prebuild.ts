@@ -1555,6 +1555,44 @@ export function writeIosSharedScheme(cwd: string, config: ResolvedConfig): void 
 }
 
 /**
+ * Apply `SIGX_IOS_BUNDLE_ID` to the existing pbxproj.
+ *
+ * The bundle identifier is a *template* variable, rendered once at scaffold
+ * time — so on an already-generated project the config value is frozen into
+ * `project.pbxproj` and only `--clean` would revisit it. This rewrites it on
+ * every prebuild, the way `applyIosSigningSettings` handles the team.
+ *
+ * It exists because an App ID is globally unique across all of Apple: the
+ * scaffold's `com.example.<app>` placeholder cannot be registered by anyone,
+ * and any identifier committed to a shared example app is claimable exactly
+ * once, by whoever device-builds it first. Everyone after that needs their own
+ * — without editing a tracked file (#1032).
+ */
+export function applyIosBundleIdentifierOverride(cwd: string, config: ResolvedConfig): void {
+    const bundleId = process.env['SIGX_IOS_BUNDLE_ID']?.trim();
+    if (!bundleId) return;
+
+    // Spliced raw into project.pbxproj, so validate rather than trust: reverse
+    // DNS characters only, no quotes, semicolons or whitespace that could
+    // smuggle in additional build settings.
+    if (!/^[A-Za-z0-9][A-Za-z0-9.-]*$/.test(bundleId)) {
+        throw new Error(
+            `SIGX_IOS_BUNDLE_ID must be a reverse-DNS bundle identifier ` +
+            `(letters, digits, dots and hyphens), got: "${bundleId}"`,
+        );
+    }
+
+    const pbxprojPath = join(iosXcodeProjPath(cwd, config), 'project.pbxproj');
+    if (!existsSync(pbxprojPath)) return;
+
+    const content = readFileSync(pbxprojPath, 'utf-8')
+        .replace(/PRODUCT_BUNDLE_IDENTIFIER = [^;]*;/g, `PRODUCT_BUNDLE_IDENTIFIER = ${bundleId};`);
+    if (writeFileIfChanged(pbxprojPath, content)) {
+        log(`iOS: applied bundle identifier override (${bundleId})`);
+    }
+}
+
+/**
  * Apply config-driven signing settings (`ios.developmentTeam`,
  * `ios.codeSignStyle`) to the existing pbxproj. Only rewrites a setting the
  * config actually pins — with both unset this is a no-op, so values set via
@@ -2757,6 +2795,7 @@ export function fingerprintPrebuildInputs(
         //     path — so without it here, exporting a team on a project that had
         //     already been prebuilt changed nothing and the device build failed
         //     for want of a signing identity it had just been given (#1032).
+        //     Same for SIGX_IOS_BUNDLE_ID, applied by the same slow path.
         fingerprintFormat: 'v9',
         cliVersion: getCliVersion(),
         platforms: `android=${platforms.android};ios=${platforms.ios}`,
@@ -2766,6 +2805,7 @@ export function fingerprintPrebuildInputs(
         // Only the value matters, and only on iOS — an Android-only prebuild
         // never reads it.
         iosTeam: platforms.ios ? (process.env['SIGX_IOS_DEVELOPMENT_TEAM']?.trim() ?? '') : '',
+        iosBundleId: platforms.ios ? (process.env['SIGX_IOS_BUNDLE_ID']?.trim() ?? '') : '',
     });
 }
 
@@ -3085,6 +3125,7 @@ export async function runPrebuild(opts: PrebuildOptions = {}): Promise<void> {
         // CI archivability: shared scheme + config-pinned signing settings.
         writeIosSharedScheme(cwd, config);
         applyIosSigningSettings(cwd, config);
+        applyIosBundleIdentifierOverride(cwd, config);
         applyIosDeviceFamily(cwd, config);
 
         // Dev-client release exclusion + Debug Info.plist wiring for projects

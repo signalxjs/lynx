@@ -903,20 +903,19 @@ export default definePlugin({
                     ctx.logger.log(`Building iOS (${configuration}) for ${target.kind}...`);
                     // Dynamic, like this file's other ios-run imports — the
                     // module pulls in the whole prebuild pipeline.
-                    const { createIosDeviceTroubleWatcher } = await import('./ios-run.js');
+                    const { createIosDeviceTroubleWatcher, iosBuildArgs } = await import('./ios-run.js');
                     const trouble = createIosDeviceTroubleWatcher();
                     try {
                         await runWithBuildFilter(
                             'xcodebuild',
-                            [
-                                '-workspace', workspace,
-                                '-scheme', appName,
-                                '-destination', `id=${target.udid}`,
-                                '-configuration', configuration,
-                                // Project-local products dir — see #178.
-                                '-derivedDataPath', iosDerivedDataPath(ctx.cwd, variant),
-                                'build',
-                            ],
+                            iosBuildArgs({
+                                workspace,
+                                scheme: appName,
+                                destinationId: target.udid,
+                                configuration,
+                                derivedDataPath: iosDerivedDataPath(ctx.cwd, variant),
+                                isDevice: target.kind === 'device',
+                            }),
                             { cwd: ctx.cwd },
                             { kind: 'xcodebuild', verbose, logger: ctx.logger, onChunk: trouble.onChunk },
                         );

@@ -25,6 +25,7 @@ import {
     writeAndroidDebugManifest,
     writeIosSharedScheme,
     applyIosSigningSettings,
+    applyIosBundleIdentifierOverride,
     runPostPrebuildHook,
     writeIosDebugInfoPlist,
     applyIosDevClientBuildSettings,
@@ -1422,6 +1423,42 @@ describe('applyIosSigningSettings', () => {
         const once = readFileSync(pbxprojPath(testDir), 'utf-8');
         applyIosSigningSettings(testDir, config);
         expect(readFileSync(pbxprojPath(testDir), 'utf-8')).toBe(once);
+    });
+});
+
+describe('applyIosBundleIdentifierOverride', () => {
+    const pbxprojPath = (cwd: string) => join(cwd, 'ios', 'TestApp.xcodeproj', 'project.pbxproj');
+
+    it('rewrites PRODUCT_BUNDLE_IDENTIFIER from the environment', () => {
+        // An App ID is globally unique across all of Apple, so a shared example
+        // app's identifier is claimable exactly once — everyone after the first
+        // device build needs their own, without editing a tracked file.
+        vi.stubEnv('SIGX_IOS_BUNDLE_ID', 'se.example.throwaway1');
+        const config = resolveConfig(TEST_CONFIG);
+        scaffoldIos(testDir, config);
+        applyIosBundleIdentifierOverride(testDir, config);
+
+        const pbx = readFileSync(pbxprojPath(testDir), 'utf-8');
+        expect(pbx).toContain('PRODUCT_BUNDLE_IDENTIFIER = se.example.throwaway1;');
+        expect(pbx).not.toContain('com.test.myapp;');
+    });
+
+    it('is a no-op when the variable is unset', () => {
+        const config = resolveConfig(TEST_CONFIG);
+        scaffoldIos(testDir, config);
+        const before = readFileSync(pbxprojPath(testDir), 'utf-8');
+
+        applyIosBundleIdentifierOverride(testDir, config);
+        expect(readFileSync(pbxprojPath(testDir), 'utf-8')).toBe(before);
+    });
+
+    it('refuses a value that could smuggle in extra build settings', () => {
+        vi.stubEnv('SIGX_IOS_BUNDLE_ID', 'ok.id; CODE_SIGN_IDENTITY = hacked');
+        const config = resolveConfig(TEST_CONFIG);
+        scaffoldIos(testDir, config);
+
+        expect(() => applyIosBundleIdentifierOverride(testDir, config))
+            .toThrow(/SIGX_IOS_BUNDLE_ID must be a reverse-DNS bundle identifier/);
     });
 });
 

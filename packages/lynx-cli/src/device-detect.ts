@@ -27,9 +27,15 @@ export interface IosSimulator {
 
 export interface IosDevice {
     /**
-     * Hardware UDID (`00008132-…`) — what `xcodebuild -destination id=…`
-     * matches. `devicectl --device` accepts this too, so it is the one
-     * identifier both tools understand.
+     * The device's hardware UDID (`00008132-…`) when devicectl reports one —
+     * what `xcodebuild -destination id=…` matches, and which
+     * `devicectl --device` accepts too, so it is the identifier both tools
+     * understand.
+     *
+     * Falls back to devicectl's CoreDevice identifier (`16B3FA2D-…`) if the
+     * hardware UDID is absent. Such a device can still be installed to and
+     * launched — only xcodebuild is picky — so it is worth listing rather than
+     * dropping, but a build targeting it will not resolve.
      */
     udid: string;
     /** User-facing device name. */
@@ -681,9 +687,9 @@ export function listConnectedIosDevices(): IosDevice[] {
         .filter((d) => {
             const platform = d.hardwareProperties?.platform;
             const pairing = d.connectionProperties?.pairingState;
-            // Either identifier will do for devicectl, but only the hardware
-            // UDID satisfies xcodebuild — so a device is only usable to us if
-            // it reports one.
+            // Needs *some* identifier to be addressable at all. Which one it
+            // ends up being decides how usable it is: see `IosDevice.udid` —
+            // devicectl takes either, xcodebuild only the hardware UDID.
             return platform === 'iOS' && pairing === 'paired'
                 && !!(d.hardwareProperties?.udid ?? d.identifier);
         })

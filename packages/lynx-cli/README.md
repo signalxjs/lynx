@@ -49,8 +49,24 @@ SIGX_IOS_DEVELOPMENT_TEAM=AB12CD34EF sigx run:ios --device "My iPad"
 
 It overrides `ios.developmentTeam` from `signalx.config.ts` when both are set,
 and takes part in the prebuild fingerprint, so exporting it re-applies signing
-to an already-prebuilt project. `security find-identity -v -p codesigning`
-lists the Team IDs available on the machine.
+to an already-prebuilt project. The Team ID that matters is the one Xcode has
+an account for — Xcode → Settings → Accounts. A certificate in the keychain
+without a matching account gives `No Account for Team "…"`.
+
+`SIGX_IOS_BUNDLE_ID` overrides the bundle identifier the same way:
+
+```bash
+SIGX_IOS_DEVELOPMENT_TEAM=AB12CD34EF SIGX_IOS_BUNDLE_ID=com.you.app \
+    sigx run:ios --device "My iPad"
+```
+
+An App ID is **globally unique across all of Apple**, so a shared example app
+cannot ship one that works for everybody: the scaffold's `com.example.<app>`
+placeholder is unregisterable, and any real identifier is claimable exactly
+once, by whoever device-builds first. Everyone else supplies their own here
+rather than editing a tracked file. The device also has to be registered to
+the team — building once from Xcode does that, or add its UDID at
+developer.apple.com.
 
 If a device build fails, read the message: it distinguishes a device that isn't
 ready (unlock it — Xcode mounts the developer disk image on first use after

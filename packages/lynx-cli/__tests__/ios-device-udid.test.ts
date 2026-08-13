@@ -35,6 +35,7 @@ vi.mock('node:fs', async (importOriginal) => {
 });
 
 const { listConnectedIosDevices } = await import('../src/device-detect');
+const { iosBuildArgs } = await import('../src/ios-run');
 
 const HARDWARE_UDID = '00008132-001871DE0123401C';
 const CORE_DEVICE_ID = '16B3FA2D-976E-5DC4-A5F4-3B6644104171';
@@ -107,5 +108,39 @@ describe('listConnectedIosDevices', () => {
         });
 
         expect(listConnectedIosDevices()).toEqual([]);
+    });
+});
+
+describe('iosBuildArgs', () => {
+    const base = {
+        workspace: 'ios/showcase.xcworkspace',
+        scheme: 'showcase',
+        destinationId: HARDWARE_UDID,
+        configuration: 'Release',
+        derivedDataPath: '/proj/ios/build',
+    };
+
+    it('asks for provisioning updates on a device build', () => {
+        // Without it, automatic signing will not create or refresh a profile,
+        // and a first build to a newly registered device fails with
+        // "No profiles for '<bundle id>' were found" — with the team set.
+        expect(iosBuildArgs({ ...base, isDevice: true })).toContain('-allowProvisioningUpdates');
+    });
+
+    it('does not ask on a simulator build', () => {
+        // Simulator builds are unsigned; the flag would only buy round-trips
+        // to Apple.
+        expect(iosBuildArgs({ ...base, isDevice: false }))
+            .not.toContain('-allowProvisioningUpdates');
+    });
+
+    it('targets the device by id and keeps derived data project-local', () => {
+        const args = iosBuildArgs({ ...base, isDevice: true });
+
+        expect(args).toEqual(expect.arrayContaining([
+            '-destination', `id=${HARDWARE_UDID}`,
+            '-derivedDataPath', '/proj/ios/build',
+        ]));
+        expect(args.at(-1)).toBe('build');
     });
 });
