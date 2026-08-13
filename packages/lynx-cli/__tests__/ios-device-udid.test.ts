@@ -172,6 +172,17 @@ describe('createIosDeviceTroubleWatcher', () => {
             .toMatch(/SIGX_IOS_BUNDLE_ID/);
     });
 
+    it('matches a phrase split across chunk boundaries', () => {
+        // Chunk boundaries are arbitrary; without a carry-over buffer this
+        // lands in neither half and reports the generic signing message for a
+        // failure we can name.
+        const w = createIosDeviceTroubleWatcher();
+        w.onChunk(Buffer.from('xcodebuild: error: Unable to find a device matching the provided destination spec'));
+        w.onChunk(Buffer.from('ifier:\n\t{ platform:iOS, id:… }'));
+
+        expect(w.message(target)).toMatch(/hardware UDID/);
+    });
+
     it('falls back to signing, naming both overrides', () => {
         const message = watch('error: something else entirely');
         expect(message).toMatch(/development team is selected/);

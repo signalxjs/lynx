@@ -104,9 +104,18 @@ export function createIosDeviceTroubleWatcher() {
     let notReady = false;
     let noDestination = false;
     let unregisterableBundleId = false;
+    // Chunk boundaries are arbitrary — `runWithBuildFilter` says so, and its
+    // own sink buffers for the same reason. A phrase split across two chunks
+    // ("destination spec" + "ifier") would match neither, and the build would
+    // fall back to the generic signing message for a failure we can name. Carry
+    // the tail of each chunk into the next; 256 chars is many times the longest
+    // phrase, and bounded so a long build can't grow it.
+    const CARRY = 256;
+    let carry = '';
     return {
         onChunk(chunk: Buffer): void {
-            const text = chunk.toString();
+            const text = carry + chunk.toString();
+            carry = text.slice(-CARRY);
             if (/Device is busy|Waiting to reconnect/i.test(text)) notReady = true;
             if (/destination specifier/i.test(text)) noDestination = true;
             // "…cannot be registered to your development team because it is not
