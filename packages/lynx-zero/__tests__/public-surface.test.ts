@@ -81,6 +81,16 @@ describe('public runtime exports', () => {
                 'useFieldContext',
                 'useIdGenerator',
                 'zeroPlugin',
+                // ── components (pilot wave 1) ──
+                'Accordion',
+                'Button',
+                'Progress',
+                'Switch',
+                'Tabs',
+                // ── axis push-down ──
+                'partAxes',
+                'provideVariantAxes',
+                'useVariantAxes',
                 // ── overlays ──
                 'OverlayHost',
                 'ZeroRoot',
