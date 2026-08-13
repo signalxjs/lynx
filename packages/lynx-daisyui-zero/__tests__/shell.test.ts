@@ -50,7 +50,10 @@ describe('generateThemeData', () => {
 describe('registry seeding (import side effect)', () => {
     it('importing the package registers every daisy theme with its pairing', async () => {
         const { listThemes, getTheme, pairOf } = await import('@sigx/lynx-zero');
-        const { DAISY_THEMES } = await import('../src/index.js');
+        // The PUBLISHED entrypoint (Node self-reference through package.json
+        // exports), not ../src — so exports/sideEffects/dist wiring is under
+        // test too. Needs `pnpm build` first, like the artifact checks.
+        const { DAISY_THEMES } = await import('@sigx/lynx-daisyui-zero');
         const registered = new Set(listThemes().map((t) => t.name));
         for (const theme of DAISY_THEMES) {
             expect(registered.has(theme.name)).toBe(true);
