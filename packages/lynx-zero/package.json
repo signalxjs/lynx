@@ -53,5 +53,21 @@
         "type": "git",
         "url": "git+https://github.com/signalxjs/lynx.git",
         "directory": "packages/lynx-zero"
+    },
+    "sideEffects": false,
+    "keywords": [
+        "sigx",
+        "lynx",
+        "ui",
+        "design-system",
+        "headless",
+        "tokens",
+        "zero",
+        "anatomy"
+    ],
+    "author": "Andreas Ekdahl",
+    "homepage": "https://sigx.dev/lynx/modules/zero/overview/",
+    "bugs": {
+        "url": "https://github.com/signalxjs/lynx/issues"
     }
 }
