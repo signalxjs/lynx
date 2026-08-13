@@ -1564,7 +1564,28 @@ export function writeIosSharedScheme(cwd: string, config: ResolvedConfig): void 
  * "already installed" fast path never matches, so it rebuilds every time.
  */
 export function iosBundleIdOverride(): string | undefined {
-    return process.env['SIGX_IOS_BUNDLE_ID']?.trim() || undefined;
+    const bundleId = process.env['SIGX_IOS_BUNDLE_ID']?.trim();
+    if (!bundleId) return undefined;
+
+    // Validated *here*, not at the point of rewrite: `iosTemplateVars` splices
+    // this straight into the pbxproj template during scaffolding, which happens
+    // before any rewrite runs — so a value carrying `;` or whitespace could
+    // corrupt the generated project before validation ever saw it. Every caller
+    // gets a checked value or an exception, never a raw one.
+    //
+    // Shaped as reverse DNS rather than merely "legal characters": two or more
+    // dot-separated segments, each starting and ending alphanumeric with
+    // hyphens allowed inside. `foo`, `com..app` and `com.app.` are rejected
+    // here instead of surviving to Xcode, which reports them far less helpfully.
+    const SEGMENT = '[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?';
+    if (!new RegExp(`^${SEGMENT}(?:\\.${SEGMENT})+$`).test(bundleId)) {
+        throw new Error(
+            `[@sigx/lynx-cli] SIGX_IOS_BUNDLE_ID must be a reverse-DNS bundle identifier — ` +
+            `two or more dot-separated segments of letters, digits and inner hyphens ` +
+            `(e.g. "com.example.app"), got: "${bundleId}"`,
+        );
+    }
+    return bundleId;
 }
 
 /**
@@ -1586,24 +1607,9 @@ export function iosBundleIdOverride(): string | undefined {
  * — without editing a tracked file (#1032).
  */
 export function applyIosBundleIdentifierOverride(cwd: string, config: ResolvedConfig): void {
+    // Validated inside the resolver, so it is safe to splice.
     const bundleId = iosBundleIdOverride();
     if (!bundleId) return;
-
-    // Spliced raw into project.pbxproj, so validate rather than trust — no
-    // quotes, semicolons or whitespace that could smuggle in extra build
-    // settings. Shaped as reverse DNS rather than merely "legal characters":
-    // two or more dot-separated segments, each starting and ending
-    // alphanumeric with hyphens allowed inside. `foo`, `com..app` and
-    // `com.app.` are all rejected here instead of surviving to Xcode, which
-    // reports them far less helpfully.
-    const SEGMENT = '[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?';
-    if (!new RegExp(`^${SEGMENT}(?:\\.${SEGMENT})+$`).test(bundleId)) {
-        throw new Error(
-            `[@sigx/lynx-cli] SIGX_IOS_BUNDLE_ID must be a reverse-DNS bundle identifier — ` +
-            `two or more dot-separated segments of letters, digits and inner hyphens ` +
-            `(e.g. "com.example.app"), got: "${bundleId}"`,
-        );
-    }
 
     const pbxprojPath = join(iosXcodeProjPath(cwd, config), 'project.pbxproj');
     if (!existsSync(pbxprojPath)) return;

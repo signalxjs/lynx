@@ -1454,31 +1454,31 @@ describe('applyIosBundleIdentifierOverride', () => {
         expect(readFileSync(pbxprojPath(testDir), 'utf-8')).toBe(before);
     });
 
-    it('refuses a value that could smuggle in extra build settings', () => {
-        vi.stubEnv('SIGX_IOS_BUNDLE_ID', 'ok.id; CODE_SIGN_IDENTITY = hacked');
-        const config = resolveConfig(TEST_CONFIG);
-        scaffoldIos(testDir, config);
-
-        expect(() => applyIosBundleIdentifierOverride(testDir, config))
-            .toThrow(/\[@sigx\/lynx-cli\] SIGX_IOS_BUNDLE_ID must be a reverse-DNS bundle identifier/);
-    });
-
     it.each([
+        ['a value that could smuggle in extra build settings', 'ok.id; CODE_SIGN_IDENTITY = hacked'],
         ['a single segment', 'showcase'],
         ['an empty segment', 'com..app'],
         ['a trailing dot', 'com.app.'],
         ['a leading dot', '.com.app'],
         ['a segment ending in a hyphen', 'com.app-.thing'],
-    ])('rejects %s rather than letting Xcode report it', (_case, id) => {
-        // Each of these is legal-looking enough to pass a character-class
-        // check and then fail deep inside signing, where the message is far
-        // less actionable.
+    ])('rejects %s at the resolver, before any caller can splice it', (_case, id) => {
+        // Validation lives in the resolver rather than at the point of rewrite
+        // because `iosTemplateVars` splices this into the pbxproj template
+        // during scaffolding — earlier than any rewrite. Each of these is
+        // legal-looking enough to pass a character-class check and then fail
+        // deep inside signing, where the message is far less actionable.
         vi.stubEnv('SIGX_IOS_BUNDLE_ID', id);
-        const config = resolveConfig(TEST_CONFIG);
-        scaffoldIos(testDir, config);
 
-        expect(() => applyIosBundleIdentifierOverride(testDir, config))
-            .toThrow(/reverse-DNS bundle identifier/);
+        expect(() => iosBundleIdOverride()).toThrow(/reverse-DNS bundle identifier/);
+    });
+
+    it('refuses to scaffold a project with an unsafe override', () => {
+        // The path the validation was moved for: scaffolding renders the
+        // identifier into the project directly.
+        vi.stubEnv('SIGX_IOS_BUNDLE_ID', 'ok.id; CODE_SIGN_IDENTITY = hacked');
+        const config = resolveConfig(TEST_CONFIG);
+
+        expect(() => scaffoldIos(testDir, config)).toThrow(/reverse-DNS bundle identifier/);
     });
 
     it.each([
