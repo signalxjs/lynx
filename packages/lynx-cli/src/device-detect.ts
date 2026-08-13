@@ -26,7 +26,17 @@ export interface IosSimulator {
 }
 
 export interface IosDevice {
-    /** devicectl identifier (UUID string). Use with `--device <identifier>`. */
+    /**
+     * The device's hardware UDID (`00008132-…`) when devicectl reports one —
+     * what `xcodebuild -destination id=…` matches, and which
+     * `devicectl --device` accepts too, so it is the identifier both tools
+     * understand.
+     *
+     * Falls back to devicectl's CoreDevice identifier (`16B3FA2D-…`) if the
+     * hardware UDID is absent. Such a device can still be installed to and
+     * launched — only xcodebuild is picky — so it is worth listing rather than
+     * dropping, but a build targeting it will not resolve.
+     */
     udid: string;
     /** User-facing device name. */
     name: string;
@@ -677,10 +687,21 @@ export function listConnectedIosDevices(): IosDevice[] {
         .filter((d) => {
             const platform = d.hardwareProperties?.platform;
             const pairing = d.connectionProperties?.pairingState;
-            return platform === 'iOS' && pairing === 'paired' && !!d.identifier;
+            // Needs *some* identifier to be addressable at all. Which one it
+            // ends up being decides how usable it is: see `IosDevice.udid` —
+            // devicectl takes either, xcodebuild only the hardware UDID.
+            return platform === 'iOS' && pairing === 'paired'
+                && !!(d.hardwareProperties?.udid ?? d.identifier);
         })
         .map((d) => ({
-            udid: d.identifier!,
+            // The **hardware** UDID (`00008132-…`), not devicectl's CoreDevice
+            // identifier (`16B3FA2D-…`). They are different values for the same
+            // device: `devicectl --device` accepts either, but
+            // `xcodebuild -destination id=…` only matches the hardware one, and
+            // passing the other fails the build with "Unable to find a device
+            // matching the provided destination specifier" — which reads like a
+            // signing or connection problem and is neither.
+            udid: (d.hardwareProperties?.udid ?? d.identifier)!,
             name: d.deviceProperties?.name ?? 'iPhone',
             model: d.hardwareProperties?.marketingName,
             osVersion: d.deviceProperties?.osVersionNumber,

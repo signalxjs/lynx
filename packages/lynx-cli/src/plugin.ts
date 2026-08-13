@@ -103,6 +103,12 @@ export default definePlugin({
                 let launchBundleId: string | undefined;
                 let appName: string | undefined;
                 if (hasAndroid || hasIos) {
+                    // Outside the try: this reads no config, and it throws on a
+                    // malformed value on purpose. Inside, the catch below —
+                    // which exists for a missing config — would swallow that
+                    // and quietly launch the wrong bundle id instead.
+                    const { iosBundleIdOverride } = await import('./prebuild.js');
+                    const iosOverride = hasIos ? iosBundleIdOverride() : undefined;
                     try {
                         const { loadConfig } = await import('./prebuild.js');
                         const { resolveConfig } = await import('./config/index.js');
@@ -111,9 +117,13 @@ export default definePlugin({
                         appName = config.name;
                         const fallback = `com.sigx.${config.name.toLowerCase().replace(/[^a-z0-9]/g, '')}`;
                         if (hasAndroid) launchAppId = config.android.applicationId ?? fallback;
-                        if (hasIos) launchBundleId = config.ios.bundleIdentifier ?? fallback;
+                        if (hasIos) {
+                            launchBundleId = iosOverride ?? config.ios.bundleIdentifier ?? fallback;
+                        }
                     } catch {
-                        // Config not available — skip custom app detection
+                        // Config not available — skip custom app detection, but
+                        // an explicit override still wins over guessing.
+                        launchBundleId = iosOverride ?? launchBundleId;
                     }
                 }
 
@@ -847,7 +857,10 @@ export default definePlugin({
                 const rawConfig = await loadConfig(ctx.cwd);
                 const config = resolveConfig(rawConfig, variant);
                 const appName = config.name;
-                const bundleId = config.ios.bundleIdentifier ??
+                // Must match what prebuild wrote into the project, or we
+                // install one app and launch another (#1032).
+                const { iosBundleIdOverride } = await import('./prebuild.js');
+                const bundleId = iosBundleIdOverride() ?? config.ios.bundleIdentifier ??
                     `com.sigx.${appName.toLowerCase().replace(/[^a-z0-9]/g, '')}`;
 
                 // Pick target: physical device if --device given, else simulator.
@@ -901,24 +914,27 @@ export default definePlugin({
                 async function xcodeBuild(configuration: string) {
                     const workspace = join(iosDirRel, `${appName}.xcworkspace`);
                     ctx.logger.log(`Building iOS (${configuration}) for ${target.kind}...`);
+                    // Dynamic, like this file's other ios-run imports — the
+                    // module pulls in the whole prebuild pipeline.
+                    const { createIosDeviceTroubleWatcher, iosBuildArgs } = await import('./ios-run.js');
+                    const trouble = createIosDeviceTroubleWatcher();
                     try {
                         await runWithBuildFilter(
                             'xcodebuild',
-                            [
-                                '-workspace', workspace,
-                                '-scheme', appName,
-                                '-destination', `id=${target.udid}`,
-                                '-configuration', configuration,
-                                // Project-local products dir — see #178.
-                                '-derivedDataPath', iosDerivedDataPath(ctx.cwd, variant),
-                                'build',
-                            ],
+                            iosBuildArgs({
+                                workspace,
+                                scheme: appName,
+                                destinationId: target.udid,
+                                configuration,
+                                derivedDataPath: iosDerivedDataPath(ctx.cwd, variant),
+                                isDevice: target.kind === 'device',
+                            }),
                             { cwd: ctx.cwd },
-                            { kind: 'xcodebuild', verbose, logger: ctx.logger },
+                            { kind: 'xcodebuild', verbose, logger: ctx.logger, onChunk: trouble.onChunk },
                         );
                     } catch {
                         if (target.kind === 'device') {
-                            ctx.logger.error('Device build failed. Check that a development team is selected in Xcode (Signing & Capabilities).');
+                            ctx.logger.error(trouble.message(target));
                         }
                         throw new Error(`iOS ${configuration} build failed`);
                     }

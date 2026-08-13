@@ -33,9 +33,48 @@ There is no longer an `a` or `i` shortcut. They built and launched on *every*
 device they could find with no way to choose; `Enter` on a row replaces both.
 `d` now only rescans — it used to launch on everything too.
 
-Physical iOS devices are launched, not built: signing belongs to
-`sigx run:ios --device`, and the tab says so rather than starting a build that
-would fail on provisioning.
+Physical iOS devices build and install like any other target — `sigx dev`
+routes `ios-device` through the same `ensureIosBuilt` path as a simulator. What
+they additionally need is signing, below.
+
+#### Signing a device build
+
+`xcodebuild` needs a `DEVELOPMENT_TEAM`. Set it per-machine rather than in a
+committed config — a Team ID belongs to whoever is building, and an example app
+that ships one is unbuildable on a device for everyone else:
+
+```bash
+SIGX_IOS_DEVELOPMENT_TEAM=AB12CD34EF sigx run:ios --device "My iPad"
+```
+
+It overrides `ios.developmentTeam` from `signalx.config.ts` when both are set,
+and takes part in the prebuild fingerprint, so exporting it re-applies signing
+to an already-prebuilt project. The Team ID that matters is the one Xcode has
+an account for — Xcode → Settings → Accounts. A certificate in the keychain
+without a matching account gives `No Account for Team "…"`.
+
+`SIGX_IOS_BUNDLE_ID` overrides the bundle identifier the same way:
+
+```bash
+SIGX_IOS_DEVELOPMENT_TEAM=AB12CD34EF SIGX_IOS_BUNDLE_ID=com.you.app \
+    sigx run:ios --device "My iPad"
+```
+
+An App ID is **globally unique across all of Apple**, so a shared example app
+cannot ship one that works for everybody: the scaffold's `com.example.<app>`
+placeholder is unregisterable, and any real identifier is claimable exactly
+once, by whoever device-builds first. Everyone else supplies their own here
+rather than editing a tracked file. The device also has to be registered to
+the team — building once from Xcode does that, or add its UDID at
+developer.apple.com.
+
+If a device build fails, read the message: it distinguishes a device that isn't
+ready (unlock it — Xcode mounts the developer disk image on first use after
+enabling Developer Mode or an OS update) from an id xcodebuild couldn't match,
+and only falls back to the signing guess when the output says neither. A device
+whose iOS is *newer* than the installed Xcode cannot be built to at all —
+`xcrun devicectl list devices` shows `connected (no DDI)` — and the fix is a
+newer Xcode.
 
 ### Device logs
 

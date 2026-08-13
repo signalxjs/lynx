@@ -6,6 +6,21 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 ### Fixed
 
+- **`@sigx/lynx-cli`: `run:ios --device` could never build to a physical device** (#1032). Three defects, found by trying it on an iPad and each hidden behind the one before it.
+
+  `listConnectedIosDevices()` reported devicectl's **CoreDevice identifier** (`16B3FA2D-…`) as the device's `udid`, but `xcodebuild -destination id=…` matches only the **hardware UDID** (`00008132-…`) — so every device build died with "Unable to find a device matching the provided destination specifier". `devicectl --device` accepts either, so the hardware UDID is now the one identifier both tools understand.
+
+  Automatic signing was also never allowed to do its job: without `-allowProvisioningUpdates`, xcodebuild refuses to create or refresh a provisioning profile, so a first build to a newly registered device fails with "No profiles for '<bundle id>' were found" even with the team set correctly. Passed for device targets only — a simulator build isn't signed.
+
+  Then the failure said **"Check that a development team is selected in Xcode"** — printed for *any* non-zero xcodebuild exit on a device, including that one, which sent the reader to certificates while the real message sat three lines above. The two device failures worth naming are now named: a device that is connected but whose developer disk image isn't mounted (unlock it and leave it awake), and an id xcodebuild couldn't match. Anything else keeps the signing guess. `run:ios` and `sigx dev` had **two copies** of this logic and now share one helper, so the next fix can't miss one of them.
+
+### Added
+
+- **`@sigx/lynx-cli`: `SIGX_IOS_BUNDLE_ID`** (#1032). An App ID is globally unique across all of Apple, so a shared example app cannot ship one that works for everyone — the scaffold's `com.example.<app>` placeholder is unregisterable by anybody ("The app identifier … cannot be registered to your development team because it is not available"), and any real identifier is claimable exactly once, by whoever device-builds first. The variable rewrites `PRODUCT_BUNDLE_IDENTIFIER` on every prebuild, so a contributor supplies their own without editing a tracked file. Applied like the team override, because the identifier is otherwise a scaffold-time template variable frozen into the generated project.
+
+- **`@sigx/lynx-cli`: `SIGX_IOS_DEVELOPMENT_TEAM`** (#1032). A device build needs a `DEVELOPMENT_TEAM`, and the only way to supply one was `ios.developmentTeam` in `signalx.config.ts` — the wrong place for an identifier personal to whoever is building. `examples/showcase` ships an empty team for exactly that reason, so its device build could not be signed by anyone. The variable overrides the config when set, and **takes part in the prebuild fingerprint**: `applyIosSigningSettings` only runs in the slow path, so without that an exported team was silently ignored on an already-prebuilt project (fingerprint format `v9`).
+
+
 - **`@sigx/lynx-secure-storage`: `requireBiometric` never worked on Android** (#1027, device-found on a Pixel 9 Pro XL). `setItem(key, value, { requireBiometric: true })` failed every time, on every device, with `set failed: IllegalBlockSizeException` — the headline feature of the package, dead on one platform since it shipped, while iOS was fine.
 
   The write encrypted with the very key it was gating: a Keystore AES key created with `setUserAuthenticationRequired(true)`. An auth-bound *symmetric* key demands a fresh authentication for **every** operation, encryption included, and nothing drives a prompt on the write path, so Keystore refused it (`KEY_USER_NOT_AUTHENTICATED`) and `doFinal` reported the refusal as a block-size error.
