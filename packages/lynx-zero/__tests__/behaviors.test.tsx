@@ -153,4 +153,42 @@ describe('overlay portal', () => {
         expect(container.textContent()).not.toContain('owned-overlay');
         expect(container.textContent()).toContain('gone');
     });
+
+    it('an overlay inside another overlay\'s portaled content mounts ONCE (#1051)', async () => {
+        // The outlet renders `{slots.default?.()}{entries.map(…)}` — an array
+        // child beside a sibling. Before @sigx/runtime-core 0.15.4 that array
+        // took a different vnode SHAPE at each length (0 → comment, 1 → the
+        // bare item, 2+ → fragment), so a second overlay opening remounted the
+        // first one. A remounted overlay mints a fresh portal entry, which
+        // churns the stack back across the boundary — a cascade that never
+        // settles (signalxjs/core#658).
+        //
+        // The setup cap is what makes this FAIL rather than hang: the cascade
+        // starves the event loop, so a timeout would never fire.
+        const setups = { inner: 0 };
+        const Inner = component(() => {
+            if (++setups.inner > 5) throw new Error(`nested overlay remount cascade: ${setups.inner} setups`);
+            const portal = useOverlayPortal();
+            effect(() => portal.show(() => <text>inner-overlay</text>));
+            return () => <text>inner-owner</text>;
+        });
+        const Outer = component(() => {
+            const portal = useOverlayPortal();
+            // Stable closure identity, like the real overlays: the point of
+            // the test is the OUTLET's shape, not closure churn.
+            const renderOuter = () => <Inner />;
+            effect(() => portal.show(renderOuter));
+            return () => <text>outer-owner</text>;
+        });
+        const { container } = render(
+            <OverlayHost>
+                <Outer />
+            </OverlayHost>,
+        );
+        await act(() => {});
+        await act(() => {});
+
+        expect(container.textContent()).toContain('inner-overlay');
+        expect(setups.inner).toBe(1);
+    });
 });

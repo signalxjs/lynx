@@ -6,6 +6,14 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 ### Fixed
 
+- **`@sigx/lynx-zero`: an overlay opened inside another overlay's portaled content never settled** (#1051). Opening a popover from inside an open dialog remounted the dialog, which remounted the popover, which minted a fresh portal entry, which remounted the dialog again — a microtask cascade that starved the event loop, so the app didn't misrender, it *stopped*.
+
+  The fault was one shape rule in sigx core, fixed in `@sigx/runtime-core` 0.15.4 (signalxjs/core#658): `normalizeChild` gave an **array child three different vnode shapes depending on its length** — `0 → Comment`, `1 → the bare item vnode`, `2+ → Fragment`. Crossing the 1↔2 boundary therefore changed `vnode.type` at that child position, the reconciler saw a different node, and it unmounted and remounted the whole array. `OverlayHost`'s outlet renders `{slots.default?.()}{registry.entries().map(…)}` — an array child beside a sibling, which is exactly the broken case, and one open overlay is exactly the broken length. The asymmetry that hid this everywhere else: an array rendered as an element's **only** child flattens into the parent's children and was never affected.
+
+  The lockfile moves the core line to 0.15.4; the catalog range stays `^0.15.0` because `verify:catalog` requires a single-minor caret. The guard is a nested-overlay test in `packages/lynx-zero/__tests__/behaviors.test.tsx` that caps the inner component's setup count — the failure mode is a hang, and a hang cannot be caught by a timeout when the loop being starved is the one the timer runs on.
+
+  One visible consequence of the core fix: a single-element array child now carries a fragment anchor, which is a real node on this platform. Nothing renders differently, but a test counting a parent's children will see one more.
+
 - **`@sigx/lynx-cli`: `run:ios --device` could never build to a physical device** (#1032). Three defects, found by trying it on an iPad and each hidden behind the one before it.
 
   `listConnectedIosDevices()` reported devicectl's **CoreDevice identifier** (`16B3FA2D-…`) as the device's `udid`, but `xcodebuild -destination id=…` matches only the **hardware UDID** (`00008132-…`) — so every device build died with "Unable to find a device matching the provided destination specifier". `devicectl --device` accepts either, so the hardware UDID is now the one identifier both tools understand.

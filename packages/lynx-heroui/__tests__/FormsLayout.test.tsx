@@ -77,10 +77,14 @@ describe('hero Divider', () => {
   it('renders line · label · line when given content', () => {
     const { container } = render(<Divider><text>or</text></Divider>);
     const wrapper = container.children[0];
-    // two flanking lines + the label node
-    expect(wrapper.children.length).toBe(3);
+    // A line on each side of the label. Asserted by POSITION (first/last),
+    // not by child count: the label is an array child, and core wraps every
+    // array child in a fragment whose anchor is a real node on this platform
+    // — a count would be asserting the framework's bookkeeping, not the
+    // layout this component promises.
     expect(wrapper.children[0]._class).toContain('hero-divider');
-    expect(wrapper.children[2]._class).toContain('hero-divider');
+    expect(wrapper.children[wrapper.children.length - 1]._class).toContain('hero-divider');
+    expect(wrapper.findByText('or')).toBeTruthy();
   });
 
   it('uses the vertical line class when vertical', () => {
