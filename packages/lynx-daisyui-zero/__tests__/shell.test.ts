@@ -13,6 +13,7 @@
 import { createRequire } from 'node:module';
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { CLASS_GRAMMAR_VERSION } from '@sigx/zero/contract/core';
 import { bakeSwatch, generateThemeData } from '../generate.mjs';
@@ -64,7 +65,8 @@ describe('registry seeding (import side effect)', () => {
 });
 
 describe('shipped artifacts', () => {
-    const dist = join(dirname(new URL(import.meta.url).pathname), '..', 'dist');
+    // fileURLToPath, not URL.pathname — the latter yields "/C:/…" on Windows.
+    const dist = join(dirname(fileURLToPath(import.meta.url)), '..', 'dist');
 
     it('ships the skin compiled lynx CSS under dist/css', () => {
         for (const file of ['css/index.css', 'css/tokens.css']) {
