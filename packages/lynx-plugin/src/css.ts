@@ -103,9 +103,24 @@ export function applyCSS(
             | Record<string, any>
             | undefined;
 
-          // Nothing to clone without a css-loader to re-add — bail rather
-          // than emit a half-configured main-thread rule.
-          if (!cssLoaderRule) return;
+          // A CSS rule with no css-loader is not a shape we can serve: the
+          // main-thread clone exists to swap css-loader for
+          // `exportOnlyLocals`, and without it that layer would end up with no
+          // CSS handling at all. Upstream returns quietly here; we don't —
+          // this whole change exists because a bundler-shape drift silently
+          // no-opped the same surgery, and a second silent skip in the same
+          // function is the last thing this file needs. Fail with the rule
+          // name so the next drift points at itself.
+          if (!cssLoaderRule) {
+            throw new Error(
+              `[@sigx/lynx-plugin] CSS rule "${ruleName}" has no `
+              + `"${CHAIN_ID.USE.CSS}" loader under `
+              + `oneOf("${mainRuleName}"), so the main-thread layer cannot be `
+              + `configured. This usually means the bundler changed its rule `
+              + `shape again — compare against `
+              + `@lynx-js/react-rsbuild-plugin's applyCSS. See #975.`,
+            );
+          }
 
           const mtRule = chain.module
             .rule(`${ruleName}:${LAYERS.MAIN_THREAD}`)
