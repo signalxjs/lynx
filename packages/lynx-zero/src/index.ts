@@ -9,6 +9,17 @@
 // native accessibility mapping).
 export * from './contract/index.js';
 
+// ── Behaviors ────────────────────────────────────────────────────────────
+// Portable zero behaviors + the lynx implementations of the adapter seams
+// (press, dismiss layers, anchored positioning).
+export * from './behaviors/index.js';
+
+// ── Overlays ─────────────────────────────────────────────────────────────
+// The portal substitute: ZeroRoot (theme host + outlet-last container),
+// OverlayHost, useOverlayPortal.
+export type { OverlayPortal, ZeroRootProps } from './overlay/OverlayHost.js';
+export { OverlayHost, ZeroRoot, hasOverlayHost, useOverlayPortal } from './overlay/OverlayHost.js';
+
 // ── The theme engine ─────────────────────────────────────────────────────
 // Selection + follow-system + font scale. Theme VALUES live in the skin's
 // compiled `.zx-root` / `.zx-theme-<name>` CSS; metadata in zero's registry.

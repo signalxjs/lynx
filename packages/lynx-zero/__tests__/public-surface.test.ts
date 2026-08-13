@@ -64,6 +64,28 @@ describe('public runtime exports', () => {
                 // ── lynx seams ──
                 'partA11y',
                 'partBag',
+                // ── behaviors (portable re-exports + lynx implementations) ──
+                'clearDismissLayers',
+                'computeAnchorPosition',
+                'createAnchorPosition',
+                'createControllableState',
+                'createId',
+                'createListController',
+                'createPressFeedback',
+                'dismissTopLayer',
+                'moveHighlight',
+                'openLayerCount',
+                'provideFieldContext',
+                'registerDismissLayer',
+                'segmentOptions',
+                'useFieldContext',
+                'useIdGenerator',
+                'zeroPlugin',
+                // ── overlays ──
+                'OverlayHost',
+                'ZeroRoot',
+                'hasOverlayHost',
+                'useOverlayPortal',
                 // ── theme engine ──
                 'ThemeProvider',
                 'getTheme',
