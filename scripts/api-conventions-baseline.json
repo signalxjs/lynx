@@ -14,7 +14,7 @@
     "lynx-cli": [
         {
             "rule": "C10/unprefixed-throws",
-            "count": 57
+            "count": 56
         }
     ],
     "lynx-sqlite": [

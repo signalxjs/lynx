@@ -1458,7 +1458,7 @@ describe('applyIosBundleIdentifierOverride', () => {
         scaffoldIos(testDir, config);
 
         expect(() => applyIosBundleIdentifierOverride(testDir, config))
-            .toThrow(/SIGX_IOS_BUNDLE_ID must be a reverse-DNS bundle identifier/);
+            .toThrow(/\[@sigx\/lynx-cli\] SIGX_IOS_BUNDLE_ID must be a reverse-DNS bundle identifier/);
     });
 
     it.each([

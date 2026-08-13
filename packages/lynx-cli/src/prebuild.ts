@@ -1559,8 +1559,12 @@ export function writeIosSharedScheme(cwd: string, config: ResolvedConfig): void 
  *
  * The bundle identifier is a *template* variable, rendered once at scaffold
  * time — so on an already-generated project the config value is frozen into
- * `project.pbxproj` and only `--clean` would revisit it. This rewrites it on
- * every prebuild, the way `applyIosSigningSettings` handles the team.
+ * `project.pbxproj` and only `--clean` would revisit it. This rewrites it from
+ * the pbxproj instead, the way `applyIosSigningSettings` handles the team.
+ *
+ * It runs on prebuild's slow path, which the fingerprint fast path can skip
+ * entirely; changing the variable is what forces that path to run, because the
+ * value is folded into the fingerprint.
  *
  * It exists because an App ID is globally unique across all of Apple: the
  * scaffold's `com.example.<app>` placeholder cannot be registered by anyone,
@@ -1582,8 +1586,8 @@ export function applyIosBundleIdentifierOverride(cwd: string, config: ResolvedCo
     const SEGMENT = '[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?';
     if (!new RegExp(`^${SEGMENT}(?:\\.${SEGMENT})+$`).test(bundleId)) {
         throw new Error(
-            `SIGX_IOS_BUNDLE_ID must be a reverse-DNS bundle identifier — two or more ` +
-            `dot-separated segments of letters, digits and inner hyphens ` +
+            `[@sigx/lynx-cli] SIGX_IOS_BUNDLE_ID must be a reverse-DNS bundle identifier — ` +
+            `two or more dot-separated segments of letters, digits and inner hyphens ` +
             `(e.g. "com.example.app"), got: "${bundleId}"`,
         );
     }
