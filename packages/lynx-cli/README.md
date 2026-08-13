@@ -33,9 +33,9 @@ There is no longer an `a` or `i` shortcut. They built and launched on *every*
 device they could find with no way to choose; `Enter` on a row replaces both.
 `d` now only rescans — it used to launch on everything too.
 
-Physical iOS devices are launched, not built: signing belongs to
-`sigx run:ios --device`, and the tab says so rather than starting a build that
-would fail on provisioning.
+Physical iOS devices build and install like any other target — `sigx dev`
+routes `ios-device` through the same `ensureIosBuilt` path as a simulator. What
+they additionally need is signing, below.
 
 #### Signing a device build
 

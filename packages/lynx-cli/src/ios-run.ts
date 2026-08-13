@@ -102,11 +102,18 @@ export function iosBuildArgs(opts: {
 export function createIosDeviceTroubleWatcher() {
     let notReady = false;
     let noDestination = false;
+    let unregisterableBundleId = false;
     return {
         onChunk(chunk: Buffer): void {
             const text = chunk.toString();
             if (/Device is busy|Waiting to reconnect/i.test(text)) notReady = true;
             if (/destination specifier/i.test(text)) noDestination = true;
+            // "…cannot be registered to your development team because it is not
+            // available" / "Failed Registering Bundle Identifier" — device-seen
+            // with the scaffold's `com.example.<app>` placeholder.
+            if (/Registering Bundle Identifier|cannot be registered to your development team/i.test(text)) {
+                unregisterableBundleId = true;
+            }
         },
         /** The most specific explanation the output supports. */
         message(target: { name: string; udid: string }): string {
@@ -121,8 +128,15 @@ export function createIosDeviceTroubleWatcher() {
                     + `(id=${target.udid}). Check \`xcrun xctrace list devices\` — the id must be `
                     + "the hardware UDID, not devicectl's CoreDevice identifier.";
             }
+            if (unregisterableBundleId) {
+                return 'Device build failed: the bundle identifier is not available to your team. '
+                    + 'App IDs are globally unique across Apple, so a shared example app cannot '
+                    + 'ship one that works for everyone — set SIGX_IOS_BUNDLE_ID to something of '
+                    + 'your own (e.g. com.you.app).';
+            }
             return 'Device build failed. Check that a development team is selected in Xcode '
-                + '(Signing & Capabilities), or set SIGX_IOS_DEVELOPMENT_TEAM.';
+                + '(Signing & Capabilities), or set SIGX_IOS_DEVELOPMENT_TEAM. If the identifier '
+                + 'is the problem rather than the team, set SIGX_IOS_BUNDLE_ID.';
         },
     };
 }
