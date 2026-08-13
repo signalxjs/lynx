@@ -131,4 +131,26 @@ describe('overlay portal', () => {
         expect(texts()).not.toContain('overlay-a');
         expect(texts()).toContain('overlay-b');
     });
+
+    it('an owner unmounting while open removes its overlay (no leak)', async () => {
+        const mounted = signal({ owner: true });
+        const Owner = component(() => {
+            const portal = useOverlayPortal();
+            // In an effect, per the documented usage: a show() during the
+            // render pass itself is a lost write in sigx.
+            effect(() => portal.show(() => <text>owned-overlay</text>));
+            return () => <text>owner</text>;
+        });
+        const Gate = component(() => () => (mounted.owner ? <Owner /> : <text>gone</text>));
+        const { container } = render(
+            <OverlayHost>
+                <Gate />
+            </OverlayHost>,
+        );
+        await act(() => {});
+        expect(container.textContent()).toContain('owned-overlay');
+        await act(() => { mounted.owner = false; });
+        expect(container.textContent()).not.toContain('owned-overlay');
+        expect(container.textContent()).toContain('gone');
+    });
 });

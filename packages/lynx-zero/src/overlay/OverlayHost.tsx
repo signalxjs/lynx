@@ -21,7 +21,7 @@
  * than an overlay silently z-fighting in place.
  */
 import type { Define } from '@sigx/lynx';
-import { component, createLogger, defineInjectable, defineProvide, signal } from '@sigx/lynx';
+import { component, createLogger, defineInjectable, defineProvide, onUnmounted, signal } from '@sigx/lynx';
 import type { ThemeProviderProps } from '../theme/ThemeProvider.js';
 import { ThemeProvider } from '../theme/ThemeProvider.js';
 
@@ -61,9 +61,15 @@ function makeRegistry(): OverlayRegistry {
     // Object signal so the entry list is reactive; replaced wholesale on
     // every change (splice-in-place would not notify).
     const stack = signal<{ entries: OverlayEntry[] }>({ entries: [] });
-    return {
-        live: true,
-        show(id, render) {
+    // Mutations are deferred a microtask: an effect's FIRST run executes
+    // inside the mount render pass, where sigx drops signal writes — an
+    // overlay that is open at mount (a dialog rendered open) would silently
+    // never appear. One microtask is sub-frame and makes show()/hide() safe
+    // from any calling context.
+    const defer = (mutate: () => void): void => {
+        queueMicrotask(mutate);
+    };
+    const applyShow = (id: number, render: () => unknown): void => {
             // Update IN PLACE when already open — show() must be idempotent
             // for ordering, because an effect that calls it re-runs on
             // unrelated signal writes (object signals track coarsely) and a
@@ -74,9 +80,16 @@ function makeRegistry(): OverlayRegistry {
             stack.entries = existing === -1
                 ? [...stack.entries, { id, render }]
                 : stack.entries.map((e, i) => (i === existing ? { id, render } : e));
+    };
+    return {
+        live: true,
+        show(id, render) {
+            defer(() => applyShow(id, render));
         },
         hide(id) {
-            stack.entries = stack.entries.filter((e) => e.id !== id);
+            defer(() => {
+                stack.entries = stack.entries.filter((e) => e.id !== id);
+            });
         },
         entries: () => stack.entries,
     };
@@ -104,6 +117,10 @@ export interface OverlayPortal {
 export function useOverlayPortal(): OverlayPortal {
     const registry = useOverlayRegistry();
     const id = nextOverlayId++;
+    // Setup-scoped by contract (like every use*): the unmount hook is what
+    // keeps an overlay from outliving its owner — a component that unmounts
+    // while open must not leak its entry into the outlet forever.
+    onUnmounted(() => registry.hide(id));
     return {
         show: (render) => registry.show(id, render),
         hide: () => registry.hide(id),
@@ -114,6 +131,20 @@ export function useOverlayPortal(): OverlayPortal {
 export function hasOverlayHost(): boolean {
     return useOverlayRegistry().live;
 }
+
+/**
+ * A keyed identity boundary per overlay — no native wrapper element (the
+ * closure's own root renders directly), but reconciliation now tracks each
+ * overlay by its id, so an entry leaving mid-stack cannot make a later
+ * overlay reconcile against the wrong node.
+ */
+type OverlayEntryProps = Define.Prop<'render', () => unknown, true>;
+const OverlayEntryBoundary = component<OverlayEntryProps>(({ props }) => {
+    // The registry stores render closures type-erased (`unknown` — the
+    // authoring components own their JSX); this boundary is the one place
+    // that re-asserts the JSX shape for the runtime.
+    return () => props.render() as never;
+}, { name: 'OverlayEntry' });
 
 type OverlayHostProps = Define.Slot<'default'>;
 
@@ -127,7 +158,9 @@ export const OverlayHost = component<OverlayHostProps>(({ slots }) => {
     return () => (
         <view style={{ position: 'relative', flexGrow: 1, flexShrink: 1, flexBasis: '0%', minHeight: 0 }}>
             {slots.default?.()}
-            {registry.entries().map((entry) => entry.render())}
+            {registry.entries().map((entry) => (
+                <OverlayEntryBoundary key={entry.id} render={entry.render} />
+            ))}
         </view>
     );
 }, { name: 'OverlayHost' });
