@@ -91,8 +91,15 @@ describe('public runtime exports', () => {
                 'partAxes',
                 'provideVariantAxes',
                 'useVariantAxes',
+                // ── components (pilot wave 2 — overlays) ──
+                'Dialog',
+                'Popover',
+                'Toast',
+                'createToaster',
+                'provideToaster',
                 // ── overlays ──
                 'OverlayHost',
+                'PortalScope',
                 'ZeroRoot',
                 'hasOverlayHost',
                 'useOverlayPortal',

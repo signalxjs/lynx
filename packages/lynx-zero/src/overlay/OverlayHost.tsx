@@ -12,9 +12,21 @@
  * registration order — later registration paints on top, which matches the
  * dismiss stack's innermost-first order by construction.
  *
- * Context flows lexically: the closure is created at the usage site, so the
- * injections it reads resolved there — a Dialog's own provided context
- * reaches its portaled popup without any re-providing machinery.
+ * Context flows lexically for the CLOSURE'S OWN reads — values captured at
+ * the usage site work untouched. But components RENDERED BY the closure
+ * (a Dialog.Close inside the popup) are new instances mounted under the
+ * outlet, and their injections resolve against the OUTLET's provider chain
+ * — the inert defaults. `PortalScope` closes that gap: the overlay captures
+ * its contexts in setup and re-provides them inside the portal, so slot
+ * content resolves exactly what it would have in place.
+ *
+ * KNOWN LIMITATION (signalxjs/lynx#1051): an overlay component rendered
+ * INSIDE another overlay's portaled content remounts on every outlet
+ * re-render (the stored closure re-executes into fresh vnodes and the
+ * reconciler does not preserve its component instances), which cascades
+ * into a microtask loop. Until the reconciliation question is settled in
+ * sigx core, nest the INNER overlay's Root outside the outer's Popup slot,
+ * or drive it from state hoisted above the outer overlay.
  *
  * Without a mounted host, `show()` warns in dev and renders nothing — the
  * failure is loud and names the fix (wrap the app in `<ZeroRoot>`), rather
@@ -164,6 +176,23 @@ export const OverlayHost = component<OverlayHostProps>(({ slots }) => {
         </view>
     );
 }, { name: 'OverlayHost' });
+
+export type PortalScopeProps =
+    /** Runs in THIS component's setup — call defineProvide/provide* here. */
+    & Define.Prop<'setup', () => void, true>
+    & Define.Prop<'render', () => unknown, true>;
+
+/**
+ * The context bridge for portaled slot content: an overlay captures what its
+ * subtree needs (its own context object, the variant axes) and re-provides
+ * it here, INSIDE the portal, so components rendered by the closure resolve
+ * the same injections they would have in place.
+ */
+export const PortalScope = component<PortalScopeProps>(({ props }) => {
+    props.setup();
+    // Type-erased like OverlayEntryBoundary — the slot owns its JSX.
+    return () => props.render() as never;
+}, { name: 'PortalScope' });
 
 export type ZeroRootProps = ThemeProviderProps;
 

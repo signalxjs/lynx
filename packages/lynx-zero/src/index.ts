@@ -18,7 +18,7 @@ export * from './behaviors/index.js';
 // The portal substitute: ZeroRoot (theme host + outlet-last container),
 // OverlayHost, useOverlayPortal.
 export type { OverlayPortal, ZeroRootProps } from './overlay/OverlayHost.js';
-export { OverlayHost, ZeroRoot, hasOverlayHost, useOverlayPortal } from './overlay/OverlayHost.js';
+export { OverlayHost, PortalScope, ZeroRoot, hasOverlayHost, useOverlayPortal } from './overlay/OverlayHost.js';
 
 // ── Components (pilot wave 1) ────────────────────────────────────────────
 export type { ProgressRootProps } from './components/progress/Progress.js';
@@ -31,6 +31,14 @@ export type { PanelProps, TabProps, TabsRootProps } from './components/tabs/Tabs
 export { Tabs } from './components/tabs/Tabs.js';
 export type { AccordionItemProps, AccordionRootProps } from './components/accordion/Accordion.js';
 export { Accordion } from './components/accordion/Accordion.js';
+
+// ── Components (pilot wave 2 — overlays) ────────────────────────────────
+export type { DialogRootProps } from './components/dialog/Dialog.js';
+export { Dialog } from './components/dialog/Dialog.js';
+export type { PopoverRootProps } from './components/popover/Popover.js';
+export { Popover } from './components/popover/Popover.js';
+export type { ToastItem, ToastOptions, ToastPlacement, ToastViewportProps, Toaster } from './components/toast/Toast.js';
+export { Toast, createToaster, provideToaster } from './components/toast/Toast.js';
 
 // ── Axis push-down ───────────────────────────────────────────────────────
 export type { VariantAxes } from './contract/axes-context.js';
