@@ -1445,6 +1445,7 @@ describe('applyIosBundleIdentifierOverride', () => {
     });
 
     it('is a no-op when the variable is unset', () => {
+        vi.stubEnv('SIGX_IOS_BUNDLE_ID', '');
         const config = resolveConfig(TEST_CONFIG);
         scaffoldIos(testDir, config);
         const before = readFileSync(pbxprojPath(testDir), 'utf-8');
@@ -1982,6 +1983,9 @@ describe('iosBundleIdOverride', () => {
     });
 
     it('is undefined when unset or blank, so config wins', () => {
+        // Stubbed rather than trusting the ambient environment: a developer
+        // (or CI) with SIGX_IOS_BUNDLE_ID exported would otherwise fail this.
+        vi.stubEnv('SIGX_IOS_BUNDLE_ID', '');
         expect(iosBundleIdOverride()).toBeUndefined();
         vi.stubEnv('SIGX_IOS_BUNDLE_ID', '   ');
         expect(iosBundleIdOverride()).toBeUndefined();

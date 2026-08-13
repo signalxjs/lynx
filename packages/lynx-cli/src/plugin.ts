@@ -92,7 +92,7 @@ export default definePlugin({
                 // `pnpm prebuild` step.
                 if (!hasAndroid && !hasIos && isLynxProject(ctx.cwd)) {
                     ctx.logger.log('First-time setup: no android/ or ios/ folder found — running prebuild...');
-                    const { runPrebuild, iosBundleIdOverride } = await import('./prebuild.js');
+                    const { runPrebuild } = await import('./prebuild.js');
                     await runPrebuild({ cwd: ctx.cwd, variant });
                     hasAndroid = existsSync(androidDir);
                     hasIos = existsSync(iosDir) && process.platform === 'darwin';
