@@ -91,11 +91,12 @@ export function iosBuildArgs(opts: {
 }
 
 /**
- * Watch xcodebuild's output for the two device failures worth naming.
+ * Watch xcodebuild's output for the device failures worth naming, and pick the
+ * most specific explanation the output supports.
  *
  * The build runner rejects with a bare "exited with code N", so the reason has
- * to be caught as it streams past. Both of these were hit on a connected iPad
- * and neither is about signing, which is all the old blanket message said
+ * to be caught as it streams past. Every case here was hit on a connected iPad
+ * and none is about signing, which is all the old blanket message said
  * (#1032). Shared because `run:ios` and `sigx dev` each drive their own
  * xcodebuild.
  */
