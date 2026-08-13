@@ -17,8 +17,9 @@
  * rendered class list carries exactly that set (consumer extras allowed —
  * they are not in the `zx-` namespace).
  */
-import type { Anatomy, ElementLike, ExpectAnatomyOptions } from '@sigx/zero/testing';
+import type { ElementLike, ExpectAnatomyOptions } from '@sigx/zero/testing';
 import { expectAnatomyElements } from '@sigx/zero/testing';
+import type { Anatomy } from '@sigx/zero/contract/core';
 import {
     FLAG_VOCABULARY,
     MOD_ATTR_PREFIX,
