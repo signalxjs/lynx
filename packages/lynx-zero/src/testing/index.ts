@@ -97,7 +97,7 @@ export function expectClassGrammar(root: TestNode, anatomy: Anatomy, options: Ex
     const nodes: NodeLike[] = [];
     collect(root as unknown as NodeLike, anatomy.scope, nodes);
     if (nodes.length === 0) {
-        throw new Error(`[lynx-zero] expectClassGrammar(${anatomy.scope}): no parts rendered for this scope`);
+        throw new Error(`[@sigx/lynx-zero] expectClassGrammar(${anatomy.scope}): no parts rendered for this scope`);
     }
     const customAxisAttrs = new Set((options.axes ?? []).map((axis) => `data-${axis}`));
 
@@ -127,7 +127,7 @@ export function expectClassGrammar(root: TestNode, anatomy: Anatomy, options: Ex
         const extra = [...rendered].filter((cls) => !expected.has(cls));
         if (missing.length > 0 || extra.length > 0) {
             throw new Error(
-                `[lynx-zero] expectClassGrammar(${anatomy.scope}): part "${part}" classes disagree with its data attributes`
+                `[@sigx/lynx-zero] expectClassGrammar(${anatomy.scope}): part "${part}" classes disagree with its data attributes`
                 + (missing.length ? ` — missing: ${missing.join(', ')}` : '')
                 + (extra.length ? ` — unexpected: ${extra.join(', ')}` : ''),
             );
