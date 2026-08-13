@@ -20,14 +20,6 @@
  * its contexts in setup and re-provides them inside the portal, so slot
  * content resolves exactly what it would have in place.
  *
- * KNOWN LIMITATION (signalxjs/lynx#1051): an overlay component rendered
- * INSIDE another overlay's portaled content remounts on every outlet
- * re-render (the stored closure re-executes into fresh vnodes and the
- * reconciler does not preserve its component instances), which cascades
- * into a microtask loop. Until the reconciliation question is settled in
- * sigx core, nest the INNER overlay's Root outside the outer's Popup slot,
- * or drive it from state hoisted above the outer overlay.
- *
  * Without a mounted host, `show()` warns in dev and renders nothing — the
  * failure is loud and names the fix (wrap the app in `<ZeroRoot>`), rather
  * than an overlay silently z-fighting in place.

@@ -121,12 +121,50 @@ describe('Popover', () => {
         expect(byPart(container, 'popover', 'popup')).toBeNull();
     });
 
-    // An overlay Root INSIDE another overlay's portaled slot remounts on
-    // every outlet turn and cascades (signalxjs/lynx#1051 — a sigx-core
-    // reconciliation question). Until settled, the inner overlay's Root
-    // lives OUTSIDE the outer's Popup slot; innermost-first dismissal is
-    // already covered at the behavior layer (behaviors.test.tsx).
-    it.todo('nested inside a dialog dismisses innermost-first (blocked on signalxjs/lynx#1051)');
+    // The component-level proof that nesting works end-to-end after the
+    // normalizeChild fix (signalxjs/core#658, core 0.15.4): a Popover whose
+    // Root lives INSIDE a Dialog's portaled Popup slot mounts through the
+    // PortalScope bridge without cascading, and the layer stack dismisses
+    // innermost-first. (The setup-count guard against the old remount
+    // cascade lives in behaviors.test.tsx.)
+    it('nested inside a dialog dismisses innermost-first', async () => {
+        const { container } = render(
+            <OverlayHost>
+                <Dialog.Root defaultOpen>
+                    <Dialog.Popup>
+                        <Dialog.Title>Outer</Dialog.Title>
+                        <Popover.Root>
+                            <Popover.Trigger><text>More</text></Popover.Trigger>
+                            <Popover.Popup>
+                                <Popover.Title>Inner</Popover.Title>
+                            </Popover.Popup>
+                        </Popover.Root>
+                    </Dialog.Popup>
+                </Dialog.Root>
+            </OverlayHost>,
+        );
+        await act(() => {});
+        expect(byPart(container, 'dialog', 'popup')).not.toBeNull();
+
+        // The popover's trigger is itself portaled slot content — opening it
+        // from inside the dialog is the nesting that used to cascade.
+        const trigger = byPart(container, 'popover', 'trigger')!;
+        await act(() => fireEvent.tap(trigger as never));
+        await act(() => {});
+        expect(byPart(container, 'popover', 'popup')).not.toBeNull();
+        expect(byPart(container, 'dialog', 'popup')).not.toBeNull();
+
+        // Innermost-first: the popover registered its layer after the
+        // dialog, so it consumes the first dismiss; the dialog the second.
+        expect(dismissTopLayer()).toBe(true);
+        await act(() => {});
+        expect(byPart(container, 'popover', 'popup')).toBeNull();
+        expect(byPart(container, 'dialog', 'popup')).not.toBeNull();
+
+        expect(dismissTopLayer()).toBe(true);
+        await act(() => {});
+        expect(byPart(container, 'dialog', 'popup')).toBeNull();
+    });
 });
 
 describe('Toast', () => {
