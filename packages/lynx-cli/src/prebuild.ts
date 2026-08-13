@@ -1572,13 +1572,19 @@ export function applyIosBundleIdentifierOverride(cwd: string, config: ResolvedCo
     const bundleId = process.env['SIGX_IOS_BUNDLE_ID']?.trim();
     if (!bundleId) return;
 
-    // Spliced raw into project.pbxproj, so validate rather than trust: reverse
-    // DNS characters only, no quotes, semicolons or whitespace that could
-    // smuggle in additional build settings.
-    if (!/^[A-Za-z0-9][A-Za-z0-9.-]*$/.test(bundleId)) {
+    // Spliced raw into project.pbxproj, so validate rather than trust — no
+    // quotes, semicolons or whitespace that could smuggle in extra build
+    // settings. Shaped as reverse DNS rather than merely "legal characters":
+    // two or more dot-separated segments, each starting and ending
+    // alphanumeric with hyphens allowed inside. `foo`, `com..app` and
+    // `com.app.` are all rejected here instead of surviving to Xcode, which
+    // reports them far less helpfully.
+    const SEGMENT = '[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?';
+    if (!new RegExp(`^${SEGMENT}(?:\\.${SEGMENT})+$`).test(bundleId)) {
         throw new Error(
-            `SIGX_IOS_BUNDLE_ID must be a reverse-DNS bundle identifier ` +
-            `(letters, digits, dots and hyphens), got: "${bundleId}"`,
+            `SIGX_IOS_BUNDLE_ID must be a reverse-DNS bundle identifier — two or more ` +
+            `dot-separated segments of letters, digits and inner hyphens ` +
+            `(e.g. "com.example.app"), got: "${bundleId}"`,
         );
     }
 

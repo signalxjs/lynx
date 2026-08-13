@@ -1460,6 +1460,39 @@ describe('applyIosBundleIdentifierOverride', () => {
         expect(() => applyIosBundleIdentifierOverride(testDir, config))
             .toThrow(/SIGX_IOS_BUNDLE_ID must be a reverse-DNS bundle identifier/);
     });
+
+    it.each([
+        ['a single segment', 'showcase'],
+        ['an empty segment', 'com..app'],
+        ['a trailing dot', 'com.app.'],
+        ['a leading dot', '.com.app'],
+        ['a segment ending in a hyphen', 'com.app-.thing'],
+    ])('rejects %s rather than letting Xcode report it', (_case, id) => {
+        // Each of these is legal-looking enough to pass a character-class
+        // check and then fail deep inside signing, where the message is far
+        // less actionable.
+        vi.stubEnv('SIGX_IOS_BUNDLE_ID', id);
+        const config = resolveConfig(TEST_CONFIG);
+        scaffoldIos(testDir, config);
+
+        expect(() => applyIosBundleIdentifierOverride(testDir, config))
+            .toThrow(/reverse-DNS bundle identifier/);
+    });
+
+    it.each([
+        ['a plain reverse-DNS id', 'com.example.app'],
+        ['inner hyphens', 'se.my-org.my-app'],
+        ['digits in segments', 'se.andii.sigx.showcase1'],
+        ['two segments', 'dev.sigx'],
+    ])('accepts %s', (_case, id) => {
+        vi.stubEnv('SIGX_IOS_BUNDLE_ID', id);
+        const config = resolveConfig(TEST_CONFIG);
+        scaffoldIos(testDir, config);
+        applyIosBundleIdentifierOverride(testDir, config);
+
+        expect(readFileSync(pbxprojPath(testDir), 'utf-8'))
+            .toContain(`PRODUCT_BUNDLE_IDENTIFIER = ${id};`);
+    });
 });
 
 describe('applyIosSigningSettings — validation', () => {
