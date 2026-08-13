@@ -81,15 +81,16 @@ describe('Dialog', () => {
             </OverlayHost>,
         );
         await act(() => {});
-        const backdrop = byPart(container, 'toast', 'viewport') === null
-            ? byPart(container, 'dialog', 'backdrop')!
-            : null!;
+        const backdrop = byPart(container, 'dialog', 'backdrop')!;
         await act(() => fireEvent.tap(backdrop as never));
         await act(() => {});
         expect(byPart(container, 'dialog', 'popup')).not.toBeNull();
         // The layer stack still consumes a dismiss request (a back button
-        // must not navigate while a modal is up) — but the dialog decides.
+        // must not navigate while a modal is up) — but the dialog decides,
+        // and deciding "no" means the popup STAYS UP after the consume.
         expect(dismissTopLayer()).toBe(true);
+        await act(() => {});
+        expect(byPart(container, 'dialog', 'popup')).not.toBeNull();
     });
 });
 

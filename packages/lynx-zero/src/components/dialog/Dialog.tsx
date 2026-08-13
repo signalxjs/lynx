@@ -25,7 +25,7 @@ import { partA11y } from '../../contract/a11y.js';
 import type { VariantAxes } from '../../contract/axes-context.js';
 import { partAxes, provideVariantAxes, useVariantAxes } from '../../contract/axes-context.js';
 import { createPressFeedback } from '../../behaviors/press.js';
-import { registerDismissLayer } from '../../behaviors/dismiss.js';
+import { dismissTopLayer, registerDismissLayer } from '../../behaviors/dismiss.js';
 import { PortalScope, useOverlayPortal } from '../../overlay/OverlayHost.js';
 
 const anatomy = anatomies.dialog;
@@ -120,14 +120,21 @@ const DialogPopup = component<PopupProps>(({ props, slots }) => {
 
     effect(() => {
         if (dialog.open()) {
-            unregister ??= registerDismissLayer({ dismiss: () => dialog.setOpen(false) });
+            // The layer CONSUMES every dismiss request (a back button must
+            // not navigate while a modal is up) — but the dialog decides
+            // whether consuming means closing.
+            unregister ??= registerDismissLayer({
+                dismiss: () => {
+                    if (dialog.dismissible()) dialog.setOpen(false);
+                },
+            });
             portal.show(() => (
                 <view
                     {...partBag(anatomy, 'backdrop', { state: 'open', ...partAxes(axes()) })}
                     style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
-                    bindtap={() => {
-                        if (dialog.dismissible()) dialog.setOpen(false);
-                    }}
+                    // Route through the stack, not straight to setOpen: the
+                    // innermost layer owns the gesture (dismiss.ts's contract).
+                    bindtap={() => dismissTopLayer()}
                 >
                     <view
                         {...partBag(anatomy, 'popup', { state: 'open', ...partAxes(axes()), class: props.class })}

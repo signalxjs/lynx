@@ -18,7 +18,7 @@ import { partA11y } from '../../contract/a11y.js';
 import type { VariantAxes } from '../../contract/axes-context.js';
 import { partAxes, provideVariantAxes, useVariantAxes } from '../../contract/axes-context.js';
 import { createPressFeedback } from '../../behaviors/press.js';
-import { registerDismissLayer } from '../../behaviors/dismiss.js';
+import { dismissTopLayer, registerDismissLayer } from '../../behaviors/dismiss.js';
 import type { LynxAnchorPosition, LynxPlacement } from '../../behaviors/position.js';
 import { createAnchorPosition } from '../../behaviors/position.js';
 import { PortalScope, useOverlayPortal } from '../../overlay/OverlayHost.js';
@@ -119,9 +119,11 @@ const PopoverPopup = component<PopupProps>(({ props, slots }) => {
             portal.show(() => (
                 <view
                     // The transparent outside surface — light dismiss lives
-                    // on the overlay itself on this platform.
+                    // on the overlay itself on this platform, and it routes
+                    // through the stack so the INNERMOST layer owns the
+                    // gesture (dismiss.ts's contract).
                     style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
-                    bindtap={() => popover.setOpen(false)}
+                    bindtap={() => dismissTopLayer()}
                 >
                     <view
                         {...partBag(anatomy, 'popup', {

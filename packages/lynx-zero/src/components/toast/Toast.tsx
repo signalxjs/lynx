@@ -62,6 +62,36 @@ export function provideToaster(toaster: Toaster): void {
     defineProvide(useToaster, () => toaster);
 }
 
+type ToastCardProps =
+    & Define.Prop<'toast', ToastItem, true>
+    & Define.Prop<'placement', ToastPlacement, true>
+    & Define.Prop<'onDismiss', () => void, true>;
+
+/**
+ * One toast — a real component so each close button owns its own press
+ * feedback (a shared instance would light up EVERY close part when one is
+ * pressed).
+ */
+const ToastCard = component<ToastCardProps>(({ props }) => {
+    const close = createPressFeedback();
+    return () => (
+        <view {...partBag(anatomy, 'root', { state: 'open', placement: props.placement })}>
+            <text {...partBag(anatomy, 'title', {})}>{props.toast.title}</text>
+            {props.toast.description
+                ? <text {...partBag(anatomy, 'description', {})}>{props.toast.description}</text>
+                : null}
+            <view
+                {...partBag(anatomy, 'close', { flags: { pressed: close.pressed() } })}
+                {...partA11y({ trait: 'button', label: 'Dismiss' })}
+                bindtap={() => props.onDismiss()}
+                {...close.handlers}
+            >
+                <text>×</text>
+            </view>
+        </view>
+    );
+}, { name: 'Toast.Card' });
+
 export type ToastViewportProps =
     & Define.Prop<'placement', ToastPlacement, false>
     /** The store to render. Defaults to the injected/ambient one. */
@@ -73,7 +103,6 @@ const ToastViewport = component<ToastViewportProps>(({ props }) => {
     const toaster = () => props.toaster ?? ambient;
     const placement = (): ToastPlacement => props.placement ?? 'bottom';
     const portal = useOverlayPortal();
-    const close = createPressFeedback();
 
     const edge = (): Record<string, string | number> => {
         const p = placement();
@@ -95,20 +124,12 @@ const ToastViewport = component<ToastViewportProps>(({ props }) => {
         portal.show(() => (
             <view {...partBag(anatomy, 'viewport', { placement: placement(), class: props.class })} style={edge()}>
                 {items.map((toast) => (
-                    <view key={toast.id} {...partBag(anatomy, 'root', { state: 'open', placement: placement() })}>
-                        <text {...partBag(anatomy, 'title', {})}>{toast.title}</text>
-                        {toast.description
-                            ? <text {...partBag(anatomy, 'description', {})}>{toast.description}</text>
-                            : null}
-                        <view
-                            {...partBag(anatomy, 'close', { flags: { pressed: close.pressed() } })}
-                            {...partA11y({ trait: 'button', label: 'Dismiss' })}
-                            bindtap={() => toaster().dismiss(toast.id)}
-                            {...close.handlers}
-                        >
-                            <text>×</text>
-                        </view>
-                    </view>
+                    <ToastCard
+                        key={toast.id}
+                        toast={toast}
+                        placement={placement()}
+                        onDismiss={() => toaster().dismiss(toast.id)}
+                    />
                 ))}
             </view>
         ));
