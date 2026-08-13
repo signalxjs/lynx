@@ -7,16 +7,16 @@
 // repository root governs the rest of this repository; it does NOT apply
 // to this file.
 //
-// TS port of `@lynx-js/react@0.119.0`'s
-// `runtime/lib/gesture/processGesture.js`. Source preserved verbatim; only
-// types added. Upstream moved the file to
-// `runtime/lib/snapshot/gesture/processGesture.js` by 0.123.3, and it is
-// still not reachable from any entry in the package's `exports` map — so
-// this stays vendored (re-checked for #975; the same check is the one to
-// repeat before deleting it). Why vendor: upstream's `gesture/processGesture.js` is the
-// canonical platform-call sequence used by `@lynx-js/react`'s snapshot
-// pipeline. Calling our hand-rolled equivalent on a real device shows the
-// gesture arena doesn't engage; vendoring eliminates any subtle divergence.
+// TS port of `@lynx-js/react@0.119.0`'s `runtime/lib/gesture/processGesture.js`
+// (upstream relocated it to `runtime/lib/snapshot/gesture/processGesture.js`
+// by 0.123.3). Source preserved verbatim; only types added.
+//
+// Why vendor: that file is the canonical platform-call sequence used by
+// `@lynx-js/react`'s snapshot pipeline. Calling our hand-rolled equivalent on
+// a real device shows the gesture arena doesn't engage; vendoring eliminates
+// any subtle divergence. It stays vendored because it is reachable from no
+// entry in the package's `exports` map — re-checked at 0.123.3 for #975, and
+// that is the check to repeat before deleting this file.
 //
 // Sigx-specific deltas:
 //   - `dom` is sigx's raw `MainThreadElement`, not a SnapshotInstance member.
