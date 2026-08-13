@@ -80,7 +80,16 @@ export function applyCSS(
           const mainRuleName = ruleName === CHAIN_ID.RULE.CSS
             ? CHAIN_ID.ONE_OF.CSS_MAIN
             : ruleName;
-          const mainRule = rule.oneOf(mainRuleName);
+          // Only descend into a `oneOf` that actually exists. `oneOf(name)`
+          // CREATES the child when absent, so assuming the nesting would
+          // silently build an empty sub-rule and configure nothing — the same
+          // failure this port is fixing. rsbuild 2 nests `css`; whether the
+          // sass/less/stylus plugins do is not something this repo can
+          // observe (none of them are installed), and a consumer that adds
+          // one gets whichever shape their plugin actually produces.
+          const mainRule = rule.oneOfs.has(mainRuleName)
+            ? rule.oneOf(mainRuleName)
+            : rule;
           const parentRuleEntries = rule.entries() as Record<string, any>;
 
           // Remove lightningcss-loader — Lynx processes CSS natively.
@@ -160,10 +169,11 @@ export function applyCSS(
           const inlineRuleName = ruleName === CHAIN_ID.RULE.CSS
             ? CHAIN_ID.ONE_OF.CSS_INLINE
             : `${ruleName}-inline`;
-          removeLightningCSS(
-            chain.module.rule(ruleName).oneOf(inlineRuleName),
-            CHAIN_ID,
-          );
+          const parent = chain.module.rule(ruleName);
+          // Same reasoning as above — don't conjure a `oneOf` that isn't there.
+          if (parent.oneOfs.has(inlineRuleName)) {
+            removeLightningCSS(parent.oneOf(inlineRuleName), CHAIN_ID);
+          }
         });
 
       // ③ Replace the CssExtract plugin instance with the Lynx-aware one
