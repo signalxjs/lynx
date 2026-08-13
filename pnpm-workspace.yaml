@@ -26,6 +26,12 @@ overrides:
 catalog:
   "@sigx/reactivity": ^0.15.0
   "@sigx/runtime-core": ^0.15.0
+  # The zero contract the new design-system stack builds on (signalxjs/lynx#1029):
+  # anatomies, vocabularies, the class grammar, the portable behavior subset.
+  # Exact beta pin while zero is pre-1.0 — its contract moves in lockstep with
+  # the lynx-target emitters in @sigx/zero-kit, so a range would let the two
+  # sides drift. Bump deliberately, here, once.
+  "@sigx/zero": 0.2.0-beta.1
   # Tilde, not caret: @lynx-js/types tracks the engine line, and 4.1.0 already
   # describes an engine (4.1) that only exists as a nightly. Keep the types on
   # the 4.0.x line the CLI templates actually pin.

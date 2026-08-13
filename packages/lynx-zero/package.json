@@ -1,0 +1,73 @@
+{
+    "name": "@sigx/lynx-zero",
+    "version": "0.27.0",
+    "description": "Design-system-neutral UI foundation for SignalX Lynx on the zero contract — anatomy-carrying parts, the class grammar, and the theme engine the compiled skins target (signalxjs/lynx#1029)",
+    "type": "module",
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.ts",
+            "import": "./dist/index.js"
+        },
+        "./screen-theme": {
+            "types": "./dist/theme/use-screen-theme.d.ts",
+            "import": "./dist/theme/use-screen-theme.js"
+        }
+    },
+    "files": [
+        "src",
+        "dist"
+    ],
+    "scripts": {
+        "build": "node ../../scripts/clean.mjs dist && tsgo",
+        "dev": "tsgo --watch",
+        "prepublishOnly": "node ../../scripts/clean.mjs dist && tsgo",
+        "clean": "node ../../scripts/clean.mjs dist .turbo",
+        "test": "vitest run"
+    },
+    "peerDependencies": {
+        "@sigx/lynx-navigation": "workspace:^"
+    },
+    "peerDependenciesMeta": {
+        "@sigx/lynx-navigation": {
+            "optional": true
+        }
+    },
+    "dependencies": {
+        "@sigx/lynx": "workspace:^",
+        "@sigx/lynx-appearance": "workspace:^",
+        "@sigx/zero": "catalog:"
+    },
+    "devDependencies": {
+        "@sigx/lynx-navigation": "workspace:^",
+        "@sigx/lynx-testing": "workspace:^",
+        "@typescript/native-preview": "7.0.0-dev.20260521.1",
+        "typescript": "^6.0.3"
+    },
+    "publishConfig": {
+        "access": "public"
+    },
+    "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/signalxjs/lynx.git",
+        "directory": "packages/lynx-zero"
+    },
+    "sideEffects": false,
+    "keywords": [
+        "sigx",
+        "lynx",
+        "ui",
+        "design-system",
+        "headless",
+        "tokens",
+        "zero",
+        "anatomy"
+    ],
+    "author": "Andreas Ekdahl",
+    "homepage": "https://sigx.dev/lynx/modules/zero/overview/",
+    "bugs": {
+        "url": "https://github.com/signalxjs/lynx/issues"
+    }
+}
