@@ -17,9 +17,8 @@ const conforms = (container: never, scope: keyof typeof anatomies): void => {
 
 describe('Progress', () => {
     it('maps value to state and range width; conforms in each', () => {
-        const value = signal({ current: null as number | null });
         const { container } = render(
-            <Progress.Root value={value.current} max={100} color="primary" size="md">
+            <Progress.Root value={null} max={100} color="primary" size="md">
                 <Progress.Label>Loading</Progress.Label>
                 <Progress.Track>
                     <Progress.Range />
@@ -29,17 +28,12 @@ describe('Progress', () => {
         );
         expect(container.findByText('Loading')).not.toBeNull();
         conforms(container as never, 'progress');
-        const root = () => container.findAll?.('[data-scope]') ?? null;
-        expect(JSON.stringify(container.props)).toBeDefined();
-        // indeterminate at null…
+        // indeterminate at null
         expect(String(container.children[0]!.props['data-state'])).toBe('indeterminate');
     });
 
     it('loading and complete states', async () => {
-        const { container, rerender } = render(<Progress.Root value={40} />) as never as {
-            container: import('@sigx/lynx-testing').TestNode;
-            rerender?: unknown;
-        };
+        const { container } = render(<Progress.Root value={40} />);
         expect(String(container.children[0]!.props['data-state'])).toBe('loading');
         conforms(container as never, 'progress');
     });
