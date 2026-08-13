@@ -31,13 +31,16 @@ import {
     placementClass,
     stateClass,
 } from '@sigx/zero/contract/core';
-import type { TestNode } from '@sigx/lynx-testing';
-
-/** The TestNode slice the wrappers read — structural, no class import needed. */
-interface NodeLike {
+/**
+ * The rendered-node slice the oracles read — STRUCTURAL on purpose, so this
+ * subpath carries no type dependency on `@sigx/lynx-testing`:
+ * `TestNode` satisfies it as-is, and so would any renderer with the same
+ * tree shape.
+ */
+export interface ConformanceNode {
     props: Record<string, unknown>;
-    children: NodeLike[];
-    parent: NodeLike | null;
+    children: ConformanceNode[];
+    parent: ConformanceNode | null;
     _class?: string;
 }
 
@@ -52,7 +55,7 @@ function attributeValue(raw: unknown): string | null {
     return String(raw);
 }
 
-function wrap(node: NodeLike): ElementLike {
+function wrap(node: ConformanceNode): ElementLike {
     return {
         getAttribute: (name) => attributeValue(node.props[name]),
         getAttributeNames: () =>
@@ -61,7 +64,7 @@ function wrap(node: NodeLike): ElementLike {
     };
 }
 
-function collect(node: NodeLike, scope: string, out: NodeLike[]): void {
+function collect(node: ConformanceNode, scope: string, out: ConformanceNode[]): void {
     if (attributeValue(node.props['data-scope']) === scope) out.push(node);
     for (const child of node.children) collect(child, scope, out);
 }
@@ -70,9 +73,9 @@ function collect(node: NodeLike, scope: string, out: NodeLike[]): void {
  * Zero's anatomy oracle over a rendered TestNode tree — pass the `container`
  * from `@sigx/lynx-testing`'s `render()` (or any subtree root).
  */
-export function expectAnatomy(root: TestNode, anatomy: Anatomy, options: ExpectAnatomyOptions = {}): void {
-    const nodes: NodeLike[] = [];
-    collect(root as unknown as NodeLike, anatomy.scope, nodes);
+export function expectAnatomy(root: ConformanceNode, anatomy: Anatomy, options: ExpectAnatomyOptions = {}): void {
+    const nodes: ConformanceNode[] = [];
+    collect(root, anatomy.scope, nodes);
     expectAnatomyElements(nodes.map(wrap), anatomy, options);
 }
 
@@ -93,9 +96,9 @@ const FLAGS = new Set<string>(FLAG_VOCABULARY);
  * Throws a plain `Error` like the anatomy oracle, so it runs under any test
  * runner.
  */
-export function expectClassGrammar(root: TestNode, anatomy: Anatomy, options: ExpectClassGrammarOptions = {}): void {
-    const nodes: NodeLike[] = [];
-    collect(root as unknown as NodeLike, anatomy.scope, nodes);
+export function expectClassGrammar(root: ConformanceNode, anatomy: Anatomy, options: ExpectClassGrammarOptions = {}): void {
+    const nodes: ConformanceNode[] = [];
+    collect(root, anatomy.scope, nodes);
     if (nodes.length === 0) {
         throw new Error(`[@sigx/lynx-zero] expectClassGrammar(${anatomy.scope}): no parts rendered for this scope`);
     }
