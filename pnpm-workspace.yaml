@@ -24,6 +24,16 @@ overrides:
 # NOTE: `scripts/check-catalog.mjs` only guards the `@sigx` core names, so
 # these entries are not CI-enforced — keep them honest by hand.
 catalog:
+  # The range stays a single-minor caret (`verify:catalog` requires it), so
+  # the LOCKFILE is what pins the patch — and it must not drift back below
+  # 0.15.4. Before that release `normalizeChild` gave an array child three
+  # different vnode shapes by length (0 → Comment, 1 → the bare item,
+  # 2+ → Fragment), so any `{list.map(…)}` rendered BESIDE a sibling
+  # remounted every item when the list crossed one entry. lynx-zero's
+  # overlay outlet is exactly that shape, and a nested overlay turned the
+  # remount into a non-terminating microtask cascade (signalxjs/core#658,
+  # signalxjs/lynx#1051). The guard is the nested-overlay test in
+  # packages/lynx-zero/__tests__/behaviors.test.tsx.
   "@sigx/reactivity": ^0.15.0
   "@sigx/runtime-core": ^0.15.0
   # The zero contract the new design-system stack builds on (signalxjs/lynx#1029):
@@ -59,6 +69,6 @@ catalog:
   "@lynx-js/css-extract-webpack-plugin": ">=0.10.1"
   "@lynx-js/runtime-wrapper-webpack-plugin": ">=0.2.3"
   "@lynx-js/webpack-dev-transport": ">=0.3.0"
-  "@lynx-js/tailwind-preset": ^0.4.0
-  "@lynx-js/web-core": ^0.20.4
-  "@lynx-js/web-elements": ">=0.12.2"
+  "@lynx-js/tailwind-preset": ^0.5.0
+  "@lynx-js/web-core": ^0.24.0
+  "@lynx-js/web-elements": ">=0.12.7"

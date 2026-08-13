@@ -6,6 +6,29 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 ### Fixed
 
+- **`@sigx/lynx-zero`: an overlay opened inside another overlay's portaled content never settled** (#1051). Opening a popover from inside an open dialog remounted the dialog, which remounted the popover, which minted a fresh portal entry, which remounted the dialog again — a microtask cascade that starved the event loop, so the app didn't misrender, it *stopped*.
+
+  The fault was one shape rule in sigx core, fixed in `@sigx/runtime-core` 0.15.4 (signalxjs/core#658): `normalizeChild` gave an **array child three different vnode shapes depending on its length** — `0 → Comment`, `1 → the bare item vnode`, `2+ → Fragment`. Crossing the 1↔2 boundary therefore changed `vnode.type` at that child position, the reconciler saw a different node, and it unmounted and remounted the whole array. `OverlayHost`'s outlet renders `{slots.default?.()}{registry.entries().map(…)}` — an array child beside a sibling, which is exactly the broken case, and one open overlay is exactly the broken length. The asymmetry that hid this everywhere else: an array rendered as an element's **only** child flattens into the parent's children and was never affected.
+
+  The lockfile moves the core line to 0.15.4; the catalog range stays `^0.15.0` because `verify:catalog` requires a single-minor caret. The guard is a nested-overlay test in `packages/lynx-zero/__tests__/behaviors.test.tsx` that caps the inner component's setup count — the failure mode is a hang, and a hang cannot be caught by a timeout when the loop being starved is the one the timer runs on.
+
+  One visible consequence of the core fix: a single-element array child now carries a fragment anchor, which is a real node on this platform. Nothing renders differently, but a test counting a parent's children will see one more.
+
+- **`@sigx/lynx-cli`: `run:ios --device` could never build to a physical device** (#1032). Three defects, found by trying it on an iPad and each hidden behind the one before it.
+
+  `listConnectedIosDevices()` reported devicectl's **CoreDevice identifier** (`16B3FA2D-…`) as the device's `udid`, but `xcodebuild -destination id=…` matches only the **hardware UDID** (`00008132-…`) — so every device build died with "Unable to find a device matching the provided destination specifier". `devicectl --device` accepts either, so the hardware UDID is now the one identifier both tools understand.
+
+  Automatic signing was also never allowed to do its job: without `-allowProvisioningUpdates`, xcodebuild refuses to create or refresh a provisioning profile, so a first build to a newly registered device fails with "No profiles for '<bundle id>' were found" even with the team set correctly. Passed for device targets only — a simulator build isn't signed.
+
+  Then the failure said **"Check that a development team is selected in Xcode"** — printed for *any* non-zero xcodebuild exit on a device, including that one, which sent the reader to certificates while the real message sat three lines above. The two device failures worth naming are now named: a device that is connected but whose developer disk image isn't mounted (unlock it and leave it awake), and an id xcodebuild couldn't match. Anything else keeps the signing guess. `run:ios` and `sigx dev` had **two copies** of this logic and now share one helper, so the next fix can't miss one of them.
+
+### Added
+
+- **`@sigx/lynx-cli`: `SIGX_IOS_BUNDLE_ID`** (#1032). An App ID is globally unique across all of Apple, so a shared example app cannot ship one that works for everyone — the scaffold's `com.example.<app>` placeholder is unregisterable by anybody ("The app identifier … cannot be registered to your development team because it is not available"), and any real identifier is claimable exactly once, by whoever device-builds first. The variable rewrites `PRODUCT_BUNDLE_IDENTIFIER` on every prebuild, so a contributor supplies their own without editing a tracked file. Applied like the team override, because the identifier is otherwise a scaffold-time template variable frozen into the generated project.
+
+- **`@sigx/lynx-cli`: `SIGX_IOS_DEVELOPMENT_TEAM`** (#1032). A device build needs a `DEVELOPMENT_TEAM`, and the only way to supply one was `ios.developmentTeam` in `signalx.config.ts` — the wrong place for an identifier personal to whoever is building. `examples/showcase` ships an empty team for exactly that reason, so its device build could not be signed by anyone. The variable overrides the config when set, and **takes part in the prebuild fingerprint**: `applyIosSigningSettings` only runs in the slow path, so without that an exported team was silently ignored on an already-prebuilt project (fingerprint format `v9`).
+
+
 - **`@sigx/lynx-secure-storage`: `requireBiometric` never worked on Android** (#1027, device-found on a Pixel 9 Pro XL). `setItem(key, value, { requireBiometric: true })` failed every time, on every device, with `set failed: IllegalBlockSizeException` — the headline feature of the package, dead on one platform since it shipped, while iOS was fine.
 
   The write encrypted with the very key it was gating: a Keystore AES key created with `setUserAuthenticationRequired(true)`. An auth-bound *symmetric* key demands a fresh authentication for **every** operation, encryption included, and nothing drives a prompt on the write path, so Keystore refused it (`KEY_USER_NOT_AUTHENTICATED`) and `doFinal` reported the refusal as a block-size error.
@@ -19,6 +42,15 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
   It is **posted** to the main looper rather than run through `Activity.runOnUiThread`, because that helper executes inline when the caller is already on the main thread — and one caller always is: a prompt raised from another prompt's callback, which is what authenticating and then reading a gated key does. Inline meant committing inside FragmentManager's own execution and throwing `IllegalStateException: FragmentManager is already executing transactions`. Device-caught, both of them.
 
 ### Changed
+
+- **Web engine: `@lynx-js/web-core` 0.20.4 → 0.24.0**, plus `@lynx-js/web-elements` `>=0.12.7` and `@lynx-js/tailwind-preset` `^0.5.0` (#975). **Closes #1001.**
+
+  That issue was an unmet peer nothing in an app could satisfy: `@lynx-js/template-webpack-plugin` 0.15 depends on `@lynx-js/css-serializer` 0.1.7, while `@sigx/lynx-cli`'s `web-core@^0.20.4` declared an **exact** `0.1.6` peer — so the graph carried two `web-core` lines and two `css-serializer` lines at once, and `pnpm peers check` stopped being a clean signal. The lockfile now resolves exactly one of each (`web-core@0.24.0`, `css-serializer@0.1.7`).
+
+  **The `__SetGestureDetector` guards stay, and now say why.** They are how the main-thread runtime detects the web engine, and `web-core` still ships no such global at 0.24.0 — re-checked. Worth recording because the neighbouring globals are *not* interchangeable for this: `__CreateWrapperElement` and `__ReplaceElement` **are** present in 0.24.0, so neither would work as a web probe.
+
+  `@lynx-js/tailwind-preset` 0.5's peer is still `tailwindcss ^3.4.0`, so this forces no Tailwind 4 decision.
+
 
 - **`@lynx-js/react` 0.121 → 0.123.3** (#975). This package's WASM transform *is* sigx's snapshot template system (#620), so the bump was checked against emitted output rather than taken on trust.
 

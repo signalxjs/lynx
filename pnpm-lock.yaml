@@ -19,26 +19,26 @@ catalogs:
       specifier: '>=0.2.3'
       version: 0.2.3
     '@lynx-js/tailwind-preset':
-      specifier: ^0.4.0
-      version: 0.4.0
+      specifier: ^0.5.0
+      version: 0.5.1
     '@lynx-js/template-webpack-plugin':
       specifier: 0.15.0
       version: 0.15.0
     '@lynx-js/web-core':
-      specifier: ^0.20.4
-      version: 0.20.4
+      specifier: ^0.24.0
+      version: 0.24.0
     '@lynx-js/web-elements':
-      specifier: '>=0.12.2'
+      specifier: '>=0.12.7'
       version: 0.12.7
     '@lynx-js/webpack-dev-transport':
       specifier: '>=0.3.0'
       version: 0.3.0
     '@sigx/reactivity':
       specifier: ^0.15.0
-      version: 0.15.3
+      version: 0.15.4
     '@sigx/runtime-core':
       specifier: ^0.15.0
-      version: 0.15.3
+      version: 0.15.4
     '@sigx/zero':
       specifier: 0.2.0-beta.1
       version: 0.2.0-beta.1
@@ -94,10 +94,10 @@ importers:
         version: link:../../packages/lynx-safe-area
       '@sigx/reactivity':
         specifier: 'catalog:'
-        version: 0.15.3
+        version: 0.15.4
       '@sigx/runtime-core':
         specifier: 'catalog:'
-        version: 0.15.3
+        version: 0.15.4
     devDependencies:
       '@lynx-js/css-extract-webpack-plugin':
         specifier: 'catalog:'
@@ -110,13 +110,13 @@ importers:
         version: 0.2.3
       '@lynx-js/tailwind-preset':
         specifier: 'catalog:'
-        version: 0.4.0(tailwindcss@3.4.19)
+        version: 0.5.1(tailwindcss@3.4.19)
       '@lynx-js/template-webpack-plugin':
         specifier: 'catalog:'
         version: 0.15.0(tslib@2.8.1)
       '@lynx-js/web-core':
         specifier: 'catalog:'
-        version: 0.20.4(@lynx-js/css-serializer@0.1.7)(tslib@2.8.1)
+        version: 0.24.0(@lynx-js/css-serializer@0.1.7)(tslib@2.8.1)
       '@lynx-js/web-elements':
         specifier: 'catalog:'
         version: 0.12.7(tslib@2.8.1)
@@ -299,10 +299,10 @@ importers:
         version: link:../../packages/lynx-zero-legacy
       '@sigx/reactivity':
         specifier: 'catalog:'
-        version: 0.15.3
+        version: 0.15.4
       '@sigx/runtime-core':
         specifier: 'catalog:'
-        version: 0.15.3
+        version: 0.15.4
       lucide:
         specifier: ^1.16.0
         version: 1.16.0
@@ -321,13 +321,13 @@ importers:
         version: 0.2.3
       '@lynx-js/tailwind-preset':
         specifier: 'catalog:'
-        version: 0.4.0(tailwindcss@3.4.19)
+        version: 0.5.1(tailwindcss@3.4.19)
       '@lynx-js/template-webpack-plugin':
         specifier: 'catalog:'
         version: 0.15.0(tslib@2.8.1)
       '@lynx-js/web-core':
         specifier: 'catalog:'
-        version: 0.20.4(@lynx-js/css-serializer@0.1.6)(tslib@2.8.1)
+        version: 0.24.0(@lynx-js/css-serializer@0.1.7)(tslib@2.8.1)
       '@lynx-js/web-elements':
         specifier: 'catalog:'
         version: 0.12.7(tslib@2.8.1)
@@ -375,10 +375,10 @@ importers:
         version: link:../lynx-runtime-internal
       '@sigx/reactivity':
         specifier: 'catalog:'
-        version: 0.15.3
+        version: 0.15.4
       '@sigx/runtime-core':
         specifier: 'catalog:'
-        version: 0.15.3
+        version: 0.15.4
     devDependencies:
       '@typescript/native-preview':
         specifier: 7.0.0-dev.20260521.1
@@ -397,7 +397,7 @@ importers:
         version: link:../lynx-core
       '@sigx/reactivity':
         specifier: 'catalog:'
-        version: 0.15.3
+        version: 0.15.4
     devDependencies:
       '@sigx/lynx-plugin':
         specifier: workspace:^
@@ -483,7 +483,7 @@ importers:
     dependencies:
       '@lynx-js/web-core':
         specifier: 'catalog:'
-        version: 0.20.4(@lynx-js/css-serializer@0.1.6)(tslib@2.8.1)
+        version: 0.24.0(@lynx-js/css-serializer@0.1.7)(tslib@2.8.1)
       '@sigx/cli':
         specifier: ^0.10.0
         version: 0.10.0
@@ -539,7 +539,7 @@ importers:
     dependencies:
       '@sigx/reactivity':
         specifier: 'catalog:'
-        version: 0.15.3
+        version: 0.15.4
     devDependencies:
       '@typescript/native-preview':
         specifier: 7.0.0-dev.20260521.1
@@ -1173,10 +1173,10 @@ importers:
         version: link:../lynx-runtime-internal
       '@sigx/reactivity':
         specifier: 'catalog:'
-        version: 0.15.3
+        version: 0.15.4
       '@sigx/runtime-core':
         specifier: 'catalog:'
-        version: 0.15.3
+        version: 0.15.4
     devDependencies:
       '@lynx-js/types':
         specifier: ~4.0.0
@@ -1214,7 +1214,7 @@ importers:
         version: link:../lynx-runtime
       '@sigx/runtime-core':
         specifier: 'catalog:'
-        version: 0.15.3
+        version: 0.15.4
       '@typescript/native-preview':
         specifier: 7.0.0-dev.20260521.1
         version: 7.0.0-dev.20260521.1
@@ -1235,7 +1235,7 @@ importers:
         version: link:../lynx-runtime-internal
       '@sigx/reactivity':
         specifier: 'catalog:'
-        version: 0.15.3
+        version: 0.15.4
     devDependencies:
       '@sigx/lynx-plugin':
         specifier: workspace:^
@@ -1355,7 +1355,7 @@ importers:
         version: link:../lynx
       '@sigx/runtime-core':
         specifier: 'catalog:'
-        version: 0.15.3
+        version: 0.15.4
     devDependencies:
       '@lynx-js/react':
         specifier: 'catalog:'
@@ -1529,7 +1529,7 @@ importers:
         version: link:../lynx-appearance
       '@sigx/zero':
         specifier: 'catalog:'
-        version: 0.2.0-beta.1(@sigx/reactivity@0.15.3)(@sigx/runtime-core@0.15.3)(@sigx/runtime-dom@0.15.3)(sigx@0.15.3)
+        version: 0.2.0-beta.1(@sigx/reactivity@0.15.4)(@sigx/runtime-core@0.15.4)(@sigx/runtime-dom@0.15.3)(sigx@0.15.3)
     devDependencies:
       '@sigx/lynx-navigation':
         specifier: workspace:^
@@ -2001,9 +2001,6 @@ packages:
     peerDependencies:
       '@lynx-js/template-webpack-plugin': ^0.14.0 || ^0.15.0
 
-  '@lynx-js/css-serializer@0.1.6':
-    resolution: {integrity: sha512-AgYrhsNljp+xBqO2UUGFTfHR+zPBiH9XE8eD13PDkcTDXWA9uKE/cZ6glZUE3Ze0lUDEtp0cSPCOVlHTMEyKIg==}
-
   '@lynx-js/css-serializer@0.1.7':
     resolution: {integrity: sha512-k8J/zZdYvsxqSZxT25dWBT4leOvYSpAanC5NmpYmf0EkSDWbQohensPSMOnEvEmP9R97gDO7K+eA6vgv8IYWGg==}
 
@@ -2048,8 +2045,8 @@ packages:
     resolution: {integrity: sha512-xqBQ+g8fJn1kPJN+7tgzypPj+FK9+8ifDVhXu9i0S6630XebdZ7ZKPehlGMNdfZPnS96Wo0EBCoEaAwJ6c9UpA==}
     engines: {node: '>=18'}
 
-  '@lynx-js/tailwind-preset@0.4.0':
-    resolution: {integrity: sha512-ILFRM37SiwkEK/mKs0s2kdHInRpu0mkeEsbdx7PHnSXzLPEs/uu4zJRkbByMYXtf+Pf3PxuoPMKROcFhVkSQWQ==}
+  '@lynx-js/tailwind-preset@0.5.1':
+    resolution: {integrity: sha512-I44EGXw2Xygo/RxpBw0UA+806wvegYakMIhCxxLi0ji8yd/MWTKs2n7QoydQADqdBu3AfttgxDG/2/e6cs5gag==}
     peerDependencies:
       tailwindcss: ^3.4.0
 
@@ -2063,20 +2060,6 @@ packages:
 
   '@lynx-js/types@4.0.0':
     resolution: {integrity: sha512-FBtBV8wt+9/CAUbTdZwvbhGjJEnyzKLWVpq5gaTHTbhDztbhdP0avZ0nHD6I5HSgAhzYNB9oDrqMt/r6YqBkng==}
-
-  '@lynx-js/web-core@0.20.4':
-    resolution: {integrity: sha512-n0lLAjUeK1ndJE7xzCzkccYQE42C1qDMOvRSxqSZ5JdcBaY4pG0ZWswXC6jiL0gaksiY5Y31wZOIWHMlRRotPw==}
-    peerDependencies:
-      '@lynx-js/css-serializer': 0.1.6
-      '@lynx-js/lynx-core': 0.1.3
-      tslib: ^2.5.0
-    peerDependenciesMeta:
-      '@lynx-js/css-serializer':
-        optional: true
-      '@lynx-js/lynx-core':
-        optional: true
-      tslib:
-        optional: true
 
   '@lynx-js/web-core@0.24.0':
     resolution: {integrity: sha512-QIMfwVIHkRTDmd+X0KCWSQ+q0Dy7j87WdB911Wz9lxfp5juOa8ejJCrRYmsAncl1jTVy9gBH3mCblv6Z9IxCCQ==}
@@ -2092,11 +2075,6 @@ packages:
       tslib:
         optional: true
 
-  '@lynx-js/web-elements@0.12.2':
-    resolution: {integrity: sha512-k6eblA01RUIt09/GRXpRx1eL4n4Ztzs4v81RAE8Pkix8MyRArwjHb5qbV9O64VWuSk/R6h6ZJjen0cfzrBZdzw==}
-    peerDependencies:
-      tslib: ^2.5.0
-
   '@lynx-js/web-elements@0.12.7':
     resolution: {integrity: sha512-ht7vxYVtLGP6YpSd/g5YYNszxUU6i6Lcdpr/OILTmUBkA2mSbZx3D+6fUHXzrVkee4bNvDOFMV3hQm6L6/F+OQ==}
     peerDependencies:
@@ -2104,9 +2082,6 @@ packages:
 
   '@lynx-js/web-rsbuild-server-middleware@0.24.0':
     resolution: {integrity: sha512-q0oAkeVwL48c3XpG/jjr+KbY0D9fWh1eaPr9C4o+9N9DmTqleI/4JaRKstpZhlgEKpqdBs9rCx+SanjaVA04vQ==}
-
-  '@lynx-js/web-worker-rpc@0.20.4':
-    resolution: {integrity: sha512-i4RV8f397nl02zB1wjFfEJDo/bM0c+dvzd9nIPY9gksf2lX8aSOpkXn6Kyou+05qdJAXm2EZIl8SKYiTMi/P6w==}
 
   '@lynx-js/web-worker-rpc@0.24.0':
     resolution: {integrity: sha512-VUIERJNvpJOLk6JVeiNSQMgLPhCuD8V8Zz0jvTEP6rznWPeioCTtSD7cak1xMZASUv3n6eIzb9FsO4Ml8W/0nw==}
@@ -2593,12 +2568,12 @@ packages:
     resolution: {integrity: sha512-uJHNTJs1JGRO14Z1Azhr8e16xJhxj1xTA5nz5ZHbFM+mSv3/SJmYhmyoDaBu+2su5oVjki7FMrgXjTdRuceY6A==}
     hasBin: true
 
-  '@sigx/reactivity@0.15.3':
-    resolution: {integrity: sha512-OHCkOe+ALpbTMeEoBVlR0LkXDotlydtfck+qYt21bNGqsQBmnUrQsHpHI4l+zRx7UOxcm73f4JMXm4DIzLqQIQ==}
+  '@sigx/reactivity@0.15.4':
+    resolution: {integrity: sha512-KAV20yDlpXMCrmxG/DJpHDFStLbSloEfnrv0F7jEWHfhRCg+1zW2CoHvBBLpXGkRnfD8kj8d01TrfTK5h+Owlg==}
     engines: {node: ^20.19.0 || >=22.12.0}
 
-  '@sigx/runtime-core@0.15.3':
-    resolution: {integrity: sha512-hkkiag2cwwvfSKwNTu0Kvf9paL9jQPlDR20vzJbCrmDOUUPB+N6I41Vj87jSIXXNXWsTnypeVWQ584AxR5ybhw==}
+  '@sigx/runtime-core@0.15.4':
+    resolution: {integrity: sha512-RjetEIHB38GB4SYW38pizAZ+SXp1fcd7yCYWNT4XQiu3StlyifkrxwTcHkDkWLOKV4ID3v0iTHyR5Q5x+/KUuA==}
     engines: {node: ^20.19.0 || >=22.12.0}
 
   '@sigx/runtime-dom@0.15.3':
@@ -2608,8 +2583,8 @@ packages:
   '@sigx/runtime-terminal@0.12.0':
     resolution: {integrity: sha512-fKUQ1VhEgwESNzgMGamNDP/qUM20Q3gR/QO9GIaPiqjKvm23BJmYJ9LxMs+C5L7xXmiVKjjlKBNZ4eqKD/yZvw==}
 
-  '@sigx/serialize@0.15.3':
-    resolution: {integrity: sha512-93KwiHu7i/Y7VFkGpmOnMZV68ordBiIqX7xi62V7RywKFWjMeTeY8QSy+TMtcuMnSlJTLMuk6JS8ml4QC353iQ==}
+  '@sigx/serialize@0.15.4':
+    resolution: {integrity: sha512-ssQKazwZGxSVSd3wXLS63Ns0m5j+7L4ag40Ej6q0Ez+aRLEZPTmlZYuWl/soNUY1KtCzXljl3y37GiWUUjmtPA==}
 
   '@sigx/terminal-ui@0.12.0':
     resolution: {integrity: sha512-aJv/Sqxn4s201JH2xk8UzZhaf4kp34OoCxGQHuwtbs2cZbsPV3t955xzZHSVaW1XvrRVKKnI0do9DxZaG+2JmQ==}
@@ -4894,11 +4869,6 @@ snapshots:
     dependencies:
       '@lynx-js/template-webpack-plugin': 0.15.0(tslib@2.8.1)
 
-  '@lynx-js/css-serializer@0.1.6':
-    dependencies:
-      css-tree: 3.2.1
-    optional: true
-
   '@lynx-js/css-serializer@0.1.7':
     dependencies:
       css-tree: 3.2.1
@@ -4986,7 +4956,7 @@ snapshots:
     dependencies:
       '@lynx-js/webpack-runtime-globals': 0.0.7
 
-  '@lynx-js/tailwind-preset@0.4.0(tailwindcss@3.4.19)':
+  '@lynx-js/tailwind-preset@0.5.1(tailwindcss@3.4.19)':
     dependencies:
       tailwindcss: 3.4.19
 
@@ -5011,24 +4981,6 @@ snapshots:
     dependencies:
       csstype: 3.1.3
 
-  '@lynx-js/web-core@0.20.4(@lynx-js/css-serializer@0.1.6)(tslib@2.8.1)':
-    dependencies:
-      '@lynx-js/web-elements': 0.12.2(tslib@2.8.1)
-      '@lynx-js/web-worker-rpc': 0.20.4
-      wasm-feature-detect: 1.8.0
-    optionalDependencies:
-      '@lynx-js/css-serializer': 0.1.6
-      tslib: 2.8.1
-
-  '@lynx-js/web-core@0.20.4(@lynx-js/css-serializer@0.1.7)(tslib@2.8.1)':
-    dependencies:
-      '@lynx-js/web-elements': 0.12.2(tslib@2.8.1)
-      '@lynx-js/web-worker-rpc': 0.20.4
-      wasm-feature-detect: 1.8.0
-    optionalDependencies:
-      '@lynx-js/css-serializer': 0.1.7
-      tslib: 2.8.1
-
   '@lynx-js/web-core@0.24.0(@lynx-js/css-serializer@0.1.7)(tslib@2.8.1)':
     dependencies:
       '@lynx-js/web-elements': 0.12.7(tslib@2.8.1)
@@ -5038,12 +4990,6 @@ snapshots:
       '@lynx-js/css-serializer': 0.1.7
       tslib: 2.8.1
 
-  '@lynx-js/web-elements@0.12.2(tslib@2.8.1)':
-    dependencies:
-      dompurify: 3.4.13
-      markdown-it: 14.3.0
-      tslib: 2.8.1
-
   '@lynx-js/web-elements@0.12.7(tslib@2.8.1)':
     dependencies:
       dompurify: 3.4.13
@@ -5051,8 +4997,6 @@ snapshots:
       tslib: 2.8.1
 
   '@lynx-js/web-rsbuild-server-middleware@0.24.0': {}
-
-  '@lynx-js/web-worker-rpc@0.20.4': {}
 
   '@lynx-js/web-worker-rpc@0.24.0': {}
 
@@ -5591,49 +5535,49 @@ snapshots:
       '@sigx/args': 0.12.0
       '@sigx/terminal': 0.12.0
 
-  '@sigx/reactivity@0.15.3': {}
+  '@sigx/reactivity@0.15.4': {}
 
-  '@sigx/runtime-core@0.15.3':
+  '@sigx/runtime-core@0.15.4':
     dependencies:
-      '@sigx/reactivity': 0.15.3
-      '@sigx/serialize': 0.15.3
+      '@sigx/reactivity': 0.15.4
+      '@sigx/serialize': 0.15.4
 
   '@sigx/runtime-dom@0.15.3':
     dependencies:
-      '@sigx/reactivity': 0.15.3
-      '@sigx/runtime-core': 0.15.3
+      '@sigx/reactivity': 0.15.4
+      '@sigx/runtime-core': 0.15.4
 
   '@sigx/runtime-terminal@0.12.0':
     dependencies:
-      '@sigx/reactivity': 0.15.3
-      '@sigx/runtime-core': 0.15.3
+      '@sigx/reactivity': 0.15.4
+      '@sigx/runtime-core': 0.15.4
 
-  '@sigx/serialize@0.15.3': {}
+  '@sigx/serialize@0.15.4': {}
 
-  '@sigx/terminal-ui@0.12.0(@sigx/reactivity@0.15.3)(@sigx/runtime-core@0.15.3)':
+  '@sigx/terminal-ui@0.12.0(@sigx/reactivity@0.15.4)(@sigx/runtime-core@0.15.4)':
     dependencies:
-      '@sigx/reactivity': 0.15.3
-      '@sigx/runtime-core': 0.15.3
-      '@sigx/terminal-zero': 0.12.0(@sigx/reactivity@0.15.3)(@sigx/runtime-core@0.15.3)
+      '@sigx/reactivity': 0.15.4
+      '@sigx/runtime-core': 0.15.4
+      '@sigx/terminal-zero': 0.12.0(@sigx/reactivity@0.15.4)(@sigx/runtime-core@0.15.4)
 
-  '@sigx/terminal-zero@0.12.0(@sigx/reactivity@0.15.3)(@sigx/runtime-core@0.15.3)':
+  '@sigx/terminal-zero@0.12.0(@sigx/reactivity@0.15.4)(@sigx/runtime-core@0.15.4)':
     dependencies:
-      '@sigx/reactivity': 0.15.3
-      '@sigx/runtime-core': 0.15.3
+      '@sigx/reactivity': 0.15.4
+      '@sigx/runtime-core': 0.15.4
       '@sigx/runtime-terminal': 0.12.0
 
   '@sigx/terminal@0.12.0':
     dependencies:
-      '@sigx/reactivity': 0.15.3
-      '@sigx/runtime-core': 0.15.3
+      '@sigx/reactivity': 0.15.4
+      '@sigx/runtime-core': 0.15.4
       '@sigx/runtime-terminal': 0.12.0
-      '@sigx/terminal-ui': 0.12.0(@sigx/reactivity@0.15.3)(@sigx/runtime-core@0.15.3)
-      '@sigx/terminal-zero': 0.12.0(@sigx/reactivity@0.15.3)(@sigx/runtime-core@0.15.3)
+      '@sigx/terminal-ui': 0.12.0(@sigx/reactivity@0.15.4)(@sigx/runtime-core@0.15.4)
+      '@sigx/terminal-zero': 0.12.0(@sigx/reactivity@0.15.4)(@sigx/runtime-core@0.15.4)
 
-  '@sigx/zero@0.2.0-beta.1(@sigx/reactivity@0.15.3)(@sigx/runtime-core@0.15.3)(@sigx/runtime-dom@0.15.3)(sigx@0.15.3)':
+  '@sigx/zero@0.2.0-beta.1(@sigx/reactivity@0.15.4)(@sigx/runtime-core@0.15.4)(@sigx/runtime-dom@0.15.3)(sigx@0.15.3)':
     dependencies:
-      '@sigx/reactivity': 0.15.3
-      '@sigx/runtime-core': 0.15.3
+      '@sigx/reactivity': 0.15.4
+      '@sigx/runtime-core': 0.15.4
       '@sigx/runtime-dom': 0.15.3
       sigx: 0.15.3
 
@@ -7365,8 +7309,8 @@ snapshots:
 
   sigx@0.15.3:
     dependencies:
-      '@sigx/reactivity': 0.15.3
-      '@sigx/runtime-core': 0.15.3
+      '@sigx/reactivity': 0.15.4
+      '@sigx/runtime-core': 0.15.4
       '@sigx/runtime-dom': 0.15.3
 
   socket.io-adapter@2.5.7:

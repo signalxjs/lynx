@@ -1289,7 +1289,8 @@ function iosTemplateVars(config: ResolvedConfig): Record<string, string> {
     return {
         appName: config.name,
         appNamePascal: toPascalCase(config.name),
-        bundleIdentifier: config.ios.bundleIdentifier ?? deriveApplicationId(config.name),
+        bundleIdentifier: iosBundleIdOverride()
+            ?? config.ios.bundleIdentifier ?? deriveApplicationId(config.name),
         deploymentTarget: config.ios.deploymentTarget,
         versionName: config.version,
         buildNumber: config.ios.buildNumber,
@@ -1555,14 +1556,88 @@ export function writeIosSharedScheme(cwd: string, config: ResolvedConfig): void 
 }
 
 /**
+ * The `SIGX_IOS_BUNDLE_ID` override, if set and usable.
+ *
+ * Every place the CLI needs the app's iOS bundle identifier has to agree with
+ * what `applyIosBundleIdentifierOverride` wrote into the project, or the build
+ * installs one app and the launch goes looking for another — and the
+ * "already installed" fast path never matches, so it rebuilds every time.
+ */
+export function iosBundleIdOverride(): string | undefined {
+    const bundleId = process.env['SIGX_IOS_BUNDLE_ID']?.trim();
+    if (!bundleId) return undefined;
+
+    // Validated *here*, not at the point of rewrite: `iosTemplateVars` splices
+    // this straight into the pbxproj template during scaffolding, which happens
+    // before any rewrite runs — so a value carrying `;` or whitespace could
+    // corrupt the generated project before validation ever saw it. Every caller
+    // gets a checked value or an exception, never a raw one.
+    //
+    // Shaped as reverse DNS rather than merely "legal characters": two or more
+    // dot-separated segments, each starting and ending alphanumeric with
+    // hyphens allowed inside. `foo`, `com..app` and `com.app.` are rejected
+    // here instead of surviving to Xcode, which reports them far less helpfully.
+    const SEGMENT = '[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?';
+    if (!new RegExp(`^${SEGMENT}(?:\\.${SEGMENT})+$`).test(bundleId)) {
+        throw new Error(
+            `[@sigx/lynx-cli] SIGX_IOS_BUNDLE_ID must be a reverse-DNS bundle identifier — ` +
+            `two or more dot-separated segments of letters, digits and inner hyphens ` +
+            `(e.g. "com.example.app"), got: "${bundleId}"`,
+        );
+    }
+    return bundleId;
+}
+
+/**
+ * Apply `SIGX_IOS_BUNDLE_ID` to the existing pbxproj.
+ *
+ * The bundle identifier is a *template* variable, rendered once at scaffold
+ * time — so on an already-generated project the config value is frozen into
+ * `project.pbxproj` and only `--clean` would revisit it. This rewrites it from
+ * the pbxproj instead, the way `applyIosSigningSettings` handles the team.
+ *
+ * It runs on prebuild's slow path, which the fingerprint fast path can skip
+ * entirely; changing the variable is what forces that path to run, because the
+ * value is folded into the fingerprint.
+ *
+ * It exists because an App ID is globally unique across all of Apple: the
+ * scaffold's `com.example.<app>` placeholder cannot be registered by anyone,
+ * and any identifier committed to a shared example app is claimable exactly
+ * once, by whoever device-builds it first. Everyone after that needs their own
+ * — without editing a tracked file (#1032).
+ */
+export function applyIosBundleIdentifierOverride(cwd: string, config: ResolvedConfig): void {
+    // Validated inside the resolver, so it is safe to splice.
+    const bundleId = iosBundleIdOverride();
+    if (!bundleId) return;
+
+    const pbxprojPath = join(iosXcodeProjPath(cwd, config), 'project.pbxproj');
+    if (!existsSync(pbxprojPath)) return;
+
+    const content = readFileSync(pbxprojPath, 'utf-8')
+        .replace(/PRODUCT_BUNDLE_IDENTIFIER = [^;\r\n]*;/g, `PRODUCT_BUNDLE_IDENTIFIER = ${bundleId};`);
+    if (writeFileIfChanged(pbxprojPath, content)) {
+        log(`iOS: applied bundle identifier override (${bundleId})`);
+    }
+}
+
+/**
  * Apply config-driven signing settings (`ios.developmentTeam`,
  * `ios.codeSignStyle`) to the existing pbxproj. Only rewrites a setting the
  * config actually pins — with both unset this is a no-op, so values set via
  * the Xcode GUI or fastlane's `update_code_signing_settings` survive
  * prebuild untouched.
+ *
+ * `SIGX_IOS_DEVELOPMENT_TEAM` overrides the config's team. A Team ID is
+ * personal to whoever is building — a contributor's belongs in their shell,
+ * not in a committed `signalx.config.ts`, and an example app that ships one
+ * is unbuildable on a device for everyone else. CI sets it from a secret for
+ * the same reason. An explicit config value is still honoured when the
+ * variable is absent.
  */
 export function applyIosSigningSettings(cwd: string, config: ResolvedConfig): void {
-    const team = config.ios.developmentTeam?.trim();
+    const team = (process.env['SIGX_IOS_DEVELOPMENT_TEAM']?.trim()
+        || config.ios.developmentTeam?.trim());
     const style = config.ios.codeSignStyle;
     if (!team && !style) return;
 
@@ -1571,8 +1646,11 @@ export function applyIosSigningSettings(cwd: string, config: ResolvedConfig): vo
     // schema's union type guarantees nothing) so a typo'd team or a crafted
     // value can't corrupt the project or smuggle in extra build settings.
     if (team && !/^[A-Za-z0-9]{10}$/.test(team)) {
+        const source = process.env['SIGX_IOS_DEVELOPMENT_TEAM']?.trim()
+            ? 'SIGX_IOS_DEVELOPMENT_TEAM'
+            : 'ios.developmentTeam';
         throw new Error(
-            `ios.developmentTeam must be a 10-character alphanumeric Apple Team ID ` +
+            `${source} must be a 10-character alphanumeric Apple Team ID ` +
             `(e.g. "AB12CD34EF"), got: "${team}"`,
         );
     }
@@ -1587,10 +1665,10 @@ export function applyIosSigningSettings(cwd: string, config: ResolvedConfig): vo
 
     let content = readFileSync(pbxprojPath, 'utf-8');
     if (team) {
-        content = content.replace(/DEVELOPMENT_TEAM = [^;]*;/g, `DEVELOPMENT_TEAM = ${team};`);
+        content = content.replace(/DEVELOPMENT_TEAM = [^;\r\n]*;/g, `DEVELOPMENT_TEAM = ${team};`);
     }
     if (style) {
-        content = content.replace(/CODE_SIGN_STYLE = [^;]*;/g, `CODE_SIGN_STYLE = ${style};`);
+        content = content.replace(/CODE_SIGN_STYLE = [^;\r\n]*;/g, `CODE_SIGN_STYLE = ${style};`);
     }
     if (writeFileIfChanged(pbxprojPath, content)) {
         const applied = [team && `DEVELOPMENT_TEAM=${team}`, style && `CODE_SIGN_STYLE=${style}`]
@@ -2741,12 +2819,22 @@ export function fingerprintPrebuildInputs(
         //     path), so swapping FCM credentials invalidates the fast path (#560).
         // v8: include the CLI's own templates/ tree, so editing a managed
         //     template in a workspace checkout invalidates the fast path (#614).
-        fingerprintFormat: 'v8',
+        // v9: include SIGX_IOS_DEVELOPMENT_TEAM. It is spliced into the
+        //     pbxproj by `applyIosSigningSettings`, which only runs in the slow
+        //     path — so without it here, exporting a team on a project that had
+        //     already been prebuilt changed nothing and the device build failed
+        //     for want of a signing identity it had just been given (#1032).
+        //     Same for SIGX_IOS_BUNDLE_ID, applied by the same slow path.
+        fingerprintFormat: 'v9',
         cliVersion: getCliVersion(),
         platforms: `android=${platforms.android};ios=${platforms.ios}`,
         // Variant identity changes the rendered output (suffixed ids, signing,
         // badge) and the output dir, so it must invalidate the fast path.
         variant: variant ?? '',
+        // Only the value matters, and only on iOS — an Android-only prebuild
+        // never reads it.
+        iosTeam: platforms.ios ? (process.env['SIGX_IOS_DEVELOPMENT_TEAM']?.trim() ?? '') : '',
+        iosBundleId: platforms.ios ? (process.env['SIGX_IOS_BUNDLE_ID']?.trim() ?? '') : '',
     });
 }
 
@@ -3066,6 +3154,7 @@ export async function runPrebuild(opts: PrebuildOptions = {}): Promise<void> {
         // CI archivability: shared scheme + config-pinned signing settings.
         writeIosSharedScheme(cwd, config);
         applyIosSigningSettings(cwd, config);
+        applyIosBundleIdentifierOverride(cwd, config);
         applyIosDeviceFamily(cwd, config);
 
         // Dev-client release exclusion + Debug Info.plist wiring for projects
