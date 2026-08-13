@@ -44,6 +44,22 @@ export { Toast, createToaster, provideToaster } from './components/toast/Toast.j
 export type { VariantAxes } from './contract/axes-context.js';
 export { partAxes, provideVariantAxes, useVariantAxes } from './contract/axes-context.js';
 
+// ── Components (pilot wave 1) ────────────────────────────────────────────
+export type { ProgressRootProps } from './components/progress/Progress.js';
+export { Progress } from './components/progress/Progress.js';
+export type { ButtonRootProps } from './components/button/Button.js';
+export { Button } from './components/button/Button.js';
+export type { SwitchRootProps } from './components/switch/Switch.js';
+export { Switch } from './components/switch/Switch.js';
+export type { PanelProps, TabProps, TabsRootProps } from './components/tabs/Tabs.js';
+export { Tabs } from './components/tabs/Tabs.js';
+export type { AccordionItemProps, AccordionRootProps } from './components/accordion/Accordion.js';
+export { Accordion } from './components/accordion/Accordion.js';
+
+// ── Axis push-down ───────────────────────────────────────────────────────
+export type { VariantAxes } from './contract/axes-context.js';
+export { partAxes, provideVariantAxes, useVariantAxes } from './contract/axes-context.js';
+
 // ── The theme engine ─────────────────────────────────────────────────────
 // Selection + follow-system + font scale. Theme VALUES live in the skin's
 // compiled `.zx-root` / `.zx-theme-<name>` CSS; metadata in zero's registry.
