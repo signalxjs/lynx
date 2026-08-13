@@ -21,7 +21,7 @@
  */
 
 import type { SuggestionPopupStyle } from '@sigx/lynx-markdown/editor';
-import { useThemeColors } from '@sigx/lynx-zero';
+import { useThemeColors } from '@sigx/lynx-zero-legacy';
 
 
 export interface MarkdownEditorThemeColors {
@@ -43,7 +43,7 @@ export interface MarkdownEditorThemeColors {
 
 /**
  * Resolve the active theme into `MarkdownEditor` color props. Built on
- * `@sigx/lynx-zero`'s `useThemeColors()` (scoped + reactive: read the
+ * `@sigx/lynx-zero-legacy`'s `useThemeColors()` (scoped + reactive: read the
  * getters in render and a theme switch recolors the editor).
  */
 export function useMarkdownEditorTheme(): MarkdownEditorThemeColors {

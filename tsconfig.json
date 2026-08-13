@@ -121,14 +121,14 @@
       "@sigx/lynx-heroui": [
         "./packages/lynx-heroui/src/index.ts"
       ],
-      "@sigx/lynx-zero": [
-        "./packages/lynx-zero/src/index.ts"
+      "@sigx/lynx-zero-legacy": [
+        "./packages/lynx-zero-legacy/src/index.ts"
       ],
-      "@sigx/lynx-zero/screen-theme": [
-        "./packages/lynx-zero/src/theme/use-screen-theme.ts"
+      "@sigx/lynx-zero-legacy/screen-theme": [
+        "./packages/lynx-zero-legacy/src/theme/use-screen-theme.ts"
       ],
-      "@sigx/lynx-zero/preset": [
-        "./packages/lynx-zero/src/preset/index.ts"
+      "@sigx/lynx-zero-legacy/preset": [
+        "./packages/lynx-zero-legacy/src/preset/index.ts"
       ],
       "@sigx/lynx-runtime": [
         "./packages/lynx-runtime/src/index.ts"

@@ -1,5 +1,5 @@
 import { component, type Define } from '@sigx/lynx';
-import { useThemeColors, type ColorVariant, type SizeScale } from '@sigx/lynx-zero';
+import { useThemeColors, type ColorVariant, type SizeScale } from '@sigx/lynx-zero-legacy';
 
 export type InputSize = Extract<SizeScale, 'sm' | 'md' | 'lg'>;
 /** Upstream HeroUI input variants — flat (filled surface) is the default. */

@@ -71,7 +71,7 @@ body:
         - "@sigx/lynx-webrtc"
         - "@sigx/lynx-websocket"
         - "@sigx/lynx-webview"
-        - "@sigx/lynx-zero"
+        - "@sigx/lynx-zero-legacy"
         - Not sure / multiple
     validations:
       required: true

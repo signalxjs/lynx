@@ -825,7 +825,7 @@ export async function applyEntry(
           // `enableCSSRule`, and the web target drops them regardless
           // (upstream `WebEncodePlugin`). Library code that would otherwise
           // have to *assume* an at-rule resolved can branch on this instead:
-          // `@sigx/lynx-zero`'s `<ThemeProvider>` uses it to decide between the
+          // `@sigx/lynx-zero-legacy`'s `<ThemeProvider>` uses it to decide between the
           // CSS-resolved theme palette and the inline-custom-property fallback
           // (#985). Nothing here validates the engine version — a pre-4.0 host
           // still can't evaluate the rules it decodes.

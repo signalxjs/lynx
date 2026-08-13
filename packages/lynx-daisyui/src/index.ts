@@ -3,7 +3,7 @@ export { Button } from './buttons/Button.js';
 export type { ButtonProps, ButtonColor, ButtonVariant, ButtonSize } from './buttons/Button.js';
 
 // Layout — Card and Divider are daisy-styled; the neutral primitives
-// (Row/Col/Center/Spacer/ScrollView) live in @sigx/lynx-zero and are
+// (Row/Col/Center/Spacer/ScrollView) live in @sigx/lynx-zero-legacy and are
 // re-exported here so daisy apps keep a single import source.
 export { Card } from './layout/Card.js';
 export type { CardProps } from './layout/Card.js';
@@ -11,24 +11,24 @@ export { Divider } from './layout/Divider.js';
 export type { DividerProps } from './layout/Divider.js';
 export { Collapse } from './layout/Collapse.js';
 export type { CollapseProps, CollapseGroupProps, CollapseIcon } from './layout/Collapse.js';
-export { Row, Col, Center, Spacer, ScrollView } from '@sigx/lynx-zero';
+export { Row, Col, Center, Spacer, ScrollView } from '@sigx/lynx-zero-legacy';
 export type {
   RowProps, ColProps, CenterProps, SpacerProps, ScrollViewProps,
-} from '@sigx/lynx-zero';
+} from '@sigx/lynx-zero-legacy';
 
 // Shared style primitives + the design-system contract — re-exported from
-// the neutral foundation (@sigx/lynx-zero) so daisy apps keep a single
+// the neutral foundation (@sigx/lynx-zero-legacy) so daisy apps keep a single
 // import source. `DaisyColor`/`resolveDaisyColor` are this package's
 // historical names for the contract's ColorToken/resolveColorToken.
 export type {
   BackgroundValue, SpacingValue, BoxProps,
   SizeScale, ColorVariant, ColorToken,
   ColorToken as DaisyColor,
-} from '@sigx/lynx-zero';
+} from '@sigx/lynx-zero-legacy';
 export {
   resolveColorToken,
   resolveColorToken as resolveDaisyColor,
-} from '@sigx/lynx-zero';
+} from '@sigx/lynx-zero-legacy';
 
 // Forms
 export { Input } from './forms/Input.js';
@@ -86,16 +86,16 @@ export type {
     NavDrawerProps,
     NavDrawerSide,
 } from './navigation/NavDrawer.js';
-// SwiperIndicator is design-system-neutral — it now lives in @sigx/lynx-zero
+// SwiperIndicator is design-system-neutral — it now lives in @sigx/lynx-zero-legacy
 // (#317) and daisy re-exports it so the public API is unchanged.
-export { SwiperIndicator } from '@sigx/lynx-zero';
+export { SwiperIndicator } from '@sigx/lynx-zero-legacy';
 export type {
     SwiperIndicatorProps,
     SwiperIndicatorVariant,
     SwiperIndicatorSize,
-} from '@sigx/lynx-zero';
+} from '@sigx/lynx-zero-legacy';
 
-// Theme — the engine lives in @sigx/lynx-zero; daisy wraps it with its six
+// Theme — the engine lives in @sigx/lynx-zero-legacy; daisy wraps it with its six
 // built-in palettes (seeded at module load via ./theme/builtins.ts) and the
 // icon color resolver. ./theme/ThemeProvider.js re-exports the engine API so
 // daisy apps keep a single import source.
@@ -123,11 +123,11 @@ export type {
     ThemeVariant,
 } from './theme/ThemeProvider.js';
 // Headless theme handle (issue #113) + bar sync — engine pieces re-exported
-// from @sigx/lynx-zero. Per-screen theming (`useScreenTheme`) lives on the
-// `@sigx/lynx-zero/screen-theme` subpath (it needs the optional
+// from @sigx/lynx-zero-legacy. Per-screen theming (`useScreenTheme`) lives on the
+// `@sigx/lynx-zero-legacy/screen-theme` subpath (it needs the optional
 // `@sigx/lynx-navigation` peer, so it stays out of the barrels).
-export { StatusBarSync, themeController } from '@sigx/lynx-zero';
-export type { StatusBarSyncProps } from '@sigx/lynx-zero';
+export { StatusBarSync, themeController } from '@sigx/lynx-zero-legacy';
+export type { StatusBarSyncProps } from '@sigx/lynx-zero-legacy';
 
 // Data
 export { Avatar } from './data/Avatar.js';

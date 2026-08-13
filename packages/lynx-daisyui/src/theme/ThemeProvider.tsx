@@ -1,5 +1,5 @@
 /**
- * Daisy's `<ThemeProvider>` — `@sigx/lynx-zero`'s theme engine plus the
+ * Daisy's `<ThemeProvider>` — `@sigx/lynx-zero-legacy`'s theme engine plus the
  * daisy-specific seams:
  *
  *   • importing this module (or anything from `@sigx/lynx-daisyui`) seeds the
@@ -11,7 +11,7 @@
  *
  * Everything else — system-scheme following, nesting, `fontScale`, the
  * inline CSS custom-property application (#116) — is the engine's; see
- * `@sigx/lynx-zero`'s `ThemeProvider`.
+ * `@sigx/lynx-zero-legacy`'s `ThemeProvider`.
  *
  * Usage:
  *
@@ -34,7 +34,7 @@
  * ```
  */
 import { component, type Define } from '@sigx/lynx';
-import { ThemeProvider as ZeroThemeProvider } from '@sigx/lynx-zero';
+import { ThemeProvider as ZeroThemeProvider } from '@sigx/lynx-zero-legacy';
 import { DAISY_BUILTIN_THEMES, type DaisyTheme } from './builtins.js';
 
 // Referencing the built-ins keeps the seeding side effect (`./builtins.ts`
@@ -42,7 +42,7 @@ import { DAISY_BUILTIN_THEMES, type DaisyTheme } from './builtins.js';
 void DAISY_BUILTIN_THEMES;
 
 // The `<Icon variant>` typed prop and its theme-driven color resolver now live
-// in `@sigx/lynx-zero`'s `<ThemeProvider>` (#324) — design-system-agnostic, so
+// in `@sigx/lynx-zero-legacy`'s `<ThemeProvider>` (#324) — design-system-agnostic, so
 // daisy inherits both by wrapping it. Nothing icon-specific to declare here.
 
 export type ThemeProviderProps =
@@ -107,7 +107,7 @@ export {
     colorsOf,
     radiusOf,
     sizesOf,
-} from '@sigx/lynx-zero';
+} from '@sigx/lynx-zero-legacy';
 export type {
     ThemeController,
     Theme,
@@ -115,4 +115,4 @@ export type {
     ThemeRadius,
     ThemeSizes,
     ThemeVariant,
-} from '@sigx/lynx-zero';
+} from '@sigx/lynx-zero-legacy';

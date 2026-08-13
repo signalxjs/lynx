@@ -6,12 +6,12 @@
  * CSS engine resolves the palette and a follow-system app paints the right
  * scheme without JS (#985). Themes registered at RUNTIME have no rule here;
  * <ThemeProvider> declares those inline instead. Theme-agnostic structural
- * tokens ship from @sigx/lynx-zero under the `.lynx-zero` base class. All
+ * tokens ship from @sigx/lynx-zero-legacy under the `.lynx-zero` base class. All
  * component classes are hero- prefixed so daisy + hero CSS can coexist in one
  * bundle. */
 
-/* Structural design tokens (.lynx-zero, from @sigx/lynx-zero) */
-@import '@sigx/lynx-zero/styles/tokens.css';
+/* Structural design tokens (.lynx-zero, from @sigx/lynx-zero-legacy) */
+@import '@sigx/lynx-zero-legacy/styles/tokens.css';
 /* Built-in theme palettes — build artifact, generated into dist/ (not in src/) */
 @import './themes/builtins.generated.css';
 

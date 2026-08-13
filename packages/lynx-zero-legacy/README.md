@@ -1,4 +1,10 @@
-# @sigx/lynx-zero
+# @sigx/lynx-zero-legacy
+
+> **Legacy.** This is the pre-zero-contract foundation, renamed to free the
+> `@sigx/lynx-zero` name for the redesign tracked in
+> [signalxjs/lynx#1029](https://github.com/signalxjs/lynx/issues/1029). It is
+> frozen: no new features land here, and it is wound down once the new stack
+> reaches component parity.
 
 Design-system-neutral UI foundation for sigx-lynx. Design-system packages
 (`@sigx/lynx-daisyui`, `@sigx/lynx-heroui`, …) build on it; apps normally

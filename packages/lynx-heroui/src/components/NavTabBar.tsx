@@ -11,7 +11,7 @@ import { component, type Define, type JSXElement } from '@sigx/lynx';
 import { Pressable } from '@sigx/lynx-gestures';
 import { Icon, type IconSpec } from '@sigx/lynx-icons';
 import { useTabs, type TabInfo } from '@sigx/lynx-navigation';
-import { PRESSED_SCALE, PRESSED_OPACITY } from '@sigx/lynx-zero';
+import { PRESSED_SCALE, PRESSED_OPACITY } from '@sigx/lynx-zero-legacy';
 
 const isIconSpec = (v: unknown): v is IconSpec =>
     typeof v === 'object' && v !== null && 'set' in v && 'name' in v

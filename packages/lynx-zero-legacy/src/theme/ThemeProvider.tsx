@@ -84,7 +84,7 @@ import {
  * Declaration-merge a typed `variant` prop onto `<Icon>` (and the pinned
  * adapters). `@sigx/lynx-icons` has no notion of variants; the foundation owns
  * the concept so every design system inherits it. The merge fires the moment
- * any consumer imports anything from `@sigx/lynx-zero` (or a DS that re-exports
+ * any consumer imports anything from `@sigx/lynx-zero-legacy` (or a DS that re-exports
  * it). `<ThemeProvider>` provides the resolver that turns the variant into the
  * active theme's hex (below).
  */

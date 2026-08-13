@@ -1,7 +1,7 @@
 # @sigx/lynx-heroui
 
 HeroUI-flavored design system for sigx-lynx, built on the
-[`@sigx/lynx-zero`](https://sigx.dev/lynx/modules/zero/overview/) foundation. **Pilot scope** while the shared
+[`@sigx/lynx-zero-legacy`](https://sigx.dev/lynx/modules/zero/overview/) foundation. **Pilot scope** while the shared
 design-system contract is validated
 ([signalxjs/lynx#219](https://github.com/signalxjs/lynx/issues/219)) — two
 built-in themes (`hero-light` / `hero-dark`) and a representative component
@@ -50,7 +50,7 @@ Available today:
 - **Data** — `Avatar`
 - **Typography** — `Text`, `Heading`
 
-Plus the engine + neutral primitives re-exported from `@sigx/lynx-zero`
+Plus the engine + neutral primitives re-exported from `@sigx/lynx-zero-legacy`
 (`ThemeProvider`, `useTheme`, `Row`/`Col`/`Center`/`Spacer`/`ScrollView`,
 `SwiperIndicator`, …)
 so a hero app keeps a single import source.

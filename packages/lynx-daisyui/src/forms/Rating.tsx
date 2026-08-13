@@ -1,6 +1,6 @@
 import { component, type Define } from '@sigx/lynx';
 import { Pressable } from '@sigx/lynx-gestures';
-import { PRESSED_SCALE, PRESSED_OPACITY, type ColorVariant } from '@sigx/lynx-zero';
+import { PRESSED_SCALE, PRESSED_OPACITY, type ColorVariant } from '@sigx/lynx-zero-legacy';
 
 export type RatingColor = Exclude<ColorVariant, 'neutral'>;
 export type RatingSize = 'xs' | 'sm' | 'md' | 'lg';

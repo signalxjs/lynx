@@ -1,5 +1,5 @@
 import { component, type Define } from '@sigx/lynx';
-import { ScrollView } from '@sigx/lynx-zero';
+import { ScrollView } from '@sigx/lynx-zero-legacy';
 
 export type TableSize = 'xs' | 'sm' | 'md';
 export type TableAlign = 'left' | 'center' | 'right';

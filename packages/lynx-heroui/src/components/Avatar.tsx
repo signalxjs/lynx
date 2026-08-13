@@ -1,5 +1,5 @@
 import { component, type Define } from '@sigx/lynx';
-import type { SizeScale } from '@sigx/lynx-zero';
+import type { SizeScale } from '@sigx/lynx-zero-legacy';
 
 export type AvatarSize = SizeScale;
 
