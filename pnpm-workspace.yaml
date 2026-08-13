@@ -59,6 +59,6 @@ catalog:
   "@lynx-js/css-extract-webpack-plugin": ">=0.10.1"
   "@lynx-js/runtime-wrapper-webpack-plugin": ">=0.2.3"
   "@lynx-js/webpack-dev-transport": ">=0.3.0"
-  "@lynx-js/tailwind-preset": ^0.4.0
-  "@lynx-js/web-core": ^0.20.4
-  "@lynx-js/web-elements": ">=0.12.2"
+  "@lynx-js/tailwind-preset": ^0.5.0
+  "@lynx-js/web-core": ^0.24.0
+  "@lynx-js/web-elements": ">=0.12.7"

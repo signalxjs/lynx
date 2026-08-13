@@ -20,6 +20,15 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 ### Changed
 
+- **Web engine: `@lynx-js/web-core` 0.20.4 → 0.24.0**, plus `@lynx-js/web-elements` `>=0.12.7` and `@lynx-js/tailwind-preset` `^0.5.0` (#975). **Closes #1001.**
+
+  That issue was an unmet peer nothing in an app could satisfy: `@lynx-js/template-webpack-plugin` 0.15 depends on `@lynx-js/css-serializer` 0.1.7, while `@sigx/lynx-cli`'s `web-core@^0.20.4` declared an **exact** `0.1.6` peer — so the graph carried two `web-core` lines and two `css-serializer` lines at once, and `pnpm peers check` stopped being a clean signal. The lockfile now resolves exactly one of each (`web-core@0.24.0`, `css-serializer@0.1.7`).
+
+  **The `__SetGestureDetector` guards stay, and now say why.** They are how the main-thread runtime detects the web engine, and `web-core` still ships no such global at 0.24.0 — re-checked. Worth recording because the neighbouring globals are *not* interchangeable for this: `__CreateWrapperElement` and `__ReplaceElement` **are** present in 0.24.0, so neither would work as a web probe.
+
+  `@lynx-js/tailwind-preset` 0.5's peer is still `tailwindcss ^3.4.0`, so this forces no Tailwind 4 decision.
+
+
 - **`@lynx-js/react` 0.121 → 0.123.3** (#975). This package's WASM transform *is* sigx's snapshot template system (#620), so the bump was checked against emitted output rather than taken on trust.
 
   **Codegen is unchanged for this repo.** The one difference upstream introduced is a 5th argument on LEPUS `updateSpread` — the new `experimental_transformBuiltinAttributeNames` flag, default off. Snapshot uniqIDs are identical, so there is no cross-thread desync, and sigx's 4-arity `updateSpread` ignores the extra argument. Both worklet loaders continue to resolve a single copy of the transform, which is the invariant that matters: a split copy would desync template ids between the two threads.
