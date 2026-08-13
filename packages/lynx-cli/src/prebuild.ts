@@ -1289,7 +1289,8 @@ function iosTemplateVars(config: ResolvedConfig): Record<string, string> {
     return {
         appName: config.name,
         appNamePascal: toPascalCase(config.name),
-        bundleIdentifier: config.ios.bundleIdentifier ?? deriveApplicationId(config.name),
+        bundleIdentifier: iosBundleIdOverride()
+            ?? config.ios.bundleIdentifier ?? deriveApplicationId(config.name),
         deploymentTarget: config.ios.deploymentTarget,
         versionName: config.version,
         buildNumber: config.ios.buildNumber,
@@ -1555,6 +1556,18 @@ export function writeIosSharedScheme(cwd: string, config: ResolvedConfig): void 
 }
 
 /**
+ * The `SIGX_IOS_BUNDLE_ID` override, if set and usable.
+ *
+ * Every place the CLI needs the app's iOS bundle identifier has to agree with
+ * what `applyIosBundleIdentifierOverride` wrote into the project, or the build
+ * installs one app and the launch goes looking for another — and the
+ * "already installed" fast path never matches, so it rebuilds every time.
+ */
+export function iosBundleIdOverride(): string | undefined {
+    return process.env['SIGX_IOS_BUNDLE_ID']?.trim() || undefined;
+}
+
+/**
  * Apply `SIGX_IOS_BUNDLE_ID` to the existing pbxproj.
  *
  * The bundle identifier is a *template* variable, rendered once at scaffold
@@ -1573,7 +1586,7 @@ export function writeIosSharedScheme(cwd: string, config: ResolvedConfig): void 
  * — without editing a tracked file (#1032).
  */
 export function applyIosBundleIdentifierOverride(cwd: string, config: ResolvedConfig): void {
-    const bundleId = process.env['SIGX_IOS_BUNDLE_ID']?.trim();
+    const bundleId = iosBundleIdOverride();
     if (!bundleId) return;
 
     // Spliced raw into project.pbxproj, so validate rather than trust — no

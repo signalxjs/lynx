@@ -92,7 +92,7 @@ export default definePlugin({
                 // `pnpm prebuild` step.
                 if (!hasAndroid && !hasIos && isLynxProject(ctx.cwd)) {
                     ctx.logger.log('First-time setup: no android/ or ios/ folder found — running prebuild...');
-                    const { runPrebuild } = await import('./prebuild.js');
+                    const { runPrebuild, iosBundleIdOverride } = await import('./prebuild.js');
                     await runPrebuild({ cwd: ctx.cwd, variant });
                     hasAndroid = existsSync(androidDir);
                     hasIos = existsSync(iosDir) && process.platform === 'darwin';
@@ -104,14 +104,17 @@ export default definePlugin({
                 let appName: string | undefined;
                 if (hasAndroid || hasIos) {
                     try {
-                        const { loadConfig } = await import('./prebuild.js');
+                        const { loadConfig, iosBundleIdOverride } = await import('./prebuild.js');
                         const { resolveConfig } = await import('./config/index.js');
                         const rawConfig = await loadConfig(ctx.cwd);
                         const config = resolveConfig(rawConfig, variant);
                         appName = config.name;
                         const fallback = `com.sigx.${config.name.toLowerCase().replace(/[^a-z0-9]/g, '')}`;
                         if (hasAndroid) launchAppId = config.android.applicationId ?? fallback;
-                        if (hasIos) launchBundleId = config.ios.bundleIdentifier ?? fallback;
+                        if (hasIos) {
+                            launchBundleId = iosBundleIdOverride()
+                                ?? config.ios.bundleIdentifier ?? fallback;
+                        }
                     } catch {
                         // Config not available — skip custom app detection
                     }
@@ -847,7 +850,10 @@ export default definePlugin({
                 const rawConfig = await loadConfig(ctx.cwd);
                 const config = resolveConfig(rawConfig, variant);
                 const appName = config.name;
-                const bundleId = config.ios.bundleIdentifier ??
+                // Must match what prebuild wrote into the project, or we
+                // install one app and launch another (#1032).
+                const { iosBundleIdOverride } = await import('./prebuild.js');
+                const bundleId = iosBundleIdOverride() ?? config.ios.bundleIdentifier ??
                     `com.sigx.${appName.toLowerCase().replace(/[^a-z0-9]/g, '')}`;
 
                 // Pick target: physical device if --device given, else simulator.

@@ -26,6 +26,7 @@ import {
     writeIosSharedScheme,
     applyIosSigningSettings,
     applyIosBundleIdentifierOverride,
+    iosBundleIdOverride,
     runPostPrebuildHook,
     writeIosDebugInfoPlist,
     applyIosDevClientBuildSettings,
@@ -1967,5 +1968,22 @@ describe('shared native runtime — @sigx/lynx-core (#257)', () => {
 
         const manifests = await loadManifests(['@sigx/lynx-haptics', '@sigx/lynx-core'], testDir);
         expect(manifests.map((m) => m.package)).toEqual(['@sigx/lynx-core', '@sigx/lynx-haptics']);
+    });
+});
+
+describe('iosBundleIdOverride', () => {
+    it('reports the override so install and launch target what was built', () => {
+        // The pbxproj rewrite alone is not enough: run:ios computes the bundle
+        // id separately for launchAppOnDevice and for the "already installed"
+        // fast path. If those disagree with the build, the app installs under
+        // one id and the launch goes looking for another.
+        vi.stubEnv('SIGX_IOS_BUNDLE_ID', 'se.example.throwaway1');
+        expect(iosBundleIdOverride()).toBe('se.example.throwaway1');
+    });
+
+    it('is undefined when unset or blank, so config wins', () => {
+        expect(iosBundleIdOverride()).toBeUndefined();
+        vi.stubEnv('SIGX_IOS_BUNDLE_ID', '   ');
+        expect(iosBundleIdOverride()).toBeUndefined();
     });
 });
