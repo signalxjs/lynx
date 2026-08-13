@@ -26,7 +26,11 @@ export interface IosSimulator {
 }
 
 export interface IosDevice {
-    /** devicectl identifier (UUID string). Use with `--device <identifier>`. */
+    /**
+     * Hardware UDID (`00008132-…`) — what `xcodebuild -destination id=…`
+     * matches. `devicectl --device` accepts this too, so it is the one
+     * identifier both tools understand.
+     */
     udid: string;
     /** User-facing device name. */
     name: string;
@@ -677,10 +681,21 @@ export function listConnectedIosDevices(): IosDevice[] {
         .filter((d) => {
             const platform = d.hardwareProperties?.platform;
             const pairing = d.connectionProperties?.pairingState;
-            return platform === 'iOS' && pairing === 'paired' && !!d.identifier;
+            // Either identifier will do for devicectl, but only the hardware
+            // UDID satisfies xcodebuild — so a device is only usable to us if
+            // it reports one.
+            return platform === 'iOS' && pairing === 'paired'
+                && !!(d.hardwareProperties?.udid ?? d.identifier);
         })
         .map((d) => ({
-            udid: d.identifier!,
+            // The **hardware** UDID (`00008132-…`), not devicectl's CoreDevice
+            // identifier (`16B3FA2D-…`). They are different values for the same
+            // device: `devicectl --device` accepts either, but
+            // `xcodebuild -destination id=…` only matches the hardware one, and
+            // passing the other fails the build with "Unable to find a device
+            // matching the provided destination specifier" — which reads like a
+            // signing or connection problem and is neither.
+            udid: (d.hardwareProperties?.udid ?? d.identifier)!,
             name: d.deviceProperties?.name ?? 'iPhone',
             model: d.hardwareProperties?.marketingName,
             osVersion: d.deviceProperties?.osVersionNumber,

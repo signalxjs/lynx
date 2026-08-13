@@ -1560,9 +1560,17 @@ export function writeIosSharedScheme(cwd: string, config: ResolvedConfig): void 
  * config actually pins — with both unset this is a no-op, so values set via
  * the Xcode GUI or fastlane's `update_code_signing_settings` survive
  * prebuild untouched.
+ *
+ * `SIGX_IOS_DEVELOPMENT_TEAM` overrides the config's team. A Team ID is
+ * personal to whoever is building — a contributor's belongs in their shell,
+ * not in a committed `signalx.config.ts`, and an example app that ships one
+ * is unbuildable on a device for everyone else. CI sets it from a secret for
+ * the same reason. An explicit config value is still honoured when the
+ * variable is absent.
  */
 export function applyIosSigningSettings(cwd: string, config: ResolvedConfig): void {
-    const team = config.ios.developmentTeam?.trim();
+    const team = (process.env['SIGX_IOS_DEVELOPMENT_TEAM']?.trim()
+        || config.ios.developmentTeam?.trim());
     const style = config.ios.codeSignStyle;
     if (!team && !style) return;
 
@@ -1571,8 +1579,11 @@ export function applyIosSigningSettings(cwd: string, config: ResolvedConfig): vo
     // schema's union type guarantees nothing) so a typo'd team or a crafted
     // value can't corrupt the project or smuggle in extra build settings.
     if (team && !/^[A-Za-z0-9]{10}$/.test(team)) {
+        const source = process.env['SIGX_IOS_DEVELOPMENT_TEAM']?.trim()
+            ? 'SIGX_IOS_DEVELOPMENT_TEAM'
+            : 'ios.developmentTeam';
         throw new Error(
-            `ios.developmentTeam must be a 10-character alphanumeric Apple Team ID ` +
+            `${source} must be a 10-character alphanumeric Apple Team ID ` +
             `(e.g. "AB12CD34EF"), got: "${team}"`,
         );
     }
@@ -2741,12 +2752,20 @@ export function fingerprintPrebuildInputs(
         //     path), so swapping FCM credentials invalidates the fast path (#560).
         // v8: include the CLI's own templates/ tree, so editing a managed
         //     template in a workspace checkout invalidates the fast path (#614).
-        fingerprintFormat: 'v8',
+        // v9: include SIGX_IOS_DEVELOPMENT_TEAM. It is spliced into the
+        //     pbxproj by `applyIosSigningSettings`, which only runs in the slow
+        //     path — so without it here, exporting a team on a project that had
+        //     already been prebuilt changed nothing and the device build failed
+        //     for want of a signing identity it had just been given (#1032).
+        fingerprintFormat: 'v9',
         cliVersion: getCliVersion(),
         platforms: `android=${platforms.android};ios=${platforms.ios}`,
         // Variant identity changes the rendered output (suffixed ids, signing,
         // badge) and the output dir, so it must invalidate the fast path.
         variant: variant ?? '',
+        // Only the value matters, and only on iOS — an Android-only prebuild
+        // never reads it.
+        iosTeam: platforms.ios ? (process.env['SIGX_IOS_DEVELOPMENT_TEAM']?.trim() ?? '') : '',
     });
 }
 

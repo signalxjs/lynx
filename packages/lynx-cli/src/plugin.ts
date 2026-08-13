@@ -901,6 +901,10 @@ export default definePlugin({
                 async function xcodeBuild(configuration: string) {
                     const workspace = join(iosDirRel, `${appName}.xcworkspace`);
                     ctx.logger.log(`Building iOS (${configuration}) for ${target.kind}...`);
+                    // Dynamic, like this file's other ios-run imports — the
+                    // module pulls in the whole prebuild pipeline.
+                    const { createIosDeviceTroubleWatcher } = await import('./ios-run.js');
+                    const trouble = createIosDeviceTroubleWatcher();
                     try {
                         await runWithBuildFilter(
                             'xcodebuild',
@@ -914,11 +918,11 @@ export default definePlugin({
                                 'build',
                             ],
                             { cwd: ctx.cwd },
-                            { kind: 'xcodebuild', verbose, logger: ctx.logger },
+                            { kind: 'xcodebuild', verbose, logger: ctx.logger, onChunk: trouble.onChunk },
                         );
                     } catch {
                         if (target.kind === 'device') {
-                            ctx.logger.error('Device build failed. Check that a development team is selected in Xcode (Signing & Capabilities).');
+                            ctx.logger.error(trouble.message(target));
                         }
                         throw new Error(`iOS ${configuration} build failed`);
                     }

@@ -55,6 +55,43 @@ function iosFingerprintKey(target: IosBuildTarget, configuration: string, varian
     return `ios-${variant ? `${variant}-` : ''}${configuration.toLowerCase()}-${target.kind}-${target.udid}`;
 }
 
+/**
+ * Watch xcodebuild's output for the two device failures worth naming.
+ *
+ * The build runner rejects with a bare "exited with code N", so the reason has
+ * to be caught as it streams past. Both of these were hit on a connected iPad
+ * and neither is about signing, which is all the old blanket message said
+ * (#1032). Shared because `run:ios` and `sigx dev` each drive their own
+ * xcodebuild.
+ */
+export function createIosDeviceTroubleWatcher() {
+    let notReady = false;
+    let noDestination = false;
+    return {
+        onChunk(chunk: Buffer): void {
+            const text = chunk.toString();
+            if (/Device is busy|Waiting to reconnect/i.test(text)) notReady = true;
+            if (/destination specifier/i.test(text)) noDestination = true;
+        },
+        /** The most specific explanation the output supports. */
+        message(target: { name: string; udid: string }): string {
+            if (notReady) {
+                return `Device build failed: ${target.name} is connected but not ready. Unlock it `
+                    + 'and leave it awake — Xcode mounts the developer disk image on first use '
+                    + 'after enabling Developer Mode or an OS update, and `xcrun devicectl list '
+                    + 'devices` reports "connected (no DDI)" until it has.';
+            }
+            if (noDestination) {
+                return `Device build failed: xcodebuild could not match ${target.name} `
+                    + `(id=${target.udid}). Check \`xcrun xctrace list devices\` — the id must be `
+                    + "the hardware UDID, not devicectl's CoreDevice identifier.";
+            }
+            return 'Device build failed. Check that a development team is selected in Xcode '
+                + '(Signing & Capabilities), or set SIGX_IOS_DEVELOPMENT_TEAM.';
+        },
+    };
+}
+
 export async function ensureIosBuilt(opts: EnsureIosBuiltOptions): Promise<void> {
     const { cwd, logger, appName, target, bundleId, configuration = 'Debug', verbose = false, variant } = opts;
     const iosDirRel = iosDirName(variant);
@@ -103,6 +140,7 @@ export async function ensureIosBuilt(opts: EnsureIosBuiltOptions): Promise<void>
 
     logger.log(`Building iOS (${configuration}) for ${target.kind}...`);
     const workspace = join(iosDirRel, `${appName}.xcworkspace`);
+    const trouble = createIosDeviceTroubleWatcher();
     try {
         await runWithBuildFilter(
             'xcodebuild',
@@ -117,11 +155,11 @@ export async function ensureIosBuilt(opts: EnsureIosBuiltOptions): Promise<void>
                 'build',
             ],
             { cwd },
-            { kind: 'xcodebuild', verbose, logger },
+            { kind: 'xcodebuild', verbose, logger, onChunk: trouble.onChunk },
         );
     } catch {
         if (target.kind === 'device') {
-            logger.error('Device build failed. Check that a development team is selected in Xcode (Signing & Capabilities).');
+            logger.error(trouble.message(target));
         }
         throw new Error(`iOS ${configuration} build failed`);
     }

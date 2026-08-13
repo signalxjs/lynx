@@ -37,6 +37,29 @@ Physical iOS devices are launched, not built: signing belongs to
 `sigx run:ios --device`, and the tab says so rather than starting a build that
 would fail on provisioning.
 
+#### Signing a device build
+
+`xcodebuild` needs a `DEVELOPMENT_TEAM`. Set it per-machine rather than in a
+committed config — a Team ID belongs to whoever is building, and an example app
+that ships one is unbuildable on a device for everyone else:
+
+```bash
+SIGX_IOS_DEVELOPMENT_TEAM=AB12CD34EF sigx run:ios --device "My iPad"
+```
+
+It overrides `ios.developmentTeam` from `signalx.config.ts` when both are set,
+and takes part in the prebuild fingerprint, so exporting it re-applies signing
+to an already-prebuilt project. `security find-identity -v -p codesigning`
+lists the Team IDs available on the machine.
+
+If a device build fails, read the message: it distinguishes a device that isn't
+ready (unlock it — Xcode mounts the developer disk image on first use after
+enabling Developer Mode or an OS update) from an id xcodebuild couldn't match,
+and only falls back to the signing guess when the output says neither. A device
+whose iOS is *newer* than the installed Xcode cannot be built to at all —
+`xcrun devicectl list devices` shows `connected (no DDI)` — and the fix is a
+newer Xcode.
+
 ### Device logs
 
 Records keep their structure — level, platform, device, timestamp — instead of

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { mkdirSync, rmSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename, join, win32 } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -64,6 +64,9 @@ beforeEach(() => {
 
 afterEach(() => {
     rmSync(testDir, { recursive: true, force: true });
+    // `vi.stubEnv` persists across tests otherwise, and a leaked
+    // SIGX_IOS_DEVELOPMENT_TEAM rewrites every later pbxproj.
+    vi.unstubAllEnvs();
 });
 
 describe('scaffoldAndroid', () => {
@@ -1371,6 +1374,42 @@ describe('applyIosSigningSettings', () => {
         // The scaffold default stays Automatic with an empty team.
         expect(before).toContain('CODE_SIGN_STYLE = Automatic;');
         expect(before).toContain('DEVELOPMENT_TEAM = "";');
+    });
+
+    it('takes the team from SIGX_IOS_DEVELOPMENT_TEAM when the config has none', () => {
+        // A Team ID belongs to whoever is building, not to a committed config:
+        // an example app that ships one is unbuildable on a device for anyone
+        // else, and CI wants it from a secret.
+        vi.stubEnv('SIGX_IOS_DEVELOPMENT_TEAM', 'ZZ99YY88XX');
+        const config = resolveConfig(TEST_CONFIG);
+        scaffoldIos(testDir, config);
+        applyIosSigningSettings(testDir, config);
+
+        expect(readFileSync(pbxprojPath(testDir), 'utf-8'))
+            .toContain('DEVELOPMENT_TEAM = ZZ99YY88XX;');
+    });
+
+    it('lets the environment win over a config team', () => {
+        vi.stubEnv('SIGX_IOS_DEVELOPMENT_TEAM', 'ZZ99YY88XX');
+        const config = resolveConfig({
+            ...TEST_CONFIG,
+            ios: { ...TEST_CONFIG.ios, developmentTeam: 'AB12CD34EF' },
+        });
+        scaffoldIos(testDir, config);
+        applyIosSigningSettings(testDir, config);
+
+        const pbx = readFileSync(pbxprojPath(testDir), 'utf-8');
+        expect(pbx).toContain('DEVELOPMENT_TEAM = ZZ99YY88XX;');
+        expect(pbx).not.toContain('AB12CD34EF');
+    });
+
+    it('names the environment variable when its value is malformed', () => {
+        vi.stubEnv('SIGX_IOS_DEVELOPMENT_TEAM', 'nope');
+        const config = resolveConfig(TEST_CONFIG);
+        scaffoldIos(testDir, config);
+
+        expect(() => applyIosSigningSettings(testDir, config))
+            .toThrow(/SIGX_IOS_DEVELOPMENT_TEAM must be a 10-character alphanumeric/);
     });
 
     it('is idempotent across repeated prebuilds', () => {
