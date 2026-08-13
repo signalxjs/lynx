@@ -32,10 +32,25 @@ describe('Progress', () => {
         expect(String(container.children[0]!.props['data-state'])).toBe('indeterminate');
     });
 
-    it('loading and complete states', async () => {
-        const { container } = render(<Progress.Root value={40} />);
-        expect(String(container.children[0]!.props['data-state'])).toBe('loading');
-        conforms(container as never, 'progress');
+    it('loading, complete, and the range width; NaN inputs stay finite', () => {
+        const loading = render(
+            <Progress.Root value={40}><Progress.Track><Progress.Range /></Progress.Track></Progress.Root>,
+        ).container;
+        expect(String(loading.children[0]!.props['data-state'])).toBe('loading');
+        expect(loading.children[0]!.children[0]!.children[0]!._style['width']).toBe('40%');
+        conforms(loading as never, 'progress');
+
+        const complete = render(<Progress.Root value={100} />).container;
+        expect(String(complete.children[0]!.props['data-state'])).toBe('complete');
+        conforms(complete as never, 'progress');
+
+        // 0/0 and a non-finite max must never emit NaN% (Copilot's catch).
+        const zeroMax = render(
+            <Progress.Root value={0} max={0}><Progress.Track><Progress.Range /></Progress.Track></Progress.Root>,
+        ).container;
+        expect(zeroMax.children[0]!.children[0]!.children[0]!._style['width']).toBe('0%');
+        const nanValue = render(<Progress.Root value={Number.NaN} />).container;
+        expect(String(nanValue.children[0]!.props['data-state'])).toBe('indeterminate');
     });
 });
 

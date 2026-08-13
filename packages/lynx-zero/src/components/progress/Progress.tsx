@@ -43,14 +43,25 @@ export type ProgressRootProps =
     & Define.Slot<'default'>;
 
 const ProgressRoot = component<ProgressRootProps>(({ props, slots }) => {
-    const max = () => props.max ?? 100;
+    // A non-finite or non-positive max cannot produce a meaningful ratio —
+    // fall back to the default rather than emitting `NaN%` into a width.
+    const max = () => {
+        const raw = props.max ?? 100;
+        return Number.isFinite(raw) && raw > 0 ? raw : 100;
+    };
+    const finiteValue = (): number | null => {
+        if (props.value === null || props.value === undefined) return null;
+        return Number.isFinite(props.value) ? props.value : null;
+    };
     const state = (): ProgressState => {
-        if (props.value === null || props.value === undefined) return 'indeterminate';
-        return props.value >= max() ? 'complete' : 'loading';
+        const value = finiteValue();
+        if (value === null) return 'indeterminate';
+        return value >= max() ? 'complete' : 'loading';
     };
     const percent = (): number => {
-        if (props.value === null || props.value === undefined) return 30;
-        return Math.min(100, Math.max(0, (props.value / max()) * 100));
+        const value = finiteValue();
+        if (value === null) return 30;
+        return Math.min(100, Math.max(0, (value / max()) * 100));
     };
     const axes = (): VariantAxes => ({ color: props.color, size: props.size, variant: props.variant });
     provideVariantAxes(axes);
