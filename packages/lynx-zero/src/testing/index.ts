@@ -69,14 +69,47 @@ function collect(node: ConformanceNode, scope: string, out: ConformanceNode[]): 
     for (const child of node.children) collect(child, scope, out);
 }
 
+export interface LynxExpectAnatomyOptions extends ExpectAnatomyOptions {
+    /**
+     * Parts the overlay outlet hosts on this platform. The anatomy's
+     * `parent` names the LOGICAL containing part; on the web these parts
+     * keep their DOM position (the top layer promotes without moving), but
+     * lynx has no top layer, so the runtime teleports them into the outlet —
+     * the lynx spelling of the same contract, like unmounting is the lynx
+     * spelling of `hiddenIn`. For each listed part the adapter re-parents
+     * the node onto the first rendered instance of its declared parent
+     * before the oracle's tree rule runs; every other rule sees the node
+     * untouched. Single-instance per scope, like these conformance tests
+     * generally are.
+     */
+    portaled?: readonly string[];
+}
+
 /**
  * Zero's anatomy oracle over a rendered TestNode tree — pass the `container`
  * from `@sigx/lynx-testing`'s `render()` (or any subtree root).
  */
-export function expectAnatomy(root: ConformanceNode, anatomy: Anatomy, options: ExpectAnatomyOptions = {}): void {
+export function expectAnatomy(root: ConformanceNode, anatomy: Anatomy, options: LynxExpectAnatomyOptions = {}): void {
     const nodes: ConformanceNode[] = [];
     collect(root, anatomy.scope, nodes);
-    expectAnatomyElements(nodes.map(wrap), anatomy, options);
+    const { portaled, ...oracleOptions } = options;
+    const firstOfPart = new Map<string, ConformanceNode>();
+    for (const node of nodes) {
+        const part = attributeValue(node.props['data-part']);
+        if (part !== null && !firstOfPart.has(part)) firstOfPart.set(part, node);
+    }
+    const mapped = nodes.map((node) => {
+        const part = attributeValue(node.props['data-part']);
+        if (part !== null && portaled?.includes(part)) {
+            const declaredParent = anatomy.parts[part]?.parent;
+            const logical = declaredParent !== undefined ? firstOfPart.get(declaredParent) : undefined;
+            // Descendants keep their REAL chain — it passes through this
+            // same part node, so only the portal boundary is bridged.
+            if (logical) return wrap({ props: node.props, children: node.children, parent: logical });
+        }
+        return wrap(node);
+    });
+    expectAnatomyElements(mapped, anatomy, oracleOptions);
 }
 
 export interface ExpectClassGrammarOptions {

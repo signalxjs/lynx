@@ -97,6 +97,9 @@ describe('public runtime exports', () => {
                 'Toast',
                 'createToaster',
                 'provideToaster',
+                // ── components (pilot wave 3 — composites) ──
+                'Select',
+                'Slider',
                 // ── overlays ──
                 'OverlayHost',
                 'PortalScope',

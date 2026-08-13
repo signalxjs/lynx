@@ -40,6 +40,12 @@ export { Popover } from './components/popover/Popover.js';
 export type { ToastItem, ToastOptions, ToastPlacement, ToastViewportProps, Toaster } from './components/toast/Toast.js';
 export { Toast, createToaster, provideToaster } from './components/toast/Toast.js';
 
+// ── Components (pilot wave 3 — composites) ──────────────────────────────
+export type { SelectOption, SelectRootProps } from './components/select/Select.js';
+export { Select } from './components/select/Select.js';
+export type { SliderRootProps } from './components/slider/Slider.js';
+export { Slider } from './components/slider/Slider.js';
+
 // ── Axis push-down ───────────────────────────────────────────────────────
 export type { VariantAxes } from './contract/axes-context.js';
 export { partAxes, provideVariantAxes, useVariantAxes } from './contract/axes-context.js';

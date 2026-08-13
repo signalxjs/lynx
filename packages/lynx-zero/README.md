@@ -74,8 +74,30 @@ helpers carry over from the legacy package unchanged — lynx-only concerns
 breakpoints because inline styles beat stylesheet `@media`) that zero has no
 counterpart for.
 
+## Components (the pilot ten)
+
+Progress, Button, Switch, Tabs, Accordion, Dialog, Popover, Toast, Select,
+Slider — zero's anatomies rendered in Lynx JSX over the shared behaviors.
+The platform spellings to know:
+
+- **Closed means unmounted.** Lynx has no `hidden` attribute and no
+  attribute selectors, so inactive panels, closed popups and unchecked
+  indicators leave the tree — absence is the lynx spelling of `hiddenIn`.
+- **Overlays portal to the outlet.** Wrap the app once in `ZeroRoot` (theme
+  host + overlay outlet as the LAST child — stacking is document order).
+  Dialog renders the anatomy's `::backdrop` pseudo part as a real view;
+  light dismiss routes through the shared layer stack (`dismissTopLayer()`),
+  so nested overlays close innermost-first.
+- **Select is options-driven** (`options={[{ value, label?, group?, … }]}`,
+  zero's `OptionInput` shape); Slider is touch-driven tier 1 — the value
+  paints as inline track percentages, the lynx counterpart of the web's
+  runtime `--slider-percent`.
+- **`@sigx/lynx-zero/testing`** holds components to the same contract as
+  the web: `expectAnatomy` (zero's oracle over the rendered tree; pass
+  `{ portaled: ['popup'] }` for parts the outlet hosts) and
+  `expectClassGrammar` (the classes recomputed from the data attributes).
+
 ## What comes next
 
-Behaviors (press, dismiss layers, anchored positioning), the overlay host,
-and the component tier land in the follow-up PRs of #1029; the compiled
-design-system shells (`@sigx/lynx-daisyui-zero`) after that.
+The compiled design-system shells (`@sigx/lynx-daisyui-zero`) and the
+showcase pilot screens land in the remaining PRs of #1029.
