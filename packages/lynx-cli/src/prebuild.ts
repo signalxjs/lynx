@@ -1609,7 +1609,7 @@ export function applyIosBundleIdentifierOverride(cwd: string, config: ResolvedCo
     if (!existsSync(pbxprojPath)) return;
 
     const content = readFileSync(pbxprojPath, 'utf-8')
-        .replace(/PRODUCT_BUNDLE_IDENTIFIER = [^;]*;/g, `PRODUCT_BUNDLE_IDENTIFIER = ${bundleId};`);
+        .replace(/PRODUCT_BUNDLE_IDENTIFIER = [^;\r\n]*;/g, `PRODUCT_BUNDLE_IDENTIFIER = ${bundleId};`);
     if (writeFileIfChanged(pbxprojPath, content)) {
         log(`iOS: applied bundle identifier override (${bundleId})`);
     }
@@ -1659,10 +1659,10 @@ export function applyIosSigningSettings(cwd: string, config: ResolvedConfig): vo
 
     let content = readFileSync(pbxprojPath, 'utf-8');
     if (team) {
-        content = content.replace(/DEVELOPMENT_TEAM = [^;]*;/g, `DEVELOPMENT_TEAM = ${team};`);
+        content = content.replace(/DEVELOPMENT_TEAM = [^;\r\n]*;/g, `DEVELOPMENT_TEAM = ${team};`);
     }
     if (style) {
-        content = content.replace(/CODE_SIGN_STYLE = [^;]*;/g, `CODE_SIGN_STYLE = ${style};`);
+        content = content.replace(/CODE_SIGN_STYLE = [^;\r\n]*;/g, `CODE_SIGN_STYLE = ${style};`);
     }
     if (writeFileIfChanged(pbxprojPath, content)) {
         const applied = [team && `DEVELOPMENT_TEAM=${team}`, style && `CODE_SIGN_STYLE=${style}`]

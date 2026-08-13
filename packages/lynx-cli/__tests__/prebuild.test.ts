@@ -1991,3 +1991,26 @@ describe('iosBundleIdOverride', () => {
         expect(iosBundleIdOverride()).toBeUndefined();
     });
 });
+
+describe('pbxproj rewrites are line-bounded', () => {
+    const pbxprojPath = (cwd: string) => join(cwd, 'ios', 'TestApp.xcodeproj', 'project.pbxproj');
+
+    it('does not swallow following lines when a semicolon is missing', () => {
+        // `[^;]*` matches newlines, so a malformed or unexpectedly formatted
+        // project would have been rewritten from the setting all the way to
+        // the next semicolon — several lines away.
+        vi.stubEnv('SIGX_IOS_BUNDLE_ID', 'se.example.throwaway1');
+        const config = resolveConfig(TEST_CONFIG);
+        scaffoldIos(testDir, config);
+
+        const path = pbxprojPath(testDir);
+        writeFileSync(path, readFileSync(path, 'utf-8').replace(
+            /PRODUCT_BUNDLE_IDENTIFIER = [^;\r\n]*;/,
+            'PRODUCT_BUNDLE_IDENTIFIER = com.test.myapp\n\t\t\t\tKEEP_ME = yes;',
+        ));
+
+        applyIosBundleIdentifierOverride(testDir, config);
+
+        expect(readFileSync(path, 'utf-8')).toContain('KEEP_ME = yes;');
+    });
+});
