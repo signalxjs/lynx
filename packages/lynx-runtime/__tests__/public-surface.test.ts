@@ -66,6 +66,11 @@ describe('public runtime exports', () => {
                 'wireEqual',
                 // use:* directive system + the built-in `show`
                 'show',
+                // DOM-runtime compat names for the @sigx/runtime-dom alias (#1059)
+                'Portal',
+                'moveNode',
+                'supportsMoveBefore',
+                'useHead',
                 'registerBuiltInDirective',
                 'resolveBuiltInDirective',
                 'patchDirective',
