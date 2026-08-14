@@ -52,6 +52,9 @@ describe('public runtime exports', () => {
             'OP',
             'Orientation',
             'Platform',
+            // DOM-runtime compat names flowing through the lynx-runtime star
+            // re-export (#1059) — exist for ESM linking, throw when called
+            'Portal',
             'Response',
             'ShadowElement',
             'ShadowSlotElement',
@@ -125,6 +128,7 @@ describe('public runtime exports', () => {
             'measureViewportRect',
             'mergeProps',
             'mountTargetNotFoundError',
+            'moveNode',
             'noMountFunctionError',
             'nodeOps',
             'normalizeHole',
@@ -173,6 +177,7 @@ describe('public runtime exports', () => {
             'signal',
             'startFrameCallback',
             'stopFrameCallback',
+            'supportsMoveBefore',
             'takeOps',
             'toRaw',
             'toSignal',
@@ -197,6 +202,7 @@ describe('public runtime exports', () => {
             'useFontScaleMT',
             'useFrameCallback',
             'useGestureDetector',
+            'useHead',
             'useHeightAtLeast',
             'useHeightClass',
             'useHeightClassMT',
