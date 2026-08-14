@@ -6,8 +6,9 @@
  * `ZeroRoot` sizes to its content and never scrolls.
  *
  * These are the regression guards for that. The legacy package carries the
- * same assertions (`lynx-zero-legacy/__tests__/theme-provider-host.test.tsx`);
- * the new stack dropped `display` on both branches when it was ported.
+ * same assertions
+ * (`packages/lynx-zero-legacy/__tests__/theme-provider-host.test.tsx`); the
+ * new stack dropped `display` on both branches when it was ported.
  */
 import { beforeEach, describe, expect, it } from 'vitest';
 import { render } from '@sigx/lynx-testing';
