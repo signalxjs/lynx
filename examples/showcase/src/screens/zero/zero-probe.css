@@ -107,17 +107,36 @@
  * these split "which one does lynx not do". Each resolved bar is 160px wide;
  * the grid bar is the odd one out and reads as a 3-column strip. */
 
-/* nested calc with two vars and grouped sub-expressions — the switch's width
- * is `calc((var(--switch-size) * 2) - (var(--border) + var(--switch-p)) * 2)`,
- * which is a good deal more than the single multiply proven above. */
+/* Every var these read carries a fallback. A probe whose own inputs can go
+ * undefined reports a false negative for the construct it is meant to test —
+ * the bar would go full-bleed and read as "calc failed" when the truth was
+ * "the token was missing". */
+
+/* nested calc with two DIFFERENT vars and grouped sub-expressions — the
+ * switch's width is
+ * `calc((var(--switch-size) * 2) - (var(--border) + var(--switch-p)) * 2)`,
+ * a good deal more than the single multiply proven above.
+ * 0.5rem*20 + 0.25rem*24 = 16rem, then halved = 8rem = 128px. */
 .zxp-calc-nested {
-  width: calc((var(--radius-box) * 20) - (var(--border) + var(--border)) * 0);
+  width: calc(((var(--radius-box, 0.5rem) * 20) + (var(--radius-field, 0.25rem) * 24)) / 2);
   background-color: var(--color-primary);
 }
 
-/* min() over vars — the switch's border-radius uses two of them. */
+/* min() over two plain vars — the switch's EXACT shape, with nothing nested
+ * inside the min() that could fail instead of it. 10rem = 160px. */
 .zxp-min {
-  width: min(calc(var(--radius-box) * 20), 10rem);
+  --zxp-wide: 20rem;
+  --zxp-narrow: 10rem;
+  width: min(var(--zxp-wide, 20rem), var(--zxp-narrow, 10rem));
+  background-color: var(--color-primary);
+}
+
+/* min() INSIDE calc(), which is how the switch actually spends it:
+ * `calc(var(--radius-selector) + min(var(--switch-p), …) + min(var(--border), …))`.
+ * Separate from the bare case so a failure names which of the two broke.
+ * min(0.5rem, 0.25rem) = 0.25rem, * 40 = 10rem = 160px. */
+.zxp-min-in-calc {
+  width: calc(min(var(--radius-box, 0.5rem), var(--radius-field, 0.25rem)) * 40);
   background-color: var(--color-primary);
 }
 

@@ -120,11 +120,12 @@ export const ZeroPilot = component(() => {
 
                     <Section
                         title="Probe · the switch's own constructs"
-                        note="daisy's switch control uses all four at once. Its CSS is now complete and it still does not render, so these split which one lynx does not do. Resolved = 160px wide; the grid bar reads as three white bands."
+                        note="daisy's switch control uses all of these at once. Its CSS is now complete and it still does not render, so these split which one lynx does not do. Every var here carries a fallback, so a full-bleed bar means the CONSTRUCT failed, not a missing token."
                     >
                         <Col gap={6}>
-                            <ProbeBar probe="zxp-calc-nested" label="nested calc, two vars · resolved = 160px" />
-                            <ProbeBar probe="zxp-min" label="min() over vars · resolved = 160px" />
+                            <ProbeBar probe="zxp-calc-nested" label="nested calc, two vars · resolved = 128px" />
+                            <ProbeBar probe="zxp-min" label="min(var, var) · resolved = 160px" />
+                            <ProbeBar probe="zxp-min-in-calc" label="min() inside calc() · resolved = 160px" />
                             <view class="zxp-grid">
                                 <view class="zxp-grid-cell" />
                                 <view class="zxp-grid-cell" />
