@@ -449,6 +449,16 @@ export function pluginSigxLynx(
       }
 
       api.modifyBundlerChain((chain) => {
+        // Exact key FIRST: the sigx entry side-effect-imports this subpath
+        // (web platform bootstrapping — a no-op here), and resolving a
+        // subpath THROUGH the prefix alias below proved unreliable on
+        // Windows (#1061 CI). The bare-package form resolves everywhere,
+        // and the extra index import is free — the module is already in
+        // every lynx bundle's graph.
+        chain.resolve.alias.set(
+          '@sigx/runtime-dom/platform$',
+          '@sigx/lynx-runtime',
+        );
         chain.resolve.alias.set(
           '@sigx/runtime-dom',
           '@sigx/lynx-runtime',

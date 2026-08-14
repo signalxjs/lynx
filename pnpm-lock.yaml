@@ -189,6 +189,9 @@ importers:
       '@sigx/lynx-daisyui':
         specifier: workspace:^
         version: link:../../packages/lynx-daisyui
+      '@sigx/lynx-daisyui-zero':
+        specifier: workspace:^
+        version: link:../../packages/lynx-daisyui-zero
       '@sigx/lynx-datetime-picker':
         specifier: workspace:^
         version: link:../../packages/lynx-datetime-picker
@@ -297,6 +300,9 @@ importers:
       '@sigx/lynx-webview':
         specifier: workspace:^
         version: link:../../packages/lynx-webview
+      '@sigx/lynx-zero':
+        specifier: workspace:^
+        version: link:../../packages/lynx-zero
       '@sigx/lynx-zero-legacy':
         specifier: workspace:^
         version: link:../../packages/lynx-zero-legacy
