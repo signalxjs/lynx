@@ -14,6 +14,8 @@ import { Icons } from './screens/Icons.js';
 import { SystemBars } from './screens/SystemBars.js';
 import { OrientationDemo } from './screens/OrientationDemo.js';
 import { CSSEngineProbe } from './screens/CSSEngineProbe.js';
+import { ZeroPilot } from './screens/zero/ZeroPilot.js';
+import { ZeroParity } from './screens/zero/ZeroParity.js';
 import { InlineSheetDemo } from './screens/InlineSheetDemo.js';
 import { SheetDemo } from './screens/SheetDemo.js';
 import { SheetScrollDemo } from './screens/SheetScrollDemo.js';
@@ -98,6 +100,9 @@ export const routes = defineRoutes({
     systemBars: { component: SystemBars, path: '/system-bars' },
     orientation: { component: OrientationDemo, path: '/orientation' },
     cssEngineProbe: { component: CSSEngineProbe, path: '/css-engine-probe' },
+    // The zero-contract pilot (#1029 B8) — the new stack end to end.
+    zeroPilot: { component: ZeroPilot, path: '/zero-pilot' },
+    zeroParity: { component: ZeroParity, path: '/zero-parity' },
     // Standalone @sigx/lynx-sheet BottomSheet on a plain card screen —
     // no route needed for the sheet itself.
     inlineSheetDemo: { component: InlineSheetDemo, path: '/inline-sheet' },

@@ -80,6 +80,20 @@ export const catalog: Area[] = [
                 route: 'herouiLab',
             },
             {
+                id: 'zero-pilot',
+                title: 'Zero Pilot',
+                description: 'The pilot ten on the NEW zero stack — compiled daisy recipes, zero registry themes',
+                icon: { set: 'lucide', name: 'rocket' },
+                route: 'zeroPilot',
+            },
+            {
+                id: 'zero-parity',
+                title: 'Zero Parity',
+                description: 'New compiled-recipe components side-by-side with old lynx-daisyui',
+                icon: { set: 'lucide', name: 'columns-2' },
+                route: 'zeroParity',
+            },
+            {
                 id: 'foundation',
                 title: 'Foundation (lynx-zero)',
                 description: 'The neutral layer under both design systems — contract, theme engine, layout primitives',
