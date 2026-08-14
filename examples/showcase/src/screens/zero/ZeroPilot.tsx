@@ -5,16 +5,18 @@
  * daisyUI recipe source the web uses (shipped by `@sigx/lynx-daisyui-zero`),
  * themes through zero's registry. Nothing on this screen is styled by the
  * legacy tailwind pipeline — every painted part answers to a `zx-*` class
- * the emitter produced.
+ * the emitter produced, and the screen's own chrome is `zero-probe.css`.
  *
- * The probe card up top is the on-device half of the capabilities story:
- * each row paints ONLY if a specific selector shape resolved (part class,
- * state compound, axis compound), complementing the compile-time
- * capabilities-lint in zero-kit.
+ * The probe card up top is the on-device half of the capabilities story: a
+ * bar per construct, each one a verdict you can read off a screenshot (see
+ * `zero-probe.css` for how to read it). It complements zero-kit's
+ * compile-time capabilities lint — and its last three bars are aimed at the
+ * dropped-declaration bug the compile-time side does NOT catch (#1029).
  */
 import '@sigx/lynx-daisyui-zero/css/index.css';
 // Side effect: seeds zero's theme registry with the daisy themes.
 import '@sigx/lynx-daisyui-zero';
+import './zero-probe.css';
 import type { Define } from '@sigx/lynx';
 import { component } from '@sigx/lynx';
 import { Screen } from '@sigx/lynx-navigation';
@@ -24,6 +26,20 @@ import {
 } from '@sigx/lynx-zero';
 
 const toaster = createToaster();
+
+type ProbeBarProps =
+    /** The classes under test, appended after the pink `zxp-bar` base. */
+    & Define.Prop<'probe', string, true>
+    & Define.Prop<'label', string, true>;
+
+/** One verdict bar. Reading rules live in `zero-probe.css`. */
+const ProbeBar = component<ProbeBarProps>(({ props }) => {
+    return () => (
+        <view class={`zxp-bar ${props.probe}`}>
+            <text class="zxp-bar-label">{props.label}</text>
+        </view>
+    );
+});
 
 type SectionProps =
     & Define.Prop<'title', string, true>
@@ -44,7 +60,7 @@ export const ZeroPilot = component(() => {
     return () => (
         <ZeroRoot>
             <Screen title="Zero Pilot" />
-            <ScrollView class="flex-fill">
+            <ScrollView flex={1}>
                 <Col gap={4} padding={16}>
                     <text style={{ fontSize: '12px', opacity: 0.6 }}>
                         Every part below is painted by class-grammar CSS compiled from
@@ -65,14 +81,41 @@ export const ZeroPilot = component(() => {
                     </Section>
 
                     <Section
-                        title="Probe"
-                        note="Each row paints only if its selector shape resolved: part class → axis compound → state compound."
+                        title="Probe · selector shapes"
+                        note="Green = the engine resolved this shape of the class grammar. Pink = it did not."
                     >
-                        <Row gap={8}>
-                            <Button><text>part</text></Button>
-                            <Button color="primary"><text>axis</text></Button>
-                            <Switch defaultChecked label="state compound" />
-                        </Row>
+                        <Col gap={6}>
+                            <ProbeBar probe="zx-zxprobe__bar" label="part class · .zx-scope__part" />
+                            <ProbeBar
+                                probe="zx-zxprobe__axis zx-a-color-primary"
+                                label="axis compound · .zx-scope__part.zx-a-color-primary"
+                            />
+                            <ProbeBar
+                                probe="zx-zxprobe__state zx-s-checked"
+                                label="state compound · .zx-scope__part.zx-s-checked"
+                            />
+                            <ProbeBar
+                                probe="zx-zxprobe__flag zx-f-pressed"
+                                label="flag compound · .zx-scope__part.zx-f-pressed"
+                            />
+                            <ProbeBar
+                                probe="zx-zxprobe__descendant"
+                                label="descendant from host · .zx-root .zx-scope__part"
+                            />
+                        </Col>
+                    </Section>
+
+                    <Section
+                        title="Probe · skin & token indirection"
+                        note="Daisy indigo = the lookup resolved. Pink = it did not. The last bar reads --btn-ink, which the emitter uses but never defines — it is SUPPOSED to be pink until #1029 is fixed upstream."
+                    >
+                        <Col gap={6}>
+                            <ProbeBar probe="zxp-token" label="skin token · var(--color-primary)" />
+                            <ProbeBar probe="zxp-chain" label="var → var chain · how every solid button paints" />
+                            <ProbeBar probe="zxp-rem" label="rem control · 10rem, resolved = 160px wide" />
+                            <ProbeBar probe="zxp-calc" label="calc(var(--radius-box) * 20) · resolved = 160px wide" />
+                            <ProbeBar probe="zxp-dangling" label="dangling var(--btn-ink) · expected pink" />
+                        </Col>
                     </Section>
 
                     <Section title="Button">

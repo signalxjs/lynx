@@ -1,0 +1,109 @@
+/* Zero Pilot probe card (#1064).
+ *
+ * Reading the card: every bar starts HOT PINK (#ff00aa). A screenshot of the
+ * card is a per-construct verdict — the same idiom as `css-engine-probe.css`
+ * (#951). Two groups, two tells:
+ *
+ *  1. SELECTOR SHAPES — does Lynx's engine resolve the class grammar the
+ *     compiled skins are built on? GREEN (#16a34a) = resolved, pink = not.
+ *     Uses a probe scope (`zxprobe`) with the REAL `zx-*` grammar so the
+ *     shapes are identical to the emitter's output, without depending on any
+ *     skin rule.
+ *  2. SKIN — is `@sigx/lynx-daisyui-zero`'s compiled CSS live, and do its
+ *     token indirections resolve? Here the tell is the DAISY INDIGO
+ *     (`--color-primary`, #422ad5 in the light theme) — pink means the
+ *     lookup failed. The `calc()` bar's tell is its WIDTH (160px, not full
+ *     bleed), and the last bar is deliberately wired to `--btn-ink`, one of
+ *     the 24 custom properties the lynx emitter USES but never DEFINES (the
+ *     dropped-declaration bug, signalxjs/lynx#1029) — expected to stay pink
+ *     until that is fixed upstream, and going indigo is the signal that it
+ *     was.
+ */
+
+.zxp-bar {
+  height: 34px;
+  border-radius: 6px;
+  padding-left: 10px;
+  padding-right: 10px;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  background-color: #ff00aa;
+}
+
+.zxp-bar-label {
+  font-size: 12px;
+  color: #ffffff;
+}
+
+/* ---- 1. selector shapes ------------------------------------------------ */
+
+/* part class: `.zx-<scope>__<part>` */
+.zx-zxprobe__bar {
+  background-color: #16a34a;
+}
+
+/* axis compound: `.zx-<scope>__<part>.zx-a-<axis>-<value>` */
+.zx-zxprobe__axis.zx-a-color-primary {
+  background-color: #16a34a;
+}
+
+/* state compound: `.zx-<scope>__<part>.zx-s-<state>` */
+.zx-zxprobe__state.zx-s-checked {
+  background-color: #16a34a;
+}
+
+/* flag compound: `.zx-<scope>__<part>.zx-f-<flag>` — what the runtime stamps
+ * for press/focus, and the only projection interaction states have here. */
+.zx-zxprobe__flag.zx-f-pressed {
+  background-color: #16a34a;
+}
+
+/* descendant from the theme host. Not used by any emitted rule today, but
+ * per-theme baking of derived tokens (the fix for the 386 dropped
+ * calc()/color-mix() declarations) would emit exactly this shape — so this
+ * bar is the go/no-go for that design. */
+.zx-root .zx-zxprobe__descendant {
+  background-color: #16a34a;
+}
+
+/* ---- 2. skin --------------------------------------------------------- */
+
+/* one-level color var from the skin's token block — the indirection the
+ * emitter considers proven. Pink here means the skin CSS never loaded. */
+.zxp-token {
+  background-color: var(--color-primary);
+}
+
+/* var → var chain: `--btn-accent: var(--color-primary)` then
+ * `background: var(--btn-accent)` — how EVERY solid button is painted, and
+ * a construct the emitter's capability notes call unproven. */
+.zxp-chain {
+  --zxp-accent: var(--color-primary);
+  background-color: var(--zxp-accent);
+}
+
+/* `rem`, on its own. EVERY length in the skin's token block is a rem, and the
+ * calc bar below is a rem too — without this control a pink calc bar would be
+ * ambiguous between "calc(var()) failed" and "rem failed". Resolved = 160px
+ * wide (10rem at the 16px default). */
+.zxp-rem {
+  width: 10rem;
+  background-color: var(--color-primary);
+}
+
+/* calc() over a token var — the construct behind 216 of the 594 dropped
+ * declarations. The tell is the WIDTH: `--radius-box` is 0.5rem, so a
+ * resolved bar is 160px wide instead of full bleed. If it resolves, the
+ * emitter's blanket drop rule is too strict. */
+.zxp-calc {
+  width: calc(var(--radius-box) * 20);
+  background-color: var(--color-primary);
+}
+
+/* a var the skin USES but never DEFINES (`--btn-ink`, referenced by every
+ * outline/ghost/soft/dash/link button and by the focus ring). Expected pink
+ * until the emitter stops shipping dangling references. */
+.zxp-dangling {
+  background-color: var(--btn-ink);
+}
