@@ -12,10 +12,11 @@
  * lynx target. This screen (and the old components) retire together with
  * the legacy stack once parity holds.
  */
-import '@sigx/lynx-daisyui-zero/css/index.css';
+// Seeding only — the skin CSS is imported once, in ZeroPilot (both screens
+// are eagerly imported by routes.ts, so the rules are already in the bundle).
 import '@sigx/lynx-daisyui-zero';
 import type { Define } from '@sigx/lynx';
-import { component } from '@sigx/lynx';
+import { component, signal } from '@sigx/lynx';
 import { Screen } from '@sigx/lynx-navigation';
 import { Button as OldButton, Progress as OldProgress, Toggle as OldToggle } from '@sigx/lynx-daisyui';
 import { Button, Col, Progress, Row, ScrollView, Switch, ZeroRoot } from '@sigx/lynx-zero';
@@ -35,6 +36,9 @@ const Pair = component<PairProps>(({ props, slots }) => {
 });
 
 export const ZeroParity = component(() => {
+    // Model-bound so the OLD toggle actually toggles — a `checked`-only
+    // Toggle is read-only, which would make the behavior comparison lie.
+    const oldChecked = signal(true);
     return () => (
         <ZeroRoot>
             <Screen title="Zero Parity" />
@@ -65,7 +69,7 @@ export const ZeroParity = component(() => {
                         label="Switch vs Toggle / checked"
                         slots={{
                             zero: () => <Switch defaultChecked color="primary" label="Wi-Fi" />,
-                            legacy: () => <OldToggle checked color="primary" />,
+                            legacy: () => <OldToggle model={oldChecked} color="primary" />,
                         }}
                     />
 
