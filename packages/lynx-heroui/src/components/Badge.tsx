@@ -1,5 +1,5 @@
 import { component, type Define } from '@sigx/lynx';
-import type { ColorVariant, SizeScale } from '@sigx/lynx-zero';
+import type { ColorVariant, SizeScale } from '@sigx/lynx-zero-legacy';
 
 export type BadgeColor = ColorVariant;
 /** Hero fill styles — solid (default), flat (soft tint), bordered. */

@@ -1,5 +1,5 @@
 import { component, useWidthClass, type Define } from '@sigx/lynx';
-import type { BackgroundValue } from '../contract.js';
+import type { BackgroundValue } from '../contract/index.js';
 import type { Responsive } from '../shared/responsive.js';
 import { resolveBoxStyle } from '../shared/styles.js';
 

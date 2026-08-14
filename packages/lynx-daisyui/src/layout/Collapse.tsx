@@ -1,6 +1,6 @@
 import { component, compound, defineInjectable, defineProvide, signal, type Define } from '@sigx/lynx';
 import { Pressable } from '@sigx/lynx-gestures';
-import { PRESSED_OPACITY } from '@sigx/lynx-zero';
+import { PRESSED_OPACITY } from '@sigx/lynx-zero-legacy';
 
 export type CollapseIcon = 'arrow' | 'plus' | 'none';
 

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { mkdirSync, rmSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename, join, win32 } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -25,6 +25,8 @@ import {
     writeAndroidDebugManifest,
     writeIosSharedScheme,
     applyIosSigningSettings,
+    applyIosBundleIdentifierOverride,
+    iosBundleIdOverride,
     runPostPrebuildHook,
     writeIosDebugInfoPlist,
     applyIosDevClientBuildSettings,
@@ -64,6 +66,9 @@ beforeEach(() => {
 
 afterEach(() => {
     rmSync(testDir, { recursive: true, force: true });
+    // `vi.stubEnv` persists across tests otherwise, and a leaked
+    // SIGX_IOS_DEVELOPMENT_TEAM rewrites every later pbxproj.
+    vi.unstubAllEnvs();
 });
 
 describe('scaffoldAndroid', () => {
@@ -1373,6 +1378,42 @@ describe('applyIosSigningSettings', () => {
         expect(before).toContain('DEVELOPMENT_TEAM = "";');
     });
 
+    it('takes the team from SIGX_IOS_DEVELOPMENT_TEAM when the config has none', () => {
+        // A Team ID belongs to whoever is building, not to a committed config:
+        // an example app that ships one is unbuildable on a device for anyone
+        // else, and CI wants it from a secret.
+        vi.stubEnv('SIGX_IOS_DEVELOPMENT_TEAM', 'ZZ99YY88XX');
+        const config = resolveConfig(TEST_CONFIG);
+        scaffoldIos(testDir, config);
+        applyIosSigningSettings(testDir, config);
+
+        expect(readFileSync(pbxprojPath(testDir), 'utf-8'))
+            .toContain('DEVELOPMENT_TEAM = ZZ99YY88XX;');
+    });
+
+    it('lets the environment win over a config team', () => {
+        vi.stubEnv('SIGX_IOS_DEVELOPMENT_TEAM', 'ZZ99YY88XX');
+        const config = resolveConfig({
+            ...TEST_CONFIG,
+            ios: { ...TEST_CONFIG.ios, developmentTeam: 'AB12CD34EF' },
+        });
+        scaffoldIos(testDir, config);
+        applyIosSigningSettings(testDir, config);
+
+        const pbx = readFileSync(pbxprojPath(testDir), 'utf-8');
+        expect(pbx).toContain('DEVELOPMENT_TEAM = ZZ99YY88XX;');
+        expect(pbx).not.toContain('AB12CD34EF');
+    });
+
+    it('names the environment variable when its value is malformed', () => {
+        vi.stubEnv('SIGX_IOS_DEVELOPMENT_TEAM', 'nope');
+        const config = resolveConfig(TEST_CONFIG);
+        scaffoldIos(testDir, config);
+
+        expect(() => applyIosSigningSettings(testDir, config))
+            .toThrow(/SIGX_IOS_DEVELOPMENT_TEAM must be a 10-character alphanumeric/);
+    });
+
     it('is idempotent across repeated prebuilds', () => {
         const config = resolveConfig({
             ...TEST_CONFIG,
@@ -1383,6 +1424,76 @@ describe('applyIosSigningSettings', () => {
         const once = readFileSync(pbxprojPath(testDir), 'utf-8');
         applyIosSigningSettings(testDir, config);
         expect(readFileSync(pbxprojPath(testDir), 'utf-8')).toBe(once);
+    });
+});
+
+describe('applyIosBundleIdentifierOverride', () => {
+    const pbxprojPath = (cwd: string) => join(cwd, 'ios', 'TestApp.xcodeproj', 'project.pbxproj');
+
+    it('rewrites PRODUCT_BUNDLE_IDENTIFIER from the environment', () => {
+        // An App ID is globally unique across all of Apple, so a shared example
+        // app's identifier is claimable exactly once — everyone after the first
+        // device build needs their own, without editing a tracked file.
+        vi.stubEnv('SIGX_IOS_BUNDLE_ID', 'se.example.throwaway1');
+        const config = resolveConfig(TEST_CONFIG);
+        scaffoldIos(testDir, config);
+        applyIosBundleIdentifierOverride(testDir, config);
+
+        const pbx = readFileSync(pbxprojPath(testDir), 'utf-8');
+        expect(pbx).toContain('PRODUCT_BUNDLE_IDENTIFIER = se.example.throwaway1;');
+        expect(pbx).not.toContain('com.test.myapp;');
+    });
+
+    it('is a no-op when the variable is unset', () => {
+        vi.stubEnv('SIGX_IOS_BUNDLE_ID', '');
+        const config = resolveConfig(TEST_CONFIG);
+        scaffoldIos(testDir, config);
+        const before = readFileSync(pbxprojPath(testDir), 'utf-8');
+
+        applyIosBundleIdentifierOverride(testDir, config);
+        expect(readFileSync(pbxprojPath(testDir), 'utf-8')).toBe(before);
+    });
+
+    it.each([
+        ['a value that could smuggle in extra build settings', 'ok.id; CODE_SIGN_IDENTITY = hacked'],
+        ['a single segment', 'showcase'],
+        ['an empty segment', 'com..app'],
+        ['a trailing dot', 'com.app.'],
+        ['a leading dot', '.com.app'],
+        ['a segment ending in a hyphen', 'com.app-.thing'],
+    ])('rejects %s at the resolver, before any caller can splice it', (_case, id) => {
+        // Validation lives in the resolver rather than at the point of rewrite
+        // because `iosTemplateVars` splices this into the pbxproj template
+        // during scaffolding — earlier than any rewrite. Each of these is
+        // legal-looking enough to pass a character-class check and then fail
+        // deep inside signing, where the message is far less actionable.
+        vi.stubEnv('SIGX_IOS_BUNDLE_ID', id);
+
+        expect(() => iosBundleIdOverride()).toThrow(/reverse-DNS bundle identifier/);
+    });
+
+    it('refuses to scaffold a project with an unsafe override', () => {
+        // The path the validation was moved for: scaffolding renders the
+        // identifier into the project directly.
+        vi.stubEnv('SIGX_IOS_BUNDLE_ID', 'ok.id; CODE_SIGN_IDENTITY = hacked');
+        const config = resolveConfig(TEST_CONFIG);
+
+        expect(() => scaffoldIos(testDir, config)).toThrow(/reverse-DNS bundle identifier/);
+    });
+
+    it.each([
+        ['a plain reverse-DNS id', 'com.example.app'],
+        ['inner hyphens', 'se.my-org.my-app'],
+        ['digits in segments', 'se.andii.sigx.showcase1'],
+        ['two segments', 'dev.sigx'],
+    ])('accepts %s', (_case, id) => {
+        vi.stubEnv('SIGX_IOS_BUNDLE_ID', id);
+        const config = resolveConfig(TEST_CONFIG);
+        scaffoldIos(testDir, config);
+        applyIosBundleIdentifierOverride(testDir, config);
+
+        expect(readFileSync(pbxprojPath(testDir), 'utf-8'))
+            .toContain(`PRODUCT_BUNDLE_IDENTIFIER = ${id};`);
     });
 });
 
@@ -1858,5 +1969,48 @@ describe('shared native runtime — @sigx/lynx-core (#257)', () => {
 
         const manifests = await loadManifests(['@sigx/lynx-haptics', '@sigx/lynx-core'], testDir);
         expect(manifests.map((m) => m.package)).toEqual(['@sigx/lynx-core', '@sigx/lynx-haptics']);
+    });
+});
+
+describe('iosBundleIdOverride', () => {
+    it('reports the override so install and launch target what was built', () => {
+        // The pbxproj rewrite alone is not enough: run:ios computes the bundle
+        // id separately for launchAppOnDevice and for the "already installed"
+        // fast path. If those disagree with the build, the app installs under
+        // one id and the launch goes looking for another.
+        vi.stubEnv('SIGX_IOS_BUNDLE_ID', 'se.example.throwaway1');
+        expect(iosBundleIdOverride()).toBe('se.example.throwaway1');
+    });
+
+    it('is undefined when unset or blank, so config wins', () => {
+        // Stubbed rather than trusting the ambient environment: a developer
+        // (or CI) with SIGX_IOS_BUNDLE_ID exported would otherwise fail this.
+        vi.stubEnv('SIGX_IOS_BUNDLE_ID', '');
+        expect(iosBundleIdOverride()).toBeUndefined();
+        vi.stubEnv('SIGX_IOS_BUNDLE_ID', '   ');
+        expect(iosBundleIdOverride()).toBeUndefined();
+    });
+});
+
+describe('pbxproj rewrites are line-bounded', () => {
+    const pbxprojPath = (cwd: string) => join(cwd, 'ios', 'TestApp.xcodeproj', 'project.pbxproj');
+
+    it('does not swallow following lines when a semicolon is missing', () => {
+        // `[^;]*` matches newlines, so a malformed or unexpectedly formatted
+        // project would have been rewritten from the setting all the way to
+        // the next semicolon — several lines away.
+        vi.stubEnv('SIGX_IOS_BUNDLE_ID', 'se.example.throwaway1');
+        const config = resolveConfig(TEST_CONFIG);
+        scaffoldIos(testDir, config);
+
+        const path = pbxprojPath(testDir);
+        writeFileSync(path, readFileSync(path, 'utf-8').replace(
+            /PRODUCT_BUNDLE_IDENTIFIER = [^;\r\n]*;/,
+            'PRODUCT_BUNDLE_IDENTIFIER = com.test.myapp\n\t\t\t\tKEEP_ME = yes;',
+        ));
+
+        applyIosBundleIdentifierOverride(testDir, config);
+
+        expect(readFileSync(path, 'utf-8')).toContain('KEEP_ME = yes;');
     });
 });

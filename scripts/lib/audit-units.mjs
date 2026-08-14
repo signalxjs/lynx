@@ -39,11 +39,15 @@ export const FOLD = {
  */
 export const EXCLUDED = {
     'lynx-zero':
+        'Under construction — the zero-contract redesign (signalxjs/lynx#1029). Ships with a public-surface freeze test from its first commit; enters the audit when the pilot milestone completes.',
+    'lynx-daisyui-zero':
+        'Under construction — the compiled daisyUI shell over lynx-zero (signalxjs/lynx#1029). A build shell with no API surface of its own; enters the audit with lynx-zero when the pilot milestone completes.',
+    'lynx-zero-legacy':
         'Design-system layering work in flight (signalxjs/lynx#927). zero is the neutral foundation the two design systems build on, so auditing it separately would move the contract underneath them.',
     'lynx-daisyui':
-        'Design-system layering work in flight (signalxjs/lynx#927) — audited together with lynx-zero and lynx-heroui or not at all.',
+        'Design-system layering work in flight (signalxjs/lynx#927) — audited together with lynx-zero-legacy and lynx-heroui or not at all.',
     'lynx-heroui':
-        'Design-system layering work in flight (signalxjs/lynx#927) — audited together with lynx-zero and lynx-daisyui or not at all.',
+        'Design-system layering work in flight (signalxjs/lynx#927) — audited together with lynx-zero-legacy and lynx-daisyui or not at all.',
 };
 
 /** Display groups, in the order they appear in the epic body. */

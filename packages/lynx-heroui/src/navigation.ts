@@ -1,7 +1,7 @@
 // @sigx/lynx-heroui/navigation — navigation chrome that statically imports the
 // optional `@sigx/lynx-navigation` peer. Kept OFF the root barrel so importing
 // `@sigx/lynx-heroui` never forces navigation resolution (same pattern as
-// `@sigx/lynx-zero/screen-theme`). Apps using these install the peer and import
+// `@sigx/lynx-zero-legacy/screen-theme`). Apps using these install the peer and import
 // from this subpath:
 //
 //   import { NavHeader, NavTabBar, NavDrawer } from '@sigx/lynx-heroui/navigation';

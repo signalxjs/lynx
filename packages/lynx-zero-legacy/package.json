@@ -1,0 +1,90 @@
+{
+    "name": "@sigx/lynx-zero-legacy",
+    "version": "0.27.0",
+    "description": "Design-system-neutral UI foundation for sigx-lynx — the shared props/token contract and style utilities that design-system packages (daisyui, heroui, …) build on",
+    "type": "module",
+    "sideEffects": [
+        "./dist/styles/*.css"
+    ],
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.ts",
+            "import": "./dist/index.js"
+        },
+        "./screen-theme": {
+            "types": "./dist/theme/use-screen-theme.d.ts",
+            "import": "./dist/theme/use-screen-theme.js"
+        },
+        "./preset": {
+            "types": "./dist/preset/index.d.ts",
+            "import": "./dist/preset/index.js",
+            "default": "./dist/preset/index.js"
+        },
+        "./registry": {
+            "types": "./dist/theme/registry.d.ts",
+            "import": "./dist/theme/registry.js"
+        },
+        "./styles/tokens.css": "./dist/styles/tokens.css"
+    },
+    "files": [
+        "src",
+        "dist"
+    ],
+    "scripts": {
+        "build": "node ../../scripts/clean.mjs dist && tsgo && node ../../scripts/copy-assets.mjs src/styles dist/styles",
+        "dev": "tsgo --watch",
+        "prepublishOnly": "node ../../scripts/clean.mjs dist && tsgo && node ../../scripts/copy-assets.mjs src/styles dist/styles",
+        "clean": "node ../../scripts/clean.mjs dist .turbo",
+        "test": "vitest run"
+    },
+    "keywords": [
+        "sigx",
+        "lynx",
+        "ui",
+        "design-system",
+        "headless",
+        "tokens"
+    ],
+    "author": "Andreas Ekdahl",
+    "license": "MIT",
+    "dependencies": {
+        "@sigx/lynx": "workspace:^",
+        "@sigx/lynx-appearance": "workspace:^",
+        "@sigx/lynx-gestures": "workspace:^",
+        "@sigx/lynx-icons": "workspace:^",
+        "@sigx/lynx-motion": "workspace:^"
+    },
+    "peerDependencies": {
+        "@sigx/lynx-navigation": "workspace:^",
+        "tailwindcss": "^3.0.0 || ^4.0.0"
+    },
+    "peerDependenciesMeta": {
+        "@sigx/lynx-navigation": {
+            "optional": true
+        },
+        "tailwindcss": {
+            "optional": true
+        }
+    },
+    "devDependencies": {
+        "@sigx/lynx-navigation": "workspace:^",
+        "@sigx/lynx-testing": "workspace:^",
+        "@typescript/native-preview": "7.0.0-dev.20260521.1",
+        "tailwindcss": "^4.0.0",
+        "typescript": "^6.0.3"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/signalxjs/lynx.git",
+        "directory": "packages/lynx-zero"
+    },
+    "homepage": "https://sigx.dev/lynx/modules/zero/overview/",
+    "bugs": {
+        "url": "https://github.com/signalxjs/lynx/issues"
+    },
+    "publishConfig": {
+        "access": "public"
+    }
+}

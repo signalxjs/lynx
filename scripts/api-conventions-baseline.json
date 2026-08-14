@@ -2,7 +2,7 @@
     "lynx-appearance": [
         {
             "rule": "C2/bare-is-available",
-            "detail": "export { … isAvailable … }"
+            "detail": "export { \u2026 isAvailable \u2026 }"
         }
     ],
     "lynx-biometric": [
@@ -20,10 +20,10 @@
     "lynx-sqlite": [
         {
             "rule": "C2/bare-is-available",
-            "detail": "export { … isAvailable … }"
+            "detail": "export { \u2026 isAvailable \u2026 }"
         }
     ],
-    "lynx-zero": [
+    "lynx-zero-legacy": [
         {
             "rule": "C10/unprefixed-throws",
             "count": 1

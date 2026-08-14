@@ -2,6 +2,8 @@ package com.sigx.biometric
 
 import android.content.Context
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_STRONG
 import androidx.biometric.BiometricManager.Authenticators.DEVICE_CREDENTIAL
@@ -105,11 +107,28 @@ class BiometricModule(context: Context) : LynxModule(context) {
             }
         }
 
-        try {
-            val prompt = BiometricPrompt(activity, executor, authCallback)
-            prompt.authenticate(promptInfo)
-        } catch (e: Exception) {
-            callback?.invoke(errorPayload("unknown", e.message ?: "BiometricPrompt failed"))
+        // On the main thread, like every other dialog in this repo
+        // (`lynx-datetime-picker`, `lynx-file-picker`): `BiometricPrompt` is a
+        // DialogFragment, so its constructor reaches into the FragmentManager
+        // and the activity's LifecycleRegistry, and `authenticate` commits a
+        // transaction — all main-thread-only. A `@LynxMethod` runs on the JS
+        // thread, so building it here would be a lifecycle violation that
+        // happens to work only until it doesn't.
+        //
+        // POSTED, not `activity.runOnUiThread`: that helper runs the block
+        // *inline* when the caller is already on the main thread, and one
+        // caller always is — a prompt raised from another prompt's callback,
+        // which is what an app does when it authenticates and then reads a
+        // biometric-gated key. Inline meant committing a transaction while
+        // FragmentManager was still executing the first prompt's, which
+        // throws `IllegalStateException: FragmentManager is already executing
+        // transactions`. Posting queues it behind that work in every case.
+        Handler(Looper.getMainLooper()).post {
+            try {
+                BiometricPrompt(activity, executor, authCallback).authenticate(promptInfo)
+            } catch (e: Exception) {
+                callback?.invoke(errorPayload("unknown", e.message ?: "BiometricPrompt failed"))
+            }
         }
     }
 

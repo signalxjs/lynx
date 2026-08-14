@@ -1,52 +1,50 @@
 /**
- * Global theme state — the headless DI singleton behind `useTheme()`.
+ * Global theme state — the headless DI singleton behind `useTheme()`, ported
+ * from lynx-zero-legacy onto the zero contract: theme METADATA (names,
+ * scheme, pairing) now comes from `@sigx/zero/theme/registry` — the same
+ * registry the web runtime uses, seeded by a design system's compiled
+ * manifest — and theme VALUES live in the skin's compiled `.zx-theme-<name>`
+ * CSS, so selection here is which class the provider renders, nothing more.
  *
- * The active selection (current theme name + follow-system flag) lives here as
- * a module-level signal, mirroring how `./registry.ts` is already a global
- * module singleton. This is what makes theme control reachable from *headless*
- * code — a store, a service, app-boot logic, an effect — not just from a
- * component mounted under `<ThemeProvider>`.
- *
- * The root `<ThemeProvider>` (depth 0) binds to this state: it renders its host
- * view from it, owns the system-color-scheme follow effect that writes to it
- * while `following`, and seeds an `initial` prop into it. Nested providers
- * (depth >= 1) build their own local state via `makeThemeController` so a
- * subtree can be overridden without touching the global — see
- * `./ThemeProvider.tsx`.
- *
- * `followSystem()` here only flips the flag; the actual re-apply on an OS color
- * scheme change is driven by the root provider's follow effect (which has the
- * appearance signal in scope).
+ * The active selection (current theme name + follow-system flag + in-app
+ * font scale) lives in a module-level signal so theme control is reachable
+ * from headless code — a store, app-boot logic, an effect — not just from a
+ * component under `<ThemeProvider>`.
  */
 import { signal } from '@sigx/lynx';
-import { pairOf, pickThemeFor } from './registry.js';
-import type { ThemeController, ThemeName } from './ThemeProvider.js';
+import { pairOf, pickThemeFor } from '@sigx/zero/theme/registry';
+
+export type ThemeName = string;
+
+/** The handle `useTheme()` returns — identical shape to the legacy one. */
+export interface ThemeController {
+    readonly name: ThemeName;
+    readonly followingSystem: boolean;
+    /**
+     * In-app text-scale multiplier over the theme's `--text-*` ramp. The OS
+     * text-size setting is separate (the native host feeds it into the
+     * engine, which scales every font-size); the two compose
+     * multiplicatively — never seed this from `useFontScale()`.
+     * `--text-fixed-*` is exactly the ramp this multiplier never touches.
+     */
+    readonly fontScale: number;
+    set(next: ThemeName): void;
+    toggle(): void;
+    followSystem(): void;
+    setFontScale(scale: number): void;
+}
 
 /** The mutable selection a `ThemeController` reads from and writes to. */
 export interface ThemeState {
     name: ThemeName;
     following: boolean;
-    /**
-     * Global text-scale multiplier applied on top of the theme's `--text-*`
-     * ramp. Orthogonal to `name`: a theme switch / `toggle()` leaves it
-     * untouched, so a user-chosen scale persists across appearance changes.
-     * `1` = the default ramp.
-     *
-     * This is an IN-APP preference (e.g. a "text size" setting inside the
-     * app). The OS text-size setting is separate: the native host feeds it
-     * into the engine (`LynxViewBuilder.fontScale` / `updateFontScale`, see
-     * #766), which scales every `font-size` — including this ramp's literal
-     * px — so the two compose multiplicatively. Do NOT seed this from
-     * `useFontScale()`; that would apply the OS scale twice.
-     */
     fontScale: number;
 }
 
 /**
  * Coerce a font-scale input to a valid positive, finite multiplier. Rejects
  * `NaN`, `±Infinity`, and non-positive values — which would otherwise emit
- * invalid CSS (`NaNpx`, negative font sizes) and break `fontScale === 1`
- * comparisons — by returning `fallback` instead.
+ * invalid CSS (`NaNpx`, negative font sizes) — by returning `fallback`.
  */
 export function normalizeFontScale(value: unknown, fallback = 1): number {
     return typeof value === 'number' && Number.isFinite(value) && value > 0
@@ -55,10 +53,10 @@ export function normalizeFontScale(value: unknown, fallback = 1): number {
 }
 
 /**
- * Build a `ThemeController` over a given state object. Used for both the global
- * singleton (below) and each nested `<ThemeProvider>`'s local state — same
- * behaviour, different backing store. `followSystem()` only flips the flag; the
- * owning provider's follow effect performs the re-apply.
+ * Build a `ThemeController` over a given state object — the global singleton
+ * below, or a nested `<ThemeProvider>`'s local state. `followSystem()` only
+ * flips the flag; the owning provider's follow effect performs the re-apply
+ * (it has the appearance signal in scope).
  */
 export function makeThemeController(state: ThemeState): ThemeController {
     return {
@@ -76,44 +74,36 @@ export function makeThemeController(state: ThemeState): ThemeController {
             state.following = false;
         },
         toggle() {
-            state.name = pairOf(state.name);
+            // zero's registry answers `undefined` for an unpaired theme —
+            // toggling one is a no-op rather than a jump to ''.
+            state.name = pairOf(state.name) ?? state.name;
             state.following = false;
         },
         followSystem() {
             state.following = true;
         },
         setFontScale(scale) {
-            // Ignore invalid input (keep the current scale) so state stays valid.
             state.fontScale = normalizeFontScale(scale, state.fontScale);
         },
     };
 }
 
 // Object signal (not primitive) so theme-name literal unions a DS layers on
-// top survive — `signal<T>` widens primitive literals to plain `string` via
-// `Widen<T>`. Seeded from whatever is registered at first import (a DS package
-// seeds the registry at its own module load; until then the name is '') —
-// the root <ThemeProvider> re-seeds from the system color scheme + its props
-// on mount.
+// top survive widening. Seeded from whatever is registered at first import
+// (a DS package seeds the registry at its own module load; until then the
+// name is '') — the root <ThemeProvider> re-seeds from the system color
+// scheme + its props on mount.
 const state = signal<ThemeState>({
-    name: pickThemeFor('light'),
+    name: pickThemeFor('light') ?? '',
     following: true,
     fontScale: 1,
 });
 
-/**
- * The backing signal for the global theme. Read/written by the root
- * `<ThemeProvider>` and shared with `themeController`; not part of the public
- * API.
- * @internal
- */
+/** @internal — the backing signal the root `<ThemeProvider>` binds to. */
 export const globalThemeState = state;
 
 /**
  * The global theme controller — the headless handle. Import and call from
- * anywhere (no `<ThemeProvider>` ancestor required); `useTheme()`'s default
- * factory returns this same instance, and the root `<ThemeProvider>` provides
- * it to its subtree. `StatusBarSync` binds to it so the OS bars always follow
- * the global/screen theme, never a content sub-scope.
+ * anywhere; `useTheme()`'s default factory returns this same instance.
  */
 export const themeController: ThemeController = makeThemeController(state);

@@ -26,7 +26,7 @@
  */
 import { useFocusEffect } from '@sigx/lynx-navigation';
 import { themeController } from './theme-state.js';
-import type { ThemeName } from './ThemeProvider.js';
+import type { ThemeName } from './theme-state.js';
 
 /** Pin the global theme to `name` while this screen is focused; restore on blur. */
 export function useScreenTheme(name: ThemeName): void {

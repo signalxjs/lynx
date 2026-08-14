@@ -348,8 +348,23 @@ export function pluginSigxLynx(
               },
             },
             swc: {
+              // No `jsc.target` here. Rspeedy owns the compilation target via
+              // `env` and rejects the two being set together
+              // (`\`env\` and \`jsc.target\` cannot be used together`), so an
+              // override is not merely redundant — it fails the build.
+              //
+              // What it sets instead is stricter than the `es2019` this used
+              // to pin: `env.targets: { chrome: '120' }` plus an explicit
+              // `env.include` downlevel list covering the ES2017–ES2022
+              // syntax PrimJS needs lowered (optional chaining, nullish
+              // coalescing, class fields, private methods, logical
+              // assignment, numeric separators, …), and it additionally
+              // lowers `let`/`const` to `var` for QuickJS parse speed. The
+              // practical delta is that native `async`/`await` and `**` are
+              // now emitted rather than downlevelled — both of which PrimJS
+              // supports, and a syntax it rejects fails loudly at bundle
+              // load rather than silently.
               jsc: {
-                target: 'es2019',
                 transform: {
                   react: {
                     runtime: 'automatic',
@@ -434,6 +449,16 @@ export function pluginSigxLynx(
       }
 
       api.modifyBundlerChain((chain) => {
+        // Exact key FIRST: the sigx entry side-effect-imports this subpath
+        // (web platform bootstrapping — a no-op here), and resolving a
+        // subpath THROUGH the prefix alias below proved unreliable on
+        // Windows (#1061 CI). The bare-package form resolves everywhere,
+        // and the extra index import is free — the module is already in
+        // every lynx bundle's graph.
+        chain.resolve.alias.set(
+          '@sigx/runtime-dom/platform$',
+          '@sigx/lynx-runtime',
+        );
         chain.resolve.alias.set(
           '@sigx/runtime-dom',
           '@sigx/lynx-runtime',

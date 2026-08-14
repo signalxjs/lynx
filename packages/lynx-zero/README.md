@@ -1,88 +1,103 @@
 # @sigx/lynx-zero
 
-Design-system-neutral UI foundation for sigx-lynx. Design-system packages
-(`@sigx/lynx-daisyui`, `@sigx/lynx-heroui`, …) build on it; apps normally
-import from their chosen design system, which re-exports what it uses from
-here.
+Design-system-neutral UI foundation for SignalX Lynx, built on the
+[zero contract](https://github.com/signalxjs/zero) — the same anatomies,
+vocabularies and token names the web foundation ships, delivered the way
+lynx's style engine can consume them. Part of the design-system stack
+redesign tracked in
+[signalxjs/lynx#1029](https://github.com/signalxjs/lynx/issues/1029); the
+pre-contract package lives on as `@sigx/lynx-zero-legacy` until this stack
+reaches parity.
 
-## 📚 Documentation
+## The model
 
-Full guides, API reference and live examples → **[https://sigx.dev/lynx/modules/zero/overview/](https://sigx.dev/lynx/modules/zero/overview/)**
+A design system is data. Its recipes live once, in a zero-repo package
+(`@sigx/zero-daisyui`, …), and compile per target with `@sigx/zero-kit`:
+attribute-selector CSS for the web, **class-grammar CSS for lynx** —
+`.zx-<scope>__<part>` compounds with `zx-s-<state>` / `zx-f-<flag>` /
+`zx-a-<axis>-<value>` / `zx-m-<mod>` modifiers, every color a baked literal,
+themes as full-restatement `.zx-root.zx-theme-<name>` blocks. This package is
+the runtime those stylesheets target.
 
-What lives here (growing per the phases in
-[signalxjs/lynx#219](https://github.com/signalxjs/lynx/issues/219)):
+- **`partBag(anatomy, part, options)`** — the render seam. One part
+  descriptor yields both halves of the contract: the class list (composed
+  with `@sigx/zero`'s grammar helpers — the only thing lynx CSS can select
+  on) and the `data-scope`/`data-part`/`data-state`/flag attributes (they
+  render fine and stay the machine-readable anatomy for tests and tooling).
+  Deriving both from one input is what keeps them from ever disagreeing.
+- **`partA11y(options)`** — zero's accessibility guarantees projected onto
+  lynx's five-prop native surface (`accessibility-element`/`-label`/
+  `-trait`/`-status`), stated on the node that owns the tap handler.
+- **The zero contract, re-exported** — vocabularies, token categories,
+  `variantAttrs`, the class grammar. This package defines no parallel
+  vocabulary; `@sigx/zero` (catalog-pinned beta) is the single source.
 
-- **The shared contract** (`SizeScale`, `ColorVariant`, `ColorToken`,
-  common prop fragments like `WithColor`/`WithDisabled`/`PressEvent`) —
-  the vocabulary every design system agrees on, so switching an app from
-  one DS to another is mostly an import swap.
-- **Token-name conventions** — every theme resolves against the same CSS
-  custom-property names (`--color-*`, `--radius-*`, `--size-*`, `--text-*`).
-- **Two ways a palette reaches the screen.** A design system's built-ins are
-  generated into stylesheet rules at build time and flagged `staticCss` in the
-  registry, so the CSS engine resolves them — including the
-  `@media (prefers-color-scheme: …)` branch, which means a follow-system app
-  paints the OS's scheme whether or not JS agrees. Anything registered at
-  runtime — a tenant palette fetched from a backend, an `extendTheme()`
-  derivative — has no rule to resolve against, so `<ThemeProvider>` declares
-  its exact palette inline instead; that path is unchanged and first-frame
-  correct. Set `staticCss` only when the CSS genuinely ships (see
-  `scripts/gen-theme-css.mjs`); `extendTheme()` never carries it over.
-- **Style utilities** — `resolveBoxStyle`, `resolveSpacing`,
-  `resolveColorToken`.
-- **Responsive prop values** — `Responsive<T>` / `resolveResponsive` (see
-  below).
-- **Press-feedback defaults** — `PRESSED_SCALE`, `PRESSED_OPACITY`.
-- *(Later phases)* layout primitives (`Row`, `Col`, `Center`, `Spacer`,
-  `ScrollView`) and the theme engine (`ThemeProvider`, `themeController`,
-  theme registry).
+## Theming
 
-What deliberately does **not** live here: visual components, component CSS,
-class-name recipes, theme palettes — those are per-design-system.
-
-## Responsive props
-
-Every style prop on `Row`, `Col`, `Center`, `Spacer` and `ScrollView` accepts
-either a plain value or a per-breakpoint object:
+Theme **values** never travel through JavaScript: the compiled skin declares
+every theme as static CSS, so selection is one class swap on the provider's
+host view. Theme **metadata** (names, scheme, light/dark pairing) comes from
+`@sigx/zero/theme/registry`, seeded by the design-system package at module
+load — the same registry the web runtime uses.
 
 ```tsx
-<Col
-    direction={{ initial: 'column', expanded: 'row' }}
-    gap={{ initial: 8, large: 16 }}
-    padding={{ initial: 16, expanded: 32 }}
-/>
+import { ThemeProvider, useTheme, themeController } from '@sigx/lynx-zero';
+
+defineApp(() => () => (
+    <ThemeProvider>          {/* renders class="zx-root zx-theme-<active>" */}
+        <App />
+    </ThemeProvider>
+));
+
+// Headless control from anywhere:
+themeController.set('daisy-dark');
+themeController.toggle();
+themeController.followSystem();
 ```
 
-Keys are core's `WidthClass` tokens, with `initial` naming the `compact` base:
-`initial` · `medium` (600dp) · `expanded` (840dp) · `large` (1200dp) ·
-`xlarge` (1600dp). Resolution is **mobile-first** — a key applies at its
-breakpoint *and every wider one*. A value that defines nothing at or below the
-active class resolves to `undefined`, i.e. it behaves exactly like an omitted
-prop rather than forcing a zero.
+- `followSystem` (the default) picks the theme per OS scheme via the shared
+  registry; the appearance signal is seeded natively before first paint, so
+  the first render is already scheme-correct.
+- `setFontScale(n)` re-emits the scalable `--text-*` ramp as scaled literal
+  px inline on the host (`registerTextRamp` supplies the unscaled values —
+  the design-system package registers them beside its themes).
+  `--text-fixed-*` — control chrome — is untouched by construction.
+- `useScreenTheme(name)` (`@sigx/lynx-zero/screen-theme`, optional
+  `@sigx/lynx-navigation` peer) pins the global theme while a route is
+  focused.
 
-`direction` exists so the stack-on-phone / side-by-side-on-tablet flip restyles
-in place. Writing it as `{wide ? <Row/> : <Col/>}` changes the component type
-and **remounts the whole subtree** on every rotation, losing child state.
+## Layout
 
-This is plain JS resolution off core's `useWidthClass()` — no Tailwind, no class
-names, no CSS pipeline, so it behaves identically under every design system and
-under none. It also *has* to be JS: these primitives emit inline styles, and a
-stylesheet `@media` rule can never override an inline style.
+`Row` / `Col` / `Center` / `Spacer` / `ScrollView` and the responsive-prop
+helpers carry over from the legacy package unchanged — lynx-only concerns
+(long-form flex because the engine mis-expands the shorthand, JS-resolved
+breakpoints because inline styles beat stylesheet `@media`) that zero has no
+counterpart for.
 
-For your own components, compose the resolver with the singleton class:
+## Components (the pilot ten)
 
-```tsx
-const cls = useWidthClass();                                    // setup
-return () => <Grid columns={resolveResponsive(cols, cls.value) ?? 1} />;
-```
+Progress, Button, Switch, Tabs, Accordion, Dialog, Popover, Toast, Select,
+Slider — zero's anatomies rendered in Lynx JSX over the shared behaviors.
+The platform spellings to know:
 
-There is deliberately no `useResponsive()` hook: it would build a `computed()`
-per call site, and `computed()` has no disposer while a signal's subscriber set
-holds strong references — so every mount would leak one.
+- **Closed means unmounted.** Lynx has no `hidden` attribute and no
+  attribute selectors, so inactive panels, closed popups and unchecked
+  indicators leave the tree — absence is the lynx spelling of `hiddenIn`.
+- **Overlays portal to the outlet.** Wrap the app once in `ZeroRoot` (theme
+  host + overlay outlet as the LAST child — stacking is document order).
+  Dialog renders the anatomy's `::backdrop` pseudo part as a real view;
+  light dismiss routes through the shared layer stack (`dismissTopLayer()`),
+  so nested overlays close innermost-first.
+- **Select is options-driven** (`options={[{ value, label?, group?, … }]}`,
+  zero's `OptionInput` shape); Slider is touch-driven tier 1 — the value
+  paints as inline track percentages, the lynx counterpart of the web's
+  runtime `--slider-percent`.
+- **`@sigx/lynx-zero/testing`** holds components to the same contract as
+  the web: `expectAnatomy` (zero's oracle over the rendered tree; pass
+  `{ portaled: ['popup'] }` for parts the outlet hosts) and
+  `expectClassGrammar` (the classes recomputed from the data attributes).
 
-Height is not a key. Branch on it explicitly with core's `useHeightAtLeast()`;
-see the note there on why a phone in landscape needs it.
+## What comes next
 
-## License
-
-MIT
+The compiled design-system shells (`@sigx/lynx-daisyui-zero`) and the
+showcase pilot screens land in the remaining PRs of #1029.

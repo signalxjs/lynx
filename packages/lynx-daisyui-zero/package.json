@@ -1,0 +1,61 @@
+{
+    "name": "@sigx/lynx-daisyui-zero",
+    "version": "0.27.0",
+    "description": "daisyUI design system for SignalX Lynx, compiled from @sigx/zero-daisyui's single recipe source — a build shell shipping class-grammar CSS and theme-registry seeding, no components of its own (signalxjs/lynx#1029)",
+    "type": "module",
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.ts",
+            "import": "./dist/index.js"
+        },
+        "./css/*": "./dist/css/*"
+    },
+    "files": [
+        "src",
+        "dist"
+    ],
+    "scripts": {
+        "build": "node ../../scripts/clean.mjs dist && node build.mjs && tsgo",
+        "prepublishOnly": "node ../../scripts/clean.mjs dist && node build.mjs && tsgo",
+        "clean": "node ../../scripts/clean.mjs dist .turbo",
+        "test": "vitest run"
+    },
+    "dependencies": {
+        "@sigx/lynx-zero": "workspace:^"
+    },
+    "devDependencies": {
+        "@sigx/zero": "catalog:",
+        "@sigx/zero-daisyui": "catalog:",
+        "@typescript/native-preview": "7.0.0-dev.20260521.1",
+        "culori": "^4.0.1",
+        "typescript": "^6.0.3"
+    },
+    "publishConfig": {
+        "access": "public"
+    },
+    "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/signalxjs/lynx.git",
+        "directory": "packages/lynx-daisyui-zero"
+    },
+    "sideEffects": [
+        "./dist/index.js",
+        "./src/index.ts"
+    ],
+    "keywords": [
+        "sigx",
+        "lynx",
+        "daisyui",
+        "design-system",
+        "zero",
+        "tokens"
+    ],
+    "author": "Andreas Ekdahl",
+    "homepage": "https://sigx.dev/lynx/modules/zero/overview/",
+    "bugs": {
+        "url": "https://github.com/signalxjs/lynx/issues"
+    }
+}

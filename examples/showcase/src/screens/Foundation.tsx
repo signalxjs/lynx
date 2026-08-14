@@ -2,19 +2,19 @@ import { component } from '@sigx/lynx';
 import { Screen } from '@sigx/lynx-navigation';
 import { Card, Heading, Text } from '@sigx/lynx-daisyui';
 // Deliberately imported straight from the foundation package — this page
-// documents what `@sigx/lynx-zero` itself provides, independent of any
+// documents what `@sigx/lynx-zero-legacy` itself provides, independent of any
 // design system. Everything below renders in the app's daisy theme because
 // zero primitives are theme-agnostic.
 import {
     Row, Col, Center, Spacer, ScrollView,
     COLOR_VARIANT_LIST, listThemes, colorsOf, useTheme,
-} from '@sigx/lynx-zero';
+} from '@sigx/lynx-zero-legacy';
 
 /**
  * Foundation (lynx-zero) — makes the UI layering visible: the neutral
  * foundation package both design systems (daisyui, heroui) build on.
  *
- *   @sigx/lynx-zero   contract types · theme engine · layout primitives
+ *   @sigx/lynx-zero-legacy   contract types · theme engine · layout primitives
  *   ├─ @sigx/lynx-daisyui   (DS #1 — daisy CSS, 6 built-in palettes)
  *   └─ @sigx/lynx-heroui    (DS #2 — hero- CSS, hero palettes)
  */
@@ -30,7 +30,7 @@ export const Foundation = component(() => {
                     The design-system-neutral package both daisyui and heroui build
                     on: the props/token contract, the theme engine, and layout
                     primitives. Everything on this page is imported straight from
-                    @sigx/lynx-zero.
+                    @sigx/lynx-zero-legacy.
                 </Text>
 
                 <Card bordered>
@@ -122,7 +122,7 @@ export const Foundation = component(() => {
                     <Card.Body>
                         <Col gap={8}>
                             <Text weight="semibold">The layering</Text>
-                            <Text class="text-sm opacity-80">@sigx/lynx-zero — contract · theme engine · primitives</Text>
+                            <Text class="text-sm opacity-80">@sigx/lynx-zero-legacy — contract · theme engine · primitives</Text>
                             <Text class="text-sm opacity-80 pl-4">├─ @sigx/lynx-daisyui — daisy CSS, 6 built-in palettes</Text>
                             <Text class="text-sm opacity-80 pl-4">└─ @sigx/lynx-heroui — hero- CSS, hero palettes</Text>
                             <Text class="opacity-60 text-sm">

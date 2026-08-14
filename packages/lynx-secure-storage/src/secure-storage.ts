@@ -24,10 +24,12 @@ export interface SecureStorageSetOptions {
      * - iOS: stored with `kSecAccessControlBiometryCurrentSet`. The OS shows
      *   the Face ID / Touch ID prompt automatically inside the Keychain
      *   query — no extra JS call is needed.
-     * - Android: the key is generated with
-     *   `setUserAuthenticationRequired(true)`. `getItem` must drive a
-     *   `BiometricPrompt` to authorise the `Cipher`, which is why
-     *   [SecureStorageGetOptions] exposes `biometricPrompt`.
+     * - Android: a per-key Keystore RSA pair is generated with
+     *   `setUserAuthenticationRequired(true)`, binding the requirement to the
+     *   private half. Writing wraps a one-shot AES key with the public half,
+     *   so it never prompts; `getItem` drives a `BiometricPrompt` to
+     *   authorise the unwrap, which is why [SecureStorageGetOptions] exposes
+     *   `biometricPrompt`.
      */
     requireBiometric?: boolean;
 }

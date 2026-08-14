@@ -5,7 +5,7 @@
  * under every design system's active theme.
  */
 import type { WidthClass } from '@sigx/lynx';
-import { resolveColorToken, type BackgroundValue } from '../contract.js';
+import { resolveColorToken, type BackgroundValue } from '../contract/index.js';
 import { resolveResponsive, type Responsive } from './responsive.js';
 
 export type SpacingValue = number | {

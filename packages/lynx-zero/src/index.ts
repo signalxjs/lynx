@@ -1,109 +1,80 @@
-// @sigx/lynx-zero — design-system-neutral UI foundation.
-//
-// Holds what every design-system package (@sigx/lynx-daisyui,
-// @sigx/lynx-heroui, …) shares: the props/token contract, the theme engine,
-// layout primitives, style utilities and press-feedback defaults
-// (see signalxjs/lynx#219).
+// @sigx/lynx-zero — design-system-neutral UI foundation on the zero contract
+// (signalxjs/lynx#1029). The pre-contract package lives on as
+// @sigx/lynx-zero-legacy while this stack is built out.
 
-// The shared contract: scales, semantic colors, prop fragments,
-// token-name conventions.
-export type {
-  SizeScale,
-  ColorVariant,
-  ColorToken,
-  CoreColorToken,
-  SoftColorToken,
-  BackgroundValue,
-  WithClass,
-  WithDisabled,
-  WithColor,
-  WithSize,
-  WithAccessibility,
-  PressEvent,
-} from './contract.js';
-export { resolveColorToken, COLOR_VARIANT_LIST } from './contract.js';
+// ── The contract ─────────────────────────────────────────────────────────
+// @sigx/zero's portable contract verbatim (vocabularies, token names, the
+// class grammar, variantAttrs) plus the two lynx seams: partBag (one part
+// descriptor → class list + data-* attrs) and partA11y (the five-prop
+// native accessibility mapping).
+export * from './contract/index.js';
 
-// Box-model style helpers.
-export type { SpacingValue, BoxProps } from './shared/styles.js';
-export { resolveSpacing, resolveBoxStyle } from './shared/styles.js';
+// ── Behaviors ────────────────────────────────────────────────────────────
+// Portable zero behaviors + the lynx implementations of the adapter seams
+// (press, dismiss layers, anchored positioning).
+export * from './behaviors/index.js';
 
-// Per-breakpoint prop values (#1013). Every layout primitive's style props
-// accept `{ initial, medium, expanded, large, xlarge }` alongside a plain
-// value; `resolveResponsive` is the resolver, for components doing their own.
-// Pair it with core's `useWidthClass()` — see the note in `responsive.ts` on
-// why there is no `useResponsive()` hook.
-export { resolveResponsive } from './shared/responsive.js';
-export type { Responsive, ResponsiveObject } from './shared/responsive.js';
+// ── Overlays ─────────────────────────────────────────────────────────────
+// The portal substitute: ZeroRoot (theme host + outlet-last container),
+// OverlayHost, useOverlayPortal.
+export type { OverlayPortal, ZeroRootProps } from './overlay/OverlayHost.js';
+export { OverlayHost, PortalScope, ZeroRoot, hasOverlayHost, useOverlayPortal } from './overlay/OverlayHost.js';
 
-// Press-feedback defaults for interactive components.
-export { PRESSED_SCALE, PRESSED_OPACITY } from './shared/press.js';
+// ── Components (pilot wave 1) ────────────────────────────────────────────
+export type { ProgressRootProps } from './components/progress/Progress.js';
+export { Progress } from './components/progress/Progress.js';
+export type { ButtonRootProps } from './components/button/Button.js';
+export { Button } from './components/button/Button.js';
+export type { SwitchRootProps } from './components/switch/Switch.js';
+export { Switch } from './components/switch/Switch.js';
+export type { PanelProps, TabProps, TabsRootProps } from './components/tabs/Tabs.js';
+export { Tabs } from './components/tabs/Tabs.js';
+export type { AccordionItemProps, AccordionRootProps } from './components/accordion/Accordion.js';
+export { Accordion } from './components/accordion/Accordion.js';
 
-// Headless tabs selection — shared behavior behind every DS's Tabs/Tab.
-export { useTabsSelection, provideTabsSelection } from './shared/tabs-selection.js';
-export type { TabsSelection } from './shared/tabs-selection.js';
+// ── Components (pilot wave 2 — overlays) ────────────────────────────────
+export type { DialogRootProps } from './components/dialog/Dialog.js';
+export { Dialog } from './components/dialog/Dialog.js';
+export type { PopoverRootProps } from './components/popover/Popover.js';
+export { Popover } from './components/popover/Popover.js';
+export type { ToastItem, ToastOptions, ToastPlacement, ToastViewportProps, Toaster } from './components/toast/Toast.js';
+export { Toast, createToaster, provideToaster } from './components/toast/Toast.js';
 
-// Theme engine — registry mechanism, provider, headless controller. Theme
-// *data* (palettes, generated first-paint CSS classes) lives in each
-// design-system package, which seeds the registry at module load.
+// ── Components (pilot wave 3 — composites) ──────────────────────────────
+export type { SelectOption, SelectRootProps } from './components/select/Select.js';
+export { Select } from './components/select/Select.js';
+export type { SliderRootProps } from './components/slider/Slider.js';
+export { Slider } from './components/slider/Slider.js';
+
+// ── Axis push-down ───────────────────────────────────────────────────────
+export type { VariantAxes } from './contract/axes-context.js';
+export { partAxes, provideVariantAxes, useVariantAxes } from './contract/axes-context.js';
+
+// ── The theme engine ─────────────────────────────────────────────────────
+// Selection + follow-system + font scale. Theme VALUES live in the skin's
+// compiled `.zx-root` / `.zx-theme-<name>` CSS; metadata in zero's registry.
+export type { ThemeInfo, ThemeSource } from './theme/registry-bridge.js';
 export {
-  ThemeProvider,
-  useTheme,
-  listThemes,
-  registerTheme,
-  extendTheme,
-  pickThemeFor,
-  pairOf,
-  variantOf,
-  colorsOf,
-  radiusOf,
-  sizesOf,
-} from './theme/ThemeProvider.js';
-export type {
-  ThemeName,
-  ThemeController,
-  ThemeProviderProps,
-  Theme,
-  ThemePalette,
-  ThemeRadius,
-  ThemeSizes,
-  ThemeVariant,
-} from './theme/ThemeProvider.js';
-// Palette completion (soft tints) + the JS-side color mixer behind it.
-export { completeTheme } from './theme/registry.js';
-export type { ThemeInput, ThemePaletteInput } from './theme/registry.js';
-export { mixColors } from './theme/color-mix.js';
-// Scoped palette → concrete values for native consumers that can't read
-// CSS custom properties (platform inputs, sigx-richtext, SVG fills).
-export { useThemeColors, toHexColor, withAlpha } from './theme/use-theme-colors.js';
-export type { ThemeColors } from './theme/use-theme-colors.js';
-// Headless theme handle: import and call from anywhere — stores, services,
-// effects, app-boot — with no `<ThemeProvider>` ancestor required.
-export { themeController } from './theme/theme-state.js';
-export { StatusBarSync } from './theme/StatusBarSync.js';
-export type { StatusBarSyncProps } from './theme/StatusBarSync.js';
-// Per-screen theming (`useScreenTheme`) is deliberately NOT re-exported here:
-// it statically imports the optional `@sigx/lynx-navigation` peer, and a
-// barrel re-export would force that resolution onto every consumer. Import it
-// from the subpath instead: `@sigx/lynx-zero/screen-theme`.
+    getTheme,
+    listThemes,
+    pairOf,
+    pickThemeFor,
+    registerTheme,
+    registerThemes,
+} from './theme/registry-bridge.js';
+export type { ThemeController, ThemeName, ThemeState } from './theme/theme-state.js';
+export { makeThemeController, normalizeFontScale, themeController } from './theme/theme-state.js';
+export { registerTextRamp, textRampVars } from './theme/text-ramp.js';
+export type { ThemeProviderProps } from './theme/ThemeProvider.js';
+export { ThemeProvider, useTheme } from './theme/ThemeProvider.js';
 
-// Layout primitives — design-system-neutral structure (flex containers,
-// spacing, scrolling); no design-system class names involved.
+// ── Layout primitives (lynx-only concerns; ported from legacy) ───────────
 export { Row } from './layout/Row.js';
-export type { RowProps, FlexDirection } from './layout/Row.js';
 export { Col } from './layout/Col.js';
-export type { ColProps } from './layout/Col.js';
 export { Center } from './layout/Center.js';
-export type { CenterProps } from './layout/Center.js';
 export { Spacer } from './layout/Spacer.js';
-export type { SpacerProps } from './layout/Spacer.js';
 export { ScrollView } from './layout/ScrollView.js';
-export type { ScrollViewProps } from './layout/ScrollView.js';
-
-// Swiper page indicator — design-system-neutral (pure tokens + headless
-// gesture/motion hooks, no DS class names). Both design systems re-export it.
-export { SwiperIndicator } from './components/SwiperIndicator.js';
-export type {
-  SwiperIndicatorProps,
-  SwiperIndicatorVariant,
-  SwiperIndicatorSize,
-} from './components/SwiperIndicator.js';
+export type { BoxProps, SpacingValue } from './shared/styles.js';
+export { resolveBoxStyle, resolveSpacing } from './shared/styles.js';
+export type { Responsive } from './shared/responsive.js';
+export { resolveResponsive } from './shared/responsive.js';

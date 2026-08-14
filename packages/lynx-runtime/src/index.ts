@@ -42,6 +42,8 @@ export { normalizeHole, releaseHoleValues, wireEqual } from './snapshot-values.j
 // lifecycle hooks are wired into nodeOps; `show` is registered with the
 // platform on import (see ./directives/register.js).
 export { show } from './directives/show.js';
+// DOM-runtime compat names the `@sigx/runtime-dom` alias must carry (#1059).
+export { Portal, moveNode, supportsMoveBefore, useHead } from './dom-compat.js';
 export {
   registerBuiltInDirective,
   resolveBuiltInDirective,

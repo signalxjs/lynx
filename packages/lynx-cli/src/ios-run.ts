@@ -55,6 +55,102 @@ function iosFingerprintKey(target: IosBuildTarget, configuration: string, varian
     return `ios-${variant ? `${variant}-` : ''}${configuration.toLowerCase()}-${target.kind}-${target.udid}`;
 }
 
+/**
+ * The xcodebuild argument list for an app build.
+ *
+ * Shared because `run:ios` and `sigx dev` each drive their own xcodebuild and
+ * had drifted: only one of them carried the derived-data path comment, and a
+ * fix to either could miss the other. Pure, so the flags are testable without
+ * spawning anything.
+ */
+export function iosBuildArgs(opts: {
+    workspace: string;
+    scheme: string;
+    destinationId: string;
+    configuration: string;
+    derivedDataPath: string;
+    /** Physical devices are signed; simulators are not. */
+    isDevice: boolean;
+}): string[] {
+    return [
+        '-workspace', opts.workspace,
+        '-scheme', opts.scheme,
+        '-destination', `id=${opts.destinationId}`,
+        '-configuration', opts.configuration,
+        // Project-local products dir — two checkouts sharing a scheme name
+        // must never resolve each other's .app (#178).
+        '-derivedDataPath', opts.derivedDataPath,
+        // Automatic signing refuses to create or refresh a provisioning
+        // profile without this, so a first build to a new device fails with
+        // "No profiles for '<bundle id>' were found" even with the team set
+        // correctly (#1032). Device only: a simulator build isn't signed, and
+        // passing it there invites pointless round-trips to Apple.
+        ...(opts.isDevice ? ['-allowProvisioningUpdates'] : []),
+        'build',
+    ];
+}
+
+/**
+ * Watch xcodebuild's output for the device failures worth naming, and pick the
+ * most specific explanation the output supports.
+ *
+ * The build runner rejects with a bare "exited with code N", so the reason has
+ * to be caught as it streams past. Every case here was hit on a connected iPad
+ * and none is about signing, which is all the old blanket message said
+ * (#1032). Shared because `run:ios` and `sigx dev` each drive their own
+ * xcodebuild.
+ */
+export function createIosDeviceTroubleWatcher() {
+    let notReady = false;
+    let noDestination = false;
+    let unregisterableBundleId = false;
+    // Chunk boundaries are arbitrary — `runWithBuildFilter` says so, and its
+    // own sink buffers for the same reason. A phrase split across two chunks
+    // ("destination spec" + "ifier") would match neither, and the build would
+    // fall back to the generic signing message for a failure we can name. Carry
+    // the tail of each chunk into the next; 256 chars is many times the longest
+    // phrase, and bounded so a long build can't grow it.
+    const CARRY = 256;
+    let carry = '';
+    return {
+        onChunk(chunk: Buffer): void {
+            const text = carry + chunk.toString();
+            carry = text.slice(-CARRY);
+            if (/Device is busy|Waiting to reconnect/i.test(text)) notReady = true;
+            if (/destination specifier/i.test(text)) noDestination = true;
+            // "…cannot be registered to your development team because it is not
+            // available" / "Failed Registering Bundle Identifier" — device-seen
+            // with the scaffold's `com.example.<app>` placeholder.
+            if (/Registering Bundle Identifier|cannot be registered to your development team/i.test(text)) {
+                unregisterableBundleId = true;
+            }
+        },
+        /** The most specific explanation the output supports. */
+        message(target: { name: string; udid: string }): string {
+            if (notReady) {
+                return `Device build failed: ${target.name} is connected but not ready. Unlock it `
+                    + 'and leave it awake — Xcode mounts the developer disk image on first use '
+                    + 'after enabling Developer Mode or an OS update, and `xcrun devicectl list '
+                    + 'devices` reports "connected (no DDI)" until it has.';
+            }
+            if (noDestination) {
+                return `Device build failed: xcodebuild could not match ${target.name} `
+                    + `(id=${target.udid}). Check \`xcrun xctrace list devices\` — the id must be `
+                    + "the hardware UDID, not devicectl's CoreDevice identifier.";
+            }
+            if (unregisterableBundleId) {
+                return 'Device build failed: the bundle identifier is not available to your team. '
+                    + 'App IDs are globally unique across Apple, so a shared example app cannot '
+                    + 'ship one that works for everyone — set SIGX_IOS_BUNDLE_ID to something of '
+                    + 'your own (e.g. com.you.app).';
+            }
+            return 'Device build failed. Check that a development team is selected in Xcode '
+                + '(Signing & Capabilities), or set SIGX_IOS_DEVELOPMENT_TEAM. If the identifier '
+                + 'is the problem rather than the team, set SIGX_IOS_BUNDLE_ID.';
+        },
+    };
+}
+
 export async function ensureIosBuilt(opts: EnsureIosBuiltOptions): Promise<void> {
     const { cwd, logger, appName, target, bundleId, configuration = 'Debug', verbose = false, variant } = opts;
     const iosDirRel = iosDirName(variant);
@@ -103,25 +199,24 @@ export async function ensureIosBuilt(opts: EnsureIosBuiltOptions): Promise<void>
 
     logger.log(`Building iOS (${configuration}) for ${target.kind}...`);
     const workspace = join(iosDirRel, `${appName}.xcworkspace`);
+    const trouble = createIosDeviceTroubleWatcher();
     try {
         await runWithBuildFilter(
             'xcodebuild',
-            [
-                '-workspace', workspace,
-                '-scheme', appName,
-                '-destination', `id=${target.udid}`,
-                '-configuration', configuration,
-                // Project-local products dir — two checkouts sharing a scheme
-                // name must never resolve each other's .app (#178).
-                '-derivedDataPath', iosDerivedDataPath(cwd, variant),
-                'build',
-            ],
+            iosBuildArgs({
+                workspace,
+                scheme: appName,
+                destinationId: target.udid,
+                configuration,
+                derivedDataPath: iosDerivedDataPath(cwd, variant),
+                isDevice: target.kind === 'device',
+            }),
             { cwd },
-            { kind: 'xcodebuild', verbose, logger },
+            { kind: 'xcodebuild', verbose, logger, onChunk: trouble.onChunk },
         );
     } catch {
         if (target.kind === 'device') {
-            logger.error('Device build failed. Check that a development team is selected in Xcode (Signing & Capabilities).');
+            logger.error(trouble.message(target));
         }
         throw new Error(`iOS ${configuration} build failed`);
     }

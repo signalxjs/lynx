@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { component } from '@sigx/lynx';
 import { render } from '@sigx/lynx-testing';
-import { registerTheme, themeController } from '@sigx/lynx-zero';
+import { registerTheme, themeController } from '@sigx/lynx-zero-legacy';
 import { useMarkdownEditorTheme } from '../src/markdown/editorTheme';
 
 const CORE = {

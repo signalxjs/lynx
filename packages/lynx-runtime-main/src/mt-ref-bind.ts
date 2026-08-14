@@ -60,6 +60,12 @@ export function bindMtRef(
     // method to fall back to a web-safe `MTElementWrapper` (raw
     // `__SetInlineStyles` + debounced flush). Native is untouched: the
     // original path succeeds there, so the fallback never runs.
+    //
+    // The probe is `__SetGestureDetector` because it is the cheapest reliable
+    // "is this the web engine" signal: `@lynx-js/web-core` still ships no such
+    // global, re-checked at 0.24.0 (#975). `__CreateWrapperElement` and
+    // `__ReplaceElement`, by contrast, ARE present there — so neither would
+    // work as a web probe.
     if (typeof __SetGestureDetector !== 'function') {
       const slot = refMap[wvid] as {
         current?: {

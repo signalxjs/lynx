@@ -24,14 +24,35 @@ overrides:
 # NOTE: `scripts/check-catalog.mjs` only guards the `@sigx` core names, so
 # these entries are not CI-enforced — keep them honest by hand.
 catalog:
+  # The range stays a single-minor caret (`verify:catalog` requires it), so
+  # the LOCKFILE is what pins the patch — and it must not drift back below
+  # 0.15.4. Before that release `normalizeChild` gave an array child three
+  # different vnode shapes by length (0 → Comment, 1 → the bare item,
+  # 2+ → Fragment), so any `{list.map(…)}` rendered BESIDE a sibling
+  # remounted every item when the list crossed one entry. lynx-zero's
+  # overlay outlet is exactly that shape, and a nested overlay turned the
+  # remount into a non-terminating microtask cascade (signalxjs/core#658,
+  # signalxjs/lynx#1051). The guard is the nested-overlay test in
+  # packages/lynx-zero/__tests__/behaviors.test.tsx.
   "@sigx/reactivity": ^0.15.0
   "@sigx/runtime-core": ^0.15.0
+  # The zero contract the new design-system stack builds on (signalxjs/lynx#1029):
+  # anatomies, vocabularies, the class grammar, the portable behavior subset.
+  # Exact beta pin while zero is pre-1.0 — its contract moves in lockstep with
+  # the lynx-target emitters in @sigx/zero-kit, so a range would let the two
+  # sides drift. Bump deliberately, here, once.
+  "@sigx/zero": 0.2.0-beta.1
+  # The daisyUI recipe source, compiled for lynx by zero-kit at ITS build —
+  # this repo only consumes its dist/lynx artifacts. Pinned to the same beta
+  # as @sigx/zero: the class-grammar envelope check in lynx-daisyui-zero's
+  # build.mjs fails the build if the two ever disagree.
+  "@sigx/zero-daisyui": 0.2.0-beta.1
   # Tilde, not caret: @lynx-js/types tracks the engine line, and 4.1.0 already
   # describes an engine (4.1) that only exists as a nightly. Keep the types on
   # the 4.0.x line the CLI templates actually pin.
   "@lynx-js/types": ~4.0.0
-  "@lynx-js/react": ^0.121.0
-  "@lynx-js/rspeedy": ">=0.14.4"
+  "@lynx-js/react": ^0.123.0
+  "@lynx-js/rspeedy": ">=0.16.3"
   # Exact 0.15.0, deliberately decoupled from the full lynx-stack bump (#975):
   # this is the encoder that turns CSS into the .lynx template, and 0.15.0's
   # @lynx-js/tasm 0.0.49 is the first line we can carry that encodes @media /
@@ -43,9 +64,16 @@ catalog:
   # keeps the hook API entry.ts uses, so it bumps independently of rspeedy;
   # rspeedy 0.16/rsbuild 2 stays with #975.
   "@lynx-js/template-webpack-plugin": 0.15.0
-  "@lynx-js/css-extract-webpack-plugin": ">=0.7.1"
-  "@lynx-js/runtime-wrapper-webpack-plugin": ">=0.1.3"
-  "@lynx-js/webpack-dev-transport": ">=0.2.0"
-  "@lynx-js/tailwind-preset": ^0.4.0
-  "@lynx-js/web-core": ^0.20.4
-  "@lynx-js/web-elements": ">=0.12.2"
+  # Must track the template-webpack-plugin pin above: css-extract taps that
+  # plugin's `beforeEmit` hook, whose payload lost `entryNames` in favour of
+  # `chunkGroups` at tpwp 0.14. 0.7.1 peers `^0.11.0` and still iterates
+  # `args.entryNames`, so against tpwp 0.15 every `sigx dev` start died with
+  # `args.entryNames is not iterable` — release builds were spared only because
+  # the tap sits behind an HMR check. `autoInstallPeers` swallowed the
+  # unsatisfiable peer instead of failing the install (#1015).
+  "@lynx-js/css-extract-webpack-plugin": ">=0.10.1"
+  "@lynx-js/runtime-wrapper-webpack-plugin": ">=0.2.3"
+  "@lynx-js/webpack-dev-transport": ">=0.3.0"
+  "@lynx-js/tailwind-preset": ^0.5.0
+  "@lynx-js/web-core": ^0.24.0
+  "@lynx-js/web-elements": ">=0.12.7"

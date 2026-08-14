@@ -14,10 +14,7 @@ import { fileURLToPath } from 'node:url';
 
 import type { CSSLoaderOptions, RsbuildPluginAPI } from '@rsbuild/core';
 
-import type {
-  CssExtractRspackPluginOptions,
-  CssExtractWebpackPluginOptions,
-} from '@lynx-js/css-extract-webpack-plugin';
+import type { CssExtractRspackPluginOptions } from '@lynx-js/css-extract-webpack-plugin';
 
 import { LAYERS } from './layers.js';
 
@@ -46,12 +43,14 @@ export function applyCSS(
   //    one, configure loaders per layer, and remove lightningcss.
   api.modifyBundlerChain(
     async function handler(chain, { CHAIN_ID }) {
-      const { CssExtractRspackPlugin, CssExtractWebpackPlugin } = await import(
+      // Rspack only: `@lynx-js/css-extract-webpack-plugin` 0.8.0 dropped
+      // webpack support and deleted `CssExtractWebpackPlugin` outright, the
+      // same release boundary `@lynx-js/template-webpack-plugin` crossed at
+      // 0.12.0. rspeedy drives rspack, so the old `bundlerType` branch could
+      // only ever have picked the rspack plugin anyway.
+      const { CssExtractRspackPlugin: CssExtractPlugin } = await import(
         '@lynx-js/css-extract-webpack-plugin'
       );
-      const CssExtractPlugin = api.context.bundlerType === 'rspack'
-        ? CssExtractRspackPlugin
-        : CssExtractWebpackPlugin;
 
       const cssRules = [
         CHAIN_ID.RULE.CSS,
@@ -60,16 +59,44 @@ export function applyCSS(
         CHAIN_ID.RULE.STYLUS,
       ] as const;
 
+      // Rsbuild 2 nests the CSS loaders under `oneOf` sub-rules: the `css`
+      // rule itself carries only `test` + `dependency` and has NO `uses`, and
+      // the real chain (mini-css-extract → css-loader → lightningcss →
+      // postcss) lives in `oneOf(CSS_MAIN)`, alongside CSS_RAW / CSS_TEXT /
+      // CSS_URL / CSS_INLINE. Operating on the parent rule — which is what
+      // this did before, and which rsbuild 1 supported — silently no-ops:
+      // every `.use()` and `.delete()` lands on an empty `uses`, the
+      // main-thread clone never gets `ignore-css-loader`, and raw CSS reaches
+      // rspack's JS parser (`@tailwind base;` → `Expression expected`).
+      //
+      // Mirrors `@lynx-js/react-rsbuild-plugin`'s own port, including the two
+      // details that are easy to miss: `test` still lives on the PARENT rule,
+      // and `dependency: { not: 'url' }` has to be carried over or the
+      // main-thread clone also matches `url()` dependencies.
       cssRules
         .filter((rule) => chain.module.rules.has(rule))
         .forEach((ruleName) => {
           const rule = chain.module.rule(ruleName);
+          const mainRuleName = ruleName === CHAIN_ID.RULE.CSS
+            ? CHAIN_ID.ONE_OF.CSS_MAIN
+            : ruleName;
+          // Only descend into a `oneOf` that actually exists. `oneOf(name)`
+          // CREATES the child when absent, so assuming the nesting would
+          // silently build an empty sub-rule and configure nothing — the same
+          // failure this port is fixing. rsbuild 2 nests `css`; whether the
+          // sass/less/stylus plugins do is not something this repo can
+          // observe (none of them are installed), and a consumer that adds
+          // one gets whichever shape their plugin actually produces.
+          const mainRule = rule.oneOfs.has(mainRuleName)
+            ? rule.oneOf(mainRuleName)
+            : rule;
+          const parentRuleEntries = rule.entries() as Record<string, any>;
 
           // Remove lightningcss-loader — Lynx processes CSS natively.
-          removeLightningCSS(rule, CHAIN_ID);
+          removeLightningCSS(mainRule, CHAIN_ID);
 
           // Use the Lynx CssExtract loader for the Background layer.
-          rule
+          mainRule
             .issuerLayer(LAYERS.BACKGROUND)
             .use(CHAIN_ID.USE.MINI_CSS_EXTRACT)
             .loader(CssExtractPlugin.loader)
@@ -79,16 +106,41 @@ export function applyCSS(
           // Main-Thread bundles never contain user CSS — only the PAPI
           // bootstrap code.  We replace all loaders with ignore-css + a
           // css-loader configured for `exportOnlyLocals: true`.
-          const uses = rule.uses.entries();
-          const ruleEntries = rule.entries() as Record<string, any>;
+          const uses = mainRule.uses.entries() ?? {};
+          const ruleEntries = mainRule.entries() as Record<string, any>;
           const cssLoaderRule = uses[CHAIN_ID.USE.CSS]?.entries() as
             | Record<string, any>
             | undefined;
 
-          chain.module
+          // A CSS rule with no css-loader is not a shape we can serve: the
+          // main-thread clone exists to swap css-loader for
+          // `exportOnlyLocals`, and without it that layer would end up with no
+          // CSS handling at all. Upstream returns quietly here; we don't —
+          // this whole change exists because a bundler-shape drift silently
+          // no-opped the same surgery, and a second silent skip in the same
+          // function is the last thing this file needs. Fail with the rule
+          // name so the next drift points at itself.
+          if (!cssLoaderRule) {
+            throw new Error(
+              `[@sigx/lynx-plugin] CSS rule "${ruleName}" has no `
+              + `"${CHAIN_ID.USE.CSS}" loader under `
+              + `oneOf("${mainRuleName}"), so the main-thread layer cannot be `
+              + `configured. This usually means the bundler changed its rule `
+              + `shape again — compare against `
+              + `@lynx-js/react-rsbuild-plugin's applyCSS. See #975.`,
+            );
+          }
+
+          const mtRule = chain.module
             .rule(`${ruleName}:${LAYERS.MAIN_THREAD}`)
+            .test(parentRuleEntries['test'])
             .merge(ruleEntries)
-            .issuerLayer(LAYERS.MAIN_THREAD)
+            .issuerLayer(LAYERS.MAIN_THREAD);
+          if (parentRuleEntries['dependency'] !== undefined) {
+            mtRule.merge({ dependency: parentRuleEntries['dependency'] });
+          }
+
+          mtRule
             .use(CHAIN_ID.USE.IGNORE_CSS)
             .loader(path.resolve(_dirname, './loaders/ignore-css-loader'))
             .end()
@@ -96,42 +148,32 @@ export function applyCSS(
             .delete(CHAIN_ID.USE.MINI_CSS_EXTRACT)
             .delete(CHAIN_ID.USE.LIGHTNINGCSS)
             .delete(CHAIN_ID.USE.CSS)
+            .end()
+            // Re-add css-loader with exportOnlyLocals for main-thread.
+            .use(CHAIN_ID.USE.CSS)
+            .after(CHAIN_ID.USE.IGNORE_CSS)
+            .merge(cssLoaderRule)
+            .options(
+              normalizeCssLoaderOptions(
+                cssLoaderRule['options'] as CSSLoaderOptions,
+                true,
+              ),
+            )
             .end();
-
-          // Re-add css-loader with exportOnlyLocals for main-thread
-          if (cssLoaderRule) {
-            chain.module
-              .rule(`${ruleName}:${LAYERS.MAIN_THREAD}`)
-              .use(CHAIN_ID.USE.CSS)
-              .after(CHAIN_ID.USE.IGNORE_CSS)
-              .merge(cssLoaderRule)
-              .options(
-                normalizeCssLoaderOptions(
-                  cssLoaderRule.options as CSSLoaderOptions,
-                  true,
-                ),
-              )
-              .end();
-          }
         });
 
-      // Also strip lightningcss from inline CSS rules (Rsbuild ≥1.3.0).
-      const RULE = CHAIN_ID.RULE as Record<string, string | undefined>;
-      const inlineCSSRuleNames = [
-        'CSS_INLINE',
-        'SASS_INLINE',
-        'LESS_INLINE',
-        'STYLUS_INLINE',
-      ] as const;
-
-      inlineCSSRuleNames
-        .map((key) => RULE[key])
-        .filter(
-          (ruleName): ruleName is string =>
-            !!ruleName && chain.module.rules.has(ruleName),
-        )
+      // Also strip lightningcss from inline CSS, which is its own `oneOf`.
+      cssRules
+        .filter((rule) => chain.module.rules.has(rule))
         .forEach((ruleName) => {
-          removeLightningCSS(chain.module.rule(ruleName), CHAIN_ID);
+          const inlineRuleName = ruleName === CHAIN_ID.RULE.CSS
+            ? CHAIN_ID.ONE_OF.CSS_INLINE
+            : `${ruleName}-inline`;
+          const parent = chain.module.rule(ruleName);
+          // Same reasoning as above — don't conjure a `oneOf` that isn't there.
+          if (parent.oneOfs.has(inlineRuleName)) {
+            removeLightningCSS(parent.oneOf(inlineRuleName), CHAIN_ID);
+          }
         });
 
       // ③ Replace the CssExtract plugin instance with the Lynx-aware one
@@ -147,25 +189,25 @@ export function applyCSS(
               enableCSSSelector,
               enableCSSInvalidation,
               cssPlugins: [],
-            } as
-              | CssExtractWebpackPluginOptions
-              | CssExtractRspackPluginOptions,
+            } as CssExtractRspackPluginOptions,
           ];
         })
-        .init((_: any, args: unknown[]) => {
-          return new CssExtractPlugin(
-            ...(args as [
-              options:
-                & CssExtractWebpackPluginOptions
-                & CssExtractRspackPluginOptions,
-            ]),
-          );
-        })
+        // The cast is the honest shape of this call: webpack-chain types
+        // `init` as returning its own `PluginInstance`, but the whole point
+        // here is to swap in the Lynx encoder's plugin, which is a foreign
+        // class. Nothing downstream reads it as anything but an applied
+        // plugin.
+        .init(((_: unknown, args: unknown[]) =>
+          new CssExtractPlugin(
+            ...(args as [options: CssExtractRspackPluginOptions]),
+          )) as never)
         .end()
         .end();
 
+      // Accepts a `oneOf` sub-rule as well as a top-level rule — under
+      // rsbuild 2 the loaders live one level down, so both shapes reach here.
       function removeLightningCSS(
-        rule: ReturnType<typeof chain.module.rule>,
+        rule: { uses: { has(k: string): boolean; delete(k: string): unknown } },
         ids: typeof CHAIN_ID,
       ): void {
         if (rule.uses.has(ids.USE.LIGHTNINGCSS)) {

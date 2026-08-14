@@ -1,5 +1,5 @@
 import { component, type Define, type Model } from '@sigx/lynx';
-import { useThemeColors, type ColorVariant } from '@sigx/lynx-zero';
+import { useThemeColors, type ColorVariant } from '@sigx/lynx-zero-legacy';
 
 export type TextareaSize = 'xs' | 'sm' | 'md' | 'lg';
 export type TextareaVariant = 'bordered' | 'ghost';

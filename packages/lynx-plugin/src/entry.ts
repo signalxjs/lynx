@@ -22,7 +22,15 @@ const PLUGIN_TEMPLATE = 'lynx:sigx-template';
 const PLUGIN_MARK_MAIN_THREAD = 'lynx:sigx-mark-main-thread';
 const PLUGIN_ENCODE = 'lynx:sigx-encode';
 const PLUGIN_PAGE_CONFIG = 'lynx:sigx-page-config';
-const PLUGIN_WEB_ENCODE_GUARD = 'lynx:sigx-web-encode-guard';
+const PLUGIN_ASYNC_CHUNK = 'lynx:sigx-async-chunk';
+const PLUGIN_WORKLET_GUARD = 'lynx:sigx-worklet-guard';
+
+/**
+ * `RuntimeGlobals.lynxAsyncChunkIds` from `@lynx-js/webpack-runtime-globals`.
+ * Inlined rather than imported: that package is not a declared dependency here,
+ * and the value has been stable across its releases (0.0.6, 0.0.7).
+ */
+const LYNX_ASYNC_CHUNK_IDS = '__webpack_require__.lynx_aci';
 
 const DEFAULT_INTERMEDIATE = '.rspeedy';
 
@@ -52,7 +60,18 @@ interface WebpackCompilation {
         callback: (chunk: WebpackChunk, set: Set<string>) => void,
       ): void;
     };
+    runtimeRequirementInTree: {
+      for(runtimeGlobal: string): {
+        tap(
+          name: string,
+          callback: (chunk: WebpackChunk, set: Set<string>) => void,
+        ): void;
+      };
+    };
   };
+  addRuntimeModule(chunk: WebpackChunk, module: unknown): void;
+  errors: Error[];
+  getAssets(): { name: string; source: { source(): string | Buffer } }[];
   getAsset(
     filename: string,
   ): { source: unknown; info: Record<string, unknown> } | undefined;
@@ -68,10 +87,17 @@ interface WebpackCompiler {
   webpack: {
     Compilation: {
       PROCESS_ASSETS_STAGE_ADDITIONAL: number;
+      PROCESS_ASSETS_STAGE_REPORT: number;
     };
+    WebpackError: new (message: string) => Error;
     RuntimeGlobals: { startup: string; require: string };
     sources: { RawSource: new (source: string) => unknown };
+    RuntimeModule: {
+      new (name: string, stage?: number): { generate(): string };
+      STAGE_TRIGGER: number;
+    };
   };
+  options: { output: { chunkFilename?: unknown } };
   hooks: {
     thisCompilation: {
       tap(
@@ -79,6 +105,8 @@ interface WebpackCompiler {
         callback: (compilation: WebpackCompilation) => void,
       ): void;
     };
+    environment: { tap(name: string, callback: () => void): void };
+    afterEnvironment: { tap(name: string, callback: () => void): void };
   };
 }
 
@@ -132,6 +160,117 @@ class SigxMarkMainThreadPlugin {
 }
 
 /**
+ * SigxWorkletGuardPlugin fails the build when a worklet exists on the
+ * background layer but was never registered on the main thread.
+ *
+ * The two layers carry the same worklet as two halves that must agree: the BG
+ * bundle keeps a `{_wkltId: "<id>"}` placeholder, and the MT bundle must carry
+ * a matching `registerWorkletInternal("main-thread", "<id>", …)`. `runWorklet`
+ * later looks the body up by that id. Nothing else in the toolchain compares
+ * the two sets, and a mismatch is invisible: the build succeeds, the app
+ * starts, and the worklet simply never fires — no gesture response, no
+ * animation, no error.
+ *
+ * That is not hypothetical. Declaring `sideEffects: false` on packages that
+ * contain worklets deleted 72 of 101 registrations while `typecheck`, `test`,
+ * `lint` and `verify:pack` all stayed green (#1021, #1002). On the MT layer a
+ * worklet module is imported for its registration side effect alone, so a
+ * bundler that believes the package is side-effect-free is correct to drop it
+ * — which is why this has to be checked against the emitted output rather than
+ * prevented by a lint rule.
+ *
+ * Runs at `PROCESS_ASSETS_STAGE_REPORT`, one stage before `LynxEncodePlugin`
+ * deletes the intermediate assets it folds into the template. Exported for
+ * tests.
+ */
+export class SigxWorkletGuardPlugin {
+  constructor(private readonly mainThreadFilenames: string[]) {}
+
+  /**
+   * Worklet ids the BG bundle expects the MT layer to have registered.
+   *
+   * Ids are shaped `<hash>:<hash>:<n>` by the transform, and the colon is
+   * load-bearing here: this scans raw bundle text, and a development build
+   * keeps comments — `threading.ts`'s docblock explains the mechanism with a
+   * literal `{ _wkltId: '...' }`, which a looser pattern reads as a worklet
+   * that was never registered and fails the build on prose.
+   */
+  static backgroundIds(source: string): Set<string> {
+    return new Set(
+      [...source.matchAll(/_wkltId:\s*["']([^"':]+:[^"']+)["']/g)]
+        .map((m) => m[1]!),
+    );
+  }
+
+  /** Worklet ids the MT bundle actually registers. */
+  static mainThreadIds(source: string): Set<string> {
+    return new Set(
+      [
+        ...source.matchAll(
+          /registerWorkletInternal\(\s*["'][^"']*["']\s*,\s*["']([^"']+)["']/g,
+        ),
+      ].map((m) => m[1]!),
+    );
+  }
+
+  /** The check itself, split out so it is testable without a compiler. */
+  static missingIds(bgSource: string, mtSource: string): string[] {
+    const mt = SigxWorkletGuardPlugin.mainThreadIds(mtSource);
+    return [...SigxWorkletGuardPlugin.backgroundIds(bgSource)]
+      .filter((id) => !mt.has(id))
+      .sort();
+  }
+
+  apply(compiler: WebpackCompiler): void {
+    const mtNames = new Set(this.mainThreadFilenames);
+    compiler.hooks.thisCompilation.tap(PLUGIN_WORKLET_GUARD, (compilation) => {
+      compilation.hooks.processAssets.tap(
+        {
+          name: PLUGIN_WORKLET_GUARD,
+          stage: compiler.webpack.Compilation.PROCESS_ASSETS_STAGE_REPORT,
+        },
+        () => {
+          let bg = '';
+          let mt = '';
+          for (const { name, source } of compilation.getAssets()) {
+            if (!name.endsWith('.js')) continue;
+            const text = String(source.source());
+            if (mtNames.has(name)) mt += text;
+            else bg += text;
+          }
+          // No MT output to compare against (e.g. a target that emits none):
+          // stay silent rather than fail a build this cannot speak to.
+          if (mt === '') return;
+
+          const missing = SigxWorkletGuardPlugin.missingIds(bg, mt);
+          if (missing.length === 0) return;
+
+          const shown = missing.slice(0, 5).join(', ');
+          const more = missing.length > 5
+            ? ` (+${missing.length - 5} more)`
+            : '';
+          compilation.errors.push(
+            new compiler.webpack.WebpackError(
+              `[sigx] ${missing.length} worklet(s) were compiled into the `
+              + `background bundle but never registered on the main thread, so `
+              + `they would silently never run: ${shown}${more}.\n`
+              + `Two things commonly cause this. Most often a package `
+              + `containing 'main thread' worklets is tree-shaken out of the `
+              + `main-thread layer — look for a "sideEffects" declaration `
+              + `that excludes its worklet modules. It can also mean the `
+              + `worklet is only reachable through a dynamic import(): the `
+              + `main-thread layer resolves imports statically, so a module `
+              + `no static import reaches never enters the MT bundle. See `
+              + `#1021.`,
+            ),
+          );
+        },
+      );
+    });
+  }
+}
+
+/**
  * SigxPageConfigPlugin merges extra page-config keys into the encoded
  * template's `sourceContent.config` via LynxTemplatePlugin's `beforeEncode`
  * hook. LynxTemplatePlugin itself only emits a fixed key set, so keys the
@@ -173,18 +312,39 @@ export class SigxPageConfigPlugin {
 }
 
 /**
- * SigxWebEncodeGuardPlugin works around a template-webpack-plugin >= 0.14
- * crash on the web target: the async-template pass encodes every dynamic
- * chunk group, and a group whose JS was deduplicated into the main chunk
- * arrives at `WebEncodePlugin` with an empty `manifest` (and no lepus root),
- * which then throws destructuring `last(Object.entries(manifest))`. Taps the
- * same `beforeEncode` waterfall at the default stage (0, ahead of
- * `WebEncodePlugin`'s stage 100) and stubs an empty background entry for
- * those lazy-bundle templates so the build survives; the emitted bundle is
- * inert because nothing ever fetches the deduplicated group. Exported for
- * tests.
+ * SigxAsyncChunkPlugin keeps dynamic `import()` on the resource-fetcher path
+ * sigx actually implements (#599/#612), by resetting
+ * `__webpack_require__.lynx_aci` to an empty map.
+ *
+ * `@lynx-js/chunk-loading-webpack-plugin`'s runtime branches on that map: a
+ * chunk id present in it loads via `lynx.loadLazyBundle(...)`, everything else
+ * via `lynx.requireModuleAsync(publicPath + getChunkScriptFilename(id))`.
+ *
+ * `lynx.loadLazyBundle` is not an engine API — it appears in no version of
+ * `@lynx-js/types`. `@lynx-js/react` installs it on the `lynx` object as a
+ * module side effect, and sigx's background bundle contains no `@lynx-js/react`
+ * modules at all (the worklet loaders pass `dynamicImport: false` precisely so
+ * the transform never injects that import). So the lazy-bundle branch can never
+ * resolve here, and because the loader runs during bundle evaluation it took
+ * the whole app down at `loadCard` rather than failing one deferred chunk
+ * (#1015).
+ *
+ * Up to `@lynx-js/template-webpack-plugin` 0.13 this was latent: only chunk
+ * groups with an explicit `webpackChunkName` entered `lynx_aci`, and sigx
+ * produces none. 0.14 began synthesising a lazy-bundle name for *unnamed*
+ * groups too, so every dynamic import moved onto the broken branch at once.
+ *
+ * Resetting the map is deliberately independent of that plugin's internals —
+ * no tap-ordering race with its own `runtimeRequirementInTree` tap, and no
+ * reliance on its `asyncChunkName` hook, which only ever sees named groups and
+ * so cannot cover the unnamed ones that are the actual problem. The reset
+ * module is registered at `STAGE_TRIGGER`, which sorts after the `STAGE_ATTACH`
+ * module that populates the map, so the empty assignment lands last.
+ *
+ * Teaching sigx's runtime to load real lazy bundles is tracked separately; see
+ * the follow-up issue linked from #1015. Exported for tests.
  */
-export class SigxWebEncodeGuardPlugin {
+export class SigxAsyncChunkPlugin {
   constructor(
     private readonly templatePlugin: {
       getLynxTemplatePluginHooks(compilation: unknown): {
@@ -204,23 +364,101 @@ export class SigxWebEncodeGuardPlugin {
   ) {}
 
   apply(compiler: WebpackCompiler): void {
-    compiler.hooks.thisCompilation.tap(
-      PLUGIN_WEB_ENCODE_GUARD,
-      (compilation) => {
-        const hooks =
-          this.templatePlugin.getLynxTemplatePluginHooks(compilation);
-        hooks.beforeEncode.tap(PLUGIN_WEB_ENCODE_GUARD, (args) => {
-          const { encodeData } = args;
-          if (
-            encodeData.sourceContent.appType === 'DynamicComponent' &&
-            Object.keys(encodeData.manifest).length === 0
-          ) {
-            encodeData.manifest['/app-service.js'] = 'module.exports = {};';
-          }
-          return args;
+    const { RuntimeModule } = compiler.webpack;
+
+    // `@lynx-js/template-webpack-plugin` >= 0.14 also repoints
+    // `output.chunkFilename` at `<intermediate>/lazy-bundle/<name>.js`, so the
+    // plain JS chunk `requireModuleAsync` fetches stops being emitted at all —
+    // leaving `dist/static/js/async/` empty and nothing for `embedAsyncAssets`
+    // to carry into the app. Resetting the id map alone would therefore trade a
+    // startup crash for a dynamic import that 404s at runtime.
+    //
+    // Both taps live here because the ordering is the whole trick: `environment`
+    // fires after rspack has resolved its defaults and before the template
+    // plugin's own `environment` tap (this plugin is registered first), so it
+    // observes the real default; `afterEnvironment` then puts that value back,
+    // after every `environment` tap has run.
+    // Gate the restore on "did we capture", not on the captured value: an
+    // original of `undefined` is meaningful (it means "let rspack apply its own
+    // default"), and skipping the restore for it would leave the lazy-bundle
+    // rewrite in place — the exact breakage this is here to undo.
+    //
+    // Only undo an actual rewrite, though. The template plugin installs a
+    // *function*; rspack's resolved default is a string template. So if the
+    // current value is no longer a function, something else deliberately set a
+    // plain template after us — there is no rewrite left to undo, and stamping
+    // our captured value over it would silently discard their choice.
+    let originalChunkFilename: unknown;
+    let capturedChunkFilename = false;
+    compiler.hooks.environment.tap(PLUGIN_ASYNC_CHUNK, () => {
+      originalChunkFilename = compiler.options.output.chunkFilename;
+      capturedChunkFilename = true;
+    });
+    compiler.hooks.afterEnvironment.tap(PLUGIN_ASYNC_CHUNK, () => {
+      if (!capturedChunkFilename) return;
+      if (typeof compiler.options.output.chunkFilename !== 'function') return;
+      compiler.options.output.chunkFilename = originalChunkFilename;
+    });
+
+    class SigxResetLynxAsyncChunkIds extends RuntimeModule {
+      constructor() {
+        super('sigx reset lynx async chunks', RuntimeModule.STAGE_TRIGGER);
+      }
+
+      override generate(): string {
+        return (
+          `// sigx (#1015): route every async chunk through\n`
+          + `// lynx.requireModuleAsync — lynx.loadLazyBundle does not exist here.\n`
+          + `${LYNX_ASYNC_CHUNK_IDS} = {};`
+        );
+      }
+    }
+
+    compiler.hooks.thisCompilation.tap(PLUGIN_ASYNC_CHUNK, (compilation) => {
+      // Adding a runtime module re-enters requirement processing; without this
+      // guard the tap would recurse on its own chunk.
+      const seen = new WeakSet<WebpackChunk>();
+      compilation.hooks.runtimeRequirementInTree
+        .for(LYNX_ASYNC_CHUNK_IDS)
+        .tap(PLUGIN_ASYNC_CHUNK, (chunk) => {
+          if (seen.has(chunk)) return;
+          seen.add(chunk);
+          compilation.addRuntimeModule(
+            chunk,
+            new SigxResetLynxAsyncChunkIds(),
+          );
         });
-      },
-    );
+
+      // Neutralise the lazy-bundle templates themselves. `LynxEncodePlugin`
+      // treats every chunk in a `DynamicComponent` manifest as inlinable
+      // unconditionally — it folds them into the template and then *deletes*
+      // the standalone assets, which is why `dist/static/js/async/` came out
+      // empty no matter what `chunkFilename` said. Swapping the manifest for an
+      // inert stub before that runs (stage 0, ahead of the encoder's 256) keeps
+      // the real chunk files on disk for `requireModuleAsync` to fetch and for
+      // `embedAsyncAssets` to carry into the app.
+      //
+      // The emitted `lazy-bundle/*.bundle` templates are then dead weight —
+      // nothing resolves them, because `lynx_aci` is empty. They are left in
+      // place rather than deleted so the output stays recognisable to anyone
+      // comparing against an upstream build.
+      //
+      // This also subsumes the older web-only guard (#951): `WebEncodePlugin`
+      // crashed destructuring `last(Object.entries(manifest))` when a chunk
+      // group's JS had been deduplicated into the main chunk and its manifest
+      // arrived empty. A stub is never empty.
+      const hooks = this.templatePlugin.getLynxTemplatePluginHooks(compilation);
+      hooks.beforeEncode.tap(PLUGIN_ASYNC_CHUNK, (args) => {
+        const { encodeData } = args;
+        if (encodeData.sourceContent.appType === 'DynamicComponent') {
+          for (const name of Object.keys(encodeData.manifest)) {
+            delete encodeData.manifest[name];
+          }
+          encodeData.manifest['/app-service.js'] = 'module.exports = {};';
+        }
+        return args;
+      });
+    });
   }
 }
 
@@ -329,18 +567,18 @@ export async function applyEntry(
     // multiApps[appId]._nativeApp fallback, but proper hosts need the wrapper.
   }
 
-  // Default to all-in-one chunk splitting to avoid async chunks that break
-  // Lynx's single-file bundle requirement.
+  // Lynx needs one bundle, not a split graph. Rspeedy now defaults
+  // `splitChunks` to `false`, which is exactly what the old
+  // `performance.chunkSplit: 'all-in-one'` meant — so there is nothing left
+  // to force. Setting it anyway is worse than redundant: rsbuild warns that
+  // `performance.chunkSplit` is deprecated and **will not work** when
+  // `splitChunks` is also set, so the option we were relying on was being
+  // silently ignored while still looking deliberate in the config.
   api.modifyRsbuildConfig((config, { mergeRsbuildConfig }) => {
     const userConfig = api.getRsbuildConfig('original');
     let merged = config;
-    if (!userConfig.performance?.chunkSplit?.strategy) {
-      merged = mergeRsbuildConfig(merged, {
-        performance: { chunkSplit: { strategy: 'all-in-one' } },
-      });
-    }
-    // Dynamic-import async chunks are still emitted regardless of the
-    // strategy above. Pin the production assetPrefix so their request URLs
+    // Dynamic-import async chunks are still emitted regardless. Pin the
+    // production assetPrefix so their request URLs
     // are root-relative (`/static/js/async/<hash>.js`) — the native
     // production fetchers map those 1:1 onto embedded assets (#599). Dev is
     // untouched: the dev assetPrefix is rewritten to the LAN dev-server URL.
@@ -520,7 +758,7 @@ export async function applyEntry(
     }
   }
 
-  api.modifyBundlerChain((chain, { environment, isProd }) => {
+  api.modifyBundlerChain((chain, { environment, isProd, rspack }) => {
     const isRspeedy = api.context.callerName === 'rspeedy';
     if (!isRspeedy) return;
 
@@ -543,11 +781,14 @@ export async function applyEntry(
     // intentionally NOT provided — the lynx-http install only shims it when
     // absent, so we keep any host-provided one. (signalxjs/lynx#373, #378.)
     if (isLynx) {
-      // Lazy `require` so `@rspack/core` stays an OPTIONAL peer — importing it
-      // at the top would make it a hard runtime requirement even for consumers
-      // that never build (type-only, web-only). Here we're in a real rspeedy
-      // Lynx build, so rspack is present.
-      const { ProvidePlugin } = createRequire(import.meta.url)('@rspack/core') as typeof import('@rspack/core');
+      // Taken from the `rspack` rsbuild hands us rather than resolved with
+      // `createRequire`. It keeps `@rspack/core` an optional peer (no
+      // top-level import) exactly as before, and additionally guarantees the
+      // plugin comes from the SAME rspack copy that drives this compiler:
+      // resolving it ourselves picked up 2.0.2 from the optional peer while
+      // rsbuild ran 2.1.9, so instances crossed copies and only worked by
+      // duck-typing.
+      const { ProvidePlugin } = rspack;
       chain
         .plugin('sigx-lynx-http-globals')
         .use(ProvidePlugin, [{
@@ -563,10 +804,10 @@ export async function applyEntry(
     // dead platform's branch tree-shaken (the runtime `Platform.OS` is a
     // convenience that does NOT tree-shake — a property read can't fold). The
     // `@sigx/lynx-core` Platform module reads `__WEB__` to drop native
-    // detection from the web bundle. Lazy `require` for the same reason as the
-    // HTTP globals above — keep `@rspack/core` an optional peer.
+    // detection from the web bundle. From rsbuild's `rspack`, same reason as
+    // the HTTP globals above.
     {
-      const { DefinePlugin } = createRequire(import.meta.url)('@rspack/core') as typeof import('@rspack/core');
+      const { DefinePlugin } = rspack;
       chain
         .plugin('sigx-platform-define')
         .use(DefinePlugin, [{
@@ -584,7 +825,7 @@ export async function applyEntry(
           // `enableCSSRule`, and the web target drops them regardless
           // (upstream `WebEncodePlugin`). Library code that would otherwise
           // have to *assume* an at-rule resolved can branch on this instead:
-          // `@sigx/lynx-zero`'s `<ThemeProvider>` uses it to decide between the
+          // `@sigx/lynx-zero-legacy`'s `<ThemeProvider>` uses it to decide between the
           // CSS-resolved theme palette and the inline-custom-property fallback
           // (#985). Nothing here validates the engine version — a pre-4.0 host
           // still can't evaluate the rules it decodes.
@@ -764,6 +1005,19 @@ export async function applyEntry(
       bgEntry.end();
 
       // ----------------------------------------------------------------
+      // SigxAsyncChunkPlugin – keep dynamic import() on the requireModuleAsync
+      // path (#1015). Registered BEFORE LynxTemplatePlugin on purpose: it
+      // captures `output.chunkFilename` in an `environment` tap, which has to
+      // run before the template plugin's own tap replaces it.
+      // ----------------------------------------------------------------
+      if ((isLynx || isWeb) && templateMod) {
+        chain
+          .plugin(PLUGIN_ASYNC_CHUNK)
+          .use(SigxAsyncChunkPlugin, [templateMod.LynxTemplatePlugin])
+          .end();
+      }
+
+      // ----------------------------------------------------------------
       // LynxTemplatePlugin – packages both bundles into .lynx template
       // ----------------------------------------------------------------
       if ((isLynx || isWeb) && templateMod) {
@@ -840,6 +1094,12 @@ export async function applyEntry(
         .plugin(PLUGIN_MARK_MAIN_THREAD)
         .use(SigxMarkMainThreadPlugin, [mainThreadFilenames])
         .end();
+
+      // Fail the build if any worklet reached BG without an MT registration.
+      chain
+        .plugin(PLUGIN_WORKLET_GUARD)
+        .use(SigxWorkletGuardPlugin, [mainThreadFilenames])
+        .end();
     }
 
     // ------------------------------------------------------------------
@@ -908,10 +1168,6 @@ export async function applyEntry(
         .plugin(PLUGIN_ENCODE)
         .use(WebEncodePlugin, [{}])
         .end();
-      chain
-        .plugin(PLUGIN_WEB_ENCODE_GUARD)
-        .use(SigxWebEncodeGuardPlugin, [templateMod.LynxTemplatePlugin])
-        .end();
     }
 
     // ------------------------------------------------------------------
@@ -979,6 +1235,29 @@ export async function applyEntry(
         .loader(path.resolve(_dirname, './loaders/worklet-loader-mt'))
         .options({ snapshots: opts.snapshots === true })
         .end();
+
+    // Every main-thread module has side effects, whatever its package says.
+    //
+    // A worklet reaches the MT layer as a bare `registerWorkletInternal(...)`
+    // call at module scope — the BG layer keeps only a `{_wkltId}` placeholder,
+    // so on this layer nothing *imports* a binding from the module the worklet
+    // came from. That is indistinguishable, to the bundler, from dead code: a
+    // package marked `sideEffects: false` gets its MT modules shaken out, the
+    // registration never runs, and `runWorklet` later finds nothing under that
+    // id. The failure is completely silent — worklets simply never fire, so
+    // gestures don't respond, animations don't animate, and a navigation card
+    // stays parked wherever its first mapper flush put it (#1021).
+    //
+    // Fixing the manifests instead would mean auditing every package that ever
+    // gains a worklet, forever, and would still not cover an app's own
+    // dependencies. `sideEffects` is a claim about *ES module semantics*, and
+    // it is true for these packages on the background layer — it is only the
+    // MT transform that turns them into registration modules. So the override
+    // belongs here, scoped to the layer whose whole purpose is side effects.
+    chain.module
+      .rule('sigx-mt-side-effects')
+      .issuerLayer(LAYERS.MAIN_THREAD)
+      .set('sideEffects', true);
 
     // Disable IIFE wrapping – Lynx handles module scoping itself
     chain.output.set('iife', false);

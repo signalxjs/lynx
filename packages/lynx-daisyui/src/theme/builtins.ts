@@ -1,6 +1,6 @@
 /**
  * The six built-in daisy themes — pure palette *data*, registered into
- * `@sigx/lynx-zero`'s theme registry at module load (importing anything from
+ * `@sigx/lynx-zero-legacy`'s theme registry at module load (importing anything from
  * `@sigx/lynx-daisyui` seeds them, so `pickThemeFor()` / `followSystem` work
  * out of the box).
  *
@@ -13,7 +13,7 @@
  * Colors are engine-safe strings — hex or `rgb()`. Lynx's CSS engine does not
  * parse `oklch()`, so convert before registering.
  */
-import { completeTheme, registerTheme, type Theme, type ThemeInput } from '@sigx/lynx-zero/registry';
+import { completeTheme, registerTheme, type Theme, type ThemeInput } from '@sigx/lynx-zero-legacy/registry';
 
 /**
  * Theme class applied to the provider's host view. The six color themes

@@ -5,7 +5,7 @@ import {
   PRESSED_OPACITY,
   provideTabsSelection,
   useTabsSelection,
-} from '@sigx/lynx-zero';
+} from '@sigx/lynx-zero-legacy';
 
 export type TabsProps =
   & Define.Prop<'activeTab', string, false>
@@ -24,7 +24,7 @@ export type TabProps =
   & Define.Slot<'default'>;
 
 const _Tabs = component<TabsProps>(({ props, slots }) => {
-  // Container-driven selection (headless, from @sigx/lynx-zero): tabs derive
+  // Container-driven selection (headless, from @sigx/lynx-zero-legacy): tabs derive
   // their active state from `activeTab` and presses report through
   // `onChange`. Per-tab `active`/`onPress` overrides still win.
   provideTabsSelection(
