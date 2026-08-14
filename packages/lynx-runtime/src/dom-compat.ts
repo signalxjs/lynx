@@ -15,17 +15,17 @@
  */
 
 const unsupported = (name: string, hint: string): never => {
-    throw new Error(`[@sigx/lynx-runtime] ${name} is a DOM-runtime API with no lynx counterpart — ${hint}`);
+  throw new Error(`[@sigx/lynx-runtime] ${name} is a DOM-runtime API with no lynx counterpart — ${hint}`);
 };
 
 /** DOM portal component — never renderable on lynx. */
 export function Portal(): never {
-    return unsupported('Portal', 'portal through an overlay outlet (e.g. @sigx/lynx-zero ZeroRoot) instead');
+  return unsupported('Portal', 'portal through an overlay outlet (e.g. @sigx/lynx-zero ZeroRoot) instead');
 }
 
 /** DOM `moveBefore`-based node move — no DOM to move nodes in. */
 export function moveNode(): never {
-    return unsupported('moveNode', 'element order is owned by the lynx element tree');
+  return unsupported('moveNode', 'element order is owned by the lynx element tree');
 }
 
 /** The web runtime feature-detects `Element.moveBefore`; lynx has neither. */
@@ -33,5 +33,5 @@ export const supportsMoveBefore = false;
 
 /** Document-head manager — there is no document head on lynx. */
 export function useHead(): never {
-    return unsupported('useHead', 'page chrome is native (see @sigx/lynx-navigation Screen)');
+  return unsupported('useHead', 'page chrome is native (see @sigx/lynx-navigation Screen)');
 }
