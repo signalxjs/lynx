@@ -107,14 +107,32 @@ export const ZeroPilot = component(() => {
 
                     <Section
                         title="Probe · skin & token indirection"
-                        note="Daisy indigo = the lookup resolved. Pink = it did not. The last bar reads --btn-ink, which the emitter uses but never defines — it is SUPPOSED to be pink until #1029 is fixed upstream."
+                        note="Daisy indigo = the lookup resolved. Pink = it did not. The last bar reads --btn-ink from a NON-button element: the emitter defines it on button parts only, so an unpainted bar here is correct, and it is what an unresolvable var() looks like on lynx — no fallback, nothing painted."
                     >
                         <Col gap={6}>
                             <ProbeBar probe="zxp-token" label="skin token · var(--color-primary)" />
                             <ProbeBar probe="zxp-chain" label="var → var chain · how every solid button paints" />
                             <ProbeBar probe="zxp-rem" label="rem control · 10rem, resolved = 160px wide" />
                             <ProbeBar probe="zxp-calc" label="calc(var(--radius-box) * 20) · resolved = 160px wide" />
-                            <ProbeBar probe="zxp-dangling" label="dangling var(--btn-ink) · expected pink" />
+                            <ProbeBar probe="zxp-dangling" label="out-of-scope var(--btn-ink) · expected unpainted" />
+                        </Col>
+                    </Section>
+
+                    <Section
+                        title="Probe · the switch's own constructs"
+                        note="daisy's switch control uses all four at once. Its CSS is now complete and it still does not render, so these split which one lynx does not do. Resolved = 160px wide; the grid bar reads as three white bands."
+                    >
+                        <Col gap={6}>
+                            <ProbeBar probe="zxp-calc-nested" label="nested calc, two vars · resolved = 160px" />
+                            <ProbeBar probe="zxp-min" label="min() over vars · resolved = 160px" />
+                            <view class="zxp-grid">
+                                <view class="zxp-grid-cell" />
+                                <view class="zxp-grid-cell" />
+                                <view class="zxp-grid-cell" />
+                            </view>
+                            <text style={{ fontSize: '12px' }}>↑ inline-grid, 1fr 1fr 1fr · resolved = three bands side by side</text>
+                            <view class="zxp-aspect" />
+                            <text style={{ fontSize: '12px' }}>↑ aspect-ratio: 1 · resolved = a 40px square</text>
                         </Col>
                     </Section>
 

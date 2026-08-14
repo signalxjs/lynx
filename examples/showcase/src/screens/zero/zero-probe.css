@@ -101,9 +101,55 @@
   background-color: var(--color-primary);
 }
 
-/* a var the skin USES but never DEFINES (`--btn-ink`, referenced by every
- * outline/ghost/soft/dash/link button and by the focus ring). Expected pink
- * until the emitter stops shipping dangling references. */
+/* ---- 3. the switch's own constructs --------------------------------------
+ * daisy's switch control is spelled with all four of these at once. With the
+ * emitter fix landed its CSS is complete and it still does not render, so
+ * these split "which one does lynx not do". Each resolved bar is 160px wide;
+ * the grid bar is the odd one out and reads as a 3-column strip. */
+
+/* nested calc with two vars and grouped sub-expressions — the switch's width
+ * is `calc((var(--switch-size) * 2) - (var(--border) + var(--switch-p)) * 2)`,
+ * which is a good deal more than the single multiply proven above. */
+.zxp-calc-nested {
+  width: calc((var(--radius-box) * 20) - (var(--border) + var(--border)) * 0);
+  background-color: var(--color-primary);
+}
+
+/* min() over vars — the switch's border-radius uses two of them. */
+.zxp-min {
+  width: min(calc(var(--radius-box) * 20), 10rem);
+  background-color: var(--color-primary);
+}
+
+/* display: inline-grid + fractional columns — the switch's ENTIRE
+ * checked/unchecked mechanism is `grid-template-columns: 0fr 1fr 1fr`
+ * animating to `1fr 1fr 0fr`. Resolved = three visible bands. */
+.zxp-grid {
+  display: inline-grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  width: 10rem;
+  background-color: var(--color-primary);
+}
+
+.zxp-grid-cell {
+  height: 12px;
+  background-color: #ffffff;
+  margin: 2px;
+}
+
+/* aspect-ratio — the switch thumb is sized by it. Resolved = a square. */
+.zxp-aspect {
+  width: 40px;
+  aspect-ratio: 1;
+  background-color: var(--color-primary);
+}
+
+/* `--btn-ink` read from a NON-button element. The emitter defines it on button
+ * parts, so there is nothing to resolve here — and an unpainted bar is the
+ * point: on lynx an unresolvable var() does not fall back to an initial value,
+ * the declaration is dropped and the element paints nothing at all. That is
+ * why 24 undefined properties made whole components invisible rather than
+ * merely unstyled (#1029). */
 .zxp-dangling {
   background-color: var(--btn-ink);
 }
