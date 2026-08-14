@@ -38,7 +38,7 @@ const Pair = component<PairProps>(({ props, slots }) => {
 export const ZeroParity = component(() => {
     // Model-bound so the OLD toggle actually toggles — a `checked`-only
     // Toggle is read-only, which would make the behavior comparison lie.
-    const oldChecked = signal(true);
+    const oldChecked = signal<boolean>(true);
     return () => (
         <ZeroRoot>
             <Screen title="Zero Parity" />
@@ -69,7 +69,7 @@ export const ZeroParity = component(() => {
                         label="Switch vs Toggle / checked"
                         slots={{
                             zero: () => <Switch defaultChecked color="primary" label="Wi-Fi" />,
-                            legacy: () => <OldToggle model={oldChecked} color="primary" />,
+                            legacy: () => <OldToggle model={() => oldChecked.value} color="primary" />,
                         }}
                     />
 
