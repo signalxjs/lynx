@@ -98,6 +98,24 @@ let placeholderParent: MainThreadElement | null = null;
 let placeholderEl: MainThreadElement | null = null;
 
 /**
+ * Options for the *next* tail flush — how the native load pipeline reaches the
+ * flush that paints the real app tree (#982; see `renderPage` in entry-main).
+ * Consumed by the flush itself, not by the caller: `applyOps` returns early on
+ * an empty batch, and an empty batch must not swallow the load pipeline.
+ */
+let pendingFlushOptions: FlushElementTreeOptions | undefined;
+
+/**
+ * Hand the next tail flush a native options bag. Kept out of `applyOps`'
+ * signature deliberately — that export is pinned to `(ops: unknown[]) => void`
+ * by `__tests__/public-surface.test.ts` because it is the stable BG → MT wire
+ * surface.
+ */
+export function setNextFlushOptions(options: FlushElementTreeOptions | undefined): void {
+  pendingFlushOptions = options;
+}
+
+/**
  * SharedValue bridge state — registered wvids and last-published snapshots.
  * The op handlers (`OP.REGISTER_AV_BRIDGE` / `OP.UNREGISTER_AV_BRIDGE` below)
  * mutate these collections; `animated-bridge-mt.ts:flushAvBridgePublishes`
@@ -753,8 +771,24 @@ export function applyOps(ops: unknown[]): void {
   // batch, so native knows its cell count/keys before it lays out.
   flushDirtyLists();
 
-  // Flush all pending PAPI changes to the native layer in one shot.
-  __FlushElementTree();
+  // Flush all pending PAPI changes to the native layer in one shot. The first
+  // batch after renderPage carries native's load-pipeline options (#982) —
+  // consumed here so it rides exactly one flush.
+  //
+  // No root is passed with the options, deliberately: this is a whole-tree
+  // flush, and naming a root would scope it. `undefined` is the declared shape
+  // (upstream types it `(_subTree?: unknown, options?: FlushElementTreeOptions)`
+  // and web-core's implementation ignores the first argument entirely), and
+  // release builds on both platforms deliver the resulting `loadBundle` entry.
+  // The root-plus-options form in list-mt.ts is the opposite case on purpose:
+  // there the options address one cell.
+  const flushOptions = pendingFlushOptions;
+  pendingFlushOptions = undefined;
+  if (flushOptions) {
+    __FlushElementTree(undefined, flushOptions);
+  } else {
+    __FlushElementTree();
+  }
 }
 
 /**
@@ -858,6 +892,11 @@ export function resetMainThreadState(): void {
   setPageUniqueId(1);
   placeholderParent = null;
   placeholderEl = null;
+  // A pending load pipeline belongs to the page being torn down: a hot reload
+  // creates a fresh placeholder tree, and forwarding a stale pipeline into a
+  // post-reload batch would mis-attribute it. renderPage re-seeds it after
+  // calling this.
+  pendingFlushOptions = undefined;
   // Also defined in this module's imports — reset worklet state
   resetWorkletEvents();
   resetSlotStates();

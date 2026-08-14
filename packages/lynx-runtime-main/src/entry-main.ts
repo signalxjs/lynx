@@ -15,7 +15,12 @@ import {
   setSnapshotPageId,
 } from '@sigx/lynx-runtime-internal/snapshot';
 import { elements, setPageUniqueId } from './element-registry.js';
-import { applyOps, resetMainThreadState, setPlaceholder } from './ops-apply.js';
+import {
+  applyOps,
+  resetMainThreadState,
+  setNextFlushOptions,
+  setPlaceholder,
+} from './ops-apply.js';
 import { installSnapshotMTHooks, retryParkedSnapshots } from './snapshot-mt.js';
 import { invokeMtWorklet } from './mt-invoke.js';
 import { runOnBackground } from './run-on-background-mt.js';
@@ -94,8 +99,23 @@ function applyWebPageLayoutDefaults(page: MainThreadElement): void {
   dom.style?.setProperty?.('flex-direction', 'column');
 }
 
-g['renderPage'] = function (_data: unknown): void {
+// `options.pipelineOptions` is native's **load pipeline** — the one whose entry
+// carries `loadBundle` / FCP. It has to reach the flush that paints the app, and
+// that flush is not this one: renderPage only puts up the placeholder below,
+// while the real element ops arrive later over `sigxPatchUpdate`. Hand it to
+// ops-apply, which spends it on its first tail flush (#982, and
+// lynx-family/lynx#8405 for the contract). Without this the pipeline ended on
+// the placeholder, no timing was collected, and every performance channel —
+// BG observer, `addTimingListener`, the platform callbacks, `forceGetPerf()` —
+// went silent at once.
+g['renderPage'] = function (
+  _data: unknown,
+  options?: FlushElementTreeOptions,
+): void {
   resetMainThreadState();
+  setNextFlushOptions(
+    options?.pipelineOptions ? { pipelineOptions: options.pipelineOptions } : undefined,
+  );
   const page = __CreatePage('0', 0);
   __SetCSSId([page], 0);
   setPageUniqueId(__GetElementUniqueID(page));
