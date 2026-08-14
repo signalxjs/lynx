@@ -159,8 +159,22 @@ type OverlayHostProps = Define.Slot<'default'>;
 export const OverlayHost = component<OverlayHostProps>(({ slots }) => {
     const registry = makeRegistry();
     defineProvide(useOverlayRegistry, () => registry);
+    // `display: flex` is load-bearing, not decoration: a lynx `<view>` defaults
+    // to `display: linear`, which ignores its children's flex properties — the
+    // app content below would size to itself and a `<ScrollView flex={1}>`
+    // would never scroll (#1064).
     return () => (
-        <view style={{ position: 'relative', flexGrow: 1, flexShrink: 1, flexBasis: '0%', minHeight: 0 }}>
+        <view
+            style={{
+                position: 'relative',
+                display: 'flex',
+                flexDirection: 'column',
+                flexGrow: 1,
+                flexShrink: 1,
+                flexBasis: '0%',
+                minHeight: 0,
+            }}
+        >
             {slots.default?.()}
             {registry.entries().map((entry) => (
                 <OverlayEntryBoundary key={entry.id} render={entry.render} />

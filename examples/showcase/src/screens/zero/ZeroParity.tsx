@@ -12,8 +12,10 @@
  * lynx target. This screen (and the old components) retire together with
  * the legacy stack once parity holds.
  */
-// Seeding only — the skin CSS is imported once, in ZeroPilot (both screens
-// are eagerly imported by routes.ts, so the rules are already in the bundle).
+// Both the CSS and the registry seeding, imported here rather than leaning on
+// ZeroPilot's copy: relying on `routes.ts` importing the other screen eagerly
+// makes this screen render unstyled the day routes go lazy.
+import '@sigx/lynx-daisyui-zero/css/index.css';
 import '@sigx/lynx-daisyui-zero';
 import type { Define } from '@sigx/lynx';
 import { component, signal } from '@sigx/lynx';
@@ -42,7 +44,7 @@ export const ZeroParity = component(() => {
     return () => (
         <ZeroRoot>
             <Screen title="Zero Parity" />
-            <ScrollView class="flex-fill">
+            <ScrollView flex={1}>
                 <Col gap={4} padding={16}>
                     <Row gap={12}>
                         <text style={{ flexGrow: 1, fontSize: '12px', opacity: 0.6 }}>NEW — compiled recipes</text>
@@ -68,7 +70,9 @@ export const ZeroParity = component(() => {
                     <Pair
                         label="Switch vs Toggle / checked"
                         slots={{
-                            zero: () => <Switch defaultChecked color="primary" label="Wi-Fi" />,
+                            // The default slot is the VISIBLE label; `label` is
+                            // the a11y name only and renders nothing.
+                            zero: () => <Switch defaultChecked color="primary">Wi-Fi</Switch>,
                             legacy: () => <OldToggle model={() => oldChecked.value} color="primary" />,
                         }}
                     />

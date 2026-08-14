@@ -129,14 +129,52 @@ export const ThemeProvider = component<ThemeProviderProps>(({ props, slots }) =>
         const classes = [HOST_CLASS];
         if (state.name) classes.push(themeClass(state.name));
         if (props.class) classes.push(props.class);
-        // Root providers flex-fill long-form so the wrapper doesn't collapse
-        // between flexing ancestors and descendants that need a sized parent;
-        // a nested provider is a content island and sizes to its content
-        // (flex-fill's flexBasis: 0 computes to height 0 inside scroll-view
-        // content). Consumers override via `style`.
+        // `display: flex` on BOTH branches, not just the root: a lynx `<view>`
+        // defaults to `display: linear`, where every flex property on its
+        // CHILDREN is inert. Without it a `<ScrollView flex={1}>` under this
+        // host never gets a bounded height — it sizes to its content and
+        // nothing scrolls (#1064).
+        //
+        // Root providers additionally flex-fill long-form so the wrapper
+        // doesn't collapse between flexing ancestors and descendants that need
+        // a sized parent; a nested provider is a content island and sizes to
+        // its content (flex-fill's flexBasis: 0 computes to height 0 inside
+        // scroll-view content). Consumers override via `style`.
+        //
+        // The surface paints are the host's too. On the web zero's base layer
+        // paints `:root`; nothing ships that layer to lynx, and a compiled
+        // skin's `.zx-root` block declares tokens without spending any of
+        // them — so switching to a dark theme recolored the components and
+        // left the page white with unreadable dark-on-dark chrome text. These
+        // are the two tokens every theme must define, and the legacy provider
+        // painted the host with them the same way. `color` reaches `<text>`
+        // through lynx's built-in text-property inheritance (verified on the
+        // simulator, iOS 18.3) — the `enableCSSInheritance` page flag governs
+        // general inheritance, not this.
+        //
+        const surface = {
+            backgroundColor: 'var(--color-base-100)',
+            color: 'var(--color-base-content)',
+        };
         const style: Record<string, string | number> = isRoot
-            ? { flexGrow: 1, flexShrink: 1, flexBasis: '0%', minHeight: 0, ...textRampVars(state.fontScale), ...props.style }
-            : { ...textRampVars(state.fontScale), ...props.style };
+            ? {
+                display: 'flex',
+                flexDirection: 'column',
+                flexGrow: 1,
+                flexShrink: 1,
+                flexBasis: '0%',
+                minHeight: 0,
+                ...surface,
+                ...textRampVars(state.fontScale),
+                ...props.style,
+            }
+            : {
+                display: 'flex',
+                flexDirection: 'column',
+                ...surface,
+                ...textRampVars(state.fontScale),
+                ...props.style,
+            };
         return (
             <view class={classes.join(' ')} style={style}>
                 {slots.default?.()}
