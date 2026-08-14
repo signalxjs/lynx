@@ -17,8 +17,8 @@ import {
 import { elements, setPageUniqueId } from './element-registry.js';
 import {
   applyOps,
-  applyOpsWithFlushOptions,
   resetMainThreadState,
+  setNextFlushOptions,
   setPlaceholder,
 } from './ops-apply.js';
 import { installSnapshotMTHooks, retryParkedSnapshots } from './snapshot-mt.js';
@@ -40,12 +40,6 @@ if (g['SystemInfo'] === undefined) {
 
 /** PAGE_ROOT_ID must match the value used in the BG-thread renderer */
 const PAGE_ROOT_ID = 1;
-
-// The native load pipeline is passed to renderPage before the Background
-// Thread has produced the app's real element ops. Keep it until the first
-// sigxPatchUpdate so the load pipeline measures the actual app tree rather
-// than ending at the temporary placeholder created below.
-let pendingInitialPipelineOptions: FlushElementTreeOptions['pipelineOptions'];
 
 // Install the snapshot-template hole updaters into the shared contract
 // module before any user module (whose extracted `snapshotCreatorMap`
@@ -105,12 +99,23 @@ function applyWebPageLayoutDefaults(page: MainThreadElement): void {
   dom.style?.setProperty?.('flex-direction', 'column');
 }
 
+// `options.pipelineOptions` is native's **load pipeline** — the one whose entry
+// carries `loadBundle` / FCP. It has to reach the flush that paints the app, and
+// that flush is not this one: renderPage only puts up the placeholder below,
+// while the real element ops arrive later over `sigxPatchUpdate`. Hand it to
+// ops-apply, which spends it on its first tail flush (#982, and
+// lynx-family/lynx#8405 for the contract). Without this the pipeline ended on
+// the placeholder, no timing was collected, and every performance channel —
+// BG observer, `addTimingListener`, the platform callbacks, `forceGetPerf()` —
+// went silent at once.
 g['renderPage'] = function (
   _data: unknown,
   options?: FlushElementTreeOptions,
 ): void {
-  pendingInitialPipelineOptions = options?.pipelineOptions;
   resetMainThreadState();
+  setNextFlushOptions(
+    options?.pipelineOptions ? { pipelineOptions: options.pipelineOptions } : undefined,
+  );
   const page = __CreatePage('0', 0);
   __SetCSSId([page], 0);
   setPageUniqueId(__GetElementUniqueID(page));
@@ -222,9 +227,7 @@ g['sigxPatchUpdate'] = function ({ data }: { data: string }): void {
     return;
   }
   try {
-    const pipelineOptions = pendingInitialPipelineOptions;
-    pendingInitialPipelineOptions = undefined;
-    applyOpsWithFlushOptions(ops, pipelineOptions ? { pipelineOptions } : undefined);
+    applyOps(ops);
   } catch (e) {
     console.log('[sigx-mt] applyOps threw:', String(e));
   }

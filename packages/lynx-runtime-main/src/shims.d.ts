@@ -91,10 +91,19 @@ declare function __GetElementUniqueID(element: MainThreadElement): number
 // native <list> (operationID/elementID/listID) — see list-mt.ts.
 interface FlushElementTreeOptions {
   triggerLayout?: boolean
+  /**
+   * The performance pipeline this flush belongs to. We only ever pass one
+   * through opaquely — native hands it to `renderPage` and we forward it
+   * (#982) — so nothing beyond the id is required here: upstream's own
+   * `PerformancePipelineOptions` is `{ pipelineID, needTimestamps }`, and
+   * `pipelineOrigin` / `dsl` / `stage` are additions a framework makes when it
+   * starts a pipeline itself. `@lynx-js/types` declares none of this.
+   */
   pipelineOptions?: {
     pipelineID: string
-    pipelineOrigin: string
-    needTimestamps: boolean
+    needTimestamps?: boolean
+    pipelineOrigin?: string
+    [key: string]: unknown
   }
   operationID?: number
   elementID?: number

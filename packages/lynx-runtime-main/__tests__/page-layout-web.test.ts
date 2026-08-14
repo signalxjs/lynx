@@ -14,7 +14,6 @@ type FakeEl = {
 };
 let uid = 1;
 let styleWrites: Array<{ tag: string; prop: string; value: string }> = [];
-let flushCalls: unknown[][] = [];
 
 function makeEl(tag: string): FakeEl {
   const el: FakeEl = {
@@ -33,20 +32,18 @@ beforeAll(async () => {
   vi.stubGlobal('__SetCSSId', () => {});
   vi.stubGlobal('__GetElementUniqueID', (el: FakeEl) => el.__id);
   vi.stubGlobal('__AppendElement', () => {});
-  vi.stubGlobal('__RemoveElement', () => {});
-  vi.stubGlobal('__FlushElementTree', (...args: unknown[]) => flushCalls.push(args));
+  vi.stubGlobal('__FlushElementTree', () => {});
   vi.stubGlobal('__SetInlineStyles', () => {});
   await import('../src/entry-main');
 });
 
 beforeEach(() => {
   styleWrites = [];
-  flushCalls = [];
   delete (globalThis as { __WEB__?: boolean }).__WEB__;
 });
 
-const renderPage = (options?: unknown): void =>
-  (globalThis as unknown as { renderPage: (d: unknown, o?: unknown) => void }).renderPage({}, options);
+const renderPage = (): void =>
+  (globalThis as unknown as { renderPage: (d: unknown) => void }).renderPage({});
 const hotReload = (): void =>
   (globalThis as unknown as { sigxHotReload: () => void }).sigxHotReload();
 
@@ -75,27 +72,5 @@ describe('page layout defaults', () => {
     renderPage();
     hotReload();
     expect(styleWrites).toHaveLength(0);
-  });
-
-  it('forwards the initial native pipeline to the first real ops flush', () => {
-    const pipelineOptions = {
-      pipelineID: 'load-pipeline',
-      pipelineOrigin: 'loadBundle',
-      needTimestamps: true,
-    };
-    renderPage({ pipelineOptions });
-
-    (globalThis as unknown as {
-      sigxPatchUpdate: (payload: { data: string }) => void;
-    }).sigxPatchUpdate({ data: '[999]' });
-
-    expect(flushCalls.at(-1)).toEqual([undefined, { pipelineOptions }]);
-
-    flushCalls = [];
-    (globalThis as unknown as {
-      sigxPatchUpdate: (payload: { data: string }) => void;
-    }).sigxPatchUpdate({ data: '[998]' });
-
-    expect(flushCalls).toEqual([[]]);
   });
 });

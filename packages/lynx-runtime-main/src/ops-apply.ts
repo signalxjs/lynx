@@ -98,6 +98,24 @@ let placeholderParent: MainThreadElement | null = null;
 let placeholderEl: MainThreadElement | null = null;
 
 /**
+ * Options for the *next* tail flush — how the native load pipeline reaches the
+ * flush that paints the real app tree (#982; see `renderPage` in entry-main).
+ * Consumed by the flush itself, not by the caller: `applyOps` returns early on
+ * an empty batch, and an empty batch must not swallow the load pipeline.
+ */
+let pendingFlushOptions: FlushElementTreeOptions | undefined;
+
+/**
+ * Hand the next tail flush a native options bag. Kept out of `applyOps`'
+ * signature deliberately — that export is pinned to `(ops: unknown[]) => void`
+ * by `__tests__/public-surface.test.ts` because it is the stable BG → MT wire
+ * surface.
+ */
+export function setNextFlushOptions(options: FlushElementTreeOptions | undefined): void {
+  pendingFlushOptions = options;
+}
+
+/**
  * SharedValue bridge state — registered wvids and last-published snapshots.
  * The op handlers (`OP.REGISTER_AV_BRIDGE` / `OP.UNREGISTER_AV_BRIDGE` below)
  * mutate these collections; `animated-bridge-mt.ts:flushAvBridgePublishes`
@@ -186,15 +204,6 @@ function createTypedElement(
 }
 
 export function applyOps(ops: unknown[]): void {
-  applyOpsWithFlushOptions(ops);
-}
-
-// Internal entry-main variant. Keep the public applyOps contract single-argument:
-// it is the stable BG -> MT wire surface consumed by external runtime code.
-export function applyOpsWithFlushOptions(
-  ops: unknown[],
-  flushOptions?: FlushElementTreeOptions,
-): void {
   const len = ops.length;
   if (len === 0) return;
 
@@ -762,7 +771,11 @@ export function applyOpsWithFlushOptions(
   // batch, so native knows its cell count/keys before it lays out.
   flushDirtyLists();
 
-  // Flush all pending PAPI changes to the native layer in one shot.
+  // Flush all pending PAPI changes to the native layer in one shot. The first
+  // batch after renderPage carries native's load-pipeline options (#982) —
+  // consumed here so it rides exactly one flush.
+  const flushOptions = pendingFlushOptions;
+  pendingFlushOptions = undefined;
   if (flushOptions) {
     __FlushElementTree(undefined, flushOptions);
   } else {
@@ -871,6 +884,11 @@ export function resetMainThreadState(): void {
   setPageUniqueId(1);
   placeholderParent = null;
   placeholderEl = null;
+  // A pending load pipeline belongs to the page being torn down: a hot reload
+  // creates a fresh placeholder tree, and forwarding a stale pipeline into a
+  // post-reload batch would mis-attribute it. renderPage re-seeds it after
+  // calling this.
+  pendingFlushOptions = undefined;
   // Also defined in this module's imports — reset worklet state
   resetWorkletEvents();
   resetSlotStates();
