@@ -774,6 +774,14 @@ export function applyOps(ops: unknown[]): void {
   // Flush all pending PAPI changes to the native layer in one shot. The first
   // batch after renderPage carries native's load-pipeline options (#982) —
   // consumed here so it rides exactly one flush.
+  //
+  // No root is passed with the options, deliberately: this is a whole-tree
+  // flush, and naming a root would scope it. `undefined` is the declared shape
+  // (upstream types it `(_subTree?: unknown, options?: FlushElementTreeOptions)`
+  // and web-core's implementation ignores the first argument entirely), and
+  // release builds on both platforms deliver the resulting `loadBundle` entry.
+  // The root-plus-options form in list-mt.ts is the opposite case on purpose:
+  // there the options address one cell.
   const flushOptions = pendingFlushOptions;
   pendingFlushOptions = undefined;
   if (flushOptions) {
