@@ -101,11 +101,15 @@ describe('shipped artifacts', () => {
      */
     describe('the CSS is internally coherent', () => {
         const index = () => readFileSync(join(dist, 'css', 'index.css'), 'utf8');
+        const componentsDir = join(dist, 'css', 'components');
 
-        it('defines every custom property it reads', () => {
+        it('defines every custom property it reads without a fallback', () => {
             const css = index();
-            // A reference carrying its own fallback stands alone; keep the
-            // fallback text so what IT reads is still checked.
+            // A reference carrying its own fallback stands alone — `var(--x,
+            // 8px)` paints whether or not `--x` exists — so only the HEAD of
+            // such a reference is excused. The fallback text is deliberately
+            // kept rather than blanked, so whatever IT reads is still checked
+            // (`var(--x, var(--y))` still requires `--y`).
             const heads = css.replace(/var\(\s*(--[A-Za-z0-9_-]+)\s*,/g, '(');
             const defined = new Set([...css.matchAll(/(--[A-Za-z0-9_-]+)\s*:/g)].map((m) => m[1]!));
             const read = new Set([...heads.matchAll(/var\(\s*(--[A-Za-z0-9_-]+)/g)].map((m) => m[1]!));
@@ -115,10 +119,12 @@ describe('shipped artifacts', () => {
         });
 
         it('gives every component a size ramp', () => {
-            const dir = join(dist, 'css', 'components');
-            const unsized = readdirSync(dir)
+            // Same "run pnpm build" contract as the checks above; guarded so a
+            // missing dist reports that once rather than as an ENOENT here too.
+            expect(existsSync(componentsDir), 'components/ missing — run pnpm build').toBe(true);
+            const unsized = readdirSync(componentsDir)
                 .filter((file) => file.endsWith('.css'))
-                .filter((file) => !readFileSync(join(dir, file), 'utf8').includes('zx-a-size-'))
+                .filter((file) => !readFileSync(join(componentsDir, file), 'utf8').includes('zx-a-size-'))
                 .sort();
             // `switch` shipped with none of these, which is what made it
             // render as bare text next to its label.
@@ -128,7 +134,11 @@ describe('shipped artifacts', () => {
         it('emits no CSS math lynx cannot evaluate', () => {
             // Measured on device (#1066): min() resolves neither bare nor
             // inside calc(), and the declaration carrying it is dropped
-            // wholesale. calc() over var() is fine and deliberately not here.
+            // wholesale. `max()` and `clamp()` are the same spec feature —
+            // CSS Values 4 comparison functions — and no engine ships one of
+            // the three without the others, so all three are refused on that
+            // evidence (andtii/zero-wip#363). calc() over var() DOES resolve
+            // and is deliberately absent from this list.
             expect(index()).not.toMatch(/\bmin\(|\bmax\(|clamp\(/i);
         });
     });
