@@ -11,7 +11,7 @@
  * gracefully never: CI builds before testing, and so does the dev loop.
  */
 import { createRequire } from 'node:module';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
@@ -83,5 +83,53 @@ describe('shipped artifacts', () => {
         expect(tokens).not.toMatch(/oklch\(|color-mix\(|light-dark\(/);
         const index = readFileSync(join(dist, 'css', 'index.css'), 'utf8');
         expect(index).not.toContain('@layer');
+    });
+
+    /**
+     * The checks that would have caught #1029 HERE rather than on a device.
+     *
+     * The four greps above only ever asked whether web spellings leaked. They
+     * all passed while the skin shipped 24 custom properties it used and never
+     * defined, and a switch with no width, no radius and no ink — because
+     * nothing asked whether the CSS was internally coherent.
+     *
+     * Upstream now refuses to build such a stylesheet (andtii/zero-wip#360),
+     * so in the normal case these are belt-and-braces. They earn their place
+     * on the day this package is pointed at an older or a hand-patched skin
+     * build: the artifacts are copied in verbatim by `build.mjs`, so this is
+     * the last gate before they reach an app.
+     */
+    describe('the CSS is internally coherent', () => {
+        const index = () => readFileSync(join(dist, 'css', 'index.css'), 'utf8');
+
+        it('defines every custom property it reads', () => {
+            const css = index();
+            // A reference carrying its own fallback stands alone; keep the
+            // fallback text so what IT reads is still checked.
+            const heads = css.replace(/var\(\s*(--[A-Za-z0-9_-]+)\s*,/g, '(');
+            const defined = new Set([...css.matchAll(/(--[A-Za-z0-9_-]+)\s*:/g)].map((m) => m[1]!));
+            const read = new Set([...heads.matchAll(/var\(\s*(--[A-Za-z0-9_-]+)/g)].map((m) => m[1]!));
+            // On lynx an unresolvable var() does not fall back — the
+            // declaration is dropped and the element paints nothing at all.
+            expect([...read].filter((name) => !defined.has(name)).sort()).toEqual([]);
+        });
+
+        it('gives every component a size ramp', () => {
+            const dir = join(dist, 'css', 'components');
+            const unsized = readdirSync(dir)
+                .filter((file) => file.endsWith('.css'))
+                .filter((file) => !readFileSync(join(dir, file), 'utf8').includes('zx-a-size-'))
+                .sort();
+            // `switch` shipped with none of these, which is what made it
+            // render as bare text next to its label.
+            expect(unsized).toEqual([]);
+        });
+
+        it('emits no CSS math lynx cannot evaluate', () => {
+            // Measured on device (#1066): min() resolves neither bare nor
+            // inside calc(), and the declaration carrying it is dropped
+            // wholesale. calc() over var() is fine and deliberately not here.
+            expect(index()).not.toMatch(/\bmin\(|\bmax\(|clamp\(/i);
+        });
     });
 });
