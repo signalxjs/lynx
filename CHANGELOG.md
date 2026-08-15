@@ -4,6 +4,14 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 ## [Unreleased]
 
+### Changed
+
+- **`@sigx/lynx-daisyui-zero`: the compiled daisy CSS is coherent for the first time** ([#1068](https://github.com/signalxjs/lynx/issues/1068)). The catalog moves to `@sigx/zero` / `@sigx/zero-daisyui` `0.2.0-beta.2`, which carries two upstream emitter fixes ([zero#360](https://github.com/andtii/zero-wip/pull/360), [zero#363](https://github.com/andtii/zero-wip/pull/363)).
+
+  What the skin shipped before: **24 custom properties it used and never defined**, reaching 295 of its 1043 rules. On lynx an unresolvable `var()` does not fall back the way the web's invalid-at-computed-value-time rule does — the declaration is dropped and the element paints nothing at all, which is why the daisy switch rendered as bare text rather than as an unstyled control. It also shipped `min()`, which lynx ignores, and no `--text-*` ramp at all, leaving ~262 `font-size` declarations inert.
+
+  After the bump: **0 dangling properties, no `min(`, and every component has a size ramp** — `switch`, `radial-progress`, `rating-group`, `spinner` and `status` had none. Dropped declarations across the skin fall from **594 to 219**, and the remainder is almost entirely legitimate (92 pseudo-element selectors, 81 hover rules, 33 conditional at-rules). `packages/lynx-daisyui-zero/__tests__/shell.test.ts` gains those three as assertions, so this package fails rather than an app, on the day it is pointed at an older or hand-patched skin build.
+
 ### Fixed
 
 - **`@sigx/lynx-zero`: nothing under `<ZeroRoot>` could scroll** ([#1064](https://github.com/signalxjs/lynx/issues/1064)). A `<ScrollView flex={1}>` inside the theme host sized itself to its content and overflowed the screen instead of scrolling — so the Zero Pilot showcase screen simply ran off the bottom.
