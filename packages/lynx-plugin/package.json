@@ -81,7 +81,7 @@
         }
     },
     "devDependencies": {
-        "@rsbuild/core": "^2.1.7",
+        "@rsbuild/core": "^2.1.13",
         "@sigx/lynx-cli": "workspace:*",
         "@sigx/lynx-icons": "workspace:*",
         "@types/node": "^25.9.1",
