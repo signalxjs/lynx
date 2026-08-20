@@ -31,6 +31,13 @@ the runtime those stylesheets target.
 - **The zero contract, re-exported** — vocabularies, token categories,
   `variantAttrs`, the class grammar. This package defines no parallel
   vocabulary; `@sigx/zero` (catalog-pinned beta) is the single source.
+- **Axis defaults** — the lynx CSS has no `:not()` default twins, so an
+  axis a recipe wires must always resolve to a concrete `zx-a-*` class.
+  The design-system shell registers its manifest's declared defaults at
+  load (`registerAxisDefaults`, right beside `registerTheme`), and every
+  carrier resolves `explicit prop ?? registered default` per scope with
+  `resolveVariantAxes` before stamping. No registration means unset axes
+  stamp nothing — headless usage is unchanged.
 
 ## Theming
 

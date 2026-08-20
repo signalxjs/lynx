@@ -16,6 +16,11 @@ export interface LynxSkinManifest {
         pair?: string;
         swatch?: Record<string, string>;
     }>;
+    components?: Record<string, {
+        defaults?: Record<string, string>;
+        axes?: Record<string, string[]>;
+        [key: string]: unknown;
+    }>;
 }
 
 export function generateThemeData(

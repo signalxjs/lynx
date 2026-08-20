@@ -14,6 +14,7 @@ import { partBag } from '../../contract/part.js';
 import { partA11y } from '../../contract/a11y.js';
 import type { VariantAxes } from '../../contract/axes-context.js';
 import { partAxes, provideVariantAxes, useVariantAxes } from '../../contract/axes-context.js';
+import { resolveVariantAxes } from '../../contract/axis-defaults.js';
 import { createPressFeedback } from '../../behaviors/press.js';
 
 const anatomy = anatomies.accordion;
@@ -59,7 +60,7 @@ const AccordionRoot = component<AccordionRootProps>(({ props, slots, emit }) => 
         props.defaultValue ?? [],
         (value) => emit('valueChange', value),
     );
-    const axes = (): VariantAxes => ({ color: props.color, size: props.size });
+    const axes = (): VariantAxes => resolveVariantAxes(anatomy.scope, { color: props.color, size: props.size });
     provideVariantAxes(axes);
     const ctx: AccordionContext = {
         isOpen: (value) => state.value.includes(value),

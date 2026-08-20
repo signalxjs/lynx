@@ -45,6 +45,24 @@ describe('generateThemeData', () => {
         expect(() => generateThemeData({ ...manifest, target: 'web' }, CLASS_GRAMMAR_VERSION))
             .toThrow(/lynx-target manifest/);
     });
+
+    it('harvests the manifest axis defaults (#1070)', () => {
+        const source = generateThemeData(manifest, CLASS_GRAMMAR_VERSION);
+        expect(source).toContain('DAISY_AXIS_DEFAULTS');
+        // The one scope with all three named axes declared, per the real manifest.
+        expect(source).toMatch(/"button": \{\s*"color": "primary",\s*"variant": "solid",\s*"size": "md"\s*\}/);
+    });
+
+    it('refuses an incoherent default — non-string or outside the declared values', () => {
+        const doctor = (defaults: object) => ({
+            ...manifest,
+            components: { ...manifest.components, button: { ...manifest.components.button, defaults } },
+        });
+        expect(() => generateThemeData(doctor({ size: 3 }), CLASS_GRAMMAR_VERSION))
+            .toThrow(/non-string default/);
+        expect(() => generateThemeData(doctor({ variant: 'bespoke' }), CLASS_GRAMMAR_VERSION))
+            .toThrow(/not among its declared variant values/);
+    });
 });
 
 describe('registry seeding (import side effect)', () => {
@@ -64,6 +82,14 @@ describe('registry seeding (import side effect)', () => {
         for (const value of Object.values(getTheme('light')?.swatch ?? {})) {
             expect(value).toMatch(HEX);
         }
+    });
+
+    it('importing the package registers the manifest axis defaults (#1070)', async () => {
+        const { resolveVariantAxes } = await import('@sigx/lynx-zero');
+        const { DAISY_AXIS_DEFAULTS } = await import('@sigx/lynx-daisyui-zero');
+        expect(DAISY_AXIS_DEFAULTS['switch']).toEqual({ color: 'primary' });
+        // The registry resolved an unset axis to the skin's declared default.
+        expect(resolveVariantAxes('button', {})).toEqual({ color: 'primary', variant: 'solid', size: 'md' });
     });
 });
 

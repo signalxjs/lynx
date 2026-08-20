@@ -18,6 +18,7 @@ import { partBag } from '../../contract/part.js';
 import { partA11y } from '../../contract/a11y.js';
 import type { VariantAxes } from '../../contract/axes-context.js';
 import { partAxes, provideVariantAxes, useVariantAxes } from '../../contract/axes-context.js';
+import { resolveVariantAxes } from '../../contract/axis-defaults.js';
 import { createPressFeedback } from '../../behaviors/press.js';
 
 const anatomy = anatomies.tabs;
@@ -62,7 +63,7 @@ const TabsRoot = component<TabsRootProps>(({ props, slots, emit }) => {
         },
     );
     const orientation = (): Orientation => props.orientation ?? 'horizontal';
-    const axes = (): VariantAxes => ({ color: props.color, size: props.size, variant: props.variant });
+    const axes = (): VariantAxes => resolveVariantAxes(anatomy.scope, { color: props.color, size: props.size, variant: props.variant });
     provideVariantAxes(axes);
     const ctx: TabsContext = {
         selected: () => state.value,

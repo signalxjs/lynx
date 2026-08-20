@@ -3,11 +3,12 @@
  * (anatomy + class grammar) in every state the test drives it through, plus
  * its interaction flows via lynx-testing.
  */
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { act, fireEvent, render } from '@sigx/lynx-testing';
 import { anatomies } from '@sigx/zero/anatomy';
 import { component, signal } from '@sigx/lynx';
-import { Accordion, Button, Progress, Switch, Tabs } from '../src/index';
+import { Accordion, Button, Progress, Switch, Tabs, registerAxisDefaults } from '../src/index';
+import { clearAxisDefaults } from '../src/contract/axis-defaults';
 import { expectAnatomy, expectClassGrammar } from '../src/testing/index';
 
 const conforms = (container: never, scope: keyof typeof anatomies): void => {
@@ -158,5 +159,44 @@ describe('Accordion', () => {
         await act(() => fireEvent.tap(triggerTwo as never));
         expect(container.textContent()).not.toContain('content-two');
         conforms(container as never, 'accordion');
+    });
+});
+
+describe('axis defaults (#1070)', () => {
+    beforeEach(() => {
+        registerAxisDefaults({
+            button: { color: 'primary', variant: 'solid', size: 'md' },
+            switch: { color: 'primary' },
+        });
+    });
+    afterEach(clearAxisDefaults);
+
+    it('a prop-less Button stamps the design system defaults', () => {
+        const { container } = render(<Button.Root><text>Save</text></Button.Root>);
+        const root = container.children[0]!;
+        expect(root._class).toContain('zx-a-color-primary');
+        expect(root._class).toContain('zx-a-variant-solid');
+        expect(root._class).toContain('zx-a-size-md');
+        conforms(container as never, 'button');
+    });
+
+    it('an explicit prop wins; the other axes still default', () => {
+        const { container } = render(<Button.Root color="secondary"><text>Save</text></Button.Root>);
+        const root = container.children[0]!;
+        expect(root._class).toContain('zx-a-color-secondary');
+        expect(root._class).not.toContain('zx-a-color-primary');
+        expect(root._class).toContain('zx-a-variant-solid');
+        expect(root._class).toContain('zx-a-size-md');
+    });
+
+    it('Switch defaults its color', () => {
+        const { container } = render(<Switch.Root label="Notifications">Notifications</Switch.Root>);
+        expect(container.children[0]!._class).toContain('zx-a-color-primary');
+    });
+
+    it('with nothing registered a prop-less Button stamps no axis class', () => {
+        clearAxisDefaults();
+        const { container } = render(<Button.Root><text>Save</text></Button.Root>);
+        expect(container.children[0]!._class).not.toContain('zx-a-');
     });
 });

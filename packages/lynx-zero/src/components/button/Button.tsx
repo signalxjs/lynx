@@ -13,6 +13,7 @@ import { partBag } from '../../contract/part.js';
 import { partA11y } from '../../contract/a11y.js';
 import type { VariantAxes } from '../../contract/axes-context.js';
 import { partAxes, provideVariantAxes } from '../../contract/axes-context.js';
+import { resolveVariantAxes } from '../../contract/axis-defaults.js';
 import { createPressFeedback } from '../../behaviors/press.js';
 import { useFieldContext } from '@sigx/zero/behaviors/core';
 
@@ -34,7 +35,7 @@ const ButtonRoot = component<ButtonRootProps>(({ props, slots, emit }) => {
     const field = useFieldContext();
     const disabled = () => !!props.disabled || field.disabled();
     const press = createPressFeedback({ isDisabled: disabled });
-    const axes = (): VariantAxes => ({
+    const axes = (): VariantAxes => resolveVariantAxes(anatomy.scope, {
         color: props.color, size: props.size, variant: props.variant, mods: props.mods,
     });
     provideVariantAxes(axes);
