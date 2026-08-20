@@ -90,6 +90,8 @@ describe('public runtime exports', () => {
                 // ── axis push-down ──
                 'partAxes',
                 'provideVariantAxes',
+                'registerAxisDefaults',
+                'resolveVariantAxes',
                 'useVariantAxes',
                 // ── components (pilot wave 2 — overlays) ──
                 'Dialog',

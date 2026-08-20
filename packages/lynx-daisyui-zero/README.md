@@ -30,6 +30,12 @@ further wiring. Swatches are **baked to hex** at build (the manifest's
 oklch spellings are registry-fine on the web, but a lynx view cannot paint
 them; a theme picker can paint these directly).
 
+The same import also registers the skin's **axis defaults**
+(`DAISY_AXIS_DEFAULTS`, from the manifest's `components.<scope>.defaults`)
+into `@sigx/lynx-zero`'s axis-defaults registry, so a `<Button>` with no
+`variant`/`size` prop stamps the classes daisyUI's defaults call for —
+required on lynx, where the compiled CSS has no `:not()` default twins.
+
 ## How the build works
 
 `build.mjs` resolves `@sigx/zero-daisyui`'s `dist/lynx` artifacts through

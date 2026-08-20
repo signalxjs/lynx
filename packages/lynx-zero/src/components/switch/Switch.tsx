@@ -15,6 +15,7 @@ import { partBag } from '../../contract/part.js';
 import { partA11y } from '../../contract/a11y.js';
 import type { VariantAxes } from '../../contract/axes-context.js';
 import { partAxes, provideVariantAxes } from '../../contract/axes-context.js';
+import { resolveVariantAxes } from '../../contract/axis-defaults.js';
 import { createPressFeedback } from '../../behaviors/press.js';
 import { createControllableState, useFieldContext } from '@sigx/zero/behaviors/core';
 
@@ -45,7 +46,7 @@ const SwitchRoot = component<SwitchRootProps>(({ props, slots, emit }) => {
     const invalid = () => !!props.invalid || field.invalid();
     const press = createPressFeedback({ isDisabled: disabled });
     const st = () => (state.value ? 'checked' : 'unchecked');
-    const axes = (): VariantAxes => ({ color: props.color, size: props.size });
+    const axes = (): VariantAxes => resolveVariantAxes(anatomy.scope, { color: props.color, size: props.size });
     provideVariantAxes(axes);
 
     return () => (

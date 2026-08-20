@@ -17,6 +17,7 @@ import { partBag } from '../../contract/part.js';
 import { partA11y } from '../../contract/a11y.js';
 import type { VariantAxes } from '../../contract/axes-context.js';
 import { partAxes, provideVariantAxes, useVariantAxes } from '../../contract/axes-context.js';
+import { resolveVariantAxes } from '../../contract/axis-defaults.js';
 import { createPressFeedback } from '../../behaviors/press.js';
 import { dismissTopLayer, registerDismissLayer } from '../../behaviors/dismiss.js';
 import type { LynxAnchorPosition, LynxPlacement } from '../../behaviors/position.js';
@@ -51,7 +52,7 @@ const PopoverRoot = component<PopoverRootProps>(({ props, slots, emit }) => {
         props.defaultOpen ?? false,
         (value) => emit('openChange', value),
     );
-    const axes = (): VariantAxes => ({ color: props.color, size: props.size, variant: props.variant });
+    const axes = (): VariantAxes => resolveVariantAxes(anatomy.scope, { color: props.color, size: props.size, variant: props.variant });
     provideVariantAxes(axes);
     const position = createAnchorPosition({
         placement: props.placement ?? 'bottom',

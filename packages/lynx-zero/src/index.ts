@@ -49,6 +49,8 @@ export { Slider } from './components/slider/Slider.js';
 // ── Axis push-down ───────────────────────────────────────────────────────
 export type { VariantAxes } from './contract/axes-context.js';
 export { partAxes, provideVariantAxes, useVariantAxes } from './contract/axes-context.js';
+export type { AxisDefaults } from './contract/axis-defaults.js';
+export { registerAxisDefaults, resolveVariantAxes } from './contract/axis-defaults.js';
 
 // ── The theme engine ─────────────────────────────────────────────────────
 // Selection + follow-system + font scale. Theme VALUES live in the skin's

@@ -16,6 +16,7 @@ import { anatomies } from '@sigx/zero/anatomy';
 import { partBag } from '../../contract/part.js';
 import type { VariantAxes } from '../../contract/axes-context.js';
 import { partAxes, provideVariantAxes, useVariantAxes } from '../../contract/axes-context.js';
+import { resolveVariantAxes } from '../../contract/axis-defaults.js';
 
 const anatomy = anatomies.progress;
 
@@ -63,7 +64,7 @@ const ProgressRoot = component<ProgressRootProps>(({ props, slots }) => {
         if (value === null) return 30;
         return Math.min(100, Math.max(0, (value / max()) * 100));
     };
-    const axes = (): VariantAxes => ({ color: props.color, size: props.size, variant: props.variant });
+    const axes = (): VariantAxes => resolveVariantAxes(anatomy.scope, { color: props.color, size: props.size, variant: props.variant });
     provideVariantAxes(axes);
     defineProvide(useProgressContext, () => ({ state, percent }));
 

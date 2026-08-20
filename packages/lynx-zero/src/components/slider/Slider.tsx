@@ -24,6 +24,7 @@ import { partBag } from '../../contract/part.js';
 import { partA11y } from '../../contract/a11y.js';
 import type { VariantAxes } from '../../contract/axes-context.js';
 import { partAxes, provideVariantAxes } from '../../contract/axes-context.js';
+import { resolveVariantAxes } from '../../contract/axis-defaults.js';
 
 const anatomy = anatomies.slider;
 
@@ -83,7 +84,7 @@ const SliderRoot = component<SliderRootProps>(({ props, emit }) => {
     const field = useFieldContext();
     const disabled = () => !!props.disabled || field.disabled();
     const invalid = () => !!props.invalid || field.invalid();
-    const axes = (): VariantAxes => ({ color: props.color, size: props.size });
+    const axes = (): VariantAxes => resolveVariantAxes(anatomy.scope, { color: props.color, size: props.size });
     provideVariantAxes(axes);
 
     const track = useElementLayout();

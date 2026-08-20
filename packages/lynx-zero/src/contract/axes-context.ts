@@ -12,8 +12,8 @@
  * The values provided are RESOLVED — explicit prop or the design system's
  * declared default — because this target emits no `:not([attr])` default
  * twins; an axis a recipe wires must always have a concrete class on screen.
- * (Resolution against manifest defaults arrives with the skin shell; until
- * then components pass the explicit props through.)
+ * Carriers resolve with `resolveVariantAxes` (axis-defaults.ts) against the
+ * defaults the skin shell registers from its manifest at load.
  */
 import { defineInjectable, defineProvide } from '@sigx/lynx';
 import type { PartBagOptions } from './part.js';
