@@ -51,6 +51,10 @@ describe('generateThemeData', () => {
         expect(source).toContain('DAISY_AXIS_DEFAULTS');
         // The one scope with all three named axes declared, per the real manifest.
         expect(source).toMatch(/"button": \{\s*"color": "primary",\s*"variant": "solid",\s*"size": "md"\s*\}/);
+        // 0.2.0-beta.3 (zero-wip#367) declares defaults for every pilot scope
+        // that wires variants — pin one color+size scope and one size-only one.
+        expect(source).toMatch(/"progress": \{\s*"color": "primary",\s*"size": "md"\s*\}/);
+        expect(source).toMatch(/"tabs": \{\s*"size": "md"\s*\}/);
     });
 
     it('refuses an incoherent default — non-string or outside the declared values', () => {
