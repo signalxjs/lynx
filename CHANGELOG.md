@@ -6,6 +6,8 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 ### Changed
 
+- **`@sigx/lynx-daisyui-zero`: axis defaults cover every pilot component** ([#1073](https://github.com/signalxjs/lynx/issues/1073)). The catalog moves to `@sigx/zero` / `@sigx/zero-daisyui` `0.2.0-beta.3` ([zero#367](https://github.com/andtii/zero-wip/pull/367)): the daisy manifest now declares `defaults` for 11 scopes instead of 4 — progress, slider and select gain `color: primary` + `size: md`, and tabs, accordion, collapsible and toast gain `size: md` (their neutral default ink/surface is deliberately not a color default). With the #1070 resolution mechanism already in place, `DAISY_AXIS_DEFAULTS` regenerates with the full set and prop-less pilot components stamp their design-system defaults.
+
 - **`@sigx/lynx-daisyui-zero`: the compiled daisy CSS is coherent for the first time** ([#1068](https://github.com/signalxjs/lynx/issues/1068)). The catalog moves to `@sigx/zero` / `@sigx/zero-daisyui` `0.2.0-beta.2`, which carries two upstream emitter fixes ([zero#360](https://github.com/andtii/zero-wip/pull/360), [zero#363](https://github.com/andtii/zero-wip/pull/363)).
 
   What the skin shipped before: **24 custom properties it used and never defined**, reaching 295 of its 1043 rules. On lynx an unresolvable `var()` does not fall back the way the web's invalid-at-computed-value-time rule does — the declaration is dropped and the element paints nothing at all, which is why the daisy switch rendered as bare text rather than as an unstyled control. It also shipped `min()`, which lynx ignores, and no `--text-*` ramp at all, leaving ~262 `font-size` declarations inert.

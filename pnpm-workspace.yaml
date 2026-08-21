@@ -41,12 +41,12 @@ catalog:
   # Exact beta pin while zero is pre-1.0 — its contract moves in lockstep with
   # the lynx-target emitters in @sigx/zero-kit, so a range would let the two
   # sides drift. Bump deliberately, here, once.
-  "@sigx/zero": 0.2.0-beta.2
+  "@sigx/zero": 0.2.0-beta.3
   # The daisyUI recipe source, compiled for lynx by zero-kit at ITS build —
   # this repo only consumes its dist/lynx artifacts. Pinned to the same beta
   # as @sigx/zero: the class-grammar envelope check in lynx-daisyui-zero's
   # build.mjs fails the build if the two ever disagree.
-  "@sigx/zero-daisyui": 0.2.0-beta.2
+  "@sigx/zero-daisyui": 0.2.0-beta.3
   # Tilde, not caret: @lynx-js/types tracks the engine line, and 4.1.0 already
   # describes an engine (4.1) that only exists as a nightly. Keep the types on
   # the 4.0.x line the CLI templates actually pin.
