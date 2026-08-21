@@ -137,6 +137,25 @@ export const ZeroPilot = component(() => {
                         </Col>
                     </Section>
 
+                    <Section
+                        title="Probe · #1075 layout & chains"
+                        note="The constructs behind the empty progress track and the vertically-stacked tabs. Measured verdicts are recorded in the captions."
+                    >
+                        <Col gap={6}>
+                            <view class="zxp-inline-flex">
+                                <view class="zxp-inline-flex-cell" />
+                                <view class="zxp-inline-flex-cell" />
+                            </view>
+                            <text style={{ fontSize: '12px' }}>↑ inline-flex · resolved = two cells side by side (#1075: NOT resolved — falls back to column)</text>
+                            <view class="zxp-var-calc-chain"><text class="zxp-bar-label">var→calc chain width · resolved = 160px</text></view>
+                            <text style={{ fontSize: '12px' }}>↑ (#1075: NOT resolved — the bar goes full-bleed)</text>
+                            <view class="zxp-var-calc-height" />
+                            <text style={{ fontSize: '12px' }}>↑ var→calc chain HEIGHT · resolved = a 20px indigo bar above (#1075: NOT resolved — nothing paints, the progress-track symptom)</text>
+                            <view class="zxp-calc-height" />
+                            <text style={{ fontSize: '12px' }}>↑ direct calc height control · a 20px green bar (proven working)</text>
+                        </Col>
+                    </Section>
+
                     <Section title="Button">
                         <Row gap={8}>
                             <Button color="primary"><text>Primary</text></Button>
