@@ -134,6 +134,14 @@ export const ZeroPilot = component(() => {
                             <text style={{ fontSize: '12px' }}>↑ inline-grid, 1fr 1fr 1fr · resolved = three bands side by side</text>
                             <view class="zxp-aspect" />
                             <text style={{ fontSize: '12px' }}>↑ aspect-ratio: 1 · resolved = a 40px square</text>
+                        </Col>
+                    </Section>
+
+                    <Section
+                        title="Probe · #1075 layout & chains"
+                        note="The constructs behind the empty progress track and the vertically-stacked tabs. Measured verdicts are recorded in the captions."
+                    >
+                        <Col gap={6}>
                             <view class="zxp-inline-flex">
                                 <view class="zxp-inline-flex-cell" />
                                 <view class="zxp-inline-flex-cell" />
