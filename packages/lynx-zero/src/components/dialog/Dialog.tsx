@@ -132,7 +132,14 @@ const DialogPopup = component<PopupProps>(({ props, slots }) => {
             portal.show(() => (
                 <view
                     {...partBag(anatomy, 'backdrop', { state: 'open', ...partAxes(axes()) })}
-                    style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
+                    // Centering is stated here because on the web it comes from
+                    // the native <dialog>'s UA `margin: auto` — a behavior the
+                    // recipe never spells, so the compiled skin carries no
+                    // centering and the panel would pin to the top (#1080).
+                    style={{
+                        position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+                        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                    }}
                     // Route through the stack, not straight to setOpen: the
                     // innermost layer owns the gesture (dismiss.ts's contract).
                     bindtap={() => dismissTopLayer()}

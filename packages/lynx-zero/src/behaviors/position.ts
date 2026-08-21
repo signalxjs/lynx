@@ -1,27 +1,29 @@
 /**
  * Anchored positioning on lynx — zero's `PositionStrategy` SHAPE over the
- * platform's real measurement primitives. No `getBoundingClientRect`, no
- * scroll/resize listeners: `bindlayoutchange` hands PAGE-RELATIVE rects
- * (`useElementLayout`), the popup mounts in the page-root overlay outlet
- * (also page coordinates), so the placement math composes directly and the
- * result is an absolute `top`/`left` inline style.
+ * platform's real measurement primitives.
+ *
+ * Geometry comes from `useViewportRect` (`boundingClientRect`) — NOT from
+ * `bindlayoutchange`'s payload. The event's coordinates are not
+ * page-relative on Android (#1080: correct size, `top/left` of 0 — the
+ * select's list clamped to the screen corner), and even where they are
+ * (iOS) they are layout-time numbers, blind to scroll and transforms. So
+ * layout events serve only as "something moved, re-measure" triggers, and
+ * the floating panel's own measure re-measures the anchor too — a popup
+ * opening after a scroll positions against where the anchor IS, not where
+ * layout first put it.
  *
  * The math is a pure function (`computeAnchorPosition`) so it tests over
- * fake rects; the wiring half (`createAnchorPosition`) owns the two layout
- * signals and recomputes whenever EITHER node reports a new layout — which
- * covers content growth and rotation. An anchor inside a `scroll-view` is a
- * documented v1 limitation: scrolling does not fire `layoutchange` on the
- * anchor, so an open anchored popup does not track mid-scroll (the web's
- * scroll-listener repositioning has no lynx counterpart yet; overlays that
- * open from a scrolling anchor should close on scroll).
+ * fake rects; the wiring half (`createAnchorPosition`) owns the two
+ * measured rects and recomputes whenever either lands. Mid-scroll tracking
+ * of an OPEN popup is still out of scope: nothing re-fires while scrolling
+ * (overlays that open from a scrolling anchor should close on scroll).
  *
  * Placement values are the zero contract's `PLACEMENT_VOCABULARY` subset the
  * popup's anatomy declares — the runtime stamps the RESOLVED side (after
  * flipping) through `partBag`, exactly like the web behavior does.
  */
-import { signal, useScreen } from '@sigx/lynx';
-import type { ElementLayout, LayoutChangeEvent } from '@sigx/lynx';
-import { useElementLayout } from '@sigx/lynx';
+import { useScreen, useViewportRect } from '@sigx/lynx';
+import type { ElementLayout, LayoutChangeEvent, MainThread, MainThreadRef } from '@sigx/lynx';
 
 export type LynxPlacement =
     | 'top' | 'top-start' | 'top-end'
@@ -119,7 +121,14 @@ export function computeAnchorPosition(
 }
 
 export interface LynxAnchorPosition {
-    /** Wire on the ANCHOR element: `bindlayoutchange={anchorLayoutChange}`. */
+    /** Bind on the ANCHOR element: `main-thread:ref={anchorRef}`. */
+    anchorRef: MainThreadRef<MainThread.Element | null>;
+    /** Bind on the FLOATING element: `main-thread:ref={floatingRef}`. */
+    floatingRef: MainThreadRef<MainThread.Element | null>;
+    /**
+     * Wire on the ANCHOR element: `bindlayoutchange={anchorLayoutChange}`.
+     * The event payload is IGNORED — it only triggers a measurement (#1080).
+     */
     anchorLayoutChange: (event: LayoutChangeEvent) => void;
     /** Wire on the FLOATING element (inside the overlay outlet). */
     floatingLayoutChange: (event: LayoutChangeEvent) => void;
@@ -130,42 +139,48 @@ export interface LynxAnchorPosition {
 }
 
 /**
- * The wiring half. Call in component setup; recomputes whenever either
- * layout signal or the viewport changes.
+ * The wiring half. Call in component setup; wire BOTH bindings on each
+ * element (`main-thread:ref` carries the element to measure,
+ * `bindlayoutchange` says when). Position reads are reactive — `style()`
+ * recomputes in whatever render or effect reads it once a measurement or
+ * the viewport changes.
  */
 export function createAnchorPosition(options: AnchorPositionOptions = {}): LynxAnchorPosition {
-    const anchor = useElementLayout();
-    const floating = useElementLayout();
-    // The screen metrics stand in for the viewport: page = screen for a
-    // full-screen lynx app, they're reactive to rotation, and they need no
-    // main-thread measurement round-trip. Keyboard insets are out of scope
-    // here (an anchored popup over a raised keyboard is its own problem).
+    const anchor = useViewportRect();
+    const floating = useViewportRect();
+    // The screen metrics stand in for the viewport: viewport rects and
+    // screen metrics share an origin for a full-screen lynx app, they're
+    // reactive to rotation, and they need no extra measurement round-trip.
+    // Keyboard insets are out of scope here (an anchored popup over a
+    // raised keyboard is its own problem).
     const screen = useScreen();
-    const resolved = signal<{ current: ResolvedPosition | null }>({ current: null });
 
-    const recompute = (): ResolvedPosition | null => {
-        const a = anchor.layout.value;
-        const f = floating.layout.value;
+    const position = (): ResolvedPosition | null => {
+        const a = anchor.rect.value;
+        const f = floating.rect.value;
         const v = screen.value;
-        const next = a && f && v.width > 0
+        return a && f && v.width > 0
             ? computeAnchorPosition(a, { width: f.width, height: f.height }, v, options)
             : null;
-        resolved.current = next;
-        return next;
     };
 
     return {
-        anchorLayoutChange: (event) => {
-            anchor.onLayoutChange(event);
-            recompute();
+        anchorRef: anchor.ref,
+        floatingRef: floating.ref,
+        anchorLayoutChange: () => {
+            anchor.measure();
         },
-        floatingLayoutChange: (event) => {
-            floating.onLayoutChange(event);
-            recompute();
+        floatingLayoutChange: () => {
+            // The floating panel measuring means the popup is opening (or its
+            // content changed): re-measure the anchor too, so the position is
+            // computed against where the anchor IS — a layout-time anchor
+            // rect goes stale the moment the page scrolls.
+            anchor.measure();
+            floating.measure();
         },
-        position: () => resolved.current,
+        position,
         style: () => {
-            const p = resolved.current;
+            const p = position();
             // Off-glass until measured: painting at 0,0 for one frame reads
             // as a flash in the corner; off-glass reads as "not open yet".
             if (!p) return { position: 'absolute', top: '-10000px', left: '-10000px' };
