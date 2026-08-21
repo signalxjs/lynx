@@ -53,7 +53,7 @@ describe('generateThemeData', () => {
         expect(source).toMatch(/"button": \{\s*"color": "primary",\s*"variant": "solid",\s*"size": "md"\s*\}/);
         // 0.2.0-beta.3 (zero-wip#367) declared defaults for every pilot scope
         // that wires variants; beta.4 (zero-wip#381) added the tabs flavor
-        // axis with daisy's underline as the default.
+        // axis defaulting to `border` — daisy's underline flavor.
         expect(source).toMatch(/"progress": \{\s*"color": "primary",\s*"size": "md"\s*\}/);
         expect(source).toMatch(/"tabs": \{\s*"size": "md",\s*"variant": "border"\s*\}/);
     });
