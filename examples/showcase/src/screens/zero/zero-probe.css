@@ -172,3 +172,48 @@
 .zxp-dangling {
   background-color: var(--btn-ink);
 }
+
+/* display: inline-flex — the tabs list is spelled with it
+ * (`.zx-tabs__list`). Lynx has no inline formatting context; if the value is
+ * unsupported the view keeps the default linear (COLUMN) layout, which is
+ * exactly the vertically-stacked tabs on /zero-parity (#1075). Resolved =
+ * the two white cells sit SIDE BY SIDE in one 10rem-wide indigo row. */
+.zxp-inline-flex {
+  display: inline-flex;
+  width: 10rem;
+  background-color: var(--color-primary);
+}
+
+.zxp-inline-flex-cell {
+  width: 40px;
+  height: 12px;
+  background-color: #ffffff;
+  margin: 2px;
+}
+
+/* var → calc(var()) chain — a custom property whose VALUE is a calc over
+ * another var, consumed via var(). This is exactly how the progress track is
+ * sized: `--progress-track-size: calc(var(--size-selector) * 2.5)` on the
+ * root, `height: var(--progress-track-size)` on the track. Direct calc(var())
+ * is proven above; this tests the indirection. Resolved = 160px wide. */
+.zxp-var-calc-chain {
+  --zxp-w: calc(var(--radius-box, 0.5rem) * 20);
+  width: var(--zxp-w);
+  background-color: var(--color-primary);
+}
+
+/* the same chain spent as HEIGHT (the progress symptom is a zero-height
+ * track). Resolved = a visible 20px-tall bar; failed = nothing at all. */
+.zxp-var-calc-height {
+  --zxp-h: calc(var(--radius-box, 0.5rem) * 2.5);
+  height: var(--zxp-h);
+  width: 10rem;
+  background-color: var(--color-primary);
+}
+
+/* control: direct calc height, no indirection. */
+.zxp-calc-height {
+  height: calc(var(--radius-box, 0.5rem) * 2.5);
+  width: 10rem;
+  background-color: #16a34a;
+}
