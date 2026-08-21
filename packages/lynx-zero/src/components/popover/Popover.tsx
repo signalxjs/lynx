@@ -88,6 +88,7 @@ const PopoverTrigger = component<TriggerProps>(({ props, slots }) => {
             bindtap={() => {
                 if (!disabled() && popover) popover.setOpen(!popover.open());
             }}
+            main-thread:ref={popover?.position.anchorRef}
             bindlayoutchange={popover?.position.anchorLayoutChange}
             {...press.handlers}
         >
@@ -134,6 +135,7 @@ const PopoverPopup = component<PopupProps>(({ props, slots }) => {
                             class: props.class,
                         })}
                         style={popover.position.style()}
+                        main-thread:ref={popover.position.floatingRef}
                         bindlayoutchange={popover.position.floatingLayoutChange}
                         catchtap={() => {}}
                     >

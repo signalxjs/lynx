@@ -138,6 +138,7 @@ const SelectRoot = component<SelectRootProps>(({ props, emit }) => {
                             ...partAxes(axes()),
                         })}
                         style={position.style()}
+                        main-thread:ref={position.floatingRef}
                         bindlayoutchange={position.floatingLayoutChange}
                         catchtap={() => {}}
                     >
@@ -202,6 +203,7 @@ const SelectRoot = component<SelectRootProps>(({ props, emit }) => {
                 bindtap={() => {
                     if (!disabled()) open.value = !open.value;
                 }}
+                main-thread:ref={position.anchorRef}
                 bindlayoutchange={position.anchorLayoutChange}
                 {...press.handlers}
             >
