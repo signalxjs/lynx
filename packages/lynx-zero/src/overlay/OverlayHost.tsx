@@ -163,7 +163,7 @@ export const OverlayHost = component<OverlayHostProps>(({ slots }) => {
     // The host IS the outlet's coordinate space (`position: relative`), and
     // its origin sits below whatever chrome precedes it (a navigation
     // header). Anchored popups position in viewport coordinates, so they
-    // subtract this measured origin (#1084) — see provideOverlayOrigin.
+    // subtract this measured origin (#1086) — see provideOverlayOrigin.
     const origin = useViewportRect();
     provideOverlayOrigin(() => origin.rect.value);
     // `display: flex` is load-bearing, not decoration: a lynx `<view>` defaults
