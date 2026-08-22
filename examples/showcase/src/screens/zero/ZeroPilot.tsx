@@ -153,6 +153,17 @@ export const ZeroPilot = component(() => {
                             <text style={{ fontSize: '12px' }}>↑ var→calc chain HEIGHT · resolved = a 20px indigo bar above (#1075: NOT resolved — nothing paints, the progress-track symptom)</text>
                             <view class="zxp-calc-height" />
                             <text style={{ fontSize: '12px' }}>↑ direct calc height control · a 20px green bar (proven working)</text>
+                            <view style={{ display: 'flex', flexDirection: 'row', gap: '6px' }}>
+                                <view class="zxp-vc-host"><view class="zxp-vc-chip zxp-vc-logical-inset" /></view>
+                                <view class="zxp-vc-host"><view class="zxp-vc-chip zxp-vc-translate" /></view>
+                                <view class="zxp-vc-host"><view class="zxp-vc-chip zxp-vc-physical" /></view>
+                                <view class="zxp-vc-host"><view class="zxp-vc-chip zxp-vc-margin-block" /></view>
+                            </view>
+                            <text style={{ fontSize: '12px' }}>
+                                ↑ vertical centering, centered chip = resolved: A inset-block-start · B translate ·
+                                C physical top+transform · D margin-block-start (#1084: A, B and D fail on Android,
+                                resolve on iOS — only C is cross-platform)
+                            </text>
                         </Col>
                     </Section>
 

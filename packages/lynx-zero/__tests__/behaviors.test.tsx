@@ -10,6 +10,7 @@ import {
     OverlayHost,
     clearDismissLayers,
     computeAnchorPosition,
+    toOutletCoordinates,
     createPressFeedback,
     dismissTopLayer,
     registerDismissLayer,
@@ -55,6 +56,17 @@ describe('dismiss layers', () => {
         un1();
         expect(dismissTopLayer()).toBe(false);
         expect(order).toEqual(['popover']);
+    });
+});
+
+describe('toOutletCoordinates', () => {
+    it('subtracts the outlet origin from a viewport-space position', () => {
+        expect(toOutletCoordinates({ top: 500, left: 40 }, { top: 96, left: 0 }))
+            .toEqual({ top: 404, left: 40 });
+    });
+
+    it('is the identity when the origin is unknown', () => {
+        expect(toOutletCoordinates({ top: 500, left: 40 }, null)).toEqual({ top: 500, left: 40 });
     });
 });
 

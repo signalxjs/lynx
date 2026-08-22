@@ -217,3 +217,41 @@
   width: 10rem;
   background-color: #16a34a;
 }
+
+/* #1084 — which vertical-centering construct fails on Android? Each bar is a
+ * 40px light track with a 12px dark chip that should sit vertically CENTERED
+ * (top edge at 14px). Chip at the very top = the construct did not resolve. */
+.zxp-vc-host {
+  position: relative;
+  height: 40px;
+  width: 10rem;
+  background-color: #e5e7eb;
+}
+.zxp-vc-chip {
+  position: absolute;
+  left: 8px;
+  width: 40px;
+  height: 12px;
+  background-color: #4c45db;
+}
+/* A: logical inset — inset-block-start: 50% (+ physical margin correction) */
+.zxp-vc-logical-inset {
+  inset-block-start: 50%;
+  margin-top: -6px;
+}
+/* B: standalone translate — top: 50% (physical, proven) + translate lift */
+.zxp-vc-translate {
+  top: 50%;
+  translate: 0 -50%;
+}
+/* C: physical control — top: 50% + transform (both proven) */
+.zxp-vc-physical {
+  top: 50%;
+  transform: translateY(-50%);
+}
+/* D: logical margin — margin-block-start pushing the chip down from the top;
+ * static position (no absolute offsets involved). */
+.zxp-vc-margin-block {
+  position: relative;
+  margin-block-start: 14px;
+}
