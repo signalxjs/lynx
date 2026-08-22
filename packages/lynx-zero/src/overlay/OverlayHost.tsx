@@ -25,7 +25,8 @@
  * than an overlay silently z-fighting in place.
  */
 import type { Define } from '@sigx/lynx';
-import { component, createLogger, defineInjectable, defineProvide, onUnmounted, signal } from '@sigx/lynx';
+import { component, createLogger, defineInjectable, defineProvide, onUnmounted, signal, useViewportRect } from '@sigx/lynx';
+import { provideOverlayOrigin } from '../behaviors/position.js';
 import type { ThemeProviderProps } from '../theme/ThemeProvider.js';
 import { ThemeProvider } from '../theme/ThemeProvider.js';
 
@@ -159,12 +160,20 @@ type OverlayHostProps = Define.Slot<'default'>;
 export const OverlayHost = component<OverlayHostProps>(({ slots }) => {
     const registry = makeRegistry();
     defineProvide(useOverlayRegistry, () => registry);
+    // The host IS the outlet's coordinate space (`position: relative`), and
+    // its origin sits below whatever chrome precedes it (a navigation
+    // header). Anchored popups position in viewport coordinates, so they
+    // subtract this measured origin (#1084) — see provideOverlayOrigin.
+    const origin = useViewportRect();
+    provideOverlayOrigin(() => origin.rect.value);
     // `display: flex` is load-bearing, not decoration: a lynx `<view>` defaults
     // to `display: linear`, which ignores its children's flex properties — the
     // app content below would size to itself and a `<ScrollView flex={1}>`
     // would never scroll (#1064).
     return () => (
         <view
+            main-thread:ref={origin.ref}
+            bindlayoutchange={() => origin.measure()}
             style={{
                 position: 'relative',
                 display: 'flex',

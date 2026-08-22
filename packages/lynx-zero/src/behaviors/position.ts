@@ -22,8 +22,25 @@
  * popup's anatomy declares — the runtime stamps the RESOLVED side (after
  * flipping) through `partBag`, exactly like the web behavior does.
  */
-import { useScreen, useViewportRect } from '@sigx/lynx';
+import { defineInjectable, defineProvide, useScreen, useViewportRect } from '@sigx/lynx';
 import type { ElementLayout, LayoutChangeEvent, MainThread, MainThreadRef } from '@sigx/lynx';
+
+/**
+ * The overlay outlet's own viewport origin. The placement math runs in
+ * viewport space (that is what flip/clamp must reason about), but the
+ * floating panel renders absolutely inside the OUTLET — a `position:
+ * relative` host whose origin sits below whatever chrome precedes it (the
+ * navigation header, ~96dp on the showcase). Rendering viewport numbers
+ * there lands every popup exactly that far off (#1084). The host provides
+ * its measured origin; `style()` subtracts it. Identity when nothing
+ * provides (an outlet at the viewport origin).
+ */
+const useOverlayOriginInjectable = defineInjectable<() => ElementLayout | null>(() => () => null);
+
+/** Provide the overlay outlet's measured viewport origin (OverlayHost wires this). */
+export function provideOverlayOrigin(read: () => ElementLayout | null): void {
+    defineProvide(useOverlayOriginInjectable, () => read);
+}
 
 export type LynxPlacement =
     | 'top' | 'top-start' | 'top-end'
@@ -154,6 +171,7 @@ export function createAnchorPosition(options: AnchorPositionOptions = {}): LynxA
     // Keyboard insets are out of scope here (an anchored popup over a
     // raised keyboard is its own problem).
     const screen = useScreen();
+    const overlayOrigin = useOverlayOriginInjectable();
 
     const position = (): ResolvedPosition | null => {
         const a = anchor.rect.value;
@@ -184,7 +202,14 @@ export function createAnchorPosition(options: AnchorPositionOptions = {}): LynxA
             // Off-glass until measured: painting at 0,0 for one frame reads
             // as a flash in the corner; off-glass reads as "not open yet".
             if (!p) return { position: 'absolute', top: '-10000px', left: '-10000px' };
-            return { position: 'absolute', top: `${p.top}px`, left: `${p.left}px` };
+            // Viewport → outlet coordinates: the popup renders absolutely
+            // inside the outlet, whose own origin is not the viewport's.
+            const o = overlayOrigin();
+            return {
+                position: 'absolute',
+                top: `${p.top - (o?.top ?? 0)}px`,
+                left: `${p.left - (o?.left ?? 0)}px`,
+            };
         },
     };
 }
