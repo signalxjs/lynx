@@ -40,11 +40,11 @@ catalogs:
       specifier: ^0.15.0
       version: 0.15.4
     '@sigx/zero':
-      specifier: 0.2.0-beta.5
-      version: 0.2.0-beta.5
+      specifier: 0.2.0-beta.6
+      version: 0.2.0-beta.6
     '@sigx/zero-daisyui':
-      specifier: 0.2.0-beta.5
-      version: 0.2.0-beta.5
+      specifier: 0.2.0-beta.6
+      version: 0.2.0-beta.6
 
 overrides:
   '@lynx-js/types': ~4.0.0
@@ -608,10 +608,10 @@ importers:
     devDependencies:
       '@sigx/zero':
         specifier: 'catalog:'
-        version: 0.2.0-beta.5(@sigx/reactivity@0.15.4)(@sigx/runtime-core@0.15.4)(@sigx/runtime-dom@0.15.3)(sigx@0.15.3)
+        version: 0.2.0-beta.6(@sigx/reactivity@0.15.4)(@sigx/runtime-core@0.15.4)(@sigx/runtime-dom@0.15.3)(sigx@0.15.3)
       '@sigx/zero-daisyui':
         specifier: 'catalog:'
-        version: 0.2.0-beta.5(@sigx/zero@0.2.0-beta.5(@sigx/reactivity@0.15.4)(@sigx/runtime-core@0.15.4)(@sigx/runtime-dom@0.15.3)(sigx@0.15.3))
+        version: 0.2.0-beta.6(@sigx/zero@0.2.0-beta.6(@sigx/reactivity@0.15.4)(@sigx/runtime-core@0.15.4)(@sigx/runtime-dom@0.15.3)(sigx@0.15.3))
       '@typescript/native-preview':
         specifier: 7.0.0-dev.20260521.1
         version: 7.0.0-dev.20260521.1
@@ -1560,7 +1560,7 @@ importers:
         version: link:../lynx-appearance
       '@sigx/zero':
         specifier: 'catalog:'
-        version: 0.2.0-beta.5(@sigx/reactivity@0.15.4)(@sigx/runtime-core@0.15.4)(@sigx/runtime-dom@0.15.3)(sigx@0.15.3)
+        version: 0.2.0-beta.6(@sigx/reactivity@0.15.4)(@sigx/runtime-core@0.15.4)(@sigx/runtime-dom@0.15.3)(sigx@0.15.3)
     devDependencies:
       '@sigx/lynx-navigation':
         specifier: workspace:^
@@ -2632,13 +2632,13 @@ packages:
   '@sigx/terminal@0.12.0':
     resolution: {integrity: sha512-F/Ls5MHPzP9+hgUDIeRPgL5bihJ3FP3t9uTSAGJn+4SUwgQ3oFwIdarfdN4lXWA1fBdpruS6cUUbnJV5bMAvHA==}
 
-  '@sigx/zero-daisyui@0.2.0-beta.5':
-    resolution: {integrity: sha512-eGttQp/xZ5ZyxXKB840NTdaCRf+l/LSX2Hd0SbRTEy1WKIPkvO6cQPRvt57+TNt/ntvjzpJ4JZrDJFGsIPjoXw==}
+  '@sigx/zero-daisyui@0.2.0-beta.6':
+    resolution: {integrity: sha512-+x8f6KLS6TadHDI3M8ZwJt6bs2DUpAuG8f2GvlQCcmDa7okqeDPQMFwj5k/PtdOyx4SAAjyadS6iA/QdoNR2lQ==}
     peerDependencies:
-      '@sigx/zero': ^0.2.0-beta.5
+      '@sigx/zero': ^0.2.0-beta.6
 
-  '@sigx/zero@0.2.0-beta.5':
-    resolution: {integrity: sha512-x3ZT1x8oaBTpRcXvPe2E3G+eiE0ByhqEpvRtPMurTA54GhvXVts/NtG7n30KdAcR1p5du61qw1ZfnF5w3XQ/JQ==}
+  '@sigx/zero@0.2.0-beta.6':
+    resolution: {integrity: sha512-nfsTFzLsAf5nXjKa0ZH9tS0ZyLxPeZ/X4HfQbc28oH5mw5TdI2MWzO5rfUuydP3i9XOecT9AS+SX5URw35LxzQ==}
     peerDependencies:
       '@sigx/reactivity': ^0.15.0
       '@sigx/runtime-core': ^0.15.0
@@ -5614,11 +5614,11 @@ snapshots:
       '@sigx/terminal-ui': 0.12.0(@sigx/reactivity@0.15.4)(@sigx/runtime-core@0.15.4)
       '@sigx/terminal-zero': 0.12.0(@sigx/reactivity@0.15.4)(@sigx/runtime-core@0.15.4)
 
-  '@sigx/zero-daisyui@0.2.0-beta.5(@sigx/zero@0.2.0-beta.5(@sigx/reactivity@0.15.4)(@sigx/runtime-core@0.15.4)(@sigx/runtime-dom@0.15.3)(sigx@0.15.3))':
+  '@sigx/zero-daisyui@0.2.0-beta.6(@sigx/zero@0.2.0-beta.6(@sigx/reactivity@0.15.4)(@sigx/runtime-core@0.15.4)(@sigx/runtime-dom@0.15.3)(sigx@0.15.3))':
     dependencies:
-      '@sigx/zero': 0.2.0-beta.5(@sigx/reactivity@0.15.4)(@sigx/runtime-core@0.15.4)(@sigx/runtime-dom@0.15.3)(sigx@0.15.3)
+      '@sigx/zero': 0.2.0-beta.6(@sigx/reactivity@0.15.4)(@sigx/runtime-core@0.15.4)(@sigx/runtime-dom@0.15.3)(sigx@0.15.3)
 
-  '@sigx/zero@0.2.0-beta.5(@sigx/reactivity@0.15.4)(@sigx/runtime-core@0.15.4)(@sigx/runtime-dom@0.15.3)(sigx@0.15.3)':
+  '@sigx/zero@0.2.0-beta.6(@sigx/reactivity@0.15.4)(@sigx/runtime-core@0.15.4)(@sigx/runtime-dom@0.15.3)(sigx@0.15.3)':
     dependencies:
       '@sigx/reactivity': 0.15.4
       '@sigx/runtime-core': 0.15.4
