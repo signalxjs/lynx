@@ -68,6 +68,8 @@ describe('public runtime exports', () => {
                 'clearDismissLayers',
                 'computeAnchorPosition',
                 'createAnchorPosition',
+                'provideOverlayOrigin',
+                'toOutletCoordinates',
                 'createControllableState',
                 'createId',
                 'createListController',
