@@ -10,11 +10,11 @@ catalogs:
       specifier: '>=0.10.1'
       version: 0.10.1
     '@lynx-js/react':
-      specifier: ^0.123.0
-      version: 0.123.3
+      specifier: ^0.125.0
+      version: 0.125.0
     '@lynx-js/rspeedy':
-      specifier: '>=0.16.3'
-      version: 0.16.3
+      specifier: '>=0.16.5'
+      version: 0.16.5
     '@lynx-js/runtime-wrapper-webpack-plugin':
       specifier: '>=0.2.3'
       version: 0.2.3
@@ -22,23 +22,23 @@ catalogs:
       specifier: ^0.5.0
       version: 0.5.1
     '@lynx-js/template-webpack-plugin':
-      specifier: 0.15.0
-      version: 0.15.0
+      specifier: 0.15.2
+      version: 0.15.2
     '@lynx-js/web-core':
-      specifier: ^0.24.0
-      version: 0.24.0
+      specifier: ^0.25.0
+      version: 0.25.0
     '@lynx-js/web-elements':
-      specifier: '>=0.12.7'
-      version: 0.12.7
+      specifier: '>=0.12.9'
+      version: 0.12.9
     '@lynx-js/webpack-dev-transport':
-      specifier: '>=0.3.0'
-      version: 0.3.0
+      specifier: '>=0.4.0'
+      version: 0.4.0
     '@sigx/reactivity':
-      specifier: ^0.15.0
-      version: 0.15.4
+      specifier: ^0.15.6
+      version: 0.15.6
     '@sigx/runtime-core':
-      specifier: ^0.15.0
-      version: 0.15.4
+      specifier: ^0.15.6
+      version: 0.15.6
     '@sigx/zero':
       specifier: 0.2.0-beta.6
       version: 0.2.0-beta.6
@@ -47,7 +47,7 @@ catalogs:
       version: 0.2.0-beta.6
 
 overrides:
-  '@lynx-js/types': ~4.0.0
+  '@lynx-js/types': ~4.2.1
 
 importers:
 
@@ -67,10 +67,10 @@ importers:
         version: 6.0.3
       vite:
         specifier: ^8.0.14
-        version: 8.0.14(@types/node@25.9.3)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0)
+        version: 8.0.14(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)
       vitest:
         specifier: ^4.1.7
-        version: 4.1.7(@types/node@25.9.3)(@vitest/coverage-v8@4.1.7)(happy-dom@20.11.1)(vite@8.0.14(@types/node@25.9.3)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0))
+        version: 4.1.7(@types/node@26.4.0)(@vitest/coverage-v8@4.1.7)(happy-dom@20.11.1)(vite@8.0.14(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2))
 
   examples/flik:
     dependencies:
@@ -97,17 +97,17 @@ importers:
         version: link:../../packages/lynx-safe-area
       '@sigx/reactivity':
         specifier: 'catalog:'
-        version: 0.15.4
+        version: 0.15.6
       '@sigx/runtime-core':
         specifier: 'catalog:'
-        version: 0.15.4
+        version: 0.15.6
     devDependencies:
       '@lynx-js/css-extract-webpack-plugin':
         specifier: 'catalog:'
-        version: 0.10.1(@lynx-js/template-webpack-plugin@0.15.0(tslib@2.8.1))
+        version: 0.10.1(@lynx-js/template-webpack-plugin@0.15.2(tslib@2.8.1))
       '@lynx-js/rspeedy':
         specifier: 'catalog:'
-        version: 0.16.3(@emnapi/core@1.11.3)(@emnapi/runtime@1.11.3)(@rspack/core@2.1.9(@swc/helpers@0.5.23))(core-js@3.47.0)(esbuild@0.28.0)(typescript@6.0.3)(webpack@5.106.2(esbuild@0.28.0)(postcss@8.5.15))
+        version: 0.16.5(@emnapi/core@1.11.3)(@emnapi/runtime@1.11.3)(@rspack/core@2.1.9(@swc/helpers@0.5.23))(core-js@3.47.0)(esbuild@0.28.2)(typescript@6.0.3)(webpack@5.106.2(esbuild@0.28.2)(postcss@8.5.15))
       '@lynx-js/runtime-wrapper-webpack-plugin':
         specifier: 'catalog:'
         version: 0.2.3
@@ -116,16 +116,16 @@ importers:
         version: 0.5.1(tailwindcss@3.4.19)
       '@lynx-js/template-webpack-plugin':
         specifier: 'catalog:'
-        version: 0.15.0(tslib@2.8.1)
+        version: 0.15.2(tslib@2.8.1)
       '@lynx-js/web-core':
         specifier: 'catalog:'
-        version: 0.24.0(@lynx-js/css-serializer@0.1.7)(tslib@2.8.1)
+        version: 0.25.0(tslib@2.8.1)
       '@lynx-js/web-elements':
         specifier: 'catalog:'
-        version: 0.12.7(tslib@2.8.1)
+        version: 0.12.9(tslib@2.8.1)
       '@lynx-js/webpack-dev-transport':
         specifier: 'catalog:'
-        version: 0.3.0
+        version: 0.4.0
       '@sigx/cli':
         specifier: ^0.10.0
         version: 0.10.0
@@ -308,23 +308,23 @@ importers:
         version: link:../../packages/lynx-zero-legacy
       '@sigx/reactivity':
         specifier: 'catalog:'
-        version: 0.15.4
+        version: 0.15.6
       '@sigx/runtime-core':
         specifier: 'catalog:'
-        version: 0.15.4
+        version: 0.15.6
       lucide:
-        specifier: ^1.16.0
-        version: 1.16.0
+        specifier: ^1.34.0
+        version: 1.34.0
       zod:
         specifier: ^4.4.3
         version: 4.4.3
     devDependencies:
       '@lynx-js/css-extract-webpack-plugin':
         specifier: 'catalog:'
-        version: 0.10.1(@lynx-js/template-webpack-plugin@0.15.0(tslib@2.8.1))
+        version: 0.10.1(@lynx-js/template-webpack-plugin@0.15.2(tslib@2.8.1))
       '@lynx-js/rspeedy':
         specifier: 'catalog:'
-        version: 0.16.3(@emnapi/core@1.11.3)(@emnapi/runtime@1.11.3)(@rspack/core@2.1.9(@swc/helpers@0.5.23))(core-js@3.47.0)(esbuild@0.28.0)(typescript@6.0.3)(webpack@5.106.2(esbuild@0.28.0)(postcss@8.5.15))
+        version: 0.16.5(@emnapi/core@1.11.3)(@emnapi/runtime@1.11.3)(@rspack/core@2.1.9(@swc/helpers@0.5.23))(core-js@3.47.0)(esbuild@0.28.2)(typescript@6.0.3)(webpack@5.106.2(esbuild@0.28.2)(postcss@8.5.15))
       '@lynx-js/runtime-wrapper-webpack-plugin':
         specifier: 'catalog:'
         version: 0.2.3
@@ -333,16 +333,16 @@ importers:
         version: 0.5.1(tailwindcss@3.4.19)
       '@lynx-js/template-webpack-plugin':
         specifier: 'catalog:'
-        version: 0.15.0(tslib@2.8.1)
+        version: 0.15.2(tslib@2.8.1)
       '@lynx-js/web-core':
         specifier: 'catalog:'
-        version: 0.24.0(@lynx-js/css-serializer@0.1.7)(tslib@2.8.1)
+        version: 0.25.0(tslib@2.8.1)
       '@lynx-js/web-elements':
         specifier: 'catalog:'
-        version: 0.12.7(tslib@2.8.1)
+        version: 0.12.9(tslib@2.8.1)
       '@lynx-js/webpack-dev-transport':
         specifier: 'catalog:'
-        version: 0.3.0
+        version: 0.4.0
       '@sigx/cli':
         specifier: ^0.10.0
         version: 0.10.0
@@ -384,10 +384,10 @@ importers:
         version: link:../lynx-runtime-internal
       '@sigx/reactivity':
         specifier: 'catalog:'
-        version: 0.15.4
+        version: 0.15.6
       '@sigx/runtime-core':
         specifier: 'catalog:'
-        version: 0.15.4
+        version: 0.15.6
     devDependencies:
       '@typescript/native-preview':
         specifier: 7.0.0-dev.20260521.1
@@ -406,7 +406,7 @@ importers:
         version: link:../lynx-core
       '@sigx/reactivity':
         specifier: 'catalog:'
-        version: 0.15.4
+        version: 0.15.6
     devDependencies:
       '@sigx/lynx-plugin':
         specifier: workspace:^
@@ -454,7 +454,7 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^4.1.7
-        version: 4.1.7(@types/node@25.9.3)(@vitest/coverage-v8@4.1.7)(happy-dom@20.11.1)(vite@8.0.14(@types/node@25.9.3)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0))
+        version: 4.1.7(@types/node@26.4.0)(@vitest/coverage-v8@4.1.7)(happy-dom@20.11.1)(vite@8.0.14(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2))
 
   packages/lynx-biometric:
     dependencies:
@@ -470,7 +470,7 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^4.1.7
-        version: 4.1.7(@types/node@25.9.3)(@vitest/coverage-v8@4.1.7)(happy-dom@20.11.1)(vite@8.0.14(@types/node@25.9.3)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0))
+        version: 4.1.7(@types/node@26.4.0)(@vitest/coverage-v8@4.1.7)(happy-dom@20.11.1)(vite@8.0.14(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2))
 
   packages/lynx-camera:
     dependencies:
@@ -492,7 +492,7 @@ importers:
     dependencies:
       '@lynx-js/web-core':
         specifier: 'catalog:'
-        version: 0.24.0(@lynx-js/css-serializer@0.1.7)(tslib@2.8.1)
+        version: 0.25.0(tslib@2.8.1)
       '@sigx/cli':
         specifier: ^0.10.0
         version: 0.10.0
@@ -509,14 +509,14 @@ importers:
         specifier: ^0.12.0
         version: 0.12.0
       esbuild:
-        specifier: ^0.28.0
-        version: 0.28.0
+        specifier: ^0.28.2
+        version: 0.28.2
       sharp:
-        specifier: ^0.34.0
-        version: 0.34.5
+        specifier: ^0.35.4
+        version: 0.35.4(@types/node@25.9.3)
       ws:
-        specifier: ^8.20.1
-        version: 8.21.1
+        specifier: ^8.21.3
+        version: 8.21.3
     devDependencies:
       '@types/node':
         specifier: ^25.9.1
@@ -548,7 +548,7 @@ importers:
     dependencies:
       '@sigx/reactivity':
         specifier: 'catalog:'
-        version: 0.15.4
+        version: 0.15.6
     devDependencies:
       '@typescript/native-preview':
         specifier: 7.0.0-dev.20260521.1
@@ -608,10 +608,10 @@ importers:
     devDependencies:
       '@sigx/zero':
         specifier: 'catalog:'
-        version: 0.2.0-beta.6(@sigx/reactivity@0.15.4)(@sigx/runtime-core@0.15.4)(@sigx/runtime-dom@0.15.3)(sigx@0.15.3)
+        version: 0.2.0-beta.6(@sigx/reactivity@0.15.6)(@sigx/runtime-core@0.15.6)(@sigx/runtime-dom@0.15.3)(sigx@0.15.3)
       '@sigx/zero-daisyui':
         specifier: 'catalog:'
-        version: 0.2.0-beta.6(@sigx/zero@0.2.0-beta.6(@sigx/reactivity@0.15.4)(@sigx/runtime-core@0.15.4)(@sigx/runtime-dom@0.15.3)(sigx@0.15.3))
+        version: 0.2.0-beta.6(@sigx/zero@0.2.0-beta.6(@sigx/reactivity@0.15.6)(@sigx/runtime-core@0.15.6)(@sigx/runtime-dom@0.15.3)(sigx@0.15.3))
       '@typescript/native-preview':
         specifier: 7.0.0-dev.20260521.1
         version: 7.0.0-dev.20260521.1
@@ -636,7 +636,7 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^4.1.7
-        version: 4.1.7(@types/node@25.9.3)(@vitest/coverage-v8@4.1.7)(happy-dom@20.11.1)(vite@8.0.14(@types/node@25.9.3)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0))
+        version: 4.1.7(@types/node@26.4.0)(@vitest/coverage-v8@4.1.7)(happy-dom@20.11.1)(vite@8.0.14(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2))
 
   packages/lynx-dev-client:
     dependencies:
@@ -734,7 +734,7 @@ importers:
     devDependencies:
       '@lynx-js/react':
         specifier: 'catalog:'
-        version: 0.123.3(@lynx-js/types@4.0.0)(@types/react@18.3.28)
+        version: 0.125.0(@lynx-js/types@4.2.1)(@types/react@18.3.28)
       '@sigx/lynx-plugin':
         specifier: workspace:^
         version: link:../lynx-plugin
@@ -871,8 +871,8 @@ importers:
         specifier: 7.0.0-dev.20260521.1
         version: 7.0.0-dev.20260521.1
       lucide:
-        specifier: ^1.16.0
-        version: 1.16.0
+        specifier: ^1.34.0
+        version: 1.34.0
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -938,7 +938,7 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^4.1.7
-        version: 4.1.7(@types/node@25.9.3)(@vitest/coverage-v8@4.1.7)(happy-dom@20.11.1)(vite@8.0.14(@types/node@25.9.3)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0))
+        version: 4.1.7(@types/node@26.4.0)(@vitest/coverage-v8@4.1.7)(happy-dom@20.11.1)(vite@8.0.14(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2))
 
   packages/lynx-list:
     devDependencies:
@@ -984,7 +984,7 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^4.1.7
-        version: 4.1.7(@types/node@25.9.3)(@vitest/coverage-v8@4.1.7)(happy-dom@20.11.1)(vite@8.0.14(@types/node@25.9.3)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0))
+        version: 4.1.7(@types/node@26.4.0)(@vitest/coverage-v8@4.1.7)(happy-dom@20.11.1)(vite@8.0.14(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2))
 
   packages/lynx-markdown:
     devDependencies:
@@ -1015,7 +1015,7 @@ importers:
     devDependencies:
       '@lynx-js/react':
         specifier: 'catalog:'
-        version: 0.123.3(@lynx-js/types@4.0.0)(@types/react@18.3.28)
+        version: 0.125.0(@lynx-js/types@4.2.1)(@types/react@18.3.28)
       '@sigx/lynx-plugin':
         specifier: workspace:^
         version: link:../lynx-plugin
@@ -1064,7 +1064,7 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^4.1.7
-        version: 4.1.7(@types/node@25.9.3)(@vitest/coverage-v8@4.1.7)(happy-dom@20.11.1)(vite@8.0.14(@types/node@25.9.3)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0))
+        version: 4.1.7(@types/node@25.9.3)(@vitest/coverage-v8@4.1.7)(happy-dom@20.11.1)(vite@8.0.14(@types/node@25.9.3)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2))
 
   packages/lynx-network:
     dependencies:
@@ -1096,7 +1096,7 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^4.1.7
-        version: 4.1.7(@types/node@25.9.3)(@vitest/coverage-v8@4.1.7)(happy-dom@20.11.1)(vite@8.0.14(@types/node@25.9.3)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0))
+        version: 4.1.7(@types/node@26.4.0)(@vitest/coverage-v8@4.1.7)(happy-dom@20.11.1)(vite@8.0.14(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2))
 
   packages/lynx-observability:
     dependencies:
@@ -1131,22 +1131,22 @@ importers:
     dependencies:
       '@lynx-js/css-extract-webpack-plugin':
         specifier: 'catalog:'
-        version: 0.10.1(@lynx-js/template-webpack-plugin@0.15.0(tslib@2.8.1))
+        version: 0.10.1(@lynx-js/template-webpack-plugin@0.15.2(tslib@2.8.1))
       '@lynx-js/react':
         specifier: 'catalog:'
-        version: 0.123.3(@lynx-js/types@4.0.0)(@types/react@18.3.28)
+        version: 0.125.0(@lynx-js/types@4.2.1)(@types/react@18.3.28)
       '@lynx-js/rspeedy':
         specifier: 'catalog:'
-        version: 0.16.3(@emnapi/core@1.11.3)(@emnapi/runtime@1.11.3)(@rspack/core@2.1.9(@swc/helpers@0.5.23))(core-js@3.47.0)(esbuild@0.28.0)(typescript@6.0.3)(webpack@5.106.2(esbuild@0.28.0))
+        version: 0.16.5(@emnapi/core@1.11.3)(@emnapi/runtime@1.11.3)(@rspack/core@2.1.9(@swc/helpers@0.5.23))(core-js@3.47.0)(esbuild@0.28.2)(typescript@6.0.3)(webpack@5.106.2(esbuild@0.28.2))
       '@lynx-js/runtime-wrapper-webpack-plugin':
         specifier: 'catalog:'
         version: 0.2.3
       '@lynx-js/template-webpack-plugin':
         specifier: 'catalog:'
-        version: 0.15.0(tslib@2.8.1)
+        version: 0.15.2(tslib@2.8.1)
       '@lynx-js/webpack-dev-transport':
         specifier: 'catalog:'
-        version: 0.3.0
+        version: 0.4.0
       '@rspack/core':
         specifier: '>=1.0.0'
         version: 2.1.9(@swc/helpers@0.5.23)
@@ -1154,8 +1154,8 @@ importers:
         specifier: workspace:*
         version: link:../lynx-runtime-internal
       ws:
-        specifier: ^8.20.1
-        version: 8.21.1
+        specifier: ^8.21.3
+        version: 8.21.3
     devDependencies:
       '@rsbuild/core':
         specifier: ^2.1.7
@@ -1204,14 +1204,14 @@ importers:
         version: link:../lynx-runtime-internal
       '@sigx/reactivity':
         specifier: 'catalog:'
-        version: 0.15.4
+        version: 0.15.6
       '@sigx/runtime-core':
         specifier: 'catalog:'
-        version: 0.15.4
+        version: 0.15.6
     devDependencies:
       '@lynx-js/types':
-        specifier: ~4.0.0
-        version: 4.0.0
+        specifier: ~4.2.1
+        version: 4.2.1
       '@typescript/native-preview':
         specifier: 7.0.0-dev.20260521.1
         version: 7.0.0-dev.20260521.1
@@ -1220,7 +1220,7 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^4.1.7
-        version: 4.1.7(@types/node@25.9.3)(@vitest/coverage-v8@4.1.7)(happy-dom@20.11.1)(vite@8.0.14(@types/node@25.9.3)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0))
+        version: 4.1.7(@types/node@26.4.0)(@vitest/coverage-v8@4.1.7)(happy-dom@20.11.1)(vite@8.0.14(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2))
 
   packages/lynx-runtime-internal:
     devDependencies:
@@ -1238,14 +1238,14 @@ importers:
         version: link:../lynx-runtime-internal
     devDependencies:
       '@lynx-js/types':
-        specifier: ~4.0.0
-        version: 4.0.0
+        specifier: ~4.2.1
+        version: 4.2.1
       '@sigx/lynx-runtime':
         specifier: workspace:*
         version: link:../lynx-runtime
       '@sigx/runtime-core':
         specifier: 'catalog:'
-        version: 0.15.4
+        version: 0.15.6
       '@typescript/native-preview':
         specifier: 7.0.0-dev.20260521.1
         version: 7.0.0-dev.20260521.1
@@ -1266,7 +1266,7 @@ importers:
         version: link:../lynx-runtime-internal
       '@sigx/reactivity':
         specifier: 'catalog:'
-        version: 0.15.4
+        version: 0.15.6
     devDependencies:
       '@sigx/lynx-plugin':
         specifier: workspace:^
@@ -1298,7 +1298,7 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^4.1.7
-        version: 4.1.7(@types/node@25.9.3)(@vitest/coverage-v8@4.1.7)(happy-dom@20.11.1)(vite@8.0.14(@types/node@25.9.3)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0))
+        version: 4.1.7(@types/node@26.4.0)(@vitest/coverage-v8@4.1.7)(happy-dom@20.11.1)(vite@8.0.14(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2))
 
   packages/lynx-share:
     dependencies:
@@ -1342,7 +1342,7 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^4.1.7
-        version: 4.1.7(@types/node@25.9.3)(@vitest/coverage-v8@4.1.7)(happy-dom@20.11.1)(vite@8.0.14(@types/node@25.9.3)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0))
+        version: 4.1.7(@types/node@26.4.0)(@vitest/coverage-v8@4.1.7)(happy-dom@20.11.1)(vite@8.0.14(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2))
 
   packages/lynx-sqlite:
     dependencies:
@@ -1361,7 +1361,7 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^4.1.7
-        version: 4.1.7(@types/node@25.9.3)(@vitest/coverage-v8@4.1.7)(happy-dom@20.11.1)(vite@8.0.14(@types/node@25.9.3)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0))
+        version: 4.1.7(@types/node@26.4.0)(@vitest/coverage-v8@4.1.7)(happy-dom@20.11.1)(vite@8.0.14(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2))
 
   packages/lynx-storage:
     dependencies:
@@ -1386,11 +1386,11 @@ importers:
         version: link:../lynx
       '@sigx/runtime-core':
         specifier: 'catalog:'
-        version: 0.15.4
+        version: 0.15.6
     devDependencies:
       '@lynx-js/react':
         specifier: 'catalog:'
-        version: 0.123.3(@lynx-js/types@4.0.0)(@types/react@18.3.28)
+        version: 0.125.0(@lynx-js/types@4.2.1)(@types/react@18.3.28)
       '@sigx/lynx-runtime-main':
         specifier: workspace:^
         version: link:../lynx-runtime-main
@@ -1402,7 +1402,7 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^4.1.7
-        version: 4.1.7(@types/node@25.9.3)(@vitest/coverage-v8@4.1.7)(happy-dom@20.11.1)(vite@8.0.14(@types/node@25.9.3)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0))
+        version: 4.1.7(@types/node@26.4.0)(@vitest/coverage-v8@4.1.7)(happy-dom@20.11.1)(vite@8.0.14(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2))
 
   packages/lynx-updates:
     dependencies:
@@ -1498,7 +1498,7 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^4.1.7
-        version: 4.1.7(@types/node@25.9.3)(@vitest/coverage-v8@4.1.7)(happy-dom@20.11.1)(vite@8.0.14(@types/node@25.9.3)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0))
+        version: 4.1.7(@types/node@26.4.0)(@vitest/coverage-v8@4.1.7)(happy-dom@20.11.1)(vite@8.0.14(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2))
 
   packages/lynx-webrtc:
     dependencies:
@@ -1517,7 +1517,7 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^4.1.7
-        version: 4.1.7(@types/node@25.9.3)(@vitest/coverage-v8@4.1.7)(happy-dom@20.11.1)(vite@8.0.14(@types/node@25.9.3)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0))
+        version: 4.1.7(@types/node@26.4.0)(@vitest/coverage-v8@4.1.7)(happy-dom@20.11.1)(vite@8.0.14(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2))
 
   packages/lynx-websocket:
     dependencies:
@@ -1533,7 +1533,7 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^4.1.7
-        version: 4.1.7(@types/node@25.9.3)(@vitest/coverage-v8@4.1.7)(happy-dom@20.11.1)(vite@8.0.14(@types/node@25.9.3)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0))
+        version: 4.1.7(@types/node@26.4.0)(@vitest/coverage-v8@4.1.7)(happy-dom@20.11.1)(vite@8.0.14(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2))
 
   packages/lynx-webview:
     devDependencies:
@@ -1548,7 +1548,7 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^4.1.7
-        version: 4.1.7(@types/node@25.9.3)(@vitest/coverage-v8@4.1.7)(happy-dom@20.11.1)(vite@8.0.14(@types/node@25.9.3)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0))
+        version: 4.1.7(@types/node@26.4.0)(@vitest/coverage-v8@4.1.7)(happy-dom@20.11.1)(vite@8.0.14(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2))
 
   packages/lynx-zero:
     dependencies:
@@ -1560,7 +1560,7 @@ importers:
         version: link:../lynx-appearance
       '@sigx/zero':
         specifier: 'catalog:'
-        version: 0.2.0-beta.6(@sigx/reactivity@0.15.4)(@sigx/runtime-core@0.15.4)(@sigx/runtime-dom@0.15.3)(sigx@0.15.3)
+        version: 0.2.0-beta.6(@sigx/reactivity@0.15.6)(@sigx/runtime-core@0.15.6)(@sigx/runtime-dom@0.15.3)(sigx@0.15.3)
     devDependencies:
       '@sigx/lynx-navigation':
         specifier: workspace:^
@@ -1661,158 +1661,158 @@ packages:
   '@emnapi/wasi-threads@1.2.3':
     resolution: {integrity: sha512-ELEBe8PsLvvJ6QMr0zLt8ffvOHW/dc1m3CEzNMg7aJUv3bMaoDtw2TXyDAwkYBuroxxuHEwhRTLJSe5sya547g==}
 
-  '@esbuild/aix-ppc64@0.28.0':
-    resolution: {integrity: sha512-lhRUCeuOyJQURhTxl4WkpFTjIsbDayJHih5kZC1giwE+MhIzAb7mEsQMqMf18rHLsrb5qI1tafG20mLxEWcWlA==}
+  '@esbuild/aix-ppc64@0.28.2':
+    resolution: {integrity: sha512-XExcO+dvLKvVtNTibSTBej1NCAbaGhWn9Ww1ZPx80qsahhPFe/8jgWP0IchNe0F3HwkU7n8ejhH8bjonqht8mQ==}
     engines: {node: '>=18'}
     cpu: [ppc64]
     os: [aix]
 
-  '@esbuild/android-arm64@0.28.0':
-    resolution: {integrity: sha512-+WzIXQOSaGs33tLEgYPYe/yQHf0WTU0X42Jca3y8NWMbUVhp7rUnw+vAsRC/QiDrdD31IszMrZy+qwPOPjd+rw==}
+  '@esbuild/android-arm64@0.28.2':
+    resolution: {integrity: sha512-5YfKeeI8qWfBZIX+u2xZC3Zlb3Os/gLS2sbEKM+I4ZOcsWmHS2WLysCcQZDAFRslDUU5Oiq44gf6PYN1vGwG5A==}
     engines: {node: '>=18'}
     cpu: [arm64]
     os: [android]
 
-  '@esbuild/android-arm@0.28.0':
-    resolution: {integrity: sha512-wqh0ByljabXLKHeWXYLqoJ5jKC4XBaw6Hk08OfMrCRd2nP2ZQ5eleDZC41XHyCNgktBGYMbqnrJKq/K/lzPMSQ==}
+  '@esbuild/android-arm@0.28.2':
+    resolution: {integrity: sha512-kXXoiPVVGQcnIYGOeaovwOURpniDBpSq4A03qkQ+BMQqtGG6HYap3xne9C1O1yo4TR3qxlCX5IqqmX6fFo2Lqg==}
     engines: {node: '>=18'}
     cpu: [arm]
     os: [android]
 
-  '@esbuild/android-x64@0.28.0':
-    resolution: {integrity: sha512-+VJggoaKhk2VNNqVL7f6S189UzShHC/mR9EE8rDdSkdpN0KflSwWY/gWjDrNxxisg8Fp1ZCD9jLMo4m0OUfeUA==}
+  '@esbuild/android-x64@0.28.2':
+    resolution: {integrity: sha512-O387ite7SzUyCcy3JQX4P4bLtEA7bLLkx+esve5JHnyYfNTxcVpXZo9jhdB0lTKN44gztELTdU7nS8Nr16Fs1Q==}
     engines: {node: '>=18'}
     cpu: [x64]
     os: [android]
 
-  '@esbuild/darwin-arm64@0.28.0':
-    resolution: {integrity: sha512-0T+A9WZm+bZ84nZBtk1ckYsOvyA3x7e2Acj1KdVfV4/2tdG4fzUp91YHx+GArWLtwqp77pBXVCPn2We7Letr0Q==}
+  '@esbuild/darwin-arm64@0.28.2':
+    resolution: {integrity: sha512-n4KqkOQrraxHJcgjM1RvwbigfQKIKJVpM7xp+KsxiyUSrRdIXnt73VhrPAx0fV44hgfmIVKjxMN9J1t5jySVkw==}
     engines: {node: '>=18'}
     cpu: [arm64]
     os: [darwin]
 
-  '@esbuild/darwin-x64@0.28.0':
-    resolution: {integrity: sha512-fyzLm/DLDl/84OCfp2f/XQ4flmORsjU7VKt8HLjvIXChJoFFOIL6pLJPH4Yhd1n1gGFF9mPwtlN5Wf82DZs+LQ==}
+  '@esbuild/darwin-x64@0.28.2':
+    resolution: {integrity: sha512-uq6suIWYP37qzGddBKPw5QEQPi6HiLGsO7UmkpfyaYNQ3D+rN6w6WfwH+nuqcGXWvawGwxOEroO4YGnFh95azw==}
     engines: {node: '>=18'}
     cpu: [x64]
     os: [darwin]
 
-  '@esbuild/freebsd-arm64@0.28.0':
-    resolution: {integrity: sha512-l9GeW5UZBT9k9brBYI+0WDffcRxgHQD8ShN2Ur4xWq/NFzUKm3k5lsH4PdaRgb2w7mI9u61nr2gI2mLI27Nh3Q==}
+  '@esbuild/freebsd-arm64@0.28.2':
+    resolution: {integrity: sha512-n+I0BTSRIoy+d6RPKnEVwql5UwBJolytvY4mAOIEJorKlqgPII8ix6slVVrfZ5Tnj7glIZvloylbB/EJPMWEXw==}
     engines: {node: '>=18'}
     cpu: [arm64]
     os: [freebsd]
 
-  '@esbuild/freebsd-x64@0.28.0':
-    resolution: {integrity: sha512-BXoQai/A0wPO6Es3yFJ7APCiKGc1tdAEOgeTNy3SsB491S3aHn4S4r3e976eUnPdU+NbdtmBuLncYir2tMU9Nw==}
+  '@esbuild/freebsd-x64@0.28.2':
+    resolution: {integrity: sha512-78XJTJkvPs0kz2w61301PJjXl4g7q3JqiYMZ/M/yVI73EHBrCRTgkhu9oqG7vPqq+a/yadEW8aD+agKlk5xrmg==}
     engines: {node: '>=18'}
     cpu: [x64]
     os: [freebsd]
 
-  '@esbuild/linux-arm64@0.28.0':
-    resolution: {integrity: sha512-RVyzfb3FWsGA55n6WY0MEIEPURL1FcbhFE6BffZEMEekfCzCIMtB5yyDcFnVbTnwk+CLAgTujmV/Lgvih56W+A==}
+  '@esbuild/linux-arm64@0.28.2':
+    resolution: {integrity: sha512-pW4AC0P3it8c7do9MVM4p51FzHzdM/TZrerurgRcHJ2WTa1VQ1CIq18xncfpBJw4ojkiZZrKW2yIBWBP92j6Ug==}
     engines: {node: '>=18'}
     cpu: [arm64]
     os: [linux]
 
-  '@esbuild/linux-arm@0.28.0':
-    resolution: {integrity: sha512-CjaaREJagqJp7iTaNQjjidaNbCKYcd4IDkzbwwxtSvjI7NZm79qiHc8HqciMddQ6CKvJT6aBd8lO9kN/ZudLlw==}
+  '@esbuild/linux-arm@0.28.2':
+    resolution: {integrity: sha512-XlDnu2q5yoqems+xay6wSAcg9DDD7K9RLKZEBOMZm3ckNpJBvOX20tSfby8KfrrhINDyv9V2YVZKY/SpoGJI8w==}
     engines: {node: '>=18'}
     cpu: [arm]
     os: [linux]
 
-  '@esbuild/linux-ia32@0.28.0':
-    resolution: {integrity: sha512-KBnSTt1kxl9x70q+ydterVdl+Cn0H18ngRMRCEQfrbqdUuntQQ0LoMZv47uB97NljZFzY6HcfqEZ2SAyIUTQBQ==}
+  '@esbuild/linux-ia32@0.28.2':
+    resolution: {integrity: sha512-CYbnj78HsIeA+DhgUKgFCfvNsTHFhMMrinUrMZpDXJXKN8T3XViTZ/+wtHeVxEWY8ewSzTFN+nRmSwO2tZaLUQ==}
     engines: {node: '>=18'}
     cpu: [ia32]
     os: [linux]
 
-  '@esbuild/linux-loong64@0.28.0':
-    resolution: {integrity: sha512-zpSlUce1mnxzgBADvxKXX5sl8aYQHo2ezvMNI8I0lbblJtp8V4odlm3Yzlj7gPyt3T8ReksE6bK+pT3WD+aJRg==}
+  '@esbuild/linux-loong64@0.28.2':
+    resolution: {integrity: sha512-buwkd8nsph4R+ajRvw0qM5Hja/TXQow3ptzWO2EbG/cqcIkHloRrdlBtQlshyYGTNFvfkfJ5tpPLVkY4DtsPfQ==}
     engines: {node: '>=18'}
     cpu: [loong64]
     os: [linux]
 
-  '@esbuild/linux-mips64el@0.28.0':
-    resolution: {integrity: sha512-2jIfP6mmjkdmeTlsX/9vmdmhBmKADrWqN7zcdtHIeNSCH1SqIoNI63cYsjQR8J+wGa4Y5izRcSHSm8K3QWmk3w==}
+  '@esbuild/linux-mips64el@0.28.2':
+    resolution: {integrity: sha512-ZVykbDyk7519VwiNb9Lcj9m8XM6v5V9uKPvrEMkkEedVewf+0itkhahp4HDpgERXhwLRpWFypsGbG/J8s0QjJA==}
     engines: {node: '>=18'}
     cpu: [mips64el]
     os: [linux]
 
-  '@esbuild/linux-ppc64@0.28.0':
-    resolution: {integrity: sha512-bc0FE9wWeC0WBm49IQMPSPILRocGTQt3j5KPCA8os6VprfuJ7KD+5PzESSrJ6GmPIPJK965ZJHTUlSA6GNYEhg==}
+  '@esbuild/linux-ppc64@0.28.2':
+    resolution: {integrity: sha512-CAXl+Dtd9UUuJd8pKKdwh6MLm3MUMiqMPmhZ3tTSXPqfyQ3vDl6R5hZdZ/kYojK4ofXtdfSv1tFq8XzWx3heNQ==}
     engines: {node: '>=18'}
     cpu: [ppc64]
     os: [linux]
 
-  '@esbuild/linux-riscv64@0.28.0':
-    resolution: {integrity: sha512-SQPZOwoTTT/HXFXQJG/vBX8sOFagGqvZyXcgLA3NhIqcBv1BJU1d46c0rGcrij2B56Z2rNiSLaZOYW5cUk7yLQ==}
+  '@esbuild/linux-riscv64@0.28.2':
+    resolution: {integrity: sha512-GeXCej4IQtU1B+QlDV8W/RRvbzI3O/Stss+/bCXv4lZls5WGRtu2a+3JkA3i4qIUlMXpcHebWpF8AkJhATowuA==}
     engines: {node: '>=18'}
     cpu: [riscv64]
     os: [linux]
 
-  '@esbuild/linux-s390x@0.28.0':
-    resolution: {integrity: sha512-SCfR0HN8CEEjnYnySJTd2cw0k9OHB/YFzt5zgJEwa+wL/T/raGWYMBqwDNAC6dqFKmJYZoQBRfHjgwLHGSrn3Q==}
+  '@esbuild/linux-s390x@0.28.2':
+    resolution: {integrity: sha512-3H1weTYZPxt/WOhByszQZybS9w5lKzUn1FDMsgEChbHWQwHYQQRfBxgCcZvPhjHfKyJjIievvMmEUawJrdY9Dg==}
     engines: {node: '>=18'}
     cpu: [s390x]
     os: [linux]
 
-  '@esbuild/linux-x64@0.28.0':
-    resolution: {integrity: sha512-us0dSb9iFxIi8srnpl931Nvs65it/Jd2a2K3qs7fz2WfGPHqzfzZTfec7oxZJRNPXPnNYZtanmRc4AL/JwVzHQ==}
+  '@esbuild/linux-x64@0.28.2':
+    resolution: {integrity: sha512-4xTZr1FUmSoQW4XIWmit3tzQrUTZM+N3P0XV8xROKYF50XfI7xeO90+1bZvNwxIufQ9hDQVRJH5YhgPVF8A/HQ==}
     engines: {node: '>=18'}
     cpu: [x64]
     os: [linux]
 
-  '@esbuild/netbsd-arm64@0.28.0':
-    resolution: {integrity: sha512-CR/RYotgtCKwtftMwJlUU7xCVNg3lMYZ0RzTmAHSfLCXw3NtZtNpswLEj/Kkf6kEL3Gw+BpOekRX0BYCtklhUw==}
+  '@esbuild/netbsd-arm64@0.28.2':
+    resolution: {integrity: sha512-sSATRjPeDBg3pdgHoQfoYBob11Kk1FGa9lui5RIHZCoCkJa9QKlvl3/vKz2usCmYYjs7ymJR/2Nnsqe+Hjt5nw==}
     engines: {node: '>=18'}
     cpu: [arm64]
     os: [netbsd]
 
-  '@esbuild/netbsd-x64@0.28.0':
-    resolution: {integrity: sha512-nU1yhmYutL+fQ71Kxnhg8uEOdC0pwEW9entHykTgEbna2pw2dkbFSMeqjjyHZoCmt8SBkOSvV+yNmm94aUrrqw==}
+  '@esbuild/netbsd-x64@0.28.2':
+    resolution: {integrity: sha512-lqnzCV+mM0gIADaKihiCg6ifgfU2L3h5E33rNQBN1Y4MaVGnzryzmvvf7UHxprpQdE8hpqLolJ9Rl+SkIRDpyw==}
     engines: {node: '>=18'}
     cpu: [x64]
     os: [netbsd]
 
-  '@esbuild/openbsd-arm64@0.28.0':
-    resolution: {integrity: sha512-cXb5vApOsRsxsEl4mcZ1XY3D4DzcoMxR/nnc4IyqYs0rTI8ZKmW6kyyg+11Z8yvgMfAEldKzP7AdP64HnSC/6g==}
+  '@esbuild/openbsd-arm64@0.28.2':
+    resolution: {integrity: sha512-AL2qJILH7lNjrDmCQDvdxMfAUIv8KMNZOvrwAQ8i8//ntL9FflhOyMJ8OZSMBb8/AWXe3/5v5S20y3zCoZWKoQ==}
     engines: {node: '>=18'}
     cpu: [arm64]
     os: [openbsd]
 
-  '@esbuild/openbsd-x64@0.28.0':
-    resolution: {integrity: sha512-8wZM2qqtv9UP3mzy7HiGYNH/zjTA355mpeuA+859TyR+e+Tc08IHYpLJuMsfpDJwoLo1ikIJI8jC3GFjnRClzA==}
+  '@esbuild/openbsd-x64@0.28.2':
+    resolution: {integrity: sha512-QtiuPytchRyC4rwUKhexJdQKvDuZ6hWloi3igqPQNUJCS1/v9EiO3UTOXR6A3FoMo4fnAKbWJdqaIwhOzh8qEw==}
     engines: {node: '>=18'}
     cpu: [x64]
     os: [openbsd]
 
-  '@esbuild/openharmony-arm64@0.28.0':
-    resolution: {integrity: sha512-FLGfyizszcef5C3YtoyQDACyg95+dndv79i2EekILBofh5wpCa1KuBqOWKrEHZg3zrL3t5ouE5jgr94vA+Wb2w==}
+  '@esbuild/openharmony-arm64@0.28.2':
+    resolution: {integrity: sha512-WkhYDmpTjLvGlScA1rwjRUmhl4k8oXR3cIbtqWmELgU/dFeHHlEllxDvdWcNJV9rbzCexB5vz8gtNewWLgCT7Q==}
     engines: {node: '>=18'}
     cpu: [arm64]
     os: [openharmony]
 
-  '@esbuild/sunos-x64@0.28.0':
-    resolution: {integrity: sha512-1ZgjUoEdHZZl/YlV76TSCz9Hqj9h9YmMGAgAPYd+q4SicWNX3G5GCyx9uhQWSLcbvPW8Ni7lj4gDa1T40akdlw==}
+  '@esbuild/sunos-x64@0.28.2':
+    resolution: {integrity: sha512-GPMSkTOtMnv2U2F8gxe4Io6qmVs+YKyp832Etqqxr0hFngmXQ3rzwytelm3GIn7T4VviRUlf3sOgBOiTdvaf7g==}
     engines: {node: '>=18'}
     cpu: [x64]
     os: [sunos]
 
-  '@esbuild/win32-arm64@0.28.0':
-    resolution: {integrity: sha512-Q9StnDmQ/enxnpxCCLSg0oo4+34B9TdXpuyPeTedN/6+iXBJ4J+zwfQI28u/Jl40nOYAxGoNi7mFP40RUtkmUA==}
+  '@esbuild/win32-arm64@0.28.2':
+    resolution: {integrity: sha512-PIhhEkE9uPBleRBrQEJpUn7MBnibZzbGzYWPmY3x+YoVg/95zbjB4CxPPOQ8l5tYYM4mMaCthF8/1DIfBQQyWQ==}
     engines: {node: '>=18'}
     cpu: [arm64]
     os: [win32]
 
-  '@esbuild/win32-ia32@0.28.0':
-    resolution: {integrity: sha512-zF3ag/gfiCe6U2iczcRzSYJKH1DCI+ByzSENHlM2FcDbEeo5Zd2C86Aq0tKUYAJJ1obRP84ymxIAksZUcdztHA==}
+  '@esbuild/win32-ia32@0.28.2':
+    resolution: {integrity: sha512-YmJbfTlvU7Sdn9BB+4PRES4oB6pxgS37MAONj+hBr/cpXS1aBPKXxNnDbu+QCWPj0o9dgyxeq79g6c5P8KeuYA==}
     engines: {node: '>=18'}
     cpu: [ia32]
     os: [win32]
 
-  '@esbuild/win32-x64@0.28.0':
-    resolution: {integrity: sha512-pEl1bO9mfAmIC+tW5btTmrKaujg3zGtUmWNdCw/xs70FBjwAL3o9OEKNHvNmnyylD6ubxUERiEhdsL0xBQ9efw==}
+  '@esbuild/win32-x64@0.28.2':
+    resolution: {integrity: sha512-5ebpxr3nWMzrL/rnUI755Jkuee0bHL/Gq0WTF9lvcpv73wAp5eu8MfBUgWK9bhWvZjj7yX8etf/8tI8Ney695g==}
     engines: {node: '>=18'}
     cpu: [x64]
     os: [win32]
@@ -1841,152 +1841,161 @@ packages:
     resolution: {integrity: sha512-Td76q7j57o/tLVdgS746cYARfSyxk8iEfRxewL9h4OMzYhbW4TAcppl0mT4eyqXddh6L/jwoM75mo7ixa/pCeQ==}
     engines: {node: '>=18'}
 
-  '@img/sharp-darwin-arm64@0.34.5':
-    resolution: {integrity: sha512-imtQ3WMJXbMY4fxb/Ndp6HBTNVtWCUI0WdobyheGf5+ad6xX8VIDO8u2xE4qc/fr08CKG/7dDseFtn6M6g/r3w==}
-    engines: {node: ^18.17.0 || ^20.3.0 || >=21.0.0}
+  '@img/sharp-darwin-arm64@0.35.4':
+    resolution: {integrity: sha512-Uhfl4V4lhP2nbUVF9+hyH1+luj86f1gUFeo8ALYxFoULoU+G87D43BfeMP8XHsk9boxAnCY/bf2EHwhA7MuGsA==}
+    engines: {node: '>=20.9.0'}
     cpu: [arm64]
     os: [darwin]
 
-  '@img/sharp-darwin-x64@0.34.5':
-    resolution: {integrity: sha512-YNEFAF/4KQ/PeW0N+r+aVVsoIY0/qxxikF2SWdp+NRkmMB7y9LBZAVqQ4yhGCm/H3H270OSykqmQMKLBhBJDEw==}
-    engines: {node: ^18.17.0 || ^20.3.0 || >=21.0.0}
+  '@img/sharp-darwin-x64@0.35.4':
+    resolution: {integrity: sha512-hWniXY3bG5qKpkKrAwPe4y+VTPmf086YQAnkxWh7uA1YrlRouWGa0M0Mxj3ZjnXFkv7/TD1bTy9lGUK26vRvWw==}
+    engines: {node: '>=20.9.0'}
     cpu: [x64]
     os: [darwin]
 
-  '@img/sharp-libvips-darwin-arm64@1.2.4':
-    resolution: {integrity: sha512-zqjjo7RatFfFoP0MkQ51jfuFZBnVE2pRiaydKJ1G/rHZvnsrHAOcQALIi9sA5co5xenQdTugCvtb1cuf78Vf4g==}
+  '@img/sharp-freebsd-wasm32@0.35.4':
+    resolution: {integrity: sha512-lIsKw/BU+kjB4eZjxrYrZmwOJYi3Ajrv66iAlBmUPyKc3HpnloevB1g3wxGD9P/5BbQ1brBGl65VRRrCvQDEqA==}
+    engines: {node: '>=20.9.0'}
+    os: [freebsd]
+
+  '@img/sharp-libvips-darwin-arm64@1.3.3':
+    resolution: {integrity: sha512-suTBPTDGrI9WodccaDdwZItTSaBYASlBk1NSfElSHrUfzu3szG6lvIF58+WiFvnfzuK8ZBFS5zE00PxqxnRiPg==}
     cpu: [arm64]
     os: [darwin]
 
-  '@img/sharp-libvips-darwin-x64@1.2.4':
-    resolution: {integrity: sha512-1IOd5xfVhlGwX+zXv2N93k0yMONvUlANylbJw1eTah8K/Jtpi15KC+WSiaX/nBmbm2HxRM1gZ0nSdjSsrZbGKg==}
+  '@img/sharp-libvips-darwin-x64@1.3.3':
+    resolution: {integrity: sha512-FVJZ5mITMobmXIz/hPDTw0EintTW5H3WfrxwLqEqjiIihlu+hVRyGrFQ60xl0Lxn7Bt3zdpevPaQi0HEzqz9fw==}
     cpu: [x64]
     os: [darwin]
 
-  '@img/sharp-libvips-linux-arm64@1.2.4':
-    resolution: {integrity: sha512-excjX8DfsIcJ10x1Kzr4RcWe1edC9PquDRRPx3YVCvQv+U5p7Yin2s32ftzikXojb1PIFc/9Mt28/y+iRklkrw==}
+  '@img/sharp-libvips-linux-arm64@1.3.3':
+    resolution: {integrity: sha512-0DaL0A6Xu6sQSQFwe4iVCrKWU2cCTItnRsYsCdxAMm9NF6twAA9BKnoqy4hqz4+azQ0JHuA26qiUKsf1XJ/v5A==}
     cpu: [arm64]
     os: [linux]
     libc: [glibc]
 
-  '@img/sharp-libvips-linux-arm@1.2.4':
-    resolution: {integrity: sha512-bFI7xcKFELdiNCVov8e44Ia4u2byA+l3XtsAj+Q8tfCwO6BQ8iDojYdvoPMqsKDkuoOo+X6HZA0s0q11ANMQ8A==}
+  '@img/sharp-libvips-linux-arm@1.3.3':
+    resolution: {integrity: sha512-3rbU4vqXXc3hY/OiXdl52xZvT0F1yEngWfvqudtPJg/KkyiaQw2DRsFrNzpmLvfavbwOq3qXn36GP8obHRULQA==}
     cpu: [arm]
     os: [linux]
     libc: [glibc]
 
-  '@img/sharp-libvips-linux-ppc64@1.2.4':
-    resolution: {integrity: sha512-FMuvGijLDYG6lW+b/UvyilUWu5Ayu+3r2d1S8notiGCIyYU/76eig1UfMmkZ7vwgOrzKzlQbFSuQfgm7GYUPpA==}
+  '@img/sharp-libvips-linux-ppc64@1.3.3':
+    resolution: {integrity: sha512-cdn1OvUBwsXhbC0zSzJnNzf5MZ/mTrobawDvNXBTxe8VtqKAm0sRuEY2Evzovb/w9JMk4TvRxqt1mekSuJz64w==}
     cpu: [ppc64]
     os: [linux]
     libc: [glibc]
 
-  '@img/sharp-libvips-linux-riscv64@1.2.4':
-    resolution: {integrity: sha512-oVDbcR4zUC0ce82teubSm+x6ETixtKZBh/qbREIOcI3cULzDyb18Sr/Wcyx7NRQeQzOiHTNbZFF1UwPS2scyGA==}
+  '@img/sharp-libvips-linux-riscv64@1.3.3':
+    resolution: {integrity: sha512-HjPVx7yKz+0lqdhDlTw1tt90wamBoxhiXpvl1XZpJLiHH4RCJ5yDTqH+VlYPv2fwFs89JFw4c1IexYOcQUi4IQ==}
     cpu: [riscv64]
     os: [linux]
     libc: [glibc]
 
-  '@img/sharp-libvips-linux-s390x@1.2.4':
-    resolution: {integrity: sha512-qmp9VrzgPgMoGZyPvrQHqk02uyjA0/QrTO26Tqk6l4ZV0MPWIW6LTkqOIov+J1yEu7MbFQaDpwdwJKhbJvuRxQ==}
+  '@img/sharp-libvips-linux-s390x@1.3.3':
+    resolution: {integrity: sha512-neWLh+3yCNThxnfy3c4BbVBeGgt9aftno+XbT56iK28RgeDs3UOFWviLWlUu0bArYVYJaFDK+RRohbicUNCm8Q==}
     cpu: [s390x]
     os: [linux]
     libc: [glibc]
 
-  '@img/sharp-libvips-linux-x64@1.2.4':
-    resolution: {integrity: sha512-tJxiiLsmHc9Ax1bz3oaOYBURTXGIRDODBqhveVHonrHJ9/+k89qbLl0bcJns+e4t4rvaNBxaEZsFtSfAdquPrw==}
+  '@img/sharp-libvips-linux-x64@1.3.3':
+    resolution: {integrity: sha512-4vKmvAst9nrowcqquKFAyZJUDolUaIp8uRiN0mWFguJ1IplC9/pitXtlnnlU4aa/eJw3J7i67V+pwUL+wZGdsA==}
     cpu: [x64]
     os: [linux]
     libc: [glibc]
 
-  '@img/sharp-libvips-linuxmusl-arm64@1.2.4':
-    resolution: {integrity: sha512-FVQHuwx1IIuNow9QAbYUzJ+En8KcVm9Lk5+uGUQJHaZmMECZmOlix9HnH7n1TRkXMS0pGxIJokIVB9SuqZGGXw==}
+  '@img/sharp-libvips-linuxmusl-arm64@1.3.3':
+    resolution: {integrity: sha512-Y9kQaLMuNoB0bPYOOdcZMaseNrFpPodIWWMrx+CZyydf2xn68j9WYc6sWWRrDwNkzCQjKYfc68L7jKjGlHMibw==}
     cpu: [arm64]
     os: [linux]
     libc: [musl]
 
-  '@img/sharp-libvips-linuxmusl-x64@1.2.4':
-    resolution: {integrity: sha512-+LpyBk7L44ZIXwz/VYfglaX/okxezESc6UxDSoyo2Ks6Jxc4Y7sGjpgU9s4PMgqgjj1gZCylTieNamqA1MF7Dg==}
+  '@img/sharp-libvips-linuxmusl-x64@1.3.3':
+    resolution: {integrity: sha512-fj8Mv0HHfD1Rr+4I68+3agJynxDWtBFgicTbSOb9Bke6pIwzGcJ+RX/yHjmiEGFMCavY/dxvem7MyNaJF+wDiw==}
     cpu: [x64]
     os: [linux]
     libc: [musl]
 
-  '@img/sharp-linux-arm64@0.34.5':
-    resolution: {integrity: sha512-bKQzaJRY/bkPOXyKx5EVup7qkaojECG6NLYswgktOZjaXecSAeCWiZwwiFf3/Y+O1HrauiE3FVsGxFg8c24rZg==}
-    engines: {node: ^18.17.0 || ^20.3.0 || >=21.0.0}
+  '@img/sharp-linux-arm64@0.35.4':
+    resolution: {integrity: sha512-De4jpEnAU8Hd5oT0j1G3uL4ZvTuipVMn7YC6vPaJhy6/7EwEae0SVAoBrUMYQbkLGDm85taVWwuPc1a44LTzCQ==}
+    engines: {node: '>=20.9.0'}
     cpu: [arm64]
     os: [linux]
     libc: [glibc]
 
-  '@img/sharp-linux-arm@0.34.5':
-    resolution: {integrity: sha512-9dLqsvwtg1uuXBGZKsxem9595+ujv0sJ6Vi8wcTANSFpwV/GONat5eCkzQo/1O6zRIkh0m/8+5BjrRr7jDUSZw==}
-    engines: {node: ^18.17.0 || ^20.3.0 || >=21.0.0}
+  '@img/sharp-linux-arm@0.35.4':
+    resolution: {integrity: sha512-7OAS8gI0EReKGVN2HssHlM6umJgxF5VI3xN0p9FA91p/YO+ou5hiNghLdZ5BEHztwaaK5+bLKRf8x/o2L2nk9A==}
+    engines: {node: '>=20.9.0'}
     cpu: [arm]
     os: [linux]
     libc: [glibc]
 
-  '@img/sharp-linux-ppc64@0.34.5':
-    resolution: {integrity: sha512-7zznwNaqW6YtsfrGGDA6BRkISKAAE1Jo0QdpNYXNMHu2+0dTrPflTLNkpc8l7MUP5M16ZJcUvysVWWrMefZquA==}
-    engines: {node: ^18.17.0 || ^20.3.0 || >=21.0.0}
+  '@img/sharp-linux-ppc64@0.35.4':
+    resolution: {integrity: sha512-2oYZJeIl4kCcMGk4ouZVjnkCtFrpQFlNEtJ6GbxzhHQchwH0NH/qEb9ykmOl29dqwMq+JhFdZn+1ak2FKhI9fQ==}
+    engines: {node: '>=20.9.0'}
     cpu: [ppc64]
     os: [linux]
     libc: [glibc]
 
-  '@img/sharp-linux-riscv64@0.34.5':
-    resolution: {integrity: sha512-51gJuLPTKa7piYPaVs8GmByo7/U7/7TZOq+cnXJIHZKavIRHAP77e3N2HEl3dgiqdD/w0yUfiJnII77PuDDFdw==}
-    engines: {node: ^18.17.0 || ^20.3.0 || >=21.0.0}
+  '@img/sharp-linux-riscv64@0.35.4':
+    resolution: {integrity: sha512-cPbNChoRURAWdebDIHSenxRpgEdy7JkPydSnUxRm9VvKD7m0/xVaR/8Fzlu81pk5nHEvHH87UZUA7cTtwnbJSA==}
+    engines: {node: '>=20.9.0'}
     cpu: [riscv64]
     os: [linux]
     libc: [glibc]
 
-  '@img/sharp-linux-s390x@0.34.5':
-    resolution: {integrity: sha512-nQtCk0PdKfho3eC5MrbQoigJ2gd1CgddUMkabUj+rBevs8tZ2cULOx46E7oyX+04WGfABgIwmMC0VqieTiR4jg==}
-    engines: {node: ^18.17.0 || ^20.3.0 || >=21.0.0}
+  '@img/sharp-linux-s390x@0.35.4':
+    resolution: {integrity: sha512-RY0JFY8Fd6RonCBtHz+DvadaPkXDSI1AUn6yWL9TipqkZ1vY8w8evqdgyDFnkm4/K1ve1TvZiaePP5oSd4+WVQ==}
+    engines: {node: '>=20.9.0'}
     cpu: [s390x]
     os: [linux]
     libc: [glibc]
 
-  '@img/sharp-linux-x64@0.34.5':
-    resolution: {integrity: sha512-MEzd8HPKxVxVenwAa+JRPwEC7QFjoPWuS5NZnBt6B3pu7EG2Ge0id1oLHZpPJdn3OQK+BQDiw9zStiHBTJQQQQ==}
-    engines: {node: ^18.17.0 || ^20.3.0 || >=21.0.0}
+  '@img/sharp-linux-x64@0.35.4':
+    resolution: {integrity: sha512-9qvvEAuk8k89TfWUoX2htWjbAMX8p+NxCppjpcg5k6xMsjhBQPTsoIh36h9Qde4WRuGpJeYnOjdosDn/cnv+OA==}
+    engines: {node: '>=20.9.0'}
     cpu: [x64]
     os: [linux]
     libc: [glibc]
 
-  '@img/sharp-linuxmusl-arm64@0.34.5':
-    resolution: {integrity: sha512-fprJR6GtRsMt6Kyfq44IsChVZeGN97gTD331weR1ex1c1rypDEABN6Tm2xa1wE6lYb5DdEnk03NZPqA7Id21yg==}
-    engines: {node: ^18.17.0 || ^20.3.0 || >=21.0.0}
+  '@img/sharp-linuxmusl-arm64@0.35.4':
+    resolution: {integrity: sha512-KB5jxpfWQTr0nc3xdHtWChdbifHrBGsd2SM62Eyxrl8afikm+f5qGBU75SJIZBT/S1MC8XyacdlXBMSWq6OURA==}
+    engines: {node: '>=20.9.0'}
     cpu: [arm64]
     os: [linux]
     libc: [musl]
 
-  '@img/sharp-linuxmusl-x64@0.34.5':
-    resolution: {integrity: sha512-Jg8wNT1MUzIvhBFxViqrEhWDGzqymo3sV7z7ZsaWbZNDLXRJZoRGrjulp60YYtV4wfY8VIKcWidjojlLcWrd8Q==}
-    engines: {node: ^18.17.0 || ^20.3.0 || >=21.0.0}
+  '@img/sharp-linuxmusl-x64@0.35.4':
+    resolution: {integrity: sha512-f+eZJZIQNEEd26RPSW+76chwOf1XtA2Y/O+5ocVyLliHkeih3e+jhLVBdNTd2rS3IbNXK8+ug93Vf5ZXtF5Lxg==}
+    engines: {node: '>=20.9.0'}
     cpu: [x64]
     os: [linux]
     libc: [musl]
 
-  '@img/sharp-wasm32@0.34.5':
-    resolution: {integrity: sha512-OdWTEiVkY2PHwqkbBI8frFxQQFekHaSSkUIJkwzclWZe64O1X4UlUjqqqLaPbUpMOQk6FBu/HtlGXNblIs0huw==}
-    engines: {node: ^18.17.0 || ^20.3.0 || >=21.0.0}
+  '@img/sharp-wasm32@0.35.4':
+    resolution: {integrity: sha512-zQnl4Kwp7Q6NHsENtU2T/00Zi+w3AQNwz3+UaTyVBy2FpXrzXzGjndpK61onhZjRtRpQXxCTeqw19bVyXOh7jA==}
+    engines: {node: '>=20.9.0'}
+
+  '@img/sharp-webcontainers-wasm32@0.35.4':
+    resolution: {integrity: sha512-ESfNkywmCfPNyaZjxooddJQiQ+l/nTpGEOGthxiLnIHXC/CmcBixnfwUleX9mCz9ovrUUvKMap/pm8RYbzfwaA==}
+    engines: {node: '>=20.9.0'}
     cpu: [wasm32]
 
-  '@img/sharp-win32-arm64@0.34.5':
-    resolution: {integrity: sha512-WQ3AgWCWYSb2yt+IG8mnC6Jdk9Whs7O0gxphblsLvdhSpSTtmu69ZG1Gkb6NuvxsNACwiPV6cNSZNzt0KPsw7g==}
-    engines: {node: ^18.17.0 || ^20.3.0 || >=21.0.0}
+  '@img/sharp-win32-arm64@0.35.4':
+    resolution: {integrity: sha512-iNdlBX9gLVvqe2I3uIJSIKTq6wckP/DYxZtcqxm09x5Gi24DnFBmPAWZmr60ZyYMG0xlzo6goG3670ar+RXvRw==}
+    engines: {node: '>=20.9.0'}
     cpu: [arm64]
     os: [win32]
 
-  '@img/sharp-win32-ia32@0.34.5':
-    resolution: {integrity: sha512-FV9m/7NmeCmSHDD5j4+4pNI8Cp3aW+JvLoXcTUo0IqyjSfAZJ8dIUmijx1qaJsIiU+Hosw6xM5KijAWRJCSgNg==}
-    engines: {node: ^18.17.0 || ^20.3.0 || >=21.0.0}
+  '@img/sharp-win32-ia32@0.35.4':
+    resolution: {integrity: sha512-kqRsbaa5CS6KHlpxnN7WhE6vAAugXyZButpRdvDWetlv6Qv4N9WTcrWzF7tXfB9T7MsoadqdI8hmwLq6UlLvtw==}
+    engines: {node: ^20.9.0}
     cpu: [ia32]
     os: [win32]
 
-  '@img/sharp-win32-x64@0.34.5':
-    resolution: {integrity: sha512-+29YMsqY2/9eFEiW93eqWnuLcWcufowXewwSNIT6UwZdUUCrM3oFjMWH/Z6/TMmb4hlFenmfAVbpWeup2jryCw==}
-    engines: {node: ^18.17.0 || ^20.3.0 || >=21.0.0}
+  '@img/sharp-win32-x64@0.35.4':
+    resolution: {integrity: sha512-XtmnYhBcrORsJ4XJngyzr/EWP0hRZLAZRFaApdKuviyqF78+ylxh2y06ZmtULAMOnObJ3ucpN0AcwSWnMowTRg==}
+    engines: {node: '>=20.9.0'}
     cpu: [x64]
     os: [win32]
 
@@ -2032,8 +2041,8 @@ packages:
     peerDependencies:
       '@lynx-js/template-webpack-plugin': ^0.14.0 || ^0.15.0
 
-  '@lynx-js/css-serializer@0.1.7':
-    resolution: {integrity: sha512-k8J/zZdYvsxqSZxT25dWBT4leOvYSpAanC5NmpYmf0EkSDWbQohensPSMOnEvEmP9R97gDO7K+eA6vgv8IYWGg==}
+  '@lynx-js/css-serializer@0.1.9':
+    resolution: {integrity: sha512-O4wthGp3eBcE9mX+A7Ojla8mRJwucBhRJthEha5dgtvBfcx+P8GI6A0VvhvNwjclTaLnqNNbBRd+ClJQtirptA==}
 
   '@lynx-js/debug-metadata-rsbuild-plugin@0.2.1':
     resolution: {integrity: sha512-uvpX41tk7TxkIs8fJqIHqOUyOhRC5BVTH4ri+B1rZI6k3yclYIKA7lSnDirgEL+92GmkInerO3Zwg9y3Zyg5hA==}
@@ -2047,23 +2056,23 @@ packages:
   '@lynx-js/internal-preact@10.29.1-20260519060144-e6da44c':
     resolution: {integrity: sha512-h2pRrt5oLK9LT1NkjyprtzJij/AdZGvv3CN6B5edL4chixqvITbxoCSdYy667Hl6+uKOBuxmCNZoDddgRfcLnw==}
 
-  '@lynx-js/react@0.123.3':
-    resolution: {integrity: sha512-Zf2FxvW37zVrS1ZRsA3hgsWc7JQ3acVhgr+LsjWT7pt+Cs111NGyoMazPDn6VNLi13yFzpARnL/FeJgs1qZtXQ==}
+  '@lynx-js/react@0.125.0':
+    resolution: {integrity: sha512-pZtToBXS9btDdxcKMRQYah5URQSKYN2ca4BsKog8QZMLeMCA6FGZzdhfroMxTbjMZkhrFfi9X9G4cD9OYfgTPg==}
     peerDependencies:
-      '@lynx-js/types': ~4.0.0
+      '@lynx-js/types': ~4.2.1
       '@types/react': ^18 || ^19.0.0
     peerDependenciesMeta:
       '@lynx-js/types':
         optional: true
 
-  '@lynx-js/rsbuild-plugin@0.0.2':
-    resolution: {integrity: sha512-l5N0xuRTRmK2/OnlLGocDj93s7kVDCOeos7gC++y4X4ypyhHc2FPQaIQGEOaX39TdCCvnkAdKmPxO7/AEJl5tw==}
+  '@lynx-js/rsbuild-plugin@0.0.3':
+    resolution: {integrity: sha512-IGjHMtIzW3xihS1ZtyljYnxfSOoqLztCozplFCCSu8BFsp6Uq7AJuI/pnfPHHri6FOE6Q6LRGaO+2DmUMcAw8A==}
     engines: {node: '>=18'}
     peerDependencies:
       '@rsbuild/core': ^2.0.0
 
-  '@lynx-js/rspeedy@0.16.3':
-    resolution: {integrity: sha512-N4eBvBw9xpyy2WkH6ui1yBYFc1kNwD6ICsqFQcHFItYgnVZWo0d1g1oaewNhQxluUt9bJ0y+wwfZ+g00//PbtA==}
+  '@lynx-js/rspeedy@0.16.5':
+    resolution: {integrity: sha512-tk07NghRRLd/Kl3T3Yd/TPNdZPgSsukFBhCwq55lBCctVuHIzwTSk5NhvFctA5avZ4SNTv4girtJmRqKbPUuvg==}
     engines: {node: ^20.19.0 || >=22.12.0}
     hasBin: true
     peerDependencies:
@@ -2085,40 +2094,37 @@ packages:
     resolution: {integrity: sha512-sI+xmLXaMvXWFN5n47kYNHFEMIEpkrz/bVvU2GwvhB26lXfYPdSNedE3bh85vfW/vAmYsB/TbKwtiNhXgN3LDw==}
     hasBin: true
 
-  '@lynx-js/template-webpack-plugin@0.15.0':
-    resolution: {integrity: sha512-uUdVJ38V8ayykHvIP7ulvPxbtldNrL+xtKsC0vjMCicczEnLh3y+4mrXZw1PTVogabfQtj4Wcxsmtrwy1ZdrsQ==}
+  '@lynx-js/template-webpack-plugin@0.15.2':
+    resolution: {integrity: sha512-yBV+pbBusMlTJ2y3S6a5wrdKl+HewBQGbFgXSwzf3yF+OsB1A0PQBwXJGM/aeqTCaP0Em2ZhF41HEefEW0mmWg==}
     engines: {node: ^18.14 || >=19.4}
 
-  '@lynx-js/types@4.0.0':
-    resolution: {integrity: sha512-FBtBV8wt+9/CAUbTdZwvbhGjJEnyzKLWVpq5gaTHTbhDztbhdP0avZ0nHD6I5HSgAhzYNB9oDrqMt/r6YqBkng==}
+  '@lynx-js/types@4.2.1':
+    resolution: {integrity: sha512-QPo7ZZQv6MZ8BASn46K+32HdbrMT6OTaMYiXdu/REyNnG1fD1L14ebh5gMEMmr3Ic4rYmLVPud+/U+KcRjn5fw==}
 
-  '@lynx-js/web-core@0.24.0':
-    resolution: {integrity: sha512-QIMfwVIHkRTDmd+X0KCWSQ+q0Dy7j87WdB911Wz9lxfp5juOa8ejJCrRYmsAncl1jTVy9gBH3mCblv6Z9IxCCQ==}
+  '@lynx-js/web-core@0.25.0':
+    resolution: {integrity: sha512-IyKG1kWTQZEMI+FtkejFVizer2omTpbN5ISmRWZBM4QYMWvcIaBvAwy8TZ7kYHb7lm2+exwkNVUjCuL2jGE+Tw==}
     peerDependencies:
-      '@lynx-js/css-serializer': 0.1.7
       '@lynx-js/lynx-core': 0.1.4
       tslib: ^2.5.0
     peerDependenciesMeta:
-      '@lynx-js/css-serializer':
-        optional: true
       '@lynx-js/lynx-core':
         optional: true
       tslib:
         optional: true
 
-  '@lynx-js/web-elements@0.12.7':
-    resolution: {integrity: sha512-ht7vxYVtLGP6YpSd/g5YYNszxUU6i6Lcdpr/OILTmUBkA2mSbZx3D+6fUHXzrVkee4bNvDOFMV3hQm6L6/F+OQ==}
+  '@lynx-js/web-elements@0.12.9':
+    resolution: {integrity: sha512-MbyLnZxBZ81Mu8UIgLq6Uuy4RtXC5XdnEyj0kU4ysnF7mqMb/DcRZtvfzWVNoAKF2jlhOXNaLKSGVYuRRTJzHw==}
     peerDependencies:
       tslib: ^2.5.0
 
-  '@lynx-js/web-rsbuild-server-middleware@0.24.0':
-    resolution: {integrity: sha512-q0oAkeVwL48c3XpG/jjr+KbY0D9fWh1eaPr9C4o+9N9DmTqleI/4JaRKstpZhlgEKpqdBs9rCx+SanjaVA04vQ==}
+  '@lynx-js/web-rsbuild-server-middleware@0.25.0':
+    resolution: {integrity: sha512-wn6CnEed839sfV3b4g82sIPopmHsRdQLEh7Sz+kFFwErokfdjKHkKtT98v5EbZfUsjFKuRSeuCi5Xy8R/QTpGQ==}
 
-  '@lynx-js/web-worker-rpc@0.24.0':
-    resolution: {integrity: sha512-VUIERJNvpJOLk6JVeiNSQMgLPhCuD8V8Zz0jvTEP6rznWPeioCTtSD7cak1xMZASUv3n6eIzb9FsO4Ml8W/0nw==}
+  '@lynx-js/web-worker-rpc@0.25.0':
+    resolution: {integrity: sha512-2WjGSgUFx6HxluFbmCfXv1ToKelh26hVsS56G8AlhM8bCoRUcilOyB0d91/EUMOxFDTNm9ONLhkXjxsJKV15Hg==}
 
-  '@lynx-js/webpack-dev-transport@0.3.0':
-    resolution: {integrity: sha512-vpa0X/eqb50DhNhXEEfCi6gEd/ti32bFJtkt9zkPv6dTTsd2HJkYnCiKSUWpHpqPbnRbVLf/UacAY6h1uTtZeA==}
+  '@lynx-js/webpack-dev-transport@0.4.0':
+    resolution: {integrity: sha512-+XeG9yUGM7oCWeXe/Pbxl6cBmF6JQ6jQ08rm9w8zbV6Liq1THghlcKPdj2DAS1u1WU3llSi1RGzGQabWlDwR1w==}
     engines: {node: '>=18'}
 
   '@lynx-js/webpack-runtime-globals@0.0.7':
@@ -2370,8 +2376,8 @@ packages:
   '@rolldown/pluginutils@1.0.1':
     resolution: {integrity: sha512-2j9bGt5Jh8hj+vPtgzPtl72j0yRxHAyumoo6TNfAjsLB04UtpSvPbPcDcBMxz7n+9CYB0c1GxQFxYRg2jimqGw==}
 
-  '@rsbuild/core@2.1.11':
-    resolution: {integrity: sha512-jA/QwZu8wIljp70TjERVoX+vk2cWU+viHpV9EAdKpA6ifu/pFnThEhbV3RFxBvF/9mB3h7ZRUfdDIyknT+9MWA==}
+  '@rsbuild/core@2.1.10':
+    resolution: {integrity: sha512-lwxC5w88U2AMv6aNwG3VH7+AV33N4JJQjD//egVWFsMbV+OE/bnfCsurSpX8s3lGyRYkJMwUVN+YXMbmmYZFfw==}
     engines: {node: ^20.19.0 || >=22.12.0}
     hasBin: true
     peerDependencies:
@@ -2380,8 +2386,8 @@ packages:
       core-js:
         optional: true
 
-  '@rsbuild/core@2.1.7':
-    resolution: {integrity: sha512-Xhs8DkLw2Vk5ydwjNG3GMJe1h03lqlCO4dV9EOG9HSR6vDfh07K48aq3KJ8/ncEL/YuFBaCIJrVc7rMFoR1y7Q==}
+  '@rsbuild/core@2.1.11':
+    resolution: {integrity: sha512-jA/QwZu8wIljp70TjERVoX+vk2cWU+viHpV9EAdKpA6ifu/pFnThEhbV3RFxBvF/9mB3h7ZRUfdDIyknT+9MWA==}
     engines: {node: ^20.19.0 || >=22.12.0}
     hasBin: true
     peerDependencies:
@@ -2532,8 +2538,8 @@ packages:
       '@swc/helpers':
         optional: true
 
-  '@rspack/lite-tapable@1.1.2':
-    resolution: {integrity: sha512-1OnyWChLGE46YzWyjlmYJssOu/Y0STAnnr2ueKPqDCYTf63GJMs0mxNnCul4dNiVqHYPKv3/fxrTY3IpqoVwZQ==}
+  '@rspack/lite-tapable@1.1.5':
+    resolution: {integrity: sha512-uzB782zJbFTM3ta+e2Glikx36dca/6Y+DXyvFN+wb0Tx5ItIW+g03A0t3amP3LGzPHSkb0k81VHCm4jxLQwfag==}
 
   '@rspack/resolver-binding-darwin-arm64@0.2.8':
     resolution: {integrity: sha512-nTnK17kmxXEvR+WpOIZPSIzUFYeWCHoffgU9tvOLOwuTBH41kWnSQXXWu+AiMVwvJ6wdRO6Vo30hPhlXEG7Pyw==}
@@ -2603,8 +2609,16 @@ packages:
     resolution: {integrity: sha512-KAV20yDlpXMCrmxG/DJpHDFStLbSloEfnrv0F7jEWHfhRCg+1zW2CoHvBBLpXGkRnfD8kj8d01TrfTK5h+Owlg==}
     engines: {node: ^20.19.0 || >=22.12.0}
 
+  '@sigx/reactivity@0.15.6':
+    resolution: {integrity: sha512-giPOQXP+5ZHUTjhzIA0638EiO2UlsjmXexSVP3h8O4RZXGIssswm5W6njh76nZwBNYa0CcgwPRdFBnfxYEr/aw==}
+    engines: {node: ^20.19.0 || >=22.12.0}
+
   '@sigx/runtime-core@0.15.4':
     resolution: {integrity: sha512-RjetEIHB38GB4SYW38pizAZ+SXp1fcd7yCYWNT4XQiu3StlyifkrxwTcHkDkWLOKV4ID3v0iTHyR5Q5x+/KUuA==}
+    engines: {node: ^20.19.0 || >=22.12.0}
+
+  '@sigx/runtime-core@0.15.6':
+    resolution: {integrity: sha512-mr6c833GwDcSr0rZcp6nOg+CzyRRWkZew2cHKWdfDkaxiNnUiHSE02owBJGJvE8cgxF1WpSQAPdgpdOiJZCsIQ==}
     engines: {node: ^20.19.0 || >=22.12.0}
 
   '@sigx/runtime-dom@0.15.3':
@@ -2616,6 +2630,9 @@ packages:
 
   '@sigx/serialize@0.15.4':
     resolution: {integrity: sha512-ssQKazwZGxSVSd3wXLS63Ns0m5j+7L4ag40Ej6q0Ez+aRLEZPTmlZYuWl/soNUY1KtCzXljl3y37GiWUUjmtPA==}
+
+  '@sigx/serialize@0.15.6':
+    resolution: {integrity: sha512-bO5fbcdtAQ9GE9v2YSYqX3eln5zcVSXjVfqKupXMEn/nsR5Ol/9i0hNNsQmZLgBQYIHASBErfr9W+roI0iDqIg==}
 
   '@sigx/terminal-ui@0.12.0':
     resolution: {integrity: sha512-aJv/Sqxn4s201JH2xk8UzZhaf4kp34OoCxGQHuwtbs2cZbsPV3t955xzZHSVaW1XvrRVKKnI0do9DxZaG+2JmQ==}
@@ -2698,6 +2715,12 @@ packages:
 
   '@types/node@25.9.3':
     resolution: {integrity: sha512-603BddQMv3pUcr4U2dhujk83N2tTDVr/34wII2B6bJy6g+8WD6yUb11jszNs0gdi4PesVWl7ABt8nYMVpnLUcg==}
+
+  '@types/node@25.9.5':
+    resolution: {integrity: sha512-OScDchr2fwuUmWdf4kZ9h7PcJiYDVInhJizG/biAq3cAvqwYktuy/TYGGdZNMtNTFUP7rnb0NU4TUdm82kt4Rg==}
+
+  '@types/node@26.4.0':
+    resolution: {integrity: sha512-faiGnoIrLH/V8cibOMEAZ8pMw6oXqSukl29ra4mN8GdaB2ZewzeaLj+INpV5N+Z1eKWzY+IzaIZH2EIR6YZRNQ==}
 
   '@types/prop-types@15.7.15':
     resolution: {integrity: sha512-F6bEyamV9jKGAFBEmlQnesRPGOQqS2+Uwi0Em15xenOxHaf2hv6L8YCVn3rPdPJOiJfPiCnLIRyvwVaqMY3MIw==}
@@ -2881,8 +2904,8 @@ packages:
     resolution: {integrity: sha512-HEHNfbars9v4pgpW6SO1KSPkfoS0xVOM/9UzkJltjlsHZmJasxg8aXkuZa7SMf8vKGIBhpUsPluQSqhJFCqebw==}
     engines: {node: '>=0.4.0'}
 
-  acorn@8.17.0:
-    resolution: {integrity: sha512-xRQbDb9BnwDafYNn6Vwl839DYVjqXYb1XVGtWAZ1kcDc6iwAL4hg3B1dZlRiuENFeO2H53gFG3in621AdERVAg==}
+  acorn@8.18.0:
+    resolution: {integrity: sha512-lGq+9yr1/GuAWaVYIHRjvvySG5/4VfKIvC8EWxStPdcDh/Ka7FG3twP6v4d5BkravUilhIAsG4Qj83t02LWUPQ==}
     engines: {node: '>=0.4.0'}
     hasBin: true
 
@@ -2920,8 +2943,8 @@ packages:
   arg@5.0.2:
     resolution: {integrity: sha512-PYjyFOLKQ9y57JvQ6QLo8dAgNqswh8M1RMJYdQduT6xbWSgK36P/Z/v+p888pM69jMMfS8Xd8F6I1kQ/I9HUGg==}
 
-  argparse@2.0.1:
-    resolution: {integrity: sha512-8+9WqebbFzpX9OR+Wa6O29asIogeRMzcGtAINdpMHHyAg10f05aSFVBbcEqGf/PXw1EjAZ+q2/bEBg3DvurK3Q==}
+  argparse@3.0.1:
+    resolution: {integrity: sha512-nM4mHF/KM1v59ZNKX7zfusQz5wUAxR511YG8Vo6TyiV4aqhu++rbJW4v04xsWhpSsHFj66flT8P7znVpyO20xQ==}
 
   array-buffer-byte-length@1.0.2:
     resolution: {integrity: sha512-LHE+8BuR7RYGDKvnrmcuSq3tDcKv9OFEXQt/HpbZhY7V6h0zlUXutnAD82GiFx9rdieCMjkvtcsPqBwgUl1Iiw==}
@@ -3241,8 +3264,8 @@ packages:
     resolution: {integrity: sha512-2agL3ueZhqxoVrfmntO8yuVj+uNSlIOnhykYHk3Cq0ShYPdUjjUiSJrQvXjq01I9jAuI0Zl2YO8Evv5Mqytm5g==}
     engines: {node: '>=10.2.0'}
 
-  enhanced-resolve@5.24.0:
-    resolution: {integrity: sha512-SkE2t82KlkkxQRVMVLAGKxLfORGQfrkx5dkj+vlgXRVNEdPc4eZcR+J/Fvj8C+yKSFH5L0q3NFlyufOVQnCcYQ==}
+  enhanced-resolve@5.24.5:
+    resolution: {integrity: sha512-L1l8TNvomm6UVW5B253AGxQagSQr+vGwhMlrrfRS2qmhx46AMpMVJKQYLvWYbysTMY8VoicOvzHzoHMbyzB+4A==}
     engines: {node: '>=10.13.0'}
 
   entities@4.5.0:
@@ -3256,6 +3279,10 @@ packages:
   entities@7.0.1:
     resolution: {integrity: sha512-TWrgLOFUQTH994YUyl1yT4uyavY5nNB5muff+RtWaqNVCAK408b5ZnnbNAUEWLTCpum9w6arT70i1XdQ4UeOPA==}
     engines: {node: '>=0.12'}
+
+  entities@8.0.0:
+    resolution: {integrity: sha512-zwfzJecQ/Uej6tusMqwAqU/6KL2XaB2VZ2Jg54Je6ahNBGNH6Ek6g3jjNCF0fG9EWQKGZNddNjU5F1ZQn/sBnA==}
+    engines: {node: '>=20.19.0'}
 
   envinfo@7.21.0:
     resolution: {integrity: sha512-Lw7I8Zp5YKHFCXL7+Dz95g4CcbMEpgvqZNNq3AmlT5XAV6CgAAk6gyAMqn2zjw08K9BHfcNuKrMiCPLByGafow==}
@@ -3277,6 +3304,9 @@ packages:
   es-module-lexer@2.1.0:
     resolution: {integrity: sha512-n27zTYMjYu1aj4MjCWzSP7G9r75utsaoc8m61weK+W8JMBGGQybd43GstCXZ3WNmSFtGT9wi59qQTW6mhTR5LQ==}
 
+  es-module-lexer@2.3.2:
+    resolution: {integrity: sha512-poHGpORABojJJucnV9KbOavETW8lBVnphkW77ER5/BQ5Fz7oXSoCNek7IH3vR5nRjdsEz926ibFYX8KtLQmdyw==}
+
   es-object-atoms@1.1.1:
     resolution: {integrity: sha512-FGgH2h8zKNim9ljj7dankFPcICIK9Cp5bm+c2gQSYePhpaG5+esrLODihIorn+Pe6FGJzWhXQotPv73jTaldXA==}
     engines: {node: '>= 0.4'}
@@ -3292,8 +3322,8 @@ packages:
   es-toolkit@1.50.0:
     resolution: {integrity: sha512-OyZKhUVvEep9ITEiwHn8GKnMRQIVqoSIX7WnRbkWgJkllCujilqP2rD0u979tkl8wqyc8ICwlc1UBVv/Sl1G6w==}
 
-  esbuild@0.28.0:
-    resolution: {integrity: sha512-sNR9MHpXSUV/XB4zmsFKN+QgVG82Cc7+/aaxJ8Adi8hyOac+EXptIp45QBPaVyX3N70664wRbTcLTOemCAnyqw==}
+  esbuild@0.28.2:
+    resolution: {integrity: sha512-HKVLS8dvII+xoKW9kmqxbRKrnWEXfJJr/FZhhJmiqIB0e053QNYFqOBouTMO/k5sID4MvCiUCvv8b9M4h32wIA==}
     engines: {node: '>=18'}
     hasBin: true
 
@@ -3720,8 +3750,8 @@ packages:
     resolution: {integrity: sha512-wM1+Z03eypVAVUCE7QdSqpVIvelbOakn1M0bPDoA4SGWPx3sNDVUiMo3L6To6WWGClB7VyXnhQ4Sn7gxiJbE6A==}
     engines: {node: ^12.20.0 || ^14.13.1 || >=16.0.0}
 
-  linkify-it@5.0.2:
-    resolution: {integrity: sha512-ONTm2jCMAVZjgQa/Fy1kScXsuOoF5NPTsoFBdE1KVIZ2vAh/r9+Bqo+0jINCBYnavTPQZz38QzFTme79ENoN3Q==}
+  linkify-it@6.1.0:
+    resolution: {integrity: sha512-wJ/TwpSDTLepCrQoYWYIExIKg5Zchex2Nn5yk2mFnB+6PtdkHtyLx742md9csRjjOnGkKIS/RrbY7l8D6gT9Vw==}
 
   loader-runner@4.3.2:
     resolution: {integrity: sha512-DFEqQ3ihfS9blba08cLfYf1NRAIEm+dDjic073DRDc3/JspI/8wYmtDsHwd3+4hwvdxSK7PGaElfTmm0awWJ4w==}
@@ -3733,8 +3763,8 @@ packages:
   lodash.uniq@4.5.0:
     resolution: {integrity: sha512-xfBaXQd9ryd9dlSDvnvI0lvxfLJlYAZzXomUYzLKtUeOQvOP5piqAWuGtrhWeqaXK9hhoM/iyJc5AV+XfsX3HQ==}
 
-  lucide@1.16.0:
-    resolution: {integrity: sha512-20QvduCJTB7e7K9WVvoLBuKPsYZ8d6ptwe9PIdTFiZmjVTPdFWQreBNyNCM9QQtGnqHR0PLiEQdxyhYsL1LdoA==}
+  lucide@1.34.0:
+    resolution: {integrity: sha512-OOPdNzu3Ocs9lLPOu1sWVIp4sue3HXYjZThAmSXu/NhBJ9ZnfLQhCGfbQRYvsVJvSKwi/KtLE5pNbS4fYl5zrA==}
 
   magic-string@0.30.21:
     resolution: {integrity: sha512-vd2F4YUyEXKGcLHoq+TEyCjxueSeHnFxyyjNp80yg0XV4vUhnDer/lvvlqM/arB5bXQN5K2/3oinyCRyx8T2CQ==}
@@ -3746,8 +3776,8 @@ packages:
     resolution: {integrity: sha512-hXdUTZYIVOt1Ex//jAQi+wTZZpUpwBj/0QsOzqegb3rGMMeJiSEu5xLHnYfBrRV4RH2+OCSOO95Is/7x1WJ4bw==}
     engines: {node: '>=10'}
 
-  markdown-it@14.3.0:
-    resolution: {integrity: sha512-RCEsPjR+sr0x+AuYp601tKTkgFG4YEPLCzHST3cQ/fhlJkqAkz1L2/Qbp1j9qw5SBwQHFBoW8+hoN5xssOF0Tw==}
+  markdown-it@15.0.1:
+    resolution: {integrity: sha512-9/7gE95FNPkfUWrjJIoHZza2iLmuJlPD0UNMxPi7bxUrbCR525YZY0r+zyfes0dZI5ZZ/uNIXUJca0pJvtw41g==}
     hasBin: true
 
   math-intrinsics@1.1.0:
@@ -3760,8 +3790,8 @@ packages:
   mdn-data@2.27.1:
     resolution: {integrity: sha512-9Yubnt3e8A0OKwxYSXyhLymGW4sCufcLG6VdiDdUGVkPhpqLxlvP5vl1983gQjJl3tqbrM731mjaZaP68AgosQ==}
 
-  mdurl@2.0.0:
-    resolution: {integrity: sha512-Lf+9+2r+Tdp5wXDXC4PcIBjTDtq4UKjCPMQhKIuzpJNW0b96kVqSwW0bT7FhRSfmAiFYgP+SCRvdrDozfh0U5w==}
+  mdurl@2.1.0:
+    resolution: {integrity: sha512-1+HBaOx0zi/dQWht8rNv9MYf9qqpqL/kxI0hXImU6Y547zM6Sni8BQibt7ifgMcYtQg41ao3Ivd6cnSM86inpg==}
 
   merge-stream@2.0.0:
     resolution: {integrity: sha512-abv/qOcuPfk3URPfDzmZU1LKmuw8kT+0nIHvKrKgFrwifol/doWcdA4ZqsWQ8ENrFKkd67Mfpo/LovbIUsbt3w==}
@@ -4194,9 +4224,14 @@ packages:
     resolution: {integrity: sha512-RJRdvCo6IAnPdsvP/7m6bsQqNnn1FCBX5ZNtFL98MmFF/4xAIJTIg1YbHW5DC2W5SKZanrC6i4HsJqlajw/dZw==}
     engines: {node: '>= 0.4'}
 
-  sharp@0.34.5:
-    resolution: {integrity: sha512-Ou9I5Ft9WNcCbXrU9cMgPBcCK8LiwLqcbywW3t4oDV37n1pzpuNLsYiAV8eODnjbtQlSDwZ2cUEeQz4E54Hltg==}
-    engines: {node: ^18.17.0 || ^20.3.0 || >=21.0.0}
+  sharp@0.35.4:
+    resolution: {integrity: sha512-n++8XWcj+jCOr2IOl7h8LbKnGBDY4aPbmprMONBNFdn0ImXqpGVv5zliDs0V9HbmbCQLpbuo2ej9rAoOQTvMDA==}
+    engines: {node: '>=20.9.0'}
+    peerDependencies:
+      '@types/node': '*'
+    peerDependenciesMeta:
+      '@types/node':
+        optional: true
 
   shell-quote@1.8.3:
     resolution: {integrity: sha512-ObmnIF4hXNg1BqhnHmgbDETF8dLPCggZWBjkQfhZpbszZnYur5DUljTcCHii5LC3J5E0yeO/1LIMyH+UvHQgyw==}
@@ -4360,8 +4395,8 @@ packages:
       uglify-js:
         optional: true
 
-  terser@5.48.0:
-    resolution: {integrity: sha512-J/9An6vs9Us6wKRriSFXBWdRZapREHqFzdNUKk0pmu804EMR6dr6winwo7e5JDxN4xahxQsuysyYFwlwj4XN/Q==}
+  terser@5.51.2:
+    resolution: {integrity: sha512-bWnjSNscmuI+GJze6ZupnHP8G/cTcsJF+bXCeQknk2SHQsgbNJnLrqiH9jZ2W4STPVXH2mDKKRX3iwPhc9Cn/Q==}
     engines: {node: '>=10'}
     hasBin: true
 
@@ -4426,8 +4461,8 @@ packages:
     engines: {node: '>=14.17'}
     hasBin: true
 
-  uc.micro@2.1.0:
-    resolution: {integrity: sha512-ARDJmphmdvUk6Glw7y9DQ2bFkKBHwQHLi2lsaH6PPmz/Ka9sFOBsBluozhDltWmnv9u/cF6Rt87znRTPV+yp/A==}
+  uc.micro@3.0.0:
+    resolution: {integrity: sha512-U3PppEkleoTnIfi8BozMx3yju3qc/L6SwqWo2Sw+54PX+PX0q9I+r1Um5HCmqD7n9VDX5/v3vQH/AjA6deDdtw==}
 
   unbox-primitive@1.1.0:
     resolution: {integrity: sha512-nWJ91DjeOkej/TA8pXQ3myruKpKEYgqvpw9lz4OPHj/NWFNluYrjbz9j01CJ8yKQd2g4jFoOkINCTW2I5LEEyw==}
@@ -4435,6 +4470,9 @@ packages:
 
   undici-types@7.24.6:
     resolution: {integrity: sha512-WRNW+sJgj5OBN4/0JpHFqtqzhpbnV0GuB+OozA9gCL7a993SmU+1JBZCzLNxYsbMfIeDL+lTsphD5jN5N+n0zg==}
+
+  undici-types@8.3.0:
+    resolution: {integrity: sha512-j375ScV60dom+YkPFIfTLcOiPxkN/buHz5GobjLhixFuANaNs3C9l4GmrWqejgXWJ7BbJcFYpTEUkS1Ge8bpZQ==}
 
   universalify@2.0.1:
     resolution: {integrity: sha512-gptHNQghINnc/vTGIk0SOFGFNXw7JVrlRUtConJRlvaw6DuX0wO5Jeko9sWrMBhh+PsYAZ7oXAiOnf/UKogyiw==}
@@ -4544,8 +4582,8 @@ packages:
     resolution: {integrity: sha512-6i/00NBjP4yGPs+caKSyRfpTF/8Torsu0MOW3mMzIbhgISFder8i7xbqgHlLMwJrdiN8ndBV3UA1/AfzPSr+jg==}
     engines: {node: '>=10.13.0'}
 
-  webpack-sources@3.5.0:
-    resolution: {integrity: sha512-HPuy+uuoTCaaoEoI1LQ3JN9+vrPBvEesnnX1jADHy728cHSMlq4wUc4afYqahq2B1mhQVZxCXOkNTnXltr+2vQ==}
+  webpack-sources@3.5.1:
+    resolution: {integrity: sha512-jyuiGJdtvY434z5bUZrjz67v76/ePNvFZTp9Mdz29IlH4+GPsgyGjiv0fKI+M7BdkU6ADjulUcKAd3tUK3WlEw==}
     engines: {node: '>=10.13.0'}
 
   webpack@5.106.2:
@@ -4595,8 +4633,8 @@ packages:
       utf-8-validate:
         optional: true
 
-  ws@8.21.1:
-    resolution: {integrity: sha512-+0NTnW77fFN/DjQi6k/Sq/Yvk4Sgajw7urW8V+asjXnRgDs9gyGkdb7EzgfhA4goXsRIZKE28fzIXBHEzhuiWw==}
+  ws@8.21.3:
+    resolution: {integrity: sha512-201TZ/kPWxoPr/OKWjquZR1SWKXcvxdH+e1xrx89b3YbmzLMFCLfnaG1HFIgWzJOEWZ7MvpK++odZufgYR50Rw==}
     engines: {node: '>=10.0.0'}
     peerDependencies:
       bufferutil: ^4.0.1
@@ -4669,82 +4707,82 @@ snapshots:
       tslib: 2.8.1
     optional: true
 
-  '@esbuild/aix-ppc64@0.28.0':
+  '@esbuild/aix-ppc64@0.28.2':
     optional: true
 
-  '@esbuild/android-arm64@0.28.0':
+  '@esbuild/android-arm64@0.28.2':
     optional: true
 
-  '@esbuild/android-arm@0.28.0':
+  '@esbuild/android-arm@0.28.2':
     optional: true
 
-  '@esbuild/android-x64@0.28.0':
+  '@esbuild/android-x64@0.28.2':
     optional: true
 
-  '@esbuild/darwin-arm64@0.28.0':
+  '@esbuild/darwin-arm64@0.28.2':
     optional: true
 
-  '@esbuild/darwin-x64@0.28.0':
+  '@esbuild/darwin-x64@0.28.2':
     optional: true
 
-  '@esbuild/freebsd-arm64@0.28.0':
+  '@esbuild/freebsd-arm64@0.28.2':
     optional: true
 
-  '@esbuild/freebsd-x64@0.28.0':
+  '@esbuild/freebsd-x64@0.28.2':
     optional: true
 
-  '@esbuild/linux-arm64@0.28.0':
+  '@esbuild/linux-arm64@0.28.2':
     optional: true
 
-  '@esbuild/linux-arm@0.28.0':
+  '@esbuild/linux-arm@0.28.2':
     optional: true
 
-  '@esbuild/linux-ia32@0.28.0':
+  '@esbuild/linux-ia32@0.28.2':
     optional: true
 
-  '@esbuild/linux-loong64@0.28.0':
+  '@esbuild/linux-loong64@0.28.2':
     optional: true
 
-  '@esbuild/linux-mips64el@0.28.0':
+  '@esbuild/linux-mips64el@0.28.2':
     optional: true
 
-  '@esbuild/linux-ppc64@0.28.0':
+  '@esbuild/linux-ppc64@0.28.2':
     optional: true
 
-  '@esbuild/linux-riscv64@0.28.0':
+  '@esbuild/linux-riscv64@0.28.2':
     optional: true
 
-  '@esbuild/linux-s390x@0.28.0':
+  '@esbuild/linux-s390x@0.28.2':
     optional: true
 
-  '@esbuild/linux-x64@0.28.0':
+  '@esbuild/linux-x64@0.28.2':
     optional: true
 
-  '@esbuild/netbsd-arm64@0.28.0':
+  '@esbuild/netbsd-arm64@0.28.2':
     optional: true
 
-  '@esbuild/netbsd-x64@0.28.0':
+  '@esbuild/netbsd-x64@0.28.2':
     optional: true
 
-  '@esbuild/openbsd-arm64@0.28.0':
+  '@esbuild/openbsd-arm64@0.28.2':
     optional: true
 
-  '@esbuild/openbsd-x64@0.28.0':
+  '@esbuild/openbsd-x64@0.28.2':
     optional: true
 
-  '@esbuild/openharmony-arm64@0.28.0':
+  '@esbuild/openharmony-arm64@0.28.2':
     optional: true
 
-  '@esbuild/sunos-x64@0.28.0':
+  '@esbuild/sunos-x64@0.28.2':
     optional: true
 
-  '@esbuild/win32-arm64@0.28.0':
+  '@esbuild/win32-arm64@0.28.2':
     optional: true
 
-  '@esbuild/win32-ia32@0.28.0':
+  '@esbuild/win32-ia32@0.28.2':
     optional: true
 
-  '@esbuild/win32-x64@0.28.0':
+  '@esbuild/win32-x64@0.28.2':
     optional: true
 
   '@fortawesome/fontawesome-common-types@6.7.2': {}
@@ -4765,103 +4803,113 @@ snapshots:
 
   '@img/colour@1.1.0': {}
 
-  '@img/sharp-darwin-arm64@0.34.5':
+  '@img/sharp-darwin-arm64@0.35.4':
     optionalDependencies:
-      '@img/sharp-libvips-darwin-arm64': 1.2.4
+      '@img/sharp-libvips-darwin-arm64': 1.3.3
     optional: true
 
-  '@img/sharp-darwin-x64@0.34.5':
+  '@img/sharp-darwin-x64@0.35.4':
     optionalDependencies:
-      '@img/sharp-libvips-darwin-x64': 1.2.4
+      '@img/sharp-libvips-darwin-x64': 1.3.3
     optional: true
 
-  '@img/sharp-libvips-darwin-arm64@1.2.4':
+  '@img/sharp-freebsd-wasm32@0.35.4':
+    dependencies:
+      '@img/sharp-wasm32': 0.35.4
     optional: true
 
-  '@img/sharp-libvips-darwin-x64@1.2.4':
+  '@img/sharp-libvips-darwin-arm64@1.3.3':
     optional: true
 
-  '@img/sharp-libvips-linux-arm64@1.2.4':
+  '@img/sharp-libvips-darwin-x64@1.3.3':
     optional: true
 
-  '@img/sharp-libvips-linux-arm@1.2.4':
+  '@img/sharp-libvips-linux-arm64@1.3.3':
     optional: true
 
-  '@img/sharp-libvips-linux-ppc64@1.2.4':
+  '@img/sharp-libvips-linux-arm@1.3.3':
     optional: true
 
-  '@img/sharp-libvips-linux-riscv64@1.2.4':
+  '@img/sharp-libvips-linux-ppc64@1.3.3':
     optional: true
 
-  '@img/sharp-libvips-linux-s390x@1.2.4':
+  '@img/sharp-libvips-linux-riscv64@1.3.3':
     optional: true
 
-  '@img/sharp-libvips-linux-x64@1.2.4':
+  '@img/sharp-libvips-linux-s390x@1.3.3':
     optional: true
 
-  '@img/sharp-libvips-linuxmusl-arm64@1.2.4':
+  '@img/sharp-libvips-linux-x64@1.3.3':
     optional: true
 
-  '@img/sharp-libvips-linuxmusl-x64@1.2.4':
+  '@img/sharp-libvips-linuxmusl-arm64@1.3.3':
     optional: true
 
-  '@img/sharp-linux-arm64@0.34.5':
+  '@img/sharp-libvips-linuxmusl-x64@1.3.3':
+    optional: true
+
+  '@img/sharp-linux-arm64@0.35.4':
     optionalDependencies:
-      '@img/sharp-libvips-linux-arm64': 1.2.4
+      '@img/sharp-libvips-linux-arm64': 1.3.3
     optional: true
 
-  '@img/sharp-linux-arm@0.34.5':
+  '@img/sharp-linux-arm@0.35.4':
     optionalDependencies:
-      '@img/sharp-libvips-linux-arm': 1.2.4
+      '@img/sharp-libvips-linux-arm': 1.3.3
     optional: true
 
-  '@img/sharp-linux-ppc64@0.34.5':
+  '@img/sharp-linux-ppc64@0.35.4':
     optionalDependencies:
-      '@img/sharp-libvips-linux-ppc64': 1.2.4
+      '@img/sharp-libvips-linux-ppc64': 1.3.3
     optional: true
 
-  '@img/sharp-linux-riscv64@0.34.5':
+  '@img/sharp-linux-riscv64@0.35.4':
     optionalDependencies:
-      '@img/sharp-libvips-linux-riscv64': 1.2.4
+      '@img/sharp-libvips-linux-riscv64': 1.3.3
     optional: true
 
-  '@img/sharp-linux-s390x@0.34.5':
+  '@img/sharp-linux-s390x@0.35.4':
     optionalDependencies:
-      '@img/sharp-libvips-linux-s390x': 1.2.4
+      '@img/sharp-libvips-linux-s390x': 1.3.3
     optional: true
 
-  '@img/sharp-linux-x64@0.34.5':
+  '@img/sharp-linux-x64@0.35.4':
     optionalDependencies:
-      '@img/sharp-libvips-linux-x64': 1.2.4
+      '@img/sharp-libvips-linux-x64': 1.3.3
     optional: true
 
-  '@img/sharp-linuxmusl-arm64@0.34.5':
+  '@img/sharp-linuxmusl-arm64@0.35.4':
     optionalDependencies:
-      '@img/sharp-libvips-linuxmusl-arm64': 1.2.4
+      '@img/sharp-libvips-linuxmusl-arm64': 1.3.3
     optional: true
 
-  '@img/sharp-linuxmusl-x64@0.34.5':
+  '@img/sharp-linuxmusl-x64@0.35.4':
     optionalDependencies:
-      '@img/sharp-libvips-linuxmusl-x64': 1.2.4
+      '@img/sharp-libvips-linuxmusl-x64': 1.3.3
     optional: true
 
-  '@img/sharp-wasm32@0.34.5':
+  '@img/sharp-wasm32@0.35.4':
     dependencies:
       '@emnapi/runtime': 1.11.3
     optional: true
 
-  '@img/sharp-win32-arm64@0.34.5':
+  '@img/sharp-webcontainers-wasm32@0.35.4':
+    dependencies:
+      '@img/sharp-wasm32': 0.35.4
     optional: true
 
-  '@img/sharp-win32-ia32@0.34.5':
+  '@img/sharp-win32-arm64@0.35.4':
     optional: true
 
-  '@img/sharp-win32-x64@0.34.5':
+  '@img/sharp-win32-ia32@0.35.4':
+    optional: true
+
+  '@img/sharp-win32-x64@0.35.4':
     optional: true
 
   '@jest/pattern@30.4.0':
     dependencies:
-      '@types/node': 25.9.3
+      '@types/node': 25.9.5
       jest-regex-util: 30.4.0
 
   '@jest/schemas@30.4.1':
@@ -4874,7 +4922,7 @@ snapshots:
       '@jest/schemas': 30.4.1
       '@types/istanbul-lib-coverage': 2.0.6
       '@types/istanbul-reports': 3.0.4
-      '@types/node': 25.9.3
+      '@types/node': 25.9.5
       '@types/yargs': 17.0.35
       chalk: 4.1.2
 
@@ -4905,13 +4953,14 @@ snapshots:
     dependencies:
       '@lynx-js/webpack-runtime-globals': 0.0.7
 
-  '@lynx-js/css-extract-webpack-plugin@0.10.1(@lynx-js/template-webpack-plugin@0.15.0(tslib@2.8.1))':
+  '@lynx-js/css-extract-webpack-plugin@0.10.1(@lynx-js/template-webpack-plugin@0.15.2(tslib@2.8.1))':
     dependencies:
-      '@lynx-js/template-webpack-plugin': 0.15.0(tslib@2.8.1)
+      '@lynx-js/template-webpack-plugin': 0.15.2(tslib@2.8.1)
 
-  '@lynx-js/css-serializer@0.1.7':
+  '@lynx-js/css-serializer@0.1.9':
     dependencies:
       css-tree: 3.2.1
+      pathe: 2.0.3
 
   '@lynx-js/debug-metadata-rsbuild-plugin@0.2.1':
     dependencies:
@@ -4921,29 +4970,56 @@ snapshots:
 
   '@lynx-js/internal-preact@10.29.1-20260519060144-e6da44c': {}
 
-  '@lynx-js/react@0.123.3(@lynx-js/types@4.0.0)(@types/react@18.3.28)':
+  '@lynx-js/react@0.125.0(@lynx-js/types@4.2.1)(@types/react@18.3.28)':
     dependencies:
       '@types/react': 18.3.28
       preact: '@lynx-js/internal-preact@10.29.1-20260519060144-e6da44c'
     optionalDependencies:
-      '@lynx-js/types': 4.0.0
+      '@lynx-js/types': 4.2.1
 
-  '@lynx-js/rsbuild-plugin@0.0.2(@rsbuild/core@2.1.7(core-js@3.47.0))':
+  '@lynx-js/rsbuild-plugin@0.0.3(@rsbuild/core@2.1.10(core-js@3.47.0))(esbuild@0.28.2)(webpack@5.106.2(esbuild@0.28.2)(postcss@8.5.15))':
     dependencies:
       '@lynx-js/cache-events-webpack-plugin': 0.2.0
       '@lynx-js/chunk-loading-webpack-plugin': 0.4.1
-      '@rsbuild/core': 2.1.7(core-js@3.47.0)
-
-  '@lynx-js/rspeedy@0.16.3(@emnapi/core@1.11.3)(@emnapi/runtime@1.11.3)(@rspack/core@2.1.9(@swc/helpers@0.5.23))(core-js@3.47.0)(esbuild@0.28.0)(typescript@6.0.3)(webpack@5.106.2(esbuild@0.28.0)(postcss@8.5.15))':
-    dependencies:
       '@lynx-js/debug-metadata-rsbuild-plugin': 0.2.1
-      '@lynx-js/rsbuild-plugin': 0.0.2(@rsbuild/core@2.1.7(core-js@3.47.0))
-      '@lynx-js/web-rsbuild-server-middleware': 0.24.0
-      '@lynx-js/webpack-dev-transport': 0.3.0
+      '@lynx-js/web-rsbuild-server-middleware': 0.25.0
+      '@lynx-js/webpack-dev-transport': 0.4.0
       '@lynx-js/websocket': 0.0.4
-      '@rsbuild/core': 2.1.7(core-js@3.47.0)
-      '@rsbuild/plugin-css-minimizer': 2.0.1(@rsbuild/core@2.1.7(core-js@3.47.0))(esbuild@0.28.0)(webpack@5.106.2(esbuild@0.28.0)(postcss@8.5.15))
-      '@rsdoctor/rspack-plugin': 1.6.1(@emnapi/core@1.11.3)(@emnapi/runtime@1.11.3)(@rsbuild/core@2.1.7(core-js@3.47.0))(@rspack/core@2.1.9(@swc/helpers@0.5.23))(webpack@5.106.2(esbuild@0.28.0)(postcss@8.5.15))
+      '@rsbuild/core': 2.1.10(core-js@3.47.0)
+      '@rsbuild/plugin-css-minimizer': 2.0.1(@rsbuild/core@2.1.10(core-js@3.47.0))(esbuild@0.28.2)(webpack@5.106.2(esbuild@0.28.2)(postcss@8.5.15))
+    transitivePeerDependencies:
+      - '@parcel/css'
+      - '@swc/css'
+      - clean-css
+      - csso
+      - esbuild
+      - lightningcss
+      - webpack
+
+  '@lynx-js/rsbuild-plugin@0.0.3(@rsbuild/core@2.1.10(core-js@3.47.0))(esbuild@0.28.2)(webpack@5.106.2(esbuild@0.28.2))':
+    dependencies:
+      '@lynx-js/cache-events-webpack-plugin': 0.2.0
+      '@lynx-js/chunk-loading-webpack-plugin': 0.4.1
+      '@lynx-js/debug-metadata-rsbuild-plugin': 0.2.1
+      '@lynx-js/web-rsbuild-server-middleware': 0.25.0
+      '@lynx-js/webpack-dev-transport': 0.4.0
+      '@lynx-js/websocket': 0.0.4
+      '@rsbuild/core': 2.1.10(core-js@3.47.0)
+      '@rsbuild/plugin-css-minimizer': 2.0.1(@rsbuild/core@2.1.10(core-js@3.47.0))(esbuild@0.28.2)(webpack@5.106.2(esbuild@0.28.2))
+    transitivePeerDependencies:
+      - '@parcel/css'
+      - '@swc/css'
+      - clean-css
+      - csso
+      - esbuild
+      - lightningcss
+      - webpack
+
+  '@lynx-js/rspeedy@0.16.5(@emnapi/core@1.11.3)(@emnapi/runtime@1.11.3)(@rspack/core@2.1.9(@swc/helpers@0.5.23))(core-js@3.47.0)(esbuild@0.28.2)(typescript@6.0.3)(webpack@5.106.2(esbuild@0.28.2)(postcss@8.5.15))':
+    dependencies:
+      '@lynx-js/rsbuild-plugin': 0.0.3(@rsbuild/core@2.1.10(core-js@3.47.0))(esbuild@0.28.2)(webpack@5.106.2(esbuild@0.28.2)(postcss@8.5.15))
+      '@rsbuild/core': 2.1.10(core-js@3.47.0)
+      '@rsdoctor/rspack-plugin': 1.6.1(@emnapi/core@1.11.3)(@emnapi/runtime@1.11.3)(@rsbuild/core@2.1.10(core-js@3.47.0))(@rspack/core@2.1.9(@swc/helpers@0.5.23))(webpack@5.106.2(esbuild@0.28.2)(postcss@8.5.15))
     optionalDependencies:
       typescript: 6.0.3
     transitivePeerDependencies:
@@ -4963,16 +5039,11 @@ snapshots:
       - utf-8-validate
       - webpack
 
-  '@lynx-js/rspeedy@0.16.3(@emnapi/core@1.11.3)(@emnapi/runtime@1.11.3)(@rspack/core@2.1.9(@swc/helpers@0.5.23))(core-js@3.47.0)(esbuild@0.28.0)(typescript@6.0.3)(webpack@5.106.2(esbuild@0.28.0))':
+  '@lynx-js/rspeedy@0.16.5(@emnapi/core@1.11.3)(@emnapi/runtime@1.11.3)(@rspack/core@2.1.9(@swc/helpers@0.5.23))(core-js@3.47.0)(esbuild@0.28.2)(typescript@6.0.3)(webpack@5.106.2(esbuild@0.28.2))':
     dependencies:
-      '@lynx-js/debug-metadata-rsbuild-plugin': 0.2.1
-      '@lynx-js/rsbuild-plugin': 0.0.2(@rsbuild/core@2.1.7(core-js@3.47.0))
-      '@lynx-js/web-rsbuild-server-middleware': 0.24.0
-      '@lynx-js/webpack-dev-transport': 0.3.0
-      '@lynx-js/websocket': 0.0.4
-      '@rsbuild/core': 2.1.7(core-js@3.47.0)
-      '@rsbuild/plugin-css-minimizer': 2.0.1(@rsbuild/core@2.1.7(core-js@3.47.0))(esbuild@0.28.0)(webpack@5.106.2(esbuild@0.28.0))
-      '@rsdoctor/rspack-plugin': 1.6.1(@emnapi/core@1.11.3)(@emnapi/runtime@1.11.3)(@rsbuild/core@2.1.7(core-js@3.47.0))(@rspack/core@2.1.9(@swc/helpers@0.5.23))(webpack@5.106.2(esbuild@0.28.0))
+      '@lynx-js/rsbuild-plugin': 0.0.3(@rsbuild/core@2.1.10(core-js@3.47.0))(esbuild@0.28.2)(webpack@5.106.2(esbuild@0.28.2))
+      '@rsbuild/core': 2.1.10(core-js@3.47.0)
+      '@rsdoctor/rspack-plugin': 1.6.1(@emnapi/core@1.11.3)(@emnapi/runtime@1.11.3)(@rsbuild/core@2.1.10(core-js@3.47.0))(@rspack/core@2.1.9(@swc/helpers@0.5.23))(webpack@5.106.2(esbuild@0.28.2))
     optionalDependencies:
       typescript: 6.0.3
     transitivePeerDependencies:
@@ -5002,14 +5073,14 @@ snapshots:
 
   '@lynx-js/tasm@0.0.49': {}
 
-  '@lynx-js/template-webpack-plugin@0.15.0(tslib@2.8.1)':
+  '@lynx-js/template-webpack-plugin@0.15.2(tslib@2.8.1)':
     dependencies:
       '@jridgewell/trace-mapping': 0.3.31
-      '@lynx-js/css-serializer': 0.1.7
+      '@lynx-js/css-serializer': 0.1.9
       '@lynx-js/tasm': 0.0.49
-      '@lynx-js/web-core': 0.24.0(@lynx-js/css-serializer@0.1.7)(tslib@2.8.1)
+      '@lynx-js/web-core': 0.25.0(tslib@2.8.1)
       '@lynx-js/webpack-runtime-globals': 0.0.7
-      '@rspack/lite-tapable': 1.1.2
+      '@rspack/lite-tapable': 1.1.5
       css-tree: 3.2.1
       object.groupby: 1.0.3
       tinypool: 2.1.0
@@ -5017,30 +5088,30 @@ snapshots:
       - '@lynx-js/lynx-core'
       - tslib
 
-  '@lynx-js/types@4.0.0':
+  '@lynx-js/types@4.2.1':
     dependencies:
       csstype: 3.1.3
 
-  '@lynx-js/web-core@0.24.0(@lynx-js/css-serializer@0.1.7)(tslib@2.8.1)':
+  '@lynx-js/web-core@0.25.0(tslib@2.8.1)':
     dependencies:
-      '@lynx-js/web-elements': 0.12.7(tslib@2.8.1)
-      '@lynx-js/web-worker-rpc': 0.24.0
+      '@lynx-js/css-serializer': 0.1.9
+      '@lynx-js/web-elements': 0.12.9(tslib@2.8.1)
+      '@lynx-js/web-worker-rpc': 0.25.0
       wasm-feature-detect: 1.8.0
     optionalDependencies:
-      '@lynx-js/css-serializer': 0.1.7
       tslib: 2.8.1
 
-  '@lynx-js/web-elements@0.12.7(tslib@2.8.1)':
+  '@lynx-js/web-elements@0.12.9(tslib@2.8.1)':
     dependencies:
       dompurify: 3.4.13
-      markdown-it: 14.3.0
+      markdown-it: 15.0.1
       tslib: 2.8.1
 
-  '@lynx-js/web-rsbuild-server-middleware@0.24.0': {}
+  '@lynx-js/web-rsbuild-server-middleware@0.25.0': {}
 
-  '@lynx-js/web-worker-rpc@0.24.0': {}
+  '@lynx-js/web-worker-rpc@0.25.0': {}
 
-  '@lynx-js/webpack-dev-transport@0.3.0': {}
+  '@lynx-js/webpack-dev-transport@0.4.0': {}
 
   '@lynx-js/webpack-runtime-globals@0.0.7': {}
 
@@ -5184,6 +5255,15 @@ snapshots:
 
   '@rolldown/pluginutils@1.0.1': {}
 
+  '@rsbuild/core@2.1.10(core-js@3.47.0)':
+    dependencies:
+      '@rspack/core': 2.1.9(@swc/helpers@0.5.23)
+      '@swc/helpers': 0.5.23
+    optionalDependencies:
+      core-js: 3.47.0
+    transitivePeerDependencies:
+      - '@module-federation/runtime-tools'
+
   '@rsbuild/core@2.1.11(core-js@3.47.0)':
     dependencies:
       '@rspack/core': 2.1.9(@swc/helpers@0.5.23)
@@ -5193,31 +5273,22 @@ snapshots:
     transitivePeerDependencies:
       - '@module-federation/runtime-tools'
 
-  '@rsbuild/core@2.1.7(core-js@3.47.0)':
+  '@rsbuild/plugin-check-syntax@1.6.1(@rsbuild/core@2.1.10(core-js@3.47.0))':
     dependencies:
-      '@rspack/core': 2.1.9(@swc/helpers@0.5.23)
-      '@swc/helpers': 0.5.23
-    optionalDependencies:
-      core-js: 3.47.0
-    transitivePeerDependencies:
-      - '@module-federation/runtime-tools'
-
-  '@rsbuild/plugin-check-syntax@1.6.1(@rsbuild/core@2.1.7(core-js@3.47.0))':
-    dependencies:
-      acorn: 8.17.0
+      acorn: 8.18.0
       browserslist-to-es-version: 1.4.1
       htmlparser2: 10.0.0
       picocolors: 1.1.1
       source-map: 0.7.6
     optionalDependencies:
-      '@rsbuild/core': 2.1.7(core-js@3.47.0)
+      '@rsbuild/core': 2.1.10(core-js@3.47.0)
 
-  '@rsbuild/plugin-css-minimizer@2.0.1(@rsbuild/core@2.1.7(core-js@3.47.0))(esbuild@0.28.0)(webpack@5.106.2(esbuild@0.28.0)(postcss@8.5.15))':
+  '@rsbuild/plugin-css-minimizer@2.0.1(@rsbuild/core@2.1.10(core-js@3.47.0))(esbuild@0.28.2)(webpack@5.106.2(esbuild@0.28.2)(postcss@8.5.15))':
     dependencies:
-      css-minimizer-webpack-plugin: 8.0.0(esbuild@0.28.0)(webpack@5.106.2(esbuild@0.28.0)(postcss@8.5.15))
+      css-minimizer-webpack-plugin: 8.0.0(esbuild@0.28.2)(webpack@5.106.2(esbuild@0.28.2)(postcss@8.5.15))
       reduce-configs: 1.1.2
     optionalDependencies:
-      '@rsbuild/core': 2.1.7(core-js@3.47.0)
+      '@rsbuild/core': 2.1.10(core-js@3.47.0)
     transitivePeerDependencies:
       - '@parcel/css'
       - '@swc/css'
@@ -5227,12 +5298,12 @@ snapshots:
       - lightningcss
       - webpack
 
-  '@rsbuild/plugin-css-minimizer@2.0.1(@rsbuild/core@2.1.7(core-js@3.47.0))(esbuild@0.28.0)(webpack@5.106.2(esbuild@0.28.0))':
+  '@rsbuild/plugin-css-minimizer@2.0.1(@rsbuild/core@2.1.10(core-js@3.47.0))(esbuild@0.28.2)(webpack@5.106.2(esbuild@0.28.2))':
     dependencies:
-      css-minimizer-webpack-plugin: 8.0.0(esbuild@0.28.0)(webpack@5.106.2(esbuild@0.28.0))
+      css-minimizer-webpack-plugin: 8.0.0(esbuild@0.28.2)(webpack@5.106.2(esbuild@0.28.2))
       reduce-configs: 1.1.2
     optionalDependencies:
-      '@rsbuild/core': 2.1.7(core-js@3.47.0)
+      '@rsbuild/core': 2.1.10(core-js@3.47.0)
     transitivePeerDependencies:
       - '@parcel/css'
       - '@swc/css'
@@ -5244,13 +5315,13 @@ snapshots:
 
   '@rsdoctor/client@1.6.1': {}
 
-  '@rsdoctor/core@1.6.1(@emnapi/core@1.11.3)(@emnapi/runtime@1.11.3)(@rsbuild/core@2.1.7(core-js@3.47.0))(@rspack/core@2.1.9(@swc/helpers@0.5.23))(webpack@5.106.2(esbuild@0.28.0)(postcss@8.5.15))':
+  '@rsdoctor/core@1.6.1(@emnapi/core@1.11.3)(@emnapi/runtime@1.11.3)(@rsbuild/core@2.1.10(core-js@3.47.0))(@rspack/core@2.1.9(@swc/helpers@0.5.23))(webpack@5.106.2(esbuild@0.28.2)(postcss@8.5.15))':
     dependencies:
-      '@rsbuild/plugin-check-syntax': 1.6.1(@rsbuild/core@2.1.7(core-js@3.47.0))
-      '@rsdoctor/graph': 1.6.1(@rspack/core@2.1.9(@swc/helpers@0.5.23))(webpack@5.106.2(esbuild@0.28.0)(postcss@8.5.15))
-      '@rsdoctor/sdk': 1.6.1(@rspack/core@2.1.9(@swc/helpers@0.5.23))(webpack@5.106.2(esbuild@0.28.0)(postcss@8.5.15))
-      '@rsdoctor/types': 1.6.1(@rspack/core@2.1.9(@swc/helpers@0.5.23))(webpack@5.106.2(esbuild@0.28.0)(postcss@8.5.15))
-      '@rsdoctor/utils': 1.6.1(@rspack/core@2.1.9(@swc/helpers@0.5.23))(webpack@5.106.2(esbuild@0.28.0)(postcss@8.5.15))
+      '@rsbuild/plugin-check-syntax': 1.6.1(@rsbuild/core@2.1.10(core-js@3.47.0))
+      '@rsdoctor/graph': 1.6.1(@rspack/core@2.1.9(@swc/helpers@0.5.23))(webpack@5.106.2(esbuild@0.28.2)(postcss@8.5.15))
+      '@rsdoctor/sdk': 1.6.1(@rspack/core@2.1.9(@swc/helpers@0.5.23))(webpack@5.106.2(esbuild@0.28.2)(postcss@8.5.15))
+      '@rsdoctor/types': 1.6.1(@rspack/core@2.1.9(@swc/helpers@0.5.23))(webpack@5.106.2(esbuild@0.28.2)(postcss@8.5.15))
+      '@rsdoctor/utils': 1.6.1(@rspack/core@2.1.9(@swc/helpers@0.5.23))(webpack@5.106.2(esbuild@0.28.2)(postcss@8.5.15))
       '@rspack/resolver': 0.2.8(@emnapi/core@1.11.3)(@emnapi/runtime@1.11.3)
       browserslist-load-config: 1.0.3
       es-toolkit: 1.50.0
@@ -5268,13 +5339,13 @@ snapshots:
       - utf-8-validate
       - webpack
 
-  '@rsdoctor/core@1.6.1(@emnapi/core@1.11.3)(@emnapi/runtime@1.11.3)(@rsbuild/core@2.1.7(core-js@3.47.0))(@rspack/core@2.1.9(@swc/helpers@0.5.23))(webpack@5.106.2(esbuild@0.28.0))':
+  '@rsdoctor/core@1.6.1(@emnapi/core@1.11.3)(@emnapi/runtime@1.11.3)(@rsbuild/core@2.1.10(core-js@3.47.0))(@rspack/core@2.1.9(@swc/helpers@0.5.23))(webpack@5.106.2(esbuild@0.28.2))':
     dependencies:
-      '@rsbuild/plugin-check-syntax': 1.6.1(@rsbuild/core@2.1.7(core-js@3.47.0))
-      '@rsdoctor/graph': 1.6.1(@rspack/core@2.1.9(@swc/helpers@0.5.23))(webpack@5.106.2(esbuild@0.28.0))
-      '@rsdoctor/sdk': 1.6.1(@rspack/core@2.1.9(@swc/helpers@0.5.23))(webpack@5.106.2(esbuild@0.28.0))
-      '@rsdoctor/types': 1.6.1(@rspack/core@2.1.9(@swc/helpers@0.5.23))(webpack@5.106.2(esbuild@0.28.0))
-      '@rsdoctor/utils': 1.6.1(@rspack/core@2.1.9(@swc/helpers@0.5.23))(webpack@5.106.2(esbuild@0.28.0))
+      '@rsbuild/plugin-check-syntax': 1.6.1(@rsbuild/core@2.1.10(core-js@3.47.0))
+      '@rsdoctor/graph': 1.6.1(@rspack/core@2.1.9(@swc/helpers@0.5.23))(webpack@5.106.2(esbuild@0.28.2))
+      '@rsdoctor/sdk': 1.6.1(@rspack/core@2.1.9(@swc/helpers@0.5.23))(webpack@5.106.2(esbuild@0.28.2))
+      '@rsdoctor/types': 1.6.1(@rspack/core@2.1.9(@swc/helpers@0.5.23))(webpack@5.106.2(esbuild@0.28.2))
+      '@rsdoctor/utils': 1.6.1(@rspack/core@2.1.9(@swc/helpers@0.5.23))(webpack@5.106.2(esbuild@0.28.2))
       '@rspack/resolver': 0.2.8(@emnapi/core@1.11.3)(@emnapi/runtime@1.11.3)
       browserslist-load-config: 1.0.3
       es-toolkit: 1.50.0
@@ -5292,10 +5363,10 @@ snapshots:
       - utf-8-validate
       - webpack
 
-  '@rsdoctor/graph@1.6.1(@rspack/core@2.1.9(@swc/helpers@0.5.23))(webpack@5.106.2(esbuild@0.28.0)(postcss@8.5.15))':
+  '@rsdoctor/graph@1.6.1(@rspack/core@2.1.9(@swc/helpers@0.5.23))(webpack@5.106.2(esbuild@0.28.2)(postcss@8.5.15))':
     dependencies:
-      '@rsdoctor/types': 1.6.1(@rspack/core@2.1.9(@swc/helpers@0.5.23))(webpack@5.106.2(esbuild@0.28.0)(postcss@8.5.15))
-      '@rsdoctor/utils': 1.6.1(@rspack/core@2.1.9(@swc/helpers@0.5.23))(webpack@5.106.2(esbuild@0.28.0)(postcss@8.5.15))
+      '@rsdoctor/types': 1.6.1(@rspack/core@2.1.9(@swc/helpers@0.5.23))(webpack@5.106.2(esbuild@0.28.2)(postcss@8.5.15))
+      '@rsdoctor/utils': 1.6.1(@rspack/core@2.1.9(@swc/helpers@0.5.23))(webpack@5.106.2(esbuild@0.28.2)(postcss@8.5.15))
       es-toolkit: 1.50.0
       path-browserify: 1.0.1
       source-map: 0.7.6
@@ -5303,10 +5374,10 @@ snapshots:
       - '@rspack/core'
       - webpack
 
-  '@rsdoctor/graph@1.6.1(@rspack/core@2.1.9(@swc/helpers@0.5.23))(webpack@5.106.2(esbuild@0.28.0))':
+  '@rsdoctor/graph@1.6.1(@rspack/core@2.1.9(@swc/helpers@0.5.23))(webpack@5.106.2(esbuild@0.28.2))':
     dependencies:
-      '@rsdoctor/types': 1.6.1(@rspack/core@2.1.9(@swc/helpers@0.5.23))(webpack@5.106.2(esbuild@0.28.0))
-      '@rsdoctor/utils': 1.6.1(@rspack/core@2.1.9(@swc/helpers@0.5.23))(webpack@5.106.2(esbuild@0.28.0))
+      '@rsdoctor/types': 1.6.1(@rspack/core@2.1.9(@swc/helpers@0.5.23))(webpack@5.106.2(esbuild@0.28.2))
+      '@rsdoctor/utils': 1.6.1(@rspack/core@2.1.9(@swc/helpers@0.5.23))(webpack@5.106.2(esbuild@0.28.2))
       es-toolkit: 1.50.0
       path-browserify: 1.0.1
       source-map: 0.7.6
@@ -5314,13 +5385,13 @@ snapshots:
       - '@rspack/core'
       - webpack
 
-  '@rsdoctor/rspack-plugin@1.6.1(@emnapi/core@1.11.3)(@emnapi/runtime@1.11.3)(@rsbuild/core@2.1.7(core-js@3.47.0))(@rspack/core@2.1.9(@swc/helpers@0.5.23))(webpack@5.106.2(esbuild@0.28.0)(postcss@8.5.15))':
+  '@rsdoctor/rspack-plugin@1.6.1(@emnapi/core@1.11.3)(@emnapi/runtime@1.11.3)(@rsbuild/core@2.1.10(core-js@3.47.0))(@rspack/core@2.1.9(@swc/helpers@0.5.23))(webpack@5.106.2(esbuild@0.28.2)(postcss@8.5.15))':
     dependencies:
-      '@rsdoctor/core': 1.6.1(@emnapi/core@1.11.3)(@emnapi/runtime@1.11.3)(@rsbuild/core@2.1.7(core-js@3.47.0))(@rspack/core@2.1.9(@swc/helpers@0.5.23))(webpack@5.106.2(esbuild@0.28.0)(postcss@8.5.15))
-      '@rsdoctor/graph': 1.6.1(@rspack/core@2.1.9(@swc/helpers@0.5.23))(webpack@5.106.2(esbuild@0.28.0)(postcss@8.5.15))
-      '@rsdoctor/sdk': 1.6.1(@rspack/core@2.1.9(@swc/helpers@0.5.23))(webpack@5.106.2(esbuild@0.28.0)(postcss@8.5.15))
-      '@rsdoctor/types': 1.6.1(@rspack/core@2.1.9(@swc/helpers@0.5.23))(webpack@5.106.2(esbuild@0.28.0)(postcss@8.5.15))
-      '@rsdoctor/utils': 1.6.1(@rspack/core@2.1.9(@swc/helpers@0.5.23))(webpack@5.106.2(esbuild@0.28.0)(postcss@8.5.15))
+      '@rsdoctor/core': 1.6.1(@emnapi/core@1.11.3)(@emnapi/runtime@1.11.3)(@rsbuild/core@2.1.10(core-js@3.47.0))(@rspack/core@2.1.9(@swc/helpers@0.5.23))(webpack@5.106.2(esbuild@0.28.2)(postcss@8.5.15))
+      '@rsdoctor/graph': 1.6.1(@rspack/core@2.1.9(@swc/helpers@0.5.23))(webpack@5.106.2(esbuild@0.28.2)(postcss@8.5.15))
+      '@rsdoctor/sdk': 1.6.1(@rspack/core@2.1.9(@swc/helpers@0.5.23))(webpack@5.106.2(esbuild@0.28.2)(postcss@8.5.15))
+      '@rsdoctor/types': 1.6.1(@rspack/core@2.1.9(@swc/helpers@0.5.23))(webpack@5.106.2(esbuild@0.28.2)(postcss@8.5.15))
+      '@rsdoctor/utils': 1.6.1(@rspack/core@2.1.9(@swc/helpers@0.5.23))(webpack@5.106.2(esbuild@0.28.2)(postcss@8.5.15))
     optionalDependencies:
       '@rspack/core': 2.1.9(@swc/helpers@0.5.23)
     transitivePeerDependencies:
@@ -5332,13 +5403,13 @@ snapshots:
       - utf-8-validate
       - webpack
 
-  '@rsdoctor/rspack-plugin@1.6.1(@emnapi/core@1.11.3)(@emnapi/runtime@1.11.3)(@rsbuild/core@2.1.7(core-js@3.47.0))(@rspack/core@2.1.9(@swc/helpers@0.5.23))(webpack@5.106.2(esbuild@0.28.0))':
+  '@rsdoctor/rspack-plugin@1.6.1(@emnapi/core@1.11.3)(@emnapi/runtime@1.11.3)(@rsbuild/core@2.1.10(core-js@3.47.0))(@rspack/core@2.1.9(@swc/helpers@0.5.23))(webpack@5.106.2(esbuild@0.28.2))':
     dependencies:
-      '@rsdoctor/core': 1.6.1(@emnapi/core@1.11.3)(@emnapi/runtime@1.11.3)(@rsbuild/core@2.1.7(core-js@3.47.0))(@rspack/core@2.1.9(@swc/helpers@0.5.23))(webpack@5.106.2(esbuild@0.28.0))
-      '@rsdoctor/graph': 1.6.1(@rspack/core@2.1.9(@swc/helpers@0.5.23))(webpack@5.106.2(esbuild@0.28.0))
-      '@rsdoctor/sdk': 1.6.1(@rspack/core@2.1.9(@swc/helpers@0.5.23))(webpack@5.106.2(esbuild@0.28.0))
-      '@rsdoctor/types': 1.6.1(@rspack/core@2.1.9(@swc/helpers@0.5.23))(webpack@5.106.2(esbuild@0.28.0))
-      '@rsdoctor/utils': 1.6.1(@rspack/core@2.1.9(@swc/helpers@0.5.23))(webpack@5.106.2(esbuild@0.28.0))
+      '@rsdoctor/core': 1.6.1(@emnapi/core@1.11.3)(@emnapi/runtime@1.11.3)(@rsbuild/core@2.1.10(core-js@3.47.0))(@rspack/core@2.1.9(@swc/helpers@0.5.23))(webpack@5.106.2(esbuild@0.28.2))
+      '@rsdoctor/graph': 1.6.1(@rspack/core@2.1.9(@swc/helpers@0.5.23))(webpack@5.106.2(esbuild@0.28.2))
+      '@rsdoctor/sdk': 1.6.1(@rspack/core@2.1.9(@swc/helpers@0.5.23))(webpack@5.106.2(esbuild@0.28.2))
+      '@rsdoctor/types': 1.6.1(@rspack/core@2.1.9(@swc/helpers@0.5.23))(webpack@5.106.2(esbuild@0.28.2))
+      '@rsdoctor/utils': 1.6.1(@rspack/core@2.1.9(@swc/helpers@0.5.23))(webpack@5.106.2(esbuild@0.28.2))
     optionalDependencies:
       '@rspack/core': 2.1.9(@swc/helpers@0.5.23)
     transitivePeerDependencies:
@@ -5350,12 +5421,12 @@ snapshots:
       - utf-8-validate
       - webpack
 
-  '@rsdoctor/sdk@1.6.1(@rspack/core@2.1.9(@swc/helpers@0.5.23))(webpack@5.106.2(esbuild@0.28.0)(postcss@8.5.15))':
+  '@rsdoctor/sdk@1.6.1(@rspack/core@2.1.9(@swc/helpers@0.5.23))(webpack@5.106.2(esbuild@0.28.2)(postcss@8.5.15))':
     dependencies:
       '@rsdoctor/client': 1.6.1
-      '@rsdoctor/graph': 1.6.1(@rspack/core@2.1.9(@swc/helpers@0.5.23))(webpack@5.106.2(esbuild@0.28.0)(postcss@8.5.15))
-      '@rsdoctor/types': 1.6.1(@rspack/core@2.1.9(@swc/helpers@0.5.23))(webpack@5.106.2(esbuild@0.28.0)(postcss@8.5.15))
-      '@rsdoctor/utils': 1.6.1(@rspack/core@2.1.9(@swc/helpers@0.5.23))(webpack@5.106.2(esbuild@0.28.0)(postcss@8.5.15))
+      '@rsdoctor/graph': 1.6.1(@rspack/core@2.1.9(@swc/helpers@0.5.23))(webpack@5.106.2(esbuild@0.28.2)(postcss@8.5.15))
+      '@rsdoctor/types': 1.6.1(@rspack/core@2.1.9(@swc/helpers@0.5.23))(webpack@5.106.2(esbuild@0.28.2)(postcss@8.5.15))
+      '@rsdoctor/utils': 1.6.1(@rspack/core@2.1.9(@swc/helpers@0.5.23))(webpack@5.106.2(esbuild@0.28.2)(postcss@8.5.15))
       launch-editor: 2.13.2
       safer-buffer: 2.1.2
       socket.io: 4.8.1
@@ -5367,12 +5438,12 @@ snapshots:
       - utf-8-validate
       - webpack
 
-  '@rsdoctor/sdk@1.6.1(@rspack/core@2.1.9(@swc/helpers@0.5.23))(webpack@5.106.2(esbuild@0.28.0))':
+  '@rsdoctor/sdk@1.6.1(@rspack/core@2.1.9(@swc/helpers@0.5.23))(webpack@5.106.2(esbuild@0.28.2))':
     dependencies:
       '@rsdoctor/client': 1.6.1
-      '@rsdoctor/graph': 1.6.1(@rspack/core@2.1.9(@swc/helpers@0.5.23))(webpack@5.106.2(esbuild@0.28.0))
-      '@rsdoctor/types': 1.6.1(@rspack/core@2.1.9(@swc/helpers@0.5.23))(webpack@5.106.2(esbuild@0.28.0))
-      '@rsdoctor/utils': 1.6.1(@rspack/core@2.1.9(@swc/helpers@0.5.23))(webpack@5.106.2(esbuild@0.28.0))
+      '@rsdoctor/graph': 1.6.1(@rspack/core@2.1.9(@swc/helpers@0.5.23))(webpack@5.106.2(esbuild@0.28.2))
+      '@rsdoctor/types': 1.6.1(@rspack/core@2.1.9(@swc/helpers@0.5.23))(webpack@5.106.2(esbuild@0.28.2))
+      '@rsdoctor/utils': 1.6.1(@rspack/core@2.1.9(@swc/helpers@0.5.23))(webpack@5.106.2(esbuild@0.28.2))
       launch-editor: 2.13.2
       safer-buffer: 2.1.2
       socket.io: 4.8.1
@@ -5384,7 +5455,7 @@ snapshots:
       - utf-8-validate
       - webpack
 
-  '@rsdoctor/types@1.6.1(@rspack/core@2.1.9(@swc/helpers@0.5.23))(webpack@5.106.2(esbuild@0.28.0)(postcss@8.5.15))':
+  '@rsdoctor/types@1.6.1(@rspack/core@2.1.9(@swc/helpers@0.5.23))(webpack@5.106.2(esbuild@0.28.2)(postcss@8.5.15))':
     dependencies:
       '@types/connect': 3.4.38
       '@types/estree': 1.0.5
@@ -5392,9 +5463,9 @@ snapshots:
       source-map: 0.7.6
     optionalDependencies:
       '@rspack/core': 2.1.9(@swc/helpers@0.5.23)
-      webpack: 5.106.2(esbuild@0.28.0)(postcss@8.5.15)
+      webpack: 5.106.2(esbuild@0.28.2)(postcss@8.5.15)
 
-  '@rsdoctor/types@1.6.1(@rspack/core@2.1.9(@swc/helpers@0.5.23))(webpack@5.106.2(esbuild@0.28.0))':
+  '@rsdoctor/types@1.6.1(@rspack/core@2.1.9(@swc/helpers@0.5.23))(webpack@5.106.2(esbuild@0.28.2))':
     dependencies:
       '@types/connect': 3.4.38
       '@types/estree': 1.0.5
@@ -5402,15 +5473,15 @@ snapshots:
       source-map: 0.7.6
     optionalDependencies:
       '@rspack/core': 2.1.9(@swc/helpers@0.5.23)
-      webpack: 5.106.2(esbuild@0.28.0)
+      webpack: 5.106.2(esbuild@0.28.2)
 
-  '@rsdoctor/utils@1.6.1(@rspack/core@2.1.9(@swc/helpers@0.5.23))(webpack@5.106.2(esbuild@0.28.0)(postcss@8.5.15))':
+  '@rsdoctor/utils@1.6.1(@rspack/core@2.1.9(@swc/helpers@0.5.23))(webpack@5.106.2(esbuild@0.28.2)(postcss@8.5.15))':
     dependencies:
       '@babel/code-frame': 7.26.2
-      '@rsdoctor/types': 1.6.1(@rspack/core@2.1.9(@swc/helpers@0.5.23))(webpack@5.106.2(esbuild@0.28.0)(postcss@8.5.15))
+      '@rsdoctor/types': 1.6.1(@rspack/core@2.1.9(@swc/helpers@0.5.23))(webpack@5.106.2(esbuild@0.28.2)(postcss@8.5.15))
       '@types/estree': 1.0.5
-      acorn: 8.17.0
-      acorn-import-attributes: 1.9.5(acorn@8.17.0)
+      acorn: 8.18.0
+      acorn-import-attributes: 1.9.5(acorn@8.18.0)
       acorn-walk: 8.3.5
       deep-eql: 4.1.4
       envinfo: 7.21.0
@@ -5425,13 +5496,13 @@ snapshots:
       - '@rspack/core'
       - webpack
 
-  '@rsdoctor/utils@1.6.1(@rspack/core@2.1.9(@swc/helpers@0.5.23))(webpack@5.106.2(esbuild@0.28.0))':
+  '@rsdoctor/utils@1.6.1(@rspack/core@2.1.9(@swc/helpers@0.5.23))(webpack@5.106.2(esbuild@0.28.2))':
     dependencies:
       '@babel/code-frame': 7.26.2
-      '@rsdoctor/types': 1.6.1(@rspack/core@2.1.9(@swc/helpers@0.5.23))(webpack@5.106.2(esbuild@0.28.0))
+      '@rsdoctor/types': 1.6.1(@rspack/core@2.1.9(@swc/helpers@0.5.23))(webpack@5.106.2(esbuild@0.28.2))
       '@types/estree': 1.0.5
-      acorn: 8.17.0
-      acorn-import-attributes: 1.9.5(acorn@8.17.0)
+      acorn: 8.18.0
+      acorn-import-attributes: 1.9.5(acorn@8.18.0)
       acorn-walk: 8.3.5
       deep-eql: 4.1.4
       envinfo: 7.21.0
@@ -5515,7 +5586,7 @@ snapshots:
     optionalDependencies:
       '@swc/helpers': 0.5.23
 
-  '@rspack/lite-tapable@1.1.2': {}
+  '@rspack/lite-tapable@1.1.5': {}
 
   '@rspack/resolver-binding-darwin-arm64@0.2.8':
     optional: true
@@ -5577,22 +5648,31 @@ snapshots:
 
   '@sigx/reactivity@0.15.4': {}
 
+  '@sigx/reactivity@0.15.6': {}
+
   '@sigx/runtime-core@0.15.4':
     dependencies:
-      '@sigx/reactivity': 0.15.4
+      '@sigx/reactivity': 0.15.6
       '@sigx/serialize': 0.15.4
+
+  '@sigx/runtime-core@0.15.6':
+    dependencies:
+      '@sigx/reactivity': 0.15.6
+      '@sigx/serialize': 0.15.6
 
   '@sigx/runtime-dom@0.15.3':
     dependencies:
-      '@sigx/reactivity': 0.15.4
-      '@sigx/runtime-core': 0.15.4
+      '@sigx/reactivity': 0.15.6
+      '@sigx/runtime-core': 0.15.6
 
   '@sigx/runtime-terminal@0.12.0':
     dependencies:
-      '@sigx/reactivity': 0.15.4
+      '@sigx/reactivity': 0.15.6
       '@sigx/runtime-core': 0.15.4
 
   '@sigx/serialize@0.15.4': {}
+
+  '@sigx/serialize@0.15.6': {}
 
   '@sigx/terminal-ui@0.12.0(@sigx/reactivity@0.15.4)(@sigx/runtime-core@0.15.4)':
     dependencies:
@@ -5614,14 +5694,14 @@ snapshots:
       '@sigx/terminal-ui': 0.12.0(@sigx/reactivity@0.15.4)(@sigx/runtime-core@0.15.4)
       '@sigx/terminal-zero': 0.12.0(@sigx/reactivity@0.15.4)(@sigx/runtime-core@0.15.4)
 
-  '@sigx/zero-daisyui@0.2.0-beta.6(@sigx/zero@0.2.0-beta.6(@sigx/reactivity@0.15.4)(@sigx/runtime-core@0.15.4)(@sigx/runtime-dom@0.15.3)(sigx@0.15.3))':
+  '@sigx/zero-daisyui@0.2.0-beta.6(@sigx/zero@0.2.0-beta.6(@sigx/reactivity@0.15.6)(@sigx/runtime-core@0.15.6)(@sigx/runtime-dom@0.15.3)(sigx@0.15.3))':
     dependencies:
-      '@sigx/zero': 0.2.0-beta.6(@sigx/reactivity@0.15.4)(@sigx/runtime-core@0.15.4)(@sigx/runtime-dom@0.15.3)(sigx@0.15.3)
+      '@sigx/zero': 0.2.0-beta.6(@sigx/reactivity@0.15.6)(@sigx/runtime-core@0.15.6)(@sigx/runtime-dom@0.15.3)(sigx@0.15.3)
 
-  '@sigx/zero@0.2.0-beta.6(@sigx/reactivity@0.15.4)(@sigx/runtime-core@0.15.4)(@sigx/runtime-dom@0.15.3)(sigx@0.15.3)':
+  '@sigx/zero@0.2.0-beta.6(@sigx/reactivity@0.15.6)(@sigx/runtime-core@0.15.6)(@sigx/runtime-dom@0.15.3)(sigx@0.15.3)':
     dependencies:
-      '@sigx/reactivity': 0.15.4
-      '@sigx/runtime-core': 0.15.4
+      '@sigx/reactivity': 0.15.6
+      '@sigx/runtime-core': 0.15.6
       '@sigx/runtime-dom': 0.15.3
       sigx: 0.15.3
 
@@ -5647,11 +5727,11 @@ snapshots:
 
   '@types/connect@3.4.38':
     dependencies:
-      '@types/node': 25.9.3
+      '@types/node': 25.9.5
 
   '@types/cors@2.8.19':
     dependencies:
-      '@types/node': 25.9.3
+      '@types/node': 25.9.5
 
   '@types/deep-eql@4.0.2': {}
 
@@ -5684,6 +5764,15 @@ snapshots:
   '@types/node@25.9.3':
     dependencies:
       undici-types: 7.24.6
+
+  '@types/node@25.9.5':
+    dependencies:
+      undici-types: 7.24.6
+
+  '@types/node@26.4.0':
+    dependencies:
+      undici-types: 8.3.0
+    optional: true
 
   '@types/prop-types@15.7.15': {}
 
@@ -5756,7 +5845,7 @@ snapshots:
       obug: 2.1.1
       std-env: 4.1.0
       tinyrainbow: 3.1.0
-      vitest: 4.1.7(@types/node@25.9.3)(@vitest/coverage-v8@4.1.7)(happy-dom@20.11.1)(vite@8.0.14(@types/node@25.9.3)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0))
+      vitest: 4.1.7(@types/node@26.4.0)(@vitest/coverage-v8@4.1.7)(happy-dom@20.11.1)(vite@8.0.14(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2))
 
   '@vitest/expect@4.1.7':
     dependencies:
@@ -5767,13 +5856,21 @@ snapshots:
       chai: 6.2.2
       tinyrainbow: 3.1.0
 
-  '@vitest/mocker@4.1.7(vite@8.0.14(@types/node@25.9.3)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0))':
+  '@vitest/mocker@4.1.7(vite@8.0.14(@types/node@25.9.3)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2))':
     dependencies:
       '@vitest/spy': 4.1.7
       estree-walker: 3.0.3
       magic-string: 0.30.21
     optionalDependencies:
-      vite: 8.0.14(@types/node@25.9.3)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0)
+      vite: 8.0.14(@types/node@25.9.3)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)
+
+  '@vitest/mocker@4.1.7(vite@8.0.14(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2))':
+    dependencies:
+      '@vitest/spy': 4.1.7
+      estree-walker: 3.0.3
+      magic-string: 0.30.21
+    optionalDependencies:
+      vite: 8.0.14(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)
 
   '@vitest/pretty-format@4.1.7':
     dependencies:
@@ -5884,19 +5981,19 @@ snapshots:
       mime-types: 2.1.35
       negotiator: 0.6.3
 
-  acorn-import-attributes@1.9.5(acorn@8.17.0):
+  acorn-import-attributes@1.9.5(acorn@8.18.0):
     dependencies:
-      acorn: 8.17.0
+      acorn: 8.18.0
 
-  acorn-import-phases@1.0.4(acorn@8.17.0):
+  acorn-import-phases@1.0.4(acorn@8.18.0):
     dependencies:
-      acorn: 8.17.0
+      acorn: 8.18.0
 
   acorn-walk@8.3.5:
     dependencies:
-      acorn: 8.17.0
+      acorn: 8.18.0
 
-  acorn@8.17.0: {}
+  acorn@8.18.0: {}
 
   ajv-formats@2.1.1(ajv@8.20.0):
     optionalDependencies:
@@ -5929,7 +6026,7 @@ snapshots:
 
   arg@5.0.2: {}
 
-  argparse@2.0.1: {}
+  argparse@3.0.1: {}
 
   array-buffer-byte-length@1.0.2:
     dependencies:
@@ -6080,7 +6177,7 @@ snapshots:
     dependencies:
       postcss: 8.5.15
 
-  css-minimizer-webpack-plugin@8.0.0(esbuild@0.28.0)(webpack@5.106.2(esbuild@0.28.0)(postcss@8.5.15)):
+  css-minimizer-webpack-plugin@8.0.0(esbuild@0.28.2)(webpack@5.106.2(esbuild@0.28.2)(postcss@8.5.15)):
     dependencies:
       '@jridgewell/trace-mapping': 0.3.31
       cssnano: 7.1.9(postcss@8.5.15)
@@ -6088,11 +6185,11 @@ snapshots:
       postcss: 8.5.15
       schema-utils: 4.3.3
       serialize-javascript: 7.1.0
-      webpack: 5.106.2(esbuild@0.28.0)(postcss@8.5.15)
+      webpack: 5.106.2(esbuild@0.28.2)(postcss@8.5.15)
     optionalDependencies:
-      esbuild: 0.28.0
+      esbuild: 0.28.2
 
-  css-minimizer-webpack-plugin@8.0.0(esbuild@0.28.0)(webpack@5.106.2(esbuild@0.28.0)):
+  css-minimizer-webpack-plugin@8.0.0(esbuild@0.28.2)(webpack@5.106.2(esbuild@0.28.2)):
     dependencies:
       '@jridgewell/trace-mapping': 0.3.31
       cssnano: 7.1.9(postcss@8.5.15)
@@ -6100,9 +6197,9 @@ snapshots:
       postcss: 8.5.15
       schema-utils: 4.3.3
       serialize-javascript: 7.1.0
-      webpack: 5.106.2(esbuild@0.28.0)
+      webpack: 5.106.2(esbuild@0.28.2)
     optionalDependencies:
-      esbuild: 0.28.0
+      esbuild: 0.28.2
 
   css-select@5.2.2:
     dependencies:
@@ -6269,7 +6366,7 @@ snapshots:
   engine.io@6.6.8:
     dependencies:
       '@types/cors': 2.8.19
-      '@types/node': 25.9.3
+      '@types/node': 25.9.5
       '@types/ws': 8.18.1
       accepts: 1.3.8
       base64id: 2.0.0
@@ -6283,7 +6380,7 @@ snapshots:
       - supports-color
       - utf-8-validate
 
-  enhanced-resolve@5.24.0:
+  enhanced-resolve@5.24.5:
     dependencies:
       graceful-fs: 4.2.11
       tapable: 2.3.3
@@ -6293,6 +6390,8 @@ snapshots:
   entities@6.0.1: {}
 
   entities@7.0.1: {}
+
+  entities@8.0.0: {}
 
   envinfo@7.21.0: {}
 
@@ -6359,6 +6458,8 @@ snapshots:
 
   es-module-lexer@2.1.0: {}
 
+  es-module-lexer@2.3.2: {}
+
   es-object-atoms@1.1.1:
     dependencies:
       es-errors: 1.3.0
@@ -6378,34 +6479,34 @@ snapshots:
 
   es-toolkit@1.50.0: {}
 
-  esbuild@0.28.0:
+  esbuild@0.28.2:
     optionalDependencies:
-      '@esbuild/aix-ppc64': 0.28.0
-      '@esbuild/android-arm': 0.28.0
-      '@esbuild/android-arm64': 0.28.0
-      '@esbuild/android-x64': 0.28.0
-      '@esbuild/darwin-arm64': 0.28.0
-      '@esbuild/darwin-x64': 0.28.0
-      '@esbuild/freebsd-arm64': 0.28.0
-      '@esbuild/freebsd-x64': 0.28.0
-      '@esbuild/linux-arm': 0.28.0
-      '@esbuild/linux-arm64': 0.28.0
-      '@esbuild/linux-ia32': 0.28.0
-      '@esbuild/linux-loong64': 0.28.0
-      '@esbuild/linux-mips64el': 0.28.0
-      '@esbuild/linux-ppc64': 0.28.0
-      '@esbuild/linux-riscv64': 0.28.0
-      '@esbuild/linux-s390x': 0.28.0
-      '@esbuild/linux-x64': 0.28.0
-      '@esbuild/netbsd-arm64': 0.28.0
-      '@esbuild/netbsd-x64': 0.28.0
-      '@esbuild/openbsd-arm64': 0.28.0
-      '@esbuild/openbsd-x64': 0.28.0
-      '@esbuild/openharmony-arm64': 0.28.0
-      '@esbuild/sunos-x64': 0.28.0
-      '@esbuild/win32-arm64': 0.28.0
-      '@esbuild/win32-ia32': 0.28.0
-      '@esbuild/win32-x64': 0.28.0
+      '@esbuild/aix-ppc64': 0.28.2
+      '@esbuild/android-arm': 0.28.2
+      '@esbuild/android-arm64': 0.28.2
+      '@esbuild/android-x64': 0.28.2
+      '@esbuild/darwin-arm64': 0.28.2
+      '@esbuild/darwin-x64': 0.28.2
+      '@esbuild/freebsd-arm64': 0.28.2
+      '@esbuild/freebsd-x64': 0.28.2
+      '@esbuild/linux-arm': 0.28.2
+      '@esbuild/linux-arm64': 0.28.2
+      '@esbuild/linux-ia32': 0.28.2
+      '@esbuild/linux-loong64': 0.28.2
+      '@esbuild/linux-mips64el': 0.28.2
+      '@esbuild/linux-ppc64': 0.28.2
+      '@esbuild/linux-riscv64': 0.28.2
+      '@esbuild/linux-s390x': 0.28.2
+      '@esbuild/linux-x64': 0.28.2
+      '@esbuild/netbsd-arm64': 0.28.2
+      '@esbuild/netbsd-x64': 0.28.2
+      '@esbuild/openbsd-arm64': 0.28.2
+      '@esbuild/openbsd-x64': 0.28.2
+      '@esbuild/openharmony-arm64': 0.28.2
+      '@esbuild/sunos-x64': 0.28.2
+      '@esbuild/win32-arm64': 0.28.2
+      '@esbuild/win32-ia32': 0.28.2
+      '@esbuild/win32-x64': 0.28.2
 
   escalade@3.2.0: {}
 
@@ -6543,7 +6644,7 @@ snapshots:
       buffer-image-size: 0.6.4
       entities: 7.0.1
       whatwg-mimetype: 3.0.0
-      ws: 8.21.1
+      ws: 8.21.3
     transitivePeerDependencies:
       - bufferutil
       - utf-8-validate
@@ -6717,7 +6818,7 @@ snapshots:
   jest-util@30.4.1:
     dependencies:
       '@jest/types': 30.4.1
-      '@types/node': 25.9.3
+      '@types/node': 25.9.5
       chalk: 4.1.2
       ci-info: 4.4.0
       graceful-fs: 4.2.11
@@ -6725,13 +6826,13 @@ snapshots:
 
   jest-worker@27.5.1:
     dependencies:
-      '@types/node': 25.9.3
+      '@types/node': 25.9.5
       merge-stream: 2.0.0
       supports-color: 8.1.1
 
   jest-worker@30.4.1:
     dependencies:
-      '@types/node': 25.9.3
+      '@types/node': 25.9.5
       '@ungap/structured-clone': 1.3.3
       jest-util: 30.4.1
       merge-stream: 2.0.0
@@ -6816,9 +6917,9 @@ snapshots:
 
   lines-and-columns@2.0.4: {}
 
-  linkify-it@5.0.2:
+  linkify-it@6.1.0:
     dependencies:
-      uc.micro: 2.1.0
+      uc.micro: 3.0.0
 
   loader-runner@4.3.2: {}
 
@@ -6826,7 +6927,7 @@ snapshots:
 
   lodash.uniq@4.5.0: {}
 
-  lucide@1.16.0: {}
+  lucide@1.34.0: {}
 
   magic-string@0.30.21:
     dependencies:
@@ -6842,14 +6943,14 @@ snapshots:
     dependencies:
       semver: 7.8.5
 
-  markdown-it@14.3.0:
+  markdown-it@15.0.1:
     dependencies:
-      argparse: 2.0.1
-      entities: 4.5.0
-      linkify-it: 5.0.2
-      mdurl: 2.0.0
+      argparse: 3.0.1
+      entities: 8.0.0
+      linkify-it: 6.1.0
+      mdurl: 2.1.0
       punycode.js: 2.3.1
-      uc.micro: 2.1.0
+      uc.micro: 3.0.0
 
   math-intrinsics@1.1.0: {}
 
@@ -6857,7 +6958,7 @@ snapshots:
 
   mdn-data@2.27.1: {}
 
-  mdurl@2.0.0: {}
+  mdurl@2.1.0: {}
 
   merge-stream@2.0.0: {}
 
@@ -7290,36 +7391,38 @@ snapshots:
       es-errors: 1.3.0
       es-object-atoms: 1.1.1
 
-  sharp@0.34.5:
+  sharp@0.35.4(@types/node@25.9.3):
     dependencies:
       '@img/colour': 1.1.0
       detect-libc: 2.1.2
       semver: 7.8.5
     optionalDependencies:
-      '@img/sharp-darwin-arm64': 0.34.5
-      '@img/sharp-darwin-x64': 0.34.5
-      '@img/sharp-libvips-darwin-arm64': 1.2.4
-      '@img/sharp-libvips-darwin-x64': 1.2.4
-      '@img/sharp-libvips-linux-arm': 1.2.4
-      '@img/sharp-libvips-linux-arm64': 1.2.4
-      '@img/sharp-libvips-linux-ppc64': 1.2.4
-      '@img/sharp-libvips-linux-riscv64': 1.2.4
-      '@img/sharp-libvips-linux-s390x': 1.2.4
-      '@img/sharp-libvips-linux-x64': 1.2.4
-      '@img/sharp-libvips-linuxmusl-arm64': 1.2.4
-      '@img/sharp-libvips-linuxmusl-x64': 1.2.4
-      '@img/sharp-linux-arm': 0.34.5
-      '@img/sharp-linux-arm64': 0.34.5
-      '@img/sharp-linux-ppc64': 0.34.5
-      '@img/sharp-linux-riscv64': 0.34.5
-      '@img/sharp-linux-s390x': 0.34.5
-      '@img/sharp-linux-x64': 0.34.5
-      '@img/sharp-linuxmusl-arm64': 0.34.5
-      '@img/sharp-linuxmusl-x64': 0.34.5
-      '@img/sharp-wasm32': 0.34.5
-      '@img/sharp-win32-arm64': 0.34.5
-      '@img/sharp-win32-ia32': 0.34.5
-      '@img/sharp-win32-x64': 0.34.5
+      '@img/sharp-darwin-arm64': 0.35.4
+      '@img/sharp-darwin-x64': 0.35.4
+      '@img/sharp-freebsd-wasm32': 0.35.4
+      '@img/sharp-libvips-darwin-arm64': 1.3.3
+      '@img/sharp-libvips-darwin-x64': 1.3.3
+      '@img/sharp-libvips-linux-arm': 1.3.3
+      '@img/sharp-libvips-linux-arm64': 1.3.3
+      '@img/sharp-libvips-linux-ppc64': 1.3.3
+      '@img/sharp-libvips-linux-riscv64': 1.3.3
+      '@img/sharp-libvips-linux-s390x': 1.3.3
+      '@img/sharp-libvips-linux-x64': 1.3.3
+      '@img/sharp-libvips-linuxmusl-arm64': 1.3.3
+      '@img/sharp-libvips-linuxmusl-x64': 1.3.3
+      '@img/sharp-linux-arm': 0.35.4
+      '@img/sharp-linux-arm64': 0.35.4
+      '@img/sharp-linux-ppc64': 0.35.4
+      '@img/sharp-linux-riscv64': 0.35.4
+      '@img/sharp-linux-s390x': 0.35.4
+      '@img/sharp-linux-x64': 0.35.4
+      '@img/sharp-linuxmusl-arm64': 0.35.4
+      '@img/sharp-linuxmusl-x64': 0.35.4
+      '@img/sharp-webcontainers-wasm32': 0.35.4
+      '@img/sharp-win32-arm64': 0.35.4
+      '@img/sharp-win32-ia32': 0.35.4
+      '@img/sharp-win32-x64': 0.35.4
+      '@types/node': 25.9.3
 
   shell-quote@1.8.3: {}
 
@@ -7355,8 +7458,8 @@ snapshots:
 
   sigx@0.15.3:
     dependencies:
-      '@sigx/reactivity': 0.15.4
-      '@sigx/runtime-core': 0.15.4
+      '@sigx/reactivity': 0.15.6
+      '@sigx/runtime-core': 0.15.6
       '@sigx/runtime-dom': 0.15.3
 
   socket.io-adapter@2.5.7:
@@ -7504,31 +7607,31 @@ snapshots:
 
   tapable@2.3.3: {}
 
-  terser-webpack-plugin@5.6.1(esbuild@0.28.0)(postcss@8.5.15)(webpack@5.106.2(esbuild@0.28.0)(postcss@8.5.15)):
+  terser-webpack-plugin@5.6.1(esbuild@0.28.2)(postcss@8.5.15)(webpack@5.106.2(esbuild@0.28.2)(postcss@8.5.15)):
     dependencies:
       '@jridgewell/trace-mapping': 0.3.31
       jest-worker: 27.5.1
       schema-utils: 4.3.3
-      terser: 5.48.0
-      webpack: 5.106.2(esbuild@0.28.0)(postcss@8.5.15)
+      terser: 5.51.2
+      webpack: 5.106.2(esbuild@0.28.2)(postcss@8.5.15)
     optionalDependencies:
-      esbuild: 0.28.0
+      esbuild: 0.28.2
       postcss: 8.5.15
 
-  terser-webpack-plugin@5.6.1(esbuild@0.28.0)(webpack@5.106.2(esbuild@0.28.0)):
+  terser-webpack-plugin@5.6.1(esbuild@0.28.2)(webpack@5.106.2(esbuild@0.28.2)):
     dependencies:
       '@jridgewell/trace-mapping': 0.3.31
       jest-worker: 27.5.1
       schema-utils: 4.3.3
-      terser: 5.48.0
-      webpack: 5.106.2(esbuild@0.28.0)
+      terser: 5.51.2
+      webpack: 5.106.2(esbuild@0.28.2)
     optionalDependencies:
-      esbuild: 0.28.0
+      esbuild: 0.28.2
 
-  terser@5.48.0:
+  terser@5.51.2:
     dependencies:
       '@jridgewell/source-map': 0.3.11
-      acorn: 8.17.0
+      acorn: 8.18.0
       commander: 2.20.3
       source-map-support: 0.5.21
 
@@ -7598,7 +7701,7 @@ snapshots:
 
   typescript@6.0.3: {}
 
-  uc.micro@2.1.0: {}
+  uc.micro@3.0.0: {}
 
   unbox-primitive@1.1.0:
     dependencies:
@@ -7608,6 +7711,9 @@ snapshots:
       which-boxed-primitive: 1.1.1
 
   undici-types@7.24.6: {}
+
+  undici-types@8.3.0:
+    optional: true
 
   universalify@2.0.1: {}
 
@@ -7621,7 +7727,7 @@ snapshots:
 
   vary@1.1.2: {}
 
-  vite@8.0.14(@types/node@25.9.3)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0):
+  vite@8.0.14(@types/node@25.9.3)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2):
     dependencies:
       lightningcss: 1.32.0
       picomatch: 4.0.4
@@ -7630,15 +7736,29 @@ snapshots:
       tinyglobby: 0.2.16
     optionalDependencies:
       '@types/node': 25.9.3
-      esbuild: 0.28.0
+      esbuild: 0.28.2
       fsevents: 2.3.3
       jiti: 2.7.0
-      terser: 5.48.0
+      terser: 5.51.2
 
-  vitest@4.1.7(@types/node@25.9.3)(@vitest/coverage-v8@4.1.7)(happy-dom@20.11.1)(vite@8.0.14(@types/node@25.9.3)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0)):
+  vite@8.0.14(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2):
+    dependencies:
+      lightningcss: 1.32.0
+      picomatch: 4.0.4
+      postcss: 8.5.15
+      rolldown: 1.0.2
+      tinyglobby: 0.2.16
+    optionalDependencies:
+      '@types/node': 26.4.0
+      esbuild: 0.28.2
+      fsevents: 2.3.3
+      jiti: 2.7.0
+      terser: 5.51.2
+
+  vitest@4.1.7(@types/node@25.9.3)(@vitest/coverage-v8@4.1.7)(happy-dom@20.11.1)(vite@8.0.14(@types/node@25.9.3)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)):
     dependencies:
       '@vitest/expect': 4.1.7
-      '@vitest/mocker': 4.1.7(vite@8.0.14(@types/node@25.9.3)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0))
+      '@vitest/mocker': 4.1.7(vite@8.0.14(@types/node@25.9.3)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2))
       '@vitest/pretty-format': 4.1.7
       '@vitest/runner': 4.1.7
       '@vitest/snapshot': 4.1.7
@@ -7655,10 +7775,39 @@ snapshots:
       tinyexec: 1.1.2
       tinyglobby: 0.2.16
       tinyrainbow: 3.1.0
-      vite: 8.0.14(@types/node@25.9.3)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0)
+      vite: 8.0.14(@types/node@25.9.3)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)
       why-is-node-running: 2.3.0
     optionalDependencies:
       '@types/node': 25.9.3
+      '@vitest/coverage-v8': 4.1.7(vitest@4.1.7)
+      happy-dom: 20.11.1
+    transitivePeerDependencies:
+      - msw
+
+  vitest@4.1.7(@types/node@26.4.0)(@vitest/coverage-v8@4.1.7)(happy-dom@20.11.1)(vite@8.0.14(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)):
+    dependencies:
+      '@vitest/expect': 4.1.7
+      '@vitest/mocker': 4.1.7(vite@8.0.14(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2))
+      '@vitest/pretty-format': 4.1.7
+      '@vitest/runner': 4.1.7
+      '@vitest/snapshot': 4.1.7
+      '@vitest/spy': 4.1.7
+      '@vitest/utils': 4.1.7
+      es-module-lexer: 2.1.0
+      expect-type: 1.3.0
+      magic-string: 0.30.21
+      obug: 2.1.1
+      pathe: 2.0.3
+      picomatch: 4.0.4
+      std-env: 4.1.0
+      tinybench: 2.9.0
+      tinyexec: 1.1.2
+      tinyglobby: 0.2.16
+      tinyrainbow: 3.1.0
+      vite: 8.0.14(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)
+      why-is-node-running: 2.3.0
+    optionalDependencies:
+      '@types/node': 26.4.0
       '@vitest/coverage-v8': 4.1.7(vitest@4.1.7)
       happy-dom: 20.11.1
     transitivePeerDependencies:
@@ -7670,9 +7819,9 @@ snapshots:
     dependencies:
       graceful-fs: 4.2.11
 
-  webpack-sources@3.5.0: {}
+  webpack-sources@3.5.1: {}
 
-  webpack@5.106.2(esbuild@0.28.0):
+  webpack@5.106.2(esbuild@0.28.2):
     dependencies:
       '@types/eslint-scope': 3.7.7
       '@types/estree': 1.0.9
@@ -7680,12 +7829,12 @@ snapshots:
       '@webassemblyjs/ast': 1.14.1
       '@webassemblyjs/wasm-edit': 1.14.1
       '@webassemblyjs/wasm-parser': 1.14.1
-      acorn: 8.17.0
-      acorn-import-phases: 1.0.4(acorn@8.17.0)
+      acorn: 8.18.0
+      acorn-import-phases: 1.0.4(acorn@8.18.0)
       browserslist: 4.28.2
       chrome-trace-event: 1.0.4
-      enhanced-resolve: 5.24.0
-      es-module-lexer: 2.1.0
+      enhanced-resolve: 5.24.5
+      es-module-lexer: 2.3.2
       eslint-scope: 5.1.1
       events: 3.3.0
       glob-to-regexp: 0.4.1
@@ -7695,9 +7844,9 @@ snapshots:
       neo-async: 2.6.2
       schema-utils: 4.3.3
       tapable: 2.3.3
-      terser-webpack-plugin: 5.6.1(esbuild@0.28.0)(webpack@5.106.2(esbuild@0.28.0))
+      terser-webpack-plugin: 5.6.1(esbuild@0.28.2)(webpack@5.106.2(esbuild@0.28.2))
       watchpack: 2.5.2
-      webpack-sources: 3.5.0
+      webpack-sources: 3.5.1
     transitivePeerDependencies:
       - '@minify-html/node'
       - '@swc/core'
@@ -7712,7 +7861,7 @@ snapshots:
       - postcss
       - uglify-js
 
-  webpack@5.106.2(esbuild@0.28.0)(postcss@8.5.15):
+  webpack@5.106.2(esbuild@0.28.2)(postcss@8.5.15):
     dependencies:
       '@types/eslint-scope': 3.7.7
       '@types/estree': 1.0.9
@@ -7720,12 +7869,12 @@ snapshots:
       '@webassemblyjs/ast': 1.14.1
       '@webassemblyjs/wasm-edit': 1.14.1
       '@webassemblyjs/wasm-parser': 1.14.1
-      acorn: 8.17.0
-      acorn-import-phases: 1.0.4(acorn@8.17.0)
+      acorn: 8.18.0
+      acorn-import-phases: 1.0.4(acorn@8.18.0)
       browserslist: 4.28.2
       chrome-trace-event: 1.0.4
-      enhanced-resolve: 5.24.0
-      es-module-lexer: 2.1.0
+      enhanced-resolve: 5.24.5
+      es-module-lexer: 2.3.2
       eslint-scope: 5.1.1
       events: 3.3.0
       glob-to-regexp: 0.4.1
@@ -7735,9 +7884,9 @@ snapshots:
       neo-async: 2.6.2
       schema-utils: 4.3.3
       tapable: 2.3.3
-      terser-webpack-plugin: 5.6.1(esbuild@0.28.0)(postcss@8.5.15)(webpack@5.106.2(esbuild@0.28.0)(postcss@8.5.15))
+      terser-webpack-plugin: 5.6.1(esbuild@0.28.2)(postcss@8.5.15)(webpack@5.106.2(esbuild@0.28.2)(postcss@8.5.15))
       watchpack: 2.5.2
-      webpack-sources: 3.5.0
+      webpack-sources: 3.5.1
     transitivePeerDependencies:
       - '@minify-html/node'
       - '@swc/core'
@@ -7802,6 +7951,6 @@ snapshots:
 
   ws@8.20.1: {}
 
-  ws@8.21.1: {}
+  ws@8.21.3: {}
 
   zod@4.4.3: {}
