@@ -1,6 +1,6 @@
 {
     "name": "@sigx/lynx-daisyui-zero",
-    "version": "0.27.0",
+    "version": "0.28.0",
     "description": "daisyUI design system for SignalX Lynx, compiled from @sigx/zero-daisyui's single recipe source — a build shell shipping class-grammar CSS and theme-registry seeding, no components of its own (signalxjs/lynx#1029)",
     "type": "module",
     "main": "./dist/index.js",

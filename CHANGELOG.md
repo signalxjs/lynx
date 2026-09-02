@@ -4,6 +4,8 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 ## [Unreleased]
 
+## [0.28.0] - 2026-09-02
+
 ### Changed
 
 - **`@sigx/lynx-daisyui-zero`: physical-only lynx CSS — the slider thumb finally centers on Android** ([#1088](https://github.com/signalxjs/lynx/issues/1088)). The catalog moves to `@sigx/zero` / `@sigx/zero-daisyui` `0.2.0-beta.6` ([zero#393](https://github.com/andtii/zero-wip/pull/393)): probe bars on `/zero-pilot` measured that Android's engine resolves none of the logical inset/margin/padding spellings nor the standalone `translate`/`rotate`/`scale` properties (iOS resolves them all — a silent cross-platform asymmetry), so ~215 such declarations across 35 lynx component artifacts were replaced with physical spellings, and the emitter now refuses the asymmetric ones outright.
