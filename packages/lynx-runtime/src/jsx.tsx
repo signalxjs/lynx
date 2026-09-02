@@ -450,6 +450,16 @@ export interface SvgAttributes extends LynxCommonAttributes {
     content?: string;
     /** URL to an external SVG resource (alternative to `content`). */
     src?: string;
+    /**
+     * Host-injected default color used to resolve `currentColor` inside the
+     * SVG content (Lynx 4.0+, `xelement-svg` ≥ 4.0). Does not override an
+     * explicit `fill` / `stroke`. The SVG is still parsed in isolation —
+     * it never inherits the host element's CSS `color` — so this attribute
+     * is the only way to hand a color to `currentColor` markup. Native only:
+     * `@lynx-js/web-core`'s `x-svg` renders the markup as a blob-URL
+     * `<img>` and ignores it.
+     */
+    'current-color'?: string;
     /** SVG width — usually preferable to control sizing via `style`. */
     width?: number | string;
     /** SVG height — usually preferable to control sizing via `style`. */

@@ -38,6 +38,35 @@ function readEngineFacts(): { colorScheme: string; pixels: string } {
     };
 }
 
+// #949 — `current-color` on <svg>. Standard SVG markup (no __COLOR__
+// placeholder): the engine either resolves currentColor from the attribute or
+// it does not.
+const CC_FILL_SVG =
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><rect x="2" y="2" width="20" height="20" rx="4"/></svg>';
+const CC_STROKE_SVG =
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round"><path d="M4 12h16M12 4v16"/></svg>';
+const CC_LITERAL_SVG =
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="#16a34a"><rect x="2" y="2" width="20" height="20" rx="4"/></svg>';
+
+const CcRow = component<{
+    label: string;
+    svg: string;
+    cc?: string;
+    hostColor?: string;
+}>(({ props }) => {
+    return () => (
+        <view class="p951-swatch p951-cc-row">
+            <svg
+                class="p951-cc-svg"
+                style={props.hostColor ? { color: props.hostColor } : undefined}
+                content={props.svg}
+                current-color={props.cc}
+            />
+            <text class="p951-swatch-label">{props.label}</text>
+        </view>
+    );
+});
+
 const Swatch = component<{ cls: string; label: string }>(({ props }) => {
     return () => (
         <view class={`p951-swatch ${props.cls}`}>
@@ -147,6 +176,43 @@ export const CSSEngineProbeBody = component(() => {
             <Swatch
                 cls="p951-sup-oklch"
                 label="(color: oklch(…)) — pink = engine claims oklch"
+            />
+
+            <text class="p951-section">6 · svg current-color (#949)</text>
+            <text class="p951-note">
+                Each row: a 32px square SVG on a hot-pink bar. GREEN square =
+                the engine resolved `currentColor` from the `current-color`
+                attribute; anything else (black, blank, pink) = it did not.
+            </text>
+            <CcRow
+                label="A · fill=currentColor + current-color=#16a34a"
+                svg={CC_FILL_SVG}
+                cc="#16a34a"
+            />
+            <CcRow
+                label="B · stroke=currentColor (lucide shape) + current-color"
+                svg={CC_STROKE_SVG}
+                cc="#16a34a"
+            />
+            <view class="p951-cc-parent">
+                <CcRow
+                    label="C · current-color=var(--p951-cc) from stylesheet parent"
+                    svg={CC_FILL_SVG}
+                    cc="var(--p951-cc)"
+                />
+            </view>
+            <CcRow
+                label="D · fill=currentColor, host color:#16a34a, NO attr (inherit?)"
+                svg={CC_FILL_SVG}
+                hostColor="#16a34a"
+            />
+            <CcRow
+                label="E · control: fill=#16a34a literal — must be green"
+                svg={CC_LITERAL_SVG}
+            />
+            <CcRow
+                label="F · fill=currentColor, nothing set — engine fallback"
+                svg={CC_FILL_SVG}
             />
         </view>
     );

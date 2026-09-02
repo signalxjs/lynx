@@ -87,7 +87,7 @@ const adapter: IconAdapter = {
         const [w, h, , unicodeHex, path] = entry.icon;
         const codepoint = parseInt(unicodeHex, 16);
         if (!Number.isFinite(codepoint)) return null;
-        const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" fill="__COLOR__"><path d="${path}"/></svg>`;
+        const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" fill="currentColor"><path d="${path}"/></svg>`;
         return { codepoint, svg };
     },
 

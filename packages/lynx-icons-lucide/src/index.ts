@@ -112,7 +112,7 @@ const adapter: IconAdapter = {
         const icon = lucide[exportNameFor(name)];
         if (!Array.isArray(icon)) return null;
         const inner = icon.map(renderElement).join('');
-        const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="__COLOR__" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${inner}</svg>`;
+        const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${inner}</svg>`;
         return { svg };
     },
 

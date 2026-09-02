@@ -13,7 +13,7 @@ describe('@sigx/lynx-icons-fa-free adapter', () => {
         expect(g?.codepoint).toBe(0xf007);
         expect(g?.svg).toMatch(/^<svg /);
         expect(g?.svg).toContain('viewBox="0 0 448 512"');
-        expect(g?.svg).toContain('fill="__COLOR__"');
+        expect(g?.svg).toContain('fill="currentColor"');
         expect(g?.svg).toContain('<path d="');
     });
 

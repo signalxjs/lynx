@@ -15,15 +15,17 @@ import type { IconSetDef } from './types.js';
  *   glyphs: {
  *     logo: {
  *       svg: {
- *         svg: '<svg viewBox="0 0 24 24" fill="__COLOR__"><path d="M3 12L12 3l9 9-9 9z"/></svg>',
+ *         svg: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 12L12 3l9 9-9 9z"/></svg>',
  *       },
  *     },
  *   },
  * });
  * ```
  *
- * The inner `svg` value is raw SVG markup. `__COLOR__` placeholders in that
- * markup get substituted with the user's `color` prop at render time.
+ * The inner `svg` value is standard SVG markup painting from `currentColor`;
+ * the user's `color` prop reaches it through the native `current-color`
+ * attribute (Lynx 4.0+) or, on web, by substitution into the markup. The
+ * older `__COLOR__` placeholder is still honored as an alias.
  */
 export function defineIconSet(def: IconSetDef): IconSetDef {
     registerIconSet(def);
