@@ -4,11 +4,11 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 ## [Unreleased]
 
-## [0.28.0] - 2026-09-02
-
 ### Changed
 
 - **`@sigx/lynx-icons`: glyphs are standard SVG — the color rides Lynx 4.0's `current-color` attribute instead of a placeholder spliced into the markup** ([#949](https://github.com/signalxjs/lynx/issues/949) §2, tracked from [#945](https://github.com/signalxjs/lynx/issues/945)). Probed on a Pixel 9 Pro XL on 4.0.1 (section 6 of the showcase's `CSS engine probe`, evidence on the `949-evidence` branch): `fill="currentColor"` and `stroke="currentColor"` resolve from the `<svg current-color>` attribute; `var()` in that attribute does not evaluate, and the host's CSS `color` is still never inherited — so `<Icon>` keeps resolving one concrete color exactly as before, and only the transport changed. `@sigx/lynx-icons-fa-free` and `@sigx/lynx-icons-lucide` now emit plain `currentColor` markup; `defineIconSet` glyphs can be ordinary SVG (the `__COLOR__` placeholder is still honored as an alias). Web is the exception: `@lynx-js/web-core`'s `x-svg` is a blob-URL `<img>` with no `current-color`, so a `svg-color.web.ts` twin substitutes the color into the markup's `currentColor` paints there. `@sigx/lynx-runtime` types the new `current-color` attribute on `<svg>`.
+
+## [0.28.0] - 2026-09-02
 
 ### Changed
 
