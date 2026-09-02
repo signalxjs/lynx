@@ -61,7 +61,7 @@ This bundles all ~1 500 Lucide glyphs into the JS bundle. Use it per-set, only w
 import lucideAdapter from '@sigx/lynx-icons-lucide';
 
 lucideAdapter.styles;                       // ['']  (single empty-string style)
-lucideAdapter.getGlyph('', 'user');         // { svg: '<svg viewBox="0 0 24 24" fill="none" stroke="__COLOR__"…>' }
+lucideAdapter.getGlyph('', 'user');         // { svg: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"…>' }
 lucideAdapter.getFontPath('');              // null (always)
 ```
 

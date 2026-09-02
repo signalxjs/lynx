@@ -17,7 +17,7 @@ describe('@sigx/lynx-icons-lucide adapter', () => {
         expect(g?.codepoint).toBeUndefined();
         expect(g?.svg).toMatch(/^<svg /);
         expect(g?.svg).toContain('viewBox="0 0 24 24"');
-        expect(g?.svg).toContain('stroke="__COLOR__"');
+        expect(g?.svg).toContain('stroke="currentColor"');
         expect(g?.svg).toContain('fill="none"');
         // User icon is a path + a circle.
         expect(g?.svg).toContain('<path ');

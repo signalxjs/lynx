@@ -64,14 +64,17 @@ export interface IconSpec {
 /**
  * Per-glyph vector data. Used by SVG-mode rendering.
  *
- * `svg` is a complete `<svg …>…</svg>` string with `__COLOR__` placeholders
- * wherever the user-supplied `color` should be substituted. This lets each
- * adapter ship the native shape of its icons (FA = filled paths, lucide =
- * stroked paths) without the core component needing to know per-adapter
- * styling.
+ * `svg` is a complete, standard `<svg …>…</svg>` string that paints from
+ * `currentColor` (`fill="currentColor"` / `stroke="currentColor"`). This lets
+ * each adapter ship the native shape of its icons (FA = filled paths,
+ * lucide = stroked paths) without the core component needing to know
+ * per-adapter styling: on native the user's `color` reaches the glyph
+ * through the element's `current-color` attribute (Lynx 4.0+), on web it is
+ * substituted into the markup. The pre-4.0 `__COLOR__` placeholder is still
+ * accepted as an alias of `currentColor`.
  *
- * @example FA solid: `<svg viewBox="0 0 448 512" fill="__COLOR__"><path d="..."/></svg>`
- * @example lucide:   `<svg viewBox="0 0 24 24" fill="none" stroke="__COLOR__" stroke-width="2" ...><path .../><circle .../></svg>`
+ * @example FA solid: `<svg viewBox="0 0 448 512" fill="currentColor"><path d="..."/></svg>`
+ * @example lucide:   `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" ...><path .../><circle .../></svg>`
  */
 export interface GlyphSvg {
     svg: string;
@@ -106,8 +109,8 @@ export interface IconSetDef {
  * Adapters should populate both when possible (FA does), or only `svg` for
  * SVG-only sets (e.g. lucide).
  *
- * `svg` is a complete `<svg>…</svg>` string with `__COLOR__` placeholders
- * for the user's color; see {@link GlyphSvg} for the rendering contract.
+ * `svg` is a complete, standard `<svg>…</svg>` string painting from
+ * `currentColor`; see {@link GlyphSvg} for the rendering contract.
  */
 export interface GlyphData {
     codepoint?: number;

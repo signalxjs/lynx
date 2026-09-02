@@ -6,6 +6,7 @@ import { lookupGlyph } from './registry.js';
 // The resolver DI key lives in the CSS-free `./context.js` (so the theme engine
 // can provide it without importing this asset-heavy module). `<Icon>` consumes it.
 import { useIconColorResolver } from './context.js';
+import { resolveSvgColor } from './svg-color.js';
 import type { IconPropsExtensions } from './types.js';
 
 export type IconProps =
@@ -33,35 +34,6 @@ export type IconProps =
     & IconPropsExtensions;
 
 /**
- * Match a conservative subset of valid CSS color formats:
- * - `currentColor` and named colors (`red`, `dodgerblue`, `transparent` …)
- * - `#rgb` / `#rgba` / `#rrggbb` / `#rrggbbaa`
- * - `rgb(...)` / `rgba(...)` / `hsl(...)` / `hsla(...)` with digits, dots,
- *   commas, percent signs, and whitespace inside the parens
- * - `var(--name)` referencing a CSS custom property — the only way to
- *   plumb theme tokens (`var(--color-primary)`) into the SVG `fill=`
- *   attribute, since Lynx's `<svg content=…>` parses the SVG string as
- *   a standalone fragment that doesn't inherit `color` from the host
- *   element (so `fill="currentColor"` + a host-level class is a no-op).
- *
- * Anything else (quotes, angle brackets, ampersands, arbitrary HTML) falls
- * back to `currentColor`. The `color` prop ends up substituted directly into
- * the SVG markup that we hand to Lynx's `<svg content={…}>` parser, so a
- * value like `red" stroke="…` would break out of the `fill=""` attribute.
- * Allow-list, not escape-list — keeps the surface area provably small.
- */
-const SAFE_COLOR_RE =
-    /^(?:currentColor|[a-zA-Z]+|#[0-9a-fA-F]{3,8}|(?:rgb|rgba|hsl|hsla)\(\s*[\d.,%\s]+\)|var\(\s*--[\w-]+\s*\))$/;
-
-export function sanitizeColor(color: string): string {
-    return SAFE_COLOR_RE.test(color) ? color : 'currentColor';
-}
-
-export function inlineSvg(template: string, color: string): string {
-    return template.replace(/__COLOR__/g, sanitizeColor(color));
-}
-
-/**
  * Render a glyph from a registered icon set.
  *
  * Sets are declared in `signalx.config.ts` via `iconSets: [...]` (build-time,
@@ -71,6 +43,9 @@ export function inlineSvg(template: string, color: string): string {
  *
  * - SVG-mode sets render with Lynx's native `<svg content={...}>` element
  *   (the engine parses the inline XML; no JSX children, no data: URIs).
+ *   Glyph markup is standard SVG painting from `currentColor`; on native the
+ *   resolved color rides the element's `current-color` attribute (Lynx 4.0+),
+ *   on web it is substituted into the markup (`svg-color.web.ts`).
  * - Font-mode sets fall back to a single character inside a `<text>` element
  *   with a matching `font-family`. The plugin only emits codepoints when the
  *   matching `@font-face` has also been registered (v1.1+); v1 always hits
@@ -109,11 +84,11 @@ export const Icon = component<IconProps>(({ props }) => {
         const sizeStyle = { width: box, height: box } as const;
         // Resolution order: explicit `props.color` wins → then the
         // theme resolver's return (driven by augmented props like
-        // `variant`) → finally `currentColor`. Substituted directly
-        // into the SVG `fill=` attribute by `inlineSvg`; class is not
-        // used to convey color because Lynx's `<svg content=…>` parses
-        // the SVG string in isolation and doesn't inherit host CSS
-        // `color`.
+        // `variant`) → finally `currentColor`. Handed to the glyph by
+        // `resolveSvgColor` (native: the `current-color` attribute; web:
+        // substituted into the markup); class is not used to convey color
+        // because Lynx's `<svg content=…>` parses the SVG string in
+        // isolation and never inherits host CSS `color`.
         //
         // `props` is cast to the unknown-record shape the resolver
         // signature expects — at compile time the augmented fields are
@@ -126,9 +101,11 @@ export const Icon = component<IconProps>(({ props }) => {
 
         const glyph = lookupGlyph(codepoints, svgs, set, name);
         if (glyph?.svg) {
+            const resolved = resolveSvgColor(glyph.svg.svg, color);
             return (
                 <svg
-                    content={inlineSvg(glyph.svg.svg, color)}
+                    content={resolved.content}
+                    current-color={resolved.currentColor}
                     class={props.class}
                     style={sizeStyle}
                 />

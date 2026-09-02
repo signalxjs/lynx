@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { inlineSvg, sanitizeColor } from '../src/Icon';
+import { sanitizeColor } from '../src/sanitize-color';
 
 describe('sanitizeColor', () => {
     it('passes through named colors', () => {
@@ -24,10 +24,10 @@ describe('sanitizeColor', () => {
 
     it('passes through var(--name) custom-property references', () => {
         // Theme packages may return `var(--color-primary)` etc. from
-        // `useIconColorResolver`. Lynx's SVG content parser doesn't
-        // evaluate var() in `fill=` today (we substitute the resolved
-        // hex via the daisy palette instead), but the regex accepts it
-        // so the day Lynx grows that support nothing here blocks.
+        // `useIconColorResolver`. Neither the native `current-color`
+        // attribute nor the web markup path evaluates var() today (#949;
+        // themes resolve to the palette hex instead), but the regex
+        // accepts it so the day Lynx grows that support nothing here blocks.
         expect(sanitizeColor('var(--color-primary)')).toBe('var(--color-primary)');
         expect(sanitizeColor('var(--my-brand-token)')).toBe('var(--my-brand-token)');
         expect(sanitizeColor('var( --spaced )')).toBe('var( --spaced )');
@@ -56,29 +56,5 @@ describe('sanitizeColor', () => {
         expect(sanitizeColor('   ')).toBe('currentColor');
         expect(sanitizeColor('not a color')).toBe('currentColor');
         expect(sanitizeColor('#xyz')).toBe('currentColor');
-    });
-});
-
-describe('inlineSvg', () => {
-    it('substitutes a safe color', () => {
-        const template = '<svg fill="__COLOR__"><path d="M0 0"/></svg>';
-        expect(inlineSvg(template, '#0D9488')).toBe(
-            '<svg fill="#0D9488"><path d="M0 0"/></svg>',
-        );
-    });
-
-    it('substitutes ALL placeholder occurrences (e.g. fill AND stroke)', () => {
-        const template = '<svg fill="__COLOR__" stroke="__COLOR__"/>';
-        expect(inlineSvg(template, 'red')).toBe('<svg fill="red" stroke="red"/>');
-    });
-
-    it('replaces unsafe color with currentColor, never letting the raw input through', () => {
-        const template = '<svg fill="__COLOR__"/>';
-        const result = inlineSvg(template, 'red" stroke="injected');
-        expect(result).toBe('<svg fill="currentColor"/>');
-        expect(result).not.toContain('injected');
-        // Exactly two quotes — the opening and closing `fill=""`. Anything more
-        // would mean the attribute got prematurely closed (the bug we're guarding).
-        expect((result.match(/"/g) ?? []).length).toBe(2);
     });
 });

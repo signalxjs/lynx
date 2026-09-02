@@ -197,3 +197,17 @@
     background-color: #ff00aa;
   }
 }
+
+/* 6 · #949 svg current-color. Pink bar behind a 32px SVG square: green
+ * square = currentColor resolved from the current-color attribute. */
+.p951-cc-row {
+  background-color: #ff00aa;
+}
+.p951-cc-parent {
+  --p951-cc: #16a34a;
+}
+.p951-cc-svg {
+  width: 32px;
+  height: 32px;
+  margin-right: 10px;
+}

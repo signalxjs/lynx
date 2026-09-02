@@ -48,11 +48,15 @@ scale (`useFontScale()`), live, identically on the svg and font backends.
 
 Forcing dynamic names into the bundle (`include: [...]` / `include: ['*']`), one-off `defineIconSet` icons, writing your own adapter, and the x86_64-emulator blank-icon caveat are all documented on the docs site.
 
+## Color
+
+Glyph markup is standard SVG that paints from `currentColor`. `<Icon>` resolves one color — explicit `color`, else the theme resolver's answer (a daisy `variant` becomes the palette hex), else `currentColor` — and on iOS/Android hands it to the engine as the `<svg>` element's `current-color` attribute (Lynx 4.0+; #949). Two things the engine does **not** do, probed on device: it never inherits the host element's CSS `color` into the SVG, and it does not evaluate `var(--token)` in the attribute — so pass a concrete color, or let a theme resolve the token first. Custom sets (`defineIconSet`) are plain SVG; the older `__COLOR__` placeholder still works as an alias of `currentColor`.
+
 ## Web
 
 Supported on web (`sigx run:web`) with no extra setup. `<Icon>` renders through Lynx's `<svg content={…}>`, which `@lynx-js/web-core` maps to upstream's `x-svg` element — that turns the inline SVG into a blob URL on an `<img>`, so glyphs paint exactly as bundled. The `signalx-module.json` here only pulls the native XElement/SVG dependency on iOS and Android; a web build has nothing to link and needs no `sigx prebuild`.
 
-As on native, the SVG is parsed in isolation from the host document, so give the icon a concrete `color` (or a theme `variant`, which `<ThemeProvider>` resolves to the palette hex before it reaches `fill=`) rather than relying on `currentColor` or a `var(--token)` inside the markup.
+As on native, the SVG is parsed in isolation from the host document, so give the icon a concrete `color` (or a theme `variant`, which `<ThemeProvider>` resolves to the palette hex) rather than expecting it to inherit the host's `color` or evaluate a `var(--token)`. The difference is only in transport: web has no `current-color` attribute, so here the resolved color is substituted into the markup's `currentColor` paints (`svg-color.web.ts`) before it reaches `x-svg`.
 
 One prop is inert there: **`scaleWithText`**. No web publisher writes `lynx.__globalProps.fontScale`, so `useFontScale()` stays at `1` and the icon keeps its designed `size` whether or not you opt in — the same gap `@sigx/lynx-core` and `@sigx/lynx-appearance` document. Sizing, color/variant and the missing-glyph placeholder are unaffected.
 
