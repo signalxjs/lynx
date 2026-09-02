@@ -24,3 +24,28 @@ const SAFE_COLOR_RE =
 export function sanitizeColor(color: string): string {
     return SAFE_COLOR_RE.test(color) ? color : 'currentColor';
 }
+
+/**
+ * Legacy placeholder. Icon sets used to ship `fill="__COLOR__"` so the
+ * component could splice a color into the markup; standard
+ * `fill="currentColor"` / `stroke="currentColor"` is the contract now, and
+ * the placeholder is kept as an alias of `currentColor` so ad-hoc
+ * `defineIconSet` glyphs written against the old shape keep rendering.
+ *
+ * Lives here, not in `svg-color.ts`, on purpose: this module has no `.web`
+ * twin. The build resolves `./svg-color.js` to `svg-color.web.js` on the web
+ * target for EVERY importer — including the twin itself — so anything both
+ * transports share must sit in a file that is the same on both.
+ */
+export const COLOR_PLACEHOLDER_RE = /__COLOR__/g;
+
+export interface ResolvedSvgColor {
+    /** The markup to hand to `<svg content={…}>`. */
+    content: string;
+    /**
+     * The value for the element's `current-color` attribute, or `undefined`
+     * when there is nothing to inject (the color resolved to `currentColor`
+     * itself — the engine's own fallback paints).
+     */
+    currentColor: string | undefined;
+}

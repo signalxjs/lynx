@@ -1,5 +1,4 @@
-import { sanitizeColor } from './sanitize-color.js';
-import { COLOR_PLACEHOLDER_RE, type ResolvedSvgColor } from './svg-color.js';
+import { COLOR_PLACEHOLDER_RE, sanitizeColor, type ResolvedSvgColor } from './sanitize-color.js';
 
 /**
  * `currentColor` wherever SVG paints from it: `fill`, `stroke`, gradient

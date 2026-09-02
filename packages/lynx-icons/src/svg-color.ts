@@ -1,24 +1,6 @@
-import { sanitizeColor } from './sanitize-color.js';
+import { COLOR_PLACEHOLDER_RE, sanitizeColor, type ResolvedSvgColor } from './sanitize-color.js';
 
-/**
- * Legacy placeholder. Icon sets used to ship `fill="__COLOR__"` so the
- * component could splice a color into the markup; standard
- * `fill="currentColor"` / `stroke="currentColor"` is the contract now, and
- * the placeholder is kept as an alias of `currentColor` so ad-hoc
- * `defineIconSet` glyphs written against the old shape keep rendering.
- */
-export const COLOR_PLACEHOLDER_RE = /__COLOR__/g;
-
-export interface ResolvedSvgColor {
-    /** The markup to hand to `<svg content={…}>`. */
-    content: string;
-    /**
-     * The value for the element's `current-color` attribute, or `undefined`
-     * when there is nothing to inject (the color resolved to `currentColor`
-     * itself — the engine's own fallback paints).
-     */
-    currentColor: string | undefined;
-}
+export type { ResolvedSvgColor } from './sanitize-color.js';
 
 /**
  * Native transport (iOS / Android, Lynx 4.0+): the markup goes to the engine
