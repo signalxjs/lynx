@@ -1,6 +1,6 @@
 {
     "name": "@sigx/lynx-zero",
-    "version": "0.27.0",
+    "version": "0.28.0",
     "description": "Design-system-neutral UI foundation for SignalX Lynx on the zero contract — anatomy-carrying parts, the class grammar, and the theme engine the compiled skins target (signalxjs/lynx#1029)",
     "type": "module",
     "main": "./dist/index.js",
