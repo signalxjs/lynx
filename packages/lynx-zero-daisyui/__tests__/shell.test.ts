@@ -76,7 +76,7 @@ describe('registry seeding (import side effect)', () => {
         // The PUBLISHED entrypoint (Node self-reference through package.json
         // exports), not ../src — so exports/sideEffects/dist wiring is under
         // test too. Needs `pnpm build` first, like the artifact checks.
-        const { DAISY_THEMES } = await import('@sigx/lynx-daisyui-zero');
+        const { DAISY_THEMES } = await import('@sigx/lynx-zero-daisyui');
         const registered = new Set(listThemes().map((t) => t.name));
         for (const theme of DAISY_THEMES) {
             expect(registered.has(theme.name)).toBe(true);
@@ -91,7 +91,7 @@ describe('registry seeding (import side effect)', () => {
 
     it('importing the package registers the manifest axis defaults (#1070)', async () => {
         const { resolveVariantAxes } = await import('@sigx/lynx-zero');
-        const { DAISY_AXIS_DEFAULTS } = await import('@sigx/lynx-daisyui-zero');
+        const { DAISY_AXIS_DEFAULTS } = await import('@sigx/lynx-zero-daisyui');
         expect(DAISY_AXIS_DEFAULTS['switch']).toEqual({ color: 'primary' });
         // The registry resolved an unset axis to the skin's declared default.
         expect(resolveVariantAxes('button', {})).toEqual({ color: 'primary', variant: 'solid', size: 'md' });

@@ -44,7 +44,7 @@ catalog:
   "@sigx/zero": 0.2.0-beta.6
   # The daisyUI recipe source, compiled for lynx by zero-kit at ITS build —
   # this repo only consumes its dist/lynx artifacts. Pinned to the same beta
-  # as @sigx/zero: the class-grammar envelope check in lynx-daisyui-zero's
+  # as @sigx/zero: the class-grammar envelope check in lynx-zero-daisyui's
   # build.mjs fails the build if the two ever disagree.
   "@sigx/zero-daisyui": 0.2.0-beta.6
   # Tilde, not caret: @lynx-js/types tracks the engine line, and 4.1.0 already

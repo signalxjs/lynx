@@ -15,8 +15,8 @@
 // Both the CSS and the registry seeding, imported here rather than leaning on
 // ZeroPilot's copy: relying on `routes.ts` importing the other screen eagerly
 // makes this screen render unstyled the day routes go lazy.
-import '@sigx/lynx-daisyui-zero/css/index.css';
-import '@sigx/lynx-daisyui-zero';
+import '@sigx/lynx-zero-daisyui/css/index.css';
+import '@sigx/lynx-zero-daisyui';
 import type { Define } from '@sigx/lynx';
 import { component, signal } from '@sigx/lynx';
 import { Screen } from '@sigx/lynx-navigation';

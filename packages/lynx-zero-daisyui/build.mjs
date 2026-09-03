@@ -37,6 +37,6 @@ for (const entry of ['index.css', 'tokens.css', 'components']) {
 }
 
 console.log(
-    `[lynx-daisyui-zero] built from ${manifest.name} (grammar v${manifest.classGrammarVersion}): `
+    `[lynx-zero-daisyui] built from ${manifest.name} (grammar v${manifest.classGrammarVersion}): `
     + `${manifest.themes.length} themes, css → dist/css`,
 );

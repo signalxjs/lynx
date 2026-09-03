@@ -1,5 +1,5 @@
 {
-    "name": "@sigx/lynx-daisyui-zero",
+    "name": "@sigx/lynx-zero-daisyui",
     "version": "0.28.0",
     "description": "daisyUI design system for SignalX Lynx, compiled from @sigx/zero-daisyui's single recipe source — a build shell shipping class-grammar CSS and theme-registry seeding, no components of its own (signalxjs/lynx#1029)",
     "type": "module",
@@ -39,7 +39,7 @@
     "repository": {
         "type": "git",
         "url": "git+https://github.com/signalxjs/lynx.git",
-        "directory": "packages/lynx-daisyui-zero"
+        "directory": "packages/lynx-zero-daisyui"
     },
     "sideEffects": [
         "./dist/index.js",

@@ -9,7 +9,7 @@
  *     Uses a probe scope (`zxprobe`) with the REAL `zx-*` grammar so the
  *     shapes are identical to the emitter's output, without depending on any
  *     skin rule.
- *  2. SKIN — is `@sigx/lynx-daisyui-zero`'s compiled CSS live, and do its
+ *  2. SKIN — is `@sigx/lynx-zero-daisyui`'s compiled CSS live, and do its
  *     token indirections resolve? Here the tell is the DAISY INDIGO
  *     (`--color-primary`, #422ad5 in the light theme) — pink means the
  *     lookup failed. The `calc()` bar's tell is its WIDTH (160px, not full

@@ -2,7 +2,7 @@
  * Zero Pilot (#1029 B8) — the pilot ten rendered from the NEW stack, end to
  * end: anatomies + behaviors from `@sigx/zero` (npm beta) through
  * `@sigx/lynx-zero`, CSS compiled by zero-kit's LYNX TARGET from the same
- * daisyUI recipe source the web uses (shipped by `@sigx/lynx-daisyui-zero`),
+ * daisyUI recipe source the web uses (shipped by `@sigx/lynx-zero-daisyui`),
  * themes through zero's registry. Nothing on this screen is styled by the
  * legacy tailwind pipeline — every painted part answers to a `zx-*` class
  * the emitter produced, and the screen's own chrome is `zero-probe.css`.
@@ -13,9 +13,9 @@
  * compile-time capabilities lint — and its last three bars are aimed at the
  * dropped-declaration bug the compile-time side does NOT catch (#1029).
  */
-import '@sigx/lynx-daisyui-zero/css/index.css';
+import '@sigx/lynx-zero-daisyui/css/index.css';
 // Side effect: seeds zero's theme registry with the daisy themes.
-import '@sigx/lynx-daisyui-zero';
+import '@sigx/lynx-zero-daisyui';
 import './zero-probe.css';
 import type { Define } from '@sigx/lynx';
 import { component } from '@sigx/lynx';

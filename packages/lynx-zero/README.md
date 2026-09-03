@@ -106,5 +106,5 @@ The platform spellings to know:
 
 ## What comes next
 
-The compiled design-system shells (`@sigx/lynx-daisyui-zero`) and the
+The compiled design-system shells (`@sigx/lynx-zero-daisyui`) and the
 showcase pilot screens land in the remaining PRs of #1029.
