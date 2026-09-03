@@ -45,7 +45,7 @@
         "@types/node": "^25.9.1",
         "@types/ws": "^8.18.1",
         "@typescript/native-preview": "7.0.0-dev.20260521.1",
-        "typescript": "^6.0.3"
+        "typescript": "^7.0.2"
     },
     "author": "Andreas Ekdahl",
     "license": "MIT",
