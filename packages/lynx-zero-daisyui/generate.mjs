@@ -18,7 +18,7 @@ export function bakeSwatch(swatch, themeName) {
         const hex = formatHex(value);
         if (!hex) {
             throw new Error(
-                `[lynx-daisyui-zero] theme "${themeName}" swatch role "${role}" has an `
+                `[lynx-zero-daisyui] theme "${themeName}" swatch role "${role}" has an `
                 + `unparseable color ${JSON.stringify(value)} — cannot bake to hex`,
             );
         }
@@ -36,11 +36,11 @@ export function bakeSwatch(swatch, themeName) {
  */
 export function generateThemeData(manifest, expectedGrammarVersion) {
     if (manifest.target !== 'lynx') {
-        throw new Error(`[lynx-daisyui-zero] expected a lynx-target manifest, got ${JSON.stringify(manifest.target)}`);
+        throw new Error(`[lynx-zero-daisyui] expected a lynx-target manifest, got ${JSON.stringify(manifest.target)}`);
     }
     if (manifest.classGrammarVersion !== expectedGrammarVersion) {
         throw new Error(
-            `[lynx-daisyui-zero] ${manifest.name}'s lynx CSS was emitted for class grammar `
+            `[lynx-zero-daisyui] ${manifest.name}'s lynx CSS was emitted for class grammar `
             + `v${manifest.classGrammarVersion}, but the installed @sigx/zero contract is `
             + `v${expectedGrammarVersion} — align the @sigx/zero and @sigx/zero-daisyui catalog pins`,
         );
@@ -52,7 +52,7 @@ export function generateThemeData(manifest, expectedGrammarVersion) {
         swatch: bakeSwatch(theme.swatch ?? {}, theme.name),
     }));
     if (themes.length === 0) {
-        throw new Error(`[lynx-daisyui-zero] ${manifest.name}'s lynx manifest declares no themes`);
+        throw new Error(`[lynx-zero-daisyui] ${manifest.name}'s lynx manifest declares no themes`);
     }
     // daisyUI declares no scalable --text-* ramp (verified against its lynx
     // tokens.css), so the ramp constant ships empty and fontScale re-emission
@@ -69,13 +69,13 @@ export function generateThemeData(manifest, expectedGrammarVersion) {
         for (const [axis, value] of Object.entries(declared)) {
             if (typeof value !== 'string') {
                 throw new Error(
-                    `[lynx-daisyui-zero] "${scope}" declares a non-string default for axis "${axis}": ${JSON.stringify(value)}`,
+                    `[lynx-zero-daisyui] "${scope}" declares a non-string default for axis "${axis}": ${JSON.stringify(value)}`,
                 );
             }
             const offered = Array.isArray(entry[axis]) ? entry[axis] : entry.axes?.[axis];
             if (Array.isArray(offered) && !offered.includes(value)) {
                 throw new Error(
-                    `[lynx-daisyui-zero] "${scope}" defaults ${axis} to ${JSON.stringify(value)}, `
+                    `[lynx-zero-daisyui] "${scope}" defaults ${axis} to ${JSON.stringify(value)}, `
                     + `which is not among its declared ${axis} values`,
                 );
             }

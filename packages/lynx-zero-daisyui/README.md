@@ -1,4 +1,4 @@
-# @sigx/lynx-daisyui-zero
+# @sigx/lynx-zero-daisyui
 
 daisyUI for SignalX Lynx as **data**: this package writes no components and
 no CSS of its own. The recipes live once, in
@@ -12,8 +12,8 @@ that is the whole package. Part of
 ## Use
 
 ```tsx
-import '@sigx/lynx-daisyui-zero';                 // seeds the theme registry
-import '@sigx/lynx-daisyui-zero/css/index.css';   // the compiled skin
+import '@sigx/lynx-zero-daisyui';                 // seeds the theme registry
+import '@sigx/lynx-zero-daisyui/css/index.css';   // the compiled skin
 import { ZeroRoot } from '@sigx/lynx-zero';
 
 defineApp(() => () => (

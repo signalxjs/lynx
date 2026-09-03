@@ -189,9 +189,6 @@ importers:
       '@sigx/lynx-daisyui':
         specifier: workspace:^
         version: link:../../packages/lynx-daisyui
-      '@sigx/lynx-daisyui-zero':
-        specifier: workspace:^
-        version: link:../../packages/lynx-daisyui-zero
       '@sigx/lynx-datetime-picker':
         specifier: workspace:^
         version: link:../../packages/lynx-datetime-picker
@@ -303,6 +300,9 @@ importers:
       '@sigx/lynx-zero':
         specifier: workspace:^
         version: link:../../packages/lynx-zero
+      '@sigx/lynx-zero-daisyui':
+        specifier: workspace:^
+        version: link:../../packages/lynx-zero-daisyui
       '@sigx/lynx-zero-legacy':
         specifier: workspace:^
         version: link:../../packages/lynx-zero-legacy
@@ -596,28 +596,6 @@ importers:
       tailwindcss:
         specifier: ^4.0.0
         version: 4.3.0
-      typescript:
-        specifier: ^6.0.3
-        version: 6.0.3
-
-  packages/lynx-daisyui-zero:
-    dependencies:
-      '@sigx/lynx-zero':
-        specifier: workspace:^
-        version: link:../lynx-zero
-    devDependencies:
-      '@sigx/zero':
-        specifier: 'catalog:'
-        version: 0.2.0-beta.6(@sigx/reactivity@0.15.4)(@sigx/runtime-core@0.15.4)(@sigx/runtime-dom@0.15.3)(sigx@0.15.3)
-      '@sigx/zero-daisyui':
-        specifier: 'catalog:'
-        version: 0.2.0-beta.6(@sigx/zero@0.2.0-beta.6(@sigx/reactivity@0.15.4)(@sigx/runtime-core@0.15.4)(@sigx/runtime-dom@0.15.3)(sigx@0.15.3))
-      '@typescript/native-preview':
-        specifier: 7.0.0-dev.20260521.1
-        version: 7.0.0-dev.20260521.1
-      culori:
-        specifier: ^4.0.1
-        version: 4.0.2
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -1571,6 +1549,28 @@ importers:
       '@typescript/native-preview':
         specifier: 7.0.0-dev.20260521.1
         version: 7.0.0-dev.20260521.1
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+
+  packages/lynx-zero-daisyui:
+    dependencies:
+      '@sigx/lynx-zero':
+        specifier: workspace:^
+        version: link:../lynx-zero
+    devDependencies:
+      '@sigx/zero':
+        specifier: 'catalog:'
+        version: 0.2.0-beta.6(@sigx/reactivity@0.15.4)(@sigx/runtime-core@0.15.4)(@sigx/runtime-dom@0.15.3)(sigx@0.15.3)
+      '@sigx/zero-daisyui':
+        specifier: 'catalog:'
+        version: 0.2.0-beta.6(@sigx/zero@0.2.0-beta.6(@sigx/reactivity@0.15.4)(@sigx/runtime-core@0.15.4)(@sigx/runtime-dom@0.15.3)(sigx@0.15.3))
+      '@typescript/native-preview':
+        specifier: 7.0.0-dev.20260521.1
+        version: 7.0.0-dev.20260521.1
+      culori:
+        specifier: ^4.0.1
+        version: 4.0.2
       typescript:
         specifier: ^6.0.3
         version: 6.0.3

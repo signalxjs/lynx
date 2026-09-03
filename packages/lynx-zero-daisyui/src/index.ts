@@ -1,7 +1,7 @@
 /**
- * `@sigx/lynx-daisyui-zero` — daisyUI for lynx as DATA: the compiled
+ * `@sigx/lynx-zero-daisyui` — daisyUI for lynx as DATA: the compiled
  * class-grammar CSS ships under `./css/*` (import
- * `@sigx/lynx-daisyui-zero/css/index.css` once, app-wide), and importing
+ * `@sigx/lynx-zero-daisyui/css/index.css` once, app-wide), and importing
  * THIS module seeds zero's theme registry with the skin's themes — the same
  * registry `@sigx/lynx-zero`'s ThemeProvider and themeController read, so
  * selection, pairing and follow-system all work with no further wiring — and
