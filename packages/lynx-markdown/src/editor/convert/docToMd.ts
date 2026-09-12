@@ -351,7 +351,7 @@ function delimiter(mark: ActiveMark, doc: RichDoc, side: 'open' | 'close'): stri
 
 /**
  * Escape a link destination so it re-parses to the same href (mirrors
- * `scanLinkDest`'s two accepted forms):
+ * CommonMark's two link-destination forms):
  *
  * - bare form: backslash-escape `\`, `(`, `)`, `<` (a leading `<` would
  *   otherwise flip the parser into the angle branch) — valid as long as

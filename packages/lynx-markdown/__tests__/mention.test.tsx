@@ -2,10 +2,14 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, fireEvent, waitForUpdate } from '@sigx/lynx-testing';
 import { encodeDoc, RichTextMethods, type InlineSpan, type RichDoc } from '@sigx/lynx-richtext';
 import { MarkdownEditor, type MarkdownEditorController } from '../src/editor/MarkdownEditor';
-import { createMentionPlugin, mentionSyntax } from '../src/plugins/mention';
+import { createMentionPlugin, mentionPlugin, mentionSyntax } from '../src/plugins/mention';
 import { mdToDoc } from '../src/editor/convert/mdToDoc';
 import { docToMd } from '../src/editor/convert/docToMd';
 import type { MentionCandidate } from '../src/plugins/mention';
+import type { InlineMatchContext } from '@sigx/markdown';
+
+/** A bare match context — no positions, no nested inline parsing. */
+const ctx: InlineMatchContext = { parseInline: () => [], position: () => undefined };
 
 const USERS: MentionCandidate[] = [
     { id: 'u1', label: 'Andy', kind: 'user' },
@@ -18,24 +22,37 @@ const search = (q: string) => USERS.filter((u) => u.label.toLowerCase().startsWi
 // Parser syntax
 // ---------------------------------------------------------------------------
 
-describe('mentionSyntax', () => {
-    it('matches @[label](id) and returns null on partial tails', () => {
-        const m = mentionSyntax.match('hi @[Andy](u1)!', 3);
-        expect(m).toMatchObject({
-            node: { type: 'extension', name: 'mention', attrs: { label: 'Andy', id: 'u1' }, raw: '@[Andy](u1)' },
-            end: 14,
-        });
-        expect(mentionSyntax.match('hi @[An', 3)).toBeNull();
-        expect(mentionSyntax.match('hi @[Andy](', 3)).toBeNull();
-        expect(mentionSyntax.match('hi @plain', 3)).toBeNull();
+describe('mentionSyntax (re-exported from @sigx/markdown)', () => {
+    it('matches @[label](id) into a mention node and returns null on partial tails', () => {
+        const m = mentionSyntax.match('hi @[Andy](u1)!', 3, ctx);
+        expect(m).toEqual({ node: { type: 'mention', label: 'Andy', id: 'u1' }, end: 14 });
+        expect(mentionSyntax.match('hi @[An', 3, ctx)).toBeNull();
+        expect(mentionSyntax.match('hi @[Andy](', 3, ctx)).toBeNull();
+        expect(mentionSyntax.match('hi @plain', 3, ctx)).toBeNull();
     });
 
-    it('rejects forbidden characters in labels and ids (parser/serializer symmetry)', () => {
-        // The parser must not accept what the serializer would strip —
-        // otherwise round-trips mutate content.
-        expect(mentionSyntax.match('@[An)dy](u1)', 0)).toBeNull();
-        expect(mentionSyntax.match('@[Andy](u]1)', 0)).toBeNull();
-        expect(mentionSyntax.match('@[An\rdy](u1)', 0)).toBeNull();
+    it('refuses exactly what the serializer strips (parser/serializer symmetry)', () => {
+        // A label cannot hold `]`, an id cannot hold `)`, neither a CR/LF —
+        // the write path cleans the same set, so round-trips never mutate.
+        expect(mentionSyntax.match('@[An]dy](u1)', 0, ctx)).toBeNull();
+        expect(mentionSyntax.match('@[An\rdy](u1)', 0, ctx)).toBeNull();
+        expect(mentionSyntax.match('@[Andy](u\n1)', 0, ctx)).toBeNull();
+        // `)` in a label and `]` in an id are fine on both sides.
+        const plugin = createMentionPlugin({ search: () => [] });
+        const md = '@[Smith (Bob)](u]1)';
+        expect(mentionSyntax.match(md, 0, ctx)).toEqual({
+            node: { type: 'mention', label: 'Smith (Bob)', id: 'u]1' },
+            end: md.length,
+        });
+        expect(plugin.inline!.serialize(
+            { start: 0, end: 1, type: 'mention', attrs: { id: 'u]1', label: 'Smith (Bob)' } },
+            '\uFFFC',
+        )).toBe(md);
+    });
+
+    it('carries the syntax and serializer as one @sigx/markdown plugin', () => {
+        expect(mentionPlugin.inline).toContain(mentionSyntax);
+        expect(mentionPlugin.serialize!.mention({ type: 'mention', id: 'u1', label: 'Andy' }, {} as never)).toBe('@[Andy](u1)');
     });
 });
 
@@ -46,7 +63,7 @@ describe('mentionSyntax', () => {
 describe('mention plugin conversion', () => {
     const plugin = createMentionPlugin({ search });
     const inOpts = {
-        extensions: [plugin.inline!.syntax],
+        plugins: [mentionPlugin],
         spanMappers: { mention: plugin.inline!.docMapping.toSpan },
     };
     const outOpts = {
@@ -87,7 +104,7 @@ describe('mention plugin conversion', () => {
         )).toBe('');
     });
 
-    it('strips forbidden characters from labels/ids on serialize (v1 rule)', () => {
+    it('strips forbidden characters from labels/ids on serialize (label rule)', () => {
         const out = plugin.inline!.serialize(
             { start: 0, end: 1, type: 'mention', attrs: { id: 'u)1', label: 'An]dy' } },
             '\uFFFC',
@@ -169,7 +186,7 @@ describe('mention plugin in MarkdownEditor', () => {
         expect(container.findAllByType('view').some((v) => v.props['ignore-focus'] === true)).toBe(false);
     });
 
-    it('sanitizes candidate labels/ids at the trigger boundary (v1 rule)', async () => {
+    it('sanitizes candidate labels/ids at the trigger boundary (label rule)', async () => {
         const plugin = createMentionPlugin({
             search: () => [{ id: 'u)1', label: 'An]dy' }],
         });
@@ -197,7 +214,7 @@ describe('mention plugin in MarkdownEditor', () => {
     it('drops candidates that clean to an empty id/label', async () => {
         const plugin = createMentionPlugin({
             search: () => [
-                { id: ')]', label: 'Ghost' }, // id cleans to '' — never offered
+                { id: '))', label: 'Ghost' }, // id cleans to '' — never offered
                 { id: 'u2', label: 'Bea' },
             ],
         });
@@ -248,7 +265,7 @@ describe('mention plugin in MarkdownEditor', () => {
         const popup = container.findAllByType('view').find((v) => v.props['ignore-focus'] === true)!;
         // The extra field reached the row…
         expect(popup.findByText('a.png')).toBeTruthy();
-        // …while id/label were still cleaned to the v1 rule.
+        // …while id/label were still cleaned to the label rule.
         expect(popup.findByText('Andy')).toBeTruthy();
         const row = popup.findAllByType('view').find((v) => v._handlers.has('bindtap'))!;
         fireEvent.tap(row);

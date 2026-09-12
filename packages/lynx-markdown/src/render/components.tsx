@@ -1,179 +1,37 @@
 /**
- * The render-function component contract and the neutral default renderers.
+ * The neutral default renderers for Lynx — one `@sigx/markdown`
+ * {@link MarkdownComponents} map over Lynx `<view>`/`<text>` intrinsics.
  *
  * `@sigx/lynx-markdown` is **generic**: the defaults here use only plain inline
  * styles (numbers + theme-agnostic colors) so the renderer works standalone on
  * any platform/theme with zero design-system coupling. A design system (e.g.
- * `@sigx/lynx-daisyui`) supplies its own {@link MarkdownComponents} to control
- * the look — see the `components` prop on `<Markdown>`.
+ * `@sigx/lynx-daisyui`) supplies its own map to control the look — see the
+ * `components` prop on `<MarkdownView>`.
  *
- * Each component receives its already-rendered `children` plus the raw AST
- * `node`; the engine owns AST recursion and stable streaming keys, so a
- * component only decides *what element to wrap children in*.
+ * The slots are the mdast node types (`heading`, `emphasis`, `inlineCode`,
+ * `break`, …) — the contract is `@sigx/markdown`'s `MarkdownComponents<E>`
+ * with `E` = a Lynx `JSXElement`. Each component receives its already-rendered
+ * `children` plus the AST `node`; the engine owns AST recursion and stable
+ * streaming keys, so a component only decides *what element to wrap children
+ * in*.
  */
 
 import type { JSXElement } from '@sigx/lynx';
-import type {
-    BlockquoteBlock,
-    CodeBlock,
-    HeadingBlock,
-    HeadingLevel,
-    InlineAutolink,
-    InlineCodeSpan,
-    InlineDel,
-    InlineEm,
-    InlineExtension,
-    InlineImage,
-    InlineLink,
-    InlineStrong,
-    ListBlock,
-    ListItem,
-    ParagraphBlock,
-    TableAlign,
-    TableBlock,
-    ThematicBreakBlock,
-} from '../ast.js';
+import type { HeadingDepth, ImageProps, MarkdownChild, MarkdownComponents } from '@sigx/markdown';
 
-/** A renderable child: a JSX element or a raw string (for text/`<br>`). */
-export type MarkdownChild = JSXElement | string;
+/** The Lynx component map: `@sigx/markdown`'s contract over Lynx elements. */
+export type LynxMarkdownComponents = MarkdownComponents<JSXElement>;
 
-// -- Per-component prop shapes ------------------------------------------------
-
-export interface RootProps {
-    children: MarkdownChild[];
-}
-export interface HeadingProps {
-    level: HeadingLevel;
-    children: MarkdownChild[];
-    node: HeadingBlock;
-}
-export interface ParagraphProps {
-    children: MarkdownChild[];
-    node: ParagraphBlock;
-}
-export interface BlockquoteProps {
-    children: MarkdownChild[];
-    node: BlockquoteBlock;
-}
-export interface ListProps {
-    ordered: boolean;
-    start: number;
-    tight: boolean;
-    children: MarkdownChild[];
-    node: ListBlock;
-}
-export interface ListItemProps {
-    ordered: boolean;
-    /** Zero-based index within the list. */
-    index: number;
-    /** Display number for ordered lists (`start + index`). */
-    number: number;
-    /** GFM task state, or `null` when not a task item. */
-    checked: boolean | null;
-    children: MarkdownChild[];
-    item: ListItem;
-}
-export interface CodeProps {
-    lang?: string;
-    value: string;
-    /** `false` while the fence is still streaming/unterminated. */
-    closed: boolean;
-    node: CodeBlock;
-}
-export interface ThematicBreakProps {
-    node: ThematicBreakBlock;
-}
-export interface TableProps {
-    align: (TableAlign | null)[];
-    children: MarkdownChild[];
-    node: TableBlock;
-}
-export interface TableRowProps {
-    header: boolean;
-    children: MarkdownChild[];
-    node: TableBlock;
-}
-export interface TableCellProps {
-    header: boolean;
-    align: TableAlign | null;
-    children: MarkdownChild[];
-    node: TableBlock;
-}
-
-export interface StrongProps {
-    children: MarkdownChild[];
-    node: InlineStrong;
-}
-export interface EmProps {
-    children: MarkdownChild[];
-    node: InlineEm;
-}
-export interface DelProps {
-    children: MarkdownChild[];
-    node: InlineDel;
-}
-export interface CodeSpanProps {
-    value: string;
-    node: InlineCodeSpan;
-}
-export interface LinkProps {
-    href: string;
-    title?: string;
-    children: MarkdownChild[];
-    onLink?: (href: string) => void;
-    node: InlineLink;
-}
-export interface AutolinkProps {
-    href: string;
-    value: string;
-    onLink?: (href: string) => void;
-    node: InlineAutolink;
-}
-export interface ImageProps {
-    src: string;
-    alt: string;
-    title?: string;
-    onImageTap?: (src: string) => void;
-    node: InlineImage;
-}
-export interface ExtensionProps {
-    name: string;
-    attrs: Record<string, string>;
-    /** Rendered `node.children`; `[]` for leaf extensions. */
-    children: MarkdownChild[];
-    node: InlineExtension;
-}
+/** A renderable child on Lynx: a JSX element or a raw string (text / `break`). */
+export type LynxMarkdownChild = MarkdownChild<JSXElement>;
 
 /**
- * Map of node type → render function. Pass a partial map to `<Markdown
- * components={…}>` to override any subset; unspecified types fall back to the
- * neutral {@link defaultComponents}.
+ * What the Lynx `image` slot receives: the engine's {@link ImageProps} plus
+ * `<MarkdownView>`'s `onImageTap` handler, threaded in by the view (the
+ * platform-neutral engine knows nothing about image taps).
  */
-export interface MarkdownComponents {
-    root(props: RootProps): JSXElement;
-    heading(props: HeadingProps): JSXElement;
-    paragraph(props: ParagraphProps): JSXElement;
-    blockquote(props: BlockquoteProps): JSXElement;
-    list(props: ListProps): JSXElement;
-    listItem(props: ListItemProps): JSXElement;
-    code(props: CodeProps): JSXElement;
-    thematicBreak(props: ThematicBreakProps): JSXElement;
-    table(props: TableProps): JSXElement;
-    tableRow(props: TableRowProps): JSXElement;
-    tableCell(props: TableCellProps): JSXElement;
-    strong(props: StrongProps): MarkdownChild;
-    em(props: EmProps): MarkdownChild;
-    del(props: DelProps): MarkdownChild;
-    codeSpan(props: CodeSpanProps): MarkdownChild;
-    link(props: LinkProps): MarkdownChild;
-    autolink(props: AutolinkProps): MarkdownChild;
-    image(props: ImageProps): MarkdownChild;
-    br(): MarkdownChild;
-    /**
-     * Renderers for plugin inline extensions, keyed by extension name. A node
-     * with no matching renderer falls back to its `raw` source as plain text.
-     */
-    extension?: Record<string, (props: ExtensionProps) => MarkdownChild>;
+export interface LynxImageProps extends ImageProps {
+    onImageTap?: (url: string) => void;
 }
 
 // -- Neutral, theme-agnostic defaults ----------------------------------------
@@ -183,19 +41,28 @@ const SURFACE = 'rgba(127, 127, 127, 0.14)';
 const BORDER = 'rgba(127, 127, 127, 0.32)';
 const LINK = '#3478f6';
 
-const HEADING_SIZE: Record<HeadingLevel, number> = { 1: 30, 2: 24, 3: 20, 4: 18, 5: 16, 6: 14 };
+const HEADING_SIZE: Record<HeadingDepth, number> = { 1: 30, 2: 24, 3: 20, 4: 18, 5: 16, 6: 14 };
 
-export const defaultComponents: MarkdownComponents = {
+/**
+ * A soft line break is kept as `\n` inside `text.value` (mdast); Lynx `<text>`
+ * would render it as a real line break, so paragraphs collapse it to a space —
+ * the CommonMark rendering of a soft break.
+ */
+function collapseSoftBreaks(value: string): string {
+    return value.includes('\n') ? value.replace(/\n/g, ' ') : value;
+}
+
+export const defaultComponents: LynxMarkdownComponents = {
     root: ({ children }) => (
         <view style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>{children}</view>
     ),
 
-    heading: ({ level, children }) => (
+    heading: ({ depth, children }) => (
         <text
             style={{
-                fontSize: HEADING_SIZE[level],
-                fontWeight: level <= 2 ? 700 : 600,
-                ...(level >= 6 ? { opacity: 0.8 } : {}),
+                fontSize: HEADING_SIZE[depth],
+                fontWeight: depth <= 2 ? 700 : 600,
+                ...(depth >= 6 ? { opacity: 0.8 } : {}),
             }}
         >
             {children}
@@ -356,12 +223,17 @@ export const defaultComponents: MarkdownComponents = {
         </view>
     ),
 
+    // Raw HTML has no Lynx sink — it shows as literal text (an element, not a
+    // bare string: a `<view>` cannot hold text directly).
+    html: ({ value }) => <text style={{ fontSize: 16, lineHeight: 24 }}>{value}</text>,
+
+    text: ({ value }) => collapseSoftBreaks(value),
     strong: ({ children }) => <text style={{ fontWeight: 700 }}>{children}</text>,
-    em: ({ children }) => <text style={{ fontStyle: 'italic' }}>{children}</text>,
-    del: ({ children }) => (
+    emphasis: ({ children }) => <text style={{ fontStyle: 'italic' }}>{children}</text>,
+    delete: ({ children }) => (
         <text style={{ textDecoration: 'line-through', opacity: 0.8 }}>{children}</text>
     ),
-    codeSpan: ({ value }) => (
+    inlineCode: ({ value }) => (
         <text
             style={{
                 fontFamily: 'monospace',
@@ -375,20 +247,15 @@ export const defaultComponents: MarkdownComponents = {
             {value}
         </text>
     ),
-    link: ({ href, children, onLink }) => (
-        <text style={{ color: LINK, textDecoration: 'underline' }} bindtap={() => onLink?.(href)}>
+    link: ({ url, children, onLink, node }) => (
+        <text style={{ color: LINK, textDecoration: 'underline' }} bindtap={() => onLink?.(url, node)}>
             {children}
         </text>
     ),
-    autolink: ({ href, value, onLink }) => (
-        <text style={{ color: LINK, textDecoration: 'underline' }} bindtap={() => onLink?.(href)}>
-            {value}
+    image: ({ url, alt, onImageTap }: LynxImageProps) => (
+        <text style={{ color: LINK, textDecoration: 'underline' }} bindtap={() => onImageTap?.(url)}>
+            {alt || url}
         </text>
     ),
-    image: ({ src, alt, onImageTap }) => (
-        <text style={{ color: LINK, textDecoration: 'underline' }} bindtap={() => onImageTap?.(src)}>
-            {alt || src}
-        </text>
-    ),
-    br: () => '\n',
+    break: () => '\n',
 };

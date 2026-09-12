@@ -1,21 +1,24 @@
 /**
  * The reference mention plugin — `@[label](id)` mentions as native chips.
  *
- * The proving consumer of the P3 plugin API (#156): one plugin wires all
- * three surfaces together —
+ * The platform-neutral half — the `@[label](id)` syntax (`mentionSyntax`),
+ * the `{ type: 'mention', id, label }` node and its serializer — lives in
+ * `@sigx/markdown` (`mentionPlugin`, re-exported here so `<MarkdownView
+ * plugins={[mentionPlugin]}>` needs one import). This module is the **editor
+ * half**, the proving consumer of the plugin API (#156):
  *
- *  - **parser**: `@[label](id)` parses to an `extension` node (streaming-safe:
- *    a half-typed `@[lab` stays literal text),
  *  - **editor field**: the node maps to a `mention` span over a single
  *    U+FFFC (the chip invariant — see `InlineSpanType` in lynx-richtext),
  *    rendered natively as a pill; selecting a suggestion inserts the chip
  *    via `controller.insertChip`, replacing the typed trigger run,
  *  - **markdown out**: the span serializes back to `@[label](id)` from its
- *    attrs (the covered text is the U+FFFC, never the label).
+ *    attrs (the covered text is the U+FFFC, never the label),
+ *  - **preview**: an optional `mention` component for `<MarkdownView>`.
  *
- * v1 label rule: `]`, `)`, and CR/LF are forbidden in both labels and ids —
- * the serializer strips them and the parser regex doesn't match them, so
- * round-trips are idempotent by construction.
+ * Label rule (the parser's, mirrored on the write path): a label cannot
+ * contain `]` or CR/LF, an id cannot contain `)` or CR/LF — the serializer
+ * strips exactly what the syntax refuses, so round-trips are idempotent by
+ * construction.
  *
  * A factory (not a constant) because the consumer supplies the candidate
  * source:
@@ -29,10 +32,12 @@
  */
 
 import type { JSXElement } from '@sigx/lynx';
-import type { InlineExtension } from '../ast.js';
-import type { ParserInlineExtension } from '../parser/extensions.js';
-import type { ExtensionProps, MarkdownChild } from '../render/components.js';
+import { mentionPlugin, mentionSyntax, serializeMention, type Mention } from '@sigx/markdown';
+import type { LynxMarkdownChild } from '../render/components.js';
 import type { MarkdownEditorPlugin, TriggerItem } from '../editor/plugin.js';
+
+export { mentionPlugin, mentionSyntax };
+export type { Mention };
 
 export interface MentionCandidate {
     id: string;
@@ -48,6 +53,12 @@ export interface MentionCandidate {
     [key: string]: unknown;
 }
 
+/** What the mention preview component receives: the node (and no children — a mention is a leaf). */
+export interface MentionComponentProps {
+    node: Mention;
+    children: LynxMarkdownChild[];
+}
+
 export interface MentionPluginOptions {
     /** Resolve candidates for the typed query (sync or async). */
     search(query: string): MentionCandidate[] | Promise<MentionCandidate[]>;
@@ -55,51 +66,28 @@ export interface MentionPluginOptions {
     renderItem?(item: TriggerItem, active: boolean): JSXElement;
     /**
      * Preview-pill renderer, exposed as `plugin.inline.component`.
-     * `MarkdownView` is not plugin-aware — wire it up explicitly:
-     * `components={{ extension: { mention: plugin.inline.component } }}`
-     * (with `extensions={[mentionSyntax]}`).
+     * `MarkdownView` is not editor-plugin-aware — wire it up explicitly:
+     * `components={{ mention: plugin.inline.component }}` (with
+     * `plugins={[mentionPlugin]}`).
      */
-    component?: (props: ExtensionProps) => MarkdownChild;
+    component?: (props: MentionComponentProps) => LynxMarkdownChild;
     /** Popup trigger char (the markdown syntax stays `@[label](id)`). Default `'@'`. */
     trigger?: string;
     /** Debounce between `search` calls in ms. */
     debounce?: number;
 }
 
-/**
- * `@[label](id)` — label and id both exclude `]`/`)`/CR/LF (v1 rule). The
- * parser and {@link clean} enforce the same set, so anything the parser
- * accepts serializes back unchanged.
- */
-const MENTION_RE = /^@\[([^\])\r\n]+)\]\(([^\])\r\n]+)\)/;
-
-/** Enforce the v1 label rule on the write path (same set as MENTION_RE). */
-function clean(value: string): string {
-    return value.replace(/[\])\r\n]/g, '');
+/** Enforce the label rule on the write path (the same set `mentionSyntax` refuses). */
+function cleanLabel(value: string): string {
+    return value.replace(/[\]\r\n]/g, '');
+}
+function cleanId(value: string): string {
+    return value.replace(/[)\r\n]/g, '');
 }
 
-/** The parser extension for `@[label](id)` (exported for MarkdownView previews). */
-export const mentionSyntax: ParserInlineExtension = {
-    name: 'mention',
-    triggerChars: ['@'],
-    match(text, pos) {
-        const m = MENTION_RE.exec(text.slice(pos));
-        if (!m) return null; // partial tail (`@[lab`) stays literal — streaming-safe
-        return {
-            node: {
-                type: 'extension',
-                name: 'mention',
-                attrs: { label: m[1], id: m[2] },
-                raw: m[0],
-            },
-            end: pos + m[0].length,
-        };
-    },
-};
-
 /** Neutral preview pill (override via `options.component`). */
-function defaultComponent({ attrs }: ExtensionProps): MarkdownChild {
-    return `@${attrs.label ?? ''}`;
+function defaultComponent({ node }: MentionComponentProps): LynxMarkdownChild {
+    return `@${node.label}`;
 }
 
 export function createMentionPlugin(options: MentionPluginOptions): MarkdownEditorPlugin {
@@ -111,23 +99,23 @@ export function createMentionPlugin(options: MentionPluginOptions): MarkdownEdit
             component: options.component ?? defaultComponent,
             serialize(span) {
                 // The covered text is the chip's U+FFFC — serialize from attrs.
-                const label = clean(span.attrs?.label ?? '');
-                const id = clean(span.attrs?.id ?? '');
+                const label = cleanLabel(span.attrs?.label ?? '');
+                const id = cleanId(span.attrs?.id ?? '');
                 // Malformed span (missing or cleaned-to-empty payload):
                 // degrade to the plain label rather than emitting
                 // unparseable syntax like @[]().
                 if (label === '' || id === '') return label;
-                return `@[${label}](${id})`;
+                return serializeMention({ type: 'mention', id, label });
             },
             docMapping: {
                 spanType: 'mention',
-                toSpan(node: InlineExtension) {
+                toSpan(node: Mention) {
                     // The chip invariant: one U+FFFC in the text, label in attrs.
                     return {
                         text: '\uFFFC',
                         span: {
                             type: 'mention',
-                            attrs: { id: node.attrs.id ?? '', label: node.attrs.label ?? '' },
+                            attrs: { id: node.id, label: node.label },
                         },
                     };
                 },
@@ -146,12 +134,12 @@ export function createMentionPlugin(options: MentionPluginOptions): MarkdownEdit
                     candidates
                         // Spread the candidate first so display-only extras
                         // (avatar, subtitle, …) reach `renderItem`, then clean
-                        // id/label last so the chip payload/markdown stay v1-safe
+                        // id/label last so the chip payload/markdown stay safe
                         // regardless of what the extras carry.
                         .map((c) => ({
                             ...c,
-                            id: clean(c.id),
-                            label: clean(c.label),
+                            id: cleanId(c.id),
+                            label: cleanLabel(c.label),
                         }))
                         // A candidate that cleans to empty would serialize to
                         // @[]() — unparseable. Never offer it.
@@ -161,12 +149,12 @@ export function createMentionPlugin(options: MentionPluginOptions): MarkdownEdit
             ...(options.renderItem ? { renderItem: options.renderItem } : {}),
             onSelect(item, api) {
                 // Defense in depth — items normally arrive pre-cleaned from
-                // onQuery, but the chip payload must obey the v1 rule even if
-                // a consumer drives onSelect directly. An empty cleaned
+                // onQuery, but the chip payload must obey the label rule even
+                // if a consumer drives onSelect directly. An empty cleaned
                 // payload would serialize to @[]() (unparseable) — and the
                 // native insertChip rejects it anyway — so skip the insert.
-                const id = clean(item.id);
-                const label = clean(item.label);
+                const id = cleanId(item.id);
+                const label = cleanLabel(item.label);
                 if (id === '' || label === '') return;
                 api.controller.insertChip(
                     {

@@ -9,9 +9,9 @@
  * Two layers:
  *  - Runtime: the set of *value* exports is exactly what we expect, for both
  *    published entries — the root and the `/editor` subpath. Type-only exports
- *    (`MarkdownViewProps`, `MarkdownComponents`, the whole AST via
- *    `export type * from './ast.js'`, …) are erased at runtime and are pinned
- *    below instead.
+ *    (`MarkdownViewProps`, the Lynx component-map aliases, the whole
+ *    `@sigx/markdown` type surface via `export type * from '@sigx/markdown'`,
+ *    …) are erased at runtime and are pinned below instead.
  *  - Types: the load-bearing signatures — the factories consumers hold onto,
  *    and the reactive shapes whose `.value` drives re-render (C8).
  *
@@ -21,17 +21,32 @@
  * root barrel would make those peers required at module-link time for every
  * renderer-only consumer — the root snapshot below is what catches that.
  *
+ * The parser, stream and render engine live in `@sigx/markdown` (#1112); the
+ * root re-exports the handful a Lynx app reaches for, and the snapshot pins
+ * that set so the re-export list cannot silently grow into a second copy of
+ * the upstream surface.
+ *
  * This is a rendering/parsing package with no native module behind it, so
  * there is no `isAvailable` to pin (C2) and no `.web.ts` sibling, hence no
  * web-parity block (D7.1b).
  */
 import { describe, expect, expectTypeOf, it } from 'vitest';
+import type { JSXElement } from '@sigx/lynx';
+import * as upstream from '@sigx/markdown';
 
 import * as markdown from '../src/index';
 import * as editor from '../src/editor/index';
-import type { BlockNode, InlineNode } from '../src/ast';
-import type { ParserInlineExtension } from '../src/parser/extensions';
-import type { IncrementalEngine, MarkdownStream } from '../src/index';
+import type {
+    IncrementalEngine,
+    InlineSyntaxExtension,
+    LynxImageProps,
+    LynxMarkdownComponents,
+    MarkdownComponents,
+    MarkdownPlugin,
+    MarkdownStream,
+    Mention,
+    Root,
+} from '../src/index';
 
 describe('public runtime exports', () => {
     it('matches the locked root surface', () => {
@@ -40,17 +55,26 @@ describe('public runtime exports', () => {
                 // Renderer
                 'MarkdownView',
                 'defaultComponents',
-                // Reference plugin
+                // Reference plugin (editor half here, syntax half from @sigx/markdown)
                 'createMentionPlugin',
                 'mentionSyntax',
-                // Streaming controller for AI token loops
+                'mentionPlugin',
+                // @sigx/markdown primitives re-exported for Lynx apps
                 'createMarkdownStream',
-                // Parser primitives (advanced consumers / testing)
                 'createIncrementalEngine',
-                'parseBlocks',
-                'parseInline',
+                'parseMarkdown',
+                'renderDocument',
             ].sort(),
         );
+    });
+
+    it('re-exports the @sigx/markdown values by identity (one parser, one engine)', () => {
+        expect(markdown.createMarkdownStream).toBe(upstream.createMarkdownStream);
+        expect(markdown.createIncrementalEngine).toBe(upstream.createIncrementalEngine);
+        expect(markdown.parseMarkdown).toBe(upstream.parseMarkdown);
+        expect(markdown.renderDocument).toBe(upstream.renderDocument);
+        expect(markdown.mentionSyntax).toBe(upstream.mentionSyntax);
+        expect(markdown.mentionPlugin).toBe(upstream.mentionPlugin);
     });
 
     it('matches the locked /editor subpath surface', () => {
@@ -86,27 +110,38 @@ describe('public types', () => {
     });
 
     it('pins the parser primitives', () => {
-        // Extensions are `readonly` and optional on both entry points — a
-        // plugin array is meant to be a module constant passed by identity
-        // (changing identity resets incremental parse state).
-        expectTypeOf(markdown.parseInline).toEqualTypeOf<
-            (input: string, extensions?: readonly ParserInlineExtension[]) => InlineNode[]
+        // Plugins are `readonly` and optional on both entry points — a plugin
+        // array is meant to be a module constant passed by identity (changing
+        // identity resets incremental parse state).
+        expectTypeOf(markdown.parseMarkdown).toEqualTypeOf<
+            (src: string, options?: { plugins?: readonly MarkdownPlugin[] }) => Root
         >();
-        expectTypeOf(markdown.parseBlocks).returns.toEqualTypeOf<BlockNode[]>();
         expectTypeOf(markdown.createIncrementalEngine).toEqualTypeOf<
-            (options?: { extensions?: readonly ParserInlineExtension[] }) => IncrementalEngine
+            (options?: { plugins?: readonly MarkdownPlugin[] }) => IncrementalEngine
         >();
         // The reuse contract: `parse` returns finalized blocks by reference and
         // `reset` is the only way to drop them.
-        expectTypeOf<IncrementalEngine['parse']>().toEqualTypeOf<(src: string) => BlockNode[]>();
+        expectTypeOf<IncrementalEngine['parse']>().toEqualTypeOf<(src: string) => Root>();
         expectTypeOf<IncrementalEngine['reset']>().toEqualTypeOf<() => void>();
     });
 
-    it('pins the mention plugin as the proving consumer of the extension API', () => {
-        // `mentionSyntax` is what consumers pass to `<MarkdownView extensions>`
-        // when they render mentions without the editor; it has to stay a plain
-        // `ParserInlineExtension` value, not a factory.
-        expectTypeOf(markdown.mentionSyntax).toEqualTypeOf<ParserInlineExtension>();
+    it('pins the Lynx component map as @sigx/markdown\'s contract over JSXElement', () => {
+        // Design systems type their map against this; the aliases must stay
+        // exactly the upstream generic instantiated with the Lynx element.
+        expectTypeOf<LynxMarkdownComponents>().toEqualTypeOf<MarkdownComponents<JSXElement>>();
+        expectTypeOf(markdown.defaultComponents).toEqualTypeOf<MarkdownComponents<JSXElement>>();
+        // The one Lynx extension of the upstream props: `image` also sees the
+        // view's `onImageTap`.
+        expectTypeOf<LynxImageProps['onImageTap']>().toEqualTypeOf<((url: string) => void) | undefined>();
+        expectTypeOf<LynxImageProps['url']>().toEqualTypeOf<string>();
+    });
+
+    it('pins the mention plugin as the proving consumer of the plugin API', () => {
+        // `mentionPlugin`/`mentionSyntax` are what consumers pass to
+        // `<MarkdownView plugins>` when they render mentions without the
+        // editor; they have to stay plain values, not factories.
+        expectTypeOf(markdown.mentionSyntax).toEqualTypeOf<InlineSyntaxExtension<Mention>>();
+        expectTypeOf(markdown.mentionPlugin).toEqualTypeOf<MarkdownPlugin>();
         expectTypeOf(markdown.createMentionPlugin).parameters.toMatchTypeOf<[unknown]>();
     });
 

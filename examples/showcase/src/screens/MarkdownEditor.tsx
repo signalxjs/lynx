@@ -4,7 +4,9 @@ import { Button, Card, Col, EmojiPickerSheet, Heading, Row, ScrollView, Text, us
 import {
     createMentionPlugin,
     MarkdownView,
-    mentionSyntax,
+    mentionPlugin,
+    type MarkdownPlugin,
+    type Mention,
     type MentionCandidate,
 } from '@sigx/lynx-markdown';
 import {
@@ -13,7 +15,7 @@ import {
     type MarkdownEditorMode,
 } from '@sigx/lynx-markdown/editor';
 import { enData } from '@sigx/lynx-emoji';
-import { createEmojiPlugin, createEmojiSyntax, emojiExtensionComponent } from '@sigx/lynx-emoji/markdown';
+import { createEmojiPlugin, createEmojiSyntax, emojiComponent } from '@sigx/lynx-emoji/markdown';
 
 /**
  * Emoji plugin (`@sigx/lynx-emoji/markdown`) over the full ~1900-emoji
@@ -21,19 +23,19 @@ import { createEmojiPlugin, createEmojiSyntax, emojiExtensionComponent } from '@
  *
  *  • Trigger: typing `:` opens the suggestion popup with ranked search
  *    (shortcodes, names, keywords); selecting inserts the glyph itself.
- *  • Parser extension (`createEmojiSyntax`): `:rocket:` in markdown source
- *    previews as 🚀 via `components.extension.emoji`. Unknown shortcodes and
+ *  • Inline syntax (`createEmojiSyntax`): `:rocket:` in markdown source
+ *    previews as 🚀 via `components.emoji`. Unknown shortcodes and
  *    partial tails (`:sm`) stay literal — streaming-safe.
  *  • Toolbar: the plugin's 😊 item opens the daisy `EmojiPickerSheet`;
  *    picks insert at the caret via `controller.insertText`.
  */
-const emojiSyntax = createEmojiSyntax();
+const emojiMarkdownPlugin: MarkdownPlugin = { name: 'emoji', inline: [createEmojiSyntax()] };
 
 /**
  * Mention demo (#157): type `@` for user suggestions; selecting inserts a
  * native chip (one U+FFFC backed by an attachment pill in the field) and the
- * markdown output carries `@[label](id)`. The preview renders mentions via
- * `components.extension.mention`.
+ * markdown output carries `@[label](id)`. The preview parses them with
+ * `mentionPlugin` and renders them via `components.mention`.
  */
 const USERS: MentionCandidate[] = [
     { id: 'u1', label: 'Andy', kind: 'user' },
@@ -43,18 +45,16 @@ const USERS: MentionCandidate[] = [
     { id: 'team-core', label: 'core-team', kind: 'team' },
 ];
 
-const mentionPlugin = createMentionPlugin({
+const mentionEditorPlugin = createMentionPlugin({
     search: (q) => USERS.filter((u) => u.label.toLowerCase().startsWith(q.toLowerCase())),
 });
 
-const previewExtensions = [emojiSyntax, mentionSyntax];
+const previewPlugins: MarkdownPlugin[] = [emojiMarkdownPlugin, mentionPlugin];
 const previewComponents = {
-    extension: {
-        emoji: emojiExtensionComponent,
-        mention: ({ attrs }: { attrs: Record<string, string> }) => (
-            <text style={{ color: '#3478f6', fontWeight: 600 }}>@{attrs.label}</text>
-        ),
-    },
+    emoji: emojiComponent,
+    mention: ({ node }: { node: Mention }) => (
+        <text style={{ color: '#3478f6', fontWeight: 600 }}>@{node.label}</text>
+    ),
 };
 
 /**
@@ -104,7 +104,7 @@ export const MarkdownEditorScreen = component(() => {
                                     accentColor={editorTheme.accentColor}
                                     placeholderColor={editorTheme.placeholderColor}
                                     suggestionPopup={editorTheme.suggestionPopup}
-                                    plugins={[emojiPlugin, mentionPlugin]}
+                                    plugins={[emojiPlugin, mentionEditorPlugin]}
                                     fullscreenClass="bg-base-100"
                                     onChange={(md) => {
                                         markdown.value = md;
@@ -144,7 +144,7 @@ export const MarkdownEditorScreen = component(() => {
                             <Heading level={4}>Rendered (MarkdownView + emoji/mention extensions)</Heading>
                             <MarkdownView
                                 value={markdown.value}
-                                extensions={previewExtensions}
+                                plugins={previewPlugins}
                                 components={previewComponents}
                             />
                         </Col>
