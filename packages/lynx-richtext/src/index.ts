@@ -19,6 +19,8 @@ export type {
     RichTextSelectionEvent,
     RichTextHeightChangeEvent,
     RichTextFocusEvent,
+    RichTextBoundaryKey,
+    RichTextBoundaryKeyEvent,
 } from './model/types.js';
 
 export type { SigxRichTextAttributes } from './jsx-augment.js';

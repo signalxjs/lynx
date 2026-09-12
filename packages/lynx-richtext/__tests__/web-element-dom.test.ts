@@ -19,6 +19,7 @@ import {
   pointToOffset,
   encode,
   decode,
+  boundaryKeyFor,
 } from '../src/web/element';
 import type { RichDoc } from '../src/model/types';
 
@@ -186,6 +187,47 @@ describe('SigxRichTextElement', () => {
     expect(sels.length).toBeGreaterThan(0);
   });
 
+  it('reports boundary keys only in boundary-keys mode and cancels their default', () => {
+    const doc: RichDoc = { text: 'ab', spans: [], blocks: [{ start: 0, end: 2, type: 'paragraph' }], v: 1 };
+    const el = mount({ value: encode(doc), 'boundary-keys': '' });
+    const edit = el.querySelector('[part="edit"]') as HTMLElement;
+    const seen: Array<{ key: string; start: number; end: number }> = [];
+    el.addEventListener('boundarykey', (e) => seen.push((e as CustomEvent).detail));
+    const textNode = edit.querySelector('[data-block]')!.firstChild!;
+    const place = (offset: number) => {
+      const sel = document.getSelection()!;
+      sel.removeAllRanges();
+      const r = document.createRange();
+      r.setStart(textNode, offset);
+      r.setEnd(textNode, offset);
+      sel.addRange(r);
+    };
+    const press = (key: string, init: KeyboardEventInit = {}) => edit.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true, ...init }));
+    place(1);
+    expect(press('Enter')).toBe(false);
+    expect(press('Backspace')).toBe(true); // mid-text: native
+    place(0);
+    expect(press('Backspace')).toBe(false);
+    expect(press('ArrowLeft')).toBe(false);
+    place(2);
+    expect(press('Delete')).toBe(false);
+    expect(press('ArrowRight')).toBe(false);
+    expect(press('Tab', { shiftKey: true })).toBe(false);
+    expect(press('Escape')).toBe(false);
+    expect(press('Enter', { shiftKey: true })).toBe(false);
+    expect(seen.map((s) => s.key)).toEqual(['Enter', 'Backspace', 'ArrowLeft', 'Delete', 'ArrowRight', 'Shift-Tab', 'Escape', 'Shift-Enter']);
+    expect(seen[0]).toEqual({ key: 'Enter', start: 1, end: 1 });
+    expect(seen[3]).toEqual({ key: 'Delete', start: 2, end: 2 });
+
+    // Without the attribute nothing is reported or cancelled.
+    const plain = mount({ value: encode(doc) });
+    const plainEdit = plain.querySelector('[part="edit"]') as HTMLElement;
+    const plainSeen: unknown[] = [];
+    plain.addEventListener('boundarykey', (e) => plainSeen.push(e));
+    expect(plainEdit.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }))).toBe(true);
+    expect(plainSeen).toHaveLength(0);
+  });
+
   it('reads user edits back into the model on input', () => {
     const el = mount();
     const edit = el.querySelector('[part="edit"]') as HTMLElement;
@@ -199,5 +241,40 @@ describe('SigxRichTextElement', () => {
     edit.dispatchEvent(new Event('input', { bubbles: true }));
     expect(changes).toHaveLength(1);
     expect(decode(changes[0].doc).text).toBe('typed');
+  });
+});
+
+describe('boundaryKeyFor', () => {
+  const at = (start: number, end = start) => ({ start, end });
+  const edge = () => true;
+  const inner = () => false;
+
+  it('maps Enter, Tab and Escape unconditionally (modifiers excepted)', () => {
+    expect(boundaryKeyFor({ key: 'Enter' }, at(1), 3, edge)).toBe('Enter');
+    expect(boundaryKeyFor({ key: 'Enter', shiftKey: true }, at(1), 3, edge)).toBe('Shift-Enter');
+    expect(boundaryKeyFor({ key: 'Enter', metaKey: true }, at(1), 3, edge)).toBeNull();
+    expect(boundaryKeyFor({ key: 'Tab' }, at(1, 2), 3, edge)).toBe('Tab');
+    expect(boundaryKeyFor({ key: 'Tab', shiftKey: true }, at(1), 3, edge)).toBe('Shift-Tab');
+    expect(boundaryKeyFor({ key: 'Escape' }, at(1), 3, edge)).toBe('Escape');
+  });
+
+  it('maps deletes and horizontal arrows only at the collapsed edges', () => {
+    expect(boundaryKeyFor({ key: 'Backspace' }, at(0), 3, edge)).toBe('Backspace');
+    expect(boundaryKeyFor({ key: 'Backspace' }, at(1), 3, edge)).toBeNull();
+    expect(boundaryKeyFor({ key: 'Backspace' }, at(0, 1), 3, edge)).toBeNull();
+    expect(boundaryKeyFor({ key: 'Delete' }, at(3), 3, edge)).toBe('Delete');
+    expect(boundaryKeyFor({ key: 'Delete' }, at(2), 3, edge)).toBeNull();
+    expect(boundaryKeyFor({ key: 'ArrowLeft' }, at(0), 3, edge)).toBe('ArrowLeft');
+    expect(boundaryKeyFor({ key: 'ArrowLeft', shiftKey: true }, at(0), 3, edge)).toBeNull();
+    expect(boundaryKeyFor({ key: 'ArrowRight' }, at(3), 3, edge)).toBe('ArrowRight');
+    expect(boundaryKeyFor({ key: 'ArrowRight' }, at(1), 3, edge)).toBeNull();
+  });
+
+  it('maps vertical arrows through the edge-line test and never with Shift', () => {
+    expect(boundaryKeyFor({ key: 'ArrowUp' }, at(1), 3, edge)).toBe('ArrowUp');
+    expect(boundaryKeyFor({ key: 'ArrowDown' }, at(1), 3, edge)).toBe('ArrowDown');
+    expect(boundaryKeyFor({ key: 'ArrowUp' }, at(1), 3, inner)).toBeNull();
+    expect(boundaryKeyFor({ key: 'ArrowDown', shiftKey: true }, at(1), 3, edge)).toBeNull();
+    expect(boundaryKeyFor({ key: 'a' }, at(1), 3, edge)).toBeNull();
   });
 });

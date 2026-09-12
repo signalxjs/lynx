@@ -273,6 +273,13 @@ export const catalog: Area[] = [
                 route: 'markdownComposer',
             },
             {
+                id: 'richtext-boundary-keys',
+                title: 'Rich text: boundary keys',
+                description: 'Single-block <sigx-richtext>: edge keys reported, not acted on',
+                icon: { set: 'lucide', name: 'keyboard' },
+                route: 'richTextBoundaryKeys',
+            },
+            {
                 id: 'text-apis',
                 title: 'Text APIs',
                 description: 'Selectable text + useElementLayout measurement',

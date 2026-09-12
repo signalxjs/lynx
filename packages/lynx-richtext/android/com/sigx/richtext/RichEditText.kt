@@ -3,8 +3,13 @@ package com.sigx.richtext
 import android.content.Context
 import android.text.Spanned
 import android.view.Gravity
+import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.ViewConfiguration
+import android.view.inputmethod.BaseInputConnection
+import android.view.inputmethod.EditorInfo
+import android.view.inputmethod.InputConnection
+import android.view.inputmethod.InputConnectionWrapper
 import android.widget.EditText
 import kotlin.math.abs
 
@@ -16,10 +21,26 @@ import kotlin.math.abs
  * task lines (the checkbox is draw-only — see [SigxBlockSpan] — so taps on it
  * are intercepted here instead of moving the caret). Chip-aware deletion
  * hooks land in P3.
+ *
+ * `boundary-keys` mode (block editors): the keys that cross the block's edge
+ * are reported through [onBoundaryKey] instead of acted on. Soft keyboards
+ * reach us through the [InputConnection] (`commitText("\n")`,
+ * `deleteSurroundingText` at an edge, `sendKeyEvent`), hardware keyboards
+ * through [onKeyDown]. Same table as the web element's `boundaryKeyFor` and
+ * iOS's `RichTextView` — keep them in step.
  */
 class RichEditText(context: Context) : EditText(context) {
 
     var onSelectionChangedCallback: ((start: Int, end: Int) -> Unit)? = null
+
+    /** Single-block mode: see the class doc. Set from the `boundary-keys` prop. */
+    var boundaryKeys = false
+
+    /** Fired in [boundaryKeys] mode with the key name and the selection at the time. */
+    var onBoundaryKey: ((key: String, start: Int, end: Int) -> Unit)? = null
+
+    /** Hardware key codes whose DOWN was consumed, so the matching UP is too. */
+    private val consumedKeys = HashSet<Int>()
 
     /** Tap landed on a task line's checkbox gutter — paragraph span bounds. */
     var onCheckboxTap: ((parStart: Int, parEnd: Int) -> Unit)? = null
@@ -41,6 +62,118 @@ class RichEditText(context: Context) : EditText(context) {
     override fun onSelectionChanged(selStart: Int, selEnd: Int) {
         super.onSelectionChanged(selStart, selEnd)
         onSelectionChangedCallback?.invoke(selStart, selEnd)
+    }
+
+    // ── boundary keys ────────────────────────────────────────────────────
+
+    private fun reportBoundary(key: String) {
+        val start = minOf(selectionStart, selectionEnd).coerceAtLeast(0)
+        val end = maxOf(selectionStart, selectionEnd).coerceAtLeast(0)
+        onBoundaryKey?.invoke(key, start, end)
+    }
+
+    private fun composing(): Boolean =
+        text != null && BaseInputConnection.getComposingSpanStart(text) >= 0
+
+    /** Whether the caret's visual line is the first / last one (true without a layout). */
+    private fun caretOnEdgeLine(first: Boolean): Boolean {
+        val l = layout ?: return true
+        val offset = maxOf(selectionStart, selectionEnd).coerceIn(0, text?.length ?: 0)
+        val line = l.getLineForOffset(offset)
+        return if (first) line == 0 else line == l.lineCount - 1
+    }
+
+    /** The boundary key a hardware key event maps to, or null when the view keeps it. */
+    private fun boundaryKeyName(event: KeyEvent): String? {
+        val mod = event.isCtrlPressed || event.isMetaPressed || event.isAltPressed
+        val shift = event.isShiftPressed
+        val start = minOf(selectionStart, selectionEnd)
+        val end = maxOf(selectionStart, selectionEnd)
+        val collapsed = start == end
+        val length = text?.length ?: 0
+        return when (event.keyCode) {
+            KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_NUMPAD_ENTER ->
+                if (mod) null else if (shift) "Shift-Enter" else "Enter"
+            KeyEvent.KEYCODE_DEL -> if (collapsed && start == 0 && !mod) "Backspace" else null
+            KeyEvent.KEYCODE_FORWARD_DEL -> if (collapsed && start == length && !mod) "Delete" else null
+            KeyEvent.KEYCODE_DPAD_UP -> if (!mod && !shift && caretOnEdgeLine(first = true)) "ArrowUp" else null
+            KeyEvent.KEYCODE_DPAD_DOWN -> if (!mod && !shift && caretOnEdgeLine(first = false)) "ArrowDown" else null
+            KeyEvent.KEYCODE_DPAD_LEFT -> if (collapsed && start == 0 && !mod && !shift) "ArrowLeft" else null
+            KeyEvent.KEYCODE_DPAD_RIGHT -> if (collapsed && start == length && !mod && !shift) "ArrowRight" else null
+            KeyEvent.KEYCODE_TAB -> if (mod) null else if (shift) "Shift-Tab" else "Tab"
+            KeyEvent.KEYCODE_ESCAPE -> "Escape"
+            else -> null
+        }
+    }
+
+    /** Hardware keyboards (and IMEs that forward key events to the view). */
+    override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
+        if (boundaryKeys && !composing()) {
+            val name = boundaryKeyName(event)
+            if (name != null) {
+                consumedKeys.add(keyCode)
+                reportBoundary(name)
+                return true
+            }
+        }
+        return super.onKeyDown(keyCode, event)
+    }
+
+    override fun onKeyUp(keyCode: Int, event: KeyEvent): Boolean {
+        if (consumedKeys.remove(keyCode)) return true
+        return super.onKeyUp(keyCode, event)
+    }
+
+    /**
+     * Soft keyboards talk to the field through the input connection: Enter
+     * arrives as `commitText("\n")` or a key event, Backspace as
+     * `deleteSurroundingText(1, 0)` or a key event. In boundary mode the
+     * edge cases are reported and swallowed here; everything else passes.
+     */
+    override fun onCreateInputConnection(outAttrs: EditorInfo): InputConnection? {
+        val base = super.onCreateInputConnection(outAttrs) ?: return null
+        return object : InputConnectionWrapper(base, true) {
+            override fun commitText(text: CharSequence?, newCursorPosition: Int): Boolean {
+                if (boundaryKeys && text != null && !composing() && (text == "\n" || text == "\r\n")) {
+                    reportBoundary("Enter")
+                    return true
+                }
+                return super.commitText(text, newCursorPosition)
+            }
+
+            override fun deleteSurroundingText(beforeLength: Int, afterLength: Int): Boolean {
+                if (boundaryKeys && !composing()) {
+                    val start = minOf(selectionStart, selectionEnd)
+                    val end = maxOf(selectionStart, selectionEnd)
+                    val length = this@RichEditText.text?.length ?: 0
+                    if (start == end && start == 0 && beforeLength > 0 && afterLength == 0) {
+                        reportBoundary("Backspace")
+                        return true
+                    }
+                    if (start == end && start == length && afterLength > 0 && beforeLength == 0) {
+                        reportBoundary("Delete")
+                        return true
+                    }
+                }
+                return super.deleteSurroundingText(beforeLength, afterLength)
+            }
+
+            override fun sendKeyEvent(event: KeyEvent): Boolean {
+                if (boundaryKeys && !composing()) {
+                    if (event.action == KeyEvent.ACTION_DOWN) {
+                        val name = boundaryKeyName(event)
+                        if (name != null) {
+                            consumedKeys.add(event.keyCode)
+                            reportBoundary(name)
+                            return true
+                        }
+                    } else if (event.action == KeyEvent.ACTION_UP && consumedKeys.remove(event.keyCode)) {
+                        return true
+                    }
+                }
+                return super.sendKeyEvent(event)
+            }
+        }
     }
 
     /**

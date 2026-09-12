@@ -75,6 +75,7 @@ public class SigxRichTextUI: LynxUI<RichTextView> {
         // Tight insets — the JS side owns outer padding via styles.
         view.textContainerInset = UIEdgeInsets(top: 8, left: 0, bottom: 8, right: 0)
         view.onCheckboxToggle = { [weak self] paragraph in self?.toggleTask(at: paragraph) }
+        view.onBoundaryKey = { [weak self] key, range in self?.fireBoundaryKey(key, range: range) }
         return view
     }
 
@@ -95,6 +96,7 @@ public class SigxRichTextUI: LynxUI<RichTextView> {
             ["placeholder-color", "setPlaceholderColor:requestReset:"],
             ["confirm-type", "setConfirmType:requestReset:"],
             ["auto-focus", "setAutoFocus:requestReset:"],
+            ["boundary-keys", "setBoundaryKeys:requestReset:"],
         ] as NSArray
     }
 
@@ -203,6 +205,11 @@ public class SigxRichTextUI: LynxUI<RichTextView> {
         DispatchQueue.main.async { self.view().becomeFirstResponder() }
     }
 
+    /// `boundary-keys`: single-block mode — see `RichTextView.boundaryKeys`.
+    @objc public func setBoundaryKeys(_ value: NSNumber?, requestReset: Bool) {
+        view().boundaryKeys = asNumber(value)?.boolValue ?? false
+    }
+
     // Per-prop __lynx_prop_config__ discovery shims (kept alongside
     // propSetterLookUp for parity with SigxWebViewUI).
     @objc(__lynx_prop_config__value)
@@ -227,6 +234,8 @@ public class SigxRichTextUI: LynxUI<RichTextView> {
     public class func __lynxPropConfigConfirmType() -> [String] { ["confirm-type", "setConfirmType", "NSString *"] }
     @objc(__lynx_prop_config__auto_focus)
     public class func __lynxPropConfigAutoFocus() -> [String] { ["auto-focus", "setAutoFocus", "NSNumber *"] }
+    @objc(__lynx_prop_config__boundary_keys)
+    public class func __lynxPropConfigBoundaryKeys() -> [String] { ["boundary-keys", "setBoundaryKeys", "NSNumber *"] }
 
     // MARK: - UI methods
 
@@ -636,6 +645,11 @@ public class SigxRichTextUI: LynxUI<RichTextView> {
         context?.eventEmitter?.send(event)
     }
 
+    /// `boundarykey` `{key, start, end}` — only in `boundary-keys` mode (the view performed no default).
+    func fireBoundaryKey(_ key: String, range: NSRange) {
+        fireEvent("boundarykey", params: ["key": key, "start": range.location, "end": range.location + range.length])
+    }
+
     func fireChange(isComposing: Bool) {
         let json = DocumentMapper.encode(view().attributedText ?? NSAttributedString(), version: localVersion)
         fireEvent("change", params: ["doc": json, "isComposing": isComposing])
@@ -926,6 +940,11 @@ final class SigxRichTextDelegate: NSObject, UITextViewDelegate {
     func textView(_ textView: UITextView, shouldChangeTextIn range: NSRange, replacementText text: String) -> Bool {
         guard let owner, !owner.isProgrammaticEdit,
               text == "\n", textView.markedTextRange == nil else { return true }
+        // Single-block mode: the soft keyboard's Return is a boundary key, never a newline.
+        if let view = textView as? RichTextView, view.boundaryKeys {
+            owner.fireBoundaryKey("Enter", range: range)
+            return false
+        }
         return owner.handleNewline(in: range)
     }
 

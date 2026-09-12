@@ -26,7 +26,7 @@ import { describe, expect, expectTypeOf, it } from 'vitest';
 
 import * as richtext from '../src/index';
 import { RichTextMethods, decodeDoc, docEquals, emptyDoc, encodeDoc, normalizeDoc } from '../src/index';
-import type { BlockAttr, InlineSpan, RichDoc, RichTextHandle } from '../src/index';
+import type { BlockAttr, InlineSpan, RichDoc, RichTextBoundaryKey, RichTextBoundaryKeyEvent, RichTextHandle } from '../src/index';
 
 describe('public runtime exports', () => {
     it('matches the locked surface', () => {
@@ -83,6 +83,13 @@ describe('public types', () => {
                 attrs?: { href?: string },
             ) => void
         >();
+    });
+
+    it('pins the boundary-key vocabulary (native and web emit these exact strings)', () => {
+        expectTypeOf<RichTextBoundaryKey>().toEqualTypeOf<
+            'Enter' | 'Shift-Enter' | 'Backspace' | 'Delete' | 'ArrowUp' | 'ArrowDown' | 'ArrowLeft' | 'ArrowRight' | 'Tab' | 'Shift-Tab' | 'Escape'
+        >();
+        expectTypeOf<RichTextBoundaryKeyEvent['detail']>().toEqualTypeOf<{ key: RichTextBoundaryKey; start: number; end: number }>();
     });
 
     it('keeps the element handle nullable and structural', () => {

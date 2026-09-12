@@ -13,10 +13,22 @@ import UIKit
 ///  - intrinsic content-height reporting for auto-grow,
 ///  - chip-aware backspace (`deleteBackward` selects the whole mention chip
 ///    before deleting — defensive: a 1-char attachment deletes atomically by
-///    default, this guarantees it stays that way).
+///    default, this guarantees it stays that way),
+///  - `boundary-keys` mode (block editors): the keys that cross the block's
+///    edge are reported through `onBoundaryKey` instead of acted on —
+///    Backspace at 0 (`deleteBackward`), the hardware keys via `pressesBegan`
+///    (forward delete at the end, arrows off the first/last line or at the
+///    edges, Tab, Escape, Return). The soft keyboard's Return is caught by
+///    the delegate (`shouldChangeTextIn` with "\n"). Same table as the web
+///    element's `boundaryKeyFor` and Android's `RichEditText` — keep in step.
 public final class RichTextView: UITextView, UIGestureRecognizerDelegate {
 
     private let placeholderLabel = UILabel()
+
+    /// Single-block mode: see the class doc. Set from the `boundary-keys` prop.
+    public var boundaryKeys = false
+    /// Fired in `boundaryKeys` mode with the key name and the selection at the time.
+    var onBoundaryKey: ((String, NSRange) -> Void)?
 
     /// Tap landed on a task line's checkbox gutter — the line's paragraph
     /// range (the checkbox itself is draw-only; see `SigxLayoutManager`).
@@ -156,6 +168,10 @@ public final class RichTextView: UITextView, UIGestureRecognizerDelegate {
     /// undo, and the change event all fire as for any keystroke.
     public override func deleteBackward() {
         let range = selectedRange
+        if boundaryKeys, range.length == 0, range.location == 0, markedTextRange == nil {
+            onBoundaryKey?("Backspace", range)
+            return
+        }
         // Gate on the chip invariant (the char IS the U+FFFC), not just the
         // mention attr — a non-conforming mention span covers regular text,
         // where forcing a 1-unit deletion could split a surrogate pair.
@@ -166,6 +182,83 @@ public final class RichTextView: UITextView, UIGestureRecognizerDelegate {
             selectedRange = NSRange(location: range.location - 1, length: 1)
         }
         super.deleteBackward()
+    }
+
+    /// Hardware-keyboard boundary keys (iOS 13.4+). Consumed presses never
+    /// reach UIKit's default handling.
+    public override func pressesBegan(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
+        guard boundaryKeys, markedTextRange == nil, #available(iOS 13.4, *) else {
+            super.pressesBegan(presses, with: event)
+            return
+        }
+        var consumed = Set<UIPress>()
+        for press in presses {
+            guard let key = press.key, let name = boundaryKeyName(for: key) else { continue }
+            onBoundaryKey?(name, selectedRange)
+            consumed.insert(press)
+        }
+        let rest = presses.subtracting(consumed)
+        if !rest.isEmpty { super.pressesBegan(rest, with: event) }
+    }
+
+    public override func pressesEnded(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
+        // Presses consumed in `pressesBegan` must not end in UIKit either.
+        if boundaryKeys, #available(iOS 13.4, *) {
+            let rest = presses.filter { press in
+                guard let key = press.key else { return true }
+                return boundaryKeyName(for: key) == nil
+            }
+            if !rest.isEmpty { super.pressesEnded(rest, with: event) }
+            return
+        }
+        super.pressesEnded(presses, with: event)
+    }
+
+    /// The boundary key a hardware press maps to, or nil when the view keeps it.
+    @available(iOS 13.4, *)
+    private func boundaryKeyName(for key: UIKey) -> String? {
+        let flags = key.modifierFlags
+        let mod = flags.contains(.command) || flags.contains(.control) || flags.contains(.alternate)
+        let shift = flags.contains(.shift)
+        let range = selectedRange
+        let collapsed = range.length == 0
+        let length = attributedText?.length ?? 0
+        switch key.keyCode {
+        case .keyboardReturnOrEnter, .keypadEnter:
+            return mod ? nil : (shift ? "Shift-Enter" : "Enter")
+        case .keyboardDeleteOrBackspace:
+            // `deleteBackward` handles it (and the soft keyboard with it).
+            return nil
+        case .keyboardDeleteForward:
+            return collapsed && range.location == length && !mod ? "Delete" : nil
+        case .keyboardUpArrow:
+            return !mod && !shift && caretOnEdgeLine(first: true) ? "ArrowUp" : nil
+        case .keyboardDownArrow:
+            return !mod && !shift && caretOnEdgeLine(first: false) ? "ArrowDown" : nil
+        case .keyboardLeftArrow:
+            return collapsed && range.location == 0 && !mod && !shift ? "ArrowLeft" : nil
+        case .keyboardRightArrow:
+            return collapsed && range.location == length && !mod && !shift ? "ArrowRight" : nil
+        case .keyboardTab:
+            return mod ? nil : (shift ? "Shift-Tab" : "Tab")
+        case .keyboardEscape:
+            return "Escape"
+        default:
+            return nil
+        }
+    }
+
+    /// Whether the caret's line fragment is the first / last one (true for an empty view).
+    private func caretOnEdgeLine(first: Bool) -> Bool {
+        let length = attributedText?.length ?? 0
+        guard length > 0 else { return true }
+        let location = selectedRange.location + selectedRange.length
+        let charIndex = min(max(location, 0), length - 1)
+        layoutManager.ensureLayout(for: textContainer)
+        let glyph = layoutManager.glyphIndexForCharacter(at: charIndex)
+        let line = layoutManager.lineFragmentRect(forGlyphAt: glyph, effectiveRange: nil)
+        let used = layoutManager.usedRect(for: textContainer)
+        return first ? line.minY <= used.minY + 0.5 : line.maxY >= used.maxY - 0.5
     }
 
     public override func layoutSubviews() {

@@ -119,6 +119,11 @@ class SigxRichTextUI(context: LynxContext) : LynxUI<RichEditText>(context) {
             }
         }
         view.onCheckboxTap = { parStart, parEnd -> toggleTask(parStart, parEnd) }
+        view.onBoundaryKey = { key, start, end ->
+            fireEvent("boundarykey", mapOf("key" to key, "start" to start, "end" to end))
+        }
+        // `focus` / `blur` like iOS and the web element (previously Android never emitted them).
+        view.setOnFocusChangeListener { _, hasFocus -> fireEvent(if (hasFocus) "focus" else "blur", emptyMap()) }
         return view
     }
 
@@ -222,6 +227,12 @@ class SigxRichTextUI(context: LynxContext) : LynxUI<RichEditText>(context) {
     fun setAutoFocus(value: Boolean) {
         if (!value) return
         mainHandler.post { focusAndShowIme() }
+    }
+
+    /** `boundary-keys`: single-block mode — see [RichEditText.boundaryKeys]. */
+    @LynxProp(name = "boundary-keys", defaultBoolean = false)
+    fun setBoundaryKeys(value: Boolean) {
+        mView.boundaryKeys = value
     }
 
     // ── UI methods ───────────────────────────────────────────────────────
