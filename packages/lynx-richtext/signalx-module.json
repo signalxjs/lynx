@@ -11,6 +11,9 @@
     },
     "android": {
         "sourceDir": "android",
+        "proguardRules": [
+            "-keep class com.sigx.richtext.** { *; }"
+        ],
         "behaviors": [
             { "name": "sigx-richtext", "behaviorClass": "com.sigx.richtext.SigxRichTextBehavior" }
         ]

@@ -11,6 +11,7 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 ### Fixed
 
 - **`@sigx/lynx-richtext`: Android now emits `focus` / `blur`** ([#1116](https://github.com/signalxjs/lynx/issues/1116)). iOS and the web element always did; `RichTextInput`'s `onFocus` / `onBlur` never fired on Android.
+- **`@sigx/lynx-richtext`: release builds keep the native classes** ([#1116](https://github.com/signalxjs/lynx/issues/1116)). The module now ships an R8 keep rule (`-keep class com.sigx.richtext.** { *; }`) through `signalx-module.json` `android.proguardRules`; `sigx run:android --release` used to strip the `@LynxProp` setters and method handlers. Run `sigx prebuild` after upgrading.
 
 ## [0.29.0] - 2026-09-12
 

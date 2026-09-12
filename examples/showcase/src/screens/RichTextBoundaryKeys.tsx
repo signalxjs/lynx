@@ -14,7 +14,7 @@ import { RichTextInput, RichTextMethods, type RichDoc, type RichTextBoundaryKeyE
 export const RichTextBoundaryKeysScreen = component(() => {
     const editorTheme = useMarkdownEditorTheme();
     // One reactive object: an array signal is a deep proxy of the array itself.
-    const state = signal({ lines: [] as string[], text: 'one block' });
+    const state = signal({ lines: [] as string[], text: 'one block', height: 44 });
     const push = (line: string): void => {
         state.lines = [line, ...state.lines].slice(0, 12);
     };
@@ -49,6 +49,10 @@ export const RichTextBoundaryKeysScreen = component(() => {
                                     placeholder="Type, then press Return…"
                                     minHeight={44}
                                     maxHeight={120}
+                                    style={{ height: Math.max(44, Math.min(state.height, 120)) }}
+                                    onHeightChange={(h) => {
+                                        state.height = h;
+                                    }}
                                     fontSize={16}
                                     textColor={editorTheme.textColor}
                                     accentColor={editorTheme.accentColor}
