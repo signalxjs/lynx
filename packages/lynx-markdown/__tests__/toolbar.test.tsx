@@ -1,167 +1,105 @@
+/**
+ * The Lynx toolbar over the core's item contract: active / enabled states
+ * from `toolbarState`, taps run commands through the editor, `renderItem`
+ * re-skins, and the built-in placement in `<MarkdownEditor>`.
+ */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render } from '@sigx/lynx-testing';
-import { RichTextMethods, type SelectionState } from '@sigx/lynx-richtext';
+import { render, fireEvent, waitForUpdate, type TestNode } from '@sigx/lynx-testing';
+import { defaultToolbarItems, type ToolbarItem } from '@sigx/markdown/editor';
 import { EditorToolbar } from '../src/editor/toolbar/Toolbar';
-import { defaultToolbarItems, type ToolbarItem } from '../src/editor/toolbar/items';
-import { MarkdownEditor, type MarkdownEditorController } from '../src/editor/MarkdownEditor';
+import { installFakeElement, mountEditor, resetFakeElement, tapAt } from './editor/harness';
 
-const spies = {
-    toggleFormat: vi.spyOn(RichTextMethods, 'toggleFormat'),
-    setBlockType: vi.spyOn(RichTextMethods, 'setBlockType'),
-};
-beforeEach(() => {
-    for (const spy of Object.values(spies)) spy.mockClear().mockImplementation(() => {});
-});
-afterEach(() => {
-    for (const spy of Object.values(spies)) spy.mockReset();
-});
+beforeEach(installFakeElement);
+afterEach(resetFakeElement);
 
-const sel = (overrides: Partial<SelectionState> = {}): SelectionState => ({
-    start: 0,
-    end: 4,
-    activeFormats: [],
-    activeBlock: 'paragraph',
-    caretRect: { x: 0, y: 0, height: 16 },
-    ...overrides,
-});
+const tappable = (root: TestNode, label: string): TestNode =>
+    root.findAllByType('view').find((v) => v._handlers.has('bindtap') && v.findByText(label))!;
 
-describe('defaultToolbarItems', () => {
-    it('covers the controller surface', () => {
-        expect(defaultToolbarItems.map((i) => i.id)).toEqual([
-            'bold', 'italic', 'strike', 'code', 'link',
-            'h1', 'h2', 'paragraph', 'bullet', 'ordered', 'task', 'quote',
-        ]);
-    });
-
-    it('derives active states from the selection', () => {
-        const by = Object.fromEntries(defaultToolbarItems.map((i) => [i.id, i]));
-        expect(by['bold'].isActive!(sel({ activeFormats: ['bold'] }))).toBe(true);
-        expect(by['bold'].isActive!(sel())).toBe(false);
-        expect(by['h2'].isActive!(sel({ activeBlock: 'heading', headingLevel: 2 }))).toBe(true);
-        expect(by['h1'].isActive!(sel({ activeBlock: 'heading', headingLevel: 2 }))).toBe(false);
-        expect(by['paragraph'].isActive!(sel())).toBe(true);
-        expect(by['bold'].isActive!(null)).toBe(false);
-        expect(by['bullet'].isActive!(sel({ activeBlock: 'bullet' }))).toBe(true);
-        expect(by['ordered'].isActive!(sel({ activeBlock: 'ordered' }))).toBe(true);
-        expect(by['task'].isActive!(sel({ activeBlock: 'task' }))).toBe(true);
-        expect(by['quote'].isActive!(sel({ activeBlock: 'blockquote' }))).toBe(true);
-        expect(by['quote'].isActive!(sel())).toBe(false);
-        expect(by['link'].isActive!(sel({ activeFormats: ['link'] }))).toBe(true);
-    });
-
-    it('list items toggle: active kind reverts to paragraph, otherwise sets', () => {
-        const setList = vi.fn();
-        const make = (activeBlock: SelectionState['activeBlock']): MarkdownEditorController =>
-            ({ setList, getSelection: () => sel({ activeBlock }) }) as unknown as MarkdownEditorController;
-        const by = Object.fromEntries(defaultToolbarItems.map((i) => [i.id, i]));
-        by['bullet'].run({ controller: make('paragraph') });
-        expect(setList).toHaveBeenLastCalledWith('bullet');
-        by['bullet'].run({ controller: make('bullet') });
-        expect(setList).toHaveBeenLastCalledWith('none');
-        by['task'].run({ controller: make('bullet') });
-        expect(setList).toHaveBeenLastCalledWith('task');
+describe('defaultToolbarItems (the core set)', () => {
+    it('is the shared neutral set with groups', () => {
+        const ids = defaultToolbarItems.map((i) => i.id);
+        for (const id of ['bold', 'italic', 'strike', 'code', 'link', 'h1', 'h2', 'h3', 'paragraph', 'quote', 'codeBlock', 'hr', 'table', 'undo', 'redo']) {
+            expect(ids).toContain(id);
+        }
+        expect(new Set(defaultToolbarItems.map((i) => i.group))).toEqual(new Set(['inline', 'block', 'insert', 'history']));
     });
 });
 
 describe('EditorToolbar', () => {
-    it('renders one tappable per item and dispatches run(controller) on tap', () => {
-        const run = vi.fn();
-        const items: ToolbarItem[] = [
-            { id: 'x', label: 'X', run },
-            { id: 'y', label: 'Y', run: () => {} },
-        ];
-        const controller = { marker: true } as unknown as MarkdownEditorController;
-        const { container } = render(
-            <EditorToolbar items={items} controller={controller} />,
-        );
-        const texts = container.findAllByType('text').map((t) => t.textContent());
-        expect(texts).toEqual(['X', 'Y']);
-
-        const tappables = container
-            .findAllByType('view')
-            .filter((v) => v._handlers.has('bindtap'));
-        expect(tappables).toHaveLength(2);
-        tappables[0]._handlers.get('bindtap')!({});
-        expect(run).toHaveBeenCalledWith({ controller });
+    it('renders one tappable per item and runs the command through the controller', async () => {
+        const m = await mountEditor({ value: 'hello' });
+        tapAt(m.field(0), 0, 5);
+        const { container } = render(<EditorToolbar controller={m.controller} />);
+        expect(container.findAllByType('view').filter((v) => v._handlers.has('bindtap')).length).toBeGreaterThanOrEqual(defaultToolbarItems.length);
+        fireEvent.tap(tappable(container, 'B'));
+        await waitForUpdate();
+        expect(m.controller.getMarkdown()).toBe('**hello**\n');
+        // Active state follows the editor state.
+        const bold = tappable(container, 'B');
+        expect(bold.props['accessibility-status']).toBe('selected');
     });
 
-    it('does not dispatch without a controller', () => {
-        const run = vi.fn();
-        const { container } = render(
-            <EditorToolbar items={[{ id: 'x', label: 'X', run }]} />,
-        );
-        const tappable = container
-            .findAllByType('view')
-            .find((v) => v._handlers.has('bindtap'))!;
-        tappable._handlers.get('bindtap')!({});
-        expect(run).not.toHaveBeenCalled();
+    it('does not dispatch without a controller and disables items the state refuses', async () => {
+        const { container } = render(<EditorToolbar controller={null} />);
+        expect(() => fireEvent.tap(tappable(container, 'B'))).not.toThrow();
+        // Inline marks need a text selection: on a block selection they are disabled.
+        const m = await mountEditor({ value: 'a' });
+        tapAt(m.field(0), 0);
+        m.controller.run('escapeToBlockSelection');
+        await waitForUpdate();
+        const bar = render(<EditorToolbar controller={m.controller} />).container;
+        const bold = tappable(bar, 'B');
+        expect((bold.props['style'] as { opacity?: number }).opacity).toBe(0.4);
+        fireEvent.tap(bold);
+        await waitForUpdate();
+        expect(m.controller.getMarkdown()).toBe('a');
     });
 
-    it('renders accessibility metadata on default items', () => {
-        const { container } = render(
-            <EditorToolbar items={[{ id: 'bold', label: 'B', isActive: () => true, run: () => {} }]} />,
-        );
-        const item = container
-            .findAllByType('view')
-            .find((v) => v._handlers.has('bindtap'))!;
-        expect(item.props['accessibility-element']).toBe(true);
-        expect(item.props['accessibility-label']).toBe('B');
-        expect(item.props['accessibility-trait']).toBe('button');
-        expect(item.props['accessibility-status']).toBe('selected');
+    it('renders accessibility metadata and sets ignore-focus on the root', async () => {
+        const m = await mountEditor({ value: 'a' });
+        const { container } = render(<EditorToolbar controller={m.controller} />);
+        const root = container.findAllByType('view')[0];
+        expect(root.props['ignore-focus']).toBe(true);
+        const bold = tappable(container, 'B');
+        expect(bold.props['accessibility-element']).toBe(true);
+        expect(bold.props['accessibility-label']).toBe('B');
+        expect(bold.props['accessibility-trait']).toBe('button');
     });
 
-    it('falls back to id for icon-only items (label optional)', () => {
-        const { container } = render(
-            <EditorToolbar items={[{ id: 'mention', icon: 'at-sign', run: () => {} }]} />,
-        );
-        expect(container.findByText('mention')).toBeTruthy();
-        const item = container
-            .findAllByType('view')
-            .find((v) => v._handlers.has('bindtap'))!;
-        expect(item.props['accessibility-label']).toBe('mention');
-    });
-
-    it('sets ignore-focus on the toolbar root', () => {
-        const { container } = render(<EditorToolbar items={[]} />);
-        const root = container
-            .findAllByType('view')
-            .find((v) => v.props['ignore-focus'] === true);
-        expect(root).toBeTruthy();
-    });
-
-    it('renderItem fully replaces the default item rendering', () => {
+    it('renderItem fully replaces the default item rendering and receives the enabled flag', async () => {
+        const m = await mountEditor({ value: 'a' });
+        tapAt(m.field(0), 0);
+        const seen: string[] = [];
         const { container } = render(
             <EditorToolbar
-                items={[{ id: 'x', label: 'X', run: () => {} }]}
-                renderItem={(item, _active, run) => (
-                    <view key={item.id} class="custom-item" bindtap={run} />
-                )}
+                controller={m.controller}
+                items={[{ id: 'x', label: 'X', run: () => {} } satisfies ToolbarItem]}
+                renderItem={(item, active, run, enabled) => {
+                    seen.push(`${item.id}:${active}:${enabled}`);
+                    return <text bindtap={run}>{`custom-${item.id}`}</text>;
+                }}
             />,
         );
-        expect(container.findAllByType('view').some((v) => v.props['class'] === 'custom-item')).toBe(true);
-        expect(container.findAllByType('text')).toHaveLength(0);
+        expect(container.findByText('custom-x')).toBeTruthy();
+        expect(seen).toContain('x:false:true');
     });
 });
 
 describe('MarkdownEditor built-in toolbar', () => {
-    it('is absent by default and renders below the input with toolbar=true', () => {
-        const off = render(<MarkdownEditor />);
-        expect(off.container.findAllByType('view').some((v) => v.props['ignore-focus'] === true)).toBe(false);
-
-        const { container } = render(<MarkdownEditor toolbar />);
-        const root = container.findByType('view')!;
-        const order = root.children.map((c: any) => c.type === 'sigx-richtext'
-            ? 'input'
-            : (c.props?.['ignore-focus'] ? 'toolbar' : c.type));
-        expect(order.indexOf('input')).toBeLessThan(order.lastIndexOf('toolbar'));
+    it('is absent by default and renders with toolbar=true; taps format the caret block', async () => {
+        const none = await mountEditor({ value: 'a' });
+        expect(none.container.findAllByType('view').some((v) => v.props['ignore-focus'] === true && v.findByText('B'))).toBe(false);
+        const m = await mountEditor({ value: 'a', toolbar: true });
+        tapAt(m.field(0), 0);
+        fireEvent.tap(tappable(m.container, 'H1'));
+        await waitForUpdate();
+        expect(m.controller.getMarkdown()).toBe('# a\n');
     });
 
-    it('dispatches default items through the editor controller', () => {
-        const { container } = render(<MarkdownEditor toolbar />);
-        const boldTap = container
-            .findAllByType('view')
-            .filter((v) => v._handlers.has('bindtap'))[0];
-        boldTap._handlers.get('bindtap')!({});
-        expect(spies.toggleFormat).toHaveBeenCalledWith(expect.anything(), 'bold');
+    it('a custom item set replaces the base set (plugin items still append)', async () => {
+        const run = vi.fn();
+        const m = await mountEditor({ value: 'a', toolbar: 'top', toolbarItems: [{ id: 'only', label: 'ONLY', run }] });
+        expect(m.container.findByText('ONLY')).toBeTruthy();
+        expect(m.container.findAllByType('view').some((v) => v._handlers.has('bindtap') && v.findByText('B'))).toBe(false);
     });
 });

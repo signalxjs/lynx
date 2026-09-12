@@ -34,8 +34,12 @@ import { describe, expect, expectTypeOf, it } from 'vitest';
 import type { JSXElement } from '@sigx/lynx';
 import * as upstream from '@sigx/markdown';
 
+import * as upstreamEditor from '@sigx/markdown/editor';
+import type { Command, Editor, InlineFlat } from '@sigx/markdown/editor';
+import type { BlockAttrType } from '@sigx/lynx-richtext';
 import * as markdown from '../src/index';
 import * as editor from '../src/editor/index';
+import type { MarkdownEditorController } from '../src/editor/index';
 import type {
     IncrementalEngine,
     InlineSyntaxExtension,
@@ -80,18 +84,41 @@ describe('public runtime exports', () => {
     it('matches the locked /editor subpath surface', () => {
         expect(Object.keys(editor).sort()).toEqual(
             [
+                // The component and its chrome
                 'MarkdownEditor',
                 'EditorToolbar',
-                'defaultToolbarItems',
-                // Markdown <-> RichDoc conversion
-                'mdToDoc',
-                'docToMd',
-                // Trigger/suggestion machinery
                 'SuggestionPopup',
                 'derivePopupStyleFromText',
+                // Block views (for hosts composing their own layout)
+                'BlockView',
+                'InlineBlock',
+                'CodeBlock',
+                'useLynxEditorView',
+                'createLynxEditorView',
+                // The Lynx surfaces over <sigx-richtext> / <textarea>
+                'createLynxInlineSurface',
+                'createLynxCodeSurface',
+                'flatToDoc',
+                'docToFlat',
+                'blockAttrFor',
+                // The core's editor API, re-exported (one import for Lynx apps)
+                'defaultToolbarItems',
+                'toolbarState',
+                'createSlashPlugin',
+                'createCoreMentionPlugin',
                 'createTriggerSessionManager',
+                'commands',
+                'commandRegistry',
+                'createEditor',
             ].sort(),
         );
+    });
+
+    it('re-exports the @sigx/markdown editor values by identity (one core)', () => {
+        expect(editor.createEditor).toBe(upstreamEditor.createEditor);
+        expect(editor.defaultToolbarItems).toBe(upstreamEditor.defaultToolbarItems);
+        expect(editor.createTriggerSessionManager).toBe(upstreamEditor.createTriggerSessionManager);
+        expect(editor.createSlashPlugin).toBe(upstreamEditor.createSlashPlugin);
     });
 });
 
@@ -145,12 +172,19 @@ describe('public types', () => {
         expectTypeOf(markdown.createMentionPlugin).parameters.toMatchTypeOf<[unknown]>();
     });
 
-    it('pins the editor conversion round-trip', () => {
-        // `docToMd(mdToDoc(src))` is the round-trip every editor save depends
-        // on; the `v` version arg on `mdToDoc` is positional and easy to drop.
-        expectTypeOf(editor.mdToDoc).parameter(0).toEqualTypeOf<string>();
-        expectTypeOf(editor.mdToDoc).parameter(1).toEqualTypeOf<number | undefined>();
-        expectTypeOf(editor.docToMd).returns.toEqualTypeOf<string>();
+    it('pins the flat <-> RichDoc mapping (the surface contract over the element)', () => {
+        // `flatToDoc` takes the version positionally; a dropped `v` would
+        // make every write look stale to the element.
+        expectTypeOf(editor.flatToDoc).parameter(2).toEqualTypeOf<number>();
+        expectTypeOf(editor.docToFlat).returns.toEqualTypeOf<InlineFlat>();
+        expectTypeOf(editor.blockAttrFor).returns.toEqualTypeOf<{ type: BlockAttrType; level?: number }>();
+    });
+
+    it('pins the controller as a superset of the core editor (C1)', () => {
+        expectTypeOf<MarkdownEditorController['editor']>().toEqualTypeOf<Editor>();
+        expectTypeOf<MarkdownEditorController['run']>().toEqualTypeOf<(command: Command | string) => boolean>();
+        expectTypeOf<MarkdownEditorController['getDocument']>().toEqualTypeOf<() => Root>();
+        expectTypeOf<MarkdownEditorController['insertChip']>().toEqualTypeOf<(chip: { id: string; label: string; kind?: string }, replace?: { from: number; to: number }) => void>();
     });
 
     it('keeps the trigger session manager subscription-shaped (C7-adjacent)', () => {

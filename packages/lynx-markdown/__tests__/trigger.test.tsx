@@ -1,238 +1,15 @@
+/**
+ * The suggestion popup: placement math, measurement requests, and the
+ * editor's trigger sessions (the core's session manager drives the Lynx
+ * popup; hosts can render suggestions themselves — #755).
+ */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, fireEvent, waitForUpdate } from '@sigx/lynx-testing';
-import { encodeDoc, RichTextMethods, type RichDoc } from '@sigx/lynx-richtext';
-import { MarkdownEditor, type MarkdownEditorController } from '../src/editor/MarkdownEditor';
-import { createTriggerSessionManager, type TriggerSession } from '../src/editor/trigger/session';
+import { render, fireEvent, waitForUpdate, type TestNode } from '@sigx/lynx-testing';
+import type { TriggerItem, TriggerSession } from '@sigx/markdown/editor';
 import { placeSuggestionPopup } from '../src/editor/trigger/position';
 import { SuggestionPopup } from '../src/editor/trigger/SuggestionPopup';
-import type { MarkdownEditorPlugin, TriggerItem } from '../src/editor/plugin';
-
-// ---------------------------------------------------------------------------
-// Session manager (pure state machine — no rendering)
-// ---------------------------------------------------------------------------
-
-describe('trigger session manager', () => {
-    const USERS: TriggerItem[] = [
-        { id: 'u1', label: 'Andy' },
-        { id: 'u2', label: 'Bea' },
-    ];
-
-    function makeManager(overrides: Partial<Parameters<typeof createTriggerSessionManager>[0]> = {}) {
-        const updates: Array<TriggerSession | null> = [];
-        const onQuery = vi.fn((q: string) => USERS.filter((u) => u.label.toLowerCase().startsWith(q.toLowerCase())));
-        const manager = createTriggerSessionManager({
-            triggers: [{ plugin: 'mention', spec: { char: '@', onQuery, onSelect: () => {} } }],
-            onUpdate: (s) => updates.push(s),
-            ...overrides,
-        });
-        return { manager, updates, onQuery };
-    }
-
-    it('opens on a trigger char at a boundary and tracks the query', () => {
-        const { manager, onQuery } = makeManager();
-        manager.syncText('hi @');
-        manager.syncCaret(4);
-        expect(manager.session).toMatchObject({ plugin: 'mention', anchor: 3, query: '' });
-
-        manager.syncText('hi @an');
-        manager.syncCaret(6);
-        expect(manager.session).toMatchObject({ query: 'an', caret: 6 });
-        expect(onQuery).toHaveBeenLastCalledWith('an');
-        expect(manager.session!.items).toEqual([{ id: 'u1', label: 'Andy' }]);
-    });
-
-    it('does not open mid-word (no boundary before the trigger)', () => {
-        const { manager } = makeManager();
-        manager.syncText('email@');
-        manager.syncCaret(6);
-        expect(manager.session).toBeNull();
-    });
-
-    it('closes when whitespace breaks the run', () => {
-        const { manager } = makeManager();
-        manager.syncText('@an');
-        manager.syncCaret(3);
-        expect(manager.session).not.toBeNull();
-
-        manager.syncText('@an ');
-        manager.syncCaret(4);
-        expect(manager.session).toBeNull();
-    });
-
-    it('closes when the caret leaves the run (or is not collapsed)', () => {
-        const { manager } = makeManager();
-        manager.syncText('@an tail');
-        manager.syncCaret(3);
-        expect(manager.session).not.toBeNull();
-
-        manager.syncCaret(8); // caret after ' tail' — run no longer matches
-        expect(manager.session).toBeNull();
-
-        manager.syncCaret(3);
-        expect(manager.session).not.toBeNull();
-        manager.syncCaret(-1); // selection expanded
-        expect(manager.session).toBeNull();
-    });
-
-    it('returns session snapshots — external mutation cannot desync state', () => {
-        const { manager } = makeManager();
-        manager.syncText('@a');
-        manager.syncCaret(2);
-        const snapshot = manager.session!;
-        snapshot.items.push({ id: 'rogue', label: 'Rogue' });
-        snapshot.query = 'mutated';
-        expect(manager.session).toMatchObject({ query: 'a' });
-        expect(manager.session!.items).toEqual([{ id: 'u1', label: 'Andy' }]);
-    });
-
-    it('closes on close() (blur / selection made)', () => {
-        const { manager, updates } = makeManager();
-        manager.syncText('@a');
-        manager.syncCaret(2);
-        manager.close();
-        expect(manager.session).toBeNull();
-        expect(updates[updates.length - 1]).toBeNull();
-    });
-
-    it('supports pattern triggers (multi-char prefix)', () => {
-        const onQuery = vi.fn(() => [] as TriggerItem[]);
-        const manager = createTriggerSessionManager({
-            triggers: [{ plugin: 'cmd', spec: { pattern: /^::/, onQuery, onSelect: () => {} } }],
-            onUpdate: () => {},
-        });
-        manager.syncText(':x');
-        manager.syncCaret(2);
-        expect(manager.session).toBeNull(); // single ':' is not the trigger
-
-        manager.syncText('::sm');
-        manager.syncCaret(4);
-        expect(manager.session).toMatchObject({ plugin: 'cmd', anchor: 0, query: 'sm' });
-    });
-
-    it('matches g-flag patterns deterministically (lastIndex reset)', () => {
-        const manager = createTriggerSessionManager({
-            triggers: [{ plugin: 'cmd', spec: { pattern: /^::/g, onQuery: () => [], onSelect: () => {} } }],
-            onUpdate: () => {},
-        });
-        // Without a lastIndex reset, the second exec on a g-flag regex would
-        // start past the prefix and fail every other evaluation.
-        for (let i = 0; i < 3; i++) {
-            manager.syncText('::a');
-            manager.syncCaret(3);
-            expect(manager.session).not.toBeNull();
-            manager.close();
-        }
-    });
-
-    it('treats a non-thenable onQuery return like an empty result', () => {
-        const { manager } = makeManager({
-            triggers: [{
-                plugin: 'mention',
-                // Misbehaving plugin: returns neither an array nor a Promise.
-                spec: { char: '@', onQuery: () => ({} as unknown as TriggerItem[]), onSelect: () => {} },
-            }],
-        });
-        manager.syncText('@a');
-        manager.syncCaret(2);
-        expect(manager.session).toMatchObject({ items: [], loading: false });
-    });
-
-    it('treats a throwing onQuery like a rejected query (loading cleared)', () => {
-        const { manager } = makeManager({
-            triggers: [{
-                plugin: 'mention',
-                spec: {
-                    char: '@',
-                    onQuery: () => {
-                        throw new Error('plugin bug');
-                    },
-                    onSelect: () => {},
-                },
-            }],
-        });
-        manager.syncText('@a');
-        manager.syncCaret(2);
-        expect(manager.session).toMatchObject({ items: [], loading: false });
-    });
-
-    it('clears previous results when the query changes (no stale suggestions)', () => {
-        const { manager } = makeManager();
-        manager.syncText('@a');
-        manager.syncCaret(2);
-        expect(manager.session!.items).toHaveLength(1); // Andy
-
-        // Async source for the next query: items must clear immediately.
-        manager.syncText('@az');
-        manager.syncCaret(3);
-        expect(manager.session!.items).toEqual([]);
-    });
-
-    it('discards stale async results when a newer query supersedes them', async () => {
-        const resolvers: Array<(items: TriggerItem[]) => void> = [];
-        const onQuery = vi.fn(
-            () => new Promise<TriggerItem[]>((resolve) => resolvers.push(resolve)),
-        );
-        const { manager } = makeManager({
-            triggers: [{ plugin: 'mention', spec: { char: '@', onQuery, onSelect: () => {} } }],
-        });
-
-        manager.syncText('@a');
-        manager.syncCaret(2);
-        manager.syncText('@an');
-        manager.syncCaret(3);
-        expect(resolvers).toHaveLength(2);
-
-        // The OLD query resolves last — its result must be discarded.
-        resolvers[1]([{ id: 'u1', label: 'Andy' }]);
-        resolvers[0]([{ id: 'zzz', label: 'Stale' }]);
-        await Promise.resolve();
-
-        expect(manager.session!.items).toEqual([{ id: 'u1', label: 'Andy' }]);
-        expect(manager.session!.loading).toBe(false);
-    });
-
-    it('discards async results that resolve after the session closed', async () => {
-        let resolveQuery!: (items: TriggerItem[]) => void;
-        const onQuery = vi.fn(() => new Promise<TriggerItem[]>((r) => { resolveQuery = r; }));
-        const { manager, updates } = makeManager({
-            triggers: [{ plugin: 'mention', spec: { char: '@', onQuery, onSelect: () => {} } }],
-        });
-
-        manager.syncText('@a');
-        manager.syncCaret(2);
-        manager.close();
-        resolveQuery([{ id: 'u1', label: 'Andy' }]);
-        await Promise.resolve();
-
-        expect(manager.session).toBeNull();
-        expect(updates[updates.length - 1]).toBeNull();
-    });
-
-    it('debounces onQuery while typing fast', () => {
-        vi.useFakeTimers();
-        try {
-            const onQuery = vi.fn(() => [] as TriggerItem[]);
-            const { manager } = makeManager({
-                triggers: [{ plugin: 'mention', spec: { char: '@', debounce: 50, onQuery, onSelect: () => {} } }],
-            });
-            manager.syncText('@a');
-            manager.syncCaret(2);
-            manager.syncText('@an');
-            manager.syncCaret(3);
-            expect(onQuery).not.toHaveBeenCalled();
-
-            vi.advanceTimersByTime(60);
-            expect(onQuery).toHaveBeenCalledTimes(1);
-            expect(onQuery).toHaveBeenCalledWith('an');
-        } finally {
-            vi.useRealTimers();
-        }
-    });
-});
-
-// ---------------------------------------------------------------------------
-// Popup placement (pure math)
-// ---------------------------------------------------------------------------
+import { createMentionPlugin } from '../src/plugins/mention';
+import { installFakeElement, layoutFields, mountEditor, press, resetFakeElement, tapAt, typeIn } from './editor/harness';
 
 describe('placeSuggestionPopup', () => {
     const base = {
@@ -408,255 +185,115 @@ describe('SuggestionPopup measurement requests', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Editor integration (synthetic element events)
+// Editor sessions
 // ---------------------------------------------------------------------------
 
-const spies = {
-    setSelectionRange: vi.spyOn(RichTextMethods, 'setSelectionRange'),
-    insertText: vi.spyOn(RichTextMethods, 'insertText'),
-};
-
-beforeEach(() => {
-    for (const spy of Object.values(spies)) spy.mockClear().mockImplementation(() => {});
-});
-afterEach(() => {
-    for (const spy of Object.values(spies)) spy.mockReset();
-});
-
-function doc(text: string, v = 1): RichDoc {
-    return { text, spans: [], blocks: [], v };
-}
-
-function fireChange(el: { _handlers: Map<string, Function> }, d: RichDoc): void {
-    el._handlers.get('bindchange')!({ type: 'change', detail: { doc: encodeDoc(d), isComposing: false } });
-}
-
-/** The popup only renders once the input wrapper's frame is measured. */
-function fireWrapperLayout(container: { findAllByType: (t: string) => Array<{ _handlers: Map<string, Function> }> }): void {
-    const wrapper = container.findAllByType('view').find((v) => v._handlers.has('bindlayoutchange'))!;
-    wrapper._handlers.get('bindlayoutchange')!({
-        type: 'layoutchange',
-        detail: { width: 320, height: 48, top: 400, left: 0, right: 320, bottom: 448 },
-    });
-}
-
-function fireSelection(el: { _handlers: Map<string, Function> }, caret: number): void {
-    el._handlers.get('bindselection')!({
-        type: 'selection',
-        detail: {
-            start: caret,
-            end: caret,
-            activeFormats: '',
-            activeBlock: 'paragraph',
-            caretX: 12,
-            caretY: 6,
-            caretHeight: 18,
-        },
-    });
-}
-
-const USERS: TriggerItem[] = [
+const USERS = [
     { id: 'u1', label: 'Andy' },
-    { id: 'u2', label: 'Bea' },
+    { id: 'u2', label: 'Anna' },
+    { id: 'u3', label: 'Bea' },
 ];
+const search = (q: string) => USERS.filter((u) => u.label.toLowerCase().startsWith(q.toLowerCase()));
 
-function mentionTriggerPlugin(onSelectSpy = vi.fn()): { plugin: MarkdownEditorPlugin; onSelect: ReturnType<typeof vi.fn> } {
-    const plugin: MarkdownEditorPlugin = {
-        name: 'mention',
-        trigger: {
-            char: '@',
-            onQuery: (q) => USERS.filter((u) => u.label.toLowerCase().startsWith(q.toLowerCase())),
-            onSelect: (item, api) => {
-                onSelectSpy(item);
-                api.replaceQuery(`@[${item.label}](${item.id}) `);
-            },
-        },
-    };
-    return { plugin, onSelect: onSelectSpy };
-}
+beforeEach(installFakeElement);
+afterEach(resetFakeElement);
+
+type ViewNode = TestNode;
+const popupOf = (container: { findAllByType: (t: string) => ViewNode[] }): ViewNode | null =>
+    container.findAllByType('view').find((v) => v.props['ignore-focus'] === true && v.props['accessibility-label'] === undefined) ?? null;
+/** The tappable row that renders `label`. */
+const rowOf = (popup: ViewNode, label: string): ViewNode => popup.findAllByType('view').find((v) => v._handlers.has('bindtap') && v.findByText(label))!;
 
 describe('MarkdownEditor trigger sessions', () => {
-    it('opens a session and shows the popup with ignore-focus', async () => {
-        const { plugin } = mentionTriggerPlugin();
-        const { container } = render(<MarkdownEditor value="" plugins={[plugin]} />);
-        const el = container.findByType('sigx-richtext')!;
-        fireWrapperLayout(container);
-
-        fireChange(el, doc('hi @an'));
-        fireSelection(el, 6);
+    it('opens the popup inside the block the session belongs to and picks with Enter', async () => {
+        const onTriggerSession = vi.fn<(s: TriggerSession | null) => void>();
+        const m = await mountEditor({ value: 'cc', plugins: [createMentionPlugin({ search })], onTriggerSession });
+        const f = m.field(0);
+        layoutFields(m.container);
+        tapAt(f, 2);
+        typeIn(f, ' @an');
         await waitForUpdate();
-
-        const popup = container.findAllByType('view').find((v) => v.props['ignore-focus'] === true);
+        expect(onTriggerSession).toHaveBeenLastCalledWith(expect.objectContaining({ plugin: 'mention', key: 'b-0', query: 'an', anchor: 3, caret: 6 }));
+        const popup = popupOf(m.container);
         expect(popup).toBeTruthy();
-        expect(popup!.findByText('Andy')).toBeTruthy();
+        expect(m.container.findByText('Andy')).toBeTruthy();
+        expect(m.container.findByText('Anna')).toBeTruthy();
+        // ArrowDown moves the active row; Enter picks it — the field never sees either key.
+        press(f, 'ArrowDown');
+        press(f, 'Enter');
+        await waitForUpdate();
+        expect(m.controller.getMarkdown()).toBe('cc @[Anna](u2)\n');
+        expect(onTriggerSession).toHaveBeenLastCalledWith(null);
+        expect(popupOf(m.container)).toBeNull();
     });
 
-    it('uses neutral popup defaults when suggestionPopup is omitted', async () => {
-        const { plugin } = mentionTriggerPlugin();
-        const { container } = render(<MarkdownEditor value="" plugins={[plugin]} />);
-        const el = container.findByType('sigx-richtext')!;
-        fireWrapperLayout(container);
-
-        fireChange(el, doc('hi @an'));
-        fireSelection(el, 6);
+    it('a tap on a row picks it and Escape closes the session', async () => {
+        const m = await mountEditor({ value: '', plugins: [createMentionPlugin({ search })] });
+        const f = m.field(0);
+        layoutFields(m.container);
+        tapAt(f, 0);
+        typeIn(f, '@b');
         await waitForUpdate();
+        fireEvent.tap(rowOf(popupOf(m.container)!, 'Bea'));
+        await waitForUpdate();
+        expect(m.controller.getMarkdown()).toBe('@[Bea](u3)\n');
+        typeIn(f, '@a');
+        await waitForUpdate();
+        expect(popupOf(m.container)).toBeTruthy();
+        press(f, 'Escape');
+        await waitForUpdate();
+        expect(popupOf(m.container)).toBeNull();
+    });
 
-        const popup = container.findAllByType('view').find((v) => v.props['ignore-focus'] === true)!;
-        expect(popup.props.style).toMatchObject({
-            backgroundColor: '#f4f4f5',
-            borderColor: 'rgba(127, 127, 127, 0.32)',
-            width: 240,
+    it('suggestions="none" with renderSuggestions docks the list where the host puts it (#755)', async () => {
+        const seen: string[] = [];
+        const m = await mountEditor({
+            value: '',
+            plugins: [createMentionPlugin({ search })],
+            suggestions: 'none',
+            renderSuggestions: (api) => {
+                seen.push(api.session.query);
+                return (
+                    <view accessibility-label="docked">
+                        {api.session.items.map((item: TriggerItem) => (
+                            <text key={item.id} bindtap={() => api.pick(item)}>{`docked:${item.label}`}</text>
+                        ))}
+                    </view>
+                );
+            },
         });
+        const f = m.field(0);
+        tapAt(f, 0);
+        typeIn(f, '@an');
+        await waitForUpdate();
+        expect(seen).toContain('an');
+        expect(popupOf(m.container)).toBeNull();
+        const docked = m.container.findAllByType('view').find((v) => v.props['accessibility-label'] === 'docked')!;
+        fireEvent.tap(docked.findAllByType('text').find((t) => t._handlers.has('bindtap') && t.findByText('docked:Andy'))!);
+        await waitForUpdate();
+        expect(m.controller.getMarkdown()).toBe('@[Andy](u1)\n');
     });
 
     it('forwards suggestionPopup styling to the popup container', async () => {
-        const { plugin } = mentionTriggerPlugin();
-        const { container } = render(
-            <MarkdownEditor
-                value=""
-                plugins={[plugin]}
-                suggestionPopup={{ surfaceColor: '#18181b', borderColor: '#3f3f46', width: 300 }}
-            />,
-        );
-        const el = container.findByType('sigx-richtext')!;
-        fireWrapperLayout(container);
-
-        fireChange(el, doc('hi @an'));
-        fireSelection(el, 6);
+        const m = await mountEditor({ value: '', plugins: [createMentionPlugin({ search })], suggestionPopup: { surfaceColor: '#123456', width: 300 } });
+        const f = m.field(0);
+        layoutFields(m.container);
+        tapAt(f, 0);
+        typeIn(f, '@a');
         await waitForUpdate();
-
-        const popup = container.findAllByType('view').find((v) => v.props['ignore-focus'] === true)!;
-        expect(popup.props.style).toMatchObject({
-            backgroundColor: '#18181b',
-            borderColor: '#3f3f46',
-            width: 300,
-        });
+        const popup = popupOf(m.container)!;
+        const style = popup.props['style'] as Record<string, unknown>;
+        expect(style.backgroundColor).toBe('#123456');
+        expect(style.width).toBe(300);
     });
 
-    it('applies textColor to the built-in suggestion row', async () => {
-        const { plugin } = mentionTriggerPlugin();
-        const { container } = render(
-            <MarkdownEditor value="" plugins={[plugin]} suggestionPopup={{ textColor: '#e5e7eb' }} />,
-        );
-        const el = container.findByType('sigx-richtext')!;
-        fireWrapperLayout(container);
-
-        fireChange(el, doc('hi @an'));
-        fireSelection(el, 6);
-        await waitForUpdate();
-
-        const popup = container.findAllByType('view').find((v) => v.props['ignore-focus'] === true)!;
-        // The built-in row's <text> carries the forwarded color (fontSize 15
-        // disambiguates it from any other text in the tree).
-        const rowText = popup
-            .findAllByType('text')
-            .find((t) => (t.props.style as { fontSize?: number } | undefined)?.fontSize === 15)!;
-        expect(rowText.props.style).toMatchObject({ color: '#e5e7eb', fontSize: 15 });
-    });
-
-    it('replaces the trigger run on select and closes the popup', async () => {
-        const { plugin, onSelect } = mentionTriggerPlugin();
-        const { container } = render(<MarkdownEditor value="" plugins={[plugin]} />);
-        const el = container.findByType('sigx-richtext')!;
-        fireWrapperLayout(container);
-
-        fireChange(el, doc('hi @an'));
-        fireSelection(el, 6);
-        await waitForUpdate();
-
-        const popup = container.findAllByType('view').find((v) => v.props['ignore-focus'] === true)!;
-        const row = popup.findAllByType('view').find((v) => v._handlers.has('bindtap'))!;
-        fireEvent.tap(row);
-        await waitForUpdate();
-
-        expect(onSelect).toHaveBeenCalledWith(USERS[0]);
-        // replaceQuery = replaceRange(anchor=3, caret=6, …): select the run, insert over it.
-        expect(spies.setSelectionRange).toHaveBeenCalledWith(expect.anything(), 3, 6);
-        expect(spies.insertText).toHaveBeenCalledWith(expect.anything(), '@[Andy](u1) ');
-        expect(container.findAllByType('view').some((v) => v.props['ignore-focus'] === true)).toBe(false);
-    });
-
-    it('closes the session on blur', async () => {
-        const { plugin } = mentionTriggerPlugin();
-        const { container } = render(<MarkdownEditor value="" plugins={[plugin]} />);
-        const el = container.findByType('sigx-richtext')!;
-        fireWrapperLayout(container);
-
-        fireChange(el, doc('@a'));
-        fireSelection(el, 2);
-        await waitForUpdate();
-        expect(container.findAllByType('view').some((v) => v.props['ignore-focus'] === true)).toBe(true);
-
-        el._handlers.get('bindblur')!({ type: 'blur' });
-        await waitForUpdate();
-        expect(container.findAllByType('view').some((v) => v.props['ignore-focus'] === true)).toBe(false);
-    });
-
-    it('binds a main-thread ref on the positioning wrapper for measurement', () => {
-        // #755: the popup is placed against the wrapper's VIEWPORT rect, which
-        // only `useViewportRect` (main-thread `boundingClientRect`) can supply
-        // — a layout-page frame misses any transform on an ancestor.
-        const { plugin } = mentionTriggerPlugin();
-        const { container } = render(<MarkdownEditor value="" plugins={[plugin]} />);
-        const wrapper = container.findAllByType('view').find((v) => v._handlers.has('bindlayoutchange'))!;
-        expect(wrapper.props['main-thread:ref']).toBeDefined();
-    });
-
-    it('still places the popup from the layout frame before a measurement lands', async () => {
-        // The measurement is async (and never resolves without a main thread),
-        // so the layout frame has to stay a usable fallback — otherwise the
-        // popup would never paint on hosts where the invoke is unavailable.
-        const { plugin } = mentionTriggerPlugin();
-        const { container } = render(<MarkdownEditor value="" plugins={[plugin]} />);
-        const el = container.findByType('sigx-richtext')!;
-        fireWrapperLayout(container);
-
-        fireChange(el, doc('hi @an'));
-        fireSelection(el, 6);
-        await waitForUpdate();
-
-        expect(container.findAllByType('view').some((v) => v.props['ignore-focus'] === true)).toBe(true);
-    });
-
-    it('exposes replaceRange on the controller', () => {
-        let ctrl: MarkdownEditorController | null = null;
-        render(<MarkdownEditor value="" controllerRef={(c) => { ctrl = c; }} />);
-        ctrl!.replaceRange(2, 5, 'x');
-        expect(spies.setSelectionRange).toHaveBeenCalledWith(expect.anything(), 2, 5);
-        expect(spies.insertText).toHaveBeenCalledWith(expect.anything(), 'x');
-    });
-
-    it('warns on duplicate inline plugin names / span types', () => {
-        const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-        try {
-            const inline = {
-                syntax: { name: 'dup', triggerChars: ['@'] as const, match: () => null },
-                serialize: () => '',
-                docMapping: { spanType: 'mention' as const, toSpan: () => null },
-            };
-            render(
-                <MarkdownEditor
-                    value=""
-                    plugins={[{ name: 'a', inline }, { name: 'b', inline }]}
-                />,
-            );
-            expect(warn).toHaveBeenCalledWith(expect.stringContaining('duplicate plugin syntax.name "dup"'));
-            expect(warn).toHaveBeenCalledWith(expect.stringContaining('duplicate plugin docMapping.spanType "mention"'));
-        } finally {
-            warn.mockRestore();
-        }
-    });
-
-    it('appends plugin toolbar items after the defaults', () => {
+    it('plugin toolbar items append after the defaults', async () => {
         const run = vi.fn();
-        const plugin: MarkdownEditorPlugin = {
-            name: 'custom',
-            toolbar: [{ id: 'zap', label: 'Zap', run }],
-        };
-        const { container } = render(<MarkdownEditor value="" toolbar plugins={[plugin]} />);
-        const item = container.findByText('Zap');
-        expect(item).toBeTruthy();
-        // Defaults are still present before it.
-        expect(container.findByText('B')).toBeTruthy();
+        const plugin = { name: 'extra', editor: { toolbar: [{ id: 'extra', label: 'X', isEnabled: () => true, run }] } };
+        const m = await mountEditor({ value: 'a', plugins: [plugin], toolbar: true });
+        const item = m.container.findAllByType('view').find((v) => v._handlers.has('bindtap') && v.findByText('X'))!;
+        fireEvent.tap(item);
+        expect(run).toHaveBeenCalled();
+        expect(m.container.findByText('B')).toBeTruthy();
     });
 });

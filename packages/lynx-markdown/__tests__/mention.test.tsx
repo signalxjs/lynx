@@ -1,12 +1,14 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, fireEvent, waitForUpdate } from '@sigx/lynx-testing';
-import { encodeDoc, RichTextMethods, type InlineSpan, type RichDoc } from '@sigx/lynx-richtext';
-import { MarkdownEditor, type MarkdownEditorController } from '../src/editor/MarkdownEditor';
+/**
+ * The mention plugin: the `@[label](id)` syntax (from `@sigx/markdown`), the
+ * label rule at every boundary, and the editor half — `@` sessions, chip
+ * insertion through the field, round-trips.
+ */
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { fireEvent, waitForUpdate, type TestNode } from '@sigx/lynx-testing';
+import { parseMarkdown, toMarkdown, type InlineMatchContext } from '@sigx/markdown';
 import { createMentionPlugin, mentionPlugin, mentionSyntax } from '../src/plugins/mention';
-import { mdToDoc } from '../src/editor/convert/mdToDoc';
-import { docToMd } from '../src/editor/convert/docToMd';
 import type { MentionCandidate } from '../src/plugins/mention';
-import type { InlineMatchContext } from '@sigx/markdown';
+import { docOf, installFakeElement, layoutFields, mountEditor, resetFakeElement, tapAt, typeIn } from './editor/harness';
 
 /** A bare match context — no positions, no nested inline parsing. */
 const ctx: InlineMatchContext = { parseInline: () => [], position: () => undefined };
@@ -44,10 +46,7 @@ describe('mentionSyntax (re-exported from @sigx/markdown)', () => {
             node: { type: 'mention', label: 'Smith (Bob)', id: 'u]1' },
             end: md.length,
         });
-        expect(plugin.inline!.serialize(
-            { start: 0, end: 1, type: 'mention', attrs: { id: 'u]1', label: 'Smith (Bob)' } },
-            '\uFFFC',
-        )).toBe(md);
+        expect(toMarkdown(parseMarkdown(md, { plugins: [plugin] }), { plugins: [plugin] })).toBe(md + '\n');
     });
 
     it('carries the syntax and serializer as one @sigx/markdown plugin', () => {
@@ -57,196 +56,66 @@ describe('mentionSyntax (re-exported from @sigx/markdown)', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Conversion (doc mapping + serialization)
+// In the editor
 // ---------------------------------------------------------------------------
 
-describe('mention plugin conversion', () => {
-    const plugin = createMentionPlugin({ search });
-    const inOpts = {
-        plugins: [mentionPlugin],
-        spanMappers: { mention: plugin.inline!.docMapping.toSpan },
-    };
-    const outOpts = {
-        serializers: new Map([[
-            'mention',
-            (span: InlineSpan, text: string) => plugin.inline!.serialize(span, text),
-        ]]),
-    };
+beforeEach(installFakeElement);
+afterEach(resetFakeElement);
 
-    it('maps @[label](id) onto a single U+FFFC with attrs (chip invariant)', () => {
-        const doc = mdToDoc('hi @[Andy](u1)!', 0, inOpts);
-        expect(doc.text).toBe('hi \uFFFC!');
-        expect(doc.spans).toEqual([
-            { start: 3, end: 4, type: 'mention', attrs: { id: 'u1', label: 'Andy' } },
-        ]);
-    });
+type ViewNode = TestNode;
+const popupOf = (container: { findAllByType: (t: string) => ViewNode[] }): ViewNode | null =>
+    container.findAllByType('view').find((v) => v.props['ignore-focus'] === true && v.props['accessibility-label'] === undefined) ?? null;
+const rowOf = (popup: ViewNode, label: string): ViewNode => popup.findAllByType('view').find((v) => v._handlers.has('bindtap') && v.findByText(label))!;
 
-    it('serializes the chip back from attrs (covered text is the U+FFFC)', () => {
-        const doc = mdToDoc('hi @[Andy](u1)!', 0, inOpts);
-        expect(docToMd(doc, outOpts)).toBe('hi @[Andy](u1)!');
-    });
-
-    it('round-trips a chip wrapped in formatting', () => {
-        const md = '**ping @[Bea](u2) now**';
-        const doc = mdToDoc(md, 0, inOpts);
-        expect(doc.text).toBe('ping \uFFFC now');
-        expect(docToMd(doc, outOpts)).toBe(md);
-    });
-
-    it('degrades malformed spans to the plain label instead of @[]()', () => {
-        expect(plugin.inline!.serialize(
-            { start: 0, end: 1, type: 'mention', attrs: { label: 'Andy' } },
-            '\uFFFC',
-        )).toBe('Andy');
-        expect(plugin.inline!.serialize(
-            { start: 0, end: 1, type: 'mention' },
-            '\uFFFC',
-        )).toBe('');
-    });
-
-    it('strips forbidden characters from labels/ids on serialize (label rule)', () => {
-        const out = plugin.inline!.serialize(
-            { start: 0, end: 1, type: 'mention', attrs: { id: 'u)1', label: 'An]dy' } },
-            '\uFFFC',
-        );
-        expect(out).toBe('@[Andy](u1)');
-    });
-});
-
-// ---------------------------------------------------------------------------
-// Editor integration: @ trigger → popup → insertChip
-// ---------------------------------------------------------------------------
-
-const spies = {
-    insertChip: vi.spyOn(RichTextMethods, 'insertChip'),
-};
-
-beforeEach(() => {
-    for (const spy of Object.values(spies)) spy.mockClear().mockImplementation(() => {});
-});
-afterEach(() => {
-    for (const spy of Object.values(spies)) spy.mockReset();
-});
-
-function doc(text: string, v = 1): RichDoc {
-    return { text, spans: [], blocks: [], v };
-}
-
-function fireChange(el: { _handlers: Map<string, Function> }, d: RichDoc): void {
-    el._handlers.get('bindchange')!({ type: 'change', detail: { doc: encodeDoc(d), isComposing: false } });
-}
-
-function fireSelection(el: { _handlers: Map<string, Function> }, caret: number): void {
-    el._handlers.get('bindselection')!({
-        type: 'selection',
-        detail: {
-            start: caret,
-            end: caret,
-            activeFormats: '',
-            activeBlock: 'paragraph',
-            caretX: 12,
-            caretY: 6,
-            caretHeight: 18,
-        },
-    });
-}
-
-function fireWrapperLayout(container: { findAllByType: (t: string) => Array<{ _handlers: Map<string, Function> }> }): void {
-    const wrapper = container.findAllByType('view').find((v) => v._handlers.has('bindlayoutchange'))!;
-    wrapper._handlers.get('bindlayoutchange')!({
-        type: 'layoutchange',
-        detail: { width: 320, height: 48, top: 400, left: 0, right: 320, bottom: 448 },
-    });
-}
+const CHIP = '￼';
 
 describe('mention plugin in MarkdownEditor', () => {
-    it('selecting a suggestion inserts a chip over the trigger run', async () => {
-        const plugin = createMentionPlugin({ search });
-        const { container } = render(<MarkdownEditor value="" plugins={[plugin]} />);
-        const el = container.findByType('sigx-richtext')!;
-        fireWrapperLayout(container);
-
-        fireChange(el, doc('cc @an'));
-        fireSelection(el, 6);
+    it('selecting a suggestion inserts a chip over the trigger run, serialized as @[label](id)', async () => {
+        const m = await mountEditor({ value: 'cc', plugins: [createMentionPlugin({ search })] });
+        const f = m.field(0);
+        layoutFields(m.container);
+        tapAt(f, 2);
+        typeIn(f, ' @an');
         await waitForUpdate();
-
-        const popup = container.findAllByType('view').find((v) => v.props['ignore-focus'] === true)!;
+        const popup = popupOf(m.container)!;
         expect(popup.findByText('Andy')).toBeTruthy();
-
-        const row = popup.findAllByType('view').find((v) => v._handlers.has('bindtap'))!;
-        fireEvent.tap(row);
+        fireEvent.tap(rowOf(popup, 'Andy'));
         await waitForUpdate();
-
-        expect(spies.insertChip).toHaveBeenCalledWith(
-            expect.anything(),
-            { id: 'u1', label: 'Andy', kind: 'user' },
-            { from: 3, to: 6 },
-        );
-        // Session closed → popup gone.
-        expect(container.findAllByType('view').some((v) => v.props['ignore-focus'] === true)).toBe(false);
+        expect(m.controller.getMarkdown()).toBe('cc @[Andy](u1)\n');
+        // The field got the chip: one U+FFFC under a mention span carrying id, label and kind.
+        const doc = docOf(f);
+        expect(doc.text).toBe(`cc ${CHIP} `);
+        expect(doc.spans).toEqual([{ start: 3, end: 4, type: 'mention', attrs: { id: 'u1', label: 'Andy', kind: 'user', atom: 'mention' } }]);
+        expect(popupOf(m.container)).toBeNull();
     });
 
-    it('sanitizes candidate labels/ids at the trigger boundary (label rule)', async () => {
-        const plugin = createMentionPlugin({
-            search: () => [{ id: 'u)1', label: 'An]dy' }],
-        });
-        const { container } = render(<MarkdownEditor value="" plugins={[plugin]} />);
-        const el = container.findByType('sigx-richtext')!;
-        fireWrapperLayout(container);
-
-        fireChange(el, doc('@a'));
-        fireSelection(el, 2);
+    it('sanitizes candidate labels/ids at the trigger boundary and drops empties (label rule)', async () => {
+        const plugin = createMentionPlugin({ search: () => [{ id: 'u)1', label: 'An]dy' }, { id: ')', label: ']' }] });
+        const m = await mountEditor({ value: '', plugins: [plugin] });
+        const f = m.field(0);
+        layoutFields(m.container);
+        tapAt(f, 0);
+        typeIn(f, '@a');
         await waitForUpdate();
-
-        const popup = container.findAllByType('view').find((v) => v.props['ignore-focus'] === true)!;
-        // The popup shows the cleaned label — what the chip will carry.
+        const popup = popupOf(m.container)!;
         expect(popup.findByText('Andy')).toBeTruthy();
-        const row = popup.findAllByType('view').find((v) => v._handlers.has('bindtap'))!;
-        fireEvent.tap(row);
-
-        expect(spies.insertChip).toHaveBeenCalledWith(
-            expect.anything(),
-            { id: 'u1', label: 'Andy' },
-            { from: 0, to: 2 },
-        );
-    });
-
-    it('drops candidates that clean to an empty id/label', async () => {
-        const plugin = createMentionPlugin({
-            search: () => [
-                { id: '))', label: 'Ghost' }, // id cleans to '' — never offered
-                { id: 'u2', label: 'Bea' },
-            ],
-        });
-        const { container } = render(<MarkdownEditor value="" plugins={[plugin]} />);
-        const el = container.findByType('sigx-richtext')!;
-        fireWrapperLayout(container);
-
-        fireChange(el, doc('@'));
-        fireSelection(el, 1);
+        expect(popup.findAllByType('view').filter((v) => v._handlers.has('bindtap'))).toHaveLength(1);
+        fireEvent.tap(rowOf(popup, 'Andy'));
         await waitForUpdate();
-
-        const popup = container.findAllByType('view').find((v) => v.props['ignore-focus'] === true)!;
-        expect(popup.findByText('Bea')).toBeTruthy();
-        expect(popup.findByText('Ghost')).toBeFalsy();
+        expect(m.controller.getMarkdown()).toBe('@[Andy](u1)\n');
     });
 
-    it('controller.insertChip forwards to the native method', () => {
-        let ctrl: MarkdownEditorController | null = null;
-        render(<MarkdownEditor value="" controllerRef={(c) => { ctrl = c; }} />);
-        ctrl!.insertChip({ id: 'u2', label: 'Bea' }, { from: 1, to: 4 });
-        expect(spies.insertChip).toHaveBeenCalledWith(
-            expect.anything(),
-            { id: 'u2', label: 'Bea' },
-            { from: 1, to: 4 },
-        );
+    it('controller.insertChip inserts a mention atom, optionally replacing a range', async () => {
+        const m = await mountEditor({ value: 'hi' });
+        tapAt(m.field(0), 2);
+        m.controller.insertChip({ id: 'u1', label: 'Andy', kind: 'user' }, { from: 0, to: 2 });
+        await waitForUpdate();
+        expect(m.controller.getMarkdown()).toBe('@[Andy](u1)\n');
     });
 
     it('carries extra candidate fields through to renderItem (rich rows)', async () => {
         const plugin = createMentionPlugin({
-            // A candidate with a display-only `avatar` beyond id/label.
             search: () => [{ id: 'u)1', label: 'An]dy', avatar: 'a.png' }],
-            // renderItem reads the passthrough field — proves it survived toItems.
             renderItem: (item) => (
                 <view>
                     <text>{String((item as { avatar?: string }).avatar)}</text>
@@ -254,43 +123,34 @@ describe('mention plugin in MarkdownEditor', () => {
                 </view>
             ),
         });
-        const { container } = render(<MarkdownEditor value="" plugins={[plugin]} />);
-        const el = container.findByType('sigx-richtext')!;
-        fireWrapperLayout(container);
-
-        fireChange(el, doc('@a'));
-        fireSelection(el, 2);
+        const m = await mountEditor({ value: '', plugins: [plugin] });
+        layoutFields(m.container);
+        tapAt(m.field(0), 0);
+        typeIn(m.field(0), '@a');
         await waitForUpdate();
-
-        const popup = container.findAllByType('view').find((v) => v.props['ignore-focus'] === true)!;
-        // The extra field reached the row…
+        const popup = popupOf(m.container)!;
         expect(popup.findByText('a.png')).toBeTruthy();
-        // …while id/label were still cleaned to the label rule.
         expect(popup.findByText('Andy')).toBeTruthy();
-        const row = popup.findAllByType('view').find((v) => v._handlers.has('bindtap'))!;
-        fireEvent.tap(row);
-        expect(spies.insertChip).toHaveBeenCalledWith(
-            expect.anything(),
-            { id: 'u1', label: 'Andy' },
-            { from: 0, to: 2 },
-        );
     });
 
     it('supports async search sources', async () => {
-        const plugin = createMentionPlugin({
-            search: async (q) => search(q),
-        });
-        const { container } = render(<MarkdownEditor value="" plugins={[plugin]} />);
-        const el = container.findByType('sigx-richtext')!;
-        fireWrapperLayout(container);
-
-        fireChange(el, doc('@b'));
-        fireSelection(el, 2);
+        const m = await mountEditor({ value: '', plugins: [createMentionPlugin({ search: async (q) => search(q) })] });
+        layoutFields(m.container);
+        tapAt(m.field(0), 0);
+        typeIn(m.field(0), '@b');
         await waitForUpdate();
-        await waitForUpdate(); // async search resolution
+        await waitForUpdate();
+        expect(popupOf(m.container)!.findByText('Bea')).toBeTruthy();
+    });
 
-        const popup = container.findAllByType('view').find((v) => v.props['ignore-focus'] === true);
-        expect(popup).toBeTruthy();
-        expect(popup!.findByText('Bea')).toBeTruthy();
+    it('a mention in the initial markdown mounts as a chip and round-trips', async () => {
+        const m = await mountEditor({ value: 'hi @[Andy](u1)!', plugins: [createMentionPlugin({ search })] });
+        const doc = docOf(m.field(0));
+        expect(doc.text).toBe(`hi ${CHIP}!`);
+        expect(doc.spans[0]).toEqual({ start: 3, end: 4, type: 'mention', attrs: { id: 'u1', label: 'Andy', atom: 'mention' } });
+        tapAt(m.field(0), 5);
+        typeIn(m.field(0), '?');
+        await waitForUpdate();
+        expect(m.controller.getMarkdown()).toBe('hi @[Andy](u1)!?\n');
     });
 });

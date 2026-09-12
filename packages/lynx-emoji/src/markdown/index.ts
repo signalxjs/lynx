@@ -22,7 +22,8 @@
 
 import type { JSXElement } from '@sigx/lynx';
 import type { InlineSyntaxExtension, Position } from '@sigx/lynx-markdown';
-import type { MarkdownEditorPlugin, TriggerItem } from '@sigx/lynx-markdown/editor';
+import type { MarkdownPlugin } from '@sigx/lynx-markdown';
+import type { EditorPlugin, LynxTriggerExtras, TriggerItem, TriggerSpec } from '@sigx/lynx-markdown/editor';
 import { data as enData } from '../data/en.gen.js';
 import type { EmojiData, EmojiDatum } from '../data/schema.js';
 import { buildSearchIndex } from '../search/index.js';
@@ -110,19 +111,18 @@ export function emojiComponent({ node }: { node: EmojiNode }): string {
     return node.glyph || `:${node.name}:`;
 }
 
-export function createEmojiPlugin(options?: EmojiPluginOptions): MarkdownEditorPlugin {
+/** An emoji plugin: a `MarkdownPlugin` whose editor slice carries the `:` trigger (and the picker toolbar item). */
+export function createEmojiPlugin(options?: EmojiPluginOptions): EditorPlugin & MarkdownPlugin {
     const data = options?.data ?? enData;
     const insert = options?.insert ?? 'glyph';
     const limit = options?.limit ?? DEFAULT_LIMIT;
     const index = buildSearchIndex(data);
 
-    return {
-        name: 'emoji',
-        // Trigger-only on the editor side (like the original showcase demo):
-        // glyph inserts are plain text, shortcode inserts stay raw source —
-        // neither needs a span type in the editor document. The syntax is
-        // still exposed (via createEmojiSyntax) for preview rendering.
-        trigger: {
+    // Trigger-only on the editor side (like the original showcase demo):
+    // glyph inserts are plain text, shortcode inserts stay raw source —
+    // neither needs an inline kind in the editor document. The syntax is
+    // still exposed (via createEmojiSyntax) for preview rendering.
+    const trigger: TriggerSpec & LynxTriggerExtras = {
             char: ':',
             ...(options?.debounce !== undefined ? { debounce: options.debounce } : {}),
             onQuery(query) {
@@ -148,19 +148,25 @@ export function createEmojiPlugin(options?: EmojiPluginOptions): MarkdownEditorP
                     : `${typeof item.glyph === 'string' ? item.glyph : ''} `;
                 // Trailing space = boundary, so the run doesn't re-trigger
                 // (see TriggerSelectApi.replaceQuery).
-                api.replaceQuery(text);
+                api.replaceQuery({ text, spans: [] });
             },
+    };
+    return {
+        name: 'emoji',
+        editor: {
+            triggers: [trigger],
+            ...(options?.onPickerRequest
+                ? {
+                    toolbar: [{
+                        id: 'emoji',
+                        label: '😊',
+                        icon: 'smile',
+                        group: 'insert',
+                        isEnabled: () => true,
+                        run: () => options.onPickerRequest!(),
+                    }],
+                }
+                : {}),
         },
-        ...(options?.onPickerRequest
-            ? {
-                toolbar: [{
-                    id: 'emoji',
-                    label: '😊',
-                    icon: 'smile',
-                    group: 'insert',
-                    run: () => options.onPickerRequest!(),
-                }],
-            }
-            : {}),
     };
 }

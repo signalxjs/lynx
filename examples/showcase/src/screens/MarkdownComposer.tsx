@@ -17,7 +17,6 @@ import {
     type MentionCandidate,
 } from '@sigx/lynx-markdown';
 import { MarkdownEditor, type MarkdownEditorController } from '@sigx/lynx-markdown/editor';
-import type { SelectionState } from '@sigx/lynx-richtext';
 
 /**
  * Markdown composer — the full chat-composer shape, assembled from the
@@ -75,7 +74,6 @@ const bubbleComponents = {
 export const MarkdownComposerScreen = component(() => {
     const editorTheme = useMarkdownEditorTheme();
     const messages = signal<Array<{ own: boolean; md: string }>>([...SEED]);
-    const selBox = signal<{ current: SelectionState | null }>({ current: null });
     const ctrlBox = signal<{ current: MarkdownEditorController | null }>({ current: null });
     const draftEmpty = signal(true);
 
@@ -137,9 +135,6 @@ export const MarkdownComposerScreen = component(() => {
                                 onChange={(md) => {
                                     draftEmpty.value = md.trim() === '';
                                 }}
-                                onSelectionChange={(sel: SelectionState) => {
-                                    selBox.current = sel;
-                                }}
                                 controllerRef={(ctrl) => {
                                     ctrlBox.current = ctrl;
                                 }}
@@ -152,10 +147,9 @@ export const MarkdownComposerScreen = component(() => {
                     {/* daisyUI EditorToolbar — below the input (the common
                         placement: iOS's selection handles + edit menu pop up
                         *above* the selection). Same ToolbarItem contract as
-                        the generic toolbar; active states from selection. */}
+                        the generic toolbar; active states from the editor. */}
                     <EditorToolbar
                         controller={ctrlBox.current}
-                        selection={selBox.current}
                         class="px-2 pb-2"
                     />
                 </Col>

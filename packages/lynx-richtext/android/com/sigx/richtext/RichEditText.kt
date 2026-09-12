@@ -137,6 +137,22 @@ class RichEditText(context: Context) : EditText(context) {
     }
 
     /**
+     * A `focus()` asked for before the view joined the window (a block
+     * editor focuses a field in the same transaction that creates it):
+     * `requestFocus` on a detached view does not reach the window, so it is
+     * replayed on attach.
+     */
+    var pendingFocus: (() -> Unit)? = null
+
+    override fun onAttachedToWindow() {
+        super.onAttachedToWindow()
+        pendingFocus?.let {
+            pendingFocus = null
+            post(it)
+        }
+    }
+
+    /**
      * Soft keyboards talk to the field through the input connection: Enter
      * arrives as `commitText("\n")` or a key event, Backspace as
      * `deleteSurroundingText(1, 0)` or a key event. In boundary mode the

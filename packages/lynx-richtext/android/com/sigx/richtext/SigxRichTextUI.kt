@@ -105,6 +105,14 @@ class SigxRichTextUI(context: LynxContext) : LynxUI<RichEditText>(context) {
             }
         })
 
+        // The value usually lands before the first layout, when there is no
+        // text layout yet and the content height reads as one line; report
+        // again once the view has a width (and whenever it changes — the
+        // text re-wraps). Height-only changes (our own feedback) are ignored.
+        view.addOnLayoutChangeListener { _, left, _, right, _, oldLeft, _, oldRight, _ ->
+            if (right - left != oldRight - oldLeft) reportHeightIfChanged()
+        }
+
         view.onSelectionChangedCallback = { start, end ->
             if (!isProgrammaticEdit) {
                 // A real caret move ends any pending collapsed-toggle session
@@ -671,6 +679,10 @@ class SigxRichTextUI(context: LynxContext) : LynxUI<RichEditText>(context) {
     // ── Helpers ──────────────────────────────────────────────────────────
 
     private fun focusAndShowIme() {
+        if (!mView.isAttachedToWindow) {
+            mView.pendingFocus = { focusAndShowIme() }
+            return
+        }
         mView.requestFocus()
         val imm = mView.context.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
         imm?.showSoftInput(mView, InputMethodManager.SHOW_IMPLICIT)

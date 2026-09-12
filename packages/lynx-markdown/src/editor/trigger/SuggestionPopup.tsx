@@ -25,7 +25,7 @@
 
 import { component, onUnmounted, watch, type Define, type ElementLayout, type JSXElement } from '@sigx/lynx';
 import { useKeyboard } from '@sigx/lynx-keyboard';
-import type { TriggerItem } from '../plugin.js';
+import type { TriggerItem } from '@sigx/markdown/editor';
 import { placeSuggestionPopup, screenHeightDp, type CaretRect } from './position.js';
 
 export type SuggestionRenderItem = (item: TriggerItem, active: boolean) => JSXElement;
