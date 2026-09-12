@@ -1029,11 +1029,11 @@ export class SigxRichTextElement extends HTMLElementBase {
    */
   private handleKeydown = (e: KeyboardEvent): void => {
     if (!this.boundaryKeysMode() || this.composing || e.isComposing || e.keyCode === 229) return;
-    const key = boundaryKeyFor(e, this.currentRange(), this.model.text.length, (edge) => this.caretOnEdgeLine(edge));
+    const { start, end } = this.currentRange();
+    const key = boundaryKeyFor(e, { start, end }, this.model.text.length, (edge) => this.caretOnEdgeLine(edge));
     if (!key) return;
     e.preventDefault();
     e.stopPropagation();
-    const { start, end } = this.currentRange();
     this.emit('boundarykey', { key, start, end });
   };
 
