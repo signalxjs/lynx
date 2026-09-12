@@ -965,6 +965,10 @@ importers:
         version: 4.1.7(@types/node@25.9.3)(@vitest/coverage-v8@4.1.7)(happy-dom@20.11.1)(vite@8.0.14(@types/node@25.9.3)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0))
 
   packages/lynx-markdown:
+    dependencies:
+      '@sigx/markdown':
+        specifier: ^0.1.0
+        version: 0.1.0(@sigx/reactivity@0.15.4)(@sigx/runtime-core@0.15.4)(@sigx/runtime-dom@0.15.3)
     devDependencies:
       '@sigx/lynx':
         specifier: workspace:^
@@ -2598,6 +2602,20 @@ packages:
   '@sigx/cli@0.10.0':
     resolution: {integrity: sha512-uJHNTJs1JGRO14Z1Azhr8e16xJhxj1xTA5nz5ZHbFM+mSv3/SJmYhmyoDaBu+2su5oVjki7FMrgXjTdRuceY6A==}
     hasBin: true
+
+  '@sigx/markdown@0.1.0':
+    resolution: {integrity: sha512-fevHXVXuu03/VGYp9FThrrzzN5S7qYsF03OqD7unSNZ+orC+pVTnj43fjK+KEBRJ+oUpyCOEmPW/8aPSv7TmeQ==}
+    engines: {node: ^20.19.0 || >=22.12.0}
+    peerDependencies:
+      '@sigx/reactivity': ^0.15.0
+      '@sigx/runtime-core': ^0.15.0
+      '@sigx/runtime-dom': ^0.15.0
+      shiki: '>=3.7.0'
+    peerDependenciesMeta:
+      '@sigx/runtime-dom':
+        optional: true
+      shiki:
+        optional: true
 
   '@sigx/reactivity@0.15.4':
     resolution: {integrity: sha512-KAV20yDlpXMCrmxG/DJpHDFStLbSloEfnrv0F7jEWHfhRCg+1zW2CoHvBBLpXGkRnfD8kj8d01TrfTK5h+Owlg==}
@@ -5574,6 +5592,13 @@ snapshots:
     dependencies:
       '@sigx/args': 0.12.0
       '@sigx/terminal': 0.12.0
+
+  '@sigx/markdown@0.1.0(@sigx/reactivity@0.15.4)(@sigx/runtime-core@0.15.4)(@sigx/runtime-dom@0.15.3)':
+    dependencies:
+      '@sigx/reactivity': 0.15.4
+      '@sigx/runtime-core': 0.15.4
+    optionalDependencies:
+      '@sigx/runtime-dom': 0.15.3
 
   '@sigx/reactivity@0.15.4': {}
 
