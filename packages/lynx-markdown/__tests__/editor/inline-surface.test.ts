@@ -8,12 +8,11 @@ import { createFakeRichText, type FakeRichText } from './fake-richtext';
 
 const handle = { id: 1 };
 
-function create(init: InlineSurfaceInit, boundaryKeys = true): { surface: LynxInlineSurface; fake: FakeRichText } {
+function create(init: InlineSurfaceInit): { surface: LynxInlineSurface; fake: FakeRichText } {
     const fake = createFakeRichText();
     const surface = createLynxInlineSurface(init, {
         handle: () => handle,
         commands: fake.commands,
-        boundaryKeys,
         onReadOnly: (ro) => {
             fake.editable = !ro;
         },
@@ -156,12 +155,28 @@ describe('LynxInlineSurface', () => {
 
     it('degrades on a build without boundary keys: a typed newline becomes Enter at its offset', () => {
         const log: string[] = [];
-        const { surface, fake } = create(init({ text: 'ab', spans: [{ start: 0, end: 2, type: 'strong' }] }, log), false);
+        const { surface, fake } = create(init({ text: 'ab', spans: [{ start: 0, end: 2, type: 'strong' }] }, log));
         surface.focus({ offset: 1 });
         fake.type('\n');
         expect(log.filter((l) => l.startsWith('boundary'))).toEqual(['boundary:Enter@1']);
         expect(fake.doc.text).toBe('ab');
         expect(surface.getFlat()).toEqual({ text: 'ab', spans: [{ start: 0, end: 2, type: 'strong' }] });
+    });
+
+    it('leaves a hard break the core wrote alone, but splits at a newline typed after it', () => {
+        const log: string[] = [];
+        const { surface, fake } = create(init({ text: 'a', spans: [] }, log));
+        // The core inserts a hard break (Shift-Enter): a `\n` in the flat is legitimate.
+        surface.setInline({ text: 'a\nb', spans: [] });
+        expect(fake.doc.text).toBe('a\nb');
+        surface.focus({ offset: 3 });
+        fake.type('c');
+        expect(log.filter((l) => l.startsWith('boundary'))).toEqual([]);
+        expect(surface.getFlat().text).toBe('a\nbc');
+        // A newline the user inserted (older native build) still splits — at its own offset.
+        fake.type('\n');
+        expect(log.filter((l) => l.startsWith('boundary'))).toEqual(['boundary:Enter@4']);
+        expect(fake.doc.text).toBe('a\nbc');
     });
 
     it('opens and closes a composition from the isComposing flag', () => {

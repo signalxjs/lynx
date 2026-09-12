@@ -7,9 +7,13 @@
  * it). Commands go through `RichTextMethods` (fire-and-forget); the state
  * reconciles on the next event. Boundary keys arrive through
  * `bindboundarykey` and become `boundary` events; a native build that
- * predates the event still works in degraded form — a `\n` that reaches a
- * change is stripped and reported as `Enter` at that offset, and the edge
- * deletes simply stay in-block.
+ * predates the event still works in degraded form — a `\n` the user
+ * inserted (one not already in the flat the core last wrote, so hard
+ * breaks are untouched) is stripped and reported as `Enter` at that
+ * offset, and the edge deletes simply stay in-block. There is no feature
+ * flag: in boundary-keys mode Return never inserts `\n`, so a new one can
+ * only come from an older native build (or a multi-line paste, which
+ * splitting serves just as well).
  *
  * IME: the element flags `isComposing` on every change; the first composing
  * change opens a composition (`compositionStart`), the first non-composing
@@ -33,8 +37,6 @@ export interface LynxInlineSurfaceOptions {
     /** The element handle (delivered by `onElement`; may be null before mount). */
     handle: () => RichTextHandle;
     commands?: RichTextCommands;
-    /** Whether the element reports boundary keys (a build with #1116). Default true; the degraded path covers false. */
-    boundaryKeys?: boolean;
     /** The view flips the element's `editable` prop here (`setReadOnly`). */
     onReadOnly?(readOnly: boolean): void;
 }
@@ -65,6 +67,11 @@ export interface LynxInlineSurface extends InlineSurface {
 /** Where the caret lands after a single-region edit from `prev` to `next` (null when the texts are equal). */
 function caretAfterEdit(prev: string, next: string): number | null {
     if (prev === next) return null;
+    return editedSpan(prev, next).endNext;
+}
+
+/** The `[start, endNext)` of `next` that differs from `prev` (common prefix / suffix trimmed). */
+function editedSpan(prev: string, next: string): { start: number; endNext: number } {
     let start = 0;
     while (start < prev.length && start < next.length && prev[start] === next[start]) start++;
     let endPrev = prev.length;
@@ -73,7 +80,15 @@ function caretAfterEdit(prev: string, next: string): number | null {
         endPrev--;
         endNext--;
     }
-    return endNext;
+    return { start, endNext };
+}
+
+/** The offset of the first `\n` the edit `prev → next` inserted, or -1 (a `\n` already in `prev` is a hard break). */
+function insertedNewline(prev: string, next: string): number {
+    if (prev === next) return -1;
+    const { start, endNext } = editedSpan(prev, next);
+    const nl = next.indexOf('\n', start);
+    return nl >= 0 && nl < endNext ? nl : -1;
 }
 
 export function createLynxInlineSurface(init: InlineSurfaceInit, opts: LynxInlineSurfaceOptions): LynxInlineSurface {
@@ -119,8 +134,8 @@ export function createLynxInlineSurface(init: InlineSurfaceInit, opts: LynxInlin
                 events.compositionStart();
             }
             // Degraded Enter: a build without boundary keys inserts the newline; split there.
-            const nl = opts.boundaryKeys === false ? flat.text.indexOf('\n') : -1;
-            if (nl >= 0 && !isComposing) {
+            const nl = isComposing ? -1 : insertedNewline(known.text, flat.text);
+            if (nl >= 0) {
                 const before = flat.text.slice(0, nl) + flat.text.slice(nl + 1);
                 flat = {
                     text: before,
