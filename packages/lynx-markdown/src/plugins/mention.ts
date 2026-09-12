@@ -112,7 +112,7 @@ export function createMentionPlugin(options: MentionPluginOptions): MarkdownEdit
                 toSpan(node: Mention) {
                     // The chip invariant: one U+FFFC in the text, label in attrs.
                     return {
-                        text: '￼',
+                        text: '\uFFFC',
                         span: {
                             type: 'mention',
                             attrs: { id: node.id, label: node.label },
