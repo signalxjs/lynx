@@ -52,6 +52,36 @@ RichTextMethods.setBlockType(el, 'heading', 2);
 RichTextMethods.insertText(el, '🎉');
 ```
 
+## Boundary keys (single-block mode)
+
+Block editors (`@sigx/markdown/editor`'s Lynx host in `@sigx/lynx-markdown`)
+run one `<sigx-richtext>` per paragraph and answer the keys that cross a
+block's edge themselves. Set `boundaryKeys` and those keys are reported
+through `onBoundaryKey` **instead of acted on** — everything else (typing,
+in-block deletes, arrows inside the text, IME) stays native:
+
+| `key` | reported when |
+|---|---|
+| `Enter` / `Shift-Enter` | always — Return never inserts `\n` in this mode |
+| `Backspace` | caret collapsed at offset 0 |
+| `Delete` | caret collapsed at the end |
+| `ArrowUp` / `ArrowDown` | caret on the first / last visual line (hardware keyboards) |
+| `ArrowLeft` / `ArrowRight` | caret collapsed at the start / end |
+| `Tab` / `Shift-Tab`, `Escape` | always |
+
+```tsx
+<RichTextInput
+  boundaryKeys
+  onBoundaryKey={({ key, start, end }) => {
+    if (key === 'Enter') splitBlockAt(start);
+    if (key === 'Backspace') joinWithPrevious();
+  }}
+/>
+```
+
+`start` / `end` are the selection when the key was pressed (UTF-16 offsets).
+Off by default; the event never fires without the prop.
+
 ## IME / echo contract
 
 1. Every user edit bumps the doc version; `bindchange` carries it.
@@ -122,6 +152,8 @@ Web differences from native:
   return key to relabel).
 - `SystemInfo`-derived layout comes from the `<lynx-view>`, not the display
   (see `@sigx/lynx-web-host`).
+- `boundary-keys` mode listens to `keydown` on the editable; the first/last
+  line test for the vertical arrows uses the caret's client rect.
 
 ## License
 

@@ -136,6 +136,38 @@ export interface RichTextFocusEvent {
     detail: Record<string, never>;
 }
 
+/**
+ * A key that crosses the element's boundary, reported in `boundary-keys` mode
+ * instead of being acted on: `Enter` / `Shift-Enter` always, `Backspace` with
+ * a collapsed caret at 0, `Delete` with a collapsed caret at the end,
+ * `ArrowUp` / `ArrowDown` on the first / last visual line, `ArrowLeft` /
+ * `ArrowRight` collapsed at the start / end, `Tab` / `Shift-Tab` and `Escape`
+ * always. Everything else stays native.
+ */
+export type RichTextBoundaryKey =
+    | 'Enter'
+    | 'Shift-Enter'
+    | 'Backspace'
+    | 'Delete'
+    | 'ArrowUp'
+    | 'ArrowDown'
+    | 'ArrowLeft'
+    | 'ArrowRight'
+    | 'Tab'
+    | 'Shift-Tab'
+    | 'Escape';
+
+/** `bindboundarykey` — only in `boundary-keys` mode; the element performed no default. */
+export interface RichTextBoundaryKeyEvent {
+    type: 'boundarykey';
+    detail: {
+        key: RichTextBoundaryKey;
+        /** The selection when the key was pressed (UTF-16 offsets). */
+        start: number;
+        end: number;
+    };
+}
+
 /** Parsed form of `bindselection`'s detail (after `activeFormats` is split). */
 export interface SelectionState {
     start: number;

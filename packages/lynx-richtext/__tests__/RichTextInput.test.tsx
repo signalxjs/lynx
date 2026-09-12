@@ -3,7 +3,7 @@ import { render } from '@sigx/lynx-testing';
 import { RichTextInput } from '../src/RichTextInput';
 import { RichTextMethods } from '../src/methods';
 import { encodeDoc, emptyDoc } from '../src/model/codec';
-import type { RichDoc, SelectionState } from '../src/model/types';
+import type { RichDoc, RichTextBoundaryKeyEvent, SelectionState } from '../src/model/types';
 
 const doc: RichDoc = {
     text: 'hi bold',
@@ -65,6 +65,22 @@ describe('RichTextInput', () => {
             headingLevel: 2,
             caretRect: { x: 10, y: 20, height: 18 },
         });
+    });
+
+    it('maps boundaryKeys to the boundary-keys attr and bindboundarykey to onBoundaryKey', () => {
+        const seen: RichTextBoundaryKeyEvent['detail'][] = [];
+        const { container } = render(<RichTextInput boundaryKeys onBoundaryKey={(e) => seen.push(e)} />);
+        const el = container.findByType('sigx-richtext')!;
+        expect(el.props['boundary-keys']).toBe(true);
+        el._handlers.get('bindboundarykey')!({ type: 'boundarykey', detail: { key: 'Enter', start: 2, end: 2 } });
+        el._handlers.get('bindboundarykey')!({ type: 'boundarykey', detail: { key: 'Backspace', start: 0, end: 0 } });
+        expect(seen).toEqual([
+            { key: 'Enter', start: 2, end: 2 },
+            { key: 'Backspace', start: 0, end: 0 },
+        ]);
+        // Off by default.
+        const plain = render(<RichTextInput />).container.findByType('sigx-richtext')!;
+        expect(plain.props['boundary-keys']).toBeUndefined();
     });
 
     it('delivers the element handle via onElement', () => {

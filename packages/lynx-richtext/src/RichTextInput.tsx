@@ -18,6 +18,7 @@ import type {
     BlockAttrType,
     InlineSpanType,
     RichDoc,
+    RichTextBoundaryKeyEvent,
     RichTextChangeEvent,
     RichTextHeightChangeEvent,
     RichTextSelectionEvent,
@@ -37,6 +38,8 @@ export type RichTextInputProps =
     & Define.Prop<'placeholderColor', string, false>
     & Define.Prop<'confirmType', 'send' | 'search' | 'next' | 'go' | 'done', false>
     & Define.Prop<'autoFocus', boolean, false>
+    /** Single-block mode: boundary keys are reported through `onBoundaryKey` instead of acted on. */
+    & Define.Prop<'boundaryKeys', boolean, false>
     & Define.Prop<'class', string, false>
     & Define.Prop<'style', string | Record<string, string | number>, false>
     /** Receives the BG element handle for {@link RichTextMethods} commands. */
@@ -45,7 +48,8 @@ export type RichTextInputProps =
     & Define.Prop<'onSelection', (sel: SelectionState) => void, false>
     & Define.Prop<'onHeightChange', (height: number, lines: number) => void, false>
     & Define.Prop<'onFocus', () => void, false>
-    & Define.Prop<'onBlur', () => void, false>;
+    & Define.Prop<'onBlur', () => void, false>
+    & Define.Prop<'onBoundaryKey', (e: RichTextBoundaryKeyEvent['detail']) => void, false>;
 
 export const RichTextInput = component<RichTextInputProps>(({ props }) => {
     const handleChange = (e: RichTextChangeEvent): void => {
@@ -68,6 +72,11 @@ export const RichTextInput = component<RichTextInputProps>(({ props }) => {
         props.onHeightChange?.(e.detail.height, e.detail.lines);
     };
 
+    const handleBoundaryKey = (e: RichTextBoundaryKeyEvent): void => {
+        const { key, start, end } = e.detail;
+        props.onBoundaryKey?.({ key, start, end });
+    };
+
     return () => (
         <sigx-richtext
             ref={(el: RichTextHandle) => props.onElement?.(el)}
@@ -82,6 +91,7 @@ export const RichTextInput = component<RichTextInputProps>(({ props }) => {
             placeholder-color={props.placeholderColor}
             confirm-type={props.confirmType}
             auto-focus={props.autoFocus}
+            boundary-keys={props.boundaryKeys}
             class={props.class}
             style={props.style}
             bindchange={handleChange}
@@ -89,6 +99,7 @@ export const RichTextInput = component<RichTextInputProps>(({ props }) => {
             bindheightchange={handleHeight}
             bindfocus={() => props.onFocus?.()}
             bindblur={() => props.onBlur?.()}
+            bindboundarykey={handleBoundaryKey}
         />
     );
 });

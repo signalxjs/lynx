@@ -33,6 +33,7 @@ import { PinchRotateDemo } from './screens/gestures/PinchRotateDemo.js';
 import { Markdown } from './screens/Markdown.js';
 import { MarkdownEditorScreen } from './screens/MarkdownEditor.js';
 import { MarkdownComposerScreen } from './screens/MarkdownComposer.js';
+import { RichTextBoundaryKeysScreen } from './screens/RichTextBoundaryKeys.js';
 import { TextApis } from './screens/TextApis.js';
 // Input & Keyboard
 import { Keyboard } from './screens/Keyboard.js';
@@ -128,6 +129,7 @@ export const routes = defineRoutes({
     // Modal: the composer's keyboard lift math assumes the bar sits on the
     // bottom inset (same caveat as `keyboard` below).
     markdownComposer: { component: MarkdownComposerScreen, path: '/markdown-composer', presentation: 'modal' },
+    richTextBoundaryKeys: { component: RichTextBoundaryKeysScreen, path: '/richtext-boundary-keys' },
     textApis: { component: TextApis, path: '/text-apis' },
 
     // Input & Keyboard — modal so no extra chrome sits below the sticky bar;

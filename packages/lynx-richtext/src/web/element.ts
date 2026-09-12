@@ -23,12 +23,14 @@
  *
  * - Attributes: `value` (JSON `RichDoc`, initial-only), `placeholder`,
  *   `editable`, `min-height`, `max-height`, `editor-font-size`, `text-color`,
- *   `accent-color`, `placeholder-color`, `confirm-type`, `auto-focus`.
+ *   `accent-color`, `placeholder-color`, `confirm-type`, `auto-focus`,
+ *   `boundary-keys`.
  * - Events (`CustomEvent`, bubbles/composed): `change` `{doc,isComposing}`,
  *   `selection` `{start,end,activeFormats,activeBlock,headingLevel?,caretX,caretY,caretHeight}`,
- *   `heightchange` `{height,lines}`, and `lynxfocus`/`lynxblur` — NOT `focus`/
- *   `blur`: web-core's event binding maps the Lynx `focus`/`blur` events to the
- *   DOM `lynxfocus`/`lynxblur` names (see web-elements' `renameEvent`).
+ *   `heightchange` `{height,lines}`, `boundarykey` `{key,start,end}` (only in
+ *   `boundary-keys` mode; see `RichTextBoundaryKey`), and `lynxfocus`/`lynxblur`
+ *   — NOT `focus`/`blur`: web-core's event binding maps the Lynx `focus`/`blur`
+ *   events to the DOM `lynxfocus`/`lynxblur` names (see web-elements' `renameEvent`).
  * - UI methods (web-core calls `element[method](params)`): `setDocument`,
  *   `toggleFormat`, `setBlockType`, `applyFormat`, `insertText`,
  *   `setSelectionRange`, `insertChip`, `focus`, `blur`.
@@ -358,6 +360,55 @@ function styleBlock(el: HTMLElement, type: BlockAttrType): void {
  * a child without an explicit block type is a paragraph. Mentions collapse to a
  * single U+FFFC; simple inline wrappers and links become spans.
  */
+/** The subset of a keydown event the boundary-key rules need. */
+export interface BoundaryKeyInput {
+  key: string;
+  shiftKey?: boolean;
+  ctrlKey?: boolean;
+  metaKey?: boolean;
+  altKey?: boolean;
+}
+
+/**
+ * The `boundarykey` a keydown maps to in `boundary-keys` mode, or `null` when
+ * the element keeps the key. `onEdgeLine` answers whether the caret is on the
+ * first / last visual line (arrows). The same table lives in the native
+ * implementations — keep them in step.
+ */
+export function boundaryKeyFor(
+  e: BoundaryKeyInput,
+  range: { start: number; end: number },
+  length: number,
+  onEdgeLine: (edge: 'first' | 'last') => boolean,
+): string | null {
+  const mod = !!e.ctrlKey || !!e.metaKey;
+  const collapsed = range.start === range.end;
+  switch (e.key) {
+    case 'Enter':
+      if (e.altKey || mod) return null;
+      return e.shiftKey ? 'Shift-Enter' : 'Enter';
+    case 'Backspace':
+      return collapsed && range.start === 0 && !e.altKey && !mod ? 'Backspace' : null;
+    case 'Delete':
+      return collapsed && range.start === length && !e.altKey && !mod ? 'Delete' : null;
+    case 'ArrowUp':
+    case 'ArrowDown':
+      if (e.altKey || mod || e.shiftKey) return null;
+      return onEdgeLine(e.key === 'ArrowUp' ? 'first' : 'last') ? e.key : null;
+    case 'ArrowLeft':
+      return collapsed && range.start === 0 && !e.altKey && !mod && !e.shiftKey ? 'ArrowLeft' : null;
+    case 'ArrowRight':
+      return collapsed && range.start === length && !e.altKey && !mod && !e.shiftKey ? 'ArrowRight' : null;
+    case 'Tab':
+      if (e.altKey || mod) return null;
+      return e.shiftKey ? 'Shift-Tab' : 'Tab';
+    case 'Escape':
+      return 'Escape';
+    default:
+      return null;
+  }
+}
+
 export function readDoc(root: HTMLElement, version: number): RichDoc {
   const blockEls = blockChildren(root);
   let text = '';
@@ -869,6 +920,7 @@ export class SigxRichTextElement extends HTMLElementBase {
     this.editRoot.addEventListener('focus', this.handleFocus);
     this.editRoot.addEventListener('blur', this.handleBlur);
     this.editRoot.addEventListener('paste', this.handlePaste);
+    this.editRoot.addEventListener('keydown', this.handleKeydown);
 
     if (this.getAttribute('auto-focus') === '' || this.getAttribute('auto-focus') === 'true') {
       this.focusEditor();
@@ -970,6 +1022,39 @@ export class SigxRichTextElement extends HTMLElementBase {
   private handleBlur = (): void => {
     this.emit('lynxblur', {});
   };
+
+  /**
+   * `boundary-keys` mode: the keys a block editor answers itself are reported
+   * as `boundarykey` and not acted on. Mirrors the native rules exactly.
+   */
+  private handleKeydown = (e: KeyboardEvent): void => {
+    if (!this.boundaryKeysMode() || this.composing || e.isComposing || e.keyCode === 229) return;
+    const { start, end } = this.currentRange();
+    const key = boundaryKeyFor(e, { start, end }, this.model.text.length, (edge) => this.caretOnEdgeLine(edge));
+    if (!key) return;
+    e.preventDefault();
+    e.stopPropagation();
+    this.emit('boundarykey', { key, start, end });
+  };
+
+  private boundaryKeysMode(): boolean {
+    const v = this.getAttribute('boundary-keys');
+    return v === '' || v === 'true';
+  }
+
+  /** Whether the caret sits on the first / last visual line (true when geometry is unavailable). */
+  private caretOnEdgeLine(edge: 'first' | 'last'): boolean {
+    const sel = this.selectionScope().getSelection();
+    if (!sel || sel.rangeCount === 0) return true;
+    const range = sel.getRangeAt(0).cloneRange();
+    range.collapse(false);
+    const rects = range.getClientRects();
+    const host = this.editRoot.getBoundingClientRect();
+    if (!rects.length || host.height === 0) return true;
+    const caret = rects[0];
+    const tolerance = Math.max(2, caret.height / 2);
+    return edge === 'first' ? caret.top - (host.top + EDIT_PADDING_Y) < tolerance : host.bottom - EDIT_PADDING_Y - caret.bottom < tolerance;
+  }
 
   private handlePaste = (e: ClipboardEvent): void => {
     // Phase 1: paste as plain text — the safest normalization (no arbitrary

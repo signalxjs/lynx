@@ -4,6 +4,15 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 ## [Unreleased]
 
+### Added
+
+- **`@sigx/lynx-richtext`: `boundary-keys` mode — the keys that cross a block's edge are reported, not acted on** ([#1116](https://github.com/signalxjs/lynx/issues/1116); for the block-tree editor host of `@sigx/markdown/editor`, roadmap [signalxjs/markdown#6](https://github.com/signalxjs/markdown/issues/6)). `<RichTextInput boundaryKeys onBoundaryKey>` (`boundary-keys` attribute, `bindboundarykey` event, `RichTextBoundaryKey` / `RichTextBoundaryKeyEvent` types): `Enter` / `Shift-Enter` always (Return never inserts `\n` in this mode), `Backspace` collapsed at 0, `Delete` collapsed at the end, `ArrowUp` / `ArrowDown` on the first / last visual line, `ArrowLeft` / `ArrowRight` at the edges, `Tab` / `Shift-Tab` and `Escape` — with `{ key, start, end }`. iOS (`deleteBackward`, `pressesBegan`, the delegate's Return), Android (an `InputConnectionWrapper` for soft keyboards plus `onKeyDown` for hardware ones) and the web element (`keydown`) share one table. Off by default. The showcase has a "Rich text: boundary keys" screen.
+
+### Fixed
+
+- **`@sigx/lynx-richtext`: Android now emits `focus` / `blur`** ([#1116](https://github.com/signalxjs/lynx/issues/1116)). iOS and the web element always did; `RichTextInput`'s `onFocus` / `onBlur` never fired on Android.
+- **`@sigx/lynx-richtext`: release builds keep the native classes** ([#1116](https://github.com/signalxjs/lynx/issues/1116)). The module now ships an R8 keep rule (`-keep class com.sigx.richtext.** { *; }`) through `signalx-module.json` `android.proguardRules`; `sigx run:android --release` used to strip the `@LynxProp` setters and method handlers. Run `sigx prebuild` after upgrading.
+
 ## [0.29.0] - 2026-09-12
 
 ### Changed
