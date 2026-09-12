@@ -124,6 +124,18 @@ class RichEditText(context: Context) : EditText(context) {
         return super.onKeyUp(keyCode, event)
     }
 
+    // A consumed DOWN whose UP lands elsewhere (blur or detach mid-press)
+    // must not swallow a later, unrelated UP of the same key.
+    override fun onFocusChanged(focused: Boolean, direction: Int, previouslyFocusedRect: android.graphics.Rect?) {
+        if (!focused) consumedKeys.clear()
+        super.onFocusChanged(focused, direction, previouslyFocusedRect)
+    }
+
+    override fun onDetachedFromWindow() {
+        consumedKeys.clear()
+        super.onDetachedFromWindow()
+    }
+
     /**
      * Soft keyboards talk to the field through the input connection: Enter
      * arrives as `commitText("\n")` or a key event, Backspace as

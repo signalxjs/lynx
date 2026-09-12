@@ -73,7 +73,7 @@ describe('RichTextInput', () => {
         const el = container.findByType('sigx-richtext')!;
         expect(el.props['boundary-keys']).toBe(true);
         el._handlers.get('bindboundarykey')!({ type: 'boundarykey', detail: { key: 'Enter', start: 2, end: 2 } });
-        el._handlers.get('bindboundarykey')!({ type: 'boundarykey', detail: { key: 'Backspace', start: 0 } });
+        el._handlers.get('bindboundarykey')!({ type: 'boundarykey', detail: { key: 'Backspace', start: 0, end: 0 } });
         expect(seen).toEqual([
             { key: 'Enter', start: 2, end: 2 },
             { key: 'Backspace', start: 0, end: 0 },

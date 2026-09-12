@@ -73,8 +73,8 @@ export const RichTextInput = component<RichTextInputProps>(({ props }) => {
     };
 
     const handleBoundaryKey = (e: RichTextBoundaryKeyEvent): void => {
-        const d = e.detail;
-        props.onBoundaryKey?.({ key: d.key, start: d.start ?? 0, end: d.end ?? d.start ?? 0 });
+        const { key, start, end } = e.detail;
+        props.onBoundaryKey?.({ key, start, end });
     };
 
     return () => (
