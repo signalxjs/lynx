@@ -1,6 +1,6 @@
 {
     "name": "@sigx/lynx-plugin",
-    "version": "0.28.0",
+    "version": "0.29.0",
     "description": "Rspack/Rspeedy plugin for SignalX Lynx dual-thread rendering",
     "type": "module",
     "sideEffects": false,

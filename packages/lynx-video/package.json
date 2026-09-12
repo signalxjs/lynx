@@ -1,6 +1,6 @@
 {
     "name": "@sigx/lynx-video",
-    "version": "0.28.0",
+    "version": "0.29.0",
     "description": "Native video player component for sigx-lynx (AVPlayer on iOS, ExoPlayer on Android).",
     "type": "module",
     "sideEffects": false,

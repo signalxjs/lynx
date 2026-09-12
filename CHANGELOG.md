@@ -4,6 +4,8 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 ## [Unreleased]
 
+## [0.29.0] - 2026-09-12
+
 ### Changed
 
 - **`@sigx/lynx-markdown` consumes `@sigx/markdown` — the parser, the streaming controller and the render engine moved upstream, and the AST is mdast** ([#1112](https://github.com/signalxjs/lynx/issues/1112), part of [#891](https://github.com/signalxjs/lynx/issues/891); roadmap [signalxjs/markdown#6](https://github.com/signalxjs/markdown/issues/6)). The incremental parser, `createMarkdownStream` and the platform-neutral render engine that lived in `packages/lynx-markdown/src/{parser,stream.ts,render/engine.tsx}` are now the renderer-free core of [`@sigx/markdown`](https://github.com/signalxjs/markdown) (a regular dependency of `@sigx/lynx-markdown`; its `@sigx/reactivity` / `@sigx/runtime-core` peers resolve to the copies `@sigx/lynx` already carries), so web chat UI and Lynx share one parser and one set of stable-block semantics. `@sigx/lynx-markdown` keeps `<MarkdownView>` (now a thin adapter: one `createIncrementalEngine({ plugins })` per instance, `renderDocument()` over a Lynx component map), `defaultComponents`, the editor subpath and the editor half of the mention plugin, and re-exports `createMarkdownStream`, `createIncrementalEngine`, `parseMarkdown`, `renderDocument`, `mentionSyntax`, `mentionPlugin` and **every `@sigx/markdown` type** (`export type *`), so `@sigx/lynx-daisyui` and `@sigx/lynx-emoji` keep a single pin.
