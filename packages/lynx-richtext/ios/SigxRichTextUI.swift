@@ -76,6 +76,10 @@ public class SigxRichTextUI: LynxUI<RichTextView> {
         view.textContainerInset = UIEdgeInsets(top: 8, left: 0, bottom: 8, right: 0)
         view.onCheckboxToggle = { [weak self] paragraph in self?.toggleTask(at: paragraph) }
         view.onBoundaryKey = { [weak self] key, range in self?.fireBoundaryKey(key, range: range) }
+        // The value usually lands before the first layout, when the content
+        // height is measured against the screen width; report again once the
+        // view has its real width (and whenever it changes — the text re-wraps).
+        view.onWidthChange = { [weak self] in self?.reportHeightIfChanged() }
         return view
     }
 
@@ -622,7 +626,7 @@ public class SigxRichTextUI: LynxUI<RichTextView> {
 
     @objc public func focus(_ params: NSDictionary?, withResult callback: @escaping LynxUIMethodCallbackBlock) {
         DispatchQueue.main.async {
-            self.view().becomeFirstResponder()
+            self.view().focusWhenAttached()
             callback(SigxRichTextUI.kUIMethodSuccess, nil)
         }
     }

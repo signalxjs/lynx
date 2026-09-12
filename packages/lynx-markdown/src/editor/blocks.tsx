@@ -128,8 +128,11 @@ export const InlineBlock = component<InlineBlockProps>(({ props, onUnmounted, si
         if (view.focusedKey() === null && tr.meta.origin === 'external') return;
         const current = surface.getSelection();
         if (surface.focused && current && current.start === range.start && current.end === range.end) return;
-        surface.focus();
-        surface.setSelection(range);
+        // Focus straight at the wanted caret: a target-less `focus()` on a
+        // surface that has not reported a selection yet lands at the end,
+        // and on device the element answers that before the range below.
+        surface.focus({ offset: range.start });
+        if (range.end !== range.start) surface.setSelection(range);
     };
 
     const stop = editor.listen((tr, state) => {

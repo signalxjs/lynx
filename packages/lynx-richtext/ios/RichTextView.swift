@@ -29,6 +29,30 @@ public final class RichTextView: UITextView, UIGestureRecognizerDelegate {
     public var boundaryKeys = false
     /// Fired in `boundaryKeys` mode with the key name and the selection at the time.
     var onBoundaryKey: ((String, NSRange) -> Void)?
+    /// The view was laid out at a new width (the text re-wraps; content height may change).
+    var onWidthChange: (() -> Void)?
+    private var lastLayoutWidth: CGFloat = -1
+    /// A `focus()` asked for before the view joined a window is replayed on attach
+    /// (`becomeFirstResponder` is refused off-window; a block editor focuses a
+    /// field in the same transaction that creates it).
+    private var pendingFocus = false
+
+    /// `becomeFirstResponder`, deferred until the view is in a window.
+    func focusWhenAttached() {
+        if window != nil {
+            becomeFirstResponder()
+        } else {
+            pendingFocus = true
+        }
+    }
+
+    public override func didMoveToWindow() {
+        super.didMoveToWindow()
+        if window != nil, pendingFocus {
+            pendingFocus = false
+            DispatchQueue.main.async { [weak self] in self?.becomeFirstResponder() }
+        }
+    }
 
     /// Tap landed on a task line's checkbox gutter — the line's paragraph
     /// range (the checkbox itself is draw-only; see `SigxLayoutManager`).
@@ -272,6 +296,10 @@ public final class RichTextView: UITextView, UIGestureRecognizerDelegate {
             width: width,
             height: placeholderLabel.font?.lineHeight ?? 20
         )
+        if bounds.width != lastLayoutWidth {
+            lastLayoutWidth = bounds.width
+            onWidthChange?()
+        }
     }
 
     private func refreshPlaceholder() {

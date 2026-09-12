@@ -106,6 +106,17 @@ let placeholderEl: MainThreadElement | null = null;
 let pendingFlushOptions: FlushElementTreeOptions | undefined;
 
 /**
+ * Elements CREATEd in the batch being applied. A UI method invoked on one of
+ * them in the same batch (a block editor focuses the field it just split off
+ * — `ref` fires before the flush) has no native UI to land on yet:
+ * `__InvokeUIMethod` refuses synchronously and the fire-and-forget path
+ * swallows it. Such invokes are parked and replayed right after the flush
+ * that creates their UI (#1117).
+ */
+const createdThisBatch = new Set<number>();
+let deferredInvokes: Array<() => void> = [];
+
+/**
  * Hand the next tail flush a native options bag. Kept out of `applyOps`'
  * signature deliberately — that export is pinned to `(ops: unknown[]) => void`
  * by `__tests__/public-surface.test.ts` because it is the stable BG → MT wire
@@ -229,6 +240,7 @@ export function applyOps(ops: unknown[]): void {
     }
   }
 
+  createdThisBatch.clear();
   let i = 0;
 
   while (i < len) {
@@ -238,6 +250,7 @@ export function applyOps(ops: unknown[]): void {
       case OP.CREATE: {
         const id = ops[i++] as number;
         const type = ops[i++] as string;
+        createdThisBatch.add(id);
         let el: MainThreadElement;
         if (type === '__comment') {
           el = __CreateRawText('');
@@ -380,9 +393,15 @@ export function applyOps(ops: unknown[]): void {
         // synchronously instead of reporting via the callback, so one bad
         // invoke can't abort the rest of the ops batch.
         if (el && typeof __InvokeUIMethod === 'function') {
-          try {
-            __InvokeUIMethod(el, method, params, () => { /* fire-and-forget */ });
-          } catch { /* swallow — see above */ }
+          const run = (): void => {
+            try {
+              __InvokeUIMethod(el, method, params, () => { /* fire-and-forget */ });
+            } catch { /* swallow — see above */ }
+          };
+          // An element created in this very batch has no UI until the tail
+          // flush — replay after it (see `createdThisBatch`).
+          if (createdThisBatch.has(id)) deferredInvokes.push(run);
+          else run();
         }
         break;
       }
@@ -789,6 +808,16 @@ export function applyOps(ops: unknown[]): void {
   } else {
     __FlushElementTree();
   }
+
+  // UI methods on elements this batch created: their UI exists now. A
+  // second flush delivers them (an invoke rides the next flush, as upstream's
+  // `Element.invoke` does with its own `flushElementTree()`).
+  if (deferredInvokes.length > 0) {
+    const runs = deferredInvokes;
+    deferredInvokes = [];
+    for (const run of runs) run();
+    __FlushElementTree();
+  }
 }
 
 /**
@@ -897,6 +926,8 @@ export function resetMainThreadState(): void {
   // post-reload batch would mis-attribute it. renderPage re-seeds it after
   // calling this.
   pendingFlushOptions = undefined;
+  createdThisBatch.clear();
+  deferredInvokes = [];
   // Also defined in this module's imports — reset worklet state
   resetWorkletEvents();
   resetSlotStates();
