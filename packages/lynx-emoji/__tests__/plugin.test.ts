@@ -1,10 +1,14 @@
 import { describe, it, expect, vi } from 'vitest';
+import type { InlineMatchContext } from '@sigx/lynx-markdown';
 import type { TriggerSelectApi } from '@sigx/lynx-markdown/editor';
 import {
     createEmojiPlugin,
     createEmojiSyntax,
-    emojiExtensionComponent,
+    emojiComponent,
 } from '../src/markdown/index';
+
+/** A bare match context — no positions, no nested inline parsing. */
+const ctx: InlineMatchContext = { parseInline: () => [], position: () => undefined };
 
 function selectApi(): TriggerSelectApi {
     return {
@@ -17,25 +21,28 @@ function selectApi(): TriggerSelectApi {
 describe('createEmojiSyntax', () => {
     const syntax = createEmojiSyntax();
 
-    it('matches a known :shortcode: and resolves the glyph', () => {
-        const m = syntax.match('go :joy: now', 3);
-        expect(m).toMatchObject({
-            node: { type: 'extension', name: 'emoji', attrs: { name: 'joy', glyph: '😂' }, raw: ':joy:' },
-            end: 8,
-        });
+    it('matches a known :shortcode: into an emoji node carrying the glyph', () => {
+        const m = syntax.match('go :joy: now', 3, ctx);
+        expect(m).toEqual({ node: { type: 'emoji', name: 'joy', glyph: '😂' }, end: 8 });
+    });
+
+    it('records the source position when the parser offers one', () => {
+        const position = { start: { line: 1, column: 4, offset: 3 }, end: { line: 1, column: 9, offset: 8 } };
+        const m = syntax.match('go :joy: now', 3, { ...ctx, position: () => position });
+        expect(m!.node.position).toBe(position);
     });
 
     it('stays literal on partial tails and unknown shortcodes', () => {
-        expect(syntax.match(':jo', 0)).toBeNull();
-        expect(syntax.match(':definitely_not_an_emoji:', 0)).toBeNull();
-        expect(syntax.match('plain text', 0)).toBeNull();
+        expect(syntax.match(':jo', 0, ctx)).toBeNull();
+        expect(syntax.match(':definitely_not_an_emoji:', 0, ctx)).toBeNull();
+        expect(syntax.match('plain text', 0, ctx)).toBeNull();
     });
 });
 
-describe('emojiExtensionComponent', () => {
-    it('renders the glyph, falling back to the raw shortcode', () => {
-        expect(emojiExtensionComponent({ attrs: { name: 'joy', glyph: '😂' }, children: [] } as never)).toBe('😂');
-        expect(emojiExtensionComponent({ attrs: { name: 'joy' }, children: [] } as never)).toBe(':joy:');
+describe('emojiComponent', () => {
+    it('renders the glyph, falling back to the shortcode', () => {
+        expect(emojiComponent({ node: { type: 'emoji', name: 'joy', glyph: '😂' } })).toBe('😂');
+        expect(emojiComponent({ node: { type: 'emoji', name: 'joy', glyph: '' } })).toBe(':joy:');
     });
 });
 

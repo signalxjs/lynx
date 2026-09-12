@@ -41,7 +41,7 @@ import {
     type EmojiTab,
 } from '@sigx/lynx-emoji';
 import { List } from '@sigx/lynx-list';
-import { createMentionPlugin, MarkdownView, mentionSyntax, type MentionCandidate } from '@sigx/lynx-markdown';
+import { createMentionPlugin, MarkdownView, mentionPlugin, type Mention, type MentionCandidate } from '@sigx/lynx-markdown';
 import { MarkdownEditor, type MarkdownEditorController } from '@sigx/lynx-markdown/editor';
 
 interface Msg {
@@ -158,20 +158,19 @@ const MENTIONS: MentionCandidate[] = [
  * coordinates would flip the list below the caret and hide it behind the
  * keyboard.
  */
-const mentionPlugin = createMentionPlugin({
+const mentionEditorPlugin = createMentionPlugin({
     search: (q) => MENTIONS.filter((u) => u.label.toLowerCase().startsWith(q.toLowerCase())),
 });
 
-// A sent message carries `@[label](id)` — render it as a chip rather than raw
-// source, the same mapping the Markdown composer uses for its bubbles.
+// A sent message carries `@[label](id)` — render the `mention` node as a chip
+// rather than raw source, the same mapping the Markdown composer uses for its
+// bubbles.
+const bubblePlugins = [mentionPlugin];
 const bubbleComponents = {
     ...markdownComponents,
-    extension: {
-        ...markdownComponents.extension,
-        mention: ({ attrs }: { attrs: Record<string, string> }) => (
-            <text class="bg-base-100 text-primary rounded px-1 font-semibold">@{attrs.label}</text>
-        ),
-    },
+    mention: ({ node }: { node: Mention }) => (
+        <text class="bg-base-100 text-primary rounded px-1 font-semibold">@{node.label}</text>
+    ),
 };
 
 /**
@@ -558,7 +557,7 @@ export const EmojiComposerScreen = component(() => {
                                 }
                             >
                                 {m.body.includes('@[')
-                                    ? <MarkdownView value={m.body} extensions={[mentionSyntax]} components={bubbleComponents} />
+                                    ? <MarkdownView value={m.body} plugins={bubblePlugins} components={bubbleComponents} />
                                     : <Text>{m.body}</Text>}
                             </Col>
                         </view>
@@ -623,7 +622,7 @@ export const EmojiComposerScreen = component(() => {
                                                 // over the emojis (BUG 1). Re-enabled in `closing`
                                                 // (the tap-to-return path focuses it on purpose).
                                                 disabled={mode === 'open'}
-                                                plugins={[mentionPlugin]}
+                                                plugins={[mentionEditorPlugin]}
                                                 suggestionPopup={editorTheme.suggestionPopup}
                                                 textColor={editorTheme.textColor}
                                                 accentColor={editorTheme.accentColor}

@@ -1,7 +1,29 @@
 import { describe, it, expect } from 'vitest';
 import { normalizeDoc, type RichDoc } from '@sigx/lynx-richtext';
+import type { InlineSyntaxExtension, MarkdownPlugin, Position } from '@sigx/markdown';
 import { mdToDoc } from '../src/editor/convert/mdToDoc';
 import { docToMd } from '../src/editor/convert/docToMd';
+
+/** The reference mention shape (#157): @[label](id) <-> a 'mention' span. */
+interface TestMention {
+    type: 'mention';
+    id: string;
+    label: string;
+    position?: Position;
+}
+const testMentionSyntax: InlineSyntaxExtension<TestMention> = {
+    name: 'mention',
+    triggerChars: ['@'],
+    match(text, pos, ctx) {
+        const m = /^@\[([^\]\n]+)\]\(([^)\n]+)\)/.exec(text.slice(pos));
+        if (!m) return null;
+        const node: TestMention = { type: 'mention', label: m[1], id: m[2] };
+        const position = ctx.position(pos, pos + m[0].length);
+        if (position) node.position = position;
+        return { node, end: pos + m[0].length };
+    },
+};
+const testMentionPlugin: MarkdownPlugin = { name: 'mention', inline: [testMentionSyntax] };
 
 /** The round-trip invariant: doc-level idempotence after one normalization. */
 function roundTrip(doc: RichDoc): RichDoc {
@@ -403,34 +425,16 @@ function coverage(doc: RichDoc, type: string): Array<[number, number]> {
 }
 
 // ---------------------------------------------------------------------------
-// Plugin inline mapping (P3): extension node ↔ editor span ↔ markdown
+// Plugin inline mapping (P3): plugin node ↔ editor span ↔ markdown
 // ---------------------------------------------------------------------------
 
 describe('plugin inline mapping', () => {
-    // The reference mention shape (#157): @[label](id) ↔ a 'mention' span.
-    const mentionSyntax = {
-        name: 'mention',
-        triggerChars: ['@'] as const,
-        match(text: string, pos: number) {
-            const m = /^@\[([^\]\n]+)\]\(([^)\n]+)\)/.exec(text.slice(pos));
-            if (!m) return null;
-            return {
-                node: {
-                    type: 'extension' as const,
-                    name: 'mention',
-                    attrs: { label: m[1], id: m[2] },
-                    raw: m[0],
-                },
-                end: pos + m[0].length,
-            };
-        },
-    };
     const inOpts = {
-        extensions: [mentionSyntax],
+        plugins: [testMentionPlugin],
         spanMappers: {
-            mention: (node: { attrs: Record<string, string> }) => ({
-                text: node.attrs.label,
-                span: { type: 'mention' as const, attrs: { id: node.attrs.id, label: node.attrs.label } },
+            mention: (node: TestMention) => ({
+                text: node.label,
+                span: { type: 'mention' as const, attrs: { id: node.id, label: node.label } },
             }),
         },
     };
@@ -462,8 +466,8 @@ describe('plugin inline mapping', () => {
         expect(docToMd(doc, outOpts)).toBe(md);
     });
 
-    it('keeps the block raw when no mapper handles the extension', () => {
-        const doc = mdToDoc('ping @[Andy](u1)!', 0, { extensions: inOpts.extensions });
+    it('keeps the block raw when no mapper handles the plugin node', () => {
+        const doc = mdToDoc('ping @[Andy](u1)!', 0, { plugins: inOpts.plugins });
         expect(doc.blocks).toEqual([{ start: 0, end: 17, type: 'raw' }]);
         expect(doc.text).toBe('ping @[Andy](u1)!');
         // Raw blocks serialize byte-for-byte even without plugin serializers.
@@ -477,22 +481,9 @@ describe('plugin inline mapping', () => {
 });
 
 describe('plugin mapper hardening', () => {
-    const syntax = {
-        name: 'mention',
-        triggerChars: ['@'] as const,
-        match(text: string, pos: number) {
-            const m = /^@\[([^\]\n]+)\]\(([^)\n]+)\)/.exec(text.slice(pos));
-            if (!m) return null;
-            return {
-                node: { type: 'extension' as const, name: 'mention', attrs: { label: m[1], id: m[2] }, raw: m[0] },
-                end: pos + m[0].length,
-            };
-        },
-    };
-
     it('treats a throwing mapper as not representable (raw block, no crash)', () => {
         const doc = mdToDoc('hi @[Andy](u1)', 0, {
-            extensions: [syntax],
+            plugins: [testMentionPlugin],
             spanMappers: {
                 mention: () => {
                     throw new Error('plugin bug');
@@ -508,12 +499,12 @@ describe('plugin mapper hardening', () => {
         // the source text must survive instead of being dropped.
         let calls = 0;
         const doc = mdToDoc('hi @[Andy](u1)', 0, {
-            extensions: [syntax],
+            plugins: [testMentionPlugin],
             spanMappers: {
-                mention: (node) => {
+                mention: (node: TestMention) => {
                     calls++;
                     if (calls > 1) throw new Error('impure');
-                    return { text: node.attrs.label, span: { type: 'mention' } };
+                    return { text: node.label, span: { type: 'mention' } };
                 },
             },
         });

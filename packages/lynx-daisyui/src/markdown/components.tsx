@@ -2,11 +2,11 @@
  * daisyUI rendering for `@sigx/lynx-markdown`.
  *
  * `@sigx/lynx-markdown` is design-system-agnostic: `<MarkdownView>` walks the
- * markdown AST and calls a {@link MarkdownComponents} render function per node
- * type. This module supplies the daisyUI mapping — headings → `<Heading>`, text
- * → `<Text>`, layout → `<Col>`/`<Row>`, themed surfaces/borders via daisyUI
- * utility classes — so markdown output matches the rest of the design system and
- * follows the active theme.
+ * `@sigx/markdown` (mdast) tree and calls a {@link MarkdownComponents} render
+ * function per node type. This module supplies the daisyUI mapping — headings →
+ * `<Heading>`, text → `<Text>`, layout → `<Col>`/`<Row>`, themed
+ * surfaces/borders via daisyUI utility classes — so markdown output matches the
+ * rest of the design system and follows the active theme.
  *
  * The class literals live here in `@sigx/lynx-daisyui/src`, so the app's Tailwind
  * `content` glob (which already scans this package) generates them; and daisyUI's
@@ -24,7 +24,8 @@
  * ```
  */
 
-import type { MarkdownComponents } from '@sigx/lynx-markdown';
+import type { JSXElement } from '@sigx/lynx';
+import type { LynxImageProps, MarkdownComponents } from '@sigx/lynx-markdown';
 import { Heading } from '../typography/Heading.js';
 import { Text } from '../typography/Text.js';
 import { Col, Row } from '@sigx/lynx-zero-legacy';
@@ -36,10 +37,10 @@ function alignClass(align: 'left' | 'center' | 'right' | null): string {
     return align === 'center' ? 'text-center' : align === 'right' ? 'text-right' : 'text-left';
 }
 
-export const markdownComponents: MarkdownComponents = {
+export const markdownComponents: MarkdownComponents<JSXElement> = {
     root: ({ children }) => <Col gap={12}>{children}</Col>,
 
-    heading: ({ level, children }) => <Heading level={level}>{children}</Heading>,
+    heading: ({ depth, children }) => <Heading level={depth}>{children}</Heading>,
 
     paragraph: ({ children }) => <Text class="leading-relaxed">{children}</Text>,
 
@@ -107,24 +108,25 @@ export const markdownComponents: MarkdownComponents = {
         </view>
     ),
 
+    // Raw HTML has no Lynx sink — show it as literal text.
+    html: ({ value }) => <Text class="leading-relaxed">{value}</Text>,
+
+    // A soft line break is `\n` inside mdast text; `<text>` would render it as a
+    // real break, so it joins as a space (the CommonMark rendering).
+    text: ({ value }) => (value.includes('\n') ? value.replace(/\n/g, ' ') : value),
     strong: ({ children }) => <text class="font-bold">{children}</text>,
-    em: ({ children }) => <text class="italic">{children}</text>,
-    del: ({ children }) => <text class="line-through opacity-80">{children}</text>,
-    codeSpan: ({ value }) => <text class="font-mono text-sm bg-base-200 rounded px-1">{value}</text>,
-    link: ({ href, children, onLink }) => (
-        <text class="text-primary underline" bindtap={() => onLink?.(href)}>
+    emphasis: ({ children }) => <text class="italic">{children}</text>,
+    delete: ({ children }) => <text class="line-through opacity-80">{children}</text>,
+    inlineCode: ({ value }) => <text class="font-mono text-sm bg-base-200 rounded px-1">{value}</text>,
+    link: ({ url, children, onLink, node }) => (
+        <text class="text-primary underline" bindtap={() => onLink?.(url, node)}>
             {children}
         </text>
     ),
-    autolink: ({ href, value, onLink }) => (
-        <text class="text-primary underline" bindtap={() => onLink?.(href)}>
-            {value}
+    image: ({ url, alt, onImageTap }: LynxImageProps) => (
+        <text class="text-primary underline" bindtap={() => onImageTap?.(url)}>
+            {alt || url}
         </text>
     ),
-    image: ({ src, alt, onImageTap }) => (
-        <text class="text-primary underline" bindtap={() => onImageTap?.(src)}>
-            {alt || src}
-        </text>
-    ),
-    br: () => '\n',
+    break: () => '\n',
 };

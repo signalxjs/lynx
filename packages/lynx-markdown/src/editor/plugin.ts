@@ -2,10 +2,11 @@
  * The `MarkdownEditor` plugin contract — the P3 pluggability layer. Another
  * project adds e.g. mention support without touching this package:
  *
- * - `inline` teaches the **parser** the syntax (a {@link ParserInlineExtension}),
- *   the **editor field** how to model it (`docMapping`: AST node → editor span)
- *   and how to write it back out (`serialize`: span → markdown), and optionally
- *   the **preview** how to render it (`component`).
+ * - `inline` teaches the **parser** the syntax (an `@sigx/markdown`
+ *   {@link InlineSyntaxExtension}), the **editor field** how to model it
+ *   (`docMapping`: AST node → editor span) and how to write it back out
+ *   (`serialize`: span → markdown), and optionally the **preview** how to
+ *   render it (`component`).
  * - `trigger` opens a suggestion session on a trigger char (`@`, `:`), feeds it
  *   query results, and inserts the selection.
  * - `toolbar` contributes {@link ToolbarItem}s to the built-in toolbar.
@@ -16,9 +17,8 @@
 
 import type { JSXElement } from '@sigx/lynx';
 import type { InlineSpan } from '@sigx/lynx-richtext';
-import type { InlineExtension } from '../ast.js';
-import type { ParserInlineExtension } from '../parser/extensions.js';
-import type { ExtensionProps, MarkdownChild } from '../render/components.js';
+import type { InlineSyntaxExtension, Node } from '@sigx/markdown';
+import type { LynxMarkdownChild } from '../render/components.js';
 import type { ToolbarItem } from './toolbar/items.js';
 import type { MarkdownEditorController } from './MarkdownEditor.js';
 
@@ -31,14 +31,20 @@ export interface MarkdownEditorPlugin {
     toolbar?: ToolbarItem[];
 }
 
-export interface InlinePluginSpec {
-    /** The parser extension that recognizes this construct in markdown source. */
-    syntax: ParserInlineExtension;
+/**
+ * `N` is the node the syntax produces (e.g. `Mention`). The editor routes
+ * `docMapping.toSpan` by **node type**, which must equal `syntax.name`
+ * (`mentionSyntax.name === 'mention'` produces `{ type: 'mention' }`).
+ */
+export interface InlinePluginSpec<N extends Node = Node> {
+    /** The `@sigx/markdown` inline extension that recognizes this construct in markdown source. */
+    syntax: InlineSyntaxExtension<N>;
     /**
-     * Preview renderer (the `components.extension[syntax.name]` slot). Optional —
-     * without it, `MarkdownView` falls back to the node's `raw` source as text.
+     * Preview renderer (the `components[syntax.name]` slot of `MarkdownView`).
+     * Optional — without it, the view falls back to the plugin's serialize
+     * rule (or the node's children) as text.
      */
-    component?: (props: ExtensionProps) => MarkdownChild;
+    component?(props: { node: N; children: LynxMarkdownChild[] }): LynxMarkdownChild;
     /**
      * doc → markdown: serialize one plugin-owned span back to markdown source.
      * Receives the span and the text it covers in the editor field. Emitted
@@ -55,11 +61,11 @@ export interface InlinePluginSpec {
          */
         spanType: InlineSpan['type'];
         /**
-         * markdown → doc: map a parsed extension node to the text the field
+         * markdown → doc: map a parsed plugin node to the text the field
          * should display plus the span carrying its data. Return `null` to keep
          * the surrounding block as a raw (source-edited) block instead.
          */
-        toSpan(node: InlineExtension): { text: string; span: Omit<InlineSpan, 'start' | 'end'> } | null;
+        toSpan(node: N): { text: string; span: Omit<InlineSpan, 'start' | 'end'> } | null;
     };
 }
 

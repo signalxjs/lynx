@@ -9,19 +9,19 @@
  *  - **trigger**: typing `:` opens the suggestion popup against the full
  *    dataset (same ranking as the picker's search). Selecting inserts the
  *    glyph itself by default (`insert: 'shortcode'` keeps `:smile:` text).
- *  - **syntax + component**: `:shortcode:` parses to an `emoji` extension
- *    node and previews as the glyph — wire into `MarkdownView` with
- *    `extensions={[plugin.inline!.syntax]}` …or `createEmojiSyntax()` —
- *    and `components={{ extension: { emoji: emojiExtensionComponent } }}`.
- *    (Relevant for shortcode mode and for *parsing* messages that carry
- *    shortcodes; glyph mode output is plain text and needs neither.)
+ *  - **syntax + component**: `:shortcode:` parses to an `emoji` node
+ *    (`{ type: 'emoji', name, glyph }`) and previews as the glyph — wire into
+ *    `MarkdownView` with `plugins={[{ name: 'emoji', inline: [createEmojiSyntax()] }]}`
+ *    and `components={{ emoji: emojiComponent }}`. (Relevant for shortcode
+ *    mode and for *parsing* messages that carry shortcodes; glyph mode
+ *    output is plain text and needs neither.)
  *  - **toolbar** (optional): pass `onPickerRequest` to add a 😊 button that
  *    asks the app to open a picker surface (`KeyboardPanelPicker` /
  *    a sheet picker) — the editor doesn't own that UI.
  */
 
 import type { JSXElement } from '@sigx/lynx';
-import type { ExtensionProps, ParserInlineExtension } from '@sigx/lynx-markdown';
+import type { InlineSyntaxExtension, Position } from '@sigx/lynx-markdown';
 import type { MarkdownEditorPlugin, TriggerItem } from '@sigx/lynx-markdown/editor';
 import { data as enData } from '../data/en.gen.js';
 import type { EmojiData, EmojiDatum } from '../data/schema.js';
@@ -50,6 +50,25 @@ export interface EmojiPluginOptions {
     onPickerRequest?(): void;
 }
 
+/**
+ * The `:shortcode:` node `createEmojiSyntax` produces. Register it in your
+ * app to type it as phrasing content and its `components.emoji` slot:
+ *
+ * ```ts
+ * declare module '@sigx/markdown' {
+ *   interface PhrasingContentMap { emoji: EmojiNode }
+ * }
+ * ```
+ */
+export interface EmojiNode {
+    type: 'emoji';
+    /** The shortcode as written (without the colons). */
+    name: string;
+    /** The resolved glyph. */
+    glyph: string;
+    position?: Position;
+}
+
 const SHORTCODE_RE = /^:([a-z0-9_+-]+):/;
 const DEFAULT_LIMIT = 8;
 
@@ -64,31 +83,31 @@ function shortcodeMap(data: EmojiData): Map<string, EmojiDatum> {
 }
 
 /**
- * The `:shortcode:` parser extension. Streaming-safe like the mention
- * syntax: a partial tail (`:smi`) or an unknown shortcode stays literal
- * text. The matched node carries the resolved glyph in `attrs.glyph`.
+ * The `:shortcode:` inline syntax. Streaming-safe like the mention syntax: a
+ * partial tail (`:smi`) or an unknown shortcode stays literal text. The
+ * matched node carries the resolved glyph.
  */
-export function createEmojiSyntax(data: EmojiData = enData): ParserInlineExtension {
+export function createEmojiSyntax(data: EmojiData = enData): InlineSyntaxExtension<EmojiNode> {
     const byShortcode = shortcodeMap(data);
     return {
         name: 'emoji',
         triggerChars: [':'],
-        match(text, pos) {
+        match(text, pos, ctx) {
             const m = SHORTCODE_RE.exec(text.slice(pos));
             if (!m) return null;
             const datum = byShortcode.get(m[1]);
             if (!datum) return null;
-            return {
-                node: { type: 'extension', name: 'emoji', attrs: { name: m[1], glyph: datum.e }, raw: m[0] },
-                end: pos + m[0].length,
-            };
+            const node: EmojiNode = { type: 'emoji', name: m[1], glyph: datum.e };
+            const position = ctx.position(pos, pos + m[0].length);
+            if (position) node.position = position;
+            return { node, end: pos + m[0].length };
         },
     };
 }
 
-/** Preview renderer for the `emoji` extension node (`MarkdownView` slot). */
-export function emojiExtensionComponent({ attrs }: ExtensionProps): string {
-    return attrs.glyph ?? `:${attrs.name ?? ''}:`;
+/** Preview renderer for the `emoji` node (`MarkdownView`'s `components.emoji` slot). */
+export function emojiComponent({ node }: { node: EmojiNode }): string {
+    return node.glyph || `:${node.name}:`;
 }
 
 export function createEmojiPlugin(options?: EmojiPluginOptions): MarkdownEditorPlugin {

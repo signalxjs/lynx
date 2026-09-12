@@ -1,17 +1,18 @@
 /**
  * `<MarkdownView>` — a SignalX-native, streaming-aware markdown renderer.
  *
- * Parses markdown in JS (zero dependencies) and renders to Lynx primitives, so
- * it works identically on every platform. For an editable counterpart, see
- * `MarkdownEditor`.
+ * A thin adapter over `@sigx/markdown`: its incremental engine parses the
+ * reactive `value` into an mdast tree, and its platform-neutral render engine
+ * walks that tree through a Lynx {@link LynxMarkdownComponents} map, so the
+ * same parser and the same stable-block semantics drive Lynx, the DOM and any
+ * other renderer. For an editable counterpart, see `MarkdownEditor`.
  *
  * Rendering is **generic**: the package ships neutral, theme-agnostic defaults
  * and exposes a `components` map so any design system can fully control the look
- * (e.g. `@sigx/lynx-daisyui`'s `markdownComponents`). See
- * {@link MarkdownComponents}.
+ * (e.g. `@sigx/lynx-daisyui`'s `markdownComponents`).
  *
  * The `value` prop is reactive: as it grows (e.g. driven by an AI token loop via
- * {@link createMarkdownStream}), finalized blocks keep a stable identity and are
+ * `createMarkdownStream`), finalized blocks keep a stable identity and are
  * never re-parsed or remounted, so completed content does not flicker or reflow.
  *
  * @example
@@ -23,45 +24,68 @@
  * ```
  */
 
-import { component, computed, type Define } from '@sigx/lynx';
-import type { ParserInlineExtension } from '../parser/extensions.js';
-import { createIncrementalEngine } from '../parser/incremental.js';
-import { defaultComponents, type MarkdownComponents } from './components.js';
-import { renderDocument, type RenderContext } from './engine.js';
+import { component, computed, type Define, type JSXElement } from '@sigx/lynx';
+import {
+    createIncrementalEngine,
+    renderDocument,
+    resolvePlugins,
+    type LinkHandler,
+    type MarkdownPlugin,
+    type RenderContext,
+} from '@sigx/markdown';
+import { defaultComponents, type LynxImageProps, type LynxMarkdownComponents } from './components.js';
 
 export type MarkdownViewProps =
     & Define.Prop<'value', string, false>
-    & Define.Prop<'onLink', (href: string) => void, false>
-    & Define.Prop<'onImageTap', (src: string) => void, false>
-    & Define.Prop<'components', Partial<MarkdownComponents>, false>
+    /** A link was tapped. Receives the sanitised URL and the `link` node. */
+    & Define.Prop<'onLink', LinkHandler, false>
+    /** An image was tapped (the default `image` renders as a tappable label). */
+    & Define.Prop<'onImageTap', (url: string) => void, false>
+    /** Per-node-type render overrides; unspecified slots fall back to `defaultComponents`. */
+    & Define.Prop<'components', Partial<LynxMarkdownComponents>, false>
     /**
-     * Plugin inline extensions (see {@link ParserInlineExtension}). Pass a
-     * stable array (e.g. a module constant) — changing its identity resets
-     * the incremental parse state and re-parses from scratch.
+     * `@sigx/markdown` plugins (inline/block syntax, serializer rules — see
+     * `MarkdownPlugin`). A plugin node renders through `components[node.type]`
+     * (e.g. `components.mention`). Pass a stable array (e.g. a module
+     * constant) — changing its identity resets the incremental parse state
+     * and re-parses from scratch.
      */
-    & Define.Prop<'extensions', readonly ParserInlineExtension[], false>;
+    & Define.Prop<'plugins', readonly MarkdownPlugin[], false>;
 
 export const MarkdownView = component<MarkdownViewProps>(({ props }) => {
-    // The engine captures its extensions at construction; recreate it if the
-    // extensions prop changes identity (rare — normally a stable constant).
-    let engine = createIncrementalEngine({ extensions: props.extensions });
-    let lastExtensions = props.extensions;
-    const blocks = computed(() => {
-        if (props.extensions !== lastExtensions) {
-            lastExtensions = props.extensions;
-            engine = createIncrementalEngine({ extensions: lastExtensions });
+    // The engine captures its plugins at construction; recreate it if the
+    // plugins prop changes identity (rare — normally a stable constant).
+    let plugins = props.plugins;
+    let engine = createIncrementalEngine({ plugins });
+    let resolved = resolvePlugins(plugins);
+    const root = computed(() => {
+        if (props.plugins !== plugins) {
+            plugins = props.plugins;
+            engine = createIncrementalEngine({ plugins });
+            resolved = resolvePlugins(plugins);
         }
         return engine.parse(props.value ?? '');
     });
 
     return () => {
-        const ctx: RenderContext = {
-            components: props.components
-                ? { ...defaultComponents, ...props.components }
-                : defaultComponents,
+        const tree = root.value; // read first: it may swap `resolved`
+        const base: LynxMarkdownComponents = props.components
+            ? { ...defaultComponents, ...props.components }
+            : defaultComponents;
+        // The engine's `image` props carry no tap handler — thread the view's
+        // `onImageTap` into the slot so the Lynx renderer can offer one.
+        const onImageTap = props.onImageTap;
+        const ctx: RenderContext<JSXElement> = {
+            components: {
+                ...base,
+                image: (p) => {
+                    const lynxProps: LynxImageProps = { ...p, onImageTap };
+                    return base.image(lynxProps);
+                },
+            },
+            plugins: resolved,
             onLink: props.onLink,
-            onImageTap: props.onImageTap,
         };
-        return renderDocument(blocks.value, ctx);
+        return renderDocument(tree, ctx);
     };
 });

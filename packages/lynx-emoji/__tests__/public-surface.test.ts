@@ -77,7 +77,7 @@ describe('public runtime exports', () => {
         expect(Object.keys(markdown).sort()).toEqual([
             'createEmojiPlugin',
             'createEmojiSyntax',
-            'emojiExtensionComponent',
+            'emojiComponent',
         ].sort());
     });
 

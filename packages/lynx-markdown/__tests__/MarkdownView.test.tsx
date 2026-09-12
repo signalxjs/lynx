@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { render, fireEvent, waitForUpdate } from '@sigx/lynx-testing';
 import { component, signal } from '@sigx/lynx';
 import { MarkdownView } from '../src/render/MarkdownView';
-import type { ParserInlineExtension } from '../src/parser/extensions';
+import { mentionPlugin, type Mention, type MarkdownPlugin } from '../src/index';
 
 describe('MarkdownView (default components)', () => {
     it('renders the root as a flex column container', () => {
@@ -63,6 +63,38 @@ describe('MarkdownView (default components)', () => {
         fireEvent.tap(link!);
         expect(linked).toBe('http://example.com');
     });
+
+    it('sanitises link URLs at render time', () => {
+        let linked = '';
+        const { container } = render(
+            <MarkdownView value="[x](javascript:alert(1))" onLink={(h) => { linked = h; }} />,
+        );
+        const link = container.findAllByType('text').find((t) => t._handlers.has('bindtap'));
+        fireEvent.tap(link!);
+        expect(linked).toBe('#');
+    });
+
+    it('fires onImageTap with the image URL', () => {
+        let tapped = '';
+        const { container } = render(
+            <MarkdownView value="![pic](http://x/i.png)" onImageTap={(u) => { tapped = u; }} />,
+        );
+        const img = container.findAllByType('text').find((t) => t._handlers.has('bindtap'));
+        expect(img!.findByText('pic')).toBeTruthy();
+        fireEvent.tap(img!);
+        expect(tapped).toBe('http://x/i.png');
+    });
+
+    it('joins soft line breaks with a space (no literal newline reaches <text>)', () => {
+        const { container } = render(<MarkdownView value={'line one\nline two'} />);
+        expect(container.findByText('line one line two')).toBeTruthy();
+    });
+
+    it('renders a hard break as a newline', () => {
+        const { container } = render(<MarkdownView value={'line one  \nline two'} />);
+        const para = container.findAllByType('text')[0];
+        expect(para.findByText('\n')).toBeTruthy();
+    });
 });
 
 describe('MarkdownView (component overrides)', () => {
@@ -91,29 +123,14 @@ describe('MarkdownView (component overrides)', () => {
     });
 });
 
-describe('MarkdownView (inline extensions)', () => {
-    const mention: ParserInlineExtension = {
-        name: 'mention',
-        triggerChars: ['@'],
-        match(text, pos) {
-            const m = /^@\[([^\]\n]+)\]\(([^)\n]+)\)/.exec(text.slice(pos));
-            if (!m) return null;
-            return {
-                node: { type: 'extension', name: 'mention', attrs: { label: m[1], id: m[2] }, raw: m[0] },
-                end: pos + m[0].length,
-            };
-        },
-    };
-
-    it('dispatches to components.extension[name] with attrs', () => {
+describe('MarkdownView (plugins)', () => {
+    it('dispatches a plugin node to components[node.type]', () => {
         const { container } = render(
             <MarkdownView
                 value="hi @[Andy](u1)"
-                extensions={[mention]}
+                plugins={[mentionPlugin]}
                 components={{
-                    extension: {
-                        mention: ({ attrs }) => <text class="mention">@{attrs.label}</text>,
-                    },
+                    mention: ({ node }: { node: Mention }) => <text class="mention">@{node.label}</text>,
                 }}
             />,
         );
@@ -122,11 +139,28 @@ describe('MarkdownView (inline extensions)', () => {
         expect(chip!.findByText('Andy')).toBeTruthy();
     });
 
-    it('falls back to the raw source as text when no renderer is registered', () => {
+    it("falls back to the plugin's serialize rule as text when no renderer is registered", () => {
         const { container } = render(
-            <MarkdownView value="hi @[Andy](u1)" extensions={[mention]} />,
+            <MarkdownView value="hi @[Andy](u1)" plugins={[mentionPlugin]} />,
         );
         expect(container.findByText('@[Andy](u1)')).toBeTruthy();
+    });
+
+    it('re-parses from scratch when the plugins prop changes identity', async () => {
+        const plugins = signal<{ current: readonly MarkdownPlugin[] }>({ current: [] });
+        const Wrap = component(() => () => (
+            <MarkdownView value="hi @[Andy](u1)" plugins={plugins.current} />
+        ));
+        const { container } = render(<Wrap />);
+        // Without the plugin, `[Andy](u1)` is an ordinary inline link.
+        expect(container.findByText('hi @')).toBeTruthy();
+        expect(container.findAllByType('text').some((t) => t._handlers.has('bindtap'))).toBe(true);
+
+        plugins.current = [mentionPlugin];
+        await waitForUpdate();
+        // Parsed as a mention now (no renderer → the serialize-rule text); the link is gone.
+        expect(container.findByText('@[Andy](u1)')).toBeTruthy();
+        expect(container.findAllByType('text').some((t) => t._handlers.has('bindtap'))).toBe(false);
     });
 });
 

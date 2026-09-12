@@ -71,8 +71,9 @@ export interface MarkdownEditorController {
     /**
      * Insert or wrap a link. Non-empty selection → the selection becomes the
      * link text; collapsed → `text` (or the href itself) is inserted and
-     * linked. The href is trusted as-is (parse-side `sanitizeHref` and the
-     * serializer's destination escaping are the safety nets); offsets come
+     * linked. The href is trusted as-is (`mdToDoc`'s `sanitizeUrl` on the
+     * way in, the render engine's on the way out, and the serializer's
+     * destination escaping are the safety nets); offsets come
      * from the last selection event — same fire-and-forget assumption as
      * `replaceRange`. No-op before the first selection event (the caret
      * position is unknown).
@@ -217,7 +218,9 @@ export const MarkdownEditor = component<MarkdownEditorProps>(({ props }) => {
     );
     const convertIn: MdToDocOptions | undefined = inlinePlugins.length
         ? {
-            extensions: inlinePlugins.map((p) => p.inline!.syntax),
+            // One `@sigx/markdown` plugin per editor plugin carrying its syntax.
+            plugins: inlinePlugins.map((p) => ({ name: p.name, inline: [p.inline!.syntax] })),
+            // Mappers route by node type, which the contract pins to `syntax.name`.
             spanMappers: Object.fromEntries(
                 inlinePlugins.map((p) => [p.inline!.syntax.name, p.inline!.docMapping.toSpan]),
             ),

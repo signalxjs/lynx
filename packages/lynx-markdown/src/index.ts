@@ -1,57 +1,29 @@
-// Primary: the SignalX-native streaming renderer. (An editable `MarkdownEditor`
-// is planned as a sibling export.)
+// Primary: the SignalX-native streaming renderer — a Lynx adapter over
+// `@sigx/markdown`'s incremental parser and platform-neutral render engine.
 export { MarkdownView } from './render/MarkdownView.js';
 export type { MarkdownViewProps } from './render/MarkdownView.js';
 
-// Generic render-function override API (design systems plug in here).
+// The Lynx component map (design systems plug in here). The slot contract is
+// `@sigx/markdown`'s `MarkdownComponents<E>` with `E` = a Lynx JSXElement.
 export { defaultComponents } from './render/components.js';
-export type {
-    MarkdownComponents,
-    MarkdownChild,
-    RootProps,
-    HeadingProps,
-    ParagraphProps,
-    BlockquoteProps,
-    ListProps,
-    ListItemProps,
-    CodeProps,
-    ThematicBreakProps,
-    TableProps,
-    TableRowProps,
-    TableCellProps,
-    StrongProps,
-    EmProps,
-    DelProps,
-    CodeSpanProps,
-    LinkProps,
-    AutolinkProps,
-    ImageProps,
-    ExtensionProps,
-} from './render/components.js';
+export type { LynxMarkdownComponents, LynxMarkdownChild, LynxImageProps } from './render/components.js';
 
 // The true-WYSIWYG editor surface lives on the `@sigx/lynx-markdown/editor`
 // subpath (#177): `MarkdownEditor` / `SuggestionPopup` statically import the
 // optional `@sigx/lynx-richtext` / `@sigx/lynx-keyboard` peers, and
 // re-exporting them here would make those peers required at module-link time
 // for every consumer - including renderer-only ones. This root entry carries
-// no runtime peer imports.
+// no runtime peer imports beyond `@sigx/lynx` and `@sigx/markdown`.
 
-// Reference plugins.
-export { createMentionPlugin, mentionSyntax } from './plugins/mention.js';
-export type { MentionPluginOptions, MentionCandidate } from './plugins/mention.js';
+// Reference plugin: the editor half here, the syntax/serializer half from
+// `@sigx/markdown` (re-exported so a Lynx app keeps a single import).
+export { createMentionPlugin, mentionPlugin, mentionSyntax } from './plugins/mention.js';
+export type { MentionPluginOptions, MentionCandidate, MentionComponentProps } from './plugins/mention.js';
 
-// Streaming controller for AI token loops.
-export { createMarkdownStream } from './stream.js';
-export type { MarkdownStream, CreateMarkdownStreamOptions } from './stream.js';
-
-// Parser primitives (for advanced consumers / testing).
-export { createIncrementalEngine } from './parser/incremental.js';
-export type { IncrementalEngine, IncrementalEngineOptions } from './parser/incremental.js';
-export { parseBlocks } from './parser/blocks.js';
-export { parseInline } from './parser/inline.js';
-
-// Parser inline-extension API (plugins add inline constructs here).
-export type { ParserInlineExtension } from './parser/extensions.js';
-
-// AST node types.
-export type * from './ast.js';
+// `@sigx/markdown` primitives a Lynx app reaches for: the streaming controller
+// for AI token loops, the parser/engine, and the render engine for advanced
+// consumers. Everything else (the serializer, `visit`, `sliceSource`, …) is one
+// `@sigx/markdown` import away; its types are all re-exported below so
+// `@sigx/lynx-daisyui` / `@sigx/lynx-emoji` keep a single pin.
+export { createMarkdownStream, createIncrementalEngine, parseMarkdown, renderDocument } from '@sigx/markdown';
+export type * from '@sigx/markdown';

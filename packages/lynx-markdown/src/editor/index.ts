@@ -22,7 +22,7 @@ export { defaultToolbarItems } from './toolbar/items.js';
 export type { ToolbarItem, ToolbarContext } from './toolbar/items.js';
 
 export { mdToDoc } from './convert/mdToDoc.js';
-export type { MdToDocOptions, ExtensionSpanMapper } from './convert/mdToDoc.js';
+export type { MdToDocOptions, PluginSpanMapper, PluginSpanMappers } from './convert/mdToDoc.js';
 export { docToMd } from './convert/docToMd.js';
 export type { DocToMdOptions, SpanSerializer } from './convert/docToMd.js';
 

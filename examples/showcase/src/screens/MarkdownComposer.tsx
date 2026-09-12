@@ -12,7 +12,8 @@ import { KeyboardAvoidingView, KeyboardStickyView } from '@sigx/lynx-keyboard';
 import {
     createMentionPlugin,
     MarkdownView,
-    mentionSyntax,
+    mentionPlugin,
+    type Mention,
     type MentionCandidate,
 } from '@sigx/lynx-markdown';
 import { MarkdownEditor, type MarkdownEditorController } from '@sigx/lynx-markdown/editor';
@@ -33,7 +34,8 @@ import type { SelectionState } from '@sigx/lynx-richtext';
  *  • Type `@` for mentions: the suggestion popup is themed via
  *    `useMarkdownEditorTheme().suggestionPopup` and — because the composer is
  *    docked at the bottom — `SuggestionPopup` flips it *up* above the caret.
- *    Sent messages render their `@[label](id)` chips via `mentionSyntax`.
+ *    Sent messages render their `@[label](id)` chips via `mentionPlugin`
+ *    (the `@sigx/markdown` syntax) and a `components.mention` renderer.
  *
  * Presented as a modal (same caveat as the Keyboard demo: the lift math assumes
  * the bar sits directly above the bottom safe-area inset — on a tab screen,
@@ -54,22 +56,20 @@ const USERS: MentionCandidate[] = [
     { id: 'team-core', label: 'core-team', kind: 'team' },
 ];
 
-const mentionPlugin = createMentionPlugin({
+const mentionEditorPlugin = createMentionPlugin({
     search: (q) => USERS.filter((u) => u.label.toLowerCase().startsWith(q.toLowerCase())),
 });
 
-// Sent bubbles carry `@[label](id)`; render the chip via the mention
-// extension. A themed pill (its own `base-100` surface) so it follows the
-// active theme and stays legible inside both the `bg-primary` (own) and
-// `bg-base-200` (other) bubbles.
+// Sent bubbles carry `@[label](id)`; render the `mention` node as a chip
+// through the `components.mention` slot. A themed pill (its own `base-100`
+// surface) so it follows the active theme and stays legible inside both the
+// `bg-primary` (own) and `bg-base-200` (other) bubbles.
+const bubblePlugins = [mentionPlugin];
 const bubbleComponents = {
     ...markdownComponents,
-    extension: {
-        ...markdownComponents.extension,
-        mention: ({ attrs }: { attrs: Record<string, string> }) => (
-            <text class="bg-base-100 text-primary rounded px-1 font-semibold">@{attrs.label}</text>
-        ),
-    },
+    mention: ({ node }: { node: Mention }) => (
+        <text class="bg-base-100 text-primary rounded px-1 font-semibold">@{node.label}</text>
+    ),
 };
 
 export const MarkdownComposerScreen = component(() => {
@@ -108,7 +108,7 @@ export const MarkdownComposerScreen = component(() => {
                         {messages.map((m) => (
                             <Row justify={m.own ? 'flex-end' : 'flex-start'} class="px-1">
                                 <view class={`rounded-2xl px-3 py-2 max-w-[85%] ${m.own ? 'bg-primary' : 'bg-base-200'}`}>
-                                    <MarkdownView value={m.md} extensions={[mentionSyntax]} components={bubbleComponents} />
+                                    <MarkdownView value={m.md} plugins={bubblePlugins} components={bubbleComponents} />
                                 </view>
                             </Row>
                         ))}
@@ -133,7 +133,7 @@ export const MarkdownComposerScreen = component(() => {
                                 accentColor={editorTheme.accentColor}
                                 placeholderColor={editorTheme.placeholderColor}
                                 suggestionPopup={editorTheme.suggestionPopup}
-                                plugins={[mentionPlugin]}
+                                plugins={[mentionEditorPlugin]}
                                 onChange={(md) => {
                                     draftEmpty.value = md.trim() === '';
                                 }}
