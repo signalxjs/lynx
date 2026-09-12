@@ -68,6 +68,10 @@ export const InlineBlock = component<InlineBlockProps>(({ props, onUnmounted, si
     let handle: RichTextHandle = null;
     let lastNode: EditorBlock = toRaw(props.block);
     const editable = signal({ value: !view.readOnly() });
+    // Lynx sizes views from styles, never from native intrinsic content: the
+    // element reports its content height and the block feeds it back as the
+    // element's layout height (auto-grow).
+    const reported = signal({ height: 0 });
     // The field's frame anchors the popup against the keyboard: the measured
     // viewport rect wins (transform-aware, #755), the layout event is the
     // first-paint fallback and the "something moved, re-measure" signal.
@@ -158,6 +162,7 @@ export const InlineBlock = component<InlineBlockProps>(({ props, onUnmounted, si
         const mine = !!session && session.key === key && view.popup() && session.items.length > 0 && !!frame();
         if (mine && !measured.value) measure();
         const popupStyle = view.popupStyle();
+        const minHeight = Math.round(field.fontSize * 1.5) + 16;
         return (
             <view
                 main-thread:ref={frameRef}
@@ -178,9 +183,14 @@ export const InlineBlock = component<InlineBlockProps>(({ props, onUnmounted, si
                     accentColor={field.accentColor}
                     placeholderColor={field.placeholderColor}
                     confirmType={field.confirmType}
-                    minHeight={Math.round(field.fontSize * 1.5) + 16}
+                    minHeight={minHeight}
+                    style={{ height: Math.max(minHeight, reported.height) }}
+                    onHeightChange={(h) => {
+                        reported.height = h;
+                    }}
                     onElement={(h) => {
                         handle = h;
+                        if (h) surface.native.attached();
                     }}
                     onChange={(d, composing) => surface.native.change(d, composing)}
                     onSelection={(sel) => surface.native.selection(sel)}

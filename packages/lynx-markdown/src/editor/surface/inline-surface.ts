@@ -41,6 +41,8 @@ export interface LynxInlineSurfaceOptions {
 
 /** What the view feeds from the element's events. */
 export interface LynxInlineSurfaceNative {
+    /** The element handle is available (`onElement`): a focus asked for before mount is applied now. */
+    attached(): void;
     change(doc: RichDoc, isComposing: boolean): void;
     selection(sel: SelectionState): void;
     boundaryKey(e: RichTextBoundaryKeyEvent['detail']): void;
@@ -88,6 +90,8 @@ export function createLynxInlineSurface(init: InlineSurfaceInit, opts: LynxInlin
     let selection: SelectionState | null = null;
     /** A selection asked for before the element reported one; applied on focus. */
     let wantedRange: Range | null = null;
+    /** A focus asked for before the element handle existed (a block mounted by this very transaction). */
+    let pendingFocus = false;
 
     const range = (): Range | null => (selection ? { start: Math.min(selection.start, selection.end), end: Math.max(selection.start, selection.end) } : null);
     const length = (): number => doc.text.length;
@@ -100,6 +104,12 @@ export function createLynxInlineSurface(init: InlineSurfaceInit, opts: LynxInlin
     };
 
     const native: LynxInlineSurfaceNative = {
+        attached() {
+            if (!pendingFocus) return;
+            pendingFocus = false;
+            commands.focus(opts.handle());
+            if (wantedRange) commands.setSelectionRange(opts.handle(), wantedRange.start, wantedRange.end);
+        },
         change(next, isComposing) {
             doc = next;
             version = Math.max(version, next.v);
@@ -191,7 +201,9 @@ export function createLynxInlineSurface(init: InlineSurfaceInit, opts: LynxInlin
             const start = Math.max(0, Math.min(r.start, len));
             const end = Math.max(0, Math.min(r.end, len));
             selection = selection ? { ...selection, start, end } : { start, end, activeFormats: [], activeBlock: blockAttr.type, caretRect: { x: 0, y: 0, height: 0 } };
-            commands.setSelectionRange(opts.handle(), start, end);
+            // Before the handle exists the range rides along with the deferred focus.
+            if (opts.handle()) commands.setSelectionRange(opts.handle(), start, end);
+            else wantedRange = { start, end };
         },
         focus(target) {
             const len = length();
@@ -203,7 +215,8 @@ export function createLynxInlineSurface(init: InlineSurfaceInit, opts: LynxInlin
             const r = { start: offset, end: offset };
             if (!focused) {
                 wantedRange = r;
-                commands.focus(opts.handle());
+                if (opts.handle()) commands.focus(opts.handle());
+                else pendingFocus = true;
             }
             surface.setSelection(r);
         },

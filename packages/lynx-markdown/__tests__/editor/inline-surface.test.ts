@@ -188,3 +188,23 @@ describe('LynxInlineSurface', () => {
         expect(surface.offsetAtX('last', 999)).toBe(5);
     });
 });
+
+describe('LynxInlineSurface before the element handle exists', () => {
+    it('defers a focus asked for before mount until the handle is attached', () => {
+        const log: string[] = [];
+        const fake = createFakeRichText();
+        let mounted: { id: number } | null = null;
+        const surface = createLynxInlineSurface(init({ text: 'ab', spans: [] }, log), { handle: () => mounted, commands: fake.commands });
+        fake.attach(surface);
+        // A block mounted by the same transaction gets the caret before its element reports a handle.
+        surface.focus({ edge: 'end' });
+        expect(fake.calls).toEqual([]);
+        mounted = { id: 7 };
+        surface.native.attached();
+        expect(fake.calls).toEqual(['focus', 'setSelectionRange:2-2']);
+        expect(fake.focused).toBe(true);
+        // Attaching again is a no-op.
+        surface.native.attached();
+        expect(fake.calls).toHaveLength(2);
+    });
+});
