@@ -13,10 +13,15 @@ const ctx: InlineMatchContext = { parseInline: () => [], position: () => undefin
 function selectApi(): TriggerSelectApi {
     return {
         replaceQuery: vi.fn(),
-        range: { start: 0, end: 5 },
-        controller: {} as TriggerSelectApi['controller'],
+        range: { key: 'b-0', from: 0, to: 5 },
+        commands: {} as TriggerSelectApi['commands'],
+        dispatch: vi.fn(),
+        state: {} as TriggerSelectApi['state'],
+        run: vi.fn(() => true),
     };
 }
+
+const triggerOf = (plugin: ReturnType<typeof createEmojiPlugin>) => plugin.editor!.triggers![0];
 
 describe('createEmojiSyntax', () => {
     const syntax = createEmojiSyntax();
@@ -49,8 +54,8 @@ describe('emojiComponent', () => {
 describe('createEmojiPlugin', () => {
     it('suggests ranked matches with glyph labels, none for an empty query', async () => {
         const plugin = createEmojiPlugin();
-        expect(await plugin.trigger!.onQuery('')).toEqual([]);
-        const items = await plugin.trigger!.onQuery('joy');
+        expect(await triggerOf(plugin).onQuery('')).toEqual([]);
+        const items = await triggerOf(plugin).onQuery('joy');
         expect(items.length).toBeGreaterThan(0);
         expect(items[0]).toMatchObject({ id: 'joy', glyph: '😂' });
         expect(items[0].label).toContain('😂');
@@ -59,18 +64,18 @@ describe('createEmojiPlugin', () => {
 
     it('inserts the glyph by default, with a boundary space', async () => {
         const plugin = createEmojiPlugin();
-        const items = await plugin.trigger!.onQuery('joy');
+        const items = await triggerOf(plugin).onQuery('joy');
         const api = selectApi();
-        plugin.trigger!.onSelect(items[0], api);
-        expect(api.replaceQuery).toHaveBeenCalledWith('😂 ');
+        triggerOf(plugin).onSelect(items[0], api);
+        expect(api.replaceQuery).toHaveBeenCalledWith({ text: '😂 ', spans: [] });
     });
 
     it('inserts shortcode text in shortcode mode', async () => {
         const plugin = createEmojiPlugin({ insert: 'shortcode' });
-        const items = await plugin.trigger!.onQuery('joy');
+        const items = await triggerOf(plugin).onQuery('joy');
         const api = selectApi();
-        plugin.trigger!.onSelect(items[0], api);
-        expect(api.replaceQuery).toHaveBeenCalledWith(':joy: ');
+        triggerOf(plugin).onSelect(items[0], api);
+        expect(api.replaceQuery).toHaveBeenCalledWith({ text: ':joy: ', spans: [] });
     });
 
     it('falls back to the glyph in shortcode mode when an emoji has no shortcode', async () => {
@@ -81,19 +86,19 @@ describe('createEmojiPlugin', () => {
             skinTones: ['light', 'medium-light', 'medium', 'medium-dark', 'dark'],
         };
         const plugin = createEmojiPlugin({ insert: 'shortcode', data });
-        const items = await plugin.trigger!.onQuery('grin');
+        const items = await triggerOf(plugin).onQuery('grin');
         expect(items[0].sc).toBeUndefined();
         const api = selectApi();
-        plugin.trigger!.onSelect(items[0], api);
-        expect(api.replaceQuery).toHaveBeenCalledWith('😀 ');
+        triggerOf(plugin).onSelect(items[0], api);
+        expect(api.replaceQuery).toHaveBeenCalledWith({ text: '😀 ', spans: [] });
     });
 
     it('adds the toolbar item only when onPickerRequest is provided', () => {
-        expect(createEmojiPlugin().toolbar).toBeUndefined();
+        expect(createEmojiPlugin().editor!.toolbar).toBeUndefined();
         const onPickerRequest = vi.fn();
         const plugin = createEmojiPlugin({ onPickerRequest });
-        expect(plugin.toolbar).toHaveLength(1);
-        plugin.toolbar![0].run({ controller: {} as never });
+        expect(plugin.editor!.toolbar).toHaveLength(1);
+        plugin.editor!.toolbar![0].run({} as never);
         expect(onPickerRequest).toHaveBeenCalled();
     });
 });

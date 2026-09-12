@@ -1,120 +1,105 @@
 /**
- * `<MarkdownEditor>` — true-WYSIWYG markdown editing on the native
- * `<sigx-richtext>` element.
+ * `<MarkdownEditor>` — the Lynx block editor: the surface host of
+ * `@sigx/markdown/editor`'s block-tree core on `<sigx-richtext>`.
  *
- * The external contract is **markdown**: `value` in, `onChange(markdown)` out.
- * Internally the editor converts markdown ↔ the element's `RichDoc` span model
- * (`convert/mdToDoc`, `convert/docToMd`) and drives formatting through
- * fire-and-forget commands; the element is the single source of truth for live
- * text and selection (lightly-controlled — keystrokes are never echoed back).
+ * One `createEditor()` per component; every root block renders as a keyed
+ * `<BlockView>` (paragraphs and headings as native rich-text fields in
+ * `boundary-keys` mode, code blocks as textareas, lists / quotes / tables as
+ * views). Structural sharing in the core state means an untouched block is
+ * never re-rendered or re-mounted. The document is the mdast `Root` the
+ * whole sigx estate shares; markdown in and out through `value` /
+ * `onChange`, the tree through `document` / `onDocumentChange`.
  *
- * ### Echo / IME rules (JS side)
- * - An incoming `value` identical to the last markdown we emitted is our own
- *   echo → ignored (string compare; exact).
- * - Otherwise it's compared structurally against the element's last document —
- *   only genuinely different content is pushed via `setDocument`.
- * - While the IME is composing, external values are buffered and applied on
- *   the composition-end change; `onChange` is also suppressed mid-composition.
+ * Chrome: a toolbar over the core's `defaultToolbarItems` (plus plugin
+ * items), the suggestion popup driven by the core's trigger sessions
+ * (rendered inside the block the session belongs to, so a container
+ * translated on the main thread cannot misplace it), and — for hosts that
+ * dock their own surface — `renderSuggestions` / `suggestions="none"` and
+ * `onTriggerSession` (#755).
  *
- * Sizing: `minLines`/`maxLines` × line height drive the element's auto-grow
- * window (`mode="auto"`, chat-style 1 → N lines then internal scroll);
- * `mode="fixed"` pins the height at `maxLines`; `mode="fullscreen"` fills the
- * parent.
+ * The keyboard: Enter, Backspace at a block's start, Delete at its end,
+ * arrows off the first / last line, Tab and Escape reach the core through
+ * `bindboundarykey` (`@sigx/lynx-richtext` 0.30+); on an older native build
+ * a typed newline still splits the block (the surface strips it), while the
+ * edge deletes stay in-block.
  */
 
-import {
-    component,
-    signal,
-    useElementLayout,
-    useFontScale,
-    useViewportRect,
-    watch,
-    type Define,
-    type ElementLayout,
-} from '@sigx/lynx';
+import { component, signal, useFontScale, watch, type Define, type JSXElement } from '@sigx/lynx';
+import { defineProvide } from '@sigx/lynx';
 import { useKeyboard } from '@sigx/lynx-keyboard';
-import {
-    RichTextInput,
-    RichTextMethods,
-    docEquals,
-    normalizeDoc,
-    emptyDoc,
-    type RichDoc,
-    type RichTextHandle,
-    type SelectionState,
-} from '@sigx/lynx-richtext';
-import { mdToDoc, type MdToDocOptions } from './convert/mdToDoc.js';
-import { docToMd, type DocToMdOptions, type SpanSerializer } from './convert/docToMd.js';
+import type { MarkdownPlugin, Root } from '@sigx/markdown';
+import { mentionPlugin, parseMarkdown, toMarkdown } from '@sigx/markdown';
+import type { Command, Editor, EditorSelection, InputRule, Keymap, ToolbarItem, Transaction, TriggerItem, TriggerSelectApi, TriggerSession, TriggerSessionManager } from '@sigx/markdown/editor';
+import { commandRegistry, commands as C, createEditor, createTriggerSessionManager, textSelection } from '@sigx/markdown/editor';
+import { lynxMentionInlineKind } from '../plugins/mention.js';
+import { Platform } from '@sigx/lynx';
+import { defaultComponents, type LynxMarkdownComponents } from '../render/components.js';
+import { BlockView } from './blocks.js';
 import { EditorToolbar, type ToolbarRenderItem } from './toolbar/Toolbar.js';
-import { defaultToolbarItems, type ToolbarItem } from './toolbar/items.js';
-import type { MarkdownEditorPlugin, TriggerItem, TriggerSelectApi } from './plugin.js';
-import { createTriggerSessionManager, type TriggerSession } from './trigger/session.js';
-import { SuggestionPopup, derivePopupStyleFromText, type SuggestionPopupStyle } from './trigger/SuggestionPopup.js';
+import { derivePopupStyleFromText, type SuggestionPopupStyle, type SuggestionRenderItem } from './trigger/SuggestionPopup.js';
+import { createLynxEditorView, track, useLynxEditorView, type LynxEditorView } from './view.js';
 
 export type MarkdownEditorMode = 'auto' | 'fixed' | 'fullscreen';
 
-/** Imperative command surface — what toolbars and plugins drive. */
+/** A trigger spec may carry a Lynx row renderer for the built-in popup. */
+export interface LynxTriggerExtras {
+    renderItem?: SuggestionRenderItem;
+}
+
+/** What `renderSuggestions` receives — enough to draw and drive a docked list. */
+export interface SuggestionsApi {
+    session: TriggerSession;
+    activeIndex: number;
+    setActive(index: number): void;
+    pick(item: TriggerItem): void;
+    close(): void;
+}
+
+/**
+ * The imperative surface (`controllerRef`). Commands act on the current
+ * selection; `run` reaches every core command by function or registered
+ * name.
+ */
 export interface MarkdownEditorController {
+    /** The core editor instance (state, history, dispatch, …). */
+    readonly editor: Editor;
+    run(command: Command | string): boolean;
     toggleBold(): void;
     toggleItalic(): void;
     toggleStrike(): void;
     toggleCode(): void;
     /** 1–6 sets a heading; 0 reverts to paragraph. */
     setHeading(level: 0 | 1 | 2 | 3 | 4 | 5 | 6): void;
-    /**
-     * Set the selected paragraph(s)' list type; `'none'` reverts to
-     * paragraph. A new `'task'` line starts unchecked.
-     */
+    /** Wrap in / switch / leave a list; `'none'` unwraps. */
     setList(kind: 'bullet' | 'ordered' | 'task' | 'none'): void;
-    /** Toggle blockquote on the selected paragraph(s). */
     toggleQuote(): void;
-    /**
-     * Insert or wrap a link. Non-empty selection → the selection becomes the
-     * link text; collapsed → `text` (or the href itself) is inserted and
-     * linked. The href is trusted as-is (`mdToDoc`'s `sanitizeUrl` on the
-     * way in, the render engine's on the way out, and the serializer's
-     * destination escaping are the safety nets); offsets come
-     * from the last selection event — same fire-and-forget assumption as
-     * `replaceRange`. No-op before the first selection event (the caret
-     * position is unknown).
-     */
+    /** Link the selection, or insert `text` (default the href) linked when collapsed. */
     insertLink(href: string, text?: string): void;
     insertText(text: string): void;
-    /**
-     * Replace `[start, end)` (UTF-16 offsets in the document text) with
-     * `text`, leaving the caret after it. What trigger plugins use to swap
-     * the typed query for the selected suggestion.
-     */
+    /** Replace `[start, end)` of the current block with `text`, caret after it. */
     replaceRange(start: number, end: number, text: string): void;
-    /**
-     * Insert an atomic mention chip (one U+FFFC carrying a `mention` span —
-     * see lynx-richtext's chip invariant). `replace` removes `[from, to)`
-     * first, typically the trigger query run. A dedicated native op:
-     * `replaceRange`/`insertText` can't attach a span to the inserted char.
-     */
+    /** Insert an atom chip (a mention by default) at the caret, optionally replacing `[from, to)` of the current block. */
     insertChip(chip: { id: string; label: string; kind?: string }, replace?: { from: number; to: number }): void;
-    /** Clear the document (chat send). */
     clear(): void;
-    /**
-     * Expand the editor into an absolute-inset overlay (and back). The same
-     * mounted element is restyled — never re-parented — so the native
-     * document, selection, focus and keyboard all survive the transition
-     * (re-parenting would recreate the native view and lose its state).
-     * Style the overlay surface via the `fullscreenClass` prop.
-     */
     openFullscreen(): void;
     closeFullscreen(): void;
     isFullscreen(): boolean;
     focus(): void;
     blur(): void;
-    /** The current markdown (as of the last element change). */
     getMarkdown(): string;
-    /** The current selection state (as of the last selection event). */
-    getSelection(): SelectionState | null;
+    getDocument(): Root;
+    setMarkdown(markdown: string): void;
+    setDocument(doc: Root): void;
+    getSelection(): EditorSelection;
+    undo(): boolean;
+    redo(): boolean;
 }
 
 export type MarkdownEditorProps =
+    /** Markdown source. An external change replaces the document (echoes of `onChange` are ignored). */
     & Define.Prop<'value', string, false>
+    /** An mdast document instead of `value` (wins for the initial content; external changes replace the document). */
+    & Define.Prop<'document', Root, false>
     & Define.Prop<'placeholder', string, false>
     & Define.Prop<'minLines', number, false>
     & Define.Prop<'maxLines', number, false>
@@ -127,411 +112,343 @@ export type MarkdownEditorProps =
     & Define.Prop<'autoFocus', boolean, false>
     & Define.Prop<'disabled', boolean, false>
     & Define.Prop<'class', string, false>
-    /**
-     * Built-in formatting toolbar. `true` ≡ `'bottom'` — below the input is
-     * the common chat placement (selection handles and the iOS edit menu pop
-     * up *above* the selection, so a toolbar on top would sit under them).
-     */
+    /** `true` (bottom), `'top'` or `'bottom'` renders the built-in toolbar. */
     & Define.Prop<'toolbar', boolean | 'top' | 'bottom', false>
-    /** Override the built-in toolbar's items (defaults to `defaultToolbarItems`). */
-    & Define.Prop<'toolbarItems', ToolbarItem[], false>
-    /** Re-skin the built-in toolbar's item rendering (what daisyUI does). */
+    /** Base items (default: the core's `defaultToolbarItems`); plugin items append. */
+    & Define.Prop<'toolbarItems', readonly ToolbarItem[], false>
     & Define.Prop<'renderToolbarItem', ToolbarRenderItem, false>
-    /**
-     * Editor plugins ({@link MarkdownEditorPlugin}) — inline syntax, trigger
-     * suggestions, extra toolbar items. Pass a stable array (e.g. a module
-     * constant); the set is captured at mount.
-     */
-    & Define.Prop<'plugins', MarkdownEditorPlugin[], false>
-    /**
-     * Style the trigger suggestion popup (mentions, etc.) — surface/border/
-     * active/text colors, width, maxHeight, class. Generic to *any* trigger;
-     * omitted fields keep neutral defaults. daisyUI wires this from the active
-     * theme via `useMarkdownEditorTheme().suggestionPopup`, mirroring how
-     * `textColor`/`accentColor` theme the editor body. Per-row content stays a
-     * plugin concern (`trigger.renderItem`).
-     */
+    /** Plugins: `@sigx/markdown` plugins with an editor slice. Captured at mount. */
+    & Define.Prop<'plugins', readonly MarkdownPlugin[], false>
+    /** Components for void blocks (dividers, definitions). */
+    & Define.Prop<'components', Partial<LynxMarkdownComponents>, false>
+    /** Colors and layout of the built-in suggestion popup. */
     & Define.Prop<'suggestionPopup', SuggestionPopupStyle, false>
-    /**
-     * Extra root classes applied only while the fullscreen overlay is open —
-     * the consumer owns the surface (e.g. daisyUI `bg-base-100`). Without
-     * it the overlay falls back to a plain white background.
-     */
+    /** `'popup'` (default) renders the built-in popup by the caret; `'none'` leaves rendering to `renderSuggestions` / `onTriggerSession`. */
+    & Define.Prop<'suggestions', 'popup' | 'none', false>
+    /** Render the suggestion list yourself (docked in a composer bar, say); replaces the popup. */
+    & Define.Prop<'renderSuggestions', (api: SuggestionsApi) => JSXElement | null, false>
+    /** Observe trigger sessions (open, query and item updates, close). */
+    & Define.Prop<'onTriggerSession', (session: TriggerSession | null) => void, false>
+    & Define.Prop<'keymap', Keymap, false>
+    & Define.Prop<'inputRules', readonly InputRule[] | false, false>
     & Define.Prop<'fullscreenClass', string, false>
-    /** Fullscreen overlay opened/closed (controller or the ✕ affordance). */
     & Define.Prop<'onFullscreenChange', (open: boolean) => void, false>
+    /** Markdown after every committed transaction (never mid-composition). */
     & Define.Prop<'onChange', (markdown: string) => void, false>
-    & Define.Prop<'onSelectionChange', (sel: SelectionState) => void, false>
+    & Define.Prop<'onDocumentChange', (doc: Root, transaction: Transaction) => void, false>
+    & Define.Prop<'onSelectionChange', (selection: EditorSelection) => void, false>
     & Define.Prop<'onFocus', () => void, false>
     & Define.Prop<'onBlur', () => void, false>
-    /** Receives the imperative controller once on mount. */
     & Define.Prop<'controllerRef', (ctrl: MarkdownEditorController) => void, false>;
 
 const DEFAULT_FONT_SIZE = 16;
-/** Vertical padding the element applies internally (8 top + 8 bottom). */
-const ELEMENT_PADDING = 16;
 
-/**
- * Keyboard-height spacer at the fullscreen overlay's bottom — keeps the
- * input and a bottom toolbar visible while typing. Mounted only while the
- * overlay is open, so editors that never go fullscreen don't instantiate
- * the keyboard (safe-area) hook — no SafeAreaProvider requirement and no
- * dev warning for them (trigger popups gate the same way).
- */
 const KeyboardSpacer = component(() => {
     const keyboard = useKeyboard();
     return () => <view style={{ height: keyboard.value.height }} />;
 });
 
-export const MarkdownEditor = component<MarkdownEditorProps>(({ props }) => {
-    let el: RichTextHandle = null;
+const clone = <T,>(doc: T): T => JSON.parse(JSON.stringify(doc)) as T;
+
+export const MarkdownEditor = component<MarkdownEditorProps>(({ props, onUnmounted }) => {
     const fontScale = useFontScale();
+    // Mentions are native to the field (`insertChip`), so the `@[label](id)`
+    // syntax, serializer and atom kind are always present; a plugin named
+    // `mention` (e.g. `createMentionPlugin`) replaces this baseline.
+    const given = props.plugins ?? [];
+    const plugins: readonly MarkdownPlugin[] = given.some((p) => p.name === 'mention')
+        ? given
+        : [...given, { ...mentionPlugin, editor: { inline: [lynxMentionInlineKind] } }];
+    const parse = (md: string): Root => parseMarkdown(md, { plugins });
+    const serialize = (doc: Root): string => toMarkdown(doc, { plugins });
 
-    // --- plugins (captured at mount; pass a stable array) ---
-    const plugins = props.plugins ?? [];
-    const inlinePlugins = plugins.filter((p) => p.inline);
-    // Duplicate identifiers would silently last-win (conversion maps) or make
-    // trigger routing ambiguous (plugin name lookups) — flag the config error.
-    const warnDuplicates = (key: string, values: string[]): void => {
-        const seen = new Set<string>();
-        for (const value of values) {
-            if (seen.has(value)) {
-                // Conversion maps resolve last-wins, trigger routing first-wins
-                // — don't promise either; duplicates are a config error.
-                console.warn(
-                    `[MarkdownEditor] duplicate plugin ${key} "${value}" — resolution is ambiguous, rename to disambiguate.`,
-                );
-            }
-            seen.add(value);
-        }
+    let lastEmittedMd: string | null = null;
+    let lastEmittedDoc: Root | null = null;
+    const initialDoc = props.document ? clone(props.document) : parse(typeof props.value === 'string' ? props.value : '');
+    if (typeof props.value === 'string') lastEmittedMd = props.value;
+
+    let view!: LynxEditorView;
+    const offsetAt = (key: string, edge: 'first' | 'last'): number => {
+        const s = view.surfaces.get(key);
+        if (!s) return edge === 'first' ? 0 : Number.MAX_SAFE_INTEGER;
+        return 'offsetAtX' in s ? s.offsetAtX(edge, 0) : edge === 'first' ? 0 : Number.MAX_SAFE_INTEGER;
     };
-    warnDuplicates('name', plugins.map((p) => p.name));
-    warnDuplicates('syntax.name', inlinePlugins.map((p) => p.inline!.syntax.name));
-    warnDuplicates('docMapping.spanType', inlinePlugins.map((p) => p.inline!.docMapping.spanType));
-    // Trigger routing is first-match-wins — a duplicate char/pattern means the
-    // later plugin's trigger is silently unreachable.
-    warnDuplicates(
-        'trigger',
-        plugins
-            .filter((p) => p.trigger)
-            .map((p) => (p.trigger!.char !== undefined ? `char:${p.trigger!.char}` : `pattern:${p.trigger!.pattern}`)),
-    );
-    const convertIn: MdToDocOptions | undefined = inlinePlugins.length
-        ? {
-            // One `@sigx/markdown` plugin per editor plugin carrying its syntax.
-            plugins: inlinePlugins.map((p) => ({ name: p.name, inline: [p.inline!.syntax] })),
-            // Mappers route by node type, which the contract pins to `syntax.name`.
-            spanMappers: Object.fromEntries(
-                inlinePlugins.map((p) => [p.inline!.syntax.name, p.inline!.docMapping.toSpan]),
-            ),
-        }
-        : undefined;
-    const convertOut: DocToMdOptions | undefined = inlinePlugins.length
-        ? {
-            serializers: new Map<string, SpanSerializer>(
-                inlinePlugins.map((p) => [
-                    p.inline!.docMapping.spanType,
-                    (span, text) => p.inline!.serialize(span, text),
-                ]),
-            ),
-        }
-        : undefined;
-    const pluginToolbarItems = plugins.flatMap((p) => p.toolbar ?? []);
 
-    // --- sync state (see module docs) ---
-    const initialMd = typeof props.value === 'string' ? props.value : '';
-    let lastEmittedMd: string | null = initialMd;
-    let lastDocFromElement: RichDoc = normalizeDoc(mdToDoc(initialMd, 0, convertIn));
-    let lastSeenVersion = 0;
-    let composing = false;
-    let pendingExternal: string | null = null;
-    // Reactive box (not a plain var): the built-in toolbar derives active
-    // states from it, so selection events must re-render.
-    const selBox = signal<{ current: SelectionState | null }>({ current: null });
+    const editor = createEditor({
+        doc: initialDoc,
+        plugins,
+        keymap: { ArrowUp: C.focusNeighbour('up', offsetAt), ArrowDown: C.focusNeighbour('down', offsetAt), ...props.keymap },
+        inputRules: props.inputRules,
+        platform: { isMac: Platform.OS === 'ios', hasHardwareKeyboard: false, caretRectSpace: 'block' },
+        parse,
+        readOnly: props.disabled === true,
+        onChange: ({ state, transaction }) => {
+            lastEmittedDoc = state.doc;
+            const md = serialize(state.doc);
+            lastEmittedMd = md;
+            props.onChange?.(md);
+            props.onDocumentChange?.(state.doc, transaction);
+        },
+        onSelectionChange: (selection) => props.onSelectionChange?.(selection),
+    });
 
-    // Auto-grow: the native element reports its (clamped) content height and
-    // the editor feeds it back as the element's layout height — Lynx layout
-    // sizes views from styles, never from native intrinsic content.
-    const reportedHeight = signal(0);
+    // --- trigger sessions ---------------------------------------------------
+    const triggers: TriggerSessionManager | null = editor.triggers.length
+        ? createTriggerSessionManager({
+              triggers: editor.triggers,
+              onUpdate: (s) => {
+                  view.setSession(s);
+                  props.onTriggerSession?.(s);
+              },
+          })
+        : null;
 
-    // Fullscreen overlay state (controller-driven). Keyboard avoidance lives
-    // in the conditionally-mounted KeyboardSpacer.
-    const fullscreenOpen = signal(false);
+    const pick = (item: TriggerItem): void => {
+        const s = view.session();
+        if (!s || !triggers) return;
+        const spec = editor.triggers.find((t) => t.plugin === s.plugin)?.spec;
+        if (!spec) return;
+        const api: TriggerSelectApi = {
+            replaceQuery(slice) {
+                editor.dispatch({
+                    steps: [{ type: 'replaceInline', key: s.key, from: s.anchor, to: s.caret, slice }],
+                    selection: textSelection(s.key, s.anchor + slice.text.length),
+                    meta: { origin: 'command' },
+                });
+            },
+            range: { key: s.key, from: s.anchor, to: s.caret },
+            commands: commandRegistry,
+            dispatch: editor.dispatch,
+            state: editor.state,
+            run: (command) => editor.run(command),
+        };
+        triggers.close();
+        spec.onSelect(item, api);
+    };
+
+    const fullscreenOpen = signal({ value: false });
     const setFullscreen = (open: boolean): void => {
         if (fullscreenOpen.value === open) return;
         fullscreenOpen.value = open;
         props.onFullscreenChange?.(open);
     };
 
-    // --- trigger sessions (suggestion popup) ---
-    const triggers = plugins
-        .filter((p) => p.trigger)
-        .map((p) => ({ plugin: p.name, spec: p.trigger! }));
-    // Boxed like selBox: signal values must be objects.
-    const sessionBox = signal<{ current: TriggerSession | null }>({ current: null });
-    // Frame of the input's relative wrapper — the popup needs it to relate
-    // the element-local caret rect to the keyboard. TWO sources, on purpose:
-    //
-    //  • `useViewportRect` is the authoritative one — live, viewport-relative,
-    //    transform-aware. A composer inside a sheet translated on the main
-    //    thread (`liftSV`) is ONLY correctly located here (#755).
-    //  • `useElementLayout` is the first-paint fallback (the measurement is
-    //    async, so the rect lands a frame or two later) and the "something
-    //    moved, re-measure" signal.
-    const { layout: inputFrame, onLayoutChange: onInputLayout } = useElementLayout();
-    const { ref: containerRef, rect: containerRect, measure: measureContainer } = useViewportRect();
-    /** Best-known container frame: measured wins, layout is the fallback. */
-    const containerFrame = (): ElementLayout | null => containerRect.value ?? inputFrame.value;
-    const triggerManager = triggers.length
-        ? createTriggerSessionManager({
-            triggers,
-            onUpdate: (s) => {
-                // Measure BEFORE the popup can mount: sessions open with
-                // `loading: true` and no items, so an async `onQuery` usually
-                // gives the rect time to land and the popup paints in the
-                // right place on its first frame.
-                if (s && s.anchor !== sessionBox.current?.anchor) measureContainer();
-                sessionBox.current = s;
-            },
-        })
-        : null;
+    const components = (): LynxMarkdownComponents => (props.components ? { ...defaultComponents, ...props.components } : defaultComponents);
 
-    const applyExternal = (md: string): void => {
-        if (md === lastEmittedMd) return; // our own echo
-        if (composing) {
-            pendingExternal = md;
-            return;
-        }
-        const doc = mdToDoc(md, lastSeenVersion, convertIn);
-        if (docEquals(normalizeDoc(doc), lastDocFromElement)) {
-            lastEmittedMd = md; // same content, different markdown spelling
-            return;
-        }
-        RichTextMethods.setDocument(el, doc);
-    };
+    view = createLynxEditorView({
+        editor,
+        readOnly: () => editor.readOnly,
+        placeholder: () => props.placeholder,
+        field: () => ({
+            fontSize: Math.round((props.fontSize ?? DEFAULT_FONT_SIZE) * fontScale.value),
+            textColor: props.textColor,
+            accentColor: props.accentColor,
+            placeholderColor: props.placeholderColor,
+            confirmType: props.confirmType,
+        }),
+        components,
+        popup: () => (props.suggestions ?? 'popup') === 'popup' && !props.renderSuggestions,
+        popupStyle: () => ({ ...derivePopupStyleFromText(props.textColor), ...props.suggestionPopup }),
+        renderSuggestion: (plugin) => (editor.triggers.find((t) => t.plugin === plugin)?.spec as LynxTriggerExtras | undefined)?.renderItem,
+        pick,
+        closeSession: () => triggers?.close(),
+        onFocusChange: (key, previous) => {
+            editor.focused(key);
+            if (key && !previous) props.onFocus?.();
+            if (!key && previous) {
+                triggers?.close();
+                props.onBlur?.();
+            }
+        },
+    });
+    defineProvide(useLynxEditorView, () => view);
 
+    const stopListen = editor.listen((tr, state) => {
+        if (!triggers) return;
+        const sel = state.selection;
+        if (sel?.mode === 'text') {
+            const flat = editor.flatOf(sel.anchor.key);
+            if (flat) {
+                triggers.syncText(sel.anchor.key, flat.text);
+                triggers.syncCaret(sel.anchor.key, sel.anchor.offset === sel.head.offset ? sel.anchor.offset : -1);
+                return;
+            }
+        }
+        triggers.close();
+        void tr;
+    });
+
+    // --- inbound props --------------------------------------------------------
     watch(
         () => props.value,
-        (next) => {
-            if (typeof next === 'string') applyExternal(next);
+        (md) => {
+            if (typeof md !== 'string' || md === lastEmittedMd) return;
+            lastEmittedMd = md;
+            editor.setMarkdown(md);
+        },
+    );
+    watch(
+        () => props.document,
+        (doc) => {
+            if (!doc || doc === lastEmittedDoc) return;
+            editor.setDocument(clone(doc));
+        },
+    );
+    watch(
+        () => props.disabled === true,
+        (ro) => {
+            if (editor.readOnly !== ro) {
+                editor.readOnly = ro;
+                for (const s of view.surfaces.values()) s.setReadOnly(ro);
+            }
         },
     );
 
-    const handleChange = (doc: RichDoc, isComposing: boolean): void => {
-        composing = isComposing;
-        lastSeenVersion = doc.v;
-        lastDocFromElement = normalizeDoc(doc);
-        triggerManager?.syncText(doc.text);
-        if (isComposing) return;
-        const md = docToMd(doc, convertOut);
-        if (md !== lastEmittedMd) {
-            lastEmittedMd = md;
-            props.onChange?.(md);
-        }
-        if (pendingExternal !== null) {
-            const pending = pendingExternal;
-            pendingExternal = null;
-            applyExternal(pending);
-        }
+    // --- controller -----------------------------------------------------------
+    const currentKey = (): string | null => {
+        const sel = editor.state.selection;
+        return sel?.mode === 'text' ? sel.anchor.key : null;
     };
-
     const controller: MarkdownEditorController = {
-        toggleBold: () => RichTextMethods.toggleFormat(el, 'bold'),
-        toggleItalic: () => RichTextMethods.toggleFormat(el, 'italic'),
-        toggleStrike: () => RichTextMethods.toggleFormat(el, 'strike'),
-        toggleCode: () => RichTextMethods.toggleFormat(el, 'code'),
-        setHeading: (level) => {
-            if (level === 0) RichTextMethods.setBlockType(el, 'paragraph');
-            else RichTextMethods.setBlockType(el, 'heading', level);
-        },
+        editor,
+        run: (command) => editor.run(command),
+        toggleBold: () => void editor.run(commandRegistry.toggleStrong),
+        toggleItalic: () => void editor.run(commandRegistry.toggleEmphasis),
+        toggleStrike: () => void editor.run(commandRegistry.toggleDelete),
+        toggleCode: () => void editor.run(commandRegistry.toggleInlineCode),
+        setHeading: (level) => void editor.run(level === 0 ? commandRegistry.setParagraph : commandRegistry[`setHeading${level}` as 'setHeading1']),
         setList: (kind) => {
-            if (kind === 'none') RichTextMethods.setBlockType(el, 'paragraph');
-            else if (kind === 'task') RichTextMethods.setBlockType(el, 'task', undefined, false);
-            else RichTextMethods.setBlockType(el, kind);
-        },
-        toggleQuote: () => {
-            const active = selBox.current?.activeBlock === 'blockquote';
-            RichTextMethods.setBlockType(el, active ? 'paragraph' : 'blockquote');
-        },
-        insertLink: (href, text) => {
-            const sel = selBox.current;
-            // No selection event yet → the caret position is unknown, and a
-            // guessed range would link the wrong substring. No-op.
-            if (!sel) return;
-            if (sel.end > sel.start) {
-                RichTextMethods.applyFormat(el, 'link', sel.start, sel.end, { href });
+            if (kind === 'none') {
+                const sel = editor.state.selection;
+                const key = sel?.mode === 'text' ? sel.anchor.key : sel?.anchorKey;
+                if (!key) return;
+                // toggleList unwraps when the block is already in a list of that kind; find which.
+                let entry = editor.state.index().get(key);
+                while (entry && entry.node.type !== 'list' && entry.parentKey) entry = editor.state.index().get(entry.parentKey);
+                const list = entry?.node.type === 'list' ? (entry.node as { ordered?: boolean; children: { checked?: boolean | null }[] }) : null;
+                if (!list) return;
+                const current = list.children.some((i) => i.checked !== null && i.checked !== undefined) ? 'task' : list.ordered ? 'ordered' : 'bullet';
+                editor.run(C.toggleList(current));
                 return;
             }
-            const label = text ?? href;
-            if (label === '') return;
-            RichTextMethods.insertText(el, label);
-            RichTextMethods.applyFormat(el, 'link', sel.start, sel.start + label.length, { href });
+            editor.run(C.toggleList(kind));
         },
-        insertText: (text) => RichTextMethods.insertText(el, text),
+        toggleQuote: () => void editor.run(C.wrapInBlockquote),
+        insertLink: (href, text) => {
+            const sel = editor.state.selection;
+            if (sel?.mode === 'text' && sel.anchor.offset === sel.head.offset && text) {
+                // Insert the text, select it, then link it.
+                const key = sel.anchor.key;
+                const from = sel.anchor.offset;
+                editor.run(C.insertText(text));
+                editor.setSelection(textSelection(key, from, from + text.length));
+            }
+            editor.run(C.setLink(href));
+        },
+        insertText: (text) => void editor.run(C.insertText(text)),
         replaceRange: (start, end, text) => {
-            // insertText replaces the selection — two existing fire-and-forget
-            // commands compose into a range replace (no new native method).
-            RichTextMethods.setSelectionRange(el, start, end);
-            RichTextMethods.insertText(el, text);
+            const key = currentKey();
+            if (!key) return;
+            editor.dispatch({
+                steps: [{ type: 'replaceInline', key, from: start, to: end, slice: { text, spans: [] } }],
+                selection: textSelection(key, start + text.length),
+                meta: { origin: 'command' },
+            });
         },
-        insertChip: (chip, replace) => RichTextMethods.insertChip(el, chip, replace),
-        clear: () => RichTextMethods.setDocument(el, emptyDoc(lastSeenVersion)),
+        insertChip: (chip, replace) => {
+            const attrs: Record<string, string> = { id: chip.id, label: chip.label };
+            if (chip.kind) attrs.kind = chip.kind;
+            editor.run(C.insertAtom('mention', attrs, replace));
+        },
+        clear: () => void editor.run(commandRegistry.clear),
         openFullscreen: () => setFullscreen(true),
         closeFullscreen: () => setFullscreen(false),
         isFullscreen: () => fullscreenOpen.value,
-        focus: () => RichTextMethods.focus(el),
-        blur: () => RichTextMethods.blur(el),
-        getMarkdown: () => lastEmittedMd ?? '',
-        getSelection: () => selBox.current,
+        focus: () => {
+            editor.run(C.focusEnd);
+            const sel = editor.state.selection;
+            if (sel?.mode === 'text') view.focusBlock(sel.anchor.key, { edge: 'end' });
+        },
+        blur: () => {
+            const key = view.focusedKey();
+            if (key) view.surfaces.get(key)?.blur();
+        },
+        getMarkdown: () => lastEmittedMd ?? serialize(editor.state.doc),
+        getDocument: () => editor.state.doc,
+        setMarkdown: (md) => void editor.setMarkdown(md),
+        setDocument: (doc) => editor.setDocument(clone(doc)),
+        getSelection: () => editor.state.selection,
+        undo: () => editor.undo(),
+        redo: () => editor.redo(),
     };
     props.controllerRef?.(controller);
 
-    const handleTriggerSelect = (item: TriggerItem): void => {
-        const session = triggerManager?.session;
-        if (!session) return;
-        const spec = plugins.find((p) => p.name === session.plugin)?.trigger;
-        if (!spec) return;
-        const range = { start: session.anchor, end: session.caret };
-        const api: TriggerSelectApi = {
-            replaceQuery: (text) => controller.replaceRange(range.start, range.end, text),
-            range,
-            controller,
-        };
-        triggerManager!.close();
-        spec.onSelect(item, api);
-    };
+    onUnmounted(() => {
+        stopListen();
+        triggers?.close();
+        editor.destroy();
+    });
+
+    if (props.autoFocus) {
+        // The first field mounts after this render; focus it on the next tick.
+        setTimeout(() => controller.focus(), 0);
+    }
 
     return () => {
-        // The engine's OS font scale (#766) never reaches <sigx-richtext> —
-        // the native element sets its own text size — so apply it here, at
-        // the point fontSize is resolved: lineHeight and the min/max box
-        // heights derive from it below, keeping auto-grow coherent with the
-        // scaled text. Reactive: a system text-size change re-renders and
-        // reflows the editor in place.
-        const fontSize = Math.round(
-            (props.fontSize ?? DEFAULT_FONT_SIZE) * fontScale.value,
-        );
-        const lineHeight = Math.round(fontSize * 1.5);
         const mode = props.mode ?? 'auto';
-        const minLines = Math.max(1, props.minLines ?? 1);
-        const maxLines = Math.max(minLines, props.maxLines ?? 4);
-
-        // The overlay reuses fullscreen-mode sizing on top of any base mode.
         const overlay = fullscreenOpen.value;
         const fills = overlay || mode === 'fullscreen';
-
-        let minHeight = minLines * lineHeight + ELEMENT_PADDING;
-        let maxHeight = maxLines * lineHeight + ELEMENT_PADDING;
-        if (mode === 'fixed') minHeight = maxHeight;
-        if (fills) maxHeight = 0; // unbounded; element fills parent
-
-        // Fullscreen gets a toolbar by default (its own slot); an explicit
-        // `toolbar={false}` still suppresses it.
-        const toolbarPlacement = props.toolbar === true || (overlay && props.toolbar === undefined)
-            ? 'bottom'
-            : props.toolbar;
-        // Plugin items append after the base set (explicit `toolbarItems` wins
-        // as the base, otherwise the defaults).
-        const toolbarItems = pluginToolbarItems.length
-            ? [...(props.toolbarItems ?? defaultToolbarItems), ...pluginToolbarItems]
-            : props.toolbarItems;
-        const toolbarNode = toolbarPlacement
-            ? (
-                <EditorToolbar
-                    controller={controller}
-                    selection={selBox.current}
-                    items={toolbarItems}
-                    renderItem={props.renderToolbarItem}
-                />
-            )
+        const field = view.field();
+        const lineHeight = Math.round(field.fontSize * 1.5);
+        const minLines = Math.max(1, props.minLines ?? 1);
+        const maxLines = Math.max(minLines, props.maxLines ?? 0);
+        const toolbarPlacement = props.toolbar === true || (overlay && props.toolbar === undefined) ? 'bottom' : props.toolbar;
+        const toolbarNode = toolbarPlacement ? <EditorToolbar controller={controller} items={props.toolbarItems} renderItem={props.renderToolbarItem} /> : null;
+        track(editor.rev.value);
+        const doc = editor.state.doc;
+        const session = view.session();
+        const docked = session && props.renderSuggestions
+            ? props.renderSuggestions({
+                  session,
+                  activeIndex: view.activeIndex.value,
+                  setActive: (i) => {
+                      view.activeIndex.value = i;
+                  },
+                  pick,
+                  close: () => triggers?.close(),
+              })
             : null;
 
-        const session = sessionBox.current;
-        const activeTrigger = session
-            ? plugins.find((p) => p.name === session.plugin)?.trigger
-            : undefined;
-        // Gate on the wrapper frame existing — before the first measurement
-        // the placement math would clamp against a 0-height container and
-        // misposition the popup.
-        const frame = containerFrame();
-        const popupNode = session && activeTrigger && session.items.length > 0 && frame
-            ? (
-                <SuggestionPopup
-                    items={session.items}
-                    caretRect={selBox.current?.caretRect ?? null}
-                    containerFrame={frame}
-                    onMeasureRequest={measureContainer}
-                    renderItem={activeTrigger.renderItem}
-                    onSelect={handleTriggerSelect}
-                    // Auto-tint from the editor's text color so a themed body
-                    // doesn't leave a clashing popup. Merged per field: explicit
-                    // `suggestionPopup` colors spread last and win, while any the
-                    // host left unset (incl. when it passes only layout fields
-                    // like `width`) fall back to the derived tint, not the
-                    // neutral light default.
-                    {...derivePopupStyleFromText(props.textColor)}
-                    {...(props.suggestionPopup ?? {})}
-                />
-            )
-            : null;
-
-        const inputNode = (
-            <RichTextInput
-                value={mdToDoc(initialMd, 0, convertIn)}
-                placeholder={props.placeholder}
-                editable={props.disabled !== true}
-                minHeight={minHeight}
-                maxHeight={maxHeight}
-                fontSize={fontSize}
-                textColor={props.textColor}
-                accentColor={props.accentColor}
-                placeholderColor={props.placeholderColor}
-                confirmType={props.confirmType}
-                autoFocus={props.autoFocus}
-                style={
-                    fills
-                        ? { flexGrow: 1 }
-                        : { height: Math.max(minHeight, Math.min(reportedHeight.value || minHeight, maxHeight)) }
-                }
-                onElement={(handle) => {
-                    el = handle;
-                }}
-                onHeightChange={(height) => {
-                    reportedHeight.value = height;
-                }}
-                onChange={handleChange}
-                onSelection={(sel) => {
-                    selBox.current = sel;
-                    triggerManager?.syncCaret(sel.start === sel.end ? sel.start : -1);
-                    props.onSelectionChange?.(sel);
-                }}
-                onFocus={() => props.onFocus?.()}
-                onBlur={() => {
-                    triggerManager?.close();
-                    props.onBlur?.();
-                }}
-            />
-        );
-
-        // Fullscreen close affordance — the only chrome the overlay adds.
-        // `ignore-focus` so the tap doesn't blur the editor before closing
-        // (keyboard/selection survive back into the inline layout).
-        const closeNode = overlay
-            ? (
-                <view style={{ display: 'flex', flexDirection: 'row', justifyContent: 'flex-end' }}>
-                    <view
-                        ignore-focus
-                        accessibility-element
-                        accessibility-label="Close fullscreen"
-                        accessibility-trait="button"
-                        bindtap={() => setFullscreen(false)}
-                        style={{ paddingTop: 8, paddingBottom: 8, paddingLeft: 16, paddingRight: 16 }}
-                    >
-                        <text style={{ fontSize: 18 }}>✕</text>
-                    </view>
+        const closeNode = overlay ? (
+            <view style={{ display: 'flex', flexDirection: 'row', justifyContent: 'flex-end' }}>
+                <view
+                    ignore-focus
+                    accessibility-element
+                    accessibility-label="Close fullscreen"
+                    accessibility-trait="button"
+                    bindtap={() => setFullscreen(false)}
+                    style={{ paddingTop: 8, paddingBottom: 8, paddingLeft: 16, paddingRight: 16 }}
+                >
+                    <text style={{ fontSize: 18 }}>✕</text>
                 </view>
-            )
-            : null;
+            </view>
+        ) : null;
+
+        const content = (
+            <view
+                style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    overflow: 'visible',
+                    minHeight: minLines * lineHeight + 16,
+                    ...(fills ? { flexGrow: 1 } : maxLines > minLines ? { maxHeight: maxLines * lineHeight + 16 } : {}),
+                }}
+            >
+                {doc.children.map((block) => (
+                    <BlockView key={block.key} block={block} />
+                ))}
+            </view>
+        );
 
         return (
             <view
@@ -539,62 +456,17 @@ export const MarkdownEditor = component<MarkdownEditorProps>(({ props }) => {
                 style={{
                     display: 'flex',
                     flexDirection: 'column',
-                    // Lynx hit-tests out-of-bounds children only when EVERY
-                    // ancestor between the touch and the target reports
-                    // overflow visible (LynxUI.containsPoint) — required for
-                    // the above-the-caret suggestion popup to be tappable.
                     overflow: 'visible',
                     ...(mode === 'fullscreen' && !overlay ? { flexGrow: 1, flexShrink: 1 } : {}),
-                    // The overlay restyles THIS root in place — the element is
-                    // never re-parented (e.g. into a Modal), which would
-                    // recreate the native view and lose the document (the
-                    // `value` prop is initial-only).
                     ...(overlay
-                        ? {
-                            position: 'fixed',
-                            top: 0,
-                            left: 0,
-                            right: 0,
-                            bottom: 0,
-                            zIndex: 100,
-                            ...(props.fullscreenClass ? {} : { backgroundColor: '#ffffff' }),
-                        }
+                        ? { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 100, ...(props.fullscreenClass ? {} : { backgroundColor: '#ffffff' }) }
                         : {}),
                 }}
             >
                 {closeNode}
                 {toolbarPlacement === 'top' ? toolbarNode : null}
-                {triggers.length
-                    ? (
-                        // Relative layer the popup positions in; measured (in
-                        // VIEWPORT coords, so a main-thread transform on an
-                        // ancestor counts) so the popup can clamp against the
-                        // keyboard.
-                        // overflow visible: the above-the-caret popup extends past
-                        // this layer's top — it must stay hit-testable there, or
-                        // taps fall through to non-ignore-focus chrome and blur
-                        // the editor instead of selecting.
-                        <view
-                            main-thread:ref={containerRef}
-                            bindlayoutchange={(e) => {
-                                onInputLayout(e);
-                                // Layout moved/resized the wrapper — the
-                                // measured viewport rect is now stale.
-                                measureContainer();
-                            }}
-                            style={{
-                                position: 'relative',
-                                overflow: 'visible',
-                                ...(fills
-                                    ? { display: 'flex', flexDirection: 'column', flexGrow: 1 }
-                                    : {}),
-                            }}
-                        >
-                            {inputNode}
-                            {popupNode}
-                        </view>
-                    )
-                    : inputNode}
+                {maxLines > minLines && !fills ? <scroll-view scroll-y style={{ maxHeight: maxLines * lineHeight + 16 }}>{content}</scroll-view> : content}
+                {docked}
                 {toolbarPlacement === 'bottom' ? toolbarNode : null}
                 {overlay ? <KeyboardSpacer /> : null}
             </view>

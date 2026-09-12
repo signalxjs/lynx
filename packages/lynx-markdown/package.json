@@ -75,6 +75,6 @@
         "ai"
     ],
     "dependencies": {
-        "@sigx/markdown": "^0.1.0"
+        "@sigx/markdown": "^0.2.0"
     }
 }
