@@ -88,8 +88,9 @@ Full guides, API reference and live examples → **[https://sigx.dev/lynx/module
   `@sigx/lynx-sheet`'s `<BottomSheet dismissible backdrop>` (or use
   `@sigx/lynx-daisyui`'s `EmojiPickerSheet` one-liner).
 - **Markdown plugin** — `@sigx/lynx-emoji/markdown` exports
-  `createEmojiPlugin()` for `@sigx/lynx-markdown`'s editor (optional peer):
-  `:` trigger suggestions (inserts the glyph), `:shortcode:` preview syntax,
+  `createEmojiPlugin()` — a `MarkdownPlugin` with an `editor` slice for
+  `@sigx/lynx-markdown` (optional peer): `:` trigger suggestions in the editor
+  (inserts the glyph), `:shortcode:` preview syntax for `<MarkdownView>`,
   optional toolbar 😊 hook.
 
 ## Usage
