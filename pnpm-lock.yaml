@@ -67,10 +67,10 @@ importers:
         version: 6.0.3
       vite:
         specifier: ^8.0.14
-        version: 8.0.14(@types/node@25.9.3)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0)
+        version: 8.0.14(@types/node@26.4.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.51.2)
       vitest:
         specifier: ^4.1.7
-        version: 4.1.7(@types/node@25.9.3)(@vitest/coverage-v8@4.1.7)(happy-dom@20.11.1)(vite@8.0.14(@types/node@25.9.3)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0))
+        version: 4.1.7(@types/node@26.4.0)(@vitest/coverage-v8@4.1.7)(happy-dom@20.11.1)(vite@8.0.14(@types/node@26.4.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.51.2))
 
   examples/flik:
     dependencies:
@@ -160,8 +160,8 @@ importers:
         specifier: ^6.7.2
         version: 6.7.2
       '@fortawesome/free-solid-svg-icons':
-        specifier: ^6.7.2
-        version: 6.7.2
+        specifier: ^7.3.1
+        version: 7.3.1
       '@sigx/lynx':
         specifier: workspace:^
         version: link:../../packages/lynx
@@ -454,7 +454,7 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^4.1.7
-        version: 4.1.7(@types/node@25.9.3)(@vitest/coverage-v8@4.1.7)(happy-dom@20.11.1)(vite@8.0.14(@types/node@25.9.3)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0))
+        version: 4.1.7(@types/node@26.4.0)(@vitest/coverage-v8@4.1.7)(happy-dom@20.11.1)(vite@8.0.14(@types/node@26.4.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.51.2))
 
   packages/lynx-biometric:
     dependencies:
@@ -470,7 +470,7 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^4.1.7
-        version: 4.1.7(@types/node@25.9.3)(@vitest/coverage-v8@4.1.7)(happy-dom@20.11.1)(vite@8.0.14(@types/node@25.9.3)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0))
+        version: 4.1.7(@types/node@26.4.0)(@vitest/coverage-v8@4.1.7)(happy-dom@20.11.1)(vite@8.0.14(@types/node@26.4.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.51.2))
 
   packages/lynx-camera:
     dependencies:
@@ -614,7 +614,7 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^4.1.7
-        version: 4.1.7(@types/node@25.9.3)(@vitest/coverage-v8@4.1.7)(happy-dom@20.11.1)(vite@8.0.14(@types/node@25.9.3)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0))
+        version: 4.1.7(@types/node@26.4.0)(@vitest/coverage-v8@4.1.7)(happy-dom@20.11.1)(vite@8.0.14(@types/node@26.4.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.51.2))
 
   packages/lynx-dev-client:
     dependencies:
@@ -816,8 +816,8 @@ importers:
         specifier: ^6.7.2
         version: 6.7.2
       '@fortawesome/free-solid-svg-icons':
-        specifier: ^6.7.2
-        version: 6.7.2
+        specifier: ^7.3.1
+        version: 7.3.1
       '@sigx/lynx':
         specifier: workspace:^
         version: link:../lynx
@@ -916,7 +916,7 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^4.1.7
-        version: 4.1.7(@types/node@25.9.3)(@vitest/coverage-v8@4.1.7)(happy-dom@20.11.1)(vite@8.0.14(@types/node@25.9.3)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0))
+        version: 4.1.7(@types/node@26.4.0)(@vitest/coverage-v8@4.1.7)(happy-dom@20.11.1)(vite@8.0.14(@types/node@26.4.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.51.2))
 
   packages/lynx-list:
     devDependencies:
@@ -962,7 +962,7 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^4.1.7
-        version: 4.1.7(@types/node@25.9.3)(@vitest/coverage-v8@4.1.7)(happy-dom@20.11.1)(vite@8.0.14(@types/node@25.9.3)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0))
+        version: 4.1.7(@types/node@26.4.0)(@vitest/coverage-v8@4.1.7)(happy-dom@20.11.1)(vite@8.0.14(@types/node@26.4.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.51.2))
 
   packages/lynx-markdown:
     dependencies:
@@ -1049,7 +1049,7 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^4.1.7
-        version: 4.1.7(@types/node@25.9.3)(@vitest/coverage-v8@4.1.7)(happy-dom@20.11.1)(vite@8.0.14(@types/node@25.9.3)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0))
+        version: 4.1.7(@types/node@25.9.3)(@vitest/coverage-v8@4.1.7)(happy-dom@20.11.1)(vite@8.0.14(@types/node@25.9.3)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.51.2))
 
   packages/lynx-network:
     dependencies:
@@ -1081,7 +1081,7 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^4.1.7
-        version: 4.1.7(@types/node@25.9.3)(@vitest/coverage-v8@4.1.7)(happy-dom@20.11.1)(vite@8.0.14(@types/node@25.9.3)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0))
+        version: 4.1.7(@types/node@26.4.0)(@vitest/coverage-v8@4.1.7)(happy-dom@20.11.1)(vite@8.0.14(@types/node@26.4.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.51.2))
 
   packages/lynx-observability:
     dependencies:
@@ -1205,7 +1205,7 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^4.1.7
-        version: 4.1.7(@types/node@25.9.3)(@vitest/coverage-v8@4.1.7)(happy-dom@20.11.1)(vite@8.0.14(@types/node@25.9.3)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0))
+        version: 4.1.7(@types/node@26.4.0)(@vitest/coverage-v8@4.1.7)(happy-dom@20.11.1)(vite@8.0.14(@types/node@26.4.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.51.2))
 
   packages/lynx-runtime-internal:
     devDependencies:
@@ -1283,7 +1283,7 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^4.1.7
-        version: 4.1.7(@types/node@25.9.3)(@vitest/coverage-v8@4.1.7)(happy-dom@20.11.1)(vite@8.0.14(@types/node@25.9.3)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0))
+        version: 4.1.7(@types/node@26.4.0)(@vitest/coverage-v8@4.1.7)(happy-dom@20.11.1)(vite@8.0.14(@types/node@26.4.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.51.2))
 
   packages/lynx-share:
     dependencies:
@@ -1327,7 +1327,7 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^4.1.7
-        version: 4.1.7(@types/node@25.9.3)(@vitest/coverage-v8@4.1.7)(happy-dom@20.11.1)(vite@8.0.14(@types/node@25.9.3)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0))
+        version: 4.1.7(@types/node@26.4.0)(@vitest/coverage-v8@4.1.7)(happy-dom@20.11.1)(vite@8.0.14(@types/node@26.4.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.51.2))
 
   packages/lynx-sqlite:
     dependencies:
@@ -1346,7 +1346,7 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^4.1.7
-        version: 4.1.7(@types/node@25.9.3)(@vitest/coverage-v8@4.1.7)(happy-dom@20.11.1)(vite@8.0.14(@types/node@25.9.3)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0))
+        version: 4.1.7(@types/node@26.4.0)(@vitest/coverage-v8@4.1.7)(happy-dom@20.11.1)(vite@8.0.14(@types/node@26.4.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.51.2))
 
   packages/lynx-storage:
     dependencies:
@@ -1387,7 +1387,7 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^4.1.7
-        version: 4.1.7(@types/node@25.9.3)(@vitest/coverage-v8@4.1.7)(happy-dom@20.11.1)(vite@8.0.14(@types/node@25.9.3)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0))
+        version: 4.1.7(@types/node@26.4.0)(@vitest/coverage-v8@4.1.7)(happy-dom@20.11.1)(vite@8.0.14(@types/node@26.4.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.51.2))
 
   packages/lynx-updates:
     dependencies:
@@ -1483,7 +1483,7 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^4.1.7
-        version: 4.1.7(@types/node@25.9.3)(@vitest/coverage-v8@4.1.7)(happy-dom@20.11.1)(vite@8.0.14(@types/node@25.9.3)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0))
+        version: 4.1.7(@types/node@26.4.0)(@vitest/coverage-v8@4.1.7)(happy-dom@20.11.1)(vite@8.0.14(@types/node@26.4.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.51.2))
 
   packages/lynx-webrtc:
     dependencies:
@@ -1502,7 +1502,7 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^4.1.7
-        version: 4.1.7(@types/node@25.9.3)(@vitest/coverage-v8@4.1.7)(happy-dom@20.11.1)(vite@8.0.14(@types/node@25.9.3)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0))
+        version: 4.1.7(@types/node@26.4.0)(@vitest/coverage-v8@4.1.7)(happy-dom@20.11.1)(vite@8.0.14(@types/node@26.4.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.51.2))
 
   packages/lynx-websocket:
     dependencies:
@@ -1518,7 +1518,7 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^4.1.7
-        version: 4.1.7(@types/node@25.9.3)(@vitest/coverage-v8@4.1.7)(happy-dom@20.11.1)(vite@8.0.14(@types/node@25.9.3)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0))
+        version: 4.1.7(@types/node@26.4.0)(@vitest/coverage-v8@4.1.7)(happy-dom@20.11.1)(vite@8.0.14(@types/node@26.4.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.51.2))
 
   packages/lynx-webview:
     devDependencies:
@@ -1533,7 +1533,7 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^4.1.7
-        version: 4.1.7(@types/node@25.9.3)(@vitest/coverage-v8@4.1.7)(happy-dom@20.11.1)(vite@8.0.14(@types/node@25.9.3)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0))
+        version: 4.1.7(@types/node@26.4.0)(@vitest/coverage-v8@4.1.7)(happy-dom@20.11.1)(vite@8.0.14(@types/node@26.4.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.51.2))
 
   packages/lynx-zero:
     dependencies:
@@ -1828,6 +1828,10 @@ packages:
     resolution: {integrity: sha512-Zs+YeHUC5fkt7Mg1l6XTniei3k4bwG/yo3iFUtZWd/pMx9g3fdvkSK9E0FOC+++phXOka78uJcYb8JaFkW52Xg==}
     engines: {node: '>=6'}
 
+  '@fortawesome/fontawesome-common-types@7.3.1':
+    resolution: {integrity: sha512-k0C0sdHmZtAo6dRDtd1Z/qcpyHbL0CKsjV8seMY/21xGhY5Wsv0XRmiI/xEEH4y2c9b1+jvgNs/3EqhV27yUEA==}
+    engines: {node: '>=6'}
+
   '@fortawesome/fontawesome-free@6.7.2':
     resolution: {integrity: sha512-JUOtgFW6k9u4Y+xeIaEiLr3+cjoUPiAuLXoyKOJSia6Duzb7pq+A76P9ZdPDoAoxHdHzq6gE9/jKBGXlZT8FbA==}
     engines: {node: '>=6'}
@@ -1840,8 +1844,8 @@ packages:
     resolution: {integrity: sha512-7Z/ur0gvCMW8G93dXIQOkQqHo2M5HLhYrRVC0//fakJXxcF1VmMPsxnG6Ee8qEylA8b8Q3peQXWMNZ62lYF28g==}
     engines: {node: '>=6'}
 
-  '@fortawesome/free-solid-svg-icons@6.7.2':
-    resolution: {integrity: sha512-GsBrnOzU8uj0LECDfD5zomZJIjrPhIlWU82AHwa2s40FKH+kcxQaBvBo3Z4TxyZHIyX8XTDxsyA33/Vx9eFuQA==}
+  '@fortawesome/free-solid-svg-icons@7.3.1':
+    resolution: {integrity: sha512-v0BLa0eqg7ubvVWeNSHVBs8fWH/GJicERZoJaxJ3FE/lj67VSqzoMg9pzfZVOfLMX10y0pGwQAuxoRVVH2patg==}
     engines: {node: '>=6'}
 
   '@img/colour@1.1.0':
@@ -2725,6 +2729,9 @@ packages:
   '@types/node@25.9.3':
     resolution: {integrity: sha512-603BddQMv3pUcr4U2dhujk83N2tTDVr/34wII2B6bJy6g+8WD6yUb11jszNs0gdi4PesVWl7ABt8nYMVpnLUcg==}
 
+  '@types/node@26.4.0':
+    resolution: {integrity: sha512-faiGnoIrLH/V8cibOMEAZ8pMw6oXqSukl29ra4mN8GdaB2ZewzeaLj+INpV5N+Z1eKWzY+IzaIZH2EIR6YZRNQ==}
+
   '@types/prop-types@15.7.15':
     resolution: {integrity: sha512-F6bEyamV9jKGAFBEmlQnesRPGOQqS2+Uwi0Em15xenOxHaf2hv6L8YCVn3rPdPJOiJfPiCnLIRyvwVaqMY3MIw==}
 
@@ -2909,6 +2916,11 @@ packages:
 
   acorn@8.17.0:
     resolution: {integrity: sha512-xRQbDb9BnwDafYNn6Vwl839DYVjqXYb1XVGtWAZ1kcDc6iwAL4hg3B1dZlRiuENFeO2H53gFG3in621AdERVAg==}
+    engines: {node: '>=0.4.0'}
+    hasBin: true
+
+  acorn@8.18.0:
+    resolution: {integrity: sha512-lGq+9yr1/GuAWaVYIHRjvvySG5/4VfKIvC8EWxStPdcDh/Ka7FG3twP6v4d5BkravUilhIAsG4Qj83t02LWUPQ==}
     engines: {node: '>=0.4.0'}
     hasBin: true
 
@@ -3267,8 +3279,8 @@ packages:
     resolution: {integrity: sha512-2agL3ueZhqxoVrfmntO8yuVj+uNSlIOnhykYHk3Cq0ShYPdUjjUiSJrQvXjq01I9jAuI0Zl2YO8Evv5Mqytm5g==}
     engines: {node: '>=10.2.0'}
 
-  enhanced-resolve@5.24.0:
-    resolution: {integrity: sha512-SkE2t82KlkkxQRVMVLAGKxLfORGQfrkx5dkj+vlgXRVNEdPc4eZcR+J/Fvj8C+yKSFH5L0q3NFlyufOVQnCcYQ==}
+  enhanced-resolve@5.24.5:
+    resolution: {integrity: sha512-L1l8TNvomm6UVW5B253AGxQagSQr+vGwhMlrrfRS2qmhx46AMpMVJKQYLvWYbysTMY8VoicOvzHzoHMbyzB+4A==}
     engines: {node: '>=10.13.0'}
 
   entities@4.5.0:
@@ -3302,6 +3314,9 @@ packages:
 
   es-module-lexer@2.1.0:
     resolution: {integrity: sha512-n27zTYMjYu1aj4MjCWzSP7G9r75utsaoc8m61weK+W8JMBGGQybd43GstCXZ3WNmSFtGT9wi59qQTW6mhTR5LQ==}
+
+  es-module-lexer@2.3.2:
+    resolution: {integrity: sha512-poHGpORABojJJucnV9KbOavETW8lBVnphkW77ER5/BQ5Fz7oXSoCNek7IH3vR5nRjdsEz926ibFYX8KtLQmdyw==}
 
   es-object-atoms@1.1.1:
     resolution: {integrity: sha512-FGgH2h8zKNim9ljj7dankFPcICIK9Cp5bm+c2gQSYePhpaG5+esrLODihIorn+Pe6FGJzWhXQotPv73jTaldXA==}
@@ -4386,8 +4401,8 @@ packages:
       uglify-js:
         optional: true
 
-  terser@5.48.0:
-    resolution: {integrity: sha512-J/9An6vs9Us6wKRriSFXBWdRZapREHqFzdNUKk0pmu804EMR6dr6winwo7e5JDxN4xahxQsuysyYFwlwj4XN/Q==}
+  terser@5.51.2:
+    resolution: {integrity: sha512-bWnjSNscmuI+GJze6ZupnHP8G/cTcsJF+bXCeQknk2SHQsgbNJnLrqiH9jZ2W4STPVXH2mDKKRX3iwPhc9Cn/Q==}
     engines: {node: '>=10'}
     hasBin: true
 
@@ -4461,6 +4476,9 @@ packages:
 
   undici-types@7.24.6:
     resolution: {integrity: sha512-WRNW+sJgj5OBN4/0JpHFqtqzhpbnV0GuB+OozA9gCL7a993SmU+1JBZCzLNxYsbMfIeDL+lTsphD5jN5N+n0zg==}
+
+  undici-types@8.3.0:
+    resolution: {integrity: sha512-j375ScV60dom+YkPFIfTLcOiPxkN/buHz5GobjLhixFuANaNs3C9l4GmrWqejgXWJ7BbJcFYpTEUkS1Ge8bpZQ==}
 
   universalify@2.0.1:
     resolution: {integrity: sha512-gptHNQghINnc/vTGIk0SOFGFNXw7JVrlRUtConJRlvaw6DuX0wO5Jeko9sWrMBhh+PsYAZ7oXAiOnf/UKogyiw==}
@@ -4570,8 +4588,8 @@ packages:
     resolution: {integrity: sha512-6i/00NBjP4yGPs+caKSyRfpTF/8Torsu0MOW3mMzIbhgISFder8i7xbqgHlLMwJrdiN8ndBV3UA1/AfzPSr+jg==}
     engines: {node: '>=10.13.0'}
 
-  webpack-sources@3.5.0:
-    resolution: {integrity: sha512-HPuy+uuoTCaaoEoI1LQ3JN9+vrPBvEesnnX1jADHy728cHSMlq4wUc4afYqahq2B1mhQVZxCXOkNTnXltr+2vQ==}
+  webpack-sources@3.5.1:
+    resolution: {integrity: sha512-jyuiGJdtvY434z5bUZrjz67v76/ePNvFZTp9Mdz29IlH4+GPsgyGjiv0fKI+M7BdkU6ADjulUcKAd3tUK3WlEw==}
     engines: {node: '>=10.13.0'}
 
   webpack@5.106.2:
@@ -4775,6 +4793,8 @@ snapshots:
 
   '@fortawesome/fontawesome-common-types@6.7.2': {}
 
+  '@fortawesome/fontawesome-common-types@7.3.1': {}
+
   '@fortawesome/fontawesome-free@6.7.2': {}
 
   '@fortawesome/free-brands-svg-icons@6.7.2':
@@ -4785,9 +4805,9 @@ snapshots:
     dependencies:
       '@fortawesome/fontawesome-common-types': 6.7.2
 
-  '@fortawesome/free-solid-svg-icons@6.7.2':
+  '@fortawesome/free-solid-svg-icons@7.3.1':
     dependencies:
-      '@fortawesome/fontawesome-common-types': 6.7.2
+      '@fortawesome/fontawesome-common-types': 7.3.1
 
   '@img/colour@1.1.0': {}
 
@@ -5724,6 +5744,11 @@ snapshots:
     dependencies:
       undici-types: 7.24.6
 
+  '@types/node@26.4.0':
+    dependencies:
+      undici-types: 8.3.0
+    optional: true
+
   '@types/prop-types@15.7.15': {}
 
   '@types/react@18.3.28':
@@ -5795,7 +5820,7 @@ snapshots:
       obug: 2.1.1
       std-env: 4.1.0
       tinyrainbow: 3.1.0
-      vitest: 4.1.7(@types/node@25.9.3)(@vitest/coverage-v8@4.1.7)(happy-dom@20.11.1)(vite@8.0.14(@types/node@25.9.3)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0))
+      vitest: 4.1.7(@types/node@26.4.0)(@vitest/coverage-v8@4.1.7)(happy-dom@20.11.1)(vite@8.0.14(@types/node@26.4.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.51.2))
 
   '@vitest/expect@4.1.7':
     dependencies:
@@ -5806,13 +5831,21 @@ snapshots:
       chai: 6.2.2
       tinyrainbow: 3.1.0
 
-  '@vitest/mocker@4.1.7(vite@8.0.14(@types/node@25.9.3)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0))':
+  '@vitest/mocker@4.1.7(vite@8.0.14(@types/node@25.9.3)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.51.2))':
     dependencies:
       '@vitest/spy': 4.1.7
       estree-walker: 3.0.3
       magic-string: 0.30.21
     optionalDependencies:
-      vite: 8.0.14(@types/node@25.9.3)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0)
+      vite: 8.0.14(@types/node@25.9.3)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.51.2)
+
+  '@vitest/mocker@4.1.7(vite@8.0.14(@types/node@26.4.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.51.2))':
+    dependencies:
+      '@vitest/spy': 4.1.7
+      estree-walker: 3.0.3
+      magic-string: 0.30.21
+    optionalDependencies:
+      vite: 8.0.14(@types/node@26.4.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.51.2)
 
   '@vitest/pretty-format@4.1.7':
     dependencies:
@@ -5927,15 +5960,17 @@ snapshots:
     dependencies:
       acorn: 8.17.0
 
-  acorn-import-phases@1.0.4(acorn@8.17.0):
+  acorn-import-phases@1.0.4(acorn@8.18.0):
     dependencies:
-      acorn: 8.17.0
+      acorn: 8.18.0
 
   acorn-walk@8.3.5:
     dependencies:
       acorn: 8.17.0
 
   acorn@8.17.0: {}
+
+  acorn@8.18.0: {}
 
   ajv-formats@2.1.1(ajv@8.20.0):
     optionalDependencies:
@@ -6322,7 +6357,7 @@ snapshots:
       - supports-color
       - utf-8-validate
 
-  enhanced-resolve@5.24.0:
+  enhanced-resolve@5.24.5:
     dependencies:
       graceful-fs: 4.2.11
       tapable: 2.3.3
@@ -6397,6 +6432,8 @@ snapshots:
   es-errors@1.3.0: {}
 
   es-module-lexer@2.1.0: {}
+
+  es-module-lexer@2.3.2: {}
 
   es-object-atoms@1.1.1:
     dependencies:
@@ -7548,7 +7585,7 @@ snapshots:
       '@jridgewell/trace-mapping': 0.3.31
       jest-worker: 27.5.1
       schema-utils: 4.3.3
-      terser: 5.48.0
+      terser: 5.51.2
       webpack: 5.106.2(esbuild@0.28.0)(postcss@8.5.15)
     optionalDependencies:
       esbuild: 0.28.0
@@ -7559,15 +7596,15 @@ snapshots:
       '@jridgewell/trace-mapping': 0.3.31
       jest-worker: 27.5.1
       schema-utils: 4.3.3
-      terser: 5.48.0
+      terser: 5.51.2
       webpack: 5.106.2(esbuild@0.28.0)
     optionalDependencies:
       esbuild: 0.28.0
 
-  terser@5.48.0:
+  terser@5.51.2:
     dependencies:
       '@jridgewell/source-map': 0.3.11
-      acorn: 8.17.0
+      acorn: 8.18.0
       commander: 2.20.3
       source-map-support: 0.5.21
 
@@ -7648,6 +7685,9 @@ snapshots:
 
   undici-types@7.24.6: {}
 
+  undici-types@8.3.0:
+    optional: true
+
   universalify@2.0.1: {}
 
   update-browserslist-db@1.2.3(browserslist@4.28.2):
@@ -7660,7 +7700,7 @@ snapshots:
 
   vary@1.1.2: {}
 
-  vite@8.0.14(@types/node@25.9.3)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0):
+  vite@8.0.14(@types/node@25.9.3)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.51.2):
     dependencies:
       lightningcss: 1.32.0
       picomatch: 4.0.4
@@ -7672,12 +7712,26 @@ snapshots:
       esbuild: 0.28.0
       fsevents: 2.3.3
       jiti: 2.7.0
-      terser: 5.48.0
+      terser: 5.51.2
 
-  vitest@4.1.7(@types/node@25.9.3)(@vitest/coverage-v8@4.1.7)(happy-dom@20.11.1)(vite@8.0.14(@types/node@25.9.3)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0)):
+  vite@8.0.14(@types/node@26.4.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.51.2):
+    dependencies:
+      lightningcss: 1.32.0
+      picomatch: 4.0.4
+      postcss: 8.5.15
+      rolldown: 1.0.2
+      tinyglobby: 0.2.16
+    optionalDependencies:
+      '@types/node': 26.4.0
+      esbuild: 0.28.0
+      fsevents: 2.3.3
+      jiti: 2.7.0
+      terser: 5.51.2
+
+  vitest@4.1.7(@types/node@25.9.3)(@vitest/coverage-v8@4.1.7)(happy-dom@20.11.1)(vite@8.0.14(@types/node@25.9.3)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.51.2)):
     dependencies:
       '@vitest/expect': 4.1.7
-      '@vitest/mocker': 4.1.7(vite@8.0.14(@types/node@25.9.3)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0))
+      '@vitest/mocker': 4.1.7(vite@8.0.14(@types/node@25.9.3)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.51.2))
       '@vitest/pretty-format': 4.1.7
       '@vitest/runner': 4.1.7
       '@vitest/snapshot': 4.1.7
@@ -7694,10 +7748,39 @@ snapshots:
       tinyexec: 1.1.2
       tinyglobby: 0.2.16
       tinyrainbow: 3.1.0
-      vite: 8.0.14(@types/node@25.9.3)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0)
+      vite: 8.0.14(@types/node@25.9.3)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.51.2)
       why-is-node-running: 2.3.0
     optionalDependencies:
       '@types/node': 25.9.3
+      '@vitest/coverage-v8': 4.1.7(vitest@4.1.7)
+      happy-dom: 20.11.1
+    transitivePeerDependencies:
+      - msw
+
+  vitest@4.1.7(@types/node@26.4.0)(@vitest/coverage-v8@4.1.7)(happy-dom@20.11.1)(vite@8.0.14(@types/node@26.4.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.51.2)):
+    dependencies:
+      '@vitest/expect': 4.1.7
+      '@vitest/mocker': 4.1.7(vite@8.0.14(@types/node@26.4.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.51.2))
+      '@vitest/pretty-format': 4.1.7
+      '@vitest/runner': 4.1.7
+      '@vitest/snapshot': 4.1.7
+      '@vitest/spy': 4.1.7
+      '@vitest/utils': 4.1.7
+      es-module-lexer: 2.1.0
+      expect-type: 1.3.0
+      magic-string: 0.30.21
+      obug: 2.1.1
+      pathe: 2.0.3
+      picomatch: 4.0.4
+      std-env: 4.1.0
+      tinybench: 2.9.0
+      tinyexec: 1.1.2
+      tinyglobby: 0.2.16
+      tinyrainbow: 3.1.0
+      vite: 8.0.14(@types/node@26.4.0)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.51.2)
+      why-is-node-running: 2.3.0
+    optionalDependencies:
+      '@types/node': 26.4.0
       '@vitest/coverage-v8': 4.1.7(vitest@4.1.7)
       happy-dom: 20.11.1
     transitivePeerDependencies:
@@ -7709,7 +7792,7 @@ snapshots:
     dependencies:
       graceful-fs: 4.2.11
 
-  webpack-sources@3.5.0: {}
+  webpack-sources@3.5.1: {}
 
   webpack@5.106.2(esbuild@0.28.0):
     dependencies:
@@ -7719,12 +7802,12 @@ snapshots:
       '@webassemblyjs/ast': 1.14.1
       '@webassemblyjs/wasm-edit': 1.14.1
       '@webassemblyjs/wasm-parser': 1.14.1
-      acorn: 8.17.0
-      acorn-import-phases: 1.0.4(acorn@8.17.0)
+      acorn: 8.18.0
+      acorn-import-phases: 1.0.4(acorn@8.18.0)
       browserslist: 4.28.2
       chrome-trace-event: 1.0.4
-      enhanced-resolve: 5.24.0
-      es-module-lexer: 2.1.0
+      enhanced-resolve: 5.24.5
+      es-module-lexer: 2.3.2
       eslint-scope: 5.1.1
       events: 3.3.0
       glob-to-regexp: 0.4.1
@@ -7736,7 +7819,7 @@ snapshots:
       tapable: 2.3.3
       terser-webpack-plugin: 5.6.1(esbuild@0.28.0)(webpack@5.106.2(esbuild@0.28.0))
       watchpack: 2.5.2
-      webpack-sources: 3.5.0
+      webpack-sources: 3.5.1
     transitivePeerDependencies:
       - '@minify-html/node'
       - '@swc/core'
@@ -7759,12 +7842,12 @@ snapshots:
       '@webassemblyjs/ast': 1.14.1
       '@webassemblyjs/wasm-edit': 1.14.1
       '@webassemblyjs/wasm-parser': 1.14.1
-      acorn: 8.17.0
-      acorn-import-phases: 1.0.4(acorn@8.17.0)
+      acorn: 8.18.0
+      acorn-import-phases: 1.0.4(acorn@8.18.0)
       browserslist: 4.28.2
       chrome-trace-event: 1.0.4
-      enhanced-resolve: 5.24.0
-      es-module-lexer: 2.1.0
+      enhanced-resolve: 5.24.5
+      es-module-lexer: 2.3.2
       eslint-scope: 5.1.1
       events: 3.3.0
       glob-to-regexp: 0.4.1
@@ -7776,7 +7859,7 @@ snapshots:
       tapable: 2.3.3
       terser-webpack-plugin: 5.6.1(esbuild@0.28.0)(postcss@8.5.15)(webpack@5.106.2(esbuild@0.28.0)(postcss@8.5.15))
       watchpack: 2.5.2
-      webpack-sources: 3.5.0
+      webpack-sources: 3.5.1
     transitivePeerDependencies:
       - '@minify-html/node'
       - '@swc/core'
