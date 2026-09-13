@@ -1,6 +1,8 @@
 /**
  * `<MarkdownEditor>` — the Lynx block editor: the surface host of
- * `@sigx/markdown/editor`'s block-tree core on `<sigx-richtext>`.
+ * `@sigx/richtext/editor`'s block-tree core on `<sigx-richtext>`, reading and
+ * writing markdown through `@sigx/richtext-markdown` (`markdownFormat` and
+ * `markdownPreset` — the input rules and the `text/markdown` clipboard).
  *
  * One `createEditor()` per component; every root block renders as a keyed
  * `<BlockView>` (paragraphs and headings as native rich-text fields in
@@ -27,11 +29,12 @@
 import { component, signal, useFontScale, watch, type Define, type JSXElement } from '@sigx/lynx';
 import { defineProvide } from '@sigx/lynx';
 import { useKeyboard } from '@sigx/lynx-keyboard';
-import type { MarkdownPlugin, Root } from '@sigx/markdown';
-import { mentionPlugin, parseMarkdown, toMarkdown } from '@sigx/markdown';
-import type { Command, Editor, EditorSelection, InputRule, Keymap, ToolbarItem, Transaction, TriggerItem, TriggerSelectApi, TriggerSession, TriggerSessionManager } from '@sigx/markdown/editor';
-import { commandRegistry, commands as C, createEditor, createTriggerSessionManager, textSelection } from '@sigx/markdown/editor';
-import { lynxMentionInlineKind } from '../plugins/mention.js';
+import type { RichTextPlugin, Root } from '@sigx/richtext';
+import type { Command, Editor, EditorSelection, InputRule, Keymap, ToolbarItem, Transaction, TriggerItem, TriggerSelectApi, TriggerSession, TriggerSessionManager } from '@sigx/richtext/editor';
+import { commandRegistry, commands as C, createEditor, createTriggerSessionManager, textSelection } from '@sigx/richtext/editor';
+import { markdownFormat, mentionPlugin } from '@sigx/richtext-markdown';
+import { markdownPreset } from '@sigx/richtext-markdown/editor';
+import { lynxMentionNode } from '../plugins/mention.js';
 import { Platform } from '@sigx/lynx';
 import { defaultComponents, type LynxMarkdownComponents } from '../render/components.js';
 import { BlockView } from './blocks.js';
@@ -117,8 +120,8 @@ export type MarkdownEditorProps =
     /** Base items (default: the core's `defaultToolbarItems`); plugin items append. */
     & Define.Prop<'toolbarItems', readonly ToolbarItem[], false>
     & Define.Prop<'renderToolbarItem', ToolbarRenderItem, false>
-    /** Plugins: `@sigx/markdown` plugins with an editor slice. Captured at mount. */
-    & Define.Prop<'plugins', readonly MarkdownPlugin[], false>
+    /** Plugins: `@sigx/richtext` plugins with an editor slice (the markdown preset is built in). Captured at mount. */
+    & Define.Prop<'plugins', readonly RichTextPlugin[], false>
     /** Components for void blocks (dividers, definitions). */
     & Define.Prop<'components', Partial<LynxMarkdownComponents>, false>
     /** Colors and layout of the built-in suggestion popup. */
@@ -153,14 +156,16 @@ const clone = <T,>(doc: T): T => JSON.parse(JSON.stringify(doc)) as T;
 export const MarkdownEditor = component<MarkdownEditorProps>(({ props, onUnmounted }) => {
     const fontScale = useFontScale();
     // Mentions are native to the field (`insertChip`), so the `@[label](id)`
-    // syntax, serializer and atom kind are always present; a plugin named
-    // `mention` (e.g. `createMentionPlugin`) replaces this baseline.
+    // syntax, serializer and node are always present; a plugin named
+    // `mention` (e.g. `createMentionPlugin`) replaces this baseline. The
+    // markdown preset (input rules, `text/markdown` on copy) leads the list.
     const given = props.plugins ?? [];
-    const plugins: readonly MarkdownPlugin[] = given.some((p) => p.name === 'mention')
-        ? given
-        : [...given, { ...mentionPlugin, editor: { inline: [lynxMentionInlineKind] } }];
-    const parse = (md: string): Root => parseMarkdown(md, { plugins });
-    const serialize = (doc: Root): string => toMarkdown(doc, { plugins });
+    const plugins: readonly RichTextPlugin[] = [
+        markdownPreset,
+        ...(given.some((p) => p.name === 'mention') ? given : [...given, { ...mentionPlugin, nodes: [lynxMentionNode] }]),
+    ];
+    const parse = (md: string): Root => markdownFormat.parse(md, { plugins });
+    const serialize = (doc: Root): string => markdownFormat.serialize(doc, { plugins });
 
     let lastEmittedMd: string | null = null;
     let lastEmittedDoc: Root | null = null;
@@ -177,10 +182,10 @@ export const MarkdownEditor = component<MarkdownEditorProps>(({ props, onUnmount
     const editor = createEditor({
         doc: initialDoc,
         plugins,
+        format: markdownFormat,
         keymap: { ArrowUp: C.focusNeighbour('up', offsetAt), ArrowDown: C.focusNeighbour('down', offsetAt), ...props.keymap },
         inputRules: props.inputRules,
         platform: { isMac: Platform.OS === 'ios', hasHardwareKeyboard: false, caretRectSpace: 'block' },
-        parse,
         readOnly: props.disabled === true,
         onChange: ({ state, transaction }) => {
             lastEmittedDoc = state.doc;
@@ -284,7 +289,7 @@ export const MarkdownEditor = component<MarkdownEditorProps>(({ props, onUnmount
         (md) => {
             if (typeof md !== 'string' || md === lastEmittedMd) return;
             lastEmittedMd = md;
-            editor.setMarkdown(md);
+            editor.setSource(md);
         },
     );
     watch(
@@ -375,7 +380,7 @@ export const MarkdownEditor = component<MarkdownEditorProps>(({ props, onUnmount
         },
         getMarkdown: () => lastEmittedMd ?? serialize(editor.state.doc),
         getDocument: () => editor.state.doc,
-        setMarkdown: (md) => void editor.setMarkdown(md),
+        setMarkdown: (md) => void editor.setSource(md),
         setDocument: (doc) => editor.setDocument(clone(doc)),
         getSelection: () => editor.state.selection,
         undo: () => editor.undo(),

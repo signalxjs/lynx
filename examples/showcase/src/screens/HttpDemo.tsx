@@ -2,7 +2,7 @@ import { component, signal } from '@sigx/lynx';
 import { Screen } from '@sigx/lynx-navigation';
 import { Button, Card, Col, Heading, Progress, ScrollView, Text, markdownComponents } from '@sigx/lynx-daisyui';
 import { FilePicker } from '@sigx/lynx-file-picker';
-import { MarkdownView, createMarkdownStream } from '@sigx/lynx-markdown';
+import { MarkdownView, createTextStream } from '@sigx/lynx-markdown';
 // On-device the global `fetch`/`FormData` need no import (@sigx/lynx
 // default-wires @sigx/lynx-http). The explicit import here is for the
 // sigx-specific TYPES — file-handle FormData values and the non-standard
@@ -28,7 +28,7 @@ export const HttpDemo = component(() => {
     const streamResult = signal<{ value: string | null }>({ value: null });
     // Streaming markdown sink — `append()` per token, `<MarkdownView>` renders
     // its reactive `value` progressively (finalized blocks don't reflow).
-    const md = createMarkdownStream({ flushIntervalMs: 16 });
+    const md = createTextStream({ flushIntervalMs: 16 });
     const statusResult = signal<{
         value: { lineA: string; lineB: string; note: string; verdict: string; pass: boolean } | null;
     }>({ value: null });

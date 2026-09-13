@@ -18,8 +18,8 @@
  * Offsets are UTF-16 code units on both sides, so nothing shifts.
  */
 
-import type { InlineFlat, InlineSpan as FlatSpan } from '@sigx/markdown/editor';
-import { ATOM_CHAR } from '@sigx/markdown/editor';
+import type { InlineFlat, InlineSpan as FlatSpan } from '@sigx/richtext/editor';
+import { ATOM_CHAR } from '@sigx/richtext/editor';
 import type { BlockAttr, BlockAttrType, InlineSpan, InlineSpanType, RichDoc } from '@sigx/lynx-richtext';
 
 const MARK_TO_SPAN: Record<string, InlineSpanType> = {

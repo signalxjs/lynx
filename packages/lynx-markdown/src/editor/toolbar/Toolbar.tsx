@@ -18,8 +18,8 @@
  */
 
 import { component, type Define, type JSXElement } from '@sigx/lynx';
-import type { ToolbarContext, ToolbarItem, ToolbarState } from '@sigx/markdown/editor';
-import { defaultToolbarItems, toolbarState } from '@sigx/markdown/editor';
+import type { ToolbarContext, ToolbarItem, ToolbarState } from '@sigx/richtext/editor';
+import { defaultToolbarItems, toolbarState } from '@sigx/richtext/editor';
 import type { MarkdownEditorController } from '../MarkdownEditor.js';
 import { track } from '../view.js';
 

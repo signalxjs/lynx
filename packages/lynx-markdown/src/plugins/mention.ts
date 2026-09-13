@@ -1,13 +1,15 @@
 /**
  * The reference mention plugin — `@[label](id)` mentions as native chips.
  *
- * The platform-neutral halves live in `@sigx/markdown`: the syntax and
- * serializer (`mentionPlugin`) and the editor slice (`createMentionPlugin`
- * from `@sigx/markdown/editor`: the `mention` atom kind and the `@` trigger
- * whose pick replaces the query with a chip). This module is the **Lynx
- * half**: the candidate search with the label / id cleaning rule, the
- * popup row renderer, and an optional `mention` component for
- * `<MarkdownView>`.
+ * The platform-neutral halves live upstream: the node (`mentionNode`,
+ * `Mention`) and the editor slice (`createMentionPlugin` from
+ * `@sigx/richtext/editor`: the `@` trigger whose pick replaces the query with
+ * a chip) in `@sigx/richtext`, the `@[label](id)` syntax and serializer
+ * (`mentionMarkdown`, `mentionPlugin`) in `@sigx/richtext-markdown`. This
+ * module is the **Lynx half**: the candidate search with the label / id
+ * cleaning rule, the popup row renderer, an optional `mention` component for
+ * `<MarkdownView>`, and a node spec that keeps the candidate's `kind` on the
+ * chip.
  *
  * Label rule (the parser's, mirrored on the write path): a label cannot
  * contain `]` or CR/LF, an id cannot contain `)` or CR/LF — the serializer
@@ -23,8 +25,9 @@
  */
 
 import type { JSXElement } from '@sigx/lynx';
-import { mentionPlugin, mentionSyntax, type MarkdownPlugin, type Mention } from '@sigx/markdown';
-import { createMentionPlugin as createCoreMentionPlugin, mentionInlineKind, type InlineKindSpec, type MentionItem, type TriggerItem } from '@sigx/markdown/editor';
+import { mentionNode, type Mention, type NodeSpec, type RichTextPlugin } from '@sigx/richtext';
+import { createMentionPlugin as createCoreMentionPlugin, type MentionItem, type TriggerItem } from '@sigx/richtext/editor';
+import { mentionMarkdown, mentionPlugin, mentionSyntax } from '@sigx/richtext-markdown';
 import type { LynxMarkdownChild } from '../render/components.js';
 import type { SuggestionRenderItem } from '../editor/trigger/SuggestionPopup.js';
 
@@ -63,8 +66,8 @@ export interface MentionPluginOptions {
     debounce?: number;
 }
 
-/** A `MarkdownPlugin` whose editor slice carries the Lynx popup renderer. */
-export interface LynxMentionPlugin extends MarkdownPlugin {
+/** A `RichTextPlugin` whose editor slice carries the Lynx popup renderer. */
+export interface LynxMentionPlugin extends RichTextPlugin {
     component?: (props: MentionComponentProps) => JSXElement | string;
 }
 
@@ -72,22 +75,25 @@ const cleanLabel = (s: string): string => s.replace(/[\]\r\n]/g, '');
 const cleanId = (s: string): string => s.replace(/[)\r\n]/g, '');
 
 /**
- * The Lynx mention kind keeps the candidate's `kind` on the node (a
+ * The Lynx mention node keeps the candidate's `kind` on the node (a
  * display-only field for chip styling): it lives in the document and the
  * chip, never in the markdown (`@[label](id)` has no slot for it).
  */
-export const lynxMentionInlineKind: InlineKindSpec = {
-    ...mentionInlineKind,
-    toFlat: (node) => {
-        const m = node as unknown as Mention & { kind?: string };
-        const attrs: Record<string, string> = { id: m.id, label: m.label };
-        if (m.kind) attrs.kind = m.kind;
-        return attrs;
-    },
-    fromFlat: (span) => {
-        const n: Mention & { kind?: string } = { type: 'mention', id: span.attrs?.id ?? '', label: span.attrs?.label ?? '' };
-        if (span.attrs?.kind) n.kind = span.attrs.kind;
-        return n as unknown as ReturnType<NonNullable<InlineKindSpec['fromFlat']>>;
+export const lynxMentionNode: NodeSpec = {
+    ...mentionNode,
+    inline: {
+        ...mentionNode.inline,
+        toFlat: (node) => {
+            const m = node as unknown as Mention & { kind?: string };
+            const attrs: Record<string, string> = { id: m.id, label: m.label };
+            if (m.kind) attrs.kind = m.kind;
+            return attrs;
+        },
+        fromFlat: (span) => {
+            const n: Mention & { kind?: string } = { type: 'mention', id: span.attrs?.id ?? '', label: span.attrs?.label ?? '' };
+            if (span.attrs?.kind) n.kind = span.attrs.kind;
+            return n as unknown as ReturnType<NonNullable<NonNullable<NodeSpec['inline']>['fromFlat']>>;
+        },
     },
 };
 
@@ -101,6 +107,7 @@ export function createMentionPlugin(options: MentionPluginOptions): LynxMentionP
     const core = createCoreMentionPlugin({
         trigger: options.trigger,
         debounce: options.debounce,
+        formats: { markdown: mentionMarkdown },
         onQuery: (query) => {
             const result = options.search(query);
             return Array.isArray(result) ? toItems(result) : result.then(toItems);
@@ -114,9 +121,9 @@ export function createMentionPlugin(options: MentionPluginOptions): LynxMentionP
     const slice = core.editor!;
     const triggers = (slice.triggers ?? []).map((t) => (options.renderItem ? { ...t, renderItem: options.renderItem } : t));
     return {
-        ...mentionPlugin,
         ...core,
-        editor: { ...slice, inline: [lynxMentionInlineKind], triggers },
+        nodes: [lynxMentionNode],
+        editor: { ...slice, triggers },
         ...(options.component ? { component: options.component } : {}),
     };
 }

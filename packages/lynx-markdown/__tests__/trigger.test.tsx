@@ -5,7 +5,7 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, fireEvent, waitForUpdate, type TestNode } from '@sigx/lynx-testing';
-import type { TriggerItem, TriggerSession } from '@sigx/markdown/editor';
+import type { TriggerItem, TriggerSession } from '@sigx/richtext/editor';
 import { placeSuggestionPopup } from '../src/editor/trigger/position';
 import { SuggestionPopup } from '../src/editor/trigger/SuggestionPopup';
 import { createMentionPlugin } from '../src/plugins/mention';

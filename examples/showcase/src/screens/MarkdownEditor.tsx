@@ -5,7 +5,7 @@ import {
     createMentionPlugin,
     MarkdownView,
     mentionPlugin,
-    type MarkdownPlugin,
+    type RichTextPlugin,
     type Mention,
     type MentionCandidate,
 } from '@sigx/lynx-markdown';
@@ -15,7 +15,7 @@ import {
     type MarkdownEditorMode,
 } from '@sigx/lynx-markdown/editor';
 import { enData } from '@sigx/lynx-emoji';
-import { createEmojiPlugin, createEmojiSyntax, emojiComponent } from '@sigx/lynx-emoji/markdown';
+import { createEmojiPlugin, createEmojiSyntax, emojiComponent, emojiNode } from '@sigx/lynx-emoji/markdown';
 
 /**
  * Emoji plugin (`@sigx/lynx-emoji/markdown`) over the full ~1900-emoji
@@ -29,7 +29,7 @@ import { createEmojiPlugin, createEmojiSyntax, emojiComponent } from '@sigx/lynx
  *  • Toolbar: the plugin's 😊 item opens the daisy `EmojiPickerSheet`;
  *    picks insert at the caret via `controller.insertText`.
  */
-const emojiMarkdownPlugin: MarkdownPlugin = { name: 'emoji', inline: [createEmojiSyntax()] };
+const emojiMarkdownPlugin: RichTextPlugin = { name: 'emoji', nodes: [emojiNode], formats: { markdown: { inline: [createEmojiSyntax()] } } };
 
 /**
  * Mention demo (#157): type `@` for user suggestions; selecting inserts a
@@ -49,7 +49,7 @@ const mentionEditorPlugin = createMentionPlugin({
     search: (q) => USERS.filter((u) => u.label.toLowerCase().startsWith(q.toLowerCase())),
 });
 
-const previewPlugins: MarkdownPlugin[] = [emojiMarkdownPlugin, mentionPlugin];
+const previewPlugins: RichTextPlugin[] = [emojiMarkdownPlugin, mentionPlugin];
 const previewComponents = {
     emoji: emojiComponent,
     mention: ({ node }: { node: Mention }) => (

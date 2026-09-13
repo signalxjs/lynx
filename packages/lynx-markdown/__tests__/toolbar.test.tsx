@@ -5,7 +5,7 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, fireEvent, waitForUpdate, type TestNode } from '@sigx/lynx-testing';
-import { defaultToolbarItems, type ToolbarItem } from '@sigx/markdown/editor';
+import { defaultToolbarItems, type ToolbarItem } from '@sigx/richtext/editor';
 import { EditorToolbar } from '../src/editor/toolbar/Toolbar';
 import { installFakeElement, mountEditor, resetFakeElement, tapAt } from './editor/harness';
 

@@ -11,7 +11,7 @@
  *    glyph itself by default (`insert: 'shortcode'` keeps `:smile:` text).
  *  - **syntax + component**: `:shortcode:` parses to an `emoji` node
  *    (`{ type: 'emoji', name, glyph }`) and previews as the glyph — wire into
- *    `MarkdownView` with `plugins={[{ name: 'emoji', inline: [createEmojiSyntax()] }]}`
+ *    `MarkdownView` with `plugins={[{ name: 'emoji', nodes: [emojiNode], formats: { markdown: { inline: [createEmojiSyntax()] } } }]}`
  *    and `components={{ emoji: emojiComponent }}`. (Relevant for shortcode
  *    mode and for *parsing* messages that carry shortcodes; glyph mode
  *    output is plain text and needs neither.)
@@ -21,8 +21,7 @@
  */
 
 import type { JSXElement } from '@sigx/lynx';
-import type { InlineSyntaxExtension, Position } from '@sigx/lynx-markdown';
-import type { MarkdownPlugin } from '@sigx/lynx-markdown';
+import type { InlineSyntaxExtension, NodeSpec, Position, RichTextPlugin } from '@sigx/lynx-markdown';
 import type { EditorPlugin, LynxTriggerExtras, TriggerItem, TriggerSpec } from '@sigx/lynx-markdown/editor';
 import { data as enData } from '../data/en.gen.js';
 import type { EmojiData, EmojiDatum } from '../data/schema.js';
@@ -56,7 +55,7 @@ export interface EmojiPluginOptions {
  * app to type it as phrasing content and its `components.emoji` slot:
  *
  * ```ts
- * declare module '@sigx/markdown' {
+ * declare module '@sigx/richtext' {
  *   interface PhrasingContentMap { emoji: EmojiNode }
  * }
  * ```
@@ -69,6 +68,13 @@ export interface EmojiNode {
     glyph: string;
     position?: Position;
 }
+
+/** The `emoji` node spec: an inline leaf that renders as its glyph without a component. */
+export const emojiNode: NodeSpec = {
+    type: 'emoji',
+    role: 'inline',
+    text: (node) => (node as unknown as EmojiNode).glyph || `:${(node as unknown as EmojiNode).name}:`,
+};
 
 const SHORTCODE_RE = /^:([a-z0-9_+-]+):/;
 const DEFAULT_LIMIT = 8;
@@ -111,8 +117,8 @@ export function emojiComponent({ node }: { node: EmojiNode }): string {
     return node.glyph || `:${node.name}:`;
 }
 
-/** An emoji plugin: a `MarkdownPlugin` whose editor slice carries the `:` trigger (and the picker toolbar item). */
-export function createEmojiPlugin(options?: EmojiPluginOptions): EditorPlugin & MarkdownPlugin {
+/** An emoji plugin: a `RichTextPlugin` whose editor slice carries the `:` trigger (and the picker toolbar item). */
+export function createEmojiPlugin(options?: EmojiPluginOptions): EditorPlugin & RichTextPlugin {
     const data = options?.data ?? enData;
     const insert = options?.insert ?? 'glyph';
     const limit = options?.limit ?? DEFAULT_LIMIT;

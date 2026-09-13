@@ -10,7 +10,7 @@
  * owns the element; it feeds `native.*` and renders `value`.
  */
 
-import type { CodeSurface, CodeSurfaceInit, Range } from '@sigx/markdown/editor';
+import type { CodeSurface, CodeSurfaceInit, Range } from '@sigx/richtext/editor';
 
 export interface LynxCodeSurfaceNative {
     input(value: string): void;
