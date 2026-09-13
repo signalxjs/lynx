@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { runInlineSurfaceConformance, type SurfaceDriver } from '@sigx/markdown/testing';
-import { ATOM_CHAR, flatEquals } from '@sigx/markdown/editor';
-import type { InlineFlat, InlineSurfaceEvents, InlineSurfaceInit } from '@sigx/markdown/editor';
+import { runInlineSurfaceConformance, type SurfaceDriver } from '@sigx/richtext/testing';
+import { ATOM_CHAR, flatEquals, standardSchema } from '@sigx/richtext/editor';
+import type { InlineFlat, InlineSurfaceEvents, InlineSurfaceInit } from '@sigx/richtext/editor';
 import { createLynxInlineSurface, type LynxInlineSurface } from '../../src/editor/surface/inline-surface';
 import { blockAttrFor, docToFlat, flatToDoc } from '../../src/editor/surface/rich-doc';
 import { createFakeRichText, type FakeRichText } from './fake-richtext';
@@ -77,6 +77,7 @@ function events(log: string[]): InlineSurfaceEvents {
 const init = (flat: InlineFlat, log: string[], blockType = 'paragraph', attrs: Record<string, unknown> = {}): InlineSurfaceInit => ({
     key: 'b-0',
     blockType,
+    schema: standardSchema,
     attrs,
     flat,
     readOnly: false,

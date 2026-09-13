@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { render, fireEvent, waitForUpdate } from '@sigx/lynx-testing';
 import { component, signal } from '@sigx/lynx';
 import { MarkdownView } from '../src/render/MarkdownView';
-import { mentionPlugin, type Mention, type MarkdownPlugin } from '../src/index';
+import { mentionPlugin, type Mention, type RichTextPlugin } from '../src/index';
 
 describe('MarkdownView (default components)', () => {
     it('renders the root as a flex column container', () => {
@@ -139,15 +139,15 @@ describe('MarkdownView (plugins)', () => {
         expect(chip!.findByText('Andy')).toBeTruthy();
     });
 
-    it("falls back to the plugin's serialize rule as text when no renderer is registered", () => {
+    it("falls back to the node's text projection when no renderer is registered", () => {
         const { container } = render(
             <MarkdownView value="hi @[Andy](u1)" plugins={[mentionPlugin]} />,
         );
-        expect(container.findByText('@[Andy](u1)')).toBeTruthy();
+        expect(container.findByText('@Andy')).toBeTruthy();
     });
 
     it('re-parses from scratch when the plugins prop changes identity', async () => {
-        const plugins = signal<{ current: readonly MarkdownPlugin[] }>({ current: [] });
+        const plugins = signal<{ current: readonly RichTextPlugin[] }>({ current: [] });
         const Wrap = component(() => () => (
             <MarkdownView value="hi @[Andy](u1)" plugins={plugins.current} />
         ));
@@ -158,8 +158,8 @@ describe('MarkdownView (plugins)', () => {
 
         plugins.current = [mentionPlugin];
         await waitForUpdate();
-        // Parsed as a mention now (no renderer → the serialize-rule text); the link is gone.
-        expect(container.findByText('@[Andy](u1)')).toBeTruthy();
+        // Parsed as a mention now (no renderer → the node spec's text projection); the link is gone.
+        expect(container.findByText('@Andy')).toBeTruthy();
         expect(container.findAllByType('text').some((t) => t._handlers.has('bindtap'))).toBe(false);
     });
 });

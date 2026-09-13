@@ -10,8 +10,8 @@
  *  - Runtime: the set of *value* exports is exactly what we expect, for both
  *    published entries — the root and the `/editor` subpath. Type-only exports
  *    (`MarkdownViewProps`, the Lynx component-map aliases, the whole
- *    `@sigx/markdown` type surface via `export type * from '@sigx/markdown'`,
- *    …) are erased at runtime and are pinned below instead.
+ *    `@sigx/richtext` / `@sigx/richtext-markdown` type surfaces via
+ *    `export type *`, …) are erased at runtime and are pinned below instead.
  *  - Types: the load-bearing signatures — the factories consumers hold onto,
  *    and the reactive shapes whose `.value` drives re-render (C8).
  *
@@ -21,7 +21,7 @@
  * root barrel would make those peers required at module-link time for every
  * renderer-only consumer — the root snapshot below is what catches that.
  *
- * The parser, stream and render engine live in `@sigx/markdown` (#1112); the
+ * The parser, stream and render engine live in the richtext packages (#1112); the
  * root re-exports the handful a Lynx app reaches for, and the snapshot pins
  * that set so the re-export list cannot silently grow into a second copy of
  * the upstream surface.
@@ -32,24 +32,25 @@
  */
 import { describe, expect, expectTypeOf, it } from 'vitest';
 import type { JSXElement } from '@sigx/lynx';
-import * as upstream from '@sigx/markdown';
-
-import * as upstreamEditor from '@sigx/markdown/editor';
-import type { Command, Editor, InlineFlat } from '@sigx/markdown/editor';
+import * as upstream from '@sigx/richtext';
+import * as upstreamMarkdown from '@sigx/richtext-markdown';
+import * as upstreamMarkdownEditor from '@sigx/richtext-markdown/editor';
+import * as upstreamEditor from '@sigx/richtext/editor';
+import type { Command, Editor, InlineFlat } from '@sigx/richtext/editor';
 import type { BlockAttrType } from '@sigx/lynx-richtext';
 import * as markdown from '../src/index';
 import * as editor from '../src/editor/index';
 import type { MarkdownEditorController } from '../src/editor/index';
 import type {
+    ComponentMap,
     IncrementalEngine,
     InlineSyntaxExtension,
     LynxImageProps,
     LynxMarkdownComponents,
-    MarkdownComponents,
-    MarkdownPlugin,
-    MarkdownStream,
     Mention,
+    RichTextPlugin,
     Root,
+    TextStream,
 } from '../src/index';
 
 describe('public runtime exports', () => {
@@ -59,26 +60,29 @@ describe('public runtime exports', () => {
                 // Renderer
                 'MarkdownView',
                 'defaultComponents',
-                // Reference plugin (editor half here, syntax half from @sigx/markdown)
+                // Reference plugin (Lynx half here, node from @sigx/richtext, syntax from @sigx/richtext-markdown)
                 'createMentionPlugin',
+                'lynxMentionNode',
                 'mentionSyntax',
                 'mentionPlugin',
-                // @sigx/markdown primitives re-exported for Lynx apps
-                'createMarkdownStream',
+                // richtext primitives re-exported for Lynx apps
+                'createTextStream',
                 'createIncrementalEngine',
+                'markdownFormat',
                 'parseMarkdown',
                 'renderDocument',
             ].sort(),
         );
     });
 
-    it('re-exports the @sigx/markdown values by identity (one parser, one engine)', () => {
-        expect(markdown.createMarkdownStream).toBe(upstream.createMarkdownStream);
-        expect(markdown.createIncrementalEngine).toBe(upstream.createIncrementalEngine);
-        expect(markdown.parseMarkdown).toBe(upstream.parseMarkdown);
+    it('re-exports the richtext values by identity (one parser, one engine)', () => {
+        expect(markdown.createTextStream).toBe(upstream.createTextStream);
         expect(markdown.renderDocument).toBe(upstream.renderDocument);
-        expect(markdown.mentionSyntax).toBe(upstream.mentionSyntax);
-        expect(markdown.mentionPlugin).toBe(upstream.mentionPlugin);
+        expect(markdown.createIncrementalEngine).toBe(upstreamMarkdown.createIncrementalEngine);
+        expect(markdown.markdownFormat).toBe(upstreamMarkdown.markdownFormat);
+        expect(markdown.parseMarkdown).toBe(upstreamMarkdown.parseMarkdown);
+        expect(markdown.mentionSyntax).toBe(upstreamMarkdown.mentionSyntax);
+        expect(markdown.mentionPlugin).toBe(upstreamMarkdown.mentionPlugin);
     });
 
     it('matches the locked /editor subpath surface', () => {
@@ -110,12 +114,14 @@ describe('public runtime exports', () => {
                 'commands',
                 'commandRegistry',
                 'createEditor',
+                'markdownPreset',
             ].sort(),
         );
     });
 
-    it('re-exports the @sigx/markdown editor values by identity (one core)', () => {
+    it('re-exports the richtext editor values by identity (one core)', () => {
         expect(editor.createEditor).toBe(upstreamEditor.createEditor);
+        expect(editor.markdownPreset).toBe(upstreamMarkdownEditor.markdownPreset);
         expect(editor.defaultToolbarItems).toBe(upstreamEditor.defaultToolbarItems);
         expect(editor.createTriggerSessionManager).toBe(upstreamEditor.createTriggerSessionManager);
         expect(editor.createSlashPlugin).toBe(upstreamEditor.createSlashPlugin);
@@ -127,36 +133,34 @@ describe('public types', () => {
         // `<MarkdownView value={stream.value.value} />` is the documented
         // usage: `value` must stay a signal, not the string itself, or every
         // consumer silently stops re-rendering as tokens arrive.
-        expectTypeOf(markdown.createMarkdownStream).parameters.toEqualTypeOf<
+        expectTypeOf(markdown.createTextStream).parameters.toEqualTypeOf<
             [opts?: { flushIntervalMs?: number }]
         >();
-        expectTypeOf(markdown.createMarkdownStream()).toEqualTypeOf<MarkdownStream>();
-        expectTypeOf<MarkdownStream['value']['value']>().toEqualTypeOf<string>();
-        expectTypeOf<MarkdownStream['finished']['value']>().toEqualTypeOf<boolean>();
-        expectTypeOf<MarkdownStream['append']>().toEqualTypeOf<(chunk: string) => void>();
+        expectTypeOf(markdown.createTextStream()).toEqualTypeOf<TextStream>();
+        expectTypeOf<TextStream['value']['value']>().toEqualTypeOf<string>();
+        expectTypeOf<TextStream['finished']['value']>().toEqualTypeOf<boolean>();
+        expectTypeOf<TextStream['append']>().toEqualTypeOf<(chunk: string) => void>();
     });
 
     it('pins the parser primitives', () => {
         // Plugins are `readonly` and optional on both entry points — a plugin
         // array is meant to be a module constant passed by identity (changing
         // identity resets incremental parse state).
-        expectTypeOf(markdown.parseMarkdown).toEqualTypeOf<
-            (src: string, options?: { plugins?: readonly MarkdownPlugin[] }) => Root
-        >();
-        expectTypeOf(markdown.createIncrementalEngine).toEqualTypeOf<
-            (options?: { plugins?: readonly MarkdownPlugin[] }) => IncrementalEngine
-        >();
+        expectTypeOf(markdown.parseMarkdown).returns.toEqualTypeOf<Root>();
+        expectTypeOf(markdown.parseMarkdown).parameter(1).toMatchTypeOf<{ plugins?: readonly RichTextPlugin[] } | undefined>();
+        expectTypeOf(markdown.createIncrementalEngine).returns.toEqualTypeOf<IncrementalEngine>();
+        expectTypeOf(markdown.createIncrementalEngine).parameter(0).toMatchTypeOf<{ plugins?: readonly RichTextPlugin[] } | undefined>();
         // The reuse contract: `parse` returns finalized blocks by reference and
         // `reset` is the only way to drop them.
         expectTypeOf<IncrementalEngine['parse']>().toEqualTypeOf<(src: string) => Root>();
         expectTypeOf<IncrementalEngine['reset']>().toEqualTypeOf<() => void>();
     });
 
-    it('pins the Lynx component map as @sigx/markdown\'s contract over JSXElement', () => {
+    it('pins the Lynx component map as @sigx/richtext\'s contract over JSXElement', () => {
         // Design systems type their map against this; the aliases must stay
         // exactly the upstream generic instantiated with the Lynx element.
-        expectTypeOf<LynxMarkdownComponents>().toEqualTypeOf<MarkdownComponents<JSXElement>>();
-        expectTypeOf(markdown.defaultComponents).toEqualTypeOf<MarkdownComponents<JSXElement>>();
+        expectTypeOf<LynxMarkdownComponents>().toEqualTypeOf<ComponentMap<JSXElement>>();
+        expectTypeOf(markdown.defaultComponents).toEqualTypeOf<ComponentMap<JSXElement>>();
         // The one Lynx extension of the upstream props: `image` also sees the
         // view's `onImageTap`.
         expectTypeOf<LynxImageProps['onImageTap']>().toEqualTypeOf<((url: string) => void) | undefined>();
@@ -168,7 +172,7 @@ describe('public types', () => {
         // `<MarkdownView plugins>` when they render mentions without the
         // editor; they have to stay plain values, not factories.
         expectTypeOf(markdown.mentionSyntax).toEqualTypeOf<InlineSyntaxExtension<Mention>>();
-        expectTypeOf(markdown.mentionPlugin).toEqualTypeOf<MarkdownPlugin>();
+        expectTypeOf(markdown.mentionPlugin).toEqualTypeOf<RichTextPlugin>();
         expectTypeOf(markdown.createMentionPlugin).parameters.toMatchTypeOf<[unknown]>();
     });
 

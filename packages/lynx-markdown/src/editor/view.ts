@@ -7,9 +7,9 @@
 
 import { computed, signal, type Computed, type PrimitiveSignal } from '@sigx/lynx';
 import { defineInjectable } from '@sigx/lynx';
-import type { Editor, TriggerItem, TriggerSession } from '@sigx/markdown/editor';
-import { selectedBlockKeys } from '@sigx/markdown/editor';
-import type { AnySurface } from '@sigx/markdown/editor';
+import type { Editor, TriggerItem, TriggerSession } from '@sigx/richtext/editor';
+import { selectedBlockKeys } from '@sigx/richtext/editor';
+import type { AnySurface } from '@sigx/richtext/editor';
 import type { SuggestionPopupStyle, SuggestionRenderItem } from './trigger/SuggestionPopup.js';
 import type { LynxMarkdownComponents } from '../render/components.js';
 

@@ -1,11 +1,11 @@
 /**
- * The mention plugin: the `@[label](id)` syntax (from `@sigx/markdown`), the
+ * The mention plugin: the `@[label](id)` syntax (from `@sigx/richtext-markdown`), the
  * label rule at every boundary, and the editor half — `@` sessions, chip
  * insertion through the field, round-trips.
  */
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { fireEvent, waitForUpdate, type TestNode } from '@sigx/lynx-testing';
-import { parseMarkdown, toMarkdown, type InlineMatchContext } from '@sigx/markdown';
+import { parseMarkdown, toMarkdown, type InlineMatchContext } from '@sigx/richtext-markdown';
 import { createMentionPlugin, mentionPlugin, mentionSyntax } from '../src/plugins/mention';
 import type { MentionCandidate } from '../src/plugins/mention';
 import { docOf, installFakeElement, layoutFields, mountEditor, resetFakeElement, tapAt, typeIn } from './editor/harness';
@@ -24,7 +24,7 @@ const search = (q: string) => USERS.filter((u) => u.label.toLowerCase().startsWi
 // Parser syntax
 // ---------------------------------------------------------------------------
 
-describe('mentionSyntax (re-exported from @sigx/markdown)', () => {
+describe('mentionSyntax (re-exported from @sigx/richtext-markdown)', () => {
     it('matches @[label](id) into a mention node and returns null on partial tails', () => {
         const m = mentionSyntax.match('hi @[Andy](u1)!', 3, ctx);
         expect(m).toEqual({ node: { type: 'mention', label: 'Andy', id: 'u1' }, end: 14 });
@@ -49,9 +49,9 @@ describe('mentionSyntax (re-exported from @sigx/markdown)', () => {
         expect(toMarkdown(parseMarkdown(md, { plugins: [plugin] }), { plugins: [plugin] })).toBe(md + '\n');
     });
 
-    it('carries the syntax and serializer as one @sigx/markdown plugin', () => {
-        expect(mentionPlugin.inline).toContain(mentionSyntax);
-        expect(mentionPlugin.serialize!.mention({ type: 'mention', id: 'u1', label: 'Andy' }, {} as never)).toBe('@[Andy](u1)');
+    it('carries the syntax and serializer as one richtext plugin (its markdown slice)', () => {
+        expect(mentionPlugin.formats!.markdown!.inline).toContain(mentionSyntax);
+        expect(mentionPlugin.formats!.markdown!.serialize!.mention({ type: 'mention', id: 'u1', label: 'Andy' }, {} as never)).toBe('@[Andy](u1)');
     });
 });
 

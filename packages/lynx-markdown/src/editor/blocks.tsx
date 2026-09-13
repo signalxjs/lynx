@@ -1,7 +1,7 @@
 /**
- * The Lynx block views of `<MarkdownEditor>`, dispatched on the schema kind:
+ * The Lynx block views of `<MarkdownEditor>`, dispatched on the schema role:
  *
- *  - `inline` → `<InlineBlock>`: one `<RichTextInput boundaryKeys>` owned by
+ *  - `textblock` → `<InlineBlock>`: one `<RichTextInput boundaryKeys>` owned by
  *    a `LynxInlineSurface`, wired to the core through the inline bridge;
  *  - `code` → `<CodeBlock>`: a `<textarea>` `LynxCodeSurface` with a
  *    language field and a "done" affordance (the textarea reports no keys);
@@ -18,10 +18,10 @@
  */
 
 import { component, toRaw, useElementLayout, useViewportRect, type Define, type JSXElement } from '@sigx/lynx';
-import type { BlockContent, List, ListItem, Table, TableRow } from '@sigx/markdown';
-import { renderBlock, type RenderContext } from '@sigx/markdown';
-import type { EditorBlock, EditorState, InlineSurfaceEvents, CodeSurfaceEvents, Transaction } from '@sigx/markdown/editor';
-import { commands as C, createCodeBridge, createInlineBridge, type BridgeHost } from '@sigx/markdown/editor';
+import type { BlockContent, List, ListItem, Table, TableRow } from '@sigx/richtext';
+import { renderBlock, type RenderContext } from '@sigx/richtext';
+import type { EditorBlock, EditorState, InlineSurfaceEvents, CodeSurfaceEvents, Transaction } from '@sigx/richtext/editor';
+import { commands as C, createCodeBridge, createInlineBridge, type BridgeHost } from '@sigx/richtext/editor';
 import { RichTextInput, type RichTextHandle } from '@sigx/lynx-richtext';
 import { createLynxInlineSurface, type LynxInlineSurface } from './surface/inline-surface.js';
 import { createLynxCodeSurface, type LynxCodeSurface } from './surface/code-surface.js';
@@ -35,6 +35,7 @@ function bridgeHost(view: LynxEditorView): BridgeHost {
         runKey: editor.runKey,
         setSelection: editor.setSelection,
         paste: editor.paste,
+        schema: editor.schema,
         flatOf: editor.flatOf,
         valueOf: editor.valueOf,
         focused: (key) => view.reportFocus(key),
@@ -111,7 +112,7 @@ export const InlineBlock = component<InlineBlockProps>(({ props, onUnmounted, si
     };
 
     const surface: LynxInlineSurface = createLynxInlineSurface(
-        { key, blockType: lastNode.type, attrs: attrsOf(lastNode), flat: editor.flatOf(key) ?? { text: '', spans: [] }, readOnly: view.readOnly(), events },
+        { key, blockType: lastNode.type, schema: editor.schema, attrs: attrsOf(lastNode), flat: editor.flatOf(key) ?? { text: '', spans: [] }, readOnly: view.readOnly(), events },
         {
             handle: () => handle,
             onReadOnly: (ro) => {
@@ -333,12 +334,12 @@ const VoidBlock = component<{ block: EditorBlock }>(({ props }) => {
     const key = props.block.key!;
     return () => {
         const node = toRaw(props.block) as BlockContent;
-        const ctx: RenderContext<JSXElement> = { components: view.components() };
+        const ctx: RenderContext<JSXElement> = { components: view.components(), schema: view.editor.schema };
         const rendered = renderBlock(node, ctx, key);
         return (
             <view
                 accessibility-element
-                accessibility-label={node.type === 'thematicBreak' ? 'Divider' : node.type}
+                accessibility-label={view.editor.schema.get(node.type)?.menu?.label ?? node.type}
                 bindtap={() => {
                     if (!view.readOnly()) view.editor.run(C.selectBlock(key));
                 }}
@@ -407,10 +408,10 @@ export const BlockView = component<BlockViewProps>(({ props }) => {
     const { editor } = view;
     return (): JSXElement => {
         const node = toRaw(props.block);
-        const kind = editor.schema.kind(node.type) ?? 'void';
+        const role = editor.schema.role(node.type) ?? 'void';
         track(view.selectedKeys.value);
-        switch (kind) {
-            case 'inline':
+        switch (role) {
+            case 'textblock':
                 return (
                     <view style={wrapperStyle(view, node.key!)}>
                         <InlineBlock block={node} />

@@ -2,7 +2,7 @@
  * daisyUI rendering for `@sigx/lynx-markdown`.
  *
  * `@sigx/lynx-markdown` is design-system-agnostic: `<MarkdownView>` walks the
- * `@sigx/markdown` (mdast) tree and calls a {@link MarkdownComponents} render
+ * `@sigx/richtext` (mdast) tree and calls a {@link LynxMarkdownComponents} render
  * function per node type. This module supplies the daisyUI mapping — headings →
  * `<Heading>`, text → `<Text>`, layout → `<Col>`/`<Row>`, themed
  * surfaces/borders via daisyUI utility classes — so markdown output matches the
@@ -24,8 +24,7 @@
  * ```
  */
 
-import type { JSXElement } from '@sigx/lynx';
-import type { LynxImageProps, MarkdownComponents } from '@sigx/lynx-markdown';
+import type { LynxImageProps, LynxMarkdownComponents } from '@sigx/lynx-markdown';
 import { Heading } from '../typography/Heading.js';
 import { Text } from '../typography/Text.js';
 import { Col, Row } from '@sigx/lynx-zero-legacy';
@@ -37,7 +36,7 @@ function alignClass(align: 'left' | 'center' | 'right' | null): string {
     return align === 'center' ? 'text-center' : align === 'right' ? 'text-right' : 'text-left';
 }
 
-export const markdownComponents: MarkdownComponents<JSXElement> = {
+export const markdownComponents: LynxMarkdownComponents = {
     root: ({ children }) => <Col gap={12}>{children}</Col>,
 
     heading: ({ depth, children }) => <Heading level={depth}>{children}</Heading>,

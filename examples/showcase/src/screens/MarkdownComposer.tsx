@@ -34,7 +34,7 @@ import { MarkdownEditor, type MarkdownEditorController } from '@sigx/lynx-markdo
  *    `useMarkdownEditorTheme().suggestionPopup` and — because the composer is
  *    docked at the bottom — `SuggestionPopup` flips it *up* above the caret.
  *    Sent messages render their `@[label](id)` chips via `mentionPlugin`
- *    (the `@sigx/markdown` syntax) and a `components.mention` renderer.
+ *    (the `@sigx/richtext-markdown` syntax) and a `components.mention` renderer.
  *
  * Presented as a modal (same caveat as the Keyboard demo: the lift math assumes
  * the bar sits directly above the bottom safe-area inset — on a tab screen,

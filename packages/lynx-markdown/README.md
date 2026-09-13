@@ -3,9 +3,9 @@
 A **SignalX-native, streaming-aware markdown renderer** — and a true-WYSIWYG
 editor — for Lynx.
 
-It renders and edits [`@sigx/markdown`](https://sigx.dev/markdown/) trees
+It renders and edits [`@sigx/richtext`](https://sigx.dev/richtext/) trees
 natively: the mdast-compatible incremental parser, the streaming controller and
-the render engine live in `@sigx/markdown` (shared with the web), and this
+the render engine live in `@sigx/richtext` / `@sigx/richtext-markdown` (shared with the web), and this
 package maps the tree to native Lynx `<view>`/`<text>`/`<image>` primitives — so
 it renders **identically on every platform** (iOS, Android, Harmony) and is fully
 controllable from JS. Built for AI output: as the source string grows
@@ -23,7 +23,7 @@ Full prop reference, streaming API, theming, the WYSIWYG editor and live example
 pnpm add @sigx/lynx-markdown
 ```
 
-(`@sigx/markdown` comes along as a dependency; its `@sigx/reactivity` /
+(`@sigx/richtext` and `@sigx/richtext-markdown` come along as dependencies; their `@sigx/reactivity` /
 `@sigx/runtime-core` peers are the ones `@sigx/lynx` already requires.)
 
 ## A taste
@@ -41,14 +41,14 @@ export default function ArticleScreen() {
 }
 ```
 
-`createMarkdownStream()` (re-exported from `@sigx/markdown`) bridges a token loop to `<MarkdownView>` for AI output, coalescing bursts of tokens into a bounded number of re-renders. `MarkdownEditor` (from `@sigx/lynx-markdown/editor`) adds block-tree WYSIWYG editing on the native [`@sigx/lynx-richtext`](https://sigx.dev/lynx/modules/richtext/overview/) element — see below. The supported syntax, full prop tables, streaming API, theming and editor/toolbar contracts are documented on the docs site.
+`createTextStream()` (re-exported from `@sigx/richtext`) bridges a token loop to `<MarkdownView>` for AI output, coalescing bursts of tokens into a bounded number of re-renders. `MarkdownEditor` (from `@sigx/lynx-markdown/editor`) adds block-tree WYSIWYG editing on the native [`@sigx/lynx-richtext`](https://sigx.dev/lynx/modules/richtext/overview/) element — see below. The supported syntax, full prop tables, streaming API, theming and editor/toolbar contracts are documented on the docs site.
 
 ### Plugins and components
 
-`<MarkdownView>` takes two maps that mirror `@sigx/markdown`'s:
+`<MarkdownView>` takes two maps that mirror `@sigx/richtext`'s:
 
-- **`plugins`** — `@sigx/markdown` plugins (`MarkdownPlugin[]`: inline/block syntax, serializer rules). Pass a stable array; changing its identity re-parses from scratch. `mentionPlugin` (the `@[label](id)` syntax) is re-exported here.
-- **`components`** — a partial `MarkdownComponents<JSXElement>` (alias `LynxMarkdownComponents`) keyed by mdast node type: `root`, `paragraph`, `heading` (`depth`), `blockquote`, `list` (`ordered`, `start`, `spread`), `listItem` (`ordered`, `index`, `number`, `checked`, `spread`), `code` (`value`, `lang`, `meta`, `open`), `thematicBreak`, `table` (`align`), `tableRow` (`header`, `index`), `tableCell` (`header`, `align`, `index`), `html`, `text`, `emphasis`, `strong`, `delete`, `inlineCode`, `break`, `link` (`url`, `title`, `autolink`, `onLink`), `image` (`url`, `alt`, `title`, plus this package's `onImageTap`) — and one flat slot per plugin node type (`components.mention`, `components.emoji`). Unspecified slots fall back to the neutral `defaultComponents`; a ready-made daisyUI mapping ships in [`@sigx/lynx-daisyui`](https://sigx.dev/lynx/modules/daisyui/overview/).
+- **`plugins`** — `@sigx/richtext` plugins (`RichTextPlugin[]`: node specs, plus markdown syntax and serializer rules under `formats.markdown`). Pass a stable array; changing its identity re-parses from scratch. `mentionPlugin` (the `@[label](id)` syntax) is re-exported here.
+- **`components`** — a partial `ComponentMap<JSXElement>` (alias `LynxMarkdownComponents`) keyed by mdast node type: `root`, `paragraph`, `heading` (`depth`), `blockquote`, `list` (`ordered`, `start`, `spread`), `listItem` (`ordered`, `index`, `number`, `checked`, `spread`), `code` (`value`, `lang`, `meta`, `open`), `thematicBreak`, `table` (`align`), `tableRow` (`header`, `index`), `tableCell` (`header`, `align`, `index`), `html`, `text`, `emphasis`, `strong`, `delete`, `inlineCode`, `break`, `link` (`url`, `title`, `autolink`, `onLink`), `image` (`url`, `alt`, `title`, plus this package's `onImageTap`) — and one flat slot per plugin node type (`components.mention`, `components.emoji`). Unspecified slots fall back to the neutral `defaultComponents`; a ready-made daisyUI mapping ships in [`@sigx/lynx-daisyui`](https://sigx.dev/lynx/modules/daisyui/overview/).
 
 ```tsx
 import { MarkdownView, mentionPlugin, type Mention } from '@sigx/lynx-markdown';
@@ -65,7 +65,7 @@ Link and image URLs are sanitised by the engine before a component sees them (`j
 ### Editor
 
 `@sigx/lynx-markdown/editor` is the Lynx host of the block-tree editor core in
-[`@sigx/markdown/editor`](https://sigx.dev/markdown/editor/): one `createEditor()`
+[`@sigx/richtext/editor`](https://sigx.dev/richtext/editor/): one `createEditor()`
 per `<MarkdownEditor>`, the mdast `Root` as the document, and every root block
 rendered as a keyed `BlockView` — paragraphs and headings as native
 `<sigx-richtext boundary-keys>` fields, code blocks as a `<textarea>`, lists /
@@ -100,7 +100,7 @@ let ctrl: MarkdownEditorController | null = null;
   indent list items, Escape selects the block. These reach the core through the
   element's `bindboundarykey`; on a native build without it, a typed newline
   still splits the block but the edge deletes stay in-block.
-- **Plugins** — the same `MarkdownPlugin[]` `<MarkdownView>` takes; a plugin's
+- **Plugins** — the same `RichTextPlugin[]` `<MarkdownView>` takes; a plugin's
   `editor` slice adds inline kinds, triggers, toolbar items, commands, keymap
   bindings and input rules. `createMentionPlugin` (`@` with candidate search)
   and the core's `createSlashPlugin` (`/` block menu) ship ready-made; a

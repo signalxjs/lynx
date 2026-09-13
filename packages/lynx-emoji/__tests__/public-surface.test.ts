@@ -78,6 +78,7 @@ describe('public runtime exports', () => {
             'createEmojiPlugin',
             'createEmojiSyntax',
             'emojiComponent',
+            'emojiNode',
         ].sort());
     });
 

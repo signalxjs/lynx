@@ -9,8 +9,9 @@
 // requirements; the root carries no runtime peer imports.
 //
 // The editor core (state, commands, keymap, input rules, plugins) is
-// `@sigx/markdown/editor`; this entry is its Lynx host: the component, the
-// `<sigx-richtext>` / `<textarea>` surfaces and the Lynx chrome.
+// `@sigx/richtext/editor` and the markdown syntax `@sigx/richtext-markdown`;
+// this entry is their Lynx host: the component, the `<sigx-richtext>` /
+// `<textarea>` surfaces and the Lynx chrome.
 
 export { MarkdownEditor } from './MarkdownEditor.js';
 export type {
@@ -55,7 +56,8 @@ export {
     commands,
     commandRegistry,
     createEditor,
-} from '@sigx/markdown/editor';
+} from '@sigx/richtext/editor';
+export { markdownPreset } from '@sigx/richtext-markdown/editor';
 export type {
     Editor,
     EditorOptions,
@@ -78,4 +80,4 @@ export type {
     MentionItem,
     InlineFlat,
     InlineSpan,
-} from '@sigx/markdown/editor';
+} from '@sigx/richtext/editor';

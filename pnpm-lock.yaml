@@ -966,9 +966,12 @@ importers:
 
   packages/lynx-markdown:
     dependencies:
-      '@sigx/markdown':
-        specifier: ^0.2.0
-        version: 0.2.0(@sigx/reactivity@0.15.4)(@sigx/runtime-core@0.15.4)(@sigx/runtime-dom@0.15.3)
+      '@sigx/richtext':
+        specifier: ^0.3.0
+        version: 0.3.0(@sigx/reactivity@0.15.4)(@sigx/runtime-core@0.15.4)(@sigx/runtime-dom@0.15.3)
+      '@sigx/richtext-markdown':
+        specifier: ^0.3.0
+        version: 0.3.0(@sigx/reactivity@0.15.4)(@sigx/richtext@0.3.0(@sigx/reactivity@0.15.4)(@sigx/runtime-core@0.15.4)(@sigx/runtime-dom@0.15.3))(@sigx/runtime-core@0.15.4)
     devDependencies:
       '@sigx/lynx':
         specifier: workspace:^
@@ -2603,23 +2606,28 @@ packages:
     resolution: {integrity: sha512-uJHNTJs1JGRO14Z1Azhr8e16xJhxj1xTA5nz5ZHbFM+mSv3/SJmYhmyoDaBu+2su5oVjki7FMrgXjTdRuceY6A==}
     hasBin: true
 
-  '@sigx/markdown@0.2.0':
-    resolution: {integrity: sha512-lp2yqrBJCkmkNz67VwMkwlNSZbLAMSDQ0k94p/vtWx9W+QZ/0QuqypG4c6QwgOGoKBXZHOcEKSxKJL2MzGDMYw==}
+  '@sigx/reactivity@0.15.4':
+    resolution: {integrity: sha512-KAV20yDlpXMCrmxG/DJpHDFStLbSloEfnrv0F7jEWHfhRCg+1zW2CoHvBBLpXGkRnfD8kj8d01TrfTK5h+Owlg==}
+    engines: {node: ^20.19.0 || >=22.12.0}
+
+  '@sigx/richtext-markdown@0.3.0':
+    resolution: {integrity: sha512-SO+xoB6Gr6V4DuvbYDdg/LG3fGpvMclrs9PSnefWUHv8JPHQDfXtjfuxltEs/fDYpgu051qFRlRsbzb3fvjIpw==}
+    engines: {node: ^20.19.0 || >=22.12.0}
+    peerDependencies:
+      '@sigx/reactivity': ^0.15.0
+      '@sigx/richtext': ^0.3.0
+      '@sigx/runtime-core': ^0.15.0
+
+  '@sigx/richtext@0.3.0':
+    resolution: {integrity: sha512-gsuZ47As5NXB6V29t/umAKCB7hqEa4w+OkKPucdoQ3l1DbiiS+drTetswvKTZRwYSf+FJYJJUaYC+erYHqaTaQ==}
     engines: {node: ^20.19.0 || >=22.12.0}
     peerDependencies:
       '@sigx/reactivity': ^0.15.0
       '@sigx/runtime-core': ^0.15.0
       '@sigx/runtime-dom': ^0.15.0
-      shiki: '>=3.7.0'
     peerDependenciesMeta:
       '@sigx/runtime-dom':
         optional: true
-      shiki:
-        optional: true
-
-  '@sigx/reactivity@0.15.4':
-    resolution: {integrity: sha512-KAV20yDlpXMCrmxG/DJpHDFStLbSloEfnrv0F7jEWHfhRCg+1zW2CoHvBBLpXGkRnfD8kj8d01TrfTK5h+Owlg==}
-    engines: {node: ^20.19.0 || >=22.12.0}
 
   '@sigx/runtime-core@0.15.4':
     resolution: {integrity: sha512-RjetEIHB38GB4SYW38pizAZ+SXp1fcd7yCYWNT4XQiu3StlyifkrxwTcHkDkWLOKV4ID3v0iTHyR5Q5x+/KUuA==}
@@ -5593,14 +5601,20 @@ snapshots:
       '@sigx/args': 0.12.0
       '@sigx/terminal': 0.12.0
 
-  '@sigx/markdown@0.2.0(@sigx/reactivity@0.15.4)(@sigx/runtime-core@0.15.4)(@sigx/runtime-dom@0.15.3)':
+  '@sigx/reactivity@0.15.4': {}
+
+  '@sigx/richtext-markdown@0.3.0(@sigx/reactivity@0.15.4)(@sigx/richtext@0.3.0(@sigx/reactivity@0.15.4)(@sigx/runtime-core@0.15.4)(@sigx/runtime-dom@0.15.3))(@sigx/runtime-core@0.15.4)':
+    dependencies:
+      '@sigx/reactivity': 0.15.4
+      '@sigx/richtext': 0.3.0(@sigx/reactivity@0.15.4)(@sigx/runtime-core@0.15.4)(@sigx/runtime-dom@0.15.3)
+      '@sigx/runtime-core': 0.15.4
+
+  '@sigx/richtext@0.3.0(@sigx/reactivity@0.15.4)(@sigx/runtime-core@0.15.4)(@sigx/runtime-dom@0.15.3)':
     dependencies:
       '@sigx/reactivity': 0.15.4
       '@sigx/runtime-core': 0.15.4
     optionalDependencies:
       '@sigx/runtime-dom': 0.15.3
-
-  '@sigx/reactivity@0.15.4': {}
 
   '@sigx/runtime-core@0.15.4':
     dependencies:

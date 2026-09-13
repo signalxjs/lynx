@@ -1,14 +1,14 @@
 import { component, signal } from '@sigx/lynx';
 import { Screen } from '@sigx/lynx-navigation';
 import { Button, Card, Col, Heading, Row, ScrollView, Text, markdownComponents } from '@sigx/lynx-daisyui';
-import { MarkdownView, createMarkdownStream } from '@sigx/lynx-markdown';
+import { MarkdownView, createTextStream } from '@sigx/lynx-markdown';
 
 /**
  * Markdown — exercises `@sigx/lynx-markdown`'s SignalX-native renderer.
  *
  *  • The static section renders a document covering the full feature set
  *    (headings, emphasis, lists, task lists, code, blockquote, table, links).
- *  • The streaming section drives `createMarkdownStream()` token-by-token to
+ *  • The streaming section drives `createTextStream()` token-by-token to
  *    demonstrate that finalized blocks don't reflow/flicker while new tokens
  *    arrive — the property that matters for AI chat output.
  */
@@ -47,7 +47,7 @@ function chunk(text: string, size = 4): string[] {
 }
 
 export const Markdown = component(() => {
-    const stream = createMarkdownStream({ flushIntervalMs: 16 });
+    const stream = createTextStream({ flushIntervalMs: 16 });
     const streaming = signal(false);
 
     const play = (): void => {
@@ -76,7 +76,7 @@ export const Markdown = component(() => {
                             <Col gap={8}>
                                 <Heading level={4}>Streaming</Heading>
                                 <Text class="opacity-60 text-sm">
-                                    Drives createMarkdownStream() in small chunks. Completed
+                                    Drives createTextStream() in small chunks. Completed
                                     blocks stay put as new tokens arrive.
                                 </Text>
                                 <Row gap={8}>

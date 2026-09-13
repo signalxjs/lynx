@@ -1,6 +1,6 @@
 /**
- * The neutral default renderers for Lynx — one `@sigx/markdown`
- * {@link MarkdownComponents} map over Lynx `<view>`/`<text>` intrinsics.
+ * The neutral default renderers for Lynx — one `@sigx/richtext`
+ * {@link ComponentMap} over Lynx `<view>`/`<text>` intrinsics.
  *
  * `@sigx/lynx-markdown` is **generic**: the defaults here use only plain inline
  * styles (numbers + theme-agnostic colors) so the renderer works standalone on
@@ -9,21 +9,22 @@
  * `components` prop on `<MarkdownView>`.
  *
  * The slots are the mdast node types (`heading`, `emphasis`, `inlineCode`,
- * `break`, …) — the contract is `@sigx/markdown`'s `MarkdownComponents<E>`
- * with `E` = a Lynx `JSXElement`. Each component receives its already-rendered
+ * `break`, …) — the contract is `@sigx/richtext`'s `ComponentMap<E>` with
+ * `E` = a Lynx `JSXElement` (only `root` is required; a slot the map lacks
+ * renders the node's text projection or its children). Each component receives its already-rendered
  * `children` plus the AST `node`; the engine owns AST recursion and stable
  * streaming keys, so a component only decides *what element to wrap children
  * in*.
  */
 
 import type { JSXElement } from '@sigx/lynx';
-import type { HeadingDepth, ImageProps, MarkdownChild, MarkdownComponents } from '@sigx/markdown';
+import type { ComponentMap, HeadingDepth, ImageProps, RenderChild } from '@sigx/richtext';
 
-/** The Lynx component map: `@sigx/markdown`'s contract over Lynx elements. */
-export type LynxMarkdownComponents = MarkdownComponents<JSXElement>;
+/** The Lynx component map: `@sigx/richtext`'s contract over Lynx elements. */
+export type LynxMarkdownComponents = ComponentMap<JSXElement>;
 
 /** A renderable child on Lynx: a JSX element or a raw string (text / `break`). */
-export type LynxMarkdownChild = MarkdownChild<JSXElement>;
+export type LynxMarkdownChild = RenderChild<JSXElement>;
 
 /**
  * What the Lynx `image` slot receives: the engine's {@link ImageProps} plus

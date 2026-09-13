@@ -4,6 +4,10 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 ## [Unreleased]
 
+### Changed
+
+- **`@sigx/lynx-markdown`, `@sigx/lynx-emoji/markdown`, `@sigx/lynx-daisyui/markdown` move onto the richtext packages** ([#1122](https://github.com/signalxjs/lynx/issues/1122)). **Breaking.** `@sigx/markdown` is superseded by `@sigx/richtext` (the core: schema, formats, render engine, editor) and `@sigx/richtext-markdown` (the CommonMark + GFM parser and serializer, `markdownFormat`, `markdownPreset`), both at `^0.3.0`. `MarkdownView` and `MarkdownEditor` keep their names and props; underneath, the editor installs `markdownPreset` (input rules and the `text/markdown` clipboard flavour are no longer built into the core) and reads / writes source through `markdownFormat`. Plugin shape: `RichTextPlugin` replaces `MarkdownPlugin` — node specs under `nodes`, markdown syntax and serializer rules under `formats.markdown` (`{ name, nodes: [emojiNode], formats: { markdown: { inline: [createEmojiSyntax()] } } }`); `InlineKindSpec` / `mentionInlineKind` are gone (a node spec's `inline` mapping — `lynxMentionNode` keeps the chip's `kind`). Types: `LynxMarkdownComponents` is `ComponentMap<JSXElement>` (only `root` required), `LynxMarkdownChild` is `RenderChild`; re-exports: `createTextStream` (was `createMarkdownStream`), `markdownFormat`, `lynxMentionNode`, and `markdownPreset` on the editor entry; the `declare module` augmentation for plugin nodes targets `@sigx/richtext`. `lynx-emoji/markdown` exports `emojiNode`; `lynx-daisyui`'s `markdownComponents` is typed as `LynxMarkdownComponents`.
+
 ## [0.30.0] - 2026-09-12
 
 ### Changed

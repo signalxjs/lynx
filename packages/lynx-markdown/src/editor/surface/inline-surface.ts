@@ -23,9 +23,9 @@
  * tests feed it from a fake element.
  */
 
-import type { InlineFlat } from '@sigx/markdown/editor';
-import { flatEquals } from '@sigx/markdown/editor';
-import type { BoundaryKey, CaretRect, InlineSurface, InlineSurfaceInit, Range } from '@sigx/markdown/editor';
+import type { InlineFlat } from '@sigx/richtext/editor';
+import { flatEquals } from '@sigx/richtext/editor';
+import type { BoundaryKey, CaretRect, InlineSurface, InlineSurfaceInit, Range } from '@sigx/richtext/editor';
 import type { RichDoc, RichTextBoundaryKeyEvent, RichTextHandle, SelectionState } from '@sigx/lynx-richtext';
 import { RichTextMethods } from '@sigx/lynx-richtext';
 import { blockAttrFor, docToFlat, flatToDoc } from './rich-doc.js';
@@ -151,7 +151,7 @@ export function createLynxInlineSurface(init: InlineSurfaceInit, opts: LynxInlin
                 events.compositionEnd(flat);
                 return;
             }
-            if (!isComposing && flatEquals(flat, known)) return;
+            if (!isComposing && flatEquals(flat, known, init.schema)) return;
             // The element's selection event may land before or after its change
             // event depending on the platform; for a typing edit the caret is
             // at the end of the inserted text, so report that until told otherwise.
@@ -202,7 +202,7 @@ export function createLynxInlineSurface(init: InlineSurfaceInit, opts: LynxInlin
             return focused;
         },
         setInline(flat) {
-            if (flatEquals(flat, known)) return;
+            if (flatEquals(flat, known, init.schema)) return;
             push(flat);
         },
         setAttrs(blockType, attrs) {
