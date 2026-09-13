@@ -26,7 +26,7 @@
  */
 
 import { component, computed, type Define, type JSXElement } from '@sigx/lynx';
-import { createSchema, renderDocument, standardNodes, type LinkHandler, type RenderContext, type RichTextPlugin, type Schema } from '@sigx/richtext';
+import { createReparseEngine, createSchema, renderDocument, standardNodes, type IncrementalEngine, type LinkHandler, type RenderContext, type RichTextPlugin, type Schema } from '@sigx/richtext';
 import { markdownFormat } from '@sigx/richtext-markdown';
 import { defaultComponents, type LynxImageProps, type LynxMarkdownComponents } from './components.js';
 
@@ -47,6 +47,11 @@ export type MarkdownViewProps =
      */
     & Define.Prop<'plugins', readonly RichTextPlugin[], false>;
 
+/** The streaming engine for a plugin list: markdown's incremental one, else (a format without one) a plain reparse. */
+function engineFor(plugins: readonly RichTextPlugin[] | undefined): IncrementalEngine {
+    return markdownFormat.createIncrementalEngine?.({ plugins }) ?? createReparseEngine((source) => markdownFormat.parse(source, { plugins }));
+}
+
 /** The schema a plugin list implies: the standard specs, markdown's and every plugin's `nodes`. */
 function schemaFor(plugins: readonly RichTextPlugin[] | undefined): Schema {
     return createSchema([...standardNodes, ...(markdownFormat.nodes ?? []), ...(plugins ?? []).flatMap((p) => p.nodes ?? [])]);
@@ -56,12 +61,12 @@ export const MarkdownView = component<MarkdownViewProps>(({ props }) => {
     // The engine captures its plugins at construction; recreate it if the
     // plugins prop changes identity (rare — normally a stable constant).
     let plugins = props.plugins;
-    let engine = markdownFormat.createIncrementalEngine!({ plugins });
+    let engine = engineFor(plugins);
     let schema = schemaFor(plugins);
     const root = computed(() => {
         if (props.plugins !== plugins) {
             plugins = props.plugins;
-            engine = markdownFormat.createIncrementalEngine!({ plugins });
+            engine = engineFor(plugins);
             schema = schemaFor(plugins);
         }
         return engine.parse(props.value ?? '');
