@@ -75,7 +75,7 @@
         "ai"
     ],
     "dependencies": {
-        "@sigx/richtext": "^0.3.0",
-        "@sigx/richtext-markdown": "^0.3.0"
+        "@sigx/richtext": "^0.4.0",
+        "@sigx/richtext-markdown": "^0.4.0"
     }
 }
