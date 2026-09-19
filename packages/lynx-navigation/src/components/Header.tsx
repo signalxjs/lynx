@@ -19,7 +19,7 @@
  *     want a custom toolbar, some want no header at all in tabs).
  *   - making it opt-in keeps `<Stack>`'s contract narrow.
  */
-import { component, computed } from '@sigx/lynx';
+import { component, computed, type JSXElement } from '@sigx/lynx';
 import { useNav } from '../hooks/use-nav.js';
 import { useNavInternals } from '../hooks/use-nav-internal.js';
 import type { ScreenOptions, ScreenSlotFills, StackEntry } from '../types.js';
@@ -108,7 +108,9 @@ export const Header = component(() => {
         // Full-override path: `<Screen.Header>` supplied its own content,
         // we render that and skip the default layout entirely.
         const override = headerSlot.value;
-        if (override) return override();
+        // The fill is typed `() => unknown`; a view fn must return JSX (core 1.0
+        // ships the JSX namespace, so this is now checked).
+        if (override) return override() as JSXElement;
 
         return (
             <view>

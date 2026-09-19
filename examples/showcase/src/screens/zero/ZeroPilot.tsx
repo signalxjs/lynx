@@ -247,12 +247,14 @@ export const ZeroPilot = component(() => {
                             placeholder="Pick a fruit"
                             label="Fruit"
                             color="primary"
-                            options={[
+                            items={[
                                 { value: 'apple', label: 'Apple', group: 'Fruit' },
                                 { value: 'banana', label: 'Banana', group: 'Fruit' },
                                 { value: 'carrot', label: 'Carrot', group: 'Veg' },
                                 { value: 'other', label: 'Other' },
                             ]}
+                            itemValue={(o) => o.value}
+                            itemGroup={(o) => o.group}
                         />
                     </Section>
 

@@ -8,15 +8,33 @@
 
 // Portable — straight from @sigx/zero/behaviors/core. The list controller
 // runs in registration-order mode here (never hand it elements; depth-first
-// render order IS visual order on this platform).
-export type { ControllableState, FieldContext, HighlightStep, IdGenerator, ItemElement, ListController, ListItem, OptionInput, OptionSegment } from '@sigx/zero/behaviors/core';
+// render order IS visual order on this platform). The collection core
+// (zero 0.3) is items-as-data with key/label/value/group accessors — what
+// Select builds on; `segmentBy` is the grouping walk (`segmentOptions`
+// and the `options` sugar are gone upstream).
+export type {
+    Collection,
+    CollectionEntry,
+    CollectionOptions,
+    CollectionSegment,
+    ControllableState,
+    FieldContext,
+    HighlightStep,
+    IdGenerator,
+    ItemElement,
+    ListController,
+    ListItem,
+} from '@sigx/zero/behaviors/core';
 export {
+    createCollection,
     createControllableState,
     createId,
     createListController,
+    defaultItemKey,
+    defaultItemLabel,
     moveHighlight,
     provideFieldContext,
-    segmentOptions,
+    segmentBy,
     useFieldContext,
     useIdGenerator,
     zeroPlugin,

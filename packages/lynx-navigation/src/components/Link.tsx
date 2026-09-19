@@ -1,4 +1,4 @@
-import { component, type Define } from '@sigx/lynx';
+import { component, type Define, type JSXElement } from '@sigx/lynx';
 import { fail } from '../errors.js';
 import { useNav } from '../hooks/use-nav.js';
 import { useNavRoutes } from '../hooks/use-nav-internal.js';
@@ -109,4 +109,6 @@ const LinkImpl = component<LinkPropsLoose>(({ props, slots }) => {
  * The cast widens the inferred prop type from the loose impl to the strict
  * `LinkProps` so JSX usage gets per-route discrimination. Runtime is identical.
  */
-export const Link = LinkImpl as unknown as (props: LinkProps) => unknown;
+// A JSX element type must produce JSX.Element — `unknown` stopped being
+// accepted once core 1.0 shipped the JSX namespace (TS2786).
+export const Link = LinkImpl as unknown as (props: LinkProps) => JSXElement;

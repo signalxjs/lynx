@@ -55,7 +55,9 @@ export const NavHeader = component<NavHeaderProps>(({ props }) => {
         if (!chrome.headerShown) return null;
 
         const override = chrome.header;
-        if (override) return override();
+        // The fill is typed `() => unknown`; a view fn must return JSX (core 1.0
+        // ships the JSX namespace, so this is now checked).
+        if (override) return override() as JSXElement;
 
         const bg = backgroundClass[props.background ?? 'base-200'];
         const bordered = props.bordered ?? true;

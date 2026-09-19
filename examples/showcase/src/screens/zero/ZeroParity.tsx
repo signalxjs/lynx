@@ -171,10 +171,11 @@ export const ZeroParity = component(() => {
                                 <Select.Root
                                     placeholder="Pick"
                                     color="primary"
-                                    options={[
+                                    items={[
                                         { value: 'a', label: 'Apple' },
                                         { value: 'b', label: 'Banana' },
                                     ]}
+                                    itemValue={(o) => o.value}
                                 />
                             ),
                             legacy: () => (

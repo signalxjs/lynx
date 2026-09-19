@@ -41,7 +41,7 @@ export type { ToastItem, ToastOptions, ToastPlacement, ToastViewportProps, Toast
 export { Toast, createToaster, provideToaster } from './components/toast/Toast.js';
 
 // ── Components (pilot wave 3 — composites) ──────────────────────────────
-export type { SelectOption, SelectRootProps } from './components/select/Select.js';
+export type { SelectRoot, SelectRootProps } from './components/select/Select.js';
 export { Select } from './components/select/Select.js';
 export type { SliderRootProps } from './components/slider/Slider.js';
 export { Slider } from './components/slider/Slider.js';

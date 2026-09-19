@@ -9,6 +9,7 @@ import {
   type SharedValue,
   type Define,
   type MainThread,
+  type JSXElement,
 } from '@sigx/lynx';
 import type { PrimitiveSignal } from '@sigx/reactivity';
 
@@ -201,4 +202,4 @@ export const Swiper = component<SwiperProps>(({ props, emit }) => {
       </scroll-view>
     );
   };
-}) as <T>(props: SwiperProps<T>) => unknown;
+}) as <T>(props: SwiperProps<T>) => JSXElement; // JSX.Element, not unknown — core 1.0 checks it (TS2786)

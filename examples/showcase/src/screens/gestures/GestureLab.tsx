@@ -8,6 +8,7 @@ import {
     Gesture,
     useGestureDetector,
     type MainThread,
+    type JSXElement,
 } from '@sigx/lynx';
 import { withSpring, withTiming } from '@sigx/lynx-motion';
 import { Screen } from '@sigx/lynx-navigation';
@@ -231,7 +232,7 @@ export const GestureLab = component(() => {
         </view>
     );
 
-    const section = (title: string, desc: string, body: unknown) => (
+    const section = (title: string, desc: string, body: JSXElement) => (
         <Card bordered>
             <Card.Body>
                 <Col gap={8}>
