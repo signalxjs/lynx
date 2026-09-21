@@ -64,8 +64,8 @@
         "@sigx/lynx-zero-legacy": "workspace:^",
         "@sigx/reactivity": "catalog:",
         "@sigx/runtime-core": "catalog:",
-        "lucide": "^1.16.0",
-        "zod": "^4.4.3"
+        "lucide": "^1.47.0",
+        "zod": "^4.6.5"
     },
     "devDependencies": {
         "@lynx-js/css-extract-webpack-plugin": "catalog:",
@@ -76,7 +76,7 @@
         "@lynx-js/web-core": "catalog:",
         "@lynx-js/web-elements": "catalog:",
         "@lynx-js/webpack-dev-transport": "catalog:",
-        "@sigx/cli": "^0.10.0",
+        "@sigx/cli": "^0.11.0",
         "@sigx/lynx-cli": "workspace:^",
         "@sigx/lynx-dev-client": "workspace:^",
         "@sigx/lynx-plugin": "workspace:^",

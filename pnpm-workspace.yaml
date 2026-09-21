@@ -10,7 +10,7 @@ onlyBuiltDependencies:
 # says — leaving two type lines in the graph. Force the transitive one onto the
 # same 4.0.x line the catalog and the CLI templates use.
 overrides:
-  "@lynx-js/types": ~4.0.0
+  "@lynx-js/types": ~4.2.1
 
 # The sigx core versions this repo builds against. Every workspace package
 # declares these as "catalog:" — bump here, once.
@@ -34,8 +34,8 @@ catalog:
   # remount into a non-terminating microtask cascade (signalxjs/core#658,
   # signalxjs/lynx#1051). The guard is the nested-overlay test in
   # packages/lynx-zero/__tests__/behaviors.test.tsx.
-  "@sigx/reactivity": ^0.15.0
-  "@sigx/runtime-core": ^0.15.0
+  "@sigx/reactivity": ^0.15.6
+  "@sigx/runtime-core": ^0.15.6
   # The zero contract the new design-system stack builds on (signalxjs/lynx#1029):
   # anatomies, vocabularies, the class grammar, the portable behavior subset.
   # Exact beta pin while zero is pre-1.0 — its contract moves in lockstep with
@@ -50,9 +50,9 @@ catalog:
   # Tilde, not caret: @lynx-js/types tracks the engine line, and 4.1.0 already
   # describes an engine (4.1) that only exists as a nightly. Keep the types on
   # the 4.0.x line the CLI templates actually pin.
-  "@lynx-js/types": ~4.0.0
-  "@lynx-js/react": ^0.123.0
-  "@lynx-js/rspeedy": ">=0.16.3"
+  "@lynx-js/types": ~4.2.1
+  "@lynx-js/react": ^0.126.1
+  "@lynx-js/rspeedy": ">=0.17.2"
   # Exact 0.15.0, deliberately decoupled from the full lynx-stack bump (#975):
   # this is the encoder that turns CSS into the .lynx template, and 0.15.0's
   # @lynx-js/tasm 0.0.49 is the first line we can carry that encodes @media /
@@ -63,7 +63,7 @@ catalog:
   # tpwp has no peer deps and
   # keeps the hook API entry.ts uses, so it bumps independently of rspeedy;
   # rspeedy 0.16/rsbuild 2 stays with #975.
-  "@lynx-js/template-webpack-plugin": 0.15.0
+  "@lynx-js/template-webpack-plugin": 0.16.1
   # Must track the template-webpack-plugin pin above: css-extract taps that
   # plugin's `beforeEmit` hook, whose payload lost `entryNames` in favour of
   # `chunkGroups` at tpwp 0.14. 0.7.1 peers `^0.11.0` and still iterates
@@ -71,9 +71,9 @@ catalog:
   # `args.entryNames is not iterable` — release builds were spared only because
   # the tap sits behind an HMR check. `autoInstallPeers` swallowed the
   # unsatisfiable peer instead of failing the install (#1015).
-  "@lynx-js/css-extract-webpack-plugin": ">=0.10.1"
-  "@lynx-js/runtime-wrapper-webpack-plugin": ">=0.2.3"
-  "@lynx-js/webpack-dev-transport": ">=0.3.0"
+  "@lynx-js/css-extract-webpack-plugin": ">=0.11.0"
+  "@lynx-js/runtime-wrapper-webpack-plugin": ">=0.2.4"
+  "@lynx-js/webpack-dev-transport": ">=0.4.0"
   "@lynx-js/tailwind-preset": ^0.5.0
-  "@lynx-js/web-core": ^0.24.0
-  "@lynx-js/web-elements": ">=0.12.7"
+  "@lynx-js/web-core": ^0.26.1
+  "@lynx-js/web-elements": ">=0.12.11"
