@@ -1,6 +1,6 @@
 {
     "name": "@sigx/lynx-file-system",
-    "version": "0.30.0",
+    "version": "0.31.0",
     "description": "File system access for sigx-lynx",
     "type": "module",
     "sideEffects": false,

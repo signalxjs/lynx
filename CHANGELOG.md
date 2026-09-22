@@ -4,6 +4,8 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 ## [Unreleased]
 
+## [0.31.0] - 2026-09-22
+
 ### Changed
 
 - **sigx core 1.0** ([#1126](https://github.com/signalxjs/lynx/issues/1126)). **Breaking.** The catalog moves `@sigx/reactivity` and `@sigx/runtime-core` from `^0.15.0` to `^1.0.0`, so an app on `@sigx/lynx` needs sigx core 1.x. The siblings move with it to their core-1.0 releases: `@sigx/cli` `^0.12.0`, `@sigx/terminal` `^0.13.0`, `@sigx/richtext` and `@sigx/richtext-markdown` `^0.4.0`, and `@sigx/zero` and `@sigx/zero-daisyui` `0.4.0` (exact pins). Core 1.0 ships the global `JSX` namespace, so a component typed `=> unknown` is no longer a JSX element type. `List` (lynx-list), `Link` and `Header` (lynx-navigation), the daisyui and heroui `NavHeader`s, and `Swiper` (lynx-gestures) are now typed `JSXElement`. `@sigx/lynx` re-exports core's newly promoted `peekRestored`, `invalidateRestored` and `provideTypeHandlers`.

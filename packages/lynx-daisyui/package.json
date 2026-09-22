@@ -1,6 +1,6 @@
 {
     "name": "@sigx/lynx-daisyui",
-    "version": "0.30.0",
+    "version": "0.31.0",
     "description": "DaisyUI integration for sigx-lynx",
     "type": "module",
     "sideEffects": [
