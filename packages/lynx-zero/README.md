@@ -95,8 +95,9 @@ The platform spellings to know:
   Dialog renders the anatomy's `::backdrop` pseudo part as a real view;
   light dismiss routes through the shared layer stack (`dismissTopLayer()`),
   so nested overlays close innermost-first.
-- **Select is options-driven** (`options={[{ value, label?, group?, … }]}`,
-  zero's `OptionInput` shape); Slider is touch-driven tier 1 — the value
+- **Select is items-driven** over zero's collection core (`items` +
+  `itemKey` / `itemLabel` / `itemValue` / `itemGroup`, an `item` slot per
+  row; the model is `T | null`, or `V | null` under `itemValue`); Slider is touch-driven tier 1 — the value
   paints as inline track percentages, the lynx counterpart of the web's
   runtime `--slider-percent`.
 - **`@sigx/lynx-zero/testing`** holds components to the same contract as

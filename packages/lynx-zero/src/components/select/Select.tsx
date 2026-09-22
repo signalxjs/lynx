@@ -49,7 +49,7 @@ type SelectItemProps =
     & Define.Prop<'axes', VariantAxes, true>
     & Define.Prop<'onSelect', () => void, true>
     /** The root's `item` slot, already bound to this item — replaces the label text. */
-    & Define.Prop<'content', (() => unknown) | undefined, false>;
+    & Define.Prop<'content', (() => JSXElement | JSXElement[]) | undefined, false>;
 
 /** One item row — a real component so each row owns its press feedback. */
 const SelectItem = component<SelectItemProps>(({ props }) => {
@@ -81,7 +81,11 @@ const SelectItem = component<SelectItemProps>(({ props }) => {
  */
 export type SelectRootProps<T = unknown, M = unknown> =
     & Define.Model<M>
-    /** Typed per overload on the exported root; `unknown` here. */
+    /**
+     * Typed per overload on the exported root (`T | null` / `V | null`), as
+     * zero's Select does: declared here as `M`, TypeScript stops inferring
+     * `T` for the `itemValue` overload.
+     */
     & Define.Prop<'defaultValue', unknown, false>
     & Define.Event<'valueChange', M>
     /** The items as data — the list IS data on this platform. */
