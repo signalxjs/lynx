@@ -61,6 +61,23 @@ describe('public runtime exports', () => {
                 'token',
                 'tokenProperty',
                 'variantAttrs',
+                // added by zero 0.3 / 0.4 (the layout vocabulary, axis-value
+                // grammar, reserved data attrs, event/prop helpers)
+                'AXIS_VALUE_PATTERN',
+                'BASE_BREAKPOINT_KEY',
+                'LAYOUT_ATTR_NAMES',
+                'LAYOUT_ATTR_PREFIX',
+                'LAYOUT_VOCABULARY',
+                'RESERVED_DATA_ATTRS',
+                'SPACE_STEPS',
+                'changeEventOf',
+                'defaultPropOf',
+                'htmlAttrs',
+                'isLayoutValue',
+                'layoutAttrSpec',
+                'layoutAttrs',
+                'layoutClass',
+                'parseLayoutAttr',
                 // ── lynx seams ──
                 'partA11y',
                 'partBag',
