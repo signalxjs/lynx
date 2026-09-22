@@ -153,7 +153,7 @@ function withoutPushedDownAxes(
         const expected = source ? attributeValue(source.props[attr]) : null;
         if (expected !== value) {
             throw new Error(
-                `[zero] expectAnatomy(${anatomy.scope}): part "${part}" renders ${attr}="${value}" but `
+                `[@sigx/lynx-zero] expectAnatomy(${anatomy.scope}): part "${part}" renders ${attr}="${value}" but `
                 + (expected === null
                     ? `no carrier ("${carrier}") renders ${attr} for it to be pushed down from`
                     : `its carrier ("${carrier}") renders ${attr}="${expected}" — a pushed-down axis must match the carrier`),
