@@ -149,12 +149,19 @@ describe('shipped artifacts', () => {
             expect([...read].filter((name) => !defined.has(name)).sort()).toEqual([]);
         });
 
-        it('gives every component a size ramp', () => {
+        it('gives every sized component a size ramp', () => {
             // Same "run pnpm build" contract as the checks above; guarded so a
             // missing dist reports that once rather than as an ENOENT here too.
             expect(existsSync(componentsDir), 'components/ missing — run pnpm build').toBe(true);
+            // Only a component whose manifest declares a size axis owes a ramp.
+            // zero 0.3's layout primitives (box, center, container, grid,
+            // spacer, stack) declare `size: []` — they are sized through the
+            // layout vocabulary, not the axis. Reading the manifest rather than
+            // listing them keeps a component that DOES declare sizes (switch)
+            // held to the check.
             const unsized = readdirSync(componentsDir)
                 .filter((file) => file.endsWith('.css'))
+                .filter((file) => (manifest.components[file.slice(0, -'.css'.length)]?.size ?? ['?']).length > 0)
                 .filter((file) => !readFileSync(join(componentsDir, file), 'utf8').includes('zx-a-size-'))
                 .sort();
             // `switch` shipped with none of these, which is what made it

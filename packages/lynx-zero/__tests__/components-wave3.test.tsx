@@ -11,7 +11,12 @@ import { anatomies } from '@sigx/zero/anatomy';
 import {
     Dialog, OverlayHost, Select, Slider, clearDismissLayers, dismissTopLayer,
 } from '../src/index';
-import type { SelectOption } from '../src/index';
+interface Snack {
+    value: string;
+    label: string;
+    group?: string;
+    disabled?: boolean;
+}
 import { expectAnatomy, expectClassGrammar } from '../src/testing/index';
 
 afterEach(() => clearDismissLayers());
@@ -50,7 +55,7 @@ const fireLayout = (node: TestNode, rect: { left: number; top: number; width: nu
     });
 };
 
-const OPTIONS: SelectOption[] = [
+const OPTIONS: Snack[] = [
     { value: 'apple', label: 'Apple', group: 'Fruit' },
     { value: 'banana', label: 'Banana', group: 'Fruit' },
     { value: 'carrot', label: 'Carrot', group: 'Veg', disabled: true },
@@ -63,11 +68,16 @@ describe('Select', () => {
         const { container } = render(
             <OverlayHost>
                 <Select.Root
-                    options={OPTIONS}
+                    items={OPTIONS}
+                    itemValue={(o) => o.value}
+                    itemGroup={(o) => o.group}
+                    itemDisabled={(o) => !!o.disabled}
                     placeholder="Pick one"
                     label="Snack"
                     color="primary"
-                    onValueChange={(v: string) => picked.push(v)}
+                    onValueChange={(v) => {
+                        if (v !== null) picked.push(v);
+                    }}
                 />
             </OverlayHost>,
         );
@@ -112,7 +122,15 @@ describe('Select', () => {
         const picked: string[] = [];
         const { container } = render(
             <OverlayHost>
-                <Select.Root options={OPTIONS} onValueChange={(v: string) => picked.push(v)} />
+                <Select.Root
+                    items={OPTIONS}
+                    itemValue={(o) => o.value}
+                    itemGroup={(o) => o.group}
+                    itemDisabled={(o) => !!o.disabled}
+                    onValueChange={(v) => {
+                        if (v !== null) picked.push(v);
+                    }}
+                />
             </OverlayHost>,
         );
         const trigger = byPart(container, 'select', 'trigger')!;
@@ -137,7 +155,7 @@ describe('Select', () => {
             <OverlayHost>
                 <Dialog.Root defaultOpen>
                     <Dialog.Popup>
-                        <Select.Root options={OPTIONS} placeholder="Nested" />
+                        <Select.Root items={OPTIONS} itemValue={(o) => o.value} itemGroup={(o) => o.group} placeholder="Nested" />
                     </Dialog.Popup>
                 </Dialog.Root>
             </OverlayHost>,

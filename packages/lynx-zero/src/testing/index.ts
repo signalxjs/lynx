@@ -98,18 +98,79 @@ export function expectAnatomy(root: ConformanceNode, anatomy: Anatomy, options: 
         const part = attributeValue(node.props['data-part']);
         if (part !== null && !firstOfPart.has(part)) firstOfPart.set(part, node);
     }
+    const carrier = Object.prototype.hasOwnProperty.call(anatomy.parts, 'root') ? 'root' : anatomy.partNames()[0];
     const mapped = nodes.map((node) => {
         const part = attributeValue(node.props['data-part']);
+        const props = part !== null && part !== carrier
+            ? withoutPushedDownAxes(node, part, anatomy, carrier, firstOfPart.get(carrier))
+            : node.props;
         if (part !== null && portaled?.includes(part)) {
             const declaredParent = anatomy.parts[part]?.parent;
             const logical = declaredParent !== undefined ? firstOfPart.get(declaredParent) : undefined;
             // Descendants keep their REAL chain — it passes through this
             // same part node, so only the portal boundary is bridged.
-            if (logical) return wrap({ props: node.props, children: node.children, parent: logical });
+            if (logical) return wrap({ props, children: node.children, parent: logical });
         }
-        return wrap(node);
+        return props === node.props ? wrap(node) : wrap({ props, children: node.children, parent: node.parent });
     });
     expectAnatomyElements(mapped, anatomy, oracleOptions);
+}
+
+const NAMED_AXES = ['color', 'size', 'variant'] as const;
+
+/**
+ * Axis push-down is the lynx spelling of the carrier rule. Zero requires a
+ * named axis (`data-color`/`-size`/`-variant`) to render on the scope's
+ * carrier only, unless a part declares it `carries` the axis. On the web a
+ * part inherits the carrier's axis through a descendant selector; lynx CSS
+ * has none, so every part STAMPS the carrier's resolved axes
+ * (`contract/axes-context.ts`). The same value then appears on parts zero
+ * does not expect it on.
+ *
+ * So a stamped axis is checked HERE, against the carrier it came from, and
+ * hidden from the oracle's carrier rule (which still checks the value on
+ * the carrier itself). The source is the nearest carrier above the part,
+ * or else the scope's first rendered carrier, for parts that render beside
+ * the carrier rather than inside it (a dialog's backdrop beside its
+ * trigger). A value that disagrees with that carrier, or that no carrier
+ * renders at all, is not push-down, so it fails. A part that declares
+ * `carries` keeps its attribute for zero's own rule.
+ */
+function withoutPushedDownAxes(
+    node: ConformanceNode,
+    part: string,
+    anatomy: Anatomy,
+    carrier: string,
+    firstCarrier: ConformanceNode | undefined,
+): Record<string, unknown> {
+    const carries: readonly string[] = anatomy.parts[part]?.carries ?? [];
+    let props: Record<string, unknown> | null = null;
+    for (const axis of NAMED_AXES) {
+        const attr = `data-${axis}`;
+        const value = attributeValue(node.props[attr]);
+        if (value === null || carries.includes(axis)) continue;
+        const source = nearestCarrier(node, anatomy.scope, carrier) ?? firstCarrier;
+        const expected = source ? attributeValue(source.props[attr]) : null;
+        if (expected !== value) {
+            throw new Error(
+                `[@sigx/lynx-zero] expectAnatomy(${anatomy.scope}): part "${part}" renders ${attr}="${value}" but `
+                + (expected === null
+                    ? `no carrier ("${carrier}") renders ${attr} for it to be pushed down from`
+                    : `its carrier ("${carrier}") renders ${attr}="${expected}" — a pushed-down axis must match the carrier`),
+            );
+        }
+        props ??= { ...node.props };
+        delete props[attr];
+    }
+    return props ?? node.props;
+}
+
+function nearestCarrier(node: ConformanceNode, scope: string, carrier: string): ConformanceNode | undefined {
+    for (let ancestor = node.parent; ancestor; ancestor = ancestor.parent) {
+        if (attributeValue(ancestor.props['data-scope']) === scope
+            && attributeValue(ancestor.props['data-part']) === carrier) return ancestor;
+    }
+    return undefined;
 }
 
 export interface ExpectClassGrammarOptions {

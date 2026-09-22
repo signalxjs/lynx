@@ -38,6 +38,26 @@ describe('expectAnatomy over TestNode', () => {
         const { container } = render(<Probe broken />);
         expect(() => expectAnatomy(container, tabs)).toThrow(/undeclared flag "bogus"/);
     });
+
+    it('a pushed-down axis that disagrees with its carrier fails red', () => {
+        const Skewed = component(() => () => (
+            <view {...partBag(tabs, 'root', { orientation: 'horizontal', axes: { size: 'md' } })}>
+                <view {...partBag(tabs, 'list', { orientation: 'horizontal', axes: { size: 'lg' } })} />
+            </view>
+        ));
+        const { container } = render(<Skewed />);
+        expect(() => expectAnatomy(container, tabs)).toThrow(/part "list" renders data-size="lg" but its carrier \("root"\) renders data-size="md"/);
+    });
+
+    it('an axis no carrier renders is not push-down and fails red', () => {
+        const Orphan = component(() => () => (
+            <view {...partBag(tabs, 'root', { orientation: 'horizontal' })}>
+                <view {...partBag(tabs, 'list', { orientation: 'horizontal', axes: { color: 'primary' } })} />
+            </view>
+        ));
+        const { container } = render(<Orphan />);
+        expect(() => expectAnatomy(container, tabs)).toThrow(/no carrier \("root"\) renders data-color/);
+    });
 });
 
 describe('expectClassGrammar over TestNode', () => {

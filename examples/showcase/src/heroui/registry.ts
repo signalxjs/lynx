@@ -1,3 +1,4 @@
+import type { JSXElement } from '@sigx/lynx';
 import type { IconSpec } from '@sigx/lynx-icons';
 import { buttonDemo } from './demos/button.js';
 import { cardDemo } from './demos/card.js';
@@ -40,7 +41,9 @@ import { headingDemo } from './demos/heading.js';
  * types at value level. (`any[]` is load-bearing — see the daisyui registry.)
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export type DemoComponent = (...args: any[]) => unknown;
+// A JSX element type must produce JSX.Element — `unknown` stopped being
+// accepted once core 1.0 shipped the JSX namespace (TS2786).
+export type DemoComponent = (...args: any[]) => JSXElement;
 
 export interface DemoSection {
     title: string;

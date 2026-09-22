@@ -1,25 +1,34 @@
 /**
- * Select — the integration stressor of the pilot: options + overlay + list
- * + anchored positioning in one component. Options-driven like zero's sugar
- * Select (`segmentOptions` groups them), because on a touch platform the
- * item list IS data — there is no keyboard navigation or typeahead to hang
- * off child composition, and the popup renders in the overlay outlet where
- * data props travel better than slots.
+ * Select — the integration stressor of the pilot: items + overlay + list +
+ * anchored positioning in one component. Data-driven over zero's collection
+ * core (`createCollection`, zero 0.3 — the `options` sugar and
+ * `segmentOptions` are gone upstream), because on a touch platform the item
+ * list IS data — there is no keyboard navigation or typeahead to hang off
+ * child composition, and the popup renders in the overlay outlet where data
+ * props travel better than slots. Data mode only: zero's JSX-item mode
+ * (`Select.Item` children) has no lynx counterpart.
+ *
+ * Generic at the JSX level the way zero's root is (`contract/generic`): the
+ * implementation is written against `unknown` and exported through a cast to
+ * overloaded call signatures, so `<Select.Root items={fruits} …>` infers `T`
+ * from `items`, the model is `T | null` — or `V | null` when `itemValue`
+ * says what the model holds — and `onValueChange` is typed from it.
  *
  * The popup's JSX lives in this component's own closures, so context flows
  * lexically — no PortalScope needed. The one portal-hostile piece is press
  * feedback, which must be PER ITEM (a shared instance would light every
- * item at once — the Toast review scar), so each option renders through an
+ * item at once — the Toast review scar), so each item renders through an
  * internal component that owns its own pressed signal.
  *
  * `hidden-input` is omitted: no forms on lynx, and the anatomy oracle walks
  * RENDERED parts, so omission is legal — same call as Switch.
  */
-import type { Define } from '@sigx/lynx';
+import type { Define, JSXElement } from '@sigx/lynx';
 import { component, compound, effect, onUnmounted } from '@sigx/lynx';
 import { anatomies } from '@sigx/zero/anatomy';
-import type { OptionInput } from '@sigx/zero/behaviors/core';
-import { createControllableState, segmentOptions, useFieldContext } from '@sigx/zero/behaviors/core';
+import type { Collection } from '@sigx/zero/behaviors/core';
+import { createCollection, createControllableState, useFieldContext } from '@sigx/zero/behaviors/core';
+import type { FactoryBrands, JsxProps } from '@sigx/zero/contract/core';
 import { partBag } from '../../contract/part.js';
 import { partA11y } from '../../contract/a11y.js';
 import type { VariantAxes } from '../../contract/axes-context.js';
@@ -33,34 +42,31 @@ import { useOverlayPortal } from '../../overlay/OverlayHost.js';
 
 const anatomy = anatomies.select;
 
-/** Zero's own option shape — `label` defaults to `value`, `group` groups. */
-export type SelectOption = OptionInput;
-
-const optionLabel = (option: SelectOption): string => option.label ?? option.value;
-
 type SelectItemProps =
-    & Define.Prop<'option', SelectOption, true>
+    & Define.Prop<'label', string, true>
     & Define.Prop<'selected', boolean, true>
+    & Define.Prop<'disabled', boolean, true>
     & Define.Prop<'axes', VariantAxes, true>
-    & Define.Prop<'onSelect', () => void, true>;
+    & Define.Prop<'onSelect', () => void, true>
+    /** The root's `item` slot, already bound to this item — replaces the label text. */
+    & Define.Prop<'content', (() => JSXElement | JSXElement[]) | undefined, false>;
 
-/** One option row — a real component so each row owns its press feedback. */
+/** One item row — a real component so each row owns its press feedback. */
 const SelectItem = component<SelectItemProps>(({ props }) => {
-    const disabled = () => !!props.option.disabled;
-    const press = createPressFeedback({ isDisabled: disabled });
+    const press = createPressFeedback({ isDisabled: () => props.disabled });
     return () => (
         <view
             {...partBag(anatomy, 'item', {
-                flags: { selected: props.selected, disabled: disabled(), pressed: press.pressed() },
+                flags: { selected: props.selected, disabled: props.disabled, pressed: press.pressed() },
                 ...partAxes(props.axes),
             })}
-            {...partA11y({ trait: 'button', label: optionLabel(props.option), selected: props.selected, disabled: disabled() })}
+            {...partA11y({ trait: 'button', label: props.label, selected: props.selected, disabled: props.disabled })}
             bindtap={() => {
-                if (!disabled()) props.onSelect();
+                if (!props.disabled) props.onSelect();
             }}
             {...press.handlers}
         >
-            <text>{optionLabel(props.option)}</text>
+            {props.content ? props.content() : <text>{props.label}</text>}
             {props.selected
                 ? <view {...partBag(anatomy, 'item-indicator', { flags: { selected: true }, ...partAxes(props.axes) })} />
                 : null}
@@ -68,11 +74,31 @@ const SelectItem = component<SelectItemProps>(({ props }) => {
     );
 }, { name: 'Select.Item' });
 
-export type SelectRootProps =
-    & Define.Model<string>
-    & Define.Prop<'options', SelectOption[], true>
-    & Define.Prop<'defaultValue', string, false>
-    & Define.Event<'valueChange', string>
+/**
+ * The props, generic over the item `T` and the model `M`. The exported
+ * `Select.Root` narrows `M` from the props (see `SelectRoot`): `T | null`,
+ * or `V | null` when `itemValue` returns `V`.
+ */
+export type SelectRootProps<T = unknown, M = unknown> =
+    & Define.Model<M>
+    /**
+     * Typed per overload on the exported root (`T | null` / `V | null`), as
+     * zero's Select does: declared here as `M`, TypeScript stops inferring
+     * `T` for the `itemValue` overload.
+     */
+    & Define.Prop<'defaultValue', unknown, false>
+    & Define.Event<'valueChange', M>
+    /** The items as data — the list IS data on this platform. */
+    & Define.Prop<'items', ReadonlyArray<T>, true>
+    /** String identity: the item's key (default: `value` / `id` / the primitive). */
+    & Define.Prop<'itemKey', (item: T) => string, false>
+    /** Display text (default: `label` / the key). */
+    & Define.Prop<'itemLabel', (item: T) => string, false>
+    & Define.Prop<'itemDisabled', (item: T) => boolean, false>
+    /** Group heading; items sharing one render together, first-appearance order. */
+    & Define.Prop<'itemGroup', (item: T) => string | undefined, false>
+    /** What the model holds for an item (default: the item). Return a primitive. */
+    & Define.Prop<'itemValue', (item: T) => unknown, false>
     /** Shown in the value part while nothing is selected. */
     & Define.Prop<'placeholder', string, false>
     & Define.Prop<'disabled', boolean, false>
@@ -85,12 +111,24 @@ export type SelectRootProps =
     & Define.Prop<'color', string, false>
     & Define.Prop<'size', string, false>
     & Define.Prop<'variant', string, false>
-    & Define.Prop<'class', string, false>;
+    & Define.Prop<'class', string, false>
+    /** Custom content for a generated item row (replaces the label text). */
+    & Define.Slot<'item', { item: T }>;
 
-const SelectRoot = component<SelectRootProps>(({ props, emit }) => {
-    const value = createControllableState<string>(
+const SelectRootImpl = component<SelectRootProps>(({ props, emit, slots }) => {
+    // The accessors are read once: they name the shape of `items`, which does
+    // not change across renders; `items` itself is read reactively.
+    const collection: Collection<unknown, unknown> = createCollection<unknown, unknown>({
+        items: () => props.items,
+        itemKey: props.itemKey,
+        itemLabel: props.itemLabel,
+        itemDisabled: props.itemDisabled,
+        itemGroup: props.itemGroup,
+        itemValue: props.itemValue,
+    });
+    const value = createControllableState<unknown>(
         () => props.model,
-        props.defaultValue ?? '',
+        props.defaultValue ?? null,
         (next) => emit('valueChange', next),
     );
     // Open state is component-internal: nothing outside a select ever drives
@@ -108,13 +146,25 @@ const SelectRoot = component<SelectRootProps>(({ props, emit }) => {
     });
     const portal = useOverlayPortal();
 
-    const selected = (): SelectOption | undefined =>
-        props.options.find((option) => option.value === value.value);
+    /** The selected item's key — `null` while nothing is selected. */
+    const selectedKey = (): string | null => (value.value == null ? null : collection.keyForValue(value.value));
+    const selected = (): unknown => (value.value == null ? undefined : collection.byValue(value.value));
     const triggerState = () => (open.value ? 'open' : 'closed');
-    const pick = (option: SelectOption): void => {
-        value.value = option.value;
+    const pick = (item: unknown): void => {
+        value.value = collection.valueOf(item);
         open.value = false;
     };
+    const itemRow = (item: unknown, key: string): JSXElement => (
+        <SelectItem
+            key={key}
+            label={collection.labelOf(item)}
+            selected={collection.keyOf(item) === selectedKey()}
+            disabled={collection.isItemDisabled(item)}
+            axes={axes()}
+            onSelect={() => pick(item)}
+            content={slots.item ? () => slots.item!({ item }) : undefined}
+        />
+    );
 
     let unregister: (() => void) | null = null;
     effect(() => {
@@ -142,33 +192,17 @@ const SelectRoot = component<SelectRootProps>(({ props, emit }) => {
                         bindlayoutchange={position.floatingLayoutChange}
                         catchtap={() => {}}
                     >
-                        {segmentOptions(props.options).map((segment, index) =>
+                        {collection.segments().map((segment, index) =>
                             segment.group !== undefined
                                 ? (
                                     <view key={`g-${segment.group}`} {...partBag(anatomy, 'group', { ...partAxes(axes()) })}>
                                         <text {...partBag(anatomy, 'group-label', { ...partAxes(axes()) })}>
                                             {segment.group}
                                         </text>
-                                        {segment.options.map((option) => (
-                                            <SelectItem
-                                                key={option.value}
-                                                option={option}
-                                                selected={option.value === value.value}
-                                                axes={axes()}
-                                                onSelect={() => pick(option)}
-                                            />
-                                        ))}
+                                        {segment.items.map((item) => itemRow(item, collection.keyOf(item)))}
                                     </view>
                                 )
-                                : segment.options.map((option) => (
-                                    <SelectItem
-                                        key={`u-${index}-${option.value}`}
-                                        option={option}
-                                        selected={option.value === value.value}
-                                        axes={axes()}
-                                        onSelect={() => pick(option)}
-                                    />
-                                )))}
+                                : segment.items.map((item) => itemRow(item, `u-${index}-${collection.keyOf(item)}`)))}
                     </view>
                 </view>
             ));
@@ -194,7 +228,7 @@ const SelectRoot = component<SelectRootProps>(({ props, emit }) => {
                     flags: {
                         disabled: disabled(),
                         invalid: invalid(),
-                        placeholder: !selected(),
+                        placeholder: selected() === undefined,
                         pressed: press.pressed(),
                     },
                     ...partAxes(axes()),
@@ -207,10 +241,10 @@ const SelectRoot = component<SelectRootProps>(({ props, emit }) => {
                 bindlayoutchange={position.anchorLayoutChange}
                 {...press.handlers}
             >
-                <text {...partBag(anatomy, 'value', { flags: { placeholder: !selected() }, ...partAxes(axes()) })}>
+                <text {...partBag(anatomy, 'value', { flags: { placeholder: selected() === undefined }, ...partAxes(axes()) })}>
                     {(() => {
                         const current = selected();
-                        return current ? optionLabel(current) : props.placeholder ?? '';
+                        return current !== undefined ? collection.labelOf(current) : props.placeholder ?? '';
                     })()}
                 </text>
                 <view {...partBag(anatomy, 'indicator', { state: triggerState(), ...partAxes(axes()) })} />
@@ -218,5 +252,24 @@ const SelectRoot = component<SelectRootProps>(({ props, emit }) => {
         </view>
     );
 }, { name: 'Select.Root' });
+
+/**
+ * The generic root: `T` infers from `items`; the model is `T | null` unless
+ * `itemValue` returns `V`, then `V | null`.
+ */
+export type SelectRoot = {
+    <T>(props: JsxProps<SelectRootProps<T, T | null>> & {
+        items: ReadonlyArray<T>;
+        defaultValue?: T | null;
+        itemValue?: undefined;
+    }): JSXElement;
+    <T, V>(props: JsxProps<SelectRootProps<T, V | null>> & {
+        items: ReadonlyArray<T>;
+        defaultValue?: V | null;
+        itemValue: (item: T) => V;
+    }): JSXElement;
+} & FactoryBrands;
+
+const SelectRoot = SelectRootImpl as unknown as SelectRoot;
 
 export const Select = compound(SelectRoot, { Root: SelectRoot });

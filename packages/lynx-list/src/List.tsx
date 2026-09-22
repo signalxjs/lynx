@@ -15,6 +15,7 @@ import {
   useScrollDragHost,
   Gesture,
   useGestureDetector,
+  type JSXElement,
   type MainThread,
 } from '@sigx/lynx';
 import type { ListItemSnap, ListProps } from './types.js';
@@ -1228,4 +1229,6 @@ export const List = ListImpl as unknown as <T>(
     keyExtractor?: (item: T, index: number) => string;
     itemType?: (item: T, index: number) => string;
   },
-) => unknown;
+  // A JSX element type must produce JSX.Element — `unknown` stopped being
+  // accepted once core 1.0 shipped the JSX namespace (TS2786).
+) => JSXElement;
