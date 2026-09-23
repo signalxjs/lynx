@@ -18,13 +18,13 @@
  * Vertical by default. Marker and connector are decoration (not accessible
  * elements): the reader gets each event from the content text.
  *
- * The marker RE-CARRIES the colour axis (the anatomy's `carries: ['color']`,
- * signalxjs/zero#94): `color` on the Root colours every marker, `color` on
- * one Marker colours that marker alone. Lynx CSS has no descendant
+ * The marker RE-CARRIES the color axis (the anatomy's `carries: ['color']`,
+ * signalxjs/zero#94): `color` on the Root colors every marker, `color` on
+ * one Marker colors that marker alone. Lynx CSS has no descendant
  * selector, so the nearest provider's value is STAMPED on the marker
  * (`provideCarriedAxes`) — `.zx-timeline__marker.zx-a-color-error` is the
  * same compiled rule whichever element supplied the value. A marker without
- * a colour of its own follows the Root.
+ * a color of its own follows the Root.
  */
 import type { Define } from '@sigx/lynx';
 import { component, compound, defineInjectable, defineProvide } from '@sigx/lynx';
@@ -81,7 +81,7 @@ const TimelineItem = component<TimelinePartProps>(({ props, slots }) => {
 }, { name: 'Timeline.Item' });
 
 /**
- * The marker takes the scope's colour vocabulary for itself, mirroring
+ * The marker takes the scope's color vocabulary for itself, mirroring
  * zero's `TimelineMarkerProps` — its own value outranks the Root's.
  */
 export type TimelineMarkerProps = Define.Prop<'color', string, false> & TimelinePartProps;

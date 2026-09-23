@@ -96,8 +96,8 @@ Progress, Button, Switch, Tabs, Accordion, Dialog, Popover, Toast, Select,
 Slider — zero's anatomies rendered in Lynx JSX over the shared behaviors —
 and Timeline (`Root` / `Item` / `Marker` / `Connector` / `Content`,
 vertical by default, `placement="start|end"` on Content). `color` on
-`Timeline.Root` colours every marker; `color` on one `Timeline.Marker`
-colours that marker alone, and a marker without one follows the root.
+`Timeline.Root` colors every marker; `color` on one `Timeline.Marker`
+colors that marker alone, and a marker without one follows the root.
 The platform spellings to know:
 
 - **Closed means unmounted.** Lynx has no `hidden` attribute and no
