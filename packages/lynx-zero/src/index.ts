@@ -46,9 +46,20 @@ export { Select } from './components/select/Select.js';
 export type { SliderRootProps } from './components/slider/Slider.js';
 export { Slider } from './components/slider/Slider.js';
 
+// ── Components (zero#94 — a part that re-carries an axis) ───────────────
+export type {
+    TimelineConnectorProps,
+    TimelineContentProps,
+    TimelineMarkerProps,
+    TimelinePartProps,
+    TimelinePlacement,
+    TimelineRootProps,
+} from './components/timeline/Timeline.js';
+export { Timeline } from './components/timeline/Timeline.js';
+
 // ── Axis push-down ───────────────────────────────────────────────────────
 export type { VariantAxes } from './contract/axes-context.js';
-export { partAxes, provideVariantAxes, useVariantAxes } from './contract/axes-context.js';
+export { partAxes, provideCarriedAxes, provideVariantAxes, useVariantAxes } from './contract/axes-context.js';
 export type { AxisDefaults } from './contract/axis-defaults.js';
 export { registerAxisDefaults, resolveVariantAxes } from './contract/axis-defaults.js';
 

@@ -111,6 +111,7 @@ describe('public runtime exports', () => {
                 'Tabs',
                 // ── axis push-down ──
                 'partAxes',
+                'provideCarriedAxes',
                 'provideVariantAxes',
                 'registerAxisDefaults',
                 'resolveVariantAxes',
@@ -124,6 +125,8 @@ describe('public runtime exports', () => {
                 // ── components (pilot wave 3 — composites) ──
                 'Select',
                 'Slider',
+                // ── components (zero#94 — a part that re-carries an axis) ──
+                'Timeline',
                 // ── overlays ──
                 'OverlayHost',
                 'PortalScope',

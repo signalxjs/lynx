@@ -127,10 +127,12 @@ const NAMED_AXES = ['color', 'size', 'variant'] as const;
  * (`contract/axes-context.ts`). The same value then appears on parts zero
  * does not expect it on.
  *
- * So a stamped axis is checked HERE, against the carrier it came from, and
+ * So a stamped axis is checked HERE, against the provider it came from, and
  * hidden from the oracle's carrier rule (which still checks the value on
- * the carrier itself). The source is the nearest carrier above the part,
- * or else the scope's first rendered carrier, for parts that render beside
+ * the carrier itself). The source is the nearest provider above the part —
+ * the carrier, or a nearer part that declares it `carries` the axis
+ * (zero#94: the nearest carrier wins) — or else the scope's first rendered
+ * carrier, for parts that render beside
  * the carrier rather than inside it (a dialog's backdrop beside its
  * trigger). A value that disagrees with that carrier, or that no carrier
  * renders at all, is not push-down, so it fails. A part that declares
@@ -149,14 +151,17 @@ function withoutPushedDownAxes(
         const attr = `data-${axis}`;
         const value = attributeValue(node.props[attr]);
         if (value === null || carries.includes(axis)) continue;
-        const source = nearestCarrier(node, anatomy.scope, carrier) ?? firstCarrier;
+        const source = nearestProvider(node, anatomy, carrier, axis) ?? firstCarrier;
         const expected = source ? attributeValue(source.props[attr]) : null;
         if (expected !== value) {
+            const sourcePart = source ? attributeValue(source.props['data-part']) : null;
             throw new Error(
                 `[@sigx/lynx-zero] expectAnatomy(${anatomy.scope}): part "${part}" renders ${attr}="${value}" but `
                 + (expected === null
                     ? `no carrier ("${carrier}") renders ${attr} for it to be pushed down from`
-                    : `its carrier ("${carrier}") renders ${attr}="${expected}" — a pushed-down axis must match the carrier`),
+                    : sourcePart !== null && sourcePart !== carrier
+                        ? `its nearest provider ("${sourcePart}", which carries "${axis}") renders ${attr}="${expected}" — a pushed-down axis must match its provider`
+                        : `its carrier ("${carrier}") renders ${attr}="${expected}" — a pushed-down axis must match the carrier`),
             );
         }
         props ??= { ...node.props };
@@ -165,10 +170,21 @@ function withoutPushedDownAxes(
     return props ?? node.props;
 }
 
-function nearestCarrier(node: ConformanceNode, scope: string, carrier: string): ConformanceNode | undefined {
+/**
+ * The nearest provider of `axis` above a part: the carrier, or — nearer —
+ * a part whose anatomy declares it `carries` the axis and renders it (a
+ * re-carrying part stamps its own value, or passes its provider's through,
+ * so the attribute it renders IS the value below it). Nearest wins, the
+ * lynx spelling of zero's "nearest carrier wins".
+ */
+function nearestProvider(node: ConformanceNode, anatomy: Anatomy, carrier: string, axis: string): ConformanceNode | undefined {
     for (let ancestor = node.parent; ancestor; ancestor = ancestor.parent) {
-        if (attributeValue(ancestor.props['data-scope']) === scope
-            && attributeValue(ancestor.props['data-part']) === carrier) return ancestor;
+        if (attributeValue(ancestor.props['data-scope']) !== anatomy.scope) continue;
+        const part = attributeValue(ancestor.props['data-part']);
+        if (part === carrier) return ancestor;
+        if (part === null) continue;
+        const carries: readonly string[] = anatomy.parts[part]?.carries ?? [];
+        if (carries.includes(axis) && attributeValue(ancestor.props[`data-${axis}`]) !== null) return ancestor;
     }
     return undefined;
 }

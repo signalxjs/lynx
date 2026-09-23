@@ -38,6 +38,15 @@ the runtime those stylesheets target.
   carrier resolves `explicit prop ?? registered default` per scope with
   `resolveVariantAxes` before stamping. No registration means unset axes
   stamp nothing — headless usage is unchanged.
+- **Re-carried axes** — a part whose anatomy declares `carries` for a named
+  axis (zero's `PartSpec.carries`; Timeline's marker carries `color`) is a
+  nearer provider of that axis. With its own value it stamps
+  `zx-a-<axis>-<value>` on itself and every part below it; without one it
+  passes the carrier's value through — the nearest provider wins, like the
+  web compiler's nearest carrier. A component opts a part in with
+  `provideCarriedAxes(anatomy, part, () => ({ color: props.color }))` in
+  place of `useVariantAxes()`; axes the anatomy does not declare are never
+  taken from the part.
 
 ## Theming
 
@@ -81,10 +90,14 @@ helpers carry over from the legacy package unchanged — lynx-only concerns
 breakpoints because inline styles beat stylesheet `@media`) that zero has no
 counterpart for.
 
-## Components (the pilot ten)
+## Components (the pilot ten, plus Timeline)
 
 Progress, Button, Switch, Tabs, Accordion, Dialog, Popover, Toast, Select,
-Slider — zero's anatomies rendered in Lynx JSX over the shared behaviors.
+Slider — zero's anatomies rendered in Lynx JSX over the shared behaviors —
+and Timeline (`Root` / `Item` / `Marker` / `Connector` / `Content`,
+vertical by default, `placement="start|end"` on Content). `color` on
+`Timeline.Root` colors every marker; `color` on one `Timeline.Marker`
+colors that marker alone, and a marker without one follows the root.
 The platform spellings to know:
 
 - **Closed means unmounted.** Lynx has no `hidden` attribute and no
@@ -102,7 +115,9 @@ The platform spellings to know:
   runtime `--slider-percent`.
 - **`@sigx/lynx-zero/testing`** holds components to the same contract as
   the web: `expectAnatomy` (zero's oracle over the rendered tree; pass
-  `{ portaled: ['popup'] }` for parts the outlet hosts) and
+  `{ portaled: ['popup'] }` for parts the outlet hosts; a stamped axis is
+  checked against its nearest provider — the carrier, or a nearer part that
+  declares it `carries` the axis) and
   `expectClassGrammar` (the classes recomputed from the data attributes).
 
 ## What comes next
