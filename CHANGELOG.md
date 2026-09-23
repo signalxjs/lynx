@@ -4,6 +4,15 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 ## [Unreleased]
 
+### Added
+
+- **`@sigx/lynx-zero`: a part that re-carries an axis is a nearer provider** ([#1125](https://github.com/signalxjs/lynx/issues/1125); zero's `PartSpec.carries`, [signalxjs/zero#94](https://github.com/signalxjs/zero/issues/94)). A part whose anatomy declares `carries` for a named axis stamps its own value (`zx-a-<axis>-<value>`) on itself and every part below it, and passes the carrier's value through when it has none. The nearest provider wins, matching the web compiler. New `provideCarriedAxes(anatomy, part, own)` opts a part in; it takes only the axes the anatomy declares. No new CSS is needed: the compiled lynx rule is the same whichever element supplied the value.
+- **`@sigx/lynx-zero`: `Timeline`** (`Root` / `Item` / `Marker` / `Connector` / `Content`) on zero's timeline anatomy, styled by the `timeline.css` the design-system shell already ships. `Timeline.Marker` takes `color`, mirroring zero's `TimelineMarkerProps`: its own value outranks the root's, and a marker without one follows the root.
+
+### Changed
+
+- **`@sigx/lynx-zero/testing`: `expectAnatomy` checks a stamped axis against its nearest provider.** A named-axis attribute is accepted only on the carrier or on a part that declares it carries that axis (zero's rule). A value pushed down below a re-carrying part must now match that part, not the carrier. Before, it was compared with the carrier and failed.
+
 ## [0.31.0] - 2026-09-22
 
 ### Changed
