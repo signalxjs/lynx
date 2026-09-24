@@ -9,13 +9,31 @@
  * What it enforces:
  *   Repo merge settings:
  *     - Squash-only merges (merge commits + rebase merges disabled) → linear history.
+ *     - Squash commit message = PR title + PR body (instead of GitHub's default
+ *       COMMIT_MESSAGES concatenation), so PR descriptions double as the commit
+ *       body — write them accordingly. NOTE: GitHub still auto-appends
+ *       `Co-authored-by:` trailers to ANY message it generates itself, in every
+ *       squash-message mode, whenever a branch-commit author differs from the
+ *       merging account. Merges go through the merge queue, which always
+ *       generates the message itself (explicit --subject/--body doesn't apply),
+ *       so keep every commit on a PR branch authored by the account that merges.
+ *     - Auto-merge allowed: `gh pr merge --squash --auto` (AGENTS.md step 6) is
+ *       how a PR enters the merge queue.
  *     - Auto-delete head branches after merge.
  *   Ruleset "sigx-standard: protect main" on `main`:
  *     - No direct pushes — changes land via PR only.
- *     - PR required: >= 1 approving review, stale approvals dismissed on new
- *       commits, CODEOWNERS review required, review threads must resolve.
+ *     - PR required: `--approvals N` approving reviews (default 1; pass 0 for a
+ *       solo repo where the owner merges without a separate approval), stale
+ *       approvals dismissed on new commits, CODEOWNERS review when approvals >= 1,
+ *       review threads must resolve.
  *     - No force-push and no deletion of `main`.
+ *     - Merge queue (squash, ALLGREEN, up to 5 PRs per group): queued PRs are
+ *       tested together against the latest `main` and merged in order. PRs
+ *       don't need to be up to date with `main` before they enter the queue.
  *     - (Optional) required status checks green before merge — pass --checks.
+ *       Non-strict: the queue re-runs them on the merge-group ref, so every
+ *       workflow that produces a required check MUST trigger on `merge_group`,
+ *       or queued PRs wait forever for a check that never starts.
  *
  * Required status checks are OPT-IN via --checks because a wrong context name
  * would block ALL merges. Discover your real check names on any open PR with
@@ -48,8 +66,9 @@ for (let i = 0; i < argv.length; i++) {
     else if (a === '--checks') {
         const v = argv[++i];
         // Reject a missing value or a following flag (e.g. `--checks --dry-run`)
-        // rather than silently consuming it as a check-run name.
-        if (!v || v.startsWith('-')) die('--checks needs a value, e.g. --checks "test (ubuntu-latest, 22); verify-pack"');
+        // rather than silently consuming it. Only `--`-prefixed tokens are this
+        // script's flags; a single-dash check-run name (e.g. "-lint") is allowed.
+        if (!v || v.startsWith('--')) die('--checks needs a value, e.g. --checks "test (ubuntu-latest, 22); verify-pack"');
         // Split on ';' — NOT ',' — because matrix check-run names contain commas
         // ("test (ubuntu-latest, 22)"). Repeatable: values accumulate across flags.
         checks.push(...v.split(';').map((s) => s.trim()).filter(Boolean));
@@ -64,8 +83,9 @@ if (!repo || !/^[^/]+\/[^/]+$/.test(repo)) {
     die('Usage: node scripts/apply-branch-protection.mjs <owner/repo> [--checks "a; b"] [--approvals N] [--dry-run]\n' +
         '  --checks  semicolon-separated check-run names (repeatable). Use ";" not "," —\n' +
         '            matrix names contain commas, e.g. "test (ubuntu-latest, 22); verify-pack".\n' +
-        '  --approvals 0  → PR + CI required, but the author/owner may merge without a separate approval\n' +
-        '                   (use for solo/small repos where Copilot reviews but can\'t formally approve)');
+        '  --approvals 0  → PR required (plus any --checks), but the author/owner may merge\n' +
+        '                   without a separate approval (for solo/small repos where Copilot\n' +
+        '                   reviews but can\'t formally approve)');
 }
 
 // ── gh helpers ───────────────────────────────────────────────────────────────
@@ -100,6 +120,13 @@ const repoSettings = {
     allow_merge_commit: false,
     allow_rebase_merge: false,
     delete_branch_on_merge: true,
+    // `gh pr merge --auto` is how a PR enters the merge queue.
+    allow_auto_merge: true,
+    // PR title + body instead of the COMMIT_MESSAGES concatenation — this is the
+    // message the merge queue writes. GitHub still appends Co-authored-by when a
+    // branch commit's author differs from the merging account.
+    squash_merge_commit_title: 'PR_TITLE',
+    squash_merge_commit_message: 'PR_BODY',
 };
 
 // ── 2. the ruleset ───────────────────────────────────────────────────────────
@@ -115,17 +142,34 @@ const pullRequestRule = {
     },
 };
 
+// Same parameters as signalxjs/core, which ran the queue first.
+const mergeQueueRule = {
+    type: 'merge_queue',
+    parameters: {
+        merge_method: 'SQUASH',
+        grouping_strategy: 'ALLGREEN',
+        max_entries_to_build: 5,
+        max_entries_to_merge: 5,
+        min_entries_to_merge: 1,
+        min_entries_to_merge_wait_minutes: 0,
+        check_response_timeout_minutes: 60,
+    },
+};
+
 const rules = [
     { type: 'deletion' },
     { type: 'non_fast_forward' }, // blocks force-push
     pullRequestRule,
+    mergeQueueRule,
 ];
 
 if (checks.length) {
     rules.push({
         type: 'required_status_checks',
         parameters: {
-            strict_required_status_checks_policy: true, // branch must be up to date
+            // Not strict: the merge queue tests each PR against the latest
+            // `main`, so a PR doesn't need to be up to date to enter the queue.
+            strict_required_status_checks_policy: false,
             required_status_checks: checks.map((context) => ({ context })),
         },
     });
@@ -147,7 +191,7 @@ console.log(`Repo:   ${repo}`);
 console.log(`Branch: ${DEFAULT_BRANCH}`);
 console.log(`Checks: ${checks.length ? checks.join(', ') : '(none — pass --checks to require CI green)'}`);
 console.log(`Reviews: ${approvals} approving review(s)${approvals === 0 ? ' — PR required, owner may self-merge' : ', CODEOWNERS enforced'}`);
-console.log(`Merges: squash-only, auto-delete branch on merge`);
+console.log(`Merges: merge queue (squash), message = PR title + body, auto-delete branch on merge`);
 
 if (dryRun) {
     console.log('\n--dry-run — would PATCH repo settings:');
@@ -168,7 +212,7 @@ if (gh(['api', 'user', '-q', '.login']).status !== 0) {
 ghJson(['api', '-X', 'PATCH', `repos/${owner}/${name}`, '--input', '-'], {
     input: JSON.stringify(repoSettings),
 });
-console.log('✓ Merge settings applied (squash-only, auto-delete).');
+console.log('✓ Merge settings applied (squash-only, PR title + body, auto-merge, auto-delete).');
 
 // Ruleset: find existing by name, then PUT (update) or POST (create) — idempotent.
 const existing = ghJson(['api', `repos/${owner}/${name}/rulesets`, '--paginate'], { allowFail: true }) || [];

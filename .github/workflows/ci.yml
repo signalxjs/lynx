@@ -5,6 +5,10 @@ on:
     branches: [main]
   push:
     branches: [main]
+  # The merge queue builds each queued group on a temporary ref and waits for
+  # the required checks to report there — without this trigger, queued PRs
+  # wait forever for checks that never start.
+  merge_group:
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -74,6 +78,10 @@ jobs:
         run: pnpm test
 
   coverage:
+    # Already ran on the PR, and not a required check, so the queue doesn't
+    # wait for it. If you make this job (or a status it reports, e.g.
+    # `codecov/patch`) required, drop this guard, or queued PRs wait forever.
+    if: github.event_name != 'merge_group'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
