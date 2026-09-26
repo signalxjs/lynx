@@ -9,6 +9,7 @@ import { describe, expect, it } from 'vitest';
 import { act, fireEvent, render, touch } from '@sigx/lynx-testing';
 import type { TestNode } from '@sigx/lynx-testing';
 import { anatomies } from '@sigx/zero/anatomy';
+import { signal } from '@sigx/lynx';
 import { Progress, Slider, Switch } from '../src/index';
 import { sliderFraction } from '../src/components/slider/Slider';
 import { ForceStates, expectAnatomy, expectClassGrammar } from '../src/testing/index';
@@ -145,6 +146,25 @@ describe('Slider — zero 0.6 projection', () => {
         expect(changes.at(-1)).toEqual([20, 30]);
         await act(() => fireEvent.touchEnd(control as never));
         expect(commits).toEqual([[20, 30]]);
+    });
+
+    it('an unsorted controlled range model is ordered before it paints or constrains', async () => {
+        const changes: unknown[] = [];
+        const range0 = signal({ v: [70, 20] });
+        const { container } = render(
+            <Slider.Root model={() => range0.v} minStepsBetweenThumbs={10} onValueChange={(v: number[]) => changes.push(v)} />,
+        );
+        const range = byPart(container, 'slider', 'range');
+        expect(range._style['left']).toBe('20%');
+        expect(range._style['width']).toBe('50%');
+        expect(allParts(container, 'slider', 'thumb').map((t) => t._style['left'])).toEqual(['20%', '70%']);
+        await act(() => { fireLayout(byPart(container, 'slider', 'track'), { left: 0, top: 0, width: 100, height: 20 }); });
+        const control = byPart(container, 'slider', 'control');
+        // Near the lower thumb, dragged up into the upper: stops 10 below it.
+        await act(() => fireEvent.touchStart(control as never, { touches: [touch(25, 10)] }));
+        await act(() => fireEvent.touchMove(control as never, { touches: [touch(95, 10)] }));
+        expect(changes.at(-1)).toEqual([60, 70]);
+        await act(() => fireEvent.touchEnd(control as never));
     });
 
     it('a touch payload with only the rail axis still drags; coincident thumbs open by direction', async () => {

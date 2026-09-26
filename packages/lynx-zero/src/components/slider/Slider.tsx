@@ -168,10 +168,17 @@ const SliderRoot = component<SliderRootProps>(({ props, emit }) => {
     const readonly = () => !!props.readonly || field.readonly();
     const axes = provideVariantAxes((): VariantAxes => resolveVariantAxes(anatomy.scope, { color: props.color, size: props.size }));
 
-    /** The model, normalized to an array (a scalar model is `[value]`). */
+    /**
+     * The model, normalized to an array (a scalar model is `[value]`) and
+     * ordered low → high: a controlled range model may arrive unsorted, and
+     * the range span, the neighbour bounds and the thumb order all assume
+     * order. A write therefore emits the ordered array.
+     */
     const values = (): number[] => {
         const v = state.value;
-        return Array.isArray(v) ? v.map((x) => finiteOr(x, min())) : [finiteOr(v, min())];
+        return Array.isArray(v)
+            ? v.map((x) => finiteOr(x, min())).sort((a, b) => a - b)
+            : [finiteOr(v, min())];
     };
     const isRange = () => Array.isArray(state.value);
 
