@@ -75,7 +75,7 @@ function resolveAndroidBuild(logger: Pick<Logger, 'log'>): { env: NodeJS.Process
         throw new Error(
             'Android SDK not found.\n' +
             '  Install it with Android Studio (first-run setup wizard, or Settings → Android SDK),\n' +
-            `  or set ANDROID_HOME to your SDK folder (Android Studio's default is ${defaultRoot}).\n` +
+            `  or set ANDROID_HOME (or ANDROID_SDK_ROOT) to your SDK folder (Android Studio's default is ${defaultRoot}).\n` +
             '  Then run `npx sigx doctor` to confirm.',
         );
     }

@@ -78,7 +78,9 @@ function checkPackageManager(cwd: string): Check {
 function checkAndroidSdk(): Check {
     // Env vars first, then Android Studio's default install location — the
     // same order `android-run.ts` resolves at build time.
-    let androidHome = process.env.ANDROID_HOME || process.env.ANDROID_SDK_ROOT;
+    // Both variables are honoured; report whichever one is actually set.
+    const envVar = process.env.ANDROID_HOME ? 'ANDROID_HOME' : process.env.ANDROID_SDK_ROOT ? 'ANDROID_SDK_ROOT' : null;
+    let androidHome = envVar ? process.env[envVar] : undefined;
     const fromEnv = !!androidHome;
 
     if (!androidHome) {
@@ -90,7 +92,7 @@ function checkAndroidSdk(): Check {
             name: 'Android SDK',
             status: 'warn',
             message: 'Not found',
-            detail: `fix: install Android Studio and finish its setup wizard (it installs the SDK to ${defaultAndroidSdkRoots()[0]}), or set ANDROID_HOME`,
+            detail: `fix: install Android Studio and finish its setup wizard (it installs the SDK to ${defaultAndroidSdkRoots()[0]}), or set ANDROID_HOME (or ANDROID_SDK_ROOT)`,
         };
     }
 
@@ -98,8 +100,8 @@ function checkAndroidSdk(): Check {
         return {
             name: 'Android SDK',
             status: 'error',
-            message: `ANDROID_HOME points to missing directory: ${androidHome}`,
-            detail: 'fix: point ANDROID_HOME at your SDK folder (Android Studio → Settings → Android SDK shows it)',
+            message: `${envVar} points to missing directory: ${androidHome}`,
+            detail: `fix: point ${envVar} at your SDK folder (Android Studio → Settings → Android SDK shows it)`,
         };
     }
 
@@ -107,7 +109,7 @@ function checkAndroidSdk(): Check {
     const hasPlatformTools = existsSync(join(androidHome, 'platform-tools'));
 
     if (hasBuildTools && hasPlatformTools) {
-        return { name: 'Android SDK', status: 'ok', message: fromEnv ? androidHome : `${androidHome} (detected; ANDROID_HOME not set)` };
+        return { name: 'Android SDK', status: 'ok', message: fromEnv ? androidHome : `${androidHome} (detected; ANDROID_HOME / ANDROID_SDK_ROOT not set)` };
     }
 
     return {

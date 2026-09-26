@@ -80,7 +80,7 @@ const RULES: Rule[] = [
         test: (_r, output) => /SDK location not found/i.test(output),
         hint: () =>
             'Gradle could not find the Android SDK. Install it via Android Studio (SDK Manager),\n' +
-            '  or set ANDROID_HOME to your SDK folder, then re-run.',
+            '  or set ANDROID_HOME (or ANDROID_SDK_ROOT) to your SDK folder, then re-run.',
     },
     {
         test: (_r, output) => /licen[cs]es? (for the following SDK|have not been accepted)|not accepted the licen[cs]e|Licen[cs]e for package .* not accepted/i.test(output),
