@@ -6,7 +6,7 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 ### Changed
 
-- **`@sigx/zero` and `@sigx/zero-daisyui` pinned to 0.7.0** ([#1159](https://github.com/signalxjs/lynx/issues/1159)). The release carries the daisyUI lynx-fidelity fixes for button, toast, tabs, accordion, timeline, dialog, popover, select, progress, slider and switch (signalxjs/zero#338, #339, #341, #343).
+- **`@sigx/zero` and `@sigx/zero-daisyui` pinned to 0.7.0** ([#1159](https://github.com/signalxjs/lynx/issues/1159)). The release carries the daisyUI lynx-fidelity fixes for button, toast, tabs, accordion, timeline, dialog, popover, select, progress, slider and switch ([signalxjs/zero#338](https://github.com/signalxjs/zero/pull/338), [signalxjs/zero#339](https://github.com/signalxjs/zero/pull/339), [signalxjs/zero#341](https://github.com/signalxjs/zero/pull/341), [signalxjs/zero#343](https://github.com/signalxjs/zero/pull/343)).
 
 ## [0.33.0] - 2026-09-26
 
