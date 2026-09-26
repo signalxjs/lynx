@@ -23,21 +23,29 @@ describe('createPressFeedback', () => {
     it('touch lifecycle drives the pressed flag; disabled suppresses it', () => {
         const press = createPressFeedback();
         expect(press.pressed()).toBe(false);
-        press.handlers.bindtouchstart();
+        press.handlers.bindtouchstart!();
         expect(press.pressed()).toBe(true);
-        press.handlers.bindtouchend();
+        press.handlers.bindtouchend!();
         expect(press.pressed()).toBe(false);
-        press.handlers.bindtouchstart();
-        press.handlers.bindtouchcancel();
+        press.handlers.bindtouchstart!();
+        press.handlers.bindtouchcancel!();
         expect(press.pressed()).toBe(false);
 
         let disabled = true;
         const gated = createPressFeedback({ isDisabled: () => disabled });
-        gated.handlers.bindtouchstart();
+        gated.handlers.bindtouchstart!();
         expect(gated.pressed()).toBe(false);
         disabled = false;
-        gated.handlers.bindtouchstart();
+        gated.handlers.bindtouchstart!();
         expect(gated.pressed()).toBe(true);
+    });
+
+    it('falls back to tier 1 (background touch handlers) where the worklet transform did not run', () => {
+        // The unit renderer never runs the SWC worklet transform, so the
+        // main-thread feel cannot wire — the flag must still work alone.
+        const press = createPressFeedback();
+        expect(press.mainThread).toBe(false);
+        expect(Object.keys(press.handlers).sort()).toEqual(['bindtouchcancel', 'bindtouchend', 'bindtouchstart']);
     });
 });
 
