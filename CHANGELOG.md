@@ -4,6 +4,21 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 ## [Unreleased]
 
+### Added
+
+- **`@sigx/lynx-zero/testing`: `ForceStates`** ([#1141](https://github.com/signalxjs/lynx/issues/1141)). It forces interaction flags such as `pressed` and `focus-visible` onto every lynx-zero part below it, so a held press or a focus ring can be rendered and screenshotted without input. A flag lands only on the parts whose anatomy declares it, and it is applied as both the `zx-f-*` class and the `data-*` attribute, so a forced tree still passes `expectAnatomy` and `expectClassGrammar`. `parts` limits the forcing to named parts, `false` forces a flag off, and a nearer `ForceStates` replaces an outer one. It does not reach Toast, whose cards mount in the overlay outlet.
+- **`@sigx/lynx-zero`: `Select.Root` takes `defaultOpen`**, matching Dialog and Popover.
+- **Showcase: zero state-matrix gallery** (`/zero-gallery/:scope/:section`). Each section shows every axis value of a lynx-zero scope against every forced state on one screen. It is driven by a registry with one entry per scope. The showcase now answers `showcase://` deep links.
+- **`scripts/zero-qa/`**: tap-free visual QA on the iOS simulator. `sim-lock.mjs` is an atomic owner lock for the single simulator. `shoot.mjs` deep-links into a gallery section, waits for the screen to settle, and saves the screenshot plus zoomed crops. `web-ref.mjs` captures zero's web playground as a reference. `sheet.mjs` builds a self-contained HTML contact sheet. See `scripts/zero-qa/README.md`.
+
+### Changed
+
+- **`@sigx/lynx-zero`: `provideVariantAxes` returns the reader it provides.** The returned reader includes any flags forced by an enclosing `ForceStates`. Carriers now stamp their own part from it with `const axes = provideVariantAxes(…)`. `partAxes` also carries `forced`, and `partBag` takes a `forced` option.
+
+### Fixed
+
+- **iOS deep links reach `@sigx/lynx-linking`** ([#1141](https://github.com/signalxjs/lynx/issues/1141)). A SwiftUI scene app never receives `application(_:open:)` or a launch-options URL; the scene gets them. So no deep link arrived, cold or warm. The `sigx prebuild` iOS template now forwards `.onOpenURL` and `.onContinueUserActivity` to the generated package hooks. An existing iOS project keeps its old `App.swift` because the scaffold writes it only once. Regenerate the `ios/` directory, or add the two modifiers to the `WindowGroup` content by hand.
+
 ## [0.32.0] - 2026-09-26
 
 ### Added
