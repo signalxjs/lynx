@@ -34,6 +34,7 @@ These `@sigx/lynx-cli` fixes cover the first-run experience ([#1147](https://git
   - Lists emulators.
   - Prints a `fix:` line for each problem and exits non-zero on errors.
   - Stops warning about the optional `sigx-lynx-go` sandbox app.
+- **`@sigx/lynx-plugin`: `sigx dev` works on pnpm-installed apps.** The HMR client (`@rspack/core/hot/dev-server`) and the runtime's MT hot-update bridge (`@rspack/core/hot/emitter`) were requested from the app and from `@sigx/lynx-runtime`, and neither depends on `@rspack/core`. npm's hoisting hid that. Under pnpm every dev build failed with `Can't resolve '@rspack/core/hot/dev-server'`. `@rspack/core/hot` now resolves to the copy rspeedy runs.
 - **`@sigx/lynx-plugin`:** the `@lynx-js/css-extract-webpack-plugin` peer is `^0.10.1` (was `>=0.10.1`). 0.11 needs `template-webpack-plugin ^0.16`, so npm hit `ERESOLVE` against the pinned 0.15.0.
 - `@sigx/lynx-cli` declares `engines.node >=22`. Its tarball no longer ships a stray Gradle cache from `templates/android/.gradle`.
 
