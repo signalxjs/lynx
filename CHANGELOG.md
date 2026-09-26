@@ -4,6 +4,8 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 ## [Unreleased]
 
+## [0.33.0] - 2026-09-26
+
 ### Added
 
 - **`@sigx/lynx-zero/testing`: `ForceStates`** ([#1141](https://github.com/signalxjs/lynx/issues/1141)). It forces interaction flags such as `pressed` and `focus-visible` onto every lynx-zero part below it, so a held press or a focus ring can be rendered and screenshotted without input. A flag lands only on the parts whose anatomy declares it, and it is applied as both the `zx-f-*` class and the `data-*` attribute, so a forced tree still passes `expectAnatomy` and `expectClassGrammar`. `parts` limits the forcing to named parts, `false` forces a flag off, and a nearer `ForceStates` replaces an outer one. A viewport carries the forcing across its portal to the toasts in the overlay outlet.
