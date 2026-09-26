@@ -57,7 +57,13 @@ const bool = (value: unknown): boolean => value === true;
 const RENDER: Record<GalleryScopeId, GalleryRenderer> = {
     button: {
         cell: (c) => (
-            <Button color={c.color} size={c.size} variant={c.variant} disabled={bool(c.props['disabled'])}>
+            <Button
+                color={c.color}
+                size={c.size}
+                variant={c.variant}
+                disabled={bool(c.props['disabled'])}
+                loading={bool(c.props['loading'])}
+            >
                 <text>Btn</text>
             </Button>
         ),
@@ -305,19 +311,28 @@ const RENDER: Record<GalleryScopeId, GalleryRenderer> = {
         },
     },
     toast: {
+        cell: (c) => (
+            <Toast.Root color={c.color} size={c.size}>
+                <Toast.Title>Saved</Toast.Title>
+                <Toast.Description>Changes stored.</Toast.Description>
+                <Toast.Action disabled={bool(c.props['actionDisabled'])}><text>Undo</text></Toast.Action>
+                <Toast.Close />
+            </Toast.Root>
+        ),
         extras: {
-            open: () => <ToastsOpen />,
+            open: () => <ToastsOpen placement="top" />,
+            bottom: () => <ToastsOpen placement="bottom" />,
         },
     },
 };
 
 /** Toasts need a live store: three pinned toasts (duration 0 = no timer). */
-const ToastsOpen = component(() => {
+const ToastsOpen = component<Define.Prop<'placement', 'top' | 'bottom', true>>(({ props }) => {
     const toaster = createToaster();
     toaster.show({ title: 'Saved', description: 'Your changes were saved.', duration: 0 });
-    toaster.show({ title: 'Heads up', description: 'A second toast, stacked.', duration: 0 });
+    toaster.show({ title: 'Deleted', description: 'One item removed.', color: 'error', action: { label: 'Undo' }, duration: 0 });
     toaster.show({ title: 'Title only', duration: 0 });
-    return () => <Toast.Viewport placement="top" toaster={toaster} />;
+    return () => <Toast.Viewport placement={props.placement} toaster={toaster} />;
 });
 
 const LABEL_WIDTH = 52;
