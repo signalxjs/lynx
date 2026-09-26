@@ -18,7 +18,8 @@
  * client-side (one automatic reload on first visit).
  */
 
-import { spawn, type ChildProcess } from 'node:child_process';
+import type { ChildProcess } from 'node:child_process';
+import { spawnCommand } from './util/spawn-command.js';
 import { cpSync, existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { basename, isAbsolute, join, relative } from 'node:path';
 
@@ -142,10 +143,9 @@ export async function buildWeb(ctx: BuildWebCtx): Promise<void> {
 
   // One-shot web build (same env contract as run:web — #699 zero-config).
   logger.log('Building the web bundle…');
-  const child: ChildProcess = spawn('npx', ['rspeedy', 'build', '--environment', 'web'], {
+  const child: ChildProcess = spawnCommand('npx', ['rspeedy', 'build', '--environment', 'web'], {
     cwd,
     stdio: 'inherit',
-    shell: true,
     env: { ...process.env, SIGX_WEB_ENV: '1' },
   });
   // One-shot build: wait for the CHILD to exit, not for a bundle to appear —

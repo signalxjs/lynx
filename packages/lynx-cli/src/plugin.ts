@@ -10,6 +10,7 @@ import { existsSync, statSync, readdirSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import { androidDirName, iosDirName } from './config/paths.js';
 import { resolveVariantName } from './util/variant.js';
+import { spawnCommand } from './util/spawn-command.js';
 
 /** Shared `--variant` flag declaration for the native-targeting commands. */
 const variantArg = a.string().describe('Build variant from signalx.config.ts (e.g. dev) — own app id + output dir (or set SIGX_VARIANT)');
@@ -52,6 +53,24 @@ function getDirSize(dir: string): { size: number; files: number } {
     return { size, files };
 }
 
+/**
+ * Fail fast — with the fix spelled out — when the installed sigx core /
+ * host versions don't match what the lynx packages need. Without this, a
+ * stale `@sigx/runtime-core` surfaces as a bare ES-module link error
+ * ("does not provide an export named …") the first time the dev dashboard
+ * or the app bundle loads. Package.json reads only; runs before anything
+ * imports `@sigx/terminal` or the runtime.
+ */
+async function assertInstallCompatible(ctx: { cwd: string; cliVersion?: string; logger: { error(msg: string): void } }): Promise<void> {
+    const { assertCompatibleInstall } = await import('./util/core-compat.js');
+    try {
+        assertCompatibleInstall(ctx.cwd, ctx.cliVersion);
+    } catch (err) {
+        ctx.logger.error(err instanceof Error ? err.message : String(err));
+        process.exit(1);
+    }
+}
+
 export default definePlugin({
     name: 'lynx',
     detect: isLynxProject,
@@ -72,6 +91,7 @@ export default definePlugin({
                 variant: variantArg,
             },
             async run(ctx) {
+                await assertInstallCompatible(ctx);
                 if (ctx.args['reset-cache']) {
                     const { resetBuildCaches } = await import('./util/reset-cache.js');
                     resetBuildCaches(ctx.cwd, ctx.logger);
@@ -107,7 +127,7 @@ export default definePlugin({
                     // malformed value on purpose. Inside, the catch below —
                     // which exists for a missing config — would swallow that
                     // and quietly launch the wrong bundle id instead.
-                    const { iosBundleIdOverride } = await import('./prebuild.js');
+                    const { iosBundleIdOverride, resolveApplicationId } = await import('./prebuild.js');
                     const iosOverride = hasIos ? iosBundleIdOverride() : undefined;
                     try {
                         const { loadConfig } = await import('./prebuild.js');
@@ -116,7 +136,7 @@ export default definePlugin({
                         const config = resolveConfig(rawConfig, variant);
                         appName = config.name;
                         const fallback = `com.sigx.${config.name.toLowerCase().replace(/[^a-z0-9]/g, '')}`;
-                        if (hasAndroid) launchAppId = config.android.applicationId ?? fallback;
+                        if (hasAndroid) launchAppId = resolveApplicationId(config);
                         if (hasIos) {
                             launchBundleId = iosOverride ?? config.ios.bundleIdentifier ?? fallback;
                         }
@@ -473,6 +493,7 @@ export default definePlugin({
                 variant: variantArg,
             },
             async run(ctx) {
+                await assertInstallCompatible(ctx);
                 if (ctx.args['reset-cache']) {
                     const { resetBuildCaches } = await import('./util/reset-cache.js');
                     resetBuildCaches(ctx.cwd, ctx.logger);
@@ -493,7 +514,6 @@ export default definePlugin({
                         process.exit(1);
                     }
                 }
-                const { spawn } = await import('node:child_process');
                 const startTime = Date.now();
 
                 console.log('\n  \x1b[1m⚡ sigx build\x1b[0m\n');
@@ -501,10 +521,9 @@ export default definePlugin({
                 const args = ['rspeedy', 'build'];
                 if (ctx.args.analyze) args.push('--analyze');
 
-                const child = spawn('npx', args, {
+                const child = spawnCommand('npx', args, {
                     cwd: ctx.cwd,
                     stdio: 'inherit',
-                    shell: true,
                 });
 
                 child.on('exit', async (code) => {
@@ -554,7 +573,8 @@ export default definePlugin({
             description: 'Check your Lynx development environment',
             async run(ctx) {
                 const { runDoctor } = await import('./doctor.js');
-                await runDoctor(ctx.cwd, ctx.logger);
+                const { errors } = await runDoctor(ctx.cwd, ctx.logger, ctx.cliVersion);
+                if (errors > 0) process.exitCode = 1;
             },
         },
         outdated: {
@@ -693,11 +713,12 @@ export default definePlugin({
                 variant: variantArg,
             },
             async run(ctx) {
+                await assertInstallCompatible(ctx);
                 if (ctx.args['reset-cache']) {
                     const { resetBuildCaches } = await import('./util/reset-cache.js');
                     resetBuildCaches(ctx.cwd, ctx.logger);
                 }
-                const { runPrebuild, loadConfig } = await import('./prebuild.js');
+                const { runPrebuild, loadConfig, resolveApplicationId } = await import('./prebuild.js');
                 const { resolveConfig } = await import('./config/index.js');
                 const { spawn } = await import('node:child_process');
                 const { resolveAdb } = await import('./device-detect.js');
@@ -711,18 +732,18 @@ export default definePlugin({
                 // Load config for applicationId
                 const rawConfig = await loadConfig(ctx.cwd);
                 const config = resolveConfig(rawConfig, variant);
-                const applicationId = config.android.applicationId ??
-                    `com.sigx.${config.name.toLowerCase().replace(/[^a-z0-9]/g, '')}`;
+                // Sanitized the same way prebuild writes it (`my-app` → `myapp`),
+                // so install checks and launches find the app.
+                const applicationId = resolveApplicationId(config);
 
                 // Release mode: build JS bundle → copy to assets → gradle build → launch
                 if (isRelease) {
                     const { runGradleWithDx } = await import('./android-run.js');
 
                     ctx.logger.log('Building JS bundle...');
-                    const bundleBuild = spawn('npx', ['rspeedy', 'build'], {
+                    const bundleBuild = spawnCommand('npx', ['rspeedy', 'build'], {
                         cwd: ctx.cwd,
                         stdio: 'inherit',
-                        shell: true,
                     });
 
                     await new Promise<void>((resolve, reject) => {
@@ -792,14 +813,43 @@ export default definePlugin({
 
                 const { ensureAndroidBuilt } = await import('./android-run.js');
                 const { listAndroidDevices: listAndroidDevicesForRun } = await import('./device-detect.js');
-                await ensureAndroidBuilt({
-                    cwd: ctx.cwd,
-                    logger: ctx.logger,
-                    applicationId,
-                    targetDeviceIds: listAndroidDevicesForRun().map((d) => d.id),
-                    verbose,
-                    variant,
-                });
+                let targetDeviceIds = listAndroidDevicesForRun().map((d) => d.id);
+
+                // Nothing connected: gradle would build for minutes and then
+                // fail with "No connected devices!". Boot the most recently
+                // used emulator instead, or say exactly what's missing.
+                if (targetDeviceIds.length === 0) {
+                    const { listAndroidAvds, avdMtime, materializeTargets } = await import('./target-picker.js');
+                    const avds = listAndroidAvds().sort((x, y) => avdMtime(y) - avdMtime(x));
+                    if (avds.length > 0) {
+                        ctx.logger.log(`No Android device connected — starting emulator "${avds[0]}"...`);
+                        const live = await materializeTargets([{ kind: 'android-avd', avdName: avds[0]! }], ctx.logger);
+                        targetDeviceIds = live.flatMap((t) => (t.kind === 'android-device' ? [t.deviceId] : []));
+                    }
+                    if (targetDeviceIds.length === 0) {
+                        ctx.logger.error(
+                            'No Android device or emulator available.\n'
+                            + '  • Create an emulator: Android Studio → Device Manager → Create Virtual Device,\n'
+                            + '  • or plug in a phone with USB debugging on (Settings → Developer options).\n'
+                            + '  Then re-run `npx sigx run:android`.',
+                        );
+                        process.exit(1);
+                    }
+                }
+
+                try {
+                    await ensureAndroidBuilt({
+                        cwd: ctx.cwd,
+                        logger: ctx.logger,
+                        applicationId,
+                        targetDeviceIds,
+                        verbose,
+                        variant,
+                    });
+                } catch (err) {
+                    ctx.logger.error(err instanceof Error ? err.message : String(err));
+                    process.exit(1);
+                }
 
                 // Start dev server
                 const { startDevServer } = await import('./dev-server.js');
@@ -827,6 +877,7 @@ export default definePlugin({
                     ctx.logger.error('run:ios requires macOS');
                     process.exit(1);
                 }
+                await assertInstallCompatible(ctx);
 
                 if (ctx.args['reset-cache']) {
                     const { resetBuildCaches } = await import('./util/reset-cache.js');
@@ -835,7 +886,7 @@ export default definePlugin({
 
                 const { runPrebuild, loadConfig } = await import('./prebuild.js');
                 const { resolveConfig } = await import('./config/index.js');
-                const { spawn, execSync } = await import('node:child_process');
+                const { execSync } = await import('node:child_process');
                 const { existsSync: fsExists } = await import('node:fs');
                 const {
                     resolveIosSimulator, bootSimulator, installAppOnSimulator, findBuiltApp,
@@ -982,10 +1033,9 @@ export default definePlugin({
                 // Release mode: build JS bundle → copy to app → prebuild → build → launch
                 if (isRelease) {
                     ctx.logger.log('Building JS bundle...');
-                    const bundleBuild = spawn('npx', ['rspeedy', 'build'], {
+                    const bundleBuild = spawnCommand('npx', ['rspeedy', 'build'], {
                         cwd: ctx.cwd,
                         stdio: 'inherit',
-                        shell: true,
                     });
                     await new Promise<void>((resolve, reject) => {
                         bundleBuild.on('exit', (code) => {
@@ -1065,6 +1115,7 @@ export default definePlugin({
                 host: a.boolean().default(false).describe('Expose on the LAN'),
             },
             async run(ctx) {
+                await assertInstallCompatible(ctx);
                 const { runWeb } = await import('./web-server.js');
                 await runWeb(ctx);
             },
@@ -1077,6 +1128,7 @@ export default definePlugin({
                 coi: a.boolean().default(false).describe('Vendor a COI service worker for header-less hosts (GitHub Pages)'),
             },
             async run(ctx) {
+                await assertInstallCompatible(ctx);
                 const { buildWeb } = await import('./web-build.js');
                 await buildWeb(ctx);
             },

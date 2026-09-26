@@ -11,6 +11,7 @@ import { existsSync, readFileSync, unlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { iosDirName } from './config/paths.js';
+import { defaultAndroidSdkRoots, sdkAdbPath } from './util/android-sdk.js';
 
 export interface AndroidDevice {
     id: string;
@@ -73,17 +74,11 @@ export const LYNX_GO_PACKAGE = 'com.sigx.lynxgo';
 let _resolvedAdb: string | null | undefined;
 export function resolveAdb(): string | null {
     if (_resolvedAdb !== undefined) return _resolvedAdb;
-    const home = process.env.HOME ?? '';
     const candidates = [
         'adb',
-        process.env.ANDROID_HOME ? join(process.env.ANDROID_HOME, 'platform-tools', 'adb') : null,
-        process.env.ANDROID_SDK_ROOT ? join(process.env.ANDROID_SDK_ROOT, 'platform-tools', 'adb') : null,
-        process.platform === 'darwin' && home
-            ? join(home, 'Library/Android/sdk/platform-tools/adb')
-            : null,
-        process.platform === 'linux' && home
-            ? join(home, 'Android/Sdk/platform-tools/adb')
-            : null,
+        process.env.ANDROID_HOME ? sdkAdbPath(process.env.ANDROID_HOME) : null,
+        process.env.ANDROID_SDK_ROOT ? sdkAdbPath(process.env.ANDROID_SDK_ROOT) : null,
+        ...defaultAndroidSdkRoots().map((root) => sdkAdbPath(root)),
     ].filter((c): c is string => !!c);
     for (const candidate of candidates) {
         try {

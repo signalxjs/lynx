@@ -18,6 +18,34 @@ import type { RsbuildPluginAPI } from '@rsbuild/core';
 
 import { LAYERS } from './layers.js';
 
+/**
+ * Directory of `@rspack/core/hot` for the rspack copy rspeedy runs:
+ * app → `@lynx-js/rspeedy` → `@rsbuild/core` → `@rspack/core`, falling back
+ * to an `@rspack/core` the app resolves itself. `null` when neither
+ * resolves (the bare request is then left to the bundler, as before).
+ */
+export function resolveRspackHotDir(rootPath: string): string | null {
+  const fromDir = (base: string, ...chain: string[]): string => {
+    let at = base;
+    for (const name of chain) at = createRequire(at).resolve(`${name}/package.json`);
+    return at;
+  };
+  const appManifest = path.join(rootPath, 'package.json');
+  const attempts = [
+    () => fromDir(appManifest, '@lynx-js/rspeedy', '@rsbuild/core', '@rspack/core'),
+    () => fromDir(appManifest, '@rspack/core'),
+  ];
+  for (const attempt of attempts) {
+    try {
+      const hot = path.join(path.dirname(attempt()), 'hot');
+      if (existsSync(path.join(hot, 'dev-server.js'))) return hot;
+    } catch {
+      // not resolvable along this chain — try the next
+    }
+  }
+  return null;
+}
+
 const PLUGIN_TEMPLATE = 'lynx:sigx-template';
 const PLUGIN_MARK_MAIN_THREAD = 'lynx:sigx-mark-main-thread';
 const PLUGIN_ENCODE = 'lynx:sigx-encode';
@@ -866,6 +894,18 @@ export async function applyEntry(
     const { hmr, liveReload } = environment.config.dev ?? {};
     const enabledHMR = isDev && !isWeb && hmr !== false;
     const enabledLiveReload = isDev && !isWeb && liveReload !== false;
+
+    // The HMR client (`@rspack/core/hot/dev-server`, injected below) and the
+    // runtime's MT bridge (`@rspack/core/hot/emitter`) are requested from the
+    // app and from `@sigx/lynx-runtime` — neither of which depends on
+    // `@rspack/core`. npm's hoisting happens to make that resolve; pnpm's
+    // isolated layout does not, so `sigx dev` failed with "Can't resolve
+    // '@rspack/core/hot/dev-server'" on every pnpm-installed app (#1147).
+    // Point `@rspack/core/hot` at the copy rspeedy itself runs.
+    if (enabledHMR) {
+      const hotDir = resolveRspackHotDir(api.context.rootPath);
+      if (hotDir) chain.resolve.alias.set('@rspack/core/hot', hotDir);
+    }
 
     const entries = chain.entryPoints.entries() ?? {};
 

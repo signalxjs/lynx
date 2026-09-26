@@ -8,7 +8,7 @@ pnpm build
 pnpm test
 ```
 
-Node 22+, pnpm 10+. For native builds you'll need Xcode 15+ (iOS) and Android Studio + SDK 34+.
+Node 22+, pnpm 10+. For native builds you'll need Xcode 15+ (iOS) and Android Studio + SDK 34+ with JDK 17–23 (Android Studio's bundled JDK works).
 
 ## Working against a sibling `signalxjs/core` checkout
 

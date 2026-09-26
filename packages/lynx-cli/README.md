@@ -116,11 +116,43 @@ The engine needs cross-origin isolation (`Cross-Origin-Opener-Policy: same-origi
 This package is auto-installed when you scaffold a Lynx project, so you rarely depend on it directly:
 
 ```bash
-npm create @sigx@latest my-app
-# pick: lynx (or lynx-tailwind)
+npm create @sigx@latest my-app -- --kind lynx --styling daisyui --install
 ```
 
+Or run it without flags and choose **Mobile app** in the wizard.
+
 It gives you a single toolchain — start a dev server with HMR and streamed device logs, produce production bundles, generate and auto-link native iOS/Android projects, diagnose your toolchain, and run on a device, simulator, or the browser.
+
+## Prerequisites
+
+- **Node 22+**
+- **Android:** Android Studio, which supplies the Android SDK, the emulator and
+  a JDK. Gradle needs **JDK 17–23**. When `JAVA_HOME` or `java` on `PATH` is
+  outside that range (for example JDK 25, or Java 8), sigx builds with
+  Android Studio's bundled JDK instead and says so in one line. The SDK is
+  found without `ANDROID_HOME` if it's in Android Studio's default location.
+- **iOS:** macOS, Xcode 15+, CocoaPods
+
+`sigx doctor` checks all of this and prints a `fix:` line for anything that
+needs attention. It exits non-zero when something blocks development, so you
+can also use it in CI.
+
+## Troubleshooting
+
+- **Android build fails.** The error names Gradle's reason and, for known
+  causes, the fix: JDK out of range, SDK not found, SDK licenses not accepted,
+  NDK missing, no device, signature mismatch, out of memory, network. Re-run
+  with `--verbose` to see the full Gradle output.
+- **`run:android` with nothing connected.** sigx boots your most recently used
+  emulator. If none exists, it tells you how to create one.
+- **"Your installed @sigx packages are out of step with each other"** (or a
+  bare `does not provide an export named …` from an older CLI). Your app's
+  `@sigx/runtime-core` / `@sigx/reactivity` / `@sigx/cli` don't match the
+  installed `@sigx/lynx-*` packages. This is common in apps created with an
+  older `npm create @sigx`. Fix it with `npx sigx upgrade`, which moves the
+  lynx packages, the matching core packages, the `sigx` CLI and the
+  `@lynx-js/*` build tooling together. Avoid `npm install --force` /
+  `--legacy-peer-deps`: they install mismatched peers and cause exactly this.
 
 ## 📚 Documentation
 

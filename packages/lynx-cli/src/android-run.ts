@@ -7,7 +7,6 @@
  * incremental builds itself.
  */
 
-import { execSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Logger } from '@sigx/cli/plugin';
@@ -15,6 +14,9 @@ import { androidDirName } from './config/paths.js';
 import { runPrebuild } from './prebuild.js';
 import { resolveAdb, isAppInstalled, pingDevice } from './device-detect.js';
 import { runWithBuildFilter } from './build-output.js';
+import { defaultAndroidSdkRoots } from './util/android-sdk.js';
+import { describeJdkFallback, describeNoSupportedJdk, jdkEnv, resolveJdk } from './util/jdk.js';
+import { diagnoseGradleFailure, formatGradleFailure } from './util/gradle-diagnose.js';
 import {
     fingerprintAndroidBuild,
     readCachedFingerprint,
@@ -24,9 +26,10 @@ import {
 /**
  * Discover the Android SDK root. Mirrors the candidate list in
  * {@link resolveAdb} so a machine with no `ANDROID_HOME` exported still
- * works as long as the SDK is in one of the standard locations.
+ * works as long as the SDK is in one of the standard locations (including
+ * Android Studio's default `%LOCALAPPDATA%\Android\Sdk` on Windows).
  */
-function resolveAndroidSdk(): string | null {
+export function resolveAndroidSdk(): string | null {
     if (process.env.ANDROID_HOME && existsSync(join(process.env.ANDROID_HOME, 'platform-tools'))) {
         return process.env.ANDROID_HOME;
     }
@@ -35,89 +38,45 @@ function resolveAndroidSdk(): string | null {
     }
     const adb = resolveAdb();
     if (adb && adb !== 'adb') {
-        const sdk = adb.replace(/[\\/]platform-tools[\\/]adb$/, '');
+        const sdk = adb.replace(/[\\/]platform-tools[\\/]adb(\.exe)?$/i, '');
         if (existsSync(join(sdk, 'platform-tools'))) return sdk;
     }
-    const home = process.env.HOME ?? '';
-    const guesses = [
-        process.platform === 'darwin' ? join(home, 'Library/Android/sdk') : null,
-        process.platform === 'linux' ? join(home, 'Android/Sdk') : null,
-    ].filter((p): p is string => !!p);
-    for (const g of guesses) {
+    for (const g of defaultAndroidSdkRoots()) {
         if (existsSync(join(g, 'platform-tools'))) return g;
     }
     return null;
 }
 
 /**
- * Gradle needs a JDK. On stock macOS `/usr/bin/java` is a stub that prints
- * "Unable to locate a Java Runtime" — unhelpful. Before shelling out we
- * (a) honour an existing JAVA_HOME, (b) fall back to Android Studio's
- * bundled JBR on macOS, (c) fail with a clear pointer to `sigx doctor`.
- *
- * Returns the env block to pass to spawn(), with JAVA_HOME set when we
- * had to discover it ourselves. Returning `null` means no JDK found.
- */
-function resolveJdkEnv(): NodeJS.ProcessEnv | null {
-    // 1. Respect an existing working JAVA_HOME.
-    if (process.env.JAVA_HOME) {
-        const javaBin = join(process.env.JAVA_HOME, 'bin', 'java');
-        if (existsSync(javaBin)) {
-            try { execSync(`"${javaBin}" -version`, { stdio: 'pipe' }); return { ...process.env }; } catch { /* fall through */ }
-        }
-    }
-
-    // 2. PATH-level java (Homebrew, manual install, etc.).
-    try {
-        execSync('java -version', { stdio: 'pipe' });
-        return { ...process.env };
-    } catch { /* fall through */ }
-
-    // 3. Android Studio's bundled JBR (macOS).
-    const candidates = [
-        '/Applications/Android Studio.app/Contents/jbr/Contents/Home',
-        '/Applications/Android Studio Preview.app/Contents/jbr/Contents/Home',
-        join(process.env.HOME ?? '', 'Applications/Android Studio.app/Contents/jbr/Contents/Home'),
-    ];
-    for (const javaHome of candidates) {
-        const javaBin = join(javaHome, 'bin', 'java');
-        if (!existsSync(javaBin)) continue;
-        try {
-            execSync(`"${javaBin}" -version`, { stdio: 'pipe' });
-            return { ...process.env, JAVA_HOME: javaHome, PATH: `${join(javaHome, 'bin')}:${process.env.PATH ?? ''}` };
-        } catch { /* try next */ }
-    }
-
-    return null;
-}
-
-/**
  * Resolve the JDK + Android SDK env block used by every gradle invocation
- * in this CLI. Both `sigx run:android` flows (dev + --release) must pass
- * this as `env:` to spawn so they pick up Android Studio's bundled JBR
- * and the canonical SDK path on machines where neither env var is set.
+ * in this CLI. Every gradle spawn (run:android dev + --release, and the dev
+ * dashboard's installs) must pass this as `env:` so gradle runs on a
+ * supported JDK — falling back to Android Studio's bundled JBR when
+ * JAVA_HOME / PATH point at one Gradle can't run — and finds the SDK on
+ * machines where neither env var is set.
  *
  * Throws with an actionable message when either can't be resolved.
  */
-export function resolveAndroidBuildEnv(logger: Logger): NodeJS.ProcessEnv {
-    const jdkEnv = resolveJdkEnv();
-    if (!jdkEnv) {
-        throw new Error(
-            'No Java runtime found. Android builds require a JDK (17+ recommended).\n' +
-            '  Fastest fix:  install Android Studio (ships a bundled JDK we auto-detect)\n' +
-            '  Or via Homebrew:  brew install --cask temurin\n' +
-            '  Then run `sigx doctor` to confirm.',
-        );
+export function resolveAndroidBuildEnv(logger: Pick<Logger, 'log'>): NodeJS.ProcessEnv {
+    return resolveAndroidBuild(logger).env;
+}
+
+function resolveAndroidBuild(logger: Pick<Logger, 'log'>): { env: NodeJS.ProcessEnv; jdkMajor: number } {
+    const jdk = resolveJdk();
+    if (!jdk.chosen) {
+        throw new Error(describeNoSupportedJdk(jdk));
     }
-    if (jdkEnv.JAVA_HOME !== process.env.JAVA_HOME) {
-        logger.log(`Using JDK from ${jdkEnv.JAVA_HOME}`);
-    }
+    const fallback = describeJdkFallback(jdk);
+    if (fallback) logger.log(fallback);
 
     const androidSdk = resolveAndroidSdk();
     if (!androidSdk) {
+        const [defaultRoot] = defaultAndroidSdkRoots();
         throw new Error(
-            'Android SDK not found. Set ANDROID_HOME to your SDK root (commonly ~/Library/Android/sdk on macOS),\n' +
-            '  or run `sigx doctor` for a full environment check.',
+            'Android SDK not found.\n' +
+            '  Install it with Android Studio (first-run setup wizard, or Settings → Android SDK),\n' +
+            `  or set ANDROID_HOME (or ANDROID_SDK_ROOT) to your SDK folder (Android Studio's default is ${defaultRoot}).\n` +
+            '  Then run `npx sigx doctor` to confirm.',
         );
     }
     if (process.env.ANDROID_HOME !== androidSdk) {
@@ -125,65 +84,70 @@ export function resolveAndroidBuildEnv(logger: Logger): NodeJS.ProcessEnv {
     }
 
     return {
-        ...jdkEnv,
-        ANDROID_HOME: androidSdk,
-        ANDROID_SDK_ROOT: androidSdk,
+        env: {
+            ...jdkEnv(jdk.chosen),
+            ANDROID_HOME: androidSdk,
+            ANDROID_SDK_ROOT: androidSdk,
+        },
+        jdkMajor: jdk.chosen.major,
     };
 }
 
 /**
- * Run gradle with the canonical build env and watch for common install
- * errors (signature mismatch, …) so we can surface a friendly follow-up
- * hint instead of burying the user under a 200-line stack trace.
+ * Run gradle with the canonical build env. On failure, the raw output is
+ * matched against known failure shapes (JDK too new, SDK missing, licenses,
+ * signature mismatch, no device, …) and the thrown error carries gradle's
+ * reason plus a concrete fix — instead of a bare "Android build failed".
  *
  * Output is filtered through {@link runWithBuildFilter} (gradle kind) by
- * default; `verbose` restores raw streaming for diagnostics. The
- * signature-mismatch sniffer runs against unfiltered chunks via `onChunk`
- * so it keeps working in both modes.
+ * default; `verbose` restores raw streaming. The diagnosis reads unfiltered
+ * chunks via `onChunk`, so it works in both modes. Pass `sink` to route
+ * the build's lines somewhere other than stdout (the dev dashboard).
  */
 export async function runGradleWithDx(
     args: string[],
-    opts: { cwd: string; logger: Logger; applicationId?: string; verbose?: boolean },
+    opts: {
+        cwd: string;
+        logger: Pick<Logger, 'log'>;
+        applicationId?: string;
+        verbose?: boolean;
+        sink?: (line: string) => void;
+    },
 ): Promise<void> {
-    const gradleEnv = resolveAndroidBuildEnv(opts.logger);
+    const { env, jdkMajor } = resolveAndroidBuild(opts.logger);
     const gradleCmd = process.platform === 'win32' ? 'gradlew.bat' : 'gradlew';
 
-    let sawSignatureMismatch = false;
-    const SIG_PATTERN = /INSTALL_FAILED_UPDATE_INCOMPATIBLE.*signatures do not match/;
+    // Keep the tail of the output for diagnosis — the failure block is at
+    // the end, and a cold build can print tens of MB before it.
+    const TAIL_LIMIT = 256 * 1024;
+    let tail = '';
 
     try {
         await runWithBuildFilter(
             join(opts.cwd, gradleCmd),
             args,
-            {
-                cwd: opts.cwd,
-                shell: process.platform === 'win32',
-                env: gradleEnv,
-            },
+            { cwd: opts.cwd, env },
             {
                 kind: 'gradle',
                 verbose: opts.verbose ?? false,
-                logger: opts.logger,
+                logger: opts.logger as Logger,
+                sink: opts.sink,
                 onChunk: (chunk) => {
-                    if (!sawSignatureMismatch && SIG_PATTERN.test(chunk.toString('utf-8'))) {
-                        sawSignatureMismatch = true;
-                    }
+                    tail += chunk.toString('utf-8');
+                    if (tail.length > TAIL_LIMIT) tail = tail.slice(-TAIL_LIMIT);
                 },
             },
         );
-    } catch {
-        if (sawSignatureMismatch) {
-            const pkg = opts.applicationId ?? '<your package>';
-            opts.logger.error('');
-            opts.logger.error('\x1b[33mInstall failed: signature mismatch.\x1b[0m An app with this package ID is already');
-            opts.logger.error('installed on the device with a different signing key (common when switching from');
-            opts.logger.error('sigx-lynx-go, between debug/release keystores, or across machines).');
-            opts.logger.error('');
-            opts.logger.error(`Fix:  adb uninstall ${pkg}`);
-            opts.logger.error('Then re-run the same sigx command.');
-            opts.logger.error('');
+    } catch (err) {
+        const diag = diagnoseGradleFailure(tail, { applicationId: opts.applicationId, jdkMajor });
+        // Spawn-level failure (gradlew missing / not executable) — no output.
+        if (!diag.reason && !diag.hint && tail.trim() === '') {
+            throw new Error(
+                `Android build failed: could not run ${join(opts.cwd, gradleCmd)} (${err instanceof Error ? err.message : String(err)}).\n` +
+                '  Regenerate the native project with `npx sigx prebuild --android --clean`, then re-run.',
+            );
         }
-        throw new Error('Android build failed');
+        throw new Error(formatGradleFailure(diag, { verbose: opts.verbose }));
     }
 }
 

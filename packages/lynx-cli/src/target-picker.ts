@@ -33,6 +33,7 @@ import {
     resolveAdb,
 } from './device-detect.js';
 import { targetKey } from './target-history.js';
+import { defaultAndroidSdkRoots, sdkEmulatorPath } from './util/android-sdk.js';
 import { multiselect, isCancel } from '@sigx/terminal';
 
 export type SelectedTarget =
@@ -109,11 +110,12 @@ function findEmulatorBin(): string | null {
     const candidates: string[] = [];
     if (adb && adb !== 'adb') {
         // adb is at <sdk>/platform-tools/adb → emulator at <sdk>/emulator/emulator
-        const sdkRoot = adb.replace(/[\\/]platform-tools[\\/]adb$/, '');
-        candidates.push(join(sdkRoot, 'emulator', 'emulator'));
+        const sdkRoot = adb.replace(/[\\/]platform-tools[\\/]adb(\.exe)?$/i, '');
+        candidates.push(sdkEmulatorPath(sdkRoot));
     }
-    if (process.env.ANDROID_HOME) candidates.push(join(process.env.ANDROID_HOME, 'emulator', 'emulator'));
-    if (process.env.ANDROID_SDK_ROOT) candidates.push(join(process.env.ANDROID_SDK_ROOT, 'emulator', 'emulator'));
+    if (process.env.ANDROID_HOME) candidates.push(sdkEmulatorPath(process.env.ANDROID_HOME));
+    if (process.env.ANDROID_SDK_ROOT) candidates.push(sdkEmulatorPath(process.env.ANDROID_SDK_ROOT));
+    for (const root of defaultAndroidSdkRoots()) candidates.push(sdkEmulatorPath(root));
     candidates.push('emulator');
     for (const c of candidates) {
         try {

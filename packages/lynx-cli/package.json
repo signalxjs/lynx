@@ -22,8 +22,12 @@
     },
     "files": [
         "dist",
-        "templates"
+        "templates",
+        "!templates/**/.gradle"
     ],
+    "engines": {
+        "node": ">=22"
+    },
     "scripts": {
         "build": "node ../../scripts/clean.mjs dist && tsgo",
         "dev": "tsgo --watch",

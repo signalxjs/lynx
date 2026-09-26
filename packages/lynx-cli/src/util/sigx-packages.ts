@@ -9,6 +9,7 @@
 
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { satisfies } from './semver-range.js';
 
 export const SIGX_LYNX_PREFIX = '@sigx/lynx-';
 
@@ -53,7 +54,8 @@ export function readPackageJson(cwd: string): PackageJson | null {
 }
 
 export function isSigxLynxName(name: string): boolean {
-    return name.startsWith(SIGX_LYNX_PREFIX);
+    // The umbrella `@sigx/lynx` is part of the lockstep family too.
+    return name === '@sigx/lynx' || name.startsWith(SIGX_LYNX_PREFIX);
 }
 
 export function expandShortName(name: string): string {
@@ -296,6 +298,48 @@ export function rewritePackageJson(
     const indent = detectIndent(source);
     const trailingNewline = source.endsWith('\n') ? '\n' : '';
     return { text: JSON.stringify(pkg, null, indent) + trailingNewline, changes };
+}
+
+/**
+ * Non-lynx packages that must move in step with the lynx family: the sigx
+ * core the runtime builds on, and the `sigx` host CLI. `upgrade` sets them
+ * to whatever range the target lynx release itself declares.
+ */
+export const COMPANION_SOURCES: ReadonlyArray<{ name: string; declaredBy: string }> = [
+    { name: '@sigx/runtime-core', declaredBy: '@sigx/lynx-runtime' },
+    { name: '@sigx/reactivity', declaredBy: '@sigx/lynx-runtime' },
+    { name: '@sigx/cli', declaredBy: '@sigx/lynx-cli' },
+];
+
+/**
+ * Rewrite companion deps (see {@link COMPANION_SOURCES}) present in the
+ * package.json to the given ranges. Entries the project doesn't list are
+ * left alone; workspace/protocol ranges are never touched.
+ */
+export function rewriteCompanionDeps(
+    source: string,
+    ranges: Record<string, string>,
+): { text: string; changes: Array<{ name: string; section: DepSection; from: string; to: string }> } {
+    const pkg = JSON.parse(source) as PackageJson;
+    const changes: Array<{ name: string; section: DepSection; from: string; to: string }> = [];
+    for (const section of DEP_SECTIONS) {
+        const deps = pkg[section];
+        if (!deps) continue;
+        for (const [name, to] of Object.entries(ranges)) {
+            const from = deps[name];
+            if (from === undefined || from === to) continue;
+            if (/^[a-z]+:/i.test(from)) continue;
+            // Already requires something the target accepts (`^0.12.1` vs
+            // `^0.12.0`) — rewriting would only loosen the user's range.
+            const floor = from.match(/\d+\.\d+\.\d+/)?.[0];
+            if (floor && satisfies(floor, to)) continue;
+            deps[name] = to;
+            changes.push({ name, section, from, to });
+        }
+    }
+    const indent = detectIndent(source);
+    const trailingNewline = source.endsWith('\n') ? '\n' : '';
+    return { text: changes.length ? JSON.stringify(pkg, null, indent) + trailingNewline : source, changes };
 }
 
 function detectIndent(source: string): number | string {

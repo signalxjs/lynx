@@ -4,9 +4,13 @@
  * Lockstep means one fetch covers the whole @sigx/lynx-* family: we only
  * ever resolve the version of `@sigx/lynx-core` (or whichever package the
  * caller picks as the canonical one) and apply it everywhere.
+ *
+ * `npm view` runs without a shell and only with validated arguments: the
+ * version/tag can come from the user (`sigx upgrade --to <x>`), so it must
+ * never be spliced into a command line.
  */
 
-import { execSync } from 'node:child_process';
+import { spawnCommandSync } from './spawn-command.js';
 
 const cache = new Map<string, string>();
 
@@ -17,8 +21,30 @@ export interface RegistryOptions {
     timeoutMs?: number;
 }
 
-function cacheKey(pkg: string, tag: string): string {
-    return `${pkg}@${tag}`;
+const PACKAGE_NAME_RE = /^(@[a-z0-9][\w.-]*\/)?[a-z0-9][\w.-]*$/i;
+const VERSION_OR_TAG_RE = /^[\w.+-]+$/;
+
+/** `pkg@spec`, after checking both halves are a plain package name / version / tag. */
+export function packageSpec(pkg: string, versionOrTag: string): string {
+    if (!PACKAGE_NAME_RE.test(pkg)) throw new Error(`[@sigx/lynx-cli] Invalid package name: ${JSON.stringify(pkg)}`);
+    if (!VERSION_OR_TAG_RE.test(versionOrTag)) {
+        throw new Error(`[@sigx/lynx-cli] Invalid version or dist-tag: ${JSON.stringify(versionOrTag)} (expected e.g. 0.32.0 or latest)`);
+    }
+    return `${pkg}@${versionOrTag}`;
+}
+
+function npmView(spec: string, field: string, timeoutMs: number | undefined): string {
+    const r = spawnCommandSync('npm', ['view', spec, field, '--json'], {
+        stdio: ['ignore', 'pipe', 'pipe'],
+        encoding: 'utf-8',
+        timeout: timeoutMs ?? 15_000,
+        windowsHide: true,
+    });
+    if (r.error) throw r.error;
+    if (r.status !== 0) {
+        throw new Error(`[@sigx/lynx-cli] npm view ${spec} ${field} failed: ${String(r.stderr ?? '').trim() || `exit code ${r.status}`}`);
+    }
+    return String(r.stdout ?? '').trim();
 }
 
 /**
@@ -27,16 +53,11 @@ function cacheKey(pkg: string, tag: string): string {
  */
 export function fetchLatestVersion(pkg: string, options: RegistryOptions = {}): string {
     const tag = options.tag ?? 'latest';
-    const key = cacheKey(pkg, tag);
-    const cached = cache.get(key);
+    const spec = packageSpec(pkg, tag);
+    const cached = cache.get(spec);
     if (cached) return cached;
 
-    const cmd = `npm view ${pkg}@${tag} version --json`;
-    const out = execSync(cmd, {
-        stdio: ['ignore', 'pipe', 'pipe'],
-        encoding: 'utf-8',
-        timeout: options.timeoutMs ?? 15_000,
-    }).trim();
+    const out = npmView(spec, 'version', options.timeoutMs);
 
     // `npm view` returns a JSON-encoded string for a single version, or a
     // JSON array if `pkg@tag` matched multiple. Take the last (newest) in
@@ -48,9 +69,26 @@ export function fetchLatestVersion(pkg: string, options: RegistryOptions = {}): 
         version = String(parsed[parsed.length - 1]);
     }
     if (!version) {
-        throw new Error(`Could not resolve ${pkg}@${tag} from npm registry`);
+        throw new Error(`Could not resolve ${spec} from npm registry`);
     }
 
-    cache.set(key, version);
+    cache.set(spec, version);
     return version;
+}
+
+/**
+ * The `dependencies` (or `peerDependencies`) map a published `pkg@version`
+ * declares. Used by `upgrade` to move the core packages
+ * (`@sigx/runtime-core`, …) in step with the lynx family. Throws if the
+ * registry is unreachable.
+ */
+export function fetchPublishedDependencies(
+    pkg: string,
+    version: string,
+    options: RegistryOptions & { field?: 'dependencies' | 'peerDependencies' } = {},
+): Record<string, string> {
+    const out = npmView(packageSpec(pkg, version), options.field ?? 'dependencies', options.timeoutMs);
+    if (!out) return {};
+    const parsed: unknown = JSON.parse(out);
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? (parsed as Record<string, string>) : {};
 }

@@ -20,6 +20,7 @@
  */
 
 import { spawn, type ChildProcess } from 'node:child_process';
+import { spawnCommand } from './util/spawn-command.js';
 import { createServer as createNetServer } from 'node:net';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { readFile } from 'node:fs/promises';
@@ -318,10 +319,9 @@ export async function runWeb(ctx: RunWebCtx): Promise<void> {
   // no config edit. User-declared environments are always preserved.
   const buildArgs = ['rspeedy', 'build', '--environment', 'web', ...(watchMode ? ['--watch'] : [])];
   logger.log(`Building the web bundle${watchMode ? ' (watching for changes)' : ''}…`);
-  const buildChild: ChildProcess = spawn('npx', buildArgs, {
+  const buildChild: ChildProcess = spawnCommand('npx', buildArgs, {
     cwd,
     stdio: 'inherit',
-    shell: true,
     env: { ...process.env, SIGX_WEB_ENV: '1' },
   });
   let buildExit: number | null = null;
