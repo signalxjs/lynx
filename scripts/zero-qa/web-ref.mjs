@@ -83,7 +83,9 @@ function stamp() {
 }
 
 async function main() {
-    const scopes = String(arg('scope', '')).split(',').map((s) => s.split('/')[0].trim()).filter(Boolean);
+    const scopeArg = arg('scope');
+    // A bare `--scope` (no value) parses as `true` — a usage error, not the scope "true".
+    const scopes = (typeof scopeArg === 'string' ? scopeArg : '').split(',').map((s) => s.split('/')[0].trim()).filter(Boolean);
     if (scopes.length === 0) {
         console.error('usage: web-ref.mjs --scope <scope>[,<scope>…] [--run-dir <dir>] [--zero <path>] [--port 5299] [--ds daisyui]');
         return 2;
