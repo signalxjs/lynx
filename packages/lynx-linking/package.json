@@ -1,6 +1,6 @@
 {
     "name": "@sigx/lynx-linking",
-    "version": "0.31.0",
+    "version": "0.32.0",
     "description": "Deep links and URL scheme handling for sigx-lynx",
     "type": "module",
     "sideEffects": false,
