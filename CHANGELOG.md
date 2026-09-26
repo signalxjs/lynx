@@ -15,6 +15,13 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 ### Changed
 
+- **`@sigx/lynx-cli`: the Android template moves to Gradle 9.8, AGP 9.4 and Kotlin 2.4 — JDK 25 and 26 build directly** ([#1149](https://github.com/signalxjs/lynx/issues/1149)). Gradle 8.11 couldn't run on anything newer than JDK 23, so a machine with only the current LTS (JDK 25) had to fall back to Android Studio's JDK. The supported range is now JDK 17–26; verified with debug and release builds on JDK 25 and 26. AGP 9 compiles Kotlin itself (built-in Kotlin):
+  - the app module no longer applies `org.jetbrains.kotlin.android`, and the Lynx annotation processor runs through AGP's `com.android.legacy-kapt`;
+  - `kotlinOptions` is gone; Kotlin's `jvmTarget` follows `targetCompatibility`;
+  - `androidx.vectordrawable` is pinned to 1.2.0, because AGP 9 rejects the 1.0.0 artifacts that share a namespace (they arrive transitively on release builds with Firebase).
+
+  **Existing apps upgrade on their next prebuild.** The root `build.gradle.kts`, `gradle/wrapper/gradle-wrapper.properties`, `gradlew`, `gradlew.bat` and `gradle-wrapper.jar` are now managed files: sigx refreshes them on every prebuild, like `app/build.gradle.kts` and the version catalog. The versions must move together. Build logic you added to the root `build.gradle.kts` is overwritten; put it in `app/build.gradle.kts` instead.
+
 - **`@sigx/lynx-zero-daisyui` builds from `@sigx/zero*` 0.6.0** (was 0.4.0) ([#1150](https://github.com/signalxjs/lynx/issues/1150)). The skin's press rules now reach lynx ([signalxjs/zero#326](https://github.com/signalxjs/zero/issues/326)): a held Button, Toggle, Pagination item, Steps item, Alert action, Combobox option or Number-input stepper paints `.zx-f-pressed` instead of nothing. This also brings in the zero 0.5/0.6 anatomy additions.
 
 - **`@sigx/lynx-zero`: `provideVariantAxes` returns the reader it provides.** The returned reader includes any flags forced by an enclosing `ForceStates`. Carriers now stamp their own part from it with `const axes = provideVariantAxes(…)`. `partAxes` also carries `forced`, and `partBag` takes a `forced` option.
