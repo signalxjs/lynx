@@ -19,6 +19,24 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 - **iOS deep links reach `@sigx/lynx-linking`** ([#1141](https://github.com/signalxjs/lynx/issues/1141)). A SwiftUI scene app never receives `application(_:open:)` or a launch-options URL; the scene gets them. So no deep link arrived, cold or warm. The `sigx prebuild` iOS template now forwards `.onOpenURL` and `.onContinueUserActivity` to the generated package hooks. An existing iOS project keeps its old `App.swift` because the scaffold writes it only once. Regenerate the `ios/` directory, or add the two modifiers to the `WindowGroup` content by hand.
 
+These `@sigx/lynx-cli` fixes cover the first-run experience ([#1147](https://github.com/signalxjs/lynx/issues/1147)). A fresh app on a stock Windows + Android Studio machine failed twice: `sigx dev` stopped at a bare ES-module link error, and `sigx run:android` failed with `What went wrong: 25.0.2`.
+
+- **Android builds pick a JDK Gradle can run.** Gradle 8.11 can't start on JDK 25. The failure was a bare version string, and `sigx doctor` reported the same JDK as fine. JDK discovery now checks the major version (17–23) across `JAVA_HOME`, `PATH` and Android Studio's bundled JDK on Windows, macOS and Linux. If `JAVA_HOME` / `PATH` are out of range, it uses the bundled JDK and says so in one line. It also fixes the `JAVA_HOME` probe on Windows, which never matched because it looked for `java` without `.exe`. The dev dashboard's installs now get the same JDK/SDK environment as `run:android`.
+- **Android build failures name the cause and the fix.** The error is now `Android build failed: <Gradle's reason>` plus a fix for known causes: JDK out of range, SDK not found, SDK licenses, NDK missing, no device, signature mismatch, out of memory, network. Before, it was a bare `Android build failed`.
+- **Version-mismatch check before `dev` / `build` / `run:*`.** An app whose `@sigx/runtime-core` / `@sigx/reactivity` / `@sigx/cli` didn't match its `@sigx/lynx-*` packages crashed with `does not provide an export named 'declareLiveClient'`. Older `npm create @sigx` templates pinned core `^0.7.0`. These commands now stop with the mismatched versions and `npx sigx upgrade` as the fix, and `sigx doctor` checks the same thing.
+- **`sigx upgrade` updates the whole set.** It now also moves `@sigx/runtime-core`, `@sigx/reactivity`, `@sigx/cli` and the `@lynx-js/*` build packages to the ranges the target release declares. It includes the `@sigx/lynx` umbrella, which it used to skip. And on Windows it runs the install instead of failing with exit code `null`, as it did on current Node: `npm.cmd` can't be spawned without a shell. The same fix applies to `sigx add` / `sigx remove`.
+- **`run:android` launches the app it installed.** An `applicationId` with a hyphen (every template default, e.g. `com.example.my-app`) installs as `com.example.myapp`. The install check and auto-launch used the raw id, so the dashboard said "no sigx app installed" and never launched it.
+- **`run:android` with no device connected** boots the most recently used emulator, or says how to create one. It no longer runs a full Gradle build that ends in `No connected devices!`.
+- **No more `DEP0190` warnings, and paths with spaces work.** Gradle and `npx rspeedy` are spawned without `shell: true`. That also fixes projects whose path contains a space on Windows.
+- **Android SDK found in Android Studio's default location without `ANDROID_HOME`**, including `%LOCALAPPDATA%\Android\Sdk` on Windows. This applies to the SDK, `adb` and emulator lookups.
+- **`sigx doctor`:**
+  - Requires Node 22 (it accepted 18).
+  - Lists emulators.
+  - Prints a `fix:` line for each problem and exits non-zero on errors.
+  - Stops warning about the optional `sigx-lynx-go` sandbox app.
+- **`@sigx/lynx-plugin`:** the `@lynx-js/css-extract-webpack-plugin` peer is `^0.10.1` (was `>=0.10.1`). 0.11 needs `template-webpack-plugin ^0.16`, so npm hit `ERESOLVE` against the pinned 0.15.0.
+- `@sigx/lynx-cli` declares `engines.node >=22`. Its tarball no longer ships a stray Gradle cache from `templates/android/.gradle`.
+
 ## [0.32.0] - 2026-09-26
 
 ### Added
