@@ -26,9 +26,9 @@ const VERSION_OR_TAG_RE = /^[\w.+-]+$/;
 
 /** `pkg@spec`, after checking both halves are a plain package name / version / tag. */
 export function packageSpec(pkg: string, versionOrTag: string): string {
-    if (!PACKAGE_NAME_RE.test(pkg)) throw new Error(`Invalid package name: ${JSON.stringify(pkg)}`);
+    if (!PACKAGE_NAME_RE.test(pkg)) throw new Error(`[@sigx/lynx-cli] Invalid package name: ${JSON.stringify(pkg)}`);
     if (!VERSION_OR_TAG_RE.test(versionOrTag)) {
-        throw new Error(`Invalid version or dist-tag: ${JSON.stringify(versionOrTag)} (expected e.g. 0.32.0 or latest)`);
+        throw new Error(`[@sigx/lynx-cli] Invalid version or dist-tag: ${JSON.stringify(versionOrTag)} (expected e.g. 0.32.0 or latest)`);
     }
     return `${pkg}@${versionOrTag}`;
 }
@@ -42,7 +42,7 @@ function npmView(spec: string, field: string, timeoutMs: number | undefined): st
     });
     if (r.error) throw r.error;
     if (r.status !== 0) {
-        throw new Error(`npm view ${spec} ${field} failed: ${String(r.stderr ?? '').trim() || `exit code ${r.status}`}`);
+        throw new Error(`[@sigx/lynx-cli] npm view ${spec} ${field} failed: ${String(r.stderr ?? '').trim() || `exit code ${r.status}`}`);
     }
     return String(r.stdout ?? '').trim();
 }
