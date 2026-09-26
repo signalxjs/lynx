@@ -116,6 +116,20 @@ export function createPressFeedback(options: LynxPressFeedbackOptions = {}): Lyn
         bindtouchend: onUp,
         bindtouchcancel: onUp,
     };
+    // Every mode: a part that turns disabled mid-press drops the flag at
+    // once, rather than on the touch-up that follows (the skins never paint
+    // pressed on a disabled part, and the lynx emitter relies on that). The
+    // main-thread path adds the gate sync below.
+    let lastDisabled = disabled();
+    let onDisabledChange: ((next: boolean) => void) | null = null;
+    effect(() => {
+        const next = disabled();
+        if (next === lastDisabled) return;
+        lastDisabled = next;
+        if (next) pressed.value = false;
+        onDisabledChange?.(next);
+    });
+
     const feel = options.feel ?? true;
     if (feel === false) {
         return { pressed: () => pressed.value, handlers: tier1, mainThread: false };
@@ -169,16 +183,10 @@ export function createPressFeedback(options: LynxPressFeedbackOptions = {}): Lyn
         'main thread';
         gate.current = value;
     });
-    let lastGate = disabled();
-    effect(() => {
-        const next = disabled();
-        if (next === lastGate) return;
-        lastGate = next;
+    // The worklet restores the scale on the touch-up that follows.
+    onDisabledChange = (next) => {
         void syncGate(next);
-        // A part that turns disabled mid-press drops the flag now; the
-        // worklet restores the scale on the touch-up that follows.
-        if (next) pressed.value = false;
-    });
+    };
 
     return {
         pressed: () => pressed.value,

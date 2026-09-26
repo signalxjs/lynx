@@ -47,6 +47,18 @@ describe('createPressFeedback', () => {
         expect(gated.pressed()).toBe(true);
     });
 
+    it('a part that turns disabled mid-press drops the flag at once (tier 1 too)', () => {
+        const state = signal({ disabled: false });
+        for (const feel of [true, false] as const) {
+            state.disabled = false;
+            const press = createPressFeedback({ isDisabled: () => state.disabled, feel });
+            tier1(press).bindtouchstart();
+            expect(press.pressed()).toBe(true);
+            state.disabled = true;
+            expect(press.pressed()).toBe(false);
+        }
+    });
+
     it('falls back to tier 1 (background touch handlers) where the worklet transform did not run', () => {
         // The unit renderer never runs the SWC worklet transform, so the
         // main-thread feel cannot wire — the flag must still work alone.
