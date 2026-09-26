@@ -1,6 +1,6 @@
 {
     "name": "@sigx/lynx-heroui",
-    "version": "0.31.0",
+    "version": "0.32.0",
     "description": "HeroUI-flavored design system for sigx-lynx, built on the @sigx/lynx-zero-legacy foundation — pilot scope while the shared contract is validated",
     "type": "module",
     "sideEffects": [

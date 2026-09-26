@@ -4,6 +4,8 @@ All notable changes to this repository are documented here. All `@sigx/lynx-*` p
 
 ## [Unreleased]
 
+## [0.32.0] - 2026-09-26
+
 ### Added
 
 - **`@sigx/lynx-zero`: a part that re-carries an axis is a nearer provider** ([#1125](https://github.com/signalxjs/lynx/issues/1125); zero's `PartSpec.carries`, [signalxjs/zero#94](https://github.com/signalxjs/zero/issues/94)). A part whose anatomy declares `carries` for a named axis stamps its own value (`zx-a-<axis>-<value>`) on itself and every part below it, and passes the carrier's value through when it has none. The nearest provider wins, matching the web compiler. New `provideCarriedAxes(anatomy, part, own)` opts a part in; it takes only the axes the anatomy declares. No new CSS is needed: the compiled lynx rule is the same whichever element supplied the value.
